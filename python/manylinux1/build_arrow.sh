@@ -17,11 +17,16 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# Usage:
-#   docker run --rm -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
-
 # Build upon the scripts in https://github.com/matthew-brett/manylinux-builds
 # * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
+#
+# Usage:
+#   either build:
+#     $ docker-compose build python-manylinux1
+#   or pull:
+#     $ docker-compose pull python-manylinux1
+#   an then run:
+#     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
 
 source /multibuild/manylinux_utils.sh
 
@@ -36,7 +41,11 @@ cd /arrow/python
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
 export PYARROW_CMAKE_GENERATOR='Ninja'
-export PYARROW_WITH_ORC=1
+
+# ARROW-6860: Disabling ORC in wheels until Protobuf static linking issues
+# across projects is resolved
+export PYARROW_WITH_ORC=0
+
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
@@ -49,13 +58,20 @@ export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr -DBoost_NAMESPACE=arrow_boost -
 mkdir -p /io/dist
 
 # Must pass PYTHON_VERSION and UNICODE_WIDTH env variables
-# possible values are: 2.7,16 2.7,32 3.5,16 3.6,16 3.7,16
+# possible values are: 2.7,16 2.7,32 3.5,16 3.6,16 3.7,16 3.8,16
 
 CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} ${UNICODE_WIDTH})"
 PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
 # Put our Python first to avoid picking up an antiquated Python from CMake
 PATH="${CPYTHON_PATH}/bin:${PATH}"
+
+echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
+$PIP install -r requirements-wheel.txt
+if [ "${PYTHON_VERSION}" = "2.7" -a "${UNICODE_WIDTH}" = "32" ]; then
+  # Can't use UNICODE_WIDTH in requirements.txt
+  $PIP install tensorflow
+fi
 
 if [ "${PYTHON_VERSION}" != "2.7" ]; then
   export PYARROW_WITH_FLIGHT=1
@@ -92,15 +108,20 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DPythonInterp_FIND_VERSION=${PYTHON_VERSION} \
     -DARROW_PLASMA=ON \
     -DARROW_TENSORFLOW=ON \
-    -DARROW_ORC=ON \
+    -DARROW_ORC=OFF \
+    -DORC_SOURCE=BUNDLED \
     -DARROW_WITH_BZ2=ON \
+    -DARROW_WITH_ZLIB=ON \
+    -DARROW_WITH_ZSTD=ON \
+    -DARROW_WITH_LZ4=ON \
+    -DARROW_WITH_SNAPPY=ON \
+    -DARROW_WITH_BROTLI=ON \
     -DARROW_FLIGHT=${BUILD_ARROW_FLIGHT} \
     -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
     -DARROW_GANDIVA_JAVA=OFF \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
     -DOPENSSL_USE_STATIC_LIBS=ON \
-    -DORC_SOURCE=BUNDLED \
     -GNinja /arrow/cpp
 ninja
 ninja install
@@ -108,9 +129,6 @@ popd
 
 # Check that we don't expose any unwanted symbols
 /io/scripts/check_arrow_visibility.sh
-
-echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
-$PIP install -r requirements-wheel.txt
 
 # Clear output directories and leftovers
 rm -rf dist/
@@ -139,7 +157,6 @@ else
   $PYTHON_INTERPRETER -c "
 import sys
 import pyarrow
-import pyarrow.orc
 import pyarrow.parquet
 import pyarrow.plasma
 
@@ -148,7 +165,7 @@ if sys.version_info.major > 2:
     import pyarrow.gandiva
   "
 
-  # More thorough testing happens outsite of the build to prevent
+  # More thorough testing happens outside of the build to prevent
   # packaging issues like ARROW-4372
   mv dist/*.tar.gz /io/dist
   mv repaired_wheels/*.whl /io/dist

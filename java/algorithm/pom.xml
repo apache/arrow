@@ -18,12 +18,14 @@
   </parent>
   <artifactId>arrow-algorithm</artifactId>
   <name>Arrow Algorithms</name>
+  <description>(Experimental/Contrib) A collection of algorithms for working with ValueVectors.</description>
 
   <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-vector</artifactId>
       <version>${project.version}</version>
+      <classifier>${arrow.vector.classifier}</classifier>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>

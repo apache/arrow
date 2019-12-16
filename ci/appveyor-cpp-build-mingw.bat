@@ -44,12 +44,20 @@ cmake ^
     -G "MSYS Makefiles" ^
     -DARROW_BUILD_STATIC=OFF ^
     -DARROW_BUILD_TESTS=ON ^
+    -DARROW_FLIGHT=ON ^
     -DARROW_PACKAGE_PREFIX=%MINGW_PREFIX% ^
     -DARROW_PARQUET=ON ^
     -DARROW_PYTHON=ON ^
     -DARROW_USE_GLOG=OFF ^
+    -DARROW_WITH_BROTLI=ON ^
+    -DARROW_WITH_BZ2=ON ^
+    -DARROW_WITH_LZ4=ON ^
+    -DARROW_WITH_SNAPPY=ON ^
+    -DARROW_WITH_ZLIB=ON ^
+    -DARROW_WITH_ZSTD=ON ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
     -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR% ^
+    -DPARQUET_REQUIRE_ENCRYPTION=ON ^
     -DPythonInterp_FIND_VERSION=ON ^
     -DPythonInterp_FIND_VERSION_MAJOR=3 ^
     .. || exit /B
@@ -73,6 +81,7 @@ meson ^
     setup ^
     --prefix=%INSTALL_DIR% ^
     --buildtype=%MESON_BUILD_TYPE% ^
+    -Ddevelopment_mode=true ^
     %C_GLIB_BUILD_DIR% ^
     c_glib || exit /B
 sed -i'' -s 's/\r//g' %C_GLIB_BUILD_DIR%/arrow-glib/version.h || exit /B
@@ -82,12 +91,12 @@ ruby c_glib\test\run-test.rb || exit /B
 
 pushd ruby\red-arrow
 ruby -S bundle install || exit /B
-pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow" || exit /B
+pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow"
 ruby -rdevkit test\run-test.rb || exit /B
 popd
 
 pushd ruby\red-parquet
 ruby -S bundle install || exit /B
-pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow" || exit /B
+pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow"
 ruby test\run-test.rb || exit /B
 popd

@@ -31,7 +31,7 @@ namespace py {
 class ARROW_PYTHON_EXPORT PyExtensionType : public ExtensionType {
  public:
   // Implement extensionType API
-  std::string extension_name() const override;
+  std::string extension_name() const override { return extension_name_; }
 
   bool ExtensionEquals(const ExtensionType& other) const override;
 
@@ -44,7 +44,8 @@ class ARROW_PYTHON_EXPORT PyExtensionType : public ExtensionType {
   std::string Serialize() const override;
 
   // For use from Cython
-  static Status FromClass(std::shared_ptr<DataType> storage_type, PyObject* typ,
+  static Status FromClass(const std::shared_ptr<DataType> storage_type,
+                          const std::string extension_name, PyObject* typ,
                           std::shared_ptr<ExtensionType>* out);
 
   // Return new ref
@@ -54,6 +55,10 @@ class ARROW_PYTHON_EXPORT PyExtensionType : public ExtensionType {
  protected:
   PyExtensionType(std::shared_ptr<DataType> storage_type, PyObject* typ,
                   PyObject* inst = NULLPTR);
+  PyExtensionType(std::shared_ptr<DataType> storage_type, std::string extension_name,
+                  PyObject* typ, PyObject* inst = NULLPTR);
+
+  std::string extension_name_;
 
   // These fields are mutable because of two-step initialization.
   mutable OwnedRefNoGIL type_class_;
@@ -71,7 +76,7 @@ ARROW_PYTHON_EXPORT std::string PyExtensionName();
 
 ARROW_PYTHON_EXPORT Status RegisterPyExtensionType(const std::shared_ptr<DataType>&);
 
-ARROW_PYTHON_EXPORT Status UnregisterPyExtensionType();
+ARROW_PYTHON_EXPORT Status UnregisterPyExtensionType(const std::string& type_name);
 
 }  // namespace py
 }  // namespace arrow

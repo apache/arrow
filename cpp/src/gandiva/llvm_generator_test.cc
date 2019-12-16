@@ -86,12 +86,15 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 
   llvm::Function* ir_func = nullptr;
 
-  status = generator->CodeGenExprValue(func_dex, desc_sum, 0, &ir_func,
+  status = generator->CodeGenExprValue(func_dex, 4, desc_sum, 0, &ir_func,
                                        SelectionVector::MODE_NONE);
   EXPECT_TRUE(status.ok()) << status.message();
 
-  status = generator->engine_->FinalizeModule(true, false);
+  std::string final_ir;
+  status = generator->engine_->FinalizeModule(true, false, &final_ir);
   EXPECT_TRUE(status.ok()) << status.message();
+  EXPECT_TRUE(final_ir.find("vector.body") != std::string::npos)
+      << "missing vectorization: " << final_ir;
 
   EvalFunc eval_func = (EvalFunc)generator->engine_->CompiledFunction(ir_func);
 
@@ -108,7 +111,9 @@ TEST_F(TestLLVMGenerator, TestAdd) {
       reinterpret_cast<uint8_t*>(a1),  reinterpret_cast<uint8_t*>(&in_bitmap),
       reinterpret_cast<uint8_t*>(out), reinterpret_cast<uint8_t*>(&out_bitmap),
   };
-  eval_func(addrs, nullptr, nullptr, 0 /* dummy context ptr */, num_records);
+  int64_t addr_offsets[] = {0, 0, 0, 0, 0, 0};
+  eval_func(addrs, addr_offsets, nullptr, nullptr, 0 /* dummy context ptr */,
+            num_records);
 
   uint32_t expected[] = {6, 8, 10, 12};
   for (int i = 0; i < num_records; i++) {

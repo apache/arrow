@@ -40,7 +40,8 @@ static uint8_t non_null_filler;
 /// method to wrap locations where this could happen.
 ///
 /// Note: Flatbuffers has UBSan warnings if a zero length vector is passed.
-/// https://github.com/google/flatbuffers/pull/5355 is trying to resolve them.
+/// https://github.com/google/flatbuffers/pull/5355 is trying to resolve
+/// them.
 template <typename T>
 inline T* MakeNonNull(T* maybe_null) {
   if (ARROW_PREDICT_TRUE(maybe_null != NULLPTR)) {
@@ -51,7 +52,7 @@ inline T* MakeNonNull(T* maybe_null) {
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_integral<T>::value, T>::type SafeLoadAs(
+inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoadAs(
     const uint8_t* unaligned) {
   typename std::remove_const<T>::type ret;
   std::memcpy(&ret, unaligned, sizeof(T));
@@ -59,7 +60,7 @@ inline typename std::enable_if<std::is_integral<T>::value, T>::type SafeLoadAs(
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_integral<T>::value, T>::type SafeLoad(
+inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoad(
     const T* unaligned) {
   typename std::remove_const<T>::type ret;
   std::memcpy(&ret, unaligned, sizeof(T));

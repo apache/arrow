@@ -28,7 +28,7 @@ import (
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -65,6 +65,8 @@ type dataType struct {
 
 func dtypeToJSON(dt arrow.DataType) dataType {
 	switch dt := dt.(type) {
+	case *arrow.NullType:
+		return dataType{Name: "null"}
 	case *arrow.BooleanType:
 		return dataType{Name: "bool"}
 	case *arrow.Int8Type:
@@ -150,11 +152,13 @@ func dtypeToJSON(dt arrow.DataType) dataType {
 			ByteWidth: dt.ByteWidth,
 		}
 	}
-	panic(errors.Errorf("unknown arrow.DataType %v", dt))
+	panic(xerrors.Errorf("unknown arrow.DataType %v", dt))
 }
 
 func dtypeFromJSON(dt dataType, children []Field) arrow.DataType {
 	switch dt.Name {
+	case "null":
+		return arrow.Null
 	case "bool":
 		return arrow.FixedWidthTypes.Boolean
 	case "int":
@@ -257,7 +261,7 @@ func dtypeFromJSON(dt dataType, children []Field) arrow.DataType {
 			return arrow.FixedWidthTypes.Duration_ns
 		}
 	}
-	panic(errors.Errorf("unknown DataType %#v", dt))
+	panic(xerrors.Errorf("unknown DataType %#v", dt))
 }
 
 func schemaToJSON(schema *arrow.Schema) Schema {
@@ -364,6 +368,9 @@ func arraysToJSON(schema *arrow.Schema, arrs []array.Interface) []Array {
 
 func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Interface {
 	switch dt := dt.(type) {
+	case *arrow.NullType:
+		return array.NewNull(arr.Count)
+
 	case *arrow.BooleanType:
 		bldr := array.NewBooleanBuilder(mem)
 		defer bldr.Release()
@@ -534,7 +541,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		data := make([][]byte, len(strdata))
 		for i, v := range strdata {
 			if len(v) != 2*dt.ByteWidth {
-				panic(errors.Errorf("arrjson: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
+				panic(xerrors.Errorf("arrjson: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
 			}
 			vv, err := hex.DecodeString(v)
 			if err != nil {
@@ -611,13 +618,19 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		return bldr.NewArray()
 
 	default:
-		panic(errors.Errorf("unknown data type %v %T", dt, dt))
+		panic(xerrors.Errorf("unknown data type %v %T", dt, dt))
 	}
 	panic("impossible")
 }
 
 func arrayToJSON(field arrow.Field, arr array.Interface) Array {
 	switch arr := arr.(type) {
+	case *array.Null:
+		return Array{
+			Name:  field.Name,
+			Count: arr.Len(),
+		}
+
 	case *array.Boolean:
 		return Array{
 			Name:   field.Name,
@@ -778,7 +791,7 @@ func arrayToJSON(field arrow.Field, arr array.Interface) Array {
 		for i := range o.Data {
 			v := []byte(strings.ToUpper(hex.EncodeToString(arr.Value(i))))
 			if len(v) != 2*dt.ByteWidth {
-				panic(errors.Errorf("arrjson: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
+				panic(xerrors.Errorf("arrjson: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
 			}
 			o.Data[i] = string(v) // re-convert as string to prevent json.Marshal from base64-encoding it.
 		}
@@ -846,7 +859,7 @@ func arrayToJSON(field arrow.Field, arr array.Interface) Array {
 		}
 
 	default:
-		panic(errors.Errorf("unknown array type %T", arr))
+		panic(xerrors.Errorf("unknown array type %T", arr))
 	}
 	panic("impossible")
 }
@@ -1116,7 +1129,7 @@ func strFromJSON(vs []interface{}) []string {
 		case json.Number:
 			o[i] = v.String()
 		default:
-			panic(errors.Errorf("could not convert %v (%T) to a string", v, v))
+			panic(xerrors.Errorf("could not convert %v (%T) to a string", v, v))
 		}
 	}
 	return o
@@ -1140,10 +1153,10 @@ func bytesFromJSON(vs []interface{}) [][]byte {
 		case json.Number:
 			o[i], err = hex.DecodeString(v.String())
 		default:
-			panic(errors.Errorf("could not convert %v (%T) to a string", v, v))
+			panic(xerrors.Errorf("could not convert %v (%T) to a string", v, v))
 		}
 		if err != nil {
-			panic(errors.Errorf("could not decode %v: %v", v, err))
+			panic(xerrors.Errorf("could not decode %v: %v", v, err))
 		}
 	}
 	return o
@@ -1327,7 +1340,7 @@ func buildArray(bldr array.Builder, data array.Interface) {
 
 	switch bldr := bldr.(type) {
 	default:
-		panic(errors.Errorf("unknown builder %T", bldr))
+		panic(xerrors.Errorf("unknown builder %T", bldr))
 
 	case *array.BooleanBuilder:
 		data := data.(*array.Boolean)

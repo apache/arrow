@@ -26,23 +26,40 @@
 namespace arrow {
 namespace fs {
 
-/// \brief EXPERIMENTAL: a FileSystem implementation accessing files
-/// on the local machine.
+/// Options for the LocalFileSystem implementation.
+struct ARROW_EXPORT LocalFileSystemOptions {
+  /// Whether OpenInputStream and OpenInputFile return a mmap'ed file,
+  /// or a regular one.
+  bool use_mmap = false;
+
+  /// \brief Initialize with defaults
+  static LocalFileSystemOptions Defaults();
+};
+
+/// \brief A FileSystem implementation accessing files on the local machine.
 ///
-/// Details such as symlinks are abstracted away (symlinks are always followed,
-/// except when deleting an entry).
+/// This class handles only `/`-separated paths.  If desired, conversion
+/// from Windows backslash-separated paths should be done by the caller.
+/// Details such as symlinks are abstracted away (symlinks are always
+/// followed, except when deleting an entry).
 class ARROW_EXPORT LocalFileSystem : public FileSystem {
  public:
   LocalFileSystem();
+  explicit LocalFileSystem(const LocalFileSystemOptions&);
   ~LocalFileSystem() override;
 
+  std::string type_name() const override { return "local"; }
+
+  /// \cond FALSE
   using FileSystem::GetTargetStats;
-  Status GetTargetStats(const std::string& path, FileStats* out) override;
-  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+  /// \endcond
+  Result<FileStats> GetTargetStats(const std::string& path) override;
+  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path) override;
 
   Status DeleteFile(const std::string& path) override;
 
@@ -50,17 +67,17 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
 
   Status CopyFile(const std::string& src, const std::string& dest) override;
 
-  Status OpenInputStream(const std::string& path,
-                         std::shared_ptr<io::InputStream>* out) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path) override;
 
-  Status OpenInputFile(const std::string& path,
-                       std::shared_ptr<io::RandomAccessFile>* out) override;
-
-  Status OpenOutputStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
-
-  Status OpenAppendStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
+ protected:
+  LocalFileSystemOptions options_;
 };
 
 }  // namespace fs

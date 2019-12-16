@@ -26,6 +26,13 @@
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
+namespace arrow {
+
+class Array;
+class BinaryArray;
+
+}  // namespace arrow
+
 namespace parquet {
 
 class ColumnDescriptor;
@@ -63,19 +70,6 @@ class TypedComparator : public Comparator {
  public:
   using T = typename DType::c_type;
 
-  /// \brief Typed version of Comparator::Make
-  static std::shared_ptr<TypedComparator<DType>> Make(Type::type physical_type,
-                                                      SortOrder::type sort_order,
-                                                      int type_length = -1) {
-    return std::static_pointer_cast<TypedComparator<DType>>(
-        Comparator::Make(physical_type, sort_order, type_length));
-  }
-
-  /// \brief Typed version of Comparator::Make
-  static std::shared_ptr<TypedComparator<DType>> Make(const ColumnDescriptor* descr) {
-    return std::static_pointer_cast<TypedComparator<DType>>(Comparator::Make(descr));
-  }
-
   /// \brief Scalar comparison of two elements, return true if first
   /// is strictly less than the second
   virtual bool Compare(const T& a, const T& b) = 0;
@@ -83,6 +77,11 @@ class TypedComparator : public Comparator {
   /// \brief Compute maximum and minimum elements in a batch of
   /// elements without any nulls
   virtual void GetMinMax(const T* values, int64_t length, T* out_min, T* out_max) = 0;
+
+  /// \brief Compute minimum and maximum elements from an Arrow array. Only
+  /// valid for certain Parquet Type / Arrow Type combinations, like BYTE_ARRAY
+  /// / arrow::BinaryArray
+  virtual void GetMinMax(const ::arrow::Array& values, T* out_min, T* out_max) = 0;
 
   /// \brief Compute maximum and minimum elements in a batch of
   /// elements with accompanying bitmap indicating which elements are
@@ -99,6 +98,21 @@ class TypedComparator : public Comparator {
   virtual void GetMinMaxSpaced(const T* values, int64_t length, const uint8_t* valid_bits,
                                int64_t valid_bits_offset, T* out_min, T* out_max) = 0;
 };
+
+/// \brief Typed version of Comparator::Make
+template <typename DType>
+std::shared_ptr<TypedComparator<DType>> MakeComparator(Type::type physical_type,
+                                                       SortOrder::type sort_order,
+                                                       int type_length = -1) {
+  return std::static_pointer_cast<TypedComparator<DType>>(
+      Comparator::Make(physical_type, sort_order, type_length));
+}
+
+/// \brief Typed version of Comparator::Make
+template <typename DType>
+std::shared_ptr<TypedComparator<DType>> MakeComparator(const ColumnDescriptor* descr) {
+  return std::static_pointer_cast<TypedComparator<DType>>(Comparator::Make(descr));
+}
 
 // ----------------------------------------------------------------------
 
@@ -137,33 +151,33 @@ class PARQUET_EXPORT EncodedStatistics {
     }
   }
 
-  inline bool is_set() const {
+  bool is_set() const {
     return has_min || has_max || has_null_count || has_distinct_count;
   }
 
-  inline bool is_signed() const { return is_signed_; }
+  bool is_signed() const { return is_signed_; }
 
-  inline void set_is_signed(bool is_signed) { is_signed_ = is_signed; }
+  void set_is_signed(bool is_signed) { is_signed_ = is_signed; }
 
-  inline EncodedStatistics& set_max(const std::string& value) {
+  EncodedStatistics& set_max(const std::string& value) {
     *max_ = value;
     has_max = true;
     return *this;
   }
 
-  inline EncodedStatistics& set_min(const std::string& value) {
+  EncodedStatistics& set_min(const std::string& value) {
     *min_ = value;
     has_min = true;
     return *this;
   }
 
-  inline EncodedStatistics& set_null_count(int64_t value) {
+  EncodedStatistics& set_null_count(int64_t value) {
     null_count = value;
     has_null_count = true;
     return *this;
   }
 
-  inline EncodedStatistics& set_distinct_count(int64_t value) {
+  EncodedStatistics& set_distinct_count(int64_t value) {
     distinct_count = value;
     has_distinct_count = true;
     return *this;
@@ -242,39 +256,6 @@ class TypedStatistics : public Statistics {
  public:
   using T = typename DType::c_type;
 
-  /// \brief Typed version of Statistics::Make
-  static std::shared_ptr<TypedStatistics<DType>> Make(
-      const ColumnDescriptor* descr,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
-    return std::static_pointer_cast<TypedStatistics<DType>>(
-        Statistics::Make(descr, pool));
-  }
-
-  /// \brief Create Statistics initialized to a particular state
-  /// \param[in] min the minimum value
-  /// \param[in] max the minimum value
-  /// \param[in] num_values number of values
-  /// \param[in] null_count number of null values
-  /// \param[in] distinct_count number of distinct values
-  static std::shared_ptr<TypedStatistics<DType>> Make(const T& min, const T& max,
-                                                      int64_t num_values,
-                                                      int64_t null_count,
-                                                      int64_t distinct_count) {
-    return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
-        DType::type_num, &min, &max, num_values, null_count, distinct_count));
-  }
-
-  /// \brief Typed version of Statistics::Make
-  static std::shared_ptr<TypedStatistics<DType>> Make(
-      const ColumnDescriptor* descr, const std::string& encoded_min,
-      const std::string& encoded_max, int64_t num_values, int64_t null_count,
-      int64_t distinct_count, bool has_min_max,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
-    return std::static_pointer_cast<TypedStatistics<DType>>(
-        Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
-                         distinct_count, has_min_max, pool));
-  }
-
   /// \brief The current minimum value
   virtual const T& min() const = 0;
 
@@ -289,17 +270,18 @@ class TypedStatistics : public Statistics {
 
   /// \brief Batch statistics update with supplied validity bitmap
   virtual void UpdateSpaced(const T* values, const uint8_t* valid_bits,
-                            int64_t valid_bits_spaced, int64_t num_not_null,
+                            int64_t valid_bits_offset, int64_t num_not_null,
                             int64_t num_null) = 0;
+
+  /// \brief EXPERIMENTAL: Update statistics with an Arrow array without
+  /// conversion to a primitive Parquet C type. Only implemented for certain
+  /// Parquet type / Arrow type combinations like BYTE_ARRAY /
+  /// arrow::BinaryArray
+  virtual void Update(const ::arrow::Array& values) = 0;
 
   /// \brief Set min and max values to particular values
   virtual void SetMinMax(const T& min, const T& max) = 0;
 };
-
-#ifndef ARROW_NO_DEPRECATED_API
-// TODO(wesm): Remove after Arrow 0.14.0
-using RowGroupStatistics = Statistics;
-#endif
 
 using BoolStatistics = TypedStatistics<BooleanType>;
 using Int32Statistics = TypedStatistics<Int32Type>;
@@ -308,5 +290,41 @@ using FloatStatistics = TypedStatistics<FloatType>;
 using DoubleStatistics = TypedStatistics<DoubleType>;
 using ByteArrayStatistics = TypedStatistics<ByteArrayType>;
 using FLBAStatistics = TypedStatistics<FLBAType>;
+
+/// \brief Typed version of Statistics::Make
+template <typename DType>
+std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
+    const ColumnDescriptor* descr,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+  return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(descr, pool));
+}
+
+/// \brief Create Statistics initialized to a particular state
+/// \param[in] min the minimum value
+/// \param[in] max the minimum value
+/// \param[in] num_values number of values
+/// \param[in] null_count number of null values
+/// \param[in] distinct_count number of distinct values
+template <typename DType>
+std::shared_ptr<TypedStatistics<DType>> MakeStatistics(const typename DType::c_type& min,
+                                                       const typename DType::c_type& max,
+                                                       int64_t num_values,
+                                                       int64_t null_count,
+                                                       int64_t distinct_count) {
+  return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
+      DType::type_num, &min, &max, num_values, null_count, distinct_count));
+}
+
+/// \brief Typed version of Statistics::Make
+template <typename DType>
+std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, bool has_min_max,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+  return std::static_pointer_cast<TypedStatistics<DType>>(
+      Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                       distinct_count, has_min_max, pool));
+}
 
 }  // namespace parquet

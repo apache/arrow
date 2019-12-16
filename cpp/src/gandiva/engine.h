@@ -59,7 +59,7 @@ class GANDIVA_EXPORT Engine {
   }
 
   /// Optimise and compile the module.
-  Status FinalizeModule(bool optimise_ir, bool dump_ir);
+  Status FinalizeModule(bool optimise_ir, bool dump_ir, std::string* final_ir = NULLPTR);
 
   /// Get the compiled function corresponding to the irfunction.
   void* CompiledFunction(llvm::Function* irFunction);

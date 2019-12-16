@@ -81,8 +81,10 @@ public final class SyncPutListener implements FlightClient.PutListener, AutoClos
   public void getResult() {
     try {
       completed.get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      throw StatusUtils.fromThrowable(e.getCause());
+    } catch (InterruptedException e) {
+      throw StatusUtils.fromThrowable(e);
     }
   }
 

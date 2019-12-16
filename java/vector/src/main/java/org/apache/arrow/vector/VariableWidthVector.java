@@ -17,12 +17,10 @@
 
 package org.apache.arrow.vector;
 
-import org.apache.arrow.memory.util.ArrowBufPointer;
-
 /**
  * Interface vectors that contain variable width members (e.g. Strings, Lists, etc).
  */
-public interface VariableWidthVector extends ValueVector, DensityAwareVector {
+public interface VariableWidthVector extends ElementAddressableVector, DensityAwareVector {
 
   /**
    * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
@@ -31,6 +29,14 @@ public interface VariableWidthVector extends ValueVector, DensityAwareVector {
    * @param valueCount Number of values in the vector.
    */
   void allocateNew(int totalBytes, int valueCount);
+
+  /**
+   * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
+   * The initial size in bytes is either default (or) reused from previous allocation
+   *
+   * @param valueCount Number of values in the vector.
+   */
+  void allocateNew(int valueCount);
 
   /**
    * Provide the maximum amount of variable width bytes that can be stored in this vector.
@@ -44,19 +50,4 @@ public interface VariableWidthVector extends ValueVector, DensityAwareVector {
    * @return the number of bytes in valueBuffer.
    */
   int sizeOfValueBuffer();
-
-  /**
-   * Gets the pointer for the data at the given index.
-   * @param index the index for the data.
-   * @return the pointer to the data.
-   */
-  ArrowBufPointer getDataPointer(int index);
-
-  /**
-   * Gets the pointer for the data at the given index.
-   * @param index the index for the data.
-   * @param reuse the data pointer to fill, this avoids creating a new pointer object.
-   * @return the pointer to the data, it should be the same one as the input parameter.
-   */
-  ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse);
 }

@@ -35,7 +35,7 @@ fn record_batches_to_csv() {
         Field::new("c3", DataType::Boolean, true),
     ]);
 
-    let c1 = BinaryArray::from(vec![
+    let c1 = StringArray::from(vec![
         "Lorem ipsum dolor sit amet",
         "consectetur adipiscing elit",
         "sed do eiusmod tempor",
@@ -54,12 +54,11 @@ fn record_batches_to_csv() {
     )
     .unwrap();
     let file = File::create("target/bench_write_csv.csv").unwrap();
-    let writer = csv::Writer::new(file);
-    criterion::black_box(
-        writer
-            .write(vec![&b, &b, &b, &b, &b, &b, &b, &b, &b, &b, &b])
-            .unwrap(),
-    );
+    let mut writer = csv::Writer::new(file);
+    let batches = vec![&b, &b, &b, &b, &b, &b, &b, &b, &b, &b, &b];
+    criterion::black_box(for batch in batches {
+        writer.write(batch).unwrap()
+    });
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

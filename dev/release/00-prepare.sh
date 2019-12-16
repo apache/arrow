@@ -42,14 +42,6 @@ update_versions() {
       ;;
   esac
 
-  cd "${SOURCE_DIR}/../../cpp"
-  sed -i.bak -E -e \
-    "s/^set\(ARROW_VERSION \".+\"\)/set(ARROW_VERSION \"${version}\")/" \
-    CMakeLists.txt
-  rm -f CMakeLists.txt.bak
-  git add CMakeLists.txt
-  cd -
-
   cd "${SOURCE_DIR}/../../c_glib"
   sed -i.bak -E -e \
     "s/^m4_define\(\[arrow_glib_version\], .+\)/m4_define([arrow_glib_version], ${version})/" \
@@ -61,12 +53,41 @@ update_versions() {
   git add configure.ac meson.build
   cd -
 
+  cd "${SOURCE_DIR}/../../ci"
+  sed -i.bak -E -e \
+    "s/^pkgver=.+/pkgver=${r_version}/" \
+    PKGBUILD
+  rm -f PKGBUILD.bak
+  git add PKGBUILD
+  cd -
+
+  cd "${SOURCE_DIR}/../../cpp"
+  sed -i.bak -E -e \
+    "s/^set\(ARROW_VERSION \".+\"\)/set(ARROW_VERSION \"${version}\")/" \
+    CMakeLists.txt
+  rm -f CMakeLists.txt.bak
+  git add CMakeLists.txt
+  cd -
+
   cd "${SOURCE_DIR}/../../csharp"
   sed -i.bak -E -e \
     "s/^    <Version>.+<\/Version>/    <Version>${version}<\/Version>/" \
     Directory.Build.props
   rm -f Directory.Build.props.bak
   git add Directory.Build.props
+  cd -
+
+  cd "${SOURCE_DIR}/../../dev/tasks/homebrew-formulae"
+  sed -i.bak -E -e \
+    "s/arrow-[0-9.]+[0-9]+/arrow-${r_version}/g" \
+    autobrew/apache-arrow.rb
+  rm -f autobrew/apache-arrow.rb.bak
+  git add autobrew/apache-arrow.rb
+  sed -i.bak -E -e \
+    "s/arrow-[0-9.\-]+[0-9SNAPHOT]+/arrow-${version}/g" \
+    apache-arrow.rb
+  rm -f apache-arrow.rb.bak
+  git add apache-arrow.rb
   cd -
 
   cd "${SOURCE_DIR}/../../js"
@@ -99,17 +120,6 @@ update_versions() {
     DESCRIPTION
   rm -f DESCRIPTION.bak
   git add DESCRIPTION
-  cd -
-
-  cd "${SOURCE_DIR}/../../ci"
-  sed -i.bak -E -e \
-    "s/^pkgver=.+/pkgver=${r_version}/" \
-    PKGBUILD
-  rm -f PKGBUILD.bak
-  git add PKGBUILD
-  cd -
-
-  cd "${SOURCE_DIR}/../../r"
   if [ ${type} = "snapshot" ]; then
     # Add a news entry for the new dev version
     echo "dev"
@@ -139,6 +149,7 @@ update_versions() {
   sed -i.bak -E \
     -e "s/^version = \".+\"/version = \"${version}\"/g" \
     -e "s/^(arrow = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
+    -e "s/^(arrow-flight = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
     -e "s/^(parquet = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
     */Cargo.toml
   rm -f */Cargo.toml.bak
@@ -246,10 +257,16 @@ fi
 
 if [ ${PREPARE_DEB_PACKAGE_NAMES} -gt 0 ]; then
   echo "Updating .deb package names for ${next_version}"
-  deb_lib_suffix=$(echo $version | sed -E -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
-  next_deb_lib_suffix=$(echo $next_version | sed -E -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
+  so_version() {
+    local version=$1
+    local major_version=$(echo $version | sed -E -e 's/^([0-9]+)\.[0-9]+\.[0-9]+$/\1/')
+    local minor_version=$(echo $version | sed -E -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
+    expr ${major_version} \* 100 + ${minor_version}
+  }
+  deb_lib_suffix=$(so_version $version)
+  next_deb_lib_suffix=$(so_version $next_version)
   if [ "${deb_lib_suffix}" != "${next_deb_lib_suffix}" ]; then
-    cd $SOURCE_DIR/../tasks/linux-packages/
+    cd $SOURCE_DIR/../tasks/linux-packages/apache-arrow
     for target in debian*/lib*${deb_lib_suffix}.install; do
       git mv \
 	${target} \

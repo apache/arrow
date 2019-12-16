@@ -25,22 +25,23 @@
 #include <utility>
 #include <vector>
 
-#include "flatbuffers/flatbuffers.h"
+#include <flatbuffers/flatbuffers.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/ipc/feather-internal.h"
-#include "arrow/ipc/feather_generated.h"
+#include "arrow/ipc/feather_internal.h"
 #include "arrow/ipc/util.h"  // IWYU pragma: keep
 #include "arrow/status.h"
 #include "arrow/table.h"  // IWYU pragma: keep
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor.h"
+
+#include "generated/feather_generated.h"
 
 namespace arrow {
 
@@ -281,21 +282,19 @@ class TableReader::TableReaderImpl {
     int footer_size = magic_size + static_cast<int>(sizeof(uint32_t));
 
     // Pathological issue where the file is smaller than
-    int64_t size = 0;
-    RETURN_NOT_OK(source->GetSize(&size));
+    ARROW_ASSIGN_OR_RAISE(int64_t size, source->GetSize());
     if (size < magic_size + footer_size) {
       return Status::Invalid("File is too small to be a well-formed file");
     }
 
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(source->ReadAt(0, magic_size, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, source->ReadAt(0, magic_size));
 
     if (memcmp(buffer->data(), kFeatherMagicBytes, magic_size)) {
       return Status::Invalid("Not a feather file");
     }
 
     // Now get the footer and verify
-    RETURN_NOT_OK(source->ReadAt(size - footer_size, footer_size, &buffer));
+    ARROW_ASSIGN_OR_RAISE(buffer, source->ReadAt(size - footer_size, footer_size));
 
     if (memcmp(buffer->data() + sizeof(uint32_t), kFeatherMagicBytes, magic_size)) {
       return Status::Invalid("Feather file footer incomplete");
@@ -305,8 +304,8 @@ class TableReader::TableReaderImpl {
     if (size < magic_size + footer_size + metadata_length) {
       return Status::Invalid("File is smaller than indicated metadata size");
     }
-    RETURN_NOT_OK(
-        source->ReadAt(size - footer_size - metadata_length, metadata_length, &buffer));
+    ARROW_ASSIGN_OR_RAISE(
+        buffer, source->ReadAt(size - footer_size - metadata_length, metadata_length));
 
     metadata_.reset(new TableMetadata());
     return metadata_->Open(buffer);
@@ -394,8 +393,8 @@ class TableReader::TableReaderImpl {
 
     // Buffer data from the source (may or may not perform a copy depending on
     // input source)
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(source_->ReadAt(meta->offset(), meta->total_bytes(), &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer,
+                          source_->ReadAt(meta->offset(), meta->total_bytes()));
 
     int64_t offset = 0;
 
@@ -661,7 +660,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
     meta->type = ToFlatbufferType(values.type_id());
 
-    RETURN_NOT_OK(stream_->Tell(&meta->offset));
+    ARROW_ASSIGN_OR_RAISE(meta->offset, stream_->Tell());
 
     meta->length = values.length();
     meta->null_count = values.null_count();

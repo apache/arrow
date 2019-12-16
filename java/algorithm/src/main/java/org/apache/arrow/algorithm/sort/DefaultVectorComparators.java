@@ -17,8 +17,10 @@
 
 package org.apache.arrow.algorithm.sort;
 
-import static org.apache.arrow.vector.BaseVariableWidthVector.OFFSET_WIDTH;
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 
+import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BigIntVector;
@@ -27,7 +29,12 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.UInt2Vector;
+import org.apache.arrow.vector.UInt4Vector;
+import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 
 /**
  * Default comparator implementations for different types of vectors.
@@ -54,9 +61,21 @@ public class DefaultVectorComparators {
         return (VectorValueComparator<T>) new Float4Comparator();
       } else if (vector instanceof Float8Vector) {
         return (VectorValueComparator<T>) new Float8Comparator();
+      } else if (vector instanceof UInt1Vector) {
+        return (VectorValueComparator<T>) new UInt1Comparator();
+      } else if (vector instanceof UInt2Vector) {
+        return (VectorValueComparator<T>) new UInt2Comparator();
+      } else if (vector instanceof UInt4Vector) {
+        return (VectorValueComparator<T>) new UInt4Comparator();
+      } else if (vector instanceof UInt8Vector) {
+        return (VectorValueComparator<T>) new UInt8Comparator();
       }
     } else if (vector instanceof BaseVariableWidthVector) {
       return (VectorValueComparator<T>) new VariableWidthComparator();
+    } else if (vector instanceof BaseRepeatedValueVector) {
+      VectorValueComparator<?> innerComparator =
+              createDefaultComparator(((BaseRepeatedValueVector) vector).getDataVector());
+      return new RepeatedValueComparator(innerComparator);
     }
 
     throw new IllegalArgumentException("No default comparator for " + vector.getClass().getCanonicalName());
@@ -78,6 +97,11 @@ public class DefaultVectorComparators {
       byte value2 = vector2.get(index2);
       return value1 - value2;
     }
+
+    @Override
+    public VectorValueComparator<TinyIntVector> createNew() {
+      return new ByteComparator();
+    }
   }
 
   /**
@@ -95,6 +119,11 @@ public class DefaultVectorComparators {
       short value1 = vector1.get(index1);
       short value2 = vector2.get(index2);
       return value1 - value2;
+    }
+
+    @Override
+    public VectorValueComparator<SmallIntVector> createNew() {
+      return new ShortComparator();
     }
   }
 
@@ -114,6 +143,11 @@ public class DefaultVectorComparators {
       int value2 = vector2.get(index2);
       return value1 - value2;
     }
+
+    @Override
+    public VectorValueComparator<IntVector> createNew() {
+      return new IntComparator();
+    }
   }
 
   /**
@@ -132,6 +166,104 @@ public class DefaultVectorComparators {
       long value2 = vector2.get(index2);
 
       return Long.signum(value1 - value2);
+    }
+
+    @Override
+    public VectorValueComparator<BigIntVector> createNew() {
+      return new LongComparator();
+    }
+  }
+
+  /**
+   * Default comparator for unsigned bytes.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class UInt1Comparator extends VectorValueComparator<UInt1Vector> {
+
+    public UInt1Comparator() {
+      super(1);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      byte value1 = vector1.get(index1);
+      byte value2 = vector2.get(index2);
+
+      return (value1 & 0xff) - (value2 & 0xff);
+    }
+
+    @Override
+    public VectorValueComparator<UInt1Vector> createNew() {
+      return new UInt1Comparator();
+    }
+  }
+
+  /**
+   * Default comparator for unsigned short integer.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class UInt2Comparator extends VectorValueComparator<UInt2Vector> {
+
+    public UInt2Comparator() {
+      super(2);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      char value1 = vector1.get(index1);
+      char value2 = vector2.get(index2);
+      return value1 - value2;
+    }
+
+    @Override
+    public VectorValueComparator<UInt2Vector> createNew() {
+      return new UInt2Comparator();
+    }
+  }
+
+  /**
+   * Default comparator for unsigned integer.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class UInt4Comparator extends VectorValueComparator<UInt4Vector> {
+
+    public UInt4Comparator() {
+      super(4);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      int value1 = vector1.get(index1);
+      int value2 = vector2.get(index2);
+      return ByteFunctionHelpers.unsignedIntCompare(value1, value2);
+    }
+
+    @Override
+    public VectorValueComparator<UInt4Vector> createNew() {
+      return new UInt4Comparator();
+    }
+  }
+
+  /**
+   * Default comparator for unsigned long integer.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class UInt8Comparator extends VectorValueComparator<UInt8Vector> {
+
+    public UInt8Comparator() {
+      super(8);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      long value1 = vector1.get(index1);
+      long value2 = vector2.get(index2);
+      return ByteFunctionHelpers.unsignedLongCompare(value1, value2);
+    }
+
+    @Override
+    public VectorValueComparator<UInt8Vector> createNew() {
+      return new UInt8Comparator();
     }
   }
 
@@ -165,6 +297,11 @@ public class DefaultVectorComparators {
 
       return (int) Math.signum(value1 - value2);
     }
+
+    @Override
+    public VectorValueComparator<Float4Vector> createNew() {
+      return new Float4Comparator();
+    }
   }
 
   /**
@@ -197,6 +334,11 @@ public class DefaultVectorComparators {
 
       return (int) Math.signum(value1 - value2);
     }
+
+    @Override
+    public VectorValueComparator<Float8Vector> createNew() {
+      return new Float8Comparator();
+    }
   }
 
   /**
@@ -205,28 +347,78 @@ public class DefaultVectorComparators {
    */
   public static class VariableWidthComparator extends VectorValueComparator<BaseVariableWidthVector> {
 
+    private ArrowBufPointer reusablePointer1 = new ArrowBufPointer();
+
+    private ArrowBufPointer reusablePointer2 = new ArrowBufPointer();
+
+    @Override
+    public int compare(int index1, int index2) {
+      vector1.getDataPointer(index1, reusablePointer1);
+      vector2.getDataPointer(index2, reusablePointer2);
+      return reusablePointer1.compareTo(reusablePointer2);
+    }
+
     @Override
     public int compareNotNull(int index1, int index2) {
-      int start1 = vector1.getOffsetBuffer().getInt(index1 * OFFSET_WIDTH);
-      int start2 = vector2.getOffsetBuffer().getInt(index2 * OFFSET_WIDTH);
+      vector1.getDataPointer(index1, reusablePointer1);
+      vector2.getDataPointer(index2, reusablePointer2);
+      return reusablePointer1.compareTo(reusablePointer2);
+    }
 
-      int end1 = vector1.getOffsetBuffer().getInt((index1 + 1) * OFFSET_WIDTH);
-      int end2 = vector2.getOffsetBuffer().getInt((index2 + 1) * OFFSET_WIDTH);
+    @Override
+    public VectorValueComparator<BaseVariableWidthVector> createNew() {
+      return new VariableWidthComparator();
+    }
+  }
 
-      int length1 = end1 - start1;
-      int length2 = end2 - start2;
+  /**
+   * Default comparator for {@link BaseRepeatedValueVector}.
+   * It works by comparing the underlying vector in a lexicographic order.
+   * @param <T> inner vector type.
+   */
+  public static class RepeatedValueComparator<T extends ValueVector>
+          extends VectorValueComparator<BaseRepeatedValueVector> {
 
-      int minLength = length1 < length2 ? length1 : length2;
-      for (int i = 0; i < minLength; i++) {
-        byte b1 = vector1.getDataBuffer().getByte(start1 + i);
-        byte b2 = vector2.getDataBuffer().getByte(start2 + i);
+    private VectorValueComparator<T> innerComparator;
 
-        if (b1 != b2) {
-          return b1 - b2;
+    public RepeatedValueComparator(VectorValueComparator<T> innerComparator) {
+      this.innerComparator = innerComparator;
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      int startIdx1 = vector1.getOffsetBuffer().getInt(index1 * OFFSET_WIDTH);
+      int startIdx2 = vector2.getOffsetBuffer().getInt(index2 * OFFSET_WIDTH);
+
+      int endIdx1 = vector1.getOffsetBuffer().getInt((index1 + 1) * OFFSET_WIDTH);
+      int endIdx2 = vector2.getOffsetBuffer().getInt((index2 + 1) * OFFSET_WIDTH);
+
+      int length1 = endIdx1 - startIdx1;
+      int length2 = endIdx2 - startIdx2;
+
+      int length = length1 < length2 ? length1 : length2;
+
+      for (int i = 0; i < length; i++) {
+        int result = innerComparator.compare(startIdx1 + i, startIdx2 + i);
+        if (result != 0) {
+          return result;
         }
       }
-
       return length1 - length2;
+    }
+
+    @Override
+    public VectorValueComparator<BaseRepeatedValueVector> createNew() {
+      VectorValueComparator<T> newInnerComparator = innerComparator.createNew();
+      return new RepeatedValueComparator(newInnerComparator);
+    }
+
+    @Override
+    public void attachVectors(BaseRepeatedValueVector vector1, BaseRepeatedValueVector vector2) {
+      this.vector1 = vector1;
+      this.vector2 = vector2;
+
+      innerComparator.attachVectors((T) vector1.getDataVector(), (T) vector2.getDataVector());
     }
   }
 

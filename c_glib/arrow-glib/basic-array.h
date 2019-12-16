@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <arrow-glib/buffer.h>
 #include <arrow-glib/basic-data-type.h>
+#include <arrow-glib/buffer.h>
 
 G_BEGIN_DECLS
 
@@ -60,6 +60,13 @@ GArrowArray   *garrow_array_slice       (GArrowArray *array,
                                          gint64 length);
 gchar         *garrow_array_to_string   (GArrowArray *array,
                                          GError **error);
+GARROW_AVAILABLE_IN_0_15
+GArrowArray *garrow_array_view(GArrowArray *array,
+                               GArrowDataType *return_type,
+                               GError **error);
+GARROW_AVAILABLE_IN_0_15
+gchar *garrow_array_diff_unified(GArrowArray *array,
+                                 GArrowArray *other_array);
 
 
 #define GARROW_TYPE_NULL_ARRAY (garrow_null_array_get_type())
@@ -365,6 +372,34 @@ GBytes *garrow_binary_array_get_value(GArrowBinaryArray *array,
 GArrowBuffer *garrow_binary_array_get_buffer(GArrowBinaryArray *array);
 GArrowBuffer *garrow_binary_array_get_offsets_buffer(GArrowBinaryArray *array);
 
+
+#define GARROW_TYPE_LARGE_BINARY_ARRAY (garrow_large_binary_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowLargeBinaryArray,
+                         garrow_large_binary_array,
+                         GARROW,
+                         LARGE_BINARY_ARRAY,
+                         GArrowArray)
+struct _GArrowLargeBinaryArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_1_0
+GArrowLargeBinaryArray *garrow_large_binary_array_new(gint64 length,
+                                                      GArrowBuffer *value_offsets,
+                                                      GArrowBuffer *data,
+                                                      GArrowBuffer *null_bitmap,
+                                                      gint64 n_nulls);
+
+GARROW_AVAILABLE_IN_1_0
+GBytes *garrow_large_binary_array_get_value(GArrowLargeBinaryArray *array,
+                                            gint64 i);
+GARROW_AVAILABLE_IN_1_0
+GArrowBuffer *garrow_large_binary_array_get_buffer(GArrowLargeBinaryArray *array);
+GARROW_AVAILABLE_IN_1_0
+GArrowBuffer *garrow_large_binary_array_get_offsets_buffer(GArrowLargeBinaryArray *array);
+
+
 #define GARROW_TYPE_STRING_ARRAY (garrow_string_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowStringArray,
                          garrow_string_array,
@@ -384,6 +419,29 @@ GArrowStringArray *garrow_string_array_new(gint64 length,
 
 gchar *garrow_string_array_get_string(GArrowStringArray *array,
                                       gint64 i);
+
+
+#define GARROW_TYPE_LARGE_STRING_ARRAY (garrow_large_string_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowLargeStringArray,
+                         garrow_large_string_array,
+                         GARROW,
+                         LARGE_STRING_ARRAY,
+                         GArrowLargeBinaryArray)
+struct _GArrowLargeStringArrayClass
+{
+  GArrowLargeBinaryArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_1_0
+GArrowLargeStringArray *garrow_large_string_array_new(gint64 length,
+                                                      GArrowBuffer *value_offsets,
+                                                      GArrowBuffer *data,
+                                                      GArrowBuffer *null_bitmap,
+                                                      gint64 n_nulls);
+
+GARROW_AVAILABLE_IN_1_0
+gchar *garrow_large_string_array_get_string(GArrowLargeStringArray *array,
+                                            gint64 i);
 
 
 #define GARROW_TYPE_DATE32_ARRAY (garrow_date32_array_get_type())

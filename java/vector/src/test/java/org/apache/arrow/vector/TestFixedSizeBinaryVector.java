@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
@@ -146,6 +147,18 @@ public class TestFixedSizeBinaryVector {
     vector.setValueCount(numValues);
     for (int i = 0; i < numValues; i++) {
       assertArrayEquals(values[i], vector.getObject(i));
+    }
+  }
+
+  @Test
+  public void testSetUsingNull() {
+    final byte[] value = null;
+    for (int i = 0; i < numValues; i++) {
+      final int index = i;
+      Exception e = assertThrows(NullPointerException.class, () -> {
+        vector.set(index, value);
+      });
+      assertEquals("expecting a valid byte array", e.getMessage());
     }
   }
 

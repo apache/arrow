@@ -18,20 +18,21 @@
 module Arrow
   class Array
     include Enumerable
+    include GenericFilterable
+    include GenericTakeable
 
     class << self
       def new(*args)
+        _builder_class = builder_class
+        return super if _builder_class.nil?
+        return super unless _builder_class.buildable?(args)
+        _builder_class.build(*args)
+      end
+
+      def builder_class
         builder_class_name = "#{name}Builder"
-        if const_defined?(builder_class_name)
-          builder_class = const_get(builder_class_name)
-          if builder_class.buildable?(args)
-            builder_class.build(*args)
-          else
-            super
-          end
-        else
-          super
-        end
+        return nil unless const_defined?(builder_class_name)
+        const_get(builder_class_name)
       end
     end
 
@@ -72,6 +73,32 @@ module Arrow
 
     def to_arrow
       self
+    end
+
+    alias_method :value_data_type_raw, :value_data_type
+    def value_data_type
+      @value_data_type ||= value_data_type_raw
+    end
+
+    def to_a
+      values
+    end
+
+    alias_method :is_in_raw, :is_in
+    def is_in(values)
+      case values
+      when ::Array
+        if self.class.builder_class.buildable?([values])
+          values = self.class.new(values)
+        else
+          values = self.class.new(value_data_type, values)
+        end
+        is_in_raw(values)
+      when ChunkedArray
+        is_in_chunked_array(values)
+      else
+        is_in_raw(values)
+      end
     end
   end
 end

@@ -23,13 +23,13 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/io-util.h"
+#include "arrow/util/io_util.h"
 
 #include "plasma/common.h"
 #include "plasma/io.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
-#include "plasma/test-util.h"
+#include "plasma/test_util.h"
 
 namespace fb = plasma::flatbuf;
 
@@ -72,7 +72,7 @@ PlasmaObject random_plasma_object(void) {
 
 class TestPlasmaSerialization : public ::testing::Test {
  public:
-  void SetUp() { ARROW_CHECK_OK(TemporaryDir::Make("ser-test-", &temp_dir_)); }
+  void SetUp() { ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("ser-test-")); }
 
   // Create a temporary file.
   // A fd is returned which must be closed manually.  The file itself
@@ -136,15 +136,14 @@ TEST_F(TestPlasmaSerialization, CreateReply) {
 TEST_F(TestPlasmaSerialization, SealRequest) {
   int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
-  unsigned char digest1[kDigestSize];
-  memset(&digest1[0], 7, kDigestSize);
-  ASSERT_OK(SendSealRequest(fd, object_id1, &digest1[0]));
+  std::string digest1 = std::string(kDigestSize, 7);
+  ASSERT_OK(SendSealRequest(fd, object_id1, digest1));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaSealRequest);
   ObjectID object_id2;
-  unsigned char digest2[kDigestSize];
-  ASSERT_OK(ReadSealRequest(data.data(), data.size(), &object_id2, &digest2[0]));
+  std::string digest2;
+  ASSERT_OK(ReadSealRequest(data.data(), data.size(), &object_id2, &digest2));
   ASSERT_EQ(object_id1, object_id2);
-  ASSERT_EQ(memcmp(&digest1[0], &digest2[0], kDigestSize), 0);
+  ASSERT_EQ(memcmp(digest1.data(), digest2.data(), kDigestSize), 0);
   close(fd);
 }
 

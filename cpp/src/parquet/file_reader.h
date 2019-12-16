@@ -70,9 +70,9 @@ class PARQUET_EXPORT ParquetFileReader {
   // An implementation of the Contents class is defined in the .cc file
   struct PARQUET_EXPORT Contents {
     static std::unique_ptr<Contents> Open(
-        const std::shared_ptr<::arrow::io::RandomAccessFile>& source,
+        std::shared_ptr<::arrow::io::RandomAccessFile> source,
         const ReaderProperties& props = default_reader_properties(),
-        const std::shared_ptr<FileMetaData>& metadata = NULLPTR);
+        std::shared_ptr<FileMetaData> metadata = NULLPTR);
 
     virtual ~Contents() = default;
     // Perform any cleanup associated with the file contents
@@ -93,21 +93,21 @@ class PARQUET_EXPORT ParquetFileReader {
   static std::unique_ptr<ParquetFileReader> Open(
       std::unique_ptr<RandomAccessSource> source,
       const ReaderProperties& props = default_reader_properties(),
-      const std::shared_ptr<FileMetaData>& metadata = NULLPTR);
+      std::shared_ptr<FileMetaData> metadata = NULLPTR);
 
   // Create a file reader instance from an Arrow file object. Thread-safety is
   // the responsibility of the file implementation
   static std::unique_ptr<ParquetFileReader> Open(
-      const std::shared_ptr<::arrow::io::RandomAccessFile>& source,
+      std::shared_ptr<::arrow::io::RandomAccessFile> source,
       const ReaderProperties& props = default_reader_properties(),
-      const std::shared_ptr<FileMetaData>& metadata = NULLPTR);
+      std::shared_ptr<FileMetaData> metadata = NULLPTR);
 
   // API Convenience to open a serialized Parquet file on disk, using Arrow IO
   // interfaces.
   static std::unique_ptr<ParquetFileReader> OpenFile(
       const std::string& path, bool memory_map = true,
       const ReaderProperties& props = default_reader_properties(),
-      const std::shared_ptr<FileMetaData>& metadata = NULLPTR);
+      std::shared_ptr<FileMetaData> metadata = NULLPTR);
 
   void Open(std::unique_ptr<Contents> contents);
   void Close();

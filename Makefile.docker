@@ -20,7 +20,7 @@
 # To run the test suite
 # $ make -f Makefile.docker cpp
 
-LANGUAGES = cpp cpp-alpine cpp-cmake32 c_glib go java js python python-alpine rust r
+LANGUAGES = cpp cpp-alpine cpp-cmake32 c_glib go java js python python-alpine rust r r-sanitizer
 MISC = lint iwyu clang-format docs pandas-master
 TESTS = dask hdfs-integration spark-integration python-nopandas
 

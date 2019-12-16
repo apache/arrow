@@ -28,7 +28,7 @@ function build_wheel {
 
     # Include brew installed versions of flex and bison.
     # We need them to build Thrift. The ones that come with Xcode are too old.
-    export PATH="/usr/local/opt/flex/bin:/usr/local/opt/bison/bin:$PATH"
+    export PATH="$(brew --prefix flex)/bin:$(brew --prefix bison)/bin:$PATH"
 
     echo `pwd`
     echo CFLAGS=${CFLAGS}
@@ -41,7 +41,7 @@ function build_wheel {
     boost_directory_name="boost_${boost_version//\./_}"
     boost_tarball_name="${boost_directory_name}.tar.gz"
     wget -nv --no-check-certificate \
-        http://downloads.sourceforge.net/project/boost/boost/"${boost_version}"/"${boost_tarball_name}" \
+        https://downloads.sourceforge.net/project/boost/boost/"${boost_version}"/"${boost_tarball_name}" \
         -O "${boost_tarball_name}"
     tar xf "${boost_tarball_name}"
 
@@ -119,30 +119,40 @@ function build_wheel {
     pushd cpp
     mkdir build
     pushd build
-    cmake -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-          -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
-          -DARROW_BUILD_TESTS=OFF \
+    cmake -DARROW_BOOST_USE_SHARED=ON \
           -DARROW_BUILD_SHARED=ON \
+          -DARROW_BUILD_TESTS=OFF \
+          -DARROW_DEPENDENCY_SOURCE=BUNDLED \
+          -DARROW_FLIGHT=ON \
+          -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
           -DARROW_BOOST_USE_SHARED=ON \
           -DARROW_JEMALLOC=ON \
-          -DARROW_PLASMA=ON \
-          -DARROW_RPATH_ORIGIN=ON \
-          -DARROW_PYTHON=ON \
+          -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \
-          -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
-          -DARROW_ORC=ON \
+          -DARROW_PLASMA=ON \
+          -DARROW_PROTOBUF_USE_SHARED=OFF \
+          -DARROW_PYTHON=ON \
+          -DARROW_RPATH_ORIGIN=ON \
+          -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
+          -DARROW_WITH_BROTLI=ON \
+          -DARROW_WITH_BZ2=ON \
+          -DARROW_WITH_LZ4=ON \
+          -DARROW_WITH_SNAPPY=ON \
+          -DARROW_WITH_ZLIB=ON \
+          -DARROW_WITH_ZSTD=ON \
+          -DBOOST_SOURCE=SYSTEM \
           -DBOOST_ROOT="$arrow_boost_dist" \
           -DBoost_NAMESPACE=arrow_boost \
-          -DARROW_FLIGHT=ON \
-          -DgRPC_SOURCE=SYSTEM \
-          -Dc-ares_SOURCE=BUNDLED \
-          -Dzlib_SOURCE=BUNDLED \
-          -DARROW_PROTOBUF_USE_SHARED=OFF \
-          -DOPENSSL_USE_STATIC_LIBS=ON  \
+          -DBoost_NO_BOOST_CMAKE=ON \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+          -DLLVM_SOURCE=SYSTEM \
           -DMAKE=make \
+          -DOPENSSL_USE_STATIC_LIBS=ON \
+          -DProtobuf_SOURCE=SYSTEM \
+          -DgRPC_SOURCE=SYSTEM \
           ..
-    make -j5
+    make -j$(sysctl -n hw.logicalcpu)
     make install
     popd
     popd
@@ -157,14 +167,17 @@ function build_wheel {
     export PYARROW_WITH_FLIGHT=1
     export PYARROW_WITH_PLASMA=1
     export PYARROW_WITH_PARQUET=1
-    export PYARROW_WITH_ORC=1
+    export PYARROW_WITH_ORC=0
     export PYARROW_WITH_JEMALLOC=1
     export PYARROW_WITH_PLASMA=1
     export PYARROW_BUNDLE_BOOST=1
     export PYARROW_BUNDLE_ARROW_CPP=1
     export PYARROW_BUILD_TYPE='release'
     export PYARROW_BOOST_NAMESPACE='arrow_boost'
-    export PYARROW_CMAKE_OPTIONS="-DBOOST_ROOT=$arrow_boost_dist"
+    PYARROW_CMAKE_OPTIONS=""
+    PYARROW_CMAKE_OPTIONS="${PYARROW_CMAKE_OPTIONS} -DBOOST_ROOT=$arrow_boost_dist"
+    PYARROW_CMAKE_OPTIONS="${PYARROW_CMAKE_OPTIONS} -DBoost_NO_BOOST_CMAKE=ON"
+    export PYARROW_CMAKE_OPTIONS
     export SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
     pushd python
     python setup.py build_ext bdist_wheel
@@ -204,7 +217,6 @@ function run_import_tests {
     python -c "
 import sys
 import pyarrow
-import pyarrow.orc
 import pyarrow.parquet
 import pyarrow.plasma
 

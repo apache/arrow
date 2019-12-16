@@ -41,6 +41,7 @@ import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -111,7 +112,7 @@ public class BaseFileTest {
 
   private static short [] uint1Values = new short[]{0, 255, 1, 128, 2};
   private static char [] uint2Values = new char[]{0, Character.MAX_VALUE, 1, Short.MAX_VALUE * 2, 2};
-  private static long [] uint4Values = new long[]{0, Integer.MAX_VALUE + 1, 1, Integer.MAX_VALUE * 2, 2};
+  private static long [] uint4Values = new long[]{0, Integer.MAX_VALUE + 1L, 1, Integer.MAX_VALUE * 2L, 2};
   private static BigInteger[] uint8Values = new BigInteger[]{BigInteger.valueOf(0),
       BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(2)), BigInteger.valueOf(2),
       BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(1)), BigInteger.valueOf(2)};
@@ -530,6 +531,26 @@ public class BaseFileTest {
       genValue = new BigDecimal(BigInteger.valueOf(i * 1111111111111111L), type.getScale());
       Assert.assertEquals(genValue, readValue);
     }
+  }
+
+  protected VectorSchemaRoot writeNullData(int valueCount) {
+    NullVector nullVector1 = new NullVector();
+    NullVector nullVector2 = new NullVector();
+    nullVector1.setValueCount(valueCount);
+    nullVector2.setValueCount(valueCount);
+
+    List<Field> fields = Collections2.asImmutableList(nullVector1.getField(), nullVector2.getField());
+    List<FieldVector> vectors = Collections2.asImmutableList(nullVector1, nullVector2);
+    return new VectorSchemaRoot(fields, vectors, valueCount);
+  }
+
+  protected void validateNullData(VectorSchemaRoot root, int valueCount) {
+
+    NullVector vector1 = (NullVector) root.getFieldVectors().get(0);
+    NullVector vector2 = (NullVector) root.getFieldVectors().get(1);
+
+    assertEquals(valueCount, vector1.getValueCount());
+    assertEquals(valueCount, vector2.getValueCount());
   }
 
   public void validateUnionData(int count, VectorSchemaRoot root) {

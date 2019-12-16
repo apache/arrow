@@ -28,14 +28,14 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/io-util.h"
+#include "arrow/util/io_util.h"
 
 #include "plasma/client.h"
 #include "plasma/common.h"
 #include "plasma/external_store.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
-#include "plasma/test-util.h"
+#include "plasma/test_util.h"
 
 namespace plasma {
 
@@ -54,13 +54,13 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
   void SetUp() override {
-    ARROW_CHECK_OK(TemporaryDir::Make("ext-test-", &temp_dir_));
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("ext-test-"));
     store_socket_name_ = temp_dir_->path().ToString() + "store";
 
     std::string plasma_directory =
         external_test_executable.substr(0, external_test_executable.find_last_of('/'));
     std::string plasma_command = plasma_directory +
-                                 "/plasma_store_server -m 1024000 -e " +
+                                 "/plasma-store-server -m 1024000 -e " +
                                  "hashtable://test -s " + store_socket_name_ +
                                  " 1> /tmp/log.stdout 2> /tmp/log.stderr & " +
                                  "echo $! > " + store_socket_name_ + ".pid";

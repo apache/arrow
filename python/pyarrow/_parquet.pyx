@@ -54,12 +54,15 @@ cimport cpython as cp
 cdef class Statistics:
     cdef:
         shared_ptr[CStatistics] statistics
+        ColumnChunkMetaData parent
 
     def __cinit__(self):
         pass
 
-    cdef init(self, const shared_ptr[CStatistics]& statistics):
+    cdef init(self, const shared_ptr[CStatistics]& statistics,
+              ColumnChunkMetaData parent):
         self.statistics = statistics
+        self.parent = parent
 
     def __repr__(self):
         return """{}
@@ -116,19 +119,31 @@ cdef class Statistics:
 
     @property
     def min_raw(self):
-        return _cast_statistic_raw_min(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_raw_min(self.statistics.get())
+        else:
+            return None
 
     @property
     def max_raw(self):
-        return _cast_statistic_raw_max(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_raw_max(self.statistics.get())
+        else:
+            return None
 
     @property
     def min(self):
-        return _cast_statistic_min(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_min(self.statistics.get())
+        else:
+            return None
 
     @property
     def max(self):
-        return _cast_statistic_max(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_max(self.statistics.get())
+        else:
+            return None
 
     @property
     def null_count(self):
@@ -291,13 +306,15 @@ cdef class ColumnChunkMetaData:
     cdef:
         unique_ptr[CColumnChunkMetaData] up_metadata
         CColumnChunkMetaData* metadata
+        RowGroupMetaData parent
 
     def __cinit__(self):
         pass
 
-    cdef init(self, const CRowGroupMetaData& row_group_metadata, int i):
-        self.up_metadata = row_group_metadata.ColumnChunk(i)
+    cdef init(self, RowGroupMetaData parent, int i):
+        self.up_metadata = parent.metadata.ColumnChunk(i)
         self.metadata = self.up_metadata.get()
+        self.parent = parent
 
     def __repr__(self):
         statistics = indent(repr(self.statistics), 4 * ' ')
@@ -404,7 +421,7 @@ cdef class ColumnChunkMetaData:
         if not self.metadata.is_stats_set():
             return None
         statistics = Statistics()
-        statistics.init(self.metadata.statistics())
+        statistics.init(self.metadata.statistics(), self)
         return statistics
 
     @property
@@ -487,7 +504,7 @@ cdef class RowGroupMetaData:
         if i < 0 or i >= self.num_columns:
             raise IndexError('{0} out of bounds'.format(i))
         chunk = ColumnChunkMetaData()
-        chunk.init(deref(self.metadata), i)
+        chunk.init(self, i)
         return chunk
 
     def __repr__(self):
@@ -551,7 +568,7 @@ cdef class FileMetaData:
     def __reduce__(self):
         cdef:
             NativeFile sink = BufferOutputStream()
-            OutputStream* c_sink = sink.get_output_stream().get()
+            COutputStream* c_sink = sink.get_output_stream().get()
         with nogil:
             self._metadata.WriteTo(c_sink)
 
@@ -677,7 +694,7 @@ cdef class FileMetaData:
         Write the metadata object to a metadata-only file
         """
         cdef:
-            shared_ptr[OutputStream] sink
+            shared_ptr[COutputStream] sink
             c_string c_where
 
         try:
@@ -687,7 +704,7 @@ cdef class FileMetaData:
         else:
             c_where = tobytes(where)
             with nogil:
-                check_status(FileOutputStream.Open(c_where, &sink))
+                sink = GetResultValue(FileOutputStream.Open(c_where))
 
         with nogil:
             check_status(
@@ -918,7 +935,7 @@ cdef converted_type_name_from_enum(ParquetConvertedType type_):
         ParquetConvertedType_INT_8: 'INT_8',
         ParquetConvertedType_INT_16: 'INT_16',
         ParquetConvertedType_INT_32: 'INT_32',
-        ParquetConvertedType_INT_64: 'UINT_64',
+        ParquetConvertedType_INT_64: 'INT_64',
         ParquetConvertedType_JSON: 'JSON',
         ParquetConvertedType_BSON: 'BSON',
         ParquetConvertedType_INTERVAL: 'INTERVAL',
@@ -978,7 +995,7 @@ cdef ParquetCompression compression_from_name(name):
 cdef class ParquetReader:
     cdef:
         object source
-        CMemoryPool* allocator
+        CMemoryPool* pool
         unique_ptr[FileReader] reader
         FileMetaData _metadata
 
@@ -986,26 +1003,58 @@ cdef class ParquetReader:
         _column_idx_map
 
     def __cinit__(self, MemoryPool memory_pool=None):
-        self.allocator = maybe_unbox_memory_pool(memory_pool)
+        self.pool = maybe_unbox_memory_pool(memory_pool)
         self._metadata = None
 
-    def open(self, object source, c_bool use_memory_map=True,
-             FileMetaData metadata=None):
+    def open(self, object source, bint use_memory_map=True,
+             read_dictionary=None, FileMetaData metadata=None,
+             int buffer_size=0):
         cdef:
-            shared_ptr[RandomAccessFile] rd_handle
+            shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
-            ReaderProperties properties = default_reader_properties()
+            CReaderProperties properties = default_reader_properties()
+            ArrowReaderProperties arrow_props = (
+                default_arrow_reader_properties())
             c_string path
+            FileReaderBuilder builder
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
+
+        if buffer_size > 0:
+            properties.enable_buffered_stream()
+            properties.set_buffer_size(buffer_size)
+        elif buffer_size == 0:
+            properties.disable_buffered_stream()
+        else:
+            raise ValueError('Buffer size must be larger than zero')
 
         self.source = source
 
         get_reader(source, use_memory_map, &rd_handle)
         with nogil:
-            check_status(OpenFile(rd_handle, self.allocator, properties,
-                                  c_metadata, &self.reader))
+            check_status(builder.Open(rd_handle, properties, c_metadata))
+
+        # Set up metadata
+        with nogil:
+            c_metadata = builder.raw_reader().metadata()
+        self._metadata = result = FileMetaData()
+        result.init(c_metadata)
+
+        if read_dictionary is not None:
+            self._set_read_dictionary(read_dictionary, &arrow_props)
+
+        with nogil:
+            check_status(builder.memory_pool(self.pool)
+                         .properties(arrow_props)
+                         .Build(&self.reader))
+
+    cdef _set_read_dictionary(self, read_dictionary,
+                              ArrowReaderProperties* props):
+        for column in read_dictionary:
+            if not isinstance(column, int):
+                column = self.column_name_idx(column)
+            props.set_read_dictionary(column, True)
 
     @property
     def column_paths(self):
@@ -1025,18 +1074,7 @@ cdef class ParquetReader:
 
     @property
     def metadata(self):
-        cdef:
-            shared_ptr[CFileMetaData] metadata
-            FileMetaData result
-        if self._metadata is not None:
-            return self._metadata
-
-        with nogil:
-            metadata = self.reader.get().parquet_reader().metadata()
-
-        self._metadata = result = FileMetaData()
-        result.init(metadata)
-        return result
+        return self._metadata
 
     @property
     def num_row_groups(self):
@@ -1047,12 +1085,20 @@ cdef class ParquetReader:
 
     def read_row_group(self, int i, column_indices=None,
                        bint use_threads=True):
+        return self.read_row_groups([i], column_indices, use_threads)
+
+    def read_row_groups(self, row_groups not None, column_indices=None,
+                        bint use_threads=True):
         cdef:
             shared_ptr[CTable] ctable
+            vector[int] c_row_groups
             vector[int] c_column_indices
 
         if use_threads:
             self.set_use_threads(use_threads)
+
+        for row_group in row_groups:
+            c_row_groups.push_back(row_group)
 
         if column_indices is not None:
             for index in column_indices:
@@ -1060,12 +1106,13 @@ cdef class ParquetReader:
 
             with nogil:
                 check_status(self.reader.get()
-                             .ReadRowGroup(i, c_column_indices, &ctable))
+                             .ReadRowGroups(c_row_groups, c_column_indices,
+                                            &ctable))
         else:
             # Read all columns
             with nogil:
                 check_status(self.reader.get()
-                             .ReadRowGroup(i, &ctable))
+                             .ReadRowGroups(c_row_groups, &ctable))
         return pyarrow_wrap_table(ctable)
 
     def read_all(self, column_indices=None, bint use_threads=True):
@@ -1155,7 +1202,7 @@ cdef class ParquetReader:
 cdef class ParquetWriter:
     cdef:
         unique_ptr[FileWriter] writer
-        shared_ptr[OutputStream] sink
+        shared_ptr[COutputStream] sink
         bint own_sink
 
     cdef readonly:
@@ -1164,6 +1211,7 @@ cdef class ParquetWriter:
         object coerce_timestamps
         object allow_truncated_timestamps
         object compression
+        object compression_level
         object version
         object write_statistics
         int row_group_size
@@ -1176,7 +1224,8 @@ cdef class ParquetWriter:
                   use_deprecated_int96_timestamps=False,
                   coerce_timestamps=None,
                   data_page_size=None,
-                  allow_truncated_timestamps=False):
+                  allow_truncated_timestamps=False,
+                  compression_level=None):
         cdef:
             shared_ptr[WriterProperties] properties
             c_string c_where
@@ -1190,12 +1239,12 @@ cdef class ParquetWriter:
         else:
             c_where = tobytes(where)
             with nogil:
-                check_status(FileOutputStream.Open(c_where,
-                                                   &self.sink))
+                self.sink = GetResultValue(FileOutputStream.Open(c_where))
             self.own_sink = True
 
         self.use_dictionary = use_dictionary
         self.compression = compression
+        self.compression_level = compression_level
         self.version = version
         self.write_statistics = write_statistics
         self.use_deprecated_int96_timestamps = use_deprecated_int96_timestamps
@@ -1214,6 +1263,11 @@ cdef class ParquetWriter:
         properties = properties_builder.build()
 
         cdef ArrowWriterProperties.Builder arrow_properties_builder
+
+        # Store the original Arrow schema so things like dictionary types can
+        # be automatically reconstructed
+        arrow_properties_builder.store_schema()
+
         self._set_int96_support(&arrow_properties_builder)
         self._set_coerce_timestamps(&arrow_properties_builder)
         self._set_allow_truncated_timestamps(&arrow_properties_builder)
@@ -1267,6 +1321,12 @@ cdef class ParquetWriter:
             for column, codec in self.compression.iteritems():
                 check_compression_name(codec)
                 props.compression(column, compression_from_name(codec))
+
+        if isinstance(self.compression_level, int):
+            props.compression_level(self.compression_level)
+        elif self.compression_level is not None:
+            for column, level in self.compression_level.iteritems():
+                props.compression_level(column, level)
 
     cdef void _set_dictionary_props(self, WriterProperties.Builder* props):
         if isinstance(self.use_dictionary, bool):

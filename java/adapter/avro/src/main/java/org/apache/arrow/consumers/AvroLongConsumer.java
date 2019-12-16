@@ -20,33 +20,23 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.BigIntVector;
-import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
-import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume long type values from avro decoder.
  * Write the data to {@link BigIntVector}.
  */
-public class AvroLongConsumer implements Consumer {
-
-  private final BigIntWriter writer;
+public class AvroLongConsumer extends BaseAvroConsumer<BigIntVector> {
 
   /**
    * Instantiate a AvroLongConsumer.
    */
   public AvroLongConsumer(BigIntVector vector) {
-    this.writer = new BigIntWriterImpl(vector);
+    super(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeBigInt(decoder.readLong());
-    writer.setPosition(writer.getPosition() + 1);
-  }
-
-  @Override
-  public void addNull() {
-    writer.setPosition(writer.getPosition() + 1);
+    vector.setSafe(currentIndex++, decoder.readLong());
   }
 }

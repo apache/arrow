@@ -91,6 +91,9 @@ set(ARROW_SRCS
     array/builder_primitive.cc
     array/builder_union.cc
     array/concatenate.cc
+    array/dict_internal.cc
+    array/diff.cc
+    array/validate.cc
     buffer.cc
     compare.cc
     extension_type.cc
@@ -106,61 +109,133 @@ set(ARROW_SRCS
     tensor.cc
     type.cc
     visitor.cc
-    csv/converter.cc
-    csv/chunker.cc
-    csv/column-builder.cc
-    csv/options.cc
-    csv/parser.cc
-    csv/reader.cc
-    filesystem/filesystem.cc
-    filesystem/localfs.cc
-    filesystem/mockfs.cc
-    filesystem/path-util.cc
-    filesystem/util-internal.cc
     io/buffered.cc
     io/compressed.cc
     io/file.cc
     io/hdfs.cc
-    io/hdfs-internal.cc
+    io/hdfs_internal.cc
     io/interfaces.cc
     io/memory.cc
-    io/readahead.cc
+    io/slow.cc
     testing/util.cc
     util/basic_decimal.cc
-    util/bit-util.cc
+    util/bit_util.cc
     util/compression.cc
-    util/cpu-info.cc
+    util/cpu_info.cc
     util/decimal.cc
-    util/int-util.cc
-    util/io-util.cc
+    util/delimiting.cc
+    util/formatting.cc
+    util/int_util.cc
+    util/io_util.cc
+    util/iterator.cc
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
+    util/parsing.cc
+    util/string.cc
     util/string_builder.cc
-    util/task-group.cc
-    util/thread-pool.cc
+    util/task_group.cc
+    util/thread_pool.cc
+    util/time.cc
     util/trie.cc
+    util/uri.cc
     util/utf8.cc
-    vendored/datetime/tz.cpp)
+    vendored/base64.cpp
+    vendored/datetime/tz.cpp
+    vendored/double-conversion/bignum.cc
+    vendored/double-conversion/double-conversion.cc
+    vendored/double-conversion/bignum-dtoa.cc
+    vendored/double-conversion/fast-dtoa.cc
+    vendored/double-conversion/cached-powers.cc
+    vendored/double-conversion/fixed-dtoa.cc
+    vendored/double-conversion/diy-fp.cc
+    vendored/double-conversion/strtod.cc
+    vendored/uriparser/UriCommon.c
+    vendored/uriparser/UriCompare.c
+    vendored/uriparser/UriEscape.c
+    vendored/uriparser/UriFile.c
+    vendored/uriparser/UriIp4Base.c
+    vendored/uriparser/UriIp4.c
+    vendored/uriparser/UriMemory.c
+    vendored/uriparser/UriNormalizeBase.c
+    vendored/uriparser/UriNormalize.c
+    vendored/uriparser/UriParseBase.c
+    vendored/uriparser/UriParse.c
+    vendored/uriparser/UriQuery.c
+    vendored/uriparser/UriRecompose.c
+    vendored/uriparser/UriResolve.c
+    vendored/uriparser/UriShorten.c)
 
-if(ARROW_JSON)
-  add_subdirectory(json)
-  set(ARROW_SRCS
-      ${ARROW_SRCS}
-      json/options.cc
-      json/chunked-builder.cc
-      json/chunker.cc
-      json/converter.cc
-      json/parser.cc
-      json/reader.cc)
+# Disable DLL exports in vendored uriparser library
+add_definitions(-DURI_STATIC_BUILD)
+
+if(ARROW_WITH_BOOST_FILESYSTEM)
+  add_definitions(-DARROW_WITH_BOOST_FILESYSTEM)
 endif()
 
-if(ARROW_WITH_URIPARSER)
-  set(ARROW_SRCS ${ARROW_SRCS} util/uri.cc)
+if(ARROW_WITH_BROTLI)
+  add_definitions(-DARROW_WITH_BROTLI)
+  list(APPEND ARROW_SRCS util/compression_brotli.cc)
 endif()
 
-if("${COMPILER_FAMILY}" STREQUAL "clang")
-  set_property(SOURCE util/io-util.cc
+if(ARROW_WITH_BZ2)
+  add_definitions(-DARROW_WITH_BZ2)
+  list(APPEND ARROW_SRCS util/compression_bz2.cc)
+endif()
+
+if(ARROW_WITH_LZ4)
+  add_definitions(-DARROW_WITH_LZ4)
+  list(APPEND ARROW_SRCS util/compression_lz4.cc)
+endif()
+
+if(ARROW_WITH_SNAPPY)
+  add_definitions(-DARROW_WITH_SNAPPY)
+  list(APPEND ARROW_SRCS util/compression_snappy.cc)
+endif()
+
+if(ARROW_WITH_ZLIB)
+  add_definitions(-DARROW_WITH_ZLIB)
+  list(APPEND ARROW_SRCS util/compression_zlib.cc)
+endif()
+
+if(ARROW_WITH_ZSTD)
+  add_definitions(-DARROW_WITH_ZSTD)
+  list(APPEND ARROW_SRCS util/compression_zstd.cc)
+endif()
+
+set(ARROW_TESTING_SRCS
+    io/test_common.cc
+    ipc/test_common.cc
+    testing/gtest_util.cc
+    testing/random.cc
+    testing/generator.cc)
+
+# Add dependencies for third-party allocators.
+# If possible we only want memory_pool.cc to wait for allocators to finish building,
+# but that only works with Ninja
+# (see https://gitlab.kitware.com/cmake/cmake/issues/19677)
+
+set(_allocator_dependencies "") # Empty list
+if(ARROW_JEMALLOC)
+  list(APPEND _allocator_dependencies jemalloc_ep)
+endif()
+if(ARROW_MIMALLOC)
+  list(APPEND _allocator_dependencies mimalloc_ep)
+endif()
+
+if(_allocator_dependencies)
+  if("${CMAKE_GENERATOR}" STREQUAL "Ninja")
+    set_source_files_properties(memory_pool.cc PROPERTIES OBJECT_DEPENDS
+                                "${_allocator_dependencies}")
+  else()
+    add_dependencies(arrow_dependencies ${_allocator_dependencies})
+  endif()
+endif()
+
+unset(_allocator_dependencies)
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  set_property(SOURCE util/io_util.cc
                APPEND_STRING
                PROPERTY COMPILE_FLAGS " -Wno-unused-macros ")
 endif()
@@ -168,96 +243,138 @@ endif()
 # Unconditionally install testing headers that are also useful for Arrow consumers.
 add_subdirectory(testing)
 
+#
+# Add the various components
+#
+
+add_subdirectory(array)
+add_subdirectory(io)
+add_subdirectory(util)
+add_subdirectory(vendored)
+
+if(ARROW_CSV)
+  list(APPEND ARROW_SRCS
+              csv/converter.cc
+              csv/chunker.cc
+              csv/column_builder.cc
+              csv/options.cc
+              csv/parser.cc
+              csv/reader.cc)
+  add_subdirectory(csv)
+endif()
+
 if(ARROW_COMPUTE)
   add_subdirectory(compute)
-  set(ARROW_SRCS
-      ${ARROW_SRCS}
-      compute/context.cc
-      compute/expression.cc
-      compute/logical_type.cc
-      compute/operation.cc
-      compute/kernels/aggregate.cc
-      compute/kernels/boolean.cc
-      compute/kernels/cast.cc
-      compute/kernels/compare.cc
-      compute/kernels/count.cc
-      compute/kernels/hash.cc
-      compute/kernels/filter.cc
-      compute/kernels/mean.cc
-      compute/kernels/sum.cc
-      compute/kernels/take.cc
-      compute/kernels/isin.cc
-      compute/kernels/util-internal.cc
-      compute/kernels/argsort.cc
-      compute/operations/cast.cc
-      compute/operations/literal.cc)
+  list(APPEND ARROW_SRCS
+              compute/context.cc
+              compute/expression.cc
+              compute/logical_type.cc
+              compute/operation.cc
+              compute/kernels/aggregate.cc
+              compute/kernels/boolean.cc
+              compute/kernels/cast.cc
+              compute/kernels/compare.cc
+              compute/kernels/count.cc
+              compute/kernels/hash.cc
+              compute/kernels/filter.cc
+              compute/kernels/mean.cc
+              compute/kernels/minmax.cc
+              compute/kernels/sort_to_indices.cc
+              compute/kernels/sum.cc
+              compute/kernels/add.cc
+              compute/kernels/take.cc
+              compute/kernels/isin.cc
+              compute/kernels/util_internal.cc
+              compute/operations/cast.cc
+              compute/operations/literal.cc)
 endif()
 
 if(ARROW_CUDA)
-  # IPC extensions required to build the CUDA library
-  set(ARROW_IPC ON)
   add_subdirectory(gpu)
 endif()
 
-if(ARROW_JEMALLOC AND JEMALLOC_VENDORED)
-  add_dependencies(arrow_dependencies jemalloc::jemalloc)
+if(ARROW_DATASET)
+  add_subdirectory(dataset)
 endif()
 
-if(ARROW_WITH_BROTLI)
-  add_definitions(-DARROW_WITH_BROTLI)
-  set(ARROW_SRCS util/compression_brotli.cc ${ARROW_SRCS})
+if(ARROW_FILESYSTEM)
+  add_subdirectory(filesystem)
+
+  if(ARROW_HDFS)
+    add_definitions(-DARROW_HDFS)
+  endif()
+
+  if(ARROW_S3)
+    add_definitions(-DARROW_S3)
+  endif()
+
+  list(APPEND ARROW_SRCS
+              filesystem/filesystem.cc
+              filesystem/localfs.cc
+              filesystem/mockfs.cc
+              filesystem/path_forest.cc
+              filesystem/path_util.cc
+              filesystem/util_internal.cc)
+
+  if(ARROW_S3)
+    list(APPEND ARROW_SRCS filesystem/s3fs.cc)
+  endif()
+
+  if(ARROW_HDFS)
+    list(APPEND ARROW_SRCS filesystem/hdfs.cc)
+  endif()
+
+  list(APPEND ARROW_TESTING_SRCS filesystem/test_util.cc)
 endif()
 
-if(ARROW_WITH_BZ2)
-  add_definitions(-DARROW_WITH_BZ2)
-  set(ARROW_SRCS util/compression_bz2.cc ${ARROW_SRCS})
+if(ARROW_FLIGHT)
+  add_subdirectory(flight)
 endif()
 
-if(ARROW_WITH_LZ4)
-  add_definitions(-DARROW_WITH_LZ4)
-  set(ARROW_SRCS util/compression_lz4.cc ${ARROW_SRCS})
-endif()
-
-if(ARROW_WITH_SNAPPY)
-  add_definitions(-DARROW_WITH_SNAPPY)
-  set(ARROW_SRCS util/compression_snappy.cc ${ARROW_SRCS})
-endif()
-
-if(ARROW_WITH_ZLIB)
-  add_definitions(-DARROW_WITH_ZLIB)
-  set(ARROW_SRCS util/compression_zlib.cc ${ARROW_SRCS})
-endif()
-
-if(ARROW_WITH_ZSTD)
-  add_definitions(-DARROW_WITH_ZSTD)
-  set(ARROW_SRCS util/compression_zstd.cc ${ARROW_SRCS})
-endif()
-
-if(ARROW_ORC)
-  add_subdirectory(adapters/orc)
-  set(ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc ${ARROW_SRCS})
-endif()
-
-if(ARROW_TENSORFLOW)
-  add_subdirectory(adapters/tensorflow)
+if(ARROW_HIVESERVER2)
+  add_subdirectory(dbi/hiveserver2)
 endif()
 
 if(ARROW_IPC)
   add_subdirectory(ipc)
 
-  set(ARROW_IPC_SRCS
-      ipc/dictionary.cc
-      ipc/feather.cc
-      ipc/json-integration.cc
-      ipc/json-internal.cc
-      ipc/json-simple.cc
-      ipc/message.cc
-      ipc/metadata-internal.cc
-      ipc/reader.cc
-      ipc/writer.cc)
-  set(ARROW_SRCS ${ARROW_SRCS} ${ARROW_IPC_SRCS})
+  list(APPEND ARROW_SRCS
+              ipc/dictionary.cc
+              ipc/feather.cc
+              ipc/message.cc
+              ipc/metadata_internal.cc
+              ipc/options.cc
+              ipc/reader.cc
+              ipc/writer.cc)
 
-  add_dependencies(arrow_dependencies metadata_fbs)
+  if(ARROW_JSON)
+    list(
+      APPEND ARROW_SRCS ipc/json_integration.cc ipc/json_internal.cc ipc/json_simple.cc)
+  endif()
+endif()
+
+if(ARROW_JSON)
+  add_subdirectory(json)
+  list(APPEND ARROW_SRCS
+              json/options.cc
+              json/chunked_builder.cc
+              json/chunker.cc
+              json/converter.cc
+              json/parser.cc
+              json/reader.cc)
+endif()
+
+if(ARROW_ORC)
+  add_subdirectory(adapters/orc)
+  list(APPEND ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc)
+endif()
+
+if(ARROW_PYTHON)
+  add_subdirectory(python)
+endif()
+
+if(ARROW_TENSORFLOW)
+  add_subdirectory(adapters/tensorflow)
 endif()
 
 if(NOT APPLE AND NOT MSVC)
@@ -272,6 +389,10 @@ endif()
 set(ARROW_ALL_SRCS ${ARROW_SRCS})
 
 add_arrow_lib(arrow
+              CMAKE_PACKAGE_NAME
+              Arrow
+              PKG_CONFIG_NAME
+              arrow
               SOURCES
               ${ARROW_ALL_SRCS}
               OUTPUTS
@@ -300,12 +421,12 @@ endif()
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   # that depend on gtest
   add_arrow_lib(arrow_testing
+                CMAKE_PACKAGE_NAME
+                ArrowTesting
+                PKG_CONFIG_NAME
+                arrow-testing
                 SOURCES
-                io/test-common.cc
-                ipc/test-common.cc
-                filesystem/test-util.cc
-                testing/gtest_util.cc
-                testing/random.cc
+                ${ARROW_TESTING_SRCS}
                 OUTPUTS
                 ARROW_TESTING_LIBRARIES
                 DEPENDENCIES
@@ -337,67 +458,52 @@ if(ARROW_WITH_BACKTRACE)
   endforeach()
 endif()
 
-# Headers: top level
 arrow_install_all_headers("arrow")
 
-# pkg-config support
-arrow_add_pkg_config("arrow")
+config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake")
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake
+        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+
+# For backward compatibility for find_package(arrow)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
+        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
 
 #
 # Unit tests
 #
 
-add_arrow_test(allocator-test)
-add_arrow_test(array-test
+add_arrow_test(array_test
                SOURCES
-               array-test.cc
-               array-binary-test.cc
-               array-dict-test.cc
-               array-list-test.cc
-               array-struct-test.cc
-               array-union-test.cc
-               array-view-test.cc)
-add_arrow_test(buffer-test)
+               array_test.cc
+               array_binary_test.cc
+               array_dict_test.cc
+               array_list_test.cc
+               array_struct_test.cc
+               array_union_test.cc
+               array_view_test.cc)
+add_arrow_test(buffer_test)
 
 if(ARROW_IPC)
   # The extension type unit tests require IPC / Flatbuffers support
-  add_arrow_test(extension_type-test)
+  add_arrow_test(extension_type_test)
 endif()
 
-add_arrow_test(memory_pool-test)
-add_arrow_test(pretty_print-test)
-add_arrow_test(public-api-test)
-add_arrow_test(result-test)
-add_arrow_test(scalar-test)
-add_arrow_test(status-test)
-add_arrow_test(stl-test)
-add_arrow_test(type-test)
-add_arrow_test(table-test)
-add_arrow_test(table_builder-test)
-add_arrow_test(tensor-test)
-add_arrow_test(sparse_tensor-test)
+add_arrow_test(memory_pool_test)
+add_arrow_test(pretty_print_test)
+add_arrow_test(public_api_test)
+add_arrow_test(result_test)
+add_arrow_test(scalar_test)
+add_arrow_test(status_test)
+add_arrow_test(type_test)
+add_arrow_test(table_test)
+add_arrow_test(table_builder_test)
+add_arrow_test(tensor_test)
+add_arrow_test(sparse_tensor_test)
 
-add_arrow_benchmark(builder-benchmark)
-
-add_subdirectory(array)
-add_subdirectory(csv)
-add_subdirectory(filesystem)
-add_subdirectory(io)
-add_subdirectory(util)
-add_subdirectory(vendored)
-
-if(ARROW_DATASET)
-  add_subdirectory(dataset)
+if(ARROW_COMPUTE)
+  # This unit test uses compute code
+  add_arrow_test(stl_test)
 endif()
 
-if(ARROW_FLIGHT)
-  add_subdirectory(flight)
-endif()
-
-if(ARROW_PYTHON)
-  add_subdirectory(python)
-endif()
-
-if(ARROW_HIVESERVER2)
-  add_subdirectory(dbi/hiveserver2)
-endif()
+add_arrow_benchmark(builder_benchmark)
+add_arrow_benchmark(type_benchmark)

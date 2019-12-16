@@ -144,3 +144,11 @@ type PrimitiveTypeOpts<T extends DataType> = [
         }
     });
 });
+
+describe('Float16Builder', () => {
+    const encode = encodeAll(() => new Float16());
+    it(`encodes the weird values`, async () => {
+        const vals = [0, 5.960464477539063e-8, NaN, 65504, 2, -0];
+        validateVector(vals, await encode(vals, []), []);
+    });
+});

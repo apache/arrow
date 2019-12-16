@@ -23,7 +23,7 @@ module Arrow
 
     private
     def to_datetime(raw_value)
-      Time.at(*raw_value.divmod(1_000)).to_datetime
+      ::Time.at(*raw_value.divmod(1_000)).to_datetime
     end
   end
 end

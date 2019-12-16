@@ -21,8 +21,10 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -96,6 +98,9 @@ class ARROW_EXPORT MemoryPool {
   /// returns -1
   virtual int64_t max_memory() const;
 
+  /// The name of the backend used by this MemoryPool (e.g. "system" or "jemalloc");
+  virtual std::string backend_name() const = 0;
+
  protected:
   MemoryPool();
 };
@@ -113,6 +118,8 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
   int64_t bytes_allocated() const override;
 
   int64_t max_memory() const override;
+
+  std::string backend_name() const override;
 
  private:
   MemoryPool* pool_;
@@ -136,19 +143,36 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
 
   int64_t max_memory() const override;
 
+  std::string backend_name() const override;
+
  private:
   class ProxyMemoryPoolImpl;
   std::unique_ptr<ProxyMemoryPoolImpl> impl_;
 };
 
-/// Return the process-wide default memory pool.
-ARROW_EXPORT MemoryPool* default_memory_pool();
+/// Return a process-wide memory pool based on the system allocator.
+ARROW_EXPORT MemoryPool* system_memory_pool();
 
-#ifdef ARROW_NO_DEFAULT_MEMORY_POOL
-#define ARROW_MEMORY_POOL_DEFAULT
-#else
-#define ARROW_MEMORY_POOL_DEFAULT = default_memory_pool()
-#endif
+/// Return a process-wide memory pool based on jemalloc.
+///
+/// May return NotImplemented if jemalloc is not available.
+ARROW_EXPORT Status jemalloc_memory_pool(MemoryPool** out);
+
+/// \brief Set jemalloc memory page purging behavior for future-created arenas
+/// to the indicated number of milliseconds. See dirty_decay_ms and
+/// muzzy_decay_ms options in jemalloc for a description of what these do. The
+/// default is configured to 1000 (1 second) which releases memory more
+/// aggressively to the operating system than the jemalloc default of 10
+/// seconds. If you set the value to 0, dirty / muzzy pages will be released
+/// immediately rather than with a time decay, but this may reduce application
+/// performance.
+ARROW_EXPORT
+Status jemalloc_set_decay_ms(int ms);
+
+/// Return a process-wide memory pool based on mimalloc.
+///
+/// May return NotImplemented if mimalloc is not available.
+ARROW_EXPORT Status mimalloc_memory_pool(MemoryPool** out);
 
 }  // namespace arrow
 

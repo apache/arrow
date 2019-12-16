@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/column-containable"
-require "arrow/record-containable"
-
 module Arrow
   class RecordBatch
     include ColumnContainable

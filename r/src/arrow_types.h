@@ -19,6 +19,7 @@
 
 #include <limits>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <RcppCommon.h>
@@ -33,6 +34,11 @@ struct symbols {
   static SEXP inspect;
   static SEXP row_names;
 };
+
+struct data {
+  static SEXP classes_POSIXct;
+};
+
 }  // namespace r
 }  // namespace arrow
 
@@ -41,7 +47,8 @@ struct symbols {
     if (!(TEST)) Rcpp::stop(MSG); \
   } while (0)
 
-#define STOP_IF_NOT_OK(s) STOP_IF_NOT(s.ok(), s.ToString())
+#define STOP_IF_NOT_OK(status) StopIfNotOk(status)
+#define VALUE_OR_STOP(result) ValueOrStop(result)
 
 template <typename T>
 struct NoDelete {
@@ -73,6 +80,24 @@ class ConstReferenceSmartPtrInputParameter {
   const T* ptr;
 };
 
+template <typename T>
+class ConstReferenceVectorSmartPtrInputParameter {
+ public:
+  using const_reference = const std::vector<T>&;
+
+  explicit ConstReferenceVectorSmartPtrInputParameter(SEXP self) : vec() {
+    R_xlen_t n = XLENGTH(self);
+    for (R_xlen_t i = 0; i < n; i++) {
+      vec.push_back(*internal::r6_to_smart_pointer<const T*>(VECTOR_ELT(self, i)));
+    }
+  }
+
+  inline operator const_reference() { return vec; }
+
+ private:
+  std::vector<T> vec;
+};
+
 namespace traits {
 
 template <typename T>
@@ -83,6 +108,12 @@ struct input_parameter<const std::shared_ptr<T>&> {
 template <typename T>
 struct input_parameter<const std::unique_ptr<T>&> {
   typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::unique_ptr<T>> type;
+};
+
+template <typename T>
+struct input_parameter<const std::vector<std::shared_ptr<T>>&> {
+  typedef typename Rcpp::ConstReferenceVectorSmartPtrInputParameter<std::shared_ptr<T>>
+      type;
 };
 
 struct wrap_type_shared_ptr_tag {};
@@ -167,6 +198,9 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/csv/reader.h>
+#include <arrow/dataset/api.h>
+#include <arrow/filesystem/filesystem.h>
+#include <arrow/filesystem/localfs.h>
 #include <arrow/io/compressed.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
@@ -174,6 +208,7 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/json/reader.h>
+#include <arrow/result.h>
 #include <arrow/type.h>
 #include <arrow/util/compression.h>
 #include <parquet/arrow/reader.h>
@@ -187,6 +222,8 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::Message::Type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::fs::FileType)
+RCPP_EXPOSED_ENUM_NODECL(parquet::ParquetVersion::type)
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
@@ -194,7 +231,23 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
 
+namespace ds = ::arrow::dataset;
+namespace fs = ::arrow::fs;
+
 namespace arrow {
+
+template <typename R>
+auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
+  STOP_IF_NOT_OK(result.status());
+  return std::forward<R>(result).ValueOrDie();
+}
+
+static inline void StopIfNotOk(const Status& status) {
+  if (!(status.ok())) {
+    Rcpp::stop(status.ToString());
+  }
+}
+
 namespace r {
 
 Status count_fields(SEXP lst, int* out);

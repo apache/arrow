@@ -52,6 +52,8 @@ class GANDIVA_EXPORT Annotator {
   EvalBatchPtr PrepareEvalBatch(const arrow::RecordBatch& record_batch,
                                 const ArrayDataVector& out_vector);
 
+  int buffer_count() { return buffer_count_; }
+
  private:
   /// Annotate a field and return the descriptor.
   FieldDescriptorPtr MakeDesc(FieldPtr field, bool is_output);

@@ -25,7 +25,12 @@ install(FILES adapter.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/adapters/
 # pkg-config support
 arrow_add_pkg_config("arrow-orc")
 
-set(ORC_MIN_TEST_LIBS GTest::Main GTest::GTest)
+set(ORC_MIN_TEST_LIBS
+    GTest::Main
+    GTest::GTest
+    Snappy::snappy
+    LZ4::lz4
+    ZLIB::ZLIB)
 
 if(ARROW_BUILD_STATIC)
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static)
@@ -42,8 +47,8 @@ endif()
 set(ORC_STATIC_TEST_LINK_LIBS ${ORC_MIN_TEST_LIBS} ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
                               orc::liborc)
 
-add_arrow_test(adapter-test
+add_arrow_test(adapter_test
                PREFIX
-               "orc"
+               "arrow-orc"
                STATIC_LINK_LIBS
                ${ORC_STATIC_TEST_LINK_LIBS})

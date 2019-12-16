@@ -29,14 +29,14 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/dict_internal.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/util-internal.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
@@ -268,9 +268,6 @@ class HashKernelImpl : public HashKernel {
 // Base class for all "regular" hash kernel implementations
 // (NullType has a separate implementation)
 
-template <bool B, typename T = void>
-using enable_if_t = typename std::enable_if<B, T>::type;
-
 template <typename Type, typename Scalar, typename Action, bool with_error_status = false,
           bool with_memo_visit_null = true>
 class RegularHashKernelImpl : public HashKernelImpl {
@@ -297,8 +294,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
                                                           0 /* start_offset */, out);
   }
 
-  template <typename Enable = Status>
-  auto VisitNull() -> enable_if_t<!with_error_status, Enable> {
+  template <bool HasError = with_error_status>
+  enable_if_t<!HasError, Status> VisitNull() {
     auto on_found = [this](int32_t memo_index) { action_.ObserveNullFound(memo_index); };
     auto on_not_found = [this](int32_t memo_index) {
       action_.ObserveNullNotFound(memo_index);
@@ -312,8 +309,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
     return Status::OK();
   }
 
-  template <typename Enable = Status>
-  auto VisitNull() -> enable_if_t<with_error_status, Enable> {
+  template <bool HasError = with_error_status>
+  enable_if_t<HasError, Status> VisitNull() {
     Status s = Status::OK();
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
     auto on_not_found = [this, &s](int32_t memo_index) {
@@ -329,9 +326,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
     return s;
   }
 
-  template <typename Enable = Status>
-  auto VisitValue(const Scalar& value) ->
-      typename std::enable_if<!with_error_status, Enable>::type {
+  template <bool HasError = with_error_status>
+  enable_if_t<!HasError, Status> VisitValue(const Scalar& value) {
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
     auto on_not_found = [this](int32_t memo_index) {
       action_.ObserveNotFound(memo_index);
@@ -341,9 +337,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
     return Status::OK();
   }
 
-  template <typename Enable = Status>
-  auto VisitValue(const Scalar& value) ->
-      typename std::enable_if<with_error_status, Enable>::type {
+  template <bool HasError = with_error_status>
+  enable_if_t<HasError, Status> VisitValue(const Scalar& value) {
     Status s = Status::OK();
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
     auto on_not_found = [this, &s](int32_t memo_index) {
@@ -430,23 +425,7 @@ struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
 template <typename Type, typename Action, bool with_error_status,
           bool with_memo_visit_null>
 struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_boolean<Type>> {
-  using HashKernelImpl =
-      RegularHashKernelImpl<Type, bool, Action, with_error_status, with_memo_visit_null>;
-};
-
-template <typename Type, typename Action, bool with_error_status,
-          bool with_memo_visit_null>
-struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_binary<Type>> {
-  using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action,
-                                               with_error_status, with_memo_visit_null>;
-};
-
-template <typename Type, typename Action, bool with_error_status,
-          bool with_memo_visit_null>
-struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_fixed_size_binary<Type>> {
+                        enable_if_has_string_view<Type>> {
   using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action,
                                                with_error_status, with_memo_visit_null>;
 };
@@ -582,19 +561,28 @@ Status DictionaryEncode(FunctionContext* ctx, const Datum& value, Datum* out) {
   std::vector<Datum> indices_outputs;
   RETURN_NOT_OK(InvokeHash(ctx, func.get(), value, &indices_outputs, &dictionary));
 
-  // Create the dictionary type
-  DCHECK_EQ(indices_outputs[0].kind(), Datum::ARRAY);
-  std::shared_ptr<DataType> dict_type =
-      ::arrow::dictionary(indices_outputs[0].array()->type, dictionary->type());
-
-  // Create DictionaryArray for each piece yielded by the kernel invocations
+  // Wrap indices in dictionary arrays for result
   std::vector<std::shared_ptr<Array>> dict_chunks;
-  for (const Datum& datum : indices_outputs) {
-    dict_chunks.emplace_back(std::make_shared<DictionaryArray>(
-        dict_type, MakeArray(datum.array()), dictionary));
+  std::shared_ptr<DataType> dict_type;
+
+  if (indices_outputs.size() == 0) {
+    // Special case: empty was an empty chunked array
+    DCHECK_EQ(value.kind(), Datum::CHUNKED_ARRAY);
+    dict_type = ::arrow::dictionary(int32(), dictionary->type());
+    *out = std::make_shared<ChunkedArray>(dict_chunks, dict_type);
+  } else {
+    // Create the dictionary type
+    DCHECK_EQ(indices_outputs[0].kind(), Datum::ARRAY);
+    dict_type = ::arrow::dictionary(indices_outputs[0].array()->type, dictionary->type());
+
+    // Create DictionaryArray for each piece yielded by the kernel invocations
+    for (const Datum& datum : indices_outputs) {
+      dict_chunks.emplace_back(std::make_shared<DictionaryArray>(
+          dict_type, MakeArray(datum.array()), dictionary));
+    }
+    *out = detail::WrapArraysLike(value, dict_chunks);
   }
 
-  *out = detail::WrapArraysLike(value, dict_chunks);
   return Status::OK();
 }
 
@@ -602,6 +590,7 @@ const char kValuesFieldName[] = "values";
 const char kCountsFieldName[] = "counts";
 const int32_t kValuesFieldIndex = 0;
 const int32_t kCountsFieldIndex = 1;
+
 Status ValueCounts(FunctionContext* ctx, const Datum& value,
                    std::shared_ptr<Array>* counts) {
   std::unique_ptr<HashKernel> func;
@@ -623,6 +612,8 @@ Status ValueCounts(FunctionContext* ctx, const Datum& value,
       std::vector<std::shared_ptr<Array>>{uniques, MakeArray(value_counts.array())});
   return Status::OK();
 }
+
 #undef PROCESS_SUPPORTED_HASH_TYPES
+
 }  // namespace compute
 }  // namespace arrow

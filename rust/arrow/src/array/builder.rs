@@ -167,9 +167,17 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
 
     /// Appends a slice of type `T`, growing the internal buffer as needed.
     fn append_slice(&mut self, slice: &[bool]) -> Result<()> {
-        let array_slots = slice.len();
-        for i in 0..array_slots {
-            self.append(slice[i])?;
+        self.reserve(slice.len())?;
+        for v in slice {
+            if *v {
+                // For performance the `len` of the buffer is not
+                // updated on each append but is updated in the
+                // `freeze` method instead.
+                unsafe {
+                    bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, self.len);
+                }
+            }
+            self.len += 1;
         }
         Ok(())
     }
@@ -421,12 +429,190 @@ where
     }
 }
 
+///  Array builder for `ListArray`
+pub struct FixedSizeListBuilder<T: ArrayBuilder> {
+    bitmap_builder: BooleanBufferBuilder,
+    values_builder: T,
+    len: usize,
+    list_len: i32,
+}
+
+impl<T: ArrayBuilder> FixedSizeListBuilder<T> {
+    /// Creates a new `ListArrayBuilder` from a given values array builder
+    pub fn new(values_builder: T, length: i32) -> Self {
+        let mut offsets_builder = Int32BufferBuilder::new(values_builder.len() + 1);
+        offsets_builder.append(0).unwrap();
+        Self {
+            bitmap_builder: BooleanBufferBuilder::new(values_builder.len()),
+            values_builder,
+            len: 0,
+            list_len: length,
+        }
+    }
+}
+
+impl<T: ArrayBuilder> ArrayBuilder for FixedSizeListBuilder<T>
+where
+    T: 'static,
+{
+    /// Returns the builder as an non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as an mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
+impl<T: ArrayBuilder> FixedSizeListBuilder<T>
+where
+    T: 'static,
+{
+    /// Returns the child array builder as a mutable reference.
+    ///
+    /// This mutable reference can be used to append values into the child array builder,
+    /// but you must call `append` to delimit each distinct list value.
+    pub fn values(&mut self) -> &mut T {
+        &mut self.values_builder
+    }
+
+    pub fn value_length(&self) -> i32 {
+        self.list_len
+    }
+
+    /// Finish the current variable-length list array slot
+    pub fn append(&mut self, is_valid: bool) -> Result<()> {
+        self.bitmap_builder.append(is_valid)?;
+        self.len += 1;
+        Ok(())
+    }
+
+    /// Builds the `FixedSizeListBuilder` and reset this builder.
+    pub fn finish(&mut self) -> FixedSizeListArray {
+        let len = self.len();
+        self.len = 0;
+        let values_arr = self
+            .values_builder
+            .as_any_mut()
+            .downcast_mut::<T>()
+            .unwrap()
+            .finish();
+        let values_data = values_arr.data();
+
+        // check that values_data length is multiple of len
+        assert!(
+            values_data.len() / len == self.list_len as usize,
+            "Values of FixedSizeList must have equal lengths, values have length {} and list has {}",
+            values_data.len(),
+            len
+        );
+
+        let null_bit_buffer = self.bitmap_builder.finish();
+        let data = ArrayData::builder(DataType::FixedSizeList((
+            Box::new(values_data.data_type().clone()),
+            self.list_len,
+        )))
+        .len(len)
+        .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+        .add_child_data(values_data)
+        .null_bit_buffer(null_bit_buffer)
+        .build();
+
+        FixedSizeListArray::from(data)
+    }
+}
+
 ///  Array builder for `BinaryArray`
 pub struct BinaryBuilder {
     builder: ListBuilder<UInt8Builder>,
 }
 
+pub struct StringBuilder {
+    builder: ListBuilder<UInt8Builder>,
+}
+
+pub struct FixedSizeBinaryBuilder {
+    builder: FixedSizeListBuilder<UInt8Builder>,
+}
+
+pub trait BinaryArrayBuilder: ArrayBuilder {}
+
+impl BinaryArrayBuilder for BinaryBuilder {}
+impl BinaryArrayBuilder for StringBuilder {}
+impl BinaryArrayBuilder for FixedSizeBinaryBuilder {}
+
 impl ArrayBuilder for BinaryBuilder {
+    /// Returns the builder as an non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as an mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.builder.len()
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
+impl ArrayBuilder for StringBuilder {
+    /// Returns the builder as an non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as an mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.builder.len()
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
+impl ArrayBuilder for FixedSizeBinaryBuilder {
     /// Returns the builder as an non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
@@ -482,11 +668,37 @@ impl BinaryBuilder {
         Ok(())
     }
 
-    /// Appends a `&String` or `&str` into the builder.
+    /// Finish the current variable-length list array slot.
+    pub fn append(&mut self, is_valid: bool) -> Result<()> {
+        self.builder.append(is_valid)
+    }
+
+    /// Append a null value to the array.
+    pub fn append_null(&mut self) -> Result<()> {
+        self.append(false)
+    }
+
+    /// Builds the `BinaryArray` and reset this builder.
+    pub fn finish(&mut self) -> BinaryArray {
+        BinaryArray::from(self.builder.finish())
+    }
+}
+
+impl StringBuilder {
+    /// Creates a new `StringBuilder`, `capacity` is the number of bytes in the values
+    /// array
+    pub fn new(capacity: usize) -> Self {
+        let values_builder = UInt8Builder::new(capacity);
+        Self {
+            builder: ListBuilder::new(values_builder),
+        }
+    }
+
+    /// Appends a string into the builder.
     ///
     /// Automatically calls the `append` method to delimit the string appended in as a
     /// distinct array element.
-    pub fn append_string(&mut self, value: &str) -> Result<()> {
+    pub fn append_value(&mut self, value: &str) -> Result<()> {
         self.builder.values().append_slice(value.as_bytes())?;
         self.builder.append(true)?;
         Ok(())
@@ -502,9 +714,46 @@ impl BinaryBuilder {
         self.append(false)
     }
 
-    /// Builds the `BinaryArray` and reset this builder.
-    pub fn finish(&mut self) -> BinaryArray {
-        BinaryArray::from(self.builder.finish())
+    /// Builds the `StringArray` and reset this builder.
+    pub fn finish(&mut self) -> StringArray {
+        StringArray::from(self.builder.finish())
+    }
+}
+
+impl FixedSizeBinaryBuilder {
+    /// Creates a new `BinaryBuilder`, `capacity` is the number of bytes in the values
+    /// array
+    pub fn new(capacity: usize, byte_width: i32) -> Self {
+        let values_builder = UInt8Builder::new(capacity);
+        Self {
+            builder: FixedSizeListBuilder::new(values_builder, byte_width),
+        }
+    }
+
+    /// Appends a byte slice into the builder.
+    ///
+    /// Automatically calls the `append` method to delimit the slice appended in as a
+    /// distinct array element.
+    pub fn append_value(&mut self, value: &[u8]) -> Result<()> {
+        assert_eq!(
+            self.builder.value_length(),
+            value.len() as i32,
+            "Byte slice does not have the same length as FixedSizeBinaryBuilder value lengths"
+        );
+        self.builder.values().append_slice(value)?;
+        self.builder.append(true)
+    }
+
+    /// Append a null value to the array.
+    pub fn append_null(&mut self) -> Result<()> {
+        let length: usize = self.builder.value_length() as usize;
+        self.builder.values().append_slice(&vec![0u8; length][..])?;
+        self.builder.append(false)
+    }
+
+    /// Builds the `FixedSizeBinaryArray` and reset this builder.
+    pub fn finish(&mut self) -> FixedSizeBinaryArray {
+        FixedSizeBinaryArray::from(self.builder.finish())
     }
 }
 
@@ -607,7 +856,11 @@ impl StructBuilder {
             DataType::UInt64 => Box::new(UInt64Builder::new(capacity)),
             DataType::Float32 => Box::new(Float32Builder::new(capacity)),
             DataType::Float64 => Box::new(Float64Builder::new(capacity)),
-            DataType::Utf8 => Box::new(BinaryBuilder::new(capacity)),
+            DataType::Binary => Box::new(BinaryBuilder::new(capacity)),
+            DataType::FixedSizeBinary(len) => {
+                Box::new(FixedSizeBinaryBuilder::new(capacity, *len))
+            }
+            DataType::Utf8 => Box::new(StringBuilder::new(capacity)),
             DataType::Date32(DateUnit::Day) => Box::new(Date32Builder::new(capacity)),
             DataType::Date64(DateUnit::Millisecond) => {
                 Box::new(Date64Builder::new(capacity))
@@ -624,17 +877,35 @@ impl StructBuilder {
             DataType::Time64(TimeUnit::Nanosecond) => {
                 Box::new(Time64NanosecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Second) => {
+            DataType::Timestamp(TimeUnit::Second, _) => {
                 Box::new(TimestampSecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Millisecond) => {
+            DataType::Timestamp(TimeUnit::Millisecond, _) => {
                 Box::new(TimestampMillisecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Microsecond) => {
+            DataType::Timestamp(TimeUnit::Microsecond, _) => {
                 Box::new(TimestampMicrosecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Nanosecond) => {
+            DataType::Timestamp(TimeUnit::Nanosecond, _) => {
                 Box::new(TimestampNanosecondBuilder::new(capacity))
+            }
+            DataType::Interval(IntervalUnit::YearMonth) => {
+                Box::new(IntervalYearMonthBuilder::new(capacity))
+            }
+            DataType::Interval(IntervalUnit::DayTime) => {
+                Box::new(IntervalDayTimeBuilder::new(capacity))
+            }
+            DataType::Duration(TimeUnit::Second) => {
+                Box::new(DurationSecondBuilder::new(capacity))
+            }
+            DataType::Duration(TimeUnit::Millisecond) => {
+                Box::new(DurationMillisecondBuilder::new(capacity))
+            }
+            DataType::Duration(TimeUnit::Microsecond) => {
+                Box::new(DurationMicrosecondBuilder::new(capacity))
+            }
+            DataType::Duration(TimeUnit::Nanosecond) => {
+                Box::new(DurationNanosecondBuilder::new(capacity))
             }
             DataType::Struct(fields) => {
                 let schema = Schema::new(fields.clone());
@@ -838,6 +1109,30 @@ mod tests {
         let mut b = Int32BufferBuilder::new(0);
         let bytes = [8, 16, 32, 64].to_byte_slice();
         b.write_bytes(bytes, 4).unwrap();
+    }
+
+    #[test]
+    fn test_boolean_array_builder_append_slice() {
+        let arr1 =
+            BooleanArray::from(vec![Some(true), Some(false), None, None, Some(false)]);
+
+        let mut builder = BooleanArray::builder(0);
+        builder.append_slice(&[true, false]).unwrap();
+        builder.append_null().unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(false).unwrap();
+        let arr2 = builder.finish();
+
+        assert_eq!(arr1.len(), arr2.len());
+        assert_eq!(arr1.offset(), arr2.offset());
+        assert_eq!(arr1.null_count(), arr2.null_count());
+        for i in 0..5 {
+            assert_eq!(arr1.is_null(i), arr2.is_null(i));
+            assert_eq!(arr1.is_valid(i), arr2.is_valid(i));
+            if arr1.is_valid(i) {
+                assert_eq!(arr1.value(i), arr2.value(i));
+            }
+        }
     }
 
     #[test]
@@ -1087,9 +1382,61 @@ mod tests {
     }
 
     #[test]
+    fn test_fixed_size_list_array_builder() {
+        let values_builder = Int32Builder::new(10);
+        let mut builder = FixedSizeListBuilder::new(values_builder, 3);
+
+        //  [[0, 1, 2], null, [3, null, 5], [6, 7, null]]
+        builder.values().append_value(0).unwrap();
+        builder.values().append_value(1).unwrap();
+        builder.values().append_value(2).unwrap();
+        builder.append(true).unwrap();
+        builder.values().append_null().unwrap();
+        builder.values().append_null().unwrap();
+        builder.values().append_null().unwrap();
+        builder.append(false).unwrap();
+        builder.values().append_value(3).unwrap();
+        builder.values().append_null().unwrap();
+        builder.values().append_value(5).unwrap();
+        builder.append(true).unwrap();
+        builder.values().append_value(6).unwrap();
+        builder.values().append_value(7).unwrap();
+        builder.values().append_null().unwrap();
+        builder.append(true).unwrap();
+        let list_array = builder.finish();
+
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(4, list_array.len());
+        assert_eq!(1, list_array.null_count());
+        assert_eq!(6, list_array.value_offset(2));
+        assert_eq!(3, list_array.value_length());
+    }
+
+    #[test]
     fn test_list_array_builder_finish() {
         let values_builder = Int32Array::builder(5);
         let mut builder = ListBuilder::new(values_builder);
+
+        builder.values().append_slice(&[1, 2, 3]).unwrap();
+        builder.append(true).unwrap();
+        builder.values().append_slice(&[4, 5, 6]).unwrap();
+        builder.append(true).unwrap();
+
+        let mut arr = builder.finish();
+        assert_eq!(2, arr.len());
+        assert_eq!(0, builder.len());
+
+        builder.values().append_slice(&[7, 8, 9]).unwrap();
+        builder.append(true).unwrap();
+        arr = builder.finish();
+        assert_eq!(1, arr.len());
+        assert_eq!(0, builder.len());
+    }
+
+    #[test]
+    fn test_fixed_size_list_array_builder_finish() {
+        let values_builder = Int32Array::builder(5);
+        let mut builder = FixedSizeListBuilder::new(values_builder, 3);
 
         builder.values().append_slice(&[1, 2, 3]).unwrap();
         builder.append(true).unwrap();
@@ -1187,60 +1534,95 @@ mod tests {
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
         assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
-        assert_eq!("hello", binary_array.get_string(0));
         assert_eq!([] as [u8; 0], binary_array.value(1));
-        assert_eq!("", binary_array.get_string(1));
         assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
-        assert_eq!("world", binary_array.get_string(2));
         assert_eq!(5, binary_array.value_offset(2));
         assert_eq!(5, binary_array.value_length(2));
     }
 
     #[test]
-    fn test_binary_array_builder_finish() {
-        let mut builder = BinaryBuilder::new(10);
+    fn test_string_array_builder() {
+        let mut builder = StringBuilder::new(20);
 
-        builder.append_string("hello").unwrap();
-        builder.append_string("world").unwrap();
+        builder.append_value("hello").unwrap();
+        builder.append(true).unwrap();
+        builder.append_value("world").unwrap();
+
+        let array = builder.finish();
+
+        let string_array = StringArray::from(array);
+
+        assert_eq!(3, string_array.len());
+        assert_eq!(0, string_array.null_count());
+        assert_eq!("hello", string_array.value(0));
+        assert_eq!("", string_array.value(1));
+        assert_eq!("world", string_array.value(2));
+        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!(5, string_array.value_length(2));
+    }
+
+    #[test]
+    fn test_fixed_size_binary_builder() {
+        let mut builder = FixedSizeBinaryBuilder::new(15, 5);
+
+        //  [b"hello", null, "arrow"]
+        builder.append_value(b"hello").unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(b"arrow").unwrap();
+        let fixed_size_binary_array: FixedSizeBinaryArray = builder.finish();
+
+        assert_eq!(
+            &DataType::FixedSizeBinary(5),
+            fixed_size_binary_array.data_type()
+        );
+        assert_eq!(3, fixed_size_binary_array.len());
+        assert_eq!(1, fixed_size_binary_array.null_count());
+        assert_eq!(10, fixed_size_binary_array.value_offset(2));
+        assert_eq!(5, fixed_size_binary_array.value_length());
+    }
+
+    #[test]
+    fn test_string_array_builder_finish() {
+        let mut builder = StringBuilder::new(10);
+
+        builder.append_value("hello").unwrap();
+        builder.append_value("world").unwrap();
 
         let mut arr = builder.finish();
         assert_eq!(2, arr.len());
         assert_eq!(0, builder.len());
 
-        builder.append_string("arrow").unwrap();
+        builder.append_value("arrow").unwrap();
         arr = builder.finish();
         assert_eq!(1, arr.len());
         assert_eq!(0, builder.len());
     }
 
     #[test]
-    fn test_binary_array_builder_append_string() {
-        let mut builder = BinaryBuilder::new(20);
+    fn test_string_array_builder_append_string() {
+        let mut builder = StringBuilder::new(20);
 
         let var = "hello".to_owned();
-        builder.append_string(&var).unwrap();
+        builder.append_value(&var).unwrap();
         builder.append(true).unwrap();
-        builder.append_string("world").unwrap();
+        builder.append_value("world").unwrap();
 
         let array = builder.finish();
 
-        let binary_array = BinaryArray::from(array);
+        let string_array = StringArray::from(array);
 
-        assert_eq!(3, binary_array.len());
-        assert_eq!(0, binary_array.null_count());
-        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
-        assert_eq!("hello", binary_array.get_string(0));
-        assert_eq!([] as [u8; 0], binary_array.value(1));
-        assert_eq!("", binary_array.get_string(1));
-        assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
-        assert_eq!("world", binary_array.get_string(2));
-        assert_eq!(5, binary_array.value_offset(2));
-        assert_eq!(5, binary_array.value_length(2));
+        assert_eq!(3, string_array.len());
+        assert_eq!(0, string_array.null_count());
+        assert_eq!("hello", string_array.value(0));
+        assert_eq!("", string_array.value(1));
+        assert_eq!("world", string_array.value(2));
+        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!(5, string_array.value_length(2));
     }
 
     #[test]
     fn test_struct_array_builder() {
-        let string_builder = BinaryBuilder::new(4);
+        let string_builder = StringBuilder::new(4);
         let int_builder = Int32Builder::new(4);
 
         let mut fields = Vec::new();
@@ -1254,12 +1636,12 @@ mod tests {
         assert_eq!(2, builder.num_fields());
 
         let string_builder = builder
-            .field_builder::<BinaryBuilder>(0)
-            .expect("builder at field 0 should be binary builder");
-        string_builder.append_string("joe").unwrap();
+            .field_builder::<StringBuilder>(0)
+            .expect("builder at field 0 should be string builder");
+        string_builder.append_value("joe").unwrap();
         string_builder.append_null().unwrap();
         string_builder.append_null().unwrap();
-        string_builder.append_string("mark").unwrap();
+        string_builder.append_value("mark").unwrap();
 
         let int_builder = builder
             .field_builder::<Int32Builder>(1)
@@ -1399,7 +1781,7 @@ mod tests {
         let mut builder = StructBuilder::from_schema(Schema::new(fields), 5);
         assert_eq!(3, builder.num_fields());
         assert!(builder.field_builder::<Float32Builder>(0).is_some());
-        assert!(builder.field_builder::<BinaryBuilder>(1).is_some());
+        assert!(builder.field_builder::<StringBuilder>(1).is_some());
         assert!(builder.field_builder::<StructBuilder>(2).is_some());
     }
 
@@ -1426,5 +1808,4 @@ mod tests {
         let mut builder = StructBuilder::new(fields, field_builders);
         assert!(builder.field_builder::<BinaryBuilder>(0).is_none());
     }
-
 }

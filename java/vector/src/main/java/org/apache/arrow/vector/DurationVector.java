@@ -41,7 +41,7 @@ import io.netty.buffer.ArrowBuf;
  * A validity buffer (bit vector) is maintained to track which elements in the
  * vector are null.
  */
-public class DurationVector extends BaseFixedWidthVector {
+public final class DurationVector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
   private final TimeUnit unit;
@@ -206,7 +206,7 @@ public class DurationVector extends BaseFixedWidthVector {
    * @param value   value of element
    */
   public void set(int index, ArrowBuf value) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     valueBuffer.setBytes(index * TYPE_WIDTH, value, 0, TYPE_WIDTH);
   }
 
@@ -218,7 +218,7 @@ public class DurationVector extends BaseFixedWidthVector {
    */
   public void set(int index, long value) {
     final int offsetIndex = index * TYPE_WIDTH;
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     valueBuffer.setLong(offsetIndex, value);
   }
 
@@ -236,7 +236,7 @@ public class DurationVector extends BaseFixedWidthVector {
     } else if (holder.isSet > 0) {
       set(index, holder.value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
@@ -303,18 +303,6 @@ public class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Set the element at the given index to null.
-   *
-   * @param index   position of element
-   */
-  public void setNull(int index) {
-    handleSafe(index);
-    // not really needed to set the bit to 0 as long as
-    // the buffer always starts from 0.
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-  }
-
-  /**
    * Store the given value at a particular position in the vector. isSet indicates
    * whether the value is NULL or not.
    *
@@ -326,7 +314,7 @@ public class DurationVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
@@ -353,7 +341,7 @@ public class DurationVector extends BaseFixedWidthVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and and a target vector of
+   * Construct a TransferPair comprising of this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector

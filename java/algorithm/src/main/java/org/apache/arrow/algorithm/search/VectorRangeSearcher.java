@@ -44,6 +44,8 @@ public class VectorRangeSearcher {
           V targetVector, VectorValueComparator<V> comparator, V keyVector, int keyIndex) {
     comparator.attachVectors(keyVector, targetVector);
 
+    int ret = SEARCH_FAIL_RESULT;
+
     int low = 0;
     int high = targetVector.getValueCount() - 1;
 
@@ -57,30 +59,13 @@ public class VectorRangeSearcher {
         // the key is larger
         low = mid + 1;
       } else {
-        // the key equals the mid value, find the lower bound by going left-ward.
-
-        // compare with the left neighbour
-        int left = mid - 1;
-        if (left == -1) {
-          // this is the first value in the vector
-          return mid;
-        } else {
-          int leftResult = comparator.compare(keyIndex, left);
-          if (leftResult > 0) {
-            // the key is greater than the left neighbour, and equal to the current one
-            // we find it
-            return mid;
-          } else if (leftResult == 0) {
-            // the left neighbour is also equal, continue to go left
-            high = mid - 1;
-          } else {
-            // the key is larger than the left neighbour, this is not possible
-            throw new IllegalStateException("The target vector is not sorted ");
-          }
-        }
+        // an equal element is found
+        // continue to go left-ward
+        ret = mid;
+        high = mid - 1;
       }
     }
-    return SEARCH_FAIL_RESULT;
+    return ret;
   }
 
   /**
@@ -97,6 +82,8 @@ public class VectorRangeSearcher {
           V targetVector, VectorValueComparator<V> comparator, V keyVector, int keyIndex) {
     comparator.attachVectors(keyVector, targetVector);
 
+    int ret = SEARCH_FAIL_RESULT;
+
     int low = 0;
     int high = targetVector.getValueCount() - 1;
 
@@ -110,29 +97,12 @@ public class VectorRangeSearcher {
         // the key is larger
         low = mid + 1;
       } else {
-        // the key equals the mid value, find the upper bound by going right-ward.
-
-        // compare with the right neighbour
-        int right = mid + 1;
-        if (right == targetVector.getValueCount()) {
-          // this is the last value in the vector
-          return mid;
-        } else {
-          int rightResult = comparator.compare(keyIndex, right);
-          if (rightResult < 0) {
-            // the key is smaller than the right neighbour, and equal to the current one
-            // we find it
-            return mid;
-          } else if (rightResult == 0) {
-            // the right neighbour is also equal, continue to go right
-            low = mid + 1;
-          } else {
-            // the key is smaller than the right neighbour, this is not possible
-            throw new IllegalStateException("The target vector is not sorted ");
-          }
-        }
+        // an equal element is found,
+        // continue to go right-ward
+        ret = mid;
+        low = mid + 1;
       }
     }
-    return SEARCH_FAIL_RESULT;
+    return ret;
   }
 }

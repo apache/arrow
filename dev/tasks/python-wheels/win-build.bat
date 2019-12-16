@@ -20,14 +20,14 @@
 @rem create conda environment for compiling
 conda update --yes --quiet conda
 
-call conda create -n wheel-build -q -y -c conda-forge ^
+conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
     --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
     python=%PYTHON_VERSION% ^
     numpy=%NUMPY_VERSION% ^
     || exit /B
 
-call activate wheel-build
+call conda.bat activate wheel-build
 
 @rem Cannot use conda_env_python.yml here because conda-forge has
 @rem ceased providing up-to-date packages for Python 3.5
@@ -41,6 +41,11 @@ echo %ARROW_HOME%
 mkdir %ARROW_SRC%\cpp\build
 pushd %ARROW_SRC%\cpp\build
 
+@rem ARROW-6938(wesm): bz2 is disabled on Windows because the build
+@rem currently selects the shared lib for linking. Using the zstd lib from
+@rem conda-forge also results in a broken build so we use the BUNDLED
+@rem dependency resolution strategy for now
+
 cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BOOST_USE_SHARED=OFF ^
@@ -49,12 +54,17 @@ cmake -G "%GENERATOR%" ^
       -DARROW_DEPENDENCY_SOURCE=CONDA ^
       -DOPENSSL_ROOT_DIR=%CONDA_PREFIX%/Library ^
       -DARROW_CXXFLAGS="/MP" ^
+      -DARROW_WITH_BZ2=OFF ^
+      -DARROW_WITH_ZLIB=ON ^
+      -DARROW_WITH_ZSTD=ON ^
+      -DARROW_WITH_LZ4=ON ^
+      -DARROW_WITH_SNAPPY=ON ^
+      -DARROW_WITH_BROTLI=ON ^
       -DARROW_FLIGHT=ON ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=ON ^
-      -Duriparser_SOURCE=BUNDLED ^
-      -Dzlib_SOURCE=BUNDLED ^
+      -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
 popd
@@ -74,15 +84,17 @@ pushd %ARROW_SRC%\python
 python setup.py bdist_wheel || exit /B
 popd
 
-call deactivate
+call conda.bat deactivate
 
 set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 
 @rem test the wheel
 @rem TODO For maximum reliability, we should test in a plain virtualenv instead.
-call conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
-      numpy=%NUMPY_VERSION% pandas cython pytest hypothesis || exit /B
-call activate wheel-test
+conda create -n wheel-test -c conda-forge -q -y ^
+    --file %ARROW_SRC%\ci\conda_env_python.yml ^
+    python=%PYTHON_VERSION% ^
+    numpy=%NUMPY_VERSION% || exit /B
+call conda.bat activate wheel-test
 
 @rem install the built wheel
 pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B

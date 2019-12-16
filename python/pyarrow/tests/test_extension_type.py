@@ -18,25 +18,30 @@
 import pickle
 import weakref
 
+import numpy as np
 import pyarrow as pa
 
 import pytest
 
 
-class UuidType(pa.ExtensionType):
+class UuidType(pa.PyExtensionType):
 
     def __init__(self):
-        pa.ExtensionType.__init__(self, pa.binary(16))
+        pa.PyExtensionType.__init__(self, pa.binary(16))
 
     def __reduce__(self):
         return UuidType, ()
 
 
-class ParamExtType(pa.ExtensionType):
+class ParamExtType(pa.PyExtensionType):
 
     def __init__(self, width):
-        self.width = width
-        pa.ExtensionType.__init__(self, pa.binary(width))
+        self._width = width
+        pa.PyExtensionType.__init__(self, pa.binary(width))
+
+    @property
+    def width(self):
+        return self._width
 
     def __reduce__(self):
         return ParamExtType, (self.width,)
@@ -217,3 +222,189 @@ def test_ipc_unknown_type():
     batch = ipc_read_batch(buf2)
     arr = check_example_batch(batch)
     assert arr.type == ParamExtType(3)
+
+
+class PeriodType(pa.ExtensionType):
+
+    def __init__(self, freq):
+        # attributes need to be set first before calling
+        # super init (as that calls serialize)
+        self._freq = freq
+        pa.ExtensionType.__init__(self, pa.int64(), 'pandas.period')
+
+    @property
+    def freq(self):
+        return self._freq
+
+    def __arrow_ext_serialize__(self):
+        return "freq={}".format(self.freq).encode()
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        serialized = serialized.decode()
+        assert serialized.startswith("freq=")
+        freq = serialized.split('=')[1]
+        return PeriodType(freq)
+
+    def __eq__(self, other):
+        if isinstance(other, pa.BaseExtensionType):
+            return (type(self) == type(other) and
+                    self.freq == other.freq)
+        else:
+            return NotImplemented
+
+
+@pytest.fixture
+def registered_period_type():
+    # setup
+    period_type = PeriodType('D')
+    pa.register_extension_type(period_type)
+    yield
+    # teardown
+    try:
+        pa.unregister_extension_type('pandas.period')
+    except KeyError:
+        pass
+
+
+def test_generic_ext_type():
+    period_type = PeriodType('D')
+    assert period_type.extension_name == "pandas.period"
+    assert period_type.storage_type == pa.int64()
+
+
+def test_generic_ext_type_ipc(registered_period_type):
+    period_type = PeriodType('D')
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(period_type, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    buf = ipc_write_batch(batch)
+    del batch
+    batch = ipc_read_batch(buf)
+
+    result = batch.column(0)
+    assert isinstance(result, pa.ExtensionArray)
+    assert result.type.extension_name == "pandas.period"
+    assert arr.storage.to_pylist() == [1, 2, 3, 4]
+
+    # we get back an actual PeriodType
+    assert isinstance(result.type, PeriodType)
+    assert result.type.freq == 'D'
+    assert result.type == PeriodType('D')
+
+    # using different parametrization as how it was registered
+    period_type_H = PeriodType('H')
+    assert period_type_H.extension_name == "pandas.period"
+    assert period_type_H.freq == 'H'
+
+    arr = pa.ExtensionArray.from_storage(period_type_H, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    buf = ipc_write_batch(batch)
+    del batch
+    batch = ipc_read_batch(buf)
+    result = batch.column(0)
+    assert isinstance(result.type, PeriodType)
+    assert result.type.freq == 'H'
+    assert result.type == PeriodType('H')
+
+
+def test_generic_ext_type_ipc_unknown(registered_period_type):
+    period_type = PeriodType('D')
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(period_type, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    buf = ipc_write_batch(batch)
+    del batch
+
+    # unregister type before loading again => reading unknown extension type
+    # as plain array (but metadata in schema's field are preserved)
+    pa.unregister_extension_type('pandas.period')
+
+    batch = ipc_read_batch(buf)
+    result = batch.column(0)
+
+    assert isinstance(result, pa.Int64Array)
+    ext_field = batch.schema.field('ext')
+    assert ext_field.metadata == {
+        b'ARROW:extension:metadata': b'freq=D',
+        b'ARROW:extension:name': b'pandas.period'
+    }
+
+
+def test_generic_ext_type_equality():
+    period_type = PeriodType('D')
+    assert period_type.extension_name == "pandas.period"
+
+    period_type2 = PeriodType('D')
+    period_type3 = PeriodType('H')
+    assert period_type == period_type2
+    assert not period_type == period_type3
+
+
+def test_generic_ext_type_register(registered_period_type):
+    # test that trying to register other type does not segfault
+    with pytest.raises(TypeError):
+        pa.register_extension_type(pa.string())
+
+    # register second time raises KeyError
+    period_type = PeriodType('D')
+    with pytest.raises(KeyError):
+        pa.register_extension_type(period_type)
+
+
+@pytest.mark.parquet
+def test_parquet(tmpdir, registered_period_type):
+    # parquet support for extension types
+    period_type = PeriodType('D')
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(period_type, storage)
+    table = pa.table([arr], names=["ext"])
+
+    import pyarrow.parquet as pq
+
+    filename = tmpdir / 'extension_type.parquet'
+    pq.write_table(table, filename)
+
+    # stored in parquet as storage type but with extension metadata saved
+    # in the serialized arrow schema
+    meta = pq.read_metadata(filename)
+    assert meta.schema.column(0).physical_type == "INT64"
+    assert b"ARROW:schema" in meta.metadata
+
+    import base64
+    decoded_schema = base64.b64decode(meta.metadata[b"ARROW:schema"])
+    schema = pa.read_schema(pa.BufferReader(decoded_schema))
+    assert schema.field("ext").metadata == {
+        b'ARROW:extension:metadata': b'freq=D',
+        b'ARROW:extension:name': b'pandas.period'}
+
+    # when reading in, properly create extension type if it is registered
+    result = pq.read_table(filename)
+    assert result.column("ext").type == period_type
+
+    # when the type is not registered, read in as storage type
+    pa.unregister_extension_type(period_type.extension_name)
+    result = pq.read_table(filename)
+    assert result.column("ext").type == pa.int64()
+
+
+def test_to_numpy():
+    period_type = PeriodType('D')
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(period_type, storage)
+
+    expected = storage.to_numpy()
+    result = arr.to_numpy()
+    np.testing.assert_array_equal(result, expected)
+
+    result = np.asarray(arr)
+    np.testing.assert_array_equal(result, expected)
+
+    # chunked array
+    charr = pa.chunked_array([arr])
+
+    result = np.asarray(charr)
+    np.testing.assert_array_equal(result, expected)

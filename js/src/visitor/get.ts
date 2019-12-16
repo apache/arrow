@@ -18,8 +18,9 @@
 import { Data } from '../data';
 import { BN } from '../util/bn';
 import { Visitor } from '../visitor';
-import { VectorType } from '../interfaces';
 import { decodeUtf8 } from '../util/utf8';
+import { VectorType } from '../interfaces';
+import { uint16ToFloat64 } from '../util/math';
 import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum';
 import {
     DataType, Dictionary,
@@ -123,7 +124,7 @@ const getDateMillisecond = <T extends DateMillisecond>({ values         }: Vecto
 /** @ignore */
 const getNumeric         = <T extends Numeric1X>      ({ stride, values }: VectorType<T>, index: number): T['TValue'] => values[stride * index];
 /** @ignore */
-const getFloat16         = <T extends Float16>        ({ stride, values }: VectorType<T>, index: number): T['TValue'] => (values[stride * index] - 32767) / 32767;
+const getFloat16         = <T extends Float16>        ({ stride, values }: VectorType<T>, index: number): T['TValue'] => uint16ToFloat64(values[stride * index]);
 /** @ignore */
 const getBigInts         = <T extends Numeric2X>({ stride, values, type }: VectorType<T>, index: number): T['TValue'] => <any> BN.new(values.subarray(stride * index, stride * (index + 1)), type.isSigned);
 /** @ignore */
@@ -209,11 +210,13 @@ const getList = <T extends List>(vector: VectorType<T>, index: number): T['TValu
 };
 
 /** @ignore */
-const getNested = <
-    S extends { [key: string]: DataType },
-    V extends VectorType<Map_<S>> | VectorType<Struct<S>>
->(vector: V, index: number): V['TValue'] => {
-    return vector.rowProxy.bind(index) as V['TValue'];
+const getMap = <T extends Map_>(vector: VectorType<T>, index: number): T['TValue'] => {
+    return vector.bind(index) as T['TValue'];
+};
+
+/** @ignore */
+const getStruct = <T extends Struct>(vector: VectorType<T>, index: number): T['TValue'] => {
+    return vector.bind(index) as T['TValue'];
 };
 
 /* istanbul ignore next */
@@ -303,7 +306,7 @@ GetVisitor.prototype.visitTimeMicrosecond      =      getTimeMicrosecond;
 GetVisitor.prototype.visitTimeNanosecond       =       getTimeNanosecond;
 GetVisitor.prototype.visitDecimal              =              getDecimal;
 GetVisitor.prototype.visitList                 =                 getList;
-GetVisitor.prototype.visitStruct               =               getNested;
+GetVisitor.prototype.visitStruct               =               getStruct;
 GetVisitor.prototype.visitUnion                =                getUnion;
 GetVisitor.prototype.visitDenseUnion           =           getDenseUnion;
 GetVisitor.prototype.visitSparseUnion          =          getSparseUnion;
@@ -312,7 +315,7 @@ GetVisitor.prototype.visitInterval             =             getInterval;
 GetVisitor.prototype.visitIntervalDayTime      =      getIntervalDayTime;
 GetVisitor.prototype.visitIntervalYearMonth    =    getIntervalYearMonth;
 GetVisitor.prototype.visitFixedSizeList        =        getFixedSizeList;
-GetVisitor.prototype.visitMap                  =               getNested;
+GetVisitor.prototype.visitMap                  =                  getMap;
 
 /** @ignore */
 export const instance = new GetVisitor();

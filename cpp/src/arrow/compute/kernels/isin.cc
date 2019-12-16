@@ -28,15 +28,16 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/dict_internal.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/util-internal.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
@@ -249,17 +250,7 @@ struct IsInKernelTraits<Type, enable_if_has_c_type<Type>> {
 };
 
 template <typename Type>
-struct IsInKernelTraits<Type, enable_if_boolean<Type>> {
-  using IsInKernelImpl = IsInKernel<Type, bool>;
-};
-
-template <typename Type>
-struct IsInKernelTraits<Type, enable_if_binary<Type>> {
-  using IsInKernelImpl = IsInKernel<Type, util::string_view>;
-};
-
-template <typename Type>
-struct IsInKernelTraits<Type, enable_if_fixed_size_binary<Type>> {
+struct IsInKernelTraits<Type, enable_if_has_string_view<Type>> {
   using IsInKernelImpl = IsInKernel<Type, util::string_view>;
 };
 

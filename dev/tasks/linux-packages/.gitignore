@@ -15,12 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/*.tar.gz
-/apt/.vagrant/
-/apt/repositories/
-/apt/tmp/
-/apt/env.sh
-/yum/.vagrant/
-/yum/repositories/
-/yum/tmp/
-/yum/env.sh
+/*/*.tar.gz
+/*/apt/repositories/
+/*/apt/tmp/
+/*/apt/build.sh
+/*/apt/env.sh
+/*/yum/repositories/
+/*/yum/tmp/
+/*/yum/build.sh
+/*/yum/env.sh

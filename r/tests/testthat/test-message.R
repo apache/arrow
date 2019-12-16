@@ -15,18 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::ipc::Message")
+context("Message")
 
 test_that("read_message can read from input stream", {
   batch <- record_batch(x = 1:10)
   bytes <- batch$serialize()
-  stream <- BufferReader(bytes)
+  stream <- BufferReader$create(bytes)
 
   message <- read_message(stream)
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$RECORD_BATCH)
-  expect_is(message$body, "arrow::Buffer")
-  expect_is(message$metadata, "arrow::Buffer")
+  expect_is(message$body, "Buffer")
+  expect_is(message$metadata, "Buffer")
 
   message <- read_message(stream)
   expect_null(read_message(stream))
@@ -34,13 +34,13 @@ test_that("read_message can read from input stream", {
 
 test_that("read_message() can read Schema messages", {
   bytes <- schema(x=int32())$serialize()
-  stream <- BufferReader(bytes)
+  stream <- BufferReader$create(bytes)
   message <- read_message(stream)
 
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
-  expect_is(message$body, "arrow::Buffer")
-  expect_is(message$metadata, "arrow::Buffer")
+  expect_is(message$body, "Buffer")
+  expect_is(message$metadata, "Buffer")
 
   message <- read_message(stream)
   expect_null(read_message(stream))
@@ -49,14 +49,14 @@ test_that("read_message() can read Schema messages", {
 test_that("read_message() can handle raw vectors", {
   batch <- record_batch(x = 1:10)
   bytes <- batch$serialize()
-  stream <- BufferReader(bytes)
+  stream <- BufferReader$create(bytes)
 
   message_stream <- read_message(stream)
   message_raw <- read_message(bytes)
   expect_equal(message_stream, message_raw)
 
   bytes <- schema(x=int32())$serialize()
-  stream <- BufferReader(bytes)
+  stream <- BufferReader$create(bytes)
   message_stream <- read_message(stream)
   message_raw <- read_message(bytes)
 

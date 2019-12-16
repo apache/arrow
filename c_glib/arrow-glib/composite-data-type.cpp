@@ -38,6 +38,8 @@ G_BEGIN_DECLS
  *
  * #GArrowListDataType is a class for list data type.
  *
+ * #GArrowLargeListDataType is a class for 64-bit offsets list data type.
+ *
  * #GArrowStructDataType is a class for struct data type.
  *
  * #GArrowUnionDataType is a base class for union data types.
@@ -115,6 +117,63 @@ garrow_list_data_type_get_field(GArrowListDataType *list_data_type)
     static_cast<arrow::ListType *>(arrow_data_type.get());
 
   auto arrow_field = arrow_list_data_type->value_field();
+  return garrow_field_new_raw(&arrow_field, nullptr);
+}
+
+
+G_DEFINE_TYPE(GArrowLargeListDataType,
+              garrow_large_list_data_type,
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_large_list_data_type_init(GArrowLargeListDataType *object)
+{
+}
+
+static void
+garrow_large_list_data_type_class_init(GArrowLargeListDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_large_list_data_type_new:
+ * @field: The field of elements
+ *
+ * Returns: The newly created large list data type.
+ *
+ * Since: 1.0.0
+ */
+GArrowLargeListDataType *
+garrow_large_list_data_type_new(GArrowField *field)
+{
+  auto arrow_field = garrow_field_get_raw(field);
+  auto arrow_data_type =
+    std::make_shared<arrow::LargeListType>(arrow_field);
+
+  GArrowLargeListDataType *data_type =
+    GARROW_LARGE_LIST_DATA_TYPE(g_object_new(GARROW_TYPE_LARGE_LIST_DATA_TYPE,
+                                             "data-type", &arrow_data_type,
+                                             NULL));
+  return data_type;
+}
+
+/**
+ * garrow_large_list_data_type_get_field:
+ * @large_list_data_type: A #GArrowLargeListDataType.
+ *
+ * Returns: (transfer full): The field of value.
+ *
+ * Since: 1.0.0
+ */
+GArrowField *
+garrow_large_list_data_type_get_field(GArrowLargeListDataType *large_list_data_type)
+{
+  auto data_type = GARROW_DATA_TYPE(large_list_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_large_list_data_type =
+    static_cast<arrow::LargeListType *>(arrow_data_type.get());
+
+  auto arrow_field = arrow_large_list_data_type->value_field();
   return garrow_field_new_raw(&arrow_field, nullptr);
 }
 
@@ -377,7 +436,7 @@ garrow_union_data_type_get_field(GArrowUnionDataType *union_data_type,
  *
  * Since: 0.12.0
  */
-guint8 *
+gint8 *
 garrow_union_data_type_get_type_codes(GArrowUnionDataType *union_data_type,
                                       gsize *n_type_codes)
 {
@@ -387,7 +446,7 @@ garrow_union_data_type_get_type_codes(GArrowUnionDataType *union_data_type,
 
   const auto arrow_type_codes = arrow_union_data_type->type_codes();
   const auto n = arrow_type_codes.size();
-  auto type_codes = static_cast<guint8 *>(g_new(guint8, n));
+  auto type_codes = static_cast<gint8 *>(g_new(gint8, n));
   for (size_t i = 0; i < n; ++i) {
     type_codes[i] = arrow_type_codes[i];
   }
@@ -420,7 +479,7 @@ garrow_sparse_union_data_type_class_init(GArrowSparseUnionDataTypeClass *klass)
  */
 GArrowSparseUnionDataType *
 garrow_sparse_union_data_type_new(GList *fields,
-                                  guint8 *type_codes,
+                                  gint8 *type_codes,
                                   gsize n_type_codes)
 {
   std::vector<std::shared_ptr<arrow::Field>> arrow_fields;
@@ -430,7 +489,7 @@ garrow_sparse_union_data_type_new(GList *fields,
     arrow_fields.push_back(arrow_field);
   }
 
-  std::vector<uint8_t> arrow_type_codes;
+  std::vector<int8_t> arrow_type_codes;
   for (gsize i = 0; i < n_type_codes; ++i) {
     arrow_type_codes.push_back(type_codes[i]);
   }
@@ -470,7 +529,7 @@ garrow_dense_union_data_type_class_init(GArrowDenseUnionDataTypeClass *klass)
  */
 GArrowDenseUnionDataType *
 garrow_dense_union_data_type_new(GList *fields,
-                                 guint8 *type_codes,
+                                 gint8 *type_codes,
                                  gsize n_type_codes)
 {
   std::vector<std::shared_ptr<arrow::Field>> arrow_fields;
@@ -480,7 +539,7 @@ garrow_dense_union_data_type_new(GList *fields,
     arrow_fields.push_back(arrow_field);
   }
 
-  std::vector<uint8_t> arrow_type_codes;
+  std::vector<int8_t> arrow_type_codes;
   for (gsize i = 0; i < n_type_codes; ++i) {
     arrow_type_codes.push_back(type_codes[i]);
   }

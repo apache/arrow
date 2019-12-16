@@ -78,7 +78,7 @@ See `Protocol Buffer Definitions`_ for full details on the methods and
 messages involved.
 
 Authentication
-~~~~~~~~~~~~~~
+--------------
 
 Flight supports application-implemented authentication
 methods. Authentication, if enabled, has two phases: at connection
@@ -91,6 +91,50 @@ the initial handshake and send an externally acquired token on each
 call, or they may establish trust during the handshake and not
 validate a token for each call. (Note that the latter is not secure if
 you choose to deploy a layer 7 load balancer, as is common with gRPC.)
+
+Error Handling
+--------------
+
+Arrow Flight defines its own set of error codes. The implementation
+differs between languages (e.g. in C++, Unimplemented is a general
+Arrow error status while it's a Flight-specific exception in Java),
+but the following set is exposed:
+
++----------------+-------------------------------------------+
+|Error Code      |Description                                |
++================+===========================================+
+|UNKNOWN         |An unknown error. The default if no other  |
+|                |error applies.                             |
++----------------+-------------------------------------------+
+|INTERNAL        |An error internal to the service           |
+|                |implementation occurred.                   |
++----------------+-------------------------------------------+
+|INVALID_ARGUMENT|The client passed an invalid argument to   |
+|                |the RPC.                                   |
++----------------+-------------------------------------------+
+|TIMED_OUT       |The operation exceeded a timeout or        |
+|                |deadline.                                  |
++----------------+-------------------------------------------+
+|NOT_FOUND       |The requested resource (action, data       |
+|                |stream) was not found.                     |
++----------------+-------------------------------------------+
+|ALREADY_EXISTS  |The resource already exists.               |
++----------------+-------------------------------------------+
+|CANCELLED       |The operation was cancelled (either by the |
+|                |client or the server).                     |
++----------------+-------------------------------------------+
+|UNAUTHENTICATED |The client is not authenticated.           |
++----------------+-------------------------------------------+
+|UNAUTHORIZED    |The client is authenticated, but does not  |
+|                |have permissions for the requested         |
+|                |operation.                                 |
++----------------+-------------------------------------------+
+|UNIMPLEMENTED   |The RPC is not implemented.                |
++----------------+-------------------------------------------+
+|UNAVAILABLE     |The server is not available. May be emitted|
+|                |by the client for connectivity reasons.    |
++----------------+-------------------------------------------+
+
 
 External Resources
 ------------------

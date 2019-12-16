@@ -19,7 +19,7 @@ package org.apache.arrow.memory.util;
 
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
-import org.apache.arrow.memory.util.hash.DirectHasher;
+import org.apache.arrow.memory.util.hash.SimpleHasher;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
@@ -70,7 +70,7 @@ public class ByteFunctionHelpers {
         n -= 8;
       }
 
-      while (n > 3) {
+      if (n > 3) {
         int leftInt = PlatformDependent.getInt(lPos);
         int rightInt = PlatformDependent.getInt(rPos);
         if (leftInt != rightInt) {
@@ -140,18 +140,18 @@ public class ByteFunctionHelpers {
       long leftLong = PlatformDependent.getLong(lPos);
       long rightLong = PlatformDependent.getLong(rPos);
       if (leftLong != rightLong) {
-        return unsignedLongCompare(leftLong, rightLong);
+        return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
       }
       lPos += 8;
       rPos += 8;
       n -= 8;
     }
 
-    while (n > 3) {
+    if (n > 3) {
       int leftInt = PlatformDependent.getInt(lPos);
       int rightInt = PlatformDependent.getInt(rPos);
       if (leftInt != rightInt) {
-        return unsignedIntCompare(leftInt, rightInt);
+        return unsignedIntCompare(Integer.reverseBytes(leftInt), Integer.reverseBytes(rightInt));
       }
       lPos += 4;
       rPos += 4;
@@ -231,6 +231,28 @@ public class ByteFunctionHelpers {
     long lPos = laddr + lStart;
     int rPos = rStart;
 
+    while (n > 7) {
+      long leftLong = PlatformDependent.getLong(lPos);
+      long rightLong = PlatformDependent.getLong(right, rPos);
+      if (leftLong != rightLong) {
+        return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+      }
+      lPos += 8;
+      rPos += 8;
+      n -= 8;
+    }
+
+    if (n > 3) {
+      int leftInt = PlatformDependent.getInt(lPos);
+      int rightInt = PlatformDependent.getInt(right, rPos);
+      if (leftInt != rightInt) {
+        return unsignedIntCompare(Integer.reverseBytes(leftInt), Integer.reverseBytes(rightInt));
+      }
+      lPos += 4;
+      rPos += 4;
+      n -= 4;
+    }
+
     while (n-- != 0) {
       byte leftByte = PlatformDependent.getByte(lPos);
       byte rightByte = right[rPos];
@@ -253,7 +275,17 @@ public class ByteFunctionHelpers {
    */
   public static final int hash(final ArrowBuf buf, int start, int end) {
 
-    ArrowBufHasher hasher = DirectHasher.INSTANCE;
+    return hash(SimpleHasher.INSTANCE, buf, start, end);
+  }
+
+  /**
+   * Compute hashCode with the given {@link ArrowBufHasher}, {@link ArrowBuf} and start/end index.
+   */
+  public static final int hash(ArrowBufHasher hasher, final ArrowBuf buf, int start, int end) {
+
+    if (hasher == null) {
+      hasher = SimpleHasher.INSTANCE;
+    }
 
     return hasher.hashCode(buf, start, end - start);
   }
@@ -261,7 +293,7 @@ public class ByteFunctionHelpers {
   /**
    * Generate a new hashCode with the given current hashCode and new hashCode.
    */
-  public static int comebineHash(int currentHash, int newHash) {
+  public static int combineHash(int currentHash, int newHash) {
     return currentHash * 31 + newHash;
   }
 }

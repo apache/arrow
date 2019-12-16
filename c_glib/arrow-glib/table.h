@@ -100,5 +100,9 @@ GArrowTable*
 garrow_table_slice(GArrowTable *table,
                    gint64 offset,
                    gint64 length);
+GARROW_AVAILABLE_IN_1_0
+GArrowTable*
+garrow_table_combine_chunks(GArrowTable *table,
+                            GError **error);
 
 G_END_DECLS

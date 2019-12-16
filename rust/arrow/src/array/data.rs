@@ -128,6 +128,11 @@ impl ArrayData {
         &self.null_bitmap
     }
 
+    /// Returns a reference to the null buffer of this array data.
+    pub fn null_buffer(&self) -> Option<&Buffer> {
+        self.null_bitmap().as_ref().map(|b| b.buffer_ref())
+    }
+
     /// Returns whether the element at index `i` is not null
     pub fn is_valid(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
@@ -303,5 +308,19 @@ mod tests {
             .null_bit_buffer(Buffer::from(bit_v))
             .build();
         assert_eq!(10, arr_data.null_count());
+    }
+
+    #[test]
+    fn test_null_buffer_ref() {
+        let mut bit_v: [u8; 2] = [0; 2];
+        bit_util::set_bit(&mut bit_v, 0);
+        bit_util::set_bit(&mut bit_v, 3);
+        bit_util::set_bit(&mut bit_v, 10);
+        let arr_data = ArrayData::builder(DataType::Int32)
+            .len(16)
+            .null_bit_buffer(Buffer::from(bit_v))
+            .build();
+        assert!(arr_data.null_buffer().is_some());
+        assert_eq!(&bit_v, arr_data.null_buffer().unwrap().data());
     }
 }

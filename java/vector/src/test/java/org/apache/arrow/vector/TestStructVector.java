@@ -17,16 +17,16 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
@@ -130,6 +130,55 @@ public class TestStructVector {
       vector.get(1, holder);
       assertEquals(0, holder.isSet);
       assertNull(holder.reader);
+    }
+  }
+
+  @Test
+  public void testGetPrimitiveVectors() {
+    FieldType type = new FieldType(true, Struct.INSTANCE, null, null);
+    try (StructVector vector = new StructVector("struct", allocator, type, null)) {
+
+      // add list vector
+      vector.addOrGet("list", FieldType.nullable(MinorType.LIST.getType()), ListVector.class);
+      ListVector listVector = vector.addOrGetList("list");
+      listVector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
+
+      // add union vector
+      vector.addOrGet("union", FieldType.nullable(MinorType.UNION.getType()), UnionVector.class);
+      UnionVector unionVector = vector.addOrGetUnion("union");
+      unionVector.addVector(new BigIntVector("bigInt", allocator));
+      unionVector.addVector(new SmallIntVector("smallInt", allocator));
+
+      // add varchar vector
+      vector.addOrGet("varchar", FieldType.nullable(MinorType.VARCHAR.getType()), VarCharVector.class);
+
+      List<ValueVector> primitiveVectors = vector.getPrimitiveVectors();
+      assertEquals(4, primitiveVectors.size());
+      assertEquals(MinorType.INT, primitiveVectors.get(0).getMinorType());
+      assertEquals(MinorType.BIGINT, primitiveVectors.get(1).getMinorType());
+      assertEquals(MinorType.SMALLINT, primitiveVectors.get(2).getMinorType());
+      assertEquals(MinorType.VARCHAR, primitiveVectors.get(3).getMinorType());
+    }
+  }
+
+  @Test
+  public void testAddOrGetComplexChildVectors() {
+    FieldType type = new FieldType(true, Struct.INSTANCE, null, null);
+    try (StructVector vector = new StructVector("struct", allocator, type, null)) {
+
+      vector.addOrGetList("list");
+      vector.addOrGetFixedSizeList("fixedList", 2);
+      vector.addOrGetUnion("union");
+      vector.addOrGetStruct("struct");
+      vector.addOrGetMap("map", true);
+
+      List<FieldVector> childrens = vector.getChildrenFromFields();
+      assertEquals(5, childrens.size());
+      assertEquals(MinorType.LIST, childrens.get(0).getMinorType());
+      assertEquals(MinorType.FIXED_SIZE_LIST, childrens.get(1).getMinorType());
+      assertEquals(MinorType.UNION, childrens.get(2).getMinorType());
+      assertEquals(MinorType.STRUCT, childrens.get(3).getMinorType());
+      assertEquals(MinorType.MAP, childrens.get(4).getMinorType());
     }
   }
 }

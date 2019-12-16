@@ -37,7 +37,9 @@ class ArrowIOError(IOError, ArrowException):
 
 
 class ArrowKeyError(KeyError, ArrowException):
-    pass
+    def __str__(self):
+        # Override KeyError.__str__, as it uses the repr() of the key
+        return ArrowException.__str__(self)
 
 
 class ArrowTypeError(TypeError, ArrowException):

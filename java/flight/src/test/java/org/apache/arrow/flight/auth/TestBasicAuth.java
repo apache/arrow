@@ -58,7 +58,7 @@ public class TestBasicAuth {
   @Test
   public void validAuth() {
     client.authenticateBasic(USERNAME, PASSWORD);
-    Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() >= 0);
+    Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
   }
 
   @Test

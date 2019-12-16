@@ -75,7 +75,7 @@ PROJECT_LOGO           =
 # entered, it will be relative to the location where doxygen was started. If
 # left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       =
+OUTPUT_DIRECTORY       = $(OUTPUT_DIRECTORY)
 
 # If the CREATE_SUBDIRS tag is set to YES then doxygen will create 4096 sub-
 # directories (in 2 levels) under the output directory of each output format and
@@ -2074,7 +2074,9 @@ INCLUDE_FILE_PATTERNS  =
 
 PREDEFINED = __attribute__(x)= \
              __declspec(x)= \
+             PARQUET_EXPORT= \
              ARROW_EXPORT= \
+             ARROW_FLIGHT_EXPORT= \
              ARROW_EXTERN_TEMPLATE= \
              ARROW_DEPRECATED(x)=
 

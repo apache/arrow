@@ -19,17 +19,18 @@ VERSION=$(shell grep ^Version DESCRIPTION | sed s/Version:\ //)
 ARROW_R_DEV="TRUE"
 
 doc:
-	R --slave -e 'devtools::document(); rmarkdown::render("README.Rmd")'
+	R --slave -e 'rmarkdown::render("README.Rmd"); roxygen2::roxygenize()'
 	-git add --all man/*.Rd
 
 test:
-	export ARROW_R_DEV=$(ARROW_R_DEV) && R CMD INSTALL --install-tests .
+	export ARROW_R_DEV=$(ARROW_R_DEV) && R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile .
 	export NOT_CRAN=true && R --slave -e 'library(testthat); setwd(file.path(.libPaths()[1], "arrow", "tests")); system.time(test_check("arrow", filter="${file}", reporter=ifelse(nchar("${r}"), "${r}", "summary")))'
 
 deps:
 	R --slave -e 'lib <- Sys.getenv("R_LIB", .libPaths()[1]); install.packages("devtools", repo="https://cloud.r-project.org", lib=lib); devtools::install_dev_deps(lib=lib)'
 
 build: doc
+	cp ../NOTICE.txt inst/NOTICE.txt
 	R CMD build .
 
 check: build
@@ -43,3 +44,4 @@ clean:
 	-rm src/Makevars
 	-rm src/Makevars.win
 	-rm -rf arrow.Rcheck/
+	-find . -name "*.orig" -delete

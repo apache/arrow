@@ -15,7 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_arrow_test(concatenate-test)
+add_arrow_test(concatenate_test)
+
+if(ARROW_COMPUTE)
+  # This unit test uses compute code
+  add_arrow_test(diff_test)
+endif()
 
 # Headers: top level
 arrow_install_all_headers("arrow/array")

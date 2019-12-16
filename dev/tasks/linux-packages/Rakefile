@@ -17,80 +17,41 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "package-task"
+packages = [
+  "apache-arrow",
+  "apache-arrow-archive-keyring",
+  "apache-arrow-release",
+]
 
-class ApacheArrowPackageTask < PackageTask
-  def initialize
-    release_time = detect_release_time
-    super("apache-arrow",
-          detect_version(release_time),
-          release_time,
-          :rc_build_type => :release)
-    @rpm_package = "arrow"
-  end
-
-  private
-  def detect_release_time
-    release_time_env = ENV["ARROW_RELEASE_TIME"]
-    if release_time_env
-      Time.parse(release_time_env).utc
-    else
-      latest_commit_time(arrow_source_dir) || Time.now.utc
-    end
-  end
-
-  def arrow_source_dir
-    File.join(File.dirname(__FILE__), "..", "..", "..")
-  end
-
-  def detect_version(release_time)
-    version_env = ENV['ARROW_VERSION']
-    return version_env if version_env
-
-    pom_xml_path = File.join(arrow_source_dir, "java", "pom.xml")
-    version = File.read(pom_xml_path).scan(/^  <version>(.+?)<\/version>/)[0][0]
-    formatted_release_time = release_time.strftime("%Y%m%d")
-    version.gsub(/-SNAPSHOT\z/) {"-dev#{formatted_release_time}"}
-  end
-
-  def define_archive_task
-    file @archive_name do
-      case @version
-      when /\A\d+\.\d+\.\d+-rc\d+\z/
-        download_rc_archive
-      when /\A\d+\.\d+\.\d+\z/
-        download_released_archive
-      else
-        build_archive
+namespace :apt do
+  desc "Build deb packages"
+  task :build do
+    packages.each do |package|
+      cd(package) do
+        ruby("-S", "rake", "apt:build")
       end
-    end
-  end
-
-  def download_rc_archive
-    base_url = "https://dist.apache.org/repos/dist/dev/arrow"
-    archive_name_no_rc = @archive_name.gsub(/-rc\d+(\.tar\.gz)\z/, "\\1")
-    url = "#{base_url}/#{@package}-#{@version}/#{archive_name_no_rc}"
-    download(url, @archive_name)
-  end
-
-  def download_released_archive
-    mirror_base_url = "https://www.apache.org/dyn/closer.cgi/arrow"
-    mirror_list_url = "#{mirror_base_url}/arrow-#{@version}/#{@archive_name}"
-    open(mirror_list_url) do |response|
-      if /href="(.+?\/#{Regexp.escape(@archive_name)})"/ =~ response.read
-        download($1, ".")
-      end
-    end
-  end
-
-  def build_archive
-    cd(arrow_source_dir) do
-      sh("git", "archive", "HEAD",
-         "--prefix", "#{@archive_base_name}/",
-         "--output", @full_archive_name)
     end
   end
 end
 
-task = ApacheArrowPackageTask.new
-task.define
+namespace :yum do
+  desc "Build RPM packages"
+  task :build do
+    packages.each do |package|
+      cd(package) do
+        ruby("-S", "rake", "yum:build")
+      end
+    end
+  end
+end
+
+namespace :version do
+  desc "Update versions"
+  task :update do
+    packages.each do |package|
+      cd(package) do
+        ruby("-S", "rake", "version:update")
+      end
+    end
+  end
+end

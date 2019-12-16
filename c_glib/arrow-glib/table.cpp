@@ -588,6 +588,32 @@ garrow_table_slice(GArrowTable *table,
   return garrow_table_new_raw(&arrow_sub_table);
 }
 
+/**
+ * garrow_table_combine_chunks:
+ * @table: A #GArrowTable.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowTable with
+ *   chunks combined, or %NULL on error.
+ *
+ * Since: 1.0.0
+ */
+GArrowTable *
+garrow_table_combine_chunks(GArrowTable *table,
+                            GError **error)
+{
+  const auto arrow_table = garrow_table_get_raw(table);
+
+  std::shared_ptr<arrow::Table> arrow_combined_table;
+  auto status = arrow_table->CombineChunks(arrow::default_memory_pool(),
+                                           &arrow_combined_table);
+  if (garrow_error_check(error, status, "[table][combine-chunks]")) {
+    return garrow_table_new_raw(&arrow_combined_table);
+  } else {
+    return NULL;
+  }
+}
+
 G_END_DECLS
 
 GArrowTable *

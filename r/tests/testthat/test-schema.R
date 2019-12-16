@@ -15,32 +15,47 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::Schema")
+context("Schema")
+
+test_that("Alternate type names are supported", {
+  expect_equal(
+    schema(b = double(), c = bool(), d = string(), e = float(), f = halffloat()),
+    schema(b = float64(), c = boolean(), d = utf8(), e = float32(), f = float16())
+  )
+  expect_equal(names(schema(b = double(), c = bool(), d = string())), c("b", "c", "d"))
+})
 
 test_that("reading schema from Buffer", {
   # TODO: this uses the streaming format, i.e. from RecordBatchStreamWriter
   #       maybe there is an easier way to serialize a schema
   batch <- record_batch(x = 1:10)
-  expect_is(batch, "arrow::RecordBatch")
+  expect_is(batch, "RecordBatch")
 
-  stream <- BufferOutputStream()
-  writer <- RecordBatchStreamWriter(stream, batch$schema)
-  expect_is(writer, "arrow::ipc::RecordBatchStreamWriter")
+  stream <- BufferOutputStream$create()
+  writer <- RecordBatchStreamWriter$create(stream, batch$schema)
+  expect_is(writer, "RecordBatchStreamWriter")
   writer$close()
 
   buffer <- stream$getvalue()
-  expect_is(buffer, "arrow::Buffer")
+  expect_is(buffer, "Buffer")
 
-  reader <- MessageReader(buffer)
-  expect_is(reader, "arrow::ipc::MessageReader")
+  reader <- MessageReader$create(buffer)
+  expect_is(reader, "MessageReader")
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
 
-  stream <- BufferReader(buffer)
-  expect_is(stream, "arrow::io::BufferReader")
+  stream <- BufferReader$create(buffer)
+  expect_is(stream, "BufferReader")
   message <- read_message(stream)
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
+})
+
+test_that("Input validation when creating a table with a schema", {
+  # TODO (npr): consider using table_from_dots once ARROW-5505 lands, and also
+  # allowing a list of types as a schema here
+  expect_error(Table__from_dots(list(b = 1), schema = c(b = float64())),
+    "schema must be an arrow::Schema or NULL")
 })

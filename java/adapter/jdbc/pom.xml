@@ -22,6 +22,7 @@
 
     <artifactId>arrow-jdbc</artifactId>
     <name>Arrow JDBC Adapter</name>
+    <description>(Contrib/Experimental)A library for converting JDBC data to Arrow data.</description>
     <url>http://maven.apache.org</url>
 
     <dependencies>
@@ -38,6 +39,7 @@
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
             <version>${project.version}</version>
+            <classifier>${arrow.vector.classifier}</classifier>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.h2database/h2 -->
@@ -75,6 +77,12 @@
             <version>${dep.jackson.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-common</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>	

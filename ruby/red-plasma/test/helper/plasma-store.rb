@@ -18,7 +18,7 @@
 module Helper
   class PlasmaStore
     def initialize(options={})
-      @path = `pkg-config --variable=executable plasma`.chomp
+      @path = `pkg-config --variable=plasma_store_server plasma`.chomp
       @memory_size = options[:memory_size] || 1024 * 1024
       @socket_file = Tempfile.new(["plasma-store", ".sock"])
       @socket_file.close
@@ -36,7 +36,7 @@ module Helper
                    "-s", socket_path)
       until File.exist?(socket_path)
         if Process.waitpid(@pid, Process::WNOHANG)
-          raise "Failed to run plasma_store_server: #{@path}"
+          raise "Failed to run plasma-store-server: #{@path}"
         end
       end
     end

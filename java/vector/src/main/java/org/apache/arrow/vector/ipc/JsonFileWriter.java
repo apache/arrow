@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
@@ -273,7 +274,7 @@ public class JsonFileWriter implements AutoCloseable {
           generator.writeNumber(IntVector.get(buffer, index));
           break;
         case BIGINT:
-          generator.writeNumber(BigIntVector.get(buffer, index));
+          generator.writeString(String.valueOf(BigIntVector.get(buffer, index)));
           break;
         case UINT1:
           generator.writeNumber(UInt1Vector.getNoOverflow(buffer, index));
@@ -285,7 +286,7 @@ public class JsonFileWriter implements AutoCloseable {
           generator.writeNumber(UInt4Vector.getNoOverflow(buffer, index));
           break;
         case UINT8:
-          generator.writeNumber(UInt8Vector.getNoOverflow(buffer, index));
+          generator.writeString(UInt8Vector.getNoOverflow(buffer, index).toString());
           break;
         case FLOAT4:
           generator.writeNumber(Float4Vector.get(buffer, index));
@@ -351,7 +352,7 @@ public class JsonFileWriter implements AutoCloseable {
           generator.writeNumber(BitVectorHelper.get(buffer, index));
           break;
         case VARBINARY: {
-          assert offsetBuffer != null;
+          Preconditions.checkNotNull(offsetBuffer);
           String hexString = Hex.encodeHexString(BaseVariableWidthVector.get(buffer,
                   offsetBuffer, index));
           generator.writeObject(hexString);
@@ -363,7 +364,7 @@ public class JsonFileWriter implements AutoCloseable {
           generator.writeObject(fixedSizeHexString);
           break;
         case VARCHAR: {
-          assert offsetBuffer != null;
+          Preconditions.checkNotNull(offsetBuffer);
           byte[] b = (BaseVariableWidthVector.get(buffer, offsetBuffer, index));
           generator.writeString(new String(b, "UTF-8"));
           break;

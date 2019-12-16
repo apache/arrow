@@ -162,6 +162,10 @@ func New(data *array.Data, shape, strides []int64, names []string) Interface {
 		return NewFloat32(data, shape, strides, names)
 	case arrow.FLOAT64:
 		return NewFloat64(data, shape, strides, names)
+	case arrow.DATE32:
+		return NewDate32(data, shape, strides, names)
+	case arrow.DATE64:
+		return NewDate64(data, shape, strides, names)
 	default:
 		panic(fmt.Errorf("arrow/tensor: invalid data type %s", dt.Name()))
 	}

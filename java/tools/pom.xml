@@ -18,6 +18,7 @@
     </parent>
     <artifactId>arrow-tools</artifactId>
     <name>Arrow Tools</name>
+    <description>Java applications for working with Arrow ValueVectors.</description>
 
     <dependencies>
         <dependency>
@@ -29,6 +30,7 @@
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
             <version>${project.version}</version>
+            <classifier>${arrow.vector.classifier}</classifier>
         </dependency>
         <dependency>
           <groupId>com.google.guava</groupId>
@@ -56,6 +58,15 @@
         <dependency>
           <groupId>org.slf4j</groupId>
           <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <dependency>
+          <groupId>org.apache.arrow</groupId>
+          <artifactId>arrow-vector</artifactId>
+          <version>${project.version}</version>
+          <classifier>tests</classifier>
+          <type>test-jar</type>
+          <scope>test</scope>
         </dependency>
     </dependencies>
 

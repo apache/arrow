@@ -101,14 +101,36 @@ module Helper
       build_array(Arrow::BinaryArrayBuilder.new, values)
     end
 
+    def build_large_binary_array(values)
+      build_array(Arrow::LargeBinaryArrayBuilder.new, values)
+    end
+
     def build_string_array(values)
       build_array(Arrow::StringArrayBuilder.new, values)
+    end
+
+    def build_large_string_array(values)
+      build_array(Arrow::LargeStringArrayBuilder.new, values)
     end
 
     def build_list_array(value_data_type, values_list, field_name: "value")
       value_field = Arrow::Field.new(field_name, value_data_type)
       data_type = Arrow::ListDataType.new(value_field)
       builder = Arrow::ListArrayBuilder.new(data_type)
+      values_list.each do |values|
+        if values.nil?
+          builder.append_null
+        else
+          append_to_builder(builder, values)
+        end
+      end
+      builder.finish
+    end
+
+    def build_large_list_array(value_data_type, values_list, field_name: "value")
+      value_field = Arrow::Field.new(field_name, value_data_type)
+      data_type = Arrow::LargeListDataType.new(value_field)
+      builder = Arrow::LargeListArrayBuilder.new(data_type)
       values_list.each do |values|
         if values.nil?
           builder.append_null
@@ -138,7 +160,7 @@ module Helper
       else
         data_type = builder.value_data_type
         case data_type
-        when Arrow::ListDataType
+        when Arrow::ListDataType, Arrow::LargeListDataType
           builder.append_value
           value_builder = builder.value_builder
           value.each do |v|
@@ -182,6 +204,8 @@ module Helper
       values.each do |value|
         if value.nil?
           builder.append_null
+        elsif builder.respond_to?(:append_string)
+          builder.append_string(value)
         else
           builder.append_value(value)
         end

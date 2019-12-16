@@ -165,15 +165,41 @@ date64 castDATE_utf8(int64_t execution_context, const char* input, int32 length)
 
 timestamp castTIMESTAMP_utf8(int64_t execution_context, const char* input, int32 length);
 timestamp castTIMESTAMP_date64(date64);
+const char* castVARCHAR_timestamp_int64(int64_t, timestamp, int64, int32*);
 
 int64 truncate_int64_int32(int64 in, int32 out_scale);
 
-char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
-                              int64 offset64, int64 length, int32* out_len);
-char* substr_utf8_int64(int64 context, const char* input, int32 in_len, int64 offset64,
-                        int32* out_len);
-char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
-                               const char* right, int32 right_len, int32* out_len);
+const char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
+                                    int64 offset64, int64 length, int32* out_len);
+const char* substr_utf8_int64(int64 context, const char* input, int32 in_len,
+                              int64 offset64, int32* out_len);
+const char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
+                                     const char* right, int32 right_len, int32* out_len);
+
+char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
+                             int64_t out_len, int32_t* out_length);
+
+const char* lower_utf8(int64 context, const char* data, int32 data_len,
+                       int32_t* out_length);
+
+const char* reverse_utf8(int64 context, const char* data, int32 data_len,
+                         int32_t* out_len);
+
+int32 locate_utf8_utf8(int64 context, const char* sub_str, int32 sub_str_len,
+                       const char* str, int32 str_len);
+
+int32 locate_utf8_utf8_int32(int64 context, const char* sub_str, int32 sub_str_len,
+                             const char* str, int32 str_len, int32 start_pos);
+
+const char* replace_with_max_len_utf8_utf8_utf8(int64 context, const char* text,
+                                                int32 text_len, const char* from_str,
+                                                int32 from_str_len, const char* to_str,
+                                                int32 to_str_len, int32 max_length,
+                                                int32* out_len);
+
+const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_len,
+                                   const char* from_str, int32 from_str_len,
+                                   const char* to_str, int32 to_str_len, int32* out_len);
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H

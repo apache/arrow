@@ -47,6 +47,16 @@ cpp_headers = files(
   'projector.hpp',
 )
 
+version_h_conf = configuration_data()
+version_h_conf.set('GGANDIVA_VERSION_MAJOR', version_major)
+version_h_conf.set('GGANDIVA_VERSION_MINOR', version_minor)
+version_h_conf.set('GGANDIVA_VERSION_MICRO', version_micro)
+version_h_conf.set('GGANDIVA_VERSION_TAG', version_tag)
+version_h = configure_file(input: 'version.h.in',
+                           output: 'version.h',
+                           configuration: version_h_conf)
+c_headers += version_h
+
 enums = gnome.mkenums('enums',
                       sources: c_headers,
                       identifier_prefix: 'GGandiva',

@@ -4,13 +4,22 @@
 \alias{write_feather}
 \title{Write data in the Feather format}
 \usage{
-write_feather(data, stream)
+write_feather(x, sink)
 }
 \arguments{
-\item{data}{\code{data.frame} or \code{arrow::RecordBatch}}
+\item{x}{\code{data.frame} or RecordBatch}
 
-\item{stream}{A file path or an \code{arrow::io::OutputStream}}
+\item{sink}{A file path or an OutputStream}
 }
 \description{
 Write data in the Feather format
+}
+\examples{
+\donttest{
+try({
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write_feather(mtcars, tf)
+})
+}
 }

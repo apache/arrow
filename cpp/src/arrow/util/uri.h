@@ -20,8 +20,10 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -54,6 +56,13 @@ class ARROW_EXPORT Uri {
   int32_t port() const;
   /// The URI path component.
   std::string path() const;
+  /// The URI query string
+  std::string query_string() const;
+  /// The URI query items
+  ///
+  /// Note this API doesn't allow differentiating between an empty value
+  /// and a missing value, such in "a&b=1" vs. "a=&b=1".
+  Result<std::vector<std::pair<std::string, std::string>>> query_items() const;
 
   /// Get the string representation of this URI.
   const std::string& ToString() const;

@@ -46,7 +46,7 @@ module Arrow
         value = value.to_time
       end
 
-      if value.is_a?(Time)
+      if value.is_a?(::Time)
         case unit_id
         when :second
           value.to_i

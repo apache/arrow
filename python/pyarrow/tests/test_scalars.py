@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import pytest
 
 import numpy as np
@@ -35,6 +36,10 @@ class TestScalars(unittest.TestCase):
         for v in arr:
             assert v is pa.NA
             assert v.as_py() is None
+
+    def test_null_equality(self):
+        assert (pa.NA == pa.NA) is pa.NA
+        assert (pa.NA == 1) is pa.NA
 
     def test_bool(self):
         arr = pa.array([True, None, False, None])
@@ -195,6 +200,81 @@ class TestScalars(unittest.TestCase):
         v = arr[3]
         assert len(v) == 0
 
+    def test_large_list(self):
+        arr = pa.array([[123, None], None, [456], []],
+                       type=pa.large_list(pa.int16()))
+
+        v = arr[0]
+        assert len(v) == 2
+        assert isinstance(v, pa.LargeListValue)
+        assert repr(v) == "[123, None]"
+        assert v.as_py() == [123, None]
+        assert v[0].as_py() == 123
+        assert v[1] is pa.NA
+        assert v[-1] == v[1]
+        assert v[-2] == v[0]
+        with pytest.raises(IndexError):
+            v[-3]
+        with pytest.raises(IndexError):
+            v[2]
+
+        assert arr[1] is pa.NA
+
+        v = arr[3]
+        assert len(v) == 0
+
+    def test_map(self):
+        arr = pa.array([[(u'a', 1), (u'b', 2)], None, [], [(u'c', None)]],
+                       pa.map_(pa.string(), pa.int8()))
+        v = arr[0]
+        assert len(v) == 2
+        assert isinstance(v, pa.MapValue)
+        assert repr(v) == repr([(u'a', 1), (u'b', 2)])
+        assert v.as_py() == [(u'a', 1), (u'b', 2)]
+        assert v[1] == (u'b', 2)
+        assert v[-1] == v[1]
+        assert v[-2] == v[0]
+        with pytest.raises(IndexError):
+            v[-3]
+        with pytest.raises(IndexError):
+            v[2]
+
+        assert arr[1] is pa.NA
+
+        assert len(arr[2]) == 0
+
+        v = arr[3]
+        assert v == [(u'c', None)]
+        assert len(v) == 1
+        assert v[0][0] == u'c'
+        assert v[0][1] is pa.NA
+
+    def test_fixed_size_list(self):
+        arr = pa.array([[1, None, 3], [4, 5, 6]], pa.list_(pa.int64(), 3))
+
+        v = arr[0]
+        assert len(v) == 3
+        assert isinstance(v, pa.FixedSizeListValue)
+        assert repr(v) == "[1, None, 3]"
+        assert v.as_py() == [1, None, 3]
+        assert v[0].as_py() == 1
+        assert v[1] is pa.NA
+        assert v[-1] == v[2]
+        with pytest.raises(IndexError):
+            v[-4]
+        with pytest.raises(IndexError):
+            v[3]
+
+    def test_date(self):
+        # ARROW-5125
+        d1, d2 = datetime.date(3200, 1, 1), datetime.date(1960, 1, 1),
+        extremes = pa.array([d1, d2], type=pa.date32())
+        assert extremes[0] == d1
+        assert extremes[1] == d2
+        extremes = pa.array([d1, d2], type=pa.date64())
+        assert extremes[0] == d1
+        assert extremes[1] == d2
+
     @pytest.mark.pandas
     def test_timestamp(self):
         import pandas as pd
@@ -222,6 +302,84 @@ class TestScalars(unittest.TestCase):
 
             assert arrow_arr[0].as_py() == expected
             assert arrow_arr[0].value * 1000**i == expected.value
+
+    @pytest.mark.nopandas
+    def test_timestamp_nanos_nopandas(self):
+        # ARROW-5450
+        import pytz
+        tz = 'America/New_York'
+        ty = pa.timestamp('ns', tz=tz)
+        arr = pa.array([
+            946684800000000000,  # 2000-01-01 00:00:00
+        ], type=ty)
+
+        tzinfo = pytz.timezone(tz)
+        expected = datetime.datetime(2000, 1, 1, tzinfo=tzinfo)
+        expected = tzinfo.fromutc(expected)
+        result = arr[0].as_py()
+        assert result == expected
+        assert result.year == 1999
+        assert result.hour == 19
+
+        # Non-zero nanos yields ValueError
+        arr = pa.array([946684800000000001], type=ty)
+        with pytest.raises(ValueError):
+            arr[0].as_py()
+
+    def test_timestamp_no_overflow(self):
+        # ARROW-5450
+        import pytz
+        timestamp_rows = [
+            datetime.datetime(1, 1, 1, 0, 0, 0, tzinfo=pytz.utc),
+            None,
+            datetime.datetime(9999, 12, 31, 23, 59, 59, 999999,
+                              tzinfo=pytz.utc),
+            datetime.datetime(1970, 1, 1, 0, 0, 0,
+                              tzinfo=pytz.utc),
+        ]
+        arr = pa.array(timestamp_rows, pa.timestamp("us", tz="UTC"))
+        result = arr.to_pylist()
+        assert result == timestamp_rows
+
+    def test_duration(self):
+        arr = np.array([0, 3600000000000], dtype='timedelta64[ns]')
+
+        units = ['us', 'ms', 's']
+
+        for i, unit in enumerate(units):
+            dtype = 'timedelta64[{0}]'.format(unit)
+            arrow_arr = pa.array(arr.astype(dtype))
+            expected = datetime.timedelta(seconds=60*60)
+            assert isinstance(arrow_arr[1].as_py(), datetime.timedelta)
+            assert arrow_arr[1].as_py() == expected
+            assert (arrow_arr[1].value * 1000**(i+1) ==
+                    expected.total_seconds() * 1e9)
+
+    @pytest.mark.pandas
+    def test_duration_nanos_pandas(self):
+        import pandas as pd
+        arr = pa.array([0, 3600000000000], type=pa.duration('ns'))
+        expected = pd.Timedelta('1 hour')
+        assert isinstance(arr[1].as_py(), pd.Timedelta)
+        assert arr[1].as_py() == expected
+        assert arr[1].value == expected.value
+
+        # Non-zero nanos work fine
+        arr = pa.array([946684800000000001], type=pa.duration('ns'))
+        assert arr[0].as_py() == pd.Timedelta(946684800000000001, unit='ns')
+
+    @pytest.mark.nopandas
+    def test_duration_nanos_nopandas(self):
+        arr = pa.array([0, 3600000000000], pa.duration('ns'))
+        expected = datetime.timedelta(seconds=60*60)
+        assert isinstance(arr[1].as_py(), datetime.timedelta)
+        assert arr[1].as_py() == expected
+        assert arr[1].value == expected.total_seconds() * 1e9
+
+        # Non-zero nanos yields ValueError
+        arr = pa.array([946684800000000001], type=pa.duration('ns'))
+        with pytest.raises(ValueError):
+            arr[0].as_py()
 
     @pytest.mark.pandas
     def test_dictionary(self):

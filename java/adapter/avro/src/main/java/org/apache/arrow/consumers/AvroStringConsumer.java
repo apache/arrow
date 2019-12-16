@@ -21,52 +21,28 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
-import org.apache.arrow.vector.complex.writer.VarCharWriter;
-import org.apache.arrow.vector.holders.VarCharHolder;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume string type values from avro decoder.
  * Write the data to {@link VarCharVector}.
  */
-public class AvroStringConsumer implements Consumer {
+public class AvroStringConsumer extends BaseAvroConsumer<VarCharVector> {
 
-  private final VarCharVector vector;
-  private final VarCharWriter writer;
   private ByteBuffer cacheBuffer;
 
   /**
    * Instantiate a AvroStringConsumer.
    */
   public AvroStringConsumer(VarCharVector vector) {
-    this.vector = vector;
-    this.writer = new VarCharWriterImpl(vector);
+    super(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writeValue(decoder);
-    writer.setPosition(writer.getPosition() + 1);
-  }
-
-  @Override
-  public void addNull() {
-    writer.setPosition(writer.getPosition() + 1);
-  }
-
-  private void writeValue(Decoder decoder) throws IOException {
-    VarCharHolder holder = new VarCharHolder();
-
     // cacheBuffer is initialized null and create in the first consume,
     // if its capacity < size to read, decoder will create a new one with new capacity.
     cacheBuffer = decoder.readBytes(cacheBuffer);
-
-    holder.start = 0;
-    holder.end = cacheBuffer.limit();
-    holder.buffer = vector.getAllocator().buffer(cacheBuffer.limit());
-    holder.buffer.setBytes(0, cacheBuffer, 0, cacheBuffer.limit());
-
-    writer.write(holder);
+    vector.setSafe(currentIndex++, cacheBuffer, 0, cacheBuffer.limit());
   }
 }

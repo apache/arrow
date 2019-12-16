@@ -50,25 +50,29 @@ from pyarrow.lib import cpu_count, set_cpu_count
 from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
                          uint8, uint16, uint32, uint64,
-                         time32, time64, timestamp, date32, date64,
+                         time32, time64, timestamp, date32, date64, duration,
                          float16, float32, float64,
                          binary, string, utf8,
                          large_binary, large_string, large_utf8,
                          decimal128,
-                         list_, struct, union, dictionary, field,
+                         list_, large_list, map_, struct, union, dictionary,
+                         field,
                          type_for_alias,
-                         DataType, DictionaryType, ListType, StructType,
-                         UnionType, TimestampType, Time32Type, Time64Type,
+                         DataType, DictionaryType, StructType,
+                         ListType, LargeListType, MapType, FixedSizeListType,
+                         UnionType,
+                         TimestampType, Time32Type, Time64Type, DurationType,
                          FixedSizeBinaryType, Decimal128Type,
                          BaseExtensionType, ExtensionType,
-                         UnknownExtensionType,
+                         PyExtensionType, UnknownExtensionType,
+                         register_extension_type, unregister_extension_type,
                          DictionaryMemo,
                          Field,
                          Schema,
                          schema,
                          Array, Tensor,
-                         array, chunked_array, table,
-                         SparseTensorCSR, SparseTensorCOO,
+                         array, chunked_array, record_batch, table,
+                         SparseCSRMatrix, SparseCOOTensor,
                          infer_type, from_numpy_dtype,
                          NullArray,
                          NumericArray, IntegerArray, FloatingPointArray,
@@ -77,26 +81,28 @@ from pyarrow.lib import (null, bool_,
                          Int16Array, UInt16Array,
                          Int32Array, UInt32Array,
                          Int64Array, UInt64Array,
-                         ListArray, UnionArray,
+                         ListArray, LargeListArray, MapArray,
+                         FixedSizeListArray, UnionArray,
                          BinaryArray, StringArray,
                          LargeBinaryArray, LargeStringArray,
                          FixedSizeBinaryArray,
                          DictionaryArray,
-                         Date32Array, Date64Array,
-                         TimestampArray, Time32Array, Time64Array,
+                         Date32Array, Date64Array, TimestampArray,
+                         Time32Array, Time64Array, DurationArray,
                          Decimal128Array, StructArray, ExtensionArray,
                          ArrayValue, Scalar, NA, _NULL as NULL,
                          BooleanValue,
                          Int8Value, Int16Value, Int32Value, Int64Value,
                          UInt8Value, UInt16Value, UInt32Value, UInt64Value,
-                         HalfFloatValue, FloatValue, DoubleValue, ListValue,
+                         HalfFloatValue, FloatValue, DoubleValue,
+                         ListValue, LargeListValue, MapValue, FixedSizeListValue,
                          BinaryValue, StringValue,
                          LargeBinaryValue, LargeStringValue,
                          FixedSizeBinaryValue,
                          DecimalValue, UnionValue, StructValue, DictionaryValue,
                          Date32Value, Date64Value,
                          Time32Value, Time64Value,
-                         TimestampValue)
+                         TimestampValue, DurationValue)
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
@@ -105,10 +111,12 @@ from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
 from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
                          total_allocated_bytes, set_memory_pool,
                          default_memory_pool, logging_memory_pool,
-                         proxy_memory_pool, log_memory_allocations)
+                         proxy_memory_pool, log_memory_allocations,
+                         jemalloc_set_decay_ms)
 
 # I/O
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
+                         BufferedInputStream, BufferedOutputStream,
                          CompressedInputStream, CompressedOutputStream,
                          FixedSizeBufferWriter,
                          BufferReader, BufferOutputStream,
@@ -154,26 +162,6 @@ from pyarrow.ipc import (Message, MessageReader,
 import pyarrow.ipc as ipc
 
 
-def open_stream(source):
-    """
-    pyarrow.open_stream deprecated since 0.12, use pyarrow.ipc.open_stream
-    """
-    import warnings
-    warnings.warn("pyarrow.open_stream is deprecated, please use "
-                  "pyarrow.ipc.open_stream")
-    return ipc.open_stream(source)
-
-
-def open_file(source):
-    """
-    pyarrow.open_file deprecated since 0.12, use pyarrow.ipc.open_file
-    """
-    import warnings
-    warnings.warn("pyarrow.open_file is deprecated, please use "
-                  "pyarrow.ipc.open_file")
-    return ipc.open_file(source)
-
-
 localfs = LocalFileSystem.get_instance()
 
 from pyarrow.serialization import (default_serialization_context,
@@ -194,7 +182,7 @@ def _plasma_store_entry_point():
     """
     import pyarrow
     plasma_store_executable = _os.path.join(pyarrow.__path__[0],
-                                            "plasma_store_server")
+                                            "plasma-store-server")
     _os.execv(plasma_store_executable, _sys.argv)
 
 # ----------------------------------------------------------------------

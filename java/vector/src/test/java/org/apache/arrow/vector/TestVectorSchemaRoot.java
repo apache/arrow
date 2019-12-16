@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -151,6 +152,153 @@ public class TestVectorSchemaRoot {
     vector.setValueCount(2);
 
     return schemaRoot;
+  }
+
+  @Test
+  public void testAddVector() {
+    try (final IntVector intVector1 = new IntVector("intVector1", allocator);
+         final IntVector intVector2 = new IntVector("intVector2", allocator);
+         final IntVector intVector3 = new IntVector("intVector3", allocator);) {
+
+      VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector1, intVector2));
+      assertEquals(2, original.getFieldVectors().size());
+
+      VectorSchemaRoot newRecordBatch = original.addVector(1, intVector3);
+      assertEquals(3, newRecordBatch.getFieldVectors().size());
+      assertEquals(intVector3, newRecordBatch.getFieldVectors().get(1));
+
+      original.close();
+      newRecordBatch.close();
+    }
+  }
+
+  @Test
+  public void testRemoveVector() {
+    try (final IntVector intVector1 = new IntVector("intVector1", allocator);
+        final IntVector intVector2 = new IntVector("intVector2", allocator);
+        final IntVector intVector3 = new IntVector("intVector3", allocator);) {
+
+      VectorSchemaRoot original =
+          new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3));
+      assertEquals(3, original.getFieldVectors().size());
+
+      VectorSchemaRoot newRecordBatch = original.removeVector(0);
+      assertEquals(2, newRecordBatch.getFieldVectors().size());
+      assertEquals(intVector2, newRecordBatch.getFieldVectors().get(0));
+      assertEquals(intVector3, newRecordBatch.getFieldVectors().get(1));
+
+      original.close();
+      newRecordBatch.close();
+    }
+  }
+
+  @Test
+  public void testSlice() {
+    try (final IntVector intVector = new IntVector("intVector", allocator);
+         final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
+      intVector.setValueCount(10);
+      float4Vector.setValueCount(10);
+      for (int i = 0; i < 10; i++) {
+        intVector.setSafe(i, i);
+        float4Vector.setSafe(i, i + 0.1f);
+      }
+      final VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector, float4Vector));
+
+      VectorSchemaRoot slice1 = original.slice(0, original.getRowCount());
+      assertEquals(original, slice1);
+
+      VectorSchemaRoot slice2 = original.slice(0, 5);
+      assertEquals(5, slice2.getRowCount());
+      // validate data
+      IntVector childVector1 = (IntVector) slice2.getFieldVectors().get(0);
+      Float4Vector childVector2 = (Float4Vector) slice2.getFieldVectors().get(1);
+      for (int i = 0; i < 5; i++) {
+        assertEquals(i, childVector1.get(i));
+        assertEquals(i + 0.1f, childVector2.get(i), 0);
+      }
+
+      original.close();
+      slice2.close();
+    }
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testSliceWithInvalidParam() {
+    try (final IntVector intVector = new IntVector("intVector", allocator);
+         final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
+      intVector.setValueCount(10);
+      float4Vector.setValueCount(10);
+      for (int i = 0; i < 10; i++) {
+        intVector.setSafe(i, i);
+        float4Vector.setSafe(i, i + 0.1f);
+      }
+      final VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector, float4Vector));
+
+      original.slice(0, 20);
+    }
+  }
+
+  @Test
+  public void testEquals() {
+    try (final IntVector intVector1 = new IntVector("intVector1", allocator);
+         final IntVector intVector2 = new IntVector("intVector2", allocator);
+         final IntVector intVector3 = new IntVector("intVector3", allocator);) {
+
+      intVector1.setValueCount(5);
+      for (int i = 0; i < 5; i++) {
+        intVector1.set(i, i);
+      }
+
+      VectorSchemaRoot root1 =
+          new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3));
+
+      VectorSchemaRoot root2 =
+          new VectorSchemaRoot(Arrays.asList(intVector1, intVector2));
+
+      VectorSchemaRoot root3 =
+          new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3));
+
+      assertFalse(root1.equals(root2));
+      assertTrue(root1.equals(root3));
+
+      root1.close();
+      root2.close();
+      root3.close();
+    }
+  }
+
+  @Test
+  public void testApproxEquals() {
+    try (final Float4Vector float4Vector1 = new Float4Vector("floatVector", allocator);
+         final Float4Vector float4Vector2 = new Float4Vector("floatVector", allocator);
+         final Float4Vector float4Vector3 = new Float4Vector("floatVector", allocator);) {
+
+      float4Vector1.setValueCount(5);
+      float4Vector2.setValueCount(5);
+      float4Vector3.setValueCount(5);
+      final float epsilon = 1.0E-6f;
+      for (int i = 0; i < 5; i++) {
+        float4Vector1.set(i, i);
+        float4Vector2.set(i, i + epsilon * 2);
+        float4Vector3.set(i, i + epsilon / 2);
+      }
+
+      VectorSchemaRoot root1 =
+          new VectorSchemaRoot(Arrays.asList(float4Vector1));
+
+      VectorSchemaRoot root2 =
+          new VectorSchemaRoot(Arrays.asList(float4Vector2));
+
+      VectorSchemaRoot root3 =
+          new VectorSchemaRoot(Arrays.asList(float4Vector3));
+
+      assertFalse(root1.approxEquals(root2));
+      assertTrue(root1.approxEquals(root3));
+
+      root1.close();
+      root2.close();
+      root3.close();
+    }
   }
 
   @Test

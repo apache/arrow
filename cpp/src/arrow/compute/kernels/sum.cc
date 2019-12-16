@@ -17,8 +17,8 @@
 
 #include <utility>
 
-#include "arrow/compute/kernels/sum-internal.h"
 #include "arrow/compute/kernels/sum.h"
+#include "arrow/compute/kernels/sum_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -42,13 +42,11 @@ struct SumState {
   std::shared_ptr<Scalar> Finalize() const {
     using ScalarType = typename TypeTraits<SumType>::ScalarType;
 
-    auto boxed = std::make_shared<ScalarType>(this->sum);
     if (count == 0) {
-      // TODO(wesm): Currently null, but fix this
-      boxed->is_valid = false;
+      return std::make_shared<ScalarType>();
     }
 
-    return std::move(boxed);
+    return MakeScalar(sum);
   }
 
   static std::shared_ptr<DataType> out_type() {

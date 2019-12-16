@@ -40,7 +40,7 @@ impl TableImpl {
 
 impl Table for TableImpl {
     /// Apply a projection based on a list of column names
-    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<Table>> {
+    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn Table>> {
         let mut expr: Vec<Expr> = Vec::with_capacity(columns.len());
         for column_name in columns {
             let i = self.column_index(column_name)?;
@@ -50,7 +50,7 @@ impl Table for TableImpl {
     }
 
     /// Create a projection based on arbitrary expressions
-    fn select(&self, expr_list: Vec<Expr>) -> Result<Arc<Table>> {
+    fn select(&self, expr_list: Vec<Expr>) -> Result<Arc<dyn Table>> {
         let schema = self.plan.schema();
         let mut field: Vec<Field> = Vec::with_capacity(expr_list.len());
 
@@ -78,7 +78,7 @@ impl Table for TableImpl {
     }
 
     /// Create a selection based on a filter expression
-    fn filter(&self, expr: Expr) -> Result<Arc<Table>> {
+    fn filter(&self, expr: Expr) -> Result<Arc<dyn Table>> {
         Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::Selection {
             expr,
             input: self.plan.clone(),
@@ -90,7 +90,7 @@ impl Table for TableImpl {
         &self,
         group_expr: Vec<Expr>,
         aggr_expr: Vec<Expr>,
-    ) -> Result<Arc<Table>> {
+    ) -> Result<Arc<dyn Table>> {
         Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::Aggregate {
             input: self.plan.clone(),
             group_expr,
@@ -100,7 +100,7 @@ impl Table for TableImpl {
     }
 
     /// Limit the number of rows
-    fn limit(&self, n: usize) -> Result<Arc<Table>> {
+    fn limit(&self, n: usize) -> Result<Arc<dyn Table>> {
         Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::Limit {
             expr: Literal(ScalarValue::UInt32(n as u32)),
             input: self.plan.clone(),
@@ -183,7 +183,7 @@ impl TableImpl {
 mod tests {
     use super::*;
     use crate::execution::context::ExecutionContext;
-    use std::env;
+    use crate::test;
 
     #[test]
     fn column_index() {
@@ -306,8 +306,8 @@ mod tests {
     }
 
     fn register_aggregate_csv(ctx: &mut ExecutionContext) {
-        let schema = aggr_test_schema();
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let schema = test::aggr_test_schema();
+        let testdata = test::arrow_testdata_path();
         ctx.register_csv(
             "aggregate_test_100",
             &format!("{}/csv/aggregate_test_100.csv", testdata),
@@ -315,23 +315,4 @@ mod tests {
             true,
         );
     }
-
-    fn aggr_test_schema() -> Arc<Schema> {
-        Arc::new(Schema::new(vec![
-            Field::new("c1", DataType::Utf8, false),
-            Field::new("c2", DataType::UInt32, false),
-            Field::new("c3", DataType::Int8, false),
-            Field::new("c4", DataType::Int16, false),
-            Field::new("c5", DataType::Int32, false),
-            Field::new("c6", DataType::Int64, false),
-            Field::new("c7", DataType::UInt8, false),
-            Field::new("c8", DataType::UInt16, false),
-            Field::new("c9", DataType::UInt32, false),
-            Field::new("c10", DataType::UInt64, false),
-            Field::new("c11", DataType::Float32, false),
-            Field::new("c12", DataType::Float64, false),
-            Field::new("c13", DataType::Utf8, false),
-        ]))
-    }
-
 }

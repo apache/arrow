@@ -34,16 +34,25 @@ such topics as:
 
 .. _toc.columnar:
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Arrow Columnar Format
+.. Deprecated documents for Google searches
 
-   format/README
+.. toctree::
+   :hidden:
+
    format/Guidelines
    format/Layout
-   format/Metadata
    format/IPC
+   format/Metadata
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Arrow Specifications and Protocols
+
+   format/Versioning
+   format/Columnar
    format/Flight
+   format/Integration
+   format/Other
 
 .. _toc.usage:
 
@@ -53,6 +62,7 @@ such topics as:
 
    cpp/index
    python/index
+   java/index
 
 .. _toc.development:
 
@@ -64,5 +74,6 @@ such topics as:
    developers/cpp
    developers/python
    developers/integration
+   developers/crossbow
    developers/benchmarks
    developers/documentation

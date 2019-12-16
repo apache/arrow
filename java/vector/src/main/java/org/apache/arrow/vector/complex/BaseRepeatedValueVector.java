@@ -32,6 +32,7 @@ import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
@@ -44,7 +45,7 @@ import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 import io.netty.buffer.ArrowBuf;
 
 /** Base class for Vectors that contain repeated values. */
-public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector {
+public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector, BaseListVector {
 
   public static final FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
   public static final String DATA_VECTOR_NAME = "$data$";
@@ -209,7 +210,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   @Override
   public int getBufferSize() {
-    if (getValueCount() == 0) {
+    if (valueCount == 0) {
       return 0;
     }
     return ((valueCount + 1) * OFFSET_WIDTH) + vector.getBufferSize();
@@ -221,7 +222,9 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       return 0;
     }
 
-    return ((valueCount + 1) * OFFSET_WIDTH) + vector.getBufferSizeFor(valueCount);
+    int innerVectorValueCount = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
+
+    return ((valueCount + 1) * OFFSET_WIDTH) + vector.getBufferSizeFor(innerVectorValueCount);
   }
 
   @Override
@@ -278,7 +281,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
    */
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     boolean created = false;
-    if (vector instanceof ZeroVector) {
+    if (vector instanceof NullVector) {
       vector = fieldType.createNewSingleVector(defaultDataVectorName, allocator, callBack);
       // returned vector must have the same field
       created = true;
@@ -302,7 +305,6 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     vector.clear();
     vector = v;
   }
-
 
   @Override
   public int getValueCount() {

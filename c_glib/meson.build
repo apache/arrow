@@ -36,7 +36,7 @@ version_minor = version_numbers[1].to_int()
 version_micro = version_numbers[2].to_int()
 
 api_version = '1.0'
-so_version = version_minor
+so_version = version_major * 100 + version_minor
 so_version_patch = version_micro
 library_version = '@0@.@1@.@2@'.format(so_version, so_version_patch, 0)
 
@@ -56,7 +56,8 @@ arrow_cpp_build_type = get_option('arrow_cpp_build_type')
 if arrow_cpp_build_dir == ''
   arrow_cpp_build_lib_dir = ''
 else
-  arrow_cpp_build_lib_dir = join_paths(arrow_cpp_build_dir,
+  arrow_cpp_build_lib_dir = join_paths(meson.source_root(),
+                                       arrow_cpp_build_dir,
                                        arrow_cpp_build_type.to_lower())
 endif
 
@@ -102,6 +103,17 @@ main(void)
                                       required: false)
 endif
 
+cxx = meson.get_compiler('cpp')
+cxx_flags = []
+if get_option('development_mode')
+  if cxx.get_id() == 'msvc'
+    cxx_flags += ['/WX']
+  else
+    cxx_flags += ['-Werror']
+  endif
+endif
+add_project_arguments(cxx.get_supported_arguments(cxx_flags), language: 'cpp')
+
 subdir('arrow-glib')
 if arrow_cuda.found()
   subdir('arrow-cuda-glib')
@@ -129,6 +141,9 @@ if get_option('gtk_doc')
     subdir('doc/plasma-glib')
   endif
 endif
+
+install_data('README.md',
+             install_dir: join_paths(data_dir, 'doc', meson.project_name()))
 
 run_test = find_program('test/run-test.sh')
 test('unit test',

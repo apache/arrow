@@ -24,7 +24,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
-#include <utility>
+#include <unordered_map>
 #include <vector>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -32,17 +32,25 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/extension_type.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/int-util.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
 #include "parquet/arrow/reader.h"
 #include "parquet/column_reader.h"
 #include "parquet/platform.h"
+#include "parquet/properties.h"
 #include "parquet/schema.h"
+#include "parquet/statistics.h"
 #include "parquet/types.h"
 
 using arrow::Array;
@@ -62,6 +70,7 @@ using arrow::compute::Datum;
 
 using ::arrow::BitUtil::FromBigEndian;
 using ::arrow::internal::checked_cast;
+using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::SafeLeftShift;
 using ::arrow::util::SafeLoadAs;
 
@@ -324,11 +333,17 @@ struct SchemaTreeContext {
   }
 };
 
+bool IsDictionaryReadSupported(const DataType& type) {
+  // Only supported currently for BYTE_ARRAY types
+  return type.id() == ::arrow::Type::BINARY || type.id() == ::arrow::Type::STRING;
+}
+
 Status GetTypeForNode(int column_index, const schema::PrimitiveNode& primitive_node,
                       SchemaTreeContext* ctx, std::shared_ptr<DataType>* out) {
   std::shared_ptr<DataType> storage_type;
   RETURN_NOT_OK(GetPrimitiveType(primitive_node, &storage_type));
-  if (ctx->properties.read_dictionary(column_index)) {
+  if (ctx->properties.read_dictionary(column_index) &&
+      IsDictionaryReadSupported(*storage_type)) {
     *out = ::arrow::dictionary(::arrow::int32(), storage_type);
   } else {
     *out = storage_type;
@@ -489,11 +504,13 @@ Status GroupToSchemaField(const GroupNode& node, int16_t max_def_level,
 Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_rep_level,
                          SchemaTreeContext* ctx, const SchemaField* parent,
                          SchemaField* out) {
+  /// Workhorse function for converting a Parquet schema node to an Arrow
+  /// type. Handles different conventions for nested data
   if (node.is_optional()) {
     ++max_def_level;
   } else if (node.is_repeated()) {
-    // Repeated fields add a definition level. This is used to distinguish
-    // between an empty list and a list with an item in it.
+    // Repeated fields add both a repetition and definition level. This is used
+    // to distinguish between an empty list and a list with an item in it.
     ++max_rep_level;
     ++max_def_level;
   }
@@ -502,9 +519,19 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
 
   // Now, walk the schema and create a ColumnDescriptor for each leaf node
   if (node.is_group()) {
+    // A nested field, but we don't know what kind yet
     return GroupToSchemaField(static_cast<const GroupNode&>(node), max_def_level,
                               max_rep_level, ctx, parent, out);
   } else {
+    // Either a normal flat primitive type, or a list type encoded with 1-level
+    // list encoding. Note that the 3-level encoding is the form recommended by
+    // the parquet specification, but technically we can have either
+    //
+    // required/optional $TYPE $FIELD_NAME
+    //
+    // or
+    //
+    // repeated $TYPE $FIELD_NAME
     const auto& primitive_node = static_cast<const PrimitiveNode&>(node);
     int column_index = ctx->schema->GetColumnIndex(primitive_node);
     std::shared_ptr<DataType> type;
@@ -524,6 +551,7 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
       out->max_repetition_level = max_rep_level;
       return Status::OK();
     } else {
+      // A normal (required/optional) primitive node
       return PopulateLeaf(column_index,
                           ::arrow::field(node.name(), type, node.is_optional()),
                           max_def_level, max_rep_level, ctx, parent, out);
@@ -531,9 +559,105 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
   }
 }
 
-Status BuildSchemaManifest(const SchemaDescriptor* schema,
-                           const ArrowReaderProperties& properties,
-                           SchemaManifest* manifest) {
+Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
+                       std::shared_ptr<const KeyValueMetadata>* clean_metadata,
+                       std::shared_ptr<::arrow::Schema>* out) {
+  if (metadata == nullptr) {
+    *out = nullptr;
+    *clean_metadata = nullptr;
+    return Status::OK();
+  }
+
+  static const std::string kArrowSchemaKey = "ARROW:schema";
+  int schema_index = metadata->FindKey(kArrowSchemaKey);
+  if (schema_index == -1) {
+    *out = nullptr;
+    *clean_metadata = metadata;
+    return Status::OK();
+  }
+
+  // The original Arrow schema was serialized using the store_schema option. We
+  // deserialize it here and use it to inform read options such as
+  // dictionary-encoded fields
+  auto decoded = ::arrow::util::base64_decode(metadata->value(schema_index));
+  auto schema_buf = std::make_shared<Buffer>(decoded);
+
+  ::arrow::ipc::DictionaryMemo dict_memo;
+  ::arrow::io::BufferReader input(schema_buf);
+  RETURN_NOT_OK(::arrow::ipc::ReadSchema(&input, &dict_memo, out));
+
+  if (metadata->size() > 1) {
+    // Copy the metadata without the schema key
+    auto new_metadata = ::arrow::key_value_metadata({}, {});
+    new_metadata->reserve(metadata->size() - 1);
+    for (int64_t i = 0; i < metadata->size(); ++i) {
+      if (i == schema_index) continue;
+      new_metadata->Append(metadata->key(i), metadata->value(i));
+    }
+    *clean_metadata = new_metadata;
+  } else {
+    // No other keys, let metadata be null
+    *clean_metadata = nullptr;
+  }
+  return Status::OK();
+}
+
+Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_field,
+                             std::shared_ptr<Field>* out) {
+  auto origin_type = origin_field.type();
+  if (field->type()->id() == ::arrow::Type::TIMESTAMP) {
+    // Restore time zone, if any
+    const auto& ts_type = static_cast<const ::arrow::TimestampType&>(*field->type());
+    const auto& ts_origin_type = static_cast<const ::arrow::TimestampType&>(*origin_type);
+
+    // If the unit is the same and the data is tz-aware, then set the original
+    // time zone, since Parquet has no native storage for timezones
+    if (ts_type.unit() == ts_origin_type.unit() && ts_type.timezone() == "UTC" &&
+        ts_origin_type.timezone() != "") {
+      field = field->WithType(origin_type);
+    }
+  }
+  if (origin_type->id() == ::arrow::Type::DICTIONARY &&
+      field->type()->id() != ::arrow::Type::DICTIONARY &&
+      IsDictionaryReadSupported(*field->type())) {
+    const auto& dict_origin_type =
+        static_cast<const ::arrow::DictionaryType&>(*origin_type);
+    field = field->WithType(
+        ::arrow::dictionary(::arrow::int32(), field->type(), dict_origin_type.ordered()));
+  }
+  // restore field metadata
+  std::shared_ptr<const KeyValueMetadata> field_metadata = origin_field.metadata();
+  if (field_metadata != nullptr) {
+    field = field->WithMetadata(field_metadata);
+
+    // extension type
+    int name_index = field_metadata->FindKey(::arrow::kExtensionTypeKeyName);
+    if (name_index != -1) {
+      std::string type_name = field_metadata->value(name_index);
+      int data_index = field_metadata->FindKey(::arrow::kExtensionMetadataKeyName);
+      std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
+
+      std::shared_ptr<::arrow::ExtensionType> ext_type =
+          ::arrow::GetExtensionType(type_name);
+      if (ext_type != nullptr) {
+        std::shared_ptr<DataType> deserialized;
+        RETURN_NOT_OK(ext_type->Deserialize(field->type(), type_data, &deserialized));
+        field = field->WithType(deserialized);
+      }
+    }
+  }
+  *out = field;
+  return Status::OK();
+}
+
+Status SchemaManifest::Make(const SchemaDescriptor* schema,
+                            const std::shared_ptr<const KeyValueMetadata>& metadata,
+                            const ArrowReaderProperties& properties,
+                            SchemaManifest* manifest) {
+  std::shared_ptr<::arrow::Schema> origin_schema;
+  RETURN_NOT_OK(
+      GetOriginSchema(metadata, &manifest->schema_metadata, &manifest->origin_schema));
+
   SchemaTreeContext ctx;
   ctx.manifest = manifest;
   ctx.properties = properties;
@@ -542,30 +666,114 @@ Status BuildSchemaManifest(const SchemaDescriptor* schema,
   manifest->descr = schema;
   manifest->schema_fields.resize(schema_node.field_count());
   for (int i = 0; i < static_cast<int>(schema_node.field_count()); ++i) {
+    SchemaField* out_field = &manifest->schema_fields[i];
     RETURN_NOT_OK(NodeToSchemaField(*schema_node.field(i), 0, 0, &ctx,
-                                    /*parent=*/nullptr, &manifest->schema_fields[i]));
+                                    /*parent=*/nullptr, out_field));
+
+    // TODO(wesm): as follow up to ARROW-3246, we should really pass the origin
+    // schema (if any) through all functions in the schema reconstruction, but
+    // I'm being lazy and just setting dictionary fields at the top level for
+    // now
+    if (manifest->origin_schema == nullptr) {
+      continue;
+    }
+    auto origin_field = manifest->origin_schema->field(i);
+    RETURN_NOT_OK(
+        ApplyOriginalMetadata(out_field->field, *origin_field, &out_field->field));
   }
   return Status::OK();
 }
 
-Status FromParquetSchema(
-    const SchemaDescriptor* schema, const ArrowReaderProperties& properties,
-    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
-    std::shared_ptr<::arrow::Schema>* out) {
-  SchemaManifest manifest;
-  RETURN_NOT_OK(BuildSchemaManifest(schema, properties, &manifest));
-  std::vector<std::shared_ptr<Field>> fields(manifest.schema_fields.size());
-  for (int i = 0; i < static_cast<int>(fields.size()); i++) {
-    fields[i] = manifest.schema_fields[i].field;
-  }
-  *out = ::arrow::schema(fields, key_value_metadata);
+template <typename CType, typename StatisticsType>
+Status MakeMinMaxScalar(const Statistics& statistics,
+                        std::shared_ptr<::arrow::Scalar>* min,
+                        std::shared_ptr<::arrow::Scalar>* max) {
+  const auto& typed_statistics = checked_cast<const StatisticsType&>(statistics);
+  *min = ::arrow::MakeScalar(static_cast<CType>(typed_statistics.min()));
+  *max = ::arrow::MakeScalar(static_cast<CType>(typed_statistics.max()));
   return Status::OK();
 }
 
-Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                         const ArrowReaderProperties& properties,
-                         std::shared_ptr<::arrow::Schema>* out) {
-  return FromParquetSchema(parquet_schema, properties, nullptr, out);
+template <typename StatisticsType>
+Status MakeMinMaxIntegralScalar(const Statistics& statistics,
+                                std::shared_ptr<::arrow::Scalar>* min,
+                                std::shared_ptr<::arrow::Scalar>* max) {
+  const auto column_desc = statistics.descr();
+  const auto& logical_type = column_desc->logical_type();
+  const auto& integer = checked_pointer_cast<const IntLogicalType>(logical_type);
+  const bool is_signed = integer->is_signed();
+
+  switch (integer->bit_width()) {
+    case 8:
+      return is_signed ? MakeMinMaxScalar<int8_t, StatisticsType>(statistics, min, max)
+                       : MakeMinMaxScalar<uint8_t, StatisticsType>(statistics, min, max);
+    case 16:
+      return is_signed ? MakeMinMaxScalar<int16_t, StatisticsType>(statistics, min, max)
+                       : MakeMinMaxScalar<uint16_t, StatisticsType>(statistics, min, max);
+    case 32:
+      return is_signed ? MakeMinMaxScalar<int32_t, StatisticsType>(statistics, min, max)
+                       : MakeMinMaxScalar<uint32_t, StatisticsType>(statistics, min, max);
+    case 64:
+      return is_signed ? MakeMinMaxScalar<int64_t, StatisticsType>(statistics, min, max)
+                       : MakeMinMaxScalar<uint64_t, StatisticsType>(statistics, min, max);
+  }
+
+  return Status::OK();
+}
+
+template <typename StatisticsType>
+Status TypedIntegralStatisticsAsScalars(const Statistics& statistics,
+                                        std::shared_ptr<::arrow::Scalar>* min,
+                                        std::shared_ptr<::arrow::Scalar>* max) {
+  auto column_desc = statistics.descr();
+  auto logical_type = column_desc->logical_type();
+
+  switch (logical_type->type()) {
+    case LogicalType::Type::INT:
+      return MakeMinMaxIntegralScalar<StatisticsType>(statistics, min, max);
+    case LogicalType::Type::NONE:
+      // Fallback to the physical type
+      using CType = typename StatisticsType::T;
+      return MakeMinMaxScalar<CType, StatisticsType>(statistics, min, max);
+    default:
+      return Status::NotImplemented("Cannot extract statistics for type ",
+                                    logical_type->ToString());
+  }
+
+  return Status::OK();
+}
+
+Status StatisticsAsScalars(const Statistics& statistics,
+                           std::shared_ptr<::arrow::Scalar>* min,
+                           std::shared_ptr<::arrow::Scalar>* max) {
+  if (!statistics.HasMinMax()) {
+    return Status::Invalid("Statistics has no min max.");
+  }
+
+  auto column_desc = statistics.descr();
+  if (column_desc == nullptr) {
+    return Status::Invalid("Statistics carries no descriptor, can't infer arrow type.");
+  }
+
+  auto physical_type = column_desc->physical_type();
+
+  switch (physical_type) {
+    case Type::BOOLEAN:
+      return MakeMinMaxScalar<bool, BoolStatistics>(statistics, min, max);
+    case Type::FLOAT:
+      return MakeMinMaxScalar<float, FloatStatistics>(statistics, min, max);
+    case Type::DOUBLE:
+      return MakeMinMaxScalar<double, DoubleStatistics>(statistics, min, max);
+    case Type::INT32:
+      return TypedIntegralStatisticsAsScalars<Int32Statistics>(statistics, min, max);
+    case Type::INT64:
+      return TypedIntegralStatisticsAsScalars<Int64Statistics>(statistics, min, max);
+    default:
+      return Status::NotImplemented("Extract statistics unsupported for physical_type ",
+                                    physical_type, " unsupported.");
+  }
+
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -628,7 +836,13 @@ Status TransferInt96(RecordReader* reader, MemoryPool* pool,
   RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(int64_t), &data));
   auto data_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
   for (int64_t i = 0; i < length; i++) {
-    *data_ptr++ = Int96GetNanoSeconds(values[i]);
+    if (values[i].value[2] == 0) {
+      // Happens for null entries: avoid triggering UBSAN as that Int96 timestamp
+      // isn't representable as a 64-bit Unix timestamp.
+      *data_ptr++ = 0;
+    } else {
+      *data_ptr++ = Int96GetNanoSeconds(values[i]);
+    }
   }
   *out = std::make_shared<TimestampArray>(type, length, data, reader->ReleaseIsValid(),
                                           reader->null_count());
@@ -656,29 +870,6 @@ Status TransferDate64(RecordReader* reader, MemoryPool* pool,
 // ----------------------------------------------------------------------
 // Binary, direct to dictionary-encoded
 
-// Some ugly hacks here for now to handle binary dictionaries casted to their
-// logical type
-std::shared_ptr<Array> ShallowCast(const Array& arr,
-                                   const std::shared_ptr<DataType>& new_type) {
-  std::shared_ptr<::arrow::ArrayData> new_data = arr.data()->Copy();
-  new_data->type = new_type;
-  if (new_type->id() == ::arrow::Type::DICTIONARY) {
-    // Cast dictionary, too
-    const auto& dict_type = static_cast<const ::arrow::DictionaryType&>(*new_type);
-    new_data->dictionary = ShallowCast(*new_data->dictionary, dict_type.value_type());
-  }
-  return MakeArray(new_data);
-}
-
-std::shared_ptr<ChunkedArray> CastChunksTo(
-    const ChunkedArray& data, const std::shared_ptr<DataType>& logical_value_type) {
-  std::vector<std::shared_ptr<Array>> string_chunks;
-  for (int i = 0; i < data.num_chunks(); ++i) {
-    string_chunks.push_back(ShallowCast(*data.chunk(i), logical_value_type));
-  }
-  return std::make_shared<ChunkedArray>(string_chunks);
-}
-
 Status TransferDictionary(RecordReader* reader,
                           const std::shared_ptr<DataType>& logical_value_type,
                           std::shared_ptr<ChunkedArray>* out) {
@@ -686,7 +877,7 @@ Status TransferDictionary(RecordReader* reader,
   DCHECK(dict_reader);
   *out = dict_reader->GetResult();
   if (!logical_value_type->Equals(*(*out)->type())) {
-    *out = CastChunksTo(**out, logical_value_type);
+    RETURN_NOT_OK((*out)->View(logical_value_type, out));
   }
   return Status::OK();
 }
@@ -700,10 +891,13 @@ Status TransferBinary(RecordReader* reader,
   }
   auto binary_reader = dynamic_cast<internal::BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
-  *out = std::make_shared<ChunkedArray>(binary_reader->GetBuilderChunks());
-  if (!logical_value_type->Equals(*(*out)->type())) {
-    *out = CastChunksTo(**out, logical_value_type);
+  auto chunks = binary_reader->GetBuilderChunks();
+  for (const auto& chunk : chunks) {
+    if (!chunk->type()->Equals(*logical_value_type)) {
+      return ChunkedArray(chunks).View(logical_value_type, out);
+    }
   }
+  *out = std::make_shared<ChunkedArray>(chunks, logical_value_type);
   return Status::OK();
 }
 
@@ -928,10 +1122,10 @@ Status ConvertToDecimal128<ByteArrayType>(const Array& array,
 /// The parquet spec allows systems to write decimals in int32, int64 if the values are
 /// small enough to fit in less 4 bytes or less than 8 bytes, respectively.
 /// This function implements the conversion from int32 and int64 arrays to decimal arrays.
-template <typename ParquetIntegerType,
-          typename = typename std::enable_if<
-              std::is_same<ParquetIntegerType, Int32Type>::value ||
-              std::is_same<ParquetIntegerType, Int64Type>::value>::type>
+template <
+    typename ParquetIntegerType,
+    typename = ::arrow::enable_if_t<std::is_same<ParquetIntegerType, Int32Type>::value ||
+                                    std::is_same<ParquetIntegerType, Int64Type>::value>>
 static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
                                      const std::shared_ptr<DataType>& type, Datum* out) {
   DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
@@ -998,7 +1192,26 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
     // Replace the chunk, which will hopefully also free memory as we go
     chunks[i] = chunk_as_decimal;
   }
-  *out = std::make_shared<ChunkedArray>(chunks);
+  *out = std::make_shared<ChunkedArray>(chunks, type);
+  return Status::OK();
+}
+
+Status TransferExtension(RecordReader* reader, std::shared_ptr<DataType> value_type,
+                         const ColumnDescriptor* descr, MemoryPool* pool, Datum* out) {
+  std::shared_ptr<ChunkedArray> result;
+  auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(value_type);
+  auto storage_type = ext_type->storage_type();
+  RETURN_NOT_OK(TransferColumnData(reader, storage_type, descr, pool, &result));
+
+  ::arrow::ArrayVector out_chunks(result->num_chunks());
+  for (int i = 0; i < result->num_chunks(); i++) {
+    auto chunk = result->chunk(i);
+    auto ext_data = chunk->data()->Copy();
+    ext_data->type = ext_type;
+    auto ext_result = ext_type->MakeArray(ext_data);
+    out_chunks[i] = ext_result;
+  }
+  *out = std::make_shared<ChunkedArray>(out_chunks);
   return Status::OK();
 }
 
@@ -1098,6 +1311,9 @@ Status TransferColumnData(internal::RecordReader* reader,
           return Status::NotImplemented("TimeUnit not supported");
       }
     } break;
+    case ::arrow::Type::EXTENSION: {
+      RETURN_NOT_OK(TransferExtension(reader, value_type, descr, pool, &result));
+    } break;
     default:
       return Status::NotImplemented("No support for reading columns of type ",
                                     value_type->ToString());
@@ -1122,6 +1338,7 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
                              const int16_t* rep_levels, int64_t total_levels,
                              ::arrow::MemoryPool* pool, std::shared_ptr<Array>* out) {
   // Walk downwards to extract nullability
+  std::vector<std::string> item_names;
   std::vector<bool> nullable;
   std::vector<std::shared_ptr<::arrow::Int32Builder>> offset_builders;
   std::vector<std::shared_ptr<::arrow::BooleanBuilder>> valid_bits_builders;
@@ -1135,6 +1352,7 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
       }
       field = field->type()->child(0);
     }
+    item_names.push_back(field->name());
     offset_builders.emplace_back(
         std::make_shared<::arrow::Int32Builder>(::arrow::int32(), pool));
     valid_bits_builders.emplace_back(
@@ -1218,7 +1436,7 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
   // TODO(wesm): Use passed-in field
   for (int64_t j = list_depth - 1; j >= 0; j--) {
     auto list_type =
-        ::arrow::list(::arrow::field("item", (*out)->type(), nullable[j + 1]));
+        ::arrow::list(::arrow::field(item_names[j], (*out)->type(), nullable[j + 1]));
     *out = std::make_shared<::arrow::ListArray>(list_type, list_lengths[j], offsets[j],
                                                 *out, valid_bits[j], null_counts[j]);
   }

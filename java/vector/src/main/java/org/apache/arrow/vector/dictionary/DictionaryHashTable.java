@@ -17,9 +17,11 @@
 
 package org.apache.arrow.vector.dictionary;
 
-import java.util.Objects;
-
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.compare.Range;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 
 /**
  * HashTable used for Dictionary encoding. It holds two vectors (the vector to encode and dictionary vector)
@@ -55,7 +57,7 @@ public class DictionaryHashTable {
    * The table, initialized on first use, and resized as
    * necessary. When allocated, length is always a power of two.
    */
-  transient DictionaryHashTable.Entry[] table = (DictionaryHashTable.Entry[]) EMPTY_TABLE;
+  transient DictionaryHashTable.Entry[] table = EMPTY_TABLE;
 
   /**
    * The number of key-value mappings contained in this map.
@@ -74,10 +76,12 @@ public class DictionaryHashTable {
 
   private final ValueVector dictionary;
 
+  private final ArrowBufHasher hasher;
+
   /**
    * Constructs an empty map with the specified initial capacity and load factor.
    */
-  public DictionaryHashTable(int initialCapacity, ValueVector dictionary) {
+  public DictionaryHashTable(int initialCapacity, ValueVector dictionary, ArrowBufHasher hasher) {
     if (initialCapacity < 0) {
       throw new IllegalArgumentException("Illegal initial capacity: " +
           initialCapacity);
@@ -89,10 +93,21 @@ public class DictionaryHashTable {
     this.threshold = initialCapacity;
 
     this.dictionary = dictionary;
+
+    this.hasher = hasher;
+
+    // build hash table
+    for (int i = 0; i < this.dictionary.getValueCount(); i++) {
+      put(i);
+    }
+  }
+
+  public DictionaryHashTable(ValueVector dictionary, ArrowBufHasher hasher) {
+    this(DEFAULT_INITIAL_CAPACITY, dictionary, hasher);
   }
 
   public DictionaryHashTable(ValueVector dictionary) {
-    this(DEFAULT_INITIAL_CAPACITY, dictionary);
+    this(dictionary, SimpleHasher.INSTANCE);
   }
 
   /**
@@ -130,12 +145,19 @@ public class DictionaryHashTable {
    * @return dictionary vector index or -1 if no value equals.
    */
   public int getIndex(int indexInArray, ValueVector toEncode) {
-    int hash = toEncode.hashCode(indexInArray);
+    int hash = toEncode.hashCode(indexInArray, this.hasher);
     int index = indexFor(hash, table.length);
+
+    RangeEqualsVisitor equalVisitor = new RangeEqualsVisitor(dictionary, toEncode, false);
+    Range range = new Range(0, 0, 1);
+
     for (DictionaryHashTable.Entry e = table[index]; e != null ; e = e.next) {
-      if ((e.hash == hash)) {
+      if (e.hash == hash) {
         int dictIndex = e.index;
-        if (dictionary.equals(dictIndex, toEncode, indexInArray)) {
+
+        range = range.setRightStart(indexInArray)
+            .setLeftStart(dictIndex);
+        if (equalVisitor.rangeEquals(range)) {
           return dictIndex;
         }
       }
@@ -146,12 +168,12 @@ public class DictionaryHashTable {
   /**
    * put the index of dictionary vector to build hash table.
    */
-  public void put(int indexInDictionary) {
+  private void put(int indexInDictionary) {
     if (table == EMPTY_TABLE) {
       inflateTable(threshold);
     }
 
-    int hash = dictionary.hashCode(indexInDictionary);
+    int hash = dictionary.hashCode(indexInDictionary, this.hasher);
     int i = indexFor(hash, table.length);
     for (DictionaryHashTable.Entry e = table[i]; e != null; e = e.next) {
       if (e.hash == hash && e.index == indexInDictionary) {
@@ -198,7 +220,7 @@ public class DictionaryHashTable {
     DictionaryHashTable.Entry[] newTable = new DictionaryHashTable.Entry[newCapacity];
     transfer(newTable);
     table = newTable;
-    threshold = (int)Math.min(newCapacity * loadFactor, MAXIMUM_CAPACITY + 1);
+    threshold = (int) Math.min(newCapacity * loadFactor, MAXIMUM_CAPACITY + 1);
   }
 
   /**
@@ -254,12 +276,17 @@ public class DictionaryHashTable {
       return this.index;
     }
 
+    @Override
+    public int hashCode() {
+      return hash;
+    }
+
     public final boolean equals(Object o) {
       if (!(o instanceof DictionaryHashTable.Entry)) {
         return false;
       }
       DictionaryHashTable.Entry e = (DictionaryHashTable.Entry) o;
-      if (Objects.equals(index, e.getIndex())) {
+      if (index == e.getIndex()) {
         return true;
       }
       return false;

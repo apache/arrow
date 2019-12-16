@@ -96,6 +96,17 @@ namespace Apache.Arrow.Tests
             Assert.True(struct_type.GetFieldByName("not_found") == null);
         }
 
+        [Fact]
+        public void TestListTypeConstructor()
+        {
+            var stringField = new Field.Builder().Name("item").DataType(StringType.Default).Build();
+            var stringType1 = new ListType(stringField);
+            var stringType2 = new ListType(StringType.Default);
+
+            Assert.True(FieldComparer.Equals(stringType1.ValueField, stringType2.ValueField));
+            Assert.Equal(stringType1.ValueDataType.TypeId, stringType2.ValueDataType.TypeId);
+        }
+
         // Todo: StructType::GetFieldIndexDuplicate test
 
 

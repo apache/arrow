@@ -75,6 +75,7 @@ set(SRC_FILES
     selection_vector.cc
     tree_expr_builder.cc
     to_date_holder.cc
+    random_generator_holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE RE2::re2)
@@ -106,6 +107,10 @@ if(NOT APPLE AND NOT MSVC)
 endif()
 
 add_arrow_lib(gandiva
+              CMAKE_PACKAGE_NAME
+              Gandiva
+              PKG_CONFIG_NAME
+              gandiva
               SOURCES
               ${SRC_FILES}
               OUTPUTS
@@ -134,14 +139,7 @@ endif()
 
 add_dependencies(gandiva ${GANDIVA_LIBRARIES})
 
-# install for gandiva
-include(GNUInstallDirs)
-
-# install the header files.
 arrow_install_all_headers("gandiva")
-
-# pkg-config support
-arrow_add_pkg_config("gandiva")
 
 set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static RE2::re2 ${ARROW_TEST_LINK_LIBS})
 
@@ -167,11 +165,15 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
       "gandiva"
       LABELS
       "gandiva-tests"
+      EXTRA_LINK_LIBS
+      LLVM::LLVM_INTERFACE
+      EXTRA_DEPENDENCIES
+      LLVM::LLVM_INTERFACE
       ${ARG_UNPARSED_ARGUMENTS})
 
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
-  if(ARG_USE_STATIC_LINKING)
+  if(ARG_USE_STATIC_LINKING OR ARROW_TEST_LINKAGE STREQUAL "static")
     add_test_case(${REL_TEST_NAME}
                   ${TEST_ARGUMENTS}
                   STATIC_LINK_LIBS
@@ -184,12 +186,6 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
                   ${GANDIVA_SHARED_TEST_LINK_LIBS}
                   ${ARG_UNPARSED_ARGUMENTS})
   endif()
-
-  set(TARGET_NAME gandiva-${REL_TEST_NAME})
-
-  # If the unit test has llvm in its name, include llvm.
-  add_dependencies(${TARGET_NAME} LLVM::LLVM_INTERFACE)
-  target_link_libraries(${TARGET_NAME} PRIVATE LLVM::LLVM_INTERFACE)
 endfunction()
 
 add_gandiva_test(internals-test
@@ -209,7 +205,8 @@ add_gandiva_test(internals-test
                  to_date_holder_test.cc
                  simple_arena_test.cc
                  like_holder_test.cc
-                 decimal_type_util_test.cc)
+                 decimal_type_util_test.cc
+                 random_generator_holder_test.cc)
 
 if(ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)

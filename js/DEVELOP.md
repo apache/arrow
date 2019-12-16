@@ -39,8 +39,6 @@ If you’d like to report a bug but don’t have time to fix it, you can still p
 it on JIRA, or email the mailing list
 [dev@arrow.apache.org](http://mail-archives.apache.org/mod_mbox/arrow-dev/)
 
-
-
 # The npm scripts
 
 * `npm run clean` - cleans targets
@@ -68,37 +66,31 @@ Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm
 
 # Updating the Arrow format flatbuffers generated code
 
-Once generated, the flatbuffers format code needs to be adjusted for our build scripts.
+1. Once generated, the flatbuffers format code needs to be adjusted for our build scripts (assumes `gnu-sed`):
 
-1. Generate the flatbuffers TypeScript source from the Arrow project root directory:
-    ```sh
-    cd $ARROW_HOME
+```shell
+cd $ARROW_HOME
 
-    flatc --ts -o ./js/src/format ./format/*.fbs
+flatc --ts -o ./js/src/fb ./format/{File,Schema,Message}.fbs
 
-    cd ./js/src/format
+cd ./js/src/fb
 
-    # Delete Tensor_generated.js (skip this when we support Tensors)
-    rm ./Tensor_generated.ts
+# Rename the existing files to <filename>.bak.ts
+mv File{,.bak}.ts && mv Schema{,.bak}.ts && mv Message{,.bak}.ts
 
-    # Remove "_generated" suffix from TS files
-    mv ./File_generated.ts .File.ts
-    mv ./Schema_generated.ts .Schema.ts
-    mv ./Message_generated.ts .Message.ts
-    ```
-1. Remove Tensor import from `Schema.ts`
-1. Fix all the `flatbuffers` imports
-    ```ts
-    import { flatbuffers } from "./flatbuffers" // <-- change
-    import { flatbuffers } from "flatbuffers" // <-- to this
-    ```
-1. Remove `_generated` from the ES6 imports of the generated files
-    ```ts
-    import * as NS16187549871986683199 from "./Schema_generated"; // <-- change
-    import * as NS16187549871986683199 from "./Schema"; // <------- to this
-    ```
-1. Add `/* tslint:disable:class-name */` to the top of `Schema.ts`
-1. Execute `npm run lint` to fix all the linting errors
+# Remove `_generated` from the ES6 imports of the generated files
+sed -i '+s+_generated\";+\";+ig' *_generated.ts
+# Fix all the `flatbuffers` imports
+sed -i '+s+./flatbuffers+flatbuffers+ig' *_generated.ts
+# Fix the Union createTypeIdsVector typings
+sed -i -r '+s+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Uint8Array+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Int32Array+ig' Schema_generated.ts
+# Add `/* tslint:disable:class-name */` to the top of `Schema.ts`
+echo -e '/* tslint:disable:class-name */\n' | cat - Schema_generated.ts > Schema1.ts && mv Schema1.ts Schema_generated.ts
+# Remove "_generated" suffix from TS files
+mv File{_generated,}.ts && mv Schema{_generated,}.ts && mv Message{_generated,}.ts
+```
+2. Manually remove `Tensor` and `SparseTensor` imports and exports
+3. Execute `npm run lint` from the `js` directory to fix the linting errors
 
 [1]: mailto:dev-subscribe@arrow.apache.org
 [2]: https://github.com/apache/arrow/tree/master/format

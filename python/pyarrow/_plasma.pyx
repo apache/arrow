@@ -127,9 +127,10 @@ cdef extern from "plasma/client.h" nogil:
 
         CStatus Subscribe(int* fd)
 
-        CStatus DecodeNotification(const uint8_t* buffer,
-                                   CUniqueID* object_id, int64_t* data_size,
-                                   int64_t* metadata_size)
+        CStatus DecodeNotifications(const uint8_t* buffer,
+                                    c_vector[CUniqueID]* object_ids,
+                                    c_vector[int64_t]* data_sizes,
+                                    c_vector[int64_t]* metadata_sizes)
 
         CStatus GetNotification(int fd, CUniqueID* object_id,
                                 int64_t* data_size, int64_t* metadata_size)
@@ -672,29 +673,32 @@ cdef class PlasmaClient:
                                          family=socket.AF_UNIX,
                                          type=socket.SOCK_STREAM)
 
-    def decode_notification(self, const uint8_t* buf):
+    def decode_notifications(self, const uint8_t* buf):
         """
         Get the notification from the buffer.
 
         Returns
         -------
-        ObjectID
-            The object ID of the object that was stored.
-        int
-            The data size of the object that was stored.
-        int
-            The metadata size of the object that was stored.
+        [ObjectID]
+            The list of object IDs in the notification message.
+        c_vector[int64_t]
+            The data sizes of the objects in the notification message.
+        c_vector[int64_t]
+            The metadata sizes of the objects in the notification message.
         """
-        cdef CUniqueID object_id
-        cdef int64_t data_size
-        cdef int64_t metadata_size
+        cdef c_vector[CUniqueID] ids
+        cdef c_vector[int64_t] data_sizes
+        cdef c_vector[int64_t] metadata_sizes
         with nogil:
-            status = self.client.get().DecodeNotification(buf,
-                                                          &object_id,
-                                                          &data_size,
-                                                          &metadata_size)
+            status = self.client.get().DecodeNotifications(buf,
+                                                           &ids,
+                                                           &data_sizes,
+                                                           &metadata_sizes)
             plasma_check_status(status)
-        return ObjectID(object_id.binary()), data_size, metadata_size
+        object_ids = []
+        for object_id in ids:
+            object_ids.append(ObjectID(object_id.binary()))
+        return object_ids, data_sizes, metadata_sizes
 
     def get_next_notification(self):
         """
@@ -826,8 +830,7 @@ cdef class PlasmaClient:
         return self.client.get().store_capacity()
 
 
-def connect(store_socket_name, manager_socket_name=None, int release_delay=0,
-            int num_retries=-1):
+def connect(store_socket_name, int num_retries=-1):
     """
     Return a new PlasmaClient that is connected a plasma store and
     optionally a manager.
@@ -836,25 +839,15 @@ def connect(store_socket_name, manager_socket_name=None, int release_delay=0,
     ----------
     store_socket_name : str
         Name of the socket the plasma store is listening at.
-    manager_socket_name : str
-        This parameter is deprecated and has no effect.
-    release_delay : int
-        This parameter is deprecated and has no effect.
     num_retries : int, default -1
         Number of times to try to connect to plasma store. Default value of -1
         uses the default (50)
     """
-    if manager_socket_name is not None:
-        warnings.warn(
-            "manager_socket_name in PlasmaClient.connect is deprecated",
-            FutureWarning)
     cdef PlasmaClient result = PlasmaClient()
+    cdef int deprecated_release_delay = 0
     result.store_socket_name = store_socket_name.encode()
-    if release_delay != 0:
-        warnings.warn("release_delay in PlasmaClient.connect is deprecated",
-                      FutureWarning)
     with nogil:
         plasma_check_status(
             result.client.get().Connect(result.store_socket_name, b"",
-                                        release_delay, num_retries))
+                                        deprecated_release_delay, num_retries))
     return result

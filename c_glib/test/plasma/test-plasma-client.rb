@@ -21,6 +21,7 @@ class TestPlasmaClient < Test::Unit::TestCase
   def setup
     @store = nil
     omit("Plasma is required") unless defined?(::Plasma)
+    require_gi_bindings(3, 3, 9)
     @store = Helper::PlasmaStore.new
     @store.start
     @options = Plasma::ClientOptions.new
@@ -42,8 +43,6 @@ class TestPlasmaClient < Test::Unit::TestCase
     end
 
     test("no options") do
-      require_gi(1, 42, 0)
-
       object = @client.create(@id, @data.bytesize)
       object.data.set_data(0, @data)
       object.seal
@@ -63,7 +62,6 @@ class TestPlasmaClient < Test::Unit::TestCase
 
     test("options: GPU device") do
       omit("Arrow CUDA is required") unless defined?(::ArrowCUDA)
-      omit("TODO: Fix this failure: ARROW-5772")
 
       gpu_device = 0
 

@@ -10,23 +10,24 @@
     development platform for in-memory data. It specifies a standardized
     language-independent columnar memory format for flat and hierarchical data,
     organized for efficient analytic operations on modern hardware. This
-    package provides an interface to the Arrow C++ library.
+    package provides an interface to the 'Arrow C++' library.
 }
 \seealso{
 Useful links:
 \itemize{
   \item \url{https://github.com/apache/arrow/}
+  \item \url{https://arrow.apache.org/docs/r}
   \item Report bugs at \url{https://issues.apache.org/jira/projects/ARROW/issues}
 }
 
 }
 \author{
-\strong{Maintainer}: Romain François \email{romain@rstudio.com} (0000-0002-2444-4226)
+\strong{Maintainer}: Neal Richardson \email{neal@ursalabs.org}
 
 Authors:
 \itemize{
+  \item Romain François \email{romain@rstudio.com} (\href{https://orcid.org/0000-0002-2444-4226}{ORCID})
   \item Jeroen Ooms \email{jeroen@berkeley.edu}
-  \item Neal Richardson \email{neal@ursalabs.org}
   \item Apache Arrow \email{dev@arrow.apache.org} [copyright holder]
 }
 

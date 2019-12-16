@@ -171,8 +171,7 @@ Status IntegerOverflowStatus(PyObject* obj, const std::string& overflow_message)
 }
 
 // Extract C signed int from Python object
-template <typename Int,
-          typename std::enable_if<std::is_signed<Int>::value, Int>::type = 0>
+template <typename Int, enable_if_t<std::is_signed<Int>::value, Int> = 0>
 Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_message) {
   static_assert(sizeof(Int) <= sizeof(long long),  // NOLINT
                 "integer type larger than long long");
@@ -202,8 +201,7 @@ Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_m
 }
 
 // Extract C unsigned int from Python object
-template <typename Int,
-          typename std::enable_if<std::is_unsigned<Int>::value, Int>::type = 0>
+template <typename Int, enable_if_t<std::is_unsigned<Int>::value, Int> = 0>
 Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_message) {
   static_assert(sizeof(Int) <= sizeof(unsigned long long),  // NOLINT
                 "integer type larger than unsigned long long");
@@ -299,6 +297,13 @@ Status InvalidValue(PyObject* obj, const std::string& why) {
   RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
   return Status::Invalid("Could not convert ", obj_as_str, " with type ",
                          Py_TYPE(obj)->tp_name, ": ", why);
+}
+
+Status InvalidType(PyObject* obj, const std::string& why) {
+  std::string obj_as_str;
+  RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
+  return Status::TypeError("Could not convert ", obj_as_str, " with type ",
+                           Py_TYPE(obj)->tp_name, ": ", why);
 }
 
 Status UnboxIntegerAsInt64(PyObject* obj, int64_t* out) {

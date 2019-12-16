@@ -16,6 +16,7 @@
 // under the License.
 
 pub mod convert;
+pub mod file;
 
 pub mod gen;
 

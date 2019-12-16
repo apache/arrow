@@ -32,9 +32,15 @@ module Arrow
     end
 
     def require_libraries
+      require "arrow/column-containable"
+      require "arrow/field-containable"
+      require "arrow/generic-filterable"
+      require "arrow/generic-takeable"
+      require "arrow/record-containable"
+
       require "arrow/array"
       require "arrow/array-builder"
-      require "arrow/binary-array-builder"
+      require "arrow/bigdecimal-extension"
       require "arrow/chunked-array"
       require "arrow/column"
       require "arrow/compression-type"
@@ -46,12 +52,14 @@ module Arrow
       require "arrow/date64-array"
       require "arrow/date64-array-builder"
       require "arrow/decimal128"
+      require "arrow/decimal128-array"
       require "arrow/decimal128-array-builder"
       require "arrow/decimal128-data-type"
       require "arrow/dense-union-data-type"
       require "arrow/dictionary-data-type"
       require "arrow/field"
       require "arrow/file-output-stream"
+      require "arrow/group"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"
       require "arrow/null-array-builder"
@@ -75,7 +83,12 @@ module Arrow
       require "arrow/table-loader"
       require "arrow/table-saver"
       require "arrow/tensor"
+      require "arrow/time"
+      require "arrow/time32-array"
+      require "arrow/time32-array-builder"
       require "arrow/time32-data-type"
+      require "arrow/time64-array"
+      require "arrow/time64-array-builder"
       require "arrow/time64-data-type"
       require "arrow/timestamp-array"
       require "arrow/timestamp-array-builder"
@@ -98,6 +111,14 @@ module Arrow
 
     def load_method_info(info, klass, method_name)
       case klass.name
+      when /Array\z/
+        case method_name
+        when "values"
+          method_name = "values_raw"
+        end
+      end
+
+      case klass.name
       when /Builder\z/
         case method_name
         when "append"
@@ -113,7 +134,12 @@ module Arrow
           method_name = "get_value"
         end
         super(info, klass, method_name)
-      when "Arrow::TimestampArray", "Arrow::Date32Array", "Arrow::Date64Array"
+      when "Arrow::Date32Array",
+           "Arrow::Date64Array",
+           "Arrow::Decimal128Array",
+           "Arrow::Time32Array",
+           "Arrow::Time64Array",
+           "Arrow::TimestampArray"
         case method_name
         when "get_value"
           method_name = "get_raw_value"

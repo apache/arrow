@@ -102,8 +102,15 @@ class FileFormatFixture(IpcFixture):
 
 class StreamFormatFixture(IpcFixture):
 
+    # ARROW-6474, for testing writing old IPC protocol with 4-byte prefix
+    use_legacy_ipc_format = False
+
     def _get_writer(self, sink, schema):
-        return pa.RecordBatchStreamWriter(sink, schema)
+        return pa.RecordBatchStreamWriter(
+            sink,
+            schema,
+            use_legacy_format=self.use_legacy_ipc_format
+        )
 
 
 class MessageFixture(IpcFixture):
@@ -218,9 +225,8 @@ def test_stream_categorical_roundtrip(stream_fixture):
                               ordered=True)
     })
     batch = pa.RecordBatch.from_pandas(df)
-    writer = stream_fixture._get_writer(stream_fixture.sink, batch.schema)
-    writer.write_batch(batch)
-    writer.close()
+    with stream_fixture._get_writer(stream_fixture.sink, batch.schema) as wr:
+        wr.write_batch(batch)
 
     table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
              .read_all())
@@ -254,10 +260,9 @@ def test_stream_write_dispatch(stream_fixture):
     })
     table = pa.Table.from_pandas(df, preserve_index=False)
     batch = pa.RecordBatch.from_pandas(df, preserve_index=False)
-    writer = stream_fixture._get_writer(stream_fixture.sink, table.schema)
-    writer.write(table)
-    writer.write(batch)
-    writer.close()
+    with stream_fixture._get_writer(stream_fixture.sink, table.schema) as wr:
+        wr.write(table)
+        wr.write(batch)
 
     table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
              .read_all())
@@ -276,9 +281,8 @@ def test_stream_write_table_batches(stream_fixture):
 
     table = pa.Table.from_batches([b1, b2, b1])
 
-    writer = stream_fixture._get_writer(stream_fixture.sink, table.schema)
-    writer.write_table(table, chunksize=15)
-    writer.close()
+    with stream_fixture._get_writer(stream_fixture.sink, table.schema) as wr:
+        wr.write_table(table, max_chunksize=15)
 
     batches = list(pa.ipc.open_stream(stream_fixture.get_source()))
 
@@ -289,7 +293,9 @@ def test_stream_write_table_batches(stream_fixture):
                                  ignore_index=True))
 
 
-def test_stream_simple_roundtrip(stream_fixture):
+@pytest.mark.parametrize('use_legacy_ipc_format', [False, True])
+def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
+    stream_fixture.use_legacy_ipc_format = use_legacy_ipc_format
     _, batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
     reader = pa.ipc.open_stream(file_contents)
@@ -305,6 +311,24 @@ def test_stream_simple_roundtrip(stream_fixture):
 
     with pytest.raises(StopIteration):
         reader.read_next_batch()
+
+
+def test_envvar_set_legacy_ipc_format():
+    schema = pa.schema([pa.field('foo', pa.int32())])
+
+    writer = pa.RecordBatchStreamWriter(pa.BufferOutputStream(), schema)
+    assert not writer._use_legacy_format
+    writer = pa.RecordBatchFileWriter(pa.BufferOutputStream(), schema)
+    assert not writer._use_legacy_format
+
+    import os
+    os.environ['ARROW_PRE_0_15_IPC_FORMAT'] = '1'
+    writer = pa.RecordBatchStreamWriter(pa.BufferOutputStream(), schema)
+    assert writer._use_legacy_format
+    writer = pa.RecordBatchFileWriter(pa.BufferOutputStream(), schema)
+    assert writer._use_legacy_format
+
+    del os.environ['ARROW_PRE_0_15_IPC_FORMAT']
 
 
 def test_stream_read_all(stream_fixture):
@@ -363,14 +387,38 @@ def test_message_serialize_read_message(example_messages):
 
     msg = messages[0]
     buf = msg.serialize()
+    reader = pa.BufferReader(buf.to_pybytes() * 2)
 
     restored = pa.read_message(buf)
-    restored2 = pa.read_message(pa.BufferReader(buf))
+    restored2 = pa.read_message(reader)
     restored3 = pa.read_message(buf.to_pybytes())
+    restored4 = pa.read_message(reader)
 
     assert msg.equals(restored)
     assert msg.equals(restored2)
     assert msg.equals(restored3)
+    assert msg.equals(restored4)
+
+    with pytest.raises(pa.ArrowInvalid, match="Corrupted message"):
+        pa.read_message(pa.BufferReader(b'ab'))
+
+    with pytest.raises(EOFError):
+        pa.read_message(reader)
+
+
+def test_message_read_from_compressed(example_messages):
+    # Part of ARROW-5910
+    _, messages = example_messages
+    for message in messages:
+        raw_out = pa.BufferOutputStream()
+        with pa.output_stream(raw_out, compression='gzip') as compressed_out:
+            message.serialize_to(compressed_out)
+
+        compressed_buf = raw_out.getvalue()
+
+        result = pa.read_message(pa.input_stream(compressed_buf,
+                                                 compression='gzip'))
+        assert result.equals(message)
 
 
 def test_message_read_record_batch(example_messages):
@@ -379,6 +427,19 @@ def test_message_read_record_batch(example_messages):
     for batch, message in zip(batches, messages[1:]):
         read_batch = pa.read_record_batch(message, batch.schema)
         assert read_batch.equals(batch)
+
+
+def test_read_record_batch_on_stream_error_message():
+    # ARROW-5374
+    batch = pa.record_batch([pa.array([b"foo"], type=pa.utf8())],
+                            names=['strs'])
+    stream = pa.BufferOutputStream()
+    with pa.RecordBatchStreamWriter(stream, batch.schema) as writer:
+        writer.write_batch(batch)
+    buf = stream.getvalue()
+    with pytest.raises(IOError,
+                       match="type record batch but got schema"):
+        pa.read_record_batch(buf, batch.schema)
 
 
 # ----------------------------------------------------------------------
@@ -434,7 +495,7 @@ class SocketStreamFixture(IpcFixture):
 
     def stop_and_get_result(self):
         import struct
-        self.sink.write(struct.pack('i', 0))
+        self.sink.write(struct.pack('Q', 0))
         self.sink.flush()
         self._sock.close()
         self._server.join()
@@ -516,12 +577,12 @@ def test_ipc_stream_no_batches():
                                  names=['a', 'b'])
 
     sink = pa.BufferOutputStream()
-    writer = pa.RecordBatchStreamWriter(sink, table.schema)
-    writer.close()
+    with pa.RecordBatchStreamWriter(sink, table.schema):
+        pass
 
     source = sink.getvalue()
-    reader = pa.ipc.open_stream(source)
-    result = reader.read_all()
+    with pa.ipc.open_stream(source) as reader:
+        result = reader.read_all()
 
     assert result.schema.equals(table.schema)
     assert len(result) == 0
@@ -656,15 +717,13 @@ def test_schema_serialization_with_metadata():
 
 
 def write_file(batch, sink):
-    writer = pa.RecordBatchFileWriter(sink, batch.schema)
-    writer.write_batch(batch)
-    writer.close()
+    with pa.RecordBatchFileWriter(sink, batch.schema) as writer:
+        writer.write_batch(batch)
 
 
 def read_file(source):
-    reader = pa.ipc.open_file(source)
-    return [reader.get_batch(i)
-            for i in range(reader.num_record_batches)]
+    with pa.ipc.open_file(source) as reader:
+        return [reader.get_batch(i) for i in range(reader.num_record_batches)]
 
 
 def test_write_empty_ipc_file():
@@ -673,11 +732,11 @@ def test_write_empty_ipc_file():
     schema = pa.schema([('field', pa.int64())])
 
     sink = pa.BufferOutputStream()
-    writer = pa.RecordBatchFileWriter(sink, schema)
-    writer.close()
+    with pa.RecordBatchFileWriter(sink, schema):
+        pass
 
     buf = sink.getvalue()
-    reader = pa.RecordBatchFileReader(pa.BufferReader(buf))
-    table = reader.read_all()
+    with pa.RecordBatchFileReader(pa.BufferReader(buf)) as reader:
+        table = reader.read_all()
     assert len(table) == 0
     assert table.schema.equals(schema)

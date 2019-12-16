@@ -25,7 +25,7 @@ import {
     DataType, strideForType,
     Float, Int, Decimal, FixedSizeBinary,
     Date_, Time, Timestamp, Interval,
-    Utf8, Binary, List,
+    Utf8, Binary, List, Map_
 } from './type';
 
 /**
@@ -441,7 +441,7 @@ export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary 
 }
 
 /** @ignore */
-export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List, TNull = any> extends Builder<T, TNull> {
+export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_, TNull = any> extends Builder<T, TNull> {
     protected _pendingLength: number = 0;
     protected _offsets: OffsetsBufferBuilder;
     protected _pending: Map<number, any> | undefined;

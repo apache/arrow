@@ -76,16 +76,19 @@ export class VectorAssembler extends Visitor {
                 /* istanbul ignore next */
                 throw new RangeError('Cannot write arrays larger than 2^31 - 1 in length');
             }
-            addBuffer.call(this, nullCount <= 0
-                ? new Uint8Array(0) // placeholder validity buffer
-                : truncateBitmap(data.offset, length, data.nullBitmap)
-            ).nodes.push(new FieldNode(length, nullCount));
+            if (!DataType.isNull(vector.type)) {
+                addBuffer.call(this, nullCount <= 0
+                    ? new Uint8Array(0) // placeholder validity buffer
+                    : truncateBitmap(data.offset, length, data.nullBitmap)
+                );
+            }
+            this.nodes.push(new FieldNode(length, nullCount));
         }
         return super.visit(vector);
     }
 
     public visitNull<T extends Null>(_nullV: V<T>) {
-        return addBuffer.call(this, new Uint8Array(0));
+        return this;
     }
     public visitDictionary<T extends Dictionary>(vector: V<T>) {
         // Assemble the indices here, Dictionary assembled separately.
@@ -198,9 +201,9 @@ function assembleFlatListVector<T extends Utf8 | Binary>(this: VectorAssembler, 
 }
 
 /** @ignore */
-function assembleListVector<T extends List | FixedSizeList>(this: VectorAssembler, vector: V<T>) {
+function assembleListVector<T extends Map_ | List | FixedSizeList>(this: VectorAssembler, vector: V<T>) {
     const { length, valueOffsets } = vector;
-    // If we have valueOffsets (ListVector), push that buffer first
+    // If we have valueOffsets (MapVector, ListVector), push that buffer first
     if (valueOffsets) {
         addBuffer.call(this, rebaseValueOffsets(valueOffsets[0], length, valueOffsets));
     }
@@ -209,7 +212,7 @@ function assembleListVector<T extends List | FixedSizeList>(this: VectorAssemble
 }
 
 /** @ignore */
-function assembleNestedVector<T extends Struct | Map_ | Union>(this: VectorAssembler, vector: V<T>) {
+function assembleNestedVector<T extends Struct | Union>(this: VectorAssembler, vector: V<T>) {
     return this.visitMany(vector.type.children.map((_, i) => vector.getChildAt(i)!).filter(Boolean))[0];
 }
 
@@ -228,4 +231,4 @@ VectorAssembler.prototype.visitStruct          =   assembleNestedVector;
 VectorAssembler.prototype.visitUnion           =          assembleUnion;
 VectorAssembler.prototype.visitInterval        =     assembleFlatVector;
 VectorAssembler.prototype.visitFixedSizeList   =     assembleListVector;
-VectorAssembler.prototype.visitMap             =   assembleNestedVector;
+VectorAssembler.prototype.visitMap             =     assembleListVector;

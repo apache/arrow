@@ -36,11 +36,17 @@
 #include "arrow/builder.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/hash-util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
+
+#define XXH_INLINE_ALL
+#define XXH_PRIVATE_API
+#define XXH_NAMESPACE arrow_hashing_
+
+#include "arrow/vendored/xxhash.h"
 
 namespace arrow {
 namespace internal {
@@ -49,15 +55,10 @@ namespace internal {
 typedef uint64_t hash_t;
 
 // Notes about the choice of a hash function.
-// - xxHash64 is extremely fast on large enough data
-// - for small- to medium-sized data, there are better choices
-//   (see comprehensive benchmarks results at
-//    https://aras-p.info/blog/2016/08/09/More-Hash-Function-Tests/)
-// - for very small fixed-size data (<= 16 bytes, e.g. Decimal128), it is
-//   beneficial to define specialized hash functions
-// - while xxHash and others have good statistical properties, we can relax those
-//   a bit if it helps performance (especially if the hash table implementation
-//   has a good collision resolution strategy)
+// - XXH3 is extremely fast on most data sizes, from small to huge;
+//   faster even than HW CRC-based hashing schemes
+// - our custom hash function for tiny values (< 16 bytes) is still
+//   significantly faster (~30%), at least on this machine and compiler
 
 template <uint64_t AlgNum>
 inline hash_t ComputeStringHash(const void* data, int64_t length);
@@ -80,8 +81,7 @@ template <typename Scalar, uint64_t AlgNum = 0, typename Enable = void>
 struct ScalarHelper : public ScalarHelperBase<Scalar, AlgNum> {};
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<Scalar, AlgNum,
-                    typename std::enable_if<std::is_integral<Scalar>::value>::type>
+struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_integral<Scalar>::value>>
     : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for integers
 
@@ -102,9 +102,8 @@ struct ScalarHelper<Scalar, AlgNum,
 };
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<
-    Scalar, AlgNum,
-    typename std::enable_if<std::is_same<util::string_view, Scalar>::value>::type>
+struct ScalarHelper<Scalar, AlgNum,
+                    enable_if_t<std::is_same<util::string_view, Scalar>::value>>
     : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for util::string_view
 
@@ -114,8 +113,7 @@ struct ScalarHelper<
 };
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<Scalar, AlgNum,
-                    typename std::enable_if<std::is_floating_point<Scalar>::value>::type>
+struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_floating_point<Scalar>::value>>
     : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for reals
 
@@ -132,7 +130,7 @@ template <uint64_t AlgNum = 0>
 hash_t ComputeStringHash(const void* data, int64_t length) {
   if (ARROW_PREDICT_TRUE(length <= 16)) {
     // Specialize for small hash strings, as they are quite common as
-    // hash table keys.
+    // hash table keys.  Even XXH3 isn't quite as fast.
     auto p = reinterpret_cast<const uint8_t*>(data);
     auto n = static_cast<uint32_t>(length);
     if (n <= 8) {
@@ -166,21 +164,29 @@ hash_t ComputeStringHash(const void* data, int64_t length) {
     return n ^ hx ^ hy;
   }
 
-  if (HashUtil::have_hardware_crc32) {
-#ifdef ARROW_HAVE_ARMV8_CRYPTO
-    auto h = HashUtil::Armv8CrcHashParallel(data, static_cast<int32_t>(length), AlgNum);
-#else
-    // DoubleCrcHash is faster that Murmur2.
-    auto h = HashUtil::DoubleCrcHash(data, static_cast<int32_t>(length), AlgNum);
+#if XXH3_SECRET_SIZE_MIN != 136
+#error XXH3_SECRET_SIZE_MIN changed, please fix kXxh3Secrets
 #endif
-    return ScalarHelper<uint64_t, AlgNum>::ComputeHash(h);
-  } else {
-    // Fall back on 64-bit Murmur2 for longer strings.
-    // It has decent speed for medium-sized strings.  There may be faster
-    // hashes on long strings such as xxHash, but that may not matter much
-    // for the typical length distribution of hash keys.
-    return HashUtil::MurmurHash2_64(data, static_cast<int>(length), AlgNum);
-  }
+
+  // XXH3_64bits_withSeed generates a secret based on the seed, which is too slow.
+  // Instead, we use hard-coded random secrets.  To maximize cache efficiency,
+  // they reuse the same memory area.
+  static constexpr unsigned char kXxh3Secrets[XXH3_SECRET_SIZE_MIN + 1] = {
+      0xe7, 0x8b, 0x13, 0xf9, 0xfc, 0xb5, 0x8e, 0xef, 0x81, 0x48, 0x2c, 0xbf, 0xf9, 0x9f,
+      0xc1, 0x1e, 0x43, 0x6d, 0xbf, 0xa6, 0x6d, 0xb5, 0x72, 0xbc, 0x97, 0xd8, 0x61, 0x24,
+      0x0f, 0x12, 0xe3, 0x05, 0x21, 0xf7, 0x5c, 0x66, 0x67, 0xa5, 0x65, 0x03, 0x96, 0x26,
+      0x69, 0xd8, 0x29, 0x20, 0xf8, 0xc7, 0xb0, 0x3d, 0xdd, 0x7d, 0x18, 0xa0, 0x60, 0x75,
+      0x92, 0xa4, 0xce, 0xba, 0xc0, 0x77, 0xf4, 0xac, 0xb7, 0x03, 0x53, 0xf0, 0x98, 0xce,
+      0xe6, 0x2b, 0x20, 0xc7, 0x82, 0x91, 0xab, 0xbf, 0x68, 0x5c, 0x62, 0x4d, 0x33, 0xa3,
+      0xe1, 0xb3, 0xff, 0x97, 0x54, 0x4c, 0x44, 0x34, 0xb5, 0xb9, 0x32, 0x4c, 0x75, 0x42,
+      0x89, 0x53, 0x94, 0xd4, 0x9f, 0x2b, 0x76, 0x4d, 0x4e, 0xe6, 0xfa, 0x15, 0x3e, 0xc1,
+      0xdb, 0x71, 0x4b, 0x2c, 0x94, 0xf5, 0xfc, 0x8c, 0x89, 0x4b, 0xfb, 0xc1, 0x82, 0xa5,
+      0x6a, 0x53, 0xf9, 0x4a, 0xba, 0xce, 0x1f, 0xc0, 0x97, 0x1a, 0x87};
+
+  static_assert(AlgNum < 2, "AlgNum too large");
+  static constexpr auto secret = kXxh3Secrets + AlgNum;
+  return XXH3_64bits_withSecret(data, static_cast<size_t>(length), secret,
+                                XXH3_SECRET_SIZE_MIN);
 }
 
 // XXX add a HashEq<ArrowType> struct with both hash and compare functions?
@@ -310,7 +316,7 @@ class HashTable {
   Status UpsizeBuffer(uint64_t capacity) {
     RETURN_NOT_OK(entries_builder_.Resize(capacity));
     entries_ = entries_builder_.mutable_data();
-    memset(entries_, 0, capacity * sizeof(Entry));
+    memset(static_cast<void*>(entries_), 0, capacity * sizeof(Entry));
 
     return Status::OK();
   }
@@ -485,8 +491,7 @@ struct SmallScalarTraits<bool> {
 };
 
 template <typename Scalar>
-struct SmallScalarTraits<Scalar,
-                         typename std::enable_if<std::is_integral<Scalar>::value>::type> {
+struct SmallScalarTraits<Scalar, enable_if_t<std::is_integral<Scalar>::value>> {
   using Unsigned = typename std::make_unsigned<Scalar>::type;
 
   static constexpr int32_t cardinality = 1U + std::numeric_limits<Unsigned>::max();
@@ -819,19 +824,13 @@ struct HashTraits<T, enable_if_8bit_int<T>> {
 };
 
 template <typename T>
-struct HashTraits<
-    T, typename std::enable_if<has_c_type<T>::value && !is_8bit_int<T>::value>::type> {
+struct HashTraits<T, enable_if_t<has_c_type<T>::value && !is_8bit_int<T>::value>> {
   using c_type = typename T::c_type;
   using MemoTableType = ScalarMemoTable<c_type, HashTable>;
 };
 
 template <typename T>
-struct HashTraits<T, enable_if_binary<T>> {
-  using MemoTableType = BinaryMemoTable;
-};
-
-template <typename T>
-struct HashTraits<T, enable_if_fixed_size_binary<T>> {
+struct HashTraits<T, enable_if_has_string_view<T>> {
   using MemoTableType = BinaryMemoTable;
 };
 
@@ -848,148 +847,12 @@ static inline Status ComputeNullBitmap(MemoryPool* pool, const MemoTableType& me
   if (null_index != kKeyNotFound && null_index >= start_offset) {
     null_index -= start_offset;
     *null_count = 1;
-    RETURN_NOT_OK(internal::BitmapAllButOne(pool, dict_length, null_index, null_bitmap));
+    ARROW_ASSIGN_OR_RAISE(*null_bitmap,
+                          internal::BitmapAllButOne(pool, dict_length, null_index));
   }
 
   return Status::OK();
 }
-
-template <typename T, typename Enable = void>
-struct DictionaryTraits {
-  using MemoTableType = void;
-};
-
-template <>
-struct DictionaryTraits<BooleanType> {
-  using T = BooleanType;
-  using MemoTableType = typename HashTraits<T>::MemoTableType;
-
-  static Status GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
-    if (start_offset < 0) {
-      return Status::Invalid("invalid start_offset ", start_offset);
-    }
-
-    BooleanBuilder builder(pool);
-    const auto& bool_values = memo_table.values();
-    const auto null_index = memo_table.GetNull();
-
-    // Will iterate up to 3 times.
-    for (int64_t i = start_offset; i < memo_table.size(); i++) {
-      RETURN_NOT_OK(i == null_index ? builder.AppendNull()
-                                    : builder.Append(bool_values[i]));
-    }
-
-    return builder.FinishInternal(out);
-  }
-};  // namespace internal
-
-template <typename T>
-struct DictionaryTraits<T, enable_if_has_c_type<T>> {
-  using c_type = typename T::c_type;
-  using MemoTableType = typename HashTraits<T>::MemoTableType;
-
-  static Status GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
-    std::shared_ptr<Buffer> dict_buffer;
-    auto dict_length = static_cast<int64_t>(memo_table.size()) - start_offset;
-    // This makes a copy, but we assume a dictionary array is usually small
-    // compared to the size of the dictionary-using array.
-    // (also, copying the dictionary values is cheap compared to the cost
-    //  of building the memo table)
-    RETURN_NOT_OK(
-        AllocateBuffer(pool, TypeTraits<T>::bytes_required(dict_length), &dict_buffer));
-    memo_table.CopyValues(static_cast<int32_t>(start_offset),
-                          reinterpret_cast<c_type*>(dict_buffer->mutable_data()));
-
-    int64_t null_count = 0;
-    std::shared_ptr<Buffer> null_bitmap = nullptr;
-    RETURN_NOT_OK(
-        ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
-
-    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_buffer}, null_count);
-    return Status::OK();
-  }
-};
-
-template <typename T>
-struct DictionaryTraits<T, enable_if_binary<T>> {
-  using MemoTableType = typename HashTraits<T>::MemoTableType;
-
-  static Status GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
-    std::shared_ptr<Buffer> dict_offsets;
-    std::shared_ptr<Buffer> dict_data;
-
-    // Create the offsets buffer
-    auto dict_length = static_cast<int64_t>(memo_table.size() - start_offset);
-    if (dict_length > 0) {
-      RETURN_NOT_OK(AllocateBuffer(
-          pool, TypeTraits<Int32Type>::bytes_required(dict_length + 1), &dict_offsets));
-      auto raw_offsets = reinterpret_cast<int32_t*>(dict_offsets->mutable_data());
-      memo_table.CopyOffsets(static_cast<int32_t>(start_offset), raw_offsets);
-    }
-
-    // Create the data buffer
-    auto values_size = memo_table.values_size();
-    if (values_size > 0) {
-      RETURN_NOT_OK(AllocateBuffer(pool, values_size, &dict_data));
-      memo_table.CopyValues(static_cast<int32_t>(start_offset), dict_data->size(),
-                            dict_data->mutable_data());
-    }
-
-    int64_t null_count = 0;
-    std::shared_ptr<Buffer> null_bitmap = nullptr;
-    RETURN_NOT_OK(
-        ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
-
-    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_offsets, dict_data},
-                           null_count);
-
-    return Status::OK();
-  }
-};
-
-template <typename T>
-struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
-  using MemoTableType = typename HashTraits<T>::MemoTableType;
-
-  static Status GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
-    const T& concrete_type = internal::checked_cast<const T&>(*type);
-    std::shared_ptr<Buffer> dict_data;
-
-    // Create the data buffer
-    auto dict_length = static_cast<int64_t>(memo_table.size() - start_offset);
-    auto width_length = concrete_type.byte_width();
-    auto data_length = dict_length * width_length;
-    RETURN_NOT_OK(AllocateBuffer(pool, data_length, &dict_data));
-    auto data = dict_data->mutable_data();
-
-    memo_table.CopyFixedWidthValues(static_cast<int32_t>(start_offset), width_length,
-                                    data_length, data);
-
-    int64_t null_count = 0;
-    std::shared_ptr<Buffer> null_bitmap = nullptr;
-    RETURN_NOT_OK(
-        ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
-
-    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_data}, null_count);
-    return Status::OK();
-  }
-};
 
 }  // namespace internal
 }  // namespace arrow

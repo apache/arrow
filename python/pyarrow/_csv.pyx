@@ -55,8 +55,13 @@ cdef class ReadOptions:
         The number of rows to skip at the start of the CSV data, not
         including the row of column names (if any).
     column_names: list, optional
-        The Table column names.  If empty, column names will be
-        read from the first row after `skip_rows`.
+        The column names of the target table.  If empty, fall back on
+        `autogenerate_column_names`.
+    autogenerate_column_names: bool, optional (default False)
+        Whether to autogenerate column names if `column_names` is empty.
+        If true, column names will be of the form "f0", "f1"...
+        If false, column names will be read from the first CSV row
+        after `skip_rows`.
     """
     cdef:
         CCSVReadOptions options
@@ -65,7 +70,7 @@ cdef class ReadOptions:
     __slots__ = ()
 
     def __init__(self, use_threads=None, block_size=None, skip_rows=None,
-                 column_names=None):
+                 column_names=None, autogenerate_column_names=None):
         self.options = CCSVReadOptions.Defaults()
         if use_threads is not None:
             self.use_threads = use_threads
@@ -75,6 +80,8 @@ cdef class ReadOptions:
             self.skip_rows = skip_rows
         if column_names is not None:
             self.column_names = column_names
+        if autogenerate_column_names is not None:
+            self.autogenerate_column_names= autogenerate_column_names
 
     @property
     def use_threads(self):
@@ -115,8 +122,8 @@ cdef class ReadOptions:
     @property
     def column_names(self):
         """
-        The Table column names.  If empty, column names will be
-        read from the first row after `skip_rows`.
+        The column names of the target table.  If empty, fall back on
+        `autogenerate_column_names`.
         """
         return [frombytes(s) for s in self.options.column_names]
 
@@ -125,6 +132,20 @@ cdef class ReadOptions:
         self.options.column_names.clear()
         for item in value:
             self.options.column_names.push_back(tobytes(item))
+
+    @property
+    def autogenerate_column_names(self):
+        """
+        Whether to autogenerate column names if `column_names` is empty.
+        If true, column names will be of the form "f0", "f1"...
+        If false, column names will be read from the first CSV row
+        after `skip_rows`.
+        """
+        return self.options.autogenerate_column_names
+
+    @autogenerate_column_names.setter
+    def autogenerate_column_names(self, value):
+        self.options.autogenerate_column_names = value
 
 
 cdef class ParseOptions:
@@ -288,6 +309,29 @@ cdef class ConvertOptions:
         If true, then strings in null_values are considered null for
         string columns.
         If false, then all strings are valid string values.
+
+    auto_dict_encode: bool, optional (default False)
+        Whether to try to automatically dict-encode string / binary data.
+        If true, then when type inference detects a string or binary column,
+        it it dict-encoded up to `auto_dict_max_cardinality` distinct values
+        (per chunk), after which it switches to regular encoding.
+        This setting is ignored for non-inferred columns (those in
+        `column_types`).
+    auto_dict_max_cardinality: int, optional
+        The maximum dictionary cardinality for `auto_dict_encode`.
+        This value is per chunk.
+
+    include_columns: list, optional
+        The names of columns to include in the Table.
+        If empty, the Table will include all columns from the CSV file.
+        If not empty, only these columns will be included, in this order.
+    include_missing_columns: bool, optional (default False)
+        If false, columns in `include_columns` but not in the CSV file will
+        error out.
+        If true, columns in `include_columns` but not in the CSV file will
+        produce a column of nulls (whose type is selected using
+        `column_types`, or null by default).
+        This option is ignored if `include_columns` is empty.
     """
     cdef:
         CCSVConvertOptions options
@@ -297,7 +341,9 @@ cdef class ConvertOptions:
 
     def __init__(self, check_utf8=None, column_types=None, null_values=None,
                  true_values=None, false_values=None,
-                 strings_can_be_null=None):
+                 strings_can_be_null=None, include_columns=None,
+                 include_missing_columns=None, auto_dict_encode=None,
+                 auto_dict_max_cardinality=None):
         self.options = CCSVConvertOptions.Defaults()
         if check_utf8 is not None:
             self.check_utf8 = check_utf8
@@ -311,6 +357,14 @@ cdef class ConvertOptions:
             self.false_values = false_values
         if strings_can_be_null is not None:
             self.strings_can_be_null = strings_can_be_null
+        if include_columns is not None:
+            self.include_columns = include_columns
+        if include_missing_columns is not None:
+            self.include_missing_columns = include_missing_columns
+        if auto_dict_encode is not None:
+            self.auto_dict_encode = auto_dict_encode
+        if auto_dict_max_cardinality is not None:
+            self.auto_dict_max_cardinality = auto_dict_max_cardinality
 
     @property
     def check_utf8(self):
@@ -396,8 +450,64 @@ cdef class ConvertOptions:
     def false_values(self, value):
         self.options.false_values = [tobytes(x) for x in value]
 
+    @property
+    def auto_dict_encode(self):
+        """
+        Whether to try to automatically dict-encode string / binary data.
+        """
+        return self.options.auto_dict_encode
 
-cdef _get_reader(input_file, shared_ptr[InputStream]* out):
+    @auto_dict_encode.setter
+    def auto_dict_encode(self, value):
+        self.options.auto_dict_encode = value
+
+    @property
+    def auto_dict_max_cardinality(self):
+        """
+        The maximum dictionary cardinality for `auto_dict_encode`.
+
+        This value is per chunk.
+        """
+        return self.options.auto_dict_max_cardinality
+
+    @auto_dict_max_cardinality.setter
+    def auto_dict_max_cardinality(self, value):
+        self.options.auto_dict_max_cardinality = value
+
+    @property
+    def include_columns(self):
+        """
+        The names of columns to include in the Table.
+
+        If empty, the Table will include all columns from the CSV file.
+        If not empty, only these columns will be included, in this order.
+        """
+        return [frombytes(s) for s in self.options.include_columns]
+
+    @include_columns.setter
+    def include_columns(self, value):
+        self.options.include_columns.clear()
+        for item in value:
+            self.options.include_columns.push_back(tobytes(item))
+
+    @property
+    def include_missing_columns(self):
+        """
+        If false, columns in `include_columns` but not in the CSV file will
+        error out.
+        If true, columns in `include_columns` but not in the CSV file will
+        produce a null column (whose type is selected using `column_types`,
+        or null by default).
+        This option is ignored if `include_columns` is empty.
+        """
+        return self.options.include_missing_columns
+
+    @include_missing_columns.setter
+    def include_missing_columns(self, value):
+        self.options.include_missing_columns = value
+
+
+cdef _get_reader(input_file, shared_ptr[CInputStream]* out):
     use_memory_map = False
     get_input_stream(input_file, use_memory_map, out)
 
@@ -453,7 +563,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
         Contents of the CSV file as a in-memory table.
     """
     cdef:
-        shared_ptr[InputStream] stream
+        shared_ptr[CInputStream] stream
         CCSVReadOptions c_read_options
         CCSVParseOptions c_parse_options
         CCSVConvertOptions c_convert_options
@@ -465,10 +575,11 @@ def read_csv(input_file, read_options=None, parse_options=None,
     _get_parse_options(parse_options, &c_parse_options)
     _get_convert_options(convert_options, &c_convert_options)
 
-    check_status(CCSVReader.Make(maybe_unbox_memory_pool(memory_pool),
-                                 stream, c_read_options, c_parse_options,
-                                 c_convert_options, &reader))
+    reader = GetResultValue(CCSVReader.Make(
+        maybe_unbox_memory_pool(memory_pool), stream,
+        c_read_options, c_parse_options, c_convert_options))
+
     with nogil:
-        check_status(reader.get().Read(&table))
+        table = GetResultValue(reader.get().Read())
 
     return pyarrow_wrap_table(table)

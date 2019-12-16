@@ -254,11 +254,11 @@ cdef class SerializedPyObject:
         """
         Write serialized object to a sink
         """
-        cdef shared_ptr[OutputStream] stream
+        cdef shared_ptr[COutputStream] stream
         get_writer(sink, &stream)
         self._write_to(stream.get())
 
-    cdef _write_to(self, OutputStream* stream):
+    cdef _write_to(self, COutputStream* stream):
         with nogil:
             check_status(self.data.WriteTo(stream))
 
@@ -301,10 +301,16 @@ cdef class SerializedPyObject:
             int num_ndarrays = components['num_ndarrays']
             int num_buffers = components['num_buffers']
             list buffers = components['data']
+            SparseTensorCounts num_sparse_tensors = SparseTensorCounts()
             SerializedPyObject result = SerializedPyObject()
 
+        num_sparse_tensors.coo = components['num_sparse_tensors']['coo']
+        num_sparse_tensors.csr = components['num_sparse_tensors']['csr']
+
         with nogil:
-            check_status(GetSerializedFromComponents(num_tensors, num_ndarrays,
+            check_status(GetSerializedFromComponents(num_tensors,
+                                                     num_sparse_tensors,
+                                                     num_ndarrays,
                                                      num_buffers,
                                                      buffers, &result.data))
 
@@ -334,7 +340,14 @@ cdef class SerializedPyObject:
 
 
 def serialize(object value, SerializationContext context=None):
-    """EXPERIMENTAL: Serialize a Python sequence
+    """EXPERIMENTAL: Serialize a general Python sequence for transient storage
+    and transport. This may have better performance and memory efficiency than
+    Python pickle.
+
+    Note: this function produces data that is incompatible with the standard
+    Arrow IPC binary protocol, i.e. it cannot be used with ipc.open_stream or
+    ipc.open_file. You can use deserialize, deserialize_from, or
+    deserialize_components to read it.
 
     Parameters
     ----------
@@ -347,6 +360,7 @@ def serialize(object value, SerializationContext context=None):
     Returns
     -------
     serialized : SerializedPyObject
+
     """
     cdef SerializedPyObject serialized = SerializedPyObject()
     wrapped_value = [value]
@@ -391,7 +405,7 @@ def read_serialized(source, base=None):
     -------
     serialized : the serialized data
     """
-    cdef shared_ptr[RandomAccessFile] stream
+    cdef shared_ptr[CRandomAccessFile] stream
     get_reader(source, True, &stream)
 
     cdef SerializedPyObject serialized = SerializedPyObject()
@@ -403,7 +417,8 @@ def read_serialized(source, base=None):
 
 
 def deserialize_from(source, object base, SerializationContext context=None):
-    """EXPERIMENTAL: Deserialize a Python sequence from a file.
+    """EXPERIMENTAL: Deserialize a Python sequence from a file. This only can
+    interact with data produced by pyarrow.serialize or pyarrow.serialize_to
 
     Parameters
     ----------
@@ -443,9 +458,9 @@ def deserialize_components(components, SerializationContext context=None):
 
 
 def deserialize(obj, SerializationContext context=None):
-    """
-    EXPERIMENTAL: Deserialize Python object from Buffer or other Python object
-    supporting the buffer protocol
+    """EXPERIMENTAL: Deserialize Python object from Buffer or other Python
+    object supporting the buffer protocol. This only can interact with data
+    produced by pyarrow.serialize or pyarrow.serialize_to
 
     Parameters
     ----------

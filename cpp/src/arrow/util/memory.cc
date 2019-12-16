@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "arrow/util/memory.h"
-#include "arrow/util/thread-pool.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 namespace internal {
@@ -58,8 +58,8 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
   std::vector<std::future<void*>> futures;
 
   for (int i = 0; i < num_threads; i++) {
-    futures.emplace_back(pool->Submit(wrap_memcpy, dst + prefix + i * chunk_size,
-                                      left + i * chunk_size, chunk_size));
+    futures.emplace_back(*pool->Submit(wrap_memcpy, dst + prefix + i * chunk_size,
+                                       left + i * chunk_size, chunk_size));
   }
   memcpy(dst, src, prefix);
   memcpy(dst + prefix + num_threads * chunk_size, right, suffix);

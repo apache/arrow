@@ -25,36 +25,50 @@ namespace org.apache.arrow.flatbuf;
 /// ----------------------------------------------------------------------
 /// EXPERIMENTAL: Data structures for sparse tensors
 
-/// Coodinate format of sparse tensor index.
+/// Coodinate (COO) format of sparse tensor index.
+///
+/// COO's index list are represented as a NxM matrix,
+/// where N is the number of non-zero values,
+/// and M is the number of dimensions of a sparse tensor.
+///
+/// indicesBuffer stores the location and size of the data of this indices
+/// matrix.  The value type and the stride of the indices matrix is
+/// specified in indicesType and indicesStrides fields.
+///
+/// For example, let X be a 2x3x4x5 tensor, and it has the following
+/// 6 non-zero values:
+///
+///   X[0, 1, 2, 0] := 1
+///   X[1, 1, 2, 3] := 2
+///   X[0, 2, 1, 0] := 3
+///   X[0, 1, 3, 0] := 4
+///   X[0, 1, 2, 1] := 5
+///   X[1, 2, 0, 4] := 6
+///
+/// In COO format, the index matrix of X is the following 4x6 matrix:
+///
+///   [[0, 0, 0, 0, 1, 1],
+///    [1, 1, 1, 2, 1, 2],
+///    [2, 2, 3, 1, 2, 0],
+///    [0, 1, 0, 0, 3, 4]]
+///
+/// Note that the indices are sorted in lexicographical order.
 table SparseTensorIndexCOO {
-  /// COO's index list are represented as a NxM matrix,
-  /// where N is the number of non-zero values,
-  /// and M is the number of dimensions of a sparse tensor.
-  /// indicesBuffer stores the location and size of this index matrix.
-  /// The type of index value is long, so the stride for the index matrix is unnecessary.
-  ///
-  /// For example, let X be a 2x3x4x5 tensor, and it has the following 6 non-zero values:
-  ///
-  ///   X[0, 1, 2, 0] := 1
-  ///   X[1, 1, 2, 3] := 2
-  ///   X[0, 2, 1, 0] := 3
-  ///   X[0, 1, 3, 0] := 4
-  ///   X[0, 1, 2, 1] := 5
-  ///   X[1, 2, 0, 4] := 6
-  ///
-  /// In COO format, the index matrix of X is the following 4x6 matrix:
-  ///
-  ///   [[0, 0, 0, 0, 1, 1],
-  ///    [1, 1, 1, 2, 1, 2],
-  ///    [2, 2, 3, 1, 2, 0],
-  ///    [0, 1, 0, 0, 3, 4]]
-  ///
-  /// Note that the indices are sorted in lexicographical order.
+  /// The type of values in indicesBuffer
+  indicesType: Int;
+
+  /// Non-negative byte offsets to advance one value cell along each dimension
+  indicesStrides: [long];
+
+  /// The location and size of the indices matrix's data
   indicesBuffer: Buffer;
 }
 
 /// Compressed Sparse Row format, that is matrix-specific.
 table SparseMatrixIndexCSR {
+  /// The type of values in indptrBuffer
+  indptrType: Int;
+
   /// indptrBuffer stores the location and size of indptr array that
   /// represents the range of the rows.
   /// The i-th row spans from indptr[i] to indptr[i+1] in the data.
@@ -78,6 +92,9 @@ table SparseMatrixIndexCSR {
   ///
   ///   indptr(X) = [0, 2, 3, 5, 5, 8, 10].
   indptrBuffer: Buffer;
+
+  /// The type of values in indicesBuffer
+  indicesType: Int;
 
   /// indicesBuffer stores the location and size of the array that
   /// contains the column indices of the corresponding non-zero values.

@@ -55,6 +55,7 @@ These should be used to create Arrow data types and schemas.
    large_utf8
    decimal128
    list_
+   large_list
    struct
    dictionary
    field
@@ -85,6 +86,17 @@ functions above.
    Decimal128Type
    Field
    Schema
+
+Specific classes and functions for extension types.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ExtensionType
+   PyExtensionType
+   register_extension_type
+   unregister_extension_type
+
 
 .. _api.types.checking:
 .. currentmodule:: pyarrow.types
@@ -117,6 +129,7 @@ represents a given data type (such as ``int32``) or general category
    is_float64
    is_decimal
    is_list
+   is_large_list
    is_struct
    is_union
    is_nested

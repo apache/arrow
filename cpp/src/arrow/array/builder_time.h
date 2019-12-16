@@ -25,7 +25,7 @@
 #include "arrow/array/builder_base.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
-#include "arrow/buffer-builder.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
@@ -42,8 +42,7 @@ class ARROW_EXPORT DayTimeIntervalBuilder : public ArrayBuilder {
 
   DayTimeIntervalBuilder(std::shared_ptr<DataType> type,
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : ArrayBuilder(type, pool),
-        builder_(fixed_size_binary(sizeof(DayMilliseconds)), pool) {}
+      : ArrayBuilder(pool), builder_(fixed_size_binary(sizeof(DayMilliseconds)), pool) {}
 
   void Reset() override { builder_.Reset(); }
   Status Resize(int64_t capacity) override { return builder_.Resize(capacity); }
@@ -63,6 +62,8 @@ class ARROW_EXPORT DayTimeIntervalBuilder : public ArrayBuilder {
     }
     return result;
   }
+
+  std::shared_ptr<DataType> type() const override { return day_time_interval(); }
 
  private:
   FixedSizeBinaryBuilder builder_;

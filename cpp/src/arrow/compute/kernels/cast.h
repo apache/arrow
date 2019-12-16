@@ -38,12 +38,14 @@ struct ARROW_EXPORT CastOptions {
   CastOptions()
       : allow_int_overflow(false),
         allow_time_truncate(false),
+        allow_time_overflow(false),
         allow_float_truncate(false),
         allow_invalid_utf8(false) {}
 
   explicit CastOptions(bool safe)
       : allow_int_overflow(!safe),
         allow_time_truncate(!safe),
+        allow_time_overflow(!safe),
         allow_float_truncate(!safe),
         allow_invalid_utf8(!safe) {}
 
@@ -53,6 +55,7 @@ struct ARROW_EXPORT CastOptions {
 
   bool allow_int_overflow;
   bool allow_time_truncate;
+  bool allow_time_overflow;
   bool allow_float_truncate;
   // Indicate if conversions from Binary/FixedSizeBinary to string must
   // validate the utf8 payload.

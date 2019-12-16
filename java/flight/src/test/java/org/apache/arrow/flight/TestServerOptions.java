@@ -18,6 +18,10 @@
 package org.apache.arrow.flight;
 
 import java.io.File;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import org.apache.arrow.flight.TestBasicOperation.Producer;
 import org.apache.arrow.memory.BufferAllocator;
@@ -30,8 +34,69 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import io.grpc.netty.NettyServerBuilder;
+
 @RunWith(JUnit4.class)
 public class TestServerOptions {
+
+  @Test
+  public void builderConsumer() throws Exception {
+    final AtomicBoolean consumerCalled = new AtomicBoolean();
+    final Consumer<NettyServerBuilder> consumer = (builder) -> consumerCalled.set(true);
+
+    try (
+        BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
+        Producer producer = new Producer(a);
+        FlightServer s =
+            FlightTestUtil.getStartedServer(
+                (location) -> FlightServer.builder(a, location, producer)
+                    .transportHint("grpc.builderConsumer", consumer).build()
+            )) {
+      Assert.assertTrue(consumerCalled.get());
+    }
+  }
+
+  /**
+   * Make sure that if Flight supplies a default executor to gRPC, then it is closed along with the server.
+   */
+  @Test
+  public void defaultExecutorClosed() throws Exception {
+    final ExecutorService executor;
+    try (
+        BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
+        FlightServer server =
+            FlightTestUtil.getStartedServer(
+                (location) -> FlightServer.builder(a, location, new NoOpFlightProducer())
+                    .build()
+            )) {
+      Assert.assertNotNull(server.grpcExecutor);
+      executor = server.grpcExecutor;
+    }
+    Assert.assertTrue(executor.isShutdown());
+  }
+
+  /**
+   * Make sure that if the user provides an executor to gRPC, then Flight does not close it.
+   */
+  @Test
+  public void suppliedExecutorNotClosed() throws Exception {
+    final ExecutorService executor = Executors.newSingleThreadExecutor();
+    try {
+      try (
+          BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
+          FlightServer server =
+              FlightTestUtil.getStartedServer(
+                  (location) -> FlightServer.builder(a, location, new NoOpFlightProducer())
+                      .executor(executor)
+                      .build()
+              )) {
+        Assert.assertNull(server.grpcExecutor);
+      }
+      Assert.assertFalse(executor.isShutdown());
+    } finally {
+      executor.shutdown();
+    }
+  }
 
   @Test
   public void domainSocket() throws Exception {

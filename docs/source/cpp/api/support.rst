@@ -25,5 +25,8 @@ Error return and reporting
    :project: arrow_cpp
    :members:
 
-.. doxygendefine:: ARROW_RETURN_NOT_OK
+.. doxygenclass:: arrow::StatusDetail
+   :project: arrow_cpp
+   :members:
 
+.. doxygendefine:: ARROW_RETURN_NOT_OK

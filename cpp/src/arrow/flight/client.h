@@ -23,6 +23,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/ipc/reader.h"
@@ -41,6 +42,8 @@ class Schema;
 namespace flight {
 
 class ClientAuthHandler;
+class ClientMiddleware;
+class ClientMiddlewareFactory;
 
 /// \brief A duration type for Flight call timeouts.
 typedef std::chrono::duration<double, std::chrono::seconds::period> TimeoutDuration;
@@ -64,6 +67,8 @@ class ARROW_FLIGHT_EXPORT FlightClientOptions {
   std::string tls_root_certs;
   /// \brief Override the hostname checked by TLS. Use with caution.
   std::string override_hostname;
+  /// \brief A list of client middleware to apply.
+  std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware;
 };
 
 /// \brief A RecordBatchReader exposing Flight metadata and cancel
@@ -86,8 +91,13 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
 class ARROW_FLIGHT_EXPORT FlightStreamWriter : public ipc::RecordBatchWriter {
  public:
   virtual Status WriteWithMetadata(const RecordBatch& batch,
-                                   std::shared_ptr<Buffer> app_metadata,
-                                   bool allow_64bit = false) = 0;
+                                   std::shared_ptr<Buffer> app_metadata) = 0;
+  /// \brief Indicate that the application is done writing to this stream.
+  ///
+  /// The application may not write to this stream after calling
+  /// this. This differs from closing the stream because this writer
+  /// may represent only one half of a readable and writable stream.
+  virtual Status DoneWriting() = 0;
 };
 
 #ifdef _MSC_VER
@@ -168,6 +178,20 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return GetFlightInfo({}, descriptor, info);
   }
 
+  /// \brief Request schema for a single flight, which may be an existing
+  /// dataset or a command to be executed
+  /// \param[in] options Per-RPC options
+  /// \param[in] descriptor the dataset request, whether a named dataset or
+  /// command
+  /// \param[out] schema_result the SchemaResult describing the dataset schema
+  /// \return Status
+  Status GetSchema(const FlightCallOptions& options, const FlightDescriptor& descriptor,
+                   std::unique_ptr<SchemaResult>* schema_result);
+  Status GetSchema(const FlightDescriptor& descriptor,
+                   std::unique_ptr<SchemaResult>* schema_result) {
+    return GetSchema({}, descriptor, schema_result);
+  }
+
   /// \brief List all available flights known to the server
   /// \param[out] listing an iterator that returns a FlightInfo for each flight
   /// \return Status
@@ -196,6 +220,11 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \brief Upload data to a Flight described by the given
   /// descriptor. The caller must call Close() on the returned stream
   /// once they are done writing.
+  ///
+  /// The reader and writer are linked; closing the writer will also
+  /// close the reader. Use \a DoneWriting to only close the write
+  /// side of the channel.
+  ///
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the descriptor of the stream
   /// \param[in] schema the schema for the data to upload

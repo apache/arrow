@@ -61,6 +61,7 @@ func benchmarkFloat64Funcs_Sum(b *testing.B, n int) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(b, 0)
 	vec := makeArrayFloat64(n, mem)
+	defer vec.Release()
 	b.SetBytes(int64(vec.Len() * 8))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import warnings
+
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -84,6 +86,31 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         return pyarrow_wrap_array(chunked_out.get().chunk(0))
 
 
+cdef _codes_to_indices(object codes, object mask, DataType type,
+                       MemoryPool memory_pool):
+    """
+    Convert the codes of a pandas Categorical to indices for a pyarrow
+    DictionaryArray, taking into account missing values + mask
+    """
+    if mask is None:
+        mask = codes == -1
+    else:
+        mask = mask | (codes == -1)
+    return array(codes, mask=mask, type=type, memory_pool=memory_pool)
+
+
+def _handle_arrow_array_protocol(obj, type, mask, size):
+    if mask is not None or size is not None:
+        raise ValueError(
+            "Cannot specify a mask or a size when passing an object that is "
+            "converted with the __arrow_array__ protocol.")
+    res = obj.__arrow_array__(type=type)
+    if not isinstance(res, (Array, ChunkedArray)):
+        raise TypeError("The object's __arrow_array__ method does not "
+                        "return a pyarrow Array or ChunkedArray.")
+    return res
+
+
 def array(object obj, type=None, mask=None, size=None, from_pandas=None,
           bint safe=True, MemoryPool memory_pool=None):
     """
@@ -146,8 +173,12 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     Returns
     -------
-    array : pyarrow.Array or pyarrow.ChunkedArray (if object data
-    overflowed binary storage)
+    array : pyarrow.Array or pyarrow.ChunkedArray
+        A ChunkedArray instead of an Array is returned if:
+
+        - the object data overflowed binary storage.
+        - the object's ``__arrow_array__`` protocol method returned a chunked
+          array.
     """
     cdef:
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -161,12 +192,14 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     else:
         c_from_pandas = from_pandas
 
-    if _is_array_like(obj):
+    if hasattr(obj, '__arrow_array__'):
+        return _handle_arrow_array_protocol(obj, type, mask, size)
+    elif _is_array_like(obj):
         if mask is not None:
             # out argument unused
-            mask = get_series_values(mask, &is_pandas_object)
+            mask = get_values(mask, &is_pandas_object)
 
-        values = get_series_values(obj, &is_pandas_object)
+        values = get_values(obj, &is_pandas_object)
         if is_pandas_object and from_pandas is None:
             c_from_pandas = True
 
@@ -178,12 +211,53 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 mask = values.mask
                 values = values.data
 
-        if pandas_api.is_categorical(values):
+        if hasattr(values, '__arrow_array__'):
+            return _handle_arrow_array_protocol(values, type, mask, size)
+        elif pandas_api.is_categorical(values):
+            if type is not None:
+                if type.id != Type_DICTIONARY:
+                    return _ndarray_to_array(
+                        np.asarray(values), mask, type, c_from_pandas, safe,
+                        pool)
+                index_type = type.index_type
+                value_type = type.value_type
+                if values.ordered != type.ordered:
+                    warnings.warn(
+                        "The 'ordered' flag of the passed categorical values "
+                        "does not match the 'ordered' of the specified type. "
+                        "Using the flag of the values, but in the future this "
+                        "mismatch will raise a ValueError.",
+                        FutureWarning, stacklevel=2)
+            else:
+                index_type = None
+                value_type = None
+
+            indices = _codes_to_indices(
+                values.codes, mask, index_type, memory_pool)
+            try:
+                dictionary = array(
+                    values.categories.values, type=value_type,
+                    memory_pool=memory_pool)
+            except TypeError:
+                # TODO when removing the deprecation warning, this whole
+                # try/except can be removed (to bubble the TypeError of
+                # the first array(..) call)
+                if value_type is not None:
+                    warnings.warn(
+                        "The dtype of the 'categories' of the passed "
+                        "categorical values ({0}) does not match the "
+                        "specified type ({1}). For now ignoring the specified "
+                        "type, but in the future this mismatch will raise a "
+                        "TypeError".format(
+                            values.categories.dtype, value_type),
+                        FutureWarning, stacklevel=2)
+                    dictionary = array(
+                        values.categories.values, memory_pool=memory_pool)
+                else:
+                    raise
+
             return DictionaryArray.from_arrays(
-                values.codes, values.categories.values,
-                mask=mask, ordered=values.ordered,
-                from_pandas=True, safe=safe,
-                memory_pool=memory_pool)
+                indices, dictionary, ordered=values.ordered, safe=safe)
         else:
             if pandas_api.have_pandas:
                 values, type = pandas_api.compat.get_datetimetz_type(
@@ -202,14 +276,17 @@ def asarray(values, type=None):
 
     Parameters
     ----------
-    values : array-like (sequence, numpy.ndarray, pyarrow.Array)
+    values : array-like
+        This can be a sequence, numpy.ndarray, pyarrow.Array or
+        pyarrow.ChunkedArray. If a ChunkedArray is passed, the output will be
+        a ChunkedArray, otherwise the output will be a Array.
     type : string or DataType
 
     Returns
     -------
-    arr : Array
+    arr : Array or ChunkedArray
     """
-    if isinstance(values, Array):
+    if isinstance(values, (Array, ChunkedArray)):
         if type is not None and not values.type.equals(type):
             values = values.cast(type)
 
@@ -345,8 +422,13 @@ cdef _reduce_array_data(const CArrayData* ad):
     for i in range(n):
         children.append(_reduce_array_data(ad.child_data[i].get()))
 
+    if ad.dictionary.get() != NULL:
+        dictionary = _reduce_array_data(ad.dictionary.get().data().get())
+    else:
+        dictionary = None
+
     return pyarrow_wrap_data_type(ad.type), ad.length, ad.null_count, \
-        ad.offset, buffers, children
+        ad.offset, buffers, children, dictionary
 
 
 cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
@@ -360,8 +442,9 @@ cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
         Buffer buf
         vector[shared_ptr[CBuffer]] c_buffers
         vector[shared_ptr[CArrayData]] c_children
+        shared_ptr[CArray] c_dictionary
 
-    dtype, length, null_count, offset, buffers, children = data
+    dtype, length, null_count, offset, buffers, children, dictionary = data
 
     for i in range(len(buffers)):
         buf = buffers[i]
@@ -373,11 +456,15 @@ cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
     for i in range(len(children)):
         c_children.push_back(_reconstruct_array_data(children[i]))
 
-    return CArrayData.MakeWithChildren(
+    if dictionary is not None:
+        c_dictionary = MakeArray(_reconstruct_array_data(dictionary))
+
+    return CArrayData.MakeWithChildrenAndDictionary(
         dtype.sp_type,
         length,
         c_buffers,
         c_children,
+        c_dictionary,
         null_count,
         offset)
 
@@ -392,15 +479,26 @@ def _restore_array(data):
 
 cdef class _PandasConvertible:
 
-    def to_pandas(self, categories=None, bint strings_to_categorical=False,
-                  bint zero_copy_only=False, bint integer_object_nulls=False,
-                  bint date_as_object=True, bint use_threads=True,
-                  bint deduplicate_objects=True, bint ignore_metadata=False):
+    def to_pandas(
+            self,
+            memory_pool=None,
+            categories=None,
+            bint strings_to_categorical=False,
+            bint zero_copy_only=False,
+            bint integer_object_nulls=False,
+            bint date_as_object=True,
+            bint use_threads=True,
+            bint deduplicate_objects=True,
+            bint ignore_metadata=False
+    ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
 
         Parameters
         ----------
+        memory_pool : MemoryPool, default None
+            Arrow MemoryPool to use for allocations. Uses the default memory
+            pool is not passed
         strings_to_categorical : boolean, default False
             Encode string (UTF8) and binary types to pandas.Categorical
         categories: list, default empty
@@ -424,22 +522,31 @@ cdef class _PandasConvertible:
 
         Returns
         -------
-        NumPy array or DataFrame depending on type of object
+        pandas.Series or pandas.DataFrame depending on type of object
         """
-        cdef:
-            PyObject* out
-            PandasOptions options
-
-        options = PandasOptions(
+        options = dict(
+            pool=memory_pool,
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls,
             date_as_object=date_as_object,
             use_threads=use_threads,
-            deduplicate_objects=deduplicate_objects)
-
+            deduplicate_objects=deduplicate_objects
+        )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata)
+
+
+cdef PandasOptions _convert_pandas_options(dict options):
+    cdef PandasOptions result
+    result.pool = maybe_unbox_memory_pool(options['pool'])
+    result.strings_to_categorical = options['strings_to_categorical']
+    result.zero_copy_only = options['zero_copy_only']
+    result.integer_object_nulls = options['integer_object_nulls']
+    result.date_as_object = options['date_as_object']
+    result.use_threads = options['use_threads']
+    result.deduplicate_objects = options['deduplicate_objects']
+    return result
 
 
 cdef class Array(_PandasConvertible):
@@ -464,6 +571,16 @@ cdef class Array(_PandasConvertible):
     def _debug_print(self):
         with nogil:
             check_status(DebugPrint(deref(self.ap), 0))
+
+    def diff(self, Array other):
+        """
+        Return string containing the result of arrow::Diff comparing contents
+        of this array against the other array
+        """
+        cdef c_string result
+        with nogil:
+            result = self.ap.Diff(deref(other.ap))
+        return frombytes(result)
 
     def cast(self, object target_type, bint safe=True):
         """
@@ -523,6 +640,25 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(result)
 
+    def view(self, object target_type):
+        """Return zero-copy "view" of array as another data type. The data
+        types must have compatible columnar buffer layouts
+
+        Parameters
+        ----------
+        target_type : DataType
+            Type to construct view as
+
+        Returns
+        -------
+        view : Array
+        """
+        cdef DataType type = ensure_type(target_type)
+        cdef shared_ptr[CArray] result
+        with nogil:
+            check_status(self.ap.View(type.sp_type, &result))
+        return pyarrow_wrap_array(result)
+
     def sum(self):
         """
         Sum the values in a numerical array.
@@ -567,7 +703,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        sequence : ndarray, Inded Series
+        sequence : ndarray, pandas.Series, array-like
         mask : array (boolean), optional
             Indicate which values are null (True) or not null (False)
         type : pyarrow.DataType
@@ -659,6 +795,18 @@ cdef class Array(_PandasConvertible):
     @property
     def null_count(self):
         return self.sp_array.get().null_count()
+
+    @property
+    def nbytes(self):
+        """Total number of bytes consumed by the elements of the array."""
+        size = 0
+        for buf in self.buffers():
+            if buf is not None:
+                size += buf.size
+        return size
+
+    def __sizeof__(self):
+        return super(Array, self).__sizeof__() + self.nbytes
 
     def __iter__(self):
         for i in range(len(self)):
@@ -789,41 +937,130 @@ cdef class Array(_PandasConvertible):
 
         return wrap_datum(out)
 
+    def filter(self, Array mask):
+        """
+        Filter the array with a boolean mask.
+
+        Parameters
+        ----------
+        mask : Array
+            The boolean mask indicating which values to extract.
+
+        Returns
+        -------
+        Array
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> arr = pa.array(["a", "b", "c", None, "e"])
+        >>> mask = pa.array([True, False, None, False, True])
+        >>> arr.filter(mask)
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
+          null,
+          "e"
+        ]
+        """
+        cdef:
+            cdef CDatum out
+
+        with nogil:
+            check_status(FilterKernel(_context(), CDatum(self.sp_array),
+                                      CDatum(mask.sp_array), &out))
+
+        return wrap_datum(out)
+
     def _to_pandas(self, options, **kwargs):
         cdef:
             PyObject* out
-            PandasOptions c_options = options
+            PandasOptions c_options = _convert_pandas_options(options)
+            Array array
+
+        if self.type.id == _Type_TIMESTAMP and self.type.unit != 'ns':
+            # pandas only stores ns data - casting here is faster
+            array = self.cast(timestamp('ns'))
+        else:
+            array = self
+
+        with nogil:
+            check_status(ConvertArrayToPandas(c_options, array.sp_array,
+                                              array, &out))
+        result = pandas_api.series(wrap_array_output(out), name=self._name)
+
+        if isinstance(self.type, TimestampType) and self.type.tz is not None:
+            from pyarrow.pandas_compat import make_tz_aware
+
+            result = make_tz_aware(result, self.type.tz)
+
+        return result
+
+    def __array__(self, dtype=None):
+        cdef:
+            PyObject* out
+            PandasOptions c_options
+            object values
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
                                               self, &out))
-        return wrap_array_output(out)
 
-    def __array__(self, dtype=None):
+        # wrap_array_output uses pandas to convert to Categorical, here
+        # always convert to numpy array
+        values = PyObject_to_object(out)
+
+        if isinstance(values, dict):
+            values = np.take(values['dictionary'], values['indices'])
+
         if dtype is None:
-            return self.to_pandas()
-        return self.to_pandas().astype(dtype)
+            return values
+        return values.astype(dtype)
 
-    def to_numpy(self):
+    def to_numpy(self, zero_copy_only=True, writable=False):
         """
-        Experimental: return a NumPy view of this array. Only primitive
-        arrays with the same memory layout as NumPy (i.e. integers,
-        floating point), without any nulls, are supported.
+        Return a NumPy view or copy of this array (experimental).
+
+        By default, tries to return a view of this array. This is only
+        supported for primitive arrays with the same memory layout as NumPy
+        (i.e. integers, floating point, ..) and without any nulls.
+
+        Parameters
+        ----------
+        zero_copy_only : bool, default True
+            If True, an exception will be raised if the conversion to a numpy
+            array would require copying the underlying data (e.g. in presence
+            of nulls, or for non-primitive types).
+        writable : bool, default False
+            For numpy arrays created with zero copy (view on the Arrow data),
+            the resulting array is not writable (Arrow data is immutable).
+            By setting this to True, a copy of the array is made to ensure
+            it is writable.
 
         Returns
         -------
         array : numpy.ndarray
         """
-        if self.null_count:
-            raise NotImplementedError('NumPy array view is only supported '
-                                      'for arrays without nulls.')
-        if not is_primitive(self.type.id) or self.type.id == _Type_BOOL:
-            raise NotImplementedError('NumPy array view is only supported '
-                                      'for primitive types.')
-        buflist = self.buffers()
-        assert len(buflist) == 2
-        return np.frombuffer(buflist[-1], dtype=self.type.to_pandas_dtype())[
-            self.offset:self.offset + len(self)]
+        cdef:
+            PyObject* out
+            PandasOptions c_options
+            object values
+
+        if zero_copy_only and writable:
+            raise ValueError(
+                "Cannot return a writable array if asking for zero-copy")
+
+        c_options.zero_copy_only = zero_copy_only
+
+        with nogil:
+            check_status(ConvertArrayToPandas(c_options, self.sp_array,
+                                              self, &out))
+        array = PyObject_to_object(out)
+        if writable and not array.flags.writeable:
+            # if the conversion already needed to a copy, writeable is True
+            array = array.copy()
+        return array
 
     def to_pylist(self):
         """
@@ -835,18 +1072,28 @@ cdef class Array(_PandasConvertible):
         """
         return [x.as_py() for x in self]
 
-    def validate(self):
+    def validate(self, *, full=False):
         """
-        Perform any validation checks implemented by
-        arrow::ValidateArray. Raises exception with error message if array does
-        not validate
+        Perform validation checks.  An exception is raised if validation fails.
+
+        By default only cheap validation checks are run.  Pass `full=True`
+        for thorough validation checks (potentially O(n)).
+
+        Parameters
+        ----------
+        full: bool, default False
+            If True, run expensive checks, otherwise cheap checks only.
 
         Raises
         ------
         ArrowInvalid
         """
-        with nogil:
-            check_status(ValidateArray(deref(self.ap)))
+        if full:
+            with nogil:
+                check_status(self.ap.ValidateFull())
+        else:
+            with nogil:
+                check_status(self.ap.Validate())
 
     @property
     def offset(self):
@@ -990,6 +1237,11 @@ cdef class Time64Array(NumericArray):
     """
 
 
+cdef class DurationArray(NumericArray):
+    """
+    Concrete class for Arrow arrays of duration data type.
+    """
+
 cdef class HalfFloatArray(FloatingPointArray):
     """
     Concrete class for Arrow arrays of float16 data type.
@@ -1032,7 +1284,7 @@ cdef class ListArray(Array):
 
         Parameters
         ----------
-        offset : Array (int32 type)
+        offsets : Array (int32 type)
         values : Array (any type)
 
         Returns
@@ -1050,7 +1302,22 @@ cdef class ListArray(Array):
         with nogil:
             check_status(CListArray.FromArrays(_offsets.ap[0], _values.ap[0],
                                                cpool, &out))
-        return pyarrow_wrap_array(out)
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
+
+    @property
+    def values(self):
+        return self.flatten()
+
+    @property
+    def offsets(self):
+        """
+        Return the offsets as an int32 array.
+        """
+        return Array.from_buffers(
+            int32(), len(self) + 1, [None, self.buffers()[1]],
+            offset=self.offset)
 
     def flatten(self):
         """
@@ -1061,6 +1328,162 @@ cdef class ListArray(Array):
         result : Array
         """
         cdef CListArray* arr = <CListArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
+
+
+cdef class LargeListArray(Array):
+    """
+    Concrete class for Arrow arrays of a large list data type
+    (like ListArray, but 64-bit offsets).
+    """
+
+    @staticmethod
+    def from_arrays(offsets, values, MemoryPool pool=None):
+        """
+        Construct LargeListArray from arrays of int64 offsets and values
+
+        Parameters
+        ----------
+        offsets : Array (int64 type)
+        values : Array (any type)
+
+        Returns
+        -------
+        list_array : LargeListArray
+        """
+        cdef:
+            Array _offsets, _values
+            shared_ptr[CArray] out
+        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+
+        _offsets = asarray(offsets, type='int64')
+        _values = asarray(values)
+
+        with nogil:
+            check_status(CLargeListArray.FromArrays(_offsets.ap[0],
+                                                    _values.ap[0],
+                                                    cpool, &out))
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
+
+    @property
+    def values(self):
+        return self.flatten()
+
+    @property
+    def offsets(self):
+        """
+        Return the offsets as an int64 array.
+        """
+        return Array.from_buffers(
+            int64(), len(self) + 1, [None, self.buffers()[1]],
+            offset=self.offset)
+
+    def flatten(self):
+        """
+        Unnest this LargeListArray by one level
+
+        Returns
+        -------
+        result : Array
+        """
+        cdef CLargeListArray* arr = <CLargeListArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
+
+
+cdef class MapArray(Array):
+    """
+    Concrete class for Arrow arrays of a map data type.
+    """
+
+    @staticmethod
+    def from_arrays(offsets, keys, items, MemoryPool pool=None):
+        """
+        Construct MapArray from arrays of int32 offsets and key, item arrays
+
+        Parameters
+        ----------
+        offsets : array-like or sequence (int32 type)
+        keys : array-like or sequence (any type)
+        items : array-like or sequence (any type)
+
+        Returns
+        -------
+        map_array : MapArray
+        """
+        cdef:
+            Array _offsets, _keys, _items
+            shared_ptr[CArray] out
+        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+
+        _offsets = asarray(offsets, type='int32')
+        _keys = asarray(keys)
+        _items = asarray(items)
+
+        with nogil:
+            check_status(CMapArray.FromArrays(_offsets.sp_array,
+                                              _keys.sp_array, _items.sp_array,
+                                              cpool, &out))
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
+
+    @property
+    def keys(self):
+        return pyarrow_wrap_array((<CMapArray*> self.ap).keys())
+
+    @property
+    def items(self):
+        return pyarrow_wrap_array((<CMapArray*> self.ap).items())
+
+
+cdef class FixedSizeListArray(Array):
+    """
+    Concrete class for Arrow arrays of a fixed size list data type.
+    """
+
+    @staticmethod
+    def from_arrays(values, int32_t list_size):
+        """
+        Construct FixedSizeListArray from array of values and a list length.
+
+        Parameters
+        ----------
+        values : Array (any type)
+        list_size : int
+            The fixed length of the lists.
+
+        Returns
+        -------
+        FixedSizeListArray
+        """
+        cdef:
+            Array _values
+            CResult[shared_ptr[CArray]] c_result
+
+        _values = asarray(values)
+
+        with nogil:
+            c_result = CFixedSizeListArray.FromArrays(
+                _values.sp_array, list_size)
+        cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
+        result.validate()
+        return result
+
+    @property
+    def values(self):
+        return self.flatten()
+
+    def flatten(self):
+        """
+        Unnest this FixedSizeListArray by one level.
+
+        Returns
+        -------
+        result : Array
+        """
+        cdef CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
 
@@ -1092,7 +1515,7 @@ cdef class UnionArray(Array):
         cdef vector[shared_ptr[CArray]] c
         cdef Array child
         cdef vector[c_string] c_field_names
-        cdef vector[uint8_t] c_type_codes
+        cdef vector[int8_t] c_type_codes
         for child in children:
             c.push_back(child.sp_array)
         if field_names is not None:
@@ -1105,7 +1528,9 @@ cdef class UnionArray(Array):
             check_status(CUnionArray.MakeDense(
                 deref(types.ap), deref(value_offsets.ap), c, c_field_names,
                 c_type_codes, &out))
-        return pyarrow_wrap_array(out)
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
 
     @staticmethod
     def from_sparse(Array types, list children, list field_names=None,
@@ -1129,7 +1554,7 @@ cdef class UnionArray(Array):
         cdef vector[shared_ptr[CArray]] c
         cdef Array child
         cdef vector[c_string] c_field_names
-        cdef vector[uint8_t] c_type_codes
+        cdef vector[int8_t] c_type_codes
         for child in children:
             c.push_back(child.sp_array)
         if field_names is not None:
@@ -1143,7 +1568,9 @@ cdef class UnionArray(Array):
                                                 c_field_names,
                                                 c_type_codes,
                                                 &out))
-        return pyarrow_wrap_array(out)
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
 
 
 cdef class StringArray(Array):
@@ -1288,11 +1715,9 @@ cdef class DictionaryArray(Array):
             _indices = indices
         else:
             if from_pandas:
-                if mask is None:
-                    mask = indices == -1
-                else:
-                    mask = mask | (indices == -1)
-            _indices = array(indices, mask=mask, memory_pool=memory_pool)
+                _indices = _codes_to_indices(indices, mask, None, memory_pool)
+            else:
+                _indices = array(indices, mask=mask, memory_pool=memory_pool)
 
         if isinstance(dictionary, Array):
             _dictionary = dictionary
@@ -1318,7 +1743,9 @@ cdef class DictionaryArray(Array):
             c_result.reset(new CDictionaryArray(c_type, _indices.sp_array,
                                                 _dictionary.sp_array))
 
-        return pyarrow_wrap_array(c_result)
+        cdef Array result = pyarrow_wrap_array(c_result)
+        result.validate()
+        return result
 
 
 cdef class StructArray(Array):
@@ -1443,7 +1870,9 @@ cdef class StructArray(Array):
         else:
             c_result = CStructArray.MakeFromFields(
                 c_arrays, c_fields, shared_ptr[CBuffer](), -1, 0)
-        return pyarrow_wrap_array(GetResultValue(c_result))
+        cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
+        result.validate()
+        return result
 
 
 cdef class ExtensionArray(Array):
@@ -1482,7 +1911,9 @@ cdef class ExtensionArray(Array):
                             "for extension type {1}".format(storage.type, typ))
 
         ext_array = make_shared[CExtensionArray](typ.sp_type, storage.sp_array)
-        return pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
+        cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
+        result.validate()
+        return result
 
 
 cdef dict _array_classes = {
@@ -1501,10 +1932,14 @@ cdef dict _array_classes = {
     _Type_TIMESTAMP: TimestampArray,
     _Type_TIME32: Time32Array,
     _Type_TIME64: Time64Array,
+    _Type_DURATION: DurationArray,
     _Type_HALF_FLOAT: HalfFloatArray,
     _Type_FLOAT: FloatArray,
     _Type_DOUBLE: DoubleArray,
     _Type_LIST: ListArray,
+    _Type_LARGE_LIST: LargeListArray,
+    _Type_MAP: MapArray,
+    _Type_FIXED_SIZE_LIST: FixedSizeListArray,
     _Type_UNION: UnionArray,
     _Type_BINARY: BinaryArray,
     _Type_STRING: StringArray,
@@ -1518,15 +1953,15 @@ cdef dict _array_classes = {
 }
 
 
-cdef object get_series_values(object obj, bint* is_series):
-    if pandas_api.is_series(obj):
-        result = obj.values
+cdef object get_values(object obj, bint* is_series):
+    if pandas_api.is_series(obj) or pandas_api.is_index(obj):
+        result = pandas_api.get_values(obj)
         is_series[0] = True
     elif isinstance(obj, np.ndarray):
         result = obj
         is_series[0] = False
     else:
-        result = pandas_api.make_series(obj).values
+        result = pandas_api.series(obj).values
         is_series[0] = False
 
     return result

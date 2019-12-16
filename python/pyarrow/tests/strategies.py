@@ -82,7 +82,10 @@ timestamp_types = st.builds(
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
     tz=tzst.timezones()
 )
-temporal_types = st.one_of(date_types, time_types, timestamp_types)
+duration_types = st.sampled_from([
+    pa.duration(unit) for unit in ['s', 'ms', 'us', 'ns']])
+temporal_types = st.one_of(
+    date_types, time_types, timestamp_types, duration_types)
 
 primitive_types = st.one_of(
     null_type,
@@ -104,7 +107,10 @@ def fields(type_strategy=primitive_types):
 
 
 def list_types(item_strategy=primitive_types):
-    return st.builds(pa.list_, item_strategy)
+    return (
+        st.builds(pa.list_, item_strategy) |
+        st.builds(pa.large_list, item_strategy)
+        )
 
 
 def struct_types(item_strategy=primitive_types):
@@ -159,11 +165,14 @@ def arrays(draw, type, size=None):
 
     shape = (size,)
 
-    if pa.types.is_list(type):
+    if pa.types.is_list(type) or pa.types.is_large_list(type):
         offsets = draw(npst.arrays(np.uint8(), shape=shape)).cumsum() // 20
         offsets = np.insert(offsets, 0, 0, axis=0)  # prepend with zero
         values = draw(arrays(type.value_type, size=int(offsets.sum())))
-        return pa.ListArray.from_arrays(offsets, values)
+        array_type = (
+            pa.LargeListArray if pa.types.is_large_list(type)
+            else pa.ListArray)
+        return array_type.from_arrays(offsets, values)
 
     if pa.types.is_struct(type):
         h.assume(len(type) > 0)
@@ -192,6 +201,8 @@ def arrays(draw, type, size=None):
     elif pa.types.is_timestamp(type):
         tz = pytz.timezone(type.tz) if type.tz is not None else None
         value = st.datetimes(timezones=st.just(tz))
+    elif pa.types.is_duration(type):
+        value = st.timedeltas()
     elif pa.types.is_binary(type) or pa.types.is_large_binary(type):
         value = st.binary()
     elif pa.types.is_string(type) or pa.types.is_large_string(type):

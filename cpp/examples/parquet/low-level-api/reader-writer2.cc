@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
     // Create a local file output stream instance.
     using FileClass = ::arrow::io::FileOutputStream;
     std::shared_ptr<FileClass> out_file;
-    PARQUET_THROW_NOT_OK(FileClass::Open(PARQUET_FILENAME, &out_file));
+    PARQUET_ASSIGN_OR_THROW(out_file, FileClass::Open(PARQUET_FILENAME));
 
     // Setup the parquet schema
     std::shared_ptr<GroupNode> schema = SetupSchema();
@@ -228,6 +228,8 @@ int main(int argc, char** argv) {
       std::shared_ptr<parquet::ColumnReader> column_reader;
       int col_id = 0;
 
+      ARROW_UNUSED(rows_read); // prevent warning in release build
+
       // Get the Column Reader for the boolean column
       column_reader = row_group_reader->Column(col_id);
       parquet::BoolReader* bool_reader =
@@ -313,6 +315,7 @@ int main(int argc, char** argv) {
         assert(values_read == 1);
         // Verify the value written
         parquet::Int96 expected_value;
+        ARROW_UNUSED(expected_value); // prevent warning in release build
         expected_value.value[0] = col_row_counts[col_id];
         expected_value.value[1] = col_row_counts[col_id] + 1;
         expected_value.value[2] = col_row_counts[col_id] + 2;
@@ -380,6 +383,7 @@ int main(int argc, char** argv) {
         assert(rows_read == 1);
         // Verify the value written
         char expected_value[FIXED_LENGTH] = "parquet";
+        ARROW_UNUSED(expected_value); // prevent warning in release build
         expected_value[7] = static_cast<char>('0' + col_row_counts[col_id] / 100);
         expected_value[8] = static_cast<char>('0' + (col_row_counts[col_id] / 10) % 10);
         expected_value[9] = static_cast<char>('0' + col_row_counts[col_id] % 10);

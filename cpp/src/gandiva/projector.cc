@@ -232,8 +232,10 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
 
   int64_t min_bitmap_len = arrow::BitUtil::BytesForBits(num_records);
   int64_t bitmap_len = array_data.buffers[0]->capacity();
-  ARROW_RETURN_IF(bitmap_len < min_bitmap_len,
-                  Status::Invalid("Bitmap buffer too small for ", field.name()));
+  ARROW_RETURN_IF(
+      bitmap_len < min_bitmap_len,
+      Status::Invalid("Bitmap buffer too small for ", field.name(), " expected minimum ",
+                      min_bitmap_len, " actual size ", bitmap_len));
 
   auto type_id = field.type()->id();
   if (arrow::is_binary_like(type_id)) {

@@ -89,11 +89,7 @@ class ARROW_EXPORT DictionaryMemoTable {
 /// dense array
 ///
 /// Unlike other builders, dictionary builder does not completely
-/// reset the state on Finish calls. The arrays built after the
-/// initial Finish call will reuse the previously created encoding and
-/// build a delta dictionary when new terms occur.
-///
-/// data
+/// reset the state on Finish calls.
 template <typename BuilderType, typename T>
 class DictionaryBuilderBase : public ArrayBuilder {
  public:
@@ -102,49 +98,53 @@ class DictionaryBuilderBase : public ArrayBuilder {
   // WARNING: the type given below is the value type, not the DictionaryType.
   // The DictionaryType is instantiated on the Finish() call.
   template <typename T1 = T>
-  DictionaryBuilderBase(
-      typename std::enable_if<!std::is_base_of<FixedSizeBinaryType, T1>::value,
-                              const std::shared_ptr<DataType>&>::type type,
-      MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(type, pool),
-        memo_table_(new DictionaryMemoTable(type)),
+  DictionaryBuilderBase(enable_if_t<!std::is_base_of<FixedSizeBinaryType, T1>::value,
+                                    const std::shared_ptr<DataType>&>
+                            value_type,
+                        MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool),
+        memo_table_(new internal::DictionaryMemoTable(value_type)),
         delta_offset_(0),
         byte_width_(-1),
-        values_builder_(pool) {}
+        indices_builder_(pool),
+        value_type_(value_type) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
-      typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
-                              const std::shared_ptr<DataType>&>::type type,
+      enable_if_fixed_size_binary<T1, const std::shared_ptr<DataType>&> value_type,
       MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(type, pool),
-        memo_table_(new DictionaryMemoTable(type)),
+      : ArrayBuilder(pool),
+        memo_table_(new internal::DictionaryMemoTable(value_type)),
         delta_offset_(0),
-        byte_width_(static_cast<const T1&>(*type).byte_width()),
-        values_builder_(pool) {}
+        byte_width_(static_cast<const T1&>(*value_type).byte_width()),
+        indices_builder_(pool),
+        value_type_(value_type) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool =
-          default_memory_pool())
+      enable_if_parameter_free<T1, MemoryPool*> pool = default_memory_pool())
       : DictionaryBuilderBase<BuilderType, T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
                         MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(dictionary->type(), pool),
-        memo_table_(new DictionaryMemoTable(dictionary)),
+      : ArrayBuilder(pool),
+        memo_table_(new internal::DictionaryMemoTable(dictionary)),
         delta_offset_(0),
         byte_width_(-1),
-        values_builder_(pool) {}
+        indices_builder_(pool),
+        value_type_(dictionary->type()) {}
 
   ~DictionaryBuilderBase() override = default;
+
+  /// \brief The current number of entries in the dictionary
+  int64_t dictionary_length() const { return memo_table_->size(); }
 
   /// \brief Append a scalar value
   Status Append(const Scalar& value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
 
     auto memo_index = memo_table_->GetOrInsert(value);
-    ARROW_RETURN_NOT_OK(values_builder_.Append(memo_index));
+    ARROW_RETURN_NOT_OK(indices_builder_.Append(memo_index));
     length_ += 1;
 
     return Status::OK();
@@ -152,15 +152,13 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
   template <typename T1 = T>
-  Status Append(typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
-                                        const uint8_t*>::type value) {
+  enable_if_fixed_size_binary<T1, Status> Append(const uint8_t* value) {
     return Append(util::string_view(reinterpret_cast<const char*>(value), byte_width_));
   }
 
   /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
   template <typename T1 = T>
-  Status Append(typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
-                                        const char*>::type value) {
+  enable_if_fixed_size_binary<T1, Status> Append(const char* value) {
     return Append(util::string_view(value, byte_width_));
   }
 
@@ -169,14 +167,14 @@ class DictionaryBuilderBase : public ArrayBuilder {
     length_ += 1;
     null_count_ += 1;
 
-    return values_builder_.AppendNull();
+    return indices_builder_.AppendNull();
   }
 
   Status AppendNulls(int64_t length) final {
     length_ += length;
     null_count_ += length;
 
-    return values_builder_.AppendNulls(length);
+    return indices_builder_.AppendNulls(length);
   }
 
   /// \brief Insert values into the dictionary's memo, but do not append any
@@ -190,9 +188,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief Append a whole dense array to the builder
   template <typename T1 = T>
-  Status AppendArray(
-      typename std::enable_if<!std::is_base_of<FixedSizeBinaryType, T1>::value,
-                              const Array&>::type array) {
+  enable_if_t<!is_fixed_size_binary_type<T1>::value, Status> AppendArray(
+      const Array& array) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
 
     const auto& concrete_array = static_cast<const ArrayType&>(array);
@@ -207,10 +204,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
   }
 
   template <typename T1 = T>
-  Status AppendArray(
-      typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
-                              const Array&>::type array) {
-    if (!type_->Equals(*array.type())) {
+  enable_if_fixed_size_binary<T1, Status> AppendArray(const Array& array) {
+    if (!value_type_->Equals(*array.type())) {
       return Status::Invalid(
           "Cannot append FixedSizeBinary array with non-matching type");
     }
@@ -227,44 +222,34 @@ class DictionaryBuilderBase : public ArrayBuilder {
   }
 
   void Reset() override {
+    // Perform a partial reset. Call ResetFull to also reset the accumulated
+    // dictionary values
     ArrayBuilder::Reset();
-    values_builder_.Reset();
-    memo_table_.reset(new DictionaryMemoTable(type_));
-    delta_offset_ = 0;
+    indices_builder_.Reset();
+  }
+
+  /// \brief Reset and also clear accumulated dictionary values in memo table
+  void ResetFull() {
+    Reset();
+    memo_table_.reset(new internal::DictionaryMemoTable(value_type_));
   }
 
   Status Resize(int64_t capacity) override {
     ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
     capacity = std::max(capacity, kMinBuilderCapacity);
-
-    if (capacity_ == 0) {
-      // Initialize hash table
-      // XXX should we let the user pass additional size heuristics?
-      delta_offset_ = 0;
-    }
-    ARROW_RETURN_NOT_OK(values_builder_.Resize(capacity));
-    capacity_ = values_builder_.capacity();
+    ARROW_RETURN_NOT_OK(indices_builder_.Resize(capacity));
+    capacity_ = indices_builder_.capacity();
     return Status::OK();
   }
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    // Finalize indices array
-    ARROW_RETURN_NOT_OK(values_builder_.FinishInternal(out));
-
-    // Generate dictionary array from hash table contents
-    std::shared_ptr<ArrayData> dictionary_data;
-
-    ARROW_RETURN_NOT_OK(
-        memo_table_->GetArrayData(pool_, delta_offset_, &dictionary_data));
-
-    // Set type of array data to the right dictionary type
-    (*out)->type = dictionary((*out)->type, type_);
-    (*out)->dictionary = MakeArray(dictionary_data);
-
-    // Update internals for further uses of this DictionaryBuilder
-    delta_offset_ = memo_table_->size();
-    values_builder_.Reset();
-
+  /// \brief Return dictionary indices and a delta dictionary since the last
+  /// time that Finish or FinishDelta were called, and reset state of builder
+  /// (except the memo table)
+  Status FinishDelta(std::shared_ptr<Array>* out_indices,
+                     std::shared_ptr<Array>* out_delta) {
+    std::shared_ptr<ArrayData> indices_data;
+    ARROW_RETURN_NOT_OK(FinishWithDictOffset(delta_offset_, &indices_data, out_delta));
+    *out_indices = MakeArray(indices_data);
     return Status::OK();
   }
 
@@ -274,46 +259,79 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
-  /// is the dictionary builder in the delta building mode
-  bool is_building_delta() { return delta_offset_ > 0; }
+  std::shared_ptr<DataType> type() const override {
+    return ::arrow::dictionary(indices_builder_.type(), value_type_);
+  }
 
  protected:
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+    std::shared_ptr<Array> dictionary;
+    ARROW_RETURN_NOT_OK(FinishWithDictOffset(/*offset=*/0, out, &dictionary));
+
+    // Set type of array data to the right dictionary type
+    (*out)->type = type();
+    (*out)->dictionary = dictionary;
+    return Status::OK();
+  }
+
+  Status FinishWithDictOffset(int64_t dict_offset,
+                              std::shared_ptr<ArrayData>* out_indices,
+                              std::shared_ptr<Array>* out_dictionary) {
+    // Finalize indices array
+    ARROW_RETURN_NOT_OK(indices_builder_.FinishInternal(out_indices));
+
+    // Generate dictionary array from hash table contents
+    std::shared_ptr<ArrayData> dictionary_data;
+    ARROW_RETURN_NOT_OK(memo_table_->GetArrayData(pool_, dict_offset, &dictionary_data));
+
+    *out_dictionary = MakeArray(dictionary_data);
+    delta_offset_ = memo_table_->size();
+
+    // Update internals for further uses of this DictionaryBuilder
+    ArrayBuilder::Reset();
+    return Status::OK();
+  }
+
   std::unique_ptr<DictionaryMemoTable> memo_table_;
 
+  // The size of the dictionary memo at last invocation of Finish, to use in
+  // FinishDelta for computing dictionary deltas
   int32_t delta_offset_;
+
   // Only used for FixedSizeBinaryType
   int32_t byte_width_;
 
-  BuilderType values_builder_;
+  BuilderType indices_builder_;
+  std::shared_ptr<DataType> value_type_;
 };
 
 template <typename BuilderType>
 class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
  public:
-  DictionaryBuilderBase(const std::shared_ptr<DataType>& type,
+  DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
                         MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(type, pool), values_builder_(pool) {}
+      : ArrayBuilder(pool), indices_builder_(pool) {}
 
   explicit DictionaryBuilderBase(MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(null(), pool), values_builder_(pool) {}
+      : ArrayBuilder(pool), indices_builder_(pool) {}
 
   DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
                         MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(dictionary->type(), pool), values_builder_(pool) {}
+      : ArrayBuilder(pool), indices_builder_(pool) {}
 
   /// \brief Append a scalar null value
   Status AppendNull() final {
     length_ += 1;
     null_count_ += 1;
 
-    return values_builder_.AppendNull();
+    return indices_builder_.AppendNull();
   }
 
   Status AppendNulls(int64_t length) final {
     length_ += length;
     null_count_ += length;
 
-    return values_builder_.AppendNulls(length);
+    return indices_builder_.AppendNulls(length);
   }
 
   /// \brief Append a whole dense array to the builder
@@ -328,17 +346,15 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
     capacity = std::max(capacity, kMinBuilderCapacity);
 
-    ARROW_RETURN_NOT_OK(values_builder_.Resize(capacity));
-    capacity_ = values_builder_.capacity();
+    ARROW_RETURN_NOT_OK(indices_builder_.Resize(capacity));
+    capacity_ = indices_builder_.capacity();
     return Status::OK();
   }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    std::shared_ptr<Array> dictionary = std::make_shared<NullArray>(0);
-
-    ARROW_RETURN_NOT_OK(values_builder_.FinishInternal(out));
-    (*out)->type = std::make_shared<DictionaryType>((*out)->type, type_);
-    (*out)->dictionary = dictionary;
+    ARROW_RETURN_NOT_OK(indices_builder_.FinishInternal(out));
+    (*out)->type = dictionary((*out)->type, null());
+    (*out)->dictionary.reset(new NullArray(0));
 
     return Status::OK();
   }
@@ -349,8 +365,12 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
 
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
+  std::shared_ptr<DataType> type() const override {
+    return ::arrow::dictionary(indices_builder_.type(), null());
+  }
+
  protected:
-  BuilderType values_builder_;
+  BuilderType indices_builder_;
 };
 
 }  // namespace internal
@@ -368,10 +388,11 @@ class DictionaryBuilder : public internal::DictionaryBuilderBase<AdaptiveIntBuil
   /// NOTE: Experimental API
   Status AppendIndices(const int64_t* values, int64_t length,
                        const uint8_t* valid_bytes = NULLPTR) {
-    int64_t null_count_before = this->values_builder_.null_count();
-    ARROW_RETURN_NOT_OK(this->values_builder_.AppendValues(values, length, valid_bytes));
+    int64_t null_count_before = this->indices_builder_.null_count();
+    ARROW_RETURN_NOT_OK(this->indices_builder_.AppendValues(values, length, valid_bytes));
+    this->capacity_ = this->indices_builder_.capacity();
     this->length_ += length;
-    this->null_count_ += this->values_builder_.null_count() - null_count_before;
+    this->null_count_ += this->indices_builder_.null_count() - null_count_before;
     return Status::OK();
   }
 };
@@ -390,10 +411,11 @@ class Dictionary32Builder : public internal::DictionaryBuilderBase<Int32Builder,
   /// NOTE: Experimental API
   Status AppendIndices(const int32_t* values, int64_t length,
                        const uint8_t* valid_bytes = NULLPTR) {
-    int64_t null_count_before = this->values_builder_.null_count();
-    ARROW_RETURN_NOT_OK(this->values_builder_.AppendValues(values, length, valid_bytes));
+    int64_t null_count_before = this->indices_builder_.null_count();
+    ARROW_RETURN_NOT_OK(this->indices_builder_.AppendValues(values, length, valid_bytes));
+    this->capacity_ = this->indices_builder_.capacity();
     this->length_ += length;
-    this->null_count_ += this->values_builder_.null_count() - null_count_before;
+    this->null_count_ += this->indices_builder_.null_count() - null_count_before;
     return Status::OK();
   }
 };

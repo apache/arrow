@@ -93,10 +93,17 @@ module Arrow
       @options.each do |key, value|
         case key
         when :headers
-          if value
-            options.n_header_rows = 1
+          case value
+          when ::Array
+            options.column_names = value
+          when String
+            return nil
           else
-            options.n_header_rows = 0
+            if value
+              options.generate_column_names = false
+            else
+              options.generate_column_names = true
+            end
           end
         when :column_types
           value.each do |name, type|
@@ -221,7 +228,7 @@ module Arrow
         field
       else
         begin
-          Time.iso8601(encoded_field)
+          ::Time.iso8601(encoded_field)
         rescue ArgumentError
           field
         end
@@ -317,7 +324,7 @@ module Arrow
             if current_column_type == :integer
               column_types[i] = candidate_type
             end
-          when Time
+          when ::Time
             candidate_type = :time
           when DateTime
             candidate_type = :date_time

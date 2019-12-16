@@ -25,12 +25,14 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/validate.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/atomic_shared_ptr.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/stl.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
@@ -132,7 +134,7 @@ class SimpleRecordBatch : public RecordBatch {
 
   std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const override {
-    auto new_schema = schema_->AddMetadata(metadata);
+    auto new_schema = schema_->WithMetadata(metadata);
     return RecordBatch::Make(new_schema, num_rows_, columns_);
   }
 
@@ -173,25 +175,40 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     const std::shared_ptr<Schema>& schema, int64_t num_rows,
     const std::vector<std::shared_ptr<Array>>& columns) {
+  DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(schema, num_rows, columns);
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     const std::shared_ptr<Schema>& schema, int64_t num_rows,
     std::vector<std::shared_ptr<Array>>&& columns) {
+  DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(schema, num_rows, std::move(columns));
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     const std::shared_ptr<Schema>& schema, int64_t num_rows,
     std::vector<std::shared_ptr<ArrayData>>&& columns) {
+  DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(schema, num_rows, std::move(columns));
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     const std::shared_ptr<Schema>& schema, int64_t num_rows,
     const std::vector<std::shared_ptr<ArrayData>>& columns) {
+  DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(schema, num_rows, columns);
+}
+
+Status RecordBatch::FromStructArray(const std::shared_ptr<Array>& array,
+                                    std::shared_ptr<RecordBatch>* out) {
+  if (array->type_id() != Type::STRUCT) {
+    return Status::Invalid("Cannot construct record batch from array of type ",
+                           *array->type());
+  }
+  *out = Make(arrow::schema(array->type()->children()), array->length(),
+              array->data()->child_data);
+  return Status::OK();
 }
 
 const std::string& RecordBatch::column_name(int i) const {
@@ -232,26 +249,33 @@ std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
 
 Status RecordBatch::Validate() const {
   for (int i = 0; i < num_columns(); ++i) {
-    auto arr_shared = this->column_data(i);
-    const ArrayData& arr = *arr_shared;
-    if (arr.length != num_rows_) {
+    const auto& array = *this->column(i);
+    if (array.length() != num_rows_) {
       return Status::Invalid("Number of rows in column ", i,
-                             " did not match batch: ", arr.length, " vs ", num_rows_);
+                             " did not match batch: ", array.length(), " vs ", num_rows_);
     }
     const auto& schema_type = *schema_->field(i)->type();
-    if (!arr.type->Equals(schema_type)) {
+    if (!array.type()->Equals(schema_type)) {
       return Status::Invalid("Column ", i,
-                             " type not match schema: ", arr.type->ToString(), " vs ",
+                             " type not match schema: ", array.type()->ToString(), " vs ",
                              schema_type.ToString());
     }
+    RETURN_NOT_OK(internal::ValidateArray(array));
+  }
+  return Status::OK();
+}
+
+Status RecordBatch::ValidateFull() const {
+  RETURN_NOT_OK(Validate());
+  for (int i = 0; i < num_columns(); ++i) {
+    const auto& array = *this->column(i);
+    RETURN_NOT_OK(internal::ValidateArrayData(array));
   }
   return Status::OK();
 }
 
 // ----------------------------------------------------------------------
 // Base record batch reader
-
-RecordBatchReader::~RecordBatchReader() {}
 
 Status RecordBatchReader::ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches) {
   while (true) {
@@ -269,6 +293,43 @@ Status RecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
   std::vector<std::shared_ptr<RecordBatch>> batches;
   RETURN_NOT_OK(ReadAll(&batches));
   return Table::FromRecordBatches(schema(), batches, table);
+}
+
+class SimpleRecordBatchReader : public RecordBatchReader {
+ public:
+  SimpleRecordBatchReader(Iterator<std::shared_ptr<RecordBatch>> it,
+                          std::shared_ptr<Schema> schema)
+      : schema_(schema), it_(std::move(it)) {}
+
+  SimpleRecordBatchReader(const std::vector<std::shared_ptr<RecordBatch>>& batches,
+                          std::shared_ptr<Schema> schema)
+      : schema_(schema), it_(MakeVectorIterator(batches)) {}
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    return it_.Next().Value(batch);
+  }
+
+  std::shared_ptr<Schema> schema() const override { return schema_; }
+
+ protected:
+  std::shared_ptr<Schema> schema_;
+  Iterator<std::shared_ptr<RecordBatch>> it_;
+};
+
+Status MakeRecordBatchReader(const std::vector<std::shared_ptr<RecordBatch>>& batches,
+                             std::shared_ptr<Schema> schema,
+                             std::shared_ptr<RecordBatchReader>* out) {
+  if (schema == nullptr) {
+    if (batches.size() == 0 || batches[0] == nullptr) {
+      return Status::Invalid("Cannot infer schema from empty vector or nullptr");
+    }
+
+    schema = batches[0]->schema();
+  }
+
+  *out = std::make_shared<SimpleRecordBatchReader>(batches, schema);
+
+  return Status::OK();
 }
 
 }  // namespace arrow

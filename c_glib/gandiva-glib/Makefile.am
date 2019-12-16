@@ -61,7 +61,8 @@ libgandiva_glib_la_headers =			\
 	projector.h
 
 libgandiva_glib_la_generated_headers =		\
-	enums.h
+	enums.h					\
+	version.h
 
 libgandiva_glib_la_generated_sources =		\
 	enums.c					\

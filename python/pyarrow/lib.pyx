@@ -85,16 +85,19 @@ Type_DATE64 = _Type_DATE64
 Type_TIMESTAMP = _Type_TIMESTAMP
 Type_TIME32 = _Type_TIME32
 Type_TIME64 = _Type_TIME64
+Type_DURATION = _Type_DURATION
 Type_BINARY = _Type_BINARY
 Type_STRING = _Type_STRING
 Type_LARGE_BINARY = _Type_LARGE_BINARY
 Type_LARGE_STRING = _Type_LARGE_STRING
 Type_FIXED_SIZE_BINARY = _Type_FIXED_SIZE_BINARY
 Type_LIST = _Type_LIST
+Type_LARGE_LIST = _Type_LARGE_LIST
+Type_MAP = _Type_MAP
+Type_FIXED_SIZE_LIST = _Type_FIXED_SIZE_LIST
 Type_STRUCT = _Type_STRUCT
 Type_UNION = _Type_UNION
 Type_DICTIONARY = _Type_DICTIONARY
-Type_MAP = _Type_MAP
 
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE
@@ -125,6 +128,9 @@ include "table.pxi"
 
 # Tensors
 include "tensor.pxi"
+
+# Compute
+include "compute.pxi"
 
 # File IO
 include "io.pxi"

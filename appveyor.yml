@@ -19,19 +19,16 @@
 os: Visual Studio 2015
 
 only_commits:
-  # Skip commits not related to Python, C++, C#, Go, R, Ruby, or Rust
+  # Skip commits not related to Python, C++, R, or Ruby
   files:
     - appveyor.yml
     - c_glib/
     - ci/
     - cpp/
-    - csharp/
     - format/
-    - go/
     - python/
     - r/
     - ruby/
-    - rust/
 
 cache:
   - C:\Users\Appveyor\clcache1
@@ -52,8 +49,10 @@ environment:
     CLCACHE_SERVER: 1
     CLCACHE_COMPRESS: 1
     CLCACHE_COMPRESSLEVEL: 6
+    ARROW_BUILD_FLIGHT: "OFF"
     ARROW_BUILD_GANDIVA: "OFF"
     ARROW_LLVM_VERSION: "7.0.*"
+    ARROW_S3: "OFF"
     PYTHON: "3.6"
     ARCH: "64"
 
@@ -67,6 +66,7 @@ environment:
     - JOB: "Toolchain"
       GENERATOR: Ninja
       CONFIGURATION: "Release"
+      ARROW_S3: "ON"
       ARROW_BUILD_FLIGHT: "ON"
       ARROW_BUILD_GANDIVA: "ON"
     # NOTE: Since ARROW-5403 we have disabled the static CRT build
@@ -87,26 +87,13 @@ environment:
       MINGW_PREFIX: c:\msys64\mingw64
       MSYSTEM: MINGW64
       USE_CLCACHE: false
-    - JOB: "Rust"
-      TARGET: x86_64-pc-windows-msvc
-      USE_CLCACHE: false
-    - JOB: "C#"
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-      USE_CLCACHE: false
-    - JOB: "Go"
-      MINGW_PACKAGE_PREFIX: mingw-w64-x86_64
-      MINGW_PREFIX: c:\msys64\mingw64
-      MSYSTEM: MINGW64
-      USE_CLCACHE: false
-      GOROOT: 'c:\go112'
-      GOPATH: c:\gopath
-      GO111MODULE: on
-      GOTOOLDIR: '%GOROOT%\pkg\tool\windows_amd64'
-      PATH: '%GOPATH%\bin;%GOROOT%\bin;%PATH%'
     - JOB: "R with libarrow"
       USE_CLCACHE: false
       TEST_R_WITH_ARROW: "TRUE"
       RWINLIB_LOCAL: '%APPVEYOR_BUILD_FOLDER%\libarrow.zip'
+      ARROW_R_CXXFLAGS: '-Werror'
+      _R_CHECK_TESTS_NLINES_: 0
+      WARNINGS_ARE_ERRORS: 1
 
   MSVC_DEFAULT_OPTIONS: ON
   APPVEYOR_SAVE_CACHE_ON_ERROR: true

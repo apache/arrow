@@ -42,6 +42,7 @@ def get_many_types():
         pa.timestamp('us'),
         pa.timestamp('us', tz='UTC'),
         pa.timestamp('us', tz='Europe/Paris'),
+        pa.duration('s'),
         pa.float16(),
         pa.float32(),
         pa.float64(),
@@ -52,6 +53,9 @@ def get_many_types():
         pa.large_string(),
         pa.large_binary(),
         pa.list_(pa.int32()),
+        pa.list_(pa.int32(), 2),
+        pa.large_list(pa.uint16()),
+        pa.map_(pa.string(), pa.int32()),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.int8()),
                    pa.field('c', pa.string())]),
@@ -60,6 +64,9 @@ def get_many_types():
                    pa.field('c', pa.string())]),
         pa.union([pa.field('a', pa.binary(10)),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
+        pa.union([pa.field('a', pa.binary(10)),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE,
+                 type_codes=[4, 8]),
         pa.union([pa.field('a', pa.binary(10)),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
         pa.union([pa.field('a', pa.binary(10), nullable=False),
@@ -110,8 +117,33 @@ def test_is_decimal():
 
 
 def test_is_list():
-    assert types.is_list(pa.list_(pa.int32()))
+    a = pa.list_(pa.int32())
+    b = pa.large_list(pa.int32())
+    c = pa.list_(pa.int32(), 3)
+
+    assert types.is_list(a)
+    assert not types.is_large_list(a)
+    assert not types.is_fixed_size_list(a)
+    assert types.is_large_list(b)
+    assert not types.is_list(b)
+    assert not types.is_fixed_size_list(b)
+    assert types.is_fixed_size_list(c)
+    assert not types.is_list(c)
+    assert not types.is_large_list(c)
+
     assert not types.is_list(pa.int32())
+
+
+def test_is_map():
+    m = pa.map_(pa.utf8(), pa.int32())
+
+    assert types.is_map(m)
+    assert not types.is_map(pa.int32())
+
+    entries_type = pa.struct([pa.field('key', pa.int8()),
+                              pa.field('value', pa.int8())])
+    list_type = pa.list_(entries_type)
+    assert not types.is_map(list_type)
 
 
 def test_is_dictionary():
@@ -129,6 +161,7 @@ def test_is_nested_or_struct():
 
     assert types.is_nested(struct_ex)
     assert types.is_nested(pa.list_(pa.int32()))
+    assert types.is_nested(pa.large_list(pa.int32()))
     assert not types.is_nested(pa.int32())
 
 
@@ -174,24 +207,34 @@ def test_is_temporal_date_time_timestamp():
     date_types = [pa.date32(), pa.date64()]
     time_types = [pa.time32('s'), pa.time64('ns')]
     timestamp_types = [pa.timestamp('ms')]
+    duration_types = [pa.duration('ms')]
 
-    for case in date_types + time_types + timestamp_types:
+    for case in date_types + time_types + timestamp_types + duration_types:
         assert types.is_temporal(case)
 
     for case in date_types:
         assert types.is_date(case)
         assert not types.is_time(case)
         assert not types.is_timestamp(case)
+        assert not types.is_duration(case)
 
     for case in time_types:
         assert types.is_time(case)
         assert not types.is_date(case)
         assert not types.is_timestamp(case)
+        assert not types.is_duration(case)
 
     for case in timestamp_types:
         assert types.is_timestamp(case)
         assert not types.is_date(case)
         assert not types.is_time(case)
+        assert not types.is_duration(case)
+
+    for case in duration_types:
+        assert types.is_duration(case)
+        assert not types.is_date(case)
+        assert not types.is_time(case)
+        assert not types.is_timestamp(case)
 
     assert not types.is_temporal(pa.int32())
 
@@ -235,12 +278,54 @@ def test_time64_units():
             pa.time64(invalid_unit)
 
 
+def test_duration():
+    for unit in ('s', 'ms', 'us', 'ns'):
+        ty = pa.duration(unit)
+        assert ty.unit == unit
+
+    for invalid_unit in ('m', 'arbit', 'rary'):
+        with pytest.raises(ValueError, match='Invalid TimeUnit string'):
+            pa.duration(invalid_unit)
+
+
 def test_list_type():
     ty = pa.list_(pa.int64())
+    assert isinstance(ty, pa.ListType)
     assert ty.value_type == pa.int64()
 
     with pytest.raises(TypeError):
         pa.list_(None)
+
+
+def test_large_list_type():
+    ty = pa.large_list(pa.utf8())
+    assert isinstance(ty, pa.LargeListType)
+    assert ty.value_type == pa.utf8()
+
+    with pytest.raises(TypeError):
+        pa.large_list(None)
+
+
+def test_map_type():
+    ty = pa.map_(pa.utf8(), pa.int32())
+    assert isinstance(ty, pa.MapType)
+    assert ty.key_type == pa.utf8()
+    assert ty.item_type == pa.int32()
+
+    with pytest.raises(TypeError):
+        pa.map_(None)
+    with pytest.raises(TypeError):
+        pa.map_(pa.int32(), None)
+
+
+def test_fixed_size_list_type():
+    ty = pa.list_(pa.float64(), 2)
+    assert isinstance(ty, pa.FixedSizeListType)
+    assert ty.value_type == pa.float64()
+    assert ty.list_size == 2
+
+    with pytest.raises(ValueError):
+        pa.list_(pa.float64(), -2)
 
 
 def test_struct_type():
@@ -306,16 +391,34 @@ def test_union_type():
 
     fields = [pa.field('x', pa.list_(pa.int32())),
               pa.field('y', pa.binary())]
+    type_codes = [5, 9]
+
     for mode in ('sparse', pa.lib.UnionMode_SPARSE):
         ty = pa.union(fields, mode=mode)
         assert ty.mode == 'sparse'
         check_fields(ty, fields)
         assert ty.type_codes == [0, 1]
+        ty = pa.union(fields, mode=mode, type_codes=type_codes)
+        assert ty.mode == 'sparse'
+        check_fields(ty, fields)
+        assert ty.type_codes == type_codes
+        # Invalid number of type codes
+        with pytest.raises(ValueError):
+            pa.union(fields, mode=mode, type_codes=type_codes[1:])
+
     for mode in ('dense', pa.lib.UnionMode_DENSE):
         ty = pa.union(fields, mode=mode)
         assert ty.mode == 'dense'
         check_fields(ty, fields)
         assert ty.type_codes == [0, 1]
+        ty = pa.union(fields, mode=mode, type_codes=type_codes)
+        assert ty.mode == 'dense'
+        check_fields(ty, fields)
+        assert ty.type_codes == type_codes
+        # Invalid number of type codes
+        with pytest.raises(ValueError):
+            pa.union(fields, mode=mode, type_codes=type_codes[1:])
+
     for mode in ('unknown', 2):
         with pytest.raises(ValueError, match='Invalid union mode'):
             pa.union(fields, mode=mode)
@@ -337,6 +440,24 @@ def test_dictionary_type():
     assert ty2.index_type == pa.int8()
     assert ty2.value_type == pa.string()
     assert ty2.ordered is False
+
+    # invalid index type raises
+    with pytest.raises(TypeError):
+        pa.dictionary(pa.string(), pa.int64())
+    with pytest.raises(TypeError):
+        pa.dictionary(pa.uint32(), pa.string())
+
+
+def test_dictionary_ordered_equals():
+    # Python side checking of ARROW-6345
+    d1 = pa.dictionary('int32', 'binary', ordered=True)
+    d2 = pa.dictionary('int32', 'binary', ordered=False)
+    d3 = pa.dictionary('int8', 'binary', ordered=True)
+    d4 = pa.dictionary('int32', 'binary', ordered=True)
+
+    assert not d1.equals(d2)
+    assert not d1.equals(d3)
+    assert d1.equals(d4)
 
 
 def test_types_hashable():
@@ -518,14 +639,14 @@ def test_field_add_remove_metadata():
         (b'b', b'beta')
     ])
 
-    f1 = f0.add_metadata(metadata)
+    f1 = f0.with_metadata(metadata)
     assert f1.metadata == metadata
 
-    f2 = f0.add_metadata(metadata2)
+    f2 = f0.with_metadata(metadata2)
     assert f2.metadata == metadata2
 
     with pytest.raises(TypeError):
-        f0.add_metadata([1, 2, 3])
+        f0.with_metadata([1, 2, 3])
 
     f3 = f1.remove_metadata()
     assert f3.metadata is None
@@ -535,7 +656,7 @@ def test_field_add_remove_metadata():
     assert f4.metadata is None
 
     f5 = pa.field('foo', pa.int32(), True, metadata)
-    f6 = f0.add_metadata(metadata)
+    f6 = f0.with_metadata(metadata)
     assert f5.equals(f6)
 
 

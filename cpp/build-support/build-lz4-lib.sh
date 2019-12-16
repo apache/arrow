@@ -19,7 +19,7 @@
 #
 export CFLAGS="${CFLAGS} -O3 -fPIC"
 if [ -z "$MAKELEVEL" ]; then
-  make -j4 "$@"
+  make -j4 CFLAGS="$CFLAGS" "$@"
 else
-  make "$@"
+  make CFLAGS="$CFLAGS" "$@"
 fi

@@ -18,6 +18,7 @@
 #ifndef ARROW_TYPE_H
 #define ARROW_TYPE_H
 
+#include <atomic>
 #include <climits>
 #include <cstdint>
 #include <iosfwd>
@@ -25,7 +26,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/status.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
@@ -156,6 +156,41 @@ struct Type {
   };
 };
 
+namespace detail {
+
+class ARROW_EXPORT Fingerprintable {
+ public:
+  virtual ~Fingerprintable();
+
+  const std::string& fingerprint() const {
+    auto p = fingerprint_.load();
+    if (ARROW_PREDICT_TRUE(p != NULLPTR)) {
+      return *p;
+    }
+    return LoadFingerprintSlow();
+  }
+
+  const std::string& metadata_fingerprint() const {
+    auto p = metadata_fingerprint_.load();
+    if (ARROW_PREDICT_TRUE(p != NULLPTR)) {
+      return *p;
+    }
+    return LoadMetadataFingerprintSlow();
+  }
+
+ protected:
+  const std::string& LoadFingerprintSlow() const;
+  const std::string& LoadMetadataFingerprintSlow() const;
+
+  virtual std::string ComputeFingerprint() const = 0;
+  virtual std::string ComputeMetadataFingerprint() const = 0;
+
+  mutable std::atomic<std::string*> fingerprint_;
+  mutable std::atomic<std::string*> metadata_fingerprint_;
+};
+
+}  // namespace detail
+
 struct ARROW_EXPORT DataTypeLayout {
   // The bit width for each buffer in this DataType's representation
   // (kVariableSizeBuffer if the item size for a given buffer is unknown or variable,
@@ -177,10 +212,10 @@ struct ARROW_EXPORT DataTypeLayout {
 ///
 /// Simple datatypes may be entirely described by their Type::type id, but
 /// complex datatypes are usually parametric.
-class ARROW_EXPORT DataType {
+class ARROW_EXPORT DataType : public detail::Fingerprintable {
  public:
-  explicit DataType(Type::type id) : id_(id) {}
-  virtual ~DataType();
+  explicit DataType(Type::type id) : detail::Fingerprintable(), id_(id) {}
+  ~DataType() override;
 
   /// \brief Return whether the types are equal
   ///
@@ -217,6 +252,13 @@ class ARROW_EXPORT DataType {
   Type::type id() const { return id_; }
 
  protected:
+  // Dummy version that returns a null string (indicating not implemented).
+  // Subclasses should override for fast equality checks.
+  std::string ComputeFingerprint() const override;
+
+  // Generic versions that works for all regular types, nested or not.
+  std::string ComputeMetadataFingerprint() const override;
+
   Type::type id_;
   std::vector<std::shared_ptr<Field>> children_;
 
@@ -270,8 +312,6 @@ class ARROW_EXPORT NestedType : public DataType, public ParametricType {
   using DataType::DataType;
 };
 
-class NoExtraMeta {};
-
 /// \brief The combination of a field name and data type, with optional metadata
 ///
 /// Fields are used to describe the individual constituents of a
@@ -279,12 +319,18 @@ class NoExtraMeta {};
 ///
 /// A field's metadata is represented by a KeyValueMetadata instance,
 /// which holds arbitrary key-value pairs.
-class ARROW_EXPORT Field {
+class ARROW_EXPORT Field : public detail::Fingerprintable {
  public:
   Field(const std::string& name, const std::shared_ptr<DataType>& type,
         bool nullable = true,
         const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR)
-      : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
+      : detail::Fingerprintable(),
+        name_(name),
+        type_(type),
+        nullable_(nullable),
+        metadata_(metadata) {}
+
+  ~Field() override;
 
   /// \brief Return the field's attached metadata
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
@@ -293,8 +339,13 @@ class ARROW_EXPORT Field {
   bool HasMetadata() const;
 
   /// \brief Return a copy of this field with the given metadata attached to it
+  std::shared_ptr<Field> WithMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
+  ARROW_DEPRECATED("Use WithMetadata")
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
   /// \brief Return a copy of this field without any metadata attached to it
   std::shared_ptr<Field> RemoveMetadata() const;
 
@@ -303,6 +354,9 @@ class ARROW_EXPORT Field {
 
   /// \brief Return a copy of this field with the replaced name.
   std::shared_ptr<Field> WithName(const std::string& name) const;
+
+  /// \brief Return a copy of this field with the replaced nullability.
+  std::shared_ptr<Field> WithNullable(bool nullable) const;
 
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
@@ -322,6 +376,9 @@ class ARROW_EXPORT Field {
   std::shared_ptr<Field> Copy() const;
 
  private:
+  std::string ComputeFingerprint() const override;
+  std::string ComputeMetadataFingerprint() const override;
+
   // Field name
   std::string name_;
 
@@ -342,8 +399,8 @@ namespace detail {
 template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
 class ARROW_EXPORT CTypeImpl : public BASE {
  public:
-  using c_type = C_TYPE;
   static constexpr Type::type type_id = TYPE_ID;
+  using c_type = C_TYPE;
 
   CTypeImpl() : BASE(TYPE_ID) {}
 
@@ -364,7 +421,7 @@ class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, 
 }  // namespace detail
 
 /// Concrete type class for always-null data
-class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
+class ARROW_EXPORT NullType : public DataType {
  public:
   static constexpr Type::type type_id = Type::NA;
 
@@ -379,24 +436,22 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
   }
 
   std::string name() const override { return "null"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for boolean data
-class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
+class ARROW_EXPORT BooleanType
+    : public detail::CTypeImpl<BooleanType, PrimitiveCType, Type::BOOL, bool> {
  public:
-  static constexpr Type::type type_id = Type::BOOL;
-
   static constexpr const char* type_name() { return "bool"; }
 
-  BooleanType() : FixedWidthType(Type::BOOL) {}
+  // BooleanType within arrow use a single bit instead of the C 8-bits layout.
+  int bit_width() const final { return 1; }
 
-  std::string ToString() const override;
-
-  DataTypeLayout layout() const override { return {{1, 1}, false}; }
-
-  int bit_width() const override { return 1; }
-
-  std::string name() const override { return "bool"; }
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for unsigned 8-bit integer data
@@ -404,6 +459,9 @@ class ARROW_EXPORT UInt8Type
     : public detail::IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
  public:
   static constexpr const char* type_name() { return "uint8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for signed 8-bit integer data
@@ -411,6 +469,9 @@ class ARROW_EXPORT Int8Type
     : public detail::IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
  public:
   static constexpr const char* type_name() { return "int8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for unsigned 16-bit integer data
@@ -418,6 +479,9 @@ class ARROW_EXPORT UInt16Type
     : public detail::IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
  public:
   static constexpr const char* type_name() { return "uint16"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for signed 16-bit integer data
@@ -425,6 +489,9 @@ class ARROW_EXPORT Int16Type
     : public detail::IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
  public:
   static constexpr const char* type_name() { return "int16"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for unsigned 32-bit integer data
@@ -432,6 +499,9 @@ class ARROW_EXPORT UInt32Type
     : public detail::IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
  public:
   static constexpr const char* type_name() { return "uint32"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for signed 32-bit integer data
@@ -439,6 +509,9 @@ class ARROW_EXPORT Int32Type
     : public detail::IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
  public:
   static constexpr const char* type_name() { return "int32"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for unsigned 64-bit integer data
@@ -446,6 +519,9 @@ class ARROW_EXPORT UInt64Type
     : public detail::IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
  public:
   static constexpr const char* type_name() { return "uint64"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for signed 64-bit integer data
@@ -453,6 +529,9 @@ class ARROW_EXPORT Int64Type
     : public detail::IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
  public:
   static constexpr const char* type_name() { return "int64"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for 16-bit floating-point data
@@ -462,6 +541,9 @@ class ARROW_EXPORT HalfFloatType
  public:
   Precision precision() const override;
   static constexpr const char* type_name() { return "halffloat"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for 32-bit floating-point data (C "float")
@@ -470,6 +552,9 @@ class ARROW_EXPORT FloatType
  public:
   Precision precision() const override;
   static constexpr const char* type_name() { return "float"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for 64-bit floating-point data (C "double")
@@ -478,6 +563,9 @@ class ARROW_EXPORT DoubleType
  public:
   Precision precision() const override;
   static constexpr const char* type_name() { return "double"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Base class for all variable-size list data types
@@ -517,6 +605,9 @@ class ARROW_EXPORT ListType : public BaseListType {
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Concrete type class for large list data
@@ -549,6 +640,9 @@ class ARROW_EXPORT LargeListType : public BaseListType {
   std::string ToString() const override;
 
   std::string name() const override { return "large_list"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Concrete type class for map data
@@ -576,6 +670,8 @@ class ARROW_EXPORT MapType : public ListType {
   bool keys_sorted() const { return keys_sorted_; }
 
  private:
+  std::string ComputeFingerprint() const override;
+
   bool keys_sorted_;
 };
 
@@ -583,6 +679,7 @@ class ARROW_EXPORT MapType : public ListType {
 class ARROW_EXPORT FixedSizeListType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
+  using offset_type = int32_t;
 
   static constexpr const char* type_name() { return "fixed_size_list"; }
 
@@ -612,7 +709,7 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
 };
 
 /// \brief Base class for all variable-size binary data types
-class ARROW_EXPORT BaseBinaryType : public DataType, public NoExtraMeta {
+class ARROW_EXPORT BaseBinaryType : public DataType {
  public:
   using DataType::DataType;
 };
@@ -637,6 +734,8 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
   std::string name() const override { return "binary"; }
 
  protected:
+  std::string ComputeFingerprint() const override;
+
   // Allow subclasses like StringType to change the logical type.
   explicit BinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
 };
@@ -661,6 +760,8 @@ class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
   std::string name() const override { return "large_binary"; }
 
  protected:
+  std::string ComputeFingerprint() const override;
+
   // Allow subclasses like LargeStringType to change the logical type.
   explicit LargeBinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
 };
@@ -678,6 +779,9 @@ class ARROW_EXPORT StringType : public BinaryType {
 
   std::string ToString() const override;
   std::string name() const override { return "utf8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Concrete type class for large variable-size string data, utf8-encoded
@@ -693,12 +797,16 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
 
   std::string ToString() const override;
   std::string name() const override { return "large_utf8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Concrete type class for fixed-size binary data
 class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public ParametricType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
+  static constexpr bool is_utf8 = false;
 
   static constexpr const char* type_name() { return "fixed_size_binary"; }
 
@@ -716,6 +824,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   int bit_width() const override;
 
  protected:
+  std::string ComputeFingerprint() const override;
+
   int32_t byte_width_;
 };
 
@@ -755,6 +865,8 @@ class ARROW_EXPORT StructType : public NestedType {
   int GetChildIndex(const std::string& name) const;
 
  private:
+  std::string ComputeFingerprint() const override;
+
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
@@ -771,6 +883,8 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   int32_t scale() const { return scale_; }
 
  protected:
+  std::string ComputeFingerprint() const override;
+
   int32_t precision_;
   int32_t scale_;
 };
@@ -782,10 +896,17 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 
   static constexpr const char* type_name() { return "decimal"; }
 
+  /// Decimal128Type constructor that aborts on invalid input.
   explicit Decimal128Type(int32_t precision, int32_t scale);
+
+  /// Decimal128Type constructor that returns an error on invalid input.
+  static Status Make(int32_t precision, int32_t scale, std::shared_ptr<DataType>* out);
 
   std::string ToString() const override;
   std::string name() const override { return "decimal"; }
+
+  static constexpr int32_t kMinPrecision = 1;
+  static constexpr int32_t kMaxPrecision = 38;
 };
 
 struct UnionMode {
@@ -796,11 +917,13 @@ struct UnionMode {
 class ARROW_EXPORT UnionType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::UNION;
+  static constexpr int8_t kMaxTypeCode = 127;
+  static constexpr int kInvalidChildId = -1;
 
   static constexpr const char* type_name() { return "union"; }
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-            const std::vector<uint8_t>& type_codes,
+            const std::vector<int8_t>& type_codes,
             UnionMode::type mode = UnionMode::SPARSE);
 
   DataTypeLayout layout() const override;
@@ -808,19 +931,26 @@ class ARROW_EXPORT UnionType : public NestedType {
   std::string ToString() const override;
   std::string name() const override { return "union"; }
 
-  const std::vector<uint8_t>& type_codes() const { return type_codes_; }
+  /// The array of logical type ids.
+  ///
+  /// For example, the first type in the union might be denoted by the id 5
+  /// (instead of 0).
+  const std::vector<int8_t>& type_codes() const { return type_codes_; }
+
+  /// An array mapping logical type ids to physical child ids.
+  const std::vector<int>& child_ids() const { return child_ids_; }
 
   uint8_t max_type_code() const;
 
   UnionMode::type mode() const { return mode_; }
 
  private:
+  std::string ComputeFingerprint() const override;
+
   UnionMode::type mode_;
 
-  // The type id used in the data to indicate each data type in the union. For
-  // example, the first type in the union might be denoted by the id 5 (instead
-  // of 0).
-  std::vector<uint8_t> type_codes_;
+  std::vector<int8_t> type_codes_;
+  std::vector<int> child_ids_;
 };
 
 // ----------------------------------------------------------------------
@@ -850,10 +980,9 @@ class ARROW_EXPORT Date32Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE32;
   static constexpr DateUnit UNIT = DateUnit::DAY;
+  using c_type = int32_t;
 
   static constexpr const char* type_name() { return "date32"; }
-
-  using c_type = int32_t;
 
   Date32Type();
 
@@ -863,6 +992,9 @@ class ARROW_EXPORT Date32Type : public DateType {
 
   std::string name() const override { return "date32"; }
   DateUnit unit() const override { return UNIT; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for 64-bit date data (as number of milliseconds since UNIX epoch)
@@ -870,10 +1002,9 @@ class ARROW_EXPORT Date64Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE64;
   static constexpr DateUnit UNIT = DateUnit::MILLI;
+  using c_type = int64_t;
 
   static constexpr const char* type_name() { return "date64"; }
-
-  using c_type = int64_t;
 
   Date64Type();
 
@@ -883,6 +1014,9 @@ class ARROW_EXPORT Date64Type : public DateType {
 
   std::string name() const override { return "date64"; }
   DateUnit unit() const override { return UNIT; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 struct TimeUnit {
@@ -900,6 +1034,8 @@ class ARROW_EXPORT TimeType : public TemporalType, public ParametricType {
 
  protected:
   TimeType(Type::type type_id, TimeUnit::type unit);
+  std::string ComputeFingerprint() const override;
+
   TimeUnit::type unit_;
 };
 
@@ -975,8 +1111,8 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;
 
-  typedef int64_t c_type;
   static constexpr Type::type type_id = Type::TIMESTAMP;
+  using c_type = int64_t;
 
   static constexpr const char* type_name() { return "timestamp"; }
 
@@ -994,6 +1130,9 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
   TimeUnit::type unit() const { return unit_; }
   const std::string& timezone() const { return timezone_; }
 
+ protected:
+  std::string ComputeFingerprint() const override;
+
  private:
   TimeUnit::type unit_;
   std::string timezone_;
@@ -1006,7 +1145,9 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
   IntervalType() : TemporalType(Type::INTERVAL) {}
 
   virtual type interval_type() const = 0;
-  virtual ~IntervalType() = default;
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Represents a some number of months.
@@ -1015,8 +1156,8 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
 /// in Schema.fbs (Years are defined as 12 months).
 class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
-  using c_type = int32_t;
   static constexpr Type::type type_id = Type::INTERVAL;
+  using c_type = int32_t;
 
   static constexpr const char* type_name() { return "month_interval"; }
 
@@ -1040,6 +1181,9 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
       return this->days == other.days && this->milliseconds == other.milliseconds;
     }
     bool operator!=(DayMilliseconds other) const { return !(*this == other); }
+    bool operator<(DayMilliseconds other) const {
+      return this->days < other.days || this->milliseconds < other.milliseconds;
+    }
   };
   using c_type = DayMilliseconds;
   static_assert(sizeof(DayMilliseconds) == 8,
@@ -1079,6 +1223,9 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
 
   TimeUnit::type unit() const { return unit_; }
 
+ protected:
+  std::string ComputeFingerprint() const override;
+
  private:
   TimeUnit::type unit_;
 };
@@ -1110,33 +1257,44 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   bool ordered() const { return ordered_; }
 
-  /// \brief Unify dictionaries types
-  ///
-  /// Compute a resulting dictionary that will allow the union of values
-  /// of all input dictionary types.  The input types must all have the
-  /// same value type.
-  /// \param[in] pool Memory pool to allocate dictionary values from
-  /// \param[in] types A sequence of input dictionary types
-  /// \param[in] dictionaries A sequence of input dictionaries
-  /// corresponding to each type
-  /// \param[out] out_type The unified dictionary type
-  /// \param[out] out_dictionary The unified dictionary
-  /// \param[out] out_transpose_maps (optionally) A sequence of integer vectors,
-  ///     one per input type.  Each integer vector represents the transposition
-  ///     of input type indices into unified type indices.
-  // XXX Should we return something special (an empty transpose map?) when
-  // the transposition is the identity function?
-  static Status Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
-                      const std::vector<const Array*>& dictionaries,
-                      std::shared_ptr<DataType>* out_type,
-                      std::shared_ptr<Array>* out_dictionary,
-                      std::vector<std::vector<int32_t>>* out_transpose_maps = NULLPTR);
-
  protected:
+  std::string ComputeFingerprint() const override;
+
   // Must be an integer type (not currently checked)
   std::shared_ptr<DataType> index_type_;
   std::shared_ptr<DataType> value_type_;
   bool ordered_;
+};
+
+/// \brief Helper class for incremental dictionary unification
+class ARROW_EXPORT DictionaryUnifier {
+ public:
+  virtual ~DictionaryUnifier() = default;
+
+  /// \brief Construct a DictionaryUnifier
+  /// \param[in] pool MemoryPool to use for memory allocations
+  /// \param[in] value_type the data type of the dictionaries
+  /// \param[out] out the constructed unifier
+  static Status Make(MemoryPool* pool, std::shared_ptr<DataType> value_type,
+                     std::unique_ptr<DictionaryUnifier>* out);
+
+  /// \brief Append dictionary to the internal memo
+  virtual Status Unify(const Array& dictionary) = 0;
+
+  /// \brief Append dictionary and compute transpose indices
+  /// \param[in] dictionary the dictionary values to unify
+  /// \param[out] out_transpose a Buffer containing computed transpose indices
+  /// as int32_t values equal in length to the passed dictionary. The value in
+  /// each slot corresponds to the new index value for each original index
+  /// for a DictionaryArray with the old dictionary
+  virtual Status Unify(const Array& dictionary,
+                       std::shared_ptr<Buffer>* out_transpose) = 0;
+
+  /// \brief Return a result DictionaryType with the smallest possible index
+  /// type to accommodate the unified dictionary. The unifier cannot be used
+  /// after this is called
+  virtual Status GetResult(std::shared_ptr<DataType>* out_type,
+                           std::shared_ptr<Array>* out_dict) = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -1145,7 +1303,9 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 /// \class Schema
 /// \brief Sequence of arrow::Field objects describing the columns of a record
 /// batch or table data structure
-class ARROW_EXPORT Schema {
+class ARROW_EXPORT Schema : public detail::Fingerprintable,
+                            public util::EqualityComparable<Schema>,
+                            public util::ToStringOstreamable<Schema> {
  public:
   explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
                   const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
@@ -1155,7 +1315,7 @@ class ARROW_EXPORT Schema {
 
   Schema(const Schema&);
 
-  virtual ~Schema();
+  ~Schema() override;
 
   /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other, bool check_metadata = true) const;
@@ -1200,6 +1360,10 @@ class ARROW_EXPORT Schema {
   ///
   /// \param[in] metadata new KeyValueMetadata
   /// \return new Schema
+  std::shared_ptr<Schema> WithMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
+  ARROW_DEPRECATED("Use WithMetadata")
   std::shared_ptr<Schema> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
 
@@ -1209,7 +1373,13 @@ class ARROW_EXPORT Schema {
   /// \brief Indicates that Schema has non-empty KevValueMetadata
   bool HasMetadata() const;
 
+ protected:
+  std::string ComputeFingerprint() const override;
+  std::string ComputeMetadataFingerprint() const override;
+
  private:
+  friend void PrintTo(const Schema& s, std::ostream* os);
+
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
@@ -1295,13 +1465,21 @@ struct_(const std::vector<std::shared_ptr<Field>>& fields);
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+       UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT union_(UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
-       const std::vector<std::string>& field_names,
-       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes,
+       UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create a UnionType instance
 inline std::shared_ptr<DataType> ARROW_EXPORT
@@ -1367,6 +1545,24 @@ std::shared_ptr<Schema> schema(
     const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
 /// @}
+
+/// \brief Unifies schemas by unifying fields by name and promoting Null fields.
+///
+/// The resulting schema will contain the union of fields from all schemas.
+/// Fields with the same name will be unified:
+/// - They are expected to be of the same type, or of Null type. The unified
+///   field will be of that same type.
+/// - The unified field will inherit the metadata from the schema where
+///   that field is first defined.
+/// - The first N fields in the schema will be ordered the same as the
+///   N fields in the first schema.
+/// The resulting schema will inherit its metadata from the first input schema.
+/// Returns an error if:
+/// - Any input schema contains fields with duplicate names.
+/// - Fields of the same name are of incompatible types.
+ARROW_EXPORT
+Result<std::shared_ptr<Schema>> UnifySchemas(
+    const std::vector<std::shared_ptr<Schema>>& schemas);
 
 }  // namespace arrow
 

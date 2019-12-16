@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::json::TableReader")
+context("JsonTableReader")
 
 test_that("Can read json file with scalars columns (ARROW-5503)", {
   tf <- tempfile()
@@ -27,9 +27,9 @@ test_that("Can read json file with scalars columns (ARROW-5503)", {
     { "hello": 0.0, "world": true, "yo": null }
   ', tf, useBytes=TRUE)
 
-  tab1 <- read_json_arrow(tf, as_tibble = FALSE)
-  tab2 <- read_json_arrow(mmap_open(tf), as_tibble = FALSE)
-  tab3 <- read_json_arrow(ReadableFile(tf), as_tibble = FALSE)
+  tab1 <- read_json_arrow(tf, as_data_frame = FALSE)
+  tab2 <- read_json_arrow(mmap_open(tf), as_data_frame = FALSE)
+  tab3 <- read_json_arrow(ReadableFile$create(tf), as_data_frame = FALSE)
 
   expect_equal(tab1, tab2)
   expect_equal(tab1, tab3)
@@ -56,7 +56,7 @@ test_that("read_json_arrow() converts to tibble", {
 
   tab1 <- read_json_arrow(tf)
   tab2 <- read_json_arrow(mmap_open(tf))
-  tab3 <- read_json_arrow(ReadableFile(tf))
+  tab3 <- read_json_arrow(ReadableFile$create(tf))
 
   expect_is(tab1, "tbl_df")
   expect_is(tab2, "tbl_df")
@@ -98,9 +98,9 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
     { "arr": [5.0, 6.0], "nuf": { "ps": 19 } }
   ', tf)
 
-  tab1 <- read_json_arrow(tf, as_tibble = FALSE)
-  tab2 <- read_json_arrow(mmap_open(tf), as_tibble = FALSE)
-  tab3 <- read_json_arrow(ReadableFile(tf), as_tibble = FALSE)
+  tab1 <- read_json_arrow(tf, as_data_frame = FALSE)
+  tab2 <- read_json_arrow(mmap_open(tf), as_data_frame = FALSE)
+  tab3 <- read_json_arrow(ReadableFile$create(tf), as_data_frame = FALSE)
 
   expect_equal(tab1, tab2)
   expect_equal(tab1, tab3)
@@ -114,14 +114,14 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
   )
 
   struct_array <- tab1$column(1)$chunk(0)
-  ps <- array(c(NA, NA, 78, 90, NA, 19))
-  hello <- array(c(NA, NA, "hi", "bonjour", "ciao", NA))
+  ps <- Array$create(c(NA, NA, 78, 90, NA, 19))
+  hello <- Array$create(c(NA, NA, "hi", "bonjour", "ciao", NA))
   expect_equal(struct_array$field(0L), ps)
   expect_equal(struct_array$GetFieldByName("ps"), ps)
   expect_equal(struct_array$Flatten(), list(ps, hello))
   expect_equal(
-    struct_array$as_vector(),
-    data.frame(ps = ps$as_vector(), hello = hello$as_vector(), stringsAsFactors = FALSE)
+    as.vector(struct_array),
+    tibble::tibble(ps = ps$as_vector(), hello = hello$as_vector())
   )
 
   list_array_r <- list(
@@ -139,11 +139,11 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
   )
 
   tib <- as.data.frame(tab1)
-  expect_identical(
+  expect_equivalent(
     tib,
     tibble::tibble(
       arr = list_array_r,
-      nuf = data.frame(ps = ps$as_vector(), hello = hello$as_vector(), stringsAsFactors = FALSE)
+      nuf = tibble::tibble(ps = ps$as_vector(), hello = hello$as_vector())
     )
   )
 })

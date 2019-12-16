@@ -17,6 +17,7 @@
 
 import atexit
 import re
+import sys
 import warnings
 
 from pyarrow import compat
@@ -42,6 +43,7 @@ cdef dict _pandas_type_map = {
     _Type_DATE32: np.dtype('datetime64[ns]'),
     _Type_DATE64: np.dtype('datetime64[ns]'),
     _Type_TIMESTAMP: np.dtype('datetime64[ns]'),
+    _Type_DURATION: np.dtype('timedelta64[ns]'),
     _Type_BINARY: np.object_,
     _Type_FIXED_SIZE_BINARY: np.object_,
     _Type_STRING: np.object_,
@@ -259,6 +261,82 @@ cdef class ListType(DataType):
         return pyarrow_wrap_data_type(self.list_type.value_type())
 
 
+cdef class LargeListType(DataType):
+    """
+    Concrete class for large list data types
+    (like ListType, but with 64-bit offsets).
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.list_type = <const CLargeListType*> type.get()
+
+    def __reduce__(self):
+        return large_list, (self.value_type,)
+
+    @property
+    def value_type(self):
+        """
+        The data type of large list values.
+        """
+        return pyarrow_wrap_data_type(self.list_type.value_type())
+
+
+cdef class MapType(DataType):
+    """
+    Concrete class for map data types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.map_type = <const CMapType*> type.get()
+
+    def __reduce__(self):
+        return map_, (self.key_type, self.item_type)
+
+    @property
+    def key_type(self):
+        """
+        The data type of keys in the map entries.
+        """
+        return pyarrow_wrap_data_type(self.map_type.key_type())
+
+    @property
+    def item_type(self):
+        """
+        The data type of items in the map entries.
+        """
+        return pyarrow_wrap_data_type(self.map_type.item_type())
+
+
+
+cdef class FixedSizeListType(DataType):
+    """
+    Concrete class for fixed size list data types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.list_type = <const CFixedSizeListType*> type.get()
+
+    def __reduce__(self):
+        return list_, (self.value_type, self.list_size)
+
+    @property
+    def value_type(self):
+        """
+        The data type of large list values.
+        """
+        return pyarrow_wrap_data_type(self.list_type.value_type())
+
+    @property
+    def list_size(self):
+        """
+        The size of the fixed size lists.
+        """
+        return self.list_type.list_size()
+
+
 cdef class StructType(DataType):
     """
     Concrete class for struct data types.
@@ -367,7 +445,7 @@ cdef class UnionType(DataType):
         return self.child(i)
 
     def __reduce__(self):
-        return union, (list(self), self.mode)
+        return union, (list(self), self.mode, self.type_codes)
 
 
 cdef class TimestampType(DataType):
@@ -443,6 +521,23 @@ cdef class Time64Type(DataType):
         The time unit ('s', 'ms', 'us' or 'ns').
         """
         return timeunit_to_string(self.time_type.unit())
+
+
+cdef class DurationType(DataType):
+    """
+    Concrete class for duration data types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.duration_type = <const CDurationType*> type.get()
+
+    @property
+    def unit(self):
+        """
+        The duration unit ('s', 'ms', 'us' or 'ns').
+        """
+        return timeunit_to_string(self.duration_type.unit())
 
 
 cdef class FixedSizeBinaryType(DataType):
@@ -527,13 +622,28 @@ cdef class ExtensionType(BaseExtensionType):
             raise TypeError("Can only instantiate subclasses of "
                             "ExtensionType")
 
-    def __init__(self, DataType storage_type):
+    def __init__(self, DataType storage_type, extension_name):
+        """
+        Initialize an extension type instance.
+
+        This should be called at the end of the subclass'
+        ``__init__`` method.
+
+        Parameters
+        ----------
+        storage_type : DataType
+        extension_name : str
+        """
         cdef:
             shared_ptr[CExtensionType] cpy_ext_type
+            c_string c_extension_name
+
+        c_extension_name = tobytes(extension_name)
 
         assert storage_type is not None
-        check_status(CPyExtensionType.FromClass(storage_type.sp_type,
-                                                type(self), &cpy_ext_type))
+        check_status(CPyExtensionType.FromClass(
+            storage_type.sp_type, c_extension_name, type(self),
+            &cpy_ext_type))
         self.init(<shared_ptr[CDataType]> cpy_ext_type)
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -547,9 +657,49 @@ cdef class ExtensionType(BaseExtensionType):
         # DataType.__eq__ -> ExtensionType::ExtensionEquals -> DataType.__eq__
         if isinstance(other, ExtensionType):
             return (type(self) == type(other) and
+                    self.extension_name == other.extension_name and
                     self.storage_type == other.storage_type)
         else:
             return NotImplemented
+
+    def __arrow_ext_serialize__(self):
+        """
+        Serialized representation of metadata to reconstruct the type object.
+
+        This method should return a bytes object, and those serialized bytes
+        are stored in the custom metadata of the Field holding an extension
+        type in an IPC message.
+        The bytes are passed to ``__arrow_ext_deserialize`` and should hold
+        sufficient information to reconstruct the data type instance.
+        """
+        return NotImplementedError
+
+    @classmethod
+    def __arrow_ext_deserialize__(self, storage_type, serialized):
+        """
+        Return an extension type instance from the storage type and serialized
+        metadata.
+
+        This method should return an instance of the ExtensionType subclass
+        that matches the passed storage type and serialized metadata (the
+        return value of ``__arrow_ext_serialize__``).
+        """
+        return NotImplementedError
+
+
+cdef class PyExtensionType(ExtensionType):
+    """
+    Concrete base class for Python-defined extension types based on pickle
+    for (de)serialization.
+    """
+
+    def __cinit__(self):
+        if type(self) is PyExtensionType:
+            raise TypeError("Can only instantiate subclasses of "
+                            "PyExtensionType")
+
+    def __init__(self, DataType storage_type):
+        ExtensionType.__init__(self, storage_type, "arrow.py_extension_type")
 
     def __reduce__(self):
         raise NotImplementedError("Please implement {0}.__reduce__"
@@ -576,7 +726,7 @@ cdef class ExtensionType(BaseExtensionType):
         return ty
 
 
-cdef class UnknownExtensionType(ExtensionType):
+cdef class UnknownExtensionType(PyExtensionType):
     """
     A concrete class for Python-defined extension types that refer to
     an unknown Python implementation.
@@ -587,10 +737,57 @@ cdef class UnknownExtensionType(ExtensionType):
 
     def __init__(self, DataType storage_type, serialized):
         self.serialized = serialized
-        ExtensionType.__init__(self, storage_type)
+        PyExtensionType.__init__(self, storage_type)
 
     def __arrow_ext_serialize__(self):
         return self.serialized
+
+
+_python_extension_types_registry = []
+
+
+def register_extension_type(ext_type):
+    """
+    Register a Python extension type.
+
+    Registration is based on the extension name (so different registered types
+    need unique extension names). Registration needs an extension type
+    instance, but then works for any instance of the same subclass regardless
+    of parametrization of the type.
+
+    Parameters
+    ----------
+    ext_type : BaseExtensionType instance
+        The ExtensionType subclass to register.
+
+    """
+    cdef:
+        DataType _type = ensure_type(ext_type, allow_none=False)
+
+    if not isinstance(_type, BaseExtensionType):
+        raise TypeError("Only extension types can be registered")
+
+    # register on the C++ side
+    check_status(
+        RegisterPyExtensionType(<shared_ptr[CDataType]> _type.sp_type))
+
+    # register on the python side
+    _python_extension_types_registry.append(_type)
+
+
+def unregister_extension_type(type_name):
+    """
+    Unregister a Python extension type.
+
+    Parameters
+    ----------
+    type_name : str
+        The name of the ExtensionType subclass to unregister.
+
+    """
+    cdef:
+        c_string c_type_name = tobytes(type_name)
+    check_status(UnregisterPyExtensionType(c_type_name))
 
 
 cdef class Field:
@@ -658,6 +855,11 @@ cdef class Field:
         return pyarrow_wrap_metadata(self.field.metadata())
 
     def add_metadata(self, metadata):
+        warnings.warn("The 'add_metadata' method is deprecated, use "
+                      "'with_metadata' instead", FutureWarning, stacklevel=2)
+        return self.with_metadata(metadata)
+
+    def with_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Field
 
@@ -679,7 +881,7 @@ cdef class Field:
 
         c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
-            c_field = self.field.AddMetadata(c_meta)
+            c_field = self.field.WithMetadata(c_meta)
 
         return pyarrow_wrap_field(c_field)
 
@@ -724,8 +926,8 @@ cdef class Schema:
         return self.schema.num_fields()
 
     def __getitem__(self, key):
-        cdef int index = <int> _normalize_index(key, self.schema.num_fields())
-        return pyarrow_wrap_field(self.schema.field(index))
+        # access by integer index
+        return self._field(key)
 
     def __iter__(self):
         for i in range(len(self)):
@@ -744,6 +946,15 @@ cdef class Schema:
 
     def __hash__(self):
         return hash((tuple(self), self.metadata))
+
+    def __sizeof__(self):
+        size = 0
+        if self.metadata:
+            for key, value in self.metadata.items():
+                size += sys.getsizeof(key)
+                size += sys.getsizeof(value)
+
+        return size + super(Schema, self).__sizeof__()
 
     @property
     def pandas_metadata(self):
@@ -874,6 +1085,34 @@ cdef class Schema:
             fields.append(field(name, type_))
         return schema(fields, metadata)
 
+    def field(self, i):
+        """
+        Select a field by its column name or numeric index.
+
+        Parameters
+        ----------
+        i : int or string
+
+        Returns
+        -------
+        pyarrow.Field
+        """
+        if isinstance(i, six.string_types):
+            field_index = self.get_field_index(i)
+            if field_index < 0:
+                raise KeyError("Column {} does not exist in schema".format(i))
+            else:
+                return self._field(field_index)
+        elif isinstance(i, six.integer_types):
+            return self._field(i)
+        else:
+            raise TypeError("Index must either be string or integer")
+
+    def _field(self, int i):
+        """Select a field by its numeric index."""
+        cdef int index = <int> _normalize_index(i, self.schema.num_fields())
+        return pyarrow_wrap_field(self.schema.field(index))
+
     def field_by_name(self, name):
         """
         Access a field by its name rather than the column index.
@@ -888,6 +1127,10 @@ cdef class Schema:
         """
         cdef:
             vector[shared_ptr[CField]] results
+
+        warnings.warn(
+            "The 'field_by_name' method is deprecated, use 'field' instead",
+            FutureWarning, stacklevel=2)
 
         results = self.schema.GetAllFieldsByName(tobytes(name))
         if results.size() == 0:
@@ -988,6 +1231,11 @@ cdef class Schema:
         return pyarrow_wrap_schema(new_schema)
 
     def add_metadata(self, metadata):
+        warnings.warn("The 'add_metadata' method is deprecated, use "
+                      "'with_metadata' instead", FutureWarning, stacklevel=2)
+        return self.with_metadata(metadata)
+
+    def with_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Schema
 
@@ -1009,7 +1257,7 @@ cdef class Schema:
 
         c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
-            c_schema = self.schema.AddMetadata(c_meta)
+            c_schema = self.schema.WithMetadata(c_meta)
 
         return pyarrow_wrap_schema(c_schema)
 
@@ -1223,6 +1471,7 @@ def int64():
 
 cdef dict _timestamp_type_cache = {}
 cdef dict _time_type_cache = {}
+cdef dict _duration_type_cache = {}
 
 
 cdef timeunit_to_string(TimeUnit unit):
@@ -1444,6 +1693,48 @@ def time64(unit):
     return out
 
 
+def duration(unit):
+    """
+    Create instance of a duration type with unit resolution.
+
+    Parameters
+    ----------
+    unit : string
+        one of 's' [second], 'ms' [millisecond], 'us' [microsecond], or 'ns'
+        [nanosecond]
+
+    Examples
+    --------
+    ::
+
+        t1 = pa.duration('us')
+        t2 = pa.duration('s')
+    """
+    cdef:
+        TimeUnit unit_code
+
+    if unit == "s":
+        unit_code = TimeUnit_SECOND
+    elif unit == 'ms':
+        unit_code = TimeUnit_MILLI
+    elif unit == 'us':
+        unit_code = TimeUnit_MICRO
+    elif unit == 'ns':
+        unit_code = TimeUnit_NANO
+    else:
+        raise ValueError('Invalid TimeUnit string')
+
+    if unit_code in _duration_type_cache:
+        return _duration_type_cache[unit_code]
+
+    cdef DurationType out = DurationType.__new__(DurationType)
+
+    out.init(cduration(unit_code))
+    _duration_type_cache[unit_code] = out
+
+    return out
+
+
 def date32():
     """
     Create instance of 32-bit date (days since UNIX epoch 1970-01-01)
@@ -1559,9 +1850,49 @@ def large_utf8():
     return large_string()
 
 
-cpdef ListType list_(value_type):
+def list_(value_type, int list_size=-1):
     """
     Create ListType instance from child data type or field
+
+    Parameters
+    ----------
+    value_type : DataType or Field
+    list_size : int, optional, default -1
+        If length == -1 then return a variable length list type. If length is
+        greater than or equal to 0 then return a fixed size list type.
+
+    Returns
+    -------
+    list_type : DataType
+    """
+    cdef:
+        Field _field
+        shared_ptr[CDataType] list_type
+
+    if isinstance(value_type, DataType):
+        _field = field('item', value_type)
+    elif isinstance(value_type, Field):
+        _field = value_type
+    else:
+        raise TypeError('List requires DataType or Field')
+
+    if list_size == -1:
+        list_type.reset(new CListType(_field.sp_field))
+    else:
+        if list_size < 0:
+            raise ValueError("list_size should be a positive integer")
+        list_type.reset(new CFixedSizeListType(_field.sp_field, list_size))
+
+    return pyarrow_wrap_data_type(list_type)
+
+
+cpdef LargeListType large_list(value_type):
+    """
+    Create LargeListType instance from child data type or field
+
+    This data type may not be supported by all Arrow implementations.
+    Unless you need to represent data larger than 2**31 elements, you should
+    prefer list_().
 
     Parameters
     ----------
@@ -1575,7 +1906,7 @@ cpdef ListType list_(value_type):
         DataType data_type
         Field _field
         shared_ptr[CDataType] list_type
-        ListType out = ListType.__new__(ListType)
+        LargeListType out = LargeListType.__new__(LargeListType)
 
     if isinstance(value_type, DataType):
         _field = field('item', value_type)
@@ -1584,8 +1915,34 @@ cpdef ListType list_(value_type):
     else:
         raise TypeError('List requires DataType or Field')
 
-    list_type.reset(new CListType(_field.sp_field))
+    list_type.reset(new CLargeListType(_field.sp_field))
     out.init(list_type)
+    return out
+
+
+cpdef MapType map_(key_type, item_type, keys_sorted=False):
+    """
+    Create MapType instance from key and item data types
+
+    Parameters
+    ----------
+    key_type : DataType
+    item_type : DataType
+    keys_sorted : boolean
+
+    Returns
+    -------
+    map_type : DataType
+    """
+    cdef:
+        DataType _key_type = ensure_type(key_type, allow_none=False)
+        DataType _item_type = ensure_type(item_type, allow_none=False)
+        shared_ptr[CDataType] map_type
+        MapType out = MapType.__new__(MapType)
+
+    map_type.reset(new CMapType(_key_type.sp_type, _item_type.sp_type,
+                                keys_sorted))
+    out.init(map_type)
     return out
 
 
@@ -1608,6 +1965,9 @@ cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
         DataType _value_type = ensure_type(value_type, allow_none=False)
         DictionaryType out = DictionaryType.__new__(DictionaryType)
         shared_ptr[CDataType] dict_type
+
+    if _index_type.id not in {Type_INT8, Type_INT16, Type_INT32, Type_INT64}:
+        raise TypeError("The dictionary index type should be signed integer.")
 
     dict_type.reset(new CDictionaryType(_index_type.sp_type,
                                         _value_type.sp_type, ordered == 1))
@@ -1663,7 +2023,7 @@ def struct(fields):
     return pyarrow_wrap_data_type(struct_type)
 
 
-def union(children_fields, mode):
+def union(children_fields, mode, type_codes=None):
     """
     Create UnionType from children fields.
 
@@ -1672,6 +2032,7 @@ def union(children_fields, mode):
     fields : sequence of Field values
     mode : str
         'dense' or 'sparse'
+    type_codes : list of integers, default None
 
     Returns
     -------
@@ -1680,7 +2041,7 @@ def union(children_fields, mode):
     cdef:
         Field child_field
         vector[shared_ptr[CField]] c_fields
-        vector[uint8_t] type_codes
+        vector[int8_t] c_type_codes
         shared_ptr[CDataType] union_type
         int i
 
@@ -1695,15 +2056,23 @@ def union(children_fields, mode):
         else:
             raise ValueError("Invalid union mode {0!r}".format(mode))
 
-    for i, child_field in enumerate(children_fields):
-        type_codes.push_back(i)
+    for child_field in children_fields:
         c_fields.push_back(child_field.sp_field)
 
+    if type_codes is not None:
+        if len(type_codes) != <Py_ssize_t>(c_fields.size()):
+            raise ValueError("type_codes should have the same length "
+                             "as fields")
+        for code in type_codes:
+            c_type_codes.push_back(code)
+    else:
+        c_type_codes = range(c_fields.size())
+
     if mode == UnionMode_SPARSE:
-        union_type.reset(new CUnionType(c_fields, type_codes,
+        union_type.reset(new CUnionType(c_fields, c_type_codes,
                                         _UnionMode_SPARSE))
     else:
-        union_type.reset(new CUnionType(c_fields, type_codes,
+        union_type.reset(new CUnionType(c_fields, c_type_codes,
                                         _UnionMode_DENSE))
 
     return pyarrow_wrap_data_type(union_type)
@@ -1758,6 +2127,10 @@ cdef dict _type_aliases = {
     'timestamp[ms]': timestamp('ms'),
     'timestamp[us]': timestamp('us'),
     'timestamp[ns]': timestamp('ns'),
+    'duration[s]': duration('s'),
+    'duration[ms]': duration('ms'),
+    'duration[us]': duration('us'),
+    'duration[ns]': duration('ns'),
 }
 
 
@@ -1871,26 +2244,49 @@ def is_float_value(object obj):
     return IsPyFloat(obj)
 
 
+cdef class _ExtensionRegistryNanny:
+    # Keep the registry alive until we have unregistered PyExtensionType
+    cdef:
+        shared_ptr[CExtensionTypeRegistry] registry
+
+    def __cinit__(self):
+        self.registry = CExtensionTypeRegistry.GetGlobalRegistry()
+
+    def release_registry(self):
+        self.registry.reset()
+
+
+_registry_nanny = _ExtensionRegistryNanny()
+
+
 def _register_py_extension_type():
     cdef:
         DataType storage_type
         shared_ptr[CExtensionType] cpy_ext_type
+        c_string c_extension_name = tobytes("arrow.py_extension_type")
 
     # Make a dummy C++ ExtensionType
     storage_type = null()
-    check_status(CPyExtensionType.FromClass(storage_type.sp_type,
-                                            ExtensionType, &cpy_ext_type))
+    check_status(CPyExtensionType.FromClass(
+        storage_type.sp_type, c_extension_name, PyExtensionType,
+        &cpy_ext_type))
     check_status(
         RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
 
 
-def _unregister_py_extension_type():
+def _unregister_py_extension_types():
     # This needs to be done explicitly before the Python interpreter is
     # finalized.  If the C++ type is destroyed later in the process
     # teardown stage, it will invoke CPython APIs such as Py_DECREF
     # with a destroyed interpreter.
-    check_status(UnregisterPyExtensionType())
+    unregister_extension_type("arrow.py_extension_type")
+    for ext_type in _python_extension_types_registry:
+        try:
+            unregister_extension_type(ext_type.extension_name)
+        except KeyError:
+            pass
+    _registry_nanny.release_registry()
 
 
 _register_py_extension_type()
-atexit.register(_unregister_py_extension_type)
+atexit.register(_unregister_py_extension_types)

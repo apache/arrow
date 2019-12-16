@@ -19,13 +19,12 @@
 
 use arrow::array::*;
 use arrow::datatypes::{DataType, TimeUnit};
+use arrow::record_batch::RecordBatch;
 use clap::{crate_version, App, Arg};
 use datafusion::error::{ExecutionError, Result};
 use datafusion::execution::context::ExecutionContext;
-use datafusion::execution::relation::Relation;
 use prettytable::{Cell, Row, Table};
 use rustyline::Editor;
-use std::cell::RefMut;
 use std::env;
 use std::path::Path;
 
@@ -99,16 +98,21 @@ fn exec_and_print(
     sql: String,
     batch_size: usize,
 ) -> Result<()> {
-    let relation = ctx.sql(&sql, batch_size)?;
-    print_result(relation.borrow_mut())?;
+    let results = ctx.sql(&sql, batch_size)?;
+    print_result(&results)?;
 
     Ok(())
 }
 
-fn print_result(mut results: RefMut<Relation>) -> Result<()> {
+fn print_result(results: &Vec<RecordBatch>) -> Result<()> {
     let mut row_count = 0;
     let mut table = Table::new();
-    let schema = results.schema();
+
+    if results.is_empty() {
+        return Ok(());
+    }
+
+    let schema = results[0].schema();
 
     let mut header = Vec::new();
     for field in schema.fields() {
@@ -116,7 +120,7 @@ fn print_result(mut results: RefMut<Relation>) -> Result<()> {
     }
     table.add_row(Row::new(header));
 
-    while let Some(batch) = results.next().unwrap() {
+    for batch in results {
         row_count += batch.num_rows();
 
         for row in 0..batch.num_rows() {
@@ -154,9 +158,10 @@ fn str_value(column: ArrayRef, row: usize) -> Result<String> {
     match column.data_type() {
         DataType::Utf8 => Ok(column
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap()
-            .get_string(row)),
+            .value(row)
+            .to_string()),
         DataType::Boolean => make_string!(BooleanArray, column, row),
         DataType::Int16 => make_string!(Int16Array, column, row),
         DataType::Int32 => make_string!(Int32Array, column, row),
@@ -168,16 +173,16 @@ fn str_value(column: ArrayRef, row: usize) -> Result<String> {
         DataType::Float16 => make_string!(Float32Array, column, row),
         DataType::Float32 => make_string!(Float32Array, column, row),
         DataType::Float64 => make_string!(Float64Array, column, row),
-        DataType::Timestamp(unit) if *unit == TimeUnit::Second => {
+        DataType::Timestamp(unit, _) if *unit == TimeUnit::Second => {
             make_string!(TimestampSecondArray, column, row)
         }
-        DataType::Timestamp(unit) if *unit == TimeUnit::Millisecond => {
+        DataType::Timestamp(unit, _) if *unit == TimeUnit::Millisecond => {
             make_string!(TimestampMillisecondArray, column, row)
         }
-        DataType::Timestamp(unit) if *unit == TimeUnit::Microsecond => {
+        DataType::Timestamp(unit, _) if *unit == TimeUnit::Microsecond => {
             make_string!(TimestampMicrosecondArray, column, row)
         }
-        DataType::Timestamp(unit) if *unit == TimeUnit::Nanosecond => {
+        DataType::Timestamp(unit, _) if *unit == TimeUnit::Nanosecond => {
             make_string!(TimestampNanosecondArray, column, row)
         }
         DataType::Date32(_) => make_string!(Date32Array, column, row),

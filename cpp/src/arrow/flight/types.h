@@ -65,6 +65,8 @@ enum class FlightStatusCode : int8_t {
   Unauthorized,
   /// The remote service cannot handle this request at the moment.
   Unavailable,
+  /// A request failed for some other reason
+  Failed
 };
 
 // Silence warning
@@ -74,7 +76,7 @@ enum class FlightStatusCode : int8_t {
 #pragma warning(disable : 4275)
 #endif
 
-/// \brief Flight-specific information in a Status.
+/// \brief Flight-specific error information in a Status.
 class ARROW_FLIGHT_EXPORT FlightStatusDetail : public arrow::StatusDetail {
  public:
   explicit FlightStatusDetail(FlightStatusCode code) : code_{code} {}
@@ -101,7 +103,11 @@ class ARROW_FLIGHT_EXPORT FlightStatusDetail : public arrow::StatusDetail {
 #pragma warning(pop)
 #endif
 
-/// \brief Make an appropriate Arrow status for the given Flight status.
+/// \brief Make an appropriate Arrow status for the given
+/// Flight-specific status.
+///
+/// \param code The status code.
+/// \param message The message for the error.
 ARROW_FLIGHT_EXPORT
 Status MakeFlightError(FlightStatusCode code, const std::string& message);
 
@@ -114,16 +120,16 @@ struct ARROW_FLIGHT_EXPORT CertKeyPair {
   std::string pem_key;
 };
 
-/// \brief A type of action that can be performed with the DoAction RPC
+/// \brief A type of action that can be performed with the DoAction RPC.
 struct ARROW_FLIGHT_EXPORT ActionType {
-  /// Name of action
+  /// \brief The name of the action.
   std::string type;
 
-  /// Opaque action description
+  /// \brief A human-readable description of the action.
   std::string description;
 };
 
-/// \brief Opaque selection critera for ListFlights RPC
+/// \brief Opaque selection criteria for ListFlights RPC
 struct ARROW_FLIGHT_EXPORT Criteria {
   /// Opaque criteria expression, dependent on server implementation
   std::string expression;
@@ -143,8 +149,15 @@ struct ARROW_FLIGHT_EXPORT Result {
   std::shared_ptr<Buffer> body;
 };
 
-/// \brief A message received after completing a DoPut stream
-struct ARROW_FLIGHT_EXPORT PutResult {};
+/// \brief message for simple auth
+struct ARROW_FLIGHT_EXPORT BasicAuth {
+  std::string username;
+  std::string password;
+
+  static Status Deserialize(const std::string& serialized, BasicAuth* out);
+
+  static Status Serialize(const BasicAuth& basic_auth, std::string* out);
+};
 
 /// \brief A request to retrieve or generate a dataset
 struct ARROW_FLIGHT_EXPORT FlightDescriptor {
@@ -319,6 +332,24 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
   ipc::internal::IpcPayload ipc_message;
 };
 
+/// \brief Schema result returned after a schema request RPC
+struct ARROW_FLIGHT_EXPORT SchemaResult {
+ public:
+  explicit SchemaResult(std::string schema) : raw_schema_(std::move(schema)) {}
+
+  /// \brief return schema
+  /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
+  /// be modified
+  /// \param[out] out the reconstructed Schema
+  Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
+                   std::shared_ptr<Schema>* out) const;
+
+  const std::string& serialized_schema() const { return raw_schema_; }
+
+ private:
+  std::string raw_schema_;
+};
+
 /// \brief The access coordinates for retireval of a dataset, returned by
 /// GetFlightInfo
 class ARROW_FLIGHT_EXPORT FlightInfo {
@@ -378,26 +409,26 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   mutable bool reconstructed_schema_;
 };
 
-/// \brief An iterator to FlightInfo instances returned by ListFlights
+/// \brief An iterator to FlightInfo instances returned by ListFlights.
 class ARROW_FLIGHT_EXPORT FlightListing {
  public:
   virtual ~FlightListing() = default;
 
-  /// \brief Retrieve the next FlightInfo from the iterator. Returns nullptr
-  /// when there are none left
-  /// \param[out] info a single FlightInfo
+  /// \brief Retrieve the next FlightInfo from the iterator.
+  /// \param[out] info A single FlightInfo. Set to \a nullptr if there
+  /// are none left.
   /// \return Status
   virtual Status Next(std::unique_ptr<FlightInfo>* info) = 0;
 };
 
-/// \brief An iterator to Result instances returned by DoAction
+/// \brief An iterator to Result instances returned by DoAction.
 class ARROW_FLIGHT_EXPORT ResultStream {
  public:
   virtual ~ResultStream() = default;
 
-  /// \brief Retrieve the next Result from the iterator. Returns nullptr
-  /// when there are none left
-  /// \param[out] info a single Result
+  /// \brief Retrieve the next Result from the iterator.
+  /// \param[out] info A single result. Set to \a nullptr if there
+  /// are none left.
   /// \return Status
   virtual Status Next(std::unique_ptr<Result>* info) = 0;
 };
@@ -426,8 +457,10 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
   virtual Status ReadAll(std::shared_ptr<Table>* table);
 };
 
-// \brief Create a FlightListing from a vector of FlightInfo objects. This can
-// be iterated once, then it is consumed
+/// \brief A FlightListing implementation based on a vector of
+/// FlightInfo objects.
+///
+/// This can be iterated once, then it is consumed.
 class ARROW_FLIGHT_EXPORT SimpleFlightListing : public FlightListing {
  public:
   explicit SimpleFlightListing(const std::vector<FlightInfo>& flights);
@@ -440,6 +473,10 @@ class ARROW_FLIGHT_EXPORT SimpleFlightListing : public FlightListing {
   std::vector<FlightInfo> flights_;
 };
 
+/// \brief A ResultStream implementation based on a vector of
+/// Result objects.
+///
+/// This can be iterated once, then it is consumed.
 class ARROW_FLIGHT_EXPORT SimpleResultStream : public ResultStream {
  public:
   explicit SimpleResultStream(std::vector<Result>&& results);

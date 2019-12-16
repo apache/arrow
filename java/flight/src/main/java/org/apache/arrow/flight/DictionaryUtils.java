@@ -23,7 +23,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
@@ -48,12 +50,8 @@ final class DictionaryUtils {
    */
   static Schema generateSchemaMessages(final Schema originalSchema, final FlightDescriptor descriptor,
       final DictionaryProvider provider, final Consumer<ArrowMessage> messageCallback) {
-    final List<Field> fields = new ArrayList<>(originalSchema.getFields().size());
     final Set<Long> dictionaryIds = new HashSet<>();
-    for (final Field field : originalSchema.getFields()) {
-      fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIds));
-    }
-    final Schema schema = new Schema(fields, originalSchema.getCustomMetadata());
+    final Schema schema = generateSchema(originalSchema, provider, dictionaryIds);
     // Send the schema message
     messageCallback.accept(new ArrowMessage(descriptor == null ? null : descriptor.toProtocol(), schema));
     // Create and write dictionary batches
@@ -73,5 +71,46 @@ final class DictionaryUtils {
       }
     }
     return schema;
+  }
+
+  static void closeDictionaries(final Schema schema, final DictionaryProvider provider) throws Exception {
+    // Close dictionaries
+    final Set<Long> dictionaryIds = new HashSet<>();
+    schema.getFields().forEach(field -> DictionaryUtility.toMessageFormat(field, provider, dictionaryIds));
+
+    final List<AutoCloseable> dictionaryVectors = dictionaryIds.stream()
+            .map(id -> (AutoCloseable) provider.lookup(id).getVector()).collect(Collectors.toList());
+    AutoCloseables.close(dictionaryVectors);
+  }
+
+  /**
+   * Generates the schema to send with flight messages.
+   * If the schema contains no field with a dictionary, it will return the schema as is.
+   * Otherwise, it will return a newly created a new schema after converting the fields.
+   * @param originalSchema the original schema.
+   * @param provider the dictionary provider.
+   * @param dictionaryIds dictionary IDs that are used.
+   * @return the schema to send with the flight messages.
+   */
+  static Schema generateSchema(
+          final Schema originalSchema, final DictionaryProvider provider, Set<Long> dictionaryIds) {
+    // first determine if a new schema needs to be created.
+    boolean createSchema = false;
+    for (Field field : originalSchema.getFields()) {
+      if (DictionaryUtility.needConvertToMessageFormat(field)) {
+        createSchema = true;
+        break;
+      }
+    }
+
+    if (!createSchema) {
+      return originalSchema;
+    } else {
+      final List<Field> fields = new ArrayList<>(originalSchema.getFields().size());
+      for (final Field field : originalSchema.getFields()) {
+        fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIds));
+      }
+      return new Schema(fields, originalSchema.getCustomMetadata());
+    }
   }
 }

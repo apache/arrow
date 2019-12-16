@@ -18,3 +18,4 @@
 bool;i8;i16;i32;i64;u8;u16;u32;u64;f32;f64;str
 true;-1;-1;-1;-1;1;1;1;1;1.1;1.1;str-1
 false;-2;-2;-2;-2;2;2;2;2;2.2;2.2;str-2
+null;null;null;null;null;null;null;null;null;null;null;null

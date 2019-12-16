@@ -21,6 +21,7 @@
 <artifactId>arrow-format</artifactId>
 <packaging>jar</packaging>
 <name>Arrow Format</name>
+<description>Generated Java files from the IPC Flatbuffer definitions.</description>
 
   <properties>
     <flatc.download.skip>false</flatc.download.skip>

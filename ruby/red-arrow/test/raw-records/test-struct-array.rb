@@ -251,8 +251,10 @@ module RawRecordsStructArrayTests
   end
 
   def test_time32_second
+    unit = Arrow::TimeUnit::SECOND
     records = [
-      [{"field" => 60 * 10}], # 00:10:00
+      # 00:10:00
+      [{"field" => Arrow::Time.new(unit, 60 * 10)}],
       [nil],
       [{"field" => nil}],
     ]
@@ -265,8 +267,10 @@ module RawRecordsStructArrayTests
   end
 
   def test_time32_milli
+    unit = Arrow::TimeUnit::MILLI
     records = [
-      [{"field" => (60 * 10) * 1000 + 123}], # 00:10:00.123
+      # 00:10:00.123
+      [{"field" => Arrow::Time.new(unit, (60 * 10) * 1000 + 123)}],
       [nil],
       [{"field" => nil}],
     ]
@@ -279,8 +283,10 @@ module RawRecordsStructArrayTests
   end
 
   def test_time64_micro
+    unit = Arrow::TimeUnit::MICRO
     records = [
-      [{"field" => (60 * 10) * 1_000_000 + 123_456}], # 00:10:00.123456
+      # 00:10:00.123456
+      [{"field" => Arrow::Time.new(unit, (60 * 10) * 1_000_000 + 123_456)}],
       [nil],
       [{"field" => nil}],
     ]
@@ -293,9 +299,10 @@ module RawRecordsStructArrayTests
   end
 
   def test_time64_nano
+    unit = Arrow::TimeUnit::NANO
     records = [
       # 00:10:00.123456789
-      [{"field" => (60 * 10) * 1_000_000_000 + 123_456_789}],
+      [{"field" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789)}],
       [nil],
       [{"field" => nil}],
     ]

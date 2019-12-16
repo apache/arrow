@@ -57,6 +57,32 @@ std::shared_ptr<arrow::Array> RecordBatch__column(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Array> RecordBatch__GetColumnByName(
+    const std::shared_ptr<arrow::RecordBatch>& batch, const std::string& name) {
+  return batch->GetColumnByName(name);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__select(
+    const std::shared_ptr<arrow::RecordBatch>& batch,
+    const Rcpp::IntegerVector& indices) {
+  R_xlen_t n = indices.size();
+  auto nrows = batch->num_rows();
+
+  std::vector<std::shared_ptr<arrow::Field>> fields(n);
+  std::vector<std::shared_ptr<arrow::Array>> columns(n);
+
+  for (R_xlen_t i = 0; i < n; i++) {
+    int pos = indices[i] - 1;
+    fields[i] = batch->schema()->field(pos);
+    columns[i] = batch->column(pos);
+  }
+
+  auto schema = std::make_shared<arrow::Schema>(std::move(fields));
+  return arrow::RecordBatch::Make(schema, nrows, columns);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl) {
   Rcpp::CharacterVector names = tbl.names();
 
@@ -234,7 +260,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst) {
-  if (Rf_inherits(schema_sxp, "arrow::Schema")) {
+  if (Rf_inherits(schema_sxp, "Schema")) {
     return RecordBatch__from_arrays__known_schema(
         arrow::r::extract<arrow::Schema>(schema_sxp), lst);
   }

@@ -22,8 +22,8 @@
 #include <sstream>
 #include <vector>
 
-#include "arrow/dbi/hiveserver2/columnar-row-set.h"
-#include "arrow/dbi/hiveserver2/thrift-internal.h"
+#include "arrow/dbi/hiveserver2/columnar_row_set.h"
+#include "arrow/dbi/hiveserver2/thrift_internal.h"
 
 #include "arrow/dbi/hiveserver2/TCLIService.h"
 #include "arrow/dbi/hiveserver2/TCLIService_types.h"
@@ -76,7 +76,7 @@ static size_t NumSpaces(int64_t n) {
 
 // Returns the max size needed to display a column of integer type.
 template <typename T>
-static size_t GetIntMaxSize(T* column, const string& column_name) {
+static size_t GetIntMaxSize(T* column, const std::string& column_name) {
   size_t max_size = column_name.size();
   for (int i = 0; i < column->length(); ++i) {
     if (!column->IsNull(i)) {
@@ -113,7 +113,7 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
 
     std::vector<PrintInfo> columns;
     for (int i = 0; i < static_cast<int>(column_descs.size()); i++) {
-      const string column_name = column_descs[i].column_name();
+      const std::string column_name = column_descs[i].column_name();
       switch (column_descs[i].type()->type_id()) {
         case ColumnType::TypeId::BOOLEAN: {
           BoolColumn* bool_col = results->GetBoolCol(i).release();
@@ -232,7 +232,7 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
           }
         }
 
-        string value_str = value.str();
+        std::string value_str = value.str();
         out << "| " << value_str << " ";
         int padding = static_cast<int>(columns[j].max_size - value_str.size());
         while (padding > 0) {

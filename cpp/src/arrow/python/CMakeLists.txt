@@ -32,6 +32,7 @@ set(ARROW_PYTHON_SRCS
     benchmark.cc
     common.cc
     config.cc
+    datetime.cc
     decimal.cc
     deserialize.cc
     extension_type.cc
@@ -47,33 +48,22 @@ set(ARROW_PYTHON_SRCS
 
 set(ARROW_PYTHON_DEPENDENCIES arrow_dependencies)
 
-if(ARROW_FLIGHT)
-  set(ARROW_PYTHON_DEPENDENCIES ${ARROW_PYTHON_DEPENDENCIES} flight_grpc_gen)
-  set(ARROW_PYTHON_SRCS ${ARROW_PYTHON_SRCS} flight.cc)
-endif()
-
-if("${COMPILER_FAMILY}" STREQUAL "clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set_property(SOURCE pyarrow.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-cast-qual ")
 endif()
 
-set(ARROW_PYTHON_SHARED_LINK_LIBS arrow_shared ${PYTHON_OTHER_LIBS})
-
-if(ARROW_FLIGHT)
-  # Must link shared: we don't want to link more than one copy of gRPC
-  # into the eventual Cython shared object, otherwise gRPC calls fail
-  # with weird errors due to multiple copies of global static state
-  # (The other solution is to link gRPC shared everywhere instead of
-  # statically only in Flight)
-  set(ARROW_PYTHON_SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS} arrow_flight_shared)
-endif()
-
+set(ARROW_PYTHON_SHARED_LINK_LIBS arrow_shared)
 if(WIN32)
-  set(ARROW_PYTHON_SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS} ${PYTHON_LIBRARIES})
+  list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS ${PYTHON_LIBRARIES} ${PYTHON_OTHER_LIBS})
 endif()
 
 set(ARROW_PYTHON_INCLUDES ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
 add_arrow_lib(arrow_python
+              CMAKE_PACKAGE_NAME
+              ArrowPython
+              PKG_CONFIG_NAME
+              arrow-python
               SOURCES
               ${ARROW_PYTHON_SRCS}
               OUTPUTS
@@ -99,7 +89,45 @@ if(ARROW_BUILD_STATIC AND MSVC)
   target_compile_definitions(arrow_python_static PUBLIC ARROW_STATIC)
 endif()
 
-if("${COMPILER_FAMILY}" STREQUAL "clang")
+if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
+  # Must link to shared libarrow_flight: we don't want to link more than one
+  # copy of gRPC into the eventual Cython shared object, otherwise gRPC calls
+  # fail with weird errors due to multiple copies of global static state (The
+  # other solution is to link gRPC shared everywhere instead of statically only
+  # in Flight)
+  add_arrow_lib(arrow_python_flight
+                CMAKE_PACKAGE_NAME
+                ArrowPythonFlight
+                PKG_CONFIG_NAME
+                arrow-python-flight
+                SOURCES
+                flight.cc
+                OUTPUTS
+                ARROW_PYFLIGHT_LIBRARIES
+                DEPENDENCIES
+                flight_grpc_gen
+                SHARED_LINK_FLAGS
+                ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+                SHARED_LINK_LIBS
+                arrow_python_shared
+                arrow_flight_shared
+                STATIC_LINK_LIBS
+                ${PYTHON_OTHER_LIBS}
+                EXTRA_INCLUDES
+                "${ARROW_PYTHON_INCLUDES}")
+
+  add_dependencies(arrow_python ${ARROW_PYFLIGHT_LIBRARIES})
+
+  foreach(LIB_TARGET ${ARROW_PYFLIGHT_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_PYFLIGHT_EXPORTING)
+  endforeach()
+
+  if(ARROW_BUILD_STATIC AND MSVC)
+    target_compile_definitions(arrow_python_flight_static PUBLIC ARROW_STATIC)
+  endif()
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # Clang, be quiet. Python C API has lots of macros
   set_property(SOURCE ${ARROW_PYTHON_SRCS}
                APPEND_STRING
@@ -107,9 +135,6 @@ if("${COMPILER_FAMILY}" STREQUAL "clang")
 endif()
 
 arrow_install_all_headers("arrow/python")
-
-# pkg-config support
-arrow_add_pkg_config("arrow-python")
 
 # ----------------------------------------------------------------------
 
@@ -128,12 +153,15 @@ if(ARROW_BUILD_TESTS)
     target_link_libraries(arrow_python_test_main pthread ${CMAKE_DL_LIBS})
   endif()
 
-  set(ARROW_PYTHON_MIN_TEST_LIBS arrow_python_test_main arrow_python_shared
-                                 arrow_testing_shared arrow_shared)
+  if(ARROW_TEST_LINKAGE STREQUAL shared)
+    set(ARROW_PYTHON_TEST_LINK_LIBS arrow_python_test_main arrow_python_shared
+                                    arrow_testing_shared arrow_shared)
+  else()
+    set(ARROW_PYTHON_TEST_LINK_LIBS arrow_python_test_main arrow_python_static
+                                    arrow_testing_static arrow_static)
+  endif()
 
-  set(ARROW_PYTHON_TEST_LINK_LIBS ${ARROW_PYTHON_MIN_TEST_LIBS})
-
-  add_arrow_test(python-test
+  add_arrow_test(python_test
                  STATIC_LINK_LIBS
                  "${ARROW_PYTHON_TEST_LINK_LIBS}"
                  EXTRA_LINK_LIBS

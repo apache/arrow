@@ -36,7 +36,7 @@ import io.netty.buffer.ArrowBuf;
  * integer values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
+public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
   private static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
@@ -84,7 +84,7 @@ public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
    */
   public static long getNoOverflow(final ArrowBuf buffer, final int index) {
     long l =  buffer.getInt(index * TYPE_WIDTH);
-    return ((long)0xFFFFFFFF) & l;
+    return (0x00000000FFFFFFFFL) & l;
   }
 
   /**
@@ -163,7 +163,7 @@ public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
    * @param value   value of element
    */
   public void set(int index, int value) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, value);
   }
 
@@ -179,10 +179,10 @@ public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+      BitVectorHelper.setBit(validityBuffer, index);
       setValue(index, holder.value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
@@ -193,7 +193,7 @@ public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
    * @param holder  data holder for value of element
    */
   public void set(int index, UInt4Holder holder) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, holder.value);
   }
 
@@ -237,18 +237,6 @@ public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
   }
 
   /**
-   * Set the element at the given index to null.
-   *
-   * @param index   position of element
-   */
-  public void setNull(int index) {
-    handleSafe(index);
-    // not really needed to set the bit to 0 as long as
-    // the buffer always starts from 0.
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-  }
-
-  /**
    * Sets the value at index to value isSet > 0, otherwise sets the index position
    * to invalid/null.
    */
@@ -256,7 +244,7 @@ public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 

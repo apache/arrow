@@ -163,10 +163,20 @@ G_BEGIN_DECLS
  * or more binary data. If you don't have Arrow format data, you need
  * to use #GArrowBinaryArrayBuilder to create a new array.
  *
+ * #GArrowLargeBinaryArray is a class for 64-bit offsets binary array.
+ * It can store zero or more binary data. If you don't have Arrow
+ * format data, you need to use #GArrowLargeBinaryArrayBuilder to
+ * create a new array.
+ *
  * #GArrowStringArray is a class for UTF-8 encoded string array. It
  * can store zero or more UTF-8 encoded string data. If you don't have
  * Arrow format data, you need to use #GArrowStringArrayBuilder to
  * create a new array.
+ *
+ * #GArrowLargeStringArray is a class for 64-bit offsets UTF-8
+ * encoded string array. It can store zero or more UTF-8 encoded
+ * string data. If you don't have Arrow format data, you need to
+ * use #GArrowLargeStringArrayBuilder to create a new array.
  *
  * #GArrowDate32Array is a class for the number of days since UNIX
  * epoch in 32-bit signed integer array. It can store zero or more
@@ -354,7 +364,7 @@ garrow_array_equal_range(GArrowArray *array,
  * @array: A #GArrowArray.
  * @i: The index of the target value.
  *
- * Returns: Whether the i-th value is null or not.
+ * Returns: Whether the @i-th value is null or not.
  *
  * Since: 0.3.0
  */
@@ -370,7 +380,7 @@ garrow_array_is_null(GArrowArray *array, gint64 i)
  * @array: A #GArrowArray.
  * @i: The index of the target value.
  *
- * Returns: Whether the i-th value is valid (not null) or not.
+ * Returns: Whether the @i-th value is valid (not null) or not.
  *
  * Since: 0.8.0
  */
@@ -516,6 +526,63 @@ garrow_array_to_string(GArrowArray *array, GError **error)
   }
 }
 
+/**
+ * garrow_array_view:
+ * @array: A #GArrowArray.
+ * @return_type: A #GArrowDataType of the returned view.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): A zero-copy view of this array
+ *   with the given type. This method checks if the `return_type` are
+ *   layout-compatible.
+ *
+ * Since: 0.15.0
+ */
+GArrowArray *
+garrow_array_view(GArrowArray *array,
+                  GArrowDataType *return_type,
+                  GError **error)
+{
+  auto arrow_array_raw = garrow_array_get_raw(array);
+  auto arrow_return_type = garrow_data_type_get_raw(return_type);
+  std::shared_ptr<arrow::Array> arrow_array;
+  auto status = arrow_array_raw->View(arrow_return_type, &arrow_array);
+  if (garrow_error_check(error, status, "[array][view]")) {
+    return garrow_array_new_raw(&arrow_array);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_array_diff_unified:
+ * @array: A #GArrowArray.
+ * @other_array: A #GArrowArray to be compared.
+ *
+ * Returns: (nullable) (transfer full): The string representation of
+ *   the difference between two arrays as unified format. If there is
+ *   no difference, the return value is %NULL.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 0.15.0
+ */
+gchar *
+garrow_array_diff_unified(GArrowArray *array, GArrowArray *other_array)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto arrow_other_array = garrow_array_get_raw(other_array);
+  std::stringstream diff;
+  arrow_array->Equals(arrow_other_array,
+                      arrow::EqualOptions().diff_sink(&diff));
+  auto string = diff.str();
+  if (string.empty()) {
+    return NULL;
+  } else {
+    return g_strndup(string.data(), string.size());
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowNullArray,
               garrow_null_array,
@@ -625,7 +692,7 @@ garrow_boolean_array_new(gint64 length,
  * @array: A #GArrowBooleanArray.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gboolean
 garrow_boolean_array_get_value(GArrowBooleanArray *array,
@@ -723,7 +790,7 @@ garrow_int8_array_new(gint64 length,
  * @array: A #GArrowInt8Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gint8
 garrow_int8_array_get_value(GArrowInt8Array *array,
@@ -795,7 +862,7 @@ garrow_uint8_array_new(gint64 length,
  * @array: A #GArrowUInt8Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 guint8
 garrow_uint8_array_get_value(GArrowUInt8Array *array,
@@ -868,7 +935,7 @@ garrow_int16_array_new(gint64 length,
  * @array: A #GArrowInt16Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gint16
 garrow_int16_array_get_value(GArrowInt16Array *array,
@@ -941,7 +1008,7 @@ garrow_uint16_array_new(gint64 length,
  * @array: A #GArrowUInt16Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 guint16
 garrow_uint16_array_get_value(GArrowUInt16Array *array,
@@ -1014,7 +1081,7 @@ garrow_int32_array_new(gint64 length,
  * @array: A #GArrowInt32Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gint32
 garrow_int32_array_get_value(GArrowInt32Array *array,
@@ -1087,7 +1154,7 @@ garrow_uint32_array_new(gint64 length,
  * @array: A #GArrowUInt32Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 guint32
 garrow_uint32_array_get_value(GArrowUInt32Array *array,
@@ -1160,7 +1227,7 @@ garrow_int64_array_new(gint64 length,
  * @array: A #GArrowInt64Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gint64
 garrow_int64_array_get_value(GArrowInt64Array *array,
@@ -1235,7 +1302,7 @@ garrow_uint64_array_new(gint64 length,
  * @array: A #GArrowUInt64Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 guint64
 garrow_uint64_array_get_value(GArrowUInt64Array *array,
@@ -1310,7 +1377,7 @@ garrow_float_array_new(gint64 length,
  * @array: A #GArrowFloatArray.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gfloat
 garrow_float_array_get_value(GArrowFloatArray *array,
@@ -1383,7 +1450,7 @@ garrow_double_array_new(gint64 length,
  * @array: A #GArrowDoubleArray.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gdouble
 garrow_double_array_get_value(GArrowDoubleArray *array,
@@ -1465,7 +1532,7 @@ garrow_binary_array_new(gint64 length,
  * @array: A #GArrowBinaryArray.
  * @i: The index of the target value.
  *
- * Returns: (transfer full): The i-th value.
+ * Returns: (transfer full): The @i-th value.
  */
 GBytes *
 garrow_binary_array_get_value(GArrowBinaryArray *array,
@@ -1509,6 +1576,116 @@ garrow_binary_array_get_offsets_buffer(GArrowBinaryArray *array)
   auto arrow_binary_array =
     static_cast<arrow::BinaryArray *>(arrow_array.get());
   auto arrow_offsets = arrow_binary_array->value_offsets();
+  return garrow_buffer_new_raw(&arrow_offsets);
+}
+
+
+G_DEFINE_TYPE(GArrowLargeBinaryArray,
+              garrow_large_binary_array,
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_large_binary_array_init(GArrowLargeBinaryArray *object)
+{
+}
+
+static void
+garrow_large_binary_array_class_init(GArrowLargeBinaryArrayClass *klass)
+{
+}
+
+/**
+ * garrow_large_binary_array_new:
+ * @length: The number of elements.
+ * @value_offsets: The value offsets of @data in Arrow format.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowLargeBinaryArray.
+ *
+ * Since: 1.0.0
+ */
+GArrowLargeBinaryArray *
+garrow_large_binary_array_new(gint64 length,
+                              GArrowBuffer *value_offsets,
+                              GArrowBuffer *data,
+                              GArrowBuffer *null_bitmap,
+                              gint64 n_nulls)
+{
+  const auto arrow_value_offsets = garrow_buffer_get_raw(value_offsets);
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_large_binary_array =
+    std::make_shared<arrow::LargeBinaryArray>(length,
+                                              arrow_value_offsets,
+                                              arrow_data,
+                                              arrow_bitmap,
+                                              n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_large_binary_array);
+  return GARROW_LARGE_BINARY_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
+ * garrow_large_binary_array_get_value:
+ * @array: A #GArrowLargeBinaryArray.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th value.
+ *
+ * Since: 1.0.0
+ */
+GBytes *
+garrow_large_binary_array_get_value(GArrowLargeBinaryArray *array,
+                                    gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_large_binary_array =
+    static_cast<arrow::LargeBinaryArray *>(arrow_array.get());
+
+  int64_t length;
+  auto value = arrow_large_binary_array->GetValue(i, &length);
+  return g_bytes_new_static(value, length);
+}
+
+/**
+ * garrow_large_binary_array_get_buffer:
+ * @array: A #GArrowLargeBinaryArray.
+ *
+ * Returns: (transfer full): The data of the array as #GArrowBuffer.
+ *
+ * Since: 1.0.0
+ */
+GArrowBuffer *
+garrow_large_binary_array_get_buffer(GArrowLargeBinaryArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_large_binary_array =
+    static_cast<arrow::LargeBinaryArray *>(arrow_array.get());
+  auto arrow_data = arrow_large_binary_array->value_data();
+  return garrow_buffer_new_raw(&arrow_data);
+}
+
+/**
+ * garrow_large_binary_array_get_offsets_buffer:
+ * @array: A #GArrowLargeBinaryArray.
+ *
+ * Returns: (transfer full): The offsets of the array as #GArrowBuffer.
+ *
+ * Since: 1.0.0
+ */
+GArrowBuffer *
+garrow_large_binary_array_get_offsets_buffer(GArrowLargeBinaryArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_large_binary_array =
+    static_cast<arrow::LargeBinaryArray *>(arrow_array.get());
+  auto arrow_offsets = arrow_large_binary_array->value_offsets();
   return garrow_buffer_new_raw(&arrow_offsets);
 }
 
@@ -1569,7 +1746,7 @@ garrow_string_array_new(gint64 length,
  * @array: A #GArrowStringArray.
  * @i: The index of the target value.
  *
- * Returns: The i-th UTF-8 encoded string.
+ * Returns: The @i-th UTF-8 encoded string.
  */
 gchar *
 garrow_string_array_get_string(GArrowStringArray *array,
@@ -1581,6 +1758,80 @@ garrow_string_array_get_string(GArrowStringArray *array,
   gint32 length;
   auto value =
     reinterpret_cast<const gchar *>(arrow_string_array->GetValue(i, &length));
+  return g_strndup(value, length);
+}
+
+
+G_DEFINE_TYPE(GArrowLargeStringArray,
+              garrow_large_string_array,
+              GARROW_TYPE_LARGE_BINARY_ARRAY)
+
+static void
+garrow_large_string_array_init(GArrowLargeStringArray *object)
+{
+}
+
+static void
+garrow_large_string_array_class_init(GArrowLargeStringArrayClass *klass)
+{
+}
+
+/**
+ * garrow_large_string_array_new:
+ * @length: The number of elements.
+ * @value_offsets: The value offsets of @data in Arrow format.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowLargeStringArray.
+ *
+ * Since: 1.0.0
+ */
+GArrowLargeStringArray *
+garrow_large_string_array_new(gint64 length,
+                              GArrowBuffer *value_offsets,
+                              GArrowBuffer *data,
+                              GArrowBuffer *null_bitmap,
+                              gint64 n_nulls)
+{
+  const auto arrow_value_offsets = garrow_buffer_get_raw(value_offsets);
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_large_string_array =
+    std::make_shared<arrow::LargeStringArray>(length,
+                                              arrow_value_offsets,
+                                              arrow_data,
+                                              arrow_bitmap,
+                                              n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_large_string_array);
+  return GARROW_LARGE_STRING_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
+ * garrow_large_string_array_get_string:
+ * @array: A #GArrowLargeStringArray.
+ * @i: The index of the target value.
+ *
+ * Returns: The @i-th UTF-8 encoded string.
+ *
+ * Since: 1.0.0
+ */
+gchar *
+garrow_large_string_array_get_string(GArrowLargeStringArray *array,
+                                     gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_large_string_array =
+    static_cast<arrow::LargeStringArray *>(arrow_array.get());
+  gint64 length;
+  auto value =
+    reinterpret_cast<const gchar *>(arrow_large_string_array->GetValue(i, &length));
   return g_strndup(value, length);
 }
 
@@ -1632,7 +1883,7 @@ garrow_date32_array_new(gint64 length,
  * @array: A #GArrowDate32Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  *
  * Since: 0.7.0
  */
@@ -1709,7 +1960,7 @@ garrow_date64_array_new(gint64 length,
  * @array: A #GArrowDate64Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  *
  * Since: 0.7.0
  */
@@ -1792,7 +2043,7 @@ garrow_timestamp_array_new(GArrowTimestampDataType *data_type,
  * @array: A #GArrowTimestampArray.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  *
  * Since: 0.7.0
  */
@@ -1875,7 +2126,7 @@ garrow_time32_array_new(GArrowTime32DataType *data_type,
  * @array: A #GArrowTime32Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  *
  * Since: 0.7.0
  */
@@ -1956,7 +2207,7 @@ garrow_time64_array_new(GArrowTime64DataType *data_type,
  * @array: A #GArrowTime64Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  *
  * Since: 0.7.0
  */
@@ -2020,7 +2271,7 @@ garrow_decimal128_array_class_init(GArrowDecimal128ArrayClass *klass)
  * @array: A #GArrowDecimal128Array.
  * @i: The index of the target value.
  *
- * Returns: (transfer full): The formatted i-th value.
+ * Returns: (transfer full): The formatted @i-th value.
  *
  *   The returned string should be freed with g_free() when no longer
  *   needed.
@@ -2043,7 +2294,7 @@ garrow_decimal128_array_format_value(GArrowDecimal128Array *array,
  * @array: A #GArrowDecimal128Array.
  * @i: The index of the target value.
  *
- * Returns: (transfer full): The i-th value.
+ * Returns: (transfer full): The @i-th value.
  *
  * Since: 0.10.0
  */
@@ -2107,8 +2358,14 @@ garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array)
   case arrow::Type::type::BINARY:
     type = GARROW_TYPE_BINARY_ARRAY;
     break;
+  case arrow::Type::type::LARGE_BINARY:
+    type = GARROW_TYPE_LARGE_BINARY_ARRAY;
+    break;
   case arrow::Type::type::STRING:
     type = GARROW_TYPE_STRING_ARRAY;
+    break;
+  case arrow::Type::type::LARGE_STRING:
+    type = GARROW_TYPE_LARGE_STRING_ARRAY;
     break;
   case arrow::Type::type::DATE32:
     type = GARROW_TYPE_DATE32_ARRAY;
@@ -2127,6 +2384,9 @@ garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array)
     break;
   case arrow::Type::type::LIST:
     type = GARROW_TYPE_LIST_ARRAY;
+    break;
+  case arrow::Type::type::LARGE_LIST:
+    type = GARROW_TYPE_LARGE_LIST_ARRAY;
     break;
   case arrow::Type::type::STRUCT:
     type = GARROW_TYPE_STRUCT_ARRAY;

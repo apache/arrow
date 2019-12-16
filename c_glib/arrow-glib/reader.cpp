@@ -904,7 +904,8 @@ enum {
   PROP_ALLOW_NEWLINES_IN_VALUES,
   PROP_IGNORE_EMPTY_LINES,
   PROP_CHECK_UTF8,
-  PROP_ALLOW_NULL_STRINGS
+  PROP_ALLOW_NULL_STRINGS,
+  PROP_GENERATE_COLUMN_NAMES
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowCSVReadOptions,
@@ -933,6 +934,9 @@ garrow_csv_read_options_set_property(GObject *object,
     break;
   case PROP_N_SKIP_ROWS:
     priv->read_options.skip_rows = g_value_get_uint(value);
+    break;
+  case PROP_GENERATE_COLUMN_NAMES:
+    priv->read_options.autogenerate_column_names = g_value_get_boolean(value);
     break;
   case PROP_DELIMITER:
     priv->parse_options.delimiter = g_value_get_schar(value);
@@ -987,6 +991,9 @@ garrow_csv_read_options_get_property(GObject *object,
     break;
   case PROP_N_SKIP_ROWS:
     g_value_set_uint(value, priv->read_options.skip_rows);
+    break;
+  case PROP_GENERATE_COLUMN_NAMES:
+    g_value_set_boolean(value, priv->read_options.autogenerate_column_names);
     break;
   case PROP_DELIMITER:
     g_value_set_schar(value, priv->parse_options.delimiter);
@@ -1095,6 +1102,26 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
                            read_options.skip_rows,
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_N_SKIP_ROWS, spec);
+
+  /**
+   * GArrowCSVReadOptions:generate_column_names:
+   *
+   * Whether to autogenerate column names if #GArrowCSVReadOptions:column-names is empty.
+   * If %TRUE, column names will be of the form 'f0', 'f1'...
+   * If %FALSE, column names will be read from the first CSV row
+   * after #GArrowCSVReadOptions:n-skip-rows.
+   *
+   * Since: 0.15.0
+   */
+  spec = g_param_spec_boolean("generate-column-names",
+                              "Generate column names",
+                              "Whether to autogenerate column names if column-names is empty. "
+                              "If TRUE, column names will be of the form 'f0', 'f1'... "
+                              "If FALSE, column names will be read from the first CSV row "
+                              "after n-skip-rows",
+                              read_options.autogenerate_column_names,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_GENERATE_COLUMN_NAMES, spec);
 
 
   auto parse_options = arrow::csv::ParseOptions::Defaults();
@@ -1704,28 +1731,28 @@ garrow_csv_reader_new(GArrowInputStream *input,
                       GError **error)
 {
   auto arrow_input = garrow_input_stream_get_raw(input);
-  arrow::Status status;
-  std::shared_ptr<arrow::csv::TableReader> arrow_reader;
+  arrow::csv::ReadOptions read_options;
+  arrow::csv::ParseOptions parse_options;
+  arrow::csv::ConvertOptions convert_options;
   if (options) {
     auto options_priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
-    status = arrow::csv::TableReader::Make(arrow::default_memory_pool(),
-                                           arrow_input,
-                                           options_priv->read_options,
-                                           options_priv->parse_options,
-                                           options_priv->convert_options,
-                                           &arrow_reader);
+    read_options = options_priv->read_options;
+    parse_options = options_priv->parse_options;
+    convert_options = options_priv->convert_options;
   } else {
-    status =
-      arrow::csv::TableReader::Make(arrow::default_memory_pool(),
-                                    arrow_input,
-                                    arrow::csv::ReadOptions::Defaults(),
-                                    arrow::csv::ParseOptions::Defaults(),
-                                    arrow::csv::ConvertOptions::Defaults(),
-                                    &arrow_reader);
+    read_options = arrow::csv::ReadOptions::Defaults();
+    parse_options = arrow::csv::ParseOptions::Defaults();
+    convert_options = arrow::csv::ConvertOptions::Defaults();
   }
 
-  if (garrow_error_check(error, status, "[csv-reader][new]")) {
-    return garrow_csv_reader_new_raw(&arrow_reader);
+  auto arrow_reader =
+    arrow::csv::TableReader::Make(arrow::default_memory_pool(),
+                                  arrow_input,
+                                  read_options,
+                                  parse_options,
+                                  convert_options);
+  if (garrow::check(error, arrow_reader, "[csv-reader][new]")) {
+    return garrow_csv_reader_new_raw(&(arrow_reader.ValueOrDie()));
   } else {
     return NULL;
   }
@@ -1745,10 +1772,9 @@ garrow_csv_reader_read(GArrowCSVReader *reader,
                        GError **error)
 {
   auto arrow_reader = garrow_csv_reader_get_raw(reader);
-  std::shared_ptr<arrow::Table> arrow_table;
-  auto status = arrow_reader->Read(&arrow_table);
-  if (garrow_error_check(error, status, "[csv-reader][read]")) {
-    return garrow_table_new_raw(&arrow_table);
+  auto arrow_table = arrow_reader->Read();
+  if (garrow::check(error, arrow_table, "[csv-reader][read]")) {
+    return garrow_table_new_raw(&(arrow_table.ValueOrDie()));
   } else {
     return NULL;
   }

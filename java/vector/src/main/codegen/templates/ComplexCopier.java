@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+import org.apache.arrow.vector.complex.writer.FieldWriter;
+
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/ComplexCopier.java" />
 
@@ -47,16 +49,16 @@ public class ComplexCopier {
 
       case LIST:
       case MAP:
+      case FIXED_SIZE_LIST:
         if (reader.isSet()) {
           writer.startList();
+          FieldWriter dataWriter = getListWriterForReader(reader.reader(), writer);
           while (reader.next()) {
-            writeValue(reader.reader(), getListWriterForReader(reader.reader(), writer));
+            writeValue(reader.reader(), dataWriter);
           }
           writer.endList();
         }
         break;
-      case FIXED_SIZE_LIST:
-        throw new UnsupportedOperationException("Copy fixed size list");
       case STRUCT:
         if (reader.isSet()) {
           writer.start();
@@ -102,7 +104,9 @@ public class ComplexCopier {
     </#list></#list>
     case STRUCT:
       return (FieldWriter) writer.struct(name);
+    case FIXED_SIZE_LIST:
     case LIST:
+    case MAP:
       return (FieldWriter) writer.list(name);
     default:
       throw new UnsupportedOperationException(reader.getMinorType().toString());
@@ -121,7 +125,9 @@ public class ComplexCopier {
     </#list></#list>
     case STRUCT:
       return (FieldWriter) writer.struct();
+    case FIXED_SIZE_LIST:
     case LIST:
+    case MAP:
       return (FieldWriter) writer.list();
     default:
       throw new UnsupportedOperationException(reader.getMinorType().toString());

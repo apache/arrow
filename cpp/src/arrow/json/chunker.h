@@ -19,51 +19,17 @@
 
 #include <memory>
 
-#include "arrow/status.h"
+#include "arrow/util/delimiting.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Buffer;
-
 namespace json {
 
 struct ParseOptions;
 
-/// \class Chunker
-/// \brief A reusable block-based chunker for JSON data
-///
-/// The chunker takes a block of JSON data and finds a suitable place
-/// to cut it up without splitting an object.
-class ARROW_EXPORT Chunker {
- public:
-  virtual ~Chunker() = default;
-
-  /// \brief Carve up a chunk in a block of data to contain only whole objects
-  /// \param[in] block json data to be chunked
-  /// \param[out] whole subrange of block containing whole json objects
-  /// \param[out] partial subrange of block a partial json object
-  virtual Status Process(const std::shared_ptr<Buffer>& block,
-                         std::shared_ptr<Buffer>* whole,
-                         std::shared_ptr<Buffer>* partial) = 0;
-
-  /// \brief Carve the completion of a partial object out of a block
-  /// \param[in] partial incomplete json object
-  /// \param[in] block json data
-  /// \param[out] completion subrange of block containing the completion of partial
-  /// \param[out] rest subrange of block containing what completion does not cover
-  virtual Status ProcessWithPartial(const std::shared_ptr<Buffer>& partial,
-                                    const std::shared_ptr<Buffer>& block,
-                                    std::shared_ptr<Buffer>* completion,
-                                    std::shared_ptr<Buffer>* rest) = 0;
-
-  static std::unique_ptr<Chunker> Make(const ParseOptions& options);
-
- protected:
-  Chunker() = default;
-  ARROW_DISALLOW_COPY_AND_ASSIGN(Chunker);
-};
+ARROW_EXPORT
+std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options);
 
 }  // namespace json
 }  // namespace arrow

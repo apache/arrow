@@ -22,3 +22,28 @@ if (identical(Sys.getenv("TEST_R_WITH_ARROW"), "TRUE")) {
     expect_true(arrow_available())
   })
 }
+
+test_that("Can't $new() an object with anything other than a pointer", {
+  expect_error(
+    Array$new(1:5),
+    "Array$new() requires a pointer as input: did you mean $create() instead?",
+    fixed = TRUE
+  )
+})
+
+r_only({
+  test_that("assert_is", {
+    x <- 42
+    expect_true(assert_is(x, "numeric"))
+    expect_true(assert_is(x, c("numeric", "character")))
+    expect_error(assert_is(x, "factor"), 'x must be a "factor"')
+    expect_error(
+      assert_is(x, c("factor", "list")),
+      'x must be a "factor" or "list"'
+    )
+    expect_error(
+      assert_is(x, c("factor", "character", "list")),
+      'x must be a "factor", "character", or "list"'
+    )
+  })
+})

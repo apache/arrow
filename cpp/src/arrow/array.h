@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_ARRAY_H
-#define ARROW_ARRAY_H
+#pragma once
 
 #include <cstdint>
 #include <iosfwd>
@@ -26,12 +25,11 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/buffer.h"
 #include "arrow/compare.h"
-#include "arrow/result.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"  // IWYU pragma: export
@@ -132,6 +130,13 @@ struct ARROW_EXPORT ArrayData {
       const std::vector<std::shared_ptr<ArrayData>>& child_data,
       int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
+  static std::shared_ptr<ArrayData> Make(
+      const std::shared_ptr<DataType>& type, int64_t length,
+      const std::vector<std::shared_ptr<Buffer>>& buffers,
+      const std::vector<std::shared_ptr<ArrayData>>& child_data,
+      const std::shared_ptr<Array>& dictionary, int64_t null_count = kUnknownNullCount,
+      int64_t offset = 0);
+
   static std::shared_ptr<ArrayData> Make(const std::shared_ptr<DataType>& type,
                                          int64_t length,
                                          int64_t null_count = kUnknownNullCount,
@@ -229,6 +234,32 @@ ARROW_EXPORT
 Status MakeArrayOfNull(const std::shared_ptr<DataType>& type, int64_t length,
                        std::shared_ptr<Array>* out);
 
+/// \brief Create a strongly-typed Array instance with all elements null
+/// \param[in] pool the pool from which memory for this array will be allocated
+/// \param[in] type the array type
+/// \param[in] length the array length
+/// \param[out] out resulting Array instance
+ARROW_EXPORT
+Status MakeArrayOfNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                       int64_t length, std::shared_ptr<Array>* out);
+
+/// \brief Create an Array instance whose slots are the given scalar
+/// \param[in] scalar the value with which to fill the array
+/// \param[in] length the array length
+/// \param[out] out resulting Array instance
+ARROW_EXPORT
+Status MakeArrayFromScalar(const Scalar& scalar, int64_t length,
+                           std::shared_ptr<Array>* out);
+
+/// \brief Create a strongly-typed Array instance with all elements null
+/// \param[in] pool the pool from which memory for this array will be allocated
+/// \param[in] scalar the value with which to fill the array
+/// \param[in] length the array length
+/// \param[out] out resulting Array instance
+ARROW_EXPORT
+Status MakeArrayFromScalar(MemoryPool* pool, const Scalar& scalar, int64_t length,
+                           std::shared_ptr<Array>* out);
+
 // ----------------------------------------------------------------------
 // User array accessor types
 
@@ -293,6 +324,10 @@ class ARROW_EXPORT Array {
   bool Equals(const std::shared_ptr<Array>& arr,
               const EqualOptions& = EqualOptions::Defaults()) const;
 
+  /// \brief Return the formatted unified diff of arrow::Diff between this
+  /// Array and another Array
+  std::string Diff(const Array& other) const;
+
   /// Approximate equality comparison with another array
   ///
   /// epsilon is only used if this is FloatArray or DoubleArray
@@ -320,7 +355,7 @@ class ARROW_EXPORT Array {
   /// Nested types are traversed in depth-first order. Data buffers must have
   /// the same item sizes, even though the logical types may be different.
   /// An error is returned if the types are not layout-compatible.
-  Status View(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
+  Status View(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) const;
 
   /// Construct a zero-copy slice of the array with the indicated offset and
   /// length
@@ -342,6 +377,23 @@ class ARROW_EXPORT Array {
 
   /// \return PrettyPrint representation of array suitable for debugging
   std::string ToString() const;
+
+  /// \brief Perform cheap validation checks to determine obvious inconsistencies
+  /// within the array's internal data.
+  ///
+  /// This is O(k) where k is the number of descendents.
+  ///
+  /// \return Status
+  Status Validate() const;
+
+  /// \brief Perform extensive validation checks to determine inconsistencies
+  /// within the array's internal data.
+  ///
+  /// This is potentially O(k*n) where k is the number of descendents and n
+  /// is the array length.
+  ///
+  /// \return Status
+  Status ValidateFull() const;
 
  protected:
   Array() : null_bitmap_data_(NULLPTR) {}
@@ -442,11 +494,10 @@ class NumericArray : public PrimitiveArray {
   // Only enable this constructor without a type argument for types without additional
   // metadata
   template <typename T1 = TYPE>
-  NumericArray(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, int64_t>::type length,
-      const std::shared_ptr<Buffer>& data,
-      const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-      int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+  NumericArray(enable_if_parameter_free<T1, int64_t> length,
+               const std::shared_ptr<Buffer>& data,
+               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+               int64_t null_count = kUnknownNullCount, int64_t offset = 0)
       : PrimitiveArray(TypeTraits<T1>::type_singleton(), length, data, null_bitmap,
                        null_count, offset) {}
 
@@ -558,7 +609,8 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
  protected:
   // This constructor defers SetData to a derived array class
   ListArray() = default;
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data,
+               Type::type expected_type_id = Type::LIST);
 };
 
 /// Concrete Array class for large list data (with 64-bit offsets)
@@ -597,7 +649,7 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
 
 /// Concrete Array class for map data
 ///
-/// NB: "value" in this context refers to a pair of a key and the correspondint item
+/// NB: "value" in this context refers to a pair of a key and the corresponding item
 class ARROW_EXPORT MapArray : public ListArray {
  public:
   using TypeClass = MapType;
@@ -615,6 +667,25 @@ class ARROW_EXPORT MapArray : public ListArray {
            const std::shared_ptr<Array>& values,
            const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
            int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  /// \brief Construct MapArray from array of offsets and child key, item arrays
+  ///
+  /// This function does the bare minimum of validation of the offsets and
+  /// input types, and will allocate a new offsets array if necessary (i.e. if
+  /// the offsets contain any nulls). If the offsets do not have nulls, they
+  /// are assumed to be well-formed
+  ///
+  /// \param[in] offsets Array containing n + 1 offsets encoding length and
+  /// size. Must be of int32 type
+  /// \param[in] keys Array containing key values
+  /// \param[in] items Array containing item values
+  /// \param[in] pool MemoryPool in case new offsets array needs to be
+  /// allocated because of null values
+  /// \param[out] out Will have length equal to offsets.length() - 1
+  static Status FromArrays(const std::shared_ptr<Array>& offsets,
+                           const std::shared_ptr<Array>& keys,
+                           const std::shared_ptr<Array>& items, MemoryPool* pool,
+                           std::shared_ptr<Array>* out);
 
   const MapType* map_type() const { return map_type_; }
 
@@ -639,6 +710,7 @@ class ARROW_EXPORT MapArray : public ListArray {
 class ARROW_EXPORT FixedSizeListArray : public Array {
  public:
   using TypeClass = FixedSizeListType;
+  using offset_type = TypeClass::offset_type;
 
   explicit FixedSizeListArray(const std::shared_ptr<ArrayData>& data);
 
@@ -663,6 +735,14 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   std::shared_ptr<Array> value_slice(int64_t i) const {
     return values_->Slice(value_offset(i), value_length(i));
   }
+
+  /// \brief Construct FixedSizeListArray from child value array and value_length
+  ///
+  /// \param[in] values Array containing list values
+  /// \param[in] list_size The fixed length of each list
+  /// \return Will have length equal to values.length() / list_size
+  static Result<std::shared_ptr<Array>> FromArrays(const std::shared_ptr<Array>& values,
+                                                   int32_t list_size);
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
@@ -912,7 +992,7 @@ class ARROW_EXPORT StructArray : public Array {
   ///
   /// The length and data type are automatically inferred from the arguments.
   /// There should be at least one child array.
-  static Result<std::shared_ptr<Array>> Make(
+  static Result<std::shared_ptr<StructArray>> Make(
       const std::vector<std::shared_ptr<Array>>& children,
       const std::vector<std::string>& field_names,
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
@@ -923,7 +1003,7 @@ class ARROW_EXPORT StructArray : public Array {
   /// The length is automatically inferred from the arguments.
   /// There should be at least one child array.  This method does not
   /// check that field types and child array types are consistent.
-  static Result<std::shared_ptr<Array>> Make(
+  static Result<std::shared_ptr<StructArray>> Make(
       const std::vector<std::shared_ptr<Array>>& children,
       const std::vector<std::shared_ptr<Field>>& fields,
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
@@ -958,7 +1038,8 @@ class ARROW_EXPORT StructArray : public Array {
 class ARROW_EXPORT UnionArray : public Array {
  public:
   using TypeClass = UnionType;
-  using type_id_t = uint8_t;
+
+  using type_code_t = int8_t;
 
   explicit UnionArray(const std::shared_ptr<ArrayData>& data);
 
@@ -974,8 +1055,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types. The value_offsets are assumed to be well-formed.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] value_offsets An array of signed int32 values indicating the
   /// relative offset into the respective child array for the type in a given slot.
   /// The respective offsets for each child value array must be in order / increasing.
@@ -986,7 +1066,7 @@ class ARROW_EXPORT UnionArray : public Array {
   static Status MakeDense(const Array& type_ids, const Array& value_offsets,
                           const std::vector<std::shared_ptr<Array>>& children,
                           const std::vector<std::string>& field_names,
-                          const std::vector<uint8_t>& type_codes,
+                          const std::vector<type_code_t>& type_codes,
                           std::shared_ptr<Array>* out);
 
   /// \brief Construct Dense UnionArray from types_ids, value_offsets and children
@@ -994,8 +1074,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types. The value_offsets are assumed to be well-formed.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] value_offsets An array of signed int32 values indicating the
   /// relative offset into the respective child array for the type in a given slot.
   /// The respective offsets for each child value array must be in order / increasing.
@@ -1014,8 +1093,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types. The value_offsets are assumed to be well-formed.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] value_offsets An array of signed int32 values indicating the
   /// relative offset into the respective child array for the type in a given slot.
   /// The respective offsets for each child value array must be in order / increasing.
@@ -1024,7 +1102,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// \param[out] out Will have length equal to value_offsets.length()
   static Status MakeDense(const Array& type_ids, const Array& value_offsets,
                           const std::vector<std::shared_ptr<Array>>& children,
-                          const std::vector<uint8_t>& type_codes,
+                          const std::vector<type_code_t>& type_codes,
                           std::shared_ptr<Array>* out) {
     return MakeDense(type_ids, value_offsets, children, {}, type_codes, out);
   }
@@ -1036,8 +1114,7 @@ class ARROW_EXPORT UnionArray : public Array {
   ///
   /// The name of each field is filled by the index of the field.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] value_offsets An array of signed int32 values indicating the
   /// relative offset into the respective child array for the type in a given slot.
   /// The respective offsets for each child value array must be in order / increasing.
@@ -1054,8 +1131,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] children Vector of children Arrays containing the data for each type.
   /// \param[in] field_names Vector of strings containing the name of each field.
   /// \param[in] type_codes Vector of type codes.
@@ -1063,7 +1139,7 @@ class ARROW_EXPORT UnionArray : public Array {
   static Status MakeSparse(const Array& type_ids,
                            const std::vector<std::shared_ptr<Array>>& children,
                            const std::vector<std::string>& field_names,
-                           const std::vector<uint8_t>& type_codes,
+                           const std::vector<type_code_t>& type_codes,
                            std::shared_ptr<Array>* out);
 
   /// \brief Construct Sparse UnionArray from type_ids and children
@@ -1071,8 +1147,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] children Vector of children Arrays containing the data for each type.
   /// \param[in] field_names Vector of strings containing the name of each field.
   /// \param[out] out Will have length equal to type_ids.length()
@@ -1088,14 +1163,13 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] children Vector of children Arrays containing the data for each type.
   /// \param[in] type_codes Vector of type codes.
   /// \param[out] out Will have length equal to type_ids.length()
   static Status MakeSparse(const Array& type_ids,
                            const std::vector<std::shared_ptr<Array>>& children,
-                           const std::vector<uint8_t>& type_codes,
+                           const std::vector<type_code_t>& type_codes,
                            std::shared_ptr<Array>* out) {
     return MakeSparse(type_ids, children, {}, type_codes, out);
   }
@@ -1107,8 +1181,7 @@ class ARROW_EXPORT UnionArray : public Array {
   ///
   /// The name of each field is filled by the index of the field.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] children Vector of children Arrays containing the data for each type.
   /// \param[out] out Will have length equal to type_ids.length()
   static Status MakeSparse(const Array& type_ids,
@@ -1118,14 +1191,29 @@ class ARROW_EXPORT UnionArray : public Array {
   }
 
   /// Note that this buffer does not account for any slice offset
-  std::shared_ptr<Buffer> type_ids() const { return data_->buffers[1]; }
+  std::shared_ptr<Buffer> type_codes() const { return data_->buffers[1]; }
 
+  const type_code_t* raw_type_codes() const { return raw_type_codes_ + data_->offset; }
+
+  ARROW_DEPRECATED("Use UnionArray::type_codes")
+  std::shared_ptr<Buffer> type_ids() const { return type_codes(); }
+
+  ARROW_DEPRECATED("Use UnionArray::raw_type_codes")
+  const type_code_t* raw_type_ids() const { return raw_type_codes(); }
+
+  /// The physical child id containing value at index.
+  int child_id(int64_t i) const {
+    return union_type_->child_ids()[raw_type_codes_[i + data_->offset]];
+  }
+
+  /// For dense arrays only.
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[2]; }
 
+  /// For dense arrays only.
   int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
 
-  const type_id_t* raw_type_ids() const { return raw_type_ids_ + data_->offset; }
+  /// For dense arrays only.
   const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
 
   const UnionType* union_type() const { return union_type_; }
@@ -1141,7 +1229,7 @@ class ARROW_EXPORT UnionArray : public Array {
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
 
-  const type_id_t* raw_type_ids_;
+  const type_code_t* raw_type_codes_;
   const int32_t* raw_value_offsets_;
   const UnionType* union_type_;
 
@@ -1202,18 +1290,20 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// This method constructs a new dictionary array with the given dictionary type,
   /// transposing indices using the transpose map.
   /// The type and the transpose map are typically computed using
-  /// DictionaryType::Unify.
+  /// DictionaryUnifier.
   ///
   /// \param[in] pool a pool to allocate the array data from
   /// \param[in] type the new type object
   /// \param[in] dictionary the new dictionary
-  /// \param[in] transpose_map a vector transposing this array's indices
+  /// \param[in] transpose_map transposition array of this array's indices
   /// into the target array's indices
   /// \param[out] out the resulting DictionaryArray instance
   Status Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                   const std::shared_ptr<Array>& dictionary,
-                   const std::vector<int32_t>& transpose_map,
+                   const std::shared_ptr<Array>& dictionary, const int32_t* transpose_map,
                    std::shared_ptr<Array>* out) const;
+
+  /// \brief Determine whether dictionary arrays may be compared without unification
+  bool CanCompareIndices(const DictionaryArray& other) const;
 
   /// \brief Return the dictionary for this array, which is stored as
   /// a member of the ArrayData internal structure
@@ -1228,16 +1318,4 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> indices_;
 };
 
-/// \brief Perform any validation checks to determine obvious inconsistencies
-/// with the array's internal data
-///
-/// This can be an expensive check.
-///
-/// \param array an Array instance
-/// \return Status
-ARROW_EXPORT
-Status ValidateArray(const Array& array);
-
 }  // namespace arrow
-
-#endif  // ARROW_ARRAY_H

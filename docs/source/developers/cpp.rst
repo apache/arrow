@@ -40,30 +40,15 @@ Building requires:
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
   sufficient. For Windows, at least Visual Studio 2015 is required.
 * CMake 3.2 or higher
-* Boost 1.58 or higher, though some unit tests require 1.64 or
-  newer.
-* ``bison`` and ``flex`` (for building Apache Thrift from source only, an
-  Apache Parquet dependency.)
-
-Running the unit tests using ``ctest`` requires:
-
-* python
+* On Linux and macOS, either ``make`` or ``ninja`` build utilities
 
 On Ubuntu/Debian you can install the requirements with:
 
 .. code-block:: shell
 
    sudo apt-get install \
-        autoconf \
         build-essential \
-        cmake \
-        libboost-dev \
-        libboost-filesystem-dev \
-        libboost-regex-dev \
-        libboost-system-dev \
-        python \
-        bison \
-        flex
+        cmake
 
 On Alpine Linux:
 
@@ -71,7 +56,6 @@ On Alpine Linux:
 
    apk add autoconf \
            bash \
-           boost-dev \
            cmake \
            g++ \
            gcc \
@@ -95,8 +79,6 @@ On MSYS2:
      mingw-w64-${MSYSTEM_CARCH}-boost \
      mingw-w64-${MSYSTEM_CARCH}-brotli \
      mingw-w64-${MSYSTEM_CARCH}-cmake \
-     mingw-w64-${MSYSTEM_CARCH}-double-conversion \
-     mingw-w64-${MSYSTEM_CARCH}-flatbuffers \
      mingw-w64-${MSYSTEM_CARCH}-gcc \
      mingw-w64-${MSYSTEM_CARCH}-gflags \
      mingw-w64-${MSYSTEM_CARCH}-glog \
@@ -107,7 +89,6 @@ On MSYS2:
      mingw-w64-${MSYSTEM_CARCH}-rapidjson \
      mingw-w64-${MSYSTEM_CARCH}-snappy \
      mingw-w64-${MSYSTEM_CARCH}-thrift \
-     mingw-w64-${MSYSTEM_CARCH}-uriparser \
      mingw-w64-${MSYSTEM_CARCH}-zlib \
      mingw-w64-${MSYSTEM_CARCH}-zstd
 
@@ -130,10 +111,10 @@ Minimal release build:
    cd arrow/cpp
    mkdir release
    cd release
-   cmake -DARROW_BUILD_TESTS=ON ..
-   make unittest
+   cmake ..
+   make
 
-Minimal debug build:
+Minimal debug build with unit tests:
 
 .. code-block:: shell
 
@@ -144,8 +125,9 @@ Minimal debug build:
    cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_BUILD_TESTS=ON ..
    make unittest
 
-If you do not need to build the test suite, you can omit the
-``ARROW_BUILD_TESTS`` option (the default is not to build the unit tests).
+The unit tests are not built by default. After building, one can also invoke
+the unit tests using the ``ctest`` tool provided by CMake (not that ``test``
+depends on ``python`` being available).
 
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
@@ -170,9 +152,14 @@ By default, the C++ build system creates a fairly minimal build. We have
 several optional system components which you can opt into building by passing
 boolean flags to ``cmake``.
 
+* ``-DARROW_COMPUTE=ON``: Computational kernel functions and other support
+* ``-DARROW_CSV=ON``: CSV reader module
 * ``-DARROW_CUDA=ON``: CUDA integration for GPU development. Depends on NVIDIA
   CUDA toolkit. The CUDA toolchain used to build the library can be customized
   by using the ``$CUDA_HOME`` environment variable.
+* ``-DARROW_DATASET=ON``: Dataset API, implies the Filesystem API
+* ``-DARROW_FILESYSTEM=ON``: Filesystem API for accessing local and remote
+  filesystems
 * ``-DARROW_FLIGHT=ON``: Arrow Flight RPC system, which depends at least on
   gRPC
 * ``-DARROW_GANDIVA=ON``: Gandiva expression compiler, depends on LLVM,
@@ -181,20 +168,28 @@ boolean flags to ``cmake``.
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
 * ``-DARROW_HIVESERVER2=ON``: Client library for HiveServer2 database protocol
+* ``-DARROW_JSON=ON``: JSON reader module
 * ``-DARROW_ORC=ON``: Arrow integration with Apache ORC
 * ``-DARROW_PARQUET=ON``: Apache Parquet libraries and Arrow integration
 * ``-DARROW_PLASMA=ON``: Plasma Shared Memory Object Store
 * ``-DARROW_PLASMA_JAVA_CLIENT=ON``: Build Java client for Plasma
 * ``-DARROW_PYTHON=ON``: Arrow Python C++ integration library (required for
   building pyarrow). This library must be built against the same Python version
-  for which you are building pyarrow, e.g. Python 2.7 or Python 3.6. NumPy must
-  also be installed.
+  for which you are building pyarrow. NumPy must also be installed. Enabling
+  this option also enables ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
+  ``ARROW_FILESYSTEM``, ``ARROW_HDFS``, and ``ARROW_JSON``.
+* ``-DARROW_S3=ON``: Support for Amazon S3-compatible filesystems
+* ``-DARROW_WITH_BZ2=ON``: Build support for BZ2 compression
+* ``-DARROW_WITH_ZLIB=ON``: Build suport for zlib (gzip) compression
+* ``-DARROW_WITH_LZ4=ON``: Build suport for lz4 compression
+* ``-DARROW_WITH_SNAPPY=ON``: Build suport for Snappy compression
+* ``-DARROW_WITH_ZSTD=ON``: Build suport for ZSTD compression
+* ``-DARROW_WITH_BROTLI=ON``: Build suport for Brotli compression
 
 Some features of the core Arrow shared library can be switched off for improved
 build times if they are not required for your application:
 
-* ``-DARROW_COMPUTE=ON``: build the in-memory analytics module
-* ``-DARROW_IPC=ON``: build the IPC extensions (requiring Flatbuffers)
+* ``-DARROW_IPC=ON``: build the IPC extensions
 
 CMake version requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -222,7 +217,6 @@ The build system supports a number of third-party dependencies
 
   * ``BOOST``: for cross-platform support
   * ``BROTLI``: for data compression
-  * ``double-conversion``: for text-to-numeric conversions
   * ``Snappy``: for data compression
   * ``gflags``: for command line utilities (formerly Googleflags)
   * ``glog``: for logging
@@ -231,7 +225,6 @@ The build system supports a number of third-party dependencies
   * ``GTEST``: Googletest, for testing
   * ``benchmark``: Google benchmark, for testing
   * ``RapidJSON``: for data serialization
-  * ``Flatbuffers``: for data serialization
   * ``ZLIB``: for data compression
   * ``BZip2``: for data compression
   * ``LZ4``: for data compression
@@ -641,7 +634,7 @@ The report is then generated in ``compat_reports/libarrow`` as a HTML.
 Debugging with Xcode on macOS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Xcode is the IDE provided with macOS and can be use to develop and debug Arrow 
+Xcode is the IDE provided with macOS and can be use to develop and debug Arrow
 by generating an Xcode project:
 
 .. code-block:: shell
@@ -649,13 +642,13 @@ by generating an Xcode project:
    cd cpp
    mkdir xcode-build
    cd xcode-build
-   cmake .. -G Xcode -DARROW_BUILD_TESTS=ON
+   cmake .. -G Xcode -DARROW_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=DEBUG
    open arrow.xcodeproj
 
-This will generate a project and open it in the Xcode app. As an alternative, 
+This will generate a project and open it in the Xcode app. As an alternative,
 the command ``xcodebuild`` will perform a command-line build using the
 generated project. It is recommended to use the "Automatically Create Schemes"
-option when first launching the project.  Selecting an auto-generated scheme 
+option when first launching the project.  Selecting an auto-generated scheme
 will allow you to build and run a unittest with breakpoints enabled.
 
 Developing on Windows
@@ -951,12 +944,19 @@ Apache Parquet Development
 ==========================
 
 To build the C++ libraries for Apache Parquet, add the flag
-``-DARROW_PARQUET=ON`` when invoking CMake. The Parquet libraries and unit tests
+``-DARROW_PARQUET=ON`` when invoking CMake.
+To build Apache Parquet with encryption support, add the flag
+``-DPARQUET_REQUIRE_ENCRYPTION=ON`` when invoking CMake. The Parquet libraries and unit tests
 can be built with the ``parquet`` make target:
 
 .. code-block:: shell
 
    make parquet
+
+On Linux and macOS if you do not have Apache Thrift installed on your system,
+or you are building with ``-DThrift_SOURCE=BUNDLED``, you must install
+``bison`` and ``flex`` packages. On Windows we handle these build dependencies
+automatically when building Thrift from source.
 
 Running ``ctest -L unittest`` will run all built C++ unit tests, while ``ctest -L
 parquet`` will run only the Parquet unit tests. The unit tests depend on an
@@ -1011,38 +1011,48 @@ This section provides some information about some of the abstractions and
 development approaches we use to solve problems common to many parts of the C++
 project.
 
+File Naming
+~~~~~~~~~~~
+
+C++ source and header files should use underscores for word separation, not hyphens.
+Compiled executables, however, will automatically use hyphens (such that
+e.g. ``src/arrow/scalar_test.cc`` will be compiled into ``arrow-scalar-test``).
+
+C++ header files use the ``.h`` extension. Any header file name not
+containing ``internal`` is considered to be a public header, and will be
+automatically installed by the build.
+
 Memory Pools
 ~~~~~~~~~~~~
 
 We provide a default memory pool with ``arrow::default_memory_pool()``. As a
 matter of convenience, some of the array builder classes have constructors
-which use the default pool without explicitly passing it. You can disable these
-constructors in your application (so that you are accounting properly for all
-memory allocations) by defining ``ARROW_NO_DEFAULT_MEMORY_POOL``.
-
-Header files
-~~~~~~~~~~~~
-
-We use the ``.h`` extension for C++ header files. Any header file name not
-containing ``internal`` is considered to be a public header, and will be
-automatically installed by the build.
+which use the default pool without explicitly passing it. One can override the
+default optional memory pool by defining the ``ARROW_MEMORY_POOL_DEFAULT``
+macro to an assignment of a global function,
+e.g. ``= my_default_memory_pool()``.
 
 Error Handling and Exceptions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For error handling, we use ``arrow::Status`` values instead of throwing C++
+For error handling, we return ``arrow::Status`` values instead of throwing C++
 exceptions. Since the Arrow C++ libraries are intended to be useful as a
 component in larger C++ projects, using ``Status`` objects can help with good
 code hygiene by making explicit when a function is expected to be able to fail.
 
-For expressing invariants and "cannot fail" errors, we use DCHECK macros
+A more recent option is to return a ``arrow::Result<T>`` object that can
+represent either a successful result with a ``T`` value, or an error result
+with a ``Status`` value.
+
+For expressing internal invariants and "cannot fail" errors, we use ``DCHECK`` macros
 defined in ``arrow/util/logging.h``. These checks are disabled in release builds
 and are intended to catch internal development errors, particularly when
 refactoring. These macros are not to be included in any public header files.
 
 Since we do not use exceptions, we avoid doing expensive work in object
 constructors. Objects that are expensive to construct may often have private
-constructors, with public static factory methods that return ``Status``.
+constructors, with public static factory methods that return ``Status`` or
+``Result<T>``.
 
 There are a number of object constructors, like ``arrow::Schema`` and
 ``arrow::RecordBatch`` where larger STL container objects like ``std::vector`` may

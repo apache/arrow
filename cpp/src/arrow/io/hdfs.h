@@ -66,6 +66,8 @@ struct HdfsConnectionConfig {
   std::string kerb_ticket;
   std::unordered_map<std::string, std::string> extra_conf;
   HdfsDriver driver;
+
+  HdfsConnectionConfig() : driver(HdfsDriver::LIBHDFS) {}
 };
 
 class ARROW_EXPORT HadoopFileSystem : public FileSystem {
@@ -118,7 +120,18 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
 
   Status GetChildren(const std::string& path, std::vector<std::string>* listing) override;
 
+  /// List directory contents
+  ///
+  /// If path is a relative path, returned values will be absolute paths or URIs
+  /// starting from the current working directory.
   Status ListDirectory(const std::string& path, std::vector<HdfsPathInfo>* listing);
+
+  /// Return the filesystem's current working directory.
+  ///
+  /// The working directory is the base path for all relative paths given to
+  /// other APIs.
+  /// NOTE: this actually returns a URI.
+  Status GetWorkingDirectory(std::string* out);
 
   /// Change
   ///
@@ -191,21 +204,16 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
 
   bool closed() const override;
 
-  Status GetSize(int64_t* size) override;
-
   // NOTE: If you wish to read a particular range of a file in a multithreaded
   // context, you may prefer to use ReadAt to avoid locking issues
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
-
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                void* buffer) override;
-
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  Result<int64_t> Read(int64_t nbytes, void* out) override;
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override;
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override;
 
   Status Seek(int64_t position) override;
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
+  Result<int64_t> GetSize() override;
 
   void set_memory_pool(MemoryPool* pool);
 
@@ -230,13 +238,13 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
 
   bool closed() const override;
 
+  using OutputStream::Write;
   Status Write(const void* buffer, int64_t nbytes) override;
-
   Status Write(const void* buffer, int64_t nbytes, int64_t* bytes_written);
 
   Status Flush() override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
  private:
   class ARROW_NO_EXPORT HdfsOutputStreamImpl;

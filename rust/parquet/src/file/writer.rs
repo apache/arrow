@@ -19,7 +19,6 @@
 //! using row group writers and column writers respectively.
 
 use std::{
-    fs::File,
     io::{Seek, SeekFrom, Write},
     rc::Rc,
 };
@@ -35,7 +34,7 @@ use crate::column::{
 };
 use crate::errors::{ParquetError, Result};
 use crate::file::{
-    metadata::*, properties::WriterPropertiesPtr,
+    metadata::*, properties::WriterPropertiesPtr, reader::TryClone,
     statistics::to_thrift as statistics_to_thrift, FOOTER_SIZE, PARQUET_MAGIC,
 };
 use crate::schema::types::{self, SchemaDescPtr, SchemaDescriptor, TypePtr};
@@ -115,29 +114,32 @@ pub trait RowGroupWriter {
 // ----------------------------------------------------------------------
 // Serialized impl for file & row group writers
 
+pub trait ParquetWriter: Write + Seek + TryClone {}
+impl<T: Write + Seek + TryClone> ParquetWriter for T {}
+
 /// A serialized implementation for Parquet [`FileWriter`].
 /// See documentation on file writer for more information.
-pub struct SerializedFileWriter {
-    file: File,
+pub struct SerializedFileWriter<W: ParquetWriter> {
+    buf: W,
     schema: TypePtr,
     descr: SchemaDescPtr,
     props: WriterPropertiesPtr,
-    total_num_rows: u64,
+    total_num_rows: i64,
     row_groups: Vec<RowGroupMetaDataPtr>,
     previous_writer_closed: bool,
     is_closed: bool,
 }
 
-impl SerializedFileWriter {
+impl<W: ParquetWriter> SerializedFileWriter<W> {
     /// Creates new file writer.
     pub fn new(
-        mut file: File,
+        mut buf: W,
         schema: TypePtr,
         properties: WriterPropertiesPtr,
     ) -> Result<Self> {
-        Self::start_file(&mut file)?;
+        Self::start_file(&mut buf)?;
         Ok(Self {
-            file,
+            buf,
             schema: schema.clone(),
             descr: Rc::new(SchemaDescriptor::new(schema)),
             props: properties,
@@ -149,8 +151,8 @@ impl SerializedFileWriter {
     }
 
     /// Writes magic bytes at the beginning of the file.
-    fn start_file(file: &mut File) -> Result<()> {
-        file.write(&PARQUET_MAGIC)?;
+    fn start_file(buf: &mut W) -> Result<()> {
+        buf.write(&PARQUET_MAGIC)?;
         Ok(())
     }
 
@@ -160,6 +162,7 @@ impl SerializedFileWriter {
         mut row_group_writer: Box<RowGroupWriter>,
     ) -> Result<()> {
         let row_group_metadata = row_group_writer.close()?;
+        self.total_num_rows += row_group_metadata.num_rows();
         self.row_groups.push(row_group_metadata);
         Ok(())
     }
@@ -182,20 +185,20 @@ impl SerializedFileWriter {
         };
 
         // Write file metadata
-        let start_pos = self.file.seek(SeekFrom::Current(0))?;
+        let start_pos = self.buf.seek(SeekFrom::Current(0))?;
         {
-            let mut protocol = TCompactOutputProtocol::new(&mut self.file);
+            let mut protocol = TCompactOutputProtocol::new(&mut self.buf);
             file_metadata.write_to_out_protocol(&mut protocol)?;
             protocol.flush()?;
         }
-        let end_pos = self.file.seek(SeekFrom::Current(0))?;
+        let end_pos = self.buf.seek(SeekFrom::Current(0))?;
 
         // Write footer
         let mut footer_buffer: [u8; FOOTER_SIZE] = [0; FOOTER_SIZE];
         let metadata_len = (end_pos - start_pos) as i32;
         LittleEndian::write_i32(&mut footer_buffer, metadata_len);
         (&mut footer_buffer[4..]).write(&PARQUET_MAGIC)?;
-        self.file.write(&footer_buffer)?;
+        self.buf.write(&footer_buffer)?;
         Ok(())
     }
 
@@ -218,7 +221,7 @@ impl SerializedFileWriter {
     }
 }
 
-impl FileWriter for SerializedFileWriter {
+impl<W: 'static + ParquetWriter> FileWriter for SerializedFileWriter<W> {
     #[inline]
     fn next_row_group(&mut self) -> Result<Box<RowGroupWriter>> {
         self.assert_closed()?;
@@ -226,7 +229,7 @@ impl FileWriter for SerializedFileWriter {
         let row_group_writer = SerializedRowGroupWriter::new(
             self.descr.clone(),
             self.props.clone(),
-            &self.file,
+            &self.buf,
         );
         self.previous_writer_closed = false;
         Ok(Box::new(row_group_writer))
@@ -253,10 +256,10 @@ impl FileWriter for SerializedFileWriter {
 /// A serialized implementation for Parquet [`RowGroupWriter`].
 /// Coordinates writing of a row group with column writers.
 /// See documentation on row group writer for more information.
-pub struct SerializedRowGroupWriter {
+pub struct SerializedRowGroupWriter<W: ParquetWriter> {
     descr: SchemaDescPtr,
     props: WriterPropertiesPtr,
-    file: File,
+    buf: W,
     total_rows_written: Option<u64>,
     total_bytes_written: u64,
     column_index: usize,
@@ -265,17 +268,17 @@ pub struct SerializedRowGroupWriter {
     column_chunks: Vec<ColumnChunkMetaDataPtr>,
 }
 
-impl SerializedRowGroupWriter {
+impl<W: 'static + ParquetWriter> SerializedRowGroupWriter<W> {
     pub fn new(
         schema_descr: SchemaDescPtr,
         properties: WriterPropertiesPtr,
-        file: &File,
+        buf: &W,
     ) -> Self {
         let num_columns = schema_descr.num_columns();
         Self {
             descr: schema_descr,
             props: properties,
-            file: file.try_clone().unwrap(),
+            buf: buf.try_clone().unwrap(),
             total_rows_written: None,
             total_bytes_written: 0,
             column_index: 0,
@@ -335,7 +338,7 @@ impl SerializedRowGroupWriter {
     }
 }
 
-impl RowGroupWriter for SerializedRowGroupWriter {
+impl<W: 'static + ParquetWriter> RowGroupWriter for SerializedRowGroupWriter<W> {
     #[inline]
     fn next_column(&mut self) -> Result<Option<ColumnWriter>> {
         self.assert_closed()?;
@@ -344,7 +347,7 @@ impl RowGroupWriter for SerializedRowGroupWriter {
         if self.column_index >= self.descr.num_columns() {
             return Ok(None);
         }
-        let sink = FileSink::new(&self.file);
+        let sink = FileSink::new(&self.buf);
         let page_writer = Box::new(SerializedPageWriter::new(sink));
         let column_writer = get_column_writer(
             self.descr.column(self.column_index),
@@ -521,7 +524,7 @@ impl<T: Write + Position> PageWriter for SerializedPageWriter<T> {
 mod tests {
     use super::*;
 
-    use std::{error::Error, io::Cursor};
+    use std::{error::Error, fs::File, io::Cursor};
 
     use crate::basic::{Compression, Encoding, Repetition, Type};
     use crate::column::page::PageReader;
@@ -921,6 +924,7 @@ mod tests {
         let props = Rc::new(WriterProperties::builder().build());
         let mut file_writer =
             SerializedFileWriter::new(file.try_clone().unwrap(), schema, props).unwrap();
+        let mut rows: i64 = 0;
 
         for subset in &data {
             let mut row_group_writer = file_writer.next_row_group().unwrap();
@@ -928,7 +932,8 @@ mod tests {
             if let Some(mut writer) = col_writer {
                 match writer {
                     ColumnWriter::Int32ColumnWriter(ref mut typed) => {
-                        typed.write_batch(&subset[..], None, None).unwrap();
+                        rows +=
+                            typed.write_batch(&subset[..], None, None).unwrap() as i64;
                     }
                     _ => {
                         unimplemented!();
@@ -943,6 +948,11 @@ mod tests {
 
         let reader = SerializedFileReader::new(file).unwrap();
         assert_eq!(reader.num_row_groups(), data.len());
+        assert_eq!(
+            reader.metadata().file_metadata().num_rows(),
+            rows,
+            "row count in metadata not equal to number of rows written"
+        );
         for i in 0..reader.num_row_groups() {
             let row_group_reader = reader.get_row_group(i).unwrap();
             let iter = row_group_reader.get_row_iter(None).unwrap();

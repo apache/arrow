@@ -16,8 +16,11 @@
 # under the License.
 
 class TestPlasmaClient < Test::Unit::TestCase
+  include Helper::Omittable
+
   def setup
     @store = nil
+    require_gi_bindings(3, 3, 9)
     @store = Helper::PlasmaStore.new
     @store.start
     @id = Plasma::ObjectID.new("Hello")

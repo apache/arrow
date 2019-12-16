@@ -42,6 +42,8 @@ module Arrow
             available_formats << match_data.post_match
           end
         end
+        deprecated_formats = ["batch", "stream"]
+        available_formats -= deprecated_formats
         message = "Arrow::Table save format must be one of ["
         message << available_formats.join(", ")
         message << "]: #{format.inspect}"
@@ -110,15 +112,27 @@ module Arrow
     end
 
     def save_as_arrow
-      save_as_batch
+      save_as_arrow_file
     end
 
-    def save_as_batch
+    # @since 1.0.0
+    def save_as_arrow_file
       save_raw(RecordBatchFileWriter)
     end
 
-    def save_as_stream
+    # @deprecated Use `format: :arrow_batch` instead.
+    def save_as_batch
+      save_as_arrow_file
+    end
+
+    # @since 1.0.0
+    def save_as_arrow_streaming
       save_raw(RecordBatchStreamWriter)
+    end
+
+    # @deprecated Use `format: :arrow_streaming` instead.
+    def save_as_stream
+      save_as_arrow_streaming
     end
 
     def save_as_csv

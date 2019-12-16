@@ -25,7 +25,7 @@ import (
 	"github.com/apache/arrow/go/arrow/arrio"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 )
 
 func main() {
@@ -45,7 +45,7 @@ func processStream(w *os.File, r io.Reader) error {
 
 	rr, err := ipc.NewReader(r, ipc.WithAllocator(mem))
 	if err != nil {
-		if errors.Cause(err) == io.EOF {
+		if xerrors.Is(err, io.EOF) {
 			return nil
 		}
 		return err
@@ -53,18 +53,18 @@ func processStream(w *os.File, r io.Reader) error {
 
 	ww, err := ipc.NewFileWriter(w, ipc.WithAllocator(mem), ipc.WithSchema(rr.Schema()))
 	if err != nil {
-		return errors.Wrap(err, "could not create ARROW file writer")
+		return xerrors.Errorf("could not create ARROW file writer: %w", err)
 	}
 	defer ww.Close()
 
 	_, err = arrio.Copy(ww, rr)
 	if err != nil {
-		return errors.Wrap(err, "could not copy ARROW stream")
+		return xerrors.Errorf("could not copy ARROW stream: %w", err)
 	}
 
 	err = ww.Close()
 	if err != nil {
-		return errors.Wrap(err, "could not close output ARROW file")
+		return xerrors.Errorf("could not close output ARROW file: %w", err)
 	}
 
 	return nil

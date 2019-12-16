@@ -23,8 +23,8 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace cuda {
@@ -151,27 +151,25 @@ class ARROW_EXPORT CudaIpcMemHandle {
 /// \class CudaBufferReader
 /// \brief File interface for zero-copy read from CUDA buffers
 ///
-/// Note: Reads return pointers to device memory. This means you must be
-/// careful using this interface with any Arrow code which may expect to be
-/// able to do anything other than pointer arithmetic on the returned buffers
+/// CAUTION: reading to a Buffer returns a Buffer pointing to device memory.
+/// It will generally not be compatible with Arrow code expecting a buffer
+/// pointing to CPU memory.
+/// Reading to a raw pointer, though, copies device memory into the host
+/// memory pointed to.
 class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
  public:
   explicit CudaBufferReader(const std::shared_ptr<Buffer>& buffer);
   ~CudaBufferReader() override;
 
-  /// \brief Read bytes into pre-allocated host memory
-  /// \param[in] nbytes number of bytes to read
-  /// \param[out] bytes_read actual number of bytes read
-  /// \param[out] buffer pre-allocated memory to write into
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
-
-  /// \brief Zero-copy read from device memory
-  /// \param[in] nbytes number of bytes to read
-  /// \param[out] out a Buffer referencing device memory
-  /// \return Status
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
  private:
+  // Read to host memory (copy)
+  Result<int64_t> DoRead(int64_t nbytes, void* out) override;
+  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out) override;
+
+  // Read to device buffer (zero-copy)
+  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes) override;
+  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes) override;
+
   std::shared_ptr<CudaBuffer> cuda_buffer_;
   std::shared_ptr<CudaContext> context_;
 };
@@ -197,7 +195,7 @@ class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
 
   Status WriteAt(int64_t position, const void* data, int64_t nbytes) override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
   /// \brief Set CPU buffer size to limit calls to cudaMemcpy
   /// \param[in] buffer_size the size of CPU buffer to allocate

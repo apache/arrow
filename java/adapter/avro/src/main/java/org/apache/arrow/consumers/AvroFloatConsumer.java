@@ -20,33 +20,23 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.Float4Vector;
-import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
-import org.apache.arrow.vector.complex.writer.Float4Writer;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume float type values from avro decoder.
  * Write the data to {@link Float4Vector}.
  */
-public class AvroFloatConsumer implements Consumer {
-
-  private final Float4Writer writer;
+public class AvroFloatConsumer extends BaseAvroConsumer<Float4Vector> {
 
   /**
    * Instantiate a AvroFloatConsumer.
    */
   public AvroFloatConsumer(Float4Vector vector) {
-    this.writer = new Float4WriterImpl(vector);
+    super(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeFloat4(decoder.readFloat());
-    writer.setPosition(writer.getPosition() + 1);
-  }
-
-  @Override
-  public void addNull() {
-    writer.setPosition(writer.getPosition() + 1);
+    vector.setSafe(currentIndex++, decoder.readFloat());
   }
 }

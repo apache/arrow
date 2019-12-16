@@ -18,6 +18,7 @@
 //! The main type in the module is `Buffer`, a contiguous immutable memory region of
 //! fixed size aligned at a 64-byte boundary. `MutableBuffer` is like `Buffer`, but it can
 //! be mutated and grown.
+#[cfg(feature = "simd")]
 use packed_simd::u8x64;
 
 use std::cmp;
@@ -26,7 +27,9 @@ use std::fmt::{Debug, Formatter};
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
-use std::slice::{from_raw_parts, from_raw_parts_mut};
+use std::slice::from_raw_parts;
+#[cfg(feature = "simd")]
+use std::slice::from_raw_parts_mut;
 use std::sync::Arc;
 
 use crate::array::{BufferBuilderTrait, UInt8BufferBuilder};
@@ -52,6 +55,9 @@ struct BufferData {
 
     /// The length (num of bytes) of the buffer
     len: usize,
+
+    /// Whether this piece of memory is owned by this object
+    owned: bool,
 }
 
 impl PartialEq for BufferData {
@@ -66,7 +72,7 @@ impl PartialEq for BufferData {
 /// Release the underlying memory when the current buffer goes out of scope
 impl Drop for BufferData {
     fn drop(&mut self) {
-        if !self.ptr.is_null() {
+        if !self.ptr.is_null() && self.owned {
             memory::free_aligned(self.ptr as *mut u8, self.len);
         }
     }
@@ -91,13 +97,32 @@ impl Debug for BufferData {
 }
 
 impl Buffer {
-    /// Creates a buffer from an existing memory region (must already be byte-aligned)
+    /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
+    /// buffer will free this piece of memory when dropped.
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
+        Buffer::build_with_arguments(ptr, len, true)
+    }
+
+    /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
+    /// buffers doesn't free this piece of memory when dropped.
+    pub fn from_unowned(ptr: *const u8, len: usize) -> Self {
+        Buffer::build_with_arguments(ptr, len, false)
+    }
+
+    /// Creates a buffer from an existing memory region (must already be byte-aligned)
+    ///
+    /// # Arguments
+    ///
+    /// * `ptr` - Pointer to raw parts.
+    /// * `len` - Length of raw parts in bytes
+    /// * `owned` - Whether the raw parts is owned by this buffer. If true, this buffer will free
+    /// this memory when dropped, otherwise it will skip freeing the raw parts.
+    fn build_with_arguments(ptr: *const u8, len: usize, owned: bool) -> Self {
         assert!(
             memory::is_aligned(ptr, memory::ALIGNMENT),
             "memory not aligned"
         );
-        let buf_data = BufferData { ptr, len };
+        let buf_data = BufferData { ptr, len, owned };
         Buffer {
             data: Arc::new(buf_data),
             offset: 0,
@@ -183,7 +208,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
 }
 
 ///  Helper function for SIMD `BitAnd` and `BitOr` implementations
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 fn bitwise_bin_op_simd_helper<F>(left: &Buffer, right: &Buffer, op: F) -> Buffer
 where
     F: Fn(u8x64, u8x64) -> u8x64,
@@ -219,7 +244,7 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
         }
 
         // SIMD implementation if available
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
         {
             return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b));
         }
@@ -253,7 +278,7 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
         }
 
         // SIMD implementation if available
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
         {
             return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b));
         }
@@ -281,7 +306,7 @@ impl Not for &Buffer {
 
     fn not(self) -> Buffer {
         // SIMD implementation if available
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
         {
             let mut result =
                 MutableBuffer::new(self.len()).with_bitset(self.len(), false);
@@ -449,6 +474,7 @@ impl MutableBuffer {
         let buffer_data = BufferData {
             ptr: self.data,
             len: self.len,
+            owned: true,
         };
         ::std::mem::forget(self);
         Buffer {

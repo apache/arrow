@@ -4,22 +4,103 @@
 \alias{write_parquet}
 \title{Write Parquet file to disk}
 \usage{
-write_parquet(table, file)
+write_parquet(
+  x,
+  sink,
+  chunk_size = NULL,
+  version = NULL,
+  compression = NULL,
+  compression_level = NULL,
+  use_dictionary = NULL,
+  write_statistics = NULL,
+  data_page_size = NULL,
+  properties = ParquetWriterProperties$create(x, version = version, compression =
+    compression, compression_level = compression_level, use_dictionary = use_dictionary,
+    write_statistics = write_statistics, data_page_size = data_page_size),
+  use_deprecated_int96_timestamps = FALSE,
+  coerce_timestamps = NULL,
+  allow_truncated_timestamps = FALSE,
+  arrow_properties = ParquetArrowWriterProperties$create(use_deprecated_int96_timestamps
+    = use_deprecated_int96_timestamps, coerce_timestamps = coerce_timestamps,
+    allow_truncated_timestamps = allow_truncated_timestamps)
+)
 }
 \arguments{
-\item{table}{An \link[=arrow__Table]{arrow::Table}, or an object convertible to it}
+\item{x}{An \link[=Table]{arrow::Table}, or an object convertible to it.}
 
-\item{file}{a file path}
+\item{sink}{an \link[=OutputStream]{arrow::io::OutputStream} or a string which is interpreted as a file path}
+
+\item{chunk_size}{chunk size in number of rows. If NULL, the total number of rows is used.}
+
+\item{version}{parquet version, "1.0" or "2.0". Default "1.0"}
+
+\item{compression}{compression algorithm. Default "snappy". See details.}
+
+\item{compression_level}{compression level. Meaning depends on compression algorithm}
+
+\item{use_dictionary}{Specify if we should use dictionary encoding. Default \code{TRUE}}
+
+\item{write_statistics}{Specify if we should write statistics. Default \code{TRUE}}
+
+\item{data_page_size}{Set a target threshhold for the approximate encoded
+size of data pages within a column chunk (in bytes). Default 1 MiB.}
+
+\item{properties}{properties for parquet writer, derived from arguments
+\code{version}, \code{compression}, \code{compression_level}, \code{use_dictionary},
+\code{write_statistics} and \code{data_page_size}. You should not specify any of
+these arguments if you also provide a \code{properties} argument, as they will
+be ignored.}
+
+\item{use_deprecated_int96_timestamps}{Write timestamps to INT96 Parquet format. Default \code{FALSE}.}
+
+\item{coerce_timestamps}{Cast timestamps a particular resolution. Can be
+\code{NULL}, "ms" or "us". Default \code{NULL} (no casting)}
+
+\item{allow_truncated_timestamps}{Allow loss of data when coercing timestamps to a
+particular resolution. E.g. if microsecond or nanosecond data is lost when coercing
+to "ms", do not raise an exception}
+
+\item{arrow_properties}{arrow specific writer properties, derived from arguments
+\code{use_deprecated_int96_timestamps}, \code{coerce_timestamps} and \code{allow_truncated_timestamps}
+You should not specify any of these arguments if you also provide a \code{properties}
+argument, as they will be ignored.}
+}
+\value{
+\code{NULL}, invisibly
 }
 \description{
 \href{https://parquet.apache.org/}{Parquet} is a columnar storage file format.
 This function enables you to write Parquet files from R.
 }
-\examples{
-
-\dontrun{
-  tf <- tempfile(fileext = ".parquet")
-  write_parquet(tibble::tibble(x = 1:5), tf)
+\details{
+The parameters \code{compression}, \code{compression_level}, \code{use_dictionary} and
+\code{write_statistics} support various patterns:
+\itemize{
+\item The default \code{NULL} leaves the parameter unspecified, and the C++ library
+uses an appropriate default for each column (defaults listed above)
+\item A single, unnamed, value (e.g. a single string for \code{compression}) applies to all columns
+\item An unnamed vector, of the same size as the number of columns, to specify a
+value for each column, in positional order
+\item A named vector, to specify the value for the named columns, the default
+value for the setting is used when not supplied
 }
 
+The \code{compression} argument can be any of the following (case insensitive):
+"uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
+Only "uncompressed" is guaranteed to be available, but "snappy" and "gzip"
+are almost always included. See \code{\link[=codec_is_available]{codec_is_available()}}.
+The default "snappy" is used if available, otherwise "uncompressed". To
+disable compression, set \code{compression = "uncompressed"}.
+Note that "uncompressed" columns may still have dictionary encoding.
+}
+\examples{
+\donttest{
+tf1 <- tempfile(fileext = ".parquet")
+write_parquet(data.frame(x = 1:5), tf2)
+
+# using compression
+tf2 <- tempfile(fileext = ".gz.parquet")
+write_parquet(data.frame(x = 1:5), compression = "gzip", compression_level = 5)
+
+}
 }

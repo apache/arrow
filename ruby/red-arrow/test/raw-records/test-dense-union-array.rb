@@ -295,8 +295,10 @@ module RawRecordsDenseUnionArrayTests
   end
 
   def test_time32_second
+    unit = Arrow::TimeUnit::SECOND
     records = [
-      [{"0" => 60 * 10}], # 00:10:00
+      # 00:10:00
+      [{"0" => Arrow::Time.new(unit, 60 * 10)}],
       [nil],
       [{"1" => nil}],
     ]
@@ -309,8 +311,10 @@ module RawRecordsDenseUnionArrayTests
   end
 
   def test_time32_milli
+    unit = Arrow::TimeUnit::MILLI
     records = [
-      [{"0" => (60 * 10) * 1000 + 123}], # 00:10:00.123
+      # 00:10:00.123
+      [{"0" => Arrow::Time.new(unit, (60 * 10) * 1000 + 123)}],
       [nil],
       [{"1" => nil}],
     ]
@@ -323,8 +327,10 @@ module RawRecordsDenseUnionArrayTests
   end
 
   def test_time64_micro
+    unit = Arrow::TimeUnit::MICRO
     records = [
-      [{"0" => (60 * 10) * 1_000_000 + 123_456}], # 00:10:00.123456
+      # 00:10:00.123456
+      [{"0" => Arrow::Time.new(unit, (60 * 10) * 1_000_000 + 123_456)}],
       [nil],
       [{"1" => nil}],
     ]
@@ -337,9 +343,10 @@ module RawRecordsDenseUnionArrayTests
   end
 
   def test_time64_nano
+    unit = Arrow::TimeUnit::NANO
     records = [
       # 00:10:00.123456789
-      [{"0" => (60 * 10) * 1_000_000_000 + 123_456_789}],
+      [{"0" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789)}],
       [nil],
       [{"1" => nil}],
     ]

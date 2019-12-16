@@ -20,14 +20,15 @@ use std::sync::Arc;
 extern crate arrow;
 extern crate datafusion;
 
-use arrow::array::{BinaryArray, Float64Array};
+use arrow::array::{Float64Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
 
+use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 
-/// This example demonstrates executing a simple query against an Arrow data source and
+/// This example demonstrates executing a simple query against an Arrow data source (CSV) and
 /// fetching results
-fn main() {
+fn main() -> Result<()> {
     // create local execution context
     let mut ctx = ExecutionContext::new();
 
@@ -59,16 +60,18 @@ fn main() {
         true,
     );
 
-    // simple projection and selection
     let sql = "SELECT c1, MIN(c12), MAX(c12) FROM aggregate_test_100 WHERE c11 > 0.1 AND c11 < 0.9 GROUP BY c1";
 
+    // create the query plan
+    let plan = ctx.create_logical_plan(&sql)?;
+    let plan = ctx.optimize(&plan)?;
+    let plan = ctx.create_physical_plan(&plan, 1024 * 1024)?;
+
     // execute the query
-    let relation = ctx.sql(&sql, 1024 * 1024).unwrap();
+    let results = ctx.collect(plan.as_ref())?;
 
-    // display the relation
-    let mut results = relation.borrow_mut();
-
-    while let Some(batch) = results.next().unwrap() {
+    // iterate over the results
+    results.iter().for_each(|batch| {
         println!(
             "RecordBatch has {} rows and {} columns",
             batch.num_rows(),
@@ -78,7 +81,7 @@ fn main() {
         let c1 = batch
             .column(0)
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap();
 
         let min = batch
@@ -94,9 +97,14 @@ fn main() {
             .unwrap();
 
         for i in 0..batch.num_rows() {
-            let c1_value: String = String::from_utf8(c1.value(i).to_vec()).unwrap();
-
-            println!("{}, Min: {}, Max: {}", c1_value, min.value(i), max.value(i),);
+            println!(
+                "{}, Min: {}, Max: {}",
+                c1.value(i),
+                min.value(i),
+                max.value(i),
+            );
         }
-    }
+    });
+
+    Ok(())
 }

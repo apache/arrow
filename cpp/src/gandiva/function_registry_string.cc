@@ -45,18 +45,24 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(starts_with, {}),
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(ends_with, {}),
 
+      BINARY_UNSAFE_NULL_IF_NULL(locate, {"position"}, utf8, int32),
+
       UNARY_OCTET_LEN_FN(octet_length, {}),
       UNARY_OCTET_LEN_FN(bit_length, {}),
 
       UNARY_UNSAFE_NULL_IF_NULL(char_length, {}, utf8, int32),
       UNARY_UNSAFE_NULL_IF_NULL(length, {}, utf8, int32),
       UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, {}, binary, int32),
+      UNARY_UNSAFE_NULL_IF_NULL(reverse, {}, utf8, utf8),
 
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
 
       NativeFunction("upper", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "upper_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("lower", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                     "lower_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("castVARCHAR", {}, DataTypeVector{utf8(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_utf8_int64",
@@ -79,13 +85,26 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullIfNull, "substr_utf8_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("concatOperator", {"concat"}, DataTypeVector{utf8(), utf8()}, utf8(),
+      NativeFunction("concatOperator", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "concatOperator_utf8_utf8",
                      NativeFunction::kNeedsContext),
+
+      // concat treats null inputs as empty strings whereas concatOperator returns null if
+      // one of the inputs is null
+      NativeFunction("concat", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullNever, "concat_utf8_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("convert_fromUTF8", {"convert_fromutf8"}, DataTypeVector{binary()},
                      utf8(), kResultNullIfNull, "convert_fromUTF8_binary",
                      NativeFunction::kNeedsContext),
+
+      NativeFunction("locate", {"position"}, DataTypeVector{utf8(), utf8(), int32()},
+                     int32(), kResultNullIfNull, "locate_utf8_utf8_int32",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("replace", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "replace_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
   };
 
   return string_fn_registry_;

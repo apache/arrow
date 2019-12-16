@@ -19,14 +19,19 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
+import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -34,15 +39,23 @@ import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.dictionary.ListSubfieldEncoder;
+import org.apache.arrow.vector.dictionary.StructSubfieldEncoder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.JsonStringArrayList;
+import org.apache.arrow.vector.util.JsonStringHashMap;
+import org.apache.arrow.vector.util.Text;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import io.netty.buffer.ArrowBuf;
 
 public class TestDictionaryVector {
 
@@ -68,28 +81,15 @@ public class TestDictionaryVector {
   public void testEncodeStrings() {
     // Create a new value vector
     try (final VarCharVector vector = newVarCharVector("foo", allocator);
-        final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
-      vector.allocateNew(512, 5);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
 
-      // set some values
-      vector.setSafe(0, zero, 0, zero.length);
-      vector.setSafe(1, one, 0, one.length);
-      vector.setSafe(2, one, 0, one.length);
-      vector.setSafe(3, two, 0, two.length);
-      vector.setSafe(4, zero, 0, zero.length);
-      vector.setValueCount(5);
-
-      // set some dictionary values
-      dictionaryVector.allocateNew(512, 3);
-      dictionaryVector.setSafe(0, zero, 0, zero.length);
-      dictionaryVector.setSafe(1, one, 0, one.length);
-      dictionaryVector.setSafe(2, two, 0, two.length);
-      dictionaryVector.setValueCount(3);
+      setVector(vector, zero, one, one, two, zero);
+      setVector(dictionaryVector, zero, one, two);
 
       Dictionary dictionary =
           new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
-      try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -117,7 +117,7 @@ public class TestDictionaryVector {
   public void testEncodeLargeVector() {
     // Create a new value vector
     try (final VarCharVector vector = newVarCharVector("foo", allocator);
-        final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
       vector.allocateNew();
 
       int count = 10000;
@@ -127,17 +127,12 @@ public class TestDictionaryVector {
       }
       vector.setValueCount(count);
 
-      dictionaryVector.allocateNew(512, 3);
-      dictionaryVector.setSafe(0, zero, 0, zero.length);
-      dictionaryVector.setSafe(1, one, 0, one.length);
-      dictionaryVector.setSafe(2, two, 0, two.length);
-      dictionaryVector.setValueCount(3);
+      setVector(dictionaryVector, zero, one, two);
 
       Dictionary dictionary =
           new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
-
-      try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -163,7 +158,7 @@ public class TestDictionaryVector {
   public void testEncodeList() {
     // Create a new value vector
     try (final ListVector vector = ListVector.empty("vector", allocator);
-        final ListVector dictionaryVector = ListVector.empty("dict", allocator);) {
+         final ListVector dictionaryVector = ListVector.empty("dict", allocator);) {
 
       UnionListWriter writer = vector.getWriter();
       writer.allocate();
@@ -188,7 +183,7 @@ public class TestDictionaryVector {
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
-      try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -277,23 +272,10 @@ public class TestDictionaryVector {
   public void testEncodeBinaryVector() {
     // Create a new value vector
     try (final VarBinaryVector vector = newVarBinaryVector("foo", allocator);
-        final VarBinaryVector dictionaryVector = newVarBinaryVector("dict", allocator);) {
-      vector.allocateNew(512, 5);
+         final VarBinaryVector dictionaryVector = newVarBinaryVector("dict", allocator)) {
 
-      // set some values
-      vector.setSafe(0, zero, 0, zero.length);
-      vector.setSafe(1, one, 0, one.length);
-      vector.setSafe(2, one, 0, one.length);
-      vector.setSafe(3, two, 0, two.length);
-      vector.setSafe(4, zero, 0, zero.length);
-      vector.setValueCount(5);
-
-      // set some dictionary values
-      dictionaryVector.allocateNew(512, 3);
-      dictionaryVector.setSafe(0, zero, 0, zero.length);
-      dictionaryVector.setSafe(1, one, 0, one.length);
-      dictionaryVector.setSafe(2, two, 0, two.length);
-      dictionaryVector.setValueCount(3);
+      setVector(vector, zero, one, one, two, zero);
+      setVector(dictionaryVector, zero, one, two);
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
@@ -325,7 +307,7 @@ public class TestDictionaryVector {
   public void testEncodeUnion() {
     // Create a new value vector
     try (final UnionVector vector = new UnionVector("vector", allocator, null);
-        final UnionVector dictionaryVector = new UnionVector("dict", allocator, null);) {
+         final UnionVector dictionaryVector = new UnionVector("dict", allocator, null);) {
 
       final NullableUInt4Holder uintHolder1 = new NullableUInt4Holder();
       uintHolder1.value = 10;
@@ -398,24 +380,14 @@ public class TestDictionaryVector {
   @Test
   public void testIntEquals() {
     //test Int
-    try (final IntVector vector1 = new IntVector("", allocator);
-        final IntVector vector2 = new IntVector("", allocator)) {
+    try (final IntVector vector1 = new IntVector("int", allocator);
+         final IntVector vector2 = new IntVector("int", allocator)) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
 
-      vector1.allocateNew(3);
-      vector1.setValueCount(3);
-      vector2.allocateNew(3);
-      vector2.setValueCount(3);
-
-      vector1.setSafe(0, 1);
-      vector1.setSafe(1, 2);
-      vector1.setSafe(2, 3);
-
-      vector2.setSafe(0, 1);
-      vector2.setSafe(1, 2);
-      vector2.setSafe(2, 0);
+      setVector(vector1, 1, 2, 3);
+      setVector(vector2, 1, 2, 0);
 
       assertFalse(dict1.equals(dict2));
 
@@ -426,25 +398,14 @@ public class TestDictionaryVector {
 
   @Test
   public void testVarcharEquals() {
-    try (final VarCharVector vector1 = new VarCharVector("", allocator);
-        final VarCharVector vector2 = new VarCharVector("", allocator)) {
+    try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
+         final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
 
-      vector1.allocateNew();
-      vector1.setValueCount(3);
-      vector2.allocateNew();
-      vector2.setValueCount(3);
-
-      // set some values
-      vector1.setSafe(0, zero, 0, zero.length);
-      vector1.setSafe(1, one, 0, one.length);
-      vector1.setSafe(2, two, 0, two.length);
-
-      vector2.setSafe(0, zero, 0, zero.length);
-      vector2.setSafe(1, one, 0, one.length);
-      vector2.setSafe(2, one, 0, one.length);
+      setVector(vector1, zero, one, two);
+      setVector(vector2, zero, one, one);
 
       assertFalse(dict1.equals(dict2));
 
@@ -455,25 +416,14 @@ public class TestDictionaryVector {
 
   @Test
   public void testVarBinaryEquals() {
-    try (final VarBinaryVector vector1 = new VarBinaryVector("", allocator);
-        final VarBinaryVector vector2 = new VarBinaryVector("", allocator)) {
+    try (final VarBinaryVector vector1 = new VarBinaryVector("binary", allocator);
+         final VarBinaryVector vector2 = new VarBinaryVector("binary", allocator)) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
 
-      vector1.allocateNew();
-      vector1.setValueCount(3);
-      vector2.allocateNew();
-      vector2.setValueCount(3);
-
-      // set some values
-      vector1.setSafe(0, zero, 0, zero.length);
-      vector1.setSafe(1, one, 0, one.length);
-      vector1.setSafe(2, two, 0, two.length);
-
-      vector2.setSafe(0, zero, 0, zero.length);
-      vector2.setSafe(1, one, 0, one.length);
-      vector2.setSafe(2, one, 0, one.length);
+      setVector(vector1, zero, one, two);
+      setVector(vector2, zero, one, one);
 
       assertFalse(dict1.equals(dict2));
 
@@ -484,8 +434,8 @@ public class TestDictionaryVector {
 
   @Test
   public void testListEquals() {
-    try (final ListVector vector1 = ListVector.empty("", allocator);
-        final ListVector vector2 = ListVector.empty("", allocator);) {
+    try (final ListVector vector1 = ListVector.empty("list", allocator);
+         final ListVector vector2 = ListVector.empty("list", allocator);) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
@@ -514,8 +464,8 @@ public class TestDictionaryVector {
 
   @Test
   public void testStructEquals() {
-    try (final StructVector vector1 = StructVector.empty("", allocator);
-        final StructVector vector2 = StructVector.empty("", allocator);) {
+    try (final StructVector vector1 = StructVector.empty("struct", allocator);
+         final StructVector vector2 = StructVector.empty("struct", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
       vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -544,8 +494,8 @@ public class TestDictionaryVector {
 
   @Test
   public void testUnionEquals() {
-    try (final UnionVector vector1 = new UnionVector("", allocator, null);
-        final UnionVector vector2 = new UnionVector("", allocator, null);) {
+    try (final UnionVector vector1 = new UnionVector("union", allocator, null);
+         final UnionVector vector2 = new UnionVector("union", allocator, null);) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
@@ -574,6 +524,391 @@ public class TestDictionaryVector {
 
       assertTrue(dict1.equals(dict2));
     }
+  }
+
+  @Test
+  public void testEncodeWithEncoderInstance() {
+    // Create a new value vector
+    try (final VarCharVector vector = newVarCharVector("vector", allocator);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
+
+      setVector(vector, zero, one, one, two, zero);
+      setVector(dictionaryVector, zero, one, two);
+
+      Dictionary dictionary =
+          new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
+
+      try (final ValueVector encoded = encoder.encode(vector)) {
+        // verify indices
+        assertEquals(IntVector.class, encoded.getClass());
+
+        IntVector index = ((IntVector) encoded);
+        assertEquals(5, index.getValueCount());
+        assertEquals(0, index.get(0));
+        assertEquals(1, index.get(1));
+        assertEquals(1, index.get(2));
+        assertEquals(2, index.get(3));
+        assertEquals(0, index.get(4));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decode(encoded)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), (decoded).getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector.getObject(i), ((VarCharVector) decoded).getObject(i));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testEncodeMultiVectors() {
+    // Create a new value vector
+    try (final VarCharVector vector1 = newVarCharVector("vector1", allocator);
+         final VarCharVector vector2 = newVarCharVector("vector2", allocator);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
+
+      setVector(vector1, zero, one, one, two, zero);
+      setVector(vector2, zero, one, one);
+      setVector(dictionaryVector, zero, one, two);
+
+      Dictionary dictionary =
+          new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
+
+      try (final ValueVector encoded = encoder.encode(vector1)) {
+        // verify indices
+        assertEquals(IntVector.class, encoded.getClass());
+
+        IntVector index = ((IntVector) encoded);
+        assertEquals(5, index.getValueCount());
+        assertEquals(0, index.get(0));
+        assertEquals(1, index.get(1));
+        assertEquals(1, index.get(2));
+        assertEquals(2, index.get(3));
+        assertEquals(0, index.get(4));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decode(encoded)) {
+          assertEquals(vector1.getClass(), decoded.getClass());
+          assertEquals(vector1.getValueCount(), (decoded).getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector1.getObject(i), ((VarCharVector) decoded).getObject(i));
+          }
+        }
+      }
+
+      try (final ValueVector encoded = encoder.encode(vector2)) {
+        // verify indices
+        assertEquals(IntVector.class, encoded.getClass());
+
+        IntVector index = ((IntVector) encoded);
+        assertEquals(3, index.getValueCount());
+        assertEquals(0, index.get(0));
+        assertEquals(1, index.get(1));
+        assertEquals(1, index.get(2));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decode(encoded)) {
+          assertEquals(vector2.getClass(), decoded.getClass());
+          assertEquals(vector2.getValueCount(), (decoded).getValueCount());
+          for (int i = 0; i < 3; i++) {
+            assertEquals(vector2.getObject(i), ((VarCharVector) decoded).getObject(i));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testEncodeListSubField() {
+    // Create a new value vector
+    try (final ListVector vector = ListVector.empty("vector", allocator);
+         final ListVector dictionaryVector = ListVector.empty("dict", allocator);) {
+
+      UnionListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      //set some values
+      writeListVector(writer, new int[]{10, 20});
+      writeListVector(writer, new int[]{10, 20});
+      writeListVector(writer, new int[]{10, 20});
+      writeListVector(writer, new int[]{30, 40, 50});
+      writeListVector(writer, new int[]{30, 40, 50});
+      writeListVector(writer, new int[]{10, 20});
+      writer.setValueCount(6);
+
+      UnionListWriter dictWriter = dictionaryVector.getWriter();
+      dictWriter.allocate();
+      writeListVector(dictWriter, new int[]{10, 20, 30, 40, 50});
+      dictionaryVector.setValueCount(1);
+
+      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      ListSubfieldEncoder encoder = new ListSubfieldEncoder(dictionary, allocator);
+
+      try (final ListVector encoded = (ListVector) encoder.encodeListSubField(vector)) {
+        // verify indices
+        assertEquals(ListVector.class, encoded.getClass());
+
+        assertEquals(6, encoded.getValueCount());
+        int[] realValue1 = convertListToIntArray((JsonStringArrayList) encoded.getObject(0));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue1));
+        int[] realValue2 = convertListToIntArray((JsonStringArrayList) encoded.getObject(1));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue2));
+        int[] realValue3 = convertListToIntArray((JsonStringArrayList) encoded.getObject(2));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue3));
+        int[] realValue4 = convertListToIntArray((JsonStringArrayList) encoded.getObject(3));
+        assertTrue(Arrays.equals(new int[] {2,3,4}, realValue4));
+        int[] realValue5 = convertListToIntArray((JsonStringArrayList) encoded.getObject(4));
+        assertTrue(Arrays.equals(new int[] {2,3,4}, realValue5));
+        int[] realValue6 = convertListToIntArray((JsonStringArrayList) encoded.getObject(5));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue6));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decodeListSubField(encoded)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector.getObject(i), decoded.getObject(i));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testEncodeFixedSizeListSubField() {
+    // Create a new value vector
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", 2, allocator);
+        final FixedSizeListVector dictionaryVector = FixedSizeListVector.empty("dict", 2, allocator)) {
+
+      vector.allocateNew();
+      vector.setValueCount(4);
+
+      IntVector dataVector =
+          (IntVector) vector.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType())).getVector();
+      dataVector.allocateNew(8);
+      dataVector.setValueCount(8);
+      // set value at index 0
+      vector.setNotNull(0);
+      dataVector.set(0, 10);
+      dataVector.set(1, 20);
+      // set value at index 1
+      vector.setNotNull(1);
+      dataVector.set(2, 10);
+      dataVector.set(3, 20);
+      // set value at index 2
+      vector.setNotNull(2);
+      dataVector.set(4, 30);
+      dataVector.set(5, 40);
+      // set value at index 3
+      vector.setNotNull(3);
+      dataVector.set(6, 10);
+      dataVector.set(7, 20);
+
+      dictionaryVector.allocateNew();
+      dictionaryVector.setValueCount(2);
+      IntVector dictDataVector =
+          (IntVector) dictionaryVector.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType())).getVector();
+      dictDataVector.allocateNew(4);
+      dictDataVector.setValueCount(4);
+
+      dictionaryVector.setNotNull(0);
+      dictDataVector.set(0, 10);
+      dictDataVector.set(1, 20);
+      dictionaryVector.setNotNull(1);
+      dictDataVector.set(2, 30);
+      dictDataVector.set(3, 40);
+
+      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      ListSubfieldEncoder encoder = new ListSubfieldEncoder(dictionary, allocator);
+
+      try (final FixedSizeListVector encoded =
+          (FixedSizeListVector) encoder.encodeListSubField(vector)) {
+        // verify indices
+        assertEquals(FixedSizeListVector.class, encoded.getClass());
+
+        assertEquals(4, encoded.getValueCount());
+        int[] realValue1 = convertListToIntArray((JsonStringArrayList) encoded.getObject(0));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue1));
+        int[] realValue2 = convertListToIntArray((JsonStringArrayList) encoded.getObject(1));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue2));
+        int[] realValue3 = convertListToIntArray((JsonStringArrayList) encoded.getObject(2));
+        assertTrue(Arrays.equals(new int[] {2,3}, realValue3));
+        int[] realValue4 = convertListToIntArray((JsonStringArrayList) encoded.getObject(3));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue4));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decodeListSubField(encoded)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector.getObject(i), decoded.getObject(i));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testEncodeStructSubField() {
+    try (final StructVector vector = StructVector.empty("vector", allocator);
+         final VarCharVector dictVector1 = new VarCharVector("f0", allocator);
+         final VarCharVector dictVector2 = new VarCharVector("f1", allocator)) {
+
+      vector.addOrGet("f0", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
+      vector.addOrGet("f1", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
+
+      NullableStructWriter writer = vector.getWriter();
+      writer.allocate();
+      //set some values
+      writeStructVector(writer, "aa", "baz");
+      writeStructVector(writer, "bb", "bar");
+      writeStructVector(writer, "cc", "foo");
+      writeStructVector(writer, "aa", "foo");
+      writeStructVector(writer, "dd", "foo");
+      writer.setValueCount(5);
+
+      // initialize dictionaries
+      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+
+
+      setVector(dictVector1,
+          "aa".getBytes(StandardCharsets.UTF_8),
+          "bb".getBytes(StandardCharsets.UTF_8),
+          "cc".getBytes(StandardCharsets.UTF_8),
+          "dd".getBytes(StandardCharsets.UTF_8));
+      setVector(dictVector2,
+          "foo".getBytes(StandardCharsets.UTF_8),
+          "baz".getBytes(StandardCharsets.UTF_8),
+          "bar".getBytes(StandardCharsets.UTF_8));
+
+      provider.put(new Dictionary(dictVector1, new DictionaryEncoding(1L, false, null)));
+      provider.put(new Dictionary(dictVector2, new DictionaryEncoding(2L, false, null)));
+
+      StructSubfieldEncoder encoder = new StructSubfieldEncoder(allocator, provider);
+      Map<Integer, Long> columnToDictionaryId = new HashMap<>();
+      columnToDictionaryId.put(0, 1L);
+      columnToDictionaryId.put(1, 2L);
+
+      try (final StructVector encoded = (StructVector) encoder.encode(vector, columnToDictionaryId)) {
+        // verify indices
+        assertEquals(StructVector.class, encoded.getClass());
+
+        assertEquals(5, encoded.getValueCount());
+        Object[] realValue1 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(0));
+        assertTrue(Arrays.equals(new Object[] {0,1}, realValue1));
+        Object[] realValue2 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(1));
+        assertTrue(Arrays.equals(new Object[] {1,2}, realValue2));
+        Object[] realValue3 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(2));
+        assertTrue(Arrays.equals(new Object[] {2,0}, realValue3));
+        Object[] realValue4 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(3));
+        assertTrue(Arrays.equals(new Object[] {0,0}, realValue4));
+        Object[] realValue5 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(4));
+        assertTrue(Arrays.equals(new Object[] {3,0}, realValue5));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decode(encoded)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector.getObject(i), decoded.getObject(i));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testEncodeStructSubFieldWithCertainColumns() {
+    // in this case, some child vector is encoded and others are not
+    try (final StructVector vector = StructVector.empty("vector", allocator);
+         final VarCharVector dictVector1 = new VarCharVector("f0", allocator)) {
+
+      vector.addOrGet("f0", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
+      vector.addOrGet("f1", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
+
+      NullableStructWriter writer = vector.getWriter();
+      writer.allocate();
+      //set some values
+      writeStructVector(writer, "aa", "baz");
+      writeStructVector(writer, "bb", "bar");
+      writeStructVector(writer, "cc", "foo");
+      writeStructVector(writer, "aa", "foo");
+      writeStructVector(writer, "dd", "foo");
+      writer.setValueCount(5);
+
+      // initialize dictionaries
+      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+
+      setVector(dictVector1, "aa".getBytes(), "bb".getBytes(), "cc".getBytes(), "dd".getBytes());
+
+      provider.put(new Dictionary(dictVector1, new DictionaryEncoding(1L, false, null)));
+      StructSubfieldEncoder encoder = new StructSubfieldEncoder(allocator, provider);
+      Map<Integer, Long> columnToDictionaryId = new HashMap<>();
+      columnToDictionaryId.put(0, 1L);
+
+      try (final StructVector encoded = (StructVector) encoder.encode(vector, columnToDictionaryId)) {
+        // verify indices
+        assertEquals(StructVector.class, encoded.getClass());
+
+        assertEquals(5, encoded.getValueCount());
+        Object[] realValue1 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(0));
+        assertTrue(Arrays.equals(new Object[] {0, new Text("baz")}, realValue1));
+        Object[] realValue2 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(1));
+        assertTrue(Arrays.equals(new Object[] {1, new Text("bar")}, realValue2));
+        Object[] realValue3 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(2));
+        assertTrue(Arrays.equals(new Object[] {2, new Text("foo")}, realValue3));
+        Object[] realValue4 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(3));
+        assertTrue(Arrays.equals(new Object[] {0, new Text("foo")}, realValue4));
+        Object[] realValue5 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(4));
+        assertTrue(Arrays.equals(new Object[] {3, new Text("foo")}, realValue5));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decode(encoded)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector.getObject(i), decoded.getObject(i));
+          }
+        }
+      }
+
+    }
+  }
+
+  private int[] convertListToIntArray(JsonStringArrayList list) {
+    int[] values = new int[list.size()];
+    for (int i = 0; i < list.size(); i++) {
+      values[i] = (int) list.get(i);
+    }
+    return values;
+  }
+
+  private Object[] convertMapValuesToArray(JsonStringHashMap map) {
+    Object[] values = new Object[map.size()];
+    Iterator valueIterator = map.values().iterator();
+    for (int i = 0; i < map.size(); i++) {
+      values[i] = valueIterator.next();
+    }
+    return values;
+  }
+
+  private void writeStructVector(NullableStructWriter writer, String value1, String value2) {
+
+    byte[] bytes1 = value1.getBytes(StandardCharsets.UTF_8);
+    byte[] bytes2 = value2.getBytes(StandardCharsets.UTF_8);
+    ArrowBuf temp = allocator.buffer(bytes1.length > bytes2.length ? bytes1.length : bytes2.length);
+
+    writer.start();
+    temp.setBytes(0, bytes1);
+    writer.varChar("f0").writeVarChar(0, bytes1.length, temp);
+    temp.setBytes(0, bytes2);
+    writer.varChar("f1").writeVarChar(0, bytes2.length, temp);
+    writer.end();
+    temp.close();
   }
 
   private void writeStructVector(NullableStructWriter writer, int value1, long value2) {

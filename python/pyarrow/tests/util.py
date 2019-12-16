@@ -21,6 +21,7 @@ Utility functions for testing
 
 import contextlib
 import decimal
+import numpy as np
 import os
 import random
 
@@ -94,6 +95,10 @@ def randdecimal(precision, scale):
     return decimal.Decimal(
         '{}.{}'.format(whole, str(fractional).rjust(scale, '0'))
     )
+
+
+def random_ascii(length):
+    return bytes(np.random.randint(65, 123, size=length, dtype='i1'))
 
 
 def get_modified_env_with_pythonpath():

@@ -29,4 +29,9 @@ class TestGandivaFieldNode < Test::Unit::TestCase
   def test_return_type
     assert_equal(@field.data_type, @node.return_type)
   end
+
+  def test_to_s
+    assert_equal("(bool) valid",
+                 @node.to_s)
+  end
 end

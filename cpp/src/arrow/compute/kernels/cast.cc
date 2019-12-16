@@ -31,17 +31,19 @@
 #include "arrow/builder.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
+#include "arrow/util/time.h"
 #include "arrow/util/utf8.h"
 #include "arrow/visitor_inline.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/util-internal.h"
+#include "arrow/compute/kernels/util_internal.h"
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
@@ -124,8 +126,7 @@ struct CastFunctor<T, BooleanType, enable_if_number<T>> {
 // Number to Boolean
 template <typename I>
 struct CastFunctor<BooleanType, I,
-                   typename std::enable_if<is_number_type<I>::value &&
-                                           !std::is_same<BooleanType, I>::value>::type> {
+                   enable_if_t<is_number_type<I>::value && !is_boolean_type<I>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     auto in_data = input.GetValues<typename I::c_type>(1);
@@ -154,8 +155,7 @@ struct is_number_downcast {
 
 template <typename O, typename I>
 struct is_number_downcast<
-    O, I,
-    typename std::enable_if<is_number_type<O>::value && is_number_type<I>::value>::type> {
+    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -176,9 +176,7 @@ struct is_integral_signed_to_unsigned {
 
 template <typename O, typename I>
 struct is_integral_signed_to_unsigned<
-    O, I,
-    typename std::enable_if<is_integer_type<O>::value &&
-                            is_integer_type<I>::value>::type> {
+    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -194,9 +192,7 @@ struct is_integral_unsigned_to_signed {
 
 template <typename O, typename I>
 struct is_integral_unsigned_to_signed<
-    O, I,
-    typename std::enable_if<is_integer_type<O>::value &&
-                            is_integer_type<I>::value>::type> {
+    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -213,8 +209,7 @@ struct is_integral_unsigned_to_signed<
 //
 // The effective return type of the function is always `I::c_type`, this is
 // just how enable_if works with functions.
-#define RET_TYPE(TRAIT) \
-  typename std::enable_if<TRAIT<O, I>::value, typename I::c_type>::type
+#define RET_TYPE(TRAIT) enable_if_t<TRAIT<O, I>::value, typename I::c_type>
 
 template <typename O, typename I>
 constexpr RET_TYPE(is_number_downcast) SafeMinimum() {
@@ -265,11 +260,10 @@ constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMaximum() {
 #undef RET_TYPE
 
 template <typename O, typename I>
-struct CastFunctor<
-    O, I,
-    typename std::enable_if<is_number_downcast<O, I>::value ||
-                            is_integral_signed_to_unsigned<O, I>::value ||
-                            is_integral_unsigned_to_signed<O, I>::value>::type> {
+struct CastFunctor<O, I,
+                   enable_if_t<is_number_downcast<O, I>::value ||
+                               is_integral_signed_to_unsigned<O, I>::value ||
+                               is_integral_unsigned_to_signed<O, I>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
@@ -321,14 +315,13 @@ struct is_float_truncate {
 template <typename O, typename I>
 struct is_float_truncate<
     O, I,
-    typename std::enable_if<(is_integer_type<O>::value && is_floating_type<I>::value) ||
-                            (is_integer_type<I>::value &&
-                             is_floating_type<O>::value)>::type> {
+    enable_if_t<(is_integer_type<O>::value && is_floating_type<I>::value) ||
+                (is_integer_type<I>::value && is_floating_type<O>::value)>> {
   static constexpr bool value = true;
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>::type> {
+struct CastFunctor<O, I, enable_if_t<is_float_truncate<O, I>::value>> {
   ARROW_DISABLE_UBSAN("float-cast-overflow")
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
@@ -381,8 +374,7 @@ struct is_safe_numeric_cast {
 
 template <typename O, typename I>
 struct is_safe_numeric_cast<
-    O, I,
-    typename std::enable_if<is_number_type<O>::value && is_number_type<I>::value>::type> {
+    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -393,10 +385,10 @@ struct is_safe_numeric_cast<
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   typename std::enable_if<is_safe_numeric_cast<O, I>::value &&
-                                           !is_float_truncate<O, I>::value &&
-                                           !is_number_downcast<O, I>::value>::type> {
+struct CastFunctor<
+    O, I,
+    enable_if_t<is_safe_numeric_cast<O, I>::value && !is_float_truncate<O, I>::value &&
+                !is_number_downcast<O, I>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
@@ -416,8 +408,9 @@ struct CastFunctor<O, I,
 // From one timestamp to another
 
 template <typename in_type, typename out_type>
-void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_multiply,
-               const int64_t factor, const ArrayData& input, ArrayData* output) {
+void ShiftTime(FunctionContext* ctx, const CastOptions& options,
+               const util::DivideOrMultiply factor_op, const int64_t factor,
+               const ArrayData& input, ArrayData* output) {
   const in_type* in_data = input.GetValues<in_type>(1);
   auto out_data = output->GetMutableValues<out_type>(1);
 
@@ -425,9 +418,41 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
     for (int64_t i = 0; i < input.length; i++) {
       out_data[i] = static_cast<out_type>(in_data[i]);
     }
-  } else if (is_multiply) {
-    for (int64_t i = 0; i < input.length; i++) {
-      out_data[i] = static_cast<out_type>(in_data[i] * factor);
+  } else if (factor_op == util::MULTIPLY) {
+    if (options.allow_time_overflow) {
+      for (int64_t i = 0; i < input.length; i++) {
+        out_data[i] = static_cast<out_type>(in_data[i] * factor);
+      }
+    } else {
+#define RAISE_OVERFLOW_CAST(VAL)                                                  \
+  ctx->SetStatus(Status::Invalid("Casting from ", input.type->ToString(), " to ", \
+                                 output->type->ToString(), " would result in ",   \
+                                 "out of bounds timestamp: ", VAL));
+
+      int64_t max_val = std::numeric_limits<int64_t>::max() / factor;
+      int64_t min_val = std::numeric_limits<int64_t>::min() / factor;
+      if (input.null_count != 0) {
+        internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
+                                          input.length);
+        for (int64_t i = 0; i < input.length; i++) {
+          if (bit_reader.IsSet() && (in_data[i] < min_val || in_data[i] > max_val)) {
+            RAISE_OVERFLOW_CAST(in_data[i]);
+            break;
+          }
+          out_data[i] = static_cast<out_type>(in_data[i] * factor);
+          bit_reader.Next();
+        }
+      } else {
+        for (int64_t i = 0; i < input.length; i++) {
+          if (in_data[i] < min_val || in_data[i] > max_val) {
+            RAISE_OVERFLOW_CAST(in_data[i]);
+            break;
+          }
+          out_data[i] = static_cast<out_type>(in_data[i] * factor);
+        }
+      }
+
+#undef RAISE_OVERFLOW_CAST
     }
   } else {
     if (options.allow_time_truncate) {
@@ -465,35 +490,25 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
   }
 }
 
-namespace {
-
-// {is_multiply, factor}
-const std::pair<bool, int64_t> kTimeConversionTable[4][4] = {
-    {{true, 1}, {true, 1000}, {true, 1000000}, {true, 1000000000L}},     // SECOND
-    {{false, 1000}, {true, 1}, {true, 1000}, {true, 1000000}},           // MILLI
-    {{false, 1000000}, {false, 1000}, {true, 1}, {true, 1000}},          // MICRO
-    {{false, 1000000000L}, {false, 1000000}, {false, 1000}, {true, 1}},  // NANO
-};
-
-}  // namespace
-
-template <>
-struct CastFunctor<TimestampType, TimestampType> {
+// <TimestampType, TimestampType> and <DurationType, DurationType>
+template <typename O, typename I>
+struct CastFunctor<
+    O, I,
+    enable_if_t<(is_timestamp_type<O>::value && is_timestamp_type<I>::value) ||
+                (is_duration_type<O>::value && is_duration_type<I>::value)>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     // If units are the same, zero copy, otherwise convert
-    const auto& in_type = checked_cast<const TimestampType&>(*input.type);
-    const auto& out_type = checked_cast<const TimestampType&>(*output->type);
+    const auto& in_type = checked_cast<const I&>(*input.type);
+    const auto& out_type = checked_cast<const O&>(*output->type);
 
     if (in_type.unit() == out_type.unit()) {
       ZeroCopyData(input, output);
       return;
     }
 
-    std::pair<bool, int64_t> conversion =
-        kTimeConversionTable[static_cast<int>(in_type.unit())]
-                            [static_cast<int>(out_type.unit())];
-
+    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
+                                                     [static_cast<int>(out_type.unit())];
     ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
                                 output);
   }
@@ -513,7 +528,7 @@ struct CastFunctor<Date32Type, TimestampType> {
     };
 
     const int64_t factor = kTimestampToDateFactors[static_cast<int>(in_type.unit())];
-    ShiftTime<int64_t, int32_t>(ctx, options, false, factor, input, output);
+    ShiftTime<int64_t, int32_t>(ctx, options, util::DIVIDE, factor, input, output);
   }
 };
 
@@ -523,10 +538,8 @@ struct CastFunctor<Date64Type, TimestampType> {
                   const ArrayData& input, ArrayData* output) {
     const auto& in_type = checked_cast<const TimestampType&>(*input.type);
 
-    std::pair<bool, int64_t> conversion =
-        kTimeConversionTable[static_cast<int>(in_type.unit())]
-                            [static_cast<int>(TimeUnit::MILLI)];
-
+    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
+                                                     [static_cast<int>(TimeUnit::MILLI)];
     ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
                                 output);
     if (!ctx->status().ok()) {
@@ -569,9 +582,7 @@ struct CastFunctor<Date64Type, TimestampType> {
 // From one time32 or time64 to another
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   typename std::enable_if<std::is_base_of<TimeType, I>::value &&
-                                           std::is_base_of<TimeType, O>::value>::type> {
+struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using in_t = typename I::c_type;
@@ -586,9 +597,8 @@ struct CastFunctor<O, I,
       return;
     }
 
-    std::pair<bool, int64_t> conversion =
-        kTimeConversionTable[static_cast<int>(in_type.unit())]
-                            [static_cast<int>(out_type.unit())];
+    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
+                                                     [static_cast<int>(out_type.unit())];
 
     ShiftTime<in_t, out_t>(ctx, options, conversion.first, conversion.second, input,
                            output);
@@ -602,7 +612,8 @@ template <>
 struct CastFunctor<Date64Type, Date32Type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    ShiftTime<int32_t, int64_t>(ctx, options, true, kMillisecondsInDay, input, output);
+    ShiftTime<int32_t, int64_t>(ctx, options, util::MULTIPLY, kMillisecondsInDay, input,
+                                output);
   }
 };
 
@@ -610,7 +621,8 @@ template <>
 struct CastFunctor<Date32Type, Date64Type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    ShiftTime<int64_t, int32_t>(ctx, options, false, kMillisecondsInDay, input, output);
+    ShiftTime<int64_t, int32_t>(ctx, options, util::DIVIDE, kMillisecondsInDay, input,
+                                output);
   }
 };
 
@@ -623,6 +635,8 @@ class CastKernelBase : public UnaryKernel {
       : out_type_(std::move(out_type)) {}
 
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
+
+  virtual Status Init(const DataType& in_type) { return Status::OK(); }
 
  protected:
   std::shared_ptr<DataType> out_type_;
@@ -745,120 +759,119 @@ class FromNullCastKernel : public CastKernelBase {
 // ----------------------------------------------------------------------
 // Dictionary to other things
 
-template <typename T, typename Enable = void>
-struct UnpackHelper {};
+template <typename T, typename IndexType, typename Enable = void>
+struct FromDictVisitor {};
 
-template <typename T>
-struct UnpackHelper<
-    T, typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value>::type> {
+// Visitor for Dict<FixedSizeBinaryType>
+template <typename T, typename IndexType>
+struct FromDictVisitor<T, IndexType, enable_if_fixed_size_binary<T>> {
   using ArrayType = typename TypeTraits<T>::ArrayType;
 
-  template <typename IndexType>
-  Status Unpack(FunctionContext* ctx, const ArrayData& indices,
-                const ArrayType& dictionary, ArrayData* output) {
-    using index_c_type = typename IndexType::c_type;
+  FromDictVisitor(FunctionContext* ctx, const ArrayType& dictionary, ArrayData* output)
+      : dictionary_(dictionary),
+        byte_width_(dictionary.byte_width()),
+        out_(output->buffers[1]->mutable_data() + byte_width_ * output->offset) {}
 
-    const index_c_type* in = indices.GetValues<index_c_type>(1);
-    int32_t byte_width =
-        checked_cast<const FixedSizeBinaryType&>(*output->type).byte_width();
+  Status Init() { return Status::OK(); }
 
-    uint8_t* out = output->buffers[1]->mutable_data() + byte_width * output->offset;
-
-    if (indices.GetNullCount() != 0) {
-      internal::BitmapReader valid_bits_reader(indices.GetValues<uint8_t>(0),
-                                               indices.offset, indices.length);
-
-      for (int64_t i = 0; i < indices.length; ++i) {
-        if (valid_bits_reader.IsSet()) {
-          const uint8_t* value = dictionary.Value(in[i]);
-          memcpy(out + i * byte_width, value, byte_width);
-        }
-        valid_bits_reader.Next();
-      }
-    } else {
-      for (int64_t i = 0; i < indices.length; ++i) {
-        const uint8_t* value = dictionary.Value(in[i]);
-        memcpy(out + i * byte_width, value, byte_width);
-      }
-    }
+  Status VisitNull() {
+    memset(out_, 0, byte_width_);
+    out_ += byte_width_;
     return Status::OK();
   }
+
+  Status VisitValue(typename IndexType::c_type dict_index) {
+    const uint8_t* value = dictionary_.Value(dict_index);
+    memcpy(out_, value, byte_width_);
+    out_ += byte_width_;
+    return Status::OK();
+  }
+
+  Status Finish() { return Status::OK(); }
+
+  const ArrayType& dictionary_;
+  int32_t byte_width_;
+  uint8_t* out_;
 };
 
-template <typename T>
-struct UnpackHelper<
-    T, typename std::enable_if<std::is_base_of<BinaryType, T>::value>::type> {
+// Visitor for Dict<BinaryType>
+template <typename T, typename IndexType>
+struct FromDictVisitor<T, IndexType, enable_if_base_binary<T>> {
   using ArrayType = typename TypeTraits<T>::ArrayType;
 
-  template <typename IndexType>
-  Status Unpack(FunctionContext* ctx, const ArrayData& indices,
-                const ArrayType& dictionary, ArrayData* output) {
-    using index_c_type = typename IndexType::c_type;
-    std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output->type, &builder));
-    BinaryBuilder* binary_builder = checked_cast<BinaryBuilder*>(builder.get());
+  FromDictVisitor(FunctionContext* ctx, const ArrayType& dictionary, ArrayData* output)
+      : ctx_(ctx), dictionary_(dictionary), output_(output) {}
 
-    const index_c_type* in = indices.GetValues<index_c_type>(1);
-    if (indices.GetNullCount() != 0) {
-      internal::BitmapReader valid_bits_reader(indices.GetValues<uint8_t>(0),
-                                               indices.offset, indices.length);
+  Status Init() {
+    RETURN_NOT_OK(MakeBuilder(ctx_->memory_pool(), output_->type, &builder_));
+    binary_builder_ = checked_cast<BinaryBuilder*>(builder_.get());
+    return Status::OK();
+  }
 
-      for (int64_t i = 0; i < indices.length; ++i) {
-        if (valid_bits_reader.IsSet()) {
-          RETURN_NOT_OK(binary_builder->Append(dictionary.GetView(in[i])));
-        } else {
-          RETURN_NOT_OK(binary_builder->AppendNull());
-        }
-        valid_bits_reader.Next();
-      }
-    } else {
-      for (int64_t i = 0; i < indices.length; ++i) {
-        RETURN_NOT_OK(binary_builder->Append(dictionary.GetView(in[i])));
-      }
-    }
+  Status VisitNull() { return binary_builder_->AppendNull(); }
 
+  Status VisitValue(typename IndexType::c_type dict_index) {
+    return binary_builder_->Append(dictionary_.GetView(dict_index));
+  }
+
+  Status Finish() {
     std::shared_ptr<Array> plain_array;
-    RETURN_NOT_OK(binary_builder->Finish(&plain_array));
+    RETURN_NOT_OK(binary_builder_->Finish(&plain_array));
     // Copy all buffer except the valid bitmap
+    DCHECK_EQ(output_->buffers.size(), 1);
     for (size_t i = 1; i < plain_array->data()->buffers.size(); i++) {
-      output->buffers.push_back(plain_array->data()->buffers[i]);
+      output_->buffers.push_back(plain_array->data()->buffers[i]);
     }
-
     return Status::OK();
   }
+
+  FunctionContext* ctx_;
+  const ArrayType& dictionary_;
+  ArrayData* output_;
+  std::unique_ptr<ArrayBuilder> builder_;
+  BinaryBuilder* binary_builder_;
+};
+
+// Visitor for Dict<NumericType | TemporalType>
+template <typename T, typename IndexType>
+struct FromDictVisitor<
+    T, IndexType, enable_if_t<is_number_type<T>::value || is_temporal_type<T>::value>> {
+  using ArrayType = typename TypeTraits<T>::ArrayType;
+
+  using value_type = typename T::c_type;
+
+  FromDictVisitor(FunctionContext* ctx, const ArrayType& dictionary, ArrayData* output)
+      : dictionary_(dictionary), out_(output->GetMutableValues<value_type>(1)) {}
+
+  Status Init() { return Status::OK(); }
+
+  Status VisitNull() {
+    *out_++ = value_type{};  // Zero-initialize
+    return Status::OK();
+  }
+
+  Status VisitValue(typename IndexType::c_type dict_index) {
+    *out_++ = dictionary_.Value(dict_index);
+    return Status::OK();
+  }
+
+  Status Finish() { return Status::OK(); }
+
+  const ArrayType& dictionary_;
+  value_type* out_;
 };
 
 template <typename T>
-struct UnpackHelper<T, typename std::enable_if<is_number_type<T>::value ||
-                                               is_temporal_type<T>::value>::type> {
+struct FromDictUnpackHelper {
   using ArrayType = typename TypeTraits<T>::ArrayType;
 
   template <typename IndexType>
   Status Unpack(FunctionContext* ctx, const ArrayData& indices,
                 const ArrayType& dictionary, ArrayData* output) {
-    using index_type = typename IndexType::c_type;
-    using value_type = typename T::c_type;
-
-    const index_type* in = indices.GetValues<index_type>(1);
-    value_type* out = output->GetMutableValues<value_type>(1);
-    const value_type* dict_values = dictionary.data()->template GetValues<value_type>(1);
-
-    if (indices.GetNullCount() == 0) {
-      for (int64_t i = 0; i < indices.length; ++i) {
-        out[i] = dict_values[in[i]];
-      }
-    } else {
-      internal::BitmapReader valid_bits_reader(indices.GetValues<uint8_t>(0),
-                                               indices.offset, indices.length);
-      for (int64_t i = 0; i < indices.length; ++i) {
-        if (valid_bits_reader.IsSet()) {
-          // TODO(wesm): is it worth removing the branch here?
-          out[i] = dict_values[in[i]];
-        }
-        valid_bits_reader.Next();
-      }
-    }
-    return Status::OK();
+    FromDictVisitor<T, IndexType> visitor{ctx, dictionary, output};
+    RETURN_NOT_OK(visitor.Init());
+    RETURN_NOT_OK(ArrayDataVisitor<IndexType>::Visit(indices, &visitor));
+    return visitor.Finish();
   }
 };
 
@@ -877,7 +890,7 @@ struct CastFunctor<T, DictionaryType> {
     DCHECK(values_type.Equals(*output->type))
         << "Dictionary type: " << values_type << " target type: " << (*output->type);
 
-    UnpackHelper<T> unpack_helper;
+    FromDictUnpackHelper<T> unpack_helper;
     switch (type.index_type()->id()) {
       case Type::INT8:
         FUNC_RETURN_NOT_OK(unpack_helper.template Unpack<Int8Type>(
@@ -907,9 +920,8 @@ struct CastFunctor<T, DictionaryType> {
 // String to Number
 
 template <typename I, typename O>
-struct CastFunctor<O, I,
-                   typename std::enable_if<is_any_string_type<I>::value &&
-                                           is_number_type<O>::value>::type> {
+struct CastFunctor<
+    O, I, enable_if_t<is_string_like_type<I>::value && is_number_type<O>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using out_type = typename O::c_type;
@@ -937,8 +949,7 @@ struct CastFunctor<O, I,
 // String to Boolean
 
 template <typename I>
-struct CastFunctor<BooleanType, I,
-                   typename std::enable_if<is_any_string_type<I>::value>::type> {
+struct CastFunctor<BooleanType, I, enable_if_t<is_string_like_type<I>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     typename TypeTraits<I>::ArrayType input_array(input.Copy());
@@ -976,8 +987,7 @@ struct CastFunctor<BooleanType, I,
 // String to Timestamp
 
 template <typename I>
-struct CastFunctor<TimestampType, I,
-                   typename std::enable_if<is_any_string_type<I>::value>::type> {
+struct CastFunctor<TimestampType, I, enable_if_t<is_string_like_type<I>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using out_type = TimestampType::c_type;
@@ -998,6 +1008,48 @@ struct CastFunctor<TimestampType, I,
         return;
       }
     }
+  }
+};
+
+// ----------------------------------------------------------------------
+// Number / Boolean to String
+
+template <typename I, typename O>
+struct CastFunctor<O, I,
+                   enable_if_t<is_string_like_type<O>::value &&
+                               (is_number_type<I>::value || is_boolean_type<I>::value)>> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    ctx->SetStatus(Convert(ctx, options, input, output));
+  }
+
+  Status Convert(FunctionContext* ctx, const CastOptions& options, const ArrayData& input,
+                 ArrayData* output) {
+    using value_type = typename TypeTraits<I>::CType;
+    using BuilderType = typename TypeTraits<O>::BuilderType;
+    using FormatterType = typename internal::StringFormatter<I>;
+
+    struct Visitor {
+      Visitor(FunctionContext* ctx, const ArrayData& input)
+          : formatter_(input.type), builder_(input.type, ctx->memory_pool()) {}
+
+      Status VisitNull() { return builder_.AppendNull(); }
+
+      Status VisitValue(value_type value) {
+        return formatter_(value,
+                          [this](util::string_view v) { return builder_.Append(v); });
+      }
+
+      FormatterType formatter_;
+      BuilderType builder_;
+    };
+
+    Visitor visitor(ctx, input);
+    RETURN_NOT_OK(ArrayDataVisitor<I>::Visit(input, &visitor));
+    std::shared_ptr<Array> output_array;
+    RETURN_NOT_OK(visitor.builder_.Finish(&output_array));
+    *output = std::move(*output_array->data());
+    return Status::OK();
   }
 };
 
@@ -1105,6 +1157,19 @@ class CastKernel : public CastKernelBase {
   CastFunction func_;
 };
 
+class DictionaryCastKernel : public CastKernel {
+ public:
+  using CastKernel::CastKernel;
+
+  Status Init(const DataType& in_type) override {
+    const auto value_type = checked_cast<const DictionaryType&>(in_type).value_type();
+    if (!out_type_->Equals(value_type)) {
+      return CastNotImplemented(in_type, *out_type_);
+    }
+    return Status::OK();
+  }
+};
+
 #define CAST_CASE(InType, OutType)                                                      \
   case OutType::type_id:                                                                \
     func = [](FunctionContext* ctx, const CastOptions& options, const ArrayData& input, \
@@ -1114,8 +1179,8 @@ class CastKernel : public CastKernelBase {
     };                                                                                  \
     break;
 
-#define GET_CAST_FUNCTION(CASE_GENERATOR, InType)                       \
-  static std::unique_ptr<UnaryKernel> Get##InType##CastFunc(            \
+#define GET_CAST_FUNCTION(CASE_GENERATOR, InType, KernelType)           \
+  static std::unique_ptr<CastKernelBase> Get##InType##CastFunc(         \
       std::shared_ptr<DataType> out_type, const CastOptions& options) { \
     CastFunction func;                                                  \
     switch (out_type->id()) {                                           \
@@ -1124,46 +1189,48 @@ class CastKernel : public CastKernelBase {
         break;                                                          \
     }                                                                   \
     if (func != nullptr) {                                              \
-      return std::unique_ptr<UnaryKernel>(                              \
-          new CastKernel(options, func, std::move(out_type)));          \
+      return std::unique_ptr<CastKernelBase>(                           \
+          new KernelType(options, func, std::move(out_type)));          \
     }                                                                   \
     return nullptr;                                                     \
   }
 
-#include "generated/cast-codegen-internal.h"  // NOLINT
+#include "generated/cast_codegen_internal.h"  // NOLINT
 
-GET_CAST_FUNCTION(BOOLEAN_CASES, BooleanType)
-GET_CAST_FUNCTION(UINT8_CASES, UInt8Type)
-GET_CAST_FUNCTION(INT8_CASES, Int8Type)
-GET_CAST_FUNCTION(UINT16_CASES, UInt16Type)
-GET_CAST_FUNCTION(INT16_CASES, Int16Type)
-GET_CAST_FUNCTION(UINT32_CASES, UInt32Type)
-GET_CAST_FUNCTION(INT32_CASES, Int32Type)
-GET_CAST_FUNCTION(UINT64_CASES, UInt64Type)
-GET_CAST_FUNCTION(INT64_CASES, Int64Type)
-GET_CAST_FUNCTION(FLOAT_CASES, FloatType)
-GET_CAST_FUNCTION(DOUBLE_CASES, DoubleType)
-GET_CAST_FUNCTION(DATE32_CASES, Date32Type)
-GET_CAST_FUNCTION(DATE64_CASES, Date64Type)
-GET_CAST_FUNCTION(TIME32_CASES, Time32Type)
-GET_CAST_FUNCTION(TIME64_CASES, Time64Type)
-GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType)
-GET_CAST_FUNCTION(BINARY_CASES, BinaryType)
-GET_CAST_FUNCTION(STRING_CASES, StringType)
-GET_CAST_FUNCTION(LARGEBINARY_CASES, LargeBinaryType)
-GET_CAST_FUNCTION(LARGESTRING_CASES, LargeStringType)
-GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType)
+GET_CAST_FUNCTION(BOOLEAN_CASES, BooleanType, CastKernel)
+GET_CAST_FUNCTION(UINT8_CASES, UInt8Type, CastKernel)
+GET_CAST_FUNCTION(INT8_CASES, Int8Type, CastKernel)
+GET_CAST_FUNCTION(UINT16_CASES, UInt16Type, CastKernel)
+GET_CAST_FUNCTION(INT16_CASES, Int16Type, CastKernel)
+GET_CAST_FUNCTION(UINT32_CASES, UInt32Type, CastKernel)
+GET_CAST_FUNCTION(INT32_CASES, Int32Type, CastKernel)
+GET_CAST_FUNCTION(UINT64_CASES, UInt64Type, CastKernel)
+GET_CAST_FUNCTION(INT64_CASES, Int64Type, CastKernel)
+GET_CAST_FUNCTION(FLOAT_CASES, FloatType, CastKernel)
+GET_CAST_FUNCTION(DOUBLE_CASES, DoubleType, CastKernel)
+GET_CAST_FUNCTION(DATE32_CASES, Date32Type, CastKernel)
+GET_CAST_FUNCTION(DATE64_CASES, Date64Type, CastKernel)
+GET_CAST_FUNCTION(TIME32_CASES, Time32Type, CastKernel)
+GET_CAST_FUNCTION(TIME64_CASES, Time64Type, CastKernel)
+GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType, CastKernel)
+GET_CAST_FUNCTION(DURATION_CASES, DurationType, CastKernel)
+GET_CAST_FUNCTION(BINARY_CASES, BinaryType, CastKernel)
+GET_CAST_FUNCTION(STRING_CASES, StringType, CastKernel)
+GET_CAST_FUNCTION(LARGEBINARY_CASES, LargeBinaryType, CastKernel)
+GET_CAST_FUNCTION(LARGESTRING_CASES, LargeStringType, CastKernel)
+GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType, DictionaryCastKernel)
 
-#define CAST_FUNCTION_CASE(InType)                      \
-  case InType::type_id:                                 \
-    *kernel = Get##InType##CastFunc(out_type, options); \
+#define CAST_FUNCTION_CASE(InType)                          \
+  case InType::type_id:                                     \
+    cast_kernel = Get##InType##CastFunc(out_type, options); \
     break
 
 namespace {
 
 template <typename TypeClass>
 Status GetListCastFunc(const DataType& in_type, std::shared_ptr<DataType> out_type,
-                       const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
+                       const CastOptions& options,
+                       std::unique_ptr<CastKernelBase>* kernel) {
   if (out_type->id() != TypeClass::type_id) {
     // Kernel will be null
     return Status::OK();
@@ -1173,7 +1240,7 @@ Status GetListCastFunc(const DataType& in_type, std::shared_ptr<DataType> out_ty
       checked_cast<const TypeClass&>(*out_type).value_type();
   std::unique_ptr<UnaryKernel> child_caster;
   RETURN_NOT_OK(GetCastFunction(in_value_type, out_value_type, options, &child_caster));
-  *kernel = std::unique_ptr<UnaryKernel>(
+  *kernel = std::unique_ptr<CastKernelBase>(
       new ListCastKernel<TypeClass>(std::move(child_caster), std::move(out_type)));
   return Status::OK();
 }
@@ -1186,13 +1253,14 @@ inline bool IsZeroCopyCast(Type::type in_type, Type::type out_type) {
       return (out_type == Type::DATE32) || (out_type == Type::TIME32);
     case Type::INT64:
       return ((out_type == Type::DATE64) || (out_type == Type::TIME64) ||
-              (out_type == Type::TIMESTAMP));
+              (out_type == Type::TIMESTAMP) || (out_type == Type::DURATION));
     case Type::DATE32:
     case Type::TIME32:
       return out_type == Type::INT32;
     case Type::DATE64:
     case Type::TIME64:
     case Type::TIMESTAMP:
+    case Type::DURATION:
       return out_type == Type::INT64;
     default:
       break;
@@ -1217,6 +1285,7 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     return Status::OK();
   }
 
+  std::unique_ptr<CastKernelBase> cast_kernel;
   switch (in_type.id()) {
     CAST_FUNCTION_CASE(BooleanType);
     CAST_FUNCTION_CASE(UInt8Type);
@@ -1234,6 +1303,7 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     CAST_FUNCTION_CASE(Time32Type);
     CAST_FUNCTION_CASE(Time64Type);
     CAST_FUNCTION_CASE(TimestampType);
+    CAST_FUNCTION_CASE(DurationType);
     CAST_FUNCTION_CASE(BinaryType);
     CAST_FUNCTION_CASE(StringType);
     CAST_FUNCTION_CASE(LargeBinaryType);
@@ -1241,19 +1311,23 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     CAST_FUNCTION_CASE(DictionaryType);
     case Type::LIST:
       RETURN_NOT_OK(
-          GetListCastFunc<ListType>(in_type, std::move(out_type), options, kernel));
+          GetListCastFunc<ListType>(in_type, std::move(out_type), options, &cast_kernel));
       break;
     case Type::LARGE_LIST:
-      RETURN_NOT_OK(
-          GetListCastFunc<LargeListType>(in_type, std::move(out_type), options, kernel));
+      RETURN_NOT_OK(GetListCastFunc<LargeListType>(in_type, std::move(out_type), options,
+                                                   &cast_kernel));
       break;
     default:
       break;
   }
-  if (*kernel == nullptr) {
+  if (cast_kernel == nullptr) {
     return CastNotImplemented(in_type, *out_type);
   }
-  return Status::OK();
+  Status st = cast_kernel->Init(in_type);
+  if (st.ok()) {
+    *kernel = std::move(cast_kernel);
+  }
+  return st;
 }
 
 Status Cast(FunctionContext* ctx, const Datum& value, std::shared_ptr<DataType> out_type,

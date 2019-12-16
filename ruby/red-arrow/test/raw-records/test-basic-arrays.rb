@@ -242,10 +242,11 @@ module RawRecordsBasicArraysTests
   end
 
   def test_time32_second
+    unit = Arrow::TimeUnit::SECOND
     records = [
-      [60 * 10], # 00:10:00
+      [Arrow::Time.new(unit, 60 * 10)], # 00:10:00
       [nil],
-      [60 * 60 * 2 + 9], # 02:00:09
+      [Arrow::Time.new(unit, 60 * 60 * 2 + 9)], # 02:00:09
     ]
     target = build({
                      column: {
@@ -258,10 +259,11 @@ module RawRecordsBasicArraysTests
   end
 
   def test_time32_milli
+    unit = Arrow::TimeUnit::MILLI
     records = [
-      [(60 * 10) * 1000 + 123], # 00:10:00.123
+      [Arrow::Time.new(unit, (60 * 10) * 1000 + 123)], # 00:10:00.123
       [nil],
-      [(60 * 60 * 2 + 9) * 1000 + 987], # 02:00:09.987
+      [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1000 + 987)], # 02:00:09.987
     ]
     target = build({
                      column: {
@@ -274,10 +276,13 @@ module RawRecordsBasicArraysTests
   end
 
   def test_time64_micro
+    unit = Arrow::TimeUnit::MICRO
     records = [
-      [(60 * 10) * 1_000_000 + 123_456], # 00:10:00.123456
+      # 00:10:00.123456
+      [Arrow::Time.new(unit, (60 * 10) * 1_000_000 + 123_456)],
       [nil],
-      [(60 * 60 * 2 + 9) * 1_000_000 + 987_654], # 02:00:09.987654
+      # 02:00:09.987654
+      [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000 + 987_654)],
     ]
     target = build({
                      column: {
@@ -290,10 +295,13 @@ module RawRecordsBasicArraysTests
   end
 
   def test_time64_nano
+    unit = Arrow::TimeUnit::NANO
     records = [
-      [(60 * 10) * 1_000_000_000 + 123_456_789], # 00:10:00.123456789
+      # 00:10:00.123456789
+      [Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789)],
       [nil],
-      [(60 * 60 * 2 + 9) * 1_000_000_000 + 987_654_321], # 02:00:09.987654321
+      # 02:00:09.987654321
+      [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000_000 + 987_654_321)],
     ]
     target = build({
                      column: {

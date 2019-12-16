@@ -125,7 +125,7 @@ endfunction()
 # \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
   set(options BUILD_SHARED BUILD_STATIC)
-  set(one_value_args SHARED_LINK_FLAGS)
+  set(one_value_args CMAKE_PACKAGE_NAME PKG_CONFIG_NAME SHARED_LINK_FLAGS)
   set(multi_value_args
       SOURCES
       OUTPUTS
@@ -280,7 +280,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     install(TARGETS ${LIB_NAME}_shared ${INSTALL_IS_OPTIONAL}
-            EXPORT ${PROJECT_NAME}-targets
+            EXPORT ${LIB_NAME}_targets
             RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -330,11 +330,38 @@ function(ADD_ARROW_LIB LIB_NAME)
                           "$<INSTALL_INTERFACE:${INTERFACE_LIBS}>")
 
     install(TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
-            EXPORT ${PROJECT_NAME}-targets
+            EXPORT ${LIB_NAME}_targets
             RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
             INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  endif()
+
+  if(ARG_CMAKE_PACKAGE_NAME)
+    arrow_install_cmake_find_module("${ARG_CMAKE_PACKAGE_NAME}")
+
+    set(TARGETS_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Targets.cmake")
+    install(EXPORT ${LIB_NAME}_targets
+            FILE "${TARGETS_CMAKE}"
+            DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+
+    set(CONFIG_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Config.cmake")
+    set(BUILT_CONFIG_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_CMAKE}")
+    configure_package_config_file("${CONFIG_CMAKE}.in" "${BUILT_CONFIG_CMAKE}"
+                                  INSTALL_DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+    install(FILES "${BUILT_CONFIG_CMAKE}" DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+
+    set(CONFIG_VERSION_CMAKE "${ARG_CMAKE_PACKAGE_NAME}ConfigVersion.cmake")
+    set(BUILT_CONFIG_VERSION_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_VERSION_CMAKE}")
+    write_basic_package_version_file("${BUILT_CONFIG_VERSION_CMAKE}"
+                                     VERSION ${${PROJECT_NAME}_VERSION}
+                                     COMPATIBILITY AnyNewerVersion)
+    install(FILES "${BUILT_CONFIG_VERSION_CMAKE}"
+            DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+  endif()
+
+  if(ARG_PKG_CONFIG_NAME)
+    arrow_add_pkg_config("${ARG_PKG_CONFIG_NAME}")
   endif()
 
   # Modify variable in calling scope
@@ -393,6 +420,9 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   if(ARG_PREFIX)
     set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
   endif()
+
+  # Make sure the executable name contains only hyphens, not underscores
+  string(REPLACE "_" "-" BENCHMARK_NAME ${BENCHMARK_NAME})
 
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
     # This benchmark has a corresponding .cc file, set it up as an executable.
@@ -518,6 +548,9 @@ function(ADD_TEST_CASE REL_TEST_NAME)
   else()
     set(SOURCES "${REL_TEST_NAME}.cc")
   endif()
+
+  # Make sure the executable name contains only hyphens, not underscores
+  string(REPLACE "_" "-" TEST_NAME ${TEST_NAME})
 
   set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
   add_executable(${TEST_NAME} ${SOURCES})
@@ -683,6 +716,9 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
 
   get_filename_component(FUZZING_NAME ${REL_FUZZING_NAME} NAME_WE)
 
+  # Make sure the executable name contains only hyphens, not underscores
+  string(REPLACE "_" "-" FUZZING_NAME ${FUZZING_NAME})
+
   if(ARG_PREFIX)
     set(FUZZING_NAME "${ARG_PREFIX}-${FUZZING_NAME}")
   endif()
@@ -730,4 +766,9 @@ function(ARROW_ADD_PKG_CONFIG MODULE)
   configure_file(${MODULE}.pc.in "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc" @ONLY)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
           DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+endfunction()
+
+function(ARROW_INSTALL_CMAKE_FIND_MODULE MODULE)
+  install(FILES "${ARROW_SOURCE_DIR}/cmake_modules/Find${MODULE}.cmake"
+          DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
 endfunction()

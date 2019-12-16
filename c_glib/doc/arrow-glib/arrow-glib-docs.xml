@@ -163,6 +163,10 @@
     <title>Index of new symbols in 1.0.0</title>
     <xi:include href="xml/api-index-1.0.0.xml"><xi:fallback /></xi:include>
   </index>
+  <index id="api-index-0-15-0" role="0.15.0">
+    <title>Index of new symbols in 0.15.0</title>
+    <xi:include href="xml/api-index-0.15.0.xml"><xi:fallback /></xi:include>
+  </index>
   <index id="api-index-0-14-0" role="0.14.0">
     <title>Index of new symbols in 0.14.0</title>
     <xi:include href="xml/api-index-0.14.0.xml"><xi:fallback /></xi:include>

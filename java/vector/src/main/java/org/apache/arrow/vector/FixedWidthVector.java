@@ -17,13 +17,10 @@
 
 package org.apache.arrow.vector;
 
-
-import org.apache.arrow.memory.util.ArrowBufPointer;
-
 /**
- * Interface for all fixed width {@link ValueVector} (e.g. integer, fixed size binary, etc).
+ * Interface for all fixed width {@link ElementAddressableVector} (e.g. integer, fixed size binary, etc).
  */
-public interface FixedWidthVector extends ValueVector {
+public interface FixedWidthVector extends ElementAddressableVector {
 
   /**
    * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
@@ -36,19 +33,4 @@ public interface FixedWidthVector extends ValueVector {
    * Zero out the underlying buffer backing this vector.
    */
   void zeroVector();
-
-  /**
-   * Gets the pointer for the data at the given index.
-   * @param index the index for the data.
-   * @return the pointer to the data.
-   */
-  ArrowBufPointer getDataPointer(int index);
-
-  /**
-   * Gets the pointer for the data at the given index.
-   * @param index the index for the data.
-   * @param reuse the data pointer to fill, this avoids creating a new pointer object.
-   * @return the pointer to the data, it should be the same one as the input parameter
-   */
-  ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse);
 }

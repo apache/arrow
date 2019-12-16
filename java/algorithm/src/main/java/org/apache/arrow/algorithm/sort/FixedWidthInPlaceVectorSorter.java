@@ -48,17 +48,40 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
       this.pivotBuffer.allocateNew(1);
 
       comparator.attachVectors(vec, pivotBuffer);
-      quickSort(0, vec.getValueCount() - 1);
+      quickSort();
     } finally {
       this.pivotBuffer.close();
     }
   }
 
-  private void quickSort(int low, int high) {
-    if (low < high) {
-      int mid = partition(low, high);
-      quickSort(low, mid - 1);
-      quickSort(mid + 1, high);
+  private void quickSort() {
+    try (OffHeapIntStack rangeStack = new OffHeapIntStack(vec.getAllocator())) {
+      rangeStack.push(0);
+      rangeStack.push(vec.getValueCount() - 1);
+
+      while (!rangeStack.isEmpty()) {
+        int high = rangeStack.pop();
+        int low = rangeStack.pop();
+        if (low < high) {
+          int mid = partition(low, high);
+
+          // push the larger part to stack first,
+          // to reduce the required stack size
+          if (high - mid < mid - low) {
+            rangeStack.push(low);
+            rangeStack.push(mid - 1);
+
+            rangeStack.push(mid + 1);
+            rangeStack.push(high);
+          } else {
+            rangeStack.push(mid + 1);
+            rangeStack.push(high);
+
+            rangeStack.push(low);
+            rangeStack.push(mid - 1);
+          }
+        }
+      }
     }
   }
 

@@ -21,6 +21,7 @@
 #include <string>
 #include <utility>
 
+#include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/visibility.h"
@@ -52,19 +53,19 @@
   ARROW_RETURN_IF_(condition, status, ARROW_STRINGIFY(status))
 
 /// \brief Propagate any non-successful Status to the caller
-#define ARROW_RETURN_NOT_OK(status)                            \
-  do {                                                         \
-    ::arrow::Status __s = (status);                            \
-    ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status)); \
+#define ARROW_RETURN_NOT_OK(status)                                   \
+  do {                                                                \
+    ::arrow::Status __s = ::arrow::internal::GenericToStatus(status); \
+    ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status));        \
   } while (false)
 
-#define RETURN_NOT_OK_ELSE(s, else_) \
-  do {                               \
-    ::arrow::Status _s = (s);        \
-    if (!_s.ok()) {                  \
-      else_;                         \
-      return _s;                     \
-    }                                \
+#define RETURN_NOT_OK_ELSE(s, else_)                            \
+  do {                                                          \
+    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
+    if (!_s.ok()) {                                             \
+      else_;                                                    \
+      return _s;                                                \
+    }                                                           \
   } while (false)
 
 // This is an internal-use macro and should not be used in public headers.
@@ -105,10 +106,15 @@ class ARROW_MUST_USE_RESULT ARROW_EXPORT Status;
 class ARROW_EXPORT StatusDetail {
  public:
   virtual ~StatusDetail() = default;
-  // Return a unique id for the type of the StatusDetail
-  // (effectively a poor man's substitude for RTTI).
+  /// \brief Return a unique id for the type of the StatusDetail
+  /// (effectively a poor man's substitude for RTTI).
   virtual const char* type_id() const = 0;
+  /// \brief Produce a human-readable description of this status.
   virtual std::string ToString() const = 0;
+
+  bool operator==(const StatusDetail& other) const noexcept {
+    return std::string(type_id()) == other.type_id() && ToString() == other.ToString();
+  }
 };
 
 /// \brief Status outcome object (success or error)
@@ -119,7 +125,8 @@ class ARROW_EXPORT StatusDetail {
 ///
 /// Additionally, if an error occurred, a specific error message is generally
 /// attached.
-class ARROW_EXPORT Status {
+class ARROW_EXPORT Status : public util::EqualityComparable<Status>,
+                            public util::ToStringOstreamable<Status> {
  public:
   // Create a success status.
   Status() noexcept : state_(NULLPTR) {}
@@ -143,6 +150,8 @@ class ARROW_EXPORT Status {
   inline Status(Status&& s) noexcept;
   inline Status& operator=(Status&& s) noexcept;
 
+  inline bool Equals(const Status& s) const;
+
   // AND the statuses.
   inline Status operator&(const Status& s) const noexcept;
   inline Status operator&(Status&& s) const noexcept;
@@ -151,12 +160,6 @@ class ARROW_EXPORT Status {
 
   /// Return a success status
   static Status OK() { return Status(); }
-
-  /// Return a success status with a specific message
-  template <typename... Args>
-  static Status OK(Args&&... args) {
-    return Status(StatusCode::OK, util::StringBuilder(std::forward<Args>(args)...));
-  }
 
   /// Return an error status for out-of-memory conditions
   template <typename... Args>
@@ -346,11 +349,6 @@ class ARROW_EXPORT Status {
   inline void MoveFrom(Status& s);
 };
 
-static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
-  os << x.ToString();
-  return os;
-}
-
 void Status::MoveFrom(Status& s) {
   delete state_;
   state_ = s.state_;
@@ -374,6 +372,22 @@ Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULLPTR; }
 Status& Status::operator=(Status&& s) noexcept {
   MoveFrom(s);
   return *this;
+}
+
+bool Status::Equals(const Status& s) const {
+  if (state_ == s.state_) {
+    return true;
+  }
+
+  if (ok() || s.ok()) {
+    return false;
+  }
+
+  if (detail() != s.detail() && !(*detail() == *s.detail())) {
+    return false;
+  }
+
+  return code() == s.code() && message() == s.message();
 }
 
 /// \cond FALSE
@@ -409,6 +423,14 @@ Status& Status::operator&=(Status&& s) noexcept {
   return *this;
 }
 /// \endcond
+
+namespace internal {
+
+// Extract Status from Status or Result<T>
+// Useful for the status check macros such as RETURN_NOT_OK.
+inline Status GenericToStatus(const Status& st) { return st; }
+
+}  // namespace internal
 
 }  // namespace arrow
 

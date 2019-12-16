@@ -28,13 +28,13 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/io-util.h"
+#include "arrow/util/io_util.h"
 
 #include "plasma/client.h"
 #include "plasma/common.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
-#include "plasma/test-util.h"
+#include "plasma/test_util.h"
 
 namespace plasma {
 
@@ -55,13 +55,13 @@ class TestPlasmaStore : public ::testing::Test {
   // stdout of the object store. Consider changing that.
 
   void SetUp() {
-    ARROW_CHECK_OK(TemporaryDir::Make("cli-test-", &temp_dir_));
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("cli-test-"));
     store_socket_name_ = temp_dir_->path().ToString() + "store";
 
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
     std::string plasma_command =
-        plasma_directory + "/plasma_store_server -m 10000000 -s " + store_socket_name_ +
+        plasma_directory + "/plasma-store-server -m 10000000 -s " + store_socket_name_ +
         " 1> /dev/null 2> /dev/null & " + "echo $! > " + store_socket_name_ + ".pid";
     PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
@@ -89,7 +89,7 @@ class TestPlasmaStore : public ::testing::Test {
                     const std::vector<uint8_t>& metadata,
                     const std::vector<uint8_t>& data, bool release = true) {
     std::shared_ptr<Buffer> data_buffer;
-    ARROW_CHECK_OK(client.Create(object_id, data.size(), &metadata[0], metadata.size(),
+    ARROW_CHECK_OK(client.Create(object_id, data.size(), metadata.data(), metadata.size(),
                                  &data_buffer));
     for (size_t i = 0; i < data.size(); i++) {
       data_buffer->mutable_data()[i] = data[i];
@@ -148,6 +148,44 @@ TEST_F(TestPlasmaStore, NewSubscriberTest) {
   ASSERT_EQ(object_id, object_id2);
   ASSERT_EQ(-1, data_size2);
   ASSERT_EQ(-1, metadata_size2);
+
+  ARROW_CHECK_OK(local_client2.Disconnect());
+  ARROW_CHECK_OK(local_client.Disconnect());
+}
+
+TEST_F(TestPlasmaStore, BatchNotificationTest) {
+  PlasmaClient local_client, local_client2;
+
+  ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
+  ARROW_CHECK_OK(local_client2.Connect(store_socket_name_, ""));
+
+  int fd = -1;
+  ARROW_CHECK_OK(local_client2.Subscribe(&fd));
+  ASSERT_GT(fd, 0);
+
+  ObjectID object_id1 = random_object_id();
+  ObjectID object_id2 = random_object_id();
+
+  std::vector<ObjectID> object_ids = {object_id1, object_id2};
+
+  std::vector<std::string> data = {"hello", "world!"};
+  std::vector<std::string> metadata = {"1", "23"};
+  ARROW_CHECK_OK(local_client.CreateAndSealBatch(object_ids, data, metadata));
+
+  ObjectID object_id = random_object_id();
+  int64_t data_size = 0;
+  int64_t metadata_size = 0;
+  ARROW_CHECK_OK(
+      local_client2.GetNotification(fd, &object_id, &data_size, &metadata_size));
+  ASSERT_EQ(object_id, object_id1);
+  ASSERT_EQ(data_size, 5);
+  ASSERT_EQ(metadata_size, 1);
+
+  ARROW_CHECK_OK(
+      local_client2.GetNotification(fd, &object_id, &data_size, &metadata_size));
+  ASSERT_EQ(object_id, object_id2);
+  ASSERT_EQ(data_size, 6);
+  ASSERT_EQ(metadata_size, 2);
 
   ARROW_CHECK_OK(local_client2.Disconnect());
   ARROW_CHECK_OK(local_client.Disconnect());
@@ -417,6 +455,51 @@ TEST_F(TestPlasmaStore, SetQuotaCleanupClientDisconnect) {
               std::string::npos);
 }
 
+TEST_F(TestPlasmaStore, RefreshLRUTest) {
+  bool has_object = false;
+  std::vector<ObjectID> object_ids;
+
+  for (int i = 0; i < 10; ++i) {
+    object_ids.push_back(random_object_id());
+  }
+
+  std::vector<uint8_t> small_data(1 * 1000 * 1000, 0);
+
+  // we can fit ten small objects into the store
+  for (const auto& object_id : object_ids) {
+    CreateObject(client_, object_id, {}, small_data, true);
+    ARROW_CHECK_OK(client_.Contains(object_ids[0], &has_object));
+    ASSERT_TRUE(has_object);
+  }
+
+  ObjectID id = random_object_id();
+  CreateObject(client_, id, {}, small_data, true);
+
+  // the first two objects got evicted (20% of the store)
+  ARROW_CHECK_OK(client_.Contains(object_ids[0], &has_object));
+  ASSERT_FALSE(has_object);
+
+  ARROW_CHECK_OK(client_.Contains(object_ids[1], &has_object));
+  ASSERT_FALSE(has_object);
+
+  ARROW_CHECK_OK(client_.Refresh({object_ids[2], object_ids[3]}));
+
+  id = random_object_id();
+  CreateObject(client_, id, {}, small_data, true);
+  id = random_object_id();
+  CreateObject(client_, id, {}, small_data, true);
+
+  // the refreshed objects are not evicted
+  ARROW_CHECK_OK(client_.Contains(object_ids[2], &has_object));
+  ASSERT_TRUE(has_object);
+  ARROW_CHECK_OK(client_.Contains(object_ids[3], &has_object));
+  ASSERT_TRUE(has_object);
+
+  // the next object in LRU order is evicted
+  ARROW_CHECK_OK(client_.Contains(object_ids[4], &has_object));
+  ASSERT_FALSE(has_object);
+}
+
 TEST_F(TestPlasmaStore, DeleteTest) {
   ObjectID object_id = random_object_id();
 
@@ -590,6 +673,30 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
   ARROW_CHECK_OK(client_.Get(object_ids, -1, &object_buffers));
   ASSERT_EQ(object_buffers[0].data->data()[0], 1);
   ASSERT_EQ(object_buffers[1].data->data()[0], 2);
+}
+
+TEST_F(TestPlasmaStore, BatchCreateTest) {
+  ObjectID object_id1 = random_object_id();
+  ObjectID object_id2 = random_object_id();
+  std::vector<ObjectID> object_ids = {object_id1, object_id2};
+
+  std::vector<std::string> data = {"hello", "world"};
+  std::vector<std::string> metadata = {"1", "2"};
+
+  ARROW_CHECK_OK(client_.CreateAndSealBatch(object_ids, data, metadata));
+
+  std::vector<ObjectBuffer> object_buffers;
+
+  ARROW_CHECK_OK(client_.Get(object_ids, -1, &object_buffers));
+
+  std::string out1, out2;
+  out1.assign(reinterpret_cast<const char*>(object_buffers[0].data->data()),
+              object_buffers[0].data->size());
+  out2.assign(reinterpret_cast<const char*>(object_buffers[1].data->data()),
+              object_buffers[1].data->size());
+
+  ASSERT_STREQ(out1.c_str(), "hello");
+  ASSERT_STREQ(out2.c_str(), "world");
 }
 
 TEST_F(TestPlasmaStore, AbortTest) {
@@ -774,9 +881,7 @@ void AssertCudaRead(const std::shared_ptr<Buffer>& buffer,
 
   CudaBufferReader reader(gpu_buffer);
   std::vector<uint8_t> read_data(data_size);
-  int64_t read_data_size;
-  ARROW_CHECK_OK(reader.Read(data_size, &read_data_size, read_data.data()));
-  ASSERT_EQ(read_data_size, data_size);
+  ASSERT_OK_AND_EQ(data_size, reader.Read(data_size, read_data.data()));
 
   for (size_t i = 0; i < data_size; i++) {
     ASSERT_EQ(read_data[i], expected_data[i]);

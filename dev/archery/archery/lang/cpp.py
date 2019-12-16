@@ -29,15 +29,19 @@ def or_else(value, default):
 
 
 class CppConfiguration:
+
     def __init__(self,
                  # toolchain
                  cc=None, cxx=None, cxx_flags=None,
                  build_type=None, warn_level=None,
-                 install_prefix=None, use_conda=None,
+                 cpp_package_prefix=None, install_prefix=None, use_conda=None,
                  # components
                  with_tests=True, with_benchmarks=False, with_python=True,
                  with_parquet=False, with_gandiva=False, with_plasma=False,
-                 with_flight=False, cmake_extras=None):
+                 with_flight=False,
+                 # extras
+                 with_lint_only=False,
+                 cmake_extras=None):
         self.cc = cc
         self.cxx = cxx
         self.cxx_flags = cxx_flags
@@ -45,6 +49,7 @@ class CppConfiguration:
         self.build_type = build_type
         self.warn_level = warn_level
         self._install_prefix = install_prefix
+        self._package_prefix = cpp_package_prefix
         self._use_conda = use_conda
 
         self.with_tests = with_tests
@@ -54,6 +59,9 @@ class CppConfiguration:
         self.with_gandiva = with_gandiva
         self.with_plasma = with_plasma
         self.with_flight = with_flight
+
+        self.with_lint_only = with_lint_only
+
         self.cmake_extras = cmake_extras
 
     def _gen_defs(self):
@@ -62,7 +70,10 @@ class CppConfiguration:
 
         yield ("CMAKE_EXPORT_COMPILE_COMMANDS", truthifier(True))
         yield ("CMAKE_BUILD_TYPE", or_else(self.build_type, "debug"))
-        yield ("BUILD_WARNING_LEVEL", or_else(self.warn_level, "production"))
+
+        if not self.with_lint_only:
+            yield ("BUILD_WARNING_LEVEL",
+                   or_else(self.warn_level, "production"))
 
         # if not ctx.quiet:
         #   yield ("ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
@@ -70,6 +81,10 @@ class CppConfiguration:
         maybe_prefix = self.install_prefix
         if maybe_prefix:
             yield ("CMAKE_INSTALL_PREFIX", maybe_prefix)
+
+        if self._package_prefix is not None:
+            yield ("ARROW_DEPENDENCY_SOURCE", "SYSTEM")
+            yield ("ARROW_PACKAGE_PREFIX", self._package_prefix)
 
         yield ("ARROW_BUILD_TESTS", truthifier(self.with_tests))
         yield ("ARROW_BUILD_BENCHMARKS", truthifier(self.with_benchmarks))
@@ -79,6 +94,8 @@ class CppConfiguration:
         yield ("ARROW_GANDIVA", truthifier(self.with_gandiva))
         yield ("ARROW_PLASMA", truthifier(self.with_plasma))
         yield ("ARROW_FLIGHT", truthifier(self.with_flight))
+
+        yield ("ARROW_LINT_ONLY", truthifier(self.with_lint_only))
 
         # Detect custom conda toolchain
         if self.use_conda:

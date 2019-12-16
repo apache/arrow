@@ -21,15 +21,21 @@
 //! information regarding data-types and memory layouts see
 //! [here](https://arrow.apache.org/docs/memory_layout.html).
 
+use std::collections::HashMap;
 use std::fmt;
 use std::mem::size_of;
+#[cfg(feature = "simd")]
 use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts;
 use std::str::FromStr;
+use std::sync::Arc;
 
+#[cfg(feature = "simd")]
 use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{json, Number, Value, Value::Number as VNumber};
+use serde_json::{
+    json, Number, Value, Value::Number as VNumber, Value::String as VString,
+};
 
 use crate::error::{ArrowError, Result};
 
@@ -58,14 +64,19 @@ pub enum DataType {
     Float16,
     Float32,
     Float64,
-    Timestamp(TimeUnit),
+    /// A timestamp with an optional timezone
+    Timestamp(TimeUnit, Option<Arc<String>>),
     Date32(DateUnit),
     Date64(DateUnit),
     Time32(TimeUnit),
     Time64(TimeUnit),
+    Duration(TimeUnit),
     Interval(IntervalUnit),
+    Binary,
+    FixedSizeBinary(i32),
     Utf8,
     List(Box<DataType>),
+    FixedSizeList((Box<DataType>, i32)),
     Struct(Vec<Field>),
 }
 
@@ -178,7 +189,8 @@ impl ArrowNativeType for u64 {
 
 impl ArrowNativeType for f32 {
     fn into_json_value(self) -> Option<Value> {
-        Number::from_f64(self as f64).map(|num| VNumber(num))
+        Number::from_f64(f64::round(self as f64 * 1000.0) / 1000.0)
+            .map(|num| VNumber(num))
     }
 }
 
@@ -224,28 +236,28 @@ make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
 make_type!(
     TimestampSecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Second),
+    DataType::Timestamp(TimeUnit::Second, None),
     64,
     0i64
 );
 make_type!(
     TimestampMillisecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Millisecond),
+    DataType::Timestamp(TimeUnit::Millisecond, None),
     64,
     0i64
 );
 make_type!(
     TimestampMicrosecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Microsecond),
+    DataType::Timestamp(TimeUnit::Microsecond, None),
     64,
     0i64
 );
 make_type!(
     TimestampNanosecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Nanosecond),
+    DataType::Timestamp(TimeUnit::Nanosecond, None),
     64,
     0i64
 );
@@ -287,10 +299,10 @@ make_type!(
 );
 make_type!(
     IntervalYearMonthType,
-    i64,
+    i32,
     DataType::Interval(IntervalUnit::YearMonth),
-    64,
-    0i64
+    32,
+    0i32
 );
 make_type!(
     IntervalDayTimeType,
@@ -299,11 +311,39 @@ make_type!(
     64,
     0i64
 );
+make_type!(
+    DurationSecondType,
+    i64,
+    DataType::Duration(TimeUnit::Second),
+    64,
+    0i64
+);
+make_type!(
+    DurationMillisecondType,
+    i64,
+    DataType::Duration(TimeUnit::Millisecond),
+    64,
+    0i64
+);
+make_type!(
+    DurationMicrosecondType,
+    i64,
+    DataType::Duration(TimeUnit::Microsecond),
+    64,
+    0i64
+);
+make_type!(
+    DurationNanosecondType,
+    i64,
+    DataType::Duration(TimeUnit::Nanosecond),
+    64,
+    0i64
+);
 
 /// A subtype of primitive type that represents numeric values.
 ///
 /// SIMD operations are defined in this trait if available on the target system.
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 pub trait ArrowNumericType: ArrowPrimitiveType
 where
     Self::Simd: Add<Output = Self::Simd>
@@ -320,11 +360,26 @@ where
     /// The number of SIMD lanes available
     fn lanes() -> usize;
 
+    /// Initializes a SIMD register to a constant value
+    fn init(value: Self::Native) -> Self::Simd;
+
     /// Loads a slice into a SIMD register
     fn load(slice: &[Self::Native]) -> Self::Simd;
 
+    /// Creates a new SIMD mask for this SIMD type filling it with `value`
+    fn mask_init(value: bool) -> Self::SimdMask;
+
     /// Gets the value of a single lane in a SIMD mask
     fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
+
+    /// Sets the value of a single lane of a SIMD mask
+    fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask;
+
+    /// Selects elements of `a` and `b` using `mask`
+    fn mask_select(mask: Self::SimdMask, a: Self::Simd, b: Self::Simd) -> Self::Simd;
+
+    /// Returns `true` if any of the lanes in the mask are `true`
+    fn mask_any(mask: Self::SimdMask) -> bool;
 
     /// Performs a SIMD binary operation
     fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
@@ -355,12 +410,15 @@ where
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
 }
 
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+#[cfg(any(
+    not(any(target_arch = "x86", target_arch = "x86_64")),
+    not(feature = "simd")
+))]
 pub trait ArrowNumericType: ArrowPrimitiveType {}
 
 macro_rules! make_numeric_type {
     ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident) => {
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
         impl ArrowNumericType for $impl_ty {
             type Simd = $simd_ty;
 
@@ -370,12 +428,37 @@ macro_rules! make_numeric_type {
                 Self::Simd::lanes()
             }
 
+            fn init(value: Self::Native) -> Self::Simd {
+                Self::Simd::splat(value)
+            }
+
             fn load(slice: &[Self::Native]) -> Self::Simd {
                 unsafe { Self::Simd::from_slice_unaligned_unchecked(slice) }
             }
 
+            fn mask_init(value: bool) -> Self::SimdMask {
+                Self::SimdMask::splat(value)
+            }
+
             fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
                 unsafe { mask.extract_unchecked(idx) }
+            }
+
+            fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask {
+                unsafe { mask.replace_unchecked(idx, value) }
+            }
+
+            /// Selects elements of `a` and `b` using `mask`
+            fn mask_select(
+                mask: Self::SimdMask,
+                a: Self::Simd,
+                b: Self::Simd,
+            ) -> Self::Simd {
+                mask.select(a, b)
+            }
+
+            fn mask_any(mask: Self::SimdMask) -> bool {
+                mask.any()
             }
 
             fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
@@ -414,7 +497,10 @@ macro_rules! make_numeric_type {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
             }
         }
-        #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+        #[cfg(any(
+            not(any(target_arch = "x86", target_arch = "x86_64")),
+            not(feature = "simd")
+        ))]
         impl ArrowNumericType for $impl_ty {}
     };
 }
@@ -440,8 +526,12 @@ make_numeric_type!(Time32SecondType, i32, i32x16, m32x16);
 make_numeric_type!(Time32MillisecondType, i32, i32x16, m32x16);
 make_numeric_type!(Time64MicrosecondType, i64, i64x8, m64x8);
 make_numeric_type!(Time64NanosecondType, i64, i64x8, m64x8);
-make_numeric_type!(IntervalYearMonthType, i64, i64x8, m64x8);
+make_numeric_type!(IntervalYearMonthType, i32, i32x16, m32x16);
 make_numeric_type!(IntervalDayTimeType, i64, i64x8, m64x8);
+make_numeric_type!(DurationSecondType, i64, i64x8, m64x8);
+make_numeric_type!(DurationMillisecondType, i64, i64x8, m64x8);
+make_numeric_type!(DurationMicrosecondType, i64, i64x8, m64x8);
+make_numeric_type!(DurationNanosecondType, i64, i64x8, m64x8);
 
 /// A subtype of primitive type that represents temporal values.
 pub trait ArrowTemporalType: ArrowPrimitiveType {}
@@ -456,8 +546,34 @@ impl ArrowTemporalType for Time32SecondType {}
 impl ArrowTemporalType for Time32MillisecondType {}
 impl ArrowTemporalType for Time64MicrosecondType {}
 impl ArrowTemporalType for Time64NanosecondType {}
-impl ArrowTemporalType for IntervalYearMonthType {}
-impl ArrowTemporalType for IntervalDayTimeType {}
+// impl ArrowTemporalType for IntervalYearMonthType {}
+// impl ArrowTemporalType for IntervalDayTimeType {}
+
+/// A timestamp type allows us to create array builders that take a timestamp
+pub trait ArrowTimestampType: ArrowTemporalType {
+    fn get_time_unit() -> TimeUnit;
+}
+
+impl ArrowTimestampType for TimestampSecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Second
+    }
+}
+impl ArrowTimestampType for TimestampMillisecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Millisecond
+    }
+}
+impl ArrowTimestampType for TimestampMicrosecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Microsecond
+    }
+}
+impl ArrowTimestampType for TimestampNanosecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Nanosecond
+    }
+}
 
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {
@@ -485,7 +601,18 @@ impl DataType {
         match *json {
             Value::Object(ref map) => match map.get("name") {
                 Some(s) if s == "bool" => Ok(DataType::Boolean),
+                Some(s) if s == "binary" => Ok(DataType::Binary),
                 Some(s) if s == "utf8" => Ok(DataType::Utf8),
+                Some(s) if s == "fixedsizebinary" => {
+                    // return a list with any type as its child isn't defined in the map
+                    if let Some(Value::Number(size)) = map.get("byteWidth") {
+                        Ok(DataType::FixedSizeBinary(size.as_i64().unwrap() as i32))
+                    } else {
+                        Err(ArrowError::ParseError(format!(
+                            "Expecting a byteWidth for fixedsizebinary",
+                        )))
+                    }
+                }
                 Some(s) if s == "floatingpoint" => match map.get("precision") {
                     Some(p) if p == "HALF" => Ok(DataType::Float16),
                     Some(p) if p == "SINGLE" => Ok(DataType::Float32),
@@ -494,21 +621,25 @@ impl DataType {
                         "floatingpoint precision missing or invalid".to_string(),
                     )),
                 },
-                Some(s) if s == "timestamp" => match map.get("unit") {
-                    Some(p) if p == "SECOND" => Ok(DataType::Timestamp(TimeUnit::Second)),
-                    Some(p) if p == "MILLISECOND" => {
-                        Ok(DataType::Timestamp(TimeUnit::Millisecond))
-                    }
-                    Some(p) if p == "MICROSECOND" => {
-                        Ok(DataType::Timestamp(TimeUnit::Microsecond))
-                    }
-                    Some(p) if p == "NANOSECOND" => {
-                        Ok(DataType::Timestamp(TimeUnit::Nanosecond))
-                    }
-                    _ => Err(ArrowError::ParseError(
-                        "timestamp unit missing or invalid".to_string(),
-                    )),
-                },
+                Some(s) if s == "timestamp" => {
+                    let unit = match map.get("unit") {
+                        Some(p) if p == "SECOND" => Ok(TimeUnit::Second),
+                        Some(p) if p == "MILLISECOND" => Ok(TimeUnit::Millisecond),
+                        Some(p) if p == "MICROSECOND" => Ok(TimeUnit::Microsecond),
+                        Some(p) if p == "NANOSECOND" => Ok(TimeUnit::Nanosecond),
+                        _ => Err(ArrowError::ParseError(
+                            "timestamp unit missing or invalid".to_string(),
+                        )),
+                    };
+                    let tz = match map.get("timezone") {
+                        None => Ok(None),
+                        Some(VString(tz)) => Ok(Some(Arc::new(tz.to_string()))),
+                        _ => Err(ArrowError::ParseError(
+                            "timezone must be a string".to_string(),
+                        )),
+                    };
+                    Ok(DataType::Timestamp(unit?, tz?))
+                }
                 Some(s) if s == "date" => match map.get("unit") {
                     Some(p) if p == "DAY" => Ok(DataType::Date32(DateUnit::Day)),
                     Some(p) if p == "MILLISECOND" => {
@@ -529,13 +660,28 @@ impl DataType {
                         )),
                     };
                     match map.get("bitWidth") {
-                        Some(p) if p == "32" => Ok(DataType::Time32(unit?)),
-                        Some(p) if p == "64" => Ok(DataType::Time32(unit?)),
+                        Some(p) if p == 32 => Ok(DataType::Time32(unit?)),
+                        Some(p) if p == 64 => Ok(DataType::Time64(unit?)),
                         _ => Err(ArrowError::ParseError(
                             "time bitWidth missing or invalid".to_string(),
                         )),
                     }
                 }
+                Some(s) if s == "duration" => match map.get("unit") {
+                    Some(p) if p == "SECOND" => Ok(DataType::Duration(TimeUnit::Second)),
+                    Some(p) if p == "MILLISECOND" => {
+                        Ok(DataType::Duration(TimeUnit::Millisecond))
+                    }
+                    Some(p) if p == "MICROSECOND" => {
+                        Ok(DataType::Duration(TimeUnit::Microsecond))
+                    }
+                    Some(p) if p == "NANOSECOND" => {
+                        Ok(DataType::Duration(TimeUnit::Nanosecond))
+                    }
+                    _ => Err(ArrowError::ParseError(
+                        "time unit missing or invalid".to_string(),
+                    )),
+                },
                 Some(s) if s == "interval" => match map.get("unit") {
                     Some(p) if p == "DAY_TIME" => {
                         Ok(DataType::Interval(IntervalUnit::DayTime))
@@ -580,20 +726,32 @@ impl DataType {
                         "int signed missing or invalid".to_string(),
                     )),
                 },
-                Some(other) => Err(ArrowError::ParseError(format!(
-                    "invalid type name: {}",
-                    other
-                ))),
-                None => match map.get("fields") {
-                    Some(&Value::Array(ref fields_array)) => {
-                        let fields = fields_array
-                            .iter()
-                            .map(|f| Field::from(f))
-                            .collect::<Result<Vec<Field>>>();
-                        Ok(DataType::Struct(fields?))
+                Some(s) if s == "list" => {
+                    // return a list with any type as its child isn't defined in the map
+                    Ok(DataType::List(Box::new(DataType::Boolean)))
+                }
+                Some(s) if s == "fixedsizelist" => {
+                    // return a list with any type as its child isn't defined in the map
+                    if let Some(Value::Number(size)) = map.get("listSize") {
+                        Ok(DataType::FixedSizeList((
+                            Box::new(DataType::Boolean),
+                            size.as_i64().unwrap() as i32,
+                        )))
+                    } else {
+                        Err(ArrowError::ParseError(format!(
+                            "Expecting a listSize for fixedsizelist",
+                        )))
                     }
-                    _ => Err(ArrowError::ParseError("empty type".to_string())),
-                },
+                }
+                Some(s) if s == "struct" => {
+                    // return an empty `struct` type as its children aren't defined in the map
+                    Ok(DataType::Struct(vec![]))
+                }
+                Some(other) => Err(ArrowError::ParseError(format!(
+                    "invalid or unsupported type name: {} in {:?}",
+                    other, json
+                ))),
+                None => Err(ArrowError::ParseError("type name missing".to_string())),
             },
             _ => Err(ArrowError::ParseError(
                 "invalid json value type".to_string(),
@@ -617,18 +775,17 @@ impl DataType {
             DataType::Float32 => json!({"name": "floatingpoint", "precision": "SINGLE"}),
             DataType::Float64 => json!({"name": "floatingpoint", "precision": "DOUBLE"}),
             DataType::Utf8 => json!({"name": "utf8"}),
-            DataType::Struct(ref fields) => {
-                let field_json_array = Value::Array(
-                    fields.iter().map(|f| f.to_json()).collect::<Vec<Value>>(),
-                );
-                json!({ "fields": field_json_array })
+            DataType::Binary => json!({"name": "binary"}),
+            DataType::FixedSizeBinary(byte_width) => {
+                json!({"name": "fixedsizebinary", "byteWidth": byte_width})
             }
-            DataType::List(ref t) => {
-                let child_json = t.to_json();
-                json!({ "name": "list", "children": child_json })
+            DataType::Struct(_) => json!({"name": "struct"}),
+            DataType::List(_) => json!({ "name": "list"}),
+            DataType::FixedSizeList((_, length)) => {
+                json!({"name":"fixedsizelist", "listSize": length})
             }
             DataType::Time32(unit) => {
-                json!({"name": "time", "bitWidth": "32", "unit": match unit {
+                json!({"name": "time", "bitWidth": 32, "unit": match unit {
                     TimeUnit::Second => "SECOND",
                     TimeUnit::Millisecond => "MILLISECOND",
                     TimeUnit::Microsecond => "MICROSECOND",
@@ -636,7 +793,7 @@ impl DataType {
                 }})
             }
             DataType::Time64(unit) => {
-                json!({"name": "time", "bitWidth": "64", "unit": match unit {
+                json!({"name": "time", "bitWidth": 64, "unit": match unit {
                     TimeUnit::Second => "SECOND",
                     TimeUnit::Millisecond => "MILLISECOND",
                     TimeUnit::Microsecond => "MICROSECOND",
@@ -649,15 +806,31 @@ impl DataType {
                     DateUnit::Millisecond => "MILLISECOND",
                 }})
             }
-            DataType::Timestamp(unit) => json!({"name": "timestamp", "unit": match unit {
+            DataType::Timestamp(unit, None) => {
+                json!({"name": "timestamp", "unit": match unit {
+                    TimeUnit::Second => "SECOND",
+                    TimeUnit::Millisecond => "MILLISECOND",
+                    TimeUnit::Microsecond => "MICROSECOND",
+                    TimeUnit::Nanosecond => "NANOSECOND",
+                }})
+            }
+            DataType::Timestamp(unit, Some(tz)) => {
+                json!({"name": "timestamp", "unit": match unit {
+                    TimeUnit::Second => "SECOND",
+                    TimeUnit::Millisecond => "MILLISECOND",
+                    TimeUnit::Microsecond => "MICROSECOND",
+                    TimeUnit::Nanosecond => "NANOSECOND",
+                }, "timezone": tz})
+            }
+            DataType::Interval(unit) => json!({"name": "interval", "unit": match unit {
+                IntervalUnit::YearMonth => "YEAR_MONTH",
+                IntervalUnit::DayTime => "DAY_TIME",
+            }}),
+            DataType::Duration(unit) => json!({"name": "duration", "unit": match unit {
                 TimeUnit::Second => "SECOND",
                 TimeUnit::Millisecond => "MILLISECOND",
                 TimeUnit::Microsecond => "MICROSECOND",
                 TimeUnit::Nanosecond => "NANOSECOND",
-            }}),
-            DataType::Interval(unit) => json!({"name": "interval", "unit": match unit {
-                IntervalUnit::YearMonth => "YEAR_MONTH",
-                IntervalUnit::DayTime => "DAY_TIME",
             }}),
         }
     }
@@ -716,6 +889,63 @@ impl Field {
                         ));
                     }
                 };
+                // if data_type is a struct or list, get its children
+                let data_type = match data_type {
+                    DataType::List(_) | DataType::FixedSizeList(_) => {
+                        match map.get("children") {
+                            Some(Value::Array(values)) => {
+                                if values.len() != 1 {
+                                    return Err(ArrowError::ParseError(
+                                    "Field 'children' must have one element for a list data type".to_string(),
+                                ));
+                                }
+                                match data_type {
+                                    DataType::List(_) => DataType::List(Box::new(
+                                        Self::from(&values[0])?.data_type,
+                                    )),
+                                    DataType::FixedSizeList((_, int)) => {
+                                        DataType::FixedSizeList((
+                                            Box::new(Self::from(&values[0])?.data_type),
+                                            int,
+                                        ))
+                                    }
+                                    _ => unreachable!(
+                                        "Data type should be a list or fixedsizelist"
+                                    ),
+                                }
+                            }
+                            Some(_) => {
+                                return Err(ArrowError::ParseError(
+                                    "Field 'children' must be an array".to_string(),
+                                ))
+                            }
+                            None => {
+                                return Err(ArrowError::ParseError(
+                                    "Field missing 'children' attribute".to_string(),
+                                ));
+                            }
+                        }
+                    }
+                    DataType::Struct(mut fields) => match map.get("children") {
+                        Some(Value::Array(values)) => {
+                            let struct_fields: Result<Vec<Field>> =
+                                values.iter().map(|v| Field::from(v)).collect();
+                            fields.append(&mut struct_fields?);
+                            DataType::Struct(fields)
+                        }
+                        Some(_) => {
+                            return Err(ArrowError::ParseError(
+                                "Field 'children' must be an array".to_string(),
+                            ))
+                        }
+                        None => {
+                            return Err(ArrowError::ParseError(
+                                "Field missing 'children' attribute".to_string(),
+                            ));
+                        }
+                    },
+                    _ => data_type,
+                };
                 Ok(Field {
                     name,
                     nullable,
@@ -730,14 +960,27 @@ impl Field {
 
     /// Generate a JSON representation of the `Field`
     pub fn to_json(&self) -> Value {
+        let children: Vec<Value> = match self.data_type() {
+            DataType::Struct(fields) => fields.iter().map(|f| f.to_json()).collect(),
+            DataType::List(dtype) => {
+                let item = Field::new("item", *dtype.clone(), self.nullable);
+                vec![item.to_json()]
+            }
+            DataType::FixedSizeList((dtype, _)) => {
+                let item = Field::new("item", *dtype.clone(), self.nullable);
+                vec![item.to_json()]
+            }
+            _ => vec![],
+        };
         json!({
             "name": self.name,
             "nullable": self.nullable,
             "type": self.data_type.to_json(),
+            "children": children
         })
     }
 
-    /// Converts to a `String` representation of the the `Field`
+    /// Converts to a `String` representation of the `Field`
     pub fn to_string(&self) -> String {
         format!("{}: {:?}", self.name, self.data_type)
     }
@@ -756,12 +999,18 @@ impl fmt::Display for Field {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Schema {
     pub(crate) fields: Vec<Field>,
+    /// A map of key-value pairs containing additional meta data.
+    #[serde(default)]
+    pub(crate) metadata: HashMap<String, String>,
 }
 
 impl Schema {
     /// Creates an empty `Schema`
     pub fn empty() -> Self {
-        Self { fields: vec![] }
+        Self {
+            fields: vec![],
+            metadata: HashMap::new(),
+        }
     }
 
     /// Creates a new `Schema` from a sequence of `Field` values
@@ -777,7 +1026,30 @@ impl Schema {
     /// let schema = Schema::new(vec![field_a, field_b]);
     /// ```
     pub fn new(fields: Vec<Field>) -> Self {
-        Self { fields }
+        Self::new_with_metadata(fields, HashMap::new())
+    }
+    /// Creates a new `Schema` from a sequence of `Field` values
+    /// and adds additional metadata in form of key value pairs.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate arrow;
+    /// # use arrow::datatypes::{Field, DataType, Schema};
+    /// # use std::collections::HashMap;
+    /// let field_a = Field::new("a", DataType::Int64, false);
+    /// let field_b = Field::new("b", DataType::Boolean, false);
+    ///
+    /// let mut metadata: HashMap<String, String> = HashMap::new();
+    /// metadata.insert("row_count".to_string(), "100".to_string());
+    ///
+    /// let schema = Schema::new_with_metadata(vec![field_a, field_b], metadata);
+    /// ```
+    pub fn new_with_metadata(
+        fields: Vec<Field>,
+        metadata: HashMap<String, String>,
+    ) -> Self {
+        Self { fields, metadata }
     }
 
     /// Returns an immutable reference of the vector of `Field` instances
@@ -791,6 +1063,11 @@ impl Schema {
         &self.fields[i]
     }
 
+    /// Returns an immutable reference to the Map of custom metadata key-value pairs.
+    pub fn metadata(&self) -> &HashMap<String, String> {
+        &self.metadata
+    }
+
     /// Look up a column by name and return a immutable reference to the column along with
     /// it's index
     pub fn column_with_name(&self, name: &str) -> Option<(usize, &Field)> {
@@ -800,11 +1077,62 @@ impl Schema {
             .find(|&(_, c)| c.name == name)
     }
 
-    /// Generate a JSON representation of the `Field`
+    /// Generate a JSON representation of the `Schema`
     pub fn to_json(&self) -> Value {
         json!({
             "fields": self.fields.iter().map(|field| field.to_json()).collect::<Vec<Value>>(),
+            "metadata": serde_json::to_value(&self.metadata).unwrap()
         })
+    }
+
+    /// Parse a `Schema` definition from a JSON representation
+    pub fn from(json: &Value) -> Result<Self> {
+        match *json {
+            Value::Object(ref schema) => {
+                let fields = if let Some(Value::Array(fields)) = schema.get("fields") {
+                    fields
+                        .iter()
+                        .map(|f| Field::from(f))
+                        .collect::<Result<_>>()?
+                } else {
+                    return Err(ArrowError::ParseError(
+                        "Schema fields should be an array".to_string(),
+                    ));
+                };
+
+                let metadata = if let Some(value) = schema.get("metadata") {
+                    Self::from_metadata(value)?
+                } else {
+                    HashMap::default()
+                };
+
+                Ok(Self { fields, metadata })
+            }
+            _ => Err(ArrowError::ParseError(
+                "Invalid json value type for schema".to_string(),
+            )),
+        }
+    }
+
+    /// Parse a `metadata` definition from a JSON representation
+    fn from_metadata(json: &Value) -> Result<HashMap<String, String>> {
+        if let Value::Object(md) = json {
+            md.iter()
+                .map(|(k, v)| {
+                    if let Value::String(v) = v {
+                        Ok((k.to_string(), v.to_string()))
+                    } else {
+                        Err(ArrowError::ParseError(
+                            "metadata `value` field must be a string".to_string(),
+                        ))
+                    }
+                })
+                .collect::<Result<_>>()
+        } else {
+            Err(ArrowError::ParseError(
+                "`metadata` field must be an object".to_string(),
+            ))
+        }
     }
 }
 
@@ -820,6 +1148,8 @@ impl fmt::Display for Schema {
         )
     }
 }
+
+pub type SchemaRef = Arc<Schema>;
 
 #[cfg(test)]
 mod tests {
@@ -891,27 +1221,86 @@ mod tests {
             ]),
             false,
         );
-        assert_eq!(
-            "{\"name\":\"address\",\"nullable\":false,\"type\":{\"fields\":[\
-            {\"name\":\"street\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},\
-            {\"name\":\"zip\",\"nullable\":false,\"type\":{\"name\":\"int\",\"bitWidth\":16,\"isSigned\":false}}]}}",
-            f.to_json().to_string()
-        );
+        let value: Value = serde_json::from_str(
+            r#"{
+                "name": "address",
+                "nullable": false,
+                "type": {
+                    "name": "struct"
+                },
+                "children": [
+                    {
+                        "name": "street",
+                        "nullable": false,
+                        "type": {
+                            "name": "utf8"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "zip",
+                        "nullable": false,
+                        "type": {
+                            "name": "int",
+                            "bitWidth": 16,
+                            "isSigned": false
+                        },
+                        "children": []
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(value, f.to_json());
     }
 
     #[test]
     fn primitive_field_to_json() {
         let f = Field::new("first_name", DataType::Utf8, false);
-        assert_eq!(
-            "{\"name\":\"first_name\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}}",
-            f.to_json().to_string()
-        );
+        let value: Value = serde_json::from_str(
+            r#"{
+                "name": "first_name",
+                "nullable": false,
+                "type": {
+                    "name": "utf8"
+                },
+                "children": []
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(value, f.to_json());
     }
     #[test]
     fn parse_struct_from_json() {
-        let json = "{\"name\":\"address\",\"nullable\":false,\"type\":{\"fields\":[\
-        {\"name\":\"street\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},\
-        {\"name\":\"zip\",\"nullable\":false,\"type\":{\"bitWidth\":16,\"isSigned\":false,\"name\":\"int\"}}]}}";
+        let json = r#"
+        {
+            "name": "address",
+            "type": {
+                "name": "struct"
+            },
+            "nullable": false,
+            "children": [
+                {
+                    "name": "street",
+                    "type": {
+                    "name": "utf8"
+                    },
+                    "nullable": false,
+                    "children": []
+                },
+                {
+                    "name": "zip",
+                    "type": {
+                    "name": "int",
+                    "isSigned": false,
+                    "bitWidth": 16
+                    },
+                    "nullable": false,
+                    "children": []
+                }
+            ]
+        }
+        "#;
         let value: Value = serde_json::from_str(json).unwrap();
         let dt = Field::from(&value).unwrap();
 
@@ -945,66 +1334,464 @@ mod tests {
 
     #[test]
     fn schema_json() {
-        let schema = Schema::new(vec![
-            Field::new("c1", DataType::Utf8, false),
-            Field::new("c2", DataType::Date32(DateUnit::Day), false),
-            Field::new("c3", DataType::Date64(DateUnit::Millisecond), false),
-            Field::new("c7", DataType::Time32(TimeUnit::Second), false),
-            Field::new("c8", DataType::Time32(TimeUnit::Millisecond), false),
-            Field::new("c9", DataType::Time32(TimeUnit::Microsecond), false),
-            Field::new("c10", DataType::Time32(TimeUnit::Nanosecond), false),
-            Field::new("c11", DataType::Time64(TimeUnit::Second), false),
-            Field::new("c12", DataType::Time64(TimeUnit::Millisecond), false),
-            Field::new("c13", DataType::Time64(TimeUnit::Microsecond), false),
-            Field::new("c14", DataType::Time64(TimeUnit::Nanosecond), false),
-            Field::new("c15", DataType::Timestamp(TimeUnit::Second), false),
-            Field::new("c16", DataType::Timestamp(TimeUnit::Millisecond), false),
-            Field::new("c17", DataType::Timestamp(TimeUnit::Microsecond), false),
-            Field::new("c18", DataType::Timestamp(TimeUnit::Nanosecond), false),
-            Field::new("c19", DataType::Interval(IntervalUnit::DayTime), false),
-            Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
-            Field::new(
-                "c21",
-                DataType::Struct(vec![
-                    Field::new("a", DataType::Utf8, false),
-                    Field::new("b", DataType::UInt16, false),
-                ]),
-                false,
-            ),
-        ]);
+        // Add some custom metadata
+        let metadata: HashMap<String, String> =
+            [("Key".to_string(), "Value".to_string())]
+                .iter()
+                .cloned()
+                .collect();
 
-        let json = schema.to_json().to_string();
-        assert_eq!(json, "{\"fields\":[{\"name\":\"c1\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},\
-        {\"name\":\"c2\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"DAY\"}},\
-        {\"name\":\"c3\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"MILLISECOND\"}},\
-        {\"name\":\"c7\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"SECOND\"}},\
-        {\"name\":\"c8\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"MILLISECOND\"}},\
-        {\"name\":\"c9\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"MICROSECOND\"}},\
-        {\"name\":\"c10\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"NANOSECOND\"}},\
-        {\"name\":\"c11\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"SECOND\"}},\
-        {\"name\":\"c12\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"MILLISECOND\"}},\
-        {\"name\":\"c13\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"MICROSECOND\"}},\
-        {\"name\":\"c14\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"NANOSECOND\"}},\
-        {\"name\":\"c15\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"SECOND\"}},\
-        {\"name\":\"c16\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MILLISECOND\"}},\
-        {\"name\":\"c17\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MICROSECOND\"}},\
-        {\"name\":\"c18\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"NANOSECOND\"}},\
-        {\"name\":\"c19\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"DAY_TIME\"}},\
-        {\"name\":\"c20\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"YEAR_MONTH\"}},\
-        {\"name\":\"c21\",\"nullable\":false,\"type\":{\"fields\":[\
-        {\"name\":\"a\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},\
-        {\"name\":\"b\",\"nullable\":false,\"type\":{\"name\":\"int\",\"bitWidth\":16,\"isSigned\":false}}]}}]}");
+        let schema = Schema::new_with_metadata(
+            vec![
+                Field::new("c1", DataType::Utf8, false),
+                Field::new("c2", DataType::Binary, false),
+                Field::new("c3", DataType::FixedSizeBinary(3), false),
+                Field::new("c4", DataType::Boolean, false),
+                Field::new("c5", DataType::Date32(DateUnit::Day), false),
+                Field::new("c6", DataType::Date64(DateUnit::Millisecond), false),
+                Field::new("c7", DataType::Time32(TimeUnit::Second), false),
+                Field::new("c8", DataType::Time32(TimeUnit::Millisecond), false),
+                Field::new("c9", DataType::Time32(TimeUnit::Microsecond), false),
+                Field::new("c10", DataType::Time32(TimeUnit::Nanosecond), false),
+                Field::new("c11", DataType::Time64(TimeUnit::Second), false),
+                Field::new("c12", DataType::Time64(TimeUnit::Millisecond), false),
+                Field::new("c13", DataType::Time64(TimeUnit::Microsecond), false),
+                Field::new("c14", DataType::Time64(TimeUnit::Nanosecond), false),
+                Field::new("c15", DataType::Timestamp(TimeUnit::Second, None), false),
+                Field::new(
+                    "c16",
+                    DataType::Timestamp(
+                        TimeUnit::Millisecond,
+                        Some(Arc::new("UTC".to_string())),
+                    ),
+                    false,
+                ),
+                Field::new(
+                    "c17",
+                    DataType::Timestamp(
+                        TimeUnit::Microsecond,
+                        Some(Arc::new("Africa/Johannesburg".to_string())),
+                    ),
+                    false,
+                ),
+                Field::new(
+                    "c18",
+                    DataType::Timestamp(TimeUnit::Nanosecond, None),
+                    false,
+                ),
+                Field::new("c19", DataType::Interval(IntervalUnit::DayTime), false),
+                Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
+                Field::new("c21", DataType::List(Box::new(DataType::Boolean)), false),
+                Field::new(
+                    "c22",
+                    DataType::FixedSizeList((Box::new(DataType::Boolean), 5)),
+                    false,
+                ),
+                Field::new(
+                    "c23",
+                    DataType::List(Box::new(DataType::List(Box::new(DataType::Struct(
+                        vec![],
+                    ))))),
+                    true,
+                ),
+                Field::new(
+                    "c24",
+                    DataType::Struct(vec![
+                        Field::new("a", DataType::Utf8, false),
+                        Field::new("b", DataType::UInt16, false),
+                    ]),
+                    false,
+                ),
+                Field::new("c25", DataType::Interval(IntervalUnit::YearMonth), true),
+                Field::new("c26", DataType::Interval(IntervalUnit::DayTime), true),
+                Field::new("c27", DataType::Duration(TimeUnit::Second), false),
+                Field::new("c28", DataType::Duration(TimeUnit::Millisecond), false),
+                Field::new("c29", DataType::Duration(TimeUnit::Microsecond), false),
+                Field::new("c30", DataType::Duration(TimeUnit::Nanosecond), false),
+            ],
+            metadata,
+        );
+
+        let expected = schema.to_json();
+        let json = r#"{
+                "fields": [
+                    {
+                        "name": "c1",
+                        "nullable": false,
+                        "type": {
+                            "name": "utf8"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c2",
+                        "nullable": false,
+                        "type": {
+                            "name": "binary"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c3",
+                        "nullable": false,
+                        "type": {
+                            "name": "fixedsizebinary",
+                            "byteWidth": 3
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c4",
+                        "nullable": false,
+                        "type": {
+                            "name": "bool"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c5",
+                        "nullable": false,
+                        "type": {
+                            "name": "date",
+                            "unit": "DAY"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c6",
+                        "nullable": false,
+                        "type": {
+                            "name": "date",
+                            "unit": "MILLISECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c7",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 32,
+                            "unit": "SECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c8",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 32,
+                            "unit": "MILLISECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c9",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 32,
+                            "unit": "MICROSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c10",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 32,
+                            "unit": "NANOSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c11",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 64,
+                            "unit": "SECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c12",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 64,
+                            "unit": "MILLISECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c13",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 64,
+                            "unit": "MICROSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c14",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 64,
+                            "unit": "NANOSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c15",
+                        "nullable": false,
+                        "type": {
+                            "name": "timestamp",
+                            "unit": "SECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c16",
+                        "nullable": false,
+                        "type": {
+                            "name": "timestamp",
+                            "unit": "MILLISECOND",
+                            "timezone": "UTC"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c17",
+                        "nullable": false,
+                        "type": {
+                            "name": "timestamp",
+                            "unit": "MICROSECOND",
+                            "timezone": "Africa/Johannesburg"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c18",
+                        "nullable": false,
+                        "type": {
+                            "name": "timestamp",
+                            "unit": "NANOSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c19",
+                        "nullable": false,
+                        "type": {
+                            "name": "interval",
+                            "unit": "DAY_TIME"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c20",
+                        "nullable": false,
+                        "type": {
+                            "name": "interval",
+                            "unit": "YEAR_MONTH"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c21",
+                        "nullable": false,
+                        "type": {
+                            "name": "list"
+                        },
+                        "children": [
+                            {
+                                "name": "item",
+                                "nullable": false,
+                                "type": {
+                                    "name": "bool"
+                                },
+                                "children": []
+                            }
+                        ]
+                    },
+                    {
+                        "name": "c22",
+                        "nullable": false,
+                        "type": {
+                            "name": "fixedsizelist",
+                            "listSize": 5
+                        },
+                        "children": [
+                            {
+                                "name": "item",
+                                "nullable": false,
+                                "type": {
+                                    "name": "bool"
+                                },
+                                "children": []
+                            }
+                        ]
+                    },
+                    {
+                        "name": "c23",
+                        "nullable": true,
+                        "type": {
+                            "name": "list"
+                        },
+                        "children": [
+                            {
+                                "name": "item",
+                                "nullable": true,
+                                "type": {
+                                    "name": "list"
+                                },
+                                "children": [
+                                    {
+                                        "name": "item",
+                                        "nullable": true,
+                                        "type": {
+                                            "name": "struct"
+                                        },
+                                        "children": []
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "c24",
+                        "nullable": false,
+                        "type": {
+                            "name": "struct"
+                        },
+                        "children": [
+                            {
+                                "name": "a",
+                                "nullable": false,
+                                "type": {
+                                    "name": "utf8"
+                                },
+                                "children": []
+                            },
+                            {
+                                "name": "b",
+                                "nullable": false,
+                                "type": {
+                                    "name": "int",
+                                    "bitWidth": 16,
+                                    "isSigned": false
+                                },
+                                "children": []
+                            }
+                        ]
+                    },
+                    {
+                        "name": "c25",
+                        "nullable": true,
+                        "type": {
+                            "name": "interval",
+                            "unit": "YEAR_MONTH"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c26",
+                        "nullable": true,
+                        "type": {
+                            "name": "interval",
+                            "unit": "DAY_TIME"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c27",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "SECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c28",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "MILLISECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c29",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "MICROSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c30",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "NANOSECOND"
+                        },
+                        "children": []
+                    }
+                ],
+                "metadata" : {
+                    "Key": "Value"
+                }
+            }"#;
+        let value: Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(expected, value);
 
         // convert back to a schema
         let value: Value = serde_json::from_str(&json).unwrap();
-        let schema2 = DataType::from(&value).unwrap();
+        let schema2 = Schema::from(&value).unwrap();
 
-        match schema2 {
-            DataType::Struct(fields) => {
-                assert_eq!(schema.fields().len(), fields.len());
-            }
-            _ => panic!(),
-        }
+        assert_eq!(schema, schema2);
+
+        // Check that empty metadata produces empty value in JSON and can be parsed
+        let json = r#"{
+                "fields": [
+                    {
+                        "name": "c1",
+                        "nullable": false,
+                        "type": {
+                            "name": "utf8"
+                        },
+                        "children": []
+                    }
+                ],
+                "metadata": {}
+            }"#;
+        let value: Value = serde_json::from_str(&json).unwrap();
+        let schema = Schema::from(&value).unwrap();
+        assert!(schema.metadata.is_empty());
+
+        // Check that metadata field is not required in the JSON.
+        let json = r#"{
+                "fields": [
+                    {
+                        "name": "c1",
+                        "nullable": false,
+                        "type": {
+                            "name": "utf8"
+                        },
+                        "children": []
+                    }
+                ]
+            }"#;
+        let value: Value = serde_json::from_str(&json).unwrap();
+        let schema = Schema::from(&value).unwrap();
+        assert!(schema.metadata.is_empty());
     }
 
     #[test]

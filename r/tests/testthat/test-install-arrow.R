@@ -51,32 +51,8 @@ r_only({
   test_that("Linux on release version gets pointed to PPA first, then C++", {
     expect_match(
       install_arrow_msg(FALSE, "0.13.0", os="linux"),
-      "PPA. Or, see the Arrow C++ developer guide",
+      "dependency. Or, see the Arrow C++ developer guide",
       fixed = TRUE
-    )
-  })
-
-  test_that("Win/mac release version get pointed to CRAN", {
-    expect_match(
-      install_arrow_msg(FALSE, "0.13.0", os="darwin", from_cran=FALSE),
-      "install.packages",
-      fixed = TRUE
-    )
-    expect_match(
-      install_arrow_msg(FALSE, "0.13.0", os="windows", from_cran=FALSE),
-      "install.packages",
-      fixed = TRUE
-    )
-  })
-
-  test_that("Win/mac dev version get recommendations", {
-    expect_match(
-      install_arrow_msg(FALSE, "0.13.0.9000", os="darwin", from_cran=FALSE),
-      "Homebrew"
-    )
-    expect_match(
-      install_arrow_msg(FALSE, "0.13.0.9000", os="windows", from_cran=FALSE),
-      "RWINLIB_LOCAL"
     )
   })
 })

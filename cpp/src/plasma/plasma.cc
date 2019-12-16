@@ -69,6 +69,24 @@ std::unique_ptr<uint8_t[]> CreateObjectInfoBuffer(fb::ObjectInfoT* object_info) 
   return notification;
 }
 
+std::unique_ptr<uint8_t[]> CreatePlasmaNotificationBuffer(
+    std::vector<fb::ObjectInfoT>& object_info) {
+  flatbuffers::FlatBufferBuilder fbb;
+  std::vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> info;
+  for (size_t i = 0; i < object_info.size(); ++i) {
+    info.push_back(fb::CreateObjectInfo(fbb, &object_info[i]));
+  }
+
+  auto info_array = fbb.CreateVector(info);
+  auto message = fb::CreatePlasmaNotification(fbb, info_array);
+  fbb.Finish(message);
+  auto notification =
+      std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(int64_t) + fbb.GetSize()]);
+  *(reinterpret_cast<int64_t*>(notification.get())) = fbb.GetSize();
+  memcpy(notification.get() + sizeof(int64_t), fbb.GetBufferPointer(), fbb.GetSize());
+  return notification;
+}
+
 ObjectTableEntry* GetObjectTableEntry(PlasmaStoreInfo* store_info,
                                       const ObjectID& object_id) {
   auto it = store_info->objects.find(object_id);

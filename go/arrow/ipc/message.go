@@ -25,7 +25,7 @@ import (
 	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 )
 
 // MetadataVersion represents the Arrow metadata version.
@@ -181,18 +181,37 @@ func (r *MessageReader) Message() (*Message, error) {
 	var buf = make([]byte, 4)
 	_, err := io.ReadFull(r.r, buf)
 	if err != nil {
-		return nil, errors.Wrap(err, "arrow/ipc: could not read message length")
+		return nil, xerrors.Errorf("arrow/ipc: could not read continuation indicator: %w", err)
 	}
-	msgLen := int32(binary.LittleEndian.Uint32(buf))
-	if msgLen == 0 {
-		// optional 0 EOS control message
+	var (
+		cid    = binary.LittleEndian.Uint32(buf)
+		msgLen int32
+	)
+	switch cid {
+	case 0:
+		// EOS message.
 		return nil, io.EOF // FIXME(sbinet): send nil instead? or a special EOS error?
+	case kIPCContToken:
+		_, err = io.ReadFull(r.r, buf)
+		if err != nil {
+			return nil, xerrors.Errorf("arrow/ipc: could not read message length: %w", err)
+		}
+		msgLen = int32(binary.LittleEndian.Uint32(buf))
+		if msgLen == 0 {
+			// optional 0 EOS control message
+			return nil, io.EOF // FIXME(sbinet): send nil instead? or a special EOS error?
+		}
+
+	default:
+		// ARROW-6314: backwards compatibility for reading old IPC
+		// messages produced prior to version 0.15.0
+		msgLen = int32(cid)
 	}
 
 	buf = make([]byte, msgLen)
 	_, err = io.ReadFull(r.r, buf)
 	if err != nil {
-		return nil, errors.Wrap(err, "arrow/ipc: could not read message metadata")
+		return nil, xerrors.Errorf("arrow/ipc: could not read message metadata: %w", err)
 	}
 
 	meta := flatbuf.GetRootAsMessage(buf, 0)
@@ -201,7 +220,7 @@ func (r *MessageReader) Message() (*Message, error) {
 	buf = make([]byte, bodyLen)
 	_, err = io.ReadFull(r.r, buf)
 	if err != nil {
-		return nil, errors.Wrap(err, "arrow/ipc: could not read message body")
+		return nil, xerrors.Errorf("arrow/ipc: could not read message body: %w", err)
 	}
 	body := memory.NewBufferBytes(buf)
 

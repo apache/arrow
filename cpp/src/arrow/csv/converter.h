@@ -15,23 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_CONVERTER_H
-#define ARROW_CSV_CONVERTER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 
 #include "arrow/csv/options.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-class DataType;
-class MemoryPool;
-class Status;
-
 namespace csv {
 
 class BlockParser;
@@ -42,27 +37,39 @@ class ARROW_EXPORT Converter {
             MemoryPool* pool);
   virtual ~Converter() = default;
 
-  virtual Status Convert(const BlockParser& parser, int32_t col_index,
-                         std::shared_ptr<Array>* out) = 0;
+  virtual Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
+                                                 int32_t col_index) = 0;
 
   std::shared_ptr<DataType> type() const { return type_; }
 
-  static Status Make(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
-                     std::shared_ptr<Converter>* out);
-  static Status Make(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
-                     MemoryPool* pool, std::shared_ptr<Converter>* out);
+  static Result<std::shared_ptr<Converter>> Make(
+      const std::shared_ptr<DataType>& type, const ConvertOptions& options,
+      MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Converter);
 
   virtual Status Initialize() = 0;
 
-  const ConvertOptions options_;
+  // CAUTION: ConvertOptions can grow large (if it customizes hundreds or
+  // thousands of columns), so avoid copying it in each Converter.
+  const ConvertOptions& options_;
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
 };
 
+class ARROW_EXPORT DictionaryConverter : public Converter {
+ public:
+  using Converter::Converter;
+
+  // If the dictionary length goes above this value, conversion will fail
+  // with Status::IndexError.
+  virtual void SetMaxCardinality(int32_t max_length) = 0;
+
+  static Result<std::shared_ptr<DictionaryConverter>> Make(
+      const std::shared_ptr<DataType>& value_type, const ConvertOptions& options,
+      MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+};
+
 }  // namespace csv
 }  // namespace arrow
-
-#endif  // ARROW_CSV_CONVERTER_H

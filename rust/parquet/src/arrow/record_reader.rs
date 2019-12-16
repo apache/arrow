@@ -16,9 +16,9 @@
 // under the License.
 
 use std::cmp::{max, min};
-use std::mem::replace;
 use std::mem::size_of;
 use std::mem::transmute;
+use std::mem::{replace, swap};
 use std::slice;
 
 use crate::column::{page::PageReader, reader::ColumnReaderImpl};
@@ -43,6 +43,8 @@ pub struct RecordReader<T: DataType> {
 
     /// Number of records accumulated in records
     num_records: usize,
+    /// Number of values `num_records` contains.
+    num_values: usize,
 
     values_seen: usize,
     /// Starts from 1, number of values have been written to buffer
@@ -112,6 +114,7 @@ impl<T: DataType> RecordReader<T> {
             column_reader: None,
             column_desc: column_schema,
             num_records: 0,
+            num_values: 0,
             values_seen: 0,
             values_written: 0,
             in_middle_of_record: false,
@@ -150,6 +153,7 @@ impl<T: DataType> RecordReader<T> {
                 && self.in_middle_of_record
             {
                 self.num_records += 1;
+                self.num_values = self.values_seen;
                 self.in_middle_of_record = false;
                 records_read += 1;
             }
@@ -175,47 +179,146 @@ impl<T: DataType> RecordReader<T> {
         self.num_records
     }
 
-    /// Returns definition level data.
-    pub fn consume_def_levels(&mut self) -> Option<Buffer> {
-        let empty_def_buffer = if self.column_desc.max_def_level() > 0 {
-            Some(MutableBuffer::new(MIN_BATCH_SIZE))
-        } else {
-            None
-        };
-
-        replace(&mut self.def_levels, empty_def_buffer).map(|x| x.freeze())
+    /// Return number of values stored in buffer.
+    /// If the parquet column is not repeated, it should be equals to `num_records`,
+    /// otherwise it should be larger than or equal to `num_records`.
+    pub fn num_values(&self) -> usize {
+        self.num_values
     }
 
-    /// Return repetition level data
-    pub fn consume_rep_levels(&mut self) -> Option<Buffer> {
-        let empty_def_buffer = if self.column_desc.max_rep_level() > 0 {
-            Some(MutableBuffer::new(MIN_BATCH_SIZE))
+    /// Returns definition level data.
+    /// The implementation has side effects. It will create a new buffer to hold those
+    /// definition level values that have already been read into memory but not counted
+    /// as record values, e.g. those from `self.num_values` to `self.values_written`.
+    pub fn consume_def_levels(&mut self) -> Result<Option<Buffer>> {
+        let new_buffer = if let Some(ref mut def_levels_buf) = &mut self.def_levels {
+            let num_left_values = self.values_written - self.num_values;
+            let mut new_buffer = MutableBuffer::new(
+                size_of::<i16>() * max(MIN_BATCH_SIZE, num_left_values),
+            );
+            new_buffer.resize(num_left_values * size_of::<i16>())?;
+
+            let new_def_levels = FatPtr::<i16>::with_offset(&new_buffer, 0);
+            let new_def_levels = new_def_levels.to_slice_mut();
+            let left_def_levels =
+                FatPtr::<i16>::with_offset(&def_levels_buf, self.num_values);
+            let left_def_levels = left_def_levels.to_slice();
+
+            new_def_levels[0..num_left_values]
+                .copy_from_slice(&left_def_levels[0..num_left_values]);
+
+            def_levels_buf.resize(self.num_values * size_of::<i16>())?;
+            Some(new_buffer)
         } else {
             None
         };
 
-        replace(&mut self.rep_levels, empty_def_buffer).map(|x| x.freeze())
+        Ok(replace(&mut self.def_levels, new_buffer).map(|x| x.freeze()))
+    }
+
+    /// Return repetition level data.
+    /// The side effect is similar to `consume_def_levels`.
+    pub fn consume_rep_levels(&mut self) -> Result<Option<Buffer>> {
+        // TODO: Optimize to reduce the copy
+        let new_buffer = if let Some(ref mut rep_levels_buf) = &mut self.rep_levels {
+            let num_left_values = self.values_written - self.num_values;
+            let mut new_buffer = MutableBuffer::new(
+                size_of::<i16>() * max(MIN_BATCH_SIZE, num_left_values),
+            );
+            new_buffer.resize(num_left_values * size_of::<i16>())?;
+
+            let new_rep_levels = FatPtr::<i16>::with_offset(&new_buffer, 0);
+            let new_rep_levels = new_rep_levels.to_slice_mut();
+            let left_rep_levels =
+                FatPtr::<i16>::with_offset(&rep_levels_buf, self.num_values);
+            let left_rep_levels = left_rep_levels.to_slice();
+
+            new_rep_levels[0..num_left_values]
+                .copy_from_slice(&left_rep_levels[0..num_left_values]);
+
+            rep_levels_buf.resize(self.num_values * size_of::<i16>())?;
+
+            Some(new_buffer)
+        } else {
+            None
+        };
+
+        Ok(replace(&mut self.rep_levels, new_buffer).map(|x| x.freeze()))
     }
 
     /// Returns currently stored buffer data.
-    pub fn consume_record_data(&mut self) -> Buffer {
-        replace(&mut self.records, MutableBuffer::new(MIN_BATCH_SIZE)).freeze()
+    /// The side effect is similar to `consume_def_levels`.
+    pub fn consume_record_data(&mut self) -> Result<Buffer> {
+        // TODO: Optimize to reduce the copy
+        let num_left_values = self.values_written - self.num_values;
+        let mut new_buffer = MutableBuffer::new(max(MIN_BATCH_SIZE, num_left_values));
+        new_buffer.resize(num_left_values * T::get_type_size())?;
+
+        let new_records =
+            FatPtr::<T::T>::with_offset_and_size(&new_buffer, 0, T::get_type_size());
+        let new_records = new_records.to_slice_mut();
+        let left_records = FatPtr::<T::T>::with_offset_and_size(
+            &self.records,
+            self.num_values,
+            T::get_type_size(),
+        );
+        let left_records = left_records.to_slice_mut();
+
+        for idx in 0..num_left_values {
+            swap(&mut new_records[idx], &mut left_records[idx]);
+        }
+
+        self.records.resize(self.num_values * T::get_type_size())?;
+
+        Ok(replace(&mut self.records, new_buffer).freeze())
     }
 
-    pub fn consume_bitmap_buffer(&mut self) -> Option<Buffer> {
-        let bitmap_builder = if self.column_desc.max_def_level() > 0 {
-            Some(BooleanBufferBuilder::new(MIN_BATCH_SIZE))
-        } else {
-            None
-        };
+    /// Returns currently stored null bitmap data.
+    /// The side effect is similar to `consume_def_levels`.
+    pub fn consume_bitmap_buffer(&mut self) -> Result<Option<Buffer>> {
+        // TODO: Optimize to reduce the copy
+        if self.column_desc.max_def_level() > 0 {
+            assert!(self.null_bitmap.is_some());
+            let num_left_values = self.values_written - self.num_values;
+            let new_bitmap_builder = Some(BooleanBufferBuilder::new(max(
+                MIN_BATCH_SIZE,
+                num_left_values,
+            )));
 
-        replace(&mut self.null_bitmap, bitmap_builder).map(|mut builder| builder.finish())
+            let old_bitmap = replace(&mut self.null_bitmap, new_bitmap_builder)
+                .map(|mut builder| builder.finish())
+                .unwrap();
+
+            let old_bitmap = Bitmap::from(old_bitmap);
+
+            for i in self.num_values..self.values_written {
+                self.null_bitmap
+                    .as_mut()
+                    .unwrap()
+                    .append(old_bitmap.is_set(i))?;
+            }
+
+            Ok(Some(old_bitmap.to_buffer()))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Reset state of record reader.
+    /// Should be called after consuming data, e.g. `consume_rep_levels`,
+    /// `consume_rep_levels`, `consume_record_data` and `consume_bitmap_buffer`.
+    pub fn reset(&mut self) {
+        self.values_written = self.values_written - self.num_values;
+        self.num_records = 0;
+        self.num_values = 0;
+        self.values_seen = 0;
+        self.in_middle_of_record = false;
     }
 
     /// Returns bitmap data.
-    pub fn consume_bitmap(&mut self) -> Option<Bitmap> {
+    pub fn consume_bitmap(&mut self) -> Result<Option<Bitmap>> {
         self.consume_bitmap_buffer()
-            .map(|buffer| Bitmap::from(buffer))
+            .map(|buffer| buffer.map(|b| Bitmap::from(b)))
     }
 
     /// Try to read one batch of data.
@@ -333,6 +436,7 @@ impl<T: DataType> RecordReader<T> {
                         if self.in_middle_of_record {
                             records_read += 1;
                             self.num_records += 1;
+                            self.num_values = self.values_seen;
                         }
                         self.in_middle_of_record = true;
                     }
@@ -345,6 +449,7 @@ impl<T: DataType> RecordReader<T> {
                 let records_read =
                     min(records_to_read, self.values_written - self.values_seen);
                 self.num_records += records_read;
+                self.num_values += records_read;
                 self.values_seen += records_read;
                 self.in_middle_of_record = false;
 
@@ -446,8 +551,10 @@ mod tests {
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(2).unwrap());
             assert_eq!(2, record_reader.num_records());
+            assert_eq!(2, record_reader.num_values());
             assert_eq!(3, record_reader.read_records(3).unwrap());
             assert_eq!(5, record_reader.num_records());
+            assert_eq!(5, record_reader.num_values());
         }
 
         // Second page
@@ -467,14 +574,18 @@ mod tests {
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(10).unwrap());
             assert_eq!(7, record_reader.num_records());
+            assert_eq!(7, record_reader.num_values());
         }
 
         let mut bb = Int32BufferBuilder::new(7);
         bb.append_slice(&[4, 7, 6, 3, 2, 8, 9]).unwrap();
         let expected_buffer = bb.finish();
-        assert_eq!(expected_buffer, record_reader.consume_record_data());
-        assert_eq!(None, record_reader.consume_def_levels());
-        assert_eq!(None, record_reader.consume_bitmap());
+        assert_eq!(
+            expected_buffer,
+            record_reader.consume_record_data().unwrap()
+        );
+        assert_eq!(None, record_reader.consume_def_levels().unwrap());
+        assert_eq!(None, record_reader.consume_bitmap().unwrap());
     }
 
     #[test]
@@ -524,8 +635,10 @@ mod tests {
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(2).unwrap());
             assert_eq!(2, record_reader.num_records());
+            assert_eq!(2, record_reader.num_values());
             assert_eq!(3, record_reader.read_records(3).unwrap());
             assert_eq!(5, record_reader.num_records());
+            assert_eq!(5, record_reader.num_values());
         }
 
         // Second page
@@ -548,13 +661,17 @@ mod tests {
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(10).unwrap());
             assert_eq!(7, record_reader.num_records());
+            assert_eq!(7, record_reader.num_values());
         }
 
         // Verify result record data
         let mut bb = Int32BufferBuilder::new(7);
         bb.append_slice(&[0, 7, 0, 6, 3, 0, 8]).unwrap();
         let expected_buffer = bb.finish();
-        assert_eq!(expected_buffer, record_reader.consume_record_data());
+        assert_eq!(
+            expected_buffer,
+            record_reader.consume_record_data().unwrap()
+        );
 
         // Verify result def levels
         let mut bb = Int16BufferBuilder::new(7);
@@ -563,7 +680,7 @@ mod tests {
         let expected_def_levels = bb.finish();
         assert_eq!(
             Some(expected_def_levels),
-            record_reader.consume_def_levels()
+            record_reader.consume_def_levels().unwrap()
         );
 
         // Verify bitmap
@@ -571,7 +688,10 @@ mod tests {
         bb.append_slice(&[false, true, false, true, true, false, true])
             .unwrap();
         let expected_bitmap = Bitmap::from(bb.finish());
-        assert_eq!(Some(expected_bitmap), record_reader.consume_bitmap());
+        assert_eq!(
+            Some(expected_bitmap),
+            record_reader.consume_bitmap().unwrap()
+        );
     }
 
     #[test]
@@ -623,8 +743,10 @@ mod tests {
 
             assert_eq!(1, record_reader.read_records(1).unwrap());
             assert_eq!(1, record_reader.num_records());
+            assert_eq!(1, record_reader.num_values());
             assert_eq!(2, record_reader.read_records(3).unwrap());
             assert_eq!(3, record_reader.num_records());
+            assert_eq!(7, record_reader.num_values());
         }
 
         // Second page
@@ -649,13 +771,17 @@ mod tests {
 
             assert_eq!(1, record_reader.read_records(10).unwrap());
             assert_eq!(4, record_reader.num_records());
+            assert_eq!(9, record_reader.num_values());
         }
 
         // Verify result record data
         let mut bb = Int32BufferBuilder::new(9);
         bb.append_slice(&[4, 0, 0, 7, 6, 3, 2, 8, 9]).unwrap();
         let expected_buffer = bb.finish();
-        assert_eq!(expected_buffer, record_reader.consume_record_data());
+        assert_eq!(
+            expected_buffer,
+            record_reader.consume_record_data().unwrap()
+        );
 
         // Verify result def levels
         let mut bb = Int16BufferBuilder::new(9);
@@ -664,7 +790,7 @@ mod tests {
         let expected_def_levels = bb.finish();
         assert_eq!(
             Some(expected_def_levels),
-            record_reader.consume_def_levels()
+            record_reader.consume_def_levels().unwrap()
         );
 
         // Verify bitmap
@@ -672,7 +798,10 @@ mod tests {
         bb.append_slice(&[true, false, false, true, true, true, true, true, true])
             .unwrap();
         let expected_bitmap = Bitmap::from(bb.finish());
-        assert_eq!(Some(expected_bitmap), record_reader.consume_bitmap());
+        assert_eq!(
+            Some(expected_bitmap),
+            record_reader.consume_bitmap().unwrap()
+        );
     }
 
     #[test]
@@ -711,6 +840,7 @@ mod tests {
 
             assert_eq!(1000, record_reader.read_records(1000).unwrap());
             assert_eq!(1000, record_reader.num_records());
+            assert_eq!(5000, record_reader.num_values());
         }
     }
 }

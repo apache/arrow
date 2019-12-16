@@ -131,6 +131,9 @@ ARROW_PYTHON_EXPORT
 Status InvalidValue(PyObject* obj, const std::string& why);
 
 ARROW_PYTHON_EXPORT
+Status InvalidType(PyObject* obj, const std::string& why);
+
+ARROW_PYTHON_EXPORT
 Status IntegerScalarToDoubleSafe(PyObject* obj, double* result);
 ARROW_PYTHON_EXPORT
 Status IntegerScalarToFloat32Safe(PyObject* obj, float* result);

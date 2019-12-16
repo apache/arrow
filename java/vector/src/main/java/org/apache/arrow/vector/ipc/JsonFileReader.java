@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferLayout.BufferType;
@@ -318,7 +319,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          buf.writeLong(parser.getLongValue());
+          String value = parser.getValueAsString();
+          buf.writeLong(Long.valueOf(value));
         }
 
         return buf;
@@ -378,7 +380,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          BigInteger value = parser.getBigIntegerValue();
+          BigInteger value = new BigInteger(parser.getValueAsString());
           buf.writeLong(value.longValue());
         }
 
@@ -603,7 +605,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
     buf = reader.readBuffer(allocator, count);
 
-    assert buf != null;
+    Preconditions.checkNotNull(buf);
     return buf;
   }
 
@@ -650,6 +652,11 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         }
 
         vectorBuffers[v] = readIntoBuffer(allocator, bufferType, vector.getMinorType(), innerBufferValueCount);
+      }
+
+      if (vectorBuffers.length == 0) {
+        readToken(END_OBJECT);
+        return;
       }
 
       final int nullCount = BitVectorHelper.getNullCount(vectorBuffers[0], valueCount);

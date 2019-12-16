@@ -120,8 +120,8 @@ STL Integration
 ---------------
 
 If you wish to use a Arrow memory pool to allocate the data of STL containers,
-you can do so using the :class:`arrow::stl_allocator` wrapper.
+you can do so using the :class:`arrow::stl::allocator` wrapper.
 
 Conversely, you can also use a STL allocator to allocate Arrow memory,
-using the :class:`arrow::STLMemoryPool` class.  However, this may be less
+using the :class:`arrow::stl::STLMemoryPool` class.  However, this may be less
 performant, as STL allocators don't provide a resizing operation.

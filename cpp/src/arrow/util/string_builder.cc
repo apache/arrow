@@ -19,7 +19,7 @@
 
 #include <sstream>
 
-#include "arrow/util/stl.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 

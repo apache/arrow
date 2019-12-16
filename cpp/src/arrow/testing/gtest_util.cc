@@ -28,15 +28,17 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <locale>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/ipc/json-simple.h"
+#include "arrow/ipc/json_simple.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -49,7 +51,8 @@ static void PrintChunkedArray(const ChunkedArray& carr, std::stringstream* ss) {
   for (int i = 0; i < carr.num_chunks(); ++i) {
     auto c1 = carr.chunk(i);
     *ss << "Chunk " << i << std::endl;
-    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
+    ::arrow::PrettyPrintOptions options(/*indent=*/2);
+    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, options, ss));
     *ss << std::endl;
   }
 }
@@ -59,14 +62,27 @@ void AssertTsEqual(const T& expected, const T& actual) {
   if (!expected.Equals(actual)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
-    ARROW_EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
-    ARROW_EXPECT_OK(PrettyPrint(actual, 0, &pp_actual));
+    ::arrow::PrettyPrintOptions options(/*indent=*/2);
+    options.window = 50;
+    ARROW_EXPECT_OK(PrettyPrint(expected, options, &pp_expected));
+    ARROW_EXPECT_OK(PrettyPrint(actual, options, &pp_actual));
     FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();
   }
 }
 
-void AssertArraysEqual(const Array& expected, const Array& actual) {
-  AssertTsEqual(expected, actual);
+void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose) {
+  std::stringstream diff;
+  if (!expected.Equals(actual, EqualOptions().diff_sink(&diff))) {
+    if (verbose) {
+      ::arrow::PrettyPrintOptions options(/*indent=*/2);
+      options.window = 50;
+      diff << "Expected:\n";
+      ARROW_EXPECT_OK(PrettyPrint(expected, options, &diff));
+      diff << "\nActual:\n";
+      ARROW_EXPECT_OK(PrettyPrint(actual, options, &diff));
+    }
+    FAIL() << diff.str();
+  }
 }
 
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual) {
@@ -76,19 +92,14 @@ void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual) 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
   ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
   if (!actual.Equals(expected)) {
-    std::stringstream pp_result;
-    std::stringstream pp_expected;
-
+    std::stringstream diff;
     for (int i = 0; i < actual.num_chunks(); ++i) {
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
-      if (!c1->Equals(*c2)) {
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
-        FAIL() << "Chunk " << i << " Got: " << pp_result.str()
-               << "\nExpected: " << pp_expected.str();
-      }
+      diff << "# chunk " << i << std::endl;
+      ARROW_IGNORE_EXPR(c1->Equals(c2, EqualOptions().diff_sink(&diff)));
     }
+    FAIL() << diff.str();
   }
 }
 
@@ -134,15 +145,59 @@ void AssertDatumsEqual(const Datum& expected, const Datum& actual) {
 }
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                     const std::string& json) {
+                                     util::string_view json) {
   std::shared_ptr<Array> out;
   ABORT_NOT_OK(ipc::internal::json::ArrayFromJSON(type, json, &out));
   return out;
 }
 
-void AssertTablesEqual(const Table& expected, const Table& actual,
-                       bool same_chunk_layout) {
+std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                                   const std::vector<std::string>& json) {
+  ArrayVector out_chunks;
+  for (const std::string& chunk_json : json) {
+    out_chunks.push_back(ArrayFromJSON(type, chunk_json));
+  }
+  return std::make_shared<ChunkedArray>(std::move(out_chunks));
+}
+
+std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,
+                                                 util::string_view json) {
+  // Parses as a StructArray
+  auto struct_type = struct_(schema->fields());
+  std::shared_ptr<Array> struct_array = ArrayFromJSON(struct_type, json);
+
+  // Converts StructArray to RecordBatch
+  std::shared_ptr<RecordBatch> record_batch;
+  ABORT_NOT_OK(RecordBatch::FromStructArray(struct_array, &record_batch));
+
+  return record_batch;
+}
+
+std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
+                                     const std::vector<std::string>& json) {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  for (const std::string& batch_json : json) {
+    batches.push_back(RecordBatchFromJSON(schema, batch_json));
+  }
+  std::shared_ptr<Table> table;
+  ABORT_NOT_OK(Table::FromRecordBatches(schema, batches, &table));
+
+  return table;
+}
+
+void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
+                       bool combine_chunks) {
   ASSERT_EQ(expected.num_columns(), actual.num_columns());
+
+  if (combine_chunks) {
+    auto pool = default_memory_pool();
+    std::shared_ptr<Table> new_expected, new_actual;
+    ASSERT_OK(expected.CombineChunks(pool, &new_expected));
+    ASSERT_OK(actual.CombineChunks(pool, &new_actual));
+
+    AssertTablesEqual(*new_expected, *new_actual, false, false);
+    return;
+  }
 
   if (same_chunk_layout) {
     for (int i = 0; i < actual.num_columns(); ++i) {
@@ -184,6 +239,26 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right,
     }
   }
 }
+
+class LocaleGuard::Impl {
+ public:
+  explicit Impl(const char* new_locale) : global_locale_(std::locale()) {
+    try {
+      std::locale::global(std::locale(new_locale));
+    } catch (std::runtime_error&) {
+      ARROW_LOG(WARNING) << "Locale unavailable (ignored): '" << new_locale << "'";
+    }
+  }
+
+  ~Impl() { std::locale::global(global_locale_); }
+
+ protected:
+  std::locale global_locale_;
+};
+
+LocaleGuard::LocaleGuard(const char* new_locale) : impl_(new Impl(new_locale)) {}
+
+LocaleGuard::~LocaleGuard() {}
 
 namespace {
 

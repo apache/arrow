@@ -70,11 +70,11 @@ if [ ${SOURCE_GLIB} -gt 0 ]; then
     git archive ${release_hash} --prefix ${archive_name}/) \
     > "${SOURCE_TOP_DIR}/${archive_name}.tar"
   c_glib_including_configure_tar_gz=c_glib.tar.gz
-  "${SOURCE_TOP_DIR}/dev/run_docker_compose.sh" \
-    release-source \
-    /arrow/dev/release/source/build.sh \
-    ${archive_name} \
-    ${c_glib_including_configure_tar_gz}
+  docker build -t arrow-release-source "${SOURCE_TOP_DIR}/dev/release/source"
+  docker run \
+    -v "${SOURCE_TOP_DIR}":/arrow:delegated \
+    arrow-release-source \
+    /arrow/dev/release/source/build.sh ${archive_name} ${c_glib_including_configure_tar_gz}
   rm -f "${SOURCE_TOP_DIR}/${archive_name}.tar"
   rm -rf ${tag}/c_glib
   tar xf "${SOURCE_TOP_DIR}/${c_glib_including_configure_tar_gz}" -C ${tag}

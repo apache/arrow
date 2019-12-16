@@ -68,7 +68,7 @@ class PrepareTest < Test::Unit::TestCase
     end
   end
 
-  def test_update_version_pre_tag
+  def test_version_pre_tag
     prepare("VERSION_PRE_TAG")
     assert_equal([
                    {
@@ -104,6 +104,20 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-    <Version>#{@snapshot_version}</Version>",
                         "+    <Version>#{@release_version}</Version>"],
+                     ],
+                   },
+                   {
+                     path: "dev/tasks/homebrew-formulae/apache-arrow.rb",
+                     hunks: [
+                       ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
+                        "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
+                     ],
+                   },
+                   {
+                     path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
+                     hunks: [
+                       ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
+                        "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
                      ],
                    },
                    {
@@ -177,6 +191,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "rust/arrow-flight/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@snapshot_version}\"",
+                        "+version = \"#{@release_version}\""],
+                     ],
+                   },
+                   {
                      path: "rust/arrow/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
@@ -223,7 +244,7 @@ class PrepareTest < Test::Unit::TestCase
                  parse_patch(git("log", "-n", "1", "-p")))
   end
 
-  def test_update_version_post_tag
+  def test_version_post_tag
     prepare("VERSION_PRE_TAG",
             "VERSION_POST_TAG")
     assert_equal([
@@ -260,6 +281,20 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-    <Version>#{@release_version}</Version>",
                         "+    <Version>#{@next_snapshot_version}</Version>"],
+                     ],
+                   },
+                   {
+                     path: "dev/tasks/homebrew-formulae/apache-arrow.rb",
+                     hunks: [
+                       ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\"",
+                        "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
+                     ],
+                   },
+                   {
+                     path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
+                     hunks: [
+                       ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\"",
+                        "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
                      ],
                    },
                    {
@@ -334,6 +369,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "rust/arrow-flight/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@release_version}\"",
+                        "+version = \"#{@next_snapshot_version}\""],
+                     ],
+                   },
+                   {
                      path: "rust/arrow/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
@@ -378,5 +420,50 @@ class PrepareTest < Test::Unit::TestCase
                    },
                  ],
                  parse_patch(git("log", "-n", "1", "-p")))
+  end
+
+  def test_deb_package_names
+    prepare("DEB_PACKAGE_NAMES")
+    changes = parse_patch(git("log", "-n", "1", "-p"))
+    sampled_changes = changes.collect do |change|
+      first_hunk = change[:hunks][0]
+      first_removed_line = first_hunk.find {|line| line.start_with?("-")}
+      first_added_line = first_hunk.find {|line| line.start_with?("+")}
+      {
+        sampled_diff: [first_removed_line, first_added_line],
+        path: change[:path],
+      }
+    end
+    expected_changes = [
+      {
+        sampled_diff: [
+          "-dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/libarrow-glib#{@so_version}.install",
+          "+dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/libarrow-glib#{@next_so_version}.install",
+        ],
+        path: "dev/release/rat_exclude_files.txt"
+      },
+      {
+        sampled_diff: [
+          "-Package: libarrow#{@so_version}",
+          "+Package: libarrow#{@next_so_version}",
+        ],
+        path: "dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/control"
+      },
+      {
+        sampled_diff: [
+          "-Package: libarrow#{@so_version}",
+          "+Package: libarrow#{@next_so_version}",
+        ],
+        path: "dev/tasks/linux-packages/apache-arrow/debian/control"
+      },
+      {
+        sampled_diff: [
+          "-      - libarrow-glib#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb",
+          "+      - libarrow-glib#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb",
+        ],
+        path: "dev/tasks/tasks.yml",
+      },
+    ]
+    assert_equal(expected_changes, sampled_changes)
   end
 end

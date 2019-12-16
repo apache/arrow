@@ -19,6 +19,9 @@ package org.apache.arrow.algorithm.search;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.Arrays;
+import java.util.Collection;
+
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -28,13 +31,22 @@ import org.apache.arrow.vector.IntVector;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 /**
  * Test cases for {@link VectorRangeSearcher}.
  */
+@RunWith(Parameterized.class)
 public class TestVectorRangeSearcher {
 
   private BufferAllocator allocator;
+
+  private int repeat;
+
+  public TestVectorRangeSearcher(int repeat) {
+    this.repeat = repeat;
+  }
 
   @Before
   public void prepare() {
@@ -49,7 +61,6 @@ public class TestVectorRangeSearcher {
   @Test
   public void testGetLowerBounds() {
     final int maxValue = 100;
-    final int repeat = 5;
     try (IntVector intVector = new IntVector("int vec", allocator)) {
       // allocate vector
       intVector.allocateNew(maxValue * repeat);
@@ -79,7 +90,6 @@ public class TestVectorRangeSearcher {
   @Test
   public void testGetLowerBoundsNegative() {
     final int maxValue = 100;
-    final int repeat = 5;
     try (IntVector intVector = new IntVector("int vec", allocator);
     IntVector negVector = new IntVector("neg vec", allocator)) {
       // allocate vector
@@ -114,7 +124,6 @@ public class TestVectorRangeSearcher {
   @Test
   public void testGetUpperBounds() {
     final int maxValue = 100;
-    final int repeat = 5;
     try (IntVector intVector = new IntVector("int vec", allocator)) {
       // allocate vector
       intVector.allocateNew(maxValue * repeat);
@@ -144,7 +153,6 @@ public class TestVectorRangeSearcher {
   @Test
   public void testGetUpperBoundsNegative() {
     final int maxValue = 100;
-    final int repeat = 5;
     try (IntVector intVector = new IntVector("int vec", allocator);
          IntVector negVector = new IntVector("neg vec", allocator)) {
       // allocate vector
@@ -174,5 +182,15 @@ public class TestVectorRangeSearcher {
         assertEquals(-1, result);
       }
     }
+  }
+
+  @Parameterized.Parameters(name = "repeat = {0}")
+  public static Collection<Object[]> getRepeat() {
+    return Arrays.asList(
+      new Object[]{1},
+      new Object[]{2},
+      new Object[]{5},
+      new Object[]{10}
+    );
   }
 }

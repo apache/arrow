@@ -25,7 +25,10 @@
 
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
+#include "arrow/ipc/options.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -245,12 +248,12 @@ Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& sc
 /// dictionaries. Can be nullptr if you are sure there are no
 /// dictionary-encoded fields
 /// \param[in] file a random access file
-/// \param[in] max_recursion_depth the maximum permitted nesting depth
+/// \param[in] options options for deserialization
 /// \param[out] out the read record batch
 /// \return Status
 ARROW_EXPORT
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-                       const DictionaryMemo* dictionary_memo, int max_recursion_depth,
+                       const DictionaryMemo* dictionary_memo, const IpcOptions& options,
                        io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
 
 /// \brief Read arrow::Tensor as encapsulated IPC message in file
@@ -284,6 +287,27 @@ Status ReadSparseTensor(io::InputStream* file, std::shared_ptr<SparseTensor>* ou
 /// \return Status
 ARROW_EXPORT
 Status ReadSparseTensor(const Message& message, std::shared_ptr<SparseTensor>* out);
+
+namespace internal {
+
+// These internal APIs may change without warning or deprecation
+
+/// \brief EXPERIMENTAL: Read arrow::SparseTensorFormat::type from a metadata
+/// \param[in] metadata a Buffer containing the sparse tensor metadata
+/// \param[out] buffer_count the returned count of the body buffers
+/// \return Status
+ARROW_EXPORT
+Status ReadSparseTensorBodyBufferCount(const Buffer& metadata, size_t* buffer_count);
+
+/// \brief EXPERIMENTAL: Read arrow::SparseTensor from an IpcPayload
+/// \param[in] payload a IpcPayload contains a serialized SparseTensor
+/// \param[out] out the returned SparseTensor
+/// \return Status
+ARROW_EXPORT
+Status ReadSparseTensorPayload(const IpcPayload& payload,
+                               std::shared_ptr<SparseTensor>* out);
+
+}  // namespace internal
 
 }  // namespace ipc
 }  // namespace arrow

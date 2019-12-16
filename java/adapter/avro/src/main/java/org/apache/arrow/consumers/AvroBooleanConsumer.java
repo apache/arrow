@@ -20,33 +20,24 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.complex.impl.BitWriterImpl;
-import org.apache.arrow.vector.complex.writer.BitWriter;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume boolean type values from avro decoder.
  * Write the data to {@link BitVector}.
  */
-public class AvroBooleanConsumer implements Consumer {
-
-  private final BitWriter writer;
+public class AvroBooleanConsumer extends BaseAvroConsumer<BitVector> {
 
   /**
    * Instantiate a AvroBooleanConsumer.
    */
   public AvroBooleanConsumer(BitVector vector) {
-    this.writer = new BitWriterImpl(vector);
+    super(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeBit(decoder.readBoolean() ? 1 : 0);
-    writer.setPosition(writer.getPosition() + 1);
-  }
-
-  @Override
-  public void addNull() {
-    writer.setPosition(writer.getPosition() + 1);
+    vector.setSafe(currentIndex, decoder.readBoolean() ? 1 : 0);
+    currentIndex++;
   }
 }

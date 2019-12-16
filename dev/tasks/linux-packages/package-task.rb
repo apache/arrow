@@ -56,8 +56,8 @@ class PackageTask
 
   def define
     define_dist_task
-    define_yum_task
     define_apt_task
+    define_yum_task
     define_version_task
   end
 
@@ -66,10 +66,6 @@ class PackageTask
     value = ENV[name]
     raise "Specify #{name} environment variable" if value.nil?
     value
-  end
-
-  def parallel_build?
-    ENV["PARALLEL"] == "yes"
   end
 
   def debug_build?
@@ -100,7 +96,7 @@ class PackageTask
     unless File.exist?(absolute_output_path)
       mkdir_p(File.dirname(absolute_output_path))
       rake_output_message "Downloading... #{url}"
-      open(url) do |downloaded_file|
+      URI(url).open do |downloaded_file|
         File.open(absolute_output_path, "wb") do |output_file|
           output_file.print(downloaded_file.read)
         end
@@ -110,7 +106,9 @@ class PackageTask
     absolute_output_path
   end
 
-  def run_docker(id)
+  def run_docker(os, architecture=nil)
+    id = os
+    id = "#{id}-#{architecture}" if architecture
     docker_tag = "#{@package}-#{id}"
     build_command_line = [
       "docker",
@@ -128,7 +126,16 @@ class PackageTask
       build_command_line.concat(["--build-arg", "DEBUG=yes"])
       run_command_line.concat(["--env", "DEBUG=yes"])
     end
-    build_command_line << id
+    if File.exist?(File.join(id, "Dockerfile"))
+      docker_context = id
+    else
+      from = File.readlines(File.join(id, "from")).find do |line|
+        /^[a-z]/i =~ line
+      end
+      build_command_line.concat(["--build-arg", "FROM=#{from.chomp}"])
+      docker_context = os
+    end
+    build_command_line << docker_context
     run_command_line.concat([docker_tag, "/host/build.sh"])
 
     sh(*build_command_line)
@@ -141,134 +148,96 @@ class PackageTask
     task :dist => [@archive_name]
   end
 
-  def define_yum_task
-    namespace :yum do
-      distribution = "centos"
-      yum_dir = "yum"
-      repositories_dir = "#{yum_dir}/repositories"
+  def enable_apt?
+    true
+  end
 
-      directory repositories_dir
+  def apt_targets
+    return [] unless enable_apt?
 
-      desc "Build RPM packages"
-      task :build => [@archive_name, repositories_dir] do
-        tmp_dir = "#{yum_dir}/tmp"
-        rm_rf(tmp_dir)
-        mkdir_p(tmp_dir)
-        rpm_archive_name = "#{@package}-#{@rpm_version}.tar.gz"
-        cp(@archive_name,
-           File.join(tmp_dir, rpm_archive_name))
+    targets = (ENV["APT_TARGETS"] || "").split(",")
+    return targets unless targets.empty?
 
-        env_sh = "#{yum_dir}/env.sh"
-        File.open(env_sh, "w") do |file|
-          file.puts(<<-ENV)
-SOURCE_ARCHIVE=#{rpm_archive_name}
-PACKAGE=#{@rpm_package}
-VERSION=#{@rpm_version}
-RELEASE=#{@rpm_release}
-          ENV
-        end
+    apt_targets_default
+  end
 
-        tmp_distribution_dir = "#{tmp_dir}/#{distribution}"
-        mkdir_p(tmp_distribution_dir)
-        spec = "#{tmp_distribution_dir}/#{@rpm_package}.spec"
-        spec_in = "#{yum_dir}/#{@rpm_package}.spec.in"
-        spec_in_data = File.read(spec_in)
-        spec_data = spec_in_data.gsub(/@(.+?)@/) do |matched|
-          case $1
-          when "PACKAGE"
-            @rpm_package
-          when "VERSION"
-            @rpm_version
-          when "RELEASE"
-            @rpm_release
-          else
-            matched
-          end
-        end
-        File.open(spec, "w") do |spec_file|
-          spec_file.print(spec_data)
-        end
+  def apt_targets_default
+    # Disable arm64 targets by default for now
+    # because they require some setups on host.
+    [
+      "debian-stretch",
+      # "debian-stretch-arm64",
+      "debian-buster",
+      # "debian-stretch-arm64",
+      "ubuntu-xenial",
+      # "ubuntu-xenial-arm64",
+      "ubuntu-bionic",
+      # "ubuntu-bionic-arm64",
+      "ubuntu-disco",
+      # "ubuntu-disco-arm64",
+    ]
+  end
 
-        cd(yum_dir) do
-          distribution_versions = (ENV["CENTOS_VERSIONS"] || "6,7").split(",")
-          threads = []
-          distribution_versions.each do |version|
-            id = "#{distribution}-#{version}"
-            if parallel_build?
-              threads << Thread.new(id) do |local_id|
-                run_docker(local_id)
-              end
-            else
-              run_docker(id)
-            end
-          end
-          threads.each(&:join)
-        end
-      end
+  def deb_archive_name
+    "#{@package}-#{@deb_upstream_version}.tar.gz"
+  end
+
+  def apt_dir
+    "apt"
+  end
+
+  def apt_build
+    tmp_dir = "#{apt_dir}/tmp"
+    rm_rf(tmp_dir)
+    mkdir_p(tmp_dir)
+    cp(deb_archive_name,
+       File.join(tmp_dir, deb_archive_name))
+    Dir.glob("debian*") do |debian_dir|
+      cp_r(debian_dir, "#{tmp_dir}/#{debian_dir}")
     end
 
-    desc "Release Yum packages"
-    yum_tasks = [
-      "yum:build",
-    ]
-    task :yum => yum_tasks
+    env_sh = "#{apt_dir}/env.sh"
+    File.open(env_sh, "w") do |file|
+      file.puts(<<-ENV)
+PACKAGE=#{@package}
+VERSION=#{@deb_upstream_version}
+      ENV
+    end
+
+    cd(apt_dir) do
+      apt_targets.each do |target|
+        next unless Dir.exist?(target)
+        distribution, version, architecture = target.split("-", 3)
+        os = "#{distribution}-#{version}"
+        run_docker(os, architecture)
+      end
+    end
   end
 
   def define_apt_task
     namespace :apt do
-      apt_dir = "apt"
+      source_build_sh = "#{__dir__}/apt/build.sh"
+      build_sh = "#{apt_dir}/build.sh"
       repositories_dir = "#{apt_dir}/repositories"
+
+      file build_sh => source_build_sh do
+        cp(source_build_sh, build_sh)
+      end
 
       directory repositories_dir
 
       desc "Build deb packages"
-      task :build => [@archive_name, repositories_dir] do
-        tmp_dir = "#{apt_dir}/tmp"
-        rm_rf(tmp_dir)
-        mkdir_p(tmp_dir)
-        deb_archive_name = "#{@package}-#{@deb_upstream_version}.tar.gz"
-        cp(@archive_name,
-           File.join(tmp_dir, deb_archive_name))
-        Dir.glob("debian*") do |debian_dir|
-          cp_r(debian_dir, "#{tmp_dir}/#{debian_dir}")
-        end
-
-        env_sh = "#{apt_dir}/env.sh"
-        File.open(env_sh, "w") do |file|
-          file.puts(<<-ENV)
-PACKAGE=#{@package}
-VERSION=#{@deb_upstream_version}
-          ENV
-        end
-
-        cd(apt_dir) do
-          threads = []
-          targets = (ENV["APT_TARGETS"] || "").split(",")
-          if targets.empty?
-            targets = [
-              "debian-stretch",
-              # Disable by default for now because it requires some setups on host.
-              # "debian-stretch-arm64",
-              "debian-buster",
-              "ubuntu-xenial",
-              "ubuntu-bionic",
-              "ubuntu-cosmic",
-              "ubuntu-disco",
-            ]
-          end
-          targets.each do |target|
-            next unless Dir.exist?(target)
-            id = target
-            if parallel_build?
-              threads << Thread.new(id) do |local_id|
-                run_docker(local_id)
-              end
-            else
-              run_docker(id)
-            end
-          end
-          threads.each(&:join)
-        end
+      if enable_apt?
+        build_dependencies = [
+          deb_archive_name,
+          build_sh,
+          repositories_dir,
+        ]
+      else
+        build_dependencies = []
+      end
+      task :build => build_dependencies do
+        apt_build if enable_apt?
       end
     end
 
@@ -277,6 +246,133 @@ VERSION=#{@deb_upstream_version}
       "apt:build",
     ]
     task :apt => apt_tasks
+  end
+
+  def enable_yum?
+    true
+  end
+
+  def yum_targets
+    return [] unless enable_yum?
+
+    targets = (ENV["YUM_TARGETS"] || "").split(",")
+    return targets unless targets.empty?
+
+    yum_targets_default
+  end
+
+  def yum_targets_default
+    # Disable aarch64 targets by default for now
+    # because they require some setups on host.
+    [
+      "centos-6",
+      "centos-7",
+      # "centos-7-aarch64",
+      "centos-8",
+      # "centos-8-aarch64",
+    ]
+  end
+
+  def rpm_archive_name
+    "#{rpm_archive_base_name}.tar.gz"
+  end
+
+  def rpm_archive_base_name
+    "#{@package}-#{@rpm_version}"
+  end
+
+  def yum_dir
+    "yum"
+  end
+
+  def yum_build_sh
+    "#{yum_dir}/build.sh"
+  end
+
+  def yum_expand_variable(key)
+    case key
+    when "PACKAGE"
+      @rpm_package
+    when "VERSION"
+      @rpm_version
+    when "RELEASE"
+      @rpm_release
+    else
+      nil
+    end
+  end
+
+  def yum_spec_in_path
+    "#{yum_dir}/#{@rpm_package}.spec.in"
+  end
+
+  def yum_build
+    tmp_dir = "#{yum_dir}/tmp"
+    rm_rf(tmp_dir)
+    mkdir_p(tmp_dir)
+    cp(rpm_archive_name,
+       File.join(tmp_dir, rpm_archive_name))
+
+    env_sh = "#{yum_dir}/env.sh"
+    File.open(env_sh, "w") do |file|
+      file.puts(<<-ENV)
+SOURCE_ARCHIVE=#{rpm_archive_name}
+PACKAGE=#{@rpm_package}
+VERSION=#{@rpm_version}
+RELEASE=#{@rpm_release}
+      ENV
+    end
+
+    spec = "#{tmp_dir}/#{@rpm_package}.spec"
+    spec_in_data = File.read(yum_spec_in_path)
+    spec_data = spec_in_data.gsub(/@(.+?)@/) do |matched|
+      yum_expand_variable($1) || matched
+    end
+    File.open(spec, "w") do |spec_file|
+      spec_file.print(spec_data)
+    end
+
+    cd(yum_dir) do
+      yum_targets.each do |target|
+        next unless Dir.exist?(target)
+        distribution, version, architecture = target.split("-", 3)
+        os = "#{distribution}-#{version}"
+        run_docker(os, architecture)
+      end
+    end
+  end
+
+  def define_yum_task
+    namespace :yum do
+      source_build_sh = "#{__dir__}/yum/build.sh"
+      file yum_build_sh => source_build_sh do
+        cp(source_build_sh, yum_build_sh)
+      end
+
+      repositories_dir = "#{yum_dir}/repositories"
+      directory repositories_dir
+
+      desc "Build RPM packages"
+      if enable_yum?
+        build_dependencies = [
+          repositories_dir,
+          rpm_archive_name,
+          yum_build_sh,
+          yum_spec_in_path,
+        ]
+      else
+        build_dependencies = []
+      end
+      task :build => build_dependencies do
+        yum_build if enable_yum?
+      end
+    end
+
+    desc "Release Yum repositories"
+    yum_tasks = [
+      "yum:build",
+    ]
+    task :yum => yum_tasks
   end
 
   def define_version_task
@@ -294,11 +390,23 @@ VERSION=#{@deb_upstream_version}
   end
 
   def packager_name
-    ENV["DEBFULLNAME"] || ENV["NAME"] || `git config --get user.name`.chomp
+    ENV["DEBFULLNAME"] || ENV["NAME"] || guess_packager_name_from_git
+  end
+
+  def guess_packager_name_from_git
+    name = `git config --get user.name`.chomp
+    return name unless name.empty?
+    `git log -n 1 --format=%aN`.chomp
   end
 
   def packager_email
-    ENV["DEBEMAIL"] || ENV["EMAIL"] || `git config --get user.email`.chomp
+    ENV["DEBEMAIL"] || ENV["EMAIL"] || guess_packager_email_from_git
+  end
+
+  def guess_packager_email_from_git
+    email = `git config --get user.email`.chomp
+    return email unless email.empty?
+    `git log -n 1 --format=%aE`.chomp
   end
 
   def update_content(path)
@@ -314,6 +422,8 @@ VERSION=#{@deb_upstream_version}
   end
 
   def update_debian_changelog
+    return unless enable_apt?
+
     Dir.glob("debian*") do |debian_dir|
       update_content("#{debian_dir}/changelog") do |content|
         <<-CHANGELOG.rstrip
@@ -330,8 +440,10 @@ VERSION=#{@deb_upstream_version}
   end
 
   def update_spec
+    return unless enable_yum?
+
     release_time = @release_time.strftime("%a %b %d %Y")
-    update_content("yum/#{@rpm_package}.spec.in") do |content|
+    update_content(yum_spec_in_path) do |content|
       content = content.sub(/^(%changelog\n)/, <<-CHANGELOG)
 %changelog
 * #{release_time} #{packager_name} <#{packager_email}> - #{@rpm_version}-#{@rpm_release}
@@ -342,5 +454,4 @@ VERSION=#{@deb_upstream_version}
       content.rstrip
     end
   end
-
 end

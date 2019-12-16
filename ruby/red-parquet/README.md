@@ -27,7 +27,7 @@ Red Parquet is the Ruby bindings of Apache Parquet. Red Parquet is based on GObj
 
 Red Parquet uses [Apache Parquet GLib](https://github.com/apache/arrow/tree/master/c_glib/parquet-glib) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Apache Parquet.
 
-Apache Parquet GLib is a C wrapper for [Apache Parquet C++](https://github.com/apache/arrow/tree/master/cpp/parquet). GObject Introspection can't use Apache Parquet C++ directly. Apache Parquet GLib is a bridge between Apache Parquet C++ and GObject Introspection.
+Apache Parquet GLib is a C wrapper for [Apache Parquet C++](https://github.com/apache/arrow/tree/master/cpp/src/parquet). GObject Introspection can't use Apache Parquet C++ directly. Apache Parquet GLib is a bridge between Apache Parquet C++ and GObject Introspection.
 
 gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Parquet uses GObject Introspection via gobject-introspection gem.
 
