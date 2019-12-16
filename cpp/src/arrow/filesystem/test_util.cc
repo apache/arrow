@@ -38,7 +38,7 @@ namespace fs {
 namespace {
 
 std::vector<FileStats> GetAllWithType(FileSystem* fs, FileType type) {
-  Selector selector;
+  FileSelector selector;
   selector.base_dir = "";
   selector.recursive = true;
   std::vector<FileStats> stats = std::move(fs->GetTargetStats(selector)).ValueOrDie();
@@ -578,7 +578,7 @@ void GenericFileSystemTest::TestGetTargetStatsSelector(FileSystem* fs) {
   CreateFile(fs, "AB/CD/jkl", "yet other data");
 
   TimePoint first_dir_time, first_file_time;
-  Selector s;
+  FileSelector s;
   s.base_dir = "";
   std::vector<FileStats> stats;
   ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(s));
@@ -642,7 +642,7 @@ void GenericFileSystemTest::TestGetTargetStatsSelector(FileSystem* fs) {
   ASSERT_RAISES(IOError, fs->GetTargetStats(s));
 }
 
-void GetSortedStats(FileSystem* fs, Selector s, std::vector<FileStats>& stats) {
+void GetSortedStats(FileSystem* fs, FileSelector s, std::vector<FileStats>& stats) {
   ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(s));
   // Clear mtime & size for easier testing.
   for_each(stats.begin(), stats.end(), [](FileStats& s) {
@@ -663,7 +663,7 @@ void GenericFileSystemTest::TestGetTargetStatsSelectorWithRecursion(FileSystem* 
   CreateFile(fs, "01/02/03/04/04.file", "04");
 
   std::vector<FileStats> stats;
-  Selector s;
+  FileSelector s;
 
   s.base_dir = "";
   s.recursive = false;

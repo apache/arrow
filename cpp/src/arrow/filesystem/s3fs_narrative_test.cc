@@ -94,7 +94,7 @@ void TestBucket(int argc, char** argv) {
   auto fs = MakeFileSystem();
   FileStats st;
   std::vector<FileStats> stats;
-  Selector select;
+  FileSelector select;
   std::shared_ptr<io::InputStream> is;
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buf;

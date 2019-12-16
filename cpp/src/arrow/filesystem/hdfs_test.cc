@@ -147,7 +147,7 @@ class TestHadoopFileSystem : public ::testing::Test {
     AssertFileStats(st, base_dir + "AB/data", FileType::File, 9);
 
     // With selector
-    Selector selector;
+    FileSelector selector;
     selector.base_dir = base_dir + "AB";
     selector.recursive = false;
 

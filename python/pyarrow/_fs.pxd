@@ -44,11 +44,11 @@ cdef class FileStats:
     cdef inline CFileStats unwrap(self) nogil
 
 
-cdef class Selector:
+cdef class FileSelector:
     cdef:
-        CSelector selector
+        CFileSelector selector
 
-    cdef inline CSelector unwrap(self) nogil
+    cdef inline CFileSelector unwrap(self) nogil
 
 
 cdef class FileSystem:

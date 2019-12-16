@@ -306,10 +306,10 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   auto format = std::make_shared<JSONRecordBatchFileFormat>(format_schema);
 
   // A selector is used to crawl files and directories of a
-  // filesystem. If the options in Selector are not enough, the
+  // filesystem. If the options in FileSelector are not enough, the
   // FileSystemDataSourceDiscovery class also supports an explicit list of
   // fs::FileStats instead of the selector.
-  fs::Selector s;
+  fs::FileSelector s;
   s.base_dir = "/dataset";
   s.recursive = true;
 
@@ -439,7 +439,7 @@ class TestSchemaUnification : public TestDataset {
     fs_ = mock_fs;
 
     auto get_source = [this](std::string base) -> Result<std::shared_ptr<DataSource>> {
-      fs::Selector s;
+      fs::FileSelector s;
       s.base_dir = base;
       s.recursive = true;
 

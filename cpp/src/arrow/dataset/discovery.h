@@ -157,7 +157,8 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
   /// \param[in] format passed to FileSystemDataSource
   /// \param[in] options see FileSystemDiscoveryOptions for more information.
   static Result<DataSourceDiscoveryPtr> Make(fs::FileSystemPtr filesystem,
-                                             fs::Selector selector, FileFormatPtr format,
+                                             fs::FileSelector selector,
+                                             FileFormatPtr format,
                                              FileSystemDiscoveryOptions options);
 
   Result<std::shared_ptr<Schema>> Inspect() override;

@@ -780,28 +780,28 @@ fs___FileStats__set_mtime <- function(x, time){
     invisible(.Call(`_arrow_fs___FileStats__set_mtime` , x, time))
 }
 
-fs___Selector__base_dir <- function(selector){
-    .Call(`_arrow_fs___Selector__base_dir` , selector)
+fs___FileSelector__base_dir <- function(selector){
+    .Call(`_arrow_fs___FileSelector__base_dir` , selector)
 }
 
-fs___Selector__allow_non_existent <- function(selector){
-    .Call(`_arrow_fs___Selector__allow_non_existent` , selector)
+fs___FileSelector__allow_non_existent <- function(selector){
+    .Call(`_arrow_fs___FileSelector__allow_non_existent` , selector)
 }
 
-fs___Selector__recursive <- function(selector){
-    .Call(`_arrow_fs___Selector__recursive` , selector)
+fs___FileSelector__recursive <- function(selector){
+    .Call(`_arrow_fs___FileSelector__recursive` , selector)
 }
 
-fs___Selector__create <- function(base_dir, allow_non_existent, recursive){
-    .Call(`_arrow_fs___Selector__create` , base_dir, allow_non_existent, recursive)
+fs___FileSelector__create <- function(base_dir, allow_non_existent, recursive){
+    .Call(`_arrow_fs___FileSelector__create` , base_dir, allow_non_existent, recursive)
 }
 
 fs___FileSystem__GetTargetStats_Paths <- function(file_system, paths){
     .Call(`_arrow_fs___FileSystem__GetTargetStats_Paths` , file_system, paths)
 }
 
-fs___FileSystem__GetTargetStats_Selector <- function(file_system, selector){
-    .Call(`_arrow_fs___FileSystem__GetTargetStats_Selector` , file_system, selector)
+fs___FileSystem__GetTargetStats_FileSelector <- function(file_system, selector){
+    .Call(`_arrow_fs___FileSystem__GetTargetStats_FileSelector` , file_system, selector)
 }
 
 fs___FileSystem__CreateDir <- function(file_system, path, recursive){

@@ -52,8 +52,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CTimePoint mtime()
         void set_mtime(CTimePoint mtime)
 
-    cdef cppclass CSelector "arrow::fs::Selector":
-        CSelector()
+    cdef cppclass CFileSelector "arrow::fs::FileSelector":
+        CFileSelector()
         c_string base_dir
         c_bool allow_non_existent
         c_bool recursive
@@ -63,7 +63,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CResult[CFileStats] GetTargetStats(const c_string& path)
         CResult[vector[CFileStats]] GetTargetStats(
             const vector[c_string]& paths)
-        CResult[vector[CFileStats]] GetTargetStats(const CSelector& select)
+        CResult[vector[CFileStats]] GetTargetStats(const CFileSelector& select)
         CStatus CreateDir(const c_string& path, c_bool recursive)
         CStatus DeleteDir(const c_string& path)
         CStatus DeleteFile(const c_string& path)

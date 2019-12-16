@@ -23,7 +23,7 @@ The \code{DataSourceDiscovery$create()} factory method instantiates a
 \item \code{filesystem}: Currently only "local" is supported
 \item \code{format}: Currently only "parquet" is supported
 \item \code{allow_non_existent}: logical: is \code{path} allowed to not exist? Default
-\code{FALSE}. See \link{Selector}.
+\code{FALSE}. See \link{FileSelector}.
 \item \code{recursive}: logical: should files be discovered in subdirectories of
 \item \code{path}? Default \code{TRUE}.
 \item \code{...} Additional arguments passed to the \link{FileSystem} \verb{$create()} method
@@ -33,7 +33,7 @@ The \code{DataSourceDiscovery$create()} factory method instantiates a
 takes the following arguments:
 \itemize{
 \item \code{filesystem}: A \link{FileSystem}
-\item \code{selector}: A \link{Selector}
+\item \code{selector}: A \link{FileSelector}
 \item \code{format}: Currently only "parquet" is supported
 }
 }

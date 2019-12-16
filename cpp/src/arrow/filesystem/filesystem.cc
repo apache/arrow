@@ -183,7 +183,8 @@ Result<FileStats> SubTreeFileSystem::GetTargetStats(const std::string& path) {
   return st;
 }
 
-Result<std::vector<FileStats>> SubTreeFileSystem::GetTargetStats(const Selector& select) {
+Result<std::vector<FileStats>> SubTreeFileSystem::GetTargetStats(
+    const FileSelector& select) {
   auto selector = select;
   selector.base_dir = PrependBase(selector.base_dir);
   ARROW_ASSIGN_OR_RAISE(auto stats, base_fs_->GetTargetStats(selector));
@@ -280,7 +281,8 @@ Result<FileStats> SlowFileSystem::GetTargetStats(const std::string& path) {
   return base_fs_->GetTargetStats(path);
 }
 
-Result<std::vector<FileStats>> SlowFileSystem::GetTargetStats(const Selector& selector) {
+Result<std::vector<FileStats>> SlowFileSystem::GetTargetStats(
+    const FileSelector& selector) {
   latencies_->Sleep();
   return base_fs_->GetTargetStats(selector);
 }

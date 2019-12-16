@@ -92,7 +92,7 @@ class HadoopFileSystem::Impl {
   }
 
   Status StatSelector(const std::string& wd, const std::string& path,
-                      const Selector& select, int nesting_depth,
+                      const FileSelector& select, int nesting_depth,
                       std::vector<FileStats>* out) {
     std::vector<io::HdfsPathInfo> children;
     Status st = client_->ListDirectory(path, &children);
@@ -126,7 +126,7 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) {
+  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) {
     std::vector<FileStats> results;
 
     std::string wd;
@@ -361,7 +361,8 @@ Result<FileStats> HadoopFileSystem::GetTargetStats(const std::string& path) {
   return impl_->GetTargetStats(path);
 }
 
-Result<std::vector<FileStats>> HadoopFileSystem::GetTargetStats(const Selector& select) {
+Result<std::vector<FileStats>> HadoopFileSystem::GetTargetStats(
+    const FileSelector& select) {
   return impl_->GetTargetStats(select);
 }
 

@@ -67,7 +67,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   using FileSystem::GetTargetStats;
   /// \endcond
   Result<FileStats> GetTargetStats(const std::string& path) override;
-  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) override;
+  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

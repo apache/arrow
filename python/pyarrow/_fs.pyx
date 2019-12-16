@@ -125,7 +125,7 @@ cdef class FileStats:
         return PyObject_to_object(out)
 
 
-cdef class Selector:
+cdef class FileSelector:
     """File and directory selector.
 
     It contains a set of options that describes how to search for files and
@@ -150,7 +150,7 @@ cdef class Selector:
         self.recursive = recursive
         self.allow_non_existent = allow_non_existent
 
-    cdef inline CSelector unwrap(self) nogil:
+    cdef inline CFileSelector unwrap(self) nogil:
         return self.selector
 
     @property
@@ -226,8 +226,8 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        paths_or_selector: Selector or list of path-likes
-            Either a Selector object or a list of path-like objects.
+        paths_or_selector: FileSelector or list of path-likes
+            Either a selector object or a list of path-like objects.
             The selector's base directory will not be part of the results, even
             if it exists. If it doesn't exist, use `allow_non_existent`.
 
@@ -238,11 +238,11 @@ cdef class FileSystem:
         cdef:
             vector[CFileStats] stats
             vector[c_string] paths
-            CSelector selector
+            CFileSelector selector
 
-        if isinstance(paths_or_selector, Selector):
+        if isinstance(paths_or_selector, FileSelector):
             with nogil:
-                selector = (<Selector>paths_or_selector).selector
+                selector = (<FileSelector>paths_or_selector).selector
                 stats = GetResultValue(self.fs.GetTargetStats(selector))
         elif isinstance(paths_or_selector, (list, tuple)):
             paths = [_path_as_bytes(s) for s in paths_or_selector]

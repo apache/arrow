@@ -151,7 +151,7 @@ test_that("filter() on timestamp columns", {
 
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
-  selector <- Selector$create(dataset_dir, recursive = TRUE)
+  selector <- FileSelector$create(dataset_dir, recursive = TRUE)
   dsd <- FileSystemDataSourceDiscovery$create(fs, selector)
   expect_is(dsd, "FileSystemDataSourceDiscovery")
   schm <- dsd$Inspect()

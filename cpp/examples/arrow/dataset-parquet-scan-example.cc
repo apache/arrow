@@ -69,7 +69,7 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(fs::FileSystemPtr fs,
                                                 std::shared_ptr<ds::FileFormat> format,
                                                 std::string path) {
   // Find all files under `path`
-  fs::Selector s;
+  fs::FileSelector s;
   s.base_dir = path;
   s.recursive = true;
 

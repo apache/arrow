@@ -24,7 +24,7 @@ from cython.operator cimport dereference as deref
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
-from pyarrow._fs cimport FileSystem, FileStats, Selector
+from pyarrow._fs cimport FileSystem, FileStats, FileSelector
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -386,7 +386,7 @@ cdef class FileSystemDataSource(DataSource):
         ----------
         filesystem : FileSystem
             Filesystem to discover.
-        paths_or_selector : Union[Selector, List[FileStats]]
+        paths_or_selector : Union[FileSelector, List[FileStats]]
             The file stats object can be queried by the
             filesystem.get_target_stats method.
         partitions : List[Expression]

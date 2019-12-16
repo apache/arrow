@@ -18,7 +18,7 @@
 from __future__ import absolute_import
 
 from pyarrow._fs import (  # noqa
-    Selector,
+    FileSelector,
     FileType,
     FileStats,
     FileSystem,

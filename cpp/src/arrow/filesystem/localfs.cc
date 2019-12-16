@@ -171,7 +171,7 @@ Result<FileStats> StatFile(const std::string& path) {
 
 #endif
 
-Status StatSelector(const PlatformFilename& dir_fn, const Selector& select,
+Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
                     int32_t nesting_depth, std::vector<FileStats>* out) {
   auto result = ListDir(dir_fn);
   if (!result.ok()) {
@@ -217,7 +217,8 @@ Result<FileStats> LocalFileSystem::GetTargetStats(const std::string& path) {
   return StatFile(fn.ToNative());
 }
 
-Result<std::vector<FileStats>> LocalFileSystem::GetTargetStats(const Selector& select) {
+Result<std::vector<FileStats>> LocalFileSystem::GetTargetStats(
+    const FileSelector& select) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(select.base_dir));
   std::vector<FileStats> results;
   RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
