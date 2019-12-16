@@ -17,6 +17,8 @@
 
 #include "arrow/dataset/discovery.h"
 
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -27,7 +29,114 @@
 namespace arrow {
 namespace dataset {
 
-class FileSystemDataSourceDiscoveryTest : public TestFileSystemDataSource {
+class DataSourceDiscoveryTest : public TestFileSystemDataSource {
+ public:
+  void AssertInspect(std::shared_ptr<Schema> schema) {
+    ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect());
+    EXPECT_EQ(*actual, *schema);
+  }
+
+  void AssertInspect(const std::vector<std::shared_ptr<Field>>& expected_fields) {
+    AssertInspect(schema(expected_fields));
+  }
+
+  void AssertInspectSchemas(std::vector<std::shared_ptr<Schema>> expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, discovery_->InspectSchemas());
+
+    EXPECT_EQ(actual.size(), expected.size());
+    for (size_t i = 0; i < actual.size(); i++) {
+      EXPECT_EQ(*actual[i], *expected[i]);
+    }
+  }
+
+ protected:
+  DataSourceDiscoveryPtr discovery_;
+};
+
+class MockDataSourceDiscovery : public DataSourceDiscovery {
+ public:
+  explicit MockDataSourceDiscovery(std::vector<std::shared_ptr<Schema>> schemas)
+      : schemas_(std::move(schemas)) {}
+
+  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override {
+    return schemas_;
+  }
+
+  Result<DataSourcePtr> Finish() override {
+    return std::make_shared<SimpleDataSource>(std::vector<DataFragmentPtr>{});
+  }
+
+ protected:
+  std::vector<std::shared_ptr<Schema>> schemas_;
+};
+
+class MockPartitionScheme : public PartitionScheme {
+ public:
+  explicit MockPartitionScheme(std::shared_ptr<Schema> schema)
+      : PartitionScheme(std::move(schema)) {}
+
+  Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
+    return nullptr;
+  }
+
+  std::string type_name() const override { return "mock_partition_scheme"; }
+};
+
+class MockDataSourceDiscoveryTest : public DataSourceDiscoveryTest {
+ public:
+  void MakeDiscovery(std::vector<std::shared_ptr<Schema>> schemas) {
+    discovery_ = std::make_shared<MockDataSourceDiscovery>(schemas);
+  }
+
+ protected:
+  std::shared_ptr<Field> i32 = field("i32", int32());
+  std::shared_ptr<Field> i64 = field("i64", int64());
+  std::shared_ptr<Field> f32 = field("f32", float64());
+  std::shared_ptr<Field> f64 = field("f64", float64());
+  // Non-nullable
+  std::shared_ptr<Field> i32_req = field("i32", int32(), false);
+  // bad type with name `i32`
+  std::shared_ptr<Field> i32_fake = field("i32", boolean());
+};
+
+TEST_F(MockDataSourceDiscoveryTest, UnifySchemas) {
+  MakeDiscovery({});
+  AssertInspect(schema({}));
+
+  MakeDiscovery({schema({i32}), schema({i32})});
+  AssertInspect(schema({i32}));
+
+  MakeDiscovery({schema({i32}), schema({i64})});
+  AssertInspect(schema({i32, i64}));
+
+  MakeDiscovery({schema({i32}), schema({i64})});
+  AssertInspect(schema({i32, i64}));
+
+  MakeDiscovery({schema({i32}), schema({i32_req})});
+  AssertInspect(schema({i32}));
+
+  MakeDiscovery({schema({i32, f64}), schema({i32_req, i64})});
+  AssertInspect(schema({i32, f64, i64}));
+
+  MakeDiscovery({schema({i32, f64}), schema({f64, i32_fake})});
+  // Unification fails when fields with the same name have clashing types.
+  ASSERT_RAISES(Invalid, discovery_->Inspect());
+  // Return the individual schema for closer inspection should not fail.
+  AssertInspectSchemas({schema({i32, f64}), schema({f64, i32_fake})});
+
+  // Partition Scheme's schema should be taken into account
+  MakeDiscovery({schema({i64, f64})});
+  auto partition_scheme = std::make_shared<MockPartitionScheme>(schema({i32}));
+  ASSERT_OK(discovery_->SetPartitionScheme(partition_scheme));
+  AssertInspect(schema({i64, f64, i32}));
+
+  // Partition scheme with an existing column should be fine.
+  partition_scheme = std::make_shared<MockPartitionScheme>(schema({i64}));
+  ASSERT_OK(discovery_->SetPartitionScheme(partition_scheme));
+  AssertInspect(schema({i64, f64}));
+}
+
+class FileSystemDataSourceDiscoveryTest : public DataSourceDiscoveryTest {
  public:
   void MakeDiscovery(const std::vector<fs::FileStats>& files) {
     MakeFileSystem(files);
@@ -41,15 +150,9 @@ class FileSystemDataSourceDiscoveryTest : public TestFileSystemDataSource {
     AssertFragmentsAreFromPath(source_->GetFragments(options_), paths);
   }
 
-  void AssertInspect(const std::vector<std::shared_ptr<Field>>& expected_fields) {
-    ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect());
-    ASSERT_EQ(*actual, Schema(expected_fields));
-  }
-
  protected:
   fs::FileSelector selector_;
   FileSystemDiscoveryOptions discovery_options_;
-  DataSourceDiscoveryPtr discovery_;
   FileFormatPtr format_ = std::make_shared<DummyFileFormat>(schema({}));
 };
 

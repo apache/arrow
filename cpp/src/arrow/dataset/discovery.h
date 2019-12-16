@@ -53,8 +53,11 @@ namespace dataset {
 ///   return Dataset(sources, common_schema)
 class ARROW_DS_EXPORT DataSourceDiscovery {
  public:
-  /// \brief Get the schema for the resulting DataSource.
-  virtual Result<std::shared_ptr<Schema>> Inspect() = 0;
+  /// \brief Get the schemas of the DataFragments and PartitionScheme.
+  virtual Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() = 0;
+
+  /// \brief Get unified schema for the resulting DataSource.
+  virtual Result<std::shared_ptr<Schema>> Inspect();
 
   /// \brief Create a DataSource with a given partition.
   virtual Result<DataSourcePtr> Finish() = 0;
@@ -161,7 +164,7 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
                                              FileFormatPtr format,
                                              FileSystemDiscoveryOptions options);
 
-  Result<std::shared_ptr<Schema>> Inspect() override;
+  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override;
 
   Result<DataSourcePtr> Finish() override;
 

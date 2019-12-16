@@ -39,6 +39,20 @@ DataSourceDiscovery::DataSourceDiscovery()
       partition_scheme_(PartitionScheme::Default()),
       root_partition_(scalar(true)) {}
 
+Result<std::shared_ptr<Schema>> DataSourceDiscovery::Inspect() {
+  ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
+
+  if (partition_scheme()) {
+    schemas.push_back(partition_scheme()->schema());
+  }
+
+  if (schemas.empty()) {
+    schemas.push_back(arrow::schema({}));
+  }
+
+  return UnifySchemas(schemas);
+}
+
 FileSystemDataSourceDiscovery::FileSystemDataSourceDiscovery(
     fs::FileSystemPtr filesystem, fs::FileStatsVector files, FileFormatPtr format,
     FileSystemDiscoveryOptions options)
@@ -105,33 +119,18 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
               std::move(options));
 }
 
-Result<std::shared_ptr<Schema>> FileSystemDataSourceDiscovery::Inspect() {
+Result<std::vector<std::shared_ptr<Schema>>>
+FileSystemDataSourceDiscovery::InspectSchemas() {
   std::vector<std::shared_ptr<Schema>> schemas;
 
   for (const auto& f : files_) {
     if (!f.IsFile()) continue;
-
-    ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect(FileSource(f.path(), fs_.get())));
+    auto source = FileSource(f.path(), fs_.get());
+    ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect(source));
     schemas.push_back(schema);
   }
 
-  if (schemas.empty()) {
-    // If there are no files, return the partition scheme's schema.
-    return partition_scheme_->schema();
-  }
-
-  // TODO merge schemas.
-  auto out_schema = arrow::schema(schemas[0]->fields(), schemas[0]->metadata());
-
-  // add fields from partition_scheme_
-  for (auto partition_field : partition_scheme_->schema()->fields()) {
-    if (out_schema->GetFieldIndex(partition_field->name()) == -1) {
-      RETURN_NOT_OK(
-          out_schema->AddField(out_schema->num_fields(), partition_field, &out_schema));
-    }
-  }
-
-  return out_schema;
+  return schemas;
 }
 
 Result<DataSourcePtr> FileSystemDataSourceDiscovery::Finish() {

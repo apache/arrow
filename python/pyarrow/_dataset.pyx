@@ -259,6 +259,16 @@ cdef class DataSourceDiscovery:
     def root_partition(self, Expression expr):
         check_status(self.discovery.SetRootPartition(expr.unwrap()))
 
+    def inspect_schemas(self):
+        cdef CResult[vector[shared_ptr[CSchema]]] result
+        with nogil:
+            result = self.discovery.InspectSchemas()
+
+        schemas = []
+        for s in GetResultValue(result):
+            schemas.append(pyarrow_wrap_schema(s))
+        return schemas
+
     def inspect(self):
         cdef CResult[shared_ptr[CSchema]] result
         with nogil:
