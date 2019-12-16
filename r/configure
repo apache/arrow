@@ -97,6 +97,7 @@ else
       PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
       PKG_LIBS="-L$(pwd)/libarrow/arrow-${VERSION}/lib $PKG_LIBS"
       # Also enumerate the static libs included in there
+      # TODO: this should be generated based on what's in the lib dir
       PKG_LIBS="$PKG_LIBS -lthrift -lsnappy -lz -lzstd -llz4 -lbrotlidec-static -lbrotlienc-static -lbrotlicommon-static -lboost_filesystem -lboost_regex -lboost_system -ljemalloc_pic"
     fi
   fi

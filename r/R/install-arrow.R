@@ -20,7 +20,7 @@ install2 <- function(...) {
   # temporary hacks for testing
   system("mv r/libarrow/dist/* r/libarrow/arrow-0.15.1.9000")
   system("rm r/src/*.o")
-  system("R CMD INSTALL r")
+  system("R CMD INSTALL --install-tests r")
 }
 
 #' Help installing the Arrow C++ library
