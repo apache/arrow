@@ -21,7 +21,7 @@ using Apache.Arrow.Memory;
 
 namespace Apache.Arrow
 {
-    public class BinaryArray: Array
+    public class BinaryArray : Array
     {
         public class Builder : BuilderBase<BinaryArray, Builder>
         {
@@ -42,15 +42,15 @@ namespace Apache.Arrow
         }
 
         public BinaryArray(ArrowTypeId typeId, ArrayData data)
-            : base (data)
+            : base(data)
         {
             data.EnsureDataType(typeId);
             data.EnsureBufferCount(3);
         }
 
-        public abstract class BuilderBase<TArray, TBuilder>: IArrowArrayBuilder<byte, TArray, TBuilder>
-            where TArray: IArrowArray
-            where TBuilder: class, IArrowArrayBuilder<byte, TArray, TBuilder>
+        public abstract class BuilderBase<TArray, TBuilder> : IArrowArrayBuilder<byte, TArray, TBuilder>
+            where TArray : IArrowArray
+            where TBuilder : class, IArrowArrayBuilder<byte, TArray, TBuilder>
         {
             protected IArrowType DataType { get; }
             protected TBuilder Instance => this as TBuilder;
@@ -71,8 +71,8 @@ namespace Apache.Arrow
             {
                 ValueOffsets.Append(Offset);
 
-                var data = new ArrayData(DataType, ValueOffsets.Length - 1, 0, 0, 
-                    new [] { ArrowBuffer.Empty, ValueOffsets.Build(allocator), ValueBuffer.Build(allocator) });
+                var data = new ArrayData(DataType, ValueOffsets.Length - 1, 0, 0,
+                    new[] { ArrowBuffer.Empty, ValueOffsets.Build(allocator), ValueBuffer.Build(allocator) });
 
                 return Build(data);
             }
@@ -154,8 +154,8 @@ namespace Apache.Arrow
             ArrowBuffer dataBuffer,
             ArrowBuffer nullBitmapBuffer,
             int nullCount = 0, int offset = 0)
-        : this(new ArrayData(dataType, length, nullCount, offset, 
-            new [] { nullBitmapBuffer, valueOffsetsBuffer, dataBuffer }))
+        : this(new ArrayData(dataType, length, nullCount, offset,
+            new[] { nullBitmapBuffer, valueOffsetsBuffer, dataBuffer }))
         { }
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
@@ -177,17 +177,14 @@ namespace Apache.Arrow
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetValueLength(int index)
         {
-            var offsets = ValueOffsets;
-            var offset = index;
-
-            return offsets[offset + 1] - offsets[offset];
+            return ValueOffsets[index + 1] - ValueOffsets[index];
         }
 
         public ReadOnlySpan<byte> GetBytes(int index)
         {
             var offset = GetValueOffset(index);
             var length = GetValueLength(index);
-            
+
             return ValueBuffer.Span.Slice(offset, length);
         }
 

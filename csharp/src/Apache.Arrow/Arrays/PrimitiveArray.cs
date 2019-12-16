@@ -35,7 +35,7 @@ namespace Apache.Arrow
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T? GetValue(int index)
         {
-            return IsValid(index) ? Values[index] : (T?) null;
+            return IsValid(index) ? Values[index] : (T?)null;
         }
 
         public IList<T?> ToList(bool includeNulls = false)
