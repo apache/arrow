@@ -65,9 +65,6 @@ RUN apt-get update -y -q && \
       tzdata && \
       apt-get clean && rm -rf /var/lib/apt/lists*
 
-# Make sure libcuda.so and its dependencies are visible by CMake
-RUN ln -s /usr/local/cuda-10.0/compat/lib* /usr/local/cuda-10.0/lib64/
-
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
@@ -90,6 +87,7 @@ ENV ARROW_BUILD_STATIC=OFF \
     ARROW_NO_DEPRECATED_API=ON \
     ARROW_PLASMA=ON \
     ARROW_USE_CCACHE=ON \
+    CUDA_LIB_PATH=${LIBRARY_PATH} \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
