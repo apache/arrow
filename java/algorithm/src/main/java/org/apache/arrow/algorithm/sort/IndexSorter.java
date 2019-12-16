@@ -91,6 +91,52 @@ public class IndexSorter<V extends ValueVector> {
   }
 
   /**
+   *  Select the pivot as the median of 3 samples.
+   */
+  static <T extends ValueVector> int choosePivot(
+          int low, int high, IntVector indices, VectorValueComparator<T> comparator) {
+    if (high - low < FixedWidthInPlaceVectorSorter.PIVOT_SELECTION_THRESHOLD) {
+      return indices.get(low);
+    }
+
+    int mid = low + (high - low) / 2;
+
+    // find the median by at most 3 comparisons
+    int medianIdx;
+    if (comparator.compare(indices.get(low), indices.get(mid)) < 0) {
+      if (comparator.compare(indices.get(mid), indices.get(high - 1)) < 0) {
+        medianIdx = mid;
+      } else {
+        if (comparator.compare(indices.get(low), indices.get(high - 1)) < 0) {
+          medianIdx = high - 1;
+        } else {
+          medianIdx = low;
+        }
+      }
+    } else {
+      if (comparator.compare(indices.get(mid), indices.get(high - 1)) > 0) {
+        medianIdx = mid;
+      } else {
+        if (comparator.compare(indices.get(low), indices.get(high - 1)) < 0) {
+          medianIdx = low;
+        } else {
+          medianIdx = high - 1;
+        }
+      }
+    }
+
+    // move the pivot to the low position, if necessary
+    if (medianIdx != low) {
+      int tmp = indices.get(medianIdx);
+      indices.set(medianIdx, indices.get(low));
+      indices.set(low, tmp);
+      return tmp;
+    } else {
+      return indices.get(low);
+    }
+  }
+
+  /**
    * Partition a range of values in a vector into two parts, with elements in one part smaller than
    * elements from the other part. The partition is based on the element indices, so it does
    * not modify the underlying vector.
@@ -103,7 +149,7 @@ public class IndexSorter<V extends ValueVector> {
    */
   public static <T extends ValueVector> int partition(
           int low, int high, IntVector indices, VectorValueComparator<T> comparator) {
-    int pivotIndex = indices.get(low);
+    int pivotIndex = choosePivot(low, high, indices, comparator);
 
     while (low < high) {
       while (low < high && comparator.compare(indices.get(high), pivotIndex) >= 0) {

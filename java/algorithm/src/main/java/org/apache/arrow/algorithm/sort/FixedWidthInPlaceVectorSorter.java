@@ -26,18 +26,24 @@ import org.apache.arrow.vector.BaseFixedWidthVector;
  */
 public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> implements InPlaceVectorSorter<V> {
 
-  private VectorValueComparator<V> comparator;
+  /**
+   * If the number of items is smaller than this threshold, we will no attempt to
+   *  find a good  pivot.
+   */
+  public static final int PIVOT_SELECTION_THRESHOLD = 10;
+
+  VectorValueComparator<V> comparator;
 
   /**
    * The vector to sort.
    */
-  private V vec;
+  V vec;
 
   /**
    * The buffer to hold the pivot.
    * It always has length 1.
    */
-  private V pivotBuffer;
+  V pivotBuffer;
 
   @Override
   public void sortInPlace(V vec, VectorValueComparator<V> comparator) {
@@ -86,8 +92,54 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
     }
   }
 
+  /**
+   *  Select the pivot as the median of 3 samples.
+   */
+  void choosePivot(int low, int high) {
+    if (high - low < PIVOT_SELECTION_THRESHOLD) {
+      pivotBuffer.copyFrom(low, 0, vec);
+      return;
+    }
+
+    comparator.attachVector(vec);
+    int mid = low + (high - low) / 2;
+
+    // find the median by at most 3 comparisons
+    int medianIdx;
+    if (comparator.compare(low, mid) < 0) {
+      if (comparator.compare(mid, high - 1) < 0) {
+        medianIdx = mid;
+      } else {
+        if (comparator.compare(low, high - 1) < 0) {
+          medianIdx = high - 1;
+        } else {
+          medianIdx = low;
+        }
+      }
+    } else {
+      if (comparator.compare(mid, high - 1) > 0) {
+        medianIdx = mid;
+      } else {
+        if (comparator.compare(low, high - 1) < 0) {
+          medianIdx = low;
+        } else {
+          medianIdx = high - 1;
+        }
+      }
+    }
+
+    // move the pivot to the low position, if necessary
+    if (medianIdx != low) {
+      pivotBuffer.copyFrom(medianIdx, 0, vec);
+      vec.copyFrom(low, medianIdx, vec);
+      vec.copyFrom(0, low, pivotBuffer);
+    }
+
+    comparator.attachVectors(vec, pivotBuffer);
+  }
+
   private int partition(int low, int high) {
-    pivotBuffer.copyFrom(low, 0, vec);
+    choosePivot(low, high);
 
     while (low < high) {
       while (low < high && comparator.compare(high, 0) >= 0) {

@@ -113,4 +113,44 @@ public class TestIndexSorter {
       }
     }
   }
+
+  @Test
+  public void testChoosePivot() {
+    final int vectorLength = 100;
+    try (IntVector vec = new IntVector("vector", allocator);
+         IntVector indices = new IntVector("indices", allocator)) {
+      vec.allocateNew(vectorLength);
+      indices.allocateNew(vectorLength);
+
+      // the vector is sorted, so the pivot should be in the middle
+      for (int i = 0; i < vectorLength; i++) {
+        vec.set(i, i * 100);
+        indices.set(i, i);
+      }
+      vec.setValueCount(vectorLength);
+      indices.setValueCount(vectorLength);
+
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+
+      // setup internal data structures
+      comparator.attachVector(vec);
+
+      int low = 5;
+      int high = 10;
+      assertTrue(high - low < FixedWidthInPlaceVectorSorter.PIVOT_SELECTION_THRESHOLD);
+
+      // the range is small enough, so the pivot is simply selected as the low value
+      int pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);
+      assertEquals(pivotIndex, indices.get(low));
+
+      low = 30;
+      high = 80;
+      assertTrue(high - low >= FixedWidthInPlaceVectorSorter.PIVOT_SELECTION_THRESHOLD);
+
+      // the range is large enough, so the median is selected as the pivot
+      pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);
+      assertEquals(pivotIndex, (low + high) / 2);
+      assertEquals(pivotIndex, indices.get(low));
+    }
+  }
 }

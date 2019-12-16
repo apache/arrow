@@ -17,6 +17,7 @@
 
 package org.apache.arrow.algorithm.sort;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -111,6 +112,50 @@ public class TestFixedWidthInPlaceVectorSorter {
 
       for (int i = 0; i < vectorLength; i++) {
         Assert.assertEquals(i, vec.get(i));
+      }
+    }
+  }
+
+  @Test
+  public void testChoosePivot() {
+    final int vectorLength = 100;
+    try (IntVector vec = new IntVector("", allocator)) {
+      vec.allocateNew(vectorLength);
+
+      // the vector is sorted, so the pivot should be in the middle
+      for (int i = 0; i < vectorLength; i++) {
+        vec.set(i, i * 100);
+      }
+      vec.setValueCount(vectorLength);
+
+      FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+
+      try (IntVector pivotBuffer = (IntVector) vec.getField().createVector(allocator)) {
+        // setup internal data structures
+        pivotBuffer.allocateNew(1);
+        sorter.pivotBuffer = pivotBuffer;
+        sorter.comparator = comparator;
+        sorter.vec = vec;
+        comparator.attachVectors(vec, pivotBuffer);
+
+        int low = 5;
+        int high = 10;
+        int pivotValue = vec.get(low);
+        assertTrue(high - low < FixedWidthInPlaceVectorSorter.PIVOT_SELECTION_THRESHOLD);
+
+        // the range is small enough, so the pivot is simply selected as the low value
+        sorter.choosePivot(low, high);
+        assertEquals(pivotValue, vec.get(low));
+
+        low = 30;
+        high = 80;
+        pivotValue = vec.get((low + high) / 2);
+        assertTrue(high - low >= FixedWidthInPlaceVectorSorter.PIVOT_SELECTION_THRESHOLD);
+
+        // the range is large enough, so the median is selected as the pivot
+        sorter.choosePivot(low, high);
+        assertEquals(pivotValue, vec.get(low));
       }
     }
   }
