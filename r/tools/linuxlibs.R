@@ -29,7 +29,8 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     file.copy(localfile, "lib.zip")
   } else {
     # Download static arrow
-    try(download.file("https://dl.bintray.com/nealrichardson/pyarrow-dev/libarrow.zip", "lib.zip", quiet = TRUE), silent = TRUE)
+    # TODO: this should vary by distro/version
+    # try(download.file("https://dl.bintray.com/nealrichardson/pyarrow-dev/libarrow.zip", "lib.zip", quiet = TRUE), silent = TRUE)
   }
   dir.create(dst_dir, showWarnings = FALSE, recursive = TRUE)
   unzip("lib.zip", exdir = dst_dir)

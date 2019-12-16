@@ -17,6 +17,8 @@
 
 install2 <- function(...) {
   system(system.file("build_arrow_static.sh", package = "arrow"))
+  # temporary hack for testing
+  system("mv r/libarrow/dist r/libarrow/arrow-0.15.1.9000")
   system("R CMD INSTALL r")
 }
 
