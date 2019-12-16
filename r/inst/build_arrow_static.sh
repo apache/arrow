@@ -25,6 +25,16 @@ set -x
 
 ARROW_CPP_DIR="$(pwd)/cpp"
 
+if [ "$CMAKE_GENERATOR" = ""]; then
+  # Look for ninja, prefer it
+  ninja --version >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    CMAKE_GENERATOR="Ninja"
+  else
+    CMAKE_GENERATOR="Unix Makefiles"
+  fi
+fi
+
 ARROW_BUILD_DIR="$(pwd)/r/libarrow/dist"
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
@@ -44,7 +54,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_DATASET=ON \
     -DARROW_ORC=OFF \
     -DOPENSSL_USE_STATIC_LIBS=ON \
-    -G "${CMAKE_GENERATOR:-Ninja}" \
+    -G ${CMAKE_GENERATOR} \
     ${ARROW_CPP_DIR}
 cmake --build . --target install
 
