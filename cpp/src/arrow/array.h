@@ -551,17 +551,6 @@ class BaseListArray : public Array {
   /// \brief Return array object containing the list's values
   std::shared_ptr<Array> values() const { return values_; }
 
-  /// \brief Return an Array that is a concatenation of the lists in this array.
-  ///
-  /// Note that it's different from `values()` in that it takes into
-  /// consideration of this array's offsets and slices its child Array
-  /// accordingly.
-  std::shared_ptr<Array> Flatten() const {
-    const offset_type begin_offset = value_offset(0);
-    const offset_type end_offset = value_offset(length());
-    return values()->Slice(begin_offset, end_offset - begin_offset);
-  }
-
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[1]; }
 
@@ -617,6 +606,14 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
                            std::shared_ptr<Array>* out);
 
+  /// \brief Return an Array that is a concatenation of the lists in this array.
+  ///
+  /// Note that it's different from `values()` in that it takes into
+  /// consideration of this array's offsets as well as null elements backed
+  /// by non-empty lists (they are skipped, thus copying may be needed).
+  Result<std::shared_ptr<Array>> Flatten(
+      MemoryPool* memory_pool = default_memory_pool()) const;
+
  protected:
   // This constructor defers SetData to a derived array class
   ListArray() = default;
@@ -650,6 +647,14 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// \param[out] out Will have length equal to offsets.length() - 1
   static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
                            std::shared_ptr<Array>* out);
+
+  /// \brief Return an Array that is a concatenation of the lists in this array.
+  ///
+  /// Note that it's different from `values()` in that it takes into
+  /// consideration of this array's offsets as well as null elements backed
+  /// by non-empty lists (they are skipped, thus copying may be needed).
+  Result<std::shared_ptr<Array>> Flatten(
+      MemoryPool* memory_pool = default_memory_pool()) const;
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);

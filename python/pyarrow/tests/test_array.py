@@ -1710,10 +1710,11 @@ def test_invalid_tensor_construction():
     with pytest.raises(TypeError):
         pa.Tensor()
 
-
-def test_list_array_flatten():
-    typ2 = pa.list_(
-        pa.list_(
+@pytest.mark.parametrize(('offset_type', 'list_type_factory'),
+                         [(pa.int32(), pa.list_), (pa.int64(), pa.large_list)])
+def test_list_array_flatten(offset_type, list_type_factory):
+    typ2 = list_type_factory(
+        list_type_factory(
             pa.int64()
         )
     )
@@ -1733,66 +1734,10 @@ def test_list_array_flatten():
         [
             [7, 8]
         ]
-    ])
-    offsets2 = pa.array([0, 0, 3, 3, 6, 7], type=pa.int32())
-    assert arr2.type.equals(typ2)
-
-    typ1 = pa.list_(pa.int64())
-    arr1 = pa.array([
-        [1, None, 2],
-        None,
-        [3, 4],
-        [],
-        [5, 6],
-        None,
-        [7, 8]
-    ])
-    offsets1 = pa.array([0, 3, 3, 5, 5, 7, 7, 9], type=pa.int32())
-    assert arr1.type.equals(typ1)
-
-    typ0 = pa.int64()
-    arr0 = pa.array([
-        1, None, 2,
-        3, 4,
-        5, 6,
-        7, 8
-    ])
-    assert arr0.type.equals(typ0)
-
-    assert arr2.flatten().equals(arr1)
-    assert arr2.offsets.equals(offsets2)
-    assert arr1.flatten().equals(arr0)
-    assert arr1.offsets.equals(offsets1)
-    assert arr2.flatten().flatten().equals(arr0)
-
-
-def test_large_list_array_flatten():
-    typ2 = pa.large_list(
-        pa.large_list(
-            pa.int16()
-        )
-    )
-    arr2 = pa.array([
-        None,
-        [
-            [1, None, 2],
-            None,
-            [3, 4]
-        ],
-        [],
-        [
-            [],
-            [5, 6],
-            None
-        ],
-        [
-            [7, 8]
-        ]
     ], type=typ2)
-    offsets2 = pa.array([0, 0, 3, 3, 6, 7], type=pa.int64())
+    offsets2 = pa.array([0, 0, 3, 3, 6, 7], type=offset_type)
 
-    typ1 = pa.large_list(pa.int16())
-    assert typ1 == typ2.value_type
+    typ1 = list_type_factory(pa.int64())
     arr1 = pa.array([
         [1, None, 2],
         None,
@@ -1802,9 +1747,20 @@ def test_large_list_array_flatten():
         None,
         [7, 8]
     ], type=typ1)
+    offsets1 = pa.array([0, 3, 3, 5, 5, 7, 7, 9], type=offset_type)
+
+    arr0 = pa.array([
+        1, None, 2,
+        3, 4,
+        5, 6,
+        7, 8
+    ], type=pa.int64())
 
     assert arr2.flatten().equals(arr1)
     assert arr2.offsets.equals(offsets2)
+    assert arr1.flatten().equals(arr0)
+    assert arr1.offsets.equals(offsets1)
+    assert arr2.flatten().flatten().equals(arr0)
 
 
 @pytest.mark.parametrize('klass', [pa.ListArray, pa.LargeListArray])
@@ -1816,9 +1772,11 @@ def test_list_array_values_offsets_sliced(klass):
 
     # sliced -> values keeps referring to full values buffer, but offsets is
     # sliced as well so the offsets correctly point into the full values array
+    # sliced -> flatten() will return the sliced value array.
     arr2 = arr[1:]
     assert arr2.values.to_pylist() == [1, 2, 3, 4, 5, 6]
     assert arr2.offsets.to_pylist() == [3, 4, 6]
+    assert arr2.flatten().to_pylist() == [4, 5, 6]
     i = arr2.offsets[0].as_py()
     j = arr2.offsets[1].as_py()
     assert arr2[0].as_py() == arr2.values[i:j].to_pylist() == [4]

@@ -407,15 +407,9 @@ struct ValidateArrayDataVisitor {
     auto prev_offset = array.value_offset(0);
     for (int64_t i = 1; i <= array.length(); ++i) {
       auto current_offset = array.value_offset(i);
-      if (array.IsNull(i - 1) && current_offset != prev_offset) {
-        return Status::Invalid("Offset invariant failure at: ", i,
-                               " inconsistent value_offsets for null slot",
-                               current_offset, "!=", prev_offset);
-      }
       if (current_offset < prev_offset) {
-        return Status::Invalid("Offset invariant failure: ", i,
-                               " inconsistent offset for non-null slot: ", current_offset,
-                               "<", prev_offset);
+        return Status::Invalid("Offset invariant failure: inconsistent offset for slot ",
+                               i, ": ", current_offset, "<", prev_offset);
       }
       prev_offset = current_offset;
     }

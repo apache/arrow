@@ -475,7 +475,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int32_t value_offset(int i)
         int32_t value_length(int i)
         shared_ptr[CArray] values()
-        shared_ptr[CArray] Flatten()
+        CResult[shared_ptr[CArray]] Flatten(CMemoryPool* memory_pool)
         shared_ptr[CDataType] value_type()
 
     cdef cppclass CLargeListArray" arrow::LargeListArray"(CArray):
@@ -496,7 +496,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t value_offset(int i)
         int64_t value_length(int i)
         shared_ptr[CArray] values()
-        shared_ptr[CArray] Flatten()
+        CResult[shared_ptr[CArray]] Flatten(CMemoryPool* memory_pool)
         shared_ptr[CDataType] value_type()
 
     cdef cppclass CMapArray" arrow::MapArray"(CArray):
