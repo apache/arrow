@@ -15,6 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+install2 <- function(...) {
+  system(system.file("build_arrow_static.sh", package = "arrow"))
+  system("R CMD INSTALL r")
+}
+
 #' Help installing the Arrow C++ library
 #'
 #' Binary package installations should come with a working Arrow C++ library,

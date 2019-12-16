@@ -1,0 +1,15 @@
+language: r
+cache: packages
+dist: xenial
+cran: https://demo.rstudiopm.com/all/__linux__/xenial/latest
+before_install:
+# Set this in .Rprofile for RSPM binary packages
+- echo 'options(HTTPUserAgent = sprintf("R/%s R (%s)", getRversion(), paste(getRversion(), R.version$platform, R.version$arch, R.version$os)))' >> ~/.Rprofile.site
+- git clone https://github.com/nealrichardson/arrow.git
+- cd arrow/r
+- git checkout r-manylinux
+script:
+- R CMD INSTALL .
+- Rscript -e 'try(arrow::Array$create(1:5))'
+- Rscript -e 'setwd(".."); arrow:::install2()'
+- Rscript -e 'arrow::Array$create(1:5)'

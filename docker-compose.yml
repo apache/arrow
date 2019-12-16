@@ -695,7 +695,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
-    command: /arrow/r/tools/build_arrow_static.sh
+    command: cd /arrow && r/inst/build_arrow_static.sh
 
   ################################ Rust #######################################
 
