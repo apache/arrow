@@ -105,6 +105,7 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   engine_obj->module_ = cg_module.get();
 
   llvm::EngineBuilder engineBuilder(std::move(cg_module));
+  engineBuilder.setMCPU(llvm::sys::getHostCPUName());
   engineBuilder.setEngineKind(llvm::EngineKind::JIT);
   engineBuilder.setOptLevel(llvm::CodeGenOpt::Aggressive);
   engineBuilder.setErrorStr(&(engine_obj->llvm_error_));
