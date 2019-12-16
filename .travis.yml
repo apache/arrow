@@ -8,6 +8,7 @@ before_install:
 - git clone https://github.com/nealrichardson/arrow.git
 - cd arrow/r
 - git checkout r-manylinux
+- ninja --version
 script:
 - R CMD INSTALL .
 - Rscript -e 'try(arrow::Array$create(1:5))'

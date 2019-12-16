@@ -18,25 +18,24 @@
 # under the License.
 
 # Quit on failure
-set -e
+# set -e
 
 # Print commands for debugging
 set -x
 
-cd r
+ARROW_CPP_DIR="$(pwd)/cpp"
 
-ARROW_BUILD_DIR="$(pwd)/libarrow/dist"
+ARROW_BUILD_DIR="$(pwd)/r/libarrow/dist"
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
 cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_DEPENDENCY_SOURCE=BUNDLED \
-    -DCMAKE_INSTALL_PREFIX= \
+    -DCMAKE_INSTALL_PREFIX=${ARROW_BUILD_DIR} \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_BUILD_SHARED=OFF \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_BOOST_USE_SHARED=OFF \
-    -DARROW_JEMALLOC=ON \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
     -DARROW_FILESYSTEM=ON \
@@ -44,19 +43,13 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_PARQUET=ON \
     -DARROW_DATASET=ON \
     -DARROW_ORC=OFF \
-    -DARROW_WITH_BZ2=ON \
-    -DARROW_WITH_ZLIB=ON \
-    -DARROW_WITH_ZSTD=ON \
-    -DARROW_WITH_LZ4=ON \
-    -DARROW_WITH_SNAPPY=ON \
-    -DARROW_WITH_BROTLI=ON \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -G "${CMAKE_GENERATOR:-Ninja}" \
-    ../cpp
+    ${ARROW_CPP_DIR}
 cmake --build . --target install
 
 # Copy the bundled static libs from the build to the install dir
-find . -regex .*/lib/.*\\.a\$ | xargs -I{} cp -u {} ./lib
+find . -regex .*/.*/lib/.*\\.a\$ | xargs -I{} cp -u {} ./lib
 
 zip -r libarrow.zip lib/*.a include/
 
