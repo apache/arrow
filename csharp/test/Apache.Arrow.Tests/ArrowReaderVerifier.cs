@@ -86,7 +86,6 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedType.Unit, actualType.Unit);
             }
 
-
             public void Visit(Date32Type actualType)
             {
                 Assert.IsAssignableFrom<Date32Type>(_expectedType);
@@ -198,6 +197,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Offset, actualArray.Offset);
 
                 Assert.True(expectedArray.NullBitmapBuffer.Span.SequenceEqual(actualArray.NullBitmapBuffer.Span));
+                Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
                 Assert.True(expectedArray.Values.Slice(0, expectedArray.Length).SequenceEqual(actualArray.Values.Slice(0, actualArray.Length)));
             }
 
@@ -229,6 +229,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Offset, actualArray.Offset);
 
                 Assert.True(expectedArray.NullBitmapBuffer.Span.SequenceEqual(actualArray.NullBitmapBuffer.Span));
+
                 int booleanByteCount = BitUtility.ByteCount(expectedArray.Length);
                 Assert.True(expectedArray.Values.Slice(0, booleanByteCount).SequenceEqual(actualArray.Values.Slice(0, booleanByteCount)));
             }

@@ -20,7 +20,7 @@ namespace Apache.Arrow.Types
 {
     public sealed class TimestampType : FixedWidthType
     {
-        public static readonly TimestampType Default = new TimestampType(TimeUnit.Millisecond, TimeZoneInfo.Utc.Id);
+        public static readonly TimestampType Default = new TimestampType(TimeUnit.Millisecond, "+00:00");
 
         public override ArrowTypeId TypeId => ArrowTypeId.Timestamp;
         public override string Name => "timestamp";
@@ -28,13 +28,6 @@ namespace Apache.Arrow.Types
 
         public TimeUnit Unit { get; }
         public string Timezone { get; }
-
-        public TimeZoneInfo GetTimeZoneInfo()
-        {
-            return !string.IsNullOrEmpty(Timezone)
-                ? TimeZoneInfo.FindSystemTimeZoneById(Timezone)
-                : null;
-        }
 
         public bool IsTimeZoneAware => !string.IsNullOrWhiteSpace(Timezone);
 
@@ -51,7 +44,7 @@ namespace Apache.Arrow.Types
             TimeZoneInfo timezone = default)
         {
             Unit = unit;
-            Timezone = timezone?.Id;
+            Timezone = timezone?.BaseUtcOffset.ToTimeZoneOffsetString();
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
