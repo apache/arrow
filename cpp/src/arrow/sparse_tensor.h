@@ -347,6 +347,7 @@ class ARROW_EXPORT SparseCSCIndex
 class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIndex> {
  public:
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSF;
+  static constexpr char const* kTypeName = "SparseCSFIndex";
 
   /// \brief Make SparseCSFIndex from raw properties
   static Result<std::shared_ptr<SparseCSFIndex>> Make(

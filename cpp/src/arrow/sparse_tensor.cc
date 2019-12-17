@@ -442,6 +442,13 @@ class SparseTensorConverter<TYPE, SparseCSFIndex>
     using c_index_value_type = typename IndexValueType::c_type;
     RETURN_NOT_OK(CheckMaximumValue(std::numeric_limits<c_index_value_type>::max()));
 
+    const int64_t ndim = tensor_.ndim();
+    if (ndim < 2) {
+      // LCOV_EXCL_START: The following invalid causes program failure.
+      return Status::Invalid("Invalid tensor dimension");
+      // LCOV_EXCL_STOP
+    }
+
     std::shared_ptr<SparseCOOTensor> sparse_coo_tensor;
     ARROW_ASSIGN_OR_RAISE(sparse_coo_tensor, SparseCOOTensor::Make(tensor_));
     std::shared_ptr<Tensor> coords =
@@ -449,8 +456,10 @@ class SparseTensorConverter<TYPE, SparseCSFIndex>
             sparse_coo_tensor->sparse_index())
             ->indices();
 
+    // TODO(rok): Coords should be sorted with axis_order priority to improve compression.
+    // ARROW-4221 would help here as well.
+
     // Convert SparseCOOTensor to long CSF buffers
-    const int64_t ndim = tensor_.ndim();
     const int64_t nonzero_count = sparse_coo_tensor->non_zero_length();
 
     std::vector<int64_t> counts(ndim);
@@ -939,18 +948,18 @@ inline Status CheckSparseCSFIndexValidity(const std::shared_ptr<DataType>& indpt
                                           const std::vector<int64_t>& indices_shape,
                                           const int64_t axis_order_size) {
   if (!is_integer(indptr_type->id())) {
-    return Status::Invalid("Type of SparseCSFIndex indptr must be integer");
+    return Status::TypeError("Type of SparseCSFIndex indptr must be integer");
   }
   if (!is_integer(indices_type->id())) {
-    return Status::Invalid("Type of SparseCSFIndex indices must be integer");
+    return Status::TypeError("Type of SparseCSFIndex indices must be integer");
   }
   if (num_indptrs + 1 != num_indices) {
     return Status::Invalid(
-        "SparseCSFIndex length indices must be equal to length inptrs plus one.");
+        "Length of indices must be equal to length of inptrs + 1 for SparseCSFIndex.");
   }
   if (axis_order_size != num_indices) {
     return Status::Invalid(
-        "SparseCSFIndex length of indices must be equal number of dimensions.");
+        "Length of indices must be equal number of dimensions for SparseCSFIndex.");
   }
   return Status::OK();
 }
@@ -970,10 +979,14 @@ Result<std::shared_ptr<SparseCSFIndex>> SparseCSFIndex::Make(
   for (int64_t i = 0; i < ndim - 1; ++i)
     indptr[i] = std::make_shared<Tensor>(indptr_type, indptr_data[i],
                                          std::vector<int64_t>({indices_shapes[i] + 1}));
-
   for (int64_t i = 0; i < ndim; ++i)
     indices[i] = std::make_shared<Tensor>(indices_type, indices_data[i],
                                           std::vector<int64_t>({indices_shapes[i]}));
+
+  ARROW_CHECK(CheckSparseCSFIndexValidity(indptr_type, indices_type, indptr.size(),
+                                          indices.size(), indptr.back()->shape(),
+                                          indices.back()->shape(), axis_order.size())
+                  .ok());
 
   return std::make_shared<SparseCSFIndex>(indptr, indices, axis_order);
 }
