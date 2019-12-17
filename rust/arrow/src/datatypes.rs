@@ -1474,16 +1474,14 @@ mod tests {
                     ]),
                     false,
                 ),
-<<<<<<< HEAD
                 Field::new("c25", DataType::Interval(IntervalUnit::YearMonth), true),
                 Field::new("c26", DataType::Interval(IntervalUnit::DayTime), true),
                 Field::new("c27", DataType::Duration(TimeUnit::Second), false),
                 Field::new("c28", DataType::Duration(TimeUnit::Millisecond), false),
                 Field::new("c29", DataType::Duration(TimeUnit::Microsecond), false),
                 Field::new("c30", DataType::Duration(TimeUnit::Nanosecond), false),
-=======
                 Field::new_dict(
-                    "c25",
+                    "c31",
                     DataType::Dictionary((
                         Box::new(DataType::Int32),
                         Box::new(DataType::Utf8),
@@ -1492,7 +1490,6 @@ mod tests {
                     123,
                     true,
                 ),
->>>>>>> fixing merge
             ],
             metadata,
         );
@@ -1777,7 +1774,6 @@ mod tests {
                     },
                     {
                         "name": "c25",
-<<<<<<< HEAD
                         "nullable": true,
                         "type": {
                             "name": "interval",
@@ -1829,12 +1825,14 @@ mod tests {
                             "unit": "NANOSECOND"
                         },
                         "children": []
-=======
+                    },
+                    {
+                        "name": "c31",
+                        "nullable": true,
+                        "children": [],
                         "type": {
                           "name": "utf8"
                         },
-                        "nullable": true,
-                        "children": [],
                         "dictionary": {
                           "id": 123,
                           "indexType": {
@@ -1844,7 +1842,6 @@ mod tests {
                           },
                           "isOrdered": true
                         }
->>>>>>> fixing merge
                     }
                 ],
                 "metadata" : {
