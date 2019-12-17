@@ -92,6 +92,7 @@ void Engine::InitOnce() {
 /// factory method to construct the engine.
 Status Engine::Make(std::shared_ptr<Configuration> config,
                     std::unique_ptr<Engine>* engine) {
+  static auto host_cpu_name = llvm::sys::getHostCPUName();
   std::unique_ptr<Engine> engine_obj(new Engine());
 
   std::call_once(init_once_flag, [&engine_obj] { engine_obj->InitOnce(); });
@@ -105,6 +106,7 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   engine_obj->module_ = cg_module.get();
 
   llvm::EngineBuilder engineBuilder(std::move(cg_module));
+  engineBuilder.setMCPU(host_cpu_name);
   engineBuilder.setEngineKind(llvm::EngineKind::JIT);
   engineBuilder.setOptLevel(llvm::CodeGenOpt::Aggressive);
   engineBuilder.setErrorStr(&(engine_obj->llvm_error_));
