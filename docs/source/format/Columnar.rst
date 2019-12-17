@@ -889,7 +889,7 @@ RecordBatch message
 A RecordBatch message contains the actual data buffers corresponding
 to the physical memory layout determined by a schema. The metadata for
 this message provides the location and size of each buffer, permitting
-Arrat data structures to be reconstructed using pointer arithmetic and
+Array data structures to be reconstructed using pointer arithmetic and
 thus no memory copying.
 
 The serialized form of the record batch is the following:
@@ -916,7 +916,7 @@ schema ::
 The flattened version of this is: ::
 
     FieldNode 0: Struct name='col1'
-    FieldNode 1: Int32 name=a'
+    FieldNode 1: Int32 name='a'
     FieldNode 2: List name='b'
     FieldNode 3: Int64 name='item'
     FieldNode 4: Float64 name='c'
