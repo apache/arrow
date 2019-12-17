@@ -395,18 +395,19 @@ class Result : public util::EqualityComparable<Result<T>> {
 
 #define ARROW_ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
 
-// Executes an expression that returns a Result, extracting its value
-// into the variable defined by lhs (or returning on error).
-//
-// Example: Assigning to a new value
-//   ARROW_ASSIGN_OR_RAISE(auto value, MaybeGetValue(arg));
-//
-// Example: Assigning to an existing value
-//   ValueType value;
-//   ARROW_ASSIGN_OR_RAISE(value, MaybeGetValue(arg));
-//
-// WARNING: ARROW_ASSIGN_OR_RAISE expands into multiple statements; it cannot be used
-//  in a single statement (e.g. as the body of an if statement without {})!
+/// \brief Execute an expression that returns a Result, extracting its value
+/// into the variable defined by `lhs` (or returning a Status on error).
+///
+/// Example: Assigning to a new value:
+///   ARROW_ASSIGN_OR_RAISE(auto value, MaybeGetValue(arg));
+///
+/// Example: Assigning to an existing value:
+///   ValueType value;
+///   ARROW_ASSIGN_OR_RAISE(value, MaybeGetValue(arg));
+///
+/// WARNING: ARROW_ASSIGN_OR_RAISE expands into multiple statements;
+/// it cannot be used in a single statement (e.g. as the body of an if
+/// statement without {})!
 #define ARROW_ASSIGN_OR_RAISE(lhs, rexpr)                                              \
   ARROW_ASSIGN_OR_RAISE_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
                              lhs, rexpr);

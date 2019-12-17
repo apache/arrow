@@ -153,7 +153,7 @@ cdef class S3FileSystem(FileSystem):
     """S3-backed FileSystem implementation
 
     Note: S3 buckets are special and the operations available on them may be
-          limited or more expensive than desired.
+    limited or more expensive than desired.
 
     Parameters
     ----------

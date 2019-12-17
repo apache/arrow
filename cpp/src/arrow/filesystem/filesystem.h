@@ -136,15 +136,15 @@ ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const FileStats&);
 
 /// \brief File selector for filesystem APIs
 struct ARROW_EXPORT FileSelector {
-  // The directory in which to select files.
-  // If the path exists but doesn't point to a directory, this should be an error.
+  /// The directory in which to select files.
+  /// If the path exists but doesn't point to a directory, this should be an error.
   std::string base_dir;
-  // The behavior if `base_dir` doesn't exist in the filesystem.  If false,
-  // an error is returned.  If true, an empty selection is returned.
+  /// The behavior if `base_dir` doesn't exist in the filesystem.  If false,
+  /// an error is returned.  If true, an empty selection is returned.
   bool allow_non_existent = false;
-  // Whether to recurse into subdirectories.
+  /// Whether to recurse into subdirectories.
   bool recursive = false;
-  // The maximum number of subdirectories to recurse into.
+  /// The maximum number of subdirectories to recurse into.
   int32_t max_recursion = INT32_MAX;
 
   FileSelector() {}
@@ -171,7 +171,7 @@ class ARROW_EXPORT FileSystem {
   ///
   /// The selector's base directory will not be part of the results, even if
   /// it exists.
-  /// If it doesn't exist, see `Selector::allow_non_existent`.
+  /// If it doesn't exist, see `FileSelector::allow_non_existent`.
   virtual Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) = 0;
 
   /// Create a directory and subdirectories.
@@ -324,6 +324,10 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
   std::shared_ptr<io::LatencyGenerator> latencies_;
 };
 
+/// \defgroup filesystem-factories Functions for creating FileSystem instances
+///
+/// @{
+
 /// \brief Create a new FileSystem by URI
 ///
 /// A scheme-less URI is considered a local filesystem path.
@@ -335,6 +339,8 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
                                                       std::string* out_path = NULLPTR);
+
+/// @}
 
 /// \brief Create a new FileSystem by URI
 ///

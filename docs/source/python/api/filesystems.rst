@@ -15,50 +15,32 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-===========
+.. currentmodule:: pyarrow.fs
+
 Filesystems
 ===========
 
+.. _api.fs:
+
 Interface
-=========
+---------
 
-.. doxygenenum:: arrow::fs::FileType
+.. autosummary::
+   :toctree: ../generated/
 
-.. doxygenstruct:: arrow::fs::FileStats
-   :members:
+   FileStats
+   FileSelector
+   FileSystem
 
-.. doxygenstruct:: arrow::fs::FileSelector
-   :members:
+Concrete Subclasses
+-------------------
 
-.. doxygenclass:: arrow::fs::FileSystem
-   :members:
+.. autosummary::
+   :toctree: ../generated/
 
-High-level factory function
-===========================
-
-.. doxygengroup:: filesystem-factories
-   :content-only:
-
-Concrete implementations
-========================
-
-.. doxygenclass:: arrow::fs::SubTreeFileSystem
-   :members:
-
-.. doxygenstruct:: arrow::fs::LocalFileSystemOptions
-   :members:
-
-.. doxygenclass:: arrow::fs::LocalFileSystem
-   :members:
-
-.. doxygenstruct:: arrow::fs::S3Options
-   :members:
-
-.. doxygenclass:: arrow::fs::S3FileSystem
-   :members:
-
-.. doxygenstruct:: arrow::fs::HdfsOptions
-   :members:
-
-.. doxygenclass:: arrow::fs::HadoopFileSystem
-   :members:
+   LocalFileSystemOptions
+   LocalFileSystem
+   S3Options
+   S3FileSystem
+   HdfsOptions
+   HadoopFileSystem

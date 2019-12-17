@@ -62,19 +62,23 @@ cdef class FileStats:
                 return getattr(self, attr)
             except ValueError:
                 return ''
-        attrs = ['type', 'path', 'base_name', 'size', 'extension', 'mtime']
-        attrs = '\n'.join('{}: {}'.format(a, getvalue(a)) for a in attrs)
-        return '{}\n{}'.format(object.__repr__(self), attrs)
+
+        s = '<FileStats for {!r}: type={}'.format(self.path, str(self.type))
+        if self.type == FileType.File:
+            s += ', size={}'.format(self.size)
+        s += '>'
+        return s
 
     @property
     def type(self):
         """Type of the file
 
-        The returned enum variants have the following meanings:
+        The returned enum values can be the following:
+
         - FileType.NonExistent: target does not exist
         - FileType.Unknown: target exists but its type is unknown (could be a
-                            special file such as a Unix socket or character
-                            device, or Windows NUL / CON / ...)
+          special file such as a Unix socket or character device, or
+          Windows NUL / CON / ...)
         - FileType.File: target is a regular file
         - FileType.Directory: target is a regular directory
 
@@ -249,7 +253,7 @@ cdef class FileSystem:
             with nogil:
                 stats = GetResultValue(self.fs.GetTargetStats(paths))
         else:
-            raise TypeError('Must pass either paths or a Selector')
+            raise TypeError('Must pass either paths or a FileSelector')
 
         return [FileStats.wrap(stat) for stat in stats]
 
