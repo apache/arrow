@@ -305,8 +305,8 @@ Status ListArrayFromArrays(const Array& offsets, const Array& values, MemoryPool
   return Status::OK();
 }
 
-std::shared_ptr<Array> SliceArrayWithOffsets(const Array& array, int64_t begin,
-                                             int64_t end) {
+static std::shared_ptr<Array> SliceArrayWithOffsets(const Array& array, int64_t begin,
+                                                    int64_t end) {
   return array.Slice(begin, end - begin);
 }
 
@@ -349,9 +349,9 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
     return non_null_fragments[0];
   }
 
-  std::shared_ptr<Array> result;
-  RETURN_NOT_OK(Concatenate(non_null_fragments, memory_pool, &result));
-  return result;
+  std::shared_ptr<Array> flattened;
+  RETURN_NOT_OK(Concatenate(non_null_fragments, memory_pool, &flattened));
+  return flattened;
 }
 
 }  // namespace
