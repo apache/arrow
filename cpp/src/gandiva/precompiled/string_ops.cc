@@ -92,7 +92,7 @@ bool ends_with_utf8_utf8(const char* data, int32 data_len, const char* suffix,
 
 FORCE_INLINE
 int32 utf8_char_length(char c) {
-  if (c >= 0) {  // 1-byte char
+  if ((signed char)c >= 0) {  // 1-byte char (0x00 ~ 0x7F)
     return 1;
   } else if ((c & 0xE0) == 0xC0) {  // 2-byte char
     return 2;
