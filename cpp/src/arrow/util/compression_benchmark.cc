@@ -68,8 +68,7 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
     compressed_data->clear();
     compressed_data->shrink_to_fit();
   }
-  std::shared_ptr<Compressor> compressor;
-  ABORT_NOT_OK(codec->MakeCompressor(&compressor));
+  auto compressor = *codec->MakeCompressor();
 
   const uint8_t* input = data.data();
   int64_t input_len = data.size();
@@ -78,34 +77,30 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
   std::vector<uint8_t> output_buffer(1 << 20);  // 1 MB
 
   while (input_len > 0) {
-    int64_t bytes_read = 0, bytes_written = 0;
-    ABORT_NOT_OK(compressor->Compress(input_len, input, output_buffer.size(),
-                                      output_buffer.data(), &bytes_read, &bytes_written));
-    input += bytes_read;
-    input_len -= bytes_read;
-    compressed_size += bytes_written;
-    if (compressed_data != nullptr && bytes_written > 0) {
-      compressed_data->resize(compressed_data->size() + bytes_written);
-      memcpy(compressed_data->data() + compressed_data->size() - bytes_written,
-             output_buffer.data(), bytes_written);
+    auto result = *compressor->Compress(input_len, input, output_buffer.size(),
+                                        output_buffer.data());
+    input += result.bytes_read;
+    input_len -= result.bytes_read;
+    compressed_size += result.bytes_written;
+    if (compressed_data != nullptr && result.bytes_written > 0) {
+      compressed_data->resize(compressed_data->size() + result.bytes_written);
+      memcpy(compressed_data->data() + compressed_data->size() - result.bytes_written,
+             output_buffer.data(), result.bytes_written);
     }
-    if (bytes_read == 0) {
+    if (result.bytes_read == 0) {
       // Need to enlarge output buffer
       output_buffer.resize(output_buffer.size() * 2);
     }
   }
   while (true) {
-    bool should_retry;
-    int64_t bytes_written;
-    ABORT_NOT_OK(compressor->End(output_buffer.size(), output_buffer.data(),
-                                 &bytes_written, &should_retry));
-    compressed_size += bytes_written;
-    if (compressed_data != nullptr && bytes_written > 0) {
-      compressed_data->resize(compressed_data->size() + bytes_written);
-      memcpy(compressed_data->data() + compressed_data->size() - bytes_written,
-             output_buffer.data(), bytes_written);
+    auto result = *compressor->End(output_buffer.size(), output_buffer.data());
+    compressed_size += result.bytes_written;
+    if (compressed_data != nullptr && result.bytes_written > 0) {
+      compressed_data->resize(compressed_data->size() + result.bytes_written);
+      memcpy(compressed_data->data() + compressed_data->size() - result.bytes_written,
+             output_buffer.data(), result.bytes_written);
     }
-    if (should_retry) {
+    if (result.should_retry) {
       // Need to enlarge output buffer
       output_buffer.resize(output_buffer.size() * 2);
     } else {
@@ -118,7 +113,7 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
 static void StreamingCompression(Compression::type compression,
                                  const std::vector<uint8_t>& data,
                                  benchmark::State& state) {  // NOLINT non-const reference
-  auto codec = *Codec::Create(compression, &codec);
+  auto codec = *Codec::Create(compression);
 
   while (state.KeepRunning()) {
     int64_t compressed_size = StreamingCompress(codec.get(), data);
@@ -139,8 +134,7 @@ static void ReferenceStreamingCompression(
 static void StreamingDecompression(
     Compression::type compression, const std::vector<uint8_t>& data,
     benchmark::State& state) {  // NOLINT non-const reference
-  std::unique_ptr<Codec> codec;
-  ABORT_NOT_OK(Codec::Create(compression, &codec));
+  auto codec = *Codec::Create(compression);
 
   std::vector<uint8_t> compressed_data;
   ARROW_UNUSED(StreamingCompress(codec.get(), data, &compressed_data));
@@ -148,8 +142,7 @@ static void StreamingDecompression(
       static_cast<double>(data.size()) / static_cast<double>(compressed_data.size());
 
   while (state.KeepRunning()) {
-    std::shared_ptr<Decompressor> decompressor;
-    ABORT_NOT_OK(codec->MakeDecompressor(&decompressor));
+    auto decompressor = *codec->MakeDecompressor();
 
     const uint8_t* input = compressed_data.data();
     int64_t input_len = compressed_data.size();
@@ -157,15 +150,12 @@ static void StreamingDecompression(
 
     std::vector<uint8_t> output_buffer(1 << 20);  // 1 MB
     while (!decompressor->IsFinished()) {
-      int64_t bytes_read, bytes_written;
-      bool need_more_output;
-      ABORT_NOT_OK(decompressor->Decompress(input_len, input, output_buffer.size(),
-                                            output_buffer.data(), &bytes_read,
-                                            &bytes_written, &need_more_output));
-      input += bytes_read;
-      input_len -= bytes_read;
-      decompressed_size += bytes_written;
-      if (need_more_output) {
+      auto result = *decompressor->Decompress(input_len, input, output_buffer.size(),
+                                              output_buffer.data());
+      input += result.bytes_read;
+      input_len -= result.bytes_read;
+      decompressed_size += result.bytes_written;
+      if (result.need_more_output) {
         // Enlarge output buffer
         output_buffer.resize(output_buffer.size() * 2);
       }
