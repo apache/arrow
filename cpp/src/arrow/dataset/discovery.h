@@ -131,7 +131,7 @@ struct FileSystemDiscoveryOptions {
 };
 
 /// \brief FileSystemDataSourceFactory creates a DataSource from a vector of
-/// fs::FileStats or a fs::Selector.
+/// fs::FileStats or a fs::FileSelector.
 class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery {
  public:
   /// \brief Build a FileSystemDataSourceDiscovery from an explicit list of
@@ -146,7 +146,7 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
                                              FileFormatPtr format,
                                              FileSystemDiscoveryOptions options);
 
-  /// \brief Build a FileSystemDataSourceDiscovery from a fs::Selector.
+  /// \brief Build a FileSystemDataSourceDiscovery from a fs::FileSelector.
   ///
   /// The selector will expand to a vector of FileStats. The expansion/crawling
   /// is performed in this function call. Thus, the finalized DataSource is

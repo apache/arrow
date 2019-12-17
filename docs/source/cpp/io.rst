@@ -78,9 +78,6 @@ underlying storage, are automatically dereferenced.  Only basic
 and modification time, is made available.
 
 Concrete implementations are available for
-:class:`local filesystem access <LocalFileSystem>` and
+:class:`local filesystem access <LocalFileSystem>`,
+:class:`HDFS <HadoopFileSystem>` and
 :class:`Amazon S3-compatible storage <S3FileSystem>`.
-
-.. note::
-   The filesystem layer is currently experimental.  API details may vary
-   in the future.

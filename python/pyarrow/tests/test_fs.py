@@ -211,6 +211,7 @@ def test_get_target_stats(fs, pathfn):
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
     c = pathfn('c.txt')
+    zzz = pathfn('zzz')
 
     fs.create_dir(aaa)
     with fs.open_output_stream(bb):
@@ -218,17 +219,20 @@ def test_get_target_stats(fs, pathfn):
     with fs.open_output_stream(c) as fp:
         fp.write(b'test')
 
-    aaa_stat, bb_stat, c_stat = fs.get_target_stats([aaa, bb, c])
+    aaa_stat, bb_stat, c_stat, zzz_stat = \
+        fs.get_target_stats([aaa, bb, c, zzz])
 
     assert aaa_stat.path == aaa
     assert 'aaa' in repr(aaa_stat)
     assert aaa_stat.extension == ''
+    assert 'FileType.Directory' in repr(aaa_stat)
     assert isinstance(aaa_stat.mtime, datetime)
 
     assert bb_stat.path == str(bb)
     assert bb_stat.base_name == 'bb'
     assert bb_stat.extension == ''
     assert bb_stat.type == FileType.File
+    assert 'FileType.File' in repr(bb_stat)
     assert bb_stat.size == 0
     assert isinstance(bb_stat.mtime, datetime)
 
@@ -236,7 +240,15 @@ def test_get_target_stats(fs, pathfn):
     assert c_stat.base_name == 'c.txt'
     assert c_stat.extension == 'txt'
     assert c_stat.type == FileType.File
+    assert 'FileType.File' in repr(c_stat)
     assert c_stat.size == 4
+    assert isinstance(c_stat.mtime, datetime)
+
+    assert zzz_stat.path == str(zzz)
+    assert zzz_stat.base_name == 'zzz'
+    assert zzz_stat.extension == ''
+    assert zzz_stat.type == FileType.NonExistent
+    assert 'FileType.NonExistent' in repr(zzz_stat)
     assert isinstance(c_stat.mtime, datetime)
 
 
