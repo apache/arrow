@@ -37,7 +37,8 @@ before_install:
 - cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
 script:
 - travis_wait R CMD build .
-- travis_wait R CMD check arrow_*.tar.gz --as-cran --install-args="--build"
+# Note that this is not --as-cran. CRAN doesn't do macOS checks --as-cran
+- travis_wait R CMD check arrow_*.tar.gz --install-args="--build"
 
 notifications:
   email:
