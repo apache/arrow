@@ -24,7 +24,8 @@ except ImportError:
 import pytest
 
 import pyarrow as pa
-from pyarrow.tests.test_io import gzip_compress, gzip_decompress
+from pyarrow.tests.test_io import (gzip_compress, gzip_decompress,
+                                   assert_file_not_found)
 from pyarrow.fs import (FileType, FileSelector, FileSystem, LocalFileSystem,
                         LocalFileSystemOptions, SubTreeFileSystem,
                         _MockFileSystem)
@@ -478,6 +479,26 @@ def test_localfs_options():
 
     with pytest.raises(AttributeError):
         LocalFileSystem(xxx=False)
+
+
+def test_localfs_errors(localfs):
+    # Local filesystem errors should raise the right Python exceptions
+    # (e.g. FileNotFoundError)
+    fs = localfs['fs']
+    with assert_file_not_found():
+        fs.open_input_stream('/non/existent/file')
+    with assert_file_not_found():
+        fs.open_output_stream('/non/existent/file')
+    with assert_file_not_found():
+        fs.create_dir('/non/existent/dir', recursive=False)
+    with assert_file_not_found():
+        fs.delete_dir('/non/existent/dir')
+    with assert_file_not_found():
+        fs.delete_file('/non/existent/dir')
+    with assert_file_not_found():
+        fs.move('/non/existent', '/xxx')
+    with assert_file_not_found():
+        fs.copy_file('/non/existent', '/xxx')
 
 
 @pytest.mark.s3

@@ -253,7 +253,7 @@ cdef class FileSystem:
 
         return [FileStats.wrap(stat) for stat in stats]
 
-    def create_dir(self, path, bint recursive=True):
+    def create_dir(self, path, *, bint recursive=True):
         """Create a directory and subdirectories.
 
         This function succeeds if the directory already exists.

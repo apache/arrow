@@ -17,6 +17,7 @@
 
 #include <chrono>
 #include <cstring>
+#include <sstream>
 #include <utility>
 
 #ifdef _WIN32
@@ -37,28 +38,20 @@
 namespace arrow {
 namespace fs {
 
+using ::arrow::internal::IOErrorFromErrno;
+#ifdef _WIN32
+using ::arrow::internal::IOErrorFromWinError;
+#endif
 using ::arrow::internal::NativePathString;
 using ::arrow::internal::PlatformFilename;
 
 namespace {
-
-template <typename... Args>
-Status ErrnoToStatus(Args&&... args) {
-  auto err_string = ::arrow::internal::ErrnoMessage(errno);
-  return Status::IOError(std::forward<Args>(args)..., err_string);
-}
 
 #ifdef _WIN32
 
 std::string NativeToString(const NativePathString& ns) {
   PlatformFilename fn(ns);
   return fn.ToString();
-}
-
-template <typename... Args>
-Status WinErrorToStatus(Args&&... args) {
-  auto err_string = ::arrow::internal::WinErrorMessage(GetLastError());
-  return Status::IOError(std::forward<Args>(args)..., err_string);
 }
 
 TimePoint ToTimePoint(FILETIME ft) {
@@ -107,13 +100,15 @@ Result<FileStats> StatFile(const std::wstring& path) {
       st.set_size(kNoSize);
       return st;
     } else {
-      return WinErrorToStatus("Failed querying information for path '", bytes_path, "'");
+      return IOErrorFromWinError(GetLastError(), "Failed querying information for path '",
+                                 bytes_path, "'");
     }
   }
   BY_HANDLE_FILE_INFORMATION info;
   if (!GetFileInformationByHandle(h, &info)) {
     CloseHandle(h);
-    return WinErrorToStatus("Failed querying information for path '", bytes_path, "'");
+    return IOErrorFromWinError(GetLastError(), "Failed querying information for path '",
+                               bytes_path, "'");
   }
   CloseHandle(h);
   st = FileInformationToFileStat(info);
@@ -160,7 +155,7 @@ Result<FileStats> StatFile(const std::string& path) {
       st.set_mtime(kNoTime);
       st.set_size(kNoSize);
     } else {
-      return ErrnoToStatus("Failed stat()ing path '", path, "'");
+      return IOErrorFromErrno(errno, "Failed stat()ing path '", path, "'");
     }
   } else {
     st = StatToFileStat(s);
@@ -236,32 +231,31 @@ Status LocalFileSystem::CreateDir(const std::string& path, bool recursive) {
 
 Status LocalFileSystem::DeleteDir(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  ARROW_ASSIGN_OR_RAISE(bool deleted, ::arrow::internal::DeleteDirTree(fn));
-  if (deleted) {
-    return Status::OK();
-  } else {
-    return Status::IOError("Directory does not exist: '", path, "'");
+  auto st = ::arrow::internal::DeleteDirTree(fn, /*allow_non_existent=*/false).status();
+  if (!st.ok()) {
+    // TODO Status::WithPrefix()?
+    std::stringstream ss;
+    ss << "Cannot delete directory '" << path << "': " << st.message();
+    return st.WithMessage(ss.str());
   }
+  return Status::OK();
 }
 
 Status LocalFileSystem::DeleteDirContents(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  ARROW_ASSIGN_OR_RAISE(bool deleted, ::arrow::internal::DeleteDirContents(fn));
-  if (deleted) {
-    return Status::OK();
-  } else {
-    return Status::IOError("Directory does not exist: '", path, "'");
+  auto st =
+      ::arrow::internal::DeleteDirContents(fn, /*allow_non_existent=*/false).status();
+  if (!st.ok()) {
+    std::stringstream ss;
+    ss << "Cannot delete directory contents in '" << path << "': " << st.message();
+    return st.WithMessage(ss.str());
   }
+  return Status::OK();
 }
 
 Status LocalFileSystem::DeleteFile(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  ARROW_ASSIGN_OR_RAISE(bool deleted, arrow::internal::DeleteFile(fn));
-  if (deleted) {
-    return Status::OK();
-  } else {
-    return Status::IOError("File does not exist: '", path, "'");
-  }
+  return ::arrow::internal::DeleteFile(fn, /*allow_non_existent=*/false).status();
 }
 
 Status LocalFileSystem::Move(const std::string& src, const std::string& dest) {
@@ -271,13 +265,13 @@ Status LocalFileSystem::Move(const std::string& src, const std::string& dest) {
 #ifdef _WIN32
   if (!MoveFileExW(sfn.ToNative().c_str(), dfn.ToNative().c_str(),
                    MOVEFILE_REPLACE_EXISTING)) {
-    return WinErrorToStatus("Failed renaming '", sfn.ToString(), "' to '", dfn.ToString(),
-                            "': ");
+    return IOErrorFromWinError(GetLastError(), "Failed renaming '", sfn.ToString(),
+                               "' to '", dfn.ToString(), "'");
   }
 #else
   if (rename(sfn.ToNative().c_str(), dfn.ToNative().c_str()) == -1) {
-    return ErrnoToStatus("Failed renaming '", sfn.ToString(), "' to '", dfn.ToString(),
-                         "': ");
+    return IOErrorFromErrno(errno, "Failed renaming '", sfn.ToString(), "' to '",
+                            dfn.ToString(), "'");
   }
 #endif
   return Status::OK();
@@ -294,8 +288,8 @@ Status LocalFileSystem::CopyFile(const std::string& src, const std::string& dest
 #ifdef _WIN32
   if (!CopyFileW(sfn.ToNative().c_str(), dfn.ToNative().c_str(),
                  FALSE /* bFailIfExists */)) {
-    return WinErrorToStatus("Failed copying '", sfn.ToString(), "' to '", dfn.ToString(),
-                            "': ");
+    return IOErrorFromWinError(GetLastError(), "Failed copying '", sfn.ToString(),
+                               "' to '", dfn.ToString(), "'");
   }
   return Status::OK();
 #else

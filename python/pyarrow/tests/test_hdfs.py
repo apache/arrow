@@ -417,6 +417,7 @@ def _get_hdfs_uri(path):
     return uri
 
 
+@pytest.mark.hdfs
 @pytest.mark.pandas
 @pytest.mark.parquet
 @pytest.mark.fastparquet

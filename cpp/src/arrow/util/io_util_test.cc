@@ -16,12 +16,20 @@
 // under the License.
 
 #include <algorithm>
+#include <cerrno>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/windows_compatibility.h"
+
+#ifdef _WIN32
+#ifdef DeleteFile
+#undef DeleteFile
+#endif
+#endif
 
 namespace arrow {
 namespace internal {
@@ -37,6 +45,40 @@ void AssertNotExists(const PlatformFilename& path) {
   ASSERT_OK_AND_ASSIGN(exists, FileExists(path));
   ASSERT_FALSE(exists) << "Path '" << path.ToString() << "' exists";
 }
+
+TEST(ErrnoFromStatus, Basics) {
+  Status st;
+  st = Status::OK();
+  ASSERT_EQ(ErrnoFromStatus(st), 0);
+  st = Status::KeyError("foo");
+  ASSERT_EQ(ErrnoFromStatus(st), 0);
+  st = Status::IOError("foo");
+  ASSERT_EQ(ErrnoFromStatus(st), 0);
+  st = StatusFromErrno(EINVAL, StatusCode::KeyError, "foo");
+  ASSERT_EQ(ErrnoFromStatus(st), EINVAL);
+  st = IOErrorFromErrno(EPERM, "foo");
+  ASSERT_EQ(ErrnoFromStatus(st), EPERM);
+  st = IOErrorFromErrno(6789, "foo");
+  ASSERT_EQ(ErrnoFromStatus(st), 6789);
+}
+
+#if _WIN32
+TEST(WinErrorFromStatus, Basics) {
+  Status st;
+  st = Status::OK();
+  ASSERT_EQ(WinErrorFromStatus(st), 0);
+  st = Status::KeyError("foo");
+  ASSERT_EQ(WinErrorFromStatus(st), 0);
+  st = Status::IOError("foo");
+  ASSERT_EQ(WinErrorFromStatus(st), 0);
+  st = StatusFromWinError(ERROR_FILE_NOT_FOUND, StatusCode::KeyError, "foo");
+  ASSERT_EQ(WinErrorFromStatus(st), ERROR_FILE_NOT_FOUND);
+  st = IOErrorFromWinError(ERROR_ACCESS_DENIED, "foo");
+  ASSERT_EQ(WinErrorFromStatus(st), ERROR_ACCESS_DENIED);
+  st = IOErrorFromWinError(6789, "foo");
+  ASSERT_EQ(WinErrorFromStatus(st), 6789);
+}
+#endif
 
 TEST(PlatformFilename, RoundtripAscii) {
   PlatformFilename fn;
@@ -297,6 +339,14 @@ TEST(CreateDirDeleteDir, Basics) {
   // It's not an error to call DeleteDirTree on a non-existent path.
   ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(parent));
   ASSERT_FALSE(deleted);
+  // ... unless asked so
+  auto status = DeleteDirTree(parent, /*allow_non_existent=*/false).status();
+  ASSERT_RAISES(IOError, status);
+#ifdef _WIN32
+  ASSERT_EQ(WinErrorFromStatus(status), ERROR_FILE_NOT_FOUND);
+#else
+  ASSERT_EQ(ErrnoFromStatus(status), ENOENT);
+#endif
 }
 
 TEST(DeleteDirContents, Basics) {
@@ -341,6 +391,14 @@ TEST(DeleteDirContents, Basics) {
   // It's not an error to call DeleteDirContents on a non-existent path.
   ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(child1));
   ASSERT_FALSE(deleted);
+  // ... unless asked so
+  auto status = DeleteDirContents(child1, /*allow_non_existent=*/false).status();
+  ASSERT_RAISES(IOError, status);
+#ifdef _WIN32
+  ASSERT_EQ(WinErrorFromStatus(status), ERROR_FILE_NOT_FOUND);
+#else
+  ASSERT_EQ(ErrnoFromStatus(status), ENOENT);
+#endif
 }
 
 TEST(TemporaryDir, Basics) {
@@ -455,6 +513,13 @@ TEST(DeleteFile, Basics) {
   ASSERT_OK_AND_ASSIGN(deleted, DeleteFile(fn));
   ASSERT_FALSE(deleted);
   AssertNotExists(fn);
+  auto status = DeleteFile(fn, /*allow_non_existent=*/false).status();
+  ASSERT_RAISES(IOError, status);
+#ifdef _WIN32
+  ASSERT_EQ(WinErrorFromStatus(status), ERROR_FILE_NOT_FOUND);
+#else
+  ASSERT_EQ(ErrnoFromStatus(status), ENOENT);
+#endif
 
   // Cannot call DeleteFile on directory
   ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("test-temp_dir"));
