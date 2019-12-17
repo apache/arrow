@@ -19,8 +19,6 @@
 
 #include <utility>
 
-#include "boost/range.hpp"
-
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/util_internal.h"
@@ -70,6 +68,29 @@ template <typename T>
 struct Comparator<T, CompareOperator::LESS_EQUAL> {
   constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs <= rhs; }
 };
+
+// return flipped_op such that (a op b) is equivalent to (b flipped_op a)
+static CompareOperator FlippedCompareOperator(CompareOperator op) {
+  switch (op) {
+    case CompareOperator::LESS:
+      return CompareOperator::GREATER;
+
+    case CompareOperator::GREATER:
+      return CompareOperator::LESS;
+
+    case CompareOperator::LESS_EQUAL:
+      return CompareOperator::GREATER_EQUAL;
+
+    case CompareOperator::GREATER_EQUAL:
+      return CompareOperator::LESS_EQUAL;
+
+    case CompareOperator::EQUAL:
+    case CompareOperator::NOT_EQUAL:
+    default:
+      break;
+  }
+  return op;
+}
 
 template <typename Value>
 struct RepeatedValue {
@@ -139,7 +160,7 @@ RangeType MakeRange(const BaseBinaryArray<T>& array) {
   return RangeType{&array};
 }
 
-inline Status AssignNulls(FunctionContext* ctx, const Scalar& scalar, const Array& array,
+inline Status AssignNulls(FunctionContext* ctx, const Array& array, const Scalar& scalar,
                           ArrayData* out) {
   return scalar.is_valid ? detail::PropagateNulls(ctx, *array.data(), out)
                          : detail::SetAllNulls(ctx, *array.data(), out);
@@ -172,8 +193,6 @@ class CompareKernel final : public BinaryKernel {
     auto out = out_datum->array();
 
     auto left_array = AsArray(left);
-    auto left_scalar = AsScalar(left);
-
     auto right_array = AsArray(right);
     auto right_scalar = AsScalar(right);
 
@@ -183,13 +202,8 @@ class CompareKernel final : public BinaryKernel {
     }
 
     if (left_array && right_scalar) {
-      RETURN_NOT_OK(AssignNulls(ctx, *right_scalar, *left_array, out.get()));
+      RETURN_NOT_OK(AssignNulls(ctx, *left_array, *right_scalar, out.get()));
       return Compare<Op>(MakeRange(*left_array), MakeRange(*right_scalar), out.get());
-    }
-
-    if (left_scalar && right_array) {
-      RETURN_NOT_OK(AssignNulls(ctx, *left_scalar, *right_array, out.get()));
-      return Compare<Op>(MakeRange(*left_scalar), MakeRange(*right_array), out.get());
     }
 
     return Status::Invalid("Invalid datum signature for CompareBinaryKernel::Call");
@@ -280,33 +294,38 @@ struct UnpackType {
   CompareOptions options_;
 };
 
-Status MakeCompareKernel(const DataType& type, CompareOptions options,
-                         std::shared_ptr<BinaryKernel>* out) {
-  UnpackType visitor{out, options};
-  return VisitTypeInline(type, &visitor);
-}
-
-inline int64_t OutLength(const Datum& left, const Datum& right) {
-  if (left.kind() == Datum::ARRAY) return left.length();
-  if (right.kind() == Datum::ARRAY) return right.length();
-  return 0;
-}
-
-Status Compare(FunctionContext* context, const Datum& left, const Datum& right,
-               struct CompareOptions options, Datum* out) {
-  auto type = left.type();
-  if (!type->Equals(right.type())) {
-    return Status::TypeError("Cannot compare data of differing type ", *type, " vs ",
-                             *right.type());
-  }
-
+// make a compare kernel and invoke it
+inline Status FinishCompare(FunctionContext* context, const Datum& left,
+                            const Datum& right, CompareOptions options, Datum* out) {
   std::shared_ptr<BinaryKernel> kernel;
-  RETURN_NOT_OK(MakeCompareKernel(*type, options, &kernel));
+  UnpackType visitor{&kernel, options};
+  RETURN_NOT_OK(VisitTypeInline(*left.type(), &visitor));
 
-  out->value = ArrayData::Make(kernel->out_type(), OutLength(left, right));
+  out->value = ArrayData::Make(kernel->out_type(), left.length());
 
   return detail::PrimitiveAllocatingBinaryKernel(kernel.get())
       .Call(context, left, right, out);
+}
+
+Status Compare(FunctionContext* context, const Datum& left, const Datum& right,
+               CompareOptions options, Datum* out) {
+  if (!left.type()->Equals(right.type())) {
+    return Status::TypeError("Cannot compare data of differing type ", *left.type(),
+                             " vs ", *right.type());
+  }
+
+  std::shared_ptr<BinaryKernel> kernel;
+  if (left.is_scalar()) {
+    if (right.is_scalar()) {
+      return Status::Invalid("Invalid datum signature for Compare");
+    }
+
+    // flip the comparison so that the scalar is the right hand side
+    options.op = FlippedCompareOperator(options.op);
+    return FinishCompare(context, right, left, options, out);
+  }
+
+  return FinishCompare(context, left, right, options, out);
 }
 
 }  // namespace compute
