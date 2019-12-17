@@ -31,6 +31,7 @@ use crate::record_batch::{RecordBatch, RecordBatchReader};
 pub(crate) struct ArrowJson {
     schema: ArrowJsonSchema,
     batches: Vec<ArrowJsonBatch>,
+    dictionaries: Option<Vec<ArrowJsonDictionaryBatch>>,
 }
 
 /// A struct that partially reads the Arrow JSON schema.
@@ -46,6 +47,14 @@ struct ArrowJsonSchema {
 struct ArrowJsonBatch {
     count: usize,
     columns: Vec<ArrowJsonColumn>,
+}
+
+/// A struct that partially reads the Arrow JSON record batch
+#[derive(Deserialize)]
+#[allow(non_snake_case)]
+struct ArrowJsonDictionaryBatch {
+    id: i64,
+    data: ArrowJsonBatch,
 }
 
 /// A struct that partially reads the Arrow JSON column/array
@@ -225,6 +234,10 @@ impl ArrowJsonBatch {
                     }
                     DataType::Struct(_) => {
                         let arr = arr.as_any().downcast_ref::<StructArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::Dictionary(_) => {
+                        let arr = arr.as_any().downcast_ref::<DictionaryArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     t @ _ => panic!("Unsupported comparison for {:?}", t),

@@ -78,6 +78,7 @@ pub enum DataType {
     List(Box<DataType>),
     FixedSizeList(Box<DataType>, i32),
     Struct(Vec<Field>),
+    Dictionary((Box<DataType>, Box<DataType>)),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -108,6 +109,8 @@ pub struct Field {
     name: String,
     data_type: DataType,
     nullable: bool,
+    dict_id: i64,
+    dict_is_ordered: bool,
 }
 
 pub trait ArrowNativeType:
@@ -832,6 +835,7 @@ impl DataType {
                 TimeUnit::Microsecond => "MICROSECOND",
                 TimeUnit::Nanosecond => "NANOSECOND",
             }}),
+            DataType::Dictionary(_) => json!({ "name": "dictionary"}),
         }
     }
 }
@@ -843,6 +847,25 @@ impl Field {
             name: name.to_string(),
             data_type,
             nullable,
+            dict_id: 0,
+            dict_is_ordered: false,
+        }
+    }
+
+    /// Creates a new field
+    pub fn new_dict(
+        name: &str,
+        data_type: DataType,
+        nullable: bool,
+        dict_id: i64,
+        dict_is_ordered: bool,
+    ) -> Self {
+        Field {
+            name: name.to_string(),
+            data_type,
+            nullable,
+            dict_id,
+            dict_is_ordered,
         }
     }
 
@@ -946,10 +969,46 @@ impl Field {
                     },
                     _ => data_type,
                 };
+
+                let mut dict_id = 0;
+                let mut dict_is_ordered = false;
+
+                let data_type = match map.get("dictionary") {
+                    Some(dictionary) => {
+                        let index_type = match dictionary.get("indexType") {
+                            Some(t) => DataType::from(t)?,
+                            _ => {
+                                return Err(ArrowError::ParseError(
+                                    "Field missing 'type' attribute".to_string(),
+                                ));
+                            }
+                        };
+                        dict_id = match dictionary.get("id") {
+                            Some(Value::Number(n)) => n.as_i64().unwrap(),
+                            _ => {
+                                return Err(ArrowError::ParseError(
+                                    "Field missing 'id' attribute".to_string(),
+                                ));
+                            }
+                        };
+                        dict_is_ordered = match dictionary.get("isOrdered") {
+                            Some(&Value::Bool(n)) => n,
+                            _ => {
+                                return Err(ArrowError::ParseError(
+                                    "Field missing 'id' attribute".to_string(),
+                                ));
+                            }
+                        };
+                        DataType::Dictionary((Box::new(index_type), Box::new(data_type)))
+                    }
+                    _ => data_type,
+                };
                 Ok(Field {
                     name,
                     nullable,
                     data_type,
+                    dict_id,
+                    dict_is_ordered,
                 })
             }
             _ => Err(ArrowError::ParseError(
@@ -972,12 +1031,25 @@ impl Field {
             }
             _ => vec![],
         };
-        json!({
-            "name": self.name,
-            "nullable": self.nullable,
-            "type": self.data_type.to_json(),
-            "children": children
-        })
+        match self.data_type() {
+            DataType::Dictionary((ref index_type, ref value_type)) => json!({
+                "name": self.name,
+                "nullable": self.nullable,
+                "type": value_type.to_json(),
+                "children": children,
+                "dictionary": {
+                    "id": self.dict_id,
+                    "indexType": index_type.to_json(),
+                    "isOrdered": self.dict_is_ordered
+                }
+            }),
+            _ => json!({
+                "name": self.name,
+                "nullable": self.nullable,
+                "type": self.data_type.to_json(),
+                "children": children
+            }),
+        }
     }
 
     /// Converts to a `String` representation of the `Field`
@@ -1197,12 +1269,12 @@ mod tests {
 
         assert_eq!(
             "{\"Struct\":[\
-             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
-             {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
+             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
              {\"name\":\"address\",\"data_type\":{\"Struct\":\
-             [{\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false},\
-             {\"name\":\"zip\",\"data_type\":\"UInt16\",\"nullable\":false}\
-             ]},\"nullable\":false}]}",
+             [{\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"zip\",\"data_type\":\"UInt16\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false}\
+             ]},\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false}]}",
             serialized
         );
 
@@ -1402,12 +1474,25 @@ mod tests {
                     ]),
                     false,
                 ),
+<<<<<<< HEAD
                 Field::new("c25", DataType::Interval(IntervalUnit::YearMonth), true),
                 Field::new("c26", DataType::Interval(IntervalUnit::DayTime), true),
                 Field::new("c27", DataType::Duration(TimeUnit::Second), false),
                 Field::new("c28", DataType::Duration(TimeUnit::Millisecond), false),
                 Field::new("c29", DataType::Duration(TimeUnit::Microsecond), false),
                 Field::new("c30", DataType::Duration(TimeUnit::Nanosecond), false),
+=======
+                Field::new_dict(
+                    "c25",
+                    DataType::Dictionary((
+                        Box::new(DataType::Int32),
+                        Box::new(DataType::Utf8),
+                    )),
+                    true,
+                    123,
+                    true,
+                ),
+>>>>>>> fixing merge
             ],
             metadata,
         );
@@ -1692,6 +1777,7 @@ mod tests {
                     },
                     {
                         "name": "c25",
+<<<<<<< HEAD
                         "nullable": true,
                         "type": {
                             "name": "interval",
@@ -1743,6 +1829,22 @@ mod tests {
                             "unit": "NANOSECOND"
                         },
                         "children": []
+=======
+                        "type": {
+                          "name": "utf8"
+                        },
+                        "nullable": true,
+                        "children": [],
+                        "dictionary": {
+                          "id": 123,
+                          "indexType": {
+                            "name": "int",
+                            "isSigned": true,
+                            "bitWidth": 32
+                          },
+                          "isOrdered": true
+                        }
+>>>>>>> fixing merge
                     }
                 ],
                 "metadata" : {
@@ -1808,7 +1910,7 @@ mod tests {
                 false,
             ),
         ]);
-        assert_eq!(_person.to_string(), "first_name: Utf8, last_name: Utf8, address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false }, Field { name: \"zip\", data_type: UInt16, nullable: false }])")
+        assert_eq!(_person.to_string(), "first_name: Utf8, last_name: Utf8, address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false }, Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false }])")
     }
 
     #[test]

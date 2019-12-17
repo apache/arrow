@@ -216,6 +216,78 @@ impl ArrayEqual for ListArray {
     }
 }
 
+impl ArrayEqual for DictionaryArray {
+    fn equals(&self, other: &dyn Array) -> bool {
+        if !base_equal(&self.data(), &other.data()) {
+            return false;
+        }
+
+        let other = other.as_any().downcast_ref::<DictionaryArray>().unwrap();
+
+        if !value_offset_equal(self, other) {
+            return false;
+        }
+
+        if !self.values().range_equals(
+            &*other.values(),
+            self.value_offset(0) as usize,
+            self.value_offset(self.len()) as usize,
+            other.value_offset(0) as usize,
+        ) {
+            return false;
+        }
+
+        true
+    }
+
+    fn range_equals(
+        &self,
+        other: &dyn Array,
+        start_idx: usize,
+        end_idx: usize,
+        other_start_idx: usize,
+    ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
+        let other = other.as_any().downcast_ref::<DictionaryArray>().unwrap();
+
+        let mut j = other_start_idx;
+        for i in start_idx..end_idx {
+            let is_null = self.is_null(i);
+            let other_is_null = other.is_null(j);
+
+            if is_null != other_is_null {
+                return false;
+            }
+
+            if is_null {
+                continue;
+            }
+
+            let start_offset = self.value_offset(i) as usize;
+            let end_offset = self.value_offset(i + 1) as usize;
+            let other_start_offset = other.value_offset(j) as usize;
+            let other_end_offset = other.value_offset(j + 1) as usize;
+
+            if end_offset - start_offset != other_end_offset - other_start_offset {
+                return false;
+            }
+
+            if !self.values().range_equals(
+                &*other.values(),
+                start_offset,
+                end_offset,
+                other_start_offset,
+            ) {
+                return false;
+            }
+
+            j += 1;
+        }
+
+        true
+    }
+}
+
 impl ArrayEqual for FixedSizeListArray {
     fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {
@@ -789,6 +861,41 @@ impl PartialEq<Value> for ListArray {
 
 impl PartialEq<ListArray> for Value {
     fn eq(&self, arrow: &ListArray) -> bool {
+        match self {
+            Value::Array(json_array) => arrow.equals_json_values(json_array),
+            _ => false,
+        }
+    }
+}
+
+impl JsonEqual for DictionaryArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        let keys = self.as_keys_vec();
+        let result = (0..self.len()).all(|i| match json[i] {
+            Value::Number(n) => self.is_valid(i) && n.as_u64().unwrap() == keys[i] as u64,
+            Value::Null => self.is_null(i) || self.value_length(i) == 0,
+            _ => false,
+        });
+
+        result
+    }
+}
+
+impl PartialEq<Value> for DictionaryArray {
+    fn eq(&self, json: &Value) -> bool {
+        match json {
+            Value::Array(json_array) => self.equals_json_values(json_array),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<DictionaryArray> for Value {
+    fn eq(&self, arrow: &DictionaryArray) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(json_array),
             _ => false,
