@@ -18,6 +18,7 @@
 #include "arrow/dataset/file_parquet.h"
 
 #include <memory>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -121,6 +122,14 @@ class RowGroupSkipper {
   int64_t rows_skipped_;
 };
 
+template <typename M>
+static Result<SchemaManifest> GetSchemaManifest(const M& metadata) {
+  SchemaManifest manifest;
+  RETURN_NOT_OK(SchemaManifest::Make(
+      metadata.schema(), nullptr, parquet::default_arrow_reader_properties(), &manifest));
+  return manifest;
+}
+
 class ParquetScanTaskIterator {
  public:
   static Result<ScanTaskIterator> Make(
@@ -155,46 +164,44 @@ class ParquetScanTaskIterator {
   // Compute the column projection out of an optional arrow::Schema
   static std::vector<int> InferColumnProjection(const parquet::FileMetaData& metadata,
                                                 const ScanOptionsPtr& options) {
-    SchemaManifest manifest;
-    if (!SchemaManifest::Make(metadata.schema(), nullptr,
-                              parquet::default_arrow_reader_properties(), &manifest)
-             .ok()) {
+    auto maybe_manifest = GetSchemaManifest(metadata);
+    if (!maybe_manifest.ok()) {
       return internal::Iota(metadata.num_columns());
     }
+    auto manifest = std::move(maybe_manifest).ValueOrDie();
 
-    // get column indices
-    auto filter_fields = FieldsInExpression(options->filter);
+    // Checks if the field is needed in either the projection or the filter.
+    auto fields_name = options->MaterializedFields();
+    std::unordered_set<std::string> materialized_fields{fields_name.cbegin(),
+                                                        fields_name.cend()};
+    auto should_materialize_column = [&materialized_fields](const std::string& f) {
+      return materialized_fields.find(f) != materialized_fields.end();
+    };
 
-    std::vector<int> column_projection;
-
+    std::vector<int> columns_selection;
+    // Note that the loop is using the file's schema to iterate instead of the
+    // materialized fields of the ScanOptions. This ensures that missing
+    // fields in the file (but present in the ScanOptions) will be ignored. The
+    // scanner's projector will take care of padding the column with the proper
+    // values.
     for (const auto& schema_field : manifest.schema_fields) {
-      auto field_name = schema_field.field->name();
-
-      if (options->projector.schema()->GetFieldIndex(field_name) != -1) {
-        // add explicitly projected field
-        AddColumnIndices(schema_field, &column_projection);
-        continue;
-      }
-
-      if (std::find(filter_fields.begin(), filter_fields.end(), field_name) !=
-          filter_fields.end()) {
-        // add field referenced by filter
-        AddColumnIndices(schema_field, &column_projection);
+      if (should_materialize_column(schema_field.field->name())) {
+        AddColumnIndices(schema_field, &columns_selection);
       }
     }
 
-    return column_projection;
+    return columns_selection;
   }
 
   static void AddColumnIndices(const SchemaField& schema_field,
                                std::vector<int>* column_projection) {
-    if (schema_field.column_index != -1) {
+    if (schema_field.is_leaf()) {
       column_projection->push_back(schema_field.column_index);
-      return;
-    }
-
-    for (const auto& child : schema_field.children) {
-      AddColumnIndices(child, column_projection);
+    } else {
+      // The following ensure that complex types, e.g. struct,  are materialized.
+      for (const auto& child : schema_field.children) {
+        AddColumnIndices(child, column_projection);
+      }
     }
   }
 
@@ -310,9 +317,7 @@ static ExpressionPtr ColumnChunkStatisticsAsExpression(
 
 Result<ExpressionPtr> RowGroupStatisticsAsExpression(
     const parquet::RowGroupMetaData& metadata) {
-  SchemaManifest manifest;
-  RETURN_NOT_OK(SchemaManifest::Make(
-      metadata.schema(), nullptr, parquet::default_arrow_reader_properties(), &manifest));
+  ARROW_ASSIGN_OR_RAISE(auto manifest, GetSchemaManifest(metadata));
 
   ExpressionVector expressions;
   for (const auto& schema_field : manifest.schema_fields) {
