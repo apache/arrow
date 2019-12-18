@@ -246,13 +246,13 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
 
   constexpr double kMegabyte = static_cast<double>(1 << 20);
 
-  // Check that number of rows read/write is as expected
+  // Check that number of rows read / written is as expected
   if (stats.total_records != static_cast<int64_t>(plan->total_records())) {
     return Status::Invalid("Did not consume expected number of records");
   }
 
   if (FLAGS_test_put) {
-    std::cout << "Bytes write: " << stats.total_bytes << std::endl;
+    std::cout << "Bytes written: " << stats.total_bytes << std::endl;
   } else {
     std::cout << "Bytes read: " << stats.total_bytes << std::endl;
   }
@@ -273,10 +273,12 @@ int main(int argc, char** argv) {
   std::unique_ptr<arrow::flight::TestServer> server;
   std::string hostname = "localhost";
   if (FLAGS_server_host == "") {
+    std::cout << "Using standalone server: false" << std::endl;
     server.reset(
         new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_port));
     server->Start();
   } else {
+    std::cout << "Using standalone server: true" << std::endl;
     hostname = FLAGS_server_host;
   }
 
