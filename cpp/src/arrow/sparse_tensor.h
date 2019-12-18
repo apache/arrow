@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -36,7 +37,9 @@ struct SparseTensorFormat {
     /// Coordinate list (COO) format.
     COO,
     /// Compressed sparse row (CSR) format.
-    CSR
+    CSR,
+    /// Compressed sparse column (CSC) format.
+    CSC,
   };
 };
 
@@ -136,34 +139,51 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
   std::shared_ptr<Tensor> coords_;
 };
 
-// ----------------------------------------------------------------------
-// SparseCSRIndex class
+namespace internal {
 
-/// \brief EXPERIMENTAL: The index data for a CSR sparse matrix
-///
-/// A CSR sparse index manages the location of its non-zero values by two
-/// vectors.
-///
-/// The first vector, called indptr, represents the range of the rows; the i-th
-/// row spans from indptr[i] to indptr[i+1] in the corresponding value vector.
-/// So the length of an indptr vector is the number of rows + 1.
-///
-/// The other vector, called indices, represents the column indices of the
-/// corresponding non-zero values.  So the length of an indices vector is same
-/// as the number of non-zero-values.
-class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIndex> {
+/// EXPERIMENTAL: The axis to be compressed
+enum class SparseMatrixCompressedAxis : char {
+  /// The value for CSR matrix
+  ROW,
+  /// The value for CSC matrix
+  COLUMN
+};
+
+ARROW_EXPORT
+Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
+                              const std::shared_ptr<DataType>& indices_type,
+                              const std::vector<int64_t>& indptr_shape,
+                              const std::vector<int64_t>& indices_shape,
+                              char const* type_name);
+
+ARROW_EXPORT
+void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
+                                 const std::shared_ptr<DataType>& indices_type,
+                                 const std::vector<int64_t>& indptr_shape,
+                                 const std::vector<int64_t>& indices_shape,
+                                 char const* type_name);
+
+template <typename SparseIndexType, SparseMatrixCompressedAxis COMPRESSED_AXIS>
+class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
  public:
-  static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSR;
+  static constexpr SparseMatrixCompressedAxis kCompressedAxis = COMPRESSED_AXIS;
 
-  /// \brief Make SparseCSRIndex from raw properties
-  static Result<std::shared_ptr<SparseCSRIndex>> Make(
+  /// \brief Make a subclass of SparseCSXIndex from raw properties
+  static Result<std::shared_ptr<SparseIndexType>> Make(
       const std::shared_ptr<DataType>& indptr_type,
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indptr_shape, const std::vector<int64_t>& indices_shape,
-      std::shared_ptr<Buffer> indptr_data, std::shared_ptr<Buffer> indices_data);
+      std::shared_ptr<Buffer> indptr_data, std::shared_ptr<Buffer> indices_data) {
+    ARROW_RETURN_NOT_OK(ValidateSparseCSXIndex(indptr_type, indices_type, indptr_shape,
+                                               indices_shape,
+                                               SparseIndexType::kTypeName));
+    return std::make_shared<SparseIndexType>(
+        std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
+        std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
+  }
 
-  /// \brief Make SparseCSRIndex from raw properties
-  static Result<std::shared_ptr<SparseCSRIndex>> Make(
+  /// \brief Make a subclass of SparseCSXIndex from raw properties
+  static Result<std::shared_ptr<SparseIndexType>> Make(
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indptr_shape, const std::vector<int64_t>& indices_shape,
       std::shared_ptr<Buffer> indptr_data, std::shared_ptr<Buffer> indices_data) {
@@ -171,15 +191,22 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
                 indices_data);
   }
 
-  /// \brief Make SparseCSRIndex from sparse tensor's shape properties and data
-  static Result<std::shared_ptr<SparseCSRIndex>> Make(
+  /// \brief Make a subclass of SparseCSXIndex from sparse tensor's shape properties and
+  /// data
+  static Result<std::shared_ptr<SparseIndexType>> Make(
       const std::shared_ptr<DataType>& indptr_type,
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
       int64_t non_zero_length, std::shared_ptr<Buffer> indptr_data,
-      std::shared_ptr<Buffer> indices_data);
+      std::shared_ptr<Buffer> indices_data) {
+    std::vector<int64_t> indptr_shape({shape[0] + 1});
+    std::vector<int64_t> indices_shape({non_zero_length});
+    return Make(indptr_type, indices_type, indptr_shape, indices_shape, indptr_data,
+                indices_data);
+  }
 
-  /// \brief Make SparseCSRIndex from sparse tensor's shape properties and data
-  static Result<std::shared_ptr<SparseCSRIndex>> Make(
+  /// \brief Make a subclass of SparseCSXIndex from sparse tensor's shape properties and
+  /// data
+  static Result<std::shared_ptr<SparseIndexType>> Make(
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
       int64_t non_zero_length, std::shared_ptr<Buffer> indptr_data,
       std::shared_ptr<Buffer> indices_data) {
@@ -187,9 +214,15 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
                 indices_data);
   }
 
-  /// \brief Construct SparseCSRIndex from two index vectors
-  explicit SparseCSRIndex(const std::shared_ptr<Tensor>& indptr,
-                          const std::shared_ptr<Tensor>& indices);
+  /// \brief Construct SparseCSXIndex from two index vectors
+  explicit SparseCSXIndex(const std::shared_ptr<Tensor>& indptr,
+                          const std::shared_ptr<Tensor>& indices)
+      : SparseIndexBase<SparseIndexType>(indices->shape()[0]),
+        indptr_(indptr),
+        indices_(indices) {
+    CheckSparseCSXIndexValidity(indptr_->type(), indices_->type(), indptr_->shape(),
+                                indices_->shape(), SparseIndexType::kTypeName);
+  }
 
   /// \brief Return a 1D tensor of indptr vector
   const std::shared_ptr<Tensor>& indptr() const { return indptr_; }
@@ -198,10 +231,12 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
   const std::shared_ptr<Tensor>& indices() const { return indices_; }
 
   /// \brief Return a string representation of the sparse index
-  std::string ToString() const override;
+  std::string ToString() const override {
+    return std::string(SparseIndexType::kTypeName);
+  }
 
   /// \brief Return whether the CSR indices are equal
-  bool Equals(const SparseCSRIndex& other) const {
+  bool Equals(const SparseIndexType& other) const {
     return indptr()->Equals(*other.indptr()) && indices()->Equals(*other.indices());
   }
 
@@ -220,12 +255,75 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
       return Status::OK();
     }
 
-    return Status::Invalid("shape length is inconsistent with the CSR index");
+    return Status::Invalid("shape length is inconsistent with the ", ToString());
   }
 
  protected:
   std::shared_ptr<Tensor> indptr_;
   std::shared_ptr<Tensor> indices_;
+};
+
+}  // namespace internal
+
+// ----------------------------------------------------------------------
+// SparseCSRIndex class
+
+/// \brief EXPERIMENTAL: The index data for a CSR sparse matrix
+///
+/// A CSR sparse index manages the location of its non-zero values by two
+/// vectors.
+///
+/// The first vector, called indptr, represents the range of the rows; the i-th
+/// row spans from indptr[i] to indptr[i+1] in the corresponding value vector.
+/// So the length of an indptr vector is the number of rows + 1.
+///
+/// The other vector, called indices, represents the column indices of the
+/// corresponding non-zero values.  So the length of an indices vector is same
+/// as the number of non-zero-values.
+class ARROW_EXPORT SparseCSRIndex
+    : public internal::SparseCSXIndex<SparseCSRIndex,
+                                      internal::SparseMatrixCompressedAxis::ROW> {
+ public:
+  using BaseClass =
+      internal::SparseCSXIndex<SparseCSRIndex, internal::SparseMatrixCompressedAxis::ROW>;
+
+  static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSR;
+  static constexpr char const* kTypeName = "SparseCSRIndex";
+
+  using SparseCSXIndex::kCompressedAxis;
+  using SparseCSXIndex::Make;
+  using SparseCSXIndex::SparseCSXIndex;
+};
+
+// ----------------------------------------------------------------------
+// SparseCSCIndex class
+
+/// \brief EXPERIMENTAL: The index data for a CSC sparse matrix
+///
+/// A CSC sparse index manages the location of its non-zero values by two
+/// vectors.
+///
+/// The first vector, called indptr, represents the range of the column; the i-th
+/// column spans from indptr[i] to indptr[i+1] in the corresponding value vector.
+/// So the length of an indptr vector is the number of columns + 1.
+///
+/// The other vector, called indices, represents the row indices of the
+/// corresponding non-zero values.  So the length of an indices vector is same
+/// as the number of non-zero-values.
+class ARROW_EXPORT SparseCSCIndex
+    : public internal::SparseCSXIndex<SparseCSCIndex,
+                                      internal::SparseMatrixCompressedAxis::COLUMN> {
+ public:
+  using BaseClass =
+      internal::SparseCSXIndex<SparseCSCIndex,
+                               internal::SparseMatrixCompressedAxis::COLUMN>;
+
+  static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSC;
+  static constexpr char const* kTypeName = "SparseCSCIndex";
+
+  using SparseCSXIndex::kCompressedAxis;
+  using SparseCSXIndex::Make;
+  using SparseCSXIndex::SparseCSXIndex;
 };
 
 // ----------------------------------------------------------------------
@@ -418,6 +516,9 @@ using SparseCOOTensor = SparseTensorImpl<SparseCOOIndex>;
 
 /// \brief EXPERIMENTAL: Type alias for CSR sparse matrix
 using SparseCSRMatrix = SparseTensorImpl<SparseCSRIndex>;
+
+/// \brief EXPERIMENTAL: Type alias for CSC sparse matrix
+using SparseCSCMatrix = SparseTensorImpl<SparseCSCIndex>;
 
 }  // namespace arrow
 
