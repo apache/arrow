@@ -27,6 +27,9 @@ with_docs=${3:-false}
 
 # TODO(kszucs): consider to move these to CMake
 if [ ! -z "${CONDA_PREFIX}" ]; then
+  echo -e "===\n=== Conda environment for build\n==="
+  conda list
+
   export CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_AR=${AR} -DCMAKE_RANLIB=${RANLIB}"
   export ARROW_GANDIVA_PC_CXX_FLAGS=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
 elif [ -x "$(command -v xcrun)" ]; then
