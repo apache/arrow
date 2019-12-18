@@ -933,7 +933,7 @@ class TestSparseCSFTensorBase : public ::testing::Test {
  protected:
   std::vector<int64_t> shape_;
   std::vector<std::string> dim_names_;
-  std::shared_ptr<SparseCSCMatrix> sparse_tensor_from_dense_;
+  std::shared_ptr<SparseCSFTensor> sparse_tensor_from_dense_;
 };
 
 class TestSparseCSFTensor : public TestSparseCSFTensorBase<Int64Type> {};

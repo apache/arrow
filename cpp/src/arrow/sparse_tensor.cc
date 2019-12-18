@@ -735,8 +735,6 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
           internal::checked_cast<const SparseCSCIndex&>(*sparse_tensor->sparse_index());
       const std::shared_ptr<const Tensor> indptr = sparse_index.indptr();
       const std::shared_ptr<const Tensor> indices = sparse_index.indices();
-      const auto raw_data =
-          reinterpret_cast<const value_type*>(sparse_tensor->raw_data());
 
       int64_t offset;
       for (int64_t j = 0; j < indptr->size() - 1; ++j) {
