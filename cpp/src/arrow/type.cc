@@ -35,6 +35,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/vector.h"
 #include "arrow/visitor_inline.h"
 
@@ -69,7 +70,7 @@ std::shared_ptr<Field> Field::WithNullable(const bool nullable) const {
   return std::make_shared<Field>(name_, type_, nullable, metadata_);
 }
 
-Result<std::shared_ptr<Field>> Field::WithField(const Field& other) const {
+Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other) const {
   if (name() != other.name()) {
     return Status::Invalid("Field ", name(), " doesn't have the same name as ",
                            other.name());
@@ -89,10 +90,10 @@ Result<std::shared_ptr<Field>> Field::WithField(const Field& other) const {
   return Copy();
 }
 
-Result<std::shared_ptr<Field>> Field::WithField(
+Result<std::shared_ptr<Field>> Field::MergeWith(
     const std::shared_ptr<Field>& other) const {
   DCHECK_NE(other, nullptr);
-  return WithField(*other);
+  return MergeWith(*other);
 }
 
 std::vector<std::shared_ptr<Field>> Field::Flatten() const {
@@ -137,7 +138,7 @@ bool Field::Equals(const std::shared_ptr<Field>& other, bool check_metadata) con
   return Equals(*other.get(), check_metadata);
 }
 
-bool Field::IsCompatibleWith(const Field& other) const { return WithField(other).ok(); }
+bool Field::IsCompatibleWith(const Field& other) const { return MergeWith(other).ok(); }
 
 bool Field::IsCompatibleWith(const std::shared_ptr<Field>& other) const {
   DCHECK_NE(other, nullptr);
@@ -678,7 +679,7 @@ bool Schema::HasMetadata() const {
   return (impl_->metadata_ != nullptr) && (impl_->metadata_->size() > 0);
 }
 
-bool Schema::HasUniqueFieldNames() const {
+bool Schema::HasDistinctFieldNames() const {
   auto fields = field_names();
   std::unordered_set<std::string> names{fields.cbegin(), fields.cend()};
   return names.size() == fields.size();
@@ -740,103 +741,149 @@ std::vector<std::string> Schema::field_names() const {
   return names;
 }
 
-SchemaBuilder::SchemaBuilder(ConflictPolicy policy) : policy_(policy) {}
+class SchemaBuilder::Impl {
+ public:
+  friend class SchemaBuilder;
+  Impl(ConflictPolicy policy) : policy_(policy) {}
+
+  Impl(std::vector<std::shared_ptr<Field>> fields,
+       std::shared_ptr<const KeyValueMetadata> metadata, ConflictPolicy conflict_policy)
+      : fields_(std::move(fields)),
+        name_to_index_(CreateNameToIndexMap(fields_)),
+        metadata_(std::move(metadata)),
+        policy_(conflict_policy) {}
+
+  Status AddField(const std::shared_ptr<Field>& field) {
+    DCHECK_NE(field, nullptr);
+
+    // Short-circuit, no lookup needed.
+    if (policy_ == CONFLICT_APPEND) {
+      return AppendField(field);
+    }
+
+    auto name = field->name();
+    constexpr int kNotFound = -1;
+    constexpr int kDuplicateFound = -2;
+    auto i = LookupNameIndex<kNotFound, kDuplicateFound>(name_to_index_, name);
+
+    if (i == kNotFound) {
+      return AppendField(field);
+    }
+
+    // From this point, there's one or more field in the builder that exists with
+    // the same name.
+
+    if (policy_ == CONFLICT_IGNORE) {
+      // The ignore policy is more generous when there's duplicate in the builder.
+      return Status::OK();
+    } else if (policy_ == CONFLICT_ERROR) {
+      return Status::Invalid("Duplicate found, policy dictate to treat as an error");
+    }
+
+    if (i == kDuplicateFound) {
+      // Cannot merge/replace when there's more than one field in the builder
+      // because we can't decide which to merge/replace.
+      return Status::Invalid("Cannot merge field ", name,
+                             " more than one field with same name exists");
+    }
+
+    DCHECK_GE(i, 0);
+
+    if (policy_ == CONFLICT_REPLACE) {
+      fields_[i] = field;
+    } else if (policy_ == CONFLICT_MERGE) {
+      ARROW_ASSIGN_OR_RAISE(fields_[i], fields_[i]->MergeWith(field));
+    }
+
+    return Status::OK();
+  }
+
+  Status AppendField(const std::shared_ptr<Field>& field) {
+    name_to_index_.emplace(field->name(), static_cast<int>(fields_.size()));
+    fields_.push_back(field);
+    return Status::OK();
+  }
+
+  void Reset() {
+    fields_.clear();
+    name_to_index_.clear();
+    metadata_.reset();
+  }
+
+ private:
+  std::vector<std::shared_ptr<Field>> fields_;
+  std::unordered_multimap<std::string, int> name_to_index_;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
+  ConflictPolicy policy_;
+};
+
+SchemaBuilder::SchemaBuilder(ConflictPolicy policy) {
+  impl_ = internal::make_unique<Impl>(policy);
+}
 
 SchemaBuilder::SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
-                             ConflictPolicy policy)
-    : fields_(std::move(fields)),
-      name_to_index_(CreateNameToIndexMap(fields_)),
-      policy_(policy) {}
+                             ConflictPolicy policy) {
+  impl_ = internal::make_unique<Impl>(std::move(fields), nullptr, policy);
+}
+
+SchemaBuilder::~SchemaBuilder() {}
 
 SchemaBuilder::SchemaBuilder(const std::shared_ptr<Schema>& schema,
-                             ConflictPolicy conflict_resolution)
-    : fields_(std::move(schema->fields())),
-      name_to_index_(CreateNameToIndexMap(fields_)),
-      policy_(conflict_resolution) {
+                             ConflictPolicy policy) {
+  std::shared_ptr<const KeyValueMetadata> metadata;
   if (schema->HasMetadata()) {
-    metadata_ = schema->metadata()->Copy();
+    metadata = schema->metadata()->Copy();
   }
+
+  impl_ = internal::make_unique<Impl>(schema->fields(), std::move(metadata), policy);
 }
 
-Status SchemaBuilder::WithField(const std::shared_ptr<Field>& field) {
-  DCHECK_NE(field, nullptr);
+SchemaBuilder::ConflictPolicy SchemaBuilder::policy() const { return impl_->policy_; }
 
-  // Short-circuit, no lookup needed.
-  if (policy_ == APPEND) {
-    return AppendField(field);
-  }
-
-  auto name = field->name();
-  constexpr int kNotFound = -1;
-  constexpr int kDuplicateFound = -2;
-  auto i = LookupNameIndex<kNotFound, kDuplicateFound>(name_to_index_, name);
-
-  if (i == kNotFound) {
-    return AppendField(field);
-  }
-
-  if (i == kDuplicateFound || policy_ == ERROR) {
-    return Status::Invalid("Cannot merge field ", name,
-                           " more than one field with same name exists");
-  }
-
-  DCHECK_GE(i, 0);
-
-  if (policy_ == REPLACE) {
-    fields_[i] = field;
-  } else if (policy_ == MERGE) {
-    ARROW_ASSIGN_OR_RAISE(fields_[i], fields_[i]->WithField(field));
-  }
-
-  return Status::OK();
+void SchemaBuilder::SetPolicy(SchemaBuilder::ConflictPolicy resolution) {
+  impl_->policy_ = resolution;
 }
 
-Status SchemaBuilder::WithFields(const std::vector<std::shared_ptr<Field>>& fields) {
+Status SchemaBuilder::AddField(const std::shared_ptr<Field>& field) {
+  return impl_->AddField(field);
+}
+
+Status SchemaBuilder::AddFields(const std::vector<std::shared_ptr<Field>>& fields) {
   for (const auto& field : fields) {
-    RETURN_NOT_OK(WithField(field));
+    RETURN_NOT_OK(AddField(field));
   }
 
   return Status::OK();
 }
 
-Status SchemaBuilder::WithSchema(const std::shared_ptr<Schema>& schema) {
+Status SchemaBuilder::AddSchema(const std::shared_ptr<Schema>& schema) {
   DCHECK_NE(schema, nullptr);
-  return WithFields(schema->fields());
+  return AddFields(schema->fields());
 }
 
-Status SchemaBuilder::WithSchemas(const std::vector<std::shared_ptr<Schema>>& schemas) {
+Status SchemaBuilder::AddSchemas(const std::vector<std::shared_ptr<Schema>>& schemas) {
   for (const auto& schema : schemas) {
-    RETURN_NOT_OK(WithSchema(schema));
+    RETURN_NOT_OK(AddSchema(schema));
   }
 
   return Status::OK();
 }
 
-Status SchemaBuilder::WithMetadata(const KeyValueMetadata& metadata) {
-  metadata_ = metadata.Copy();
+Status SchemaBuilder::AddMetadata(const KeyValueMetadata& metadata) {
+  impl_->metadata_ = metadata.Copy();
   return Status::OK();
 }
 
 Result<std::shared_ptr<Schema>> SchemaBuilder::Finish() const {
-  return schema(fields_, metadata_);
+  return schema(impl_->fields_, impl_->metadata_);
 }
 
-void SchemaBuilder::Reset() {
-  fields_.clear();
-  name_to_index_.clear();
-  metadata_.reset();
-}
-
-Status SchemaBuilder::AppendField(const std::shared_ptr<Field>& field) {
-  name_to_index_.emplace(field->name(), fields_.size());
-  fields_.push_back(field);
-  return Status::OK();
-}
+void SchemaBuilder::Reset() { impl_->Reset(); }
 
 Result<std::shared_ptr<Schema>> SchemaBuilder::Merge(
     const std::vector<std::shared_ptr<Schema>>& schemas, ConflictPolicy policy) {
   SchemaBuilder builder{policy};
-  RETURN_NOT_OK(builder.WithSchemas(schemas));
+  RETURN_NOT_OK(builder.AddSchemas(schemas));
   return builder.Finish();
 }
 
@@ -861,22 +908,22 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
     return Status::Invalid("Must provide at least one schema to unify.");
   }
 
-  if (!schemas[0]->HasUniqueFieldNames()) {
+  if (!schemas[0]->HasDistinctFieldNames()) {
     return Status::Invalid("Can't unify schema with duplicate field names.");
   }
 
-  SchemaBuilder builder{schemas[0], SchemaBuilder::MERGE};
+  SchemaBuilder builder{schemas[0], SchemaBuilder::CONFLICT_MERGE};
 
   for (size_t i = 1; i < schemas.size(); i++) {
     const auto& schema = schemas[i];
-    if (!schema->HasUniqueFieldNames()) {
+    if (!schema->HasDistinctFieldNames()) {
       return Status::Invalid("Can't unify schema with duplicate field names.");
     }
-    RETURN_NOT_OK(builder.WithSchema(schema));
+    RETURN_NOT_OK(builder.AddSchema(schema));
   }
 
   return builder.Finish();
-}  // namespace arrow
+}
 
 // ----------------------------------------------------------------------
 // Fingerprint computations

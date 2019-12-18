@@ -22,8 +22,6 @@
 #include <string>
 #include <vector>
 
-#include <gtest/gtest.h>
-
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -37,86 +35,41 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-template <typename T>
-void AssertFingerprintablesEqual(const T& left, const T& right, bool check_metadata,
-                                 const char* types_plural) {
-  ASSERT_TRUE(left.Equals(right, check_metadata))
-      << types_plural << " '" << left.ToString() << "' and '" << right.ToString()
-      << "' should have compared equal";
-  auto lfp = left.fingerprint();
-  auto rfp = right.fingerprint();
-  // All types tested in this file should implement fingerprinting
-  ASSERT_NE(lfp, "") << "fingerprint for '" << left.ToString() << "' should not be empty";
-  ASSERT_NE(rfp, "") << "fingerprint for '" << right.ToString()
-                     << "' should not be empty";
-  if (check_metadata) {
-    lfp += left.metadata_fingerprint();
-    rfp += right.metadata_fingerprint();
-  }
-  ASSERT_EQ(lfp, rfp) << "Fingerprints for " << types_plural << " '" << left.ToString()
-                      << "' and '" << right.ToString() << "' should have compared equal";
+TEST(TestField, Basics) {
+  Field f0("f0", int32());
+  Field f0_nn("f0", int32(), false);
+
+  ASSERT_EQ(f0.name(), "f0");
+  ASSERT_EQ(f0.type()->ToString(), int32()->ToString());
+
+  ASSERT_TRUE(f0.nullable());
+  ASSERT_FALSE(f0_nn.nullable());
 }
 
-template <typename T>
-void AssertFingerprintablesEqual(const std::shared_ptr<T>& left,
-                                 const std::shared_ptr<T>& right, bool check_metadata,
-                                 const char* types_plural) {
-  ASSERT_NE(left, nullptr);
-  ASSERT_NE(right, nullptr);
-  AssertFingerprintablesEqual(*left, *right, check_metadata, types_plural);
-}
+TEST(TestField, Equals) {
+  auto meta1 = key_value_metadata({{"a", "1"}, {"b", "2"}});
+  // Different from meta1
+  auto meta2 = key_value_metadata({{"a", "1"}, {"b", "3"}});
+  // Equal to meta1, though in different order
+  auto meta3 = key_value_metadata({{"b", "2"}, {"a", "1"}});
 
-template <typename T>
-void AssertFingerprintablesNotEqual(const T& left, const T& right, bool check_metadata,
-                                    const char* types_plural) {
-  ASSERT_FALSE(left.Equals(right, check_metadata))
-      << types_plural << " '" << left.ToString() << "' and '" << right.ToString()
-      << "' should have compared unequal";
-  auto lfp = left.fingerprint();
-  auto rfp = right.fingerprint();
-  // All types tested in this file should implement fingerprinting
-  ASSERT_NE(lfp, "") << "fingerprint for '" << left.ToString() << "' should not be empty";
-  ASSERT_NE(rfp, "") << "fingerprint for '" << right.ToString()
-                     << "' should not be empty";
-  if (check_metadata) {
-    lfp += left.metadata_fingerprint();
-    rfp += right.metadata_fingerprint();
-  }
-  ASSERT_NE(lfp, rfp) << "Fingerprints for " << types_plural << " '" << left.ToString()
-                      << "' and '" << right.ToString()
-                      << "' should have compared unequal";
-}
+  Field f0("f0", int32());
+  Field f0_nn("f0", int32(), false);
+  Field f0_other("f0", int32());
+  Field f0_with_meta1("f0", int32(), true, meta1);
+  Field f0_with_meta2("f0", int32(), true, meta2);
+  Field f0_with_meta3("f0", int32(), true, meta3);
 
-template <typename T>
-void AssertFingerprintablesNotEqual(const std::shared_ptr<T>& left,
-                                    const std::shared_ptr<T>& right, bool check_metadata,
-                                    const char* types_plural) {
-  ASSERT_NE(left, nullptr);
-  ASSERT_NE(right, nullptr);
-  AssertFingerprintablesNotEqual(*left, *right, check_metadata, types_plural);
-}
+  AssertFieldEqual(f0, f0_other);
+  AssertFieldNotEqual(f0, f0_nn);
+  AssertFieldNotEqual(f0, f0_with_meta1);
+  AssertFieldNotEqual(f0_with_meta1, f0_with_meta2);
+  AssertFieldEqual(f0_with_meta1, f0_with_meta3);
 
-#define ASSERT_EQUAL_IMPL(NAME, TYPE, PLURAL)                            \
-  void Assert##NAME##Equal(const TYPE& left, const TYPE& right,          \
-                           bool check_metadata = true) {                 \
-    AssertFingerprintablesEqual(left, right, check_metadata, PLURAL);    \
-  }                                                                      \
-                                                                         \
-  void Assert##NAME##Equal(const std::shared_ptr<TYPE>& left,            \
-                           const std::shared_ptr<TYPE>& right,           \
-                           bool check_metadata = true) {                 \
-    AssertFingerprintablesEqual(left, right, check_metadata, PLURAL);    \
-  }                                                                      \
-                                                                         \
-  void Assert##NAME##NotEqual(const TYPE& left, const TYPE& right,       \
-                              bool check_metadata = true) {              \
-    AssertFingerprintablesNotEqual(left, right, check_metadata, PLURAL); \
-  }                                                                      \
-  void Assert##NAME##NotEqual(const std::shared_ptr<TYPE>& left,         \
-                              const std::shared_ptr<TYPE>& right,        \
-                              bool check_metadata = true) {              \
-    AssertFingerprintablesNotEqual(left, right, check_metadata, PLURAL); \
-  }
+  AssertFieldEqual(f0, f0_with_meta1, false);
+  AssertFieldEqual(f0, f0_with_meta2, false);
+  AssertFieldEqual(f0_with_meta1, f0_with_meta2, false);
+}
 
 #define ASSERT_COMPATIBLE_IMPL(NAME, TYPE, PLURAL)                        \
   void Assert##NAME##Compatible(const TYPE& left, const TYPE& right) {    \
@@ -145,49 +98,8 @@ void AssertFingerprintablesNotEqual(const std::shared_ptr<T>& left,
     Assert##NAME##NotCompatible(*left, *right);                           \
   }
 
-ASSERT_EQUAL_IMPL(Types, DataType, "types")
-ASSERT_EQUAL_IMPL(Fields, Field, "fields")
-ASSERT_COMPATIBLE_IMPL(Fields, Field, "fields")
-ASSERT_EQUAL_IMPL(Schemas, Schema, "schemas")
-
-#undef ASSERT_EQUAL_IMPL
+ASSERT_COMPATIBLE_IMPL(Field, Field, "fields")
 #undef ASSERT_COMPATIBLE_IMPL
-
-TEST(TestField, Basics) {
-  Field f0("f0", int32());
-  Field f0_nn("f0", int32(), false);
-
-  ASSERT_EQ(f0.name(), "f0");
-  ASSERT_EQ(f0.type()->ToString(), int32()->ToString());
-
-  ASSERT_TRUE(f0.nullable());
-  ASSERT_FALSE(f0_nn.nullable());
-}
-
-TEST(TestField, Equals) {
-  auto meta1 = key_value_metadata({{"a", "1"}, {"b", "2"}});
-  // Different from meta1
-  auto meta2 = key_value_metadata({{"a", "1"}, {"b", "3"}});
-  // Equal to meta1, though in different order
-  auto meta3 = key_value_metadata({{"b", "2"}, {"a", "1"}});
-
-  Field f0("f0", int32());
-  Field f0_nn("f0", int32(), false);
-  Field f0_other("f0", int32());
-  Field f0_with_meta1("f0", int32(), true, meta1);
-  Field f0_with_meta2("f0", int32(), true, meta2);
-  Field f0_with_meta3("f0", int32(), true, meta3);
-
-  AssertFieldsEqual(f0, f0_other);
-  AssertFieldsNotEqual(f0, f0_nn);
-  AssertFieldsNotEqual(f0, f0_with_meta1);
-  AssertFieldsNotEqual(f0_with_meta1, f0_with_meta2);
-  AssertFieldsEqual(f0_with_meta1, f0_with_meta3);
-
-  AssertFieldsEqual(f0, f0_with_meta1, false);
-  AssertFieldsEqual(f0, f0_with_meta2, false);
-  AssertFieldsEqual(f0_with_meta1, f0_with_meta2, false);
-}
 
 TEST(TestField, IsCompatibleWith) {
   auto meta1 = key_value_metadata({{"a", "1"}, {"b", "2"}});
@@ -205,14 +117,14 @@ TEST(TestField, IsCompatibleWith) {
   Field f0_with_meta3("f0", int32(), true, meta3);
   Field other("other", int64());
 
-  AssertFieldsCompatible(f0, f0_other);
-  AssertFieldsCompatible(f0, f0_with_meta1);
-  AssertFieldsCompatible(f0, f0_nn);
-  AssertFieldsCompatible(f0, f0_nt);
-  AssertFieldsCompatible(f0_nt, f0_with_meta1);
-  AssertFieldsCompatible(f0_with_meta1, f0_with_meta2);
-  AssertFieldsCompatible(f0_with_meta1, f0_with_meta3);
-  AssertFieldsNotCompatible(f0, other);
+  AssertFieldCompatible(f0, f0_other);
+  AssertFieldCompatible(f0, f0_with_meta1);
+  AssertFieldCompatible(f0, f0_nn);
+  AssertFieldCompatible(f0, f0_nt);
+  AssertFieldCompatible(f0_nt, f0_with_meta1);
+  AssertFieldCompatible(f0_with_meta1, f0_with_meta2);
+  AssertFieldCompatible(f0_with_meta1, f0_with_meta3);
+  AssertFieldNotCompatible(f0, other);
 }
 
 TEST(TestField, TestMetadataConstruction) {
@@ -222,7 +134,7 @@ TEST(TestField, TestMetadataConstruction) {
   auto f0 = field("f0", int32(), true, metadata);
   auto f1 = field("f0", int32(), true, metadata2);
   ASSERT_TRUE(metadata->Equals(*f0->metadata()));
-  AssertFieldsEqual(f0, f1);
+  AssertFieldEqual(f0, f1);
 }
 
 TEST(TestField, TestWithMetadata) {
@@ -232,10 +144,10 @@ TEST(TestField, TestWithMetadata) {
   auto f1 = field("f0", int32(), true, metadata);
   std::shared_ptr<Field> f2 = f0->WithMetadata(metadata);
 
-  AssertFieldsEqual(f1, f2);
-  AssertFieldsNotEqual(f0, f2);
-  AssertFieldsEqual(f0, f2, false);
-  AssertFieldsEqual(f1, f2, false);
+  AssertFieldEqual(f1, f2);
+  AssertFieldNotEqual(f0, f2);
+  AssertFieldEqual(f0, f2, false);
+  AssertFieldEqual(f1, f2, false);
 
   // Ensure pointer equality for zero-copy
   ASSERT_EQ(metadata.get(), f1->metadata().get());
@@ -259,10 +171,10 @@ TEST(TestField, TestEmptyMetadata) {
   auto f1 = field("f0", int32(), true, metadata1);
   auto f2 = field("f0", int32(), true, metadata2);
 
-  AssertFieldsEqual(f0, f1);
-  AssertFieldsNotEqual(f0, f2);
-  AssertFieldsEqual(f0, f1, /*check_metadata =*/false);
-  AssertFieldsEqual(f0, f2, /*check_metadata =*/false);
+  AssertFieldEqual(f0, f1);
+  AssertFieldNotEqual(f0, f2);
+  AssertFieldEqual(f0, f1, /*check_metadata =*/false);
+  AssertFieldEqual(f0, f2, /*check_metadata =*/false);
 }
 
 TEST(TestField, TestFlatten) {
@@ -271,7 +183,7 @@ TEST(TestField, TestFlatten) {
   auto f0 = field("f0", int32(), true /* nullable */, metadata);
   auto vec = f0->Flatten();
   ASSERT_EQ(vec.size(), 1);
-  AssertFieldsEqual(vec[0], f0);
+  AssertFieldEqual(vec[0], f0);
 
   auto f1 = field("f1", float64(), false /* nullable */);
   auto ff = field("nest", struct_({f0, f1}));
@@ -280,16 +192,16 @@ TEST(TestField, TestFlatten) {
   auto expected0 = field("nest.f0", int32(), true /* nullable */, metadata);
   // nullable parent implies nullable flattened child
   auto expected1 = field("nest.f1", float64(), true /* nullable */);
-  AssertFieldsEqual(vec[0], expected0);
-  AssertFieldsEqual(vec[1], expected1);
+  AssertFieldEqual(vec[0], expected0);
+  AssertFieldEqual(vec[1], expected1);
 
   ff = field("nest", struct_({f0, f1}), false /* nullable */);
   vec = ff->Flatten();
   ASSERT_EQ(vec.size(), 2);
   expected0 = field("nest.f0", int32(), true /* nullable */, metadata);
   expected1 = field("nest.f1", float64(), false /* nullable */);
-  AssertFieldsEqual(vec[0], expected0);
-  AssertFieldsEqual(vec[1], expected1);
+  AssertFieldEqual(vec[0], expected0);
+  AssertFieldEqual(vec[1], expected1);
 }
 
 TEST(TestField, TestReplacement) {
@@ -299,19 +211,19 @@ TEST(TestField, TestReplacement) {
   auto fzero = f0->WithType(utf8());
   auto f1 = f0->WithName("f1");
 
-  AssertFieldsNotEqual(f0, fzero);
-  AssertFieldsNotCompatible(f0, fzero);
-  AssertFieldsNotEqual(fzero, f1);
-  AssertFieldsNotCompatible(fzero, f1);
-  AssertFieldsNotEqual(f1, f0);
-  AssertFieldsNotCompatible(f1, f0);
+  AssertFieldNotEqual(f0, fzero);
+  AssertFieldNotCompatible(f0, fzero);
+  AssertFieldNotEqual(fzero, f1);
+  AssertFieldNotCompatible(fzero, f1);
+  AssertFieldNotEqual(f1, f0);
+  AssertFieldNotCompatible(f1, f0);
 
   ASSERT_EQ(fzero->name(), "f0");
-  AssertTypesEqual(fzero->type(), utf8());
+  AssertTypeEqual(fzero->type(), utf8());
   ASSERT_TRUE(fzero->metadata()->Equals(*metadata));
 
   ASSERT_EQ(f1->name(), "f1");
-  AssertTypesEqual(f1->type(), int32());
+  AssertTypeEqual(f1->type(), int32());
   ASSERT_TRUE(f1->metadata()->Equals(*metadata));
 }
 
@@ -327,16 +239,16 @@ TEST_F(TestSchema, Basics) {
   auto schema = ::arrow::schema({f0, f1, f2});
 
   ASSERT_EQ(3, schema->num_fields());
-  AssertFieldsEqual(*f0, *schema->field(0));
-  AssertFieldsEqual(*f1, *schema->field(1));
-  AssertFieldsEqual(*f2, *schema->field(2));
+  AssertFieldEqual(*f0, *schema->field(0));
+  AssertFieldEqual(*f1, *schema->field(1));
+  AssertFieldEqual(*f2, *schema->field(2));
 
   auto schema2 = ::arrow::schema({f0, f1, f2});
 
   std::vector<std::shared_ptr<Field>> fields3 = {f0, f1_optional, f2};
   auto schema3 = std::make_shared<Schema>(fields3);
-  AssertSchemasEqual(schema, schema2);
-  AssertSchemasNotEqual(schema, schema3);
+  AssertSchemaEqual(schema, schema2);
+  AssertSchemaNotEqual(schema, schema3);
 
   ASSERT_EQ(schema->fingerprint(), schema2->fingerprint());
   ASSERT_NE(schema->fingerprint(), schema3->fingerprint());
@@ -370,10 +282,10 @@ TEST_F(TestSchema, GetFieldByName) {
   std::shared_ptr<Field> result;
 
   result = schema->GetFieldByName("f1");
-  AssertFieldsEqual(f1, result);
+  AssertFieldEqual(f1, result);
 
   result = schema->GetFieldByName("f3");
-  AssertFieldsEqual(f3, result);
+  AssertFieldEqual(f3, result);
 
   result = schema->GetFieldByName("not-found");
   ASSERT_EQ(result, nullptr);
@@ -409,23 +321,23 @@ TEST_F(TestSchema, GetFieldDuplicates) {
   ASSERT_EQ(std::vector<int>{0}, schema->GetAllFieldIndices(f0->name()));
   AssertSortedEquals(std::vector<int>{1, 3}, schema->GetAllFieldIndices(f1->name()));
 
-  ASSERT_TRUE(::arrow::schema({f0, f1, f2})->HasUniqueFieldNames());
-  ASSERT_FALSE(schema->HasUniqueFieldNames());
+  ASSERT_TRUE(::arrow::schema({f0, f1, f2})->HasDistinctFieldNames());
+  ASSERT_FALSE(schema->HasDistinctFieldNames());
 
   std::vector<std::shared_ptr<Field>> results;
 
   results = schema->GetAllFieldsByName(f0->name());
   ASSERT_EQ(results.size(), 1);
-  AssertFieldsEqual(results[0], f0);
+  AssertFieldEqual(results[0], f0);
 
   results = schema->GetAllFieldsByName(f1->name());
   ASSERT_EQ(results.size(), 2);
   if (results[0]->type()->id() == Type::UINT8) {
-    AssertFieldsEqual(results[0], f1);
-    AssertFieldsEqual(results[1], f3);
+    AssertFieldEqual(results[0], f1);
+    AssertFieldEqual(results[1], f3);
   } else {
-    AssertFieldsEqual(results[0], f3);
-    AssertFieldsEqual(results[1], f1);
+    AssertFieldEqual(results[0], f3);
+    AssertFieldEqual(results[1], f1);
   }
 
   results = schema->GetAllFieldsByName("not-found");
@@ -449,11 +361,11 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   ASSERT_TRUE(metadata0->Equals(*schema0->metadata()));
   ASSERT_TRUE(metadata1->Equals(*schema1->metadata()));
   ASSERT_TRUE(metadata0->Equals(*schema2->metadata()));
-  AssertSchemasEqual(schema0, schema2);
-  AssertSchemasNotEqual(schema0, schema1);
-  AssertSchemasNotEqual(schema2, schema1);
+  AssertSchemaEqual(schema0, schema2);
+  AssertSchemaNotEqual(schema0, schema1);
+  AssertSchemaNotEqual(schema2, schema1);
   // Field has different metatadata
-  AssertSchemasNotEqual(schema2, schema3);
+  AssertSchemaNotEqual(schema2, schema3);
 
   ASSERT_EQ(schema0->fingerprint(), schema1->fingerprint());
   ASSERT_EQ(schema0->fingerprint(), schema2->fingerprint());
@@ -463,9 +375,9 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   ASSERT_NE(schema0->metadata_fingerprint(), schema3->metadata_fingerprint());
 
   // don't check metadata
-  AssertSchemasEqual(schema0, schema1, false);
-  AssertSchemasEqual(schema2, schema1, false);
-  AssertSchemasEqual(schema2, schema3, false);
+  AssertSchemaEqual(schema0, schema1, false);
+  AssertSchemaEqual(schema2, schema1, false);
+  AssertSchemaEqual(schema2, schema3, false);
 }
 
 TEST_F(TestSchema, TestEmptyMetadata) {
@@ -478,8 +390,8 @@ TEST_F(TestSchema, TestEmptyMetadata) {
   auto schema2 = ::arrow::schema({f1}, metadata1);
   auto schema3 = ::arrow::schema({f1}, metadata2);
 
-  AssertSchemasEqual(schema1, schema2);
-  AssertSchemasNotEqual(schema1, schema3);
+  AssertSchemaEqual(schema1, schema2);
+  AssertSchemaNotEqual(schema1, schema3);
 
   ASSERT_EQ(schema1->fingerprint(), schema2->fingerprint());
   ASSERT_EQ(schema1->fingerprint(), schema3->fingerprint());
@@ -515,7 +427,7 @@ TEST_F(TestSchema, TestRemoveMetadata) {
 void AssertSchemaBuilderYield(const SchemaBuilder& builder,
                               const std::shared_ptr<Schema>& expected) {
   ASSERT_OK_AND_ASSIGN(auto schema, builder.Finish());
-  AssertSchemasEqual(schema, expected);
+  AssertSchemaEqual(schema, expected);
 }
 
 TEST(TestSchemaBuilder, DefaultBehavior) {
@@ -524,21 +436,21 @@ TEST(TestSchemaBuilder, DefaultBehavior) {
   auto f2 = field("f2", utf8());
 
   SchemaBuilder builder;
-  ASSERT_OK(builder.WithField(f0));
-  ASSERT_OK(builder.WithField(f1));
-  ASSERT_OK(builder.WithField(f2));
+  ASSERT_OK(builder.AddField(f0));
+  ASSERT_OK(builder.AddField(f1));
+  ASSERT_OK(builder.AddField(f2));
   AssertSchemaBuilderYield(builder, schema({f0, f1, f2}));
 
   builder.Reset();
-  ASSERT_OK(builder.WithFields({f0, f1, f2->WithNullable(false)}));
+  ASSERT_OK(builder.AddFields({f0, f1, f2->WithNullable(false)}));
   AssertSchemaBuilderYield(builder, schema({f0, f1, f2->WithNullable(false)}));
 
   builder.Reset();
-  ASSERT_OK(builder.WithSchema(schema({f2, f0})));
+  ASSERT_OK(builder.AddSchema(schema({f2, f0})));
   AssertSchemaBuilderYield(builder, schema({f2, f0}));
 
   builder.Reset();
-  ASSERT_OK(builder.WithSchemas({schema({f1, f2}), schema({f2, f0})}));
+  ASSERT_OK(builder.AddSchemas({schema({f1, f2}), schema({f2, f0})}));
   AssertSchemaBuilderYield(builder, schema({f1, f2, f2, f0}));
 }
 
@@ -548,23 +460,23 @@ TEST(TestSchemaBuilder, WithMetadata) {
   auto metadata = key_value_metadata({{"foo", "bar"}});
 
   SchemaBuilder builder;
-  ASSERT_OK(builder.WithMetadata(*metadata));
+  ASSERT_OK(builder.AddMetadata(*metadata));
   ASSERT_OK_AND_ASSIGN(auto schema, builder.Finish());
-  AssertSchemasEqual(schema, ::arrow::schema({})->WithMetadata(metadata));
+  AssertSchemaEqual(schema, ::arrow::schema({})->WithMetadata(metadata));
 
-  ASSERT_OK(builder.WithField(f0));
+  ASSERT_OK(builder.AddField(f0));
   ASSERT_OK_AND_ASSIGN(schema, builder.Finish());
-  AssertSchemasEqual(schema, ::arrow::schema({f0})->WithMetadata(metadata));
+  AssertSchemaEqual(schema, ::arrow::schema({f0})->WithMetadata(metadata));
 
   SchemaBuilder other_builder{::arrow::schema({})->WithMetadata(metadata)};
-  ASSERT_OK(other_builder.WithField(f1));
+  ASSERT_OK(other_builder.AddField(f1));
   ASSERT_OK_AND_ASSIGN(schema, other_builder.Finish());
-  AssertSchemasEqual(schema, ::arrow::schema({f1})->WithMetadata(metadata));
+  AssertSchemaEqual(schema, ::arrow::schema({f1})->WithMetadata(metadata));
 
   other_builder.Reset();
-  ASSERT_OK(other_builder.WithField(f1->WithMetadata(metadata)));
+  ASSERT_OK(other_builder.AddField(f1->WithMetadata(metadata)));
   ASSERT_OK_AND_ASSIGN(schema, other_builder.Finish());
-  AssertSchemasEqual(schema, ::arrow::schema({f1->WithMetadata(metadata)}));
+  AssertSchemaEqual(schema, ::arrow::schema({f1->WithMetadata(metadata)}));
 }
 
 TEST(TestSchemaBuilder, IncrementalConstruction) {
@@ -576,18 +488,35 @@ TEST(TestSchemaBuilder, IncrementalConstruction) {
   std::shared_ptr<Schema> actual;
 
   ASSERT_OK_AND_ASSIGN(actual, builder.Finish());
-  AssertSchemasEqual(actual, ::arrow::schema({}));
+  AssertSchemaEqual(actual, ::arrow::schema({}));
 
-  ASSERT_OK(builder.WithField(f0));
+  ASSERT_OK(builder.AddField(f0));
   ASSERT_OK_AND_ASSIGN(actual, builder.Finish());
-  AssertSchemasEqual(actual, ::arrow::schema({f0}));
+  AssertSchemaEqual(actual, ::arrow::schema({f0}));
 
-  ASSERT_OK(builder.WithField(f1));
+  ASSERT_OK(builder.AddField(f1));
   ASSERT_OK_AND_ASSIGN(actual, builder.Finish());
-  AssertSchemasEqual(actual, ::arrow::schema({f0, f1}));
+  AssertSchemaEqual(actual, ::arrow::schema({f0, f1}));
 
-  ASSERT_OK(builder.WithField(f2));
+  ASSERT_OK(builder.AddField(f2));
   AssertSchemaBuilderYield(builder, schema({f0, f1, f2}));
+}
+
+TEST(TestSchemaBuilder, PolicyIgnore) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f0_req = field("f0", utf8(), false);
+
+  SchemaBuilder builder{SchemaBuilder::CONFLICT_IGNORE};
+
+  ASSERT_OK(builder.AddFields({f0, f1}));
+  AssertSchemaBuilderYield(builder, schema({f0, f1}));
+
+  ASSERT_OK(builder.AddField(f0_req));
+  AssertSchemaBuilderYield(builder, schema({f0, f1}));
+
+  ASSERT_OK(builder.AddField(f0));
+  AssertSchemaBuilderYield(builder, schema({f0, f1}));
 }
 
 TEST(TestSchemaBuilder, PolicyReplace) {
@@ -595,15 +524,15 @@ TEST(TestSchemaBuilder, PolicyReplace) {
   auto f1 = field("f1", uint8());
   auto f0_req = field("f0", utf8(), false);
 
-  SchemaBuilder builder{SchemaBuilder::REPLACE};
+  SchemaBuilder builder{SchemaBuilder::CONFLICT_REPLACE};
 
-  ASSERT_OK(builder.WithFields({f0, f1}));
+  ASSERT_OK(builder.AddFields({f0, f1}));
   AssertSchemaBuilderYield(builder, schema({f0, f1}));
 
-  ASSERT_OK(builder.WithField(f0_req));
+  ASSERT_OK(builder.AddField(f0_req));
   AssertSchemaBuilderYield(builder, schema({f0_req, f1}));
 
-  ASSERT_OK(builder.WithField(f0));
+  ASSERT_OK(builder.AddField(f0));
   AssertSchemaBuilderYield(builder, schema({f0, f1}));
 }
 
@@ -615,27 +544,27 @@ TEST(TestSchemaBuilder, PolicyMerge) {
   // Another type, can't merge
   auto f0_other = field("f0", utf8(), false);
 
-  SchemaBuilder builder{SchemaBuilder::MERGE};
+  SchemaBuilder builder{SchemaBuilder::CONFLICT_MERGE};
 
-  ASSERT_OK(builder.WithFields({f0, f1}));
+  ASSERT_OK(builder.AddFields({f0, f1}));
   AssertSchemaBuilderYield(builder, schema({f0, f1}));
 
-  ASSERT_OK(builder.WithField(f0_opt));
+  ASSERT_OK(builder.AddField(f0_opt));
   AssertSchemaBuilderYield(builder, schema({f0_opt, f1}));
 
   // Unsupported merge with a different type
-  ASSERT_RAISES(Invalid, builder.WithField(f0_other));
+  ASSERT_RAISES(Invalid, builder.AddField(f0_other));
   // Builder should still contain state
   AssertSchemaBuilderYield(builder, schema({f0, f1}));
 
   builder.Reset();
   // Create a schema with duplicate fields
-  builder.SetPolicy(SchemaBuilder::APPEND);
-  ASSERT_OK(builder.WithFields({f0, f0}));
+  builder.SetPolicy(SchemaBuilder::CONFLICT_APPEND);
+  ASSERT_OK(builder.AddFields({f0, f0}));
 
-  builder.SetPolicy(SchemaBuilder::MERGE);
+  builder.SetPolicy(SchemaBuilder::CONFLICT_MERGE);
   // Even if the field is compatible, it can't know with which field to merge.
-  ASSERT_RAISES(Invalid, builder.WithField(f0_opt));
+  ASSERT_RAISES(Invalid, builder.AddField(f0_opt));
 
   AssertSchemaBuilderYield(builder, schema({f0, f0}));
 }
@@ -648,14 +577,14 @@ TEST(TestSchemaBuilder, PolicyError) {
   // Another type, can't merge
   auto f0_other = field("f0", utf8(), false);
 
-  SchemaBuilder builder{SchemaBuilder::ERROR};
+  SchemaBuilder builder{SchemaBuilder::CONFLICT_ERROR};
 
-  ASSERT_OK(builder.WithFields({f0, f1}));
+  ASSERT_OK(builder.AddFields({f0, f1}));
   AssertSchemaBuilderYield(builder, schema({f0, f1}));
 
-  ASSERT_RAISES(Invalid, builder.WithField(f0));
-  ASSERT_RAISES(Invalid, builder.WithField(f0_opt));
-  ASSERT_RAISES(Invalid, builder.WithField(f0_other));
+  ASSERT_RAISES(Invalid, builder.AddField(f0));
+  ASSERT_RAISES(Invalid, builder.AddField(f0_opt));
+  ASSERT_RAISES(Invalid, builder.AddField(f0_other));
   AssertSchemaBuilderYield(builder, schema({f0, f1}));
 }
 
@@ -674,10 +603,10 @@ TEST(TestSchemaBuilder, Merge) {
 
   ASSERT_OK_AND_ASSIGN(auto schema, SchemaBuilder::Merge({s1, s2, s3}));
   ASSERT_OK(SchemaBuilder::AreCompatible({s1, s2, s3}));
-  AssertSchemasEqual(schema, ::arrow::schema({f0_opt, f1}));
+  AssertSchemaEqual(schema, ::arrow::schema({f0_opt, f1}));
 
   ASSERT_OK_AND_ASSIGN(schema, SchemaBuilder::Merge({s2, s3, s1}));
-  AssertSchemasEqual(schema, ::arrow::schema({f1, f0_opt}));
+  AssertSchemaEqual(schema, ::arrow::schema({f1, f0_opt}));
 
   ASSERT_RAISES(Invalid, SchemaBuilder::Merge({s3, broken}));
   ASSERT_RAISES(Invalid, SchemaBuilder::AreCompatible({s3, broken}));
@@ -847,8 +776,8 @@ TEST(TestBinaryType, ToString) {
   BinaryType t1;
   BinaryType e1;
   StringType t2;
-  AssertTypesEqual(t1, e1);
-  AssertTypesNotEqual(t1, t2);
+  AssertTypeEqual(t1, e1);
+  AssertTypeNotEqual(t1, t2);
   ASSERT_EQ(t1.id(), Type::BINARY);
   ASSERT_EQ(t1.ToString(), std::string("binary"));
 }
@@ -864,9 +793,9 @@ TEST(TestLargeBinaryTypes, ToString) {
   LargeBinaryType t1;
   LargeBinaryType e1;
   LargeStringType t2;
-  AssertTypesEqual(t1, e1);
-  AssertTypesNotEqual(t1, t2);
-  AssertTypesNotEqual(t1, bt1);
+  AssertTypeEqual(t1, e1);
+  AssertTypeNotEqual(t1, t2);
+  AssertTypeNotEqual(t1, bt1);
   ASSERT_EQ(t1.id(), Type::LARGE_BINARY);
   ASSERT_EQ(t1.ToString(), std::string("large_binary"));
   ASSERT_EQ(t2.id(), Type::LARGE_STRING);
@@ -884,8 +813,8 @@ TEST(TestFixedSizeBinaryType, Equals) {
   auto t2 = fixed_size_binary(10);
   auto t3 = fixed_size_binary(3);
 
-  AssertTypesEqual(*t1, *t2);
-  AssertTypesNotEqual(*t1, *t3);
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeNotEqual(*t1, *t3);
 }
 
 TEST(TestListType, Basics) {
@@ -992,11 +921,11 @@ TEST(TestTimeType, Equals) {
   ASSERT_EQ(32, t0.bit_width());
   ASSERT_EQ(64, t3.bit_width());
 
-  AssertTypesEqual(t0, t2);
-  AssertTypesEqual(t1, t1);
-  AssertTypesNotEqual(t1, t3);
-  AssertTypesNotEqual(t3, t4);
-  AssertTypesEqual(t3, t5);
+  AssertTypeEqual(t0, t2);
+  AssertTypeEqual(t1, t1);
+  AssertTypeNotEqual(t1, t3);
+  AssertTypeNotEqual(t3, t4);
+  AssertTypeEqual(t3, t5);
 }
 
 TEST(TestTimeType, ToString) {
@@ -1016,8 +945,8 @@ TEST(TestMonthIntervalType, Equals) {
   MonthIntervalType t2;
   DayTimeIntervalType t3;
 
-  AssertTypesEqual(t1, t2);
-  AssertTypesNotEqual(t1, t3);
+  AssertTypeEqual(t1, t2);
+  AssertTypeNotEqual(t1, t3);
 }
 
 TEST(TestMonthIntervalType, ToString) {
@@ -1031,8 +960,8 @@ TEST(TestDayTimeIntervalType, Equals) {
   DayTimeIntervalType t2;
   MonthIntervalType t3;
 
-  AssertTypesEqual(t1, t2);
-  AssertTypesNotEqual(t1, t3);
+  AssertTypeEqual(t1, t2);
+  AssertTypeNotEqual(t1, t3);
 }
 
 TEST(TestDayTimeIntervalType, ToString) {
@@ -1047,9 +976,9 @@ TEST(TestDurationType, Equals) {
   DurationType t3(TimeUnit::NANO);
   DurationType t4(TimeUnit::NANO);
 
-  AssertTypesEqual(t1, t2);
-  AssertTypesNotEqual(t1, t3);
-  AssertTypesEqual(t3, t4);
+  AssertTypeEqual(t1, t2);
+  AssertTypeNotEqual(t1, t3);
+  AssertTypeEqual(t3, t4);
 }
 
 TEST(TestDurationType, ToString) {
@@ -1073,12 +1002,12 @@ TEST(TestTimestampType, Equals) {
   DurationType dt1;
   DurationType dt2(TimeUnit::NANO);
 
-  AssertTypesEqual(t1, t2);
-  AssertTypesNotEqual(t1, t3);
-  AssertTypesEqual(t3, t4);
+  AssertTypeEqual(t1, t2);
+  AssertTypeNotEqual(t1, t3);
+  AssertTypeEqual(t3, t4);
 
-  AssertTypesNotEqual(t1, dt1);
-  AssertTypesNotEqual(t3, dt2);
+  AssertTypeNotEqual(t1, dt1);
+  AssertTypeNotEqual(t3, dt2);
 }
 
 TEST(TestTimestampType, ToString) {
@@ -1101,11 +1030,11 @@ TEST(TestListType, Equals) {
   auto t5 = large_list(binary());
   auto t6 = large_list(float64());
 
-  AssertTypesEqual(*t1, *t2);
-  AssertTypesNotEqual(*t1, *t3);
-  AssertTypesNotEqual(*t3, *t4);
-  AssertTypesEqual(*t4, *t5);
-  AssertTypesNotEqual(*t5, *t6);
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeNotEqual(*t1, *t3);
+  AssertTypeNotEqual(*t3, *t4);
+  AssertTypeEqual(*t4, *t5);
+  AssertTypeNotEqual(*t5, *t6);
 }
 
 TEST(TestListType, Metadata) {
@@ -1125,15 +1054,15 @@ TEST(TestListType, Metadata) {
   auto t4 = list(f4);
   auto t5 = list(f5);
 
-  AssertTypesEqual(*t1, *t2);
-  AssertTypesNotEqual(*t1, *t3);
-  AssertTypesNotEqual(*t1, *t4);
-  AssertTypesNotEqual(*t1, *t5);
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeNotEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t4);
+  AssertTypeNotEqual(*t1, *t5);
 
-  AssertTypesEqual(*t1, *t2, /*check_metadata =*/false);
-  AssertTypesEqual(*t1, *t3, /*check_metadata =*/false);
-  AssertTypesEqual(*t1, *t4, /*check_metadata =*/false);
-  AssertTypesNotEqual(*t1, *t5, /*check_metadata =*/false);
+  AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
+  AssertTypeEqual(*t1, *t3, /*check_metadata =*/false);
+  AssertTypeEqual(*t1, *t4, /*check_metadata =*/false);
+  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/false);
 }
 
 TEST(TestNestedType, Equals) {
@@ -1159,18 +1088,18 @@ TEST(TestNestedType, Equals) {
   auto s0_bad = create_struct("f1", "s0");
   auto s1 = create_struct("f1", "s1");
 
-  AssertFieldsEqual(*s0, *s0_other);
-  AssertFieldsNotEqual(*s0, *s1);
-  AssertFieldsNotEqual(*s0, *s0_bad);
+  AssertFieldEqual(*s0, *s0_other);
+  AssertFieldNotEqual(*s0, *s1);
+  AssertFieldNotEqual(*s0, *s0_bad);
 
   auto u0 = create_union("f0", "u0");
   auto u0_other = create_union("f0", "u0");
   auto u0_bad = create_union("f1", "u0");
   auto u1 = create_union("f1", "u1");
 
-  AssertFieldsEqual(*u0, *u0_other);
-  AssertFieldsNotEqual(*u0, *u1);
-  AssertFieldsNotEqual(*u0, *u0_bad);
+  AssertFieldEqual(*u0, *u0_other);
+  AssertFieldNotEqual(*u0, *u1);
+  AssertFieldNotEqual(*u0, *u0_bad);
 }
 
 TEST(TestStructType, Basics) {
@@ -1336,13 +1265,13 @@ TEST(TestDictionaryType, Equals) {
   auto t3 = dictionary(int16(), int32());
   auto t4 = dictionary(int8(), int16());
 
-  AssertTypesEqual(*t1, *t2);
-  AssertTypesNotEqual(*t1, *t3);
-  AssertTypesNotEqual(*t1, *t4);
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeNotEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t4);
 
   auto t5 = dictionary(int8(), int32(), /*ordered=*/false);
   auto t6 = dictionary(int8(), int32(), /*ordered=*/true);
-  AssertTypesNotEqual(*t5, *t6);
+  AssertTypeNotEqual(*t5, *t6);
 }
 
 void CheckTransposeMap(const Buffer& map, std::vector<int32_t> expected) {
@@ -1558,10 +1487,10 @@ TEST(TypesTest, TestDecimalEquals) {
 
   FixedSizeBinaryType t9(16);
 
-  AssertTypesEqual(t1, t2);
-  AssertTypesNotEqual(t1, t3);
-  AssertTypesNotEqual(t1, t4);
-  AssertTypesNotEqual(t1, t9);
+  AssertTypeEqual(t1, t2);
+  AssertTypeNotEqual(t1, t3);
+  AssertTypeNotEqual(t1, t4);
+  AssertTypeNotEqual(t1, t9);
 }
 
 }  // namespace arrow
