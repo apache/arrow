@@ -101,7 +101,7 @@ namespace Apache.Arrow
         {
             data.EnsureDataType(ArrowTypeId.Timestamp);
 
-            Debug.Assert((Data.DataType as TimestampType) != null);
+            Debug.Assert(Data.DataType is TimestampType);
         }
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
