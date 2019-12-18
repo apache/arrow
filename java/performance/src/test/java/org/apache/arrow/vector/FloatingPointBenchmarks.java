@@ -117,7 +117,7 @@ public class FloatingPointBenchmarks {
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   public int approxEqualsBenchmark() {
-    boolean floatResult =  floatVisitor.visit(floatVector1, range);
+    boolean floatResult = floatVisitor.visit(floatVector1, range);
     boolean doubleResult = doubleVisitor.visit(doubleVector1, range);
     return (floatResult ? 1 : 0) + (doubleResult ? 1 : 0);
   }

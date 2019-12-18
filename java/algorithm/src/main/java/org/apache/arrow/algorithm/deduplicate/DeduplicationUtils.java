@@ -60,7 +60,7 @@ class DeduplicationUtils {
    * @param runLengths the run length vector to populate.
    * @param valueCount the number of values in the bit set.
    */
-  public static void populateRunLengths(ArrowBuf runStarts,  IntVector runLengths, int valueCount) {
+  public static void populateRunLengths(ArrowBuf runStarts, IntVector runLengths, int valueCount) {
     int curStart = 0;
     int lengthIndex = 0;
     for (int i = 1; i < valueCount; i++) {

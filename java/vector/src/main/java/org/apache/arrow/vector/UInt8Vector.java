@@ -87,7 +87,7 @@ public final class UInt8Vector extends BaseFixedWidthVector implements BaseIntVe
    * @return value stored at the index.
    */
   public static BigInteger getNoOverflow(final ArrowBuf buffer, final int index) {
-    BigInteger l =  BigInteger.valueOf(buffer.getLong(index * TYPE_WIDTH));
+    BigInteger l = BigInteger.valueOf(buffer.getLong(index * TYPE_WIDTH));
     return SAFE_CONVERSION_MASK.and(l);
   }
 

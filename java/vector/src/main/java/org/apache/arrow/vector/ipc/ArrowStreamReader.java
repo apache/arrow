@@ -143,7 +143,7 @@ public class ArrowStreamReader extends ArrowReader {
       return;
     }
     for (FieldVector vector : getVectorSchemaRoot().getFieldVectors()) {
-      DictionaryEncoding encoding =  vector.getField().getDictionary();
+      DictionaryEncoding encoding = vector.getField().getDictionary();
       if (encoding != null) {
         // if the dictionaries it need is not available and the vector is not all null, something was wrong.
         if (!dictionaries.containsKey(encoding.getId()) && vector.getNullCount() < vector.getValueCount()) {

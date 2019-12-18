@@ -320,7 +320,7 @@ public class TestUnionVector {
     children.add(new Field("int", FieldType.nullable(MinorType.INT.getType()), null));
     children.add(new Field("varchar", FieldType.nullable(MinorType.VARCHAR.getType()), null));
 
-    final FieldType fieldType =  new FieldType(false, new ArrowType.Union(UnionMode.Sparse, typeIds),
+    final FieldType fieldType = new FieldType(false, new ArrowType.Union(UnionMode.Sparse, typeIds),
         /*dictionary=*/null, metadata);
     final Field field = new Field("union", fieldType, children);
 

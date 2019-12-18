@@ -229,7 +229,7 @@ public class TypeLayout {
    * Gets the number of {@link BufferLayout}s for the given <code>arrowType</code>.
    */
   public static int getTypeBufferCount(final ArrowType arrowType) {
-    return  arrowType.accept(new ArrowTypeVisitor<Integer>() {
+    return arrowType.accept(new ArrowTypeVisitor<Integer>() {
 
       /**
        * All fixed width vectors have a common number of buffers 2: one validity buffer, plus a data buffer.

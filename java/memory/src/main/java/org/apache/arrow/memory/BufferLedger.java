@@ -35,7 +35,7 @@ import io.netty.buffer.UnsafeDirectLittleEndian;
  * ArrowBufs managed by this reference manager share a common
  * fate (same reference count).
  */
-public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, ReferenceManager  {
+public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, ReferenceManager {
   private final IdentityHashMap<ArrowBuf, Object> buffers =
           BaseAllocator.DEBUG ? new IdentityHashMap<>() : null;
   private static final AtomicLong LEDGER_ID_GENERATOR = new AtomicLong(0);

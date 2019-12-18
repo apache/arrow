@@ -55,7 +55,7 @@ public class OrcReader implements AutoCloseable {
    * @param rowNumber the rows number to seek
    * @return true if seek operation is succeeded
    */
-  public boolean seek(int rowNumber) throws IllegalArgumentException  {
+  public boolean seek(int rowNumber) throws IllegalArgumentException {
     return jniWrapper.seek(nativeInstanceId, rowNumber);
   }
 
@@ -79,7 +79,7 @@ public class OrcReader implements AutoCloseable {
    *
    * @return number of stripes
    */
-  public int getNumberOfStripes() throws IllegalArgumentException  {
+  public int getNumberOfStripes() throws IllegalArgumentException {
     return jniWrapper.getNumberOfStripes(nativeInstanceId);
   }
 

@@ -141,7 +141,7 @@ public class JsonFileWriter implements AutoCloseable {
   public void start(Schema schema, DictionaryProvider provider) throws IOException {
     List<Field> fields = new ArrayList<>(schema.getFields().size());
     Set<Long> dictionaryIdsUsed = new HashSet<>();
-    this.schema = schema;  // Store original Schema to ensure batches written match
+    this.schema = schema; // Store original Schema to ensure batches written match
 
     // Convert fields with dictionaries to have dictionary type
     for (Field field : schema.getFields()) {

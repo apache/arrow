@@ -29,7 +29,7 @@ import org.apache.arrow.vector.ValueVector;
  *   been used.
  * </p>
  */
-public class CompositeVectorComparator extends  VectorValueComparator<ValueVector> {
+public class CompositeVectorComparator extends VectorValueComparator<ValueVector> {
 
   private final VectorValueComparator[] innerComparators;
 

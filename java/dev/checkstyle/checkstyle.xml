@@ -207,6 +207,9 @@
             <property name="option" value="top"/>
             <property name="sortStaticImportsAlphabetically" value="true"/>
         </module>
+        <module name="SingleSpaceSeparator">
+            <property name="validateComments" value="true"/>
+        </module>
         <module name="MethodParamPad"/>
         <module name="OperatorWrap">
             <property name="option" value="eol"/>

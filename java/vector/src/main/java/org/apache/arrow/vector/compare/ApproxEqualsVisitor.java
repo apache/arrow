@@ -102,8 +102,8 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   }
 
   private boolean float4ApproxEquals(Range range) {
-    Float4Vector leftVector  = (Float4Vector) getLeft();
-    Float4Vector rightVector  = (Float4Vector) getRight();
+    Float4Vector leftVector = (Float4Vector) getLeft();
+    Float4Vector rightVector = (Float4Vector) getRight();
 
     for (int i = 0; i < range.getLength(); i++) {
       int leftIndex = range.getLeftStart() + i;
@@ -117,8 +117,8 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   }
 
   private boolean float8ApproxEquals(Range range) {
-    Float8Vector leftVector  = (Float8Vector) getLeft();
-    Float8Vector rightVector  = (Float8Vector) getRight();
+    Float8Vector leftVector = (Float8Vector) getLeft();
+    Float8Vector rightVector = (Float8Vector) getRight();
 
     for (int i = 0; i < range.getLength(); i++) {
       int leftIndex = range.getLeftStart() + i;

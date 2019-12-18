@@ -66,7 +66,7 @@ class OffHeapIntStack implements AutoCloseable {
   }
 
   @Override
-  public void close()  {
+  public void close() {
     intVector.close();
   }
 }
