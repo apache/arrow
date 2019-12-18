@@ -679,10 +679,8 @@ endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
-# boost::filesystem is needed for HDFS, and for S3 and Flight tests as a
-# boost::process dependency.
-if(((ARROW_FLIGHT OR ARROW_S3) AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION))
-   OR ARROW_HDFS)
+# boost::filesystem is needed for S3 and Flight tests as a boost::process dependency.
+if(((ARROW_FLIGHT OR ARROW_S3) AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)))
   set(ARROW_WITH_BOOST_FILESYSTEM ON)
 
   list(APPEND ARROW_SHARED_PRIVATE_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY}

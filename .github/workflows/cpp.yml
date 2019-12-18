@@ -99,6 +99,7 @@ jobs:
       # TODO(kszucs): link error in the tests
       ARROW_ORC: OFF
       ARROW_FLIGHT: ON
+      ARROW_HDFS: ON
       ARROW_PLASMA: ON
       ARROW_GANDIVA: ON
       ARROW_PARQUET: ON
@@ -143,6 +144,7 @@ jobs:
       CMAKE_INSTALL_PREFIX: /usr
       ARROW_HOME: /usr
       ARROW_FLIGHT: OFF
+      ARROW_HDFS: ON
       ARROW_PARQUET: OFF
       ARROW_WITH_ZLIB: OFF
       ARROW_WITH_LZ4: OFF
