@@ -1327,9 +1327,9 @@ cdef class ListArray(Array):
         The returned Array is logically a concatenation of all the sub-lists
         in this Array.
 
-        Note that is different from ``self.values()`` in that it takes care of
-        the slicing offset as well as null elements backed by non-empty
-        sub-lists.
+        Note that this method is different from ``self.values()`` in that
+        it takes care of the slicing offset as well as null elements backed
+        by non-empty sub-lists.
 
         Parameters
         ----------
@@ -1409,9 +1409,9 @@ cdef class LargeListArray(Array):
         The returned Array is logically a concatenation of all the sub-lists
         in this Array.
 
-        Note that is different from ``self.values()`` in that it takes care of
-        the slicing offset as well as null elements backed by non-empty
-        sub-lists.
+        Note that this method is different from ``self.values()`` in that
+        it takes care of the slicing offset as well as null elements backed
+        by non-empty sub-lists.
 
         Parameters
         ----------

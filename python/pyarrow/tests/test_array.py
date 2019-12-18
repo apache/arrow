@@ -1710,6 +1710,7 @@ def test_invalid_tensor_construction():
     with pytest.raises(TypeError):
         pa.Tensor()
 
+
 @pytest.mark.parametrize(('offset_type', 'list_type_factory'),
                          [(pa.int32(), pa.list_), (pa.int64(), pa.large_list)])
 def test_list_array_flatten(offset_type, list_type_factory):
@@ -1758,9 +1759,32 @@ def test_list_array_flatten(offset_type, list_type_factory):
 
     assert arr2.flatten().equals(arr1)
     assert arr2.offsets.equals(offsets2)
+    assert arr2.values.equals(arr1)
     assert arr1.flatten().equals(arr0)
     assert arr1.offsets.equals(offsets1)
+    assert arr1.values.equals(arr0)
     assert arr2.flatten().flatten().equals(arr0)
+    assert arr2.values.values.equals(arr0)
+
+
+@pytest.mark.parametrize('list_type_factory', [pa.list_, pa.large_list])
+def test_list_array_flatten_non_canonical(list_type_factory):
+    # Non-canonical list array (null elements backed by non-empty sublists)
+    typ = list_type_factory(pa.int64())
+    arr = pa.array([[1], [2, 3], [4, 5, 6]], type=typ)
+    buffers = arr.buffers()[:2]
+    buffers[0] = pa.py_buffer(b"\x05")  # validity bitmap
+    arr = arr.from_buffers(arr.type, len(arr), buffers, children=[arr.values])
+    assert arr.to_pylist() == [[1], None, [4, 5, 6]]
+    assert arr.offsets.to_pylist() == [0, 1, 3, 6]
+
+    flattened = arr.flatten()
+    flattened.validate(full=True)
+    assert flattened.type == typ.value_type
+    assert flattened.to_pylist() == [1, 4, 5, 6]
+
+    # .values is the physical values array (including masked elements)
+    assert arr.values.to_pylist() == [1, 2, 3, 4, 5, 6]
 
 
 @pytest.mark.parametrize('klass', [pa.ListArray, pa.LargeListArray])
