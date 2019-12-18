@@ -23,7 +23,17 @@
 # Print commands for debugging
 set -x
 
-ARROW_CPP_DIR="$(pwd)/cpp"
+# By default, this script assumes it's in the top-level dir of the apache/arrow
+# git repository. Set any of the following env vars to customize where to read
+# and write from
+: ${ARROW_HOME:="$(pwd)"}                       # Only used in default SOURCE/BUILD dirs
+: ${SOURCE_DIR:="${ARROW_HOME}/cpp"}            # Where the C++ source is
+: ${BUILD_DIR:="${ARROW_HOME}/r/libarrow/dist"} # Where cmake should build
+: ${DEST_DIR:="$BUILD_DIR"}                     # Where the resulting /lib and /include should be
+
+# Make sure SOURCE and DEST dirs are absolute and exist
+SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
+DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
 if [ "$CMAKE_GENERATOR" = "" ]; then
   # Look for ninja, prefer it
@@ -33,12 +43,11 @@ if [ "$CMAKE_GENERATOR" = "" ]; then
   fi
 fi
 
-ARROW_BUILD_DIR="$(pwd)/r/libarrow/dist"
-mkdir -p "${ARROW_BUILD_DIR}"
-pushd "${ARROW_BUILD_DIR}"
+mkdir -p "${BUILD_DIR}"
+pushd "${BUILD_DIR}"
 cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_DEPENDENCY_SOURCE=BUNDLED \
-    -DCMAKE_INSTALL_PREFIX=${ARROW_BUILD_DIR} \
+    -DCMAKE_INSTALL_PREFIX=${DEST_DIR} \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_BUILD_SHARED=OFF \
@@ -59,12 +68,13 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_WITH_BROTLI=ON \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
-    ${ARROW_CPP_DIR}
+    ${SOURCE_DIR}
 cmake --build . --target install
 
 # Copy the bundled static libs from the build to the install dir
-find . -regex .*/.*/lib/.*\\.a\$ | xargs -I{} cp -u {} ./lib
+find . -regex .*/.*/lib/.*\\.a\$ | xargs -I{} cp -u {} ${DEST_DIR}/lib
+popd
 
+pushd ${DEST_DIR}
 zip -r libarrow.zip lib/*.a include/
-
 popd
