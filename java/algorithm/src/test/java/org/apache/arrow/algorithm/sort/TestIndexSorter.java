@@ -136,16 +136,17 @@ public class TestIndexSorter {
       comparator.attachVector(vec);
 
       int low = 5;
-      int high = 10;
-      assertTrue(high - low < FixedWidthInPlaceVectorSorter.PIVOT_SELECTION_THRESHOLD);
+      int high = 7;
+      assertTrue(high - low < 3);
 
       // the range is small enough, so the pivot is simply selected as the low value
       int pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);
+      assertEquals(pivotIndex, low);
       assertEquals(pivotIndex, indices.get(low));
 
       low = 30;
       high = 80;
-      assertTrue(high - low >= FixedWidthInPlaceVectorSorter.PIVOT_SELECTION_THRESHOLD);
+      assertTrue(high - low >= 3);
 
       // the range is large enough, so the median is selected as the pivot
       pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);

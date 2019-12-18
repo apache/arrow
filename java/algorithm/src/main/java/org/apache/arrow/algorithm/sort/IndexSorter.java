@@ -29,6 +29,11 @@ import org.apache.arrow.vector.ValueVector;
 public class IndexSorter<V extends ValueVector> {
 
   /**
+   * If the number of items is smaller than this threshold, we will use another algorithm to sort the data.
+   */
+  public static final int CHANGE_ALGORITHM_THRESHOLD = 15;
+
+  /**
    * Comparator for vector indices.
    */
   private VectorValueComparator<V> comparator;
@@ -68,6 +73,11 @@ public class IndexSorter<V extends ValueVector> {
         int low = rangeStack.pop();
 
         if (low < high) {
+          if (high - low < CHANGE_ALGORITHM_THRESHOLD) {
+            InsertionSorter.insertionSort(indices, low, high, comparator);
+            continue;
+          }
+
           int mid = partition(low, high, indices, comparator);
 
           // push the larger part to stack first,
@@ -95,7 +105,8 @@ public class IndexSorter<V extends ValueVector> {
    */
   static <T extends ValueVector> int choosePivot(
           int low, int high, IntVector indices, VectorValueComparator<T> comparator) {
-    if (high - low < FixedWidthInPlaceVectorSorter.PIVOT_SELECTION_THRESHOLD) {
+    // we need at least 3 items
+    if (high - low < 3) {
       return indices.get(low);
     }
 

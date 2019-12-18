@@ -140,9 +140,9 @@ public class TestFixedWidthInPlaceVectorSorter {
         comparator.attachVectors(vec, pivotBuffer);
 
         int low = 5;
-        int high = 10;
+        int high = 7;
         int pivotValue = vec.get(low);
-        assertTrue(high - low < FixedWidthInPlaceVectorSorter.PIVOT_SELECTION_THRESHOLD);
+        assertTrue(high - low < 3);
 
         // the range is small enough, so the pivot is simply selected as the low value
         sorter.choosePivot(low, high);
@@ -151,7 +151,7 @@ public class TestFixedWidthInPlaceVectorSorter {
         low = 30;
         high = 80;
         pivotValue = vec.get((low + high) / 2);
-        assertTrue(high - low >= FixedWidthInPlaceVectorSorter.PIVOT_SELECTION_THRESHOLD);
+        assertTrue(high - low >= 3);
 
         // the range is large enough, so the median is selected as the pivot
         sorter.choosePivot(low, high);

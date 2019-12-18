@@ -27,10 +27,9 @@ import org.apache.arrow.vector.BaseFixedWidthVector;
 public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> implements InPlaceVectorSorter<V> {
 
   /**
-   * If the number of items is smaller than this threshold, we will no attempt to
-   *  find a good  pivot.
+   * If the number of items is smaller than this threshold, we will use another algorithm to sort the data.
    */
-  public static final int PIVOT_SELECTION_THRESHOLD = 10;
+  public static final int CHANGE_ALGORITHM_THRESHOLD = 15;
 
   VectorValueComparator<V> comparator;
 
@@ -70,6 +69,12 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
         int high = rangeStack.pop();
         int low = rangeStack.pop();
         if (low < high) {
+          if (high - low < CHANGE_ALGORITHM_THRESHOLD) {
+            // switch to insertion sort
+            InsertionSorter.insertionSort(vec, low, high, comparator, pivotBuffer);
+            continue;
+          }
+
           int mid = partition(low, high);
 
           // push the larger part to stack first,
@@ -96,7 +101,8 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
    *  Select the pivot as the median of 3 samples.
    */
   void choosePivot(int low, int high) {
-    if (high - low < PIVOT_SELECTION_THRESHOLD) {
+    // we need at least 3 items
+    if (high - low < 3) {
       pivotBuffer.copyFrom(low, 0, vec);
       return;
     }
