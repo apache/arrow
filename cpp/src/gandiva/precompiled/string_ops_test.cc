@@ -443,6 +443,14 @@ TEST(TestStringOps, TestCastVARCHARFromInt32) {
   out_str = castVARCHAR_int32_int64(ctx_ptr, 34567, 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "345");
   EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int32_int64(ctx_ptr, 347, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int32_int64(ctx_ptr, 347, -1, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestCastVARCHARFromInt64) {

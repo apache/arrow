@@ -547,6 +547,10 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
   FORCE_INLINE                                                                       \
   const char* castVARCHAR_##IN_TYPE##_int64(int64 context, IN_TYPE value, int64 len, \
                                             int32 * out_len) {                       \
+    if (len < 0) {                                                                   \
+      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");    \
+      return nullptr;                                                                \
+    }                                                                                \
     arrow::internal::StringFormatter<arrow::ARROW_TYPE> formatter;                   \
     char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));  \
     if (ret == nullptr) {                                                            \
@@ -560,6 +564,7 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
       return arrow::Status::OK();                                                    \
     });                                                                              \
     if (!status.ok()) {                                                              \
+      gdv_fn_context_set_error_msg(context, "Could not cast to string");             \
       return nullptr;                                                                \
     }                                                                                \
     return ret;                                                                      \
