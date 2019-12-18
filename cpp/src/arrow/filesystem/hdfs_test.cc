@@ -98,7 +98,7 @@ class TestHadoopFileSystem : public ::testing::Test {
 
     options_.ConfigureEndPoint(hdfs_host, hdfs_port);
     options_.ConfigureHdfsUser(hdfs_user);
-    options_.ConfigureHdfs3Driver(use_hdfs3_);
+    options_.ConfigureHdfsDriver(use_hdfs3_);
     options_.ConfigureHdfsReplication(0);
 
     auto result = HadoopFileSystem::Make(options_);

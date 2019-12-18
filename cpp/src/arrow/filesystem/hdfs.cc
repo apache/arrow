@@ -46,8 +46,6 @@ using internal::GetAbstractPathParent;
 using internal::MakeAbstractPathRelative;
 using internal::RemoveLeadingSlash;
 
-static constexpr int32_t kDefaultHdfsPort = 0;
-
 class HadoopFileSystem::Impl {
  public:
   explicit Impl(HdfsOptions options) : options_(std::move(options)) {}
@@ -268,7 +266,7 @@ void HdfsOptions::ConfigureEndPoint(const std::string& host, int port) {
   connection_config.port = port;
 }
 
-void HdfsOptions::ConfigureHdfs3Driver(bool use_hdfs3) {
+void HdfsOptions::ConfigureHdfsDriver(bool use_hdfs3) {
   if (use_hdfs3) {
     connection_config.driver = ::arrow::io::HdfsDriver::LIBHDFS3;
   } else {
@@ -306,10 +304,10 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   if (it != options_map.end()) {
     const auto& v = it->second;
     if (v == "1") {
-      options.ConfigureHdfs3Driver(true);
+      options.ConfigureHdfsDriver(true);
       useHdfs3 = true;
     } else if (v == "0") {
-      options.ConfigureHdfs3Driver(false);
+      options.ConfigureHdfsDriver(false);
     } else {
       return Status::Invalid(
           "Invalid value for option 'use_hdfs3' (allowed values are '0' and '1'): '", v,
@@ -326,7 +324,8 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
 
   const auto port = uri.port();
   if (port == -1) {
-    options.ConfigureEndPoint(host, kDefaultHdfsPort);
+    // default port will be determined by hdfs FileSystem impl
+    options.ConfigureEndPoint(host, 0);
   } else {
     options.ConfigureEndPoint(host, port);
   }
