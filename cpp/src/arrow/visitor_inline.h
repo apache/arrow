@@ -206,7 +206,9 @@ struct ArrayDataVisitor<T, enable_if_base_binary<T>> {
     if (!arr.buffers[2]) {
       data = &empty_value;
     } else {
-      data = arr.GetValues<uint8_t>(2);
+      // Do not use array offset here, as the sliced offsets array refers
+      // to the non-sliced values array.
+      data = arr.GetValues<uint8_t>(2, /*absolute_offset=*/0);
     }
 
     if (arr.null_count != 0) {
@@ -240,7 +242,9 @@ struct ArrayDataVisitor<T, enable_if_fixed_size_binary<T>> {
     const auto& fw_type = internal::checked_cast<const FixedSizeBinaryType&>(*arr.type);
 
     const int32_t byte_width = fw_type.byte_width();
-    const uint8_t* data = arr.GetValues<uint8_t>(1);
+    const uint8_t* data =
+        arr.GetValues<uint8_t>(1,
+                               /*absolute_offset=*/arr.offset * byte_width);
 
     if (arr.null_count != 0) {
       internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);

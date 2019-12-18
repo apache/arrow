@@ -1083,6 +1083,28 @@ def test_dictionary_encode_simple():
         assert result.type == expected.type
 
 
+def test_dictionary_encode_sliced():
+    cases = [
+        (pa.array([1, 2, 3, None, 1, 2, 3])[1:-1],
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, 1, None, 2, 0], type='int32'),
+             [2, 3, 1])),
+        (pa.array([None, 'foo', 'bar', 'foo', 'xyzzy'])[1:-1],
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, 1, 0], type='int32'),
+             ['foo', 'bar']))
+    ]
+    for arr, expected in cases:
+        result = arr.dictionary_encode()
+        assert result.equals(expected)
+        result = pa.chunked_array([arr]).dictionary_encode()
+        assert result.num_chunks == 1
+        assert result.chunk(0).equals(expected)
+        result = pa.chunked_array([], type=arr.type).dictionary_encode()
+        assert result.num_chunks == 0
+        assert result.type == expected.type
+
+
 def test_cast_time32_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int32'),
                    type=pa.time32('s'))

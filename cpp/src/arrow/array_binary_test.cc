@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -35,6 +36,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string_view.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -622,5 +624,57 @@ TEST(TestChunkedStringBuilder, BasicOperation) {
     ASSERT_TRUE(chunk->type()->Equals(utf8()));
   }
 }
+
+// ----------------------------------------------------------------------
+// ArrayDataVisitor<binary-like> tests
+
+struct Appender {
+  Status VisitNull() {
+    data.emplace_back("(null)");
+    return Status::OK();
+  }
+
+  Status VisitValue(util::string_view v) {
+    data.push_back(v);
+    return Status::OK();
+  }
+
+  std::vector<util::string_view> data;
+};
+
+template <typename T>
+class TestBinaryDataVisitor : public ::testing::Test {
+ public:
+  using TypeClass = T;
+
+  void SetUp() override { type_ = TypeTraits<TypeClass>::type_singleton(); }
+
+  void TestBasics() {
+    auto array = ArrayFromJSON(type_, R"(["foo", null, "bar"])");
+    Appender appender;
+    ArrayDataVisitor<TypeClass> visitor;
+    ASSERT_OK(visitor.Visit(*array->data(), &appender));
+    ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"foo", "(null)", "bar"}));
+    ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
+  }
+
+  void TestSliced() {
+    auto array = ArrayFromJSON(type_, R"(["ab", null, "cd", "ef"])")->Slice(1, 2);
+    Appender appender;
+    ArrayDataVisitor<TypeClass> visitor;
+    ASSERT_OK(visitor.Visit(*array->data(), &appender));
+    ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"(null)", "cd"}));
+    ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
+  }
+
+ protected:
+  std::shared_ptr<DataType> type_;
+};
+
+TYPED_TEST_CASE(TestBinaryDataVisitor, StringTypes);
+
+TYPED_TEST(TestBinaryDataVisitor, Basics) { this->TestBasics(); }
+
+TYPED_TEST(TestBinaryDataVisitor, Sliced) { this->TestSliced(); }
 
 }  // namespace arrow
