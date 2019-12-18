@@ -62,7 +62,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ubuntu: [18.04]
+        ubuntu: [16.04, 18.04]
     env:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:

@@ -524,10 +524,10 @@ TEST_F(TestSchemaUnification, SelectStar) {
 
   using TupleType = std::tuple<i32, i32, i32, i32, i32, i32>;
   std::vector<TupleType> rows = {
-      {111, 211, nullopt, nullopt, 1, 1},
-      {nullopt, 212, 312, nullopt, 1, 2},
-      {nullopt, nullopt, 321, 421, 2, 1},
-      {nullopt, 222, nullopt, 422, 2, 2},
+      TupleType(111, 211, nullopt, nullopt, 1, 1),
+      TupleType(nullopt, 212, 312, nullopt, 1, 2),
+      TupleType(nullopt, nullopt, 321, 421, 2, 1),
+      TupleType(nullopt, 222, nullopt, 422, 2, 2),
   };
 
   AssertBuilderEquals(scan_builder, rows);
@@ -540,10 +540,10 @@ TEST_F(TestSchemaUnification, SelectPhysicalColumns) {
 
   using TupleType = std::tuple<i32, i32, i32, i32>;
   std::vector<TupleType> rows = {
-      {111, 211, nullopt, nullopt},
-      {nullopt, 212, 312, nullopt},
-      {nullopt, nullopt, 321, 421},
-      {nullopt, 222, nullopt, 422},
+      TupleType(111, 211, nullopt, nullopt),
+      TupleType(nullopt, 212, 312, nullopt),
+      TupleType(nullopt, nullopt, 321, 421),
+      TupleType(nullopt, 222, nullopt, 422),
   };
 
   AssertBuilderEquals(scan_builder, rows);
@@ -556,10 +556,10 @@ TEST_F(TestSchemaUnification, SelectSomeReorderedPhysicalColumns) {
 
   using TupleType = std::tuple<i32, i32, i32>;
   std::vector<TupleType> rows = {
-      {211, 111, nullopt},
-      {212, nullopt, nullopt},
-      {nullopt, nullopt, 421},
-      {222, nullopt, 422},
+      TupleType(211, 111, nullopt),
+      TupleType(212, nullopt, nullopt),
+      TupleType(nullopt, nullopt, 421),
+      TupleType(222, nullopt, 422),
   };
 
   AssertBuilderEquals(scan_builder, rows);
@@ -578,8 +578,8 @@ TEST_F(TestSchemaUnification, SelectPhysicalColumnsFilterPartitionColumn) {
 
   using TupleType = std::tuple<i32, i32, i32>;
   std::vector<TupleType> rows = {
-      {211, nullopt, nullopt},
-      {nullopt, 321, 421},
+      TupleType(211, nullopt, nullopt),
+      TupleType(nullopt, 321, 421),
   };
 
   AssertBuilderEquals(scan_builder, rows);
@@ -594,10 +594,10 @@ TEST_F(TestSchemaUnification, SelectPartitionColumns) {
   ASSERT_OK(scan_builder->Project({"part_ds", "part_df"}));
   using TupleType = std::tuple<i32, i32>;
   std::vector<TupleType> rows = {
-      {1, 1},
-      {1, 2},
-      {2, 1},
-      {2, 2},
+      TupleType(1, 1),
+      TupleType(1, 2),
+      TupleType(2, 1),
+      TupleType(2, 2),
   };
   AssertBuilderEquals(scan_builder, rows);
 }
@@ -610,7 +610,7 @@ TEST_F(TestSchemaUnification, SelectPartitionColumnsFilterPhysicalColumn) {
   ASSERT_OK(scan_builder->Project({"part_df", "part_ds"}));
   using TupleType = std::tuple<i32, i32>;
   std::vector<TupleType> rows = {
-      {1, 1},
+      TupleType(1, 1),
   };
   AssertBuilderEquals(scan_builder, rows);
 }
@@ -624,8 +624,8 @@ TEST_F(TestSchemaUnification, SelectMixedColumnsAndFilter) {
 
   using TupleType = std::tuple<i32, i32, i32, i32>;
   std::vector<TupleType> rows = {
-      {2, 312, 1, nullopt},
-      {2, nullopt, 2, nullopt},
+      TupleType(2, 312, 1, nullopt),
+      TupleType(2, nullopt, 2, nullopt),
   };
   AssertBuilderEquals(scan_builder, rows);
 }
