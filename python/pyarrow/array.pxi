@@ -1404,7 +1404,7 @@ cdef class LargeListArray(Array):
 
     def flatten(self, MemoryPool memory_pool=None):
         """
-        Unnest this ListArray by one level.
+        Unnest this LargeListArray by one level.
 
         The returned Array is logically a concatenation of all the sub-lists
         in this Array.

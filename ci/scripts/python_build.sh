@@ -22,6 +22,11 @@ set -ex
 source_dir=${1}/python
 build_dir=${2}/python
 
+if [ ! -z "${CONDA_PREFIX}" ]; then
+  echo -e "===\n=== Conda environment for build\n==="
+  conda list
+fi
+
 export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
 export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE:-debug}
 export PYARROW_WITH_S3=${ARROW_S3:-OFF}
