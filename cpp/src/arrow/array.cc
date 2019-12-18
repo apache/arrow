@@ -317,21 +317,18 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
   std::shared_ptr<arrow::Array> value_array = list_array.values();
 
   // Shortcut: if a ListArray does not contain nulls, then simply slice its
-  // value array with the first and the last offsets. We don't use
-  // Array::null_count() because it's potentially O(N) (thus not faster than not
-  // taking the shortcut).
-  if (list_array_length == 0 || !list_array.null_bitmap_data() ||
-      list_array.data()->null_count == 0) {
+  // value array with the first and the last offsets.
+  if (list_array.null_count() == 0) {
     return SliceArrayWithOffsets(*value_array, list_array.value_offset(0),
                                  list_array.value_offset(list_array_length));
   }
 
-  // If a ListArray contains nulls, because there may be a non-empty sub-list
-  // behind a null and it must not be contained in the result.
+  // The ListArray contains nulls: there may be a non-empty sub-list behind
+  // a null and it must not be contained in the result.
   std::vector<std::shared_ptr<Array>> non_null_fragments;
-  int64_t valid_begin = 0, valid_end;
+  int64_t valid_begin = 0;
   while (valid_begin < list_array_length) {
-    valid_end = valid_begin;
+    int64_t valid_end = valid_begin;
     while (valid_end < list_array_length &&
            (list_array.IsValid(valid_end) || list_array.value_length(valid_end) == 0)) {
       ++valid_end;
@@ -341,7 +338,7 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
           SliceArrayWithOffsets(*value_array, list_array.value_offset(valid_begin),
                                 list_array.value_offset(valid_end)));
     }
-    valid_begin = valid_end + 1;
+    valid_begin = valid_end + 1;  // skip null entry
   }
 
   // Final attempt to avoid invoking Concatenate().
