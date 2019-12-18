@@ -29,6 +29,7 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.DecimalHolder;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -53,6 +54,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   private final NullableStructWriterFactory nullableStructWriterFactory;
   private int position;
   private static final int MAX_DECIMAL_PRECISION = 38;
+
+  private ArrowType fixedListType;
 
   private enum State {
     UNTYPED, SINGLE, UNION
@@ -206,7 +209,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   protected FieldWriter getWriter(MinorType type) {
-    return getWriter(type, null);
+    return getWriter(type, type == MinorType.FIXED_SIZE_LIST ? fixedListType : null);
   }
 
   protected FieldWriter getWriter(MinorType type, ArrowType arrowType) {
@@ -240,6 +243,14 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   protected FieldWriter getWriter() {
     return writer;
+  }
+
+  protected void setFixedListArrowType(ArrowType arrowType) {
+    this.fixedListType = arrowType;
+  }
+
+  protected Types.MinorType getListType() {
+    return fixedListType == null ? MinorType.LIST : MinorType.FIXED_SIZE_LIST;
   }
 
   private FieldWriter promoteToUnion() {

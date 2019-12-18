@@ -31,7 +31,9 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.complex.writer.BaseWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -336,6 +338,107 @@ public class TestFixedSizeListVector {
       assertTrue(Arrays.equals(values1, realValue1));
       int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
       assertTrue(Arrays.equals(values2, realValue2));
+    }
+  }
+
+  @Test
+  public void testWriteListWithFixedList() {
+    try (final ListVector listVector = ListVector.empty("listVector", allocator)) {
+
+      UnionListWriter listWriter = listVector.getWriter();
+      listWriter.allocate();
+
+      BaseWriter.ListWriter w = listWriter.fixedSizeList(2);
+
+      listWriter.startList();
+
+      w.startList();
+      w.integer().writeInt(0);
+      w.integer().writeInt(1);
+      w.endList();
+
+      w.startList();
+      w.integer().writeInt(2);
+      w.integer().writeInt(3);
+      w.endList();
+      listWriter.endList();
+
+      listWriter.startList();
+      w.startList();
+      w.integer().writeInt(4);
+      w.integer().writeInt(5);
+      w.endList();
+
+      w.startList();
+      w.integer().writeInt(6);
+      w.integer().writeInt(7);
+      w.endList();
+      listWriter.endList();
+
+      listVector.setValueCount(2);
+
+      FixedSizeListVector fixedVector = (FixedSizeListVector) listVector.getDataVector();
+      assertEquals(4, fixedVector.getValueCount());
+      IntVector intVector = (IntVector) fixedVector.getDataVector();
+      assertEquals(8, intVector.getValueCount());
+
+      // verify data
+      for (int i = 0; i < 8; i++) {
+        assertEquals(i, intVector.get(i));
+      }
+    }
+  }
+
+  @Test
+  public void testWriteFixedListWithFixedList() {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("fixedVector", 3, allocator)) {
+
+      UnionFixedSizeListWriter fixedWriter = vector.getWriter();
+      fixedWriter.allocate();
+
+      BaseWriter.ListWriter w = fixedWriter.fixedSizeList(2);
+
+      fixedWriter.startList();
+
+      w.startList();
+      w.integer().writeInt(0);
+      w.integer().writeInt(1);
+      w.endList();
+
+      w.startList();
+      w.integer().writeInt(2);
+      w.integer().writeInt(3);
+      w.endList();
+      fixedWriter.endList();
+
+      fixedWriter.startList();
+      w.startList();
+      w.integer().writeInt(4);
+      w.integer().writeInt(5);
+      w.endList();
+
+      w.startList();
+      w.integer().writeInt(6);
+      w.integer().writeInt(7);
+      w.endList();
+      fixedWriter.endList();
+
+      fixedWriter.setValueCount(2);
+
+      FixedSizeListVector fixedVector = (FixedSizeListVector) vector.getDataVector();
+      assertEquals(6, fixedVector.getValueCount());
+      IntVector intVector = (IntVector) fixedVector.getDataVector();
+      assertEquals(12, intVector.getValueCount());
+
+      // verify data
+      Integer[] expected = new Integer[] {0, 1, 2, 3, null, null, 4, 5, 6, 7, null, null};
+      for (int i = 0; i < 12; i++) {
+        if (expected[i] == null) {
+          assertTrue(intVector.isNull(i));
+        } else {
+          assertEquals(expected[i].intValue(), intVector.get(i));
+        }
+      }
     }
   }
 

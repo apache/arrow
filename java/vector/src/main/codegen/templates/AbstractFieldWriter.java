@@ -116,6 +116,12 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   @Override
+  public ListWriter fixedSizeList(int listSize) {
+    fail("FixedSizeList");
+    return null;
+  }
+
+  @Override
   public StructWriter struct(String name) {
     fail("Struct");
     return null;

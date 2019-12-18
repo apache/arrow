@@ -70,6 +70,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void endList();
     StructWriter struct();
     ListWriter list();
+    ListWriter fixedSizeList(int listSize);
     void copyReader(FieldReader reader);
 
     <#list vv.types as type><#list type.minor as minor>

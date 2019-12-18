@@ -51,6 +51,16 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
    */
   abstract protected FieldWriter getWriter();
 
+  /**
+   * Set the arrowType for fixed list writer.
+   */
+  abstract protected void setFixedListArrowType(ArrowType arrowType);
+
+  /**
+   * Get the list type, MinorType.List or MinorType.FixedSizeList
+   */
+  abstract protected Types.MinorType getListType();
+
   @Override
   public void start() {
     getWriter(MinorType.STRUCT).start();
@@ -64,12 +74,12 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   @Override
   public void startList() {
-    getWriter(MinorType.LIST).startList();
+    getWriter(getListType()).startList();
   }
 
   @Override
   public void endList() {
-    getWriter(MinorType.LIST).endList();
+    getWriter(getListType()).endList();
     setPosition(idx() + 1);
   }
 
@@ -101,7 +111,14 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   @Override
   public ListWriter list() {
+    this.setFixedListArrowType(null);
     return getWriter(MinorType.LIST).list();
+  }
+
+  @Override
+  public ListWriter fixedSizeList(int listSize) {
+    this.setFixedListArrowType(new ArrowType.FixedSizeList(listSize));
+    return getWriter(MinorType.FIXED_SIZE_LIST).list();
   }
 
   @Override
@@ -134,7 +151,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   @Override
   public ${capName}Writer ${lowerName}() {
-    return getWriter(MinorType.LIST).${lowerName}();
+    return getWriter(getListType()).${lowerName}();
   }
 
   </#list></#list>

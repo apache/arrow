@@ -16,8 +16,10 @@
  */
 
 import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.vector.complex.writer.BaseWriter;
 import org.apache.arrow.vector.complex.writer.DecimalWriter;
 import org.apache.arrow.vector.holders.DecimalHolder;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 
 import java.lang.UnsupportedOperationException;
 import java.math.BigDecimal;
@@ -134,6 +136,13 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public ListWriter list() {
+    writer.setFixedListArrowType(null);
+    return writer;
+  }
+
+  @Override
+  public BaseWriter.ListWriter fixedSizeList(int listSize) {
+    writer.setFixedListArrowType(new ArrowType.FixedSizeList(listSize));
     return writer;
   }
 
