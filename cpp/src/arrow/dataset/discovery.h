@@ -135,14 +135,14 @@ struct FileSystemDiscoveryOptions {
 class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery {
  public:
   /// \brief Build a FileSystemDataSourceDiscovery from an explicit list of
-  /// fs::FileStats.
+  /// paths.
   ///
   /// \param[in] filesystem passed to FileSystemDataSource
   /// \param[in] paths passed to FileSystemDataSource
   /// \param[in] format passed to FileSystemDataSource
   /// \param[in] options see FileSystemDiscoveryOptions for more information.
   static Result<DataSourceDiscoveryPtr> Make(fs::FileSystemPtr filesystem,
-                                             fs::FileStatsVector paths,
+                                             const std::vector<std::string>& paths,
                                              FileFormatPtr format,
                                              FileSystemDiscoveryOptions options);
 
@@ -169,12 +169,16 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
   Result<DataSourcePtr> Finish() override;
 
  protected:
-  FileSystemDataSourceDiscovery(fs::FileSystemPtr filesystem,
-                                std::vector<fs::FileStats> files, FileFormatPtr format,
-                                FileSystemDiscoveryOptions options);
+  FileSystemDataSourceDiscovery(fs::FileSystemPtr filesystem, fs::PathForest forest,
+                                FileFormatPtr format, FileSystemDiscoveryOptions options);
+
+  static Result<fs::PathForest> Filter(const fs::FileSystemPtr& filesystem,
+                                       const FileFormatPtr& format,
+                                       const FileSystemDiscoveryOptions& options,
+                                       fs::PathForest forest);
 
   fs::FileSystemPtr fs_;
-  std::vector<fs::FileStats> files_;
+  fs::PathForest forest_;
   FileFormatPtr format_;
   FileSystemDiscoveryOptions options_;
 };

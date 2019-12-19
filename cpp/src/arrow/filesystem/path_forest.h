@@ -50,21 +50,21 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
   template <typename... Associated>
   static Result<PathForest> Make(std::vector<FileStats> stats,
                                  std::vector<Associated>*... associated) {
-    auto compare_paths = [](const FileStats& lhs, const FileStats& rhs) {
-      return lhs.path() < rhs.path();
-    };
-
     if (sizeof...(associated) == 0) {
-      std::sort(stats.begin(), stats.end(), compare_paths);
+      std::sort(stats.begin(), stats.end(), FileStats::ByPath{});
     } else {
-      auto indices = arrow::internal::ArgSort(stats, compare_paths);
+      auto indices = arrow::internal::ArgSort(stats, FileStats::ByPath{});
       size_t _[] = {arrow::internal::Permute(indices, &stats),
                     arrow::internal::Permute(indices, associated)...};
       static_cast<void>(_);
     }
 
-    return DoMake(std::move(stats));
+    return MakeFromPreSorted(std::move(stats));
   }
+
+  /// Make a PathForest from FileStats which are already sorted in a
+  /// depth first visitation order.
+  static Result<PathForest> MakeFromPreSorted(std::vector<FileStats> sorted_stats);
 
   /// \brief Returns the number of nodes in this forest.
   int size() const { return size_; }
@@ -95,6 +95,10 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
 
   std::vector<Ref> roots() const;
 
+  std::vector<FileStats>& stats() & { return *stats_; }
+  const std::vector<FileStats>& stats() const& { return *stats_; }
+  std::vector<FileStats> stats() && { return std::move(*stats_); }
+
   enum { Continue, Prune };
   using MaybePrune = Result<decltype(Prune)>;
 
@@ -116,8 +120,6 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
         stats_(std::move(stats)),
         descendant_counts_(std::move(descendant_counts)),
         parents_(std::move(parents)) {}
-
-  static Result<PathForest> DoMake(std::vector<FileStats> sorted_stats);
 
   /// \brief Visit with eager pruning.
   template <typename Visitor>

@@ -438,11 +438,9 @@ class TestSchemaUnification : public TestDataset {
     }
     fs_ = mock_fs;
 
-    auto get_source = [this](std::string base) -> Result<std::shared_ptr<DataSource>> {
-      fs::FileSelector s;
-      s.base_dir = base;
-      s.recursive = true;
-
+    auto get_source =
+        [this](std::string base,
+               std::vector<std::string> paths) -> Result<std::shared_ptr<DataSource>> {
       auto resolver = [this](const FileSource& source) -> std::shared_ptr<Schema> {
         auto path = source.path();
         // A different schema for each data fragment.
@@ -460,8 +458,10 @@ class TestSchemaUnification : public TestDataset {
       };
 
       auto format = std::make_shared<JSONRecordBatchFileFormat>(resolver);
-      ARROW_ASSIGN_OR_RAISE(auto discovery,
-                            FileSystemDataSourceDiscovery::Make(fs_, s, format, {}));
+      FileSystemDiscoveryOptions options;
+      options.partition_base_dir = base;
+      ARROW_ASSIGN_OR_RAISE(auto discovery, FileSystemDataSourceDiscovery::Make(
+                                                fs_, std::move(paths), format, options));
 
       auto scheme_schema = SchemaFromNames({"part_ds", "part_df"});
       auto partition_scheme = std::make_shared<HivePartitionScheme>(scheme_schema);
@@ -471,8 +471,8 @@ class TestSchemaUnification : public TestDataset {
     };
 
     schema_ = SchemaFromNames({"phy_1", "phy_2", "phy_3", "phy_4", "part_ds", "part_df"});
-    ASSERT_OK_AND_ASSIGN(auto ds1, get_source("/dataset/alpha"));
-    ASSERT_OK_AND_ASSIGN(auto ds2, get_source("/dataset/beta"));
+    ASSERT_OK_AND_ASSIGN(auto ds1, get_source("/dataset/alpha", {ds1_df1, ds1_df2}));
+    ASSERT_OK_AND_ASSIGN(auto ds2, get_source("/dataset/beta", {ds2_df1, ds2_df2}));
     ASSERT_OK_AND_ASSIGN(dataset_, Dataset::Make({ds1, ds2}, schema_));
   }
 

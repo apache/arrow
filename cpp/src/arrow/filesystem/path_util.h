@@ -79,6 +79,14 @@ ARROW_EXPORT
 util::optional<util::string_view> RemoveAncestor(util::string_view ancestor,
                                                  util::string_view descendant);
 
+/// Return a vector of ancestors between a base path and a descendant.
+/// For example,
+///
+/// AncestorsFromBasePath("a/b", "a/b/c/d/e") -> ["a/b/c", "a/b/c/d"]
+ARROW_EXPORT
+std::vector<std::string> AncestorsFromBasePath(util::string_view base_path,
+                                               util::string_view descendant);
+
 // Join the components of an abstract path.
 template <class StringIt>
 std::string JoinAbstractPath(StringIt it, StringIt end) {

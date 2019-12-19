@@ -159,6 +159,7 @@ class FileSystemDataSourceDiscoveryTest : public DataSourceDiscoveryTest {
 TEST_F(FileSystemDataSourceDiscoveryTest, Basic) {
   MakeDiscovery({fs::File("a"), fs::File("b")});
   AssertFinishWithPaths({"a", "b"});
+  MakeDiscovery({fs::Dir("a"), fs::Dir("a/b"), fs::File("a/b/c")});
 }
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Selector) {
@@ -186,6 +187,22 @@ TEST_F(FileSystemDataSourceDiscoveryTest, Partition) {
   ASSERT_OK(discovery_->SetPartitionScheme(partition_scheme));
   AssertInspect({field("a", int32())});
   AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
+}
+
+TEST_F(FileSystemDataSourceDiscoveryTest, MissingDirectories) {
+  MakeFileSystem({fs::File("base_dir/a=3/b=3/dat"), fs::File("unpartitioned/ignored=3")});
+
+  discovery_options_.partition_base_dir = "base_dir";
+  ASSERT_OK_AND_ASSIGN(
+      discovery_, FileSystemDataSourceDiscovery::Make(
+                      fs_, {"base_dir/a=3/b=3/dat", "unpartitioned/ignored=3"}, format_,
+                      discovery_options_));
+  auto partition_scheme = std::make_shared<HivePartitionScheme>(
+      schema({field("a", int32()), field("b", int32())}));
+  ASSERT_OK(discovery_->SetPartitionScheme(partition_scheme));
+
+  AssertInspect({field("a", int32()), field("b", int32())});
+  AssertFinishWithPaths({"base_dir/a=3/b=3/dat", "unpartitioned/ignored=3"});
 }
 
 TEST_F(FileSystemDataSourceDiscoveryTest, OptionsIgnoredDefaultPrefixes) {

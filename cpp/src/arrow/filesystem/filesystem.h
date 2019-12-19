@@ -22,6 +22,7 @@
 #include <iosfwd>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/type_fwd.h"
@@ -94,7 +95,7 @@ struct ARROW_EXPORT FileStats : public util::EqualityComparable<FileStats> {
 
   /// The full file path in the filesystem
   const std::string& path() const { return path_; }
-  void set_path(const std::string& path) { path_ = path; }
+  void set_path(std::string path) { path_ = std::move(path); }
 
   /// The file base name (component after the last directory separator)
   std::string base_name() const;
@@ -124,6 +125,19 @@ struct ARROW_EXPORT FileStats : public util::EqualityComparable<FileStats> {
   }
 
   std::string ToString() const;
+
+  /// Function object implementing less-than comparison and hashing
+  /// by path, to support sorting stats, using them as keys, and other
+  /// interactions with the STL.
+  struct ByPath {
+    bool operator()(const FileStats& l, const FileStats& r) const {
+      return l.path() < r.path();
+    }
+
+    size_t operator()(const FileStats& s) const {
+      return std::hash<std::string>{}(s.path());
+    }
+  };
 
  protected:
   FileType type_ = FileType::Unknown;
