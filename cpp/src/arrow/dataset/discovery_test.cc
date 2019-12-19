@@ -50,7 +50,7 @@ class DataSourceDiscoveryTest : public TestFileSystemDataSource {
   }
 
  protected:
-  DataSourceDiscoveryPtr discovery_;
+  std::shared_ptr<DataSourceDiscovery> discovery_;
 };
 
 class MockDataSourceDiscovery : public DataSourceDiscovery {
@@ -62,8 +62,9 @@ class MockDataSourceDiscovery : public DataSourceDiscovery {
     return schemas_;
   }
 
-  Result<DataSourcePtr> Finish() override {
-    return std::make_shared<SimpleDataSource>(std::vector<DataFragmentPtr>{});
+  Result<std::shared_ptr<DataSource>> Finish() override {
+    return std::make_shared<SimpleDataSource>(
+        std::vector<std::shared_ptr<DataFragment>>{});
   }
 
  protected:
@@ -75,7 +76,8 @@ class MockPartitionScheme : public PartitionScheme {
   explicit MockPartitionScheme(std::shared_ptr<Schema> schema)
       : PartitionScheme(std::move(schema)) {}
 
-  Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
+  Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
+                                            int i) const override {
     return nullptr;
   }
 
@@ -153,7 +155,7 @@ class FileSystemDataSourceDiscoveryTest : public DataSourceDiscoveryTest {
  protected:
   fs::FileSelector selector_;
   FileSystemDiscoveryOptions discovery_options_;
-  FileFormatPtr format_ = std::make_shared<DummyFileFormat>(schema({}));
+  std::shared_ptr<FileFormat> format_ = std::make_shared<DummyFileFormat>(schema({}));
 };
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Basic) {

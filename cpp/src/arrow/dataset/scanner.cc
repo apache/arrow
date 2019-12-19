@@ -38,7 +38,8 @@ ScanOptions::ScanOptions(std::shared_ptr<Schema> schema)
       evaluator(ExpressionEvaluator::Null()),
       projector(RecordBatchProjector(std::move(schema))) {}
 
-ScanOptionsPtr ScanOptions::ReplaceSchema(std::shared_ptr<Schema> schema) const {
+std::shared_ptr<ScanOptions> ScanOptions::ReplaceSchema(
+    std::shared_ptr<Schema> schema) const {
   auto copy = ScanOptions::Make(std::move(schema));
   copy->use_threads = use_threads;
   copy->filter = filter;
@@ -67,7 +68,7 @@ Result<RecordBatchIterator> SimpleScanTask::Execute() {
 /// \brief GetScanTaskIterator transforms an Iterator<DataFragment> in a
 /// flattened Iterator<ScanTask>.
 static ScanTaskIterator GetScanTaskIterator(DataFragmentIterator fragments,
-                                            ScanContextPtr context) {
+                                            std::shared_ptr<ScanContext> context) {
   // DataFragment -> ScanTaskIterator
   auto fn = [context](std::shared_ptr<DataFragment> fragment) {
     return fragment->Scan(context);
@@ -91,21 +92,22 @@ Result<ScanTaskIterator> Scanner::Scan() {
   auto scan_task_it = GetScanTaskIterator(std::move(fragments_it), context_);
   // Third, apply the filter and/or projection to incoming RecordBatches by
   // wrapping the ScanTask with a FilterAndProjectScanTask
-  auto wrap_scan_task = [](ScanTaskPtr task) -> ScanTaskPtr {
+  auto wrap_scan_task = [](std::shared_ptr<ScanTask> task) -> std::shared_ptr<ScanTask> {
     return std::make_shared<FilterAndProjectScanTask>(std::move(task));
   };
   return MakeMapIterator(wrap_scan_task, std::move(scan_task_it));
 }
 
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
-    std::vector<std::shared_ptr<RecordBatch>> batches, ScanOptionsPtr options,
-    ScanContextPtr context) {
+    std::vector<std::shared_ptr<RecordBatch>> batches,
+    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context) {
   ScanTaskVector tasks{
       std::make_shared<SimpleScanTask>(batches, std::move(options), std::move(context))};
   return MakeVectorIterator(std::move(tasks));
 }
 
-ScannerBuilder::ScannerBuilder(DatasetPtr dataset, ScanContextPtr context)
+ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
+                               std::shared_ptr<ScanContext> context)
     : dataset_(std::move(dataset)),
       options_(ScanOptions::Make(dataset_->schema())),
       context_(std::move(context)) {}
@@ -129,7 +131,7 @@ Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
   return Status::OK();
 }
 
-Status ScannerBuilder::Filter(ExpressionPtr filter) {
+Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
   RETURN_NOT_OK(EnsureColumnsInSchema(schema(), FieldsInExpression(*filter)));
   RETURN_NOT_OK(filter->Validate(*schema()).status());
   options_->filter = std::move(filter);
@@ -143,8 +145,8 @@ Status ScannerBuilder::UseThreads(bool use_threads) {
   return Status::OK();
 }
 
-Result<ScannerPtr> ScannerBuilder::Finish() const {
-  ScanOptionsPtr options;
+Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() const {
+  std::shared_ptr<ScanOptions> options;
   if (has_projection_ && !project_columns_.empty()) {
     options = options_->ReplaceSchema(SchemaFromColumnNames(schema(), project_columns_));
   } else {
@@ -193,7 +195,7 @@ struct ScanTaskPromise {
   }
 
   TableAggregator& aggregator;
-  ScanTaskPtr task;
+  std::shared_ptr<ScanTask> task;
 };
 
 Result<std::shared_ptr<Table>> Scanner::ToTable() {

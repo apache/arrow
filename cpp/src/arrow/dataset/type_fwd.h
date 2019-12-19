@@ -34,7 +34,6 @@ class FunctionContext;
 namespace fs {
 
 class FileSystem;
-using FileSystemPtr = std::shared_ptr<FileSystem>;
 
 struct FileStats;
 using FileStatsVector = std::vector<FileStats>;
@@ -44,27 +43,21 @@ using FileStatsVector = std::vector<FileStats>;
 namespace dataset {
 
 class Dataset;
-using DatasetPtr = std::shared_ptr<Dataset>;
 
 class DataFragment;
-using DataFragmentPtr = std::shared_ptr<DataFragment>;
-using DataFragmentIterator = Iterator<DataFragmentPtr>;
-using DataFragmentVector = std::vector<DataFragmentPtr>;
+using DataFragmentIterator = Iterator<std::shared_ptr<DataFragment>>;
+using DataFragmentVector = std::vector<std::shared_ptr<DataFragment>>;
 
 class DataSource;
-using DataSourcePtr = std::shared_ptr<DataSource>;
-using DataSourceVector = std::vector<DataSourcePtr>;
+using DataSourceVector = std::vector<std::shared_ptr<DataSource>>;
 
 struct DiscoveryOptions;
 class DataSourceDiscovery;
-using DataSourceDiscoveryPtr = std::shared_ptr<DataSourceDiscovery>;
 
 class FileFormat;
-using FileFormatPtr = std::shared_ptr<FileFormat>;
 
 class Expression;
-using ExpressionPtr = std::shared_ptr<Expression>;
-using ExpressionVector = std::vector<ExpressionPtr>;
+using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
 
 class ComparisonExpression;
 class InExpression;
@@ -78,27 +71,20 @@ class FieldReferenceExpression;
 class ExpressionEvaluator;
 
 class PartitionScheme;
-using PartitionSchemePtr = std::shared_ptr<PartitionScheme>;
 
 class PartitionSchemeDiscovery;
-using PartitionSchemeDiscoveryPtr = std::shared_ptr<PartitionSchemeDiscovery>;
 
 struct ScanContext;
-using ScanContextPtr = std::shared_ptr<ScanContext>;
 
 class ScanOptions;
-using ScanOptionsPtr = std::shared_ptr<ScanOptions>;
 
 class Scanner;
-using ScannerPtr = std::shared_ptr<Scanner>;
 
 class ScannerBuilder;
-using ScannerBuilderPtr = std::shared_ptr<ScannerBuilder>;
 
 class ScanTask;
-using ScanTaskPtr = std::shared_ptr<ScanTask>;
-using ScanTaskVector = std::vector<ScanTaskPtr>;
-using ScanTaskIterator = Iterator<ScanTaskPtr>;
+using ScanTaskVector = std::vector<std::shared_ptr<ScanTask>>;
+using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
 
 class RecordBatchProjector;
 

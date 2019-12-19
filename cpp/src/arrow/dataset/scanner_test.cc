@@ -156,9 +156,9 @@ class TestScannerBuilder : public ::testing::Test {
   }
 
  protected:
-  ScanContextPtr ctx_;
+  std::shared_ptr<ScanContext> ctx_;
   std::shared_ptr<Schema> schema_;
-  DatasetPtr dataset_;
+  std::shared_ptr<Dataset> dataset_;
 };
 
 TEST_F(TestScannerBuilder, TestProject) {

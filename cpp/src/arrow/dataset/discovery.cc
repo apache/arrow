@@ -55,8 +55,8 @@ Result<std::shared_ptr<Schema>> DataSourceDiscovery::Inspect() {
 }
 
 FileSystemDataSourceDiscovery::FileSystemDataSourceDiscovery(
-    fs::FileSystemPtr filesystem, fs::PathForest forest, FileFormatPtr format,
-    FileSystemDiscoveryOptions options)
+    std::shared_ptr<fs::FileSystem> filesystem, fs::PathForest forest,
+    std::shared_ptr<FileFormat> format, FileSystemDiscoveryOptions options)
     : fs_(std::move(filesystem)),
       forest_(std::move(forest)),
       format_(std::move(format)),
@@ -78,8 +78,9 @@ bool StartsWithAnyOf(const std::vector<std::string>& prefixes, const std::string
 }
 
 Result<fs::PathForest> FileSystemDataSourceDiscovery::Filter(
-    const fs::FileSystemPtr& filesystem, const FileFormatPtr& format,
-    const FileSystemDiscoveryOptions& options, fs::PathForest forest) {
+    const std::shared_ptr<fs::FileSystem>& filesystem,
+    const std::shared_ptr<FileFormat>& format, const FileSystemDiscoveryOptions& options,
+    fs::PathForest forest) {
   fs::FileStatsVector out;
 
   auto& stats = forest.stats();
@@ -105,9 +106,9 @@ Result<fs::PathForest> FileSystemDataSourceDiscovery::Filter(
   return fs::PathForest::MakeFromPreSorted(std::move(out));
 }
 
-Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
-    fs::FileSystemPtr filesystem, const std::vector<std::string>& paths,
-    FileFormatPtr format, FileSystemDiscoveryOptions options) {
+Result<std::shared_ptr<DataSourceDiscovery>> FileSystemDataSourceDiscovery::Make(
+    std::shared_ptr<fs::FileSystem> filesystem, const std::vector<std::string>& paths,
+    std::shared_ptr<FileFormat> format, FileSystemDiscoveryOptions options) {
   ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(paths));
   ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
 
@@ -133,13 +134,13 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
 
   ARROW_ASSIGN_OR_RAISE(forest, Filter(filesystem, format, options, std::move(forest)));
 
-  return DataSourceDiscoveryPtr(new FileSystemDataSourceDiscovery(
+  return std::shared_ptr<DataSourceDiscovery>(new FileSystemDataSourceDiscovery(
       filesystem, std::move(forest), std::move(format), std::move(options)));
 }
 
-Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
-    fs::FileSystemPtr filesystem, fs::FileSelector selector, FileFormatPtr format,
-    FileSystemDiscoveryOptions options) {
+Result<std::shared_ptr<DataSourceDiscovery>> FileSystemDataSourceDiscovery::Make(
+    std::shared_ptr<fs::FileSystem> filesystem, fs::FileSelector selector,
+    std::shared_ptr<FileFormat> format, FileSystemDiscoveryOptions options) {
   ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(selector));
 
   ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
@@ -153,7 +154,7 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
     options.partition_base_dir = selector.base_dir;
   }
 
-  return DataSourceDiscoveryPtr(new FileSystemDataSourceDiscovery(
+  return std::shared_ptr<DataSourceDiscovery>(new FileSystemDataSourceDiscovery(
       filesystem, std::move(forest), std::move(format), std::move(options)));
 }
 
@@ -171,7 +172,7 @@ FileSystemDataSourceDiscovery::InspectSchemas() {
   return schemas;
 }
 
-Result<DataSourcePtr> FileSystemDataSourceDiscovery::Finish() {
+Result<std::shared_ptr<DataSource>> FileSystemDataSourceDiscovery::Finish() {
   ExpressionVector partitions(forest_.size(), scalar(true));
 
   // apply partition_scheme to forest to derive partitions

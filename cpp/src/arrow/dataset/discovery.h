@@ -60,7 +60,7 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
   virtual Result<std::shared_ptr<Schema>> Inspect();
 
   /// \brief Create a DataSource with a given partition.
-  virtual Result<DataSourcePtr> Finish() = 0;
+  virtual Result<std::shared_ptr<DataSource>> Finish() = 0;
 
   std::shared_ptr<Schema> schema() const { return schema_; }
   Status SetSchema(std::shared_ptr<Schema> schema) {
@@ -68,14 +68,16 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
     return Status::OK();
   }
 
-  const PartitionSchemePtr& partition_scheme() const { return partition_scheme_; }
-  Status SetPartitionScheme(PartitionSchemePtr partition_scheme) {
+  const std::shared_ptr<PartitionScheme>& partition_scheme() const {
+    return partition_scheme_;
+  }
+  Status SetPartitionScheme(std::shared_ptr<PartitionScheme> partition_scheme) {
     partition_scheme_ = partition_scheme;
     return Status::OK();
   }
 
-  const ExpressionPtr& root_partition() const { return root_partition_; }
-  Status SetRootPartition(ExpressionPtr partition) {
+  const std::shared_ptr<Expression>& root_partition() const { return root_partition_; }
+  Status SetRootPartition(std::shared_ptr<Expression> partition) {
     root_partition_ = partition;
     return Status::OK();
   }
@@ -86,8 +88,8 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
   DataSourceDiscovery();
 
   std::shared_ptr<Schema> schema_;
-  PartitionSchemePtr partition_scheme_;
-  ExpressionPtr root_partition_;
+  std::shared_ptr<PartitionScheme> partition_scheme_;
+  std::shared_ptr<Expression> root_partition_;
 };
 
 struct FileSystemDiscoveryOptions {
@@ -141,10 +143,9 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
   /// \param[in] paths passed to FileSystemDataSource
   /// \param[in] format passed to FileSystemDataSource
   /// \param[in] options see FileSystemDiscoveryOptions for more information.
-  static Result<DataSourceDiscoveryPtr> Make(fs::FileSystemPtr filesystem,
-                                             const std::vector<std::string>& paths,
-                                             FileFormatPtr format,
-                                             FileSystemDiscoveryOptions options);
+  static Result<std::shared_ptr<DataSourceDiscovery>> Make(
+      std::shared_ptr<fs::FileSystem> filesystem, const std::vector<std::string>& paths,
+      std::shared_ptr<FileFormat> format, FileSystemDiscoveryOptions options);
 
   /// \brief Build a FileSystemDataSourceDiscovery from a fs::FileSelector.
   ///
@@ -159,27 +160,27 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
   /// \param[in] selector used to crawl and search files
   /// \param[in] format passed to FileSystemDataSource
   /// \param[in] options see FileSystemDiscoveryOptions for more information.
-  static Result<DataSourceDiscoveryPtr> Make(fs::FileSystemPtr filesystem,
-                                             fs::FileSelector selector,
-                                             FileFormatPtr format,
-                                             FileSystemDiscoveryOptions options);
+  static Result<std::shared_ptr<DataSourceDiscovery>> Make(
+      std::shared_ptr<fs::FileSystem> filesystem, fs::FileSelector selector,
+      std::shared_ptr<FileFormat> format, FileSystemDiscoveryOptions options);
 
   Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override;
 
-  Result<DataSourcePtr> Finish() override;
+  Result<std::shared_ptr<DataSource>> Finish() override;
 
  protected:
-  FileSystemDataSourceDiscovery(fs::FileSystemPtr filesystem, fs::PathForest forest,
-                                FileFormatPtr format, FileSystemDiscoveryOptions options);
+  FileSystemDataSourceDiscovery(std::shared_ptr<fs::FileSystem> filesystem,
+                                fs::PathForest forest, std::shared_ptr<FileFormat> format,
+                                FileSystemDiscoveryOptions options);
 
-  static Result<fs::PathForest> Filter(const fs::FileSystemPtr& filesystem,
-                                       const FileFormatPtr& format,
+  static Result<fs::PathForest> Filter(const std::shared_ptr<fs::FileSystem>& filesystem,
+                                       const std::shared_ptr<FileFormat>& format,
                                        const FileSystemDiscoveryOptions& options,
                                        fs::PathForest forest);
 
-  fs::FileSystemPtr fs_;
+  std::shared_ptr<fs::FileSystem> fs_;
   fs::PathForest forest_;
-  FileFormatPtr format_;
+  std::shared_ptr<FileFormat> format_;
   FileSystemDiscoveryOptions options_;
 };
 
