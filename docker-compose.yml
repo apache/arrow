@@ -33,6 +33,7 @@ volumes:
   amd64-conda-cache:
   amd64-cuda-9.1-cache:
   amd64-cuda-10.0-cache:
+  amd64-cuda-10.1-cache:
   amd64-debian-9-cache:
   amd64-debian-10-cache:
   amd64-fedora-29-cache:
@@ -98,7 +99,7 @@ services:
     #   https://github.com/docker/compose/issues/6691#issuecomment-561504928
     # Parameters:
     #   ARCH: amd64
-    #   CUDA: 9.1, 10.0
+    #   CUDA: 9.1, 10.0, 10.1
     image: ${REPO}:${ARCH}-cuda-${CUDA}-cpp
     build:
       context: .
