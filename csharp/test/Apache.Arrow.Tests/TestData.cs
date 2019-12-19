@@ -16,7 +16,6 @@
 using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Apache.Arrow.Tests
 {
@@ -86,7 +85,7 @@ namespace Apache.Arrow.Tests
             field.DataType.Accept(creator);
 
             ArrayData data = new ArrayData(field.DataType, length, 0, 0,
-                new[] { ArrowBuffer.Empty, creator.Buffer }, creator.Children?.Select(_ => _.Data));
+                new[] { ArrowBuffer.Empty, creator.Buffer }, creator.Children);
 
             return ArrowArrayFactory.BuildArray(data);
         }
@@ -110,7 +109,7 @@ namespace Apache.Arrow.Tests
             private readonly int _length;
             public ArrowBuffer Buffer { get; private set; }
 
-            public List<IArrowArray> Children { get; private set; }
+            public ArrayData[] Children { get; private set; }
 
             public ArrayBufferCreator(int length)
             {
@@ -174,7 +173,7 @@ namespace Apache.Arrow.Tests
             public void Visit(ListType type)
             {
                 //Buffer is valueOffsetsBuffer
-                Children = new List<IArrowArray> { CreateArray(type.ValueField, _length) };
+                Children = new[] { CreateArray(type.ValueField, _length).Data };
                 ArrowBuffer.Builder<int> builder = new ArrowBuffer.Builder<int>(_length);
                 for (int i = 0; i < _length; i++)
                     builder.Append(i);
