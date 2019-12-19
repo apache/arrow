@@ -15,14 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-install2 <- function(...) {
-  system(system.file("build_arrow_static.sh", package = "arrow"))
-  # temporary hacks for testing
-  system("mv r/libarrow/dist/* r/libarrow/arrow-0.15.1.9000")
-  system("rm r/src/*.o")
-  system("R CMD INSTALL --install-tests r")
-}
-
 #' Help installing the Arrow C++ library
 #'
 #' Binary package installations should come with a working Arrow C++ library,
