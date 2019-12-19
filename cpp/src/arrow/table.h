@@ -334,14 +334,31 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
   int64_t max_chunksize_;
 };
 
-/// \brief Construct table from multiple input tables.
+/// \defgroup concat-tables ConcatenateTables function.
 ///
-/// The tables are concatenated vertically.  Therefore, all tables should
-/// have the same schema.  Each column in the output table is the result
-/// of concatenating the corresponding columns in all input tables.
+/// ConcatenateTables function.
+/// @{
+
+/// \brief Controls the behavior of ConcatenateTables().
+struct ARROW_EXPORT ConcatenateTablesOptions {
+  /// If true, the schemas of the tables will be first unified with fields of
+  /// the same name being merged, according to `field_merge_options`, then each
+  /// table will be promoted to the unified schema before being concatenated.
+  /// Otherwise, all tables should have the same schema. Each column in the output table
+  /// is the result of concatenating the corresponding columns in all input tables.
+  bool unify_schemas = false;
+
+  Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults();
+
+  static ConcatenateTablesOptions Defaults() { return ConcatenateTablesOptions(); }
+};
+
+/// \brief Construct table from multiple input tables.
 ARROW_EXPORT
-Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
-                         std::shared_ptr<Table>* table);
+Result<std::shared_ptr<Table>> ConcatenateTables(
+    const std::vector<std::shared_ptr<Table>>& tables,
+    ConcatenateTablesOptions options = ConcatenateTablesOptions::Defaults(),
+    MemoryPool* memory_pool = default_memory_pool());
 
 /// \brief Promotes a table to conform to the given schema.
 ///
@@ -361,25 +378,6 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> PromoteTableToSchema(
     const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
-    MemoryPool* pool = default_memory_pool());
-
-/// \brief Concatenate tables with null-filling and type promotion.
-///
-/// Columns of the same name will be concatenated. They should be of the
-/// same type, or be of type NULL, in which case it will be promoted to
-/// the type of other corresponding columns with null values filled.
-/// If a table is missing a particular field, null values of the appropriate
-//  type will be generated to take the place of the missing field
-/// The new schema will share the metadata with the first table. Each field in
-/// the new schema will share the metadata with the first table which has the
-/// field defined.
-///
-/// \param[in] tables the tables to be concatenated
-/// \param[in] pool The memory pool to be used if null-filled arrays need to
-/// be created.
-ARROW_EXPORT
-Result<std::shared_ptr<Table>> ConcatenateTablesWithPromotion(
-    const std::vector<std::shared_ptr<Table>>& tables,
     MemoryPool* pool = default_memory_pool());
 
 }  // namespace arrow

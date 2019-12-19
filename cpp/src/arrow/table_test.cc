@@ -414,13 +414,13 @@ TEST_F(TestTable, ConcatenateTables) {
   ASSERT_OK(Table::FromRecordBatches({batch1}, &t1));
   ASSERT_OK(Table::FromRecordBatches({batch2}, &t2));
 
-  ASSERT_OK(ConcatenateTables({t1, t2}, &result));
+  ASSERT_OK_AND_ASSIGN(result, ConcatenateTables({t1, t2}));
   ASSERT_OK(Table::FromRecordBatches({batch1, batch2}, &expected));
   AssertTablesEqual(*expected, *result);
 
   // Error states
   std::vector<std::shared_ptr<Table>> empty_tables;
-  ASSERT_RAISES(Invalid, ConcatenateTables(empty_tables, &result));
+  ASSERT_RAISES(Invalid, ConcatenateTables(empty_tables));
 
   auto other_schema = ::arrow::schema({schema_->field(0), schema_->field(1)});
 
@@ -428,7 +428,7 @@ TEST_F(TestTable, ConcatenateTables) {
   auto batch3 = RecordBatch::Make(other_schema, length, other_arrays);
   ASSERT_OK(Table::FromRecordBatches({batch3}, &t3));
 
-  ASSERT_RAISES(Invalid, ConcatenateTables({t1, t3}, &result));
+  ASSERT_RAISES(Invalid, ConcatenateTables({t1, t3}));
 }
 
 std::shared_ptr<Table> MakeTableWithOneNullFilledColumn(
@@ -540,6 +540,12 @@ TEST_F(TestPromoteTableToSchema, TableFieldAbsentFromSchema) {
 
 class ConcatenateTablesWithPromotionTest : public TestTable {
  protected:
+  ConcatenateTablesOptions GetOptions() {
+    ConcatenateTablesOptions options;
+    options.unify_schemas = true;
+    return options;
+  }
+
   void MakeExample2(int length) {
     auto f0 = field("f0", int32());
     auto f1 = field("f1", null());
@@ -595,12 +601,12 @@ TEST_F(ConcatenateTablesWithPromotionTest, Simple) {
   ASSERT_OK(Table::FromRecordBatches({batch2}, &t2));
   ASSERT_OK(Table::FromRecordBatches({batch2_null_filled}, &t3));
 
-  ASSERT_OK_AND_ASSIGN(result, ConcatenateTablesWithPromotion({t1, t2}));
-  ASSERT_OK(ConcatenateTables({t1, t3}, &expected));
+  ASSERT_OK_AND_ASSIGN(result, ConcatenateTables({t1, t2}, GetOptions()));
+  ASSERT_OK_AND_ASSIGN(expected, ConcatenateTables({t1, t3}));
   AssertTablesEqualUnorderedFields(*expected, *result);
 
-  ASSERT_OK_AND_ASSIGN(result, ConcatenateTablesWithPromotion({t2, t1}));
-  ASSERT_OK(ConcatenateTables({t3, t1}, &expected));
+  ASSERT_OK_AND_ASSIGN(result, ConcatenateTables({t2, t1}, GetOptions()));
+  ASSERT_OK_AND_ASSIGN(expected, ConcatenateTables({t3, t1}));
   AssertTablesEqualUnorderedFields(*expected, *result);
 }
 

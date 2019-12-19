@@ -1773,14 +1773,15 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
         shared_ptr[CTable] c_result_table
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
         Table table
+        CConcatenateTablesOptions options = (
+            CConcatenateTablesOptions.Defaults())
 
     for table in tables:
         c_tables.push_back(table.sp_table)
+
     with nogil:
-        if promote:
-            c_result_table = GetResultValue(
-                ConcatenateTablesWithPromotion(c_tables, pool))
-        else:
-            check_status(ConcatenateTables(c_tables, &c_result_table))
+        options.unify_schemas = promote
+        c_result_table = GetResultValue(
+            ConcatenateTables(c_tables, options, pool))
 
     return pyarrow_wrap_table(c_result_table)

@@ -227,7 +227,7 @@ static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
     }
 
     std::shared_ptr<::arrow::Table> final_table;
-    EXIT_NOT_OK(ConcatenateTables(tables, &final_table));
+    PARQUET_ASSIGN_OR_THROW(final_table, ConcatenateTables(tables));
   }
   SetBytesProcessed<true, Int64Type>(state);
 }
