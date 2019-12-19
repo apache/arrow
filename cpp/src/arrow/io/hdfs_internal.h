@@ -37,13 +37,15 @@ class Status;
 namespace io {
 namespace internal {
 
+#ifndef _WIN32
+typedef void* LibraryHandle;
+#else
+typedef HINSTANCE LibraryHandle;
+#endif
+
 // NOTE(wesm): cpplint does not like use of short and other imprecise C types
 struct LibHdfsShim {
-#ifndef _WIN32
-  void* handle;
-#else
-  HINSTANCE handle;
-#endif
+  LibraryHandle handle;
 
   hdfsBuilder* (*hdfsNewBuilder)(void);
   void (*hdfsBuilderSetNameNode)(hdfsBuilder* bld, const char* nn);
