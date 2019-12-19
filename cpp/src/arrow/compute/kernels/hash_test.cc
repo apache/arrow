@@ -53,14 +53,8 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Dictionary tests
 
-template <typename Type, typename T>
-void CheckUnique(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
-                 const std::vector<T>& in_values, const std::vector<bool>& in_is_valid,
-                 const std::vector<T>& out_values,
-                 const std::vector<bool>& out_is_valid) {
-  std::shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
-  std::shared_ptr<Array> expected = _MakeArray<Type, T>(type, out_values, out_is_valid);
-
+void CheckUnique(FunctionContext* ctx, const std::shared_ptr<Array>& input,
+                 const std::shared_ptr<Array>& expected) {
   std::shared_ptr<Array> result;
   ASSERT_OK(Unique(ctx, input, &result));
   ASSERT_OK(result->ValidateFull());
@@ -69,6 +63,17 @@ void CheckUnique(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
 }
 
 template <typename Type, typename T>
+void CheckUnique(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
+                 const std::vector<T>& in_values, const std::vector<bool>& in_is_valid,
+                 const std::vector<T>& out_values,
+                 const std::vector<bool>& out_is_valid) {
+  std::shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
+  std::shared_ptr<Array> expected = _MakeArray<Type, T>(type, out_values, out_is_valid);
+
+  CheckUnique(ctx, input, expected);
+}
+
+// Check that ValueCounts() accepts a 0-length array with null buffers
 void CheckValueCountsNull(FunctionContext* ctx, const std::shared_ptr<DataType>& type) {
   std::vector<std::shared_ptr<Buffer>> data_buffers(2);
   Datum input;
@@ -88,6 +93,19 @@ void CheckValueCountsNull(FunctionContext* ctx, const std::shared_ptr<DataType>&
   ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->GetFieldByName(kCountsFieldName));
 }
 
+void CheckValueCounts(FunctionContext* ctx, const std::shared_ptr<Array>& input,
+                      const std::shared_ptr<Array>& expected_values,
+                      const std::shared_ptr<Array>& expected_counts) {
+  std::shared_ptr<Array> result;
+  ASSERT_OK(ValueCounts(ctx, input, &result));
+  ASSERT_OK(result->ValidateFull());
+  auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
+  ASSERT_EQ(result_struct->num_fields(), 2);
+  // TODO: We probably shouldn't rely on value ordering.
+  ASSERT_ARRAYS_EQUAL(*expected_values, *result_struct->field(kValuesFieldIndex));
+  ASSERT_ARRAYS_EQUAL(*expected_counts, *result_struct->field(kCountsFieldIndex));
+}
+
 template <typename Type, typename T>
 void CheckValueCounts(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
                       const std::vector<T>& in_values,
@@ -101,13 +119,21 @@ void CheckValueCounts(FunctionContext* ctx, const std::shared_ptr<DataType>& typ
   std::shared_ptr<Array> ex_counts =
       _MakeArray<Int64Type, int64_t>(int64(), out_counts, all_valids);
 
-  std::shared_ptr<Array> result;
-  ASSERT_OK(ValueCounts(ctx, input, &result));
+  CheckValueCounts(ctx, input, ex_values, ex_counts);
+}
+
+void CheckDictEncode(FunctionContext* ctx, const std::shared_ptr<Array>& input,
+                     const std::shared_ptr<Array>& expected_values,
+                     const std::shared_ptr<Array>& expected_indices) {
+  auto type = dictionary(expected_indices->type(), expected_values->type());
+  DictionaryArray expected(type, expected_indices, expected_values);
+
+  Datum datum_out;
+  ASSERT_OK(DictionaryEncode(ctx, input, &datum_out));
+  std::shared_ptr<Array> result = MakeArray(datum_out.array());
   ASSERT_OK(result->ValidateFull());
-  auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
-  // TODO: We probably shouldn't rely on value ordering.
-  ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->field(kValuesFieldIndex));
-  ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->field(kCountsFieldIndex));
+
+  ASSERT_ARRAYS_EQUAL(expected, *result);
 }
 
 template <typename Type, typename T>
@@ -121,15 +147,7 @@ void CheckDictEncode(FunctionContext* ctx, const std::shared_ptr<DataType>& type
   std::shared_ptr<Array> ex_dict = _MakeArray<Type, T>(type, out_values, out_is_valid);
   std::shared_ptr<Array> ex_indices =
       _MakeArray<Int32Type, int32_t>(int32(), out_indices, in_is_valid);
-
-  DictionaryArray expected(dictionary(int32(), type), ex_indices, ex_dict);
-
-  Datum datum_out;
-  ASSERT_OK(DictionaryEncode(ctx, input, &datum_out));
-  std::shared_ptr<Array> result = MakeArray(datum_out.array());
-  ASSERT_OK(result->ValidateFull());
-
-  ASSERT_ARRAYS_EQUAL(expected, *result);
+  return CheckDictEncode(ctx, input, ex_dict, ex_indices);
 }
 
 class TestHashKernel : public ComputeFixture, public TestBase {};
@@ -151,6 +169,10 @@ TYPED_TEST(TestHashKernelPrimitive, Unique) {
                             {2, 0, 1}, {1, 0, 1});
   CheckUnique<TypeParam, T>(&this->ctx_, type, {2, 1, 3, 1}, {false, false, true, true},
                             {0, 3, 1}, {0, 1, 1});
+
+  // Sliced
+  CheckUnique(&this->ctx_, ArrayFromJSON(type, "[1, 2, null, 3, 2, null]")->Slice(1, 4),
+              ArrayFromJSON(type, "[2, null, 3]"));
 }
 
 TYPED_TEST(TestHashKernelPrimitive, ValueCounts) {
@@ -160,7 +182,12 @@ TYPED_TEST(TestHashKernelPrimitive, ValueCounts) {
                                  {true, false, true, true, true, true, false},
                                  {2, 0, 1, 3}, {1, 0, 1, 1}, {3, 2, 1, 1});
   CheckValueCounts<TypeParam, T>(&this->ctx_, type, {}, {}, {}, {}, {});
-  CheckValueCountsNull<TypeParam, T>(&this->ctx_, type);
+  CheckValueCountsNull(&this->ctx_, type);
+
+  // Sliced
+  CheckValueCounts(
+      &this->ctx_, ArrayFromJSON(type, "[1, 2, null, 3, 2, null]")->Slice(1, 4),
+      ArrayFromJSON(type, "[2, null, 3]"), ArrayFromJSON(int64(), "[2, 1, 1]"));
 }
 
 TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
@@ -169,6 +196,11 @@ TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
   CheckDictEncode<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3},
                                 {true, false, true, true, true, true}, {2, 1, 3},
                                 {1, 1, 1}, {0, 0, 0, 1, 0, 2});
+
+  // Sliced
+  CheckDictEncode(
+      &this->ctx_, ArrayFromJSON(type, "[2, 1, null, 4, 3, 1, 42]")->Slice(1, 5),
+      ArrayFromJSON(type, "[1, 4, 3]"), ArrayFromJSON(int32(), "[0, null, 1, 2, 0]"));
 }
 
 TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
@@ -239,6 +271,11 @@ TEST_F(TestHashKernel, UniqueBoolean) {
 
   CheckUnique<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true}, {},
                                  {false, true}, {});
+
+  // Sliced
+  CheckUnique(&this->ctx_,
+              ArrayFromJSON(boolean(), "[null, true, true, false]")->Slice(1, 2),
+              ArrayFromJSON(boolean(), "[true]"));
 }
 
 TEST_F(TestHashKernel, ValueCountsBoolean) {
@@ -256,6 +293,11 @@ TEST_F(TestHashKernel, ValueCountsBoolean) {
 
   CheckValueCounts<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
                                       {}, {false, true}, {}, {2, 2});
+
+  // Sliced
+  CheckValueCounts(&this->ctx_,
+                   ArrayFromJSON(boolean(), "[true, false, false, null]")->Slice(1, 2),
+                   ArrayFromJSON(boolean(), "[false]"), ArrayFromJSON(int64(), "[2]"));
 }
 
 TEST_F(TestHashKernel, DictEncodeBoolean) {
@@ -275,6 +317,12 @@ TEST_F(TestHashKernel, DictEncodeBoolean) {
   CheckDictEncode<BooleanType, bool>(&this->ctx_, boolean(),
                                      {false, true, false, true, false}, {}, {false, true},
                                      {}, {0, 1, 0, 1, 0});
+
+  // Sliced
+  CheckDictEncode(
+      &this->ctx_,
+      ArrayFromJSON(boolean(), "[false, true, null, true, false]")->Slice(1, 3),
+      ArrayFromJSON(boolean(), "[true]"), ArrayFromJSON(int32(), "[0, null, 0]"));
 }
 
 TEST_F(TestHashKernel, UniqueBinary) {
@@ -285,6 +333,12 @@ TEST_F(TestHashKernel, UniqueBinary) {
   CheckUnique<StringType, std::string>(&this->ctx_, utf8(), {"test", "", "test2", "test"},
                                        {true, false, true, true}, {"test", "", "test2"},
                                        {1, 0, 1});
+
+  // Sliced
+  CheckUnique(
+      &this->ctx_,
+      ArrayFromJSON(binary(), R"(["ab", null, "cd", "ef", "cd", "gh"])")->Slice(1, 4),
+      ArrayFromJSON(binary(), R"([null, "cd", "ef"])"));
 }
 
 TEST_F(TestHashKernel, ValueCountsBinary) {
@@ -295,6 +349,13 @@ TEST_F(TestHashKernel, ValueCountsBinary) {
   CheckValueCounts<StringType, std::string>(
       &this->ctx_, utf8(), {"test", "", "test2", "test"}, {true, false, true, true},
       {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
+
+  // Sliced
+  CheckValueCounts(
+      &this->ctx_,
+      ArrayFromJSON(binary(), R"(["ab", null, "cd", "ab", "cd", "ef"])")->Slice(1, 4),
+      ArrayFromJSON(binary(), R"([null, "cd", "ab"])"),
+      ArrayFromJSON(int64(), "[1, 2, 1]"));
 }
 
 TEST_F(TestHashKernel, DictEncodeBinary) {
@@ -305,6 +366,13 @@ TEST_F(TestHashKernel, DictEncodeBinary) {
   CheckDictEncode<StringType, std::string>(
       &this->ctx_, utf8(), {"test", "", "test2", "test", "baz"},
       {true, false, true, true, true}, {"test", "test2", "baz"}, {}, {0, 0, 1, 0, 2});
+
+  // Sliced
+  CheckDictEncode(
+      &this->ctx_,
+      ArrayFromJSON(binary(), R"(["ab", null, "cd", "ab", "cd", "ef"])")->Slice(1, 4),
+      ArrayFromJSON(binary(), R"(["cd", "ab"])"),
+      ArrayFromJSON(int32(), "[null, 0, 1, 0]"));
 }
 
 TEST_F(TestHashKernel, BinaryResizeTable) {
@@ -350,15 +418,46 @@ TEST_F(TestHashKernel, BinaryResizeTable) {
 }
 
 TEST_F(TestHashKernel, UniqueFixedSizeBinary) {
+  auto type = fixed_size_binary(3);
+
   CheckUnique<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5), {"aaaaa", "", "bbbbb", "aaaaa"},
-      {true, false, true, true}, {"aaaaa", "", "bbbbb"}, {1, 0, 1});
+      &this->ctx_, type, {"aaa", "", "bbb", "aaa"}, {true, false, true, true},
+      {"aaa", "", "bbb"}, {1, 0, 1});
+
+  // Sliced
+  CheckUnique(
+      &this->ctx_,
+      ArrayFromJSON(type, R"(["aaa", null, "bbb", "bbb", "ccc", "ddd"])")->Slice(1, 4),
+      ArrayFromJSON(type, R"([null, "bbb", "ccc"])"));
+}
+
+TEST_F(TestHashKernel, ValueCountsFixedSizeBinary) {
+  auto type = fixed_size_binary(3);
+  auto input = ArrayFromJSON(type, R"(["aaa", null, "bbb", "bbb", "ccc", null])");
+
+  CheckValueCounts(&this->ctx_, input,
+                   ArrayFromJSON(type, R"(["aaa", null, "bbb", "ccc"])"),
+                   ArrayFromJSON(int64(), "[1, 2, 2, 1]"));
+
+  // Sliced
+  CheckValueCounts(&this->ctx_, input->Slice(1, 4),
+                   ArrayFromJSON(type, R"([null, "bbb", "ccc"])"),
+                   ArrayFromJSON(int64(), "[1, 2, 1]"));
 }
 
 TEST_F(TestHashKernel, DictEncodeFixedSizeBinary) {
+  auto type = fixed_size_binary(3);
+
   CheckDictEncode<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-      {true, false, true, true, true}, {"bbbbb", "aaaaa", "ccccc"}, {}, {0, 0, 0, 1, 2});
+      &this->ctx_, type, {"bbb", "", "bbb", "aaa", "ccc"},
+      {true, false, true, true, true}, {"bbb", "aaa", "ccc"}, {}, {0, 0, 0, 1, 2});
+
+  // Sliced
+  CheckDictEncode(
+      &this->ctx_,
+      ArrayFromJSON(type, R"(["aaa", null, "bbb", "bbb", "ccc", "ddd"])")->Slice(1, 4),
+      ArrayFromJSON(type, R"(["bbb", "ccc"])"),
+      ArrayFromJSON(int32(), "[null, 0, 0, 1]"));
 }
 
 TEST_F(TestHashKernel, FixedSizeBinaryResizeTable) {
