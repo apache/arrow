@@ -54,7 +54,7 @@ identify_os <- function(os = Sys.getenv("ARROW_BINARY_DISTRO")) {
     # Extract from that the distro and the major version number
     os <- sub("^([a-z]+) .*([0-9]+).*$", "\\1-\\2", system_release)
   } else {
-    # We don't know where we are
+    cat("*** Unable to identify current OS/version\n")
     os <- NULL
   }
   return(os)
@@ -86,8 +86,11 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
       )
     }
     if (file.exists("lib.zip")) {
-      cat("*** Successfully retrieved C++ binaries\n")
+      cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", os))
     } else {
+      if (!is.null(os)) {
+        cat(sprintf("*** No C++ binaries found for %s\n", os))
+      }
       # Try to build C++ from source
       tf1 <- tempfile()
       source_url <- paste0(base_url, "src/arrow-", VERSION, ".zip")
