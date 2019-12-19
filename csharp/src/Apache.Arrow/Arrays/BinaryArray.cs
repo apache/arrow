@@ -171,7 +171,7 @@ namespace Apache.Arrow
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetValueOffset(int index)
         {
-            if (index < 0 || index >= Length)
+            if (index < 0 || index > Length)
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }

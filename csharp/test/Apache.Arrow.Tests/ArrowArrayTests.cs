@@ -43,7 +43,8 @@ namespace Apache.Arrow.Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValueOffset(-1));
             Assert.Equal(0, array.GetValueOffset(0));
             Assert.Equal(1, array.GetValueOffset(1));
-            Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValueOffset(2));
+            Assert.Equal(2, array.GetValueOffset(2));
+            Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValueOffset(3));
 
         }
 
