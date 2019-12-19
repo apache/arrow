@@ -171,13 +171,22 @@ namespace Apache.Arrow
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetValueOffset(int index)
         {
+            if (index < 0 || index >= Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
             return ValueOffsets[index];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetValueLength(int index)
         {
-            return ValueOffsets[index + 1] - ValueOffsets[index];
+            if (index < 0 || index >= Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+            var offsets = ValueOffsets;
+            return offsets[index + 1] - offsets[index];
         }
 
         public ReadOnlySpan<byte> GetBytes(int index)

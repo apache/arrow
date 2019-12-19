@@ -20,6 +20,69 @@ namespace Apache.Arrow.Tests
 {
     public class ArrowArrayTests
     {
+
+        [Fact]
+        public void ThrowsWhenGetValueIndexOutOfBounds()
+        {
+            var array = new Int64Array.Builder().Append(1).Append(2).Build();
+            Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValue(-1));
+            Assert.Equal(1, array.GetValue(0));
+            Assert.Equal(2, array.GetValue(1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValue(2));
+        }
+
+        [Fact]
+        public void ThrowsWhenGetValueAndOffsetIndexOutOfBounds()
+        {
+            var array = new BinaryArray.Builder().Append(1).Append(2).Build();
+            Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValueLength(-1));
+            Assert.Equal(1, array.GetValueLength(0));
+            Assert.Equal(1, array.GetValueLength(1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValueLength(2));
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValueOffset(-1));
+            Assert.Equal(0, array.GetValueOffset(0));
+            Assert.Equal(1, array.GetValueOffset(1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValueOffset(2));
+
+        }
+
+        [Fact]
+        public void IsValidValue()
+        {
+            const int totalValueCount = 8;
+            const byte nullBitmap = 0b_11110011;
+
+            var nullBitmapBuffer = new ArrowBuffer.Builder<byte>().Append(nullBitmap).Build();
+            var valueBuffer = new ArrowBuffer.Builder<long>().Append(0).Append(1).Append(4).Append(5).Append(6).Append(7).Append(8).Build();
+
+            //Check all offset and length
+            for (var offset = 0; offset < totalValueCount; offset++)
+            {
+                var nullCount = totalValueCount - offset - BitUtility.CountBits(nullBitmapBuffer.Span, offset);
+                for (var length = 1; length + offset < totalValueCount; length++)
+                {
+                    TestIsValid(valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+                }
+            }
+
+            void TestIsValid(ArrowBuffer valueBuf, ArrowBuffer nullBitmapBuf, int length, int nullCount, int offset)
+            {
+                var array = new Int64Array(valueBuf, nullBitmapBuf, length, nullCount, offset);
+                for (var i = 0; i < length; i++)
+                {
+                    if (BitUtility.GetBit(nullBitmap, i + offset))
+                    {
+                        Assert.True(array.IsValid(i));
+                    }
+                    else
+                    {
+                        Assert.False(array.IsValid(i));
+                    }
+                }
+            }
+        }
+
         [Fact]
         public void SliceArray()
         {
@@ -33,6 +96,8 @@ namespace Apache.Arrow.Tests
             TestSlice<UInt64Array, UInt64Array.Builder>(x => x.Append(10).Append(20).Append(30));
             TestSlice<FloatArray, FloatArray.Builder>(x => x.Append(10).Append(20).Append(30));
             TestSlice<DoubleArray, DoubleArray.Builder>(x => x.Append(10).Append(20).Append(30));
+            TestSlice<Date32Array, Date32Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).Append(new DateTime(2019, 1, 3)));
+            TestSlice<Date64Array, Date64Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).Append(new DateTime(2019, 1, 3)));
             TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").Append("20").Append("30"));
         }
 
@@ -67,6 +132,8 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<UInt16Array>,
             IArrowArrayVisitor<UInt32Array>,
             IArrowArrayVisitor<UInt64Array>,
+            IArrowArrayVisitor<Date32Array>,
+            IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
             IArrowArrayVisitor<StringArray>
@@ -86,6 +153,25 @@ namespace Apache.Arrow.Tests
             public void Visit(UInt16Array array) => ValidateArrays(array);
             public void Visit(UInt32Array array) => ValidateArrays(array);
             public void Visit(UInt64Array array) => ValidateArrays(array);
+
+            public void Visit(Date32Array array)
+            {
+                ValidateArrays(array);
+                Assert.IsAssignableFrom<Date32Array>(_baseArray);
+                var baseArray = (Date32Array)_baseArray;
+
+                Assert.Equal(baseArray.GetDate(array.Offset), array.GetDate(0));
+            }
+
+            public void Visit(Date64Array array)
+            {
+                ValidateArrays(array);
+                Assert.IsAssignableFrom<Date64Array>(_baseArray);
+                var baseArray = (Date64Array)_baseArray;
+
+                Assert.Equal(baseArray.GetDate(array.Offset), array.GetDate(0));
+            }
+
             public void Visit(FloatArray array) => ValidateArrays(array);
             public void Visit(DoubleArray array) => ValidateArrays(array);
             public void Visit(StringArray array) => ValidateArrays(array);
@@ -102,6 +188,8 @@ namespace Apache.Arrow.Tests
                 Assert.True(
                     baseArray.ValueBuffer.Span.CastTo<T>().Slice(slicedArray.Offset, slicedArray.Length)
                         .SequenceEqual(slicedArray.Values));
+
+                Assert.Equal(baseArray.GetValue(slicedArray.Offset), slicedArray.GetValue(0));
             }
 
             private void ValidateArrays(BinaryArray slicedArray)
@@ -109,10 +197,13 @@ namespace Apache.Arrow.Tests
                 Assert.IsAssignableFrom<BinaryArray>(_baseArray);
                 var baseArray = (BinaryArray)_baseArray;
 
+                Assert.True(baseArray.Values.SequenceEqual(slicedArray.Values));
                 Assert.True(baseArray.NullBitmapBuffer.Span.SequenceEqual(slicedArray.NullBitmapBuffer.Span));
                 Assert.True(
                     baseArray.ValueOffsetsBuffer.Span.CastTo<int>().Slice(slicedArray.Offset, slicedArray.Length + 1)
                         .SequenceEqual(slicedArray.ValueOffsets));
+
+                Assert.True(baseArray.GetBytes(slicedArray.Offset).SequenceEqual(slicedArray.GetBytes(0)));
             }
         }
     }

@@ -18,7 +18,7 @@ using System;
 
 namespace Apache.Arrow
 {
-    public class Date32Array: PrimitiveArray<int>
+    public class Date32Array : PrimitiveArray<int>
     {
         private const int MillisecondsPerDay = 86400000;
 
@@ -36,7 +36,7 @@ namespace Apache.Arrow
 
             protected override int ConvertTo(DateTimeOffset value)
             {
-                return (int) (value.ToUnixTimeMilliseconds() / MillisecondsPerDay);
+                return (int)(value.ToUnixTimeMilliseconds() / MillisecondsPerDay);
             }
         }
 
@@ -47,7 +47,7 @@ namespace Apache.Arrow
                 new[] { nullBitmapBuffer, valueBuffer }))
         { }
 
-        public Date32Array(ArrayData data) 
+        public Date32Array(ArrayData data)
             : base(data)
         {
             data.EnsureDataType(ArrowTypeId.Date32);
@@ -57,10 +57,10 @@ namespace Apache.Arrow
 
         public DateTimeOffset? GetDate(int index)
         {
-            var values = ValueBuffer.Span.CastTo<int>().Slice(0, Length);
-            var value = values[index];
-
-            return DateTimeOffset.FromUnixTimeMilliseconds(value * MillisecondsPerDay);
+            var value = GetValue(index);
+            return value.HasValue ?
+                    DateTimeOffset.FromUnixTimeMilliseconds(value.Value * MillisecondsPerDay) :
+                    null as DateTimeOffset?;
         }
     }
 }

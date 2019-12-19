@@ -35,6 +35,10 @@ namespace Apache.Arrow
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T? GetValue(int index)
         {
+            if (index < 0 || index >= Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
             return IsValid(index) ? Values[index] : (T?)null;
         }
 
