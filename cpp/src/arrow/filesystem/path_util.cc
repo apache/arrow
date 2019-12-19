@@ -185,10 +185,10 @@ util::optional<util::string_view> RemoveAncestor(util::string_view ancestor,
   return RemoveLeadingSlash(relative_to_ancestor);
 }
 
-std::vector<std::string> GatherAncestry(util::string_view ancestor,
-                                        util::string_view descendant) {
+std::vector<std::string> AncestorsFromBasePath(util::string_view base_path,
+                                               util::string_view descendant) {
   std::vector<std::string> ancestry;
-  if (auto relative = RemoveAncestor(ancestor, descendant)) {
+  if (auto relative = RemoveAncestor(base_path, descendant)) {
     auto relative_segments = fs::internal::SplitAbstractPath(relative->to_string());
 
     // the last segment indicates descendant
@@ -201,8 +201,8 @@ std::vector<std::string> GatherAncestry(util::string_view ancestor,
 
     for (auto&& relative_segment : relative_segments) {
       ancestry.push_back(JoinAbstractPath(
-          std::vector<std::string>{ancestor.to_string(), std::move(relative_segment)}));
-      ancestor = ancestry.back();
+          std::vector<std::string>{base_path.to_string(), std::move(relative_segment)}));
+      base_path = ancestry.back();
     }
   }
   return ancestry;

@@ -210,16 +210,17 @@ TEST(PathUtil, MakeAbstractPathRelative) {
   ASSERT_RAISES(Invalid, MakeAbstractPathRelative("", "foo/bar/baz"));
 }
 
-TEST(PathUtil, GatherAncestry) {
+TEST(PathUtil, AncestorsFromBasePath) {
   using V = std::vector<std::string>;
 
   // Not relative to base
-  ASSERT_EQ(GatherAncestry("xxx", "foo/bar"), V{});
-  ASSERT_EQ(GatherAncestry("xxx", "xxxx"), V{});
+  ASSERT_EQ(AncestorsFromBasePath("xxx", "foo/bar"), V{});
+  ASSERT_EQ(AncestorsFromBasePath("xxx", "xxxx"), V{});
 
-  ASSERT_EQ(GatherAncestry("foo", "foo/bar"), V{});
-  ASSERT_EQ(GatherAncestry("foo", "foo/bar/baz"), V({"foo/bar"}));
-  ASSERT_EQ(GatherAncestry("foo", "foo/bar/baz/quux"), V({"foo/bar", "foo/bar/baz"}));
+  ASSERT_EQ(AncestorsFromBasePath("foo", "foo/bar"), V{});
+  ASSERT_EQ(AncestorsFromBasePath("foo", "foo/bar/baz"), V({"foo/bar"}));
+  ASSERT_EQ(AncestorsFromBasePath("foo", "foo/bar/baz/quux"),
+            V({"foo/bar", "foo/bar/baz"}));
 }
 
 ////////////////////////////////////////////////////////////////////////////

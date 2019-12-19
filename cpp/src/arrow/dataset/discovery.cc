@@ -118,7 +118,8 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
       parent_path = parent.stats().path();
     }
 
-    for (auto&& path : fs::internal::GatherAncestry(parent_path, ref.stats().path())) {
+    for (auto&& path :
+         fs::internal::AncestorsFromBasePath(parent_path, ref.stats().path())) {
       ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetTargetStats(std::move(path)));
       missing.insert(std::move(file));
     }
