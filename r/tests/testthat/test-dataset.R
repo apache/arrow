@@ -152,33 +152,37 @@ test_that("filter() on timestamp columns", {
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(dataset_dir, recursive = TRUE)
-  dsd <- FileSystemDataSourceDiscovery$create(fs, selector)
+  partition <- SchemaPartitionScheme$create(schema(part = double()))
+
+  dsd <- FileSystemDataSourceDiscovery$create(fs, selector, partition_scheme = partition)
   expect_is(dsd, "FileSystemDataSourceDiscovery")
+
   schm <- dsd$Inspect()
   expect_is(schm, "Schema")
-  expect_equal(
-    schm,
-    ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
-  )
-  dsd$SetPartitionScheme(SchemaPartitionScheme$create(schema(part = double())))
-  datasource <- dsd$Finish()
+
+  phys_schm <- ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
+  expect_equal(names(phys_schm), names(df1))
+  expect_equal(names(schm), c(names(phys_schm), "part"))
+
+  datasource <- dsd$Finish(schm)
   expect_is(datasource, "DataSource")
 
   ds <- Dataset$create(list(datasource), schm)
   expect_is(ds, "Dataset")
-  # TODO: this should fail when "part" is in the schema
-  expect_equal(names(ds), names(df1))
+  expect_equal(names(ds), names(schm))
 
   sb <- ds$NewScan()
   expect_is(sb, "ScannerBuilder")
   expect_equal(sb$schema, schm)
-  expect_equal(names(sb), names(df1))
+
   sb$Project(c("chr", "lgl"))
   sb$Filter(FieldExpression$create("dbl") == 8)
   scn <- sb$Finish()
   expect_is(scn, "Scanner")
+
   tab <- scn$ToTable()
   expect_is(tab, "Table")
+
   expect_equivalent(
     as.data.frame(tab),
     df1[8, c("chr", "lgl")]

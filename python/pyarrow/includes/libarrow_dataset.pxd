@@ -169,9 +169,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CScanner]] Finish()
         shared_ptr[CSchema] schema() const
 
-    ctypedef shared_ptr[CScannerBuilder] shared_ptr[CScannerBuilder] \
-        "arrow::dataset::std::shared_ptr<ScannerBuilder>"
-
     cdef cppclass CDataFragment "arrow::dataset::DataFragment":
         CResult[CScanTaskIterator] Scan(shared_ptr[CScanContext] context)
         c_bool splittable()
@@ -179,6 +176,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     ctypedef vector[shared_ptr[CDataFragment]] CDataFragmentVector \
         "arrow::dataset::DataFragmentVector"
+
     ctypedef CIterator[shared_ptr[CDataFragment]] CDataFragmentIterator \
         "arrow::dataset::DataFragmentIterator"
 
@@ -256,9 +254,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CParquetDataFragment(const CFileSource& source,
                              shared_ptr[CScanOptions] options)
 
-    ctypedef unordered_map[c_string, shared_ptr[CExpression]] CPathPartitions \
-        "arrow::dataset::PathPartitions"
-
     cdef cppclass CFileSystemDataSource \
             "arrow::dataset::FileSystemDataSource"(CDataSource):
         @staticmethod
@@ -295,6 +290,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CExpression]] Parse(const c_string& path) const
         const shared_ptr[CSchema]& schema()
 
+    cdef cppclass CPartitionSchemeDiscovery "arrow::dataset::PartitionSchemeDiscovery":
+        pass
+
     cdef cppclass CDefaultPartitionScheme \
             "arrow::dataset::DefaultPartitionScheme"(CPartitionScheme):
         CDefaultPartitionScheme()
@@ -307,8 +305,18 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::HivePartitionScheme"(CPartitionScheme):
         CHivePartitionScheme(shared_ptr[CSchema] schema)
 
+    cdef cppclass CPartitionSchemeOrDiscovery \
+            "arrow::dataset::PartitionSchemeOrDiscovery":
+        CPartitionSchemeOrDiscovery(shared_ptr[CPartitionScheme])
+        CPartitionSchemeOrDiscovery(shared_ptr[CPartitionSchemeDiscovery])
+        CPartitionSchemeOrDiscovery& operator=(shared_ptr[CPartitionScheme])
+        CPartitionSchemeOrDiscovery& operator=(shared_ptr[CPartitionSchemeDiscovery])
+        shared_ptr[CPartitionScheme] scheme() const
+        shared_ptr[CPartitionSchemeDiscovery] discovery() const
+
     cdef cppclass CFileSystemDiscoveryOptions \
             "arrow::dataset::FileSystemDiscoveryOptions":
+        CPartitionSchemeOrDiscovery partition_scheme
         c_string partition_base_dir
         c_bool exclude_invalid_files
         vector[c_string] ignore_prefixes
@@ -316,12 +324,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CDataSourceDiscovery "arrow::dataset::DataSourceDiscovery":
         CResult[vector[shared_ptr[CSchema]]] InspectSchemas()
         CResult[shared_ptr[CSchema]] Inspect()
+        CResult[shared_ptr[CDataSource]] Finish(shared_ptr[CSchema])
         CResult[shared_ptr[CDataSource]] Finish()
-        shared_ptr[CSchema] schema()
-        CStatus SetSchema(shared_ptr[CSchema])
-        shared_ptr[CPartitionScheme] partition_scheme()
-        CStatus SetPartitionScheme(
-            shared_ptr[CPartitionScheme] partition_scheme)
         shared_ptr[CExpression] root_partition()
         CStatus SetRootPartition(shared_ptr[CExpression] partition)
 
@@ -329,16 +333,16 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::FileSystemDataSourceDiscovery"(
                 CDataSourceDiscovery):
         @staticmethod
-        CResult[shared_ptr[CDataSourceDiscovery]] MakeFromFileStats "Make"(
+        CResult[shared_ptr[CDataSourceDiscovery]] MakeFromPaths "Make"(
             shared_ptr[CFileSystem] filesytem,
-            CFileStatsVector paths,
+            vector[c_string] paths,
             shared_ptr[CFileFormat] format,
             CFileSystemDiscoveryOptions options
         )
         @staticmethod
         CResult[shared_ptr[CDataSourceDiscovery]] MakeFromSelector "Make"(
             shared_ptr[CFileSystem] filesytem,
-            CSelector,
+            CFileSelector,
             shared_ptr[CFileFormat] format,
             CFileSystemDiscoveryOptions options
         )

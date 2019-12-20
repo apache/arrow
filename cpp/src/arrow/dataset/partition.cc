@@ -59,8 +59,6 @@ std::shared_ptr<PartitionScheme> PartitionScheme::Default() {
   return std::make_shared<DefaultPartitionScheme>();
 }
 
-PartitionSchemeDiscovery::PartitionSchemeDiscovery() : schema_(::arrow::schema({})) {}
-
 Result<std::shared_ptr<Expression>> SegmentDictionaryPartitionScheme::Parse(
     const std::string& segment, int i) const {
   if (static_cast<size_t>(i) < dictionaries_.size()) {
@@ -143,8 +141,18 @@ class SchemaPartitionSchemeDiscovery : public PartitionSchemeDiscovery {
     return SchemaFromColumnNames(InferSchema(name_to_values), field_names_);
   }
 
-  Result<std::shared_ptr<PartitionScheme>> Finish() const override {
-    return std::shared_ptr<PartitionScheme>(new SchemaPartitionScheme(schema_));
+  Result<std::shared_ptr<PartitionScheme>> Finish(
+      const std::shared_ptr<Schema>& schema) const override {
+    for (const auto& field_name : field_names_) {
+      if (schema->GetFieldIndex(field_name) == -1) {
+        return Status::TypeError("no field named '", field_name, "' in schema", *schema);
+      }
+    }
+
+    // drop fields which aren't in field_names_
+    auto out_schema = SchemaFromColumnNames(schema, field_names_);
+
+    return std::make_shared<SchemaPartitionScheme>(std::move(out_schema));
   }
 
  private:
@@ -186,8 +194,9 @@ class HivePartitionSchemeDiscovery : public PartitionSchemeDiscovery {
     return InferSchema(name_to_values);
   }
 
-  Result<std::shared_ptr<PartitionScheme>> Finish() const override {
-    return std::shared_ptr<PartitionScheme>(new SchemaPartitionScheme(schema_));
+  Result<std::shared_ptr<PartitionScheme>> Finish(
+      const std::shared_ptr<Schema>& schema) const override {
+    return std::shared_ptr<PartitionScheme>(new SchemaPartitionScheme(schema));
   }
 
  private:

@@ -20,35 +20,47 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 // [[arrow::export]]
-std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make(
+std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make2(
     const std::shared_ptr<fs::FileSystem>& fs,
-    const std::shared_ptr<fs::FileSelector>& selector) {
+    const std::shared_ptr<fs::FileSelector>& selector,
+    const std::shared_ptr<ds::PartitionScheme>& partition_scheme) {
   // TODO(npr): add format as an argument, don't hard-code Parquet
   auto format = std::make_shared<ds::ParquetFileFormat>();
+
   // TODO(fsaintjacques): Make options configurable
   auto options = ds::FileSystemDiscoveryOptions{};
+  if (partition_scheme != nullptr) {
+    options.partition_scheme = partition_scheme;
+  }
 
   return VALUE_OR_STOP(
       ds::FileSystemDataSourceDiscovery::Make(fs, *selector, format, options));
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish(
+std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make1(
+    const std::shared_ptr<fs::FileSystem>& fs,
+    const std::shared_ptr<fs::FileSelector>& selector) {
+  return dataset___FSDSDiscovery__Make2(fs, selector, nullptr);
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish1(
     const std::shared_ptr<ds::DataSourceDiscovery>& discovery) {
   return VALUE_OR_STOP(discovery->Finish());
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish2(
+    const std::shared_ptr<ds::DataSourceDiscovery>& discovery,
+    const std::shared_ptr<arrow::Schema>& schema) {
+  return VALUE_OR_STOP(discovery->Finish(schema));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(
     const std::shared_ptr<ds::DataSourceDiscovery>& discovery) {
   return VALUE_OR_STOP(discovery->Inspect());
-}
-
-// [[arrow::export]]
-void dataset___DSDiscovery__SetPartitionScheme(
-    const std::shared_ptr<ds::DataSourceDiscovery>& discovery,
-    const std::shared_ptr<ds::PartitionScheme>& part) {
-  STOP_IF_NOT_OK(discovery->SetPartitionScheme(part));
 }
 
 // [[arrow::export]]

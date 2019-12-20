@@ -67,16 +67,16 @@ def dataset(mockfs):
     format = ds.ParquetFileFormat()
     selector = fs.FileSelector('subdir', recursive=True)
     options = ds.FileSystemDiscoveryOptions('subdir')
-    discovery = ds.FileSystemDataSourceDiscovery(mockfs, selector, format,
-                                                 options)
-    discovery.partition_scheme = ds.SchemaPartitionScheme(
+    options.partition_scheme = ds.SchemaPartitionScheme(
         pa.schema([
             pa.field('group', pa.int32()),
             pa.field('key', pa.string())
         ])
     )
-    source = discovery.finish()
+    discovery = ds.FileSystemDataSourceDiscovery(mockfs, selector, format,
+                                                 options)
     schema = discovery.inspect()
+    source = discovery.finish()
     return ds.Dataset([source], schema)
 
 
@@ -307,6 +307,12 @@ def test_file_system_discovery(mockfs, paths_or_selector):
     format = ds.ParquetFileFormat()
 
     options = ds.FileSystemDiscoveryOptions('subdir')
+    options.partition_scheme = ds.SchemaPartitionScheme(
+        pa.schema([
+            pa.field('group', pa.int32()),
+            pa.field('key', pa.string())
+        ])
+    )
     assert options.partition_base_dir == 'subdir'
     assert options.ignore_prefixes == ['.', '_']
     assert options.exclude_invalid_files is True
@@ -314,22 +320,17 @@ def test_file_system_discovery(mockfs, paths_or_selector):
     discovery = ds.FileSystemDataSourceDiscovery(
         mockfs, paths_or_selector, format, options
     )
+    inspected_schema = discovery.inspect()
+
     assert isinstance(discovery.inspect(), pa.Schema)
     assert isinstance(discovery.inspect_schemas(), list)
-    assert isinstance(discovery.finish(), ds.FileSystemDataSource)
-    assert isinstance(discovery.partition_scheme, ds.DefaultPartitionScheme)
+    assert isinstance(discovery.finish(inspected_schema),
+                      ds.FileSystemDataSource)
     assert discovery.root_partition.equals(ds.ScalarExpression(True))
 
-    discovery.partition_scheme = ds.SchemaPartitionScheme(
-        pa.schema([
-            pa.field('group', pa.int32()),
-            pa.field('key', pa.string())
-        ])
-    )
     data_source = discovery.finish()
     assert isinstance(data_source, ds.DataSource)
 
-    inspected_schema = discovery.inspect()
     dataset = ds.Dataset([data_source], inspected_schema)
 
     scanner = dataset.new_scan().finish()

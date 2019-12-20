@@ -57,6 +57,7 @@ class TestPartitionScheme : public ::testing::Test {
                      const std::vector<std::shared_ptr<Field>>& expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect(paths));
     ASSERT_EQ(*actual, Schema(expected));
+    ASSERT_OK(discovery_->Finish(actual).status());
   }
 
  protected:

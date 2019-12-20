@@ -35,17 +35,10 @@
 namespace arrow {
 namespace dataset {
 
-DataSourceDiscovery::DataSourceDiscovery()
-    : schema_(arrow::schema({})),
-      partition_scheme_(PartitionScheme::Default()),
-      root_partition_(scalar(true)) {}
+DataSourceDiscovery::DataSourceDiscovery() : root_partition_(scalar(true)) {}
 
 Result<std::shared_ptr<Schema>> DataSourceDiscovery::Inspect() {
   ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
-
-  if (partition_scheme()) {
-    schemas.push_back(partition_scheme()->schema());
-  }
 
   if (schemas.empty()) {
     schemas.push_back(arrow::schema({}));
@@ -135,7 +128,7 @@ Result<std::shared_ptr<DataSourceDiscovery>> FileSystemDataSourceDiscovery::Make
   ARROW_ASSIGN_OR_RAISE(forest, Filter(filesystem, format, options, std::move(forest)));
 
   return std::shared_ptr<DataSourceDiscovery>(new FileSystemDataSourceDiscovery(
-      filesystem, std::move(forest), std::move(format), std::move(options)));
+      std::move(filesystem), std::move(forest), std::move(format), std::move(options)));
 }
 
 Result<std::shared_ptr<DataSourceDiscovery>> FileSystemDataSourceDiscovery::Make(
@@ -158,22 +151,53 @@ Result<std::shared_ptr<DataSourceDiscovery>> FileSystemDataSourceDiscovery::Make
       filesystem, std::move(forest), std::move(format), std::move(options)));
 }
 
+Result<std::shared_ptr<Schema>> FileSystemDataSourceDiscovery::PartitionSchema() {
+  if (auto partition_scheme = options_.partition_scheme.scheme()) {
+    return partition_scheme->schema();
+  }
+
+  std::vector<util::string_view> paths;
+  for (const auto& stats : forest_.stats()) {
+    if (auto relative =
+            fs::internal::RemoveAncestor(options_.partition_base_dir, stats.path())) {
+      paths.push_back(*relative);
+    }
+  }
+
+  return options_.partition_scheme.discovery()->Inspect(paths);
+}
+
 Result<std::vector<std::shared_ptr<Schema>>>
 FileSystemDataSourceDiscovery::InspectSchemas() {
   std::vector<std::shared_ptr<Schema>> schemas;
 
   for (const auto& f : forest_.stats()) {
     if (!f.IsFile()) continue;
-    auto source = FileSource(f.path(), fs_.get());
-    ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect(source));
+    FileSource src(f.path(), fs_.get());
+    ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect(src));
     schemas.push_back(schema);
   }
+
+  ARROW_ASSIGN_OR_RAISE(auto partition_schema, PartitionSchema());
+  schemas.push_back(partition_schema);
 
   return schemas;
 }
 
-Result<std::shared_ptr<DataSource>> FileSystemDataSourceDiscovery::Finish() {
+Result<std::shared_ptr<DataSource>> DataSourceDiscovery::Finish() {
+  ARROW_ASSIGN_OR_RAISE(auto schema, Inspect());
+  return Finish(schema);
+}
+
+Result<std::shared_ptr<DataSource>> FileSystemDataSourceDiscovery::Finish(
+    const std::shared_ptr<Schema>& schema) {
   ExpressionVector partitions(forest_.size(), scalar(true));
+
+  std::shared_ptr<PartitionScheme> partition_scheme = options_.partition_scheme.scheme();
+  if (partition_scheme == nullptr) {
+    auto discovery = options_.partition_scheme.discovery();
+    ARROW_ASSIGN_OR_RAISE(partition_scheme, discovery->Finish(schema));
+  }
 
   // apply partition_scheme to forest to derive partitions
   auto apply_partition_scheme = [&](fs::PathForest::Ref ref) {
@@ -183,7 +207,7 @@ Result<std::shared_ptr<DataSource>> FileSystemDataSourceDiscovery::Finish() {
 
       if (segments.size() > 0) {
         auto segment_index = static_cast<int>(segments.size()) - 1;
-        auto maybe_partition = partition_scheme_->Parse(segments.back(), segment_index);
+        auto maybe_partition = partition_scheme->Parse(segments.back(), segment_index);
 
         partitions[ref.i] = std::move(maybe_partition).ValueOr(scalar(true));
       }
@@ -192,6 +216,7 @@ Result<std::shared_ptr<DataSource>> FileSystemDataSourceDiscovery::Finish() {
   };
 
   RETURN_NOT_OK(forest_.Visit(apply_partition_scheme));
+
   return FileSystemDataSource::Make(fs_, forest_, std::move(partitions), root_partition_,
                                     format_);
 }
