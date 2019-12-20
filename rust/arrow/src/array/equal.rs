@@ -220,7 +220,9 @@ impl<T: ArrowPrimitiveType> ArrayEqual for DictionaryArray<T> {
     fn equals(&self, other: &dyn Array) -> bool {
         let other = other.as_any().downcast_ref::<DictionaryArray<T>>().unwrap();
         self.keys().equals(other.keys())
-            && self.values().range_equals(&*other.values(), 0, other.values().len(), 0)
+            && self
+                .values()
+                .range_equals(&*other.values(), 0, other.values().len(), 0)
     }
 
     fn range_equals(
@@ -231,8 +233,11 @@ impl<T: ArrowPrimitiveType> ArrayEqual for DictionaryArray<T> {
         other_start_idx: usize,
     ) -> bool {
         let other = other.as_any().downcast_ref::<DictionaryArray<T>>().unwrap();
-        self.keys().range_equals(other, start_idx, end_idx, other_start_idx)
-            && self.values().range_equals(&*other.values(), 0, other.values().len(), 0)
+        self.keys()
+            .range_equals(other, start_idx, end_idx, other_start_idx)
+            && self
+                .values()
+                .range_equals(&*other.values(), 0, other.values().len(), 0)
     }
 }
 
@@ -816,13 +821,13 @@ impl PartialEq<ListArray> for Value {
     }
 }
 
-impl<T:ArrowPrimitiveType> JsonEqual for DictionaryArray<T> {
+impl<T: ArrowPrimitiveType> JsonEqual for DictionaryArray<T> {
     fn equals_json(&self, json: &[&Value]) -> bool {
         self.keys().equals_json(json)
     }
 }
 
-impl<T:ArrowPrimitiveType> PartialEq<Value> for DictionaryArray<T> {
+impl<T: ArrowPrimitiveType> PartialEq<Value> for DictionaryArray<T> {
     fn eq(&self, json: &Value) -> bool {
         match json {
             Value::Array(json_array) => self.equals_json_values(json_array),
@@ -831,7 +836,7 @@ impl<T:ArrowPrimitiveType> PartialEq<Value> for DictionaryArray<T> {
     }
 }
 
-impl<T:ArrowPrimitiveType> PartialEq<DictionaryArray<T>> for Value {
+impl<T: ArrowPrimitiveType> PartialEq<DictionaryArray<T>> for Value {
     fn eq(&self, arrow: &DictionaryArray<T>) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(json_array),

@@ -164,19 +164,33 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::FixedSizeList(_, _) => {
             Arc::new(FixedSizeListArray::from(data)) as ArrayRef
         }
-        DataType::Dictionary((ref key_type, _)) => {
-            match key_type.as_ref() {
-                DataType::Int8 => Arc::new(DictionaryArray::<Int8Type>::from(data)) as ArrayRef,
-                DataType::Int16 => Arc::new(DictionaryArray::<Int16Type>::from(data)) as ArrayRef,
-                DataType::Int32 => Arc::new(DictionaryArray::<Int32Type>::from(data)) as ArrayRef,
-                DataType::Int64 => Arc::new(DictionaryArray::<Int64Type>::from(data)) as ArrayRef,
-                DataType::UInt8 => Arc::new(DictionaryArray::<UInt8Type>::from(data)) as ArrayRef,
-                DataType::UInt16 => Arc::new(DictionaryArray::<UInt16Type>::from(data)) as ArrayRef,
-                DataType::UInt32 => Arc::new(DictionaryArray::<UInt32Type>::from(data)) as ArrayRef,
-                DataType::UInt64 => Arc::new(DictionaryArray::<UInt64Type>::from(data)) as ArrayRef,
-                dt => panic!("Unexpected dictionary key type {:?}", dt),
+        DataType::Dictionary((ref key_type, _)) => match key_type.as_ref() {
+            DataType::Int8 => {
+                Arc::new(DictionaryArray::<Int8Type>::from(data)) as ArrayRef
             }
-        }
+            DataType::Int16 => {
+                Arc::new(DictionaryArray::<Int16Type>::from(data)) as ArrayRef
+            }
+            DataType::Int32 => {
+                Arc::new(DictionaryArray::<Int32Type>::from(data)) as ArrayRef
+            }
+            DataType::Int64 => {
+                Arc::new(DictionaryArray::<Int64Type>::from(data)) as ArrayRef
+            }
+            DataType::UInt8 => {
+                Arc::new(DictionaryArray::<UInt8Type>::from(data)) as ArrayRef
+            }
+            DataType::UInt16 => {
+                Arc::new(DictionaryArray::<UInt16Type>::from(data)) as ArrayRef
+            }
+            DataType::UInt32 => {
+                Arc::new(DictionaryArray::<UInt32Type>::from(data)) as ArrayRef
+            }
+            DataType::UInt64 => {
+                Arc::new(DictionaryArray::<UInt64Type>::from(data)) as ArrayRef
+            }
+            dt => panic!("Unexpected dictionary key type {:?}", dt),
+        },
         dt => panic!("Unexpected data type {:?}", dt),
     }
 }
@@ -1724,7 +1738,11 @@ impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
 
 impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DictionaryArray {{keys: {:?} values: {:?}}}\n", self.keys, self.values)
+        write!(
+            f,
+            "DictionaryArray {{keys: {:?} values: {:?}}}\n",
+            self.keys, self.values
+        )
     }
 }
 
