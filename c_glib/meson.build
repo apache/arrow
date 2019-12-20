@@ -51,6 +51,8 @@ base_include_directories = [
   include_directories('.')
 ]
 
+have_gi = dependency('gobject-introspection-1.0', required: false).found()
+
 arrow_cpp_build_dir = get_option('arrow_cpp_build_dir')
 arrow_cpp_build_type = get_option('arrow_cpp_build_type')
 if arrow_cpp_build_dir == ''
