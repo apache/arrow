@@ -465,7 +465,7 @@ cdef class Dataset:
         cdef:
             DataSource source
             CDataSourceVector sources
-            CResult[CDatasetPtr] result
+            CResult[shared_ptr[CDataset]] result
 
         for source in data_sources:
             sources.push_back(source.unwrap())

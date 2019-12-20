@@ -54,11 +54,12 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(const FileSource& source, ScanOptionsPtr options,
-                                    ScanContextPtr context) const override;
+  Result<ScanTaskIterator> ScanFile(const FileSource& source,
+                                    std::shared_ptr<ScanOptions> options,
+                                    std::shared_ptr<ScanContext> context) const override;
 
-  Result<DataFragmentPtr> MakeFragment(const FileSource& source,
-                                       ScanOptionsPtr options) override;
+  Result<std::shared_ptr<DataFragment>> MakeFragment(
+      const FileSource& source, std::shared_ptr<ScanOptions> options) override;
 
  private:
   Result<std::unique_ptr<::parquet::ParquetFileReader>> OpenReader(
@@ -67,13 +68,13 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
 class ARROW_DS_EXPORT ParquetFragment : public FileDataFragment {
  public:
-  ParquetFragment(const FileSource& source, ScanOptionsPtr options)
+  ParquetFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
       : FileDataFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
 
   bool splittable() const override { return true; }
 };
 
-Result<ExpressionPtr> RowGroupStatisticsAsExpression(
+Result<std::shared_ptr<Expression>> RowGroupStatisticsAsExpression(
     const parquet::RowGroupMetaData& metadata);
 
 }  // namespace dataset

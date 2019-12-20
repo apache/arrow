@@ -1340,7 +1340,7 @@ RcppExport SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::DataSourceDiscoveryPtr dataset___FSDSDiscovery__Make(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector);
+std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector);
 RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make(SEXP fs_sexp, SEXP selector_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
@@ -1356,10 +1356,10 @@ RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make(SEXP fs_sexp, SEXP selector
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::DataSourcePtr dataset___DSDiscovery__Finish(const ds::DataSourceDiscoveryPtr& discovery);
+std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish(const std::shared_ptr<ds::DataSourceDiscovery>& discovery);
 RcppExport SEXP _arrow_dataset___DSDiscovery__Finish(SEXP discovery_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::DataSourceDiscoveryPtr&>::type discovery(discovery_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DataSourceDiscovery>&>::type discovery(discovery_sexp);
 	return Rcpp::wrap(dataset___DSDiscovery__Finish(discovery));
 END_RCPP
 }
@@ -1371,10 +1371,10 @@ RcppExport SEXP _arrow_dataset___DSDiscovery__Finish(SEXP discovery_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(const ds::DataSourceDiscoveryPtr& discovery);
+std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(const std::shared_ptr<ds::DataSourceDiscovery>& discovery);
 RcppExport SEXP _arrow_dataset___DSDiscovery__Inspect(SEXP discovery_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::DataSourceDiscoveryPtr&>::type discovery(discovery_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DataSourceDiscovery>&>::type discovery(discovery_sexp);
 	return Rcpp::wrap(dataset___DSDiscovery__Inspect(discovery));
 END_RCPP
 }
@@ -1386,11 +1386,11 @@ RcppExport SEXP _arrow_dataset___DSDiscovery__Inspect(SEXP discovery_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___DSDiscovery__SetPartitionScheme(const ds::DataSourceDiscoveryPtr& discovery, const ds::PartitionSchemePtr& part);
+void dataset___DSDiscovery__SetPartitionScheme(const std::shared_ptr<ds::DataSourceDiscovery>& discovery, const std::shared_ptr<ds::PartitionScheme>& part);
 RcppExport SEXP _arrow_dataset___DSDiscovery__SetPartitionScheme(SEXP discovery_sexp, SEXP part_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::DataSourceDiscoveryPtr&>::type discovery(discovery_sexp);
-	Rcpp::traits::input_parameter<const ds::PartitionSchemePtr&>::type part(part_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DataSourceDiscovery>&>::type discovery(discovery_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::PartitionScheme>&>::type part(part_sexp);
 	dataset___DSDiscovery__SetPartitionScheme(discovery, part);
 	return R_NilValue;
 END_RCPP
@@ -1403,7 +1403,7 @@ RcppExport SEXP _arrow_dataset___DSDiscovery__SetPartitionScheme(SEXP discovery_
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::PartitionSchemePtr dataset___SchemaPartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
+std::shared_ptr<ds::PartitionScheme> dataset___SchemaPartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___SchemaPartitionScheme(SEXP schm_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
@@ -1418,7 +1418,7 @@ RcppExport SEXP _arrow_dataset___SchemaPartitionScheme(SEXP schm_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::PartitionSchemePtr dataset___HivePartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
+std::shared_ptr<ds::PartitionScheme> dataset___HivePartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___HivePartitionScheme(SEXP schm_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
@@ -1433,7 +1433,7 @@ RcppExport SEXP _arrow_dataset___HivePartitionScheme(SEXP schm_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::DatasetPtr dataset___Dataset__create(const ds::DataSourceVector& sources, const std::shared_ptr<arrow::Schema>& schm);
+std::shared_ptr<ds::Dataset> dataset___Dataset__create(const ds::DataSourceVector& sources, const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___Dataset__create(SEXP sources_sexp, SEXP schm_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const ds::DataSourceVector&>::type sources(sources_sexp);
@@ -1449,10 +1449,10 @@ RcppExport SEXP _arrow_dataset___Dataset__create(SEXP sources_sexp, SEXP schm_se
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> dataset___Dataset__schema(const ds::DatasetPtr& ds);
+std::shared_ptr<arrow::Schema> dataset___Dataset__schema(const std::shared_ptr<ds::Dataset>& ds);
 RcppExport SEXP _arrow_dataset___Dataset__schema(SEXP ds_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::DatasetPtr&>::type ds(ds_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
 	return Rcpp::wrap(dataset___Dataset__schema(ds));
 END_RCPP
 }
@@ -1464,10 +1464,10 @@ RcppExport SEXP _arrow_dataset___Dataset__schema(SEXP ds_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ScannerBuilderPtr dataset___Dataset__NewScan(const ds::DatasetPtr& ds);
+std::shared_ptr<ds::ScannerBuilder> dataset___Dataset__NewScan(const std::shared_ptr<ds::Dataset>& ds);
 RcppExport SEXP _arrow_dataset___Dataset__NewScan(SEXP ds_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::DatasetPtr&>::type ds(ds_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
 	return Rcpp::wrap(dataset___Dataset__NewScan(ds));
 END_RCPP
 }
@@ -1479,10 +1479,10 @@ RcppExport SEXP _arrow_dataset___Dataset__NewScan(SEXP ds_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___ScannerBuilder__Project(const ds::ScannerBuilderPtr& sb, const std::vector<std::string>& cols);
+void dataset___ScannerBuilder__Project(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::vector<std::string>& cols);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__Project(SEXP sb_sexp, SEXP cols_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
 	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type cols(cols_sexp);
 	dataset___ScannerBuilder__Project(sb, cols);
 	return R_NilValue;
@@ -1496,11 +1496,11 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__Project(SEXP sb_sexp, SEXP cols
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___ScannerBuilder__Filter(const ds::ScannerBuilderPtr& sb, const ds::ExpressionPtr& expr);
+void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::shared_ptr<ds::Expression>& expr);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type expr(expr_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type expr(expr_sexp);
 	dataset___ScannerBuilder__Filter(sb, expr);
 	return R_NilValue;
 END_RCPP
@@ -1513,10 +1513,10 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___ScannerBuilder__UseThreads(const ds::ScannerBuilderPtr& sb, bool threads);
+void dataset___ScannerBuilder__UseThreads(const std::shared_ptr<ds::ScannerBuilder>& sb, bool threads);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__UseThreads(SEXP sb_sexp, SEXP threads_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
 	Rcpp::traits::input_parameter<bool>::type threads(threads_sexp);
 	dataset___ScannerBuilder__UseThreads(sb, threads);
 	return R_NilValue;
@@ -1530,10 +1530,10 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__UseThreads(SEXP sb_sexp, SEXP t
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(const ds::ScannerBuilderPtr& sb);
+std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(const std::shared_ptr<ds::ScannerBuilder>& sb);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__schema(SEXP sb_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
 	return Rcpp::wrap(dataset___ScannerBuilder__schema(sb));
 END_RCPP
 }
@@ -1545,10 +1545,10 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__schema(SEXP sb_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ScannerPtr dataset___ScannerBuilder__Finish(const ds::ScannerBuilderPtr& sb);
+std::shared_ptr<ds::Scanner> dataset___ScannerBuilder__Finish(const std::shared_ptr<ds::ScannerBuilder>& sb);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
 	return Rcpp::wrap(dataset___ScannerBuilder__Finish(sb));
 END_RCPP
 }
@@ -1560,10 +1560,10 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(const ds::ScannerPtr& scanner);
+std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(const std::shared_ptr<ds::Scanner>& scanner);
 RcppExport SEXP _arrow_dataset___Scanner__ToTable(SEXP scanner_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerPtr&>::type scanner(scanner_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
 	return Rcpp::wrap(dataset___Scanner__ToTable(scanner));
 END_RCPP
 }
@@ -2301,7 +2301,7 @@ RcppExport SEXP _arrow_ListType__value_type(SEXP type_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__field_ref(std::string name);
+std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name);
 RcppExport SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<std::string>::type name(name_sexp);
@@ -2316,11 +2316,11 @@ RcppExport SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__equal(lhs, rhs));
 END_RCPP
 }
@@ -2332,11 +2332,11 @@ RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__not_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__not_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__not_equal(lhs, rhs));
 END_RCPP
 }
@@ -2348,11 +2348,11 @@ RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__greater(lhs, rhs));
 END_RCPP
 }
@@ -2364,11 +2364,11 @@ RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__greater_equal(lhs, rhs));
 END_RCPP
 }
@@ -2380,11 +2380,11 @@ RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sex
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__less(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__less(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__less(lhs, rhs));
 END_RCPP
 }
@@ -2396,11 +2396,11 @@ RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__less_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__less_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__less_equal(lhs, rhs));
 END_RCPP
 }
@@ -2412,10 +2412,10 @@ RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::InExpression> dataset___expr__in(const ds::ExpressionPtr& lhs, const std::shared_ptr<arrow::Array>& rhs);
+std::shared_ptr<ds::InExpression> dataset___expr__in(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<arrow::Array>& rhs);
 RcppExport SEXP _arrow_dataset___expr__in(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__in(lhs, rhs));
 END_RCPP
@@ -2428,11 +2428,11 @@ RcppExport SEXP _arrow_dataset___expr__in(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::AndExpression> dataset___expr__and(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::AndExpression> dataset___expr__and(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__and(lhs, rhs));
 END_RCPP
 }
@@ -2444,11 +2444,11 @@ RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::OrExpression> dataset___expr__or(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::OrExpression> dataset___expr__or(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__or(lhs, rhs));
 END_RCPP
 }
@@ -2460,10 +2460,10 @@ RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::NotExpression> dataset___expr__not(const ds::ExpressionPtr& lhs);
+std::shared_ptr<ds::NotExpression> dataset___expr__not(const std::shared_ptr<ds::Expression>& lhs);
 RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
 	return Rcpp::wrap(dataset___expr__not(lhs));
 END_RCPP
 }
@@ -2475,10 +2475,10 @@ RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::IsValidExpression> dataset___expr__is_valid(const ds::ExpressionPtr& lhs);
+std::shared_ptr<ds::IsValidExpression> dataset___expr__is_valid(const std::shared_ptr<ds::Expression>& lhs);
 RcppExport SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
 	return Rcpp::wrap(dataset___expr__is_valid(lhs));
 END_RCPP
 }
@@ -2505,10 +2505,10 @@ RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string dataset___expr__ToString(const ds::ExpressionPtr& x);
+std::string dataset___expr__ToString(const std::shared_ptr<ds::Expression>& x);
 RcppExport SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type x(x_sexp);
 	return Rcpp::wrap(dataset___expr__ToString(x));
 END_RCPP
 }
@@ -5467,355 +5467,355 @@ return Rf_ScalarLogical(
 
 static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
-		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2},
-		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3},
-		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2},
-		{ "_arrow_Array__IsValid", (DL_FUNC) &_arrow_Array__IsValid, 2},
-		{ "_arrow_Array__length", (DL_FUNC) &_arrow_Array__length, 1},
-		{ "_arrow_Array__offset", (DL_FUNC) &_arrow_Array__offset, 1},
-		{ "_arrow_Array__null_count", (DL_FUNC) &_arrow_Array__null_count, 1},
-		{ "_arrow_Array__type", (DL_FUNC) &_arrow_Array__type, 1},
-		{ "_arrow_Array__ToString", (DL_FUNC) &_arrow_Array__ToString, 1},
-		{ "_arrow_Array__type_id", (DL_FUNC) &_arrow_Array__type_id, 1},
-		{ "_arrow_Array__Equals", (DL_FUNC) &_arrow_Array__Equals, 2},
-		{ "_arrow_Array__ApproxEquals", (DL_FUNC) &_arrow_Array__ApproxEquals, 2},
-		{ "_arrow_Array__data", (DL_FUNC) &_arrow_Array__data, 1},
-		{ "_arrow_Array__RangeEquals", (DL_FUNC) &_arrow_Array__RangeEquals, 5},
-		{ "_arrow_Array__View", (DL_FUNC) &_arrow_Array__View, 2},
-		{ "_arrow_Array__Mask", (DL_FUNC) &_arrow_Array__Mask, 1},
-		{ "_arrow_Array__Validate", (DL_FUNC) &_arrow_Array__Validate, 1},
-		{ "_arrow_DictionaryArray__indices", (DL_FUNC) &_arrow_DictionaryArray__indices, 1},
-		{ "_arrow_DictionaryArray__dictionary", (DL_FUNC) &_arrow_DictionaryArray__dictionary, 1},
-		{ "_arrow_StructArray__field", (DL_FUNC) &_arrow_StructArray__field, 2},
-		{ "_arrow_StructArray__GetFieldByName", (DL_FUNC) &_arrow_StructArray__GetFieldByName, 2},
-		{ "_arrow_StructArray__Flatten", (DL_FUNC) &_arrow_StructArray__Flatten, 1},
-		{ "_arrow_ListArray__value_type", (DL_FUNC) &_arrow_ListArray__value_type, 1},
-		{ "_arrow_ListArray__values", (DL_FUNC) &_arrow_ListArray__values, 1},
-		{ "_arrow_ListArray__value_length", (DL_FUNC) &_arrow_ListArray__value_length, 2},
-		{ "_arrow_ListArray__value_offset", (DL_FUNC) &_arrow_ListArray__value_offset, 2},
-		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1},
-		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1},
-		{ "_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2},
-		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2},
-		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
-		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
-		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2},
-		{ "_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2},
-		{ "_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
-		{ "_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
-		{ "_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},
-		{ "_arrow_ArrayData__get_offset", (DL_FUNC) &_arrow_ArrayData__get_offset, 1},
-		{ "_arrow_ArrayData__buffers", (DL_FUNC) &_arrow_ArrayData__buffers, 1},
-		{ "_arrow_Buffer__is_mutable", (DL_FUNC) &_arrow_Buffer__is_mutable, 1},
-		{ "_arrow_Buffer__ZeroPadding", (DL_FUNC) &_arrow_Buffer__ZeroPadding, 1},
-		{ "_arrow_Buffer__capacity", (DL_FUNC) &_arrow_Buffer__capacity, 1},
-		{ "_arrow_Buffer__size", (DL_FUNC) &_arrow_Buffer__size, 1},
-		{ "_arrow_r___RBuffer__initialize", (DL_FUNC) &_arrow_r___RBuffer__initialize, 1},
-		{ "_arrow_Buffer__data", (DL_FUNC) &_arrow_Buffer__data, 1},
-		{ "_arrow_Buffer__Equals", (DL_FUNC) &_arrow_Buffer__Equals, 2},
-		{ "_arrow_ChunkedArray__length", (DL_FUNC) &_arrow_ChunkedArray__length, 1},
-		{ "_arrow_ChunkedArray__null_count", (DL_FUNC) &_arrow_ChunkedArray__null_count, 1},
-		{ "_arrow_ChunkedArray__num_chunks", (DL_FUNC) &_arrow_ChunkedArray__num_chunks, 1},
-		{ "_arrow_ChunkedArray__chunk", (DL_FUNC) &_arrow_ChunkedArray__chunk, 2},
-		{ "_arrow_ChunkedArray__chunks", (DL_FUNC) &_arrow_ChunkedArray__chunks, 1},
-		{ "_arrow_ChunkedArray__type", (DL_FUNC) &_arrow_ChunkedArray__type, 1},
-		{ "_arrow_ChunkedArray__Slice1", (DL_FUNC) &_arrow_ChunkedArray__Slice1, 2},
-		{ "_arrow_ChunkedArray__Slice2", (DL_FUNC) &_arrow_ChunkedArray__Slice2, 3},
-		{ "_arrow_ChunkedArray__View", (DL_FUNC) &_arrow_ChunkedArray__View, 2},
-		{ "_arrow_ChunkedArray__Validate", (DL_FUNC) &_arrow_ChunkedArray__Validate, 1},
-		{ "_arrow_ChunkedArray__Equals", (DL_FUNC) &_arrow_ChunkedArray__Equals, 2},
-		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 2},
-		{ "_arrow_util___Codec__name", (DL_FUNC) &_arrow_util___Codec__name, 1},
-		{ "_arrow_util___Codec__IsAvailable", (DL_FUNC) &_arrow_util___Codec__IsAvailable, 1},
-		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2},
-		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2},
-		{ "_arrow_compute___CastOptions__initialize", (DL_FUNC) &_arrow_compute___CastOptions__initialize, 3},
-		{ "_arrow_Array__cast", (DL_FUNC) &_arrow_Array__cast, 3},
-		{ "_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3},
-		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3},
-		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3},
-		{ "_arrow_Array__Take", (DL_FUNC) &_arrow_Array__Take, 2},
-		{ "_arrow_Array__TakeChunked", (DL_FUNC) &_arrow_Array__TakeChunked, 2},
-		{ "_arrow_RecordBatch__Take", (DL_FUNC) &_arrow_RecordBatch__Take, 2},
-		{ "_arrow_ChunkedArray__Take", (DL_FUNC) &_arrow_ChunkedArray__Take, 2},
-		{ "_arrow_ChunkedArray__TakeChunked", (DL_FUNC) &_arrow_ChunkedArray__TakeChunked, 2},
-		{ "_arrow_Table__Take", (DL_FUNC) &_arrow_Table__Take, 2},
-		{ "_arrow_Table__TakeChunked", (DL_FUNC) &_arrow_Table__TakeChunked, 2},
-		{ "_arrow_Array__Filter", (DL_FUNC) &_arrow_Array__Filter, 2},
-		{ "_arrow_RecordBatch__Filter", (DL_FUNC) &_arrow_RecordBatch__Filter, 2},
-		{ "_arrow_ChunkedArray__Filter", (DL_FUNC) &_arrow_ChunkedArray__Filter, 2},
-		{ "_arrow_ChunkedArray__FilterChunked", (DL_FUNC) &_arrow_ChunkedArray__FilterChunked, 2},
-		{ "_arrow_Table__Filter", (DL_FUNC) &_arrow_Table__Filter, 2},
-		{ "_arrow_Table__FilterChunked", (DL_FUNC) &_arrow_Table__FilterChunked, 2},
-		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1},
-		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1},
-		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1},
-		{ "_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4},
-		{ "_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1},
-		{ "_arrow_dataset___FSDSDiscovery__Make", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make, 2},
-		{ "_arrow_dataset___DSDiscovery__Finish", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish, 1},
-		{ "_arrow_dataset___DSDiscovery__Inspect", (DL_FUNC) &_arrow_dataset___DSDiscovery__Inspect, 1},
-		{ "_arrow_dataset___DSDiscovery__SetPartitionScheme", (DL_FUNC) &_arrow_dataset___DSDiscovery__SetPartitionScheme, 2},
-		{ "_arrow_dataset___SchemaPartitionScheme", (DL_FUNC) &_arrow_dataset___SchemaPartitionScheme, 1},
-		{ "_arrow_dataset___HivePartitionScheme", (DL_FUNC) &_arrow_dataset___HivePartitionScheme, 1},
-		{ "_arrow_dataset___Dataset__create", (DL_FUNC) &_arrow_dataset___Dataset__create, 2},
-		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1},
-		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1},
-		{ "_arrow_dataset___ScannerBuilder__Project", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Project, 2},
-		{ "_arrow_dataset___ScannerBuilder__Filter", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Filter, 2},
-		{ "_arrow_dataset___ScannerBuilder__UseThreads", (DL_FUNC) &_arrow_dataset___ScannerBuilder__UseThreads, 2},
-		{ "_arrow_dataset___ScannerBuilder__schema", (DL_FUNC) &_arrow_dataset___ScannerBuilder__schema, 1},
-		{ "_arrow_dataset___ScannerBuilder__Finish", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Finish, 1},
-		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1},
-		{ "_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1},
-		{ "_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1},
-		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0},
-		{ "_arrow_Int16__initialize", (DL_FUNC) &_arrow_Int16__initialize, 0},
-		{ "_arrow_Int32__initialize", (DL_FUNC) &_arrow_Int32__initialize, 0},
-		{ "_arrow_Int64__initialize", (DL_FUNC) &_arrow_Int64__initialize, 0},
-		{ "_arrow_UInt8__initialize", (DL_FUNC) &_arrow_UInt8__initialize, 0},
-		{ "_arrow_UInt16__initialize", (DL_FUNC) &_arrow_UInt16__initialize, 0},
-		{ "_arrow_UInt32__initialize", (DL_FUNC) &_arrow_UInt32__initialize, 0},
-		{ "_arrow_UInt64__initialize", (DL_FUNC) &_arrow_UInt64__initialize, 0},
-		{ "_arrow_Float16__initialize", (DL_FUNC) &_arrow_Float16__initialize, 0},
-		{ "_arrow_Float32__initialize", (DL_FUNC) &_arrow_Float32__initialize, 0},
-		{ "_arrow_Float64__initialize", (DL_FUNC) &_arrow_Float64__initialize, 0},
-		{ "_arrow_Boolean__initialize", (DL_FUNC) &_arrow_Boolean__initialize, 0},
-		{ "_arrow_Utf8__initialize", (DL_FUNC) &_arrow_Utf8__initialize, 0},
-		{ "_arrow_Date32__initialize", (DL_FUNC) &_arrow_Date32__initialize, 0},
-		{ "_arrow_Date64__initialize", (DL_FUNC) &_arrow_Date64__initialize, 0},
-		{ "_arrow_Null__initialize", (DL_FUNC) &_arrow_Null__initialize, 0},
-		{ "_arrow_Decimal128Type__initialize", (DL_FUNC) &_arrow_Decimal128Type__initialize, 2},
-		{ "_arrow_FixedSizeBinary__initialize", (DL_FUNC) &_arrow_FixedSizeBinary__initialize, 1},
-		{ "_arrow_Timestamp__initialize1", (DL_FUNC) &_arrow_Timestamp__initialize1, 1},
-		{ "_arrow_Timestamp__initialize2", (DL_FUNC) &_arrow_Timestamp__initialize2, 2},
-		{ "_arrow_Time32__initialize", (DL_FUNC) &_arrow_Time32__initialize, 1},
-		{ "_arrow_Time64__initialize", (DL_FUNC) &_arrow_Time64__initialize, 1},
-		{ "_arrow_list__", (DL_FUNC) &_arrow_list__, 1},
-		{ "_arrow_struct_", (DL_FUNC) &_arrow_struct_, 1},
-		{ "_arrow_DataType__ToString", (DL_FUNC) &_arrow_DataType__ToString, 1},
-		{ "_arrow_DataType__name", (DL_FUNC) &_arrow_DataType__name, 1},
-		{ "_arrow_DataType__Equals", (DL_FUNC) &_arrow_DataType__Equals, 2},
-		{ "_arrow_DataType__num_children", (DL_FUNC) &_arrow_DataType__num_children, 1},
-		{ "_arrow_DataType__children_pointer", (DL_FUNC) &_arrow_DataType__children_pointer, 1},
-		{ "_arrow_DataType__id", (DL_FUNC) &_arrow_DataType__id, 1},
-		{ "_arrow_ListType__ToString", (DL_FUNC) &_arrow_ListType__ToString, 1},
-		{ "_arrow_FixedWidthType__bit_width", (DL_FUNC) &_arrow_FixedWidthType__bit_width, 1},
-		{ "_arrow_DateType__unit", (DL_FUNC) &_arrow_DateType__unit, 1},
-		{ "_arrow_TimeType__unit", (DL_FUNC) &_arrow_TimeType__unit, 1},
-		{ "_arrow_DecimalType__precision", (DL_FUNC) &_arrow_DecimalType__precision, 1},
-		{ "_arrow_DecimalType__scale", (DL_FUNC) &_arrow_DecimalType__scale, 1},
-		{ "_arrow_TimestampType__timezone", (DL_FUNC) &_arrow_TimestampType__timezone, 1},
-		{ "_arrow_TimestampType__unit", (DL_FUNC) &_arrow_TimestampType__unit, 1},
-		{ "_arrow_DictionaryType__initialize", (DL_FUNC) &_arrow_DictionaryType__initialize, 3},
-		{ "_arrow_DictionaryType__index_type", (DL_FUNC) &_arrow_DictionaryType__index_type, 1},
-		{ "_arrow_DictionaryType__value_type", (DL_FUNC) &_arrow_DictionaryType__value_type, 1},
-		{ "_arrow_DictionaryType__name", (DL_FUNC) &_arrow_DictionaryType__name, 1},
-		{ "_arrow_DictionaryType__ordered", (DL_FUNC) &_arrow_DictionaryType__ordered, 1},
-		{ "_arrow_StructType__GetFieldByName", (DL_FUNC) &_arrow_StructType__GetFieldByName, 2},
-		{ "_arrow_StructType__GetFieldIndex", (DL_FUNC) &_arrow_StructType__GetFieldIndex, 2},
-		{ "_arrow_ListType__value_field", (DL_FUNC) &_arrow_ListType__value_field, 1},
-		{ "_arrow_ListType__value_type", (DL_FUNC) &_arrow_ListType__value_type, 1},
-		{ "_arrow_dataset___expr__field_ref", (DL_FUNC) &_arrow_dataset___expr__field_ref, 1},
-		{ "_arrow_dataset___expr__equal", (DL_FUNC) &_arrow_dataset___expr__equal, 2},
-		{ "_arrow_dataset___expr__not_equal", (DL_FUNC) &_arrow_dataset___expr__not_equal, 2},
-		{ "_arrow_dataset___expr__greater", (DL_FUNC) &_arrow_dataset___expr__greater, 2},
-		{ "_arrow_dataset___expr__greater_equal", (DL_FUNC) &_arrow_dataset___expr__greater_equal, 2},
-		{ "_arrow_dataset___expr__less", (DL_FUNC) &_arrow_dataset___expr__less, 2},
-		{ "_arrow_dataset___expr__less_equal", (DL_FUNC) &_arrow_dataset___expr__less_equal, 2},
-		{ "_arrow_dataset___expr__in", (DL_FUNC) &_arrow_dataset___expr__in, 2},
-		{ "_arrow_dataset___expr__and", (DL_FUNC) &_arrow_dataset___expr__and, 2},
-		{ "_arrow_dataset___expr__or", (DL_FUNC) &_arrow_dataset___expr__or, 2},
-		{ "_arrow_dataset___expr__not", (DL_FUNC) &_arrow_dataset___expr__not, 1},
-		{ "_arrow_dataset___expr__is_valid", (DL_FUNC) &_arrow_dataset___expr__is_valid, 1},
-		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1},
-		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1},
-		{ "_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetDescription, 2},
-		{ "_arrow_ipc___feather___TableWriter__SetNumRows", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetNumRows, 2},
-		{ "_arrow_ipc___feather___TableWriter__Append", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Append, 3},
-		{ "_arrow_ipc___feather___TableWriter__Finalize", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Finalize, 1},
-		{ "_arrow_ipc___feather___TableWriter__Open", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Open, 1},
-		{ "_arrow_ipc___TableWriter__RecordBatch__WriteFeather", (DL_FUNC) &_arrow_ipc___TableWriter__RecordBatch__WriteFeather, 2},
-		{ "_arrow_ipc___feather___TableReader__GetDescription", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetDescription, 1},
-		{ "_arrow_ipc___feather___TableReader__HasDescription", (DL_FUNC) &_arrow_ipc___feather___TableReader__HasDescription, 1},
-		{ "_arrow_ipc___feather___TableReader__version", (DL_FUNC) &_arrow_ipc___feather___TableReader__version, 1},
-		{ "_arrow_ipc___feather___TableReader__num_rows", (DL_FUNC) &_arrow_ipc___feather___TableReader__num_rows, 1},
-		{ "_arrow_ipc___feather___TableReader__num_columns", (DL_FUNC) &_arrow_ipc___feather___TableReader__num_columns, 1},
-		{ "_arrow_ipc___feather___TableReader__GetColumnName", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumnName, 2},
-		{ "_arrow_ipc___feather___TableReader__GetColumn", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumn, 2},
-		{ "_arrow_ipc___feather___TableReader__Read", (DL_FUNC) &_arrow_ipc___feather___TableReader__Read, 2},
-		{ "_arrow_ipc___feather___TableReader__Open", (DL_FUNC) &_arrow_ipc___feather___TableReader__Open, 1},
-		{ "_arrow_ipc___feather___TableReader__column_names", (DL_FUNC) &_arrow_ipc___feather___TableReader__column_names, 1},
-		{ "_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3},
-		{ "_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},
-		{ "_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1},
-		{ "_arrow_Field__Equals", (DL_FUNC) &_arrow_Field__Equals, 2},
-		{ "_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1},
-		{ "_arrow_Field__type", (DL_FUNC) &_arrow_Field__type, 1},
-		{ "_arrow_fs___FileStats__type", (DL_FUNC) &_arrow_fs___FileStats__type, 1},
-		{ "_arrow_fs___FileStats__set_type", (DL_FUNC) &_arrow_fs___FileStats__set_type, 2},
-		{ "_arrow_fs___FileStats__path", (DL_FUNC) &_arrow_fs___FileStats__path, 1},
-		{ "_arrow_fs___FileStats__set_path", (DL_FUNC) &_arrow_fs___FileStats__set_path, 2},
-		{ "_arrow_fs___FileStats__size", (DL_FUNC) &_arrow_fs___FileStats__size, 1},
-		{ "_arrow_fs___FileStats__set_size", (DL_FUNC) &_arrow_fs___FileStats__set_size, 2},
-		{ "_arrow_fs___FileStats__base_name", (DL_FUNC) &_arrow_fs___FileStats__base_name, 1},
-		{ "_arrow_fs___FileStats__extension", (DL_FUNC) &_arrow_fs___FileStats__extension, 1},
-		{ "_arrow_fs___FileStats__mtime", (DL_FUNC) &_arrow_fs___FileStats__mtime, 1},
-		{ "_arrow_fs___FileStats__set_mtime", (DL_FUNC) &_arrow_fs___FileStats__set_mtime, 2},
-		{ "_arrow_fs___FileSelector__base_dir", (DL_FUNC) &_arrow_fs___FileSelector__base_dir, 1},
-		{ "_arrow_fs___FileSelector__allow_non_existent", (DL_FUNC) &_arrow_fs___FileSelector__allow_non_existent, 1},
-		{ "_arrow_fs___FileSelector__recursive", (DL_FUNC) &_arrow_fs___FileSelector__recursive, 1},
-		{ "_arrow_fs___FileSelector__create", (DL_FUNC) &_arrow_fs___FileSelector__create, 3},
-		{ "_arrow_fs___FileSystem__GetTargetStats_Paths", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_Paths, 2},
-		{ "_arrow_fs___FileSystem__GetTargetStats_FileSelector", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_FileSelector, 2},
-		{ "_arrow_fs___FileSystem__CreateDir", (DL_FUNC) &_arrow_fs___FileSystem__CreateDir, 3},
-		{ "_arrow_fs___FileSystem__DeleteDir", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDir, 2},
-		{ "_arrow_fs___FileSystem__DeleteDirContents", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDirContents, 2},
-		{ "_arrow_fs___FileSystem__DeleteFile", (DL_FUNC) &_arrow_fs___FileSystem__DeleteFile, 2},
-		{ "_arrow_fs___FileSystem__DeleteFiles", (DL_FUNC) &_arrow_fs___FileSystem__DeleteFiles, 2},
-		{ "_arrow_fs___FileSystem__Move", (DL_FUNC) &_arrow_fs___FileSystem__Move, 3},
-		{ "_arrow_fs___FileSystem__CopyFile", (DL_FUNC) &_arrow_fs___FileSystem__CopyFile, 3},
-		{ "_arrow_fs___FileSystem__OpenInputStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenInputStream, 2},
-		{ "_arrow_fs___FileSystem__OpenInputFile", (DL_FUNC) &_arrow_fs___FileSystem__OpenInputFile, 2},
-		{ "_arrow_fs___FileSystem__OpenOutputStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenOutputStream, 2},
-		{ "_arrow_fs___FileSystem__OpenAppendStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenAppendStream, 2},
-		{ "_arrow_fs___LocalFileSystem__create", (DL_FUNC) &_arrow_fs___LocalFileSystem__create, 0},
-		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2},
-		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2},
-		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1},
-		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1},
-		{ "_arrow_io___RandomAccessFile__GetSize", (DL_FUNC) &_arrow_io___RandomAccessFile__GetSize, 1},
-		{ "_arrow_io___RandomAccessFile__supports_zero_copy", (DL_FUNC) &_arrow_io___RandomAccessFile__supports_zero_copy, 1},
-		{ "_arrow_io___RandomAccessFile__Seek", (DL_FUNC) &_arrow_io___RandomAccessFile__Seek, 2},
-		{ "_arrow_io___RandomAccessFile__Tell", (DL_FUNC) &_arrow_io___RandomAccessFile__Tell, 1},
-		{ "_arrow_io___RandomAccessFile__Read0", (DL_FUNC) &_arrow_io___RandomAccessFile__Read0, 1},
-		{ "_arrow_io___RandomAccessFile__ReadAt", (DL_FUNC) &_arrow_io___RandomAccessFile__ReadAt, 3},
-		{ "_arrow_io___MemoryMappedFile__Create", (DL_FUNC) &_arrow_io___MemoryMappedFile__Create, 2},
-		{ "_arrow_io___MemoryMappedFile__Open", (DL_FUNC) &_arrow_io___MemoryMappedFile__Open, 2},
-		{ "_arrow_io___MemoryMappedFile__Resize", (DL_FUNC) &_arrow_io___MemoryMappedFile__Resize, 2},
-		{ "_arrow_io___ReadableFile__Open", (DL_FUNC) &_arrow_io___ReadableFile__Open, 1},
-		{ "_arrow_io___BufferReader__initialize", (DL_FUNC) &_arrow_io___BufferReader__initialize, 1},
-		{ "_arrow_io___Writable__write", (DL_FUNC) &_arrow_io___Writable__write, 2},
-		{ "_arrow_io___OutputStream__Tell", (DL_FUNC) &_arrow_io___OutputStream__Tell, 1},
-		{ "_arrow_io___FileOutputStream__Open", (DL_FUNC) &_arrow_io___FileOutputStream__Open, 1},
-		{ "_arrow_io___BufferOutputStream__Create", (DL_FUNC) &_arrow_io___BufferOutputStream__Create, 1},
-		{ "_arrow_io___BufferOutputStream__capacity", (DL_FUNC) &_arrow_io___BufferOutputStream__capacity, 1},
-		{ "_arrow_io___BufferOutputStream__Finish", (DL_FUNC) &_arrow_io___BufferOutputStream__Finish, 1},
-		{ "_arrow_io___BufferOutputStream__Tell", (DL_FUNC) &_arrow_io___BufferOutputStream__Tell, 1},
-		{ "_arrow_io___BufferOutputStream__Write", (DL_FUNC) &_arrow_io___BufferOutputStream__Write, 2},
-		{ "_arrow_io___MockOutputStream__initialize", (DL_FUNC) &_arrow_io___MockOutputStream__initialize, 0},
-		{ "_arrow_io___MockOutputStream__GetExtentBytesWritten", (DL_FUNC) &_arrow_io___MockOutputStream__GetExtentBytesWritten, 1},
-		{ "_arrow_io___FixedSizeBufferWriter__initialize", (DL_FUNC) &_arrow_io___FixedSizeBufferWriter__initialize, 1},
-		{ "_arrow_json___ReadOptions__initialize", (DL_FUNC) &_arrow_json___ReadOptions__initialize, 1},
-		{ "_arrow_json___ParseOptions__initialize", (DL_FUNC) &_arrow_json___ParseOptions__initialize, 1},
-		{ "_arrow_json___TableReader__Make", (DL_FUNC) &_arrow_json___TableReader__Make, 3},
-		{ "_arrow_json___TableReader__Read", (DL_FUNC) &_arrow_json___TableReader__Read, 1},
-		{ "_arrow_MemoryPool__default", (DL_FUNC) &_arrow_MemoryPool__default, 0},
-		{ "_arrow_MemoryPool__bytes_allocated", (DL_FUNC) &_arrow_MemoryPool__bytes_allocated, 1},
-		{ "_arrow_MemoryPool__max_memory", (DL_FUNC) &_arrow_MemoryPool__max_memory, 1},
-		{ "_arrow_ipc___Message__body_length", (DL_FUNC) &_arrow_ipc___Message__body_length, 1},
-		{ "_arrow_ipc___Message__metadata", (DL_FUNC) &_arrow_ipc___Message__metadata, 1},
-		{ "_arrow_ipc___Message__body", (DL_FUNC) &_arrow_ipc___Message__body, 1},
-		{ "_arrow_ipc___Message__Verify", (DL_FUNC) &_arrow_ipc___Message__Verify, 1},
-		{ "_arrow_ipc___Message__type", (DL_FUNC) &_arrow_ipc___Message__type, 1},
-		{ "_arrow_ipc___Message__Equals", (DL_FUNC) &_arrow_ipc___Message__Equals, 2},
-		{ "_arrow_ipc___ReadRecordBatch__Message__Schema", (DL_FUNC) &_arrow_ipc___ReadRecordBatch__Message__Schema, 2},
-		{ "_arrow_ipc___ReadSchema_InputStream", (DL_FUNC) &_arrow_ipc___ReadSchema_InputStream, 1},
-		{ "_arrow_ipc___ReadSchema_Message", (DL_FUNC) &_arrow_ipc___ReadSchema_Message, 1},
-		{ "_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1},
-		{ "_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1},
-		{ "_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1},
-		{ "_arrow_parquet___arrow___ArrowReaderProperties__Make", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__Make, 1},
-		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads, 2},
-		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads, 2},
-		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary, 2},
-		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary, 3},
-		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 2},
-		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1},
-		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2},
-		{ "_arrow_parquet___default_arrow_writer_properties", (DL_FUNC) &_arrow_parquet___default_arrow_writer_properties, 0},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__create", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__create, 0},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__store_schema", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__store_schema, 1},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps, 1},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps, 1},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps, 2},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps, 1},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps, 1},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__build", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__build, 1},
-		{ "_arrow_parquet___default_writer_properties", (DL_FUNC) &_arrow_parquet___default_writer_properties, 0},
-		{ "_arrow_parquet___WriterProperties___Builder__create", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__create, 0},
-		{ "_arrow_parquet___WriterProperties___Builder__version", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__version, 2},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_compression", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_compression, 2},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_compressions", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_compressions, 3},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_compression_level", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_compression_level, 2},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels, 3},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics, 2},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary, 2},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary, 3},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics, 3},
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__data_page_size", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__data_page_size, 2},
-		{ "_arrow_parquet___WriterProperties___Builder__build", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__build, 1},
-		{ "_arrow_parquet___arrow___ParquetFileWriter__Open", (DL_FUNC) &_arrow_parquet___arrow___ParquetFileWriter__Open, 4},
-		{ "_arrow_parquet___arrow___FileWriter__WriteTable", (DL_FUNC) &_arrow_parquet___arrow___FileWriter__WriteTable, 3},
-		{ "_arrow_parquet___arrow___FileWriter__Close", (DL_FUNC) &_arrow_parquet___arrow___FileWriter__Close, 1},
-		{ "_arrow_parquet___arrow___WriteTable", (DL_FUNC) &_arrow_parquet___arrow___WriteTable, 4},
-		{ "_arrow_parquet___arrow___FileReader__GetSchema", (DL_FUNC) &_arrow_parquet___arrow___FileReader__GetSchema, 1},
-		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
-		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
-		{ "_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
-		{ "_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1},
-		{ "_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2},
-		{ "_arrow_RecordBatch__GetColumnByName", (DL_FUNC) &_arrow_RecordBatch__GetColumnByName, 2},
-		{ "_arrow_RecordBatch__select", (DL_FUNC) &_arrow_RecordBatch__select, 2},
-		{ "_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1},
-		{ "_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 2},
-		{ "_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2},
-		{ "_arrow_RecordBatch__column_name", (DL_FUNC) &_arrow_RecordBatch__column_name, 2},
-		{ "_arrow_RecordBatch__names", (DL_FUNC) &_arrow_RecordBatch__names, 1},
-		{ "_arrow_RecordBatch__Slice1", (DL_FUNC) &_arrow_RecordBatch__Slice1, 2},
-		{ "_arrow_RecordBatch__Slice2", (DL_FUNC) &_arrow_RecordBatch__Slice2, 3},
-		{ "_arrow_ipc___SerializeRecordBatch__Raw", (DL_FUNC) &_arrow_ipc___SerializeRecordBatch__Raw, 1},
-		{ "_arrow_ipc___ReadRecordBatch__InputStream__Schema", (DL_FUNC) &_arrow_ipc___ReadRecordBatch__InputStream__Schema, 2},
-		{ "_arrow_RecordBatch__from_arrays", (DL_FUNC) &_arrow_RecordBatch__from_arrays, 2},
-		{ "_arrow_RecordBatchReader__schema", (DL_FUNC) &_arrow_RecordBatchReader__schema, 1},
-		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1},
-		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1},
-		{ "_arrow_ipc___RecordBatchStreamReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__batches, 1},
-		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__schema, 1},
-		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1},
-		{ "_arrow_ipc___RecordBatchFileReader__ReadRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__ReadRecordBatch, 2},
-		{ "_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__Open, 1},
-		{ "_arrow_Table__from_RecordBatchFileReader", (DL_FUNC) &_arrow_Table__from_RecordBatchFileReader, 1},
-		{ "_arrow_Table__from_RecordBatchStreamReader", (DL_FUNC) &_arrow_Table__from_RecordBatchStreamReader, 1},
-		{ "_arrow_ipc___RecordBatchFileReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__batches, 1},
-		{ "_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteRecordBatch, 2},
-		{ "_arrow_ipc___RecordBatchWriter__WriteTable", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteTable, 2},
-		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1},
-		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 3},
-		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 3},
-		{ "_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1},
-		{ "_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1},
-		{ "_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1},
-		{ "_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2},
-		{ "_arrow_Schema__names", (DL_FUNC) &_arrow_Schema__names, 1},
-		{ "_arrow_Schema__serialize", (DL_FUNC) &_arrow_Schema__serialize, 1},
-		{ "_arrow_Schema__Equals", (DL_FUNC) &_arrow_Schema__Equals, 3},
-		{ "_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1},
-		{ "_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1},
-		{ "_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},
-		{ "_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
-		{ "_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
-		{ "_arrow_Table__field", (DL_FUNC) &_arrow_Table__field, 2},
-		{ "_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1},
-		{ "_arrow_Table__ColumnNames", (DL_FUNC) &_arrow_Table__ColumnNames, 1},
-		{ "_arrow_Table__Slice1", (DL_FUNC) &_arrow_Table__Slice1, 2},
-		{ "_arrow_Table__Slice2", (DL_FUNC) &_arrow_Table__Slice2, 3},
-		{ "_arrow_Table__Equals", (DL_FUNC) &_arrow_Table__Equals, 2},
-		{ "_arrow_Table__GetColumnByName", (DL_FUNC) &_arrow_Table__GetColumnByName, 2},
-		{ "_arrow_Table__select", (DL_FUNC) &_arrow_Table__select, 2},
-		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2},
-		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0},
-		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1},
+		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
+		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
+		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 
+		{ "_arrow_Array__IsValid", (DL_FUNC) &_arrow_Array__IsValid, 2}, 
+		{ "_arrow_Array__length", (DL_FUNC) &_arrow_Array__length, 1}, 
+		{ "_arrow_Array__offset", (DL_FUNC) &_arrow_Array__offset, 1}, 
+		{ "_arrow_Array__null_count", (DL_FUNC) &_arrow_Array__null_count, 1}, 
+		{ "_arrow_Array__type", (DL_FUNC) &_arrow_Array__type, 1}, 
+		{ "_arrow_Array__ToString", (DL_FUNC) &_arrow_Array__ToString, 1}, 
+		{ "_arrow_Array__type_id", (DL_FUNC) &_arrow_Array__type_id, 1}, 
+		{ "_arrow_Array__Equals", (DL_FUNC) &_arrow_Array__Equals, 2}, 
+		{ "_arrow_Array__ApproxEquals", (DL_FUNC) &_arrow_Array__ApproxEquals, 2}, 
+		{ "_arrow_Array__data", (DL_FUNC) &_arrow_Array__data, 1}, 
+		{ "_arrow_Array__RangeEquals", (DL_FUNC) &_arrow_Array__RangeEquals, 5}, 
+		{ "_arrow_Array__View", (DL_FUNC) &_arrow_Array__View, 2}, 
+		{ "_arrow_Array__Mask", (DL_FUNC) &_arrow_Array__Mask, 1}, 
+		{ "_arrow_Array__Validate", (DL_FUNC) &_arrow_Array__Validate, 1}, 
+		{ "_arrow_DictionaryArray__indices", (DL_FUNC) &_arrow_DictionaryArray__indices, 1}, 
+		{ "_arrow_DictionaryArray__dictionary", (DL_FUNC) &_arrow_DictionaryArray__dictionary, 1}, 
+		{ "_arrow_StructArray__field", (DL_FUNC) &_arrow_StructArray__field, 2}, 
+		{ "_arrow_StructArray__GetFieldByName", (DL_FUNC) &_arrow_StructArray__GetFieldByName, 2}, 
+		{ "_arrow_StructArray__Flatten", (DL_FUNC) &_arrow_StructArray__Flatten, 1}, 
+		{ "_arrow_ListArray__value_type", (DL_FUNC) &_arrow_ListArray__value_type, 1}, 
+		{ "_arrow_ListArray__values", (DL_FUNC) &_arrow_ListArray__values, 1}, 
+		{ "_arrow_ListArray__value_length", (DL_FUNC) &_arrow_ListArray__value_length, 2}, 
+		{ "_arrow_ListArray__value_offset", (DL_FUNC) &_arrow_ListArray__value_offset, 2}, 
+		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
+		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
+		{ "_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2}, 
+		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 
+		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
+		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1}, 
+		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
+		{ "_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2}, 
+		{ "_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1}, 
+		{ "_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1}, 
+		{ "_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1}, 
+		{ "_arrow_ArrayData__get_offset", (DL_FUNC) &_arrow_ArrayData__get_offset, 1}, 
+		{ "_arrow_ArrayData__buffers", (DL_FUNC) &_arrow_ArrayData__buffers, 1}, 
+		{ "_arrow_Buffer__is_mutable", (DL_FUNC) &_arrow_Buffer__is_mutable, 1}, 
+		{ "_arrow_Buffer__ZeroPadding", (DL_FUNC) &_arrow_Buffer__ZeroPadding, 1}, 
+		{ "_arrow_Buffer__capacity", (DL_FUNC) &_arrow_Buffer__capacity, 1}, 
+		{ "_arrow_Buffer__size", (DL_FUNC) &_arrow_Buffer__size, 1}, 
+		{ "_arrow_r___RBuffer__initialize", (DL_FUNC) &_arrow_r___RBuffer__initialize, 1}, 
+		{ "_arrow_Buffer__data", (DL_FUNC) &_arrow_Buffer__data, 1}, 
+		{ "_arrow_Buffer__Equals", (DL_FUNC) &_arrow_Buffer__Equals, 2}, 
+		{ "_arrow_ChunkedArray__length", (DL_FUNC) &_arrow_ChunkedArray__length, 1}, 
+		{ "_arrow_ChunkedArray__null_count", (DL_FUNC) &_arrow_ChunkedArray__null_count, 1}, 
+		{ "_arrow_ChunkedArray__num_chunks", (DL_FUNC) &_arrow_ChunkedArray__num_chunks, 1}, 
+		{ "_arrow_ChunkedArray__chunk", (DL_FUNC) &_arrow_ChunkedArray__chunk, 2}, 
+		{ "_arrow_ChunkedArray__chunks", (DL_FUNC) &_arrow_ChunkedArray__chunks, 1}, 
+		{ "_arrow_ChunkedArray__type", (DL_FUNC) &_arrow_ChunkedArray__type, 1}, 
+		{ "_arrow_ChunkedArray__Slice1", (DL_FUNC) &_arrow_ChunkedArray__Slice1, 2}, 
+		{ "_arrow_ChunkedArray__Slice2", (DL_FUNC) &_arrow_ChunkedArray__Slice2, 3}, 
+		{ "_arrow_ChunkedArray__View", (DL_FUNC) &_arrow_ChunkedArray__View, 2}, 
+		{ "_arrow_ChunkedArray__Validate", (DL_FUNC) &_arrow_ChunkedArray__Validate, 1}, 
+		{ "_arrow_ChunkedArray__Equals", (DL_FUNC) &_arrow_ChunkedArray__Equals, 2}, 
+		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 2}, 
+		{ "_arrow_util___Codec__name", (DL_FUNC) &_arrow_util___Codec__name, 1}, 
+		{ "_arrow_util___Codec__IsAvailable", (DL_FUNC) &_arrow_util___Codec__IsAvailable, 1}, 
+		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
+		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
+		{ "_arrow_compute___CastOptions__initialize", (DL_FUNC) &_arrow_compute___CastOptions__initialize, 3}, 
+		{ "_arrow_Array__cast", (DL_FUNC) &_arrow_Array__cast, 3}, 
+		{ "_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3}, 
+		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
+		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
+		{ "_arrow_Array__Take", (DL_FUNC) &_arrow_Array__Take, 2}, 
+		{ "_arrow_Array__TakeChunked", (DL_FUNC) &_arrow_Array__TakeChunked, 2}, 
+		{ "_arrow_RecordBatch__Take", (DL_FUNC) &_arrow_RecordBatch__Take, 2}, 
+		{ "_arrow_ChunkedArray__Take", (DL_FUNC) &_arrow_ChunkedArray__Take, 2}, 
+		{ "_arrow_ChunkedArray__TakeChunked", (DL_FUNC) &_arrow_ChunkedArray__TakeChunked, 2}, 
+		{ "_arrow_Table__Take", (DL_FUNC) &_arrow_Table__Take, 2}, 
+		{ "_arrow_Table__TakeChunked", (DL_FUNC) &_arrow_Table__TakeChunked, 2}, 
+		{ "_arrow_Array__Filter", (DL_FUNC) &_arrow_Array__Filter, 2}, 
+		{ "_arrow_RecordBatch__Filter", (DL_FUNC) &_arrow_RecordBatch__Filter, 2}, 
+		{ "_arrow_ChunkedArray__Filter", (DL_FUNC) &_arrow_ChunkedArray__Filter, 2}, 
+		{ "_arrow_ChunkedArray__FilterChunked", (DL_FUNC) &_arrow_ChunkedArray__FilterChunked, 2}, 
+		{ "_arrow_Table__Filter", (DL_FUNC) &_arrow_Table__Filter, 2}, 
+		{ "_arrow_Table__FilterChunked", (DL_FUNC) &_arrow_Table__FilterChunked, 2}, 
+		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
+		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
+		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1}, 
+		{ "_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4}, 
+		{ "_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1}, 
+		{ "_arrow_dataset___FSDSDiscovery__Make", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make, 2}, 
+		{ "_arrow_dataset___DSDiscovery__Finish", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish, 1}, 
+		{ "_arrow_dataset___DSDiscovery__Inspect", (DL_FUNC) &_arrow_dataset___DSDiscovery__Inspect, 1}, 
+		{ "_arrow_dataset___DSDiscovery__SetPartitionScheme", (DL_FUNC) &_arrow_dataset___DSDiscovery__SetPartitionScheme, 2}, 
+		{ "_arrow_dataset___SchemaPartitionScheme", (DL_FUNC) &_arrow_dataset___SchemaPartitionScheme, 1}, 
+		{ "_arrow_dataset___HivePartitionScheme", (DL_FUNC) &_arrow_dataset___HivePartitionScheme, 1}, 
+		{ "_arrow_dataset___Dataset__create", (DL_FUNC) &_arrow_dataset___Dataset__create, 2}, 
+		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
+		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
+		{ "_arrow_dataset___ScannerBuilder__Project", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Project, 2}, 
+		{ "_arrow_dataset___ScannerBuilder__Filter", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Filter, 2}, 
+		{ "_arrow_dataset___ScannerBuilder__UseThreads", (DL_FUNC) &_arrow_dataset___ScannerBuilder__UseThreads, 2}, 
+		{ "_arrow_dataset___ScannerBuilder__schema", (DL_FUNC) &_arrow_dataset___ScannerBuilder__schema, 1}, 
+		{ "_arrow_dataset___ScannerBuilder__Finish", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Finish, 1}, 
+		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
+		{ "_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1}, 
+		{ "_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1}, 
+		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0}, 
+		{ "_arrow_Int16__initialize", (DL_FUNC) &_arrow_Int16__initialize, 0}, 
+		{ "_arrow_Int32__initialize", (DL_FUNC) &_arrow_Int32__initialize, 0}, 
+		{ "_arrow_Int64__initialize", (DL_FUNC) &_arrow_Int64__initialize, 0}, 
+		{ "_arrow_UInt8__initialize", (DL_FUNC) &_arrow_UInt8__initialize, 0}, 
+		{ "_arrow_UInt16__initialize", (DL_FUNC) &_arrow_UInt16__initialize, 0}, 
+		{ "_arrow_UInt32__initialize", (DL_FUNC) &_arrow_UInt32__initialize, 0}, 
+		{ "_arrow_UInt64__initialize", (DL_FUNC) &_arrow_UInt64__initialize, 0}, 
+		{ "_arrow_Float16__initialize", (DL_FUNC) &_arrow_Float16__initialize, 0}, 
+		{ "_arrow_Float32__initialize", (DL_FUNC) &_arrow_Float32__initialize, 0}, 
+		{ "_arrow_Float64__initialize", (DL_FUNC) &_arrow_Float64__initialize, 0}, 
+		{ "_arrow_Boolean__initialize", (DL_FUNC) &_arrow_Boolean__initialize, 0}, 
+		{ "_arrow_Utf8__initialize", (DL_FUNC) &_arrow_Utf8__initialize, 0}, 
+		{ "_arrow_Date32__initialize", (DL_FUNC) &_arrow_Date32__initialize, 0}, 
+		{ "_arrow_Date64__initialize", (DL_FUNC) &_arrow_Date64__initialize, 0}, 
+		{ "_arrow_Null__initialize", (DL_FUNC) &_arrow_Null__initialize, 0}, 
+		{ "_arrow_Decimal128Type__initialize", (DL_FUNC) &_arrow_Decimal128Type__initialize, 2}, 
+		{ "_arrow_FixedSizeBinary__initialize", (DL_FUNC) &_arrow_FixedSizeBinary__initialize, 1}, 
+		{ "_arrow_Timestamp__initialize1", (DL_FUNC) &_arrow_Timestamp__initialize1, 1}, 
+		{ "_arrow_Timestamp__initialize2", (DL_FUNC) &_arrow_Timestamp__initialize2, 2}, 
+		{ "_arrow_Time32__initialize", (DL_FUNC) &_arrow_Time32__initialize, 1}, 
+		{ "_arrow_Time64__initialize", (DL_FUNC) &_arrow_Time64__initialize, 1}, 
+		{ "_arrow_list__", (DL_FUNC) &_arrow_list__, 1}, 
+		{ "_arrow_struct_", (DL_FUNC) &_arrow_struct_, 1}, 
+		{ "_arrow_DataType__ToString", (DL_FUNC) &_arrow_DataType__ToString, 1}, 
+		{ "_arrow_DataType__name", (DL_FUNC) &_arrow_DataType__name, 1}, 
+		{ "_arrow_DataType__Equals", (DL_FUNC) &_arrow_DataType__Equals, 2}, 
+		{ "_arrow_DataType__num_children", (DL_FUNC) &_arrow_DataType__num_children, 1}, 
+		{ "_arrow_DataType__children_pointer", (DL_FUNC) &_arrow_DataType__children_pointer, 1}, 
+		{ "_arrow_DataType__id", (DL_FUNC) &_arrow_DataType__id, 1}, 
+		{ "_arrow_ListType__ToString", (DL_FUNC) &_arrow_ListType__ToString, 1}, 
+		{ "_arrow_FixedWidthType__bit_width", (DL_FUNC) &_arrow_FixedWidthType__bit_width, 1}, 
+		{ "_arrow_DateType__unit", (DL_FUNC) &_arrow_DateType__unit, 1}, 
+		{ "_arrow_TimeType__unit", (DL_FUNC) &_arrow_TimeType__unit, 1}, 
+		{ "_arrow_DecimalType__precision", (DL_FUNC) &_arrow_DecimalType__precision, 1}, 
+		{ "_arrow_DecimalType__scale", (DL_FUNC) &_arrow_DecimalType__scale, 1}, 
+		{ "_arrow_TimestampType__timezone", (DL_FUNC) &_arrow_TimestampType__timezone, 1}, 
+		{ "_arrow_TimestampType__unit", (DL_FUNC) &_arrow_TimestampType__unit, 1}, 
+		{ "_arrow_DictionaryType__initialize", (DL_FUNC) &_arrow_DictionaryType__initialize, 3}, 
+		{ "_arrow_DictionaryType__index_type", (DL_FUNC) &_arrow_DictionaryType__index_type, 1}, 
+		{ "_arrow_DictionaryType__value_type", (DL_FUNC) &_arrow_DictionaryType__value_type, 1}, 
+		{ "_arrow_DictionaryType__name", (DL_FUNC) &_arrow_DictionaryType__name, 1}, 
+		{ "_arrow_DictionaryType__ordered", (DL_FUNC) &_arrow_DictionaryType__ordered, 1}, 
+		{ "_arrow_StructType__GetFieldByName", (DL_FUNC) &_arrow_StructType__GetFieldByName, 2}, 
+		{ "_arrow_StructType__GetFieldIndex", (DL_FUNC) &_arrow_StructType__GetFieldIndex, 2}, 
+		{ "_arrow_ListType__value_field", (DL_FUNC) &_arrow_ListType__value_field, 1}, 
+		{ "_arrow_ListType__value_type", (DL_FUNC) &_arrow_ListType__value_type, 1}, 
+		{ "_arrow_dataset___expr__field_ref", (DL_FUNC) &_arrow_dataset___expr__field_ref, 1}, 
+		{ "_arrow_dataset___expr__equal", (DL_FUNC) &_arrow_dataset___expr__equal, 2}, 
+		{ "_arrow_dataset___expr__not_equal", (DL_FUNC) &_arrow_dataset___expr__not_equal, 2}, 
+		{ "_arrow_dataset___expr__greater", (DL_FUNC) &_arrow_dataset___expr__greater, 2}, 
+		{ "_arrow_dataset___expr__greater_equal", (DL_FUNC) &_arrow_dataset___expr__greater_equal, 2}, 
+		{ "_arrow_dataset___expr__less", (DL_FUNC) &_arrow_dataset___expr__less, 2}, 
+		{ "_arrow_dataset___expr__less_equal", (DL_FUNC) &_arrow_dataset___expr__less_equal, 2}, 
+		{ "_arrow_dataset___expr__in", (DL_FUNC) &_arrow_dataset___expr__in, 2}, 
+		{ "_arrow_dataset___expr__and", (DL_FUNC) &_arrow_dataset___expr__and, 2}, 
+		{ "_arrow_dataset___expr__or", (DL_FUNC) &_arrow_dataset___expr__or, 2}, 
+		{ "_arrow_dataset___expr__not", (DL_FUNC) &_arrow_dataset___expr__not, 1}, 
+		{ "_arrow_dataset___expr__is_valid", (DL_FUNC) &_arrow_dataset___expr__is_valid, 1}, 
+		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
+		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1}, 
+		{ "_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetDescription, 2}, 
+		{ "_arrow_ipc___feather___TableWriter__SetNumRows", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetNumRows, 2}, 
+		{ "_arrow_ipc___feather___TableWriter__Append", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Append, 3}, 
+		{ "_arrow_ipc___feather___TableWriter__Finalize", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Finalize, 1}, 
+		{ "_arrow_ipc___feather___TableWriter__Open", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Open, 1}, 
+		{ "_arrow_ipc___TableWriter__RecordBatch__WriteFeather", (DL_FUNC) &_arrow_ipc___TableWriter__RecordBatch__WriteFeather, 2}, 
+		{ "_arrow_ipc___feather___TableReader__GetDescription", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetDescription, 1}, 
+		{ "_arrow_ipc___feather___TableReader__HasDescription", (DL_FUNC) &_arrow_ipc___feather___TableReader__HasDescription, 1}, 
+		{ "_arrow_ipc___feather___TableReader__version", (DL_FUNC) &_arrow_ipc___feather___TableReader__version, 1}, 
+		{ "_arrow_ipc___feather___TableReader__num_rows", (DL_FUNC) &_arrow_ipc___feather___TableReader__num_rows, 1}, 
+		{ "_arrow_ipc___feather___TableReader__num_columns", (DL_FUNC) &_arrow_ipc___feather___TableReader__num_columns, 1}, 
+		{ "_arrow_ipc___feather___TableReader__GetColumnName", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumnName, 2}, 
+		{ "_arrow_ipc___feather___TableReader__GetColumn", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumn, 2}, 
+		{ "_arrow_ipc___feather___TableReader__Read", (DL_FUNC) &_arrow_ipc___feather___TableReader__Read, 2}, 
+		{ "_arrow_ipc___feather___TableReader__Open", (DL_FUNC) &_arrow_ipc___feather___TableReader__Open, 1}, 
+		{ "_arrow_ipc___feather___TableReader__column_names", (DL_FUNC) &_arrow_ipc___feather___TableReader__column_names, 1}, 
+		{ "_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3}, 
+		{ "_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1}, 
+		{ "_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1}, 
+		{ "_arrow_Field__Equals", (DL_FUNC) &_arrow_Field__Equals, 2}, 
+		{ "_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1}, 
+		{ "_arrow_Field__type", (DL_FUNC) &_arrow_Field__type, 1}, 
+		{ "_arrow_fs___FileStats__type", (DL_FUNC) &_arrow_fs___FileStats__type, 1}, 
+		{ "_arrow_fs___FileStats__set_type", (DL_FUNC) &_arrow_fs___FileStats__set_type, 2}, 
+		{ "_arrow_fs___FileStats__path", (DL_FUNC) &_arrow_fs___FileStats__path, 1}, 
+		{ "_arrow_fs___FileStats__set_path", (DL_FUNC) &_arrow_fs___FileStats__set_path, 2}, 
+		{ "_arrow_fs___FileStats__size", (DL_FUNC) &_arrow_fs___FileStats__size, 1}, 
+		{ "_arrow_fs___FileStats__set_size", (DL_FUNC) &_arrow_fs___FileStats__set_size, 2}, 
+		{ "_arrow_fs___FileStats__base_name", (DL_FUNC) &_arrow_fs___FileStats__base_name, 1}, 
+		{ "_arrow_fs___FileStats__extension", (DL_FUNC) &_arrow_fs___FileStats__extension, 1}, 
+		{ "_arrow_fs___FileStats__mtime", (DL_FUNC) &_arrow_fs___FileStats__mtime, 1}, 
+		{ "_arrow_fs___FileStats__set_mtime", (DL_FUNC) &_arrow_fs___FileStats__set_mtime, 2}, 
+		{ "_arrow_fs___FileSelector__base_dir", (DL_FUNC) &_arrow_fs___FileSelector__base_dir, 1}, 
+		{ "_arrow_fs___FileSelector__allow_non_existent", (DL_FUNC) &_arrow_fs___FileSelector__allow_non_existent, 1}, 
+		{ "_arrow_fs___FileSelector__recursive", (DL_FUNC) &_arrow_fs___FileSelector__recursive, 1}, 
+		{ "_arrow_fs___FileSelector__create", (DL_FUNC) &_arrow_fs___FileSelector__create, 3}, 
+		{ "_arrow_fs___FileSystem__GetTargetStats_Paths", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_Paths, 2}, 
+		{ "_arrow_fs___FileSystem__GetTargetStats_FileSelector", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_FileSelector, 2}, 
+		{ "_arrow_fs___FileSystem__CreateDir", (DL_FUNC) &_arrow_fs___FileSystem__CreateDir, 3}, 
+		{ "_arrow_fs___FileSystem__DeleteDir", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDir, 2}, 
+		{ "_arrow_fs___FileSystem__DeleteDirContents", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDirContents, 2}, 
+		{ "_arrow_fs___FileSystem__DeleteFile", (DL_FUNC) &_arrow_fs___FileSystem__DeleteFile, 2}, 
+		{ "_arrow_fs___FileSystem__DeleteFiles", (DL_FUNC) &_arrow_fs___FileSystem__DeleteFiles, 2}, 
+		{ "_arrow_fs___FileSystem__Move", (DL_FUNC) &_arrow_fs___FileSystem__Move, 3}, 
+		{ "_arrow_fs___FileSystem__CopyFile", (DL_FUNC) &_arrow_fs___FileSystem__CopyFile, 3}, 
+		{ "_arrow_fs___FileSystem__OpenInputStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenInputStream, 2}, 
+		{ "_arrow_fs___FileSystem__OpenInputFile", (DL_FUNC) &_arrow_fs___FileSystem__OpenInputFile, 2}, 
+		{ "_arrow_fs___FileSystem__OpenOutputStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenOutputStream, 2}, 
+		{ "_arrow_fs___FileSystem__OpenAppendStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenAppendStream, 2}, 
+		{ "_arrow_fs___LocalFileSystem__create", (DL_FUNC) &_arrow_fs___LocalFileSystem__create, 0}, 
+		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2}, 
+		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
+		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
+		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 
+		{ "_arrow_io___RandomAccessFile__GetSize", (DL_FUNC) &_arrow_io___RandomAccessFile__GetSize, 1}, 
+		{ "_arrow_io___RandomAccessFile__supports_zero_copy", (DL_FUNC) &_arrow_io___RandomAccessFile__supports_zero_copy, 1}, 
+		{ "_arrow_io___RandomAccessFile__Seek", (DL_FUNC) &_arrow_io___RandomAccessFile__Seek, 2}, 
+		{ "_arrow_io___RandomAccessFile__Tell", (DL_FUNC) &_arrow_io___RandomAccessFile__Tell, 1}, 
+		{ "_arrow_io___RandomAccessFile__Read0", (DL_FUNC) &_arrow_io___RandomAccessFile__Read0, 1}, 
+		{ "_arrow_io___RandomAccessFile__ReadAt", (DL_FUNC) &_arrow_io___RandomAccessFile__ReadAt, 3}, 
+		{ "_arrow_io___MemoryMappedFile__Create", (DL_FUNC) &_arrow_io___MemoryMappedFile__Create, 2}, 
+		{ "_arrow_io___MemoryMappedFile__Open", (DL_FUNC) &_arrow_io___MemoryMappedFile__Open, 2}, 
+		{ "_arrow_io___MemoryMappedFile__Resize", (DL_FUNC) &_arrow_io___MemoryMappedFile__Resize, 2}, 
+		{ "_arrow_io___ReadableFile__Open", (DL_FUNC) &_arrow_io___ReadableFile__Open, 1}, 
+		{ "_arrow_io___BufferReader__initialize", (DL_FUNC) &_arrow_io___BufferReader__initialize, 1}, 
+		{ "_arrow_io___Writable__write", (DL_FUNC) &_arrow_io___Writable__write, 2}, 
+		{ "_arrow_io___OutputStream__Tell", (DL_FUNC) &_arrow_io___OutputStream__Tell, 1}, 
+		{ "_arrow_io___FileOutputStream__Open", (DL_FUNC) &_arrow_io___FileOutputStream__Open, 1}, 
+		{ "_arrow_io___BufferOutputStream__Create", (DL_FUNC) &_arrow_io___BufferOutputStream__Create, 1}, 
+		{ "_arrow_io___BufferOutputStream__capacity", (DL_FUNC) &_arrow_io___BufferOutputStream__capacity, 1}, 
+		{ "_arrow_io___BufferOutputStream__Finish", (DL_FUNC) &_arrow_io___BufferOutputStream__Finish, 1}, 
+		{ "_arrow_io___BufferOutputStream__Tell", (DL_FUNC) &_arrow_io___BufferOutputStream__Tell, 1}, 
+		{ "_arrow_io___BufferOutputStream__Write", (DL_FUNC) &_arrow_io___BufferOutputStream__Write, 2}, 
+		{ "_arrow_io___MockOutputStream__initialize", (DL_FUNC) &_arrow_io___MockOutputStream__initialize, 0}, 
+		{ "_arrow_io___MockOutputStream__GetExtentBytesWritten", (DL_FUNC) &_arrow_io___MockOutputStream__GetExtentBytesWritten, 1}, 
+		{ "_arrow_io___FixedSizeBufferWriter__initialize", (DL_FUNC) &_arrow_io___FixedSizeBufferWriter__initialize, 1}, 
+		{ "_arrow_json___ReadOptions__initialize", (DL_FUNC) &_arrow_json___ReadOptions__initialize, 1}, 
+		{ "_arrow_json___ParseOptions__initialize", (DL_FUNC) &_arrow_json___ParseOptions__initialize, 1}, 
+		{ "_arrow_json___TableReader__Make", (DL_FUNC) &_arrow_json___TableReader__Make, 3}, 
+		{ "_arrow_json___TableReader__Read", (DL_FUNC) &_arrow_json___TableReader__Read, 1}, 
+		{ "_arrow_MemoryPool__default", (DL_FUNC) &_arrow_MemoryPool__default, 0}, 
+		{ "_arrow_MemoryPool__bytes_allocated", (DL_FUNC) &_arrow_MemoryPool__bytes_allocated, 1}, 
+		{ "_arrow_MemoryPool__max_memory", (DL_FUNC) &_arrow_MemoryPool__max_memory, 1}, 
+		{ "_arrow_ipc___Message__body_length", (DL_FUNC) &_arrow_ipc___Message__body_length, 1}, 
+		{ "_arrow_ipc___Message__metadata", (DL_FUNC) &_arrow_ipc___Message__metadata, 1}, 
+		{ "_arrow_ipc___Message__body", (DL_FUNC) &_arrow_ipc___Message__body, 1}, 
+		{ "_arrow_ipc___Message__Verify", (DL_FUNC) &_arrow_ipc___Message__Verify, 1}, 
+		{ "_arrow_ipc___Message__type", (DL_FUNC) &_arrow_ipc___Message__type, 1}, 
+		{ "_arrow_ipc___Message__Equals", (DL_FUNC) &_arrow_ipc___Message__Equals, 2}, 
+		{ "_arrow_ipc___ReadRecordBatch__Message__Schema", (DL_FUNC) &_arrow_ipc___ReadRecordBatch__Message__Schema, 2}, 
+		{ "_arrow_ipc___ReadSchema_InputStream", (DL_FUNC) &_arrow_ipc___ReadSchema_InputStream, 1}, 
+		{ "_arrow_ipc___ReadSchema_Message", (DL_FUNC) &_arrow_ipc___ReadSchema_Message, 1}, 
+		{ "_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1}, 
+		{ "_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1}, 
+		{ "_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1}, 
+		{ "_arrow_parquet___arrow___ArrowReaderProperties__Make", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__Make, 1}, 
+		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads, 2}, 
+		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads, 2}, 
+		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary, 2}, 
+		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary, 3}, 
+		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 2}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2}, 
+		{ "_arrow_parquet___default_arrow_writer_properties", (DL_FUNC) &_arrow_parquet___default_arrow_writer_properties, 0}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__create", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__create, 0}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__store_schema", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__store_schema, 1}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps, 1}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps, 1}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps, 2}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps, 1}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps, 1}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__build", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__build, 1}, 
+		{ "_arrow_parquet___default_writer_properties", (DL_FUNC) &_arrow_parquet___default_writer_properties, 0}, 
+		{ "_arrow_parquet___WriterProperties___Builder__create", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__create, 0}, 
+		{ "_arrow_parquet___WriterProperties___Builder__version", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__version, 2}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_compression", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_compression, 2}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_compressions", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_compressions, 3}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_compression_level", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_compression_level, 2}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels, 3}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics, 2}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary, 2}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary, 3}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics, 3}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__data_page_size", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__data_page_size, 2}, 
+		{ "_arrow_parquet___WriterProperties___Builder__build", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__build, 1}, 
+		{ "_arrow_parquet___arrow___ParquetFileWriter__Open", (DL_FUNC) &_arrow_parquet___arrow___ParquetFileWriter__Open, 4}, 
+		{ "_arrow_parquet___arrow___FileWriter__WriteTable", (DL_FUNC) &_arrow_parquet___arrow___FileWriter__WriteTable, 3}, 
+		{ "_arrow_parquet___arrow___FileWriter__Close", (DL_FUNC) &_arrow_parquet___arrow___FileWriter__Close, 1}, 
+		{ "_arrow_parquet___arrow___WriteTable", (DL_FUNC) &_arrow_parquet___arrow___WriteTable, 4}, 
+		{ "_arrow_parquet___arrow___FileReader__GetSchema", (DL_FUNC) &_arrow_parquet___arrow___FileReader__GetSchema, 1}, 
+		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
+		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 
+		{ "_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1}, 
+		{ "_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1}, 
+		{ "_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2}, 
+		{ "_arrow_RecordBatch__GetColumnByName", (DL_FUNC) &_arrow_RecordBatch__GetColumnByName, 2}, 
+		{ "_arrow_RecordBatch__select", (DL_FUNC) &_arrow_RecordBatch__select, 2}, 
+		{ "_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1}, 
+		{ "_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 2}, 
+		{ "_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2}, 
+		{ "_arrow_RecordBatch__column_name", (DL_FUNC) &_arrow_RecordBatch__column_name, 2}, 
+		{ "_arrow_RecordBatch__names", (DL_FUNC) &_arrow_RecordBatch__names, 1}, 
+		{ "_arrow_RecordBatch__Slice1", (DL_FUNC) &_arrow_RecordBatch__Slice1, 2}, 
+		{ "_arrow_RecordBatch__Slice2", (DL_FUNC) &_arrow_RecordBatch__Slice2, 3}, 
+		{ "_arrow_ipc___SerializeRecordBatch__Raw", (DL_FUNC) &_arrow_ipc___SerializeRecordBatch__Raw, 1}, 
+		{ "_arrow_ipc___ReadRecordBatch__InputStream__Schema", (DL_FUNC) &_arrow_ipc___ReadRecordBatch__InputStream__Schema, 2}, 
+		{ "_arrow_RecordBatch__from_arrays", (DL_FUNC) &_arrow_RecordBatch__from_arrays, 2}, 
+		{ "_arrow_RecordBatchReader__schema", (DL_FUNC) &_arrow_RecordBatchReader__schema, 1}, 
+		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1}, 
+		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1}, 
+		{ "_arrow_ipc___RecordBatchStreamReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__batches, 1}, 
+		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__schema, 1}, 
+		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1}, 
+		{ "_arrow_ipc___RecordBatchFileReader__ReadRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__ReadRecordBatch, 2}, 
+		{ "_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__Open, 1}, 
+		{ "_arrow_Table__from_RecordBatchFileReader", (DL_FUNC) &_arrow_Table__from_RecordBatchFileReader, 1}, 
+		{ "_arrow_Table__from_RecordBatchStreamReader", (DL_FUNC) &_arrow_Table__from_RecordBatchStreamReader, 1}, 
+		{ "_arrow_ipc___RecordBatchFileReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__batches, 1}, 
+		{ "_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteRecordBatch, 2}, 
+		{ "_arrow_ipc___RecordBatchWriter__WriteTable", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteTable, 2}, 
+		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 
+		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 3}, 
+		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 3}, 
+		{ "_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1}, 
+		{ "_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1}, 
+		{ "_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1}, 
+		{ "_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2}, 
+		{ "_arrow_Schema__names", (DL_FUNC) &_arrow_Schema__names, 1}, 
+		{ "_arrow_Schema__serialize", (DL_FUNC) &_arrow_Schema__serialize, 1}, 
+		{ "_arrow_Schema__Equals", (DL_FUNC) &_arrow_Schema__Equals, 3}, 
+		{ "_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1}, 
+		{ "_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1}, 
+		{ "_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1}, 
+		{ "_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1}, 
+		{ "_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2}, 
+		{ "_arrow_Table__field", (DL_FUNC) &_arrow_Table__field, 2}, 
+		{ "_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1}, 
+		{ "_arrow_Table__ColumnNames", (DL_FUNC) &_arrow_Table__ColumnNames, 1}, 
+		{ "_arrow_Table__Slice1", (DL_FUNC) &_arrow_Table__Slice1, 2}, 
+		{ "_arrow_Table__Slice2", (DL_FUNC) &_arrow_Table__Slice2, 3}, 
+		{ "_arrow_Table__Equals", (DL_FUNC) &_arrow_Table__Equals, 2}, 
+		{ "_arrow_Table__GetColumnByName", (DL_FUNC) &_arrow_Table__GetColumnByName, 2}, 
+		{ "_arrow_Table__select", (DL_FUNC) &_arrow_Table__select, 2}, 
+		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
+		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 
+		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1}, 
 		{NULL, NULL, 0}
 };
 

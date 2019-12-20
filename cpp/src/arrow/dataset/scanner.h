@@ -51,19 +51,19 @@ class ARROW_DS_EXPORT ScanOptions {
  public:
   virtual ~ScanOptions() = default;
 
-  static ScanOptionsPtr Make(std::shared_ptr<Schema> schema) {
-    return ScanOptionsPtr(new ScanOptions(std::move(schema)));
+  static std::shared_ptr<ScanOptions> Make(std::shared_ptr<Schema> schema) {
+    return std::shared_ptr<ScanOptions>(new ScanOptions(std::move(schema)));
   }
 
   // Construct a copy of these options with a different schema.
-  ScanOptionsPtr ReplaceSchema(std::shared_ptr<Schema> schema) const;
+  std::shared_ptr<ScanOptions> ReplaceSchema(std::shared_ptr<Schema> schema) const;
 
   // Indicate if the Scanner should make use of the ThreadPool found in the
   // ScanContext.
   bool use_threads = false;
 
   // Filter
-  ExpressionPtr filter;
+  std::shared_ptr<Expression> filter;
 
   // Evaluator for Filter
   std::shared_ptr<ExpressionEvaluator> evaluator;
@@ -106,22 +106,23 @@ class ARROW_DS_EXPORT ScanTask {
 
   virtual ~ScanTask() = default;
 
-  const ScanOptionsPtr& options() const { return options_; }
-  const ScanContextPtr& context() const { return context_; }
+  const std::shared_ptr<ScanOptions>& options() const { return options_; }
+  const std::shared_ptr<ScanContext>& context() const { return context_; }
 
  protected:
-  ScanTask(ScanOptionsPtr options, ScanContextPtr context)
+  ScanTask(std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context)
       : options_(std::move(options)), context_(std::move(context)) {}
 
-  ScanOptionsPtr options_;
-  ScanContextPtr context_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
 };
 
 /// \brief A trivial ScanTask that yields the RecordBatch of an array.
 class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
  public:
   SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
-                 ScanOptionsPtr options, ScanContextPtr context)
+                 std::shared_ptr<ScanOptions> options,
+                 std::shared_ptr<ScanContext> context)
       : ScanTask(std::move(options), std::move(context)),
         record_batches_(std::move(record_batches)) {}
 
@@ -132,8 +133,8 @@ class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
 };
 
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
-    std::vector<std::shared_ptr<RecordBatch>> batches, ScanOptionsPtr options,
-    ScanContextPtr);
+    std::vector<std::shared_ptr<RecordBatch>> batches,
+    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext>);
 
 /// \brief Scanner is a materialized scan operation with context and options
 /// bound. A scanner is the class that glues ScanTask, DataFragment,
@@ -146,7 +147,8 @@ Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
 ///          yield scan_task
 class ARROW_DS_EXPORT Scanner {
  public:
-  Scanner(DataSourceVector sources, ScanOptionsPtr options, ScanContextPtr context)
+  Scanner(DataSourceVector sources, std::shared_ptr<ScanOptions> options,
+          std::shared_ptr<ScanContext> context)
       : sources_(std::move(sources)),
         options_(std::move(options)),
         context_(std::move(context)) {}
@@ -169,8 +171,8 @@ class ARROW_DS_EXPORT Scanner {
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
 
   DataSourceVector sources_;
-  ScanOptionsPtr options_;
-  ScanContextPtr context_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
 };
 
 /// \brief ScannerBuilder is a factory class to construct a Scanner. It is used
@@ -178,7 +180,7 @@ class ARROW_DS_EXPORT Scanner {
 /// columns to materialize.
 class ARROW_DS_EXPORT ScannerBuilder {
  public:
-  ScannerBuilder(DatasetPtr dataset, ScanContextPtr context);
+  ScannerBuilder(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanContext> context);
 
   /// \brief Set the subset of columns to materialize.
   ///
@@ -203,7 +205,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any referenced columns does not exist in the dataset's
   ///         Schema.
-  Status Filter(ExpressionPtr filter);
+  Status Filter(std::shared_ptr<Expression> filter);
   Status Filter(const Expression& filter);
 
   /// \brief Indicate if the Scanner should make use of the available
@@ -211,14 +213,14 @@ class ARROW_DS_EXPORT ScannerBuilder {
   Status UseThreads(bool use_threads = true);
 
   /// \brief Return the constructed now-immutable Scanner object
-  Result<ScannerPtr> Finish() const;
+  Result<std::shared_ptr<Scanner>> Finish() const;
 
   std::shared_ptr<Schema> schema() const { return dataset_->schema(); }
 
  private:
-  DatasetPtr dataset_;
-  ScanOptionsPtr options_;
-  ScanContextPtr context_;
+  std::shared_ptr<Dataset> dataset_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
   bool has_projection_ = false;
   std::vector<std::string> project_columns_;
 };

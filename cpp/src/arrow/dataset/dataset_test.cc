@@ -298,7 +298,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // A DataSource is composed of DataFragments. Each DataFragment can yield
   // multiple RecordBatches. DataSources can be created manually or "discovered"
   // via the DataSourceDiscovery interface.
-  DataSourceDiscoveryPtr discovery;
+  std::shared_ptr<DataSourceDiscovery> discovery;
 
   // The user must specify which FileFormat is used to create FileFragments.
   // This option is specific to FileSystemDataSource (and the builder).
