@@ -529,7 +529,7 @@ def read_tensor(source):
 
     c_stream = nf.get_input_stream().get()
     with nogil:
-        check_status(ReadTensor(c_stream, &sp_tensor))
+        sp_tensor = GetResultValue(ReadTensor(c_stream))
     return pyarrow_wrap_tensor(sp_tensor)
 
 
