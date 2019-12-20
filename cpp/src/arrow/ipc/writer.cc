@@ -625,7 +625,7 @@ namespace {
 Status WriteTensorHeader(const Tensor& tensor, io::OutputStream* dst,
                          int32_t* metadata_length) {
   std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(internal::WriteTensorMessage(tensor, 0, &metadata));
+  ARROW_ASSIGN_OR_RAISE(metadata, internal::WriteTensorMessage(tensor, 0));
   IpcOptions options;
   options.alignment = kTensorAlignment;
   return WriteMessage(*metadata, options, dst, metadata_length);
@@ -720,7 +720,7 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
   }
 
   std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(internal::WriteTensorMessage(*tensor_to_write, 0, &metadata));
+  ARROW_ASSIGN_OR_RAISE(metadata, internal::WriteTensorMessage(*tensor_to_write, 0));
   out->reset(new Message(metadata, tensor_to_write->data()));
   return Status::OK();
 }
@@ -761,8 +761,8 @@ class SparseTensorSerializer {
   }
 
   Status SerializeMetadata(const SparseTensor& sparse_tensor) {
-    return WriteSparseTensorMessage(sparse_tensor, out_->body_length, buffer_meta_,
-                                    &out_->metadata);
+    return WriteSparseTensorMessage(sparse_tensor, out_->body_length, buffer_meta_)
+        .Value(&out_->metadata);
   }
 
   Status Assemble(const SparseTensor& sparse_tensor) {

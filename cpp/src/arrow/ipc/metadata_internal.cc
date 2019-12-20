@@ -848,13 +848,14 @@ Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema, DictionaryMemo* dictio
   return Status::OK();
 }
 
-Status WriteFBMessage(FBB& fbb, flatbuf::MessageHeader header_type,
-                      flatbuffers::Offset<void> header, int64_t body_length,
-                      std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> WriteFBMessage(FBB& fbb,
+                                               flatbuf::MessageHeader header_type,
+                                               flatbuffers::Offset<void> header,
+                                               int64_t body_length) {
   auto message = flatbuf::CreateMessage(fbb, kCurrentMetadataVersion, header_type, header,
                                         body_length);
   fbb.Finish(message);
-  return WriteFlatbufferBuilder(fbb, out);
+  return WriteFlatbufferBuilder(fbb);
 }
 
 using FieldNodeVector =
@@ -1055,7 +1056,8 @@ Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
   FBB fbb;
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
-  return WriteFBMessage(fbb, flatbuf::MessageHeader_Schema, fb_schema.Union(), 0, out);
+  return WriteFBMessage(fbb, flatbuf::MessageHeader_Schema, fb_schema.Union(), 0)
+      .Value(out);
 }
 
 Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
@@ -1066,11 +1068,12 @@ Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
   return WriteFBMessage(fbb, flatbuf::MessageHeader_RecordBatch, record_batch.Union(),
-                        body_length, out);
+                        body_length)
+      .Value(out);
 }
 
-Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
-                          std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
+                                                   int64_t buffer_start_offset) {
   using TensorDimOffset = flatbuffers::Offset<flatbuf::TensorDim>;
   using TensorOffset = flatbuffers::Offset<flatbuf::Tensor>;
 
@@ -1101,18 +1104,18 @@ Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
       flatbuf::CreateTensor(fbb, fb_type_type, fb_type, fb_shape, fb_strides, &buffer);
 
   return WriteFBMessage(fbb, flatbuf::MessageHeader_Tensor, fb_tensor.Union(),
-                        body_length, out);
+                        body_length);
 }
 
-Status WriteSparseTensorMessage(const SparseTensor& sparse_tensor, int64_t body_length,
-                                const std::vector<BufferMetadata>& buffers,
-                                std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
+    const SparseTensor& sparse_tensor, int64_t body_length,
+    const std::vector<BufferMetadata>& buffers) {
   FBB fbb;
   SparseTensorOffset fb_sparse_tensor;
   RETURN_NOT_OK(
       MakeSparseTensor(fbb, sparse_tensor, body_length, buffers, &fb_sparse_tensor));
   return WriteFBMessage(fbb, flatbuf::MessageHeader_SparseTensor,
-                        fb_sparse_tensor.Union(), body_length, out);
+                        fb_sparse_tensor.Union(), body_length);
 }
 
 Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
@@ -1124,7 +1127,8 @@ Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
   auto dictionary_batch = flatbuf::CreateDictionaryBatch(fbb, id, record_batch).Union();
   return WriteFBMessage(fbb, flatbuf::MessageHeader_DictionaryBatch, dictionary_batch,
-                        body_length, out);
+                        body_length)
+      .Value(out);
 }
 
 static flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Block*>>

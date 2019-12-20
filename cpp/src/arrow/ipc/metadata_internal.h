@@ -147,12 +147,12 @@ Status WriteRecordBatchMessage(const int64_t length, const int64_t body_length,
                                const std::vector<BufferMetadata>& buffers,
                                std::shared_ptr<Buffer>* out);
 
-Status WriteTensorMessage(const Tensor& tensor, const int64_t buffer_start_offset,
-                          std::shared_ptr<Buffer>* out);
+Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
+                                                   const int64_t buffer_start_offset);
 
-Status WriteSparseTensorMessage(const SparseTensor& sparse_tensor, int64_t body_length,
-                                const std::vector<BufferMetadata>& buffers,
-                                std::shared_ptr<Buffer>* out);
+Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
+    const SparseTensor& sparse_tensor, int64_t body_length,
+    const std::vector<BufferMetadata>& buffers);
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
                        const std::vector<FileBlock>& record_batches,
@@ -164,8 +164,8 @@ Status WriteDictionaryMessage(const int64_t id, const int64_t length,
                               const std::vector<BufferMetadata>& buffers,
                               std::shared_ptr<Buffer>* out);
 
-static inline Status WriteFlatbufferBuilder(flatbuffers::FlatBufferBuilder& fbb,
-                                            std::shared_ptr<Buffer>* out) {
+static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
+    flatbuffers::FlatBufferBuilder& fbb) {
   int32_t size = fbb.GetSize();
 
   std::shared_ptr<Buffer> result;
@@ -173,8 +173,7 @@ static inline Status WriteFlatbufferBuilder(flatbuffers::FlatBufferBuilder& fbb,
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);
-  *out = result;
-  return Status::OK();
+  return result;
 }
 
 }  // namespace internal
