@@ -121,6 +121,18 @@ module Arrow
         end
       end
 
+      def sub_types
+        types = {}
+        gtype.children.each do |child|
+          sub_type = child.to_class
+          types[sub_type] = true
+          sub_type.sub_types.each do |sub_sub_type|
+            types[sub_sub_type] = true
+          end
+        end
+        types.keys
+      end
+
       private
       def resolve_class(data_type)
         components = data_type.to_s.split("_").collect(&:capitalize)
@@ -137,11 +149,24 @@ module Arrow
             available_types << components.collect(&:downcase).join("_").to_sym
           end
           message =
-            "unknown type: #{data_type.inspect}: " +
+            "unknown type: <#{data_type.inspect}>: " +
             "available types: #{available_types.inspect}"
           raise ArgumentError, message
         end
-        Arrow.const_get(data_type_class_name)
+        data_type_class = Arrow.const_get(data_type_class_name)
+        if data_type_class.gtype.abstract?
+          not_abstract_types = data_type_class.sub_types.find_all do |sub_type|
+            not sub_type.gtype.abstract?
+          end
+          not_abstract_types = not_abstract_types.sort_by do |type|
+            type.name
+          end
+          message =
+            "abstract type: <#{data_type.inspect}>: " +
+            "use one of not abstract type: #{not_abstract_types.inspect}"
+          raise ArgumentError, message
+        end
+        data_type_class
       end
     end
 
