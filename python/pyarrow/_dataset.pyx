@@ -118,6 +118,27 @@ cdef class PartitionScheme:
         return pyarrow_wrap_schema(self.scheme.schema())
 
 
+cdef class PartitionSchemeDiscovery:
+
+    cdef:
+        shared_ptr[CPartitionSchemeDiscovery] wrapped
+        CPartitionSchemeDiscovery* discovery
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CPartitionSchemeDiscovery]& sp):
+        cdef PartitionSchemeDiscovery self
+        self = PartitionSchemeDiscovery()
+        self.wrapped = sp
+        self.discovery = sp.get()
+        return self
+
+    cdef inline shared_ptr[CPartitionSchemeDiscovery] unwrap(self):
+        return self.wrapped
+
+
 cdef class DefaultPartitionScheme(PartitionScheme):
 
     cdef:
@@ -187,6 +208,37 @@ cdef class FileSystemDiscoveryOptions:
         return self.options
 
     @property
+    def partition_scheme(self):
+        """PartitionScheme to apply to discovered files.
+
+        NOTE: setting this property will overwrite partition_scheme_discovery.
+        """
+        cdef shared_ptr[CPartitionScheme] s = self.options.partition_scheme.scheme()
+        if s.get() == nullptr:
+            return None
+        return PartitionScheme.wrap(s)
+
+    @partition_scheme.setter
+    def partition_scheme(self, PartitionScheme value):
+        self.options.partition_scheme = (<PartitionScheme> value).unwrap()
+
+    @property
+    def partition_scheme_discovery(self):
+        """PartitionSchemeDiscovery to apply to discovered files and
+        discover a PartitionScheme.
+
+        NOTE: setting this property will overwrite partition_scheme.
+        """
+        cdef shared_ptr[CPartitionSchemeDiscovery] d = self.options.partition_scheme.discovery()
+        if d.get() == nullptr:
+            return None
+        return PartitionSchemeDiscovery.wrap(d)
+
+    @partition_scheme_discovery.setter
+    def partition_scheme_discovery(self, PartitionSchemeDiscovery value):
+        self.options.partition_scheme = (<PartitionSchemeDiscovery> value).unwrap()
+
+    @property
     def partition_base_dir(self):
         return frombytes(self.options.partition_base_dir)
 
@@ -235,19 +287,6 @@ cdef class DataSourceDiscovery:
         return self.wrapped
 
     @property
-    def partition_scheme(self):
-        cdef shared_ptr[CPartitionScheme] scheme
-        scheme = self.discovery.partition_scheme()
-        if scheme.get() == nullptr:
-            return None
-        else:
-            return PartitionScheme.wrap(scheme)
-
-    @partition_scheme.setter
-    def partition_scheme(self, PartitionScheme scheme not None):
-        check_status(self.discovery.SetPartitionScheme(scheme.unwrap()))
-
-    @property
     def root_partition(self):
         cdef shared_ptr[CExpression] expr = self.discovery.root_partition()
         if expr.get() == nullptr:
@@ -275,10 +314,17 @@ cdef class DataSourceDiscovery:
             result = self.discovery.Inspect()
         return pyarrow_wrap_schema(GetResultValue(result))
 
-    def finish(self):
-        cdef CResult[shared_ptr[CDataSource]] result
-        with nogil:
-            result = self.discovery.Finish()
+    def finish(self, Schema schema = None):
+        cdef:
+            shared_ptr[CSchema] sp_schema
+            CResult[shared_ptr[CDataSource]] result
+        if schema is not None:
+            sp_schema = pyarrow_unwrap_schema(schema)
+            with nogil:
+                result = self.discovery.Finish(sp_schema)
+        else:
+            with nogil:
+                result = self.discovery.Finish()
         return DataSource.wrap(GetResultValue(result))
 
 
@@ -291,20 +337,41 @@ cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
                  FileFormat format not None,
                  FileSystemDiscoveryOptions options=None):
         cdef:
-            FileStats file_stats
-            vector[CFileStats] stats
+            vector[c_string] paths
+            CFileSelector selector
             CResult[shared_ptr[CDataSourceDiscovery]] result
+            shared_ptr[CFileSystem] c_filesystem
+            shared_ptr[CFileFormat] c_format
+            CFileSystemDiscoveryOptions c_options
+
+        c_filesystem = filesystem.unwrap()
+
+        c_format = format.unwrap()
 
         options = options or FileSystemDiscoveryOptions()
-        for file_stats in filesystem.get_target_stats(paths_or_selector):
-            stats.push_back(file_stats.unwrap())
+        c_options = options.unwrap()
 
-        result = CFileSystemDataSourceDiscovery.MakeFromFileStats(
-            filesystem.unwrap(),
-            stats,
-            format.unwrap(),
-            options.unwrap()
-        )
+        if isinstance(paths_or_selector, FileSelector):
+            with nogil:
+                selector = (<FileSelector>paths_or_selector).selector
+                result = CFileSystemDataSourceDiscovery.MakeFromSelector(
+                    c_filesystem,
+                    selector,
+                    c_format,
+                    c_options
+                )
+        elif isinstance(paths_or_selector, (list, tuple)):
+            paths = [tobytes(s) for s in paths_or_selector]
+            with nogil:
+                result = CFileSystemDataSourceDiscovery.MakeFromPaths(
+                    c_filesystem,
+                    paths,
+                    c_format,
+                    c_options
+                )
+        else:
+            raise TypeError('Must pass either paths or a FileSelector')
+
         self.init(GetResultValue(result))
 
     cdef init(self, shared_ptr[CDataSourceDiscovery]& sp):

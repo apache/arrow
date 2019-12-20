@@ -34,18 +34,18 @@
 #' @seealso [PartitionScheme] for defining partitioning
 #' @include arrow-package.R
 open_dataset <- function (path, schema = NULL, partition = NULL, ...) {
-  dsd <- DataSourceDiscovery$create(path, ...)
   if (!is.null(partition)) {
     if (inherits(partition, "Schema")) {
+      # TODO(bkietz): allow specifying a PartitionSchemeDiscovery
       partition <- SchemaPartitionScheme$create(partition)
     }
     assert_is(partition, "PartitionScheme")
-    dsd$SetPartitionScheme(partition)
   }
+  dsd <- DataSourceDiscovery$create(path, partition_scheme = partition, ...)
   if (is.null(schema)) {
     schema <- dsd$Inspect()
   }
-  Dataset$create(list(dsd$Finish()), schema)
+  Dataset$create(list(dsd$Finish(schema)), schema)
 }
 
 #' Multi-file datasets
@@ -122,8 +122,7 @@ names.Dataset <- function(x) names(x$schema)
 #' `DataSourceDiscovery` and its subclasses have the following methods:
 #'
 #' - `$Inspect()`: Walks the files in the directory and returns a common [Schema]
-#' - `$SetPartitionScheme(part)`: Takes a [PartitionScheme]
-#' - `$Finish()`: Returns a `DataSource`
+#' - `$Finish(schema)`: Returns a `DataSource`
 #' @rdname DataSource
 #' @name DataSource
 #' @seealso [Dataset] for what do do with a `DataSource`
@@ -136,11 +135,12 @@ DataSource <- R6Class("DataSource", inherit = Object)
 #' @export
 DataSourceDiscovery <- R6Class("DataSourceDiscovery", inherit = Object,
   public = list(
-    Finish = function() shared_ptr(DataSource, dataset___DSDiscovery__Finish(self)),
-    SetPartitionScheme = function(part) {
-      assert_is(part, "PartitionScheme")
-      dataset___DSDiscovery__SetPartitionScheme(self, part)
-      self
+    Finish = function(schema = NULL) {
+      if (is.null(schema)) {
+        shared_ptr(DataSource, dataset___DSDiscovery__Finish1(self))
+      } else {
+        shared_ptr(DataSource, dataset___DSDiscovery__Finish2(self, schema))
+      }
     },
     Inspect = function() shared_ptr(Schema, dataset___DSDiscovery__Inspect(self))
   )
@@ -150,6 +150,7 @@ DataSourceDiscovery$create <- function(path,
                                        format = c("parquet"),
                                        allow_non_existent = FALSE,
                                        recursive = TRUE,
+                                       partition_scheme = NULL,
                                        ...) {
   if (!inherits(filesystem, "FileSystem")) {
     filesystem <- match.arg(filesystem)
@@ -168,7 +169,7 @@ DataSourceDiscovery$create <- function(path,
     recursive = recursive
   )
   # This may also require different initializers
-  FileSystemDataSourceDiscovery$create(filesystem, selector, format)
+  FileSystemDataSourceDiscovery$create(filesystem, selector, format, partition_scheme)
 }
 
 #' @usage NULL
@@ -180,14 +181,23 @@ FileSystemDataSourceDiscovery <- R6Class("FileSystemDataSourceDiscovery",
 )
 FileSystemDataSourceDiscovery$create <- function(filesystem,
                                                  selector,
-                                                 format = "parquet") {
+                                                 format = "parquet",
+                                                 partition_scheme = NULL) {
   assert_is(filesystem, "FileSystem")
   assert_is(selector, "FileSelector")
   format <- match.arg(format) # Only parquet for now
-  shared_ptr(
-    FileSystemDataSourceDiscovery,
-    dataset___FSDSDiscovery__Make(filesystem, selector)
-  )
+  if (is.null(partition_scheme)) {
+    shared_ptr(
+      FileSystemDataSourceDiscovery,
+      dataset___FSDSDiscovery__Make1(filesystem, selector)
+    )
+  } else {
+    assert_is(partition_scheme, "PartitionScheme")
+    shared_ptr(
+      FileSystemDataSourceDiscovery,
+      dataset___FSDSDiscovery__Make2(filesystem, selector, partition_scheme)
+    )
+  }
 }
 
 #' Scan the contents of a dataset
@@ -253,7 +263,7 @@ names.ScannerBuilder <- function(x) names(x$schema)
 #' Define a partition scheme for a DataSource
 #'
 #' @description
-#' Pass a `PartitionScheme` to a [DataSourceDiscovery]'s `$SetPartitionScheme()`
+#' Pass a `PartitionScheme` to a [FileSystemDataSourceDiscovery]'s `$create()`
 #' method to indicate how the file's paths should be interpreted to define
 #' partitioning.
 #'

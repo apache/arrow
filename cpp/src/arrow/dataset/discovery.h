@@ -25,11 +25,13 @@
 #include <string>
 #include <vector>
 
+#include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_forest.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/variant.h"
 
 namespace arrow {
 namespace dataset {
@@ -59,23 +61,14 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
   /// \brief Get unified schema for the resulting DataSource.
   virtual Result<std::shared_ptr<Schema>> Inspect();
 
-  /// \brief Create a DataSource with a given partition.
-  virtual Result<std::shared_ptr<DataSource>> Finish() = 0;
+  /// \brief Create a DataSource with the given schema.
+  virtual Result<std::shared_ptr<DataSource>> Finish(
+      const std::shared_ptr<Schema>& schema) = 0;
 
-  std::shared_ptr<Schema> schema() const { return schema_; }
-  Status SetSchema(std::shared_ptr<Schema> schema) {
-    schema_ = schema;
-    return Status::OK();
-  }
+  /// \brief Create a DataSource using an inspected schema.
+  virtual Result<std::shared_ptr<DataSource>> Finish();
 
-  const std::shared_ptr<PartitionScheme>& partition_scheme() const {
-    return partition_scheme_;
-  }
-  Status SetPartitionScheme(std::shared_ptr<PartitionScheme> partition_scheme) {
-    partition_scheme_ = partition_scheme;
-    return Status::OK();
-  }
-
+  /// \brief Optional root partition for the resulting DataSource.
   const std::shared_ptr<Expression>& root_partition() const { return root_partition_; }
   Status SetRootPartition(std::shared_ptr<Expression> partition) {
     root_partition_ = partition;
@@ -87,12 +80,20 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
  protected:
   DataSourceDiscovery();
 
-  std::shared_ptr<Schema> schema_;
-  std::shared_ptr<PartitionScheme> partition_scheme_;
   std::shared_ptr<Expression> root_partition_;
 };
 
 struct FileSystemDiscoveryOptions {
+  // Either an explicit PartitionScheme or a PartitionSchemeDiscovery to discover one.
+  //
+  // If a discovery is provided, it will be used to infer a schema for partition fields
+  // based on file and directory paths then construct a PartitionScheme. The default
+  // is a PartitionScheme which will yield no partition information.
+  //
+  // The (explicit or discovered) partition scheme will be applied to discovered files
+  // and the resulting partition information embedded in the DataSource.
+  PartitionSchemeOrDiscovery partition_scheme{PartitionScheme::Default()};
+
   // For the purposes of applying the partition scheme, paths will be stripped
   // of the partition_base_dir. Files not matching the partition_base_dir
   // prefix will be skipped for partition discovery. The ignored files will still
@@ -113,7 +114,7 @@ struct FileSystemDiscoveryOptions {
   // Invalid files (via selector or explicitly) will be excluded by checking
   // with the FileFormat::IsSupported method.  This will incur IO for each files
   // in a serial and single threaded fashion. Disabling this feature will skip the
-  // IO, but unsupported files may will be present in the DataSource
+  // IO, but unsupported files may be present in the DataSource
   // (resulting in an error at scan time).
   bool exclude_invalid_files = true;
 
@@ -166,7 +167,8 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
 
   Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override;
 
-  Result<std::shared_ptr<DataSource>> Finish() override;
+  Result<std::shared_ptr<DataSource>> Finish(
+      const std::shared_ptr<Schema>& schema) override;
 
  protected:
   FileSystemDataSourceDiscovery(std::shared_ptr<fs::FileSystem> filesystem,
@@ -177,6 +179,8 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
                                        const std::shared_ptr<FileFormat>& format,
                                        const FileSystemDiscoveryOptions& options,
                                        fs::PathForest forest);
+
+  Result<std::shared_ptr<Schema>> PartitionSchema();
 
   std::shared_ptr<fs::FileSystem> fs_;
   fs::PathForest forest_;

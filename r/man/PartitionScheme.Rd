@@ -6,7 +6,7 @@
 \alias{HivePartitionScheme}
 \title{Define a partition scheme for a DataSource}
 \description{
-Pass a \code{PartitionScheme} to a \link{DataSourceDiscovery}'s \verb{$SetPartitionScheme()}
+Pass a \code{PartitionScheme} to \link{DataSourceDiscovery}'s \verb{$create()}
 method to indicate how the file's paths should be interpreted to define
 partitioning.
 

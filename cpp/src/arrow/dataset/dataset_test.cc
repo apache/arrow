@@ -319,33 +319,36 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   FileSystemDiscoveryOptions options;
   options.ignore_prefixes = {"."};
 
-  ASSERT_OK_AND_ASSIGN(discovery,
-                       FileSystemDataSourceDiscovery::Make(fs_, s, format, options));
-
   // Partitions expressions can be discovered for DataSource and DataFragments.
   // This metadata is then used in conjuction with the query filter to apply
   // the pushdown predicate optimization.
-  auto partition_schema = SchemaFromColumnNames(schema_, {"year", "month", "country"});
+  //
   // The SchemaPartitionScheme is a simple scheme where the path is split with
-  // the directory separator character and the components are typed and named
-  // with the equivalent index in the schema, e.g.
-  // (with the previous defined schema):
+  // the directory separator character and the components are parsed as values
+  // of the corresponding fields in its schema.
+  //
+  // Since a PartitionSchemeDiscovery is specified instead of an explicit
+  // PartitionScheme, the types of partition fields will be inferred.
   //
   // - "/2019" -> {"year": 2019}
   // - "/2019/01 -> {"year": 2019, "month": 1}
   // - "/2019/01/CA -> {"year": 2019, "month": 1, "country": "CA"}
   // - "/2019/01/CA/a_file.json -> {"year": 2019, "month": 1, "country": "CA"}
-  auto partition_scheme = std::make_shared<SchemaPartitionScheme>(partition_schema);
-  ASSERT_OK(discovery->SetPartitionScheme(partition_scheme));
+  options.partition_scheme =
+      SchemaPartitionScheme::MakeDiscovery({"year", "month", "country"});
+
+  ASSERT_OK_AND_ASSIGN(discovery,
+                       FileSystemDataSourceDiscovery::Make(fs_, s, format, options));
 
   // DataFragments might have compatible but slightly different schemas, e.g.
   // schema evolved by adding/renaming columns. In this case, the schema is
   // passed to the dataset constructor.
+  // The inspected_schema may optionally be modified before being finalized.
   ASSERT_OK_AND_ASSIGN(auto inspected_schema, discovery->Inspect());
   EXPECT_EQ(*schema_, *inspected_schema);
 
   // Build the DataSource where partitions are attached to fragments (files).
-  ASSERT_OK_AND_ASSIGN(auto datasource, discovery->Finish());
+  ASSERT_OK_AND_ASSIGN(auto datasource, discovery->Finish(inspected_schema));
 
   // Create the Dataset from our single DataSource.
   ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make({datasource}, inspected_schema));
@@ -458,16 +461,18 @@ class TestSchemaUnification : public TestDataset {
       };
 
       auto format = std::make_shared<JSONRecordBatchFileFormat>(resolver);
+
       FileSystemDiscoveryOptions options;
       options.partition_base_dir = base;
+      options.partition_scheme =
+          std::make_shared<HivePartitionScheme>(SchemaFromNames({"part_ds", "part_df"}));
+
       ARROW_ASSIGN_OR_RAISE(auto discovery, FileSystemDataSourceDiscovery::Make(
-                                                fs_, std::move(paths), format, options));
+                                                fs_, paths, format, options));
 
-      auto scheme_schema = SchemaFromNames({"part_ds", "part_df"});
-      auto partition_scheme = std::make_shared<HivePartitionScheme>(scheme_schema);
-      RETURN_NOT_OK(discovery->SetPartitionScheme(partition_scheme));
+      ARROW_ASSIGN_OR_RAISE(auto schema, discovery->Inspect());
 
-      return discovery->Finish();
+      return discovery->Finish(schema);
     };
 
     schema_ = SchemaFromNames({"phy_1", "phy_2", "phy_3", "phy_4", "part_ds", "part_df"});

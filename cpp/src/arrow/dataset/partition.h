@@ -94,19 +94,10 @@ class ARROW_DS_EXPORT PartitionSchemeDiscovery {
   virtual Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<util::string_view>& paths) const = 0;
 
-  /// Create a partition scheme with schema inferred from stats.
-  virtual Result<std::shared_ptr<PartitionScheme>> Finish() const = 0;
-
-  std::shared_ptr<Schema> schema() const { return schema_; }
-  Status SetSchema(std::shared_ptr<Schema> schema) {
-    schema_ = schema;
-    return Status::OK();
-  }
-
- protected:
-  PartitionSchemeDiscovery();
-
-  std::shared_ptr<Schema> schema_;
+  /// Create a partition scheme using the provided schema
+  /// (fields may be dropped).
+  virtual Result<std::shared_ptr<PartitionScheme>> Finish(
+      const std::shared_ptr<Schema>& schema) const = 0;
 };
 
 /// \brief Subclass for representing the default, always true scheme.
@@ -235,6 +226,46 @@ class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
 };
 
 // TODO(bkietz) use RE2 and named groups to provide RegexpPartitionScheme
+
+/// \brief Either a PartitionScheme or a PartitionSchemeDiscovery
+class ARROW_DS_EXPORT PartitionSchemeOrDiscovery {
+ public:
+  explicit PartitionSchemeOrDiscovery(std::shared_ptr<PartitionScheme> scheme)
+      : variant_(std::move(scheme)) {}
+
+  explicit PartitionSchemeOrDiscovery(std::shared_ptr<PartitionSchemeDiscovery> discovery)
+      : variant_(std::move(discovery)) {}
+
+  PartitionSchemeOrDiscovery& operator=(std::shared_ptr<PartitionScheme> scheme) {
+    variant_ = std::move(scheme);
+    return *this;
+  }
+
+  PartitionSchemeOrDiscovery& operator=(
+      std::shared_ptr<PartitionSchemeDiscovery> discovery) {
+    variant_ = std::move(discovery);
+    return *this;
+  }
+
+  std::shared_ptr<PartitionScheme> scheme() const {
+    if (util::holds_alternative<std::shared_ptr<PartitionScheme>>(variant_)) {
+      return util::get<std::shared_ptr<PartitionScheme>>(variant_);
+    }
+    return NULLPTR;
+  }
+
+  std::shared_ptr<PartitionSchemeDiscovery> discovery() const {
+    if (util::holds_alternative<std::shared_ptr<PartitionSchemeDiscovery>>(variant_)) {
+      return util::get<std::shared_ptr<PartitionSchemeDiscovery>>(variant_);
+    }
+    return NULLPTR;
+  }
+
+ private:
+  util::variant<std::shared_ptr<PartitionSchemeDiscovery>,
+                std::shared_ptr<PartitionScheme>>
+      variant_;
+};
 
 }  // namespace dataset
 }  // namespace arrow

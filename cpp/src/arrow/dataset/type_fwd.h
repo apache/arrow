@@ -74,6 +74,8 @@ class PartitionScheme;
 
 class PartitionSchemeDiscovery;
 
+class PartitionSchemeOrDiscovery;
+
 struct ScanContext;
 
 class ScanOptions;
