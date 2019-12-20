@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use num::FromPrimitive;
 use std::any::Any;
 use std::convert::{From, TryFrom};
 use std::fmt;
@@ -165,7 +164,19 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::FixedSizeList(_, _) => {
             Arc::new(FixedSizeListArray::from(data)) as ArrayRef
         }
-        DataType::Dictionary(_) => Arc::new(DictionaryArray::from(data)) as ArrayRef,
+        DataType::Dictionary((ref key_type, _)) => {
+            match key_type.as_ref() {
+                DataType::Int8 => Arc::new(DictionaryArray::<Int8Type>::from(data)) as ArrayRef,
+                DataType::Int16 => Arc::new(DictionaryArray::<Int16Type>::from(data)) as ArrayRef,
+                DataType::Int32 => Arc::new(DictionaryArray::<Int32Type>::from(data)) as ArrayRef,
+                DataType::Int64 => Arc::new(DictionaryArray::<Int64Type>::from(data)) as ArrayRef,
+                DataType::UInt8 => Arc::new(DictionaryArray::<UInt8Type>::from(data)) as ArrayRef,
+                DataType::UInt16 => Arc::new(DictionaryArray::<UInt16Type>::from(data)) as ArrayRef,
+                DataType::UInt32 => Arc::new(DictionaryArray::<UInt32Type>::from(data)) as ArrayRef,
+                DataType::UInt64 => Arc::new(DictionaryArray::<UInt64Type>::from(data)) as ArrayRef,
+                dt => panic!("Unexpected dictionary key type {:?}", dt),
+            }
+        }
         dt => panic!("Unexpected data type {:?}", dt),
     }
 }
@@ -796,12 +807,6 @@ impl ListArrayOps for StringArray {
 }
 
 impl ListArrayOps for FixedSizeBinaryArray {
-    fn value_offset_at(&self, i: usize) -> i32 {
-        self.value_offset_at(i)
-    }
-}
-
-impl ListArrayOps for DictionaryArray {
     fn value_offset_at(&self, i: usize) -> i32 {
         self.value_offset_at(i)
     }
@@ -1648,182 +1653,42 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
 }
 
 /// A dictonary array where each element is a single value indexed by an integer key.
-pub struct DictionaryArray {
-    data: ArrayDataRef,
+/// This is mostly used to represent strings or a limited set of primitive types as integers,
+/// for example when doing NLP analysis or representing chromosomes by name.
+pub struct DictionaryArray<T: ArrowPrimitiveType> {
+    keys: PrimitiveArray<T>,
     values: ArrayRef,
-    raw_values: RawPtrBox<u8>,
-    key_type: DataType,
 }
 
-macro_rules! collect_values {
-    ( $self:ident, $keys:ident, $array_t:ty, $from_fn:ident ) => {{
-        let values = $self
-            .values
-            .as_any()
-            .downcast_ref::<$array_t>()
-            .unwrap()
-            .value_slice(0, $self.values.len());
-        $keys
-            .iter()
-            .enumerate()
-            .map(|(i, &k)| {
-                if $self.is_null(i) {
-                    None
-                } else {
-                    T::$from_fn(values[k])
-                }
-            })
-            .collect()
-    }};
-}
-
-macro_rules! collect_keys {
-    ( $self:ident, $val_t:ty ) => {{
-        $self
-            .key_slice::<$val_t>()
-            .iter()
-            .map(|&k| k as usize)
-            .collect()
-    }};
-}
-
-impl DictionaryArray {
-    /// Returns an reference to the keys of this dictionary.
-    pub fn data(&self) -> ArrayDataRef {
-        self.data.clone()
+impl<T: ArrowPrimitiveType> DictionaryArray<T> {
+    /// Returns an integer primitive array of the keys (offsets into the values array)
+    pub fn keys(&self) -> &PrimitiveArray<T> {
+        &self.keys
     }
 
-    /// Returns an reference to the values of this dictionary.
+    /// Returns an `ArrayRef` to the dictionary values.
     pub fn values(&self) -> ArrayRef {
         self.values.clone()
     }
 
-    /// Returns a clone of the value type of this dictionary.
+    /// Returns a clone of the value type of this list.
     pub fn value_type(&self) -> DataType {
         self.values.data().data_type().clone()
     }
 
-    /// Returns ith value of this dictionary array.
-    pub fn value(&self, i: usize) -> ArrayRef {
-        self.values.slice(self.value_offset(i) as usize, 1)
-    }
-
-    /// Returns the offset for value at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    #[inline]
-    pub fn value_offset(&self, i: usize) -> i32 {
-        self.value_offset_at(i)
-    }
-
-    /// Returns the length for value at index `i`.
-    #[inline]
-    pub fn value_length(&self, _: usize) -> i32 {
-        1
-    }
-
-    /// Get a key for various primitive types.
-    fn key<T: Copy>(&self, i: usize) -> T {
-        unsafe {
-            let ptr: *const T = mem::transmute(self.raw_values.get());
-            let ptr = ptr.offset((self.data.offset() + i) as isize);
-            *ptr
-        }
-    }
-
-    /// Get a zero-copy slice of keys for various primitive types.
-    fn key_slice<T>(&self) -> &[T] {
-        let raw = unsafe {
-            let ptr: *const T = mem::transmute(self.raw_values.get());
-            let ptr = ptr.offset(self.data.offset() as isize);
-            std::slice::from_raw_parts(ptr, self.len())
-        };
-        &raw[..]
-    }
-
-    #[inline]
-    /// Returns index into values array.
-    /// Note that this could be more than i32.
-    /// We would rely heavily on loop unswitching here.
-    /// Note that keys must be integer primitive types.
-    fn value_offset_at(&self, i: usize) -> i32 {
-        match self.key_type {
-            DataType::Int8 => self.key::<i8>(i) as i32,
-            DataType::Int16 => self.key::<i16>(i) as i32,
-            DataType::Int32 => self.key::<i32>(i) as i32,
-            DataType::Int64 => self.key::<i64>(i) as i32,
-            DataType::UInt8 => self.key::<i8>(i) as i32,
-            DataType::UInt16 => self.key::<i16>(i) as i32,
-            DataType::UInt32 => self.key::<i32>(i) as i32,
-            DataType::UInt64 => self.key::<i64>(i) as i32,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn as_keys_vec(&self) -> Vec<usize> {
-        let keys: Vec<usize> = match self.key_type {
-            DataType::Int8 => collect_keys!(self, i8),
-            DataType::Int16 => collect_keys!(self, i16),
-            DataType::Int32 => collect_keys!(self, i32),
-            DataType::Int64 => collect_keys!(self, i64),
-            DataType::UInt8 => collect_keys!(self, u8),
-            DataType::UInt16 => collect_keys!(self, u16),
-            DataType::UInt32 => collect_keys!(self, u32),
-            DataType::UInt64 => collect_keys!(self, u64),
-            _ => unreachable!(),
-        };
-        keys
-    }
-
-    pub fn as_vec<T: FromPrimitive>(&self) -> Vec<Option<T>> {
-        let keys = self.as_keys_vec();
-
-        let res: Vec<Option<T>> = match self.values.data_type() {
-            DataType::Int8 => collect_values!(self, keys, Int8Array, from_i8),
-            DataType::Int16 => collect_values!(self, keys, Int16Array, from_i16),
-            DataType::Int32 => collect_values!(self, keys, Int32Array, from_i32),
-            DataType::Int64 => collect_values!(self, keys, Int64Array, from_i64),
-            DataType::UInt8 => collect_values!(self, keys, UInt8Array, from_u8),
-            DataType::UInt16 => collect_values!(self, keys, UInt16Array, from_u16),
-            DataType::UInt32 => collect_values!(self, keys, UInt32Array, from_u32),
-            DataType::UInt64 => collect_values!(self, keys, UInt64Array, from_u64),
-            DataType::Float32 => collect_values!(self, keys, Float32Array, from_f32),
-            DataType::Float64 => collect_values!(self, keys, Float64Array, from_f64),
-            _ => unreachable!(),
-        };
-        res
-    }
-
-    pub fn as_str_vec(&self) -> Vec<Option<&str>> {
-        let keys = self.as_keys_vec();
-
-        let res: Vec<Option<&str>> = match self.values.data_type() {
-            DataType::Utf8 => {
-                let values = self.values.as_any().downcast_ref::<StringArray>().unwrap();
-                keys.iter()
-                    .enumerate()
-                    .map(|(i, &k)| {
-                        if self.is_null(i) {
-                            None
-                        } else {
-                            Some(values.value(k))
-                        }
-                    })
-                    .collect()
-            }
-            _ => unreachable!(),
-        };
-        res
+    /// The length of the dictionary is the length of the keys array.
+    pub fn len(&self) -> usize {
+        self.keys.len()
     }
 }
 
 /// Constructs a `DictionaryArray` from an array data reference.
-impl From<ArrayDataRef> for DictionaryArray {
+impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
     fn from(data: ArrayDataRef) -> Self {
         assert_eq!(
             data.buffers().len(),
             1,
-            "DictionaryArray data should contain a single buffer only (index)."
+            "DictionaryArray data should contain a single buffer only (keys)."
         );
         assert_eq!(
             data.child_data().len(),
@@ -1832,13 +1697,10 @@ impl From<ArrayDataRef> for DictionaryArray {
         );
         let dtype: &DataType = data.data_type();
         let values = make_array(data.child_data()[0].clone());
-        let value_offsets = data.buffers()[0].raw_data();
-        if let DataType::Dictionary((key_type, _)) = dtype {
+        if let DataType::Dictionary(_) = dtype {
             Self {
-                data: data.clone(),
-                values,
-                raw_values: RawPtrBox::new(value_offsets),
-                key_type: *key_type.clone(),
+                keys: PrimitiveArray::<T>::from(data),
+                values: values,
             }
         } else {
             panic!("DictionaryArray must have Dictionary data type.")
@@ -1846,27 +1708,23 @@ impl From<ArrayDataRef> for DictionaryArray {
     }
 }
 
-impl Array for DictionaryArray {
+impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
     fn as_any(&self) -> &Any {
         self
     }
 
     fn data(&self) -> ArrayDataRef {
-        self.data.clone()
+        self.keys.data.clone()
     }
 
     fn data_ref(&self) -> &ArrayDataRef {
-        &self.data
+        &self.keys.data
     }
 }
 
-impl fmt::Debug for DictionaryArray {
+impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DictionaryArray\n[\n")?;
-        print_long_array(self, f, |array, index, f| {
-            fmt::Debug::fmt(&array.value(index), f)
-        })?;
-        write!(f, "]")
+        write!(f, "DictionaryArray {{keys: {:?} values: {:?}}}\n", self.keys, self.values)
     }
 }
 
@@ -2376,23 +2234,22 @@ mod tests {
             .add_buffer(keys.clone())
             .add_child_data(value_data.clone())
             .build();
-        let dict_array = DictionaryArray::from(dict_data);
+        let dict_array = Int16DictionaryArray::from(dict_data);
 
         let values = dict_array.values();
         assert_eq!(value_data, values.data());
         assert_eq!(DataType::Int8, dict_array.value_type());
         assert_eq!(3, dict_array.len());
-        assert_eq!(0, dict_array.null_count());
-        assert_eq!(3, dict_array.value_offset(1));
-        assert_eq!(4, dict_array.value_offset(2));
-        assert_eq!(3, dict_array.value(1).offset());
-        assert_eq!(4, dict_array.value(2).offset());
-        assert_eq!(1, dict_array.value(1).len());
-        assert_eq!(1, dict_array.value(2).len());
+
+        // Null count only makes sense in terms of the component arrays.
+        assert_eq!(0, dict_array.keys().null_count());
+        assert_eq!(0, dict_array.values().null_count());
+        assert_eq!(3, dict_array.keys().value(1));
+        assert_eq!(4, dict_array.keys().value(2));
 
         for i in 0..3 {
-            assert!(dict_array.is_valid(i));
-            assert!(!dict_array.is_null(i));
+            assert!(dict_array.keys().is_valid(i));
+            assert!(!dict_array.keys().is_null(i));
         }
 
         // Now test with a non-zero offset
@@ -2402,15 +2259,14 @@ mod tests {
             .add_buffer(keys)
             .add_child_data(value_data.clone())
             .build();
-        let dict_array = DictionaryArray::from(dict_data);
+        let dict_array = Int16DictionaryArray::from(dict_data);
 
         let values = dict_array.values();
         assert_eq!(value_data, values.data());
         assert_eq!(DataType::Int8, dict_array.value_type());
         assert_eq!(3, dict_array.len());
-        assert_eq!(0, dict_array.null_count());
-        assert_eq!(3, dict_array.value(0).offset());
-        assert_eq!(4, dict_array.value(1).offset());
+        assert_eq!(3, dict_array.keys().value(0));
+        assert_eq!(4, dict_array.keys().value(1));
     }
 
     #[test]
