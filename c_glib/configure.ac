@@ -124,7 +124,7 @@ AM_PATH_GLIB_2_0([2.32.4],
                  [AC_MSG_ERROR(GLib isn't available)],
                  [gobject gio])
 
-GOBJECT_INTROSPECTION_REQUIRE([1.32.1])
+GOBJECT_INTROSPECTION_CHECK([1.32.1])
 GTK_DOC_CHECK([1.18-2])
 
 AC_ARG_WITH(arrow-cpp-build-type,
