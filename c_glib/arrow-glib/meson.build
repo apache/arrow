@@ -57,6 +57,10 @@ sources += files(
   'compute.cpp',
 )
 
+sources += files(
+  'file-system.cpp',
+)
+
 if have_arrow_orc
   sources += files(
     'orc-file-reader.cpp',
@@ -108,6 +112,10 @@ c_headers += files(
   'compute.h',
 )
 
+c_headers += files(
+  'file-system.h',
+)
+
 if have_arrow_orc
   c_headers += files(
     'orc-file-reader.h',
@@ -154,6 +162,10 @@ cpp_headers += files(
 
 cpp_headers += files(
   'compute.hpp',
+)
+
+cpp_headers += files(
+  'file-system.hpp',
 )
 
 if have_arrow_orc
