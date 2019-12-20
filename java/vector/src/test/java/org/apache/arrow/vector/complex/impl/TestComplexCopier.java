@@ -24,6 +24,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
@@ -145,6 +146,53 @@ public class TestComplexCopier {
         out.setPosition(i);
         ComplexCopier.copy(in, out);
       }
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+
+    }
+  }
+
+  @Test
+  public void testCopyListVector() {
+    try (ListVector from = ListVector.empty("from", allocator);
+         ListVector to = ListVector.empty("to", allocator)) {
+
+      UnionListWriter listWriter = from.getWriter();
+      listWriter.allocate();
+
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.setPosition(i);
+        listWriter.startList();
+
+        listWriter.integer().writeInt(i);
+        listWriter.integer().writeInt(i * 2);
+
+        listWriter.list().startList();
+        listWriter.list().bigInt().writeBigInt(i);
+        listWriter.list().bigInt().writeBigInt(i * 2);
+        listWriter.list().bigInt().writeBigInt(i * 3);
+        listWriter.list().endList();
+
+        listWriter.list().startList();
+        listWriter.list().bigInt().writeBigInt(i * 4);
+        listWriter.list().bigInt().writeBigInt(i * 5);
+        listWriter.list().bigInt().writeBigInt(i * 6);
+        listWriter.list().endList();
+        listWriter.endList();
+      }
+      from.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+
       to.setValueCount(COUNT);
 
       // validate equals
