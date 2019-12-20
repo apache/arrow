@@ -431,7 +431,7 @@ TEST(TestStringOps, TestCastVARCHARFromInt32) {
   EXPECT_EQ(std::string(out_str, out_len), "2147483647");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = castVARCHAR_int32_int64(ctx_ptr, -2147483648, 100, &out_len);
+  out_str = castVARCHAR_int32_int64(ctx_ptr, -2147483647 - 1, 100, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "-2147483648");
   EXPECT_FALSE(ctx.has_error());
 

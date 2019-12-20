@@ -552,7 +552,8 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
       return nullptr;                                                                \
     }                                                                                \
     arrow::internal::StringFormatter<arrow::ARROW_TYPE> formatter;                   \
-    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));  \
+    char* ret = reinterpret_cast<char*>(                                             \
+        gdv_fn_context_arena_malloc(context, static_cast<int32>(len)));              \
     if (ret == nullptr) {                                                            \
       gdv_fn_context_set_error_msg(context, "Could not allocate memory");            \
       return nullptr;                                                                \
