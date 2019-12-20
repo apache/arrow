@@ -358,10 +358,41 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   /// \brief Return a copy of this field with the replaced nullability.
   std::shared_ptr<Field> WithNullable(bool nullable) const;
 
+  /// \brief Merge the current field with a field of the same name.
+  ///
+  /// The two fields must be compatible, i.e:
+  ///   - have the same name
+  ///   - have the same type, or one or both are NullType
+  ///
+  /// Nullability will be promoted to the looser option (nullable if one is not
+  /// nullable). This method does _not_ accommodate type conversion minus
+  /// nullability. This includes integer widening, promotion from integer to
+  /// float, or conversion to or from boolean.
+  ///
+  /// The metadata of the current field is preserved; the metadata of the other
+  /// field is discarded.
+  Result<std::shared_ptr<Field>> MergeWith(const Field& other) const;
+  Result<std::shared_ptr<Field>> MergeWith(const std::shared_ptr<Field>& other) const;
+
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
+  /// \brief Indicate if fields are equals.
+  ///
+  /// \param[in] other field to check equality with.
+  /// \param[in] check_metadata controls if it should check for metadata
+  ///            equality.
+  ///
+  /// \return true if fields are equal, false otherwise.
   bool Equals(const Field& other, bool check_metadata = true) const;
   bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = true) const;
+
+  /// \brief Indicate if fields are compatibles.
+  ///
+  /// See the criteria of MergeWith.
+  ///
+  /// \return true if fields are compatible, false otherwise.
+  bool IsCompatibleWith(const Field& other) const;
+  bool IsCompatibleWith(const std::shared_ptr<Field>& other) const;
 
   /// \brief Return a string representation ot the field
   std::string ToString() const;
@@ -1319,6 +1350,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
 
   /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other, bool check_metadata = true) const;
+  bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = true) const;
 
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const;
@@ -1370,8 +1402,11 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// \brief Return copy of Schema without the KeyValueMetadata
   std::shared_ptr<Schema> RemoveMetadata() const;
 
-  /// \brief Indicates that Schema has non-empty KevValueMetadata
+  /// \brief Indicate that the Schema has non-empty KevValueMetadata
   bool HasMetadata() const;
+
+  /// \brief Indicate that the Schema has distinct field names.
+  bool HasDistinctFieldNames() const;
 
  protected:
   std::string ComputeFingerprint() const override;
@@ -1546,6 +1581,100 @@ std::shared_ptr<Schema> schema(
 
 /// @}
 
+/// \brief Convenience class to incrementally construct/merge schemas.
+///
+/// This class amortizes the cost of validating field name conflicts by
+/// maintaining the mapping. The caller also controls the conflict resolution
+/// scheme.
+class ARROW_EXPORT SchemaBuilder {
+ public:
+  // Indicate how field conflict(s) should be resolved when building a schema. A
+  // conflict arise when a field is added to the builder and one or more field(s)
+  // with the same name already exists.
+  enum ConflictPolicy {
+    // Ignore the conflict and append the field. This is the default behavior of the
+    // Schema constructor and the `arrow::schema` factory function.
+    CONFLICT_APPEND = 0,
+    // Keep the existing field and ignore the newer one.
+    CONFLICT_IGNORE,
+    // Replace the existing field with the newer one.
+    CONFLICT_REPLACE,
+    // Merge the fields. See documentation of `Field::MergeWith`.
+    CONFLICT_MERGE,
+    // Refuse the new field and error out.
+    CONFLICT_ERROR
+  };
+
+  /// \brief Construct an empty SchemaBuilder
+  explicit SchemaBuilder(ConflictPolicy conflict_policy = CONFLICT_APPEND);
+  /// \brief Construct an SchemaBuilder from a list of fields
+  SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
+                ConflictPolicy conflict_policy = CONFLICT_APPEND);
+  /// \brief Construct an SchemaBuilder from a schema, preserving the metadata
+  SchemaBuilder(const std::shared_ptr<Schema>& schema,
+                ConflictPolicy conflict_policy = CONFLICT_APPEND);
+
+  /// \brief Return the conflict resolution method.
+  ConflictPolicy policy() const;
+
+  /// \brief Set the conflict resolution method.
+  void SetPolicy(ConflictPolicy resolution);
+
+  /// \brief Add a field to the constructed schema.
+  ///
+  /// \param[in] field to add to the constructed Schema.
+  /// \return A failure if encountered.
+  Status AddField(const std::shared_ptr<Field>& field);
+
+  /// \brief Add multiple fields to the constructed schema.
+  ///
+  /// \param[in] fields to add to the constructed Schema.
+  /// \return The first failure encountered, if any.
+  Status AddFields(const std::vector<std::shared_ptr<Field>>& fields);
+
+  /// \brief Add fields of a Schema to the constructed Schema.
+  ///
+  /// \param[in] schema to take fields to add to the constructed Schema.
+  /// \return The first failure encountered, if any.
+  Status AddSchema(const std::shared_ptr<Schema>& schema);
+
+  /// \brief Add fields of multiple Schemas to the constructed Schema.
+  ///
+  /// \param[in] schemas to take fields to add to the constructed Schema.
+  /// \return The first failure encountered, if any.
+  Status AddSchemas(const std::vector<std::shared_ptr<Schema>>& schemas);
+
+  Status AddMetadata(const KeyValueMetadata& metadata);
+
+  /// \brief Return the constructed Schema.
+  ///
+  /// The builder internal state is not affected by invoking this method, i.e.
+  /// a single builder can yield multiple incrementally constructed schemas.
+  ///
+  /// \return the constructed schema.
+  Result<std::shared_ptr<Schema>> Finish() const;
+
+  /// \brief Merge schemas in a unified schema according to policy.
+  static Result<std::shared_ptr<Schema>> Merge(
+      const std::vector<std::shared_ptr<Schema>>& schemas,
+      ConflictPolicy policy = CONFLICT_MERGE);
+
+  /// \brief Indicate if schemas are compatible to merge according to policy.
+  static Status AreCompatible(const std::vector<std::shared_ptr<Schema>>& schemas,
+                              ConflictPolicy policy = CONFLICT_MERGE);
+
+  /// \brief Reset internal state with an empty schema (and metadata).
+  void Reset();
+
+  ~SchemaBuilder();
+
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+
+  Status AppendField(const std::shared_ptr<Field>& field);
+};
+
 /// \brief Unifies schemas by unifying fields by name and promoting Null fields.
 ///
 /// The resulting schema will contain the union of fields from all schemas.
@@ -1563,7 +1692,6 @@ std::shared_ptr<Schema> schema(
 ARROW_EXPORT
 Result<std::shared_ptr<Schema>> UnifySchemas(
     const std::vector<std::shared_ptr<Schema>>& schemas);
-
 }  // namespace arrow
 
 #endif  // ARROW_TYPE_H
