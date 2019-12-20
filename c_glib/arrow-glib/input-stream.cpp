@@ -290,11 +290,9 @@ garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
 {
   auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
 
-  std::shared_ptr<arrow::Tensor> arrow_tensor;
-  auto status = arrow::ipc::ReadTensor(arrow_input_stream.get(),
-                                       &arrow_tensor);
-  if (garrow_error_check(error, status, "[input-stream][read-tensor]")) {
-    return garrow_tensor_new_raw(&arrow_tensor);
+  auto arrow_tensor = arrow::ipc::ReadTensor(arrow_input_stream.get());
+  if (garrow::check(error, arrow_tensor, "[input-stream][read-tensor]")) {
+    return garrow_tensor_new_raw(&(arrow_tensor.ValueOrDie()));
   } else {
     return NULL;
   }
