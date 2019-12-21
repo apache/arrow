@@ -180,11 +180,11 @@ boolean flags to ``cmake``.
   ``ARROW_FILESYSTEM``, ``ARROW_HDFS``, and ``ARROW_JSON``.
 * ``-DARROW_S3=ON``: Support for Amazon S3-compatible filesystems
 * ``-DARROW_WITH_BZ2=ON``: Build support for BZ2 compression
-* ``-DARROW_WITH_ZLIB=ON``: Build suport for zlib (gzip) compression
-* ``-DARROW_WITH_LZ4=ON``: Build suport for lz4 compression
-* ``-DARROW_WITH_SNAPPY=ON``: Build suport for Snappy compression
-* ``-DARROW_WITH_ZSTD=ON``: Build suport for ZSTD compression
-* ``-DARROW_WITH_BROTLI=ON``: Build suport for Brotli compression
+* ``-DARROW_WITH_ZLIB=ON``: Build support for zlib (gzip) compression
+* ``-DARROW_WITH_LZ4=ON``: Build support for lz4 compression
+* ``-DARROW_WITH_SNAPPY=ON``: Build support for Snappy compression
+* ``-DARROW_WITH_ZSTD=ON``: Build support for ZSTD compression
+* ``-DARROW_WITH_BROTLI=ON``: Build support for Brotli compression
 
 Some features of the core Arrow shared library can be switched off for improved
 build times if they are not required for your application:
@@ -277,7 +277,7 @@ offline builds.
 Boost-related Options
 ~~~~~~~~~~~~~~~~~~~~~
 
-We depend on some Boost C++ libraries for cross-platform suport. In most cases,
+We depend on some Boost C++ libraries for cross-platform support. In most cases,
 the Boost version available in your package manager may be new enough, and the
 build system will find it automatically. If you have Boost installed in a
 non-standard location, you can specify it by passing
@@ -398,7 +398,7 @@ functions.
 
 When using ``clang`` and building with
 ``-DBUILD_WARNING_LEVEL=CHECKIN``, the ``-Wdocumentation`` flag is
-used which checks for some common documnetation inconsistencies, like
+used which checks for some common documentation inconsistencies, like
 documenting some, but not all function parameters with ``\param``. See
 the `LLVM documentation warnings section
 <https://releases.llvm.org/7.0.1/tools/clang/docs/DiagnosticsReference.html#wdocumentation>`_
@@ -621,7 +621,7 @@ Once the build has finished, you can generate ABI reports using:
 The above version number is freely selectable. As we want to compare versions,
 you should now ``git checkout`` the version you want to compare it to and re-run
 the above command using a different version number. Once both reports are
-generated, you can build a comparision report using
+generated, you can build a comparison report using
 
 .. code-block:: shell
 
@@ -661,7 +661,7 @@ System Setup
 ~~~~~~~~~~~~
 
 Microsoft provides the free Visual Studio Community edition. When doing
-development in the the shell, you must initialize the development
+development in the shell, you must initialize the development
 environment.
 
 For Visual Studio 2015, execute the following batch script:
@@ -900,11 +900,11 @@ tests can be made with there individual make targets).
 
    cd $EXTRACT_BOOST_DIRECTORY
    .\bootstrap.bat
-   @rem This is for static libraries needed for static_crt_build in appvyor
+   @rem This is for static libraries needed for static_crt_build in appveyor
    .\b2 link=static -with-filesystem -with-regex -with-system install
    @rem this should put libraries and headers in c:\Boost
 
-4. Activate ananaconda/miniconda:
+4. Activate anaconda/miniconda:
 
 .. code-block:: shell
 
