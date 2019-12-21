@@ -10,7 +10,8 @@ hive_partition(...)
 \item{...}{named list of \link[=data-type]{data types}, passed to \code{\link[=schema]{schema()}}}
 }
 \value{
-A \code{HivePartitionScheme}
+A \code{HivePartitionScheme}, or a \code{HivePartitionSchemeDiscovery} if
+calling \code{hive_partition()} with no arguments.
 }
 \description{
 Hive partitioning embeds field names and values in path segments, such as
