@@ -1359,7 +1359,7 @@ Parameters
 table : pyarrow.Table
 where: string or pyarrow.NativeFile
 row_group_size: int
-    The number of rows per rowgroup 
+    The number of rows per rowgroup
 {0}
 """.format(_parquet_writer_arg_docs)
 
