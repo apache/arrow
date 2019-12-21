@@ -133,6 +133,14 @@ module Arrow
         types.keys
       end
 
+      def try_convert(value)
+        begin
+          resolve(value)
+        rescue ArgumentError
+          nil
+        end
+      end
+
       private
       def resolve_class(data_type)
         components = data_type.to_s.split("_").collect(&:capitalize)
