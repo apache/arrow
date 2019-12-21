@@ -376,7 +376,7 @@ To debug the C++ libraries with gdb while running the Python unit
    gdb --args python -m pytest pyarrow/tests/test_to_run.py -k $TEST_TO_MATCH
 
 To set a breakpoint, use the same gdb syntax that you would when
-debugging a C++ unitttest, for example:
+debugging a C++ unittest, for example:
 
 .. code-block:: shell
 

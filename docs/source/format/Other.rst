@@ -33,7 +33,7 @@ The ``Tensor`` message types provides a way to write a
 multidimensional array of fixed-size values (such as a NumPy ndarray).
 
 When writing a standalone encapsulated tensor message, we use the
-encapulated IPC format defined in the :ref:`Columnar Specification
+encapsulated IPC format defined in the :ref:`Columnar Specification
 <format_columnar>`, but additionally align the starting offset of the
 tensor body to be a multiple of 64 bytes.::
 
@@ -48,7 +48,7 @@ Sparse Tensor
 are generally almost all zeros.
 
 When writing a standalone encapsulated sparse tensor message, we use
-the encapulated IPC format defined in the :ref:`Columnar Specification
+the encapsulated IPC format defined in the :ref:`Columnar Specification
 <format_columnar>`, but additionally align the starting offsets of the
 sparse index and the sparse tensor body (if writing to a shared memory
 region) to be multiples of 64 bytes: ::

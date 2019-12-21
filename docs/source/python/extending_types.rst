@@ -51,7 +51,7 @@ Defining extension types ("user-defined types")
 -----------------------------------------------
 
 Arrow has the notion of extension types in the metadata specification as a
-possiblity to extend the built-in types. This is done by annotating any of the
+possibility to extend the built-in types. This is done by annotating any of the
 built-in Arrow logical types (the "storage type") with a custom type name and
 optional serialized representation ("ARROW:extension:name" and
 "ARROW:extension:metadata" keys in the Field’s custom_metadata of an IPC
@@ -249,7 +249,7 @@ Using the pandas period type from above as example, this would look like::
 
 Secondly, the pandas ``ExtensionDtype`` on its turn needs to have the
 ``__from_arrow__`` method implemented: a method that given a pyarrow Array
-or ChunkedArray of the extesion type can construct the corresponding
+or ChunkedArray of the extension type can construct the corresponding
 pandas ``ExtensionArray``. This method should have the following signature::
 
 
