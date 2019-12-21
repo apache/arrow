@@ -31,7 +31,7 @@ PKG_DEB_NAME="(unsuppored)"
 PKG_RPM_NAME="(unsuppored)"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
-PKG_LIBS="-lparquet -larrow_dataset -larrow"
+PKG_LIBS="-larrow_dataset -lparquet -larrow"
 
 # generate code
 if [ "$ARROW_R_DEV" = "TRUE" ]; then
@@ -96,7 +96,7 @@ else
       fi
       PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
       PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
-    else
+    elif [ "$UNAME" = "Linux" ]; then
       VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
       ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION $LOCAL_LIBARROW
       PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
