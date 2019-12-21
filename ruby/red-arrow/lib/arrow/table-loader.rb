@@ -157,14 +157,23 @@ module Arrow
       end
     end
 
-    def load_as_csv
-      options = @options.dup
+    def csv_load(options)
       options.delete(:format)
       if @input.is_a?(Buffer)
         CSVLoader.load(@input.data.to_s, **options)
       else
         CSVLoader.load(Pathname.new(@input), **options)
       end
+    end
+
+    def load_as_csv
+      csv_load(@options.dup)
+    end
+
+    def load_as_tsv
+      options = @options.dup
+      options[:delimiter] = "\t"
+      csv_load(options.dup)
     end
 
     def load_as_feather
