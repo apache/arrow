@@ -352,9 +352,9 @@ will have the following representation: ::
       * Validity bitmap buffer: Not required
       * Values buffer (int8)
 
-        | Bytes 0-6                   | Bytes 7-63  |
-        |-----------------------------|-------------|
-        | 12, 7, 25, 0, -127, 127, 50 | unspecified |
+        | Bytes 0-6                    | Bytes 7-63  |
+        |------------------------------|-------------|
+        | 12, -7, 25, 0, -127, 127, 50 | unspecified |
 
 **Example Layout: ``List<List<Int8>>``**
 
