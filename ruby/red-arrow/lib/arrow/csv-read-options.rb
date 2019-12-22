@@ -21,5 +21,23 @@ module Arrow
     def add_column_type(name, type)
       add_column_type_raw(name, DataType.resolve(type))
     end
+
+    alias_method :delimiter_raw, :delimiter
+    def delimiter
+      delimiter_raw.chr
+    end
+
+    alias_method :delimiter_raw=, :delimiter=
+    def delimiter=(delimiter)
+      case delimiter
+      when String
+        if delimiter.bytesize != 1
+          message = "delimiter must be 1 byte character: #{delimiter.inspect}"
+          raise ArgumentError, message
+        end
+        delimiter = delimiter.ord
+      end
+      self.delimiter_raw = delimiter
+    end
   end
 end
