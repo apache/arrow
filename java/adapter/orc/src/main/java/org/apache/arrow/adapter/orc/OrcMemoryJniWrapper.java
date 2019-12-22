@@ -33,7 +33,7 @@ class OrcMemoryJniWrapper implements AutoCloseable {
   /**
    * Construct a new instance.
    * @param nativeInstanceId unique id of the underlying memory.
-   * @param memoryAddress starting memory address of the the underlying memory.
+   * @param memoryAddress starting memory address of the underlying memory.
    * @param size size of the valid data.
    * @param capacity allocated memory size.
    */

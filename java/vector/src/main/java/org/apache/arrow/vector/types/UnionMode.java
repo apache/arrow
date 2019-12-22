@@ -27,7 +27,7 @@ public enum UnionMode {
    */
   Sparse(org.apache.arrow.flatbuf.UnionMode.Sparse),
   /**
-   * Each child vector is of variable width.  The parent vector contains both an child index vector (like in
+   * Each child vector is of variable width.  The parent vector contains both a child index vector (like in
    * {@link #Sparse}) and in addition a slot index buffer to determine the offset into the child vector indicated
    * by the index vector.
    */
