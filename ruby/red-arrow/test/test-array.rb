@@ -63,6 +63,13 @@ class ArrayTest < Test::Unit::TestCase
         end
       end
     end
+
+    sub_test_case("#cast") do
+      test("Symbol") do
+        assert_equal(Arrow::Int32Array.new([1, 2, 3]),
+                     Arrow::StringArray.new(["1", "2", "3"]).cast(:int32))
+      end
+    end
   end
 
   sub_test_case("#filter") do
