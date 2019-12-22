@@ -28,7 +28,7 @@ import io.grpc.internal.ReadableBuffer;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * Enable access to ReadableBuffer directly to copy data from an BufferInputStream into a target
+ * Enable access to ReadableBuffer directly to copy data from a BufferInputStream into a target
  * ByteBuffer/ByteBuf.
  *
  * <p>This could be solved by BufferInputStream exposing Drainable.

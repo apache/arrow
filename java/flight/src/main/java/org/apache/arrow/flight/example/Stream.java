@@ -139,7 +139,7 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
      * @param schema The schema for batches in the stream.
      * @param dictionaryProvider The dictionary provider for the stream.
      * @param allocator  The allocator used to copy data permanently into the stream.
-     * @param committer A callback for when the the stream is ready to be finalized (no more batches).
+     * @param committer A callback for when the stream is ready to be finalized (no more batches).
      */
     public StreamCreator(Schema schema, DictionaryProvider dictionaryProvider,
         BufferAllocator allocator, Consumer<Stream> committer) {

@@ -43,7 +43,7 @@ public interface ServerAuthHandler {
   boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming);
 
   /**
-   * Interface for an server implementations to send back authentication messages
+   * Interface for a server implementations to send back authentication messages
    * back to the client.
    */
   interface ServerAuthSender {
