@@ -72,8 +72,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
-
 import io.netty.buffer.ArrowBuf;
 
 public class TestArrowReaderWriter {
@@ -536,7 +534,7 @@ public class TestArrowReaderWriter {
     buf.putInt(200);
     buf.rewind();
 
-    try (ReadChannel channel = new ReadChannel(Channels.newChannel(new ByteBufferBackedInputStream(buf)));
+    try (ReadChannel channel = new ReadChannel(Channels.newChannel(new ByteArrayInputStream(buf.array())));
          ArrowBuf arrBuf = allocator.buffer(8)) {
       arrBuf.setInt(0, 100);
       arrBuf.writerIndex(4);
@@ -557,7 +555,7 @@ public class TestArrowReaderWriter {
     buf.putInt(10);
     buf.rewind();
 
-    try (ReadChannel channel = new ReadChannel(Channels.newChannel(new ByteBufferBackedInputStream(buf)));
+    try (ReadChannel channel = new ReadChannel(Channels.newChannel(new ByteArrayInputStream(buf.array())));
          ArrowBuf arrBuf = allocator.buffer(8)) {
       int n = channel.readFully(arrBuf.nioBuffer(0, 8));
       assertEquals(4, n);
