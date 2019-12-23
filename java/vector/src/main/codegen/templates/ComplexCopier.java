@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 
 <@pp.dropOutputFile />
@@ -63,6 +64,10 @@ public class ComplexCopier {
           writer.start();
           for(String name : reader){
             FieldReader childReader = reader.reader(name);
+            if (writer instanceof UnionMapWriter) {
+              final boolean nullable = childReader.getField().isNullable();
+              ((UnionMapWriter) writer).writer.setAddVectorAsNullable(nullable);
+            }
             if(childReader.isSet()){
               writeValue(childReader, getStructWriterForReader(childReader, writer, name));
             }
