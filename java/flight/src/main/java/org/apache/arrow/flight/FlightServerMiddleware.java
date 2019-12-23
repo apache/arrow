@@ -87,7 +87,7 @@ public interface FlightServerMiddleware {
   void onCallCompleted(CallStatus status);
 
   /**
-   * Callback for when an RPC method implementation throws a uncaught exception.
+   * Callback for when an RPC method implementation throws an uncaught exception.
    *
    * <p>May be called multiple times, and may be called before or after {@link #onCallCompleted(CallStatus)}.
    * Generally, an uncaught exception will end the call with a error {@link CallStatus}, and will be reported to {@link
