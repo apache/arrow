@@ -35,7 +35,7 @@ multidimensional array of fixed-size values (such as a NumPy ndarray).
 When writing a standalone encapsulated tensor message, we use the
 encapsulated IPC format defined in the :ref:`Columnar Specification
 <format_columnar>`, but additionally align the starting offset of the
-tensor body to be a multiple of 64 bytes.::
+tensor body to be a multiple of 64 bytes: ::
 
     <metadata prefix and metadata>
     <PADDING>
