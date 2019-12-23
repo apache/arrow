@@ -259,5 +259,5 @@ pandas ``ExtensionArray``. This method should have the following signature::
         def __from_arrow__(self, array: pyarrow.Array/ChunkedArray) -> pandas.ExtensionArray:
             ...
 
-This way, you can control the conversion of an pyarrow ``Array`` of your pyarrow
+This way, you can control the conversion of a pyarrow ``Array`` of your pyarrow
 extension type to a pandas ``ExtensionArray`` that can be stored in a DataFrame.

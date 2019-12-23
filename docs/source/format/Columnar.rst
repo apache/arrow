@@ -29,7 +29,7 @@ This document is intended to provide adequate detail to create a new
 implementation of the columnar format without the aid of an existing
 implementation. We utilize Google's `Flatbuffers`_ project for
 metadata serialization, so it will be necessary to refer to the
-project's `Flatbuffers protocol definition files <FlatbuffersFiles>`_
+project's `Flatbuffers protocol definition files`_
 while reading this document.
 
 The columnar format has some key features:
@@ -112,7 +112,7 @@ the different physical layouts defined by Arrow:
   encoding.
 * **Struct**: a nested layout consisting of a collection of named
   child **fields** each having the same length but possibly different
-  types
+  types.
 * **Sparse** and **Dense Union**: a nested layout representing a
   sequence of values, each of which can have type chosen from a
   collection of child array types.
@@ -187,7 +187,7 @@ each array slot.
 Whether any array slot is valid (non-null) is encoded in the respective bits of
 this bitmap. A 1 (set bit) for index ``j`` indicates that the value is not null,
 while a 0 (bit not set) indicates that it is null. Bitmaps are to be
-initialized to be all unset at allocation time (this includes padding).::
+initialized to be all unset at allocation time (this includes padding): ::
 
     is_valid[j] -> bitmap[j / 8] & (1 << (j % 8))
 
@@ -284,7 +284,7 @@ Variable-size Binary Layout
 
 Each value in this layout consists of 0 or more bytes. While primitive
 arrays have a single values buffer, variable-size binary have an
-**offsets** buffer and **data** buffer
+**offsets** buffer and **data** buffer.
 
 The offsets buffer contains `length + 1` signed integers (either
 32-bit or 64-bit, depending on the logical type), which encode the
@@ -577,9 +577,9 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
 
     * Offset buffer:
 
-      |Byte 0-3 | Byte 4-7    | Byte 8-11 | Byte 12-15 | Bytes 16-63 |
-      |---------|-------------|-----------|------------|-------------|
-      | 0       | unspecified | 1         | 0          | unspecified |
+      |Bytes 0-3 | Bytes 4-7   | Bytes 8-11 | Bytes 12-15 | Bytes 16-63 |
+      |----------|-------------|------------|-------------|-------------|
+      | 0        | unspecified | 1          | 0           | unspecified |
 
     * Children arrays:
       * Field-0 array (f: float):
@@ -1037,7 +1037,7 @@ batches, each having a single field. The complete semantic schema for a
 sequence of record batches, therefore, consists of the schema along with all of
 the dictionaries. The dictionary types are found in the schema, so it is
 necessary to read the schema to first determine the dictionary types so that
-the dictionaries can be properly interpreted. ::
+the dictionaries can be properly interpreted: ::
 
     table DictionaryBatch {
       id: long;
@@ -1201,7 +1201,7 @@ References
 * Apache Drill Documentation - `Value Vectors`_
 
 .. _Flatbuffers: http://github.com/google/flatbuffers
-.. _FlatbuffersFiles: https://github.com/apache/arrow/tree/master/format
+.. _Flatbuffers protocol definition files: https://github.com/apache/arrow/tree/master/format
 .. _Schema.fbs: https://github.com/apache/arrow/blob/master/format/Schema.fbs
 .. _Message.fbs: https://github.com/apache/arrow/blob/master/format/Message.fbs
 .. _least-significant bit (LSB) numbering: https://en.wikipedia.org/wiki/Bit_numbering
