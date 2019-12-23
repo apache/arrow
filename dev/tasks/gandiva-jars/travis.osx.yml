@@ -16,6 +16,7 @@
 
 os: osx
 osx_image: xcode9.4
+jdk: openjdk11
 sudo: required
 language: cpp
 compiler: clang
