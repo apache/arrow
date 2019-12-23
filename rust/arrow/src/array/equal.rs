@@ -218,23 +218,24 @@ impl ArrayEqual for ListArray {
 
 impl<T: ArrowPrimitiveType> ArrayEqual for DictionaryArray<T> {
     fn equals(&self, other: &dyn Array) -> bool {
-        let other = other.as_any().downcast_ref::<DictionaryArray<T>>().unwrap();
-        self.keys().equals(other.keys())
-            && self
-                .values()
-                .range_equals(&*other.values(), 0, other.values().len(), 0)
+        self.range_equals(other, 0, self.len(), 0)
     }
 
-    fn range_equals(
+    default fn range_equals(
         &self,
         other: &dyn Array,
         start_idx: usize,
         end_idx: usize,
         other_start_idx: usize,
     ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
         let other = other.as_any().downcast_ref::<DictionaryArray<T>>().unwrap();
-        self.keys()
-            .range_equals(other, start_idx, end_idx, other_start_idx)
+
+        let iter_a = self.iter_keys().take(end_idx).skip(start_idx);
+        let iter_b = other.iter_keys().skip(other_start_idx);
+
+        // For now, all the values must be the same
+        iter_a.eq(iter_b)
             && self
                 .values()
                 .range_equals(&*other.values(), 0, other.values().len(), 0)
@@ -823,7 +824,13 @@ impl PartialEq<ListArray> for Value {
 
 impl<T: ArrowPrimitiveType> JsonEqual for DictionaryArray<T> {
     fn equals_json(&self, json: &[&Value]) -> bool {
-        self.keys().equals_json(json)
+        self.iter_keys().zip(json.iter()).all(|aj| match aj {
+            (None, Value::Null) => true,
+            (Some(a), Value::Number(j)) => {
+                a.to_usize().unwrap() as u64 == j.as_u64().unwrap()
+            }
+            _ => false,
+        })
     }
 }
 

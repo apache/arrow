@@ -1669,15 +1669,92 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
 /// A dictonary array where each element is a single value indexed by an integer key.
 /// This is mostly used to represent strings or a limited set of primitive types as integers,
 /// for example when doing NLP analysis or representing chromosomes by name.
-pub struct DictionaryArray<T: ArrowPrimitiveType> {
-    keys: PrimitiveArray<T>,
+pub struct DictionaryArray<K: ArrowPrimitiveType> {
+    // Array of keys, much like a PrimitiveArray
+    data: ArrayDataRef,
+
+    // Pointer to the key values.
+    raw_values: RawPtrBox<K::Native>,
+
+    // Array of any values.
     values: ArrayRef,
+
+    /// Values are ordered.
+    is_ordered: bool,
 }
 
-impl<T: ArrowPrimitiveType> DictionaryArray<T> {
-    /// Returns an integer primitive array of the keys (offsets into the values array)
-    pub fn keys(&self) -> &PrimitiveArray<T> {
-        &self.keys
+pub struct NullableIter<'a, T> {
+    data: &'a ArrayDataRef,
+    keys: &'a [T],
+    i: usize,
+}
+
+impl<'a, T> std::iter::Iterator for NullableIter<'a, T>
+where
+    T: Clone,
+{
+    type Item = Option<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let i = self.i;
+        if i >= self.keys.len() {
+            None
+        } else if self.data.is_null(i) {
+            self.i += 1;
+            Some(None)
+        } else {
+            self.i += 1;
+            Some(Some(self.keys[i].clone()))
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.keys.len(), Some(self.keys.len()))
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        let i = self.i;
+        if i + n >= self.keys.len() {
+            self.i = self.keys.len();
+            None
+        } else if self.data.is_null(i + n) {
+            self.i += n + 1;
+            Some(None)
+        } else {
+            self.i += n + 1;
+            Some(Some(self.keys[i + n].clone()))
+        }
+    }
+}
+
+impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
+    /// Returns a slice of the keys (offsets into the values array).
+    /// Note that if nulls exist, you must check them.
+    pub fn keys(&self) -> &[K::Native] {
+        unsafe {
+            std::slice::from_raw_parts(
+                self.raw_values.get().offset(self.data.offset() as isize),
+                self.len(),
+            )
+        }
+    }
+
+    /// Returns an index into the values array or None if null.
+    pub fn key(&self, i: usize) -> Option<K::Native> {
+        if self.data.is_null(i) {
+            None
+        } else {
+            Some(self.keys()[i])
+        }
+    }
+
+    /// Return an iterator to the keys of this dictionary.
+    pub fn iter_keys(&'a self) -> NullableIter<'a, K::Native> {
+        NullableIter::<'a, K::Native> {
+            data: &self.data,
+            keys: self.keys(),
+            i: 0,
+        }
     }
 
     /// Returns an `ArrayRef` to the dictionary values.
@@ -1692,7 +1769,11 @@ impl<T: ArrowPrimitiveType> DictionaryArray<T> {
 
     /// The length of the dictionary is the length of the keys array.
     pub fn len(&self) -> usize {
-        self.keys.len()
+        self.data.len()
+    }
+
+    pub fn is_ordered(&self) -> bool {
+        self.is_ordered
     }
 }
 
@@ -1709,12 +1790,16 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
             1,
             "DictionaryArray should contain a single child array (values)."
         );
+
+        let raw_values = data.buffers()[0].raw_data();
         let dtype: &DataType = data.data_type();
         let values = make_array(data.child_data()[0].clone());
         if let DataType::Dictionary(_) = dtype {
             Self {
-                keys: PrimitiveArray::<T>::from(data),
+                data: data,
+                raw_values: RawPtrBox::new(raw_values as *const T::Native),
                 values: values,
+                is_ordered: false,
             }
         } else {
             panic!("DictionaryArray must have Dictionary data type.")
@@ -1728,11 +1813,11 @@ impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
     }
 
     fn data(&self) -> ArrayDataRef {
-        self.keys.data.clone()
+        self.data.clone()
     }
 
     fn data_ref(&self) -> &ArrayDataRef {
-        &self.keys.data
+        &self.data
     }
 }
 
@@ -1741,7 +1826,8 @@ impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
         write!(
             f,
             "DictionaryArray {{keys: {:?} values: {:?}}}\n",
-            self.keys, self.values
+            self.keys(),
+            self.values
         )
     }
 }
@@ -2260,19 +2346,19 @@ mod tests {
         assert_eq!(3, dict_array.len());
 
         // Null count only makes sense in terms of the component arrays.
-        assert_eq!(0, dict_array.keys().null_count());
+        assert_eq!(0, dict_array.null_count());
         assert_eq!(0, dict_array.values().null_count());
-        assert_eq!(3, dict_array.keys().value(1));
-        assert_eq!(4, dict_array.keys().value(2));
+        assert_eq!(3, dict_array.keys()[1]);
+        assert_eq!(4, dict_array.keys()[2]);
 
-        for i in 0..3 {
-            assert!(dict_array.keys().is_valid(i));
-            assert!(!dict_array.keys().is_null(i));
-        }
+        assert_eq!(
+            dict_array.iter_keys().collect::<Vec<Option<i16>>>(),
+            vec![Some(2), Some(3), Some(4)]
+        );
 
         // Now test with a non-zero offset
         let dict_data = ArrayData::builder(dict_data_type)
-            .len(3)
+            .len(2)
             .offset(1)
             .add_buffer(keys)
             .add_child_data(value_data.clone())
@@ -2282,9 +2368,9 @@ mod tests {
         let values = dict_array.values();
         assert_eq!(value_data, values.data());
         assert_eq!(DataType::Int8, dict_array.value_type());
-        assert_eq!(3, dict_array.len());
-        assert_eq!(3, dict_array.keys().value(0));
-        assert_eq!(4, dict_array.keys().value(1));
+        assert_eq!(2, dict_array.len());
+        assert_eq!(3, dict_array.keys()[0]);
+        assert_eq!(4, dict_array.keys()[1]);
     }
 
     #[test]

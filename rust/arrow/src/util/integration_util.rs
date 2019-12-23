@@ -242,7 +242,7 @@ impl ArrowJsonBatch {
                                 .as_any()
                                 .downcast_ref::<Int8DictionaryArray>()
                                 .unwrap();
-                            arr.keys().equals_json(
+                            arr.equals_json(
                                 &json_array.iter().collect::<Vec<&Value>>()[..],
                             )
                         }
@@ -251,7 +251,7 @@ impl ArrowJsonBatch {
                                 .as_any()
                                 .downcast_ref::<Int16DictionaryArray>()
                                 .unwrap();
-                            arr.keys().equals_json(
+                            arr.equals_json(
                                 &json_array.iter().collect::<Vec<&Value>>()[..],
                             )
                         }
@@ -260,7 +260,7 @@ impl ArrowJsonBatch {
                                 .as_any()
                                 .downcast_ref::<Int32DictionaryArray>()
                                 .unwrap();
-                            arr.keys().equals_json(
+                            arr.equals_json(
                                 &json_array.iter().collect::<Vec<&Value>>()[..],
                             )
                         }
@@ -269,7 +269,7 @@ impl ArrowJsonBatch {
                                 .as_any()
                                 .downcast_ref::<Int64DictionaryArray>()
                                 .unwrap();
-                            arr.keys().equals_json(
+                            arr.equals_json(
                                 &json_array.iter().collect::<Vec<&Value>>()[..],
                             )
                         }
@@ -278,7 +278,7 @@ impl ArrowJsonBatch {
                                 .as_any()
                                 .downcast_ref::<UInt8DictionaryArray>()
                                 .unwrap();
-                            arr.keys().equals_json(
+                            arr.equals_json(
                                 &json_array.iter().collect::<Vec<&Value>>()[..],
                             )
                         }
@@ -287,7 +287,7 @@ impl ArrowJsonBatch {
                                 .as_any()
                                 .downcast_ref::<UInt16DictionaryArray>()
                                 .unwrap();
-                            arr.keys().equals_json(
+                            arr.equals_json(
                                 &json_array.iter().collect::<Vec<&Value>>()[..],
                             )
                         }
@@ -296,7 +296,7 @@ impl ArrowJsonBatch {
                                 .as_any()
                                 .downcast_ref::<UInt32DictionaryArray>()
                                 .unwrap();
-                            arr.keys().equals_json(
+                            arr.equals_json(
                                 &json_array.iter().collect::<Vec<&Value>>()[..],
                             )
                         }
@@ -305,7 +305,7 @@ impl ArrowJsonBatch {
                                 .as_any()
                                 .downcast_ref::<UInt64DictionaryArray>()
                                 .unwrap();
-                            arr.keys().equals_json(
+                            arr.equals_json(
                                 &json_array.iter().collect::<Vec<&Value>>()[..],
                             )
                         }

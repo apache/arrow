@@ -32,6 +32,7 @@ pub enum ArrowError {
     IoError(String),
     InvalidArgumentError(String),
     ParquetError(String),
+    DictionaryKeyOverflowError,
 }
 
 impl From<::std::io::Error> for ArrowError {

@@ -161,6 +161,7 @@ pub use self::builder::FixedSizeBinaryBuilder;
 pub use self::builder::FixedSizeListBuilder;
 pub use self::builder::ListBuilder;
 pub use self::builder::PrimitiveBuilder;
+pub use self::builder::PrimitiveDictionaryBuilder;
 pub use self::builder::StringBuilder;
 pub use self::builder::StructBuilder;
 
