@@ -186,8 +186,10 @@ std::unique_ptr<CpuInfo> g_cpu_info;
 static std::once_flag cpuinfo_once;
 
 CpuInfo* CpuInfo::GetInstance() {
-  std::call_once(cpuinfo_once,
-                 [](){ g_cpu_info.reset(new CpuInfo); g_cpu_info->Init(); });
+  std::call_once(cpuinfo_once, []() {
+    g_cpu_info.reset(new CpuInfo);
+    g_cpu_info->Init();
+  });
   return g_cpu_info.get();
 }
 
