@@ -22,16 +22,12 @@
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
-#[cfg(feature = "simd")]
 use std::sync::Arc;
 
 use crate::array::*;
 use crate::buffer::Buffer;
-#[cfg(feature = "simd")]
 use crate::compute::util::apply_bin_op_to_option_bitmap;
-use crate::datatypes::{ArrowNumericType, ToByteSlice};
-#[cfg(feature = "simd")]
-use crate::datatypes::{BooleanType, DataType};
+use crate::datatypes::{ArrowNumericType, BooleanType, DataType, ToByteSlice};
 use crate::error::{ArrowError, Result};
 
 /// Helper function to perform boolean lambda function on values from two arrays, this

@@ -27,7 +27,6 @@ use std::mem;
 use std::ops::{Add, Div, Mul, Sub};
 #[cfg(feature = "simd")]
 use std::slice::from_raw_parts_mut;
-#[cfg(feature = "simd")]
 use std::sync::Arc;
 
 use num::{One, Zero};
@@ -38,8 +37,9 @@ use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
 #[cfg(feature = "simd")]
 use crate::buffer::MutableBuffer;
+use crate::compute::util::apply_bin_op_to_option_bitmap;
 #[cfg(feature = "simd")]
-use crate::compute::util::{apply_bin_op_to_option_bitmap, simd_load_set_invalid};
+use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
 use crate::datatypes::ToByteSlice;
 use crate::error::{ArrowError, Result};
