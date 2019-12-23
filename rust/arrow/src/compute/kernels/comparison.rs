@@ -22,15 +22,12 @@
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
-#[cfg(feature = "simd")]
 use std::sync::Arc;
 
 use crate::array::*;
-#[cfg(feature = "simd")]
+use crate::buffer::Buffer;
 use crate::compute::util::apply_bin_op_to_option_bitmap;
-use crate::datatypes::ArrowNumericType;
-#[cfg(feature = "simd")]
-use crate::datatypes::{BooleanType, DataType};
+use crate::datatypes::{ArrowNumericType, BooleanType, DataType, ToByteSlice};
 use crate::error::{ArrowError, Result};
 
 /// Helper function to perform boolean lambda function on values from two arrays, this
@@ -42,29 +39,35 @@ pub fn compare_op<T, F>(
 ) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
-    F: Fn(Option<T::Native>, Option<T::Native>) -> bool,
+    F: Fn(T::Native, T::Native) -> bool,
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
             "Cannot perform math operation on arrays of different length".to_string(),
         ));
     }
-    let mut b = BooleanArray::builder(left.len());
+
+    let null_bit_buffer = apply_bin_op_to_option_bitmap(
+        left.data().null_bitmap(),
+        right.data().null_bitmap(),
+        |a, b| a & b,
+    )?;
+
+    let mut values = Vec::with_capacity(left.len());
     for i in 0..left.len() {
-        let index = i;
-        let l = if left.is_null(i) {
-            None
-        } else {
-            Some(left.value(index))
-        };
-        let r = if right.is_null(i) {
-            None
-        } else {
-            Some(right.value(index))
-        };
-        b.append_value(op(l, r))?;
+        values.push(op(left.value(i), right.value(i)));
     }
-    Ok(b.finish())
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        null_bit_buffer,
+        left.offset(),
+        vec![Buffer::from(values.to_byte_slice())],
+        vec![],
+    );
+    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
 }
 
 /// Helper function to perform boolean lambda function on values from two arrays using
@@ -149,12 +152,7 @@ where
     return simd_compare_op(left, right, |a, b| T::lt(a, b));
 
     #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| match (a, b) {
-        (None, None) => false,
-        (None, _) => true,
-        (_, None) => false,
-        (Some(aa), Some(bb)) => aa < bb,
-    })
+    compare_op(left, right, |a, b| a < b)
 }
 
 /// Perform `left <= right` operation on two arrays. Null values are less than non-null
@@ -170,12 +168,7 @@ where
     return simd_compare_op(left, right, |a, b| T::le(a, b));
 
     #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| match (a, b) {
-        (None, None) => true,
-        (None, _) => true,
-        (_, None) => false,
-        (Some(aa), Some(bb)) => aa <= bb,
-    })
+    compare_op(left, right, |a, b| a <= b)
 }
 
 /// Perform `left > right` operation on two arrays. Non-null values are greater than null
@@ -188,12 +181,7 @@ where
     return simd_compare_op(left, right, |a, b| T::gt(a, b));
 
     #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| match (a, b) {
-        (None, None) => false,
-        (None, _) => false,
-        (_, None) => true,
-        (Some(aa), Some(bb)) => aa > bb,
-    })
+    compare_op(left, right, |a, b| a > b)
 }
 
 /// Perform `left >= right` operation on two arrays. Non-null values are greater than null
@@ -209,12 +197,7 @@ where
     return simd_compare_op(left, right, |a, b| T::ge(a, b));
 
     #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| match (a, b) {
-        (None, None) => true,
-        (None, _) => false,
-        (_, None) => true,
-        (Some(aa), Some(bb)) => aa >= bb,
-    })
+    compare_op(left, right, |a, b| a >= b)
 }
 
 #[cfg(test)]
