@@ -2803,24 +2803,24 @@ def _make_dataset_for_pickling(tempdir, N=100):
     pytest.param(pytest.importorskip('cloudpickle'), id='cloudpickle')
 ])
 def test_pickle_dataset(tempdir, datadir, pickler):
-    def is_picklable(obj):
+    def is_pickleable(obj):
         return obj == pickler.loads(pickler.dumps(obj))
 
     dataset = _make_dataset_for_pickling(tempdir)
 
-    assert is_picklable(dataset)
-    assert is_picklable(dataset.metadata)
-    assert is_picklable(dataset.metadata.schema)
+    assert is_pickleable(dataset)
+    assert is_pickleable(dataset.metadata)
+    assert is_pickleable(dataset.metadata.schema)
     assert len(dataset.metadata.schema)
     for column in dataset.metadata.schema:
-        assert is_picklable(column)
+        assert is_pickleable(column)
 
     for piece in dataset.pieces:
-        assert is_picklable(piece)
+        assert is_pickleable(piece)
         metadata = piece.get_metadata()
         assert metadata.num_row_groups
         for i in range(metadata.num_row_groups):
-            assert is_picklable(metadata.row_group(i))
+            assert is_pickleable(metadata.row_group(i))
 
 
 @pytest.mark.pandas
