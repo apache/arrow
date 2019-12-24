@@ -183,10 +183,10 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
 CpuInfo::CpuInfo() : hardware_flags_(0), num_cores_(1), model_name_("unknown") {}
 
 std::unique_ptr<CpuInfo> g_cpu_info;
-static std::once_flag cpuinfo_once;
+static std::once_flag cpuinfo_initialized;
 
 CpuInfo* CpuInfo::GetInstance() {
-  std::call_once(cpuinfo_once, []() {
+  std::call_once(cpuinfo_initialized, []() {
     g_cpu_info.reset(new CpuInfo);
     g_cpu_info->Init();
   });
