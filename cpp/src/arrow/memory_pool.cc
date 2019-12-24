@@ -66,8 +66,8 @@
 #define JEMALLOC_DEBUG_OPTIONS ",junk:true"
 #endif
 
-const char* je_arrow_malloc_conf = (
-    "oversize_threshold:0"
+const char* je_arrow_malloc_conf =
+    ("oversize_threshold:0"
 #ifdef USE_JEMALLOC_BACKGROUND_THREAD
      ",dirty_decay_ms:1000"
      ",muzzy_decay_ms:1000"
