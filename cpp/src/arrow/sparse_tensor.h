@@ -251,7 +251,7 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
       return Status::Invalid("shape length is too long");
     }
 
-    if (indptr_->shape()[0] == shape[0] + 1) {
+    if (indptr_->shape()[0] == shape[static_cast<int64_t>(kCompressedAxis)] + 1) {
       return Status::OK();
     }
 

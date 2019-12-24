@@ -259,34 +259,30 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
 /// \brief Read arrow::Tensor as encapsulated IPC message in file
 ///
 /// \param[in] file an InputStream pointed at the start of the message
-/// \param[out] out the read tensor
-/// \return Status
+/// \return the read tensor
 ARROW_EXPORT
-Status ReadTensor(io::InputStream* file, std::shared_ptr<Tensor>* out);
+Result<std::shared_ptr<Tensor>> ReadTensor(io::InputStream* file);
 
 /// \brief EXPERIMENTAL: Read arrow::Tensor from IPC message
 ///
 /// \param[in] message a Message containing the tensor metadata and body
-/// \param[out] out the read tensor
-/// \return Status
+/// \return the read tensor
 ARROW_EXPORT
-Status ReadTensor(const Message& message, std::shared_ptr<Tensor>* out);
+Result<std::shared_ptr<Tensor>> ReadTensor(const Message& message);
 
 /// \brief EXPERIMETNAL: Read arrow::SparseTensor as encapsulated IPC message in file
 ///
 /// \param[in] file an InputStream pointed at the start of the message
-/// \param[out] out the read sparse tensor
-/// \return Status
+/// \return the read sparse tensor
 ARROW_EXPORT
-Status ReadSparseTensor(io::InputStream* file, std::shared_ptr<SparseTensor>* out);
+Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file);
 
 /// \brief EXPERIMENTAL: Read arrow::SparseTensor from IPC message
 ///
 /// \param[in] message a Message containing the tensor metadata and body
-/// \param[out] out the read sparse tensor
-/// \return Status
+/// \return the read sparse tensor
 ARROW_EXPORT
-Status ReadSparseTensor(const Message& message, std::shared_ptr<SparseTensor>* out);
+Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Message& message);
 
 namespace internal {
 
@@ -294,18 +290,15 @@ namespace internal {
 
 /// \brief EXPERIMENTAL: Read arrow::SparseTensorFormat::type from a metadata
 /// \param[in] metadata a Buffer containing the sparse tensor metadata
-/// \param[out] buffer_count the returned count of the body buffers
-/// \return Status
+/// \return the count of the body buffers
 ARROW_EXPORT
-Status ReadSparseTensorBodyBufferCount(const Buffer& metadata, size_t* buffer_count);
+Result<size_t> ReadSparseTensorBodyBufferCount(const Buffer& metadata);
 
 /// \brief EXPERIMENTAL: Read arrow::SparseTensor from an IpcPayload
 /// \param[in] payload a IpcPayload contains a serialized SparseTensor
-/// \param[out] out the returned SparseTensor
-/// \return Status
+/// \return the read sparse tensor
 ARROW_EXPORT
-Status ReadSparseTensorPayload(const IpcPayload& payload,
-                               std::shared_ptr<SparseTensor>* out);
+Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& payload);
 
 }  // namespace internal
 

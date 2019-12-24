@@ -95,7 +95,7 @@ TEST(TestMessage, SerializeTo) {
                                     body_length));
 
   std::shared_ptr<Buffer> metadata;
-  ASSERT_OK(internal::WriteFlatbufferBuilder(fbb, &metadata));
+  ASSERT_OK_AND_ASSIGN(metadata, internal::WriteFlatbufferBuilder(fbb));
 
   std::string body = "abcdef";
 
@@ -1081,7 +1081,7 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
     ASSERT_OK(mmap_->Seek(0));
 
     std::shared_ptr<Tensor> result;
-    ASSERT_OK(ReadTensor(mmap_.get(), &result));
+    ASSERT_OK_AND_ASSIGN(result, ReadTensor(mmap_.get()));
 
     ASSERT_EQ(result->data()->size(), expected_body_length);
     ASSERT_TRUE(tensor.Equals(*result));
@@ -1167,7 +1167,7 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
     ASSERT_OK(mmap_->Seek(0));
 
     std::shared_ptr<SparseTensor> result;
-    ASSERT_OK(ReadSparseTensor(mmap_.get(), &result));
+    ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
     ASSERT_EQ(SparseTensorFormat::COO, result->format_id());
 
     const auto& resulted_sparse_index =
@@ -1210,7 +1210,7 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
     ASSERT_OK(mmap_->Seek(0));
 
     std::shared_ptr<SparseTensor> result;
-    ASSERT_OK(ReadSparseTensor(mmap_.get(), &result));
+    ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
 
     constexpr auto expected_format_id =
         std::is_same<SparseIndexType, SparseCSRIndex>::value ? SparseTensorFormat::CSR

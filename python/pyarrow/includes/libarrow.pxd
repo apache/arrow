@@ -1211,7 +1211,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
                         int32_t* metadata_length,
                         int64_t* body_length)
 
-    CStatus ReadTensor(CInputStream* stream, shared_ptr[CTensor]* out)
+    CResult[shared_ptr[CTensor]] ReadTensor(CInputStream* stream)
 
     CStatus ReadRecordBatch(const CMessage& message,
                             const shared_ptr[CSchema]& schema,

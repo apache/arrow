@@ -327,21 +327,21 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
 
   for (int i = 0; i < num_tensors; ++i) {
     std::shared_ptr<Tensor> tensor;
-    RETURN_NOT_OK(ipc::ReadTensor(src, &tensor));
+    ARROW_ASSIGN_OR_RAISE(tensor, ipc::ReadTensor(src));
     RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
     out->tensors.push_back(tensor);
   }
 
   for (int i = 0; i < num_sparse_tensors; ++i) {
     std::shared_ptr<SparseTensor> sparse_tensor;
-    RETURN_NOT_OK(ipc::ReadSparseTensor(src, &sparse_tensor));
+    ARROW_ASSIGN_OR_RAISE(sparse_tensor, ipc::ReadSparseTensor(src));
     RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
     out->sparse_tensors.push_back(sparse_tensor);
   }
 
   for (int i = 0; i < num_ndarrays; ++i) {
     std::shared_ptr<Tensor> ndarray;
-    RETURN_NOT_OK(ipc::ReadTensor(src, &ndarray));
+    ARROW_ASSIGN_OR_RAISE(ndarray, ipc::ReadTensor(src));
     RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
     out->ndarrays.push_back(ndarray);
   }
@@ -411,7 +411,7 @@ Status GetSerializedFromComponents(int num_tensors,
 
     ipc::Message message(metadata, body);
 
-    RETURN_NOT_OK(ipc::ReadTensor(message, &tensor));
+    ARROW_ASSIGN_OR_RAISE(tensor, ipc::ReadTensor(message));
     out->tensors.emplace_back(std::move(tensor));
   }
 
@@ -420,9 +420,9 @@ Status GetSerializedFromComponents(int num_tensors,
     ipc::internal::IpcPayload payload;
     RETURN_NOT_OK(GetBuffer(buffer_index++, &payload.metadata));
 
-    size_t num_bodies;
-    RETURN_NOT_OK(
-        ipc::internal::ReadSparseTensorBodyBufferCount(*payload.metadata, &num_bodies));
+    ARROW_ASSIGN_OR_RAISE(
+        size_t num_bodies,
+        ipc::internal::ReadSparseTensorBodyBufferCount(*payload.metadata));
 
     payload.body_buffers.reserve(num_bodies);
     for (size_t i = 0; i < num_bodies; ++i) {
@@ -432,7 +432,7 @@ Status GetSerializedFromComponents(int num_tensors,
     }
 
     std::shared_ptr<SparseTensor> sparse_tensor;
-    RETURN_NOT_OK(ipc::internal::ReadSparseTensorPayload(payload, &sparse_tensor));
+    ARROW_ASSIGN_OR_RAISE(sparse_tensor, ipc::internal::ReadSparseTensorPayload(payload));
     out->sparse_tensors.emplace_back(std::move(sparse_tensor));
   }
 
@@ -446,7 +446,7 @@ Status GetSerializedFromComponents(int num_tensors,
 
     ipc::Message message(metadata, body);
 
-    RETURN_NOT_OK(ipc::ReadTensor(message, &tensor));
+    ARROW_ASSIGN_OR_RAISE(tensor, ipc::ReadTensor(message));
     out->ndarrays.emplace_back(std::move(tensor));
   }
 
