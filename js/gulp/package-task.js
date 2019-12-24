@@ -51,7 +51,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
     module: `${mainExport}.dom.mjs`,
     types: `${mainExport}.node.d.ts`,
     unpkg: `${mainExport}.es5.min.js`,
-    jsdelivr: `${mainExport}.es5.min.js`,
+    jsdeliver: `${mainExport}.es5.min.js`,
     esm: { mode: `all`, sourceMap: true }
 });
   
@@ -79,7 +79,7 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             name: `${npmOrgName}/${packageName(target, format)}`,
             // set "unpkg"/"jsdeliver" if building scoped UMD target
             unpkg:    format === 'umd' ? `${mainExport}.js` : undefined,
-            jsdelivr: format === 'umd' ? `${mainExport}.js` : undefined,
+            jsdeliver: format === 'umd' ? `${mainExport}.js` : undefined,
             // set "browser" if building scoped UMD target, otherwise "Arrow.dom"
             browser:  format === 'umd' ? `${mainExport}.js` : `${mainExport}.dom.js`,
             // set "main" to "Arrow" if building scoped UMD target, otherwise "Arrow.node"

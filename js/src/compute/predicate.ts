@@ -127,7 +127,7 @@ export abstract class CombinationPredicate extends Predicate {
         this.children = children;
     }
 }
-// add children to protoype so it doesn't get mangled in es2015/umd
+// add children to prototype so it doesn't get mangled in es2015/umd
 (<any> CombinationPredicate.prototype).children = Object.freeze([]); // freeze for safety
 
 /** @ignore */
@@ -208,7 +208,7 @@ export class Equals extends ComparisonPredicate {
     }
 
     protected _bindLitCol(batch: RecordBatch, lit: Literal, col: Col) {
-        // Equals is comutative
+        // Equals is commutative
         return this._bindColLit(batch, col, lit);
     }
 }
