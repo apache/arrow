@@ -87,7 +87,7 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=True,
     result = table.to_pandas(use_threads=use_threads)
 
     if expected_schema:
-        # all occurences of _check_pandas_roundtrip passes expected_schema
+        # all occurrences of _check_pandas_roundtrip passes expected_schema
         # without the pandas generated key-value metadata
         assert table.schema.equals(expected_schema, check_metadata=False)
 
@@ -425,7 +425,7 @@ class TestConvertMetadata(object):
         data = {key: column_data}
         df = pd.DataFrame(data)
 
-        # we can't use _check_pandas_roundtrip here because our metdata
+        # we can't use _check_pandas_roundtrip here because our metadata
         # is always decoded as utf8: even if binary goes in, utf8 comes out
         t = pa.Table.from_pandas(df, preserve_index=True)
         df2 = t.to_pandas()
@@ -3337,7 +3337,7 @@ class DummyExtensionType(pa.PyExtensionType):
 
 
 def PandasArray__arrow_array__(self, type=None):
-    # harcode dummy return regardless of self - we only want to check that
+    # hardcode dummy return regardless of self - we only want to check that
     # this method is correctly called
     storage = pa.array([1, 2, 3], type=pa.int64())
     return pa.ExtensionArray.from_storage(DummyExtensionType(), storage)

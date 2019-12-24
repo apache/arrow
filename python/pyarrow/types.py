@@ -140,21 +140,21 @@ def is_floating(t):
 
 def is_float16(t):
     """
-    Return True if value is an instance of an float16 (half-precision) type
+    Return True if value is an instance of a float16 (half-precision) type
     """
     return t.id == lib.Type_HALF_FLOAT
 
 
 def is_float32(t):
     """
-    Return True if value is an instance of an float32 (single precision) type
+    Return True if value is an instance of a float32 (single precision) type
     """
     return t.id == lib.Type_FLOAT
 
 
 def is_float64(t):
     """
-    Return True if value is an instance of an float64 (double precision) type
+    Return True if value is an instance of a float64 (double precision) type
     """
     return t.id == lib.Type_DOUBLE
 

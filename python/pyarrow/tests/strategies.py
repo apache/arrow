@@ -243,7 +243,7 @@ def record_batches(draw, type, rows=None, max_fields=None):
 
     schema = draw(schemas(type, max_fields=max_fields))
     children = [draw(arrays(field.type, size=rows)) for field in schema]
-    # TODO(kszucs): the names and schame arguments are not consistent with
+    # TODO(kszucs): the names and schema arguments are not consistent with
     #               Table.from_array's arguments
     return pa.RecordBatch.from_arrays(children, names=schema)
 

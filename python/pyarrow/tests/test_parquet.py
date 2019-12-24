@@ -1596,7 +1596,7 @@ def test_equivalency(tempdir):
 
     # Check that all rows in the DF fulfill the filter
     # Pandas 0.23.x has problems with indexing constant memoryviews in
-    # categoricals. Thus we need to make an explicity copy here with np.array.
+    # categoricals. Thus we need to make an explicit copy here with np.array.
     df_filter_1 = (np.array(result_df['integer']) == 1) \
         & (np.array(result_df['string']) != 'b') \
         & (np.array(result_df['boolean']) == 'True')

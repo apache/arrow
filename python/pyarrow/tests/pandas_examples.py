@@ -26,7 +26,7 @@ import pyarrow as pa
 
 def dataframe_with_arrays(include_index=False):
     """
-    Dataframe with numpy arrays columns of every possible primtive type.
+    Dataframe with numpy arrays columns of every possible primitive type.
 
     Returns
     -------
@@ -83,7 +83,7 @@ def dataframe_with_arrays(include_index=False):
 
 def dataframe_with_lists(include_index=False, parquet_compatible=False):
     """
-    Dataframe with list columns of every possible primtive type.
+    Dataframe with list columns of every possible primitive type.
 
     Returns
     -------
