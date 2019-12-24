@@ -192,7 +192,7 @@ class RleEncoder {
     // and then a repeated run of length 8".
     // 8 values per smallest run, 8 bits per byte
     int bytes_per_run = bit_width;
-    int num_runs = static_cast<int>(BitUtil::CeilDiv(num_values, 8));
+    int num_runs = static_cast<int>(BitUtil::CeilDiv8(num_values));
     int literal_max_size = num_runs + num_runs * bytes_per_run;
 
     // In the very worst case scenario, the data is a concatenation of repeated
@@ -200,7 +200,7 @@ class RleEncoder {
     // bit-packed repeated value
     int min_repeated_run_size = 1 + static_cast<int>(BitUtil::BytesForBits(bit_width));
     int repeated_max_size =
-        static_cast<int>(BitUtil::CeilDiv(num_values, 8)) * min_repeated_run_size;
+        static_cast<int>(BitUtil::CeilDiv8(num_values)) * min_repeated_run_size;
 
     return std::max(literal_max_size, repeated_max_size);
   }
@@ -525,7 +525,7 @@ bool RleDecoder::NextCounts() {
     repeat_count_ = indicator_value >> 1;
     // XXX (ARROW-4018) this is not big-endian compatible
     bool result =
-        bit_reader_.GetAligned<T>(static_cast<int>(BitUtil::CeilDiv(bit_width_, 8)),
+        bit_reader_.GetAligned<T>(static_cast<int>(BitUtil::CeilDiv8(bit_width_)),
                                   reinterpret_cast<T*>(&current_value_));
     DCHECK(result);
   }
@@ -602,7 +602,7 @@ inline void RleEncoder::FlushRepeatedRun() {
   int32_t indicator_value = repeat_count_ << 1 | 0;
   result &= bit_writer_.PutVlqInt(indicator_value);
   result &= bit_writer_.PutAligned(current_value_,
-                                   static_cast<int>(BitUtil::CeilDiv(bit_width_, 8)));
+                                   static_cast<int>(BitUtil::CeilDiv8(bit_width_)));
   DCHECK(result);
   num_buffered_values_ = 0;
   repeat_count_ = 0;

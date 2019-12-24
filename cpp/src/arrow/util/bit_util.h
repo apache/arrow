@@ -116,8 +116,10 @@ static constexpr uint8_t kBytePopcount[] = {
 
 // Returns the ceil of value/divisor
 constexpr int64_t CeilDiv(int64_t value, int64_t divisor) {
-  return value / divisor + (value % divisor != 0);
+  return (value - 1) / divisor + 1;
 }
+
+constexpr int64_t CeilDiv8(int64_t value) { return ((value - 1) >> 3) + 1; }
 
 constexpr int64_t BytesForBits(int64_t bits) { return (bits + 7) >> 3; }
 
@@ -151,7 +153,7 @@ constexpr bool IsMultipleOf8(int64_t n) { return (n & 7) == 0; }
 
 // Returns 'value' rounded up to the nearest multiple of 'factor'
 constexpr int64_t RoundUp(int64_t value, int64_t factor) {
-  return (value + (factor - 1)) / factor * factor;
+  return ((value - 1) / factor + 1) * factor;
 }
 
 // Returns 'value' rounded down to the nearest multiple of 'factor'
@@ -749,7 +751,7 @@ void VisitBitsUnrolled(const uint8_t* bitmap, int64_t start_offset, int64_t leng
 
   // Shift the start pointer to the first full byte and compute the
   // number of full bytes to be read.
-  const uint8_t* first_full_byte = bitmap + BitUtil::CeilDiv(start_offset, 8);
+  const uint8_t* first_full_byte = bitmap + BitUtil::CeilDiv8(start_offset);
   const int64_t num_full_bytes = (length - num_bits_before_full_bytes) / 8;
 
   // Iterate over each full byte of the input bitmap and call the visitor in
@@ -1018,7 +1020,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// string_view of all bytes which contain any bit in this Bitmap
   util::bytes_view bytes() const {
     auto byte_offset = offset_ / 8;
-    auto byte_count = BitUtil::CeilDiv(offset_ + length_, 8) - byte_offset;
+    auto byte_count = BitUtil::CeilDiv8(offset_ + length_) - byte_offset;
     return util::bytes_view(buffer_->data() + byte_offset, byte_count);
   }
 
