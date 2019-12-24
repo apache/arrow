@@ -334,14 +334,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                 CDataSourceDiscovery):
         @staticmethod
         CResult[shared_ptr[CDataSourceDiscovery]] MakeFromPaths "Make"(
-            shared_ptr[CFileSystem] filesytem,
+            shared_ptr[CFileSystem] filesystem,
             vector[c_string] paths,
             shared_ptr[CFileFormat] format,
             CFileSystemDiscoveryOptions options
         )
         @staticmethod
         CResult[shared_ptr[CDataSourceDiscovery]] MakeFromSelector "Make"(
-            shared_ptr[CFileSystem] filesytem,
+            shared_ptr[CFileSystem] filesystem,
             CFileSelector,
             shared_ptr[CFileFormat] format,
             CFileSystemDiscoveryOptions options

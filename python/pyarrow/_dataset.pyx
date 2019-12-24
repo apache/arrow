@@ -519,7 +519,7 @@ cdef class Dataset:
 
         A schema must be passed because most of the data sources' schema is
         unknown before executing possibly expensive scanning operation, but
-        projecting, filtering, predicate pushduwn requires a well defined
+        projecting, filtering, predicate pushdown requires a well defined
         schema to work on.
 
         Parameters
@@ -991,7 +991,7 @@ cdef class CastExpression(UnaryExpression):
 
     def __init__(self, Expression operand not None, DataType to not None,
                  bint safe=True):
-        # TODO(kszucs): safe is consitently used across pyarrow, but on long
+        # TODO(kszucs): safe is consistently used across pyarrow, but on long
         #               term we should expose the CastOptions object
         cdef:
             CastOptions options

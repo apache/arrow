@@ -248,7 +248,7 @@ cdef class Context:
         return pyarrow_wrap_cudabuffer(cudabuf)
 
     def buffer_from_data(self, object data, int64_t offset=0, int64_t size=-1):
-        """Create device buffer and initalize with data.
+        """Create device buffer and initialize with data.
 
         Parameters
         ----------
@@ -293,7 +293,7 @@ cdef class Context:
         device accessible memory.
 
         When the object contains a non-contiguous view of device
-        accessbile memory then the returned device buffer will contain
+        accessible memory then the returned device buffer will contain
         contiguous view of the memory, that is, including the
         intermediate data that is otherwise invisible to the input
         object.

@@ -1596,7 +1596,7 @@ def test_equivalency(tempdir):
 
     # Check that all rows in the DF fulfill the filter
     # Pandas 0.23.x has problems with indexing constant memoryviews in
-    # categoricals. Thus we need to make an explicity copy here with np.array.
+    # categoricals. Thus we need to make an explicit copy here with np.array.
     df_filter_1 = (np.array(result_df['integer']) == 1) \
         & (np.array(result_df['string']) != 'b') \
         & (np.array(result_df['boolean']) == 'True')
@@ -2803,24 +2803,24 @@ def _make_dataset_for_pickling(tempdir, N=100):
     pytest.param(pytest.importorskip('cloudpickle'), id='cloudpickle')
 ])
 def test_pickle_dataset(tempdir, datadir, pickler):
-    def is_pickleable(obj):
+    def is_picklable(obj):
         return obj == pickler.loads(pickler.dumps(obj))
 
     dataset = _make_dataset_for_pickling(tempdir)
 
-    assert is_pickleable(dataset)
-    assert is_pickleable(dataset.metadata)
-    assert is_pickleable(dataset.metadata.schema)
+    assert is_picklable(dataset)
+    assert is_picklable(dataset.metadata)
+    assert is_picklable(dataset.metadata.schema)
     assert len(dataset.metadata.schema)
     for column in dataset.metadata.schema:
-        assert is_pickleable(column)
+        assert is_picklable(column)
 
     for piece in dataset.pieces:
-        assert is_pickleable(piece)
+        assert is_picklable(piece)
         metadata = piece.get_metadata()
         assert metadata.num_row_groups
         for i in range(metadata.num_row_groups):
-            assert is_pickleable(metadata.row_group(i))
+            assert is_picklable(metadata.row_group(i))
 
 
 @pytest.mark.pandas

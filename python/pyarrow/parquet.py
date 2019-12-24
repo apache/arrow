@@ -356,7 +356,7 @@ coerce_timestamps : string, default None
     Cast timestamps a particular resolution.
     Valid values: {None, 'ms', 'us'}
 data_page_size : int, default None
-    Set a target threshhold for the approximate encoded size of data
+    Set a target threshold for the approximate encoded size of data
     pages within a column chunk. If None, use the default data page
     size of 1MByte.
 allow_truncated_timestamps : boolean, default False
@@ -994,7 +994,7 @@ filters : List[Tuple] or List[List[Tuple]] or None (default)
     kinds of filters that are possible using boolean logic.
 
     This function also supports passing in as List[Tuple]. These predicates
-    are evaluated as a conjunction. To express OR in predictates, one must
+    are evaluated as a conjunction. To express OR in predicates, one must
     use the (preferred) List[List[Tuple]] notation.
 metadata_nthreads: int, default 1
     How many threads to allow the thread pool which is used to read the
