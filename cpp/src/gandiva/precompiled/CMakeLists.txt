@@ -110,7 +110,6 @@ if(ARROW_BUILD_TESTS)
                  time.cc
                  timestamp_arithmetic.cc
                  ../cast_time.cc
-                 ../../arrow/vendored/datetime/tz.cpp
                  hash_test.cc
                  hash.cc
                  string_ops_test.cc
@@ -125,10 +124,7 @@ if(ARROW_BUILD_TESTS)
                  ../decimal_xlarge.cc)
   target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
-  target_compile_definitions(gandiva-precompiled-test
-                             PRIVATE
-                             GANDIVA_UNIT_TEST=1
-                             ARROW_STATIC
+  target_compile_definitions(gandiva-precompiled-test PRIVATE GANDIVA_UNIT_TEST=1
                              GANDIVA_STATIC)
   set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/gandiva-precompiled-test")
   add_test(gandiva-precompiled-test ${TEST_PATH})
