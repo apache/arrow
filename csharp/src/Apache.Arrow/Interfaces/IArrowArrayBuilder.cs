@@ -19,28 +19,35 @@ using System.Collections.Generic;
 
 namespace Apache.Arrow
 {
-    public interface IArrowArrayBuilder { }
+    public interface IArrowArrayBuilder
+    {
+        int Length { get; }
+    }
 
     public interface IArrowArrayBuilder<out TArray> : IArrowArrayBuilder
-        where TArray: IArrowArray
-    {
+        where TArray : IArrowArray
+    { 
         TArray Build(MemoryAllocator allocator);
     }
 
-    public interface IArrowArrayBuilder<T, out TArray> : IArrowArrayBuilder<TArray>
-        where TArray: IArrowArray { }
+    public interface IArrowArrayBuilder<out TArray, out TBuilder> : IArrowArrayBuilder<TArray>
+        where TArray : IArrowArray
+        where TBuilder : IArrowArrayBuilder<TArray>
+    {
+        TBuilder Reserve(int capacity);
+        TBuilder Resize(int length);
+        TBuilder Clear();
+    }
 
-    public interface IArrowArrayBuilder<T, out TArray, out TBuilder> : IArrowArrayBuilder<T, TArray>
+
+    public interface IArrowArrayBuilder<T, out TArray, out TBuilder> : IArrowArrayBuilder<TArray, TBuilder>
         where TArray : IArrowArray
         where TBuilder : IArrowArrayBuilder<TArray>
     {
         TBuilder Append(T value);
         TBuilder Append(ReadOnlySpan<T> span);
         TBuilder AppendRange(IEnumerable<T> values);
-        TBuilder Reserve(int capacity);
-        TBuilder Resize(int length);
         TBuilder Swap(int i, int j);
         TBuilder Set(int index, T value);
-        TBuilder Clear();
     }
 }

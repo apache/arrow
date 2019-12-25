@@ -181,17 +181,19 @@ namespace Apache.Arrow.Tests
 
             public void Visit(ListType type)
             {
-                //Todo : Use ListArray.Builder
-                var children = new [] { CreateArray(type.ValueField, Length).Data };
-                ArrowBuffer.Builder<int> builder = new ArrowBuffer.Builder<int>(Length);
-                for (int i = 0; i < Length; i++)
+                var builder = new ListArray.Builder(type).Reserve(Length);
+
+                //Todo : Support various types
+                var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length);
+
+                for (var i = 0; i < Length; i++)
                 {
-                    builder.Append(i);
+                    builder.Append();
+                    valueBuilder.Append(i);
                 }
 
-                var valueOffsetsBuffer = builder.Build();
-                Array = new ListArray(new ArrayData(type, Length, 0, 0,
-                    new[] { ArrowBuffer.Empty, valueOffsetsBuffer }, children));
+                Array = builder.Build();
+
             }
 
             private void GenerateArray<T, TArray, TArrayBuilder>(IArrowArrayBuilder<T, TArray, TArrayBuilder> builder, Func<int, T> generator)

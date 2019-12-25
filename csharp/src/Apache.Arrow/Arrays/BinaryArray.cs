@@ -67,6 +67,8 @@ namespace Apache.Arrow
 
             protected abstract TArray Build(ArrayData data);
 
+            public int Length => ValueOffsets.Length;
+
             public TArray Build(MemoryAllocator allocator = default)
             {
                 ValueOffsets.Append(Offset);

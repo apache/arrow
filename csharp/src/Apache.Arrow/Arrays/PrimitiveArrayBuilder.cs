@@ -20,15 +20,17 @@ using System.Linq;
 
 namespace Apache.Arrow
 {
-    public abstract class PrimitiveArrayBuilder<TFrom, TTo, TArray, TBuilder> : IArrowArrayBuilder<TFrom, TArray>
-        where TTo: struct
-        where TArray: IArrowArray
-        where TBuilder: class, IArrowArrayBuilder<TArray>
+    public abstract class PrimitiveArrayBuilder<TFrom, TTo, TArray, TBuilder> : IArrowArrayBuilder<TArray, TBuilder>
+        where TTo : struct
+        where TArray : IArrowArray
+        where TBuilder : class, IArrowArrayBuilder<TArray>
     {
         protected TBuilder Instance => this as TBuilder;
-        protected IArrowArrayBuilder<TTo, TArray, IArrowArrayBuilder<TTo, TArray>> ArrayBuilder { get; }
+        protected IArrowArrayBuilder<TTo, TArray, IArrowArrayBuilder<TArray>> ArrayBuilder { get; }
 
-        internal PrimitiveArrayBuilder(IArrowArrayBuilder<TTo, TArray, IArrowArrayBuilder<TTo, TArray>> builder)
+        public int Length => ArrayBuilder.Length;
+
+        internal PrimitiveArrayBuilder(IArrowArrayBuilder<TTo, TArray, IArrowArrayBuilder<TArray>> builder)
         {
             ArrayBuilder = builder ?? throw new ArgumentNullException(nameof(builder));
         }
@@ -91,12 +93,14 @@ namespace Apache.Arrow
     }
 
     public abstract class PrimitiveArrayBuilder<T, TArray, TBuilder> : IArrowArrayBuilder<T, TArray, TBuilder>
-        where T: struct
+        where T : struct
         where TArray : IArrowArray
-        where TBuilder : class, IArrowArrayBuilder<T, TArray>
+        where TBuilder : class, IArrowArrayBuilder<TArray>
     {
         protected TBuilder Instance => this as TBuilder;
         protected ArrowBuffer.Builder<T> ValueBuffer { get; }
+
+        public int Length => ValueBuffer.Length;
 
         // TODO: Implement support for null values (null bitmaps)
 
