@@ -30,12 +30,16 @@ namespace Apache.Arrow
 
         public ArrowBuffer ValueBuffer => Data.Buffers[1];
 
-        public ReadOnlySpan<T> Values => ValueBuffer.Span.CastTo<T>().Slice(0, Length);
+        public ReadOnlySpan<T> Values => ValueBuffer.Span.CastTo<T>().Slice(Offset, Length);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T? GetValue(int index)
         {
-            return IsValid(index) ? Values[index] : (T?) null;
+            if (index < 0 || index >= Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+            return IsValid(index) ? Values[index] : (T?)null;
         }
 
         public IList<T?> ToList(bool includeNulls = false)
