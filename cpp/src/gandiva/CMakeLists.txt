@@ -207,7 +207,6 @@ add_gandiva_test(internals-test
                  to_date_holder_test.cc
                  simple_arena_test.cc
                  like_holder_test.cc
-                 parse_string_holder_test.cc
                  decimal_type_util_test.cc
                  random_generator_holder_test.cc)
 
