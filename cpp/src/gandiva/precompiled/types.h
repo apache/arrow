@@ -200,6 +200,18 @@ const char* replace_with_max_len_utf8_utf8_utf8(int64 context, const char* text,
 const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_len,
                                    const char* from_str, int32 from_str_len,
                                    const char* to_str, int32 to_str_len, int32* out_len);
+
+const char* castVARCHAR_int32_int64(int64 context, int32 value, int64 len,
+                                    int32* out_len);
+
+const char* castVARCHAR_int64_int64(int64 context, int64 value, int64 len,
+                                    int32* out_len);
+
+const char* castVARCHAR_float32_int64(int64 context, float32 value, int64 len,
+                                      int32* out_len);
+
+const char* castVARCHAR_float64_int64(int64 context, float64 value, int64 len,
+                                      int32* out_len);
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H
