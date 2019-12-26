@@ -97,28 +97,28 @@ export function createElementComparator(search: any) {
 
 /** @ignore */
 function createArrayLikeComparator(lhs: ArrayLike<any>) {
-    const comparitors = [] as ((x: any) => boolean)[];
+    const comparators = [] as ((x: any) => boolean)[];
     for (let i = -1, n = lhs.length; ++i < n;) {
-        comparitors[i] = createElementComparator(lhs[i]);
+        comparators[i] = createElementComparator(lhs[i]);
     }
-    return createSubElementsComparator(comparitors);
+    return createSubElementsComparator(comparators);
 }
 
 /** @ignore */
 function creatMapComparator(lhs: Map<any, any>) {
     let i = -1;
-    const comparitors = [] as ((x: any) => boolean)[];
-    lhs.forEach((v) => comparitors[++i] = createElementComparator(v));
-    return createSubElementsComparator(comparitors);
+    const comparators = [] as ((x: any) => boolean)[];
+    lhs.forEach((v) => comparators[++i] = createElementComparator(v));
+    return createSubElementsComparator(comparators);
 }
 
 /** @ignore */
 function createVectorComparator(lhs: Vector<any>) {
-    const comparitors = [] as ((x: any) => boolean)[];
+    const comparators = [] as ((x: any) => boolean)[];
     for (let i = -1, n = lhs.length; ++i < n;) {
-        comparitors[i] = createElementComparator(lhs.get(i));
+        comparators[i] = createElementComparator(lhs.get(i));
     }
-    return createSubElementsComparator(comparitors);
+    return createSubElementsComparator(comparators);
 }
 
 /** @ignore */
@@ -126,65 +126,65 @@ function createObjectComparator(lhs: any) {
     const keys = Object.keys(lhs);
     // Only compare non-empty Objects
     if (keys.length === 0) { return () => false; }
-    const comparitors = [] as ((x: any) => boolean)[];
+    const comparators = [] as ((x: any) => boolean)[];
     for (let i = -1, n = keys.length; ++i < n;) {
-        comparitors[i] = createElementComparator(lhs[keys[i]]);
+        comparators[i] = createElementComparator(lhs[keys[i]]);
     }
-    return createSubElementsComparator(comparitors, keys);
+    return createSubElementsComparator(comparators, keys);
 }
 
-function createSubElementsComparator(comparitors: ((x: any) => boolean)[], keys?: Iterable<string>) {
+function createSubElementsComparator(comparators: ((x: any) => boolean)[], keys?: Iterable<string>) {
     return (rhs: any) => {
         if (!rhs || typeof rhs !== 'object') {
             return false;
         }
         switch (rhs.constructor) {
-            case Array: return compareArray(comparitors, rhs);
+            case Array: return compareArray(comparators, rhs);
             case Map:
             case MapRow:
             case StructRow:
-                return compareObject(comparitors, rhs, rhs.keys());
+                return compareObject(comparators, rhs, rhs.keys());
             case Object:
             case undefined: // support `Object.create(null)` objects
-                return compareObject(comparitors, rhs, keys || Object.keys(rhs));
+                return compareObject(comparators, rhs, keys || Object.keys(rhs));
         }
-        return rhs instanceof Vector ? compareVector(comparitors, rhs) : false;
+        return rhs instanceof Vector ? compareVector(comparators, rhs) : false;
     };
 }
 
-function compareArray(comparitors: ((x: any) => boolean)[], arr: any[]) {
-    const n = comparitors.length;
+function compareArray(comparators: ((x: any) => boolean)[], arr: any[]) {
+    const n = comparators.length;
     if (arr.length !== n) { return false; }
     for (let i = -1; ++i < n;) {
-        if (!(comparitors[i](arr[i]))) { return false; }
+        if (!(comparators[i](arr[i]))) { return false; }
     }
     return true;
 }
 
-function compareVector(comparitors: ((x: any) => boolean)[], vec: Vector) {
-    const n = comparitors.length;
+function compareVector(comparators: ((x: any) => boolean)[], vec: Vector) {
+    const n = comparators.length;
     if (vec.length !== n) { return false; }
     for (let i = -1; ++i < n;) {
-        if (!(comparitors[i](vec.get(i)))) { return false; }
+        if (!(comparators[i](vec.get(i)))) { return false; }
     }
     return true;
 }
 
-function compareObject(comparitors: ((x: any) => boolean)[], obj: Map<any, any>, keys: Iterable<string>) {
+function compareObject(comparators: ((x: any) => boolean)[], obj: Map<any, any>, keys: Iterable<string>) {
 
     const lKeyItr = keys[Symbol.iterator]();
     const rKeyItr = obj instanceof Map ? obj.keys() : Object.keys(obj)[Symbol.iterator]();
     const rValItr = obj instanceof Map ? obj.values() : Object.values(obj)[Symbol.iterator]();
 
     let i = 0;
-    let n = comparitors.length;
+    let n = comparators.length;
     let rVal = rValItr.next();
     let lKey = lKeyItr.next();
     let rKey = rKeyItr.next();
 
     for (; i < n && !lKey.done && !rKey.done && !rVal.done;
          ++i, lKey = lKeyItr.next(), rKey = rKeyItr.next(), rVal = rValItr.next()) {
-        if (lKey.value !== rKey.value || !comparitors[i](rVal.value)) {
+        if (lKey.value !== rKey.value || !comparators[i](rVal.value)) {
             break;
         }
     }

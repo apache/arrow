@@ -58,7 +58,7 @@ const closureTask = ((cache) => memoizeTask(cache, async function closure(target
 
     await Promise.all([
         fs.promises.writeFile(externs, generateExternsFile(exportedImports)),
-        fs.promises.writeFile(entry_point, generateUMDExportAssignnent(srcAbsolute, exportedImports))
+        fs.promises.writeFile(entry_point, generateUMDExportAssignment(srcAbsolute, exportedImports))
     ]);
 
     return await Promise.all([
@@ -112,7 +112,7 @@ const createClosureArgs = (entry_point, externs) => ({
 }(this, (function (exports) {%output%}.bind(this))));`
 });
 
-function generateUMDExportAssignnent(src, exportedImports) {
+function generateUMDExportAssignment(src, exportedImports) {
     return [
         ...exportedImports.map(({ publicModulePath }, i) => {
             const p = publicModulePath.slice(src.length + 1);
