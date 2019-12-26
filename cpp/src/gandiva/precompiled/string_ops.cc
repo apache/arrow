@@ -444,7 +444,12 @@ FORCE_INLINE
 int32 locate_utf8_utf8_int32(int64 context, const char* sub_str, int32 sub_str_len,
                              const char* str, int32 str_len, int32 start_pos) {
   if (start_pos < 1) {
-    gdv_fn_context_set_error_msg(context, "Start position must be greater than 0");
+    char const* fmt = "Start index (%d) must be greater than 0";
+    int size = static_cast<int>(strlen(fmt)) + 64;
+    char* error = reinterpret_cast<char*>(malloc(size));
+    snprintf(error, size, fmt, start_pos);
+    gdv_fn_context_set_error_msg(context, error);
+    free(error);
     return 0;
   }
 
