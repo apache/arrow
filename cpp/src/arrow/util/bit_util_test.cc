@@ -844,18 +844,6 @@ TEST(BitUtil, CeilDiv) {
   EXPECT_EQ(BitUtil::CeilDiv(100000000000, 10000000000), 10);
 }
 
-TEST(BitUtil, CeilDiv8) {
-  EXPECT_EQ(BitUtil::CeilDiv8(0), 0);
-  EXPECT_EQ(BitUtil::CeilDiv8(1), 1);
-  EXPECT_EQ(BitUtil::CeilDiv8(2), 1);
-  EXPECT_EQ(BitUtil::CeilDiv8(3), 1);
-  EXPECT_EQ(BitUtil::CeilDiv8(5), 1);
-  EXPECT_EQ(BitUtil::CeilDiv8(15), 2);
-  EXPECT_EQ(BitUtil::CeilDiv8(24), 3);
-  EXPECT_EQ(BitUtil::CeilDiv8(10000000000), 1250000000);
-  EXPECT_EQ(BitUtil::CeilDiv8(10000000003), 1250000001);
-}
-
 TEST(BitUtil, RoundUp) {
   EXPECT_EQ(BitUtil::RoundUp(0, 1), 0);
   EXPECT_EQ(BitUtil::RoundUp(1, 1), 1);
