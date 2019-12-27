@@ -42,6 +42,9 @@ G_BEGIN_DECLS
  *
  * #GArrowSlowFileSystem is a delegator to another file system.
  * This inserts latencies at various points.
+ *
+ * #GArrowLocalFileSystem is a class for an implementation of a file system
+ * that accesses files on the local machine.
  */
 
 /* arrow::fs::FileStats */

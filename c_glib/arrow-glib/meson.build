@@ -59,6 +59,7 @@ sources += files(
 
 sources += files(
   'file-system.cpp',
+  'local-file-system.cpp',
 )
 
 if have_arrow_orc
@@ -114,6 +115,7 @@ c_headers += files(
 
 c_headers += files(
   'file-system.h',
+  'local-file-system.h',
 )
 
 if have_arrow_orc
@@ -166,6 +168,7 @@ cpp_headers += files(
 
 cpp_headers += files(
   'file-system.hpp',
+  'local-file-system.hpp',
 )
 
 if have_arrow_orc
