@@ -210,7 +210,7 @@ public class JdbcToArrowUtils {
    *   <li>BINARY --> ArrowType.Binary</li>
    *   <li>VARBINARY --> ArrowType.Binary</li>
    *   <li>LONGVARBINARY --> ArrowType.Binary</li>
-   *   <li>DATE --> ArrowType.Date(DateUnit.MILLISECOND)</li>
+   *   <li>DATE --> ArrowType.Date(DateUnit.DAY)</li>
    *   <li>TIME --> ArrowType.Time(TimeUnit.MILLISECOND, 32)</li>
    *   <li>TIMESTAMP --> ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar timezone)</li>
    *   <li>CLOB --> ArrowType.Utf8</li>

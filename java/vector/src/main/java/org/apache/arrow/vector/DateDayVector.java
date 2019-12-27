@@ -38,11 +38,6 @@ import io.netty.buffer.ArrowBuf;
  */
 public final class DateDayVector extends BaseFixedWidthVector {
 
-  /**
-   * The number of milli-seconds in a day.
-   */
-  public static final long  MILLIS_PER_DAY = 3600 * 24 * 1000L;
-
   private static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
