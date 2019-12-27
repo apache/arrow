@@ -637,7 +637,7 @@ TEST_F(BitmapOp, Or) {
   TestUnaligned(op, left, right, result);
 }
 
-TEST_F(BitmapOp, XorAligned) {
+TEST_F(BitmapOp, Xor) {
   BitmapXorOp op;
   std::vector<int> left = {0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1};
   std::vector<int> right = {0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0};
@@ -834,6 +834,7 @@ TEST(BitUtil, CeilDiv) {
   EXPECT_EQ(BitUtil::CeilDiv(0, 1), 0);
   EXPECT_EQ(BitUtil::CeilDiv(1, 1), 1);
   EXPECT_EQ(BitUtil::CeilDiv(1, 2), 1);
+  EXPECT_EQ(BitUtil::CeilDiv(0, 8), 0);
   EXPECT_EQ(BitUtil::CeilDiv(1, 8), 1);
   EXPECT_EQ(BitUtil::CeilDiv(7, 8), 1);
   EXPECT_EQ(BitUtil::CeilDiv(8, 8), 1);
@@ -849,6 +850,7 @@ TEST(BitUtil, RoundUp) {
   EXPECT_EQ(BitUtil::RoundUp(1, 1), 1);
   EXPECT_EQ(BitUtil::RoundUp(1, 2), 2);
   EXPECT_EQ(BitUtil::RoundUp(6, 2), 6);
+  EXPECT_EQ(BitUtil::RoundUp(0, 3), 0);
   EXPECT_EQ(BitUtil::RoundUp(7, 3), 9);
   EXPECT_EQ(BitUtil::RoundUp(9, 9), 9);
   EXPECT_EQ(BitUtil::RoundUp(10000000001, 10), 10000000010);
