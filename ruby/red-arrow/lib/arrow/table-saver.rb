@@ -140,10 +140,8 @@ module Arrow
         csv = CSV.new(output, **options)
         names = @table.schema.fields.collect(&:name)
         csv << names
-        @table.each_record(reuse_record: true) do |record|
-          csv << names.collect do |name|
-            record[name]
-          end
+        @table.raw_records.each do |record|
+          csv << record
         end
       end
     end
