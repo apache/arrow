@@ -30,6 +30,7 @@ set -x
 : ${SOURCE_DIR:="${ARROW_HOME}/cpp"}            # Where the C++ source is
 : ${BUILD_DIR:="${ARROW_HOME}/r/libarrow/dist"} # Where cmake should build
 : ${DEST_DIR:="$BUILD_DIR"}                     # Where the resulting /lib and /include should be
+: ${CMAKE:="$(which cmake)"}
 
 # Make sure SOURCE and DEST dirs are absolute and exist
 SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
@@ -45,7 +46,7 @@ fi
 
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
-cmake -DCMAKE_BUILD_TYPE=Release \
+${CMAKE} -DCMAKE_BUILD_TYPE=Release \
     -DARROW_DEPENDENCY_SOURCE=BUNDLED \
     -DCMAKE_INSTALL_PREFIX=${DEST_DIR} \
     -DCMAKE_INSTALL_LIBDIR=lib \

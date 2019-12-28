@@ -19,17 +19,22 @@ args <- commandArgs(TRUE)
 VERSION <- args[1]
 dst_dir <- paste0("libarrow/arrow-", VERSION)
 src_dir <- NULL
+arrow_repo <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/"
+cmake_binary_url <- "https://github.com/Kitware/CMake/releases/download/v3.16.2/cmake-3.16.2-Linux-x86_64.tar.gz"
+
 download_libs <- identical(tolower(Sys.getenv("NOT_CRAN")), "true") || identical(Sys.getenv("_R_CHECK_SIZE_OF_TARBALL_"), "")
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !identical(tolower(Sys.getenv("ARROW_R_DEV")), "true")
+# download_libs <- TRUE # FOR TESTING
+# quietly <- FALSE # FOR TESTING
 
+# Function to figure out which flavor of binary we should download.
+# By default, it will try to discover from the OS what distro-version we're on
+# but you can override this by setting the env var ARROW_BINARY_DISTRO to:
+# * `FALSE` (not case-sensitive), which tells the script not to download a binary,
+# * some other string, presumably a related "distro-version" that has binaries
+#   built that work for your OS
 identify_os <- function(os = Sys.getenv("ARROW_BINARY_DISTRO")) {
-  # Function to figure out which flavor of binary we should download.
-  # By default, it will try to discover from the OS what distro-version we're on
-  # but you can override this by setting the env var ARROW_BINARY_DISTRO to:
-  # * `FALSE` (not case-sensitive), which tells the script not to download a binary,
-  # * some other string, presumably a related "distro-version" that has binaries
-  #   built that work for your OS
   if (nzchar(os)) {
     if (identical(tolower(os), "false")) {
       # Env var says not to download a binary
@@ -74,12 +79,11 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
       cat(sprintf("*** LOCAL_LIBARROW %s does not exist\n", localfile))
     }
   } else if (download_libs) {
-    base_url <- "https://dl.bintray.com/ursa-labs/arrow-r/libarrow/"
     # Determine (or take) distro
     os <- identify_os()
     if (!is.null(os)) {
       # Download it, if allowed
-      binary_url <- paste0(base_url, os, "/arrow-", VERSION, ".zip")
+      binary_url <- paste0(arrow_repo, os, "/arrow-", VERSION, ".zip")
       try(
         download.file(binary_url, "lib.zip", quiet = quietly),
         silent = quietly
@@ -93,7 +97,7 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
       }
       # Try to build C++ from source
       tf1 <- tempfile()
-      source_url <- paste0(base_url, "src/arrow-", VERSION, ".zip")
+      source_url <- paste0(arrow_repo, "src/arrow-", VERSION, ".zip")
       try(
         download.file(source_url, tf1, quiet = quietly),
         silent = quietly
@@ -122,9 +126,29 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   } else if (!is.null(src_dir)) {
     cat("*** Building C++ libraries\n")
     # We'll need to compile R bindings with these libs, so delete any .o files
-    system("rm src/*.o")
+    system("rm src/*.o", ignore.stdout = quietly, ignore.stderr = quietly)
+    # Check for cmake: only build dependency for libarrow
+    cmake <- system("which cmake", intern = TRUE, ignore.stderr = quietly)
+    if (nzchar(cmake)) {
+      cat("*** Downloading cmake\n")
+      # If not found, download it
+      cmake_tar <- tempfile()
+      cmake_dir <- tempfile()
+      try(
+        download.file(cmake_binary_url, cmake_tar, quiet = quietly),
+        silent = quietly
+      )
+      untar(cmake_tar, exdir = cmake_dir)
+      unlink(cmake_tar)
+      on.exit({
+        unlink(cmake_dir)
+        if (!identical(src_dir, "../cpp")) unlink(src_dir)
+      })
+      cmake <- paste0(cmake_dir, "/bin/cmake")
+    }
     env_vars <- sprintf(
-      "SOURCE_DIR=%s BUILD_DIR=libarrow/build DEST_DIR=%s", src_dir, dst_dir
+      "SOURCE_DIR=%s BUILD_DIR=libarrow/build DEST_DIR=%s CMAKE=%s",
+      src_dir,                                dst_dir,    cmake
     )
     system(paste(env_vars, "inst/build_arrow_static.sh"))
   }
