@@ -32,8 +32,6 @@ use crate::ipc;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
 use DataType::*;
 
-static ARROW_MAGIC: [u8; 6] = [b'A', b'R', b'R', b'O', b'W', b'1'];
-
 /// Read a buffer based on offset and length
 fn read_buffer(buf: &ipc::Buffer, a_data: &Vec<u8>) -> Buffer {
     let start_offset = buf.offset() as usize;
@@ -410,14 +408,14 @@ impl<R: Read + Seek> FileReader<R> {
         // check if header and footer contain correct magic bytes
         let mut magic_buffer: [u8; 6] = [0; 6];
         reader.read_exact(&mut magic_buffer)?;
-        if magic_buffer != ARROW_MAGIC {
+        if magic_buffer != super::ARROW_MAGIC {
             return Err(ArrowError::IoError(
                 "Arrow file does not contain correct header".to_string(),
             ));
         }
         reader.seek(SeekFrom::End(-6))?;
         reader.read_exact(&mut magic_buffer)?;
-        if magic_buffer != ARROW_MAGIC {
+        if magic_buffer != super::ARROW_MAGIC {
             return Err(ArrowError::IoError(
                 "Arrow file does not contain correct footer".to_string(),
             ));

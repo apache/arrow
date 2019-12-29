@@ -17,6 +17,7 @@
 
 pub mod convert;
 pub mod reader;
+pub mod writer;
 
 pub mod gen;
 
@@ -25,3 +26,5 @@ pub use self::gen::Message::*;
 pub use self::gen::Schema::*;
 pub use self::gen::SparseTensor::*;
 pub use self::gen::Tensor::*;
+
+static ARROW_MAGIC: [u8; 6] = [b'A', b'R', b'R', b'O', b'W', b'1'];
