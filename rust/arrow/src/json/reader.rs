@@ -1047,7 +1047,7 @@ mod tests {
             List(Box::new(Int64)),
             coerce_data_type(vec![&Int64, &List(Box::new(Int64))]).unwrap()
         );
-        // boolean a number are incompatible, return utf8
+        // boolean and number are incompatible, return utf8
         assert_eq!(
             List(Box::new(Utf8)),
             coerce_data_type(vec![&Boolean, &List(Box::new(Float64))]).unwrap()
