@@ -127,13 +127,14 @@ ensure_flex <- function() {
 if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   # If we're working in a local checkout and have already built the libs, we
   # don't need to do anything. Otherwise,
+  libfile <- tempfile()
   if (length(args) > 1) {
     # Arg 2 would be the path/to/lib.zip
     # TODO: do we need this option?
     localfile <- args[2]
     if (file.exists(localfile)) {
       cat(sprintf("*** Using LOCAL_LIBARROW %s\n", localfile))
-      file.copy(localfile, "lib.zip")
+      file.copy(localfile, libfile)
     } else {
       cat(sprintf("*** LOCAL_LIBARROW %s does not exist\n", localfile))
     }
@@ -144,11 +145,11 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
       # Download it, if allowed
       binary_url <- paste0(arrow_repo, os, "/arrow-", VERSION, ".zip")
       try(
-        download.file(binary_url, "lib.zip", quiet = quietly),
+        download.file(binary_url, libfile, quiet = quietly),
         silent = quietly
       )
     }
-    if (file.exists("lib.zip")) {
+    if (file.exists(libfile)) {
       cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", os))
     } else {
       if (!is.null(os)) {
@@ -161,6 +162,11 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
         download.file(source_url, tf1, quiet = quietly),
         silent = quietly
       )
+      if (!file.exists(tf1)) {
+        # Try for an official release
+        # https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.15.1/apache-arrow-0.15.1.tar.gz
+        # Will have to set src_dir to exdir/cpp
+      }
       if (file.exists(tf1)) {
         cat("*** Successfully retrieved C++ source\n")
         src_dir <- tempfile()
@@ -179,11 +185,11 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     cat("*** Proceeding without C++ dependencies\n")
   }
 
-  if (file.exists("lib.zip")) {
+  if (file.exists(libfile)) {
     # Finish up for the cases where we got a zip file of the libs
     dir.create(dst_dir, showWarnings = !quietly, recursive = TRUE)
-    unzip("lib.zip", exdir = dst_dir)
-    unlink("lib.zip")
+    unzip(libfile, exdir = dst_dir)
+    unlink(libfile)
   } else if (!is.null(src_dir)) {
     cat("*** Building C++ libraries\n")
     # We'll need to compile R bindings with these libs, so delete any .o files
