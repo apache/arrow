@@ -1002,7 +1002,7 @@ arrow::Status CheckCompatibleStruct(SEXP obj,
 }
 
 std::shared_ptr<arrow::Array> Array__from_vector(
-    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered) {
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
   // short circuit if `x` is already an Array
   if (Rf_inherits(x, "Array")) {
     return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>>(x);
@@ -1020,9 +1020,9 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     return arrow::r::MakeStringArray(x);
   }
 
-  // factors only when type has been infered
+  // factors only when type has been inferred
   if (type->id() == Type::DICTIONARY) {
-    if (type_infered || arrow::r::CheckCompatibleFactor(x, type)) {
+    if (type_inferred || arrow::r::CheckCompatibleFactor(x, type)) {
       return arrow::r::MakeFactorArray(x, type);
     }
 
@@ -1031,7 +1031,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 
   // struct types
   if (type->id() == Type::STRUCT) {
-    if (!type_infered) {
+    if (!type_inferred) {
       STOP_IF_NOT_OK(arrow::r::CheckCompatibleStruct(x, type));
     }
 
@@ -1066,16 +1066,16 @@ std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x) {
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   // the type might be NULL, in which case we need to infer it from the data
-  // we keep track of whether it was infered or supplied
-  bool type_infered = Rf_isNull(s_type);
+  // we keep track of whether it was inferred or supplied
+  bool type_inferred = Rf_isNull(s_type);
   std::shared_ptr<arrow::DataType> type;
-  if (type_infered) {
+  if (type_inferred) {
     type = arrow::r::InferType(x);
   } else {
     type = arrow::r::extract<arrow::DataType>(s_type);
   }
 
-  return arrow::r::Array__from_vector(x, type, type_infered);
+  return arrow::r::Array__from_vector(x, type, type_inferred);
 }
 
 // [[arrow::export]]
@@ -1084,12 +1084,12 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
   std::vector<std::shared_ptr<arrow::Array>> vec;
 
   // the type might be NULL, in which case we need to infer it from the data
-  // we keep track of whether it was infered or supplied
-  bool type_infered = Rf_isNull(s_type);
+  // we keep track of whether it was inferred or supplied
+  bool type_inferred = Rf_isNull(s_type);
   R_xlen_t n = XLENGTH(chunks);
 
   std::shared_ptr<arrow::DataType> type;
-  if (type_infered) {
+  if (type_inferred) {
     if (n == 0) {
       Rcpp::stop("type must be specified for empty list");
     }
@@ -1106,11 +1106,11 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
     vec.push_back(array);
   } else {
     // the first - might differ from the rest of the loop
-    // because we might have infered the type from the first element of the list
+    // because we might have inferred the type from the first element of the list
     //
     // this only really matters for dictionary arrays
     vec.push_back(
-        arrow::r::Array__from_vector(VECTOR_ELT(chunks, 0), type, type_infered));
+        arrow::r::Array__from_vector(VECTOR_ELT(chunks, 0), type, type_inferred));
 
     for (R_xlen_t i = 1; i < n; i++) {
       vec.push_back(arrow::r::Array__from_vector(VECTOR_ELT(chunks, i), type, false));

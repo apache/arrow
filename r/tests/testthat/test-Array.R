@@ -443,7 +443,7 @@ test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   expect_equivalent(a$as_vector(), df)
 })
 
-test_that("Array$create() can handle data frame with custom struct type (not infered)", {
+test_that("Array$create() can handle data frame with custom struct type (not inferred)", {
   df <- tibble::tibble(x = 1:10, y = 1:10)
   type <- struct(x = float64(), y = int16())
   a <- Array$create(df, type = type)

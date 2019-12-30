@@ -65,7 +65,7 @@ pub trait AggregateExpr: Send + Sync {
     fn name(&self) -> String;
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
-    /// Evaluate the expressioon being aggregated
+    /// Evaluate the expression being aggregated
     fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef>;
     /// Create an accumulator for this aggregate expression
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>>;

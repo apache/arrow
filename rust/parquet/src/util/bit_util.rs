@@ -516,7 +516,7 @@ impl BitReader {
                     self.byte_offset += 4 * num_bits;
                     for n in 0..32 {
                         // We need to copy from smaller size to bigger size to avoid
-                        // overwritting other memory regions.
+                        // overwriting other memory regions.
                         if size_of::<T>() > size_of::<u32>() {
                             ::std::ptr::copy_nonoverlapping(
                                 out_buf[n..].as_ptr() as *const u32,

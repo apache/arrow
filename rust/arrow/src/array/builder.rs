@@ -215,14 +215,14 @@ pub trait ArrayBuilder: Any {
     /// Builds the array
     fn finish(&mut self) -> ArrayRef;
 
-    /// Returns the builder as an non-mutable `Any` reference.
+    /// Returns the builder as a non-mutable `Any` reference.
     ///
     /// This is most useful when one wants to call non-mutable APIs on a specific builder
     /// type. In this case, one can first cast this into a `Any`, and then use
     /// `downcast_ref` to get a reference on the specific builder.
     fn as_any(&self) -> &Any;
 
-    /// Returns the builder as an mutable `Any` reference.
+    /// Returns the builder as a mutable `Any` reference.
     ///
     /// This is most useful when one wants to call mutable APIs on a specific builder
     /// type. In this case, one can first cast this into a `Any`, and then use
@@ -240,12 +240,12 @@ pub struct PrimitiveBuilder<T: ArrowPrimitiveType> {
 }
 
 impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
-    /// Returns the builder as an non-mutable `Any` reference.
+    /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
     }
 
-    /// Returns the builder as an mutable `Any` reference.
+    /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
     }
@@ -354,12 +354,12 @@ impl<T: ArrayBuilder> ArrayBuilder for ListBuilder<T>
 where
     T: 'static,
 {
-    /// Returns the builder as an non-mutable `Any` reference.
+    /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
     }
 
-    /// Returns the builder as an mutable `Any` reference.
+    /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
     }
@@ -455,12 +455,12 @@ impl<T: ArrayBuilder> ArrayBuilder for FixedSizeListBuilder<T>
 where
     T: 'static,
 {
-    /// Returns the builder as an non-mutable `Any` reference.
+    /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
     }
 
-    /// Returns the builder as an mutable `Any` reference.
+    /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
     }
@@ -559,12 +559,12 @@ impl BinaryArrayBuilder for StringBuilder {}
 impl BinaryArrayBuilder for FixedSizeBinaryBuilder {}
 
 impl ArrayBuilder for BinaryBuilder {
-    /// Returns the builder as an non-mutable `Any` reference.
+    /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
     }
 
-    /// Returns the builder as an mutable `Any` reference.
+    /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
     }
@@ -586,12 +586,12 @@ impl ArrayBuilder for BinaryBuilder {
 }
 
 impl ArrayBuilder for StringBuilder {
-    /// Returns the builder as an non-mutable `Any` reference.
+    /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
     }
 
-    /// Returns the builder as an mutable `Any` reference.
+    /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
     }
@@ -613,12 +613,12 @@ impl ArrayBuilder for StringBuilder {
 }
 
 impl ArrayBuilder for FixedSizeBinaryBuilder {
-    /// Returns the builder as an non-mutable `Any` reference.
+    /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
     }
 
-    /// Returns the builder as an mutable `Any` reference.
+    /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
     }
@@ -784,7 +784,7 @@ impl ArrayBuilder for StructBuilder {
         Arc::new(self.finish())
     }
 
-    /// Returns the builder as an non-mutable `Any` reference.
+    /// Returns the builder as a non-mutable `Any` reference.
     ///
     /// This is most useful when one wants to call non-mutable APIs on a specific builder
     /// type. In this case, one can first cast this into a `Any`, and then use
@@ -793,7 +793,7 @@ impl ArrayBuilder for StructBuilder {
         self
     }
 
-    /// Returns the builder as an mutable `Any` reference.
+    /// Returns the builder as a mutable `Any` reference.
     ///
     /// This is most useful when one wants to call mutable APIs on a specific builder
     /// type. In this case, one can first cast this into a `Any`, and then use

@@ -252,7 +252,7 @@ impl WriterPropertiesBuilder {
     }
 
     // ----------------------------------------------------------------------
-    // Writer properies related to a file
+    // Writer properties related to a file
 
     /// Sets writer version.
     pub fn set_writer_version(mut self, value: WriterVersion) -> Self {
@@ -299,7 +299,7 @@ impl WriterPropertiesBuilder {
     /// columns. In case when dictionary is enabled for any column, this value is
     /// considered to be a fallback encoding for that column.
     ///
-    /// Panics if user tries to set dictionary encoding here, regardless of dictinoary
+    /// Panics if user tries to set dictionary encoding here, regardless of dictionary
     /// encoding flag being set.
     pub fn set_encoding(mut self, value: Encoding) -> Self {
         self.default_column_properties.set_encoding(value);
@@ -354,7 +354,7 @@ impl WriterPropertiesBuilder {
     /// global defaults or explicitly, this value is considered to be a fallback
     /// encoding for this column.
     ///
-    /// Panics if user tries to set dictionary encoding here, regardless of dictinoary
+    /// Panics if user tries to set dictionary encoding here, regardless of dictionary
     /// encoding flag being set.
     pub fn set_column_encoding(mut self, col: ColumnPath, value: Encoding) -> Self {
         self.get_mut_props(col).set_encoding(value);
@@ -425,7 +425,7 @@ impl ColumnProperties {
     /// In case when dictionary is enabled for a column, this value is considered to
     /// be a fallback encoding.
     ///
-    /// Panics if user tries to set dictionary encoding here, regardless of dictinoary
+    /// Panics if user tries to set dictionary encoding here, regardless of dictionary
     /// encoding flag being set. Use `set_dictionary_enabled` method to enable dictionary
     /// for a column.
     fn set_encoding(&mut self, value: Encoding) {
