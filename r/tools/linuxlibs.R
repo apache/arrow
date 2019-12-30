@@ -20,7 +20,20 @@ VERSION <- args[1]
 dst_dir <- paste0("libarrow/arrow-", VERSION)
 src_dir <- NULL
 arrow_repo <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/"
-cmake_binary_url <- "https://github.com/Kitware/CMake/releases/download/v3.16.2/cmake-3.16.2-Linux-x86_64.tar.gz"
+# In case we have to download build dependencies, set version/URLs to them
+CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.16.2")
+cmake_binary_url <- paste0(
+  "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
+  "/cmake-", CMAKE_VERSION, "-Linux-x86_64.tar.gz"
+)
+FLEX_VERSION <- Sys.getenv("FLEX_VERSION", "2.6.4")
+flex_source_url <- paste0(
+  "https://github.com/westes/flex/releases/download/v", FLEX_VERSION,
+  "/flex-", FLEX_VERSION, ".tar.gz"
+)
+
+options(.arrow.cleanup = character()) # To collect dirs to rm on exit
+on.exit(unlink(getOption(".arrow.cleanup")))
 
 download_libs <- identical(tolower(Sys.getenv("NOT_CRAN")), "true") || identical(Sys.getenv("_R_CHECK_SIZE_OF_TARBALL_"), "")
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
@@ -46,8 +59,7 @@ identify_os <- function(os = Sys.getenv("ARROW_BINARY_DISTRO")) {
     }
   }
 
-  has_lsb <- system("which lsb_release", ignore.stdout = TRUE) == 0
-  if (has_lsb) {
+  if (nzchar(Sys.which("lsb_release"))) {
     distro <- tolower(system("lsb_release -is", intern = TRUE))
     os_version <- system("lsb_release -rs", intern = TRUE)
     # In the future, we may be able to do some mapping of distro-versions to
@@ -62,7 +74,54 @@ identify_os <- function(os = Sys.getenv("ARROW_BINARY_DISTRO")) {
     cat("*** Unable to identify current OS/version\n")
     os <- NULL
   }
-  return(os)
+  os
+}
+
+ensure_cmake <- function() {
+  cmake <- Sys.which("cmake")
+  if (!nzchar(cmake)) {
+    # If not found, download it
+    cat("*** Downloading cmake\n")
+    cmake_tar <- tempfile()
+    cmake_dir <- tempfile()
+    try(
+      download.file(cmake_binary_url, cmake_tar, quiet = quietly),
+      silent = quietly
+    )
+    untar(cmake_tar, exdir = cmake_dir)
+    unlink(cmake_tar)
+    options(.arrow.cleanup = c(getOption(".arrow.cleanup"), cmake_dir))
+    cmake <- paste0(
+      cmake_dir,
+      "/cmake-", CMAKE_VERSION, "-Linux-x86_64",
+      "/bin/cmake"
+    )
+  }
+  cmake
+}
+
+ensure_flex <- function() {
+  flex <- Sys.which("flex")
+  if (nzchar(flex)) {
+    # NULL will tell the caller not to append FLEX_ROOT to env vars bc it's not needed
+    return(NULL)
+  }
+  # If not found, download it
+  cat("*** Downloading and building flex\n")
+  flex_tar <- tempfile()
+  flex_dir <- tempfile()
+  try(
+    download.file(flex_source_url, flex_tar, quiet = quietly),
+    silent = quietly
+  )
+  untar(flex_tar, exdir = flex_dir)
+  unlink(flex_tar)
+  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), flex_dir))
+  # Now, build flex
+  flex_dir <- paste0(shQuote(flex_dir), "/flex-", FLEX_VERSION)
+  system(sprintf("cd %s && ./configure && make", flex_dir))
+  # The built flex should be in ./src. Return that so we can set as FLEX_ROOT
+  paste0(flex_dir, "/src")
 }
 
 if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
@@ -106,8 +165,10 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
         cat("*** Successfully retrieved C++ source\n")
         src_dir <- tempfile()
         unzip(tf1, exdir = src_dir)
+        # These scripts need to be executable
+        system(sprintf("chmod 755 %s/build-support/*.sh", src_dir))
         unlink(tf1)
-        on.exit(unlink(src_dir))
+        options(.arrow.cleanup = c(getOption(".arrow.cleanup"), src_dir))
       } else if (file.exists("../cpp/src/arrow/api.h")) {
         # We're in a git checkout of arrow, so we can build it
         cat("*** Found local C++ source\n")
@@ -127,29 +188,20 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     cat("*** Building C++ libraries\n")
     # We'll need to compile R bindings with these libs, so delete any .o files
     system("rm src/*.o", ignore.stdout = quietly, ignore.stderr = quietly)
-    # Check for cmake: only build dependency for libarrow
-    cmake <- system("which cmake", intern = TRUE, ignore.stderr = quietly)
-    if (nzchar(cmake)) {
-      cat("*** Downloading cmake\n")
-      # If not found, download it
-      cmake_tar <- tempfile()
-      cmake_dir <- tempfile()
-      try(
-        download.file(cmake_binary_url, cmake_tar, quiet = quietly),
-        silent = quietly
-      )
-      untar(cmake_tar, exdir = cmake_dir)
-      unlink(cmake_tar)
-      on.exit({
-        unlink(cmake_dir)
-        if (!identical(src_dir, "../cpp")) unlink(src_dir)
-      })
-      cmake <- paste0(cmake_dir, "/bin/cmake")
-    }
+    # Check for cmake and flex: build dependencies for libarrow
+    # (flex is for thrift)
+    cmake <- ensure_cmake()
+    flex <- ensure_flex()
     env_vars <- sprintf(
       "SOURCE_DIR=%s BUILD_DIR=libarrow/build DEST_DIR=%s CMAKE=%s",
       src_dir,                                dst_dir,    cmake
     )
+    if (!is.null(flex)) {
+      env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
+    }
+    if (!quietly) {
+      cat("*** Building with ", env_vars, "\n")
+    }
     system(paste(env_vars, "inst/build_arrow_static.sh"))
   }
 }

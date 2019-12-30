@@ -44,6 +44,10 @@ if [ "$CMAKE_GENERATOR" = "" ]; then
   fi
 fi
 
+if [ "$FLEX_ROOT" != "" ]; then
+  EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DFLEX_ROOT=${FLEX_ROOT}"
+fi
+
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DCMAKE_BUILD_TYPE=Release \
@@ -68,14 +72,21 @@ ${CMAKE} -DCMAKE_BUILD_TYPE=Release \
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_BROTLI=ON \
     -DOPENSSL_USE_STATIC_LIBS=ON \
+    ${EXTRA_CMAKE_FLAGS} \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
     ${SOURCE_DIR}
-cmake --build . --target install
+${CMAKE} --build . --target install
+
+# if [ $? -ne 0 ]; then
+#   # FOR TEST DEBUGGING
+#   cp -r ./* /home/docker
+# fi
 
 # Copy the bundled static libs from the build to the install dir
 find . -regex .*/.*/lib/.*\\.a\$ | xargs -I{} cp -u {} ${DEST_DIR}/lib
 popd
 
-pushd ${DEST_DIR}
-zip -r libarrow.zip lib/*.a include/
-popd
+# TODO: put the build step in its own script, not needed for R package source build
+# pushd ${DEST_DIR}
+# zip -r libarrow.zip lib/*.a include/
+# popd

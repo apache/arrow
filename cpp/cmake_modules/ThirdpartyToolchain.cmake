@@ -1044,6 +1044,11 @@ macro(build_thrift)
     set(THRIFT_CMAKE_ARGS ${THRIFT_CMAKE_ARGS} "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
   endif()
 
+  if(DEFINED FLEX_ROOT)
+    # thrift hasn't set the cmake policy that lets us use _ROOT, so work around
+    set(THRIFT_CMAKE_ARGS ${THRIFT_CMAKE_ARGS} "-DFLEX_EXECUTABLE=${FLEX_ROOT}/flex")
+  endif()
+
   set(THRIFT_STATIC_LIB_NAME "${CMAKE_STATIC_LIBRARY_PREFIX}thrift")
   if(MSVC)
     if(ARROW_USE_STATIC_CRT)
