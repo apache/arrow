@@ -40,7 +40,7 @@ enum class MessageType : int64_t;
 }  // namespace flatbuf
 
 // TODO(pcm): Replace our own custom message header (message type,
-// message length, plasma protocol verion) with one that is serialized
+// message length, plasma protocol version) with one that is serialized
 // using flatbuffers.
 constexpr int64_t kPlasmaProtocolVersion = 0x0000000000000000;
 
