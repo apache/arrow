@@ -174,7 +174,7 @@ Status SendDeleteReply(int sock, const std::vector<ObjectID>& object_ids,
 Status ReadDeleteReply(uint8_t* data, size_t size, std::vector<ObjectID>* object_ids,
                        std::vector<PlasmaError>* errors);
 
-/* Plasma Constains message functions. */
+/* Plasma Contains message functions. */
 
 Status SendContainsRequest(int sock, ObjectID object_id);
 

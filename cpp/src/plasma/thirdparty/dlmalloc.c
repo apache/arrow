@@ -1163,7 +1163,7 @@ DLMALLOC_EXPORT void** dlindependent_calloc(size_t, size_t, void**);
   Each element must be freed when it is no longer needed. This can be
   done all at once using bulk_free.
 
-  independent_comallac differs from independent_calloc in that each
+  independent_comalloc differs from independent_calloc in that each
   element may have a different size, and also that it does not
   automatically clear elements.
 
@@ -1689,7 +1689,7 @@ static FORCEINLINE void* win32direct_mmap(size_t size) {
   return (ptr != 0)? ptr: MFAIL;
 }
 
-/* This function supports releasing coalesed segments */
+/* This function supports releasing coalesced segments */
 static FORCEINLINE int win32munmap(void* ptr, size_t size) {
   MEMORY_BASIC_INFORMATION minfo;
   char* cptr = (char*)ptr;
@@ -1777,7 +1777,7 @@ static FORCEINLINE int win32munmap(void* ptr, size_t size) {
     #define CALL_MREMAP(addr, osz, nsz, mv)     MFAIL
 #endif /* HAVE_MMAP && HAVE_MREMAP */
 
-/* mstate bit set if continguous morecore disabled or failed */
+/* mstate bit set if contiguous morecore disabled or failed */
 #define USE_NONCONTIGUOUS_BIT (4U)
 
 /* segment bit set in create_mspace_with_base */
