@@ -120,7 +120,7 @@ class Result : public util::EqualityComparable<Result<T>> {
   /// implicitly converted to the appropriate return type as a matter of
   /// convenience.
   ///
-  /// \param status The non-OK Status object to initalize to.
+  /// \param status The non-OK Status object to initialize to.
   Result(const Status& status)  // NOLINT(runtime/explicit)
       : variant_(status) {
     if (ARROW_PREDICT_FALSE(status.ok())) {
@@ -246,7 +246,7 @@ class Result : public util::EqualityComparable<Result<T>> {
   /// the wrapped element through a call to ValueOrDie().
   bool ok() const { return arrow::util::holds_alternative<T>(variant_); }
 
-  /// \brief Equivelant to ok().
+  /// \brief Equivalent to ok().
   // operator bool() const { return ok(); }
 
   /// Gets the stored status object, or an OK status if a `T` value is stored.

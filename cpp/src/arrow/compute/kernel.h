@@ -261,7 +261,7 @@ class ARROW_EXPORT UnaryKernel : public OpKernel {
   /// \param[out] out The output of the function. Each implementation of this
   /// function might assume different things about the existing contents of out
   /// (e.g. which buffers are preallocated).  In the future it is expected that
-  /// there will be a more generic mechansim for understanding the necessary
+  /// there will be a more generic mechanism for understanding the necessary
   /// contracts.
   virtual Status Call(FunctionContext* ctx, const Datum& input, Datum* out) = 0;
 };

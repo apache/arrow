@@ -117,7 +117,7 @@ class ARROW_EXPORT BasicDecimal128 {
   std::array<uint8_t, 16> ToBytes() const;
   void ToBytes(uint8_t* out) const;
 
-  /// \brief seperate the integer and fractional parts for the given scale.
+  /// \brief separate the integer and fractional parts for the given scale.
   void GetWholeAndFraction(int32_t scale, BasicDecimal128* whole,
                            BasicDecimal128* fraction) const;
 

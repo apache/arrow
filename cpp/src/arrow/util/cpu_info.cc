@@ -77,7 +77,7 @@ static const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]
 namespace {
 
 // Helper function to parse for hardware flags.
-// values contains a list of space-seperated flags.  check to see if the flags we
+// values contains a list of space-separated flags.  check to see if the flags we
 // care about are present.
 // Returns a bitmap of flags.
 int64_t ParseCPUFlags(const std::string& values) {

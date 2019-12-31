@@ -1005,7 +1005,7 @@ Status MakeSparseTensorIndex(FBB& fbb, const SparseIndex& sparse_index,
 
     default:
       std::stringstream ss;
-      ss << "Unsupporoted sparse tensor format:: " << sparse_index.ToString()
+      ss << "Unsupported sparse tensor format:: " << sparse_index.ToString()
          << std::endl;
       return Status::NotImplemented(ss.str());
   }

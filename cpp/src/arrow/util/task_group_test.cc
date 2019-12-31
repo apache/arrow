@@ -124,7 +124,7 @@ void TestTaskSubGroupsSuccess(std::shared_ptr<TaskGroup> task_group) {
     groups.push_back(task_group->MakeSubGroup());
   }
 
-  // Add NTASKS sleeps amonst all groups
+  // Add NTASKS sleeps amongst all groups
   std::atomic<int> count(0);
   for (int i = 0; i < NTASKS; ++i) {
     groups[i % NGROUPS]->Append([&, i]() {
@@ -157,7 +157,7 @@ void TestTaskSubGroupsErrors(std::shared_ptr<TaskGroup> task_group) {
     groups.push_back(task_group->MakeSubGroup());
   }
 
-  // Add NTASKS sleeps amonst all groups
+  // Add NTASKS sleeps amongst all groups
   for (int i = 0; i < NTASKS; ++i) {
     groups[i % NGROUPS]->Append([&, i]() {
       sleep_for(1e-3);

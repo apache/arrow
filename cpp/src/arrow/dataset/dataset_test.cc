@@ -377,7 +377,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   ASSERT_OK(scanner_builder->Project(columns));
 
   // An optional filter expression may also be specified. The filter expression
-  // is evaluated against input rows. Only rows for which the filter evauates to true are
+  // is evaluated against input rows. Only rows for which the filter evaluates to true are
   // yielded. Predicate pushdown optimizations are applied using partition information if
   // available.
   //

@@ -100,7 +100,7 @@ bool VerifySparseTensorIndexVector(flatbuffers::Verifier &verifier, const flatbu
 
 /// ----------------------------------------------------------------------
 /// EXPERIMENTAL: Data structures for sparse tensors
-/// Coodinate (COO) format of sparse tensor index.
+/// Coordinate (COO) format of sparse tensor index.
 ///
 /// COO's index list are represented as a NxM matrix,
 /// where N is the number of non-zero values,

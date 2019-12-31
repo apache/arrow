@@ -270,7 +270,7 @@ Result<std::shared_ptr<Tensor>> ReadTensor(io::InputStream* file);
 ARROW_EXPORT
 Result<std::shared_ptr<Tensor>> ReadTensor(const Message& message);
 
-/// \brief EXPERIMETNAL: Read arrow::SparseTensor as encapsulated IPC message in file
+/// \brief EXPERIMENTAL: Read arrow::SparseTensor as encapsulated IPC message in file
 ///
 /// \param[in] file an InputStream pointed at the start of the message
 /// \return the read sparse tensor
