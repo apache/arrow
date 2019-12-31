@@ -105,7 +105,7 @@ TEST(TestArithmeticOps, TestCastINT) {
   gandiva::ExecutionContext ctx;
 
   int64 ctx_ptr = reinterpret_cast<int64>(&ctx);
-  
+
   EXPECT_EQ(castINT_utf8(ctx_ptr, "-45", 3), -45);
   EXPECT_EQ(castINT_utf8(ctx_ptr, "0", 1), 0);
   EXPECT_EQ(castINT_utf8(ctx_ptr, "2147483647", 10), 2147483647);
@@ -115,44 +115,38 @@ TEST(TestArithmeticOps, TestCastINT) {
 
   castINT_utf8(ctx_ptr, "2147483648", 10);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castINT_utf8(ctx_ptr, "-2147483649", 11);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castINT_utf8(ctx_ptr, "12.34", 5);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castINT_utf8(ctx_ptr, "abc", 3);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castINT_utf8(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castINT_utf8(ctx_ptr, "-", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 }
 
 TEST(TestArithmeticOps, TestCastBIGINT) {
   gandiva::ExecutionContext ctx;
-  
+
   int64 ctx_ptr = reinterpret_cast<int64>(&ctx);
 
   EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "-45", 3), -45);
@@ -160,44 +154,38 @@ TEST(TestArithmeticOps, TestCastBIGINT) {
   EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "9223372036854775807", 19), 9223372036854775807LL);
   EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "09223372036854775807", 20), 9223372036854775807LL);
   EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "-9223372036854775808", 20),
-                   -9223372036854775807LL - 1);
+            -9223372036854775807LL - 1);
   EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "-009223372036854775808", 22),
-                   -9223372036854775807LL - 1);
+            -9223372036854775807LL - 1);
 
   castBIGINT_utf8(ctx_ptr, "9223372036854775808", 19);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castBIGINT_utf8(ctx_ptr, "-9223372036854775809", 20);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castBIGINT_utf8(ctx_ptr, "12.34", 5);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castBIGINT_utf8(ctx_ptr, "abc", 3);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castBIGINT_utf8(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castBIGINT_utf8(ctx_ptr, "-", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 }
 
@@ -205,43 +193,39 @@ TEST(TestArithmeticOps, TestCastFloat4) {
   gandiva::ExecutionContext ctx;
 
   int64 ctx_ptr = reinterpret_cast<int64>(&ctx);
-  
+
   EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "-45.34", 6), -45.34f);
   EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "0", 1), 0.0f);
   EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "5", 1), 5.0f);
 
   castFLOAT4_utf8(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castFLOAT4_utf8(ctx_ptr, "e", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 }
 
 TEST(TestParseStringHolder, TestCastFloat8) {
   gandiva::ExecutionContext ctx;
-  
+
   int64 ctx_ptr = reinterpret_cast<int64>(&ctx);
 
   EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "-45.34", 6), -45.34);
-  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "0", 1),  0.0);
+  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "0", 1), 0.0);
   EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "5", 1), 5.0);
 
   castFLOAT8_utf8(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 
   castFLOAT8_utf8(ctx_ptr, "e", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed parsing the string to required format"));
   ctx.Reset();
 }
 
