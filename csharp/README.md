@@ -154,7 +154,7 @@ Which will build the final/stable package.
 NOTE: When building the officially released version, ensure that your `git` repository has the `origin` remote set to `https://github.com/apache/arrow.git`, which will ensure Source Link is set correctly. See https://github.com/dotnet/sourcelink/blob/master/docs/README.md for more information.
 
 There are two output artifacts:
-1. `Apache.Arrow.<version>.nupkg` - this contains the exectuable assemblies
+1. `Apache.Arrow.<version>.nupkg` - this contains the executable assemblies
 2. `Apache.Arrow.<version>.snupkg` - this contains the debug symbols files
 
 Both of these artifacts can then be uploaded to https://www.nuget.org/packages/manage/upload.

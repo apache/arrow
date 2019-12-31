@@ -33,7 +33,7 @@
 
 namespace gandiva {
 
-// Decompose a field node - simply seperate out validity & value arrays.
+// Decompose a field node - simply separate out validity & value arrays.
 Status ExprDecomposer::Visit(const FieldNode& node) {
   auto desc = annotator_.CheckAndAddInputFieldDescriptor(node.field());
 

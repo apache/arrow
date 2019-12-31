@@ -995,7 +995,7 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInput) {
   // Create a row-batch with some sample data
   int num_records = 5;
 
-  // imvalid input
+  // invalid input
   auto invalid_in = MakeArrowArrayUtf8({"a10.5134", "-0.0", "-0.1", "10.516", "-1000"},
                                        {true, false, true, true, true});
 

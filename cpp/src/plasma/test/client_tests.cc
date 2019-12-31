@@ -503,7 +503,7 @@ TEST_F(TestPlasmaStore, RefreshLRUTest) {
 TEST_F(TestPlasmaStore, DeleteTest) {
   ObjectID object_id = random_object_id();
 
-  // Test for deleting non-existance object.
+  // Test for deleting non-existence object.
   Status result = client_.Delete(object_id);
   ARROW_CHECK_OK(result);
 
@@ -533,7 +533,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   ObjectID object_id1 = random_object_id();
   ObjectID object_id2 = random_object_id();
 
-  // Test for deleting non-existance object.
+  // Test for deleting non-existence object.
   Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
   ARROW_CHECK_OK(result);
   // Test for the object being in local Plasma store.
@@ -928,7 +928,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
   ObjectID object_id1 = random_object_id();
   ObjectID object_id2 = random_object_id();
 
-  // Test for deleting non-existance object.
+  // Test for deleting non-existence object.
   Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
   ARROW_CHECK_OK(result);
   // Test for the object being in local Plasma store.

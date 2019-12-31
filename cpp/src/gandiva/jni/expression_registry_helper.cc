@@ -37,7 +37,7 @@ types::TimeUnit MapTimeUnit(arrow::TimeUnit::type& unit) {
     case arrow::TimeUnit::NANO:
       return types::TimeUnit::NANOSEC;
   }
-  // satifsy gcc. should be unreachable.
+  // satisfy gcc. should be unreachable.
   return types::TimeUnit::SEC;
 }
 

@@ -40,7 +40,7 @@ enum ResultNullableType {
 /// precompiled function.
 class GANDIVA_EXPORT NativeFunction {
  public:
-  // fucntion attributes.
+  // function attributes.
   static constexpr int32_t kNeedsContext = (1 << 1);
   static constexpr int32_t kNeedsFunctionHolder = (1 << 2);
   static constexpr int32_t kCanReturnErrors = (1 << 3);
