@@ -17,13 +17,20 @@
 
 package org.apache.arrow.flight;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.TestBasicOperation.Producer;
+import org.apache.arrow.flight.auth.ServerAuthHandler;
+import org.apache.arrow.flight.impl.FlightServiceGrpc;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -34,6 +41,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import io.grpc.MethodDescriptor;
+import io.grpc.ServerServiceDefinition;
 import io.grpc.netty.NettyServerBuilder;
 
 @RunWith(JUnit4.class)
@@ -69,7 +78,7 @@ public class TestServerOptions {
                 (location) -> FlightServer.builder(a, location, new NoOpFlightProducer())
                     .build()
             )) {
-      Assert.assertNotNull(server.grpcExecutor);
+      assertNotNull(server.grpcExecutor);
       executor = server.grpcExecutor;
     }
     Assert.assertTrue(executor.isShutdown());
@@ -126,6 +135,41 @@ public class TestServerOptions {
           }
         }
       }
+    }
+  }
+
+  @Test
+  public void checkReflectionMetadata() {
+    // This metadata is needed for gRPC reflection to work.
+    final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
+      final FlightBindingService service = new FlightBindingService(allocator, new NoOpFlightProducer(),
+          ServerAuthHandler.NO_OP, executorService);
+      final ServerServiceDefinition definition = service.bindService();
+      assertEquals(FlightServiceGrpc.getServiceDescriptor().getSchemaDescriptor(),
+          definition.getServiceDescriptor().getSchemaDescriptor());
+
+      final Map<String, MethodDescriptor<?, ?>> definedMethods = new HashMap<>();
+      final Map<String, MethodDescriptor<?, ?>> serviceMethods = new HashMap<>();
+
+      // Make sure that the reflection metadata object is identical across all the places where it's accessible
+      definition.getMethods().forEach(
+          method -> definedMethods.put(method.getMethodDescriptor().getFullMethodName(), method.getMethodDescriptor()));
+      definition.getServiceDescriptor().getMethods().forEach(
+          method -> serviceMethods.put(method.getFullMethodName(), method));
+
+      for (final MethodDescriptor<?, ?> descriptor : FlightServiceGrpc.getServiceDescriptor().getMethods()) {
+        final String methodName = descriptor.getFullMethodName();
+        Assert.assertTrue("Method is missing from ServerServiceDefinition: " + methodName,
+            definedMethods.containsKey(methodName));
+        Assert.assertTrue("Method is missing from ServiceDescriptor: " + methodName,
+            definedMethods.containsKey(methodName));
+
+        assertEquals(descriptor.getSchemaDescriptor(), definedMethods.get(methodName).getSchemaDescriptor());
+        assertEquals(descriptor.getSchemaDescriptor(), serviceMethods.get(methodName).getSchemaDescriptor());
+      }
+    } finally {
+      executorService.shutdown();
     }
   }
 }
