@@ -87,7 +87,7 @@ void lazy_copy(benchmark::State& state) {
   }
 }
 
-BENCHMARK(lazy_copy)n;
+BENCHMARK(lazy_copy);
 
 // std::copy with a lazy range which does static cast.
 // Should be the same performance as std::copy with differently typed iterators
