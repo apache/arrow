@@ -239,6 +239,7 @@ fn create_primitive_array(
                         .null_bit_buffer(buffers[0].clone())
                 }
                 let values = Arc::new(Int64Array::from(builder.build())) as ArrayRef;
+                // this cast is infallible, the unwrap is safe
                 let casted = cast(&values, data_type).unwrap();
                 casted.data()
             } else {
@@ -267,6 +268,7 @@ fn create_primitive_array(
                         .null_bit_buffer(buffers[0].clone())
                 }
                 let values = Arc::new(Float64Array::from(builder.build())) as ArrayRef;
+                // this cast is infallible, the unwrap is safe
                 let casted = cast(&values, data_type).unwrap();
                 casted.data()
             } else {
@@ -353,8 +355,12 @@ fn read_record_batch(
     batch: ipc::RecordBatch,
     schema: Arc<Schema>,
 ) -> Result<Option<RecordBatch>> {
-    let buffers = batch.buffers().unwrap();
-    let field_nodes = batch.nodes().unwrap();
+    let buffers = batch.buffers().ok_or(ArrowError::IoError(
+        "Unable to get buffers from IPC RecordBatch".to_string(),
+    ))?;
+    let field_nodes = batch.nodes().ok_or(ArrowError::IoError(
+        "Unable to get field nodes from IPC RecordBatch".to_string(),
+    ))?;
     // keep track of buffer and node index, the functions that create arrays mutate these
     let mut buffer_index = 0;
     let mut node_index = 0;
@@ -429,7 +435,10 @@ impl<R: Read + Seek> FileReader<R> {
         let vecs = &meta_buffer.to_vec();
         let message = ipc::get_root_as_message(vecs);
         // message header is a Schema, so read it
-        let ipc_schema: ipc::Schema = message.header_as_schema().unwrap();
+        let ipc_schema: ipc::Schema =
+            message.header_as_schema().ok_or(ArrowError::IoError(
+                "Unable to Unable to read IPC message as schema".to_string(),
+            ))?;
         let schema = ipc::convert::fb_to_schema(ipc_schema);
 
         // what does the footer contain?
@@ -444,7 +453,9 @@ impl<R: Read + Seek> FileReader<R> {
         reader.read_exact(&mut footer_data)?;
         let footer = ipc::get_root_as_footer(&footer_data[..]);
 
-        let blocks = footer.recordBatches().unwrap();
+        let blocks = footer.recordBatches().ok_or(ArrowError::IoError(
+            "Unable to get record batches from IPC Footer".to_string(),
+        ))?;
 
         let total_blocks = blocks.len();
 
@@ -486,10 +497,15 @@ impl<R: Read + Seek> FileReader<R> {
 
             match message.header_type() {
                 ipc::MessageHeader::Schema => {
-                    panic!("Not expecting a schema when messages are read")
+                    return Err(ArrowError::IoError(
+                        "Not expecting a schema when messages are read".to_string(),
+                    ));
                 }
                 ipc::MessageHeader::RecordBatch => {
-                    let batch = message.header_as_record_batch().unwrap();
+                    let batch =
+                        message.header_as_record_batch().ok_or(ArrowError::IoError(
+                            "Unable to read IPC message as record batch".to_string(),
+                        ))?;
                     // read the block that makes up the record batch into a buffer
                     let mut buf = vec![0; block.bodyLength() as usize];
                     self.reader.seek(SeekFrom::Start(
@@ -499,9 +515,12 @@ impl<R: Read + Seek> FileReader<R> {
 
                     read_record_batch(&buf, batch, self.schema())
                 }
-                _ => unimplemented!(
-                    "reading types other than record batches not yet supported"
-                ),
+                _ => {
+                    return Err(ArrowError::IoError(
+                        "Reading types other than record batches not yet supported"
+                            .to_string(),
+                    ));
+                }
             }
         } else {
             Ok(None)
@@ -565,9 +584,9 @@ impl<R: Read> StreamReader<R> {
         let vecs = &meta_buffer.to_vec();
         let message = ipc::get_root_as_message(vecs);
         // message header is a Schema, so read it
-        let ipc_schema: ipc::Schema = message
-            .header_as_schema()
-            .expect("Arrow Stream must start with a schema");
+        let ipc_schema: ipc::Schema = message.header_as_schema().ok_or(
+            ArrowError::IoError("Unable to read IPC message as schema".to_string()),
+        )?;
         let schema = ipc::convert::fb_to_schema(ipc_schema);
 
         Ok(Self {
@@ -606,19 +625,27 @@ impl<R: Read> StreamReader<R> {
 
         match message.header_type() {
             ipc::MessageHeader::Schema => {
-                panic!("Not expecting a schema when messages are read")
+                return Err(ArrowError::IoError(
+                    "Not expecting a schema when messages are read".to_string(),
+                ));
             }
             ipc::MessageHeader::RecordBatch => {
-                let batch = message.header_as_record_batch().unwrap();
+                let batch =
+                    message.header_as_record_batch().ok_or(ArrowError::IoError(
+                        "Unable to read IPC message as record batch".to_string(),
+                    ))?;
                 // read the block that makes up the record batch into a buffer
                 let mut buf = vec![0; message.bodyLength() as usize];
                 self.reader.read_exact(&mut buf)?;
 
                 read_record_batch(&buf, batch, self.schema())
             }
-            _ => unimplemented!(
-                "reading types other than record batches not yet supported"
-            ),
+            _ => {
+                return Err(ArrowError::IoError(
+                    "Reading types other than record batches not yet supported"
+                        .to_string(),
+                ));
+            }
         }
     }
 
