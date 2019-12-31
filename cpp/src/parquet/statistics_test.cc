@@ -71,7 +71,7 @@ TEST(Comparison, SignedByteArray) {
   ByteArray s2ba = ByteArrayFromString(s2);
   ASSERT_TRUE(comparator->Compare(s1ba, s2ba));
 
-  // This is case where signed comparision UTF-8 (PARQUET-686) is incorrect
+  // This is case where signed comparison UTF-8 (PARQUET-686) is incorrect
   // This example is to only check signed comparison and not UTF-8.
   s1 = u8"bügeln";
   s2 = u8"braten";

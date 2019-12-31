@@ -303,7 +303,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   int64_t total_compressed_size() const;
   // commit the metadata
 
-  void Finish(int64_t num_values, int64_t dictonary_page_offset,
+  void Finish(int64_t num_values, int64_t dictionary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
               bool dictionary_fallback,

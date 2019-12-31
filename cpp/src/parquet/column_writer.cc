@@ -1058,7 +1058,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   void FallbackToPlainEncoding() {
     if (IsDictionaryEncoding(current_encoder_->encoding())) {
       WriteDictionaryPage();
-      // Serialize the buffered Dictionary Indicies
+      // Serialize the buffered Dictionary Indices
       FlushBufferedDataPages();
       fallback_ = true;
       // Only PLAIN encoding is supported for fallback in V1
@@ -1740,7 +1740,7 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
     default:
       ParquetException::NYI("type reader not implemented");
   }
-  // Unreachable code, but supress compiler warning
+  // Unreachable code, but suppress compiler warning
   return std::shared_ptr<ColumnWriter>(nullptr);
 }
 
