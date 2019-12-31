@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Alogrithms adapted from Apache Impala
+// Algorithms adapted from Apache Impala
 
 #include "gandiva/precompiled/decimal_ops.h"
 

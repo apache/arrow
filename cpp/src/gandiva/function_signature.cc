@@ -35,7 +35,7 @@ bool FunctionSignature::operator==(const FunctionSignature& other) const {
   return true;
 }
 
-/// calculated based on base_name, datatpype id of parameters and datatype id
+/// calculated based on base_name, datatype id of parameters and datatype id
 /// of return type.
 std::size_t FunctionSignature::Hash() const {
   static const size_t kSeedValue = 17;
