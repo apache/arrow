@@ -162,7 +162,7 @@ garrow_tensor_class_init(GArrowTensorClass *klass)
  * @strides: (array length=n_strides) (nullable): A list of the number of
  *   bytes in each dimension.
  * @n_strides: The number of strides.
- * @dimention_names: (array length=n_dimention_names) (nullable): A list of
+ * @dimension_names: (array length=n_dimension_names) (nullable): A list of
  *   dimension names.
  * @n_dimention_names: The number of dimension names
  *
