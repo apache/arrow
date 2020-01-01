@@ -240,7 +240,7 @@ def lint(ctx, src, **kwargs):
 def benchmark(ctx):
     """ Arrow benchmarking.
 
-    Use the diff sub-command to benchmake revisions, and/or build directories.
+    Use the diff sub-command to benchmark revisions, and/or build directories.
     """
     pass
 
@@ -470,7 +470,7 @@ def _set_default(opt, default):
 
 @archery.command(short_help="Execute protocol and Flight integration tests")
 @click.option('--with-all', is_flag=True, default=False,
-              help=('Include all known lanauges by default '
+              help=('Include all known languages by default '
                     ' in integration tests'))
 @click.option('--random-seed', type=int, default=12345,
               help="Seed for PRNG when generating test data")

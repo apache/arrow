@@ -87,7 +87,7 @@ CREATE OR REPLACE VIEW public.environment_view AS
       ON env.dependencies_id = deps.dependencies_id;
 COMMENT ON VIEW public.environment_view IS
 E'The build environment used for a reported benchmark run.\n'
- '(Will be inferred from each "benchmark_run" if not expicitly added).\n\n'
+ '(Will be inferred from each "benchmark_run" if not explicitly added).\n\n'
  '- Each entry is unique on\n'
  '  ("benchmark_language", "language_implementation_version", "dependencies")\n'
  '- "benchmark_language" is unique in the "benchmark_language" table\n'
