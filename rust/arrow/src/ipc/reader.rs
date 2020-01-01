@@ -707,6 +707,11 @@ pub struct StreamReader<R: Read> {
     ///
     /// This value is set to `true` the first time the reader's `next()` returns `None`.
     finished: bool,
+
+    /// Optional dictionaries for each schema field.
+    ///
+    /// Dictionaries may be appended to in the streaming format.
+    dictionaries_by_field: Vec<Option<ArrayRef>>,
 }
 
 impl<R: Read> StreamReader<R> {
@@ -733,10 +738,14 @@ impl<R: Read> StreamReader<R> {
         )?;
         let schema = ipc::convert::fb_to_schema(ipc_schema);
 
+        // Create an array of optional dictionary value arrays, one per field.
+        let dictionaries_by_field = vec![None; schema.fields().len()];
+
         Ok(Self {
             reader,
             schema: Arc::new(schema),
             finished: false,
+            dictionaries_by_field,
         })
     }
 
@@ -782,7 +791,7 @@ impl<R: Read> StreamReader<R> {
                 let mut buf = vec![0; message.bodyLength() as usize];
                 self.reader.read_exact(&mut buf)?;
 
-                read_record_batch(&buf, batch, self.schema())
+                read_record_batch(&buf, batch, self.schema(), &self.dictionaries_by_field)
             }
             _ => {
                 return Err(ArrowError::IoError(
@@ -854,6 +863,7 @@ mod tests {
         let paths = vec![
             "generated_interval",
             "generated_datetime",
+            // "generated_dictionary",
             "generated_nested",
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
