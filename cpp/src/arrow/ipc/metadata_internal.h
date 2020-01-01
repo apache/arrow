@@ -97,7 +97,7 @@ struct FileBlock {
 //
 
 // Construct a complete Schema from the message and add
-// dictinory-encoded fields to a DictionaryMemo instance. May be
+// dictionary-encoded fields to a DictionaryMemo instance. May be
 // expensive for very large schemas if you are only interested in a
 // few fields
 Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,

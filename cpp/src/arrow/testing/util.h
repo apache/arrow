@@ -179,7 +179,7 @@ Result<std::shared_ptr<Array>> ArrayFromBuilderVisitor(
 }
 
 // Get a TCP port number to listen on.  This is a different number every time,
-// as reusing the same port accross tests can produce spurious bind errors on
+// as reusing the same port across tests can produce spurious bind errors on
 // Windows.
 ARROW_EXPORT int GetListenPort();
 

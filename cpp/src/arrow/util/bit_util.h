@@ -309,7 +309,7 @@ static inline int Log2(uint64_t x) {
 // Byte-swap 16-bit, 32-bit and 64-bit values
 //
 
-// Swap the byte order (i.e. endianess)
+// Swap the byte order (i.e. endianness)
 static inline int64_t ByteSwap(int64_t value) { return ARROW_BYTE_SWAP64(value); }
 static inline uint64_t ByteSwap(uint64_t value) {
   return static_cast<uint64_t>(ARROW_BYTE_SWAP64(value));

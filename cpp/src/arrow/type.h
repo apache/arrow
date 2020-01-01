@@ -1183,7 +1183,7 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
 
 /// \brief Represents a some number of months.
 ///
-/// Type representing a number of months.  Corresponeds to YearMonth type
+/// Type representing a number of months.  Corresponds to YearMonth type
 /// in Schema.fbs (Years are defined as 12 months).
 class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
@@ -1465,14 +1465,14 @@ std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_ty
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
                                           int32_t list_size);
-/// \brief Return an Duration instance (naming use _type to avoid namespace conflict with
+/// \brief Return a Duration instance (naming use _type to avoid namespace conflict with
 /// built in time clases).
 std::shared_ptr<DataType> ARROW_EXPORT duration(TimeUnit::type unit);
 
-/// \brief Return an DayTimeIntervalType instance
+/// \brief Return a DayTimeIntervalType instance
 std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
 
-/// \brief Return an MonthIntervalType instance
+/// \brief Return a MonthIntervalType instance
 std::shared_ptr<DataType> ARROW_EXPORT month_interval();
 
 /// \brief Create a TimestampType instance from its unit
@@ -1607,10 +1607,10 @@ class ARROW_EXPORT SchemaBuilder {
 
   /// \brief Construct an empty SchemaBuilder
   explicit SchemaBuilder(ConflictPolicy conflict_policy = CONFLICT_APPEND);
-  /// \brief Construct an SchemaBuilder from a list of fields
+  /// \brief Construct a SchemaBuilder from a list of fields
   SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
                 ConflictPolicy conflict_policy = CONFLICT_APPEND);
-  /// \brief Construct an SchemaBuilder from a schema, preserving the metadata
+  /// \brief Construct a SchemaBuilder from a schema, preserving the metadata
   SchemaBuilder(const std::shared_ptr<Schema>& schema,
                 ConflictPolicy conflict_policy = CONFLICT_APPEND);
 

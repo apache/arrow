@@ -250,7 +250,7 @@ Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
 /// \brief Compute the number of bytes needed to write a tensor including metadata
 ///
-/// \param[in] tensor the tenseor to write
+/// \param[in] tensor the tensor to write
 /// \param[out] size the size of the complete encapsulated message
 /// \return Status
 ARROW_EXPORT
@@ -281,7 +281,7 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
 /// \param[in] tensor the Tensor to write
 /// \param[in] dst the OutputStream to write to
 /// \param[out] metadata_length the actual metadata length, including padding
-/// \param[out] body_length the acutal message body length
+/// \param[out] body_length the actual message body length
 /// \return Status
 ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,

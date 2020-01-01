@@ -55,7 +55,7 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
   /// task (or subgroup).
   virtual Status Finish() = 0;
 
-  /// The current agregate error Status.  Non-blocking, useful for stopping early.
+  /// The current aggregate error Status.  Non-blocking, useful for stopping early.
   virtual Status current_status() = 0;
 
   /// Whether some tasks have already failed.  Non-blocking , useful for stopping early.

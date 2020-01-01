@@ -120,7 +120,7 @@ TEST_F(TestPartitionScheme, Schema) {
 TEST_F(TestPartitionScheme, DiscoverSchema) {
   discovery_ = SchemaPartitionScheme::MakeDiscovery({"alpha", "beta"});
 
-  // type is int32 if possibe
+  // type is int32 if possible
   AssertInspect({"/0/1"}, {Int("alpha"), Int("beta")});
 
   // extra segments are ignored
@@ -157,7 +157,7 @@ TEST_F(TestPartitionScheme, Hive) {
 TEST_F(TestPartitionScheme, DiscoverHiveSchema) {
   discovery_ = HivePartitionScheme::MakeDiscovery();
 
-  // type is int32 if possibe
+  // type is int32 if possible
   AssertInspect({"/alpha=0/beta=1"}, {Int("alpha"), Int("beta")});
 
   // extra segments are ignored

@@ -43,7 +43,7 @@ struct ExpressionType {
     /// a reference to a column within a record batch, will evaluate to an array
     FIELD,
 
-    /// a literal singular value encapuslated in a Scalar
+    /// a literal singular value encapsulated in a Scalar
     SCALAR,
 
     /// a literal Array
