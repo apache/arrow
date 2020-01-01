@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_ADAPTER_UTIL_H
-#define ARROW_ADAPTER_UTIL_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -41,4 +40,3 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
 }  // namespace adapters
 }  // namespace arrow
 
-#endif  // ARROW_ADAPTER_UTIL_H
