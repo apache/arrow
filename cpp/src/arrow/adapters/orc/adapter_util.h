@@ -39,4 +39,3 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
 }  // namespace orc
 }  // namespace adapters
 }  // namespace arrow
-
