@@ -310,7 +310,7 @@ Libraries and header files for Apache Arrow Flight.
 
 %if %{use_gandiva}
 %package -n gandiva-libs
-Summary:	C++ library for compiling and evaluating exressions on Apache Arrow data.
+Summary:	C++ library for compiling and evaluating expressions on Apache Arrow data.
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	ncurses-libs

@@ -157,7 +157,7 @@ docker-compose run --rm conda-python-hdfs
 Tests can be run to ensure that the current snapshot of Java and Python Arrow
 works with Spark. This will run a docker image to build Arrow C++
 and Python in a Conda environment, build and install Arrow Java to the local
-Maven repositiory, build Spark with the new Arrow artifact, and run Arrow
+Maven repository, build Spark with the new Arrow artifact, and run Arrow
 related unit tests in Spark for Java and Python. Any errors will exit with a
 non-zero value. To run, use the following command:
 
