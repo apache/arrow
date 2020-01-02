@@ -18,12 +18,16 @@
 ARG base
 FROM ${base}
 
+# Make sure R is on the path
+RUN export PATH="$(ls /opt/R-* -d)/bin:$PATH"
 # Ensure parallel R package installation, set CRAN repo mirror,
 # and use pre-built binaries where possible
 COPY ci/scripts/rprofile /arrow/ci/scripts/
 RUN cat /arrow/ci/scripts/rprofile >> $(R RHOME)/etc/Rprofile.site
 # Also ensure parallel compilation of C/C++ code
 RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
+# Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
+RUN Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
