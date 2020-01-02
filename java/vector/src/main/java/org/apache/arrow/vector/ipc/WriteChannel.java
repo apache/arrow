@@ -41,6 +41,9 @@ import io.netty.buffer.ArrowBuf;
 public class WriteChannel implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(WriteChannel.class);
 
+  // the maximum padding has 7 bytes
+  private static byte[] zeroBytes = new byte[7];
+
   private long currentPosition = 0;
 
   private final WritableByteChannel out;
@@ -62,6 +65,10 @@ public class WriteChannel implements AutoCloseable {
     return write(ByteBuffer.wrap(buffer));
   }
 
+  long write(byte[] buffer, int offset, int length) throws IOException {
+    return write(ByteBuffer.wrap(buffer, offset, length));
+  }
+
   /**
    * Writes <zeroCount>zeroCount</zeroCount> zeros the underlying channel.
    */
@@ -79,8 +86,9 @@ public class WriteChannel implements AutoCloseable {
    * Writes enough bytes to align the channel to an 8-byte boundary.
    */
   public long align() throws IOException {
-    if (currentPosition % 8 != 0) { // align on 8 byte boundaries
-      return writeZeros(8 - (int) (currentPosition % 8));
+    int trailingByteSize = (int) (currentPosition % 8);
+    if (trailingByteSize != 0) { // align on 8 byte boundaries
+      return write(zeroBytes, 0, 8 - trailingByteSize);
     }
     return 0;
   }
@@ -90,7 +98,9 @@ public class WriteChannel implements AutoCloseable {
    */
   public long write(ByteBuffer buffer) throws IOException {
     long length = buffer.remaining();
-    LOGGER.debug("Writing buffer with size: {}", length);
+    if (LOGGER.isDebugEnabled()) {
+      LOGGER.debug("Writing buffer with size: {}", length);
+    }
     while (buffer.hasRemaining()) {
       out.write(buffer);
     }
