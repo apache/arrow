@@ -164,12 +164,14 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
 };
 
-class PARQUET_EXPORT RowGroupMetaData {
+class PARQUET_EXPORT
+        RowGroupMetaData {
  public:
   // API convenience to get a MetaData accessor
   static std::unique_ptr<RowGroupMetaData> Make(
       const void* metadata, const SchemaDescriptor* schema,
-      const ApplicationVersion* writer_version = NULLPTR);
+      const ApplicationVersion* writer_version = NULLPTR,
+      InternalFileDecryptor* file_decryptor = NULLPTR);
 
   ~RowGroupMetaData();
 
@@ -180,13 +182,12 @@ class PARQUET_EXPORT RowGroupMetaData {
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
 
-  std::unique_ptr<ColumnChunkMetaData> ColumnChunk(
-      int i, int16_t row_group_ordinal = -1,
-      InternalFileDecryptor* file_decryptor = NULLPTR) const;
+  std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) const;
 
  private:
   explicit RowGroupMetaData(const void* metadata, const SchemaDescriptor* schema,
-                            const ApplicationVersion* writer_version = NULLPTR);
+                            const ApplicationVersion* writer_version = NULLPTR,
+                            InternalFileDecryptor* file_decryptor = NULLPTR);
   // PIMPL Idiom
   class RowGroupMetaDataImpl;
   std::unique_ptr<RowGroupMetaDataImpl> impl_;
@@ -200,14 +201,14 @@ class PARQUET_EXPORT FileMetaData {
 
   static std::shared_ptr<FileMetaData> Make(
       const void* serialized_metadata, uint32_t* inout_metadata_len,
-      const std::shared_ptr<Decryptor>& decryptor = NULLPTR);
+      InternalFileDecryptor* file_decryptor = NULLPTR);
 
   ~FileMetaData();
 
   /// Verify signature of FileMetadata when file is encrypted but footer is not encrypted
   /// (plaintext footer).
   /// Signature is 28 bytes (12 byte nonce and 16 byte tags) when encrypting FileMetadata
-  bool VerifySignature(InternalFileDecryptor* file_decryptor, const void* signature);
+  bool VerifySignature(const void* signature);
 
   // file metadata
   uint32_t size() const;
@@ -247,9 +248,12 @@ class PARQUET_EXPORT FileMetaData {
 
  private:
   friend FileMetaDataBuilder;
+  friend class SerializedFile;
 
   explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len,
-                        const std::shared_ptr<Decryptor>& decryptor = NULLPTR);
+                        InternalFileDecryptor* file_decryptor = NULLPTR);
+
+  void set_file_decryptor(InternalFileDecryptor* file_decryptor);
 
   // PIMPL Idiom
   FileMetaData();

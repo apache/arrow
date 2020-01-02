@@ -98,7 +98,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
     // Read column chunk from the file
-    auto col = row_group_metadata_->ColumnChunk(i, row_group_ordinal_, file_decryptor_);
+    auto col = row_group_metadata_->ColumnChunk(i);
 
     int64_t col_start = col->data_page_offset();
     if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
@@ -365,9 +365,8 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
                            std::to_string(metadata_buffer->size()) + " bytes)");
   }
 
-  auto footer_decryptor = file_decryptor_->GetFooterDecryptor();
   file_metadata_ =
-      FileMetaData::Make(metadata_buffer->data(), &metadata_len, footer_decryptor);
+      FileMetaData::Make(metadata_buffer->data(), &metadata_len, file_decryptor_.get());
 }
 
 void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
@@ -383,6 +382,9 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
     file_decryptor_.reset(new InternalFileDecryptor(
         file_decryption_properties, file_aad, algo.algorithm,
         file_metadata_->footer_signing_key_metadata(), properties_.memory_pool()));
+    // set the InternalFileDecryptor in the metadata as well, as it's used
+    // for signature verification and for ColumnChunkMetaData creation.
+    file_metadata_->set_file_decryptor(file_decryptor_.get());
 
     if (file_decryption_properties->check_plaintext_footer_integrity()) {
       if (metadata_len - read_metadata_len !=
@@ -393,8 +395,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
             " bytes but have ", metadata_len - read_metadata_len, " bytes)");
       }
 
-      if (!file_metadata_->VerifySignature(file_decryptor_.get(),
-                                           metadata_buffer->data() + read_metadata_len)) {
+      if (!file_metadata_->VerifySignature(metadata_buffer->data() + read_metadata_len)) {
         throw ParquetInvalidOrCorruptedFileException(
             "Parquet crypto signature verification failed");
       }
