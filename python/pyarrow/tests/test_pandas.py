@@ -2904,6 +2904,14 @@ def test_table_from_pandas_schema_index_columns__unnamed_index():
     assert table.schema.remove_metadata().equals(expected_schema)
 
 
+def test_table_from_pandas_schema_with_custom_metadata():
+    # ARROW-7087 - metadata disappear from pandas
+    df = pd.DataFrame()
+    schema = pa.Schema.from_pandas(df).with_metadata({'meta': 'True'})
+    table = pa.Table.from_pandas(df, schema=schema)
+    assert table.schema.metadata.get(b'meta') == b'True'
+
+
 # ----------------------------------------------------------------------
 # RecordBatch, Table
 
