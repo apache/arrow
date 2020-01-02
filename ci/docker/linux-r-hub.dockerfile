@@ -18,8 +18,8 @@
 ARG base
 FROM ${base}
 
-# Make sure R is on the path
-RUN export PATH="$(ls /opt/R-* -d)/bin:$PATH"
+# Make sure R is on the path for the devel versions (where RPREFIX is set in its dockerfile)
+ENV PATH "${RPREFIX}/bin:${PATH}"
 # Ensure parallel R package installation, set CRAN repo mirror,
 # and use pre-built binaries where possible
 COPY ci/scripts/rprofile /arrow/ci/scripts/

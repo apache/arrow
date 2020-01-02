@@ -686,7 +686,7 @@ services:
         cd /arrow/r &&
         R CMD INSTALL . &&
         cd tests &&
-        R --no-save --no-restore -f testthat.R"
+        R --no-save --no-restore -e 'library(testthat); library(arrow); library(tibble); test_check("arrow", reporter = "summary", stop_on_warning = TRUE)'"
 
   ubuntu-r-sanitizer:
     # Only 18.04 and amd64 supported
