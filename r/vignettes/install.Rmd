@@ -107,7 +107,7 @@ perhaps with "undefined symbols" errors,
 please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
 This is likely a compiler mismatch and may be resolvable by setting some
 environment variables to instruct R to compile the packages to match the C++ library.
-A workaround would be to set the environment variable `ARROW_BINARY_DISTRO=FALSE`
+A workaround would be to set the environment variable `LIBARROW_BINARY_DISTRO=FALSE`
 and retry installation: this value instructs the package to build the C++ library from source
 instead of downloading the prebuilt binary.
 
@@ -118,10 +118,10 @@ If you see either, please [report an issue](https://issues.apache.org/jira/proje
 You may also set the environment variable `ARROW_R_DEV=TRUE` for additional
 debug messages.
 
-A workaround would be to set the environment variable `ARROW_BINARY_DISTRO`
+A workaround would be to set the environment variable `LIBARROW_BINARY_DISTRO`
 to a `distribution-version` that exists in the Ursa Labs repository.
 <!-- give example, once one exists -->
-Setting `ARROW_BINARY_DISTRO` is also an option when there's not an exact match
+Setting `LIBARROW_BINARY_DISTRO` is also an option when there's not an exact match
 for your OS but a similar version would work,
 such as if you're on Ubuntu 18.10 and there's only a binary for 18.04.
 
@@ -130,6 +130,9 @@ such as if you're on Ubuntu 18.10 and there's only a binary for 18.04.
 <!-- If that exists, is there a flag to instruct building without arrow so you can access that fn? -->
 
 If building the C++ library from source fails, check the error message.
-The only system dependency the library needs beyond what R requires is `cmake`.
-Provided that `cmake` is found, if the C++ library fails to compile,
-please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
+The install script attempts to install any necessary build dependencies,
+such as `cmake`, but it's possible that some operating systems may require additional ones.
+You may be able to install them and retry.
+Regardless, if the C++ library fails to compile,
+please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
+so that we can attempt to improve the script.

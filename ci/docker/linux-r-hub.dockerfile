@@ -15,27 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# All of the following environment variables are required to set default values
-# for the parameters in docker-compose.yml.
+ARG base
+FROM ${base}
 
-REPO=apache/arrow-dev
-ARCH=amd64
-CUDA=9.1
-DEBIAN=10
-UBUNTU=18.04
-FEDORA=29
-PYTHON=3.6
-RUST=nightly-2019-11-14
-GO=1.12
-NODE=11
-MAVEN=3.5.4
-JDK=8
-R=3.6.1
-PANDAS=latest
-DASK=latest
-TURBODBC=latest
-HDFS=2.9.2
-SPARK=master
-DOTNET=2.1
-R=3.6
-RHUB_IMAGE=ubuntu-gcc-release
+# Ensure parallel R package installation, set CRAN repo mirror,
+# and use pre-built binaries where possible
+COPY ci/scripts/rprofile /arrow/ci/scripts/
+RUN cat /arrow/ci/scripts/rprofile >> $(R RHOME)/etc/Rprofile.site
+# Also ensure parallel compilation of C/C++ code
+RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
+
+COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
+COPY r/DESCRIPTION /arrow/r/
+RUN /arrow/ci/scripts/r_deps.sh /arrow

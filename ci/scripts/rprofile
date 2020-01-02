@@ -1,0 +1,33 @@
+.pick_cran <- function() {
+  # Return a CRAN repo URL, preferring RSPM binaries if available for this OS
+  rspm_template <- "https://demo.rstudiopm.com/all/__linux__/%s/latest"
+  supported_os <- c("xenial", "bionic", "centos7", "opensuse42", "opensuse15")
+
+  if (nzchar(Sys.which("lsb_release"))) {
+    os <- tolower(system("lsb_release -cs", intern = TRUE))
+    if (os %in% supported_os) {
+      return(sprintf(rspm_template, os))
+    }
+  }
+  if (file.exists("/etc/system-release")) {
+    # Something like "CentOS Linux release 7.7.1908 (Core)"
+    system_release <- tolower(head(readLines("/etc/system-release"), 1))
+    # Extract from that the distro and the major version number
+    os <- sub("^([a-z]+) .*([0-9]+).*$", "\\1\\2", system_release)
+    if (os %in% supported_os) {
+      return(sprintf(rspm_template, os))
+    }
+  }
+
+  return("https://cloud.r-project.org")
+}
+
+options(
+  Ncpus = parallel::detectCores(),
+  repos = .pick_cran(),
+  HTTPUserAgent = sprintf(
+    'R/%s R (%s)',
+    getRversion(),
+    paste(getRversion(), R.version$platform, R.version$arch, R.version$os)
+  )
+)

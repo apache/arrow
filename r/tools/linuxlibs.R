@@ -18,36 +18,61 @@
 args <- commandArgs(TRUE)
 VERSION <- args[1]
 dst_dir <- paste0("libarrow/arrow-", VERSION)
-src_dir <- NULL
+
 arrow_repo <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/"
-# In case we have to download build dependencies, set version/URLs to them
-CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.16.2")
-cmake_binary_url <- paste0(
-  "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
-  "/cmake-", CMAKE_VERSION, "-Linux-x86_64.tar.gz"
-)
-FLEX_VERSION <- Sys.getenv("FLEX_VERSION", "2.6.4")
-flex_source_url <- paste0(
-  "https://github.com/westes/flex/releases/download/v", FLEX_VERSION,
-  "/flex-", FLEX_VERSION, ".tar.gz"
+apache_src_url <- paste0(
+  "https://www.apache.org/dyn/closer.cgi/arrow/arrow-", VERSION,
+  "/apache-arrow-", VERSION, ".tar.gz"
 )
 
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
 
-download_libs <- identical(tolower(Sys.getenv("NOT_CRAN")), "true") || identical(Sys.getenv("_R_CHECK_SIZE_OF_TARBALL_"), "")
+env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
+
+# This condition identifies when you're installing locally, either by presence
+# of NOT_CRAN or by absence of a `check` env var. So even if you don't have
+# NOT_CRAN set in your dev environment, this will still pass outside R CMD check
+locally_installing <- env_is("NOT_CRAN", "true") || env_is("_R_CHECK_SIZE_OF_TARBALL_", "")
+# Combine with explicit vars to turn off downloading and building. I.e. only
+# downloads/builds when local, but can turn off either with these env vars.
+# * no download, build_ok: Only build with local git checkout
+# * download_ok, no build: Only use prebuilt binary, if found
+# * neither: Get the arrow-without-arrow package
+download_ok <- locally_installing && !env_is("LIBARROW_DOWNLOAD", "false")
+build_ok <- locally_installing && !env_is("LIBARROW_BUILD", "false")
+# TODO: allow LIBARROW_DOWNLOAD=true to override locally_installing? or just set NOT_CRAN?
+
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
-quietly <- !identical(tolower(Sys.getenv("ARROW_R_DEV")), "true")
-# download_libs <- TRUE # FOR TESTING
+quietly <- !env_is("ARROW_R_DEV", "true")
+# download_ok <- build_ok <- TRUE # FOR TESTING
 # quietly <- FALSE # FOR TESTING
+
+download_binary <- function(os = identify_os()) {
+  libfile <- tempfile()
+  if (!is.null(os)) {
+    binary_url <- paste0(arrow_repo, os, "/arrow-", VERSION, ".zip")
+    try(
+      download.file(binary_url, libfile, quiet = quietly),
+      silent = quietly
+    )
+    if (!file.exists(libfile)) {
+      cat(sprintf("*** No C++ binaries found for %s\n", os))
+      libfile <- NULL
+    }
+  } else {
+    libfile <- NULL
+  }
+  libfile
+}
 
 # Function to figure out which flavor of binary we should download.
 # By default, it will try to discover from the OS what distro-version we're on
-# but you can override this by setting the env var ARROW_BINARY_DISTRO to:
+# but you can override this by setting the env var LIBARROW_BINARY_DISTRO to:
 # * `FALSE` (not case-sensitive), which tells the script not to download a binary,
 # * some other string, presumably a related "distro-version" that has binaries
 #   built that work for your OS
-identify_os <- function(os = Sys.getenv("ARROW_BINARY_DISTRO")) {
+identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO")) {
   if (nzchar(os)) {
     if (identical(tolower(os), "false")) {
       # Env var says not to download a binary
@@ -77,11 +102,77 @@ identify_os <- function(os = Sys.getenv("ARROW_BINARY_DISTRO")) {
   os
 }
 
+download_source <- function() {
+  tf1 <- tempfile()
+  src_dir <- NULL
+  source_url <- paste0(arrow_repo, "src/arrow-", VERSION, ".zip")
+  try(
+    download.file(source_url, tf1, quiet = quietly),
+    silent = quietly
+  )
+  if (!file.exists(tf1)) {
+    # Try for an official release
+    try(
+      download.file(apache_src_url, tf1, quiet = quietly),
+      silent = quietly
+    )
+    # TODO: make bintray cpp source to have the same dir layout as ^^
+    # so no other special casing required
+  }
+  if (file.exists(tf1)) {
+    cat("*** Successfully retrieved C++ source\n")
+    src_dir <- tempfile()
+    unzip(tf1, exdir = src_dir)
+    unlink(tf1)
+    # These scripts need to be executable
+    system(sprintf("chmod 755 %s/cpp/build-support/*.sh", src_dir))
+    options(.arrow.cleanup = c(getOption(".arrow.cleanup"), src_dir))
+    # The actual src is in cpp
+    src_dir <- paste0(src_dir, "/cpp")
+  }
+  src_dir
+}
+
+find_local_source <- function() {
+  if (file.exists("../cpp/src/arrow/api.h")) {
+    # We're in a git checkout of arrow, so we can build it
+    cat("*** Found local C++ source\n")
+    return("../cpp")
+  } else {
+    return(NULL)
+  }
+}
+
+build_libarrow <- function(src_dir, dst_dir) {
+  # We'll need to compile R bindings with these libs, so delete any .o files
+  system("rm src/*.o", ignore.stdout = quietly, ignore.stderr = quietly)
+  # Check for cmake and flex: build dependencies for libarrow
+  # (flex is for thrift)
+  cmake <- ensure_cmake()
+  flex <- ensure_flex()
+  env_vars <- sprintf(
+    "SOURCE_DIR=%s BUILD_DIR=libarrow/build DEST_DIR=%s CMAKE=%s",
+    src_dir,                                dst_dir,    cmake
+  )
+  if (!is.null(flex)) {
+    env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
+  }
+  if (!quietly) {
+    cat("*** Building with ", env_vars, "\n")
+  }
+  system(paste(env_vars, "inst/build_arrow_static.sh"))
+}
+
 ensure_cmake <- function() {
   cmake <- Sys.which("cmake")
   if (!nzchar(cmake)) {
     # If not found, download it
     cat("*** Downloading cmake\n")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.16.2")
+    cmake_binary_url <- paste0(
+      "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
+      "/cmake-", CMAKE_VERSION, "-Linux-x86_64.tar.gz"
+    )
     cmake_tar <- tempfile()
     cmake_dir <- tempfile()
     try(
@@ -108,6 +199,11 @@ ensure_flex <- function() {
   }
   # If not found, download it
   cat("*** Downloading and building flex\n")
+  FLEX_VERSION <- Sys.getenv("FLEX_VERSION", "2.6.4")
+  flex_source_url <- paste0(
+    "https://github.com/westes/flex/releases/download/v", FLEX_VERSION,
+    "/flex-", FLEX_VERSION, ".tar.gz"
+  )
   flex_tar <- tempfile()
   flex_dir <- tempfile()
   try(
@@ -124,90 +220,35 @@ ensure_flex <- function() {
   paste0(flex_dir, "/src")
 }
 
+#####
+
 if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   # If we're working in a local checkout and have already built the libs, we
   # don't need to do anything. Otherwise,
-  libfile <- tempfile()
-  if (length(args) > 1) {
-    # Arg 2 would be the path/to/lib.zip
-    # TODO: do we need this option?
-    localfile <- args[2]
-    if (file.exists(localfile)) {
-      cat(sprintf("*** Using LOCAL_LIBARROW %s\n", localfile))
-      file.copy(localfile, libfile)
-    } else {
-      cat(sprintf("*** LOCAL_LIBARROW %s does not exist\n", localfile))
+  # (1) Look for a prebuilt binary for this version
+  bin_file <- src_dir <- NULL
+  if (download_ok) {
+    bin_file <- download_binary()
+  }
+  if (!is.null(bin_file)) {
+    cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", os))
+    # Extract them
+    dir.create(dst_dir, showWarnings = !quietly, recursive = TRUE)
+    unzip(bin_file, exdir = dst_dir)
+    unlink(bin_file)
+  } else if (build_ok) {
+    # (2) Find source and build it
+    if (download_ok) {
+      src_dir <- download_source()
     }
-  } else if (download_libs) {
-    # Determine (or take) distro
-    os <- identify_os()
-    if (!is.null(os)) {
-      # Download it, if allowed
-      binary_url <- paste0(arrow_repo, os, "/arrow-", VERSION, ".zip")
-      try(
-        download.file(binary_url, libfile, quiet = quietly),
-        silent = quietly
-      )
+    if (is.null(src_dir)) {
+      src_dir <- find_local_source()
     }
-    if (file.exists(libfile)) {
-      cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", os))
-    } else {
-      if (!is.null(os)) {
-        cat(sprintf("*** No C++ binaries found for %s\n", os))
-      }
-      # Try to build C++ from source
-      tf1 <- tempfile()
-      source_url <- paste0(arrow_repo, "src/arrow-", VERSION, ".zip")
-      try(
-        download.file(source_url, tf1, quiet = quietly),
-        silent = quietly
-      )
-      if (!file.exists(tf1)) {
-        # Try for an official release
-        # https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.15.1/apache-arrow-0.15.1.tar.gz
-        # Will have to set src_dir to exdir/cpp
-      }
-      if (file.exists(tf1)) {
-        cat("*** Successfully retrieved C++ source\n")
-        src_dir <- tempfile()
-        unzip(tf1, exdir = src_dir)
-        # These scripts need to be executable
-        system(sprintf("chmod 755 %s/build-support/*.sh", src_dir))
-        unlink(tf1)
-        options(.arrow.cleanup = c(getOption(".arrow.cleanup"), src_dir))
-      } else if (file.exists("../cpp/src/arrow/api.h")) {
-        # We're in a git checkout of arrow, so we can build it
-        cat("*** Found local C++ source\n")
-        src_dir <- "../cpp"
-      }
+    if (!is.null(src_dir)) {
+      cat("*** Building C++ libraries\n")
+      build_libarrow(src_dir, dst_dir)
     }
   } else {
-    cat("*** Proceeding without C++ dependencies\n")
-  }
-
-  if (file.exists(libfile)) {
-    # Finish up for the cases where we got a zip file of the libs
-    dir.create(dst_dir, showWarnings = !quietly, recursive = TRUE)
-    unzip(libfile, exdir = dst_dir)
-    unlink(libfile)
-  } else if (!is.null(src_dir)) {
-    cat("*** Building C++ libraries\n")
-    # We'll need to compile R bindings with these libs, so delete any .o files
-    system("rm src/*.o", ignore.stdout = quietly, ignore.stderr = quietly)
-    # Check for cmake and flex: build dependencies for libarrow
-    # (flex is for thrift)
-    cmake <- ensure_cmake()
-    flex <- ensure_flex()
-    env_vars <- sprintf(
-      "SOURCE_DIR=%s BUILD_DIR=libarrow/build DEST_DIR=%s CMAKE=%s",
-      src_dir,                                dst_dir,    cmake
-    )
-    if (!is.null(flex)) {
-      env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
-    }
-    if (!quietly) {
-      cat("*** Building with ", env_vars, "\n")
-    }
-    system(paste(env_vars, "inst/build_arrow_static.sh"))
+   cat("*** Proceeding without C++ dependencies\n")
   }
 }
