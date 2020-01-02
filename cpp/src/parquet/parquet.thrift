@@ -124,7 +124,7 @@ enum ConvertedType {
   /**
    * An unsigned integer value.
    *
-   * The number describes the maximum number of meainful data bits in
+   * The number describes the maximum number of meaningful data bits in
    * the stored value. 8, 16 and 32 bit values are stored using the
    * INT32 physical type.  64 bit values are stored using the INT64
    * physical type.
@@ -138,7 +138,7 @@ enum ConvertedType {
   /**
    * A signed integer value.
    *
-   * The number describes the maximum number of meainful data bits in
+   * The number describes the maximum number of meaningful data bits in
    * the stored value. 8, 16 and 32 bit values are stored using the
    * INT32 physical type.  64 bit values are stored using the INT64
    * physical type.
@@ -857,7 +857,7 @@ struct ColumnIndex {
   3: required list<binary> max_values
 
   /**
-   * Stores whether both min_values and max_values are orderd and if so, in
+   * Stores whether both min_values and max_values are ordered and if so, in
    * which direction. This allows readers to perform binary searches in both
    * lists. Readers cannot assume that max_values[i] <= min_values[i+1], even
    * if the lists are ordered.

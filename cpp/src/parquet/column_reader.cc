@@ -858,7 +858,7 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(const ColumnDescriptor* descr,
     default:
       ParquetException::NYI("type reader not implemented");
   }
-  // Unreachable code, but supress compiler warning
+  // Unreachable code, but suppress compiler warning
   return std::shared_ptr<ColumnReader>(nullptr);
 }
 
@@ -1463,7 +1463,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
       throw ParquetException(ss.str());
     }
   }
-  // Unreachable code, but supress compiler warning
+  // Unreachable code, but suppress compiler warning
   return nullptr;
 }
 

@@ -847,7 +847,7 @@ bool ApplicationVersion::VersionEq(const ApplicationVersion& other_version) cons
 
 // Reference:
 // parquet-mr/parquet-column/src/main/java/org/apache/parquet/CorruptStatistics.java
-// PARQUET-686 has more disussion on statistics
+// PARQUET-686 has more discussion on statistics
 bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
                                               EncodedStatistics& statistics,
                                               SortOrder::type sort_order) const {
