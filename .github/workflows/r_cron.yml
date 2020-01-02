@@ -42,7 +42,7 @@ jobs:
     name: R-hub ${{ matrix.rhub }}
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         rhub: ["debian-clang-devel", "debian-gcc-release", "fedora-clang-devel", "fedora-gcc-devel", "centos6-epel", "ubuntu-gcc-release"]
     env:

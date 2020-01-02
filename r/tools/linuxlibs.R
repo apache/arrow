@@ -92,7 +92,7 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO")) {
     os <- paste0(distro, "-", os_version)
   } else if (file.exists("/etc/system-release")) {
     # Something like "CentOS Linux release 7.7.1908 (Core)"
-    system_release <- tolower(head(readLines("/etc/system-release"), 1))
+    system_release <- tolower(utils::head(readLines("/etc/system-release"), 1))
     # Extract from that the distro and the major version number
     os <- sub("^([a-z]+) .*([0-9]+).*$", "\\1-\\2", system_release)
   } else {
