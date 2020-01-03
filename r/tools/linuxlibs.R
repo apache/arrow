@@ -149,8 +149,9 @@ build_libarrow <- function(src_dir, dst_dir) {
   # Check for cmake and flex: build dependencies for libarrow
   # (flex is for thrift)
   cmake <- ensure_cmake()
-  flex <- ensure_flex()
-  bison <- ensure_bison()
+  m4 <- ensure_m4()
+  flex <- ensure_flex(m4)
+  bison <- ensure_bison(m4)
   env_vars <- sprintf(
     "SOURCE_DIR=%s BUILD_DIR=libarrow/build DEST_DIR=%s CMAKE=%s",
     src_dir,                                dst_dir,    cmake
@@ -195,7 +196,7 @@ ensure_cmake <- function() {
   cmake
 }
 
-ensure_flex <- function() {
+ensure_flex <- function(m4 = ensure_m4()) {
   if (nzchar(Sys.which("flex"))) {
     # We already have flex.
     # NULL will tell the caller not to append FLEX_ROOT to env vars bc it's not needed
@@ -217,14 +218,22 @@ ensure_flex <- function() {
   untar(flex_tar, exdir = flex_dir)
   unlink(flex_tar)
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), flex_dir))
+  # flex also needs m4
+  if (!is.null(m4)) {
+    # If we just built it, put it on PATH for building bison
+    path <- sprintf('export PATH="%s:$PATH" && ', m4)
+  } else {
+    path <- ""
+  }
   # Now, build flex
-  flex_dir <- paste0(shQuote(flex_dir), "/flex-", FLEX_VERSION)
-  system(sprintf("cd %s && ./configure && make", flex_dir))
+  flex_dir <- paste0(flex_dir, "/flex-", FLEX_VERSION)
+  cmd <- sprintf("cd %s && ./configure && make", shQuote(flex_dir))
+  system(paste0(path, cmd))
   # The built flex should be in ./src. Return that so we can set as FLEX_ROOT
   paste0(flex_dir, "/src")
 }
 
-ensure_bison <- function() {
+ensure_bison <- function(m4 = ensure_m4()) {
   if (nzchar(Sys.which("bison"))) {
     # We already have bison.
     # NULL will tell the caller not to append BISON_ROOT to env vars bc it's not needed
@@ -245,16 +254,15 @@ ensure_bison <- function() {
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), dst_dir))
   # bison also needs m4, so let's make sure we have that too
   # (we probably don't if we're here)
-  m4 <- ensure_m4()
   if (!is.null(m4)) {
     # If we just built it, put it on PATH for building bison
-    path <- sprintf("export PATH=%s:$PATH && ", shQuote(m4))
+    path <- sprintf('export PATH="%s:$PATH" && ', m4)
   } else {
     path <- ""
   }
   # Now, build bison
-  dst_dir <- paste0(shQuote(dst_dir), "/bison-", BISON_VERSION)
-  cmd <- sprintf("cd %s && ./configure && make", dst_dir)
+  dst_dir <- paste0(dst_dir, "/bison-", BISON_VERSION)
+  cmd <- sprintf("cd %s && ./configure && make", shQuote(dst_dir))
   system(paste0(path, cmd))
   # The built bison should be in ./src. Return that so we can set as BISON_ROOT
   paste0(dst_dir, "/src")
@@ -263,11 +271,10 @@ ensure_bison <- function() {
 ensure_m4 <- function() {
   if (nzchar(Sys.which("m4"))) {
     # We already have m4.
-    # NULL will tell the caller not to append BISON_ROOT to env vars bc it's not needed
     return(NULL)
   }
   # If not found, download it
-  cat("*** Downloading and building m4 for bison\n")
+  cat("*** Downloading and building m4\n")
   M4_VERSION <- Sys.getenv("M4_VERSION", "1.4.18")
   source_url <- paste0("https://ftp.gnu.org/gnu/m4/m4-", M4_VERSION, ".tar.gz")
   tar_file <- tempfile()
@@ -283,8 +290,8 @@ ensure_m4 <- function() {
   # (we probably don't if we're here)
 
   # Now, build it
-  dst_dir <- paste0(shQuote(dst_dir), "/m4-", M4_VERSION)
-  system(sprintf("cd %s && ./configure && make", dst_dir))
+  dst_dir <- paste0(dst_dir, "/m4-", M4_VERSION)
+  system(sprintf("cd %s && ./configure && make", shQuote(dst_dir)))
   # The built m4 should be in ./src. Return that so we can put that on the PATH
   paste0(dst_dir, "/src")
 }
