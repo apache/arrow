@@ -26,8 +26,6 @@ from pyarrow.lib cimport (
 )
 from pyarrow.includes.libarrow cimport CDatum, Sum
 
-from typing import Union
-
 
 cdef _sum_array(array: Array):
     cdef CDatum out
@@ -47,7 +45,7 @@ cdef _sum_chunked_array(array: ChunkedArray):
     return wrap_datum(out)
 
 
-def sum(array: Union[Array, ChunkedArray]):
+def sum(array):
     """
     Sum the values in a numerical (chunked) array.
     """
