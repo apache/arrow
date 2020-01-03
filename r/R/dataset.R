@@ -28,9 +28,9 @@
 #'   * A character vector that defines the field names corresponding to those
 #'    path segments (that is, you're providing the names that would correspond
 #'    to a `Schema` but the types will be autodetected)
-#'   * A `HivePartitionScheme`, as returned by [hive_partition()]
-#'   * A `HivePartitionSchemeDiscovery`, the default, which autodetects fields
-#'    from Hive-style path segments
+#'   * A `HivePartitionScheme` or `HivePartitionSchemeDiscovery`, as returned
+#'    by [hive_partition()] which parses explicit or autodetected fields from
+#'    Hive-style path segments
 #'   * `NULL` for no partitioning
 #' @param ... additional arguments passed to `DataSourceDiscovery$create()`
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
