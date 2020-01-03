@@ -198,9 +198,6 @@ class HivePartitionSchemeDiscovery : public PartitionSchemeDiscovery {
       const std::shared_ptr<Schema>& schema) const override {
     return std::shared_ptr<PartitionScheme>(new HivePartitionScheme(schema));
   }
-
- private:
-  std::string partition_base_dir_;
 };
 
 std::shared_ptr<PartitionSchemeDiscovery> HivePartitionScheme::MakeDiscovery() {

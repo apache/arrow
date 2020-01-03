@@ -86,7 +86,8 @@ std::shared_ptr<ds::PartitionScheme> dataset___SchemaPartitionScheme(
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::PartitionSchemeDiscovery> dataset___SchemaPartitionScheme__MakeDiscovery(
+std::shared_ptr<ds::PartitionSchemeDiscovery>
+dataset___SchemaPartitionScheme__MakeDiscovery(
     const std::vector<std::string>& field_names) {
   return ds::SchemaPartitionScheme::MakeDiscovery(field_names);
 }
@@ -98,7 +99,8 @@ std::shared_ptr<ds::PartitionScheme> dataset___HivePartitionScheme(
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::PartitionSchemeDiscovery> dataset___HivePartitionScheme__MakeDiscovery() {
+std::shared_ptr<ds::PartitionSchemeDiscovery>
+dataset___HivePartitionScheme__MakeDiscovery() {
   return ds::HivePartitionScheme::MakeDiscovery();
 }
 
