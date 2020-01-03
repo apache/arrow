@@ -1048,6 +1048,10 @@ macro(build_thrift)
     # thrift hasn't set the cmake policy that lets us use _ROOT, so work around
     set(THRIFT_CMAKE_ARGS ${THRIFT_CMAKE_ARGS} "-DFLEX_EXECUTABLE=${FLEX_ROOT}/flex")
   endif()
+  if(DEFINED BISON_ROOT)
+    # thrift hasn't set the cmake policy that lets us use _ROOT, so work around
+    set(THRIFT_CMAKE_ARGS ${THRIFT_CMAKE_ARGS} "-DBISON_EXECUTABLE=${BISON_ROOT}/bison")
+  endif()
 
   set(THRIFT_STATIC_LIB_NAME "${CMAKE_STATIC_LIBRARY_PREFIX}thrift")
   if(MSVC)

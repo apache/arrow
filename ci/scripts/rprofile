@@ -9,11 +9,19 @@
       return(sprintf(rspm_template, os))
     }
   }
+  if (file.exists("/etc/os-release")) {
+    os_release <- readLines("/etc/os-release")
+    vals <- sub("^.*=(.*)$", "\\1", os_release)
+    os <- intersect(vals, supported_os)
+    if (length(os)) {
+      return(sprintf(rspm_template, os))
+    }
+  }
   if (file.exists("/etc/system-release")) {
     # Something like "CentOS Linux release 7.7.1908 (Core)"
     system_release <- tolower(utils::head(readLines("/etc/system-release"), 1))
     # Extract from that the distro and the major version number
-    os <- sub("^([a-z]+) .*([0-9]+).*$", "\\1\\2", system_release)
+    os <- sub("^([a-z]+) .* ([0-9]+).*$", "\\1\\2", system_release)
     if (os %in% supported_os) {
       return(sprintf(rspm_template, os))
     }

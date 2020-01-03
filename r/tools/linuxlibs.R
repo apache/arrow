@@ -94,7 +94,7 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO")) {
     # Something like "CentOS Linux release 7.7.1908 (Core)"
     system_release <- tolower(utils::head(readLines("/etc/system-release"), 1))
     # Extract from that the distro and the major version number
-    os <- sub("^([a-z]+) .*([0-9]+).*$", "\\1-\\2", system_release)
+    os <- sub("^([a-z]+) .* ([0-9]+).*$", "\\1-\\2", system_release)
   } else {
     cat("*** Unable to identify current OS/version\n")
     os <- NULL
@@ -150,12 +150,16 @@ build_libarrow <- function(src_dir, dst_dir) {
   # (flex is for thrift)
   cmake <- ensure_cmake()
   flex <- ensure_flex()
+  bison <- ensure_bison()
   env_vars <- sprintf(
     "SOURCE_DIR=%s BUILD_DIR=libarrow/build DEST_DIR=%s CMAKE=%s",
     src_dir,                                dst_dir,    cmake
   )
   if (!is.null(flex)) {
     env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
+  }
+  if (!is.null(bison)) {
+    env_vars <- paste0(env_vars, " BISON_ROOT=", bison)
   }
   if (!quietly) {
     cat("*** Building with ", env_vars, "\n")
@@ -192,8 +196,8 @@ ensure_cmake <- function() {
 }
 
 ensure_flex <- function() {
-  flex <- Sys.which("flex")
-  if (nzchar(flex)) {
+  if (nzchar(Sys.which("flex"))) {
+    # We already have flex.
     # NULL will tell the caller not to append FLEX_ROOT to env vars bc it's not needed
     return(NULL)
   }
@@ -218,6 +222,71 @@ ensure_flex <- function() {
   system(sprintf("cd %s && ./configure && make", flex_dir))
   # The built flex should be in ./src. Return that so we can set as FLEX_ROOT
   paste0(flex_dir, "/src")
+}
+
+ensure_bison <- function() {
+  if (nzchar(Sys.which("bison"))) {
+    # We already have bison.
+    # NULL will tell the caller not to append BISON_ROOT to env vars bc it's not needed
+    return(NULL)
+  }
+  # If not found, download it
+  cat("*** Downloading and building bison\n")
+  BISON_VERSION <- Sys.getenv("BISON_VERSION", "3.5")
+  source_url <- paste0("https://ftp.gnu.org/gnu/bison/bison-", BISON_VERSION, ".tar.gz")
+  tar_file <- tempfile()
+  dst_dir <- tempfile()
+  try(
+    download.file(source_url, tar_file, quiet = quietly),
+    silent = quietly
+  )
+  untar(tar_file, exdir = dst_dir)
+  unlink(tar_file)
+  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), dst_dir))
+  # bison also needs m4, so let's make sure we have that too
+  # (we probably don't if we're here)
+  m4 <- ensure_m4()
+  if (!is.null(m4)) {
+    # If we just built it, put it on PATH for building bison
+    path <- sprintf("export PATH=%s:$PATH && ", shQuote(m4))
+  } else {
+    path <- ""
+  }
+  # Now, build bison
+  dst_dir <- paste0(shQuote(dst_dir), "/bison-", BISON_VERSION)
+  cmd <- sprintf("cd %s && ./configure && make", dst_dir)
+  system(paste0(path, cmd))
+  # The built bison should be in ./src. Return that so we can set as BISON_ROOT
+  paste0(dst_dir, "/src")
+}
+
+ensure_m4 <- function() {
+  if (nzchar(Sys.which("m4"))) {
+    # We already have m4.
+    # NULL will tell the caller not to append BISON_ROOT to env vars bc it's not needed
+    return(NULL)
+  }
+  # If not found, download it
+  cat("*** Downloading and building m4 for bison\n")
+  M4_VERSION <- Sys.getenv("M4_VERSION", "1.4.18")
+  source_url <- paste0("https://ftp.gnu.org/gnu/m4/m4-", M4_VERSION, ".tar.gz")
+  tar_file <- tempfile()
+  dst_dir <- tempfile()
+  try(
+    download.file(source_url, tar_file, quiet = quietly),
+    silent = quietly
+  )
+  untar(tar_file, exdir = dst_dir)
+  unlink(tar_file)
+  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), dst_dir))
+  # bison also needs m4, so let's make sure we have that too
+  # (we probably don't if we're here)
+
+  # Now, build it
+  dst_dir <- paste0(shQuote(dst_dir), "/m4-", M4_VERSION)
+  system(sprintf("cd %s && ./configure && make", dst_dir))
+  # The built m4 should be in ./src. Return that so we can put that on the PATH
+  paste0(dst_dir, "/src")
 }
 
 #####
