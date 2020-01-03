@@ -48,7 +48,9 @@ if [ "$FLEX_ROOT" != "" ]; then
   EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DFLEX_ROOT=${FLEX_ROOT}"
 fi
 if [ "$BISON_ROOT" != "" ]; then
-  EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DBISON_ROOT=${BISON_ROOT}"
+  # Thrift can't find this as a cmake flag, so put it on the PATH
+  export PATH="${BISON_ROOT}:${PATH}"
+  # EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DBISON_ROOT=${BISON_ROOT}"
 fi
 
 mkdir -p "${BUILD_DIR}"
