@@ -38,15 +38,11 @@ namespace arrow {
 namespace io {
 
 void AssertFileContents(const std::string& path, const std::string& contents) {
-  std::shared_ptr<ReadableFile> rf;
-  int64_t size;
-
-  ASSERT_OK(ReadableFile::Open(path, &rf));
-  ASSERT_OK(rf->GetSize(&size));
+  ASSERT_OK_AND_ASSIGN(auto rf, ReadableFile::Open(path));
+  ASSERT_OK_AND_ASSIGN(int64_t size, rf->GetSize());
   ASSERT_EQ(size, contents.size());
 
-  std::shared_ptr<Buffer> actual_data;
-  ASSERT_OK(rf->Read(size, &actual_data));
+  ASSERT_OK_AND_ASSIGN(auto actual_data, rf->Read(size));
   ASSERT_TRUE(actual_data->Equals(Buffer(contents)));
 }
 
@@ -90,8 +86,7 @@ Status ZeroMemoryMap(MemoryMappedFile* file) {
 
   RETURN_NOT_OK(file->Seek(0));
   int64_t position = 0;
-  int64_t file_size;
-  RETURN_NOT_OK(file->GetSize(&file_size));
+  ARROW_ASSIGN_OR_RAISE(int64_t file_size, file->GetSize());
 
   int64_t chunksize;
   while (position < file_size) {
@@ -109,16 +104,15 @@ void MemoryMapFixture::TearDown() {
 }
 
 void MemoryMapFixture::CreateFile(const std::string& path, int64_t size) {
-  std::shared_ptr<MemoryMappedFile> file;
-  ASSERT_OK(MemoryMappedFile::Create(path, size, &file));
+  ASSERT_OK(MemoryMappedFile::Create(path, size));
   tmp_files_.push_back(path);
 }
 
-Status MemoryMapFixture::InitMemoryMap(int64_t size, const std::string& path,
-                                       std::shared_ptr<MemoryMappedFile>* mmap) {
-  RETURN_NOT_OK(MemoryMappedFile::Create(path, size, mmap));
+Result<std::shared_ptr<MemoryMappedFile>> MemoryMapFixture::InitMemoryMap(
+    int64_t size, const std::string& path) {
+  ARROW_ASSIGN_OR_RAISE(auto mmap, MemoryMappedFile::Create(path, size));
   tmp_files_.push_back(path);
-  return Status::OK();
+  return mmap;
 }
 
 void MemoryMapFixture::AppendFile(const std::string& path) { tmp_files_.push_back(path); }

@@ -181,7 +181,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    */
   @Override
   public void retain(int increment) {
-    Preconditions.checkArgument(increment > 0, "retain(%d) argument is not positive", increment);
+    Preconditions.checkArgument(increment > 0, "retain(%s) argument is not positive", increment);
     if (BaseAllocator.DEBUG) {
       historicalLog.recordEvent("retain(%d)", increment);
     }

@@ -628,6 +628,25 @@ class Converter_Int64 : public Converter {
   }
 };
 
+class Converter_Null : public Converter {
+ public:
+  explicit Converter_Null(const ArrayVector& arrays) : Converter(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    Rcpp::LogicalVector data(n, NA_LOGICAL);
+    data.attr("class") = "vctrs_unspecified";
+    return data;
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    return Status::OK();
+  }
+};
 std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
   switch (arrays[0]->type_id()) {
     // direct support
@@ -706,6 +725,9 @@ std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
 
     case Type::LIST:
       return std::make_shared<arrow::r::Converter_List>(arrays);
+
+    case Type::NA:
+      return std::make_shared<arrow::r::Converter_Null>(arrays);
 
     default:
       break;

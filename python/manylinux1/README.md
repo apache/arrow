@@ -24,7 +24,7 @@ This folder provides base Docker images and an infrastructure to build
 Linux distributions published in last four years.
 
 The process is split up in two parts: There are base Docker images that build
-the native, Python-indenpendent dependencies. For these you can select if you
+the native, Python-independent dependencies. For these you can select if you
 want to also build the dependencies used for the Parquet support. Depending on
 these images, there is also a bash script that will build the pyarrow wheels
 for all supported Python versions and place them in the `dist` folder.
@@ -38,7 +38,7 @@ use `PYTHON_VERSION="2.7"` with `UNICODE_WIDTH=32`):
 
 ```bash
 # Build the python packages
-docker-compose run -e PYTHON_VERSION="2.7" -e UNICODE_WIDTH=16 python-manylinux1
+docker-compose run -e PYTHON_VERSION="2.7" -e UNICODE_WIDTH=16 centos-python-manylinux1
 # Now the new packages are located in the dist/ folder
 ls -l dist/
 ```
@@ -49,7 +49,7 @@ a dependency to a new version, we also need to adjust it. You can rebuild
 this image using
 
 ```bash
-docker-compose build python-manylinux1
+docker-compose build centos-python-manylinux1
 ```
 
 For each dependency, we have a bash script in the directory `scripts/` that
@@ -65,7 +65,7 @@ If you have write access to the Docker Hub Ursa Labs account, you can directly
 publish a build image that you built locally.
 
 ```bash
-$ docker-compose push python-manylinux1
+$ docker-compose push centos-python-manylinux1
 ```
 
 ### Using quay.io to trigger and build the docker image

@@ -15,20 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_READER_H
-#define ARROW_CSV_READER_H
+#pragma once
 
 #include <memory>
 
 #include "arrow/csv/options.h"  // IWYU pragma: keep
-#include "arrow/status.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class MemoryPool;
-class Table;
-
 namespace io {
 class InputStream;
 }  // namespace io
@@ -41,9 +37,19 @@ class ARROW_EXPORT TableReader {
   virtual ~TableReader() = default;
 
   /// Read the entire CSV file and convert it to a Arrow Table
-  virtual Status Read(std::shared_ptr<Table>* out) = 0;
+  virtual Result<std::shared_ptr<Table>> Read() = 0;
+
+  ARROW_DEPRECATED("Use Result-returning overload")
+  virtual Status Read(std::shared_ptr<Table>* out);
 
   /// Create a TableReader instance
+  static Result<std::shared_ptr<TableReader>> Make(MemoryPool* pool,
+                                                   std::shared_ptr<io::InputStream> input,
+                                                   const ReadOptions&,
+                                                   const ParseOptions&,
+                                                   const ConvertOptions&);
+
+  ARROW_DEPRECATED("Use Result-returning overload")
   static Status Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                      const ReadOptions&, const ParseOptions&, const ConvertOptions&,
                      std::shared_ptr<TableReader>* out);
@@ -51,5 +57,3 @@ class ARROW_EXPORT TableReader {
 
 }  // namespace csv
 }  // namespace arrow
-
-#endif  // ARROW_CSV_READER_H

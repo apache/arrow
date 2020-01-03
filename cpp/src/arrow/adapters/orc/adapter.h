@@ -109,7 +109,7 @@ class ARROW_EXPORT ORCFileReader {
   Status Seek(int64_t row_number);
 
   /// \brief Get a stripe level record batch iterator with specified row count
-  ///         in each record batch. NextStripeReader serves as an fine grain
+  ///         in each record batch. NextStripeReader serves as a fine grain
   ///         alternative to ReadStripe which may cause OOM issue by loading
   ///         the whole stripes into memory.
   ///
@@ -119,7 +119,7 @@ class ARROW_EXPORT ORCFileReader {
   Status NextStripeReader(int64_t batch_size, std::shared_ptr<RecordBatchReader>* out);
 
   /// \brief Get a stripe level record batch iterator with specified row count
-  ///         in each record batch. NextStripeReader serves as an fine grain
+  ///         in each record batch. NextStripeReader serves as a fine grain
   ///         alternative to ReadStripe which may cause OOM issue by loading
   ///         the whole stripes into memory.
   ///

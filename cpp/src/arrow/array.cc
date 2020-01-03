@@ -25,6 +25,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "arrow/array/concatenate.h"
+#include "arrow/array/validate.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compare.h"
@@ -46,6 +48,7 @@ namespace arrow {
 
 using internal::BitmapAnd;
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::CopyBitmap;
 using internal::CountSetBits;
 
@@ -71,6 +74,17 @@ std::shared_ptr<ArrayData> ArrayData::Make(
     int64_t offset) {
   return std::make_shared<ArrayData>(type, length, buffers, child_data, null_count,
                                      offset);
+}
+
+std::shared_ptr<ArrayData> ArrayData::Make(
+    const std::shared_ptr<DataType>& type, int64_t length,
+    const std::vector<std::shared_ptr<Buffer>>& buffers,
+    const std::vector<std::shared_ptr<ArrayData>>& child_data,
+    const std::shared_ptr<Array>& dictionary, int64_t null_count, int64_t offset) {
+  auto data =
+      std::make_shared<ArrayData>(type, length, buffers, child_data, null_count, offset);
+  data->dictionary = dictionary;
+  return data;
 }
 
 std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
@@ -214,25 +228,14 @@ BooleanArray::BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
 namespace {
 
 template <typename TYPE>
-Status ListArrayFromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
-                           std::shared_ptr<Array>* out) {
+Status CleanListOffsets(const Array& offsets, MemoryPool* pool,
+                        std::shared_ptr<Buffer>* offset_buf_out,
+                        std::shared_ptr<Buffer>* validity_buf_out) {
   using offset_type = typename TYPE::offset_type;
-  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
   using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
 
-  if (offsets.length() == 0) {
-    return Status::Invalid("List offsets must have non-zero length");
-  }
-
-  if (offsets.type_id() != OffsetArrowType::type_id) {
-    return Status::TypeError("List offsets must be ", OffsetArrowType::type_name());
-  }
-
-  BufferVector buffers = {};
-
   const auto& typed_offsets = checked_cast<const OffsetArrayType&>(offsets);
-
   const int64_t num_offsets = offsets.length();
 
   if (offsets.null_count() > 0) {
@@ -249,7 +252,7 @@ Status ListArrayFromArrays(const Array& offsets, const Array& values, MemoryPool
     RETURN_NOT_OK(offsets.null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
                                               &clean_valid_bits));
     BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
-    buffers.emplace_back(std::move(clean_valid_bits));
+    *validity_buf_out = clean_valid_bits;
 
     const offset_type* raw_offsets = typed_offsets.raw_values();
     auto clean_raw_offsets =
@@ -264,19 +267,88 @@ Status ListArrayFromArrays(const Array& offsets, const Array& values, MemoryPool
       clean_raw_offsets[i] = current_offset;
     }
 
-    buffers.emplace_back(std::move(clean_offsets));
+    *offset_buf_out = clean_offsets;
   } else {
-    buffers.emplace_back(offsets.null_bitmap());
-    buffers.emplace_back(typed_offsets.values());
+    *validity_buf_out = offsets.null_bitmap();
+    *offset_buf_out = typed_offsets.values();
   }
 
+  return Status::OK();
+}
+
+template <typename TYPE>
+Status ListArrayFromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
+                           std::shared_ptr<Array>* out) {
+  using offset_type = typename TYPE::offset_type;
+  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
+  using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+
+  if (offsets.length() == 0) {
+    return Status::Invalid("List offsets must have non-zero length");
+  }
+
+  if (offsets.type_id() != OffsetArrowType::type_id) {
+    return Status::TypeError("List offsets must be ", OffsetArrowType::type_name());
+  }
+
+  std::shared_ptr<Buffer> offset_buf, validity_buf;
+  RETURN_NOT_OK(CleanListOffsets<TYPE>(offsets, pool, &offset_buf, &validity_buf));
+  BufferVector buffers = {validity_buf, offset_buf};
+
   auto list_type = std::make_shared<TYPE>(values.type());
-  auto internal_data = ArrayData::Make(list_type, num_offsets - 1, std::move(buffers),
-                                       offsets.null_count(), offsets.offset());
+  auto internal_data =
+      ArrayData::Make(list_type, offsets.length() - 1, std::move(buffers),
+                      offsets.null_count(), offsets.offset());
   internal_data->child_data.push_back(values.data());
 
   *out = std::make_shared<ArrayType>(internal_data);
   return Status::OK();
+}
+
+static std::shared_ptr<Array> SliceArrayWithOffsets(const Array& array, int64_t begin,
+                                                    int64_t end) {
+  return array.Slice(begin, end - begin);
+}
+
+template <typename ListArrayT>
+Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
+                                                MemoryPool* memory_pool) {
+  const int64_t list_array_length = list_array.length();
+  std::shared_ptr<arrow::Array> value_array = list_array.values();
+
+  // Shortcut: if a ListArray does not contain nulls, then simply slice its
+  // value array with the first and the last offsets.
+  if (list_array.null_count() == 0) {
+    return SliceArrayWithOffsets(*value_array, list_array.value_offset(0),
+                                 list_array.value_offset(list_array_length));
+  }
+
+  // The ListArray contains nulls: there may be a non-empty sub-list behind
+  // a null and it must not be contained in the result.
+  std::vector<std::shared_ptr<Array>> non_null_fragments;
+  int64_t valid_begin = 0;
+  while (valid_begin < list_array_length) {
+    int64_t valid_end = valid_begin;
+    while (valid_end < list_array_length &&
+           (list_array.IsValid(valid_end) || list_array.value_length(valid_end) == 0)) {
+      ++valid_end;
+    }
+    if (valid_begin < valid_end) {
+      non_null_fragments.push_back(
+          SliceArrayWithOffsets(*value_array, list_array.value_offset(valid_begin),
+                                list_array.value_offset(valid_end)));
+    }
+    valid_begin = valid_end + 1;  // skip null entry
+  }
+
+  // Final attempt to avoid invoking Concatenate().
+  if (non_null_fragments.size() == 1) {
+    return non_null_fragments[0];
+  }
+
+  std::shared_ptr<Array> flattened;
+  RETURN_NOT_OK(Concatenate(non_null_fragments, memory_pool, &flattened));
+  return flattened;
 }
 
 }  // namespace
@@ -309,10 +381,11 @@ LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t le
   SetData(internal_data);
 }
 
-void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
+void ListArray::SetData(const std::shared_ptr<ArrayData>& data,
+                        Type::type expected_type_id) {
   this->Array::SetData(data);
   ARROW_CHECK_EQ(data->buffers.size(), 2);
-  ARROW_CHECK_EQ(data->type->id(), Type::LIST);
+  ARROW_CHECK_EQ(data->type->id(), expected_type_id);
   list_type_ = checked_cast<const ListType*>(data->type.get());
 
   auto value_offsets = data->buffers[1];
@@ -353,6 +426,13 @@ Status LargeListArray::FromArrays(const Array& offsets, const Array& values,
   return ListArrayFromArrays<LargeListType>(offsets, values, pool, out);
 }
 
+Result<std::shared_ptr<Array>> ListArray::Flatten(MemoryPool* memory_pool) const {
+  return FlattenListArray(*this, memory_pool);
+}
+
+Result<std::shared_ptr<Array>> LargeListArray::Flatten(MemoryPool* memory_pool) const {
+  return FlattenListArray(*this, memory_pool);
+}
 // ----------------------------------------------------------------------
 // MapArray
 
@@ -380,19 +460,48 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(map_data);
 }
 
+Status MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
+                            const std::shared_ptr<Array>& keys,
+                            const std::shared_ptr<Array>& items, MemoryPool* pool,
+                            std::shared_ptr<Array>* out) {
+  using offset_type = typename MapType::offset_type;
+  using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+
+  if (offsets->length() == 0) {
+    return Status::Invalid("Map offsets must have non-zero length");
+  }
+
+  if (offsets->type_id() != OffsetArrowType::type_id) {
+    return Status::TypeError("Map offsets must be ", OffsetArrowType::type_name());
+  }
+
+  if (keys->null_count() != 0) {
+    return Status::Invalid("Map can not contain NULL valued keys");
+  }
+
+  if (keys->length() != items->length()) {
+    return Status::Invalid("Map key and item arrays must be equal length");
+  }
+
+  std::shared_ptr<Buffer> offset_buf, validity_buf;
+  RETURN_NOT_OK(CleanListOffsets<MapType>(*offsets, pool, &offset_buf, &validity_buf));
+
+  auto map_type = std::make_shared<MapType>(keys->type(), items->type());
+  *out =
+      std::make_shared<MapArray>(map_type, offsets->length() - 1, offset_buf, keys, items,
+                                 validity_buf, offsets->null_count(), offsets->offset());
+  return Status::OK();
+}
+
 void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::MAP);
+  this->ListArray::SetData(data, Type::MAP);
   auto pair_data = data->child_data[0];
   ARROW_CHECK_EQ(pair_data->type->id(), Type::STRUCT);
   ARROW_CHECK_EQ(pair_data->null_count, 0);
   ARROW_CHECK_EQ(pair_data->child_data.size(), 2);
   ARROW_CHECK_EQ(pair_data->child_data[0]->null_count, 0);
 
-  auto pair_list_data = data->Copy();
-  pair_list_data->type = list(pair_data->type);
-  this->ListArray::SetData(pair_list_data);
-  data_->type = data->type;
-
+  map_type_ = checked_cast<const MapType*>(data->type.get());
   keys_ = MakeArray(pair_data->child_data[0]);
   items_ = MakeArray(pair_data->child_data[1]);
 }
@@ -435,6 +544,24 @@ std::shared_ptr<DataType> FixedSizeListArray::value_type() const {
 }
 
 std::shared_ptr<Array> FixedSizeListArray::values() const { return values_; }
+
+Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
+    const std::shared_ptr<Array>& values, int32_t list_size) {
+  if (list_size <= 0) {
+    return Status::Invalid("list_size needs to be a strict positive integer");
+  }
+
+  if ((values->length() % list_size) != 0) {
+    return Status::Invalid(
+        "The length of the values Array needs to be a multiple of the list_size");
+  }
+  int64_t length = values->length() / list_size;
+  auto list_type = std::make_shared<FixedSizeListType>(values->type(), list_size);
+  std::shared_ptr<Buffer> validity_buf;
+
+  return std::make_shared<FixedSizeListArray>(list_type, length, values, validity_buf,
+                                              /*null_count=*/0, /*offset=*/0);
+}
 
 // ----------------------------------------------------------------------
 // String and binary
@@ -649,9 +776,10 @@ Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
     // The validity of a flattened datum is the logical AND of the struct
     // element's validity and the individual field element's validity.
     if (null_bitmap && child_null_bitmap) {
-      RETURN_NOT_OK(BitmapAnd(pool, child_null_bitmap->data(), child_offset,
-                              null_bitmap_data_, data_->offset, data_->length,
-                              child_offset, &flattened_null_bitmap));
+      ARROW_ASSIGN_OR_RAISE(
+          flattened_null_bitmap,
+          BitmapAnd(pool, child_null_bitmap->data(), child_offset, null_bitmap_data_,
+                    data_->offset, data_->length, child_offset));
     } else if (child_null_bitmap) {
       flattened_null_bitmap = child_null_bitmap;
       flattened_null_count = child_data->null_count;
@@ -659,8 +787,9 @@ Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
       if (child_offset == data_->offset) {
         flattened_null_bitmap = null_bitmap;
       } else {
-        RETURN_NOT_OK(CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length,
-                                 &flattened_null_bitmap));
+        ARROW_ASSIGN_OR_RAISE(
+            flattened_null_bitmap,
+            CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length));
       }
       flattened_null_count = data_->null_count;
     } else {
@@ -688,10 +817,11 @@ void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->buffers.size(), 3);
   union_type_ = checked_cast<const UnionType*>(data_->type.get());
 
-  auto type_ids = data_->buffers[1];
+  auto type_codes = data_->buffers[1];
   auto value_offsets = data_->buffers[2];
-  raw_type_ids_ =
-      type_ids == nullptr ? nullptr : reinterpret_cast<const uint8_t*>(type_ids->data());
+  raw_type_codes_ = type_codes == nullptr
+                        ? nullptr
+                        : reinterpret_cast<const int8_t*>(type_codes->data());
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
                            : reinterpret_cast<const int32_t*>(value_offsets->data());
@@ -702,12 +832,12 @@ UnionArray::UnionArray(const std::shared_ptr<ArrayData>& data) { SetData(data); 
 
 UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
                        const std::vector<std::shared_ptr<Array>>& children,
-                       const std::shared_ptr<Buffer>& type_ids,
+                       const std::shared_ptr<Buffer>& type_codes,
                        const std::shared_ptr<Buffer>& value_offsets,
                        const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                        int64_t offset) {
   auto internal_data = ArrayData::Make(
-      type, length, {null_bitmap, type_ids, value_offsets}, null_count, offset);
+      type, length, {null_bitmap, type_codes, value_offsets}, null_count, offset);
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }
@@ -717,7 +847,7 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
 Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
                              const std::vector<std::shared_ptr<Array>>& children,
                              const std::vector<std::string>& field_names,
-                             const std::vector<uint8_t>& type_codes,
+                             const std::vector<int8_t>& type_codes,
                              std::shared_ptr<Array>* out) {
   if (value_offsets.length() == 0) {
     return Status::Invalid("UnionArray offsets must have non-zero length");
@@ -761,7 +891,7 @@ Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
 Status UnionArray::MakeSparse(const Array& type_ids,
                               const std::vector<std::shared_ptr<Array>>& children,
                               const std::vector<std::string>& field_names,
-                              const std::vector<uint8_t>& type_codes,
+                              const std::vector<int8_t>& type_codes,
                               std::shared_ptr<Array>* out) {
   if (type_ids.type_id() != Type::INT8) {
     return Status::TypeError("UnionArray type_ids must be signed int8");
@@ -1135,264 +1265,12 @@ Status Array::Accept(ArrayVisitor* visitor) const {
   return VisitArrayInline(*this, visitor);
 }
 
-// ----------------------------------------------------------------------
-// Implement Array::Validate as inline visitor
+Status Array::Validate() const { return internal::ValidateArray(*this); }
 
-namespace internal {
-
-struct ValidateVisitor {
-  Status Visit(const NullArray& array) {
-    ARROW_RETURN_IF(array.null_count() != array.length(),
-                    Status::Invalid("null_count was invalid"));
-    return Status::OK();
-  }
-
-  Status Visit(const PrimitiveArray& array) {
-    ARROW_RETURN_IF(array.data()->buffers.size() != 2,
-                    Status::Invalid("number of buffers was != 2"));
-
-    if (array.length() > 0 && array.values() == nullptr) {
-      return Status::Invalid("values was null");
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal128Array& array) {
-    if (array.data()->buffers.size() != 2) {
-      return Status::Invalid("number of buffers was != 2");
-    }
-    if (array.length() > 0 && array.values() == nullptr) {
-      return Status::Invalid("values was null");
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const BinaryArray& array) {
-    if (array.data()->buffers.size() != 3) {
-      return Status::Invalid("number of buffers was != 3");
-    }
-    return ValidateOffsets(array);
-  }
-
-  Status Visit(const LargeBinaryArray& array) {
-    if (array.data()->buffers.size() != 3) {
-      return Status::Invalid("number of buffers was != 3");
-    }
-    return ValidateOffsets(array);
-  }
-
-  Status Visit(const ListArray& array) {
-    RETURN_NOT_OK(ValidateListArray(array));
-    return ValidateOffsets(array);
-  }
-
-  Status Visit(const LargeListArray& array) {
-    RETURN_NOT_OK(ValidateListArray(array));
-    return ValidateOffsets(array);
-  }
-
-  Status Visit(const MapArray& array) {
-    if (!array.keys()) {
-      return Status::Invalid("keys was null");
-    }
-    const Status key_valid = array.keys()->Validate();
-    if (!key_valid.ok()) {
-      return Status::Invalid("key array invalid: ", key_valid.ToString());
-    }
-
-    if (array.length() > 0 && !array.values()) {
-      return Status::Invalid("values was null");
-    }
-    const Status values_valid = array.values()->Validate();
-    if (!values_valid.ok()) {
-      return Status::Invalid("values array invalid: ", values_valid.ToString());
-    }
-
-    const int32_t last_offset = array.value_offset(array.length());
-    if (array.values()->length() != last_offset) {
-      return Status::Invalid("Final offset invariant not equal to values length: ",
-                             last_offset, "!=", array.values()->length());
-    }
-    if (array.keys()->length() != last_offset) {
-      return Status::Invalid("Final offset invariant not equal to keys length: ",
-                             last_offset, "!=", array.keys()->length());
-    }
-
-    return ValidateOffsets(array);
-  }
-
-  Status Visit(const FixedSizeListArray& array) {
-    if (array.length() > 0 && !array.values()) {
-      return Status::Invalid("values was null");
-    }
-    if (array.values()->length() != array.length() * array.value_length()) {
-      return Status::Invalid(
-          "Values Length (", array.values()->length(), ") was not equal to the length (",
-          array.length(), ") multiplied by the list size (", array.value_length(), ")");
-    }
-
-    return Status::OK();
-  }
-
-  Status Visit(const StructArray& array) {
-    const auto& struct_type = checked_cast<const StructType&>(*array.type());
-    if (array.num_fields() > 0) {
-      // Validate fields
-      int64_t array_length = array.field(0)->length();
-      size_t idx = 0;
-      for (int i = 0; i < array.num_fields(); ++i) {
-        auto it = array.field(i);
-        if (it->length() != array_length) {
-          return Status::Invalid("Length is not equal from field ",
-                                 it->type()->ToString(), " at position [", idx, "]");
-        }
-
-        auto it_type = struct_type.child(i)->type();
-        if (!it->type()->Equals(it_type)) {
-          return Status::Invalid("Child array at position [", idx,
-                                 "] does not match type field: ", it->type()->ToString(),
-                                 " vs ", it_type->ToString());
-        }
-
-        const Status child_valid = it->Validate();
-        if (!child_valid.ok()) {
-          return Status::Invalid("Child array invalid: ", child_valid.ToString(),
-                                 " at position [", idx, "]");
-        }
-        ++idx;
-      }
-
-      if (array_length > 0 && array_length != array.length()) {
-        return Status::Invalid("Struct's length is not equal to its child arrays");
-      }
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const UnionArray& array) { return Status::OK(); }
-
-  Status Visit(const DictionaryArray& array) {
-    Type::type index_type_id = array.indices()->type()->id();
-    if (!is_integer(index_type_id)) {
-      return Status::Invalid("Dictionary indices must be integer type");
-    }
-    if (!array.data()->dictionary) {
-      return Status::Invalid("Dictionary values must be non-null");
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const ExtensionArray& array) {
-    const auto& ext_type = checked_cast<const ExtensionType&>(*array.type());
-
-    if (!array.storage()->type()->Equals(*ext_type.storage_type())) {
-      return Status::Invalid("Extension array of type '", array.type()->ToString(),
-                             "' has storage array of incompatible type '",
-                             array.storage()->type()->ToString(), "'");
-    }
-    return array.storage()->Validate();
-  }
-
- protected:
-  template <typename ListArrayType>
-  Status ValidateListArray(const ListArrayType& array) {
-    const auto last_offset = array.value_offset(array.length());
-    const auto data_extent = last_offset - array.value_offset(0);
-    if (data_extent > 0 && !array.values()) {
-      return Status::Invalid("values was null");
-    }
-    if (array.values()->length() < last_offset) {
-      return Status::Invalid("Final offset larger than values array: ", last_offset, ">",
-                             array.values()->length());
-    }
-
-    const Status child_valid = array.values()->Validate();
-    if (!child_valid.ok()) {
-      return Status::Invalid("Child array invalid: ", child_valid.ToString());
-    }
-
-    return ValidateOffsets(array);
-  }
-
-  template <typename ArrayType>
-  Status ValidateOffsets(ArrayType& array) {
-    using offset_type = typename ArrayType::offset_type;
-
-    auto value_offsets = array.value_offsets();
-    if (array.length() && !value_offsets) {
-      return Status::Invalid("value_offsets_ was null");
-    }
-    if (value_offsets->size() / static_cast<int>(sizeof(offset_type)) < array.length()) {
-      return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
-                             " isn't large enough for length: ", array.length());
-    }
-
-    auto prev_offset = array.value_offset(0);
-    if (array.offset() == 0 && prev_offset != 0) {
-      return Status::Invalid("The first offset wasn't zero");
-    }
-    for (int64_t i = 1; i <= array.length(); ++i) {
-      auto current_offset = array.value_offset(i);
-      if (array.IsNull(i - 1) && current_offset != prev_offset) {
-        return Status::Invalid("Offset invariant failure at: ", i,
-                               " inconsistent value_offsets for null slot",
-                               current_offset, "!=", prev_offset);
-      }
-      if (current_offset < prev_offset) {
-        return Status::Invalid("Offset invariant failure: ", i,
-                               " inconsistent offset for non-null slot: ", current_offset,
-                               "<", prev_offset);
-      }
-      prev_offset = current_offset;
-    }
-    return Status::OK();
-  }
-};
-
-}  // namespace internal
-
-Status Array::Validate() const {
-  // First check the array layout conforms to the spec
-  const DataType& type = *this->type();
-  const auto layout = type.layout();
-  const ArrayData& data = *this->data();
-
-  if (length() < 0) {
-    return Status::Invalid("Array length is negative");
-  }
-
-  if (null_count() > length()) {
-    return Status::Invalid("Null count exceeds array length");
-  }
-
-  if (data.buffers.size() != layout.bit_widths.size()) {
-    return Status::Invalid("Expected ", layout.bit_widths.size(),
-                           " buffers in array "
-                           "of type ",
-                           type.ToString(), ", got ", data.buffers.size());
-  }
-  if (type.id() != Type::EXTENSION) {
-    if (data.child_data.size() != static_cast<size_t>(type.num_children())) {
-      return Status::Invalid("Expected ", type.num_children(),
-                             " child arrays in array "
-                             "of type ",
-                             type.ToString(), ", got ", data.child_data.size());
-    }
-  }
-  if (layout.has_dictionary && !data.dictionary) {
-    return Status::Invalid("Array of type ", type.ToString(),
-                           " must have dictionary values");
-  }
-  if (!layout.has_dictionary && data.dictionary) {
-    return Status::Invalid("Unexpected dictionary values in array of type ",
-                           type.ToString());
-  }
-
-  internal::ValidateVisitor validate_visitor;
-  return VisitArrayInline(*this, &validate_visitor);
+Status Array::ValidateFull() const {
+  RETURN_NOT_OK(internal::ValidateArray(*this));
+  return internal::ValidateArrayData(*this);
 }
-
-Status ValidateArray(const Array& array) { return array.Validate(); }
 
 // ----------------------------------------------------------------------
 // Loading from ArrayData

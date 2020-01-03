@@ -17,6 +17,7 @@
 
 #include "arrow/sparse_tensor.h"
 
+#include <algorithm>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -27,6 +28,17 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+// ----------------------------------------------------------------------
+// SparseIndex
+
+Status SparseIndex::ValidateShape(const std::vector<int64_t>& shape) const {
+  if (!std::all_of(shape.begin(), shape.end(), [](int64_t x) { return x >= 0; })) {
+    return Status::Invalid("Shape elements must be positive");
+  }
+
+  return Status::OK();
+}
 
 namespace {
 
@@ -152,7 +164,7 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
       ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_TYPE_SPECIFIC_CONVERT);
       // LCOV_EXCL_START: The following invalid causes program failure.
       default:
-        return Status::Invalid("Unsupported SparseTensor index value type");
+        return Status::TypeError("Unsupported SparseTensor index value type");
         // LCOV_EXCL_STOP
     }
   }
@@ -259,7 +271,7 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
       ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_TYPE_SPECIFIC_CONVERT);
       // LCOV_EXCL_START: The following invalid causes program failure.
       default:
-        return Status::Invalid("Unsupported SparseTensor index value type");
+        return Status::TypeError("Unsupported SparseTensor index value type");
         // LCOV_EXCL_STOP
     }
   }
@@ -267,6 +279,127 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
 #undef CALL_TYPE_SPECIFIC_CONVERT
 
   std::shared_ptr<SparseCSRIndex> sparse_index;
+  std::shared_ptr<Buffer> data;
+
+ private:
+  using BaseClass::index_value_type_;
+  using BaseClass::pool_;
+  using BaseClass::tensor_;
+
+  template <typename c_value_type>
+  inline Status CheckMaximumValue(const c_value_type type_max) const {
+    if (static_cast<int64_t>(type_max) < tensor_.shape()[1]) {
+      // LCOV_EXCL_START: The following invalid causes program failure.
+      return Status::Invalid("The bit width of the index value type is too small");
+      // LCOV_EXCL_STOP
+    }
+    return Status::OK();
+  }
+
+  inline Status CheckMaximumValue(const int64_t) const { return Status::OK(); }
+
+  inline Status CheckMaximumValue(const uint64_t) const { return Status::OK(); }
+};
+
+// ----------------------------------------------------------------------
+// SparseTensorConverter for SparseCSCIndex
+
+template <typename TYPE>
+class SparseTensorConverter<TYPE, SparseCSCIndex>
+    : private SparseTensorConverterBase<TYPE> {
+ public:
+  using BaseClass = SparseTensorConverterBase<TYPE>;
+  using NumericTensorType = typename BaseClass::NumericTensorType;
+  using value_type = typename BaseClass::value_type;
+
+  SparseTensorConverter(const NumericTensorType& tensor,
+                        const std::shared_ptr<DataType>& index_value_type,
+                        MemoryPool* pool)
+      : BaseClass(tensor, index_value_type, pool) {}
+
+  template <typename IndexValueType>
+  Status Convert() {
+    using c_index_value_type = typename IndexValueType::c_type;
+    RETURN_NOT_OK(CheckMaximumValue(std::numeric_limits<c_index_value_type>::max()));
+    const int64_t indices_elsize = sizeof(c_index_value_type);
+
+    const int64_t ndim = tensor_.ndim();
+    if (ndim > 2) {
+      // LCOV_EXCL_START: The following invalid causes program failure.
+      return Status::Invalid("Invalid tensor dimension");
+      // LCOV_EXCL_STOP
+    }
+
+    const int64_t nr = tensor_.shape()[0];
+    const int64_t nc = tensor_.shape()[1];
+    int64_t nonzero_count = -1;
+    RETURN_NOT_OK(tensor_.CountNonZero(&nonzero_count));
+
+    std::shared_ptr<Buffer> indptr_buffer;
+    std::shared_ptr<Buffer> indices_buffer;
+
+    std::shared_ptr<Buffer> values_buffer;
+    RETURN_NOT_OK(
+        AllocateBuffer(pool_, sizeof(value_type) * nonzero_count, &values_buffer));
+    value_type* values = reinterpret_cast<value_type*>(values_buffer->mutable_data());
+
+    if (ndim <= 1) {
+      return Status::NotImplemented("TODO for ndim <= 1");
+    } else {
+      RETURN_NOT_OK(AllocateBuffer(pool_, indices_elsize * (nc + 1), &indptr_buffer));
+      auto* indptr = reinterpret_cast<c_index_value_type*>(indptr_buffer->mutable_data());
+
+      RETURN_NOT_OK(
+          AllocateBuffer(pool_, indices_elsize * nonzero_count, &indices_buffer));
+      auto* indices =
+          reinterpret_cast<c_index_value_type*>(indices_buffer->mutable_data());
+
+      c_index_value_type k = 0;
+      *indptr++ = 0;
+      for (int64_t j = 0; j < nc; ++j) {
+        for (int64_t i = 0; i < nr; ++i) {
+          const value_type x = tensor_.Value({i, j});
+          if (x != 0) {
+            *values++ = x;
+            *indices++ = static_cast<c_index_value_type>(i);
+            k++;
+          }
+        }
+        *indptr++ = k;
+      }
+    }
+
+    std::vector<int64_t> indptr_shape({nc + 1});
+    std::shared_ptr<Tensor> indptr_tensor =
+        std::make_shared<Tensor>(index_value_type_, indptr_buffer, indptr_shape);
+
+    std::vector<int64_t> indices_shape({nonzero_count});
+    std::shared_ptr<Tensor> indices_tensor =
+        std::make_shared<Tensor>(index_value_type_, indices_buffer, indices_shape);
+
+    sparse_index = std::make_shared<SparseCSCIndex>(indptr_tensor, indices_tensor);
+    data = values_buffer;
+
+    return Status::OK();
+  }
+
+#define CALL_TYPE_SPECIFIC_CONVERT(TYPE_CLASS) \
+  case TYPE_CLASS##Type::type_id:              \
+    return Convert<TYPE_CLASS##Type>();
+
+  Status Convert() {
+    switch (index_value_type_->id()) {
+      ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_TYPE_SPECIFIC_CONVERT);
+      // LCOV_EXCL_START: The following invalid causes program failure.
+      default:
+        return Status::TypeError("Unsupported SparseTensor index value type");
+        // LCOV_EXCL_STOP
+    }
+  }
+
+#undef CALL_TYPE_SPECIFIC_CONVERT
+
+  std::shared_ptr<SparseCSCIndex> sparse_index;
   std::shared_ptr<Buffer> data;
 
  private:
@@ -307,6 +440,7 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
 
 INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCOOIndex);
 INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCSRIndex);
+INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCSCIndex);
 
 }  // namespace
 
@@ -325,7 +459,7 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
                                                          pool);
   RETURN_NOT_OK(converter.Convert());
 
-  *out_sparse_index = converter.sparse_index;
+  *out_sparse_index = checked_pointer_cast<SparseIndex>(converter.sparse_index);
   *out_data = converter.data;
   return Status::OK();
 }
@@ -344,7 +478,7 @@ inline Status MakeSparseTensorFromTensor(
     ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(MAKE_SPARSE_TENSOR_FROM_TENSOR);
       // LCOV_EXCL_START: ignore program failure
     default:
-      return Status::Invalid("Unsupported Tensor value type");
+      return Status::TypeError("Unsupported Tensor value type");
       // LCOV_EXCL_STOP
   }
 }
@@ -365,6 +499,9 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
                                                         out_sparse_index, out_data);
     case SparseTensorFormat::CSR:
       return MakeSparseTensorFromTensor<SparseCSRIndex>(tensor, index_value_type, pool,
+                                                        out_sparse_index, out_data);
+    case SparseTensorFormat::CSC:
+      return MakeSparseTensorFromTensor<SparseCSCIndex>(tensor, index_value_type, pool,
                                                         out_sparse_index, out_data);
     // LCOV_EXCL_START: ignore program failure
     default:
@@ -434,6 +571,28 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
                                       sparse_tensor->shape());
       return Status::OK();
     }
+
+    case SparseTensorFormat::CSC: {
+      const auto& sparse_index =
+          internal::checked_cast<const SparseCSCIndex&>(*sparse_tensor->sparse_index());
+      const std::shared_ptr<const Tensor> indptr = sparse_index.indptr();
+      const std::shared_ptr<const Tensor> indices = sparse_index.indices();
+      const auto raw_data =
+          reinterpret_cast<const value_type*>(sparse_tensor->raw_data());
+
+      int64_t offset;
+      for (int64_t j = 0; j < indptr->size() - 1; ++j) {
+        const int64_t start = indptr->Value<IndexValueType>({j});
+        const int64_t stop = indptr->Value<IndexValueType>({j + 1});
+        for (int64_t i = start; i < stop; ++i) {
+          offset = j + indices->Value<IndexValueType>({i}) * sparse_tensor->shape()[1];
+          values[offset] = raw_data[i];
+        }
+      }
+      *out = std::make_shared<Tensor>(sparse_tensor->type(), values_buffer,
+                                      sparse_tensor->shape());
+      return Status::OK();
+    }
   }
   return Status::NotImplemented("Unsupported SparseIndex format type");
 }
@@ -459,6 +618,13 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
     case SparseTensorFormat::CSR: {
       const auto& sparse_index =
           internal::checked_cast<const SparseCSRIndex&>(*sparse_tensor->sparse_index());
+      const std::shared_ptr<const Tensor> indices = sparse_index.indices();
+      type = indices->type();
+      break;
+    }
+    case SparseTensorFormat::CSC: {
+      const auto& sparse_index =
+          internal::checked_cast<const SparseCSCIndex&>(*sparse_tensor->sparse_index());
       const std::shared_ptr<const Tensor> indices = sparse_index.indices();
       type = indices->type();
       break;
@@ -503,30 +669,89 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
 // ----------------------------------------------------------------------
 // SparseCOOIndex
 
+namespace {
+
+inline Status CheckSparseCOOIndexValidity(const std::shared_ptr<DataType>& type,
+                                          const std::vector<int64_t>& shape,
+                                          const std::vector<int64_t>& strides) {
+  if (!is_integer(type->id())) {
+    return Status::TypeError("Type of SparseCOOIndex indices must be integer");
+  }
+  if (shape.size() != 2) {
+    return Status::Invalid("SparseCOOIndex indices must be a matrix");
+  }
+  if (!internal::IsTensorStridesContiguous(type, shape, strides)) {
+    return Status::Invalid("SparseCOOIndex indices must be contiguous");
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
+Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
+    const std::shared_ptr<DataType>& indices_type,
+    const std::vector<int64_t>& indices_shape,
+    const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data) {
+  RETURN_NOT_OK(
+      CheckSparseCOOIndexValidity(indices_type, indices_shape, indices_strides));
+  return std::make_shared<SparseCOOIndex>(std::make_shared<Tensor>(
+      indices_type, indices_data, indices_shape, indices_strides));
+}
+
+Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
+    const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
+    int64_t non_zero_length, std::shared_ptr<Buffer> indices_data) {
+  auto ndim = static_cast<int64_t>(shape.size());
+  const int64_t elsize = sizeof(indices_type.get());
+  std::vector<int64_t> indices_shape({non_zero_length, ndim});
+  std::vector<int64_t> indices_strides({elsize, elsize * non_zero_length});
+  return Make(indices_type, indices_shape, indices_strides, indices_data);
+}
+
 // Constructor with a contiguous NumericTensor
 SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<Tensor>& coords)
     : SparseIndexBase(coords->shape()[0]), coords_(coords) {
-  ARROW_CHECK(is_integer(coords_->type_id()));
-  ARROW_CHECK(coords_->is_contiguous());
-  ARROW_CHECK_EQ(2, coords_->ndim());
+  ARROW_CHECK_OK(
+      CheckSparseCOOIndexValidity(coords_->type(), coords_->shape(), coords_->strides()));
 }
 
 std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOIndex"); }
 
 // ----------------------------------------------------------------------
-// SparseCSRIndex
+// SparseCSXIndex
 
-// Constructor with two index vectors
-SparseCSRIndex::SparseCSRIndex(const std::shared_ptr<Tensor>& indptr,
-                               const std::shared_ptr<Tensor>& indices)
-    : SparseIndexBase(indices->shape()[0]), indptr_(indptr), indices_(indices) {
-  ARROW_CHECK(is_integer(indptr_->type_id()));
-  ARROW_CHECK_EQ(1, indptr_->ndim());
-  ARROW_CHECK(is_integer(indices_->type_id()));
-  ARROW_CHECK_EQ(1, indices_->ndim());
+namespace internal {
+
+Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
+                              const std::shared_ptr<DataType>& indices_type,
+                              const std::vector<int64_t>& indptr_shape,
+                              const std::vector<int64_t>& indices_shape,
+                              char const* type_name) {
+  if (!is_integer(indptr_type->id())) {
+    return Status::TypeError("Type of ", type_name, " indptr must be integer");
+  }
+  if (indptr_shape.size() != 1) {
+    return Status::Invalid(type_name, " indptr must be a vector");
+  }
+  if (!is_integer(indices_type->id())) {
+    return Status::Invalid("Type of ", type_name, " indices must be integer");
+  }
+  if (indices_shape.size() != 1) {
+    return Status::Invalid(type_name, " indices must be a vector");
+  }
+  return Status::OK();
 }
 
-std::string SparseCSRIndex::ToString() const { return std::string("SparseCSRIndex"); }
+void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
+                                 const std::shared_ptr<DataType>& indices_type,
+                                 const std::vector<int64_t>& indptr_shape,
+                                 const std::vector<int64_t>& indices_shape,
+                                 char const* type_name) {
+  ARROW_CHECK_OK(ValidateSparseCSXIndex(indptr_type, indices_type, indptr_shape,
+                                        indices_shape, type_name));
+}
+
+}  // namespace internal
 
 // ----------------------------------------------------------------------
 // SparseTensor

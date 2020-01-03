@@ -74,8 +74,8 @@ std::shared_ptr<Buffer> CompressDataOneShot(Codec* codec,
   max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
   std::shared_ptr<ResizableBuffer> compressed;
   ABORT_NOT_OK(AllocateResizableBuffer(max_compressed_len, &compressed));
-  ABORT_NOT_OK(codec->Compress(data.size(), data.data(), max_compressed_len,
-                               compressed->mutable_data(), &compressed_len));
+  compressed_len = *codec->Compress(data.size(), data.data(), max_compressed_len,
+                                    compressed->mutable_data());
   ABORT_NOT_OK(compressed->Resize(compressed_len));
   return std::move(compressed);
 }
@@ -84,15 +84,13 @@ Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed
                                 int64_t* stream_pos, std::vector<uint8_t>* out) {
   // Create compressed input stream
   auto buffer_reader = std::make_shared<BufferReader>(compressed);
-  std::shared_ptr<CompressedInputStream> stream;
-  RETURN_NOT_OK(CompressedInputStream::Make(codec, buffer_reader, &stream));
+  ARROW_ASSIGN_OR_RAISE(auto stream, CompressedInputStream::Make(codec, buffer_reader));
 
   std::vector<uint8_t> decompressed;
   int64_t decompressed_size = 0;
   const int64_t chunk_size = 1111;
   while (true) {
-    std::shared_ptr<Buffer> buf;
-    RETURN_NOT_OK(stream->Read(chunk_size, &buf));
+    ARROW_ASSIGN_OR_RAISE(auto buf, stream->Read(chunk_size));
     if (buf->size() == 0) {
       // EOF
       break;
@@ -102,7 +100,7 @@ Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed
     decompressed_size += buf->size();
   }
   if (stream_pos != nullptr) {
-    RETURN_NOT_OK(stream->Tell(stream_pos));
+    RETURN_NOT_OK(stream->Tell().Value(stream_pos));
   }
   *out = std::move(decompressed);
   return Status::OK();
@@ -129,13 +127,9 @@ void CheckCompressedInputStream(Codec* codec, const std::vector<uint8_t>& data) 
 void CheckCompressedOutputStream(Codec* codec, const std::vector<uint8_t>& data,
                                  bool do_flush) {
   // Create compressed output stream
-  std::shared_ptr<BufferOutputStream> buffer_writer;
-  ASSERT_OK(BufferOutputStream::Create(1024, default_memory_pool(), &buffer_writer));
-  std::shared_ptr<CompressedOutputStream> stream;
-  ASSERT_OK(CompressedOutputStream::Make(codec, buffer_writer, &stream));
-  int64_t pos = -1;
-  ASSERT_OK(stream->Tell(&pos));
-  ASSERT_EQ(pos, 0);
+  ASSERT_OK_AND_ASSIGN(auto buffer_writer, BufferOutputStream::Create(1024));
+  ASSERT_OK_AND_ASSIGN(auto stream, CompressedOutputStream::Make(codec, buffer_writer));
+  ASSERT_OK_AND_EQ(0, stream->Tell());
 
   const uint8_t* input = data.data();
   int64_t input_len = data.size();
@@ -149,13 +143,11 @@ void CheckCompressedOutputStream(Codec* codec, const std::vector<uint8_t>& data,
       ASSERT_OK(stream->Flush());
     }
   }
-  ASSERT_OK(stream->Tell(&pos));
-  ASSERT_EQ(pos, static_cast<int64_t>(data.size()));
+  ASSERT_OK_AND_EQ(static_cast<int64_t>(data.size()), stream->Tell());
   ASSERT_OK(stream->Close());
 
   // Get compressed data and decompress it
-  std::shared_ptr<Buffer> compressed;
-  ASSERT_OK(buffer_writer->Finish(&compressed));
+  ASSERT_OK_AND_ASSIGN(auto compressed, buffer_writer->Finish());
   std::vector<uint8_t> decompressed(data.size());
   ASSERT_OK(codec->Decompress(compressed->size(), compressed->data(), decompressed.size(),
                               decompressed.data()));
@@ -166,11 +158,14 @@ class CompressedInputStreamTest : public ::testing::TestWithParam<Compression::t
  protected:
   Compression::type GetCompression() { return GetParam(); }
 
-  std::unique_ptr<Codec> MakeCodec() {
-    std::unique_ptr<Codec> codec;
-    ABORT_NOT_OK(Codec::Create(GetCompression(), &codec));
-    return codec;
-  }
+  std::unique_ptr<Codec> MakeCodec() { return *Codec::Create(GetCompression()); }
+};
+
+class CompressedOutputStreamTest : public ::testing::TestWithParam<Compression::type> {
+ protected:
+  Compression::type GetCompression() { return GetParam(); }
+
+  std::unique_ptr<Codec> MakeCodec() { return *Codec::Create(GetCompression()); }
 };
 
 TEST_P(CompressedInputStreamTest, CompressibleData) {
@@ -202,10 +197,9 @@ TEST_P(CompressedInputStreamTest, InvalidData) {
   auto compressed_data = MakeRandomData(100);
 
   auto buffer_reader = std::make_shared<BufferReader>(Buffer::Wrap(compressed_data));
-  std::shared_ptr<CompressedInputStream> stream;
-  ASSERT_OK(CompressedInputStream::Make(codec.get(), buffer_reader, &stream));
-  std::shared_ptr<Buffer> out_buf;
-  ASSERT_RAISES(IOError, stream->Read(1024, &out_buf));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       CompressedInputStream::Make(codec.get(), buffer_reader));
+  ASSERT_RAISES(IOError, stream->Read(1024));
 }
 
 TEST_P(CompressedInputStreamTest, ConcatenatedStreams) {
@@ -230,44 +224,6 @@ TEST_P(CompressedInputStreamTest, ConcatenatedStreams) {
   ASSERT_EQ(decompressed, expected);
 }
 
-// NOTE: Snappy doesn't support streaming decompression
-
-// NOTE: BZ2 doesn't support one-shot compression
-
-// NOTE: LZ4 streaming decompression uses the LZ4 framing format,
-// which must be tested against a streaming compressor
-
-INSTANTIATE_TEST_CASE_P(TestGZipInputStream, CompressedInputStreamTest,
-                        ::testing::Values(Compression::GZIP));
-
-INSTANTIATE_TEST_CASE_P(TestBrotliInputStream, CompressedInputStreamTest,
-                        ::testing::Values(Compression::BROTLI));
-
-#ifdef ARROW_WITH_ZSTD
-INSTANTIATE_TEST_CASE_P(TestZSTDInputStream, CompressedInputStreamTest,
-                        ::testing::Values(Compression::ZSTD));
-#endif
-
-TEST(TestSnappyInputStream, NotImplemented) {
-  std::unique_ptr<Codec> codec;
-  ASSERT_OK(Codec::Create(Compression::SNAPPY, &codec));
-  std::shared_ptr<InputStream> stream = std::make_shared<BufferReader>("");
-  std::shared_ptr<CompressedInputStream> compressed_stream;
-  ASSERT_RAISES(NotImplemented,
-                CompressedInputStream::Make(codec.get(), stream, &compressed_stream));
-}
-
-class CompressedOutputStreamTest : public ::testing::TestWithParam<Compression::type> {
- protected:
-  Compression::type GetCompression() { return GetParam(); }
-
-  std::unique_ptr<Codec> MakeCodec() {
-    std::unique_ptr<Codec> codec;
-    ABORT_NOT_OK(Codec::Create(GetCompression(), &codec));
-    return codec;
-  }
-};
-
 TEST_P(CompressedOutputStreamTest, CompressibleData) {
   auto codec = MakeCodec();
   auto data = MakeCompressibleData(COMPRESSIBLE_DATA_SIZE);
@@ -284,25 +240,48 @@ TEST_P(CompressedOutputStreamTest, RandomData) {
   CheckCompressedOutputStream(codec.get(), data, true /* do_flush */);
 }
 
-INSTANTIATE_TEST_CASE_P(TestGZipOutputStream, CompressedOutputStreamTest,
-                        ::testing::Values(Compression::GZIP));
+// NOTES:
+// - Snappy doesn't support streaming decompression
+// - BZ2 doesn't support one-shot compression
+// - LZ4 streaming decompression uses the LZ4 framing format, which must be tested
+//   against a streaming compressor
 
-INSTANTIATE_TEST_CASE_P(TestBrotliOutputStream, CompressedOutputStreamTest,
-                        ::testing::Values(Compression::BROTLI));
-
-#ifdef ARROW_WITH_ZSTD
-INSTANTIATE_TEST_CASE_P(TestZSTDOutputStream, CompressedOutputStreamTest,
-                        ::testing::Values(Compression::ZSTD));
-#endif
+#ifdef ARROW_WITH_SNAPPY
+TEST(TestSnappyInputStream, NotImplemented) {
+  std::unique_ptr<Codec> codec;
+  ASSERT_OK_AND_ASSIGN(codec, Codec::Create(Compression::SNAPPY));
+  std::shared_ptr<InputStream> stream = std::make_shared<BufferReader>("");
+  ASSERT_RAISES(NotImplemented, CompressedInputStream::Make(codec.get(), stream));
+}
 
 TEST(TestSnappyOutputStream, NotImplemented) {
   std::unique_ptr<Codec> codec;
-  ASSERT_OK(Codec::Create(Compression::SNAPPY, &codec));
+  ASSERT_OK_AND_ASSIGN(codec, Codec::Create(Compression::SNAPPY));
   std::shared_ptr<OutputStream> stream = std::make_shared<MockOutputStream>();
-  std::shared_ptr<CompressedOutputStream> compressed_stream;
-  ASSERT_RAISES(NotImplemented,
-                CompressedOutputStream::Make(codec.get(), stream, &compressed_stream));
+  ASSERT_RAISES(NotImplemented, CompressedOutputStream::Make(codec.get(), stream));
 }
+#endif
+
+#ifdef ARROW_WITH_ZLIB
+INSTANTIATE_TEST_CASE_P(TestGZipInputStream, CompressedInputStreamTest,
+                        ::testing::Values(Compression::GZIP));
+INSTANTIATE_TEST_CASE_P(TestGZipOutputStream, CompressedOutputStreamTest,
+                        ::testing::Values(Compression::GZIP));
+#endif
+
+#ifdef ARROW_WITH_BROTLI
+INSTANTIATE_TEST_CASE_P(TestBrotliInputStream, CompressedInputStreamTest,
+                        ::testing::Values(Compression::BROTLI));
+INSTANTIATE_TEST_CASE_P(TestBrotliOutputStream, CompressedOutputStreamTest,
+                        ::testing::Values(Compression::BROTLI));
+#endif
+
+#ifdef ARROW_WITH_ZSTD
+INSTANTIATE_TEST_CASE_P(TestZSTDInputStream, CompressedInputStreamTest,
+                        ::testing::Values(Compression::ZSTD));
+INSTANTIATE_TEST_CASE_P(TestZSTDOutputStream, CompressedOutputStreamTest,
+                        ::testing::Values(Compression::ZSTD));
+#endif
 
 }  // namespace io
 }  // namespace arrow

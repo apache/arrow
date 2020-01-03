@@ -189,7 +189,7 @@ filter_rows <- function(x, i, ...) {
   # General purpose function for [ row subsetting with R semantics
   # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take
   nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
-  if (inherits(i, "Expression")) {
+  if (inherits(i, "array_expression")) {
     # Evaluate it
     i <- as.vector(i)
   }

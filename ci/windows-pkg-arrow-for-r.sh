@@ -57,12 +57,15 @@ mv mingw32/lib/*.a ../${DST_DIR}/lib-4.9.3/i386
 cd ..
 
 mkdir deps40 && cd deps40
-# double-conversion is only available in the Rtools4.0 builds, but apparently that's ok
-wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-double-conversion-3.1.2-1-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-double-conversion-3.1.2-1-any.pkg.tar.xz
 
 wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-openssl-1.1.1.a-1-any.pkg.tar.xz
 wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-openssl-1.1.1.a-1-any.pkg.tar.xz
+
+wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-zstd-1.4.3-1-any.pkg.tar.xz
+wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-zstd-1.4.3-1-any.pkg.tar.xz
+
+wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-lz4-1.8.2-1-any.pkg.tar.xz
+wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-lz4-1.8.2-1-any.pkg.tar.xz
 
 # These are the other Rtools 4.0 packages, for future reference
 # wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-boost-1.67.0-9002-any.pkg.tar.xz

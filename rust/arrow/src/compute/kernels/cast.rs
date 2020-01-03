@@ -35,6 +35,7 @@
 //! assert_eq!(7.0, c.value(2));
 //! ```
 
+use std::str;
 use std::sync::Arc;
 
 use crate::array::*;
@@ -61,6 +62,7 @@ use crate::error::{ArrowError, Result};
 /// * To or from `StructArray`
 /// * List to primitive
 /// * Utf8 to boolean
+/// * Interval and duration
 pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
     use DataType::*;
     let from_type = array.data_type();
@@ -156,12 +158,12 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Float64 => cast_bool_to_numeric::<Float64Type>(array),
             Utf8 => {
                 let from = array.as_any().downcast_ref::<BooleanArray>().unwrap();
-                let mut b = BinaryBuilder::new(array.len());
+                let mut b = StringBuilder::new(array.len());
                 for i in 0..array.len() {
                     if array.is_null(i) {
                         b.append(false)?;
                     } else {
-                        b.append_string(match from.value(i) {
+                        b.append_value(match from.value(i) {
                             true => "1",
                             false => "0",
                         })?;
@@ -202,6 +204,22 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Int64 => cast_numeric_to_string::<Int64Type>(array),
             Float32 => cast_numeric_to_string::<Float32Type>(array),
             Float64 => cast_numeric_to_string::<Float64Type>(array),
+            Binary => {
+                let from = array.as_any().downcast_ref::<BinaryArray>().unwrap();
+                let mut b = StringBuilder::new(array.len());
+                for i in 0..array.len() {
+                    if array.is_null(i) {
+                        b.append_null()?;
+                    } else {
+                        match str::from_utf8(from.value(i)) {
+                            Ok(s) => b.append_value(s)?,
+                            Err(_) => b.append_null()?, // not valid UTF8
+                        }
+                    }
+                }
+
+                Ok(Arc::new(b.finish()) as ArrayRef)
+            }
             _ => Err(ArrowError::ComputeError(format!(
                 "Casting from {:?} to {:?} not supported",
                 from_type, to_type,
@@ -431,8 +449,8 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 _ => unreachable!("array type not supported"),
             }
         }
-        (Timestamp(_), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
-        (Int64, Timestamp(to_unit)) => {
+        (Timestamp(_, _), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
+        (Int64, Timestamp(to_unit, _)) => {
             use TimeUnit::*;
             match to_unit {
                 Second => cast_array_data::<TimestampSecondType>(array, to_type.clone()),
@@ -447,7 +465,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 }
             }
         }
-        (Timestamp(from_unit), Timestamp(to_unit)) => {
+        (Timestamp(from_unit, _), Timestamp(to_unit, _)) => {
             let time_array = Int64Array::from(array.data());
             let from_size = time_unit_multiple(&from_unit);
             let to_size = time_unit_multiple(&to_unit);
@@ -484,7 +502,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 ),
             }
         }
-        (Timestamp(from_unit), Date32(_)) => {
+        (Timestamp(from_unit, _), Date32(_)) => {
             let time_array = Int64Array::from(array.data());
             let from_size = time_unit_multiple(&from_unit) * SECONDS_IN_DAY;
             let mut b = Date32Builder::new(array.len());
@@ -498,7 +516,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
 
             Ok(Arc::new(b.finish()) as ArrayRef)
         }
-        (Timestamp(from_unit), Date64(_)) => {
+        (Timestamp(from_unit, _), Date64(_)) => {
             let from_size = time_unit_multiple(&from_unit);
             let to_size = MILLISECONDS;
             if from_size != to_size {
@@ -623,18 +641,18 @@ where
     }
 }
 
-fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> Result<BinaryArray>
+fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> Result<StringArray>
 where
     T: ArrowPrimitiveType + ArrowNumericType,
     T::Native: ::std::string::ToString,
 {
-    let mut b = BinaryBuilder::new(from.len());
+    let mut b = StringBuilder::new(from.len());
 
     for i in 0..from.len() {
         if from.is_null(i) {
             b.append(false)?;
         } else {
-            b.append_string(from.value(i).to_string().as_str())?;
+            b.append_value(&from.value(i).to_string())?;
         }
     }
 
@@ -647,17 +665,16 @@ where
     TO: ArrowNumericType,
 {
     match string_to_numeric_cast::<TO>(
-        from.as_any().downcast_ref::<BinaryArray>().unwrap(),
+        from.as_any().downcast_ref::<StringArray>().unwrap(),
     ) {
         Ok(to) => Ok(Arc::new(to) as ArrayRef),
         Err(e) => Err(e),
     }
 }
 
-fn string_to_numeric_cast<T>(from: &BinaryArray) -> Result<PrimitiveArray<T>>
+fn string_to_numeric_cast<T>(from: &StringArray) -> Result<PrimitiveArray<T>>
 where
     T: ArrowNumericType,
-    // T::Native: ::std::string::ToString,
 {
     let mut b = PrimitiveBuilder::<T>::new(from.len());
 
@@ -665,10 +682,7 @@ where
         if from.is_null(i) {
             b.append_null()?;
         } else {
-            match std::str::from_utf8(from.value(i))
-                .unwrap_or("")
-                .parse::<T::Native>()
-            {
+            match from.value(i).parse::<T::Native>() {
                 Ok(v) => b.append_value(v)?,
                 _ => b.append_null()?,
             };
@@ -901,8 +915,8 @@ mod tests {
     }
 
     #[test]
-    fn test_cast_utf_to_i32() {
-        let a = BinaryArray::from(vec!["5", "6", "seven", "8", "9.1"]);
+    fn test_cast_utf8_to_i32() {
+        let a = StringArray::from(vec!["5", "6", "seven", "8", "9.1"]);
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Int32).unwrap();
         let c = b.as_any().downcast_ref::<Int32Array>().unwrap();
@@ -937,12 +951,12 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Casting from Int32 to Timestamp(Microsecond) not supported"
+        expected = "Casting from Int32 to Timestamp(Microsecond, None) not supported"
     )]
     fn test_cast_int32_to_timestamp() {
         let a = Int32Array::from(vec![Some(2), Some(10), None]);
         let array = Arc::new(a) as ArrayRef;
-        cast(&array, &DataType::Timestamp(TimeUnit::Microsecond)).unwrap();
+        cast(&array, &DataType::Timestamp(TimeUnit::Microsecond, None)).unwrap();
     }
 
     #[test]
@@ -998,7 +1012,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Casting from Int32 to Timestamp(Microsecond) not supported"
+        expected = "Casting from Int32 to Timestamp(Microsecond, None) not supported"
     )]
     fn test_cast_list_i32_to_list_timestamp() {
         // Construct a value array
@@ -1018,7 +1032,7 @@ mod tests {
 
         cast(
             &list_array,
-            &DataType::List(Box::new(DataType::Timestamp(TimeUnit::Microsecond))),
+            &DataType::List(Box::new(DataType::Timestamp(TimeUnit::Microsecond, None))),
         )
         .unwrap();
     }
@@ -1066,11 +1080,10 @@ mod tests {
 
     #[test]
     fn test_cast_timestamp_to_date32() {
-        let a = TimestampMillisecondArray::from(vec![
-            Some(864000000005),
-            Some(1545696000001),
-            None,
-        ]);
+        let a = TimestampMillisecondArray::from_opt_vec(
+            vec![Some(864000000005), Some(1545696000001), None],
+            Some(Arc::new(String::from("UTC"))),
+        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
@@ -1081,11 +1094,10 @@ mod tests {
 
     #[test]
     fn test_cast_timestamp_to_date64() {
-        let a = TimestampMillisecondArray::from(vec![
-            Some(864000000005),
-            Some(1545696000001),
+        let a = TimestampMillisecondArray::from_opt_vec(
+            vec![Some(864000000005), Some(1545696000001), None],
             None,
-        ]);
+        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date64(DateUnit::Millisecond)).unwrap();
         let c = b.as_any().downcast_ref::<Date64Array>().unwrap();
@@ -1096,11 +1108,10 @@ mod tests {
 
     #[test]
     fn test_cast_timestamp_to_i64() {
-        let a = TimestampMillisecondArray::from(vec![
-            Some(864000000005),
-            Some(1545696000001),
-            None,
-        ]);
+        let a = TimestampMillisecondArray::from_opt_vec(
+            vec![Some(864000000005), Some(1545696000001), None],
+            Some(Arc::new("UTC".to_string())),
+        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Int64).unwrap();
         let c = b.as_any().downcast_ref::<Int64Array>().unwrap();
@@ -1112,13 +1123,12 @@ mod tests {
 
     #[test]
     fn test_cast_between_timestamps() {
-        let a = TimestampMillisecondArray::from(vec![
-            Some(864000003005),
-            Some(1545696002001),
+        let a = TimestampMillisecondArray::from_opt_vec(
+            vec![Some(864000003005), Some(1545696002001), None],
             None,
-        ]);
+        );
         let array = Arc::new(a) as ArrayRef;
-        let b = cast(&array, &DataType::Timestamp(TimeUnit::Second)).unwrap();
+        let b = cast(&array, &DataType::Timestamp(TimeUnit::Second, None)).unwrap();
         let c = b.as_any().downcast_ref::<TimestampSecondArray>().unwrap();
         assert_eq!(864000003, c.value(0));
         assert_eq!(1545696002, c.value(1));

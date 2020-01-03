@@ -414,13 +414,11 @@ garrow_decimal128_divide(GArrowDecimal128 *left,
 {
   auto arrow_decimal_left = garrow_decimal128_get_raw(left);
   auto arrow_decimal_right = garrow_decimal128_get_raw(right);
-  arrow::Decimal128 arrow_result_raw;
-  arrow::Decimal128 arrow_remainder_raw;
-  auto status =
-    arrow_decimal_left->Divide(*arrow_decimal_right,
-                               &arrow_result_raw,
-                               &arrow_remainder_raw);
-  if (garrow_error_check(error, status, "[decimal128][divide]")) {
+  auto arrow_result = arrow_decimal_left->Divide(*arrow_decimal_right);
+  if (garrow::check(error, arrow_result, "[decimal128][divide]")) {
+    arrow::Decimal128 arrow_result_raw;
+    arrow::Decimal128 arrow_remainder_raw;
+    std::tie(arrow_result_raw, arrow_remainder_raw) = *arrow_result;
     if (remainder) {
       auto arrow_remainder =
         std::make_shared<arrow::Decimal128>(arrow_remainder_raw);
@@ -454,13 +452,10 @@ garrow_decimal128_rescale(GArrowDecimal128 *decimal,
                           GError **error)
 {
   auto arrow_decimal = garrow_decimal128_get_raw(decimal);
-  arrow::Decimal128 arrow_rescaled_decimal_raw;
-  auto status = arrow_decimal->Rescale(original_scale,
-                                       new_scale,
-                                       &arrow_rescaled_decimal_raw);
-  if (garrow_error_check(error, status, "[decimal128][rescale]")) {
+  auto arrow_result = arrow_decimal->Rescale(original_scale, new_scale);
+  if (garrow::check(error, arrow_result, "[decimal128][rescale]")) {
     auto arrow_rescaled_decimal =
-      std::make_shared<arrow::Decimal128>(arrow_rescaled_decimal_raw);
+      std::make_shared<arrow::Decimal128>(*arrow_result);
     return garrow_decimal128_new_raw(&arrow_rescaled_decimal);
   } else {
     return NULL;

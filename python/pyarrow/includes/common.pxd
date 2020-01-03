@@ -27,11 +27,30 @@ from libcpp.unordered_map cimport unordered_map
 from libcpp.unordered_set cimport unordered_set
 
 from cpython cimport PyObject
+from cpython.datetime cimport PyDateTime_DateTime
 cimport cpython
 
 
 cdef extern from * namespace "std" nogil:
     cdef shared_ptr[T] static_pointer_cast[T, U](shared_ptr[U])
+
+# vendored from the cymove project https://github.com/ozars/cymove
+cdef extern from * namespace "cymove" nogil:
+    """
+    #include <type_traits>
+    #include <utility>
+    namespace cymove {
+    template <typename T>
+    inline typename std::remove_reference<T>::type&& cymove(T& t) {
+        return std::move(t);
+    }
+    template <typename T>
+    inline typename std::remove_reference<T>::type&& cymove(T&& t) {
+        return std::move(t);
+    }
+    }  // namespace cymove
+    """
+    cdef T move" cymove::cymove"[T](T)
 
 cdef extern from "arrow/python/platform.h":
     pass
@@ -58,6 +77,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_string ToString()
         c_string message()
+        shared_ptr[CStatusDetail] detail()
 
         c_bool ok()
         c_bool IsIOError()
@@ -70,13 +90,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool IsIndexError()
         c_bool IsSerializationError()
 
+    cdef cppclass CStatusDetail "arrow::StatusDetail":
+        c_string ToString()
+
+
 cdef extern from "arrow/result.h" namespace "arrow" nogil:
     cdef cppclass CResult "arrow::Result"[T]:
         c_bool ok()
         CStatus status()
         T operator*()
 
-cdef extern from "arrow/python/common.h" namespace "arrow::py":
+cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
     T GetResultValue[T](CResult[T]) except *
 
 cdef inline object PyObject_to_object(PyObject* o):

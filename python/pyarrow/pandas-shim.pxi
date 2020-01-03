@@ -30,9 +30,10 @@ cdef class _PandasAPIShim(object):
         object _loose_version, _version
         object _pd, _types_api, _compat_module
         object _data_frame, _index, _series, _categorical_type
-        object _datetimetz_type, _extension_array
+        object _datetimetz_type, _extension_array, _extension_dtype
         object _array_like_types
         bint has_sparse
+        bint _pd024
 
     def __init__(self):
         self._tried_importing_pandas = False
@@ -64,10 +65,12 @@ cdef class _PandasAPIShim(object):
             self._array_like_types = (
                 self._series, self._index, self._categorical_type,
                 self._extension_array)
+            self._extension_dtype = pd.api.extensions.ExtensionDtype
         else:
             self._extension_array = None
             self._array_like_types = (
                 self._series, self._index, self._categorical_type)
+            self._extension_dtype = None
 
         if self._loose_version >= LooseVersion('0.20.0'):
             from pandas.api.types import DatetimeTZDtype
@@ -86,6 +89,8 @@ cdef class _PandasAPIShim(object):
             self.has_sparse = False
         else:
             self.has_sparse = True
+
+        self._pd024 = self._loose_version >= LooseVersion('0.24')
 
     cdef inline _check_import(self, bint raise_=True):
         if self._tried_importing_pandas:
@@ -130,6 +135,13 @@ cdef class _PandasAPIShim(object):
         except AttributeError:
             return self._pd.lib.infer_dtype(obj)
 
+    cpdef pandas_dtype(self, dtype):
+        self._check_import()
+        try:
+            return self._types_api.pandas_dtype(dtype)
+        except AttributeError:
+            return None
+
     @property
     def loose_version(self):
         self._check_import()
@@ -148,6 +160,11 @@ cdef class _PandasAPIShim(object):
     @property
     def datetimetz_type(self):
         return self._datetimetz_type
+
+    @property
+    def extension_dtype(self):
+        self._check_import()
+        return self._extension_dtype
 
     cpdef is_array_like(self, obj):
         self._check_import()
@@ -182,6 +199,28 @@ cdef class _PandasAPIShim(object):
             return isinstance(obj, self._series)
         else:
             return False
+
+    cpdef is_index(self, obj):
+        if self._have_pandas_internal():
+            return isinstance(obj, self._index)
+        else:
+            return False
+
+    cpdef get_values(self, obj):
+        """
+        Get the underlying array values of a pandas Series or Index in the
+        format (np.ndarray or pandas ExtensionArray) as we need them.
+
+        Assumes obj is a pandas Series or Index.
+        """
+        self._check_import()
+        if isinstance(obj.dtype, (self.pd.api.types.IntervalDtype,
+                                  self.pd.api.types.PeriodDtype)):
+            if self._pd024:
+                # only since pandas 0.24, interval and period are stored as
+                # such in Series
+                return obj.array
+        return obj.values
 
     def assert_frame_equal(self, *args, **kwargs):
         self._check_import()

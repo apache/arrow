@@ -175,7 +175,7 @@ void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& bu
 std::unique_ptr<Chunker> MakeChunker(bool newlines_in_values) {
   auto options = ParseOptions::Defaults();
   options.newlines_in_values = newlines_in_values;
-  return Chunker::Make(options);
+  return MakeChunker(options);
 }
 
 class BaseChunkerTest : public ::testing::TestWithParam<bool> {

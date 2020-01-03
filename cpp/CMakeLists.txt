@@ -61,6 +61,7 @@ set(ARROW_BINARY_DIR ${PROJECT_BINARY_DIR})
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
 
+include(CMakePackageConfigHelpers)
 include(CMakeParseArguments)
 include(ExternalProject)
 include(FindPkgConfig)
@@ -87,6 +88,8 @@ if(POLICY CMP0074)
 endif()
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
+
+set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
 set(ARROW_LLVM_VERSION "7.0")
 # TODO: Remove this when we drop LLVM 7 support.
@@ -263,16 +266,7 @@ endif(UNIX)
 # Set up various options
 #
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-  # Currently the compression tests require at least these libraries; bz2 and
-  # zstd are optional. See ARROW-3984
-  set(ARROW_WITH_BROTLI ON)
-  set(ARROW_WITH_LZ4 ON)
-  set(ARROW_WITH_SNAPPY ON)
-  set(ARROW_WITH_ZLIB ON)
-endif()
-
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
+if(ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
   set(ARROW_JSON ON)
 endif()
 
@@ -282,6 +276,19 @@ endif()
 
 if(ARROW_DATASET)
   set(ARROW_FILESYSTEM ON)
+endif()
+
+if(ARROW_PARQUET)
+  set(ARROW_COMPUTE ON)
+endif()
+
+if(ARROW_PYTHON)
+  set(ARROW_COMPUTE ON)
+  set(ARROW_CSV ON)
+  set(ARROW_DATASET ON)
+  set(ARROW_FILESYSTEM ON)
+  set(ARROW_HDFS ON)
+  set(ARROW_JSON ON)
 endif()
 
 if(MSVC)
@@ -350,9 +357,6 @@ endif()
 #
 # Compiler flags
 #
-
-# Determine compiler version
-include(CompilerInfo)
 
 if(ARROW_NO_DEPRECATED_API)
   add_definitions(-DARROW_NO_DEPRECATED_API)
@@ -597,14 +601,9 @@ set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 # Libraries to link statically with libarrow.so
-set(ARROW_LINK_LIBS ${double-conversion_LIBRARIES})
-set(ARROW_STATIC_LINK_LIBS ${double-conversion_LIBRARIES})
-set(ARROW_STATIC_INSTALL_INTERFACE_LIBS ${double-conversion_LIBRARIES})
-
-if(ARROW_WITH_URIPARSER)
-  list(APPEND ARROW_STATIC_LINK_LIBS uriparser::uriparser)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
-endif()
+set(ARROW_LINK_LIBS)
+set(ARROW_STATIC_LINK_LIBS)
+set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_USE_OPENSSL)
   set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
@@ -647,9 +646,10 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  list(APPEND ARROW_LINK_LIBS protobuf::libprotobuf orc::liborc)
-  list(APPEND ARROW_STATIC_LINK_LIBS protobuf::libprotobuf orc::liborc)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS protobuf::libprotobuf orc::liborc)
+  list(APPEND ARROW_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF} orc::liborc)
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF} orc::liborc)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF}
+              orc::liborc)
 endif()
 
 if(ARROW_USE_GLOG)
@@ -679,8 +679,8 @@ endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
-# Is boost::filesystem needed?
-if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS OR ARROW_FILESYSTEM OR ARROW_HDFS)
+# boost::filesystem is needed for S3 and Flight tests as a boost::process dependency.
+if(((ARROW_FLIGHT OR ARROW_S3) AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)))
   set(ARROW_WITH_BOOST_FILESYSTEM ON)
 
   list(APPEND ARROW_SHARED_PRIVATE_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY}
@@ -715,7 +715,6 @@ set(ARROW_TEST_SHARED_LINK_LIBS
     arrow_testing_shared
     arrow_shared
     ${ARROW_LINK_LIBS}
-    ${double-conversion_LIBRARIES}
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_SYSTEM_LIBRARY}
     ${ARROW_TEST_LINK_TOOLCHAIN})
@@ -818,30 +817,6 @@ if(ARROW_BUILD_EXAMPLES)
   add_custom_target(runexample ctest -L example)
   add_subdirectory(examples/arrow)
 endif()
-
-include(CMakePackageConfigHelpers)
-
-# Makes the project importable from the build directory
-export(EXPORT ${PROJECT_NAME}-targets
-       FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake")
-
-configure_package_config_file(${PROJECT_NAME}Config.cmake.in
-                              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-                              INSTALL_DESTINATION
-                              "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-write_basic_package_version_file(
-  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-  VERSION ${${PROJECT_NAME}_VERSION}
-  COMPATIBILITY AnyNewerVersion)
-config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Options.cmake")
-
-install(EXPORT ${PROJECT_NAME}-targets
-        FILE ${PROJECT_NAME}Targets.cmake
-        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Options.cmake
-        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
 config_summary_message()
 if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})

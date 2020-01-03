@@ -18,6 +18,8 @@
 module Arrow
   class ChunkedArray
     include Enumerable
+    include GenericFilterable
+    include GenericTakeable
 
     alias_method :size, :n_rows
     unless method_defined?(:length)

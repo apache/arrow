@@ -53,7 +53,7 @@ std::string TestJsonData(int num_rows, bool pretty = false) {
 static void BenchmarkJSONChunking(benchmark::State& state,
                                   const std::shared_ptr<Buffer>& json,
                                   ParseOptions options) {  // NOLINT non-const reference
-  auto chunker = Chunker::Make(options);
+  auto chunker = MakeChunker(options);
 
   for (auto _ : state) {
     std::shared_ptr<Buffer> chunked, partial;

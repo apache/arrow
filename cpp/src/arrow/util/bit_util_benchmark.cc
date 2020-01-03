@@ -17,6 +17,9 @@
 
 #include "benchmark/benchmark.h"
 
+#include <algorithm>
+#include <array>
+#include <bitset>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -92,6 +95,66 @@ static std::shared_ptr<Buffer> CreateRandomBuffer(int64_t nbytes) {
   memset(buffer->mutable_data(), 0, nbytes);
   random_bytes(nbytes, 0, buffer->mutable_data());
   return buffer;
+}
+
+template <typename DoAnd>
+static void BenchmarkAndImpl(benchmark::State& state, DoAnd&& do_and) {
+  int64_t nbytes = state.range(0);
+  int64_t offset = state.range(1);
+
+  std::shared_ptr<Buffer> buffer_1 = CreateRandomBuffer(nbytes);
+  std::shared_ptr<Buffer> buffer_2 = CreateRandomBuffer(nbytes);
+  std::shared_ptr<Buffer> buffer_3 = CreateRandomBuffer(nbytes);
+
+  const int64_t num_bits = nbytes * 8 - offset;
+
+  internal::Bitmap bitmap_1{buffer_1, 0, num_bits};
+  internal::Bitmap bitmap_2{buffer_2, offset, num_bits};
+  internal::Bitmap bitmap_3{buffer_3, 0, num_bits};
+
+  for (auto _ : state) {
+    do_and({bitmap_1, bitmap_2}, &bitmap_3);
+    auto total = internal::CountSetBits(bitmap_3.buffer()->data(), bitmap_3.offset(),
+                                        bitmap_3.length());
+    benchmark::DoNotOptimize(total);
+  }
+  state.SetBytesProcessed(state.iterations() * nbytes);
+}
+
+static void BenchmarkBitmapAnd(benchmark::State& state) {
+  BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
+    internal::BitmapAnd(bitmaps[0].buffer()->data(), bitmaps[0].offset(),
+                        bitmaps[1].buffer()->data(), bitmaps[1].offset(),
+                        bitmaps[0].length(), 0, out->buffer()->mutable_data());
+  });
+}
+
+static void BenchmarkBitmapVisitBitsetAnd(benchmark::State& state) {
+  BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
+    int64_t i = 0;
+    internal::Bitmap::VisitBits(
+        bitmaps, [&](std::bitset<2> bits) { out->SetBitTo(i++, bits[0] && bits[1]); });
+  });
+}
+
+static void BenchmarkBitmapVisitUInt8And(benchmark::State& state) {
+  BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
+    int64_t i = 0;
+    internal::Bitmap::VisitWords(bitmaps, [&](std::array<uint8_t, 2> uint8s) {
+      reinterpret_cast<uint8_t*>(out->buffer()->mutable_data())[i++] =
+          uint8s[0] & uint8s[1];
+    });
+  });
+}
+
+static void BenchmarkBitmapVisitUInt64And(benchmark::State& state) {
+  BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
+    int64_t i = 0;
+    internal::Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 2> uint64s) {
+      reinterpret_cast<uint64_t*>(out->buffer()->mutable_data())[i++] =
+          uint64s[0] & uint64s[1];
+    });
+  });
 }
 
 template <typename BitmapReaderType>
@@ -320,6 +383,15 @@ BENCHMARK(GenerateBitsUnrolled)->Arg(kBufferSize);
 
 BENCHMARK(CopyBitmapWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(CopyBitmapWithOffset)->Arg(kBufferSize);
+
+#define AND_BENCHMARK_RANGES                      \
+  {                                               \
+    {kBufferSize * 4, kBufferSize * 16}, { 0, 2 } \
+  }
+BENCHMARK(BenchmarkBitmapAnd)->Ranges(AND_BENCHMARK_RANGES);
+BENCHMARK(BenchmarkBitmapVisitBitsetAnd)->Ranges(AND_BENCHMARK_RANGES);
+BENCHMARK(BenchmarkBitmapVisitUInt8And)->Ranges(AND_BENCHMARK_RANGES);
+BENCHMARK(BenchmarkBitmapVisitUInt64And)->Ranges(AND_BENCHMARK_RANGES);
 
 }  // namespace BitUtil
 }  // namespace arrow

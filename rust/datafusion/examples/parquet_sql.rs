@@ -18,7 +18,7 @@
 extern crate arrow;
 extern crate datafusion;
 
-use arrow::array::{BinaryArray, Float64Array, Int32Array};
+use arrow::array::{Float64Array, Int32Array, StringArray};
 
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
@@ -39,7 +39,7 @@ fn main() -> Result<()> {
     )?;
 
     // simple selection
-    let sql = "SELECT int_col, double_col, date_string_col FROM alltypes_plain WHERE id > 1 AND tinyint_col < double_col";
+    let sql = "SELECT int_col, double_col, CAST(date_string_col as VARCHAR) FROM alltypes_plain WHERE id > 1 AND tinyint_col < double_col";
 
     // create the query plan
     let plan = ctx.create_logical_plan(&sql)?;
@@ -72,15 +72,13 @@ fn main() -> Result<()> {
         let date = batch
             .column(2)
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap();
 
         for i in 0..batch.num_rows() {
-            let date_value: String = String::from_utf8(date.value(i).to_vec()).unwrap();
-
             println!(
                 "Date: {}, Int: {}, Double: {}",
-                date_value,
+                date.value(i),
                 int.value(i),
                 double.value(i)
             );

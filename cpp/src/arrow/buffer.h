@@ -25,8 +25,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
@@ -172,6 +172,10 @@ class ARROW_EXPORT Buffer {
   explicit operator util::string_view() const {
     return util::string_view(reinterpret_cast<const char*>(data_), size_);
   }
+
+  /// \brief View buffer contents as a util::bytes_view
+  /// \return util::bytes_view
+  explicit operator util::bytes_view() const { return util::bytes_view(data_, size_); }
 
   /// \brief Return a pointer to the buffer's data
   const uint8_t* data() const { return data_; }

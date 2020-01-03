@@ -166,7 +166,8 @@ On Linux and macOS:
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_python.yml \
         compilers \
-        python=3.7
+        python=3.7 \
+        pandas
 
 As of January 2019, the ``compilers`` package is needed on many Linux
 distributions to use packages from conda-forge.
@@ -375,7 +376,7 @@ To debug the C++ libraries with gdb while running the Python unit
    gdb --args python -m pytest pyarrow/tests/test_to_run.py -k $TEST_TO_MATCH
 
 To set a breakpoint, use the same gdb syntax that you would when
-debugging a C++ unitttest, for example:
+debugging a C++ unittest, for example:
 
 .. code-block:: shell
 

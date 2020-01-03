@@ -35,7 +35,7 @@ fn record_batches_to_csv() {
         Field::new("c3", DataType::Boolean, true),
     ]);
 
-    let c1 = BinaryArray::from(vec![
+    let c1 = StringArray::from(vec![
         "Lorem ipsum dolor sit amet",
         "consectetur adipiscing elit",
         "sed do eiusmod tempor",

@@ -63,19 +63,21 @@ pkgconfig.generate(libparquet_glib,
                    version: version,
                    requires: ['parquet', 'arrow-glib'])
 
-gnome.generate_gir(libparquet_glib,
-                   dependencies: declare_dependency(sources: arrow_glib_gir),
-                   sources: sources + c_headers,
-                   namespace: 'Parquet',
-                   nsversion: api_version,
-                   identifier_prefix: 'GParquet',
-                   symbol_prefix: 'gparquet',
-                   export_packages: 'parquet-glib',
-                   includes: [
-                     'Arrow-1.0',
-                   ],
-                   install: true,
-                   extra_args: [
-                     '--warn-all',
-                     '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-                   ])
+if have_gi
+  gnome.generate_gir(libparquet_glib,
+                     dependencies: declare_dependency(sources: arrow_glib_gir),
+                     sources: sources + c_headers,
+                     namespace: 'Parquet',
+                     nsversion: api_version,
+                     identifier_prefix: 'GParquet',
+                     symbol_prefix: 'gparquet',
+                     export_packages: 'parquet-glib',
+                     includes: [
+                       'Arrow-1.0',
+                     ],
+                     install: true,
+                     extra_args: [
+                       '--warn-all',
+                       '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+                     ])
+endif

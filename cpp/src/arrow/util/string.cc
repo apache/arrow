@@ -75,11 +75,12 @@ Status ParseHexValue(const char* data, uint8_t* out) {
   char c1 = data[0];
   char c2 = data[1];
 
-  const char* pos1 = std::lower_bound(kAsciiTable, kAsciiTable + 16, c1);
-  const char* pos2 = std::lower_bound(kAsciiTable, kAsciiTable + 16, c2);
+  const char* kAsciiTableEnd = kAsciiTable + 16;
+  const char* pos1 = std::lower_bound(kAsciiTable, kAsciiTableEnd, c1);
+  const char* pos2 = std::lower_bound(kAsciiTable, kAsciiTableEnd, c2);
 
   // Error checking
-  if (*pos1 != c1 || *pos2 != c2) {
+  if (pos1 == kAsciiTableEnd || pos2 == kAsciiTableEnd || *pos1 != c1 || *pos2 != c2) {
     return Status::Invalid("Encountered non-hex digit");
   }
 
@@ -88,6 +89,19 @@ Status ParseHexValue(const char* data, uint8_t* out) {
 }
 
 namespace internal {
+
+std::string JoinStrings(const std::vector<util::string_view>& strings,
+                        util::string_view delimiter) {
+  if (strings.size() == 0) {
+    return "";
+  }
+  std::string out = strings.front().to_string();
+  for (size_t i = 1; i < strings.size(); ++i) {
+    out.append(delimiter.begin(), delimiter.end());
+    out.append(strings[i].begin(), strings[i].end());
+  }
+  return out;
+}
 
 constexpr bool IsWhitespace(char c) { return c == ' ' || c == '\t'; }
 

@@ -660,12 +660,9 @@ def test_compression_level():
                             ("None", 444), ("lzo", 14)]
     buf = io.BytesIO()
     for (codec, level) in invalid_combinations:
-        try:
+        with pytest.raises(IOError):
             _write_table(table, buf, compression=codec,
                          compression_level=level)
-            assert 0
-        except pa.ArrowException:
-            pass
 
 
 @pytest.mark.pandas
@@ -1599,7 +1596,7 @@ def test_equivalency(tempdir):
 
     # Check that all rows in the DF fulfill the filter
     # Pandas 0.23.x has problems with indexing constant memoryviews in
-    # categoricals. Thus we need to make an explicity copy here with np.array.
+    # categoricals. Thus we need to make an explicit copy here with np.array.
     df_filter_1 = (np.array(result_df['integer']) == 1) \
         & (np.array(result_df['string']) != 'b') \
         & (np.array(result_df['boolean']) == 'True')

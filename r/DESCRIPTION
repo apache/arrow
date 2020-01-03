@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 0.15.0.9000
+Version: 0.15.1.9000
 Authors@R: c(
     person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
@@ -36,13 +36,11 @@ Imports:
     tidyselect,
     utils,
     vctrs
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 6.1.1
+Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
+RoxygenNote: 7.0.2
 VignetteBuilder: knitr
 Suggests:
-    covr,
     dplyr,
-    fs,
     hms,
     knitr,
     lubridate,
@@ -62,6 +60,7 @@ Collate:
     'compression.R'
     'compute.R'
     'csv.R'
+    'dataset.R'
     'dictionary.R'
     'record-batch.R'
     'table.R'

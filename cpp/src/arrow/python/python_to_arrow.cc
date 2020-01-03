@@ -676,14 +676,13 @@ class StringConverter
     return value_converter_->AppendMultiple(obj, value_length); \
   }
 
-template <typename TypeClass, NullCoding null_coding>
-class ListConverter
-    : public TypedConverter<TypeClass, ListConverter<TypeClass, null_coding>,
-                            null_coding> {
+// Base class for ListConverter and FixedSizeListConverter (to have both work with CRTP)
+template <typename TypeClass, class Derived, NullCoding null_coding>
+class BaseListConverter : public TypedConverter<TypeClass, Derived, null_coding> {
  public:
   using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
 
-  explicit ListConverter(bool from_pandas, bool strict_conversions)
+  explicit BaseListConverter(bool from_pandas, bool strict_conversions)
       : from_pandas_(from_pandas), strict_conversions_(strict_conversions) {}
 
   Status Init(ArrayBuilder* builder) {
@@ -804,6 +803,107 @@ class ListConverter
   std::unique_ptr<SeqConverter> value_converter_;
   bool from_pandas_;
   bool strict_conversions_;
+};
+
+template <typename TypeClass, NullCoding null_coding>
+class ListConverter
+    : public BaseListConverter<TypeClass, ListConverter<TypeClass, null_coding>,
+                               null_coding> {
+ public:
+  using BASE =
+      BaseListConverter<TypeClass, ListConverter<TypeClass, null_coding>, null_coding>;
+  using BASE::BASE;
+};
+
+template <NullCoding null_coding>
+class FixedSizeListConverter
+    : public BaseListConverter<FixedSizeListType, FixedSizeListConverter<null_coding>,
+                               null_coding> {
+ public:
+  using BASE = BaseListConverter<FixedSizeListType, FixedSizeListConverter<null_coding>,
+                                 null_coding>;
+  using BASE::BASE;
+
+  Status Init(ArrayBuilder* builder) {
+    RETURN_NOT_OK(BASE::Init(builder));
+    list_size_ = checked_pointer_cast<FixedSizeListType>(builder->type())->list_size();
+    return Status::OK();
+  }
+
+  Status AppendItem(PyObject* obj) {
+    // the same as BaseListConverter but with additional length checks
+    RETURN_NOT_OK(this->typed_builder_->Append());
+    if (PyArray_Check(obj)) {
+      int64_t list_size = static_cast<int64_t>(PyArray_Size(obj));
+      if (list_size != list_size_) {
+        return Status::Invalid("Length of item not correct: expected ", list_size_,
+                               " but got array of size ", list_size);
+      }
+      return this->AppendNdarrayItem(obj);
+    }
+    if (!PySequence_Check(obj)) {
+      return internal::InvalidType(obj,
+                                   "was not a sequence or recognized null"
+                                   " for conversion to list type");
+    }
+    int64_t list_size = static_cast<int64_t>(PySequence_Size(obj));
+    if (list_size != list_size_) {
+      return Status::Invalid("Length of item not correct: expected ", list_size_,
+                             " but got list of size ", list_size);
+    }
+    return this->value_converter_->AppendMultiple(obj, list_size);
+  }
+
+ protected:
+  int64_t list_size_;
+};
+
+// ----------------------------------------------------------------------
+// Convert maps
+
+// Define a MapConverter as a ListConverter that uses MapBuilder.value_builder
+// to append struct of key/value pairs
+template <NullCoding null_coding>
+class MapConverter
+    : public BaseListConverter<MapType, MapConverter<null_coding>, null_coding> {
+ public:
+  using BASE = BaseListConverter<MapType, MapConverter<null_coding>, null_coding>;
+
+  explicit MapConverter(bool from_pandas, bool strict_conversions)
+      : BASE(from_pandas, strict_conversions), key_builder_(nullptr) {}
+
+  Status AppendSingleVirtual(PyObject* obj) override {
+    RETURN_NOT_OK(BASE::AppendSingleVirtual(obj));
+    return VerifyLastStructAppended();
+  }
+
+  Status AppendMultiple(PyObject* seq, int64_t size) override {
+    RETURN_NOT_OK(BASE::AppendMultiple(seq, size));
+    return VerifyLastStructAppended();
+  }
+
+  Status AppendMultipleMasked(PyObject* seq, PyObject* mask, int64_t size) override {
+    RETURN_NOT_OK(BASE::AppendMultipleMasked(seq, mask, size));
+    return VerifyLastStructAppended();
+  }
+
+ protected:
+  Status VerifyLastStructAppended() {
+    // The struct_builder may not have field_builders initialized in constructor, so
+    // assign key_builder lazily
+    if (key_builder_ == nullptr) {
+      auto struct_builder =
+          checked_cast<StructBuilder*>(BASE::value_converter_->builder());
+      key_builder_ = struct_builder->field_builder(0);
+    }
+    if (key_builder_->null_count() > 0) {
+      return Status::Invalid("Invalid Map: key field can not contain null values");
+    }
+    return Status::OK();
+  }
+
+ private:
+  ArrayBuilder* key_builder_;
 };
 
 // ----------------------------------------------------------------------
@@ -1092,6 +1192,27 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
         *out = std::unique_ptr<SeqConverter>(
             new ListConverter<LargeListType, NullCoding::NONE_ONLY>(from_pandas,
                                                                     strict_conversions));
+      }
+      return Status::OK();
+    case Type::MAP:
+      if (from_pandas) {
+        *out =
+            std::unique_ptr<SeqConverter>(new MapConverter<NullCoding::PANDAS_SENTINELS>(
+                from_pandas, strict_conversions));
+      } else {
+        *out = std::unique_ptr<SeqConverter>(
+            new MapConverter<NullCoding::NONE_ONLY>(from_pandas, strict_conversions));
+      }
+      return Status::OK();
+    case Type::FIXED_SIZE_LIST:
+      if (from_pandas) {
+        *out = std::unique_ptr<SeqConverter>(
+            new FixedSizeListConverter<NullCoding::PANDAS_SENTINELS>(from_pandas,
+                                                                     strict_conversions));
+      } else {
+        *out = std::unique_ptr<SeqConverter>(
+            new FixedSizeListConverter<NullCoding::NONE_ONLY>(from_pandas,
+                                                              strict_conversions));
       }
       return Status::OK();
     case Type::STRUCT:

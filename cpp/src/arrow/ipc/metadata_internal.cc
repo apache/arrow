@@ -157,17 +157,18 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
       (union_data->mode() == flatbuf::UnionMode_Sparse ? UnionMode::SPARSE
                                                        : UnionMode::DENSE);
 
-  std::vector<uint8_t> type_codes;
+  std::vector<int8_t> type_codes;
 
   const flatbuffers::Vector<int32_t>* fb_type_ids = union_data->typeIds();
   if (fb_type_ids == nullptr) {
-    for (uint8_t i = 0; i < children.size(); ++i) {
+    // TODO validate that children.size() <= 127?
+    for (int8_t i = 0; i < static_cast<int8_t>(children.size()); ++i) {
       type_codes.push_back(i);
     }
   } else {
     for (int32_t id : (*fb_type_ids)) {
-      // TODO(wesm): can these values exceed 255?
-      type_codes.push_back(static_cast<uint8_t>(id));
+      // TODO(wesm): can these values exceed 127?
+      type_codes.push_back(static_cast<int8_t>(id));
     }
   }
 
@@ -515,8 +516,9 @@ class FieldToFlatbufferVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<IsInteger<T>::value, Status>::type Visit(const T& type) {
-    return Visit<sizeof(typename T::c_type) * 8, IsSignedInt<T>::value>(type);
+  enable_if_integer<T, Status> Visit(const T& type) {
+    constexpr bool is_signed = is_signed_integer_type<T>::value;
+    return Visit<sizeof(typename T::c_type) * 8, is_signed>(type);
   }
 
   Status Visit(const HalfFloatType& type) {
@@ -846,13 +848,14 @@ Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema, DictionaryMemo* dictio
   return Status::OK();
 }
 
-Status WriteFBMessage(FBB& fbb, flatbuf::MessageHeader header_type,
-                      flatbuffers::Offset<void> header, int64_t body_length,
-                      std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> WriteFBMessage(FBB& fbb,
+                                               flatbuf::MessageHeader header_type,
+                                               flatbuffers::Offset<void> header,
+                                               int64_t body_length) {
   auto message = flatbuf::CreateMessage(fbb, kCurrentMetadataVersion, header_type, header,
                                         body_length);
   fbb.Finish(message);
-  return WriteFlatbufferBuilder(fbb, out);
+  return WriteFlatbufferBuilder(fbb);
 }
 
 using FieldNodeVector =
@@ -904,62 +907,6 @@ static Status MakeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
   return Status::OK();
 }
 
-}  // namespace
-
-Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
-                          std::shared_ptr<Buffer>* out) {
-  FBB fbb;
-  flatbuffers::Offset<flatbuf::Schema> fb_schema;
-  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
-  return WriteFBMessage(fbb, flatbuf::MessageHeader_Schema, fb_schema.Union(), 0, out);
-}
-
-Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
-                               const std::vector<FieldMetadata>& nodes,
-                               const std::vector<BufferMetadata>& buffers,
-                               std::shared_ptr<Buffer>* out) {
-  FBB fbb;
-  RecordBatchOffset record_batch;
-  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
-  return WriteFBMessage(fbb, flatbuf::MessageHeader_RecordBatch, record_batch.Union(),
-                        body_length, out);
-}
-
-Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
-                          std::shared_ptr<Buffer>* out) {
-  using TensorDimOffset = flatbuffers::Offset<flatbuf::TensorDim>;
-  using TensorOffset = flatbuffers::Offset<flatbuf::Tensor>;
-
-  FBB fbb;
-
-  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
-  const int elem_size = type.bit_width() / 8;
-
-  flatbuf::Type fb_type_type;
-  Offset fb_type;
-  RETURN_NOT_OK(TensorTypeToFlatbuffer(fbb, *tensor.type(), &fb_type_type, &fb_type));
-
-  std::vector<TensorDimOffset> dims;
-  for (int i = 0; i < tensor.ndim(); ++i) {
-    FBString name = fbb.CreateString(tensor.dim_name(i));
-    dims.push_back(flatbuf::CreateTensorDim(fbb, tensor.shape()[i], name));
-  }
-
-  auto fb_shape = fbb.CreateVector(util::MakeNonNull(dims.data()), dims.size());
-
-  flatbuffers::Offset<flatbuffers::Vector<int64_t>> fb_strides;
-  fb_strides = fbb.CreateVector(util::MakeNonNull(tensor.strides().data()),
-                                tensor.strides().size());
-  int64_t body_length = tensor.size() * elem_size;
-  flatbuf::Buffer buffer(buffer_start_offset, body_length);
-
-  TensorOffset fb_tensor =
-      flatbuf::CreateTensor(fbb, fb_type_type, fb_type, fb_shape, fb_strides, &buffer);
-
-  return WriteFBMessage(fbb, flatbuf::MessageHeader_Tensor, fb_tensor.Union(),
-                        body_length, out);
-}
-
 Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
                                 const std::vector<BufferMetadata>& buffers,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
@@ -986,11 +933,25 @@ Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
   return Status::OK();
 }
 
-Status MakeSparseMatrixIndexCSR(FBB& fbb, const SparseCSRIndex& sparse_index,
+template <typename SparseIndexType>
+struct SparseMatrixCompressedAxis {};
+
+template <>
+struct SparseMatrixCompressedAxis<SparseCSRIndex> {
+  constexpr static const auto value = flatbuf::SparseMatrixCompressedAxis_Row;
+};
+
+template <>
+struct SparseMatrixCompressedAxis<SparseCSCIndex> {
+  constexpr static const auto value = flatbuf::SparseMatrixCompressedAxis_Column;
+};
+
+template <typename SparseIndexType>
+Status MakeSparseMatrixIndexCSX(FBB& fbb, const SparseIndexType& sparse_index,
                                 const std::vector<BufferMetadata>& buffers,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
-  *fb_sparse_index_type = flatbuf::SparseTensorIndex_SparseMatrixIndexCSR;
+  *fb_sparse_index_type = flatbuf::SparseTensorIndex_SparseMatrixIndexCSX;
 
   // We assume that the value type of indptr tensor is an integer.
   const auto& indptr_value_type =
@@ -1010,9 +971,11 @@ Status MakeSparseMatrixIndexCSR(FBB& fbb, const SparseCSRIndex& sparse_index,
   const BufferMetadata& indices_metadata = buffers[1];
   flatbuf::Buffer indices(indices_metadata.offset, indices_metadata.length);
 
-  *fb_sparse_index = flatbuf::CreateSparseMatrixIndexCSR(fbb, indptr_type_offset, &indptr,
-                                                         indices_type_offset, &indices)
-                         .Union();
+  auto compressedAxis = SparseMatrixCompressedAxis<SparseIndexType>::value;
+  *fb_sparse_index =
+      flatbuf::CreateSparseMatrixIndexCSX(fbb, compressedAxis, indptr_type_offset,
+                                          &indptr, indices_type_offset, &indices)
+          .Union();
   *num_buffers = 2;
   return Status::OK();
 }
@@ -1029,15 +992,20 @@ Status MakeSparseTensorIndex(FBB& fbb, const SparseIndex& sparse_index,
       break;
 
     case SparseTensorFormat::CSR:
-      RETURN_NOT_OK(MakeSparseMatrixIndexCSR(
+      RETURN_NOT_OK(MakeSparseMatrixIndexCSX(
           fbb, checked_cast<const SparseCSRIndex&>(sparse_index), buffers,
+          fb_sparse_index_type, fb_sparse_index, num_buffers));
+      break;
+
+    case SparseTensorFormat::CSC:
+      RETURN_NOT_OK(MakeSparseMatrixIndexCSX(
+          fbb, checked_cast<const SparseCSCIndex&>(sparse_index), buffers,
           fb_sparse_index_type, fb_sparse_index, num_buffers));
       break;
 
     default:
       std::stringstream ss;
-      ss << "Unsupporoted sparse tensor format:: " << sparse_index.ToString()
-         << std::endl;
+      ss << "Unsupported sparse tensor format:: " << sparse_index.ToString() << std::endl;
       return Status::NotImplemented(ss.str());
   }
 
@@ -1080,15 +1048,73 @@ Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor, int64_t bod
   return Status::OK();
 }
 
-Status WriteSparseTensorMessage(const SparseTensor& sparse_tensor, int64_t body_length,
-                                const std::vector<BufferMetadata>& buffers,
-                                std::shared_ptr<Buffer>* out) {
+}  // namespace
+
+Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
+                          std::shared_ptr<Buffer>* out) {
+  FBB fbb;
+  flatbuffers::Offset<flatbuf::Schema> fb_schema;
+  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
+  return WriteFBMessage(fbb, flatbuf::MessageHeader_Schema, fb_schema.Union(), 0)
+      .Value(out);
+}
+
+Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
+                               const std::vector<FieldMetadata>& nodes,
+                               const std::vector<BufferMetadata>& buffers,
+                               std::shared_ptr<Buffer>* out) {
+  FBB fbb;
+  RecordBatchOffset record_batch;
+  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
+  return WriteFBMessage(fbb, flatbuf::MessageHeader_RecordBatch, record_batch.Union(),
+                        body_length)
+      .Value(out);
+}
+
+Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
+                                                   int64_t buffer_start_offset) {
+  using TensorDimOffset = flatbuffers::Offset<flatbuf::TensorDim>;
+  using TensorOffset = flatbuffers::Offset<flatbuf::Tensor>;
+
+  FBB fbb;
+
+  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+  const int elem_size = type.bit_width() / 8;
+
+  flatbuf::Type fb_type_type;
+  Offset fb_type;
+  RETURN_NOT_OK(TensorTypeToFlatbuffer(fbb, *tensor.type(), &fb_type_type, &fb_type));
+
+  std::vector<TensorDimOffset> dims;
+  for (int i = 0; i < tensor.ndim(); ++i) {
+    FBString name = fbb.CreateString(tensor.dim_name(i));
+    dims.push_back(flatbuf::CreateTensorDim(fbb, tensor.shape()[i], name));
+  }
+
+  auto fb_shape = fbb.CreateVector(util::MakeNonNull(dims.data()), dims.size());
+
+  flatbuffers::Offset<flatbuffers::Vector<int64_t>> fb_strides;
+  fb_strides = fbb.CreateVector(util::MakeNonNull(tensor.strides().data()),
+                                tensor.strides().size());
+  int64_t body_length = tensor.size() * elem_size;
+  flatbuf::Buffer buffer(buffer_start_offset, body_length);
+
+  TensorOffset fb_tensor =
+      flatbuf::CreateTensor(fbb, fb_type_type, fb_type, fb_shape, fb_strides, &buffer);
+
+  return WriteFBMessage(fbb, flatbuf::MessageHeader_Tensor, fb_tensor.Union(),
+                        body_length);
+}
+
+Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
+    const SparseTensor& sparse_tensor, int64_t body_length,
+    const std::vector<BufferMetadata>& buffers) {
   FBB fbb;
   SparseTensorOffset fb_sparse_tensor;
   RETURN_NOT_OK(
       MakeSparseTensor(fbb, sparse_tensor, body_length, buffers, &fb_sparse_tensor));
   return WriteFBMessage(fbb, flatbuf::MessageHeader_SparseTensor,
-                        fb_sparse_tensor.Union(), body_length, out);
+                        fb_sparse_tensor.Union(), body_length);
 }
 
 Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
@@ -1100,7 +1126,8 @@ Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
   auto dictionary_batch = flatbuf::CreateDictionaryBatch(fbb, id, record_batch).Union();
   return WriteFBMessage(fbb, flatbuf::MessageHeader_DictionaryBatch, dictionary_batch,
-                        body_length, out);
+                        body_length)
+      .Value(out);
 }
 
 static flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Block*>>
@@ -1223,7 +1250,7 @@ Status GetSparseCOOIndexMetadata(const flatbuf::SparseTensorIndexCOO* sparse_ind
   return IntFromFlatbuffer(sparse_index->indicesType(), indices_type);
 }
 
-Status GetSparseCSRIndexMetadata(const flatbuf::SparseMatrixIndexCSR* sparse_index,
+Status GetSparseCSXIndexMetadata(const flatbuf::SparseMatrixIndexCSX* sparse_index,
                                  std::shared_ptr<DataType>* indptr_type,
                                  std::shared_ptr<DataType>* indices_type) {
   RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indptrType(), indptr_type));
@@ -1245,31 +1272,54 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
   }
   int ndim = static_cast<int>(sparse_tensor->shape()->size());
 
-  for (int i = 0; i < ndim; ++i) {
-    auto dim = sparse_tensor->shape()->Get(i);
+  if (shape || dim_names) {
+    for (int i = 0; i < ndim; ++i) {
+      auto dim = sparse_tensor->shape()->Get(i);
 
-    shape->push_back(dim->size());
-    auto fb_name = dim->name();
-    if (fb_name == 0) {
-      dim_names->push_back("");
-    } else {
-      dim_names->push_back(fb_name->str());
+      if (shape) {
+        shape->push_back(dim->size());
+      }
+
+      if (dim_names) {
+        auto fb_name = dim->name();
+        if (fb_name == 0) {
+          dim_names->push_back("");
+        } else {
+          dim_names->push_back(fb_name->str());
+        }
+      }
     }
   }
 
-  *non_zero_length = sparse_tensor->non_zero_length();
+  if (non_zero_length) {
+    *non_zero_length = sparse_tensor->non_zero_length();
+  }
 
-  switch (sparse_tensor->sparseIndex_type()) {
-    case flatbuf::SparseTensorIndex_SparseTensorIndexCOO:
-      *sparse_tensor_format_id = SparseTensorFormat::COO;
-      break;
+  if (sparse_tensor_format_id) {
+    switch (sparse_tensor->sparseIndex_type()) {
+      case flatbuf::SparseTensorIndex_SparseTensorIndexCOO:
+        *sparse_tensor_format_id = SparseTensorFormat::COO;
+        break;
 
-    case flatbuf::SparseTensorIndex_SparseMatrixIndexCSR:
-      *sparse_tensor_format_id = SparseTensorFormat::CSR;
-      break;
+      case flatbuf::SparseTensorIndex_SparseMatrixIndexCSX: {
+        auto cs = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX();
+        switch (cs->compressedAxis()) {
+          case flatbuf::SparseMatrixCompressedAxis_Row:
+            *sparse_tensor_format_id = SparseTensorFormat::CSR;
+            break;
 
-    default:
-      return Status::Invalid("Unrecognized sparse index type");
+          case flatbuf::SparseMatrixCompressedAxis_Column:
+            *sparse_tensor_format_id = SparseTensorFormat::CSC;
+            break;
+
+          default:
+            return Status::Invalid("Invalid value of SparseMatrixCompressedAxis");
+        }
+      } break;
+
+      default:
+        return Status::Invalid("Unrecognized sparse index type");
+    }
   }
 
   auto type_data = sparse_tensor->type();
@@ -1277,7 +1327,11 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
     return Status::IOError(
         "Type-pointer in custom metadata of flatbuffer-encoded SparseTensor is null.");
   }
-  return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), type_data, {}, type);
+  if (type) {
+    return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), type_data, {}, type);
+  } else {
+    return Status::OK();
+  }
 }
 
 }  // namespace internal

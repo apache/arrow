@@ -32,10 +32,6 @@ class ArrowMemoryError(MemoryError, ArrowException):
     pass
 
 
-class ArrowIOError(IOError, ArrowException):
-    pass
-
-
 class ArrowKeyError(KeyError, ArrowException):
     def __str__(self):
         # Override KeyError.__str__, as it uses the repr() of the key
@@ -62,6 +58,10 @@ class ArrowSerializationError(ArrowException):
     pass
 
 
+# Compatibility alias
+ArrowIOError = IOError
+
+
 # This function could be written directly in C++ if we didn't
 # define Arrow-specific subclasses (ArrowInvalid etc.)
 cdef int check_status(const CStatus& status) nogil except -1:
@@ -73,11 +73,30 @@ cdef int check_status(const CStatus& status) nogil except -1:
             RestorePyError(status)
             return -1
 
+        # We don't use Status::ToString() as it would redundantly include
+        # the C++ class name.
         message = frombytes(status.message())
+        detail = status.detail()
+        if detail != nullptr:
+            message += ". Detail: " + frombytes(detail.get().ToString())
+
         if status.IsInvalid():
             raise ArrowInvalid(message)
         elif status.IsIOError():
-            raise ArrowIOError(message)
+            # Note: OSError constructor is
+            #   OSError(message)
+            # or
+            #   OSError(errno, message, filename=None)
+            # or (on Windows)
+            #   OSError(errno, message, filename, winerror)
+            errno = ErrnoFromStatus(status)
+            winerror = WinErrorFromStatus(status)
+            if winerror != 0:
+                raise IOError(errno, message, None, winerror)
+            elif errno != 0:
+                raise IOError(errno, message)
+            else:
+                raise IOError(message)
         elif status.IsOutOfMemory():
             raise ArrowMemoryError(message)
         elif status.IsKeyError():

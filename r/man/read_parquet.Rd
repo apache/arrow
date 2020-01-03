@@ -4,8 +4,13 @@
 \alias{read_parquet}
 \title{Read a Parquet file}
 \usage{
-read_parquet(file, col_select = NULL, as_data_frame = TRUE,
-  props = ParquetReaderProperties$create(), ...)
+read_parquet(
+  file,
+  col_select = NULL,
+  as_data_frame = TRUE,
+  props = ParquetReaderProperties$create(),
+  ...
+)
 }
 \arguments{
 \item{file}{A character file name, raw vector, or an Arrow input stream}
@@ -24,7 +29,7 @@ of columns, as used in \code{dplyr::select()}.}
 }
 \value{
 A \link[=Table]{arrow::Table}, or a \code{data.frame} if \code{as_data_frame} is
-\code{TRUE}.
+\code{TRUE} (the default).
 }
 \description{
 '\href{https://parquet.apache.org/}{Parquet}' is a columnar storage file format.

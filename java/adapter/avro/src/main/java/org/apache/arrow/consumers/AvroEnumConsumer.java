@@ -20,7 +20,6 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.BaseIntVector;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.avro.io.Decoder;
 
@@ -28,48 +27,17 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume enum type values from avro decoder.
  * Write the data to {@link IntVector}.
  */
-public class AvroEnumConsumer implements Consumer<BaseIntVector> {
-
-  private BaseIntVector vector;
-
-  private int currentIndex;
+public class AvroEnumConsumer extends BaseAvroConsumer<BaseIntVector> {
 
   /**
    * Instantiate a AvroEnumConsumer.
    */
   public AvroEnumConsumer(BaseIntVector vector) {
-    this.vector = vector;
+    super(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
     vector.setWithPossibleTruncate(currentIndex++, decoder.readEnum());
-  }
-
-  @Override
-  public void addNull() {
-    currentIndex++;
-  }
-
-  @Override
-  public void setPosition(int index) {
-    currentIndex = index;
-  }
-
-  @Override
-  public FieldVector getVector() {
-    return this.vector;
-  }
-
-  @Override
-  public void close() throws Exception {
-    vector.close();
-  }
-
-  @Override
-  public boolean resetValueVector(BaseIntVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-    return true;
   }
 }

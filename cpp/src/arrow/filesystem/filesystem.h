@@ -22,9 +22,12 @@
 #include <iosfwd>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/compare.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 // The Windows API defines macros from *File resolving to either
@@ -56,7 +59,7 @@ namespace fs {
 using TimePoint =
     std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
 
-/// \brief EXPERIMENTAL: FileSystem entry type
+/// \brief FileSystem entry type
 enum class ARROW_EXPORT FileType : int8_t {
   /// Entry does not exist
   NonExistent,
@@ -78,8 +81,8 @@ ARROW_EXPORT std::ostream& operator<<(std::ostream& os, FileType);
 static const int64_t kNoSize = -1;
 static const TimePoint kNoTime = TimePoint(TimePoint::duration(-1));
 
-/// \brief EXPERIMENTAL: FileSystem entry stats
-struct ARROW_EXPORT FileStats {
+/// \brief FileSystem entry stats
+struct ARROW_EXPORT FileStats : public util::EqualityComparable<FileStats> {
   FileStats() = default;
   FileStats(FileStats&&) = default;
   FileStats& operator=(FileStats&&) = default;
@@ -91,8 +94,8 @@ struct ARROW_EXPORT FileStats {
   void set_type(FileType type) { type_ = type; }
 
   /// The full file path in the filesystem
-  std::string path() const { return path_; }
-  void set_path(const std::string& path) { path_ = path; }
+  const std::string& path() const { return path_; }
+  void set_path(std::string path) { path_ = std::move(path); }
 
   /// The file base name (component after the last directory separator)
   std::string base_name() const;
@@ -116,10 +119,25 @@ struct ARROW_EXPORT FileStats {
   bool IsFile() const { return type_ == FileType::File; }
   bool IsDirectory() const { return type_ == FileType::Directory; }
 
-  bool operator==(const FileStats& other) const {
+  bool Equals(const FileStats& other) const {
     return type() == other.type() && path() == other.path() && size() == other.size() &&
            mtime() == other.mtime();
   }
+
+  std::string ToString() const;
+
+  /// Function object implementing less-than comparison and hashing
+  /// by path, to support sorting stats, using them as keys, and other
+  /// interactions with the STL.
+  struct ByPath {
+    bool operator()(const FileStats& l, const FileStats& r) const {
+      return l.path() < r.path();
+    }
+
+    size_t operator()(const FileStats& s) const {
+      return std::hash<std::string>{}(s.path());
+    }
+  };
 
  protected:
   FileType type_ = FileType::Unknown;
@@ -130,26 +148,28 @@ struct ARROW_EXPORT FileStats {
 
 ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const FileStats&);
 
-/// \brief EXPERIMENTAL: file selector
-struct ARROW_EXPORT Selector {
-  // The directory in which to select files.
-  // If the path exists but doesn't point to a directory, this should be an error.
+/// \brief File selector for filesystem APIs
+struct ARROW_EXPORT FileSelector {
+  /// The directory in which to select files.
+  /// If the path exists but doesn't point to a directory, this should be an error.
   std::string base_dir;
-  // The behavior if `base_dir` doesn't exist in the filesystem.  If false,
-  // an error is returned.  If true, an empty selection is returned.
+  /// The behavior if `base_dir` doesn't exist in the filesystem.  If false,
+  /// an error is returned.  If true, an empty selection is returned.
   bool allow_non_existent = false;
-  // Whether to recurse into subdirectories.
+  /// Whether to recurse into subdirectories.
   bool recursive = false;
-  // The maximum number of subdirectories to recurse into.
+  /// The maximum number of subdirectories to recurse into.
   int32_t max_recursion = INT32_MAX;
 
-  Selector() {}
+  FileSelector() {}
 };
 
-/// \brief EXPERIMENTAL: abstract file system API
+/// \brief Abstract file system API
 class ARROW_EXPORT FileSystem {
  public:
   virtual ~FileSystem();
+
+  virtual std::string type_name() const = 0;
 
   /// Get statistics for the given target.
   ///
@@ -157,16 +177,16 @@ class ARROW_EXPORT FileSystem {
   /// A non-existing or unreachable file returns an Ok status and
   /// has a FileType of value NonExistent.  An error status indicates
   /// a truly exceptional condition (low-level I/O error, etc.).
-  virtual Status GetTargetStats(const std::string& path, FileStats* out) = 0;
+  virtual Result<FileStats> GetTargetStats(const std::string& path) = 0;
   /// Same, for many targets at once.
-  virtual Status GetTargetStats(const std::vector<std::string>& paths,
-                                std::vector<FileStats>* out);
+  virtual Result<std::vector<FileStats>> GetTargetStats(
+      const std::vector<std::string>& paths);
   /// Same, according to a selector.
   ///
   /// The selector's base directory will not be part of the results, even if
   /// it exists.
-  /// If it doesn't exist, see `Selector::allow_non_existent`.
-  virtual Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) = 0;
+  /// If it doesn't exist, see `FileSelector::allow_non_existent`.
+  virtual Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) = 0;
 
   /// Create a directory and subdirectories.
   ///
@@ -204,31 +224,33 @@ class ARROW_EXPORT FileSystem {
   virtual Status CopyFile(const std::string& src, const std::string& dest) = 0;
 
   /// Open an input stream for sequential reading.
-  virtual Status OpenInputStream(const std::string& path,
-                                 std::shared_ptr<io::InputStream>* out) = 0;
+  virtual Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+      const std::string& path) = 0;
 
   /// Open an input file for random access reading.
-  virtual Status OpenInputFile(const std::string& path,
-                               std::shared_ptr<io::RandomAccessFile>* out) = 0;
+  virtual Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const std::string& path) = 0;
 
   /// Open an output stream for sequential writing.
   ///
   /// If the target already exists, existing data is truncated.
-  virtual Status OpenOutputStream(const std::string& path,
-                                  std::shared_ptr<io::OutputStream>* out) = 0;
+  virtual Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path) = 0;
 
   /// Open an output stream for appending.
   ///
   /// If the target doesn't exist, a new empty file is created.
-  virtual Status OpenAppendStream(const std::string& path,
-                                  std::shared_ptr<io::OutputStream>* out) = 0;
+  virtual Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path) = 0;
 };
 
-/// \brief EXPERIMENTAL: a FileSystem implementation that delegates to another
+/// \brief A FileSystem implementation that delegates to another
 /// implementation after prepending a fixed base path.
 ///
 /// This is useful to expose a logical view of a subtree of a filesystem,
 /// for example a directory in a LocalFileSystem.
+/// This works on abstract paths, i.e. paths using forward slashes and
+/// and a single root "/".  Windows paths are not guaranteed to work.
 /// This makes no security guarantee.  For example, symlinks may allow to
 /// "escape" the subtree and access other parts of the underlying filesystem.
 class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
@@ -237,11 +259,13 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
                              std::shared_ptr<FileSystem> base_fs);
   ~SubTreeFileSystem() override;
 
+  std::string type_name() const override { return "subtree"; }
+
   /// \cond FALSE
   using FileSystem::GetTargetStats;
   /// \endcond
-  Status GetTargetStats(const std::string& path, FileStats* out) override;
-  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+  Result<FileStats> GetTargetStats(const std::string& path) override;
+  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
@@ -254,17 +278,14 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
 
   Status CopyFile(const std::string& src, const std::string& dest) override;
 
-  Status OpenInputStream(const std::string& path,
-                         std::shared_ptr<io::InputStream>* out) override;
-
-  Status OpenInputFile(const std::string& path,
-                       std::shared_ptr<io::RandomAccessFile>* out) override;
-
-  Status OpenOutputStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
-
-  Status OpenAppendStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path) override;
 
  protected:
   const std::string base_path_;
@@ -276,7 +297,7 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   Status FixStats(FileStats* st) const;
 };
 
-/// \brief EXPERIMENTAL: a FileSystem implementation that delegates to another
+/// \brief A FileSystem implementation that delegates to another
 /// implementation but inserts latencies at various points.
 class ARROW_EXPORT SlowFileSystem : public FileSystem {
  public:
@@ -286,9 +307,11 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
   SlowFileSystem(std::shared_ptr<FileSystem> base_fs, double average_latency,
                  int32_t seed);
 
+  std::string type_name() const override { return "slow"; }
+
   using FileSystem::GetTargetStats;
-  Status GetTargetStats(const std::string& path, FileStats* out) override;
-  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+  Result<FileStats> GetTargetStats(const std::string& path) override;
+  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
@@ -301,22 +324,50 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
   Status CopyFile(const std::string& src, const std::string& dest) override;
 
-  Status OpenInputStream(const std::string& path,
-                         std::shared_ptr<io::InputStream>* out) override;
-
-  Status OpenInputFile(const std::string& path,
-                       std::shared_ptr<io::RandomAccessFile>* out) override;
-
-  Status OpenOutputStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
-
-  Status OpenAppendStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path) override;
 
  protected:
   std::shared_ptr<FileSystem> base_fs_;
   std::shared_ptr<io::LatencyGenerator> latencies_;
 };
+
+/// \defgroup filesystem-factories Functions for creating FileSystem instances
+///
+/// @{
+
+/// \brief Create a new FileSystem by URI
+///
+/// A scheme-less URI is considered a local filesystem path.
+/// Recognized schemes are "file", "mock" and "hdfs".
+///
+/// \param[in] uri a URI-based path, ex: file:///some/local/path
+/// \param[out] out_path (optional) Path inside the filesystem.
+/// \return out_fs FileSystem instance.
+ARROW_EXPORT
+Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
+                                                      std::string* out_path = NULLPTR);
+
+/// @}
+
+/// \brief Create a new FileSystem by URI
+///
+/// A scheme-less URI is considered a local filesystem path.
+/// Recognized schemes are "file", "mock" and "hdfs".
+///
+/// \param[in] uri a URI-based path, ex: file:///some/local/path
+/// \param[out] out_fs FileSystem instance.
+/// \param[out] out_path (optional) Path inside the filesystem.
+/// \return Status
+ARROW_DEPRECATED("Use Result-returning version")
+Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,
+                         std::string* out_path = NULLPTR);
 
 }  // namespace fs
 }  // namespace arrow

@@ -227,11 +227,11 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
   //   RETURN_NOT_OK(ConsumeStream(endpoint));
   // }
 
-  std::shared_ptr<ThreadPool> pool;
-  RETURN_NOT_OK(ThreadPool::Make(FLAGS_num_threads, &pool));
+  ARROW_ASSIGN_OR_RAISE(auto pool, ThreadPool::Make(FLAGS_num_threads));
   std::vector<std::future<Status>> tasks;
   for (const auto& endpoint : plan->endpoints()) {
-    tasks.emplace_back(pool->Submit(ConsumeStream, endpoint));
+    ARROW_ASSIGN_OR_RAISE(auto task, pool->Submit(ConsumeStream, endpoint));
+    tasks.push_back(std::move(task));
   }
 
   // Wait for tasks to finish
@@ -246,12 +246,17 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
 
   constexpr double kMegabyte = static_cast<double>(1 << 20);
 
-  // Check that number of rows read is as expected
+  // Check that number of rows read / written is as expected
   if (stats.total_records != static_cast<int64_t>(plan->total_records())) {
     return Status::Invalid("Did not consume expected number of records");
   }
 
-  std::cout << "Bytes read: " << stats.total_bytes << std::endl;
+  if (FLAGS_test_put) {
+    std::cout << "Bytes written: " << stats.total_bytes << std::endl;
+  } else {
+    std::cout << "Bytes read: " << stats.total_bytes << std::endl;
+  }
+
   std::cout << "Nanos: " << elapsed_nanos << std::endl;
   std::cout << "Speed: "
             << (static_cast<double>(stats.total_bytes) / kMegabyte / time_elapsed)
@@ -268,12 +273,12 @@ int main(int argc, char** argv) {
   std::unique_ptr<arrow::flight::TestServer> server;
   std::string hostname = "localhost";
   if (FLAGS_server_host == "") {
-    std::cout << "Using remote server: false" << std::endl;
+    std::cout << "Using standalone server: false" << std::endl;
     server.reset(
         new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_port));
     server->Start();
   } else {
-    std::cout << "Using remote server: true" << std::endl;
+    std::cout << "Using standalone server: true" << std::endl;
     hostname = FLAGS_server_host;
   }
 

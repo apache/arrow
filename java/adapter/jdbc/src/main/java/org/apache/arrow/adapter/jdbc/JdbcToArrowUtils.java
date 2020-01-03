@@ -371,43 +371,46 @@ public class JdbcToArrowUtils {
   static JdbcConsumer getConsumer(ResultSet resultSet, int columnIndex, int jdbcColType,
       FieldVector vector, JdbcToArrowConfig config) throws SQLException {
     final Calendar calendar = config.getCalendar();
+    int nullableValue = resultSet.getMetaData().isNullable(columnIndex);
+    boolean nullable = nullableValue == ResultSetMetaData.columnNullable ||
+            nullableValue == ResultSetMetaData.columnNullableUnknown;
     switch (jdbcColType) {
       case Types.BOOLEAN:
       case Types.BIT:
-        return new BitConsumer((BitVector) vector, columnIndex);
+        return BitConsumer.createConsumer((BitVector) vector, columnIndex, nullable);
       case Types.TINYINT:
-        return new TinyIntConsumer((TinyIntVector) vector, columnIndex);
+        return TinyIntConsumer.createConsumer((TinyIntVector) vector, columnIndex, nullable);
       case Types.SMALLINT:
-        return new SmallIntConsumer((SmallIntVector) vector, columnIndex);
+        return SmallIntConsumer.createConsumer((SmallIntVector) vector, columnIndex, nullable);
       case Types.INTEGER:
-        return new IntConsumer((IntVector) vector, columnIndex);
+        return IntConsumer.createConsumer((IntVector) vector, columnIndex, nullable);
       case Types.BIGINT:
-        return new BigIntConsumer((BigIntVector) vector, columnIndex);
+        return BigIntConsumer.createConsumer((BigIntVector) vector, columnIndex, nullable);
       case Types.NUMERIC:
       case Types.DECIMAL:
-        return new DecimalConsumer((DecimalVector) vector, columnIndex);
+        return DecimalConsumer.createConsumer((DecimalVector) vector, columnIndex, nullable);
       case Types.REAL:
       case Types.FLOAT:
-        return new FloatConsumer((Float4Vector) vector, columnIndex);
+        return FloatConsumer.createConsumer((Float4Vector) vector, columnIndex, nullable);
       case Types.DOUBLE:
-        return new DoubleConsumer((Float8Vector) vector, columnIndex);
+        return DoubleConsumer.createConsumer((Float8Vector) vector, columnIndex, nullable);
       case Types.CHAR:
       case Types.NCHAR:
       case Types.VARCHAR:
       case Types.NVARCHAR:
       case Types.LONGVARCHAR:
       case Types.LONGNVARCHAR:
-        return new VarCharConsumer((VarCharVector) vector, columnIndex);
+        return VarCharConsumer.createConsumer((VarCharVector) vector, columnIndex, nullable);
       case Types.DATE:
-        return new DateConsumer((DateMilliVector) vector, columnIndex, calendar);
+        return DateConsumer.createConsumer((DateMilliVector) vector, columnIndex, nullable, calendar);
       case Types.TIME:
-        return new TimeConsumer((TimeMilliVector) vector, columnIndex, calendar);
+        return TimeConsumer.createConsumer((TimeMilliVector) vector, columnIndex, nullable, calendar);
       case Types.TIMESTAMP:
-        return new TimestampConsumer((TimeStampMilliTZVector) vector, columnIndex, calendar);
+        return TimestampConsumer.createConsumer((TimeStampMilliTZVector) vector, columnIndex, nullable, calendar);
       case Types.BINARY:
       case Types.VARBINARY:
       case Types.LONGVARBINARY:
-        return new BinaryConsumer((VarBinaryVector) vector, columnIndex);
+        return BinaryConsumer.createConsumer((VarBinaryVector) vector, columnIndex, nullable);
       case Types.ARRAY:
         final JdbcFieldInfo fieldInfo = getJdbcFieldInfoForArraySubType(resultSet.getMetaData(), columnIndex, config);
         if (fieldInfo == null) {
@@ -415,12 +418,13 @@ public class JdbcToArrowUtils {
         }
         JdbcConsumer delegate = getConsumer(resultSet, JDBC_ARRAY_VALUE_COLUMN,
             fieldInfo.getJdbcType(), ((ListVector)vector).getDataVector(), config);
-        return new ArrayConsumer((ListVector) vector, delegate, columnIndex);
+        return ArrayConsumer.createConsumer((ListVector) vector, delegate, columnIndex, nullable);
       case Types.CLOB:
-        return new ClobConsumer((VarCharVector) vector, columnIndex);
+        return ClobConsumer.createConsumer((VarCharVector) vector, columnIndex, nullable);
       case Types.BLOB:
-        BinaryConsumer blobDelegate = new BinaryConsumer((VarBinaryVector) vector, columnIndex);
-        return new BlobConsumer(blobDelegate, columnIndex);
+        BinaryConsumer blobDelegate =
+                BinaryConsumer.createConsumer((VarBinaryVector) vector, columnIndex, nullable);
+        return BlobConsumer.createConsumer(blobDelegate, columnIndex, nullable);
       case Types.NULL:
         return new NullConsumer((NullVector) vector);
       default:

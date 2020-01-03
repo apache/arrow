@@ -17,14 +17,10 @@
 
 add_custom_target(arrow_flight)
 
-# Header files
 arrow_install_all_headers("arrow/flight")
 
-# pkg-config support
-arrow_add_pkg_config("arrow-flight")
-
 set(ARROW_FLIGHT_STATIC_LINK_LIBS
-    protobuf::libprotobuf
+    ${ARROW_PROTOBUF_LIBPROTOBUF}
     gRPC::grpc++
     gRPC::grpc
     gRPC::gpr
@@ -58,13 +54,13 @@ set(FLIGHT_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
                                  "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.cc"
                                  "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.h")
 
-set(PROTO_DEPENDS ${FLIGHT_PROTO} protobuf::libprotobuf gRPC::grpc)
+set(PROTO_DEPENDS ${FLIGHT_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc)
 
 add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
-                   COMMAND protobuf::protoc "-I${FLIGHT_PROTO_PATH}"
+                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
                            "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
                    DEPENDS ${PROTO_DEPENDS} ARGS
-                   COMMAND protobuf::protoc
+                   COMMAND ${ARROW_PROTOBUF_PROTOC}
                            "-I${FLIGHT_PROTO_PATH}"
                            "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
                            "--plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}"
@@ -88,6 +84,10 @@ set(ARROW_FLIGHT_SRCS
     types.cc)
 
 add_arrow_lib(arrow_flight
+              CMAKE_PACKAGE_NAME
+              ArrowFlight
+              PKG_CONFIG_NAME
+              arrow-flight
               OUTPUTS
               ARROW_FLIGHT_LIBRARIES
               SOURCES
@@ -110,6 +110,10 @@ endforeach()
 # Define arrow_flight_testing library
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   add_arrow_lib(arrow_flight_testing
+                CMAKE_PACKAGE_NAME
+                ArrowFlightTesting
+                PKG_CONFIG_NAME
+                arrow-flight-testing
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
@@ -175,7 +179,7 @@ if(ARROW_BUILD_BENCHMARKS)
                                  "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.h")
 
   add_custom_command(OUTPUT ${PERF_PROTO_GENERATED_FILES}
-                     COMMAND protobuf::protoc "-I${CMAKE_CURRENT_SOURCE_DIR}"
+                     COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${CMAKE_CURRENT_SOURCE_DIR}"
                              "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "perf.proto"
                      DEPENDS ${PROTO_DEPENDS})
 

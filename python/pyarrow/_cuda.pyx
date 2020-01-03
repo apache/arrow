@@ -248,7 +248,7 @@ cdef class Context:
         return pyarrow_wrap_cudabuffer(cudabuf)
 
     def buffer_from_data(self, object data, int64_t offset=0, int64_t size=-1):
-        """Create device buffer and initalize with data.
+        """Create device buffer and initialize with data.
 
         Parameters
         ----------
@@ -293,7 +293,7 @@ cdef class Context:
         device accessible memory.
 
         When the object contains a non-contiguous view of device
-        accessbile memory then the returned device buffer will contain
+        accessible memory then the returned device buffer will contain
         contiguous view of the memory, that is, including the
         intermediate data that is otherwise invisible to the input
         object.
@@ -761,8 +761,8 @@ cdef class BufferReader(NativeFile):
             c_nbytes = nbytes
 
         with nogil:
-            check_status(self.reader.Read(c_nbytes,
-                                          <shared_ptr[CBuffer]*> &output))
+            output = static_pointer_cast[CCudaBuffer, CBuffer](
+                GetResultValue(self.reader.Read(c_nbytes)))
 
         return pyarrow_wrap_cudabuffer(output)
 
@@ -811,7 +811,7 @@ cdef class BufferWriter(NativeFile):
             if whence == 0:
                 offset = position
             elif whence == 1:
-                check_status(self.writer.Tell(&offset))
+                offset = GetResultValue(self.writer.Tell())
                 offset = offset + position
             else:
                 with gil:

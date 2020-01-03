@@ -43,13 +43,13 @@ class DeduplicationUtils {
     Preconditions.checkArgument(runStarts.capacity() >= bufSize);
     runStarts.setZero(0, bufSize);
 
-    BitVectorHelper.setValidityBitToOne(runStarts, 0);
+    BitVectorHelper.setBit(runStarts, 0);
     RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector, vector, false);
     Range range = new Range(0, 0, 1);
     for (int i = 1; i < vector.getValueCount(); i++) {
       range.setLeftStart(i).setRightStart(i - 1);
       if (!visitor.rangeEquals(range)) {
-        BitVectorHelper.setValidityBitToOne(runStarts, i);
+        BitVectorHelper.setBit(runStarts, i);
       }
     }
   }
@@ -79,7 +79,7 @@ class DeduplicationUtils {
   /**
    * Gets distinct values from the input vector by removing adjacent
    * duplicated values.
-   * @param indicators the bit set containing the start positions of disctinct values.
+   * @param indicators the bit set containing the start positions of distinct values.
    * @param inputVector the input vector.
    * @param outputVector the output vector.
    * @param <V> vector type.

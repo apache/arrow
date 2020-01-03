@@ -51,7 +51,7 @@ import io.netty.util.internal.PlatformDependent;
  * that this ArrowBuf has access to
  * </p>
  * <p>
- * The mangement (allocation, deallocation, reference counting etc) for
+ * The management (allocation, deallocation, reference counting etc) for
  * the memory chunk is not done by ArrowBuf.
  * Default implementation of ReferenceManager, allocation is in
  * {@link BaseAllocator}, {@link BufferLedger} and {@link AllocationManager}
@@ -1161,6 +1161,21 @@ public final class ArrowBuf implements AutoCloseable {
     if (length != 0) {
       this.checkIndex(index, length);
       PlatformDependent.setMemory(this.addr + index, length, (byte) 0);
+    }
+    return this;
+  }
+
+  /**
+   * Sets all bits to one in the specified range.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param length length of bytes to set.
+   * @return this ArrowBuf
+   */
+  public ArrowBuf setOne(int index, int length) {
+    if (length != 0) {
+      this.checkIndex(index, length);
+      PlatformDependent.setMemory(this.addr + index, length, (byte) 0xff);
     }
     return this;
   }

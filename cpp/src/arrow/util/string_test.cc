@@ -21,6 +21,8 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
@@ -33,6 +35,41 @@ TEST(Trim, Basics) {
   for (auto case_ : test_cases) {
     EXPECT_EQ(case_.second, TrimString(case_.first));
   }
+}
+
+TEST(ParseHexValue, Valid) {
+  uint8_t output;
+
+  // evaluate valid letters
+  std::string input = "AB";
+  ASSERT_OK(ParseHexValue(input.c_str(), &output));
+  EXPECT_EQ(171, output);
+
+  // evaluate valid numbers
+  input = "12";
+  ASSERT_OK(ParseHexValue(input.c_str(), &output));
+  EXPECT_EQ(18, output);
+
+  // evaluate mixed hex numbers
+  input = "B1";
+  ASSERT_OK(ParseHexValue(input.c_str(), &output));
+  EXPECT_EQ(177, output);
+}
+
+TEST(ParseHexValue, Invalid) {
+  uint8_t output;
+
+  // evaluate invalid letters
+  std::string input = "XY";
+  ASSERT_RAISES(Invalid, ParseHexValue(input.c_str(), &output));
+
+  // evaluate invalid signs
+  input = "@?";
+  ASSERT_RAISES(Invalid, ParseHexValue(input.c_str(), &output));
+
+  // evaluate lower-case letters
+  input = "ab";
+  ASSERT_RAISES(Invalid, ParseHexValue(input.c_str(), &output));
 }
 
 }  // namespace internal

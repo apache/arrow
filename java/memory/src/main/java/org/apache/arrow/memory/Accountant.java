@@ -61,14 +61,11 @@ class Accountant implements AutoCloseable {
 
   public Accountant(Accountant parent, String name, long reservation, long maxAllocation) {
     Preconditions.checkNotNull(name, "name must not be null");
-    Preconditions.checkArgument(reservation >= 0, "The initial reservation size must be " +
-        "non-negative.");
-    Preconditions.checkArgument(maxAllocation >= 0, "The maximum allocation limit must be " +
-        "non-negative.");
+    Preconditions.checkArgument(reservation >= 0, "The initial reservation size must be non-negative.");
+    Preconditions.checkArgument(maxAllocation >= 0, "The maximum allocation limit must be non-negative.");
     Preconditions.checkArgument(reservation <= maxAllocation,
         "The initial reservation size must be <= the maximum allocation.");
-    Preconditions.checkArgument(reservation == 0 || parent != null, "The root accountant can't " +
-        "reserve memory.");
+    Preconditions.checkArgument(reservation == 0 || parent != null, "The root accountant can't reserve memory.");
 
     this.parent = parent;
     this.name = name;

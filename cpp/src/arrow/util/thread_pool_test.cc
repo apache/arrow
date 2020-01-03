@@ -142,9 +142,7 @@ class TestThreadPool : public ::testing::Test {
   std::shared_ptr<ThreadPool> MakeThreadPool() { return MakeThreadPool(4); }
 
   std::shared_ptr<ThreadPool> MakeThreadPool(int threads) {
-    std::shared_ptr<ThreadPool> pool;
-    Status st = ThreadPool::Make(threads, &pool);
-    return pool;
+    return *ThreadPool::Make(threads);
   }
 
   void SpawnAdds(ThreadPool* pool, int nadds, AddTaskFunc add_func) {
@@ -271,27 +269,28 @@ TEST_F(TestThreadPool, SetCapacity) {
 TEST_F(TestThreadPool, Submit) {
   auto pool = this->MakeThreadPool(3);
   {
-    auto fut = pool->Submit(add<int>, 4, 5);
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
     ASSERT_EQ(fut.get(), 9);
   }
   {
-    auto fut = pool->Submit(add<std::string>, "foo", "bar");
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<std::string>, "foo", "bar"));
     ASSERT_EQ(fut.get(), "foobar");
   }
   {
-    auto fut = pool->Submit(slow_add<int>, 0.01 /* seconds */, 4, 5);
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(slow_add<int>, 0.01 /* seconds */, 4, 5));
     ASSERT_EQ(fut.get(), 9);
   }
   {
     // Reference passing
     std::string s = "foo";
-    auto fut = pool->Submit(inplace_add<std::string>, std::ref(s), "bar");
+    ASSERT_OK_AND_ASSIGN(auto fut,
+                         pool->Submit(inplace_add<std::string>, std::ref(s), "bar"));
     ASSERT_EQ(fut.get(), "foobar");
     ASSERT_EQ(s, "foobar");
   }
   {
     // `void` return type
-    auto fut = pool->Submit(sleep_for, 0.001);
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(sleep_for, 0.001));
     fut.get();
   }
 }
@@ -307,13 +306,13 @@ TEST_F(TestThreadPool, ForkSafety) {
   {
     // Fork after task submission
     auto pool = this->MakeThreadPool(3);
-    auto fut = pool->Submit(add<int>, 4, 5);
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
     ASSERT_EQ(fut.get(), 9);
 
     child_pid = fork();
     if (child_pid == 0) {
       // Child: thread pool should be usable
-      fut = pool->Submit(add<int>, 3, 4);
+      ASSERT_OK_AND_ASSIGN(fut, pool->Submit(add<int>, 3, 4));
       if (fut.get() != 7) {
         std::exit(1);
       }

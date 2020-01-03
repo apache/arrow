@@ -114,6 +114,11 @@ inline int64_t PyDateTime_to_ns(PyDateTime_DateTime* pydatetime) {
 }
 
 ARROW_PYTHON_EXPORT
+inline TimePoint PyDateTime_to_TimePoint(PyDateTime_DateTime* pydatetime) {
+  return TimePoint(TimePoint::duration(PyDateTime_to_ns(pydatetime)));
+}
+
+ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_s(PyDateTime_Delta* pytimedelta) {
   int64_t total_seconds = 0;
 #if PY_VERSION_HEX >= 0x03000000

@@ -76,19 +76,37 @@ pub fn take(
         DataType::Time64(Nanosecond) => {
             take_primitive::<Time64NanosecondType>(values, indices)
         }
-        DataType::Timestamp(Second) => {
+        DataType::Timestamp(Second, _) => {
             take_primitive::<TimestampSecondType>(values, indices)
         }
-        DataType::Timestamp(Millisecond) => {
+        DataType::Timestamp(Millisecond, _) => {
             take_primitive::<TimestampMillisecondType>(values, indices)
         }
-        DataType::Timestamp(Microsecond) => {
+        DataType::Timestamp(Microsecond, _) => {
             take_primitive::<TimestampMicrosecondType>(values, indices)
         }
-        DataType::Timestamp(Nanosecond) => {
+        DataType::Timestamp(Nanosecond, _) => {
             take_primitive::<TimestampNanosecondType>(values, indices)
         }
-        DataType::Utf8 => take_binary(values, indices),
+        DataType::Interval(IntervalUnit::YearMonth) => {
+            take_primitive::<IntervalYearMonthType>(values, indices)
+        }
+        DataType::Interval(IntervalUnit::DayTime) => {
+            take_primitive::<IntervalDayTimeType>(values, indices)
+        }
+        DataType::Duration(TimeUnit::Second) => {
+            take_primitive::<DurationSecondType>(values, indices)
+        }
+        DataType::Duration(TimeUnit::Millisecond) => {
+            take_primitive::<DurationMillisecondType>(values, indices)
+        }
+        DataType::Duration(TimeUnit::Microsecond) => {
+            take_primitive::<DurationMicrosecondType>(values, indices)
+        }
+        DataType::Duration(TimeUnit::Nanosecond) => {
+            take_primitive::<DurationNanosecondType>(values, indices)
+        }
+        DataType::Utf8 => take_string(values, indices),
         DataType::List(_) => take_list(values, indices),
         DataType::Struct(fields) => {
             let struct_: &StructArray =
@@ -156,10 +174,10 @@ where
     Ok(Arc::new(builder.finish()) as ArrayRef)
 }
 
-/// `take` implementation for binary arrays
-fn take_binary(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
-    let mut builder = BinaryBuilder::new(indices.len());
-    let a = values.as_any().downcast_ref::<BinaryArray>().unwrap();
+/// `take` implementation for string arrays
+fn take_string(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
+    let mut builder = StringBuilder::new(indices.len());
+    let a = values.as_any().downcast_ref::<StringArray>().unwrap();
     for i in 0..indices.len() {
         if indices.is_null(i) {
             builder.append(false)?;
@@ -291,6 +309,54 @@ mod tests {
             vec![Some(-15), None, None, Some(-15), Some(2)],
         );
 
+        // interval_year_month
+        test_take_primitive_arrays::<IntervalYearMonthType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
+        // interval_day_time
+        test_take_primitive_arrays::<IntervalDayTimeType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
+        // duration_second
+        test_take_primitive_arrays::<DurationSecondType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
+        // duration_millisecond
+        test_take_primitive_arrays::<DurationMillisecondType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
+        // duration_microsecond
+        test_take_primitive_arrays::<DurationMicrosecondType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
+        // duration_nanosecond
+        test_take_primitive_arrays::<DurationNanosecondType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
         // float32
         test_take_primitive_arrays::<Float32Type>(
             vec![Some(0.0), None, Some(2.21), Some(-3.1), None],
@@ -308,7 +374,6 @@ mod tests {
         );
 
         // boolean
-        // float32
         test_take_primitive_arrays::<BooleanType>(
             vec![Some(false), None, Some(true), Some(false), None],
             &index,
@@ -318,22 +383,22 @@ mod tests {
     }
 
     #[test]
-    fn test_take_binary() {
+    fn test_take_string() {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
-        let mut builder: BinaryBuilder = BinaryBuilder::new(6);
-        builder.append_string("one").unwrap();
+        let mut builder: StringBuilder = StringBuilder::new(6);
+        builder.append_value("one").unwrap();
         builder.append_null().unwrap();
-        builder.append_string("three").unwrap();
-        builder.append_string("four").unwrap();
-        builder.append_string("five").unwrap();
+        builder.append_value("three").unwrap();
+        builder.append_value("four").unwrap();
+        builder.append_value("five").unwrap();
         let array = Arc::new(builder.finish()) as ArrayRef;
         let a = take(&array, &index, None).unwrap();
         assert_eq!(a.len(), index.len());
-        builder.append_string("four").unwrap();
+        builder.append_value("four").unwrap();
         builder.append_null().unwrap();
         builder.append_null().unwrap();
-        builder.append_string("four").unwrap();
-        builder.append_string("five").unwrap();
+        builder.append_value("four").unwrap();
+        builder.append_value("five").unwrap();
         let b = builder.finish();
         assert_eq!(a.data(), b.data());
     }

@@ -70,6 +70,10 @@ if(NOT APPLE AND NOT MSVC)
 endif()
 
 add_arrow_lib(plasma
+              CMAKE_PACKAGE_NAME
+              Plasma
+              PKG_CONFIG_NAME
+              plasma
               SOURCES
               ${PLASMA_SRCS}
               OUTPUTS
@@ -91,7 +95,7 @@ endforeach()
 # malloc.cc; we set it here regardless of whether we do a debug or release build.
 set_source_files_properties(dlmalloc.cc PROPERTIES COMPILE_FLAGS "-O3")
 
-if("${COMPILER_FAMILY}" STREQUAL "clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set_property(SOURCE dlmalloc.cc
                APPEND_STRING
                PROPERTY COMPILE_FLAGS " -Wno-parentheses-equality \
@@ -100,7 +104,7 @@ if("${COMPILER_FAMILY}" STREQUAL "clang")
 -Wno-unused-macros")
 endif()
 
-if("${COMPILER_FAMILY}" STREQUAL "gcc")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set_property(SOURCE dlmalloc.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-conversion")
 endif()
 
@@ -154,9 +158,6 @@ set_target_properties(plasma-store-server PROPERTIES INSTALL_RPATH_USE_LINK_PATH
 install(TARGETS plasma-store-server ${INSTALL_IS_OPTIONAL} DESTINATION
                 ${CMAKE_INSTALL_BINDIR})
 
-# pkg-config support
-arrow_add_pkg_config("plasma")
-
 if(ARROW_PLASMA_JAVA_CLIENT)
   # Plasma java client support
   find_package(JNI REQUIRED)
@@ -189,17 +190,9 @@ if(ARROW_PLASMA_JAVA_CLIENT)
                           plasma_shared
                           ${PLASMA_LINK_LIBS}
                           "-undefined dynamic_lookup"
-                          -Wl,-force_load,flatbuffers::flatbuffers
-                          flatbuffers::flatbuffers
                           ${PTHREAD_LIBRARY})
   else(APPLE)
-    target_link_libraries(plasma_java
-                          plasma_shared
-                          ${PLASMA_LINK_LIBS}
-                          -Wl,--whole-archive
-                          flatbuffers::flatbuffers
-                          -Wl,--no-whole-archive
-                          flatbuffers::flatbuffers
+    target_link_libraries(plasma_java plasma_shared ${PLASMA_LINK_LIBS}
                           ${PTHREAD_LIBRARY})
   endif(APPLE)
 endif()

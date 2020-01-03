@@ -31,6 +31,8 @@
 
 namespace arrow {
 
+using internal::checked_cast;
+
 TEST(TestNullScalar, Basics) {
   NullScalar scalar;
   ASSERT_FALSE(scalar.is_valid);
@@ -60,29 +62,38 @@ TYPED_TEST(TestNumericScalar, Basics) {
 
   T other_value = static_cast<T>(2);
   auto scalar_other = std::make_shared<ScalarType>(other_value);
-  ASSERT_FALSE(scalar_other->Equals(scalar_val));
+  ASSERT_NE(*scalar_other, *scalar_val);
 
   scalar_val->value = other_value;
   ASSERT_EQ(other_value, scalar_val->value);
-  ASSERT_TRUE(scalar_other->Equals(scalar_val));
+  ASSERT_EQ(*scalar_other, *scalar_val);
 
-  ScalarType stack_val = ScalarType(0, false);
+  ScalarType stack_val;
   ASSERT_FALSE(stack_val.is_valid);
+
+  auto null_value = std::make_shared<ScalarType>();
+  ASSERT_FALSE(null_value->is_valid);
+
+  // Nulls should be equals to itself following Array::Equals
+  ASSERT_EQ(*null_value, stack_val);
+
+  auto dyn_null_value = MakeNullScalar(expected_type);
+  ASSERT_EQ(*null_value, *dyn_null_value);
 }
 
 TYPED_TEST(TestNumericScalar, MakeScalar) {
   using T = typename TypeParam::c_type;
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  auto type = TypeTraits<TypeParam>::type_singleton();
 
   std::shared_ptr<Scalar> three = MakeScalar(static_cast<T>(3));
-  ASSERT_TRUE(ScalarType(3).Equals(three));
+  ASSERT_EQ(ScalarType(3), *three);
 
-  ASSERT_OK(
-      MakeScalar(TypeTraits<TypeParam>::type_singleton(), static_cast<T>(3), &three));
-  ASSERT_TRUE(ScalarType(3).Equals(three));
+  ASSERT_OK_AND_ASSIGN(three, MakeScalar(type, static_cast<T>(3)));
+  ASSERT_EQ(ScalarType(3), *three);
 
-  ASSERT_OK(Scalar::Parse(TypeTraits<TypeParam>::type_singleton(), "3", &three));
-  ASSERT_TRUE(ScalarType(3).Equals(three));
+  ASSERT_OK_AND_ASSIGN(three, Scalar::Parse(type, "3"));
+  ASSERT_EQ(ScalarType(3), *three);
 }
 
 TEST(TestBinaryScalar, Basics) {
@@ -100,7 +111,7 @@ TEST(TestBinaryScalar, Basics) {
   base_ref = nullptr;
   ASSERT_EQ(ref_count, buf.use_count());
 
-  BinaryScalar null_value(nullptr, false);
+  BinaryScalar null_value;
   ASSERT_FALSE(null_value.is_valid);
 
   StringScalar value2(buf);
@@ -109,25 +120,25 @@ TEST(TestBinaryScalar, Basics) {
   ASSERT_TRUE(value2.type->Equals(*utf8()));
 
   // Same buffer, different type.
-  ASSERT_FALSE(value2.Equals(value));
+  ASSERT_NE(value2, value);
 
   StringScalar value3(buf);
   // Same buffer, same type.
-  ASSERT_TRUE(value2.Equals(value3));
+  ASSERT_EQ(value2, value3);
 
-  StringScalar null_value2(nullptr, false);
+  StringScalar null_value2;
   ASSERT_FALSE(null_value2.is_valid);
 }
 
 TEST(TestStringScalar, MakeScalar) {
   auto three = MakeScalar("three");
-  ASSERT_TRUE(StringScalar("three").Equals(three));
+  ASSERT_EQ(StringScalar("three"), *three);
 
-  ASSERT_OK(MakeScalar(utf8(), Buffer::FromString("three"), &three));
-  ASSERT_TRUE(StringScalar("three").Equals(three));
+  ASSERT_OK_AND_ASSIGN(three, MakeScalar(utf8(), Buffer::FromString("three")));
+  ASSERT_EQ(StringScalar("three"), *three);
 
-  ASSERT_OK(Scalar::Parse(utf8(), "three", &three));
-  ASSERT_TRUE(StringScalar("three").Equals(three));
+  ASSERT_OK_AND_ASSIGN(three, Scalar::Parse(utf8(), "three"));
+  ASSERT_EQ(StringScalar("three"), *three);
 }
 
 TEST(TestFixedSizeBinaryScalar, Basics) {
@@ -147,30 +158,28 @@ TEST(TestFixedSizeBinaryScalar, MakeScalar) {
   auto buf = std::make_shared<Buffer>(data);
   auto type = fixed_size_binary(9);
 
-  std::shared_ptr<Scalar> s;
-  ASSERT_OK(MakeScalar(type, buf, &s));
-  ASSERT_TRUE(FixedSizeBinaryScalar(buf, type).Equals(s));
+  ASSERT_OK_AND_ASSIGN(auto s, MakeScalar(type, buf));
+  ASSERT_EQ(FixedSizeBinaryScalar(buf, type), *s);
 
-  ASSERT_OK(Scalar::Parse(type, util::string_view(data), &s));
-  ASSERT_TRUE(FixedSizeBinaryScalar(buf, type).Equals(s));
+  ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(type, util::string_view(data)));
+  ASSERT_EQ(FixedSizeBinaryScalar(buf, type), *s);
 
   // wrong length:
-  ASSERT_RAISES(Invalid, MakeScalar(type, Buffer::FromString(data.substr(3)), &s));
-  ASSERT_RAISES(Invalid, Scalar::Parse(type, util::string_view(data).substr(3), &s));
+  ASSERT_RAISES(Invalid, MakeScalar(type, Buffer::FromString(data.substr(3))).status());
+  ASSERT_RAISES(Invalid, Scalar::Parse(type, util::string_view(data).substr(3)).status());
 }
 
 TEST(TestDateScalars, Basics) {
   int32_t i32_val = 1;
   Date32Scalar date32_val(i32_val);
-  Date32Scalar date32_null(i32_val, false);
-  ASSERT_EQ(i32_val, date32_val.value);
+  Date32Scalar date32_null;
   ASSERT_TRUE(date32_val.type->Equals(*date32()));
   ASSERT_TRUE(date32_val.is_valid);
   ASSERT_FALSE(date32_null.is_valid);
 
   int64_t i64_val = 2;
   Date64Scalar date64_val(i64_val);
-  Date64Scalar date64_null(i64_val, false);
+  Date64Scalar date64_null;
   ASSERT_EQ(i64_val, date64_val.value);
   ASSERT_TRUE(date64_val.type->Equals(*date64()));
   ASSERT_TRUE(date64_val.is_valid);
@@ -178,14 +187,13 @@ TEST(TestDateScalars, Basics) {
 }
 
 TEST(TestDateScalars, MakeScalar) {
-  std::shared_ptr<Scalar> s;
-  ASSERT_OK(MakeScalar(date32(), int32_t(1), &s));
-  ASSERT_TRUE(Date32Scalar(1).Equals(s));
+  ASSERT_OK_AND_ASSIGN(auto s, MakeScalar(date32(), int32_t(1)));
+  ASSERT_EQ(Date32Scalar(1), *s);
 
-  ASSERT_OK(MakeScalar(date64(), int64_t(1), &s));
-  ASSERT_TRUE(Date64Scalar(1).Equals(s));
+  ASSERT_OK_AND_ASSIGN(s, MakeScalar(date64(), int64_t(1)));
+  ASSERT_EQ(Date64Scalar(1), *s);
 
-  ASSERT_RAISES(NotImplemented, Scalar::Parse(date64(), "", &s));
+  ASSERT_RAISES(NotImplemented, Scalar::Parse(date64(), ""));
 }
 
 TEST(TestTimeScalars, Basics) {
@@ -196,7 +204,7 @@ TEST(TestTimeScalars, Basics) {
 
   int32_t i32_val = 1;
   Time32Scalar time32_val(i32_val, type1);
-  Time32Scalar time32_null(i32_val, type2, false);
+  Time32Scalar time32_null(type2);
   ASSERT_EQ(i32_val, time32_val.value);
   ASSERT_TRUE(time32_val.type->Equals(*type1));
   ASSERT_TRUE(time32_val.is_valid);
@@ -205,7 +213,7 @@ TEST(TestTimeScalars, Basics) {
 
   int64_t i64_val = 2;
   Time64Scalar time64_val(i64_val, type3);
-  Time64Scalar time64_null(i64_val, type4, false);
+  Time64Scalar time64_null(type4);
   ASSERT_EQ(i64_val, time64_val.value);
   ASSERT_TRUE(time64_val.type->Equals(*type3));
   ASSERT_TRUE(time64_val.is_valid);
@@ -219,21 +227,19 @@ TEST(TestTimeScalars, MakeScalar) {
   auto type3 = time64(TimeUnit::MICRO);
   auto type4 = time64(TimeUnit::NANO);
 
-  std::shared_ptr<Scalar> s;
+  ASSERT_OK_AND_ASSIGN(auto s, MakeScalar(type1, int32_t(1)));
+  ASSERT_EQ(Time32Scalar(1, type1), *s);
 
-  ASSERT_OK(MakeScalar(type1, int32_t(1), &s));
-  ASSERT_TRUE(Time32Scalar(1, type1).Equals(s));
+  ASSERT_OK_AND_ASSIGN(s, MakeScalar(type2, int32_t(1)));
+  ASSERT_EQ(Time32Scalar(1, type2), *s);
 
-  ASSERT_OK(MakeScalar(type2, int32_t(1), &s));
-  ASSERT_TRUE(Time32Scalar(1, type2).Equals(s));
+  ASSERT_OK_AND_ASSIGN(s, MakeScalar(type3, int64_t(1)));
+  ASSERT_EQ(Time64Scalar(1, type3), *s);
 
-  ASSERT_OK(MakeScalar(type3, int64_t(1), &s));
-  ASSERT_TRUE(Time64Scalar(1, type3).Equals(s));
+  ASSERT_OK_AND_ASSIGN(s, MakeScalar(type4, int64_t(1)));
+  ASSERT_EQ(Time64Scalar(1, type4), *s);
 
-  ASSERT_OK(MakeScalar(type4, int64_t(1), &s));
-  ASSERT_TRUE(Time64Scalar(1, type4).Equals(s));
-
-  ASSERT_RAISES(NotImplemented, Scalar::Parse(type4, "", &s));
+  ASSERT_RAISES(NotImplemented, Scalar::Parse(type4, ""));
 }
 
 TEST(TestTimestampScalars, Basics) {
@@ -244,9 +250,8 @@ TEST(TestTimestampScalars, Basics) {
   int64_t val2 = 2;
   TimestampScalar ts_val1(val1, type1);
   TimestampScalar ts_val2(val2, type2);
-  TimestampScalar ts_null(val2, type1, false);
+  TimestampScalar ts_null(type1);
   ASSERT_EQ(val1, ts_val1.value);
-  ASSERT_EQ(val2, ts_null.value);
 
   ASSERT_TRUE(ts_val1.type->Equals(*type1));
   ASSERT_TRUE(ts_val2.type->Equals(*type2));
@@ -254,9 +259,9 @@ TEST(TestTimestampScalars, Basics) {
   ASSERT_FALSE(ts_null.is_valid);
   ASSERT_TRUE(ts_null.type->Equals(*type1));
 
-  ASSERT_FALSE(ts_val1.Equals(ts_val2));
-  ASSERT_FALSE(ts_val1.Equals(ts_null));
-  ASSERT_FALSE(ts_val2.Equals(ts_null));
+  ASSERT_NE(ts_val1, ts_val2);
+  ASSERT_NE(ts_val1, ts_null);
+  ASSERT_NE(ts_val2, ts_null);
 }
 
 TEST(TestTimestampScalars, MakeScalar) {
@@ -265,29 +270,41 @@ TEST(TestTimestampScalars, MakeScalar) {
   auto type3 = timestamp(TimeUnit::MICRO);
   auto type4 = timestamp(TimeUnit::NANO);
 
-  std::shared_ptr<Scalar> s;
-
   util::string_view epoch_plus_1s = "1970-01-01 00:00:01";
 
-  ASSERT_OK(MakeScalar(type1, int64_t(1), &s));
-  ASSERT_TRUE(TimestampScalar(1, type1).Equals(s));
-  ASSERT_OK(Scalar::Parse(type1, epoch_plus_1s, &s));
-  ASSERT_TRUE(TimestampScalar(1000, type1).Equals(s));
+  ASSERT_OK_AND_ASSIGN(auto s, MakeScalar(type1, int64_t(1)));
+  ASSERT_EQ(TimestampScalar(1, type1), *s);
+  ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(type1, epoch_plus_1s));
+  ASSERT_EQ(TimestampScalar(1000, type1), *s);
 
-  ASSERT_OK(MakeScalar(type2, int64_t(1), &s));
-  ASSERT_TRUE(TimestampScalar(1, type2).Equals(s));
-  ASSERT_OK(Scalar::Parse(type2, epoch_plus_1s, &s));
-  ASSERT_TRUE(TimestampScalar(1, type2).Equals(s));
+  ASSERT_OK_AND_ASSIGN(s, MakeScalar(type2, int64_t(1)));
+  ASSERT_EQ(TimestampScalar(1, type2), *s);
+  ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(type2, epoch_plus_1s));
+  ASSERT_EQ(TimestampScalar(1, type2), *s);
 
-  ASSERT_OK(MakeScalar(type3, int64_t(1), &s));
-  ASSERT_TRUE(TimestampScalar(1, type3).Equals(s));
-  ASSERT_OK(Scalar::Parse(type3, epoch_plus_1s, &s));
-  ASSERT_TRUE(TimestampScalar(1000 * 1000, type3).Equals(s));
+  ASSERT_OK_AND_ASSIGN(s, MakeScalar(type3, int64_t(1)));
+  ASSERT_EQ(TimestampScalar(1, type3), *s);
+  ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(type3, epoch_plus_1s));
+  ASSERT_EQ(TimestampScalar(1000 * 1000, type3), *s);
 
-  ASSERT_OK(MakeScalar(type4, int64_t(1), &s));
-  ASSERT_TRUE(TimestampScalar(1, type4).Equals(s));
-  ASSERT_OK(Scalar::Parse(type4, epoch_plus_1s, &s));
-  ASSERT_TRUE(TimestampScalar(1000 * 1000 * 1000, type4).Equals(s));
+  ASSERT_OK_AND_ASSIGN(s, MakeScalar(type4, int64_t(1)));
+  ASSERT_EQ(TimestampScalar(1, type4), *s);
+  ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(type4, epoch_plus_1s));
+  ASSERT_EQ(TimestampScalar(1000 * 1000 * 1000, type4), *s);
+}
+
+TEST(TestTimestampScalars, Cast) {
+  auto convert = [](TimeUnit::type in, TimeUnit::type out, int64_t value) -> int64_t {
+    auto scalar =
+        TimestampScalar(value, timestamp(in)).CastTo(timestamp(out)).ValueOrDie();
+    return internal::checked_pointer_cast<TimestampScalar>(scalar)->value;
+  };
+
+  EXPECT_EQ(convert(TimeUnit::SECOND, TimeUnit::MILLI, 1), 1000);
+  EXPECT_EQ(convert(TimeUnit::SECOND, TimeUnit::NANO, 1), 1000000000);
+
+  EXPECT_EQ(convert(TimeUnit::NANO, TimeUnit::MICRO, 1234), 1);
+  EXPECT_EQ(convert(TimeUnit::MICRO, TimeUnit::MILLI, 4567), 4);
 }
 
 TEST(TestDurationScalars, Basics) {
@@ -298,9 +315,8 @@ TEST(TestDurationScalars, Basics) {
   int64_t val2 = 2;
   DurationScalar ts_val1(val1, type1);
   DurationScalar ts_val2(val2, type2);
-  DurationScalar ts_null(val2, type1, false);
+  DurationScalar ts_null(type1);
   ASSERT_EQ(val1, ts_val1.value);
-  ASSERT_EQ(val2, ts_null.value);
 
   ASSERT_TRUE(ts_val1.type->Equals(*type1));
   ASSERT_TRUE(ts_val2.type->Equals(*type2));
@@ -308,9 +324,9 @@ TEST(TestDurationScalars, Basics) {
   ASSERT_FALSE(ts_null.is_valid);
   ASSERT_TRUE(ts_null.type->Equals(*type1));
 
-  ASSERT_FALSE(ts_val1.Equals(ts_val2));
-  ASSERT_FALSE(ts_val1.Equals(ts_null));
-  ASSERT_FALSE(ts_val2.Equals(ts_null));
+  ASSERT_NE(ts_val1, ts_val2);
+  ASSERT_NE(ts_val1, ts_null);
+  ASSERT_NE(ts_val2, ts_null);
 }
 
 TEST(TestMonthIntervalScalars, Basics) {
@@ -320,9 +336,8 @@ TEST(TestMonthIntervalScalars, Basics) {
   int32_t val2 = 2;
   MonthIntervalScalar ts_val1(val1);
   MonthIntervalScalar ts_val2(val2);
-  MonthIntervalScalar ts_null(val2, false);
+  MonthIntervalScalar ts_null;
   ASSERT_EQ(val1, ts_val1.value);
-  ASSERT_EQ(val2, ts_null.value);
 
   ASSERT_TRUE(ts_val1.type->Equals(*type));
   ASSERT_TRUE(ts_val2.type->Equals(*type));
@@ -330,9 +345,9 @@ TEST(TestMonthIntervalScalars, Basics) {
   ASSERT_FALSE(ts_null.is_valid);
   ASSERT_TRUE(ts_null.type->Equals(*type));
 
-  ASSERT_FALSE(ts_val1.Equals(ts_val2));
-  ASSERT_FALSE(ts_val1.Equals(ts_null));
-  ASSERT_FALSE(ts_val2.Equals(ts_null));
+  ASSERT_NE(ts_val1, ts_val2);
+  ASSERT_NE(ts_val1, ts_null);
+  ASSERT_NE(ts_val2, ts_null);
 }
 
 TEST(TestDayTimeIntervalScalars, Basics) {
@@ -342,9 +357,8 @@ TEST(TestDayTimeIntervalScalars, Basics) {
   DayTimeIntervalType::DayMilliseconds val2 = {2, 2};
   DayTimeIntervalScalar ts_val1(val1);
   DayTimeIntervalScalar ts_val2(val2);
-  DayTimeIntervalScalar ts_null(val2, false);
+  DayTimeIntervalScalar ts_null;
   ASSERT_EQ(val1, ts_val1.value);
-  ASSERT_EQ(val2, ts_null.value);
 
   ASSERT_TRUE(ts_val1.type->Equals(*type));
   ASSERT_TRUE(ts_val2.type->Equals(*type));
@@ -352,11 +366,43 @@ TEST(TestDayTimeIntervalScalars, Basics) {
   ASSERT_FALSE(ts_null.is_valid);
   ASSERT_TRUE(ts_null.type->Equals(*type));
 
-  ASSERT_FALSE(ts_val1.Equals(ts_val2));
-  ASSERT_FALSE(ts_val1.Equals(ts_null));
-  ASSERT_FALSE(ts_val2.Equals(ts_null));
+  ASSERT_NE(ts_val1, ts_val2);
+  ASSERT_NE(ts_val1, ts_null);
+  ASSERT_NE(ts_val2, ts_null);
 }
 
 // TODO test HalfFloatScalar
+
+TYPED_TEST(TestNumericScalar, Cast) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  for (util::string_view repr : {"0", "1", "3"}) {
+    std::shared_ptr<Scalar> scalar;
+    ASSERT_OK_AND_ASSIGN(scalar, Scalar::Parse(type, repr));
+
+    // cast to and from other numeric scalars
+    for (auto other_type : {float32(), int8(), int64(), uint32()}) {
+      std::shared_ptr<Scalar> other_scalar;
+      ASSERT_OK_AND_ASSIGN(other_scalar, Scalar::Parse(other_type, repr));
+
+      ASSERT_OK_AND_ASSIGN(auto cast_to_other, scalar->CastTo(other_type))
+      ASSERT_EQ(*cast_to_other, *other_scalar);
+
+      ASSERT_OK_AND_ASSIGN(auto cast_from_other, other_scalar->CastTo(type))
+      ASSERT_EQ(*cast_from_other, *scalar);
+    }
+
+    ASSERT_OK_AND_ASSIGN(auto cast_from_string,
+                         StringScalar(repr.to_string()).CastTo(type));
+    ASSERT_EQ(*cast_from_string, *scalar);
+
+    if (is_integer_type<TypeParam>::value) {
+      ASSERT_OK_AND_ASSIGN(auto cast_to_string, scalar->CastTo(utf8()));
+      ASSERT_EQ(
+          util::string_view(*checked_cast<const StringScalar&>(*cast_to_string).value),
+          repr);
+    }
+  }
+}
 
 }  // namespace arrow

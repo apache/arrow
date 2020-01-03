@@ -155,12 +155,12 @@ public class PlasmaClientTest {
     byte[] id1Hash = pLink.hash(id1);
     assert id1Hash != null;
     System.out.println("Plasma java client hash test success.");
-    boolean exsit = pLink.contains(id2);
-    assert exsit;
+    boolean exist = pLink.contains(id2);
+    assert exist;
     byte[] id3 =  new byte[20];
     Arrays.fill(id3, (byte)3);
-    boolean notExsit = pLink.contains(id3);
-    assert !notExsit;
+    boolean notExist = pLink.contains(id3);
+    assert !notExist;
     System.out.println("Plasma java client contains test success.");
 
     byte[] id4 =  new byte[20];

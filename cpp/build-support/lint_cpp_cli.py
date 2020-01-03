@@ -77,6 +77,7 @@ def lint_file(path):
 
 
 EXCLUSIONS = _paths('''\
+    arrow/arrow-config.cmake
     arrow/python/iterators.h
     arrow/util/hashing.h
     arrow/util/macros.h
@@ -105,10 +106,10 @@ def lint_files():
             if exclude:
                 continue
 
-            # Lint file name, except for pkgconfig templates
+            # Lint file name, except for pkg-config templates
             if not filename.endswith('.pc.in'):
                 if '-' in filename:
-                    why = ("Please user underscores, not hyphens, "
+                    why = ("Please use underscores, not hyphens, "
                            "in source file names")
                     yield full_path, why, 0, full_path
 

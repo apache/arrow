@@ -27,7 +27,6 @@ if(ARROW_HDFS)
 endif()
 
 add_arrow_test(memory_test PREFIX "arrow-io")
-add_arrow_test(readahead_test PREFIX "arrow-io")
 
 add_arrow_benchmark(file_benchmark PREFIX "arrow-io")
 add_arrow_benchmark(memory_benchmark PREFIX "arrow-io")

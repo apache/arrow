@@ -158,14 +158,14 @@ public class MessageSerializer {
    */
   public static long serialize(WriteChannel out, Schema schema, IpcOption option) throws IOException {
     long start = out.getCurrentPosition();
-    assert start % 8 == 0;
+    Preconditions.checkArgument(start % 8 == 0, "out is not aligned");
 
     ByteBuffer serializedMessage = serializeMetadata(schema);
 
     int messageLength = serializedMessage.remaining();
 
     int bytesWritten = writeMessageBuffer(out, messageLength, serializedMessage, option);
-    assert bytesWritten % 8 == 0;
+    Preconditions.checkArgument(bytesWritten % 8 == 0, "out is not aligned");
     return bytesWritten;
   }
 
@@ -238,7 +238,7 @@ public class MessageSerializer {
 
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
-    assert bodyLength % 8 == 0;
+    Preconditions.checkArgument(bodyLength % 8 == 0, "batch is not aligned");
 
     ByteBuffer serializedMessage = serializeMetadata(batch);
 
@@ -263,7 +263,7 @@ public class MessageSerializer {
     out.align();
 
     long bufferLength = writeBatchBuffers(out, batch);
-    assert bufferLength % 8 == 0;
+    Preconditions.checkArgument(bufferLength % 8 == 0, "out is not aligned");
 
     // Metadata size in the Block account for the size prefix
     return new ArrowBlock(start, metadataLength + prefixSize, bufferLength);
@@ -446,7 +446,7 @@ public class MessageSerializer {
       throws IOException {
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
-    assert bodyLength % 8 == 0;
+    Preconditions.checkArgument(bodyLength % 8 == 0, "batch is not aligned");
 
     ByteBuffer serializedMessage = serializeMetadata(batch);
 
@@ -472,7 +472,7 @@ public class MessageSerializer {
 
     // write the embedded record batch
     long bufferLength = writeBatchBuffers(out, batch.getDictionary());
-    assert bufferLength % 8 == 0;
+    Preconditions.checkArgument(bufferLength % 8 == 0, "out is not aligned");
 
     // Metadata size in the Block account for the size prefix
     return new ArrowBlock(start, metadataLength + prefixSize, bufferLength);

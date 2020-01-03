@@ -45,7 +45,7 @@ class TestArithmeticKernel : public ComputeFixture, public TestBase {
                        const std::shared_ptr<Array> expected) {
     std::shared_ptr<Array> actual;
     ASSERT_OK(arrow::compute::Add(&this->ctx_, *lhs, *rhs, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     AssertArraysEqual(*expected, *actual);
   }
 

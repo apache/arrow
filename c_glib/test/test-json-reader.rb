@@ -26,7 +26,6 @@ class TestJSONReader < Test::Unit::TestCase
     end
 
     def test_default
-      require_gi(1, 42, 0)
       table = Arrow::JSONReader.new(open_input(<<-JSON))
 { "message": "Hello", "count": 3.5, "valid": false }
 { "message": "World", "count": 3.25, "valid": true }

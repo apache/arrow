@@ -51,24 +51,32 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
   get_filename_component(SRC_BASE ${SRC_FILE} NAME_WE)
   get_filename_component(ABSOLUTE_SRC ${SRC_FILE} ABSOLUTE)
   set(BC_FILE ${CMAKE_CURRENT_BINARY_DIR}/${SRC_BASE}.bc)
-  add_custom_command(
-    OUTPUT ${BC_FILE}
-    COMMAND ${CLANG_EXECUTABLE}
-            ${PLATFORM_CLANG_OPTIONS}
-            -DGANDIVA_IR
-            -DNDEBUG # DCHECK macros not implemented in precompiled code
-            -DARROW_STATIC # Do not set __declspec(dllimport) on MSVC on Arrow symbols
-            -DGANDIVA_STATIC # Do not set __declspec(dllimport) on MSVC on Gandiva symbols
-            -fno-use-cxa-atexit # Workaround for unresolved __dso_handle
-            -emit-llvm
-            -O3
-            -c
-            ${ABSOLUTE_SRC}
-            -o
-            ${BC_FILE}
-            ${ARROW_GANDIVA_PC_CXX_FLAGS}
-            -I${CMAKE_SOURCE_DIR}/src
-    DEPENDS ${SRC_FILE})
+  set(PRECOMPILE_COMMAND)
+  if(CMAKE_OSX_SYSROOT)
+    list(APPEND PRECOMPILE_COMMAND
+                ${CMAKE_COMMAND}
+                -E
+                env
+                SDKROOT=${CMAKE_OSX_SYSROOT})
+  endif()
+  list(
+    APPEND PRECOMPILE_COMMAND
+           ${CLANG_EXECUTABLE}
+           ${PLATFORM_CLANG_OPTIONS}
+           -DGANDIVA_IR
+           -DNDEBUG # DCHECK macros not implemented in precompiled code
+           -DARROW_STATIC # Do not set __declspec(dllimport) on MSVC on Arrow symbols
+           -DGANDIVA_STATIC # Do not set __declspec(dllimport) on MSVC on Gandiva symbols
+           -fno-use-cxa-atexit # Workaround for unresolved __dso_handle
+           -emit-llvm
+           -O3
+           -c
+           ${ABSOLUTE_SRC}
+           -o
+           ${BC_FILE}
+           ${ARROW_GANDIVA_PC_CXX_FLAGS}
+           -I${CMAKE_SOURCE_DIR}/src)
+  add_custom_command(OUTPUT ${BC_FILE} COMMAND ${PRECOMPILE_COMMAND} DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()
 
@@ -102,7 +110,6 @@ if(ARROW_BUILD_TESTS)
                  time.cc
                  timestamp_arithmetic.cc
                  ../cast_time.cc
-                 ../../arrow/vendored/datetime/tz.cpp
                  hash_test.cc
                  hash.cc
                  string_ops_test.cc
@@ -117,10 +124,7 @@ if(ARROW_BUILD_TESTS)
                  ../decimal_xlarge.cc)
   target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
-  target_compile_definitions(gandiva-precompiled-test
-                             PRIVATE
-                             GANDIVA_UNIT_TEST=1
-                             ARROW_STATIC
+  target_compile_definitions(gandiva-precompiled-test PRIVATE GANDIVA_UNIT_TEST=1
                              GANDIVA_STATIC)
   set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/gandiva-precompiled-test")
   add_test(gandiva-precompiled-test ${TEST_PATH})

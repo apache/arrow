@@ -20,7 +20,6 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.avro.io.Decoder;
 
@@ -28,18 +27,15 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume nested record type values from avro decoder.
  * Write the data to {@link org.apache.arrow.vector.complex.StructVector}.
  */
-public class AvroStructConsumer implements Consumer<StructVector> {
+public class AvroStructConsumer extends BaseAvroConsumer<StructVector> {
 
   private final Consumer[] delegates;
-  private StructVector vector;
-
-  private int currentIndex;
 
   /**
    * Instantiate a AvroStructConsumer.
    */
   public AvroStructConsumer(StructVector vector, Consumer[] delegates) {
-    this.vector = vector;
+    super(vector);
     this.delegates = delegates;
   }
 
@@ -55,34 +51,16 @@ public class AvroStructConsumer implements Consumer<StructVector> {
   }
 
   @Override
-  public void addNull() {
-    currentIndex++;
-  }
-
-  @Override
-  public void setPosition(int index) {
-    currentIndex = index;
-  }
-
-  @Override
-  public FieldVector getVector() {
-    vector.setValueCount(currentIndex);
-    return this.vector;
-  }
-
-  @Override
   public void close() throws Exception {
-    vector.close();
+    super.close();
     AutoCloseables.close(delegates);
   }
 
   @Override
   public boolean resetValueVector(StructVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
     for (int i = 0; i < delegates.length; i++) {
       delegates[i].resetValueVector(vector.getChildrenFromFields().get(i));
     }
-    return true;
+    return super.resetValueVector(vector);
   }
 }

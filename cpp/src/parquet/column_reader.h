@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "parquet/exception.h"
@@ -79,8 +80,8 @@ struct CryptoContext {
       : start_decrypt_with_dictionary_page(start_with_dictionary_page),
         row_group_ordinal(rg_ordinal),
         column_ordinal(col_ordinal),
-        meta_decryptor(meta),
-        data_decryptor(data) {}
+        meta_decryptor(std::move(meta)),
+        data_decryptor(std::move(data)) {}
   CryptoContext() {}
 
   bool start_decrypt_with_dictionary_page = false;
@@ -97,7 +98,7 @@ class PARQUET_EXPORT PageReader {
   virtual ~PageReader() = default;
 
   static std::unique_ptr<PageReader> Open(
-      const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
+      std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
       Compression::type codec, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       const CryptoContext* ctx = NULLPTR);
 
@@ -154,7 +155,7 @@ class TypedColumnReader : public ColumnReader {
   /// column and leave spaces for null entries on the lowest level in the values
   /// buffer.
   ///
-  /// In comparision to ReadBatch the length of repetition and definition levels
+  /// In comparison to ReadBatch the length of repetition and definition levels
   /// is the same as of the number of values read for max_definition_level == 1.
   /// In the case of max_definition_level > 1, the repetition and definition
   /// levels are larger than the values but the values include the null entries

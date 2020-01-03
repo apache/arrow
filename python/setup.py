@@ -106,6 +106,7 @@ class build_ext(_build_ext):
                       'namespace of boost (default: boost)'),
                      ('with-cuda', None, 'build the Cuda extension'),
                      ('with-flight', None, 'build the Flight extension'),
+                     ('with-dataset', None, 'build the Dataset extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
@@ -143,10 +144,14 @@ class build_ext(_build_ext):
 
         self.with_s3 = strtobool(
             os.environ.get('PYARROW_WITH_S3', '0'))
+        self.with_hdfs = strtobool(
+            os.environ.get('PYARROW_WITH_HDFS', '0'))
         self.with_cuda = strtobool(
             os.environ.get('PYARROW_WITH_CUDA', '0'))
         self.with_flight = strtobool(
             os.environ.get('PYARROW_WITH_FLIGHT', '0'))
+        self.with_dataset = strtobool(
+            os.environ.get('PYARROW_WITH_DATASET', '0'))
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_static_parquet = strtobool(
@@ -175,10 +180,12 @@ class build_ext(_build_ext):
         '_json',
         '_cuda',
         '_flight',
+        '_dataset',
         '_parquet',
         '_orc',
         '_plasma',
         '_s3fs',
+        '_hdfs',
         'gandiva']
 
     def _run_cmake(self):
@@ -191,15 +198,16 @@ class build_ext(_build_ext):
         source = osp.dirname(osp.abspath(__file__))
 
         # The staging directory for the module being built
-        build_temp = pjoin(os.getcwd(), self.build_temp)
-        build_lib = os.path.join(os.getcwd(), self.build_lib)
+        build_cmd = self.get_finalized_command('build')
+        build_temp = pjoin(os.getcwd(), build_cmd.build_temp)
+        build_lib = pjoin(os.getcwd(), build_cmd.build_lib)
         saved_cwd = os.getcwd()
 
-        if not os.path.isdir(self.build_temp):
-            self.mkpath(self.build_temp)
+        if not os.path.isdir(build_temp):
+            self.mkpath(build_temp)
 
         # Change to the build directory
-        with changed_dir(self.build_temp):
+        with changed_dir(build_temp):
             # Detect if we built elsewhere
             if os.path.isfile('CMakeCache.txt'):
                 cachefile = open('CMakeCache.txt', 'r')
@@ -216,53 +224,33 @@ class build_ext(_build_ext):
                 static_lib_option,
             ]
 
+            def append_cmake_bool(value, varname):
+                cmake_options.append('-D{0}={1}'.format(
+                    varname, 'on' if value else 'off'))
+
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
-            if self.with_s3:
-                cmake_options.append('-DPYARROW_BUILD_S3=on')
-            if self.with_cuda:
-                cmake_options.append('-DPYARROW_BUILD_CUDA=on')
-            if self.with_flight:
-                cmake_options.append('-DPYARROW_BUILD_FLIGHT=on')
-            if self.with_parquet:
-                cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
-            if self.with_static_parquet:
-                cmake_options.append('-DPYARROW_PARQUET_USE_SHARED=off')
-            if not self.with_static_boost:
-                cmake_options.append('-DPYARROW_BOOST_USE_SHARED=on')
-            else:
-                cmake_options.append('-DPYARROW_BOOST_USE_SHARED=off')
 
-            if self.with_plasma:
-                cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
-
-            if self.with_tensorflow:
-                cmake_options.append('-DPYARROW_USE_TENSORFLOW=on')
-
-            if self.with_orc:
-                cmake_options.append('-DPYARROW_BUILD_ORC=on')
-
-            if self.with_gandiva:
-                cmake_options.append('-DPYARROW_BUILD_GANDIVA=on')
-
-            if len(self.cmake_cxxflags) > 0:
-                cmake_options.append('-DPYARROW_CXXFLAGS={0}'
-                                     .format(self.cmake_cxxflags))
-
-            if self.generate_coverage:
-                cmake_options.append('-DPYARROW_GENERATE_COVERAGE=on')
-
-            if self.bundle_arrow_cpp:
-                cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
-                # ARROW-1090: work around CMake rough edges
-                if 'ARROW_HOME' in os.environ and sys.platform != 'win32':
-                    pkg_config = pjoin(os.environ['ARROW_HOME'], 'lib',
-                                       'pkgconfig')
-                    os.environ['PKG_CONFIG_PATH'] = pkg_config
-                    del os.environ['ARROW_HOME']
-
-            if self.bundle_boost:
-                cmake_options.append('-DPYARROW_BUNDLE_BOOST=ON')
+            append_cmake_bool(self.with_cuda, 'PYARROW_BUILD_CUDA')
+            append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
+            append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')
+            append_cmake_bool(self.with_dataset, 'PYARROW_BUILD_DATASET')
+            append_cmake_bool(self.with_orc, 'PYARROW_BUILD_ORC')
+            append_cmake_bool(self.with_parquet, 'PYARROW_BUILD_PARQUET')
+            append_cmake_bool(self.with_plasma, 'PYARROW_BUILD_PLASMA')
+            append_cmake_bool(self.with_s3, 'PYARROW_BUILD_S3')
+            append_cmake_bool(self.with_hdfs, 'PYARROW_BUILD_HDFS')
+            append_cmake_bool(self.with_tensorflow, 'PYARROW_USE_TENSORFLOW')
+            append_cmake_bool(self.bundle_arrow_cpp,
+                              'PYARROW_BUNDLE_ARROW_CPP')
+            append_cmake_bool(self.bundle_boost,
+                              'PYARROW_BUNDLE_BOOST')
+            append_cmake_bool(self.generate_coverage,
+                              'PYARROW_GENERATE_COVERAGE')
+            append_cmake_bool(not self.with_static_boost,
+                              'PYARROW_BOOST_USE_SHARED')
+            append_cmake_bool(not self.with_static_parquet,
+                              'PYARROW_PARQUET_USE_SHARED')
 
             cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                                  .format(self.build_type.lower()))
@@ -372,6 +360,8 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "arrow_flight")
                     move_shared_libs(build_prefix, build_lib,
                                      "arrow_python_flight")
+                if self.with_dataset:
+                    move_shared_libs(build_prefix, build_lib, "arrow_dataset")
                 if self.with_plasma:
                     move_shared_libs(build_prefix, build_lib, "plasma")
                 if self.with_gandiva:
@@ -422,6 +412,10 @@ class build_ext(_build_ext):
         if name == '_flight' and not self.with_flight:
             return True
         if name == '_s3fs' and not self.with_s3:
+            return True
+        if name == '_hdfs' and not self.with_hdfs:
+            return True
+        if name == '_dataset' and not self.with_dataset:
             return True
         if name == '_cuda' and not self.with_cuda:
             return True
@@ -613,6 +607,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
     license='Apache License, Version 2.0',
     maintainer='Apache Arrow Developers',

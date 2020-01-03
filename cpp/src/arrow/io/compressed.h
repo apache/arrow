@@ -45,8 +45,14 @@ class ARROW_EXPORT CompressedOutputStream : public OutputStream {
   ~CompressedOutputStream() override;
 
   /// \brief Create a compressed output stream wrapping the given output stream.
+  static Result<std::shared_ptr<CompressedOutputStream>> Make(
+      util::Codec* codec, const std::shared_ptr<OutputStream>& raw,
+      MemoryPool* pool = default_memory_pool());
+
+  ARROW_DEPRECATED("Use Result-returning overload")
   static Status Make(util::Codec* codec, const std::shared_ptr<OutputStream>& raw,
                      std::shared_ptr<CompressedOutputStream>* out);
+  ARROW_DEPRECATED("Use Result-returning overload")
   static Status Make(MemoryPool* pool, util::Codec* codec,
                      const std::shared_ptr<OutputStream>& raw,
                      std::shared_ptr<CompressedOutputStream>* out);
@@ -59,7 +65,7 @@ class ARROW_EXPORT CompressedOutputStream : public OutputStream {
   Status Abort() override;
   bool closed() const override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
   Status Write(const void* data, int64_t nbytes) override;
   /// \cond FALSE
@@ -85,8 +91,14 @@ class ARROW_EXPORT CompressedInputStream
   ~CompressedInputStream() override;
 
   /// \brief Create a compressed input stream wrapping the given input stream.
+  static Result<std::shared_ptr<CompressedInputStream>> Make(
+      util::Codec* codec, const std::shared_ptr<InputStream>& raw,
+      MemoryPool* pool = default_memory_pool());
+
+  ARROW_DEPRECATED("Use Result-returning overload")
   static Status Make(util::Codec* codec, const std::shared_ptr<InputStream>& raw,
                      std::shared_ptr<CompressedInputStream>* out);
+  ARROW_DEPRECATED("Use Result-returning overload")
   static Status Make(MemoryPool* pool, util::Codec* codec,
                      const std::shared_ptr<InputStream>& raw,
                      std::shared_ptr<CompressedInputStream>* out);
@@ -108,9 +120,9 @@ class ARROW_EXPORT CompressedInputStream
   /// underlying raw input stream.
   Status DoClose();
   Status DoAbort() override;
-  Status DoTell(int64_t* position) const;
-  Status DoRead(int64_t nbytes, int64_t* bytes_read, void* out);
-  Status DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out);
+  Result<int64_t> DoTell() const;
+  Result<int64_t> DoRead(int64_t nbytes, void* out);
+  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;

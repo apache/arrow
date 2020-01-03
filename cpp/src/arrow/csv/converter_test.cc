@@ -31,6 +31,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
@@ -55,12 +56,13 @@ void AssertConversion(const std::shared_ptr<DataType>& type,
   std::shared_ptr<Converter> converter;
   std::shared_ptr<Array> array, expected_array;
 
-  ASSERT_OK(Converter::Make(type, options, &converter));
+  ASSERT_OK_AND_ASSIGN(converter, Converter::Make(type, options));
 
   MakeCSVParser(csv_string, &parser);
   for (int32_t col_index = 0; col_index < static_cast<int32_t>(expected.size());
        ++col_index) {
-    ASSERT_OK(converter->Convert(*parser, col_index, &array));
+    ASSERT_OK_AND_ASSIGN(array, converter->Convert(*parser, col_index));
+    ASSERT_OK(array->ValidateFull());
     ArrayFromVector<DATA_TYPE, C_TYPE>(type, expected[col_index], &expected_array);
     AssertArraysEqual(*expected_array, *array);
   }
@@ -76,16 +78,56 @@ void AssertConversion(const std::shared_ptr<DataType>& type,
   std::shared_ptr<Converter> converter;
   std::shared_ptr<Array> array, expected_array;
 
-  ASSERT_OK(Converter::Make(type, options, &converter));
+  ASSERT_OK_AND_ASSIGN(converter, Converter::Make(type, options));
 
   MakeCSVParser(csv_string, &parser);
   for (int32_t col_index = 0; col_index < static_cast<int32_t>(expected.size());
        ++col_index) {
-    ASSERT_OK(converter->Convert(*parser, col_index, &array));
+    ASSERT_OK_AND_ASSIGN(array, converter->Convert(*parser, col_index));
+    ASSERT_OK(array->ValidateFull());
     ArrayFromVector<DATA_TYPE, C_TYPE>(type, is_valid[col_index], expected[col_index],
                                        &expected_array);
     AssertArraysEqual(*expected_array, *array);
   }
+}
+
+Result<std::shared_ptr<Array>> DictConversion(
+    const std::shared_ptr<DataType>& value_type, const std::string& csv_string,
+    int32_t max_cardinality = -1, ConvertOptions options = ConvertOptions::Defaults()) {
+  std::shared_ptr<BlockParser> parser;
+  std::shared_ptr<DictionaryConverter> converter;
+
+  ARROW_ASSIGN_OR_RAISE(converter, DictionaryConverter::Make(value_type, options));
+  if (max_cardinality >= 0) {
+    converter->SetMaxCardinality(max_cardinality);
+  }
+
+  ParseOptions parse_options;
+  parse_options.ignore_empty_lines = false;
+  MakeCSVParser({csv_string}, parse_options, &parser);
+
+  const int32_t col_index = 0;
+  return converter->Convert(*parser, col_index);
+}
+
+void AssertDictConversion(const std::string& csv_string,
+                          const std::shared_ptr<Array>& expected_indices,
+                          const std::shared_ptr<Array>& expected_dict,
+                          int32_t max_cardinality = -1,
+                          ConvertOptions options = ConvertOptions::Defaults()) {
+  std::shared_ptr<BlockParser> parser;
+  std::shared_ptr<DictionaryConverter> converter;
+  std::shared_ptr<Array> array, expected_array;
+  std::shared_ptr<DataType> expected_type;
+
+  ASSERT_OK_AND_ASSIGN(
+      array, DictConversion(expected_dict->type(), csv_string, max_cardinality, options));
+  ASSERT_OK(array->ValidateFull());
+  expected_type = dictionary(expected_indices->type(), expected_dict->type());
+  ASSERT_TRUE(array->type()->Equals(*expected_type));
+  const auto& dict_array = internal::checked_cast<const DictionaryArray&>(*array);
+  AssertArraysEqual(*dict_array.dictionary(), *expected_dict);
+  AssertArraysEqual(*dict_array.indices(), *expected_indices);
 }
 
 template <typename DATA_TYPE, typename C_TYPE>
@@ -102,22 +144,21 @@ void AssertConversionError(const std::shared_ptr<DataType>& type,
                            ConvertOptions options = ConvertOptions::Defaults()) {
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<Converter> converter;
-  std::shared_ptr<Array> array;
 
-  ASSERT_OK(Converter::Make(type, options, &converter));
+  ASSERT_OK_AND_ASSIGN(converter, Converter::Make(type, options));
 
   MakeCSVParser(csv_string, &parser);
   for (int32_t i = 0; i < parser->num_cols(); ++i) {
     if (invalid_columns.find(i) == invalid_columns.end()) {
-      ASSERT_OK(converter->Convert(*parser, i, &array));
+      ASSERT_OK(converter->Convert(*parser, i));
     } else {
-      ASSERT_RAISES(Invalid, converter->Convert(*parser, i, &array));
+      ASSERT_RAISES(Invalid, converter->Convert(*parser, i));
     }
   }
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Test functions begin here
+// Converter tests
 
 template <typename T>
 static void TestBinaryConversionBasics() {
@@ -197,13 +238,13 @@ TEST(NullConversion, Basics) {
   std::shared_ptr<Array> array;
   std::shared_ptr<DataType> type = null();
 
-  ASSERT_OK(Converter::Make(type, ConvertOptions::Defaults(), &converter));
+  ASSERT_OK_AND_ASSIGN(converter, Converter::Make(type, ConvertOptions::Defaults()));
 
   MakeCSVParser({"NA,z\n", ",0\n"}, &parser);
-  ASSERT_OK(converter->Convert(*parser, 0, &array));
+  ASSERT_OK_AND_ASSIGN(array, converter->Convert(*parser, 0));
   ASSERT_EQ(array->type()->id(), Type::NA);
   ASSERT_EQ(array->length(), 2);
-  ASSERT_RAISES(Invalid, converter->Convert(*parser, 1, &array));
+  ASSERT_RAISES(Invalid, converter->Convert(*parser, 1));
 }
 
 TEST(IntegerConversion, Basics) {
@@ -378,6 +419,69 @@ TEST(DecimalConversion, OverflowFails) {
   AssertConversionError(decimal(5, 1), {"123.22\n"}, {0});
   AssertConversionError(decimal(5, 1), {"12345.6\n"}, {0});
   AssertConversionError(decimal(5, 1), {"1.61\n"}, {0});
+}
+
+//////////////////////////////////////////////////////////////////////////
+// DictionaryConverter tests
+
+template <typename T>
+class TestDictConverter : public ::testing::Test {
+ public:
+  std::shared_ptr<DataType> type() const { return TypeTraits<T>::type_singleton(); }
+
+  bool is_utf8_type() const {
+    return T::type_id == Type::STRING || T::type_id == Type::LARGE_STRING;
+  }
+};
+
+using DictConversionTypes = ::testing::Types<BinaryType, StringType>;
+
+TYPED_TEST_CASE(TestDictConverter, DictConversionTypes);
+
+TYPED_TEST(TestDictConverter, Basics) {
+  auto expected_dict = ArrayFromJSON(this->type(), R"(["ab", "cdé", ""])");
+  auto expected_indices = ArrayFromJSON(int32(), "[0, 1, 2, 0]");
+
+  AssertDictConversion("ab\ncdé\n\nab\n", expected_indices, expected_dict);
+}
+
+TYPED_TEST(TestDictConverter, Nulls) {
+  auto expected_dict = ArrayFromJSON(this->type(), R"(["ab", "N/A", ""])");
+  auto expected_indices = ArrayFromJSON(int32(), "[0, 1, 2, 0]");
+
+  AssertDictConversion("ab\nN/A\n\nab\n", expected_indices, expected_dict);
+
+  auto options = ConvertOptions::Defaults();
+  options.strings_can_be_null = true;
+  expected_dict = ArrayFromJSON(this->type(), R"(["ab"])");
+  expected_indices = ArrayFromJSON(int32(), "[0, null, null, 0]");
+  AssertDictConversion("ab\nN/A\n\nab\n", expected_indices, expected_dict, -1, options);
+}
+
+TYPED_TEST(TestDictConverter, NonUTF8) {
+  auto expected_indices = ArrayFromJSON(int32(), "[0, 1, 2, 0]");
+  std::shared_ptr<Array> expected_dict;
+  ArrayFromVector<TypeParam, std::string>({"ab", "cd\xff", ""}, &expected_dict);
+  std::string csv_string = "ab\ncd\xff\n\nab\n";
+
+  if (this->is_utf8_type()) {
+    ASSERT_RAISES(Invalid, DictConversion(this->type(), "ab\ncd\xff\n\nab\n"));
+
+    auto options = ConvertOptions::Defaults();
+    options.check_utf8 = false;
+    AssertDictConversion(csv_string, expected_indices, expected_dict, -1, options);
+  } else {
+    AssertDictConversion(csv_string, expected_indices, expected_dict);
+  }
+}
+
+TYPED_TEST(TestDictConverter, MaxCardinality) {
+  auto expected_dict = ArrayFromJSON(this->type(), R"(["ab", "cd", "ef"])");
+  auto expected_indices = ArrayFromJSON(int32(), "[0, 1, 2, 1]");
+  std::string csv_string = "ab\ncd\nef\ncd\n";
+
+  AssertDictConversion(csv_string, expected_indices, expected_dict, 3);
+  ASSERT_RAISES(IndexError, DictConversion(this->type(), csv_string, 2));
 }
 
 }  // namespace csv

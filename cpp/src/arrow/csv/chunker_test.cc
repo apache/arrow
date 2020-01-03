@@ -16,11 +16,13 @@
 // under the License.
 
 #include <cstdint>
+#include <memory>
 #include <numeric>
 #include <string>
 
 #include <gtest/gtest.h>
 
+#include "arrow/buffer.h"
 #include "arrow/csv/chunker.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/test_common.h"
@@ -30,25 +32,28 @@ namespace arrow {
 namespace csv {
 
 void AssertChunkSize(Chunker& chunker, const std::string& str, uint32_t chunk_size) {
-  uint32_t actual_chunk_size;
-  ASSERT_OK(
-      chunker.Process(str.data(), static_cast<uint32_t>(str.size()), &actual_chunk_size));
+  std::shared_ptr<Buffer> block, whole, partial;
+  block = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(str.data()),
+                                   static_cast<int64_t>(str.size()));
+  ASSERT_OK(chunker.Process(block, &whole, &partial));
+  ASSERT_EQ(block->size(), whole->size() + partial->size());
+  auto actual_chunk_size = static_cast<uint32_t>(whole->size());
   ASSERT_EQ(actual_chunk_size, chunk_size);
 }
 
 template <typename IntContainer>
 void AssertChunking(Chunker& chunker, const std::string& str,
-                    const IntContainer& lengths) {
+                    const IntContainer& expected_lengths) {
   uint32_t expected_chunk_size;
 
   // First chunkize whole CSV block
-  expected_chunk_size =
-      static_cast<uint32_t>(std::accumulate(lengths.begin(), lengths.end(), 0ULL));
+  expected_chunk_size = static_cast<uint32_t>(
+      std::accumulate(expected_lengths.begin(), expected_lengths.end(), 0ULL));
   AssertChunkSize(chunker, str, expected_chunk_size);
 
   // Then chunkize incomplete substrings of the block
   expected_chunk_size = 0;
-  for (const auto length : lengths) {
+  for (const auto length : expected_lengths) {
     AssertChunkSize(chunker, str.substr(0, expected_chunk_size + length - 1),
                     expected_chunk_size);
 
@@ -64,7 +69,10 @@ class BaseChunkerTest : public ::testing::TestWithParam<bool> {
     options_.newlines_in_values = GetParam();
   }
 
+  void MakeChunker() { chunker_ = ::arrow::csv::MakeChunker(options_); }
+
   ParseOptions options_;
+  std::unique_ptr<Chunker> chunker_;
 };
 
 INSTANTIATE_TEST_CASE_P(ChunkerTest, BaseChunkerTest, ::testing::Values(true));
@@ -74,42 +82,42 @@ INSTANTIATE_TEST_CASE_P(NoNewlineChunkerTest, BaseChunkerTest, ::testing::Values
 TEST_P(BaseChunkerTest, Basics) {
   auto csv = MakeCSVData({"ab,c,\n", "def,,gh\n", ",ij,kl\n"});
   auto lengths = {6, 8, 7};
-  Chunker chunker(options_);
 
-  AssertChunking(chunker, csv, lengths);
+  MakeChunker();
+  AssertChunking(*chunker_, csv, lengths);
 }
 
 TEST_P(BaseChunkerTest, Empty) {
-  Chunker chunker(options_);
+  MakeChunker();
   {
     auto csv = MakeCSVData({"\n"});
     auto lengths = {1};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
   {
     auto csv = MakeCSVData({"\n\n"});
     auto lengths = {1, 1};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
   {
     auto csv = MakeCSVData({",\n"});
     auto lengths = {2};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
   {
     auto csv = MakeCSVData({",\n,\n"});
     auto lengths = {2, 2};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
 }
 
 TEST_P(BaseChunkerTest, Newlines) {
-  Chunker chunker(options_);
+  MakeChunker();
   {
     auto csv = MakeCSVData({"a\n", "b\r", "c,d\r\n"});
-    AssertChunkSize(chunker, csv, static_cast<uint32_t>(csv.size()));
+    AssertChunkSize(*chunker_, csv, static_cast<uint32_t>(csv.size()));
     // Trailing \n after \r is optional
-    AssertChunkSize(chunker, csv.substr(0, csv.size() - 1),
+    AssertChunkSize(*chunker_, csv.substr(0, csv.size() - 1),
                     static_cast<uint32_t>(csv.size() - 1));
   }
 }
@@ -117,30 +125,30 @@ TEST_P(BaseChunkerTest, Newlines) {
 TEST_P(BaseChunkerTest, QuotingSimple) {
   auto csv = MakeCSVData({"1,\",3,\",5\n"});
   {
-    Chunker chunker(options_);
+    MakeChunker();
     auto lengths = {csv.size()};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
   {
     options_.quoting = false;
-    Chunker chunker(options_);
+    MakeChunker();
     auto lengths = {csv.size()};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
 }
 
 TEST_P(BaseChunkerTest, QuotingNewline) {
   auto csv = MakeCSVData({"a,\"c \n d\",e\n"});
   if (options_.newlines_in_values) {
-    Chunker chunker(options_);
+    MakeChunker();
     auto lengths = {12};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
   {
     options_.quoting = false;
-    Chunker chunker(options_);
+    MakeChunker();
     auto lengths = {6, 6};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
 }
 
@@ -148,60 +156,60 @@ TEST_P(BaseChunkerTest, QuotingUnbalanced) {
   // Quote introduces a quoted field that doesn't end
   auto csv = MakeCSVData({"a,b\n", "1,\",3,,5\n", "c,d\n"});
   if (options_.newlines_in_values) {
-    Chunker chunker(options_);
+    MakeChunker();
     auto lengths = {4};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
   {
     options_.quoting = false;
-    Chunker chunker(options_);
+    MakeChunker();
     auto lengths = {4, 9, 4};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
 }
 
 TEST_P(BaseChunkerTest, QuotingEmpty) {
-  Chunker chunker(options_);
+  MakeChunker();
   {
     auto csv = MakeCSVData({"\"\"\n", "a\n"});
     auto lengths = {3, 2};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
   {
     auto csv = MakeCSVData({",\"\"\n", "a\n"});
     auto lengths = {4, 2};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
   {
     auto csv = MakeCSVData({"\"\",\n", "a\n"});
     auto lengths = {4, 2};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
 }
 
 TEST_P(BaseChunkerTest, QuotingDouble) {
   {
-    Chunker chunker(options_);
+    MakeChunker();
     // 4 quotes is a quoted quote
     auto csv = MakeCSVData({"\"\"\"\"\n", "a\n"});
     auto lengths = {5, 2};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
 }
 
 TEST_P(BaseChunkerTest, QuotesSpecial) {
   // Some non-trivial cases
   {
-    Chunker chunker(options_);
+    MakeChunker();
     auto csv = MakeCSVData({"a,b\"c,d\n", "e\n"});
     auto lengths = {8, 2};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
   {
-    Chunker chunker(options_);
+    MakeChunker();
     auto csv = MakeCSVData({"a,\"b\" \"c\",d\n", "e\n"});
     auto lengths = {12, 2};
-    AssertChunking(chunker, csv, lengths);
+    AssertChunking(*chunker_, csv, lengths);
   }
 }
 
@@ -211,13 +219,13 @@ TEST_P(BaseChunkerTest, Escaping) {
     auto lengths = {6, 2};
     {
       options_.escaping = false;
-      Chunker chunker(options_);
-      AssertChunking(chunker, csv, lengths);
+      MakeChunker();
+      AssertChunking(*chunker_, csv, lengths);
     }
     {
       options_.escaping = true;
-      Chunker chunker(options_);
-      AssertChunking(chunker, csv, lengths);
+      MakeChunker();
+      AssertChunking(*chunker_, csv, lengths);
     }
   }
   {
@@ -225,13 +233,13 @@ TEST_P(BaseChunkerTest, Escaping) {
     auto lengths = {7, 2};
     {
       options_.escaping = false;
-      Chunker chunker(options_);
-      AssertChunking(chunker, csv, lengths);
+      MakeChunker();
+      AssertChunking(*chunker_, csv, lengths);
     }
     {
       options_.escaping = true;
-      Chunker chunker(options_);
-      AssertChunking(chunker, csv, lengths);
+      MakeChunker();
+      AssertChunking(*chunker_, csv, lengths);
     }
   }
 }
@@ -241,14 +249,14 @@ TEST_P(BaseChunkerTest, EscapingNewline) {
     auto csv = MakeCSVData({"a\\\nb\n", "c\n"});
     {
       auto lengths = {3, 2, 2};
-      Chunker chunker(options_);
-      AssertChunking(chunker, csv, lengths);
+      MakeChunker();
+      AssertChunking(*chunker_, csv, lengths);
     }
     options_.escaping = true;
     {
       auto lengths = {5, 2};
-      Chunker chunker(options_);
-      AssertChunking(chunker, csv, lengths);
+      MakeChunker();
+      AssertChunking(*chunker_, csv, lengths);
     }
   }
 }

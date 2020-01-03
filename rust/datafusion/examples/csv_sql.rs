@@ -20,7 +20,7 @@ use std::sync::Arc;
 extern crate arrow;
 extern crate datafusion;
 
-use arrow::array::{BinaryArray, Float64Array};
+use arrow::array::{Float64Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
 
 use datafusion::error::Result;
@@ -81,7 +81,7 @@ fn main() -> Result<()> {
         let c1 = batch
             .column(0)
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap();
 
         let min = batch
@@ -97,9 +97,12 @@ fn main() -> Result<()> {
             .unwrap();
 
         for i in 0..batch.num_rows() {
-            let c1_value: String = String::from_utf8(c1.value(i).to_vec()).unwrap();
-
-            println!("{}, Min: {}, Max: {}", c1_value, min.value(i), max.value(i),);
+            println!(
+                "{}, Min: {}, Max: {}",
+                c1.value(i),
+                min.value(i),
+                max.value(i),
+            );
         }
     });
 

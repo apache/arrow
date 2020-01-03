@@ -38,8 +38,7 @@ class ARROW_DS_EXPORT DataFragment {
  public:
   /// \brief Scan returns an iterator of ScanTasks, each of which yields
   /// RecordBatches from this DataFragment.
-  virtual Status Scan(std::shared_ptr<ScanContext> scan_context,
-                      ScanTaskIterator* out) = 0;
+  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) = 0;
 
   /// \brief Return true if the fragment can benefit from parallel
   /// scanning
@@ -53,24 +52,32 @@ class ARROW_DS_EXPORT DataFragment {
 
   virtual ~DataFragment() = default;
 
+  /// \brief An expression which evaluates to true for all data viewed by this
+  /// DataFragment. May be null, which indicates no information is available.
+  const std::shared_ptr<Expression>& partition_expression() const {
+    return partition_expression_;
+  }
+
  protected:
-  DataFragment();
-  explicit DataFragment(std::shared_ptr<ScanOptions> scan_options)
-      : scan_options_(std::move(scan_options)) {}
+  explicit DataFragment(std::shared_ptr<ScanOptions> scan_options);
+
+  DataFragment(std::shared_ptr<ScanOptions> scan_options,
+               std::shared_ptr<Expression> partition_expression)
+      : scan_options_(std::move(scan_options)),
+        partition_expression_(std::move(partition_expression)) {}
 
   std::shared_ptr<ScanOptions> scan_options_;
+  std::shared_ptr<Expression> partition_expression_;
 };
 
 /// \brief A trivial DataFragment that yields ScanTask out of a fixed set of
 /// RecordBatch.
 class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
  public:
-  explicit SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches);
-
   SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
                      std::shared_ptr<ScanOptions> scan_options);
 
-  Status Scan(std::shared_ptr<ScanContext> scan_context, ScanTaskIterator* out) override;
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
 
   bool splittable() const override { return false; }
 
@@ -93,7 +100,8 @@ class ARROW_DS_EXPORT DataSource {
     return partition_expression_;
   }
 
-  virtual std::string type() const = 0;
+  /// \brief The name identifying the kind of data source
+  virtual std::string type_name() const = 0;
 
   virtual ~DataSource() = default;
 
@@ -121,7 +129,7 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
 
   DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
-  std::string type() const override { return "simple_data_source"; }
+  std::string type_name() const override { return "simple"; }
 
  private:
   DataFragmentVector fragments_;
@@ -134,7 +142,7 @@ class ARROW_DS_EXPORT TreeDataSource : public DataSource {
 
   DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
-  std::string type() const override { return "tree_data_source"; }
+  std::string type_name() const override { return "tree"; }
 
  private:
   DataSourceVector children_;
@@ -144,29 +152,30 @@ class ARROW_DS_EXPORT TreeDataSource : public DataSource {
 /// from possibly multiple sources.
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
-  /// WARNING, this constructor is not recommend, use Dataset::Make instead.
+  /// \brief Build a Dataset from uniform sources.
+  //
   /// \param[in] sources one or more input data sources
-  /// \param[in] schema a known schema to conform to, may be nullptr
-  explicit Dataset(std::vector<std::shared_ptr<DataSource>> sources,
-                   std::shared_ptr<Schema> schema)
-      : schema_(std::move(schema)), sources_(std::move(sources)) {}
-
-  static Status Make(std::vector<std::shared_ptr<DataSource>> sourcs,
-                     std::shared_ptr<Schema> schema, std::shared_ptr<Dataset>* out);
+  /// \param[in] schema a known schema to conform to
+  static Result<std::shared_ptr<Dataset>> Make(DataSourceVector sources,
+                                               std::shared_ptr<Schema> schema);
 
   /// \brief Begin to build a new Scan operation against this Dataset
-  Status NewScan(std::unique_ptr<ScannerBuilder>* out);
+  Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
+  Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
-  const std::vector<std::shared_ptr<DataSource>>& sources() const { return sources_; }
+  const DataSourceVector& sources() const { return sources_; }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
 
  protected:
+  explicit Dataset(DataSourceVector sources, std::shared_ptr<Schema> schema)
+      : schema_(std::move(schema)), sources_(std::move(sources)) {}
+
   // The data sources must conform their output to this schema (with
   // projections and filters taken into account)
   std::shared_ptr<Schema> schema_;
 
-  std::vector<std::shared_ptr<DataSource>> sources_;
+  DataSourceVector sources_;
 };
 
 }  // namespace dataset

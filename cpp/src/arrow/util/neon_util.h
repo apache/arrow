@@ -21,6 +21,8 @@ namespace arrow {
 
 #if defined(__aarch64__) || defined(__AARCH64__)
 
+#define ARROW_HAVE_NEON 1
+
 #ifdef __ARM_FEATURE_CRC32
 #define ARROW_HAVE_ARM_CRC
 #include <arm_acle.h>

@@ -21,20 +21,23 @@
 //! information regarding data-types and memory layouts see
 //! [here](https://arrow.apache.org/docs/memory_layout.html).
 
+use std::collections::HashMap;
 use std::fmt;
 use std::mem::size_of;
 #[cfg(feature = "simd")]
 use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts;
 use std::str::FromStr;
+use std::sync::Arc;
 
 #[cfg(feature = "simd")]
 use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{json, Number, Value, Value::Number as VNumber};
+use serde_json::{
+    json, Number, Value, Value::Number as VNumber, Value::String as VString,
+};
 
 use crate::error::{ArrowError, Result};
-use std::sync::Arc;
 
 /// The possible relative types that are supported.
 ///
@@ -61,12 +64,16 @@ pub enum DataType {
     Float16,
     Float32,
     Float64,
-    Timestamp(TimeUnit),
+    /// A timestamp with an optional timezone
+    Timestamp(TimeUnit, Option<Arc<String>>),
     Date32(DateUnit),
     Date64(DateUnit),
     Time32(TimeUnit),
     Time64(TimeUnit),
+    Duration(TimeUnit),
     Interval(IntervalUnit),
+    Binary,
+    FixedSizeBinary(i32),
     Utf8,
     List(Box<DataType>),
     FixedSizeList((Box<DataType>, i32)),
@@ -182,7 +189,8 @@ impl ArrowNativeType for u64 {
 
 impl ArrowNativeType for f32 {
     fn into_json_value(self) -> Option<Value> {
-        Number::from_f64(self as f64).map(|num| VNumber(num))
+        Number::from_f64(f64::round(self as f64 * 1000.0) / 1000.0)
+            .map(|num| VNumber(num))
     }
 }
 
@@ -228,28 +236,28 @@ make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
 make_type!(
     TimestampSecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Second),
+    DataType::Timestamp(TimeUnit::Second, None),
     64,
     0i64
 );
 make_type!(
     TimestampMillisecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Millisecond),
+    DataType::Timestamp(TimeUnit::Millisecond, None),
     64,
     0i64
 );
 make_type!(
     TimestampMicrosecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Microsecond),
+    DataType::Timestamp(TimeUnit::Microsecond, None),
     64,
     0i64
 );
 make_type!(
     TimestampNanosecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Nanosecond),
+    DataType::Timestamp(TimeUnit::Nanosecond, None),
     64,
     0i64
 );
@@ -291,15 +299,43 @@ make_type!(
 );
 make_type!(
     IntervalYearMonthType,
-    i64,
+    i32,
     DataType::Interval(IntervalUnit::YearMonth),
-    64,
-    0i64
+    32,
+    0i32
 );
 make_type!(
     IntervalDayTimeType,
     i64,
     DataType::Interval(IntervalUnit::DayTime),
+    64,
+    0i64
+);
+make_type!(
+    DurationSecondType,
+    i64,
+    DataType::Duration(TimeUnit::Second),
+    64,
+    0i64
+);
+make_type!(
+    DurationMillisecondType,
+    i64,
+    DataType::Duration(TimeUnit::Millisecond),
+    64,
+    0i64
+);
+make_type!(
+    DurationMicrosecondType,
+    i64,
+    DataType::Duration(TimeUnit::Microsecond),
+    64,
+    0i64
+);
+make_type!(
+    DurationNanosecondType,
+    i64,
+    DataType::Duration(TimeUnit::Nanosecond),
     64,
     0i64
 );
@@ -490,8 +526,12 @@ make_numeric_type!(Time32SecondType, i32, i32x16, m32x16);
 make_numeric_type!(Time32MillisecondType, i32, i32x16, m32x16);
 make_numeric_type!(Time64MicrosecondType, i64, i64x8, m64x8);
 make_numeric_type!(Time64NanosecondType, i64, i64x8, m64x8);
-make_numeric_type!(IntervalYearMonthType, i64, i64x8, m64x8);
+make_numeric_type!(IntervalYearMonthType, i32, i32x16, m32x16);
 make_numeric_type!(IntervalDayTimeType, i64, i64x8, m64x8);
+make_numeric_type!(DurationSecondType, i64, i64x8, m64x8);
+make_numeric_type!(DurationMillisecondType, i64, i64x8, m64x8);
+make_numeric_type!(DurationMicrosecondType, i64, i64x8, m64x8);
+make_numeric_type!(DurationNanosecondType, i64, i64x8, m64x8);
 
 /// A subtype of primitive type that represents temporal values.
 pub trait ArrowTemporalType: ArrowPrimitiveType {}
@@ -506,8 +546,34 @@ impl ArrowTemporalType for Time32SecondType {}
 impl ArrowTemporalType for Time32MillisecondType {}
 impl ArrowTemporalType for Time64MicrosecondType {}
 impl ArrowTemporalType for Time64NanosecondType {}
-impl ArrowTemporalType for IntervalYearMonthType {}
-impl ArrowTemporalType for IntervalDayTimeType {}
+// impl ArrowTemporalType for IntervalYearMonthType {}
+// impl ArrowTemporalType for IntervalDayTimeType {}
+
+/// A timestamp type allows us to create array builders that take a timestamp
+pub trait ArrowTimestampType: ArrowTemporalType {
+    fn get_time_unit() -> TimeUnit;
+}
+
+impl ArrowTimestampType for TimestampSecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Second
+    }
+}
+impl ArrowTimestampType for TimestampMillisecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Millisecond
+    }
+}
+impl ArrowTimestampType for TimestampMicrosecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Microsecond
+    }
+}
+impl ArrowTimestampType for TimestampNanosecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Nanosecond
+    }
+}
 
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {
@@ -535,7 +601,18 @@ impl DataType {
         match *json {
             Value::Object(ref map) => match map.get("name") {
                 Some(s) if s == "bool" => Ok(DataType::Boolean),
+                Some(s) if s == "binary" => Ok(DataType::Binary),
                 Some(s) if s == "utf8" => Ok(DataType::Utf8),
+                Some(s) if s == "fixedsizebinary" => {
+                    // return a list with any type as its child isn't defined in the map
+                    if let Some(Value::Number(size)) = map.get("byteWidth") {
+                        Ok(DataType::FixedSizeBinary(size.as_i64().unwrap() as i32))
+                    } else {
+                        Err(ArrowError::ParseError(format!(
+                            "Expecting a byteWidth for fixedsizebinary",
+                        )))
+                    }
+                }
                 Some(s) if s == "floatingpoint" => match map.get("precision") {
                     Some(p) if p == "HALF" => Ok(DataType::Float16),
                     Some(p) if p == "SINGLE" => Ok(DataType::Float32),
@@ -544,21 +621,25 @@ impl DataType {
                         "floatingpoint precision missing or invalid".to_string(),
                     )),
                 },
-                Some(s) if s == "timestamp" => match map.get("unit") {
-                    Some(p) if p == "SECOND" => Ok(DataType::Timestamp(TimeUnit::Second)),
-                    Some(p) if p == "MILLISECOND" => {
-                        Ok(DataType::Timestamp(TimeUnit::Millisecond))
-                    }
-                    Some(p) if p == "MICROSECOND" => {
-                        Ok(DataType::Timestamp(TimeUnit::Microsecond))
-                    }
-                    Some(p) if p == "NANOSECOND" => {
-                        Ok(DataType::Timestamp(TimeUnit::Nanosecond))
-                    }
-                    _ => Err(ArrowError::ParseError(
-                        "timestamp unit missing or invalid".to_string(),
-                    )),
-                },
+                Some(s) if s == "timestamp" => {
+                    let unit = match map.get("unit") {
+                        Some(p) if p == "SECOND" => Ok(TimeUnit::Second),
+                        Some(p) if p == "MILLISECOND" => Ok(TimeUnit::Millisecond),
+                        Some(p) if p == "MICROSECOND" => Ok(TimeUnit::Microsecond),
+                        Some(p) if p == "NANOSECOND" => Ok(TimeUnit::Nanosecond),
+                        _ => Err(ArrowError::ParseError(
+                            "timestamp unit missing or invalid".to_string(),
+                        )),
+                    };
+                    let tz = match map.get("timezone") {
+                        None => Ok(None),
+                        Some(VString(tz)) => Ok(Some(Arc::new(tz.to_string()))),
+                        _ => Err(ArrowError::ParseError(
+                            "timezone must be a string".to_string(),
+                        )),
+                    };
+                    Ok(DataType::Timestamp(unit?, tz?))
+                }
                 Some(s) if s == "date" => match map.get("unit") {
                     Some(p) if p == "DAY" => Ok(DataType::Date32(DateUnit::Day)),
                     Some(p) if p == "MILLISECOND" => {
@@ -586,6 +667,21 @@ impl DataType {
                         )),
                     }
                 }
+                Some(s) if s == "duration" => match map.get("unit") {
+                    Some(p) if p == "SECOND" => Ok(DataType::Duration(TimeUnit::Second)),
+                    Some(p) if p == "MILLISECOND" => {
+                        Ok(DataType::Duration(TimeUnit::Millisecond))
+                    }
+                    Some(p) if p == "MICROSECOND" => {
+                        Ok(DataType::Duration(TimeUnit::Microsecond))
+                    }
+                    Some(p) if p == "NANOSECOND" => {
+                        Ok(DataType::Duration(TimeUnit::Nanosecond))
+                    }
+                    _ => Err(ArrowError::ParseError(
+                        "time unit missing or invalid".to_string(),
+                    )),
+                },
                 Some(s) if s == "interval" => match map.get("unit") {
                     Some(p) if p == "DAY_TIME" => {
                         Ok(DataType::Interval(IntervalUnit::DayTime))
@@ -679,9 +775,15 @@ impl DataType {
             DataType::Float32 => json!({"name": "floatingpoint", "precision": "SINGLE"}),
             DataType::Float64 => json!({"name": "floatingpoint", "precision": "DOUBLE"}),
             DataType::Utf8 => json!({"name": "utf8"}),
+            DataType::Binary => json!({"name": "binary"}),
+            DataType::FixedSizeBinary(byte_width) => {
+                json!({"name": "fixedsizebinary", "byteWidth": byte_width})
+            }
             DataType::Struct(_) => json!({"name": "struct"}),
             DataType::List(_) => json!({ "name": "list"}),
-            DataType::FixedSizeList((_, length)) => json!({"name":"fixedsizelist", "listSize": length}),
+            DataType::FixedSizeList((_, length)) => {
+                json!({"name":"fixedsizelist", "listSize": length})
+            }
             DataType::Time32(unit) => {
                 json!({"name": "time", "bitWidth": 32, "unit": match unit {
                     TimeUnit::Second => "SECOND",
@@ -704,15 +806,31 @@ impl DataType {
                     DateUnit::Millisecond => "MILLISECOND",
                 }})
             }
-            DataType::Timestamp(unit) => json!({"name": "timestamp", "unit": match unit {
+            DataType::Timestamp(unit, None) => {
+                json!({"name": "timestamp", "unit": match unit {
+                    TimeUnit::Second => "SECOND",
+                    TimeUnit::Millisecond => "MILLISECOND",
+                    TimeUnit::Microsecond => "MICROSECOND",
+                    TimeUnit::Nanosecond => "NANOSECOND",
+                }})
+            }
+            DataType::Timestamp(unit, Some(tz)) => {
+                json!({"name": "timestamp", "unit": match unit {
+                    TimeUnit::Second => "SECOND",
+                    TimeUnit::Millisecond => "MILLISECOND",
+                    TimeUnit::Microsecond => "MICROSECOND",
+                    TimeUnit::Nanosecond => "NANOSECOND",
+                }, "timezone": tz})
+            }
+            DataType::Interval(unit) => json!({"name": "interval", "unit": match unit {
+                IntervalUnit::YearMonth => "YEAR_MONTH",
+                IntervalUnit::DayTime => "DAY_TIME",
+            }}),
+            DataType::Duration(unit) => json!({"name": "duration", "unit": match unit {
                 TimeUnit::Second => "SECOND",
                 TimeUnit::Millisecond => "MILLISECOND",
                 TimeUnit::Microsecond => "MICROSECOND",
                 TimeUnit::Nanosecond => "NANOSECOND",
-            }}),
-            DataType::Interval(unit) => json!({"name": "interval", "unit": match unit {
-                IntervalUnit::YearMonth => "YEAR_MONTH",
-                IntervalUnit::DayTime => "DAY_TIME",
             }}),
         }
     }
@@ -881,12 +999,18 @@ impl fmt::Display for Field {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Schema {
     pub(crate) fields: Vec<Field>,
+    /// A map of key-value pairs containing additional meta data.
+    #[serde(default)]
+    pub(crate) metadata: HashMap<String, String>,
 }
 
 impl Schema {
     /// Creates an empty `Schema`
     pub fn empty() -> Self {
-        Self { fields: vec![] }
+        Self {
+            fields: vec![],
+            metadata: HashMap::new(),
+        }
     }
 
     /// Creates a new `Schema` from a sequence of `Field` values
@@ -902,7 +1026,30 @@ impl Schema {
     /// let schema = Schema::new(vec![field_a, field_b]);
     /// ```
     pub fn new(fields: Vec<Field>) -> Self {
-        Self { fields }
+        Self::new_with_metadata(fields, HashMap::new())
+    }
+    /// Creates a new `Schema` from a sequence of `Field` values
+    /// and adds additional metadata in form of key value pairs.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate arrow;
+    /// # use arrow::datatypes::{Field, DataType, Schema};
+    /// # use std::collections::HashMap;
+    /// let field_a = Field::new("a", DataType::Int64, false);
+    /// let field_b = Field::new("b", DataType::Boolean, false);
+    ///
+    /// let mut metadata: HashMap<String, String> = HashMap::new();
+    /// metadata.insert("row_count".to_string(), "100".to_string());
+    ///
+    /// let schema = Schema::new_with_metadata(vec![field_a, field_b], metadata);
+    /// ```
+    pub fn new_with_metadata(
+        fields: Vec<Field>,
+        metadata: HashMap<String, String>,
+    ) -> Self {
+        Self { fields, metadata }
     }
 
     /// Returns an immutable reference of the vector of `Field` instances
@@ -914,6 +1061,11 @@ impl Schema {
     /// offset within the internal `fields` vector
     pub fn field(&self, i: usize) -> &Field {
         &self.fields[i]
+    }
+
+    /// Returns an immutable reference to the Map of custom metadata key-value pairs.
+    pub fn metadata(&self) -> &HashMap<String, String> {
+        &self.metadata
     }
 
     /// Look up a column by name and return a immutable reference to the column along with
@@ -929,6 +1081,7 @@ impl Schema {
     pub fn to_json(&self) -> Value {
         json!({
             "fields": self.fields.iter().map(|field| field.to_json()).collect::<Vec<Value>>(),
+            "metadata": serde_json::to_value(&self.metadata).unwrap()
         })
     }
 
@@ -936,19 +1089,49 @@ impl Schema {
     pub fn from(json: &Value) -> Result<Self> {
         match *json {
             Value::Object(ref schema) => {
-                if let Some(Value::Array(fields)) = schema.get("fields") {
-                    let fields: Result<Vec<Field>> =
-                        fields.iter().map(|f| Field::from(f)).collect();
-                    Ok(Schema::new(fields?))
+                let fields = if let Some(Value::Array(fields)) = schema.get("fields") {
+                    fields
+                        .iter()
+                        .map(|f| Field::from(f))
+                        .collect::<Result<_>>()?
                 } else {
                     return Err(ArrowError::ParseError(
                         "Schema fields should be an array".to_string(),
                     ));
-                }
+                };
+
+                let metadata = if let Some(value) = schema.get("metadata") {
+                    Self::from_metadata(value)?
+                } else {
+                    HashMap::default()
+                };
+
+                Ok(Self { fields, metadata })
             }
             _ => Err(ArrowError::ParseError(
                 "Invalid json value type for schema".to_string(),
             )),
+        }
+    }
+
+    /// Parse a `metadata` definition from a JSON representation
+    fn from_metadata(json: &Value) -> Result<HashMap<String, String>> {
+        if let Value::Object(md) = json {
+            md.iter()
+                .map(|(k, v)| {
+                    if let Value::String(v) = v {
+                        Ok((k.to_string(), v.to_string()))
+                    } else {
+                        Err(ArrowError::ParseError(
+                            "metadata `value` field must be a string".to_string(),
+                        ))
+                    }
+                })
+                .collect::<Result<_>>()
+        } else {
+            Err(ArrowError::ParseError(
+                "`metadata` field must be an object".to_string(),
+            ))
         }
     }
 }
@@ -1151,47 +1334,83 @@ mod tests {
 
     #[test]
     fn schema_json() {
-        let schema = Schema::new(vec![
-            Field::new("c1", DataType::Utf8, false),
-            Field::new("c2", DataType::Boolean, false),
-            Field::new("c3", DataType::Date32(DateUnit::Day), false),
-            Field::new("c4", DataType::Date64(DateUnit::Millisecond), false),
-            Field::new("c7", DataType::Time32(TimeUnit::Second), false),
-            Field::new("c8", DataType::Time32(TimeUnit::Millisecond), false),
-            Field::new("c9", DataType::Time32(TimeUnit::Microsecond), false),
-            Field::new("c10", DataType::Time32(TimeUnit::Nanosecond), false),
-            Field::new("c11", DataType::Time64(TimeUnit::Second), false),
-            Field::new("c12", DataType::Time64(TimeUnit::Millisecond), false),
-            Field::new("c13", DataType::Time64(TimeUnit::Microsecond), false),
-            Field::new("c14", DataType::Time64(TimeUnit::Nanosecond), false),
-            Field::new("c15", DataType::Timestamp(TimeUnit::Second), false),
-            Field::new("c16", DataType::Timestamp(TimeUnit::Millisecond), false),
-            Field::new("c17", DataType::Timestamp(TimeUnit::Microsecond), false),
-            Field::new("c18", DataType::Timestamp(TimeUnit::Nanosecond), false),
-            Field::new("c19", DataType::Interval(IntervalUnit::DayTime), false),
-            Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
-            Field::new("c21", DataType::List(Box::new(DataType::Boolean)), false),
-            Field::new(
-                "c22",
-                DataType::FixedSizeList((Box::new(DataType::Boolean), 5)),
-                false,
-            ),
-            Field::new(
-                "c23",
-                DataType::List(Box::new(DataType::List(Box::new(DataType::Struct(
-                    vec![],
-                ))))),
-                true,
-            ),
-            Field::new(
-                "c24",
-                DataType::Struct(vec![
-                    Field::new("a", DataType::Utf8, false),
-                    Field::new("b", DataType::UInt16, false),
-                ]),
-                false,
-            ),
-        ]);
+        // Add some custom metadata
+        let metadata: HashMap<String, String> =
+            [("Key".to_string(), "Value".to_string())]
+                .iter()
+                .cloned()
+                .collect();
+
+        let schema = Schema::new_with_metadata(
+            vec![
+                Field::new("c1", DataType::Utf8, false),
+                Field::new("c2", DataType::Binary, false),
+                Field::new("c3", DataType::FixedSizeBinary(3), false),
+                Field::new("c4", DataType::Boolean, false),
+                Field::new("c5", DataType::Date32(DateUnit::Day), false),
+                Field::new("c6", DataType::Date64(DateUnit::Millisecond), false),
+                Field::new("c7", DataType::Time32(TimeUnit::Second), false),
+                Field::new("c8", DataType::Time32(TimeUnit::Millisecond), false),
+                Field::new("c9", DataType::Time32(TimeUnit::Microsecond), false),
+                Field::new("c10", DataType::Time32(TimeUnit::Nanosecond), false),
+                Field::new("c11", DataType::Time64(TimeUnit::Second), false),
+                Field::new("c12", DataType::Time64(TimeUnit::Millisecond), false),
+                Field::new("c13", DataType::Time64(TimeUnit::Microsecond), false),
+                Field::new("c14", DataType::Time64(TimeUnit::Nanosecond), false),
+                Field::new("c15", DataType::Timestamp(TimeUnit::Second, None), false),
+                Field::new(
+                    "c16",
+                    DataType::Timestamp(
+                        TimeUnit::Millisecond,
+                        Some(Arc::new("UTC".to_string())),
+                    ),
+                    false,
+                ),
+                Field::new(
+                    "c17",
+                    DataType::Timestamp(
+                        TimeUnit::Microsecond,
+                        Some(Arc::new("Africa/Johannesburg".to_string())),
+                    ),
+                    false,
+                ),
+                Field::new(
+                    "c18",
+                    DataType::Timestamp(TimeUnit::Nanosecond, None),
+                    false,
+                ),
+                Field::new("c19", DataType::Interval(IntervalUnit::DayTime), false),
+                Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
+                Field::new("c21", DataType::List(Box::new(DataType::Boolean)), false),
+                Field::new(
+                    "c22",
+                    DataType::FixedSizeList((Box::new(DataType::Boolean), 5)),
+                    false,
+                ),
+                Field::new(
+                    "c23",
+                    DataType::List(Box::new(DataType::List(Box::new(DataType::Struct(
+                        vec![],
+                    ))))),
+                    true,
+                ),
+                Field::new(
+                    "c24",
+                    DataType::Struct(vec![
+                        Field::new("a", DataType::Utf8, false),
+                        Field::new("b", DataType::UInt16, false),
+                    ]),
+                    false,
+                ),
+                Field::new("c25", DataType::Interval(IntervalUnit::YearMonth), true),
+                Field::new("c26", DataType::Interval(IntervalUnit::DayTime), true),
+                Field::new("c27", DataType::Duration(TimeUnit::Second), false),
+                Field::new("c28", DataType::Duration(TimeUnit::Millisecond), false),
+                Field::new("c29", DataType::Duration(TimeUnit::Microsecond), false),
+                Field::new("c30", DataType::Duration(TimeUnit::Nanosecond), false),
+            ],
+            metadata,
+        );
 
         let expected = schema.to_json();
         let json = r#"{
@@ -1208,12 +1427,29 @@ mod tests {
                         "name": "c2",
                         "nullable": false,
                         "type": {
-                            "name": "bool"
+                            "name": "binary"
                         },
                         "children": []
                     },
                     {
                         "name": "c3",
+                        "nullable": false,
+                        "type": {
+                            "name": "fixedsizebinary",
+                            "byteWidth": 3
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c4",
+                        "nullable": false,
+                        "type": {
+                            "name": "bool"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c5",
                         "nullable": false,
                         "type": {
                             "name": "date",
@@ -1222,7 +1458,7 @@ mod tests {
                         "children": []
                     },
                     {
-                        "name": "c4",
+                        "name": "c6",
                         "nullable": false,
                         "type": {
                             "name": "date",
@@ -1324,7 +1560,8 @@ mod tests {
                         "nullable": false,
                         "type": {
                             "name": "timestamp",
-                            "unit": "MILLISECOND"
+                            "unit": "MILLISECOND",
+                            "timezone": "UTC"
                         },
                         "children": []
                     },
@@ -1333,7 +1570,8 @@ mod tests {
                         "nullable": false,
                         "type": {
                             "name": "timestamp",
-                            "unit": "MICROSECOND"
+                            "unit": "MICROSECOND",
+                            "timezone": "Africa/Johannesburg"
                         },
                         "children": []
                     },
@@ -1451,8 +1689,65 @@ mod tests {
                                 "children": []
                             }
                         ]
+                    },
+                    {
+                        "name": "c25",
+                        "nullable": true,
+                        "type": {
+                            "name": "interval",
+                            "unit": "YEAR_MONTH"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c26",
+                        "nullable": true,
+                        "type": {
+                            "name": "interval",
+                            "unit": "DAY_TIME"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c27",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "SECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c28",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "MILLISECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c29",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "MICROSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c30",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "NANOSECOND"
+                        },
+                        "children": []
                     }
-                ]
+                ],
+                "metadata" : {
+                    "Key": "Value"
+                }
             }"#;
         let value: Value = serde_json::from_str(&json).unwrap();
         assert_eq!(expected, value);
@@ -1462,6 +1757,41 @@ mod tests {
         let schema2 = Schema::from(&value).unwrap();
 
         assert_eq!(schema, schema2);
+
+        // Check that empty metadata produces empty value in JSON and can be parsed
+        let json = r#"{
+                "fields": [
+                    {
+                        "name": "c1",
+                        "nullable": false,
+                        "type": {
+                            "name": "utf8"
+                        },
+                        "children": []
+                    }
+                ],
+                "metadata": {}
+            }"#;
+        let value: Value = serde_json::from_str(&json).unwrap();
+        let schema = Schema::from(&value).unwrap();
+        assert!(schema.metadata.is_empty());
+
+        // Check that metadata field is not required in the JSON.
+        let json = r#"{
+                "fields": [
+                    {
+                        "name": "c1",
+                        "nullable": false,
+                        "type": {
+                            "name": "utf8"
+                        },
+                        "children": []
+                    }
+                ]
+            }"#;
+        let value: Value = serde_json::from_str(&json).unwrap();
+        let schema = Schema::from(&value).unwrap();
+        assert!(schema.metadata.is_empty());
     }
 
     #[test]

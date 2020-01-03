@@ -26,8 +26,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/result.h"
-#include "arrow/status.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
@@ -314,8 +312,6 @@ class ARROW_EXPORT NestedType : public DataType, public ParametricType {
   using DataType::DataType;
 };
 
-class NoExtraMeta {};
-
 /// \brief The combination of a field name and data type, with optional metadata
 ///
 /// Fields are used to describe the individual constituents of a
@@ -359,10 +355,44 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   /// \brief Return a copy of this field with the replaced name.
   std::shared_ptr<Field> WithName(const std::string& name) const;
 
+  /// \brief Return a copy of this field with the replaced nullability.
+  std::shared_ptr<Field> WithNullable(bool nullable) const;
+
+  /// \brief Merge the current field with a field of the same name.
+  ///
+  /// The two fields must be compatible, i.e:
+  ///   - have the same name
+  ///   - have the same type, or one or both are NullType
+  ///
+  /// Nullability will be promoted to the looser option (nullable if one is not
+  /// nullable). This method does _not_ accommodate type conversion minus
+  /// nullability. This includes integer widening, promotion from integer to
+  /// float, or conversion to or from boolean.
+  ///
+  /// The metadata of the current field is preserved; the metadata of the other
+  /// field is discarded.
+  Result<std::shared_ptr<Field>> MergeWith(const Field& other) const;
+  Result<std::shared_ptr<Field>> MergeWith(const std::shared_ptr<Field>& other) const;
+
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
+  /// \brief Indicate if fields are equals.
+  ///
+  /// \param[in] other field to check equality with.
+  /// \param[in] check_metadata controls if it should check for metadata
+  ///            equality.
+  ///
+  /// \return true if fields are equal, false otherwise.
   bool Equals(const Field& other, bool check_metadata = true) const;
   bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = true) const;
+
+  /// \brief Indicate if fields are compatibles.
+  ///
+  /// See the criteria of MergeWith.
+  ///
+  /// \return true if fields are compatible, false otherwise.
+  bool IsCompatibleWith(const Field& other) const;
+  bool IsCompatibleWith(const std::shared_ptr<Field>& other) const;
 
   /// \brief Return a string representation ot the field
   std::string ToString() const;
@@ -400,8 +430,8 @@ namespace detail {
 template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
 class ARROW_EXPORT CTypeImpl : public BASE {
  public:
-  using c_type = C_TYPE;
   static constexpr Type::type type_id = TYPE_ID;
+  using c_type = C_TYPE;
 
   CTypeImpl() : BASE(TYPE_ID) {}
 
@@ -422,7 +452,7 @@ class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, 
 }  // namespace detail
 
 /// Concrete type class for always-null data
-class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
+class ARROW_EXPORT NullType : public DataType {
  public:
   static constexpr Type::type type_id = Type::NA;
 
@@ -443,21 +473,13 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
 };
 
 /// Concrete type class for boolean data
-class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
+class ARROW_EXPORT BooleanType
+    : public detail::CTypeImpl<BooleanType, PrimitiveCType, Type::BOOL, bool> {
  public:
-  static constexpr Type::type type_id = Type::BOOL;
-
   static constexpr const char* type_name() { return "bool"; }
 
-  BooleanType() : FixedWidthType(Type::BOOL) {}
-
-  std::string ToString() const override;
-
-  DataTypeLayout layout() const override { return {{1, 1}, false}; }
-
-  int bit_width() const override { return 1; }
-
-  std::string name() const override { return "bool"; }
+  // BooleanType within arrow use a single bit instead of the C 8-bits layout.
+  int bit_width() const final { return 1; }
 
  protected:
   std::string ComputeFingerprint() const override;
@@ -718,7 +740,7 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
 };
 
 /// \brief Base class for all variable-size binary data types
-class ARROW_EXPORT BaseBinaryType : public DataType, public NoExtraMeta {
+class ARROW_EXPORT BaseBinaryType : public DataType {
  public:
   using DataType::DataType;
 };
@@ -815,6 +837,7 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
 class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public ParametricType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
+  static constexpr bool is_utf8 = false;
 
   static constexpr const char* type_name() { return "fixed_size_binary"; }
 
@@ -925,11 +948,13 @@ struct UnionMode {
 class ARROW_EXPORT UnionType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::UNION;
+  static constexpr int8_t kMaxTypeCode = 127;
+  static constexpr int kInvalidChildId = -1;
 
   static constexpr const char* type_name() { return "union"; }
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-            const std::vector<uint8_t>& type_codes,
+            const std::vector<int8_t>& type_codes,
             UnionMode::type mode = UnionMode::SPARSE);
 
   DataTypeLayout layout() const override;
@@ -937,7 +962,14 @@ class ARROW_EXPORT UnionType : public NestedType {
   std::string ToString() const override;
   std::string name() const override { return "union"; }
 
-  const std::vector<uint8_t>& type_codes() const { return type_codes_; }
+  /// The array of logical type ids.
+  ///
+  /// For example, the first type in the union might be denoted by the id 5
+  /// (instead of 0).
+  const std::vector<int8_t>& type_codes() const { return type_codes_; }
+
+  /// An array mapping logical type ids to physical child ids.
+  const std::vector<int>& child_ids() const { return child_ids_; }
 
   uint8_t max_type_code() const;
 
@@ -948,10 +980,8 @@ class ARROW_EXPORT UnionType : public NestedType {
 
   UnionMode::type mode_;
 
-  // The type id used in the data to indicate each data type in the union. For
-  // example, the first type in the union might be denoted by the id 5 (instead
-  // of 0).
-  std::vector<uint8_t> type_codes_;
+  std::vector<int8_t> type_codes_;
+  std::vector<int> child_ids_;
 };
 
 // ----------------------------------------------------------------------
@@ -981,10 +1011,9 @@ class ARROW_EXPORT Date32Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE32;
   static constexpr DateUnit UNIT = DateUnit::DAY;
+  using c_type = int32_t;
 
   static constexpr const char* type_name() { return "date32"; }
-
-  using c_type = int32_t;
 
   Date32Type();
 
@@ -1004,10 +1033,9 @@ class ARROW_EXPORT Date64Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE64;
   static constexpr DateUnit UNIT = DateUnit::MILLI;
+  using c_type = int64_t;
 
   static constexpr const char* type_name() { return "date64"; }
-
-  using c_type = int64_t;
 
   Date64Type();
 
@@ -1114,8 +1142,8 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;
 
-  typedef int64_t c_type;
   static constexpr Type::type type_id = Type::TIMESTAMP;
+  using c_type = int64_t;
 
   static constexpr const char* type_name() { return "timestamp"; }
 
@@ -1155,12 +1183,12 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
 
 /// \brief Represents a some number of months.
 ///
-/// Type representing a number of months.  Corresponeds to YearMonth type
+/// Type representing a number of months.  Corresponds to YearMonth type
 /// in Schema.fbs (Years are defined as 12 months).
 class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
-  using c_type = int32_t;
   static constexpr Type::type type_id = Type::INTERVAL;
+  using c_type = int32_t;
 
   static constexpr const char* type_name() { return "month_interval"; }
 
@@ -1184,6 +1212,9 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
       return this->days == other.days && this->milliseconds == other.milliseconds;
     }
     bool operator!=(DayMilliseconds other) const { return !(*this == other); }
+    bool operator<(DayMilliseconds other) const {
+      return this->days < other.days || this->milliseconds < other.milliseconds;
+    }
   };
   using c_type = DayMilliseconds;
   static_assert(sizeof(DayMilliseconds) == 8,
@@ -1303,7 +1334,9 @@ class ARROW_EXPORT DictionaryUnifier {
 /// \class Schema
 /// \brief Sequence of arrow::Field objects describing the columns of a record
 /// batch or table data structure
-class ARROW_EXPORT Schema : public detail::Fingerprintable {
+class ARROW_EXPORT Schema : public detail::Fingerprintable,
+                            public util::EqualityComparable<Schema>,
+                            public util::ToStringOstreamable<Schema> {
  public:
   explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
                   const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
@@ -1317,7 +1350,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable {
 
   /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other, bool check_metadata = true) const;
-  bool operator==(const Schema& other) const { return Equals(other); }
+  bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = true) const;
 
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const;
@@ -1369,14 +1402,19 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable {
   /// \brief Return copy of Schema without the KeyValueMetadata
   std::shared_ptr<Schema> RemoveMetadata() const;
 
-  /// \brief Indicates that Schema has non-empty KevValueMetadata
+  /// \brief Indicate that the Schema has non-empty KevValueMetadata
   bool HasMetadata() const;
+
+  /// \brief Indicate that the Schema has distinct field names.
+  bool HasDistinctFieldNames() const;
 
  protected:
   std::string ComputeFingerprint() const override;
   std::string ComputeMetadataFingerprint() const override;
 
  private:
+  friend void PrintTo(const Schema& s, std::ostream* os);
+
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
@@ -1427,14 +1465,14 @@ std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_ty
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
                                           int32_t list_size);
-/// \brief Return an Duration instance (naming use _type to avoid namespace conflict with
+/// \brief Return a Duration instance (naming use _type to avoid namespace conflict with
 /// built in time clases).
 std::shared_ptr<DataType> ARROW_EXPORT duration(TimeUnit::type unit);
 
-/// \brief Return an DayTimeIntervalType instance
+/// \brief Return a DayTimeIntervalType instance
 std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
 
-/// \brief Return an MonthIntervalType instance
+/// \brief Return a MonthIntervalType instance
 std::shared_ptr<DataType> ARROW_EXPORT month_interval();
 
 /// \brief Create a TimestampType instance from its unit
@@ -1462,13 +1500,21 @@ struct_(const std::vector<std::shared_ptr<Field>>& fields);
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+       UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT union_(UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
-       const std::vector<std::string>& field_names,
-       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes,
+       UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create a UnionType instance
 inline std::shared_ptr<DataType> ARROW_EXPORT
@@ -1535,6 +1581,117 @@ std::shared_ptr<Schema> schema(
 
 /// @}
 
+/// \brief Convenience class to incrementally construct/merge schemas.
+///
+/// This class amortizes the cost of validating field name conflicts by
+/// maintaining the mapping. The caller also controls the conflict resolution
+/// scheme.
+class ARROW_EXPORT SchemaBuilder {
+ public:
+  // Indicate how field conflict(s) should be resolved when building a schema. A
+  // conflict arise when a field is added to the builder and one or more field(s)
+  // with the same name already exists.
+  enum ConflictPolicy {
+    // Ignore the conflict and append the field. This is the default behavior of the
+    // Schema constructor and the `arrow::schema` factory function.
+    CONFLICT_APPEND = 0,
+    // Keep the existing field and ignore the newer one.
+    CONFLICT_IGNORE,
+    // Replace the existing field with the newer one.
+    CONFLICT_REPLACE,
+    // Merge the fields. See documentation of `Field::MergeWith`.
+    CONFLICT_MERGE,
+    // Refuse the new field and error out.
+    CONFLICT_ERROR
+  };
+
+  /// \brief Construct an empty SchemaBuilder
+  explicit SchemaBuilder(ConflictPolicy conflict_policy = CONFLICT_APPEND);
+  /// \brief Construct a SchemaBuilder from a list of fields
+  SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
+                ConflictPolicy conflict_policy = CONFLICT_APPEND);
+  /// \brief Construct a SchemaBuilder from a schema, preserving the metadata
+  SchemaBuilder(const std::shared_ptr<Schema>& schema,
+                ConflictPolicy conflict_policy = CONFLICT_APPEND);
+
+  /// \brief Return the conflict resolution method.
+  ConflictPolicy policy() const;
+
+  /// \brief Set the conflict resolution method.
+  void SetPolicy(ConflictPolicy resolution);
+
+  /// \brief Add a field to the constructed schema.
+  ///
+  /// \param[in] field to add to the constructed Schema.
+  /// \return A failure if encountered.
+  Status AddField(const std::shared_ptr<Field>& field);
+
+  /// \brief Add multiple fields to the constructed schema.
+  ///
+  /// \param[in] fields to add to the constructed Schema.
+  /// \return The first failure encountered, if any.
+  Status AddFields(const std::vector<std::shared_ptr<Field>>& fields);
+
+  /// \brief Add fields of a Schema to the constructed Schema.
+  ///
+  /// \param[in] schema to take fields to add to the constructed Schema.
+  /// \return The first failure encountered, if any.
+  Status AddSchema(const std::shared_ptr<Schema>& schema);
+
+  /// \brief Add fields of multiple Schemas to the constructed Schema.
+  ///
+  /// \param[in] schemas to take fields to add to the constructed Schema.
+  /// \return The first failure encountered, if any.
+  Status AddSchemas(const std::vector<std::shared_ptr<Schema>>& schemas);
+
+  Status AddMetadata(const KeyValueMetadata& metadata);
+
+  /// \brief Return the constructed Schema.
+  ///
+  /// The builder internal state is not affected by invoking this method, i.e.
+  /// a single builder can yield multiple incrementally constructed schemas.
+  ///
+  /// \return the constructed schema.
+  Result<std::shared_ptr<Schema>> Finish() const;
+
+  /// \brief Merge schemas in a unified schema according to policy.
+  static Result<std::shared_ptr<Schema>> Merge(
+      const std::vector<std::shared_ptr<Schema>>& schemas,
+      ConflictPolicy policy = CONFLICT_MERGE);
+
+  /// \brief Indicate if schemas are compatible to merge according to policy.
+  static Status AreCompatible(const std::vector<std::shared_ptr<Schema>>& schemas,
+                              ConflictPolicy policy = CONFLICT_MERGE);
+
+  /// \brief Reset internal state with an empty schema (and metadata).
+  void Reset();
+
+  ~SchemaBuilder();
+
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+
+  Status AppendField(const std::shared_ptr<Field>& field);
+};
+
+/// \brief Unifies schemas by unifying fields by name and promoting Null fields.
+///
+/// The resulting schema will contain the union of fields from all schemas.
+/// Fields with the same name will be unified:
+/// - They are expected to be of the same type, or of Null type. The unified
+///   field will be of that same type.
+/// - The unified field will inherit the metadata from the schema where
+///   that field is first defined.
+/// - The first N fields in the schema will be ordered the same as the
+///   N fields in the first schema.
+/// The resulting schema will inherit its metadata from the first input schema.
+/// Returns an error if:
+/// - Any input schema contains fields with duplicate names.
+/// - Fields of the same name are of incompatible types.
+ARROW_EXPORT
+Result<std::shared_ptr<Schema>> UnifySchemas(
+    const std::vector<std::shared_ptr<Schema>>& schemas);
 }  // namespace arrow
 
 #endif  // ARROW_TYPE_H

@@ -23,7 +23,7 @@ export ARROW_TEST_DATA=/arrow/testing/data
 
 python --version
 # Install built wheel
-pip install -q /arrow/python/$WHEEL_TAG/dist/*.whl
+pip install -q /arrow/python/$WHEEL_DIR/dist/*.whl
 # Install test dependencies (pip won't work after removing system zlib)
 pip install -q -r /arrow/python/requirements-test.txt
 # Run pyarrow tests

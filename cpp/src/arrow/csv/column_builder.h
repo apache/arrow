@@ -15,21 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_COLUMN_BUILDER_H
-#define ARROW_CSV_COLUMN_BUILDER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 
 #include "arrow/array.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class ChunkedArray;
-class DataType;
-
 namespace internal {
 
 class TaskGroup;
@@ -55,7 +52,7 @@ class ARROW_EXPORT ColumnBuilder {
                       const std::shared_ptr<BlockParser>& parser) = 0;
 
   /// Return the final chunked array.  The TaskGroup _must_ have finished!
-  virtual Status Finish(std::shared_ptr<ChunkedArray>* out) = 0;
+  virtual Result<std::shared_ptr<ChunkedArray>> Finish() = 0;
 
   /// Change the task group.  The previous TaskGroup _must_ have finished!
   void SetTaskGroup(const std::shared_ptr<internal::TaskGroup>& task_group);
@@ -63,21 +60,21 @@ class ARROW_EXPORT ColumnBuilder {
   std::shared_ptr<internal::TaskGroup> task_group() { return task_group_; }
 
   /// Construct a strictly-typed ColumnBuilder.
-  static Status Make(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                     int32_t col_index, const ConvertOptions& options,
-                     const std::shared_ptr<internal::TaskGroup>& task_group,
-                     std::shared_ptr<ColumnBuilder>* out);
+  static Result<std::shared_ptr<ColumnBuilder>> Make(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type, int32_t col_index,
+      const ConvertOptions& options,
+      const std::shared_ptr<internal::TaskGroup>& task_group);
 
   /// Construct a type-inferring ColumnBuilder.
-  static Status Make(MemoryPool* pool, int32_t col_index, const ConvertOptions& options,
-                     const std::shared_ptr<internal::TaskGroup>& task_group,
-                     std::shared_ptr<ColumnBuilder>* out);
+  static Result<std::shared_ptr<ColumnBuilder>> Make(
+      MemoryPool* pool, int32_t col_index, const ConvertOptions& options,
+      const std::shared_ptr<internal::TaskGroup>& task_group);
 
   /// Construct a ColumnBuilder for a column of nulls
   /// (i.e. not present in the CSV file).
-  static Status MakeNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                         const std::shared_ptr<internal::TaskGroup>& task_group,
-                         std::shared_ptr<ColumnBuilder>* out);
+  static Result<std::shared_ptr<ColumnBuilder>> MakeNull(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const std::shared_ptr<internal::TaskGroup>& task_group);
 
  protected:
   explicit ColumnBuilder(const std::shared_ptr<internal::TaskGroup>& task_group)
@@ -89,5 +86,3 @@ class ARROW_EXPORT ColumnBuilder {
 
 }  // namespace csv
 }  // namespace arrow
-
-#endif  // ARROW_CSV_COLUMN_BUILDER_H

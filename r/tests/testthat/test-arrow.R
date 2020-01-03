@@ -23,6 +23,14 @@ if (identical(Sys.getenv("TEST_R_WITH_ARROW"), "TRUE")) {
   })
 }
 
+test_that("Can't $new() an object with anything other than a pointer", {
+  expect_error(
+    Array$new(1:5),
+    "Array$new() requires a pointer as input: did you mean $create() instead?",
+    fixed = TRUE
+  )
+})
+
 r_only({
   test_that("assert_is", {
     x <- 42

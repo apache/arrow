@@ -27,7 +27,7 @@
 #include "arrow/ipc/dictionary.h"  // IWYU pragma: export
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
-#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -250,7 +250,7 @@ Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
 /// \brief Compute the number of bytes needed to write a tensor including metadata
 ///
-/// \param[in] tensor the tenseor to write
+/// \param[in] tensor the tensor to write
 /// \param[out] size the size of the complete encapsulated message
 /// \return Status
 ARROW_EXPORT
@@ -281,25 +281,41 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
 /// \param[in] tensor the Tensor to write
 /// \param[in] dst the OutputStream to write to
 /// \param[out] metadata_length the actual metadata length, including padding
-/// \param[out] body_length the acutal message body length
+/// \param[out] body_length the actual message body length
 /// \return Status
 ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length);
 
-// \brief EXPERIMENTAL: Write arrow::SparseTensor as a contiguous mesasge. The metadata,
-// sparse index, and body are written assuming 64-byte alignment. It is the
-// user's responsibility to ensure that the OutputStream has been aligned
-// to a 64-byte multiple before writing the message.
-//
-// \param[in] tensor the SparseTensor to write
-// \param[in] dst the OutputStream to write to
-// \param[out] metadata_length the actual metadata length, including padding
-// \param[out] body_length the actual message body length
+/// \brief EXPERIMENTAL: Convert arrow::SparseTensor to a Message with minimal memory
+/// allocation
+///
+/// The message is written out as followed:
+/// \code
+/// <metadata size> <metadata> <sparse index> <sparse tensor body>
+/// \endcode
+///
+/// \param[in] sparse_tensor the SparseTensor to write
+/// \param[in] pool MemoryPool to allocate space for metadata
+/// \param[out] out the resulting Message
+/// \return Status
+ARROW_EXPORT
+Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              std::unique_ptr<Message>* out);
+
+/// \brief EXPERIMENTAL: Write arrow::SparseTensor as a contiguous message. The metadata,
+/// sparse index, and body are written assuming 64-byte alignment. It is the
+/// user's responsibility to ensure that the OutputStream has been aligned
+/// to a 64-byte multiple before writing the message.
+///
+/// \param[in] sparse_tensor the SparseTensor to write
+/// \param[in] dst the OutputStream to write to
+/// \param[out] metadata_length the actual metadata length, including padding
+/// \param[out] body_length the actual message body length
+/// \return Status
 ARROW_EXPORT
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
-                         int32_t* metadata_length, int64_t* body_length,
-                         MemoryPool* pool);
+                         int32_t* metadata_length, int64_t* body_length);
 
 namespace internal {
 
@@ -382,6 +398,15 @@ Status GetRecordBatchPayload(const RecordBatch& batch, const IpcOptions& options
 ARROW_EXPORT
 Status WriteIpcPayload(const IpcPayload& payload, const IpcOptions& options,
                        io::OutputStream* dst, int32_t* metadata_length);
+
+/// \brief Compute IpcPayload for the given sparse tensor
+/// \param[in] sparse_tensor the SparseTensor that is being serialized
+/// \param[in,out] pool for any required temporary memory allocations
+/// \param[out] out the returned IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              IpcPayload* out);
 
 }  // namespace internal
 

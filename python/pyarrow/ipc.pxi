@@ -268,15 +268,12 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
         return self.options.write_legacy_ipc_format
 
     def _open(self, sink, Schema schema, use_legacy_format=False):
-        cdef:
-            CResult[shared_ptr[CRecordBatchWriter]] result
-
         self.options.write_legacy_ipc_format = use_legacy_format
         get_writer(sink, &self.sink)
         with nogil:
-            result = CRecordBatchStreamWriter.Open(
-                self.sink.get(), schema.sp_schema, self.options)
-        self.writer = GetResultValue(result)
+            self.writer = GetResultValue(
+                CRecordBatchStreamWriter.Open(
+                    self.sink.get(), schema.sp_schema, self.options))
 
 
 cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
@@ -361,16 +358,12 @@ cdef class _RecordBatchStreamReader(_CRecordBatchReader):
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
     def _open(self, sink, Schema schema, use_legacy_format=False):
-        cdef:
-            CResult[shared_ptr[CRecordBatchWriter]] result
-
         self.options.write_legacy_ipc_format = use_legacy_format
         get_writer(sink, &self.sink)
         with nogil:
-            result = CRecordBatchFileWriter.Open(self.sink.get(),
-                                                 schema.sp_schema,
-                                                 self.options)
-        self.writer = GetResultValue(result)
+            self.writer = GetResultValue(
+                CRecordBatchFileWriter.Open(
+                    self.sink.get(), schema.sp_schema, self.options))
 
 
 cdef class _RecordBatchFileReader:
@@ -536,7 +529,7 @@ def read_tensor(source):
 
     c_stream = nf.get_input_stream().get()
     with nogil:
-        check_status(ReadTensor(c_stream, &sp_tensor))
+        sp_tensor = GetResultValue(ReadTensor(c_stream))
     return pyarrow_wrap_tensor(sp_tensor)
 
 

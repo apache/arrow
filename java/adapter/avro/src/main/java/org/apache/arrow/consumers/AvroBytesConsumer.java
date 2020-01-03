@@ -20,7 +20,6 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.avro.io.Decoder;
 
@@ -28,18 +27,15 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume bytes type values from avro decoder.
  * Write the data to {@link VarBinaryVector}.
  */
-public class AvroBytesConsumer implements Consumer<VarBinaryVector> {
+public class AvroBytesConsumer extends BaseAvroConsumer<VarBinaryVector> {
 
-  private VarBinaryVector vector;
   private ByteBuffer cacheBuffer;
-
-  private int currentIndex;
 
   /**
    * Instantiate a AvroBytesConsumer.
    */
   public AvroBytesConsumer(VarBinaryVector vector) {
-    this.vector = vector;
+    super(vector);
   }
 
   @Override
@@ -49,32 +45,5 @@ public class AvroBytesConsumer implements Consumer<VarBinaryVector> {
     cacheBuffer = decoder.readBytes(cacheBuffer);
     vector.setSafe(currentIndex, cacheBuffer, 0, cacheBuffer.limit());
     currentIndex++;
-  }
-
-  @Override
-  public void addNull() {
-    currentIndex++;
-  }
-
-  @Override
-  public void setPosition(int index) {
-    currentIndex = index;
-  }
-
-  @Override
-  public FieldVector getVector() {
-    return vector;
-  }
-
-  @Override
-  public void close() throws Exception {
-    vector.close();
-  }
-
-  @Override
-  public boolean resetValueVector(VarBinaryVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-    return true;
   }
 }

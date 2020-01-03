@@ -436,7 +436,7 @@ garrow_union_data_type_get_field(GArrowUnionDataType *union_data_type,
  *
  * Since: 0.12.0
  */
-guint8 *
+gint8 *
 garrow_union_data_type_get_type_codes(GArrowUnionDataType *union_data_type,
                                       gsize *n_type_codes)
 {
@@ -446,7 +446,7 @@ garrow_union_data_type_get_type_codes(GArrowUnionDataType *union_data_type,
 
   const auto arrow_type_codes = arrow_union_data_type->type_codes();
   const auto n = arrow_type_codes.size();
-  auto type_codes = static_cast<guint8 *>(g_new(guint8, n));
+  auto type_codes = static_cast<gint8 *>(g_new(gint8, n));
   for (size_t i = 0; i < n; ++i) {
     type_codes[i] = arrow_type_codes[i];
   }
@@ -479,7 +479,7 @@ garrow_sparse_union_data_type_class_init(GArrowSparseUnionDataTypeClass *klass)
  */
 GArrowSparseUnionDataType *
 garrow_sparse_union_data_type_new(GList *fields,
-                                  guint8 *type_codes,
+                                  gint8 *type_codes,
                                   gsize n_type_codes)
 {
   std::vector<std::shared_ptr<arrow::Field>> arrow_fields;
@@ -489,7 +489,7 @@ garrow_sparse_union_data_type_new(GList *fields,
     arrow_fields.push_back(arrow_field);
   }
 
-  std::vector<uint8_t> arrow_type_codes;
+  std::vector<int8_t> arrow_type_codes;
   for (gsize i = 0; i < n_type_codes; ++i) {
     arrow_type_codes.push_back(type_codes[i]);
   }
@@ -529,7 +529,7 @@ garrow_dense_union_data_type_class_init(GArrowDenseUnionDataTypeClass *klass)
  */
 GArrowDenseUnionDataType *
 garrow_dense_union_data_type_new(GList *fields,
-                                 guint8 *type_codes,
+                                 gint8 *type_codes,
                                  gsize n_type_codes)
 {
   std::vector<std::shared_ptr<arrow::Field>> arrow_fields;
@@ -539,7 +539,7 @@ garrow_dense_union_data_type_new(GList *fields,
     arrow_fields.push_back(arrow_field);
   }
 
-  std::vector<uint8_t> arrow_type_codes;
+  std::vector<int8_t> arrow_type_codes;
   for (gsize i = 0; i < n_type_codes; ++i) {
     arrow_type_codes.push_back(type_codes[i]);
   }

@@ -108,7 +108,7 @@ garrow_union_data_type_get_fields(GArrowUnionDataType *union_data_type);
 GArrowField *
 garrow_union_data_type_get_field(GArrowUnionDataType *union_data_type,
                                  gint i);
-guint8 *
+gint8 *
 garrow_union_data_type_get_type_codes(GArrowUnionDataType *union_data_type,
                                       gsize *n_type_codes);
 
@@ -127,7 +127,7 @@ struct _GArrowSparseUnionDataTypeClass
 
 GArrowSparseUnionDataType *
 garrow_sparse_union_data_type_new(GList *fields,
-                                  guint8 *type_codes,
+                                  gint8 *type_codes,
                                   gsize n_type_codes);
 
 
@@ -145,7 +145,7 @@ struct _GArrowDenseUnionDataTypeClass
 
 GArrowDenseUnionDataType *
 garrow_dense_union_data_type_new(GList *fields,
-                                 guint8 *type_codes,
+                                 gint8 *type_codes,
                                  gsize n_type_codes);
 
 

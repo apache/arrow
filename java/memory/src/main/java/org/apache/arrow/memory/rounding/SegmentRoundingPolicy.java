@@ -43,7 +43,7 @@ public class SegmentRoundingPolicy implements  RoundingPolicy {
    */
   public SegmentRoundingPolicy(int segmentSize) {
     Preconditions.checkArgument(segmentSize >= MIN_SEGMENT_SIZE,
-            "The segment size cannot be smaller than " + MIN_SEGMENT_SIZE);
+            "The segment size cannot be smaller than %s", MIN_SEGMENT_SIZE);
     Preconditions.checkArgument((segmentSize & (segmentSize - 1)) == 0,
             "The segment size must be a power of 2");
     this.segmentSize = segmentSize;

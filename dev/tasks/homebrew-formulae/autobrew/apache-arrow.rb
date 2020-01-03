@@ -19,7 +19,7 @@
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-0.15.0.9000/apache-arrow-0.15.0.9000.tar.gz"
+  url "https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-0.15.1.9000/apache-arrow-0.15.1.9000.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   head "https://github.com/apache/arrow.git"
 
@@ -33,7 +33,6 @@ class ApacheArrow < Formula
   depends_on "cmake" => :build
   depends_on "flatbuffers" => :build
   depends_on "boost"
-  depends_on "double-conversion"
   depends_on "lz4"
   depends_on "snappy"
   depends_on "thrift"
@@ -41,8 +40,13 @@ class ApacheArrow < Formula
   def install
     ENV.cxx11
     args = %W[
-      -DARROW_PARQUET=ON
+      -DARROW_COMPUTE=ON
+      -DARROW_CSV=ON
+      -DARROW_DATASET=ON
+      -DARROW_FILESYSTEM=ON
       -DARROW_HDFS=OFF
+      -DARROW_JSON=ON
+      -DARROW_PARQUET=ON
       -DARROW_BUILD_SHARED=OFF
       -DARROW_JEMALLOC=OFF
       -DARROW_USE_GLOG=OFF
@@ -74,7 +78,7 @@ class ApacheArrow < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-lparquet", "-lthrift", "-llz4", "-lboost_system", "-lboost_filesystem", "-lboost_regex", "-ldouble-conversion", "-lsnappy", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-lparquet", "-lthrift", "-llz4", "-lboost_system", "-lboost_regex", "-lsnappy", "-o", "test"
     system "./test"
   end
 end

@@ -45,7 +45,6 @@
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/stl.h"
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/internal.h"
@@ -594,7 +593,6 @@ FlightMetadataWriter::~FlightMetadataWriter() = default;
 #error "atomic ints and atomic pointers not always lock-free!"
 #endif
 
-using ::arrow::internal::GetSignalHandler;
 using ::arrow::internal::SetSignalHandler;
 using ::arrow::internal::SignalHandler;
 
@@ -716,8 +714,8 @@ Status FlightServerBase::Serve() {
   for (size_t i = 0; i < impl_->signals_.size(); ++i) {
     int signum = impl_->signals_[i];
     SignalHandler new_handler(&Impl::HandleSignal), old_handler;
-    RETURN_NOT_OK(SetSignalHandler(signum, new_handler, &old_handler));
-    impl_->old_signal_handlers_.push_back(old_handler);
+    ARROW_ASSIGN_OR_RAISE(old_handler, SetSignalHandler(signum, new_handler));
+    impl_->old_signal_handlers_.push_back(std::move(old_handler));
   }
 
   impl_->server_->Wait();
@@ -726,7 +724,7 @@ Status FlightServerBase::Serve() {
   // Restore signal handlers
   for (size_t i = 0; i < impl_->signals_.size(); ++i) {
     RETURN_NOT_OK(
-        SetSignalHandler(impl_->signals_[i], impl_->old_signal_handlers_[i], nullptr));
+        SetSignalHandler(impl_->signals_[i], impl_->old_signal_handlers_[i]).status());
   }
 
   return Status::OK();
@@ -793,7 +791,7 @@ Status FlightServerBase::GetSchema(const ServerCallContext& context,
 
 class RecordBatchStream::RecordBatchStreamImpl {
  public:
-  // Stages of the stream when producing paylaods
+  // Stages of the stream when producing payloads
   enum class Stage {
     NEW,          // The stream has been created, but Next has not been called yet
     DICTIONARY,   // Dictionaries have been collected, and are being sent

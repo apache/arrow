@@ -92,6 +92,7 @@ void Engine::InitOnce() {
 /// factory method to construct the engine.
 Status Engine::Make(std::shared_ptr<Configuration> config,
                     std::unique_ptr<Engine>* engine) {
+  static auto host_cpu_name = llvm::sys::getHostCPUName();
   std::unique_ptr<Engine> engine_obj(new Engine());
 
   std::call_once(init_once_flag, [&engine_obj] { engine_obj->InitOnce(); });
@@ -105,6 +106,7 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   engine_obj->module_ = cg_module.get();
 
   llvm::EngineBuilder engineBuilder(std::move(cg_module));
+  engineBuilder.setMCPU(host_cpu_name);
   engineBuilder.setEngineKind(llvm::EngineKind::JIT);
   engineBuilder.setOptLevel(llvm::CodeGenOpt::Aggressive);
   engineBuilder.setErrorStr(&(engine_obj->llvm_error_));
@@ -189,7 +191,7 @@ Status Engine::RemoveUnusedFunctions() {
 }
 
 // Optimise and compile the module.
-Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
+Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir, std::string* final_ir) {
   auto status = RemoveUnusedFunctions();
   ARROW_RETURN_NOT_OK(status);
 
@@ -225,7 +227,10 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
       DumpIR("After optimise");
     }
   }
-
+  if (final_ir != nullptr) {
+    llvm::raw_string_ostream stream(*final_ir);
+    module_->print(stream, nullptr);
+  }
   ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
                   Status::CodeGenError("Module verification failed after optimizer"));
 

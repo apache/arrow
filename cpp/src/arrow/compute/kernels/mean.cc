@@ -47,7 +47,8 @@ struct MeanState {
     const double divisor = static_cast<double>(is_valid ? count : 1UL);
     const double mean = static_cast<double>(sum) / divisor;
 
-    return std::make_shared<ScalarType>(mean, is_valid);
+    if (!is_valid) return std::make_shared<ScalarType>();
+    return std::make_shared<ScalarType>(mean);
   }
 
   static std::shared_ptr<DataType> out_type() {

@@ -82,10 +82,8 @@ timestamp_types = st.builds(
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
     tz=tzst.timezones()
 )
-duration_types = st.builds(
-    pa.duration,
-    unit=st.sampled_from(['s', 'ms', 'us', 'ns'])
-)
+duration_types = st.sampled_from([
+    pa.duration(unit) for unit in ['s', 'ms', 'us', 'ns']])
 temporal_types = st.one_of(
     date_types, time_types, timestamp_types, duration_types)
 
@@ -245,7 +243,7 @@ def record_batches(draw, type, rows=None, max_fields=None):
 
     schema = draw(schemas(type, max_fields=max_fields))
     children = [draw(arrays(field.type, size=rows)) for field in schema]
-    # TODO(kszucs): the names and schame arguments are not consistent with
+    # TODO(kszucs): the names and schema arguments are not consistent with
     #               Table.from_array's arguments
     return pa.RecordBatch.from_arrays(children, names=schema)
 

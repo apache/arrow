@@ -21,14 +21,17 @@
 #include <exception>
 #include <sstream>
 #include <string>
+#include <utility>
 
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "parquet/platform.h"
 
 // PARQUET-1085
 #if !defined(ARROW_UNUSED)
 #define ARROW_UNUSED(x) UNUSED(x)
 #endif
+
+// Parquet exception to Arrow Status
 
 #define PARQUET_CATCH_NOT_OK(s)                    \
   try {                                            \
@@ -37,21 +40,37 @@
     return ::arrow::Status::IOError(e.what());     \
   }
 
-#define PARQUET_IGNORE_NOT_OK(s) \
-  do {                           \
-    ::arrow::Status _s = (s);    \
-    ARROW_UNUSED(_s);            \
+#define PARQUET_CATCH_AND_RETURN(s)                \
+  try {                                            \
+    return (s);                                    \
+  } catch (const ::parquet::ParquetException& e) { \
+    return ::arrow::Status::IOError(e.what());     \
+  }
+
+// Arrow Status to Parquet exception
+
+#define PARQUET_IGNORE_NOT_OK(s)                                \
+  do {                                                          \
+    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
+    ARROW_UNUSED(_s);                                           \
   } while (0)
 
-#define PARQUET_THROW_NOT_OK(s)                    \
-  do {                                             \
-    ::arrow::Status _s = (s);                      \
-    if (!_s.ok()) {                                \
-      std::stringstream ss;                        \
-      ss << "Arrow error: " << _s.ToString();      \
-      throw ::parquet::ParquetException(ss.str()); \
-    }                                              \
+#define PARQUET_THROW_NOT_OK(s)                                 \
+  do {                                                          \
+    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
+    if (!_s.ok()) {                                             \
+      throw ::parquet::ParquetStatusException(std::move(_s));   \
+    }                                                           \
   } while (0)
+
+#define PARQUET_ASSIGN_OR_THROW_IMPL(status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                                 \
+  PARQUET_THROW_NOT_OK(status_name.status());                 \
+  lhs = std::move(status_name).ValueOrDie();
+
+#define PARQUET_ASSIGN_OR_THROW(lhs, rexpr)                                              \
+  PARQUET_ASSIGN_OR_THROW_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                               lhs, rexpr);
 
 namespace parquet {
 
@@ -85,6 +104,30 @@ class ParquetException : public std::exception {
  private:
   std::string msg_;
 };
+
+class ParquetStatusException : public ParquetException {
+ public:
+  explicit ParquetStatusException(::arrow::Status status)
+      : ParquetException(status.ToString()), status_(std::move(status)) {}
+
+  const ::arrow::Status& status() const { return status_; }
+
+ private:
+  ::arrow::Status status_;
+};
+
+// This class exists for the purpose of detecting an invalid or corrupted file.
+class ParquetInvalidOrCorruptedFileException : public ParquetStatusException {
+ public:
+  template <typename... Args>
+  explicit ParquetInvalidOrCorruptedFileException(Args&&... args)
+      : ParquetStatusException(::arrow::Status::Invalid(std::forward<Args>(args)...)) {}
+};
+
+template <typename StatusReturnBlock>
+void ThrowNotOk(StatusReturnBlock&& b) {
+  PARQUET_THROW_NOT_OK(b());
+}
 
 }  // namespace parquet
 

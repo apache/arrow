@@ -17,4 +17,4 @@
   under the License.
 -->
 
-## Implementation details related to columnnar (array) data structures
+## Implementation details related to columnar (array) data structures

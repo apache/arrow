@@ -19,46 +19,21 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume null type values from avro decoder.
- * Corresponding to {@link org.apache.arrow.vector.ZeroVector}.
+ * Corresponding to {@link org.apache.arrow.vector.NullVector}.
  */
-public class AvroNullConsumer implements Consumer<NullVector> {
-
-  private NullVector vector;
+public class AvroNullConsumer extends BaseAvroConsumer<NullVector> {
 
   public AvroNullConsumer(NullVector vector) {
-    this.vector = vector;
+    super(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setValueCount(vector.getValueCount() + 1);
-  }
-
-  @Override
-  public void addNull() {}
-
-  @Override
-  public void setPosition(int index) {}
-
-  @Override
-  public FieldVector getVector() {
-    return this.vector;
-  }
-
-  @Override
-  public void close() {
-    vector.close();
-  }
-
-  @Override
-  public boolean resetValueVector(NullVector vector) {
-    this.vector = vector;
-    return true;
+    currentIndex++;
   }
 }

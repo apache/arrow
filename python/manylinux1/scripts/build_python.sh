@@ -44,13 +44,13 @@ CURL_DOWNLOAD_URL=https://curl.haxx.se/download
 
 AUTOCONF_ROOT=autoconf-2.69
 AUTOCONF_HASH=954bd69b391edc12d6a4a51a2dd1476543da5c6bbf05a95b59dc0dd6fd4c2969
-AUTOCONF_DOWNLOAD_URL=http://ftp.gnu.org/gnu/autoconf
+AUTOCONF_DOWNLOAD_URL=https://ftp.gnu.org/gnu/autoconf
 AUTOMAKE_ROOT=automake-1.16.1
 AUTOMAKE_HASH=608a97523f97db32f1f5d5615c98ca69326ced2054c9f82e65bade7fc4c9dea8
-AUTOMAKE_DOWNLOAD_URL=http://ftp.gnu.org/gnu/automake
+AUTOMAKE_DOWNLOAD_URL=https://ftp.gnu.org/gnu/automake
 LIBTOOL_ROOT=libtool-2.4.6
 LIBTOOL_HASH=e3bd4d5d3d025a36c21dd6af7ea818a2afcd4dfc1ea5a17b39d7854bcd0c06e3
-LIBTOOL_DOWNLOAD_URL=http://ftp.gnu.org/gnu/libtool
+LIBTOOL_DOWNLOAD_URL=https://ftp.gnu.org/gnu/libtool
 
 SQLITE_AUTOCONF_VERSION=sqlite-autoconf-3230100
 SQLITE_AUTOCONF_HASH=92842b283e5e744eff5da29ed3c69391de7368fccc4d0ee6bf62490ce555ef25

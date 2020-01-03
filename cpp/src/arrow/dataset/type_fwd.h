@@ -35,46 +35,60 @@ namespace fs {
 
 class FileSystem;
 
+struct FileStats;
+using FileStatsVector = std::vector<FileStats>;
+
 }  // namespace fs
 
 namespace dataset {
 
 class Dataset;
+
 class DataFragment;
-class DataSource;
-using DataSourceVector = std::vector<std::shared_ptr<DataSource>>;
 using DataFragmentIterator = Iterator<std::shared_ptr<DataFragment>>;
 using DataFragmentVector = std::vector<std::shared_ptr<DataFragment>>;
 
-struct DiscoveryOptions;
+class DataSource;
+using DataSourceVector = std::vector<std::shared_ptr<DataSource>>;
 
-class FileBasedDataFragment;
+struct DiscoveryOptions;
+class DataSourceDiscovery;
+
 class FileFormat;
-class FileScanOptions;
-class FileWriteOptions;
 
 class Expression;
+using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
+
 class ComparisonExpression;
+class InExpression;
+class IsValidExpression;
 class AndExpression;
 class OrExpression;
 class NotExpression;
+class CastExpression;
 class ScalarExpression;
 class FieldReferenceExpression;
-using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
 class ExpressionEvaluator;
 
-class Partition;
-class PartitionKey;
 class PartitionScheme;
-using PartitionVector = std::vector<std::shared_ptr<Partition>>;
-using PartitionIterator = Iterator<std::shared_ptr<Partition>>;
+
+class PartitionSchemeDiscovery;
+
+class PartitionSchemeOrDiscovery;
 
 struct ScanContext;
+
 class ScanOptions;
+
 class Scanner;
+
 class ScannerBuilder;
+
 class ScanTask;
-using ScanTaskIterator = Iterator<std::unique_ptr<ScanTask>>;
+using ScanTaskVector = std::vector<std::shared_ptr<ScanTask>>;
+using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
+
+class RecordBatchProjector;
 
 class DatasetWriter;
 class WriteContext;

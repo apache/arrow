@@ -105,6 +105,17 @@ if test "x$GARROW_DEBUG" != "xno"; then
     CXXFLAGS="$CXXFLAGS -O0 -g3"
   fi
 fi
+AC_ARG_ENABLE(development-mode,
+  [AS_HELP_STRING([--enable-development-mode],
+                  [Use development mode (default=no)])],
+  [GARROW_DEVELOPMENT_MODE="$enableval"],
+  [GARROW_DEVELOPMENT_MODE="no"])
+if test "x$GARROW_DEVELOPMENT_MODE" != "xno"; then
+  if test "$CLANG" = "yes" -o "$GCC" = "yes"; then
+    CFLAGS="$CFLAGS -Werror"
+    CXXFLAGS="$CXXFLAGS -Werror"
+  fi
+fi
 AC_SUBST(GARROW_CFLAGS)
 AC_SUBST(GARROW_CXXFLAGS)
 
@@ -113,7 +124,7 @@ AM_PATH_GLIB_2_0([2.32.4],
                  [AC_MSG_ERROR(GLib isn't available)],
                  [gobject gio])
 
-GOBJECT_INTROSPECTION_REQUIRE([1.32.1])
+GOBJECT_INTROSPECTION_CHECK([1.32.1])
 GTK_DOC_CHECK([1.18-2])
 
 AC_ARG_WITH(arrow-cpp-build-type,

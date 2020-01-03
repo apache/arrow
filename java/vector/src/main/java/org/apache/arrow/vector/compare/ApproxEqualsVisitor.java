@@ -35,6 +35,21 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   private final VectorValueEqualizer<Float8Vector> doubleDiffFunction;
 
   /**
+   * Default epsilons for diff functions.
+   */
+  public static final float DEFAULT_FLOAT_EPSILON = 1.0E-6f;
+  public static final double DEFAULT_DOUBLE_EPSILON = 1.0E-6;
+
+  /**
+   * Constructs a new instance with default tolerances.
+   * @param left left vector
+   * @param right right vector
+   */
+  public ApproxEqualsVisitor(ValueVector left, ValueVector right) {
+    this (left, right, DEFAULT_FLOAT_EPSILON, DEFAULT_DOUBLE_EPSILON);
+  }
+
+  /**
    * Constructs a new instance.
    *
    * @param left left vector

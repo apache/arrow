@@ -99,8 +99,7 @@ struct ARROW_EXPORT Datum {
       : value(value) {}
 
   // Cast from subtypes of Array to Datum
-  template <typename T,
-            typename = typename std::enable_if<std::is_base_of<Array, T>::value>::type>
+  template <typename T, typename = enable_if_t<std::is_base_of<Array, T>::value>>
   Datum(const std::shared_ptr<T>& value)  // NOLINT implicit conversion
       : Datum(std::shared_ptr<Array>(value)) {}
 
@@ -191,6 +190,8 @@ struct ARROW_EXPORT Datum {
 
   bool is_scalar() const { return this->kind() == Datum::SCALAR; }
 
+  bool is_collection() const { return this->kind() == Datum::COLLECTION; }
+
   /// \brief The value type of the variant, if any
   ///
   /// \return nullptr if no type
@@ -260,7 +261,7 @@ class ARROW_EXPORT UnaryKernel : public OpKernel {
   /// \param[out] out The output of the function. Each implementation of this
   /// function might assume different things about the existing contents of out
   /// (e.g. which buffers are preallocated).  In the future it is expected that
-  /// there will be a more generic mechansim for understanding the necessary
+  /// there will be a more generic mechanism for understanding the necessary
   /// contracts.
   virtual Status Call(FunctionContext* ctx, const Datum& input, Datum* out) = 0;
 };

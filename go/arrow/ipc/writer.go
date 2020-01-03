@@ -17,7 +17,6 @@
 package ipc // import "github.com/apache/arrow/go/arrow/ipc"
 
 import (
-	"fmt"
 	"io"
 	"math"
 
@@ -25,7 +24,7 @@ import (
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 )
 
 type swriter struct {
@@ -89,7 +88,7 @@ func (w *Writer) Close() error {
 
 	err := w.pw.Close()
 	if err != nil {
-		return errors.Wrap(err, "arrow/ipc: could not close payload writer")
+		return xerrors.Errorf("arrow/ipc: could not close payload writer: %w", err)
 	}
 	w.pw = nil
 
@@ -117,7 +116,7 @@ func (w *Writer) Write(rec array.Record) error {
 	defer data.Release()
 
 	if err := enc.Encode(&data, rec); err != nil {
-		return errors.Wrap(err, "arrow/ipc: could not encode record to payload")
+		return xerrors.Errorf("arrow/ipc: could not encode record to payload: %w", err)
 	}
 
 	return w.pw.write(data)
@@ -166,7 +165,7 @@ func (w *recordEncoder) Encode(p *payload, rec array.Record) error {
 	for i, col := range rec.Columns() {
 		err := w.visit(p, col)
 		if err != nil {
-			return errors.Wrapf(err, "arrow/ipc: could not encode column %d (%q)", i, rec.ColumnName(i))
+			return xerrors.Errorf("arrow/ipc: could not encode column %d (%q): %w", i, rec.ColumnName(i), err)
 		}
 	}
 
@@ -272,7 +271,7 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		arr := arr.(*array.Binary)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
-			return errors.Wrapf(err, "could not retrieve zero-based value offsets from %T", arr)
+			return xerrors.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
 		}
 		data := arr.Data()
 		values := data.Buffers()[2]
@@ -304,7 +303,7 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		arr := arr.(*array.String)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
-			return errors.Wrapf(err, "could not retrieve zero-based value offsets from %T", arr)
+			return xerrors.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
 		}
 		data := arr.Data()
 		values := data.Buffers()[2]
@@ -338,7 +337,7 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		for i := 0; i < arr.NumField(); i++ {
 			err := w.visit(p, arr.Field(i))
 			if err != nil {
-				return errors.Wrapf(err, "could not visit field %d of struct-array", i)
+				return xerrors.Errorf("could not visit field %d of struct-array: %w", i, err)
 			}
 		}
 		w.depth++
@@ -347,7 +346,7 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		arr := arr.(*array.List)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
-			return errors.Wrapf(err, "could not retrieve zero-based value offsets for array %T", arr)
+			return xerrors.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
 		}
 		p.body = append(p.body, voffsets)
 
@@ -377,7 +376,7 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		err = w.visit(p, values)
 
 		if err != nil {
-			return errors.Wrapf(err, "could not visit list element for array %T", arr)
+			return xerrors.Errorf("could not visit list element for array %T: %w", arr, err)
 		}
 		w.depth++
 
@@ -396,12 +395,12 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		err := w.visit(p, values)
 
 		if err != nil {
-			return errors.Wrapf(err, "could not visit list element for array %T", arr)
+			return xerrors.Errorf("could not visit list element for array %T: %w", arr, err)
 		}
 		w.depth++
 
 	default:
-		panic(errors.Errorf("arrow/ipc: unknown array %T (dtype=%T)", arr, dtype))
+		panic(xerrors.Errorf("arrow/ipc: unknown array %T (dtype=%T)", arr, dtype))
 	}
 
 	return nil
@@ -412,7 +411,7 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr array.Interface) (*memory.B
 	voffsets := data.Buffers()[1]
 	if data.Offset() != 0 {
 		// FIXME(sbinet): writer.cc:231
-		panic(fmt.Errorf("not implemented offset=%d", data.Offset()))
+		panic(xerrors.Errorf("not implemented offset=%d", data.Offset()))
 	}
 	if voffsets == nil || voffsets.Len() == 0 {
 		return nil, nil

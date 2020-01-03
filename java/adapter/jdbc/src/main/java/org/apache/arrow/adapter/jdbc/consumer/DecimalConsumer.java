@@ -27,38 +27,58 @@ import org.apache.arrow.vector.DecimalVector;
  * Consumer which consume decimal type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.DecimalVector}.
  */
-public class DecimalConsumer implements JdbcConsumer<DecimalVector> {
-
-  private DecimalVector vector;
-  private final int columnIndexInResultSet;
-
-  private int currentIndex;
+public class DecimalConsumer {
 
   /**
-   * Instantiate a DecimalConsumer.
+   * Creates a consumer for {@link DecimalVector}.
    */
-  public DecimalConsumer(DecimalVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
+  public static JdbcConsumer<DecimalVector> createConsumer(DecimalVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableDecimalConsumer(vector, index);
+    } else {
+      return new NonNullableDecimalConsumer(vector, index);
     }
-    currentIndex++;
   }
 
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
+  /**
+   * Consumer for nullable decimal.
+   */
+  static class NullableDecimalConsumer extends BaseConsumer<DecimalVector> {
+
+    /**
+     * Instantiate a DecimalConsumer.
+     */
+    public NullableDecimalConsumer(DecimalVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
   }
 
-  @Override
-  public void resetValueVector(DecimalVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
+  /**
+   * Consumer for non-nullable decimal.
+   */
+  static class NonNullableDecimalConsumer extends BaseConsumer<DecimalVector> {
+
+    /**
+     * Instantiate a DecimalConsumer.
+     */
+    public NonNullableDecimalConsumer(DecimalVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }

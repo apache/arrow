@@ -104,8 +104,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     }
     file_writer->Close();
 
-    std::shared_ptr<Buffer> buffer;
-    PARQUET_THROW_NOT_OK(sink->Finish(&buffer));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
 
     int num_rows_ = num_rowgroups_ * rows_per_rowgroup_;
 
@@ -286,27 +285,63 @@ TYPED_TEST(TestSerialize, RepeatedTooFewRows) {
   ASSERT_THROW(this->RepeatedUnequalRows(), ParquetException);
 }
 
+#ifdef ARROW_WITH_SNAPPY
 TYPED_TEST(TestSerialize, SmallFileSnappy) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::SNAPPY));
 }
+#endif
 
+#ifdef ARROW_WITH_BROTLI
 TYPED_TEST(TestSerialize, SmallFileBrotli) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::BROTLI));
 }
+#endif
 
+#ifdef ARROW_WITH_GZIP
 TYPED_TEST(TestSerialize, SmallFileGzip) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::GZIP));
 }
+#endif
 
+#ifdef ARROW_WITH_LZ4
 TYPED_TEST(TestSerialize, SmallFileLz4) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::LZ4));
 }
+#endif
 
 #ifdef ARROW_WITH_ZSTD
 TYPED_TEST(TestSerialize, SmallFileZstd) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::ZSTD));
 }
 #endif
+
+TEST(TestBufferedRowGroupWriter, DisabledDictionary) {
+  // PARQUET-1706:
+  // Wrong dictionary_page_offset when writing only data pages via BufferedPageWriter
+  auto sink = CreateOutputStream();
+  auto writer_props = parquet::WriterProperties::Builder().disable_dictionary()->build();
+  schema::NodeVector fields;
+  fields.push_back(
+      PrimitiveNode::Make("col", parquet::Repetition::REQUIRED, parquet::Type::INT32));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  auto file_writer = parquet::ParquetFileWriter::Open(sink, schema, writer_props);
+  auto rg_writer = file_writer->AppendBufferedRowGroup();
+  auto col_writer = static_cast<Int32Writer*>(rg_writer->column(0));
+  int value = 0;
+  col_writer->WriteBatch(1, nullptr, nullptr, &value);
+  rg_writer->Close();
+  file_writer->Close();
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+  ASSERT_EQ(1, file_reader->metadata()->num_row_groups());
+  auto rg_reader = file_reader->RowGroup(0);
+  ASSERT_EQ(1, rg_reader->metadata()->num_columns());
+  ASSERT_EQ(1, rg_reader->metadata()->num_rows());
+  ASSERT_FALSE(rg_reader->metadata()->ColumnChunk(0)->has_dictionary_page());
+}
 
 }  // namespace test
 

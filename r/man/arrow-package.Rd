@@ -26,7 +26,7 @@ Useful links:
 
 Authors:
 \itemize{
-  \item Romain François \email{romain@rstudio.com} (0000-0002-2444-4226)
+  \item Romain François \email{romain@rstudio.com} (\href{https://orcid.org/0000-0002-2444-4226}{ORCID})
   \item Jeroen Ooms \email{jeroen@berkeley.edu}
   \item Apache Arrow \email{dev@arrow.apache.org} [copyright holder]
 }

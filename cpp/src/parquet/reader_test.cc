@@ -180,7 +180,7 @@ class TestLocalFile : public ::testing::Test {
     ss << dir_string << "/"
        << "alltypes_plain.parquet";
 
-    PARQUET_THROW_NOT_OK(ReadableFile::Open(ss.str(), &handle));
+    PARQUET_ASSIGN_OR_THROW(handle, ReadableFile::Open(ss.str()));
     fileno = handle->file_descriptor();
   }
 
@@ -328,7 +328,7 @@ Column 1
 TEST(TestJSONWithLocalFile, JSONOutput) {
   std::string json_output = R"###({
   "FileName": "alltypes_plain.parquet",
-  "Version": "0",
+  "Version": "1.0",
   "CreatedBy": "impala version 1.3.0-INTERNAL (build 8a48ddb1eff84592b3fc06bc6f51ec120e1fffc9)",
   "TotalRows": "8",
   "NumberOfRowGroups": "1",
@@ -412,9 +412,7 @@ TEST(TestFileReader, BufferedReads) {
   std::shared_ptr<WriterProperties> writer_props =
       WriterProperties::Builder().write_batch_size(64)->data_pagesize(128)->build();
 
-  std::shared_ptr<arrow::io::BufferOutputStream> out_file;
-  ASSERT_OK(arrow::io::BufferOutputStream::Create(1024, arrow::default_memory_pool(),
-                                                  &out_file));
+  ASSERT_OK_AND_ASSIGN(auto out_file, arrow::io::BufferOutputStream::Create(1024));
   std::shared_ptr<ParquetFileWriter> file_writer =
       ParquetFileWriter::Open(out_file, schema, writer_props);
 
@@ -442,8 +440,7 @@ TEST(TestFileReader, BufferedReads) {
   file_writer->Close();
 
   // Open the reader
-  std::shared_ptr<Buffer> file_buf;
-  ASSERT_OK(out_file->Finish(&file_buf));
+  ASSERT_OK_AND_ASSIGN(auto file_buf, out_file->Finish());
   auto in_file = std::make_shared<arrow::io::BufferReader>(file_buf);
 
   ReaderProperties reader_props;

@@ -20,7 +20,7 @@ arrow_install_all_headers("arrow/filesystem")
 
 add_arrow_test(filesystem_test)
 add_arrow_test(localfs_test)
-add_arrow_test(path_tree_test)
+add_arrow_test(path_forest_test)
 
 if(ARROW_S3)
   add_arrow_test(s3fs_test)
@@ -31,4 +31,8 @@ if(ARROW_S3)
                           ${GFLAGS_LIBRARIES} GTest::GTest)
     add_dependencies(arrow-tests arrow-s3fs-narrative-test)
   endif()
+endif()
+
+if(ARROW_HDFS)
+  add_arrow_test(hdfs_test)
 endif()

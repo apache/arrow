@@ -62,6 +62,9 @@ if(Thrift_ROOT)
             PATHS ${Thrift_ROOT}
             PATH_SUFFIXES "include")
   find_program(THRIFT_COMPILER thrift PATHS ${Thrift_ROOT} PATH_SUFFIXES "bin")
+  if(THRIFT_COMPILER)
+    extract_thrift_version()
+  endif()
 else()
   # THRIFT-4760: The pkgconfig files are currently only installed when using autotools.
   # Starting with 0.13, they are also installed for the CMake-based installations of Thrift.
@@ -78,11 +81,15 @@ else()
                  HINTS ${THRIFT_PC_PREFIX}
                  NO_DEFAULT_PATH
                  PATH_SUFFIXES "bin")
+    set(THRIFT_VERSION ${THRIFT_PC_VERSION})
   else()
     find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
                  PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
     find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h PATH_SUFFIXES "include")
     find_program(THRIFT_COMPILER thrift PATH_SUFFIXES "bin")
+    if(THRIFT_COMPILER)
+      extract_thrift_version()
+    endif()
   endif()
 endif()
 
@@ -90,7 +97,9 @@ find_package_handle_standard_args(Thrift
                                   REQUIRED_VARS
                                   THRIFT_STATIC_LIB
                                   THRIFT_INCLUDE_DIR
-                                  THRIFT_COMPILER)
+                                  THRIFT_COMPILER
+                                  VERSION_VAR
+                                  THRIFT_VERSION)
 
 if(Thrift_FOUND OR THRIFT_FOUND)
   set(Thrift_FOUND TRUE)
@@ -104,6 +113,4 @@ if(Thrift_FOUND OR THRIFT_FOUND)
     # thrift/windows/config.h for Visual C++.
     set_target_properties(Thrift::thrift PROPERTIES INTERFACE_LINK_LIBRARIES "ws2_32")
   endif()
-
-  extract_thrift_version()
 endif()

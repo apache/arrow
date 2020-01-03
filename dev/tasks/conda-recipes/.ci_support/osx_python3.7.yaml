@@ -2,10 +2,12 @@ MACOSX_DEPLOYMENT_TARGET:
 - '10.9'
 boost_cpp:
 - 1.70.0
+bzip2:
+- '1'
 c_compiler:
 - clang
 c_compiler_version:
-- '4'
+- '9'
 channel_sources:
 - conda-forge,defaults
 channel_targets:
@@ -13,11 +15,13 @@ channel_targets:
 cxx_compiler:
 - clangxx
 cxx_compiler_version:
-- '4'
+- '9'
 glog:
 - 0.4.0
+grpc_cpp:
+- '1.25'
 libprotobuf:
-- '3.8'
+- '3.11'
 lz4_c:
 - 1.8.3
 macos_machine:
@@ -27,7 +31,9 @@ macos_min_version:
 pin_run_as_build:
   boost-cpp:
     max_pin: x.x.x
-  libprotobuf:
+  bzip2:
+    max_pin: x
+  grpc-cpp:
     max_pin: x.x
   lz4-c:
     max_pin: x.x.x
@@ -47,4 +53,4 @@ snappy:
 zlib:
 - '1.2'
 zstd:
-- 1.4.0
+- 1.4.4

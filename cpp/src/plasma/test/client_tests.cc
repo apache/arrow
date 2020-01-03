@@ -55,7 +55,7 @@ class TestPlasmaStore : public ::testing::Test {
   // stdout of the object store. Consider changing that.
 
   void SetUp() {
-    ARROW_CHECK_OK(TemporaryDir::Make("cli-test-", &temp_dir_));
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("cli-test-"));
     store_socket_name_ = temp_dir_->path().ToString() + "store";
 
     std::string plasma_directory =
@@ -503,7 +503,7 @@ TEST_F(TestPlasmaStore, RefreshLRUTest) {
 TEST_F(TestPlasmaStore, DeleteTest) {
   ObjectID object_id = random_object_id();
 
-  // Test for deleting non-existance object.
+  // Test for deleting non-existence object.
   Status result = client_.Delete(object_id);
   ARROW_CHECK_OK(result);
 
@@ -533,7 +533,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   ObjectID object_id1 = random_object_id();
   ObjectID object_id2 = random_object_id();
 
-  // Test for deleting non-existance object.
+  // Test for deleting non-existence object.
   Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
   ARROW_CHECK_OK(result);
   // Test for the object being in local Plasma store.
@@ -881,9 +881,7 @@ void AssertCudaRead(const std::shared_ptr<Buffer>& buffer,
 
   CudaBufferReader reader(gpu_buffer);
   std::vector<uint8_t> read_data(data_size);
-  int64_t read_data_size;
-  ARROW_CHECK_OK(reader.Read(data_size, &read_data_size, read_data.data()));
-  ASSERT_EQ(read_data_size, data_size);
+  ASSERT_OK_AND_EQ(data_size, reader.Read(data_size, read_data.data()));
 
   for (size_t i = 0; i < data_size; i++) {
     ASSERT_EQ(read_data[i], expected_data[i]);
@@ -930,7 +928,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
   ObjectID object_id1 = random_object_id();
   ObjectID object_id2 = random_object_id();
 
-  // Test for deleting non-existance object.
+  // Test for deleting non-existence object.
   Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
   ARROW_CHECK_OK(result);
   // Test for the object being in local Plasma store.

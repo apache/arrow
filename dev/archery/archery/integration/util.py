@@ -37,7 +37,7 @@ SKIP_FLIGHT = 'flight'
 
 ARROW_ROOT_DEFAULT = os.environ.get(
     'ARROW_ROOT',
-    os.path.abspath(__file__).rsplit("/", 4)[0]
+    os.path.abspath(__file__).rsplit("/", 5)[0]
 )
 
 

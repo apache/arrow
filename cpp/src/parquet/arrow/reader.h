@@ -31,6 +31,7 @@ namespace arrow {
 class ChunkedArray;
 class KeyValueMetadata;
 class RecordBatchReader;
+struct Scalar;
 class Schema;
 class Table;
 class RecordBatch;
@@ -276,9 +277,9 @@ class PARQUET_EXPORT FileReaderBuilder {
   FileReaderBuilder();
 
   /// Create FileReaderBuilder from Arrow file and optional properties / metadata
-  ::arrow::Status Open(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+  ::arrow::Status Open(std::shared_ptr<::arrow::io::RandomAccessFile> file,
                        const ReaderProperties& properties = default_reader_properties(),
-                       const std::shared_ptr<FileMetaData>& metadata = NULLPTR);
+                       std::shared_ptr<FileMetaData> metadata = NULLPTR);
 
   ParquetFileReader* raw_reader() { return raw_reader_.get(); }
 
@@ -303,21 +304,21 @@ class PARQUET_EXPORT FileReaderBuilder {
 ///
 /// Advanced settings are supported through the FileReaderBuilder class.
 PARQUET_EXPORT
-::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+::arrow::Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile>,
                          ::arrow::MemoryPool* allocator,
                          std::unique_ptr<FileReader>* reader);
 
 ARROW_DEPRECATED("Deprecated since 0.15.0. Use FileReaderBuilder")
 PARQUET_EXPORT
-::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+::arrow::Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file,
                          ::arrow::MemoryPool* allocator,
                          const ReaderProperties& properties,
-                         const std::shared_ptr<FileMetaData>& metadata,
+                         std::shared_ptr<FileMetaData> metadata,
                          std::unique_ptr<FileReader>* reader);
 
 ARROW_DEPRECATED("Deprecated since 0.15.0. Use FileReaderBuilder")
 PARQUET_EXPORT
-::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+::arrow::Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file,
                          ::arrow::MemoryPool* allocator,
                          const ArrowReaderProperties& properties,
                          std::unique_ptr<FileReader>* reader);
@@ -325,15 +326,9 @@ PARQUET_EXPORT
 /// @}
 
 PARQUET_EXPORT
-::arrow::Status FromParquetSchema(
-    const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
-    const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata,
-    std::shared_ptr<::arrow::Schema>* out);
-
-PARQUET_EXPORT
-::arrow::Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                                  const ArrowReaderProperties& properties,
-                                  std::shared_ptr<::arrow::Schema>* out);
+::arrow::Status StatisticsAsScalars(const Statistics& Statistics,
+                                    std::shared_ptr<::arrow::Scalar>* min,
+                                    std::shared_ptr<::arrow::Scalar>* max);
 
 }  // namespace arrow
 }  // namespace parquet

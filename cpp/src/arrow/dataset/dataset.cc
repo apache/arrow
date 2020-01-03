@@ -24,52 +24,47 @@
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/stl.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace dataset {
 
-DataFragment::DataFragment() : scan_options_(ScanOptions::Defaults()) {}
+DataFragment::DataFragment(std::shared_ptr<ScanOptions> scan_options)
+    : scan_options_(std::move(scan_options)), partition_expression_(scalar(true)) {}
 
 SimpleDataFragment::SimpleDataFragment(
     std::vector<std::shared_ptr<RecordBatch>> record_batches,
     std::shared_ptr<ScanOptions> scan_options)
     : DataFragment(std::move(scan_options)), record_batches_(std::move(record_batches)) {}
 
-SimpleDataFragment::SimpleDataFragment(
-    std::vector<std::shared_ptr<RecordBatch>> record_batches)
-    : SimpleDataFragment(std::move(record_batches), ScanOptions::Defaults()) {}
-
-Status SimpleDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
-                                ScanTaskIterator* out) {
+Result<ScanTaskIterator> SimpleDataFragment::Scan(std::shared_ptr<ScanContext> context) {
   // Make an explicit copy of record_batches_ to ensure Scan can be called
   // multiple times.
   auto batches_it = MakeVectorIterator(record_batches_);
 
   // RecordBatch -> ScanTask
   auto scan_options = scan_options_;
-  auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::unique_ptr<ScanTask> {
+  auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::shared_ptr<ScanTask> {
     std::vector<std::shared_ptr<RecordBatch>> batches{batch};
     return ::arrow::internal::make_unique<SimpleScanTask>(
-        std::move(batches), std::move(scan_options), std::move(scan_context));
+        std::move(batches), std::move(scan_options), std::move(context));
   };
 
-  *out = MakeMapIterator(fn, std::move(batches_it));
-  return Status::OK();
+  return MakeMapIterator(fn, std::move(batches_it));
 }
 
-Status Dataset::Make(std::vector<std::shared_ptr<DataSource>> sources,
-                     std::shared_ptr<Schema> schema, std::shared_ptr<Dataset>* out) {
-  // TODO: Ensure schema and sources align.
-  *out = std::make_shared<Dataset>(std::move(sources), std::move(schema));
-
-  return Status::OK();
+Result<std::shared_ptr<Dataset>> Dataset::Make(DataSourceVector sources,
+                                               std::shared_ptr<Schema> schema) {
+  return std::shared_ptr<Dataset>(new Dataset(std::move(sources), std::move(schema)));
 }
 
-Status Dataset::NewScan(std::unique_ptr<ScannerBuilder>* out) {
-  auto context = std::make_shared<ScanContext>();
-  out->reset(new ScannerBuilder(this->shared_from_this(), context));
-  return Status::OK();
+Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan(
+    std::shared_ptr<ScanContext> context) {
+  return std::make_shared<ScannerBuilder>(this->shared_from_this(), context);
+}
+
+Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan() {
+  return NewScan(std::make_shared<ScanContext>());
 }
 
 bool DataSource::AssumePartitionExpression(

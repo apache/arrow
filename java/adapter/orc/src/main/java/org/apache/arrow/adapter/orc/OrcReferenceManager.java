@@ -75,7 +75,7 @@ public class OrcReferenceManager implements ReferenceManager {
 
   @Override
   public void retain(int increment) {
-    Preconditions.checkArgument(increment > 0, "retain(%d) argument is not positive", increment);
+    Preconditions.checkArgument(increment > 0, "retain(%s) argument is not positive", increment);
     bufRefCnt.addAndGet(increment);
   }
 

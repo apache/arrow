@@ -70,6 +70,14 @@ test_that("Array supports NA", {
   expect_equal(Array__Mask(x_dbl), c(rep(TRUE, 10), FALSE))
 })
 
+test_that("Array support null type (ARROW-7064)", {
+  a <- Array$create(vctrs::unspecified(10))
+  expect_equal(a$type, null())
+
+  v <- a$as_vector()
+  expect_equal(v, vctrs::unspecified(10))
+})
+
 test_that("Array supports logical vectors (ARROW-3341)", {
   # with NA
   x <- sample(c(TRUE, FALSE, NA), 1000, replace = TRUE)
@@ -275,12 +283,12 @@ test_that("array supports difftime", {
   expect_equal(a$length(), 2L)
   expect_equal(a$as_vector(), c(time, time))
 
-  a <- Array$create(vctrs::vec_c(time, NA))
+  a <- Array$create(vctrs::vec_c(NA, time))
   expect_equal(a$type, time32(unit = TimeUnit$SECOND))
   expect_equal(a$length(), 2L)
-  expect_true(a$IsNull(1))
-  expect_equal(a$as_vector()[1], time)
-  expect_true(is.na(a$as_vector()[2]))
+  expect_true(a$IsNull(0))
+  expect_equal(a$as_vector()[2], time)
+  expect_true(is.na(a$as_vector()[1]))
 })
 
 test_that("support for NaN (ARROW-3615)", {
@@ -373,23 +381,23 @@ test_that("Array$create() supports the type= argument. conversion from INTSXP an
 })
 
 test_that("Array$create() aborts on overflow", {
-  expect_error(Array$create(128L, type = int8())$type, "Invalid.*downsize")
-  expect_error(Array$create(-129L, type = int8())$type, "Invalid.*downsize")
+  expect_error(Array$create(128L, type = int8())$type, "Invalid.*Value is too large")
+  expect_error(Array$create(-129L, type = int8())$type, "Invalid.*Value is too large")
 
-  expect_error(Array$create(256L, type = uint8())$type, "Invalid.*downsize")
-  expect_error(Array$create(-1L, type = uint8())$type, "Invalid.*downsize")
+  expect_error(Array$create(256L, type = uint8())$type, "Invalid.*Value is too large")
+  expect_error(Array$create(-1L, type = uint8())$type, "Invalid.*Value is too large")
 
-  expect_error(Array$create(32768L, type = int16())$type, "Invalid.*downsize")
-  expect_error(Array$create(-32769L, type = int16())$type, "Invalid.*downsize")
+  expect_error(Array$create(32768L, type = int16())$type, "Invalid.*Value is too large")
+  expect_error(Array$create(-32769L, type = int16())$type, "Invalid.*Value is too large")
 
-  expect_error(Array$create(65536L, type = uint16())$type, "Invalid.*downsize")
-  expect_error(Array$create(-1L, type = uint16())$type, "Invalid.*downsize")
+  expect_error(Array$create(65536L, type = uint16())$type, "Invalid.*Value is too large")
+  expect_error(Array$create(-1L, type = uint16())$type, "Invalid.*Value is too large")
 
-  expect_error(Array$create(65536L, type = uint16())$type, "Invalid.*downsize")
-  expect_error(Array$create(-1L, type = uint16())$type, "Invalid.*downsize")
+  expect_error(Array$create(65536L, type = uint16())$type, "Invalid.*Value is too large")
+  expect_error(Array$create(-1L, type = uint16())$type, "Invalid.*Value is too large")
 
-  expect_error(Array$create(bit64::as.integer64(2^31), type = int32()), "Invalid.*downsize")
-  expect_error(Array$create(bit64::as.integer64(2^32), type = uint32()), "Invalid.*downsize")
+  expect_error(Array$create(bit64::as.integer64(2^31), type = int32()), "Invalid.*Value is too large")
+  expect_error(Array$create(bit64::as.integer64(2^32), type = uint32()), "Invalid.*Value is too large")
 })
 
 test_that("Array$create() does not convert doubles to integer", {

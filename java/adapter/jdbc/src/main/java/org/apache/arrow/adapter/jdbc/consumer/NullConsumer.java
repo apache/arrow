@@ -26,25 +26,13 @@ import org.apache.arrow.vector.NullVector;
  * Consumer which consume null type values from ResultSet.
  * Corresponding to {@link org.apache.arrow.vector.NullVector}.
  */
-public class NullConsumer implements JdbcConsumer<NullVector> {
-
-  private NullVector vector;
+public class NullConsumer extends BaseConsumer<NullVector> {
 
   public NullConsumer(NullVector vector) {
-    this.vector = vector;
+    super(vector, 0);
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(NullVector vector) {
-    this.vector = vector;
   }
 }

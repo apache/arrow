@@ -32,9 +32,15 @@ module Arrow
     end
 
     def require_libraries
+      require "arrow/column-containable"
+      require "arrow/field-containable"
+      require "arrow/generic-filterable"
+      require "arrow/generic-takeable"
+      require "arrow/record-containable"
+
       require "arrow/array"
       require "arrow/array-builder"
-      require "arrow/binary-array-builder"
+      require "arrow/bigdecimal-extension"
       require "arrow/chunked-array"
       require "arrow/column"
       require "arrow/compression-type"
@@ -53,8 +59,10 @@ module Arrow
       require "arrow/dictionary-data-type"
       require "arrow/field"
       require "arrow/file-output-stream"
+      require "arrow/group"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"
+      require "arrow/null-array"
       require "arrow/null-array-builder"
       require "arrow/path-extension"
       require "arrow/record"

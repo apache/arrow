@@ -34,10 +34,10 @@ class TestToDateHolder : public ::testing::Test {
     auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
     auto pattern_node =
         std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
-    auto suppres_error_node =
+    auto suppress_error_node =
         std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(0), false);
     return FunctionNode("to_date_utf8_utf8_int32",
-                        {field, pattern_node, suppres_error_node}, arrow::int64());
+                        {field, pattern_node, suppress_error_node}, arrow::int64());
   }
 
  protected:
@@ -98,7 +98,7 @@ TEST_F(TestToDateHolder, TestSimpleDate) {
   millis_since_epoch = to_date(&execution_context_, "2012-12-1", true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 1354320000000);
 
-  // wrong month. should return 0 since we are suppresing errors.
+  // wrong month. should return 0 since we are suppressing errors.
   millis_since_epoch =
       to_date(&execution_context_, "1986-21-01 01:01:01 +0800", true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 0);

@@ -34,6 +34,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/make_unique.h"
 
 #include "arrow/flight/api.h"
 

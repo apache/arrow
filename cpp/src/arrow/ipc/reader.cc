@@ -120,7 +120,7 @@ class IpcComponentSource {
             "Buffer ", buffer_index,
             " did not start on 8-byte aligned offset: ", buffer->offset());
       }
-      return file_->ReadAt(buffer->offset(), buffer->length(), out);
+      return file_->ReadAt(buffer->offset(), buffer->length()).Value(out);
     }
   }
 
@@ -262,19 +262,16 @@ class ArrayLoader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<FixedWidthType, T>::value &&
-                              !std::is_base_of<FixedSizeBinaryType, T>::value &&
-                              !std::is_base_of<DictionaryType, T>::value,
-                          Status>::type
+  enable_if_t<std::is_base_of<FixedWidthType, T>::value &&
+                  !std::is_base_of<FixedSizeBinaryType, T>::value &&
+                  !std::is_base_of<DictionaryType, T>::value,
+              Status>
   Visit(const T& type) {
     return LoadPrimitive<T>();
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryType, T>::value ||
-                              std::is_base_of<LargeBinaryType, T>::value,
-                          Status>::type
-  Visit(const T& type) {
+  enable_if_base_binary<T, Status> Visit(const T& type) {
     return LoadBinary<T>();
   }
 
@@ -631,9 +628,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
       return Status::Invalid("File is too small: ", footer_offset_);
     }
 
-    std::shared_ptr<Buffer> buffer;
     int file_end_size = static_cast<int>(magic_size + sizeof(int32_t));
-    RETURN_NOT_OK(file_->ReadAt(footer_offset_ - file_end_size, file_end_size, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer,
+                          file_->ReadAt(footer_offset_ - file_end_size, file_end_size));
 
     const int64_t expected_footer_size = magic_size + sizeof(int32_t);
     if (buffer->size() < expected_footer_size) {
@@ -651,8 +648,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     }
 
     // Now read the footer
-    RETURN_NOT_OK(file_->ReadAt(footer_offset_ - footer_length - file_end_size,
-                                footer_length, &footer_buffer_));
+    ARROW_ASSIGN_OR_RAISE(
+        footer_buffer_,
+        file_->ReadAt(footer_offset_ - footer_length - file_end_size, footer_length));
 
     auto data = footer_buffer_->data();
     flatbuffers::Verifier verifier(data, footer_buffer_->size(), 128);
@@ -768,8 +766,7 @@ RecordBatchFileReader::~RecordBatchFileReader() {}
 
 Status RecordBatchFileReader::Open(io::RandomAccessFile* file,
                                    std::shared_ptr<RecordBatchFileReader>* reader) {
-  int64_t footer_offset;
-  RETURN_NOT_OK(file->GetSize(&footer_offset));
+  ARROW_ASSIGN_OR_RAISE(int64_t footer_offset, file->GetSize());
   return Open(file, footer_offset, reader);
 }
 
@@ -781,8 +778,7 @@ Status RecordBatchFileReader::Open(io::RandomAccessFile* file, int64_t footer_of
 
 Status RecordBatchFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
                                    std::shared_ptr<RecordBatchFileReader>* reader) {
-  int64_t footer_offset;
-  RETURN_NOT_OK(file->GetSize(&footer_offset));
+  ARROW_ASSIGN_OR_RAISE(int64_t footer_offset, file->GetSize());
   return Open(file, footer_offset, reader);
 }
 
@@ -844,37 +840,35 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
                          &buffer_reader, out);
 }
 
-Status ReadTensor(io::InputStream* file, std::shared_ptr<Tensor>* out) {
+Result<std::shared_ptr<Tensor>> ReadTensor(io::InputStream* file) {
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
-  return ReadTensor(*message, out);
+  return ReadTensor(*message);
 }
 
-Status ReadTensor(const Message& message, std::shared_ptr<Tensor>* out) {
+Result<std::shared_ptr<Tensor>> ReadTensor(const Message& message) {
   std::shared_ptr<DataType> type;
   std::vector<int64_t> shape;
   std::vector<int64_t> strides;
   std::vector<std::string> dim_names;
   RETURN_NOT_OK(internal::GetTensorMetadata(*message.metadata(), &type, &shape, &strides,
                                             &dim_names));
-  *out = std::make_shared<Tensor>(type, message.body(), shape, strides, dim_names);
-  return Status::OK();
+  return Tensor::Make(type, message.body(), shape, strides, dim_names);
 }
 
 namespace {
 
-Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor,
-                          const std::vector<int64_t>& shape, int64_t non_zero_length,
-                          io::RandomAccessFile* file, std::shared_ptr<SparseIndex>* out) {
+Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
+    const flatbuf::SparseTensor* sparse_tensor, const std::vector<int64_t>& shape,
+    int64_t non_zero_length, io::RandomAccessFile* file) {
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexCOO();
 
   std::shared_ptr<DataType> indices_type;
   RETURN_NOT_OK(internal::GetSparseCOOIndexMetadata(sparse_index, &indices_type));
 
   auto* indices_buffer = sparse_index->indicesBuffer();
-  std::shared_ptr<Buffer> indices_data;
-  RETURN_NOT_OK(
-      file->ReadAt(indices_buffer->offset(), indices_buffer->length(), &indices_data));
+  ARROW_ASSIGN_OR_RAISE(auto indices_data,
+                        file->ReadAt(indices_buffer->offset(), indices_buffer->length()));
   std::vector<int64_t> indices_shape(
       {non_zero_length, static_cast<int64_t>(shape.size())});
   auto* indices_strides = sparse_index->indicesStrides();
@@ -882,120 +876,274 @@ Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor,
   // Assume indices_strides is a 2-length array.
   strides.push_back(indices_strides->Get(0));
   strides.push_back(indices_strides->Get(1));
-  *out = std::make_shared<SparseCOOIndex>(
+  return std::make_shared<SparseCOOIndex>(
       std::make_shared<Tensor>(indices_type, indices_data, indices_shape, strides));
-  return Status::OK();
 }
 
-Status ReadSparseCSRIndex(const flatbuf::SparseTensor* sparse_tensor,
-                          const std::vector<int64_t>& shape, int64_t non_zero_length,
-                          io::RandomAccessFile* file, std::shared_ptr<SparseIndex>* out) {
-  auto* sparse_index = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSR();
+Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
+    const flatbuf::SparseTensor* sparse_tensor, const std::vector<int64_t>& shape,
+    int64_t non_zero_length, io::RandomAccessFile* file) {
+  if (shape.size() != 2) {
+    return Status::Invalid("Invalid shape length for a sparse matrix");
+  }
+
+  auto* sparse_index = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX();
 
   std::shared_ptr<DataType> indptr_type, indices_type;
   RETURN_NOT_OK(
-      internal::GetSparseCSRIndexMetadata(sparse_index, &indptr_type, &indices_type));
+      internal::GetSparseCSXIndexMetadata(sparse_index, &indptr_type, &indices_type));
 
   auto* indptr_buffer = sparse_index->indptrBuffer();
-  std::shared_ptr<Buffer> indptr_data;
-  RETURN_NOT_OK(
-      file->ReadAt(indptr_buffer->offset(), indptr_buffer->length(), &indptr_data));
+  ARROW_ASSIGN_OR_RAISE(auto indptr_data,
+                        file->ReadAt(indptr_buffer->offset(), indptr_buffer->length()));
 
   auto* indices_buffer = sparse_index->indicesBuffer();
-  std::shared_ptr<Buffer> indices_data;
-  RETURN_NOT_OK(
-      file->ReadAt(indices_buffer->offset(), indices_buffer->length(), &indices_data));
+  ARROW_ASSIGN_OR_RAISE(auto indices_data,
+                        file->ReadAt(indices_buffer->offset(), indices_buffer->length()));
 
-  std::vector<int64_t> indptr_shape({shape[0] + 1});
   std::vector<int64_t> indices_shape({non_zero_length});
+  const auto indices_minimum_bytes =
+      indices_shape[0] * checked_pointer_cast<FixedWidthType>(indices_type)->bit_width() /
+      CHAR_BIT;
+  if (indices_minimum_bytes > indices_buffer->length()) {
+    return Status::Invalid("shape is inconsistent to the size of indices buffer");
+  }
 
-  *out = std::make_shared<SparseCSRIndex>(
-      std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
-      std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
-  return Status::OK();
+  switch (sparse_index->compressedAxis()) {
+    case flatbuf::SparseMatrixCompressedAxis_Row: {
+      std::vector<int64_t> indptr_shape({shape[0] + 1});
+      const int64_t indptr_minimum_bytes =
+          indptr_shape[0] *
+          checked_pointer_cast<FixedWidthType>(indptr_type)->bit_width() / CHAR_BIT;
+      if (indptr_minimum_bytes > indptr_buffer->length()) {
+        return Status::Invalid("shape is inconsistent to the size of indptr buffer");
+      }
+      return std::make_shared<SparseCSRIndex>(
+          std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
+          std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
+    }
+    case flatbuf::SparseMatrixCompressedAxis_Column: {
+      std::vector<int64_t> indptr_shape({shape[1] + 1});
+      const int64_t indptr_minimum_bytes =
+          indptr_shape[0] *
+          checked_pointer_cast<FixedWidthType>(indptr_type)->bit_width() / CHAR_BIT;
+      if (indptr_minimum_bytes > indptr_buffer->length()) {
+        return Status::Invalid("shape is inconsistent to the size of indptr buffer");
+      }
+      return std::make_shared<SparseCSCIndex>(
+          std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
+          std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
+    }
+    default:
+      return Status::Invalid("Invalid value of SparseMatrixCompressedAxis");
+  }
 }
 
-Status MakeSparseTensorWithSparseCOOIndex(
+Result<std::shared_ptr<SparseTensor>> MakeSparseTensorWithSparseCOOIndex(
     const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCOOIndex>& sparse_index, int64_t non_zero_length,
-    const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
-  *out = std::make_shared<SparseCOOTensor>(sparse_index, type, data, shape, dim_names);
-  return Status::OK();
+    const std::shared_ptr<Buffer>& data) {
+  return SparseCOOTensor::Make(sparse_index, type, data, shape, dim_names);
 }
 
-Status MakeSparseTensorWithSparseCSRIndex(
+Result<std::shared_ptr<SparseTensor>> MakeSparseTensorWithSparseCSRIndex(
     const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCSRIndex>& sparse_index, int64_t non_zero_length,
-    const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
-  *out = std::make_shared<SparseCSRMatrix>(sparse_index, type, data, shape, dim_names);
-  return Status::OK();
+    const std::shared_ptr<Buffer>& data) {
+  return SparseCSRMatrix::Make(sparse_index, type, data, shape, dim_names);
 }
 
-}  // namespace
+Result<std::shared_ptr<SparseTensor>> MakeSparseTensorWithSparseCSCIndex(
+    const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
+    const std::vector<std::string>& dim_names,
+    const std::shared_ptr<SparseCSCIndex>& sparse_index, int64_t non_zero_length,
+    const std::shared_ptr<Buffer>& data) {
+  return SparseCSCMatrix::Make(sparse_index, type, data, shape, dim_names);
+}
 
-Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
-                        std::shared_ptr<SparseTensor>* out) {
-  std::shared_ptr<DataType> type;
-  std::vector<int64_t> shape;
-  std::vector<std::string> dim_names;
-  int64_t non_zero_length;
-  SparseTensorFormat::type sparse_tensor_format_id;
-
+Status ReadSparseTensorMetadata(const Buffer& metadata,
+                                std::shared_ptr<DataType>* out_type,
+                                std::vector<int64_t>* out_shape,
+                                std::vector<std::string>* out_dim_names,
+                                int64_t* out_non_zero_length,
+                                SparseTensorFormat::type* out_format_id,
+                                const flatbuf::SparseTensor** out_fb_sparse_tensor,
+                                const flatbuf::Buffer** out_buffer) {
   RETURN_NOT_OK(internal::GetSparseTensorMetadata(
-      metadata, &type, &shape, &dim_names, &non_zero_length, &sparse_tensor_format_id));
+      metadata, out_type, out_shape, out_dim_names, out_non_zero_length, out_format_id));
 
   const flatbuf::Message* message;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
+
   auto sparse_tensor = message->header_as_SparseTensor();
   if (sparse_tensor == nullptr) {
     return Status::IOError(
         "Header-type of flatbuffer-encoded Message is not SparseTensor.");
   }
-  const flatbuf::Buffer* buffer = sparse_tensor->data();
+  *out_fb_sparse_tensor = sparse_tensor;
+
+  auto buffer = sparse_tensor->data();
   if (!BitUtil::IsMultipleOf8(buffer->offset())) {
     return Status::Invalid(
         "Buffer of sparse index data did not start on 8-byte aligned offset: ",
         buffer->offset());
   }
+  *out_buffer = buffer;
 
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(file->ReadAt(buffer->offset(), buffer->length(), &data));
+  return Status::OK();
+}
 
-  std::shared_ptr<SparseIndex> sparse_index;
-  switch (sparse_tensor_format_id) {
+}  // namespace
+
+namespace internal {
+
+namespace {
+
+Result<size_t> GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id) {
+  switch (format_id) {
     case SparseTensorFormat::COO:
-      RETURN_NOT_OK(
-          ReadSparseCOOIndex(sparse_tensor, shape, non_zero_length, file, &sparse_index));
-      return MakeSparseTensorWithSparseCOOIndex(
-          type, shape, dim_names, checked_pointer_cast<SparseCOOIndex>(sparse_index),
-          non_zero_length, data, out);
+      return 2;
 
     case SparseTensorFormat::CSR:
-      RETURN_NOT_OK(
-          ReadSparseCSRIndex(sparse_tensor, shape, non_zero_length, file, &sparse_index));
-      return MakeSparseTensorWithSparseCSRIndex(
-          type, shape, dim_names, checked_pointer_cast<SparseCSRIndex>(sparse_index),
-          non_zero_length, data, out);
+      return 3;
 
+    default:
+      return Status::Invalid("Unrecognized sparse tensor format");
+  }
+}
+
+Status CheckSparseTensorBodyBufferCount(
+    const IpcPayload& payload, SparseTensorFormat::type sparse_tensor_format_id) {
+  size_t expected_body_buffer_count = 0;
+  ARROW_ASSIGN_OR_RAISE(expected_body_buffer_count,
+                        GetSparseTensorBodyBufferCount(sparse_tensor_format_id));
+  if (payload.body_buffers.size() != expected_body_buffer_count) {
+    return Status::Invalid("Invalid body buffer count for a sparse tensor");
+  }
+
+  return Status::OK();
+}
+
+}  // namespace
+
+Result<size_t> ReadSparseTensorBodyBufferCount(const Buffer& metadata) {
+  SparseTensorFormat::type format_id;
+
+  RETURN_NOT_OK(internal::GetSparseTensorMetadata(metadata, nullptr, nullptr, nullptr,
+                                                  nullptr, &format_id));
+  return GetSparseTensorBodyBufferCount(format_id);
+}
+
+Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& payload) {
+  std::shared_ptr<DataType> type;
+  std::vector<int64_t> shape;
+  std::vector<std::string> dim_names;
+  int64_t non_zero_length;
+  SparseTensorFormat::type sparse_tensor_format_id;
+  const flatbuf::SparseTensor* sparse_tensor;
+  const flatbuf::Buffer* buffer;
+
+  RETURN_NOT_OK(ReadSparseTensorMetadata(*payload.metadata, &type, &shape, &dim_names,
+                                         &non_zero_length, &sparse_tensor_format_id,
+                                         &sparse_tensor, &buffer));
+
+  RETURN_NOT_OK(CheckSparseTensorBodyBufferCount(payload, sparse_tensor_format_id));
+
+  switch (sparse_tensor_format_id) {
+    case SparseTensorFormat::COO: {
+      std::shared_ptr<SparseCOOIndex> sparse_index;
+      std::shared_ptr<DataType> indices_type;
+      RETURN_NOT_OK(internal::GetSparseCOOIndexMetadata(
+          sparse_tensor->sparseIndex_as_SparseTensorIndexCOO(), &indices_type));
+      ARROW_ASSIGN_OR_RAISE(sparse_index,
+                            SparseCOOIndex::Make(indices_type, shape, non_zero_length,
+                                                 payload.body_buffers[0]));
+      return MakeSparseTensorWithSparseCOOIndex(type, shape, dim_names, sparse_index,
+                                                non_zero_length, payload.body_buffers[1]);
+    }
+    case SparseTensorFormat::CSR: {
+      std::shared_ptr<SparseCSRIndex> sparse_index;
+      std::shared_ptr<DataType> indptr_type;
+      std::shared_ptr<DataType> indices_type;
+      RETURN_NOT_OK(internal::GetSparseCSXIndexMetadata(
+          sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX(), &indptr_type,
+          &indices_type));
+      ARROW_CHECK_EQ(indptr_type, indices_type);
+      ARROW_ASSIGN_OR_RAISE(
+          sparse_index,
+          SparseCSRIndex::Make(indices_type, shape, non_zero_length,
+                               payload.body_buffers[0], payload.body_buffers[1]));
+      return MakeSparseTensorWithSparseCSRIndex(type, shape, dim_names, sparse_index,
+                                                non_zero_length, payload.body_buffers[2]);
+    }
+    case SparseTensorFormat::CSC: {
+      return Status::NotImplemented("TODO: CSC support");
+    }
     default:
       return Status::Invalid("Unsupported sparse index format");
   }
 }
 
-Status ReadSparseTensor(const Message& message, std::shared_ptr<SparseTensor>* out) {
-  io::BufferReader buffer_reader(message.body());
-  return ReadSparseTensor(*message.metadata(), &buffer_reader, out);
+}  // namespace internal
+
+Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Buffer& metadata,
+                                                       io::RandomAccessFile* file) {
+  std::shared_ptr<DataType> type;
+  std::vector<int64_t> shape;
+  std::vector<std::string> dim_names;
+  int64_t non_zero_length;
+  SparseTensorFormat::type sparse_tensor_format_id;
+  const flatbuf::SparseTensor* sparse_tensor;
+  const flatbuf::Buffer* buffer;
+
+  RETURN_NOT_OK(ReadSparseTensorMetadata(metadata, &type, &shape, &dim_names,
+                                         &non_zero_length, &sparse_tensor_format_id,
+                                         &sparse_tensor, &buffer));
+
+  ARROW_ASSIGN_OR_RAISE(auto data, file->ReadAt(buffer->offset(), buffer->length()));
+
+  std::shared_ptr<SparseIndex> sparse_index;
+  switch (sparse_tensor_format_id) {
+    case SparseTensorFormat::COO: {
+      ARROW_ASSIGN_OR_RAISE(
+          sparse_index, ReadSparseCOOIndex(sparse_tensor, shape, non_zero_length, file));
+      return MakeSparseTensorWithSparseCOOIndex(
+          type, shape, dim_names, checked_pointer_cast<SparseCOOIndex>(sparse_index),
+          non_zero_length, data);
+    }
+    case SparseTensorFormat::CSR: {
+      ARROW_ASSIGN_OR_RAISE(
+          sparse_index, ReadSparseCSXIndex(sparse_tensor, shape, non_zero_length, file));
+      return MakeSparseTensorWithSparseCSRIndex(
+          type, shape, dim_names, checked_pointer_cast<SparseCSRIndex>(sparse_index),
+          non_zero_length, data);
+    }
+    case SparseTensorFormat::CSC: {
+      ARROW_ASSIGN_OR_RAISE(
+          sparse_index, ReadSparseCSXIndex(sparse_tensor, shape, non_zero_length, file));
+      return MakeSparseTensorWithSparseCSCIndex(
+          type, shape, dim_names, checked_pointer_cast<SparseCSCIndex>(sparse_index),
+          non_zero_length, data);
+    }
+    default:
+      return Status::Invalid("Unsupported sparse index format");
+  }
 }
 
-Status ReadSparseTensor(io::InputStream* file, std::shared_ptr<SparseTensor>* out) {
+Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Message& message) {
+  io::BufferReader buffer_reader(message.body());
+  return ReadSparseTensor(*message.metadata(), &buffer_reader);
+}
+
+Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file) {
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   CHECK_MESSAGE_TYPE(Message::SPARSE_TENSOR, message->type());
   CHECK_HAS_BODY(*message);
   io::BufferReader buffer_reader(message->body());
-  return ReadSparseTensor(*message->metadata(), &buffer_reader, out);
+  return ReadSparseTensor(*message->metadata(), &buffer_reader);
 }
 
 }  // namespace ipc

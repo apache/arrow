@@ -26,9 +26,7 @@ using Rcpp::RawVector_;
 // [[arrow::export]]
 std::shared_ptr<arrow::Buffer> io___Readable__Read(
     const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes) {
-  std::shared_ptr<arrow::Buffer> buf;
-  STOP_IF_NOT_OK(x->Read(nbytes, &buf));
-  return buf;
+  return VALUE_OR_STOP(x->Read(nbytes));
 }
 
 // ------ arrow::io::InputStream
@@ -50,9 +48,7 @@ void io___OutputStream__Close(const std::shared_ptr<arrow::io::OutputStream>& x)
 // [[arrow::export]]
 int64_t io___RandomAccessFile__GetSize(
     const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
-  int64_t out;
-  STOP_IF_NOT_OK(x->GetSize(&out));
-  return out;
+  return VALUE_OR_STOP(x->GetSize());
 }
 
 // [[arrow::export]]
@@ -70,32 +66,24 @@ void io___RandomAccessFile__Seek(const std::shared_ptr<arrow::io::RandomAccessFi
 // [[arrow::export]]
 int64_t io___RandomAccessFile__Tell(
     const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
-  int64_t out;
-  STOP_IF_NOT_OK(x->Tell(&out));
-  return out;
+  return VALUE_OR_STOP(x->Tell());
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Buffer> io___RandomAccessFile__Read0(
     const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
-  int64_t current;
-  STOP_IF_NOT_OK(x->Tell(&current));
+  int64_t current = VALUE_OR_STOP(x->Tell());
 
-  int64_t n;
-  STOP_IF_NOT_OK(x->GetSize(&n));
+  int64_t n = VALUE_OR_STOP(x->GetSize());
 
-  std::shared_ptr<arrow::Buffer> buf;
-  STOP_IF_NOT_OK(x->Read(n - current, &buf));
-  return buf;
+  return VALUE_OR_STOP(x->Read(n - current));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Buffer> io___RandomAccessFile__ReadAt(
     const std::shared_ptr<arrow::io::RandomAccessFile>& x, int64_t position,
     int64_t nbytes) {
-  std::shared_ptr<arrow::Buffer> buf;
-  STOP_IF_NOT_OK(x->ReadAt(position, nbytes, &buf));
-  return buf;
+  return VALUE_OR_STOP(x->ReadAt(position, nbytes));
 }
 
 // ------ arrow::io::MemoryMappedFile
@@ -103,17 +91,13 @@ std::shared_ptr<arrow::Buffer> io___RandomAccessFile__ReadAt(
 // [[arrow::export]]
 std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Create(
     const std::string& path, int64_t size) {
-  std::shared_ptr<arrow::io::MemoryMappedFile> out;
-  STOP_IF_NOT_OK(arrow::io::MemoryMappedFile::Create(path, size, &out));
-  return out;
+  return VALUE_OR_STOP(arrow::io::MemoryMappedFile::Create(path, size));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Open(
     const std::string& path, arrow::io::FileMode::type mode) {
-  std::shared_ptr<arrow::io::MemoryMappedFile> out;
-  STOP_IF_NOT_OK(arrow::io::MemoryMappedFile::Open(path, mode, &out));
-  return out;
+  return VALUE_OR_STOP(arrow::io::MemoryMappedFile::Open(path, mode));
 }
 
 // [[arrow::export]]
@@ -127,9 +111,7 @@ void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMapped
 // [[arrow::export]]
 std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(
     const std::string& path) {
-  std::shared_ptr<arrow::io::ReadableFile> out;
-  STOP_IF_NOT_OK(arrow::io::ReadableFile::Open(path, &out));
-  return out;
+  return VALUE_OR_STOP(arrow::io::ReadableFile::Open(path));
 }
 
 // ------ arrow::io::BufferReader
@@ -152,9 +134,7 @@ void io___Writable__write(const std::shared_ptr<arrow::io::Writable>& stream,
 
 // [[arrow::export]]
 int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& stream) {
-  int64_t position;
-  STOP_IF_NOT_OK(stream->Tell(&position));
-  return position;
+  return VALUE_OR_STOP(stream->Tell());
 }
 
 // ------ arrow::io::FileOutputStream
@@ -162,9 +142,7 @@ int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(
     const std::string& path) {
-  std::shared_ptr<arrow::io::FileOutputStream> stream;
-  STOP_IF_NOT_OK(arrow::io::FileOutputStream::Open(path, &stream));
-  return stream;
+  return VALUE_OR_STOP(arrow::io::FileOutputStream::Open(path));
 }
 
 // ------ arrow::BufferOutputStream
@@ -172,10 +150,8 @@ std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(
 // [[arrow::export]]
 std::shared_ptr<arrow::io::BufferOutputStream> io___BufferOutputStream__Create(
     int64_t initial_capacity) {
-  std::shared_ptr<arrow::io::BufferOutputStream> stream;
-  STOP_IF_NOT_OK(arrow::io::BufferOutputStream::Create(
-      initial_capacity, arrow::default_memory_pool(), &stream));
-  return stream;
+  return VALUE_OR_STOP(arrow::io::BufferOutputStream::Create(
+      initial_capacity, arrow::default_memory_pool()));
 }
 
 // [[arrow::export]]
@@ -187,17 +163,13 @@ int64_t io___BufferOutputStream__capacity(
 // [[arrow::export]]
 std::shared_ptr<arrow::Buffer> io___BufferOutputStream__Finish(
     const std::shared_ptr<arrow::io::BufferOutputStream>& stream) {
-  std::shared_ptr<arrow::Buffer> buffer;
-  STOP_IF_NOT_OK(stream->Finish(&buffer));
-  return buffer;
+  return VALUE_OR_STOP(stream->Finish());
 }
 
 // [[arrow::export]]
 int64_t io___BufferOutputStream__Tell(
     const std::shared_ptr<arrow::io::BufferOutputStream>& stream) {
-  int64_t res;
-  STOP_IF_NOT_OK(stream->Tell(&res));
-  return res;
+  return VALUE_OR_STOP(stream->Tell());
 }
 
 // [[arrow::export]]

@@ -731,6 +731,112 @@ cdef class LargeListValue(ArrayValue):
         return result
 
 
+cdef class MapValue(ArrayValue):
+    """
+    Concrete class for map array elements.
+    """
+
+    def __len__(self):
+        """
+        Return the number of values.
+        """
+        return self.length()
+
+    def __getitem__(self, i):
+        """
+        Return the value at the given index.
+        """
+        return self.getitem(_normalize_index(i, self.length()))
+
+    def __iter__(self):
+        """
+        Iterate over this element's values.
+        """
+        for i in range(len(self)):
+            yield self.getitem(i)
+        raise StopIteration
+
+    cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
+        self.sp_array = sp_array
+        self.ap = <CMapArray*> sp_array.get()
+        self.key_type = pyarrow_wrap_data_type(self.ap.map_type().key_type())
+        self.item_type = pyarrow_wrap_data_type(self.ap.map_type().item_type())
+
+    cdef getitem(self, int64_t i):
+        cdef int64_t j = self.ap.value_offset(self.index) + i
+        return (box_scalar(self.key_type, self.ap.keys(), j),
+                box_scalar(self.item_type, self.ap.items(), j))
+
+    cdef int64_t length(self):
+        return self.ap.value_length(self.index)
+
+    def as_py(self):
+        """
+        Return this value as a Python list of tuples, each containing a
+        key and item.
+        """
+        cdef:
+            int64_t j
+            list result = []
+
+        for j in range(len(self)):
+            key, item = self.getitem(j)
+            result.append((key.as_py(), item.as_py()))
+
+        return result
+
+
+cdef class FixedSizeListValue(ArrayValue):
+    """
+    Concrete class for fixed size list array elements.
+    """
+
+    def __len__(self):
+        """
+        Return the number of values.
+        """
+        return self.length()
+
+    def __getitem__(self, i):
+        """
+        Return the value at the given index.
+        """
+        return self.getitem(_normalize_index(i, self.length()))
+
+    def __iter__(self):
+        """
+        Iterate over this element's values.
+        """
+        for i in range(len(self)):
+            yield self.getitem(i)
+        raise StopIteration
+
+    cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
+        self.sp_array = sp_array
+        self.ap = <CFixedSizeListArray*> sp_array.get()
+        self.value_type = pyarrow_wrap_data_type(self.ap.value_type())
+
+    cdef getitem(self, int64_t i):
+        cdef int64_t j = self.ap.value_offset(self.index) + i
+        return box_scalar(self.value_type, self.ap.values(), j)
+
+    cdef int64_t length(self):
+        return self.ap.value_length(self.index)
+
+    def as_py(self):
+        """
+        Return this value as a Python list.
+        """
+        cdef:
+            int64_t j
+            list result = []
+
+        for j in range(len(self)):
+            result.append(self.getitem(j).as_py())
+
+        return result
+
+
 cdef class UnionValue(ArrayValue):
     """
     Concrete class for union array elements.
@@ -741,12 +847,12 @@ cdef class UnionValue(ArrayValue):
         self.ap = <CUnionArray*> sp_array.get()
 
     cdef getitem(self, int64_t i):
-        cdef int8_t type_id = self.ap.raw_type_ids()[i]
-        cdef shared_ptr[CArray] child = self.ap.child(type_id)
+        cdef int child_id = self.ap.child_id(i)
+        cdef shared_ptr[CArray] child = self.ap.child(child_id)
         if self.ap.mode() == _UnionMode_SPARSE:
-            return box_scalar(self.type[type_id].type, child, i)
+            return box_scalar(self.type[child_id].type, child, i)
         else:
-            return box_scalar(self.type[type_id].type, child,
+            return box_scalar(self.type[child_id].type, child,
                               self.ap.value_offset(i))
 
     def as_py(self):
@@ -876,6 +982,8 @@ cdef dict _array_value_classes = {
     _Type_DOUBLE: DoubleValue,
     _Type_LIST: ListValue,
     _Type_LARGE_LIST: LargeListValue,
+    _Type_MAP: MapValue,
+    _Type_FIXED_SIZE_LIST: FixedSizeListValue,
     _Type_UNION: UnionValue,
     _Type_BINARY: BinaryValue,
     _Type_STRING: StringValue,

@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-oxford_paste <- function(x, conjunction = "and") {
-  if (is.character(x)) {
+oxford_paste <- function(x, conjunction = "and", quote = TRUE) {
+  if (quote && is.character(x)) {
     x <- paste0('"', x, '"')
   }
   if (length(x) < 2) {
@@ -33,4 +33,10 @@ oxford_paste <- function(x, conjunction = "and") {
 assert_is <- function(object, class) {
   msg <- paste(substitute(object), "must be a", oxford_paste(class, "or"))
   assert_that(inherits(object, class), msg = msg)
+}
+
+assert_is_list_of <- function(object, class) {
+  msg <- paste(substitute(object), "must be a list of", oxford_paste(class, "or"))
+  assert_that(is.list(object), msg = msg)
+  assert_that(all(map_lgl(object, ~inherits(., class))), msg = msg)
 }

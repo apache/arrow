@@ -41,7 +41,6 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/stl.h"
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/client_auth.h"

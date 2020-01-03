@@ -22,7 +22,7 @@ import re
 
 from .core import BenchmarkSuite
 from .google import GoogleBenchmarkCommand, GoogleBenchmark
-from ..lang.cpp import CppCMakeDefinition
+from ..lang.cpp import CppCMakeDefinition, CppConfiguration
 from ..utils.cmake import CMakeBuild
 from ..utils.logger import logger
 
@@ -132,6 +132,13 @@ class CppBenchmarkRunner(BenchmarkRunner):
         """ Initialize a CppBenchmarkRunner. """
         self.build = build
         super().__init__(**kwargs)
+
+    @staticmethod
+    def default_configuration(**kwargs):
+        """ Returns the default benchmark configuration. """
+        return CppConfiguration(
+            build_type="release", with_tests=True, with_benchmarks=True,
+            with_compute=True, with_python=False, **kwargs)
 
     @property
     def suites_binaries(self):

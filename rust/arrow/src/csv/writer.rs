@@ -37,7 +37,7 @@
 //!     Field::new("c3", DataType::UInt32, false),
 //!     Field::new("c3", DataType::Boolean, true),
 //! ]);
-//! let c1 = BinaryArray::from(vec![
+//! let c1 = StringArray::from(vec![
 //!     "Lorem ipsum dolor sit amet",
 //!     "consectetur adipiscing elit",
 //!     "sed do eiusmod tempor",
@@ -90,7 +90,7 @@ where
 /// A CSV writer
 pub struct Writer<W: Write> {
     /// The object to write to
-    writer: W,
+    writer: csv_crate::Writer<W>,
     /// Column delimiter. Defaults to `b','`
     delimiter: u8,
     /// Whether file should be written with headers. Defaults to `true`
@@ -105,15 +105,15 @@ pub struct Writer<W: Write> {
     beginning: bool,
 }
 
-impl<'a, 'b: 'a, W: Write + 'b> Writer<W>
-where
-    &'a W: Write,
-{
+impl<W: Write> Writer<W> {
     /// Create a new CsvWriter from a writable object, with default options
     pub fn new(writer: W) -> Self {
+        let delimiter = b',';
+        let mut builder = csv_crate::WriterBuilder::new();
+        let writer = builder.delimiter(delimiter).from_writer(writer);
         Writer {
             writer,
-            delimiter: b',',
+            delimiter,
             has_headers: true,
             date_format: DEFAULT_DATE_FORMAT.to_string(),
             time_format: DEFAULT_TIME_FORMAT.to_string(),
@@ -149,8 +149,8 @@ where
                     c.value(row_index).to_string()
                 }
                 DataType::Utf8 => {
-                    let c = col.as_any().downcast_ref::<BinaryArray>().unwrap();
-                    String::from_utf8(c.value(row_index).to_vec())?
+                    let c = col.as_any().downcast_ref::<StringArray>().unwrap();
+                    c.value(row_index).to_owned()
                 }
                 DataType::Date32(DateUnit::Day) => {
                     let c = col.as_any().downcast_ref::<Date32Array>().unwrap();
@@ -203,7 +203,7 @@ where
                         .format(&self.time_format)
                         .to_string()
                 }
-                DataType::Timestamp(time_unit) => {
+                DataType::Timestamp(time_unit, _) => {
                     use TimeUnit::*;
                     let datetime = match time_unit {
                         Second => col
@@ -249,9 +249,7 @@ where
     }
 
     /// Write a vector of record batches to a writable object
-    pub fn write(&'a mut self, batch: &RecordBatch) -> Result<()> {
-        let mut builder = csv_crate::WriterBuilder::new();
-        let mut wtr = builder.delimiter(self.delimiter).from_writer(&self.writer);
+    pub fn write(&mut self, batch: &RecordBatch) -> Result<()> {
         let num_columns = batch.num_columns();
         if self.beginning {
             if self.has_headers {
@@ -261,16 +259,16 @@ where
                     .fields()
                     .iter()
                     .for_each(|field| headers.push(field.name().to_string()));
-                wtr.write_record(&headers[..])?;
+                self.writer.write_record(&headers[..])?;
             }
             self.beginning = false;
         }
 
         for row_index in 0..batch.num_rows() {
             let record = self.convert(batch, row_index)?;
-            wtr.write_record(&record[..])?;
+            self.writer.write_record(&record[..])?;
         }
-        wtr.flush()?;
+        self.writer.flush()?;
 
         Ok(())
     }
@@ -361,9 +359,12 @@ impl WriterBuilder {
 
     /// Create a new `Writer`
     pub fn build<W: Write>(self, writer: W) -> Writer<W> {
+        let delimiter = self.delimiter.unwrap_or(b',');
+        let mut builder = csv_crate::WriterBuilder::new();
+        let writer = builder.delimiter(delimiter).from_writer(writer);
         Writer {
             writer,
-            delimiter: self.delimiter.unwrap_or(b','),
+            delimiter,
             has_headers: self.has_headers,
             date_format: self.date_format.unwrap_or(DEFAULT_DATE_FORMAT.to_string()),
             time_format: self.time_format.unwrap_or(DEFAULT_TIME_FORMAT.to_string()),
@@ -393,11 +394,11 @@ mod tests {
             Field::new("c2", DataType::Float64, true),
             Field::new("c3", DataType::UInt32, false),
             Field::new("c4", DataType::Boolean, true),
-            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond), true),
+            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond, None), true),
             Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 
-        let c1 = BinaryArray::from(vec![
+        let c1 = StringArray::from(vec![
             "Lorem ipsum dolor sit amet",
             "consectetur adipiscing elit",
             "sed do eiusmod tempor",
@@ -409,11 +410,10 @@ mod tests {
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
         let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
-        let c5 = TimestampMillisecondArray::from(vec![
+        let c5 = TimestampMillisecondArray::from_opt_vec(
+            vec![None, Some(1555584887378), Some(1555555555555)],
             None,
-            Some(1555584887378),
-            Some(1555555555555),
-        ]);
+        );
         let c6 = Time32SecondArray::from(vec![1234, 24680, 85563]);
 
         let batch = RecordBatch::try_new(
@@ -465,7 +465,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 
-        let c1 = BinaryArray::from(vec![
+        let c1 = StringArray::from(vec![
             "Lorem ipsum dolor sit amet",
             "consectetur adipiscing elit",
             "sed do eiusmod tempor",
@@ -522,11 +522,11 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             Field::new("c2", DataType::Float64, true),
             Field::new("c3", DataType::UInt32, false),
             Field::new("c4", DataType::Boolean, true),
-            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond), true),
+            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond, None), true),
             Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 
-        let c1 = BinaryArray::from(vec![
+        let c1 = StringArray::from(vec![
             "Lorem ipsum dolor sit amet",
             "consectetur adipiscing elit",
             "sed do eiusmod tempor",
@@ -538,11 +538,10 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
         let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
-        let c5 = TimestampMillisecondArray::from(vec![
+        let c5 = TimestampMillisecondArray::from_opt_vec(
+            vec![None, Some(1555584887378), Some(1555555555555)],
             None,
-            Some(1555584887378),
-            Some(1555555555555),
-        ]);
+        );
         let c6 = Time32SecondArray::from(vec![1234, 24680, 85563]);
 
         let batch = RecordBatch::try_new(
@@ -565,17 +564,14 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             writer.write(batch).unwrap();
         }
 
-        assert_eq!(
-            r#"c1,c2,c3,c4,c5,c6
+        let left = "c1,c2,c3,c4,c5,c6
 Lorem ipsum dolor sit amet,123.564532,3,true,,00:20:34
 consectetur adipiscing elit,,2,false,2019-04-18T10:54:47.378000000,06:51:20
 sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
 Lorem ipsum dolor sit amet,123.564532,3,true,,00:20:34
 consectetur adipiscing elit,,2,false,2019-04-18T10:54:47.378000000,06:51:20
-sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
-"#
-            .to_string(),
-            writer.writer.to_string()
-        );
+sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03\n";
+        let right = writer.writer.into_inner().map(|s| s.to_string());
+        assert_eq!(Some(left.to_string()), right.ok());
     }
 }

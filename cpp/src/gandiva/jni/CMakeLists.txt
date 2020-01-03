@@ -36,13 +36,13 @@ get_filename_component(ABS_GANDIVA_PROTO ${CMAKE_SOURCE_DIR}/src/gandiva/proto/T
                        ABSOLUTE)
 
 add_custom_command(OUTPUT ${PROTO_OUTPUT_FILES}
-                   COMMAND protobuf::protoc
+                   COMMAND ${ARROW_PROTOBUF_PROTOC}
                            --proto_path
                            ${CMAKE_SOURCE_DIR}/src/gandiva/proto
                            --cpp_out
                            ${PROTO_OUTPUT_DIR}
                            ${CMAKE_SOURCE_DIR}/src/gandiva/proto/Types.proto
-                   DEPENDS ${ABS_GANDIVA_PROTO} protobuf::libprotobuf
+                   DEPENDS ${ABS_GANDIVA_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF}
                    COMMENT "Running PROTO compiler on Types.proto"
                    VERBATIM)
 
@@ -54,7 +54,7 @@ set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/Types.pb.h")
 set(JNI_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/java")
 add_subdirectory(../../../../java/gandiva ./java/gandiva)
 
-set(GANDIVA_LINK_LIBS protobuf::libprotobuf gandiva_static)
+set(GANDIVA_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF} gandiva_static)
 
 set(GANDIVA_JNI_SOURCES
     config_builder.cc

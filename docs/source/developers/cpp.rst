@@ -79,7 +79,6 @@ On MSYS2:
      mingw-w64-${MSYSTEM_CARCH}-boost \
      mingw-w64-${MSYSTEM_CARCH}-brotli \
      mingw-w64-${MSYSTEM_CARCH}-cmake \
-     mingw-w64-${MSYSTEM_CARCH}-double-conversion \
      mingw-w64-${MSYSTEM_CARCH}-gcc \
      mingw-w64-${MSYSTEM_CARCH}-gflags \
      mingw-w64-${MSYSTEM_CARCH}-glog \
@@ -90,7 +89,6 @@ On MSYS2:
      mingw-w64-${MSYSTEM_CARCH}-rapidjson \
      mingw-w64-${MSYSTEM_CARCH}-snappy \
      mingw-w64-${MSYSTEM_CARCH}-thrift \
-     mingw-w64-${MSYSTEM_CARCH}-uriparser \
      mingw-w64-${MSYSTEM_CARCH}-zlib \
      mingw-w64-${MSYSTEM_CARCH}-zstd
 
@@ -154,9 +152,14 @@ By default, the C++ build system creates a fairly minimal build. We have
 several optional system components which you can opt into building by passing
 boolean flags to ``cmake``.
 
+* ``-DARROW_COMPUTE=ON``: Computational kernel functions and other support
+* ``-DARROW_CSV=ON``: CSV reader module
 * ``-DARROW_CUDA=ON``: CUDA integration for GPU development. Depends on NVIDIA
   CUDA toolkit. The CUDA toolchain used to build the library can be customized
   by using the ``$CUDA_HOME`` environment variable.
+* ``-DARROW_DATASET=ON``: Dataset API, implies the Filesystem API
+* ``-DARROW_FILESYSTEM=ON``: Filesystem API for accessing local and remote
+  filesystems
 * ``-DARROW_FLIGHT=ON``: Arrow Flight RPC system, which depends at least on
   gRPC
 * ``-DARROW_GANDIVA=ON``: Gandiva expression compiler, depends on LLVM,
@@ -165,25 +168,27 @@ boolean flags to ``cmake``.
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
 * ``-DARROW_HIVESERVER2=ON``: Client library for HiveServer2 database protocol
+* ``-DARROW_JSON=ON``: JSON reader module
 * ``-DARROW_ORC=ON``: Arrow integration with Apache ORC
 * ``-DARROW_PARQUET=ON``: Apache Parquet libraries and Arrow integration
 * ``-DARROW_PLASMA=ON``: Plasma Shared Memory Object Store
 * ``-DARROW_PLASMA_JAVA_CLIENT=ON``: Build Java client for Plasma
 * ``-DARROW_PYTHON=ON``: Arrow Python C++ integration library (required for
   building pyarrow). This library must be built against the same Python version
-  for which you are building pyarrow, e.g. Python 2.7 or Python 3.6. NumPy must
-  also be installed.
+  for which you are building pyarrow. NumPy must also be installed. Enabling
+  this option also enables ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
+  ``ARROW_FILESYSTEM``, ``ARROW_HDFS``, and ``ARROW_JSON``.
+* ``-DARROW_S3=ON``: Support for Amazon S3-compatible filesystems
 * ``-DARROW_WITH_BZ2=ON``: Build support for BZ2 compression
-* ``-DARROW_WITH_ZLIB=ON``: Build suport for zlib (gzip) compression
-* ``-DARROW_WITH_LZ4=ON``: Build suport for lz4 compression
-* ``-DARROW_WITH_SNAPPY=ON``: Build suport for Snappy compression
-* ``-DARROW_WITH_ZSTD=ON``: Build suport for ZSTD compression
-* ``-DARROW_WITH_BROTLI=ON``: Build suport for Brotli compression
+* ``-DARROW_WITH_ZLIB=ON``: Build support for zlib (gzip) compression
+* ``-DARROW_WITH_LZ4=ON``: Build support for lz4 compression
+* ``-DARROW_WITH_SNAPPY=ON``: Build support for Snappy compression
+* ``-DARROW_WITH_ZSTD=ON``: Build support for ZSTD compression
+* ``-DARROW_WITH_BROTLI=ON``: Build support for Brotli compression
 
 Some features of the core Arrow shared library can be switched off for improved
 build times if they are not required for your application:
 
-* ``-DARROW_COMPUTE=ON``: build the in-memory analytics module
 * ``-DARROW_IPC=ON``: build the IPC extensions
 
 CMake version requirements
@@ -212,7 +217,6 @@ The build system supports a number of third-party dependencies
 
   * ``BOOST``: for cross-platform support
   * ``BROTLI``: for data compression
-  * ``double-conversion``: for text-to-numeric conversions
   * ``Snappy``: for data compression
   * ``gflags``: for command line utilities (formerly Googleflags)
   * ``glog``: for logging
@@ -273,7 +277,7 @@ offline builds.
 Boost-related Options
 ~~~~~~~~~~~~~~~~~~~~~
 
-We depend on some Boost C++ libraries for cross-platform suport. In most cases,
+We depend on some Boost C++ libraries for cross-platform support. In most cases,
 the Boost version available in your package manager may be new enough, and the
 build system will find it automatically. If you have Boost installed in a
 non-standard location, you can specify it by passing
@@ -394,7 +398,7 @@ functions.
 
 When using ``clang`` and building with
 ``-DBUILD_WARNING_LEVEL=CHECKIN``, the ``-Wdocumentation`` flag is
-used which checks for some common documnetation inconsistencies, like
+used which checks for some common documentation inconsistencies, like
 documenting some, but not all function parameters with ``\param``. See
 the `LLVM documentation warnings section
 <https://releases.llvm.org/7.0.1/tools/clang/docs/DiagnosticsReference.html#wdocumentation>`_
@@ -617,7 +621,7 @@ Once the build has finished, you can generate ABI reports using:
 The above version number is freely selectable. As we want to compare versions,
 you should now ``git checkout`` the version you want to compare it to and re-run
 the above command using a different version number. Once both reports are
-generated, you can build a comparision report using
+generated, you can build a comparison report using
 
 .. code-block:: shell
 
@@ -657,7 +661,7 @@ System Setup
 ~~~~~~~~~~~~
 
 Microsoft provides the free Visual Studio Community edition. When doing
-development in the the shell, you must initialize the development
+development in the shell, you must initialize the development
 environment.
 
 For Visual Studio 2015, execute the following batch script:
@@ -896,11 +900,11 @@ tests can be made with there individual make targets).
 
    cd $EXTRACT_BOOST_DIRECTORY
    .\bootstrap.bat
-   @rem This is for static libraries needed for static_crt_build in appvyor
+   @rem This is for static libraries needed for static_crt_build in appveyor
    .\b2 link=static -with-filesystem -with-regex -with-system install
    @rem this should put libraries and headers in c:\Boost
 
-4. Activate ananaconda/miniconda:
+4. Activate anaconda/miniconda:
 
 .. code-block:: shell
 

@@ -232,13 +232,11 @@ static void BenchmarkBufferOutputStream(
   // Write approx. 32 MB to each BufferOutputStream
   int64_t num_raw_values = (1 << 25) / raw_nbytes;
   for (auto _ : state) {
-    std::shared_ptr<io::BufferOutputStream> stream;
-    std::shared_ptr<Buffer> buf;
-    ABORT_NOT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &stream));
+    auto stream = *io::BufferOutputStream::Create(1024);
     for (int64_t i = 0; i < num_raw_values; ++i) {
       ABORT_NOT_OK(stream->Write(raw_data, raw_nbytes));
     }
-    ABORT_NOT_OK(stream->Finish(&buf));
+    ABORT_NOT_OK(stream->Finish());
   }
   state.SetBytesProcessed(int64_t(state.iterations()) * num_raw_values * raw_nbytes);
 }

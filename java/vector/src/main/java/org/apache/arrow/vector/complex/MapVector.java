@@ -78,20 +78,20 @@ public class MapVector extends ListVector {
    */
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    checkArgument(children.size() == 1, "Maps have one List child. Found: " + children);
+    checkArgument(children.size() == 1, "Maps have one List child. Found: %s", children);
 
     Field structField = children.get(0);
     MinorType minorType = Types.getMinorTypeForArrowType(structField.getType());
     checkArgument(minorType == MinorType.STRUCT && !structField.isNullable(),
         "Map data should be a non-nullable struct type");
     checkArgument(structField.getChildren().size() == 2,
-        "Map data should be a struct with 2 children. Found: " + children);
+        "Map data should be a struct with 2 children. Found: %s", children);
 
     Field keyField = structField.getChildren().get(0);
     checkArgument(!keyField.isNullable(), "Map data key type should be a non-nullable");
 
     AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(structField.getFieldType());
-    checkArgument(addOrGetVector.isCreated(), "Child vector already existed: " + addOrGetVector.getVector());
+    checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(structField.getChildren());
   }

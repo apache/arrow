@@ -18,6 +18,7 @@
 #pragma once
 
 #include <tuple>
+#include <type_traits>
 
 #include "arrow/util/macros.h"
 
@@ -26,7 +27,6 @@ namespace internal {
 
 /// Helper struct for examining lambdas and other callables.
 /// TODO(bkietz) support function pointers
-/// TODO(bkietz) provide return_type accessor
 struct call_traits {
  public:
   template <typename R, typename... A>
@@ -37,6 +37,12 @@ struct call_traits {
 
   template <typename F>
   static std::true_type is_overloaded_impl(...);
+
+  template <typename F, typename R, typename... A>
+  static R return_type_impl(R (F::*)(A...));
+
+  template <typename F, typename R, typename... A>
+  static R return_type_impl(R (F::*)(A...) const);
 
   template <std::size_t I, typename F, typename R, typename... A>
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
@@ -64,18 +70,10 @@ struct call_traits {
   /// extracted via call_traits::argument_type<Index, F>
   template <std::size_t I, typename F>
   using argument_type = decltype(argument_type_impl<I>(&std::decay<F>::type::operator()));
-};
 
-template <typename T>
-struct type_constant {
-  using type = T;
+  template <typename F>
+  using return_type = decltype(return_type_impl(&std::decay<F>::type::operator()));
 };
-
-template <std::size_t I, typename T, typename R, typename... A>
-constexpr type_constant<typename std::tuple_element<I, std::tuple<A...>>::type>
-member_function_argument_type(R (T::*fn)(A...)) {
-  return {};
-}
 
 }  // namespace internal
 }  // namespace arrow

@@ -28,48 +28,83 @@ import org.apache.arrow.vector.DateMilliVector;
  * Consumer which consume date type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.DateMilliVector}.
  */
-public class DateConsumer implements JdbcConsumer<DateMilliVector> {
-
-  private DateMilliVector vector;
-  private final int columnIndexInResultSet;
-  private final Calendar calendar;
-
-  private int currentIndex;
+public class DateConsumer {
 
   /**
-   * Instantiate a DateConsumer.
+   * Creates a consumer for {@link DateMilliVector}.
    */
-  public DateConsumer(DateMilliVector vector, int index) {
-    this (vector, index, null);
-  }
-
-  /**
-   * Instantiate a DateConsumer.
-   */
-  public DateConsumer(DateMilliVector vector, int index, Calendar calendar) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-    this.calendar = calendar;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
-        resultSet.getDate(columnIndexInResultSet, calendar);
-    if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex, date.getTime());
+  public static JdbcConsumer<DateMilliVector> createConsumer(
+          DateMilliVector vector, int index, boolean nullable, Calendar calendar) {
+    if (nullable) {
+      return new NullableDateConsumer(vector, index, calendar);
+    } else {
+      return new NonNullableDateConsumer(vector, index, calendar);
     }
-    currentIndex++;
   }
 
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
+  /**
+   * Nullable consumer for date.
+   */
+  static class NullableDateConsumer extends BaseConsumer<DateMilliVector> {
+
+    protected final Calendar calendar;
+
+    /**
+     * Instantiate a DateConsumer.
+     */
+    public NullableDateConsumer(DateMilliVector vector, int index) {
+      this(vector, index, /* calendar */null);
+    }
+
+    /**
+     * Instantiate a DateConsumer.
+     */
+    public NullableDateConsumer(DateMilliVector vector, int index, Calendar calendar) {
+      super(vector, index);
+      this.calendar = calendar;
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
+          resultSet.getDate(columnIndexInResultSet, calendar);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, date.getTime());
+      }
+      currentIndex++;
+    }
   }
 
-  @Override
-  public void resetValueVector(DateMilliVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
+  /**
+   * Non-nullable consumer for date.
+   */
+  static class NonNullableDateConsumer extends BaseConsumer<DateMilliVector> {
+
+    protected final Calendar calendar;
+
+    /**
+     * Instantiate a DateConsumer.
+     */
+    public NonNullableDateConsumer(DateMilliVector vector, int index) {
+      this(vector, index, /* calendar */null);
+    }
+
+    /**
+     * Instantiate a DateConsumer.
+     */
+    public NonNullableDateConsumer(DateMilliVector vector, int index, Calendar calendar) {
+      super(vector, index);
+      this.calendar = calendar;
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
+          resultSet.getDate(columnIndexInResultSet, calendar);
+      vector.setSafe(currentIndex, date.getTime());
+      currentIndex++;
+    }
   }
 }
+
+

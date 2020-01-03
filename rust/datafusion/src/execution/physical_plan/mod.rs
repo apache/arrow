@@ -92,5 +92,6 @@ pub mod expressions;
 pub mod hash_aggregate;
 pub mod limit;
 pub mod merge;
+pub mod parquet;
 pub mod projection;
 pub mod selection;

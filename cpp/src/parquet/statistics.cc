@@ -340,7 +340,7 @@ struct StatsHelper {
 };
 
 template <typename T>
-struct StatsHelper<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
+struct StatsHelper<T, ::arrow::enable_if_t<std::is_floating_point<T>::value>> {
   bool CanHaveNaN() { return true; }
 
   inline int64_t GetValueBeginOffset(const T* values, int64_t count) {

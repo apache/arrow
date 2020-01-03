@@ -36,7 +36,7 @@ static uint8_t non_null_filler;
 /// \brief Returns maybe_null if not null or a non-null pointer to an arbitrary memory
 /// that shouldn't be dereferenced.
 ///
-/// Memset/Memcpy are undefinfed when a nullptr is passed as an argument use this utility
+/// Memset/Memcpy are undefined when a nullptr is passed as an argument use this utility
 /// method to wrap locations where this could happen.
 ///
 /// Note: Flatbuffers has UBSan warnings if a zero length vector is passed.
@@ -52,7 +52,7 @@ inline T* MakeNonNull(T* maybe_null) {
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_integral<T>::value, T>::type SafeLoadAs(
+inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoadAs(
     const uint8_t* unaligned) {
   typename std::remove_const<T>::type ret;
   std::memcpy(&ret, unaligned, sizeof(T));
@@ -60,7 +60,7 @@ inline typename std::enable_if<std::is_integral<T>::value, T>::type SafeLoadAs(
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_integral<T>::value, T>::type SafeLoad(
+inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoad(
     const T* unaligned) {
   typename std::remove_const<T>::type ret;
   std::memcpy(&ret, unaligned, sizeof(T));

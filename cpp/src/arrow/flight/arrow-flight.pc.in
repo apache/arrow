@@ -22,3 +22,4 @@ Name: Apache Arrow Flight
 Description: Apache Arrow's RPC system built on gRPC
 Version: @ARROW_VERSION@
 Requires: arrow
+Libs: -L${libdir} -larrow_flight

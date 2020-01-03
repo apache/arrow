@@ -95,28 +95,23 @@ TEST(TestMessage, SerializeTo) {
                                     body_length));
 
   std::shared_ptr<Buffer> metadata;
-  ASSERT_OK(internal::WriteFlatbufferBuilder(fbb, &metadata));
+  ASSERT_OK_AND_ASSIGN(metadata, internal::WriteFlatbufferBuilder(fbb));
 
   std::string body = "abcdef";
 
   std::unique_ptr<Message> message;
   ASSERT_OK(Message::Open(metadata, std::make_shared<Buffer>(body), &message));
 
-  int64_t output_length = 0;
-  int64_t position = 0;
-
-  std::shared_ptr<io::BufferOutputStream> stream;
-
   auto CheckWithAlignment = [&](int32_t alignment) {
     IpcOptions options;
     options.alignment = alignment;
     const int32_t prefix_size = 8;
-    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
+    int64_t output_length = 0;
+    ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(1 << 10));
     ASSERT_OK(message->SerializeTo(stream.get(), options, &output_length));
-    ASSERT_OK(stream->Tell(&position));
     ASSERT_EQ(BitUtil::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
               output_length);
-    ASSERT_EQ(output_length, position);
+    ASSERT_OK_AND_EQ(output_length, stream->Tell());
   };
 
   CheckWithAlignment(8);
@@ -140,14 +135,13 @@ TEST(TestMessage, LegacyIpcBackwardsCompatibility) {
     ASSERT_OK(internal::GetRecordBatchPayload(*batch, arg_options, default_memory_pool(),
                                               &payload));
 
-    std::shared_ptr<io::BufferOutputStream> stream;
-    ASSERT_OK(io::BufferOutputStream::Create(1 << 20, default_memory_pool(), &stream));
+    ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(1 << 20));
 
     int32_t metadata_length = -1;
     ASSERT_OK(
         internal::WriteIpcPayload(payload, arg_options, stream.get(), &metadata_length));
 
-    ASSERT_OK(stream->Finish(out_serialized));
+    ASSERT_OK_AND_ASSIGN(*out_serialized, stream->Finish());
     io::BufferReader io_reader(*out_serialized);
     ASSERT_OK(ReadMessage(&io_reader, out));
   };
@@ -309,8 +303,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     RETURN_NOT_OK(file_writer->WriteRecordBatch(batch));
     RETURN_NOT_OK(file_writer->Close());
 
-    int64_t offset;
-    RETURN_NOT_OK(mmap_->Tell(&offset));
+    ARROW_ASSIGN_OR_RAISE(int64_t offset, mmap_->Tell());
 
     std::shared_ptr<RecordBatchFileReader> file_reader;
     RETURN_NOT_OK(RecordBatchFileReader::Open(mmap_.get(), offset, &file_reader));
@@ -319,7 +312,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
   }
 
   void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {
-    ASSERT_OK(result.Validate());
+    ASSERT_OK(result.ValidateFull());
     EXPECT_EQ(expected.num_rows(), result.num_rows());
 
     ASSERT_TRUE(expected.schema()->Equals(*result.schema()));
@@ -332,7 +325,8 @@ class IpcTestFixture : public io::MemoryMapFixture {
   void CheckRoundtrip(const RecordBatch& batch, int64_t buffer_size) {
     std::stringstream ss;
     ss << "test-write-row-batch-" << g_file_number++;
-    ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(buffer_size, ss.str(), &mmap_));
+    ASSERT_OK_AND_ASSIGN(mmap_,
+                         io::MemoryMapFixture::InitMemoryMap(buffer_size, ss.str()));
 
     DictionaryMemo dictionary_memo;
 
@@ -389,7 +383,8 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeIntRecordBatch(&batch));
 
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(1 << 16, "test-metadata", &mmap_));
+  ASSERT_OK_AND_ASSIGN(mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(1 << 16, "test-metadata"));
 
   int32_t metadata_length;
   int64_t body_length;
@@ -471,8 +466,8 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBinaryOffsets) {
 
   std::stringstream ss;
   ss << "test-truncate-offsets";
-  ASSERT_OK(
-      io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str(), &mmap_));
+  ASSERT_OK_AND_ASSIGN(
+      mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
   DictionaryMemo dictionary_memo;
   std::shared_ptr<RecordBatch> result;
   ASSERT_OK(DoStandardRoundTrip(*sliced_batch, &dictionary_memo, &result));
@@ -607,7 +602,8 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     std::stringstream ss;
     ss << "test-write-past-max-recursion-" << g_file_number++;
     const int memory_map_size = 1 << 20;
-    RETURN_NOT_OK(io::MemoryMapFixture::InitMemoryMap(memory_map_size, ss.str(), &mmap_));
+    ARROW_ASSIGN_OR_RAISE(mmap_,
+                          io::MemoryMapFixture::InitMemoryMap(memory_map_size, ss.str()));
 
     auto options = IpcOptions::Defaults();
     if (override_level) {
@@ -711,7 +707,7 @@ struct FileWriterHelper {
     RETURN_NOT_OK(writer_->Close());
     RETURN_NOT_OK(sink_->Close());
     // Current offset into stream is the end of the file
-    return sink_->Tell(&footer_offset_);
+    return sink_->Tell().Value(&footer_offset_);
   }
 
   Status ReadBatches(BatchVector* out_batches) {
@@ -870,7 +866,7 @@ class ReaderWriterMixin {
     RETURN_NOT_OK(writer_helper.Finish());
     RETURN_NOT_OK(writer_helper.ReadBatches(out_batches));
     for (const auto& batch : *out_batches) {
-      RETURN_NOT_OK(batch->Validate());
+      RETURN_NOT_OK(batch->ValidateFull());
     }
     return Status::OK();
   }
@@ -944,7 +940,7 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
 
   // 512 MB
   constexpr int64_t kBufferSize = 1 << 29;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+  ASSERT_OK_AND_ASSIGN(mmap_, io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   std::shared_ptr<RecordBatch> result;
   ASSERT_OK(DoLargeRoundTrip(*batch, false, &result));
@@ -967,15 +963,13 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   auto f0 = arrow::field("f0", arrow::dictionary(arrow::int8(), arrow::utf8()));
   auto schema = arrow::schema({f0});
 
-  std::shared_ptr<io::BufferOutputStream> out;
-  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+  ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(0));
 
   std::shared_ptr<RecordBatchWriter> writer;
-  ASSERT_OK(RecordBatchStreamWriter::Open(out.get(), schema, &writer));
+  ASSERT_OK(RecordBatchStreamWriter::Open(stream.get(), schema, &writer));
   ASSERT_OK(writer->Close());
 
-  std::shared_ptr<arrow::Buffer> buffer;
-  ASSERT_OK(out->Finish(&buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
   io::BufferReader buffer_reader(buffer);
   std::shared_ptr<RecordBatchReader> reader;
   ASSERT_OK(RecordBatchStreamReader::Open(&buffer_reader, &reader));
@@ -991,8 +985,7 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
 void SpliceMessages(std::shared_ptr<Buffer> stream,
                     const std::vector<int>& included_indices,
                     std::shared_ptr<Buffer>* spliced_stream) {
-  std::shared_ptr<io::BufferOutputStream> out;
-  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+  ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create(0));
 
   io::BufferReader buffer_reader(stream);
   std::unique_ptr<MessageReader> message_reader = MessageReader::Open(&buffer_reader);
@@ -1022,7 +1015,7 @@ void SpliceMessages(std::shared_ptr<Buffer> stream,
     ASSERT_OK(
         internal::WriteIpcPayload(payload, options, out.get(), &unused_metadata_length));
   }
-  ASSERT_OK(out->Finish(spliced_stream));
+  ASSERT_OK_AND_ASSIGN(*spliced_stream, out->Finish());
 }
 
 TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
@@ -1030,8 +1023,7 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeDictionaryFlat(&batch));
 
-  std::shared_ptr<io::BufferOutputStream> out;
-  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+  ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create(0));
   std::shared_ptr<RecordBatchWriter> writer;
   ASSERT_OK(RecordBatchStreamWriter::Open(out.get(), batch->schema(), &writer));
   ASSERT_OK(writer->WriteRecordBatch(*batch));
@@ -1039,8 +1031,7 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
 
   // Now let's mangle the stream a little bit and make sure we return the right
   // error
-  std::shared_ptr<arrow::Buffer> buffer;
-  ASSERT_OK(out->Finish(&buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
 
   auto AssertFailsWith = [](std::shared_ptr<Buffer> stream, const std::string& ex_error) {
     io::BufferReader reader(stream);
@@ -1090,7 +1081,7 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
     ASSERT_OK(mmap_->Seek(0));
 
     std::shared_ptr<Tensor> result;
-    ASSERT_OK(ReadTensor(mmap_.get(), &result));
+    ASSERT_OK_AND_ASSIGN(result, ReadTensor(mmap_.get()));
 
     ASSERT_EQ(result->data()->size(), expected_body_length);
     ASSERT_TRUE(tensor.Equals(*result));
@@ -1100,7 +1091,7 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
 TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
   std::string path = "test-write-tensor";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+  ASSERT_OK_AND_ASSIGN(mmap_, io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   std::vector<int64_t> shape = {4, 6};
   std::vector<int64_t> strides = {48, 8};
@@ -1134,7 +1125,7 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
 TEST_F(TestTensorRoundTrip, NonContiguous) {
   std::string path = "test-write-tensor-strided";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+  ASSERT_OK_AND_ASSIGN(mmap_, io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   std::vector<int64_t> values;
   randint(24, 0, 100, &values);
@@ -1151,8 +1142,88 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   void SetUp() { IpcTestFixture::SetUp(); }
   void TearDown() { IpcTestFixture::TearDown(); }
 
-  void CheckSparseTensorRoundTrip(const SparseCOOTensor& sparse_tensor);
-  void CheckSparseTensorRoundTrip(const SparseCSRMatrix& sparse_tensor);
+  void CheckSparseCOOTensorRoundTrip(const SparseCOOTensor& sparse_tensor) {
+    const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
+    const int elem_size = type.bit_width() / 8;
+    const int index_elem_size = sizeof(typename IndexValueType::c_type);
+
+    int32_t metadata_length;
+    int64_t body_length;
+
+    ASSERT_OK(mmap_->Seek(0));
+
+    ASSERT_OK(
+        WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
+
+    const auto& sparse_index =
+        checked_cast<const SparseCOOIndex&>(*sparse_tensor.sparse_index());
+    const int64_t indices_length =
+        BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
+    const int64_t data_length =
+        BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
+    const int64_t expected_body_length = indices_length + data_length;
+    ASSERT_EQ(expected_body_length, body_length);
+
+    ASSERT_OK(mmap_->Seek(0));
+
+    std::shared_ptr<SparseTensor> result;
+    ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
+    ASSERT_EQ(SparseTensorFormat::COO, result->format_id());
+
+    const auto& resulted_sparse_index =
+        checked_cast<const SparseCOOIndex&>(*result->sparse_index());
+    ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
+    ASSERT_EQ(result->data()->size(), data_length);
+    ASSERT_TRUE(result->Equals(sparse_tensor));
+  }
+
+  template <typename SparseIndexType>
+  void CheckSparseCSXMatrixRoundTrip(
+      const SparseTensorImpl<SparseIndexType>& sparse_tensor) {
+    static_assert(std::is_same<SparseIndexType, SparseCSRIndex>::value ||
+                      std::is_same<SparseIndexType, SparseCSCIndex>::value,
+                  "SparseIndexType must be either SparseCSRIndex or SparseCSCIndex");
+
+    const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
+    const int elem_size = type.bit_width() / 8;
+    const int index_elem_size = sizeof(typename IndexValueType::c_type);
+
+    int32_t metadata_length;
+    int64_t body_length;
+
+    ASSERT_OK(mmap_->Seek(0));
+
+    ASSERT_OK(
+        WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
+
+    const auto& sparse_index =
+        checked_cast<const SparseIndexType&>(*sparse_tensor.sparse_index());
+    const int64_t indptr_length =
+        BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indptr()->size());
+    const int64_t indices_length =
+        BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
+    const int64_t data_length =
+        BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
+    const int64_t expected_body_length = indptr_length + indices_length + data_length;
+    ASSERT_EQ(expected_body_length, body_length);
+
+    ASSERT_OK(mmap_->Seek(0));
+
+    std::shared_ptr<SparseTensor> result;
+    ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
+
+    constexpr auto expected_format_id =
+        std::is_same<SparseIndexType, SparseCSRIndex>::value ? SparseTensorFormat::CSR
+                                                             : SparseTensorFormat::CSC;
+    ASSERT_EQ(expected_format_id, result->format_id());
+
+    const auto& resulted_sparse_index =
+        checked_cast<const SparseIndexType&>(*result->sparse_index());
+    ASSERT_EQ(resulted_sparse_index.indptr()->data()->size(), indptr_length);
+    ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
+    ASSERT_EQ(result->data()->size(), data_length);
+    ASSERT_TRUE(result->Equals(sparse_tensor));
+  }
 
  protected:
   std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
@@ -1176,81 +1247,6 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   }
 };
 
-template <typename IndexValueType>
-void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
-    const SparseCOOTensor& sparse_tensor) {
-  const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
-  const int elem_size = type.bit_width() / 8;
-  const int index_elem_size = sizeof(typename IndexValueType::c_type);
-
-  int32_t metadata_length;
-  int64_t body_length;
-
-  ASSERT_OK(mmap_->Seek(0));
-
-  ASSERT_OK(WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length,
-                              default_memory_pool()));
-
-  const auto& sparse_index =
-      checked_cast<const SparseCOOIndex&>(*sparse_tensor.sparse_index());
-  const int64_t indices_length =
-      BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
-  const int64_t data_length =
-      BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
-  const int64_t expected_body_length = indices_length + data_length;
-  ASSERT_EQ(expected_body_length, body_length);
-
-  ASSERT_OK(mmap_->Seek(0));
-
-  std::shared_ptr<SparseTensor> result;
-  ASSERT_OK(ReadSparseTensor(mmap_.get(), &result));
-
-  const auto& resulted_sparse_index =
-      checked_cast<const SparseCOOIndex&>(*result->sparse_index());
-  ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
-  ASSERT_EQ(result->data()->size(), data_length);
-  ASSERT_TRUE(result->Equals(sparse_tensor));
-}
-
-template <typename IndexValueType>
-void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
-    const SparseCSRMatrix& sparse_tensor) {
-  const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
-  const int elem_size = type.bit_width() / 8;
-  const int index_elem_size = sizeof(typename IndexValueType::c_type);
-
-  int32_t metadata_length;
-  int64_t body_length;
-
-  ASSERT_OK(mmap_->Seek(0));
-
-  ASSERT_OK(WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length,
-                              default_memory_pool()));
-
-  const auto& sparse_index =
-      checked_cast<const SparseCSRIndex&>(*sparse_tensor.sparse_index());
-  const int64_t indptr_length =
-      BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indptr()->size());
-  const int64_t indices_length =
-      BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
-  const int64_t data_length =
-      BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
-  const int64_t expected_body_length = indptr_length + indices_length + data_length;
-  ASSERT_EQ(expected_body_length, body_length);
-
-  ASSERT_OK(mmap_->Seek(0));
-
-  std::shared_ptr<SparseTensor> result;
-  ASSERT_OK(ReadSparseTensor(mmap_.get(), &result));
-
-  const auto& resulted_sparse_index =
-      checked_cast<const SparseCSRIndex&>(*result->sparse_index());
-  ASSERT_EQ(resulted_sparse_index.indptr()->data()->size(), indptr_length);
-  ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
-  ASSERT_EQ(result->data()->size(), data_length);
-  ASSERT_TRUE(result->Equals(sparse_tensor));
-}
-
 TYPED_TEST_CASE_P(TestSparseTensorRoundTrip);
 
 TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
@@ -1259,7 +1255,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
 
   std::string path = "test-write-sparse-coo-tensor";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &this->mmap_));
+  ASSERT_OK_AND_ASSIGN(this->mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   // Dense representation:
   // [
@@ -1285,15 +1282,18 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
                                                    0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
                                                    1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
   const int sizeof_index_value = sizeof(c_index_value_type);
-  auto si = this->MakeSparseCOOIndex(
-      {12, 3}, {sizeof_index_value * 3, sizeof_index_value}, coords_values);
+  std::shared_ptr<SparseCOOIndex> si;
+  ASSERT_OK_AND_ASSIGN(
+      si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
+                               {sizeof_index_value * 3, sizeof_index_value},
+                               Buffer::Wrap(coords_values)));
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
   auto st = this->MakeSparseCOOTensor(si, values, shape, dim_names);
 
-  this->CheckSparseTensorRoundTrip(*st);
+  this->CheckSparseCOOTensorRoundTrip(*st);
 }
 
 TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
@@ -1302,7 +1302,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
 
   std::string path = "test-write-sparse-coo-tensor";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &this->mmap_));
+  ASSERT_OK_AND_ASSIGN(this->mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   // Dense representation:
   // [
@@ -1328,15 +1329,18 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
                                                    0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
                                                    0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
   const int sizeof_index_value = sizeof(c_index_value_type);
-  auto si = this->MakeSparseCOOIndex(
-      {12, 3}, {sizeof_index_value, sizeof_index_value * 12}, coords_values);
+  std::shared_ptr<SparseCOOIndex> si;
+  ASSERT_OK_AND_ASSIGN(
+      si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
+                               {sizeof_index_value, sizeof_index_value * 12},
+                               Buffer::Wrap(coords_values)));
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
   auto st = this->MakeSparseCOOTensor(si, values, shape, dim_names);
 
-  this->CheckSparseTensorRoundTrip(*st);
+  this->CheckSparseCOOTensorRoundTrip(*st);
 }
 
 TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
@@ -1344,7 +1348,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
 
   std::string path = "test-write-sparse-csr-matrix";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &this->mmap_));
+  ASSERT_OK_AND_ASSIGN(this->mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   std::vector<int64_t> shape = {4, 6};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
@@ -1354,13 +1359,37 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
   auto data = Buffer::Wrap(values);
   NumericTensor<Int64Type> t(data, shape, {}, dim_names);
   std::shared_ptr<SparseCSRMatrix> st;
-  ASSERT_OK(SparseCSRMatrix::Make(t, TypeTraits<IndexValueType>::type_singleton(), &st));
+  ASSERT_OK_AND_ASSIGN(
+      st, SparseCSRMatrix::Make(t, TypeTraits<IndexValueType>::type_singleton()));
 
-  this->CheckSparseTensorRoundTrip(*st);
+  this->CheckSparseCSXMatrixRoundTrip(*st);
+}
+
+TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSCIndex) {
+  using IndexValueType = TypeParam;
+
+  std::string path = "test-write-sparse-csc-matrix";
+  constexpr int64_t kBufferSize = 1 << 20;
+  ASSERT_OK_AND_ASSIGN(this->mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
+
+  std::vector<int64_t> shape = {4, 6};
+  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
+  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+
+  auto data = Buffer::Wrap(values);
+  NumericTensor<Int64Type> t(data, shape, {}, dim_names);
+  std::shared_ptr<SparseCSCMatrix> st;
+  ASSERT_OK_AND_ASSIGN(
+      st, SparseCSCMatrix::Make(t, TypeTraits<IndexValueType>::type_singleton()));
+
+  this->CheckSparseCSXMatrixRoundTrip(*st);
 }
 
 REGISTER_TYPED_TEST_CASE_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor,
-                           WithSparseCOOIndexColumnMajor, WithSparseCSRIndex);
+                           WithSparseCOOIndexColumnMajor, WithSparseCSRIndex,
+                           WithSparseCSCIndex);
 
 INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestSparseTensorRoundTrip, Int8Type);
 INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestSparseTensorRoundTrip, UInt8Type);

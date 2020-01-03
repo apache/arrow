@@ -186,7 +186,7 @@ int GetListenPort() {
   // Get a new available port number by binding a socket to an ephemeral port
   // and then closing it.  Since ephemeral port allocation tends to avoid
   // reusing port numbers, this should give a different port number
-  // every time, even accross processes.
+  // every time, even across processes.
   struct sockaddr_in sin;
 #ifdef _WIN32
   SOCKET sock_fd;

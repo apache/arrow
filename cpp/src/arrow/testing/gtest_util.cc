@@ -130,14 +130,88 @@ void AssertBufferEqual(const Buffer& buffer, const Buffer& expected) {
   ASSERT_TRUE(buffer.Equals(expected));
 }
 
-void AssertSchemaEqual(const Schema& lhs, const Schema& rhs) {
-  if (!lhs.Equals(rhs)) {
-    std::stringstream ss;
-    ss << "left schema: " << lhs.ToString() << std::endl
-       << "right schema: " << rhs.ToString() << std::endl;
-    FAIL() << ss.str();
+template <typename T>
+void AssertFingerprintablesEqual(const T& left, const T& right, bool check_metadata,
+                                 const char* types_plural) {
+  ASSERT_TRUE(left.Equals(right, check_metadata))
+      << types_plural << " '" << left.ToString() << "' and '" << right.ToString()
+      << "' should have compared equal";
+  auto lfp = left.fingerprint();
+  auto rfp = right.fingerprint();
+  // All types tested in this file should implement fingerprinting
+  ASSERT_NE(lfp, "") << "fingerprint for '" << left.ToString() << "' should not be empty";
+  ASSERT_NE(rfp, "") << "fingerprint for '" << right.ToString()
+                     << "' should not be empty";
+  if (check_metadata) {
+    lfp += left.metadata_fingerprint();
+    rfp += right.metadata_fingerprint();
   }
+  ASSERT_EQ(lfp, rfp) << "Fingerprints for " << types_plural << " '" << left.ToString()
+                      << "' and '" << right.ToString() << "' should have compared equal";
 }
+
+template <typename T>
+void AssertFingerprintablesEqual(const std::shared_ptr<T>& left,
+                                 const std::shared_ptr<T>& right, bool check_metadata,
+                                 const char* types_plural) {
+  ASSERT_NE(left, nullptr);
+  ASSERT_NE(right, nullptr);
+  AssertFingerprintablesEqual(*left, *right, check_metadata, types_plural);
+}
+
+template <typename T>
+void AssertFingerprintablesNotEqual(const T& left, const T& right, bool check_metadata,
+                                    const char* types_plural) {
+  ASSERT_FALSE(left.Equals(right, check_metadata))
+      << types_plural << " '" << left.ToString() << "' and '" << right.ToString()
+      << "' should have compared unequal";
+  auto lfp = left.fingerprint();
+  auto rfp = right.fingerprint();
+  // All types tested in this file should implement fingerprinting
+  ASSERT_NE(lfp, "") << "fingerprint for '" << left.ToString() << "' should not be empty";
+  ASSERT_NE(rfp, "") << "fingerprint for '" << right.ToString()
+                     << "' should not be empty";
+  if (check_metadata) {
+    lfp += left.metadata_fingerprint();
+    rfp += right.metadata_fingerprint();
+  }
+  ASSERT_NE(lfp, rfp) << "Fingerprints for " << types_plural << " '" << left.ToString()
+                      << "' and '" << right.ToString()
+                      << "' should have compared unequal";
+}
+
+template <typename T>
+void AssertFingerprintablesNotEqual(const std::shared_ptr<T>& left,
+                                    const std::shared_ptr<T>& right, bool check_metadata,
+                                    const char* types_plural) {
+  ASSERT_NE(left, nullptr);
+  ASSERT_NE(right, nullptr);
+  AssertFingerprintablesNotEqual(*left, *right, check_metadata, types_plural);
+}
+
+#define ASSERT_EQUAL_IMPL(NAME, TYPE, PLURAL)                                            \
+  void Assert##NAME##Equal(const TYPE& left, const TYPE& right, bool check_metadata) {   \
+    AssertFingerprintablesEqual(left, right, check_metadata, PLURAL);                    \
+  }                                                                                      \
+                                                                                         \
+  void Assert##NAME##Equal(const std::shared_ptr<TYPE>& left,                            \
+                           const std::shared_ptr<TYPE>& right, bool check_metadata) {    \
+    AssertFingerprintablesEqual(left, right, check_metadata, PLURAL);                    \
+  }                                                                                      \
+                                                                                         \
+  void Assert##NAME##NotEqual(const TYPE& left, const TYPE& right,                       \
+                              bool check_metadata) {                                     \
+    AssertFingerprintablesNotEqual(left, right, check_metadata, PLURAL);                 \
+  }                                                                                      \
+  void Assert##NAME##NotEqual(const std::shared_ptr<TYPE>& left,                         \
+                              const std::shared_ptr<TYPE>& right, bool check_metadata) { \
+    AssertFingerprintablesNotEqual(left, right, check_metadata, PLURAL);                 \
+  }
+
+ASSERT_EQUAL_IMPL(Type, DataType, "types")
+ASSERT_EQUAL_IMPL(Field, Field, "fields")
+ASSERT_EQUAL_IMPL(Schema, Schema, "schemas")
+#undef ASSERT_EQUAL_IMPL
 
 void AssertDatumsEqual(const Datum& expected, const Datum& actual) {
   // TODO: Implements better print.

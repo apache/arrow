@@ -22,19 +22,19 @@ tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
 
 test_that("Write a feather file", {
   write_feather(tib, feather_file)
-  expect_true(fs::file_exists(feather_file))
+  expect_true(file.exists(feather_file))
 })
 
 test_that("feather read/write round trip", {
-  tf2 <- fs::path_abs(tempfile())
+  tf2 <- normalizePath(tempfile(), mustWork = FALSE)
   write_feather(tib, tf2)
-  expect_true(fs::file_exists(tf2))
+  expect_true(file.exists(tf2))
 
   tf3 <- tempfile()
   stream <- FileOutputStream$create(tf3)
   write_feather(tib, stream)
   stream$close()
-  expect_true(fs::file_exists(tf3))
+  expect_true(file.exists(tf3))
 
   tab1 <- read_feather(feather_file)
   expect_is(tab1, "data.frame")

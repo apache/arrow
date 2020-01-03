@@ -257,13 +257,11 @@ TEST_F(TestExtensionType, ExtensionTypeTest) {
 
 auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
                          std::shared_ptr<RecordBatch>* out) {
-  std::shared_ptr<io::BufferOutputStream> out_stream;
-  ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &out_stream));
+  ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create(1024));
   ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcOptions::Defaults(),
                                         out_stream.get()));
 
-  std::shared_ptr<Buffer> complete_ipc_stream;
-  ASSERT_OK(out_stream->Finish(&complete_ipc_stream));
+  ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
 
   io::BufferReader reader(complete_ipc_stream);
   std::shared_ptr<RecordBatchReader> batch_reader;
@@ -310,13 +308,11 @@ TEST_F(TestExtensionType, UnrecognizedExtension) {
 
   // Write full IPC stream including schema, then unregister type, then read
   // and ensure that a plain instance of the storage type is created
-  std::shared_ptr<io::BufferOutputStream> out_stream;
-  ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &out_stream));
+  ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create(1024));
   ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcOptions::Defaults(),
                                         out_stream.get()));
 
-  std::shared_ptr<Buffer> complete_ipc_stream;
-  ASSERT_OK(out_stream->Finish(&complete_ipc_stream));
+  ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
 
   ASSERT_OK(UnregisterExtensionType("uuid"));
   auto ext_metadata =
@@ -394,9 +390,9 @@ TEST_F(TestExtensionType, ValidateExtensionArray) {
   auto ext_arr2 = ExampleParametric(p1_type, "[null, 1, 2, 3]");
   auto ext_arr3 = ExampleStruct();
 
-  ASSERT_OK(ext_arr1->Validate());
-  ASSERT_OK(ext_arr2->Validate());
-  ASSERT_OK(ext_arr3->Validate());
+  ASSERT_OK(ext_arr1->ValidateFull());
+  ASSERT_OK(ext_arr2->ValidateFull());
+  ASSERT_OK(ext_arr3->ValidateFull());
 }
 
 }  // namespace arrow

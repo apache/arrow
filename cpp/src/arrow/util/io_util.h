@@ -24,13 +24,15 @@
 
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #if ARROW_HAVE_SIGACTION
 #include <signal.h>  // Needed for struct sigaction
 #endif
 
 #include "arrow/io/interfaces.h"
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 
 // The Windows API defines DeleteFile as a macro resolving to either
@@ -54,7 +56,7 @@ class ARROW_EXPORT StdoutStream : public OutputStream {
   Status Close() override;
   bool closed() const override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
   Status Write(const void* data, int64_t nbytes) override;
 
@@ -71,7 +73,7 @@ class ARROW_EXPORT StderrStream : public OutputStream {
   Status Close() override;
   bool closed() const override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
   Status Write(const void* data, int64_t nbytes) override;
 
@@ -88,11 +90,11 @@ class ARROW_EXPORT StdinStream : public InputStream {
   Status Close() override;
   bool closed() const override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
+  Result<int64_t> Read(int64_t nbytes, void* out) override;
 
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
 
  private:
   int64_t pos_;
@@ -122,6 +124,7 @@ class ARROW_EXPORT PlatformFilename {
   PlatformFilename& operator=(const PlatformFilename&);
   PlatformFilename& operator=(PlatformFilename&&);
   explicit PlatformFilename(const NativePathString& path);
+  explicit PlatformFilename(const NativePathString::value_type* path);
 
   const NativePathString& ToNative() const;
   std::string ToString() const;
@@ -129,8 +132,10 @@ class ARROW_EXPORT PlatformFilename {
   PlatformFilename Parent() const;
 
   // These functions can fail for character encoding reasons.
-  static Status FromString(const std::string& file_name, PlatformFilename* out);
-  Status Join(const std::string& child_name, PlatformFilename* out) const;
+  static Result<PlatformFilename> FromString(const std::string& file_name);
+  Result<PlatformFilename> Join(const std::string& child_name) const;
+
+  PlatformFilename Join(const PlatformFilename& child_name) const;
 
   bool operator==(const PlatformFilename& other) const;
   bool operator!=(const PlatformFilename& other) const;
@@ -144,67 +149,102 @@ class ARROW_EXPORT PlatformFilename {
   explicit PlatformFilename(Impl impl);
 };
 
+/// Create a directory if it doesn't exist.
+///
+/// Return whether the directory was created.
 ARROW_EXPORT
-Status CreateDir(const PlatformFilename& dir_path, bool* created = NULLPTR);
-ARROW_EXPORT
-Status CreateDirTree(const PlatformFilename& dir_path, bool* created = NULLPTR);
-ARROW_EXPORT
-Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
-ARROW_EXPORT
-Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
-ARROW_EXPORT
-Status DeleteFile(const PlatformFilename& file_path, bool* deleted = NULLPTR);
-ARROW_EXPORT
-Status FileExists(const PlatformFilename& path, bool* out);
+Result<bool> CreateDir(const PlatformFilename& dir_path);
 
+/// Create a directory and its parents if it doesn't exist.
+///
+/// Return whether the directory was created.
 ARROW_EXPORT
-Status FileNameFromString(const std::string& file_name, PlatformFilename* out);
+Result<bool> CreateDirTree(const PlatformFilename& dir_path);
 
+/// Delete a directory's contents (but not the directory itself) if it exists.
+///
+/// Return whether the directory existed.
 ARROW_EXPORT
-Status FileOpenReadable(const PlatformFilename& file_name, int* fd);
-ARROW_EXPORT
-Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool truncate,
-                        bool append, int* fd);
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path,
+                               bool allow_non_existent = true);
 
+/// Delete a directory tree if it exists.
+///
+/// Return whether the directory existed.
 ARROW_EXPORT
-Status FileRead(int fd, uint8_t* buffer, const int64_t nbytes, int64_t* bytes_read);
+Result<bool> DeleteDirTree(const PlatformFilename& dir_path,
+                           bool allow_non_existent = true);
+
+// Non-recursively list the contents of the given directory.
+// The returned names are the children's base names, not including dir_path.
 ARROW_EXPORT
-Status FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes,
-                  int64_t* bytes_read);
+Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path);
+
+/// Delete a file if it exists.
+///
+/// Return whether the file existed.
+ARROW_EXPORT
+Result<bool> DeleteFile(const PlatformFilename& file_path,
+                        bool allow_non_existent = true);
+
+/// Return whether a file exists.
+ARROW_EXPORT
+Result<bool> FileExists(const PlatformFilename& path);
+
+/// Open a file for reading and return a file descriptor.
+ARROW_EXPORT
+Result<int> FileOpenReadable(const PlatformFilename& file_name);
+
+/// Open a file for writing and return a file descriptor.
+ARROW_EXPORT
+Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only = true,
+                             bool truncate = true, bool append = false);
+
+/// Read from current file position.  Return number of bytes read.
+ARROW_EXPORT
+Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes);
+/// Read from given file position.  Return number of bytes read.
+ARROW_EXPORT
+Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes);
+
 ARROW_EXPORT
 Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes);
 ARROW_EXPORT
 Status FileTruncate(int fd, const int64_t size);
 
 ARROW_EXPORT
-Status FileTell(int fd, int64_t* pos);
-ARROW_EXPORT
 Status FileSeek(int fd, int64_t pos);
 ARROW_EXPORT
 Status FileSeek(int fd, int64_t pos, int whence);
 ARROW_EXPORT
-Status FileGetSize(int fd, int64_t* size);
+Result<int64_t> FileTell(int fd);
+ARROW_EXPORT
+Result<int64_t> FileGetSize(int fd);
 
 ARROW_EXPORT
 Status FileClose(int fd);
 
+struct Pipe {
+  int rfd;
+  int wfd;
+};
+
 ARROW_EXPORT
-Status CreatePipe(int fd[2]);
+Result<Pipe> CreatePipe();
 
 ARROW_EXPORT
 Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
                       void** new_addr);
 
 ARROW_EXPORT
-Status GetEnvVar(const char* name, std::string* out);
+Result<std::string> GetEnvVar(const char* name);
 ARROW_EXPORT
-Status GetEnvVar(const std::string& name, std::string* out);
-#ifdef _WIN32
+Result<std::string> GetEnvVar(const std::string& name);
 ARROW_EXPORT
-Status GetEnvVar(const char* name, NativePathString* out);
+Result<NativePathString> GetEnvVarNative(const char* name);
 ARROW_EXPORT
-Status GetEnvVar(const std::string& name, NativePathString* out);
-#endif
+Result<NativePathString> GetEnvVarNative(const std::string& name);
+
 ARROW_EXPORT
 Status SetEnvVar(const char* name, const char* value);
 ARROW_EXPORT
@@ -221,6 +261,44 @@ ARROW_EXPORT
 std::string WinErrorMessage(int errnum);
 #endif
 
+ARROW_EXPORT
+std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum);
+#if _WIN32
+ARROW_EXPORT
+std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum);
+#endif
+
+template <typename... Args>
+Status StatusFromErrno(int errnum, StatusCode code, Args&&... args) {
+  return Status::FromDetailAndArgs(code, StatusDetailFromErrno(errnum),
+                                   std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+Status IOErrorFromErrno(int errnum, Args&&... args) {
+  return StatusFromErrno(errnum, StatusCode::IOError, std::forward<Args>(args)...);
+}
+
+#if _WIN32
+template <typename... Args>
+Status StatusFromWinError(int errnum, StatusCode code, Args&&... args) {
+  return Status::FromDetailAndArgs(code, StatusDetailFromWinError(errnum),
+                                   std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+Status IOErrorFromWinError(int errnum, Args&&... args) {
+  return StatusFromWinError(errnum, StatusCode::IOError, std::forward<Args>(args)...);
+}
+#endif
+
+ARROW_EXPORT
+int ErrnoFromStatus(const Status&);
+
+// Always returns 0 on non-Windows platforms (for Python).
+ARROW_EXPORT
+int WinErrorFromStatus(const Status&);
+
 class ARROW_EXPORT TemporaryDir {
  public:
   ~TemporaryDir();
@@ -230,7 +308,7 @@ class ARROW_EXPORT TemporaryDir {
 
   /// Create a temporary subdirectory in the system temporary dir,
   /// named starting with `prefix`.
-  static Status Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out);
+  static Result<std::unique_ptr<TemporaryDir>> Make(const std::string& prefix);
 
  private:
   PlatformFilename path_;
@@ -263,11 +341,14 @@ class ARROW_EXPORT SignalHandler {
 #endif
 };
 
+/// \brief Return the current handler for the given signal number.
 ARROW_EXPORT
-Status GetSignalHandler(int signum, SignalHandler* out);
+Result<SignalHandler> GetSignalHandler(int signum);
+/// \brief Set a new handler for the given signal number.
+///
+/// The old signal handler is returned.
 ARROW_EXPORT
-Status SetSignalHandler(int signum, const SignalHandler& handler,
-                        SignalHandler* old_handler = NULLPTR);
+Result<SignalHandler> SetSignalHandler(int signum, const SignalHandler& handler);
 
 }  // namespace internal
 }  // namespace arrow

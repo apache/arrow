@@ -188,9 +188,6 @@ func makeStructsRecords() []array.Record {
 	dtype := arrow.StructOf(fields...)
 	schema := arrow.NewSchema([]arrow.Field{{Name: "struct_nullable", Type: dtype, Nullable: true}}, nil)
 
-	bldr := array.NewStructBuilder(mem, dtype)
-	defer bldr.Release()
-
 	mask := []bool{true, false, false, true, true, true, false, true}
 	chunks := [][]array.Interface{
 		[]array.Interface{
@@ -1042,8 +1039,8 @@ func structOf(mem memory.Allocator, dtype *arrow.StructType, fields [][]array.In
 		}
 	}
 
-	for i, valid := range valids {
-		bldr.Append(valid)
+	for i := range fields {
+		bldr.AppendValues(valids)
 		for j := range dtype.Fields() {
 			fbldr := bldr.FieldBuilder(j)
 			buildArray(fbldr, fields[i][j])

@@ -23,7 +23,7 @@ from pyarrow.lib cimport check_status
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_s3fs cimport *
+from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem
 
 
@@ -109,6 +109,9 @@ cdef class S3Options:
         if background_writes is not None:
             self.background_writes = background_writes
 
+    cdef inline CS3Options unwrap(self) nogil:
+        return self.options
+
     @property
     def region(self):
         """AWS region to connect to."""
@@ -150,7 +153,7 @@ cdef class S3FileSystem(FileSystem):
     """S3-backed FileSystem implementation
 
     Note: S3 buckets are special and the operations available on them may be
-          limited or more expensive than desired.
+    limited or more expensive than desired.
 
     Parameters
     ----------
@@ -165,7 +168,8 @@ cdef class S3FileSystem(FileSystem):
     def __init__(self, S3Options options=None):
         cdef shared_ptr[CS3FileSystem] wrapped
         options = options or S3Options()
-        check_status(CS3FileSystem.Make(options.options, &wrapped))
+        with nogil:
+            wrapped = GetResultValue(CS3FileSystem.Make(options.unwrap()))
         self.init(<shared_ptr[CFileSystem]> wrapped)
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):

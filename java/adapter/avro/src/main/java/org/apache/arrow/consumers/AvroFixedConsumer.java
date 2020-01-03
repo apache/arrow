@@ -19,7 +19,6 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.avro.io.Decoder;
 
@@ -27,18 +26,15 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume fixed type values from avro decoder.
  * Write the data to {@link org.apache.arrow.vector.FixedSizeBinaryVector}.
  */
-public class AvroFixedConsumer implements Consumer<FixedSizeBinaryVector> {
+public class AvroFixedConsumer extends BaseAvroConsumer<FixedSizeBinaryVector> {
 
-  private FixedSizeBinaryVector vector;
   private final byte[] reuseBytes;
-
-  private int currentIndex;
 
   /**
    * Instantiate a AvroFixedConsumer.
    */
   public AvroFixedConsumer(FixedSizeBinaryVector vector, int size) {
-    this.vector = vector;
+    super(vector);
     reuseBytes = new byte[size];
   }
 
@@ -46,32 +42,5 @@ public class AvroFixedConsumer implements Consumer<FixedSizeBinaryVector> {
   public void consume(Decoder decoder) throws IOException {
     decoder.readFixed(reuseBytes);
     vector.setSafe(currentIndex++, reuseBytes);
-  }
-
-  @Override
-  public void addNull() {
-    currentIndex++;
-  }
-
-  @Override
-  public void setPosition(int index) {
-    currentIndex = index;
-  }
-
-  @Override
-  public FieldVector getVector() {
-    return vector;
-  }
-
-  @Override
-  public void close() throws Exception {
-    vector.close();
-  }
-
-  @Override
-  public boolean resetValueVector(FixedSizeBinaryVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-    return true;
   }
 }

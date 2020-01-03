@@ -48,6 +48,34 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
   }
 }
 
+expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its start
+                               tbl,  # A tbl/df as reference, will make RB/Table with
+                               ...) {
+  expr <- rlang::enquo(expr)
+  msg <- tryCatch(
+    rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
+    error = function (e) conditionMessage(e)
+  )
+  expect_is(msg, "character", label = "dplyr on data.frame did not error")
+
+  expect_error(
+    rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = record_batch(tbl)))
+    ),
+    msg,
+    ...
+  )
+  expect_error(
+    rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
+    ),
+    msg,
+    ...
+  )
+}
+
 tbl <- tibble::tibble(
   int = 1:10,
   dbl = as.numeric(1:10),
@@ -73,10 +101,65 @@ test_that("basic select/filter/collect", {
 test_that("More complex select/filter", {
   expect_dplyr_equal(
     input %>%
+      filter(is.na(lgl)) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+})
+
+# ARROW-7360
+# test_that("filtering with expression", {
+#   char_sym <- "b"
+#   expect_dplyr_equal(
+#     input %>%
+#       filter(chr == char_sym) %>%
+#       select(string = chr, int) %>%
+#       collect(),
+#     tbl
+#   )
+# })
+
+test_that("filter() on is.na()", {
+  expect_dplyr_equal(
+    input %>%
       filter(dbl > 2, chr == "d" | chr == "f") %>%
       select(chr, int, lgl) %>%
       filter(int < 5) %>%
       select(int, chr) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter() with %in%", {
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, chr %in% c("d", "f")) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter environment scope", {
+  # "object 'b_var' not found"
+  expect_dplyr_error(input %>% filter(batch, chr == b_var))
+
+  b_var <- "b"
+  expect_dplyr_equal(
+    input %>%
+      filter(chr == b_var) %>%
+      collect(),
+    tbl
+  )
+  # Also for functions
+  # 'could not find function "isEqualTo"'
+  expect_dplyr_error(filter(batch, isEqualTo(int, 4)))
+
+  isEqualTo <- function(x, y) x == y
+  expect_dplyr_equal(
+    input %>%
+      filter(isEqualTo(int, 4)) %>%
       collect(),
     tbl
   )
@@ -93,11 +176,12 @@ test_that("Filtering with a function that doesn't have an Array/expr method stil
   expect_warning(
     expect_dplyr_equal(
       input %>%
-        filter(dbl > 2, chr %in% c("d", "f")) %>%
+        filter(int > 2, pnorm(dbl) > .99) %>%
         collect(),
       tbl
     ),
-    "Filter expression not implemented in arrow, pulling data into R"
+    'Filter expression not implemented in Arrow: pnorm(dbl) > 0.99; pulling data into R',
+    fixed = TRUE
   )
 })
 

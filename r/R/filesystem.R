@@ -84,7 +84,7 @@ FileStats <- R6Class("FileStats",
 #'
 #' @section Factory:
 #'
-#' The `$create()` factory method instantiates a `Selector` given the 3 fields
+#' The `$create()` factory method instantiates a `FileSelector` given the 3 fields
 #' described below.
 #'
 #' @section Fields:
@@ -96,21 +96,21 @@ FileStats <- R6Class("FileStats",
 #'    selection is returned
 #' - `recursive`: Whether to recurse into subdirectories.
 #'
-#' @rdname Selector
+#' @rdname FileSelector
 #' @export
-Selector <- R6Class("Selector",
+FileSelector <- R6Class("FileSelector",
   inherit = Object,
   active = list(
-    base_dir = function() fs___Selector__base_dir(self),
-    allow_non_existent = function() fs___Selector__allow_non_existent(self),
-    recursive = function() fs___Selector__recursive(self)
+    base_dir = function() fs___FileSelector__base_dir(self),
+    allow_non_existent = function() fs___FileSelector__allow_non_existent(self),
+    recursive = function() fs___FileSelector__recursive(self)
   )
 )
 
-Selector$create <- function(base_dir, allow_non_existent = FALSE, recursive = FALSE) {
+FileSelector$create <- function(base_dir, allow_non_existent = FALSE, recursive = FALSE) {
   shared_ptr(
-    Selector,
-    fs___Selector__create(clean_path_rel(base_dir), allow_non_existent, recursive)
+    FileSelector,
+    fs___FileSelector__create(clean_path_rel(base_dir), allow_non_existent, recursive)
   )
 }
 
@@ -130,7 +130,7 @@ Selector$create <- function(base_dir, allow_non_existent = FALSE, recursive = FA
 #'
 #' @section Methods:
 #'
-#' - `$GetTargetStats(x)`: `x` may be a [Selector][Selector] or a character
+#' - `$GetTargetStats(x)`: `x` may be a [FileSelector][FileSelector] or a character
 #'    vector of paths. Returns a list of [FileStats][FileStats]
 #' - `$CreateDir(path, recursive = TRUE)`: Create a directory and subdirectories.
 #' - `$DeleteDir(path)`: Delete a directory and its contents, recursively.
@@ -167,9 +167,9 @@ Selector$create <- function(base_dir, allow_non_existent = FALSE, recursive = FA
 FileSystem <- R6Class("FileSystem", inherit = Object,
   public = list(
     GetTargetStats = function(x) {
-      if (inherits(x, "Selector")) {
+      if (inherits(x, "FileSelector")) {
         map(
-          fs___FileSystem__GetTargetStats_Selector(self, x),
+          fs___FileSystem__GetTargetStats_FileSelector(self, x),
           shared_ptr,
           class = FileStats
         )

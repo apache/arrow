@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
+import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -80,23 +81,10 @@ public class TestDictionaryVector {
   public void testEncodeStrings() {
     // Create a new value vector
     try (final VarCharVector vector = newVarCharVector("foo", allocator);
-        final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
-      vector.allocateNew(512, 5);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
 
-      // set some values
-      vector.setSafe(0, zero, 0, zero.length);
-      vector.setSafe(1, one, 0, one.length);
-      vector.setSafe(2, one, 0, one.length);
-      vector.setSafe(3, two, 0, two.length);
-      vector.setSafe(4, zero, 0, zero.length);
-      vector.setValueCount(5);
-
-      // set some dictionary values
-      dictionaryVector.allocateNew(512, 3);
-      dictionaryVector.setSafe(0, zero, 0, zero.length);
-      dictionaryVector.setSafe(1, one, 0, one.length);
-      dictionaryVector.setSafe(2, two, 0, two.length);
-      dictionaryVector.setValueCount(3);
+      setVector(vector, zero, one, one, two, zero);
+      setVector(dictionaryVector, zero, one, two);
 
       Dictionary dictionary =
           new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
@@ -129,7 +117,7 @@ public class TestDictionaryVector {
   public void testEncodeLargeVector() {
     // Create a new value vector
     try (final VarCharVector vector = newVarCharVector("foo", allocator);
-        final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
       vector.allocateNew();
 
       int count = 10000;
@@ -139,11 +127,7 @@ public class TestDictionaryVector {
       }
       vector.setValueCount(count);
 
-      dictionaryVector.allocateNew(512, 3);
-      dictionaryVector.setSafe(0, zero, 0, zero.length);
-      dictionaryVector.setSafe(1, one, 0, one.length);
-      dictionaryVector.setSafe(2, two, 0, two.length);
-      dictionaryVector.setValueCount(3);
+      setVector(dictionaryVector, zero, one, two);
 
       Dictionary dictionary =
           new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
@@ -174,7 +158,7 @@ public class TestDictionaryVector {
   public void testEncodeList() {
     // Create a new value vector
     try (final ListVector vector = ListVector.empty("vector", allocator);
-        final ListVector dictionaryVector = ListVector.empty("dict", allocator);) {
+         final ListVector dictionaryVector = ListVector.empty("dict", allocator);) {
 
       UnionListWriter writer = vector.getWriter();
       writer.allocate();
@@ -288,23 +272,10 @@ public class TestDictionaryVector {
   public void testEncodeBinaryVector() {
     // Create a new value vector
     try (final VarBinaryVector vector = newVarBinaryVector("foo", allocator);
-        final VarBinaryVector dictionaryVector = newVarBinaryVector("dict", allocator);) {
-      vector.allocateNew(512, 5);
+         final VarBinaryVector dictionaryVector = newVarBinaryVector("dict", allocator)) {
 
-      // set some values
-      vector.setSafe(0, zero, 0, zero.length);
-      vector.setSafe(1, one, 0, one.length);
-      vector.setSafe(2, one, 0, one.length);
-      vector.setSafe(3, two, 0, two.length);
-      vector.setSafe(4, zero, 0, zero.length);
-      vector.setValueCount(5);
-
-      // set some dictionary values
-      dictionaryVector.allocateNew(512, 3);
-      dictionaryVector.setSafe(0, zero, 0, zero.length);
-      dictionaryVector.setSafe(1, one, 0, one.length);
-      dictionaryVector.setSafe(2, two, 0, two.length);
-      dictionaryVector.setValueCount(3);
+      setVector(vector, zero, one, one, two, zero);
+      setVector(dictionaryVector, zero, one, two);
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
@@ -336,7 +307,7 @@ public class TestDictionaryVector {
   public void testEncodeUnion() {
     // Create a new value vector
     try (final UnionVector vector = new UnionVector("vector", allocator, null);
-        final UnionVector dictionaryVector = new UnionVector("dict", allocator, null);) {
+         final UnionVector dictionaryVector = new UnionVector("dict", allocator, null);) {
 
       final NullableUInt4Holder uintHolder1 = new NullableUInt4Holder();
       uintHolder1.value = 10;
@@ -410,23 +381,13 @@ public class TestDictionaryVector {
   public void testIntEquals() {
     //test Int
     try (final IntVector vector1 = new IntVector("int", allocator);
-        final IntVector vector2 = new IntVector("int", allocator)) {
+         final IntVector vector2 = new IntVector("int", allocator)) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
 
-      vector1.allocateNew(3);
-      vector1.setValueCount(3);
-      vector2.allocateNew(3);
-      vector2.setValueCount(3);
-
-      vector1.setSafe(0, 1);
-      vector1.setSafe(1, 2);
-      vector1.setSafe(2, 3);
-
-      vector2.setSafe(0, 1);
-      vector2.setSafe(1, 2);
-      vector2.setSafe(2, 0);
+      setVector(vector1, 1, 2, 3);
+      setVector(vector2, 1, 2, 0);
 
       assertFalse(dict1.equals(dict2));
 
@@ -438,24 +399,13 @@ public class TestDictionaryVector {
   @Test
   public void testVarcharEquals() {
     try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
-        final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
+         final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
 
-      vector1.allocateNew();
-      vector1.setValueCount(3);
-      vector2.allocateNew();
-      vector2.setValueCount(3);
-
-      // set some values
-      vector1.setSafe(0, zero, 0, zero.length);
-      vector1.setSafe(1, one, 0, one.length);
-      vector1.setSafe(2, two, 0, two.length);
-
-      vector2.setSafe(0, zero, 0, zero.length);
-      vector2.setSafe(1, one, 0, one.length);
-      vector2.setSafe(2, one, 0, one.length);
+      setVector(vector1, zero, one, two);
+      setVector(vector2, zero, one, one);
 
       assertFalse(dict1.equals(dict2));
 
@@ -467,24 +417,13 @@ public class TestDictionaryVector {
   @Test
   public void testVarBinaryEquals() {
     try (final VarBinaryVector vector1 = new VarBinaryVector("binary", allocator);
-        final VarBinaryVector vector2 = new VarBinaryVector("binary", allocator)) {
+         final VarBinaryVector vector2 = new VarBinaryVector("binary", allocator)) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
 
-      vector1.allocateNew();
-      vector1.setValueCount(3);
-      vector2.allocateNew();
-      vector2.setValueCount(3);
-
-      // set some values
-      vector1.setSafe(0, zero, 0, zero.length);
-      vector1.setSafe(1, one, 0, one.length);
-      vector1.setSafe(2, two, 0, two.length);
-
-      vector2.setSafe(0, zero, 0, zero.length);
-      vector2.setSafe(1, one, 0, one.length);
-      vector2.setSafe(2, one, 0, one.length);
+      setVector(vector1, zero, one, two);
+      setVector(vector2, zero, one, one);
 
       assertFalse(dict1.equals(dict2));
 
@@ -496,7 +435,7 @@ public class TestDictionaryVector {
   @Test
   public void testListEquals() {
     try (final ListVector vector1 = ListVector.empty("list", allocator);
-        final ListVector vector2 = ListVector.empty("list", allocator);) {
+         final ListVector vector2 = ListVector.empty("list", allocator);) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
@@ -526,7 +465,7 @@ public class TestDictionaryVector {
   @Test
   public void testStructEquals() {
     try (final StructVector vector1 = StructVector.empty("struct", allocator);
-        final StructVector vector2 = StructVector.empty("struct", allocator);) {
+         final StructVector vector2 = StructVector.empty("struct", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
       vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -556,7 +495,7 @@ public class TestDictionaryVector {
   @Test
   public void testUnionEquals() {
     try (final UnionVector vector1 = new UnionVector("union", allocator, null);
-        final UnionVector vector2 = new UnionVector("union", allocator, null);) {
+         final UnionVector vector2 = new UnionVector("union", allocator, null);) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
@@ -591,23 +530,10 @@ public class TestDictionaryVector {
   public void testEncodeWithEncoderInstance() {
     // Create a new value vector
     try (final VarCharVector vector = newVarCharVector("vector", allocator);
-        final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
-      vector.allocateNew(512, 5);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
 
-      // set some values
-      vector.setSafe(0, zero, 0, zero.length);
-      vector.setSafe(1, one, 0, one.length);
-      vector.setSafe(2, one, 0, one.length);
-      vector.setSafe(3, two, 0, two.length);
-      vector.setSafe(4, zero, 0, zero.length);
-      vector.setValueCount(5);
-
-      // set some dictionary values
-      dictionaryVector.allocateNew(512, 3);
-      dictionaryVector.setSafe(0, zero, 0, zero.length);
-      dictionaryVector.setSafe(1, one, 0, one.length);
-      dictionaryVector.setSafe(2, two, 0, two.length);
-      dictionaryVector.setValueCount(3);
+      setVector(vector, zero, one, one, two, zero);
+      setVector(dictionaryVector, zero, one, two);
 
       Dictionary dictionary =
           new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
@@ -641,33 +567,12 @@ public class TestDictionaryVector {
   public void testEncodeMultiVectors() {
     // Create a new value vector
     try (final VarCharVector vector1 = newVarCharVector("vector1", allocator);
-        final VarCharVector vector2 = newVarCharVector("vector2", allocator);
-        final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
+         final VarCharVector vector2 = newVarCharVector("vector2", allocator);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
 
-      vector1.allocateNew(512, 5);
-
-      // set some values
-      vector1.setSafe(0, zero, 0, zero.length);
-      vector1.setSafe(1, one, 0, one.length);
-      vector1.setSafe(2, one, 0, one.length);
-      vector1.setSafe(3, two, 0, two.length);
-      vector1.setSafe(4, zero, 0, zero.length);
-      vector1.setValueCount(5);
-
-      vector2.allocateNew(512, 3);
-
-      // set some values
-      vector2.setSafe(0, zero, 0, zero.length);
-      vector2.setSafe(1, one, 0, one.length);
-      vector2.setSafe(2, one, 0, one.length);
-      vector2.setValueCount(3);
-
-      // set some dictionary values
-      dictionaryVector.allocateNew(512, 3);
-      dictionaryVector.setSafe(0, zero, 0, zero.length);
-      dictionaryVector.setSafe(1, one, 0, one.length);
-      dictionaryVector.setSafe(2, two, 0, two.length);
-      dictionaryVector.setValueCount(3);
+      setVector(vector1, zero, one, one, two, zero);
+      setVector(vector2, zero, one, one);
+      setVector(dictionaryVector, zero, one, two);
 
       Dictionary dictionary =
           new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
@@ -721,7 +626,7 @@ public class TestDictionaryVector {
   public void testEncodeListSubField() {
     // Create a new value vector
     try (final ListVector vector = ListVector.empty("vector", allocator);
-        final ListVector dictionaryVector = ListVector.empty("dict", allocator);) {
+         final ListVector dictionaryVector = ListVector.empty("dict", allocator);) {
 
       UnionListWriter writer = vector.getWriter();
       writer.allocate();
@@ -870,16 +775,15 @@ public class TestDictionaryVector {
       DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
 
 
-      dictVector1.setSafe(0, "aa".getBytes(StandardCharsets.UTF_8));
-      dictVector1.setSafe(1, "bb".getBytes(StandardCharsets.UTF_8));
-      dictVector1.setSafe(2, "cc".getBytes(StandardCharsets.UTF_8));
-      dictVector1.setSafe(3, "dd".getBytes(StandardCharsets.UTF_8));
-      dictVector1.setValueCount(4);
-
-      dictVector2.setSafe(0, "foo".getBytes(StandardCharsets.UTF_8));
-      dictVector2.setSafe(1, "baz".getBytes(StandardCharsets.UTF_8));
-      dictVector2.setSafe(2, "bar".getBytes(StandardCharsets.UTF_8));
-      dictVector2.setValueCount(3);
+      setVector(dictVector1,
+          "aa".getBytes(StandardCharsets.UTF_8),
+          "bb".getBytes(StandardCharsets.UTF_8),
+          "cc".getBytes(StandardCharsets.UTF_8),
+          "dd".getBytes(StandardCharsets.UTF_8));
+      setVector(dictVector2,
+          "foo".getBytes(StandardCharsets.UTF_8),
+          "baz".getBytes(StandardCharsets.UTF_8),
+          "bar".getBytes(StandardCharsets.UTF_8));
 
       provider.put(new Dictionary(dictVector1, new DictionaryEncoding(1L, false, null)));
       provider.put(new Dictionary(dictVector2, new DictionaryEncoding(2L, false, null)));
@@ -939,11 +843,7 @@ public class TestDictionaryVector {
       // initialize dictionaries
       DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
 
-      dictVector1.setSafe(0, "aa".getBytes(StandardCharsets.UTF_8));
-      dictVector1.setSafe(1, "bb".getBytes(StandardCharsets.UTF_8));
-      dictVector1.setSafe(2, "cc".getBytes(StandardCharsets.UTF_8));
-      dictVector1.setSafe(3, "dd".getBytes(StandardCharsets.UTF_8));
-      dictVector1.setValueCount(4);
+      setVector(dictVector1, "aa".getBytes(), "bb".getBytes(), "cc".getBytes(), "dd".getBytes());
 
       provider.put(new Dictionary(dictVector1, new DictionaryEncoding(1L, false, null)));
       StructSubfieldEncoder encoder = new StructSubfieldEncoder(allocator, provider);

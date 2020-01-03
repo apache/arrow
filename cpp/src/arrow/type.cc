@@ -24,16 +24,19 @@
 #include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/compare.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/stl.h"
+#include "arrow/util/make_unique.h"
+#include "arrow/util/vector.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -61,6 +64,36 @@ std::shared_ptr<Field> Field::WithType(const std::shared_ptr<DataType>& type) co
 
 std::shared_ptr<Field> Field::WithName(const std::string& name) const {
   return std::make_shared<Field>(name, type_, nullable_, metadata_);
+}
+
+std::shared_ptr<Field> Field::WithNullable(const bool nullable) const {
+  return std::make_shared<Field>(name_, type_, nullable, metadata_);
+}
+
+Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other) const {
+  if (name() != other.name()) {
+    return Status::Invalid("Field ", name(), " doesn't have the same name as ",
+                           other.name());
+  }
+  if (type()->id() == Type::NA) {
+    return other.WithNullable(true)->WithMetadata(metadata());
+  }
+  if (other.type()->id() != Type::NA && !type()->Equals(other.type())) {
+    return Status::Invalid("Field ", name(),
+                           " has incompatible types: ", type()->ToString(), " vs ",
+                           other.type()->ToString());
+  }
+  // At least one field is nullable thus the unified field should also be nullable.
+  if (other.type()->id() == Type::NA || other.nullable() != nullable()) {
+    return WithNullable(true);
+  }
+  return Copy();
+}
+
+Result<std::shared_ptr<Field>> Field::MergeWith(
+    const std::shared_ptr<Field>& other) const {
+  DCHECK_NE(other, nullptr);
+  return MergeWith(*other);
 }
 
 std::vector<std::shared_ptr<Field>> Field::Flatten() const {
@@ -105,6 +138,13 @@ bool Field::Equals(const std::shared_ptr<Field>& other, bool check_metadata) con
   return Equals(*other.get(), check_metadata);
 }
 
+bool Field::IsCompatibleWith(const Field& other) const { return MergeWith(other).ok(); }
+
+bool Field::IsCompatibleWith(const std::shared_ptr<Field>& other) const {
+  DCHECK_NE(other, nullptr);
+  return IsCompatibleWith(*other);
+}
+
 std::string Field::ToString() const {
   std::stringstream ss;
   ss << this->name_ << ": " << this->type_->ToString();
@@ -131,8 +171,6 @@ std::ostream& operator<<(std::ostream& os, const DataType& type) {
   os << type.ToString();
   return os;
 }
-
-std::string BooleanType::ToString() const { return name(); }
 
 FloatingPointType::Precision HalfFloatType::precision() const {
   return FloatingPointType::HALF;
@@ -283,13 +321,25 @@ std::string DurationType::ToString() const {
 // ----------------------------------------------------------------------
 // Union type
 
+constexpr int8_t UnionType::kMaxTypeCode;
+constexpr int UnionType::kInvalidChildId;
+
 UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-                     const std::vector<uint8_t>& type_codes, UnionMode::type mode)
-    : NestedType(Type::UNION), mode_(mode), type_codes_(type_codes) {
+                     const std::vector<int8_t>& type_codes, UnionMode::type mode)
+    : NestedType(Type::UNION),
+      mode_(mode),
+      type_codes_(type_codes),
+      child_ids_(kMaxTypeCode + 1, kInvalidChildId) {
   DCHECK_LE(fields.size(), type_codes.size()) << "union field with unknown type id";
   DCHECK_GE(fields.size(), type_codes.size())
       << "type id provided without corresponding union field";
   children_ = fields;
+  for (int child_id = 0; child_id < static_cast<int>(type_codes_.size()); ++child_id) {
+    const auto type_code = type_codes_[child_id];
+    DCHECK_GE(type_code, 0);
+    DCHECK_LE(type_code, kMaxTypeCode);
+    child_ids_[type_code] = child_id;
+  }
 }
 
 DataTypeLayout UnionType::layout() const {
@@ -339,18 +389,19 @@ std::unordered_multimap<std::string, int> CreateNameToIndexMap(
   return name_to_index;
 }
 
+template <int NotFoundValue = -1, int DuplicateFoundValue = -1>
 int LookupNameIndex(const std::unordered_multimap<std::string, int>& name_to_index,
                     const std::string& name) {
   auto p = name_to_index.equal_range(name);
   auto it = p.first;
   if (it == p.second) {
     // Not found
-    return -1;
+    return NotFoundValue;
   }
   auto index = it->second;
   if (++it != p.second) {
     // Duplicate field name
-    return -1;
+    return DuplicateFoundValue;
   }
   return index;
 }
@@ -566,6 +617,14 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
   return true;
 }
 
+bool Schema::Equals(const std::shared_ptr<Schema>& other, bool check_metadata) const {
+  if (other == nullptr) {
+    return false;
+  }
+
+  return Equals(*other, check_metadata);
+}
+
 std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
   int i = GetFieldIndex(name);
   return i == -1 ? nullptr : impl_->fields_[i];
@@ -618,6 +677,12 @@ Status Schema::SetField(int i, const std::shared_ptr<Field>& field,
 
 bool Schema::HasMetadata() const {
   return (impl_->metadata_ != nullptr) && (impl_->metadata_->size() > 0);
+}
+
+bool Schema::HasDistinctFieldNames() const {
+  auto fields = field_names();
+  std::unordered_set<std::string> names{fields.cbegin(), fields.cend()};
+  return names.size() == fields.size();
 }
 
 std::shared_ptr<Schema> Schema::WithMetadata(
@@ -676,6 +741,157 @@ std::vector<std::string> Schema::field_names() const {
   return names;
 }
 
+class SchemaBuilder::Impl {
+ public:
+  friend class SchemaBuilder;
+  Impl(ConflictPolicy policy) : policy_(policy) {}
+
+  Impl(std::vector<std::shared_ptr<Field>> fields,
+       std::shared_ptr<const KeyValueMetadata> metadata, ConflictPolicy conflict_policy)
+      : fields_(std::move(fields)),
+        name_to_index_(CreateNameToIndexMap(fields_)),
+        metadata_(std::move(metadata)),
+        policy_(conflict_policy) {}
+
+  Status AddField(const std::shared_ptr<Field>& field) {
+    DCHECK_NE(field, nullptr);
+
+    // Short-circuit, no lookup needed.
+    if (policy_ == CONFLICT_APPEND) {
+      return AppendField(field);
+    }
+
+    auto name = field->name();
+    constexpr int kNotFound = -1;
+    constexpr int kDuplicateFound = -2;
+    auto i = LookupNameIndex<kNotFound, kDuplicateFound>(name_to_index_, name);
+
+    if (i == kNotFound) {
+      return AppendField(field);
+    }
+
+    // From this point, there's one or more field in the builder that exists with
+    // the same name.
+
+    if (policy_ == CONFLICT_IGNORE) {
+      // The ignore policy is more generous when there's duplicate in the builder.
+      return Status::OK();
+    } else if (policy_ == CONFLICT_ERROR) {
+      return Status::Invalid("Duplicate found, policy dictate to treat as an error");
+    }
+
+    if (i == kDuplicateFound) {
+      // Cannot merge/replace when there's more than one field in the builder
+      // because we can't decide which to merge/replace.
+      return Status::Invalid("Cannot merge field ", name,
+                             " more than one field with same name exists");
+    }
+
+    DCHECK_GE(i, 0);
+
+    if (policy_ == CONFLICT_REPLACE) {
+      fields_[i] = field;
+    } else if (policy_ == CONFLICT_MERGE) {
+      ARROW_ASSIGN_OR_RAISE(fields_[i], fields_[i]->MergeWith(field));
+    }
+
+    return Status::OK();
+  }
+
+  Status AppendField(const std::shared_ptr<Field>& field) {
+    name_to_index_.emplace(field->name(), static_cast<int>(fields_.size()));
+    fields_.push_back(field);
+    return Status::OK();
+  }
+
+  void Reset() {
+    fields_.clear();
+    name_to_index_.clear();
+    metadata_.reset();
+  }
+
+ private:
+  std::vector<std::shared_ptr<Field>> fields_;
+  std::unordered_multimap<std::string, int> name_to_index_;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
+  ConflictPolicy policy_;
+};
+
+SchemaBuilder::SchemaBuilder(ConflictPolicy policy) {
+  impl_ = internal::make_unique<Impl>(policy);
+}
+
+SchemaBuilder::SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
+                             ConflictPolicy policy) {
+  impl_ = internal::make_unique<Impl>(std::move(fields), nullptr, policy);
+}
+
+SchemaBuilder::~SchemaBuilder() {}
+
+SchemaBuilder::SchemaBuilder(const std::shared_ptr<Schema>& schema,
+                             ConflictPolicy policy) {
+  std::shared_ptr<const KeyValueMetadata> metadata;
+  if (schema->HasMetadata()) {
+    metadata = schema->metadata()->Copy();
+  }
+
+  impl_ = internal::make_unique<Impl>(schema->fields(), std::move(metadata), policy);
+}
+
+SchemaBuilder::ConflictPolicy SchemaBuilder::policy() const { return impl_->policy_; }
+
+void SchemaBuilder::SetPolicy(SchemaBuilder::ConflictPolicy resolution) {
+  impl_->policy_ = resolution;
+}
+
+Status SchemaBuilder::AddField(const std::shared_ptr<Field>& field) {
+  return impl_->AddField(field);
+}
+
+Status SchemaBuilder::AddFields(const std::vector<std::shared_ptr<Field>>& fields) {
+  for (const auto& field : fields) {
+    RETURN_NOT_OK(AddField(field));
+  }
+
+  return Status::OK();
+}
+
+Status SchemaBuilder::AddSchema(const std::shared_ptr<Schema>& schema) {
+  DCHECK_NE(schema, nullptr);
+  return AddFields(schema->fields());
+}
+
+Status SchemaBuilder::AddSchemas(const std::vector<std::shared_ptr<Schema>>& schemas) {
+  for (const auto& schema : schemas) {
+    RETURN_NOT_OK(AddSchema(schema));
+  }
+
+  return Status::OK();
+}
+
+Status SchemaBuilder::AddMetadata(const KeyValueMetadata& metadata) {
+  impl_->metadata_ = metadata.Copy();
+  return Status::OK();
+}
+
+Result<std::shared_ptr<Schema>> SchemaBuilder::Finish() const {
+  return schema(impl_->fields_, impl_->metadata_);
+}
+
+void SchemaBuilder::Reset() { impl_->Reset(); }
+
+Result<std::shared_ptr<Schema>> SchemaBuilder::Merge(
+    const std::vector<std::shared_ptr<Schema>>& schemas, ConflictPolicy policy) {
+  SchemaBuilder builder{policy};
+  RETURN_NOT_OK(builder.AddSchemas(schemas));
+  return builder.Finish();
+}
+
+Status SchemaBuilder::AreCompatible(const std::vector<std::shared_ptr<Schema>>& schemas,
+                                    ConflictPolicy policy) {
+  return Merge(schemas, policy).status();
+}
+
 std::shared_ptr<Schema> schema(const std::vector<std::shared_ptr<Field>>& fields,
                                const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<Schema>(fields, metadata);
@@ -684,6 +900,29 @@ std::shared_ptr<Schema> schema(const std::vector<std::shared_ptr<Field>>& fields
 std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
                                const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<Schema>(std::move(fields), metadata);
+}
+
+Result<std::shared_ptr<Schema>> UnifySchemas(
+    const std::vector<std::shared_ptr<Schema>>& schemas) {
+  if (schemas.empty()) {
+    return Status::Invalid("Must provide at least one schema to unify.");
+  }
+
+  if (!schemas[0]->HasDistinctFieldNames()) {
+    return Status::Invalid("Can't unify schema with duplicate field names.");
+  }
+
+  SchemaBuilder builder{schemas[0], SchemaBuilder::CONFLICT_MERGE};
+
+  for (size_t i = 1; i < schemas.size(); i++) {
+    const auto& schema = schemas[i];
+    if (!schema->HasDistinctFieldNames()) {
+      return Status::Invalid("Can't unify schema with duplicate field names.");
+    }
+    RETURN_NOT_OK(builder.AddSchema(schema));
+  }
+
+  return builder.Finish();
 }
 
 // ----------------------------------------------------------------------
@@ -840,6 +1079,8 @@ std::string Schema::ComputeMetadataFingerprint() const {
   return ss.str();
 }
 
+void PrintTo(const Schema& s, std::ostream* os) { *os << s; }
+
 std::string DataType::ComputeFingerprint() const {
   // Default implementation returns empty string, signalling non-implemented
   // functionality.
@@ -965,7 +1206,7 @@ std::string UnionType::ComputeFingerprint() const {
   }
   for (const auto code : type_codes_) {
     // Represent code as integer, not raw character
-    ss << ':' << static_cast<uint32_t>(code);
+    ss << ':' << static_cast<int32_t>(code);
   }
   ss << "]{";
   for (const auto& child : children_) {
@@ -1106,18 +1347,32 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
 }
 
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-                                 const std::vector<uint8_t>& type_codes,
+                                 const std::vector<int8_t>& type_codes,
                                  UnionMode::type mode) {
   return std::make_shared<UnionType>(child_fields, type_codes, mode);
 }
 
+std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+                                 UnionMode::type mode) {
+  std::vector<int8_t> type_codes(child_fields.size());
+  for (int i = 0; i < static_cast<int>(child_fields.size()); ++i) {
+    type_codes[i] = static_cast<int8_t>(i);
+  }
+  return std::make_shared<UnionType>(child_fields, type_codes, mode);
+}
+
+std::shared_ptr<DataType> union_(UnionMode::type mode) {
+  std::vector<std::shared_ptr<Field>> child_fields;
+  return union_(child_fields, mode);
+}
+
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& children,
                                  const std::vector<std::string>& field_names,
-                                 const std::vector<uint8_t>& given_type_codes,
+                                 const std::vector<int8_t>& given_type_codes,
                                  UnionMode::type mode) {
   std::vector<std::shared_ptr<Field>> fields;
-  std::vector<uint8_t> type_codes(given_type_codes);
-  uint8_t counter = 0;
+  std::vector<int8_t> type_codes(given_type_codes);
+  int8_t counter = 0;
   for (const auto& child : children) {
     if (field_names.size() == 0) {
       fields.push_back(field(std::to_string(counter), child->type()));

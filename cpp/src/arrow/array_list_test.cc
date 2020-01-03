@@ -72,7 +72,7 @@ class TestListArray : public TestBuilder {
 
   void ValidateBasicListArray(const ArrayType* result, const std::vector<int16_t>& values,
                               const std::vector<uint8_t>& is_valid) {
-    ASSERT_OK(result->Validate());
+    ASSERT_OK(result->ValidateFull());
     ASSERT_EQ(1, result->null_count());
     ASSERT_EQ(0, result->values()->null_count());
 
@@ -213,9 +213,9 @@ class TestListArray : public TestBuilder {
     ASSERT_OK(ArrayType::FromArrays(*offsets1, *values, pool_, &list1));
     ASSERT_OK(ArrayType::FromArrays(*offsets3, *values, pool_, &list3));
     ASSERT_OK(ArrayType::FromArrays(*offsets4, *values, pool_, &list4));
-    ASSERT_OK(list1->Validate());
-    ASSERT_OK(list3->Validate());
-    ASSERT_OK(list4->Validate());
+    ASSERT_OK(list1->ValidateFull());
+    ASSERT_OK(list3->ValidateFull());
+    ASSERT_OK(list4->ValidateFull());
 
     ArrayType expected1(list_type, length, offsets1->data()->buffers[1], values,
                         offsets1->data()->buffers[0], 0);
@@ -251,7 +251,7 @@ class TestListArray : public TestBuilder {
 
     Done();
 
-    ASSERT_OK(result_->Validate());
+    ASSERT_OK(result_->ValidateFull());
     ASSERT_TRUE(result_->IsNull(0));
     ASSERT_TRUE(result_->IsNull(1));
 
@@ -270,7 +270,7 @@ class TestListArray : public TestBuilder {
 
     Done();
 
-    ASSERT_OK(result_->Validate());
+    ASSERT_OK(result_->ValidateFull());
     ASSERT_EQ(result_->length(), 3);
     ASSERT_EQ(result_->null_count(), 3);
     ASSERT_TRUE(result_->IsNull(0));
@@ -321,13 +321,13 @@ class TestListArray : public TestBuilder {
     }
 
     Done();
-    ASSERT_RAISES(Invalid, result_->Validate());
+    ASSERT_RAISES(Invalid, result_->ValidateFull());
   }
 
   void TestZeroLength() {
     // All buffers are null
     Done();
-    ASSERT_OK(result_->Validate());
+    ASSERT_OK(result_->ValidateFull());
   }
 
   void TestBuilderPreserveFieldName() {
@@ -345,6 +345,55 @@ class TestListArray : public TestBuilder {
 
     const auto& type = checked_cast<T&>(*list_array->type());
     ASSERT_EQ("counts", type.value_field()->name());
+  }
+
+  void TestFlattenZeroLength() {
+    Done();
+    ASSERT_OK_AND_ASSIGN(auto flattened, result_->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    ASSERT_EQ(0, flattened->length());
+  }
+
+  void TestFlattenSimple() {
+    auto type = std::make_shared<T>(int32());
+    auto list_array = std::dynamic_pointer_cast<ArrayType>(
+        ArrayFromJSON(type, "[[1, 2], [3], [4], null, [5], [], [6]]"));
+    ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]")));
+  }
+
+  void TestFlattenSliced() {
+    auto type = std::make_shared<T>(int32());
+    auto list_array = std::dynamic_pointer_cast<ArrayType>(
+        ArrayFromJSON(type, "[[1, 2], [3], [4], null, [5], [], [6]]"));
+    auto sliced_list_array =
+        std::dynamic_pointer_cast<ArrayType>(list_array->Slice(3, 4));
+    ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    // Note the difference between values() and Flatten().
+    EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[5, 6]")));
+    EXPECT_TRUE(sliced_list_array->values()->Equals(
+        ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]")));
+  }
+
+  void TestFlattenNonEmptyBackingNulls() {
+    auto type = std::make_shared<T>(int32());
+    auto array_data =
+        std::dynamic_pointer_cast<ArrayType>(
+            ArrayFromJSON(type, "[[1, 2], [3], null, [5, 6], [7, 8], [], [9]]"))
+            ->data();
+    ASSERT_EQ(2, array_data->buffers.size());
+    auto null_bitmap_buffer = array_data->buffers[0];
+    ASSERT_NE(nullptr, null_bitmap_buffer);
+    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 1);
+    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 3);
+    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 4);
+    auto list_array = std::dynamic_pointer_cast<ArrayType>(MakeArray(array_data));
+    ASSERT_OK(list_array->ValidateFull());
+    ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
+    EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[1, 2, 9]")))
+        << flattened->ToString();
   }
 
  protected:
@@ -378,11 +427,20 @@ TYPED_TEST(TestListArray, BuilderPreserveFieldName) {
   this->TestBuilderPreserveFieldName();
 }
 
+TYPED_TEST(TestListArray, FlattenSimple) { this->TestFlattenSimple(); }
+TYPED_TEST(TestListArray, FlattenZeroLength) { this->TestFlattenZeroLength(); }
+TYPED_TEST(TestListArray, TestFlattenNonEmptyBackingNulls) {
+  this->TestFlattenNonEmptyBackingNulls();
+}
+
 // ----------------------------------------------------------------------
 // Map tests
 
 class TestMapArray : public TestBuilder {
  public:
+  using offset_type = typename MapType::offset_type;
+  using OffsetType = typename TypeTraits<MapType>::OffsetType;
+
   void SetUp() {
     TestBuilder::SetUp();
 
@@ -485,7 +543,7 @@ TEST_F(TestMapArray, BuildingIntToInt) {
   ASSERT_OK(item_builder->AppendValues({-1, -1, 0, 1, -1, 2}, {0, 0, 1, 1, 0, 1}));
   ASSERT_OK(map_builder.Append());
   ASSERT_OK(map_builder.Finish(&actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
 
   ASSERT_ARRAYS_EQUAL(*actual, expected);
 }
@@ -496,9 +554,7 @@ TEST_F(TestMapArray, BuildingStringToInt) {
   std::vector<int32_t> offsets = {0, 2, 2, 3, 3};
   auto expected_keys = ArrayFromJSON(utf8(), R"(["joe", "mark", "cap"])");
   auto expected_values = ArrayFromJSON(int32(), "[0, null, 8]");
-  std::shared_ptr<Buffer> expected_null_bitmap;
-  ASSERT_OK(
-      BitUtil::BytesToBits({1, 0, 1, 1}, default_memory_pool(), &expected_null_bitmap));
+  ASSERT_OK_AND_ASSIGN(auto expected_null_bitmap, BitUtil::BytesToBits({1, 0, 1, 1}));
   MapArray expected(type, 4, Buffer::Wrap(offsets), expected_keys, expected_values,
                     expected_null_bitmap, 1);
 
@@ -518,9 +574,164 @@ TEST_F(TestMapArray, BuildingStringToInt) {
   ASSERT_OK(item_builder->Append(8));
   ASSERT_OK(map_builder.Append());
   ASSERT_OK(map_builder.Finish(&actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
 
   ASSERT_ARRAYS_EQUAL(*actual, expected);
+}
+
+TEST_F(TestMapArray, FromArrays) {
+  std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, keys, items;
+
+  std::vector<bool> offsets_is_valid3 = {true, false, true, true};
+  std::vector<bool> offsets_is_valid4 = {true, true, false, true};
+
+  std::vector<bool> items_is_valid = {true, false, true, true, true, true};
+
+  std::vector<MapType::offset_type> offset1_values = {0, 2, 2, 6};
+  std::vector<MapType::offset_type> offset2_values = {0, 2, 6, 6};
+
+  std::vector<int8_t> key_values = {0, 1, 2, 3, 4, 5};
+  std::vector<int16_t> item_values = {10, 9, 8, 7, 6, 5};
+  const int length = 3;
+
+  ArrayFromVector<OffsetType, offset_type>(offset1_values, &offsets1);
+  ArrayFromVector<OffsetType, offset_type>(offset2_values, &offsets2);
+
+  ArrayFromVector<OffsetType, offset_type>(offsets_is_valid3, offset1_values, &offsets3);
+  ArrayFromVector<OffsetType, offset_type>(offsets_is_valid4, offset2_values, &offsets4);
+
+  ArrayFromVector<Int8Type, int8_t>(key_values, &keys);
+  ArrayFromVector<Int16Type, int16_t>(items_is_valid, item_values, &items);
+
+  auto map_type = map(int8(), int16());
+
+  std::shared_ptr<Array> map1, map3, map4;
+  ASSERT_OK(MapArray::FromArrays(offsets1, keys, items, pool_, &map1));
+  ASSERT_OK(MapArray::FromArrays(offsets3, keys, items, pool_, &map3));
+  ASSERT_OK(MapArray::FromArrays(offsets4, keys, items, pool_, &map4));
+  ASSERT_OK(map1->Validate());
+  ASSERT_OK(map3->Validate());
+  ASSERT_OK(map4->Validate());
+
+  MapArray expected1(map_type, length, offsets1->data()->buffers[1], keys, items,
+                     offsets1->data()->buffers[0], 0);
+  AssertArraysEqual(expected1, *map1);
+
+  // Use null bitmap from offsets3, but clean offsets from non-null version
+  MapArray expected3(map_type, length, offsets1->data()->buffers[1], keys, items,
+                     offsets3->data()->buffers[0], 1);
+  AssertArraysEqual(expected3, *map3);
+
+  // Check that the last offset bit is zero
+  ASSERT_FALSE(BitUtil::GetBit(map3->null_bitmap()->data(), length + 1));
+
+  MapArray expected4(map_type, length, offsets2->data()->buffers[1], keys, items,
+                     offsets4->data()->buffers[0], 1);
+  AssertArraysEqual(expected4, *map4);
+
+  // Test failure modes
+
+  std::shared_ptr<Array> tmp;
+
+  // Zero-length offsets
+  ASSERT_RAISES(Invalid,
+                MapArray::FromArrays(offsets1->Slice(0, 0), keys, items, pool_, &tmp));
+
+  // Offsets not the right type
+  ASSERT_RAISES(TypeError, MapArray::FromArrays(keys, offsets1, items, pool_, &tmp));
+
+  // Keys and Items different lengths
+  ASSERT_RAISES(Invalid,
+                MapArray::FromArrays(offsets1, keys->Slice(0, 1), items, pool_, &tmp));
+
+  // Keys contains null values
+  std::shared_ptr<Array> keys_with_null = offsets3;
+  std::shared_ptr<Array> tmp_items = items->Slice(0, offsets3->length());
+  ASSERT_EQ(keys_with_null->length(), tmp_items->length());
+  ASSERT_RAISES(Invalid,
+                MapArray::FromArrays(offsets1, keys_with_null, tmp_items, pool_, &tmp));
+}
+
+namespace {
+
+template <typename TYPE>
+Status BuildListOfStructPairs(TYPE& builder, std::shared_ptr<Array>* out) {
+  auto struct_builder = internal::checked_cast<StructBuilder*>(builder.value_builder());
+  auto field0_builder =
+      internal::checked_cast<Int16Builder*>(struct_builder->field_builder(0));
+  auto field1_builder =
+      internal::checked_cast<Int16Builder*>(struct_builder->field_builder(1));
+
+  RETURN_NOT_OK(builder.Append());
+  RETURN_NOT_OK(field0_builder->AppendValues({0, 1}));
+  RETURN_NOT_OK(field1_builder->AppendValues({1, -1}, {1, 0}));
+  RETURN_NOT_OK(struct_builder->AppendValues(2, NULLPTR));
+  RETURN_NOT_OK(builder.AppendNull());
+  RETURN_NOT_OK(builder.Append());
+  RETURN_NOT_OK(field0_builder->Append(2));
+  RETURN_NOT_OK(field1_builder->Append(3));
+  RETURN_NOT_OK(struct_builder->Append());
+  RETURN_NOT_OK(builder.Append());
+  RETURN_NOT_OK(builder.Append());
+  RETURN_NOT_OK(field0_builder->AppendValues({3, 4}));
+  RETURN_NOT_OK(field1_builder->AppendValues({4, 5}));
+  RETURN_NOT_OK(struct_builder->AppendValues(2, NULLPTR));
+  RETURN_NOT_OK(builder.Finish(out));
+  RETURN_NOT_OK((*out)->Validate());
+
+  return Status::OK();
+}
+
+}  // namespace
+
+TEST_F(TestMapArray, ValueBuilder) {
+  auto key_builder = std::make_shared<Int16Builder>();
+  auto item_builder = std::make_shared<Int16Builder>();
+  MapBuilder map_builder(default_memory_pool(), key_builder, item_builder);
+
+  // Build Map array using key/item builder
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->AppendValues({0, 1}));
+  ASSERT_OK(item_builder->AppendValues({1, -1}, {1, 0}));
+  ASSERT_OK(map_builder.AppendNull());
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->Append(2));
+  ASSERT_OK(item_builder->Append(3));
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->AppendValues({3, 4}));
+  ASSERT_OK(item_builder->AppendValues({4, 5}));
+  ASSERT_OK(map_builder.Finish(&expected));
+  ASSERT_OK(expected->Validate());
+
+  map_builder.Reset();
+
+  // Build Map array like an Array of Structs using value builder
+  std::shared_ptr<Array> actual_map;
+  ASSERT_OK(BuildListOfStructPairs(map_builder, &actual_map));
+  ASSERT_ARRAYS_EQUAL(*actual_map, *expected);
+
+  map_builder.Reset();
+
+  // Build a ListArray of Structs, and compare MapArray to the List
+  auto map_type = internal::checked_pointer_cast<MapType>(map_builder.type());
+  auto struct_type = map_type->value_type();
+  std::vector<std::shared_ptr<ArrayBuilder>> child_builders{key_builder, item_builder};
+  auto struct_builder =
+      std::make_shared<StructBuilder>(struct_type, default_memory_pool(), child_builders);
+  ListBuilder list_builder(default_memory_pool(), struct_builder, map_type);
+
+  std::shared_ptr<Array> actual_list;
+  ASSERT_OK(BuildListOfStructPairs(list_builder, &actual_list));
+
+  MapArray* map_ptr = internal::checked_cast<MapArray*>(actual_map.get());
+  auto list_type = std::make_shared<ListType>(map_type->child(0));
+  ListArray map_as_list(list_type, map_ptr->length(), map_ptr->data()->buffers[1],
+                        map_ptr->values(), actual_map->data()->buffers[0],
+                        map_ptr->null_count());
+
+  ASSERT_ARRAYS_EQUAL(*actual_list, map_as_list);
 }
 
 // ----------------------------------------------------------------------
@@ -594,7 +805,7 @@ TEST_F(TestFixedSizeListArray, TestAppendNull) {
 
   Done();
 
-  ASSERT_OK(result_->Validate());
+  ASSERT_OK(result_->ValidateFull());
   ASSERT_TRUE(result_->IsNull(0));
   ASSERT_TRUE(result_->IsNull(1));
 
@@ -610,7 +821,7 @@ TEST_F(TestFixedSizeListArray, TestAppendNulls) {
 
   Done();
 
-  ASSERT_OK(result_->Validate());
+  ASSERT_OK(result_->ValidateFull());
   ASSERT_EQ(result_->length(), 3);
   ASSERT_EQ(result_->null_count(), 3);
   ASSERT_TRUE(result_->IsNull(0));
@@ -628,7 +839,7 @@ TEST_F(TestFixedSizeListArray, TestAppendNulls) {
 void ValidateBasicFixedSizeListArray(const FixedSizeListArray* result,
                                      const std::vector<int32_t>& values,
                                      const std::vector<uint8_t>& is_valid) {
-  ASSERT_OK(result->Validate());
+  ASSERT_OK(result->ValidateFull());
   ASSERT_EQ(1, result->null_count());
   ASSERT_LE(result->values()->null_count(), 2);
 
@@ -704,13 +915,13 @@ TEST_F(TestFixedSizeListArray, BulkAppendInvalid) {
   }
 
   Done();
-  ASSERT_RAISES(Invalid, result_->Validate());
+  ASSERT_RAISES(Invalid, result_->ValidateFull());
 }
 
 TEST_F(TestFixedSizeListArray, TestZeroLength) {
   // All buffers are null
   Done();
-  ASSERT_OK(result_->Validate());
+  ASSERT_OK(result_->ValidateFull());
 }
 
 TEST_F(TestFixedSizeListArray, TestBuilderPreserveFieldName) {

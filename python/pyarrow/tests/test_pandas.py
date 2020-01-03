@@ -87,7 +87,7 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=True,
     result = table.to_pandas(use_threads=use_threads)
 
     if expected_schema:
-        # all occurences of _check_pandas_roundtrip passes expected_schema
+        # all occurrences of _check_pandas_roundtrip passes expected_schema
         # without the pandas generated key-value metadata
         assert table.schema.equals(expected_schema, check_metadata=False)
 
@@ -425,7 +425,7 @@ class TestConvertMetadata(object):
         data = {key: column_data}
         df = pd.DataFrame(data)
 
-        # we can't use _check_pandas_roundtrip here because our metdata
+        # we can't use _check_pandas_roundtrip here because our metadata
         # is always decoded as utf8: even if binary goes in, utf8 comes out
         t = pa.Table.from_pandas(df, preserve_index=True)
         df2 = t.to_pandas()
@@ -2184,6 +2184,16 @@ class TestZeroCopyConversion(object):
         tm.assert_series_equal(pd.Series(result), pd.Series(values),
                                check_names=False)
 
+    def test_zero_copy_timestamp(self):
+        arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
+        result = pa.array(arr).to_pandas(zero_copy_only=True)
+        npt.assert_array_equal(result, arr)
+
+    def test_zero_copy_duration(self):
+        arr = np.array([1], dtype='timedelta64[ns]')
+        result = pa.array(arr).to_pandas(zero_copy_only=True)
+        npt.assert_array_equal(result, arr)
+
     def check_zero_copy_failure(self, arr):
         with pytest.raises(pa.ArrowInvalid):
             arr.to_pandas(zero_copy_only=True)
@@ -2204,12 +2214,12 @@ class TestZeroCopyConversion(object):
         arr = pa.array([[1, 2], [8, 9]], type=pa.list_(pa.int64()))
         self.check_zero_copy_failure(arr)
 
-    def test_zero_copy_failure_on_timestamp_types(self):
-        arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
+    def test_zero_copy_failure_on_timestamp_with_nulls(self):
+        arr = np.array([1, None], dtype='datetime64[ns]')
         self.check_zero_copy_failure(pa.array(arr))
 
-    def test_zero_copy_failure_on_duration_types(self):
-        arr = np.array([1], dtype='timedelta64[ns]')
+    def test_zero_copy_failure_on_duration_with_nulls(self):
+        arr = np.array([1, None], dtype='timedelta64[ns]')
         self.check_zero_copy_failure(pa.array(arr))
 
 
@@ -2576,7 +2586,7 @@ def test_convert_unsupported_type_error_message():
     })
 
     expected_msg = 'Conversion failed for column a with type period'
-    with pytest.raises(pa.ArrowInvalid, match=expected_msg):
+    with pytest.raises(TypeError, match=expected_msg):
         pa.Table.from_pandas(df)
 
 
@@ -2804,7 +2814,7 @@ def test_table_from_pandas_schema_index_columns():
                             expected_schema=schema)
 
     # schema includes correct index name but preserve_index=False
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError, match="'preserve_index=False' was"):
         pa.Table.from_pandas(df, schema=schema, preserve_index=False)
 
     # in case of preserve_index=None -> RangeIndex serialized as metadata
@@ -2871,6 +2881,27 @@ def test_table_from_pandas_schema_index_columns():
                             expected_schema=schema, expected=expected)
     _check_pandas_roundtrip(df, schema=schema, preserve_index=None,
                             expected_schema=schema, expected=expected)
+
+
+def test_table_from_pandas_schema_index_columns__unnamed_index():
+    # ARROW-6999 - unnamed indices in specified schema
+    df = pd.DataFrame({'a': [1, 2, 3], 'b': [0.1, 0.2, 0.3]})
+
+    expected_schema = pa.schema([
+        ('a', pa.int64()),
+        ('b', pa.float64()),
+        ('__index_level_0__', pa.int64()),
+    ])
+
+    schema = pa.Schema.from_pandas(df, preserve_index=True)
+    table = pa.Table.from_pandas(df, preserve_index=True, schema=schema)
+    assert table.schema.remove_metadata().equals(expected_schema)
+
+    # non-RangeIndex (preserved by default)
+    df = pd.DataFrame({'a': [1, 2, 3], 'b': [0.1, 0.2, 0.3]}, index=[0, 1, 2])
+    schema = pa.Schema.from_pandas(df)
+    table = pa.Table.from_pandas(df, schema=schema)
+    assert table.schema.remove_metadata().equals(expected_schema)
 
 
 # ----------------------------------------------------------------------
@@ -3181,6 +3212,80 @@ def test_variable_dictionary_to_pandas():
     tm.assert_series_equal(result_dense, expected_dense)
 
 
+def test_dictionary_from_pandas():
+    cat = pd.Categorical([u'a', u'b', u'a'])
+    expected_type = pa.dictionary(pa.int8(), pa.string())
+
+    result = pa.array(cat)
+    assert result.to_pylist() == ['a', 'b', 'a']
+    assert result.type.equals(expected_type)
+
+    # with missing values in categorical
+    cat = pd.Categorical([u'a', u'b', None, u'a'])
+
+    result = pa.array(cat)
+    assert result.to_pylist() == ['a', 'b', None, 'a']
+    assert result.type.equals(expected_type)
+
+    # with additional mask
+    result = pa.array(cat, mask=np.array([False, False, False, True]))
+    assert result.to_pylist() == ['a', 'b', None, None]
+    assert result.type.equals(expected_type)
+
+
+def test_dictionary_from_pandas_specified_type():
+    # ARROW-7168 - ensure specified type is always respected
+
+    # the same as cat = pd.Categorical(['a', 'b']) but explicit about dtypes
+    cat = pd.Categorical.from_codes(
+        np.array([0, 1], dtype='int8'), np.array(['a', 'b'], dtype=object))
+
+    # different index type -> allow this
+    # (the type of the 'codes' in pandas is not part of the data type)
+    typ = pa.dictionary(index_type=pa.int16(), value_type=pa.string())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+    assert result.to_pylist() == ['a', 'b']
+
+    # mismatching values type -> raise error (for now a deprecation warning)
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
+    with pytest.warns(FutureWarning):
+        result = pa.array(cat, type=typ)
+    assert result.to_pylist() == ['a', 'b']
+
+    # mismatching order -> raise error (for now a deprecation warning)
+    typ = pa.dictionary(
+        index_type=pa.int8(), value_type=pa.string(), ordered=True)
+    with pytest.warns(FutureWarning, match="The 'ordered' flag of the passed"):
+        result = pa.array(cat, type=typ)
+    assert result.to_pylist() == ['a', 'b']
+
+    # with mask
+    typ = pa.dictionary(index_type=pa.int16(), value_type=pa.string())
+    result = pa.array(cat, type=typ, mask=np.array([False, True]))
+    assert result.type.equals(typ)
+    assert result.to_pylist() == ['a', None]
+
+    # empty categorical -> be flexible in values type to allow
+    cat = pd.Categorical([])
+
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.string())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+    assert result.to_pylist() == []
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+    assert result.to_pylist() == []
+
+    # passing non-dictionary type
+    cat = pd.Categorical(['a', 'b'])
+    result = pa.array(cat, type=pa.string())
+    expected = pa.array(['a', 'b'], type=pa.string())
+    assert result.equals(expected)
+    assert result.to_pylist() == ['a', 'b']
+
+
 # ----------------------------------------------------------------------
 # Array protocol in pandas conversions tests
 
@@ -3222,49 +3327,148 @@ def test_array_protocol():
         assert result.equals(expected2)
 
 
+class DummyExtensionType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.int64())
+
+    def __reduce__(self):
+        return DummyExtensionType, ()
+
+
+def PandasArray__arrow_array__(self, type=None):
+    # hardcode dummy return regardless of self - we only want to check that
+    # this method is correctly called
+    storage = pa.array([1, 2, 3], type=pa.int64())
+    return pa.ExtensionArray.from_storage(DummyExtensionType(), storage)
+
+
+def test_array_protocol_pandas_extension_types(monkeypatch):
+    # ARROW-7022 - ensure protocol works for Period / Interval extension dtypes
+
+    if LooseVersion(pd.__version__) < '0.24.0':
+        pytest.skip(reason='Period/IntervalArray only introduced in 0.24')
+
+    storage = pa.array([1, 2, 3], type=pa.int64())
+    expected = pa.ExtensionArray.from_storage(DummyExtensionType(), storage)
+
+    monkeypatch.setattr(pd.arrays.PeriodArray, "__arrow_array__",
+                        PandasArray__arrow_array__, raising=False)
+    monkeypatch.setattr(pd.arrays.IntervalArray, "__arrow_array__",
+                        PandasArray__arrow_array__, raising=False)
+    for arr in [pd.period_range("2012-01-01", periods=3, freq="D").array,
+                pd.interval_range(1, 4).array]:
+        result = pa.array(arr)
+        assert result.equals(expected)
+        result = pa.array(pd.Series(arr))
+        assert result.equals(expected)
+        result = pa.array(pd.Index(arr))
+        assert result.equals(expected)
+        result = pa.table(pd.DataFrame({'a': arr})).column('a').chunk(0)
+        assert result.equals(expected)
+
+
 # ----------------------------------------------------------------------
 # Pandas ExtensionArray support
 
 
-def _to_pandas(table, extension_columns=None):
-    # temporary test function as long as we have no public API to do this
-    from pyarrow.pandas_compat import table_to_blockmanager
+def _Int64Dtype__from_arrow__(self, array):
+    # for test only deal with single chunk for now
+    # TODO: do we require handling of chunked arrays in the protocol?
+    arr = array.chunk(0)
+    buflist = arr.buffers()
+    data = np.frombuffer(buflist[-1], dtype='int64')[
+        arr.offset:arr.offset + len(arr)]
+    bitmask = buflist[0]
+    if bitmask is not None:
+        mask = pa.BooleanArray.from_buffers(
+            pa.bool_(), len(arr), [None, bitmask])
+        mask = np.asarray(mask)
+    else:
+        mask = np.ones(len(arr), dtype=bool)
+    int_arr = pd.arrays.IntegerArray(data.copy(), ~mask, copy=False)
+    return int_arr
 
-    options = dict(
-        pool=None,
-        strings_to_categorical=False,
-        zero_copy_only=False,
-        integer_object_nulls=False,
-        date_as_object=True,
-        use_threads=True,
-        deduplicate_objects=True)
 
-    mgr = table_to_blockmanager(
-        options, table, extension_columns=extension_columns)
-    return pd.DataFrame(mgr)
-
-
-def test_convert_to_extension_array():
-    if LooseVersion(pd.__version__) < '0.24.0':
-        pytest.skip(reason='IntegerArray only introduced in 0.24')
+def test_convert_to_extension_array(monkeypatch):
+    if LooseVersion(pd.__version__) < "0.26.0.dev":
+        pytest.skip("Conversion from IntegerArray to arrow not yet supported")
 
     import pandas.core.internals as _int
 
-    table = pa.table({'a': [1, 2, 3], 'b': [2, 3, 4]})
+    # table converted from dataframe with extension types (so pandas_metadata
+    # has this information)
+    df = pd.DataFrame(
+        {'a': [1, 2, 3], 'b': pd.array([2, 3, 4], dtype='Int64'),
+         'c': [4, 5, 6]})
+    table = pa.table(df)
 
-    df = _to_pandas(table)
-    assert len(df._data.blocks) == 1
-    assert isinstance(df._data.blocks[0], _int.IntBlock)
+    # Int64Dtype is recognized -> convert to extension block by default
+    # for a proper roundtrip
+    result = table.to_pandas()
+    assert isinstance(result._data.blocks[0], _int.IntBlock)
+    assert isinstance(result._data.blocks[1], _int.ExtensionBlock)
+    tm.assert_frame_equal(result, df)
 
-    df = _to_pandas(table, extension_columns=['b'])
-    assert isinstance(df._data.blocks[0], _int.IntBlock)
-    assert isinstance(df._data.blocks[1], _int.ExtensionBlock)
+    # test with missing values
+    df2 = pd.DataFrame({'a': pd.array([1, 2, None], dtype='Int64')})
+    table2 = pa.table(df2)
+    result = table2.to_pandas()
+    assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    tm.assert_frame_equal(result, df2)
 
-    table = pa.table({'a': [1, 2, None]})
-    df = _to_pandas(table, extension_columns=['a'])
-    assert isinstance(df._data.blocks[0], _int.ExtensionBlock)
-    expected = pd.DataFrame({'a': pd.Series([1, 2, None], dtype='Int64')})
-    tm.assert_frame_equal(df, expected)
+    # monkeypatch pandas Int64Dtype to *not* have the protocol method
+    monkeypatch.delattr(pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
+    # Int64Dtype has no __from_arrow__ -> use normal conversion
+    result = table.to_pandas()
+    assert len(result._data.blocks) == 1
+    assert isinstance(result._data.blocks[0], _int.IntBlock)
+
+
+class MyCustomIntegerType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.int64())
+
+    def __reduce__(self):
+        return MyCustomIntegerType, ()
+
+    def to_pandas_dtype(self):
+        return pd.Int64Dtype()
+
+
+def test_conversion_extensiontype_to_extensionarray(monkeypatch):
+    # converting extension type to linked pandas ExtensionDtype/Array
+    import pandas.core.internals as _int
+
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)
+    table = pa.table({'a': arr})
+
+    if LooseVersion(pd.__version__) < "0.26.0.dev":
+        # ensure pandas Int64Dtype has the protocol method (for older pandas)
+        monkeypatch.setattr(
+            pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
+            raising=False)
+
+    # extension type points to Int64Dtype, which knows how to create a
+    # pandas ExtensionArray
+    result = table.to_pandas()
+    assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
+    tm.assert_frame_equal(result, expected)
+
+    # monkeypatch pandas Int64Dtype to *not* have the protocol method
+    # (remove the version added above and the actual version for recent pandas)
+    if LooseVersion(pd.__version__) < "0.26.0.dev":
+        monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
+    else:
+        monkeypatch.delattr(
+            pd.core.arrays.integer._IntegerDtype, "__from_arrow__",
+            raising=False)
+
+    with pytest.raises(ValueError):
+        table.to_pandas()
 
 
 # ----------------------------------------------------------------------

@@ -408,12 +408,12 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
     }
     case liborc::UNION: {
       std::vector<std::shared_ptr<Field>> fields;
-      std::vector<uint8_t> type_codes;
+      std::vector<int8_t> type_codes;
       for (int child = 0; child < subtype_count; ++child) {
         std::shared_ptr<DataType> elemtype;
         RETURN_NOT_OK(GetArrowType(type->getSubtype(child), &elemtype));
         fields.push_back(field("_union_" + std::to_string(child), elemtype));
-        type_codes.push_back(static_cast<uint8_t>(child));
+        type_codes.push_back(static_cast<int8_t>(child));
       }
       *out = union_(fields, type_codes);
       break;

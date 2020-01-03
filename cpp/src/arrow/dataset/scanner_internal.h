@@ -27,60 +27,42 @@
 namespace arrow {
 namespace dataset {
 
-static inline RecordBatchIterator FilterRecordBatch(
-    RecordBatchIterator it, std::shared_ptr<Expression> filter,
-    std::shared_ptr<ExpressionEvaluator> evaluator) {
-  if (filter == nullptr || evaluator == nullptr) {
-    return it;
-  }
-
-  auto filter_fn = [filter, evaluator](std::shared_ptr<RecordBatch> in,
-                                       std::shared_ptr<RecordBatch>* out) {
-    ARROW_ASSIGN_OR_RAISE(auto selection_datum, evaluator->Evaluate(*filter, *in));
-    return evaluator->Filter(selection_datum, in, out);
-  };
-
-  return MakeMaybeMapIterator(filter_fn, std::move(it));
+static inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
+                                                    const ExpressionEvaluator& evaluator,
+                                                    const Expression& filter,
+                                                    MemoryPool* pool) {
+  return MakeMaybeMapIterator(
+      [&filter, &evaluator, pool](std::shared_ptr<RecordBatch> in) {
+        return evaluator.Evaluate(filter, *in, pool).Map([&](compute::Datum selection) {
+          return evaluator.Filter(selection, in);
+        });
+      },
+      std::move(it));
 }
 
-static inline RecordBatchIterator ProjectRecordBatch(
-    RecordBatchIterator it, std::shared_ptr<RecordBatchProjector> projector) {
-  if (projector == nullptr) {
-    return it;
-  }
-
-  auto project = [projector](std::shared_ptr<RecordBatch> in,
-                             std::shared_ptr<RecordBatch>* out) {
-    return projector->Project(*in, out);
-  };
-  return MakeMaybeMapIterator(project, std::move(it));
+static inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
+                                                     RecordBatchProjector* projector,
+                                                     MemoryPool* pool) {
+  return MakeMaybeMapIterator(
+      [=](std::shared_ptr<RecordBatch> in) { return projector->Project(*in, pool); },
+      std::move(it));
 }
 
 class FilterAndProjectScanTask : public ScanTask {
  public:
-  FilterAndProjectScanTask(std::unique_ptr<ScanTask> task,
-                           std::shared_ptr<Expression> filter,
-                           std::shared_ptr<ExpressionEvaluator> evaluator,
-                           std::shared_ptr<RecordBatchProjector> projector)
-      : filter_(std::move(filter)),
-        evaluator_(std::move(evaluator)),
-        projector_(std::move(projector)),
-        task_(std::move(task)) {}
+  explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task)
+      : ScanTask(task->options(), task->context()), task_(std::move(task)) {}
 
-  RecordBatchIterator Scan() override {
-    auto it = task_->Scan();
-    auto filter_it = FilterRecordBatch(std::move(it), filter_, evaluator_);
-    auto project_it = ProjectRecordBatch(std::move(filter_it), projector_);
-
-    return project_it;
+  Result<RecordBatchIterator> Execute() override {
+    ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
+    auto filter_it = FilterRecordBatch(std::move(it), *options_->evaluator,
+                                       *options_->filter, context_->pool);
+    return ProjectRecordBatch(std::move(filter_it), &task_->options()->projector,
+                              context_->pool);
   }
 
  private:
-  std::shared_ptr<Expression> filter_;
-  std::shared_ptr<ExpressionEvaluator> evaluator_;
-  std::shared_ptr<RecordBatchProjector> projector_;
-
-  std::unique_ptr<ScanTask> task_;
+  std::shared_ptr<ScanTask> task_;
 };
 
 }  // namespace dataset

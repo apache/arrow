@@ -50,17 +50,29 @@ import org.apache.arrow.consumers.CompositeAvroConsumer;
 import org.apache.arrow.consumers.Consumer;
 import org.apache.arrow.consumers.SkipConsumer;
 import org.apache.arrow.consumers.SkipFunction;
+import org.apache.arrow.consumers.logical.AvroDateConsumer;
+import org.apache.arrow.consumers.logical.AvroDecimalConsumer;
+import org.apache.arrow.consumers.logical.AvroTimeMicroConsumer;
+import org.apache.arrow.consumers.logical.AvroTimeMillisConsumer;
+import org.apache.arrow.consumers.logical.AvroTimestampMicrosConsumer;
+import org.apache.arrow.consumers.logical.AvroTimestampMillisConsumer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.NullVector;
+import org.apache.arrow.vector.TimeMicroVector;
+import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -71,12 +83,16 @@ import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Type;
 import org.apache.avro.io.Decoder;
@@ -85,8 +101,6 @@ import org.apache.avro.io.Decoder;
  * Class that does most of the work to convert Avro data into Arrow columnar format Vector objects.
  */
 public class AvroToArrowUtils {
-
-  private static final int INVALID_NULL_INDEX = -1;
 
   /**
    * Creates a {@link Consumer} from the {@link Schema}
@@ -106,7 +120,13 @@ public class AvroToArrowUtils {
    *   <li>FIXED --> ArrowType.FixedSizeBinary</li>
    *   <li>RECORD --> ArrowType.Struct</li>
    *   <li>UNION --> ArrowType.Union</li>
-   *   <li>Enum--> ArrowType.Int</li>
+   *   <li>ENUM--> ArrowType.Int</li>
+   *   <li>DECIMAL --> ArrowType.Decimal</li>
+   *   <li>Date --> ArrowType.Date(DateUnit.DAY)</li>
+   *   <li>TimeMillis --> ArrowType.Time(TimeUnit.MILLISECOND, 32)</li>
+   *   <li>TimeMicros --> ArrowType.Time(TimeUnit.MICROSECOND, 64)</li>
+   *   <li>TimestampMillis --> ArrowType.Timestamp(TimeUnit.MILLISECOND, null)</li>
+   *   <li>TimestampMicros --> ArrowType.Timestamp(TimeUnit.MICROSECOND, null)</li>
    * </ul>
    */
 
@@ -137,7 +157,8 @@ public class AvroToArrowUtils {
 
     final BufferAllocator allocator = config.getAllocator();
 
-    Type type = schema.getType();
+    final Type type = schema.getType();
+    final LogicalType logicalType = schema.getLogicalType();
 
     final ArrowType arrowType;
     final FieldType fieldType;
@@ -167,16 +188,35 @@ public class AvroToArrowUtils {
         consumer =  new AvroStringConsumer((VarCharVector) vector);
         break;
       case FIXED:
-        arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
-        fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = createVector(consumerVector, fieldType, name, allocator);
-        consumer =  new AvroFixedConsumer((FixedSizeBinaryVector) vector, schema.getFixedSize());
+        if (logicalType instanceof LogicalTypes.Decimal) {
+          arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
+          fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          vector = createVector(consumerVector, fieldType, name, allocator);
+          consumer = new AvroDecimalConsumer.FixedDecimalConsumer((DecimalVector) vector, schema.getFixedSize());
+        } else {
+          arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
+          fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          vector = createVector(consumerVector, fieldType, name, allocator);
+          consumer = new AvroFixedConsumer((FixedSizeBinaryVector) vector, schema.getFixedSize());
+        }
         break;
       case INT:
-        arrowType = new ArrowType.Int(32, /*signed=*/true);
-        fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = createVector(consumerVector, fieldType, name, allocator);
-        consumer = new AvroIntConsumer((IntVector) vector);
+        if (logicalType instanceof LogicalTypes.Date) {
+          arrowType = new ArrowType.Date(DateUnit.DAY);
+          fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          vector = createVector(consumerVector, fieldType, name, allocator);
+          consumer = new AvroDateConsumer((DateDayVector) vector);
+        } else if (logicalType instanceof LogicalTypes.TimeMillis) {
+          arrowType = new ArrowType.Time(TimeUnit.MILLISECOND, 32);
+          fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          vector = createVector(consumerVector, fieldType, name, allocator);
+          consumer = new AvroTimeMillisConsumer((TimeMilliVector) vector);
+        } else {
+          arrowType = new ArrowType.Int(32, /*signed=*/true);
+          fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          vector = createVector(consumerVector, fieldType, name, allocator);
+          consumer = new AvroIntConsumer((IntVector) vector);
+        }
         break;
       case BOOLEAN:
         arrowType = new ArrowType.Bool();
@@ -185,10 +225,27 @@ public class AvroToArrowUtils {
         consumer = new AvroBooleanConsumer((BitVector) vector);
         break;
       case LONG:
-        arrowType = new ArrowType.Int(64, /*signed=*/true);
-        fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = createVector(consumerVector, fieldType, name, allocator);
-        consumer =  new AvroLongConsumer((BigIntVector) vector);
+        if (logicalType instanceof LogicalTypes.TimeMicros) {
+          arrowType = new ArrowType.Time(TimeUnit.MICROSECOND, 64);
+          fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          vector = createVector(consumerVector, fieldType, name, allocator);
+          consumer =  new AvroTimeMicroConsumer((TimeMicroVector) vector);
+        } else if (logicalType instanceof LogicalTypes.TimestampMillis) {
+          arrowType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
+          fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          vector = createVector(consumerVector, fieldType, name, allocator);
+          consumer =  new AvroTimestampMillisConsumer((TimeStampMilliVector) vector);
+        } else if (logicalType instanceof LogicalTypes.TimestampMicros) {
+          arrowType = new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
+          fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          vector = createVector(consumerVector, fieldType, name, allocator);
+          consumer =  new AvroTimestampMicrosConsumer((TimeStampMicroVector) vector);
+        } else {
+          arrowType = new ArrowType.Int(64, /*signed=*/true);
+          fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          vector = createVector(consumerVector, fieldType, name, allocator);
+          consumer =  new AvroLongConsumer((BigIntVector) vector);
+        }
         break;
       case FLOAT:
         arrowType =  new ArrowType.FloatingPoint(SINGLE);
@@ -203,10 +260,17 @@ public class AvroToArrowUtils {
         consumer = new AvroDoubleConsumer((Float8Vector) vector);
         break;
       case BYTES:
-        arrowType = new ArrowType.Binary();
-        fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = createVector(consumerVector, fieldType, name, allocator);
-        consumer = new AvroBytesConsumer((VarBinaryVector) vector);
+        if (logicalType instanceof LogicalTypes.Decimal) {
+          arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
+          fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          vector = createVector(consumerVector, fieldType, name, allocator);
+          consumer = new AvroDecimalConsumer.BytesDecimalConsumer((DecimalVector) vector);
+        } else {
+          arrowType = new ArrowType.Binary();
+          fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          vector = createVector(consumerVector, fieldType, name, allocator);
+          consumer = new AvroBytesConsumer((VarBinaryVector) vector);
+        }
         break;
       case NULL:
         arrowType = new ArrowType.Null();
@@ -219,6 +283,20 @@ public class AvroToArrowUtils {
         throw new UnsupportedOperationException("Can't convert avro type %s to arrow type." + type.getName());
     }
     return consumer;
+  }
+
+  private static ArrowType createDecimalArrowType(LogicalTypes.Decimal logicalType) {
+    final int scale = logicalType.getScale();
+    final int precision = logicalType.getPrecision();
+    Preconditions.checkArgument(precision > 0 && precision <= 38,
+        "Precision must be in range of 1 to 38");
+    Preconditions.checkArgument(scale >= 0 && scale <= 38,
+        "Scale must be in range of 0 to 38.");
+    Preconditions.checkArgument(scale <= precision,
+        "Invalid decimal scale: %s (greater than precision: %s)", scale, precision);
+
+    return new ArrowType.Decimal(precision, scale);
+
   }
 
   private static Consumer createSkipConsumer(Schema schema) {
@@ -340,6 +418,7 @@ public class AvroToArrowUtils {
 
   private static Field avroSchemaToField(Schema schema, String name, AvroToArrowConfig config) {
     final Type type = schema.getType();
+    final LogicalType logicalType = schema.getLogicalType();
     final ArrowType arrowType;
 
     switch (type) {
@@ -405,16 +484,34 @@ public class AvroToArrowUtils {
         arrowType = new ArrowType.Utf8();
         break;
       case FIXED:
-        arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
+        if (logicalType instanceof LogicalTypes.Decimal) {
+          arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
+        } else {
+          arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
+        }
         break;
       case INT:
-        arrowType = new ArrowType.Int(32, /*signed=*/true);
+        if (logicalType instanceof LogicalTypes.Date) {
+          arrowType = new ArrowType.Date(DateUnit.DAY);
+        } else if (logicalType instanceof LogicalTypes.TimeMillis) {
+          arrowType = new ArrowType.Time(TimeUnit.MILLISECOND, 32);
+        } else {
+          arrowType = new ArrowType.Int(32, /*signed=*/true);
+        }
         break;
       case BOOLEAN:
         arrowType = new ArrowType.Bool();
         break;
       case LONG:
-        arrowType = new ArrowType.Int(64, /*signed=*/true);
+        if (logicalType instanceof LogicalTypes.TimeMicros) {
+          arrowType = new ArrowType.Time(TimeUnit.MICROSECOND, 64);
+        } else if (logicalType instanceof LogicalTypes.TimestampMillis) {
+          arrowType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
+        } else if (logicalType instanceof LogicalTypes.TimestampMicros) {
+          arrowType = new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
+        } else {
+          arrowType = new ArrowType.Int(64, /*signed=*/true);
+        }
         break;
       case FLOAT:
         arrowType = new ArrowType.FloatingPoint(SINGLE);
@@ -423,7 +520,12 @@ public class AvroToArrowUtils {
         arrowType = new ArrowType.FloatingPoint(DOUBLE);
         break;
       case BYTES:
-        arrowType = new ArrowType.Binary();
+        if (logicalType instanceof LogicalTypes.Decimal) {
+          arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
+        } else {
+          arrowType = new ArrowType.Binary();
+        }
+
         break;
       case NULL:
         arrowType = new ArrowType.Null();

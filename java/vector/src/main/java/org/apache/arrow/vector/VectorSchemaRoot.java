@@ -28,12 +28,26 @@ import java.util.stream.StreamSupport;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.compare.ApproxEqualsVisitor;
+import org.apache.arrow.vector.compare.Range;
+import org.apache.arrow.vector.compare.VectorEqualsVisitor;
+import org.apache.arrow.vector.compare.VectorValueEqualizer;
+import org.apache.arrow.vector.compare.util.ValueEpsilonEqualizers;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * Holder for a set of vectors to be loaded/unloaded.
+ * A VectorSchemaRoot is a container that can hold batches, batches flow through VectorSchemaRoot
+ * as part of a pipeline. Note this is different from other implementations (i.e. in C++ and Python,
+ * a RecordBatch is a collection of equal-length vector instances and was created each time for a new batch).
+
+ * The recommended usage for VectorSchemaRoot is creating a single VectorSchemaRoot based on the known
+ * schema and populated data over and over into the same VectorSchemaRoot in a stream of batches rather
+ * than create a new VectorSchemaRoot instance each time (see Flight or ArrowFileWriter for better understanding).
+ * Thus at any one point a VectorSchemaRoot may have data or may have no data (say it was transferred downstream
+ * or not yet populated).
  */
 public class VectorSchemaRoot implements AutoCloseable {
 
@@ -312,5 +326,90 @@ public class VectorSchemaRoot implements AutoCloseable {
     return new VectorSchemaRoot(sliceVectors);
   }
 
+  /**
+   * Determine if two VectorSchemaRoots are exactly equal.
+   */
+  public boolean equals(VectorSchemaRoot other) {
+    if (other == null) {
+      return false;
+    }
+
+    if (!this.schema.equals(other.schema)) {
+      return false;
+    }
+
+    if (this.rowCount != other.rowCount) {
+      return false;
+    }
+
+    for (int i = 0; i < fieldVectors.size(); i++) {
+      FieldVector vector = fieldVectors.get(i);
+      FieldVector otherVector = other.fieldVectors.get(i);
+      if (!VectorEqualsVisitor.vectorEquals(vector, otherVector)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Determine if two VectorSchemaRoots are approximately equal using the given functions to
+   * calculate difference between float/double values.
+   * Note that approx equals are in regards to floating point values, other values are comparing
+   * to exactly equals.
+   *
+   * @param floatDiffFunction function to calculate difference between float values.
+   * @param doubleDiffFunction function to calculate difference between double values.
+   */
+  public boolean approxEquals(
+      VectorSchemaRoot other,
+      VectorValueEqualizer<Float4Vector> floatDiffFunction,
+      VectorValueEqualizer<Float8Vector> doubleDiffFunction) {
+
+    Preconditions.checkNotNull(floatDiffFunction);
+    Preconditions.checkNotNull(doubleDiffFunction);
+
+    if (other == null) {
+      return false;
+    }
+
+    if (!this.schema.equals(other.schema)) {
+      return false;
+    }
+
+    if (this.rowCount != other.rowCount) {
+      return false;
+    }
+
+    Range range = new Range(0, 0, 0);
+    for (int i = 0; i < fieldVectors.size(); i++) {
+      FieldVector vector = fieldVectors.get(i);
+      FieldVector otherVector = other.fieldVectors.get(i);
+      if (vector.getValueCount() != otherVector.getValueCount()) {
+        return false;
+      }
+      ApproxEqualsVisitor visitor =
+          new ApproxEqualsVisitor(vector, otherVector, floatDiffFunction, doubleDiffFunction);
+      range.setLength(vector.getValueCount());
+      if (!visitor.rangeEquals(range)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Determine if two VectorSchemaRoots are approximately equal using default functions to
+   * calculate difference between float/double values.
+   */
+  public boolean approxEquals(VectorSchemaRoot other) {
+    VectorValueEqualizer<Float4Vector> floatDiffFunction =
+        new ValueEpsilonEqualizers.Float4EpsilonEqualizer(ApproxEqualsVisitor.DEFAULT_FLOAT_EPSILON);
+    VectorValueEqualizer<Float8Vector> doubleDiffFunction =
+        new ValueEpsilonEqualizers.Float8EpsilonEqualizer(ApproxEqualsVisitor.DEFAULT_DOUBLE_EPSILON);
+    return approxEquals(other, floatDiffFunction, doubleDiffFunction);
+  }
 }
 

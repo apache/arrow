@@ -17,11 +17,7 @@
 
 @echo on
 
-IF /i "%JOB%" == "C#" goto csharp
 IF "%JOB:~,5%" == "MinGW" goto mingw
-IF /i "%JOB%" == "rust" goto rust
-IF /i "%JOB%" == "go" goto golang
-
 @rem all else are C++
 goto cpp
 
@@ -32,23 +28,8 @@ set BOOST_LIBRARYDIR=C:\Libraries\boost_1_67_0\lib64-msvc-14.0
 call ci\appveyor-cpp-setup.bat
 goto scriptexit
 
-:rust
-curl -sSf -o rustup-init.exe https://win.rustup.rs/
-rustup-init.exe -y --default-host %TARGET% --default-toolchain stable
-set "PATH=%PATH%;C:\Users\Appveyor\.cargo\bin"
-rustup install stable
-rustup install nightly
-rustc -Vv
-cargo -V
-goto scriptexit
-
 :mingw
 call ci\appveyor-cpp-setup-mingw.bat
 goto scriptexit
-
-:golang
-goto scriptexit
-
-:csharp
 
 :scriptexit

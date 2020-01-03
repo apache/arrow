@@ -1,5 +1,7 @@
 boost_cpp:
 - 1.70.0
+bzip2:
+- '1'
 c_compiler:
 - vs2015
 channel_sources:
@@ -10,14 +12,18 @@ cxx_compiler:
 - vs2015
 glog:
 - 0.4.0
+grpc_cpp:
+- '1.25'
 libprotobuf:
-- '3.8'
+- '3.11'
 lz4_c:
 - 1.8.3
 pin_run_as_build:
   boost-cpp:
     max_pin: x.x.x
-  libprotobuf:
+  bzip2:
+    max_pin: x
+  grpc-cpp:
     max_pin: x.x
   lz4-c:
     max_pin: x.x.x
@@ -46,4 +52,4 @@ zip_keys:
 zlib:
 - '1.2'
 zstd:
-- 1.4.0
+- 1.4.4

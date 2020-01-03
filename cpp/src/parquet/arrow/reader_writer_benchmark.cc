@@ -173,8 +173,7 @@ static void BM_ReadColumn(::benchmark::State& state) {
   auto output = CreateOutputStream();
   EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
 
-  std::shared_ptr<Buffer> buffer;
-  PARQUET_THROW_NOT_OK(output->Finish(&buffer));
+  PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
 
   while (state.KeepRunning()) {
     auto reader =
@@ -208,8 +207,7 @@ static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
   EXIT_NOT_OK(
       WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
 
-  std::shared_ptr<Buffer> buffer;
-  PARQUET_THROW_NOT_OK(output->Finish(&buffer));
+  PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
 
   while (state.KeepRunning()) {
     auto reader =
@@ -243,8 +241,7 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
   // This writes 10 RowGroups
   EXIT_NOT_OK(
       WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
-  std::shared_ptr<Buffer> buffer;
-  PARQUET_THROW_NOT_OK(output->Finish(&buffer));
+  PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
 
   while (state.KeepRunning()) {
     auto reader =

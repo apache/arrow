@@ -31,7 +31,7 @@ pub type ScanResult = Arc<Mutex<dyn BatchIterator>>;
 /// Source table
 pub trait TableProvider {
     /// Get a reference to the schema for this table
-    fn schema(&self) -> &Arc<Schema>;
+    fn schema(&self) -> Arc<Schema>;
 
     /// Perform a scan of a table and return a sequence of iterators over the data (one
     /// iterator per partition)

@@ -73,7 +73,7 @@ template <typename Type, typename Enable = void>
 struct DatumEqual {};
 
 template <typename Type>
-struct DatumEqual<Type, typename std::enable_if<IsFloatingPoint<Type>::value>::type> {
+struct DatumEqual<Type, enable_if_floating_point<Type>> {
   static constexpr double kArbitraryDoubleErrorBound = 1.0;
   using ScalarType = typename TypeTraits<Type>::ScalarType;
 
@@ -90,16 +90,14 @@ struct DatumEqual<Type, typename std::enable_if<IsFloatingPoint<Type>::value>::t
 };
 
 template <typename Type>
-struct DatumEqual<Type, typename std::enable_if<!IsFloatingPoint<Type>::value>::type> {
+struct DatumEqual<Type, enable_if_integer<Type>> {
   using ScalarType = typename TypeTraits<Type>::ScalarType;
   static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
     ASSERT_EQ(lhs.kind(), rhs.kind());
     if (lhs.kind() == Datum::SCALAR) {
       auto left = internal::checked_cast<const ScalarType*>(lhs.scalar().get());
       auto right = internal::checked_cast<const ScalarType*>(rhs.scalar().get());
-      ASSERT_EQ(left->is_valid, right->is_valid);
-      ASSERT_EQ(left->type->id(), right->type->id());
-      ASSERT_EQ(left->value, right->value);
+      ASSERT_EQ(*left, *right);
     }
   }
 };

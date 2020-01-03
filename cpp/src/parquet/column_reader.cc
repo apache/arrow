@@ -37,7 +37,6 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
-
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption_internal.h"
@@ -118,10 +117,10 @@ static constexpr int16_t kNonPageOrdinal = static_cast<int16_t>(-1);
 // and the page metadata.
 class SerializedPageReader : public PageReader {
  public:
-  SerializedPageReader(const std::shared_ptr<ArrowInputStream>& stream,
-                       int64_t total_num_rows, Compression::type codec,
-                       ::arrow::MemoryPool* pool, const CryptoContext* crypto_ctx)
-      : stream_(stream),
+  SerializedPageReader(std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
+                       Compression::type codec, ::arrow::MemoryPool* pool,
+                       const CryptoContext* crypto_ctx)
+      : stream_(std::move(stream)),
         decompression_buffer_(AllocateBuffer(pool, 0)),
         page_ordinal_(0),
         seen_num_rows_(0),
@@ -229,22 +228,20 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // We try to deserialize a larger buffer progressively
     // until a maximum allowed header limit
     while (true) {
-      string_view buffer;
-      PARQUET_THROW_NOT_OK(stream_->Peek(allowed_page_size, &buffer));
-      if (buffer.size() == 0) {
+      PARQUET_ASSIGN_OR_THROW(auto view, stream_->Peek(allowed_page_size));
+      if (view.size() == 0) {
         return std::shared_ptr<Page>(nullptr);
       }
 
       // This gets used, then set by DeserializeThriftMsg
-      header_size = static_cast<uint32_t>(buffer.size());
+      header_size = static_cast<uint32_t>(view.size());
       try {
         if (crypto_ctx_.meta_decryptor != nullptr) {
           UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
                            data_page_header_aad_);
         }
-        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
-                             &header_size, &current_page_header_,
-                             crypto_ctx_.meta_decryptor);
+        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(view.data()), &header_size,
+                             &current_page_header_, crypto_ctx_.meta_decryptor);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -267,8 +264,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
                        data_page_aad_);
     }
     // Read the compressed data page.
-    std::shared_ptr<Buffer> page_buffer;
-    PARQUET_THROW_NOT_OK(stream_->Read(compressed_len, &page_buffer));
+    PARQUET_ASSIGN_OR_THROW(auto page_buffer, stream_->Read(compressed_len));
     if (page_buffer->size() != compressed_len) {
       std::stringstream ss;
       ss << "Page was smaller (" << page_buffer->size() << ") than expected ("
@@ -279,7 +275,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // Decrypt it if we need to
     if (crypto_ctx_.data_decryptor != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
-          compressed_len - crypto_ctx_.data_decryptor->CiphertextSizeDelta()));
+          compressed_len - crypto_ctx_.data_decryptor->CiphertextSizeDelta(), false));
       compressed_len = crypto_ctx_.data_decryptor->Decrypt(
           page_buffer->data(), compressed_len, decryption_buffer_->mutable_data());
 
@@ -354,11 +350,13 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   return std::shared_ptr<Page>(nullptr);
 }
 
-std::unique_ptr<PageReader> PageReader::Open(
-    const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
-    Compression::type codec, ::arrow::MemoryPool* pool, const CryptoContext* ctx) {
+std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
+                                             int64_t total_num_rows,
+                                             Compression::type codec,
+                                             ::arrow::MemoryPool* pool,
+                                             const CryptoContext* ctx) {
   return std::unique_ptr<PageReader>(
-      new SerializedPageReader(stream, total_num_rows, codec, pool, ctx));
+      new SerializedPageReader(std::move(stream), total_num_rows, codec, pool, ctx));
 }
 
 // ----------------------------------------------------------------------
@@ -623,7 +621,7 @@ class ColumnReaderImplBase {
 
   ::arrow::MemoryPool* pool_;
 
-  using DecoderType = typename EncodingTraits<DType>::Decoder;
+  using DecoderType = TypedDecoder<DType>;
   DecoderType* current_decoder_;
   Encoding::type current_encoding_;
 
@@ -860,7 +858,7 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(const ColumnDescriptor* descr,
     default:
       ParquetException::NYI("type reader not implemented");
   }
-  // Unreachable code, but supress compiler warning
+  // Unreachable code, but suppress compiler warning
   return std::shared_ptr<ColumnReader>(nullptr);
 }
 
@@ -1314,7 +1312,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
     if (result.size() == 0 || accumulator_.builder->length() > 0) {
       std::shared_ptr<::arrow::Array> last_chunk;
       PARQUET_THROW_NOT_OK(accumulator_.builder->Finish(&last_chunk));
-      result.push_back(last_chunk);
+      result.push_back(std::move(last_chunk));
     }
     accumulator_.chunks = {};
     return result;
@@ -1337,7 +1335,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
 
  private:
   // Helper data structure for accumulating builder chunks
-  ArrowBinaryAccumulator accumulator_;
+  typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
 };
 
 class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
@@ -1465,7 +1463,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
       throw ParquetException(ss.str());
     }
   }
-  // Unreachable code, but supress compiler warning
+  // Unreachable code, but suppress compiler warning
   return nullptr;
 }
 

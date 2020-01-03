@@ -18,10 +18,29 @@
 from __future__ import absolute_import
 
 from pyarrow._fs import (  # noqa
-    Selector,
+    FileSelector,
     FileType,
     FileStats,
     FileSystem,
     LocalFileSystem,
-    SubTreeFileSystem
+    LocalFileSystemOptions,
+    SubTreeFileSystem,
+    _MockFileSystem
 )
+
+try:
+    from pyarrow._hdfs import HdfsOptions, HadoopFileSystem  # noqa
+except ImportError:
+    pass
+
+try:
+    from pyarrow._s3fs import (  # noqa
+        initialize_s3,
+        finalize_s3,
+        S3Options,
+        S3FileSystem
+    )
+except ImportError:
+    pass
+else:
+    initialize_s3()

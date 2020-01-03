@@ -22,6 +22,7 @@ import six
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport PyDateTime_from_TimePoint
+from pyarrow.includes.libarrow_fs cimport *
 from pyarrow.lib import _detect_compression
 from pyarrow.lib cimport *
 
@@ -38,12 +39,16 @@ cdef class FileStats:
         CFileStats stats
 
     @staticmethod
-    cdef FileStats wrap(CFileStats stats)
+    cdef wrap(CFileStats stats)
+
+    cdef inline CFileStats unwrap(self) nogil
 
 
-cdef class Selector:
+cdef class FileSelector:
     cdef:
-        CSelector selector
+        CFileSelector selector
+
+    cdef inline CFileSelector unwrap(self) nogil
 
 
 cdef class FileSystem:
@@ -52,6 +57,11 @@ cdef class FileSystem:
         CFileSystem* fs
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped)
+
+    @staticmethod
+    cdef wrap(shared_ptr[CFileSystem]& sp)
+
+    cdef inline shared_ptr[CFileSystem] unwrap(self) nogil
 
 
 cdef class LocalFileSystem(FileSystem):
@@ -64,5 +74,12 @@ cdef class LocalFileSystem(FileSystem):
 cdef class SubTreeFileSystem(FileSystem):
     cdef:
         CSubTreeFileSystem* subtreefs
+
+    cdef init(self, const shared_ptr[CFileSystem]& wrapped)
+
+
+cdef class _MockFileSystem(FileSystem):
+    cdef:
+        CMockFileSystem* mockfs
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped)

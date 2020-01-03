@@ -51,6 +51,8 @@ base_include_directories = [
   include_directories('.')
 ]
 
+have_gi = dependency('gobject-introspection-1.0', required: false).found()
+
 arrow_cpp_build_dir = get_option('arrow_cpp_build_dir')
 arrow_cpp_build_type = get_option('arrow_cpp_build_type')
 if arrow_cpp_build_dir == ''
@@ -102,6 +104,17 @@ main(void)
                                       dirs: [arrow_cpp_build_lib_dir],
                                       required: false)
 endif
+
+cxx = meson.get_compiler('cpp')
+cxx_flags = []
+if get_option('development_mode')
+  if cxx.get_id() == 'msvc'
+    cxx_flags += ['/WX']
+  else
+    cxx_flags += ['-Werror']
+  endif
+endif
+add_project_arguments(cxx.get_supported_arguments(cxx_flags), language: 'cpp')
 
 subdir('arrow-glib')
 if arrow_cuda.found()

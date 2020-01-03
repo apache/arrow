@@ -20,13 +20,16 @@ macro(set_option_category name)
   list(APPEND "ARROW_OPTION_CATEGORIES" ${name})
 endmacro()
 
-macro(define_option name description default)
-  option(${name} ${description} ${default})
-  list(APPEND "ARROW_${ARROW_OPTION_CATEGORY}_OPTION_NAMES" ${name})
-  set("${name}_OPTION_DESCRIPTION" ${description})
-  set("${name}_OPTION_DEFAULT" ${default})
-  set("${name}_OPTION_TYPE" "bool")
-endmacro()
+function(check_description_length name description)
+  foreach(description_line ${description})
+    string(LENGTH ${description_line} line_length)
+    if(${line_length} GREATER 80)
+      message(FATAL_ERROR "description for ${name} contained a\n\
+        line ${line_length} characters long!\n\
+        (max is 80). Split it into more lines with semicolons")
+    endif()
+  endforeach()
+endfunction()
 
 function(list_join lst glue out)
   if("${${lst}}" STREQUAL "")
@@ -42,14 +45,30 @@ function(list_join lst glue out)
   set(${out} ${joined} PARENT_SCOPE)
 endfunction()
 
+macro(define_option name description default)
+  check_description_length(${name} ${description})
+  list_join(description "\n" multiline_description)
+
+  option(${name} "${multiline_description}" ${default})
+
+  list(APPEND "ARROW_${ARROW_OPTION_CATEGORY}_OPTION_NAMES" ${name})
+  set("${name}_OPTION_DESCRIPTION" ${description})
+  set("${name}_OPTION_DEFAULT" ${default})
+  set("${name}_OPTION_TYPE" "bool")
+endmacro()
+
 macro(define_option_string name description default)
-  set(${name} ${default} CACHE STRING ${description})
+  check_description_length(${name} ${description})
+  list_join(description "\n" multiline_description)
+
+  set(${name} ${default} CACHE STRING "${multiline_description}")
+
   list(APPEND "ARROW_${ARROW_OPTION_CATEGORY}_OPTION_NAMES" ${name})
   set("${name}_OPTION_DESCRIPTION" ${description})
   set("${name}_OPTION_DEFAULT" "\"${default}\"")
   set("${name}_OPTION_TYPE" "string")
-
   set("${name}_OPTION_ENUM" ${ARGN})
+
   list_join("${name}_OPTION_ENUM" "|" "${name}_OPTION_ENUM")
   if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
     set_property(CACHE ${name} PROPERTY STRINGS ${ARGN})
@@ -139,22 +158,24 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   #----------------------------------------------------------------------
   set_option_category("Project component")
 
-  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" ON)
+  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 
-  define_option(ARROW_COMPUTE "Build the Arrow Compute Modules" ON)
+  define_option(ARROW_COMPUTE "Build the Arrow Compute Modules" OFF)
+
+  define_option(ARROW_CSV "Build the Arrow CSV Parser Module" OFF)
 
   define_option(ARROW_CUDA "Build the Arrow CUDA extensions (requires CUDA toolkit)" OFF)
 
-  define_option(ARROW_DATASET "Build the Arrow Dataset Modules" ON)
+  define_option(ARROW_DATASET "Build the Arrow Dataset Modules" OFF)
 
-  define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" ON)
+  define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
 
   define_option(ARROW_FLIGHT
                 "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)" OFF)
 
   define_option(ARROW_GANDIVA "Build the Gandiva libraries" OFF)
 
-  define_option(ARROW_HDFS "Build the Arrow HDFS bridge" ON)
+  define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
 
   define_option(ARROW_HIVESERVER2 "Build the HiveServer2 client and Arrow adapter" OFF)
 
@@ -164,7 +185,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_JNI "Build the Arrow JNI lib" OFF)
 
-  define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" ON)
+  define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" OFF)
 
   define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" OFF)
 
@@ -233,7 +254,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_WITH_BACKTRACE "Build with backtrace support" ON)
 
   define_option(ARROW_USE_GLOG "Build libraries with glog support for pluggable logging"
-                ON)
+                OFF)
 
   define_option(ARROW_WITH_BROTLI "Build with Brotli compression" OFF)
   define_option(ARROW_WITH_BZ2 "Build with BZ2 compression" OFF)
@@ -277,7 +298,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   set_option_category("Parquet")
 
   define_option(PARQUET_MINIMAL_DEPENDENCY
-                "Depend only on Thirdparty headers to build libparquet. \
+                "Depend only on Thirdparty headers to build libparquet.;\
 Always OFF if building binaries" OFF)
 
   define_option(
@@ -298,7 +319,7 @@ Always OFF if building binaries" OFF)
   # ARROW-3860: Temporary workaround
   define_option(
     ARROW_GANDIVA_STATIC_LIBSTDCPP
-    "Include -static-libstdc++ -static-libgcc when linking with Gandiva static libraries"
+    "Include -static-libstdc++ -static-libgcc when linking with;Gandiva static libraries"
     OFF)
 
   define_option_string(ARROW_GANDIVA_PC_CXX_FLAGS
@@ -312,8 +333,8 @@ Always OFF if building binaries" OFF)
                 "Compile with extra error context (line numbers, code)" OFF)
 
   define_option(ARROW_OPTIONAL_INSTALL
-                "If enabled install ONLY targets that have already been built. Please be \
-advised that if this is enabled 'install' will fail silently on components \
+                "If enabled install ONLY targets that have already been built. Please be;\
+advised that if this is enabled 'install' will fail silently on components;\
 that have not been built" OFF)
 
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
@@ -339,52 +360,35 @@ macro(config_summary_message)
 
     message(STATUS)
     message(STATUS "${category} options:")
+    message(STATUS)
 
     set(option_names ${ARROW_${category}_OPTION_NAMES})
 
-    set(max_value_length 0)
     foreach(name ${option_names})
-      string(LENGTH "\"${${name}}\"" value_length)
-      if(${max_value_length} LESS ${value_length})
-        set(max_value_length ${value_length})
-      endif()
-    endforeach()
-
-    foreach(name ${option_names})
-      if("${${name}_OPTION_TYPE}" STREQUAL "string")
-        set(value "\"${${name}}\"")
-      else()
-        set(value "${${name}}")
+      set(value "${${name}}")
+      if("${value}" STREQUAL "")
+        set(value "\"\"")
       endif()
 
-      set(default ${${name}_OPTION_DEFAULT})
       set(description ${${name}_OPTION_DESCRIPTION})
-      string(LENGTH ${description} description_length)
-      if(${description_length} LESS 70)
-        string(
-          SUBSTRING
-            "                                                                     "
-            ${description_length} -1 description_padding)
-      else()
-        set(description_padding "
-                                                                           ")
-      endif()
-
-      set(comment "[${name}]")
-
-      if("${value}" STREQUAL "${default}")
-        set(comment "[default] ${comment}")
-      endif()
 
       if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
-        set(comment "${comment} [${${name}_OPTION_ENUM}]")
+        set(summary "[default=${${name}_OPTION_ENUM}] ${value}")
+      else()
+        set(summary "[default=${${name}_OPTION_DEFAULT}] ${value}")
       endif()
 
-      string(
-        SUBSTRING "${value}                                                             "
-                  0 ${max_value_length} value)
+      string(LENGTH "${summary}" summary_length)
+      string(LENGTH "${name}" name_length)
+      math(EXPR padding_length "${summary_length} + ${name_length}")
+      string(SUBSTRING "                                                \
+                                    ${summary}" ${padding_length} -1 right_padded_summary)
 
-      message(STATUS "  ${description} ${description_padding} ${value} ${comment}")
+      message(STATUS "  ${name} ${right_padded_summary}")
+      foreach(description_line ${description})
+        message(STATUS "      ${description_line}")
+      endforeach()
+      message(STATUS)
     endforeach()
 
   endforeach()
@@ -420,6 +424,10 @@ macro(config_summary_cmake_setters path)
   foreach(category ${ARROW_OPTION_CATEGORIES})
     file(APPEND ${path} "\n\n## ${category} options:")
     foreach(name ${ARROW_${category}_OPTION_NAMES})
+      set(description ${${name}_OPTION_DESCRIPTION})
+      foreach(description_line ${description})
+        file(APPEND ${path} "\n### ${description_line}")
+      endforeach()
       file(APPEND ${path} "\nset(${name} \"${${name}}\")")
     endforeach()
   endforeach()

@@ -44,6 +44,8 @@ def test_chunked_array_basics():
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.chunks)
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.iterchunks())
     assert len(data.chunks) == 3
+    assert data.nbytes == sum(c.nbytes for c in data.iterchunks())
+    assert sys.getsizeof(data) >= object.__sizeof__(data) + data.nbytes
     data.validate()
 
 
@@ -274,6 +276,8 @@ def test_recordbatch_basics():
     assert len(batch) == 5
     assert batch.num_rows == 5
     assert batch.num_columns == len(data)
+    assert batch.nbytes == 5 * 2 + 1 + 5 * 4 + 1
+    assert sys.getsizeof(batch) >= object.__sizeof__(batch) + batch.nbytes
     pydict = batch.to_pydict()
     assert pydict == OrderedDict([
         ('c0', [0, 1, 2, 3, 4]),
@@ -367,6 +371,25 @@ def test_recordbatch_pickle():
     result = pickle.loads(pickle.dumps(batch))
     assert result.equals(batch)
     assert result.schema == schema
+
+
+def test_recordbatch_from_struct_array_invalid():
+    with pytest.raises(TypeError):
+        pa.RecordBatch.from_struct_array(pa.array(range(5)))
+
+
+def test_recordbatch_from_struct_array():
+    struct_array = pa.array(
+        [{"ints": 1}, {"floats": 1.0}],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
+    )
+    result = pa.RecordBatch.from_struct_array(struct_array)
+    assert result.equals(pa.RecordBatch.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    ))
 
 
 def _table_like_slice_tests(factory):
@@ -493,8 +516,8 @@ def test_table_to_batches():
 
 def test_table_basics():
     data = [
-        pa.array(range(5)),
-        pa.array([-10, -5, 0, 5, 10])
+        pa.array(range(5), type='int64'),
+        pa.array([-10, -5, 0, 5, 10], type='int64')
     ]
     table = pa.table(data, names=('a', 'b'))
     table.validate()
@@ -502,6 +525,8 @@ def test_table_basics():
     assert table.num_rows == 5
     assert table.num_columns == 2
     assert table.shape == (5, 2)
+    assert table.nbytes == 2 * (5 * 8 + 1)
+    assert sys.getsizeof(table) >= object.__sizeof__(table) + table.nbytes
     pydict = table.to_pydict()
     assert pydict == OrderedDict([
         ('a', [0, 1, 2, 3, 4]),
@@ -814,6 +839,30 @@ def test_concat_tables_with_different_schema_metadata():
     table3 = pa.concat_tables([table1, table2])
     assert table1.schema.equals(table3.schema, check_metadata=True)
     assert table2.schema.equals(table3.schema, check_metadata=False)
+
+
+def test_concat_tables_with_promotion():
+    t1 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.int64())], ["int64_field"])
+    t2 = pa.Table.from_arrays(
+        [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"])
+
+    result = pa.concat_tables([t1, t2], promote=True)
+
+    assert result.equals(pa.Table.from_arrays([
+        pa.array([1, 2, None, None], type=pa.int64()),
+        pa.array([None, None, 1.0, 2.0], type=pa.float32()),
+    ], ["int64_field", "float_field"]))
+
+
+def test_concat_tables_with_promotion_error():
+    t1 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.int64())], ["f"])
+    t2 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.float32())], ["f"])
+
+    with pytest.raises(pa.ArrowInvalid):
+        pa.concat_tables([t1, t2], promote=True)
 
 
 def test_table_negative_indexing():

@@ -40,6 +40,7 @@ add_arrow_test(utility-test
                range_test.cc
                stl_util_test.cc
                string_test.cc
+               time_test.cc
                trie_test.cc
                utf8_util_test.cc)
 
@@ -50,9 +51,7 @@ add_arrow_test(logging_test)
 add_arrow_test(rle_encoding_test)
 add_arrow_test(task_group_test)
 add_arrow_test(thread_pool_test)
-if(ARROW_WITH_URIPARSER)
-  add_arrow_test(uri_test)
-endif()
+add_arrow_test(uri_test)
 
 add_arrow_benchmark(bit_util_benchmark)
 add_arrow_benchmark(compression_benchmark)

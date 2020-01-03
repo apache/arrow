@@ -31,7 +31,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   bytes <- write_arrow(tab, raw())
 
   tab1 <- read_table(tf)
-  tab2 <- read_table(fs::path_abs(tf))
+  tab2 <- read_table(normalizePath(tf))
 
   readable_file <- ReadableFile$create(tf)
   file_reader1 <- RecordBatchFileReader$create(readable_file)
@@ -249,3 +249,10 @@ test_that("==.Table", {
   expect_true(all.equal(tab1, tab2))
   expect_equal(tab1, tab2)
 })
+
+test_that("Table handles null type (ARROW-7064)", {
+  tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
+  expect_equal(tab$schema,  schema(a = int32(), n = null()))
+})
+
+

@@ -167,7 +167,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
   public void set(int index, VarCharHolder holder) {
     assert index >= 0;
     fillHoles(index);
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     final int dataLength = holder.end - holder.start;
     final int startOffset = getStartOffset(index);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
@@ -188,7 +188,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
     final int dataLength = holder.end - holder.start;
     fillEmpties(index);
     handleSafe(index, dataLength);
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     final int startOffset = getStartOffset(index);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
     valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
@@ -272,7 +272,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
    *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising of this and and a target vector of
+   * Construct a TransferPair comprising of this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector

@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
@@ -152,9 +153,21 @@ class ARROW_EXPORT RecordBatch {
   /// \return new record batch
   virtual std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const = 0;
 
-  /// \brief Check for schema or length inconsistencies
+  /// \brief Perform cheap validation checks to determine obvious inconsistencies
+  /// within the record batch's schema and internal data.
+  ///
+  /// This is O(k) where k is the total number of fields and array descendents.
+  ///
   /// \return Status
   virtual Status Validate() const;
+
+  /// \brief Perform extensive validation checks to determine inconsistencies
+  /// within the record batch's schema and internal data.
+  ///
+  /// This is potentially O(k*n) where n is the number of rows.
+  ///
+  /// \return Status
+  virtual Status ValidateFull() const;
 
  protected:
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
@@ -181,7 +194,12 @@ class ARROW_EXPORT RecordBatchReader {
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 
-  Status Next(std::shared_ptr<RecordBatch>* batch) { return ReadNext(batch); }
+  /// \brief Iterator interface
+  Result<std::shared_ptr<RecordBatch>> Next() {
+    std::shared_ptr<RecordBatch> batch;
+    ARROW_RETURN_NOT_OK(ReadNext(&batch));
+    return batch;
+  }
 
   /// \brief Consume entire stream as a vector of record batches
   Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);

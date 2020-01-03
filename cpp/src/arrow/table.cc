@@ -26,12 +26,13 @@
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/validate.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/stl.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
@@ -189,11 +190,6 @@ Status ChunkedArray::Validate() const {
     return Status::OK();
   }
 
-  for (auto chunk : chunks_) {
-    // Validate the chunks themselves
-    RETURN_NOT_OK(chunk->Validate());
-  }
-
   const auto& type = *chunks_[0]->type();
   // Make sure chunks all have the same type
   for (size_t i = 1; i < chunks_.size(); ++i) {
@@ -201,6 +197,26 @@ Status ChunkedArray::Validate() const {
     if (!chunk.type()->Equals(type)) {
       return Status::Invalid("In chunk ", i, " expected type ", type.ToString(),
                              " but saw ", chunk.type()->ToString());
+    }
+  }
+  // Validate the chunks themselves
+  for (size_t i = 0; i < chunks_.size(); ++i) {
+    const Array& chunk = *chunks_[i];
+    const Status st = internal::ValidateArray(chunk);
+    if (!st.ok()) {
+      return Status::Invalid("In chunk ", i, ": ", st.ToString());
+    }
+  }
+  return Status::OK();
+}
+
+Status ChunkedArray::ValidateFull() const {
+  RETURN_NOT_OK(Validate());
+  for (size_t i = 0; i < chunks_.size(); ++i) {
+    const Array& chunk = *chunks_[i];
+    const Status st = internal::ValidateArrayData(chunk);
+    if (!st.ok()) {
+      return Status::Invalid("In chunk ", i, ": ", st.ToString());
     }
   }
   return Status::OK();
@@ -340,6 +356,35 @@ class SimpleTable : public Table {
   }
 
   Status Validate() const override {
+    RETURN_NOT_OK(ValidateMeta());
+    for (int i = 0; i < num_columns(); ++i) {
+      const ChunkedArray* col = columns_[i].get();
+      Status st = col->Validate();
+      if (!st.ok()) {
+        std::stringstream ss;
+        ss << "Column " << i << ": " << st.message();
+        return st.WithMessage(ss.str());
+      }
+    }
+    return Status::OK();
+  }
+
+  Status ValidateFull() const override {
+    RETURN_NOT_OK(ValidateMeta());
+    for (int i = 0; i < num_columns(); ++i) {
+      const ChunkedArray* col = columns_[i].get();
+      Status st = col->ValidateFull();
+      if (!st.ok()) {
+        std::stringstream ss;
+        ss << "Column " << i << ": " << st.message();
+        return st.WithMessage(ss.str());
+      }
+    }
+    return Status::OK();
+  }
+
+ protected:
+  Status ValidateMeta() const {
     // Make sure columns and schema are consistent
     if (static_cast<int>(columns_.size()) != schema_->num_fields()) {
       return Status::Invalid("Number of columns did not match schema");
@@ -509,6 +554,102 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
   }
   *table = Table::Make(schema, columns);
   return Status::OK();
+}
+
+Result<std::shared_ptr<Table>> ConcatenateTablesWithPromotion(
+    const std::vector<std::shared_ptr<Table>>& tables, MemoryPool* pool) {
+  std::vector<std::shared_ptr<Schema>> schemas;
+  schemas.reserve(tables.size());
+  for (const auto& t : tables) {
+    schemas.push_back(t->schema());
+  }
+
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> unified_schema, UnifySchemas(schemas));
+
+  std::vector<std::shared_ptr<Table>> promoted_tables;
+  promoted_tables.reserve(tables.size());
+  for (const auto& t : tables) {
+    promoted_tables.emplace_back();
+    ARROW_ASSIGN_OR_RAISE(promoted_tables.back(),
+                          PromoteTableToSchema(t, unified_schema, pool));
+  }
+
+  std::shared_ptr<Table> result;
+  RETURN_NOT_OK(ConcatenateTables(promoted_tables, &result));
+  return result;
+}
+
+Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
+                                                    const std::shared_ptr<Schema>& schema,
+                                                    MemoryPool* pool) {
+  const std::shared_ptr<Schema> current_schema = table->schema();
+  if (current_schema->Equals(*schema, /*check_metadata=*/false)) {
+    return table->ReplaceSchemaMetadata(schema->metadata());
+  }
+
+  // fields_seen[i] == true iff that field is also in `schema`.
+  std::vector<bool> fields_seen(current_schema->num_fields(), false);
+
+  std::vector<std::shared_ptr<ChunkedArray>> columns;
+  columns.reserve(schema->num_fields());
+  const int64_t num_rows = table->num_rows();
+  auto AppendColumnOfNulls = [pool, &columns,
+                              num_rows](const std::shared_ptr<DataType>& type) {
+    std::shared_ptr<Array> array_of_nulls;
+    // TODO(bkietz): share the zero-filled buffers as much as possible across
+    // the null-filled arrays created here.
+    RETURN_NOT_OK(MakeArrayOfNull(pool, type, num_rows, &array_of_nulls));
+    columns.push_back(std::make_shared<ChunkedArray>(array_of_nulls));
+    return Status::OK();
+  };
+
+  for (const auto& field : schema->fields()) {
+    const std::vector<int> field_indices =
+        current_schema->GetAllFieldIndices(field->name());
+    if (field_indices.empty()) {
+      RETURN_NOT_OK(AppendColumnOfNulls(field->type()));
+      continue;
+    }
+
+    if (field_indices.size() > 1) {
+      return Status::Invalid(
+          "PromoteTableToSchema cannot handle schemas with duplicate fields: ",
+          field->name());
+    }
+
+    const int field_index = field_indices[0];
+    const auto& current_field = current_schema->field(field_index);
+    if (!field->nullable() && current_field->nullable()) {
+      return Status::Invalid("Unable to promote field ", current_field->name(),
+                             ": it was nullable but the target schema was not.");
+    }
+
+    fields_seen[field_index] = true;
+    if (current_field->type()->Equals(field->type())) {
+      columns.push_back(table->column(field_index));
+      continue;
+    }
+
+    if (current_field->type()->id() == Type::NA) {
+      RETURN_NOT_OK(AppendColumnOfNulls(field->type()));
+      continue;
+    }
+
+    return Status::Invalid("Unable to promote field ", field->name(),
+                           ": incompatible types: ", field->type()->ToString(), " vs ",
+                           current_field->type()->ToString());
+  }
+
+  auto unseen_field_iter = std::find(fields_seen.begin(), fields_seen.end(), false);
+  if (unseen_field_iter != fields_seen.end()) {
+    const size_t unseen_field_index = unseen_field_iter - fields_seen.begin();
+    return Status::Invalid(
+        "Incompatible schemas: field ",
+        current_schema->field(static_cast<int>(unseen_field_index))->name(),
+        " did not exist in the new schema.");
+  }
+
+  return Table::Make(schema, std::move(columns));
 }
 
 bool Table::Equals(const Table& other) const {

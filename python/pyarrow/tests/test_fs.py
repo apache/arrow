@@ -24,9 +24,11 @@ except ImportError:
 import pytest
 
 import pyarrow as pa
-from pyarrow.tests.test_io import gzip_compress, gzip_decompress
-from pyarrow.fs import (FileType, Selector, FileSystem, LocalFileSystem,
-                        SubTreeFileSystem)
+from pyarrow.tests.test_io import (gzip_compress, gzip_decompress,
+                                   assert_file_not_found)
+from pyarrow.fs import (FileType, FileSelector, FileSystem, LocalFileSystem,
+                        LocalFileSystemOptions, SubTreeFileSystem,
+                        _MockFileSystem)
 
 
 @pytest.fixture
@@ -34,6 +36,29 @@ def localfs(request, tempdir):
     return dict(
         fs=LocalFileSystem(),
         pathfn=lambda p: (tempdir / p).as_posix(),
+        allow_copy_file=True,
+        allow_move_dir=True,
+        allow_append_to_file=True,
+    )
+
+
+@pytest.fixture
+def mockfs(request):
+    return dict(
+        fs=_MockFileSystem(),
+        pathfn=lambda p: p,
+        allow_copy_file=True,
+        allow_move_dir=True,
+        allow_append_to_file=True,
+    )
+
+
+@pytest.fixture
+def localfs_with_mmap(request, tempdir):
+    return dict(
+        fs=LocalFileSystem(use_mmap=True),
+        pathfn=lambda p: (tempdir / p).as_posix(),
+        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -46,15 +71,16 @@ def subtree_localfs(request, tempdir, localfs):
     return dict(
         fs=SubTreeFileSystem(prefix, localfs['fs']),
         pathfn=prefix.__add__,
+        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
 
 
-@pytest.mark.s3
 @pytest.fixture
 def s3fs(request, minio_server):
-    from pyarrow.s3fs import S3Options, S3FileSystem
+    request.config.pyarrow.requires('s3')
+    from pyarrow.fs import S3Options, S3FileSystem
 
     address, access_key, secret_key = minio_server
     bucket = 'pyarrow-filesystem/'
@@ -70,6 +96,7 @@ def s3fs(request, minio_server):
     return dict(
         fs=fs,
         pathfn=bucket.__add__,
+        allow_copy_file=True,
         allow_move_dir=False,
         allow_append_to_file=False,
     )
@@ -81,8 +108,31 @@ def subtree_s3fs(request, s3fs):
     return dict(
         fs=SubTreeFileSystem(prefix, s3fs['fs']),
         pathfn=prefix.__add__,
+        allow_copy_file=True,
         allow_move_dir=False,
         allow_append_to_file=False,
+    )
+
+
+@pytest.fixture
+def hdfs(request, hdfs_server):
+    request.config.pyarrow.requires('hdfs')
+    if not pa.have_libhdfs():
+        pytest.skip('Cannot locate libhdfs')
+
+    from pyarrow.fs import HdfsOptions, HadoopFileSystem
+
+    host, port, user = hdfs_server
+    options = HdfsOptions(endpoint=(host, port), user=user)
+
+    fs = HadoopFileSystem(options)
+
+    return dict(
+        fs=fs,
+        pathfn=lambda p: p,
+        allow_copy_file=False,
+        allow_move_dir=True,
+        allow_append_to_file=True,
     )
 
 
@@ -90,6 +140,10 @@ def subtree_s3fs(request, s3fs):
     pytest.param(
         pytest.lazy_fixture('localfs'),
         id='LocalFileSystem()'
+    ),
+    pytest.param(
+        pytest.lazy_fixture('localfs_with_mmap'),
+        id='LocalFileSystem(use_mmap=True)'
     ),
     pytest.param(
         pytest.lazy_fixture('subtree_localfs'),
@@ -100,9 +154,13 @@ def subtree_s3fs(request, s3fs):
         id='S3FileSystem'
     ),
     pytest.param(
-        pytest.lazy_fixture('subtree_s3fs'),
-        id='SubTreeFileSystem(S3FileSystem())'
-    )
+        pytest.lazy_fixture('hdfs'),
+        id='HadoopFileSystem'
+    ),
+    pytest.param(
+        pytest.lazy_fixture('mockfs'),
+        id='_MockFileSystem()'
+    ),
 ])
 def filesystem_config(request):
     return request.param
@@ -121,6 +179,11 @@ def pathfn(request, filesystem_config):
 @pytest.fixture
 def allow_move_dir(request, filesystem_config):
     return filesystem_config['allow_move_dir']
+
+
+@pytest.fixture
+def allow_copy_file(request, filesystem_config):
+    return filesystem_config['allow_copy_file']
 
 
 @pytest.fixture
@@ -148,6 +211,7 @@ def test_get_target_stats(fs, pathfn):
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
     c = pathfn('c.txt')
+    zzz = pathfn('zzz')
 
     fs.create_dir(aaa)
     with fs.open_output_stream(bb):
@@ -155,17 +219,20 @@ def test_get_target_stats(fs, pathfn):
     with fs.open_output_stream(c) as fp:
         fp.write(b'test')
 
-    aaa_stat, bb_stat, c_stat = fs.get_target_stats([aaa, bb, c])
+    aaa_stat, bb_stat, c_stat, zzz_stat = \
+        fs.get_target_stats([aaa, bb, c, zzz])
 
     assert aaa_stat.path == aaa
     assert 'aaa' in repr(aaa_stat)
     assert aaa_stat.extension == ''
+    assert 'FileType.Directory' in repr(aaa_stat)
     assert isinstance(aaa_stat.mtime, datetime)
 
     assert bb_stat.path == str(bb)
     assert bb_stat.base_name == 'bb'
     assert bb_stat.extension == ''
     assert bb_stat.type == FileType.File
+    assert 'FileType.File' in repr(bb_stat)
     assert bb_stat.size == 0
     assert isinstance(bb_stat.mtime, datetime)
 
@@ -173,7 +240,15 @@ def test_get_target_stats(fs, pathfn):
     assert c_stat.base_name == 'c.txt'
     assert c_stat.extension == 'txt'
     assert c_stat.type == FileType.File
+    assert 'FileType.File' in repr(c_stat)
     assert c_stat.size == 4
+    assert isinstance(c_stat.mtime, datetime)
+
+    assert zzz_stat.path == str(zzz)
+    assert zzz_stat.base_name == 'zzz'
+    assert zzz_stat.extension == ''
+    assert zzz_stat.type == FileType.NonExistent
+    assert 'FileType.NonExistent' in repr(zzz_stat)
     assert isinstance(c_stat.mtime, datetime)
 
 
@@ -191,7 +266,8 @@ def test_get_target_stats_with_selector(fs, pathfn):
             pass
         fs.create_dir(dir_a)
 
-        selector = Selector(base_dir, allow_non_existent=False, recursive=True)
+        selector = FileSelector(base_dir, allow_non_existent=False,
+                                recursive=True)
         assert selector.base_dir == base_dir
 
         stats = fs.get_target_stats(selector)
@@ -238,16 +314,20 @@ def test_delete_dir(fs, pathfn):
         fs.delete_dir(d)
 
 
-def test_copy_file(fs, pathfn):
+def test_copy_file(fs, pathfn, allow_copy_file):
     s = pathfn('test-copy-source-file')
     t = pathfn('test-copy-target-file')
 
     with fs.open_output_stream(s):
         pass
 
-    fs.copy_file(s, t)
-    fs.delete_file(s)
-    fs.delete_file(t)
+    if allow_copy_file:
+        fs.copy_file(s, t)
+        fs.delete_file(s)
+        fs.delete_file(t)
+    else:
+        with pytest.raises(pa.ArrowNotImplementedError):
+            fs.copy_file(s, t)
 
 
 def test_move_directory(fs, pathfn, allow_move_dir):
@@ -378,7 +458,8 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
         s.write(initial)
 
     if allow_append_to_file:
-        with fs.open_append_stream(p, compression, buffer_size) as f:
+        with fs.open_append_stream(p, compression=compression,
+                                   buffer_size=buffer_size) as f:
             f.write(b'\nnewly added')
 
         with fs.open_input_stream(p) as f:
@@ -388,12 +469,53 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
         assert result == b'already existing\nnewly added'
     else:
         with pytest.raises(pa.ArrowNotImplementedError):
-            fs.open_append_stream(p, compression, buffer_size)
+            fs.open_append_stream(p, compression=compression,
+                                  buffer_size=buffer_size)
+
+
+def test_localfs_options():
+    options = LocalFileSystemOptions()
+    assert options.use_mmap is False
+    options.use_mmap = True
+    assert options.use_mmap is True
+
+    with pytest.raises(AttributeError):
+        options.xxx = True
+
+    options = LocalFileSystemOptions(use_mmap=True)
+    assert options.use_mmap is True
+
+    # LocalFileSystem instantiation
+    LocalFileSystem(LocalFileSystemOptions(use_mmap=True))
+    LocalFileSystem(use_mmap=False)
+
+    with pytest.raises(AttributeError):
+        LocalFileSystem(xxx=False)
+
+
+def test_localfs_errors(localfs):
+    # Local filesystem errors should raise the right Python exceptions
+    # (e.g. FileNotFoundError)
+    fs = localfs['fs']
+    with assert_file_not_found():
+        fs.open_input_stream('/non/existent/file')
+    with assert_file_not_found():
+        fs.open_output_stream('/non/existent/file')
+    with assert_file_not_found():
+        fs.create_dir('/non/existent/dir', recursive=False)
+    with assert_file_not_found():
+        fs.delete_dir('/non/existent/dir')
+    with assert_file_not_found():
+        fs.delete_file('/non/existent/dir')
+    with assert_file_not_found():
+        fs.move('/non/existent', '/xxx')
+    with assert_file_not_found():
+        fs.copy_file('/non/existent', '/xxx')
 
 
 @pytest.mark.s3
 def test_s3_options(minio_server):
-    from pyarrow.s3fs import S3Options
+    from pyarrow.fs import S3Options
 
     options = S3Options()
 
@@ -423,3 +545,48 @@ def test_s3_options(minio_server):
     )
     assert options.scheme == 'http'
     assert options.endpoint_override == address
+
+
+@pytest.mark.hdfs
+def test_hdfs_options(hdfs_server):
+    from pyarrow.fs import HdfsOptions, HadoopFileSystem
+    if not pa.have_libhdfs():
+        pytest.skip('Cannot locate libhdfs')
+
+    options = HdfsOptions()
+    assert options.endpoint == ('', 0)
+    options.endpoint = ('localhost', 8080)
+    assert options.endpoint == ('localhost', 8080)
+    with pytest.raises(TypeError):
+        options.endpoint = 'localhost:8000'
+
+    assert options.driver == 'libhdfs'
+    options.driver = 'libhdfs3'
+    assert options.driver == 'libhdfs3'
+    with pytest.raises(ValueError):
+        options.driver = 'unknown'
+
+    assert options.replication == 3
+    options.replication = 2
+    assert options.replication == 2
+
+    assert options.user == ''
+    options.user = 'libhdfs'
+    assert options.user == 'libhdfs'
+
+    assert options.default_block_size == 0
+    options.default_block_size = 128*1024**2
+    assert options.default_block_size == 128*1024**2
+
+    assert options.buffer_size == 0
+    options.buffer_size = 64*1024
+    assert options.buffer_size == 64*1024
+
+    options = HdfsOptions.from_uri('hdfs://localhost:8080/?user=test')
+    assert options.endpoint == ('localhost', 8080)
+    assert options.user == 'test'
+
+    host, port, user = hdfs_server
+    uri = "hdfs://{}:{}/?user={}".format(host, port, user)
+    fs = HadoopFileSystem(uri)
+    assert fs.get_target_stats(FileSelector('/'))

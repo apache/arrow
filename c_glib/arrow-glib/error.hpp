@@ -23,6 +23,23 @@
 
 #include <arrow-glib/error.h>
 
+namespace garrow {
+  gboolean check(GError **error,
+                 const arrow::Status &status,
+                 const char *context);
+
+  template <typename TYPE>
+  gboolean check(GError **error,
+                 const arrow::Result<TYPE> &result,
+                 const char *context) {
+    if (result.ok()) {
+      return TRUE;
+    } else {
+      return check(error, result.status(), context);
+    }
+  }
+}
+
 gboolean garrow_error_check(GError **error,
                             const arrow::Status &status,
                             const char *context);

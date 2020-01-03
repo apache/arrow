@@ -28,10 +28,11 @@ import (
 
 // Writer wraps encoding/csv.Writer and writes array.Record based on a schema.
 type Writer struct {
-	w      *csv.Writer
-	schema *arrow.Schema
-	header bool
-	once   sync.Once
+	w         *csv.Writer
+	schema    *arrow.Schema
+	header    bool
+	once      sync.Once
+	nullValue string
 }
 
 // NewWriter returns a writer that writes array.Records to the CSV file
@@ -42,7 +43,11 @@ type Writer struct {
 func NewWriter(w io.Writer, schema *arrow.Schema, opts ...Option) *Writer {
 	validate(schema)
 
-	ww := &Writer{w: csv.NewWriter(w), schema: schema}
+	ww := &Writer{
+		w:         csv.NewWriter(w),
+		schema:    schema,
+		nullValue: "NULL", // override by passing WithNullWriter() as an option
+	}
 	for _, opt := range opts {
 		opt(ww)
 	}
@@ -78,62 +83,110 @@ func (w *Writer) Write(record array.Record) error {
 		case *arrow.BooleanType:
 			arr := col.(*array.Boolean)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = strconv.FormatBool(arr.Value(i))
+				if arr.IsValid(i) {
+					recs[i][j] = strconv.FormatBool(arr.Value(i))
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		case *arrow.Int8Type:
 			arr := col.(*array.Int8)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
+				if arr.IsValid(i) {
+					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		case *arrow.Int16Type:
 			arr := col.(*array.Int16)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
+				if arr.IsValid(i) {
+					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		case *arrow.Int32Type:
 			arr := col.(*array.Int32)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
+				if arr.IsValid(i) {
+					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		case *arrow.Int64Type:
 			arr := col.(*array.Int64)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
+				if arr.IsValid(i) {
+					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		case *arrow.Uint8Type:
 			arr := col.(*array.Uint8)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+				if arr.IsValid(i) {
+					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		case *arrow.Uint16Type:
 			arr := col.(*array.Uint16)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+				if arr.IsValid(i) {
+					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		case *arrow.Uint32Type:
 			arr := col.(*array.Uint32)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+				if arr.IsValid(i) {
+					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		case *arrow.Uint64Type:
 			arr := col.(*array.Uint64)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+				if arr.IsValid(i) {
+					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		case *arrow.Float32Type:
 			arr := col.(*array.Float32)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 32)
+				if arr.IsValid(i) {
+					recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 32)
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		case *arrow.Float64Type:
 			arr := col.(*array.Float64)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 64)
+				if arr.IsValid(i) {
+					recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 64)
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		case *arrow.StringType:
 			arr := col.(*array.String)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = arr.Value(i)
+				if arr.IsValid(i) {
+					recs[i][j] = arr.Value(i)
+				} else {
+					recs[i][j] = w.nullValue
+				}
 			}
 		}
 	}

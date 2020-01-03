@@ -164,8 +164,7 @@ Status PyFlightServer::ServeWithSignals() {
   // an active signal handler for SIGINT and SIGTERM.
   std::vector<int> signals;
   for (const int signum : {SIGINT, SIGTERM}) {
-    ::arrow::internal::SignalHandler handler;
-    RETURN_NOT_OK(::arrow::internal::GetSignalHandler(signum, &handler));
+    ARROW_ASSIGN_OR_RAISE(auto handler, ::arrow::internal::GetSignalHandler(signum));
     auto cb = handler.callback();
     if (cb != SIG_DFL && cb != SIG_IGN) {
       signals.push_back(signum);

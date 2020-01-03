@@ -51,23 +51,27 @@ pkg_config_requires = [
   'plasma',
   'arrow-glib',
 ]
-gir_dependencies = [
-  declare_dependency(sources: arrow_glib_gir),
-]
-gir_includes = [
-  'Arrow-1.0',
-]
-gir_extra_args = [
-  '--warn-all',
-  '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-]
+if have_gi
+  gir_dependencies = [
+    declare_dependency(sources: arrow_glib_gir),
+  ]
+  gir_includes = [
+    'Arrow-1.0',
+  ]
+  gir_extra_args = [
+    '--warn-all',
+    '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+  ]
+endif
 if arrow_cuda.found()
   dependencies += [arrow_cuda_glib]
   cpp_args += ['-DHAVE_ARROW_CUDA']
   pkg_config_requires += ['arrow-cuda-glib']
-  gir_dependencies += [declare_dependency(sources: arrow_cuda_glib_gir)]
-  gir_includes += ['ArrowCUDA-1.0']
-  gir_extra_args += ['--include-uninstalled=./arrow-cuda-glib/ArrowCUDA-1.0.gir']
+  if have_gi
+    gir_dependencies += [declare_dependency(sources: arrow_cuda_glib_gir)]
+    gir_includes += ['ArrowCUDA-1.0']
+    gir_extra_args += ['--include-uninstalled=./arrow-cuda-glib/ArrowCUDA-1.0.gir']
+  endif
 endif
 libplasma_glib = library('plasma-glib',
                          sources: sources,
@@ -88,14 +92,16 @@ pkgconfig.generate(libplasma_glib,
                    version: version,
                    requires: pkg_config_requires)
 
-gnome.generate_gir(libplasma_glib,
-                   dependencies: gir_dependencies,
-                   sources: sources + c_headers,
-                   namespace: 'Plasma',
-                   nsversion: api_version,
-                   identifier_prefix: 'GPlasma',
-                   symbol_prefix: 'gplasma',
-                   export_packages: 'plasma-glib',
-                   includes: gir_includes,
-                   install: true,
-                   extra_args: gir_extra_args)
+if have_gi
+  gnome.generate_gir(libplasma_glib,
+                     dependencies: gir_dependencies,
+                     sources: sources + c_headers,
+                     namespace: 'Plasma',
+                     nsversion: api_version,
+                     identifier_prefix: 'GPlasma',
+                     symbol_prefix: 'gplasma',
+                     export_packages: 'plasma-glib',
+                     includes: gir_includes,
+                     install: true,
+                     extra_args: gir_extra_args)
+endif

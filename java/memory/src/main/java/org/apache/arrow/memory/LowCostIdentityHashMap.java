@@ -52,14 +52,14 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   private static final int LOAD_FACTOR = 7500;
 
   /**
-   * Creates an Map with default expected maximum size.
+   * Creates a Map with default expected maximum size.
    */
   public LowCostIdentityHashMap() {
     this(DEFAULT_MIN_SIZE);
   }
 
   /**
-   * Creates an Map with the specified maximum size parameter.
+   * Creates a Map with the specified maximum size parameter.
    *
    * @param maxSize
    *            The estimated maximum number of entries that will be put in

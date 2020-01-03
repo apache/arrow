@@ -34,7 +34,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
-#include "arrow/util/stl.h"
 #include "arrow/util/string.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
@@ -64,9 +63,7 @@ struct Slice {
 };
 
 template <typename ArrayType, typename T = typename ArrayType::TypeClass,
-          typename =
-              typename std::enable_if<std::is_base_of<BaseListType, T>::value ||
-                                      std::is_base_of<FixedSizeListType, T>::value>::type>
+          typename = enable_if_list_like<T>>
 static Slice GetView(const ArrayType& array, int64_t index) {
   return Slice{array.values().get(), array.value_offset(index),
                array.value_length(index)};
@@ -471,9 +468,7 @@ class MakeFormatterImpl {
 
   // format Numerics with std::ostream defaults
   template <typename T>
-  typename std::enable_if<
-      is_number_type<T>::value && !is_date<T>::value && !is_time<T>::value, Status>::type
-  Visit(const T&) {
+  enable_if_number<T, Status> Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       const auto& numeric = checked_cast<const NumericArray<T>&>(array);
       if (sizeof(decltype(numeric.Value(index))) == sizeof(char)) {
@@ -521,21 +516,22 @@ class MakeFormatterImpl {
     return Status::OK();
   }
 
-  // format Binary and FixedSizeBinary in hexadecimal
+  // format Binary, LargeBinary and FixedSizeBinary in hexadecimal
   template <typename T>
   enable_if_binary_like<T, Status> Visit(const T&) {
+    using ArrayType = typename TypeTraits<T>::ArrayType;
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << HexEncode(
-          checked_cast<const typename TypeTraits<T>::ArrayType&>(array).GetView(index));
+      *os << HexEncode(checked_cast<const ArrayType&>(array).GetView(index));
     };
     return Status::OK();
   }
 
   // format Strings with \"\n\r\t\\ escaped
-  Status Visit(const StringType&) {
+  template <typename T>
+  enable_if_string_like<T, Status> Visit(const T&) {
+    using ArrayType = typename TypeTraits<T>::ArrayType;
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << "\"" << Escape(checked_cast<const StringArray&>(array).GetView(index))
-          << "\"";
+      *os << "\"" << Escape(checked_cast<const ArrayType&>(array).GetView(index)) << "\"";
     };
     return Status::OK();
   }
@@ -548,12 +544,14 @@ class MakeFormatterImpl {
     return Status::OK();
   }
 
-  Status Visit(const ListType& t) {
+  template <typename T>
+  enable_if_list_like<T, Status> Visit(const T& t) {
     struct ListImpl {
       explicit ListImpl(Formatter f) : values_formatter_(std::move(f)) {}
 
       void operator()(const Array& array, int64_t index, std::ostream* os) {
-        const auto& list_array = checked_cast<const ListArray&>(array);
+        const auto& list_array =
+            checked_cast<const typename TypeTraits<T>::ArrayType&>(array);
         *os << "[";
         for (int32_t i = 0; i < list_array.value_length(index); ++i) {
           if (i != 0) {
@@ -609,25 +607,23 @@ class MakeFormatterImpl {
 
   Status Visit(const UnionType& t) {
     struct UnionImpl {
-      UnionImpl(std::vector<Formatter> f, std::vector<int> c)
-          : field_formatters_(std::move(f)), type_id_to_child_index_(std::move(c)) {}
+      explicit UnionImpl(std::vector<Formatter> f) : field_formatters_(std::move(f)) {}
 
       void DoFormat(const UnionArray& array, int64_t index, int64_t child_index,
                     std::ostream* os) {
-        auto type_id = array.raw_type_ids()[index];
-        const auto& child = *array.child(type_id_to_child_index_[type_id]);
+        auto type_code = array.raw_type_codes()[index];
+        const auto& child = *array.child(array.child_id(index));
 
-        *os << "{" << static_cast<int16_t>(type_id) << ": ";
+        *os << "{" << static_cast<int16_t>(type_code) << ": ";
         if (child.IsNull(child_index)) {
           *os << "null";
         } else {
-          field_formatters_[type_id](child, child_index, os);
+          field_formatters_[type_code](child, child_index, os);
         }
         *os << "}";
       }
 
       std::vector<Formatter> field_formatters_;
-      std::vector<int> type_id_to_child_index_;
     };
 
     struct SparseImpl : UnionImpl {
@@ -649,23 +645,37 @@ class MakeFormatterImpl {
     };
 
     std::vector<Formatter> field_formatters(t.max_type_code() + 1);
-    std::vector<int> type_id_to_child_index(field_formatters.size());
     for (int i = 0; i < t.num_children(); ++i) {
       auto type_id = t.type_codes()[i];
-      type_id_to_child_index[type_id] = i;
       ARROW_ASSIGN_OR_RAISE(field_formatters[type_id],
                             MakeFormatter(*t.child(i)->type()));
     }
 
     if (t.mode() == UnionMode::SPARSE) {
-      impl_ = SparseImpl(std::move(field_formatters), std::move(type_id_to_child_index));
+      impl_ = SparseImpl(std::move(field_formatters));
     } else {
-      impl_ = DenseImpl(std::move(field_formatters), std::move(type_id_to_child_index));
+      impl_ = DenseImpl(std::move(field_formatters));
     }
     return Status::OK();
   }
 
-  Status Visit(const DataType& t) {
+  Status Visit(const NullType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const DictionaryType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const ExtensionType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const DurationType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const MonthIntervalType& t) {
     return Status::NotImplemented("formatting diffs between arrays of type ", t);
   }
 

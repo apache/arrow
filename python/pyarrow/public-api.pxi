@@ -86,6 +86,10 @@ cdef api object pyarrow_wrap_data_type(
         out = ListType.__new__(ListType)
     elif type.get().id() == _Type_LARGE_LIST:
         out = LargeListType.__new__(LargeListType)
+    elif type.get().id() == _Type_MAP:
+        out = MapType.__new__(MapType)
+    elif type.get().id() == _Type_FIXED_SIZE_LIST:
+        out = FixedSizeListType.__new__(FixedSizeListType)
     elif type.get().id() == _Type_STRUCT:
         out = StructType.__new__(StructType)
     elif type.get().id() == _Type_UNION:
@@ -219,6 +223,20 @@ cdef api object pyarrow_wrap_chunked_array(
     cdef ChunkedArray arr = ChunkedArray.__new__(ChunkedArray)
     arr.init(sp_array)
     return arr
+
+
+cdef api bint pyarrow_is_scalar(object value):
+    return isinstance(value, ScalarValue)
+
+
+cdef api shared_ptr[CScalar] pyarrow_unwrap_scalar(object scalar):
+    cdef ScalarValue value
+    if pyarrow_is_scalar(scalar):
+        value = <ScalarValue>(scalar)
+        return value.sp_scalar
+
+    return shared_ptr[CScalar]()
+
 
 cdef api object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar):
     if sp_scalar.get() == NULL:

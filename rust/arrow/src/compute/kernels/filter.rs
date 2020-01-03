@@ -19,11 +19,7 @@
 
 use std::sync::Arc;
 
-use crate::array::{
-    Array, ArrayRef, BinaryArray, BooleanArray, Float32Array, Float64Array, Int16Array,
-    Int32Array, Int64Array, Int8Array, PrimitiveArray, UInt16Array, UInt32Array,
-    UInt64Array, UInt8Array,
-};
+use crate::array::*;
 use crate::datatypes::{ArrowNumericType, DataType};
 use crate::error::{ArrowError, Result};
 
@@ -91,7 +87,7 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
         DataType::Float32 => filter_array!(array, filter, Float32Array),
         DataType::Float64 => filter_array!(array, filter, Float64Array),
         DataType::Boolean => filter_array!(array, filter, BooleanArray),
-        DataType::Utf8 => {
+        DataType::Binary => {
             let b = array.as_any().downcast_ref::<BinaryArray>().unwrap();
             let mut values: Vec<&[u8]> = Vec::with_capacity(b.len());
             for i in 0..b.len() {
@@ -100,6 +96,16 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
                 }
             }
             Ok(Arc::new(BinaryArray::from(values)))
+        }
+        DataType::Utf8 => {
+            let b = array.as_any().downcast_ref::<StringArray>().unwrap();
+            let mut values: Vec<&str> = Vec::with_capacity(b.len());
+            for i in 0..b.len() {
+                if filter.value(i) {
+                    values.push(b.value(i));
+                }
+            }
+            Ok(Arc::new(StringArray::from(values)))
         }
         other => Err(ArrowError::ComputeError(format!(
             "filter not supported for {:?}",
@@ -124,14 +130,14 @@ mod tests {
     }
 
     #[test]
-    fn test_filter_binary_array() {
-        let a = BinaryArray::from(vec!["hello", " ", "world", "!"]);
+    fn test_filter_string_array() {
+        let a = StringArray::from(vec!["hello", " ", "world", "!"]);
         let b = BooleanArray::from(vec![true, false, true, false]);
         let c = filter(&a, &b).unwrap();
-        let d = c.as_ref().as_any().downcast_ref::<BinaryArray>().unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(2, d.len());
-        assert_eq!("hello", d.get_string(0));
-        assert_eq!("world", d.get_string(1));
+        assert_eq!("hello", d.value(0));
+        assert_eq!("world", d.value(1));
     }
 
     #[test]

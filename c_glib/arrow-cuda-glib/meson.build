@@ -57,23 +57,25 @@ pkgconfig.generate(libarrow_cuda_glib,
                    version: version,
                    requires: ['arrow-glib', 'arrow-cuda'])
 
-gir_dependencies = [
-  declare_dependency(sources: arrow_glib_gir),
-]
-gir_extra_args = [
-  '--warn-all',
-  '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-]
-arrow_cuda_glib_gir = gnome.generate_gir(libarrow_cuda_glib,
-                                         dependencies: gir_dependencies,
-                                         sources: sources + c_headers,
-                                         namespace: 'ArrowCUDA',
-                                         nsversion: api_version,
-                                         identifier_prefix: 'GArrowCUDA',
-                                         symbol_prefix: 'garrow_cuda',
-                                         export_packages: 'arrow-cuda-glib',
-                                         includes: [
-                                           'Arrow-1.0',
-                                         ],
-                                         install: true,
-                                         extra_args: gir_extra_args)
+if have_gi
+  gir_dependencies = [
+    declare_dependency(sources: arrow_glib_gir),
+  ]
+  gir_extra_args = [
+    '--warn-all',
+    '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+  ]
+  arrow_cuda_glib_gir = gnome.generate_gir(libarrow_cuda_glib,
+                                           dependencies: gir_dependencies,
+                                           sources: sources + c_headers,
+                                           namespace: 'ArrowCUDA',
+                                           nsversion: api_version,
+                                           identifier_prefix: 'GArrowCUDA',
+                                           symbol_prefix: 'garrow_cuda',
+                                           export_packages: 'arrow-cuda-glib',
+                                           includes: [
+                                             'Arrow-1.0',
+                                           ],
+                                           install: true,
+                                           extra_args: gir_extra_args)
+endif

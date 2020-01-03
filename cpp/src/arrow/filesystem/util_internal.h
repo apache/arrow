@@ -17,8 +17,10 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 
+#include "arrow/filesystem/filesystem.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
@@ -26,6 +28,9 @@
 namespace arrow {
 namespace fs {
 namespace internal {
+
+ARROW_EXPORT
+TimePoint CurrentTimePoint();
 
 ARROW_EXPORT
 Status CopyStream(const std::shared_ptr<io::InputStream>& src,

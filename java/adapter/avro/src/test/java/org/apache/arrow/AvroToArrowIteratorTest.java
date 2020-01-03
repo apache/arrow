@@ -56,7 +56,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     this.config = new AvroToArrowConfigBuilder(allocator).setTargetBatchSize(3).build();
   }
 
-  private AvroToArrowVectorIterator writeAndRead(Schema schema, List data) throws Exception {
+  private AvroToArrowVectorIterator convert(Schema schema, List data) throws Exception {
     File dataFile = TMP.newFile();
 
     BinaryEncoder
@@ -79,7 +79,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
 
     List<VectorSchemaRoot> roots = new ArrayList<>();
     List<FieldVector> vectors = new ArrayList<>();
-    try (AvroToArrowVectorIterator iterator = writeAndRead(schema, data)) {
+    try (AvroToArrowVectorIterator iterator = convert(schema, data)) {
       while (iterator.hasNext()) {
         VectorSchemaRoot root = iterator.next();
         FieldVector vector = root.getFieldVectors().get(0);
@@ -107,7 +107,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
 
     List<VectorSchemaRoot> roots = new ArrayList<>();
     List<FieldVector> vectors = new ArrayList<>();
-    try (AvroToArrowVectorIterator iterator = writeAndRead(schema, data);) {
+    try (AvroToArrowVectorIterator iterator = convert(schema, data);) {
       while (iterator.hasNext()) {
         VectorSchemaRoot root = iterator.next();
         FieldVector vector = root.getFieldVectors().get(0);
@@ -133,7 +133,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     }
 
     List<VectorSchemaRoot> roots = new ArrayList<>();
-    try (AvroToArrowVectorIterator iterator = writeAndRead(schema, data)) {
+    try (AvroToArrowVectorIterator iterator = convert(schema, data)) {
       while (iterator.hasNext()) {
         roots.add(iterator.next());
       }
@@ -155,7 +155,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
 
     List<VectorSchemaRoot> roots = new ArrayList<>();
     List<ListVector> vectors = new ArrayList<>();
-    try (AvroToArrowVectorIterator iterator = writeAndRead(schema, data)) {
+    try (AvroToArrowVectorIterator iterator = convert(schema, data)) {
       while (iterator.hasNext()) {
         VectorSchemaRoot root = iterator.next();
         roots.add(root);

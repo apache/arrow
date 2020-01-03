@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseValueVector;
@@ -489,7 +490,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
     if (isSet(index) == 0) {
-      return 0;
+      return ArrowBufPointer.NULL_HASH_CODE;
     } else {
       return super.hashCode(index, hasher);
     }
@@ -538,7 +539,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
       /* realloc the inner buffers if needed */
       reallocValidityBuffer();
     }
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
   }
 
   /**
@@ -549,12 +550,12 @@ public class StructVector extends NonNullableStructVector implements FieldVector
       /* realloc the inner buffers if needed */
       reallocValidityBuffer();
     }
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+    BitVectorHelper.unsetBit(validityBuffer, index);
   }
 
   @Override
   public void setValueCount(int valueCount) {
-    assert valueCount >= 0;
+    Preconditions.checkArgument(valueCount >= 0);
     while (valueCount > getValidityBufferValueCapacity()) {
       /* realloc the inner buffers if needed */
       reallocValidityBuffer();

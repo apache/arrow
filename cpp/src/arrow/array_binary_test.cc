@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -35,6 +36,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string_view.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -91,7 +93,7 @@ class TestStringArray : public ::testing::Test {
     length_ = static_cast<int64_t>(offsets_.size()) - 1;
     value_buf_ = Buffer::Wrap(chars_);
     offsets_buf_ = Buffer::Wrap(offsets_);
-    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
+    ASSERT_OK_AND_ASSIGN(null_bitmap_, BitUtil::BytesToBits(valid_bytes_));
     null_count_ = CountNulls(valid_bytes_);
 
     strings_ = std::make_shared<ArrayType>(length_, offsets_buf_, value_buf_,
@@ -101,7 +103,7 @@ class TestStringArray : public ::testing::Test {
   void TestArrayBasics() {
     ASSERT_EQ(length_, strings_->length());
     ASSERT_EQ(1, strings_->null_count());
-    ASSERT_OK(strings_->Validate());
+    ASSERT_OK(strings_->ValidateFull());
     TestInitialized(*strings_);
     AssertZeroPadded(*strings_);
   }
@@ -276,7 +278,7 @@ class TestStringBuilder : public TestBuilder {
     FinishAndCheckPadding(builder_.get(), &out);
 
     result_ = std::dynamic_pointer_cast<ArrayType>(out);
-    ASSERT_OK(result_->Validate());
+    ASSERT_OK(result_->ValidateFull());
   }
 
   void TestScalarAppend() {
@@ -330,7 +332,7 @@ class TestStringBuilder : public TestBuilder {
     ASSERT_EQ(builder_->value_data_length(), total_length * reps);
     Done();
 
-    ASSERT_OK(result_->Validate());
+    ASSERT_OK(result_->ValidateFull());
     ASSERT_EQ(reps * N, result_->length());
     ASSERT_EQ(reps, result_->null_count());
     ASSERT_EQ(reps * total_length, result_->value_data()->size());
@@ -622,5 +624,57 @@ TEST(TestChunkedStringBuilder, BasicOperation) {
     ASSERT_TRUE(chunk->type()->Equals(utf8()));
   }
 }
+
+// ----------------------------------------------------------------------
+// ArrayDataVisitor<binary-like> tests
+
+struct Appender {
+  Status VisitNull() {
+    data.emplace_back("(null)");
+    return Status::OK();
+  }
+
+  Status VisitValue(util::string_view v) {
+    data.push_back(v);
+    return Status::OK();
+  }
+
+  std::vector<util::string_view> data;
+};
+
+template <typename T>
+class TestBinaryDataVisitor : public ::testing::Test {
+ public:
+  using TypeClass = T;
+
+  void SetUp() override { type_ = TypeTraits<TypeClass>::type_singleton(); }
+
+  void TestBasics() {
+    auto array = ArrayFromJSON(type_, R"(["foo", null, "bar"])");
+    Appender appender;
+    ArrayDataVisitor<TypeClass> visitor;
+    ASSERT_OK(visitor.Visit(*array->data(), &appender));
+    ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"foo", "(null)", "bar"}));
+    ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
+  }
+
+  void TestSliced() {
+    auto array = ArrayFromJSON(type_, R"(["ab", null, "cd", "ef"])")->Slice(1, 2);
+    Appender appender;
+    ArrayDataVisitor<TypeClass> visitor;
+    ASSERT_OK(visitor.Visit(*array->data(), &appender));
+    ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"(null)", "cd"}));
+    ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
+  }
+
+ protected:
+  std::shared_ptr<DataType> type_;
+};
+
+TYPED_TEST_CASE(TestBinaryDataVisitor, StringTypes);
+
+TYPED_TEST(TestBinaryDataVisitor, Basics) { this->TestBasics(); }
+
+TYPED_TEST(TestBinaryDataVisitor, Sliced) { this->TestSliced(); }
 
 }  // namespace arrow

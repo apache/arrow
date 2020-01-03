@@ -38,7 +38,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/stl.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -46,18 +45,6 @@ namespace arrow {
 template <typename T>
 class Result;
 
-namespace internal {
-
-// Helpers for the ASSERT* macros below
-
-inline Status GenericToStatus(const Status& st) { return st; }
-
-template <typename T>
-inline Status GenericToStatus(const Result<T>& res) {
-  return res.status();
-}
-
-}  // namespace internal
 }  // namespace arrow
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number
@@ -84,6 +71,18 @@ inline Status GenericToStatus(const Result<T>& res) {
              << _st.ToString();                                                       \
     }                                                                                 \
     ASSERT_EQ((message), _st.ToString());                                             \
+  } while (false)
+
+#define EXPECT_RAISES_WITH_MESSAGE_THAT(ENUM, matcher, expr)                          \
+  do {                                                                                \
+    auto _res = (expr);                                                               \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                   \
+    if (!_st.Is##ENUM()) {                                                            \
+      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                    ENUM) ", but got "                                                \
+             << _st.ToString();                                                       \
+    }                                                                                 \
+    EXPECT_THAT(_st.ToString(), (matcher));                                           \
   } while (false)
 
 #define ASSERT_OK(expr)                                                       \
@@ -113,14 +112,30 @@ inline Status GenericToStatus(const Result<T>& res) {
     }                                                               \
   } while (false);
 
-#define ASSERT_OK_AND_ASSIGN_IMPL(status_name, lhs, rexpr) \
-  auto status_name = (rexpr);                              \
-  ARROW_EXPECT_OK(status_name.status());                   \
+#define ASSIGN_OR_HANDLE_ERROR_IMPL(handle_error, status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                                              \
+  handle_error(status_name.status());                                      \
   lhs = std::move(status_name).ValueOrDie();
 
-#define ASSERT_OK_AND_ASSIGN(lhs, rexpr)                                              \
-  ASSERT_OK_AND_ASSIGN_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
-                            lhs, rexpr);
+#define ASSERT_OK_AND_ASSIGN(lhs, rexpr) \
+  ASSIGN_OR_HANDLE_ERROR_IMPL(           \
+      ASSERT_OK, ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), lhs, rexpr);
+
+#define ASSIGN_OR_ABORT(lhs, rexpr)                                                     \
+  ASSIGN_OR_HANDLE_ERROR_IMPL(ABORT_NOT_OK,                                             \
+                              ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                              lhs, rexpr);
+
+#define EXPECT_OK_AND_ASSIGN(lhs, rexpr)                                                \
+  ASSIGN_OR_HANDLE_ERROR_IMPL(ARROW_EXPECT_OK,                                          \
+                              ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                              lhs, rexpr);
+
+#define ASSERT_OK_AND_EQ(expected, expr)        \
+  do {                                          \
+    ASSERT_OK_AND_ASSIGN(auto _actual, (expr)); \
+    ASSERT_EQ(expected, _actual);               \
+  } while (0)
 
 namespace arrow {
 
@@ -167,7 +182,38 @@ ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer,
                                     const std::vector<uint8_t>& expected);
 ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const std::string& expected);
 ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
-ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
+
+ARROW_EXPORT void AssertTypeEqual(const DataType& lhs, const DataType& rhs,
+                                  bool check_metadata = true);
+ARROW_EXPORT void AssertTypeEqual(const std::shared_ptr<DataType>& lhs,
+                                  const std::shared_ptr<DataType>& rhs,
+                                  bool check_metadata = true);
+ARROW_EXPORT void AssertFieldEqual(const Field& lhs, const Field& rhs,
+                                   bool check_metadata = true);
+ARROW_EXPORT void AssertFieldEqual(const std::shared_ptr<Field>& lhs,
+                                   const std::shared_ptr<Field>& rhs,
+                                   bool check_metadata = true);
+ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs,
+                                    bool check_metadata = true);
+ARROW_EXPORT void AssertSchemaEqual(const std::shared_ptr<Schema>& lhs,
+                                    const std::shared_ptr<Schema>& rhs,
+                                    bool check_metadata = true);
+
+ARROW_EXPORT void AssertTypeNotEqual(const DataType& lhs, const DataType& rhs,
+                                     bool check_metadata = true);
+ARROW_EXPORT void AssertTypeNotEqual(const std::shared_ptr<DataType>& lhs,
+                                     const std::shared_ptr<DataType>& rhs,
+                                     bool check_metadata = true);
+ARROW_EXPORT void AssertFieldNotEqual(const Field& lhs, const Field& rhs,
+                                      bool check_metadata = true);
+ARROW_EXPORT void AssertFieldNotEqual(const std::shared_ptr<Field>& lhs,
+                                      const std::shared_ptr<Field>& rhs,
+                                      bool check_metadata = true);
+ARROW_EXPORT void AssertSchemaNotEqual(const Schema& lhs, const Schema& rhs,
+                                       bool check_metadata = true);
+ARROW_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lhs,
+                                       const std::shared_ptr<Schema>& rhs,
+                                       bool check_metadata = true);
 
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true, bool flatten = false);

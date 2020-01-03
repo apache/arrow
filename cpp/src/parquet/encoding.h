@@ -33,15 +33,132 @@ class ArrayBuilder;
 class BinaryArray;
 class BinaryBuilder;
 class BinaryDictionary32Builder;
+class BooleanBuilder;
+class Int32Type;
+class Int64Type;
+class FloatType;
+class DoubleType;
+class FixedSizeBinaryType;
+template <typename T>
+class NumericBuilder;
+class FixedSizeBinaryBuilder;
+template <typename T>
+class Dictionary32Builder;
 
-namespace internal {
-
-class ChunkedBinaryBuilder;
-
-}  // namespace internal
 }  // namespace arrow
 
 namespace parquet {
+
+template <typename DType>
+class TypedEncoder;
+
+using BooleanEncoder = TypedEncoder<BooleanType>;
+using Int32Encoder = TypedEncoder<Int32Type>;
+using Int64Encoder = TypedEncoder<Int64Type>;
+using Int96Encoder = TypedEncoder<Int96Type>;
+using FloatEncoder = TypedEncoder<FloatType>;
+using DoubleEncoder = TypedEncoder<DoubleType>;
+using ByteArrayEncoder = TypedEncoder<ByteArrayType>;
+using FLBAEncoder = TypedEncoder<FLBAType>;
+
+template <typename DType>
+class TypedDecoder;
+
+class BooleanDecoder;
+using Int32Decoder = TypedDecoder<Int32Type>;
+using Int64Decoder = TypedDecoder<Int64Type>;
+using Int96Decoder = TypedDecoder<Int96Type>;
+using FloatDecoder = TypedDecoder<FloatType>;
+using DoubleDecoder = TypedDecoder<DoubleType>;
+using ByteArrayDecoder = TypedDecoder<ByteArrayType>;
+class FLBADecoder;
+
+template <typename T>
+struct EncodingTraits;
+
+template <>
+struct EncodingTraits<BooleanType> {
+  using Encoder = BooleanEncoder;
+  using Decoder = BooleanDecoder;
+
+  using ArrowType = ::arrow::BooleanType;
+  using Accumulator = ::arrow::BooleanBuilder;
+  struct DictAccumulator {};
+};
+
+template <>
+struct EncodingTraits<Int32Type> {
+  using Encoder = Int32Encoder;
+  using Decoder = Int32Decoder;
+
+  using ArrowType = ::arrow::Int32Type;
+  using Accumulator = ::arrow::NumericBuilder<::arrow::Int32Type>;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::Int32Type>;
+};
+
+template <>
+struct EncodingTraits<Int64Type> {
+  using Encoder = Int64Encoder;
+  using Decoder = Int64Decoder;
+
+  using ArrowType = ::arrow::Int64Type;
+  using Accumulator = ::arrow::NumericBuilder<::arrow::Int64Type>;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::Int64Type>;
+};
+
+template <>
+struct EncodingTraits<Int96Type> {
+  using Encoder = Int96Encoder;
+  using Decoder = Int96Decoder;
+
+  struct Accumulator {};
+  struct DictAccumulator {};
+};
+
+template <>
+struct EncodingTraits<FloatType> {
+  using Encoder = FloatEncoder;
+  using Decoder = FloatDecoder;
+
+  using ArrowType = ::arrow::FloatType;
+  using Accumulator = ::arrow::NumericBuilder<::arrow::FloatType>;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::FloatType>;
+};
+
+template <>
+struct EncodingTraits<DoubleType> {
+  using Encoder = DoubleEncoder;
+  using Decoder = DoubleDecoder;
+
+  using ArrowType = ::arrow::DoubleType;
+  using Accumulator = ::arrow::NumericBuilder<::arrow::DoubleType>;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::DoubleType>;
+};
+
+template <>
+struct EncodingTraits<ByteArrayType> {
+  using Encoder = ByteArrayEncoder;
+  using Decoder = ByteArrayDecoder;
+
+  /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
+  /// overflow the capacity of a single arrow::BinaryArray
+  struct Accumulator {
+    std::unique_ptr<::arrow::BinaryBuilder> builder;
+    std::vector<std::shared_ptr<::arrow::Array>> chunks;
+  };
+  using ArrowType = ::arrow::BinaryType;
+  using DictAccumulator = ::arrow::BinaryDictionary32Builder;
+};
+
+template <>
+struct EncodingTraits<FLBAType> {
+  using Encoder = FLBAEncoder;
+  using Decoder = FLBADecoder;
+
+  using ArrowType = ::arrow::FixedSizeBinaryType;
+  using Accumulator = ::arrow::FixedSizeBinaryBuilder;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::FixedSizeBinaryType>;
+};
 
 class ColumnDescriptor;
 
@@ -62,7 +179,7 @@ class Encoder {
 // Base class for value encoders. Since encoders may or not have state (e.g.,
 // dictionary encoding) we use a class instance to maintain any state.
 //
-// TODO(wesm): Encode interface API is temporary
+// Encode interfaces are internal, subject to change without deprecation.
 template <typename DType>
 class TypedEncoder : virtual public Encoder {
  public:
@@ -72,9 +189,25 @@ class TypedEncoder : virtual public Encoder {
 
   virtual void Put(const T* src, int num_values) = 0;
 
+  virtual void Put(const std::vector<T>& src, int num_values = -1);
+
   virtual void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                          int64_t valid_bits_offset) = 0;
 };
+
+template <typename DType>
+void TypedEncoder<DType>::Put(const std::vector<T>& src, int num_values) {
+  if (num_values == -1) {
+    num_values = static_cast<int>(src.size());
+  }
+  Put(src.data(), num_values);
+}
+
+template <>
+inline void TypedEncoder<BooleanType>::Put(const std::vector<bool>& src, int num_values) {
+  // NOTE(wesm): This stub is here only to satisfy the compiler; it is
+  // overridden later with the actual implementation
+}
 
 // Base class for dictionary encoders
 template <typename DType>
@@ -135,16 +268,25 @@ class TypedDecoder : virtual public Decoder {
  public:
   using T = typename DType::c_type;
 
-  // Subclasses should override the ones they support. In each of these functions,
-  // the decoder would decode put to 'max_values', storing the result in 'buffer'.
-  // The function returns the number of values decoded, which should be max_values
-  // except for end of the current data page.
+  /// \brief Decode values into a buffer
+  ///
+  /// Subclasses may override the more specialized Decode methods below.
+  ///
+  /// \param[in] buffer destination for decoded values
+  /// \param[in] max_values maximum number of values to decode
+  /// \return The number of values decoded. Should be identical to max_values except
+  /// at the end of the current data page.
   virtual int Decode(T* buffer, int max_values) = 0;
 
-  // Decode the values in this data page but leave spaces for null entries.
-  //
-  // num_values is the size of the def_levels and buffer arrays including the number of
-  // null values.
+  /// \brief Decode the values in this data page but leave spaces for null entries.
+  ///
+  /// \param[in] buffer destination for decoded values
+  /// \param[in] num_values size of the def_levels and buffer arrays including the number
+  /// of null slots
+  /// \param[in] null_count number of null slots
+  /// \param[in] valid_bits bitmap data indicating position of valid slots
+  /// \param[in] valid_bits_offset offset into valid_bits
+  /// \return The number of values decoded, including nulls.
   virtual int DecodeSpaced(T* buffer, int num_values, int null_count,
                            const uint8_t* valid_bits, int64_t valid_bits_offset) {
     int values_to_read = num_values - null_count;
@@ -168,6 +310,38 @@ class TypedDecoder : virtual public Decoder {
     }
     return num_values;
   }
+
+  /// \brief Decode into an ArrayBuilder or other accumulator
+  ///
+  /// \return number of values decoded
+  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          typename EncodingTraits<DType>::Accumulator* out) = 0;
+
+  /// \brief Decode into an ArrayBuilder or other accumulator ignoring nulls
+  ///
+  /// \return number of values decoded
+  virtual int DecodeArrowNonNull(int num_values,
+                                 typename EncodingTraits<DType>::Accumulator* out) {
+    const uint8_t valid_bits = 0;
+    return DecodeArrow(num_values, 0, &valid_bits, 0, out);
+  }
+
+  /// \brief Decode into a DictionaryBuilder
+  ///
+  /// \return number of values decoded
+  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          typename EncodingTraits<DType>::DictAccumulator* builder) = 0;
+
+  /// \brief Decode into a DictionaryBuilder ignoring nulls
+  ///
+  /// \return number of values decoded
+  virtual int DecodeArrowNonNull(
+      int num_values, typename EncodingTraits<DType>::DictAccumulator* builder) {
+    const uint8_t valid_bits = 0;
+    return DecodeArrow(num_values, 0, &valid_bits, 0, builder);
+  }
 };
 
 template <typename DType>
@@ -183,7 +357,7 @@ class DictDecoder : virtual public TypedDecoder<DType> {
   /// builder. The builder must have had the dictionary from this decoder
   /// inserted already.
   ///
-  /// Remember to reset the builder each time the dict decoder is initialized
+  /// \warning Remember to reset the builder each time the dict decoder is initialized
   /// with a new dictionary page
   virtual int DecodeIndicesSpaced(int num_values, int null_count,
                                   const uint8_t* valid_bits, int64_t valid_bits_offset,
@@ -191,7 +365,7 @@ class DictDecoder : virtual public TypedDecoder<DType> {
 
   /// \brief Decode only dictionary indices (no nulls)
   ///
-  /// Remember to reset the builder each time the dict decoder is initialized
+  /// \warning Remember to reset the builder each time the dict decoder is initialized
   /// with a new dictionary page
   virtual int DecodeIndices(int num_values, ::arrow::ArrayBuilder* builder) = 0;
 };
@@ -199,56 +373,10 @@ class DictDecoder : virtual public TypedDecoder<DType> {
 // ----------------------------------------------------------------------
 // TypedEncoder specializations, traits, and factory functions
 
-class BooleanEncoder : virtual public TypedEncoder<BooleanType> {
- public:
-  using TypedEncoder<BooleanType>::Put;
-  virtual void Put(const std::vector<bool>& src, int num_values) = 0;
-};
-
-using Int32Encoder = TypedEncoder<Int32Type>;
-using Int64Encoder = TypedEncoder<Int64Type>;
-using Int96Encoder = TypedEncoder<Int96Type>;
-using FloatEncoder = TypedEncoder<FloatType>;
-using DoubleEncoder = TypedEncoder<DoubleType>;
-using ByteArrayEncoder = TypedEncoder<ByteArrayType>;
-using FLBAEncoder = TypedEncoder<FLBAType>;
-
 class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
  public:
   using TypedDecoder<BooleanType>::Decode;
   virtual int Decode(uint8_t* buffer, int max_values) = 0;
-};
-
-using Int32Decoder = TypedDecoder<Int32Type>;
-using Int64Decoder = TypedDecoder<Int64Type>;
-using Int96Decoder = TypedDecoder<Int96Type>;
-using FloatDecoder = TypedDecoder<FloatType>;
-using DoubleDecoder = TypedDecoder<DoubleType>;
-
-/// \brief Internal helper class for decoding BYTE_ARRAY data where we can
-/// overflow the capacity of a single arrow::BinaryArray
-struct ArrowBinaryAccumulator {
-  std::unique_ptr<::arrow::BinaryBuilder> builder;
-  std::vector<std::shared_ptr<::arrow::Array>> chunks;
-};
-
-class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
- public:
-  using TypedDecoder<ByteArrayType>::DecodeSpaced;
-
-  /// \brief Returns number of encoded values decoded
-  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                          int64_t valid_bits_offset,
-                          ::arrow::BinaryDictionary32Builder* builder) = 0;
-
-  virtual int DecodeArrowNonNull(int num_values,
-                                 ::arrow::BinaryDictionary32Builder* builder) = 0;
-
-  /// \brief Returns number of encoded values decoded
-  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                          int64_t valid_bits_offset, ArrowBinaryAccumulator* out) = 0;
-
-  virtual int DecodeArrowNonNull(int num_values, ArrowBinaryAccumulator* out) = 0;
 };
 
 class FLBADecoder : virtual public TypedDecoder<FLBAType> {
@@ -259,57 +387,6 @@ class FLBADecoder : virtual public TypedDecoder<FLBAType> {
   // there is value in adding specialized read methods for
   // FIXED_LEN_BYTE_ARRAY. If only Decimal data can occur with this data type
   // then perhaps not
-};
-
-template <typename T>
-struct EncodingTraits {};
-
-template <>
-struct EncodingTraits<BooleanType> {
-  using Encoder = BooleanEncoder;
-  using Decoder = BooleanDecoder;
-};
-
-template <>
-struct EncodingTraits<Int32Type> {
-  using Encoder = Int32Encoder;
-  using Decoder = Int32Decoder;
-};
-
-template <>
-struct EncodingTraits<Int64Type> {
-  using Encoder = Int64Encoder;
-  using Decoder = Int64Decoder;
-};
-
-template <>
-struct EncodingTraits<Int96Type> {
-  using Encoder = Int96Encoder;
-  using Decoder = Int96Decoder;
-};
-
-template <>
-struct EncodingTraits<FloatType> {
-  using Encoder = FloatEncoder;
-  using Decoder = FloatDecoder;
-};
-
-template <>
-struct EncodingTraits<DoubleType> {
-  using Encoder = DoubleEncoder;
-  using Decoder = DoubleDecoder;
-};
-
-template <>
-struct EncodingTraits<ByteArrayType> {
-  using Encoder = ByteArrayEncoder;
-  using Decoder = ByteArrayDecoder;
-};
-
-template <>
-struct EncodingTraits<FLBAType> {
-  using Encoder = FLBAEncoder;
-  using Decoder = FLBADecoder;
 };
 
 PARQUET_EXPORT

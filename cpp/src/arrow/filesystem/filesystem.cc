@@ -15,21 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
 #include <utility>
 
 #include "arrow/filesystem/filesystem.h"
+#ifdef ARROW_HDFS
+#include "arrow/filesystem/hdfs.h"
+#endif
+#include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/slow.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
+
+using internal::Uri;
+
 namespace fs {
 
 using internal::ConcatAbstractPath;
 using internal::EnsureTrailingSlash;
 using internal::GetAbstractPathParent;
 using internal::kSep;
+using internal::RemoveLeadingSlash;
+using internal::RemoveTrailingSlash;
 
 std::string ToString(FileType ftype) {
   switch (ftype) {
@@ -76,6 +91,12 @@ std::string FileStats::dir_name() const {
 }
 
 // Debug helper
+std::string FileStats::ToString() const {
+  std::stringstream os;
+  os << *this;
+  return os.str();
+}
+
 std::ostream& operator<<(std::ostream& os, const FileStats& stats) {
   return os << "FileStats(" << stats.type() << ", " << stats.path() << ")";
 }
@@ -89,17 +110,15 @@ std::string FileStats::extension() const {
 
 FileSystem::~FileSystem() {}
 
-Status FileSystem::GetTargetStats(const std::vector<std::string>& paths,
-                                  std::vector<FileStats>* out) {
+Result<std::vector<FileStats>> FileSystem::GetTargetStats(
+    const std::vector<std::string>& paths) {
   std::vector<FileStats> res;
   res.reserve(paths.size());
   for (const auto& path : paths) {
-    FileStats st;
-    RETURN_NOT_OK(GetTargetStats(path, &st));
+    ARROW_ASSIGN_OR_RAISE(FileStats st, GetTargetStats(path));
     res.push_back(std::move(st));
   }
-  *out = std::move(res);
-  return Status::OK();
+  return res;
 }
 
 Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
@@ -158,20 +177,21 @@ Status SubTreeFileSystem::FixStats(FileStats* st) const {
   return Status::OK();
 }
 
-Status SubTreeFileSystem::GetTargetStats(const std::string& path, FileStats* out) {
-  RETURN_NOT_OK(base_fs_->GetTargetStats(PrependBase(path), out));
-  return FixStats(out);
+Result<FileStats> SubTreeFileSystem::GetTargetStats(const std::string& path) {
+  ARROW_ASSIGN_OR_RAISE(FileStats st, base_fs_->GetTargetStats(PrependBase(path)));
+  RETURN_NOT_OK(FixStats(&st));
+  return st;
 }
 
-Status SubTreeFileSystem::GetTargetStats(const Selector& select,
-                                         std::vector<FileStats>* out) {
+Result<std::vector<FileStats>> SubTreeFileSystem::GetTargetStats(
+    const FileSelector& select) {
   auto selector = select;
   selector.base_dir = PrependBase(selector.base_dir);
-  RETURN_NOT_OK(base_fs_->GetTargetStats(selector, out));
-  for (auto& st : *out) {
+  ARROW_ASSIGN_OR_RAISE(auto stats, base_fs_->GetTargetStats(selector));
+  for (auto& st : stats) {
     RETURN_NOT_OK(FixStats(&st));
   }
-  return Status::OK();
+  return stats;
 }
 
 Status SubTreeFileSystem::CreateDir(const std::string& path, bool recursive) {
@@ -213,32 +233,32 @@ Status SubTreeFileSystem::CopyFile(const std::string& src, const std::string& de
   return base_fs_->CopyFile(s, d);
 }
 
-Status SubTreeFileSystem::OpenInputStream(const std::string& path,
-                                          std::shared_ptr<io::InputStream>* out) {
+Result<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStream(
+    const std::string& path) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenInputStream(s, out);
+  return base_fs_->OpenInputStream(s);
 }
 
-Status SubTreeFileSystem::OpenInputFile(const std::string& path,
-                                        std::shared_ptr<io::RandomAccessFile>* out) {
+Result<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFile(
+    const std::string& path) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenInputFile(s, out);
+  return base_fs_->OpenInputFile(s);
 }
 
-Status SubTreeFileSystem::OpenOutputStream(const std::string& path,
-                                           std::shared_ptr<io::OutputStream>* out) {
+Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenOutputStream(
+    const std::string& path) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenOutputStream(s, out);
+  return base_fs_->OpenOutputStream(s);
 }
 
-Status SubTreeFileSystem::OpenAppendStream(const std::string& path,
-                                           std::shared_ptr<io::OutputStream>* out) {
+Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenAppendStream(
+    const std::string& path) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenAppendStream(s, out);
+  return base_fs_->OpenAppendStream(s);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -256,15 +276,15 @@ SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency, int32_t seed)
     : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
 
-Status SlowFileSystem::GetTargetStats(const std::string& path, FileStats* out) {
+Result<FileStats> SlowFileSystem::GetTargetStats(const std::string& path) {
   latencies_->Sleep();
-  return base_fs_->GetTargetStats(path, out);
+  return base_fs_->GetTargetStats(path);
 }
 
-Status SlowFileSystem::GetTargetStats(const Selector& selector,
-                                      std::vector<FileStats>* out) {
+Result<std::vector<FileStats>> SlowFileSystem::GetTargetStats(
+    const FileSelector& selector) {
   latencies_->Sleep();
-  return base_fs_->GetTargetStats(selector, out);
+  return base_fs_->GetTargetStats(selector);
 }
 
 Status SlowFileSystem::CreateDir(const std::string& path, bool recursive) {
@@ -297,35 +317,82 @@ Status SlowFileSystem::CopyFile(const std::string& src, const std::string& dest)
   return base_fs_->CopyFile(src, dest);
 }
 
-Status SlowFileSystem::OpenInputStream(const std::string& path,
-                                       std::shared_ptr<io::InputStream>* out) {
+Result<std::shared_ptr<io::InputStream>> SlowFileSystem::OpenInputStream(
+    const std::string& path) {
   latencies_->Sleep();
-  std::shared_ptr<io::InputStream> stream;
-  RETURN_NOT_OK(base_fs_->OpenInputStream(path, &stream));
-  *out = std::make_shared<io::SlowInputStream>(stream, latencies_);
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(auto stream, base_fs_->OpenInputStream(path));
+  return std::make_shared<io::SlowInputStream>(stream, latencies_);
 }
 
-Status SlowFileSystem::OpenInputFile(const std::string& path,
-                                     std::shared_ptr<io::RandomAccessFile>* out) {
+Result<std::shared_ptr<io::RandomAccessFile>> SlowFileSystem::OpenInputFile(
+    const std::string& path) {
   latencies_->Sleep();
-  std::shared_ptr<io::RandomAccessFile> file;
-  RETURN_NOT_OK(base_fs_->OpenInputFile(path, &file));
-  *out = std::make_shared<io::SlowRandomAccessFile>(file, latencies_);
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(auto file, base_fs_->OpenInputFile(path));
+  return std::make_shared<io::SlowRandomAccessFile>(file, latencies_);
 }
 
-Status SlowFileSystem::OpenOutputStream(const std::string& path,
-                                        std::shared_ptr<io::OutputStream>* out) {
+Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenOutputStream(
+    const std::string& path) {
   latencies_->Sleep();
   // XXX Should we have a SlowOutputStream that waits on Flush() and Close()?
-  return base_fs_->OpenOutputStream(path, out);
+  return base_fs_->OpenOutputStream(path);
 }
 
-Status SlowFileSystem::OpenAppendStream(const std::string& path,
-                                        std::shared_ptr<io::OutputStream>* out) {
+Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
+    const std::string& path) {
   latencies_->Sleep();
-  return base_fs_->OpenAppendStream(path, out);
+  return base_fs_->OpenAppendStream(path);
+}
+
+Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
+                                                      std::string* out_path) {
+  Uri uri;
+  RETURN_NOT_OK(uri.Parse(uri_string));
+  if (out_path != nullptr) {
+    *out_path = std::string(uri.path());
+  }
+
+  const auto scheme = uri.scheme();
+#ifdef _WIN32
+  if (scheme.size() == 1) {
+    // Assuming a plain local path starting with a drive letter, e.g "C:/..."
+    if (out_path != nullptr) {
+      *out_path = uri_string;
+    }
+    return std::make_shared<LocalFileSystem>();
+  }
+#endif
+  if (scheme == "" || scheme == "file") {
+    return std::make_shared<LocalFileSystem>();
+  }
+
+  if (scheme == "hdfs") {
+#ifdef ARROW_HDFS
+    ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));
+    ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options));
+    return hdfs;
+#else
+    return Status::NotImplemented("Arrow compiled without HDFS support");
+#endif
+  }
+
+  // Other filesystems below do not have an absolute / relative path distinction,
+  // normalize path by removing leading slash.
+  // XXX perhaps each filesystem should have a path normalization method?
+  if (out_path != nullptr) {
+    *out_path = std::string(RemoveLeadingSlash(*out_path));
+  }
+  if (scheme == "mock") {
+    return std::make_shared<internal::MockFileSystem>(internal::CurrentTimePoint());
+  }
+
+  // TODO add support for S3 URIs
+  return Status::Invalid("Unrecognized filesystem type in URI: ", uri_string);
+}
+
+Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,
+                         std::string* out_path) {
+  return FileSystemFromUri(uri, out_path).Value(out_fs);
 }
 
 }  // namespace fs

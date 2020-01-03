@@ -60,11 +60,13 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   explicit MockFileSystem(TimePoint current_time);
   ~MockFileSystem() override;
 
+  std::string type_name() const override { return "mock"; }
+
   // XXX It's not very practical to have to explicitly declare inheritance
   // of default overrides.
   using FileSystem::GetTargetStats;
-  Status GetTargetStats(const std::string& path, FileStats* out) override;
-  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+  Result<FileStats> GetTargetStats(const std::string& path) override;
+  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
@@ -77,17 +79,14 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
 
   Status CopyFile(const std::string& src, const std::string& dest) override;
 
-  Status OpenInputStream(const std::string& path,
-                         std::shared_ptr<io::InputStream>* out) override;
-
-  Status OpenInputFile(const std::string& path,
-                       std::shared_ptr<io::RandomAccessFile>* out) override;
-
-  Status OpenOutputStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
-
-  Status OpenAppendStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path) override;
 
   // Contents-dumping helpers to ease testing.
   // Output is lexicographically-ordered by full path.
@@ -100,8 +99,8 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
 
   // Create a MockFileSystem out of (empty) FileStats. The content of every
   // file is empty and of size 0. All directories will be created recursively.
-  static Status Make(TimePoint current_time, const std::vector<FileStats>& stats,
-                     std::shared_ptr<FileSystem>* out);
+  static Result<std::shared_ptr<FileSystem>> Make(TimePoint current_time,
+                                                  const std::vector<FileStats>& stats);
 
   class Impl;
 

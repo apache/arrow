@@ -22,7 +22,7 @@ requirements:
     - arrow-cpp {{ ARROW_VERSION }}
     - boost-cpp
     - cython
-    - numpy 1.14.*
+    - numpy 1.16.*
     - python
     - setuptools
     - setuptools_scm
@@ -45,7 +45,6 @@ test:
   imports:
     - pyarrow
     - pyarrow.fs
-    - pyarrow.s3fs
     - pyarrow.flight   # [not py==27]
     - pyarrow.gandiva  # [not py==27]
     - pyarrow.orc      # [unix]

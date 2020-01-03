@@ -26,7 +26,6 @@
 
 #include "arrow/type.h"
 #include "arrow/util/compression.h"
-
 #include "parquet/encryption.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
@@ -66,9 +65,8 @@ class PARQUET_EXPORT ReaderProperties {
 
   int64_t buffer_size() const { return buffer_size_; }
 
-  void file_decryption_properties(
-      const std::shared_ptr<FileDecryptionProperties>& decryption) {
-    file_decryption_properties_ = decryption;
+  void file_decryption_properties(std::shared_ptr<FileDecryptionProperties> decryption) {
+    file_decryption_properties_ = std::move(decryption);
   }
 
   FileDecryptionProperties* file_decryption_properties() {
@@ -342,8 +340,8 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     Builder* encryption(
-        const std::shared_ptr<FileEncryptionProperties>& file_encryption_properties) {
-      file_encryption_properties_ = file_encryption_properties;
+        std::shared_ptr<FileEncryptionProperties> file_encryption_properties) {
+      file_encryption_properties_ = std::move(file_encryption_properties);
       return this;
     }
 
@@ -527,7 +525,7 @@ class PARQUET_EXPORT WriterProperties {
   std::unordered_map<std::string, ColumnProperties> column_properties_;
 };
 
-std::shared_ptr<WriterProperties> PARQUET_EXPORT default_writer_properties();
+PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();
 
 // ----------------------------------------------------------------------
 // Properties specific to Apache Arrow columnar read and write

@@ -15,106 +15,83 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# - Find GANDIVA (gandiva/client.h, libgandiva.a, libgandiva.so)
+# - Find Gandiva (gandiva/arrow.h, libgandiva.a, libgandiva.so)
+#
+# This module requires Arrow from which it uses
+#  arrow_find_package()
+#
 # This module defines
+#  GANDIVA_FOUND, whether Gandiva has been found
+#  GANDIVA_IMPORT_LIB, path to libgandiva's import library (Windows only)
 #  GANDIVA_INCLUDE_DIR, directory containing headers
-#  GANDIVA_LIBS, directory containing gandiva libraries
-#  GANDIVA_STATIC_LIB, path to libgandiva.a
+#  GANDIVA_LIBS, deprecated. Use GANDIVA_LIB_DIR instead
+#  GANDIVA_LIB_DIR, directory containing Gandiva libraries
+#  GANDIVA_SHARED_IMP_LIB, deprecated. Use GANDIVA_IMPORT_LIB instead
 #  GANDIVA_SHARED_LIB, path to libgandiva's shared library
-#  GANDIVA_SHARED_IMP_LIB, path to libgandiva's import library (MSVC only)
-#  GANDIVA_FOUND, whether gandiva has been found
+#  GANDIVA_SO_VERSION, shared object version of found Gandiva such as "100"
+#  GANDIVA_STATIC_LIB, path to libgandiva.a
 
-include(FindPkgConfig)
+if(DEFINED GANDIVA_FOUND)
+  return()
+endif()
 
-if("$ENV{ARROW_HOME}" STREQUAL "")
-  pkg_check_modules(GANDIVA gandiva)
-  if(GANDIVA_FOUND)
-    pkg_get_variable(GANDIVA_SO_VERSION gandiva so_version)
-    set(GANDIVA_ABI_VERSION ${GANDIVA_SO_VERSION})
-    message(STATUS "Gandiva SO and ABI version: ${GANDIVA_SO_VERSION}")
-    pkg_get_variable(GANDIVA_FULL_SO_VERSION gandiva full_so_version)
-    message(STATUS "Gandiva full SO version: ${GANDIVA_FULL_SO_VERSION}")
-    set(GANDIVA_INCLUDE_DIR ${GANDIVA_INCLUDE_DIRS})
-    set(GANDIVA_LIBS ${GANDIVA_LIBRARY_DIRS})
-    # TODO: ARROW-5021
-    set(GANDIVA_SEARCH_LIB_PATH ${GANDIVA_LIBRARY_DIRS})
-    # TODO: ARROW-5025
-    set(GANDIVA_SEARCH_SHARED_LIB_PATH ${GANDIVA_LIBRARY_DIRS})
+set(find_package_arguments)
+if(${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION)
+  list(APPEND find_package_arguments "${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION}")
+endif()
+if(${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED)
+  list(APPEND find_package_arguments REQUIRED)
+endif()
+if(${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY)
+  list(APPEND find_package_arguments QUIET)
+endif()
+find_package(Arrow ${find_package_arguments})
+
+if(ARROW_FOUND)
+  arrow_find_package(GANDIVA
+                     "${ARROW_HOME}"
+                     gandiva
+                     gandiva/arrow.h
+                     Gandiva
+                     gandiva)
+  if(NOT GANDIVA_VERSION)
+    set(GANDIVA_VERSION "${ARROW_VERSION}")
   endif()
+  set(GANDIVA_ABI_VERSION "${ARROW_ABI_VERSION}")
+  set(GANDIVA_SO_VERSION "${ARROW_SO_VERSION}")
+endif()
+
+if("${GANDIVA_VERSION}" VERSION_EQUAL "${ARROW_VERSION}")
+  set(GANDIVA_VERSION_MATCH TRUE)
 else()
-  set(GANDIVA_HOME "$ENV{ARROW_HOME}")
-
-  set(GANDIVA_SEARCH_HEADER_PATHS ${GANDIVA_HOME}/include)
-
-  # TODO: ARROW-5021
-  set(GANDIVA_SEARCH_LIB_PATH "${GANDIVA_HOME}/lib")
-  if(WIN32)
-    # TODO: ARROW-5025
-    set(GANDIVA_SEARCH_SHARED_LIB_PATH "${GANDIVA_HOME}/bin")
-  else()
-    # TODO: ARROW-5026
-    set(GANDIVA_SEARCH_SHARED_LIB_PATH "${GANDIVA_HOME}/lib")
-  endif()
-
-  find_path(GANDIVA_INCLUDE_DIR gandiva/expression_registry.h
-            PATHS ${GANDIVA_SEARCH_HEADER_PATHS}
-                  # make sure we don't accidentally pick up a different version
-            NO_DEFAULT_PATH)
+  set(GANDIVA_VERSION_MATCH FALSE)
 endif()
 
-find_library(GANDIVA_LIB_PATH
-             NAMES gandiva
-             PATHS ${GANDIVA_SEARCH_LIB_PATH}
-             NO_DEFAULT_PATH)
-get_filename_component(GANDIVA_LIBS ${GANDIVA_LIB_PATH} DIRECTORY)
+mark_as_advanced(GANDIVA_ABI_VERSION
+                 GANDIVA_IMPORT_LIB
+                 GANDIVA_INCLUDE_DIR
+                 GANDIVA_LIBS
+                 GANDIVA_LIB_DIR
+                 GANDIVA_SHARED_IMP_LIB
+                 GANDIVA_SHARED_LIB
+                 GANDIVA_SO_VERSION
+                 GANDIVA_STATIC_LIB
+                 GANDIVA_VERSION
+                 GANDIVA_VERSION_MATCH)
 
-find_library(GANDIVA_SHARED_LIB_PATH
-             NAMES gandiva
-             PATHS ${GANDIVA_SEARCH_SHARED_LIB_PATH}
-             NO_DEFAULT_PATH)
-get_filename_component(GANDIVA_SHARED_LIBS ${GANDIVA_SHARED_LIB_PATH} PATH)
+find_package_handle_standard_args(Gandiva
+                                  REQUIRED_VARS
+                                  GANDIVA_INCLUDE_DIR
+                                  GANDIVA_LIB_DIR
+                                  GANDIVA_SO_VERSION
+                                  GANDIVA_VERSION_MATCH
+                                  VERSION_VAR
+                                  GANDIVA_VERSION)
+set(GANDIVA_FOUND ${Gandiva_FOUND})
 
-if(GANDIVA_INCLUDE_DIR AND GANDIVA_LIBS AND GANDIVA_SHARED_LIBS)
-  set(GANDIVA_FOUND TRUE)
-  set(GANDIVA_LIB_NAME gandiva)
-
-  if(MSVC)
-    set(
-      GANDIVA_STATIC_LIB
-      "${GANDIVA_LIBS}/${GANDIVA_LIB_NAME}${GANDIVA_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    set(GANDIVA_SHARED_LIB
-        "${GANDIVA_SHARED_LIBS}/${GANDIVA_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(GANDIVA_SHARED_IMP_LIB "${GANDIVA_LIBS}/${GANDIVA_LIB_NAME}.lib")
-  else()
-    set(
-      GANDIVA_STATIC_LIB
-      ${GANDIVA_LIBS}/${CMAKE_STATIC_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}
-      )
-    set(
-      GANDIVA_SHARED_LIB
-      ${GANDIVA_SHARED_LIBS}/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
-      )
-  endif()
+if(Gandiva_FOUND AND NOT Gandiva_FIND_QUIETLY)
+  message(STATUS "Found the Gandiva by ${GANDIVA_FIND_APPROACH}")
+  message(STATUS "Found the Gandiva shared library: ${GANDIVA_SHARED_LIB}")
+  message(STATUS "Found the Gandiva import library: ${GANDIVA_IMPORT_LIB}")
+  message(STATUS "Found the Gandiva static library: ${GANDIVA_STATIC_LIB}")
 endif()
-
-if(GANDIVA_FOUND)
-  if(NOT Gandiva_FIND_QUIETLY)
-    message(STATUS "Found the Gandiva core library: ${GANDIVA_LIB_PATH}")
-  endif()
-else()
-  if(NOT Gandiva_FIND_QUIETLY)
-    set(GANDIVA_ERR_MSG "Could not find the Gandiva library. Looked for headers")
-    set(GANDIVA_ERR_MSG
-        "${GANDIVA_ERR_MSG} in ${GANDIVA_SEARCH_HEADER_PATHS}, and for libs")
-    set(GANDIVA_ERR_MSG "${GANDIVA_ERR_MSG} in ${GANDIVA_SEARCH_LIB_PATH}")
-    if(Gandiva_FIND_REQUIRED)
-      message(FATAL_ERROR "${GANDIVA_ERR_MSG}")
-    else(Gandiva_FIND_REQUIRED)
-      message(STATUS "${GANDIVA_ERR_MSG}")
-    endif(Gandiva_FIND_REQUIRED)
-  endif()
-  set(GANDIVA_FOUND FALSE)
-endif()
-
-mark_as_advanced(GANDIVA_INCLUDE_DIR GANDIVA_STATIC_LIB GANDIVA_SHARED_LIB)

@@ -27,8 +27,6 @@
 #include <string>
 #include <type_traits>
 
-#include <double-conversion/double-conversion.h>
-
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
@@ -92,58 +90,28 @@ class StringConverter<BooleanType> {
 // - https://github.com/google/double-conversion [used here]
 // - https://github.com/achan001/dtoa-fast
 
+class ARROW_EXPORT StringToFloatConverter {
+ public:
+  StringToFloatConverter();
+  ~StringToFloatConverter();
+
+  bool StringToFloat(const char* s, size_t length, float* out);
+  bool StringToFloat(const char* s, size_t length, double* out);
+
+ protected:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
 template <class ARROW_TYPE>
-class StringToFloatConverterMixin {
+class StringToFloatConverterMixin : public StringToFloatConverter {
  public:
   using value_type = typename ARROW_TYPE::c_type;
 
-  explicit StringToFloatConverterMixin(const std::shared_ptr<DataType>& = NULLPTR)
-      : main_converter_(flags_, main_junk_value_, main_junk_value_, "inf", "nan"),
-        fallback_converter_(flags_, fallback_junk_value_, fallback_junk_value_, "inf",
-                            "nan") {}
+  explicit StringToFloatConverterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
 
   bool operator()(const char* s, size_t length, value_type* out) {
-    value_type v;
-    // double-conversion doesn't give us an error flag but signals parse
-    // errors with sentinel values.  Since a sentinel value can appear as
-    // legitimate input, we fallback on a second converter with a different
-    // sentinel to eliminate false errors.
-    TryConvert(main_converter_, s, length, &v);
-    if (ARROW_PREDICT_FALSE(v == static_cast<value_type>(main_junk_value_))) {
-      TryConvert(fallback_converter_, s, length, &v);
-      if (ARROW_PREDICT_FALSE(v == static_cast<value_type>(fallback_junk_value_))) {
-        return false;
-      }
-    }
-    *out = v;
-    return true;
-  }
-
- protected:
-// This is only support in double-conversion 3.1+
-#ifdef DOUBLE_CONVERSION_HAS_CASE_INSENSIBILITY
-  static const int flags_ =
-      double_conversion::StringToDoubleConverter::ALLOW_CASE_INSENSIBILITY;
-#else
-  static const int flags_ = double_conversion::StringToDoubleConverter::NO_FLAGS;
-#endif
-  // Two unlikely values to signal a parsing error
-  static constexpr double main_junk_value_ = 0.7066424364107089;
-  static constexpr double fallback_junk_value_ = 0.40088499148279166;
-
-  double_conversion::StringToDoubleConverter main_converter_;
-  double_conversion::StringToDoubleConverter fallback_converter_;
-
-  inline void TryConvert(double_conversion::StringToDoubleConverter& converter,
-                         const char* s, size_t length, float* out) {
-    int processed_length;
-    *out = converter.StringToFloat(s, static_cast<int>(length), &processed_length);
-  }
-
-  inline void TryConvert(double_conversion::StringToDoubleConverter& converter,
-                         const char* s, size_t length, double* out) {
-    int processed_length;
-    *out = converter.StringToDouble(s, static_cast<int>(length), &processed_length);
+    return ARROW_PREDICT_TRUE(StringToFloat(s, length, out));
   }
 };
 
@@ -400,6 +368,10 @@ class StringConverter<TimestampType> {
   bool operator()(const char* s, size_t length, value_type* out) {
     // We allow the following formats:
     // - "YYYY-MM-DD"
+    // - "YYYY-MM-DD[ T]hh"
+    // - "YYYY-MM-DD[ T]hhZ"
+    // - "YYYY-MM-DD[ T]hh:mm"
+    // - "YYYY-MM-DD[ T]hh:mmZ"
     // - "YYYY-MM-DD[ T]hh:mm:ss"
     // - "YYYY-MM-DD[ T]hh:mm:ssZ"
     // UTC is always assumed, and the DataType's timezone is ignored.
@@ -418,6 +390,26 @@ class StringConverter<TimestampType> {
     }
     if (s[length - 1] == 'Z') {
       --length;
+    }
+    if (length == 13) {
+      if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
+        return false;
+      }
+      std::chrono::duration<value_type> seconds;
+      if (ARROW_PREDICT_FALSE(!ParseHH(s + 11, &seconds))) {
+        return false;
+      }
+      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, out);
+    }
+    if (length == 16) {
+      if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
+        return false;
+      }
+      std::chrono::duration<value_type> seconds;
+      if (ARROW_PREDICT_FALSE(!ParseHH_MM(s + 11, &seconds))) {
+        return false;
+      }
+      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, out);
     }
     if (length == 19) {
       if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
@@ -474,6 +466,39 @@ class StringConverter<TimestampType> {
     *out = {arrow_vendored::date::year{year}, arrow_vendored::date::month{month},
             arrow_vendored::date::day{day}};
     return out->ok();
+  }
+
+  bool ParseHH(const char* s, std::chrono::duration<value_type>* out) {
+    uint8_t hours;
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 0, 2, &hours))) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(hours >= 24)) {
+      return false;
+    }
+    *out = std::chrono::duration<value_type>(3600U * hours);
+    return true;
+  }
+
+  bool ParseHH_MM(const char* s, std::chrono::duration<value_type>* out) {
+    uint8_t hours, minutes;
+    if (ARROW_PREDICT_FALSE(s[2] != ':')) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 0, 2, &hours))) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 3, 2, &minutes))) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(hours >= 24)) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(minutes >= 60)) {
+      return false;
+    }
+    *out = std::chrono::duration<value_type>(3600U * hours + 60U * minutes);
+    return true;
   }
 
   bool ParseHH_MM_SS(const char* s, std::chrono::duration<value_type>* out) {

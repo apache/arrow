@@ -125,7 +125,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   @Override
   public Collection<BufferAllocator> getChildAllocators() {
-    return new HashSet<>(childAllocators.keySet());
+    synchronized (childAllocators) {
+      return new HashSet<>(childAllocators.keySet());
+    }
   }
 
   private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
@@ -449,8 +451,10 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     } else {
       if (!childAllocators.isEmpty()) {
         outstandingChildAllocators.append("Outstanding child allocators : \n");
-        for (final BaseAllocator childAllocator : childAllocators.keySet()) {
-          outstandingChildAllocators.append(String.format("  %s", childAllocator.toString()));
+        synchronized (childAllocators) {
+          for (final BaseAllocator childAllocator : childAllocators.keySet()) {
+            outstandingChildAllocators.append(String.format("  %s", childAllocator.toString()));
+          }
         }
       }
     }

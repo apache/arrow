@@ -26,38 +26,58 @@ import org.apache.arrow.vector.Float4Vector;
  * Consumer which consume float type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.Float4Vector}.
  */
-public class FloatConsumer implements JdbcConsumer<Float4Vector> {
-
-  private Float4Vector vector;
-  private final int columnIndexInResultSet;
-
-  private int currentIndex;
+public class FloatConsumer {
 
   /**
-   * Instantiate a FloatConsumer.
+   * Creates a consumer for {@link Float4Vector}.
    */
-  public FloatConsumer(Float4Vector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    float value = resultSet.getFloat(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
+  public static JdbcConsumer<Float4Vector> createConsumer(Float4Vector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableFloatConsumer(vector, index);
+    } else {
+      return new NonNullableFloatConsumer(vector, index);
     }
-    currentIndex++;
   }
 
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
+  /**
+   * Nullable float consumer.
+   */
+  static class NullableFloatConsumer extends BaseConsumer<Float4Vector> {
+
+    /**
+     * Instantiate a FloatConsumer.
+     */
+    public NullableFloatConsumer(Float4Vector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      float value = resultSet.getFloat(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
   }
 
-  @Override
-  public void resetValueVector(Float4Vector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
+  /**
+   * Non-nullable float consumer.
+   */
+  static class NonNullableFloatConsumer extends BaseConsumer<Float4Vector> {
+
+    /**
+     * Instantiate a FloatConsumer.
+     */
+    public NonNullableFloatConsumer(Float4Vector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      float value = resultSet.getFloat(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }

@@ -390,6 +390,28 @@ public class TestUnionVector {
     }
   }
 
+  @Test
+  public void testSetGetNull() {
+    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      srcVector.allocateNew();
+
+      final NullableIntHolder holder = new NullableIntHolder();
+      holder.isSet = 1;
+      holder.value = 5;
+
+      // write some data
+      srcVector.setType(0, MinorType.INT);
+      srcVector.setSafe(0, holder);
+
+      assertFalse(srcVector.isNull(0));
+
+      holder.isSet = 0;
+      srcVector.setSafe(0, holder);
+
+      assertTrue(srcVector.isNull(0));
+    }
+  }
+
   private static NullableIntHolder newIntHolder(int value) {
     final NullableIntHolder holder = new NullableIntHolder();
     holder.isSet = 1;

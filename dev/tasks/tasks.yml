@@ -25,11 +25,14 @@ groups:
     - conda-linux-gcc-py27
     - conda-linux-gcc-py36
     - conda-linux-gcc-py37
+    - conda-linux-gcc-py38
     - conda-osx-clang-py27
     - conda-osx-clang-py36
     - conda-osx-clang-py37
+    - conda-osx-clang-py38
     - conda-win-vs2015-py36
     - conda-win-vs2015-py37
+    - conda-win-vs2015-py38
 
   wheel:
     - wheel-manylinux1-cp27m
@@ -37,17 +40,25 @@ groups:
     - wheel-manylinux1-cp35m
     - wheel-manylinux1-cp36m
     - wheel-manylinux1-cp37m
+    - wheel-manylinux1-cp38
     - wheel-manylinux2010-cp27m
     - wheel-manylinux2010-cp27mu
     - wheel-manylinux2010-cp35m
     - wheel-manylinux2010-cp36m
     - wheel-manylinux2010-cp37m
+    - wheel-manylinux2010-cp38
+    - wheel-manylinux2014-cp35m
+    - wheel-manylinux2014-cp36m
+    - wheel-manylinux2014-cp37m
+    - wheel-manylinux2014-cp38
     - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
     - wheel-osx-cp37m
+    - wheel-osx-cp38
     - wheel-win-cp36m
     - wheel-win-cp37m
+    - wheel-win-cp38
 
   linux:
     - debian-stretch
@@ -81,59 +92,116 @@ groups:
   ############################# Testing tasks #################################
 
   docker:
-    - docker-r
-    - docker-r-conda
-    - docker-r-sanitizer
-    - docker-rust
-    - docker-cpp
-    - docker-cpp-alpine
-    - docker-cpp-cmake32
-    - docker-cpp-release
-    - docker-cpp-static-only
-    - docker-c_glib
-    - docker-go
-    - docker-python-2.7
-    - docker-python-3.6
-    - docker-python-3.7
-    - docker-python-2.7-alpine
-    - docker-python-3.6-alpine
-    - docker-python-2.7-nopandas
-    - docker-python-3.6-nopandas
-    - docker-java
-    - docker-js
-    - docker-docs
-    - docker-lint
-    - docker-iwyu
-    - docker-pandas-master
-    - docker-dask-integration
-    - docker-hdfs-integration
-    - docker-spark-integration
-    - docker-turbodbc-integration
+    - test-conda-cpp
+    - test-debian-10-cpp
+    - test-ubuntu-16.04-cpp
+    - test-ubuntu-18.04-cpp
+    - test-fedora-29-cpp
+    - test-ubuntu-18.04-cpp-release
+    - test-ubuntu-18.04-cpp-static
+    - test-ubuntu-18.04-cpp-cmake32
+    - test-debian-c-glib
+    - test-ubuntu-c-glib
+    - test-debian-ruby
+    - test-ubuntu-ruby
+    - test-conda-python-2.7
+    - test-conda-python-3.6
+    - test-conda-python-3.7
+    - test-conda-python-3.8
+    - test-debian-10-python-3
+    - test-ubuntu-18.04-python-3
+    - test-fedora-29-python-3
+    - test-ubuntu-18.04-r-3.6
+    - test-conda-r-3.6
+    - test-ubuntu-18.04-r-sanitizer
+    - test-debian-10-go-1.12
+    - test-ubuntu-18.04-docs
+    - test-ubuntu-fuzzit-fuzzing
+    - test-ubuntu-fuzzit-regression
+    - test-conda-python-2.7-pandas-latest
+    - test-conda-python-2.7-pandas-master
+    - test-conda-python-3.7-pandas-latest
+    - test-conda-python-3.7-pandas-master
+    - test-conda-python-3.8-pandas-latest
+    - test-conda-python-3.7-dask-latest
+    - test-conda-python-3.8-dask-master
+    - test-conda-python-3.7-turbodbc-latest
+    - test-conda-python-3.7-turbodbc-master
+    - test-conda-python-3.7-hdfs-2.9.2
+    - test-conda-python-3.7-spark-master
+    # - test-conda-cpp-hiveserver2
 
-  integration:
-    - docker-pandas-master
-    - docker-dask-integration
-    - docker-hdfs-integration
-    - docker-spark-integration
-    - docker-turbodbc-integration
+  test:
+    - test-conda-cpp
+    - test-debian-10-cpp
+    - test-ubuntu-16.04-cpp
+    - test-ubuntu-18.04-cpp
+    - test-fedora-29-cpp
+    - test-ubuntu-18.04-cpp-release
+    - test-ubuntu-18.04-cpp-static
+    - test-ubuntu-18.04-cpp-cmake32
+    - test-debian-c-glib
+    - test-ubuntu-c-glib
+    - test-debian-ruby
+    - test-ubuntu-ruby
+    - test-conda-python-2.7
+    - test-conda-python-3.6
+    - test-conda-python-3.7
+    - test-conda-python-3.8
+    - test-debian-10-python-3
+    - test-ubuntu-18.04-python-3
+    - test-fedora-29-python-3
+    - test-ubuntu-18.04-r-3.6
+    - test-conda-r-3.6
+    - test-ubuntu-18.04-r-sanitizer
+    - test-debian-10-go-1.12
+    - test-ubuntu-18.04-docs
 
-  cpp-python:
-    - docker-cpp
-    - docker-cpp-alpine
-    - docker-cpp-cmake32
-    - docker-python-2.7
-    - docker-python-2.7-alpine
-    - docker-python-2.7-nopandas
-    - docker-python-3.6
-    - docker-python-3.6-alpine
-    - docker-python-3.6-nopandas
-    - docker-python-3.7
+  cpp:
+    - test-conda-cpp
+    - test-debian-10-cpp
+    - test-ubuntu-16.04-cpp
+    - test-ubuntu-18.04-cpp
+    - test-fedora-29-cpp
+    - test-ubuntu-18.04-cpp-release
+    - test-ubuntu-18.04-cpp-static
+    - test-ubuntu-18.04-cpp-cmake32
+
+  c-glib:
+    - test-debian-c-glib
+    - test-ubuntu-c-glib
+
+  python:
+    - test-conda-python-2.7
+    - test-conda-python-3.6
+    - test-conda-python-3.7
+    - test-conda-python-3.8
+    - test-debian-10-python-3
+    - test-ubuntu-18.04-python-3
+    - test-fedora-29-python-3
 
   r:
-    - docker-r
-    - docker-r-conda
-    - docker-r-sanitizer
-    - macos-r-autobrew
+    - test-ubuntu-18.04-r-3.6
+    - test-conda-r-3.6
+    - test-ubuntu-18.04-r-sanitizer
+
+  ruby:
+    - test-debian-ruby
+    - test-ubuntu-ruby
+
+  integration:
+    - test-conda-python-2.7-pandas-latest
+    - test-conda-python-2.7-pandas-master
+    - test-conda-python-3.7-pandas-latest
+    - test-conda-python-3.7-pandas-master
+    - test-conda-python-3.8-pandas-latest
+    - test-conda-python-3.7-dask-latest
+    - test-conda-python-3.8-dask-master
+    - test-conda-python-3.7-turbodbc-latest
+    - test-conda-python-3.7-turbodbc-master
+    - test-conda-python-3.7-hdfs-2.9.2
+    - test-conda-python-3.7-spark-master
+    # - test-conda-cpp-hiveserver2
 
   ######################## Tasks to run regularly #############################
 
@@ -141,27 +209,38 @@ groups:
     - conda-linux-gcc-py27
     - conda-linux-gcc-py36
     - conda-linux-gcc-py37
+    - conda-linux-gcc-py38
     - conda-osx-clang-py27
     - conda-osx-clang-py36
     - conda-osx-clang-py37
+    - conda-osx-clang-py38
     - conda-win-vs2015-py36
     - conda-win-vs2015-py37
+    - conda-win-vs2015-py38
     - wheel-manylinux1-cp27m
     - wheel-manylinux1-cp27mu
     - wheel-manylinux1-cp35m
     - wheel-manylinux1-cp36m
     - wheel-manylinux1-cp37m
+    - wheel-manylinux1-cp38
     - wheel-manylinux2010-cp27m
     - wheel-manylinux2010-cp27mu
     - wheel-manylinux2010-cp35m
     - wheel-manylinux2010-cp36m
     - wheel-manylinux2010-cp37m
+    - wheel-manylinux2010-cp38
+    - wheel-manylinux2014-cp35m
+    - wheel-manylinux2014-cp36m
+    - wheel-manylinux2014-cp37m
+    - wheel-manylinux2014-cp38
     - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
     - wheel-osx-cp37m
+    - wheel-osx-cp38
     - wheel-win-cp36m
     - wheel-win-cp37m
+    - wheel-win-cp38
     - debian-stretch
     - debian-buster
     - ubuntu-xenial
@@ -173,32 +252,42 @@ groups:
     - homebrew-cpp
     - gandiva-jar-trusty
     - gandiva-jar-osx
-    - docker-r
-    - docker-r-conda
-    # - docker-r-sanitizer # ARROW-6957
     - macos-r-autobrew
-    - docker-rust
-    - docker-cpp
-    - docker-cpp-cmake32
-    - docker-cpp-release
-    - docker-cpp-static-only
-    - docker-c_glib
-    - docker-go
-    - docker-python-2.7
-    - docker-python-3.6
-    - docker-python-3.7
-    - docker-python-2.7-nopandas
-    - docker-python-3.6-nopandas
-    - docker-java
-    - docker-js
-    - docker-docs
-    - docker-lint
-    - docker-iwyu
-    - docker-pandas-master
-    - docker-dask-integration
-    - docker-hdfs-integration
-    - docker-spark-integration
-    - docker-turbodbc-integration
+    - test-conda-cpp
+    - test-debian-10-cpp
+    - test-ubuntu-16.04-cpp
+    - test-ubuntu-18.04-cpp
+    - test-fedora-29-cpp
+    - test-ubuntu-18.04-cpp-release
+    - test-ubuntu-18.04-cpp-static
+    - test-ubuntu-18.04-cpp-cmake32
+    - test-debian-c-glib
+    - test-ubuntu-c-glib
+    - test-debian-ruby
+    - test-ubuntu-ruby
+    - test-conda-python-2.7
+    - test-conda-python-3.6
+    - test-conda-python-3.7
+    - test-debian-10-python-3
+    - test-ubuntu-18.04-python-3
+    - test-fedora-29-python-3
+    - test-ubuntu-18.04-r-3.6
+    - test-conda-r-3.6
+    - test-ubuntu-18.04-r-sanitizer
+    - test-debian-10-go-1.12
+    - test-ubuntu-18.04-docs
+    - test-ubuntu-fuzzit-fuzzing
+    - test-ubuntu-fuzzit-regression
+    - test-conda-python-2.7-pandas-latest
+    - test-conda-python-3.7-pandas-latest
+    - test-conda-python-3.7-pandas-master
+    - test-conda-python-3.8-pandas-latest
+    - test-conda-python-3.7-dask-latest
+    - test-conda-python-3.8-dask-master
+    - test-conda-python-3.7-turbodbc-latest
+    - test-conda-python-3.7-turbodbc-master
+    - test-conda-python-3.7-hdfs-2.9.2
+    - test-conda-python-3.7-spark-master
 
 tasks:
   # arbitrary_task_name:
@@ -242,6 +331,16 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
+  conda-linux-gcc-py38:
+    ci: azure
+    platform: linux
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_python3.8
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0.tar.bz2
+
   ############################## Conda OSX ####################################
 
   conda-osx-clang-py27:
@@ -274,6 +373,16 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
+  conda-osx-clang-py38:
+    ci: azure
+    platform: osx
+    template: conda-recipes/azure.osx.yml
+    params:
+      config: osx_python3.8
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0.tar.bz2
+
   ############################## Conda Windows ################################
 
   conda-win-vs2015-py36:
@@ -296,29 +405,41 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
+  conda-win-vs2015-py38:
+    ci: azure
+    platform: win
+    template: conda-recipes/azure.win.yml
+    params:
+      config: win_c_compilervs2015cxx_compilervs2015python3.8vc14
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0.tar.bz2
+
   ############################## Wheel Linux ##################################
 
   wheel-manylinux1-cp27m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 2.7
       unicode_width: 16
       wheel_tag: manylinux1
+      wheel_dir: manylinux1
       test_docker_images: []
       test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp27mu:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 2.7
       unicode_width: 32
       wheel_tag: manylinux1
+      wheel_dir: manylinux1
       test_docker_images:
         - python:2.7  # debian ucs4
       test_remove_system_libs: false
@@ -326,13 +447,14 @@ tasks:
       - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp35m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.5
       unicode_width: 16
       wheel_tag: manylinux1
+      wheel_dir: manylinux1
       test_docker_images:
         - python:3.5
       test_remove_system_libs: true
@@ -340,13 +462,14 @@ tasks:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp36m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.6
       unicode_width: 16
       wheel_tag: manylinux1
+      wheel_dir: manylinux1
       test_docker_images:
         - python:3.6
       test_remove_system_libs: true
@@ -354,40 +477,58 @@ tasks:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp37m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.7
       unicode_width: 16
       wheel_tag: manylinux1
+      wheel_dir: manylinux1
       test_docker_images:
         - python:3.7
       test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux1_x86_64.whl
 
-  wheel-manylinux2010-cp27m:
-    ci: travis
+  wheel-manylinux1-cp38:
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.8
+      unicode_width: 16
+      wheel_tag: manylinux1
+      wheel_dir: manylinux1
+      test_docker_images:
+        - python:3.8
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux1_x86_64.whl
+
+  wheel-manylinux2010-cp27m:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 2.7
       unicode_width: 16
       wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
       test_docker_images: []
       test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp27mu:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 2.7
       unicode_width: 32
       wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
       test_docker_images:
         - python:2.7  # debian ucs4
       test_remove_system_libs: false
@@ -395,13 +536,14 @@ tasks:
       - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp35m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.5
       unicode_width: 16
       wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
       test_docker_images:
         - python:3.5
       test_remove_system_libs: true
@@ -409,13 +551,14 @@ tasks:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp36m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.6
       unicode_width: 16
       wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
       test_docker_images:
         - python:3.6
       test_remove_system_libs: true
@@ -423,18 +566,94 @@ tasks:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp37m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.7
       unicode_width: 16
       wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
       test_docker_images:
         - python:3.7
       test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
+
+  wheel-manylinux2010-cp38:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.8
+      unicode_width: 16
+      wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.8
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_x86_64.whl
+
+  wheel-manylinux2014-cp35m:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.5
+      unicode_width: 16
+      wheel_tag: manylinux2014
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.5
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp35-cp35m-manylinux2014_x86_64.whl
+
+  wheel-manylinux2014-cp36m:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.6
+      unicode_width: 16
+      wheel_tag: manylinux2014
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.6
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_x86_64.whl
+
+  wheel-manylinux2014-cp37m:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.7
+      unicode_width: 16
+      wheel_tag: manylinux2014
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.7
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2014_x86_64.whl
+
+  wheel-manylinux2014-cp38:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.8
+      unicode_width: 16
+      wheel_tag: manylinux2014
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.8
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_x86_64.whl
 
   ############################## Wheel OSX ####################################
 
@@ -474,6 +693,24 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_6_intel.whl
 
+  wheel-osx-cp37m-azure:
+    ci: azure
+    platform: osx
+    template: python-wheels/azure.osx.yml
+    params:
+      python_version: 3.7
+    artifacts:
+      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_6_intel.whl
+
+  wheel-osx-cp38:
+    ci: travis
+    platform: osx
+    template: python-wheels/travis.osx.yml
+    params:
+      python_version: 3.8
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_6_intel.whl
+
   ############################## Wheel Windows ################################
 
   wheel-win-cp36m:
@@ -494,6 +731,15 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-win_amd64.whl
 
+  wheel-win-cp38:
+    ci: appveyor
+    platform: win
+    template: python-wheels/appveyor.yml
+    params:
+      python_version: 3.8
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
+
   ############################## Linux PKGS ####################################
 
   debian-stretch:
@@ -508,6 +754,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -519,46 +769,46 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
@@ -574,6 +824,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -581,27 +835,27 @@ tasks:
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
 
   debian-buster:
     ci: azure
@@ -615,6 +869,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -626,46 +884,46 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
@@ -681,6 +939,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -688,27 +950,27 @@ tasks:
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-xenial:
     ci: azure
@@ -722,6 +984,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -733,32 +999,32 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
@@ -774,6 +1040,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -785,32 +1055,32 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
@@ -826,6 +1096,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -837,35 +1111,35 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
@@ -881,6 +1155,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -892,35 +1170,35 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
@@ -936,6 +1214,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -947,35 +1229,35 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
@@ -991,6 +1273,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -1002,35 +1288,35 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
@@ -1046,6 +1332,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -1057,35 +1347,35 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
@@ -1101,6 +1391,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -1112,35 +1406,35 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
@@ -1153,6 +1447,8 @@ tasks:
       upload_extensions:
         - .rpm
     artifacts:
+      - apache-arrow-release-{no_rc_version}-1.el6.noarch.rpm
+      - apache-arrow-release-{no_rc_version}-1.el6.src.rpm
       - arrow-{no_rc_version}-1.el6.src.rpm
       - arrow-debuginfo-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
       - arrow-devel-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
@@ -1173,6 +1469,8 @@ tasks:
       upload_extensions:
         - .rpm
     artifacts:
+      - apache-arrow-release-{no_rc_version}-1.el7.noarch.rpm
+      - apache-arrow-release-{no_rc_version}-1.el7.src.rpm
       - arrow-{no_rc_version}-1.el7.src.rpm
       - arrow-debuginfo-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
@@ -1237,6 +1535,8 @@ tasks:
       upload_extensions:
         - .rpm
     artifacts:
+      - apache-arrow-release-{no_rc_version}-1.el8.noarch.rpm
+      - apache-arrow-release-{no_rc_version}-1.el8.src.rpm
       - arrow-{no_rc_version}-1.el8.src.rpm
       - arrow-dataset-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-dataset-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
@@ -1254,6 +1554,9 @@ tasks:
       - arrow-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - gandiva-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
@@ -1306,6 +1609,9 @@ tasks:
       - arrow-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - gandiva-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
@@ -1374,413 +1680,468 @@ tasks:
 
   ############################## Docker tests #################################
 
-  docker-r:
+  test-conda-cpp:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures r
-        - docker-compose build cpp
-        - docker-compose build r
-        - docker-compose run r
-        - docker-compose push --ignore-push-failures r
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose build conda-cpp
+        - docker-compose run conda-cpp
 
-  docker-r-conda:
+  test-debian-10-cpp:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures r-conda
-        - docker-compose build cpp
-        - docker-compose build r-conda
-        - docker-compose run r-conda
-        - docker-compose push --ignore-push-failures r-conda
+        - export DEBIAN=10
+        - docker-compose pull --ignore-pull-failures debian-cpp
+        - docker-compose build debian-cpp
+        - docker-compose run debian-cpp
 
-  docker-r-sanitizer:
+  test-ubuntu-16.04-cpp:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures r-sanitizer
-        - docker-compose build r-sanitizer
-        - docker-compose run r-sanitizer
-        - docker-compose push --ignore-push-failures r-sanitizer
+        - export UBUNTU=16.04
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose build ubuntu-cpp
+        - docker-compose run ubuntu-cpp
 
-  docker-rust:
+  test-ubuntu-18.04-cpp:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures rust
-        - docker-compose build rust
-        - docker-compose run rust
-        - docker-compose push --ignore-push-failures rust
+        - export UBUNTU=18.04
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose build ubuntu-cpp
+        - docker-compose run ubuntu-cpp
 
-  docker-cpp:
+  test-fedora-29-cpp:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose build cpp
-        - docker-compose run cpp
-        - docker-compose push --ignore-push-failures cpp
+        - export FEDORA=29
+        - docker-compose pull --ignore-pull-failures fedora-cpp
+        - docker-compose build fedora-cpp
+        - docker-compose run fedora-cpp
 
-  docker-cpp-release:
+  test-ubuntu-18.04-cpp-release:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures cpp-release
-        - docker-compose build cpp-release
-        - docker-compose run cpp-release
-        - docker-compose push --ignore-push-failures cpp-release
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose build ubuntu-cpp
+        - docker-compose run -e ARROW_BUILD_TYPE=release ubuntu-cpp
 
-  docker-cpp-alpine:
+  test-ubuntu-18.04-cpp-static:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures cpp-alpine
-        - docker-compose build cpp-alpine
-        - docker-compose run cpp-alpine
-        - docker-compose push --ignore-push-failures cpp-alpine
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose build ubuntu-cpp
+        - docker-compose run -e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp
 
-  docker-cpp-cmake32:
+  test-ubuntu-18.04-cpp-cmake32:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures cpp-cmake32
-        - docker-compose build cpp-cmake32
-        - docker-compose run cpp-cmake32
-        - docker-compose push --ignore-push-failures cpp-cmake32
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp-cmake32
+        - docker-compose build ubuntu-cpp-cmake32
+        - docker-compose run ubuntu-cpp-cmake32
 
-  docker-cpp-fuzzit:
+  test-debian-c-glib:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures fuzzit
-        - docker-compose build cpp
-        - docker-compose build fuzzit
-        - docker-compose run fuzzit
-        - docker-compose push --ignore-push-failures fuzzit
+        - docker-compose pull --ignore-pull-failures debian-cpp
+        - docker-compose pull --ignore-pull-failures debian-c-glib
+        - docker-compose build debian-cpp
+        - docker-compose build debian-c-glib
+        - docker-compose run debian-c-glib
 
-  docker-cpp-static-only:
+  test-ubuntu-c-glib:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures cpp-static-only
-        - docker-compose build cpp
-        - docker-compose run cpp-static-only
-        - docker-compose push --ignore-push-failures cpp-static-only
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose pull --ignore-pull-failures ubuntu-c-glib
+        - docker-compose build ubuntu-cpp
+        - docker-compose build ubuntu-c-glib
+        - docker-compose run ubuntu-c-glib
 
-  docker-c_glib:
+  test-debian-ruby:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures c_glib
-        - docker-compose build cpp
-        - docker-compose build c_glib
-        - docker-compose run c_glib
-        - docker-compose push --ignore-push-failures c_glib
+        - docker-compose pull --ignore-pull-failures debian-cpp
+        - docker-compose pull --ignore-pull-failures debian-c-glib
+        - docker-compose pull --ignore-pull-failures debian-ruby
+        - docker-compose build debian-cpp
+        - docker-compose build debian-c-glib
+        - docker-compose build debian-ruby
+        - docker-compose run debian-ruby
 
-  docker-go:
+  test-ubuntu-ruby:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures go
-        - docker-compose build go
-        - docker-compose run go
-        - docker-compose push --ignore-push-failures go
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose pull --ignore-pull-failures ubuntu-c-glib
+        - docker-compose pull --ignore-pull-failures ubuntu-ruby
+        - docker-compose build ubuntu-cpp
+        - docker-compose build ubuntu-c-glib
+        - docker-compose build ubuntu-ruby
+        - docker-compose run ubuntu-ruby
 
-  docker-js:
+  test-conda-python-2.7:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures js
-        - docker-compose build js
-        - docker-compose run js
-        - docker-compose push --ignore-push-failures js
+        - export PYTHON=2.7
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose run conda-python
 
-  docker-java:
+  test-conda-python-3.6:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose pull --ignore-pull-failures java
-        - docker-compose build java
-        - docker-compose run java
-        - docker-compose push --ignore-push-failures java
+        - export PYTHON=3.6
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose run conda-python
 
-  docker-python-2.7:
+  test-conda-python-3.7:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 2.7
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose run python
-        - docker-compose push --ignore-push-failures python
+        - export PYTHON=3.7
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose run conda-python
 
-  docker-python-3.6:
+  test-conda-python-3.8:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.6
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose run python
-        - docker-compose push --ignore-push-failures python
+        - export PYTHON=3.8
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose run conda-python
 
-  docker-python-3.7:
+  test-debian-10-python-3:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.7
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose run python
-        - docker-compose push --ignore-push-failures python
+        - export DEBIAN=10
+        - docker-compose pull --ignore-pull-failures debian-cpp
+        - docker-compose pull --ignore-pull-failures debian-python
+        - docker-compose build debian-cpp
+        - docker-compose build debian-python
+        - docker-compose run debian-python
 
-  docker-python-2.7-alpine:
+  test-ubuntu-18.04-python-3:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 2.7
       commands:
-        - docker-compose pull --ignore-pull-failures cpp-alpine
-        - docker-compose pull --ignore-pull-failures python-alpine
-        - docker-compose build cpp-alpine
-        - docker-compose build python-alpine
-        - docker-compose run python-alpine
-        - docker-compose push --ignore-push-failures python-alpine
+        - export UBUNTU=18.04
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose pull --ignore-pull-failures ubuntu-python
+        - docker-compose build ubuntu-cpp
+        - docker-compose build ubuntu-python
+        - docker-compose run ubuntu-python
 
-  docker-python-3.6-alpine:
+  test-fedora-29-python-3:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.6
       commands:
-        - docker-compose pull --ignore-pull-failures cpp-alpine
-        - docker-compose pull --ignore-pull-failures python-alpine
-        - docker-compose build cpp-alpine
-        - docker-compose build python-alpine
-        - docker-compose run python-alpine
-        - docker-compose push --ignore-push-failures python-alpine
+        - export FEDORA=29
+        - docker-compose pull --ignore-pull-failures fedora-cpp
+        - docker-compose pull --ignore-pull-failures fedora-python
+        - docker-compose build fedora-cpp
+        - docker-compose build fedora-python
+        - docker-compose run fedora-python
 
-  docker-python-2.7-nopandas:
+  test-ubuntu-18.04-r-3.6:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 2.7
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose pull --ignore-pull-failures python-nopandas
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build python-nopandas
-        - docker-compose run python-nopandas
-        - docker-compose push --ignore-push-failures python-nopandas
+        - export UBUNTU=18.04 R=3.6
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose pull --ignore-pull-failures ubuntu-r
+        - docker-compose build ubuntu-cpp
+        - docker-compose build ubuntu-r
+        - docker-compose run ubuntu-r
 
-  docker-python-3.6-nopandas:
+  test-conda-r-3.6:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.6
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose pull --ignore-pull-failures python-nopandas
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build python-nopandas
-        - docker-compose run python-nopandas
-        - docker-compose push --ignore-push-failures python-nopandas
+        - export R=3.6
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-r
+        - docker-compose build conda-cpp
+        - docker-compose build conda-r
+        - docker-compose run conda-r
 
-  ###################### Documentation building tests #########################
-
-  docker-docs:
+  test-ubuntu-18.04-r-sanitizer:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.6
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose pull --ignore-pull-failures docs
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build docs
-        - docker-compose run docs
-        - docker-compose push --ignore-push-failures docs
+        - docker-compose pull --ignore-pull-failures ubuntu-r-sanitizer
+        - docker-compose build ubuntu-r-sanitizer
+        - docker-compose run ubuntu-r-sanitizer
 
-  ############################## Linter tests #################################
-
-  docker-lint:
+  test-debian-10-go-1.12:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.6
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose pull --ignore-pull-failures lint
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build lint
-        - docker-compose run lint
-        - docker-compose push --ignore-push-failures lint
+        - export GO=1.12
+        - docker-compose pull --ignore-pull-failures debian-go
+        - docker-compose build debian-go
+        - docker-compose run debian-go
 
-  docker-iwyu:
+  test-ubuntu-18.04-docs:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.6
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose pull --ignore-pull-failures lint
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build lint
-        - docker-compose run iwyu
+        - export UBUNTU=18.04
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose pull --ignore-pull-failures ubuntu-python
+        - docker-compose pull --ignore-pull-failures ubuntu-docs
+        - docker-compose build ubuntu-cpp
+        - docker-compose build ubuntu-python
+        - docker-compose build ubuntu-docs
+        - docker-compose run ubuntu-docs
+
+  test-ubuntu-fuzzit-fuzzing:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose pull --ignore-pull-failures ubuntu-fuzzit
+        - docker-compose build ubuntu-cpp
+        - docker-compose build ubuntu-fuzzit
+        - docker-compose run -e FUZZIT_JOB_TYPE=fuzzing ubuntu-fuzzit
+
+  test-ubuntu-fuzzit-regression:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose pull --ignore-pull-failures ubuntu-fuzzit
+        - docker-compose build ubuntu-cpp
+        - docker-compose build ubuntu-fuzzit
+        - docker-compose run -e FUZZIT_JOB_TYPE=regression ubuntu-fuzzit
 
   ############################## Integration tests ############################
 
-  docker-dask-integration:
+  test-conda-python-2.7-pandas-latest:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.6
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose pull --ignore-pull-failures dask-integration
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build dask-integration
-        - docker-compose run dask-integration
-        - docker-compose push --ignore-push-failures dask-integration
+        - export PYTHON=2.7 PANDAS=latest
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-pandas
+        - docker-compose run conda-python-pandas
 
-  docker-hdfs-integration:
+  test-conda-python-3.7-pandas-latest:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.6
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose pull --ignore-pull-failures hdfs-integration
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build hdfs-integration
-        - docker-compose run hdfs-integration
-        - docker-compose push --ignore-push-failures hdfs-integration
+        - export PYTHON=3.7 PANDAS=latest
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-pandas
+        - docker-compose run conda-python-pandas
 
-  docker-spark-integration:
+  test-conda-python-3.8-pandas-latest:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.6
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose pull --ignore-pull-failures spark-integration
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build spark-integration
-        - docker-compose run spark-integration
-        - docker-compose push --ignore-push-failures spark-integration
+        - export PYTHON=3.8 PANDAS=latest
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-pandas
+        - docker-compose run conda-python-pandas
 
-  docker-turbodbc-integration:
+  test-conda-python-3.7-pandas-master:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.6
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose pull --ignore-pull-failures turbodbc-integration
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build turbodbc-integration
-        - docker-compose run turbodbc-integration
-        - docker-compose push --ignore-push-failures turbodbc-integration
+        - export PYTHON=3.7 PANDAS=master
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-pandas
+        - docker-compose run conda-python-pandas
 
-  docker-pandas-master:
+  test-conda-python-3.7-dask-latest:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      environment:
-        PYTHON_VERSION: 3.6
       commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build --no-cache pandas-master
-        - docker-compose run pandas-master
+        - export PYTHON=3.7 DASK=latest
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-dask
+        - docker-compose run conda-python-dask
+
+  test-conda-python-3.8-dask-master:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - export PYTHON=3.8 DASK=master
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-dask
+        - docker-compose run conda-python-dask
+
+  test-conda-python-3.7-turbodbc-latest:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - export PYTHON=3.7 TURBODBC=latest
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-turbodbc
+        - docker-compose run conda-python-turbodbc
+
+  test-conda-python-3.7-turbodbc-master:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - export PYTHON=3.7 TURBODBC=master
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-turbodbc
+        - docker-compose run conda-python-turbodbc
+
+  test-conda-python-3.7-hdfs-2.9.2:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - export PYTHON=3.7 HDFS=2.9.2
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build conda-python-hdfs
+        - docker-compose run conda-python-hdfs
+
+  test-conda-python-3.7-spark-master:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - export PYTHON=3.7 SPARK=master
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-spark
+        - docker-compose run conda-python-spark
+
+  test-conda-cpp-hiveserver2:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose build conda-cpp
+        - docker-compose build --no-cache conda-cpp-hiveserver2
+        - docker-compose run conda-cpp-hiveserver2

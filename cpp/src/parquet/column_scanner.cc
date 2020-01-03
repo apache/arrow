@@ -30,25 +30,26 @@ std::shared_ptr<Scanner> Scanner::Make(std::shared_ptr<ColumnReader> col_reader,
                                        int64_t batch_size, MemoryPool* pool) {
   switch (col_reader->type()) {
     case Type::BOOLEAN:
-      return std::make_shared<BoolScanner>(col_reader, batch_size, pool);
+      return std::make_shared<BoolScanner>(std::move(col_reader), batch_size, pool);
     case Type::INT32:
-      return std::make_shared<Int32Scanner>(col_reader, batch_size, pool);
+      return std::make_shared<Int32Scanner>(std::move(col_reader), batch_size, pool);
     case Type::INT64:
-      return std::make_shared<Int64Scanner>(col_reader, batch_size, pool);
+      return std::make_shared<Int64Scanner>(std::move(col_reader), batch_size, pool);
     case Type::INT96:
-      return std::make_shared<Int96Scanner>(col_reader, batch_size, pool);
+      return std::make_shared<Int96Scanner>(std::move(col_reader), batch_size, pool);
     case Type::FLOAT:
-      return std::make_shared<FloatScanner>(col_reader, batch_size, pool);
+      return std::make_shared<FloatScanner>(std::move(col_reader), batch_size, pool);
     case Type::DOUBLE:
-      return std::make_shared<DoubleScanner>(col_reader, batch_size, pool);
+      return std::make_shared<DoubleScanner>(std::move(col_reader), batch_size, pool);
     case Type::BYTE_ARRAY:
-      return std::make_shared<ByteArrayScanner>(col_reader, batch_size, pool);
+      return std::make_shared<ByteArrayScanner>(std::move(col_reader), batch_size, pool);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_shared<FixedLenByteArrayScanner>(col_reader, batch_size, pool);
+      return std::make_shared<FixedLenByteArrayScanner>(std::move(col_reader), batch_size,
+                                                        pool);
     default:
       ParquetException::NYI("type reader not implemented");
   }
-  // Unreachable code, but supress compiler warning
+  // Unreachable code, but suppress compiler warning
   return std::shared_ptr<Scanner>(nullptr);
 }
 
@@ -83,7 +84,7 @@ int64_t ScanAllValues(int32_t batch_size, int16_t* def_levels, int16_t* rep_leve
     default:
       parquet::ParquetException::NYI("type reader not implemented");
   }
-  // Unreachable code, but supress compiler warning
+  // Unreachable code, but suppress compiler warning
   return 0;
 }
 

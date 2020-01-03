@@ -148,8 +148,14 @@ def _as_dict_values(xs):
     return six.viewvalues(dct)
 
 
+def _as_numpy_array(xs):
+    arr = np.empty(len(xs), dtype=object)
+    arr[:] = xs
+    return arr
+
+
 parametrize_with_iterable_types = pytest.mark.parametrize(
-    "seq", [_as_list, _as_tuple, _as_deque, _as_dict_values])
+    "seq", [_as_list, _as_tuple, _as_deque, _as_dict_values, _as_numpy_array])
 
 
 @parametrize_with_iterable_types
@@ -232,6 +238,41 @@ def test_nested_arrays(seq):
     assert arr.null_count == 1
     assert arr.type == pa.list_(pa.int64())
     assert arr.to_pylist() == [[], [1, 2], None]
+
+
+@parametrize_with_iterable_types
+def test_nested_fixed_size_list(seq):
+    # sequence of lists
+    data = [[1, 2], [3, None], None]
+    arr = pa.array(seq(data), type=pa.list_(pa.int64(), 2))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int64(), 2)
+    assert arr.to_pylist() == data
+
+    # sequence of numpy arrays
+    data = [np.array([1, 2], dtype='int64'), np.array([3, 4], dtype='int64'),
+            None]
+    arr = pa.array(seq(data), type=pa.list_(pa.int64(), 2))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int64(), 2)
+    assert arr.to_pylist() == [[1, 2], [3, 4], None]
+
+    # incorrect length of the lists or arrays
+    data = [[1, 2, 4], [3, None], None]
+    for data in [[[1, 2, 3]], [np.array([1, 2, 4], dtype='int64')]]:
+        with pytest.raises(
+                ValueError, match="Length of item not correct: expected 2"):
+            pa.array(seq(data), type=pa.list_(pa.int64(), 2))
+
+    # with list size of 0
+    data = [[], [], None]
+    arr = pa.array(seq(data), type=pa.list_(pa.int64(), 0))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int64(), 0)
+    assert arr.to_pylist() == [[], [], None]
 
 
 @parametrize_with_iterable_types
@@ -1381,3 +1422,57 @@ def test_decimal_array_with_none_and_nan():
 def test_timezone_string(tz, name):
     assert pa.lib.tzinfo_to_string(tz) == name
     assert pa.lib.string_to_tzinfo(name) == tz
+
+
+def test_map_from_dicts():
+    data = [[{'key': b'a', 'value': 1}, {'key': b'b', 'value': 2}],
+            [{'key': b'c', 'value': 3}],
+            [{'key': b'd', 'value': 4}, {'key': b'e', 'value': 5},
+             {'key': b'f', 'value': None}],
+            [{'key': b'g', 'value': 7}]]
+    expected = [[(d['key'], d['value']) for d in entry] for entry in data]
+
+    arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert arr.to_pylist() == expected
+
+    # With omitted values
+    data[1] = None
+    expected[1] = None
+
+    arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert arr.to_pylist() == expected
+
+    # Invalid dictionary
+    for entry in [[{'value': 5}], [{}], [{'k': 1, 'v': 2}]]:
+        with pytest.raises(ValueError, match="Invalid Map"):
+            pa.array([entry], type=pa.map_('i4', 'i4'))
+
+    # Invalid dictionary types
+    for entry in [[{'key': '1', 'value': 5}], [{'key': {'value': 2}}]]:
+        with pytest.raises(TypeError, match="integer is required"):
+            pa.array([entry], type=pa.map_('i4', 'i4'))
+
+
+def test_map_from_tuples():
+    expected = [[(b'a', 1), (b'b', 2)],
+                [(b'c', 3)],
+                [(b'd', 4), (b'e', 5), (b'f', None)],
+                [(b'g', 7)]]
+
+    arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert arr.to_pylist() == expected
+
+    # With omitted values
+    expected[1] = None
+
+    arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert arr.to_pylist() == expected
+
+    # Invalid tuple size
+    for entry in [[(5,)], [()], [('5', 'foo', True)]]:
+        with pytest.raises(ValueError, match="(?i)tuple size"):
+            pa.array([entry], type=pa.map_('i4', 'i4'))

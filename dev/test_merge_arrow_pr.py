@@ -123,6 +123,27 @@ def test_jira_no_suggest_patch_release():
     assert default_versions == ['0.12.0']
 
 
+def test_jira_parquet_no_suggest_non_cpp():
+    # ARROW-7351
+    versions_json = [
+        {'version': 'cpp-1.5.0', 'released': True},
+        {'version': 'cpp-1.6.0', 'released': False},
+        {'version': 'cpp-1.7.0', 'released': False},
+        {'version': '1.11.0', 'released': False},
+        {'version': '1.12.0', 'released': False}
+    ]
+
+    versions = [FakeProjectVersion(raw['version'], raw)
+                for raw in versions_json]
+
+    jira = FakeJIRA(project_versions=versions, transitions=TRANSITIONS)
+    issue = merge_arrow_pr.JiraIssue(jira, 'PARQUET-1713', 'PARQUET',
+                                     FakeCLI())
+    all_versions, default_versions = issue.get_candidate_fix_versions()
+    assert all_versions == versions
+    assert default_versions == ['cpp-1.6.0']
+
+
 def test_jira_invalid_issue():
     class Mock:
 
