@@ -39,29 +39,31 @@ on:
 jobs:
 
   r-hub:
-    name: R-hub ${{ matrix.rhub }}
+    name: R-hub ${{ matrix.r_image }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         # See https://github.com/r-hub/rhub-linux-builders
-        rhub: ["debian-gcc-release", "fedora-clang-devel", "fedora-gcc-devel", "ubuntu-gcc-release"]
+        # TODO: add back fedora, clang
+        r_image: ["debian-gcc-devel", "ubuntu-gcc-release"]
     env:
-      RHUB_IMAGE: ${{ matrix.rhub }}
+      R_DOCKER_ORG: "rhub"
+      R_DOCKER_IMAGE: ${{ matrix.r_image }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
       - name: Docker Pull
         shell: bash
         run: |
-          docker-compose pull --ignore-pull-failures r-hub
+          docker-compose pull --ignore-pull-failures r-docker
       - name: Docker Build
         shell: bash
         run: |
-          docker-compose build r-hub
+          docker-compose build r-docker
       - name: Docker Run
         shell: bash
-        run: docker-compose run r-hub
+        run: docker-compose run r-docker
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -69,4 +71,39 @@ jobs:
         run: |
           docker login -u ${{ secrets.DOCKERHUB_USER }} \
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push r-hub
+          docker-compose push r-docker
+
+  rstudio:
+    name: RStudio ${{ matrix.r_image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # See https://hub.docker.com/r/rstudio/r-base
+        r_image: ["bionic", "centos6", "centos7", "centos8", "opensuse42", "opensuse15"]
+    env:
+      R_DOCKER_ORG: "rstudio"
+      R_DOCKER_IMAGE: "r-base"
+      R_DOCKER_TAG: ${{ matrix.r_image }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures r-docker
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build r-docker
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run r-docker
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push r-docker

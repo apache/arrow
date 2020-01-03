@@ -187,8 +187,8 @@ command line (`make test`, `make doc`, `make clean`, etc.)
 ### Full package validation
 
 ```shell
-R CMD build --keep-empty-dirs .
-R CMD check arrow_*.tar.gz --as-cran --no-manual
+R CMD build .
+R CMD check arrow_*.tar.gz --as-cran
 ```
 
 [1]: https://github.com/apache/arrow/blob/master/docs/source/developers/cpp.rst

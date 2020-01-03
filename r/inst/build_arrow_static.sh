@@ -79,6 +79,7 @@ ${CMAKE} --build . --target install
 
 if [ $? -ne 0 ] && [ "${DEBUG_DIR}" != "" ]; then
   # For debugging installation problems, copy the build contents somewhere not tmp
+  mkdir -p ${DEBUG_DIR}
   cp -r ./* ${DEBUG_DIR}
 fi
 
