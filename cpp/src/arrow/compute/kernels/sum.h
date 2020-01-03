@@ -24,6 +24,7 @@
 namespace arrow {
 
 class Array;
+class ChunkedArray;
 class DataType;
 class Status;
 
