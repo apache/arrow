@@ -77,10 +77,10 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     ${SOURCE_DIR}
 ${CMAKE} --build . --target install
 
-# if [ $? -ne 0 ]; then
-#   # FOR TEST DEBUGGING
-#   cp -r ./* /home/docker
-# fi
+if [ $? -ne 0 ] && [ "${DEBUG_DIR}" != "" ]; then
+  # For debugging installation problems, copy the build contents somewhere not tmp
+  cp -r ./* ${DEBUG_DIR}
+fi
 
 # Copy the bundled static libs from the build to the install dir
 find . -regex .*/.*/lib/.*\\.a\$ | xargs -I{} cp -u {} ${DEST_DIR}/lib

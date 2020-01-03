@@ -17,7 +17,7 @@
 
 context("General checks")
 
-if (identical(Sys.getenv("TEST_R_WITH_ARROW"), "TRUE")) {
+if (identical(tolower(Sys.getenv("TEST_R_WITH_ARROW")), "true")) {
   testthat::test_that("Arrow C++ is available", {
     expect_true(arrow_available())
   })

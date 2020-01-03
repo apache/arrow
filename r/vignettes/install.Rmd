@@ -39,7 +39,7 @@ Daily development builds, which are not official releases,
 can be installed from the Ursa Labs repository:
 
 ```r
-install.packages("arrow", repos="https://dl.bintray.com/ursalabs/arrow-r")
+install.packages("arrow", repos = "https://dl.bintray.com/ursalabs/arrow-r")
 ```
 
 There currently are no daily `conda` builds.
@@ -48,7 +48,8 @@ You can also install the R package from a git checkout:
 
 ```shell
 git clone https://github.com/apache/arrow
-R CMD INSTALL r
+cd arrow/r
+R CMD INSTALL .
 ```
 
 <!-- TODO: does remotes::install_github("apache/arrow/r") work now? -->
@@ -57,7 +58,7 @@ R CMD INSTALL r
 
 When you install the `arrow` R package on Linux,
 it will first attempt to find the Arrow C++ libraries on your system using `pkg-config`.
-This will find either system packages you've installed or libraries you've built yourself.
+This will find either installed system packages or libraries you've built yourself.
 If you've built the C++ libraries from source
 but haven't installed them where `pkg-config` will find them,
 you can instead set `INCLUDE_DIR` and `LIB_DIR` environment variables to point to their location.
@@ -68,14 +69,14 @@ that match your both your local operating system and `arrow` R package version.
 If found, they will be downloaded and bundled when your R package compiles.
 <!-- TODO: link to bintray to show current list of supported OSes? -->
 
-If no binary is found, it will download the Arrow C++ source that matches your R package version
-and attempt to build it locally.
-Depending on your system, this likely will be slow;
-consequently, building Arrow C++ from source is designed to happen only when you
+If no binary is found, it will download the Arrow C++ source that matches the R package version
+(CRAN release or nightly build) and attempt to build it locally.
+If no matching source bundle is found, it will also look to see if you are in
+a checkout of the `apache/arrow` git repository and thus have the C++ source there.
+Depending on your system, building Arrow C++ from source likely will be slow;
+consequently, it is designed to happen only when you
 run `install.packages("arrow")` or `R CMD INSTALL` but not when running `R CMD check`,
 unless you've set the `NOT_CRAN=true` environment variable.
-Alternatively, if it detects that you're in a checkout of the `apache/arrow` git repository,
-it will build the C++ libraries from the `cpp/` directory there.
 
 For the mechanics of how all this works, see the R package `configure` script,
 which calls `tools/linuxlibs.R`.
@@ -83,6 +84,8 @@ If the C++ library is built from source, `inst/build_arrow_static.sh` is execute
 This build script is also what is used to generate the prebuilt binaries.
 
 # Troubleshooting and additional options
+
+## Using system libraries
 
 If a system library or other installed Arrow is found but it doesn't match the R package version,
 it is likely that the R bindings will fail to compile.
@@ -99,8 +102,10 @@ System packages are available corresponding to all CRAN releases
 but not for nightly or dev versions, so depending on the R package version you're installing,
 system packages may not be an option.
 
-Note also that once you have a working R package installation based on system libraries,
+Note also that once you have a working R package installation based on system (shared) libraries,
 if you update your system Arrow, you'll need to reinstall the R package to match its version.
+
+## Using prebuilt binaries
 
 If a prebuilt binary is downloaded but then the `arrow` package can't be loaded,
 perhaps with "undefined symbols" errors,
@@ -129,6 +134,8 @@ such as if you're on Ubuntu 18.10 and there's only a binary for 18.04.
 <!-- TODO add a function to the package to update dev version from bintray? -->
 <!-- If that exists, is there a flag to instruct building without arrow so you can access that fn? -->
 
+## Building C++ from source
+
 If building the C++ library from source fails, check the error message.
 The install script attempts to install any necessary build dependencies,
 such as `cmake`, but it's possible that some operating systems may require additional ones.
@@ -136,3 +143,23 @@ You may be able to install them and retry.
 Regardless, if the C++ library fails to compile,
 please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
 so that we can attempt to improve the script.
+
+## Summary of build environment variables
+
+By default, these are all unset.
+
+* `ARROW_USE_PKGCONFIG`: If set to `FALSE` (case sensitive), the configure script
+  won't look for Arrow libraries on your system and instead will look to download/build them.
+* `LIBARROW_DOWNLOAD`
+* `LIBARROW_BUILD`
+* `LIBARROW_BINARY_DISTRO`: When unset, the build script will try to discover
+  from the OS what distribution-version we're on,
+  but you can override this by setting the env var LIBARROW_BINARY_DISTRO to `FALSE` (not case-sensitive),
+  which tells the script not to download a binary,
+  or some other string, presumably a related "distro-version" that has binaries built that work for your OS
+* `NOT_CRAN`: If this variable is set to `true`, as the `devtools` package does,
+  the build script will attempt to download and/or build the Arrow C++ library, if necessary,
+  even when running `R CMD check`. Otherwise, it will only download/build C++
+  if you're not running `R CMD check`.
+* `ARROW_R_DEV`: If
+* `DEBUG_DIR`

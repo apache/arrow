@@ -45,7 +45,7 @@ jobs:
       fail-fast: false
       matrix:
         # See https://github.com/r-hub/rhub-linux-builders
-        rhub: ["debian-clang-devel", "debian-gcc-release", "fedora-clang-devel", "fedora-gcc-devel", "centos6-epel-rdt", "ubuntu-gcc-release"]
+        rhub: ["debian-gcc-release", "fedora-clang-devel", "fedora-gcc-devel", "ubuntu-gcc-release"]
     env:
       RHUB_IMAGE: ${{ matrix.rhub }}
     steps:
