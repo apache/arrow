@@ -50,8 +50,8 @@ impl SqlToRel {
 
     /// Generate a logic plan from a SQL AST node
     pub fn sql_to_rel(&self, sql: &ASTNode) -> Result<Arc<LogicalPlan>> {
-        match sql {
-            &ASTNode::SQLSelect {
+        match *sql {
+            ASTNode::SQLSelect {
                 ref projection,
                 ref relation,
                 ref selection,
@@ -62,9 +62,9 @@ impl SqlToRel {
                 ..
             } => {
                 // parse the input relation so we have access to the row type
-                let input = match relation {
-                    &Some(ref r) => self.sql_to_rel(r)?,
-                    &None => Arc::new(LogicalPlan::EmptyRelation {
+                let input = match *relation {
+                    Some(ref r) => self.sql_to_rel(r)?,
+                    None => Arc::new(LogicalPlan::EmptyRelation {
                         schema: Arc::new(Schema::empty()),
                     }),
                 };
@@ -72,8 +72,8 @@ impl SqlToRel {
                 let input_schema = input.schema();
 
                 // selection first
-                let selection_plan = match selection {
-                    &Some(ref filter_expr) => Some(LogicalPlan::Selection {
+                let selection_plan = match *selection {
+                    Some(ref filter_expr) => Some(LogicalPlan::Selection {
                         expr: self.sql_to_rex(&filter_expr, &input_schema.clone())?,
                         input: input.clone(),
                     }),
@@ -166,15 +166,31 @@ impl SqlToRel {
 
                     let projection = create_projection(expr, projection_input)?;
 
-                    if let &Some(_) = having {
+                    if having.is_some() {
                         return Err(ExecutionError::General(
                             "HAVING is not implemented yet".to_string(),
                         ));
                     }
 
-                    let order_by_plan = match order_by {
-                        &Some(ref order_by_expr) => {
-                            let input_schema = projection.schema();
+                    let group_by_plan = match *group_by {
+                        Some(ref group_by_expr) => {
+                            let group_by_rex: Vec<Expr> = group_by_expr
+                                .iter()
+                                .map(|e| self.sql_to_rex(&e, &input_schema))
+                                .collect::<Result<Vec<Expr>>>()?;
+                            LogicalPlan::Aggregate {
+                                input: Arc::new(projection),
+                                group_expr: group_by_rex,
+                                aggr_expr: vec![],
+                                schema: input_schema.clone(),
+                            }
+                        }
+                        _ => projection,
+                    };
+
+                    let order_by_plan = match *order_by {
+                        Some(ref order_by_expr) => {
+                            let input_schema = group_by_plan.schema();
                             let order_by_rex: Result<Vec<Expr>> = order_by_expr
                                 .iter()
                                 .map(|e| {
@@ -190,15 +206,15 @@ impl SqlToRel {
 
                             LogicalPlan::Sort {
                                 expr: order_by_rex?,
-                                input: Arc::new(projection.clone()),
+                                input: Arc::new(group_by_plan.clone()),
                                 schema: input_schema.clone(),
                             }
                         }
-                        _ => projection,
+                        _ => group_by_plan,
                     };
 
-                    let limit_plan = match limit {
-                        &Some(ref limit_expr) => {
+                    let limit_plan = match *limit {
+                        Some(ref limit_expr) => {
                             let input_schema = order_by_plan.schema();
 
                             let limit_rex = match self
@@ -225,7 +241,7 @@ impl SqlToRel {
                 }
             }
 
-            &ASTNode::SQLIdentifier(ref id) => {
+            ASTNode::SQLIdentifier(ref id) => {
                 match self.schema_provider.get_table_meta(id.as_ref()) {
                     Some(schema) => Ok(Arc::new(LogicalPlan::TableScan {
                         schema_name: String::from("default"),
@@ -250,18 +266,18 @@ impl SqlToRel {
 
     /// Generate a relational expression from a SQL expression
     pub fn sql_to_rex(&self, sql: &ASTNode, schema: &Schema) -> Result<Expr> {
-        match sql {
-            &ASTNode::SQLValue(sqlparser::sqlast::Value::Long(n)) => {
+        match *sql {
+            ASTNode::SQLValue(sqlparser::sqlast::Value::Long(n)) => {
                 Ok(Expr::Literal(ScalarValue::Int64(n)))
             }
-            &ASTNode::SQLValue(sqlparser::sqlast::Value::Double(n)) => {
+            ASTNode::SQLValue(sqlparser::sqlast::Value::Double(n)) => {
                 Ok(Expr::Literal(ScalarValue::Float64(n)))
             }
-            &ASTNode::SQLValue(sqlparser::sqlast::Value::SingleQuotedString(ref s)) => {
+            ASTNode::SQLValue(sqlparser::sqlast::Value::SingleQuotedString(ref s)) => {
                 Ok(Expr::Literal(ScalarValue::Utf8(Arc::new(s.clone()))))
             }
 
-            &ASTNode::SQLIdentifier(ref id) => {
+            ASTNode::SQLIdentifier(ref id) => {
                 match schema.fields().iter().position(|c| c.name().eq(id)) {
                     Some(index) => Ok(Expr::Column(index)),
                     None => Err(ExecutionError::ExecutionError(format!(
@@ -272,11 +288,11 @@ impl SqlToRel {
                 }
             }
 
-            &ASTNode::SQLWildcard => {
+            ASTNode::SQLWildcard => {
                 Err(ExecutionError::NotImplemented("SQL wildcard operator is not supported in projection - please use explicit column names".to_string()))
             }
 
-            &ASTNode::SQLCast {
+            ASTNode::SQLCast {
                 ref expr,
                 ref data_type,
             } => Ok(Expr::Cast {
@@ -284,36 +300,36 @@ impl SqlToRel {
                 data_type: convert_data_type(data_type)?,
             }),
 
-            &ASTNode::SQLIsNull(ref expr) => {
+            ASTNode::SQLIsNull(ref expr) => {
                 Ok(Expr::IsNull(Arc::new(self.sql_to_rex(expr, schema)?)))
             }
 
-            &ASTNode::SQLIsNotNull(ref expr) => {
+            ASTNode::SQLIsNotNull(ref expr) => {
                 Ok(Expr::IsNotNull(Arc::new(self.sql_to_rex(expr, schema)?)))
             }
 
-            &ASTNode::SQLBinaryExpr {
+            ASTNode::SQLBinaryExpr {
                 ref left,
                 ref op,
                 ref right,
             } => {
-                let operator = match op {
-                    &SQLOperator::Gt => Operator::Gt,
-                    &SQLOperator::GtEq => Operator::GtEq,
-                    &SQLOperator::Lt => Operator::Lt,
-                    &SQLOperator::LtEq => Operator::LtEq,
-                    &SQLOperator::Eq => Operator::Eq,
-                    &SQLOperator::NotEq => Operator::NotEq,
-                    &SQLOperator::Plus => Operator::Plus,
-                    &SQLOperator::Minus => Operator::Minus,
-                    &SQLOperator::Multiply => Operator::Multiply,
-                    &SQLOperator::Divide => Operator::Divide,
-                    &SQLOperator::Modulus => Operator::Modulus,
-                    &SQLOperator::And => Operator::And,
-                    &SQLOperator::Or => Operator::Or,
-                    &SQLOperator::Not => Operator::Not,
-                    &SQLOperator::Like => Operator::Like,
-                    &SQLOperator::NotLike => Operator::NotLike,
+                let operator = match *op {
+                    SQLOperator::Gt => Operator::Gt,
+                    SQLOperator::GtEq => Operator::GtEq,
+                    SQLOperator::Lt => Operator::Lt,
+                    SQLOperator::LtEq => Operator::LtEq,
+                    SQLOperator::Eq => Operator::Eq,
+                    SQLOperator::NotEq => Operator::NotEq,
+                    SQLOperator::Plus => Operator::Plus,
+                    SQLOperator::Minus => Operator::Minus,
+                    SQLOperator::Multiply => Operator::Multiply,
+                    SQLOperator::Divide => Operator::Divide,
+                    SQLOperator::Modulus => Operator::Modulus,
+                    SQLOperator::And => Operator::And,
+                    SQLOperator::Or => Operator::Or,
+                    SQLOperator::Not => Operator::Not,
+                    SQLOperator::Like => Operator::Like,
+                    SQLOperator::NotLike => Operator::NotLike,
                 };
 
                 Ok(Expr::BinaryExpr {
@@ -327,7 +343,7 @@ impl SqlToRel {
             //                expr: Arc::new(self.sql_to_rex(&expr, &schema)?),
             //                asc,
             //            }),
-            &ASTNode::SQLFunction { ref id, ref args } => {
+            ASTNode::SQLFunction { ref id, ref args } => {
                 //TODO: fix this hack
                 match id.to_lowercase().as_ref() {
                     "min" | "max" | "sum" | "avg" => {
@@ -483,8 +499,7 @@ mod tests {
     fn select_compound_selection() {
         let sql = "SELECT id, first_name, last_name \
                    FROM person WHERE state = 'CO' AND age >= 21 AND age <= 65";
-        let expected =
-            "Projection: #0, #1, #2\
+        let expected = "Projection: #0, #1, #2\
             \n  Selection: #4 Eq Utf8(\"CO\") And #3 GtEq Int64(21) And #3 LtEq Int64(65)\
             \n    TableScan: person projection=None";
         quick_test(sql, expected);
@@ -580,13 +595,27 @@ mod tests {
         quick_test(sql, expected);
     }
 
-    /// Create logical plan, write with formatter, compare to expected output
-    fn quick_test(sql: &str, expected: &str) {
+    #[test]
+    fn select_group_by() {
+        let sql = "SELECT state FROM person GROUP BY state";
+        let expected = "Aggregate: groupBy=[[#4]], aggr=[[]]\
+                        \n  Projection: #4\
+                        \n    TableScan: person projection=None";
+
+        quick_test(sql, expected);
+    }
+
+    fn logical_plan(sql: &str) -> Arc<LogicalPlan> {
         use sqlparser::dialect::*;
         let dialect = GenericSqlDialect {};
         let planner = SqlToRel::new(Arc::new(MockSchemaProvider {}));
         let ast = Parser::parse_sql(&dialect, sql.to_string()).unwrap();
-        let plan = planner.sql_to_rel(&ast).unwrap();
+        planner.sql_to_rel(&ast).unwrap()
+    }
+
+    /// Create logical plan, write with formatter, compare to expected output
+    fn quick_test(sql: &str, expected: &str) {
+        let plan = logical_plan(sql);
         assert_eq!(expected, format!("{:?}", plan));
     }
 
