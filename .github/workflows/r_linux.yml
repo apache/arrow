@@ -74,17 +74,18 @@ jobs:
           docker-compose push r-docker
 
   rstudio:
-    name: RStudio ${{ matrix.r_image }}
+    name: RStudio ${{ matrix.r_version }}-${{ matrix.r_image }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         # See https://hub.docker.com/r/rstudio/r-base
+        r_version: ["3.6"]
         r_image: ["bionic", "centos6", "centos7", "centos8", "opensuse42", "opensuse15"]
     env:
       R_DOCKER_ORG: "rstudio"
       R_DOCKER_IMAGE: "r-base"
-      R_DOCKER_TAG: ${{ matrix.r_image }}
+      R_DOCKER_TAG: ${{ matrix.r_version }}-${{ matrix.r_image }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
