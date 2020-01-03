@@ -59,7 +59,7 @@ Status AggregateUnaryKernel::Call(FunctionContext* ctx, const Datum& input, Datu
       RETURN_NOT_OK(aggregate_function_->Consume(*array, state->mutable_data()));
     } else {
       auto chunked_array = input.chunked_array();
-      for (int64_t i = 0; i < chunked_array->num_chunks(); i++) {
+      for (int i = 0; i < chunked_array->num_chunks(); i++) {
         auto tmp_state =
             ManagedAggregateState::Make(aggregate_function_, ctx->memory_pool());
         if (!tmp_state) return Status::OutOfMemory("AggregateState allocation failed");
