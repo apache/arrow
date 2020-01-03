@@ -14,18 +14,65 @@
 // limitations under the License.
 
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Apache.Arrow
 {
     public static class SpanExtensions
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Span<T> CastTo<T>(this Span<byte> span)
             where T: struct =>
             MemoryMarshal.Cast<byte, T>(span);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ReadOnlySpan<T> CastTo<T>(this ReadOnlySpan<byte> span)
             where T: struct =>
                 MemoryMarshal.Cast<byte, T>(span);
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CopyToFix<T>(this ReadOnlySpan<T> source, Span<T> target)
+        {
+            CopyToFix(source, 0, target, 0, source.Length);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CopyToFix<T>(this ReadOnlySpan<T> source, T[] target)
+        {
+            CopyToFix(source, 0, target, 0, source.Length);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CopyToFix<T>(this Span<T> source, Span<T> target)
+        {
+            CopyToFix(source, 0, target, 0, source.Length);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CopyToFix<T>(this Memory<T> source, Memory<T> target)
+        {
+            CopyToFix(source.Span, 0, target.Span, 0, source.Length);
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CopyToFix<T>(ReadOnlySpan<T> source, int sourceOffset, Span<T> target, int targetOffset, int length)
+        {
+            for (int i = 0; i < length; ++i)
+            {
+                target[targetOffset + i] = source[sourceOffset + i];
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CopyToFix<T>(ReadOnlySpan<T> source, int sourceOffset, T[] target, int targetOffset, int length)
+        {
+            for (int i = 0; i < length; ++i)
+            {
+                target[targetOffset + i] = source[sourceOffset + i];
+            }
+        }
     }
 }

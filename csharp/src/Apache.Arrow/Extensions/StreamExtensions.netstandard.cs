@@ -37,7 +37,7 @@ namespace Apache.Arrow
                 try
                 {
                     int result = stream.Read(sharedBuffer, 0, buffer.Length);
-                    new Span<byte>(sharedBuffer, 0, result).CopyTo(buffer.Span);
+                    new Span<byte>(sharedBuffer, 0, result).CopyToFix(buffer.Span);
                     return result;
                 }
                 finally
@@ -63,7 +63,7 @@ namespace Apache.Arrow
                     try
                     {
                         int result = await readTask.ConfigureAwait(false);
-                        new Span<byte>(localBuffer, 0, result).CopyTo(localDestination.Span);
+                        new Span<byte>(localBuffer, 0, result).CopyToFix(localDestination.Span);
                         return result;
                     }
                     finally
@@ -83,7 +83,7 @@ namespace Apache.Arrow
             else
             {
                 byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length);
-                buffer.Span.CopyTo(sharedBuffer);
+                buffer.Span.CopyToFix(sharedBuffer);
                 return FinishWriteAsync(stream.WriteAsync(sharedBuffer, 0, buffer.Length, cancellationToken), sharedBuffer);
             }
         }

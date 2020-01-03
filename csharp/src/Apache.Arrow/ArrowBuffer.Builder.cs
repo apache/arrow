@@ -62,7 +62,7 @@ namespace Apache.Arrow
             public Builder<T> Append(ReadOnlySpan<T> source)
             {
                 EnsureCapacity(source.Length);
-                source.CopyTo(Span.Slice(Length, source.Length));
+                source.CopyToFix(Span.Slice(Length, source.Length));
                 Length += source.Length;
                 return this;
             }
@@ -111,7 +111,7 @@ namespace Apache.Arrow
 
                 if (memoryOwner != null)
                 {
-                    Memory.Slice(0, currentBytesLength).CopyTo(memoryOwner.Memory);
+                    Memory.Slice(0, currentBytesLength).CopyToFix(memoryOwner.Memory);
                 }
 
                 return new ArrowBuffer(memoryOwner);
@@ -140,7 +140,7 @@ namespace Apache.Arrow
                 if (length != 0)
                 {
                     var memory = new Memory<byte>(new byte[length]);
-                    Memory.CopyTo(memory);
+                    Memory.CopyToFix(memory);
 
                     Memory = memory;
                 }
