@@ -699,7 +699,7 @@ services:
       cache_from:
         - ${REPO}:r-${R_DOCKER_ORG}-${R_DOCKER_IMAGE}-${R_DOCKER_TAG}
       args:
-        base: ${R_DOCKER_ORG}/${RHUB_IMAGE}:${R_DOCKER_TAG}
+        base: ${R_DOCKER_ORG}/${R_DOCKER_IMAGE}:${R_DOCKER_TAG}
     shm_size: *shm-size
     environment:
       TEST_R_WITH_ARROW: "true"
