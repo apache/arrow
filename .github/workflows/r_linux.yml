@@ -45,8 +45,7 @@ jobs:
       fail-fast: false
       matrix:
         # See https://github.com/r-hub/rhub-linux-builders
-        # TODO: add back fedora, clang
-        r_image: ["debian-gcc-devel", "ubuntu-gcc-release"]
+        r_image: ["debian-gcc-devel", "ubuntu-gcc-release", "fedora-clang-devel"]
     env:
       R_DOCKER_ORG: "rhub"
       R_DOCKER_IMAGE: ${{ matrix.r_image }}
@@ -80,8 +79,11 @@ jobs:
       fail-fast: false
       matrix:
         # See https://hub.docker.com/r/rstudio/r-base
+        # centos8 fails on compiling m4:
+        # freadahead.c: In function 'freadahead':
+        # freadahead.c:92:3: error: #error "Please port gnulib freadahead.c to your platform! Look at the definition of fflush, fread, ungetc on your system, then report this to bug-gnulib."
         r_version: ["3.6"]
-        r_image: ["bionic", "centos6", "centos7", "centos8", "opensuse42", "opensuse15"]
+        r_image: ["bionic", "centos6", "centos7", "opensuse42", "opensuse15"]
     env:
       R_DOCKER_ORG: "rstudio"
       R_DOCKER_IMAGE: "r-base"
