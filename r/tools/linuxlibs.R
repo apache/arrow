@@ -209,6 +209,9 @@ ensure_flex <- function(m4 = ensure_m4()) {
   }
   # If not found, download it
   cat("*** Downloading and building flex\n")
+  # Flex 2.6.4 (latest release) causes segfaults on some platforms (ubuntu bionic, debian e.g.)
+  # See https://github.com/westes/flex/issues/219
+  # Allegedly it has been fixed in master but there hasn't been a release since May 2017
   FLEX_VERSION <- Sys.getenv("FLEX_VERSION", "2.6.3")
   flex_source_url <- paste0(
     "https://github.com/westes/flex/releases/download/v", FLEX_VERSION,

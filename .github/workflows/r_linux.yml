@@ -45,7 +45,8 @@ jobs:
       fail-fast: false
       matrix:
         # See https://github.com/r-hub/rhub-linux-builders
-        r_image: ["debian-gcc-devel", "ubuntu-gcc-release", "fedora-clang-devel"]
+        # "fedora-clang-devel" fails on compiling m4, see below for freadahead message
+        r_image: ["debian-gcc-devel", "ubuntu-gcc-release"]
     env:
       R_DOCKER_ORG: "rhub"
       R_DOCKER_IMAGE: ${{ matrix.r_image }}
