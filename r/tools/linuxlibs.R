@@ -157,9 +157,11 @@ build_libarrow <- function(src_dir, dst_dir) {
     src_dir,                                dst_dir,    cmake
   )
   if (!is.null(flex)) {
+    system(paste0(flex, "/flex --version"))
     env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
   }
   if (!is.null(bison)) {
+    system(paste0(bison, "/bison --version"))
     env_vars <- paste0(env_vars, " BISON_ROOT=", bison)
   }
   if (!quietly) {

@@ -14,7 +14,17 @@
     vals <- sub("^.*=(.*)$", "\\1", os_release)
     os <- intersect(vals, supported_os)
     if (length(os)) {
+      # e.g. "bionic"
       return(sprintf(rspm_template, os))
+    } else {
+      names(vals) <- sub("^(.*)=.*$", "\\1", os_release)
+      if (vals["ID"] == "opensuse") {
+        version <- sub('^"?([0-9]+).*"?.*$', "\\1", vals["VERSION_ID"])
+        os <- paste0("opensuse", version)
+        if (os %in% supported_os) {
+          return(sprintf(rspm_template, os))
+        }
+      }
     }
   }
   if (file.exists("/etc/system-release")) {
