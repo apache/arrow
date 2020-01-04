@@ -209,7 +209,7 @@ ensure_flex <- function(m4 = ensure_m4()) {
   }
   # If not found, download it
   cat("*** Downloading and building flex\n")
-  FLEX_VERSION <- Sys.getenv("FLEX_VERSION", "2.6.4")
+  FLEX_VERSION <- Sys.getenv("FLEX_VERSION", "2.6.3")
   flex_source_url <- paste0(
     "https://github.com/westes/flex/releases/download/v", FLEX_VERSION,
     "/flex-", FLEX_VERSION, ".tar.gz"
