@@ -81,6 +81,7 @@ vector has enough capacity, so we can call
     vector.setValueCount(10);
 
 After this step, the vector enters an immutable state. In other words, we should no longer mutate it.
+(Unless we reuse the vector by allocating it again. This will be discussed shortly.)
 
 5. **Vector access**: it is time to access vector values. Similarly, we have two options to access values:
 1) get methods and 2) vector reader. Vector reader works for all types of vectors, while get methods are
@@ -113,6 +114,10 @@ Some points to note about the steps above:
   ``setSafe(index, value)`` methods whenever possible, to avoid unnecessary performance overhead of handling
   vector capacity.
 
+* All vectors implement the ``AutoCloseable`` interface. So they must be closed explicitly when they are
+  no longer used, to avoid resource leak. To make sure of this, it is recommended to place vector related operations
+  into a try-with-resources block.
+
 Building ValueVector
 ====================
 
@@ -125,19 +130,20 @@ vector of the range 0 to 7 where the element that should hold the fourth value i
 
 .. code-block:: Java
 
-    BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-
-    BigIntVector vector = new BigIntVector("vector", allocator);
-    vector.allocateNew(8);
-    vector.set(0, 1);
-    vector.set(1, 2);
-    vector.set(2, 3);
-    vector.setNull(3);
-    vector.set(4, 5);
-    vector.set(5, 6);
-    vector.set(6, 7);
-    vector.set(7, 8);
-    vector.setValueCount(8); // this will finalizes the vector by convention.
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+      BigIntVector vector = new BigIntVector("vector", allocator)) {
+      vector.allocateNew(8);
+      vector.set(0, 1);
+      vector.set(1, 2);
+      vector.set(2, 3);
+      vector.setNull(3);
+      vector.set(4, 5);
+      vector.set(5, 6);
+      vector.set(6, 7);
+      vector.set(7, 8);
+      vector.setValueCount(8); // this will finalizes the vector by convention.
+      ...
+    }
 
 The :class:`BigIntVector` holds two ArrowBufs. The first buffer holds the null bitmap, which consists
 here of a single byte with the bits 1|1|1|1|0|1|1|1 (the bit is 1 if the value is non-null).
@@ -149,23 +155,24 @@ Here is how to build a vector using writer
 
 .. code-block:: Java
 
-    BigIntVector vector = new BigIntVector("vector", allocator);
-    BigIntWriter writer = new BigIntWriterImpl(vector);
-    writer.setPosition(0);
-    writer.writeBigInt(1);
-    writer.setPosition(1);
-    writer.writeBigInt(2);
-    writer.setPosition(2);
-    writer.writeBigInt(3);
-    // writer.setPosition(3) is not called which means the forth value is null.
-    writer.setPosition(4);
-    writer.writeBigInt(5);
-    writer.setPosition(5);
-    writer.writeBigInt(6);
-    writer.setPosition(6);
-    writer.writeBigInt(7);
-    writer.setPosition(7);
-    writer.writeBigInt(8);
+    try (BigIntVector vector = new BigIntVector("vector", allocator);
+      BigIntWriter writer = new BigIntWriterImpl(vector)) {
+      writer.setPosition(0);
+      writer.writeBigInt(1);
+      writer.setPosition(1);
+      writer.writeBigInt(2);
+      writer.setPosition(2);
+      writer.writeBigInt(3);
+      // writer.setPosition(3) is not called which means the forth value is null.
+      writer.setPosition(4);
+      writer.writeBigInt(5);
+      writer.setPosition(5);
+      writer.writeBigInt(6);
+      writer.setPosition(6);
+      writer.writeBigInt(7);
+      writer.setPosition(7);
+      writer.writeBigInt(8);
+    }
 
 There are get API and concrete subclasses of :class:`FieldReader` for accessing vector values, what needs
 to be declared is that writer/reader is not as efficient as direct access
