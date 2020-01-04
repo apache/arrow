@@ -161,8 +161,11 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
   }
   if (!is.null(bison)) {
-    system(paste0(bison, "/bison --version"))
-    env_vars <- paste0(env_vars, " BISON_ROOT=", bison)
+    system(paste0(bison, "/bin/bison --version"))
+    env_vars <- sprintf(
+      "PATH=%s/bin:$PATH %s BISON_PKGDATADIR=%s/share/bison",
+            bison,       env_vars,           bison
+    )
   }
   if (!quietly) {
     cat("*** Building with ", env_vars, "\n")
@@ -246,14 +249,16 @@ ensure_bison <- function(m4 = ensure_m4()) {
   BISON_VERSION <- Sys.getenv("BISON_VERSION", "3.5")
   source_url <- paste0("https://ftp.gnu.org/gnu/bison/bison-", BISON_VERSION, ".tar.gz")
   tar_file <- tempfile()
-  dst_dir <- tempfile()
+  build_dir <- tempfile()
+  install_dir <- tempfile()
   try(
     download.file(source_url, tar_file, quiet = quietly),
     silent = quietly
   )
-  untar(tar_file, exdir = dst_dir)
+  untar(tar_file, exdir = build_dir)
   unlink(tar_file)
-  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), dst_dir))
+  on.exit(unlink(build_dir))
+  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), install_dir))
   # bison also needs m4, so let's make sure we have that too
   # (we probably don't if we're here)
   if (!is.null(m4)) {
@@ -263,11 +268,13 @@ ensure_bison <- function(m4 = ensure_m4()) {
     path <- ""
   }
   # Now, build bison
-  dst_dir <- paste0(dst_dir, "/bison-", BISON_VERSION)
-  cmd <- sprintf("cd %s && ./configure && make", shQuote(dst_dir))
+  build_dir <- paste0(build_dir, "/bison-", BISON_VERSION)
+  cmd <- sprintf(
+    "cd %s && ./configure --prefix=%s && make && make install",
+        shQuote(build_dir),          install_dir
+  )
   system(paste0(path, cmd))
-  # The built bison should be in ./src. Return that so we can set as BISON_ROOT
-  paste0(dst_dir, "/src")
+  install_dir
 }
 
 ensure_m4 <- function() {

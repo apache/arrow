@@ -83,16 +83,16 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
 ${CMAKE} --build . --target install
 
 if [ $? -ne 0 ]; then
-  if [ "${DEBUG_DIR}" != "" ]; then
-    # For debugging installation problems, copy the build contents somewhere not tmp
-    mkdir -p ${DEBUG_DIR}
-    cp -r ./* ${DEBUG_DIR}
-  fi
   # Temporary: it's probably thrift's fault, so print it here.
   cat thrift_ep-prefix/src/thrift_ep-stamp/thrift_ep-download-*.log
   cat thrift_ep-prefix/src/thrift_ep-stamp/thrift_ep-configure-*.log
   cat thrift_ep-prefix/src/thrift_ep-stamp/thrift_ep-build-*.log
   cat thrift_ep-prefix/src/thrift_ep-stamp/thrift_ep-install-*.log
+  if [ "${DEBUG_DIR}" != "" ]; then
+    # For debugging installation problems, copy the build contents somewhere not tmp
+    mkdir -p ${DEBUG_DIR}
+    cp -r ./* ${DEBUG_DIR}
+  fi
 fi
 
 # Copy the bundled static libs from the build to the install dir
