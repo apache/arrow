@@ -21,7 +21,7 @@
 arrow_dplyr_query <- function(.data) {
   # An arrow_dplyr_query is a container for an Arrow data object (Table,
   # RecordBatch, or Dataset) and the state of the user's dplyr query--things
-  # like selected colums, filters, and group vars.
+  # like selected columns, filters, and group vars.
 
   # For most dplyr methods,
   # method.Table == method.RecordBatch == method.Dataset == method.arrow_dplyr_query

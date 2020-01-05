@@ -285,7 +285,7 @@ impl ListAccessor for List {
     list_complex_accessor!(get_map, MapInternal, Map);
 }
 
-/// `Map` represents a map which contains an list of key->value pairs.
+/// `Map` represents a map which contains a list of key->value pairs.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Map {
     entries: Vec<(Field, Field)>,

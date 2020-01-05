@@ -67,7 +67,7 @@
 #' @param as_data_frame Should the function return a `data.frame` or an
 #' [arrow::Table][Table]?
 #'
-#' @return A `data.frame`, or an Table if `as_data_frame = FALSE`.
+#' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
 #' @examples
 #' \donttest{

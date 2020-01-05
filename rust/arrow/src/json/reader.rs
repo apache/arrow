@@ -285,7 +285,7 @@ fn infer_json_schema(file: File, max_read_records: Option<usize>) -> Result<Arc<
                                 Ok(())
                             }
                             Value::Object(_) => Err(ArrowError::JsonError(
-                                "Reading nested JSON structes currently not supported"
+                                "Reading nested JSON structs currently not supported"
                                     .to_string(),
                             )),
                         }
@@ -1047,7 +1047,7 @@ mod tests {
             List(Box::new(Int64)),
             coerce_data_type(vec![&Int64, &List(Box::new(Int64))]).unwrap()
         );
-        // boolean an number are incompatible, return utf8
+        // boolean and number are incompatible, return utf8
         assert_eq!(
             List(Box::new(Utf8)),
             coerce_data_type(vec![&Boolean, &List(Box::new(Float64))]).unwrap()

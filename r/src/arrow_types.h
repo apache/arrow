@@ -253,7 +253,7 @@ namespace r {
 Status count_fields(SEXP lst, int* out);
 
 std::shared_ptr<arrow::Array> Array__from_vector(
-    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered);
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
 
 template <typename T>
 std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(SEXP x) {

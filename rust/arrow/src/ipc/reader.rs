@@ -310,7 +310,7 @@ fn create_primitive_array(
     make_array(array_data)
 }
 
-/// Reads the correct number of buffers based on list type an null_count, and creates a
+/// Reads the correct number of buffers based on list type and null_count, and creates a
 /// list array ref
 fn create_list_array(
     field_node: &ipc::FieldNode,
