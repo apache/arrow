@@ -21,10 +21,12 @@ name: C++
 on:
   push:
     paths:
+      - '.github/workflows/cpp.yml'
       - 'ci/**'
       - 'cpp/**'
   pull_request:
     paths:
+      - '.github/workflows/cpp.yml'
       - 'ci/**'
       - 'cpp/**'
 

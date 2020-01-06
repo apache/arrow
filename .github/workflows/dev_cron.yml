@@ -18,6 +18,14 @@
 name: Dev Cron
 
 on:
+  push:
+    paths:
+      - '.github/workflows/dev_cron.yml'
+      - '.github/workflows/dev_cron/**'
+  pull_request:
+    paths:
+      - '.github/workflows/dev_cron.yml'
+      - '.github/workflows/dev_cron/**'
   schedule:
     - cron: |
         */15 * * * *

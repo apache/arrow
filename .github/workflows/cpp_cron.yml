@@ -19,6 +19,12 @@
 name: C++ Cron
 
 on:
+  push:
+    paths:
+      - '.github/workflows/cpp_cron.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/cpp_cron.yml'
   schedule:
     - cron: |
         0 */12 * * *

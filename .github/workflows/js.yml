@@ -20,10 +20,12 @@ name: NodeJS
 on:
   push:
     paths:
+      - '.github/workflows/js.yml'
       - 'ci/**'
       - 'js/**'
   pull_request:
     paths:
+      - '.github/workflows/js.yml'
       - 'ci/**'
       - 'js/**'
 
