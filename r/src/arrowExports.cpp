@@ -1373,6 +1373,23 @@ RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make1(SEXP fs_sexp, SEXP selecto
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make3(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::PartitionSchemeDiscovery>& discovery);
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP discovery_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::PartitionSchemeDiscovery>&>::type discovery(discovery_sexp);
+	return Rcpp::wrap(dataset___FSDSDiscovery__Make3(fs, selector, discovery));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP discovery_sexp){
+	Rf_error("Cannot call dataset___FSDSDiscovery__Make3(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish1(const std::shared_ptr<ds::DataSourceDiscovery>& discovery);
 RcppExport SEXP _arrow_dataset___DSDiscovery__Finish1(SEXP discovery_sexp){
 BEGIN_RCPP
@@ -1434,6 +1451,21 @@ RcppExport SEXP _arrow_dataset___SchemaPartitionScheme(SEXP schm_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::PartitionSchemeDiscovery> dataset___SchemaPartitionScheme__MakeDiscovery(const std::vector<std::string>& field_names);
+RcppExport SEXP _arrow_dataset___SchemaPartitionScheme__MakeDiscovery(SEXP field_names_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type field_names(field_names_sexp);
+	return Rcpp::wrap(dataset___SchemaPartitionScheme__MakeDiscovery(field_names));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___SchemaPartitionScheme__MakeDiscovery(SEXP field_names_sexp){
+	Rf_error("Cannot call dataset___SchemaPartitionScheme__MakeDiscovery(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<ds::PartitionScheme> dataset___HivePartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___HivePartitionScheme(SEXP schm_sexp){
 BEGIN_RCPP
@@ -1444,6 +1476,20 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_dataset___HivePartitionScheme(SEXP schm_sexp){
 	Rf_error("Cannot call dataset___HivePartitionScheme(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::PartitionSchemeDiscovery> dataset___HivePartitionScheme__MakeDiscovery();
+RcppExport SEXP _arrow_dataset___HivePartitionScheme__MakeDiscovery(){
+BEGIN_RCPP
+	return Rcpp::wrap(dataset___HivePartitionScheme__MakeDiscovery());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___HivePartitionScheme__MakeDiscovery(){
+	Rf_error("Cannot call dataset___HivePartitionScheme__MakeDiscovery(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5570,11 +5616,14 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1}, 
 		{ "_arrow_dataset___FSDSDiscovery__Make2", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make2, 3}, 
 		{ "_arrow_dataset___FSDSDiscovery__Make1", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make1, 2}, 
+		{ "_arrow_dataset___FSDSDiscovery__Make3", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make3, 3}, 
 		{ "_arrow_dataset___DSDiscovery__Finish1", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish1, 1}, 
 		{ "_arrow_dataset___DSDiscovery__Finish2", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish2, 2}, 
 		{ "_arrow_dataset___DSDiscovery__Inspect", (DL_FUNC) &_arrow_dataset___DSDiscovery__Inspect, 1}, 
 		{ "_arrow_dataset___SchemaPartitionScheme", (DL_FUNC) &_arrow_dataset___SchemaPartitionScheme, 1}, 
+		{ "_arrow_dataset___SchemaPartitionScheme__MakeDiscovery", (DL_FUNC) &_arrow_dataset___SchemaPartitionScheme__MakeDiscovery, 1}, 
 		{ "_arrow_dataset___HivePartitionScheme", (DL_FUNC) &_arrow_dataset___HivePartitionScheme, 1}, 
+		{ "_arrow_dataset___HivePartitionScheme__MakeDiscovery", (DL_FUNC) &_arrow_dataset___HivePartitionScheme__MakeDiscovery, 0}, 
 		{ "_arrow_dataset___Dataset__create", (DL_FUNC) &_arrow_dataset___Dataset__create, 2}, 
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 

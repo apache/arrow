@@ -45,6 +45,22 @@ std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make1(
 }
 
 // [[arrow::export]]
+std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make3(
+    const std::shared_ptr<fs::FileSystem>& fs,
+    const std::shared_ptr<fs::FileSelector>& selector,
+    const std::shared_ptr<ds::PartitionSchemeDiscovery>& discovery) {
+  // TODO(npr): add format as an argument, don't hard-code Parquet
+  auto format = std::make_shared<ds::ParquetFileFormat>();
+
+  // TODO(fsaintjacques): Make options configurable
+  auto options = ds::FileSystemDiscoveryOptions{};
+  options.partition_scheme = discovery;
+
+  return VALUE_OR_STOP(
+      ds::FileSystemDataSourceDiscovery::Make(fs, *selector, format, options));
+}
+
+// [[arrow::export]]
 std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish1(
     const std::shared_ptr<ds::DataSourceDiscovery>& discovery) {
   return VALUE_OR_STOP(discovery->Finish());
@@ -70,9 +86,22 @@ std::shared_ptr<ds::PartitionScheme> dataset___SchemaPartitionScheme(
 }
 
 // [[arrow::export]]
+std::shared_ptr<ds::PartitionSchemeDiscovery>
+dataset___SchemaPartitionScheme__MakeDiscovery(
+    const std::vector<std::string>& field_names) {
+  return ds::SchemaPartitionScheme::MakeDiscovery(field_names);
+}
+
+// [[arrow::export]]
 std::shared_ptr<ds::PartitionScheme> dataset___HivePartitionScheme(
     const std::shared_ptr<arrow::Schema>& schm) {
   return std::make_shared<ds::HivePartitionScheme>(schm);
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::PartitionSchemeDiscovery>
+dataset___HivePartitionScheme__MakeDiscovery() {
+  return ds::HivePartitionScheme::MakeDiscovery();
 }
 
 // [[arrow::export]]

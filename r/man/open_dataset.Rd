@@ -4,7 +4,7 @@
 \alias{open_dataset}
 \title{Open a multi-file dataset}
 \usage{
-open_dataset(path, schema = NULL, partition = NULL, ...)
+open_dataset(path, schema = NULL, partition = hive_partition(), ...)
 }
 \arguments{
 \item{path}{String path to a directory containing the data files}
@@ -18,8 +18,13 @@ will be inferred from the files}
 parsed, and path segments will be matched with the schema fields. For
 example, \code{schema(year = int16(), month = int8())} would create partitions
 for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
+\item A character vector that defines the field names corresponding to those
+path segments (that is, you're providing the names that would correspond
+to a \code{Schema} but the types will be autodetected)
 \item A \code{HivePartitionScheme}, as returned by \code{\link[=hive_partition]{hive_partition()}}
-\item \code{NULL}, the default, for no partitioning
+\item A \code{HivePartitionSchemeDiscovery}, the default, which autodetects fields
+from Hive-style path segments
+\item \code{NULL} for no partitioning
 }}
 
 \item{...}{additional arguments passed to \code{DataSourceDiscovery$create()}}

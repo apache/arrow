@@ -45,8 +45,7 @@ takes the following arguments:
 \code{DataSourceDiscovery} and its subclasses have the following methods:
 \itemize{
 \item \verb{$Inspect()}: Walks the files in the directory and returns a common \link{Schema}
-\item \verb{$Finish(schema)}: Returns a \code{DataSource}. If no schema is provided one
-will be derived using \verb{$Inspect()}.
+\item \verb{$Finish(schema)}: Returns a \code{DataSource}
 }
 }
 

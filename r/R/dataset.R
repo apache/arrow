@@ -25,21 +25,28 @@
 #'    parsed, and path segments will be matched with the schema fields. For
 #'    example, `schema(year = int16(), month = int8())` would create partitions
 #'    for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
-#'   * A `HivePartitionScheme`, as returned by [hive_partition()]
-#'   * `NULL`, the default, for no partitioning
+#'   * A character vector that defines the field names corresponding to those
+#'    path segments (that is, you're providing the names that would correspond
+#'    to a `Schema` but the types will be autodetected)
+#'   * A `HivePartitionScheme` or `HivePartitionSchemeDiscovery`, as returned
+#'    by [hive_partition()] which parses explicit or autodetected fields from
+#'    Hive-style path segments
+#'   * `NULL` for no partitioning
 #' @param ... additional arguments passed to `DataSourceDiscovery$create()`
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call `$NewScan()` to construct a query directly.
 #' @export
 #' @seealso [PartitionScheme] for defining partitioning
 #' @include arrow-package.R
-open_dataset <- function (path, schema = NULL, partition = NULL, ...) {
+open_dataset <- function (path, schema = NULL, partition = hive_partition(), ...) {
   if (!is.null(partition)) {
     if (inherits(partition, "Schema")) {
-      # TODO(bkietz): allow specifying a PartitionSchemeDiscovery
       partition <- SchemaPartitionScheme$create(partition)
+    } else if (is.character(partition)) {
+      # These are the column/field names, and we should autodetect their types
+      partition <- SchemaPartitionSchemeDiscovery$create(partition)
     }
-    assert_is(partition, "PartitionScheme")
+    assert_is(partition, c("PartitionScheme", "PartitionSchemeDiscovery"))
   }
   dsd <- DataSourceDiscovery$create(path, partition_scheme = partition, ...)
   if (is.null(schema)) {
@@ -191,6 +198,11 @@ FileSystemDataSourceDiscovery$create <- function(filesystem,
       FileSystemDataSourceDiscovery,
       dataset___FSDSDiscovery__Make1(filesystem, selector)
     )
+  } else if (inherits(partition_scheme, "PartitionSchemeDiscovery")) {
+    shared_ptr(
+      FileSystemDataSourceDiscovery,
+      dataset___FSDSDiscovery__Make3(filesystem, selector, partition_scheme)
+    )
   } else {
     assert_is(partition_scheme, "PartitionScheme")
     shared_ptr(
@@ -312,12 +324,28 @@ HivePartitionScheme$create <- function(schema) {
 #' Because fields are named in the path segments, order of fields passed to
 #' `hive_partition()` does not matter.
 #' @param ... named list of [data types][data-type], passed to [schema()]
-#' @return A `HivePartitionScheme`
+#' @return A `HivePartitionScheme`, or a `HivePartitionSchemeDiscovery` if
+#' calling `hive_partition()` with no arguments.
 #' @examples
 #' \donttest{
 #' hive_partition(year = int16(), month = int8())
 #' }
 hive_partition <- function(...) {
   schm <- schema(...)
-  HivePartitionScheme$create(schm)
+  if (length(schm) == 0) {
+    HivePartitionSchemeDiscovery$create()
+  } else {
+    HivePartitionScheme$create(schm)
+  }
+}
+
+PartitionSchemeDiscovery <- R6Class("PartitionSchemeDiscovery", inherit = Object)
+SchemaPartitionSchemeDiscovery <- R6Class("SchemaPartitionSchemeDiscovery", inherit = PartitionSchemeDiscovery)
+SchemaPartitionSchemeDiscovery$create <- function(x) {
+  shared_ptr(SchemaPartitionSchemeDiscovery, dataset___SchemaPartitionScheme__MakeDiscovery(x))
+}
+
+HivePartitionSchemeDiscovery <- R6Class("HivePartitionSchemeDiscovery", inherit = PartitionSchemeDiscovery)
+HivePartitionSchemeDiscovery$create <- function() {
+  shared_ptr(HivePartitionSchemeDiscovery, dataset___HivePartitionScheme__MakeDiscovery())
 }
