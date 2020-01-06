@@ -30,6 +30,3 @@ patches=${3}
 
 mkdir "${target}"
 wget -q -O - https://github.com/apache/spark/archive/${spark}.tar.gz | tar -xzf - --strip-components=1 -C "${target}"
-
-# Patch spark to build with current Arrow Java
-# patch -d "${target}" -p1 -i "${patches}/ARROW-6429.patch"
