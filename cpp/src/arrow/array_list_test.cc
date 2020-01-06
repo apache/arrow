@@ -396,6 +396,44 @@ class TestListArray : public TestBuilder {
         << flattened->ToString();
   }
 
+  Status ValidateOffsets(int64_t length, std::vector<offset_type> offsets,
+                         const std::shared_ptr<Array>& values, int64_t offset = 0) {
+    auto type = std::make_shared<TypeClass>(values->type());
+    ArrayType arr(type, length, Buffer::Wrap(offsets), values,
+                  /*null_bitmap=*/nullptr, /*null_count=*/0, offset);
+    return arr.ValidateFull();
+  }
+
+  void TestValidateOffsets() {
+    auto empty_values = ArrayFromJSON(int16(), "[]");
+    auto values = ArrayFromJSON(int16(), "[1, 2, 3, 4, 5, 6, 7]");
+
+    ASSERT_OK(ValidateOffsets(0, {0}, empty_values));
+    ASSERT_OK(ValidateOffsets(1, {0, 7}, values));
+    ASSERT_OK(ValidateOffsets(2, {0, 4, 7}, values));
+    ASSERT_OK(ValidateOffsets(3, {0, 4, 7, 7}, values));
+
+    // Non-zero array offset
+    ASSERT_OK(ValidateOffsets(1, {0, 4, 7}, values, 1));
+    ASSERT_OK(ValidateOffsets(0, {0, 4, 7}, values, 2));
+
+    // Not enough offsets
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0}, values));
+    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 0}, values, 1));
+
+    // First offset != 0
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {1, 7}, values));
+    // Offset out of bounds
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 8}, values));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 8, 8}, values, 1));
+    // Negative offset
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {-1, 0}, values));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, -1}, values));
+    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, -1, -1}, values, 1));
+    // Offsets non-monotonic
+    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 7, 4}, values));
+  }
+
  protected:
   std::shared_ptr<DataType> value_type_;
 
@@ -432,6 +470,8 @@ TYPED_TEST(TestListArray, FlattenZeroLength) { this->TestFlattenZeroLength(); }
 TYPED_TEST(TestListArray, TestFlattenNonEmptyBackingNulls) {
   this->TestFlattenNonEmptyBackingNulls();
 }
+
+TYPED_TEST(TestListArray, ValidateOffsets) { this->TestValidateOffsets(); }
 
 // ----------------------------------------------------------------------
 // Map tests
