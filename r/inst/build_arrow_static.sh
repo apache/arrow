@@ -50,7 +50,6 @@ fi
 if [ "$BISON_ROOT" != "" ]; then
   # Thrift can't find this as a cmake flag, so put it on the PATH
   export PATH="${BISON_ROOT}:${PATH}"
-  # EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DBISON_ROOT=${BISON_ROOT}"
 fi
 
 mkdir -p "${BUILD_DIR}"
@@ -83,7 +82,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
 ${CMAKE} --build . --target install
 
 if [ $? -ne 0 ]; then
-  # Temporary: it's probably thrift's fault, so print it here.
+  # It's probably thrift's fault, so print it here.
   cat thrift_ep-prefix/src/thrift_ep-stamp/thrift_ep-download-*.log
   cat thrift_ep-prefix/src/thrift_ep-stamp/thrift_ep-configure-*.log
   cat thrift_ep-prefix/src/thrift_ep-stamp/thrift_ep-build-*.log
@@ -96,10 +95,6 @@ if [ $? -ne 0 ]; then
 fi
 
 # Copy the bundled static libs from the build to the install dir
+# See https://issues.apache.org/jira/browse/ARROW-7499 for moving this to CMake
 find . -regex .*/.*/lib/.*\\.a\$ | xargs -I{} cp -u {} ${DEST_DIR}/lib
 popd
-
-# TODO: put the build step in its own script, not needed for R package source build
-# pushd ${DEST_DIR}
-# zip -r libarrow.zip lib/*.a include/
-# popd

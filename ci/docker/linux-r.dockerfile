@@ -15,10 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# General purpose Dockerfile to take a Docker image containing R
+# and install Arrow R package dependencies
+
 ARG base
 FROM ${base}
 
-# Make sure R is on the path for the devel versions (where RPREFIX is set in its dockerfile)
+# Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
 ENV PATH "${RPREFIX}/bin:${PATH}"
 # Ensure parallel R package installation, set CRAN repo mirror,
 # and use pre-built binaries where possible

@@ -45,8 +45,6 @@ build_ok <- locally_installing && !env_is("LIBARROW_BUILD", "false")
 
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
-# download_ok <- build_ok <- TRUE # FOR TESTING
-# quietly <- FALSE # FOR TESTING
 
 download_binary <- function(os = identify_os()) {
   libfile <- tempfile()
@@ -116,8 +114,6 @@ download_source <- function() {
       download.file(apache_src_url, tf1, quiet = quietly),
       silent = quietly
     )
-    # TODO: make bintray cpp source to have the same dir layout as ^^
-    # so no other special casing required
   }
   if (file.exists(tf1)) {
     cat("*** Successfully retrieved C++ source\n")
@@ -146,8 +142,10 @@ find_local_source <- function() {
 build_libarrow <- function(src_dir, dst_dir) {
   # We'll need to compile R bindings with these libs, so delete any .o files
   system("rm src/*.o", ignore.stdout = quietly, ignore.stderr = quietly)
-  # Check for cmake and flex: build dependencies for libarrow
-  # (flex is for thrift)
+  # Check for libarrow build dependencies:
+  # * cmake
+  # * flex and bison (for building thrift)
+  # * m4 (for building flex and bison)
   cmake <- ensure_cmake()
   m4 <- ensure_m4()
   flex <- ensure_flex(m4)
@@ -201,6 +199,7 @@ ensure_cmake <- function() {
   cmake
 }
 
+# TODO: move ensure_flex/bison/m4 to cmake: https://issues.apache.org/jira/browse/ARROW-7501
 ensure_flex <- function(m4 = ensure_m4()) {
   if (nzchar(Sys.which("flex"))) {
     # We already have flex.

@@ -56,15 +56,35 @@ R CMD INSTALL .
 
 # How dependencies are resolved
 
+In order for the `arrow` R package to work, it needs the Arrow C++ library.
+There are a number of ways you can get it: a system package; a library you've
+built yourself outside of the context of installing the R package;
+or, if you don't already have it, the R package will attempt to resolve it
+automatically when it installs. This section outlines the logic of how that
+dependency resolution occurs.
+
 When you install the `arrow` R package on Linux,
-it will first attempt to find the Arrow C++ libraries on your system using `pkg-config`.
+it will first attempt to find the Arrow C++ libraries on your system using
+the `pkg-config` command.
 This will find either installed system packages or libraries you've built yourself.
-If you've built the C++ libraries from source
+
+If you are authorized to install system packages, and you're installing a CRAN release,
+you may want to use the official Apache Arrow release packages corresponding to the R package version.
+See the [Arrow project installation page](https://arrow.apache.org/install/)
+to find pre-compiled binary packages for some common Linux distributions,
+including Debian, Ubuntu, and CentOS.
+You'll need to install `libparquet-dev` on Debian and Ubuntu, or `parquet-devel` on CentOS.
+This will also automatically install the Arrow C++ library as a dependency.
+In order for `install.packages("arrow")` to work with these system packages,
+you'll need to install them before installing the R package.
+
+Alternatively, if you've built the Arrow C++ libraries locally from source
 but haven't installed them where `pkg-config` will find them,
 you can instead set `INCLUDE_DIR` and `LIB_DIR` environment variables to point to their location.
 
 If no Arrow C++ libraries are found on the system,
-it will next attempt to download prebuilt static Arrow C++ libraries, hosted by Ursa Labs,
+the R package installation script will next attempt to download
+prebuilt static Arrow C++ libraries, hosted by Ursa Labs,
 that match your both your local operating system and `arrow` R package version.
 If found, they will be downloaded and bundled when your R package compiles.
 <!-- TODO: link to bintray to show current list of supported OSes? -->
@@ -85,9 +105,14 @@ This build script is also what is used to generate the prebuilt binaries.
 
 # Troubleshooting and additional options
 
+The intent is that `install.packages("arrow")` will just work and handle all C++
+dependencies, but depending on your system, you may have better results if you
+tune one of several parameters. Here are some known complications and ways to address them.
+
 ## Using system libraries
 
-If a system library or other installed Arrow is found but it doesn't match the R package version,
+If a system library or other installed Arrow is found but it doesn't match the R package version
+(for example, you have libarrow 0.14 on your system and are installing R package 0.15.1),
 it is likely that the R bindings will fail to compile.
 Because the Apache Arrow project is under active development,
 is it essential that versions of the C++ and R libraries match.
@@ -107,16 +132,18 @@ if you update your system Arrow, you'll need to reinstall the R package to match
 
 ## Using prebuilt binaries
 
-If a prebuilt binary is downloaded but then the `arrow` package can't be loaded,
-perhaps with "undefined symbols" errors,
+If the R package finds and downloads a prebuilt binary of the C++ library,
+but then the `arrow` package can't be loaded, perhaps with "undefined symbols" errors,
 please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
 This is likely a compiler mismatch and may be resolvable by setting some
 environment variables to instruct R to compile the packages to match the C++ library.
+
 A workaround would be to set the environment variable `LIBARROW_BINARY_DISTRO=FALSE`
 and retry installation: this value instructs the package to build the C++ library from source
 instead of downloading the prebuilt binary.
+That should guarantee that the compiler settings match.
 
-If a prebuilt binary wasn't found but you think it should have been,
+If a prebuilt binary wasn't found for your operating system but you think it should have been,
 check the logs for a message that says `*** Unable to identify current OS/version`,
 or a message that says `*** No C++ binaries found for` an invalid OS.
 If you see either, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
@@ -128,7 +155,7 @@ to a `distribution-version` that exists in the Ursa Labs repository.
 <!-- give example, once one exists -->
 Setting `LIBARROW_BINARY_DISTRO` is also an option when there's not an exact match
 for your OS but a similar version would work,
-such as if you're on Ubuntu 18.10 and there's only a binary for 18.04.
+such as if you're on `ubuntu-18.10` and there's only a binary for `ubuntu-18.04`.
 
 <!-- If no binary found for current nightly R package version but yes for yesterday? -->
 <!-- TODO add a function to the package to update dev version from bintray? -->
@@ -138,11 +165,30 @@ such as if you're on Ubuntu 18.10 and there's only a binary for 18.04.
 
 If building the C++ library from source fails, check the error message.
 The install script attempts to install any necessary build dependencies,
-such as `cmake`, but it's possible that some operating systems may require additional ones.
+but it's possible that some operating systems may require additional ones.
 You may be able to install them and retry.
 Regardless, if the C++ library fails to compile,
 please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
 so that we can attempt to improve the script.
+
+### Known C++ build issues
+
+(1) `m4` (build dependency for `flex` and `bison`, which are build dependencies for `thrift`)
+fails to build with a message like:
+
+```
+freadahead.c: In function 'freadahead':
+freadahead.c:92:3: error: #error "Please port gnulib freadahead.c to your platform! Look at the definition of fflush, fread, ungetc on your system, then report this to bug-gnulib."
+```
+
+This has been observed on CentOS 8 (Docker image `rstudio/r-base:3.6-centos8`)
+and Fedora (`rhub/fedora-clang-devel`).
+
+A solution is to install `m4` using your system package manager;
+if that's an option for you, you may as well just install `flex` and `bison`
+and avoid this build step entirely.
+
+<!-- TODO: try applying https://src.fedoraproject.org/rpms/m4/raw/master/f/m4-1.4.18-glibc-change-work-around.patch on centos and fedora? -->
 
 ## Summary of build environment variables
 
@@ -181,3 +227,25 @@ By default, these are all unset.
   To capture those logs, set this variable to an absolute (not relative) path
   and the log files will be copied there.
   The directory will be created if it does not exist.
+
+# Contributing
+
+As mentioned above, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
+if you encounter ways to improve this. If you find that your Linux distribution
+or version is not supported, we welcome the contribution of Docker images
+(hosted on Docker Hub) that we can use in our continuous integration. These
+Docker images should be minimal, containing only R and the dependencies it
+requires. (For reference, see the images that
+[R-hub](https://github.com/r-hub/rhub-linux-builders) uses.)
+
+You can test the `arrow` R package installation using the `docker-compose`
+setup included in the `apache/arrow` git repository. For example,
+
+```
+R_DOCKER_ORG=rhub R_DOCKER_IMAGE=ubuntu-gcc-release R_DOCKER_TAG=latest docker-compose build r-hub
+R_DOCKER_ORG=rhub R_DOCKER_IMAGE=ubuntu-gcc-release R_DOCKER_TAG=latest docker-compose run r-hub
+```
+
+installs the `arrow` R package, including the C++ source build, on the
+[rhub/ubuntu-gcc-release](https://hub.docker.com/r/rhub/ubuntu-gcc-release)
+image.

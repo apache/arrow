@@ -42,7 +42,7 @@
 
 options(
   Ncpus = parallel::detectCores(),
-  repos = .pick_cran(),
+  repos = tryCatch(.pick_cran(), error = function(e) "https://cloud.r-project.org"),
   HTTPUserAgent = sprintf(
     'R/%s R (%s)',
     getRversion(),

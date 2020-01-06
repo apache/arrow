@@ -113,8 +113,6 @@ CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
 # If libarrow uses the old GLIBCXX ABI, so we have to use it too
 if [ "$ARROW_USE_OLD_CXXABI" ]; then
   PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
-# else
-#   PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=1"
 fi
 
 # Set any user-defined CXXFLAGS

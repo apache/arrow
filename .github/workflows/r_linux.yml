@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: R Linux build matrix
+name: Linux R/C++ bundled static build
 
 on:
   # TODO: make these CRON? or maybe just push to master?
@@ -45,7 +45,6 @@ jobs:
       fail-fast: false
       matrix:
         # See https://github.com/r-hub/rhub-linux-builders
-        # "fedora-clang-devel" fails on compiling m4, see below for freadahead message
         r_image: ["debian-gcc-devel", "ubuntu-gcc-release"]
     env:
       R_DOCKER_ORG: "rhub"
@@ -80,9 +79,6 @@ jobs:
       fail-fast: false
       matrix:
         # See https://hub.docker.com/r/rstudio/r-base
-        # centos8 fails on compiling m4:
-        # freadahead.c: In function 'freadahead':
-        # freadahead.c:92:3: error: #error "Please port gnulib freadahead.c to your platform! Look at the definition of fflush, fread, ungetc on your system, then report this to bug-gnulib."
         r_version: ["3.6"]
         r_image: ["bionic", "centos6", "centos7", "opensuse42", "opensuse15"]
     env:
