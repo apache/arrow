@@ -621,7 +621,7 @@ class ParquetDatasetPiece(object):
             # been computed in the ParquetManifest
             for i, (name, index) in enumerate(self.partition_keys):
                 # The partition code is the same for all values in this piece
-                indices = np.array([index], dtype='i4').repeat(len(table))
+                indices = np.full(len(table), index, dtype='i4')
 
                 # This is set of all partition values, computed as part of the
                 # manifest, so ['a', 'b', 'c'] as in our example above.
