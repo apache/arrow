@@ -20,12 +20,14 @@ name: C GLib & Ruby
 on:
   push:
     paths:
+      - '.github/workflows/ruby.yml'
       - 'ci/**'
       - 'cpp/**'
       - 'c_glib/**'
       - 'ruby/**'
   pull_request:
     paths:
+      - '.github/workflows/ruby.yml'
       - 'ci/**'
       - 'cpp/**'
       - 'c_glib/**'
