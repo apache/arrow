@@ -104,8 +104,6 @@ test_that("Hive partitioning", {
 
 test_that("Partition scheme inference", {
   # These are the same tests as above, just using the *PartitionSchemeDiscovery
-  skip_on_os("linux")
-  # https://issues.apache.org/jira/browse/ARROW-7500
   ds1 <- open_dataset(dataset_dir, partition = "part")
   expect_identical(names(ds1), c(names(df1), "part"))
   expect_equivalent(
@@ -119,6 +117,8 @@ test_that("Partition scheme inference", {
       summarize(mean = mean(integer))
   )
 
+  skip_on_os("linux")
+  # https://issues.apache.org/jira/browse/ARROW-7500
   ds2 <- open_dataset(hive_dir)
   expect_identical(names(ds2), c(names(df1), "group", "other"))
   print(ds2$schema)
@@ -133,7 +133,7 @@ test_that("Partition scheme inference", {
 })
 
 test_that("filter() on a dataset won't auto-collect", {
-  ds <- open_dataset(dataset_dir)
+  ds <- open_dataset(dataset_dir, partition = "part")
   expect_error(
     ds %>% filter(int > 6, dbl > max(dbl)),
     "Filter expression not supported for Arrow Datasets: dbl > max(dbl)",
