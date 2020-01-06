@@ -286,7 +286,7 @@ ensure_m4 <- function() {
   }
   # If not found, download it
   cat("*** Downloading and building m4\n")
-  M4_VERSION <- Sys.getenv("M4_VERSION", "1.4.18")
+  M4_VERSION <- Sys.getenv("M4_VERSION", "1.4.17")
   source_url <- paste0("https://ftp.gnu.org/gnu/m4/m4-", M4_VERSION, ".tar.gz")
   tar_file <- tempfile()
   dst_dir <- tempfile()
