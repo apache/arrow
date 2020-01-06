@@ -95,7 +95,6 @@ class TestHadoopFileSystem : public ::testing::Test {
     internal::LibHdfsShim* driver_shim;
 
     client_ = nullptr;
-
     scratch_dir_ =
         boost::filesystem::unique_path(boost::filesystem::temp_directory_path() /
                                        "arrow-hdfs/scratch-%%%%")
