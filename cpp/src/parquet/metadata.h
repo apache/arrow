@@ -164,8 +164,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
 };
 
-class PARQUET_EXPORT
-        RowGroupMetaData {
+class PARQUET_EXPORT RowGroupMetaData {
  public:
   // API convenience to get a MetaData accessor
   static std::unique_ptr<RowGroupMetaData> Make(
