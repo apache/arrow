@@ -503,7 +503,8 @@ inline void ConvertIntegerWithNulls(const PandasOptions& options,
     // Upcast to double, set NaN as appropriate
 
     for (int i = 0; i < arr.length(); ++i) {
-      *out_values++ = arr.IsNull(i) ? NAN : static_cast<double>(in_values[i]);
+      *out_values++ =
+          arr.IsNull(i) ? static_cast<OutType>(NAN) : static_cast<OutType>(in_values[i]);
     }
   }
 }
