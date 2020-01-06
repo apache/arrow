@@ -220,6 +220,42 @@ class TestStringArray : public ::testing::Test {
     ASSERT_EQ(arr->GetString(0), "b");
   }
 
+  Status ValidateOffsets(int64_t length, std::vector<offset_type> offsets,
+                         util::string_view data, int64_t offset = 0) {
+    ArrayType arr(length, Buffer::Wrap(offsets), std::make_shared<Buffer>(data),
+                  /*null_bitmap=*/nullptr, /*null_count=*/0, offset);
+    return arr.ValidateFull();
+  }
+
+  void TestValidateOffsets() {
+    ASSERT_OK(ValidateOffsets(0, {0}, ""));
+    ASSERT_OK(ValidateOffsets(1, {0, 4}, "data"));
+    ASSERT_OK(ValidateOffsets(2, {0, 4, 4}, "data"));
+    ASSERT_OK(ValidateOffsets(2, {0, 5, 9}, "some data"));
+
+    // Non-zero array offset
+    ASSERT_OK(ValidateOffsets(0, {0, 4}, "data", 1));
+    ASSERT_OK(ValidateOffsets(1, {0, 5, 9}, "some data", 1));
+    ASSERT_OK(ValidateOffsets(0, {0, 5, 9}, "some data", 2));
+
+    // Not enough offsets
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {}, ""));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0}, ""));
+    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 4}, "data"));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 4}, "data", 1));
+
+    // First offset != 0
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {1, 4}, "data"));
+    // Offset out of bounds
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 5}, "data"));
+    // Negative offset
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {-1, 0}, "data"));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, -1}, "data"));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, -1, -1}, "data", 1));
+    // Offsets non-monotonic
+    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 5, 4}, "some data"));
+  }
+
  protected:
   std::vector<offset_type> offsets_;
   std::vector<char> chars_;
@@ -256,6 +292,8 @@ TYPED_TEST(TestStringArray, TestEmptyStringComparison) {
 TYPED_TEST(TestStringArray, CompareNullByteSlots) { this->TestCompareNullByteSlots(); }
 
 TYPED_TEST(TestStringArray, TestSliceGetString) { this->TestSliceGetString(); }
+
+TYPED_TEST(TestStringArray, TestValidateOffsets) { this->TestValidateOffsets(); }
 
 // ----------------------------------------------------------------------
 // String builder tests
