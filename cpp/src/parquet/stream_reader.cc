@@ -21,6 +21,8 @@
 
 namespace parquet {
 
+constexpr int64_t StreamReader::kBatchSizeOne;
+
 StreamReader::StreamReader(std::unique_ptr<ParquetFileReader> reader)
     : file_reader_{std::move(reader)}, eof_{false} {
   file_metadata_ = file_reader_->metadata();
@@ -268,7 +270,7 @@ void StreamReader::Read(ByteArray* v) {
   int16_t rep_level;
   int64_t values_read;
 
-  reader->ReadBatch(1, &def_level, &rep_level, v, &values_read);
+  reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, v, &values_read);
 
   if (values_read != 1) {
     ThrowReadFailedException(node);
@@ -282,7 +284,7 @@ bool StreamReader::ReadOptional(ByteArray* v) {
   int16_t rep_level;
   int64_t values_read;
 
-  reader->ReadBatch(1, &def_level, &rep_level, v, &values_read);
+  reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, v, &values_read);
 
   if (values_read == 1) {
     return true;
@@ -300,7 +302,7 @@ void StreamReader::Read(FixedLenByteArray* v) {
   int16_t rep_level;
   int64_t values_read;
 
-  reader->ReadBatch(1, &def_level, &rep_level, v, &values_read);
+  reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, v, &values_read);
 
   if (values_read != 1) {
     ThrowReadFailedException(node);
@@ -315,7 +317,7 @@ bool StreamReader::ReadOptional(FixedLenByteArray* v) {
   int16_t rep_level;
   int64_t values_read;
 
-  reader->ReadBatch(1, &def_level, &rep_level, v, &values_read);
+  reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, v, &values_read);
 
   if (values_read == 1) {
     return true;
@@ -479,7 +481,8 @@ void StreamReader::CheckColumn(Type::type physical_type,
   }
 }
 
-void StreamReader::ThrowReadFailedException(const node_ptr_type& node) {
+void StreamReader::ThrowReadFailedException(
+    const std::shared_ptr<schema::PrimitiveNode>& node) {
   throw ParquetException("Failed to read value for column '" + node->name() +
                          "' on row " + std::to_string(current_row_));
 }

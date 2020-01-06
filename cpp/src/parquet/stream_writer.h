@@ -155,7 +155,9 @@ class PARQUET_EXPORT StreamWriter {
     return *this;
   }
 
-  /// \brief Skip the next N columns of optional data.
+  /// \brief Skip the next N columns of optional data.  If there are
+  /// less than N columns remaining then the excess columns are
+  /// ignored.
   /// \throws ParquetException if there is an attempt to skip any
   /// required column.
   /// \return Number of columns actually skipped.
@@ -174,7 +176,7 @@ class PARQUET_EXPORT StreamWriter {
   StreamWriter& Write(const T v) {
     auto writer = static_cast<WriterType*>(row_group_writer_->column(column_index_++));
 
-    writer->WriteBatch(1, &def_level_one_, &rep_level_zero_, &v);
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelOne, &kRepLevelZero, &v);
 
     if (max_row_group_size_ > 0) {
       row_group_size_ += writer->EstimatedBufferedValueBytes();
@@ -189,7 +191,12 @@ class PARQUET_EXPORT StreamWriter {
   void CheckColumn(Type::type physical_type, ConvertedType::type converted_type,
                    int length = -1);
 
+  /// \brief Skip the next column which must be optional.
+  /// \throws ParquetException if the next column does not exist or is
+  /// not optional.
   void SkipOptionalColumn();
+
+  void WriteNullValue(ColumnWriter* writer);
 
  private:
   using node_ptr_type = std::shared_ptr<schema::PrimitiveNode>;
@@ -207,10 +214,10 @@ class PARQUET_EXPORT StreamWriter {
   std::unique_ptr<RowGroupWriter, null_deleter> row_group_writer_;
   std::vector<node_ptr_type> nodes_;
 
-  static const int16_t def_level_zero_;
-  static const int16_t def_level_one_;
-  static const int16_t rep_level_zero_;
-  static const int16_t rep_level_one_;
+  static constexpr int16_t kDefLevelZero = 0;
+  static constexpr int16_t kDefLevelOne = 1;
+  static constexpr int16_t kRepLevelZero = 0;
+  static constexpr int64_t kBatchSizeOne = 1;
 
   static int64_t default_row_group_size_;
 };

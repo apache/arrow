@@ -34,6 +34,7 @@ namespace test {
 
 template <typename T>
 using optional = StreamReader::optional<T>;
+using arrow::util::nullopt;
 
 struct TestData {
   static void init() { std::time(&ts_offset_); }
@@ -59,77 +60,77 @@ struct TestData {
 
   static optional<bool> GetOptBool(const int i) {
     if (i % 11 == 0) {
-      return {};
+      return nullopt;
     }
     return i % 7 < 3;
   }
 
   static optional<char> GetOptChar(const int i) {
     if ((i + 1) % 11 == 1) {
-      return {};
+      return nullopt;
     }
     return i & 1 ? 'M' : 'F';
   }
 
   static optional<std::array<char, 4>> GetOptCharArray(const int i) {
     if ((i + 2) % 11 == 1) {
-      return {};
+      return nullopt;
     }
     return std::array<char, 4>{{'X', 'Y', 'Z', char('A' + i % 26)}};
   }
 
   static optional<int8_t> GetOptInt8(const int i) {
     if ((i + 3) % 11 == 1) {
-      return {};
+      return nullopt;
     }
     return static_cast<int8_t>((i % 256) - 128);
   }
 
   static optional<uint16_t> GetOptUInt16(const int i) {
     if ((i + 4) % 11 == 1) {
-      return {};
+      return nullopt;
     }
     return static_cast<uint16_t>(i);
   }
 
   static optional<int32_t> GetOptInt32(const int i) {
     if ((i + 5) % 11 == 1) {
-      return {};
+      return nullopt;
     }
     return 3 * i - 17;
   }
 
   static optional<uint64_t> GetOptUInt64(const int i) {
     if ((i + 6) % 11 == 1) {
-      return {};
+      return nullopt;
     }
     return (1ull << 40) + i * i + 101;
   }
 
   static optional<std::string> GetOptString(const int i) {
     if (i % 5 == 0) {
-      return {};
+      return nullopt;
     }
     return "Str #" + std::to_string(i);
   }
 
   static optional<float> GetOptFloat(const int i) {
     if ((i + 1) % 3 == 0) {
-      return {};
+      return nullopt;
     }
     return 2.718281828459045f * i;
   }
 
   static optional<double> GetOptDouble(const int i) {
     if ((i + 2) % 3 == 0) {
-      return {};
+      return nullopt;
     }
     return 6.62607004e-34 * 3e8 * i;
   }
 
   static optional<std::chrono::microseconds> GetOptChronoMicroseconds(const int i) {
     if ((i + 2) % 7 == 0) {
-      return {};
+      return nullopt;
     }
     return std::chrono::microseconds{(ts_offset_ + 3 * i) * 1000000ull + i};
   }
@@ -234,21 +235,21 @@ TEST_F(TestStreamReader, DefaultConstructed) {
   std::string s;
 
   // N.B. Default constructor objects are not usable.
-  ASSERT_THROW(os >> i, ParquetException);
-  ASSERT_THROW(os >> s, ParquetException);
-  ASSERT_THROW(os >> EndRow, ParquetException);
+  EXPECT_THROW(os >> i, ParquetException);
+  EXPECT_THROW(os >> s, ParquetException);
+  EXPECT_THROW(os >> EndRow, ParquetException);
 
-  ASSERT_EQ(true, os.eof());
-  ASSERT_EQ(0, os.current_column());
-  ASSERT_EQ(0, os.current_row());
+  EXPECT_EQ(true, os.eof());
+  EXPECT_EQ(0, os.current_column());
+  EXPECT_EQ(0, os.current_row());
 
-  ASSERT_EQ(0, os.num_columns());
-  ASSERT_EQ(0, os.num_rows());
+  EXPECT_EQ(0, os.num_columns());
+  EXPECT_EQ(0, os.num_rows());
 
   // Skipping columns and rows is allowed.
   //
-  ASSERT_EQ(0, os.SkipColumns(100));
-  ASSERT_EQ(0, os.SkipRows(100));
+  EXPECT_EQ(0, os.SkipColumns(100));
+  EXPECT_EQ(0, os.SkipRows(100));
 }
 
 TEST_F(TestStreamReader, TypeChecking) {
@@ -267,29 +268,29 @@ TEST_F(TestStreamReader, TypeChecking) {
   double d;
   std::string str;
 
-  ASSERT_THROW(reader_ >> int8, ParquetException);
-  ASSERT_NO_THROW(reader_ >> b);
-  ASSERT_THROW(reader_ >> c, ParquetException);
-  ASSERT_NO_THROW(reader_ >> s);
-  ASSERT_THROW(reader_ >> s, ParquetException);
-  ASSERT_NO_THROW(reader_ >> c);
-  ASSERT_THROW(reader_ >> s, ParquetException);
-  ASSERT_NO_THROW(reader_ >> char_array);
-  ASSERT_THROW(reader_ >> int16, ParquetException);
-  ASSERT_NO_THROW(reader_ >> int8);
-  ASSERT_THROW(reader_ >> int16, ParquetException);
-  ASSERT_NO_THROW(reader_ >> uint16);
-  ASSERT_THROW(reader_ >> int64, ParquetException);
-  ASSERT_NO_THROW(reader_ >> int32);
-  ASSERT_THROW(reader_ >> int64, ParquetException);
-  ASSERT_NO_THROW(reader_ >> uint64);
-  ASSERT_THROW(reader_ >> uint64, ParquetException);
-  ASSERT_NO_THROW(reader_ >> ts_us);
-  ASSERT_THROW(reader_ >> d, ParquetException);
-  ASSERT_NO_THROW(reader_ >> f);
-  ASSERT_THROW(reader_ >> f, ParquetException);
-  ASSERT_NO_THROW(reader_ >> d);
-  ASSERT_NO_THROW(reader_ >> EndRow);
+  EXPECT_THROW(reader_ >> int8, ParquetException);
+  EXPECT_NO_THROW(reader_ >> b);
+  EXPECT_THROW(reader_ >> c, ParquetException);
+  EXPECT_NO_THROW(reader_ >> s);
+  EXPECT_THROW(reader_ >> s, ParquetException);
+  EXPECT_NO_THROW(reader_ >> c);
+  EXPECT_THROW(reader_ >> s, ParquetException);
+  EXPECT_NO_THROW(reader_ >> char_array);
+  EXPECT_THROW(reader_ >> int16, ParquetException);
+  EXPECT_NO_THROW(reader_ >> int8);
+  EXPECT_THROW(reader_ >> int16, ParquetException);
+  EXPECT_NO_THROW(reader_ >> uint16);
+  EXPECT_THROW(reader_ >> int64, ParquetException);
+  EXPECT_NO_THROW(reader_ >> int32);
+  EXPECT_THROW(reader_ >> int64, ParquetException);
+  EXPECT_NO_THROW(reader_ >> uint64);
+  EXPECT_THROW(reader_ >> uint64, ParquetException);
+  EXPECT_NO_THROW(reader_ >> ts_us);
+  EXPECT_THROW(reader_ >> d, ParquetException);
+  EXPECT_NO_THROW(reader_ >> f);
+  EXPECT_THROW(reader_ >> f, ParquetException);
+  EXPECT_NO_THROW(reader_ >> d);
+  EXPECT_NO_THROW(reader_ >> EndRow);
 }
 
 TEST_F(TestStreamReader, ValueChecking) {
@@ -308,7 +309,7 @@ TEST_F(TestStreamReader, ValueChecking) {
   int i;
 
   for (i = 0; !reader_.eof(); ++i) {
-    ASSERT_EQ(i, reader_.current_row());
+    EXPECT_EQ(i, reader_.current_row());
 
     reader_ >> b;
     reader_ >> str;
@@ -323,32 +324,32 @@ TEST_F(TestStreamReader, ValueChecking) {
     reader_ >> d;
     reader_ >> EndRow;
 
-    ASSERT_EQ(b, TestData::GetBool(i));
-    ASSERT_EQ(str, TestData::GetString(i));
-    ASSERT_EQ(c, TestData::GetChar(i));
-    ASSERT_EQ(char_array, TestData::GetCharArray(i));
-    ASSERT_EQ(int8, TestData::GetInt8(i));
-    ASSERT_EQ(uint16, TestData::GetUInt16(i));
-    ASSERT_EQ(int32, TestData::GetInt32(i));
-    ASSERT_EQ(uint64, TestData::GetUInt64(i));
-    ASSERT_EQ(ts_us, TestData::GetChronoMicroseconds(i));
-    ASSERT_FLOAT_EQ(f, TestData::GetFloat(i));
-    ASSERT_DOUBLE_EQ(d, TestData::GetDouble(i));
+    EXPECT_EQ(b, TestData::GetBool(i)) << "index: " << i;
+    EXPECT_EQ(str, TestData::GetString(i)) << "index: " << i;
+    EXPECT_EQ(c, TestData::GetChar(i)) << "index: " << i;
+    EXPECT_EQ(char_array, TestData::GetCharArray(i)) << "index: " << i;
+    EXPECT_EQ(int8, TestData::GetInt8(i)) << "index: " << i;
+    EXPECT_EQ(uint16, TestData::GetUInt16(i)) << "index: " << i;
+    EXPECT_EQ(int32, TestData::GetInt32(i)) << "index: " << i;
+    EXPECT_EQ(uint64, TestData::GetUInt64(i)) << "index: " << i;
+    EXPECT_EQ(ts_us, TestData::GetChronoMicroseconds(i)) << "index: " << i;
+    EXPECT_FLOAT_EQ(f, TestData::GetFloat(i)) << "index: " << i;
+    EXPECT_DOUBLE_EQ(d, TestData::GetDouble(i)) << "index: " << i;
   }
-  ASSERT_EQ(reader_.current_row(), TestData::num_rows);
-  ASSERT_EQ(reader_.num_rows(), TestData::num_rows);
-  ASSERT_EQ(i, TestData::num_rows);
+  EXPECT_EQ(reader_.current_row(), TestData::num_rows);
+  EXPECT_EQ(reader_.num_rows(), TestData::num_rows);
+  EXPECT_EQ(i, TestData::num_rows);
 }
 
 TEST_F(TestStreamReader, SkipRows) {
   // Skipping zero and negative number of rows is ok.
   //
-  ASSERT_EQ(0, reader_.SkipRows(0));
-  ASSERT_EQ(0, reader_.SkipRows(-100));
+  EXPECT_EQ(0, reader_.SkipRows(0));
+  EXPECT_EQ(0, reader_.SkipRows(-100));
 
-  ASSERT_EQ(false, reader_.eof());
-  ASSERT_EQ(0, reader_.current_row());
-  ASSERT_EQ(TestData::num_rows, reader_.num_rows());
+  EXPECT_EQ(false, reader_.eof());
+  EXPECT_EQ(0, reader_.current_row());
+  EXPECT_EQ(TestData::num_rows, reader_.num_rows());
 
   const int iter_num_rows_to_read = 3;
   const int iter_num_rows_to_skip = 13;
@@ -377,7 +378,7 @@ TEST_F(TestStreamReader, SkipRows) {
     std::string str;
 
     for (int j = 0; !reader_.eof() && (j < iter_num_rows_to_read); ++i, ++j) {
-      ASSERT_EQ(i, reader_.current_row());
+      EXPECT_EQ(i, reader_.current_row());
 
       reader_ >> b;
       reader_ >> s;
@@ -387,7 +388,7 @@ TEST_F(TestStreamReader, SkipRows) {
       reader_ >> uint16;
 
       // Not allowed to skip row once reading columns has started.
-      ASSERT_THROW(reader_.SkipRows(1), ParquetException);
+      EXPECT_THROW(reader_.SkipRows(1), ParquetException);
 
       reader_ >> int32;
       reader_ >> uint64;
@@ -397,38 +398,38 @@ TEST_F(TestStreamReader, SkipRows) {
       reader_ >> EndRow;
       num_rows_read += 1;
 
-      ASSERT_EQ(b, TestData::GetBool(i));
-      ASSERT_EQ(s, TestData::GetString(i));
-      ASSERT_EQ(c, TestData::GetChar(i));
-      ASSERT_EQ(char_array, TestData::GetCharArray(i));
-      ASSERT_EQ(int8, TestData::GetInt8(i));
-      ASSERT_EQ(uint16, TestData::GetUInt16(i));
-      ASSERT_EQ(int32, TestData::GetInt32(i));
-      ASSERT_EQ(uint64, TestData::GetUInt64(i));
-      ASSERT_EQ(ts_us, TestData::GetChronoMicroseconds(i));
-      ASSERT_FLOAT_EQ(f, TestData::GetFloat(i));
-      ASSERT_DOUBLE_EQ(d, TestData::GetDouble(i));
+      EXPECT_EQ(b, TestData::GetBool(i));
+      EXPECT_EQ(s, TestData::GetString(i));
+      EXPECT_EQ(c, TestData::GetChar(i));
+      EXPECT_EQ(char_array, TestData::GetCharArray(i));
+      EXPECT_EQ(int8, TestData::GetInt8(i));
+      EXPECT_EQ(uint16, TestData::GetUInt16(i));
+      EXPECT_EQ(int32, TestData::GetInt32(i));
+      EXPECT_EQ(uint64, TestData::GetUInt64(i));
+      EXPECT_EQ(ts_us, TestData::GetChronoMicroseconds(i));
+      EXPECT_FLOAT_EQ(f, TestData::GetFloat(i));
+      EXPECT_DOUBLE_EQ(d, TestData::GetDouble(i));
     }
-    ASSERT_EQ(iter_num_rows_to_skip, reader_.SkipRows(iter_num_rows_to_skip));
+    EXPECT_EQ(iter_num_rows_to_skip, reader_.SkipRows(iter_num_rows_to_skip));
     i += iter_num_rows_to_skip;
   }
-  ASSERT_EQ(TestData::num_rows, reader_.current_row());
+  EXPECT_EQ(TestData::num_rows, reader_.current_row());
 
-  ASSERT_EQ(num_rows_read, num_iterations * iter_num_rows_to_read);
+  EXPECT_EQ(num_rows_read, num_iterations * iter_num_rows_to_read);
 
   // Skipping rows at eof is allowed.
   //
-  ASSERT_EQ(0, reader_.SkipRows(100));
+  EXPECT_EQ(0, reader_.SkipRows(100));
 }
 
 TEST_F(TestStreamReader, SkipAllRows) {
-  ASSERT_EQ(false, reader_.eof());
-  ASSERT_EQ(0, reader_.current_row());
+  EXPECT_EQ(false, reader_.eof());
+  EXPECT_EQ(0, reader_.current_row());
 
-  ASSERT_EQ(reader_.num_rows(), reader_.SkipRows(2 * reader_.num_rows()));
+  EXPECT_EQ(reader_.num_rows(), reader_.SkipRows(2 * reader_.num_rows()));
 
-  ASSERT_EQ(true, reader_.eof());
-  ASSERT_EQ(reader_.num_rows(), reader_.current_row());
+  EXPECT_EQ(true, reader_.eof());
+  EXPECT_EQ(reader_.num_rows(), reader_.current_row());
 }
 
 TEST_F(TestStreamReader, SkipColumns) {
@@ -449,81 +450,82 @@ TEST_F(TestStreamReader, SkipColumns) {
 
   // Skipping zero and negative number of columns is ok.
   //
-  ASSERT_EQ(0, reader_.SkipColumns(0));
-  ASSERT_EQ(0, reader_.SkipColumns(-100));
+  EXPECT_EQ(0, reader_.SkipColumns(0));
+  EXPECT_EQ(0, reader_.SkipColumns(-100));
 
   for (i = 0; !reader_.eof(); ++i) {
-    ASSERT_EQ(i, reader_.current_row());
-    ASSERT_EQ(0, reader_.current_column());
+    EXPECT_EQ(i, reader_.current_row());
+    EXPECT_EQ(0, reader_.current_column());
 
     // Skip all columns every 31 rows.
     if (i % 31 == 0) {
-      ASSERT_EQ(reader_.num_columns(), reader_.SkipColumns(reader_.num_columns()));
-      ASSERT_EQ(reader_.num_columns(), reader_.current_column());
+      EXPECT_EQ(reader_.num_columns(), reader_.SkipColumns(reader_.num_columns()))
+          << "index: " << i;
+      EXPECT_EQ(reader_.num_columns(), reader_.current_column()) << "index: " << i;
       reader_ >> EndRow;
       continue;
     }
     reader_ >> b;
-    ASSERT_EQ(b, TestData::GetBool(i));
-    ASSERT_EQ(1, reader_.current_column());
+    EXPECT_EQ(b, TestData::GetBool(i)) << "index: " << i;
+    EXPECT_EQ(1, reader_.current_column()) << "index: " << i;
 
     // Skip the next column every 3 rows.
     if (i % 3 == 0) {
-      ASSERT_EQ(1, reader_.SkipColumns(1));
+      EXPECT_EQ(1, reader_.SkipColumns(1)) << "index: " << i;
     } else {
       reader_ >> s;
-      ASSERT_EQ(s, TestData::GetString(i));
+      EXPECT_EQ(s, TestData::GetString(i)) << "index: " << i;
     }
-    ASSERT_EQ(2, reader_.current_column());
+    EXPECT_EQ(2, reader_.current_column()) << "index: " << i;
 
     reader_ >> c;
-    ASSERT_EQ(c, TestData::GetChar(i));
-    ASSERT_EQ(3, reader_.current_column());
+    EXPECT_EQ(c, TestData::GetChar(i)) << "index: " << i;
+    EXPECT_EQ(3, reader_.current_column()) << "index: " << i;
     reader_ >> char_array;
-    ASSERT_EQ(char_array, TestData::GetCharArray(i));
-    ASSERT_EQ(4, reader_.current_column());
+    EXPECT_EQ(char_array, TestData::GetCharArray(i)) << "index: " << i;
+    EXPECT_EQ(4, reader_.current_column()) << "index: " << i;
     reader_ >> int8;
-    ASSERT_EQ(int8, TestData::GetInt8(i));
-    ASSERT_EQ(5, reader_.current_column());
+    EXPECT_EQ(int8, TestData::GetInt8(i)) << "index: " << i;
+    EXPECT_EQ(5, reader_.current_column()) << "index: " << i;
 
     // Skip the next 3 columns every 7 rows.
     if (i % 7 == 0) {
-      ASSERT_EQ(3, reader_.SkipColumns(3));
+      EXPECT_EQ(3, reader_.SkipColumns(3)) << "index: " << i;
     } else {
       reader_ >> uint16;
-      ASSERT_EQ(uint16, TestData::GetUInt16(i));
-      ASSERT_EQ(6, reader_.current_column());
+      EXPECT_EQ(uint16, TestData::GetUInt16(i)) << "index: " << i;
+      EXPECT_EQ(6, reader_.current_column()) << "index: " << i;
       reader_ >> int32;
-      ASSERT_EQ(int32, TestData::GetInt32(i));
-      ASSERT_EQ(7, reader_.current_column());
+      EXPECT_EQ(int32, TestData::GetInt32(i)) << "index: " << i;
+      EXPECT_EQ(7, reader_.current_column()) << "index: " << i;
       reader_ >> uint64;
-      ASSERT_EQ(uint64, TestData::GetUInt64(i));
+      EXPECT_EQ(uint64, TestData::GetUInt64(i)) << "index: " << i;
     }
-    ASSERT_EQ(8, reader_.current_column());
+    EXPECT_EQ(8, reader_.current_column());
 
     reader_ >> ts_us;
-    ASSERT_EQ(ts_us, TestData::GetChronoMicroseconds(i));
-    ASSERT_EQ(9, reader_.current_column());
+    EXPECT_EQ(ts_us, TestData::GetChronoMicroseconds(i)) << "index: " << i;
+    EXPECT_EQ(9, reader_.current_column()) << "index: " << i;
 
     // Skip 301 columns (i.e. all remaining) every 11 rows.
     if (i % 11 == 0) {
-      ASSERT_EQ(2, reader_.SkipColumns(301));
+      EXPECT_EQ(2, reader_.SkipColumns(301)) << "index: " << i;
     } else {
       reader_ >> f;
-      ASSERT_FLOAT_EQ(f, TestData::GetFloat(i));
-      ASSERT_EQ(10, reader_.current_column());
+      EXPECT_FLOAT_EQ(f, TestData::GetFloat(i)) << "index: " << i;
+      EXPECT_EQ(10, reader_.current_column()) << "index: " << i;
       reader_ >> d;
-      ASSERT_DOUBLE_EQ(d, TestData::GetDouble(i));
+      EXPECT_DOUBLE_EQ(d, TestData::GetDouble(i)) << "index: " << i;
     }
-    ASSERT_EQ(11, reader_.current_column());
+    EXPECT_EQ(11, reader_.current_column()) << "index: " << i;
     reader_ >> EndRow;
   }
-  ASSERT_EQ(i, TestData::num_rows);
-  ASSERT_EQ(reader_.current_row(), TestData::num_rows);
+  EXPECT_EQ(i, TestData::num_rows);
+  EXPECT_EQ(reader_.current_row(), TestData::num_rows);
 
   // Skipping columns at eof is allowed.
   //
-  ASSERT_EQ(0, reader_.SkipColumns(100));
+  EXPECT_EQ(0, reader_.SkipColumns(100));
 }
 
 class TestOptionalFields : public ::testing::Test {
@@ -629,7 +631,7 @@ TEST_F(TestOptionalFields, ValueChecking) {
   int i;
 
   for (i = 0; !reader_.eof(); ++i) {
-    ASSERT_EQ(i, reader_.current_row());
+    EXPECT_EQ(i, reader_.current_row());
 
     reader_ >> opt_bool;
     reader_ >> opt_string;
@@ -644,29 +646,130 @@ TEST_F(TestOptionalFields, ValueChecking) {
     reader_ >> opt_double;
     reader_ >> EndRow;
 
-    ASSERT_EQ(opt_bool, TestData::GetOptBool(i));
-    ASSERT_EQ(opt_string, TestData::GetOptString(i));
-    ASSERT_EQ(opt_char, TestData::GetOptChar(i));
-    ASSERT_EQ(opt_char_array, TestData::GetOptCharArray(i));
-    ASSERT_EQ(opt_int8, TestData::GetOptInt8(i));
-    ASSERT_EQ(opt_uint16, TestData::GetOptUInt16(i));
-    ASSERT_EQ(opt_int32, TestData::GetOptInt32(i));
-    ASSERT_EQ(opt_uint64, TestData::GetOptUInt64(i));
-    ASSERT_EQ(opt_ts_us, TestData::GetOptChronoMicroseconds(i));
-    if (opt_float) {
-      ASSERT_FLOAT_EQ(*opt_float, *TestData::GetOptFloat(i));
+    EXPECT_EQ(opt_bool, TestData::GetOptBool(i)) << "index: " << i;
+    EXPECT_EQ(opt_string, TestData::GetOptString(i)) << "index: " << i;
+    EXPECT_EQ(opt_char, TestData::GetOptChar(i)) << "index: " << i;
+    EXPECT_EQ(opt_char_array, TestData::GetOptCharArray(i)) << "index: " << i;
+    EXPECT_EQ(opt_int8, TestData::GetOptInt8(i)) << "index: " << i;
+    EXPECT_EQ(opt_uint16, TestData::GetOptUInt16(i)) << "index: " << i;
+    EXPECT_EQ(opt_int32, TestData::GetOptInt32(i)) << "index: " << i;
+    EXPECT_EQ(opt_uint64, TestData::GetOptUInt64(i)) << "index: " << i;
+    EXPECT_EQ(opt_ts_us, TestData::GetOptChronoMicroseconds(i)) << "index: " << i;
+    if (opt_float && TestData::GetOptFloat(i)) {
+      EXPECT_FLOAT_EQ(*opt_float, *TestData::GetOptFloat(i)) << "index: " << i;
     } else {
-      ASSERT_EQ(opt_float, TestData::GetOptFloat(i));
+      EXPECT_EQ(opt_float, TestData::GetOptFloat(i)) << "index: " << i;
     }
-    if (opt_double) {
-      ASSERT_DOUBLE_EQ(*opt_double, *TestData::GetOptDouble(i));
+    if (opt_double && TestData::GetOptDouble(i)) {
+      EXPECT_DOUBLE_EQ(*opt_double, *TestData::GetOptDouble(i)) << "index: " << i;
     } else {
-      ASSERT_EQ(opt_double, TestData::GetOptDouble(i));
+      EXPECT_EQ(opt_double, TestData::GetOptDouble(i)) << "index: " << i;
     }
   }
-  ASSERT_EQ(reader_.current_row(), TestData::num_rows);
-  ASSERT_EQ(reader_.num_rows(), TestData::num_rows);
-  ASSERT_EQ(i, TestData::num_rows);
+  EXPECT_EQ(reader_.current_row(), TestData::num_rows);
+  EXPECT_EQ(reader_.num_rows(), TestData::num_rows);
+  EXPECT_EQ(i, TestData::num_rows);
+}
+
+TEST_F(TestOptionalFields, ReadOptionalValueAsRequiredField) {
+  /* Test that optional fields can be read using non-optional types
+    _provided_ that the optional value is available.
+
+    This can be useful if a schema is changed such that a column is
+    optional in some conditions.  Applications for which the optional
+    conditions do not hold can continue reading the column as being
+    mandatory.
+
+    Of course if the optional value is not present, then the read will
+    fail by throwing an exception.  This is also tested below.
+  */
+
+  bool b;
+  std::string s;
+  std::array<char, 4> char_array;
+  char c;
+  int8_t int8;
+  uint16_t uint16;
+  int32_t int32;
+  uint64_t uint64;
+  std::chrono::microseconds ts_us;
+  float f;
+  double d;
+  std::string str;
+
+  int i;
+
+  for (i = 0; !reader_.eof(); ++i) {
+    EXPECT_EQ(i, reader_.current_row());
+
+    if (TestData::GetOptBool(i)) {
+      reader_ >> b;
+      EXPECT_EQ(b, *TestData::GetOptBool(i)) << "index: " << i;
+    } else {
+      EXPECT_THROW(reader_ >> b, ParquetException) << "index: " << i;
+    }
+    if (TestData::GetOptString(i)) {
+      reader_ >> s;
+      EXPECT_EQ(s, *TestData::GetOptString(i)) << "index: " << i;
+    } else {
+      EXPECT_THROW(reader_ >> s, ParquetException) << "index: " << i;
+    }
+    if (TestData::GetOptChar(i)) {
+      reader_ >> c;
+      EXPECT_EQ(c, *TestData::GetOptChar(i)) << "index: " << i;
+    } else {
+      EXPECT_THROW(reader_ >> c, ParquetException) << "index: " << i;
+    }
+    if (TestData::GetOptCharArray(i)) {
+      reader_ >> char_array;
+      EXPECT_EQ(char_array, *TestData::GetOptCharArray(i)) << "index: " << i;
+    } else {
+      EXPECT_THROW(reader_ >> char_array, ParquetException) << "index: " << i;
+    }
+    if (TestData::GetOptInt8(i)) {
+      reader_ >> int8;
+      EXPECT_EQ(int8, *TestData::GetOptInt8(i)) << "index: " << i;
+    } else {
+      EXPECT_THROW(reader_ >> int8, ParquetException) << "index: " << i;
+    }
+    if (TestData::GetOptUInt16(i)) {
+      reader_ >> uint16;
+      EXPECT_EQ(uint16, *TestData::GetOptUInt16(i)) << "index: " << i;
+    } else {
+      EXPECT_THROW(reader_ >> uint16, ParquetException) << "index: " << i;
+    }
+    if (TestData::GetOptInt32(i)) {
+      reader_ >> int32;
+      EXPECT_EQ(int32, *TestData::GetOptInt32(i)) << "index: " << i;
+    } else {
+      EXPECT_THROW(reader_ >> int32, ParquetException) << "index: " << i;
+    }
+    if (TestData::GetOptUInt64(i)) {
+      reader_ >> uint64;
+      EXPECT_EQ(uint64, *TestData::GetOptUInt64(i)) << "index: " << i;
+    } else {
+      EXPECT_THROW(reader_ >> uint64, ParquetException) << "index: " << i;
+    }
+    if (TestData::GetOptChronoMicroseconds(i)) {
+      reader_ >> ts_us;
+      EXPECT_EQ(ts_us, *TestData::GetOptChronoMicroseconds(i)) << "index: " << i;
+    } else {
+      EXPECT_THROW(reader_ >> ts_us, ParquetException) << "index: " << i;
+    }
+    if (TestData::GetOptFloat(i)) {
+      reader_ >> f;
+      EXPECT_EQ(f, *TestData::GetOptFloat(i)) << "index: " << i;
+    } else {
+      EXPECT_THROW(reader_ >> f, ParquetException) << "index: " << i;
+    }
+    if (TestData::GetOptDouble(i)) {
+      reader_ >> d;
+      EXPECT_EQ(d, *TestData::GetOptDouble(i)) << "index: " << i;
+    } else {
+      EXPECT_THROW(reader_ >> d, ParquetException) << "index: " << i;
+    }
+    reader_ >> EndRow;
+  }
 }
 
 }  // namespace test

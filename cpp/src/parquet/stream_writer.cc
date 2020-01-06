@@ -23,10 +23,10 @@ namespace parquet {
 
 int64_t StreamWriter::default_row_group_size_{512 * 1024 * 1024};  // 512MB
 
-const int16_t StreamWriter::def_level_zero_ = 0;
-const int16_t StreamWriter::def_level_one_ = 1;
-const int16_t StreamWriter::rep_level_zero_ = 0;
-const int16_t StreamWriter::rep_level_one_ = 1;
+constexpr int16_t StreamWriter::kDefLevelZero;
+constexpr int16_t StreamWriter::kDefLevelOne;
+constexpr int16_t StreamWriter::kRepLevelZero;
+constexpr int64_t StreamWriter::kBatchSizeOne;
 
 StreamWriter::FixedStringView::FixedStringView(const char* data_ptr)
     : data{data_ptr}, size{std::strlen(data_ptr)} {}
@@ -152,9 +152,9 @@ StreamWriter& StreamWriter::WriteVariableLength(const char* data_ptr,
     ba_value.ptr = reinterpret_cast<const uint8_t*>(data_ptr);
     ba_value.len = static_cast<uint32_t>(data_len);
 
-    writer->WriteBatch(1, &def_level_one_, &rep_level_zero_, &ba_value);
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelOne, &kRepLevelZero, &ba_value);
   } else {
-    writer->WriteBatch(1, &def_level_zero_, &rep_level_zero_, nullptr);
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);
   }
   if (max_row_group_size_ > 0) {
     row_group_size_ += writer->EstimatedBufferedValueBytes();
@@ -173,9 +173,9 @@ StreamWriter& StreamWriter::WriteFixedLength(const char* data_ptr, std::size_t d
     FixedLenByteArray flba_value;
 
     flba_value.ptr = reinterpret_cast<const uint8_t*>(data_ptr);
-    writer->WriteBatch(1, &def_level_one_, &rep_level_zero_, &flba_value);
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelOne, &kRepLevelZero, &flba_value);
   } else {
-    writer->WriteBatch(1, &def_level_zero_, &rep_level_zero_, nullptr);
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);
   }
   if (max_row_group_size_ > 0) {
     row_group_size_ += writer->EstimatedBufferedValueBytes();
@@ -228,42 +228,46 @@ int64_t StreamWriter::SkipColumns(int num_columns_to_skip) {
     }
     auto writer = row_group_writer_->column(column_index_++);
 
-    switch (writer->type()) {
-      case Type::BOOLEAN:
-        static_cast<BoolWriter*>(writer)->WriteBatch(1, &def_level_zero_,
-                                                     &rep_level_zero_, nullptr);
-        break;
-      case Type::INT32:
-        static_cast<Int32Writer*>(writer)->WriteBatch(1, &def_level_zero_,
-                                                      &rep_level_zero_, nullptr);
-        break;
-      case Type::INT64:
-        static_cast<Int64Writer*>(writer)->WriteBatch(1, &def_level_zero_,
-                                                      &rep_level_zero_, nullptr);
-        break;
-      case Type::BYTE_ARRAY:
-        static_cast<ByteArrayWriter*>(writer)->WriteBatch(1, &def_level_zero_,
-                                                          &rep_level_zero_, nullptr);
-        break;
-      case Type::FIXED_LEN_BYTE_ARRAY:
-        static_cast<FixedLenByteArrayWriter*>(writer)->WriteBatch(
-            1, &def_level_zero_, &rep_level_zero_, nullptr);
-        break;
-      case Type::FLOAT:
-        static_cast<FloatWriter*>(writer)->WriteBatch(1, &def_level_zero_,
-                                                      &rep_level_zero_, nullptr);
-        break;
-      case Type::DOUBLE:
-        static_cast<DoubleWriter*>(writer)->WriteBatch(1, &def_level_zero_,
-                                                       &rep_level_zero_, nullptr);
-        break;
-      case Type::INT96:
-      case Type::UNDEFINED:
-        throw ParquetException("Unexpected type: " + TypeToString(writer->type()));
-        break;
-    }
+    WriteNullValue(writer);
   }
   return num_columns_skipped;
+}
+
+void StreamWriter::WriteNullValue(ColumnWriter* writer) {
+  switch (writer->type()) {
+    case Type::BOOLEAN:
+      static_cast<BoolWriter*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                   &kRepLevelZero, nullptr);
+      break;
+    case Type::INT32:
+      static_cast<Int32Writer*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                    &kRepLevelZero, nullptr);
+      break;
+    case Type::INT64:
+      static_cast<Int64Writer*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                    &kRepLevelZero, nullptr);
+      break;
+    case Type::BYTE_ARRAY:
+      static_cast<ByteArrayWriter*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                        &kRepLevelZero, nullptr);
+      break;
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      static_cast<FixedLenByteArrayWriter*>(writer)->WriteBatch(
+          kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);
+      break;
+    case Type::FLOAT:
+      static_cast<FloatWriter*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                    &kRepLevelZero, nullptr);
+      break;
+    case Type::DOUBLE:
+      static_cast<DoubleWriter*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                     &kRepLevelZero, nullptr);
+      break;
+    case Type::INT96:
+    case Type::UNDEFINED:
+      throw ParquetException("Unexpected type: " + TypeToString(writer->type()));
+      break;
+  }
 }
 
 void StreamWriter::SkipOptionalColumn() {

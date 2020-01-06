@@ -195,9 +195,8 @@ class PARQUET_EXPORT StreamReader {
   int64_t SkipRows(int64_t num_rows_to_skip);
 
  protected:
-  using node_ptr_type = std::shared_ptr<schema::PrimitiveNode>;
-
-  [[noreturn]] void ThrowReadFailedException(const node_ptr_type& node);
+  [[noreturn]] void ThrowReadFailedException(
+      const std::shared_ptr<schema::PrimitiveNode>& node);
 
   template <typename ReaderType, typename T>
   void Read(T* v) {
@@ -207,7 +206,7 @@ class PARQUET_EXPORT StreamReader {
     int16_t rep_level;
     int64_t values_read;
 
-    reader->ReadBatch(1, &def_level, &rep_level, v, &values_read);
+    reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, v, &values_read);
 
     if (values_read != 1) {
       ThrowReadFailedException(node);
@@ -223,7 +222,7 @@ class PARQUET_EXPORT StreamReader {
     ReadType tmp;
     int64_t values_read;
 
-    reader->ReadBatch(1, &def_level, &rep_level, &tmp, &values_read);
+    reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, &tmp, &values_read);
 
     if (values_read == 1) {
       *v = tmp;
@@ -241,7 +240,7 @@ class PARQUET_EXPORT StreamReader {
     ReadType tmp;
     int64_t values_read;
 
-    reader->ReadBatch(1, &def_level, &rep_level, &tmp, &values_read);
+    reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, &tmp, &values_read);
 
     if (values_read == 1) {
       *v = T(tmp);
@@ -276,13 +275,15 @@ class PARQUET_EXPORT StreamReader {
   std::shared_ptr<FileMetaData> file_metadata_;
   std::shared_ptr<RowGroupReader> row_group_reader_;
   std::vector<std::shared_ptr<ColumnReader>> column_readers_;
-  std::vector<node_ptr_type> nodes_;
+  std::vector<std::shared_ptr<schema::PrimitiveNode>> nodes_;
 
   bool eof_{true};
   int row_group_index_{0};
   int column_index_{0};
   int64_t current_row_{0};
   int64_t row_group_row_offset_{0};
+
+  static constexpr int64_t kBatchSizeOne = 1;
 };  // namespace parquet
 
 PARQUET_EXPORT
