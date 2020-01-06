@@ -317,8 +317,10 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
 
   std::string host;
   if (useHdfs3) {
-    ARROW_LOG(WARNING)
-        << "viewfs://namenode resolves to hdfs://namenode with hdfs3 driver.";
+    if (uri.scheme() == "viewfs") {
+      ARROW_LOG(WARNING)
+          << "viewfs://namenode resolves to hdfs://namenode with hdfs3 driver.";
+    }
     host = uri.host();
   } else {
     host = uri.scheme() + "://" + uri.host();
