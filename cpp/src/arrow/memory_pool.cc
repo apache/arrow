@@ -73,6 +73,8 @@ const char* je_arrow_malloc_conf =
      ",muzzy_decay_ms:1000"
      ",background_thread:true"
 #else
+     // ARROW-6994: return memory immediately to the OS if the
+     // background_thread option isn't available
      ",dirty_decay_ms:0"
      ",muzzy_decay_ms:0"
 #endif
