@@ -258,11 +258,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::FileSystemDataSource"(CDataSource):
         @staticmethod
         CResult[shared_ptr[CDataSource]] Make(
-                                     shared_ptr[CFileSystem] filesystem,
-                                     CFileStatsVector stats,
-                                     CExpressionVector partitions,
-                                     shared_ptr[CExpression] source_partition,
-                                     shared_ptr[CFileFormat] format)
+            shared_ptr[CFileSystem] filesystem,
+            CFileStatsVector stats,
+            CExpressionVector partitions,
+            shared_ptr[CExpression] source_partition,
+            shared_ptr[CFileFormat] format)
         c_string type()
         shared_ptr[CDataFragmentIterator] GetFragments(
             shared_ptr[CScanOptions] options)
@@ -290,7 +290,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CExpression]] Parse(const c_string& path) const
         const shared_ptr[CSchema]& schema()
 
-    cdef cppclass CPartitionSchemeDiscovery "arrow::dataset::PartitionSchemeDiscovery":
+    cdef cppclass CPartitionSchemeDiscovery \
+            "arrow::dataset::PartitionSchemeDiscovery":
         pass
 
     cdef cppclass CDefaultPartitionScheme \
@@ -310,7 +311,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CPartitionSchemeOrDiscovery(shared_ptr[CPartitionScheme])
         CPartitionSchemeOrDiscovery(shared_ptr[CPartitionSchemeDiscovery])
         CPartitionSchemeOrDiscovery& operator=(shared_ptr[CPartitionScheme])
-        CPartitionSchemeOrDiscovery& operator=(shared_ptr[CPartitionSchemeDiscovery])
+        CPartitionSchemeOrDiscovery& operator=(
+            shared_ptr[CPartitionSchemeDiscovery])
         shared_ptr[CPartitionScheme] scheme() const
         shared_ptr[CPartitionSchemeDiscovery] discovery() const
 
