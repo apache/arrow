@@ -104,6 +104,8 @@ test_that("Hive partitioning", {
 
 test_that("Partition scheme inference", {
   # These are the same tests as above, just using the *PartitionSchemeDiscovery
+  skip_on_os("linux")
+  # https://issues.apache.org/jira/browse/ARROW-7500
   ds1 <- open_dataset(dataset_dir, partition = "part")
   expect_identical(names(ds1), c(names(df1), "part"))
   expect_equivalent(
