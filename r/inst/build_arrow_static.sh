@@ -38,8 +38,7 @@ DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
 if [ "$CMAKE_GENERATOR" = "" ]; then
   # Look for ninja, prefer it
-  ninja --version >/dev/null 2>&1
-  if ninja --version >/dev/null 2>&1; then
+  if which ninja >/dev/null 2>&1; then
     CMAKE_GENERATOR="Ninja"
   fi
 fi
