@@ -583,7 +583,7 @@ def test_hdfs_options(hdfs_server):
     assert options.buffer_size == 64*1024
 
     options = HdfsOptions.from_uri('hdfs://localhost:8080/?user=test')
-    assert options.endpoint == ('localhost', 8080)
+    assert options.endpoint == ('hdfs://localhost', 8080)
     assert options.user == 'test'
 
     host, port, user = hdfs_server
