@@ -19,7 +19,7 @@ context("install_arrow()")
 
 i_have_arrow_msg <- "It appears you already have Arrow installed successfully: are you trying to install a different version of the library?
 
-Refer to the R package README <https://github.com/apache/arrow/blob/master/r/README.md> for further details.
+Refer to the R package README <https://github.com/apache/arrow/blob/master/r/README.md> and `vignette('install', package = 'arrow')` for further details.
 
 If you have other trouble, or if you think this message could be improved, please report an issue here: <https://issues.apache.org/jira/projects/ARROW/issues>"
 
