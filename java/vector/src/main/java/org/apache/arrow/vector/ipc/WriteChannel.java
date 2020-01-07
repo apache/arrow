@@ -44,6 +44,8 @@ public class WriteChannel implements AutoCloseable {
   // the maximum padding has 7 bytes
   private static byte[] zeroBytes = new byte[7];
 
+  private byte[] intBuf = new byte[4];
+
   private long currentPosition = 0;
 
   private final WritableByteChannel out;
@@ -112,9 +114,8 @@ public class WriteChannel implements AutoCloseable {
    * Writes <code>v</code> in little-endian format to the underlying channel.
    */
   public long writeIntLittleEndian(int v) throws IOException {
-    byte[] outBuffer = new byte[4];
-    MessageSerializer.intToBytes(v, outBuffer);
-    return write(outBuffer);
+    MessageSerializer.intToBytes(v, intBuf);
+    return write(intBuf);
   }
 
   /**
