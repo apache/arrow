@@ -81,8 +81,7 @@ public class ReadChannel implements AutoCloseable {
    * @throws IOException if nit enough bytes left to read
    */
   public int readFully(ArrowBuf buffer, int l) throws IOException {
-    int n = readFully(buffer.nioBuffer(buffer.writerIndex(), l));
-    buffer.writerIndex(buffer.writerIndex() + n);
+    int n = readFully(buffer.nioBuffer(0, l));
     return n;
   }
 

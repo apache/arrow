@@ -244,7 +244,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           BitVectorHelper.setValidityBit(buf, i, parser.readValueAs(Boolean.class) ? 1 : 0);
         }
 
-        buf.writerIndex(bufferSize);
         return buf;
       }
     };
@@ -430,7 +429,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           DecimalUtility.writeBigDecimalToArrowBuf(decimalValue, buf, i);
         }
 
-        buf.writerIndex(size);
         return buf;
       }
     };

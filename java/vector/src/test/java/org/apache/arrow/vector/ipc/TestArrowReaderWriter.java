@@ -537,12 +537,11 @@ public class TestArrowReaderWriter {
     try (ReadChannel channel = new ReadChannel(Channels.newChannel(new ByteArrayInputStream(buf.array())));
          ArrowBuf arrBuf = allocator.buffer(8)) {
       arrBuf.setInt(0, 100);
-      arrBuf.writerIndex(4);
-      assertEquals(4, arrBuf.writerIndex());
 
-      int n = channel.readFully(arrBuf, 4);
+      ArrowBuf slice = arrBuf.slice(4, 4);
+
+      int n = channel.readFully(slice, 4);
       assertEquals(4, n);
-      assertEquals(8, arrBuf.writerIndex());
 
       assertEquals(100, arrBuf.getInt(0));
       assertEquals(200, arrBuf.getInt(4));

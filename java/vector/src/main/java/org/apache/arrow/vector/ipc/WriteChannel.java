@@ -105,7 +105,7 @@ public class WriteChannel implements AutoCloseable {
    * Writes the buffer to the underlying channel.
    */
   public void write(ArrowBuf buffer) throws IOException {
-    ByteBuffer nioBuffer = buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
+    ByteBuffer nioBuffer = buffer.nioBuffer();
     write(nioBuffer);
   }
 

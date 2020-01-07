@@ -93,6 +93,5 @@ public class GetReadableBuffer {
       ByteStreams.readFully(stream, heapBytes);
       buf.writeBytes(heapBytes);
     }
-    buf.writerIndex(size);
   }
 }
