@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <map>
 #include <memory>
-#include <regex>
 #include <utility>
 #include <vector>
 
@@ -167,14 +166,12 @@ std::shared_ptr<PartitionSchemeDiscovery> SchemaPartitionScheme::MakeDiscovery(
 
 util::optional<PartitionKeysScheme::Key> HivePartitionScheme::ParseKey(
     const std::string& segment) {
-  static std::regex hive_style("^([^=]+)=(.*)$");
-
-  std::smatch matches;
-  if (!std::regex_match(segment, matches, hive_style) || matches.size() != 3) {
+  auto name_end = string_view(segment).find_first_of('=');
+  if (name_end == string_view::npos) {
     return util::nullopt;
   }
 
-  return Key{matches[1].str(), matches[2].str()};
+  return Key{segment.substr(0, name_end), segment.substr(name_end + 1)};
 }
 
 class HivePartitionSchemeDiscovery : public PartitionSchemeDiscovery {
