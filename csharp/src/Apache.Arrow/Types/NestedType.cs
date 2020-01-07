@@ -20,13 +20,9 @@ namespace Apache.Arrow.Types
 {
     public abstract class NestedType : ArrowType
     {
-        public IList<Field> Children { get; }
+        public IReadOnlyList<Field> Children { get; }
 
-        public Field Child(int i) => Children[i];
-
-        public int ChildrenCount => Children?.Count ?? 0;
-
-        protected NestedType(IList<Field> children)
+        protected NestedType(IReadOnlyList<Field> children)
         {
             if (children == null || children.Count == 0)
             {

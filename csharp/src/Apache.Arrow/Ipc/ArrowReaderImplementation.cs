@@ -129,8 +129,8 @@ namespace Apache.Arrow.Ipc
                 var fieldNode = recordBatchEnumerator.CurrentNode;
 
                 var arrayData = field.DataType.IsFixedPrimitive()
-                    ? LoadPrimitiveField(recordBatchEnumerator, field, in fieldNode, messageBuffer)
-                    : LoadVariableField(recordBatchEnumerator, field, in fieldNode, messageBuffer);
+                    ? LoadPrimitiveField(ref recordBatchEnumerator, field, in fieldNode, messageBuffer)
+                    : LoadVariableField(ref recordBatchEnumerator, field, in fieldNode, messageBuffer);
 
                 arrays.Add(ArrowArrayFactory.BuildArray(arrayData));
             } while (recordBatchEnumerator.MoveNextNode());
@@ -140,7 +140,7 @@ namespace Apache.Arrow.Ipc
 
 
         private ArrayData LoadPrimitiveField(
-            RecordBatchEnumerator recordBatchEnumerator,
+            ref RecordBatchEnumerator recordBatchEnumerator,
             Field field,
             in Flatbuf.FieldNode fieldNode,
             ByteBuffer bodyData)
@@ -166,14 +166,14 @@ namespace Apache.Arrow.Ipc
             }
 
             var arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
-            var children = GetChildren(recordBatchEnumerator, field, bodyData);
+            var children = GetChildren(ref recordBatchEnumerator, field, bodyData);
 
             return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
         }
 
 
         private ArrayData LoadVariableField(
-            RecordBatchEnumerator recordBatchEnumerator,
+            ref RecordBatchEnumerator recordBatchEnumerator,
             Field field,
             in Flatbuf.FieldNode fieldNode,
             ByteBuffer bodyData)
@@ -200,19 +200,19 @@ namespace Apache.Arrow.Ipc
             }
 
             var arrowBuff = new[] { nullArrowBuffer, offsetArrowBuffer, valueArrowBuffer };
-            var children = GetChildren(recordBatchEnumerator, field, bodyData);
+            var children = GetChildren(ref recordBatchEnumerator, field, bodyData);
 
             return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
         }
 
         private ArrayData[] GetChildren(
-            RecordBatchEnumerator recordBatchEnumerator,
+            ref RecordBatchEnumerator recordBatchEnumerator,
             Field field,
             ByteBuffer bodyData)
         {
             if (!(field.DataType is NestedType type)) return null;
 
-            var childrenCount = type.ChildrenCount;
+            var childrenCount = type.Children.Count;
             var children = new ArrayData[childrenCount];
             for (var index = 0; index < childrenCount; index++)
             {
@@ -221,8 +221,8 @@ namespace Apache.Arrow.Ipc
 
                 var childField = type.Children[index];
                 var child = childField.DataType.IsFixedPrimitive()
-                    ? LoadPrimitiveField(recordBatchEnumerator, childField, in childFieldNode, bodyData)
-                    : LoadVariableField(recordBatchEnumerator, childField, in childFieldNode, bodyData);
+                    ? LoadPrimitiveField(ref recordBatchEnumerator, childField, in childFieldNode, bodyData)
+                    : LoadVariableField(ref recordBatchEnumerator, childField, in childFieldNode, bodyData);
 
                 children[index] = child;
             }
@@ -244,11 +244,11 @@ namespace Apache.Arrow.Ipc
         }
     }
 
-    internal class RecordBatchEnumerator
+    internal struct RecordBatchEnumerator
     {
         private Flatbuf.RecordBatch RecordBatch { get; }
-        internal int CurrentBufferIndex { get; set; }
-        internal int CurrentNodeIndex { get; set; }
+        internal int CurrentBufferIndex { get; private set; }
+        internal int CurrentNodeIndex { get; private set; }
 
         internal Flatbuf.Buffer CurrentBuffer => RecordBatch.Buffers(CurrentBufferIndex).GetValueOrDefault();
 
@@ -267,6 +267,9 @@ namespace Apache.Arrow.Ipc
         internal RecordBatchEnumerator(in Flatbuf.RecordBatch recordBatch)
         {
             RecordBatch = recordBatch;
+            CurrentBufferIndex = 0;
+            CurrentNodeIndex = 0;
+        }
         }
     }
 }

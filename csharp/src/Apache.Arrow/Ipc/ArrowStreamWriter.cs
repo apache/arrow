@@ -371,10 +371,10 @@ namespace Apache.Arrow.Ipc
         {
             if (!(field.DataType is NestedType type))
             {
-                return new Offset<Flatbuf.Field>[0];
+                return System.Array.Empty<Offset<Flatbuf.Field>>();
             }
 
-            var childrenCount = type.ChildrenCount;
+            var childrenCount = type.Children.Count;
             var children = new Offset<Flatbuf.Field>[childrenCount];
 
             for (var i = 0; i < childrenCount; i++)

@@ -22,9 +22,9 @@ namespace Apache.Arrow.Types
         public override ArrowTypeId TypeId => ArrowTypeId.List;
         public override string Name => "list";
 
-        public Field ValueField => Child(0);
+        public Field ValueField => Children[0];
 
-        public IArrowType ValueDataType => Child(0).DataType;
+        public IArrowType ValueDataType => Children[0].DataType;
 
         public ListType(Field valueField)
            : base(valueField){ }
