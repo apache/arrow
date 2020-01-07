@@ -37,7 +37,7 @@ namespace Apache.Arrow.Types
             {
                 throw new ArgumentNullException(nameof(child));
             }
-            Children = new List<Field>{ child };
+            Children = new List<Field> { child };
         }
     }
 }

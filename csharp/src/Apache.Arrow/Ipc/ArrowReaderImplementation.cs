@@ -270,6 +270,5 @@ namespace Apache.Arrow.Ipc
             CurrentBufferIndex = 0;
             CurrentNodeIndex = 0;
         }
-        }
     }
 }

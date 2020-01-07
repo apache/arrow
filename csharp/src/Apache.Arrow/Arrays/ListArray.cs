@@ -30,7 +30,7 @@ namespace Apache.Arrow
             ArrowBuffer valueOffsetsBuffer, IArrowArray values,
             ArrowBuffer nullBitmapBuffer, int nullCount = 0, int offset = 0)
             : this(new ArrayData(dataType, length, nullCount, offset,
-                new[] {nullBitmapBuffer, valueOffsetsBuffer}, new[] {values.Data}), 
+                new[] { nullBitmapBuffer, valueOffsetsBuffer }, new[] { values.Data }),
                 values)
         {
         }

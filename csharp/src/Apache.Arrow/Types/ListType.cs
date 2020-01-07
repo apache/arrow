@@ -27,9 +27,9 @@ namespace Apache.Arrow.Types
         public IArrowType ValueDataType => Children[0].DataType;
 
         public ListType(Field valueField)
-           : base(valueField){ }
+           : base(valueField) { }
 
-        public ListType(IArrowType valueDataType) 
+        public ListType(IArrowType valueDataType)
             : this(new Field("item", valueDataType, true)) { }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
