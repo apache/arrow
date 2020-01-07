@@ -75,7 +75,7 @@ struct NullChecker<NullCoding::PANDAS_SENTINELS> {
 // ValueConverters
 //
 // Typed conversion logic for single python objects are encapsulated in
-// ValueConverter structs using SFINAE.
+// ValueConverter structs using SFINAE for specialization.
 //
 // The FromPython medthod is responsible to convert the python object to the
 // C++ value counterpart which can be directly appended to the ArrayBuilder or
@@ -158,7 +158,6 @@ struct ValueConverter<DoubleType> {
 
 template <>
 struct ValueConverter<Date32Type> {
-
   static inline Result<int32_t> FromPython(PyObject *obj) {
     int32_t value;
     if (PyDate_Check(obj)) {
@@ -173,7 +172,6 @@ struct ValueConverter<Date32Type> {
 
 template<>
 struct ValueConverter<Date64Type> {
-
   static inline Result<int64_t> FromPython(PyObject *obj) {
     int64_t value;
     if (PyDateTime_Check(obj)) {
@@ -193,7 +191,6 @@ struct ValueConverter<Date64Type> {
 
 template<>
 struct ValueConverter<Time32Type> {
-
   static inline Result<int32_t> FromPython(PyObject *obj, TimeUnit::type unit) {
     int32_t value;
     if (PyTime_Check(obj)) {
@@ -217,7 +214,6 @@ struct ValueConverter<Time32Type> {
 
 template<>
 struct ValueConverter<Time64Type> {
-
   static inline Result<int64_t> FromPython(PyObject *obj, TimeUnit::type unit) {
     int64_t value;
     if (PyTime_Check(obj)) {
@@ -239,45 +235,40 @@ struct ValueConverter<Time64Type> {
   }
 };
 
-// template <typename Type>
-// struct ValueConverter<Type, enable_if_any_binary<Type>> {
-//   using ValueType = PyBytesView;
+template <typename Type>
+struct ValueConverter<Type, enable_if_any_binary<Type>> {
+  static inline Result<PyBytesView> FromPython(PyObject *obj) {
+    PyBytesView view;
+    RETURN_NOT_OK(view.FromString(obj));
+    return view;
+  }
+};
 
-//   static inline Result<ValueType> FromPython(PyObject *obj) {
-//     ValueType view;
-//     RETURN_NOT_OK(view.FromString(obj));
-//     return view;
-//   }
-// };
+template <typename Type>
+struct ValueConverter<Type, enable_if_string_like<Type>> {
+  static inline Result<PyBytesView> FromPython(PyObject *obj, bool* is_utf8) {
+    PyBytesView view;
+    RETURN_NOT_OK(view.FromString(obj, is_utf8));
+    return view;
+  }
+};
 
-// template <typename Type>
-// struct ValueConverter<Type, enable_if_fixed_size_binary<Type>> {
-//   using ValueType = PyBytesView;
+template <typename Type>
+struct ValueConverter<Type, enable_if_fixed_size_binary<Type>> {
+  static inline Result<PyBytesView> FromPython(PyObject *obj, const Type& type) {
+    PyBytesView view;
+    RETURN_NOT_OK(view.FromString(obj));
+    const auto expected_length = type.byte_width();
+    if (ARROW_PREDICT_FALSE(view.size != expected_length)) {
+      std::stringstream ss;
+      ss << "expected to be length " << expected_length << " was " << view.size;
+      return internal::InvalidValue(obj, ss.str());
+    } else {
+      return view;
+    }
+  }
+};
 
-//   static inline Result<ValueType> FromPython(PyObject *obj, const Type& type) {
-//     ValueType view;
-//     RETURN_NOT_OK(view.FromString(obj));
-//     const auto expected_length = type.byte_width();
-//     if (ARROW_PREDICT_FALSE(view.size != expected_length)) {
-//       std::stringstream ss;
-//       ss << "expected to be length " << expected_length << " was " << view.size;
-//       return internal::InvalidValue(obj, ss.str());
-//     } else {
-//       return view;
-//     }
-//   }
-// };
-
-// template <typename Type>
-// struct ValueConverter<Type, enable_if_string_like<Type>> {
-//   using ValueType = PyBytesView;
-
-//   static inline Result<ValueType> FromPython(PyObject *obj, bool* is_utf8) {
-//     ValueType view;
-//     RETURN_NOT_OK(view.FromString(obj, is_utf8));
-//     return view;
-//   }
-// };
 
 // ----------------------------------------------------------------------
 // Sequence converter base and CRTP "middle" subclasses
@@ -300,20 +291,22 @@ class SeqConverter {
   // converting Python objects to Arrow nested types
   virtual Status Init(ArrayBuilder* builder) = 0;
 
-  // // Append a single (non-sequence) Python datum to the underlying builder,
-  // // virtual function
-  // virtual Status AppendSingleVirtual(PyObject* obj) = 0;
-
-  // Append the contents of a Python sequence to the underlying builder,
-  // virtual version
-  virtual Status AppendMultiple(PyObject* seq, int64_t size) = 0;
-  virtual Status AppendSingle(PyObject* seq) = 0;
-  virtual Status AppendItem(PyObject* seq) = 0;
+  // Append a single null value to the builder
   virtual Status AppendNull() = 0;
 
+  // Append a valid value
+  virtual Status AppendValue(PyObject* seq) = 0;
+
+  // Append a single python object handling Null values
+  virtual Status Append(PyObject* seq) = 0;
+
   // Append the contents of a Python sequence to the underlying builder,
   // virtual version
-  virtual Status AppendMultipleMasked(PyObject* seq, PyObject* mask, int64_t size) = 0;
+  virtual Status Extend(PyObject* seq, int64_t size) = 0;
+
+  // Append the contents of a Python sequence to the underlying builder,
+  // virtual version
+  virtual Status ExtendMasked(PyObject* seq, PyObject* mask, int64_t size) = 0;
 
   virtual Status Close() {
     if (chunks_.size() == 0 || builder_->length() > 0) {
@@ -356,31 +349,24 @@ class TypedConverter : public SeqConverter {
     return Status::OK();
   }
 
-  bool CheckNull(PyObject* obj) const { return NullChecker<null_coding>::Check(obj); }
-
   // Append a missing item (default implementation)
   Status AppendNull() override { return this->typed_builder_->AppendNull(); }
 
-  // This is overridden in several subclasses, but if an Unbox implementation
-  // is defined, it will be used here
-  // Status AppendItem(PyObject* obj) override {
-  //   return Unbox<Type>::Append(this->typed_builder_, obj);
-  // }
-
-  Status AppendSingle(PyObject* obj) override {
-    return CheckNull(obj) ? AppendNull() : AppendItem(obj);
+  // Append null if the obj is None or pandas null otherwise the valid value
+  Status Append(PyObject* obj) override {
+    return NullChecker<null_coding>::Check(obj) ? AppendNull() : AppendValue(obj);
   }
 
-  Status AppendMultiple(PyObject* obj, int64_t size) override {
+  Status Extend(PyObject* obj, int64_t size) override {
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(typed_builder_->Reserve(size));
     // Iterate over the items adding each one
     return internal::VisitSequence(obj, [this](PyObject* item, bool* /* unused */) {
-      return this->AppendSingle(item);
+      return this->Append(item);
     });
   }
 
-  Status AppendMultipleMasked(PyObject* obj, PyObject* mask, int64_t size) override {
+  Status ExtendMasked(PyObject* obj, PyObject* mask, int64_t size) override {
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(typed_builder_->Reserve(size));
     // Iterate over the items adding each one
@@ -391,7 +377,7 @@ class TypedConverter : public SeqConverter {
           } else {
             // This will also apply the null-checking convention in the event
             // that the value is not masked
-            return this->AppendSingle(item);
+            return this->AppendValue(item);
           }
         });
   }
@@ -406,7 +392,7 @@ class TypedConverter : public SeqConverter {
 template <NullCoding null_coding>
 class NullConverter : public TypedConverter<NullType, null_coding> {
  public:
-  Status AppendItem(PyObject* obj) override {
+  Status AppendValue(PyObject* obj) override {
     return internal::InvalidValue(obj, "converting to null type");
   }
 };
@@ -416,7 +402,7 @@ class NullConverter : public TypedConverter<NullType, null_coding> {
 
 template <typename Type, NullCoding null_coding>
 class PrimitiveConverter : public TypedConverter<Type, null_coding> {
-  Status AppendItem(PyObject* obj) override {
+  Status AppendValue(PyObject* obj) override {
     ARROW_ASSIGN_OR_RAISE(auto value, ValueConverter<Type>::FromPython(obj));
     return this->typed_builder_->Append(value);
   }
@@ -430,7 +416,7 @@ class TimeConverter : public TypedConverter<Type, null_coding> {
  public:
   explicit TimeConverter(TimeUnit::type unit) : unit_(unit) {}
 
-  Status AppendItem(PyObject* obj) override {
+  Status AppendValue(PyObject* obj) override {
     ARROW_ASSIGN_OR_RAISE(auto value, ValueConverter<Type>::FromPython(obj, unit_));
     return this->typed_builder_->Append(value);
   }
@@ -494,7 +480,7 @@ class TemporalConverter : public TypedConverter<ArrowType, null_coding> {
   explicit TemporalConverter(TimeUnit::type unit) : unit_(unit) {}
   using traits = PyDateTimeTraits<ArrowType>;
 
-  Status AppendItem(PyObject* obj) override {
+  Status AppendValue(PyObject* obj) override {
     int64_t t;
     if (traits::PyTypeCheck(obj)) {
       auto pydatetime = reinterpret_cast<typename traits::PyDateTimeObject*>(obj);
@@ -601,7 +587,7 @@ inline Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
 template <typename Type, NullCoding null_coding>
 class BinaryLikeConverter : public TypedConverter<Type, null_coding> {
  public:
-  Status AppendItem(PyObject* obj) override {
+  Status AppendValue(PyObject* obj) override {
     // Accessing members of the templated base requires using this-> here
     bool is_full = false;
     RETURN_NOT_OK(detail::BuilderAppend(this->typed_builder_, obj, &is_full));
@@ -636,7 +622,7 @@ class StringConverter : public TypedConverter<TypeClass, null_coding> {
  public:
   StringConverter() : binary_count_(0) {}
 
-  Status Append(PyObject* obj, bool* is_full) {
+  Status AppendValue(PyObject* obj, bool* is_full) {
     if (STRICT) {
       // Force output to be unicode / utf8 and validate that any binary values
       // are utf8
@@ -660,9 +646,9 @@ class StringConverter : public TypedConverter<TypeClass, null_coding> {
     return detail::AppendPyString(this->typed_builder_, string_view_, is_full);
   }
 
-  Status AppendItem(PyObject* obj) override {
+  Status AppendValue(PyObject* obj) override {
     bool is_full = false;
-    RETURN_NOT_OK(Append(obj, &is_full));
+    RETURN_NOT_OK(AppendValue(obj, &is_full));
 
     // Exceeded capacity of builder
     if (ARROW_PREDICT_FALSE(is_full)) {
@@ -671,7 +657,7 @@ class StringConverter : public TypedConverter<TypeClass, null_coding> {
       this->chunks_.emplace_back(std::move(chunk));
 
       // Append the item now that the builder has been reset
-      RETURN_NOT_OK(Append(obj, &is_full));
+      RETURN_NOT_OK(AppendValue(obj, &is_full));
     }
     return Status::OK();
   }
@@ -707,7 +693,7 @@ class StringConverter : public TypedConverter<TypeClass, null_coding> {
 #define LIST_FAST_CASE(TYPE, NUMPY_TYPE, ArrowType)               \
   case Type::TYPE: {                                              \
     if (PyArray_DESCR(arr)->type_num != NUMPY_TYPE) {             \
-      return value_converter_->AppendMultiple(obj, value_length); \
+      return value_converter_->Extend(obj, value_length); \
     }                                                             \
     return AppendNdarrayTypedItem<NUMPY_TYPE, ArrowType>(arr);    \
   }
@@ -715,7 +701,7 @@ class StringConverter : public TypedConverter<TypeClass, null_coding> {
 // Use internal::VisitSequence, fast for NPY_OBJECT but slower otherwise
 #define LIST_SLOW_CASE(TYPE)                                    \
   case Type::TYPE: {                                            \
-    return value_converter_->AppendMultiple(obj, value_length); \
+    return value_converter_->Extend(obj, value_length); \
   }
 
 // Base class for ListConverter and FixedSizeListConverter (to have both work with CRTP)
@@ -807,7 +793,7 @@ class BaseListConverter : public TypedConverter<TypeClass, null_coding> {
               "array input");
         }
         return internal::VisitSequence(obj, [this](PyObject* item, bool*) {
-          return value_converter_->AppendSingle(item);
+          return value_converter_->Append(item);
         });
       }
       default: {
@@ -816,7 +802,7 @@ class BaseListConverter : public TypedConverter<TypeClass, null_coding> {
     }
   }
 
-  Status AppendItem(PyObject* obj) override {
+  Status AppendValue(PyObject* obj) override {
     RETURN_NOT_OK(this->typed_builder_->Append());
     if (PyArray_Check(obj)) {
       return AppendNdarrayItem(obj);
@@ -827,7 +813,7 @@ class BaseListConverter : public TypedConverter<TypeClass, null_coding> {
                                    " for conversion to list type");
     }
     int64_t list_size = static_cast<int64_t>(PySequence_Size(obj));
-    return value_converter_->AppendMultiple(obj, list_size);
+    return value_converter_->Extend(obj, list_size);
   }
 
   virtual Status GetResult(std::shared_ptr<ChunkedArray>* out) override {
@@ -866,7 +852,7 @@ class FixedSizeListConverter: public BaseListConverter<FixedSizeListType, null_c
     return Status::OK();
   }
 
-  Status AppendItem(PyObject* obj) override {
+  Status AppendValue(PyObject* obj) override {
     // the same as BaseListConverter but with additional length checks
     RETURN_NOT_OK(this->typed_builder_->Append());
     if (PyArray_Check(obj)) {
@@ -887,7 +873,7 @@ class FixedSizeListConverter: public BaseListConverter<FixedSizeListType, null_c
       return Status::Invalid("Length of item not correct: expected ", list_size_,
                              " but got list of size ", list_size);
     }
-    return this->value_converter_->AppendMultiple(obj, list_size);
+    return this->value_converter_->Extend(obj, list_size);
   }
 
  protected:
@@ -907,18 +893,18 @@ class MapConverter : public BaseListConverter<MapType, null_coding> {
   explicit MapConverter(bool from_pandas, bool strict_conversions)
       : BASE(from_pandas, strict_conversions), key_builder_(nullptr) {}
 
-  Status AppendSingle(PyObject* obj) override {
-    RETURN_NOT_OK(BASE::AppendSingle(obj));
+  Status Append(PyObject* obj) override {
+    RETURN_NOT_OK(BASE::Append(obj));
     return VerifyLastStructAppended();
   }
 
-  Status AppendMultiple(PyObject* seq, int64_t size) override {
-    RETURN_NOT_OK(BASE::AppendMultiple(seq, size));
+  Status Extend(PyObject* seq, int64_t size) override {
+    RETURN_NOT_OK(BASE::Extend(seq, size));
     return VerifyLastStructAppended();
   }
 
-  Status AppendMultipleMasked(PyObject* seq, PyObject* mask, int64_t size) override {
-    RETURN_NOT_OK(BASE::AppendMultipleMasked(seq, mask, size));
+  Status ExtendMasked(PyObject* seq, PyObject* mask, int64_t size) override {
+    RETURN_NOT_OK(BASE::ExtendMasked(seq, mask, size));
     return VerifyLastStructAppended();
   }
 
@@ -986,7 +972,7 @@ class StructConverter : public TypedConverter<StructType, null_coding> {
     return Status::OK();
   }
 
-  Status AppendItem(PyObject* obj) override {
+  Status AppendValue(PyObject* obj) override {
     RETURN_NOT_OK(this->typed_builder_->Append());
     // Note heterogenous sequences are not allowed
     if (ARROW_PREDICT_FALSE(source_kind_ == SourceKind::UNKNOWN)) {
@@ -1013,7 +999,7 @@ class StructConverter : public TypedConverter<StructType, null_coding> {
     // Need to also insert a missing item on all child builders
     // (compare with ListConverter)
     for (int i = 0; i < num_fields_; i++) {
-      RETURN_NOT_OK(this->value_converters_[i]->AppendSingle(Py_None));
+      RETURN_NOT_OK(this->value_converters_[i]->Append(Py_None));
     }
     return Status::OK();
   }
@@ -1045,7 +1031,7 @@ class StructConverter : public TypedConverter<StructType, null_coding> {
     }
     // If we come here, it means all keys are absent
     for (int i = 0; i < num_fields_; i++) {
-      RETURN_NOT_OK(value_converters_[i]->AppendSingle(Py_None));
+      RETURN_NOT_OK(value_converters_[i]->Append(Py_None));
     }
     return Status::OK();
   }
@@ -1067,7 +1053,7 @@ class StructConverter : public TypedConverter<StructType, null_coding> {
         RETURN_IF_PYERROR();
       }
       RETURN_NOT_OK(
-          value_converters_[i]->AppendSingle(valueobj ? valueobj : Py_None));
+          value_converters_[i]->Append(valueobj ? valueobj : Py_None));
     }
     return Status::OK();
   }
@@ -1078,7 +1064,7 @@ class StructConverter : public TypedConverter<StructType, null_coding> {
     }
     for (int i = 0; i < num_fields_; i++) {
       PyObject* valueobj = PyTuple_GET_ITEM(obj, i);
-      RETURN_NOT_OK(value_converters_[i]->AppendSingle(valueobj));
+      RETURN_NOT_OK(value_converters_[i]->Append(valueobj));
     }
     return Status::OK();
   }
@@ -1109,7 +1095,7 @@ class DecimalConverter : public TypedConverter<arrow::Decimal128Type, null_codin
     return Status::OK();
   }
 
-  Status AppendItem(PyObject* obj) override {
+  Status AppendValue(PyObject* obj) override {
     Decimal128 value;
     RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *decimal_type_, &value));
     return this->typed_builder_->Append(value);
@@ -1356,9 +1342,9 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
 
   // Convert values
   if (mask != nullptr && mask != Py_None) {
-    RETURN_NOT_OK(converter->AppendMultipleMasked(seq, mask, size));
+    RETURN_NOT_OK(converter->ExtendMasked(seq, mask, size));
   } else {
-    RETURN_NOT_OK(converter->AppendMultiple(seq, size));
+    RETURN_NOT_OK(converter->Extend(seq, size));
   }
 
   // Retrieve result. Conversion may yield one or more array values
