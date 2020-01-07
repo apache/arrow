@@ -99,13 +99,14 @@ def open_dataset(path_or_paths, filesystem=None, partition_scheme=None,
 
     # TODO pass through options
     options = FileSystemDiscoveryOptions()
-    discovery = FileSystemDataSourceDiscovery(
-        filesystem, path_or_paths, format, options)
 
     if partition_scheme is not None:
         if isinstance(partition_scheme, pyarrow.Schema):
             partition_scheme = HivePartitionScheme(partition_scheme)
-        discovery.partition_scheme = partition_scheme
+        options.partition_scheme = partition_scheme
+
+    discovery = FileSystemDataSourceDiscovery(
+        filesystem, path_or_paths, format, options)
 
     inspected_schema = discovery.inspect()
     return Dataset([discovery.finish()], inspected_schema)
