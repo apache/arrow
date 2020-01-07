@@ -328,8 +328,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // create a new ArrowBuf to associate with new allocator and target ref manager
     final int targetBufLength = srcBuffer.capacity();
     ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(srcBuffer, 0, targetBufLength);
-    targetArrowBuf.readerIndex(srcBuffer.readerIndex());
-    targetArrowBuf.writerIndex(srcBuffer.writerIndex());
     return targetArrowBuf;
   }
 
@@ -425,8 +423,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // create a new ArrowBuf to associate with new allocator and target ref manager
     final int targetBufLength = srcBuffer.capacity();
     final ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(srcBuffer, 0, targetBufLength);
-    targetArrowBuf.readerIndex(srcBuffer.readerIndex());
-    targetArrowBuf.writerIndex(srcBuffer.writerIndex());
     final boolean allocationFit = transferBalance(targetRefManager);
     return new TransferResult(allocationFit, targetArrowBuf);
   }

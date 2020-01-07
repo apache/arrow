@@ -118,7 +118,7 @@ public class TestApplicationMetadata {
         for (byte i = 0; i < 10; i++) {
           final IntVector vector = (IntVector) root.getVector("a");
           final ArrowBuf metadata = allocator.buffer(1);
-          metadata.writeByte(i);
+          metadata.writeByte(i, i);
           vector.set(0, 10);
           vector.setValueCount(1);
           root.setRowCount(1);
@@ -150,7 +150,7 @@ public class TestApplicationMetadata {
         for (byte i = 0; i < 10; i++) {
           final IntVector vector = (IntVector) root.getVector("a");
           final ArrowBuf metadata = allocator.buffer(1);
-          metadata.writeByte(i);
+          metadata.writeByte(i, i);
           vector.set(0, 10);
           vector.setValueCount(1);
           root.setRowCount(1);
@@ -186,7 +186,7 @@ public class TestApplicationMetadata {
         for (byte i = 0; i < 10; i++) {
           final IntVector vector = (IntVector) root.getVector("a");
           final ArrowBuf metadata = allocator.buffer(1);
-          metadata.writeByte(i);
+          metadata.writeByte(i, i);
           vector.set(0, 10);
           vector.setValueCount(1);
           root.setRowCount(1);
@@ -234,7 +234,7 @@ public class TestApplicationMetadata {
           vector.setValueCount(1);
           root.setRowCount(1);
           final ArrowBuf metadata = allocator.buffer(1);
-          metadata.writeByte(i);
+          metadata.writeByte(i, i);
           listener.putNext(metadata);
         }
         listener.completed();

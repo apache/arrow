@@ -747,52 +747,23 @@ public class TestBaseAllocator {
       // Populate a buffer with byte values corresponding to their indices.
       final ArrowBuf arrowBuf = rootAllocator.buffer(256);
       assertEquals(256, arrowBuf.capacity());
-      assertEquals(0, arrowBuf.readerIndex());
-      assertEquals(0, arrowBuf.readableBytes());
-      assertEquals(0, arrowBuf.writerIndex());
-      assertEquals(256, arrowBuf.writableBytes());
-
-      final ArrowBuf slice3 = arrowBuf.slice();
-      assertEquals(0, slice3.readerIndex());
-      assertEquals(0, slice3.readableBytes());
-      assertEquals(0, slice3.writerIndex());
-      // assertEquals(256, slice3.capacity());
-      // assertEquals(256, slice3.writableBytes());
 
       for (int i = 0; i < 256; ++i) {
-        arrowBuf.writeByte(i);
+        arrowBuf.writeByte(i, i);
       }
-      assertEquals(0, arrowBuf.readerIndex());
-      assertEquals(256, arrowBuf.readableBytes());
-      assertEquals(256, arrowBuf.writerIndex());
-      assertEquals(0, arrowBuf.writableBytes());
 
-      final ArrowBuf slice1 = arrowBuf.slice();
-      assertEquals(0, slice1.readerIndex());
-      assertEquals(256, slice1.readableBytes());
+      final ArrowBuf slice1 = arrowBuf.slice(0, 256);
       for (int i = 0; i < 10; ++i) {
-        assertEquals(i, slice1.readByte());
+        assertEquals(i, slice1.readByte(i));
       }
-      assertEquals(256 - 10, slice1.readableBytes());
       for (int i = 0; i < 256; ++i) {
         assertEquals((byte) i, slice1.getByte(i));
       }
 
       final ArrowBuf slice2 = arrowBuf.slice(25, 25);
-      assertEquals(0, slice2.readerIndex());
-      assertEquals(25, slice2.readableBytes());
-      for (int i = 25; i < 50; ++i) {
-        assertEquals(i, slice2.readByte());
+      for (int i = 0; i < 25; ++i) {
+        assertEquals(i + 25, slice2.readByte(i));
       }
-
-      /*
-      for(int i = 256; i > 0; --i) {
-        slice3.writeByte(i - 1);
-      }
-      for(int i = 0; i < 256; ++i) {
-        assertEquals(255 - i, slice1.getByte(i));
-      }
-      */
 
       arrowBuf.getReferenceManager().release();  // all the derived buffers share this fate
     }
@@ -806,7 +777,7 @@ public class TestBaseAllocator {
       // Populate a buffer with byte values corresponding to their indices.
       final ArrowBuf arrowBuf = rootAllocator.buffer(256);
       for (int i = 0; i < 256; ++i) {
-        arrowBuf.writeByte(i);
+        arrowBuf.writeByte(i, i);
       }
 
       // Slice it up.
@@ -1064,7 +1035,6 @@ public class TestBaseAllocator {
   }
 
   public void assertEquiv(ArrowBuf origBuf, ArrowBuf newBuf) {
-    assertEquals(origBuf.readerIndex(), newBuf.readerIndex());
-    assertEquals(origBuf.writerIndex(), newBuf.writerIndex());
+    assertEquals(origBuf.capacity(), newBuf.capacity());
   }
 }

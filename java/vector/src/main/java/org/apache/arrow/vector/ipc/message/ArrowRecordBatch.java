@@ -76,7 +76,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
       arrowBuf.getReferenceManager().retain();
-      long size = arrowBuf.readableBytes();
+      long size = arrowBuf.capacity();
       arrowBuffers.add(new ArrowBuffer(offset, size));
       if (LOGGER.isDebugEnabled()) {
         LOGGER.debug("Buffer in RecordBatch at {}, length: {}", offset, size);
@@ -101,7 +101,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     List<ArrowBuffer> arrowBuffers = new ArrayList<>();
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
-      long size = arrowBuf.readableBytes();
+      long size = arrowBuf.capacity();
       arrowBuffers.add(new ArrowBuffer(offset, size));
       offset += size;
     }
@@ -220,7 +220,7 @@ public class ArrowRecordBatch implements ArrowMessage {
       ArrowBuffer layout = buffersLayout.get(i);
       size += (layout.getOffset() - size);
       ByteBuffer nioBuffer =
-          buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
+          buffer.nioBuffer(0, buffer.capacity());
       size += nioBuffer.remaining();
 
       // round up size to the next multiple of 8

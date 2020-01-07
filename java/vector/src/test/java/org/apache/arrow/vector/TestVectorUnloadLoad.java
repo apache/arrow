@@ -150,17 +150,15 @@ public class TestVectorUnloadLoad {
         List<ArrowBuf> oldBuffers = recordBatch.getBuffers();
         List<ArrowBuf> newBuffers = new ArrayList<>();
         for (ArrowBuf oldBuffer : oldBuffers) {
-          int l = oldBuffer.readableBytes();
+          int l = oldBuffer.capacity();
           if (l % 64 != 0) {
             // pad
             l = l + 64 - l % 64;
           }
           ArrowBuf newBuffer = allocator.buffer(l);
-          for (int i = oldBuffer.readerIndex(); i < oldBuffer.writerIndex(); i++) {
-            newBuffer.setByte(i - oldBuffer.readerIndex(), oldBuffer.getByte(i));
+          for (int i = 0; i < oldBuffer.capacity(); i++) {
+            newBuffer.setByte(i, oldBuffer.getByte(i));
           }
-          newBuffer.readerIndex(0);
-          newBuffer.writerIndex(l);
           newBuffers.add(newBuffer);
         }
 
@@ -220,8 +218,6 @@ public class TestVectorUnloadLoad {
 
         buf2.setInt(j * 4, j);
       }
-      buf1.writerIndex((int)Math.ceil(count / 8));
-      buf2.writerIndex(count * 4);
     }
 
     /*

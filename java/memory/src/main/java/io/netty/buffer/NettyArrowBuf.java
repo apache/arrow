@@ -161,12 +161,14 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public NettyArrowBuf slice() {
-    return arrowBuf.slice(readerIndex, writerIndex - readerIndex).asNettyBuffer();
+    return slice(readerIndex, writerIndex - readerIndex);
   }
 
   @Override
   public NettyArrowBuf slice(int index, int length) {
-    return arrowBuf.slice(index, length).asNettyBuffer();
+    NettyArrowBuf slice = arrowBuf.slice(index, length).asNettyBuffer();
+    slice.writerIndex(length);
+    return slice;
   }
 
   @Override

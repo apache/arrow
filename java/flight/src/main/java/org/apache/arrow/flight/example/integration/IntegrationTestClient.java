@@ -112,8 +112,8 @@ class IntegrationTestClient {
 
             @Override
             public void onNext(PutResult val) {
-              final byte[] metadataRaw = new byte[val.getApplicationMetadata().readableBytes()];
-              val.getApplicationMetadata().readBytes(metadataRaw);
+              final byte[] metadataRaw = new byte[val.getApplicationMetadata().capacity()];
+              val.getApplicationMetadata().readBytes(0, metadataRaw);
               final String metadata = new String(metadataRaw, StandardCharsets.UTF_8);
               if (!Integer.toString(counter).equals(metadata)) {
                 throw new RuntimeException(
@@ -123,10 +123,12 @@ class IntegrationTestClient {
             }
           });
       int counter = 0;
+      int writerIndex = 0;
       while (reader.read(root)) {
         final byte[] rawMetadata = Integer.toString(counter).getBytes(StandardCharsets.UTF_8);
         final ArrowBuf metadata = allocator.buffer(rawMetadata.length);
-        metadata.writeBytes(rawMetadata);
+        metadata.writeBytes(writerIndex, rawMetadata);
+        writerIndex += rawMetadata.length;
         // Transfers ownership of the buffer, so do not release it ourselves
         stream.putNext(metadata);
         try (final ArrowRecordBatch arb = unloader.getRecordBatch()) {

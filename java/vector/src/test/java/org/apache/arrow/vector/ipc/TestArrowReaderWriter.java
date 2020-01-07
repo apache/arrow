@@ -116,13 +116,13 @@ public class TestArrowReaderWriter {
 
   ArrowBuf buf(byte[] bytes) {
     ArrowBuf buffer = allocator.buffer(bytes.length);
-    buffer.writeBytes(bytes);
+    buffer.writeBytes(0, bytes);
     return buffer;
   }
 
   byte[] array(ArrowBuf buf) {
-    byte[] bytes = new byte[buf.readableBytes()];
-    buf.readBytes(bytes);
+    byte[] bytes = new byte[buf.capacity()];
+    buf.readBytes(0, bytes);
     return bytes;
   }
 

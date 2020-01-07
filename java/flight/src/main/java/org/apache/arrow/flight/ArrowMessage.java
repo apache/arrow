@@ -296,7 +296,8 @@ class ArrowMessage implements AutoCloseable {
 
       if (appMetadata != null && appMetadata.capacity() > 0) {
         // Must call slice() as CodedOutputStream#writeByteBuffer writes -capacity- bytes, not -limit- bytes
-        cos.writeByteBuffer(FlightData.APP_METADATA_FIELD_NUMBER, appMetadata.asNettyBuffer().nioBuffer().slice());
+        cos.writeByteBuffer(FlightData.APP_METADATA_FIELD_NUMBER,
+            appMetadata.asNettyBuffer().nioBuffer(0, appMetadata.capacity()).slice());
         // This is weird, but implicitly, writing an ArrowMessage frees any references it has
         appMetadata.getReferenceManager().release();
       }
@@ -305,11 +306,11 @@ class ArrowMessage implements AutoCloseable {
       int size = 0;
       List<ByteBuf> allBufs = new ArrayList<>();
       for (ArrowBuf b : bufs) {
-        allBufs.add(b.asNettyBuffer());
-        size += b.readableBytes();
+        allBufs.add(b.asNettyBuffer().writerIndex(b.capacity()));
+        size += b.capacity();
         // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable from C++.
-        if (b.readableBytes() % 8 != 0) {
-          int paddingBytes = 8 - (b.readableBytes() % 8);
+        if (b.capacity() % 8 != 0) {
+          int paddingBytes = 8 - (b.capacity() % 8);
           assert paddingBytes > 0 && paddingBytes < 8;
           size += paddingBytes;
           allBufs.add(PADDING_BUFFERS.get(paddingBytes).retain());
@@ -320,9 +321,11 @@ class ArrowMessage implements AutoCloseable {
       cos.flush();
 
       ArrowBuf initialBuf = allocator.buffer(baos.size());
-      initialBuf.writeBytes(baos.toByteArray());
-      final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true, bufs.size() + 1,
-          ImmutableList.<ByteBuf>builder().add(initialBuf.asNettyBuffer()).addAll(allBufs).build());
+      initialBuf.writeBytes(0, baos.toByteArray());
+      final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true,
+          bufs.size() + 1, ImmutableList.<ByteBuf>builder()
+              .add(initialBuf.asNettyBuffer().writerIndex(baos.size()))
+              .addAll(allBufs).build());
       // Implicitly, transfer ownership of our buffers to the input stream (which will decrement the refcount when done)
       final ByteBufInputStream is = new DrainableByteBufInputStream(bb);
       return is;
