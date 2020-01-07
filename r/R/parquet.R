@@ -205,16 +205,12 @@ ParquetArrowWriterPropertiesBuilder <- R6Class("ParquetArrowWriterPropertiesBuil
 ParquetArrowWriterProperties <- R6Class("ParquetArrowWriterProperties", inherit = Object)
 
 ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps = FALSE, coerce_timestamps = NULL, allow_truncated_timestamps = FALSE) {
-  if (!use_deprecated_int96_timestamps && is.null(coerce_timestamps) && !allow_truncated_timestamps) {
-    shared_ptr(ParquetArrowWriterProperties, parquet___default_arrow_writer_properties())
-  } else {
-    builder <- shared_ptr(ParquetArrowWriterPropertiesBuilder, parquet___ArrowWriterProperties___Builder__create())
-    builder$store_schema()
-    builder$set_int96_support(use_deprecated_int96_timestamps)
-    builder$set_coerce_timestamps(coerce_timestamps)
-    builder$set_allow_truncated_timestamps(allow_truncated_timestamps)
-    shared_ptr(ParquetArrowWriterProperties, parquet___ArrowWriterProperties___Builder__build(builder))
-  }
+  builder <- shared_ptr(ParquetArrowWriterPropertiesBuilder, parquet___ArrowWriterProperties___Builder__create())
+  builder$store_schema()
+  builder$set_int96_support(use_deprecated_int96_timestamps)
+  builder$set_coerce_timestamps(coerce_timestamps)
+  builder$set_allow_truncated_timestamps(allow_truncated_timestamps)
+  shared_ptr(ParquetArrowWriterProperties, parquet___ArrowWriterProperties___Builder__build(builder))
 }
 
 valid_parquet_version <- c(
