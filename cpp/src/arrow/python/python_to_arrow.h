@@ -72,6 +72,11 @@ Status ConvertPySequence(PyObject* obj, PyObject* mask,
                          const PyConversionOptions& options,
                          std::shared_ptr<ChunkedArray>* out);
 
+// ARROW_PYTHON_EXPORT
+// Status ConvertPySequence2(PyObject* obj, PyObject* mask,
+//                           const PyConversionOptions& options,
+//                           std::shared_ptr<ChunkedArray>* out);
+
 ARROW_PYTHON_EXPORT
 Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
                          std::shared_ptr<ChunkedArray>* out);
