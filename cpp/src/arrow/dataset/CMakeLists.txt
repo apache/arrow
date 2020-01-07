@@ -23,6 +23,7 @@ set(ARROW_DATASET_SRCS
     dataset.cc
     discovery.cc
     file_base.cc
+    file_ipc.cc
     filter.cc
     partition.cc
     projector.cc
@@ -104,6 +105,7 @@ if(NOT WIN32)
   add_arrow_dataset_test(filter_test)
   add_arrow_dataset_test(partition_test)
   add_arrow_dataset_test(scanner_test)
+  add_arrow_dataset_test(file_ipc_test)
 
   if(ARROW_PARQUET)
     add_arrow_dataset_test(file_parquet_test)
