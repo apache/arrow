@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-expect_parquet_roundtrip <- function(tab, ...) {
+expect_parquet_roundtrip <- function(tab, ..., as_data_frame = FALSE) {
   tf <- tempfile()
   on.exit(unlink(tf))
 
   write_parquet(tab, tf, ...)
-  expect_equal(read_parquet(tf, as_data_frame = FALSE), tab)
+  expect_equal(read_parquet(tf, as_data_frame = as_data_frame), tab)
 }
