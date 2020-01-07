@@ -482,6 +482,15 @@ class TableTest < Test::Unit::TestCase
                                        compression: :gzip,
                                        schema: @table.schema))
       end
+
+      def test_tsv
+        output = create_output(".tsv")
+        @table.save(output, format: :tsv)
+        assert_equal(@table,
+                     Arrow::Table.load(output,
+                                       format: :tsv,
+                                       schema: @table.schema))
+      end
     end
 
     sub_test_case("path") do
@@ -510,6 +519,15 @@ class TableTest < Test::Unit::TestCase
                          Arrow::Table.load(output,
                                            format: :csv,
                                            compression: :gzip,
+                                           schema: @table.schema))
+          end
+
+          test("tsv") do
+            output = create_output(".tsv")
+            @table.save(output)
+            assert_equal(@table,
+                         Arrow::Table.load(output,
+                                           format: :tsv,
                                            schema: @table.schema))
           end
         end
@@ -550,6 +568,24 @@ chris,-1
               CSV
             end
             assert_equal(<<-TABLE, Arrow::Table.load(file.path).to_s)
+	name	score
+0	alice	   10
+1	bob 	   29
+2	chris	   -1
+            TABLE
+          end
+
+          test("tsv") do
+            file = Tempfile.new(["red-arrow", ".tsv"])
+            file.puts(<<-TSV)
+name\tscore
+alice\t10
+bob\t29
+chris\t-1
+            TSV
+            file.close
+            table = Arrow::Table.load(file.path)
+            assert_equal(<<-TABLE, table.to_s)
 	name	score
 0	alice	   10
 1	bob 	   29

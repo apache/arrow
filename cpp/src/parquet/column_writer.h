@@ -129,7 +129,7 @@ class PARQUET_EXPORT ColumnWriter {
   virtual int64_t rows_written() const = 0;
 
   /// \brief The total size of the compressed pages + page headers. Some values
-  /// might be still buffered an not written to a page yet
+  /// might be still buffered and not written to a page yet
   virtual int64_t total_compressed_bytes() const = 0;
 
   /// \brief The total number of bytes written as serialized data and
@@ -175,7 +175,7 @@ class TypedColumnWriter : public ColumnWriter {
   /// also includes all values with definition_level == (max_definition_level - 1).
   ///
   /// @param num_values number of levels to write.
-  /// @param def_levels The Parquet definiton levels, length is num_values
+  /// @param def_levels The Parquet definition levels, length is num_values
   /// @param rep_levels The Parquet repetition levels, length is num_values
   /// @param valid_bits Bitmap that indicates if the row is null on the lowest nesting
   ///   level. The length is number of rows in the lowest nesting level.

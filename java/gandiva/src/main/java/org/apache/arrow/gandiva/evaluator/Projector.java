@@ -65,7 +65,7 @@ public class Projector {
 
   /**
    * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke Projector::Evalute() against a RecordBatch to evaluate the record batch
+   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
    * against these projections.
    *
    * @param schema Table schema. The field names in the schema should match the fields used
@@ -81,7 +81,7 @@ public class Projector {
 
   /**
    * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke Projector::Evalute() against a RecordBatch to evaluate the record batch
+   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
    * against these projections.
    *
    * @param schema Table schema. The field names in the schema should match the fields used
@@ -99,7 +99,7 @@ public class Projector {
 
   /**
    * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke Projector::Evalute() against a RecordBatch to evaluate the record batch
+   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
    * against these projections.
    *
    * @param schema Table schema. The field names in the schema should match the fields used

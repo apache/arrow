@@ -366,7 +366,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_str
     return std::make_shared<LocalFileSystem>();
   }
 
-  if (scheme == "hdfs") {
+  if (scheme == "hdfs" || scheme == "viewfs") {
 #ifdef ARROW_HDFS
     ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));
     ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options));

@@ -164,7 +164,7 @@ but unlike a simple array, a chunked array does not require the entire sequence
 to be physically contiguous in memory.  Also, the constituents of a chunked array
 need not have the same size, but they must all have the same data type.
 
-A chunked array is constructed by agregating any number of arrays.  Here we'll
+A chunked array is constructed by aggregating any number of arrays.  Here we'll
 build a chunked array with the same logical values as in the example above,
 but in two separate chunks::
 

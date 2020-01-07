@@ -69,7 +69,7 @@ class PARQUET_EXPORT Encryptor {
 
 class InternalFileEncryptor {
  public:
-  explicit InternalFileEncryptor(FileEncryptionProperties* propperties,
+  explicit InternalFileEncryptor(FileEncryptionProperties* properties,
                                  ::arrow::MemoryPool* pool);
 
   std::shared_ptr<Encryptor> GetFooterEncryptor();

@@ -22,7 +22,7 @@
 #   usage: ./merge_arrow_pr.py    (see config env vars below)
 #
 # This utility assumes you already have a local Arrow git clone and that you
-# have added remotes corresponding to both (i) the Github Apache Arrow mirror
+# have added remotes corresponding to both (i) the GitHub Apache Arrow mirror
 # and (ii) the apache git repo.
 #
 # There are several pieces of authorization possibly needed via environment

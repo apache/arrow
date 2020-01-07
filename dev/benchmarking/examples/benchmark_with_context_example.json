@@ -26,7 +26,7 @@
       "std_dev": 1.41,
       "n_obs": 8,
       "run_metadata": {"any": "json object is admissible"},
-      "run_notes": "This value is an arbitray-length string."
+      "run_notes": "This value is an arbitrary-length string."
     },
     {
       "benchmark_name": "Benchmark 2",

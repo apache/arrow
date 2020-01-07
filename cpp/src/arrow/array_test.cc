@@ -28,6 +28,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -1472,6 +1473,42 @@ TEST_F(TestFWBinaryArray, BuilderNulls) {
       ASSERT_EQ(0, *(buffer->data() + i)) << i;
     }
   }
+}
+
+struct Appender {
+  Status VisitNull() {
+    data.emplace_back("(null)");
+    return Status::OK();
+  }
+
+  Status VisitValue(util::string_view v) {
+    data.push_back(v);
+    return Status::OK();
+  }
+
+  std::vector<util::string_view> data;
+};
+
+TEST_F(TestFWBinaryArray, ArrayDataVisitor) {
+  auto type = fixed_size_binary(3);
+
+  auto array = ArrayFromJSON(type, R"(["abc", null, "def"])");
+  Appender appender;
+  ArrayDataVisitor<FixedSizeBinaryType> visitor;
+  ASSERT_OK(visitor.Visit(*array->data(), &appender));
+  ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"abc", "(null)", "def"}));
+  ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
+}
+
+TEST_F(TestFWBinaryArray, ArrayDataVisitorSliced) {
+  auto type = fixed_size_binary(3);
+
+  auto array = ArrayFromJSON(type, R"(["abc", null, "def", "ghi"])")->Slice(1, 2);
+  Appender appender;
+  ArrayDataVisitor<FixedSizeBinaryType> visitor;
+  ASSERT_OK(visitor.Visit(*array->data(), &appender));
+  ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"(null)", "def"}));
+  ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
 }
 
 // ----------------------------------------------------------------------

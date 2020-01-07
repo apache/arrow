@@ -30,6 +30,9 @@ module Arrow
     def initialize(path_or_data, **options)
       @path_or_data = path_or_data
       @options = options
+      if @options.key?(:delimiter)
+        @options[:col_sep] = @options.delete(:delimiter)
+      end
       @compression = @options.delete(:compression)
     end
 
@@ -113,6 +116,8 @@ module Arrow
           options.add_schema(value)
         when :encoding
           # process encoding on opening input
+        when :col_sep
+          options.delimiter = value
         else
           setter = "#{key}="
           if options.respond_to?(setter)

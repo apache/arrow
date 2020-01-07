@@ -22,6 +22,6 @@ FROM ${arch}/node:${node}
 ENV NODE_NO_WARNINGS=1
 
 # TODO(kszucs):
-# 1. add the files required to install the dependencies to .dockeignore
-# 2. copy these files to their appropiate path
+# 1. add the files required to install the dependencies to .dockerignore
+# 2. copy these files to their appropriate path
 # 3. download and compile the dependencies

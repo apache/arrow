@@ -2190,7 +2190,7 @@ class ArrowDeserializer {
 
   Status NotImplemented(const DataType& type) {
     return Status::NotImplemented(
-        "Convertion from arrow to pandas is not implemented for type ", type.name());
+        "Conversion from arrow to pandas is not implemented for type ", type.name());
   }
 
   Status Convert(PyObject** out) {

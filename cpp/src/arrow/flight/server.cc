@@ -791,7 +791,7 @@ Status FlightServerBase::GetSchema(const ServerCallContext& context,
 
 class RecordBatchStream::RecordBatchStreamImpl {
  public:
-  // Stages of the stream when producing paylaods
+  // Stages of the stream when producing payloads
   enum class Stage {
     NEW,          // The stream has been created, but Next has not been called yet
     DICTIONARY,   // Dictionaries have been collected, and are being sent

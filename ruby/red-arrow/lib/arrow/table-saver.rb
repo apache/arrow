@@ -135,17 +135,23 @@ module Arrow
       save_as_arrow_streaming
     end
 
-    def save_as_csv
+    def csv_save(**options)
       open_output_stream do |output|
-        csv = CSV.new(output)
+        csv = CSV.new(output, **options)
         names = @table.schema.fields.collect(&:name)
         csv << names
-        @table.each_record(reuse_record: true) do |record|
-          csv << names.collect do |name|
-            record[name]
-          end
+        @table.raw_records.each do |record|
+          csv << record
         end
       end
+    end
+
+    def save_as_csv
+      csv_save
+    end
+
+    def save_as_tsv
+      csv_save(col_sep: "\t")
     end
 
     def save_as_feather

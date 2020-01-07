@@ -44,7 +44,8 @@ namespace Apache.Arrow.Tests
             public void ProducesExpectedArray()
             {
                 var now = DateTimeOffset.UtcNow.ToLocalTime();
-                var array = new TimestampArray.Builder(TimeUnit.Nanosecond, TimeZoneInfo.Local.Id)
+                var timestampType = new TimestampType(TimeUnit.Nanosecond, TimeZoneInfo.Local);
+                var array = new TimestampArray.Builder(timestampType)
                     .Append(now)
                     .Build();
 

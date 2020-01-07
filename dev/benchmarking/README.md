@@ -71,7 +71,7 @@ SELECT ingest_machine_view(:'content'::jsonb);
 
 There is a file named "[.env][.env]" in this directory that is used by
 `docker-compose` to set up the postgres user and password for the
-local containers. Currentlty the name and password are both
+local containers. Currently the name and password are both
 `benchmark`. This will be the password for the psql client as well.
 
 The Postgres Alpine image runs any added '\*.sql' and '\*.sh' scripts placed

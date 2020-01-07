@@ -165,13 +165,15 @@ Result<bool> CreateDirTree(const PlatformFilename& dir_path);
 ///
 /// Return whether the directory existed.
 ARROW_EXPORT
-Result<bool> DeleteDirContents(const PlatformFilename& dir_path);
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path,
+                               bool allow_non_existent = true);
 
 /// Delete a directory tree if it exists.
 ///
 /// Return whether the directory existed.
 ARROW_EXPORT
-Result<bool> DeleteDirTree(const PlatformFilename& dir_path);
+Result<bool> DeleteDirTree(const PlatformFilename& dir_path,
+                           bool allow_non_existent = true);
 
 // Non-recursively list the contents of the given directory.
 // The returned names are the children's base names, not including dir_path.
@@ -182,7 +184,8 @@ Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path);
 ///
 /// Return whether the file existed.
 ARROW_EXPORT
-Result<bool> DeleteFile(const PlatformFilename& file_path);
+Result<bool> DeleteFile(const PlatformFilename& file_path,
+                        bool allow_non_existent = true);
 
 /// Return whether a file exists.
 ARROW_EXPORT
@@ -257,6 +260,44 @@ std::string ErrnoMessage(int errnum);
 ARROW_EXPORT
 std::string WinErrorMessage(int errnum);
 #endif
+
+ARROW_EXPORT
+std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum);
+#if _WIN32
+ARROW_EXPORT
+std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum);
+#endif
+
+template <typename... Args>
+Status StatusFromErrno(int errnum, StatusCode code, Args&&... args) {
+  return Status::FromDetailAndArgs(code, StatusDetailFromErrno(errnum),
+                                   std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+Status IOErrorFromErrno(int errnum, Args&&... args) {
+  return StatusFromErrno(errnum, StatusCode::IOError, std::forward<Args>(args)...);
+}
+
+#if _WIN32
+template <typename... Args>
+Status StatusFromWinError(int errnum, StatusCode code, Args&&... args) {
+  return Status::FromDetailAndArgs(code, StatusDetailFromWinError(errnum),
+                                   std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+Status IOErrorFromWinError(int errnum, Args&&... args) {
+  return StatusFromWinError(errnum, StatusCode::IOError, std::forward<Args>(args)...);
+}
+#endif
+
+ARROW_EXPORT
+int ErrnoFromStatus(const Status&);
+
+// Always returns 0 on non-Windows platforms (for Python).
+ARROW_EXPORT
+int WinErrorFromStatus(const Status&);
 
 class ARROW_EXPORT TemporaryDir {
  public:

@@ -112,8 +112,10 @@ def python_linter(src):
         logger.error("python linter requested but flake8 binary not found.")
         return
 
-    yield LintResult.from_cmd(flake8(src.pyarrow, src.dev, check=False))
-    config = os.path.join(src.pyarrow, ".flake8.cython")
+    setup_py = os.path.join(src.python, "setup.py")
+    yield LintResult.from_cmd(flake8(setup_py, src.pyarrow, src.dev,
+                                     check=False))
+    config = os.path.join(src.python, ".flake8.cython")
     yield LintResult.from_cmd(flake8("--config=" + config, src.pyarrow,
                                      check=False))
 

@@ -214,7 +214,7 @@ namespace FlatBuffers
         }
 
         /// <summary>
-        /// Get the wire-size (in bytes) of an typed array
+        /// Get the wire-size (in bytes) of a typed array
         /// </summary>
         /// <typeparam name="T">The type of the array</typeparam>
         /// <param name="x">The array to get the size of</param>
@@ -289,7 +289,7 @@ namespace FlatBuffers
 #endif
 
 #if !UNSAFE_BYTEBUFFER
-        // Pre-allocated helper arrays for convertion.
+        // Pre-allocated helper arrays for conversion.
         private float[] floathelper = new[] { 0.0f };
         private int[] inthelper = new[] { 0 };
         private double[] doublehelper = new[] { 0.0 };

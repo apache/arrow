@@ -25,7 +25,7 @@
 #     $ docker-compose build python-manylinux1
 #   or pull:
 #     $ docker-compose pull python-manylinux1
-#   an then run:
+#   and then run:
 #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
 
 source /multibuild/manylinux_utils.sh

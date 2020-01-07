@@ -54,7 +54,7 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
       // clean up
       AutoCloseables.close(consumers);
     } catch (Exception e) {
-      throw new RuntimeException("Error occured while releasing resources.", e);
+      throw new RuntimeException("Error occurred while releasing resources.", e);
     }
 
   }

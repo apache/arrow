@@ -15,79 +15,57 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-File System Interfaces
-======================
+.. _filesystem:
 
-In this section, we discuss filesystem-like interfaces in PyArrow.
+.. currentmodule:: pyarrow.fs
 
-.. _hdfs:
+Filesystem Interface
+====================
 
-Hadoop File System (HDFS)
--------------------------
+PyArrow comes with an abstract filesystem interface, as well as concrete
+implementations for various storage types.
 
-PyArrow comes with bindings to a C++-based interface to the Hadoop File
-System. You connect like so:
+The filesystem interface provides input and output streams as well as
+directory operations.  A simplified view of the underlying data
+storage is exposed.  Data paths are represented as *abstract paths*, which
+are ``/``-separated, even on Windows, and shouldn't include special path
+components such as ``.`` and ``..``.  Symbolic links, if supported by the
+underlying storage, are automatically dereferenced.  Only basic
+:class:`metadata <FileStats>` about file entries, such as the file size
+and modification time, is made available.
 
-.. code-block:: python
+Types
+-----
 
-   import pyarrow as pa
-   fs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path)
-   with fs.open(path, 'rb') as f:
-       # Do something with f
+The core interface is represented by the base class :class:`FileSystem`.
+Concrete subclasses are available for various kinds of storage:
+:class:`local filesystem access <LocalFileSystem>`,
+:class:`HDFS <HadoopFileSystem>` and
+:class:`Amazon S3-compatible storage <S3FileSystem>`.
 
-By default, ``pyarrow.hdfs.HadoopFileSystem`` uses libhdfs, a JNI-based
-interface to the Java Hadoop client. This library is loaded **at runtime**
-(rather than at link / library load time, since the library may not be in your
-LD_LIBRARY_PATH), and relies on some environment variables.
+Example
+-------
 
-* ``HADOOP_HOME``: the root of your installed Hadoop distribution. Often has
-  `lib/native/libhdfs.so`.
+Assuming your S3 credentials are correctly configured (for example by setting
+the ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` environment variables),
+here is how you can read contents from a S3 bucket::
 
-* ``JAVA_HOME``: the location of your Java SDK installation.
+   >>> from pyarrow import fs
+   >>> s3 = fs.S3FileSystem(fs.S3Options(region='eu-west-3'))
 
-* ``ARROW_LIBHDFS_DIR`` (optional): explicit location of ``libhdfs.so`` if it is
-  installed somewhere other than ``$HADOOP_HOME/lib/native``.
+   # List all contents in a bucket, recursively
+   >>> s3.get_target_stats(fs.FileSelector('my-test-bucket', recursive=True))
+   [<FileStats for 'my-test-bucket/File1': type=FileType.File, size=10>,
+    <FileStats for 'my-test-bucket/File5': type=FileType.File, size=10>,
+    <FileStats for 'my-test-bucket/Dir1': type=FileType.Directory>,
+    <FileStats for 'my-test-bucket/Dir2': type=FileType.Directory>,
+    <FileStats for 'my-test-bucket/EmptyDir': type=FileType.Directory>,
+    <FileStats for 'my-test-bucket/Dir1/File2': type=FileType.File, size=11>,
+    <FileStats for 'my-test-bucket/Dir1/Subdir': type=FileType.Directory>,
+    <FileStats for 'my-test-bucket/Dir2/Subdir': type=FileType.Directory>,
+    <FileStats for 'my-test-bucket/Dir2/Subdir/File3': type=FileType.File, size=10>]
 
-* ``CLASSPATH``: must contain the Hadoop jars. You can set these using:
-
-.. code-block:: shell
-
-    export CLASSPATH=`$HADOOP_HOME/bin/hdfs classpath --glob`
-
-If ``CLASSPATH`` is not set, then it will be set automatically if the
-``hadoop`` executable is in your system path, or if ``HADOOP_HOME`` is set.
-
-You can also use libhdfs3, a thirdparty C++ library for HDFS from Pivotal Labs:
-
-.. code-block:: python
-
-   fs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path,
-                       driver='libhdfs3')
-
-HDFS API
-~~~~~~~~
-
-.. currentmodule:: pyarrow
-
-.. autosummary::
-   :toctree: generated/
-
-   hdfs.connect
-   HadoopFileSystem.cat
-   HadoopFileSystem.chmod
-   HadoopFileSystem.chown
-   HadoopFileSystem.delete
-   HadoopFileSystem.df
-   HadoopFileSystem.disk_usage
-   HadoopFileSystem.download
-   HadoopFileSystem.exists
-   HadoopFileSystem.get_capacity
-   HadoopFileSystem.get_space_used
-   HadoopFileSystem.info
-   HadoopFileSystem.ls
-   HadoopFileSystem.mkdir
-   HadoopFileSystem.open
-   HadoopFileSystem.rename
-   HadoopFileSystem.rm
-   HadoopFileSystem.upload
-   HdfsFile
+   # Open a file for reading and download its contents
+   >>> f = s3.open_input_stream('my-test-bucket/Dir1/File2')
+   >>> f.readall()
+   b'some data'

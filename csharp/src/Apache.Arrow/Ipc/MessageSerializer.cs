@@ -74,8 +74,8 @@ namespace Apache.Arrow.Ipc
                     var intMetaData = field.Type<Flatbuf.Int>().Value;
                     return MessageSerializer.GetNumberType(intMetaData.BitWidth, intMetaData.IsSigned);
                 case Flatbuf.Type.FloatingPoint:
-                    var floatingPointTypeMetadta = field.Type<Flatbuf.FloatingPoint>().Value;
-                    switch (floatingPointTypeMetadta.Precision)
+                    var floatingPointTypeMetadata = field.Type<Flatbuf.FloatingPoint>().Value;
+                    switch (floatingPointTypeMetadata.Precision)
                     {
                         case Flatbuf.Precision.SINGLE:
                             return Types.FloatType.Default;

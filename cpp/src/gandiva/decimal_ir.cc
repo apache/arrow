@@ -255,7 +255,7 @@ llvm::Value* DecimalIR::AddLarge(const ValueFull& x, const ValueFull& y,
   return sum;
 }
 
-/// The output scale/precision cannot be arbitary values. The algo here depends on them
+/// The output scale/precision cannot be arbitrary values. The algo here depends on them
 /// to be the same as computed in DecimalTypeSql.
 /// TODO: enforce this.
 Status DecimalIR::BuildAdd() {

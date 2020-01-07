@@ -59,6 +59,7 @@ RUN apt-get update -y -q && \
       ninja-build \
       pkg-config \
       protobuf-compiler \
+      python-minimal \
       rapidjson-dev \
       thrift-compiler \
       tzdata && \
@@ -72,16 +73,21 @@ RUN apt-get update -y -q && \
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
 # - thrift is too old
-ENV ARROW_CUDA=ON \
+ENV ARROW_BUILD_STATIC=OFF \
+    ARROW_BUILD_TESTS=ON \
+    ARROW_COMPUTE=OFF \
+    ARROW_CSV=OFF \
+    ARROW_CUDA=ON \
+    ARROW_DATASET=OFF \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
+    ARROW_FILESYSTEM=OFF \
     ARROW_FLIGHT=OFF \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
     ARROW_NO_DEPRECATED_API=ON \
     ARROW_PLASMA=ON \
-    ARROW_USE_ASAN=ON \
     ARROW_USE_CCACHE=ON \
-    ARROW_USE_UBSAN=ON \
+    CUDA_LIB_PATH=${LIBRARY_PATH} \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \

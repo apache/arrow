@@ -114,7 +114,7 @@ Status SerializeSparseTensor(std::shared_ptr<SparseTensor> sparse_tensor,
 /// \brief Write the Tensor metadata header to an OutputStream.
 /// \param[in] dtype DataType of the Tensor
 /// \param[in] shape The shape of the tensor
-/// \param[in] tensor_num_bytes The lengh of the Tensor data in bytes
+/// \param[in] tensor_num_bytes The length of the Tensor data in bytes
 /// \param[in] dst The OutputStream to write the Tensor header to
 /// \return Status
 ARROW_PYTHON_EXPORT

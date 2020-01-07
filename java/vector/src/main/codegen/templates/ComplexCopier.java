@@ -52,9 +52,8 @@ public class ComplexCopier {
       case FIXED_SIZE_LIST:
         if (reader.isSet()) {
           writer.startList();
-          FieldWriter dataWriter = getListWriterForReader(reader.reader(), writer);
           while (reader.next()) {
-            writeValue(reader.reader(), dataWriter);
+            writeValue(reader.reader(), getListWriterForReader(reader.reader(), writer));
           }
           writer.endList();
         }

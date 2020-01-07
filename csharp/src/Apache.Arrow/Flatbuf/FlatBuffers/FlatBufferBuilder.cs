@@ -387,7 +387,7 @@ namespace FlatBuffers
             return EndVector();
         }
 
-        /// @cond FLATBUFFERS_INTENRAL
+        /// @cond FLATBUFFERS_INTERNAL
         public void Nested(int obj)
         {
             // Structs are always stored inline, so need to be created right

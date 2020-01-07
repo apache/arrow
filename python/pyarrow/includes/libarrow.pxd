@@ -475,6 +475,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int32_t value_offset(int i)
         int32_t value_length(int i)
         shared_ptr[CArray] values()
+        CResult[shared_ptr[CArray]] Flatten(CMemoryPool* memory_pool)
         shared_ptr[CDataType] value_type()
 
     cdef cppclass CLargeListArray" arrow::LargeListArray"(CArray):
@@ -485,6 +486,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t value_offset(int i)
         int64_t value_length(int i)
         shared_ptr[CArray] values()
+        CResult[shared_ptr[CArray]] Flatten(CMemoryPool* memory_pool)
         shared_ptr[CDataType] value_type()
 
     cdef cppclass CFixedSizeListArray" arrow::FixedSizeListArray"(CArray):
@@ -1209,7 +1211,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
                         int32_t* metadata_length,
                         int64_t* body_length)
 
-    CStatus ReadTensor(CInputStream* stream, shared_ptr[CTensor]* out)
+    CResult[shared_ptr[CTensor]] ReadTensor(CInputStream* stream)
 
     CStatus ReadRecordBatch(const CMessage& message,
                             const shared_ptr[CSchema]& schema,
@@ -1684,11 +1686,14 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
 
 
+cdef extern from 'arrow/util/io_util.h' namespace 'arrow::internal' nogil:
+    int ErrnoFromStatus(CStatus status)
+    int WinErrorFromStatus(CStatus status)
+
 cdef extern from 'arrow/util/iterator.h' namespace 'arrow' nogil:
     cdef cppclass CIterator" arrow::Iterator"[T]:
         CResult[T] Next()
         CStatus Visit[Visitor](Visitor&& visitor)
-
 
 cdef extern from 'arrow/util/thread_pool.h' namespace 'arrow' nogil:
     int GetCpuThreadPoolCapacity()

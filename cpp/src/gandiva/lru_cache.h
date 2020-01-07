@@ -81,16 +81,16 @@ class LruCache {
 
     // return the value, but first update its place in the most
     // recently used list
-    typename list_type::iterator postition_in_lru_list = value_for_key->second.second;
-    if (postition_in_lru_list != lru_list_.begin()) {
+    typename list_type::iterator position_in_lru_list = value_for_key->second.second;
+    if (position_in_lru_list != lru_list_.begin()) {
       // move item to the front of the most recently used list
-      lru_list_.erase(postition_in_lru_list);
+      lru_list_.erase(position_in_lru_list);
       lru_list_.push_front(key);
 
       // update iterator in map
-      postition_in_lru_list = lru_list_.begin();
+      position_in_lru_list = lru_list_.begin();
       const value_type& value = value_for_key->second.first;
-      map_[key] = std::make_pair(value, postition_in_lru_list);
+      map_[key] = std::make_pair(value, position_in_lru_list);
 
       // return the value
       return value;

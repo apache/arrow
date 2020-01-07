@@ -105,7 +105,7 @@ inline Status CheckTensorValidity(const std::shared_ptr<DataType>& type,
   if (!data) {
     return Status::Invalid("Null data is supplied");
   }
-  if (!std::all_of(shape.begin(), shape.end(), [](int64_t x) { return x > 0; })) {
+  if (!std::all_of(shape.begin(), shape.end(), [](int64_t x) { return x >= 0; })) {
     return Status::Invalid("Shape elements must be positive");
   }
   return Status::OK();

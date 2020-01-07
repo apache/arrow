@@ -17,250 +17,315 @@
 
 #include "arrow/compute/kernels/compare.h"
 
+#include <utility>
+
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string_view.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
+using internal::checked_cast;
+using internal::checked_pointer_cast;
+using util::string_view;
+
 namespace compute {
 
-std::shared_ptr<DataType> CompareBinaryKernel::out_type() const {
-  return compare_function_->out_type();
-}
+template <typename T, CompareOperator Op>
+struct Comparator;
 
-Status CompareBinaryKernel::Call(FunctionContext* ctx, const Datum& left,
-                                 const Datum& right, Datum* out) {
-  DCHECK(left.type()->Equals(right.type()));
+template <typename T>
+struct Comparator<T, CompareOperator::EQUAL> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs == rhs; }
+};
 
-  auto lk = left.kind();
-  auto rk = right.kind();
-  auto out_array = out->array();
+template <typename T>
+struct Comparator<T, CompareOperator::NOT_EQUAL> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs != rhs; }
+};
 
-  if (lk == Datum::ARRAY && rk == Datum::SCALAR) {
-    auto array = left.array();
-    auto scalar = right.scalar();
-    return compare_function_->Compare(*array, *scalar, &out_array);
-  } else if (lk == Datum::SCALAR && rk == Datum::ARRAY) {
-    auto scalar = left.scalar();
-    auto array = right.array();
-    auto out_array = out->array();
-    return compare_function_->Compare(*scalar, *array, &out_array);
-  } else if (lk == Datum::ARRAY && rk == Datum::ARRAY) {
-    auto lhs = left.array();
-    auto rhs = right.array();
-    return compare_function_->Compare(*lhs, *rhs, &out_array);
+template <typename T>
+struct Comparator<T, CompareOperator::GREATER> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs > rhs; }
+};
+
+template <typename T>
+struct Comparator<T, CompareOperator::GREATER_EQUAL> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs >= rhs; }
+};
+
+template <typename T>
+struct Comparator<T, CompareOperator::LESS> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs < rhs; }
+};
+
+template <typename T>
+struct Comparator<T, CompareOperator::LESS_EQUAL> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs <= rhs; }
+};
+
+// return flipped_op such that (a op b) is equivalent to (b flipped_op a)
+static CompareOperator FlippedCompareOperator(CompareOperator op) {
+  switch (op) {
+    case CompareOperator::LESS:
+      return CompareOperator::GREATER;
+
+    case CompareOperator::GREATER:
+      return CompareOperator::LESS;
+
+    case CompareOperator::LESS_EQUAL:
+      return CompareOperator::GREATER_EQUAL;
+
+    case CompareOperator::GREATER_EQUAL:
+      return CompareOperator::LESS_EQUAL;
+
+    case CompareOperator::EQUAL:
+    case CompareOperator::NOT_EQUAL:
+    default:
+      break;
   }
-
-  return Status::Invalid("Invalid datum signature for CompareBinaryKernel");
+  return op;
 }
 
-template <typename ArrowType, CompareOperator Op,
-          typename ScalarType = typename TypeTraits<ArrowType>::ScalarType,
-          typename T = typename TypeTraits<ArrowType>::CType>
-static Status CompareArrayScalar(const ArrayData& array, const ScalarType& scalar,
-                                 uint8_t* output_bitmap) {
-  const T* left = array.GetValues<T>(1);
-  const T right = scalar.value;
+template <typename Value>
+struct RepeatedValue {
+  Value operator()() { return value_; }
+  Value value_;
+};
 
-  internal::GenerateBitsUnrolled(
-      output_bitmap, 0, array.length,
-      [&left, right]() -> bool { return Comparator<T, Op>::Compare(*left++, right); });
+struct RepeatedBufferAsStringView {
+  explicit RepeatedBufferAsStringView(const Buffer& buffer) : value_(buffer) {}
+  util::string_view operator()() { return value_; }
+  util::string_view value_;
+};
 
-  return Status::OK();
+struct ReadFromBitmap : internal::BitmapReader {
+  using internal::BitmapReader::BitmapReader;
+
+  bool operator()() {
+    bool out = IsSet();
+    Next();
+    return out;
+  }
+};
+
+template <typename T>
+struct DereferenceIncrementPointer {
+  T operator()() { return *ptr_++; }
+  const T* ptr_;
+};
+
+template <typename ArrayType>
+struct GetViewFromStringLikeArray {
+  explicit GetViewFromStringLikeArray(const ArrayType* array) : array_(array) {}
+
+  string_view operator()() { return array_->GetView(i_++); }
+
+  const ArrayType* array_;
+  int64_t i_ = 0;
+};
+
+template <typename T, typename RangeType = RepeatedValue<typename T::c_type>>
+RangeType MakeRange(const TemporalScalar<T>& scalar) {
+  return RangeType{scalar.value};
 }
 
-template <typename ArrowType, CompareOperator Op,
-          typename ScalarType = typename TypeTraits<ArrowType>::ScalarType,
-          typename T = typename TypeTraits<ArrowType>::CType>
-static Status CompareScalarArray(const ScalarType& scalar, const ArrayData& array,
-                                 uint8_t* output_bitmap) {
-  const T left = scalar.value;
-  const T* right = array.GetValues<T>(1);
-
-  internal::GenerateBitsUnrolled(
-      output_bitmap, 0, array.length,
-      [left, &right]() -> bool { return Comparator<T, Op>::Compare(left, *right++); });
-
-  return Status::OK();
+template <typename T, typename RangeType = RepeatedValue<typename T::c_type>>
+RangeType MakeRange(const internal::PrimitiveScalar<T>& scalar) {
+  return RangeType{scalar.value};
 }
 
-template <typename ArrowType, CompareOperator Op,
-          typename T = typename TypeTraits<ArrowType>::CType>
-static Status CompareArrayArray(const ArrayData& lhs, const ArrayData& rhs,
-                                uint8_t* output_bitmap) {
-  const T* left = lhs.GetValues<T>(1);
-  const T* right = rhs.GetValues<T>(1);
+RepeatedBufferAsStringView MakeRange(const BaseBinaryScalar& scalar) {
+  return RepeatedBufferAsStringView{*scalar.value};
+}
 
-  internal::GenerateBitsUnrolled(output_bitmap, 0, lhs.length, [&left, &right]() -> bool {
-    return Comparator<T, Op>::Compare(*left++, *right++);
+ReadFromBitmap MakeRange(const BooleanArray& array) {
+  return ReadFromBitmap(array.data()->GetValues<uint8_t>(1), array.offset(),
+                        array.length());
+}
+
+template <typename T,
+          typename RangeType = DereferenceIncrementPointer<typename T::c_type>>
+RangeType MakeRange(const NumericArray<T>& array) {
+  return RangeType{array.raw_values()};
+}
+
+template <typename T, typename RangeType = GetViewFromStringLikeArray<BaseBinaryArray<T>>>
+RangeType MakeRange(const BaseBinaryArray<T>& array) {
+  return RangeType{&array};
+}
+
+inline Status AssignNulls(FunctionContext* ctx, const Array& array, const Scalar& scalar,
+                          ArrayData* out) {
+  return scalar.is_valid ? detail::PropagateNulls(ctx, *array.data(), out)
+                         : detail::SetAllNulls(ctx, *array.data(), out);
+}
+
+inline Status AssignNulls(FunctionContext* ctx, const Array& left, const Array& right,
+                          ArrayData* out) {
+  return detail::AssignNullIntersection(ctx, *left.data(), *right.data(), out);
+}
+
+template <CompareOperator Op, typename L, typename R>
+Status Compare(L&& get_left, R&& get_right, ArrayData* out) {
+  auto out_bitmap = out->buffers[1]->mutable_data();
+  internal::GenerateBitsUnrolled(out_bitmap, 0, out->length, [&]() -> bool {
+    return Comparator<decltype(get_left()), Op>::Compare(get_left(), get_right());
   });
-
   return Status::OK();
 }
 
 template <typename ArrowType, CompareOperator Op>
-class CompareFunctionImpl final : public CompareFunction {
+class CompareKernel final : public BinaryKernel {
+ public:
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
- public:
-  explicit CompareFunctionImpl(FunctionContext* ctx) : ctx_(ctx) {}
+  std::shared_ptr<DataType> out_type() const override { return boolean(); }
 
-  Status Compare(const ArrayData& array, const Scalar& scalar, ArrayData* output) const {
-    // Caller must cast
-    DCHECK(array.type->Equals(scalar.type));
-    // Output must be a boolean array
-    DCHECK(output->type->Equals(boolean()));
-    // Output must be of same length
-    DCHECK_EQ(output->length, array.length);
+  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+              Datum* out_datum) override {
+    auto out = out_datum->array();
 
-    // Scalar is null, all comparisons are null.
-    if (!scalar.is_valid) {
-      return detail::SetAllNulls(ctx_, array, output);
+    auto left_array = AsArray(left);
+    auto right_array = AsArray(right);
+    auto right_scalar = AsScalar(right);
+
+    if (left_array && right_array) {
+      RETURN_NOT_OK(AssignNulls(ctx, *left_array, *right_array, out.get()));
+      return Compare<Op>(MakeRange(*left_array), MakeRange(*right_array), out.get());
     }
 
-    // Copy null_bitmap
-    RETURN_NOT_OK(detail::PropagateNulls(ctx_, array, output));
-
-    uint8_t* bitmap_result = output->buffers[1]->mutable_data();
-    return CompareArrayScalar<ArrowType, Op>(
-        array, static_cast<const ScalarType&>(scalar), bitmap_result);
-  }
-
-  Status Compare(const Scalar& scalar, const ArrayData& array, ArrayData* output) const {
-    // Caller must cast
-    DCHECK(array.type->Equals(scalar.type));
-    // Output must be a boolean array
-    DCHECK(output->type->Equals(boolean()));
-    // Output must be of same length
-    DCHECK_EQ(output->length, array.length);
-
-    // Scalar is null, all comparisons are null.
-    if (!scalar.is_valid) {
-      return detail::SetAllNulls(ctx_, array, output);
+    if (left_array && right_scalar) {
+      RETURN_NOT_OK(AssignNulls(ctx, *left_array, *right_scalar, out.get()));
+      return Compare<Op>(MakeRange(*left_array), MakeRange(*right_scalar), out.get());
     }
 
-    // Copy null_bitmap
-    RETURN_NOT_OK(detail::PropagateNulls(ctx_, array, output));
-
-    uint8_t* bitmap_result = output->buffers[1]->mutable_data();
-    return CompareScalarArray<ArrowType, Op>(static_cast<const ScalarType&>(scalar),
-                                             array, bitmap_result);
-  }
-
-  Status Compare(const ArrayData& lhs, const ArrayData& rhs, ArrayData* output) const {
-    // Caller must cast
-    DCHECK(lhs.type->Equals(rhs.type));
-    // Output must be a boolean array
-    DCHECK(output->type->Equals(boolean()));
-    // Inputs must be of same length
-    DCHECK_EQ(lhs.length, rhs.length);
-    // Output must be of same length as inputs
-    DCHECK_EQ(output->length, lhs.length);
-
-    // Copy null_bitmap
-    RETURN_NOT_OK(detail::AssignNullIntersection(ctx_, lhs, rhs, output));
-
-    uint8_t* bitmap_result = output->buffers[1]->mutable_data();
-    return CompareArrayArray<ArrowType, Op>(lhs, rhs, bitmap_result);
+    return Status::Invalid("Invalid datum signature for CompareBinaryKernel::Call");
   }
 
  private:
-  FunctionContext* ctx_;
+  static std::shared_ptr<ArrayType> AsArray(const Datum& datum) {
+    if (datum.kind() != Datum::ARRAY) return nullptr;
+    return checked_pointer_cast<ArrayType>(datum.make_array());
+  }
+
+  static std::shared_ptr<ScalarType> AsScalar(const Datum& datum) {
+    if (datum.kind() != Datum::SCALAR) return nullptr;
+    return checked_pointer_cast<ScalarType>(datum.scalar());
+  }
 };
 
-template <typename ArrowType, CompareOperator Op>
-static inline std::shared_ptr<CompareFunction> MakeCompareFunctionTypeOp(
-    FunctionContext* ctx) {
-  return std::make_shared<CompareFunctionImpl<ArrowType, Op>>(ctx);
-}
-
 template <typename ArrowType>
-static inline std::shared_ptr<CompareFunction> MakeCompareFunctionType(
-    FunctionContext* ctx, struct CompareOptions options) {
-  switch (options.op) {
+std::shared_ptr<BinaryKernel> UnpackOperator(CompareOperator op) {
+  switch (op) {
     case CompareOperator::EQUAL:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::EQUAL>(ctx);
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::EQUAL>>();
+
     case CompareOperator::NOT_EQUAL:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::NOT_EQUAL>(ctx);
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::NOT_EQUAL>>();
+
     case CompareOperator::GREATER:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::GREATER>(ctx);
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::GREATER>>();
+
     case CompareOperator::GREATER_EQUAL:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::GREATER_EQUAL>(ctx);
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::GREATER_EQUAL>>();
+
     case CompareOperator::LESS:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::LESS>(ctx);
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::LESS>>();
+
     case CompareOperator::LESS_EQUAL:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::LESS_EQUAL>(ctx);
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::LESS_EQUAL>>();
   }
 
   return nullptr;
 }
 
-std::shared_ptr<CompareFunction> MakeCompareFunction(FunctionContext* ctx,
-                                                     const DataType& type,
-                                                     struct CompareOptions options) {
-  switch (type.id()) {
-    case UInt8Type::type_id:
-      return MakeCompareFunctionType<UInt8Type>(ctx, options);
-    case Int8Type::type_id:
-      return MakeCompareFunctionType<Int8Type>(ctx, options);
-    case UInt16Type::type_id:
-      return MakeCompareFunctionType<UInt16Type>(ctx, options);
-    case Int16Type::type_id:
-      return MakeCompareFunctionType<Int16Type>(ctx, options);
-    case UInt32Type::type_id:
-      return MakeCompareFunctionType<UInt32Type>(ctx, options);
-    case Int32Type::type_id:
-      return MakeCompareFunctionType<Int32Type>(ctx, options);
-    case UInt64Type::type_id:
-      return MakeCompareFunctionType<UInt64Type>(ctx, options);
-    case Int64Type::type_id:
-      return MakeCompareFunctionType<Int64Type>(ctx, options);
-    case FloatType::type_id:
-      return MakeCompareFunctionType<FloatType>(ctx, options);
-    case DoubleType::type_id:
-      return MakeCompareFunctionType<DoubleType>(ctx, options);
-    case Date32Type::type_id:
-      return MakeCompareFunctionType<Date32Type>(ctx, options);
-    case Date64Type::type_id:
-      return MakeCompareFunctionType<Date64Type>(ctx, options);
-    case TimestampType::type_id:
-      return MakeCompareFunctionType<TimestampType>(ctx, options);
-    case Time32Type::type_id:
-      return MakeCompareFunctionType<Time32Type>(ctx, options);
-    case Time64Type::type_id:
-      return MakeCompareFunctionType<Time64Type>(ctx, options);
-    default:
-      return nullptr;
+struct UnpackType {
+  Status Visit(const NullType& unreachable) { return Status::OK(); }
+
+  Status Visit(const BooleanType& t) {
+    *out_ = UnpackOperator<BooleanType>(options_.op);
+    return Status::OK();
   }
+
+  template <typename Numeric>
+  enable_if_number<Numeric, Status> Visit(const Numeric& t) {
+    *out_ = UnpackOperator<Numeric>(options_.op);
+    return Status::OK();
+  }
+
+  template <typename Temporal>
+  enable_if_temporal<Temporal, Status> Visit(const Temporal& t) {
+    *out_ = UnpackOperator<Temporal>(options_.op);
+    return Status::OK();
+  }
+
+  template <typename StringLike>
+  enable_if_base_binary<StringLike, Status> Visit(const StringLike& t) {
+    *out_ = UnpackOperator<StringLike>(options_.op);
+    return Status::OK();
+  }
+
+  Status Visit(const DictionaryType& t) { return NotImplemented(t); }
+  Status Visit(const DayTimeIntervalType& t) { return NotImplemented(t); }
+  Status Visit(const MonthIntervalType& t) { return NotImplemented(t); }
+  Status Visit(const FixedSizeBinaryType& t) { return NotImplemented(t); }
+  Status Visit(const DurationType& t) { return NotImplemented(t); }
+  Status Visit(const Decimal128Type& t) { return NotImplemented(t); }
+  Status Visit(const ListType& t) { return NotImplemented(t); }
+  Status Visit(const LargeListType& t) { return NotImplemented(t); }
+  Status Visit(const MapType& t) { return NotImplemented(t); }
+  Status Visit(const FixedSizeListType& t) { return NotImplemented(t); }
+  Status Visit(const UnionType& t) { return NotImplemented(t); }
+  Status Visit(const ExtensionType& t) { return NotImplemented(t); }
+  Status Visit(const StructType& t) { return NotImplemented(t); }
+
+  Status NotImplemented(const DataType& t) {
+    return Status::NotImplemented("Compare not implemented for type ", t);
+  }
+
+  std::shared_ptr<BinaryKernel>* out_;
+  CompareOptions options_;
+};
+
+// make a compare kernel and invoke it
+inline Status FinishCompare(FunctionContext* context, const Datum& left,
+                            const Datum& right, CompareOptions options, Datum* out) {
+  std::shared_ptr<BinaryKernel> kernel;
+  UnpackType visitor{&kernel, options};
+  RETURN_NOT_OK(VisitTypeInline(*left.type(), &visitor));
+
+  out->value = ArrayData::Make(kernel->out_type(), left.length());
+
+  return detail::PrimitiveAllocatingBinaryKernel(kernel.get())
+      .Call(context, left, right, out);
 }
 
-ARROW_EXPORT
 Status Compare(FunctionContext* context, const Datum& left, const Datum& right,
-               struct CompareOptions options, Datum* out) {
-  DCHECK(out);
-
-  auto type = left.type();
-  if (!type->Equals(right.type())) {
-    return Status::TypeError("Cannot compare data of differing type ", *type, " vs ",
-                             *right.type());
-  }
-  // Requires that both types are equal.
-  auto fn = MakeCompareFunction(context, *type, options);
-  if (fn == nullptr) {
-    return Status::NotImplemented("Compare not implemented for type ", type->ToString());
+               CompareOptions options, Datum* out) {
+  if (!left.type()->Equals(right.type())) {
+    return Status::TypeError("Cannot compare data of differing type ", *left.type(),
+                             " vs ", *right.type());
   }
 
-  CompareBinaryKernel filter_kernel(fn);
-  detail::PrimitiveAllocatingBinaryKernel kernel(&filter_kernel);
+  std::shared_ptr<BinaryKernel> kernel;
+  if (left.is_scalar()) {
+    if (right.is_scalar()) {
+      return Status::Invalid("Invalid datum signature for Compare");
+    }
 
-  const int64_t length = CompareBinaryKernel::out_length(left, right);
-  out->value = ArrayData::Make(filter_kernel.out_type(), length);
+    // flip the comparison so that the scalar is the right hand side
+    options.op = FlippedCompareOperator(options.op);
+    return FinishCompare(context, right, left, options, out);
+  }
 
-  return kernel.Call(context, left, right, out);
+  return FinishCompare(context, left, right, options, out);
 }
 
 }  // namespace compute

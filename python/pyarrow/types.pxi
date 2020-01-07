@@ -309,7 +309,6 @@ cdef class MapType(DataType):
         return pyarrow_wrap_data_type(self.map_type.item_type())
 
 
-
 cdef class FixedSizeListType(DataType):
     """
     Concrete class for fixed size list data types.

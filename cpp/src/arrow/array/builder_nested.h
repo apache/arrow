@@ -326,13 +326,13 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   /// \brief Append a null fixed length list.
   ///
-  /// The child array builder will have the approriate number of nulls appended
+  /// The child array builder will have the appropriate number of nulls appended
   /// automatically.
   Status AppendNull() final;
 
   /// \brief Append length null fixed length lists.
   ///
-  /// The child array builder will have the approriate number of nulls appended
+  /// The child array builder will have the appropriate number of nulls appended
   /// automatically.
   Status AppendNulls(int64_t length) final;
 

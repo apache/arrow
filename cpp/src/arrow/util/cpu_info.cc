@@ -77,7 +77,7 @@ static const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]
 namespace {
 
 // Helper function to parse for hardware flags.
-// values contains a list of space-seperated flags.  check to see if the flags we
+// values contains a list of space-separated flags.  check to see if the flags we
 // care about are present.
 // Returns a bitmap of flags.
 int64_t ParseCPUFlags(const std::string& values) {
@@ -183,14 +183,13 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
 CpuInfo::CpuInfo() : hardware_flags_(0), num_cores_(1), model_name_("unknown") {}
 
 std::unique_ptr<CpuInfo> g_cpu_info;
-static std::mutex cpuinfo_mutex;
+static std::once_flag cpuinfo_initialized;
 
 CpuInfo* CpuInfo::GetInstance() {
-  std::lock_guard<std::mutex> lock(cpuinfo_mutex);
-  if (!g_cpu_info) {
+  std::call_once(cpuinfo_initialized, []() {
     g_cpu_info.reset(new CpuInfo);
     g_cpu_info->Init();
-  }
+  });
   return g_cpu_info.get();
 }
 

@@ -40,7 +40,7 @@ lists more easy to navigate, and we'd be grateful if you did the same.
 ## Did you write a patch that fixes a bug or brings an improvement?
 
 First create a JIRA entry as described above.  Then, submit your changes
-as a Github Pull Request.  We'll ask you to prefix the pull request title
+as a GitHub Pull Request.  We'll ask you to prefix the pull request title
 with the JIRA issue number and the component name in brackets.
 (for example: "ARROW-2345: [C++] Fix crash in Array::Frobnicate()").
 Respecting this convention makes it easier for us to process the backlog

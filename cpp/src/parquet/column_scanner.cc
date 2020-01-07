@@ -49,7 +49,7 @@ std::shared_ptr<Scanner> Scanner::Make(std::shared_ptr<ColumnReader> col_reader,
     default:
       ParquetException::NYI("type reader not implemented");
   }
-  // Unreachable code, but supress compiler warning
+  // Unreachable code, but suppress compiler warning
   return std::shared_ptr<Scanner>(nullptr);
 }
 
@@ -84,7 +84,7 @@ int64_t ScanAllValues(int32_t batch_size, int16_t* def_levels, int16_t* rep_leve
     default:
       parquet::ParquetException::NYI("type reader not implemented");
   }
-  // Unreachable code, but supress compiler warning
+  // Unreachable code, but suppress compiler warning
   return 0;
 }
 

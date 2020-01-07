@@ -20,10 +20,12 @@ name: NodeJS
 on:
   push:
     paths:
+      - '.github/workflows/js.yml'
       - 'ci/**'
       - 'js/**'
   pull_request:
     paths:
+      - '.github/workflows/js.yml'
       - 'ci/**'
       - 'js/**'
 
@@ -82,7 +84,7 @@ jobs:
         shell: bash
         run: ci/scripts/js_test.sh $(pwd)
 
-  # TODO(kszucs): the windows build fails with platform speficic npm error
+  # TODO(kszucs): the windows build fails with platform specific npm error
   # windows:
   #   name: AMD64 Windows 2019 NodeJS ${{ matrix.node }}
   #   runs-on: windows-latest

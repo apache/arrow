@@ -44,7 +44,7 @@ class GANDIVA_EXPORT FunctionSignature {
 
   bool operator==(const FunctionSignature& other) const;
 
-  /// calculated based on base_name, datatpype id of parameters and datatype id
+  /// calculated based on base_name, datatype id of parameters and datatype id
   /// of return type.
   std::size_t Hash() const;
 

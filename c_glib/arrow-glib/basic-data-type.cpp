@@ -1018,9 +1018,9 @@ garrow_timestamp_data_type_get_unit(GArrowTimestampDataType *timestamp_data_type
 }
 
 
-G_DEFINE_TYPE(GArrowTimeDataType,
-              garrow_time_data_type,
-              GARROW_TYPE_DATA_TYPE)
+G_DEFINE_ABSTRACT_TYPE(GArrowTimeDataType,
+                       garrow_time_data_type,
+                       GARROW_TYPE_DATA_TYPE)
 
 static void
 garrow_time_data_type_init(GArrowTimeDataType *object)

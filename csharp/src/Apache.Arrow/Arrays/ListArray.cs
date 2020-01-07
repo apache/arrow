@@ -24,13 +24,13 @@ namespace Apache.Arrow
 
         public ArrowBuffer ValueOffsetsBuffer => Data.Buffers[1];
 
-        public ReadOnlySpan<int> ValueOffsets => ValueOffsetsBuffer.Span.CastTo<int>().Slice(0, Length + 1);
+        public ReadOnlySpan<int> ValueOffsets => ValueOffsetsBuffer.Span.CastTo<int>().Slice(Offset, Length + 1);
 
         public ListArray(IArrowType dataType, int length,
             ArrowBuffer valueOffsetsBuffer, IArrowArray values,
             ArrowBuffer nullBitmapBuffer, int nullCount = 0, int offset = 0)
             : this(new ArrayData(dataType, length, nullCount, offset,
-                new[] {nullBitmapBuffer, valueOffsetsBuffer}, new[] {values.Data}))
+                new[] { nullBitmapBuffer, valueOffsetsBuffer }, new[] { values.Data }))
         {
             Values = values;
         }

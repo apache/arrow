@@ -24,7 +24,7 @@ This folder provides base Docker images and an infrastructure to build
 Linux distributions published in last four years.
 
 The process is split up in two parts: There are base Docker images that build
-the native, Python-indenpendent dependencies. For these you can select if you
+the native, Python-independent dependencies. For these you can select if you
 want to also build the dependencies used for the Parquet support. Depending on
 these images, there is also a bash script that will build the pyarrow wheels
 for all supported Python versions and place them in the `dist` folder.

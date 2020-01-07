@@ -118,7 +118,7 @@ namespace Apache.Arrow.Ipc
             {  
                 StringOffset timezoneStringOffset = default;
 
-                if (string.IsNullOrWhiteSpace(type.Timezone))
+                if (!string.IsNullOrWhiteSpace(type.Timezone))
                     timezoneStringOffset = Builder.CreateString(type.Timezone);
 
                 Result = FieldType.Build(

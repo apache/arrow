@@ -374,7 +374,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
     FileDecryptionProperties* file_decryption_properties,
     const std::shared_ptr<Buffer>& metadata_buffer, uint32_t metadata_len,
     uint32_t read_metadata_len) {
-  // Providing decryption properties in plaintext footer mode is not mendatory, for
+  // Providing decryption properties in plaintext footer mode is not mandatory, for
   // example when reading by legacy reader.
   if (file_decryption_properties != nullptr) {
     EncryptionAlgorithm algo = file_metadata_->encryption_algorithm();

@@ -60,7 +60,7 @@ read_parquet <- function(file,
 #' @param compression_level compression level. Meaning depends on compression algorithm
 #' @param use_dictionary Specify if we should use dictionary encoding. Default `TRUE`
 #' @param write_statistics Specify if we should write statistics. Default `TRUE`
-#' @param data_page_size Set a target threshhold for the approximate encoded
+#' @param data_page_size Set a target threshold for the approximate encoded
 #'    size of data pages within a column chunk (in bytes). Default 1 MiB.
 #' @param properties properties for parquet writer, derived from arguments
 #'   `version`, `compression`, `compression_level`, `use_dictionary`,
@@ -254,7 +254,7 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
 #' - `compression_level`: Compression level; meaning depends on compression algorithm
 #' - `use_dictionary`: Specify if we should use dictionary encoding. Default `TRUE`
 #' - `write_statistics`: Specify if we should write statistics. Default `TRUE`
-#' - `data_page_size`: Set a target threshhold for the approximate encoded
+#' - `data_page_size`: Set a target threshold for the approximate encoded
 #'    size of data pages within a column chunk (in bytes). Default 1 MiB.
 #'
 #' @details The parameters `compression`, `compression_level`, `use_dictionary`

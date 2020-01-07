@@ -39,21 +39,7 @@
 namespace arrow {
 namespace compute {
 
-TEST(TestComparatorOperator, BasicOperator) {
-  using T = int32_t;
-  std::vector<T> vals{0, 1, 2, 3, 4, 5, 6};
-
-  for (int32_t i : vals) {
-    for (int32_t j : vals) {
-      EXPECT_EQ((Comparator<T, EQUAL>::Compare(i, j)), i == j);
-      EXPECT_EQ((Comparator<T, NOT_EQUAL>::Compare(i, j)), i != j);
-      EXPECT_EQ((Comparator<T, GREATER>::Compare(i, j)), i > j);
-      EXPECT_EQ((Comparator<T, GREATER_EQUAL>::Compare(i, j)), i >= j);
-      EXPECT_EQ((Comparator<T, LESS>::Compare(i, j)), i < j);
-      EXPECT_EQ((Comparator<T, LESS_EQUAL>::Compare(i, j)), i <= j);
-    }
-  }
-}
+using util::string_view;
 
 template <typename ArrowType>
 static void ValidateCompare(FunctionContext* ctx, CompareOptions options,
@@ -113,20 +99,19 @@ static inline bool SlowCompare(CompareOperator op, const T& lhs, const T& rhs) {
 }
 
 template <typename ArrowType>
-static Datum SimpleScalarArrayCompare(CompareOptions options, const Datum& lhs,
-                                      const Datum& rhs) {
+Datum SimpleScalarArrayCompare(CompareOptions options, const Datum& lhs,
+                               const Datum& rhs) {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
-  using T = typename TypeTraits<ArrowType>::CType;
 
   bool swap = lhs.is_array();
   auto array = std::static_pointer_cast<ArrayType>((swap ? lhs : rhs).make_array());
-  T value = std::static_pointer_cast<ScalarType>((swap ? rhs : lhs).scalar())->value;
+  auto value = std::static_pointer_cast<ScalarType>((swap ? rhs : lhs).scalar())->value;
 
   std::vector<bool> bitmap(array->length());
   for (int64_t i = 0; i < array->length(); i++) {
-    bitmap[i] = swap ? SlowCompare<T>(options.op, array->Value(i), value)
-                     : SlowCompare<T>(options.op, value, array->Value(i));
+    bitmap[i] = swap ? SlowCompare(options.op, array->Value(i), value)
+                     : SlowCompare(options.op, value, array->Value(i));
   }
 
   std::shared_ptr<Array> result;
@@ -146,10 +131,39 @@ static Datum SimpleScalarArrayCompare(CompareOptions options, const Datum& lhs,
   return Datum(result);
 }
 
-template <typename ArrowType,
-          typename ArrayType = typename TypeTraits<ArrowType>::ArrayType>
-static std::vector<bool> NullBitmapFromArrays(const ArrayType& lhs,
-                                              const ArrayType& rhs) {
+template <>
+Datum SimpleScalarArrayCompare<StringType>(CompareOptions options, const Datum& lhs,
+                                           const Datum& rhs) {
+  bool swap = lhs.is_array();
+  auto array = std::static_pointer_cast<StringArray>((swap ? lhs : rhs).make_array());
+  auto value = util::string_view(
+      *std::static_pointer_cast<StringScalar>((swap ? rhs : lhs).scalar())->value);
+
+  std::vector<bool> bitmap(array->length());
+  for (int64_t i = 0; i < array->length(); i++) {
+    bitmap[i] = swap ? SlowCompare(options.op, array->GetView(i), value)
+                     : SlowCompare(options.op, value, array->GetView(i));
+  }
+
+  std::shared_ptr<Array> result;
+
+  if (array->null_count() == 0) {
+    ArrayFromVector<BooleanType>(bitmap, &result);
+  } else {
+    std::vector<bool> null_bitmap(array->length());
+    auto reader = internal::BitmapReader(array->null_bitmap_data(), array->offset(),
+                                         array->length());
+    for (int64_t i = 0; i < array->length(); i++, reader.Next()) {
+      null_bitmap[i] = reader.IsSet();
+    }
+    ArrayFromVector<BooleanType>(null_bitmap, bitmap, &result);
+  }
+
+  return Datum(result);
+}
+
+template <typename ArrayType>
+std::vector<bool> NullBitmapFromArrays(const ArrayType& lhs, const ArrayType& rhs) {
   auto left_lambda = [&lhs](int64_t i) {
     return lhs.null_count() == 0 ? true : lhs.IsValid(i);
   };
@@ -169,10 +183,9 @@ static std::vector<bool> NullBitmapFromArrays(const ArrayType& lhs,
 }
 
 template <typename ArrowType>
-static Datum SimpleArrayArrayCompare(CompareOptions options, const Datum& lhs,
-                                     const Datum& rhs) {
+Datum SimpleArrayArrayCompare(CompareOptions options, const Datum& lhs,
+                              const Datum& rhs) {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using T = typename TypeTraits<ArrowType>::CType;
 
   auto l_array = std::static_pointer_cast<ArrayType>(lhs.make_array());
   auto r_array = std::static_pointer_cast<ArrayType>(rhs.make_array());
@@ -180,7 +193,7 @@ static Datum SimpleArrayArrayCompare(CompareOptions options, const Datum& lhs,
 
   std::vector<bool> bitmap(length);
   for (int64_t i = 0; i < length; i++) {
-    bitmap[i] = SlowCompare<T>(options.op, l_array->Value(i), r_array->Value(i));
+    bitmap[i] = SlowCompare(options.op, l_array->Value(i), r_array->Value(i));
   }
 
   std::shared_ptr<Array> result;
@@ -188,7 +201,31 @@ static Datum SimpleArrayArrayCompare(CompareOptions options, const Datum& lhs,
   if (l_array->null_count() == 0 && r_array->null_count() == 0) {
     ArrayFromVector<BooleanType>(bitmap, &result);
   } else {
-    std::vector<bool> null_bitmap = NullBitmapFromArrays<ArrowType>(*l_array, *r_array);
+    std::vector<bool> null_bitmap = NullBitmapFromArrays(*l_array, *r_array);
+    ArrayFromVector<BooleanType>(null_bitmap, bitmap, &result);
+  }
+
+  return Datum(result);
+}
+
+template <>
+Datum SimpleArrayArrayCompare<StringType>(CompareOptions options, const Datum& lhs,
+                                          const Datum& rhs) {
+  auto l_array = std::static_pointer_cast<StringArray>(lhs.make_array());
+  auto r_array = std::static_pointer_cast<StringArray>(rhs.make_array());
+  const int64_t length = l_array->length();
+
+  std::vector<bool> bitmap(length);
+  for (int64_t i = 0; i < length; i++) {
+    bitmap[i] = SlowCompare(options.op, l_array->GetView(i), r_array->GetView(i));
+  }
+
+  std::shared_ptr<Array> result;
+
+  if (l_array->null_count() == 0 && r_array->null_count() == 0) {
+    ArrayFromVector<BooleanType>(bitmap, &result);
+  } else {
+    std::vector<bool> null_bitmap = NullBitmapFromArrays(*l_array, *r_array);
     ArrayFromVector<BooleanType>(null_bitmap, bitmap, &result);
   }
 
@@ -196,8 +233,8 @@ static Datum SimpleArrayArrayCompare(CompareOptions options, const Datum& lhs,
 }
 
 template <typename ArrowType>
-static void ValidateCompare(FunctionContext* ctx, CompareOptions options,
-                            const Datum& lhs, const Datum& rhs) {
+void ValidateCompare(FunctionContext* ctx, CompareOptions options, const Datum& lhs,
+                     const Datum& rhs) {
   Datum result;
 
   bool has_scalar = lhs.is_scalar() || rhs.is_scalar();
@@ -381,6 +418,135 @@ TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayArray) {
         auto rhs = Datum(rand.Numeric<TypeParam>(length << i, 0, 100, null_probability));
         auto options = CompareOptions(op);
         ValidateCompare<TypeParam>(&this->ctx_, options, lhs, rhs);
+      }
+    }
+  }
+}
+
+class TestStringCompareKernel : public ComputeFixture, public TestBase {};
+
+TEST_F(TestStringCompareKernel, SimpleCompareArrayScalar) {
+  Datum one(std::make_shared<StringScalar>("one"));
+
+  CompareOptions eq(CompareOperator::EQUAL);
+  ValidateCompare<StringType>(&this->ctx_, eq, "[]", one, "[]");
+  ValidateCompare<StringType>(&this->ctx_, eq, "[null]", one, "[null]");
+  ValidateCompare<StringType>(&this->ctx_, eq,
+                              "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]", one,
+                              "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(&this->ctx_, eq,
+                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
+                              one, "[0,1,0,0,0,0]");
+  ValidateCompare<StringType>(&this->ctx_, eq,
+                              "[\"five\",\"four\",\"three\",\"two\",\"one\",\"zero\"]",
+                              one, "[0,0,0,0,1,0]");
+  ValidateCompare<StringType>(&this->ctx_, eq, "[null,\"zero\",\"one\",\"one\"]", one,
+                              "[null,0,1,1]");
+
+  CompareOptions neq(CompareOperator::NOT_EQUAL);
+  ValidateCompare<StringType>(&this->ctx_, neq, "[]", one, "[]");
+  ValidateCompare<StringType>(&this->ctx_, neq, "[null]", one, "[null]");
+  ValidateCompare<StringType>(&this->ctx_, neq,
+                              "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]", one,
+                              "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(&this->ctx_, neq,
+                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
+                              one, "[1,0,1,1,1,1]");
+  ValidateCompare<StringType>(&this->ctx_, neq,
+                              "[\"five\",\"four\",\"three\",\"two\",\"one\",\"zero\"]",
+                              one, "[1,1,1,1,0,1]");
+  ValidateCompare<StringType>(&this->ctx_, neq, "[null,\"zero\",\"one\",\"one\"]", one,
+                              "[null,1,0,0]");
+
+  CompareOptions gt(CompareOperator::GREATER);
+  ValidateCompare<StringType>(&this->ctx_, gt, "[]", one, "[]");
+  ValidateCompare<StringType>(&this->ctx_, gt, "[null]", one, "[null]");
+  ValidateCompare<StringType>(&this->ctx_, gt,
+                              "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]", one,
+                              "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(&this->ctx_, gt,
+                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
+                              one, "[1,0,1,1,0,0]");
+  ValidateCompare<StringType>(&this->ctx_, gt,
+                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
+                              one, "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(&this->ctx_, gt, "[null,\"zero\",\"one\",\"one\"]", one,
+                              "[null,1,0,0]");
+
+  CompareOptions gte(CompareOperator::GREATER_EQUAL);
+  ValidateCompare<StringType>(&this->ctx_, gte, "[]", one, "[]");
+  ValidateCompare<StringType>(&this->ctx_, gte, "[null]", one, "[null]");
+  ValidateCompare<StringType>(&this->ctx_, gte,
+                              "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]", one,
+                              "[1,1,1,1,1,1]");
+  ValidateCompare<StringType>(&this->ctx_, gte,
+                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
+                              one, "[1,1,1,1,0,0]");
+  ValidateCompare<StringType>(&this->ctx_, gte,
+                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
+                              one, "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(&this->ctx_, gte, "[null,\"zero\",\"one\",\"one\"]", one,
+                              "[null,1,1,1]");
+
+  CompareOptions lt(CompareOperator::LESS);
+  ValidateCompare<StringType>(&this->ctx_, lt, "[]", one, "[]");
+  ValidateCompare<StringType>(&this->ctx_, lt, "[null]", one, "[null]");
+  ValidateCompare<StringType>(&this->ctx_, lt,
+                              "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]", one,
+                              "[0,0,0,0,0,0]");
+  ValidateCompare<StringType>(&this->ctx_, lt,
+                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
+                              one, "[0,0,0,0,1,1]");
+  ValidateCompare<StringType>(&this->ctx_, lt,
+                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
+                              one, "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(&this->ctx_, lt, "[null,\"zero\",\"one\",\"one\"]", one,
+                              "[null,0,0,0]");
+
+  CompareOptions lte(CompareOperator::LESS_EQUAL);
+  ValidateCompare<StringType>(&this->ctx_, lte, "[]", one, "[]");
+  ValidateCompare<StringType>(&this->ctx_, lte, "[null]", one, "[null]");
+  ValidateCompare<StringType>(&this->ctx_, lte,
+                              "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]", one,
+                              "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(&this->ctx_, lte,
+                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
+                              one, "[0,1,0,0,1,1]");
+  ValidateCompare<StringType>(&this->ctx_, lte,
+                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
+                              one, "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(&this->ctx_, lte, "[null,\"zero\",\"one\",\"one\"]", one,
+                              "[null,0,1,1]");
+}
+
+TEST_F(TestStringCompareKernel, RandomCompareArrayScalar) {
+  using ScalarType = typename TypeTraits<StringType>::ScalarType;
+
+  auto rand = random::RandomArrayGenerator(0x5416447);
+  for (size_t i = 3; i < 13; i++) {
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
+        const int64_t length = static_cast<int64_t>(1ULL << i);
+        auto array = Datum(rand.String(length, 0, 16, null_probability));
+        auto hello = Datum(std::make_shared<ScalarType>("hello"));
+        auto options = CompareOptions(op);
+        ValidateCompare<StringType>(&this->ctx_, options, array, hello);
+        ValidateCompare<StringType>(&this->ctx_, options, hello, array);
+      }
+    }
+  }
+}
+
+TEST_F(TestStringCompareKernel, RandomCompareArrayArray) {
+  auto rand = random::RandomArrayGenerator(0x5416447);
+  for (size_t i = 3; i < 5; i++) {
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
+        const int64_t length = static_cast<int64_t>(1ULL << i);
+        auto lhs = Datum(rand.String(length << i, 0, 16, null_probability));
+        auto rhs = Datum(rand.String(length << i, 0, 16, null_probability));
+        auto options = CompareOptions(op);
+        ValidateCompare<StringType>(&this->ctx_, options, lhs, rhs);
       }
     }
   }

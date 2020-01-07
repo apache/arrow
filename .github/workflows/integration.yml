@@ -20,6 +20,7 @@ name: Integration
 on:
   push:
     paths:
+      - '.github/workflows/integration.yml'
       - 'ci/**'
       - 'go/**'
       - 'js/**'
@@ -28,6 +29,7 @@ on:
       - 'format/**'
   pull_request:
     paths:
+      - '.github/workflows/integration.yml'
       - 'ci/**'
       - 'go/**'
       - 'js/**'

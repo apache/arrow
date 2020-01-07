@@ -141,32 +141,32 @@ class ARROW_DS_EXPORT FileFormat {
   virtual Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const = 0;
 
   /// \brief Open a file for scanning
-  virtual Result<ScanTaskIterator> ScanFile(const FileSource& source,
-                                            ScanOptionsPtr options,
-                                            ScanContextPtr context) const = 0;
+  virtual Result<ScanTaskIterator> ScanFile(
+      const FileSource& source, std::shared_ptr<ScanOptions> options,
+      std::shared_ptr<ScanContext> context) const = 0;
 
   /// \brief Open a fragment
-  virtual Result<DataFragmentPtr> MakeFragment(const FileSource& location,
-                                               ScanOptionsPtr options) = 0;
+  virtual Result<std::shared_ptr<DataFragment>> MakeFragment(
+      const FileSource& location, std::shared_ptr<ScanOptions> options) = 0;
 };
 
 /// \brief A DataFragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileDataFragment : public DataFragment {
  public:
-  FileDataFragment(const FileSource& source, FileFormatPtr format,
-                   ScanOptionsPtr scan_options)
+  FileDataFragment(const FileSource& source, std::shared_ptr<FileFormat> format,
+                   std::shared_ptr<ScanOptions> scan_options)
       : DataFragment(std::move(scan_options)),
         source_(source),
         format_(std::move(format)) {}
 
-  Result<ScanTaskIterator> Scan(ScanContextPtr context) override;
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
 
   const FileSource& source() const { return source_; }
-  FileFormatPtr format() const { return format_; }
+  std::shared_ptr<FileFormat> format() const { return format_; }
 
  protected:
   FileSource source_;
-  FileFormatPtr format_;
+  std::shared_ptr<FileFormat> format_;
 };
 
 /// \brief A DataSource of FileDataFragments.
@@ -182,9 +182,9 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
-  static Result<DataSourcePtr> Make(fs::FileSystemPtr filesystem,
-                                    fs::FileStatsVector stats,
-                                    ExpressionPtr source_partition, FileFormatPtr format);
+  static Result<std::shared_ptr<DataSource>> Make(
+      std::shared_ptr<fs::FileSystem> filesystem, fs::FileStatsVector stats,
+      std::shared_ptr<Expression> source_partition, std::shared_ptr<FileFormat> format);
 
   /// \brief Create a FileSystemDataSource with file-level partitions.
   ///
@@ -197,10 +197,10 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
-  static Result<DataSourcePtr> Make(fs::FileSystemPtr filesystem,
-                                    fs::FileStatsVector stats,
-                                    ExpressionVector partitions,
-                                    ExpressionPtr source_partition, FileFormatPtr format);
+  static Result<std::shared_ptr<DataSource>> Make(
+      std::shared_ptr<fs::FileSystem> filesystem, fs::FileStatsVector stats,
+      ExpressionVector partitions, std::shared_ptr<Expression> source_partition,
+      std::shared_ptr<FileFormat> format);
 
   /// \brief Create a FileSystemDataSource with file-level partitions.
   ///
@@ -213,25 +213,27 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
-  static Result<DataSourcePtr> Make(fs::FileSystemPtr filesystem, fs::PathForest forest,
-                                    ExpressionVector partitions,
-                                    ExpressionPtr source_partition, FileFormatPtr format);
+  static Result<std::shared_ptr<DataSource>> Make(
+      std::shared_ptr<fs::FileSystem> filesystem, fs::PathForest forest,
+      ExpressionVector partitions, std::shared_ptr<Expression> source_partition,
+      std::shared_ptr<FileFormat> format);
 
   std::string type_name() const override { return "filesystem"; }
 
   std::string ToString() const;
 
  protected:
-  DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
+  DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
-  FileSystemDataSource(fs::FileSystemPtr filesystem, fs::PathForest forest,
-                       ExpressionVector file_partitions, ExpressionPtr source_partition,
-                       FileFormatPtr format);
+  FileSystemDataSource(std::shared_ptr<fs::FileSystem> filesystem, fs::PathForest forest,
+                       ExpressionVector file_partitions,
+                       std::shared_ptr<Expression> source_partition,
+                       std::shared_ptr<FileFormat> format);
 
-  fs::FileSystemPtr filesystem_;
+  std::shared_ptr<fs::FileSystem> filesystem_;
   fs::PathForest forest_;
   ExpressionVector partitions_;
-  FileFormatPtr format_;
+  std::shared_ptr<FileFormat> format_;
 };
 
 }  // namespace dataset

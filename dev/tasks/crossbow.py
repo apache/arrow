@@ -224,7 +224,7 @@ class GitRemoteCallbacks(PygitRemoteCallbacks):
         pass
 
     def credentials(self, url, username_from_url, allowed_types):
-        # its a libgit2 bug, that it infinitly retries the authentication
+        # its a libgit2 bug, that it infinitely retries the authentication
         self.attempts += 1
 
         if self.attempts >= 5:
@@ -331,7 +331,7 @@ class Repo:
         """Currently checked out branch's remote counterpart URL
 
         If an SSH github url is set, it will be replaced by the https
-        equivalent usable with Github OAuth token.
+        equivalent usable with GitHub OAuth token.
         """
         try:
             return self._remote_url or _git_ssh_to_https(self.remote.url)
@@ -343,14 +343,14 @@ class Repo:
         try:
             return next(self.repo.config.get_multivar('user.name'))
         except StopIteration:
-            return os.environ.get('GIT_COMMITTER_NAME', 'unkown')
+            return os.environ.get('GIT_COMMITTER_NAME', 'unknown')
 
     @property
     def user_email(self):
         try:
             return next(self.repo.config.get_multivar('user.email'))
         except StopIteration:
-            return os.environ.get('GIT_COMMITTER_EMAIL', 'unkown')
+            return os.environ.get('GIT_COMMITTER_EMAIL', 'unknown')
 
     @property
     def signature(self):
@@ -442,7 +442,7 @@ class Repo:
                              or action_required, only set if
                              CheckRun.status == 'completed'
 
-        1. Convert CheckRun's status and conslusion to one of Status.state
+        1. Convert CheckRun's status and conclusion to one of Status.state
         2. Merge the states based on the following rules:
            - failure if any of the contexts report as error or failure
            - pending if there are no statuses or a context is pending
@@ -475,7 +475,7 @@ class Repo:
                 elif check.conclusion in {'cancelled', 'timed_out',
                                           'action_required'}:
                     states.append('error')
-                # omit `neutral` conslusion
+                # omit `neutral` conclusion
             else:
                 states.append('pending')
 
@@ -1122,7 +1122,7 @@ def changelog(obj, changelog_path, arrow_version, is_website, jira_username,
 @click.option('--arrow-version', '-v', default=None,
               help='Set target version explicitly.')
 @click.option('--arrow-remote', '-r', default=None,
-              help='Set Github remote explicitly, which is going to be cloned '
+              help='Set GitHub remote explicitly, which is going to be cloned '
                    'on the CI services. Note, that no validation happens '
                    'locally. Examples: https://github.com/apache/arrow or '
                    'https://github.com/kszucs/arrow.')

@@ -189,8 +189,6 @@ TEST(PathUtil, RemoveLeadingSlash) {
 }
 
 TEST(PathUtil, MakeAbstractPathRelative) {
-  std::string s;
-
   ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/", "/"));
   ASSERT_OK_AND_EQ("foo/bar", MakeAbstractPathRelative("/", "/foo/bar"));
 
@@ -210,6 +208,19 @@ TEST(PathUtil, MakeAbstractPathRelative) {
   // Base is not absolute
   ASSERT_RAISES(Invalid, MakeAbstractPathRelative("foo/bar", "foo/bar/baz"));
   ASSERT_RAISES(Invalid, MakeAbstractPathRelative("", "foo/bar/baz"));
+}
+
+TEST(PathUtil, AncestorsFromBasePath) {
+  using V = std::vector<std::string>;
+
+  // Not relative to base
+  ASSERT_EQ(AncestorsFromBasePath("xxx", "foo/bar"), V{});
+  ASSERT_EQ(AncestorsFromBasePath("xxx", "xxxx"), V{});
+
+  ASSERT_EQ(AncestorsFromBasePath("foo", "foo/bar"), V{});
+  ASSERT_EQ(AncestorsFromBasePath("foo", "foo/bar/baz"), V({"foo/bar"}));
+  ASSERT_EQ(AncestorsFromBasePath("foo", "foo/bar/baz/quux"),
+            V({"foo/bar", "foo/bar/baz"}));
 }
 
 ////////////////////////////////////////////////////////////////////////////

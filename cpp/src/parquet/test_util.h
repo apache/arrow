@@ -534,7 +534,7 @@ static inline int MakePages(const ColumnDescriptor* d, int num_pages, int levels
   } else {
     num_values = num_levels;
   }
-  // Create repitition levels
+  // Create repetition levels
   if (max_rep_level > 0) {
     rep_levels.resize(num_levels);
     random_numbers(num_levels, seed, zero, max_rep_level, rep_levels.data());

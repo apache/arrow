@@ -41,6 +41,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_BUILD_TESTS=ON \
     -DARROW_BUILD_SHARED=ON \
     -DARROW_BOOST_USE_SHARED=OFF \
+    -DARROW_PROTOBUF_USE_SHARED=OFF \
     -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2;-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2/x86_64-CentOS-linux/" \
     -DARROW_JEMALLOC=ON \
     -DARROW_RPATH_ORIGIN=ON \

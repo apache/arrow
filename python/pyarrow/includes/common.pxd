@@ -77,6 +77,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_string ToString()
         c_string message()
+        shared_ptr[CStatusDetail] detail()
 
         c_bool ok()
         c_bool IsIOError()
@@ -88,6 +89,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool IsCapacityError()
         c_bool IsIndexError()
         c_bool IsSerializationError()
+
+    cdef cppclass CStatusDetail "arrow::StatusDetail":
+        c_string ToString()
+
 
 cdef extern from "arrow/result.h" namespace "arrow" nogil:
     cdef cppclass CResult "arrow::Result"[T]:

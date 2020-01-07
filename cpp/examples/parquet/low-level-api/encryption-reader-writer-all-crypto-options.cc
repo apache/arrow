@@ -157,7 +157,7 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
                          Creating a number of Encryption configurations
    **********************************************************************************/
 
-  // This vector will hold various encryption configuraions.
+  // This vector will hold various encryption configurations.
   std::vector<std::shared_ptr<parquet::FileEncryptionProperties>>
       vector_of_encryption_configurations;
 
@@ -575,7 +575,7 @@ void PrintDecryptionConfiguration(int configuration) {
   else if (configuration == 3)
     std::cout << "3: \n\nDecrypt using explicit column and footer keys." << std::endl;
   else {
-    std::cout << "Unknown configuraion" << std::endl;
+    std::cout << "Unknown configuration" << std::endl;
     exit(-1);
   }
   std::cout << std::endl;

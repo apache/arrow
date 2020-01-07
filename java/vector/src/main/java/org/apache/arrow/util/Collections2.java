@@ -34,7 +34,7 @@ public class Collections2 {
   private Collections2() {}
 
   /**
-   * Creates an {@link List} from the elements remaining in iterator.
+   * Creates a {@link List} from the elements remaining in iterator.
    */
   public static <T> List<T> toList(Iterator<T> iterator) {
     List<T> target = new ArrayList<>();
