@@ -19,9 +19,12 @@
 #include <limits>
 #include <utility>
 
+#include "arrow/array/array_primitive.h"
 #include "arrow/compute/kernels/aggregate.h"
 #include "arrow/compute/kernels/minmax.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bitmap_inline.h"
+#include "arrow/util/bitmap_util.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {

@@ -24,6 +24,10 @@
 #include <type_traits>
 #include <vector>
 
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/builder.h"
 #include "arrow/csv/parser.h"
 #include "arrow/memory_pool.h"

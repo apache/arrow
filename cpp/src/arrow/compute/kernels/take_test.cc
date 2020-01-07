@@ -21,9 +21,12 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_dict.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/take.h"
 #include "arrow/compute/test_util.h"
+#include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"

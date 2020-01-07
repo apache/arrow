@@ -28,16 +28,14 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/result.h"
-#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -81,22 +79,31 @@ struct ARROW_EXPORT NullScalar : public Scalar {
 
 namespace internal {
 
-template <typename T, typename CType = typename T::c_type>
-struct ARROW_EXPORT PrimitiveScalar : public Scalar {
+struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
   using Scalar::Scalar;
+
+ protected:
+  void CheckType(const std::shared_ptr<DataType>& type, Type::type expected);
+};
+
+template <typename T, typename CType = typename T::c_type>
+struct ARROW_EXPORT PrimitiveScalar : public PrimitiveScalarBase {
+  using PrimitiveScalarBase::PrimitiveScalarBase;
   using TypeClass = T;
   using ValueType = CType;
 
   // Non-null constructor.
   PrimitiveScalar(ValueType value, const std::shared_ptr<DataType>& type)
-      : Scalar(type, true), value(value) {
-    ARROW_CHECK_EQ(type->id(), T::type_id);
+      : PrimitiveScalarBase(type, true), value(value) {
+#ifndef NDEBUG
+    CheckType(type, T::type_id);
+#endif
   }
 
   explicit PrimitiveScalar(ValueType value)
       : PrimitiveScalar(value, TypeTraits<T>::type_singleton()) {}
 
-  PrimitiveScalar() : Scalar(TypeTraits<T>::type_singleton()) {}
+  PrimitiveScalar() : PrimitiveScalarBase(TypeTraits<T>::type_singleton()) {}
 
   ValueType value{};
 };

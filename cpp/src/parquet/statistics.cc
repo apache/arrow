@@ -21,7 +21,9 @@
 #include <type_traits>
 
 #include "arrow/array.h"
+#include "arrow/array/array_binary.h"
 #include "arrow/type.h"
+#include "arrow/util/bitmap_inline.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 

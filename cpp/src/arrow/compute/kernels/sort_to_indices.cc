@@ -21,6 +21,7 @@
 #include <numeric>
 #include <vector>
 
+#include "arrow/array_all.h"
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/expression.h"

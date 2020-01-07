@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/array_binary.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/status.h"

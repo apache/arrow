@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/buffer.h"
 #include "arrow/io/memory.h"
 
 #include "parquet/exception.h"

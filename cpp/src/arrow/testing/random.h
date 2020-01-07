@@ -25,6 +25,7 @@
 #include <random>
 #include <vector>
 
+#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
@@ -42,7 +43,7 @@ class ARROW_EXPORT RandomArrayGenerator {
   explicit RandomArrayGenerator(SeedType seed)
       : seed_distribution_(static_cast<SeedType>(1), kSeedMax), seed_rng_(seed) {}
 
-  /// \brief Generates a random BooleanArray
+  /// \brief Generate a random BooleanArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] probability the estimated number of active bits
@@ -52,7 +53,15 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> Boolean(int64_t size, double probability,
                                         double null_probability = 0);
 
-  /// \brief Generates a random UInt8Array
+  /// \brief Generate a random UInt8Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> UInt8(int64_t size, double null_probability = 0);
+
+  /// \brief Generate a random UInt8Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -63,7 +72,15 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> UInt8(int64_t size, uint8_t min, uint8_t max,
                                       double null_probability = 0);
 
-  /// \brief Generates a random Int8Array
+  /// \brief Generate a random Int8Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> Int8(int64_t size, double null_probability = 0);
+
+  /// \brief Generate a random Int8Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -74,7 +91,15 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> Int8(int64_t size, int8_t min, int8_t max,
                                      double null_probability = 0);
 
-  /// \brief Generates a random UInt16Array
+  /// \brief Generate a random UInt16Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> UInt16(int64_t size, double null_probability = 0);
+
+  /// \brief Generate a random UInt16Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -85,7 +110,15 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> UInt16(int64_t size, uint16_t min, uint16_t max,
                                        double null_probability = 0);
 
-  /// \brief Generates a random Int16Array
+  /// \brief Generate a random Int16Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> Int16(int64_t size, double null_probability = 0);
+
+  /// \brief Generate a random Int16Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -96,7 +129,15 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> Int16(int64_t size, int16_t min, int16_t max,
                                       double null_probability = 0);
 
-  /// \brief Generates a random UInt32Array
+  /// \brief Generate a random UInt32Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> UInt32(int64_t size, double null_probability = 0);
+
+  /// \brief Generate a random UInt32Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -107,7 +148,15 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> UInt32(int64_t size, uint32_t min, uint32_t max,
                                        double null_probability = 0);
 
-  /// \brief Generates a random Int32Array
+  /// \brief Generate a random Int32Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> Int32(int64_t size, double null_probability = 0);
+
+  /// \brief Generate a random Int32Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -118,7 +167,15 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> Int32(int64_t size, int32_t min, int32_t max,
                                       double null_probability = 0);
 
-  /// \brief Generates a random UInt64Array
+  /// \brief Generate a random UInt64Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> UInt64(int64_t size, double null_probability = 0);
+
+  /// \brief Generate a random UInt64Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -129,7 +186,15 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> UInt64(int64_t size, uint64_t min, uint64_t max,
                                        double null_probability = 0);
 
-  /// \brief Generates a random Int64Array
+  /// \brief Generate a random Int64Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> Int64(int64_t size, double null_probability = 0);
+
+  /// \brief Generate a random Int64Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -140,7 +205,7 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> Int64(int64_t size, int64_t min, int64_t max,
                                       double null_probability = 0);
 
-  /// \brief Generates a random FloatArray
+  /// \brief Generate a random FloatArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -151,7 +216,7 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> Float32(int64_t size, float min, float max,
                                         double null_probability = 0);
 
-  /// \brief Generates a random DoubleArray
+  /// \brief Generate a random DoubleArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -201,7 +266,36 @@ class ARROW_EXPORT RandomArrayGenerator {
     }
   }
 
-  /// \brief Generates a random StringArray
+  /// \brief Generate a random Date32Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> Date32(int64_t size, double null_probability = 0);
+
+  /// \brief Generate a random Date64Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> Date64(int64_t size, double null_probability = 0);
+
+  /// \brief Generate a random BinaryArray
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] min_length the lower bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] max_length the upper bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> Binary(int64_t size, int32_t min_length,
+                                       int32_t max_length, double null_probability = 0);
+
+  /// \brief Generate a random StringArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min_length the lower bound of the string length
@@ -214,7 +308,21 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> String(int64_t size, int32_t min_length,
                                        int32_t max_length, double null_probability = 0);
 
-  /// \brief Generates a random LargeStringArray
+  /// \brief Generate a random LargeBinaryArray
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] min_length the lower bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] max_length the upper bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> LargeBinary(int64_t size, int32_t min_length,
+                                            int32_t max_length,
+                                            double null_probability = 0);
+
+  /// \brief Generate a random LargeStringArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min_length the lower bound of the string length
@@ -228,7 +336,7 @@ class ARROW_EXPORT RandomArrayGenerator {
                                             int32_t max_length,
                                             double null_probability = 0);
 
-  /// \brief Generates a random StringArray with repeated values
+  /// \brief Generate a random StringArray with repeated values
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] unique the number of unique string values used
@@ -248,6 +356,74 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> BinaryWithRepeats(int64_t size, int64_t unique,
                                                   int32_t min_length, int32_t max_length,
                                                   double null_probability = 0);
+
+  /// \brief Generate a random FixedSizeBinaryArray
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] byte_width the fixed item size in bytes
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> FixedSizeBinary(int64_t size, int32_t byte_width,
+                                                double null_probability = 0);
+
+  /// \brief Generate a "random" NullArray
+  ///
+  /// \param[in] size the size of the array to generate
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> Null(int64_t size);
+
+  /// \brief Generate a random array for the given concrete DataType subclass
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  template <typename ArrowType>
+  std::shared_ptr<arrow::Array> Generic(int64_t size, double null_probability = 0) {
+    switch (ArrowType::type_id) {
+      case Type::NA:
+        return Null(size);
+      case Type::UINT8:
+        return UInt8(size, null_probability);
+      case Type::INT8:
+        return Int8(size, null_probability);
+      case Type::UINT16:
+        return UInt16(size, null_probability);
+      case Type::INT16:
+        return Int16(size, null_probability);
+      case Type::UINT32:
+        return UInt32(size, null_probability);
+      case Type::INT32:
+        return Int32(size, null_probability);
+      case Type::UINT64:
+        return UInt64(size, null_probability);
+      case Type::INT64:
+        return Int64(size, null_probability);
+      case Type::FLOAT:
+        return Float32(size, -1e3f, 1e3f, null_probability);
+      case Type::DOUBLE:
+        return Float64(size, -1e3, 1e3, null_probability);
+      case Type::BINARY:
+        return Binary(size, 0, 10, null_probability);
+      case Type::STRING:
+        return String(size, 0, 10, null_probability);
+      case Type::LARGE_BINARY:
+        return LargeBinary(size, 0, 10, null_probability);
+      case Type::LARGE_STRING:
+        return LargeString(size, 0, 10, null_probability);
+      case Type::FIXED_SIZE_BINARY:
+        return FixedSizeBinary(size, 3, null_probability);
+      case Type::DATE32:
+        return Date32(size, null_probability);
+      case Type::DATE64:
+        return Date64(size, null_probability);
+      default:
+        Status::TypeError("Unsupported type for RandomArrayGenerator::Generic").Abort();
+        return nullptr;
+    }
+  }
 
   SeedType seed() { return seed_distribution_(seed_rng_); }
 

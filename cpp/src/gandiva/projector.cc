@@ -21,6 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/record_batch.h"
+
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"

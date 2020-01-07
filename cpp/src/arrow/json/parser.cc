@@ -29,6 +29,8 @@
 #include "rapidjson/reader.h"
 
 #include "arrow/array.h"
+#include "arrow/array/array_dict.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
@@ -37,7 +39,7 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/trie.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 namespace json {

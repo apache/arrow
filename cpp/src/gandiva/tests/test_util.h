@@ -19,7 +19,10 @@
 #include <memory>
 #include <utility>
 #include <vector>
+
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
+
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
 

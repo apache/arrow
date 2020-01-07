@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <utility>
 
+#include "arrow/result.h"
 #include "parquet/exception.h"
 
 namespace parquet {

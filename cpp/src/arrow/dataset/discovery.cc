@@ -31,6 +31,7 @@
 #include "arrow/filesystem/path_forest.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace dataset {

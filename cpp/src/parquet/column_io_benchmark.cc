@@ -18,6 +18,9 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/array.h"
+#include "arrow/array/array_primitive.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 #include "arrow/testing/random.h"
 
 #include "parquet/column_reader.h"

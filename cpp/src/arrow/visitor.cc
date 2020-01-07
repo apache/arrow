@@ -19,7 +19,7 @@
 
 #include <memory>
 
-#include "arrow/array.h"
+#include "arrow/array_all.h"
 #include "arrow/extension_type.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"

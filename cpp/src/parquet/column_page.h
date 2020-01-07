@@ -26,6 +26,7 @@
 #include <memory>
 #include <string>
 
+#include "arrow/buffer.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 

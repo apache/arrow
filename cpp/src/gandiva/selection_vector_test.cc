@@ -22,6 +22,9 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array_all.h"
+#include "arrow/buffer.h"
+
 namespace gandiva {
 
 class TestSelectionVector : public ::testing::Test {

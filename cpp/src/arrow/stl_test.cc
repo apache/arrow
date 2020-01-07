@@ -27,10 +27,12 @@
 #include <boost/optional.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 
+#include "arrow/compute/context.h"
 #include "arrow/memory_pool.h"
 #include "arrow/stl.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 

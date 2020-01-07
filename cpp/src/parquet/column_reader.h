@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/util/bitmap_inline.h"
+
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"

@@ -20,12 +20,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "arrow/buffer.h"            // IWYU pragma: export
-#include "arrow/io/interfaces.h"     // IWYU pragma: export
-#include "arrow/io/memory.h"         // IWYU pragma: export
-#include "arrow/memory_pool.h"       // IWYU pragma: export
-#include "arrow/status.h"            // IWYU pragma: export
-#include "arrow/util/bit_util.h"     // IWYU pragma: export
+#include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"  // IWYU pragma: export
 #include "arrow/util/macros.h"       // IWYU pragma: export
 #include "arrow/util/string_view.h"  // IWYU pragma: export
@@ -86,6 +81,20 @@
 #ifdef ARROW_VALGRIND
 #define PARQUET_VALGRIND
 #endif
+
+namespace arrow {
+
+namespace BitUtil {}
+
+namespace io {
+
+class BufferOutputStream;
+class InputStream;
+class OutputStream;
+class RandomAccessFile;
+
+}  // namespace io
+}  // namespace arrow
 
 namespace parquet {
 

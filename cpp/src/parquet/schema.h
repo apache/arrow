@@ -22,8 +22,8 @@
 #define PARQUET_SCHEMA_TYPES_H
 
 #include <cstdint>
+#include <iosfwd>
 #include <memory>
-#include <ostream>
 #include <string>
 #include <unordered_map>
 #include <utility>

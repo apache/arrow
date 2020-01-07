@@ -19,8 +19,12 @@
 
 #include <memory>
 
-#include <arrow/memory_pool.h>
 #include <gtest/gtest.h>
+
+#include "arrow/array.h"
+#include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
+
 #include "gandiva/field_descriptor.h"
 
 namespace gandiva {

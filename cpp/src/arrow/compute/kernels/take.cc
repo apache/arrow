@@ -23,8 +23,10 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/kernels/take.h"
 #include "arrow/compute/kernels/take_internal.h"
+#include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 namespace compute {

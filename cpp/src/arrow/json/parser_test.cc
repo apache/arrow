@@ -22,6 +22,7 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_nested.h"
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
 #include "arrow/json/test_common.h"

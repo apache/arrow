@@ -22,12 +22,11 @@
 #include <memory>
 #include <numeric>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
-#include "arrow/buffer_builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/boolean.h"
 #include "arrow/compute/kernels/cast.h"
@@ -43,7 +42,7 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 namespace dataset {

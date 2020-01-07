@@ -31,7 +31,8 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/base64.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_array_inline.h"
+
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/column_writer.h"

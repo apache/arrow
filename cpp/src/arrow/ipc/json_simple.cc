@@ -22,6 +22,12 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
+#include "arrow/array/builder_union.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/json_internal.h"
 #include "arrow/ipc/json_simple.h"

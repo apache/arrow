@@ -32,10 +32,24 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
-class TestChunkedArray : public TestBase {
+using random::RandomArrayGenerator;
+
+class TestTableBase : public TestBase {
+ public:
+  void SetUp() override {
+    TestBase::SetUp();
+    rng_.reset(new RandomArrayGenerator(42));
+  }
+
+ protected:
+  std::unique_ptr<RandomArrayGenerator> rng_;
+};
+
+class TestChunkedArray : public TestTableBase {
  protected:
   virtual void Construct() {
     one_ = std::make_shared<ChunkedArray>(arrays_one_);
@@ -107,9 +121,11 @@ TEST_F(TestChunkedArray, EqualsDifferingLengths) {
 }
 
 TEST_F(TestChunkedArray, SliceEquals) {
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(100));
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
+  RandomArrayGenerator rng(42);
+
+  arrays_one_.push_back(rng_->Int32(100));
+  arrays_one_.push_back(rng_->Int32(50));
+  arrays_one_.push_back(rng_->Int32(50));
   Construct();
 
   std::shared_ptr<ChunkedArray> slice = one_->Slice(125, 50);
@@ -183,7 +199,7 @@ TEST_F(TestChunkedArray, View) {
   AssertChunkedEqual(*expected, *result);
 }
 
-class TestTable : public TestBase {
+class TestTable : public TestTableBase {
  public:
   void MakeExample1(int length) {
     auto f0 = field("f0", int32());
@@ -193,8 +209,7 @@ class TestTable : public TestBase {
     std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
     schema_ = std::make_shared<Schema>(fields);
 
-    arrays_ = {MakeRandomArray<Int32Array>(length), MakeRandomArray<UInt8Array>(length),
-               MakeRandomArray<Int16Array>(length)};
+    arrays_ = {rng_->Int32(length), rng_->UInt8(length), rng_->Int16(length)};
 
     columns_ = {std::make_shared<ChunkedArray>(arrays_[0]),
                 std::make_shared<ChunkedArray>(arrays_[1]),
@@ -265,9 +280,9 @@ TEST_F(TestTable, InvalidColumns) {
   table_ = Table::Make(schema_, columns_, length);
   ASSERT_RAISES(Invalid, table_->ValidateFull());
 
-  columns_ = {std::make_shared<ChunkedArray>(MakeRandomArray<Int32Array>(length)),
-              std::make_shared<ChunkedArray>(MakeRandomArray<UInt8Array>(length)),
-              std::make_shared<ChunkedArray>(MakeRandomArray<Int16Array>(length - 1))};
+  columns_ = {std::make_shared<ChunkedArray>(rng_->Int32(length)),
+              std::make_shared<ChunkedArray>(rng_->UInt8(length)),
+              std::make_shared<ChunkedArray>(rng_->Int16(length - 1))};
 
   table_ = Table::Make(schema_, columns_, length);
   ASSERT_RAISES(Invalid, table_->ValidateFull());
@@ -290,9 +305,9 @@ TEST_F(TestTable, Equals) {
   ASSERT_FALSE(table_->Equals(*other));
   // Differing columns
   std::vector<std::shared_ptr<ChunkedArray>> other_columns = {
-      std::make_shared<ChunkedArray>(MakeRandomArray<Int32Array>(length, 10)),
-      std::make_shared<ChunkedArray>(MakeRandomArray<UInt8Array>(length, 10)),
-      std::make_shared<ChunkedArray>(MakeRandomArray<Int16Array>(length, 10))};
+      std::make_shared<ChunkedArray>(rng_->Int32(length)),
+      std::make_shared<ChunkedArray>(rng_->UInt8(length)),
+      std::make_shared<ChunkedArray>(rng_->Int16(length))};
 
   other = Table::Make(schema_, other_columns);
   ASSERT_FALSE(table_->Equals(*other));
@@ -498,9 +513,8 @@ TEST_F(TestPromoteTableToSchema, IncompatibleNullity) {
 TEST_F(TestPromoteTableToSchema, DuplicateFieldNames) {
   const int length = 10;
 
-  auto table = Table::Make(
-      schema({field("field", int32()), field("field", null())}),
-      {MakeRandomArray<Int32Array>(length), MakeRandomArray<NullArray>(length)});
+  auto table = Table::Make(schema({field("field", int32()), field("field", null())}),
+                           {rng_->Int32(length), std::make_shared<NullArray>(length)});
 
   ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("field", int32())})));
 }
@@ -508,8 +522,7 @@ TEST_F(TestPromoteTableToSchema, DuplicateFieldNames) {
 TEST_F(TestPromoteTableToSchema, TableFieldAbsentFromSchema) {
   const int length = 10;
 
-  auto table =
-      Table::Make(schema({field("f0", int32())}), {MakeRandomArray<Int32Array>(length)});
+  auto table = Table::Make(schema({field("f0", int32())}), {rng_->Int32(length)});
 
   std::shared_ptr<Table> result;
   ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("f1", int32())})));
@@ -524,7 +537,7 @@ class ConcatenateTablesWithPromotionTest : public TestTable {
     std::vector<std::shared_ptr<Field>> fields = {f0, f1};
     schema_ = std::make_shared<Schema>(fields);
 
-    arrays_ = {MakeRandomArray<Int32Array>(length), MakeRandomArray<NullArray>(length)};
+    arrays_ = {rng_->Int32(length), std::make_shared<NullArray>(length)};
 
     columns_ = {std::make_shared<ChunkedArray>(arrays_[0]),
                 std::make_shared<ChunkedArray>(arrays_[1])};
@@ -666,7 +679,7 @@ TEST_F(TestTable, RemoveColumnEmpty) {
 
   auto f0 = field("f0", int32());
   auto schema = ::arrow::schema({f0});
-  auto a0 = MakeRandomArray<Int32Array>(length);
+  auto a0 = rng_->Int32(length);
 
   auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(a0)});
 
@@ -699,8 +712,7 @@ TEST_F(TestTable, AddColumn) {
   ASSERT_TRUE(status.IsInvalid());
 
   // Add column with wrong length
-  auto longer_col =
-      std::make_shared<ChunkedArray>(MakeRandomArray<Int32Array>(length + 1));
+  auto longer_col = std::make_shared<ChunkedArray>(rng_->Int32(length + 1));
   status = table.AddColumn(0, f0, longer_col, &result);
   ASSERT_TRUE(status.IsInvalid());
 
@@ -736,7 +748,7 @@ TEST_F(TestTable, AddColumn) {
   ASSERT_TRUE(result->Equals(*expected));
 }
 
-class TestRecordBatch : public TestBase {};
+class TestRecordBatch : public TestTableBase {};
 
 TEST_F(TestRecordBatch, Equals) {
   const int length = 10;
@@ -749,9 +761,9 @@ TEST_F(TestRecordBatch, Equals) {
   auto schema = ::arrow::schema({f0, f1, f2});
   auto schema2 = ::arrow::schema({f0, f1});
 
-  auto a0 = MakeRandomArray<Int32Array>(length);
-  auto a1 = MakeRandomArray<UInt8Array>(length);
-  auto a2 = MakeRandomArray<Int16Array>(length);
+  auto a0 = rng_->Int32(length);
+  auto a1 = rng_->UInt8(length);
+  auto a2 = rng_->Int16(length);
 
   auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
   auto b3 = RecordBatch::Make(schema2, length, {a0, a1});
@@ -771,10 +783,10 @@ TEST_F(TestRecordBatch, Validate) {
 
   auto schema = ::arrow::schema({f0, f1, f2});
 
-  auto a0 = MakeRandomArray<Int32Array>(length);
-  auto a1 = MakeRandomArray<UInt8Array>(length);
-  auto a2 = MakeRandomArray<Int16Array>(length);
-  auto a3 = MakeRandomArray<Int16Array>(5);
+  auto a0 = rng_->Int32(length);
+  auto a1 = rng_->UInt8(length);
+  auto a2 = rng_->Int16(length);
+  auto a3 = rng_->Int16(5);
 
   auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
 
@@ -798,8 +810,8 @@ TEST_F(TestRecordBatch, Slice) {
   std::vector<std::shared_ptr<Field>> fields = {f0, f1};
   auto schema = ::arrow::schema(fields);
 
-  auto a0 = MakeRandomArray<Int32Array>(length);
-  auto a1 = MakeRandomArray<UInt8Array>(length);
+  auto a0 = rng_->Int32(length);
+  auto a1 = rng_->UInt8(length);
 
   auto batch = RecordBatch::Make(schema, length, {a0, a1});
 
@@ -828,9 +840,9 @@ TEST_F(TestRecordBatch, AddColumn) {
   auto schema2 = ::arrow::schema({field2, field3});
   auto schema3 = ::arrow::schema({field2});
 
-  auto array1 = MakeRandomArray<Int32Array>(length);
-  auto array2 = MakeRandomArray<UInt8Array>(length);
-  auto array3 = MakeRandomArray<Int16Array>(length);
+  auto array1 = rng_->Int32(length);
+  auto array2 = rng_->UInt8(length);
+  auto array3 = rng_->Int16(length);
 
   auto batch1 = RecordBatch::Make(schema1, length, {array1, array2});
   auto batch2 = RecordBatch::Make(schema2, length, {array2, array3});
@@ -848,7 +860,7 @@ TEST_F(TestRecordBatch, AddColumn) {
   ASSERT_TRUE(status.IsInvalid());
 
   // Negative test with wrong length
-  auto longer_col = MakeRandomArray<Int32Array>(length + 1);
+  auto longer_col = rng_->Int32(length + 1);
   status = batch.AddColumn(0, field1, longer_col, &result);
   ASSERT_TRUE(status.IsInvalid());
 
@@ -881,9 +893,9 @@ TEST_F(TestRecordBatch, RemoveColumn) {
   auto schema3 = ::arrow::schema({field1, field3});
   auto schema4 = ::arrow::schema({field1, field2});
 
-  auto array1 = MakeRandomArray<Int32Array>(length);
-  auto array2 = MakeRandomArray<UInt8Array>(length);
-  auto array3 = MakeRandomArray<Int16Array>(length);
+  auto array1 = rng_->Int32(length);
+  auto array2 = rng_->UInt8(length);
+  auto array3 = rng_->Int16(length);
 
   auto batch1 = RecordBatch::Make(schema1, length, {array1, array2, array3});
   auto batch2 = RecordBatch::Make(schema2, length, {array2, array3});
@@ -914,7 +926,7 @@ TEST_F(TestRecordBatch, RemoveColumnEmpty) {
 
   auto field1 = field("f1", int32());
   auto schema1 = ::arrow::schema({field1});
-  auto array1 = MakeRandomArray<Int32Array>(length);
+  auto array1 = rng_->Int32(length);
   auto batch1 = RecordBatch::Make(schema1, length, {array1});
 
   std::shared_ptr<RecordBatch> empty;
@@ -926,15 +938,15 @@ TEST_F(TestRecordBatch, RemoveColumnEmpty) {
   ASSERT_TRUE(added->Equals(*batch1));
 }
 
-class TestTableBatchReader : public TestBase {};
+class TestTableBatchReader : public TestTableBase {};
 
 TEST_F(TestTableBatchReader, ReadNext) {
   ArrayVector c1, c2;
 
-  auto a1 = MakeRandomArray<Int32Array>(10);
-  auto a2 = MakeRandomArray<Int32Array>(20);
-  auto a3 = MakeRandomArray<Int32Array>(30);
-  auto a4 = MakeRandomArray<Int32Array>(10);
+  auto a1 = rng_->Int32(10);
+  auto a2 = rng_->Int32(20);
+  auto a3 = rng_->Int32(30);
+  auto a4 = rng_->Int32(10);
 
   auto sch1 = arrow::schema({field("f1", int32()), field("f2", int32())});
 
@@ -982,9 +994,9 @@ TEST_F(TestTableBatchReader, ReadNext) {
 }
 
 TEST_F(TestTableBatchReader, Chunksize) {
-  auto a1 = MakeRandomArray<Int32Array>(10);
-  auto a2 = MakeRandomArray<Int32Array>(20);
-  auto a3 = MakeRandomArray<Int32Array>(10);
+  auto a1 = rng_->Int32(10);
+  auto a2 = rng_->Int32(20);
+  auto a3 = rng_->Int32(10);
 
   auto sch1 = arrow::schema({field("f1", int32())});
 

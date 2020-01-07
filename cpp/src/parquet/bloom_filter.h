@@ -18,11 +18,12 @@
 #ifndef PARQUET_BLOOM_FILTER_H
 #define PARQUET_BLOOM_FILTER_H
 
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <memory>
 
-#include "arrow/util/logging.h"
+#include "arrow/util/bit_util.h"
 #include "parquet/hasher.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -151,7 +152,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// @return it always return a value between kMinimumBloomFilterBytes and
   /// kMaximumBloomFilterBytes, and the return value is always a power of 2
   static uint32_t OptimalNumOfBits(uint32_t ndv, double fpp) {
-    DCHECK(fpp > 0.0 && fpp < 1.0);
+    assert(fpp > 0.0 && fpp < 1.0);
     const double m = -8.0 * ndv / log(1 - pow(fpp, 1.0 / 8));
     uint32_t num_bits;
 

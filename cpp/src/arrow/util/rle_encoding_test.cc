@@ -27,6 +27,7 @@
 #include <boost/utility.hpp>  // IWYU pragma: export
 
 #include "arrow/array.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"

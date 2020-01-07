@@ -31,7 +31,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
 #include "arrow/util/time.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -39,6 +39,15 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 bool Scalar::Equals(const Scalar& other) const { return ScalarEquals(*this, other); }
+
+namespace internal {
+
+void PrimitiveScalarBase::CheckType(const std::shared_ptr<DataType>& type,
+                                    Type::type expected) {
+  ARROW_CHECK_EQ(type->id(), expected);
+}
+
+}  // namespace internal
 
 StringScalar::StringScalar(std::string s)
     : StringScalar(Buffer::FromString(std::move(s))) {}

@@ -28,14 +28,19 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -96,9 +101,110 @@ Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& 
   return builder->Finish(out);
 }
 
-#define DECL_T() typedef typename TestFixture::T T;
+// ArrayFromVector: construct an Array from vectors of C values
 
-#define DECL_TYPE() typedef typename TestFixture::Type Type;
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ArrayFromVector(const std::shared_ptr<DataType>& type,
+                     const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
+                     std::shared_ptr<Array>* out) {
+  auto type_id = TYPE::type_id;
+  ASSERT_EQ(type_id, type->id())
+      << "template parameter and concrete DataType instance don't agree";
+
+  std::unique_ptr<ArrayBuilder> builder_ptr;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder_ptr));
+  // Get the concrete builder class to access its Append() specializations
+  auto& builder = dynamic_cast<typename TypeTraits<TYPE>::BuilderType&>(*builder_ptr);
+
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (is_valid[i]) {
+      ASSERT_OK(builder.Append(values[i]));
+    } else {
+      ASSERT_OK(builder.AppendNull());
+    }
+  }
+  ASSERT_OK(builder.Finish(out));
+}
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ArrayFromVector(const std::shared_ptr<DataType>& type,
+                     const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
+  auto type_id = TYPE::type_id;
+  ASSERT_EQ(type_id, type->id())
+      << "template parameter and concrete DataType instance don't agree";
+
+  std::unique_ptr<ArrayBuilder> builder_ptr;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder_ptr));
+  // Get the concrete builder class to access its Append() specializations
+  auto& builder = dynamic_cast<typename TypeTraits<TYPE>::BuilderType&>(*builder_ptr);
+
+  for (size_t i = 0; i < values.size(); ++i) {
+    ASSERT_OK(builder.Append(values[i]));
+  }
+  ASSERT_OK(builder.Finish(out));
+}
+
+// Overloads without a DataType argument, for parameterless types
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ArrayFromVector(const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
+                     std::shared_ptr<Array>* out) {
+  auto type = TypeTraits<TYPE>::type_singleton();
+  ArrayFromVector<TYPE, C_TYPE>(type, is_valid, values, out);
+}
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ArrayFromVector(const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
+  auto type = TypeTraits<TYPE>::type_singleton();
+  ArrayFromVector<TYPE, C_TYPE>(type, values, out);
+}
+
+// ChunkedArrayFromVector: construct a ChunkedArray from vectors of C values
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ChunkedArrayFromVector(const std::shared_ptr<DataType>& type,
+                            const std::vector<std::vector<bool>>& is_valid,
+                            const std::vector<std::vector<C_TYPE>>& values,
+                            std::shared_ptr<ChunkedArray>* out) {
+  ArrayVector chunks;
+  ASSERT_EQ(is_valid.size(), values.size());
+  for (size_t i = 0; i < values.size(); ++i) {
+    std::shared_ptr<Array> array;
+    ArrayFromVector<TYPE, C_TYPE>(type, is_valid[i], values[i], &array);
+    chunks.push_back(array);
+  }
+  *out = std::make_shared<ChunkedArray>(chunks);
+}
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ChunkedArrayFromVector(const std::shared_ptr<DataType>& type,
+                            const std::vector<std::vector<C_TYPE>>& values,
+                            std::shared_ptr<ChunkedArray>* out) {
+  ArrayVector chunks;
+  for (size_t i = 0; i < values.size(); ++i) {
+    std::shared_ptr<Array> array;
+    ArrayFromVector<TYPE, C_TYPE>(type, values[i], &array);
+    chunks.push_back(array);
+  }
+  *out = std::make_shared<ChunkedArray>(chunks);
+}
+
+// Overloads without a DataType argument, for parameterless types
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ChunkedArrayFromVector(const std::vector<std::vector<bool>>& is_valid,
+                            const std::vector<std::vector<C_TYPE>>& values,
+                            std::shared_ptr<ChunkedArray>* out) {
+  auto type = TypeTraits<TYPE>::type_singleton();
+  ChunkedArrayFromVector<TYPE, C_TYPE>(type, is_valid, values, out);
+}
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ChunkedArrayFromVector(const std::vector<std::vector<C_TYPE>>& values,
+                            std::shared_ptr<ChunkedArray>* out) {
+  auto type = TypeTraits<TYPE>::type_singleton();
+  ChunkedArrayFromVector<TYPE, C_TYPE>(type, values, out);
+}
 
 // ----------------------------------------------------------------------
 // A RecordBatchReader for serving a sequence of in-memory record batches

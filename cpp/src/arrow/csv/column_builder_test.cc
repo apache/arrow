@@ -21,6 +21,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_dict.h"
 #include "arrow/csv/column_builder.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/test_common.h"

@@ -25,7 +25,11 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
+#include "arrow/result.h"
 #include "arrow/util/logging.h"
+
 #include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
 #include "parquet/internal_file_decryptor.h"

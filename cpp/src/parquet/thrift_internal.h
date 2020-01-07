@@ -41,6 +41,8 @@
 #include <thrift/transport/TBufferTransports.h>
 #include <sstream>
 
+#include "arrow/buffer.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/util/logging.h"
 
 #include "parquet/exception.h"

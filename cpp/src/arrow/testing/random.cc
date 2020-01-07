@@ -18,6 +18,7 @@
 #include "arrow/testing/random.h"
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <random>
 #include <vector>
@@ -25,6 +26,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/buffer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -39,6 +41,12 @@ template <typename ValueType, typename DistributionType>
 struct GenerateOptions {
   GenerateOptions(SeedType seed, ValueType min, ValueType max, double probability)
       : min_(min), max_(max), seed_(seed), probability_(probability) {}
+
+  GenerateOptions(SeedType seed, double probability)
+      : min_(std::numeric_limits<ValueType>::min()),
+        max_(std::numeric_limits<ValueType>::max()),
+        seed_(seed),
+        probability_(probability) {}
 
   void GenerateData(uint8_t* buffer, size_t n) {
     std::default_random_engine rng(seed_++);
@@ -121,12 +129,26 @@ static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t siz
     return GenerateNumericArray<ArrowType, OptionType>(size, options);                  \
   }
 
+#define PRIMITIVE_RAND_IMPL_NO_MIN_MAX(Name, CType, ArrowType, Distribution)            \
+  std::shared_ptr<Array> RandomArrayGenerator::Name(int64_t size, double probability) { \
+    using OptionType = GenerateOptions<CType, Distribution>;                            \
+    OptionType options(seed(), probability);                                            \
+    return GenerateNumericArray<ArrowType, OptionType>(size, options);                  \
+  }
+
+#define PRIMITIVE_RAND_INTEGER_DIST_IMPL(Name, CType, ArrowType, Distribution) \
+  PRIMITIVE_RAND_IMPL(Name, CType, ArrowType, Distribution)                    \
+  PRIMITIVE_RAND_IMPL_NO_MIN_MAX(Name, CType, ArrowType, Distribution)
+
 #define PRIMITIVE_RAND_INTEGER_IMPL(Name, CType, ArrowType) \
-  PRIMITIVE_RAND_IMPL(Name, CType, ArrowType, std::uniform_int_distribution<CType>)
+  PRIMITIVE_RAND_INTEGER_DIST_IMPL(Name, CType, ArrowType,  \
+                                   std::uniform_int_distribution<CType>)
 
 // Visual Studio does not implement uniform_int_distribution for char types.
-PRIMITIVE_RAND_IMPL(UInt8, uint8_t, UInt8Type, std::uniform_int_distribution<uint16_t>)
-PRIMITIVE_RAND_IMPL(Int8, int8_t, Int8Type, std::uniform_int_distribution<int16_t>)
+PRIMITIVE_RAND_INTEGER_DIST_IMPL(UInt8, uint8_t, UInt8Type,
+                                 std::uniform_int_distribution<uint16_t>)
+PRIMITIVE_RAND_INTEGER_DIST_IMPL(Int8, int8_t, Int8Type,
+                                 std::uniform_int_distribution<int16_t>)
 
 PRIMITIVE_RAND_INTEGER_IMPL(UInt16, uint16_t, UInt16Type)
 PRIMITIVE_RAND_INTEGER_IMPL(Int16, int16_t, Int16Type)
@@ -145,6 +167,38 @@ PRIMITIVE_RAND_FLOAT_IMPL(Float64, double, DoubleType)
 #undef PRIMITIVE_RAND_FLOAT_IMPL
 #undef PRIMITIVE_RAND_IMPL
 
+std::shared_ptr<Array> RandomArrayGenerator::Date32(int64_t size, double probability) {
+  using OptionType = GenerateOptions<int32_t, std::uniform_int_distribution<int32_t>>;
+  OptionType options(seed(), probability);
+  return GenerateNumericArray<Date32Type, OptionType>(size, options);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::Date64(int64_t size, double probability) {
+  using OptionType = GenerateOptions<int64_t, std::uniform_int_distribution<int64_t>>;
+  OptionType options(seed(), probability);
+  return GenerateNumericArray<Date64Type, OptionType>(size, options);
+}
+
+std::shared_ptr<arrow::Array> RandomArrayGenerator::FixedSizeBinary(
+    int64_t size, int32_t byte_width, double null_probability) {
+  // Visual Studio does not implement uniform_int_distribution for char types.
+  using GenOpt = GenerateOptions<uint8_t, std::uniform_int_distribution<uint16_t>>;
+  GenOpt options(seed(), null_probability);
+
+  std::shared_ptr<Buffer> data, null_bitmap;
+
+  int64_t null_count = 0;
+  ABORT_NOT_OK(AllocateEmptyBitmap(size, &null_bitmap));
+  options.GenerateBitmap(null_bitmap->mutable_data(), size, &null_count);
+
+  ABORT_NOT_OK(AllocateBuffer(byte_width * size, &data));
+  options.GenerateData(data->mutable_data(), data->size());
+
+  auto type = fixed_size_binary(byte_width);
+  return std::make_shared<FixedSizeBinaryArray>(type, size, data, null_bitmap,
+                                                null_count);
+}
+
 template <typename TypeClass>
 static std::shared_ptr<arrow::Array> GenerateBinaryArray(RandomArrayGenerator* gen,
                                                          int64_t size, int32_t min_length,
@@ -156,7 +210,8 @@ static std::shared_ptr<arrow::Array> GenerateBinaryArray(RandomArrayGenerator* g
   using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
 
   if (null_probability < 0 || null_probability > 1) {
-    ABORT_NOT_OK(Status::Invalid("null_probability must be between 0 and 1"));
+    ABORT_NOT_OK(Status::Invalid("null_probability must be between 0 and 1, got ",
+                                 null_probability));
   }
 
   auto lengths = std::dynamic_pointer_cast<OffsetArrayType>(
@@ -184,12 +239,28 @@ static std::shared_ptr<arrow::Array> GenerateBinaryArray(RandomArrayGenerator* g
   return result;
 }
 
+std::shared_ptr<arrow::Array> RandomArrayGenerator::Binary(int64_t size,
+                                                           int32_t min_length,
+                                                           int32_t max_length,
+                                                           double null_probability) {
+  return GenerateBinaryArray<BinaryType>(this, size, min_length, max_length,
+                                         null_probability);
+}
+
 std::shared_ptr<arrow::Array> RandomArrayGenerator::String(int64_t size,
                                                            int32_t min_length,
                                                            int32_t max_length,
                                                            double null_probability) {
   return GenerateBinaryArray<StringType>(this, size, min_length, max_length,
                                          null_probability);
+}
+
+std::shared_ptr<arrow::Array> RandomArrayGenerator::LargeBinary(int64_t size,
+                                                                int32_t min_length,
+                                                                int32_t max_length,
+                                                                double null_probability) {
+  return GenerateBinaryArray<LargeBinaryType>(this, size, min_length, max_length,
+                                              null_probability);
 }
 
 std::shared_ptr<arrow::Array> RandomArrayGenerator::LargeString(int64_t size,
@@ -236,5 +307,10 @@ std::shared_ptr<arrow::Array> RandomArrayGenerator::StringWithRepeats(
   ABORT_NOT_OK(builder.Finish(&result));
   return result;
 }
+
+std::shared_ptr<arrow::Array> RandomArrayGenerator::Null(int64_t size) {
+  return std::make_shared<NullArray>(size);
+}
+
 }  // namespace random
 }  // namespace arrow

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/buffer.h"
 #include "arrow/json/converter.h"
 #include "arrow/table.h"

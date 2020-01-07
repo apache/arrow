@@ -27,6 +27,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 

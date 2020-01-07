@@ -22,11 +22,12 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
-#include "arrow/builder.h"
 #include "arrow/compute/kernels/take_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 

@@ -20,6 +20,8 @@
 #include <algorithm>
 #include <memory>
 
+#include "arrow/array/array_binary.h"
+#include "arrow/array/array_dict.h"
 #include "arrow/array/builder_adaptive.h"   // IWYU pragma: export
 #include "arrow/array/builder_base.h"       // IWYU pragma: export
 #include "arrow/array/builder_primitive.h"  // IWYU pragma: export

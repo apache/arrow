@@ -22,6 +22,8 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/util/bit_util.h"
+
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"

@@ -23,7 +23,9 @@
 #include <string>
 #include <vector>
 
+#include "arrow/buffer.h"
 #include "arrow/compare.h"
+#include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"

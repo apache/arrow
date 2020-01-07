@@ -25,10 +25,12 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/array_dict.h"
 #include "arrow/builder.h"
 #include "arrow/pretty_print.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 
 namespace arrow {

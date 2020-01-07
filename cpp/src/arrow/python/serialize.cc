@@ -29,6 +29,9 @@
 #include <numpy/arrayscalars.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_union.h"
 #include "arrow/builder.h"
 #include "arrow/io/interfaces.h"

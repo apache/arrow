@@ -20,6 +20,9 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/array_dict.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/array/array_union.h"
 #include "arrow/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"

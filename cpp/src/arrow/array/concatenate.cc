@@ -26,9 +26,11 @@
 #include "arrow/array.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/visibility.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 

@@ -19,6 +19,7 @@
 
 #include "arrow/compute/kernels/take.h"
 
+#include "arrow/array_all.h"
 #include "arrow/compute/benchmark_util.h"
 #include "arrow/compute/test_util.h"
 #include "arrow/testing/gtest_util.h"

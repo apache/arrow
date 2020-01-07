@@ -24,6 +24,7 @@
 #include "arrow/python/platform.h"
 
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/builder.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"

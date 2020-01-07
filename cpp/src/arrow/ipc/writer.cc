@@ -25,7 +25,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array_all.h"
 #include "arrow/buffer.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/interfaces.h"
@@ -43,6 +43,7 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"

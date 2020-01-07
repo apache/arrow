@@ -24,7 +24,7 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/array.h"
+#include "arrow/array_all.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/dictionary.h"

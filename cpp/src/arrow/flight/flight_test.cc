@@ -30,10 +30,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_dict.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/make_unique.h"
 
 #include "arrow/flight/api.h"
@@ -586,9 +588,9 @@ class CountingServerMiddleware : public ServerMiddleware {
   void SendingHeaders(AddCallHeaders* outgoing_headers) override {}
   void CallCompleted(const Status& status) override {
     if (status.ok()) {
-      ARROW_IGNORE_EXPR((*successful_)++);
+      ARROW_UNUSED((*successful_)++);
     } else {
-      ARROW_IGNORE_EXPR((*failed_)++);
+      ARROW_UNUSED((*failed_)++);
     }
   }
 

@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/result.h"
 #include "parquet/column_writer.h"
 #include "parquet/deprecated_io.h"
 #include "parquet/encryption_internal.h"

@@ -19,6 +19,11 @@
 
 #include <iostream>
 
+#include "arrow/builder_all.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
+#include "arrow/table.h"
+
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/column_reader.h"
@@ -26,8 +31,6 @@
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/platform.h"
-
-#include "arrow/api.h"
 
 using arrow::BooleanBuilder;
 using arrow::NumericBuilder;

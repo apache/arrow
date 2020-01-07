@@ -29,15 +29,12 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/buffer.h"
-#include "arrow/builder.h"
-#include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/testing/util.h"
+#include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -240,12 +237,8 @@ ARROW_EXPORT void AssertZeroPadded(const Array& array);
 // and cause valgrind warnings otherwise.
 ARROW_EXPORT void TestInitialized(const Array& array);
 
-template <typename BuilderType>
-void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
-  ASSERT_OK(builder->Finish(out));
-  AssertZeroPadded(**out);
-  TestInitialized(**out);
-}
+ARROW_EXPORT void FinishAndCheckPadding(ArrayBuilder* builder,
+                                        std::shared_ptr<Array>* out);
 
 #define DECL_T() typedef typename TestFixture::T T;
 
@@ -268,133 +261,24 @@ ARROW_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
                                      const std::vector<std::string>& json);
 
-// ArrayFromVector: construct an Array from vectors of C values
+ARROW_EXPORT
+Status GetBitmapFromVector(const std::vector<bool>& is_valid,
+                           std::shared_ptr<Buffer>* result);
 
-template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
-void ArrayFromVector(const std::shared_ptr<DataType>& type,
-                     const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
-                     std::shared_ptr<Array>* out) {
-  auto type_id = TYPE::type_id;
-  ASSERT_EQ(type_id, type->id())
-      << "template parameter and concrete DataType instance don't agree";
+ARROW_EXPORT
+Status GetBitmapFromVector(const std::vector<uint8_t>& is_valid,
+                           std::shared_ptr<Buffer>* result);
 
-  std::unique_ptr<ArrayBuilder> builder_ptr;
-  ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder_ptr));
-  // Get the concrete builder class to access its Append() specializations
-  auto& builder = dynamic_cast<typename TypeTraits<TYPE>::BuilderType&>(*builder_ptr);
+ARROW_EXPORT
+Status GetBitmapFromVector(const std::vector<int32_t>& is_valid,
+                           std::shared_ptr<Buffer>* result);
 
-  for (size_t i = 0; i < values.size(); ++i) {
-    if (is_valid[i]) {
-      ASSERT_OK(builder.Append(values[i]));
-    } else {
-      ASSERT_OK(builder.AppendNull());
-    }
-  }
-  ASSERT_OK(builder.Finish(out));
-}
-
-template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
-void ArrayFromVector(const std::shared_ptr<DataType>& type,
-                     const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
-  auto type_id = TYPE::type_id;
-  ASSERT_EQ(type_id, type->id())
-      << "template parameter and concrete DataType instance don't agree";
-
-  std::unique_ptr<ArrayBuilder> builder_ptr;
-  ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder_ptr));
-  // Get the concrete builder class to access its Append() specializations
-  auto& builder = dynamic_cast<typename TypeTraits<TYPE>::BuilderType&>(*builder_ptr);
-
-  for (size_t i = 0; i < values.size(); ++i) {
-    ASSERT_OK(builder.Append(values[i]));
-  }
-  ASSERT_OK(builder.Finish(out));
-}
-
-// Overloads without a DataType argument, for parameterless types
-
-template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
-void ArrayFromVector(const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
-                     std::shared_ptr<Array>* out) {
-  auto type = TypeTraits<TYPE>::type_singleton();
-  ArrayFromVector<TYPE, C_TYPE>(type, is_valid, values, out);
-}
-
-template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
-void ArrayFromVector(const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
-  auto type = TypeTraits<TYPE>::type_singleton();
-  ArrayFromVector<TYPE, C_TYPE>(type, values, out);
-}
-
-// ChunkedArrayFromVector: construct a ChunkedArray from vectors of C values
-
-template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
-void ChunkedArrayFromVector(const std::shared_ptr<DataType>& type,
-                            const std::vector<std::vector<bool>>& is_valid,
-                            const std::vector<std::vector<C_TYPE>>& values,
-                            std::shared_ptr<ChunkedArray>* out) {
-  ArrayVector chunks;
-  ASSERT_EQ(is_valid.size(), values.size());
-  for (size_t i = 0; i < values.size(); ++i) {
-    std::shared_ptr<Array> array;
-    ArrayFromVector<TYPE, C_TYPE>(type, is_valid[i], values[i], &array);
-    chunks.push_back(array);
-  }
-  *out = std::make_shared<ChunkedArray>(chunks);
-}
-
-template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
-void ChunkedArrayFromVector(const std::shared_ptr<DataType>& type,
-                            const std::vector<std::vector<C_TYPE>>& values,
-                            std::shared_ptr<ChunkedArray>* out) {
-  ArrayVector chunks;
-  for (size_t i = 0; i < values.size(); ++i) {
-    std::shared_ptr<Array> array;
-    ArrayFromVector<TYPE, C_TYPE>(type, values[i], &array);
-    chunks.push_back(array);
-  }
-  *out = std::make_shared<ChunkedArray>(chunks);
-}
-
-// Overloads without a DataType argument, for parameterless types
-
-template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
-void ChunkedArrayFromVector(const std::vector<std::vector<bool>>& is_valid,
-                            const std::vector<std::vector<C_TYPE>>& values,
-                            std::shared_ptr<ChunkedArray>* out) {
-  auto type = TypeTraits<TYPE>::type_singleton();
-  ChunkedArrayFromVector<TYPE, C_TYPE>(type, is_valid, values, out);
-}
-
-template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
-void ChunkedArrayFromVector(const std::vector<std::vector<C_TYPE>>& values,
-                            std::shared_ptr<ChunkedArray>* out) {
-  auto type = TypeTraits<TYPE>::type_singleton();
-  ChunkedArrayFromVector<TYPE, C_TYPE>(type, values, out);
-}
+ARROW_EXPORT
+Status GetBitmapFromVector(const std::vector<int64_t>& is_valid,
+                           std::shared_ptr<Buffer>* result);
 
 template <typename T>
-static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
-                                         std::shared_ptr<Buffer>* result) {
-  size_t length = is_valid.size();
-
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateEmptyBitmap(length, &buffer));
-
-  uint8_t* bitmap = buffer->mutable_data();
-  for (size_t i = 0; i < static_cast<size_t>(length); ++i) {
-    if (is_valid[i]) {
-      BitUtil::SetBit(bitmap, i);
-    }
-  }
-
-  *result = buffer;
-  return Status::OK();
-}
-
-template <typename T>
-inline void BitmapFromVector(const std::vector<T>& is_valid,
-                             std::shared_ptr<Buffer>* out) {
+void BitmapFromVector(const std::vector<T>& is_valid, std::shared_ptr<Buffer>* out) {
   ASSERT_OK(GetBitmapFromVector(is_valid, out));
 }
 

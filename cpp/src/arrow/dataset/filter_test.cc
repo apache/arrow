@@ -25,6 +25,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_primitive.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/take.h"

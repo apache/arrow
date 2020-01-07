@@ -23,16 +23,16 @@
 // The LLVM IR code doesn't have an NDEBUG mode. And, it shouldn't include references to
 // streams or stdc++. So, making the DCHECK calls void in that case.
 
-#define ARROW_IGNORE_EXPR(expr) ((void)(expr))
+#define ARROW_UNUSED(x) ((void)(x))
 
-#define DCHECK(condition) ARROW_IGNORE_EXPR(condition)
-#define DCHECK_OK(status) ARROW_IGNORE_EXPR(status)
-#define DCHECK_EQ(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_NE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_LE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_LT(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_GE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_GT(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK(condition) ARROW_UNUSED(condition)
+#define DCHECK_OK(status) ARROW_UNUSED(status)
+#define DCHECK_EQ(val1, val2) ARROW_UNUSED(val1)
+#define DCHECK_NE(val1, val2) ARROW_UNUSED(val1)
+#define DCHECK_LE(val1, val2) ARROW_UNUSED(val1)
+#define DCHECK_LT(val1, val2) ARROW_UNUSED(val1)
+#define DCHECK_GE(val1, val2) ARROW_UNUSED(val1)
+#define DCHECK_GT(val1, val2) ARROW_UNUSED(val1)
 
 #else  // !GANDIVA_IR
 
@@ -57,11 +57,9 @@ enum class ArrowLogLevel : int {
 #define ARROW_LOG_INTERNAL(level) ::arrow::util::ArrowLog(__FILE__, __LINE__, level)
 #define ARROW_LOG(level) ARROW_LOG_INTERNAL(::arrow::util::ArrowLogLevel::ARROW_##level)
 
-#define ARROW_IGNORE_EXPR(expr) ((void)(expr))
-
 #define ARROW_CHECK(condition)                                               \
   ARROW_PREDICT_TRUE(condition)                                              \
-  ? ARROW_IGNORE_EXPR(0)                                                     \
+  ? ARROW_UNUSED(0)                                                          \
   : ::arrow::util::Voidify() &                                               \
           ::arrow::util::ArrowLog(__FILE__, __LINE__,                        \
                                   ::arrow::util::ArrowLogLevel::ARROW_FATAL) \
@@ -93,35 +91,35 @@ enum class ArrowLogLevel : int {
 // CAUTION: DCHECK_OK() always evaluates its argument, but other DCHECK*() macros
 // only do so in debug mode.
 
-#define DCHECK(condition)                     \
-  while (false) ARROW_IGNORE_EXPR(condition); \
+#define DCHECK(condition)                \
+  while (false) ARROW_UNUSED(condition); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_OK(s)    \
-  ARROW_IGNORE_EXPR(s); \
+#define DCHECK_OK(s) \
+  ARROW_UNUSED(s);   \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_EQ(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
+#define DCHECK_EQ(val1, val2)       \
+  while (false) ARROW_UNUSED(val1); \
+  while (false) ARROW_UNUSED(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_NE(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
+#define DCHECK_NE(val1, val2)       \
+  while (false) ARROW_UNUSED(val1); \
+  while (false) ARROW_UNUSED(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_LE(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
+#define DCHECK_LE(val1, val2)       \
+  while (false) ARROW_UNUSED(val1); \
+  while (false) ARROW_UNUSED(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_LT(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
+#define DCHECK_LT(val1, val2)       \
+  while (false) ARROW_UNUSED(val1); \
+  while (false) ARROW_UNUSED(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_GE(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
+#define DCHECK_GE(val1, val2)       \
+  while (false) ARROW_UNUSED(val1); \
+  while (false) ARROW_UNUSED(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_GT(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
+#define DCHECK_GT(val1, val2)       \
+  while (false) ARROW_UNUSED(val1); \
+  while (false) ARROW_UNUSED(val2); \
   while (false) ::arrow::util::detail::NullLog()
 
 #else

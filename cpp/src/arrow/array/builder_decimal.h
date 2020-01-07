@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include "arrow/array/array_decimal.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/array/builder_binary.h"
 

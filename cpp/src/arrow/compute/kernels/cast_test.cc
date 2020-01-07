@@ -25,6 +25,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/array_dict.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -49,6 +51,7 @@ namespace arrow {
 namespace compute {
 
 using internal::checked_cast;
+using random::RandomArrayGenerator;
 
 static constexpr const char* kInvalidUtf8 = "\xa0\xa1";
 
@@ -63,6 +66,8 @@ static void AssertBufferSame(const Array& left, const Array& right, int buffer_i
 
 class TestCast : public ComputeFixture, public TestBase {
  public:
+  TestCast() : rng_(42) {}
+
   void CheckPass(const Array& input, const Array& expected,
                  const std::shared_ptr<DataType>& out_type, const CastOptions& options) {
     std::shared_ptr<Array> result;
@@ -290,6 +295,9 @@ class TestCast : public ComputeFixture, public TestBase {
 
     // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
   }
+
+ protected:
+  RandomArrayGenerator rng_;
 };
 
 TEST_F(TestCast, SameTypeZeroCopy) {
@@ -1257,8 +1265,7 @@ TEST_F(TestCast, ListToList) {
   std::vector<bool> offsets_is_valid = {true, true, true, true, false, true, true, true};
   ArrayFromVector<Int32Type, int32_t>(offsets_is_valid, offsets_values, &offsets);
 
-  std::shared_ptr<Array> int32_plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<Int32Type>::ArrayType>(10, 2);
+  std::shared_ptr<Array> int32_plain_array = rng_.Int32(10, 0.2);
   std::shared_ptr<Array> int32_list_array;
   ASSERT_OK(
       ListArray::FromArrays(*offsets, *int32_plain_array, pool_, &int32_list_array));
@@ -1295,8 +1302,7 @@ TEST_F(TestCast, LargeListToLargeList) {
   std::vector<bool> offsets_is_valid = {true, true, true, true, false, true, true, true};
   ArrayFromVector<Int64Type, int64_t>(offsets_is_valid, offsets_values, &offsets);
 
-  std::shared_ptr<Array> int32_plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<Int32Type>::ArrayType>(10, 2);
+  std::shared_ptr<Array> int32_plain_array = rng_.Int32(10, 0.2);
   std::shared_ptr<Array> int32_list_array;
   ASSERT_OK(
       LargeListArray::FromArrays(*offsets, *int32_plain_array, pool_, &int32_list_array));
@@ -1388,7 +1394,7 @@ TYPED_TEST(TestNullCast, FromNull) {
 
   // Hack to get a DataType including for parametric types
   std::shared_ptr<DataType> out_type =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(0, 0)->type();
+      this->rng_.template Generic<TypeParam>(0, 0)->type();
 
   NullArray arr(length);
 
@@ -1416,8 +1422,7 @@ TYPED_TEST_CASE(TestDictionaryCast, TestTypes);
 
 TYPED_TEST(TestDictionaryCast, Basic) {
   CastOptions options;
-  std::shared_ptr<Array> plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
+  std::shared_ptr<Array> plain_array = this->rng_.template Generic<TypeParam>(10, 0.4);
 
   Datum encoded;
   ASSERT_OK(DictionaryEncode(&this->ctx_, plain_array->data(), &encoded));
@@ -1435,8 +1440,7 @@ TYPED_TEST(TestDictionaryCast, NoNulls) {
   }
 
   CastOptions options;
-  std::shared_ptr<Array> plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 0);
+  std::shared_ptr<Array> plain_array = this->rng_.template Generic<TypeParam>(10, 0);
   ASSERT_EQ(plain_array->null_count(), 0);
 
   // Dict-encode the plain array
@@ -1455,8 +1459,7 @@ TYPED_TEST(TestDictionaryCast, NoNulls) {
 
 TYPED_TEST(TestDictionaryCast, OutTypeError) {
   // ARROW-7077: unsupported out type should return an error
-  std::shared_ptr<Array> plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(0, 0);
+  std::shared_ptr<Array> plain_array = this->rng_.template Generic<TypeParam>(0, 0);
   auto in_type = dictionary(int32(), plain_array->type());
   // Test an output type that's not the plain input type but still part of TestTypes.
   auto out_type = (plain_array->type()->id() == Type::INT8) ? binary() : int8();
@@ -1472,7 +1475,7 @@ TYPED_TEST(TestDictionaryCast, OutTypeError) {
 /*TYPED_TEST(TestDictionaryCast, Reverse) {
   CastOptions options;
   std::shared_ptr<Array> plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
+      this->rng_.template Generic<TypeParam>(10, 2);
 
   std::shared_ptr<Array> dict_array;
   ASSERT_OK(EncodeArrayToDictionary(*plain_array, this->pool_, &dict_array));

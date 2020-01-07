@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/type.h"
 

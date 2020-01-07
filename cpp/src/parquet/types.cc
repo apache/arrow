@@ -21,6 +21,7 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"

@@ -37,6 +37,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/pretty_print.h"
@@ -46,6 +47,51 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+template <typename T>
+static Status GetBitmapFromVectorImpl(const std::vector<T>& is_valid,
+                                      std::shared_ptr<Buffer>* result) {
+  size_t length = is_valid.size();
+
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(AllocateEmptyBitmap(length, &buffer));
+
+  uint8_t* bitmap = buffer->mutable_data();
+  for (size_t i = 0; i < static_cast<size_t>(length); ++i) {
+    if (is_valid[i]) {
+      BitUtil::SetBit(bitmap, i);
+    }
+  }
+
+  *result = buffer;
+  return Status::OK();
+}
+
+Status GetBitmapFromVector(const std::vector<bool>& is_valid,
+                           std::shared_ptr<Buffer>* result) {
+  return GetBitmapFromVectorImpl(is_valid, result);
+}
+
+Status GetBitmapFromVector(const std::vector<uint8_t>& is_valid,
+                           std::shared_ptr<Buffer>* result) {
+  return GetBitmapFromVectorImpl(is_valid, result);
+}
+
+Status GetBitmapFromVector(const std::vector<int32_t>& is_valid,
+                           std::shared_ptr<Buffer>* result) {
+  return GetBitmapFromVectorImpl(is_valid, result);
+}
+
+Status GetBitmapFromVector(const std::vector<int64_t>& is_valid,
+                           std::shared_ptr<Buffer>* result) {
+  return GetBitmapFromVectorImpl(is_valid, result);
+}
+
+void FinishAndCheckPadding(ArrayBuilder* builder, std::shared_ptr<Array>* out) {
+  ASSERT_OK(builder->Finish(out));
+  AssertZeroPadded(**out);
+  TestInitialized(**out);
+}
 
 static void PrintChunkedArray(const ChunkedArray& carr, std::stringstream* ss) {
   for (int i = 0; i < carr.num_chunks(); ++i) {
@@ -97,7 +143,7 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
       diff << "# chunk " << i << std::endl;
-      ARROW_IGNORE_EXPR(c1->Equals(c2, EqualOptions().diff_sink(&diff)));
+      ARROW_UNUSED(c1->Equals(c2, EqualOptions().diff_sink(&diff)));
     }
     FAIL() << diff.str();
   }

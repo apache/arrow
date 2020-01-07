@@ -25,7 +25,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array_all.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/memory_pool.h"
@@ -38,7 +38,7 @@
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 

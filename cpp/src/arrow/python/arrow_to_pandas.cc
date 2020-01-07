@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array_all.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -40,7 +41,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/string_view.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 #include "arrow/compute/api.h"
 

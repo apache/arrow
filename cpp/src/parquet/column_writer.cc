@@ -26,8 +26,13 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/array_binary.h"
+#include "arrow/array/array_decimal.h"
+#include "arrow/array/array_dict.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_stream_utils.h"
@@ -35,6 +40,7 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
+
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption_internal.h"

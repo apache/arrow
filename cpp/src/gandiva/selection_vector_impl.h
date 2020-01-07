@@ -21,6 +21,8 @@
 #include <limits>
 #include <memory>
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 

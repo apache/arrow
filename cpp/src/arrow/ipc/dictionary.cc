@@ -24,6 +24,7 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/array_dict.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"

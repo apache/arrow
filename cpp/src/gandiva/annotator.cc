@@ -20,6 +20,9 @@
 #include <memory>
 #include <string>
 
+#include "arrow/array.h"
+#include "arrow/record_batch.h"
+
 #include "gandiva/field_descriptor.h"
 
 namespace gandiva {

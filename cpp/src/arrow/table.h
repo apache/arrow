@@ -33,6 +33,8 @@ namespace arrow {
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
+// TODO move ChunkedArray to chunked_array.h?
+
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically
 /// as one large array

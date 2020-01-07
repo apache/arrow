@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/io/interfaces.h"
 #include "parquet/platform.h"
 
 namespace parquet {

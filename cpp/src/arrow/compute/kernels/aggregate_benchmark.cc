@@ -19,6 +19,7 @@
 
 #include <vector>
 
+#include "arrow/array/array_primitive.h"
 #include "arrow/builder.h"
 #include "arrow/compute/benchmark_util.h"
 #include "arrow/compute/context.h"

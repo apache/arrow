@@ -112,88 +112,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     c_bool is_primitive(Type type)
 
-    cdef cppclass CArrayData" arrow::ArrayData":
-        shared_ptr[CDataType] type
-        int64_t length
-        int64_t null_count
-        int64_t offset
-        vector[shared_ptr[CBuffer]] buffers
-        vector[shared_ptr[CArrayData]] child_data
-        shared_ptr[CArray] dictionary
-
-        @staticmethod
-        shared_ptr[CArrayData] Make(const shared_ptr[CDataType]& type,
-                                    int64_t length,
-                                    vector[shared_ptr[CBuffer]]& buffers,
-                                    int64_t null_count,
-                                    int64_t offset)
-
-        @staticmethod
-        shared_ptr[CArrayData] MakeWithChildren" Make"(
-            const shared_ptr[CDataType]& type,
-            int64_t length,
-            vector[shared_ptr[CBuffer]]& buffers,
-            vector[shared_ptr[CArrayData]]& child_data,
-            int64_t null_count,
-            int64_t offset)
-
-        @staticmethod
-        shared_ptr[CArrayData] MakeWithChildrenAndDictionary" Make"(
-            const shared_ptr[CDataType]& type,
-            int64_t length,
-            vector[shared_ptr[CBuffer]]& buffers,
-            vector[shared_ptr[CArrayData]]& child_data,
-            shared_ptr[CArray]& dictionary,
-            int64_t null_count,
-            int64_t offset)
-
-    cdef cppclass CArray" arrow::Array":
-        shared_ptr[CDataType] type()
-
-        int64_t length()
-        int64_t null_count()
-        int64_t offset()
-        Type type_id()
-
-        int num_fields()
-
-        c_string Diff(const CArray& other)
-        c_bool Equals(const CArray& arr)
-        c_bool IsNull(int i)
-
-        shared_ptr[CArrayData] data()
-
-        shared_ptr[CArray] Slice(int64_t offset)
-        shared_ptr[CArray] Slice(int64_t offset, int64_t length)
-
-        CStatus Validate() const
-        CStatus ValidateFull() const
-        CStatus View(const shared_ptr[CDataType]& type,
-                     shared_ptr[CArray]* out)
-
-    shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
-
-    CStatus DebugPrint(const CArray& arr, int indent)
-
     cdef cppclass CFixedWidthType" arrow::FixedWidthType"(CDataType):
         int bit_width()
-
-    cdef cppclass CNullArray" arrow::NullArray"(CArray):
-        CNullArray(int64_t length)
-
-    cdef cppclass CDictionaryArray" arrow::DictionaryArray"(CArray):
-        CDictionaryArray(const shared_ptr[CDataType]& type,
-                         const shared_ptr[CArray]& indices,
-                         const shared_ptr[CArray]& dictionary)
-
-        @staticmethod
-        CStatus FromArrays(const shared_ptr[CDataType]& type,
-                           const shared_ptr[CArray]& indices,
-                           const shared_ptr[CArray]& dictionary,
-                           shared_ptr[CArray]* out)
-
-        shared_ptr[CArray] indices()
-        shared_ptr[CArray] dictionary()
 
     cdef cppclass CDate32Type" arrow::Date32Type"(CFixedWidthType):
         pass
@@ -404,199 +324,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                         const PrettyPrintOptions& options,
                         c_string* result)
 
-    cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):
-        c_bool Value(int i)
-
-    cdef cppclass CUInt8Array" arrow::UInt8Array"(CArray):
-        uint8_t Value(int i)
-
-    cdef cppclass CInt8Array" arrow::Int8Array"(CArray):
-        int8_t Value(int i)
-
-    cdef cppclass CUInt16Array" arrow::UInt16Array"(CArray):
-        uint16_t Value(int i)
-
-    cdef cppclass CInt16Array" arrow::Int16Array"(CArray):
-        int16_t Value(int i)
-
-    cdef cppclass CUInt32Array" arrow::UInt32Array"(CArray):
-        uint32_t Value(int i)
-
-    cdef cppclass CInt32Array" arrow::Int32Array"(CArray):
-        int32_t Value(int i)
-
-    cdef cppclass CUInt64Array" arrow::UInt64Array"(CArray):
-        uint64_t Value(int i)
-
-    cdef cppclass CInt64Array" arrow::Int64Array"(CArray):
-        int64_t Value(int i)
-
-    cdef cppclass CDate32Array" arrow::Date32Array"(CArray):
-        int32_t Value(int i)
-
-    cdef cppclass CDate64Array" arrow::Date64Array"(CArray):
-        int64_t Value(int i)
-
-    cdef cppclass CTime32Array" arrow::Time32Array"(CArray):
-        int32_t Value(int i)
-
-    cdef cppclass CTime64Array" arrow::Time64Array"(CArray):
-        int64_t Value(int i)
-
-    cdef cppclass CTimestampArray" arrow::TimestampArray"(CArray):
-        int64_t Value(int i)
-
-    cdef cppclass CDurationArray" arrow::DurationArray"(CArray):
-        int64_t Value(int i)
-
-    cdef cppclass CHalfFloatArray" arrow::HalfFloatArray"(CArray):
-        uint16_t Value(int i)
-
-    cdef cppclass CFloatArray" arrow::FloatArray"(CArray):
-        float Value(int i)
-
-    cdef cppclass CDoubleArray" arrow::DoubleArray"(CArray):
-        double Value(int i)
-
-    cdef cppclass CFixedSizeBinaryArray" arrow::FixedSizeBinaryArray"(CArray):
-        const uint8_t* GetValue(int i)
-
-    cdef cppclass CDecimal128Array" arrow::Decimal128Array"(
-        CFixedSizeBinaryArray
-    ):
-        c_string FormatValue(int i)
-
-    cdef cppclass CListArray" arrow::ListArray"(CArray):
-        @staticmethod
-        CStatus FromArrays(const CArray& offsets, const CArray& values,
-                           CMemoryPool* pool, shared_ptr[CArray]* out)
-
-        const int32_t* raw_value_offsets()
-        int32_t value_offset(int i)
-        int32_t value_length(int i)
-        shared_ptr[CArray] values()
-        CResult[shared_ptr[CArray]] Flatten(CMemoryPool* memory_pool)
-        shared_ptr[CDataType] value_type()
-
-    cdef cppclass CLargeListArray" arrow::LargeListArray"(CArray):
-        @staticmethod
-        CStatus FromArrays(const CArray& offsets, const CArray& values,
-                           CMemoryPool* pool, shared_ptr[CArray]* out)
-
-        int64_t value_offset(int i)
-        int64_t value_length(int i)
-        shared_ptr[CArray] values()
-        CResult[shared_ptr[CArray]] Flatten(CMemoryPool* memory_pool)
-        shared_ptr[CDataType] value_type()
-
-    cdef cppclass CFixedSizeListArray" arrow::FixedSizeListArray"(CArray):
-        @staticmethod
-        CResult[shared_ptr[CArray]] FromArrays(
-            const shared_ptr[CArray]& values, int32_t list_size)
-
-        int64_t value_offset(int i)
-        int64_t value_length(int i)
-        shared_ptr[CArray] values()
-        shared_ptr[CDataType] value_type()
-
-    cdef cppclass CMapArray" arrow::MapArray"(CArray):
-        @staticmethod
-        CStatus FromArrays(const shared_ptr[CArray]& offsets,
-                           const shared_ptr[CArray]& keys,
-                           const shared_ptr[CArray]& items,
-                           CMemoryPool* pool, shared_ptr[CArray]* out)
-
-        shared_ptr[CArray] keys()
-        shared_ptr[CArray] items()
-        CMapType* map_type()
-        int64_t value_offset(int i)
-        int64_t value_length(int i)
-        shared_ptr[CArray] values()
-        shared_ptr[CDataType] value_type()
-
-    cdef cppclass CUnionArray" arrow::UnionArray"(CArray):
-        @staticmethod
-        CStatus MakeSparse(const CArray& type_codes,
-                           const vector[shared_ptr[CArray]]& children,
-                           const vector[c_string]& field_names,
-                           const vector[int8_t]& type_codes,
-                           shared_ptr[CArray]* out)
-
-        @staticmethod
-        CStatus MakeDense(const CArray& type_codes,
-                          const CArray& value_offsets,
-                          const vector[shared_ptr[CArray]]& children,
-                          const vector[c_string]& field_names,
-                          const vector[int8_t]& type_codes,
-                          shared_ptr[CArray]* out)
-        int8_t* raw_type_codes()
-        int32_t value_offset(int i)
-        int child_id(int64_t index)
-        shared_ptr[CArray] child(int pos)
-        const CArray* UnsafeChild(int pos)
-        UnionMode mode()
-
-    cdef cppclass CBinaryArray" arrow::BinaryArray"(CArray):
-        const uint8_t* GetValue(int i, int32_t* length)
-        shared_ptr[CBuffer] value_data()
-        int32_t value_offset(int64_t i)
-        int32_t value_length(int64_t i)
-
-    cdef cppclass CLargeBinaryArray" arrow::LargeBinaryArray"(CArray):
-        const uint8_t* GetValue(int i, int64_t* length)
-        shared_ptr[CBuffer] value_data()
-        int64_t value_offset(int64_t i)
-        int64_t value_length(int64_t i)
-
-    cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
-        CStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
-                     shared_ptr[CBuffer] data,
-                     shared_ptr[CBuffer] null_bitmap,
-                     int64_t null_count,
-                     int64_t offset)
-
-        c_string GetString(int i)
-
-    cdef cppclass CLargeStringArray" arrow::LargeStringArray" \
-            (CLargeBinaryArray):
-        CLargeStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
-                          shared_ptr[CBuffer] data,
-                          shared_ptr[CBuffer] null_bitmap,
-                          int64_t null_count,
-                          int64_t offset)
-
-        c_string GetString(int i)
-
-    cdef cppclass CStructArray" arrow::StructArray"(CArray):
-        CStructArray(shared_ptr[CDataType] type, int64_t length,
-                     vector[shared_ptr[CArray]] children,
-                     shared_ptr[CBuffer] null_bitmap=nullptr,
-                     int64_t null_count=-1,
-                     int64_t offset=0)
-
-        # XXX Cython crashes if default argument values are declared here
-        # https://github.com/cython/cython/issues/2167
-        @staticmethod
-        CResult[shared_ptr[CArray]] MakeFromFieldNames "Make"(
-            vector[shared_ptr[CArray]] children,
-            vector[c_string] field_names,
-            shared_ptr[CBuffer] null_bitmap,
-            int64_t null_count,
-            int64_t offset)
-
-        @staticmethod
-        CResult[shared_ptr[CArray]] MakeFromFields "Make"(
-            vector[shared_ptr[CArray]] children,
-            vector[shared_ptr[CField]] fields,
-            shared_ptr[CBuffer] null_bitmap,
-            int64_t null_count,
-            int64_t offset)
-
-        shared_ptr[CArray] field(int pos)
-        shared_ptr[CArray] GetFieldByName(const c_string& name) const
-
-        CStatus Flatten(CMemoryPool* pool, vector[shared_ptr[CArray]]* out)
-
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
         CChunkedArray(const vector[shared_ptr[CArray]]& arrays)
         CChunkedArray(const vector[shared_ptr[CArray]]& arrays,
@@ -801,7 +528,284 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     CResult[shared_ptr[CTable]] ConcatenateTablesWithPromotion(
         const vector[shared_ptr[CTable]]& tables, CMemoryPool* pool)
 
-cdef extern from "arrow/builder.h" namespace "arrow" nogil:
+
+cdef extern from "arrow/array_all.h" namespace "arrow" nogil:
+
+    cdef cppclass CArrayData" arrow::ArrayData":
+        shared_ptr[CDataType] type
+        int64_t length
+        int64_t null_count
+        int64_t offset
+        vector[shared_ptr[CBuffer]] buffers
+        vector[shared_ptr[CArrayData]] child_data
+        shared_ptr[CArray] dictionary
+
+        @staticmethod
+        shared_ptr[CArrayData] Make(const shared_ptr[CDataType]& type,
+                                    int64_t length,
+                                    vector[shared_ptr[CBuffer]]& buffers,
+                                    int64_t null_count,
+                                    int64_t offset)
+
+        @staticmethod
+        shared_ptr[CArrayData] MakeWithChildren" Make"(
+            const shared_ptr[CDataType]& type,
+            int64_t length,
+            vector[shared_ptr[CBuffer]]& buffers,
+            vector[shared_ptr[CArrayData]]& child_data,
+            int64_t null_count,
+            int64_t offset)
+
+        @staticmethod
+        shared_ptr[CArrayData] MakeWithChildrenAndDictionary" Make"(
+            const shared_ptr[CDataType]& type,
+            int64_t length,
+            vector[shared_ptr[CBuffer]]& buffers,
+            vector[shared_ptr[CArrayData]]& child_data,
+            shared_ptr[CArray]& dictionary,
+            int64_t null_count,
+            int64_t offset)
+
+    cdef cppclass CArray" arrow::Array":
+        shared_ptr[CDataType] type()
+
+        int64_t length()
+        int64_t null_count()
+        int64_t offset()
+        Type type_id()
+
+        int num_fields()
+
+        c_string Diff(const CArray& other)
+        c_bool Equals(const CArray& arr)
+        c_bool IsNull(int i)
+
+        shared_ptr[CArrayData] data()
+
+        shared_ptr[CArray] Slice(int64_t offset)
+        shared_ptr[CArray] Slice(int64_t offset, int64_t length)
+
+        CStatus Validate() const
+        CStatus ValidateFull() const
+        CStatus View(const shared_ptr[CDataType]& type,
+                     shared_ptr[CArray]* out)
+
+    shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
+
+    CStatus DebugPrint(const CArray& arr, int indent)
+
+    cdef cppclass CNullArray" arrow::NullArray"(CArray):
+        CNullArray(int64_t length)
+
+    cdef cppclass CDictionaryArray" arrow::DictionaryArray"(CArray):
+        CDictionaryArray(const shared_ptr[CDataType]& type,
+                         const shared_ptr[CArray]& indices,
+                         const shared_ptr[CArray]& dictionary)
+
+        @staticmethod
+        CStatus FromArrays(const shared_ptr[CDataType]& type,
+                           const shared_ptr[CArray]& indices,
+                           const shared_ptr[CArray]& dictionary,
+                           shared_ptr[CArray]* out)
+
+        shared_ptr[CArray] indices()
+        shared_ptr[CArray] dictionary()
+
+    cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):
+        c_bool Value(int i)
+
+    cdef cppclass CUInt8Array" arrow::UInt8Array"(CArray):
+        uint8_t Value(int i)
+
+    cdef cppclass CInt8Array" arrow::Int8Array"(CArray):
+        int8_t Value(int i)
+
+    cdef cppclass CUInt16Array" arrow::UInt16Array"(CArray):
+        uint16_t Value(int i)
+
+    cdef cppclass CInt16Array" arrow::Int16Array"(CArray):
+        int16_t Value(int i)
+
+    cdef cppclass CUInt32Array" arrow::UInt32Array"(CArray):
+        uint32_t Value(int i)
+
+    cdef cppclass CInt32Array" arrow::Int32Array"(CArray):
+        int32_t Value(int i)
+
+    cdef cppclass CUInt64Array" arrow::UInt64Array"(CArray):
+        uint64_t Value(int i)
+
+    cdef cppclass CInt64Array" arrow::Int64Array"(CArray):
+        int64_t Value(int i)
+
+    cdef cppclass CDate32Array" arrow::Date32Array"(CArray):
+        int32_t Value(int i)
+
+    cdef cppclass CDate64Array" arrow::Date64Array"(CArray):
+        int64_t Value(int i)
+
+    cdef cppclass CTime32Array" arrow::Time32Array"(CArray):
+        int32_t Value(int i)
+
+    cdef cppclass CTime64Array" arrow::Time64Array"(CArray):
+        int64_t Value(int i)
+
+    cdef cppclass CTimestampArray" arrow::TimestampArray"(CArray):
+        int64_t Value(int i)
+
+    cdef cppclass CDurationArray" arrow::DurationArray"(CArray):
+        int64_t Value(int i)
+
+    cdef cppclass CHalfFloatArray" arrow::HalfFloatArray"(CArray):
+        uint16_t Value(int i)
+
+    cdef cppclass CFloatArray" arrow::FloatArray"(CArray):
+        float Value(int i)
+
+    cdef cppclass CDoubleArray" arrow::DoubleArray"(CArray):
+        double Value(int i)
+
+    cdef cppclass CFixedSizeBinaryArray" arrow::FixedSizeBinaryArray"(CArray):
+        const uint8_t* GetValue(int i)
+
+    cdef cppclass CDecimal128Array" arrow::Decimal128Array"(
+        CFixedSizeBinaryArray
+    ):
+        c_string FormatValue(int i)
+
+    cdef cppclass CListArray" arrow::ListArray"(CArray):
+        @staticmethod
+        CStatus FromArrays(const CArray& offsets, const CArray& values,
+                           CMemoryPool* pool, shared_ptr[CArray]* out)
+
+        const int32_t* raw_value_offsets()
+        int32_t value_offset(int i)
+        int32_t value_length(int i)
+        shared_ptr[CArray] values()
+        CResult[shared_ptr[CArray]] Flatten(CMemoryPool* memory_pool)
+        shared_ptr[CDataType] value_type()
+
+    cdef cppclass CLargeListArray" arrow::LargeListArray"(CArray):
+        @staticmethod
+        CStatus FromArrays(const CArray& offsets, const CArray& values,
+                           CMemoryPool* pool, shared_ptr[CArray]* out)
+
+        int64_t value_offset(int i)
+        int64_t value_length(int i)
+        shared_ptr[CArray] values()
+        CResult[shared_ptr[CArray]] Flatten(CMemoryPool* memory_pool)
+        shared_ptr[CDataType] value_type()
+
+    cdef cppclass CFixedSizeListArray" arrow::FixedSizeListArray"(CArray):
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArrays(
+            const shared_ptr[CArray]& values, int32_t list_size)
+
+        int64_t value_offset(int i)
+        int64_t value_length(int i)
+        shared_ptr[CArray] values()
+        shared_ptr[CDataType] value_type()
+
+    cdef cppclass CMapArray" arrow::MapArray"(CArray):
+        @staticmethod
+        CStatus FromArrays(const shared_ptr[CArray]& offsets,
+                           const shared_ptr[CArray]& keys,
+                           const shared_ptr[CArray]& items,
+                           CMemoryPool* pool, shared_ptr[CArray]* out)
+
+        shared_ptr[CArray] keys()
+        shared_ptr[CArray] items()
+        CMapType* map_type()
+        int64_t value_offset(int i)
+        int64_t value_length(int i)
+        shared_ptr[CArray] values()
+        shared_ptr[CDataType] value_type()
+
+    cdef cppclass CUnionArray" arrow::UnionArray"(CArray):
+        @staticmethod
+        CStatus MakeSparse(const CArray& type_codes,
+                           const vector[shared_ptr[CArray]]& children,
+                           const vector[c_string]& field_names,
+                           const vector[int8_t]& type_codes,
+                           shared_ptr[CArray]* out)
+
+        @staticmethod
+        CStatus MakeDense(const CArray& type_codes,
+                          const CArray& value_offsets,
+                          const vector[shared_ptr[CArray]]& children,
+                          const vector[c_string]& field_names,
+                          const vector[int8_t]& type_codes,
+                          shared_ptr[CArray]* out)
+        int8_t* raw_type_codes()
+        int32_t value_offset(int i)
+        int child_id(int64_t index)
+        shared_ptr[CArray] child(int pos)
+        const CArray* UnsafeChild(int pos)
+        UnionMode mode()
+
+    cdef cppclass CBinaryArray" arrow::BinaryArray"(CArray):
+        const uint8_t* GetValue(int i, int32_t* length)
+        shared_ptr[CBuffer] value_data()
+        int32_t value_offset(int64_t i)
+        int32_t value_length(int64_t i)
+
+    cdef cppclass CLargeBinaryArray" arrow::LargeBinaryArray"(CArray):
+        const uint8_t* GetValue(int i, int64_t* length)
+        shared_ptr[CBuffer] value_data()
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
+
+    cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
+        CStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
+                     shared_ptr[CBuffer] data,
+                     shared_ptr[CBuffer] null_bitmap,
+                     int64_t null_count,
+                     int64_t offset)
+
+        c_string GetString(int i)
+
+    cdef cppclass CLargeStringArray" arrow::LargeStringArray" \
+            (CLargeBinaryArray):
+        CLargeStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
+                          shared_ptr[CBuffer] data,
+                          shared_ptr[CBuffer] null_bitmap,
+                          int64_t null_count,
+                          int64_t offset)
+
+        c_string GetString(int i)
+
+    cdef cppclass CStructArray" arrow::StructArray"(CArray):
+        CStructArray(shared_ptr[CDataType] type, int64_t length,
+                     vector[shared_ptr[CArray]] children,
+                     shared_ptr[CBuffer] null_bitmap=nullptr,
+                     int64_t null_count=-1,
+                     int64_t offset=0)
+
+        # XXX Cython crashes if default argument values are declared here
+        # https://github.com/cython/cython/issues/2167
+        @staticmethod
+        CResult[shared_ptr[CArray]] MakeFromFieldNames "Make"(
+            vector[shared_ptr[CArray]] children,
+            vector[c_string] field_names,
+            shared_ptr[CBuffer] null_bitmap,
+            int64_t null_count,
+            int64_t offset)
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] MakeFromFields "Make"(
+            vector[shared_ptr[CArray]] children,
+            vector[shared_ptr[CField]] fields,
+            shared_ptr[CBuffer] null_bitmap,
+            int64_t null_count,
+            int64_t offset)
+
+        shared_ptr[CArray] field(int pos)
+        shared_ptr[CArray] GetFieldByName(const c_string& name) const
+
+        CStatus Flatten(CMemoryPool* pool, vector[shared_ptr[CArray]]* out)
+
+
+cdef extern from "arrow/builder_all.h" namespace "arrow" nogil:
 
     cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
         CArrayBuilder(shared_ptr[CDataType], CMemoryPool* pool)

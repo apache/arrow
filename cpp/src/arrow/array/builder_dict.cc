@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/array_decimal.h"
 #include "arrow/array/dict_internal.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
@@ -32,7 +33,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -85,7 +86,7 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
         return Status::Invalid("Cannot insert dictionary values containing nulls");
       }
       for (int64_t i = 0; i < array.length(); ++i) {
-        ARROW_IGNORE_EXPR(impl_->GetOrInsert(array.GetView(i)));
+        ARROW_UNUSED(impl_->GetOrInsert(array.GetView(i)));
       }
       return Status::OK();
     }
@@ -117,7 +118,7 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
   explicit DictionaryMemoTableImpl(const std::shared_ptr<DataType>& type)
       : type_(type), memo_table_(nullptr) {
     MemoTableInitializer visitor{type_, &memo_table_};
-    ARROW_IGNORE_EXPR(VisitTypeInline(*type_, &visitor));
+    ARROW_UNUSED(VisitTypeInline(*type_, &visitor));
   }
 
   Status InsertValues(const Array& array) {
@@ -159,7 +160,7 @@ internal::DictionaryMemoTable::DictionaryMemoTable(const std::shared_ptr<DataTyp
 internal::DictionaryMemoTable::DictionaryMemoTable(
     const std::shared_ptr<Array>& dictionary)
     : impl_(new DictionaryMemoTableImpl(dictionary->type())) {
-  ARROW_IGNORE_EXPR(impl_->InsertValues(*dictionary));
+  ARROW_UNUSED(impl_->InsertValues(*dictionary));
 }
 
 internal::DictionaryMemoTable::~DictionaryMemoTable() = default;

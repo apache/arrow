@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/compute/kernels/add.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/context.h"
 #include "arrow/type_traits.h"
 

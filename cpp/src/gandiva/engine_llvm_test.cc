@@ -18,6 +18,9 @@
 #include "gandiva/engine.h"
 
 #include <gtest/gtest.h>
+
+#include "arrow/testing/util.h"
+
 #include "gandiva/llvm_types.h"
 #include "gandiva/tests/test_util.h"
 

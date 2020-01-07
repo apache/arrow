@@ -32,17 +32,19 @@
 #include "arrow/compare.h"
 #include "arrow/extension_type.h"
 #include "arrow/pretty_print.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/atomic_shared_ptr.h"
-#include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/visit_array_inline.h"
+#include "arrow/visit_type_inline.h"
 #include "arrow/visitor.h"
-#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -124,7 +126,7 @@ int64_t Array::null_count() const { return data_->GetNullCount(); }
 
 std::string Array::Diff(const Array& other) const {
   std::stringstream diff;
-  ARROW_IGNORE_EXPR(Equals(other, EqualOptions().diff_sink(&diff)));
+  ARROW_UNUSED(Equals(other, EqualOptions().diff_sink(&diff)));
   return diff.str();
 }
 

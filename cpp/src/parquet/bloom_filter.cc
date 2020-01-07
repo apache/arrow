@@ -18,7 +18,11 @@
 #include <cstdint>
 #include <cstring>
 
+#include "arrow/buffer.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/result.h"
 #include "arrow/util/logging.h"
+
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
 #include "parquet/murmur3.h"

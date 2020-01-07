@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/array_union.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/buffer_builder.h"
 

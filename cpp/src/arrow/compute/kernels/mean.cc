@@ -19,6 +19,7 @@
 
 #include <algorithm>
 
+#include "arrow/array/array_primitive.h"
 #include "arrow/compute/kernels/sum_internal.h"
 
 namespace arrow {

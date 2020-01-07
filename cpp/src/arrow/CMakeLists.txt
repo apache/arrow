@@ -117,7 +117,6 @@ set(ARROW_SRCS
     io/interfaces.cc
     io/memory.cc
     io/slow.cc
-    testing/util.cc
     util/basic_decimal.cc
     util/bit_util.cc
     util/compression.cc
@@ -207,8 +206,9 @@ set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
     testing/gtest_util.cc
+    testing/generator.cc
     testing/random.cc
-    testing/generator.cc)
+    testing/util.cc)
 
 # Add dependencies for third-party allocators.
 # If possible we only want memory_pool.cc to wait for allocators to finish building,
@@ -268,6 +268,7 @@ if(ARROW_COMPUTE)
   list(APPEND ARROW_SRCS
               compute/context.cc
               compute/expression.cc
+              compute/kernel.cc
               compute/logical_type.cc
               compute/operation.cc
               compute/kernels/aggregate.cc

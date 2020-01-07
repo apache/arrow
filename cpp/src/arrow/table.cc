@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/array/validate.h"
 #include "arrow/record_batch.h"

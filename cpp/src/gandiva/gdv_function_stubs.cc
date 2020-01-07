@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+#include "arrow/buffer.h"
+
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/in_holder.h"

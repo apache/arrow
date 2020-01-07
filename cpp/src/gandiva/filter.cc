@@ -21,6 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/record_batch.h"
+
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/cache.h"
 #include "gandiva/condition.h"

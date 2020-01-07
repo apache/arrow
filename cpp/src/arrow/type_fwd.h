@@ -49,6 +49,7 @@ using RecordBatchIterator = Iterator<std::shared_ptr<RecordBatch>>;
 
 class Buffer;
 class MemoryPool;
+class MutableBuffer;
 class ResizableBuffer;
 class Schema;
 

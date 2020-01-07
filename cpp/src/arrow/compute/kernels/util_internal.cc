@@ -27,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 

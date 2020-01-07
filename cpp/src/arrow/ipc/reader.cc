@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <cstring>
-#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -40,8 +39,9 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 #include "generated/File_generated.h"  // IWYU pragma: export
 #include "generated/Message_generated.h"

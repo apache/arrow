@@ -20,8 +20,8 @@
 #include <cstdint>
 #include <memory>
 #include <sstream>
-#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include <flatbuffers/flatbuffers.h>
 
@@ -34,11 +34,12 @@
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 #include "generated/File_generated.h"  // IWYU pragma: keep
 #include "generated/Message_generated.h"
@@ -705,8 +706,10 @@ class FieldToFlatbufferVisitor {
 
   Status Visit(const ExtensionType& type) {
     RETURN_NOT_OK(VisitType(*type.storage_type()));
-    extra_type_metadata_[kExtensionTypeKeyName] = type.extension_name();
-    extra_type_metadata_[kExtensionMetadataKeyName] = type.Serialize();
+    extra_type_metadata_.emplace_back(kExtensionTypeKeyName, type.extension_name());
+    extra_type_metadata_.emplace_back(kExtensionMetadataKeyName, type.Serialize());
+    //     extra_type_metadata_[kExtensionTypeKeyName] = type.extension_name();
+    //     extra_type_metadata_[kExtensionMetadataKeyName] = type.Serialize();
     return Status::OK();
   }
 
@@ -729,8 +732,8 @@ class FieldToFlatbufferVisitor {
       AppendKeyValueMetadata(fbb_, *metadata, &key_values);
     }
 
-    for (auto it : extra_type_metadata_) {
-      key_values.push_back(AppendKeyValue(fbb_, it.first, it.second));
+    for (const auto& pair : extra_type_metadata_) {
+      key_values.push_back(AppendKeyValue(fbb_, pair.first, pair.second));
     }
 
     if (key_values.size() > 0) {
@@ -748,7 +751,8 @@ class FieldToFlatbufferVisitor {
   flatbuf::Type fb_type_;
   Offset type_offset_;
   std::vector<FieldOffset> children_;
-  std::unordered_map<std::string, std::string> extra_type_metadata_;
+  //   std::unordered_map<std::string, std::string> extra_type_metadata_;
+  std::vector<std::pair<std::string, std::string>> extra_type_metadata_;
 };
 
 Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,

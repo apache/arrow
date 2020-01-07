@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/status.h"
 
 #include "gandiva/arrow.h"

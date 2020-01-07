@@ -24,6 +24,8 @@
 #include <thread>
 #include <vector>
 
+#include "arrow/pretty_print.h"
+
 #include "gandiva/arrow.h"
 #include "gandiva/projector.h"
 

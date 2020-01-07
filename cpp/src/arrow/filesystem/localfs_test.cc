@@ -29,6 +29,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/filesystem/util_internal.h"
+#include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 

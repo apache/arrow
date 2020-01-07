@@ -34,23 +34,24 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
-#include "arrow/status.h"
+#include "arrow/result.h"
 #include "arrow/util/align_util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_inline.h"
+#include "arrow/util/bitmap_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
+namespace internal {
 
-class MemoryPool;
-
-namespace BitUtil {
 namespace {
 
 void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
   for (size_t i = 0; i < bytes.size(); ++i) {
     if (bytes[i] > 0) {
-      SetBit(bits, i);
+      BitUtil::SetBit(bits, i);
     }
   }
 }
@@ -59,7 +60,7 @@ void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
 
 Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
                                             MemoryPool* pool) {
-  int64_t bit_length = BytesForBits(bytes.size());
+  int64_t bit_length = BitUtil::BytesForBits(bytes.size());
 
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(AllocateBuffer(pool, bit_length, &buffer));
@@ -68,10 +69,6 @@ Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
   FillBitsFromBytes(bytes, out_buf);
   return buffer;
 }
-
-}  // namespace BitUtil
-
-namespace internal {
 
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   constexpr int64_t pop_len = sizeof(uint64_t) * 8;

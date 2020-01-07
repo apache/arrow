@@ -25,7 +25,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array_all.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -36,7 +36,7 @@
 #include "arrow/util/int_util.h"
 #include "arrow/util/string.h"
 #include "arrow/vendored/datetime.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_array_inline.h"
 
 namespace arrow {
 

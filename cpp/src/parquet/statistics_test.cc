@@ -25,6 +25,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 
 #include "parquet/column_reader.h"

@@ -24,6 +24,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/io/hdfs.h"
 #include "arrow/io/hdfs_internal.h"
+#include "arrow/result.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
 

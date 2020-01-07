@@ -19,16 +19,8 @@
 
 #include <memory>
 
-#include "arrow/array/builder_adaptive.h"   // IWYU pragma: export
-#include "arrow/array/builder_base.h"       // IWYU pragma: export
-#include "arrow/array/builder_binary.h"     // IWYU pragma: export
-#include "arrow/array/builder_decimal.h"    // IWYU pragma: export
-#include "arrow/array/builder_dict.h"       // IWYU pragma: export
-#include "arrow/array/builder_nested.h"     // IWYU pragma: export
-#include "arrow/array/builder_primitive.h"  // IWYU pragma: export
-#include "arrow/array/builder_time.h"       // IWYU pragma: export
-#include "arrow/array/builder_union.h"      // IWYU pragma: export
-#include "arrow/status.h"
+#include "arrow/array/builder_base.h"  // IWYU pragma: export
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

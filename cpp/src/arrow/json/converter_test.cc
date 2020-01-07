@@ -21,6 +21,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/json/options.h"
 #include "arrow/json/test_common.h"
 

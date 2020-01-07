@@ -20,6 +20,7 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/array.h"
 #include "arrow/csv/converter.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"

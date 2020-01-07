@@ -21,16 +21,10 @@
 #include <iosfwd>
 #include <string>
 
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-class ChunkedArray;
-class RecordBatch;
-class Schema;
-class Status;
-class Table;
 
 struct PrettyPrintOptions {
   PrettyPrintOptions(int indent_arg, int window_arg = 10, int indent_size_arg = 2,

@@ -20,6 +20,8 @@
 #include <vector>
 
 #include <arrow/api.h>
+#include <arrow/array_all.h>
+#include <arrow/builder_all.h>
 
 using arrow::DoubleBuilder;
 using arrow::Int64Builder;

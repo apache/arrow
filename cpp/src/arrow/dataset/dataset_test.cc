@@ -26,6 +26,7 @@
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/stl.h"
 #include "arrow/testing/generator.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {

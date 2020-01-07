@@ -24,6 +24,10 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/buffer.h"
+#include "arrow/record_batch.h"
+#include "arrow/util/bit_util.h"
+
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/dex.h"

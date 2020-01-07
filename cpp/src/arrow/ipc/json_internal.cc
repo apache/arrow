@@ -20,14 +20,16 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
@@ -40,7 +42,8 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_array_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 namespace {

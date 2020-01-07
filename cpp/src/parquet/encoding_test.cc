@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_dict.h"
 #include "arrow/compute/api.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"

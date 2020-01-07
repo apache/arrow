@@ -23,13 +23,14 @@
 
 #include "gtest/gtest.h"
 
-#include <arrow/compute/api.h>
 #include <cstdint>
 #include <functional>
 #include <sstream>
 #include <vector>
 
-#include "arrow/api.h"
+#include "arrow/builder_all.h"
+#include "arrow/compute/context.h"
+#include "arrow/compute/kernels/hash.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
@@ -67,6 +68,8 @@ using arrow::io::BufferReader;
 
 using arrow::randint;
 using arrow::random_is_valid;
+
+using arrow::AssertChunkedEqual;
 
 using ArrowId = ::arrow::Type;
 using ParquetType = parquet::Type;
@@ -349,25 +352,6 @@ void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_s
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
                                 row_group_size, write_props, arrow_properties));
   ASSERT_OK_AND_ASSIGN(*out, sink->Finish());
-}
-
-void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
-  ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
-  if (!actual.Equals(expected)) {
-    std::stringstream pp_result;
-    std::stringstream pp_expected;
-
-    for (int i = 0; i < actual.num_chunks(); ++i) {
-      auto c1 = actual.chunk(i);
-      auto c2 = expected.chunk(i);
-      if (!c1->Equals(*c2)) {
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
-        FAIL() << "Chunk " << i << " Got: " << pp_result.str()
-               << "\nExpected: " << pp_expected.str();
-      }
-    }
-  }
 }
 
 void DoRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,

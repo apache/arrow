@@ -26,6 +26,7 @@
 #include <gtest/gtest.h>
 #include <boost/multiprecision/cpp_int.hpp>
 
+#include "arrow/array.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"

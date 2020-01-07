@@ -19,14 +19,16 @@
 
 #include <utility>
 
+#include "arrow/array.h"
+#include "arrow/array/array_binary.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/util_internal.h"
-#include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_inline.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 

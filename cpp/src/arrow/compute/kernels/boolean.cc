@@ -29,6 +29,8 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_inline.h"
+#include "arrow/util/bitmap_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

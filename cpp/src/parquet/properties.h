@@ -24,6 +24,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "arrow/buffer.h"
 #include "arrow/type.h"
 #include "arrow/util/compression.h"
 #include "parquet/encryption.h"

@@ -26,6 +26,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_inline.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

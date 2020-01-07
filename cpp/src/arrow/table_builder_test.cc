@@ -23,6 +23,9 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/builder.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"

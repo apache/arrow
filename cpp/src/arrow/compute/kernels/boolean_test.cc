@@ -31,6 +31,7 @@
 #include "arrow/compute/kernels/boolean.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/test_util.h"
+#include "arrow/table.h"
 
 namespace arrow {
 namespace compute {

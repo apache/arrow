@@ -16,8 +16,12 @@
 // under the License.
 
 #include <iostream>
+
 #include <arrow/api.h>
+#include <arrow/array_all.h>
+#include <arrow/builder_all.h>
 #include <arrow/io/api.h>
+
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
 #include <parquet/exception.h>

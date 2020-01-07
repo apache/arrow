@@ -27,7 +27,7 @@
 
 #include <flatbuffers/flatbuffers.h>
 
-#include "arrow/array.h"
+#include "arrow/array_all.h"
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/feather_internal.h"

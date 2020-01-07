@@ -21,6 +21,7 @@
 #include "parquet/properties.h"
 
 #include "arrow/io/buffered.h"
+#include "arrow/io/memory.h"
 #include "arrow/util/logging.h"
 
 namespace parquet {

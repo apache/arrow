@@ -21,6 +21,9 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/array_dict.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/builder.h"
 #include "arrow/json/parser.h"
 #include "arrow/type.h"

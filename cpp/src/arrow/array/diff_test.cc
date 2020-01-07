@@ -30,6 +30,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/array_dict.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/array/diff.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"

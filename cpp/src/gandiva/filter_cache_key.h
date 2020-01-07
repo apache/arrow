@@ -22,7 +22,10 @@
 #include <string>
 #include <thread>
 
-#include "boost/functional/hash.hpp"
+#include <boost/functional/hash.hpp>
+
+#include "arrow/pretty_print.h"
+
 #include "gandiva/arrow.h"
 #include "gandiva/filter.h"
 

@@ -24,8 +24,6 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
-#include <arrow/api.h>
-
 namespace arrow {
 namespace py {
 namespace internal {

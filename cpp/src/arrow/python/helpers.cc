@@ -20,6 +20,7 @@
 
 #include "arrow/python/helpers.h"
 
+#include <cmath>
 #include <limits>
 #include <sstream>
 #include <type_traits>
@@ -29,8 +30,6 @@
 #include "arrow/python/decimal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-
-#include <arrow/api.h>
 
 namespace arrow {
 

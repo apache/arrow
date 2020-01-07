@@ -17,12 +17,14 @@
 
 #include <string>
 
-#include "arrow/adapters/orc/adapter.h"
-#include "arrow/array.h"
-#include "arrow/io/api.h"
-
 #include <gtest/gtest.h>
 #include <orc/OrcFile.hh>
+
+#include "arrow/adapters/orc/adapter.h"
+#include "arrow/array.h"
+#include "arrow/array/array_binary.h"
+#include "arrow/array/array_primitive.h"
+#include "arrow/io/api.h"
 
 namespace liborc = orc;
 

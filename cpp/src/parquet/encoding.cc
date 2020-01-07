@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_dict.h"
 #include "arrow/builder.h"
 #include "arrow/stl.h"
 #include "arrow/util/bit_stream_utils.h"
@@ -775,10 +776,9 @@ void DictEncoderImpl<DType>::PutDictionary(const arrow::Array& values) {
 
   dict_encoded_size_ += static_cast<int>(sizeof(typename DType::c_type) * data.length());
   for (int64_t i = 0; i < data.length(); i++) {
-    ARROW_IGNORE_EXPR(
-        memo_table_.GetOrInsert(data.Value(i),
-                                /*on_found=*/[](int32_t memo_index) {},
-                                /*on_not_found=*/[](int32_t memo_index) {}));
+    ARROW_UNUSED(memo_table_.GetOrInsert(data.Value(i),
+                                         /*on_found=*/[](int32_t memo_index) {},
+                                         /*on_not_found=*/[](int32_t memo_index) {}));
   }
 }
 
@@ -791,10 +791,9 @@ void DictEncoderImpl<FLBAType>::PutDictionary(const arrow::Array& values) {
 
   dict_encoded_size_ += static_cast<int>(type_length_ * data.length());
   for (int64_t i = 0; i < data.length(); i++) {
-    ARROW_IGNORE_EXPR(
-        memo_table_.GetOrInsert(data.Value(i), type_length_,
-                                /*on_found=*/[](int32_t memo_index) {},
-                                /*on_not_found=*/[](int32_t memo_index) {}));
+    ARROW_UNUSED(memo_table_.GetOrInsert(data.Value(i), type_length_,
+                                         /*on_found=*/[](int32_t memo_index) {},
+                                         /*on_not_found=*/[](int32_t memo_index) {}));
   }
 }
 
@@ -808,10 +807,9 @@ void DictEncoderImpl<ByteArrayType>::PutDictionary(const arrow::Array& values) {
   for (int64_t i = 0; i < data.length(); i++) {
     auto v = data.GetView(i);
     dict_encoded_size_ += static_cast<int>(v.size() + sizeof(uint32_t));
-    ARROW_IGNORE_EXPR(
-        memo_table_.GetOrInsert(v.data(), static_cast<int32_t>(v.size()),
-                                /*on_found=*/[](int32_t memo_index) {},
-                                /*on_not_found=*/[](int32_t memo_index) {}));
+    ARROW_UNUSED(memo_table_.GetOrInsert(v.data(), static_cast<int32_t>(v.size()),
+                                         /*on_found=*/[](int32_t memo_index) {},
+                                         /*on_not_found=*/[](int32_t memo_index) {}));
   }
 }
 
@@ -1109,7 +1107,7 @@ int PlainBooleanDecoder::DecodeArrow(
   for (int i = 0; i < num_values; ++i) {
     if (valid_reader.IsSet()) {
       bool value;
-      ARROW_IGNORE_EXPR(bit_reader_->GetValue(1, &value));
+      ARROW_UNUSED(bit_reader_->GetValue(1, &value));
       builder->UnsafeAppend(value);
     } else {
       builder->UnsafeAppendNull();

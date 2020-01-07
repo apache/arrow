@@ -25,6 +25,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_nested.h"
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -74,6 +76,15 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
   DictionaryArray expected(dict_type, ArrayFromJSON(int8(), "[0, 1, 0, null]"),
                            ArrayFromJSON(value_type, "[1, 2]"));
   ASSERT_TRUE(expected.Equals(result));
+}
+
+TYPED_TEST(TestDictionaryBuilder, Type) {
+  auto value_type = std::make_shared<TypeParam>();
+  DictionaryBuilder<TypeParam> builder;
+  ASSERT_TRUE(builder.type()->Equals(dictionary(int8(), value_type)));
+
+  Dictionary32Builder<TypeParam> builder32;
+  ASSERT_TRUE(builder32.type()->Equals(dictionary(int32(), value_type)));
 }
 
 TYPED_TEST(TestDictionaryBuilder, ArrayInit) {

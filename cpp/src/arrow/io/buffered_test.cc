@@ -29,11 +29,11 @@
 #include <random>
 #include <string>
 #include <utility>
-#include <valarray>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "arrow/buffer.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
 #include "arrow/io/interfaces.h"
@@ -106,7 +106,7 @@ class TestBufferedOutputStream : public FileTestFixture<BufferedOutputStream> {
                                         buffer_size, default_memory_pool(), file));
   }
 
-  void WriteChunkwise(const std::string& datastr, const std::valarray<int64_t>& sizes) {
+  void WriteChunkwise(const std::string& datastr, const std::vector<int64_t>& sizes) {
     const char* data = datastr.data();
     const int64_t data_size = static_cast<int64_t>(datastr.size());
     int64_t data_pos = 0;
@@ -191,7 +191,7 @@ TEST_F(TestBufferedOutputStream, SmallWrites) {
 
   // Data here should be larger than BufferedOutputStream's buffer size
   const std::string data = GenerateRandomData(200000);
-  const std::valarray<int64_t> sizes = {1, 1, 2, 3, 5, 8, 13};
+  const std::vector<int64_t> sizes = {1, 1, 2, 3, 5, 8, 13};
 
   WriteChunkwise(data, sizes);
   ASSERT_OK(buffered_->Close());
@@ -203,7 +203,7 @@ TEST_F(TestBufferedOutputStream, MixedWrites) {
   OpenBuffered();
 
   const std::string data = GenerateRandomData(300000);
-  const std::valarray<int64_t> sizes = {1, 1, 2, 3, 70000};
+  const std::vector<int64_t> sizes = {1, 1, 2, 3, 70000};
 
   WriteChunkwise(data, sizes);
   ASSERT_OK(buffered_->Close());
@@ -215,7 +215,7 @@ TEST_F(TestBufferedOutputStream, LargeWrites) {
   OpenBuffered();
 
   const std::string data = GenerateRandomData(800000);
-  const std::valarray<int64_t> sizes = {10000, 60000, 70000};
+  const std::vector<int64_t> sizes = {10000, 60000, 70000};
 
   WriteChunkwise(data, sizes);
   ASSERT_OK(buffered_->Close());

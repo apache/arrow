@@ -30,6 +30,10 @@
 #include <boost/algorithm/string/predicate.hpp>
 
 #include "arrow/array.h"
+#include "arrow/array/array_binary.h"
+#include "arrow/array/array_decimal.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/extension_type.h"

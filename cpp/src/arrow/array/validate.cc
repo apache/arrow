@@ -19,7 +19,7 @@
 
 #include "arrow/array.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_array_inline.h"
 
 namespace arrow {
 namespace internal {

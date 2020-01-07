@@ -34,8 +34,11 @@
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_inline.h"
+#include "arrow/util/bitmap_util.h"
 #include "arrow/util/cpu_info.h"
 
 namespace arrow {

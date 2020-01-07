@@ -24,6 +24,7 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/test_util.h"
+#include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"

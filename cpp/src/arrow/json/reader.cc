@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/json/chunked_builder.h"

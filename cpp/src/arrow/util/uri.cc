@@ -21,6 +21,7 @@
 #include <sstream>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/util/parsing.h"
 #include "arrow/util/string_view.h"
 #include "arrow/vendored/uriparser/Uri.h"

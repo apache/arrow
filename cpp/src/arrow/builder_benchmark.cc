@@ -25,7 +25,7 @@
 
 #include "benchmark/benchmark.h"
 
-#include "arrow/builder.h"
+#include "arrow/builder_all.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
