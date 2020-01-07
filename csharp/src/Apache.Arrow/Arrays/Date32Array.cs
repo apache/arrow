@@ -64,7 +64,7 @@ namespace Apache.Arrow
                 return default;
             }
 
-            return DateTimeOffset.FromUnixTimeMilliseconds(value.Value * MillisecondsPerDay);
+            return DateTimeOffset.FromUnixTimeMilliseconds((long)value.Value * MillisecondsPerDay);
         }
     }
 }
