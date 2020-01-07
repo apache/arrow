@@ -99,7 +99,6 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   protected void allocateOffsetBuffer(final long size) {
     final int curSize = (int) size;
     offsetBuffer = allocator.buffer(curSize);
-    offsetBuffer.readerIndex(0);
     offsetAllocationSizeInBytes = curSize;
     offsetBuffer.setZero(0, offsetBuffer.capacity());
   }

@@ -144,9 +144,6 @@ public class BitVectorHelper {
       validityBuffer = allocator.buffer(getValidityBufferSize(valueCount));
     }
     setValidityBit(validityBuffer, index, value);
-    if (index == (valueCount - 1)) {
-      validityBuffer.writerIndex(getValidityBufferSize(valueCount));
-    }
 
     return validityBuffer;
   }

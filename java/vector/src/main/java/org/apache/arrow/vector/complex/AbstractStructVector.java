@@ -323,9 +323,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     int actualBufSize = 0;
 
     for (final ValueVector v : vectors.values()) {
-      for (final ArrowBuf buf : v.getBuffers(false)) {
-        actualBufSize += buf.writerIndex();
-      }
+      actualBufSize += v.getBufferSize();
     }
     return actualBufSize;
   }

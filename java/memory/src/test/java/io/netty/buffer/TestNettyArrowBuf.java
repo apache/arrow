@@ -131,7 +131,7 @@ public class TestNettyArrowBuf {
       // to set capacity.
       byteBufs.addComponent(true, buf2);
       byteBufs.capacity(20);
-      buf.asNettyBuffer().getBytes(0, byteBufs, 4);
+      buf.asNettyBuffer().getBytes(0, byteBufs, 0,4);
       int actual = byteBufs.getInt(0);
       Assert.assertEquals(expected, actual);
       byteBufs.component(0).release();

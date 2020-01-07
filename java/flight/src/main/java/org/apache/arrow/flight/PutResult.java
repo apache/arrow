@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import java.nio.ByteBuffer;
+
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
@@ -81,11 +83,13 @@ public class PutResult implements AutoCloseable {
    */
   static PutResult fromProtocol(BufferAllocator allocator, Flight.PutResult message) {
     final ArrowBuf buf = allocator.buffer(message.getAppMetadata().size());
-    message.getAppMetadata().asReadOnlyByteBufferList().forEach(bb -> {
-      buf.setBytes(buf.writerIndex(), bb);
-      buf.writerIndex(buf.writerIndex() + bb.limit());
-    });
-    return new PutResult(buf);
+
+    int writerIndex = 0;
+    for (ByteBuffer bb : message.getAppMetadata().asReadOnlyByteBufferList()) {
+      buf.setBytes(writerIndex, bb);
+      writerIndex += bb.limit();
+    }
+    return new PutResult(buf.slice(0, writerIndex));
   }
 
   @Override

@@ -336,31 +336,32 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     fillHoles(valueCount);
 
     List<ArrowBuf> result = new ArrayList<>(3);
-    setReaderAndWriterIndex();
-    result.add(validityBuffer);
-    result.add(offsetBuffer);
-    result.add(valueBuffer);
+    result.add(sliceValidityBuffer());
+    result.add(sliceOffsetBuffer());
+    result.add(sliceValueBuffer());
 
     return result;
   }
 
-  /**
-   * Set the reader and writer indexes for the inner buffers.
-   */
-  private void setReaderAndWriterIndex() {
-    validityBuffer.readerIndex(0);
-    offsetBuffer.readerIndex(0);
-    valueBuffer.readerIndex(0);
+  private ArrowBuf sliceValidityBuffer() {
     if (valueCount == 0) {
-      validityBuffer.writerIndex(0);
-      offsetBuffer.writerIndex(0);
-      valueBuffer.writerIndex(0);
-    } else {
-      final int lastDataOffset = getStartOffset(valueCount);
-      validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
-      offsetBuffer.writerIndex((valueCount + 1) * OFFSET_WIDTH);
-      valueBuffer.writerIndex(lastDataOffset);
+      return validityBuffer.slice(0, 0);
     }
+    return validityBuffer.slice(0, getValidityBufferSizeFromCount(valueCount));
+  }
+
+  private ArrowBuf sliceValueBuffer() {
+    if (valueCount == 0) {
+      return valueBuffer.slice(0, 0);
+    }
+    return valueBuffer.slice(0, getStartOffset(valueCount));
+  }
+
+  private ArrowBuf sliceOffsetBuffer() {
+    if (valueCount == 0) {
+      return offsetBuffer.slice(0, 0);
+    }
+    return offsetBuffer.slice(0, (valueCount + 1) * OFFSET_WIDTH);
   }
 
   /**
@@ -450,7 +451,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     /* allocate data buffer */
     int curSize = valueBufferSize;
     valueBuffer = allocator.buffer(curSize);
-    valueBuffer.readerIndex(0);
 
     /* allocate offset buffer and validity buffer */
     DataAndValidityBuffers buffers = allocFixedDataAndValidityBufs(valueCount + 1, OFFSET_WIDTH);
@@ -467,7 +467,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   private void allocateOffsetBuffer(final long size) {
     final int curSize = (int) size;
     offsetBuffer = allocator.buffer(curSize);
-    offsetBuffer.readerIndex(0);
     initOffsetBuffer();
   }
 
@@ -475,7 +474,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   private void allocateValidityBuffer(final long size) {
     final int curSize = (int) size;
     validityBuffer = allocator.buffer(curSize);
-    validityBuffer.readerIndex(0);
     initValidityBuffer();
   }
 
@@ -637,19 +635,15 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     final ArrowBuf[] buffers;
-    setReaderAndWriterIndex();
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
       buffers = new ArrowBuf[3];
-      buffers[0] = validityBuffer;
-      buffers[1] = offsetBuffer;
-      buffers[2] = valueBuffer;
+      buffers[0] = sliceValidityBuffer();
+      buffers[1] = sliceOffsetBuffer();
+      buffers[2] = sliceValueBuffer();
     }
     if (clear) {
-      for (final ArrowBuf buffer : buffers) {
-        buffer.getReferenceManager().retain();
-      }
       clear();
     }
     return buffers;
@@ -877,7 +871,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     }
     fillHoles(valueCount);
     lastSet = valueCount - 1;
-    setReaderAndWriterIndex();
   }
 
   /**
@@ -1287,9 +1280,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       buffer = allocator.buffer(valueCount * OFFSET_WIDTH);
     }
     buffer.setInt(index * OFFSET_WIDTH, value);
-    if (index == (valueCount - 1)) {
-      buffer.writerIndex(valueCount * OFFSET_WIDTH);
-    }
 
     return buffer;
   }

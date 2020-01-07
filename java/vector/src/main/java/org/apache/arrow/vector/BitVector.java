@@ -196,7 +196,6 @@ public final class BitVector extends BaseFixedWidthVector {
          * another part in (i+1)-th byte.
          */
         destBuffer = allocator.buffer(byteSizeTarget);
-        destBuffer.readerIndex(0);
         destBuffer.setZero(0, destBuffer.capacity());
 
         for (int i = 0; i < byteSizeTarget - 1; i++) {

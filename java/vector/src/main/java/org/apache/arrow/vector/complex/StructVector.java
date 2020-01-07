@@ -113,15 +113,16 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   @Override
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(1);
-    setReaderAndWriterIndex();
-    result.add(validityBuffer);
+    result.add(sliceValidityBuffer());
 
     return result;
   }
 
-  private void setReaderAndWriterIndex() {
-    validityBuffer.readerIndex(0);
-    validityBuffer.writerIndex(BitVectorHelper.getValidityBufferSize(valueCount));
+  private ArrowBuf sliceValidityBuffer() {
+    if (valueCount == 0) {
+      return validityBuffer.slice(0, 0);
+    }
+    return validityBuffer.slice(0, BitVectorHelper.getValidityBufferSize(valueCount));
   }
 
   @Override
@@ -286,20 +287,16 @@ public class StructVector extends NonNullableStructVector implements FieldVector
    */
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    setReaderAndWriterIndex();
     final ArrowBuf[] buffers;
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
       List<ArrowBuf> list = new ArrayList<>();
-      list.add(validityBuffer);
+      list.add(sliceValidityBuffer());
       list.addAll(Arrays.asList(super.getBuffers(false)));
       buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
-      for (ArrowBuf buffer : buffers) {
-        buffer.getReferenceManager().retain();
-      }
       clear();
     }
 
@@ -407,7 +404,6 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   private void allocateValidityBuffer(final long size) {
     final int curSize = (int) size;
     validityBuffer = allocator.buffer(curSize);
-    validityBuffer.readerIndex(0);
     validityAllocationSizeInBytes = curSize;
     validityBuffer.setZero(0, validityBuffer.capacity());
   }

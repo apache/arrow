@@ -169,15 +169,16 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   @Override
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(1);
-    setReaderAndWriterIndex();
-    result.add(validityBuffer);
+    result.add(sliceValidityBuffer());
 
     return result;
   }
 
-  private void setReaderAndWriterIndex() {
-    validityBuffer.readerIndex(0);
-    validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
+  private ArrowBuf sliceValidityBuffer() {
+    if (valueCount == 0) {
+      return validityBuffer.slice(0, 0);
+    }
+    return validityBuffer.slice(0, getValidityBufferSizeFromCount(valueCount));
   }
 
   @Override
@@ -232,7 +233,6 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   private void allocateValidityBuffer(final long size) {
     final int curSize = (int) size;
     validityBuffer = allocator.buffer(curSize);
-    validityBuffer.readerIndex(0);
     validityAllocationSizeInBytes = curSize;
     validityBuffer.setZero(0, validityBuffer.capacity());
   }
@@ -342,20 +342,16 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    setReaderAndWriterIndex();
     final ArrowBuf[] buffers;
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
       List<ArrowBuf> list = new ArrayList<>();
-      list.add(validityBuffer);
+      list.add(sliceValidityBuffer());
       list.addAll(Arrays.asList(vector.getBuffers(false)));
       buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
-      for (ArrowBuf buffer : buffers) {
-        buffer.getReferenceManager().retain();
-      }
       clear();
     }
     return buffers;

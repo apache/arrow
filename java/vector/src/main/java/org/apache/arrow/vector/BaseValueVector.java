@@ -200,8 +200,6 @@ public abstract class BaseValueVector implements ValueVector {
       int len = (numBuffers == 0 ? dataBufferSize : validityBufferSize);
       ArrowBuf buf = combinedBuffer.slice(bufferOffset, len);
       buf.getReferenceManager().retain();
-      buf.readerIndex(0);
-      buf.writerIndex(0);
 
       bufferOffset += len;
       if (numBuffers == 0) {

@@ -219,26 +219,24 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   @Override
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(2);
-    setReaderAndWriterIndex();
-    result.add(validityBuffer);
-    result.add(offsetBuffer);
+    result.add(sliceValidityBuffer());
+    result.add(sliceOffsetBuffer());
 
     return result;
   }
 
-  /**
-   * Set the reader and writer indexes for the inner buffers.
-   */
-  private void setReaderAndWriterIndex() {
-    validityBuffer.readerIndex(0);
-    offsetBuffer.readerIndex(0);
+  private ArrowBuf sliceValidityBuffer() {
     if (valueCount == 0) {
-      validityBuffer.writerIndex(0);
-      offsetBuffer.writerIndex(0);
-    } else {
-      validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
-      offsetBuffer.writerIndex((valueCount + 1) * OFFSET_WIDTH);
+      return validityBuffer.slice(0, 0);
     }
+    return validityBuffer.slice(0, getValidityBufferSizeFromCount(valueCount));
+  }
+
+  private ArrowBuf sliceOffsetBuffer() {
+    if (valueCount == 0) {
+      return offsetBuffer.slice(0, 0);
+    }
+    return offsetBuffer.slice(0, (valueCount + 1) * OFFSET_WIDTH);
   }
 
   @Override
@@ -289,7 +287,6 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   private void allocateValidityBuffer(final long size) {
     final int curSize = (int) size;
     validityBuffer = allocator.buffer(curSize);
-    validityBuffer.readerIndex(0);
     validityAllocationSizeInBytes = curSize;
     validityBuffer.setZero(0, validityBuffer.capacity());
   }
@@ -651,21 +648,17 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
    */
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    setReaderAndWriterIndex();
     final ArrowBuf[] buffers;
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
       List<ArrowBuf> list = new ArrayList<>();
-      list.add(offsetBuffer);
-      list.add(validityBuffer);
+      list.add(sliceOffsetBuffer());
+      list.add(sliceValidityBuffer());
       list.addAll(Arrays.asList(vector.getBuffers(false)));
       buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
-      for (ArrowBuf buffer : buffers) {
-        buffer.getReferenceManager().retain();
-      }
       clear();
     }
     return buffers;

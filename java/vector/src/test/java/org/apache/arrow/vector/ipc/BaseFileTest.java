@@ -167,11 +167,9 @@ public class BaseFileTest {
 
   protected void writeComplexData(int count, StructVector parent) {
     ArrowBuf varchar = allocator.buffer(3);
-    varchar.readerIndex(0);
     varchar.setByte(0, 'a');
     varchar.setByte(1, 'b');
     varchar.setByte(2, 'c');
-    varchar.writerIndex(3);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("int");
@@ -580,11 +578,9 @@ public class BaseFileTest {
 
   public void writeUnionData(int count, StructVector parent) {
     ArrowBuf varchar = allocator.buffer(3);
-    varchar.readerIndex(0);
     varchar.setByte(0, 'a');
     varchar.setByte(1, 'b');
     varchar.setByte(2, 'c');
-    varchar.writerIndex(3);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("union");

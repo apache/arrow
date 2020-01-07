@@ -339,7 +339,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   private void allocateValidityBuffer(final int validityBufferSize) {
     validityBuffer = allocator.buffer(validityBufferSize);
-    validityBuffer.readerIndex(0);
   }
 
   /**
@@ -392,18 +391,17 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     final ArrowBuf[] buffers;
-    setReaderAndWriterIndex();
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
       buffers = new ArrowBuf[2];
-      buffers[0] = validityBuffer;
-      buffers[1] = valueBuffer;
+      buffers[0] = sliceValidityBuffer();
+      buffers[1] = sliceValueBuffer();
     }
     if (clear) {
-      for (final ArrowBuf buffer : buffers) {
+      /*for (final ArrowBuf buffer : buffers) {
         buffer.getReferenceManager().retain(1);
-      }
+      }*/
       clear();
     }
     return buffers;
@@ -499,31 +497,25 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(2);
-    setReaderAndWriterIndex();
-    result.add(validityBuffer);
-    result.add(valueBuffer);
+    result.add(sliceValidityBuffer());
+    result.add(sliceValueBuffer());
 
     return result;
   }
 
-  /**
-   * Set the reader and writer indexes for the inner buffers.
-   */
-  private void setReaderAndWriterIndex() {
-    validityBuffer.readerIndex(0);
-    valueBuffer.readerIndex(0);
+  private ArrowBuf sliceValidityBuffer() {
     if (valueCount == 0) {
-      validityBuffer.writerIndex(0);
-      valueBuffer.writerIndex(0);
-    } else {
-      validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
-      if (typeWidth == 0) {
-        /* specialized handling for BitVector */
-        valueBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
-      } else {
-        valueBuffer.writerIndex(valueCount * typeWidth);
-      }
+      return validityBuffer.slice(0, 0);
     }
+    return validityBuffer.slice(0, getValidityBufferSizeFromCount(valueCount));
+  }
+
+  private ArrowBuf sliceValueBuffer() {
+    if (valueCount == 0) {
+      return valueBuffer.slice(0, 0);
+    }
+    return valueBuffer.slice(0, typeWidth == 0 ?
+        getValidityBufferSizeFromCount(valueCount) : valueCount * typeWidth);
   }
 
   /**
@@ -735,7 +727,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
         decrementAllocationMonitor();
       }
     }
-    setReaderAndWriterIndex();
   }
 
   /**

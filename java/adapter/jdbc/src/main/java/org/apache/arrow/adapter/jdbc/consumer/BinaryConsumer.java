@@ -71,7 +71,7 @@ public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
       ArrowBuf offsetBuffer = vector.getOffsetBuffer();
       int startIndex = offsetBuffer.getInt(currentIndex * 4);
       while ((read = is.read(bytes)) != -1) {
-        while ((dataBuffer.writerIndex() + read) > dataBuffer.capacity()) {
+        while ((startIndex + totalBytes + read) > dataBuffer.capacity()) {
           vector.reallocDataBuffer();
         }
         PlatformDependent.copyMemory(bytes, 0,

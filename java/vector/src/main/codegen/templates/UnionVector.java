@@ -157,15 +157,16 @@ public class UnionVector implements FieldVector {
   @Override
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(1);
-    setReaderAndWriterIndex();
-    result.add(typeBuffer);
+    result.add(sliceTypeBuffer());
 
     return result;
   }
 
-  private void setReaderAndWriterIndex() {
-    typeBuffer.readerIndex(0);
-    typeBuffer.writerIndex(valueCount * TYPE_WIDTH);
+  private ArrowBuf sliceTypeBuffer() {
+    if (valueCount == 0) {
+      return typeBuffer.slice(0, 0);
+    }
+    return typeBuffer.slice(0, valueCount * TYPE_WIDTH);
   }
 
   @Override
@@ -299,7 +300,6 @@ public class UnionVector implements FieldVector {
 
   private void allocateTypeBuffer() {
     typeBuffer = allocator.buffer(typeBufferAllocationSizeInBytes);
-    typeBuffer.readerIndex(0);
     typeBuffer.setZero(0, typeBuffer.capacity());
   }
 
@@ -528,14 +528,12 @@ public class UnionVector implements FieldVector {
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     List<ArrowBuf> list = new java.util.ArrayList<>();
-    setReaderAndWriterIndex();
     if (getBufferSize() != 0) {
-      list.add(typeBuffer);
+      list.add(sliceTypeBuffer());
       list.addAll(java.util.Arrays.asList(internalStruct.getBuffers(clear)));
     }
     if (clear) {
       valueCount = 0;
-      typeBuffer.getReferenceManager().retain();
       typeBuffer.getReferenceManager().release();
       typeBuffer = allocator.getEmpty();
     }

@@ -149,8 +149,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     final List<ArrowBuf> newBufs = buffers.stream()
         .map(buf ->
           (buf.getReferenceManager().transferOwnership(buf, allocator)
-            .getTransferredBuffer())
-            .writerIndex(buf.writerIndex()))
+            .getTransferredBuffer()))
         .collect(Collectors.toList());
     close();
     return new ArrowRecordBatch(false, length, nodes, newBufs);
