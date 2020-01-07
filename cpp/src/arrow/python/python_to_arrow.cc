@@ -287,16 +287,6 @@ class BoolConverter : public TypedConverter<BooleanType, null_coding> {
 
 template <typename Type, NullCoding null_coding>
 class NumericConverter : public TypedConverter<Type, null_coding> {
-
-  Status AppendMultiple(PyObject* obj, int64_t size) override {
-    /// Ensure we've allocated enough space
-    RETURN_NOT_OK(this->typed_builder_->Reserve(size));
-    // Iterate over the items adding each one
-    return internal::VisitSequence(obj, [this](PyObject* item, bool* /* unused */) {
-      return NullChecker<null_coding>::Check(item) ?  this->typed_builder_->AppendNull() : Unbox<Type>::Append(this->typed_builder_, item);
-    });
-  }
-
   Status AppendItem(PyObject* obj) override {
     return Unbox<Type>::Append(this->typed_builder_, obj);
   }
