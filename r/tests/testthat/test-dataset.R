@@ -111,8 +111,8 @@ test_that("Hive partitioning", {
   )
 })
 
-test_that("Partition scheme inference", {
-  # These are the same tests as above, just using the *PartitionSchemeDiscovery
+test_that("Partitioning inference", {
+  # These are the same tests as above, just using the *PartitioningFactory
   ds1 <- open_dataset(dataset_dir, partition = "part")
   expect_identical(names(ds1), c(names(df1), "part"))
   expect_equivalent(
@@ -255,25 +255,25 @@ test_that("dplyr method not implemented messages", {
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(dataset_dir, recursive = TRUE)
-  partition <- SchemaPartitionScheme$create(schema(part = double()))
+  partitioning <- DirectoryPartitioning$create(schema(part = double()))
 
   fmt <- FileFormat$create("parquet")
-  dsd <- FileSystemDataSourceDiscovery$create(fs, selector, fmt, partition_scheme = partition)
-  expect_is(dsd, "FileSystemDataSourceDiscovery")
+  factory <- FileSystemSourceFactory$create(fs, selector, fmt, partitioning = partitioning)
+  expect_is(factory, "FileSystemSourceFactory")
 
-  schm <- dsd$Inspect()
+  schm <- factory$Inspect()
   expect_is(schm, "Schema")
 
   phys_schm <- ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
   expect_equal(names(phys_schm), names(df1))
   expect_equal(names(schm), c(names(phys_schm), "part"))
 
-  datasource <- dsd$Finish(schm)
-  expect_is(datasource, "DataSource")
-  expect_is(datasource$schema, "Schema")
-  expect_equal(names(schm), names(datasource$schema))
+  src <- factory$Finish(schm)
+  expect_is(src, "Source")
+  expect_is(src$schema, "Schema")
+  expect_equal(names(schm), names(src$schema))
 
-  ds <- Dataset$create(list(datasource), schm)
+  ds <- Dataset$create(list(src), schm)
   expect_is(ds, "Dataset")
   expect_equal(names(ds), names(schm))
 

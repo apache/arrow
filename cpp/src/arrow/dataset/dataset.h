@@ -29,15 +29,14 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief A granular piece of a Dataset, such as an individual file,
-/// which can be read/scanned separately from other fragments.
+/// \brief A granular piece of a Dataset, such as an individual file, which can be
+/// read/scanned separately from other fragments.
 ///
-/// A DataFragment yields a collection of RecordBatch, encapsulated in one or
-/// more ScanTasks.
-class ARROW_DS_EXPORT DataFragment {
+/// A Fragment yields a collection of RecordBatch, encapsulated in one or more ScanTasks.
+class ARROW_DS_EXPORT Fragment {
  public:
   /// \brief Scan returns an iterator of ScanTasks, each of which yields
-  /// RecordBatches from this DataFragment.
+  /// RecordBatches from this Fragment.
   virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) = 0;
 
   /// \brief Return true if the fragment can benefit from parallel
@@ -50,19 +49,19 @@ class ARROW_DS_EXPORT DataFragment {
   /// scanned.
   std::shared_ptr<ScanOptions> scan_options() const { return scan_options_; }
 
-  virtual ~DataFragment() = default;
+  virtual ~Fragment() = default;
 
   /// \brief An expression which evaluates to true for all data viewed by this
-  /// DataFragment. May be null, which indicates no information is available.
+  /// Fragment. May be null, which indicates no information is available.
   const std::shared_ptr<Expression>& partition_expression() const {
     return partition_expression_;
   }
 
  protected:
-  explicit DataFragment(std::shared_ptr<ScanOptions> scan_options);
+  explicit Fragment(std::shared_ptr<ScanOptions> scan_options);
 
-  DataFragment(std::shared_ptr<ScanOptions> scan_options,
-               std::shared_ptr<Expression> partition_expression)
+  Fragment(std::shared_ptr<ScanOptions> scan_options,
+           std::shared_ptr<Expression> partition_expression)
       : scan_options_(std::move(scan_options)),
         partition_expression_(std::move(partition_expression)) {}
 
@@ -70,12 +69,12 @@ class ARROW_DS_EXPORT DataFragment {
   std::shared_ptr<Expression> partition_expression_;
 };
 
-/// \brief A trivial DataFragment that yields ScanTask out of a fixed set of
+/// \brief A trivial Fragment that yields ScanTask out of a fixed set of
 /// RecordBatch.
-class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
+class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
  public:
-  SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
-                     std::shared_ptr<ScanOptions> scan_options);
+  InMemoryFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
+                   std::shared_ptr<ScanOptions> scan_options);
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
 
@@ -86,37 +85,38 @@ class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
 };
 
 /// \brief A basic component of a Dataset which yields zero or more
-/// DataFragments. A DataSource acts as a discovery mechanism of DataFragments
+/// Fragments. A Source acts as a discovery mechanism of Fragments
 /// and partitions, e.g. files deeply nested in a directory.
-class ARROW_DS_EXPORT DataSource {
+class ARROW_DS_EXPORT Source {
  public:
-  /// \brief GetFragments returns an iterator of DataFragments. The ScanOptions
+  /// \brief GetFragments returns an iterator of Fragments. The ScanOptions
   /// controls filtering and schema inference.
-  DataFragmentIterator GetFragments(std::shared_ptr<ScanOptions> options);
+  FragmentIterator GetFragments(std::shared_ptr<ScanOptions> options);
 
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
-  /// \brief An expression which evaluates to true for all data viewed by this DataSource.
+  /// \brief An expression which evaluates to true for all data viewed by this Source.
   /// May be null, which indicates no information is available.
   const std::shared_ptr<Expression>& partition_expression() const {
     return partition_expression_;
   }
 
-  /// \brief The name identifying the kind of data source
+  /// \brief The name identifying the kind of source
   virtual std::string type_name() const = 0;
 
-  virtual ~DataSource() = default;
+  virtual ~Source() = default;
 
  protected:
-  explicit DataSource(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
+  explicit Source(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
 
-  DataSource(std::shared_ptr<Schema> schema, std::shared_ptr<Expression> e)
+  Source(std::shared_ptr<Schema> schema, std::shared_ptr<Expression> e)
       : schema_(std::move(schema)), partition_expression_(std::move(e)) {}
+  Source() = default;
 
-  virtual DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) = 0;
+  virtual FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) = 0;
 
   /// Mutates a ScanOptions by assuming partition_expression_ holds for all yielded
-  /// fragments. Returns false if the selector is not satisfiable in this DataSource.
+  /// fragments. Returns false if the selector is not satisfiable in this Source.
   virtual bool AssumePartitionExpression(
       const std::shared_ptr<ScanOptions>& scan_options,
       std::shared_ptr<ScanOptions>* simplified_scan_options) const;
@@ -125,32 +125,32 @@ class ARROW_DS_EXPORT DataSource {
   std::shared_ptr<Expression> partition_expression_;
 };
 
-/// \brief A DataSource consisting of a flat sequence of DataFragments
-class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
+/// \brief A Source consisting of a flat sequence of Fragments
+class ARROW_DS_EXPORT InMemorySource : public Source {
  public:
-  explicit SimpleDataSource(std::shared_ptr<Schema> schema, DataFragmentVector fragments)
-      : DataSource(std::move(schema)), fragments_(std::move(fragments)) {}
+  explicit InMemorySource(std::shared_ptr<Schema> schema, FragmentVector fragments)
+      : Source(std::move(schema)), fragments_(std::move(fragments)) {}
 
-  DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+  FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
-  std::string type_name() const override { return "simple"; }
+  std::string type_name() const override { return "in-memory"; }
 
  private:
-  DataFragmentVector fragments_;
+  FragmentVector fragments_;
 };
 
-/// \brief A recursive DataSource with child DataSources.
-class ARROW_DS_EXPORT TreeDataSource : public DataSource {
+/// \brief A recursive Source with child Sources.
+class ARROW_DS_EXPORT TreeSource : public Source {
  public:
-  explicit TreeDataSource(std::shared_ptr<Schema> schema, DataSourceVector children)
-      : DataSource(std::move(schema)), children_(std::move(children)) {}
+  explicit TreeSource(std::shared_ptr<Schema> schema, SourceVector children)
+      : Source(std::move(schema)), children_(std::move(children)) {}
 
-  DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+  FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
   std::string type_name() const override { return "tree"; }
 
  private:
-  DataSourceVector children_;
+  SourceVector children_;
 };
 
 /// \brief Top-level interface for a Dataset with fragments coming
@@ -159,28 +159,28 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
   /// \brief Build a Dataset from uniform sources.
   //
-  /// \param[in] sources one or more input data sources
+  /// \param[in] sources one or more input sources
   /// \param[in] schema a known schema to conform to
-  static Result<std::shared_ptr<Dataset>> Make(DataSourceVector sources,
+  static Result<std::shared_ptr<Dataset>> Make(SourceVector sources,
                                                std::shared_ptr<Schema> schema);
 
   /// \brief Begin to build a new Scan operation against this Dataset
   Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
-  const DataSourceVector& sources() const { return sources_; }
+  const SourceVector& sources() const { return sources_; }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
 
  protected:
-  explicit Dataset(DataSourceVector sources, std::shared_ptr<Schema> schema)
+  explicit Dataset(SourceVector sources, std::shared_ptr<Schema> schema)
       : schema_(std::move(schema)), sources_(std::move(sources)) {}
 
-  // The data sources must conform their output to this schema (with
+  // The sources must conform their output to this schema (with
   // projections and filters taken into account)
   std::shared_ptr<Schema> schema_;
 
-  DataSourceVector sources_;
+  SourceVector sources_;
 };
 
 }  // namespace dataset

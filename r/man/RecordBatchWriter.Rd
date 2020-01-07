@@ -35,11 +35,12 @@ take a single argument, named according to the class:
 \section{Methods}{
 
 \itemize{
-\item \verb{$write(x)}: Write a \link{RecordBatch}, \link{Table}, or \code{data.frame}, dispatching
+\item \code{$write(x)}: Write a \link{RecordBatch}, \link{Table}, or \code{data.frame}, dispatching
 to the methods below appropriately
-\item \verb{$write_batch(batch)}: Write a \code{RecordBatch} to stream
-\item \verb{$write_table(table)}: Write a \code{Table} to stream
-\item \verb{$close()}: close stream
+\item \code{$write_batch(batch)}: Write a \code{RecordBatch} to stream
+\item \code{$write_table(table)}: Write a \code{Table} to stream
+\item \code{$close()}: close stream
 }
 }
 
+\keyword{datasets}

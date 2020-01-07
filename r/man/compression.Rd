@@ -29,3 +29,4 @@ factory methods instantiate the object and take the following arguments:
 Methods are inherited from \link{InputStream} and \link{OutputStream}, respectively
 }
 
+\keyword{datasets}

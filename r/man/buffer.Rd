@@ -26,10 +26,11 @@ contiguous memory with a particular size.
 \section{Methods}{
 
 \itemize{
-\item \verb{$is_mutable()} :
-\item \verb{$ZeroPadding()} :
-\item \verb{$size()} :
-\item \verb{$capacity()}:
+\item \code{$is_mutable()} :
+\item \code{$ZeroPadding()} :
+\item \code{$size()} :
+\item \code{$capacity()}:
 }
 }
 
+\keyword{datasets}

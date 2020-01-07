@@ -340,16 +340,16 @@ csv___TableReader__Read <- function(table_reader){
     .Call(`_arrow_csv___TableReader__Read` , table_reader)
 }
 
-dataset___FSDSDiscovery__Make2 <- function(fs, selector, format, partition_scheme){
-    .Call(`_arrow_dataset___FSDSDiscovery__Make2` , fs, selector, format, partition_scheme)
+dataset___FSSFactory__Make2 <- function(fs, selector, format, partitioning){
+    .Call(`_arrow_dataset___FSSFactory__Make2` , fs, selector, format, partitioning)
 }
 
-dataset___FSDSDiscovery__Make1 <- function(fs, selector, format){
-    .Call(`_arrow_dataset___FSDSDiscovery__Make1` , fs, selector, format)
+dataset___FSSFactory__Make1 <- function(fs, selector, format){
+    .Call(`_arrow_dataset___FSSFactory__Make1` , fs, selector, format)
 }
 
-dataset___FSDSDiscovery__Make3 <- function(fs, selector, format, discovery){
-    .Call(`_arrow_dataset___FSDSDiscovery__Make3` , fs, selector, format, discovery)
+dataset___FSSFactory__Make3 <- function(fs, selector, format, factory){
+    .Call(`_arrow_dataset___FSSFactory__Make3` , fs, selector, format, factory)
 }
 
 dataset___ParquetFileFormat__Make <- function(){
@@ -360,36 +360,36 @@ dataset___IpcFileFormat__Make <- function(){
     .Call(`_arrow_dataset___IpcFileFormat__Make` )
 }
 
-dataset___DSDiscovery__Finish1 <- function(discovery){
-    .Call(`_arrow_dataset___DSDiscovery__Finish1` , discovery)
+dataset___SFactory__Finish1 <- function(factory){
+    .Call(`_arrow_dataset___SFactory__Finish1` , factory)
 }
 
-dataset___DSDiscovery__Finish2 <- function(discovery, schema){
-    .Call(`_arrow_dataset___DSDiscovery__Finish2` , discovery, schema)
+dataset___SFactory__Finish2 <- function(factory, schema){
+    .Call(`_arrow_dataset___SFactory__Finish2` , factory, schema)
 }
 
-dataset___DataSource__schema <- function(source){
-    .Call(`_arrow_dataset___DataSource__schema` , source)
+dataset___Source__schema <- function(source){
+    .Call(`_arrow_dataset___Source__schema` , source)
 }
 
-dataset___DSDiscovery__Inspect <- function(discovery){
-    .Call(`_arrow_dataset___DSDiscovery__Inspect` , discovery)
+dataset___SFactory__Inspect <- function(factory){
+    .Call(`_arrow_dataset___SFactory__Inspect` , factory)
 }
 
-dataset___SchemaPartitionScheme <- function(schm){
-    .Call(`_arrow_dataset___SchemaPartitionScheme` , schm)
+dataset___DirectoryPartitioning <- function(schm){
+    .Call(`_arrow_dataset___DirectoryPartitioning` , schm)
 }
 
-dataset___SchemaPartitionScheme__MakeDiscovery <- function(field_names){
-    .Call(`_arrow_dataset___SchemaPartitionScheme__MakeDiscovery` , field_names)
+dataset___DirectoryPartitioning__MakeFactory <- function(field_names){
+    .Call(`_arrow_dataset___DirectoryPartitioning__MakeFactory` , field_names)
 }
 
-dataset___HivePartitionScheme <- function(schm){
-    .Call(`_arrow_dataset___HivePartitionScheme` , schm)
+dataset___HivePartitioning <- function(schm){
+    .Call(`_arrow_dataset___HivePartitioning` , schm)
 }
 
-dataset___HivePartitionScheme__MakeDiscovery <- function(){
-    .Call(`_arrow_dataset___HivePartitionScheme__MakeDiscovery` )
+dataset___HivePartitioning__MakeFactory <- function(){
+    .Call(`_arrow_dataset___HivePartitioning__MakeFactory` )
 }
 
 dataset___Dataset__create <- function(sources, schm){

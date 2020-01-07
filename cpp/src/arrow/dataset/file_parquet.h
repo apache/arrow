@@ -58,7 +58,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
                                     std::shared_ptr<ScanOptions> options,
                                     std::shared_ptr<ScanContext> context) const override;
 
-  Result<std::shared_ptr<DataFragment>> MakeFragment(
+  Result<std::shared_ptr<Fragment>> MakeFragment(
       const FileSource& source, std::shared_ptr<ScanOptions> options) override;
 
  private:
@@ -66,10 +66,10 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       const FileSource& source, MemoryPool* pool) const;
 };
 
-class ARROW_DS_EXPORT ParquetFragment : public FileDataFragment {
+class ARROW_DS_EXPORT ParquetFragment : public FileFragment {
  public:
   ParquetFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
-      : FileDataFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
+      : FileFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
 
   bool splittable() const override { return true; }
 };

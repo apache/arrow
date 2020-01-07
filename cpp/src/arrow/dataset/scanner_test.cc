@@ -37,11 +37,11 @@ class TestScanner : public DatasetFixtureMixin {
   Scanner MakeScanner(std::shared_ptr<RecordBatch> batch) {
     std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
 
-    DataFragmentVector fragments{kNumberFragments,
-                                 std::make_shared<SimpleDataFragment>(batches, options_)};
+    FragmentVector fragments{kNumberFragments,
+                             std::make_shared<InMemoryFragment>(batches, options_)};
 
-    DataSourceVector sources{
-        kNumberSources, std::make_shared<SimpleDataSource>(batch->schema(), fragments)};
+    SourceVector sources{kNumberSources,
+                         std::make_shared<InMemorySource>(batch->schema(), fragments)};
 
     return Scanner{sources, options_, ctx_};
   }
@@ -52,7 +52,7 @@ class TestScanner : public DatasetFixtureMixin {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
 
     // Verifies that the unified BatchReader is equivalent to flattening all the
-    // structures of the scanner, i.e. Scanner[DataSource[ScanTask[RecordBatch]]]
+    // structures of the scanner, i.e. Scanner[Source[ScanTask[RecordBatch]]]
     AssertScannerEquals(expected.get(), &scanner);
   }
 };
@@ -142,7 +142,7 @@ TEST_F(TestScanner, ToTable) {
 
 class TestScannerBuilder : public ::testing::Test {
   void SetUp() {
-    DataSourceVector sources;
+    SourceVector sources;
 
     schema_ = schema({
         field("b", boolean()),

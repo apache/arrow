@@ -86,7 +86,7 @@ class ARROW_DS_EXPORT ScanOptions {
   // used in the final projection but is still required to evaluate the
   // expression.
   //
-  // This is used by DataFragments implementation to apply the column
+  // This is used by Fragments implementation to apply the column
   // sub-selection optimization.
   std::vector<std::string> MaterializedFields() const;
 
@@ -118,11 +118,11 @@ class ARROW_DS_EXPORT ScanTask {
 };
 
 /// \brief A trivial ScanTask that yields the RecordBatch of an array.
-class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
+class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
  public:
-  SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
-                 std::shared_ptr<ScanOptions> options,
-                 std::shared_ptr<ScanContext> context)
+  InMemoryScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
+                   std::shared_ptr<ScanOptions> options,
+                   std::shared_ptr<ScanContext> context)
       : ScanTask(std::move(options), std::move(context)),
         record_batches_(std::move(record_batches)) {}
 
@@ -137,8 +137,8 @@ Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
     std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext>);
 
 /// \brief Scanner is a materialized scan operation with context and options
-/// bound. A scanner is the class that glues ScanTask, DataFragment,
-/// and DataSource. In python pseudo code, it performs the following:
+/// bound. A scanner is the class that glues ScanTask, Fragment,
+/// and Source. In python pseudo code, it performs the following:
 ///
 ///  def Scan():
 ///    for source in this.sources_:
@@ -147,7 +147,7 @@ Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
 ///          yield scan_task
 class ARROW_DS_EXPORT Scanner {
  public:
-  Scanner(DataSourceVector sources, std::shared_ptr<ScanOptions> options,
+  Scanner(SourceVector sources, std::shared_ptr<ScanOptions> options,
           std::shared_ptr<ScanContext> context)
       : sources_(std::move(sources)),
         options_(std::move(options)),
@@ -170,7 +170,7 @@ class ARROW_DS_EXPORT Scanner {
   /// \brief Return a TaskGroup according to ScanContext thread rules.
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
 
-  DataSourceVector sources_;
+  SourceVector sources_;
   std::shared_ptr<ScanOptions> options_;
   std::shared_ptr<ScanContext> context_;
 };
@@ -184,7 +184,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
   /// \brief Set the subset of columns to materialize.
   ///
-  /// This subset will be passed down to DataSources and corresponding DataFragments.
+  /// This subset will be passed down to Sources and corresponding Fragments.
   /// The goal is to avoid loading/copying/deserializing columns that will
   /// not be required further down the compute chain.
   ///
@@ -197,9 +197,9 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
   /// \brief Set the filter expression to return only rows matching the filter.
   ///
-  /// The predicate will be passed down to DataSources and corresponding
-  /// DataFragments to exploit predicate pushdown if possible using
-  /// partition information or DataFragment internal metadata, e.g. Parquet statistics.
+  /// The predicate will be passed down to Sources and corresponding
+  /// Fragments to exploit predicate pushdown if possible using
+  /// partition information or Fragment internal metadata, e.g. Parquet statistics.
   ///
   /// \param[in] filter expression to filter rows with.
   ///

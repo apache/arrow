@@ -46,33 +46,33 @@ arbitrary selection of rows by integer indices.
 In addition to the more R-friendly S3 methods, a \code{RecordBatch} object has
 the following R6 methods that map onto the underlying C++ methods:
 \itemize{
-\item \verb{$Equals(other)}: Returns \code{TRUE} if the \code{other} record batch is equal
-\item \verb{$column(i)}: Extract an \code{Array} by integer position from the batch
-\item \verb{$column_name(i)}: Get a column's name by integer position
-\item \verb{$names()}: Get all column names (called by \code{names(batch)})
-\item \verb{$GetColumnByName(name)}: Extract an \code{Array} by string name
-\item \verb{$RemoveColumn(i)}: Drops a column from the batch by integer position
-\item \verb{$select(spec)}: Return a new record batch with a selection of columns.
+\item \code{$Equals(other)}: Returns \code{TRUE} if the \code{other} record batch is equal
+\item \code{$column(i)}: Extract an \code{Array} by integer position from the batch
+\item \code{$column_name(i)}: Get a column's name by integer position
+\item \code{$names()}: Get all column names (called by \code{names(batch)})
+\item \code{$GetColumnByName(name)}: Extract an \code{Array} by string name
+\item \code{$RemoveColumn(i)}: Drops a column from the batch by integer position
+\item \code{$select(spec)}: Return a new record batch with a selection of columns.
 This supports the usual \code{character}, \code{numeric}, and \code{logical} selection
 methods as well as "tidy select" expressions.
-\item \verb{$Slice(offset, length = NULL)}: Create a zero-copy view starting at the
+\item \code{$Slice(offset, length = NULL)}: Create a zero-copy view starting at the
 indicated integer offset and going for the given length, or to the end
 of the table if \code{NULL}, the default.
-\item \verb{$Take(i)}: return an \code{RecordBatch} with rows at positions given by
+\item \code{$Take(i)}: return an \code{RecordBatch} with rows at positions given by
 integers (R vector or Array Array) \code{i}.
-\item \verb{$Filter(i)}: return an \code{RecordBatch} with rows at positions where logical
+\item \code{$Filter(i)}: return an \code{RecordBatch} with rows at positions where logical
 vector (or Arrow boolean Array) \code{i} is \code{TRUE}.
-\item \verb{$serialize()}: Returns a raw vector suitable for interprocess communication
-\item \verb{$cast(target_schema, safe = TRUE, options = cast_options(safe))}: Alter
+\item \code{$serialize()}: Returns a raw vector suitable for interprocess communication
+\item \code{$cast(target_schema, safe = TRUE, options = cast_options(safe))}: Alter
 the schema of the record batch.
 }
 
 There are also some active bindings
 \itemize{
-\item \verb{$num_columns}
-\item \verb{$num_rows}
-\item \verb{$schema}
-\item \verb{$columns}: Returns a list of \code{Array}s
+\item \code{$num_columns}
+\item \code{$num_rows}
+\item \code{$schema}
+\item \code{$columns}: Returns a list of \code{Array}s
 }
 }
 
@@ -87,3 +87,4 @@ batch[["cyl"]]
 as.data.frame(batch[4:8, c("gear", "hp", "wt")])
 }
 }
+\keyword{datasets}

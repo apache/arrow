@@ -24,10 +24,10 @@ takes the following arguments:
 \section{Methods}{
 
 \itemize{
-\item \verb{$ReadTable(col_select)}: get an \code{arrow::Table} from the file, possibly
+\item \code{$ReadTable(col_select)}: get an \code{arrow::Table} from the file, possibly
 with columns filtered by a character vector of column names or a
 \code{tidyselect} specification.
-\item \verb{$GetSchema()}: get the \code{arrow::Schema} of the data in the file
+\item \code{$GetSchema()}: get the \code{arrow::Schema} of the data in the file
 }
 }
 
@@ -40,3 +40,4 @@ tab <- pq$ReadTable(starts_with("c"))
 tab$schema
 }
 }
+\keyword{datasets}

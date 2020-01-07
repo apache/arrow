@@ -103,7 +103,7 @@ class DatasetFixtureMixin : public ::testing::Test {
 
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragment.
-  void AssertFragmentEquals(RecordBatchReader* expected, DataFragment* fragment,
+  void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(ctx_));
 
@@ -119,11 +119,11 @@ class DatasetFixtureMixin : public ::testing::Test {
 
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragments of a source.
-  void AssertDataSourceEquals(RecordBatchReader* expected, DataSource* source,
-                              bool ensure_drained = true) {
+  void AssertSourceEquals(RecordBatchReader* expected, Source* source,
+                          bool ensure_drained = true) {
     auto it = source->GetFragments(options_);
 
-    ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<DataFragment> fragment) -> Status {
+    ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<Fragment> fragment) -> Status {
       AssertFragmentEquals(expected, fragment.get(), false);
       return Status::OK();
     }));
@@ -194,22 +194,22 @@ class DummyFileFormat : public FileFormat {
     return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
   }
 
-  inline Result<std::shared_ptr<DataFragment>> MakeFragment(
+  inline Result<std::shared_ptr<Fragment>> MakeFragment(
       const FileSource& location, std::shared_ptr<ScanOptions> options) override;
 
  protected:
   std::shared_ptr<Schema> schema_;
 };
 
-class DummyFragment : public FileDataFragment {
+class DummyFragment : public FileFragment {
  public:
   DummyFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
-      : FileDataFragment(source, std::make_shared<DummyFileFormat>(), options) {}
+      : FileFragment(source, std::make_shared<DummyFileFormat>(), options) {}
 
   bool splittable() const override { return false; }
 };
 
-Result<std::shared_ptr<DataFragment>> DummyFileFormat::MakeFragment(
+Result<std::shared_ptr<Fragment>> DummyFileFormat::MakeFragment(
     const FileSource& source, std::shared_ptr<ScanOptions> options) {
   return std::make_shared<DummyFragment>(source, options);
 }
@@ -249,29 +249,29 @@ class JSONRecordBatchFileFormat : public FileFormat {
                                            std::move(context));
   }
 
-  inline Result<std::shared_ptr<DataFragment>> MakeFragment(
+  inline Result<std::shared_ptr<Fragment>> MakeFragment(
       const FileSource& location, std::shared_ptr<ScanOptions> options) override;
 
  protected:
   SchemaResolver resolver_;
 };
 
-class JSONRecordBatchFragment : public FileDataFragment {
+class JSONRecordBatchFragment : public FileFragment {
  public:
   JSONRecordBatchFragment(const FileSource& source, std::shared_ptr<Schema> schema,
                           std::shared_ptr<ScanOptions> options)
-      : FileDataFragment(source, std::make_shared<JSONRecordBatchFileFormat>(schema),
-                         options) {}
+      : FileFragment(source, std::make_shared<JSONRecordBatchFileFormat>(schema),
+                     options) {}
 
   bool splittable() const override { return false; }
 };
 
-Result<std::shared_ptr<DataFragment>> JSONRecordBatchFileFormat::MakeFragment(
+Result<std::shared_ptr<Fragment>> JSONRecordBatchFileFormat::MakeFragment(
     const FileSource& source, std::shared_ptr<ScanOptions> options) {
   return std::make_shared<JSONRecordBatchFragment>(source, resolver_(source), options);
 }
 
-class TestFileSystemDataSource : public ::testing::Test {
+class TestFileSystemSource : public ::testing::Test {
  public:
   void MakeFileSystem(const std::vector<fs::FileStats>& stats) {
     ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
@@ -294,22 +294,20 @@ class TestFileSystemDataSource : public ::testing::Test {
 
     MakeFileSystem(stats);
     auto format = std::make_shared<DummyFileFormat>();
-    ASSERT_OK_AND_ASSIGN(
-        source_, FileSystemDataSource::Make(schema({}), source_partition, format, fs_,
-                                            stats, partitions));
+    ASSERT_OK_AND_ASSIGN(source_, FileSystemSource::Make(schema({}), source_partition,
+                                                         format, fs_, stats, partitions));
   }
 
  protected:
   std::shared_ptr<fs::FileSystem> fs_;
-  std::shared_ptr<DataSource> source_;
+  std::shared_ptr<Source> source_;
   std::shared_ptr<ScanOptions> options_ = ScanOptions::Make(schema({}));
 };
 
-void AssertFragmentsAreFromPath(DataFragmentIterator it,
-                                std::vector<std::string> expected) {
+void AssertFragmentsAreFromPath(FragmentIterator it, std::vector<std::string> expected) {
   std::vector<std::string> actual;
 
-  auto v = [&actual](std::shared_ptr<DataFragment> fragment) -> Status {
+  auto v = [&actual](std::shared_ptr<Fragment> fragment) -> Status {
     EXPECT_NE(fragment, nullptr);
     auto dummy = std::static_pointer_cast<DummyFragment>(fragment);
     actual.push_back(dummy->source().path());

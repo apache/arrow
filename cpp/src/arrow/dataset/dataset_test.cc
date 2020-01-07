@@ -31,9 +31,9 @@
 namespace arrow {
 namespace dataset {
 
-class TestSimpleDataFragment : public DatasetFixtureMixin {};
+class TestInMemoryFragment : public DatasetFixtureMixin {};
 
-TEST_F(TestSimpleDataFragment, Scan) {
+TEST_F(TestInMemoryFragment, Scan) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
 
@@ -41,15 +41,15 @@ TEST_F(TestSimpleDataFragment, Scan) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  // Creates a SimpleDataFragment of the same repeated batch.
-  auto fragment = SimpleDataFragment({kNumberBatches, batch}, options_);
+  // Creates a InMemoryFragment of the same repeated batch.
+  auto fragment = InMemoryFragment({kNumberBatches, batch}, options_);
 
   AssertFragmentEquals(reader.get(), &fragment);
 }
 
-class TestSimpleDataSource : public DatasetFixtureMixin {};
+class TestInMemorySource : public DatasetFixtureMixin {};
 
-TEST_F(TestSimpleDataSource, GetFragments) {
+TEST_F(TestInMemorySource, GetFragments) {
   constexpr int64_t kNumberFragments = 4;
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
@@ -59,17 +59,17 @@ TEST_F(TestSimpleDataSource, GetFragments) {
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches * kNumberFragments, batch);
 
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
-  auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
+  auto fragment = std::make_shared<InMemoryFragment>(batches, options_);
   // It is safe to copy fragment multiple time since Scan() does not consume
   // the internal array.
-  auto source = SimpleDataSource(schema_, {kNumberFragments, fragment});
+  auto source = InMemorySource(schema_, {kNumberFragments, fragment});
 
-  AssertDataSourceEquals(reader.get(), &source);
+  AssertSourceEquals(reader.get(), &source);
 }
 
-class TestTreeDataSource : public DatasetFixtureMixin {};
+class TestTreeSource : public DatasetFixtureMixin {};
 
-TEST_F(TestTreeDataSource, GetFragments) {
+TEST_F(TestTreeSource, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
   constexpr int64_t kChildPerNode = 2;
@@ -82,24 +82,24 @@ TEST_F(TestTreeDataSource, GetFragments) {
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches * n_leaves, batch);
 
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
-  auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
+  auto fragment = std::make_shared<InMemoryFragment>(batches, options_);
 
   // Creates a complete binary tree of depth kCompleteBinaryTreeDepth where the
-  // leaves are SimpleDataSource containing kChildPerNode fragments.
+  // leaves are InMemorySource containing kChildPerNode fragments.
 
-  auto l1_leaf_source = std::make_shared<SimpleDataSource>(
-      schema_, DataFragmentVector{kChildPerNode, fragment});
+  auto l1_leaf_source =
+      std::make_shared<InMemorySource>(schema_, FragmentVector{kChildPerNode, fragment});
 
-  auto l2_leaf_tree_source = std::make_shared<TreeDataSource>(
-      schema_, DataSourceVector{kChildPerNode, l1_leaf_source});
+  auto l2_leaf_tree_source =
+      std::make_shared<TreeSource>(schema_, SourceVector{kChildPerNode, l1_leaf_source});
 
-  auto l3_middle_tree_source = std::make_shared<TreeDataSource>(
-      schema_, DataSourceVector{kChildPerNode, l2_leaf_tree_source});
+  auto l3_middle_tree_source = std::make_shared<TreeSource>(
+      schema_, SourceVector{kChildPerNode, l2_leaf_tree_source});
 
-  auto root_source = std::make_shared<TreeDataSource>(
-      schema_, DataSourceVector{kChildPerNode, l3_middle_tree_source});
+  auto root_source = std::make_shared<TreeSource>(
+      schema_, SourceVector{kChildPerNode, l3_middle_tree_source});
 
-  AssertDataSourceEquals(reader.get(), root_source.get());
+  AssertSourceEquals(reader.get(), root_source.get());
 }
 
 class TestDataset : public DatasetFixtureMixin {};
@@ -113,12 +113,12 @@ TEST_F(TestDataset, TrivialScan) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
 
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
-  auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
-  DataFragmentVector fragments{kNumberFragments, fragment};
+  auto fragment = std::make_shared<InMemoryFragment>(batches, options_);
+  FragmentVector fragments{kNumberFragments, fragment};
 
-  DataSourceVector sources = {
-      std::make_shared<SimpleDataSource>(schema_, fragments),
-      std::make_shared<SimpleDataSource>(schema_, fragments),
+  SourceVector sources = {
+      std::make_shared<InMemorySource>(schema_, fragments),
+      std::make_shared<InMemorySource>(schema_, fragments),
   };
 
   const int64_t total_batches = sources.size() * kNumberFragments * kNumberBatches;
@@ -291,67 +291,65 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
 
   // Creation.
   //
-  // A Dataset is the union of one or more DataSources with the same schema.
-  // Example of DataSource, FileSystemDataSource, OdbcDataSource,
-  // FlightDataSource.
+  // A Dataset is the union of one or more Sources with the same schema.
+  // Example of Source, FileSystemSource, OdbcSource,
+  // FlightSource.
 
-  // A DataSource is composed of DataFragments. Each DataFragment can yield
-  // multiple RecordBatches. DataSources can be created manually or "discovered"
-  // via the DataSourceDiscovery interface.
-  std::shared_ptr<DataSourceDiscovery> discovery;
+  // A Source is composed of Fragments. Each Fragment can yield
+  // multiple RecordBatches. Sources can be created manually or "discovered"
+  // via the SourceFactory interface.
+  std::shared_ptr<SourceFactory> factory;
 
   // The user must specify which FileFormat is used to create FileFragments.
-  // This option is specific to FileSystemDataSource (and the builder).
+  // This option is specific to FileSystemSource (and the builder).
   auto format_schema = SchemaFromColumnNames(schema_, {"region", "model", "sales"});
   auto format = std::make_shared<JSONRecordBatchFileFormat>(format_schema);
 
   // A selector is used to crawl files and directories of a
   // filesystem. If the options in FileSelector are not enough, the
-  // FileSystemDataSourceDiscovery class also supports an explicit list of
+  // FileSystemSourceFactory class also supports an explicit list of
   // fs::FileStats instead of the selector.
   fs::FileSelector s;
   s.base_dir = "/dataset";
   s.recursive = true;
 
-  // Further options can be given to the discovery mechanism via the
-  // FileSystemDiscoveryOptions configuration class. See the docstring for more
+  // Further options can be given to the factory mechanism via the
+  // FileSystemFactoryOptions configuration class. See the docstring for more
   // information.
-  FileSystemDiscoveryOptions options;
+  FileSystemFactoryOptions options;
   options.ignore_prefixes = {"."};
 
-  // Partitions expressions can be discovered for DataSource and DataFragments.
+  // Partitions expressions can be discovered for Source and Fragments.
   // This metadata is then used in conjuction with the query filter to apply
   // the pushdown predicate optimization.
   //
-  // The SchemaPartitionScheme is a simple scheme where the path is split with
+  // The DirectoryPartitioning is a partitioning where the path is split with
   // the directory separator character and the components are parsed as values
   // of the corresponding fields in its schema.
   //
-  // Since a PartitionSchemeDiscovery is specified instead of an explicit
-  // PartitionScheme, the types of partition fields will be inferred.
+  // Since a PartitioningFactory is specified instead of an explicit
+  // Partitioning, the types of partition fields will be inferred.
   //
   // - "/2019" -> {"year": 2019}
   // - "/2019/01 -> {"year": 2019, "month": 1}
   // - "/2019/01/CA -> {"year": 2019, "month": 1, "country": "CA"}
   // - "/2019/01/CA/a_file.json -> {"year": 2019, "month": 1, "country": "CA"}
-  options.partition_scheme =
-      SchemaPartitionScheme::MakeDiscovery({"year", "month", "country"});
+  options.partitioning = DirectoryPartitioning::MakeFactory({"year", "month", "country"});
 
-  ASSERT_OK_AND_ASSIGN(discovery,
-                       FileSystemDataSourceDiscovery::Make(fs_, s, format, options));
+  ASSERT_OK_AND_ASSIGN(factory, FileSystemSourceFactory::Make(fs_, s, format, options));
 
-  // DataFragments might have compatible but slightly different schemas, e.g.
+  // Fragments might have compatible but slightly different schemas, e.g.
   // schema evolved by adding/renaming columns. In this case, the schema is
   // passed to the dataset constructor.
   // The inspected_schema may optionally be modified before being finalized.
-  ASSERT_OK_AND_ASSIGN(auto inspected_schema, discovery->Inspect());
+  ASSERT_OK_AND_ASSIGN(auto inspected_schema, factory->Inspect());
   EXPECT_EQ(*schema_, *inspected_schema);
 
-  // Build the DataSource where partitions are attached to fragments (files).
-  ASSERT_OK_AND_ASSIGN(auto datasource, discovery->Finish(inspected_schema));
+  // Build the Source where partitions are attached to fragments (files).
+  ASSERT_OK_AND_ASSIGN(auto source, factory->Finish(inspected_schema));
 
-  // Create the Dataset from our single DataSource.
-  ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make({datasource}, inspected_schema));
+  // Create the Dataset from our single Source.
+  ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make({source}, inspected_schema));
 
   // Querying.
   //
@@ -362,16 +360,16 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
 
   // An optional subset of columns can be provided. This will trickle to
-  // DataFragment drivers. The net effect is that only columns of interest will
-  // be materialized if the DataFragment supports it. This is the major benefit
+  // Fragment drivers. The net effect is that only columns of interest will
+  // be materialized if the Fragment supports it. This is the major benefit
   // of using a column-major format versus a row-major format.
   //
-  // This API decouples the DataSource/DataFragment implementation and column
+  // This API decouples the Source/Fragment implementation and column
   // projection from the query part.
   //
-  // For example, a ParquetFileDataFragment may read the necessary byte ranges
-  // exclusively, ranges, or an OdbcDataFragment could convert the projection to a SELECT
-  // statement. The CsvFileDataFragment wouldn't benefit from this as much, but
+  // For example, a ParquetFileFragment may read the necessary byte ranges
+  // exclusively, ranges, or an OdbcFragment could convert the projection to a SELECT
+  // statement. The CsvFileFragment wouldn't benefit from this as much, but
   // can still benefit from skipping conversion of unneeded columns.
   std::vector<std::string> columns{"sales", "model", "country"};
   ASSERT_OK(scanner_builder->Project(columns));
@@ -381,7 +379,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // yielded. Predicate pushdown optimizations are applied using partition information if
   // available.
   //
-  // This API decouples predicate pushdown from the DataSource implementation
+  // This API decouples predicate pushdown from the Source implementation
   // and partition discovery.
   //
   // The following filter tests both predicate pushdown and post filtering
@@ -411,12 +409,12 @@ class TestSchemaUnification : public TestDataset {
   void SetUp() {
     using PathAndContent = std::vector<std::pair<std::string, std::string>>;
 
-    // The following test creates 2 data source with divergent but compatible
-    // schemas. Each data source have a common partition scheme where the
+    // The following test creates 2 sources with divergent but compatible
+    // schemas. Each source have a common partitioning where the
     // fields are not materialized in the data fragments.
     //
-    // Each data source is composed of 2 data fragments with divergent but
-    // compatible schemas. The data fragment within a data source share at
+    // Each data is composed of 2 data fragments with divergent but
+    // compatible schemas. The data fragment within a source share at
     // least one column.
     //
     // Thus, the fixture helps verifying various scenarios where the Scanner
@@ -427,10 +425,10 @@ class TestSchemaUnification : public TestDataset {
     constexpr auto ds2_df1 = "/dataset/beta/part_ds=2/part_df=1/data.json";
     constexpr auto ds2_df2 = "/dataset/beta/part_ds=2/part_df=2/data.json";
     auto files = PathAndContent{
-        // First DataSource
+        // First Source
         {ds1_df1, R"([{"phy_1": 111, "phy_2": 211}])"},
         {ds1_df2, R"([{"phy_2": 212, "phy_3": 312}])"},
-        // Second DataSource
+        // Second Source
         {ds2_df1, R"([{"phy_3": 321, "phy_4": 421}])"},
         {ds2_df2, R"([{"phy_4": 422, "phy_2": 222}])"},
     };
@@ -443,7 +441,7 @@ class TestSchemaUnification : public TestDataset {
 
     auto get_source =
         [this](std::string base,
-               std::vector<std::string> paths) -> Result<std::shared_ptr<DataSource>> {
+               std::vector<std::string> paths) -> Result<std::shared_ptr<Source>> {
       auto resolver = [this](const FileSource& source) -> std::shared_ptr<Schema> {
         auto path = source.path();
         // A different schema for each data fragment.
@@ -462,17 +460,17 @@ class TestSchemaUnification : public TestDataset {
 
       auto format = std::make_shared<JSONRecordBatchFileFormat>(resolver);
 
-      FileSystemDiscoveryOptions options;
+      FileSystemFactoryOptions options;
       options.partition_base_dir = base;
-      options.partition_scheme =
-          std::make_shared<HivePartitionScheme>(SchemaFromNames({"part_ds", "part_df"}));
+      options.partitioning =
+          std::make_shared<HivePartitioning>(SchemaFromNames({"part_ds", "part_df"}));
 
-      ARROW_ASSIGN_OR_RAISE(auto discovery, FileSystemDataSourceDiscovery::Make(
-                                                fs_, paths, format, options));
+      ARROW_ASSIGN_OR_RAISE(auto factory,
+                            FileSystemSourceFactory::Make(fs_, paths, format, options));
 
-      ARROW_ASSIGN_OR_RAISE(auto schema, discovery->Inspect());
+      ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect());
 
-      return discovery->Finish(schema);
+      return factory->Finish(schema);
     };
 
     schema_ = SchemaFromNames({"phy_1", "phy_2", "phy_3", "phy_4", "part_ds", "part_df"});
@@ -523,8 +521,8 @@ TEST_F(TestSchemaUnification, SelectStar) {
   // This is a `SELECT * FROM dataset` where it ensures:
   //
   // - proper re-ordering of columns
-  // - materializing missing physical columns in DataFragments
-  // - materializing missing partition columns extracted from PartitionScheme
+  // - materializing missing physical columns in Fragments
+  // - materializing missing partition columns extracted from Partitioning
   ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
 
   using TupleType = std::tuple<i32, i32, i32, i32, i32, i32>;
@@ -555,7 +553,7 @@ TEST_F(TestSchemaUnification, SelectPhysicalColumns) {
 }
 
 TEST_F(TestSchemaUnification, SelectSomeReorderedPhysicalColumns) {
-  // Select physical columns in a different order than physical DataFragments
+  // Select physical columns in a different order than physical Fragments
   ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
   ASSERT_OK(scan_builder->Project({"phy_2", "phy_1", "phy_4"}));
 
@@ -594,7 +592,7 @@ TEST_F(TestSchemaUnification, SelectPartitionColumns) {
   // Selects partition (virtual) columns, it ensures:
   //
   // - virtual column are materialized
-  // - DataFragment yield the right number of rows even if no column is selected
+  // - Fragment yield the right number of rows even if no column is selected
   ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
   ASSERT_OK(scan_builder->Project({"part_ds", "part_df"}));
   using TupleType = std::tuple<i32, i32>;

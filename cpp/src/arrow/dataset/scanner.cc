@@ -61,16 +61,16 @@ std::vector<std::string> ScanOptions::MaterializedFields() const {
   return fields;
 }
 
-Result<RecordBatchIterator> SimpleScanTask::Execute() {
+Result<RecordBatchIterator> InMemoryScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
 
-/// \brief GetScanTaskIterator transforms an Iterator<DataFragment> in a
+/// \brief GetScanTaskIterator transforms an Iterator<Fragment> in a
 /// flattened Iterator<ScanTask>.
-static ScanTaskIterator GetScanTaskIterator(DataFragmentIterator fragments,
+static ScanTaskIterator GetScanTaskIterator(FragmentIterator fragments,
                                             std::shared_ptr<ScanContext> context) {
-  // DataFragment -> ScanTaskIterator
-  auto fn = [context](std::shared_ptr<DataFragment> fragment) {
+  // Fragment -> ScanTaskIterator
+  auto fn = [context](std::shared_ptr<Fragment> fragment) {
     return fragment->Scan(context);
   };
 
@@ -82,11 +82,11 @@ static ScanTaskIterator GetScanTaskIterator(DataFragmentIterator fragments,
 }
 
 Result<ScanTaskIterator> Scanner::Scan() {
-  // First, transforms DataSources in a flat Iterator<DataFragment>. This
-  // iterator is lazily constructed, i.e. DataSource::GetFragments is never
+  // First, transforms Sources in a flat Iterator<Fragment>. This
+  // iterator is lazily constructed, i.e. Source::GetFragments is never
   // invoked.
   auto fragments_it = GetFragmentsFromSources(sources_, options_);
-  // Second, transforms Iterator<DataFragment> into a unified
+  // Second, transforms Iterator<Fragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
   auto scan_task_it = GetScanTaskIterator(std::move(fragments_it), context_);
@@ -101,8 +101,8 @@ Result<ScanTaskIterator> Scanner::Scan() {
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
     std::vector<std::shared_ptr<RecordBatch>> batches,
     std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context) {
-  ScanTaskVector tasks{
-      std::make_shared<SimpleScanTask>(batches, std::move(options), std::move(context))};
+  ScanTaskVector tasks{std::make_shared<InMemoryScanTask>(batches, std::move(options),
+                                                          std::move(context))};
   return MakeVectorIterator(std::move(tasks));
 }
 

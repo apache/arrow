@@ -7,9 +7,6 @@
 open_dataset(sources, schema = NULL, partition = hive_partition(), ...)
 }
 \arguments{
-\item{sources}{Either (1) a string path to a directory containing data files,
-or (2) a list of \code{DataSourceDiscovery} objects as created by \code{\link[=data_source]{data_source()}}.}
-
 \item{schema}{\link{Schema} for the dataset. If \code{NULL} (the default), the schema
 will be inferred from the data sources.}
 
@@ -22,7 +19,7 @@ for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
 \item A character vector that defines the field names corresponding to those
 path segments (that is, you're providing the names that would correspond
 to a \code{Schema} but the types will be autodetected)
-\item A \code{HivePartitionScheme} or \code{HivePartitionSchemeDiscovery}, as returned
+\item A \code{HivePartitioning} or \code{HivePartitioningFactory}, as returned
 by \code{\link[=hive_partition]{hive_partition()}} which parses explicit or autodetected fields from
 Hive-style path segments
 \item \code{NULL} for no partitioning
@@ -30,14 +27,17 @@ Hive-style path segments
 
 \item{...}{additional arguments passed to \code{data_source()}, when \code{sources} is
 a file path, otherwise ignored.}
+
+\item{Either}{(1) a string path to a directory containing data files,
+or (2) a list of \code{SourceFactory} objects as created by \code{\link[=data_source]{data_source()}}.}
 }
 \value{
 A \link{Dataset} R6 object. Use \code{dplyr} methods on it to query the data,
-or call \verb{$NewScan()} to construct a query directly.
+or call \code{$NewScan()} to construct a query directly.
 }
 \description{
 Open a multi-file dataset
 }
 \seealso{
-\link{PartitionScheme} for defining partitioning
+\link{Partitioning} for defining partitions
 }

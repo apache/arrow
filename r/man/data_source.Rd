@@ -2,17 +2,11 @@
 % Please edit documentation in R/dataset.R
 \name{data_source}
 \alias{data_source}
-\title{Create a DataSource for a Dataset}
+\title{Create a Source for a Dataset}
 \usage{
-data_source(
-  path,
-  filesystem = c("auto", "local"),
-  format = c("parquet", "arrow", "ipc"),
-  partition = NULL,
-  allow_non_existent = FALSE,
-  recursive = TRUE,
-  ...
-)
+data_source(path, filesystem = c("auto", "local"),
+  format = c("parquet", "arrow", "ipc"), partitioning = NULL,
+  allow_non_existent = FALSE, recursive = TRUE, ...)
 }
 \arguments{
 \item{path}{A string file path containing data files}
@@ -24,6 +18,14 @@ data_source(
 Currently supported options are "parquet", "arrow", and "ipc" (an alias for
 the Arrow file format)}
 
+\item{allow_non_existent}{logical: is \code{path} allowed to not exist? Default
+\code{FALSE}. See \link{FileSelector}.}
+
+\item{recursive}{logical: should files be discovered in subdirectories of
+\code{path}? Default \code{TRUE}.}
+
+\item{...}{Additional arguments passed to the \link{FileSystem} \code{$create()} method}
+
 \item{partition}{One of
 \itemize{
 \item A \code{Schema}, in which case the file paths relative to \code{sources} will be
@@ -33,25 +35,17 @@ for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
 \item A character vector that defines the field names corresponding to those
 path segments (that is, you're providing the names that would correspond
 to a \code{Schema} but the types will be autodetected)
-\item A \code{HivePartitionScheme} or \code{HivePartitionSchemeDiscovery}, as returned
+\item A \code{HivePartitioning} or \code{HivePartitioningFactory}, as returned
 by \code{\link[=hive_partition]{hive_partition()}} which parses explicit or autodetected fields from
 Hive-style path segments
 \item \code{NULL} for no partitioning
 }}
-
-\item{allow_non_existent}{logical: is \code{path} allowed to not exist? Default
-\code{FALSE}. See \link{FileSelector}.}
-
-\item{recursive}{logical: should files be discovered in subdirectories of
-\code{path}? Default \code{TRUE}.}
-
-\item{...}{Additional arguments passed to the \link{FileSystem} \verb{$create()} method}
 }
 \value{
-A \code{DataSourceDiscovery} object. Pass this to \code{\link[=open_dataset]{open_dataset()}},
-in a list potentially with other \code{DataSourceDiscovery} objects, to create
+A \code{SourceFactory} object. Pass this to \code{\link[=open_dataset]{open_dataset()}},
+in a list potentially with other \code{SourceFactory} objects, to create
 a \code{Dataset}.
 }
 \description{
-Create a DataSource for a Dataset
+Create a Source for a Dataset
 }

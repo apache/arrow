@@ -26,7 +26,8 @@ take the following arguments:
 \section{Methods}{
 
 \itemize{
-\item \verb{$Read()}: returns an Arrow Table.
+\item \code{$Read()}: returns an Arrow Table.
 }
 }
 
+\keyword{datasets}

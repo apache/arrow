@@ -49,7 +49,7 @@ using ds::string_literals::operator"" _;
   } while (0);
 
 struct Configuration {
-  // Increase the ds::DataSet by repeating `repeat` times the ds::DataSource.
+  // Increase the ds::DataSet by repeating `repeat` times the ds::Source.
   size_t repeat = 1;
 
   // Indicates if the Scanner::ToTable should consume in parallel.
@@ -73,19 +73,17 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(std::shared_ptr<fs::FileSystem> 
   s.base_dir = path;
   s.recursive = true;
 
-  ds::FileSystemDiscoveryOptions options;
-  // The discovery will try to build a datasource.
-  auto discovery = ds::FileSystemDataSourceDiscovery::Make(fs, s, format, options).ValueOrDie();
+  ds::FileSystemFactoryOptions options;
+  // The factory will try to build a source.
+  auto factory = ds::FileSystemSourceFactory::Make(fs, s, format, options).ValueOrDie();
 
   // Try to infer a common schema for all files.
-  auto schema = discovery->Inspect().ValueOrDie();
+  auto schema = factory->Inspect().ValueOrDie();
   // Caller can optionally decide another schema as long as it is compatible
-  // with the previous one.
-  //
-  // discovery->SetSchema(compatible_schema);
-  auto source = discovery->Finish().ValueOrDie();
+  // with the previous one, e.g. `factory->Finish(compatible_schema)`.
+  auto source = factory->Finish().ValueOrDie();
 
-  ds::DataSourceVector sources{conf.repeat, source};
+  ds::SourceVector sources{conf.repeat, source};
   auto dataset = ds::Dataset::Make(std::move(sources), schema);
 
   return dataset.ValueOrDie();

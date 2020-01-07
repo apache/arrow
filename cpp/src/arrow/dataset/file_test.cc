@@ -78,7 +78,7 @@ TEST(FileSource, BufferBased) {
   ASSERT_EQ(Compression::LZ4, source2.compression());
 }
 
-TEST_F(TestFileSystemDataSource, Basic) {
+TEST_F(TestFileSystemSource, Basic) {
   MakeSource({});
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {});
 
@@ -90,7 +90,7 @@ TEST_F(TestFileSystemDataSource, Basic) {
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"A/a", "A/B/b"});
 }
 
-TEST_F(TestFileSystemDataSource, RootPartitionPruning) {
+TEST_F(TestFileSystemSource, RootPartitionPruning) {
   auto source_partition = ("a"_ == 5).Copy();
   MakeSource({fs::File("a"), fs::File("b")}, source_partition);
 
@@ -118,7 +118,7 @@ TEST_F(TestFileSystemDataSource, RootPartitionPruning) {
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
 }
 
-TEST_F(TestFileSystemDataSource, TreePartitionPruning) {
+TEST_F(TestFileSystemSource, TreePartitionPruning) {
   auto source_partition = ("country"_ == "US").Copy();
   std::vector<fs::FileStats> regions = {
       fs::Dir("NY"), fs::File("NY/New York"),      fs::File("NY/Franklin"),
@@ -141,7 +141,7 @@ TEST_F(TestFileSystemDataSource, TreePartitionPruning) {
   // Default filter should always return all data.
   AssertFragmentsAreFromPath(source_->GetFragments(options_), all_cities);
 
-  // Data source partition is respected
+  // Source's partitions are respected
   options_->filter = ("country"_ == "US").Copy();
   AssertFragmentsAreFromPath(source_->GetFragments(options_), all_cities);
   options_->filter = ("country"_ == "FR").Copy();

@@ -321,7 +321,7 @@ void CountRowsInScan(ScanTaskIterator& it, int64_t expected_rows,
 
 class TestParquetFileFormatPushDown : public TestParquetFileFormat {
  public:
-  void CountRowsAndBatchesInScan(DataFragment& fragment, int64_t expected_rows,
+  void CountRowsAndBatchesInScan(Fragment& fragment, int64_t expected_rows,
                                  int64_t expected_batches) {
     int64_t actual_rows = 0;
     int64_t actual_batches = 0;
@@ -351,7 +351,7 @@ TEST_F(TestParquetFileFormatPushDown, Basic) {
   // Thus the ArithmeticDataset(n) has n RecordBatches and the total number of
   // rows is n(n+1)/2.
   //
-  // This test uses the DataFragment directly, and so no post-filtering is
+  // This test uses the Fragment directly, and so no post-filtering is
   // applied via ScanOptions' evaluator. Thus, counting the number of returned
   // rows and returned row groups is a good enough proxy to check if pushdown
   // predicate is working.

@@ -21,9 +21,10 @@ and takes the following arguments:
 \section{Methods}{
 
 \itemize{
-\item \verb{$read_dictionary(column_index)}
-\item \verb{$set_read_dictionary(column_index, read_dict)}
-\item \verb{$use_threads(use_threads)}
+\item \code{$read_dictionary(column_index)}
+\item \code{$set_read_dictionary(column_index, read_dict)}
+\item \code{$use_threads(use_threads)}
 }
 }
 
+\keyword{datasets}

@@ -20,41 +20,41 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 // [[arrow::export]]
-std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make2(
+std::shared_ptr<ds::SourceFactory> dataset___FSSFactory__Make2(
     const std::shared_ptr<fs::FileSystem>& fs,
     const std::shared_ptr<fs::FileSelector>& selector,
     const std::shared_ptr<ds::FileFormat>& format,
-    const std::shared_ptr<ds::PartitionScheme>& partition_scheme) {
+    const std::shared_ptr<ds::Partitioning>& partitioning) {
   // TODO(fsaintjacques): Make options configurable
-  auto options = ds::FileSystemDiscoveryOptions{};
-  if (partition_scheme != nullptr) {
-    options.partition_scheme = partition_scheme;
+  auto options = ds::FileSystemFactoryOptions{};
+  if (partitioning != nullptr) {
+    options.partitioning = partitioning;
   }
 
-  return VALUE_OR_STOP(
-      ds::FileSystemDataSourceDiscovery::Make(fs, *selector, format, options));
+  return VALUE_OR_STOP(ds::FileSystemSourceFactory::Make(fs, *selector, format, options));
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make1(
+std::shared_ptr<ds::SourceFactory> dataset___FSSFactory__Make1(
     const std::shared_ptr<fs::FileSystem>& fs,
     const std::shared_ptr<fs::FileSelector>& selector,
     const std::shared_ptr<ds::FileFormat>& format) {
-  return dataset___FSDSDiscovery__Make2(fs, selector, format, nullptr);
+  return dataset___FSSFactory__Make2(fs, selector, format, nullptr);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make3(
+std::shared_ptr<ds::SourceFactory> dataset___FSSFactory__Make3(
     const std::shared_ptr<fs::FileSystem>& fs,
     const std::shared_ptr<fs::FileSelector>& selector,
     const std::shared_ptr<ds::FileFormat>& format,
-    const std::shared_ptr<ds::PartitionSchemeDiscovery>& discovery) {
+    const std::shared_ptr<ds::PartitioningFactory>& factory) {
   // TODO(fsaintjacques): Make options configurable
-  auto options = ds::FileSystemDiscoveryOptions{};
-  options.partition_scheme = discovery;
+  auto options = ds::FileSystemFactoryOptions{};
+  if (factory != nullptr) {
+    options.partitioning = factory;
+  }
 
-  return VALUE_OR_STOP(
-      ds::FileSystemDataSourceDiscovery::Make(fs, *selector, format, options));
+  return VALUE_OR_STOP(ds::FileSystemSourceFactory::Make(fs, *selector, format, options));
 }
 
 // [[arrow::export]]
@@ -68,58 +68,56 @@ std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make() {
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish1(
-    const std::shared_ptr<ds::DataSourceDiscovery>& discovery) {
-  return VALUE_OR_STOP(discovery->Finish());
+std::shared_ptr<ds::Source> dataset___SFactory__Finish1(
+    const std::shared_ptr<ds::SourceFactory>& factory) {
+  return VALUE_OR_STOP(factory->Finish());
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish2(
-    const std::shared_ptr<ds::DataSourceDiscovery>& discovery,
+std::shared_ptr<ds::Source> dataset___SFactory__Finish2(
+    const std::shared_ptr<ds::SourceFactory>& factory,
     const std::shared_ptr<arrow::Schema>& schema) {
-  return VALUE_OR_STOP(discovery->Finish(schema));
+  return VALUE_OR_STOP(factory->Finish(schema));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> dataset___DataSource__schema(
-    const std::shared_ptr<ds::DataSource>& source) {
+std::shared_ptr<arrow::Schema> dataset___Source__schema(
+    const std::shared_ptr<ds::Source>& source) {
   return source->schema();
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(
-    const std::shared_ptr<ds::DataSourceDiscovery>& discovery) {
-  return VALUE_OR_STOP(discovery->Inspect());
+std::shared_ptr<arrow::Schema> dataset___SFactory__Inspect(
+    const std::shared_ptr<ds::SourceFactory>& factory) {
+  return VALUE_OR_STOP(factory->Inspect());
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::PartitionScheme> dataset___SchemaPartitionScheme(
+std::shared_ptr<ds::Partitioning> dataset___DirectoryPartitioning(
     const std::shared_ptr<arrow::Schema>& schm) {
-  return std::make_shared<ds::SchemaPartitionScheme>(schm);
+  return std::make_shared<ds::DirectoryPartitioning>(schm);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::PartitionSchemeDiscovery>
-dataset___SchemaPartitionScheme__MakeDiscovery(
+std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFactory(
     const std::vector<std::string>& field_names) {
-  return ds::SchemaPartitionScheme::MakeDiscovery(field_names);
+  return ds::DirectoryPartitioning::MakeFactory(field_names);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::PartitionScheme> dataset___HivePartitionScheme(
+std::shared_ptr<ds::Partitioning> dataset___HivePartitioning(
     const std::shared_ptr<arrow::Schema>& schm) {
-  return std::make_shared<ds::HivePartitionScheme>(schm);
+  return std::make_shared<ds::HivePartitioning>(schm);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::PartitionSchemeDiscovery>
-dataset___HivePartitionScheme__MakeDiscovery() {
-  return ds::HivePartitionScheme::MakeDiscovery();
+std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory() {
+  return ds::HivePartitioning::MakeFactory();
 }
 
 // [[arrow::export]]
 std::shared_ptr<ds::Dataset> dataset___Dataset__create(
-    const ds::DataSourceVector& sources, const std::shared_ptr<arrow::Schema>& schm) {
+    const ds::SourceVector& sources, const std::shared_ptr<arrow::Schema>& schm) {
   return VALUE_OR_STOP(ds::Dataset::Make(sources, schm));
 }
 
