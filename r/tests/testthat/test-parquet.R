@@ -113,6 +113,10 @@ test_that("Factors are preserved when writing/reading from Parquet", {
   chr <- c("a", "b")
   df <- tibble::tibble(fct = fct, ord = ord, chr = chr)
 
-  expect_parquet_roundtrip(df)
-  expect_parquet_roundtrip(df, as_data_frame = FALSE)
+  pq_tmp_file <- tempfile()
+  on.exit(unlink(pq_tmp_file))
+
+  write_parquet(df, pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file)
+  expect_identical(df, df_read)
 })
