@@ -17,6 +17,8 @@
  * under the License.
  */
 
+#include <arrow-glib/enums.h>
+
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/file-system.hpp>
 #include <arrow-glib/input-stream.hpp>
@@ -54,7 +56,13 @@ typedef struct GArrowFileStatsPrivate_ {
 } GArrowFileStatsPrivate;
 
 enum {
-  PROP_FILE_STATS = 1
+  PROP_FILE_STATS_TYPE = 1,
+  PROP_FILE_STATS_PATH,
+  PROP_FILE_STATS_BASE_NAME,
+  PROP_FILE_STATS_DIR_NAME,
+  PROP_FILE_STATS_EXTENSION,
+  PROP_FILE_STATS_SIZE,
+  PROP_FILE_STATS_MTIME,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowFileStats, garrow_file_stats, G_TYPE_OBJECT)
@@ -63,6 +71,84 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowFileStats, garrow_file_stats, G_TYPE_OBJECT)
   static_cast<GArrowFileStatsPrivate *>(           \
      garrow_file_stats_get_instance_private(       \
        GARROW_FILE_STATS(obj)))
+
+static void
+garrow_file_stats_set_property(GObject *object,
+                               guint prop_id,
+                               const GValue *value,
+                               GParamSpec *pspec)
+{
+  auto priv = GARROW_FILE_STATS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_FILE_STATS_TYPE:
+    {
+      auto arrow_file_type = static_cast<arrow::fs::FileType>(g_value_get_enum(value));
+      priv->file_stats.set_type(arrow_file_type);
+    }
+    break;
+  case PROP_FILE_STATS_PATH:
+    priv->file_stats.set_path(g_value_get_string(value));
+    break;
+  case PROP_FILE_STATS_SIZE:
+    priv->file_stats.set_size(g_value_get_int64(value));
+    break;
+  case PROP_FILE_STATS_MTIME:
+    {
+      const gint64 mtime = g_value_get_int64(value);
+      const arrow::fs::TimePoint::duration duration(mtime);
+      priv->file_stats.set_mtime(arrow::fs::TimePoint(duration));
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_file_stats_get_property(GObject *object,
+                               guint prop_id,
+                               GValue *value,
+                               GParamSpec *pspec)
+{
+  auto priv = GARROW_FILE_STATS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_FILE_STATS_TYPE:
+    {
+      const auto arrow_file_type = priv->file_stats.type();
+      const auto file_type = static_cast<GArrowFileType>(arrow_file_type);
+      g_value_set_enum(value, file_type);
+    }
+    break;
+  case PROP_FILE_STATS_PATH:
+    g_value_set_string(value, priv->file_stats.path().c_str());
+    break;
+  case PROP_FILE_STATS_BASE_NAME:
+    g_value_set_string(value, priv->file_stats.base_name().c_str());
+    break;
+  case PROP_FILE_STATS_DIR_NAME:
+    g_value_set_string(value, priv->file_stats.dir_name().c_str());
+    break;
+  case PROP_FILE_STATS_EXTENSION:
+    g_value_set_string(value, priv->file_stats.extension().c_str());
+    break;
+  case PROP_FILE_STATS_SIZE:
+    g_value_set_int64(value, priv->file_stats.size());
+    break;
+  case PROP_FILE_STATS_MTIME:
+    {
+      const auto arrow_mtime = priv->file_stats.mtime();
+      const auto mtime = arrow_mtime.time_since_epoch().count();
+      g_value_set_int64(value, mtime);
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 garrow_file_stats_finalize(GObject *object)
@@ -84,9 +170,117 @@ garrow_file_stats_init(GArrowFileStats *object)
 static void
 garrow_file_stats_class_init(GArrowFileStatsClass *klass)
 {
+  GParamSpec *spec;
+
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize     = garrow_file_stats_finalize;
+  gobject_class->set_property = garrow_file_stats_set_property;
+  gobject_class->get_property = garrow_file_stats_get_property;
+
+  /**
+   * GArrowFileStats:type:
+   *
+   * The file type.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_enum("type",
+                           "Type",
+                           "The file type.",
+                           GARROW_TYPE_FILE_TYPE,
+                           GARROW_FILE_TYPE_NON_EXISTENT,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_FILE_STATS_TYPE, spec);
+
+  /**
+   * GArrowFileStats:path:
+   *
+   * The full file path in the filesystem.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_string("path",
+                             "Path",
+                             "The full file path.",
+                             "",
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_FILE_STATS_PATH, spec);
+
+  /**
+   * GArrowFileStats:base-name:
+   *
+   * The file base name (component after the last directory separator).
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_string("base-name",
+                             "Base name",
+                             "The file base name.",
+                             "",
+                             static_cast<GParamFlags>(G_PARAM_READABLE));
+  g_object_class_install_property(gobject_class, PROP_FILE_STATS_BASE_NAME, spec);
+
+  /**
+   * GArrowFileStats:dir-name:
+   *
+   * The directory base name (component before the file base name).
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_string("dir-name",
+                             "Dir name",
+                             "The directory base name.",
+                             "",
+                             static_cast<GParamFlags>(G_PARAM_READABLE));
+  g_object_class_install_property(gobject_class, PROP_FILE_STATS_DIR_NAME, spec);
+
+  /**
+   * GArrowFileStats:extension:
+   *
+   * The file extension (excluding the dot).
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_string("extension",
+                             "Extension",
+                             "The file extension.",
+                             "",
+                             static_cast<GParamFlags>(G_PARAM_READABLE));
+  g_object_class_install_property(gobject_class, PROP_FILE_STATS_EXTENSION, spec);
+
+  /**
+   * GArrowFileStats:size:
+   *
+   * The size in bytes, if available
+   * Only regular files are guaranteed to have a size.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_int64("size",
+                            "Size",
+                            "The size in bytes.",
+                            0,
+                            INT64_MAX,
+                            0,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_FILE_STATS_SIZE, spec);
+
+  /**
+   * GArrowFileStats:mtime:
+   *
+   * The time of last modification, if available.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_int64("mtime",
+                            "Mtime",
+                            "The time of last modification",
+                            0,
+                            INT64_MAX,
+                            0,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_FILE_STATS_MTIME, spec);
 }
 
 /**
