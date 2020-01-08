@@ -239,6 +239,8 @@ namespace Apache.Arrow.Tests
                 Assert.IsAssignableFrom<ListArray>(_expectedArray);
                 ListArray expectedArray = (ListArray)_expectedArray;
 
+                _arrayTypeComparer.Visit(actualArray.Data.DataType);
+
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
                 Assert.Equal(expectedArray.Offset, actualArray.Offset);

@@ -52,6 +52,8 @@ namespace Apache.Arrow.Tests
                 //builder.Field(CreateField(StringType.Default));
                 //builder.Field(CreateField(Time32Type.Default));
                 //builder.Field(CreateField(Time64Type.Default));
+
+                builder.Field(CreateField(new ListType(Int64Type.Default), i));
             }
 
             Schema schema = builder.Build();
@@ -102,7 +104,8 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<FloatType>,
             IArrowTypeVisitor<DoubleType>,
             IArrowTypeVisitor<TimestampType>,
-            IArrowTypeVisitor<StringType>
+            IArrowTypeVisitor<StringType>,
+            IArrowTypeVisitor<ListType>
         {
             private int Length { get; }
             public IArrowArray Array { get; private set; }
@@ -174,6 +177,21 @@ namespace Apache.Arrow.Tests
                 }
 
                 Array = builder.Build();
+            }
+
+            public void Visit(ListType type)
+            {
+                //Todo : Use ListArray.Builder
+                var children = new [] { CreateArray(type.ValueField, Length).Data };
+                ArrowBuffer.Builder<int> builder = new ArrowBuffer.Builder<int>(Length);
+                for (int i = 0; i < Length; i++)
+                {
+                    builder.Append(i);
+                }
+
+                var valueOffsetsBuffer = builder.Build();
+                Array = new ListArray(new ArrayData(type, Length, 0, 0,
+                    new[] { ArrowBuffer.Empty, valueOffsetsBuffer }, children));
             }
 
             private void GenerateArray<T, TArray, TArrayBuilder>(IArrowArrayBuilder<T, TArray, TArrayBuilder> builder, Func<int, T> generator)
