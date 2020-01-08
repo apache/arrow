@@ -50,7 +50,7 @@ G_BEGIN_DECLS
 /* arrow::fs::FileStats */
 
 typedef struct GArrowFileStatsPrivate_ {
-  std::unique_ptr<arrow::fs::FileStats> file_stats;
+  arrow::fs::FileStats file_stats;
 } GArrowFileStatsPrivate;
 
 enum {
@@ -69,7 +69,7 @@ garrow_file_stats_finalize(GObject *object)
 {
   auto priv = GARROW_FILE_STATS_GET_PRIVATE(object);
 
-  priv->file_stats = nullptr;
+  priv->file_stats.~FileStats();
 
   G_OBJECT_CLASS(garrow_file_stats_parent_class)->finalize(object);
 }
@@ -78,7 +78,7 @@ static void
 garrow_file_stats_init(GArrowFileStats *object)
 {
   auto priv = GARROW_FILE_STATS_GET_PRIVATE(object);
-  new(&priv->file_stats) std::unique_ptr<arrow::fs::FileStats>;
+  new(&priv->file_stats) arrow::fs::FileStats;
 }
 
 static void
@@ -121,7 +121,7 @@ garrow_file_stats_equal(GArrowFileStats *file_stats,
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
   const auto& arrow_other_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(other_file_stats)->file_stats;
-  return arrow_file_stats->Equals(*arrow_other_file_stats);
+  return arrow_file_stats.Equals(arrow_other_file_stats);
 }
 
 GArrowFileType
@@ -129,7 +129,7 @@ garrow_file_stats_get_file_type(GArrowFileStats *file_stats)
 {
   const auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  return static_cast<GArrowFileType>(arrow_file_stats->type());
+  return static_cast<GArrowFileType>(arrow_file_stats.type());
 }
 
 void
@@ -138,7 +138,7 @@ garrow_file_stats_set_file_type(GArrowFileStats *file_stats,
 {
   auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  arrow_file_stats->set_type(arrow::fs::FileType(file_type));
+  arrow_file_stats.set_type(arrow::fs::FileType(file_type));
 }
 
 gboolean
@@ -146,7 +146,7 @@ garrow_file_stats_is_file(GArrowFileStats *file_stats)
 {
   const auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  return arrow_file_stats->IsFile();
+  return arrow_file_stats.IsFile();
 }
 
 gboolean
@@ -154,7 +154,7 @@ garrow_file_stats_is_directory(GArrowFileStats *file_stats)
 {
   const auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  return arrow_file_stats->IsDirectory();
+  return arrow_file_stats.IsDirectory();
 }
 
 const gchar *
@@ -162,7 +162,7 @@ garrow_file_stats_get_path(GArrowFileStats *file_stats)
 {
   const auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  return arrow_file_stats->path().c_str();
+  return arrow_file_stats.path().c_str();
 }
 
 void
@@ -171,7 +171,7 @@ garrow_file_stats_set_path(GArrowFileStats *file_stats,
 {
   auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  arrow_file_stats->set_path(path);
+  arrow_file_stats.set_path(path);
 }
 
 gchar *
@@ -179,7 +179,7 @@ garrow_file_stats_get_base_name(GArrowFileStats *file_stats)
 {
   const auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  auto base_name = std::move(arrow_file_stats->base_name());
+  auto base_name = std::move(arrow_file_stats.base_name());
   return g_strndup(base_name.c_str(), base_name.size());
 }
 
@@ -188,7 +188,7 @@ garrow_file_stats_get_dir_name(GArrowFileStats *file_stats)
 {
   const auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  auto dir_name = std::move(arrow_file_stats->dir_name());
+  auto dir_name = std::move(arrow_file_stats.dir_name());
   return g_strndup(dir_name.c_str(), dir_name.size());
 }
 
@@ -197,7 +197,7 @@ garrow_file_stats_get_extension(GArrowFileStats *file_stats)
 {
   const auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  auto extension = std::move(arrow_file_stats->extension());
+  auto extension = std::move(arrow_file_stats.extension());
   return g_strndup(extension.c_str(), extension.size());
 }
 
@@ -206,7 +206,7 @@ garrow_file_stats_get_size(GArrowFileStats *file_stats)
 {
   const auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  return arrow_file_stats->size();
+  return arrow_file_stats.size();
 }
 
 void
@@ -215,7 +215,7 @@ garrow_file_stats_set_size(GArrowFileStats *file_stats,
 {
   auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  arrow_file_stats->set_size(size);
+  arrow_file_stats.set_size(size);
 }
 
 GArrowTimePoint
@@ -223,7 +223,7 @@ garrow_file_stats_get_mtime(GArrowFileStats *file_stats)
 {
   const auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  auto mtime = arrow_file_stats->mtime();
+  auto mtime = arrow_file_stats.mtime();
   return mtime.time_since_epoch().count();
 }
 
@@ -234,13 +234,13 @@ garrow_file_stats_set_mtime(GArrowFileStats *file_stats,
   auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
   arrow::fs::TimePoint::duration duration(mtime);
-  arrow_file_stats->set_mtime(arrow::fs::TimePoint(duration));
+  arrow_file_stats.set_mtime(arrow::fs::TimePoint(duration));
 }
 
 /* arrow::fs::FileSelector */
 
 typedef struct GArrowFileSelectorPrivate_ {
-  std::unique_ptr<arrow::fs::FileSelector> file_selector;
+  arrow::fs::FileSelector file_selector;
 } GArrowFileSelectorPrivate;
 
 enum {
@@ -267,16 +267,16 @@ garrow_file_selector_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_FILE_SELECTOR_BASE_DIR:
-    priv->file_selector->base_dir = g_value_get_string(value);
+    priv->file_selector.base_dir = g_value_get_string(value);
     break;
   case PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT:
-    priv->file_selector->allow_non_existent = g_value_get_boolean(value);
+    priv->file_selector.allow_non_existent = g_value_get_boolean(value);
     break;
   case PROP_FILE_SELECTOR_RECURSIVE:
-    priv->file_selector->recursive = g_value_get_boolean(value);
+    priv->file_selector.recursive = g_value_get_boolean(value);
     break;
   case PROP_FILE_SELECTOR_MAX_RECURSION:
-    priv->file_selector->max_recursion = g_value_get_int(value);
+    priv->file_selector.max_recursion = g_value_get_int(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -294,16 +294,16 @@ garrow_file_selector_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_FILE_SELECTOR_BASE_DIR:
-    g_value_set_string(value, priv->file_selector->base_dir.c_str());
+    g_value_set_string(value, priv->file_selector.base_dir.c_str());
     break;
   case PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT:
-    g_value_set_boolean(value, priv->file_selector->allow_non_existent);
+    g_value_set_boolean(value, priv->file_selector.allow_non_existent);
     break;
   case PROP_FILE_SELECTOR_RECURSIVE:
-    g_value_set_boolean(value, priv->file_selector->recursive);
+    g_value_set_boolean(value, priv->file_selector.recursive);
     break;
   case PROP_FILE_SELECTOR_MAX_RECURSION:
-    g_value_set_int(value, priv->file_selector->max_recursion);
+    g_value_set_int(value, priv->file_selector.max_recursion);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -315,7 +315,7 @@ static void
 garrow_file_selector_init(GArrowFileSelector *object)
 {
   auto priv = GARROW_FILE_SELECTOR_GET_PRIVATE(object);
-  new(&priv->file_selector) std::unique_ptr<arrow::fs::FileSelector>;
+  new(&priv->file_selector) arrow::fs::FileSelector;
 }
 
 static void
@@ -323,7 +323,7 @@ garrow_file_selector_finalize(GObject *object)
 {
   auto priv = GARROW_FILE_SELECTOR_GET_PRIVATE(object);
 
-  priv->file_selector = nullptr;
+  priv->file_selector.~FileSelector();
 
   G_OBJECT_CLASS(garrow_file_selector_parent_class)->finalize(object);
 }
@@ -594,7 +594,7 @@ garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   const auto& arrow_file_selector =
     GARROW_FILE_SELECTOR_GET_PRIVATE(file_selector)->file_selector;
-  return garrow_file_stats_list_from_result(arrow_file_system->GetTargetStats(*arrow_file_selector),
+  return garrow_file_stats_list_from_result(arrow_file_system->GetTargetStats(arrow_file_selector),
                                             error, "[filesystem][get-target-stats-list]");
 }
 
@@ -972,7 +972,7 @@ GArrowFileStats *
 garrow_file_stats_new_raw(const arrow::fs::FileStats& arrow_file_stats)
 {
   auto file_stats = garrow_file_stats_new();
-  *GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats = arrow_file_stats;
+  GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats = arrow_file_stats;
   return file_stats;
 }
 
