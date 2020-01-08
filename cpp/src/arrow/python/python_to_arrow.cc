@@ -246,29 +246,52 @@ struct ValueConverter<Type, enable_if_any_binary<Type>> {
 
 template <typename Type>
 struct ValueConverter<Type, enable_if_string_like<Type>> {
-  static inline Result<PyBytesView> FromPython(PyObject *obj, bool* is_utf8) {
+
+  static inline Result<PyBytesView> FromPython(PyObject *obj) {
+    // strict conversion, force output to be unicode / utf8 and validate that
+    // any binary values are utf8
+    bool is_utf8 = false;
     PyBytesView view;
-    RETURN_NOT_OK(view.FromString(obj, is_utf8));
+
+    RETURN_NOT_OK(view.FromString(obj, &is_utf8));
+    if (!is_utf8) {
+      return internal::InvalidValue(obj, "was not a utf8 string");
+    }
     return view;
   }
+
+  static inline Result<PyBytesView> FromPython(PyObject *obj, bool& is_utf8) {
+    PyBytesView view;
+
+    // Non-strict conversion; keep track of whether values are unicode or bytes
+    if (PyUnicode_Check(obj)) {
+      is_utf8 = true;
+      RETURN_NOT_OK(view.FromUnicode(obj));
+    } else {
+      // If not unicode or bytes, FromBinary will error
+      is_utf8 = false;
+      RETURN_NOT_OK(view.FromBinary(obj));
+    }
+
+    return view;
+  }
+
 };
 
 template <typename Type>
 struct ValueConverter<Type, enable_if_fixed_size_binary<Type>> {
-  static inline Result<PyBytesView> FromPython(PyObject *obj, const Type& type) {
+  static inline Result<PyBytesView> FromPython(PyObject *obj, int32_t byte_width) {
     PyBytesView view;
     RETURN_NOT_OK(view.FromString(obj));
-    const auto expected_length = type.byte_width();
-    if (ARROW_PREDICT_FALSE(view.size != expected_length)) {
+    if (ARROW_PREDICT_FALSE(view.size != byte_width)) {
       std::stringstream ss;
-      ss << "expected to be length " << expected_length << " was " << view.size;
+      ss << "expected to be length " << byte_width << " was " << view.size;
       return internal::InvalidValue(obj, ss.str());
     } else {
       return view;
     }
   }
 };
-
 
 // ----------------------------------------------------------------------
 // Sequence converter base and CRTP "middle" subclasses
@@ -377,7 +400,7 @@ class TypedConverter : public SeqConverter {
           } else {
             // This will also apply the null-checking convention in the event
             // that the value is not masked
-            return this->AppendValue(item);
+            return this->Append(item);  // perhaps use AppendValue instead?
           }
         });
   }
@@ -535,131 +558,91 @@ class TemporalConverter : public TypedConverter<ArrowType, null_coding> {
 // ----------------------------------------------------------------------
 // Sequence converters for Binary, FixedSizeBinary, String
 
-namespace detail {
-
-template <typename BuilderType>
-inline Status AppendPyString(BuilderType* builder, const PyBytesView& view,
-                             bool* is_full) {
-  if (view.size > BuilderType::memory_limit()) {
-    return Status::Invalid("string too large for datatype");
-  }
-  DCHECK_GE(view.size, 0);
-  // Did we reach the builder size limit?
-  if (ARROW_PREDICT_FALSE(builder->value_data_length() + view.size >
-                          BuilderType::memory_limit())) {
-    *is_full = true;
-    return Status::OK();
-  }
-  RETURN_NOT_OK(builder->Append(::arrow::util::string_view(view.bytes, view.size)));
-  *is_full = false;
-  return Status::OK();
-}
-
-inline Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
-  PyBytesView view;
-  RETURN_NOT_OK(view.FromString(obj));
-  return AppendPyString(builder, view, is_full);
-}
-
-inline Status BuilderAppend(LargeBinaryBuilder* builder, PyObject* obj, bool* is_full) {
-  PyBytesView view;
-  RETURN_NOT_OK(view.FromString(obj));
-  return AppendPyString(builder, view, is_full);
-}
-
-inline Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
-                            bool* is_full) {
-  PyBytesView view;
-  RETURN_NOT_OK(view.FromString(obj));
-  const auto expected_length =
-      checked_cast<const FixedSizeBinaryType&>(*builder->type()).byte_width();
-  if (ARROW_PREDICT_FALSE(view.size != expected_length)) {
-    std::stringstream ss;
-    ss << "expected to be length " << expected_length << " was " << view.size;
-    return internal::InvalidValue(obj, ss.str());
-  }
-
-  return AppendPyString(builder, view, is_full);
-}
-
-}  // namespace detail
-
 template <typename Type, NullCoding null_coding>
 class BinaryLikeConverter : public TypedConverter<Type, null_coding> {
  public:
-  Status AppendValue(PyObject* obj) override {
-    // Accessing members of the templated base requires using this-> here
-    bool is_full = false;
-    RETURN_NOT_OK(detail::BuilderAppend(this->typed_builder_, obj, &is_full));
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
 
-    // Exceeded capacity of builder
-    if (ARROW_PREDICT_FALSE(is_full)) {
+  inline Status AutoChunk(Py_ssize_t size) {
+    // did we reach the builder size limit?
+    if (ARROW_PREDICT_FALSE(this->typed_builder_->value_data_length() + size >
+                            BuilderType::memory_limit())) {
+      // builder would be full, so need to add a new chunk
       std::shared_ptr<Array> chunk;
       RETURN_NOT_OK(this->typed_builder_->Finish(&chunk));
       this->chunks_.emplace_back(std::move(chunk));
-
-      // Append the item now that the builder has been reset
-      return detail::BuilderAppend(this->typed_builder_, obj, &is_full);
     }
     return Status::OK();
+  }
+
+  Status AppendString(const PyBytesView& view) {
+    // check that the value fits in the datatype
+    if (view.size > BuilderType::memory_limit()) {
+      return Status::Invalid("string too large for datatype");
+    }
+    DCHECK_GE(view.size, 0);
+
+    // create a new chunk if the value would overflow the builder
+    RETURN_NOT_OK(AutoChunk(view.size));
+
+    // now we can safely append the value to the builder
+    RETURN_NOT_OK(this->typed_builder_->Append(
+      ::arrow::util::string_view(view.bytes, view.size)));
+
+    return Status::OK();
+  }
+
+ protected:
+  // Create a single instance of PyBytesView here to prevent unnecessary object
+  // creation/destruction
+  PyBytesView string_view_;
+};
+
+template <typename Type, NullCoding null_coding>
+class BinaryConverter : public BinaryLikeConverter<Type, null_coding> {
+ public:
+  Status AppendValue(PyObject *obj) override {
+    ARROW_ASSIGN_OR_RAISE(auto view, ValueConverter<Type>::FromPython(obj));
+    return this->AppendString(view);
   }
 };
 
 template <NullCoding null_coding>
-class BytesConverter : public BinaryLikeConverter<BinaryType, null_coding> {};
+class FixedSizeBinaryConverter : public BinaryLikeConverter<FixedSizeBinaryType, null_coding> {
+ public:
+  explicit FixedSizeBinaryConverter(int32_t byte_width) : byte_width_(byte_width) {}
 
-template <NullCoding null_coding>
-class LargeBytesConverter : public BinaryLikeConverter<LargeBinaryType, null_coding> {};
+  Status AppendValue(PyObject* obj) override {
+    ARROW_ASSIGN_OR_RAISE(
+      this->string_view_, ValueConverter<FixedSizeBinaryType>::FromPython(obj, byte_width_));
+    return this->AppendString(this->string_view_);
+  }
 
-template <NullCoding null_coding>
-class FixedWidthBytesConverter
-    : public BinaryLikeConverter<FixedSizeBinaryType, null_coding> {};
+ protected:
+  int32_t byte_width_;
+};
 
 // For String/UTF8, if strict_conversions enabled, we reject any non-UTF8,
 // otherwise we allow but return results as BinaryArray
-template <typename TypeClass, bool STRICT, NullCoding null_coding>
-class StringConverter : public TypedConverter<TypeClass, null_coding> {
+template <typename Type, bool STRICT, NullCoding null_coding>
+class StringConverter : public BinaryLikeConverter<Type, null_coding> {
  public:
   StringConverter() : binary_count_(0) {}
 
-  Status AppendValue(PyObject* obj, bool* is_full) {
+  Status AppendValue(PyObject* obj) override {
     if (STRICT) {
-      // Force output to be unicode / utf8 and validate that any binary values
-      // are utf8
-      bool is_utf8 = false;
-      RETURN_NOT_OK(string_view_.FromString(obj, &is_utf8));
-      if (!is_utf8) {
-        return internal::InvalidValue(obj, "was not a utf8 string");
-      }
+      // raise if the object is not unicode or not an utf-8 encoded bytes
+      ARROW_ASSIGN_OR_RAISE(this->string_view_, ValueConverter<Type>::FromPython(obj));
     } else {
-      // Non-strict conversion; keep track of whether values are unicode or
-      // bytes; if any bytes are observe, the result will be bytes
-      if (PyUnicode_Check(obj)) {
-        RETURN_NOT_OK(string_view_.FromUnicode(obj));
-      } else {
-        // If not unicode or bytes, FromBinary will error
-        RETURN_NOT_OK(string_view_.FromBinary(obj));
+      // keep track of whether values are unicode or bytes; if any bytes are
+      // observe, the result will be bytes
+      bool is_utf8;
+      ARROW_ASSIGN_OR_RAISE(this->string_view_, ValueConverter<Type>::FromPython(obj, is_utf8));
+      if (!is_utf8) {
         ++binary_count_;
       }
     }
-
-    return detail::AppendPyString(this->typed_builder_, string_view_, is_full);
-  }
-
-  Status AppendValue(PyObject* obj) override {
-    bool is_full = false;
-    RETURN_NOT_OK(AppendValue(obj, &is_full));
-
-    // Exceeded capacity of builder
-    if (ARROW_PREDICT_FALSE(is_full)) {
-      std::shared_ptr<Array> chunk;
-      RETURN_NOT_OK(this->typed_builder_->Finish(&chunk));
-      this->chunks_.emplace_back(std::move(chunk));
-
-      // Append the item now that the builder has been reset
-      RETURN_NOT_OK(AppendValue(obj, &is_full));
-    }
-    return Status::OK();
+    return this->AppendString(this->string_view_);
   }
 
   Status GetResult(std::shared_ptr<ChunkedArray>* out) override {
@@ -669,19 +652,14 @@ class StringConverter : public TypedConverter<TypeClass, null_coding> {
     if (binary_count_) {
       // We should have bailed out earlier
       DCHECK(!STRICT);
-
       auto binary_type =
-          TypeTraits<typename TypeClass::EquivalentBinaryType>::type_singleton();
+          TypeTraits<typename Type::EquivalentBinaryType>::type_singleton();
       return (*out)->View(binary_type, out);
     }
     return Status::OK();
   }
 
- private:
-  // Create a single instance of PyBytesView here to prevent unnecessary object
-  // creation/destruction
-  PyBytesView string_view_;
-
+ protected:
   int64_t binary_count_;
 };
 
@@ -1136,9 +1114,19 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
     PRIMITIVE(DATE32, Date32Type);
     PRIMITIVE(DATE64, Date64Type);
     SIMPLE_CONVERTER_CASE(DECIMAL, DecimalConverter);
-    SIMPLE_CONVERTER_CASE(BINARY, BytesConverter);
-    SIMPLE_CONVERTER_CASE(LARGE_BINARY, LargeBytesConverter);
-    SIMPLE_CONVERTER_CASE(FIXED_SIZE_BINARY, FixedWidthBytesConverter);
+    case Type::BINARY:
+      *out = std::unique_ptr<SeqConverter>(
+        new BinaryConverter<BinaryType, null_coding>());
+      break;
+    case Type::LARGE_BINARY:
+      *out = std::unique_ptr<SeqConverter>(
+        new BinaryConverter<LargeBinaryType, null_coding>());
+      break;
+    case Type::FIXED_SIZE_BINARY:
+      *out = std::unique_ptr<SeqConverter>(
+        new FixedSizeBinaryConverter<null_coding>(
+          checked_cast<const FixedSizeBinaryType&>(*type).byte_width()));
+      break;
     case Type::STRING:
       if (strict_conversions) {
         *out = std::unique_ptr<SeqConverter>(
@@ -1158,12 +1146,14 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
       }
       break;
     case Type::TIME32: {
-      *out = std::unique_ptr<SeqConverter>(new TimeConverter<Time32Type, null_coding>(
+      *out = std::unique_ptr<SeqConverter>(
+        new TimeConverter<Time32Type, null_coding>(
           checked_cast<const Time32Type&>(*type).unit()));
       break;
     }
     case Type::TIME64: {
-      *out = std::unique_ptr<SeqConverter>(new TimeConverter<Time64Type, null_coding>(
+      *out = std::unique_ptr<SeqConverter>(
+        new TimeConverter<Time64Type, null_coding>(
           checked_cast<const Time64Type&>(*type).unit()));
       break;
     }
