@@ -77,6 +77,7 @@ class PARQUET_EXPORT ReaderProperties {
   MemoryPool* pool_;
   int64_t buffer_size_;
   bool buffered_stream_enabled_;
+  bool pre_buffer_row_group_;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 

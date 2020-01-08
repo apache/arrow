@@ -117,7 +117,7 @@ class ARROW_EXPORT BufferedInputStream
   /// \return the created BufferedInputStream
   static Result<std::shared_ptr<BufferedInputStream>> Create(
       int64_t buffer_size, MemoryPool* pool, std::shared_ptr<InputStream> raw,
-      int64_t raw_read_bound = -1);
+      int64_t raw_read_bound = -1, bool prebuffer = true);
 
   ARROW_DEPRECATED("Use Result-returning overload")
   static Status Create(int64_t buffer_size, MemoryPool* pool,
@@ -170,6 +170,8 @@ class ARROW_EXPORT BufferedInputStream
   /// but do not advance the position of the stream. Buffers data and
   /// expands the buffer size if necessary
   Result<util::string_view> DoPeek(int64_t nbytes) override;
+
+  bool prebuffer;
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
