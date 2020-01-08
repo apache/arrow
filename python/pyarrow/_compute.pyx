@@ -48,6 +48,14 @@ cdef _sum_chunked_array(array: ChunkedArray):
 def sum(array):
     """
     Sum the values in a numerical (chunked) array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+
+    Returns
+    -------
+    sum : pyarrow.Scalar
     """
     if isinstance(array, Array):
         return _sum_array(array)

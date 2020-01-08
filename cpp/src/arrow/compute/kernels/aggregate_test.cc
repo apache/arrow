@@ -140,16 +140,13 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
   ValidateSum<TypeParam>(&this->ctx_, "[0, 1, 2, 3, 4, 5]",
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
 
-  std::vector<std::string> json{"[0, 1, 2, 3, 4, 5]"};
-  ValidateSum<TypeParam>(&this->ctx_, json,
+  ValidateSum<TypeParam>(&this->ctx_, {"[0, 1, 2, 3, 4, 5]"},
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
 
-  json = {"[0, 1, 2]", "[3, 4, 5]"};
-  ValidateSum<TypeParam>(&this->ctx_, json,
+  ValidateSum<TypeParam>(&this->ctx_, {"[0, 1, 2]", "[3, 4, 5]"},
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
 
-  json = {"[0, 1, 2]", "[]", "[3, 4, 5]"};
-  ValidateSum<TypeParam>(&this->ctx_, json,
+  ValidateSum<TypeParam>(&this->ctx_, {"[0, 1, 2]", "[]", "[3, 4, 5]"},
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
 
   const T expected_result = static_cast<T>(14);
