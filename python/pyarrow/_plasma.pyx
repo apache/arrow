@@ -281,7 +281,7 @@ cdef int plasma_check_status(const CStatus& status) nogil except -1:
         message = compat.frombytes(status.message())
         if IsPlasmaObjectExists(status):
             raise PlasmaObjectExists(message)
-        elif IsPlasmaObjectNonexistent(status):
+        elif IsPlasmaObjectNotFound(status):
             raise PlasmaObjectNonexistent(message)
         elif IsPlasmaStoreFull(status):
             raise PlasmaStoreFull(message)

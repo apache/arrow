@@ -246,8 +246,8 @@ def test_get_target_infos(fs, pathfn):
     assert zzz_info.path == str(zzz)
     assert zzz_info.base_name == 'zzz'
     assert zzz_info.extension == ''
-    assert zzz_info.type == FileType.NonExistent
-    assert 'FileType.NonExistent' in repr(zzz_info)
+    assert zzz_info.type == FileType.NotFound
+    assert 'FileType.NotFound' in repr(zzz_info)
     assert isinstance(c_info.mtime, datetime)
 
 
@@ -265,7 +265,7 @@ def test_get_target_infos_with_selector(fs, pathfn):
             pass
         fs.create_dir(dir_a)
 
-        selector = FileSelector(base_dir, allow_non_existent=False,
+        selector = FileSelector(base_dir, allow_not_found=False,
                                 recursive=True)
         assert selector.base_dir == base_dir
 
