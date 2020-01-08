@@ -130,11 +130,15 @@ namespace Apache.Arrow.Tests
             public void Visit(Date32Type type)
             {
                 var builder = new Date32Array.Builder().Reserve(Length);
-                var basis = DateTimeOffset.UtcNow.AddDays(-Length);
+
+                // Length can be greater than the number of days since DateTime.MinValue.
+                // Set a cap for how many days can be subtracted from now.
+                int maxDays = Math.Min(Length, 100_000);
+                var basis = DateTimeOffset.UtcNow.AddDays(-maxDays);
 
                 for (var i = 0; i < Length; i++)
                 {
-                    builder.Append(basis.AddDays(i));
+                    builder.Append(basis.AddDays(i % maxDays));
                 }
 
                 Array = builder.Build();
@@ -182,7 +186,7 @@ namespace Apache.Arrow.Tests
             public void Visit(ListType type)
             {
                 //Todo : Use ListArray.Builder
-                var children = new [] { CreateArray(type.ValueField, Length).Data };
+                var children = new[] { CreateArray(type.ValueField, Length).Data };
                 ArrowBuffer.Builder<int> builder = new ArrowBuffer.Builder<int>(Length);
                 for (int i = 0; i < Length; i++)
                 {
