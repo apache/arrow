@@ -533,7 +533,7 @@ void GenericFileSystemTest::TestGetTargetInfo(FileSystem* fs) {
   AssertDurationBetween(info.mtime() - first_file_time, 0.0, kTimeSlack);
 
   ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("zz"));
-  AssertFileInfo(info, "zz", FileType::NonExistent);
+  AssertFileInfo(info, "zz", FileType::NotFound);
   ASSERT_EQ(info.base_name(), "zz");
   ASSERT_EQ(info.size(), kNoSize);
   ASSERT_EQ(info.mtime(), kNoTime);
@@ -554,9 +554,9 @@ void GenericFileSystemTest::TestGetTargetInfosVector(FileSystem* fs) {
     ValidateTimePoint(dir_time);
   }
   AssertFileInfo(infos[1], "AB/CD", FileType::Directory);
-  AssertFileInfo(infos[2], "AB/zz", FileType::NonExistent);
-  AssertFileInfo(infos[3], "zz", FileType::NonExistent);
-  AssertFileInfo(infos[4], "XX/zz", FileType::NonExistent);
+  AssertFileInfo(infos[2], "AB/zz", FileType::NotFound);
+  AssertFileInfo(infos[3], "zz", FileType::NotFound);
+  AssertFileInfo(infos[4], "XX/zz", FileType::NotFound);
   ASSERT_EQ(infos[4].size(), kNoSize);
   ASSERT_EQ(infos[4].mtime(), kNoTime);
   AssertFileInfo(infos[5], "AB/CD/ghi", FileType::File, 9);
@@ -641,10 +641,10 @@ void GenericFileSystemTest::TestGetTargetInfosSelector(FileSystem* fs) {
   // Doesn't exist
   s.base_dir = "XX";
   ASSERT_RAISES(IOError, fs->GetTargetInfos(s));
-  s.allow_non_existent = true;
+  s.allow_not_found = true;
   ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
   ASSERT_EQ(infos.size(), 0);
-  s.allow_non_existent = false;
+  s.allow_not_found = false;
 
   // Not a dir
   s.base_dir = "abc";

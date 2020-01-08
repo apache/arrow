@@ -126,12 +126,12 @@ static void TestTrieContents(const Trie& trie, const std::vector<std::string>& e
     }
   };
 
-  // Check potentially non-existing strings
+  // Check potentially nonexistent strings
   CheckNotExists("");
   CheckNotExists("X");
   CheckNotExists("abcdefxxxxxxxxxxxxxxx");
 
-  // Check potentially non-existing variations of existing entries
+  // Check potentially nonexistent variations of existing entries
   for (const auto& e : entries) {
     CheckNotExists(e + "X");
     if (e.size() > 0) {

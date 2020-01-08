@@ -253,7 +253,7 @@ inline const char *EnumNameMessageType(MessageType e) {
 enum class PlasmaError : int32_t {
   OK = 0,
   ObjectExists = 1,
-  ObjectNonexistent = 2,
+  ObjectNotFound = 2,
   OutOfMemory = 3,
   ObjectNotSealed = 4,
   ObjectInUse = 5,
@@ -265,7 +265,7 @@ inline const PlasmaError (&EnumValuesPlasmaError())[6] {
   static const PlasmaError values[] = {
     PlasmaError::OK,
     PlasmaError::ObjectExists,
-    PlasmaError::ObjectNonexistent,
+    PlasmaError::ObjectNotFound,
     PlasmaError::OutOfMemory,
     PlasmaError::ObjectNotSealed,
     PlasmaError::ObjectInUse
@@ -277,7 +277,7 @@ inline const char * const *EnumNamesPlasmaError() {
   static const char * const names[] = {
     "OK",
     "ObjectExists",
-    "ObjectNonexistent",
+    "ObjectNotFound",
     "OutOfMemory",
     "ObjectNotSealed",
     "ObjectInUse",

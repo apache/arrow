@@ -69,7 +69,7 @@ class HadoopFileSystem::Impl {
     auto status = client_->GetPathInfo(path, &path_info);
     info.set_path(path);
     if (status.IsIOError()) {
-      info.set_type(FileType::NonExistent);
+      info.set_type(FileType::NotFound);
       return info;
     }
 
@@ -83,9 +83,9 @@ class HadoopFileSystem::Impl {
     std::vector<io::HdfsPathInfo> children;
     Status st = client_->ListDirectory(path, &children);
     if (!st.ok()) {
-      if (select.allow_non_existent) {
+      if (select.allow_not_found) {
         ARROW_ASSIGN_OR_RAISE(auto info, GetTargetInfo(path));
-        if (info.type() == FileType::NonExistent) {
+        if (info.type() == FileType::NotFound) {
           return Status::OK();
         }
       }

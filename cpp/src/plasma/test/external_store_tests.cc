@@ -98,7 +98,7 @@ TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
     ObjectID object_id = random_object_id();
     object_ids.push_back(object_id);
 
-    // Test for object non-existence.
+    // Test for object nonexistence.
     bool has_object;
     ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
     ASSERT_FALSE(has_object);

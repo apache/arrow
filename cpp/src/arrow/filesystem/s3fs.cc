@@ -1021,7 +1021,7 @@ class S3FileSystem::Impl {
     };
 
     auto handle_error = [&](const AWSError<S3Errors>& error) -> Status {
-      if (select.allow_non_existent && IsNotFound(error)) {
+      if (select.allow_not_found && IsNotFound(error)) {
         return Status::OK();
       }
       return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
@@ -1040,8 +1040,8 @@ class S3FileSystem::Impl {
     }
 
     // If no contents were found, perhaps it's an empty "directory",
-    // or perhaps it's a non-existent entry.  Check.
-    if (is_empty && !select.allow_non_existent) {
+    // or perhaps it's a nonexistent entry.  Check.
+    if (is_empty && !select.allow_not_found) {
       RETURN_NOT_OK(IsEmptyDirectory(bucket, key, &is_empty));
       if (!is_empty) {
         return PathNotFound(bucket, key);
@@ -1213,7 +1213,7 @@ Result<FileInfo> S3FileSystem::GetTargetInfo(const std::string& s) {
                                   "': "),
             outcome.GetError());
       }
-      info.set_type(FileType::NonExistent);
+      info.set_type(FileType::NotFound);
       return info;
     }
     // NOTE: S3 doesn't have a bucket modification time.  Only a creation
@@ -1250,7 +1250,7 @@ Result<FileInfo> S3FileSystem::GetTargetInfo(const std::string& s) {
     if (is_dir) {
       info.set_type(FileType::Directory);
     } else {
-      info.set_type(FileType::NonExistent);
+      info.set_type(FileType::NotFound);
     }
     return info;
   }

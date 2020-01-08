@@ -89,7 +89,7 @@ enum PlasmaError:int {
   // Trying to create an object that already exists.
   ObjectExists,
   // Trying to access an object that doesn't exist.
-  ObjectNonexistent,
+  ObjectNotFound,
   // Trying to create an object but there isn't enough space in the store.
   OutOfMemory,
   // Trying to delete an object but it's not sealed.

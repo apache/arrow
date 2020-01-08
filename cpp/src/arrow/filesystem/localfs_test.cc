@@ -343,7 +343,7 @@ TYPED_TEST(TestLocalFS, DirectoryMTime) {
   ASSERT_EQ(infos.size(), 3);
   AssertFileInfo(infos[0], "AB", FileType::Directory);
   AssertFileInfo(infos[1], "AB/CD/EF", FileType::Directory);
-  AssertFileInfo(infos[2], "xxx", FileType::NonExistent);
+  AssertFileInfo(infos[2], "xxx", FileType::NotFound);
 
   // NOTE: creating AB/CD updates AB's modification time, but creating
   // AB/CD/EF doesn't.  So AB/CD/EF's modification time should always be
@@ -366,7 +366,7 @@ TYPED_TEST(TestLocalFS, FileMTime) {
   ASSERT_EQ(infos.size(), 3);
   AssertFileInfo(infos[0], "AB", FileType::Directory);
   AssertFileInfo(infos[1], "AB/CD/ab", FileType::File, 4);
-  AssertFileInfo(infos[2], "xxx", FileType::NonExistent);
+  AssertFileInfo(infos[2], "xxx", FileType::NotFound);
 
   AssertDurationBetween(infos[1].mtime() - infos[0].mtime(), 0, kTimeSlack);
   AssertDurationBetween(infos[0].mtime() - t1, -kTimeSlack, kTimeSlack);
