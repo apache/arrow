@@ -121,7 +121,6 @@ struct ValueConverter<HalfFloatType> {
 
 template <>
 struct ValueConverter<FloatType> {
-
   static inline Result<float> FromPython(PyObject *obj) {
     float value;
     if (internal::PyFloatScalar_Check(obj)) {
@@ -138,7 +137,6 @@ struct ValueConverter<FloatType> {
 
 template <>
 struct ValueConverter<DoubleType> {
-
   static inline Result<double> FromPython(PyObject *obj) {
     double value;
     if (PyFloat_Check(obj)) {
@@ -235,6 +233,98 @@ struct ValueConverter<Time64Type> {
   }
 };
 
+template<>
+struct ValueConverter<TimestampType> {
+  static inline Result<int64_t> FromPython(PyObject *obj, TimeUnit::type unit) {
+    int64_t value;
+    if (PyDateTime_Check(obj)) {
+      auto dt = reinterpret_cast<PyDateTime_DateTime*>(obj);
+      switch (unit) {
+        case TimeUnit::SECOND:
+          value = internal::PyDateTime_to_s(dt);
+          break;
+        case TimeUnit::MILLI:
+          value = internal::PyDateTime_to_ms(dt);
+          break;
+        case TimeUnit::MICRO:
+          value = internal::PyDateTime_to_us(dt);
+          break;
+        case TimeUnit::NANO:
+          value = internal::PyDateTime_to_ns(dt);
+          break;
+        default:
+          return Status::UnknownError("Invalid time unit");
+      }
+    } else {
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &value));
+    }
+    return value;
+  };
+
+  static inline Result<int64_t> FromNumpy(PyObject *obj, TimeUnit::type unit) {
+    // validate that the numpy scalar has np.datetime64 dtype
+    std::shared_ptr<DataType> type;
+    RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
+    if (type->id() != TimestampType::type_id) {
+      // TODO(kszucs): the message should highlight the received numpy dtype
+      return Status::Invalid("Expected np.datetime64 but got: ", type->ToString());
+    }
+    // validate that the time units are matching
+    if (unit != checked_cast<const TimestampType&>(*type).unit()) {
+      return Status::NotImplemented(
+        "Cannot convert NumPy np.datetime64 objects with differing unit");
+    }
+    // convert the numpy value
+    return reinterpret_cast<PyDatetimeScalarObject*>(obj)->obval;
+  }
+};
+
+template<>
+struct ValueConverter<DurationType> {
+  static inline Result<int64_t> FromPython(PyObject *obj, TimeUnit::type unit) {
+    int64_t value;
+    if (PyDelta_Check(obj)) {
+      auto dt = reinterpret_cast<PyDateTime_Delta*>(obj);
+      switch (unit) {
+        case TimeUnit::SECOND:
+          value = internal::PyDelta_to_s(dt);
+          break;
+        case TimeUnit::MILLI:
+          value = internal::PyDelta_to_ms(dt);
+          break;
+        case TimeUnit::MICRO:
+          value = internal::PyDelta_to_us(dt);
+          break;
+        case TimeUnit::NANO:
+          value = internal::PyDelta_to_ns(dt);
+          break;
+        default:
+          return Status::UnknownError("Invalid time unit");
+      }
+    } else {
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &value));
+    }
+    return value;
+  }
+
+  static inline Result<int64_t> FromNumpy(PyObject *obj, TimeUnit::type unit) {
+    // validate that the numpy scalar has np.timedelta64 dtype
+    std::shared_ptr<DataType> type;
+    RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
+    if (type->id() != DurationType::type_id) {
+      // TODO(kszucs): the message should highlight the received numpy dtype
+      return Status::Invalid("Expected np.timedelta64 but got: ", type->ToString());
+    }
+    // validate that the time units are matching
+    if (unit != checked_cast<const DurationType&>(*type).unit()) {
+      return Status::NotImplemented(
+        "Cannot convert NumPy np.timedelta64 objects with differing unit");
+    }
+    // convert the numpy value
+    return reinterpret_cast<PyTimedeltaScalarObject*>(obj)->obval;
+  }
+};
+
 template <typename Type>
 struct ValueConverter<Type, enable_if_any_binary<Type>> {
   static inline Result<PyBytesView> FromPython(PyObject *obj) {
@@ -272,10 +362,8 @@ struct ValueConverter<Type, enable_if_string_like<Type>> {
       is_utf8 = false;
       RETURN_NOT_OK(view.FromBinary(obj));
     }
-
     return view;
   }
-
 };
 
 template <typename Type>
@@ -439,6 +527,7 @@ class TimeConverter : public TypedConverter<Type, null_coding> {
  public:
   explicit TimeConverter(TimeUnit::type unit) : unit_(unit) {}
 
+  // TODO(kszucs): support numpy values for date and time converters
   Status AppendValue(PyObject* obj) override {
     ARROW_ASSIGN_OR_RAISE(auto value, ValueConverter<Type>::FromPython(obj, unit_));
     return this->typed_builder_->Append(value);
@@ -448,111 +537,44 @@ class TimeConverter : public TypedConverter<Type, null_coding> {
   TimeUnit::type unit_;
 };
 
-template <typename ArrowType>
-struct PyDateTimeTraits {};
+// TODO(kszucs): move it to the type_traits
+template <typename T>
+struct NumpyType {};
 
 template <>
-struct PyDateTimeTraits<TimestampType> {
-  static inline int PyTypeCheck(PyObject* obj) { return PyDateTime_Check(obj); }
-  using PyDateTimeObject = PyDateTime_DateTime;
-
-  static inline int64_t py_to_s(PyDateTime_DateTime* pydatetime) {
-    return internal::PyDateTime_to_s(pydatetime);
+struct NumpyType<TimestampType> {
+  static inline bool isnull(int64_t v) {
+    return internal::npy_traits<NPY_DATETIME>::isnull(v);
   }
-  static inline int64_t py_to_ms(PyDateTime_DateTime* pydatetime) {
-    return internal::PyDateTime_to_ms(pydatetime);
-  }
-  static inline int64_t py_to_us(PyDateTime_DateTime* pydatetime) {
-    return internal::PyDateTime_to_us(pydatetime);
-  }
-  static inline int64_t py_to_ns(PyDateTime_DateTime* pydatetime) {
-    return internal::PyDateTime_to_ns(pydatetime);
-  }
-
-  using np_traits = internal::npy_traits<NPY_DATETIME>;
-  using NpScalarObject = PyDatetimeScalarObject;
-  static constexpr const char* const np_name = "datetime64";
 };
 
 template <>
-struct PyDateTimeTraits<DurationType> {
-  static inline int PyTypeCheck(PyObject* obj) { return PyDelta_Check(obj); }
-  using PyDateTimeObject = PyDateTime_Delta;
-
-  static inline int64_t py_to_s(PyDateTime_Delta* pytimedelta) {
-    return internal::PyDelta_to_s(pytimedelta);
+struct NumpyType<DurationType> {
+  static inline bool isnull(int64_t v) {
+    return internal::npy_traits<NPY_TIMEDELTA>::isnull(v);
   }
-  static inline int64_t py_to_ms(PyDateTime_Delta* pytimedelta) {
-    return internal::PyDelta_to_ms(pytimedelta);
-  }
-  static inline int64_t py_to_us(PyDateTime_Delta* pytimedelta) {
-    return internal::PyDelta_to_us(pytimedelta);
-  }
-  static inline int64_t py_to_ns(PyDateTime_Delta* pytimedelta) {
-    return internal::PyDelta_to_ns(pytimedelta);
-  }
-
-  using np_traits = internal::npy_traits<NPY_TIMEDELTA>;
-  using NpScalarObject = PyTimedeltaScalarObject;
-  static constexpr const char* const np_name = "timedelta64";
 };
 
-template <NullCoding null_coding, typename ArrowType>
-class TemporalConverter : public TypedConverter<ArrowType, null_coding> {
+template <typename Type, NullCoding null_coding>
+class TemporalConverter : public TimeConverter<Type, null_coding> {
  public:
-  explicit TemporalConverter(TimeUnit::type unit) : unit_(unit) {}
-  using traits = PyDateTimeTraits<ArrowType>;
+  using TimeConverter<Type, null_coding>::TimeConverter;
 
   Status AppendValue(PyObject* obj) override {
-    int64_t t;
-    if (traits::PyTypeCheck(obj)) {
-      auto pydatetime = reinterpret_cast<typename traits::PyDateTimeObject*>(obj);
-
-      switch (unit_) {
-        case TimeUnit::SECOND:
-          t = traits::py_to_s(pydatetime);
-          break;
-        case TimeUnit::MILLI:
-          t = traits::py_to_ms(pydatetime);
-          break;
-        case TimeUnit::MICRO:
-          t = traits::py_to_us(pydatetime);
-          break;
-        case TimeUnit::NANO:
-          t = traits::py_to_ns(pydatetime);
-          break;
-        default:
-          return Status::UnknownError("Invalid time unit");
-      }
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
-      // numpy.datetime64
-      using npy_traits = typename traits::np_traits;
-      static constexpr const char* const np_name = traits::np_name;
-
-      std::shared_ptr<DataType> type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
-      if (type->id() != ArrowType::type_id) {
-        return Status::Invalid("Expected np.", np_name, " but got: ", type->ToString());
-      }
-      const ArrowType& ttype = checked_cast<const ArrowType&>(*type);
-      if (unit_ != ttype.unit()) {
-        return Status::NotImplemented("Cannot convert NumPy ", np_name,
-                                      " objects with differing unit");
-      }
-
-      t = reinterpret_cast<typename traits::NpScalarObject*>(obj)->obval;
-      if (npy_traits::isnull(t)) {
+    int64_t value;
+    if (PyArray_CheckAnyScalarExact(obj)) {
+      // convert np.datetime64 / np.timedelta64 depending on Type
+      ARROW_ASSIGN_OR_RAISE(value, ValueConverter<Type>::FromNumpy(obj, this->unit_));
+      if (NumpyType<Type>::isnull(value)) {
         // checks numpy NaT sentinel after conversion
         return this->typed_builder_->AppendNull();
       }
     } else {
-      RETURN_NOT_OK(internal::CIntFromPython(obj, &t));
+      // convert builtin python objects
+      ARROW_ASSIGN_OR_RAISE(value, ValueConverter<Type>::FromPython(obj, this->unit_));
     }
-    return this->typed_builder_->Append(t);
+    return this->typed_builder_->Append(value);
   }
-
- private:
-  TimeUnit::type unit_;
 };
 
 // ----------------------------------------------------------------------
@@ -1159,13 +1181,15 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
     }
     case Type::TIMESTAMP: {
       *out =
-          std::unique_ptr<SeqConverter>(new TemporalConverter<null_coding, TimestampType>(
+          std::unique_ptr<SeqConverter>(
+            new TemporalConverter<TimestampType, null_coding>(
               checked_cast<const TimestampType&>(*type).unit()));
       break;
     }
     case Type::DURATION: {
       *out =
-          std::unique_ptr<SeqConverter>(new TemporalConverter<null_coding, DurationType>(
+          std::unique_ptr<SeqConverter>(
+            new TemporalConverter<DurationType, null_coding>(
               checked_cast<const DurationType&>(*type).unit()));
       break;
     }
