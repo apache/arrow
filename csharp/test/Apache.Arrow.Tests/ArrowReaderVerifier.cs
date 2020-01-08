@@ -174,7 +174,7 @@ namespace Apache.Arrow.Tests
             public void Visit(TimestampArray array) => CompareArrays(array);
             public void Visit(Date32Array array) => CompareArrays(array);
             public void Visit(Date64Array array) => CompareArrays(array);
-            public void Visit(ListArray array) => throw new NotImplementedException();
+            public void Visit(ListArray array) => CompareArrays(array);
 
             public void Visit(StringArray array) => CompareBinaryArrays<StringArray>(array);
 
@@ -232,6 +232,23 @@ namespace Apache.Arrow.Tests
 
                 int booleanByteCount = BitUtility.ByteCount(expectedArray.Length);
                 Assert.True(expectedArray.Values.Slice(0, booleanByteCount).SequenceEqual(actualArray.Values.Slice(0, booleanByteCount)));
+            }
+
+            private void CompareArrays(ListArray actualArray)
+            {
+                Assert.IsAssignableFrom<ListArray>(_expectedArray);
+                ListArray expectedArray = (ListArray)_expectedArray;
+
+                _arrayTypeComparer.Visit(actualArray.Data.DataType);
+
+                Assert.Equal(expectedArray.Length, actualArray.Length);
+                Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
+                Assert.Equal(expectedArray.Offset, actualArray.Offset);
+
+                Assert.True(expectedArray.NullBitmapBuffer.Span.SequenceEqual(actualArray.NullBitmapBuffer.Span));
+                Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
+
+                actualArray.Values.Accept(new ArrayComparer(expectedArray.Values));
             }
         }
     }

@@ -98,7 +98,10 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(ListType type)
             {
-                throw new NotImplementedException();
+                Flatbuf.List.StartList(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.List, 
+                    Flatbuf.List.EndList(Builder));
             }
 
             public void Visit(UnionType type)

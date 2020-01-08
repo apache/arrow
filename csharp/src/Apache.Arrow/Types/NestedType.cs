@@ -14,24 +14,30 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 
 namespace Apache.Arrow.Types
 {
-    public sealed class ListType : NestedType
+    public abstract class NestedType : ArrowType
     {
-        public override ArrowTypeId TypeId => ArrowTypeId.List;
-        public override string Name => "list";
+        public IReadOnlyList<Field> Children { get; }
 
-        public Field ValueField => Children[0];
+        protected NestedType(IReadOnlyList<Field> children)
+        {
+            if (children == null || children.Count == 0)
+            {
+                throw new ArgumentNullException(nameof(children));
+            }
+            Children = children;
+        }
 
-        public IArrowType ValueDataType => Children[0].DataType;
-
-        public ListType(Field valueField)
-           : base(valueField) { }
-
-        public ListType(IArrowType valueDataType)
-            : this(new Field("item", valueDataType, true)) { }
-
-        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+        protected NestedType(Field child)
+        {
+            if (child == null)
+            {
+                throw new ArgumentNullException(nameof(child));
+            }
+            Children = new List<Field> { child };
+        }
     }
 }
