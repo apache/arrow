@@ -834,7 +834,7 @@ namespace FlatBuffers
                 AssertOffsetAndLength(offset, numBytes);
                 // if we are LE, just do a block copy
 #if ENABLE_SPAN_T
-                MemoryMarshal.Cast<T, byte>(x).CopyToFix(_buffer.Span.Slice(offset, numBytes));
+                MemoryMarshal.Cast<T, byte>(x).CopyTo(_buffer.Span.Slice(offset, numBytes));
 #else
                 Buffer.BlockCopy(x, 0, _buffer.Buffer, offset, numBytes);
 #endif
@@ -873,7 +873,7 @@ namespace FlatBuffers
                 offset -= numBytes;
                 AssertOffsetAndLength(offset, numBytes);
                 // if we are LE, just do a block copy
-                MemoryMarshal.Cast<T, byte>(x).CopyToFix(_buffer.Span.Slice(offset, numBytes));
+                MemoryMarshal.Cast<T, byte>(x).CopyTo(_buffer.Span.Slice(offset, numBytes));
             }
             else
             {
