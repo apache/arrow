@@ -445,6 +445,7 @@ TEST(TestFileReader, BufferedReads) {
 
   ReaderProperties reader_props;
   reader_props.enable_buffered_stream();
+  reader_props.enable_pre_buffer_row_group();
   reader_props.set_buffer_size(64);
   std::unique_ptr<ParquetFileReader> file_reader =
       ParquetFileReader::Open(in_file, reader_props);

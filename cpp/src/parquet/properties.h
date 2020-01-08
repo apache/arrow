@@ -48,6 +48,7 @@ class PARQUET_EXPORT ReaderProperties {
       : pool_(pool) {
     buffered_stream_enabled_ = DEFAULT_USE_BUFFERED_STREAM;
     buffer_size_ = DEFAULT_BUFFER_SIZE;
+    pre_buffer_row_group_ = true;
   }
 
   MemoryPool* memory_pool() const { return pool_; }
@@ -61,6 +62,10 @@ class PARQUET_EXPORT ReaderProperties {
 
   void disable_buffered_stream() { buffered_stream_enabled_ = false; }
 
+  void enable_pre_buffer_row_group() { pre_buffer_row_group_ = true; }
+
+  void disable_pre_buffer_row_group() { pre_buffer_row_group_ = false; }
+  
   void set_buffer_size(int64_t buf_size) { buffer_size_ = buf_size; }
 
   int64_t buffer_size() const { return buffer_size_; }
