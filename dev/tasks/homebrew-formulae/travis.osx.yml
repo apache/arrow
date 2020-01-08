@@ -35,7 +35,8 @@ before_script:
 - brew audit $ARROW_FORMULA
 script:
 - brew install -v --build-from-source --HEAD $ARROW_FORMULA
-- brew test $ARROW_FORMULA
+# Note that test is hard-coded to apache-arrow, parametrize this if testing a different formula
+- brew test apache-arrow
 
 notifications:
   email:
