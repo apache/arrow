@@ -91,5 +91,4 @@ ENV ARROW_BUILD_STATIC=OFF \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
-    Thrift_SOURCE=BUNDLED \
-    LD_LIBRARY_PATH=/usr/local/cuda/lib64/
+    Thrift_SOURCE=BUNDLED

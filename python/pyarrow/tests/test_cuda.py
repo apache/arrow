@@ -278,7 +278,7 @@ def test_foreign_buffer():
     del fbuf
     assert sys.getrefcount(hbuf) == rc
 
-    # test postponed dealloction of host buffer memory
+    # test postponed deallocation of host buffer memory
     fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size, hbuf)
     del hbuf
     fbuf.copy_to_host()

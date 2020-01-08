@@ -17,6 +17,8 @@
 
 // String functions
 
+#include "arrow/util/formatting.h"
+
 extern "C" {
 
 #include <limits.h>
@@ -540,5 +542,38 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
                                              from_str_len, to_str, to_str_len, 65535,
                                              out_len);
 }
+
+#define CAST_VARCHAR(IN_TYPE, ARROW_TYPE)                                            \
+  FORCE_INLINE                                                                       \
+  const char* castVARCHAR_##IN_TYPE##_int64(int64 context, IN_TYPE value, int64 len, \
+                                            int32 * out_len) {                       \
+    if (len < 0) {                                                                   \
+      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");    \
+      return nullptr;                                                                \
+    }                                                                                \
+    arrow::internal::StringFormatter<arrow::ARROW_TYPE> formatter;                   \
+    char* ret = reinterpret_cast<char*>(                                             \
+        gdv_fn_context_arena_malloc(context, static_cast<int32>(len)));              \
+    if (ret == nullptr) {                                                            \
+      gdv_fn_context_set_error_msg(context, "Could not allocate memory");            \
+      return nullptr;                                                                \
+    }                                                                                \
+    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {        \
+      int64 size = static_cast<int64>(v.size());                                     \
+      *out_len = static_cast<int32>(len < size ? len : size);                        \
+      memcpy(ret, v.data(), *out_len);                                               \
+      return arrow::Status::OK();                                                    \
+    });                                                                              \
+    if (!status.ok()) {                                                              \
+      gdv_fn_context_set_error_msg(context, "Could not cast to string");             \
+      return nullptr;                                                                \
+    }                                                                                \
+    return ret;                                                                      \
+  }
+
+CAST_VARCHAR(int32, Int32Type)
+CAST_VARCHAR(int64, Int64Type)
+CAST_VARCHAR(float32, FloatType)
+CAST_VARCHAR(float64, DoubleType)
 
 }  // extern "C"

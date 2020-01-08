@@ -66,7 +66,7 @@ class ExpressionsTest : public ::testing::Test {
   }
 
   void AssertSimplifiesTo(const Expression& expr, const Expression& given,
-                          const ExpressionPtr& expected) {
+                          const std::shared_ptr<Expression>& expected) {
     AssertSimplifiesTo(expr, given, *expected);
   }
 
@@ -169,7 +169,8 @@ class FilterTest : public ::testing::Test {
     return evaluator_->Evaluate(expr, *batch);
   }
 
-  void AssertFilter(const ExpressionPtr& expr, std::vector<std::shared_ptr<Field>> fields,
+  void AssertFilter(const std::shared_ptr<Expression>& expr,
+                    std::vector<std::shared_ptr<Field>> fields,
                     const std::string& batch_json) {
     AssertFilter(*expr, std::move(fields), batch_json);
   }
@@ -402,14 +403,16 @@ TEST_F(FilterTest, KleeneTruthTables) {
 
 class TakeExpression : public CustomExpression {
  public:
-  TakeExpression(ExpressionPtr operand, std::shared_ptr<Array> dictionary)
+  TakeExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Array> dictionary)
       : operand_(std::move(operand)), dictionary_(std::move(dictionary)) {}
 
   std::string ToString() const override {
     return dictionary_->ToString() + "[" + operand_->ToString() + "]";
   }
 
-  ExpressionPtr Copy() const override { return std::make_shared<TakeExpression>(*this); }
+  std::shared_ptr<Expression> Copy() const override {
+    return std::make_shared<TakeExpression>(*this);
+  }
 
   bool Equals(const Expression& other) const override {
     // in a real CustomExpression this would need to be more sophisticated
@@ -461,7 +464,7 @@ class TakeExpression : public CustomExpression {
   };
 
  private:
-  ExpressionPtr operand_;
+  std::shared_ptr<Expression> operand_;
   std::shared_ptr<Array> dictionary_;
 };
 
@@ -510,7 +513,8 @@ TEST_F(FilterTest, EvaluateTakeExpression) {
   ])");
 }
 
-void AssertFieldsInExpression(ExpressionPtr expr, std::vector<std::string> expected) {
+void AssertFieldsInExpression(std::shared_ptr<Expression> expr,
+                              std::vector<std::string> expected) {
   EXPECT_THAT(FieldsInExpression(expr), testing::ContainerEq(expected));
 }
 

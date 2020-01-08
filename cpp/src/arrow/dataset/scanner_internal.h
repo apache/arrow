@@ -50,7 +50,7 @@ static inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
 
 class FilterAndProjectScanTask : public ScanTask {
  public:
-  explicit FilterAndProjectScanTask(ScanTaskPtr task)
+  explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task)
       : ScanTask(task->options(), task->context()), task_(std::move(task)) {}
 
   Result<RecordBatchIterator> Execute() override {
@@ -62,7 +62,7 @@ class FilterAndProjectScanTask : public ScanTask {
   }
 
  private:
-  ScanTaskPtr task_;
+  std::shared_ptr<ScanTask> task_;
 };
 
 }  // namespace dataset

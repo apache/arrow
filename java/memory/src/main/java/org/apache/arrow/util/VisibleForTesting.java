@@ -18,7 +18,7 @@
 package org.apache.arrow.util;
 
 /**
- * Annotation to indicate an class member or class is visible
+ * Annotation to indicate a class member or class is visible
  * only for the purposes of testing and otherwise should not
  * be referenced by other classes.
  */

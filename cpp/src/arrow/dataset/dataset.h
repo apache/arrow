@@ -38,7 +38,7 @@ class ARROW_DS_EXPORT DataFragment {
  public:
   /// \brief Scan returns an iterator of ScanTasks, each of which yields
   /// RecordBatches from this DataFragment.
-  virtual Result<ScanTaskIterator> Scan(ScanContextPtr context) = 0;
+  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) = 0;
 
   /// \brief Return true if the fragment can benefit from parallel
   /// scanning
@@ -48,7 +48,7 @@ class ARROW_DS_EXPORT DataFragment {
   /// scanning this fragment. May be nullptr, which indicates that no filtering
   /// or schema reconciliation will be performed and all partitions will be
   /// scanned.
-  ScanOptionsPtr scan_options() const { return scan_options_; }
+  std::shared_ptr<ScanOptions> scan_options() const { return scan_options_; }
 
   virtual ~DataFragment() = default;
 
@@ -59,14 +59,15 @@ class ARROW_DS_EXPORT DataFragment {
   }
 
  protected:
-  explicit DataFragment(ScanOptionsPtr scan_options);
+  explicit DataFragment(std::shared_ptr<ScanOptions> scan_options);
 
-  DataFragment(ScanOptionsPtr scan_options, ExpressionPtr partition_expression)
+  DataFragment(std::shared_ptr<ScanOptions> scan_options,
+               std::shared_ptr<Expression> partition_expression)
       : scan_options_(std::move(scan_options)),
         partition_expression_(std::move(partition_expression)) {}
 
-  ScanOptionsPtr scan_options_;
-  ExpressionPtr partition_expression_;
+  std::shared_ptr<ScanOptions> scan_options_;
+  std::shared_ptr<Expression> partition_expression_;
 };
 
 /// \brief A trivial DataFragment that yields ScanTask out of a fixed set of
@@ -74,9 +75,9 @@ class ARROW_DS_EXPORT DataFragment {
 class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
  public:
   SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
-                     ScanOptionsPtr scan_options);
+                     std::shared_ptr<ScanOptions> scan_options);
 
-  Result<ScanTaskIterator> Scan(ScanContextPtr context) override;
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
 
   bool splittable() const override { return false; }
 
@@ -91,11 +92,13 @@ class ARROW_DS_EXPORT DataSource {
  public:
   /// \brief GetFragments returns an iterator of DataFragments. The ScanOptions
   /// controls filtering and schema inference.
-  DataFragmentIterator GetFragments(ScanOptionsPtr options);
+  DataFragmentIterator GetFragments(std::shared_ptr<ScanOptions> options);
 
   /// \brief An expression which evaluates to true for all data viewed by this DataSource.
   /// May be null, which indicates no information is available.
-  const ExpressionPtr& partition_expression() const { return partition_expression_; }
+  const std::shared_ptr<Expression>& partition_expression() const {
+    return partition_expression_;
+  }
 
   /// \brief The name identifying the kind of data source
   virtual std::string type_name() const = 0;
@@ -104,16 +107,18 @@ class ARROW_DS_EXPORT DataSource {
 
  protected:
   DataSource() = default;
-  explicit DataSource(ExpressionPtr c) : partition_expression_(std::move(c)) {}
+  explicit DataSource(std::shared_ptr<Expression> c)
+      : partition_expression_(std::move(c)) {}
 
-  virtual DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) = 0;
+  virtual DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) = 0;
 
   /// Mutates a ScanOptions by assuming partition_expression_ holds for all yielded
   /// fragments. Returns false if the selector is not satisfiable in this DataSource.
-  virtual bool AssumePartitionExpression(const ScanOptionsPtr& scan_options,
-                                         ScanOptionsPtr* simplified_scan_options) const;
+  virtual bool AssumePartitionExpression(
+      const std::shared_ptr<ScanOptions>& scan_options,
+      std::shared_ptr<ScanOptions>* simplified_scan_options) const;
 
-  ExpressionPtr partition_expression_;
+  std::shared_ptr<Expression> partition_expression_;
 };
 
 /// \brief A DataSource consisting of a flat sequence of DataFragments
@@ -122,7 +127,7 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
   explicit SimpleDataSource(DataFragmentVector fragments)
       : fragments_(std::move(fragments)) {}
 
-  DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
+  DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
   std::string type_name() const override { return "simple"; }
 
@@ -135,7 +140,7 @@ class ARROW_DS_EXPORT TreeDataSource : public DataSource {
  public:
   explicit TreeDataSource(DataSourceVector children) : children_(std::move(children)) {}
 
-  DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
+  DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
   std::string type_name() const override { return "tree"; }
 
@@ -151,12 +156,12 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   //
   /// \param[in] sources one or more input data sources
   /// \param[in] schema a known schema to conform to
-  static Result<DatasetPtr> Make(DataSourceVector sources,
-                                 std::shared_ptr<Schema> schema);
+  static Result<std::shared_ptr<Dataset>> Make(DataSourceVector sources,
+                                               std::shared_ptr<Schema> schema);
 
   /// \brief Begin to build a new Scan operation against this Dataset
-  Result<ScannerBuilderPtr> NewScan(ScanContextPtr context);
-  Result<ScannerBuilderPtr> NewScan();
+  Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
+  Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
   const DataSourceVector& sources() const { return sources_; }
 

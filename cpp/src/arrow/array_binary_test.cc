@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -35,6 +36,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string_view.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -218,6 +220,42 @@ class TestStringArray : public ::testing::Test {
     ASSERT_EQ(arr->GetString(0), "b");
   }
 
+  Status ValidateOffsets(int64_t length, std::vector<offset_type> offsets,
+                         util::string_view data, int64_t offset = 0) {
+    ArrayType arr(length, Buffer::Wrap(offsets), std::make_shared<Buffer>(data),
+                  /*null_bitmap=*/nullptr, /*null_count=*/0, offset);
+    return arr.ValidateFull();
+  }
+
+  void TestValidateOffsets() {
+    ASSERT_OK(ValidateOffsets(0, {0}, ""));
+    ASSERT_OK(ValidateOffsets(1, {0, 4}, "data"));
+    ASSERT_OK(ValidateOffsets(2, {0, 4, 4}, "data"));
+    ASSERT_OK(ValidateOffsets(2, {0, 5, 9}, "some data"));
+
+    // Non-zero array offset
+    ASSERT_OK(ValidateOffsets(0, {0, 4}, "data", 1));
+    ASSERT_OK(ValidateOffsets(1, {0, 5, 9}, "some data", 1));
+    ASSERT_OK(ValidateOffsets(0, {0, 5, 9}, "some data", 2));
+
+    // Not enough offsets
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {}, ""));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0}, ""));
+    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 4}, "data"));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 4}, "data", 1));
+
+    // First offset != 0
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {1, 4}, "data"));
+    // Offset out of bounds
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 5}, "data"));
+    // Negative offset
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {-1, 0}, "data"));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, -1}, "data"));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, -1, -1}, "data", 1));
+    // Offsets non-monotonic
+    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 5, 4}, "some data"));
+  }
+
  protected:
   std::vector<offset_type> offsets_;
   std::vector<char> chars_;
@@ -254,6 +292,8 @@ TYPED_TEST(TestStringArray, TestEmptyStringComparison) {
 TYPED_TEST(TestStringArray, CompareNullByteSlots) { this->TestCompareNullByteSlots(); }
 
 TYPED_TEST(TestStringArray, TestSliceGetString) { this->TestSliceGetString(); }
+
+TYPED_TEST(TestStringArray, TestValidateOffsets) { this->TestValidateOffsets(); }
 
 // ----------------------------------------------------------------------
 // String builder tests
@@ -622,5 +662,57 @@ TEST(TestChunkedStringBuilder, BasicOperation) {
     ASSERT_TRUE(chunk->type()->Equals(utf8()));
   }
 }
+
+// ----------------------------------------------------------------------
+// ArrayDataVisitor<binary-like> tests
+
+struct Appender {
+  Status VisitNull() {
+    data.emplace_back("(null)");
+    return Status::OK();
+  }
+
+  Status VisitValue(util::string_view v) {
+    data.push_back(v);
+    return Status::OK();
+  }
+
+  std::vector<util::string_view> data;
+};
+
+template <typename T>
+class TestBinaryDataVisitor : public ::testing::Test {
+ public:
+  using TypeClass = T;
+
+  void SetUp() override { type_ = TypeTraits<TypeClass>::type_singleton(); }
+
+  void TestBasics() {
+    auto array = ArrayFromJSON(type_, R"(["foo", null, "bar"])");
+    Appender appender;
+    ArrayDataVisitor<TypeClass> visitor;
+    ASSERT_OK(visitor.Visit(*array->data(), &appender));
+    ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"foo", "(null)", "bar"}));
+    ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
+  }
+
+  void TestSliced() {
+    auto array = ArrayFromJSON(type_, R"(["ab", null, "cd", "ef"])")->Slice(1, 2);
+    Appender appender;
+    ArrayDataVisitor<TypeClass> visitor;
+    ASSERT_OK(visitor.Visit(*array->data(), &appender));
+    ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"(null)", "cd"}));
+    ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
+  }
+
+ protected:
+  std::shared_ptr<DataType> type_;
+};
+
+TYPED_TEST_CASE(TestBinaryDataVisitor, StringTypes);
+
+TYPED_TEST(TestBinaryDataVisitor, Basics) { this->TestBasics(); }
+
+TYPED_TEST(TestBinaryDataVisitor, Sliced) { this->TestSliced(); }
 
 }  // namespace arrow

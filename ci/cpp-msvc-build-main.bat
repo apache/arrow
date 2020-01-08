@@ -27,7 +27,7 @@ if "%JOB%" == "Toolchain" (
       -DARROW_WITH_BZ2=ON ^
       -DARROW_DEPENDENCY_SOURCE=CONDA
 ) else (
-  @rem We're in a conda enviroment but don't want to use it for the dependencies
+  @rem We're in a conda environment but don't want to use it for the dependencies
   set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_DEPENDENCY_SOURCE=AUTO
 )
 

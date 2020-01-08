@@ -1405,7 +1405,7 @@ public class TestValueVector {
       assertTrue(initialCapacity >= 4095);
 
       vector.setSafe(4094, "hello".getBytes(), 0, 5);
-      /* the above set method should NOT have trigerred a realloc */
+      /* the above set method should NOT have triggered a realloc */
       assertEquals(initialCapacity, vector.getValueCapacity());
 
       int bufSizeBefore = vector.getFieldBuffers().get(1).capacity();
@@ -2325,7 +2325,7 @@ public class TestValueVector {
   }
 
   @Test
-  public void testVarcharVectorEuqalsWithNull() {
+  public void testVarcharVectorEqualsWithNull() {
     try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
          final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 

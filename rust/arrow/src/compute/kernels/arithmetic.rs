@@ -27,7 +27,6 @@ use std::mem;
 use std::ops::{Add, Div, Mul, Sub};
 #[cfg(feature = "simd")]
 use std::slice::from_raw_parts_mut;
-#[cfg(feature = "simd")]
 use std::sync::Arc;
 
 use num::{One, Zero};
@@ -35,11 +34,14 @@ use num::{One, Zero};
 use crate::array::*;
 #[cfg(feature = "simd")]
 use crate::bitmap::Bitmap;
+use crate::buffer::Buffer;
 #[cfg(feature = "simd")]
 use crate::buffer::MutableBuffer;
+use crate::compute::util::apply_bin_op_to_option_bitmap;
 #[cfg(feature = "simd")]
-use crate::compute::util::{apply_bin_op_to_option_bitmap, simd_load_set_invalid};
+use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
+use crate::datatypes::ToByteSlice;
 use crate::error::{ArrowError, Result};
 
 /// Helper function to perform math lambda function on values from two arrays. If either
@@ -59,16 +61,28 @@ where
             "Cannot perform math operation on arrays of different length".to_string(),
         ));
     }
-    let mut b = PrimitiveBuilder::<T>::new(left.len());
+
+    let null_bit_buffer = apply_bin_op_to_option_bitmap(
+        left.data().null_bitmap(),
+        right.data().null_bitmap(),
+        |a, b| a & b,
+    )?;
+
+    let mut values = Vec::with_capacity(left.len());
     for i in 0..left.len() {
-        let index = i;
-        if left.is_null(i) || right.is_null(i) {
-            b.append_null()?;
-        } else {
-            b.append_value(op(left.value(index), right.value(index))?)?;
-        }
+        values.push(op(left.value(i), right.value(i))?);
     }
-    Ok(b.finish())
+
+    let data = ArrayData::new(
+        T::get_data_type(),
+        left.len(),
+        None,
+        null_bit_buffer,
+        left.offset(),
+        vec![Buffer::from(values.to_byte_slice())],
+        vec![],
+    );
+    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
 
 /// SIMD vectorized version of `math_op` above.

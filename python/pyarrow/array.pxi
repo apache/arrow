@@ -1308,7 +1308,8 @@ cdef class ListArray(Array):
 
     @property
     def values(self):
-        return self.flatten()
+        cdef CListArray* arr = <CListArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
 
     @property
     def offsets(self):
@@ -1319,16 +1320,36 @@ cdef class ListArray(Array):
             int32(), len(self) + 1, [None, self.buffers()[1]],
             offset=self.offset)
 
-    def flatten(self):
+    def flatten(self, MemoryPool memory_pool=None):
         """
         Unnest this ListArray by one level
+
+        The returned Array is logically a concatenation of all the sub-lists
+        in this Array.
+
+        Note that this method is different from ``self.values()`` in that
+        it takes care of the slicing offset as well as null elements backed
+        by non-empty sub-lists.
+
+        Parameters
+        ----------
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the currently-set default
+            memory pool
 
         Returns
         -------
         result : Array
         """
-        cdef CListArray* arr = <CListArray*> self.ap
-        return pyarrow_wrap_array(arr.values())
+        cdef:
+            shared_ptr[CArray] c_result_array
+            CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
+            CListArray* arr = <CListArray*> self.ap
+
+        with nogil:
+            c_result_array = GetResultValue(arr.Flatten(cpool))
+
+        return pyarrow_wrap_array(c_result_array)
 
 
 cdef class LargeListArray(Array):
@@ -1369,7 +1390,8 @@ cdef class LargeListArray(Array):
 
     @property
     def values(self):
-        return self.flatten()
+        cdef CLargeListArray* arr = <CLargeListArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
 
     @property
     def offsets(self):
@@ -1380,16 +1402,36 @@ cdef class LargeListArray(Array):
             int64(), len(self) + 1, [None, self.buffers()[1]],
             offset=self.offset)
 
-    def flatten(self):
+    def flatten(self, MemoryPool memory_pool=None):
         """
-        Unnest this LargeListArray by one level
+        Unnest this LargeListArray by one level.
+
+        The returned Array is logically a concatenation of all the sub-lists
+        in this Array.
+
+        Note that this method is different from ``self.values()`` in that
+        it takes care of the slicing offset as well as null elements backed
+        by non-empty sub-lists.
+
+        Parameters
+        ----------
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the currently-set default
+            memory pool
 
         Returns
         -------
         result : Array
         """
-        cdef CLargeListArray* arr = <CLargeListArray*> self.ap
-        return pyarrow_wrap_array(arr.values())
+        cdef:
+            shared_ptr[CArray] c_result_array
+            CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
+            CLargeListArray* arr = <CLargeListArray*> self.ap
+
+        with nogil:
+            c_result_array = GetResultValue(arr.Flatten(cpool))
+
+        return pyarrow_wrap_array(c_result_array)
 
 
 cdef class MapArray(Array):

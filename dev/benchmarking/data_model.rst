@@ -308,7 +308,7 @@ environment_view
 ----------------
 
 The build environment used for a reported benchmark run.
-(Will be inferred from each "benchmark_run" if not expicitly added).
+(Will be inferred from each "benchmark_run" if not explicitly added).
 
 - Each entry is unique on
   ("benchmark_language", "language_implementation_version", "dependencies")

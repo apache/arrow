@@ -118,7 +118,7 @@ Subject: [VOTE] Release Apache Arrow #{@release_version} - RC0
 Hi,
 
 I would like to propose the following release candidate (RC0) of Apache
-Arrow version #{@release_version}. This is a release consiting of #{n_resolved_issues}
+Arrow version #{@release_version}. This is a release consisting of #{n_resolved_issues}
 resolved JIRA issues[1].
 
 This release candidate is based on commit:

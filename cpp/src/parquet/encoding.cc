@@ -1563,7 +1563,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
   // Arrow-style byte offsets for each dictionary value. We maintain two
   // representations of the dictionary, one as ByteArray* for non-Arrow
-  // consumers and this one for Arrow conumers. Since dictionaries are
+  // consumers and this one for Arrow consumers. Since dictionaries are
   // generally pretty small to begin with this doesn't mean too much extra
   // memory use in most cases
   std::shared_ptr<ResizableBuffer> byte_array_offsets_;
@@ -1799,7 +1799,7 @@ template <>
 void DictDecoderImpl<ByteArrayType>::InsertDictionary(arrow::ArrayBuilder* builder) {
   auto binary_builder = checked_cast<arrow::BinaryDictionary32Builder*>(builder);
 
-  // Make an BinaryArray referencing the internal dictionary data
+  // Make a BinaryArray referencing the internal dictionary data
   auto arr = std::make_shared<arrow::BinaryArray>(dictionary_length_, byte_array_offsets_,
                                                   byte_array_data_);
   PARQUET_THROW_NOT_OK(binary_builder->InsertMemoValues(*arr));

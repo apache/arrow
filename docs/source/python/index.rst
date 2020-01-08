@@ -38,6 +38,7 @@ files into Arrow structures.
    data
    ipc
    filesystems
+   filesystems_deprecated
    plasma
    numpy
    pandas

@@ -292,7 +292,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
     }
   }
 
-  // generate schema from the types that have been infered
+  // generate schema from the types that have been inferred
   std::shared_ptr<arrow::Schema> schema;
 
   std::vector<std::shared_ptr<arrow::Field>> fields(num_fields);

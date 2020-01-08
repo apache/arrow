@@ -340,28 +340,44 @@ csv___TableReader__Read <- function(table_reader){
     .Call(`_arrow_csv___TableReader__Read` , table_reader)
 }
 
-dataset___FSDSDiscovery__Make <- function(fs, selector){
-    .Call(`_arrow_dataset___FSDSDiscovery__Make` , fs, selector)
+dataset___FSDSDiscovery__Make2 <- function(fs, selector, partition_scheme){
+    .Call(`_arrow_dataset___FSDSDiscovery__Make2` , fs, selector, partition_scheme)
 }
 
-dataset___DSDiscovery__Finish <- function(discovery){
-    .Call(`_arrow_dataset___DSDiscovery__Finish` , discovery)
+dataset___FSDSDiscovery__Make1 <- function(fs, selector){
+    .Call(`_arrow_dataset___FSDSDiscovery__Make1` , fs, selector)
+}
+
+dataset___FSDSDiscovery__Make3 <- function(fs, selector, discovery){
+    .Call(`_arrow_dataset___FSDSDiscovery__Make3` , fs, selector, discovery)
+}
+
+dataset___DSDiscovery__Finish1 <- function(discovery){
+    .Call(`_arrow_dataset___DSDiscovery__Finish1` , discovery)
+}
+
+dataset___DSDiscovery__Finish2 <- function(discovery, schema){
+    .Call(`_arrow_dataset___DSDiscovery__Finish2` , discovery, schema)
 }
 
 dataset___DSDiscovery__Inspect <- function(discovery){
     .Call(`_arrow_dataset___DSDiscovery__Inspect` , discovery)
 }
 
-dataset___DSDiscovery__SetPartitionScheme <- function(discovery, part){
-    invisible(.Call(`_arrow_dataset___DSDiscovery__SetPartitionScheme` , discovery, part))
-}
-
 dataset___SchemaPartitionScheme <- function(schm){
     .Call(`_arrow_dataset___SchemaPartitionScheme` , schm)
 }
 
+dataset___SchemaPartitionScheme__MakeDiscovery <- function(field_names){
+    .Call(`_arrow_dataset___SchemaPartitionScheme__MakeDiscovery` , field_names)
+}
+
 dataset___HivePartitionScheme <- function(schm){
     .Call(`_arrow_dataset___HivePartitionScheme` , schm)
+}
+
+dataset___HivePartitionScheme__MakeDiscovery <- function(){
+    .Call(`_arrow_dataset___HivePartitionScheme__MakeDiscovery` )
 }
 
 dataset___Dataset__create <- function(sources, schm){
@@ -1062,10 +1078,6 @@ parquet___arrow___FileReader__ReadTable1 <- function(reader){
 
 parquet___arrow___FileReader__ReadTable2 <- function(reader, column_indices){
     .Call(`_arrow_parquet___arrow___FileReader__ReadTable2` , reader, column_indices)
-}
-
-parquet___default_arrow_writer_properties <- function(){
-    .Call(`_arrow_parquet___default_arrow_writer_properties` )
 }
 
 parquet___ArrowWriterProperties___Builder__create <- function(){

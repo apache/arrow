@@ -53,11 +53,14 @@ public class ReadChannel implements AutoCloseable {
    * @throws IOException if nit enough bytes left to read
    */
   public int readFully(ByteBuffer buffer) throws IOException {
-    LOGGER.debug("Reading buffer with size: {}", buffer.remaining());
+    if (LOGGER.isDebugEnabled()) {
+      LOGGER.debug("Reading buffer with size: {}", buffer.remaining());
+    }
     int totalRead = 0;
     while (buffer.remaining() != 0) {
       int read = in.read(buffer);
-      if (read < 0) {
+      if (read == -1) {
+        this.bytesRead += totalRead;
         return totalRead;
       }
       totalRead += read;
@@ -79,7 +82,7 @@ public class ReadChannel implements AutoCloseable {
    */
   public int readFully(ArrowBuf buffer, int l) throws IOException {
     int n = readFully(buffer.nioBuffer(buffer.writerIndex(), l));
-    buffer.writerIndex(n);
+    buffer.writerIndex(buffer.writerIndex() + n);
     return n;
   }
 

@@ -328,7 +328,7 @@ Column 1
 TEST(TestJSONWithLocalFile, JSONOutput) {
   std::string json_output = R"###({
   "FileName": "alltypes_plain.parquet",
-  "Version": "0",
+  "Version": "1.0",
   "CreatedBy": "impala version 1.3.0-INTERNAL (build 8a48ddb1eff84592b3fc06bc6f51ec120e1fffc9)",
   "TotalRows": "8",
   "NumberOfRowGroups": "1",

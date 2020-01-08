@@ -97,7 +97,7 @@ struct FileBlock {
 //
 
 // Construct a complete Schema from the message and add
-// dictinory-encoded fields to a DictionaryMemo instance. May be
+// dictionary-encoded fields to a DictionaryMemo instance. May be
 // expensive for very large schemas if you are only interested in a
 // few fields
 Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
@@ -111,8 +111,8 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
 Status GetSparseCOOIndexMetadata(const flatbuf::SparseTensorIndexCOO* sparse_index,
                                  std::shared_ptr<DataType>* indices_type);
 
-// EXPERIMENTAL: Extracting metadata of a SparseCSRIndex from the message
-Status GetSparseCSRIndexMetadata(const flatbuf::SparseMatrixIndexCSR* sparse_index,
+// EXPERIMENTAL: Extracting metadata of a SparseCSXIndex from the message
+Status GetSparseCSXIndexMetadata(const flatbuf::SparseMatrixIndexCSX* sparse_index,
                                  std::shared_ptr<DataType>* indptr_type,
                                  std::shared_ptr<DataType>* indices_type);
 
@@ -147,12 +147,12 @@ Status WriteRecordBatchMessage(const int64_t length, const int64_t body_length,
                                const std::vector<BufferMetadata>& buffers,
                                std::shared_ptr<Buffer>* out);
 
-Status WriteTensorMessage(const Tensor& tensor, const int64_t buffer_start_offset,
-                          std::shared_ptr<Buffer>* out);
+Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
+                                                   const int64_t buffer_start_offset);
 
-Status WriteSparseTensorMessage(const SparseTensor& sparse_tensor, int64_t body_length,
-                                const std::vector<BufferMetadata>& buffers,
-                                std::shared_ptr<Buffer>* out);
+Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
+    const SparseTensor& sparse_tensor, int64_t body_length,
+    const std::vector<BufferMetadata>& buffers);
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
                        const std::vector<FileBlock>& record_batches,
@@ -164,8 +164,8 @@ Status WriteDictionaryMessage(const int64_t id, const int64_t length,
                               const std::vector<BufferMetadata>& buffers,
                               std::shared_ptr<Buffer>* out);
 
-static inline Status WriteFlatbufferBuilder(flatbuffers::FlatBufferBuilder& fbb,
-                                            std::shared_ptr<Buffer>* out) {
+static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
+    flatbuffers::FlatBufferBuilder& fbb) {
   int32_t size = fbb.GetSize();
 
   std::shared_ptr<Buffer> result;
@@ -173,8 +173,7 @@ static inline Status WriteFlatbufferBuilder(flatbuffers::FlatBufferBuilder& fbb,
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);
-  *out = result;
-  return Status::OK();
+  return result;
 }
 
 }  // namespace internal

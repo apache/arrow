@@ -32,7 +32,7 @@ class NativeFunction;
 class FunctionRegistry;
 /// \brief Exports types supported by Gandiva for processing.
 ///
-/// Has helper methods for clients to programatically discover
+/// Has helper methods for clients to programmatically discover
 /// data types and functions supported by Gandiva.
 class GANDIVA_EXPORT ExpressionRegistry {
  public:

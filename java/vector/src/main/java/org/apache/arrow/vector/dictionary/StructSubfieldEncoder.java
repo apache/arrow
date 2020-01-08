@@ -35,7 +35,7 @@ import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * Sub fields encoder/decoder for Dictionary encoded {@link StructVector}.
- * Notes that child vectors within struct vector can either be dictionary encodeable or not.
+ * Notes that child vectors within struct vector can either be dictionary encodable or not.
  */
 public class StructSubfieldEncoder {
 

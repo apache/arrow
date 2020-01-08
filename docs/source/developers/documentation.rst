@@ -63,7 +63,7 @@ These two steps are mandatory and must be executed in order.
 
    .. note::
 
-      This step requires the the pyarrow library is installed
+      This step requires the pyarrow library is installed
       in your python environment.  One way to accomplish
       this is to follow the build instructions at :ref:`python-development`
       and then run ``python setup.py install`` in arrow/python

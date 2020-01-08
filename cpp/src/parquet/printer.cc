@@ -187,7 +187,8 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
   const FileMetaData* file_metadata = fileReader->metadata().get();
   stream << "{\n";
   stream << "  \"FileName\": \"" << filename << "\",\n";
-  stream << "  \"Version\": \"" << file_metadata->version() << "\",\n";
+  stream << "  \"Version\": \"" << ParquetVersionToString(file_metadata->version())
+         << "\",\n";
   stream << "  \"CreatedBy\": \"" << file_metadata->created_by() << "\",\n";
   stream << "  \"TotalRows\": \"" << file_metadata->num_rows() << "\",\n";
   stream << "  \"NumberOfRowGroups\": \"" << file_metadata->num_row_groups() << "\",\n";

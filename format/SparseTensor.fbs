@@ -25,7 +25,7 @@ namespace org.apache.arrow.flatbuf;
 /// ----------------------------------------------------------------------
 /// EXPERIMENTAL: Data structures for sparse tensors
 
-/// Coodinate (COO) format of sparse tensor index.
+/// Coordinate (COO) format of sparse tensor index.
 ///
 /// COO's index list are represented as a NxM matrix,
 /// where N is the number of non-zero values,
@@ -64,8 +64,13 @@ table SparseTensorIndexCOO {
   indicesBuffer: Buffer;
 }
 
-/// Compressed Sparse Row format, that is matrix-specific.
-table SparseMatrixIndexCSR {
+enum SparseMatrixCompressedAxis: short { Row, Column }
+
+/// Compressed Sparse format, that is matrix-specific.
+table SparseMatrixIndexCSX {
+  /// Which axis, row or column, is compressed
+  compressedAxis: SparseMatrixCompressedAxis;
+
   /// The type of values in indptrBuffer
   indptrType: Int;
 
@@ -110,7 +115,7 @@ table SparseMatrixIndexCSR {
 
 union SparseTensorIndex {
   SparseTensorIndexCOO,
-  SparseMatrixIndexCSR
+  SparseMatrixIndexCSX,
 }
 
 table SparseTensor {

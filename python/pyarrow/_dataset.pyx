@@ -115,7 +115,29 @@ cdef class PartitionScheme:
 
     @property
     def schema(self):
+        """The arrow Schema describing the partition scheme."""
         return pyarrow_wrap_schema(self.scheme.schema())
+
+
+cdef class PartitionSchemeDiscovery:
+
+    cdef:
+        shared_ptr[CPartitionSchemeDiscovery] wrapped
+        CPartitionSchemeDiscovery* discovery
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CPartitionSchemeDiscovery]& sp):
+        cdef PartitionSchemeDiscovery self
+        self = PartitionSchemeDiscovery()
+        self.wrapped = sp
+        self.discovery = sp.get()
+        return self
+
+    cdef inline shared_ptr[CPartitionSchemeDiscovery] unwrap(self):
+        return self.wrapped
 
 
 cdef class DefaultPartitionScheme(PartitionScheme):
@@ -134,6 +156,31 @@ cdef class DefaultPartitionScheme(PartitionScheme):
 
 
 cdef class SchemaPartitionScheme(PartitionScheme):
+    """
+    A PartitionScheme based on a specified Schema.
+
+    The SchemaPartitionScheme expects one segment in the file path for each
+    field in the schema (all fields are required to be present).
+    For example given schema<year:int16, month:int8> the path "/2009/11" would
+    be parsed to ("year"_ == 2009 and "month"_ == 11).
+
+    Parameters
+    ----------
+    schema : Schema
+        The schema that describes the partitions present in the file path.
+
+    Returns
+    -------
+    SchemaPartitionScheme
+
+    Examples
+    --------
+    >>> from pyarrow.dataset import SchemaPartitionScheme
+    >>> scheme = SchemaPartitionScheme(
+    ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
+    >>> print(scheme.parse("/2009/11"))
+    ((year == 2009:int16) and (month == 11:int8))
+    """
 
     cdef:
         CSchemaPartitionScheme* schema_scheme
@@ -151,6 +198,37 @@ cdef class SchemaPartitionScheme(PartitionScheme):
 
 
 cdef class HivePartitionScheme(PartitionScheme):
+    """
+    A PartitionScheme for "/$key=$value/" nested directories as found in
+    Apache Hive.
+
+    Multi-level, directory based partitioning scheme originating from
+    Apache Hive with all data files stored in the leaf directories. Data is
+    partitioned by static values of a particular column in the schema.
+    Partition keys are represented in the form $key=$value in directory names.
+    Field order is ignored, as are missing or unrecognized field names.
+
+    For example, given schema<year:int16, month:int8, day:int8>, a possible
+    path would be "/year=2009/month=11/day=15".
+
+    Parameters
+    ----------
+    schema : Schema
+        The schema that describes the partitions present in the file path.
+
+    Returns
+    -------
+    SchemaPartitionScheme
+
+    Examples
+    --------
+    >>> from pyarrow.dataset import HivePartitionScheme
+    >>> scheme = HivePartitionScheme(
+    ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
+    >>> print(scheme.parse("/year=2009/month=11"))
+    ((year == 2009:int16) and (month == 11:int8))
+
+    """
 
     cdef:
         CHivePartitionScheme* hive_scheme
@@ -168,6 +246,28 @@ cdef class HivePartitionScheme(PartitionScheme):
 
 
 cdef class FileSystemDiscoveryOptions:
+    """
+    Options for FileSystemDataSourceDiscovery.
+
+    Parameters
+    ----------
+    partition_base_dir : str, optional
+        For the purposes of applying the partition scheme, paths will be
+        stripped of the partition_base_dir. Files not matching the
+        partition_base_dir prefix will be skipped for partition discovery.
+        The ignored files will still be part of the DataSource, but will not
+        have partition information.
+    exclude_invalid_files : bool, optional (default True)
+        If True, invalid files will be excluded (file format specific check).
+        This will incur IO for each files in a serial and single threaded
+        fashion. Disabling this feature will skip the IO, but unsupported
+        files may be present in the DataSource (resulting in an error at scan
+        time).
+    ignore_prefixes : list, optional
+        Files matching one of those prefixes will be ignored by the
+        discovery process. This is matched to the basename of a path.
+        By default this is ['.', '_'].
+    """
 
     cdef:
         CFileSystemDiscoveryOptions options
@@ -187,7 +287,41 @@ cdef class FileSystemDiscoveryOptions:
         return self.options
 
     @property
+    def partition_scheme(self):
+        """PartitionScheme to apply to discovered files.
+
+        NOTE: setting this property will overwrite partition_scheme_discovery.
+        """
+        c_scheme = self.options.partition_scheme.scheme()
+        if c_scheme.get() == nullptr:
+            return None
+        return PartitionScheme.wrap(c_scheme)
+
+    @partition_scheme.setter
+    def partition_scheme(self, PartitionScheme value):
+        self.options.partition_scheme = (<PartitionScheme> value).unwrap()
+
+    @property
+    def partition_scheme_discovery(self):
+        """PartitionSchemeDiscovery to apply to discovered files and
+        discover a PartitionScheme.
+
+        NOTE: setting this property will overwrite partition_scheme.
+        """
+        c_discovery = self.options.partition_scheme.discovery()
+        if c_discovery.get() == nullptr:
+            return None
+        return PartitionSchemeDiscovery.wrap(c_discovery)
+
+    @partition_scheme_discovery.setter
+    def partition_scheme_discovery(self, PartitionSchemeDiscovery value):
+        self.options.partition_scheme = value.unwrap()
+
+    @property
     def partition_base_dir(self):
+        """
+        Base directory to strip paths before applying the partition scheme.
+        """
         return frombytes(self.options.partition_base_dir)
 
     @partition_base_dir.setter
@@ -196,6 +330,7 @@ cdef class FileSystemDiscoveryOptions:
 
     @property
     def exclude_invalid_files(self):
+        """Whether to exclude invalid files."""
         return self.options.exclude_invalid_files
 
     @exclude_invalid_files.setter
@@ -204,6 +339,10 @@ cdef class FileSystemDiscoveryOptions:
 
     @property
     def ignore_prefixes(self):
+        """
+        List of prefixes. Files matching one of those prefixes will be
+        ignored by the discovery process.
+        """
         return [frombytes(p) for p in self.options.ignore_prefixes]
 
     @ignore_prefixes.setter
@@ -235,19 +374,6 @@ cdef class DataSourceDiscovery:
         return self.wrapped
 
     @property
-    def partition_scheme(self):
-        cdef shared_ptr[CPartitionScheme] scheme
-        scheme = self.discovery.partition_scheme()
-        if scheme.get() == nullptr:
-            return None
-        else:
-            return PartitionScheme.wrap(scheme)
-
-    @partition_scheme.setter
-    def partition_scheme(self, PartitionScheme scheme not None):
-        check_status(self.discovery.SetPartitionScheme(scheme.unwrap()))
-
-    @property
     def root_partition(self):
         cdef shared_ptr[CExpression] expr = self.discovery.root_partition()
         if expr.get() == nullptr:
@@ -270,19 +396,62 @@ cdef class DataSourceDiscovery:
         return schemas
 
     def inspect(self):
+        """
+        Inspect all data fragments and return a common Schema.
+
+        Returns
+        -------
+        Schema
+        """
         cdef CResult[shared_ptr[CSchema]] result
         with nogil:
             result = self.discovery.Inspect()
         return pyarrow_wrap_schema(GetResultValue(result))
 
-    def finish(self):
-        cdef CResult[shared_ptr[CDataSource]] result
-        with nogil:
-            result = self.discovery.Finish()
+    def finish(self, Schema schema=None):
+        """
+        Create a DataSource using the inspected schema or an explicit schema
+        (if given).
+
+        Parameters
+        ----------
+        schema: Schema, default None
+            The schema to conform the datasource to.  If None, the inspected
+            schema is used.
+
+        Returns
+        -------
+        DataSource
+        """
+        cdef:
+            shared_ptr[CSchema] sp_schema
+            CResult[shared_ptr[CDataSource]] result
+        if schema is not None:
+            sp_schema = pyarrow_unwrap_schema(schema)
+            with nogil:
+                result = self.discovery.Finish(sp_schema)
+        else:
+            with nogil:
+                result = self.discovery.Finish()
         return DataSource.wrap(GetResultValue(result))
 
 
 cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
+    """
+    Create a DataSource from a list of paths with schema inspection.
+
+    DataSourceDiscovery is used to create a DataSource, inspect the Schema
+    of the fragments contained in it, and declare a partition scheme.
+
+    Parameters
+    ----------
+    filesystem : pyarrow.fs.FileSystem
+    paths_or_selector: pyarrow.fs.Selector or list of path-likes
+        Either a Selector object or a list of path-like objects.
+    format : FileFormat
+    options : FileSystemDiscoveryOptions, optional
+
+    """
 
     cdef:
         CFileSystemDataSourceDiscovery* filesystem_discovery
@@ -291,20 +460,41 @@ cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
                  FileFormat format not None,
                  FileSystemDiscoveryOptions options=None):
         cdef:
-            FileStats file_stats
-            vector[CFileStats] stats
+            vector[c_string] paths
+            CFileSelector selector
             CResult[shared_ptr[CDataSourceDiscovery]] result
+            shared_ptr[CFileSystem] c_filesystem
+            shared_ptr[CFileFormat] c_format
+            CFileSystemDiscoveryOptions c_options
+
+        c_filesystem = filesystem.unwrap()
+
+        c_format = format.unwrap()
 
         options = options or FileSystemDiscoveryOptions()
-        for file_stats in filesystem.get_target_stats(paths_or_selector):
-            stats.push_back(file_stats.unwrap())
+        c_options = options.unwrap()
 
-        result = CFileSystemDataSourceDiscovery.MakeFromFileStats(
-            filesystem.unwrap(),
-            stats,
-            format.unwrap(),
-            options.unwrap()
-        )
+        if isinstance(paths_or_selector, FileSelector):
+            with nogil:
+                selector = (<FileSelector>paths_or_selector).selector
+                result = CFileSystemDataSourceDiscovery.MakeFromSelector(
+                    c_filesystem,
+                    selector,
+                    c_format,
+                    c_options
+                )
+        elif isinstance(paths_or_selector, (list, tuple)):
+            paths = [tobytes(s) for s in paths_or_selector]
+            with nogil:
+                result = CFileSystemDataSourceDiscovery.MakeFromPaths(
+                    c_filesystem,
+                    paths,
+                    c_format,
+                    c_options
+                )
+        else:
+            raise TypeError('Must pass either paths or a FileSelector')
+
         self.init(GetResultValue(result))
 
     cdef init(self, shared_ptr[CDataSourceDiscovery]& sp):
@@ -350,6 +540,10 @@ cdef class DataSource:
 
     @property
     def partition_expression(self):
+        """
+        An expression which evaluates to true for all data viewed by this
+        DataSource.
+        """
         cdef shared_ptr[CExpression] expression
         expression = self.source.partition_expression()
         if expression.get() == nullptr:
@@ -441,7 +635,13 @@ cdef class FileSystemDataSource(DataSource):
 
 
 cdef class Dataset:
-    """Collection of data fragments coming from possibly multiple sources."""
+    """
+    Collection of data fragments coming from possibly multiple sources.
+
+    Arrow Datasets allow you to query against data that has been split across
+    multiple files. This sharding of data may indicate partitioning, which
+    can accelerate queries that only touch some partitions (files).
+    """
 
     cdef:
         shared_ptr[CDataset] wrapped
@@ -452,7 +652,7 @@ cdef class Dataset:
 
         A schema must be passed because most of the data sources' schema is
         unknown before executing possibly expensive scanning operation, but
-        projecting, filtering, predicate pushduwn requires a well defined
+        projecting, filtering, predicate pushdown requires a well defined
         schema to work on.
 
         Parameters
@@ -465,7 +665,7 @@ cdef class Dataset:
         cdef:
             DataSource source
             CDataSourceVector sources
-            CResult[CDatasetPtr] result
+            CResult[shared_ptr[CDataset]] result
 
         for source in data_sources:
             sources.push_back(source.unwrap())
@@ -481,7 +681,19 @@ cdef class Dataset:
         return self.wrapped
 
     def new_scan(self, MemoryPool memory_pool=None):
-        """Begin to build a new Scan operation against this Dataset."""
+        """
+        Begin to build a new Scan operation against this Dataset.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+
+        Returns
+        -------
+        ScannerBuilder
+        """
         cdef:
             shared_ptr[CScanContext] context = make_shared[CScanContext]()
             CResult[shared_ptr[CScannerBuilder]] result
@@ -491,11 +703,13 @@ cdef class Dataset:
 
     @property
     def sources(self):
+        """List of the data sources"""
         cdef vector[shared_ptr[CDataSource]] sources = self.dataset.sources()
         return [DataSource.wrap(source) for source in sources]
 
     @property
     def schema(self):
+        """The common schema of the full Dataset"""
         return pyarrow_wrap_schema(self.dataset.schema())
 
 
@@ -565,6 +779,14 @@ cdef class ScannerBuilder:
 
     It is used to pass information, notably a potential filter expression and a
     subset of columns to materialize.
+
+    Parameters
+    ----------
+    dataset : Dataset
+        The dataset to scan.
+    memory_pool : MemoryPool, default None
+        For memory allocations, if required. If not specified, uses the
+        default pool.
     """
 
     cdef:
@@ -623,7 +845,7 @@ cdef class ScannerBuilder:
 
         Returns
         -------
-        self : ScannerBuilder
+        Scanner
         """
         return Scanner.wrap(GetResultValue(self.builder.Finish()))
 
@@ -675,6 +897,8 @@ cdef class ScannerBuilder:
 
 cdef class Scanner:
     """A materialized scan operation with context and options bound.
+
+    Create this using the ScannerBuilder factory class.
 
     A scanner is the class that glues the scan tasks, data fragments and data
     sources together.
@@ -924,7 +1148,7 @@ cdef class CastExpression(UnaryExpression):
 
     def __init__(self, Expression operand not None, DataType to not None,
                  bint safe=True):
-        # TODO(kszucs): safe is consitently used across pyarrow, but on long
+        # TODO(kszucs): safe is consistently used across pyarrow, but on long
         #               term we should expose the CastOptions object
         cdef:
             CastOptions options

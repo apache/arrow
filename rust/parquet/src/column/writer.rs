@@ -1426,7 +1426,7 @@ mod tests {
     #[test]
     fn test_column_writer_add_data_pages_with_dict() {
         // ARROW-5129: Test verifies that we add data page in case of dictionary encoding
-        // and no fallback occured so far.
+        // and no fallback occurred so far.
         let file = get_temp_file("test_column_writer_add_data_pages_with_dict", &[]);
         let sink = FileSink::new(&file);
         let page_writer = Box::new(SerializedPageWriter::new(sink));

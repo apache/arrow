@@ -218,7 +218,7 @@ Cython API
 
 The Cython API more or less mirrors the C++ API, but the calling convention
 can be different as required by Cython.  In Cython, you don't need to
-initialize the API as that will be handled automaticalled by the ``cimport``
+initialize the API as that will be handled automatically by the ``cimport``
 directive.
 
 .. note::

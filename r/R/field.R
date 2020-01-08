@@ -79,7 +79,11 @@ Field$create <- function(name, type, metadata) {
 #' @export
 field <- Field$create
 
-.fields <- function(.list){
-  assert_that(!is.null(nms <- names(.list)))
-  map2(nms, .list, field)
+.fields <- function(.list) {
+  if (length(.list)) {
+    assert_that(!is.null(nms <- names(.list)))
+    map2(nms, .list, field)
+  } else {
+    list()
+  }
 }

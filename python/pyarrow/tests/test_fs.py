@@ -24,7 +24,8 @@ except ImportError:
 import pytest
 
 import pyarrow as pa
-from pyarrow.tests.test_io import gzip_compress, gzip_decompress
+from pyarrow.tests.test_io import (gzip_compress, gzip_decompress,
+                                   assert_file_not_found)
 from pyarrow.fs import (FileType, FileSelector, FileSystem, LocalFileSystem,
                         LocalFileSystemOptions, SubTreeFileSystem,
                         _MockFileSystem)
@@ -210,6 +211,7 @@ def test_get_target_stats(fs, pathfn):
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
     c = pathfn('c.txt')
+    zzz = pathfn('zzz')
 
     fs.create_dir(aaa)
     with fs.open_output_stream(bb):
@@ -217,17 +219,20 @@ def test_get_target_stats(fs, pathfn):
     with fs.open_output_stream(c) as fp:
         fp.write(b'test')
 
-    aaa_stat, bb_stat, c_stat = fs.get_target_stats([aaa, bb, c])
+    aaa_stat, bb_stat, c_stat, zzz_stat = \
+        fs.get_target_stats([aaa, bb, c, zzz])
 
     assert aaa_stat.path == aaa
     assert 'aaa' in repr(aaa_stat)
     assert aaa_stat.extension == ''
+    assert 'FileType.Directory' in repr(aaa_stat)
     assert isinstance(aaa_stat.mtime, datetime)
 
     assert bb_stat.path == str(bb)
     assert bb_stat.base_name == 'bb'
     assert bb_stat.extension == ''
     assert bb_stat.type == FileType.File
+    assert 'FileType.File' in repr(bb_stat)
     assert bb_stat.size == 0
     assert isinstance(bb_stat.mtime, datetime)
 
@@ -235,7 +240,15 @@ def test_get_target_stats(fs, pathfn):
     assert c_stat.base_name == 'c.txt'
     assert c_stat.extension == 'txt'
     assert c_stat.type == FileType.File
+    assert 'FileType.File' in repr(c_stat)
     assert c_stat.size == 4
+    assert isinstance(c_stat.mtime, datetime)
+
+    assert zzz_stat.path == str(zzz)
+    assert zzz_stat.base_name == 'zzz'
+    assert zzz_stat.extension == ''
+    assert zzz_stat.type == FileType.NonExistent
+    assert 'FileType.NonExistent' in repr(zzz_stat)
     assert isinstance(c_stat.mtime, datetime)
 
 
@@ -480,6 +493,26 @@ def test_localfs_options():
         LocalFileSystem(xxx=False)
 
 
+def test_localfs_errors(localfs):
+    # Local filesystem errors should raise the right Python exceptions
+    # (e.g. FileNotFoundError)
+    fs = localfs['fs']
+    with assert_file_not_found():
+        fs.open_input_stream('/non/existent/file')
+    with assert_file_not_found():
+        fs.open_output_stream('/non/existent/file')
+    with assert_file_not_found():
+        fs.create_dir('/non/existent/dir', recursive=False)
+    with assert_file_not_found():
+        fs.delete_dir('/non/existent/dir')
+    with assert_file_not_found():
+        fs.delete_file('/non/existent/dir')
+    with assert_file_not_found():
+        fs.move('/non/existent', '/xxx')
+    with assert_file_not_found():
+        fs.copy_file('/non/existent', '/xxx')
+
+
 @pytest.mark.s3
 def test_s3_options(minio_server):
     from pyarrow.fs import S3Options
@@ -550,7 +583,7 @@ def test_hdfs_options(hdfs_server):
     assert options.buffer_size == 64*1024
 
     options = HdfsOptions.from_uri('hdfs://localhost:8080/?user=test')
-    assert options.endpoint == ('localhost', 8080)
+    assert options.endpoint == ('hdfs://localhost', 8080)
     assert options.user == 'test'
 
     host, port, user = hdfs_server

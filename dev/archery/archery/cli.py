@@ -24,7 +24,7 @@ import os
 import sys
 
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
-from .benchmark.runner import BenchmarkRunner
+from .benchmark.runner import BenchmarkRunner, CppBenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.codec import JsonEncoder
 from .utils.lint import linter, LintValidationException
@@ -240,7 +240,7 @@ def lint(ctx, src, **kwargs):
 def benchmark(ctx):
     """ Arrow benchmarking.
 
-    Use the diff sub-command to benchmake revisions, and/or build directories.
+    Use the diff sub-command to benchmark revisions, and/or build directories.
     """
     pass
 
@@ -290,10 +290,8 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
     with tmpdir(preserve=preserve) as root:
         logger.debug(f"Running benchmark {rev_or_path}")
 
-        conf = CppConfiguration(
-            build_type="release", with_tests=True, with_benchmarks=True,
-            with_python=False, cmake_extras=cmake_extras,
-            **kwargs)
+        conf = CppBenchmarkRunner.default_configuration(
+                cmake_extras=cmake_extras, **kwargs)
 
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf)
@@ -345,9 +343,8 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
     with tmpdir(preserve=preserve) as root:
         logger.debug(f"Running benchmark {rev_or_path}")
 
-        conf = CppConfiguration(
-            build_type="release", with_tests=True, with_benchmarks=True,
-            with_python=False, cmake_extras=cmake_extras, **kwargs)
+        conf = CppBenchmarkRunner.default_configuration(
+                cmake_extras=cmake_extras, **kwargs)
 
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf,
@@ -444,9 +441,8 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
         logger.debug(f"Comparing {contender} (contender) with "
                      f"{baseline} (baseline)")
 
-        conf = CppConfiguration(
-            build_type="release", with_tests=True, with_benchmarks=True,
-            with_python=False, cmake_extras=cmake_extras, **kwargs)
+        conf = CppBenchmarkRunner.default_configuration(
+                cmake_extras=cmake_extras, **kwargs)
 
         runner_cont = BenchmarkRunner.from_rev_or_path(
             src, root, contender, conf,
@@ -474,7 +470,7 @@ def _set_default(opt, default):
 
 @archery.command(short_help="Execute protocol and Flight integration tests")
 @click.option('--with-all', is_flag=True, default=False,
-              help=('Include all known lanauges by default '
+              help=('Include all known languages by default '
                     ' in integration tests'))
 @click.option('--random-seed', type=int, default=12345,
               help="Seed for PRNG when generating test data")

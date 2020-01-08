@@ -203,7 +203,7 @@ TEST(CompatibilityTest, TestBloomFilter) {
   EXPECT_TRUE((*buffer1).Equals(*buffer2));
 }
 
-// OptmialValueTest is used to test whether OptimalNumOfBits returns expected
+// OptimalValueTest is used to test whether OptimalNumOfBits returns expected
 // numbers according to formula:
 //     num_of_bits = -8.0 * ndv / log(1 - pow(fpp, 1.0 / 8.0))
 // where ndv is the number of distinct values and fpp is the false positive probability.

@@ -347,6 +347,93 @@ class TestListArray : public TestBuilder {
     ASSERT_EQ("counts", type.value_field()->name());
   }
 
+  void TestFlattenZeroLength() {
+    Done();
+    ASSERT_OK_AND_ASSIGN(auto flattened, result_->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    ASSERT_EQ(0, flattened->length());
+  }
+
+  void TestFlattenSimple() {
+    auto type = std::make_shared<T>(int32());
+    auto list_array = std::dynamic_pointer_cast<ArrayType>(
+        ArrayFromJSON(type, "[[1, 2], [3], [4], null, [5], [], [6]]"));
+    ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]")));
+  }
+
+  void TestFlattenSliced() {
+    auto type = std::make_shared<T>(int32());
+    auto list_array = std::dynamic_pointer_cast<ArrayType>(
+        ArrayFromJSON(type, "[[1, 2], [3], [4], null, [5], [], [6]]"));
+    auto sliced_list_array =
+        std::dynamic_pointer_cast<ArrayType>(list_array->Slice(3, 4));
+    ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    // Note the difference between values() and Flatten().
+    EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[5, 6]")));
+    EXPECT_TRUE(sliced_list_array->values()->Equals(
+        ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]")));
+  }
+
+  void TestFlattenNonEmptyBackingNulls() {
+    auto type = std::make_shared<T>(int32());
+    auto array_data =
+        std::dynamic_pointer_cast<ArrayType>(
+            ArrayFromJSON(type, "[[1, 2], [3], null, [5, 6], [7, 8], [], [9]]"))
+            ->data();
+    ASSERT_EQ(2, array_data->buffers.size());
+    auto null_bitmap_buffer = array_data->buffers[0];
+    ASSERT_NE(nullptr, null_bitmap_buffer);
+    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 1);
+    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 3);
+    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 4);
+    auto list_array = std::dynamic_pointer_cast<ArrayType>(MakeArray(array_data));
+    ASSERT_OK(list_array->ValidateFull());
+    ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
+    EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[1, 2, 9]")))
+        << flattened->ToString();
+  }
+
+  Status ValidateOffsets(int64_t length, std::vector<offset_type> offsets,
+                         const std::shared_ptr<Array>& values, int64_t offset = 0) {
+    auto type = std::make_shared<TypeClass>(values->type());
+    ArrayType arr(type, length, Buffer::Wrap(offsets), values,
+                  /*null_bitmap=*/nullptr, /*null_count=*/0, offset);
+    return arr.ValidateFull();
+  }
+
+  void TestValidateOffsets() {
+    auto empty_values = ArrayFromJSON(int16(), "[]");
+    auto values = ArrayFromJSON(int16(), "[1, 2, 3, 4, 5, 6, 7]");
+
+    ASSERT_OK(ValidateOffsets(0, {0}, empty_values));
+    ASSERT_OK(ValidateOffsets(1, {0, 7}, values));
+    ASSERT_OK(ValidateOffsets(2, {0, 4, 7}, values));
+    ASSERT_OK(ValidateOffsets(3, {0, 4, 7, 7}, values));
+
+    // Non-zero array offset
+    ASSERT_OK(ValidateOffsets(1, {0, 4, 7}, values, 1));
+    ASSERT_OK(ValidateOffsets(0, {0, 4, 7}, values, 2));
+
+    // Not enough offsets
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0}, values));
+    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 0}, values, 1));
+
+    // First offset != 0
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {1, 7}, values));
+    // Offset out of bounds
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 8}, values));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 8, 8}, values, 1));
+    // Negative offset
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {-1, 0}, values));
+    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, -1}, values));
+    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, -1, -1}, values, 1));
+    // Offsets non-monotonic
+    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 7, 4}, values));
+  }
+
  protected:
   std::shared_ptr<DataType> value_type_;
 
@@ -377,6 +464,14 @@ TYPED_TEST(TestListArray, ZeroLength) { this->TestZeroLength(); }
 TYPED_TEST(TestListArray, BuilderPreserveFieldName) {
   this->TestBuilderPreserveFieldName();
 }
+
+TYPED_TEST(TestListArray, FlattenSimple) { this->TestFlattenSimple(); }
+TYPED_TEST(TestListArray, FlattenZeroLength) { this->TestFlattenZeroLength(); }
+TYPED_TEST(TestListArray, TestFlattenNonEmptyBackingNulls) {
+  this->TestFlattenNonEmptyBackingNulls();
+}
+
+TYPED_TEST(TestListArray, ValidateOffsets) { this->TestValidateOffsets(); }
 
 // ----------------------------------------------------------------------
 // Map tests

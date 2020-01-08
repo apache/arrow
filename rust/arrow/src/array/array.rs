@@ -811,7 +811,7 @@ pub struct ListArray {
 }
 
 impl ListArray {
-    /// Returns an reference to the values of this list.
+    /// Returns a reference to the values of this list.
     pub fn values(&self) -> ArrayRef {
         self.values.clone()
     }
@@ -946,7 +946,7 @@ pub struct FixedSizeListArray {
 }
 
 impl FixedSizeListArray {
-    /// Returns an reference to the values of this list.
+    /// Returns a reference to the values of this list.
     pub fn values(&self) -> ArrayRef {
         self.values.clone()
     }
@@ -1745,7 +1745,7 @@ mod tests {
     #[test]
     fn test_time64_nanosecond_array_from_vec() {
         // Test building a primitive array with null values
-        // we use Int32 and Int64 as a backing array, so all Int32 and Int64 convensions
+        // we use Int32 and Int64 as a backing array, so all Int32 and Int64 conventions
         // work
 
         // 1e6:        00:00:00.001
@@ -1942,7 +1942,7 @@ mod tests {
 
     #[test]
     fn test_primitive_array_builder() {
-        // Test building an primitive array with ArrayData builder and offset
+        // Test building a primitive array with ArrayData builder and offset
         let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
         let buf2 = buf.clone();
         let data = ArrayData::builder(DataType::Int32)

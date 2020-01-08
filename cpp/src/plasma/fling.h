@@ -29,7 +29,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-// This is neccessary for Mac OS X, see http://www.apuebook.com/faqs2e.html
+// This is necessary for Mac OS X, see http://www.apuebook.com/faqs2e.html
 // (10).
 #if !defined(CMSG_SPACE) && !defined(CMSG_LEN)
 #define CMSG_SPACE(len) (__DARWIN_ALIGN32(sizeof(struct cmsghdr)) + __DARWIN_ALIGN32(len))

@@ -1407,7 +1407,7 @@ cdef class Table(_PandasConvertible):
 
     def field(self, i):
         """
-        Select a schema field by its colunm name or numeric index.
+        Select a schema field by its column name or numeric index.
 
         Parameters
         ----------

@@ -368,6 +368,10 @@ class StringConverter<TimestampType> {
   bool operator()(const char* s, size_t length, value_type* out) {
     // We allow the following formats:
     // - "YYYY-MM-DD"
+    // - "YYYY-MM-DD[ T]hh"
+    // - "YYYY-MM-DD[ T]hhZ"
+    // - "YYYY-MM-DD[ T]hh:mm"
+    // - "YYYY-MM-DD[ T]hh:mmZ"
     // - "YYYY-MM-DD[ T]hh:mm:ss"
     // - "YYYY-MM-DD[ T]hh:mm:ssZ"
     // UTC is always assumed, and the DataType's timezone is ignored.
@@ -386,6 +390,26 @@ class StringConverter<TimestampType> {
     }
     if (s[length - 1] == 'Z') {
       --length;
+    }
+    if (length == 13) {
+      if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
+        return false;
+      }
+      std::chrono::duration<value_type> seconds;
+      if (ARROW_PREDICT_FALSE(!ParseHH(s + 11, &seconds))) {
+        return false;
+      }
+      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, out);
+    }
+    if (length == 16) {
+      if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
+        return false;
+      }
+      std::chrono::duration<value_type> seconds;
+      if (ARROW_PREDICT_FALSE(!ParseHH_MM(s + 11, &seconds))) {
+        return false;
+      }
+      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, out);
     }
     if (length == 19) {
       if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
@@ -442,6 +466,39 @@ class StringConverter<TimestampType> {
     *out = {arrow_vendored::date::year{year}, arrow_vendored::date::month{month},
             arrow_vendored::date::day{day}};
     return out->ok();
+  }
+
+  bool ParseHH(const char* s, std::chrono::duration<value_type>* out) {
+    uint8_t hours;
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 0, 2, &hours))) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(hours >= 24)) {
+      return false;
+    }
+    *out = std::chrono::duration<value_type>(3600U * hours);
+    return true;
+  }
+
+  bool ParseHH_MM(const char* s, std::chrono::duration<value_type>* out) {
+    uint8_t hours, minutes;
+    if (ARROW_PREDICT_FALSE(s[2] != ':')) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 0, 2, &hours))) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 3, 2, &minutes))) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(hours >= 24)) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(minutes >= 60)) {
+      return false;
+    }
+    *out = std::chrono::duration<value_type>(3600U * hours + 60U * minutes);
+    return true;
   }
 
   bool ParseHH_MM_SS(const char* s, std::chrono::duration<value_type>* out) {

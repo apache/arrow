@@ -593,7 +593,8 @@ class MemoryMappedFile::MemoryMap
     void* result = mmap(nullptr, mmap_length, prot_flags_, map_mode_, file_->fd(),
                         static_cast<off_t>(offset));
     if (result == MAP_FAILED) {
-      return Status::IOError("Memory mapping file failed: ", std::strerror(errno));
+      return Status::IOError("Memory mapping file failed: ",
+                             ::arrow::internal::ErrnoMessage(errno));
     }
     map_len_ = mmap_length;
     offset_ = offset;

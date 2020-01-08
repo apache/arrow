@@ -107,7 +107,7 @@ class DatasetFixtureMixin : public ::testing::Test {
                             bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(ctx_));
 
-    ARROW_EXPECT_OK(it.Visit([&](ScanTaskPtr task) -> Status {
+    ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
       return Status::OK();
     }));
@@ -139,7 +139,7 @@ class DatasetFixtureMixin : public ::testing::Test {
                            bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto it, scanner->Scan());
 
-    ARROW_EXPECT_OK(it.Visit([&](ScanTaskPtr task) -> Status {
+    ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
       return Status::OK();
     }));
@@ -169,8 +169,8 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   std::shared_ptr<Schema> schema_;
-  ScanOptionsPtr options_;
-  ScanContextPtr ctx_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> ctx_;
 };
 
 /// \brief A dummy FileFormat implementation
@@ -188,13 +188,14 @@ class DummyFileFormat : public FileFormat {
   }
 
   /// \brief Open a file for scanning (always returns an empty iterator)
-  Result<ScanTaskIterator> ScanFile(const FileSource& source, ScanOptionsPtr options,
-                                    ScanContextPtr context) const override {
-    return MakeEmptyIterator<ScanTaskPtr>();
+  Result<ScanTaskIterator> ScanFile(const FileSource& source,
+                                    std::shared_ptr<ScanOptions> options,
+                                    std::shared_ptr<ScanContext> context) const override {
+    return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
   }
 
-  inline Result<DataFragmentPtr> MakeFragment(const FileSource& location,
-                                              ScanOptionsPtr options) override;
+  inline Result<std::shared_ptr<DataFragment>> MakeFragment(
+      const FileSource& location, std::shared_ptr<ScanOptions> options) override;
 
  protected:
   std::shared_ptr<Schema> schema_;
@@ -202,14 +203,14 @@ class DummyFileFormat : public FileFormat {
 
 class DummyFragment : public FileDataFragment {
  public:
-  DummyFragment(const FileSource& source, ScanOptionsPtr options)
+  DummyFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
       : FileDataFragment(source, std::make_shared<DummyFileFormat>(), options) {}
 
   bool splittable() const override { return false; }
 };
 
-Result<DataFragmentPtr> DummyFileFormat::MakeFragment(const FileSource& source,
-                                                      ScanOptionsPtr options) {
+Result<std::shared_ptr<DataFragment>> DummyFileFormat::MakeFragment(
+    const FileSource& source, std::shared_ptr<ScanOptions> options) {
   return std::make_shared<DummyFragment>(source, options);
 }
 
@@ -233,8 +234,9 @@ class JSONRecordBatchFileFormat : public FileFormat {
   }
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(const FileSource& source, ScanOptionsPtr options,
-                                    ScanContextPtr context) const override {
+  Result<ScanTaskIterator> ScanFile(const FileSource& source,
+                                    std::shared_ptr<ScanOptions> options,
+                                    std::shared_ptr<ScanContext> context) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, source.Open());
     ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
@@ -247,8 +249,8 @@ class JSONRecordBatchFileFormat : public FileFormat {
                                            std::move(context));
   }
 
-  inline Result<DataFragmentPtr> MakeFragment(const FileSource& location,
-                                              ScanOptionsPtr options) override;
+  inline Result<std::shared_ptr<DataFragment>> MakeFragment(
+      const FileSource& location, std::shared_ptr<ScanOptions> options) override;
 
  protected:
   SchemaResolver resolver_;
@@ -257,15 +259,15 @@ class JSONRecordBatchFileFormat : public FileFormat {
 class JSONRecordBatchFragment : public FileDataFragment {
  public:
   JSONRecordBatchFragment(const FileSource& source, std::shared_ptr<Schema> schema,
-                          ScanOptionsPtr options)
+                          std::shared_ptr<ScanOptions> options)
       : FileDataFragment(source, std::make_shared<JSONRecordBatchFileFormat>(schema),
                          options) {}
 
   bool splittable() const override { return false; }
 };
 
-Result<DataFragmentPtr> JSONRecordBatchFileFormat::MakeFragment(const FileSource& source,
-                                                                ScanOptionsPtr options) {
+Result<std::shared_ptr<DataFragment>> JSONRecordBatchFileFormat::MakeFragment(
+    const FileSource& source, std::shared_ptr<ScanOptions> options) {
   return std::make_shared<JSONRecordBatchFragment>(source, resolver_(source), options);
 }
 
@@ -284,7 +286,7 @@ class TestFileSystemDataSource : public ::testing::Test {
   }
 
   void MakeSource(const std::vector<fs::FileStats>& stats,
-                  ExpressionPtr source_partition = scalar(true),
+                  std::shared_ptr<Expression> source_partition = scalar(true),
                   ExpressionVector partitions = {}) {
     if (partitions.empty()) {
       partitions.resize(stats.size(), scalar(true));
@@ -298,8 +300,8 @@ class TestFileSystemDataSource : public ::testing::Test {
 
  protected:
   std::shared_ptr<fs::FileSystem> fs_;
-  DataSourcePtr source_;
-  ScanOptionsPtr options_ = ScanOptions::Make(schema({}));
+  std::shared_ptr<DataSource> source_;
+  std::shared_ptr<ScanOptions> options_ = ScanOptions::Make(schema({}));
 };
 
 void AssertFragmentsAreFromPath(DataFragmentIterator it,
@@ -322,12 +324,12 @@ void AssertFragmentsAreFromPath(DataFragmentIterator it,
 struct TestExpression : util::EqualityComparable<TestExpression>,
                         util::ToStringOstreamable<TestExpression> {
   // NOLINTNEXTLINE runtime/explicit
-  TestExpression(ExpressionPtr e) : expression(std::move(e)) {}
+  TestExpression(std::shared_ptr<Expression> e) : expression(std::move(e)) {}
 
   // NOLINTNEXTLINE runtime/explicit
   TestExpression(const Expression& e) : expression(e.Copy()) {}
 
-  ExpressionPtr expression;
+  std::shared_ptr<Expression> expression;
 
   bool Equals(const TestExpression& other) const {
     return expression->Equals(other.expression);

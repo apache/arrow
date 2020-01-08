@@ -901,7 +901,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanAndDex& dex) {
     LValuePtr current = BuildValueAndValidity(*pair);
 
     ADD_VISITOR_TRACE("BooleanAndExpression arg value %T", current->data());
-    ADD_VISITOR_TRACE("BooleanAndExpression arg valdity %T", current->validity());
+    ADD_VISITOR_TRACE("BooleanAndExpression arg validity %T", current->validity());
 
     // short-circuit if valid and false
     llvm::Value* is_false = builder->CreateNot(current->data());
@@ -924,7 +924,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanAndDex& dex) {
   // No need to set validity bit (valid by default).
   builder->SetInsertPoint(short_circuit_bb);
   ADD_VISITOR_TRACE("BooleanAndExpression result value false");
-  ADD_VISITOR_TRACE("BooleanAndExpression result valdity true");
+  ADD_VISITOR_TRACE("BooleanAndExpression result validity true");
   builder->CreateBr(merge_bb);
 
   // non short-circuit case (All expressions are either true or null).
@@ -932,7 +932,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanAndDex& dex) {
   builder->SetInsertPoint(non_short_circuit_bb);
   ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), all_exprs_valid);
   ADD_VISITOR_TRACE("BooleanAndExpression result value true");
-  ADD_VISITOR_TRACE("BooleanAndExpression result valdity %T", all_exprs_valid);
+  ADD_VISITOR_TRACE("BooleanAndExpression result validity %T", all_exprs_valid);
   builder->CreateBr(merge_bb);
 
   builder->SetInsertPoint(merge_bb);
@@ -968,7 +968,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanOrDex& dex) {
     LValuePtr current = BuildValueAndValidity(*pair);
 
     ADD_VISITOR_TRACE("BooleanOrExpression arg value %T", current->data());
-    ADD_VISITOR_TRACE("BooleanOrExpression arg valdity %T", current->validity());
+    ADD_VISITOR_TRACE("BooleanOrExpression arg validity %T", current->validity());
 
     // short-circuit if valid and true.
     llvm::Value* valid_and_true =
@@ -990,7 +990,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanOrDex& dex) {
   // No need to set validity bit (valid by default).
   builder->SetInsertPoint(short_circuit_bb);
   ADD_VISITOR_TRACE("BooleanOrExpression result value true");
-  ADD_VISITOR_TRACE("BooleanOrExpression result valdity true");
+  ADD_VISITOR_TRACE("BooleanOrExpression result validity true");
   builder->CreateBr(merge_bb);
 
   // non short-circuit case (All expressions are either false or null).
@@ -998,7 +998,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanOrDex& dex) {
   builder->SetInsertPoint(non_short_circuit_bb);
   ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), all_exprs_valid);
   ADD_VISITOR_TRACE("BooleanOrExpression result value false");
-  ADD_VISITOR_TRACE("BooleanOrExpression result valdity %T", all_exprs_valid);
+  ADD_VISITOR_TRACE("BooleanOrExpression result validity %T", all_exprs_valid);
   builder->CreateBr(merge_bb);
 
   builder->SetInsertPoint(merge_bb);

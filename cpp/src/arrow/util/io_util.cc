@@ -86,6 +86,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
@@ -95,6 +96,9 @@
 #endif
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace io {
 
 //
@@ -266,6 +270,80 @@ std::string WinErrorMessage(int errnum) {
 }
 #endif
 
+namespace {
+
+const char kErrnoDetailTypeId[] = "arrow::ErrnoDetail";
+
+class ErrnoDetail : public StatusDetail {
+ public:
+  explicit ErrnoDetail(int errnum) : errnum_(errnum) {}
+
+  const char* type_id() const override { return kErrnoDetailTypeId; }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << "[errno " << errnum_ << "] " << ErrnoMessage(errnum_);
+    return ss.str();
+  }
+
+  int errnum() const { return errnum_; }
+
+ protected:
+  int errnum_;
+};
+
+#if _WIN32
+const char kWinErrorDetailTypeId[] = "arrow::WinErrorDetail";
+
+class WinErrorDetail : public StatusDetail {
+ public:
+  explicit WinErrorDetail(int errnum) : errnum_(errnum) {}
+
+  const char* type_id() const override { return kWinErrorDetailTypeId; }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << "[Windows error " << errnum_ << "] " << WinErrorMessage(errnum_);
+    return ss.str();
+  }
+
+  int errnum() const { return errnum_; }
+
+ protected:
+  int errnum_;
+};
+#endif
+
+}  // namespace
+
+std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum) {
+  return std::make_shared<ErrnoDetail>(errnum);
+}
+
+#if _WIN32
+std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum) {
+  return std::make_shared<WinErrorDetail>(errnum);
+}
+#endif
+
+int ErrnoFromStatus(const Status& status) {
+  const auto detail = status.detail();
+  if (detail != nullptr && detail->type_id() == kErrnoDetailTypeId) {
+    return checked_cast<const ErrnoDetail&>(*detail).errnum();
+  }
+  return 0;
+}
+
+int WinErrorFromStatus(const Status& status) {
+#if _WIN32
+  const auto detail = status.detail();
+  if (detail != nullptr && detail->type_id() == kWinErrorDetailTypeId) {
+    return checked_cast<const WinErrorDetail&>(*detail).errnum();
+  }
+#endif
+  return 0;
+}
+
 //
 // PlatformFilename implementation
 //
@@ -377,8 +455,8 @@ Result<bool> DoCreateDir(const PlatformFilename& dir_path, bool create_parents) 
       return DoCreateDir(dir_path, false);  // Retry
     }
   }
-  return Status::IOError("Cannot create directory '", dir_path.ToString(),
-                         "': ", WinErrorMessage(errnum));
+  return IOErrorFromWinError(GetLastError(), "Cannot create directory '",
+                             dir_path.ToString(), "'");
 #else
   if (mkdir(dir_path.ToNative().c_str(), S_IRWXU | S_IRWXG | S_IRWXO) == 0) {
     return true;
@@ -393,8 +471,7 @@ Result<bool> DoCreateDir(const PlatformFilename& dir_path, bool create_parents) 
       return DoCreateDir(dir_path, false);  // Retry
     }
   }
-  return Status::IOError("Cannot create directory '", dir_path.ToString(),
-                         "': ", ErrnoMessage(errno));
+  return IOErrorFromErrno(errno, "Cannot create directory '", dir_path.ToString(), "'");
 #endif
 }
 
@@ -432,8 +509,8 @@ Result<std::vector<WIN32_FIND_DATAW>> ListDirInternal(const PlatformFilename& di
   std::wstring pattern = PathWithoutTrailingSlash(dir_path) + L"\\*.*";
   HANDLE handle = FindFirstFileW(pattern.c_str(), &find_data);
   if (handle == INVALID_HANDLE_VALUE) {
-    return Status::IOError("Cannot list directory '", dir_path.ToString(),
-                           "': ", WinErrorMessage(GetLastError()));
+    return IOErrorFromWinError(GetLastError(), "Cannot list directory '",
+                               dir_path.ToString(), "'");
   }
 
   std::unique_ptr<HANDLE, decltype(&FindHandleDeleter)> handle_guard(&handle,
@@ -453,8 +530,8 @@ Result<std::vector<WIN32_FIND_DATAW>> ListDirInternal(const PlatformFilename& di
 
   int errnum = GetLastError();
   if (errnum != ERROR_NO_MORE_FILES) {
-    return Status::IOError("Cannot list directory '", dir_path.ToString(),
-                           "': ", WinErrorMessage(errnum));
+    return IOErrorFromWinError(GetLastError(), "Cannot list directory '",
+                               dir_path.ToString(), "'");
   }
   return results;
 }
@@ -466,8 +543,8 @@ Status FindOneFile(const PlatformFilename& fn, WIN32_FIND_DATAW* find_data,
     int errnum = GetLastError();
     if (exists == nullptr ||
         (errnum != ERROR_PATH_NOT_FOUND && errnum != ERROR_FILE_NOT_FOUND)) {
-      return Status::IOError("Cannot get information for path '", fn.ToString(),
-                             "': ", WinErrorMessage(errnum));
+      return IOErrorFromWinError(GetLastError(), "Cannot get information for path '",
+                                 fn.ToString(), "'");
     }
     *exists = false;
   } else {
@@ -497,8 +574,7 @@ Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) 
 Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) {
   DIR* dir = opendir(dir_path.ToNative().c_str());
   if (dir == nullptr) {
-    return Status::IOError("Cannot list directory '", dir_path.ToString(),
-                           "': ", ErrnoMessage(errno));
+    return IOErrorFromErrno(errno, "Cannot list directory '", dir_path.ToString(), "'");
   }
 
   auto dir_deleter = [](DIR* dir) -> void {
@@ -519,8 +595,7 @@ Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) 
     entry = readdir(dir);
   }
   if (errno != 0) {
-    return Status::IOError("Cannot list directory '", dir_path.ToString(),
-                           "': ", ErrnoMessage(errno));
+    return IOErrorFromErrno(errno, "Cannot list directory '", dir_path.ToString(), "'");
   }
   return results;
 }
@@ -543,8 +618,8 @@ Status DeleteDirEntryDir(const PlatformFilename& path, const WIN32_FIND_DATAW& e
   if (remove_top_dir) {
     // Remove now empty directory or reparse point (e.g. symlink to dir)
     if (!RemoveDirectoryW(path.ToNative().c_str())) {
-      return Status::IOError("Cannot delete directory entry '", path.ToString(),
-                             "': ", WinErrorMessage(GetLastError()));
+      return IOErrorFromWinError(GetLastError(), "Cannot delete directory entry '",
+                                 path.ToString(), "': ");
     }
   }
   return Status::OK();
@@ -556,8 +631,8 @@ Status DeleteDirEntry(const PlatformFilename& path, const WIN32_FIND_DATAW& entr
   }
   // It's a non-directory entry, most likely a regular file
   if (!DeleteFileW(path.ToNative().c_str())) {
-    return Status::IOError("Cannot delete file '", path.ToString(),
-                           "': ", WinErrorMessage(GetLastError()));
+    return IOErrorFromWinError(GetLastError(), "Cannot delete file '", path.ToString(),
+                               "': ");
   }
   return Status::OK();
 }
@@ -571,10 +646,16 @@ Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
   return Status::OK();
 }
 
-Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool remove_top_dir) {
-  bool exists = false;
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool allow_non_existent,
+                               bool remove_top_dir) {
+  bool exists = true;
   WIN32_FIND_DATAW entry;
-  RETURN_NOT_OK(FindOneFile(dir_path, &entry, &exists));
+  if (allow_non_existent) {
+    RETURN_NOT_OK(FindOneFile(dir_path, &entry, &exists));
+  } else {
+    // Will raise if dir_path does not exist
+    RETURN_NOT_OK(FindOneFile(dir_path, &entry));
+  }
   if (exists) {
     RETURN_NOT_OK(DeleteDirEntryDir(dir_path, entry, remove_top_dir));
   }
@@ -586,8 +667,8 @@ Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool remove_top
 Status LinkStat(const PlatformFilename& path, struct stat* lst, bool* exists = nullptr) {
   if (lstat(path.ToNative().c_str(), lst) != 0) {
     if (exists == nullptr || (errno != ENOENT && errno != ENOTDIR && errno != ELOOP)) {
-      return Status::IOError("Cannot get information for path '", path.ToString(),
-                             "': ", ErrnoMessage(errno));
+      return IOErrorFromErrno(errno, "Cannot get information for path '", path.ToString(),
+                              "'");
     }
     *exists = false;
   } else if (exists != nullptr) {
@@ -605,14 +686,14 @@ Status DeleteDirEntryDir(const PlatformFilename& path, const struct stat& lst,
     DCHECK(S_ISDIR(lst.st_mode));
     RETURN_NOT_OK(DeleteDirTreeInternal(path));
     if (remove_top_dir && rmdir(path.ToNative().c_str()) != 0) {
-      return Status::IOError("Cannot delete directory entry '", path.ToString(),
-                             "': ", ErrnoMessage(errno));
+      return IOErrorFromErrno(errno, "Cannot delete directory entry '", path.ToString(),
+                              "'");
     }
   } else {
     // Remove symlink
     if (remove_top_dir && unlink(path.ToNative().c_str()) != 0) {
-      return Status::IOError("Cannot delete directory entry '", path.ToString(),
-                             "': ", ErrnoMessage(errno));
+      return IOErrorFromErrno(errno, "Cannot delete directory entry '", path.ToString(),
+                              "'");
     }
   }
   return Status::OK();
@@ -623,8 +704,8 @@ Status DeleteDirEntry(const PlatformFilename& path, const struct stat& lst) {
     return DeleteDirEntryDir(path, lst);
   }
   if (unlink(path.ToNative().c_str()) != 0) {
-    return Status::IOError("Cannot delete directory entry '", path.ToString(),
-                           "': ", ErrnoMessage(errno));
+    return IOErrorFromErrno(errno, "Cannot delete directory entry '", path.ToString(),
+                            "'");
   }
   return Status::OK();
 }
@@ -640,10 +721,16 @@ Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
   return Status::OK();
 }
 
-Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool remove_top_dir) {
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool allow_non_existent,
+                               bool remove_top_dir) {
   bool exists = true;
   struct stat lst;
-  RETURN_NOT_OK(LinkStat(dir_path, &lst, &exists));
+  if (allow_non_existent) {
+    RETURN_NOT_OK(LinkStat(dir_path, &lst, &exists));
+  } else {
+    // Will raise if dir_path does not exist
+    RETURN_NOT_OK(LinkStat(dir_path, &lst));
+  }
   if (exists) {
     if (!S_ISDIR(lst.st_mode) && !S_ISLNK(lst.st_mode)) {
       return Status::IOError("Cannot delete directory '", dir_path.ToString(),
@@ -658,32 +745,32 @@ Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool remove_top
 
 }  // namespace
 
-Result<bool> DeleteDirContents(const PlatformFilename& dir_path) {
-  return DeleteDirContents(dir_path, /*remove_top_dir=*/false);
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path,
+                               bool allow_non_existent) {
+  return DeleteDirContents(dir_path, allow_non_existent, /*remove_top_dir=*/false);
 }
 
-Result<bool> DeleteDirTree(const PlatformFilename& dir_path) {
-  return DeleteDirContents(dir_path, /*remove_top_dir=*/true);
+Result<bool> DeleteDirTree(const PlatformFilename& dir_path, bool allow_non_existent) {
+  return DeleteDirContents(dir_path, allow_non_existent, /*remove_top_dir=*/true);
 }
 
-Result<bool> DeleteFile(const PlatformFilename& file_path) {
+Result<bool> DeleteFile(const PlatformFilename& file_path, bool allow_non_existent) {
 #ifdef _WIN32
   if (DeleteFileW(file_path.ToNative().c_str())) {
     return true;
   } else {
     int errnum = GetLastError();
-    if (errnum != ERROR_FILE_NOT_FOUND) {
-      return Status::IOError("Cannot delete file '", file_path.ToString(),
-                             "': ", WinErrorMessage(errnum));
+    if (!allow_non_existent || errnum != ERROR_FILE_NOT_FOUND) {
+      return IOErrorFromWinError(GetLastError(), "Cannot delete file '",
+                                 file_path.ToString(), "'");
     }
   }
 #else
   if (unlink(file_path.ToNative().c_str()) == 0) {
     return true;
   } else {
-    if (errno != ENOENT) {
-      return Status::IOError("Cannot delete file '", file_path.ToString(),
-                             "': ", ErrnoMessage(errno));
+    if (!allow_non_existent || errno != ENOENT) {
+      return IOErrorFromErrno(errno, "Cannot delete file '", file_path.ToString(), "'");
     }
   }
 #endif
@@ -697,8 +784,8 @@ Result<bool> FileExists(const PlatformFilename& path) {
   } else {
     int errnum = GetLastError();
     if (errnum != ERROR_PATH_NOT_FOUND && errnum != ERROR_FILE_NOT_FOUND) {
-      return Status::IOError("Failed getting information for path '", path.ToString(),
-                             "': ", WinErrorMessage(errnum));
+      return IOErrorFromWinError(GetLastError(), "Failed getting information for path '",
+                                 path.ToString(), "'");
     }
     return false;
   }
@@ -708,8 +795,8 @@ Result<bool> FileExists(const PlatformFilename& path) {
     return true;
   } else {
     if (errno != ENOENT && errno != ENOTDIR) {
-      return Status::IOError("Failed getting information for path '", path.ToString(),
-                             "': ", ErrnoMessage(errno));
+      return IOErrorFromErrno(errno, "Failed getting information for path '",
+                              path.ToString(), "'");
     }
     return false;
   }
@@ -738,12 +825,12 @@ static inline Result<int> CheckFileOpResult(int fd_ret, int errno_actual,
 #ifdef _WIN32
     int winerr = GetLastError();
     if (winerr != ERROR_SUCCESS) {
-      return Status::IOError("Failed to ", opname, " file '", file_name.ToString(),
-                             "', error: ", WinErrorMessage(winerr));
+      return IOErrorFromWinError(GetLastError(), "Failed to ", opname, " file '",
+                                 file_name.ToString(), "'");
     }
 #endif
-    return Status::IOError("Failed to ", opname, " file '", file_name.ToString(),
-                           "', error: ", ErrnoMessage(errno_actual));
+    return IOErrorFromErrno(errno_actual, "Failed to ", opname, " file '",
+                            file_name.ToString(), "'");
   }
   return fd_ret;
 }
@@ -856,16 +943,16 @@ Result<Pipe> CreatePipe() {
 #endif
 
   if (ret == -1) {
-    return Status::IOError("Error creating pipe: ", ErrnoMessage(errno));
+    return IOErrorFromErrno(errno, "Error creating pipe");
   }
   return Pipe{fd[0], fd[1]};
 }
 
-static Status StatusFromErrno(const char* prefix) {
+static Status StatusFromMmapErrno(const char* prefix) {
 #ifdef _WIN32
   errno = __map_mman_error(GetLastError(), EPERM);
 #endif
-  return Status::IOError(prefix, ErrnoMessage(errno));
+  return IOErrorFromErrno(errno, prefix);
 }
 
 //
@@ -881,12 +968,12 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
   HANDLE fm, h;
 
   if (!UnmapViewOfFile(addr)) {
-    return StatusFromErrno("UnmapViewOfFile failed: ");
+    return StatusFromMmapErrno("UnmapViewOfFile failed");
   }
 
   h = reinterpret_cast<HANDLE>(_get_osfhandle(fildes));
   if (h == INVALID_HANDLE_VALUE) {
-    return StatusFromErrno("Cannot get file handle: ");
+    return StatusFromMmapErrno("Cannot get file handle");
   }
 
   uint64_t new_size64 = new_size;
@@ -897,12 +984,12 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
   SetEndOfFile(h);
   fm = CreateFileMapping(h, NULL, PAGE_READWRITE, 0, 0, "");
   if (fm == NULL) {
-    return StatusFromErrno("CreateFileMapping failed: ");
+    return StatusFromMmapErrno("CreateFileMapping failed");
   }
   *new_addr = MapViewOfFile(fm, FILE_MAP_WRITE, 0, 0, new_size);
   CloseHandle(fm);
   if (new_addr == NULL) {
-    return StatusFromErrno("MapViewOfFile failed: ");
+    return StatusFromMmapErrno("MapViewOfFile failed");
   }
   return Status::OK();
 #else
@@ -910,25 +997,25 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
   // we have to close the mmap first, truncate the file to the new size
   // and recreate the mmap
   if (munmap(addr, old_size) == -1) {
-    return StatusFromErrno("munmap failed: ");
+    return StatusFromMmapErrno("munmap failed");
   }
   if (ftruncate(fildes, new_size) == -1) {
-    return StatusFromErrno("ftruncate failed: ");
+    return StatusFromMmapErrno("ftruncate failed");
   }
   // we set READ / WRITE flags on the new map, since we could only have
   // unlarged a RW map in the first place
   *new_addr = mmap(NULL, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fildes, 0);
   if (*new_addr == MAP_FAILED) {
-    return StatusFromErrno("mmap failed: ");
+    return StatusFromMmapErrno("mmap failed");
   }
   return Status::OK();
 #else
   if (ftruncate(fildes, new_size) == -1) {
-    return StatusFromErrno("ftruncate failed: ");
+    return StatusFromMmapErrno("ftruncate failed");
   }
   *new_addr = mremap(addr, old_size, new_size, MREMAP_MAYMOVE);
   if (*new_addr == MAP_FAILED) {
-    return StatusFromErrno("mremap failed: ");
+    return StatusFromMmapErrno("mremap failed");
   }
   return Status::OK();
 #endif
@@ -1034,7 +1121,7 @@ Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
 #endif
 
     if (ret == -1) {
-      return Status::IOError("Error reading bytes from file: ", ErrnoMessage(errno));
+      return IOErrorFromErrno(errno, "Error reading bytes from file");
     }
     if (ret == 0) {
       // EOF
@@ -1055,7 +1142,7 @@ Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nb
     int64_t ret = pread_compat(fd, buffer, chunksize, position);
 
     if (ret == -1) {
-      return Status::IOError("Error reading bytes from file: ", ErrnoMessage(errno));
+      return IOErrorFromErrno(errno, "Error reading bytes from file");
     }
     if (ret == 0) {
       // EOF
@@ -1093,7 +1180,7 @@ Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes) {
   }
 
   if (ret == -1) {
-    return Status::IOError("Error writing bytes to file: ", ErrnoMessage(errno));
+    return IOErrorFromErrno(errno, "Error writing bytes to file");
   }
   return Status::OK();
 }
@@ -1110,7 +1197,7 @@ Status FileTruncate(int fd, const int64_t size) {
 #endif
 
   if (ret == -1) {
-    return Status::IOError("Error writing bytes to file: ", ErrnoMessage(errno_actual));
+    return IOErrorFromErrno(errno_actual, "Error writing bytes to file");
   }
   return Status::OK();
 }

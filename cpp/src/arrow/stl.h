@@ -85,7 +85,7 @@ using CBuilderType =
 /// Default implementation of AppendListValues.
 ///
 /// This function can be specialized by user to take advantage of appending
-/// contigiuous ranges while appending. This default implementation will call
+/// contiguous ranges while appending. This default implementation will call
 /// ConversionTraits<ValueCType>::AppendRow() for each value in the range.
 template <typename ValueCType, typename Range>
 Status AppendListValues(CBuilderType<ValueCType>& value_builder, Range&& cell_range) {

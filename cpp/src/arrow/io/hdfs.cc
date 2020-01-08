@@ -124,7 +124,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
 
   Status Close() {
     if (is_open_) {
-      // is_open_ must be set to false in the beggining, because the destructor
+      // is_open_ must be set to false in the beginning, because the destructor
       // attempts to close the stream again, and if the first close fails, then
       // the error doesn't get propagated properly and the second close
       // initiated by the destructor raises a segfault
@@ -256,7 +256,7 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
 
   Status Close() {
     if (is_open_) {
-      // is_open_ must be set to false in the beggining, because the destructor
+      // is_open_ must be set to false in the beginning, because the destructor
       // attempts to close the stream again, and if the first close fails, then
       // the error doesn't get propagated properly and the second close
       // initiated by the destructor raises a segfault

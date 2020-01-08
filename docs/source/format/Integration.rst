@@ -23,7 +23,7 @@ Integration Testing
 A JSON representation of Arrow columnar data is provided for
 cross-language integration testing purposes.
 
-The high level structure of a JSON integration test files is as follows
+The high level structure of a JSON integration test files is as follows:
 
 **Data file** ::
 

@@ -29,6 +29,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -524,5 +526,45 @@ public class TestArrowReaderWriter {
 
     batch.close();
     vector.close();
+  }
+
+  @Test
+  public void testChannelReadFully() throws IOException {
+    final ByteBuffer buf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+    buf.putInt(200);
+    buf.rewind();
+
+    try (ReadChannel channel = new ReadChannel(Channels.newChannel(new ByteArrayInputStream(buf.array())));
+         ArrowBuf arrBuf = allocator.buffer(8)) {
+      arrBuf.setInt(0, 100);
+      arrBuf.writerIndex(4);
+      assertEquals(4, arrBuf.writerIndex());
+
+      int n = channel.readFully(arrBuf, 4);
+      assertEquals(4, n);
+      assertEquals(8, arrBuf.writerIndex());
+
+      assertEquals(100, arrBuf.getInt(0));
+      assertEquals(200, arrBuf.getInt(4));
+    }
+  }
+
+  @Test
+  public void testChannelReadFullyEos() throws IOException {
+    final ByteBuffer buf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+    buf.putInt(10);
+    buf.rewind();
+
+    try (ReadChannel channel = new ReadChannel(Channels.newChannel(new ByteArrayInputStream(buf.array())));
+         ArrowBuf arrBuf = allocator.buffer(8)) {
+      int n = channel.readFully(arrBuf.nioBuffer(0, 8));
+      assertEquals(4, n);
+
+      // the input has only 4 bytes, so the number of bytes read should be 4
+      assertEquals(4, channel.bytesRead());
+
+      // the first 4 bytes have been read successfully.
+      assertEquals(10, arrBuf.getInt(0));
+    }
   }
 }

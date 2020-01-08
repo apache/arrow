@@ -109,7 +109,7 @@ parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, et
 \link[=Table]{arrow::Table}?}
 }
 \value{
-A \code{data.frame}, or an Table if \code{as_data_frame = FALSE}.
+A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.
 }
 \description{
 These functions uses the Arrow C++ CSV reader to read into a \code{data.frame}.

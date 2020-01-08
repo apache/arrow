@@ -223,18 +223,20 @@ if have_arrow_orc
                      requires: ['arrow-glib'])
 endif
 
-arrow_glib_gir = gnome.generate_gir(libarrow_glib,
-                                    sources: sources + c_headers + enums,
-                                    namespace: 'Arrow',
-                                    nsversion: api_version,
-                                    identifier_prefix: 'GArrow',
-                                    symbol_prefix: 'garrow',
-                                    export_packages: 'arrow-glib',
-                                    includes: [
-                                      'GObject-2.0',
-                                      'Gio-2.0',
-                                    ],
-                                    install: true,
-                                    extra_args: [
-                                      '--warn-all',
-                                    ])
+if have_gi
+  arrow_glib_gir = gnome.generate_gir(libarrow_glib,
+                                      sources: sources + c_headers + enums,
+                                      namespace: 'Arrow',
+                                      nsversion: api_version,
+                                      identifier_prefix: 'GArrow',
+                                      symbol_prefix: 'garrow',
+                                      export_packages: 'arrow-glib',
+                                      includes: [
+                                        'GObject-2.0',
+                                        'Gio-2.0',
+                                      ],
+                                      install: true,
+                                      extra_args: [
+                                        '--warn-all',
+                                      ])
+endif

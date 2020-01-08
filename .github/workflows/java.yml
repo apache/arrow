@@ -20,10 +20,12 @@ name: Java
 on:
   push:
     paths:
+      - '.github/workflows/java.yml'
       - 'ci/**'
       - 'java/**'
   pull_request:
     paths:
+      - '.github/workflows/java.yml'
       - 'ci/**'
       - 'java/**'
 

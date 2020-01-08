@@ -36,7 +36,7 @@ static uint8_t non_null_filler;
 /// \brief Returns maybe_null if not null or a non-null pointer to an arbitrary memory
 /// that shouldn't be dereferenced.
 ///
-/// Memset/Memcpy are undefinfed when a nullptr is passed as an argument use this utility
+/// Memset/Memcpy are undefined when a nullptr is passed as an argument use this utility
 /// method to wrap locations where this could happen.
 ///
 /// Note: Flatbuffers has UBSan warnings if a zero length vector is passed.
