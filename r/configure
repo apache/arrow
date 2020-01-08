@@ -31,6 +31,7 @@ PKG_DEB_NAME="(unsuppored)"
 PKG_RPM_NAME="(unsuppored)"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
+# These must be the same order as $(pkg-config --libs arrow-dataset)
 PKG_LIBS="-larrow_dataset -lparquet -larrow"
 
 # generate code

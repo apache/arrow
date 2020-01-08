@@ -45,7 +45,9 @@ jobs:
       fail-fast: false
       matrix:
         # See https://github.com/r-hub/rhub-linux-builders
-        r_image: ["debian-gcc-devel", "ubuntu-gcc-release"]
+        r_image:
+          - debian-gcc-devel
+          - ubuntu-gcc-release
     env:
       R_DOCKER_ORG: "rhub"
       R_DOCKER_IMAGE: ${{ matrix.r_image }}
@@ -54,12 +56,10 @@ jobs:
         uses: actions/checkout@v1
       - name: Docker Pull
         shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures r-docker
+        run: docker-compose pull --ignore-pull-failures r-docker
       - name: Docker Build
         shell: bash
-        run: |
-          docker-compose build r-docker
+        run: docker-compose build r-docker
       - name: Docker Run
         shell: bash
         run: docker-compose run r-docker
@@ -80,7 +80,12 @@ jobs:
       matrix:
         # See https://hub.docker.com/r/rstudio/r-base
         r_version: ["3.6"]
-        r_image: ["bionic", "centos6", "centos7", "opensuse42", "opensuse15"]
+        r_image:
+          - bionic
+          - centos6
+          - centos7
+          - opensuse42
+          - opensuse15
     env:
       R_DOCKER_ORG: "rstudio"
       R_DOCKER_IMAGE: "r-base"
@@ -90,12 +95,10 @@ jobs:
         uses: actions/checkout@v1
       - name: Docker Pull
         shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures r-docker
+        run: docker-compose pull --ignore-pull-failures r-docker
       - name: Docker Build
         shell: bash
-        run: |
-          docker-compose build r-docker
+        run: docker-compose build r-docker
       - name: Docker Run
         shell: bash
         run: docker-compose run r-docker

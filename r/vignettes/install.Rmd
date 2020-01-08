@@ -60,13 +60,7 @@ In order for the `arrow` R package to work, it needs the Arrow C++ library.
 There are a number of ways you can get it: a system package; a library you've
 built yourself outside of the context of installing the R package;
 or, if you don't already have it, the R package will attempt to resolve it
-automatically when it installs. This section outlines the logic of how that
-dependency resolution occurs.
-
-When you install the `arrow` R package on Linux,
-it will first attempt to find the Arrow C++ libraries on your system using
-the `pkg-config` command.
-This will find either installed system packages or libraries you've built yourself.
+automatically when it installs.
 
 If you are authorized to install system packages, and you're installing a CRAN release,
 you may want to use the official Apache Arrow release packages corresponding to the R package version.
@@ -75,12 +69,13 @@ to find pre-compiled binary packages for some common Linux distributions,
 including Debian, Ubuntu, and CentOS.
 You'll need to install `libparquet-dev` on Debian and Ubuntu, or `parquet-devel` on CentOS.
 This will also automatically install the Arrow C++ library as a dependency.
+
+When you install the `arrow` R package on Linux,
+it will first attempt to find the Arrow C++ libraries on your system using
+the `pkg-config` command.
+This will find either installed system packages or libraries you've built yourself.
 In order for `install.packages("arrow")` to work with these system packages,
 you'll need to install them before installing the R package.
-
-Alternatively, if you've built the Arrow C++ libraries locally from source
-but haven't installed them where `pkg-config` will find them,
-you can instead set `INCLUDE_DIR` and `LIB_DIR` environment variables to point to their location.
 
 If no Arrow C++ libraries are found on the system,
 the R package installation script will next attempt to download
@@ -130,6 +125,30 @@ system packages may not be an option.
 Note also that once you have a working R package installation based on system (shared) libraries,
 if you update your system Arrow, you'll need to reinstall the R package to match its version.
 
+## Using a local Arrow C++ build
+
+If you've built the Arrow C++ libraries locally from source
+but haven't installed them where `pkg-config` will find them,
+there are a few options for telling the R package how to locate them.
+You can set `PKG_CONFIG_PATH` to `/path/to/your/installation/pkgconfig`
+(that is, `PKG_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/pkgconfig`,
+if you've set those variables).
+Alternatively, you can set the `INCLUDE_DIR` and `LIB_DIR` environment variables
+to point to their location.
+
+If the package fails to install/load with an error like this:
+
+```
+** testing if installed package can be loaded from temporary location
+Error: package or namespace load failed for 'arrow' in dyn.load(file, DLLpath = DLLpath, ...):
+unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
+dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
+```
+
+try setting the environment variable `R_LD_LIBRARY_PATH` to wherever Arrow C++
+was put in `make install`, e.g. `export R_LD_LIBRARY_PATH=/usr/local/lib`, and
+retry installing the R package.
+
 ## Using prebuilt binaries
 
 If the R package finds and downloads a prebuilt binary of the C++ library,
@@ -152,7 +171,6 @@ debug messages.
 
 A workaround would be to set the environment variable `LIBARROW_BINARY_DISTRO`
 to a `distribution-version` that exists in the Ursa Labs repository.
-<!-- give example, once one exists -->
 Setting `LIBARROW_BINARY_DISTRO` is also an option when there's not an exact match
 for your OS but a similar version would work,
 such as if you're on `ubuntu-18.10` and there's only a binary for `ubuntu-18.04`.

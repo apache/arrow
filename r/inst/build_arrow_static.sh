@@ -65,6 +65,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_JEMALLOC=ON \
     -DARROW_JSON=ON \
     -DARROW_PARQUET=ON \
+    -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
     -DARROW_WITH_BROTLI=ON \
     -DARROW_WITH_BZ2=ON \
     -DARROW_WITH_LZ4=ON \
@@ -80,17 +81,10 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     ${SOURCE_DIR}
 ${CMAKE} --build . --target install
 
-if [ $? -ne 0 ]; then
-  # It's probably thrift's fault, so print it here.
-  cat thrift_ep-prefix/src/thrift_ep-stamp/thrift_ep-download-*.log
-  cat thrift_ep-prefix/src/thrift_ep-stamp/thrift_ep-configure-*.log
-  cat thrift_ep-prefix/src/thrift_ep-stamp/thrift_ep-build-*.log
-  cat thrift_ep-prefix/src/thrift_ep-stamp/thrift_ep-install-*.log
-  if [ "${DEBUG_DIR}" != "" ]; then
-    # For debugging installation problems, copy the build contents somewhere not tmp
-    mkdir -p ${DEBUG_DIR}
-    cp -r ./* ${DEBUG_DIR}
-  fi
+if [ $? -ne 0 ] && [ "${DEBUG_DIR}" != "" ]; then
+  # For debugging installation problems, copy the build contents somewhere not tmp
+  mkdir -p ${DEBUG_DIR}
+  cp -r ./* ${DEBUG_DIR}
 fi
 
 # Copy the bundled static libs from the build to the install dir
