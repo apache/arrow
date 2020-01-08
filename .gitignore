@@ -71,3 +71,10 @@ site/
 **/*.Rcheck/
 **/.Rhistory
 .Rproj.user
+/.vs
+/matlab/out/
+/java/gandiva/out/
+/go/arrow/math/_lib/out/
+/go/arrow/memory/_lib/out/
+/java/adapter/orc/out/
+
