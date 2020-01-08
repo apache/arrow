@@ -106,3 +106,17 @@ test_that("write_parquet() defaults to snappy compression", {
   write_parquet(mtcars, tmp2, compression = "snappy")
   expect_equal(file.size(tmp1), file.size(tmp2))
 })
+
+test_that("Factors are preserved when writing/reading from Parquet", {
+  fct <- factor(c("a", "b"), levels = c("c", "a", "b"))
+  ord <- factor(c("a", "b"), levels = c("c", "a", "b"), ordered = TRUE)
+  chr <- c("a", "b")
+  df <- tibble::tibble(fct = fct, ord = ord, chr = chr)
+
+  pq_tmp_file <- tempfile()
+  on.exit(unlink(pq_tmp_file))
+
+  write_parquet(df, pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file)
+  expect_identical(df, df_read)
+})
