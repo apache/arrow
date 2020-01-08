@@ -94,19 +94,6 @@ garrow_file_stats_set_property(GObject *object,
 }
 
 static void
-garrow_file_stats_get_property(GObject *object,
-                               guint prop_id,
-                               GValue *value,
-                               GParamSpec *pspec)
-{
-  switch (prop_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
 garrow_file_stats_init(GArrowFileStats *object)
 {
 }
@@ -120,7 +107,6 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
 
   gobject_class->finalize     = garrow_file_stats_finalize;
   gobject_class->set_property = garrow_file_stats_set_property;
-  gobject_class->get_property = garrow_file_stats_get_property;
 
   spec = g_param_spec_pointer("file_stats",
                               "FileStats",
@@ -310,19 +296,6 @@ garrow_file_selector_set_property(GObject *object,
 }
 
 static void
-garrow_file_selector_get_property(GObject *object,
-                                  guint prop_id,
-                                  GValue *value,
-                                  GParamSpec *pspec)
-{
-  switch (prop_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
 garrow_file_selector_init(GArrowFileSelector *object)
 {
 }
@@ -336,7 +309,6 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
 
   gobject_class->finalize     = garrow_file_selector_finalize;
   gobject_class->set_property = garrow_file_selector_set_property;
-  gobject_class->get_property = garrow_file_selector_get_property;
 
   spec = g_param_spec_pointer("file_selector",
                               "FileSelector",
@@ -456,19 +428,6 @@ garrow_file_system_set_property(GObject *object,
 }
 
 static void
-garrow_file_system_get_property(GObject *object,
-                                guint prop_id,
-                                GValue *value,
-                                GParamSpec *pspec)
-{
-  switch (prop_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
 garrow_file_system_init(GArrowFileSystem *object)
 {
 }
@@ -482,7 +441,6 @@ garrow_file_system_class_init(GArrowFileSystemClass *klass)
 
   gobject_class->finalize     = garrow_file_system_finalize;
   gobject_class->set_property = garrow_file_system_set_property;
-  gobject_class->get_property = garrow_file_system_get_property;
 
   spec = g_param_spec_pointer("file_system",
                               "FileSystem",

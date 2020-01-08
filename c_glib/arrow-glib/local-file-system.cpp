@@ -69,19 +69,6 @@ garrow_local_file_system_options_set_property(GObject *object,
 }
 
 static void
-garrow_local_file_system_options_get_property(GObject *object,
-                                              guint prop_id,
-                                              GValue *value,
-                                              GParamSpec *pspec)
-{
-  switch (prop_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
 garrow_local_file_system_options_init(GArrowLocalFileSystemOptions *object)
 {
 }
@@ -95,7 +82,6 @@ garrow_local_file_system_options_class_init(GArrowLocalFileSystemOptionsClass *k
 
   gobject_class->finalize     = garrow_local_file_system_options_finalize;
   gobject_class->set_property = garrow_local_file_system_options_set_property;
-  gobject_class->get_property = garrow_local_file_system_options_get_property;
 
   spec = g_param_spec_pointer("local_file_system_options",
                               "LocalFileSystemOptions",
