@@ -188,22 +188,16 @@ static void armv8_stream_ldst_pair(VectorType* src, VectorType* dst) {
 
 static void Read(void* src, void* dst, size_t size) {
   const auto simd = static_cast<uint8_t*>(src);
-  VectorType a, b, c, d;
+  VectorType a;
   (void)dst;
 
   memset(&a, 0, sizeof(a));
-  memset(&b, 0, sizeof(b));
-  memset(&c, 0, sizeof(c));
-  memset(&d, 0, sizeof(d));
 
-  for (size_t i = 0; i < size; i += (sizeof(VectorType) * 4)) {
+  for (size_t i = 0; i < size; i += sizeof(VectorType)) {
     a = VectorLoadAsm(simd + i);
-    b = VectorLoadAsm(simd + 16 + i);
-    c = VectorLoadAsm(simd + 32 + i);
-    d = VectorLoadAsm(simd + 48 + i);
   }
 
-  benchmark::DoNotOptimize(a + b + c + d);
+  benchmark::DoNotOptimize(a);
 }
 
 // See http://codearcana.com/posts/2013/05/18/achieving-maximum-memory-bandwidth.html
