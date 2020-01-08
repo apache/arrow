@@ -161,7 +161,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::Utf8 => Arc::new(StringArray::from(data)) as ArrayRef,
         DataType::List(_) => Arc::new(ListArray::from(data)) as ArrayRef,
         DataType::Struct(_) => Arc::new(StructArray::from(data)) as ArrayRef,
-        DataType::FixedSizeList(_) => {
+        DataType::FixedSizeList(_, _) => {
             Arc::new(FixedSizeListArray::from(data)) as ArrayRef
         }
         dt => panic!("Unexpected data type {:?}", dt),
@@ -999,7 +999,7 @@ impl From<ArrayDataRef> for FixedSizeListArray {
         );
         let values = make_array(data.child_data()[0].clone());
         let length = match data.data_type() {
-            DataType::FixedSizeList((_, len)) => {
+            DataType::FixedSizeList(_, len) => {
                 // check that child data is multiple of length
                 assert_eq!(
                     values.len() % *len as usize,
@@ -2108,7 +2108,7 @@ mod tests {
             .build();
 
         // Construct a list array from the above two
-        let list_data_type = DataType::FixedSizeList((Box::new(DataType::Int32), 3));
+        let list_data_type = DataType::FixedSizeList(Box::new(DataType::Int32), 3);
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(3)
             .add_child_data(value_data.clone())
@@ -2156,7 +2156,7 @@ mod tests {
             .build();
 
         // Construct a list array from the above two
-        let list_data_type = DataType::FixedSizeList((Box::new(DataType::Int32), 3));
+        let list_data_type = DataType::FixedSizeList(Box::new(DataType::Int32), 3);
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(3)
             .add_child_data(value_data.clone())
@@ -2247,7 +2247,7 @@ mod tests {
         bit_util::set_bit(&mut null_bits, 4);
 
         // Construct a fixed size list array from the above two
-        let list_data_type = DataType::FixedSizeList((Box::new(DataType::Int32), 2));
+        let list_data_type = DataType::FixedSizeList(Box::new(DataType::Int32), 2);
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(5)
             .add_child_data(value_data.clone())
@@ -2552,7 +2552,7 @@ mod tests {
             .build();
 
         let array_data =
-            ArrayData::builder(DataType::FixedSizeList((Box::new(DataType::Binary), 4)))
+            ArrayData::builder(DataType::FixedSizeList(Box::new(DataType::Binary), 4))
                 .len(3)
                 .add_child_data(values_data)
                 .build();

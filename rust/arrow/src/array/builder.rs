@@ -525,10 +525,10 @@ where
         );
 
         let null_bit_buffer = self.bitmap_builder.finish();
-        let data = ArrayData::builder(DataType::FixedSizeList((
+        let data = ArrayData::builder(DataType::FixedSizeList(
             Box::new(values_data.data_type().clone()),
             self.list_len,
-        )))
+        ))
         .len(len)
         .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
         .add_child_data(values_data)
