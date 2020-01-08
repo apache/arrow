@@ -252,11 +252,14 @@ garrow_file_stats_set_mtime(GArrowFileStats *file_stats,
 /* arrow::fs::FileSelector */
 
 typedef struct GArrowFileSelectorPrivate_ {
-  std::shared_ptr<arrow::fs::FileSelector> file_selector;
+  std::unique_ptr<arrow::fs::FileSelector> file_selector;
 } GArrowFileSelectorPrivate;
 
 enum {
-  PROP_FILE_SELECTOR = 1
+  PROP_FILE_SELECTOR_BASE_DIR = 1,
+  PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT,
+  PROP_FILE_SELECTOR_RECURSIVE,
+  PROP_FILE_SELECTOR_MAX_RECURSION
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowFileSelector, garrow_file_selector, G_TYPE_OBJECT)
@@ -265,6 +268,67 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowFileSelector, garrow_file_selector, G_TYPE_OBJE
   static_cast<GArrowFileSelectorPrivate *>(           \
      garrow_file_selector_get_instance_private(       \
        GARROW_FILE_SELECTOR(obj)))
+
+static void
+garrow_file_selector_set_property(GObject *object,
+                                  guint prop_id,
+                                  const GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto priv = GARROW_FILE_SELECTOR_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_FILE_SELECTOR_BASE_DIR:
+    priv->file_selector->base_dir = g_value_get_string(value);
+    break;
+  case PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT:
+    priv->file_selector->allow_non_existent = g_value_get_boolean(value);
+    break;
+  case PROP_FILE_SELECTOR_RECURSIVE:
+    priv->file_selector->recursive = g_value_get_boolean(value);
+    break;
+  case PROP_FILE_SELECTOR_MAX_RECURSION:
+    priv->file_selector->max_recursion = g_value_get_int(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_file_selector_get_property(GObject *object,
+                                  guint prop_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto priv = GARROW_FILE_SELECTOR_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_FILE_SELECTOR_BASE_DIR:
+    g_value_set_string(value, priv->file_selector->base_dir.c_str());
+    break;
+  case PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT:
+    g_value_set_boolean(value, priv->file_selector->allow_non_existent);
+    break;
+  case PROP_FILE_SELECTOR_RECURSIVE:
+    g_value_set_boolean(value, priv->file_selector->recursive);
+    break;
+  case PROP_FILE_SELECTOR_MAX_RECURSION:
+    g_value_set_int(value, priv->file_selector->max_recursion);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_file_selector_init(GArrowFileSelector *object)
+{
+  auto priv = GARROW_FILE_SELECTOR_GET_PRIVATE(object);
+  new(&priv->file_selector) std::unique_ptr<arrow::fs::FileSelector>;
+}
 
 static void
 garrow_file_selector_finalize(GObject *object)
@@ -277,107 +341,78 @@ garrow_file_selector_finalize(GObject *object)
 }
 
 static void
-garrow_file_selector_set_property(GObject *object,
-                                  guint prop_id,
-                                  const GValue *value,
-                                  GParamSpec *pspec)
-{
-  auto priv = GARROW_FILE_SELECTOR_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_FILE_SELECTOR:
-    priv->file_selector =
-      *static_cast<std::shared_ptr<arrow::fs::FileSelector> *>(g_value_get_pointer(value));
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-garrow_file_selector_init(GArrowFileSelector *object)
-{
-}
-
-static void
 garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
 {
   GParamSpec *spec;
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_file_selector_finalize;
+  gobject_class->finalize = garrow_file_selector_finalize;
   gobject_class->set_property = garrow_file_selector_set_property;
+  gobject_class->get_property = garrow_file_selector_get_property;
 
-  spec = g_param_spec_pointer("file_selector",
-                              "FileSelector",
-                              "The raw std::shared<arrow::fs::FileSelector> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR, spec);
+  auto file_selector = arrow::fs::FileSelector();
+
+  /**
+   * GArrowFileSelector:base-dir:
+   *
+   * The directory in which to select files.
+   * If the path exists but doesn't point to a directory, this should be an error.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_string("base-dir",
+                             "Base dir",
+                             "The directory in which to select files.",
+                             file_selector.base_dir.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_BASE_DIR, spec);
+
+  /**
+   * GArrowFileSelector:allow-non-existent:
+   *
+   * The behavior if `base_dir` doesn't exist in the filesystem.
+   * If false, an error is returned.  If true, an empty selection is returned.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_boolean("allow-non-existent",
+                              "Allow non existent",
+                              "The behavior if `base_dir` doesn't exist in the filesystem.",
+                              file_selector.allow_non_existent,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT, spec);
+
+  /**
+   * GArrowFileSelector:recursive:
+   *
+   * Whether to recurse into subdirectories.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_boolean("recursive",
+                              "Recursive",
+                              "Whether to recurse into subdirectories.",
+                              file_selector.recursive,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_RECURSIVE, spec);
+
+  /**
+   * GArrowFileSelector:max-recursion:
+   *
+   * The maximum number of subdirectories to recurse into.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_int("max-recursion",
+                          "Max recursion",
+                          "The maximum number of subdirectories to recurse into.",
+                          0,
+                          INT32_MAX,
+                          file_selector.max_recursion,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_MAX_RECURSION, spec);
 }
-
-const gchar *
-garrow_file_selector_get_base_dir(GArrowFileSelector *file_selector)
-{
-  auto arrow_file_selector = garrow_file_selector_get_raw(file_selector);
-  return arrow_file_selector->base_dir.c_str();
-}
-
-void
-garrow_file_selector_set_base_dir(GArrowFileSelector *file_selector,
-                                  const gchar *base_dir)
-{
-  auto arrow_file_selector = garrow_file_selector_get_raw(file_selector);
-  arrow_file_selector->base_dir.assign(base_dir);
-}
-
-gboolean
-garrow_file_selector_get_allow_non_existent(GArrowFileSelector *file_selector)
-{
-  auto arrow_file_selector = garrow_file_selector_get_raw(file_selector);
-  return arrow_file_selector->allow_non_existent;
-}
-
-void
-garrow_file_selector_set_allow_non_existent(GArrowFileSelector *file_selector,
-                                            gboolean allow_non_existent)
-{
-  auto arrow_file_selector = garrow_file_selector_get_raw(file_selector);
-  arrow_file_selector->allow_non_existent = allow_non_existent;
-}
-
-gboolean
-garrow_file_selector_get_recursive(GArrowFileSelector *file_selector)
-{
-  auto arrow_file_selector = garrow_file_selector_get_raw(file_selector);
-  return arrow_file_selector->recursive;
-}
-
-void
-garrow_file_selector_set_recursive(GArrowFileSelector *file_selector,
-                                   gboolean recursive)
-{
-  auto arrow_file_selector = garrow_file_selector_get_raw(file_selector);
-  arrow_file_selector->recursive = recursive;
-}
-
-gint32
-garrow_file_selector_get_max_recursion(GArrowFileSelector *file_selector)
-{
-  auto arrow_file_selector = garrow_file_selector_get_raw(file_selector);
-  return arrow_file_selector->max_recursion;
-}
-
-void
-garrow_file_selector_set_max_recursion(GArrowFileSelector *file_selector,
-                                       gint32 max_recursion)
-{
-  auto arrow_file_selector = garrow_file_selector_get_raw(file_selector);
-  arrow_file_selector->max_recursion = max_recursion;
-}
-
 
 /* arrow::fs::FileSystem */
 
@@ -574,7 +609,8 @@ garrow_file_system_get_target_stats_list_by_selector(GArrowFileSystem *file_syst
                                                      GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
-  auto arrow_file_selector = garrow_file_selector_get_raw(file_selector);
+  const auto& arrow_file_selector =
+    GARROW_FILE_SELECTOR_GET_PRIVATE(file_selector)->file_selector;
   return garrow_file_stats_list_from_result(arrow_file_system->GetTargetStats(*arrow_file_selector),
                                             error, "[filesystem][get_target_stats_list]");
 }
@@ -966,25 +1002,6 @@ garrow_file_stats_get_raw(GArrowFileStats *file_stats)
 
   auto priv = GARROW_FILE_STATS_GET_PRIVATE(file_stats);
   return priv->file_stats;
-}
-
-GArrowFileSelector *
-garrow_file_selector_new_raw(std::shared_ptr<arrow::fs::FileSelector> *arrow_file_selector)
-{
-  auto file_stats = GARROW_FILE_SELECTOR(g_object_new(GARROW_TYPE_FILE_SELECTOR,
-                                                      "file_selector", arrow_file_selector,
-                                                      NULL));
-  return file_stats;
-}
-
-std::shared_ptr<arrow::fs::FileSelector>
-garrow_file_selector_get_raw(GArrowFileSelector *file_selector)
-{
-  if (!file_selector)
-    return nullptr;
-
-  auto priv = GARROW_FILE_SELECTOR_GET_PRIVATE(file_selector);
-  return priv->file_selector;
 }
 
 GArrowFileSystem *

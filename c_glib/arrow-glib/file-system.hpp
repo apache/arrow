@@ -29,12 +29,6 @@ garrow_file_stats_new_raw(std::shared_ptr<arrow::fs::FileStats> *arrow_file_stat
 std::shared_ptr<arrow::fs::FileStats>
 garrow_file_stats_get_raw(GArrowFileStats *file_stats);
 
-GArrowFileSelector *
-garrow_file_selector_new_raw(std::shared_ptr<arrow::fs::FileSelector> *arrow_file_selector);
-
-std::shared_ptr<arrow::fs::FileSelector>
-garrow_file_selector_get_raw(GArrowFileSelector *file_selector);
-
 GArrowFileSystem *
 garrow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
                            GType type);
