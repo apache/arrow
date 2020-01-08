@@ -153,7 +153,7 @@ GArrowFileType
 garrow_file_stats_get_file_type(GArrowFileStats *file_stats)
 {
   auto arrow_file_stats = garrow_file_stats_get_raw(file_stats);
-  return (GArrowFileType)arrow_file_stats->type();
+  return static_cast<GArrowFileType>(arrow_file_stats->type());
 }
 
 void
