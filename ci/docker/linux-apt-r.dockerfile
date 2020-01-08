@@ -54,7 +54,7 @@ RUN apt-get update -y && \
 
 # Ensure parallel R package installation, set CRAN repo mirror,
 # and use pre-built binaries where possible
-COPY ci/etc/rprofile /arrow/ci/scripts/
+COPY ci/etc/rprofile /arrow/ci/etc/
 RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 # Also ensure parallel compilation of C/C++ code
 RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
