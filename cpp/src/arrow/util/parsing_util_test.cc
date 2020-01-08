@@ -251,7 +251,7 @@ TEST(StringConversion, ToUInt64) {
   AssertConversionFails(converter, "e");
 }
 
-TEST(StringConversion, ToTimestamp1) {
+TEST(StringConversion, ToTimestampDate) {
   {
     StringConverter<TimestampType> converter(timestamp(TimeUnit::SECOND));
 
@@ -301,11 +301,19 @@ TEST(StringConversion, ToTimestamp1) {
   }
 }
 
-TEST(StringConversion, ToTimestamp2) {
+TEST(StringConversion, ToTimestampDateTime) {
   {
     StringConverter<TimestampType> converter(timestamp(TimeUnit::SECOND));
 
     AssertConversion(converter, "1970-01-01 00:00:00", 0);
+    AssertConversion(converter, "2018-11-13 17", 1542128400);
+    AssertConversion(converter, "2018-11-13T17", 1542128400);
+    AssertConversion(converter, "2018-11-13 17Z", 1542128400);
+    AssertConversion(converter, "2018-11-13T17Z", 1542128400);
+    AssertConversion(converter, "2018-11-13 17:11", 1542129060);
+    AssertConversion(converter, "2018-11-13T17:11", 1542129060);
+    AssertConversion(converter, "2018-11-13 17:11Z", 1542129060);
+    AssertConversion(converter, "2018-11-13T17:11Z", 1542129060);
     AssertConversion(converter, "2018-11-13 17:11:10", 1542129070);
     AssertConversion(converter, "2018-11-13T17:11:10", 1542129070);
     AssertConversion(converter, "2018-11-13 17:11:10Z", 1542129070);
@@ -316,9 +324,14 @@ TEST(StringConversion, ToTimestamp2) {
     AssertConversionFails(converter, "1970-02-29 00:00:00");
     AssertConversionFails(converter, "2100-02-29 00:00:00");
     // Invalid times
+    AssertConversionFails(converter, "1970-01-01 24");
+    AssertConversionFails(converter, "1970-01-01 00:60");
+    AssertConversionFails(converter, "1970-01-01 00,00");
     AssertConversionFails(converter, "1970-01-01 24:00:00");
     AssertConversionFails(converter, "1970-01-01 00:60:00");
     AssertConversionFails(converter, "1970-01-01 00:00:60");
+    AssertConversionFails(converter, "1970-01-01 00:00,00");
+    AssertConversionFails(converter, "1970-01-01 00,00:00");
   }
   {
     StringConverter<TimestampType> converter(timestamp(TimeUnit::MILLI));

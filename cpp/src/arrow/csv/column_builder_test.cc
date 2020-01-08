@@ -112,7 +112,7 @@ TEST(NullColumnBuilder, Empty) {
 }
 
 TEST(NullColumnBuilder, InsertNull) {
-  // Bulding a column of nulls with type null()
+  // Building a column of nulls with type null()
   std::shared_ptr<DataType> type = null();
   auto tg = TaskGroup::MakeSerial();
 
@@ -137,7 +137,7 @@ TEST(NullColumnBuilder, InsertNull) {
 }
 
 TEST(NullColumnBuilder, InsertTyped) {
-  // Bulding a column of nulls with another type
+  // Building a column of nulls with another type
   std::shared_ptr<DataType> type = int16();
   auto tg = TaskGroup::MakeSerial();
 

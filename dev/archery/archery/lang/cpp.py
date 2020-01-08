@@ -38,7 +38,7 @@ class CppConfiguration:
                  # components
                  with_tests=True, with_benchmarks=False, with_python=True,
                  with_parquet=False, with_gandiva=False, with_plasma=False,
-                 with_flight=False,
+                 with_flight=False, with_compute=False, with_dataset=False,
                  # extras
                  with_lint_only=False,
                  cmake_extras=None):
@@ -59,6 +59,8 @@ class CppConfiguration:
         self.with_gandiva = with_gandiva
         self.with_plasma = with_plasma
         self.with_flight = with_flight
+        self.with_compute = with_compute
+        self.with_dataset = with_dataset
 
         self.with_lint_only = with_lint_only
 
@@ -94,6 +96,8 @@ class CppConfiguration:
         yield ("ARROW_GANDIVA", truthifier(self.with_gandiva))
         yield ("ARROW_PLASMA", truthifier(self.with_plasma))
         yield ("ARROW_FLIGHT", truthifier(self.with_flight))
+        yield ("ARROW_COMPUTE", truthifier(self.with_compute))
+        yield ("ARROW_DATASET", truthifier(self.with_dataset))
 
         yield ("ARROW_LINT_ONLY", truthifier(self.with_lint_only))
 

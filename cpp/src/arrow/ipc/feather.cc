@@ -117,7 +117,7 @@ static Status WritePaddedWithOffset(io::OutputStream* stream, const uint8_t* dat
   return Status::OK();
 }
 
-/// For compability, we need to write any data sometimes just to keep producing
+/// For compatibility, we need to write any data sometimes just to keep producing
 /// files that can be read with an older reader.
 static Status WritePaddedBlank(io::OutputStream* stream, int64_t length,
                                int64_t* bytes_written) {

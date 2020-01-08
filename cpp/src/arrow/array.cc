@@ -25,6 +25,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/array/validate.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
@@ -304,6 +305,52 @@ Status ListArrayFromArrays(const Array& offsets, const Array& values, MemoryPool
   return Status::OK();
 }
 
+static std::shared_ptr<Array> SliceArrayWithOffsets(const Array& array, int64_t begin,
+                                                    int64_t end) {
+  return array.Slice(begin, end - begin);
+}
+
+template <typename ListArrayT>
+Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
+                                                MemoryPool* memory_pool) {
+  const int64_t list_array_length = list_array.length();
+  std::shared_ptr<arrow::Array> value_array = list_array.values();
+
+  // Shortcut: if a ListArray does not contain nulls, then simply slice its
+  // value array with the first and the last offsets.
+  if (list_array.null_count() == 0) {
+    return SliceArrayWithOffsets(*value_array, list_array.value_offset(0),
+                                 list_array.value_offset(list_array_length));
+  }
+
+  // The ListArray contains nulls: there may be a non-empty sub-list behind
+  // a null and it must not be contained in the result.
+  std::vector<std::shared_ptr<Array>> non_null_fragments;
+  int64_t valid_begin = 0;
+  while (valid_begin < list_array_length) {
+    int64_t valid_end = valid_begin;
+    while (valid_end < list_array_length &&
+           (list_array.IsValid(valid_end) || list_array.value_length(valid_end) == 0)) {
+      ++valid_end;
+    }
+    if (valid_begin < valid_end) {
+      non_null_fragments.push_back(
+          SliceArrayWithOffsets(*value_array, list_array.value_offset(valid_begin),
+                                list_array.value_offset(valid_end)));
+    }
+    valid_begin = valid_end + 1;  // skip null entry
+  }
+
+  // Final attempt to avoid invoking Concatenate().
+  if (non_null_fragments.size() == 1) {
+    return non_null_fragments[0];
+  }
+
+  std::shared_ptr<Array> flattened;
+  RETURN_NOT_OK(Concatenate(non_null_fragments, memory_pool, &flattened));
+  return flattened;
+}
+
 }  // namespace
 
 ListArray::ListArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
@@ -379,6 +426,13 @@ Status LargeListArray::FromArrays(const Array& offsets, const Array& values,
   return ListArrayFromArrays<LargeListType>(offsets, values, pool, out);
 }
 
+Result<std::shared_ptr<Array>> ListArray::Flatten(MemoryPool* memory_pool) const {
+  return FlattenListArray(*this, memory_pool);
+}
+
+Result<std::shared_ptr<Array>> LargeListArray::Flatten(MemoryPool* memory_pool) const {
+  return FlattenListArray(*this, memory_pool);
+}
 // ----------------------------------------------------------------------
 // MapArray
 

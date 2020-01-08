@@ -20,7 +20,7 @@
 # Conda Forge recipes
 
 This directory must be migrated periodically with the upstrem updates of
-[arrow-cpp-feedstock][arrow-cpp-feedsotkc],
+[arrow-cpp-feedstock][arrow-cpp-feedstock],
 [parquet-cpp-feedstock][parquet-cpp-feedstock] and
 [pyarrow-feedstock][pyarrow-feedstock]
 conda-forge repositories because of multiple vendored files.
@@ -34,7 +34,7 @@ latest releases.
 ### Backporting from the upstream feedstocks
 
 In most of the cases these recipes are more accurate, then the upstream
-feedstocks. Altough the upstream feedstocks regurarly receive automatic updates
+feedstocks. Although the upstream feedstocks regularly receive automatic updates
 by the conda-forge team so we need to backport those changes to the crossbow
 recipes. Most of these updates are touching the version pinning files
 (under `.ci_support`) and other CI related configuration files.

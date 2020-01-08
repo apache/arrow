@@ -79,11 +79,13 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
  public:
   ~S3FileSystem() override;
 
+  std::string type_name() const override { return "s3"; }
+
   /// \cond FALSE
   using FileSystem::GetTargetStats;
   /// \endcond
   Result<FileStats> GetTargetStats(const std::string& path) override;
-  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) override;
+  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

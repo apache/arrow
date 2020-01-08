@@ -241,7 +241,7 @@ impl ParquetTypeConverter {
 
     fn from_byte_array(&self) -> Result<DataType> {
         match self.schema.get_basic_info().logical_type() {
-            LogicalType::NONE => Ok(DataType::Utf8),
+            LogicalType::NONE => Ok(DataType::Binary),
             LogicalType::UTF8 => Ok(DataType::Utf8),
             other => Err(ArrowError(format!(
                 "Unable to convert parquet BYTE_ARRAY logical type {}",

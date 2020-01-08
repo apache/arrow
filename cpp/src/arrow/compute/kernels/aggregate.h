@@ -41,7 +41,7 @@ struct Datum;
 /// for the caller to manage memory:
 /// - Size
 /// - New (placement new constructor invocation)
-/// - Delete (state desctructor)
+/// - Delete (state destructor)
 ///
 /// Design inspired by ClickHouse aggregate functions.
 class AggregateFunction {

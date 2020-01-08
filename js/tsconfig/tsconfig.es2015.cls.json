@@ -1,4 +1,4 @@
-//Compiler configuaration to build the ES2015 Closure Compiler target
+//Compiler configuration to build the ES2015 Closure Compiler target
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {

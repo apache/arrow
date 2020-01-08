@@ -1029,7 +1029,7 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
 
 using TestUInt32ParquetIO = TestParquetIO<::arrow::UInt32Type>;
 
-TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compability) {
+TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compatibility) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> values;
 
@@ -1047,7 +1047,7 @@ TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compability) {
   ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnTable(values));
 }
 
-TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compability) {
+TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compatibility) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> arr;
   ASSERT_OK(NullableArray<::arrow::UInt32Type>(LARGE_SIZE, 100, kDefaultSeed, &arr));

@@ -72,9 +72,9 @@ namespace Apache.Arrow.Ipc
 
             await ArrayPool<byte>.Shared.RentReturnAsync(footerLength, async (buffer) =>
             {
-                long footerStartPostion = GetFooterLengthPosition() - footerLength;
+                long footerStartPosition = GetFooterLengthPosition() - footerLength;
 
-                BaseStream.Position = footerStartPostion;
+                BaseStream.Position = footerStartPosition;
 
                 int bytesRead = await BaseStream.ReadFullBufferAsync(buffer).ConfigureAwait(false);
                 EnsureFullRead(buffer, bytesRead);
@@ -105,9 +105,9 @@ namespace Apache.Arrow.Ipc
 
             ArrayPool<byte>.Shared.RentReturn(footerLength, (buffer) =>
             {
-                long footerStartPostion = GetFooterLengthPosition() - footerLength;
+                long footerStartPosition = GetFooterLengthPosition() - footerLength;
 
-                BaseStream.Position = footerStartPostion;
+                BaseStream.Position = footerStartPosition;
 
                 int bytesRead = BaseStream.ReadFullBuffer(buffer);
                 EnsureFullRead(buffer, bytesRead);

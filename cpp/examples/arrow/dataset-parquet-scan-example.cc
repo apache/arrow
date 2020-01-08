@@ -65,11 +65,11 @@ struct Configuration {
   std::shared_ptr<ds::Expression> filter = ("total_amount"_ > 1000.0f).Copy();
 } conf;
 
-std::shared_ptr<ds::Dataset> GetDatasetFromPath(fs::FileSystemPtr fs,
+std::shared_ptr<ds::Dataset> GetDatasetFromPath(std::shared_ptr<fs::FileSystem> fs,
                                                 std::shared_ptr<ds::FileFormat> format,
                                                 std::string path) {
   // Find all files under `path`
-  fs::Selector s;
+  fs::FileSelector s;
   s.base_dir = path;
   s.recursive = true;
 

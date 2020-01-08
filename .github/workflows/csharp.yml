@@ -20,10 +20,12 @@ name: C#
 on:
   push:
     paths:
+      - '.github/workflows/csharp.yml'
       - 'ci/**'
       - 'csharp/**'
   pull_request:
     paths:
+      - '.github/workflows/csharp.yml'
       - 'ci/**'
       - 'csharp/**'
 

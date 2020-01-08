@@ -60,11 +60,13 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   explicit MockFileSystem(TimePoint current_time);
   ~MockFileSystem() override;
 
+  std::string type_name() const override { return "mock"; }
+
   // XXX It's not very practical to have to explicitly declare inheritance
   // of default overrides.
   using FileSystem::GetTargetStats;
   Result<FileStats> GetTargetStats(const std::string& path) override;
-  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) override;
+  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

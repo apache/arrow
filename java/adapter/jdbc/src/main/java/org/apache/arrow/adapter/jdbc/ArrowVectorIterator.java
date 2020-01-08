@@ -84,7 +84,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       return iterator;
     } catch (Exception e) {
       iterator.close();
-      throw new RuntimeException("Error occured while creating iterator.", e);
+      throw new RuntimeException("Error occurred while creating iterator.", e);
     }
   }
 
@@ -101,7 +101,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       root.setRowCount(readRowCount);
     } catch (Exception e) {
       compositeConsumer.close();
-      throw new RuntimeException("Error occured while consuming data.", e);
+      throw new RuntimeException("Error occurred while consuming data.", e);
     }
   }
 
@@ -113,7 +113,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       if (root != null) {
         root.close();
       }
-      throw new RuntimeException("Error occured while creating schema root.", e);
+      throw new RuntimeException("Error occurred while creating schema root.", e);
     }
     return root;
   }
@@ -151,7 +151,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       load(createVectorSchemaRoot());
     } catch (Exception e) {
       close();
-      throw new RuntimeException("Error occured while getting next schema root.", e);
+      throw new RuntimeException("Error occurred while getting next schema root.", e);
     }
     return returned;
   }

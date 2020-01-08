@@ -20,14 +20,14 @@ name: Rust
 on:
   push:
     paths:
+      - '.github/workflows/rust.yml'
       - 'ci/**'
       - 'rust/**'
-      - '.github/workflows/rust.yml'
   pull_request:
     paths:
+      - '.github/workflows/rust.yml'
       - 'ci/**'
       - 'rust/**'
-      - '.github/workflows/rust.yml'
 
 jobs:
 

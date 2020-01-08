@@ -129,6 +129,9 @@ include "table.pxi"
 # Tensors
 include "tensor.pxi"
 
+# Compute
+include "compute.pxi"
+
 # File IO
 include "io.pxi"
 include "io-hdfs.pxi"

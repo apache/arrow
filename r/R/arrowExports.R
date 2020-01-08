@@ -340,28 +340,44 @@ csv___TableReader__Read <- function(table_reader){
     .Call(`_arrow_csv___TableReader__Read` , table_reader)
 }
 
-dataset___FSDSDiscovery__Make <- function(fs, selector){
-    .Call(`_arrow_dataset___FSDSDiscovery__Make` , fs, selector)
+dataset___FSDSDiscovery__Make2 <- function(fs, selector, partition_scheme){
+    .Call(`_arrow_dataset___FSDSDiscovery__Make2` , fs, selector, partition_scheme)
 }
 
-dataset___DSDiscovery__Finish <- function(discovery){
-    .Call(`_arrow_dataset___DSDiscovery__Finish` , discovery)
+dataset___FSDSDiscovery__Make1 <- function(fs, selector){
+    .Call(`_arrow_dataset___FSDSDiscovery__Make1` , fs, selector)
+}
+
+dataset___FSDSDiscovery__Make3 <- function(fs, selector, discovery){
+    .Call(`_arrow_dataset___FSDSDiscovery__Make3` , fs, selector, discovery)
+}
+
+dataset___DSDiscovery__Finish1 <- function(discovery){
+    .Call(`_arrow_dataset___DSDiscovery__Finish1` , discovery)
+}
+
+dataset___DSDiscovery__Finish2 <- function(discovery, schema){
+    .Call(`_arrow_dataset___DSDiscovery__Finish2` , discovery, schema)
 }
 
 dataset___DSDiscovery__Inspect <- function(discovery){
     .Call(`_arrow_dataset___DSDiscovery__Inspect` , discovery)
 }
 
-dataset___DSDiscovery__SetPartitionScheme <- function(discovery, part){
-    invisible(.Call(`_arrow_dataset___DSDiscovery__SetPartitionScheme` , discovery, part))
-}
-
 dataset___SchemaPartitionScheme <- function(schm){
     .Call(`_arrow_dataset___SchemaPartitionScheme` , schm)
 }
 
+dataset___SchemaPartitionScheme__MakeDiscovery <- function(field_names){
+    .Call(`_arrow_dataset___SchemaPartitionScheme__MakeDiscovery` , field_names)
+}
+
 dataset___HivePartitionScheme <- function(schm){
     .Call(`_arrow_dataset___HivePartitionScheme` , schm)
+}
+
+dataset___HivePartitionScheme__MakeDiscovery <- function(){
+    .Call(`_arrow_dataset___HivePartitionScheme__MakeDiscovery` )
 }
 
 dataset___Dataset__create <- function(sources, schm){
@@ -780,28 +796,28 @@ fs___FileStats__set_mtime <- function(x, time){
     invisible(.Call(`_arrow_fs___FileStats__set_mtime` , x, time))
 }
 
-fs___Selector__base_dir <- function(selector){
-    .Call(`_arrow_fs___Selector__base_dir` , selector)
+fs___FileSelector__base_dir <- function(selector){
+    .Call(`_arrow_fs___FileSelector__base_dir` , selector)
 }
 
-fs___Selector__allow_non_existent <- function(selector){
-    .Call(`_arrow_fs___Selector__allow_non_existent` , selector)
+fs___FileSelector__allow_non_existent <- function(selector){
+    .Call(`_arrow_fs___FileSelector__allow_non_existent` , selector)
 }
 
-fs___Selector__recursive <- function(selector){
-    .Call(`_arrow_fs___Selector__recursive` , selector)
+fs___FileSelector__recursive <- function(selector){
+    .Call(`_arrow_fs___FileSelector__recursive` , selector)
 }
 
-fs___Selector__create <- function(base_dir, allow_non_existent, recursive){
-    .Call(`_arrow_fs___Selector__create` , base_dir, allow_non_existent, recursive)
+fs___FileSelector__create <- function(base_dir, allow_non_existent, recursive){
+    .Call(`_arrow_fs___FileSelector__create` , base_dir, allow_non_existent, recursive)
 }
 
 fs___FileSystem__GetTargetStats_Paths <- function(file_system, paths){
     .Call(`_arrow_fs___FileSystem__GetTargetStats_Paths` , file_system, paths)
 }
 
-fs___FileSystem__GetTargetStats_Selector <- function(file_system, selector){
-    .Call(`_arrow_fs___FileSystem__GetTargetStats_Selector` , file_system, selector)
+fs___FileSystem__GetTargetStats_FileSelector <- function(file_system, selector){
+    .Call(`_arrow_fs___FileSystem__GetTargetStats_FileSelector` , file_system, selector)
 }
 
 fs___FileSystem__CreateDir <- function(file_system, path, recursive){

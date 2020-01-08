@@ -79,7 +79,7 @@ class DeduplicationUtils {
   /**
    * Gets distinct values from the input vector by removing adjacent
    * duplicated values.
-   * @param indicators the bit set containing the start positions of disctinct values.
+   * @param indicators the bit set containing the start positions of distinct values.
    * @param inputVector the input vector.
    * @param outputVector the output vector.
    * @param <V> vector type.

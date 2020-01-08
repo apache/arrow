@@ -561,7 +561,7 @@ TEST_F(TestMemoryMappedFile, MapPartFile) {
   ASSERT_RAISES(Invalid,
                 MemoryMappedFile::Open(path, FileMode::READWRITE, offset, 409600));
 
-  // map succssed with valid file region <64k-68k>
+  // map succeeded with valid file region <64k-68k>
   ASSERT_OK_AND_ASSIGN(auto result,
                        MemoryMappedFile::Open(path, FileMode::READWRITE, offset, 4096));
 

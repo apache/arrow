@@ -606,6 +606,14 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
                            std::shared_ptr<Array>* out);
 
+  /// \brief Return an Array that is a concatenation of the lists in this array.
+  ///
+  /// Note that it's different from `values()` in that it takes into
+  /// consideration of this array's offsets as well as null elements backed
+  /// by non-empty lists (they are skipped, thus copying may be needed).
+  Result<std::shared_ptr<Array>> Flatten(
+      MemoryPool* memory_pool = default_memory_pool()) const;
+
  protected:
   // This constructor defers SetData to a derived array class
   ListArray() = default;
@@ -639,6 +647,14 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// \param[out] out Will have length equal to offsets.length() - 1
   static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
                            std::shared_ptr<Array>* out);
+
+  /// \brief Return an Array that is a concatenation of the lists in this array.
+  ///
+  /// Note that it's different from `values()` in that it takes into
+  /// consideration of this array's offsets as well as null elements backed
+  /// by non-empty lists (they are skipped, thus copying may be needed).
+  Result<std::shared_ptr<Array>> Flatten(
+      MemoryPool* memory_pool = default_memory_pool()) const;
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);

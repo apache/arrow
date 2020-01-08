@@ -18,10 +18,13 @@
 # cython: language_level = 3
 
 import six
+from cpython.datetime cimport datetime, PyDateTime_DateTime
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport PyDateTime_from_TimePoint
+from pyarrow.includes.libarrow cimport (
+    PyDateTime_from_TimePoint, PyDateTime_to_TimePoint
+)
 from pyarrow.lib import _detect_compression
 from pyarrow.lib cimport *
 
@@ -45,10 +48,13 @@ cdef class FileStats:
                         "FileSystem.get_target_stats method instead.")
 
     @staticmethod
-    cdef FileStats wrap(CFileStats stats):
+    cdef wrap(CFileStats stats):
         cdef FileStats self = FileStats.__new__(FileStats)
         self.stats = stats
         return self
+
+    cdef inline CFileStats unwrap(self) nogil:
+        return self.stats
 
     def __repr__(self):
         def getvalue(attr):
@@ -56,19 +62,23 @@ cdef class FileStats:
                 return getattr(self, attr)
             except ValueError:
                 return ''
-        attrs = ['type', 'path', 'base_name', 'size', 'extension', 'mtime']
-        attrs = '\n'.join('{}: {}'.format(a, getvalue(a)) for a in attrs)
-        return '{}\n{}'.format(object.__repr__(self), attrs)
+
+        s = '<FileStats for {!r}: type={}'.format(self.path, str(self.type))
+        if self.type == FileType.File:
+            s += ', size={}'.format(self.size)
+        s += '>'
+        return s
 
     @property
     def type(self):
         """Type of the file
 
-        The returned enum variants have the following meanings:
+        The returned enum values can be the following:
+
         - FileType.NonExistent: target does not exist
         - FileType.Unknown: target exists but its type is unknown (could be a
-                            special file such as a Unix socket or character
-                            device, or Windows NUL / CON / ...)
+          special file such as a Unix socket or character device, or
+          Windows NUL / CON / ...)
         - FileType.File: target is a regular file
         - FileType.Directory: target is a regular directory
 
@@ -119,7 +129,7 @@ cdef class FileStats:
         return PyObject_to_object(out)
 
 
-cdef class Selector:
+cdef class FileSelector:
     """File and directory selector.
 
     It contains a set of options that describes how to search for files and
@@ -143,6 +153,9 @@ cdef class Selector:
         self.base_dir = base_dir
         self.recursive = recursive
         self.allow_non_existent = allow_non_existent
+
+    cdef inline CFileSelector unwrap(self) nogil:
+        return self.selector
 
     @property
     def base_dir(self):
@@ -181,6 +194,32 @@ cdef class FileSystem:
         self.wrapped = wrapped
         self.fs = wrapped.get()
 
+    @staticmethod
+    cdef wrap(shared_ptr[CFileSystem]& sp):
+        cdef FileSystem self
+
+        typ = frombytes(sp.get().type_name())
+        if typ == 'local':
+            self = LocalFileSystem.__new__(LocalFileSystem)
+        elif typ == 'mock':
+            self = _MockFileSystem.__new__(_MockFileSystem)
+        elif typ == 'subtree':
+            self = SubTreeFileSystem.__new__(SubTreeFileSystem)
+        elif typ == 's3':
+            from pyarrow._s3fs import S3FileSystem
+            self = S3FileSystem.__new__(S3FileSystem)
+        elif typ == 'hdfs':
+            from pyarrow._hdfs import HadoopFileSystem
+            self = HadoopFileSystem.__new__(HadoopFileSystem)
+        else:
+            raise TypeError('Cannot wrap FileSystem pointer')
+
+        self.init(sp)
+        return self
+
+    cdef inline shared_ptr[CFileSystem] unwrap(self) nogil:
+        return self.wrapped
+
     def get_target_stats(self, paths_or_selector):
         """Get statistics for the given target.
 
@@ -191,8 +230,8 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        paths_or_selector: Selector or list of path-likes
-            Either a Selector object or a list of path-like objects.
+        paths_or_selector: FileSelector or list of path-likes
+            Either a selector object or a list of path-like objects.
             The selector's base directory will not be part of the results, even
             if it exists. If it doesn't exist, use `allow_non_existent`.
 
@@ -203,22 +242,22 @@ cdef class FileSystem:
         cdef:
             vector[CFileStats] stats
             vector[c_string] paths
-            CSelector selector
+            CFileSelector selector
 
-        if isinstance(paths_or_selector, Selector):
+        if isinstance(paths_or_selector, FileSelector):
             with nogil:
-                selector = (<Selector>paths_or_selector).selector
+                selector = (<FileSelector>paths_or_selector).selector
                 stats = GetResultValue(self.fs.GetTargetStats(selector))
         elif isinstance(paths_or_selector, (list, tuple)):
             paths = [_path_as_bytes(s) for s in paths_or_selector]
             with nogil:
                 stats = GetResultValue(self.fs.GetTargetStats(paths))
         else:
-            raise TypeError('Must pass either paths or a Selector')
+            raise TypeError('Must pass either paths or a FileSelector')
 
         return [FileStats.wrap(stat) for stat in stats]
 
-    def create_dir(self, path, bint recursive=True):
+    def create_dir(self, path, *, bint recursive=True):
         """Create a directory and subdirectories.
 
         This function succeeds if the directory already exists.
@@ -547,3 +586,20 @@ cdef class SubTreeFileSystem(FileSystem):
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         FileSystem.init(self, wrapped)
         self.subtreefs = <CSubTreeFileSystem*> wrapped.get()
+
+
+cdef class _MockFileSystem(FileSystem):
+
+    def __init__(self, datetime current_time=None):
+        cdef shared_ptr[CMockFileSystem] wrapped
+
+        current_time = current_time or datetime.now()
+        wrapped = make_shared[CMockFileSystem](
+            PyDateTime_to_TimePoint(<PyDateTime_DateTime*> current_time)
+        )
+
+        self.init(<shared_ptr[CFileSystem]> wrapped)
+
+    cdef init(self, const shared_ptr[CFileSystem]& wrapped):
+        FileSystem.init(self, wrapped)
+        self.mockfs = <CMockFileSystem*> wrapped.get()

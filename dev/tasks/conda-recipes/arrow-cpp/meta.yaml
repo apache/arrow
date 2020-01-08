@@ -23,6 +23,7 @@ requirements:
     - aws-sdk-cpp
     - boost-cpp
     - brotli
+    - bzip2
     - c-ares
     - gflags
     - glog
@@ -31,7 +32,7 @@ requirements:
     - clangdev 7.*
     - llvmdev 7.*
     - lz4-c
-    - numpy 1.14.*
+    - numpy 1.16.*
     - orc  # [unix]
     - python
     - rapidjson
@@ -42,7 +43,7 @@ requirements:
     - zstd
 
   run:
-    - {{ pin_compatible('numpy', lower_bound='1.14') }}
+    - {{ pin_compatible('numpy', lower_bound='1.16') }}
     - aws-sdk-cpp
     - boost-cpp
     - brotli

@@ -30,6 +30,7 @@
   }                             \
   }
 
+#include "arrow/util/neon_util.h"
 #include "arrow/util/sse_util.h"
 
 // enable SIMD whitespace skipping, if available
@@ -40,5 +41,10 @@
 
 #if defined(ARROW_HAVE_SSE4_2)
 #define RAPIDJSON_SSE42 1
+#define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
+#endif
+
+#if defined(ARROW_HAVE_NEON)
+#define RAPIDJSON_NEON 1
 #define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
 #endif

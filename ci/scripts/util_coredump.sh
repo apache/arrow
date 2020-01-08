@@ -18,7 +18,7 @@
 
 set -ex
 
-# TODO(kszucs): github actions doesn't use this file yet, but we should enable
+# TODO(kszucs): GitHub actions doesn't use this file yet, but we should enable
 # automatic backtrace generation for at least the C++ based builds.
 
 # Enable core files

@@ -144,7 +144,6 @@ dev/tasks/linux-packages/apache-arrow/debian/source/format
 dev/tasks/linux-packages/apache-arrow/debian/watch
 dev/tasks/conda-recipes/*
 docs/requirements.txt
-ci/etc/ARROW-6429.patch
 go/arrow/go.sum
 go/arrow/Gopkg.lock
 go/arrow/internal/cpu/*

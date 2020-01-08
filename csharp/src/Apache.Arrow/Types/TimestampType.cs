@@ -14,11 +14,13 @@
 // limitations under the License.
 
 
+using System;
+
 namespace Apache.Arrow.Types
 {
     public sealed class TimestampType : FixedWidthType
     {
-        public static readonly TimestampType Default = new TimestampType(TimeUnit.Millisecond, "UTC");
+        public static readonly TimestampType Default = new TimestampType(TimeUnit.Millisecond, "+00:00");
 
         public override ArrowTypeId TypeId => ArrowTypeId.Timestamp;
         public override string Name => "timestamp";
@@ -27,12 +29,22 @@ namespace Apache.Arrow.Types
         public TimeUnit Unit { get; }
         public string Timezone { get; }
 
+        public bool IsTimeZoneAware => !string.IsNullOrWhiteSpace(Timezone);
+
         public TimestampType(
             TimeUnit unit = TimeUnit.Millisecond,
             string timezone = default)
         {
             Unit = unit;
             Timezone = timezone;
+        }
+
+        public TimestampType(
+            TimeUnit unit = TimeUnit.Millisecond,
+            TimeZoneInfo timezone = default)
+        {
+            Unit = unit;
+            Timezone = timezone?.BaseUtcOffset.ToTimeZoneOffsetString();
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);

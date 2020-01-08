@@ -287,7 +287,7 @@ class MockFileSystem::Impl {
     return (consumed == parts.size() - 1) ? entry : nullptr;
   }
 
-  void GatherStats(const Selector& select, const std::string& base_path,
+  void GatherStats(const FileSelector& select, const std::string& base_path,
                    Directory& base_dir, int32_t nesting_depth,
                    std::vector<FileStats>* stats) {
     for (const auto& pair : base_dir.entries) {
@@ -485,7 +485,8 @@ Result<FileStats> MockFileSystem::GetTargetStats(const std::string& path) {
   return st;
 }
 
-Result<std::vector<FileStats>> MockFileSystem::GetTargetStats(const Selector& selector) {
+Result<std::vector<FileStats>> MockFileSystem::GetTargetStats(
+    const FileSelector& selector) {
   auto parts = SplitAbstractPath(selector.base_dir);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 

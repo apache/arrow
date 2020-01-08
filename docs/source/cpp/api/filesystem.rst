@@ -27,13 +27,25 @@ Interface
 .. doxygenstruct:: arrow::fs::FileStats
    :members:
 
+.. doxygenstruct:: arrow::fs::FileSelector
+   :members:
+
 .. doxygenclass:: arrow::fs::FileSystem
    :members:
+
+High-level factory function
+===========================
+
+.. doxygengroup:: filesystem-factories
+   :content-only:
 
 Concrete implementations
 ========================
 
 .. doxygenclass:: arrow::fs::SubTreeFileSystem
+   :members:
+
+.. doxygenstruct:: arrow::fs::LocalFileSystemOptions
    :members:
 
 .. doxygenclass:: arrow::fs::LocalFileSystem
@@ -43,4 +55,10 @@ Concrete implementations
    :members:
 
 .. doxygenclass:: arrow::fs::S3FileSystem
+   :members:
+
+.. doxygenstruct:: arrow::fs::HdfsOptions
+   :members:
+
+.. doxygenclass:: arrow::fs::HadoopFileSystem
    :members:

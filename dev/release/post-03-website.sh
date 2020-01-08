@@ -230,7 +230,7 @@ cat <<YAML > "${versions_yml}"
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Database of the current verion
+# Database of the current version
 #
 current:
   number: '${version}'

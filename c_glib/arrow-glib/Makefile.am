@@ -193,8 +193,8 @@ libarrow_glib_la_SOURCES =			\
 	$(libarrow_glib_la_cpp_internal_headers)
 
 BUILT_SOURCES =					\
-	$(libarrow_glib_la_genearted_headers)	\
-	$(libarrow_glib_la_genearted_sources)	\
+	$(libarrow_glib_la_generated_headers)	\
+	$(libarrow_glib_la_generated_sources)	\
 	stamp-enums.c				\
 	stamp-enums.h
 

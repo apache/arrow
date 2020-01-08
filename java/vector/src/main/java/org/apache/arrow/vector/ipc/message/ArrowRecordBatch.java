@@ -34,7 +34,7 @@ import com.google.flatbuffers.FlatBufferBuilder;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * POJO representation of an RecordBatch IPC message (https://arrow.apache.org/docs/format/IPC.html).
+ * POJO representation of a RecordBatch IPC message (https://arrow.apache.org/docs/format/IPC.html).
  */
 public class ArrowRecordBatch implements ArrowMessage {
 

@@ -221,7 +221,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   auto entry = GetObjectTableEntry(&store_info_, object_id);
   if (entry != nullptr) {
     // There is already an object with the same ID in the Plasma Store, so
-    // ignore this requst.
+    // ignore this request.
     return PlasmaError::ObjectExists;
   }
 
@@ -465,7 +465,7 @@ void PlasmaStore::ProcessGetRequest(Client* client,
         evicted_ids.push_back(object_id);
         evicted_entries.push_back(entry);
       } else {
-        // We are out of memory an cannot allocate memory for this object.
+        // We are out of memory and cannot allocate memory for this object.
         // Change the state of the object back to PLASMA_EVICTED so some
         // other request can try again.
         entry->state = ObjectState::PLASMA_EVICTED;

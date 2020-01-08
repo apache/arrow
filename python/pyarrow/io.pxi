@@ -1353,7 +1353,7 @@ def foreign_buffer(address, size, base=None):
     optionally backed by the Python *base* object.
 
     The *base* object, if given, will be kept alive as long as this buffer
-    is alive, including accross language boundaries (for example if the
+    is alive, including across language boundaries (for example if the
     buffer is referenced by C++ code).
     """
     cdef:

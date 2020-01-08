@@ -60,6 +60,7 @@ endif()
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_CUDA "Build the PyArrow CUDA support" OFF)
   option(PYARROW_BUILD_FLIGHT "Build the PyArrow Flight integration" OFF)
+  option(PYARROW_BUILD_DATASET "Build the PyArrow Dataset integration" OFF)
   option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
   option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
   option(PYARROW_PARQUET_USE_SHARED "Rely on parquet shared libraries where relevant" ON)
@@ -395,6 +396,22 @@ if(PYARROW_BUILD_CUDA)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
 endif()
 
+# Dataset
+if(PYARROW_BUILD_DATASET)
+  # Arrow Dataset
+  find_package(ArrowDataset REQUIRED)
+
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(ARROW_DATASET_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    if(MSVC)
+      bundle_arrow_import_lib(ARROW_DATASET_IMPORT_LIB)
+    endif()
+  endif()
+
+  set(DATASET_LINK_LIBS arrow_dataset_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset)
+endif()
+
 if(PYARROW_BUILD_PARQUET)
   # Parquet
   find_package(Parquet REQUIRED)
@@ -565,6 +582,10 @@ endif()
 
 if(PYARROW_BUILD_FLIGHT)
   target_link_libraries(_flight ${FLIGHT_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_DATASET)
+  target_link_libraries(_dataset ${DATASET_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_GANDIVA)

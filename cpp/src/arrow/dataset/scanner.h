@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -50,19 +51,19 @@ class ARROW_DS_EXPORT ScanOptions {
  public:
   virtual ~ScanOptions() = default;
 
-  static ScanOptionsPtr Make(std::shared_ptr<Schema> schema) {
-    return ScanOptionsPtr(new ScanOptions(std::move(schema)));
+  static std::shared_ptr<ScanOptions> Make(std::shared_ptr<Schema> schema) {
+    return std::shared_ptr<ScanOptions>(new ScanOptions(std::move(schema)));
   }
 
   // Construct a copy of these options with a different schema.
-  ScanOptionsPtr ReplaceSchema(std::shared_ptr<Schema> schema) const;
+  std::shared_ptr<ScanOptions> ReplaceSchema(std::shared_ptr<Schema> schema) const;
 
   // Indicate if the Scanner should make use of the ThreadPool found in the
   // ScanContext.
   bool use_threads = false;
 
   // Filter
-  ExpressionPtr filter;
+  std::shared_ptr<Expression> filter;
 
   // Evaluator for Filter
   std::shared_ptr<ExpressionEvaluator> evaluator;
@@ -72,6 +73,22 @@ class ARROW_DS_EXPORT ScanOptions {
 
   // Projector for reconciling the final RecordBatch to the requested schema.
   RecordBatchProjector projector;
+
+  // Return a vector of fields that requires materialization.
+  //
+  // This is usually the union of the fields referenced in the projection and the
+  // filter expression. Examples:
+  //
+  // - `SELECT a, b WHERE a < 2 && c > 1` => ["a", "b", "a", "c"]
+  // - `SELECT a + b < 3 WHERE a > 1` => ["a", "b"]
+  //
+  // This is needed for expression where a field may not be directly
+  // used in the final projection but is still required to evaluate the
+  // expression.
+  //
+  // This is used by DataFragments implementation to apply the column
+  // sub-selection optimization.
+  std::vector<std::string> MaterializedFields() const;
 
  private:
   explicit ScanOptions(std::shared_ptr<Schema> schema);
@@ -83,40 +100,41 @@ class ARROW_DS_EXPORT ScanOptions {
 class ARROW_DS_EXPORT ScanTask {
  public:
   /// \brief Iterate through sequence of materialized record batches
-  /// resulting from the Scan. Execution semantics encapsulated in the
+  /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
-  virtual Result<RecordBatchIterator> Scan() = 0;
+  virtual Result<RecordBatchIterator> Execute() = 0;
 
   virtual ~ScanTask() = default;
 
-  const ScanOptionsPtr& options() const { return options_; }
-  const ScanContextPtr& context() const { return context_; }
+  const std::shared_ptr<ScanOptions>& options() const { return options_; }
+  const std::shared_ptr<ScanContext>& context() const { return context_; }
 
  protected:
-  ScanTask(ScanOptionsPtr options, ScanContextPtr context)
+  ScanTask(std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context)
       : options_(std::move(options)), context_(std::move(context)) {}
 
-  ScanOptionsPtr options_;
-  ScanContextPtr context_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
 };
 
 /// \brief A trivial ScanTask that yields the RecordBatch of an array.
 class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
  public:
   SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
-                 ScanOptionsPtr options, ScanContextPtr context)
+                 std::shared_ptr<ScanOptions> options,
+                 std::shared_ptr<ScanContext> context)
       : ScanTask(std::move(options), std::move(context)),
         record_batches_(std::move(record_batches)) {}
 
-  Result<RecordBatchIterator> Scan() override;
+  Result<RecordBatchIterator> Execute() override;
 
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
 };
 
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
-    std::vector<std::shared_ptr<RecordBatch>> batches, ScanOptionsPtr options,
-    ScanContextPtr);
+    std::vector<std::shared_ptr<RecordBatch>> batches,
+    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext>);
 
 /// \brief Scanner is a materialized scan operation with context and options
 /// bound. A scanner is the class that glues ScanTask, DataFragment,
@@ -129,7 +147,8 @@ Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
 ///          yield scan_task
 class ARROW_DS_EXPORT Scanner {
  public:
-  Scanner(DataSourceVector sources, ScanOptionsPtr options, ScanContextPtr context)
+  Scanner(DataSourceVector sources, std::shared_ptr<ScanOptions> options,
+          std::shared_ptr<ScanContext> context)
       : sources_(std::move(sources)),
         options_(std::move(options)),
         context_(std::move(context)) {}
@@ -152,8 +171,8 @@ class ARROW_DS_EXPORT Scanner {
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
 
   DataSourceVector sources_;
-  ScanOptionsPtr options_;
-  ScanContextPtr context_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
 };
 
 /// \brief ScannerBuilder is a factory class to construct a Scanner. It is used
@@ -161,11 +180,11 @@ class ARROW_DS_EXPORT Scanner {
 /// columns to materialize.
 class ARROW_DS_EXPORT ScannerBuilder {
  public:
-  ScannerBuilder(DatasetPtr dataset, ScanContextPtr context);
+  ScannerBuilder(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanContext> context);
 
   /// \brief Set the subset of columns to materialize.
   ///
-  /// This subset wil be passed down to DataSources and corresponding DataFragments.
+  /// This subset will be passed down to DataSources and corresponding DataFragments.
   /// The goal is to avoid loading/copying/deserializing columns that will
   /// not be required further down the compute chain.
   ///
@@ -181,13 +200,12 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// The predicate will be passed down to DataSources and corresponding
   /// DataFragments to exploit predicate pushdown if possible using
   /// partition information or DataFragment internal metadata, e.g. Parquet statistics.
-  /// statistics.
   ///
   /// \param[in] filter expression to filter rows with.
   ///
   /// \return Failure if any referenced columns does not exist in the dataset's
   ///         Schema.
-  Status Filter(ExpressionPtr filter);
+  Status Filter(std::shared_ptr<Expression> filter);
   Status Filter(const Expression& filter);
 
   /// \brief Indicate if the Scanner should make use of the available
@@ -195,14 +213,14 @@ class ARROW_DS_EXPORT ScannerBuilder {
   Status UseThreads(bool use_threads = true);
 
   /// \brief Return the constructed now-immutable Scanner object
-  Result<ScannerPtr> Finish() const;
+  Result<std::shared_ptr<Scanner>> Finish() const;
 
   std::shared_ptr<Schema> schema() const { return dataset_->schema(); }
 
  private:
-  DatasetPtr dataset_;
-  ScanOptionsPtr options_;
-  ScanContextPtr context_;
+  std::shared_ptr<Dataset> dataset_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
   bool has_projection_ = false;
   std::vector<std::string> project_columns_;
 };

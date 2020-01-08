@@ -90,13 +90,39 @@ test_that("Hive partitioning", {
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
+      filter(group == 2) %>%
       select(chr, dbl) %>%
       filter(dbl > 7 & dbl < 53) %>%
       arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
+    df2[1:2, c("chr", "dbl")]
+  )
+})
+
+test_that("Partition scheme inference", {
+  # These are the same tests as above, just using the *PartitionSchemeDiscovery
+  ds1 <- open_dataset(dataset_dir, partition = "part")
+  expect_identical(names(ds1), c(names(df1), "part"))
+  expect_equivalent(
+    ds1 %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 1) %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+
+  ds2 <- open_dataset(hive_dir)
+  expect_identical(names(ds2), c(names(df1), "group", "other"))
+  print(ds2$schema)
+  expect_equivalent(
+    ds2 %>%
+      filter(group == 2) %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53) %>%
+      arrange(dbl),
+    df2[1:2, c("chr", "dbl")]
   )
 })
 
@@ -151,34 +177,38 @@ test_that("filter() on timestamp columns", {
 
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
-  selector <- Selector$create(dataset_dir, recursive = TRUE)
-  dsd <- FileSystemDataSourceDiscovery$create(fs, selector)
+  selector <- FileSelector$create(dataset_dir, recursive = TRUE)
+  partition <- SchemaPartitionScheme$create(schema(part = double()))
+
+  dsd <- FileSystemDataSourceDiscovery$create(fs, selector, partition_scheme = partition)
   expect_is(dsd, "FileSystemDataSourceDiscovery")
+
   schm <- dsd$Inspect()
   expect_is(schm, "Schema")
-  expect_equal(
-    schm,
-    ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
-  )
-  dsd$SetPartitionScheme(SchemaPartitionScheme$create(schema(part = double())))
-  datasource <- dsd$Finish()
+
+  phys_schm <- ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
+  expect_equal(names(phys_schm), names(df1))
+  expect_equal(names(schm), c(names(phys_schm), "part"))
+
+  datasource <- dsd$Finish(schm)
   expect_is(datasource, "DataSource")
 
   ds <- Dataset$create(list(datasource), schm)
   expect_is(ds, "Dataset")
-  # TODO: this should fail when "part" is in the schema
-  expect_equal(names(ds), names(df1))
+  expect_equal(names(ds), names(schm))
 
   sb <- ds$NewScan()
   expect_is(sb, "ScannerBuilder")
   expect_equal(sb$schema, schm)
-  expect_equal(names(sb), names(df1))
+
   sb$Project(c("chr", "lgl"))
   sb$Filter(FieldExpression$create("dbl") == 8)
   scn <- sb$Finish()
   expect_is(scn, "Scanner")
+
   tab <- scn$ToTable()
   expect_is(tab, "Table")
+
   expect_equivalent(
     as.data.frame(tab),
     df1[8, c("chr", "lgl")]

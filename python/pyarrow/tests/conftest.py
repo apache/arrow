@@ -41,9 +41,9 @@ h.settings.register_profile('debug', max_examples=10,
 # examples try: pytest pyarrow -sv --only-hypothesis --hypothesis-profile=debug
 h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 
-
 groups = [
     'cython',
+    'dataset',
     'hypothesis',
     'fastparquet',
     'gandiva',
@@ -61,9 +61,9 @@ groups = [
     'requires_testing_data',
 ]
 
-
 defaults = {
     'cython': False,
+    'dataset': False,
     'fastparquet': False,
     'hypothesis': False,
     'gandiva': False,
@@ -94,8 +94,14 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.gandiva # noqa
+    import pyarrow.gandiva  # noqa
     defaults['gandiva'] = True
+except ImportError:
+    pass
+
+try:
+    import pyarrow.dataset  # noqa
+    defaults['dataset'] = True
 except ImportError:
     pass
 

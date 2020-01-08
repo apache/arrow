@@ -988,7 +988,7 @@ cdef class FlightClient:
     @classmethod
     def connect(cls, location, tls_root_certs=None, override_hostname=None):
         warnings.warn("The 'FlightClient.connect' method is deprecated, use "
-                      "FlightClient contructor or pyarrow.flight.connect "
+                      "FlightClient constructor or pyarrow.flight.connect "
                       "function instead")
         return FlightClient(location, tls_root_certs=tls_root_certs,
                             override_hostname=override_hostname)

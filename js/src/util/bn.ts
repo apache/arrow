@@ -175,7 +175,7 @@ export interface BN<T extends BigNumArray> extends TypedArrayLike<T> {
     toString(): string;
     /**
      * Down-convert the bytes to a 53-bit precision integer. Invoked by JS for
-     * arithmatic operators, like `+`. Easy (and unsafe) way to convert BN to
+     * arithmetic operators, like `+`. Easy (and unsafe) way to convert BN to
      * number via `+bn_inst`
      */
     valueOf(): number;

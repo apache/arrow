@@ -32,6 +32,7 @@ API Reference
    api/ipc
    api/flight
    api/formats
+   api/filesystems
    api/plasma
    api/cuda
    api/misc

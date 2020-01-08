@@ -33,7 +33,7 @@ namespace Apache.Arrow
                     DataType = type ?? throw new ArgumentNullException(nameof(type));
                 }
 
-                public TimestampType DataType { get; }
+                protected TimestampType DataType { get; }
 
                 protected override TimestampArray Build(
                     ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
@@ -42,16 +42,24 @@ namespace Apache.Arrow
                         length, nullCount, offset);
             }
 
-            protected TimeZoneInfo TimeZone { get; }
-            protected TimeUnit Unit { get; }
+            protected TimestampType DataType { get; }
 
-            public Builder(TimeUnit unit = TimeUnit.Millisecond, string timezone = null)
-                : base(new TimestampBuilder(new TimestampType(unit, timezone)))
+            public Builder()
+                : this(TimestampType.Default) { }
+
+            public Builder(TimeUnit unit, TimeZoneInfo timezone)
+                : this(new TimestampType(unit, timezone)) { }
+
+            public Builder(TimeUnit unit = TimeUnit.Millisecond, string timezone = "+00:00")
+                : this(new TimestampType(unit, timezone)) { }
+
+            public Builder(TimeUnit unit)
+                : this(new TimestampType(unit, (string) null)) { }
+
+            public Builder(TimestampType type)
+                : base(new TimestampBuilder(type))
             {
-                Unit = unit;
-                TimeZone = string.IsNullOrEmpty(timezone) 
-                               ? TimeZoneInfo.Utc
-                               : TimeZoneInfo.FindSystemTimeZoneById(timezone) ?? TimeZoneInfo.Utc;
+                DataType = type;
             }
 
             protected override long ConvertTo(DateTimeOffset value)
@@ -59,13 +67,13 @@ namespace Apache.Arrow
                 // We must return the absolute time since the UNIX epoch while
                 // respecting the timezone offset; the calculation is as follows:
                 //
-                // - Compute span between epoch and specified time (using correct offset)
-                // - Compute number of units per tick
+                // - Compute time span between epoch and specified time
+                // - Compute time divisions per tick
 
-                var span = value.ToOffset(TimeZone.BaseUtcOffset) - Epoch;
-                var ticks = span.Ticks;
+                var timeSpan = value - Epoch;
+                var ticks = timeSpan.Ticks;
 
-                switch (Unit)
+                switch (DataType.Unit)
                 {
                     case TimeUnit.Nanosecond:
                         return ticks / 100;
@@ -76,44 +84,32 @@ namespace Apache.Arrow
                     case TimeUnit.Second:
                         return ticks / TimeSpan.TicksPerSecond;
                     default:
-                        throw new InvalidOperationException($"unsupported time unit <{Unit}>");
+                        throw new InvalidOperationException($"unsupported time unit <{DataType.Unit}>");
                 }
             }
         }
-
-        protected TimeZoneInfo TimeZone { get; }
 
         public TimestampArray(
             TimestampType type,
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
             int length, int nullCount, int offset)
             : this(new ArrayData(type, length, nullCount, offset,
-                new[] {nullBitmapBuffer, valueBuffer}))
-        {
-            TimeZone = type.Timezone != null 
-                ? TimeZoneInfo.FindSystemTimeZoneById(type.Timezone) ?? TimeZoneInfo.Utc
-                : TimeZoneInfo.Utc;
-        }
+                new[] {nullBitmapBuffer, valueBuffer})) { }
 
         public TimestampArray(ArrayData data)
             : base(data)
         {
             data.EnsureDataType(ArrowTypeId.Timestamp);
+
+            Debug.Assert(Data.DataType is TimestampType);
         }
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
-        public DateTimeOffset? GetTimestamp(int index)
+        public DateTimeOffset GetTimestampUnchecked(int index)
         {
-            if (IsNull(index))
-            {
-                return null;
-            }
-
-            Debug.Assert((Data.DataType as TimestampType) != null);
-
-            var value = Values[index];
             var type = (TimestampType) Data.DataType;
+            var value = Values[index];
 
             long ticks;
 
@@ -136,9 +132,18 @@ namespace Apache.Arrow
                         $"Unsupported timestamp unit <{type.Unit}>");
             }
 
-            return new DateTimeOffset(
-                Epoch.Ticks + TimeZone.BaseUtcOffset.Ticks + ticks,
-                TimeZone.BaseUtcOffset);
+            return new DateTimeOffset(Epoch.Ticks + ticks, TimeSpan.Zero);
         }
+
+        public DateTimeOffset? GetTimestamp(int index)
+        {
+            if (IsNull(index))
+            {
+                return null;
+            }
+
+            return GetTimestampUnchecked(index);
+        }
+
     }
 }

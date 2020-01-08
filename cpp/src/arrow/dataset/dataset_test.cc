@@ -298,7 +298,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // A DataSource is composed of DataFragments. Each DataFragment can yield
   // multiple RecordBatches. DataSources can be created manually or "discovered"
   // via the DataSourceDiscovery interface.
-  DataSourceDiscoveryPtr discovery;
+  std::shared_ptr<DataSourceDiscovery> discovery;
 
   // The user must specify which FileFormat is used to create FileFragments.
   // This option is specific to FileSystemDataSource (and the builder).
@@ -306,10 +306,10 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   auto format = std::make_shared<JSONRecordBatchFileFormat>(format_schema);
 
   // A selector is used to crawl files and directories of a
-  // filesystem. If the options in Selector are not enough, the
+  // filesystem. If the options in FileSelector are not enough, the
   // FileSystemDataSourceDiscovery class also supports an explicit list of
   // fs::FileStats instead of the selector.
-  fs::Selector s;
+  fs::FileSelector s;
   s.base_dir = "/dataset";
   s.recursive = true;
 
@@ -319,33 +319,36 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   FileSystemDiscoveryOptions options;
   options.ignore_prefixes = {"."};
 
-  ASSERT_OK_AND_ASSIGN(discovery,
-                       FileSystemDataSourceDiscovery::Make(fs_, s, format, options));
-
   // Partitions expressions can be discovered for DataSource and DataFragments.
   // This metadata is then used in conjuction with the query filter to apply
   // the pushdown predicate optimization.
-  auto partition_schema = SchemaFromColumnNames(schema_, {"year", "month", "country"});
+  //
   // The SchemaPartitionScheme is a simple scheme where the path is split with
-  // the directory separator character and the components are typed and named
-  // with the equivalent index in the schema, e.g.
-  // (with the previous defined schema):
+  // the directory separator character and the components are parsed as values
+  // of the corresponding fields in its schema.
+  //
+  // Since a PartitionSchemeDiscovery is specified instead of an explicit
+  // PartitionScheme, the types of partition fields will be inferred.
   //
   // - "/2019" -> {"year": 2019}
   // - "/2019/01 -> {"year": 2019, "month": 1}
   // - "/2019/01/CA -> {"year": 2019, "month": 1, "country": "CA"}
   // - "/2019/01/CA/a_file.json -> {"year": 2019, "month": 1, "country": "CA"}
-  auto partition_scheme = std::make_shared<SchemaPartitionScheme>(partition_schema);
-  ASSERT_OK(discovery->SetPartitionScheme(partition_scheme));
+  options.partition_scheme =
+      SchemaPartitionScheme::MakeDiscovery({"year", "month", "country"});
+
+  ASSERT_OK_AND_ASSIGN(discovery,
+                       FileSystemDataSourceDiscovery::Make(fs_, s, format, options));
 
   // DataFragments might have compatible but slightly different schemas, e.g.
   // schema evolved by adding/renaming columns. In this case, the schema is
   // passed to the dataset constructor.
+  // The inspected_schema may optionally be modified before being finalized.
   ASSERT_OK_AND_ASSIGN(auto inspected_schema, discovery->Inspect());
   EXPECT_EQ(*schema_, *inspected_schema);
 
   // Build the DataSource where partitions are attached to fragments (files).
-  ASSERT_OK_AND_ASSIGN(auto datasource, discovery->Finish());
+  ASSERT_OK_AND_ASSIGN(auto datasource, discovery->Finish(inspected_schema));
 
   // Create the Dataset from our single DataSource.
   ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make({datasource}, inspected_schema));
@@ -374,7 +377,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   ASSERT_OK(scanner_builder->Project(columns));
 
   // An optional filter expression may also be specified. The filter expression
-  // is evaluated against input rows. Only rows for which the filter evauates to true are
+  // is evaluated against input rows. Only rows for which the filter evaluates to true are
   // yielded. Predicate pushdown optimizations are applied using partition information if
   // available.
   //
@@ -438,11 +441,9 @@ class TestSchemaUnification : public TestDataset {
     }
     fs_ = mock_fs;
 
-    auto get_source = [this](std::string base) -> Result<std::shared_ptr<DataSource>> {
-      fs::Selector s;
-      s.base_dir = base;
-      s.recursive = true;
-
+    auto get_source =
+        [this](std::string base,
+               std::vector<std::string> paths) -> Result<std::shared_ptr<DataSource>> {
       auto resolver = [this](const FileSource& source) -> std::shared_ptr<Schema> {
         auto path = source.path();
         // A different schema for each data fragment.
@@ -460,19 +461,23 @@ class TestSchemaUnification : public TestDataset {
       };
 
       auto format = std::make_shared<JSONRecordBatchFileFormat>(resolver);
-      ARROW_ASSIGN_OR_RAISE(auto discovery,
-                            FileSystemDataSourceDiscovery::Make(fs_, s, format, {}));
 
-      auto scheme_schema = SchemaFromNames({"part_ds", "part_df"});
-      auto partition_scheme = std::make_shared<HivePartitionScheme>(scheme_schema);
-      RETURN_NOT_OK(discovery->SetPartitionScheme(partition_scheme));
+      FileSystemDiscoveryOptions options;
+      options.partition_base_dir = base;
+      options.partition_scheme =
+          std::make_shared<HivePartitionScheme>(SchemaFromNames({"part_ds", "part_df"}));
 
-      return discovery->Finish();
+      ARROW_ASSIGN_OR_RAISE(auto discovery, FileSystemDataSourceDiscovery::Make(
+                                                fs_, paths, format, options));
+
+      ARROW_ASSIGN_OR_RAISE(auto schema, discovery->Inspect());
+
+      return discovery->Finish(schema);
     };
 
     schema_ = SchemaFromNames({"phy_1", "phy_2", "phy_3", "phy_4", "part_ds", "part_df"});
-    ASSERT_OK_AND_ASSIGN(auto ds1, get_source("/dataset/alpha"));
-    ASSERT_OK_AND_ASSIGN(auto ds2, get_source("/dataset/beta"));
+    ASSERT_OK_AND_ASSIGN(auto ds1, get_source("/dataset/alpha", {ds1_df1, ds1_df2}));
+    ASSERT_OK_AND_ASSIGN(auto ds2, get_source("/dataset/beta", {ds2_df1, ds2_df2}));
     ASSERT_OK_AND_ASSIGN(dataset_, Dataset::Make({ds1, ds2}, schema_));
   }
 
@@ -524,10 +529,10 @@ TEST_F(TestSchemaUnification, SelectStar) {
 
   using TupleType = std::tuple<i32, i32, i32, i32, i32, i32>;
   std::vector<TupleType> rows = {
-      {111, 211, nullopt, nullopt, 1, 1},
-      {nullopt, 212, 312, nullopt, 1, 2},
-      {nullopt, nullopt, 321, 421, 2, 1},
-      {nullopt, 222, nullopt, 422, 2, 2},
+      TupleType(111, 211, nullopt, nullopt, 1, 1),
+      TupleType(nullopt, 212, 312, nullopt, 1, 2),
+      TupleType(nullopt, nullopt, 321, 421, 2, 1),
+      TupleType(nullopt, 222, nullopt, 422, 2, 2),
   };
 
   AssertBuilderEquals(scan_builder, rows);
@@ -540,10 +545,10 @@ TEST_F(TestSchemaUnification, SelectPhysicalColumns) {
 
   using TupleType = std::tuple<i32, i32, i32, i32>;
   std::vector<TupleType> rows = {
-      {111, 211, nullopt, nullopt},
-      {nullopt, 212, 312, nullopt},
-      {nullopt, nullopt, 321, 421},
-      {nullopt, 222, nullopt, 422},
+      TupleType(111, 211, nullopt, nullopt),
+      TupleType(nullopt, 212, 312, nullopt),
+      TupleType(nullopt, nullopt, 321, 421),
+      TupleType(nullopt, 222, nullopt, 422),
   };
 
   AssertBuilderEquals(scan_builder, rows);
@@ -556,10 +561,10 @@ TEST_F(TestSchemaUnification, SelectSomeReorderedPhysicalColumns) {
 
   using TupleType = std::tuple<i32, i32, i32>;
   std::vector<TupleType> rows = {
-      {211, 111, nullopt},
-      {212, nullopt, nullopt},
-      {nullopt, nullopt, 421},
-      {222, nullopt, 422},
+      TupleType(211, 111, nullopt),
+      TupleType(212, nullopt, nullopt),
+      TupleType(nullopt, nullopt, 421),
+      TupleType(222, nullopt, 422),
   };
 
   AssertBuilderEquals(scan_builder, rows);
@@ -578,8 +583,8 @@ TEST_F(TestSchemaUnification, SelectPhysicalColumnsFilterPartitionColumn) {
 
   using TupleType = std::tuple<i32, i32, i32>;
   std::vector<TupleType> rows = {
-      {211, nullopt, nullopt},
-      {nullopt, 321, 421},
+      TupleType(211, nullopt, nullopt),
+      TupleType(nullopt, 321, 421),
   };
 
   AssertBuilderEquals(scan_builder, rows);
@@ -594,10 +599,10 @@ TEST_F(TestSchemaUnification, SelectPartitionColumns) {
   ASSERT_OK(scan_builder->Project({"part_ds", "part_df"}));
   using TupleType = std::tuple<i32, i32>;
   std::vector<TupleType> rows = {
-      {1, 1},
-      {1, 2},
-      {2, 1},
-      {2, 2},
+      TupleType(1, 1),
+      TupleType(1, 2),
+      TupleType(2, 1),
+      TupleType(2, 2),
   };
   AssertBuilderEquals(scan_builder, rows);
 }
@@ -610,7 +615,7 @@ TEST_F(TestSchemaUnification, SelectPartitionColumnsFilterPhysicalColumn) {
   ASSERT_OK(scan_builder->Project({"part_df", "part_ds"}));
   using TupleType = std::tuple<i32, i32>;
   std::vector<TupleType> rows = {
-      {1, 1},
+      TupleType(1, 1),
   };
   AssertBuilderEquals(scan_builder, rows);
 }
@@ -624,8 +629,8 @@ TEST_F(TestSchemaUnification, SelectMixedColumnsAndFilter) {
 
   using TupleType = std::tuple<i32, i32, i32, i32>;
   std::vector<TupleType> rows = {
-      {2, 312, 1, nullopt},
-      {2, nullopt, 2, nullopt},
+      TupleType(2, 312, 1, nullopt),
+      TupleType(2, nullopt, 2, nullopt),
   };
   AssertBuilderEquals(scan_builder, rows);
 }

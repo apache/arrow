@@ -91,7 +91,7 @@ class CMakeDefinition:
         Parameters
         ----------
         build_dir : str
-                    Directory in which the CMake build will be instanciated.
+                    Directory in which the CMake build will be instantiated.
         force : bool
                 If the build folder exists, delete it before. Otherwise if it's
                 present, an error will be returned.

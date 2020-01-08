@@ -16,6 +16,7 @@
 # under the License.
 
 import bz2
+from contextlib import contextmanager
 from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
 import gc
 import gzip
@@ -53,6 +54,16 @@ def check_large_seeks(file_factory):
             assert f.tell() == 2 ** 32 + 10
     finally:
         os.unlink(filename)
+
+
+@contextmanager
+def assert_file_not_found():
+    if PY2:
+        with pytest.raises(IOError):
+            yield
+    else:
+        with pytest.raises(FileNotFoundError):
+            yield
 
 
 # ----------------------------------------------------------------------
@@ -1003,6 +1014,13 @@ def test_native_file_TextIOWrapper(tmpdir):
         assert res == data
 
 
+def test_native_file_open_error():
+    with assert_file_not_found():
+        pa.OSFile('non_existent_file', 'rb')
+    with assert_file_not_found():
+        pa.memory_map('non_existent_file', 'rb')
+
+
 # ----------------------------------------------------------------------
 # Buffered streams
 
@@ -1404,7 +1422,7 @@ def test_input_stream_errors(tmpdir):
         with pytest.raises(TypeError):
             pa.input_stream(arg)
 
-    with pytest.raises(IOError):
+    with assert_file_not_found():
         pa.input_stream("non_existent_file")
 
     with open(str(tmpdir / 'new_file'), 'wb') as f:

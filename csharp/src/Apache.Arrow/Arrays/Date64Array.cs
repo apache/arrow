@@ -57,15 +57,14 @@ namespace Apache.Arrow
 
         public DateTimeOffset? GetDate(int index)
         {
-            if (!IsValid(index))
+            var value = GetValue(index);
+
+            if (!value.HasValue)
             {
-                return null;
+                return default;
             }
 
-            var values = ValueBuffer.Span.CastTo<long>().Slice(0, Length);
-            var value = values[index];
-
-            return DateTimeOffset.FromUnixTimeMilliseconds(value);
+            return DateTimeOffset.FromUnixTimeMilliseconds(value.Value);
         }
     }
 }

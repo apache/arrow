@@ -50,11 +50,11 @@ static inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
 
 class FilterAndProjectScanTask : public ScanTask {
  public:
-  explicit FilterAndProjectScanTask(ScanTaskPtr task)
+  explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task)
       : ScanTask(task->options(), task->context()), task_(std::move(task)) {}
 
-  Result<RecordBatchIterator> Scan() override {
-    ARROW_ASSIGN_OR_RAISE(auto it, task_->Scan());
+  Result<RecordBatchIterator> Execute() override {
+    ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
     auto filter_it = FilterRecordBatch(std::move(it), *options_->evaluator,
                                        *options_->filter, context_->pool);
     return ProjectRecordBatch(std::move(filter_it), &task_->options()->projector,
@@ -62,7 +62,7 @@ class FilterAndProjectScanTask : public ScanTask {
   }
 
  private:
-  ScanTaskPtr task_;
+  std::shared_ptr<ScanTask> task_;
 };
 
 }  // namespace dataset

@@ -35,12 +35,12 @@ namespace dataset {
 /// \brief GetFragmentsFromSources transforms a vector<DataSource> into a
 /// flattened DataFragmentIterator.
 static inline DataFragmentIterator GetFragmentsFromSources(
-    const DataSourceVector& sources, ScanOptionsPtr options) {
+    const DataSourceVector& sources, std::shared_ptr<ScanOptions> options) {
   // Iterator<DataSource>
   auto sources_it = MakeVectorIterator(sources);
 
   // DataSource -> Iterator<DataFragment>
-  auto fn = [options](DataSourcePtr source) -> DataFragmentIterator {
+  auto fn = [options](std::shared_ptr<DataSource> source) -> DataFragmentIterator {
     return source->GetFragments(options);
   };
 

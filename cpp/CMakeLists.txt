@@ -646,9 +646,10 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  list(APPEND ARROW_LINK_LIBS protobuf::libprotobuf orc::liborc)
-  list(APPEND ARROW_STATIC_LINK_LIBS protobuf::libprotobuf orc::liborc)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS protobuf::libprotobuf orc::liborc)
+  list(APPEND ARROW_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF} orc::liborc)
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF} orc::liborc)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF}
+              orc::liborc)
 endif()
 
 if(ARROW_USE_GLOG)
@@ -678,10 +679,8 @@ endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
-# boost::filesystem is needed for HDFS, and for S3 and Flight tests as a
-# boost::process dependency.
-if(((ARROW_FLIGHT OR ARROW_S3) AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION))
-   OR ARROW_HDFS)
+# boost::filesystem is needed for S3 and Flight tests as a boost::process dependency.
+if(((ARROW_FLIGHT OR ARROW_S3) AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)))
   set(ARROW_WITH_BOOST_FILESYSTEM ON)
 
   list(APPEND ARROW_SHARED_PRIVATE_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY}
@@ -697,7 +696,12 @@ if(NOT MSVC)
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN GTest::Main GTest::GTest GTest::GMock)
+set(ARROW_TEST_LINK_TOOLCHAIN
+    GTest::Main
+    GTest::GTest
+    GTest::GMock
+    ${BOOST_FILESYSTEM_LIBRARY}
+    ${BOOST_SYSTEM_LIBRARY})
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
@@ -712,13 +716,8 @@ endif()
 set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static ${ARROW_LINK_LIBS}
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
 
-set(ARROW_TEST_SHARED_LINK_LIBS
-    arrow_testing_shared
-    arrow_shared
-    ${ARROW_LINK_LIBS}
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY}
-    ${ARROW_TEST_LINK_TOOLCHAIN})
+set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared ${ARROW_LINK_LIBS}
+                                ${ARROW_TEST_LINK_TOOLCHAIN})
 
 if(NOT MSVC)
   set(ARROW_TEST_SHARED_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS} ${CMAKE_DL_LIBS})

@@ -70,6 +70,9 @@ schema <- Schema$create
 #' @export
 names.Schema <- function(x) x$names
 
+#' @export
+length.Schema <- function(x) x$num_fields()
+
 #' read a Schema from a stream
 #'
 #' @param stream a stream

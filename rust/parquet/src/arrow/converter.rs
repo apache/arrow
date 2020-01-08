@@ -16,10 +16,10 @@
 // under the License.
 
 use crate::arrow::record_reader::RecordReader;
-use crate::data_type::{ByteArray, DataType};
+use crate::data_type::{ByteArray, DataType, Int96};
 use arrow::array::{
-    Array, ArrayRef, BooleanArray, BooleanBufferBuilder, BufferBuilderTrait,
-    StringBuilder,
+    Array, ArrayRef, BinaryBuilder, BooleanArray, BooleanBufferBuilder,
+    BufferBuilderTrait, StringBuilder, TimestampNanosecondBuilder,
 };
 use arrow::compute::cast;
 use std::convert::From;
@@ -29,7 +29,7 @@ use crate::errors::Result;
 use arrow::datatypes::{ArrowPrimitiveType, DataType as ArrowDataType};
 
 use arrow::array::ArrayDataBuilder;
-use arrow::array::{PrimitiveArray, StringArray};
+use arrow::array::{BinaryArray, PrimitiveArray, StringArray, TimestampNanosecondArray};
 use std::marker::PhantomData;
 
 use crate::data_type::{
@@ -108,6 +108,22 @@ impl Converter<&mut RecordReader<BoolType>, BooleanArray> for BooleanArrayConver
     }
 }
 
+pub struct Int96ArrayConverter {}
+
+impl Converter<Vec<Option<Int96>>, TimestampNanosecondArray> for Int96ArrayConverter {
+    fn convert(source: Vec<Option<Int96>>) -> Result<TimestampNanosecondArray> {
+        let mut builder = TimestampNanosecondBuilder::new(source.len());
+        for v in source {
+            match v {
+                Some(array) => builder.append_value(array.to_i64() * 1000000),
+                None => builder.append_null(),
+            }?
+        }
+
+        Ok(builder.finish())
+    }
+}
+
 pub struct Utf8ArrayConverter {}
 
 impl Converter<Vec<Option<ByteArray>>, StringArray> for Utf8ArrayConverter {
@@ -116,6 +132,22 @@ impl Converter<Vec<Option<ByteArray>>, StringArray> for Utf8ArrayConverter {
         for v in source {
             match v {
                 Some(array) => builder.append_value(array.as_utf8()?),
+                None => builder.append_null(),
+            }?
+        }
+
+        Ok(builder.finish())
+    }
+}
+
+pub struct BinaryArrayConverter {}
+
+impl Converter<Vec<Option<ByteArray>>, BinaryArray> for BinaryArrayConverter {
+    fn convert(source: Vec<Option<ByteArray>>) -> Result<BinaryArray> {
+        let mut builder = BinaryBuilder::new(source.len());
+        for v in source {
+            match v {
+                Some(array) => builder.append_value(array.data()),
                 None => builder.append_null(),
             }?
         }
@@ -141,6 +173,10 @@ pub type Float32Converter = CastConverter<ParquetFloatType, Float32Type, Float32
 pub type Float64Converter = CastConverter<ParquetDoubleType, Float64Type, Float64Type>;
 pub type Utf8Converter =
     ArrayRefConverter<Vec<Option<ByteArray>>, StringArray, Utf8ArrayConverter>;
+pub type BinaryConverter =
+    ArrayRefConverter<Vec<Option<ByteArray>>, BinaryArray, BinaryArrayConverter>;
+pub type Int96Converter =
+    ArrayRefConverter<Vec<Option<Int96>>, TimestampNanosecondArray, Int96ArrayConverter>;
 
 pub struct FromConverter<S, T> {
     _source: PhantomData<S>,

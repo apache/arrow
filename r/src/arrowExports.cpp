@@ -1340,41 +1340,91 @@ RcppExport SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::DataSourceDiscoveryPtr dataset___FSDSDiscovery__Make(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::Selector>& selector);
-RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make(SEXP fs_sexp, SEXP selector_sexp){
+std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make2(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::PartitionScheme>& partition_scheme);
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP partition_scheme_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::Selector>&>::type selector(selector_sexp);
-	return Rcpp::wrap(dataset___FSDSDiscovery__Make(fs, selector));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::PartitionScheme>&>::type partition_scheme(partition_scheme_sexp);
+	return Rcpp::wrap(dataset___FSDSDiscovery__Make2(fs, selector, partition_scheme));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make(SEXP fs_sexp, SEXP selector_sexp){
-	Rf_error("Cannot call dataset___FSDSDiscovery__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP partition_scheme_sexp){
+	Rf_error("Cannot call dataset___FSDSDiscovery__Make2(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::DataSourcePtr dataset___DSDiscovery__Finish(const ds::DataSourceDiscoveryPtr& discovery);
-RcppExport SEXP _arrow_dataset___DSDiscovery__Finish(SEXP discovery_sexp){
+std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make1(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector);
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make1(SEXP fs_sexp, SEXP selector_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::DataSourceDiscoveryPtr&>::type discovery(discovery_sexp);
-	return Rcpp::wrap(dataset___DSDiscovery__Finish(discovery));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	return Rcpp::wrap(dataset___FSDSDiscovery__Make1(fs, selector));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___DSDiscovery__Finish(SEXP discovery_sexp){
-	Rf_error("Cannot call dataset___DSDiscovery__Finish(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make1(SEXP fs_sexp, SEXP selector_sexp){
+	Rf_error("Cannot call dataset___FSDSDiscovery__Make1(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(const ds::DataSourceDiscoveryPtr& discovery);
+std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make3(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::PartitionSchemeDiscovery>& discovery);
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP discovery_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::PartitionSchemeDiscovery>&>::type discovery(discovery_sexp);
+	return Rcpp::wrap(dataset___FSDSDiscovery__Make3(fs, selector, discovery));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP discovery_sexp){
+	Rf_error("Cannot call dataset___FSDSDiscovery__Make3(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish1(const std::shared_ptr<ds::DataSourceDiscovery>& discovery);
+RcppExport SEXP _arrow_dataset___DSDiscovery__Finish1(SEXP discovery_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DataSourceDiscovery>&>::type discovery(discovery_sexp);
+	return Rcpp::wrap(dataset___DSDiscovery__Finish1(discovery));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DSDiscovery__Finish1(SEXP discovery_sexp){
+	Rf_error("Cannot call dataset___DSDiscovery__Finish1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish2(const std::shared_ptr<ds::DataSourceDiscovery>& discovery, const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_dataset___DSDiscovery__Finish2(SEXP discovery_sexp, SEXP schema_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DataSourceDiscovery>&>::type discovery(discovery_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(dataset___DSDiscovery__Finish2(discovery, schema));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DSDiscovery__Finish2(SEXP discovery_sexp, SEXP schema_sexp){
+	Rf_error("Cannot call dataset___DSDiscovery__Finish2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(const std::shared_ptr<ds::DataSourceDiscovery>& discovery);
 RcppExport SEXP _arrow_dataset___DSDiscovery__Inspect(SEXP discovery_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::DataSourceDiscoveryPtr&>::type discovery(discovery_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DataSourceDiscovery>&>::type discovery(discovery_sexp);
 	return Rcpp::wrap(dataset___DSDiscovery__Inspect(discovery));
 END_RCPP
 }
@@ -1386,24 +1436,7 @@ RcppExport SEXP _arrow_dataset___DSDiscovery__Inspect(SEXP discovery_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___DSDiscovery__SetPartitionScheme(const ds::DataSourceDiscoveryPtr& discovery, const ds::PartitionSchemePtr& part);
-RcppExport SEXP _arrow_dataset___DSDiscovery__SetPartitionScheme(SEXP discovery_sexp, SEXP part_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::DataSourceDiscoveryPtr&>::type discovery(discovery_sexp);
-	Rcpp::traits::input_parameter<const ds::PartitionSchemePtr&>::type part(part_sexp);
-	dataset___DSDiscovery__SetPartitionScheme(discovery, part);
-	return R_NilValue;
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_dataset___DSDiscovery__SetPartitionScheme(SEXP discovery_sexp, SEXP part_sexp){
-	Rf_error("Cannot call dataset___DSDiscovery__SetPartitionScheme(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// dataset.cpp
-#if defined(ARROW_R_WITH_ARROW)
-ds::PartitionSchemePtr dataset___SchemaPartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
+std::shared_ptr<ds::PartitionScheme> dataset___SchemaPartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___SchemaPartitionScheme(SEXP schm_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
@@ -1418,7 +1451,22 @@ RcppExport SEXP _arrow_dataset___SchemaPartitionScheme(SEXP schm_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::PartitionSchemePtr dataset___HivePartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
+std::shared_ptr<ds::PartitionSchemeDiscovery> dataset___SchemaPartitionScheme__MakeDiscovery(const std::vector<std::string>& field_names);
+RcppExport SEXP _arrow_dataset___SchemaPartitionScheme__MakeDiscovery(SEXP field_names_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type field_names(field_names_sexp);
+	return Rcpp::wrap(dataset___SchemaPartitionScheme__MakeDiscovery(field_names));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___SchemaPartitionScheme__MakeDiscovery(SEXP field_names_sexp){
+	Rf_error("Cannot call dataset___SchemaPartitionScheme__MakeDiscovery(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::PartitionScheme> dataset___HivePartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___HivePartitionScheme(SEXP schm_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
@@ -1433,7 +1481,21 @@ RcppExport SEXP _arrow_dataset___HivePartitionScheme(SEXP schm_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::DatasetPtr dataset___Dataset__create(const ds::DataSourceVector& sources, const std::shared_ptr<arrow::Schema>& schm);
+std::shared_ptr<ds::PartitionSchemeDiscovery> dataset___HivePartitionScheme__MakeDiscovery();
+RcppExport SEXP _arrow_dataset___HivePartitionScheme__MakeDiscovery(){
+BEGIN_RCPP
+	return Rcpp::wrap(dataset___HivePartitionScheme__MakeDiscovery());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___HivePartitionScheme__MakeDiscovery(){
+	Rf_error("Cannot call dataset___HivePartitionScheme__MakeDiscovery(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::Dataset> dataset___Dataset__create(const ds::DataSourceVector& sources, const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___Dataset__create(SEXP sources_sexp, SEXP schm_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const ds::DataSourceVector&>::type sources(sources_sexp);
@@ -1449,10 +1511,10 @@ RcppExport SEXP _arrow_dataset___Dataset__create(SEXP sources_sexp, SEXP schm_se
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> dataset___Dataset__schema(const ds::DatasetPtr& ds);
+std::shared_ptr<arrow::Schema> dataset___Dataset__schema(const std::shared_ptr<ds::Dataset>& ds);
 RcppExport SEXP _arrow_dataset___Dataset__schema(SEXP ds_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::DatasetPtr&>::type ds(ds_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
 	return Rcpp::wrap(dataset___Dataset__schema(ds));
 END_RCPP
 }
@@ -1464,10 +1526,10 @@ RcppExport SEXP _arrow_dataset___Dataset__schema(SEXP ds_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ScannerBuilderPtr dataset___Dataset__NewScan(const ds::DatasetPtr& ds);
+std::shared_ptr<ds::ScannerBuilder> dataset___Dataset__NewScan(const std::shared_ptr<ds::Dataset>& ds);
 RcppExport SEXP _arrow_dataset___Dataset__NewScan(SEXP ds_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::DatasetPtr&>::type ds(ds_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
 	return Rcpp::wrap(dataset___Dataset__NewScan(ds));
 END_RCPP
 }
@@ -1479,10 +1541,10 @@ RcppExport SEXP _arrow_dataset___Dataset__NewScan(SEXP ds_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___ScannerBuilder__Project(const ds::ScannerBuilderPtr& sb, const std::vector<std::string>& cols);
+void dataset___ScannerBuilder__Project(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::vector<std::string>& cols);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__Project(SEXP sb_sexp, SEXP cols_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
 	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type cols(cols_sexp);
 	dataset___ScannerBuilder__Project(sb, cols);
 	return R_NilValue;
@@ -1496,11 +1558,11 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__Project(SEXP sb_sexp, SEXP cols
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___ScannerBuilder__Filter(const ds::ScannerBuilderPtr& sb, const ds::ExpressionPtr& expr);
+void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::shared_ptr<ds::Expression>& expr);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type expr(expr_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type expr(expr_sexp);
 	dataset___ScannerBuilder__Filter(sb, expr);
 	return R_NilValue;
 END_RCPP
@@ -1513,10 +1575,10 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___ScannerBuilder__UseThreads(const ds::ScannerBuilderPtr& sb, bool threads);
+void dataset___ScannerBuilder__UseThreads(const std::shared_ptr<ds::ScannerBuilder>& sb, bool threads);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__UseThreads(SEXP sb_sexp, SEXP threads_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
 	Rcpp::traits::input_parameter<bool>::type threads(threads_sexp);
 	dataset___ScannerBuilder__UseThreads(sb, threads);
 	return R_NilValue;
@@ -1530,10 +1592,10 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__UseThreads(SEXP sb_sexp, SEXP t
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(const ds::ScannerBuilderPtr& sb);
+std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(const std::shared_ptr<ds::ScannerBuilder>& sb);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__schema(SEXP sb_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
 	return Rcpp::wrap(dataset___ScannerBuilder__schema(sb));
 END_RCPP
 }
@@ -1545,10 +1607,10 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__schema(SEXP sb_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ScannerPtr dataset___ScannerBuilder__Finish(const ds::ScannerBuilderPtr& sb);
+std::shared_ptr<ds::Scanner> dataset___ScannerBuilder__Finish(const std::shared_ptr<ds::ScannerBuilder>& sb);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
 	return Rcpp::wrap(dataset___ScannerBuilder__Finish(sb));
 END_RCPP
 }
@@ -1560,10 +1622,10 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(const ds::ScannerPtr& scanner);
+std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(const std::shared_ptr<ds::Scanner>& scanner);
 RcppExport SEXP _arrow_dataset___Scanner__ToTable(SEXP scanner_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ScannerPtr&>::type scanner(scanner_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
 	return Rcpp::wrap(dataset___Scanner__ToTable(scanner));
 END_RCPP
 }
@@ -2301,7 +2363,7 @@ RcppExport SEXP _arrow_ListType__value_type(SEXP type_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__field_ref(std::string name);
+std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name);
 RcppExport SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<std::string>::type name(name_sexp);
@@ -2316,11 +2378,11 @@ RcppExport SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__equal(lhs, rhs));
 END_RCPP
 }
@@ -2332,11 +2394,11 @@ RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__not_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__not_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__not_equal(lhs, rhs));
 END_RCPP
 }
@@ -2348,11 +2410,11 @@ RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__greater(lhs, rhs));
 END_RCPP
 }
@@ -2364,11 +2426,11 @@ RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__greater_equal(lhs, rhs));
 END_RCPP
 }
@@ -2380,11 +2442,11 @@ RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sex
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__less(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__less(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__less(lhs, rhs));
 END_RCPP
 }
@@ -2396,11 +2458,11 @@ RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__less_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__less_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__less_equal(lhs, rhs));
 END_RCPP
 }
@@ -2412,10 +2474,10 @@ RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::InExpression> dataset___expr__in(const ds::ExpressionPtr& lhs, const std::shared_ptr<arrow::Array>& rhs);
+std::shared_ptr<ds::InExpression> dataset___expr__in(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<arrow::Array>& rhs);
 RcppExport SEXP _arrow_dataset___expr__in(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__in(lhs, rhs));
 END_RCPP
@@ -2428,11 +2490,11 @@ RcppExport SEXP _arrow_dataset___expr__in(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::AndExpression> dataset___expr__and(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::AndExpression> dataset___expr__and(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__and(lhs, rhs));
 END_RCPP
 }
@@ -2444,11 +2506,11 @@ RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::OrExpression> dataset___expr__or(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::OrExpression> dataset___expr__or(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__or(lhs, rhs));
 END_RCPP
 }
@@ -2460,10 +2522,10 @@ RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::NotExpression> dataset___expr__not(const ds::ExpressionPtr& lhs);
+std::shared_ptr<ds::NotExpression> dataset___expr__not(const std::shared_ptr<ds::Expression>& lhs);
 RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
 	return Rcpp::wrap(dataset___expr__not(lhs));
 END_RCPP
 }
@@ -2475,10 +2537,10 @@ RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::IsValidExpression> dataset___expr__is_valid(const ds::ExpressionPtr& lhs);
+std::shared_ptr<ds::IsValidExpression> dataset___expr__is_valid(const std::shared_ptr<ds::Expression>& lhs);
 RcppExport SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
 	return Rcpp::wrap(dataset___expr__is_valid(lhs));
 END_RCPP
 }
@@ -2505,10 +2567,10 @@ RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string dataset___expr__ToString(const ds::ExpressionPtr& x);
+std::string dataset___expr__ToString(const std::shared_ptr<ds::Expression>& x);
 RcppExport SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type x(x_sexp);
 	return Rcpp::wrap(dataset___expr__ToString(x));
 END_RCPP
 }
@@ -3024,63 +3086,63 @@ RcppExport SEXP _arrow_fs___FileStats__set_mtime(SEXP x_sexp, SEXP time_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string fs___Selector__base_dir(const std::shared_ptr<fs::Selector>& selector);
-RcppExport SEXP _arrow_fs___Selector__base_dir(SEXP selector_sexp){
+std::string fs___FileSelector__base_dir(const std::shared_ptr<fs::FileSelector>& selector);
+RcppExport SEXP _arrow_fs___FileSelector__base_dir(SEXP selector_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::Selector>&>::type selector(selector_sexp);
-	return Rcpp::wrap(fs___Selector__base_dir(selector));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	return Rcpp::wrap(fs___FileSelector__base_dir(selector));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___Selector__base_dir(SEXP selector_sexp){
-	Rf_error("Cannot call fs___Selector__base_dir(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileSelector__base_dir(SEXP selector_sexp){
+	Rf_error("Cannot call fs___FileSelector__base_dir(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool fs___Selector__allow_non_existent(const std::shared_ptr<fs::Selector>& selector);
-RcppExport SEXP _arrow_fs___Selector__allow_non_existent(SEXP selector_sexp){
+bool fs___FileSelector__allow_non_existent(const std::shared_ptr<fs::FileSelector>& selector);
+RcppExport SEXP _arrow_fs___FileSelector__allow_non_existent(SEXP selector_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::Selector>&>::type selector(selector_sexp);
-	return Rcpp::wrap(fs___Selector__allow_non_existent(selector));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	return Rcpp::wrap(fs___FileSelector__allow_non_existent(selector));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___Selector__allow_non_existent(SEXP selector_sexp){
-	Rf_error("Cannot call fs___Selector__allow_non_existent(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileSelector__allow_non_existent(SEXP selector_sexp){
+	Rf_error("Cannot call fs___FileSelector__allow_non_existent(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool fs___Selector__recursive(const std::shared_ptr<fs::Selector>& selector);
-RcppExport SEXP _arrow_fs___Selector__recursive(SEXP selector_sexp){
+bool fs___FileSelector__recursive(const std::shared_ptr<fs::FileSelector>& selector);
+RcppExport SEXP _arrow_fs___FileSelector__recursive(SEXP selector_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::Selector>&>::type selector(selector_sexp);
-	return Rcpp::wrap(fs___Selector__recursive(selector));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	return Rcpp::wrap(fs___FileSelector__recursive(selector));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___Selector__recursive(SEXP selector_sexp){
-	Rf_error("Cannot call fs___Selector__recursive(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileSelector__recursive(SEXP selector_sexp){
+	Rf_error("Cannot call fs___FileSelector__recursive(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<fs::Selector> fs___Selector__create(const std::string& base_dir, bool allow_non_existent, bool recursive);
-RcppExport SEXP _arrow_fs___Selector__create(SEXP base_dir_sexp, SEXP allow_non_existent_sexp, SEXP recursive_sexp){
+std::shared_ptr<fs::FileSelector> fs___FileSelector__create(const std::string& base_dir, bool allow_non_existent, bool recursive);
+RcppExport SEXP _arrow_fs___FileSelector__create(SEXP base_dir_sexp, SEXP allow_non_existent_sexp, SEXP recursive_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::string&>::type base_dir(base_dir_sexp);
 	Rcpp::traits::input_parameter<bool>::type allow_non_existent(allow_non_existent_sexp);
 	Rcpp::traits::input_parameter<bool>::type recursive(recursive_sexp);
-	return Rcpp::wrap(fs___Selector__create(base_dir, allow_non_existent, recursive));
+	return Rcpp::wrap(fs___FileSelector__create(base_dir, allow_non_existent, recursive));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___Selector__create(SEXP base_dir_sexp, SEXP allow_non_existent_sexp, SEXP recursive_sexp){
-	Rf_error("Cannot call fs___Selector__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileSelector__create(SEXP base_dir_sexp, SEXP allow_non_existent_sexp, SEXP recursive_sexp){
+	Rf_error("Cannot call fs___FileSelector__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3102,17 +3164,17 @@ RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Paths(SEXP file_system_se
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_Selector(const std::shared_ptr<fs::FileSystem>& file_system, const std::shared_ptr<fs::Selector>& selector);
-RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Selector(SEXP file_system_sexp, SEXP selector_sexp){
+std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_FileSelector(const std::shared_ptr<fs::FileSystem>& file_system, const std::shared_ptr<fs::FileSelector>& selector);
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_FileSelector(SEXP file_system_sexp, SEXP selector_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::Selector>&>::type selector(selector_sexp);
-	return Rcpp::wrap(fs___FileSystem__GetTargetStats_Selector(file_system, selector));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	return Rcpp::wrap(fs___FileSystem__GetTargetStats_FileSelector(file_system, selector));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Selector(SEXP file_system_sexp, SEXP selector_sexp){
-	Rf_error("Cannot call fs___FileSystem__GetTargetStats_Selector(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_FileSelector(SEXP file_system_sexp, SEXP selector_sexp){
+	Rf_error("Cannot call fs___FileSystem__GetTargetStats_FileSelector(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5552,12 +5614,16 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1}, 
 		{ "_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4}, 
 		{ "_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1}, 
-		{ "_arrow_dataset___FSDSDiscovery__Make", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make, 2}, 
-		{ "_arrow_dataset___DSDiscovery__Finish", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish, 1}, 
+		{ "_arrow_dataset___FSDSDiscovery__Make2", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make2, 3}, 
+		{ "_arrow_dataset___FSDSDiscovery__Make1", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make1, 2}, 
+		{ "_arrow_dataset___FSDSDiscovery__Make3", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make3, 3}, 
+		{ "_arrow_dataset___DSDiscovery__Finish1", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish1, 1}, 
+		{ "_arrow_dataset___DSDiscovery__Finish2", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish2, 2}, 
 		{ "_arrow_dataset___DSDiscovery__Inspect", (DL_FUNC) &_arrow_dataset___DSDiscovery__Inspect, 1}, 
-		{ "_arrow_dataset___DSDiscovery__SetPartitionScheme", (DL_FUNC) &_arrow_dataset___DSDiscovery__SetPartitionScheme, 2}, 
 		{ "_arrow_dataset___SchemaPartitionScheme", (DL_FUNC) &_arrow_dataset___SchemaPartitionScheme, 1}, 
+		{ "_arrow_dataset___SchemaPartitionScheme__MakeDiscovery", (DL_FUNC) &_arrow_dataset___SchemaPartitionScheme__MakeDiscovery, 1}, 
 		{ "_arrow_dataset___HivePartitionScheme", (DL_FUNC) &_arrow_dataset___HivePartitionScheme, 1}, 
+		{ "_arrow_dataset___HivePartitionScheme__MakeDiscovery", (DL_FUNC) &_arrow_dataset___HivePartitionScheme__MakeDiscovery, 0}, 
 		{ "_arrow_dataset___Dataset__create", (DL_FUNC) &_arrow_dataset___Dataset__create, 2}, 
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
@@ -5662,12 +5728,12 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___FileStats__extension", (DL_FUNC) &_arrow_fs___FileStats__extension, 1}, 
 		{ "_arrow_fs___FileStats__mtime", (DL_FUNC) &_arrow_fs___FileStats__mtime, 1}, 
 		{ "_arrow_fs___FileStats__set_mtime", (DL_FUNC) &_arrow_fs___FileStats__set_mtime, 2}, 
-		{ "_arrow_fs___Selector__base_dir", (DL_FUNC) &_arrow_fs___Selector__base_dir, 1}, 
-		{ "_arrow_fs___Selector__allow_non_existent", (DL_FUNC) &_arrow_fs___Selector__allow_non_existent, 1}, 
-		{ "_arrow_fs___Selector__recursive", (DL_FUNC) &_arrow_fs___Selector__recursive, 1}, 
-		{ "_arrow_fs___Selector__create", (DL_FUNC) &_arrow_fs___Selector__create, 3}, 
+		{ "_arrow_fs___FileSelector__base_dir", (DL_FUNC) &_arrow_fs___FileSelector__base_dir, 1}, 
+		{ "_arrow_fs___FileSelector__allow_non_existent", (DL_FUNC) &_arrow_fs___FileSelector__allow_non_existent, 1}, 
+		{ "_arrow_fs___FileSelector__recursive", (DL_FUNC) &_arrow_fs___FileSelector__recursive, 1}, 
+		{ "_arrow_fs___FileSelector__create", (DL_FUNC) &_arrow_fs___FileSelector__create, 3}, 
 		{ "_arrow_fs___FileSystem__GetTargetStats_Paths", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_Paths, 2}, 
-		{ "_arrow_fs___FileSystem__GetTargetStats_Selector", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_Selector, 2}, 
+		{ "_arrow_fs___FileSystem__GetTargetStats_FileSelector", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_FileSelector, 2}, 
 		{ "_arrow_fs___FileSystem__CreateDir", (DL_FUNC) &_arrow_fs___FileSystem__CreateDir, 3}, 
 		{ "_arrow_fs___FileSystem__DeleteDir", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDir, 2}, 
 		{ "_arrow_fs___FileSystem__DeleteDirContents", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDirContents, 2}, 

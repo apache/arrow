@@ -25,27 +25,34 @@
 #'    parsed, and path segments will be matched with the schema fields. For
 #'    example, `schema(year = int16(), month = int8())` would create partitions
 #'    for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
-#'   * A `HivePartitionScheme`, as returned by [hive_partition()]
-#'   * `NULL`, the default, for no partitioning
+#'   * A character vector that defines the field names corresponding to those
+#'    path segments (that is, you're providing the names that would correspond
+#'    to a `Schema` but the types will be autodetected)
+#'   * A `HivePartitionScheme` or `HivePartitionSchemeDiscovery`, as returned
+#'    by [hive_partition()] which parses explicit or autodetected fields from
+#'    Hive-style path segments
+#'   * `NULL` for no partitioning
 #' @param ... additional arguments passed to `DataSourceDiscovery$create()`
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call `$NewScan()` to construct a query directly.
 #' @export
 #' @seealso [PartitionScheme] for defining partitioning
 #' @include arrow-package.R
-open_dataset <- function (path, schema = NULL, partition = NULL, ...) {
-  dsd <- DataSourceDiscovery$create(path, ...)
+open_dataset <- function (path, schema = NULL, partition = hive_partition(), ...) {
   if (!is.null(partition)) {
     if (inherits(partition, "Schema")) {
       partition <- SchemaPartitionScheme$create(partition)
+    } else if (is.character(partition)) {
+      # These are the column/field names, and we should autodetect their types
+      partition <- SchemaPartitionSchemeDiscovery$create(partition)
     }
-    assert_is(partition, "PartitionScheme")
-    dsd$SetPartitionScheme(partition)
+    assert_is(partition, c("PartitionScheme", "PartitionSchemeDiscovery"))
   }
+  dsd <- DataSourceDiscovery$create(path, partition_scheme = partition, ...)
   if (is.null(schema)) {
     schema <- dsd$Inspect()
   }
-  Dataset$create(list(dsd$Finish()), schema)
+  Dataset$create(list(dsd$Finish(schema)), schema)
 }
 
 #' Multi-file datasets
@@ -106,7 +113,7 @@ names.Dataset <- function(x) names(x$schema)
 #' * `filesystem`: Currently only "local" is supported
 #' * `format`: Currently only "parquet" is supported
 #' * `allow_non_existent`: logical: is `path` allowed to not exist? Default
-#' `FALSE`. See [Selector].
+#' `FALSE`. See [FileSelector].
 #' * `recursive`: logical: should files be discovered in subdirectories of
 #' * `path`? Default `TRUE`.
 #' * `...` Additional arguments passed to the [FileSystem] `$create()` method
@@ -114,7 +121,7 @@ names.Dataset <- function(x) names(x$schema)
 #' `FileSystemDataSourceDiscovery$create()` is a lower-level factory method and
 #' takes the following arguments:
 #' * `filesystem`: A [FileSystem]
-#' * `selector`: A [Selector]
+#' * `selector`: A [FileSelector]
 #' * `format`: Currently only "parquet" is supported
 #' @section Methods:
 #' `DataSource` has no defined methods. It is just passed to `Dataset$create()`.
@@ -122,8 +129,7 @@ names.Dataset <- function(x) names(x$schema)
 #' `DataSourceDiscovery` and its subclasses have the following methods:
 #'
 #' - `$Inspect()`: Walks the files in the directory and returns a common [Schema]
-#' - `$SetPartitionScheme(part)`: Takes a [PartitionScheme]
-#' - `$Finish()`: Returns a `DataSource`
+#' - `$Finish(schema)`: Returns a `DataSource`
 #' @rdname DataSource
 #' @name DataSource
 #' @seealso [Dataset] for what do do with a `DataSource`
@@ -136,11 +142,12 @@ DataSource <- R6Class("DataSource", inherit = Object)
 #' @export
 DataSourceDiscovery <- R6Class("DataSourceDiscovery", inherit = Object,
   public = list(
-    Finish = function() shared_ptr(DataSource, dataset___DSDiscovery__Finish(self)),
-    SetPartitionScheme = function(part) {
-      assert_is(part, "PartitionScheme")
-      dataset___DSDiscovery__SetPartitionScheme(self, part)
-      self
+    Finish = function(schema = NULL) {
+      if (is.null(schema)) {
+        shared_ptr(DataSource, dataset___DSDiscovery__Finish1(self))
+      } else {
+        shared_ptr(DataSource, dataset___DSDiscovery__Finish2(self, schema))
+      }
     },
     Inspect = function() shared_ptr(Schema, dataset___DSDiscovery__Inspect(self))
   )
@@ -150,6 +157,7 @@ DataSourceDiscovery$create <- function(path,
                                        format = c("parquet"),
                                        allow_non_existent = FALSE,
                                        recursive = TRUE,
+                                       partition_scheme = NULL,
                                        ...) {
   if (!inherits(filesystem, "FileSystem")) {
     filesystem <- match.arg(filesystem)
@@ -162,13 +170,13 @@ DataSourceDiscovery$create <- function(path,
       # We'll register other file systems here
     )[[filesystem]]$create(...)
   }
-  selector <- Selector$create(
+  selector <- FileSelector$create(
     path,
     allow_non_existent = allow_non_existent,
     recursive = recursive
   )
   # This may also require different initializers
-  FileSystemDataSourceDiscovery$create(filesystem, selector, format)
+  FileSystemDataSourceDiscovery$create(filesystem, selector, format, partition_scheme)
 }
 
 #' @usage NULL
@@ -180,14 +188,28 @@ FileSystemDataSourceDiscovery <- R6Class("FileSystemDataSourceDiscovery",
 )
 FileSystemDataSourceDiscovery$create <- function(filesystem,
                                                  selector,
-                                                 format = "parquet") {
+                                                 format = "parquet",
+                                                 partition_scheme = NULL) {
   assert_is(filesystem, "FileSystem")
-  assert_is(selector, "Selector")
+  assert_is(selector, "FileSelector")
   format <- match.arg(format) # Only parquet for now
-  shared_ptr(
-    FileSystemDataSourceDiscovery,
-    dataset___FSDSDiscovery__Make(filesystem, selector)
-  )
+  if (is.null(partition_scheme)) {
+    shared_ptr(
+      FileSystemDataSourceDiscovery,
+      dataset___FSDSDiscovery__Make1(filesystem, selector)
+    )
+  } else if (inherits(partition_scheme, "PartitionSchemeDiscovery")) {
+    shared_ptr(
+      FileSystemDataSourceDiscovery,
+      dataset___FSDSDiscovery__Make3(filesystem, selector, partition_scheme)
+    )
+  } else {
+    assert_is(partition_scheme, "PartitionScheme")
+    shared_ptr(
+      FileSystemDataSourceDiscovery,
+      dataset___FSDSDiscovery__Make2(filesystem, selector, partition_scheme)
+    )
+  }
 }
 
 #' Scan the contents of a dataset
@@ -253,7 +275,7 @@ names.ScannerBuilder <- function(x) names(x$schema)
 #' Define a partition scheme for a DataSource
 #'
 #' @description
-#' Pass a `PartitionScheme` to a [DataSourceDiscovery]'s `$SetPartitionScheme()`
+#' Pass a `PartitionScheme` to a [FileSystemDataSourceDiscovery]'s `$create()`
 #' method to indicate how the file's paths should be interpreted to define
 #' partitioning.
 #'
@@ -302,12 +324,28 @@ HivePartitionScheme$create <- function(schema) {
 #' Because fields are named in the path segments, order of fields passed to
 #' `hive_partition()` does not matter.
 #' @param ... named list of [data types][data-type], passed to [schema()]
-#' @return A `HivePartitionScheme`
+#' @return A `HivePartitionScheme`, or a `HivePartitionSchemeDiscovery` if
+#' calling `hive_partition()` with no arguments.
 #' @examples
 #' \donttest{
 #' hive_partition(year = int16(), month = int8())
 #' }
 hive_partition <- function(...) {
   schm <- schema(...)
-  HivePartitionScheme$create(schm)
+  if (length(schm) == 0) {
+    HivePartitionSchemeDiscovery$create()
+  } else {
+    HivePartitionScheme$create(schm)
+  }
+}
+
+PartitionSchemeDiscovery <- R6Class("PartitionSchemeDiscovery", inherit = Object)
+SchemaPartitionSchemeDiscovery <- R6Class("SchemaPartitionSchemeDiscovery", inherit = PartitionSchemeDiscovery)
+SchemaPartitionSchemeDiscovery$create <- function(x) {
+  shared_ptr(SchemaPartitionSchemeDiscovery, dataset___SchemaPartitionScheme__MakeDiscovery(x))
+}
+
+HivePartitionSchemeDiscovery <- R6Class("HivePartitionSchemeDiscovery", inherit = PartitionSchemeDiscovery)
+HivePartitionSchemeDiscovery$create <- function() {
+  shared_ptr(HivePartitionSchemeDiscovery, dataset___HivePartitionScheme__MakeDiscovery())
 }

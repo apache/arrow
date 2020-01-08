@@ -44,7 +44,7 @@ class TestPartitionScheme : public ::testing::Test {
     ASSERT_RAISES(Invalid, scheme_->Parse(path).status());
   }
 
-  void AssertParse(const std::string& path, ExpressionPtr expected) {
+  void AssertParse(const std::string& path, std::shared_ptr<Expression> expected) {
     ASSERT_OK_AND_ASSIGN(auto parsed, scheme_->Parse(path));
     ASSERT_EQ(E{parsed}, E{expected});
   }
@@ -57,6 +57,7 @@ class TestPartitionScheme : public ::testing::Test {
                      const std::vector<std::shared_ptr<Field>>& expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect(paths));
     ASSERT_EQ(*actual, Schema(expected));
+    ASSERT_OK(discovery_->Finish(actual).status());
   }
 
  protected:
@@ -68,12 +69,12 @@ class TestPartitionScheme : public ::testing::Test {
     return field(std::move(name), utf8());
   }
 
-  PartitionSchemePtr scheme_;
-  PartitionSchemeDiscoveryPtr discovery_;
+  std::shared_ptr<PartitionScheme> scheme_;
+  std::shared_ptr<PartitionSchemeDiscovery> discovery_;
 };
 
 TEST_F(TestPartitionScheme, SegmentDictionary) {
-  using Dict = std::unordered_map<std::string, ExpressionPtr>;
+  using Dict = std::unordered_map<std::string, std::shared_ptr<Expression>>;
   Dict alpha_dict, beta_dict;
   auto add_expr = [](const std::string& segment, const Expression& expr, Dict* dict) {
     dict->emplace(segment, expr.Copy());
@@ -119,7 +120,7 @@ TEST_F(TestPartitionScheme, Schema) {
 TEST_F(TestPartitionScheme, DiscoverSchema) {
   discovery_ = SchemaPartitionScheme::MakeDiscovery({"alpha", "beta"});
 
-  // type is int32 if possibe
+  // type is int32 if possible
   AssertInspect({"/0/1"}, {Int("alpha"), Int("beta")});
 
   // extra segments are ignored
@@ -156,7 +157,7 @@ TEST_F(TestPartitionScheme, Hive) {
 TEST_F(TestPartitionScheme, DiscoverHiveSchema) {
   discovery_ = HivePartitionScheme::MakeDiscovery();
 
-  // type is int32 if possibe
+  // type is int32 if possible
   AssertInspect({"/alpha=0/beta=1"}, {Int("alpha"), Int("beta")});
 
   // extra segments are ignored
@@ -177,7 +178,7 @@ TEST_F(TestPartitionScheme, EtlThenHive) {
   scheme_ = std::make_shared<FunctionPartitionScheme>(
       schema({field("year", int16()), field("month", int8()), field("day", int8()),
               field("hour", int8()), field("alpha", int32()), field("beta", float32())}),
-      [&](const std::string& segment, int i) -> Result<ExpressionPtr> {
+      [&](const std::string& segment, int i) -> Result<std::shared_ptr<Expression>> {
         if (i < etl_scheme.schema()->num_fields()) {
           return etl_scheme.Parse(segment, i);
         }
@@ -199,7 +200,7 @@ TEST_F(TestPartitionScheme, Set) {
   // into ("x"_ == 1 or "x"_ == 4 or "x"_ == 5)
   scheme_ = std::make_shared<FunctionPartitionScheme>(
       schema({field("x", int32())}),
-      [](const std::string& segment, int) -> Result<ExpressionPtr> {
+      [](const std::string& segment, int) -> Result<std::shared_ptr<Expression>> {
         std::smatch matches;
 
         static std::regex re("^x in \\[(.*)\\]$");
@@ -229,9 +230,10 @@ class RangePartitionScheme : public HivePartitionScheme {
  public:
   using HivePartitionScheme::HivePartitionScheme;
 
-  std::string name() const override { return "range_partition_scheme"; }
+  std::string type_name() const override { return "range"; }
 
-  Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
+  Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
+                                            int i) const override {
     ExpressionVector ranges;
     auto key = ParseKey(segment, i);
     if (!key) {

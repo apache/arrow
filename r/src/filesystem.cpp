@@ -82,25 +82,27 @@ void fs___FileStats__set_mtime(const std::shared_ptr<fs::FileStats>& x, SEXP tim
 // Selector
 
 // [[arrow::export]]
-std::string fs___Selector__base_dir(const std::shared_ptr<fs::Selector>& selector) {
+std::string fs___FileSelector__base_dir(
+    const std::shared_ptr<fs::FileSelector>& selector) {
   return selector->base_dir;
 }
 
 // [[arrow::export]]
-bool fs___Selector__allow_non_existent(const std::shared_ptr<fs::Selector>& selector) {
+bool fs___FileSelector__allow_non_existent(
+    const std::shared_ptr<fs::FileSelector>& selector) {
   return selector->allow_non_existent;
 }
 
 // [[arrow::export]]
-bool fs___Selector__recursive(const std::shared_ptr<fs::Selector>& selector) {
+bool fs___FileSelector__recursive(const std::shared_ptr<fs::FileSelector>& selector) {
   return selector->recursive;
 }
 
 // [[arrow::export]]
-std::shared_ptr<fs::Selector> fs___Selector__create(const std::string& base_dir,
-                                                    bool allow_non_existent,
-                                                    bool recursive) {
-  auto selector = std::make_shared<fs::Selector>();
+std::shared_ptr<fs::FileSelector> fs___FileSelector__create(const std::string& base_dir,
+                                                            bool allow_non_existent,
+                                                            bool recursive) {
+  auto selector = std::make_shared<fs::FileSelector>();
   selector->base_dir = base_dir;
   selector->allow_non_existent = allow_non_existent;
   selector->recursive = recursive;
@@ -127,9 +129,9 @@ std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_Path
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_Selector(
+std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_FileSelector(
     const std::shared_ptr<fs::FileSystem>& file_system,
-    const std::shared_ptr<fs::Selector>& selector) {
+    const std::shared_ptr<fs::FileSelector>& selector) {
   auto results = VALUE_OR_STOP(file_system->GetTargetStats(*selector));
   return shared_ptr_vector(results);
 }

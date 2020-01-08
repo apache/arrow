@@ -238,7 +238,7 @@ class HashKernel : public UnaryKernel {
   // Flush out accumulated results across all invocations of Call. The kernel
   // should not be used until after Reset() is called.
   virtual Status FlushFinal(Datum* out) = 0;
-  // Get the values (keys) acummulated in the dictionary so far.
+  // Get the values (keys) accumulated in the dictionary so far.
   virtual Status GetDictionary(std::shared_ptr<ArrayData>* out) = 0;
 };
 

@@ -51,7 +51,7 @@ import io.netty.util.internal.PlatformDependent;
  * that this ArrowBuf has access to
  * </p>
  * <p>
- * The mangement (allocation, deallocation, reference counting etc) for
+ * The management (allocation, deallocation, reference counting etc) for
  * the memory chunk is not done by ArrowBuf.
  * Default implementation of ReferenceManager, allocation is in
  * {@link BaseAllocator}, {@link BufferLedger} and {@link AllocationManager}
