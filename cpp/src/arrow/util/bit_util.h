@@ -154,7 +154,7 @@ constexpr bool IsMultipleOf8(int64_t n) { return (n & 7) == 0; }
 
 // Returns 'value' rounded up to the nearest multiple of 'factor'
 constexpr int64_t RoundUp(int64_t value, int64_t factor) {
-  return ((value - SETNE(value)) / factor + SETNE(value)) * factor;
+  return CeilDiv(value, factor) * factor;
 }
 
 // Returns 'value' rounded down to the nearest multiple of 'factor'

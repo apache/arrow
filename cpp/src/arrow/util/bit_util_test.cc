@@ -843,6 +843,14 @@ TEST(BitUtil, CeilDiv) {
   EXPECT_EQ(BitUtil::CeilDiv(10000000000, 10), 1000000000);
   EXPECT_EQ(BitUtil::CeilDiv(10, 10000000000), 1);
   EXPECT_EQ(BitUtil::CeilDiv(100000000000, 10000000000), 10);
+
+  // test overflow
+  int64_t value = std::numeric_limits<int64_t>::max() - 1;
+  int64_t divisor = std::numeric_limits<int64_t>::max();
+  EXPECT_EQ(BitUtil::CeilDiv(value, divisor), 1);
+
+  value = std::numeric_limits<int64_t>::max();
+  EXPECT_EQ(BitUtil::CeilDiv(value, divisor), 1);
 }
 
 TEST(BitUtil, RoundUp) {
@@ -860,6 +868,9 @@ TEST(BitUtil, RoundUp) {
   // test overflow
   int64_t value = std::numeric_limits<int64_t>::max() - 1;
   int64_t divisor = std::numeric_limits<int64_t>::max();
+  EXPECT_EQ(BitUtil::RoundUp(value, divisor), divisor);
+
+  value = std::numeric_limits<int64_t>::max();
   EXPECT_EQ(BitUtil::RoundUp(value, divisor), divisor);
 }
 
