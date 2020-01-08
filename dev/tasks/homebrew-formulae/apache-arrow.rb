@@ -15,7 +15,7 @@ class ApacheArrow < Formula
   depends_on "numpy"
   depends_on "openssl@1.1"
   depends_on "protobuf"
-  depends_on "python@3"
+  depends_on "python@2"
   depends_on "rapidjson"
   depends_on "snappy"
   depends_on "thrift"
