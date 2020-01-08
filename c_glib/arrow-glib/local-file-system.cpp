@@ -34,7 +34,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowLocalFileSystemOptions,
                            garrow_local_file_system_options,
                            G_TYPE_OBJECT)
 
-#define GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(obj)  \
+#define GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(obj)       \
   static_cast<GArrowLocalFileSystemOptionsPrivate *>(           \
      garrow_local_file_system_options_get_instance_private(     \
        GARROW_LOCAL_FILE_SYSTEM_OPTIONS(obj)))

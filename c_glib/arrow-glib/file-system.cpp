@@ -60,7 +60,7 @@ enum {
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowFileStats, garrow_file_stats, G_TYPE_OBJECT)
 
 #define GARROW_FILE_STATS_GET_PRIVATE(obj)         \
-  static_cast<GArrowFileStatsPrivate *>(          \
+  static_cast<GArrowFileStatsPrivate *>(           \
      garrow_file_stats_get_instance_private(       \
        GARROW_FILE_STATS(obj)))
 
@@ -262,7 +262,7 @@ enum {
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowFileSelector, garrow_file_selector, G_TYPE_OBJECT)
 
 #define GARROW_FILE_SELECTOR_GET_PRIVATE(obj)         \
-  static_cast<GArrowFileSelectorPrivate *>(          \
+  static_cast<GArrowFileSelectorPrivate *>(           \
      garrow_file_selector_get_instance_private(       \
        GARROW_FILE_SELECTOR(obj)))
 
@@ -394,7 +394,7 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowFileSystem,
                                     G_TYPE_OBJECT)
 
 #define GARROW_FILE_SYSTEM_GET_PRIVATE(obj)         \
-  static_cast<GArrowFileSystemPrivate *>(          \
+  static_cast<GArrowFileSystemPrivate *>(           \
      garrow_file_system_get_instance_private(       \
        GARROW_FILE_SYSTEM(obj)))
 
