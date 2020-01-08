@@ -521,9 +521,7 @@ garrow_file_system_get_target_stats(GArrowFileSystem *file_system,
   }
 }
 
-namespace {
-
-inline GList *
+static inline GList *
 garrow_file_stats_list_from_result(arrow::Result<std::vector<arrow::fs::FileStats>>&& arrow_result,
                                    GError **error,
                                    const gchar *context)
@@ -539,8 +537,6 @@ garrow_file_stats_list_from_result(arrow::Result<std::vector<arrow::fs::FileStat
   } else {
     return NULL;
   }
-}
-
 }
 
 /**
