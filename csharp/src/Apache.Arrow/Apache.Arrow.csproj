@@ -37,6 +37,6 @@
     <Compile Remove="**/*.netcoreapp2.1.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
-    <Compile Remove="**/*.netstandard1.3cs" />
+    <Compile Remove="**/*.netstandard1.3.cs" />
   </ItemGroup>
 </Project>

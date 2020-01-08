@@ -22,7 +22,7 @@ namespace Apache.Arrow
 {
     public partial struct ArrowBuffer
     {
-        public class Builder<T>
+        public partial class Builder<T>
             where T : struct
         {
             private const int DefaultCapacity = 8;
@@ -59,14 +59,6 @@ namespace Apache.Arrow
                 return this;
             }
 
-            public Builder<T> Append(ReadOnlySpan<T> source)
-            {
-                EnsureCapacity(source.Length);
-                source.CopyToFix(Span.Slice(Length, source.Length));
-                Length += source.Length;
-                return this;
-            }
-
             public Builder<T> AppendRange(IEnumerable<T> values)
             {
                 if (values != null)
@@ -100,23 +92,7 @@ namespace Apache.Arrow
                 Length = 0;
                 return this;
             }
-
-            public ArrowBuffer Build(MemoryAllocator allocator = default)
-            {
-                int currentBytesLength = Length * _size;
-                int bufferLength = checked((int)BitUtility.RoundUpToMultipleOf64(currentBytesLength));
-
-                var memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
-                var memoryOwner = memoryAllocator.Allocate(bufferLength);
-
-                if (memoryOwner != null)
-                {
-                    Memory.Slice(0, currentBytesLength).CopyToFix(memoryOwner.Memory);
-                }
-
-                return new ArrowBuffer(memoryOwner);
-            }
-
+  
             private void EnsureCapacity(int n)
             {
                 var length = checked(Length + n);
@@ -129,24 +105,6 @@ namespace Apache.Arrow
                     Reallocate(capacity);
                 }
             }
-
-            private void Reallocate(int length)
-            {
-                if (length < 0)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(length));
-                }
-
-                if (length != 0)
-                {
-                    var memory = new Memory<byte>(new byte[length]);
-                    Memory.CopyToFix(memory);
-
-                    Memory = memory;
-                }
-            }
-
         }
-
     }
 }
