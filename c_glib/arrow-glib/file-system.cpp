@@ -489,7 +489,7 @@ garrow_file_system_get_type_name(GArrowFileSystem *file_system)
 }
 
 /**
- * garrow_file_system_get_target_stats:
+ * garrow_file_system_get_target_stats_path:
  * @file_system: A #GArrowFileSystem.
  * @path: The path of the target.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -507,9 +507,9 @@ garrow_file_system_get_type_name(GArrowFileSystem *file_system)
  * Since: 1.0.0
  */
 GArrowFileStats *
-garrow_file_system_get_target_stats(GArrowFileSystem *file_system,
-                                    const gchar *path,
-                                    GError **error)
+garrow_file_system_get_target_stats_path(GArrowFileSystem *file_system,
+                                         const gchar *path,
+                                         GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_result = arrow_file_system->GetTargetStats(path);
@@ -540,14 +540,14 @@ garrow_file_stats_list_from_result(arrow::Result<std::vector<arrow::fs::FileStat
 }
 
 /**
- * garrow_file_system_get_target_stats_list:
+ * garrow_file_system_get_target_stats_paths:
  * @file_system: A #GArrowFileSystem.
  * @paths: The paths of the targets.
  * @n_paths: The number of items in @paths.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Get statistics same as garrow_file_system_get_target_stats() for the
- * given many targets at once.
+ * Get statistics same as garrow_file_system_get_target_stats_path()
+ * for the given many targets at once.
  *
  * Returns: (element-type GArrowFileStats) (transfer full):
  *   A list of #GArrowFileStats
@@ -555,10 +555,10 @@ garrow_file_stats_list_from_result(arrow::Result<std::vector<arrow::fs::FileStat
  * Since: 1.0.0
  */
 GList *
-garrow_file_system_get_target_stats_list(GArrowFileSystem *file_system,
-                                         const gchar **paths,
-                                         gsize n_paths,
-                                         GError **error)
+garrow_file_system_get_target_stats_paths(GArrowFileSystem *file_system,
+                                          const gchar **paths,
+                                          gsize n_paths,
+                                          GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   std::vector<std::string> arrow_paths;
@@ -566,17 +566,17 @@ garrow_file_system_get_target_stats_list(GArrowFileSystem *file_system,
     arrow_paths.push_back(paths[i]);
   }
   return garrow_file_stats_list_from_result(arrow_file_system->GetTargetStats(arrow_paths),
-                                            error, "[filesystem][get_target_stats_list]");
+                                            error, "[filesystem][get-target-stats-list]");
 }
 
 /**
- * garrow_file_system_get_target_stats_list_by_selector:
+ * garrow_file_system_get_target_stats_selector:
  * @file_system: A #GArrowFileSystem.
  * @file_selector: A #GArrowFileSelector.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Get statistics same as garrow_file_system_get_target_stats() according to
- * a selector.
+ * Get statistics same as garrow_file_system_get_target_stats_path()
+ * according to a selector.
  *
  * The selector's base directory will not be part of the results,
  * even if it exists.
@@ -587,9 +587,9 @@ garrow_file_system_get_target_stats_list(GArrowFileSystem *file_system,
  * Since: 1.0.0
  */
 GList *
-garrow_file_system_get_target_stats_list_by_selector(GArrowFileSystem *file_system,
-                                                     GArrowFileSelector *file_selector,
-                                                     GError **error)
+garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
+                                             GArrowFileSelector *file_selector,
+                                             GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   const auto& arrow_file_selector =

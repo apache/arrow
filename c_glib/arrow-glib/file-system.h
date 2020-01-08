@@ -155,20 +155,20 @@ GARROW_AVAILABLE_IN_1_0
 const gchar *garrow_file_system_get_type_name(GArrowFileSystem *file_system);
 
 GARROW_AVAILABLE_IN_1_0
-GArrowFileStats *garrow_file_system_get_target_stats(GArrowFileSystem *file_system,
-                                                     const gchar *path,
-                                                     GError **error);
+GArrowFileStats *garrow_file_system_get_target_stats_path(GArrowFileSystem *file_system,
+                                                          const gchar *path,
+                                                          GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-GList *garrow_file_system_get_target_stats_list(GArrowFileSystem *file_system,
-                                                const gchar **paths,
-                                                gsize n_paths,
-                                                GError **error);
+GList *garrow_file_system_get_target_stats_paths(GArrowFileSystem *file_system,
+                                                 const gchar **paths,
+                                                 gsize n_paths,
+                                                 GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-GList *garrow_file_system_get_target_stats_list_by_selector(GArrowFileSystem *file_system,
-                                                            GArrowFileSelector *file_selector,
-                                                            GError **error);
+GList *garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
+                                                    GArrowFileSelector *file_selector,
+                                                    GError **error);
 
 GARROW_AVAILABLE_IN_1_0
 void garrow_file_system_create_dir(GArrowFileSystem *file_system,
