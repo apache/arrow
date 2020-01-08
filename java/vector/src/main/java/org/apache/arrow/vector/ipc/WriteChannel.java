@@ -41,8 +41,7 @@ import io.netty.buffer.ArrowBuf;
 public class WriteChannel implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(WriteChannel.class);
 
-  // the maximum padding has 7 bytes
-  private static byte[] zeroBytes = new byte[7];
+  private static byte[] zeroBytes = new byte[8];
 
   private byte[] intBuf = new byte[4];
 
@@ -76,10 +75,13 @@ public class WriteChannel implements AutoCloseable {
    */
   public long writeZeros(long zeroCount) throws IOException {
     long bytesWritten = 0;
-    while (zeroCount > 0) {
-      int bytesToWrite = (int)Math.min(zeroCount, Integer.MAX_VALUE);
-      bytesWritten += write(new byte[bytesToWrite]);
-      zeroCount -= Integer.MAX_VALUE;
+    long wholeWordsEnd = zeroCount - 8;
+    while (bytesWritten <= wholeWordsEnd) {
+      bytesWritten += write(zeroBytes);
+    }
+
+    if (bytesWritten < zeroCount) {
+      bytesWritten += write(zeroBytes, 0, (int) (zeroCount - bytesWritten));
     }
     return bytesWritten;
   }
@@ -90,7 +92,7 @@ public class WriteChannel implements AutoCloseable {
   public long align() throws IOException {
     int trailingByteSize = (int) (currentPosition % 8);
     if (trailingByteSize != 0) { // align on 8 byte boundaries
-      return write(zeroBytes, 0, 8 - trailingByteSize);
+      return writeZeros(8 - trailingByteSize);
     }
     return 0;
   }
