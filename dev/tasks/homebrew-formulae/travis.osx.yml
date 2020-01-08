@@ -37,9 +37,7 @@ before_script:
 - brew audit $ARROW_FORMULA
 script:
 - brew install -v --build-from-source --HEAD $ARROW_FORMULA
-# https://github.com/Homebrew/brew/commit/2bb0ad656039aaf81df2cdf550643c673c42285a
-# seems to have broken brew test for us
-# - brew test $ARROW_FORMULA
+- brew test $ARROW_FORMULA
 
 notifications:
   email:
