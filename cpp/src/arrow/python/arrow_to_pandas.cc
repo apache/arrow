@@ -1784,7 +1784,7 @@ class PandasBlockCreator {
 
   std::vector<std::shared_ptr<Field>> fields_;
   std::vector<std::shared_ptr<ChunkedArray>> arrays_;
-  int64_t num_columns_;
+  int num_columns_;
   int64_t num_rows_;
 
   // column num -> relative placement within internal block
@@ -1999,7 +1999,7 @@ Status ConvertCategoricals(const PandasOptions& options,
     }
   }
   if (options.use_threads) {
-    return ParallelFor(columns_to_encode.size(), EncodeColumn);
+    return ParallelFor(static_cast<int>(columns_to_encode.size()), EncodeColumn);
   } else {
     for (auto i : columns_to_encode) {
       RETURN_NOT_OK(EncodeColumn(i));
