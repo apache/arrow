@@ -609,7 +609,7 @@ garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
  *
  * Since: 1.0.0
  */
-void
+gboolean
 garrow_file_system_create_dir(GArrowFileSystem *file_system,
                               const gchar *path,
                               gboolean recursive,
@@ -617,7 +617,7 @@ garrow_file_system_create_dir(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->CreateDir(path, recursive);
-  (void)garrow::check(error, status, "[filesystem][create-dir]");
+  return garrow::check(error, status, "[filesystem][create-dir]");
 }
 
 /**
@@ -630,14 +630,14 @@ garrow_file_system_create_dir(GArrowFileSystem *file_system,
  *
  * Since: 1.0.0
  */
-void
+gboolean
 garrow_file_system_delete_dir(GArrowFileSystem *file_system,
                               const gchar *path,
                               GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->DeleteDir(path);
-  (void)garrow::check(error, status, "[filesystem][delete-dir]");
+  return garrow::check(error, status, "[filesystem][delete-dir]");
 }
 
 /**
@@ -652,14 +652,14 @@ garrow_file_system_delete_dir(GArrowFileSystem *file_system,
  *
  * Since: 1.0.0
  */
-void
+gboolean
 garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
                                        const gchar *path,
                                        GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->DeleteDirContents(path);
-  (void)garrow::check(error, status, "[filesystem][delete-dir-contents]");
+  return garrow::check(error, status, "[filesystem][delete-dir-contents]");
 }
 
 /**
@@ -672,14 +672,14 @@ garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
  *
  * Since: 1.0.0
  */
-void
+gboolean
 garrow_file_system_delete_file(GArrowFileSystem *file_system,
                                const gchar *path,
                                GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->DeleteFile(path);
-  (void)garrow::check(error, status, "[filesystem][delete-file]");
+  return garrow::check(error, status, "[filesystem][delete-file]");
 }
 
 /**
@@ -693,7 +693,7 @@ garrow_file_system_delete_file(GArrowFileSystem *file_system,
  *
  * Since: 1.0.0
  */
-void
+gboolean
 garrow_file_system_delete_files(GArrowFileSystem *file_system,
                                 const gchar **paths,
                                 gsize n_paths,
@@ -706,7 +706,7 @@ garrow_file_system_delete_files(GArrowFileSystem *file_system,
     arrow_paths.emplace_back(paths[i]);
   }
   auto status = arrow_file_system->DeleteFiles(arrow_paths);
-  (void)garrow::check(error, status, "[filesystem][delete-files]");
+  return garrow::check(error, status, "[filesystem][delete-files]");
 }
 
 /**
@@ -724,7 +724,7 @@ garrow_file_system_delete_files(GArrowFileSystem *file_system,
  *
  * Since: 1.0.0
  */
-void
+gboolean
 garrow_file_system_move(GArrowFileSystem *file_system,
                         const gchar *src,
                         const gchar *dest,
@@ -732,7 +732,7 @@ garrow_file_system_move(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->Move(src, dest);
-  (void)garrow::check(error, status, "[filesystem][move]");
+  return garrow::check(error, status, "[filesystem][move]");
 }
 
 /**
@@ -748,7 +748,7 @@ garrow_file_system_move(GArrowFileSystem *file_system,
  *
  * Since: 1.0.0
  */
-void
+gboolean
 garrow_file_system_copy_file(GArrowFileSystem *file_system,
                              const gchar *src,
                              const gchar *dest,
@@ -756,7 +756,7 @@ garrow_file_system_copy_file(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->CopyFile(src, dest);
-  (void)garrow::check(error, status, "[filesystem][copy-file]");
+  return garrow::check(error, status, "[filesystem][copy-file]");
 }
 
 /**

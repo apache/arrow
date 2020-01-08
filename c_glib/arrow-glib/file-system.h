@@ -171,43 +171,43 @@ GList *garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_syste
                                                     GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-void garrow_file_system_create_dir(GArrowFileSystem *file_system,
-                                   const gchar *path,
-                                   gboolean recursive,
-                                   GError **error);
+gboolean garrow_file_system_create_dir(GArrowFileSystem *file_system,
+                                       const gchar *path,
+                                       gboolean recursive,
+                                       GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-void garrow_file_system_delete_dir(GArrowFileSystem *file_system,
-                                   const gchar *path,
-                                   GError **error);
+gboolean garrow_file_system_delete_dir(GArrowFileSystem *file_system,
+                                       const gchar *path,
+                                       GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-void garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
-                                            const gchar *path,
-                                            GError **error);
+gboolean garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
+                                                const gchar *path,
+                                                GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-void garrow_file_system_delete_file(GArrowFileSystem *file_system,
-                                    const gchar *path,
-                                    GError **error);
+gboolean garrow_file_system_delete_file(GArrowFileSystem *file_system,
+                                        const gchar *path,
+                                        GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-void garrow_file_system_delete_files(GArrowFileSystem *file_system,
-                                     const gchar **paths,
-                                     gsize n_paths,
-                                     GError **error);
+gboolean garrow_file_system_delete_files(GArrowFileSystem *file_system,
+                                        const gchar **paths,
+                                        gsize n_paths,
+                                        GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-void garrow_file_system_move(GArrowFileSystem *file_system,
-                             const gchar *src,
-                             const gchar *dest,
-                             GError **error);
+gboolean garrow_file_system_move(GArrowFileSystem *file_system,
+                                 const gchar *src,
+                                 const gchar *dest,
+                                 GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-void garrow_file_system_copy_file(GArrowFileSystem *file_system,
-                                  const gchar *src,
-                                  const gchar *dest,
-                                  GError **error);
+gboolean garrow_file_system_copy_file(GArrowFileSystem *file_system,
+                                      const gchar *src,
+                                      const gchar *dest,
+                                      GError **error);
 
 GARROW_AVAILABLE_IN_1_0
 GArrowInputStream *
