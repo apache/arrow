@@ -513,7 +513,7 @@ garrow_file_system_get_target_stats_path(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_result = arrow_file_system->GetTargetStats(path);
-  if (garrow::check(error, arrow_result, "[filesystem][get_target_stats]")) {
+  if (garrow::check(error, arrow_result, "[filesystem][get-target-stats]")) {
     const auto& arrow_file_stats = arrow_result.ValueOrDie();
     return garrow_file_stats_new_raw(arrow_file_stats);
   } else {
@@ -595,7 +595,7 @@ garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
   const auto& arrow_file_selector =
     GARROW_FILE_SELECTOR_GET_PRIVATE(file_selector)->file_selector;
   return garrow_file_stats_list_from_result(arrow_file_system->GetTargetStats(*arrow_file_selector),
-                                            error, "[filesystem][get_target_stats_list]");
+                                            error, "[filesystem][get-target-stats-list]");
 }
 
 /**
@@ -617,7 +617,7 @@ garrow_file_system_create_dir(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->CreateDir(path, recursive);
-  (void)garrow::check(error, status, "[filesystem][create_dir]");
+  (void)garrow::check(error, status, "[filesystem][create-dir]");
 }
 
 /**
@@ -637,7 +637,7 @@ garrow_file_system_delete_dir(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->DeleteDir(path);
-  (void)garrow::check(error, status, "[filesystem][delete_dir]");
+  (void)garrow::check(error, status, "[filesystem][delete-dir]");
 }
 
 /**
@@ -659,7 +659,7 @@ garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->DeleteDirContents(path);
-  (void)garrow::check(error, status, "[filesystem][delete_dir_contents]");
+  (void)garrow::check(error, status, "[filesystem][delete-dir-contents]");
 }
 
 /**
@@ -679,7 +679,7 @@ garrow_file_system_delete_file(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->DeleteFile(path);
-  (void)garrow::check(error, status, "[filesystem][delete_file]");
+  (void)garrow::check(error, status, "[filesystem][delete-file]");
 }
 
 /**
@@ -706,7 +706,7 @@ garrow_file_system_delete_files(GArrowFileSystem *file_system,
     arrow_paths.emplace_back(paths[i]);
   }
   auto status = arrow_file_system->DeleteFiles(arrow_paths);
-  (void)garrow::check(error, status, "[filesystem][delete_files]");
+  (void)garrow::check(error, status, "[filesystem][delete-files]");
 }
 
 /**
@@ -756,7 +756,7 @@ garrow_file_system_copy_file(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->CopyFile(src, dest);
-  (void)garrow::check(error, status, "[filesystem][copy_file]");
+  (void)garrow::check(error, status, "[filesystem][copy-file]");
 }
 
 /**
@@ -779,7 +779,7 @@ garrow_file_system_open_input_stream(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_input_stream = arrow_file_system->OpenInputStream(path);
-  if (garrow::check(error, arrow_input_stream, "[filesystem][open_input_stream]")) {
+  if (garrow::check(error, arrow_input_stream, "[filesystem][open-input-stream]")) {
     return garrow_input_stream_new_raw(&(arrow_input_stream.ValueOrDie()));
   } else {
     return NULL;
@@ -794,7 +794,7 @@ garrow_file_system_open_input_file(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_random_access_file = arrow_file_system->OpenInputFile(path);
-  if (garrow::check(error, arrow_random_access_file, "[filesystem][open_input_file]")) {
+  if (garrow::check(error, arrow_random_access_file, "[filesystem][open-input-file]")) {
     return garrow_random_access_file_new_raw(&(arrow_random_access_file.ValueOrDie()));
   } else {
     return NULL;
@@ -823,7 +823,7 @@ garrow_file_system_open_output_stream(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_output_stream = arrow_file_system->OpenOutputStream(path);
-  if (garrow::check(error, arrow_output_stream, "[filesystem][open_append_stream]")) {
+  if (garrow::check(error, arrow_output_stream, "[filesystem][open-append-stream]")) {
     return garrow_output_stream_new_raw(&(arrow_output_stream.ValueOrDie()));
   } else {
     return NULL;
@@ -851,7 +851,7 @@ garrow_file_system_open_append_stream(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_output_stream = arrow_file_system->OpenAppendStream(path);
-  if (garrow::check(error, arrow_output_stream, "[filesystem][open_append_stream]")) {
+  if (garrow::check(error, arrow_output_stream, "[filesystem][open-append-stream]")) {
     return garrow_output_stream_new_raw(&(arrow_output_stream.ValueOrDie()));
   } else {
     return NULL;
