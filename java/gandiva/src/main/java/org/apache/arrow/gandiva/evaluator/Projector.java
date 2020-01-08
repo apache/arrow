@@ -155,7 +155,7 @@ public class Projector {
     List<ArrowBuffer> buffersLayout = new ArrayList<>();
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
-      long size = arrowBuf.readableBytes();
+      long size = arrowBuf.capacity();
       buffersLayout.add(new ArrowBuffer(offset, size));
       offset += size;
     }
@@ -199,7 +199,7 @@ public class Projector {
     List<ArrowBuffer> buffersLayout = new ArrayList<>();
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
-      long size = arrowBuf.readableBytes();
+      long size = arrowBuf.capacity();
       buffersLayout.add(new ArrowBuffer(offset, size));
       offset += size;
     }

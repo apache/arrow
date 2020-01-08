@@ -749,12 +749,12 @@ public class TestBaseAllocator {
       assertEquals(256, arrowBuf.capacity());
 
       for (int i = 0; i < 256; ++i) {
-        arrowBuf.writeByte(i, i);
+        arrowBuf.setByte(i, i);
       }
 
       final ArrowBuf slice1 = arrowBuf.slice(0, 256);
       for (int i = 0; i < 10; ++i) {
-        assertEquals(i, slice1.readByte(i));
+        assertEquals(i, slice1.getByte(i));
       }
       for (int i = 0; i < 256; ++i) {
         assertEquals((byte) i, slice1.getByte(i));
@@ -762,7 +762,7 @@ public class TestBaseAllocator {
 
       final ArrowBuf slice2 = arrowBuf.slice(25, 25);
       for (int i = 0; i < 25; ++i) {
-        assertEquals(i + 25, slice2.readByte(i));
+        assertEquals(i + 25, slice2.getByte(i));
       }
 
       arrowBuf.getReferenceManager().release();  // all the derived buffers share this fate
@@ -777,7 +777,7 @@ public class TestBaseAllocator {
       // Populate a buffer with byte values corresponding to their indices.
       final ArrowBuf arrowBuf = rootAllocator.buffer(256);
       for (int i = 0; i < 256; ++i) {
-        arrowBuf.writeByte(i, i);
+        arrowBuf.setByte(i, i);
       }
 
       // Slice it up.

@@ -74,14 +74,14 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     int startOffset = 0;
     for (int i = 0; i < strings.length; i++) {
-      offsetsBuffer.writeInt(startOffset);
+      offsetsBuffer.setInt(i * 4, startOffset);
 
       final byte[] bytes = strings[i].getBytes(charset);
-      dataBuffer = dataBuffer.reallocIfNeeded(dataBuffer.writerIndex() + bytes.length);
+      dataBuffer = dataBuffer.reallocIfNeeded(i * 4 + bytes.length);
       dataBuffer.setBytes(startOffset, bytes, 0, bytes.length);
       startOffset += bytes.length;
     }
-    offsetsBuffer.writeInt(startOffset); // offset for the last element
+    offsetsBuffer.setInt(strings.length * 4, startOffset); // offset for the last element
 
     return Arrays.asList(offsetsBuffer, dataBuffer);
   }

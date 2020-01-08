@@ -321,7 +321,7 @@ class ArrowMessage implements AutoCloseable {
       cos.flush();
 
       ArrowBuf initialBuf = allocator.buffer(baos.size());
-      initialBuf.writeBytes(0, baos.toByteArray());
+      initialBuf.setBytes(0, baos.toByteArray());
       final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true,
           bufs.size() + 1, ImmutableList.<ByteBuf>builder()
               .add(initialBuf.asNettyBuffer().writerIndex(baos.size()))

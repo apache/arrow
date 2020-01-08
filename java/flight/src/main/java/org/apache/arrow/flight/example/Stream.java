@@ -95,7 +95,7 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
       for (ArrowRecordBatch batch : batches) {
         final byte[] rawMetadata = Integer.toString(counter).getBytes(StandardCharsets.UTF_8);
         final ArrowBuf metadata = allocator.buffer(rawMetadata.length);
-        metadata.writeBytes(0, rawMetadata);
+        metadata.setBytes(0, rawMetadata);
         loader.load(batch);
         // Transfers ownership of the buffer - do not free buffer ourselves
         listener.putNext(metadata);

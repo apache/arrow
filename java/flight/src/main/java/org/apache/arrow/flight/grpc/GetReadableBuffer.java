@@ -91,7 +91,7 @@ public class GetReadableBuffer {
     } else {
       byte[] heapBytes = new byte[size];
       ByteStreams.readFully(stream, heapBytes);
-      buf.writeBytes(0, heapBytes);
+      buf.setBytes(0, heapBytes);
     }
   }
 }

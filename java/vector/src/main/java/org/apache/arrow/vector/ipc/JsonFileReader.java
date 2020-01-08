@@ -257,8 +257,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           readToken(START_OBJECT);
-          buf.writeInt(i * INT_SIZE * 2, readNextField("days", Integer.class));
-          buf.writeInt(i * INT_SIZE * 2 + INT_SIZE, readNextField("milliseconds", Integer.class));
+          buf.setInt(i * INT_SIZE * 2, readNextField("days", Integer.class));
+          buf.setInt(i * INT_SIZE * 2 + INT_SIZE, readNextField("milliseconds", Integer.class));
           readToken(END_OBJECT);
         }
 
@@ -274,7 +274,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          buf.writeByte(i, parser.getByteValue());
+          buf.setByte(i, parser.getByteValue());
         }
 
         return buf;
@@ -289,7 +289,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          buf.writeShort(i * SHORT_SIZE, parser.getShortValue());
+          buf.setShort(i * SHORT_SIZE, parser.getShortValue());
         }
 
         return buf;
@@ -304,7 +304,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          buf.writeInt(i * INT_SIZE, parser.getIntValue());
+          buf.setInt(i * INT_SIZE, parser.getIntValue());
         }
 
         return buf;
@@ -320,7 +320,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         for (int i = 0; i < count; i++) {
           parser.nextToken();
           String value = parser.getValueAsString();
-          buf.writeLong(i * LONG_SIZE, Long.valueOf(value));
+          buf.setLong(i * LONG_SIZE, Long.valueOf(value));
         }
 
         return buf;
@@ -335,7 +335,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          buf.writeByte(i, parser.getShortValue() & 0xFF);
+          buf.setByte(i, parser.getShortValue() & 0xFF);
         }
 
         return buf;
@@ -350,7 +350,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          buf.writeShort(i * SHORT_SIZE, parser.getIntValue() & 0xFFFF);
+          buf.setShort(i * SHORT_SIZE, parser.getIntValue() & 0xFFFF);
         }
 
         return buf;
@@ -365,7 +365,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          buf.writeInt(i * INT_SIZE, (int)parser.getLongValue());
+          buf.setInt(i * INT_SIZE, (int)parser.getLongValue());
         }
 
         return buf;
@@ -381,7 +381,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         for (int i = 0; i < count; i++) {
           parser.nextToken();
           BigInteger value = new BigInteger(parser.getValueAsString());
-          buf.writeLong(i * LONG_SIZE, value.longValue());
+          buf.setLong(i * LONG_SIZE, value.longValue());
         }
 
         return buf;
@@ -396,7 +396,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          buf.writeFloat(i * FLOAT_SIZE, parser.getFloatValue());
+          buf.setFloat(i * FLOAT_SIZE, parser.getFloatValue());
         }
 
         return buf;
@@ -411,7 +411,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          buf.writeDouble(i * DOUBLE_SIZE, parser.getDoubleValue());
+          buf.setDouble(i * DOUBLE_SIZE, parser.getDoubleValue());
         }
 
         return buf;
@@ -448,7 +448,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         ArrowBuf buf = allocator.buffer(byteWidth * count);
         for (int i = 0; i < values.size(); i++) {
           final byte[] value = values.get(i);
-          buf.writeBytes(i * byteWidth, value);
+          buf.setBytes(i * byteWidth, value);
         }
 
         return buf;
@@ -473,7 +473,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         int writerIndex = 0;
         for (int i = 0; i < values.size(); i++) {
           final byte[] value = values.get(i);
-          buf.writeBytes(writerIndex, value);
+          buf.setBytes(writerIndex, value);
           writerIndex += value.length;
         }
 
@@ -499,7 +499,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         int writerIndex = 0;
         for (int i = 0; i < values.size(); i++) {
           final byte[] value = values.get(i);
-          buf.writeBytes(writerIndex, value);
+          buf.setBytes(writerIndex, value);
           writerIndex += value.length;
         }
 

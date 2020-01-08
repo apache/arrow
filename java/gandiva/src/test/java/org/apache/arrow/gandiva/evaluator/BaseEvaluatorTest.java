@@ -142,6 +142,7 @@ class BaseEvaluatorTest {
 
     protected final BufferAllocator allocator;
     protected final Random rand;
+    protected int writerIndex;
 
     Int32DataAndVectorGenerator(BufferAllocator allocator) {
       this.allocator = allocator;
@@ -150,7 +151,8 @@ class BaseEvaluatorTest {
 
     @Override
     public void writeData(ArrowBuf buffer) {
-      buffer.writeInt(rand.nextInt());
+      buffer.setInt(writerIndex, rand.nextInt());
+      writerIndex += 4;
     }
 
     @Override
@@ -172,7 +174,8 @@ class BaseEvaluatorTest {
 
     @Override
     public void writeData(ArrowBuf buffer) {
-      buffer.writeInt(rand.nextInt(upperBound));
+      buffer.setInt(writerIndex, rand.nextInt(upperBound));
+      writerIndex += 4;
     }
   }
 
@@ -210,7 +213,7 @@ class BaseEvaluatorTest {
 
   ArrowBuf buf(byte[] bytes) {
     ArrowBuf buffer = allocator.buffer(bytes.length);
-    buffer.writeBytes(bytes);
+    buffer.setBytes(0, bytes);
     return buffer;
   }
 
@@ -218,7 +221,7 @@ class BaseEvaluatorTest {
     int bufLen = (size + 7) / 8;
     ArrowBuf buffer = allocator.buffer(bufLen);
     for (int i = 0; i < bufLen; i++) {
-      buffer.writeByte(255);
+      buffer.setByte(i, 255);
     }
 
     return buffer;
@@ -227,7 +230,7 @@ class BaseEvaluatorTest {
   ArrowBuf intBuf(int[] ints) {
     ArrowBuf buffer = allocator.buffer(ints.length * 4);
     for (int i = 0; i < ints.length; i++) {
-      buffer.writeInt(ints[i]);
+      buffer.setInt(i, ints[i]);
     }
     return buffer;
   }
@@ -258,7 +261,7 @@ class BaseEvaluatorTest {
   ArrowBuf longBuf(long[] longs) {
     ArrowBuf buffer = allocator.buffer(longs.length * 8);
     for (int i = 0; i < longs.length; i++) {
-      buffer.writeLong(longs[i]);
+      buffer.setLong(i * 8, longs[i]);
     }
     return buffer;
   }
@@ -266,7 +269,7 @@ class BaseEvaluatorTest {
   ArrowBuf doubleBuf(double[] data) {
     ArrowBuf buffer = allocator.buffer(data.length * 8);
     for (int i = 0; i < data.length; i++) {
-      buffer.writeDouble(data[i]);
+      buffer.setDouble(i * 8, data[i]);
     }
 
     return buffer;
@@ -276,7 +279,7 @@ class BaseEvaluatorTest {
     ArrowBuf buffer = allocator.buffer(dates.length * 8);
     for (int i = 0; i < dates.length; i++) {
       Instant instant = Instant.parse(dates[i]);
-      buffer.writeLong(instant.toEpochMilli());
+      buffer.setLong(i * 8, instant.toEpochMilli());
     }
 
     return buffer;
