@@ -92,6 +92,9 @@ impl Display for ArrowError {
             &ArrowError::ParquetError(ref desc) => {
                 write!(f, "Parquet argument error: {}", desc)
             }
+            &ArrowError::DictionaryKeyOverflowError => {
+                write!(f, "Dictionary key bigger than the key type")
+            }
         }
     }
 }
