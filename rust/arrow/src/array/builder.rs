@@ -1005,7 +1005,7 @@ where
 {
     keys_builder: PrimitiveBuilder<K>,
     values_builder: PrimitiveBuilder<V>,
-    map: HashMap<&'static [u8], K::Native>,
+    map: HashMap<Box<[u8]>, K::Native>,
 }
 
 impl<K, V> PrimitiveDictionaryBuilder<K, V>
@@ -1065,8 +1065,6 @@ where
     /// Append a primive value to the array. Return an existing index
     /// if already present in the values array or a new index if the
     /// value is appended to the values array.
-    /// ```
-    /// ```
     pub fn append(&mut self, value: V::Native) -> Result<K::Native> {
         if let Some(&key) = self.map.get(value.to_byte_slice()) {
             // Append existing value.
@@ -1078,6 +1076,7 @@ where
                 .ok_or(ArrowError::DictionaryKeyOverflowError)?;
             self.values_builder.append_value(value)?;
             self.keys_builder.append_value(key as K::Native)?;
+            self.map.insert(value.to_byte_slice().into(), key);
             Ok(key)
         }
     }
