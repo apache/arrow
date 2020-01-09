@@ -1093,6 +1093,111 @@ where
     }
 }
 
+/// Array builder for `DictionaryArray`. For example to map a set of byte indices
+/// to f32 values. Note that the use of a `HashMap` here will not scale to very large
+/// arrays or result in an ordered dictionary.
+pub struct StringDictionaryBuilder<K>
+where
+    K: ArrowPrimitiveType
+{
+    keys_builder: PrimitiveBuilder<K>,
+    values_builder: StringBuilder,
+    map: HashMap<Box<[u8]>, K::Native>,
+    null_is_zero: bool,
+}
+
+impl<K> StringDictionaryBuilder<K>
+where
+    K: ArrowPrimitiveType
+{
+    /// Creates a new `StringDictionaryBuilder` from a keys builder and a value builder.
+    /// Set null_is_zero if you want zero to be the null value (recommended).
+    pub fn new(
+        keys_builder: PrimitiveBuilder<K>,
+        mut values_builder: StringBuilder,
+        null_is_zero : bool,
+    ) -> Self {
+        if null_is_zero {
+            values_builder.append_null().unwrap();
+        }
+        Self {
+            keys_builder,
+            values_builder,
+            map: HashMap::new(),
+            null_is_zero
+        }
+    }
+}
+
+impl<K> ArrayBuilder for StringDictionaryBuilder<K>
+where
+    K: ArrowPrimitiveType
+{
+    /// Returns the builder as an non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as an mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.keys_builder.len()
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
+impl<K> StringDictionaryBuilder<K>
+where
+    K: ArrowPrimitiveType
+{
+    /// Append a primitive value to the array. Return an existing index
+    /// if already present in the values array or a new index if the
+    /// value is appended to the values array.
+    pub fn append(&mut self, value: &str) -> Result<K::Native> {
+        if let Some(&key) = self.map.get(value.as_bytes()) {
+            // Append existing value.
+            self.keys_builder.append_value(key)?;
+            Ok(key)
+        } else {
+            // Append new value.
+            let key = K::Native::from_usize(self.values_builder.len())
+                .ok_or(ArrowError::DictionaryKeyOverflowError)?;
+            self.values_builder.append_value(value)?;
+            self.keys_builder.append_value(key as K::Native)?;
+            self.map.insert(value.as_bytes().into(), key);
+            Ok(key)
+        }
+    }
+
+    pub fn append_null(&mut self) -> Result<()> {
+        if self.null_is_zero {
+            self.keys_builder.append_value(K::Native::from_usize(0).unwrap())
+        } else {
+            self.keys_builder.append_null()
+        }
+    }
+
+    /// Builds the `DictionaryArray` and reset this builder.
+    pub fn finish(&mut self) -> DictionaryArray<K> {
+        self.map.clear();
+        let value_ref: ArrayRef = Arc::new(self.values_builder.finish());
+        self.keys_builder.finish_dict(value_ref)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1953,6 +2058,31 @@ mod tests {
 
         assert_eq!(aks, vec![Some(0), None, Some(1)]);
         assert_eq!(avs, &[12345678, 22345678]);
+    }
+
+    #[test]
+    fn test_string_dictionary_builder() {
+        let key_builder = PrimitiveBuilder::<UInt8Type>::new(5);
+        let value_builder = StringBuilder::new(2);
+        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder, true);
+        builder.append("abc").unwrap();
+        builder.append_null().unwrap();
+        builder.append("def").unwrap();
+        builder.append("def").unwrap();
+        builder.append("abc").unwrap();
+        let array = builder.finish();
+
+        // Keys are strongly typed.
+        let aks: Vec<_> = array.keys().collect();
+
+        // Values are polymorphic and so require a downcast.
+        let av = array.values();
+        let ava: &StringArray = av.as_any().downcast_ref::<StringArray>().unwrap();
+
+        assert_eq!(aks, vec![Some(1), Some(0), Some(2), Some(2), Some(1)]);
+        assert_eq!(ava.is_null(0), true);
+        assert_eq!(ava.value(1), "abc");
+        assert_eq!(ava.value(2), "def");
     }
 
     #[test]
