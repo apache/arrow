@@ -620,7 +620,7 @@ class TestConvertPrimitiveTypes(object):
 
     def test_float_nulls_to_ints(self):
         # ARROW-2135
-        df = pd.DataFrame({"a": [1.0, 2.0, pd.np.NaN]})
+        df = pd.DataFrame({"a": [1.0, 2.0, np.NaN]})
         schema = pa.schema([pa.field("a", pa.int16(), nullable=True)])
         table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table[0].to_pylist() == [1, 2, None]
