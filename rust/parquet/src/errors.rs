@@ -32,7 +32,6 @@ quick_error! {
       /// Returned when code violates normal workflow of working with Parquet files.
       General(message: String) {
           display("Parquet error: {}", message)
-              display(message)
               from(e: io::Error) -> (format!("underlying IO error: {}", e))
               from(e: snap::Error) -> (format!("underlying snap error: {}", e))
               from(e: thrift::Error) -> (format!("underlying Thrift error: {}", e))
@@ -43,25 +42,21 @@ quick_error! {
       /// Returned when functionality is not yet available.
       NYI(message: String) {
           display("NYI: {}", message)
-              display(message)
       }
       /// "End of file" Parquet error.
       /// Returned when IO related failures occur, e.g. when there are not enough bytes to
       /// decode.
       EOF(message: String) {
           display("EOF: {}", message)
-              display(message)
       }
       /// Arrow error.
       /// Returned when reading into arrow or writing from arrow.
       ArrowError(message:  String) {
           display("Arrow: {}", message)
-              display(message)
               from(e: ArrowError) -> (format!("underlying Arrow error: {:?}", e))
       }
       IndexOutOfBound(index: usize, bound: usize) {
           display("Index {} out of bound: {}", index, bound)
-              display("Index out of bound error")
       }
   }
 }
@@ -104,6 +99,6 @@ macro_rules! eof_err {
 
 impl Into<ArrowError> for ParquetError {
     fn into(self) -> ArrowError {
-        ArrowError::ParquetError(self.to_string())
+        ArrowError::ParquetError(format!("{}", self))
     }
 }
