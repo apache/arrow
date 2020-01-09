@@ -540,9 +540,12 @@ class TestFeatherReader(unittest.TestCase):
         # https://github.com/wesm/feather/issues/240
         # serializing actual python objects
 
-        # period
-        df = pd.DataFrame({'a': pd.period_range('2013', freq='M', periods=3)})
-        self._assert_error_on_write(df, TypeError)
+        # custom python objects
+        class A:
+            pass
+
+        df = pd.DataFrame({'a': [A(), A()]})
+        self._assert_error_on_write(df, ValueError)
 
         # non-strings
         df = pd.DataFrame({'a': ['a', 1, 2.0]})
