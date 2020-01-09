@@ -189,7 +189,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
                            "Type",
                            "The file type.",
                            GARROW_TYPE_FILE_TYPE,
-                           GARROW_FILE_TYPE_NON_EXISTENT,
+                           GARROW_FILE_TYPE_UNKNOWN,
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_TYPE, spec);
 
