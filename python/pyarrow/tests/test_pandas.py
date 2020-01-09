@@ -2580,14 +2580,25 @@ def _pytime_to_micros(pytime):
 def test_convert_unsupported_type_error_message():
     # ARROW-1454
 
-    # period as yet unsupported
-    df = pd.DataFrame({
-        'a': pd.period_range('2000-01-01', periods=20),
-    })
+    # custom python objects
+    class A:
+        pass
 
-    expected_msg = 'Conversion failed for column a with type period'
-    with pytest.raises(TypeError, match=expected_msg):
+    df = pd.DataFrame({'a': [A(), A()]})
+
+    expected_msg = 'Conversion failed for column a with type object'
+    with pytest.raises(ValueError, match=expected_msg):
         pa.Table.from_pandas(df)
+
+    # period unsupported for pandas <= 0.25
+    if LooseVersion(pd.__version__) <= '0.25':
+        df = pd.DataFrame({
+            'a': pd.period_range('2000-01-01', periods=20),
+        })
+
+        expected_msg = 'Conversion failed for column a with type period'
+        with pytest.raises(TypeError, match=expected_msg):
+            pa.Table.from_pandas(df)
 
 
 # ----------------------------------------------------------------------
