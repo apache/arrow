@@ -33,7 +33,7 @@ on:
 
 jobs:
   r-hub:
-    name: R-hub ${{ matrix.r_image }}
+    name: rhub/${{ matrix.r_image }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -66,7 +66,7 @@ jobs:
           docker-compose push r
 
   rstudio:
-    name: RStudio ${{ matrix.r_version }}-${{ matrix.r_image }}
+    name: "rstudio/r-base:${{ matrix.r_version }}-${{ matrix.r_image }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
