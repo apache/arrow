@@ -52,7 +52,7 @@ jobs:
           docker-compose push ubuntu-lint
 
   release:
-    name: Source Release
+    name: Source Release and Merge Script
     runs-on: ubuntu-latest
     env:
       GIT_AUTHOR_NAME: Github Actions
@@ -75,7 +75,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          pip install cython setuptools
+          pip install cython setuptools pytest jira
           wget -q https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb
           sudo dpkg -i packages-microsoft-prod.deb
           sudo apt-get install apt-transport-https
@@ -85,6 +85,10 @@ jobs:
         shell: bash
         run: |
           ci/scripts/release_test.sh $(pwd)
+      - name: Run Merge Script Test
+        shell: bash
+        run: |
+          pytest -v dev/test_merge_arrow_pr.py
 
   docs:
     name: Sphinx and API documentations
