@@ -1684,9 +1684,10 @@ pub struct DictionaryArray<K: ArrowPrimitiveType> {
 }
 
 pub struct NullableIter<'a, T> {
-    data: &'a ArrayDataRef,
-    keys: &'a [T],
+    data: &'a ArrayDataRef, // TODO: Use a pointer to the null bitmap.
+    ptr: *const T,
     i: usize,
+    len: usize,
 }
 
 impl<'a, T> std::iter::Iterator for NullableIter<'a, T>
@@ -1697,63 +1698,48 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         let i = self.i;
-        if i >= self.keys.len() {
+        if i >= self.len {
             None
         } else if self.data.is_null(i) {
             self.i += 1;
             Some(None)
         } else {
             self.i += 1;
-            Some(Some(self.keys[i].clone()))
+            unsafe {
+                Some(Some((&*self.ptr.offset(i as isize)).clone()))
+            }
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.keys.len(), Some(self.keys.len()))
+        (self.len, Some(self.len))
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let i = self.i;
-        if i + n >= self.keys.len() {
-            self.i = self.keys.len();
+        if i + n >= self.len {
+            self.i = self.len;
             None
         } else if self.data.is_null(i + n) {
             self.i += n + 1;
             Some(None)
         } else {
             self.i += n + 1;
-            Some(Some(self.keys[i + n].clone()))
+            unsafe {
+                Some(Some((&*self.ptr.offset((i+n) as isize)).clone()))
+            }
         }
     }
 }
 
 impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
-    /// Returns a slice of the keys (offsets into the values array).
-    /// Note that if nulls exist, you must check them.
-    pub fn keys(&self) -> &[K::Native] {
-        unsafe {
-            std::slice::from_raw_parts(
-                self.raw_values.get().offset(self.data.offset() as isize),
-                self.len(),
-            )
-        }
-    }
-
-    /// Returns an index into the values array or None if null.
-    pub fn key(&self, i: usize) -> Option<K::Native> {
-        if self.data.is_null(i) {
-            None
-        } else {
-            Some(self.keys()[i])
-        }
-    }
-
     /// Return an iterator to the keys of this dictionary.
-    pub fn iter_keys(&'a self) -> NullableIter<'a, K::Native> {
+    pub fn keys(&'a self) -> NullableIter<'a, K::Native> {
         NullableIter::<'a, K::Native> {
             data: &self.data,
-            keys: self.keys(),
+            ptr: unsafe { self.raw_values.get().offset(self.data.offset() as isize) },
             i: 0,
+            len: self.data.len(),
         }
     }
 
@@ -1824,8 +1810,8 @@ impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
 impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         const MAX_LEN: usize = 10;
-        let keys: Vec<_> = self.iter_keys().take(MAX_LEN).collect();
-        let elipsis = if self.iter_keys().count() > MAX_LEN {
+        let keys: Vec<_> = self.keys().take(MAX_LEN).collect();
+        let elipsis = if self.keys().count() > MAX_LEN {
             "..."
         } else {
             ""
@@ -2354,11 +2340,11 @@ mod tests {
         // Null count only makes sense in terms of the component arrays.
         assert_eq!(0, dict_array.null_count());
         assert_eq!(0, dict_array.values().null_count());
-        assert_eq!(3, dict_array.keys()[1]);
-        assert_eq!(4, dict_array.keys()[2]);
+        assert_eq!(Some(Some(3)), dict_array.keys().nth(1));
+        assert_eq!(Some(Some(4)), dict_array.keys().nth(2));
 
         assert_eq!(
-            dict_array.iter_keys().collect::<Vec<Option<i16>>>(),
+            dict_array.keys().collect::<Vec<Option<i16>>>(),
             vec![Some(2), Some(3), Some(4)]
         );
 
@@ -2375,8 +2361,13 @@ mod tests {
         assert_eq!(value_data, values.data());
         assert_eq!(DataType::Int8, dict_array.value_type());
         assert_eq!(2, dict_array.len());
-        assert_eq!(3, dict_array.keys()[0]);
-        assert_eq!(4, dict_array.keys()[1]);
+        assert_eq!(Some(Some(3)), dict_array.keys().nth(0));
+        assert_eq!(Some(Some(4)), dict_array.keys().nth(1));
+
+        assert_eq!(
+            dict_array.keys().collect::<Vec<Option<i16>>>(),
+            vec![Some(3), Some(4)]
+        );
     }
 
     #[test]

@@ -1940,7 +1940,7 @@ mod tests {
         let array = builder.finish();
 
         // Keys are strongly typed.
-        let aks = array.keys();
+        let aks : Vec<_> = array.keys().collect();
 
         // Values are polymorphic and so require a downcast.
         let av = array.values();
@@ -1950,8 +1950,8 @@ mod tests {
         assert_eq!(array.is_null(0), false);
         assert_eq!(array.is_null(1), true);
         assert_eq!(array.is_null(2), false);
-        assert_eq!(aks[0], 0);
-        assert_eq!(aks[2], 1);
+
+        assert_eq!(aks, vec![Some(0), None, Some(1)]);
         assert_eq!(avs, &[12345678, 22345678]);
     }
 

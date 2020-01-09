@@ -231,8 +231,8 @@ impl<T: ArrowPrimitiveType> ArrayEqual for DictionaryArray<T> {
         assert!(other_start_idx + (end_idx - start_idx) <= other.len());
         let other = other.as_any().downcast_ref::<DictionaryArray<T>>().unwrap();
 
-        let iter_a = self.iter_keys().take(end_idx).skip(start_idx);
-        let iter_b = other.iter_keys().skip(other_start_idx);
+        let iter_a = self.keys().take(end_idx).skip(start_idx);
+        let iter_b = other.keys().skip(other_start_idx);
 
         // For now, all the values must be the same
         iter_a.eq(iter_b)
@@ -824,7 +824,7 @@ impl PartialEq<ListArray> for Value {
 
 impl<T: ArrowPrimitiveType> JsonEqual for DictionaryArray<T> {
     fn equals_json(&self, json: &[&Value]) -> bool {
-        self.iter_keys().zip(json.iter()).all(|aj| match aj {
+        self.keys().zip(json.iter()).all(|aj| match aj {
             (None, Value::Null) => true,
             (Some(a), Value::Number(j)) => {
                 a.to_usize().unwrap() as u64 == j.as_u64().unwrap()
