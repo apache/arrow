@@ -301,10 +301,15 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CSchemaPartitionScheme \
             "arrow::dataset::SchemaPartitionScheme"(CPartitionScheme):
         CSchemaPartitionScheme(shared_ptr[CSchema] schema)
+        @staticmethod
+        shared_ptr[CPartitionSchemeDiscovery] MakeDiscovery(
+            vector[c_string] field_names)
 
     cdef cppclass CHivePartitionScheme \
             "arrow::dataset::HivePartitionScheme"(CPartitionScheme):
         CHivePartitionScheme(shared_ptr[CSchema] schema)
+        @staticmethod
+        shared_ptr[CPartitionSchemeDiscovery] MakeDiscovery()
 
     cdef cppclass CPartitionSchemeOrDiscovery \
             "arrow::dataset::PartitionSchemeOrDiscovery":
