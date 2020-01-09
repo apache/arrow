@@ -208,13 +208,15 @@ class BaseEvaluatorTest {
 
   ArrowBuf buf(int length) {
     ArrowBuf buffer = allocator.buffer(length);
-    return buffer;
+    ArrowBuf slice = buffer.slice(0, length);
+    return slice;
   }
 
   ArrowBuf buf(byte[] bytes) {
     ArrowBuf buffer = allocator.buffer(bytes.length);
     buffer.setBytes(0, bytes);
-    return buffer;
+    ArrowBuf slice = buffer.slice(0, bytes.length);
+    return slice;
   }
 
   ArrowBuf arrowBufWithAllValid(int size) {
@@ -223,8 +225,8 @@ class BaseEvaluatorTest {
     for (int i = 0; i < bufLen; i++) {
       buffer.setByte(i, 255);
     }
-
-    return buffer;
+    ArrowBuf slice = buffer.slice(0, bufLen);
+    return slice;
   }
 
   ArrowBuf intBuf(int[] ints) {
@@ -232,7 +234,8 @@ class BaseEvaluatorTest {
     for (int i = 0; i < ints.length; i++) {
       buffer.setInt(i, ints[i]);
     }
-    return buffer;
+    ArrowBuf slice = buffer.slice(0, ints.length * 4);
+    return slice;
   }
 
   DecimalVector decimalVector(String[] values, int precision, int scale) {
@@ -263,7 +266,8 @@ class BaseEvaluatorTest {
     for (int i = 0; i < longs.length; i++) {
       buffer.setLong(i * 8, longs[i]);
     }
-    return buffer;
+    ArrowBuf slice = buffer.slice(0, longs.length * 8);
+    return slice;
   }
 
   ArrowBuf doubleBuf(double[] data) {
@@ -271,8 +275,8 @@ class BaseEvaluatorTest {
     for (int i = 0; i < data.length; i++) {
       buffer.setDouble(i * 8, data[i]);
     }
-
-    return buffer;
+    ArrowBuf slice = buffer.slice(0, data.length * 8);
+    return slice;
   }
 
   ArrowBuf stringToMillis(String[] dates) {

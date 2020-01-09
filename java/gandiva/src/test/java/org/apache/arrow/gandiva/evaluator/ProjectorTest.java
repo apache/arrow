@@ -77,13 +77,14 @@ public class ProjectorTest extends BaseEvaluatorTest {
       offsetsBuffer.setInt(i * 4, startOffset);
 
       final byte[] bytes = strings[i].getBytes(charset);
-      dataBuffer = dataBuffer.reallocIfNeeded(i * 4 + bytes.length);
+      dataBuffer = dataBuffer.reallocIfNeeded(startOffset + bytes.length);
       dataBuffer.setBytes(startOffset, bytes, 0, bytes.length);
       startOffset += bytes.length;
     }
     offsetsBuffer.setInt(strings.length * 4, startOffset); // offset for the last element
 
-    return Arrays.asList(offsetsBuffer, dataBuffer);
+    return Arrays.asList(offsetsBuffer.slice(0, (strings.length + 1) * 4),
+        dataBuffer.slice(0, startOffset));
   }
 
   List<ArrowBuf> stringBufs(String[] strings) {
