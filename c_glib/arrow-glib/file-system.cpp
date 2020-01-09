@@ -260,9 +260,9 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   spec = g_param_spec_int64("size",
                             "Size",
                             "The size in bytes.",
-                            0,
+                            -1,
                             INT64_MAX,
-                            0,
+                            -1,
                             static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_SIZE, spec);
 
@@ -276,9 +276,9 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   spec = g_param_spec_int64("mtime",
                             "Mtime",
                             "The time of last modification",
-                            0,
+                            -1,
                             INT64_MAX,
-                            0,
+                            -1,
                             static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_MTIME, spec);
 }
