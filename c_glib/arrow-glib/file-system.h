@@ -66,6 +66,10 @@ GARROW_AVAILABLE_IN_1_0
 GArrowFileStats *garrow_file_stats_new(void);
 
 GARROW_AVAILABLE_IN_1_0
+gboolean garrow_file_stats_equal(GArrowFileStats *file_stats,
+                                 GArrowFileStats *other_file_stats);
+
+GARROW_AVAILABLE_IN_1_0
 gboolean garrow_file_stats_is_file(GArrowFileStats *file_stats);
 GARROW_AVAILABLE_IN_1_0
 gboolean garrow_file_stats_is_directory(GArrowFileStats *file_stats);
