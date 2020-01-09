@@ -103,12 +103,12 @@ class CountSorter {
  public:
   explicit CountSorter(int min, int max) : min_(min), max_(max) {}
 
-  void Sort(int64_t *indices_begin, int64_t *indices_end, const ArrayType& values) {
+  void Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) {
     // 32bit counter performs much better than 64bit one
     if (values.length() < (1LL << 32)) {
-        SortInternal<uint32_t>(indices_begin, indices_end, values);
+      SortInternal<uint32_t>(indices_begin, indices_end, values);
     } else {
-        SortInternal<uint64_t>(indices_begin, indices_end, values);
+      SortInternal<uint64_t>(indices_begin, indices_end, values);
     }
   }
 
@@ -116,7 +116,8 @@ class CountSorter {
   const int min_, max_;
 
   template <typename CounterType>
-  void SortInternal(int64_t *indices_begin, int64_t *indices_end, const ArrayType& values) {
+  void SortInternal(int64_t* indices_begin, int64_t* indices_end,
+                    const ArrayType& values) {
     const size_t value_range = max_ - min_ + 1;
 
     // first slot reserved for prefix sum, last slot for null value
@@ -124,16 +125,16 @@ class CountSorter {
 
     for (int64_t i = 0; i < values.length(); ++i) {
       auto v = values.IsNull(i) ? value_range : (values.Value(i) - min_);
-      ++count[v+1];
+      ++count[v + 1];
     }
 
     for (size_t i = 1; i <= value_range; ++i) {
-      count[i] += count[i-1];
+      count[i] += count[i - 1];
     }
 
     for (int64_t i = 0; i < values.length(); ++i) {
-        auto v = values.IsNull(i) ? value_range : (values.Value(i) - min_);
-        indices_begin[count[v]++] = i;
+      auto v = values.IsNull(i) ? value_range : (values.Value(i) - min_);
+      indices_begin[count[v]++] = i;
     }
   }
 };
@@ -181,15 +182,16 @@ class SortToIndicesKernelImpl : public SortToIndicesKernel {
   }
 };
 
-template <typename ArrowType, typename Comparator, typename Sorter = CompareSorter<ArrowType, Comparator>>
+template <typename ArrowType, typename Comparator,
+          typename Sorter = CompareSorter<ArrowType, Comparator>>
 SortToIndicesKernelImpl<ArrowType, Sorter>* MakeSortToIndicesKernelImpl(
     Comparator comparator) {
   return new SortToIndicesKernelImpl<ArrowType, Sorter>(Sorter(comparator));
 }
 
 template <typename ArrowType, typename Sorter = CountSorter<ArrowType>>
-SortToIndicesKernelImpl<ArrowType, Sorter>* MakeSortToIndicesKernelImpl(
-    int min, int max) {
+SortToIndicesKernelImpl<ArrowType, Sorter>* MakeSortToIndicesKernelImpl(int min,
+                                                                        int max) {
   return new SortToIndicesKernelImpl<ArrowType, Sorter>(Sorter(min, max));
 }
 

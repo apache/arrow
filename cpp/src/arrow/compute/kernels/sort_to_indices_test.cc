@@ -115,7 +115,7 @@ TYPED_TEST(TestSortToIndicesKernelForUInt8, SortUInt8) {
 }
 
 TYPED_TEST(TestSortToIndicesKernelForInt8, SortInt8) {
-  this->AssertSortToIndices("[null, 10, 127, 0, -128, -128, null, 0]", "[4,5,3,7,1,2,0,6]");
+  this->AssertSortToIndices("[null, 10, 127, 0, -128, -128, null]", "[4,5,3,1,2,0,6]");
 }
 
 template <typename ArrowType>
