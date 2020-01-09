@@ -1062,7 +1062,7 @@ where
     K: ArrowPrimitiveType,
     V: ArrowPrimitiveType,
 {
-    /// Append a primive value to the array. Return an existing index
+    /// Append a primitive value to the array. Return an existing index
     /// if already present in the values array or a new index if the
     /// value is appended to the values array.
     pub fn append(&mut self, value: V::Native) -> Result<K::Native> {
