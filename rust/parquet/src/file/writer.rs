@@ -524,7 +524,7 @@ impl<T: Write + Position> PageWriter for SerializedPageWriter<T> {
 mod tests {
     use super::*;
 
-    use std::{error::Error, fs::File, io::Cursor};
+    use std::{fs::File, io::Cursor};
 
     use crate::basic::{Compression, Encoding, Repetition, Type};
     use crate::column::page::PageReader;
@@ -548,14 +548,14 @@ mod tests {
             let res = writer.next_row_group();
             assert!(res.is_err());
             if let Err(err) = res {
-                assert_eq!(err.description(), "File writer is closed");
+                assert_eq!(format!("{}", err), "Parquet error: File writer is closed");
             }
         }
         {
             let res = writer.close();
             assert!(res.is_err());
             if let Err(err) = res {
-                assert_eq!(err.description(), "File writer is closed");
+                assert_eq!(format!("{}", err), "Parquet error: File writer is closed");
             }
         }
     }
@@ -572,7 +572,10 @@ mod tests {
         let res = row_group_writer.next_column();
         assert!(res.is_err());
         if let Err(err) = res {
-            assert_eq!(err.description(), "Row group writer is closed");
+            assert_eq!(
+                format!("{}", err),
+                "Parquet error: Row group writer is closed"
+            );
         }
     }
 
@@ -596,7 +599,10 @@ mod tests {
         let res = row_group_writer.close();
         assert!(res.is_err());
         if let Err(err) = res {
-            assert_eq!(err.description(), "Column length mismatch: 1 != 0");
+            assert_eq!(
+                format!("{}", err),
+                "Parquet error: Column length mismatch: 1 != 0"
+            );
         }
     }
 
@@ -641,8 +647,8 @@ mod tests {
         assert!(res.is_err());
         if let Err(err) = res {
             assert_eq!(
-                err.description(),
-                "Incorrect number of rows, expected 3 != 2 rows"
+                format!("{}", err),
+                "Parquet error: Incorrect number of rows, expected 3 != 2 rows"
             );
         }
     }
