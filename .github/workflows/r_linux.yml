@@ -49,20 +49,20 @@ jobs:
           - debian-gcc-devel
           - ubuntu-gcc-release
     env:
-      R_DOCKER_ORG: "rhub"
-      R_DOCKER_IMAGE: ${{ matrix.r_image }}
+      R_ORG: "rhub"
+      R_IMAGE: ${{ matrix.r_image }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
       - name: Docker Pull
         shell: bash
-        run: docker-compose pull --ignore-pull-failures r-docker
+        run: docker-compose pull --ignore-pull-failures r
       - name: Docker Build
         shell: bash
-        run: docker-compose build r-docker
+        run: docker-compose build r
       - name: Docker Run
         shell: bash
-        run: docker-compose run r-docker
+        run: docker-compose run r
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -70,7 +70,7 @@ jobs:
         run: |
           docker login -u ${{ secrets.DOCKERHUB_USER }} \
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push r-docker
+          docker-compose push r
 
   rstudio:
     name: RStudio ${{ matrix.r_version }}-${{ matrix.r_image }}
@@ -87,21 +87,21 @@ jobs:
           - opensuse42
           - opensuse15
     env:
-      R_DOCKER_ORG: "rstudio"
-      R_DOCKER_IMAGE: "r-base"
-      R_DOCKER_TAG: ${{ matrix.r_version }}-${{ matrix.r_image }}
+      R_ORG: "rstudio"
+      R_IMAGE: "r-base"
+      R_TAG: ${{ matrix.r_version }}-${{ matrix.r_image }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
       - name: Docker Pull
         shell: bash
-        run: docker-compose pull --ignore-pull-failures r-docker
+        run: docker-compose pull --ignore-pull-failures r
       - name: Docker Build
         shell: bash
-        run: docker-compose build r-docker
+        run: docker-compose build r
       - name: Docker Run
         shell: bash
-        run: docker-compose run r-docker
+        run: docker-compose run r
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -109,4 +109,4 @@ jobs:
         run: |
           docker login -u ${{ secrets.DOCKERHUB_USER }} \
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push r-docker
+          docker-compose push r

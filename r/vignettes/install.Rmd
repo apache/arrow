@@ -260,8 +260,8 @@ You can test the `arrow` R package installation using the `docker-compose`
 setup included in the `apache/arrow` git repository. For example,
 
 ```
-R_DOCKER_ORG=rhub R_DOCKER_IMAGE=ubuntu-gcc-release R_DOCKER_TAG=latest docker-compose build r-hub
-R_DOCKER_ORG=rhub R_DOCKER_IMAGE=ubuntu-gcc-release R_DOCKER_TAG=latest docker-compose run r-hub
+R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose build r-hub
+R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose run r-hub
 ```
 
 installs the `arrow` R package, including the C++ source build, on the
