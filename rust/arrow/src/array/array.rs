@@ -1823,15 +1823,17 @@ impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
 
 impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        const MAX_LEN : usize = 10;
-        let keys : Vec<_> = self.iter_keys().take(MAX_LEN).collect();
-        let elipsis = if self.iter_keys().count() > MAX_LEN {"..."} else {""};
+        const MAX_LEN: usize = 10;
+        let keys: Vec<_> = self.iter_keys().take(MAX_LEN).collect();
+        let elipsis = if self.iter_keys().count() > MAX_LEN {
+            "..."
+        } else {
+            ""
+        };
         write!(
             f,
             "DictionaryArray {{keys: {:?}{} values: {:?}}}\n",
-            keys,
-            elipsis,
-            self.values
+            keys, elipsis, self.values
         )
     }
 }
@@ -3186,5 +3188,4 @@ mod tests {
             format!("{:?}", array)
         );
     }
-
 }
