@@ -35,7 +35,7 @@ import io.netty.util.internal.PlatformDependent;
 /**
  * Netty specific wrapper over ArrowBuf for use in Netty framework.
  */
-public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
+public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   private final ArrowBuf arrowBuf;
   private final ArrowByteBufAllocator arrowByteBufAllocator;
@@ -203,7 +203,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public ByteBuffer internalNioBuffer(int index, int length) {
-    ByteBuffer nioBuf =  getDirectBuffer(index);
+    ByteBuffer nioBuf = getDirectBuffer(index);
     // Follows convention from other ByteBuf implementations.
     return (ByteBuffer)nioBuf.clear().limit(length);
   }
@@ -428,7 +428,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   protected int _getIntLE(int index) {
-    int value =  getInt(index);
+    int value = getInt(index);
     return Integer.reverseBytes(value);
   }
 

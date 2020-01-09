@@ -261,7 +261,7 @@ public class TestArrowReaderWriter {
 
     List<Field> fields = Arrays.asList(encodedVector1.getField(), encodedVector2.getField());
     List<FieldVector> vectors = Collections2.asImmutableList(encodedVector1, encodedVector2);
-    try (VectorSchemaRoot root =  new VectorSchemaRoot(fields, vectors, encodedVector1.getValueCount());
+    try (VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, encodedVector1.getValueCount());
          ByteArrayOutputStream out = new ByteArrayOutputStream();
          ArrowFileWriter writer = new ArrowFileWriter(root, provider, newChannel(out));) {
 
@@ -304,7 +304,7 @@ public class TestArrowReaderWriter {
     List<Field> fields = Arrays.asList(encodedVector1A.getField());
     List<FieldVector> vectors = Collections2.asImmutableList(encodedVector1A);
 
-    try (VectorSchemaRoot root =  new VectorSchemaRoot(fields, vectors, encodedVector1A.getValueCount());
+    try (VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, encodedVector1A.getValueCount());
          ByteArrayOutputStream out = new ByteArrayOutputStream();
          ArrowFileWriter writer = new ArrowFileWriter(root, provider, newChannel(out))) {
 
@@ -444,7 +444,7 @@ public class TestArrowReaderWriter {
 
     List<Field> fields = Arrays.asList(encodedVectorA1.getField(), encodedVectorA2.getField());
     List<FieldVector> vectors = Collections2.asImmutableList(encodedVectorA1, encodedVectorA2);
-    VectorSchemaRoot root =  new VectorSchemaRoot(fields, vectors, encodedVectorA1.getValueCount());
+    VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, encodedVectorA1.getValueCount());
     VectorUnloader unloader = new VectorUnloader(root);
     batches.add(unloader.getRecordBatch());
     root.close();
@@ -468,7 +468,7 @@ public class TestArrowReaderWriter {
 
     List<Field> fieldsB = Arrays.asList(encodedVectorB1.getField(), encodedVectorB2.getField());
     List<FieldVector> vectorsB = Collections2.asImmutableList(encodedVectorB1, encodedVectorB2);
-    VectorSchemaRoot rootB =  new VectorSchemaRoot(fieldsB, vectorsB, 6);
+    VectorSchemaRoot rootB = new VectorSchemaRoot(fieldsB, vectorsB, 6);
     VectorUnloader unloaderB = new VectorUnloader(rootB);
     batches.add(unloaderB.getRecordBatch());
     rootB.close();

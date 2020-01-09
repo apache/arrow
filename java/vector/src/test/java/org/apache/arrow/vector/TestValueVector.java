@@ -1194,7 +1194,7 @@ public class TestValueVector {
 
       /* trigger second realloc */
       vector.setSafe(valueCapacity + 10, STR2, 0, STR2.length);
-      assertTrue(vector.getValueCapacity() >= 2 *  valueCapacity);
+      assertTrue(vector.getValueCapacity() >= 2 * valueCapacity);
       while (vector.getByteCapacity() < 10 * vector.getValueCapacity()) {
         vector.reallocDataBuffer();
       }
@@ -1383,7 +1383,7 @@ public class TestValueVector {
       vector.setSafe(initialCapacity + 200, STR3, 0, STR3.length);
 
       /* Check valueCapacity is more than initial allocation */
-      assertTrue(initialCapacity  * 2 <=  vector.getValueCapacity());
+      assertTrue(initialCapacity * 2 <= vector.getValueCapacity());
 
       assertArrayEquals(STR1, vector.get(0));
       assertArrayEquals(STR2, vector.get(initialCapacity - 1));

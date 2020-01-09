@@ -187,7 +187,7 @@ class ArrowMessage implements AutoCloseable {
     ArrowBuf underlying = bufs.get(0);
 
     underlying.getReferenceManager().retain();
-    return  MessageSerializer.deserializeRecordBatch(message, underlying);
+    return MessageSerializer.deserializeRecordBatch(message, underlying);
   }
 
   public ArrowDictionaryBatch asDictionaryBatch() throws IOException {

@@ -103,7 +103,7 @@ public class TestHashTableDictionaryEncoder {
 
       // perform decoding
       Dictionary dict = new Dictionary(dictionary, new DictionaryEncoding(1L, false, null));
-      try (VarCharVector decodedVector  = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
+      try (VarCharVector decodedVector = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
 
         // verify decoding results
         assertEquals(encodedVector.getValueCount(), decodedVector.getValueCount());
@@ -161,7 +161,7 @@ public class TestHashTableDictionaryEncoder {
 
       // perform decoding
       Dictionary dict = new Dictionary(dictionary, new DictionaryEncoding(1L, false, null));
-      try (VarCharVector  decodedVector = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
+      try (VarCharVector decodedVector = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
         // verify decoding results
         assertEquals(encodedVector.getValueCount(), decodedVector.getValueCount());
         for (int i = 0; i < VECTOR_LENGTH; i++) {

@@ -78,7 +78,7 @@ public class TestNettyArrowBuf {
          ArrowBuf buf = allocator.buffer(20);
     ) {
       NettyArrowBuf nettyBuf = buf.asNettyBuffer();
-      int [] intVals = new int[] {Integer.MIN_VALUE, Short.MIN_VALUE - 1,  Short.MIN_VALUE, 0 ,
+      int [] intVals = new int[] {Integer.MIN_VALUE, Short.MIN_VALUE - 1, Short.MIN_VALUE, 0 ,
         Short.MAX_VALUE , Short.MAX_VALUE + 1, Integer.MAX_VALUE};
       for (int intValue :intVals ) {
         nettyBuf._setInt(0, intValue);

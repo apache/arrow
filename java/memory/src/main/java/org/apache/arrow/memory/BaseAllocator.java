@@ -462,7 +462,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     // Is there unaccounted-for outstanding allocation?
     final long allocated = getAllocatedMemory();
     if (allocated > 0) {
-      String msg =  String.format("Memory was leaked by query. Memory leaked: (%d)\n%s", allocated,
+      String msg = String.format("Memory was leaked by query. Memory leaked: (%d)\n%s", allocated,
           toString());
       logger.error(msg);
       throw new IllegalStateException(msg);

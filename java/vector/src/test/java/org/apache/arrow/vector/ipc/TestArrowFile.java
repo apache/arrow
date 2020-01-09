@@ -889,7 +889,7 @@ public class TestArrowFile extends BaseFileTest {
 
       List<Field> fields = Arrays.asList(vector1.getField());
       List<FieldVector> vectors = Collections2.asImmutableList(vector1);
-      VectorSchemaRoot root =  new VectorSchemaRoot(fields, vectors, vector1.getValueCount());
+      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, vector1.getValueCount());
 
       // write data
       ByteArrayOutputStream out = new ByteArrayOutputStream();

@@ -123,15 +123,15 @@ public class PlasmaClientTest {
   public void doTest() {
     System.out.println("Start test.");
     int timeoutMs = 3000;
-    byte[] id1 =  new byte[20];
+    byte[] id1 = new byte[20];
     Arrays.fill(id1, (byte)1);
-    byte[] value1 =  new byte[20];
+    byte[] value1 = new byte[20];
     Arrays.fill(value1, (byte)11);
     pLink.put(id1, value1, null);
 
-    byte[] id2 =  new byte[20];
+    byte[] id2 = new byte[20];
     Arrays.fill(id2, (byte)2);
-    byte[] value2 =  new byte[20];
+    byte[] value2 = new byte[20];
     Arrays.fill(value2, (byte)12);
     pLink.put(id2, value2, null);
     System.out.println("Plasma java client put test success.");
@@ -155,24 +155,25 @@ public class PlasmaClientTest {
     byte[] id1Hash = pLink.hash(id1);
     assert id1Hash != null;
     System.out.println("Plasma java client hash test success.");
+    
     boolean exist = pLink.contains(id2);
     assert exist;
-    byte[] id3 =  new byte[20];
+    byte[] id3 = new byte[20];
     Arrays.fill(id3, (byte)3);
     boolean notExist = pLink.contains(id3);
     assert !notExist;
     System.out.println("Plasma java client contains test success.");
 
-    byte[] id4 =  new byte[20];
+    byte[] id4 = new byte[20];
     Arrays.fill(id4, (byte)4);
-    byte[] value4 =  new byte[20];
+    byte[] value4 = new byte[20];
     byte[] meta4 = "META4".getBytes();
     Arrays.fill(value4, (byte)14);
     pLink.put(id4, value4, meta4);
 
-    byte[] id5 =  new byte[20];
+    byte[] id5 = new byte[20];
     Arrays.fill(id5, (byte)5);
-    byte[] value5 =  new byte[20];
+    byte[] value5 = new byte[20];
     byte[] meta5 = "META5".getBytes();
     Arrays.fill(value5, (byte)15);
     pLink.put(id5, value5, meta5);
@@ -198,8 +199,8 @@ public class PlasmaClientTest {
     assert Arrays.equals(value5, fullData5.data);
     System.out.println("Plasma java client metadata get test success.");
     
-    byte[] id6 =  getArrayFilledWithValue(20, (byte) 6);
-    byte[] val6 =  getArrayFilledWithValue(21, (byte) 6);
+    byte[] id6 = getArrayFilledWithValue(20, (byte) 6);
+    byte[] val6 = getArrayFilledWithValue(21, (byte) 6);
     pLink.put(id6, val6, null);
     assert pLink.contains(id6);
     pLink.delete(id6);
@@ -218,7 +219,7 @@ public class PlasmaClientTest {
     thread.start();
 
     try {
-      byte[] idNone =  new byte[20];
+      byte[] idNone = new byte[20];
       Arrays.fill(idNone, (byte)987);
       pLink.get(idNone, timeoutMs, false);
       Assert.fail("Fail to throw PlasmaClientException when get an object " +
@@ -238,7 +239,7 @@ public class PlasmaClientTest {
 
 
   private byte[] getArrayFilledWithValue(int arrayLength, byte val) {
-    byte[] arr =  new byte[arrayLength];
+    byte[] arr = new byte[arrayLength];
     Arrays.fill(arr, val);
     return arr;
   }

@@ -1007,15 +1007,15 @@ public class TestComplexWriter {
       Float8Vector float8Vector = (Float8Vector)parent.getChild("float8Field");
 
       int capacity = singleStructWriter.getValueCapacity();
-      assertTrue(capacity >= initialCapacity && capacity <  initialCapacity * 2);
+      assertTrue(capacity >= initialCapacity && capacity < initialCapacity * 2);
       capacity = intVector.getValueCapacity();
-      assertTrue(capacity >= initialCapacity && capacity <  initialCapacity * 2);
+      assertTrue(capacity >= initialCapacity && capacity < initialCapacity * 2);
       capacity = bigIntVector.getValueCapacity();
-      assertTrue(capacity >= initialCapacity && capacity <  initialCapacity * 2);
+      assertTrue(capacity >= initialCapacity && capacity < initialCapacity * 2);
       capacity = float4Vector.getValueCapacity();
-      assertTrue(capacity >= initialCapacity && capacity <  initialCapacity * 2);
+      assertTrue(capacity >= initialCapacity && capacity < initialCapacity * 2);
       capacity = float8Vector.getValueCapacity();
-      assertTrue(capacity >= initialCapacity && capacity <  initialCapacity * 2);
+      assertTrue(capacity >= initialCapacity && capacity < initialCapacity * 2);
 
       StructReader singleStructReader = new SingleStructReaderImpl(parent);
 

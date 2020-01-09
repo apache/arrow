@@ -96,7 +96,7 @@ public class TestVectorSchemaRoot {
     FieldType listType = new FieldType(true, new ArrowType.List(), /*dictionary=*/null);
 
     // create the schema
-    List<Field> schemaFields  = new ArrayList<>();
+    List<Field> schemaFields = new ArrayList<>();
     Field childField = new Field("varCharCol", varCharType, null);
     List<Field> childFields = new ArrayList<>();
     childFields.add(childField);

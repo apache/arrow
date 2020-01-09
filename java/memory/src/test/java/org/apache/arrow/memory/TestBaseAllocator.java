@@ -393,7 +393,7 @@ public class TestBaseAllocator {
     }
 
     @Override
-    public boolean onFailedAllocation(long size,  AllocationOutcome outcome) {
+    public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
       if (expandOnFail) {
         expandAlloc.setLimit(expandLimit);
         return true;
@@ -471,7 +471,7 @@ public class TestBaseAllocator {
         assertEquals(16, l1.getTotalMem());
         buf1.getReferenceManager().release();
         try (final BufferAllocator c2 = c1.newChildAllocator("c2", l2, 0, MAX_ALLOCATION)) {
-          assertEquals(2, l1.getNumChildren());  // c1 got a new child, so c1's listener (l1) is notified
+          assertEquals(2, l1.getNumChildren()); // c1 got a new child, so c1's listener (l1) is notified
           assertEquals(0, l2.getNumChildren());
           final ArrowBuf buf2 = c2.buffer(32);
           assertNotNull("allocation failed", buf2);
@@ -794,7 +794,7 @@ public class TestBaseAllocator {
       }
       */
 
-      arrowBuf.getReferenceManager().release();  // all the derived buffers share this fate
+      arrowBuf.getReferenceManager().release(); // all the derived buffers share this fate
     }
   }
 

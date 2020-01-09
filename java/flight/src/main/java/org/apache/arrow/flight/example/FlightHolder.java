@@ -104,7 +104,7 @@ public class FlightHolder implements AutoCloseable {
                 l));
       i++;
     }
-    return new FlightInfo(schema,  descriptor, endpoints, bytes, records);
+    return new FlightInfo(schema, descriptor, endpoints, bytes, records);
   }
 
   @Override

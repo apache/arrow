@@ -623,7 +623,7 @@ public class Text {
       case 0:
         ch += (bytes.get() & 0xFF);
         break;
-      default:  // do nothing
+      default: // do nothing
     }
     ch -= offsetsFromUTF8[extraBytesToRead];
 
