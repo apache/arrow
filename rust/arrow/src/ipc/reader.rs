@@ -169,7 +169,7 @@ fn create_array(
             Arc::new(struct_array)
         }
         // Create dictionary array from RecordBatch
-        Dictionary(_) => {
+        Dictionary(_, _) => {
             let index_node = &nodes[node_index];
             let index_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 2]
                 .iter()
@@ -378,7 +378,7 @@ fn create_dictionary_array(
     buffers: &[Buffer],
     value_array: ArrayRef,
 ) -> ArrayRef {
-    if let &DataType::Dictionary(_) = data_type {
+    if let &DataType::Dictionary(_, _) = data_type {
         let null_count = field_node.null_count() as usize;
         let mut builder = ArrayData::builder(data_type.clone())
             .len(field_node.length() as usize)
@@ -553,7 +553,7 @@ impl<R: Read + Seek> FileReader<R> {
                     // Get an array representing this dictionary's values.
                     let dictionary_values: ArrayRef =
                         match schema.field(first_field).data_type() {
-                            DataType::Dictionary((_, ref value_type)) => {
+                            DataType::Dictionary(_, ref value_type) => {
                                 // Make a fake schema for the dictionary batch.
                                 let schema = Schema {
                                     fields: vec![Field::new(

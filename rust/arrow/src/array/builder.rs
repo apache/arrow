@@ -333,10 +333,10 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         let len = self.len();
         let null_bit_buffer = self.bitmap_builder.finish();
         let null_count = len - bit_util::count_set_bits(null_bit_buffer.data());
-        let data_type = DataType::Dictionary((
+        let data_type = DataType::Dictionary(
             Box::new(T::get_data_type()),
             Box::new(values.data_type().clone()),
-        ));
+        );
         let mut builder = ArrayData::builder(data_type)
             .len(len)
             .add_buffer(self.values_builder.finish());

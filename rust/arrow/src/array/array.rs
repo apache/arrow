@@ -164,7 +164,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::FixedSizeList(_, _) => {
             Arc::new(FixedSizeListArray::from(data)) as ArrayRef
         }
-        DataType::Dictionary((ref key_type, _)) => match key_type.as_ref() {
+        DataType::Dictionary(ref key_type, _) => match key_type.as_ref() {
             DataType::Int8 => {
                 Arc::new(DictionaryArray::<Int8Type>::from(data)) as ArrayRef
             }
@@ -1794,7 +1794,7 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
         let raw_values = data.buffers()[0].raw_data();
         let dtype: &DataType = data.data_type();
         let values = make_array(data.child_data()[0].clone());
-        if let DataType::Dictionary(_) = dtype {
+        if let DataType::Dictionary(_, _) = dtype {
             Self {
                 data: data,
                 raw_values: RawPtrBox::new(raw_values as *const T::Native),
@@ -2332,7 +2332,7 @@ mod tests {
         let key_type = DataType::Int16;
         let value_type = DataType::Int8;
         let dict_data_type =
-            DataType::Dictionary((Box::new(key_type), Box::new(value_type)));
+            DataType::Dictionary(Box::new(key_type), Box::new(value_type));
         let dict_data = ArrayData::builder(dict_data_type.clone())
             .len(3)
             .add_buffer(keys.clone())

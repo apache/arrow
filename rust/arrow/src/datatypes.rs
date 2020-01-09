@@ -78,7 +78,7 @@ pub enum DataType {
     List(Box<DataType>),
     FixedSizeList(Box<DataType>, i32),
     Struct(Vec<Field>),
-    Dictionary((Box<DataType>, Box<DataType>)),
+    Dictionary(Box<DataType>, Box<DataType>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -909,7 +909,7 @@ impl DataType {
                 TimeUnit::Microsecond => "MICROSECOND",
                 TimeUnit::Nanosecond => "NANOSECOND",
             }}),
-            DataType::Dictionary(_) => json!({ "name": "dictionary"}),
+            DataType::Dictionary(_, _) => json!({ "name": "dictionary"}),
         }
     }
 }
@@ -1073,7 +1073,7 @@ impl Field {
                                 ));
                             }
                         };
-                        DataType::Dictionary((Box::new(index_type), Box::new(data_type)))
+                        DataType::Dictionary(Box::new(index_type), Box::new(data_type))
                     }
                     _ => data_type,
                 };
@@ -1106,7 +1106,7 @@ impl Field {
             _ => vec![],
         };
         match self.data_type() {
-            DataType::Dictionary((ref index_type, ref value_type)) => json!({
+            DataType::Dictionary(ref index_type, ref value_type) => json!({
                 "name": self.name,
                 "nullable": self.nullable,
                 "type": value_type.to_json(),
@@ -1556,10 +1556,10 @@ mod tests {
                 Field::new("c30", DataType::Duration(TimeUnit::Nanosecond), false),
                 Field::new_dict(
                     "c31",
-                    DataType::Dictionary((
+                    DataType::Dictionary(
                         Box::new(DataType::Int32),
                         Box::new(DataType::Utf8),
-                    )),
+                    ),
                     true,
                     123,
                     true,

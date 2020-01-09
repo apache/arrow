@@ -187,10 +187,10 @@ fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataType {
                 (64, false) => DataType::UInt64,
                 _ => panic!("Unexpected bitwidth and signed"),
             };
-            return DataType::Dictionary((
+            return DataType::Dictionary(
                 Box::new(index_type),
                 Box::new(get_data_type(field, false)),
-            ));
+            );
         }
     }
 
