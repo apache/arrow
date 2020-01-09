@@ -26,12 +26,14 @@ on:
     branches:
       - master
     paths:
+      - '.github/workflows/r_linux.yml'
       - 'ci/**'
       - 'cpp/**'
       - 'r/**'
   # TODO: when making cron/push only, remove pull_request (for testing only right?)
   pull_request:
     paths:
+      - '.github/workflows/r_linux.yml'
       - 'ci/**'
       - 'cpp/**'
       - 'r/**'
