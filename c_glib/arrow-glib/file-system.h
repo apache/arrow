@@ -87,30 +87,6 @@ struct _GArrowFileSelectorClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
-const gchar *garrow_file_selector_get_base_dir(GArrowFileSelector *file_selector);
-GARROW_AVAILABLE_IN_1_0
-void         garrow_file_selector_set_base_dir(GArrowFileSelector *file_selector,
-                                               const gchar *base_dir);
-
-GARROW_AVAILABLE_IN_1_0
-gboolean garrow_file_selector_get_allow_non_existent(GArrowFileSelector *file_selector);
-GARROW_AVAILABLE_IN_1_0
-void     garrow_file_selector_set_allow_non_existent(GArrowFileSelector *file_selector,
-                                                     gboolean allow_non_existent);
-
-GARROW_AVAILABLE_IN_1_0
-gboolean garrow_file_selector_get_recursive(GArrowFileSelector *file_selector);
-GARROW_AVAILABLE_IN_1_0
-void     garrow_file_selector_set_recursive(GArrowFileSelector *file_selector,
-                                            gboolean recursive);
-
-GARROW_AVAILABLE_IN_1_0
-gint32 garrow_file_selector_get_max_recursion(GArrowFileSelector *file_selector);
-GARROW_AVAILABLE_IN_1_0
-void   garrow_file_selector_set_max_recursion(GArrowFileSelector *file_selector,
-                                              gint32 max_recursion);
-
 /* arrow::fs::FileSystem */
 
 #define GARROW_TYPE_FILE_SYSTEM (garrow_file_system_get_type())
