@@ -384,8 +384,10 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
                                 const SchemaDescriptor* schema,
                                 const ApplicationVersion* writer_version,
                                 InternalFileDecryptor* file_decryptor)
-      : row_group_(row_group), schema_(schema), writer_version_(writer_version),
-      file_decryptor_(file_decryptor) {}
+      : row_group_(row_group),
+        schema_(schema),
+        writer_version_(writer_version),
+        file_decryptor_(file_decryptor) {}
 
   inline int num_columns() const { return static_cast<int>(row_group_->columns.size()); }
 
@@ -422,8 +424,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
 
 std::unique_ptr<RowGroupMetaData> RowGroupMetaData::Make(
     const void* metadata, const SchemaDescriptor* schema,
-    const ApplicationVersion* writer_version,
-    InternalFileDecryptor* file_decryptor) {
+    const ApplicationVersion* writer_version, InternalFileDecryptor* file_decryptor) {
   return std::unique_ptr<RowGroupMetaData>(
       new RowGroupMetaData(metadata, schema, writer_version, file_decryptor));
 }
@@ -431,9 +432,9 @@ std::unique_ptr<RowGroupMetaData> RowGroupMetaData::Make(
 RowGroupMetaData::RowGroupMetaData(const void* metadata, const SchemaDescriptor* schema,
                                    const ApplicationVersion* writer_version,
                                    InternalFileDecryptor* file_decryptor)
-    : impl_{std::unique_ptr<RowGroupMetaDataImpl>(new RowGroupMetaDataImpl(
-          reinterpret_cast<const format::RowGroup*>(metadata), schema, writer_version,
-          file_decryptor))} {}
+    : impl_{std::unique_ptr<RowGroupMetaDataImpl>(
+          new RowGroupMetaDataImpl(reinterpret_cast<const format::RowGroup*>(metadata),
+                                   schema, writer_version, file_decryptor))} {}
 
 RowGroupMetaData::~RowGroupMetaData() {}
 
@@ -459,8 +460,8 @@ class FileMetaData::FileMetaDataImpl {
       : metadata_len_(0), file_decryptor_(file_decryptor) {
     metadata_.reset(new format::FileMetaData);
 
-    auto footer_decryptor = file_decryptor_ != nullptr ?
-            file_decryptor->GetFooterDecryptor() : nullptr;
+    auto footer_decryptor =
+        file_decryptor_ != nullptr ? file_decryptor->GetFooterDecryptor() : nullptr;
 
     DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(metadata), metadata_len,
                          metadata_.get(), footer_decryptor);
@@ -480,7 +481,7 @@ class FileMetaData::FileMetaDataImpl {
   bool VerifySignature(const void* signature) {
     // verify decryption properties are set
     if (file_decryptor_ == nullptr) {
-        throw ParquetException("Decryption not set properly. cannot verify signature");
+      throw ParquetException("Decryption not set properly. cannot verify signature");
     }
     // serialize the footer
     uint8_t* serialized_data;
@@ -575,8 +576,8 @@ class FileMetaData::FileMetaDataImpl {
          << " row groups, requested metadata for row group: " << i;
       throw ParquetException(ss.str());
     }
-    return RowGroupMetaData::Make(&metadata_->row_groups[i], &schema_,
-            &writer_version_, file_decryptor_);
+    return RowGroupMetaData::Make(&metadata_->row_groups[i], &schema_, &writer_version_,
+                                  file_decryptor_);
   }
 
   const SchemaDescriptor* schema() const { return &schema_; }
@@ -607,9 +608,8 @@ class FileMetaData::FileMetaDataImpl {
     }
   }
 
-
   void set_file_decryptor(InternalFileDecryptor* file_decryptor) {
-      file_decryptor_ = file_decryptor;
+    file_decryptor_ = file_decryptor;
   }
 
  private:
@@ -656,9 +656,9 @@ class FileMetaData::FileMetaDataImpl {
   InternalFileDecryptor* file_decryptor_;
 };
 
-std::shared_ptr<FileMetaData> FileMetaData::Make(
-    const void* metadata, uint32_t* metadata_len,
-    InternalFileDecryptor* file_decryptor) {
+std::shared_ptr<FileMetaData> FileMetaData::Make(const void* metadata,
+                                                 uint32_t* metadata_len,
+                                                 InternalFileDecryptor* file_decryptor) {
   // This FileMetaData ctor is private, not compatible with std::make_shared
   return std::shared_ptr<FileMetaData>(
       new FileMetaData(metadata, metadata_len, file_decryptor));
@@ -703,7 +703,7 @@ const std::string& FileMetaData::footer_signing_key_metadata() const {
 }
 
 void FileMetaData::set_file_decryptor(InternalFileDecryptor* file_decryptor) {
-    impl_->set_file_decryptor(file_decryptor);
+  impl_->set_file_decryptor(file_decryptor);
 }
 
 ParquetVersion::type FileMetaData::version() const {
