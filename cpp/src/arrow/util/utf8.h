@@ -513,7 +513,7 @@ inline bool ValidateNonAscii(const uint8_t* data, int64_t len) {
       __m128i shift1, pos, range2;
       shift1 = _mm_alignr_epi8(input, prev_input, 15);
       pos = _mm_sub_epi8(shift1, _mm_set1_epi8(0xEF));
-      tmp1 = _mm_subs_epu8(pos, _mm_set1_epi8(240));
+      tmp1 = _mm_subs_epu8(pos, _mm_set1_epi8(-16));
       range2 = _mm_shuffle_epi8(df_ee_tbl, tmp1);
       tmp2 = _mm_adds_epu8(pos, _mm_set1_epi8(112));
       range2 = _mm_add_epi8(range2, _mm_shuffle_epi8(ef_fe_tbl, tmp2));
@@ -548,7 +548,7 @@ inline bool ValidateNonAscii(const uint8_t* data, int64_t len) {
       __m128i _range2;
       shift1 = _mm_alignr_epi8(_input, input, 15);
       pos = _mm_sub_epi8(shift1, _mm_set1_epi8(0xEF));
-      tmp1 = _mm_subs_epu8(pos, _mm_set1_epi8(240));
+      tmp1 = _mm_subs_epu8(pos, _mm_set1_epi8(-16));
       _range2 = _mm_shuffle_epi8(df_ee_tbl, tmp1);
       tmp2 = _mm_adds_epu8(pos, _mm_set1_epi8(112));
       _range2 = _mm_add_epi8(_range2, _mm_shuffle_epi8(ef_fe_tbl, tmp2));
