@@ -108,7 +108,7 @@ fn create_array(
 
             create_list_array(list_node, data_type, &list_buffers[..], triple.0)
         }
-        FixedSizeList((ref list_data_type, _)) => {
+        FixedSizeList(ref list_data_type, _) => {
             let list_node = &nodes[node_index];
             let list_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 1]
                 .iter()
@@ -331,7 +331,7 @@ fn create_list_array(
                 .null_bit_buffer(buffers[0].clone())
         }
         make_array(builder.build())
-    } else if let &DataType::FixedSizeList(_) = data_type {
+    } else if let &DataType::FixedSizeList(_, _) = data_type {
         let null_count = field_node.null_count() as usize;
         let mut builder = ArrayData::builder(data_type.clone())
             .len(field_node.length() as usize)
