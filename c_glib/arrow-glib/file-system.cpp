@@ -318,23 +318,6 @@ garrow_file_stats_equal(GArrowFileStats *file_stats,
   return arrow_file_stats.Equals(arrow_other_file_stats);
 }
 
-GArrowFileType
-garrow_file_stats_get_file_type(GArrowFileStats *file_stats)
-{
-  const auto& arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  return static_cast<GArrowFileType>(arrow_file_stats.type());
-}
-
-void
-garrow_file_stats_set_file_type(GArrowFileStats *file_stats,
-                                GArrowFileType file_type)
-{
-  auto& arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  arrow_file_stats.set_type(arrow::fs::FileType(file_type));
-}
-
 gboolean
 garrow_file_stats_is_file(GArrowFileStats *file_stats)
 {
@@ -349,86 +332,6 @@ garrow_file_stats_is_directory(GArrowFileStats *file_stats)
   const auto& arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
   return arrow_file_stats.IsDirectory();
-}
-
-const gchar *
-garrow_file_stats_get_path(GArrowFileStats *file_stats)
-{
-  const auto& arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  return arrow_file_stats.path().c_str();
-}
-
-void
-garrow_file_stats_set_path(GArrowFileStats *file_stats,
-                           const gchar *path)
-{
-  auto& arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  arrow_file_stats.set_path(path);
-}
-
-gchar *
-garrow_file_stats_get_base_name(GArrowFileStats *file_stats)
-{
-  const auto& arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  auto base_name = std::move(arrow_file_stats.base_name());
-  return g_strndup(base_name.c_str(), base_name.size());
-}
-
-gchar *
-garrow_file_stats_get_dir_name(GArrowFileStats *file_stats)
-{
-  const auto& arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  auto dir_name = std::move(arrow_file_stats.dir_name());
-  return g_strndup(dir_name.c_str(), dir_name.size());
-}
-
-gchar *
-garrow_file_stats_get_extension(GArrowFileStats *file_stats)
-{
-  const auto& arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  auto extension = std::move(arrow_file_stats.extension());
-  return g_strndup(extension.c_str(), extension.size());
-}
-
-gint64
-garrow_file_stats_get_size(GArrowFileStats *file_stats)
-{
-  const auto& arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  return arrow_file_stats.size();
-}
-
-void
-garrow_file_stats_set_size(GArrowFileStats *file_stats,
-                           gint64 size)
-{
-  auto& arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  arrow_file_stats.set_size(size);
-}
-
-GArrowTimePoint
-garrow_file_stats_get_mtime(GArrowFileStats *file_stats)
-{
-  const auto& arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  auto mtime = arrow_file_stats.mtime();
-  return mtime.time_since_epoch().count();
-}
-
-void
-garrow_file_stats_set_mtime(GArrowFileStats *file_stats,
-                            GArrowTimePoint mtime)
-{
-  auto& arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  arrow::fs::TimePoint::duration duration(mtime);
-  arrow_file_stats.set_mtime(arrow::fs::TimePoint(duration));
 }
 
 /* arrow::fs::FileSelector */

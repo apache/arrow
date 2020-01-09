@@ -66,40 +66,9 @@ GARROW_AVAILABLE_IN_1_0
 GArrowFileStats *garrow_file_stats_new(void);
 
 GARROW_AVAILABLE_IN_1_0
-GArrowFileType garrow_file_stats_get_file_type(GArrowFileStats *file_stats);
-GARROW_AVAILABLE_IN_1_0
-void garrow_file_stats_set_file_type(GArrowFileStats *file_stats,
-                                     GArrowFileType file_type);
-GARROW_AVAILABLE_IN_1_0
 gboolean garrow_file_stats_is_file(GArrowFileStats *file_stats);
 GARROW_AVAILABLE_IN_1_0
 gboolean garrow_file_stats_is_directory(GArrowFileStats *file_stats);
-
-GARROW_AVAILABLE_IN_1_0
-const gchar *garrow_file_stats_get_path(GArrowFileStats *file_stats);
-GARROW_AVAILABLE_IN_1_0
-void garrow_file_stats_set_path(GArrowFileStats *file_stats,
-                                const gchar *path);
-
-GARROW_AVAILABLE_IN_1_0
-gchar *garrow_file_stats_get_base_name(GArrowFileStats *file_stats);
-GARROW_AVAILABLE_IN_1_0
-gchar *garrow_file_stats_get_dir_name(GArrowFileStats *file_stats);
-GARROW_AVAILABLE_IN_1_0
-gchar *garrow_file_stats_get_extension(GArrowFileStats *file_stats);
-
-GARROW_AVAILABLE_IN_1_0
-gint64 garrow_file_stats_get_size(GArrowFileStats *file_stats);
-GARROW_AVAILABLE_IN_1_0
-void garrow_file_stats_set_size(GArrowFileStats *file_stats,
-                                gint64 size);
-
-GARROW_AVAILABLE_IN_1_0
-GArrowTimePoint garrow_file_stats_get_mtime(GArrowFileStats *file_stats);
-
-GARROW_AVAILABLE_IN_1_0
-void garrow_file_stats_set_mtime(GArrowFileStats *file_stats,
-                                 GArrowTimePoint mtime);
 
 /* arrow::fs::FileSelector */
 
