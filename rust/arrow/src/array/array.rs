@@ -1823,10 +1823,14 @@ impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
 
 impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        const MAX_LEN : usize = 10;
+        let keys : Vec<_> = self.iter_keys().take(MAX_LEN).collect();
+        let elipsis = if self.iter_keys().count() > MAX_LEN {"..."} else {""};
         write!(
             f,
-            "DictionaryArray {{keys: {:?} values: {:?}}}\n",
-            self.keys(),
+            "DictionaryArray {{keys: {:?}{} values: {:?}}}\n",
+            keys,
+            elipsis,
             self.values
         )
     }
@@ -3155,4 +3159,32 @@ mod tests {
         assert!(ret.is_ok());
         assert_eq!(8, ret.ok().unwrap());
     }
+
+    #[test]
+    fn test_dictionary_array_fmt_debug() {
+        let key_builder = PrimitiveBuilder::<UInt8Type>::new(3);
+        let value_builder = PrimitiveBuilder::<UInt32Type>::new(2);
+        let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
+        builder.append(12345678).unwrap();
+        builder.append_null().unwrap();
+        builder.append(22345678).unwrap();
+        let array = builder.finish();
+        assert_eq!(
+            "DictionaryArray {keys: [Some(0), None, Some(1)] values: PrimitiveArray<UInt32>\n[\n  12345678,\n  22345678,\n]}\n",
+            format!("{:?}", array)
+        );
+
+        let key_builder = PrimitiveBuilder::<UInt8Type>::new(20);
+        let value_builder = PrimitiveBuilder::<UInt32Type>::new(2);
+        let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
+        for _ in 0..20 {
+            builder.append(1).unwrap();
+        }
+        let array = builder.finish();
+        assert_eq!(
+            "DictionaryArray {keys: [Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0)]... values: PrimitiveArray<UInt32>\n[\n  1,\n]}\n",
+            format!("{:?}", array)
+        );
+    }
+
 }
