@@ -1940,7 +1940,7 @@ mod tests {
         let array = builder.finish();
 
         // Keys are strongly typed.
-        let aks : Vec<_> = array.keys().collect();
+        let aks: Vec<_> = array.keys().collect();
 
         // Values are polymorphic and so require a downcast.
         let av = array.values();

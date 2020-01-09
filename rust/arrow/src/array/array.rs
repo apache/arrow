@@ -1705,9 +1705,7 @@ where
             Some(None)
         } else {
             self.i += 1;
-            unsafe {
-                Some(Some((&*self.ptr.offset(i as isize)).clone()))
-            }
+            unsafe { Some(Some((&*self.ptr.offset(i as isize)).clone())) }
         }
     }
 
@@ -1725,9 +1723,7 @@ where
             Some(None)
         } else {
             self.i += n + 1;
-            unsafe {
-                Some(Some((&*self.ptr.offset((i+n) as isize)).clone()))
-            }
+            unsafe { Some(Some((&*self.ptr.offset((i + n) as isize)).clone())) }
         }
     }
 }
