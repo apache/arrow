@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -112,8 +111,7 @@ public class DecimalVectorBenchmarks {
     }
   }
 
-  @Test
-  public void evaluate() throws RunnerException {
+  public static void main(String [] args) throws RunnerException {
     Options opt = new OptionsBuilder()
         .include(DecimalVectorBenchmarks.class.getSimpleName())
         .forks(1)

@@ -219,7 +219,6 @@ public class BitVectorHelperBenchmarks {
     }
   }
 
-  //@Test
   public static void main(String [] args) throws RunnerException {
     Options opt = new OptionsBuilder()
             .include(BitVectorHelperBenchmarks.class.getSimpleName())

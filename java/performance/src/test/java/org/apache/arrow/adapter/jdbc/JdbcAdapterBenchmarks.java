@@ -36,7 +36,6 @@ import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
@@ -348,8 +347,7 @@ public class JdbcAdapterBenchmarks {
     }
   }
 
-  @Test
-  public void evaluate() throws RunnerException {
+  public static void main(String[] args) throws RunnerException {
     Options opt = new OptionsBuilder()
         .include(JdbcAdapterBenchmarks.class.getSimpleName())
         .forks(1)
