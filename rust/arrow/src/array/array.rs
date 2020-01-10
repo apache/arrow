@@ -19,12 +19,14 @@ use std::any::Any;
 use std::convert::{From, TryFrom};
 use std::fmt;
 use std::io::Write;
+use std::iter::{FromIterator, IntoIterator};
 use std::mem;
 use std::sync::Arc;
 
 use chrono::prelude::*;
 
 use super::*;
+use crate::array::builder::StringDictionaryBuilder;
 use crate::array::equal::JsonEqual;
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::datatypes::DataType::Struct;
@@ -1669,6 +1671,27 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
 /// A dictonary array where each element is a single value indexed by an integer key.
 /// This is mostly used to represent strings or a limited set of primitive types as integers,
 /// for example when doing NLP analysis or representing chromosomes by name.
+///
+/// Example with nullable data:
+///
+/// ```
+///     use arrow::array::DictionaryArray;
+///     use arrow::datatypes::Int8Type;
+///     let test = vec!["a", "a", "b", "c"];
+///     let array : DictionaryArray<Int8Type> = test.iter().map(|&x| if x == "b" {None} else {Some(x)}).collect();
+///     assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(1), Some(1), Some(0), Some(2)]);
+/// ```
+///
+/// Example without nullable data:
+///
+/// ```
+///
+///     use arrow::array::DictionaryArray;
+///     use arrow::datatypes::Int8Type;
+///     let test = vec!["a", "a", "b", "c"];
+///     let array : DictionaryArray<Int8Type> = test.into_iter().collect();
+///     assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), Some(1), Some(2)]);
+/// ```
 pub struct DictionaryArray<K: ArrowPrimitiveType> {
     // Array of keys, much like a PrimitiveArray
     data: ArrayDataRef,
@@ -1786,6 +1809,46 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
         } else {
             panic!("DictionaryArray must have Dictionary data type.")
         }
+    }
+}
+
+/// Constructs a `DictionaryArray` from an iterator of optional strings.
+impl<T: ArrowPrimitiveType> FromIterator<Option<&'static str>> for DictionaryArray<T> {
+    fn from_iter<I: IntoIterator<Item = Option<&'static str>>>(iter: I) -> Self {
+        let iter = iter.into_iter();
+        let (lower, _) = iter.size_hint();
+        let key_builder = PrimitiveBuilder::<T>::new(lower);
+        let value_builder = StringBuilder::new(256);
+        // Note: "true" here reserves one value element for null.
+        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder, true);
+        for i in iter {
+            if let Some(i) = i {
+                // Note: impl ... for Result<DictionaryArray<T>> fails with
+                // error[E0117]: only traits defined in the current crate can be implemented for arbitrary types
+                builder.append(i).unwrap();
+            } else {
+                builder.append_null().unwrap();
+            }
+        }
+
+        builder.finish()
+    }
+}
+
+/// Constructs a `DictionaryArray` from an iterator of strings.
+impl<T: ArrowPrimitiveType> FromIterator<&'static str> for DictionaryArray<T> {
+    fn from_iter<I: IntoIterator<Item = &'static str>>(iter: I) -> Self {
+        let iter = iter.into_iter();
+        let (lower, _) = iter.size_hint();
+        let key_builder = PrimitiveBuilder::<T>::new(lower);
+        let value_builder = StringBuilder::new(256);
+        // Note: "true" here reserves one value element for null.
+        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder, false);
+        for i in iter {
+            builder.append(i).unwrap();
+        }
+
+        builder.finish()
     }
 }
 
@@ -3172,6 +3235,25 @@ mod tests {
         let array = builder.finish();
         assert_eq!(
             "DictionaryArray {keys: [Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0)]... values: PrimitiveArray<UInt32>\n[\n  1,\n]}\n",
+            format!("{:?}", array)
+        );
+    }
+
+    #[test]
+    fn test_dictionary_array_from_iter() {
+        let test = vec!["a", "a", "b", "c"];
+        let array: DictionaryArray<Int8Type> = test
+            .iter()
+            .map(|&x| if x == "b" { None } else { Some(x) })
+            .collect();
+        assert_eq!(
+            "DictionaryArray {keys: [Some(1), Some(1), Some(0), Some(2)] values: StringArray\n[\n  null,\n  \"a\",\n  \"c\",\n]}\n",
+            format!("{:?}", array)
+        );
+
+        let array: DictionaryArray<Int8Type> = test.into_iter().collect();
+        assert_eq!(
+            "DictionaryArray {keys: [Some(0), Some(0), Some(1), Some(2)] values: StringArray\n[\n  \"a\",\n  \"b\",\n  \"c\",\n]}\n",
             format!("{:?}", array)
         );
     }
