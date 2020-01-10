@@ -90,6 +90,7 @@ endif()
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 
 set(ARROW_LLVM_VERSION "7.0")
 # TODO: Remove this when we drop LLVM 7 support.
@@ -817,6 +818,11 @@ if(ARROW_BUILD_EXAMPLES)
   add_custom_target(runexample ctest -L example)
   add_subdirectory(examples/arrow)
 endif()
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.txt
+              ${CMAKE_CURRENT_SOURCE_DIR}/../NOTICE.txt
+              ${CMAKE_CURRENT_SOURCE_DIR}/README.md
+        DESTINATION "${ARROW_DOC_DIR}")
 
 config_summary_message()
 if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})
