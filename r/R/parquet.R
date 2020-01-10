@@ -104,11 +104,11 @@ read_parquet <- function(file,
 #' @examples
 #' \donttest{
 #' tf1 <- tempfile(fileext = ".parquet")
-#' write_parquet(data.frame(x = 1:5), tf2)
+#' write_parquet(data.frame(x = 1:5), tf1)
 #'
 #' # using compression
 #' tf2 <- tempfile(fileext = ".gz.parquet")
-#' write_parquet(data.frame(x = 1:5), compression = "gzip", compression_level = 5)
+#' write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
 #'
 #' }
 #' @export
