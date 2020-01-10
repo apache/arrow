@@ -184,14 +184,13 @@ class SortToIndicesKernelImpl : public SortToIndicesKernel {
 
 template <typename ArrowType, typename Comparator,
           typename Sorter = CompareSorter<ArrowType, Comparator>>
-SortToIndicesKernelImpl<ArrowType, Sorter>* MakeSortToIndicesKernelImpl(
+SortToIndicesKernelImpl<ArrowType, Sorter>* MakeSortToIndicesWithComparator(
     Comparator comparator) {
   return new SortToIndicesKernelImpl<ArrowType, Sorter>(Sorter(comparator));
 }
 
 template <typename ArrowType, typename Sorter = CountSorter<ArrowType>>
-SortToIndicesKernelImpl<ArrowType, Sorter>* MakeSortToIndicesKernelImpl(int min,
-                                                                        int max) {
+SortToIndicesKernelImpl<ArrowType, Sorter>* MakeSortToIndicesCounting(int min, int max) {
   return new SortToIndicesKernelImpl<ArrowType, Sorter>(Sorter(min, max));
 }
 
@@ -200,40 +199,40 @@ Status SortToIndicesKernel::Make(const std::shared_ptr<DataType>& value_type,
   SortToIndicesKernel* kernel;
   switch (value_type->id()) {
     case Type::UINT8:
-      kernel = MakeSortToIndicesKernelImpl<UInt8Type>(0, 255);
+      kernel = MakeSortToIndicesCounting<UInt8Type>(0, 255);
       break;
     case Type::INT8:
-      kernel = MakeSortToIndicesKernelImpl<Int8Type>(-128, 127);
+      kernel = MakeSortToIndicesCounting<Int8Type>(-128, 127);
       break;
     case Type::UINT16:
-      kernel = MakeSortToIndicesKernelImpl<UInt16Type>(CompareValues<UInt16Array>);
+      kernel = MakeSortToIndicesWithComparator<UInt16Type>(CompareValues<UInt16Array>);
       break;
     case Type::INT16:
-      kernel = MakeSortToIndicesKernelImpl<Int16Type>(CompareValues<Int16Array>);
+      kernel = MakeSortToIndicesWithComparator<Int16Type>(CompareValues<Int16Array>);
       break;
     case Type::UINT32:
-      kernel = MakeSortToIndicesKernelImpl<UInt32Type>(CompareValues<UInt32Array>);
+      kernel = MakeSortToIndicesWithComparator<UInt32Type>(CompareValues<UInt32Array>);
       break;
     case Type::INT32:
-      kernel = MakeSortToIndicesKernelImpl<Int32Type>(CompareValues<Int32Array>);
+      kernel = MakeSortToIndicesWithComparator<Int32Type>(CompareValues<Int32Array>);
       break;
     case Type::UINT64:
-      kernel = MakeSortToIndicesKernelImpl<UInt64Type>(CompareValues<UInt64Array>);
+      kernel = MakeSortToIndicesWithComparator<UInt64Type>(CompareValues<UInt64Array>);
       break;
     case Type::INT64:
-      kernel = MakeSortToIndicesKernelImpl<Int64Type>(CompareValues<Int64Array>);
+      kernel = MakeSortToIndicesWithComparator<Int64Type>(CompareValues<Int64Array>);
       break;
     case Type::FLOAT:
-      kernel = MakeSortToIndicesKernelImpl<FloatType>(CompareValues<FloatArray>);
+      kernel = MakeSortToIndicesWithComparator<FloatType>(CompareValues<FloatArray>);
       break;
     case Type::DOUBLE:
-      kernel = MakeSortToIndicesKernelImpl<DoubleType>(CompareValues<DoubleArray>);
+      kernel = MakeSortToIndicesWithComparator<DoubleType>(CompareValues<DoubleArray>);
       break;
     case Type::BINARY:
-      kernel = MakeSortToIndicesKernelImpl<BinaryType>(CompareViews<BinaryArray>);
+      kernel = MakeSortToIndicesWithComparator<BinaryType>(CompareViews<BinaryArray>);
       break;
     case Type::STRING:
-      kernel = MakeSortToIndicesKernelImpl<StringType>(CompareViews<StringArray>);
+      kernel = MakeSortToIndicesWithComparator<StringType>(CompareViews<StringArray>);
       break;
     default:
       return Status::NotImplemented("Sorting of ", *value_type, " arrays");
