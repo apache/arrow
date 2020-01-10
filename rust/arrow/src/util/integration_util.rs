@@ -218,7 +218,7 @@ impl ArrowJsonBatch {
                         let arr = arr.as_any().downcast_ref::<ListArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
-                    DataType::FixedSizeList(_) => {
+                    DataType::FixedSizeList(_, _) => {
                         let arr =
                             arr.as_any().downcast_ref::<FixedSizeListArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
@@ -237,7 +237,7 @@ impl ArrowJsonBatch {
 fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
     match data_type {
         DataType::List(dt) => json_from_list_col(col, &**dt),
-        DataType::FixedSizeList((dt, list_size)) => {
+        DataType::FixedSizeList(dt, list_size) => {
             json_from_fixed_size_list_col(col, &**dt, *list_size as usize)
         }
         DataType::Struct(fields) => json_from_struct_col(col, fields),
@@ -331,7 +331,7 @@ fn json_from_fixed_size_list_col(
     let child = &col.children.clone().expect("list type must have children")[0];
     let inner = match data_type {
         DataType::List(ref dt) => json_from_col(child, &**dt),
-        DataType::FixedSizeList((ref dt, _)) => json_from_col(child, &**dt),
+        DataType::FixedSizeList(ref dt, _) => json_from_col(child, &**dt),
         DataType::Struct(fields) => json_from_struct_col(col, fields),
         _ => merge_json_array(&child.validity, &child.data.clone().unwrap()),
     };

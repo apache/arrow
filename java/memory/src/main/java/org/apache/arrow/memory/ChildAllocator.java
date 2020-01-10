@@ -18,8 +18,6 @@
 package org.apache.arrow.memory;
 
 
-import org.apache.arrow.memory.rounding.RoundingPolicy;
-
 /**
  * Child allocator class. Only slightly different from the {@see RootAllocator},
  * in that these can't be created directly, but must be obtained from
@@ -33,25 +31,14 @@ class ChildAllocator extends BaseAllocator {
   /**
    * Constructor.
    *
-   * @param listener        Allocation listener to be used in this child
    * @param parentAllocator parent allocator -- the one creating this child
    * @param name            the name of this child allocator
-   * @param initReservation initial amount of space to reserve (obtained from the parent)
-   * @param maxAllocation   maximum amount of space that can be obtained from this allocator; note
-   *                        this includes direct allocations (via {@see BufferAllocator#buffer(int,
-   *int)} et al) and requests from descendant allocators. Depending on the
-   *                        allocation policy in force, even less memory may be available
-   * @param roundingPolicy the policy for rounding requested buffer size
+   * @param config          configuration of this child allocator
    */
   ChildAllocator(
-          AllocationListener listener,
           BaseAllocator parentAllocator,
           String name,
-          long initReservation,
-          long maxAllocation,
-          RoundingPolicy roundingPolicy) {
-    super(parentAllocator, listener, name, initReservation, maxAllocation, roundingPolicy);
+          Config config) {
+    super(parentAllocator, name, config);
   }
-
-
 }

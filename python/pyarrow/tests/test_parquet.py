@@ -2420,7 +2420,7 @@ def _test_write_to_dataset_with_partitions(base_path,
     output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
                               'group2': list('eefeffgeee'),
                               'num': list(range(10)),
-                              'nan': [pd.np.nan] * 10,
+                              'nan': [np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
     cols = output_df.columns.tolist()
@@ -2525,7 +2525,7 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(tempdir):
     output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
                               'group2': list('eefeffgeee'),
                               'num': list(range(10)),
-                              'nan': [pd.np.nan] * 10,
+                              'nan': [np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
     partition_by = ['group1', 'group2']

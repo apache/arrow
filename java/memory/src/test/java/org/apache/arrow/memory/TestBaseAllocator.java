@@ -17,6 +17,7 @@
 
 package org.apache.arrow.memory;
 
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
@@ -25,6 +26,7 @@ import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -38,6 +40,7 @@ import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 
 import io.netty.buffer.ArrowBuf;
+import sun.misc.Unsafe;
 
 public class TestBaseAllocator {
 
@@ -357,6 +360,67 @@ public class TestBaseAllocator {
         () -> new SegmentRoundingPolicy(4097)
     );
     assertEquals("The segment size must be a power of 2", e.getMessage());
+  }
+
+  @Test
+  public void testCustomizedAllocationManager() {
+    try (BaseAllocator allocator = createAllocatorWithCustomizedAllocationManager()) {
+      final ArrowBuf arrowBuf1 = allocator.buffer(MAX_ALLOCATION);
+      assertNotNull("allocation failed", arrowBuf1);
+
+      arrowBuf1.setInt(0, 1);
+      assertEquals(1, arrowBuf1.getInt(0));
+
+      try {
+        final ArrowBuf arrowBuf2 = allocator.buffer(1);
+        fail("allocated memory beyond max allowed");
+      } catch (OutOfMemoryException e) {
+        // expected
+      }
+      arrowBuf1.getReferenceManager().release();
+
+      try {
+        arrowBuf1.getInt(0);
+        fail("data read from released buffer");
+      } catch (RuntimeException e) {
+        // expected
+      }
+    }
+  }
+
+  private BaseAllocator createAllocatorWithCustomizedAllocationManager() {
+    return new RootAllocator(BaseAllocator.configBuilder()
+        .maxAllocation(MAX_ALLOCATION)
+        .allocationManagerFactory((accountingAllocator, size) -> new AllocationManager(accountingAllocator, size) {
+          private final Unsafe unsafe = getUnsafe();
+          private final long address = unsafe.allocateMemory(size);
+
+          @Override
+          protected long memoryAddress() {
+            return address;
+          }
+
+          @Override
+          protected void release0() {
+            unsafe.setMemory(address, size, (byte) 0);
+            unsafe.freeMemory(address);
+          }
+
+          private Unsafe getUnsafe() {
+            Field f = null;
+            try {
+              f = Unsafe.class.getDeclaredField("theUnsafe");
+              f.setAccessible(true);
+              return (Unsafe) f.get(null);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+              throw new RuntimeException(e);
+            } finally {
+              if (f != null) {
+                f.setAccessible(false);
+              }
+            }
+          }
+        }).build());
   }
 
   // Allocation listener

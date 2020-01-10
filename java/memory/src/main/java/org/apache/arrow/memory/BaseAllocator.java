@@ -25,13 +25,14 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
+import org.immutables.value.Value;
 
 import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.UnsafeDirectLittleEndian;
 import io.netty.util.internal.OutOfDirectMemoryError;
 
 /**
@@ -47,6 +48,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled() ||
       Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator.class);
+  public static final Config DEFAULT_CONFIG = ImmutableConfig.builder().build();
+
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
   final String name;
   final RootAllocator root;
@@ -60,29 +63,27 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private final IdentityHashMap<BufferLedger, Object> childLedgers;
   private final IdentityHashMap<Reservation, Object> reservations;
   private final HistoricalLog historicalLog;
-  private volatile boolean isClosed = false; // the allocator has been closed
   private final RoundingPolicy roundingPolicy;
+  private final AllocationManager.Factory allocationManagerFactory;
+
+  private volatile boolean isClosed = false; // the allocator has been closed
 
   /**
    * Initialize an allocator
    * @param parentAllocator   parent allocator. null if defining a root allocator
-   * @param listener          listener callback. Must be non-null -- use
-   *                          {@link AllocationListener#NOOP} if no listener desired
    * @param name              name of this allocator
-   * @param initReservation   initial reservation. Cannot be modified after construction
-   * @param maxAllocation     limit. Allocations past the limit fail. Can be modified after
-   *                          construction
+   * @param config            configuration including other options of this allocator
+   *
+   * @see Config
    */
   protected BaseAllocator(
       final BaseAllocator parentAllocator,
-      final AllocationListener listener,
       final String name,
-      final long initReservation,
-      final long maxAllocation,
-      final RoundingPolicy roundingPolicy) throws OutOfMemoryException {
-    super(parentAllocator, name, initReservation, maxAllocation);
+      final Config config) throws OutOfMemoryException {
+    super(parentAllocator, name, config.getInitReservation(), config.getMaxAllocation());
 
-    this.listener = listener;
+    this.listener = config.getListener();
+    this.allocationManagerFactory = config.getAllocationManagerFactory();
 
     if (parentAllocator != null) {
       this.root = parentAllocator.root;
@@ -111,7 +112,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       historicalLog = null;
       childLedgers = null;
     }
-    this.roundingPolicy = roundingPolicy;
+    this.roundingPolicy = config.getRoundingPolicy();
   }
 
   AllocationListener getListener() {
@@ -119,7 +120,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   @Override
-  public BufferAllocator getParentAllocator() {
+  public BaseAllocator getParentAllocator() {
     return parentAllocator;
   }
 
@@ -280,7 +281,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   private ArrowBuf createEmpty() {
-    return new ArrowBuf(ReferenceManager.NO_OP, null, 0, AllocationManager.EMPTY.memoryAddress(), true);
+    return new ArrowBuf(ReferenceManager.NO_OP, null, 0, NettyAllocationManager.EMPTY.memoryAddress(), true);
   }
 
   @Override
@@ -344,7 +345,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       BufferManager bufferManager) throws OutOfMemoryException {
     assertOpen();
 
-    final AllocationManager manager = new AllocationManager(this, size);
+    final AllocationManager manager = newAllocationManager(size);
     final BufferLedger ledger = manager.associate(this); // +1 ref cnt (required)
     final ArrowBuf buffer = ledger.newArrowBuf(size, bufferManager);
 
@@ -353,6 +354,15 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         "Allocated capacity %d was not equal to requested capacity %d.", buffer.capacity(), size);
 
     return buffer;
+  }
+
+  private AllocationManager newAllocationManager(int size) {
+    return newAllocationManager(this, size);
+  }
+
+
+  private AllocationManager newAllocationManager(BaseAllocator accountingAllocator, int size) {
+    return allocationManagerFactory.create(accountingAllocator, size);
   }
 
   @Override
@@ -377,7 +387,13 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     assertOpen();
 
     final ChildAllocator childAllocator =
-        new ChildAllocator(listener, this, name, initReservation, maxAllocation, roundingPolicy);
+        new ChildAllocator(this, name, configBuilder()
+            .listener(listener)
+            .initReservation(initReservation)
+            .maxAllocation(maxAllocation)
+            .roundingPolicy(roundingPolicy)
+            .allocationManagerFactory(allocationManagerFactory)
+            .build());
 
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
@@ -517,7 +533,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * @throws IllegalStateException when any problems are found
    */
   void verifyAllocator() {
-    final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> seen = new IdentityHashMap<>();
+    final IdentityHashMap<AllocationManager, BaseAllocator> seen = new IdentityHashMap<>();
     verifyAllocator(seen);
   }
 
@@ -531,7 +547,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * @throws IllegalStateException when any problems are found
    */
   private void verifyAllocator(
-      final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> buffersSeen) {
+      final IdentityHashMap<AllocationManager, BaseAllocator> buffersSeen) {
     // The remaining tests can only be performed if we're in debug mode.
     if (!DEBUG) {
       return;
@@ -578,19 +594,19 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
           continue;
         }
 
-        final UnsafeDirectLittleEndian udle = ledger.getUnderlying();
+        final AllocationManager am = ledger.getAllocationManager();
         /*
          * Even when shared, ArrowBufs are rewrapped, so we should never see the same instance
          * twice.
          */
-        final BaseAllocator otherOwner = buffersSeen.get(udle);
+        final BaseAllocator otherOwner = buffersSeen.get(am);
         if (otherOwner != null) {
           throw new IllegalStateException("This allocator's ArrowBuf already owned by another " +
             "allocator");
         }
-        buffersSeen.put(udle, this);
+        buffersSeen.put(am, this);
 
-        bufferTotal += udle.capacity();
+        bufferTotal += am.getSize();
       }
 
       // Preallocated space has to be accounted for
@@ -702,11 +718,11 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       if (!ledger.isOwningLedger()) {
         continue;
       }
-      final UnsafeDirectLittleEndian udle = ledger.getUnderlying();
+      final AllocationManager am = ledger.getAllocationManager();
       sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
-      sb.append(Integer.toString(System.identityHashCode(udle)));
+      sb.append(Integer.toString(System.identityHashCode(am)));
       sb.append("] size ");
-      sb.append(Integer.toString(udle.capacity()));
+      sb.append(Integer.toString(am.getSize()));
       sb.append('\n');
     }
   }
@@ -726,6 +742,70 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     Verbosity(boolean includeHistoricalLog, boolean includeStackTraces) {
       this.includeHistoricalLog = includeHistoricalLog;
       this.includeStackTraces = includeStackTraces;
+    }
+  }
+
+  /**
+   * Returns a default {@link Config} instance.
+   *
+   * @see ImmutableConfig.Builder
+   */
+  public static Config defaultConfig() {
+    return DEFAULT_CONFIG;
+
+  }
+
+  /**
+   * Returns a builder class for configuring BaseAllocator's options.
+   */
+  public static ImmutableConfig.Builder configBuilder() {
+    return ImmutableConfig.builder();
+  }
+
+  /**
+   * Config class of {@link BaseAllocator}.
+   */
+  @Value.Immutable
+  abstract static class Config {
+    /**
+     * Factory for creating {@link AllocationManager} instances.
+     */
+    @Value.Default
+    AllocationManager.Factory getAllocationManagerFactory() {
+      return NettyAllocationManager.FACTORY;
+    }
+
+    /**
+     * Listener callback. Must be non-null.
+     */
+    @Value.Default
+    AllocationListener getListener() {
+      return AllocationListener.NOOP;
+    }
+
+    /**
+     * Initial reservation size (in bytes) for this allocator.
+     */
+    @Value.Default
+    long getInitReservation() {
+      return 0;
+    }
+
+    /**
+     * Max allocation size (in bytes) for this allocator, allocations past this limit fail.
+     * Can be modified after construction.
+     */
+    @Value.Default
+    long getMaxAllocation() {
+      return Long.MAX_VALUE;
+    }
+
+    /**
+     * The policy for rounding the buffer size.
+     */
+    @Value.Default
+    RoundingPolicy getRoundingPolicy() {
+      return DefaultRoundingPolicy.INSTANCE;
     }
   }
 

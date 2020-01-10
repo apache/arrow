@@ -216,10 +216,7 @@ fn get_data_type(field: ipc::Field) -> DataType {
             }
             let child_field = children.get(0);
             let fsl = field.type_as_fixed_size_list().unwrap();
-            DataType::FixedSizeList((
-                Box::new(get_data_type(child_field)),
-                fsl.listSize(),
-            ))
+            DataType::FixedSizeList(Box::new(get_data_type(child_field)), fsl.listSize())
         }
         ipc::Type::Struct_ => {
             let mut fields = vec![];

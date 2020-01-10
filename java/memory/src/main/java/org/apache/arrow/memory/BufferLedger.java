@@ -269,7 +269,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     allocator.assertOpen();
 
     // the start virtual address of the ArrowBuf will be same as address of memory chunk
-    final long startAddress = allocationManager.getMemoryChunk().memoryAddress();
+    final long startAddress = allocationManager.memoryAddress();
 
     // create ArrowBuf
     final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress, false);
@@ -523,7 +523,41 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     }
   }
 
+  /**
+   * @deprecated Use #unwrap(UnsafeDirectLittleEndian.class) instead.
+   */
+  @Deprecated
   public UnsafeDirectLittleEndian getUnderlying() {
-    return allocationManager.getMemoryChunk();
+    return unwrap(UnsafeDirectLittleEndian.class);
+  }
+
+  /**
+   * Get the {@link AllocationManager} used by this BufferLedger.
+   *
+   * @return The AllocationManager used by this BufferLedger.
+   */
+  public AllocationManager getAllocationManager() {
+    return allocationManager;
+  }
+
+  /**
+   * Return the {@link AllocationManager} used or underlying {@link UnsafeDirectLittleEndian} instance
+   * (in the case of we use a {@link NettyAllocationManager}), and cast to desired class.
+   *
+   * @param clazz The desired class to cast into
+   * @return The AllocationManager used by this BufferLedger, or the underlying UnsafeDirectLittleEndian object.
+   */
+  public <T> T unwrap(Class<T> clazz) {
+    if (clazz.isInstance(allocationManager)) {
+      return clazz.cast(allocationManager);
+    }
+
+    if (clazz == UnsafeDirectLittleEndian.class) {
+      Preconditions.checkState(allocationManager instanceof NettyAllocationManager,
+          "Underlying memory was not allocated by Netty");
+      return clazz.cast(((NettyAllocationManager) allocationManager).getMemoryChunk());
+    }
+
+    throw new IllegalArgumentException("Unexpected unwrapping class: " + clazz);
   }
 }

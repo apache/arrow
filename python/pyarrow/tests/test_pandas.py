@@ -620,7 +620,7 @@ class TestConvertPrimitiveTypes(object):
 
     def test_float_nulls_to_ints(self):
         # ARROW-2135
-        df = pd.DataFrame({"a": [1.0, 2.0, pd.np.NaN]})
+        df = pd.DataFrame({"a": [1.0, 2.0, np.NaN]})
         schema = pa.schema([pa.field("a", pa.int16(), nullable=True)])
         table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table[0].to_pylist() == [1, 2, None]
@@ -2580,14 +2580,25 @@ def _pytime_to_micros(pytime):
 def test_convert_unsupported_type_error_message():
     # ARROW-1454
 
-    # period as yet unsupported
-    df = pd.DataFrame({
-        'a': pd.period_range('2000-01-01', periods=20),
-    })
+    # custom python objects
+    class A:
+        pass
 
-    expected_msg = 'Conversion failed for column a with type period'
-    with pytest.raises(TypeError, match=expected_msg):
+    df = pd.DataFrame({'a': [A(), A()]})
+
+    expected_msg = 'Conversion failed for column a with type object'
+    with pytest.raises(ValueError, match=expected_msg):
         pa.Table.from_pandas(df)
+
+    # period unsupported for pandas <= 0.25
+    if LooseVersion(pd.__version__) <= '0.25':
+        df = pd.DataFrame({
+            'a': pd.period_range('2000-01-01', periods=20),
+        })
+
+        expected_msg = 'Conversion failed for column a with type period'
+        with pytest.raises(TypeError, match=expected_msg):
+            pa.Table.from_pandas(df)
 
 
 # ----------------------------------------------------------------------
