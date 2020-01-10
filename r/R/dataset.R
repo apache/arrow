@@ -330,6 +330,7 @@ HivePartitionScheme$create <- function(schema) {
 #' \donttest{
 #' hive_partition(year = int16(), month = int8())
 #' }
+#' @export
 hive_partition <- function(...) {
   schm <- schema(...)
   if (length(schm) == 0) {

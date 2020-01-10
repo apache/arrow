@@ -23,11 +23,9 @@
 #' @export
 #' @examples
 #' \donttest{
-#' try({
-#'   tf <- tempfile()
-#'   on.exit(unlink(tf))
-#'   write_feather(mtcars, tf)
-#' })
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#' write_feather(mtcars, tf)
 #' }
 #' @include arrow-package.R
 write_feather <- function(x, sink) {
@@ -102,15 +100,13 @@ FeatherTableWriter$create <- function(stream) {
 #' @export
 #' @examples
 #' \donttest{
-#' try({
-#'   tf <- tempfile()
-#'   on.exit(unlink(tf))
-#'   write_feather(iris, tf)
-#'   df <- read_feather(tf)
-#'   dim(df)
-#'   # Can select columns
-#'   df <- read_feather(tf, col_select = starts_with("Sepal"))
-#' })
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#' write_feather(iris, tf)
+#' df <- read_feather(tf)
+#' dim(df)
+#' # Can select columns
+#' df <- read_feather(tf, col_select = starts_with("Sepal"))
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   reader <- FeatherTableReader$create(file, ...)
