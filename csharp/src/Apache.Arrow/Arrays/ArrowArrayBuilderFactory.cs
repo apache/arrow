@@ -18,9 +18,9 @@ using System;
 
 namespace Apache.Arrow
 {
-    public static class ArrowArrayBuilderFactory
+    static class ArrowArrayBuilderFactory
     {
-        public static IArrowArrayBuilder<IArrowArray, IArrowArrayBuilder<IArrowArray>> BuildBuilder(IArrowType dataType)
+        internal static IArrowArrayBuilder<IArrowArray, IArrowArrayBuilder<IArrowArray>> BuildBuilder(IArrowType dataType)
         {
             switch (dataType.TypeId)
             {

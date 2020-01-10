@@ -142,7 +142,6 @@ namespace Apache.Arrow
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            //TODO: Use IArrowArray.Slice
             if (!(Values is Array array))
             {
                 return default;
