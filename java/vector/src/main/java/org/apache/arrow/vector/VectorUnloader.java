@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -63,24 +64,26 @@ public class VectorUnloader {
     List<ArrowFieldNode> nodes = new ArrayList<>();
     List<ArrowBuf> buffers = new ArrayList<>();
     for (FieldVector vector : root.getFieldVectors()) {
-      appendNodes(vector, nodes, buffers);
+      ArrowBuf[] fieldBuffers = vector.getBuffers(false);
+      buffers.addAll(Arrays.asList(fieldBuffers));
+      int expectedBufferCount = appendNodes(vector, nodes);
+      if (fieldBuffers.length != expectedBufferCount) {
+        throw new IllegalArgumentException(String.format(
+          "wrong number of buffers for field %s in vector %s. found: %s",
+          vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
+      }
     }
     return new ArrowRecordBatch(root.getRowCount(), nodes, buffers, alignBuffers);
   }
 
-  private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
+  private int appendNodes(FieldVector vector, List<ArrowFieldNode> nodes) {
     nodes.add(new ArrowFieldNode(vector.getValueCount(), includeNullCount ? vector.getNullCount() : -1));
-    List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
-    int expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField().getType());
-    if (fieldBuffers.size() != expectedBufferCount) {
-      throw new IllegalArgumentException(String.format(
-          "wrong number of buffers for field %s in vector %s. found: %s",
-          vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
-    }
-    buffers.addAll(fieldBuffers);
-    for (FieldVector child : vector.getChildrenFromFields()) {
-      appendNodes(child, nodes, buffers);
-    }
-  }
 
+    int expected = TypeLayout.getTypeBufferCount(vector.getField().getType());
+
+    for (FieldVector child : vector.getChildrenFromFields()) {
+      expected += appendNodes(child, nodes);
+    }
+    return expected;
+  }
 }

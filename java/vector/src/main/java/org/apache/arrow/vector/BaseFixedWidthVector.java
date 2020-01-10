@@ -396,13 +396,9 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   public ArrowBuf[] getBuffers(boolean clear) {
     final ArrowBuf[] buffers;
     setReaderAndWriterIndex();
-    if (getBufferSize() == 0) {
-      buffers = new ArrowBuf[0];
-    } else {
-      buffers = new ArrowBuf[2];
-      buffers[0] = validityBuffer;
-      buffers[1] = valueBuffer;
-    }
+    buffers = new ArrowBuf[2];
+    buffers[0] = validityBuffer;
+    buffers[1] = valueBuffer;
     if (clear) {
       for (final ArrowBuf buffer : buffers) {
         buffer.getReferenceManager().retain(1);
@@ -503,7 +499,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(2);
-    setReaderAndWriterIndex();
     result.add(validityBuffer);
     result.add(valueBuffer);
 

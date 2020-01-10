@@ -2673,11 +2673,11 @@ public class TestValueVector {
 
       varCharVector.set(0, "abcd".getBytes());
 
-      List<ArrowBuf> bufs = varCharVector.getFieldBuffers();
-      assertEquals(3, bufs.size());
+      ArrowBuf[] bufs = varCharVector.getBuffers(false);
+      assertEquals(3, bufs.length);
 
-      ArrowBuf offsetBuf = bufs.get(1);
-      ArrowBuf dataBuf = bufs.get(2);
+      ArrowBuf offsetBuf = bufs[1];
+      ArrowBuf dataBuf = bufs[2];
 
       assertEquals(12, offsetBuf.writerIndex());
       assertEquals(4, offsetBuf.getInt(4));

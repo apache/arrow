@@ -253,14 +253,10 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     final ArrowBuf[] buffers;
-    if (getBufferSize() == 0) {
-      buffers = new ArrowBuf[0];
-    } else {
-      List<ArrowBuf> list = new ArrayList<>();
-      list.add(offsetBuffer);
-      list.addAll(Arrays.asList(vector.getBuffers(false)));
-      buffers = list.toArray(new ArrowBuf[list.size()]);
-    }
+    List<ArrowBuf> list = new ArrayList<>();
+    list.add(offsetBuffer);
+    list.addAll(Arrays.asList(vector.getBuffers(false)));
+    buffers = list.toArray(new ArrowBuf[list.size()]);
     if (clear) {
       for (ArrowBuf buffer : buffers) {
         buffer.getReferenceManager().retain();

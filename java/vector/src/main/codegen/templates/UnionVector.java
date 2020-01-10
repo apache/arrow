@@ -159,7 +159,6 @@ public class UnionVector implements FieldVector {
   @Override
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(1);
-    setReaderAndWriterIndex();
     result.add(typeBuffer);
 
     return result;
@@ -534,10 +533,8 @@ public class UnionVector implements FieldVector {
   public ArrowBuf[] getBuffers(boolean clear) {
     List<ArrowBuf> list = new java.util.ArrayList<>();
     setReaderAndWriterIndex();
-    if (getBufferSize() != 0) {
-      list.add(typeBuffer);
-      list.addAll(java.util.Arrays.asList(internalStruct.getBuffers(clear)));
-    }
+    list.add(typeBuffer);
+    list.addAll(java.util.Arrays.asList(internalStruct.getBuffers(clear)));
     if (clear) {
       valueCount = 0;
       typeBuffer.getReferenceManager().retain();

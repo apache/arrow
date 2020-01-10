@@ -337,7 +337,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     fillHoles(valueCount);
 
     List<ArrowBuf> result = new ArrayList<>(3);
-    setReaderAndWriterIndex();
     result.add(validityBuffer);
     result.add(offsetBuffer);
     result.add(valueBuffer);
@@ -638,15 +637,12 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     final ArrowBuf[] buffers;
+    fillHoles(valueCount);
     setReaderAndWriterIndex();
-    if (getBufferSize() == 0) {
-      buffers = new ArrowBuf[0];
-    } else {
-      buffers = new ArrowBuf[3];
-      buffers[0] = validityBuffer;
-      buffers[1] = offsetBuffer;
-      buffers[2] = valueBuffer;
-    }
+    buffers = new ArrowBuf[3];
+    buffers[0] = validityBuffer;
+    buffers[1] = offsetBuffer;
+    buffers[2] = valueBuffer;
     if (clear) {
       for (final ArrowBuf buffer : buffers) {
         buffer.getReferenceManager().retain();
