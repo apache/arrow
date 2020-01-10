@@ -541,7 +541,7 @@ public class TestArrowReaderWriter {
       arrBuf.writerIndex(4);
       assertEquals(4, arrBuf.writerIndex());
 
-      int n = channel.readFully(arrBuf, 4);
+      long n = channel.readFully(arrBuf, 4);
       assertEquals(4, n);
       assertEquals(8, arrBuf.writerIndex());
 
