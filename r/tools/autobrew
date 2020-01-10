@@ -62,3 +62,5 @@ unset HOMEBREW_NO_AUTO_UPDATE
 
 # Hack to work around segfault on CRAN server
 # rm -f tests/testthat.R
+
+exit 1
