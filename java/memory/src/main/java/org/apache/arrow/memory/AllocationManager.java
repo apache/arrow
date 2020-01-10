@@ -21,17 +21,13 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.arrow.util.Preconditions;
 
-import io.netty.buffer.PooledByteBufAllocatorL;
-import io.netty.buffer.UnsafeDirectLittleEndian;
-
 /**
- * Manages the relationship between one or more allocators and a particular UDLE. Ensures that
+ * The abstract base class of AllocationManager.
+ *
+ * <p>Manages the relationship between one or more allocators and a particular UDLE. Ensures that
  * one allocator owns the
  * memory that multiple allocators may be referencing. Manages a BufferLedger between each of its
  * associated allocators.
- * This class is also responsible for managing when memory is allocated and returned to the
- * Netty-based
- * PooledByteBufAllocatorL.
  *
  * <p>The only reason that this isn't package private is we're forced to put ArrowBuf in Netty's
  * package which need access
@@ -47,22 +43,17 @@ import io.netty.buffer.UnsafeDirectLittleEndian;
  * typical query. The
  * contention of acquiring a lock on AllocationManager should be very low.
  */
-public class AllocationManager {
+public abstract class AllocationManager {
 
   private static final AtomicLong MANAGER_ID_GENERATOR = new AtomicLong(0);
-  private static final PooledByteBufAllocatorL INNER_ALLOCATOR = new PooledByteBufAllocatorL();
-
-  static final UnsafeDirectLittleEndian EMPTY = INNER_ALLOCATOR.empty;
-  static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
 
   private final RootAllocator root;
   private final long allocatorManagerId = MANAGER_ID_GENERATOR.incrementAndGet();
-  private final int size;
-  private final UnsafeDirectLittleEndian memoryChunk;
   // ARROW-1627 Trying to minimize memory overhead caused by previously used IdentityHashMap
   // see JIRA for details
   private final LowCostIdentityHashMap<BaseAllocator, BufferLedger> map = new LowCostIdentityHashMap<>();
   private final long amCreationTime = System.nanoTime();
+  private final int size;
 
   // The ReferenceManager created at the time of creation of this AllocationManager
   // is treated as the owning reference manager for the underlying chunk of memory
@@ -70,17 +61,16 @@ public class AllocationManager {
   private volatile BufferLedger owningLedger;
   private volatile long amDestructionTime = 0;
 
-  AllocationManager(BaseAllocator accountingAllocator, int size) {
+  protected AllocationManager(BaseAllocator accountingAllocator, int size) {
     Preconditions.checkNotNull(accountingAllocator);
     accountingAllocator.assertOpen();
 
+    this.size = size;
     this.root = accountingAllocator.root;
-    this.memoryChunk = INNER_ALLOCATOR.allocate(size);
 
     // we do a no retain association since our creator will want to retrieve the newly created
     // ledger and will create a reference count at that point
     this.owningLedger = associate(accountingAllocator, false);
-    this.size = memoryChunk.capacity();
   }
 
   BufferLedger getOwningLedger() {
@@ -89,14 +79,6 @@ public class AllocationManager {
 
   void setOwningLedger(final BufferLedger ledger) {
     this.owningLedger = ledger;
-  }
-
-  /**
-   * Get the underlying memory chunk managed by this AllocationManager.
-   * @return buffer
-   */
-  UnsafeDirectLittleEndian getMemoryChunk() {
-    return memoryChunk;
   }
 
   /**
@@ -172,10 +154,10 @@ public class AllocationManager {
         // the only <allocator, reference manager> mapping was for the owner
         // which now has been removed, it implies we can safely destroy the
         // underlying memory chunk as it is no longer being referenced
-        ((BaseAllocator)oldLedger.getAllocator()).releaseBytes(size);
+        ((BaseAllocator)oldLedger.getAllocator()).releaseBytes(getSize());
         // free the memory chunk associated with the allocation manager
-        memoryChunk.release();
-        ((BaseAllocator)oldLedger.getAllocator()).getListener().onRelease(size);
+        release0();
+        ((BaseAllocator)oldLedger.getAllocator()).getListener().onRelease(getSize());
         amDestructionTime = System.nanoTime();
         owningLedger = null;
       } else {
@@ -198,9 +180,37 @@ public class AllocationManager {
 
   /**
    * Return the size of underlying chunk of memory managed by this Allocation Manager.
-   * @return size of memory chunk
+   *
+   * @return size of underlying memory chunk
    */
   public int getSize() {
     return size;
+  }
+
+  /**
+   * Return the absolute memory address pointing to the fist byte of underling memory chunk.
+   */
+  protected abstract long memoryAddress();
+
+  /**
+   * Release the underling memory chunk.
+   */
+  protected abstract void release0();
+
+  /**
+   * A factory interface for creating {@link AllocationManager}.
+   * One may extend this interface to use a user-defined AllocationManager implementation.
+   */
+  public interface Factory {
+
+    /**
+     * Create an {@link AllocationManager}.
+     *
+     * @param accountingAllocator The allocator that are expected to be associated with newly created AllocationManager.
+     *                            Currently it is always equivalent to "this"
+     * @param size Size (in bytes) of memory managed by the AllocationManager
+     * @return The created AllocationManager used by this allocator
+     */
+    AllocationManager create(BaseAllocator accountingAllocator, int size);
   }
 }
