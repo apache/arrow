@@ -20,6 +20,7 @@ package org.apache.arrow.vector.ipc;
 import static java.nio.channels.Channels.newChannel;
 import static java.util.Arrays.asList;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
+import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -95,35 +96,32 @@ public class TestArrowReaderWriter {
     allocator = new RootAllocator(Long.MAX_VALUE);
 
     dictionaryVector1 = newVarCharVector("D1", allocator);
-    dictionaryVector1.allocateNewSafe();
-    dictionaryVector1.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector1.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector1.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector1.setValueCount(3);
+    setVector(dictionaryVector1,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8),
+        "baz".getBytes(StandardCharsets.UTF_8));
 
     dictionaryVector2 = newVarCharVector("D2", allocator);
-    dictionaryVector2.allocateNewSafe();
-    dictionaryVector2.set(0, "aa".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector2.set(1, "bb".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector2.set(2, "cc".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector2.setValueCount(3);
+    setVector(dictionaryVector2,
+        "aa".getBytes(StandardCharsets.UTF_8),
+        "bb".getBytes(StandardCharsets.UTF_8),
+        "cc".getBytes(StandardCharsets.UTF_8));
 
     dictionaryVector3 = newVarCharVector("D3", allocator);
-    dictionaryVector3.allocateNewSafe();
-    dictionaryVector3.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector3.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector3.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector3.set(3, "aa".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector3.set(4, "bb".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector3.set(5, "cc".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector3.setValueCount(6);
+    setVector(dictionaryVector3,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8),
+        "baz".getBytes(StandardCharsets.UTF_8),
+        "aa".getBytes(StandardCharsets.UTF_8),
+        "bb".getBytes(StandardCharsets.UTF_8),
+        "cc".getBytes(StandardCharsets.UTF_8));
 
-    dictionary1 =
-        new Dictionary(dictionaryVector1, new DictionaryEncoding(1L, false, null));
-    dictionary2 =
-        new Dictionary(dictionaryVector2, new DictionaryEncoding(2L, false, null));
-    dictionary3 =
-        new Dictionary(dictionaryVector3, new DictionaryEncoding(1L, false, null));
+    dictionary1 = new Dictionary(dictionaryVector1,
+        new DictionaryEncoding(/*id=*/1L, /*ordered=*/false, /*indexType=*/null));
+    dictionary2 = new Dictionary(dictionaryVector2,
+        new DictionaryEncoding(/*id=*/2L, /*ordered=*/false, /*indexType=*/null));
+    dictionary3 = new Dictionary(dictionaryVector3,
+        new DictionaryEncoding(/*id=*/1L, /*ordered=*/false, /*indexType=*/null));
   }
 
   @After
@@ -386,22 +384,20 @@ public class TestArrowReaderWriter {
   @Test
   public void testDictionaryReplacement() throws Exception {
     VarCharVector vector1 = newVarCharVector("varchar1", allocator);
-    vector1.allocateNewSafe();
-    vector1.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    vector1.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-    vector1.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-    vector1.set(3, "bar".getBytes(StandardCharsets.UTF_8));
-    vector1.setValueCount(4);
+    setVector(vector1,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8),
+        "baz".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8));
 
     FieldVector encodedVector1 = (FieldVector) DictionaryEncoder.encode(vector1, dictionary1);
 
     VarCharVector vector2 = newVarCharVector("varchar2", allocator);
-    vector2.allocateNewSafe();
-    vector2.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    vector2.set(1, "foo".getBytes(StandardCharsets.UTF_8));
-    vector2.set(2, "foo".getBytes(StandardCharsets.UTF_8));
-    vector2.set(3, "foo".getBytes(StandardCharsets.UTF_8));
-    vector2.setValueCount(4);
+    setVector(vector2,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "foo".getBytes(StandardCharsets.UTF_8));
 
     FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary1);
 
@@ -450,22 +446,20 @@ public class TestArrowReaderWriter {
   @Test
   public void testDeltaDictionary() throws Exception {
     VarCharVector vector1 = newVarCharVector("varchar1", allocator);
-    vector1.allocateNewSafe();
-    vector1.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    vector1.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-    vector1.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-    vector1.set(3, "bar".getBytes(StandardCharsets.UTF_8));
-    vector1.setValueCount(4);
+    setVector(vector1,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8),
+        "baz".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8));
 
     FieldVector encodedVector1 = (FieldVector) DictionaryEncoder.encode(vector1, dictionary1);
 
     VarCharVector vector2 = newVarCharVector("varchar2", allocator);
-    vector2.allocateNewSafe();
-    vector2.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    vector2.set(1, "aa".getBytes(StandardCharsets.UTF_8));
-    vector2.set(2, "bb".getBytes(StandardCharsets.UTF_8));
-    vector2.set(3, "cc".getBytes(StandardCharsets.UTF_8));
-    vector2.setValueCount(4);
+    setVector(vector2,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "aa".getBytes(StandardCharsets.UTF_8),
+        "bb".getBytes(StandardCharsets.UTF_8),
+        "cc".getBytes(StandardCharsets.UTF_8));
 
     FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary3);
 

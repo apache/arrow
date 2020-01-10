@@ -32,6 +32,7 @@ public class ArrowDictionaryBatch implements ArrowMessage {
   private final ArrowRecordBatch dictionary;
   private final boolean isDelta;
 
+  @Deprecated
   public ArrowDictionaryBatch(long dictionaryId, ArrowRecordBatch dictionary) {
     this (dictionaryId, dictionary, false);
   }
