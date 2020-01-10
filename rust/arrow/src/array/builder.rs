@@ -1098,7 +1098,7 @@ where
 /// arrays or result in an ordered dictionary.
 pub struct StringDictionaryBuilder<K>
 where
-    K: ArrowPrimitiveType
+    K: ArrowPrimitiveType,
 {
     keys_builder: PrimitiveBuilder<K>,
     values_builder: StringBuilder,
@@ -1108,14 +1108,14 @@ where
 
 impl<K> StringDictionaryBuilder<K>
 where
-    K: ArrowPrimitiveType
+    K: ArrowPrimitiveType,
 {
     /// Creates a new `StringDictionaryBuilder` from a keys builder and a value builder.
     /// Set null_is_zero if you want zero to be the null value (recommended).
     pub fn new(
         keys_builder: PrimitiveBuilder<K>,
         mut values_builder: StringBuilder,
-        null_is_zero : bool,
+        null_is_zero: bool,
     ) -> Self {
         if null_is_zero {
             values_builder.append_null().unwrap();
@@ -1124,14 +1124,14 @@ where
             keys_builder,
             values_builder,
             map: HashMap::new(),
-            null_is_zero
+            null_is_zero,
         }
     }
 }
 
 impl<K> ArrayBuilder for StringDictionaryBuilder<K>
 where
-    K: ArrowPrimitiveType
+    K: ArrowPrimitiveType,
 {
     /// Returns the builder as an non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
@@ -1161,7 +1161,7 @@ where
 
 impl<K> StringDictionaryBuilder<K>
 where
-    K: ArrowPrimitiveType
+    K: ArrowPrimitiveType,
 {
     /// Append a primitive value to the array. Return an existing index
     /// if already present in the values array or a new index if the
@@ -1184,7 +1184,8 @@ where
 
     pub fn append_null(&mut self) -> Result<()> {
         if self.null_is_zero {
-            self.keys_builder.append_value(K::Native::from_usize(0).unwrap())
+            self.keys_builder
+                .append_value(K::Native::from_usize(0).unwrap())
         } else {
             self.keys_builder.append_null()
         }
