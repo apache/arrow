@@ -28,10 +28,16 @@ export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_PATH}
 
 pushd ${build_dir}
-if type nproc > dev/null 2>&1; then
-  n_jobs=$(nproc)
-else
-  n_jobs=$(/usr/sbin/sysctl -n hw.ncpu)
-fi
+case "$(uname)" in
+  Linux)
+    n_jobs=$(nproc)
+    ;;
+  Darwin)
+    n_jobs=$(sysctl -n hw.ncpu)
+    ;;
+  *)
+    n_jobs=1
+    ;;
+esac
 ctest --output-on-failure -j${n_jobs}
 popd
