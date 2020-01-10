@@ -50,6 +50,10 @@ if [ "$BISON_ROOT" != "" ]; then
   # Thrift can't find this as a cmake flag, so put it on the PATH
   export PATH="${BISON_ROOT}:${PATH}"
 fi
+if [ "$ARROW_R_DEV" = "TRUE" ]; then
+  # Print more verbosity
+  EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DARROW_VERBOSE_THIRDPARTY_BUILD=ON"
+fi
 
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
@@ -65,7 +69,6 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_JEMALLOC=ON \
     -DARROW_JSON=ON \
     -DARROW_PARQUET=ON \
-    -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
     -DARROW_WITH_BROTLI=ON \
     -DARROW_WITH_BZ2=ON \
     -DARROW_WITH_LZ4=ON \
