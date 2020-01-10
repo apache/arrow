@@ -356,12 +356,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     return buffer;
   }
 
-  private AllocationManager newAllocationManager(int size) {
+  private AllocationManager newAllocationManager(long size) {
     return newAllocationManager(this, size);
   }
 
 
-  private AllocationManager newAllocationManager(BaseAllocator accountingAllocator, int size) {
+  private AllocationManager newAllocationManager(BaseAllocator accountingAllocator, long size) {
     return allocationManagerFactory.create(accountingAllocator, size);
   }
 
@@ -722,7 +722,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
       sb.append(Integer.toString(System.identityHashCode(am)));
       sb.append("] size ");
-      sb.append(Integer.toString(am.getSize()));
+      sb.append(Long.toString(am.getSize()));
       sb.append('\n');
     }
   }

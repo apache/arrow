@@ -211,6 +211,6 @@ public abstract class AllocationManager {
      * @param size Size (in bytes) of memory managed by the AllocationManager
      * @return The created AllocationManager used by this allocator
      */
-    AllocationManager create(BaseAllocator accountingAllocator, int size);
+    AllocationManager create(BaseAllocator accountingAllocator, long size);
   }
 }
