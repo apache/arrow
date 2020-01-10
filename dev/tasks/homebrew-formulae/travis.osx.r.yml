@@ -39,6 +39,9 @@ script:
 - travis_wait R CMD build .
 # Note that this is not --as-cran. CRAN doesn't do macOS checks --as-cran
 - travis_wait R CMD check arrow_*.tar.gz --install-args="--build"
+after_failure:
+# If there's a build failure, it's probably in this log
+- cat arrow.Rcheck/00install.out
 
 notifications:
   email:
