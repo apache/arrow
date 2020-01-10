@@ -543,7 +543,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
   public void reallocValidityAndOffsetBuffers() {
-    int targetOffsetCount = capAtMaxInt((offsetBuffer.capacity() / OFFSET_WIDTH)  * 2);
+    int targetOffsetCount = capAtMaxInt((offsetBuffer.capacity() / OFFSET_WIDTH) * 2);
     if (targetOffsetCount == 0) {
       if (lastValueCapacity > 0) {
         targetOffsetCount = (lastValueCapacity + 1);
