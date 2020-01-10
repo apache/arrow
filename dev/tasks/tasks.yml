@@ -112,6 +112,7 @@ groups:
     - test-ubuntu-18.04-python-3
     - test-fedora-29-python-3
     - test-r-rhub-ubuntu-gcc-release
+    - test-r-rhub-debian-gcc-devel
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
     - test-r-rstudio-r-base-3.6-opensuse15
@@ -157,6 +158,7 @@ groups:
     - test-ubuntu-18.04-python-3
     - test-fedora-29-python-3
     - test-r-rhub-ubuntu-gcc-release
+    - test-r-rhub-debian-gcc-devel
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
     - test-r-rstudio-r-base-3.6-opensuse15
@@ -191,10 +193,10 @@ groups:
     - test-fedora-29-python-3
 
   r:
-    - test-ubuntu-18.04-r-3.6
     - test-conda-r-3.6
     - test-ubuntu-18.04-r-sanitizer
     - test-r-rhub-ubuntu-gcc-release
+    - test-r-rhub-debian-gcc-devel
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
     - test-r-rstudio-r-base-3.6-opensuse15
@@ -288,11 +290,11 @@ groups:
     - test-ubuntu-18.04-python-3
     - test-fedora-29-python-3
     - test-r-rhub-ubuntu-gcc-release
+    - test-r-rhub-debian-gcc-devel
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
     - test-r-rstudio-r-base-3.6-opensuse15
     - test-r-rstudio-r-base-3.6-opensuse42
-    - test-ubuntu-18.04-r-3.6
     - test-conda-r-3.6
     - test-ubuntu-18.04-r-sanitizer
     - test-debian-10-go-1.12
@@ -1927,6 +1929,15 @@ tasks:
         - docker-compose build fedora-cpp
         - docker-compose build fedora-python
         - docker-compose run fedora-python
+
+  test-r-rhub-debian-gcc-devel:
+    ci: azure
+    platform: linux
+    template: r/azure.linux.yml
+    params:
+      r_org: rhub
+      r_image: debian-gcc-devel
+      r_tag: latest
 
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
