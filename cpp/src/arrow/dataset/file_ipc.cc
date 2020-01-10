@@ -49,7 +49,7 @@ class IpcScanTask : public ScanTask {
               std::shared_ptr<ScanContext> context)
       : ScanTask(std::move(options), std::move(context)), source_(std::move(source)) {}
 
-  Result<RecordBatchIterator> Execute() {
+  Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto input, source_.Open());
     std::shared_ptr<RecordBatchReader> reader;
     RETURN_NOT_OK(

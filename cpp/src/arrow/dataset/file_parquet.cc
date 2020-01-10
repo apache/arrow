@@ -50,9 +50,9 @@ class ParquetScanTask : public ScanTask {
       : ScanTask(std::move(options), std::move(context)),
         row_group_(row_group),
         column_projection_(std::move(column_projection)),
-        reader_(reader) {}
+        reader_(std::move(reader)) {}
 
-  Result<RecordBatchIterator> Execute() {
+  Result<RecordBatchIterator> Execute() override {
     // The construction of parquet's RecordBatchReader is deferred here to
     // control the memory usage of consumers who materialize all ScanTasks
     // before dispatching them, e.g. for scheduling purposes.
@@ -83,7 +83,7 @@ class RowGroupSkipper {
 
   RowGroupSkipper(std::shared_ptr<parquet::FileMetaData> metadata,
                   std::shared_ptr<Expression> filter)
-      : metadata_(std::move(metadata)), filter_(filter), row_group_idx_(0) {
+      : metadata_(std::move(metadata)), filter_(std::move(filter)), row_group_idx_(0) {
     num_row_groups_ = metadata_->num_row_groups();
   }
 
