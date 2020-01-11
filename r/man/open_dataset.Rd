@@ -21,9 +21,9 @@ for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
 \item A character vector that defines the field names corresponding to those
 path segments (that is, you're providing the names that would correspond
 to a \code{Schema} but the types will be autodetected)
-\item A \code{HivePartitionScheme}, as returned by \code{\link[=hive_partition]{hive_partition()}}
-\item A \code{HivePartitionSchemeDiscovery}, the default, which autodetects fields
-from Hive-style path segments
+\item A \code{HivePartitionScheme} or \code{HivePartitionSchemeDiscovery}, as returned
+by \code{\link[=hive_partition]{hive_partition()}} which parses explicit or autodetected fields from
+Hive-style path segments
 \item \code{NULL} for no partitioning
 }}
 
