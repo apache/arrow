@@ -25,12 +25,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -78,6 +80,76 @@ public class AvroToArrowTest extends AvroTestBase {
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     checkRecordResult(schema, data, root);
+  }
+
+  @Test
+  public void testFixedAttributes() throws Exception {
+    Schema schema = getSchema("attrs/test_fixed_attr.avsc");
+
+    List<GenericData.Fixed> data = new ArrayList<>();
+    List<byte[]> expected = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      byte[] value = ("value" + i).getBytes(StandardCharsets.UTF_8);
+      expected.add(value);
+      GenericData.Fixed fixed = new GenericData.Fixed(schema);
+      fixed.bytes(value);
+      data.add(fixed);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    FieldVector vector = root.getFieldVectors().get(0);
+
+    Map<String, String> metadata = vector.getField().getMetadata();
+    assertEquals("fixed doc", metadata.get("doc"));
+    assertEquals("[\"alias1\",\"alias2\"]", metadata.get("aliases"));
+  }
+
+  @Test
+  public void testEnumAttributes() throws Exception {
+    Schema schema = getSchema("attrs/test_enum_attrs.avsc");
+    List<GenericData.EnumSymbol> data = Arrays.asList(
+        new GenericData.EnumSymbol(schema, "SPADES"),
+        new GenericData.EnumSymbol(schema, "HEARTS"),
+        new GenericData.EnumSymbol(schema, "DIAMONDS"),
+        new GenericData.EnumSymbol(schema, "CLUBS"),
+        new GenericData.EnumSymbol(schema, "SPADES"));
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    FieldVector vector = root.getFieldVectors().get(0);
+
+    Map<String, String> metadata = vector.getField().getMetadata();
+    assertEquals("enum doc", metadata.get("doc"));
+    assertEquals("[\"alias1\",\"alias2\"]", metadata.get("aliases"));
+  }
+
+  @Test
+  public void testRecordAttributes() throws Exception {
+    Schema schema = getSchema("attrs/test_record_attrs.avsc");
+    Schema nestedSchema = schema.getFields().get(0).schema();
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      GenericRecord nestedRecord = new GenericData.Record(nestedSchema);
+      nestedRecord.put(0, "test" + i);
+      nestedRecord.put(1, i);
+      record.put(0, nestedRecord);
+
+      data.add(record);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+
+    StructVector structVector = (StructVector) root.getFieldVectors().get(0);
+    Map<String, String> structMeta = structVector.getField().getMetadata();
+    Map<String, String> childMeta1 = structVector.getChildByOrdinal(0).getField().getMetadata();
+    Map<String, String> childMeta2 = structVector.getChildByOrdinal(1).getField().getMetadata();
+
+    assertEquals("f0 doc", structMeta.get("doc"));
+    assertEquals("[\"f0.a1\"]", structMeta.get("aliases"));
+    assertEquals("f1 doc", childMeta1.get("doc"));
+    assertEquals("[\"f1.a1\",\"f1.a2\"]", childMeta1.get("aliases"));
+    assertEquals("f2 doc", childMeta2.get("doc"));
+    assertEquals("[\"f2.a1\",\"f2.a2\"]", childMeta2.get("aliases"));
   }
 
   @Test

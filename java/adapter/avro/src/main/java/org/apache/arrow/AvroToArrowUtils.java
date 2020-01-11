@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +90,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -188,14 +188,15 @@ public class AvroToArrowUtils {
         consumer = new AvroStringConsumer((VarCharVector) vector);
         break;
       case FIXED:
+        Map<String, String> extProps = createExternalProps(schema);
         if (logicalType instanceof LogicalTypes.Decimal) {
           arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema, extProps));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroDecimalConsumer.FixedDecimalConsumer((DecimalVector) vector, schema.getFixedSize());
         } else {
           arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema, extProps));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroFixedConsumer((FixedSizeBinaryVector) vector, schema.getFixedSize());
         }
@@ -417,31 +418,34 @@ public class AvroToArrowUtils {
   }
 
   private static Field avroSchemaToField(Schema schema, String name, AvroToArrowConfig config) {
+    return avroSchemaToField(schema, name, config, null);
+  }
+
+  private static Field avroSchemaToField(
+      Schema schema,
+      String name,
+      AvroToArrowConfig config,
+      Map<String, String> externalProps) {
+
     final Type type = schema.getType();
     final LogicalType logicalType = schema.getLogicalType();
-    final ArrowType arrowType;
+    final List<Field> children = new ArrayList<>();
+    final FieldType fieldType;
 
     switch (type) {
       case UNION:
-        List<Field> children = new ArrayList<>();
         for (int i = 0; i < schema.getTypes().size(); i++) {
           Schema childSchema = schema.getTypes().get(i);
           // Union child vector should use default name
           children.add(avroSchemaToField(childSchema, null, config));
         }
-        arrowType = new ArrowType.Union(UnionMode.Sparse, null);
-        if (name == null) {
-          name = getDefaultFieldName(arrowType);
-        }
-        return new Field(name, FieldType.nullable(arrowType), children);
+        fieldType = createFieldType(new ArrowType.Union(UnionMode.Sparse, null), schema, externalProps);
+        break;
       case ARRAY:
         Schema elementSchema = schema.getElementType();
-        arrowType = new ArrowType.List();
-        if (name == null) {
-          name = getDefaultFieldName(arrowType);
-        }
-        return new Field(name, FieldType.nullable(arrowType),
-            Collections.singletonList(avroSchemaToField(elementSchema, elementSchema.getName(), config)));
+        children.add(avroSchemaToField(elementSchema, elementSchema.getName(), config));
+        fieldType = createFieldType(new ArrowType.List(), schema, externalProps);
+        break;
       case MAP:
         // MapVector internal struct field and key field should be non-nullable
         FieldType keyFieldType = new FieldType(/*nullable=*/false, new ArrowType.Utf8(), /*dictionary=*/null);
@@ -450,85 +454,96 @@ public class AvroToArrowUtils {
 
         FieldType structFieldType = new FieldType(false, new ArrowType.Struct(), /*dictionary=*/null);
         Field structField = new Field("internal", structFieldType, Arrays.asList(keyField, valueField));
-        arrowType = new ArrowType.Map(/*keySorted=*/false);
-        if (name == null) {
-          name = getDefaultFieldName(arrowType);
-        }
-        return new Field(name, FieldType.nullable(arrowType), Collections.singletonList(structField));
+        children.add(structField);
+        fieldType = createFieldType(new ArrowType.Map(/*keySorted=*/false), schema, externalProps);
+        break;
       case RECORD:
-        List<Field> childFields = new ArrayList<>();
         final Set<String> skipFieldNames = config.getSkipFieldNames();
         for (int i = 0; i < schema.getFields().size(); i++) {
           final Schema.Field field = schema.getFields().get(i);
           Schema childSchema = field.schema();
           String fullChildName = String.format("%s.%s", name, field.name());
           if (!skipFieldNames.contains(fullChildName)) {
-            childFields.add(avroSchemaToField(childSchema, fullChildName, config));
+            final Map<String, String> extProps = new HashMap<>();
+            String doc = field.doc();
+            Set<String> aliases = field.aliases();
+            if (doc != null) {
+              extProps.put("doc", doc);
+            }
+            if (aliases != null) {
+              extProps.put("aliases", convertAliases(aliases));
+            }
+            children.add(avroSchemaToField(childSchema, fullChildName, config, extProps));
           }
         }
-        arrowType = new ArrowType.Struct();
-        if (name == null) {
-          name = getDefaultFieldName(arrowType);
-        }
-        return new Field(name, FieldType.nullable(arrowType), childFields);
+        fieldType = createFieldType(new ArrowType.Struct(), schema, externalProps);
+        break;
       case ENUM:
         DictionaryProvider.MapDictionaryProvider provider = config.getProvider();
         int current = provider.getDictionaryIds().size();
         int enumCount = schema.getEnumSymbols().size();
         ArrowType.Int indexType = DictionaryEncoder.getIndexType(enumCount);
-        FieldType indexFieldType = new FieldType(true, indexType,
+
+        fieldType = createFieldType(indexType, schema, externalProps,
             new DictionaryEncoding(current, /*ordered=*/false, /*indexType=*/indexType));
-        return new Field(name, indexFieldType, null);
+        break;
 
       case STRING:
-        arrowType = new ArrowType.Utf8();
+        fieldType = createFieldType(new ArrowType.Utf8(), schema, externalProps);
         break;
       case FIXED:
+        final ArrowType fixedArrowType;
         if (logicalType instanceof LogicalTypes.Decimal) {
-          arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
+          fixedArrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
         } else {
-          arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
+          fixedArrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
         }
+        fieldType = createFieldType(fixedArrowType, schema, externalProps);
         break;
       case INT:
+        final ArrowType intArrowType;
         if (logicalType instanceof LogicalTypes.Date) {
-          arrowType = new ArrowType.Date(DateUnit.DAY);
+          intArrowType = new ArrowType.Date(DateUnit.DAY);
         } else if (logicalType instanceof LogicalTypes.TimeMillis) {
-          arrowType = new ArrowType.Time(TimeUnit.MILLISECOND, 32);
+          intArrowType = new ArrowType.Time(TimeUnit.MILLISECOND, 32);
         } else {
-          arrowType = new ArrowType.Int(32, /*signed=*/true);
+          intArrowType = new ArrowType.Int(32, /*signed=*/true);
         }
+        fieldType = createFieldType(intArrowType, schema, externalProps);
         break;
       case BOOLEAN:
-        arrowType = new ArrowType.Bool();
+        fieldType = createFieldType(new ArrowType.Bool(), schema, externalProps);
         break;
       case LONG:
+        final ArrowType longArrowType;
         if (logicalType instanceof LogicalTypes.TimeMicros) {
-          arrowType = new ArrowType.Time(TimeUnit.MICROSECOND, 64);
+          longArrowType = new ArrowType.Time(TimeUnit.MICROSECOND, 64);
         } else if (logicalType instanceof LogicalTypes.TimestampMillis) {
-          arrowType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
+          longArrowType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
         } else if (logicalType instanceof LogicalTypes.TimestampMicros) {
-          arrowType = new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
+          longArrowType = new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
         } else {
-          arrowType = new ArrowType.Int(64, /*signed=*/true);
+          longArrowType = new ArrowType.Int(64, /*signed=*/true);
         }
+        fieldType = createFieldType(longArrowType, schema, externalProps);
         break;
       case FLOAT:
-        arrowType = new ArrowType.FloatingPoint(SINGLE);
+        fieldType = createFieldType(new ArrowType.FloatingPoint(SINGLE), schema, externalProps);
         break;
       case DOUBLE:
-        arrowType = new ArrowType.FloatingPoint(DOUBLE);
+        fieldType = createFieldType(new ArrowType.FloatingPoint(DOUBLE), schema, externalProps);
         break;
       case BYTES:
+        final ArrowType bytesArrowType;
         if (logicalType instanceof LogicalTypes.Decimal) {
-          arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
+          bytesArrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
         } else {
-          arrowType = new ArrowType.Binary();
+          bytesArrowType = new ArrowType.Binary();
         }
-
+        fieldType = createFieldType(bytesArrowType, schema, externalProps);
         break;
       case NULL:
-        arrowType = new ArrowType.Null();
+        fieldType = createFieldType(ArrowType.Null.INSTANCE, schema, externalProps);
         break;
       default:
         // no-op, shouldn't get here
@@ -536,9 +551,9 @@ public class AvroToArrowUtils {
     }
 
     if (name == null) {
-      name = getDefaultFieldName(arrowType);
+      name = getDefaultFieldName(fieldType.getType());
     }
-    return Field.nullable(name, arrowType);
+    return new Field(name, fieldType, children.size() == 0 ? null : children);
   }
 
   private static Consumer createArrayConsumer(Schema schema, String name, AvroToArrowConfig config,
@@ -568,7 +583,7 @@ public class AvroToArrowUtils {
 
     StructVector structVector;
     if (consumerVector == null) {
-      final Field field = avroSchemaToField(schema, name, config);
+      final Field field = avroSchemaToField(schema, name, config, createExternalProps(schema));
       structVector = (StructVector) field.createVector(config.getAllocator());
     } else {
       structVector = (StructVector) consumerVector;
@@ -600,7 +615,7 @@ public class AvroToArrowUtils {
 
     BaseIntVector indexVector;
     if (consumerVector == null) {
-      final Field field = avroSchemaToField(schema, name, config);
+      final Field field = avroSchemaToField(schema, name, config, createExternalProps(schema));
       indexVector = (BaseIntVector) field.createVector(config.getAllocator());
     } else {
       indexVector = (BaseIntVector) consumerVector;
@@ -676,12 +691,6 @@ public class AvroToArrowUtils {
     return new AvroUnionsConsumer(unionVector, delegates, types);
   }
 
-  private static Map<String, String> getMetaData(Schema schema) {
-    Map<String, String> metadata = new HashMap<>();
-    schema.getObjectProps().forEach((k,v) -> metadata.put(k, v.toString()));
-    return metadata;
-  }
-
   /**
    * Read data from {@link Decoder} and generate a {@link VectorSchemaRoot}.
    * @param schema avro schema
@@ -739,5 +748,55 @@ public class AvroToArrowUtils {
     }
 
     return root;
+  }
+
+  private static Map<String, String> getMetaData(Schema schema) {
+    Map<String, String> metadata = new HashMap<>();
+    schema.getObjectProps().forEach((k,v) -> metadata.put(k, v.toString()));
+    return metadata;
+  }
+
+  private static Map<String, String> getMetaData(Schema schema, Map<String, String> externalProps) {
+    Map<String, String> metadata = getMetaData(schema);
+    if (externalProps != null) {
+      metadata.putAll(externalProps);
+    }
+    return metadata;
+  }
+
+  /**
+   * Parse avro attributes and convert them to metadata.
+   */
+  private static Map<String, String> createExternalProps(Schema schema) {
+    final Map<String, String> extProps = new HashMap<>();
+    String doc = schema.getDoc();
+    Set<String> aliases = schema.getAliases();
+    if (doc != null) {
+      extProps.put("doc", doc);
+    }
+    if (aliases != null) {
+      extProps.put("aliases", convertAliases(aliases));
+    }
+    return extProps;
+  }
+
+  private static FieldType createFieldType(ArrowType arrowType, Schema schema, Map<String, String> externalProps) {
+    return createFieldType(arrowType, schema, externalProps, /*dictionary=*/null);
+  }
+
+  private static FieldType createFieldType(
+      ArrowType arrowType,
+      Schema schema,
+      Map<String, String> externalProps,
+      DictionaryEncoding dictionary) {
+
+    return new FieldType(/*nullable=*/false, arrowType, dictionary,
+        getMetaData(schema, externalProps));
+  }
+
+  private static String convertAliases(Set<String> aliases) {
+    JsonStringArrayList jsonList = new JsonStringArrayList();
+    aliases.stream().forEach(a -> jsonList.add(a));
+    return jsonList.toString();
   }
 }
