@@ -15,23 +15,22 @@
 
 using System;
 
-namespace Apache.Arrow.Types
+namespace Apache.Arrow
 {
-    public sealed class ListType : NestedType
+    public static class TimeSpanExtensions
     {
-        public override ArrowTypeId TypeId => ArrowTypeId.List;
-        public override string Name => "list";
-
-        public Field ValueField => Children[0];
-
-        public IArrowType ValueDataType => Children[0].DataType;
-
-        public ListType(Field valueField)
-           : base(valueField) { }
-
-        public ListType(IArrowType valueDataType)
-            : this(new Field("item", valueDataType, true)) { }
-
-        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+        /// <summary>
+        /// Formats a TimeSpan into an ISO 8601 compliant time offset string.
+        /// </summary>
+        /// <param name="timeSpan">timeSpan to format</param>
+        /// <returns>ISO 8601 offset string</returns>
+        public static string ToTimeZoneOffsetString(this TimeSpan timeSpan)
+        {
+            var sign = timeSpan.Hours >= 0 ? "+" : "-";
+            var hours = Math.Abs(timeSpan.Hours);
+            var minutes = Math.Abs(timeSpan.Minutes);
+            return sign + hours.ToString("00") + ":" + minutes.ToString("00");
+        }
+           
     }
 }

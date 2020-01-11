@@ -30,16 +30,21 @@ namespace Apache.Arrow
             ArrowBuffer valueOffsetsBuffer, IArrowArray values,
             ArrowBuffer nullBitmapBuffer, int nullCount = 0, int offset = 0)
             : this(new ArrayData(dataType, length, nullCount, offset,
-                new[] { nullBitmapBuffer, valueOffsetsBuffer }, new[] { values.Data }))
+                new[] { nullBitmapBuffer, valueOffsetsBuffer }, new[] { values.Data }),
+                values)
         {
-            Values = values;
         }
 
         public ListArray(ArrayData data)
-            : base(data)
+            : this(data, ArrowArrayFactory.BuildArray(data.Children[0]))
+        {
+        }
+
+        private ListArray(ArrayData data, IArrowArray values) : base(data)
         {
             data.EnsureBufferCount(2);
             data.EnsureDataType(ArrowTypeId.List);
+            Values = values;
         }
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);

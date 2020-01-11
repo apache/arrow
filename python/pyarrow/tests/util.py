@@ -24,6 +24,7 @@ import decimal
 import numpy as np
 import os
 import random
+import string
 
 import pyarrow as pa
 
@@ -99,6 +100,26 @@ def randdecimal(precision, scale):
 
 def random_ascii(length):
     return bytes(np.random.randint(65, 123, size=length, dtype='i1'))
+
+
+def rands(nchars):
+    """
+    Generate one random string.
+    """
+    RANDS_CHARS = np.array(
+        list(string.ascii_letters + string.digits), dtype=(np.str_, 1))
+    return "".join(np.random.choice(RANDS_CHARS, nchars))
+
+
+def make_dataframe():
+    import pandas as pd
+
+    N = 30
+    df = pd.DataFrame(
+        {col: np.random.randn(N) for col in string.ascii_uppercase[:4]},
+        index=pd.Index([rands(10) for _ in range(N)])
+    )
+    return df
 
 
 def get_modified_env_with_pythonpath():

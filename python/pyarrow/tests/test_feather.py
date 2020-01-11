@@ -32,7 +32,7 @@ from pyarrow.lib import FeatherWriter
 
 
 try:
-    from pandas.util.testing import assert_frame_equal
+    from pandas.testing import assert_frame_equal
     import pandas as pd
     import pyarrow.pandas_compat
 except ImportError:
@@ -441,9 +441,9 @@ class TestFeatherReader(unittest.TestCase):
         self._check_pandas_roundtrip(df)
 
     def test_timestamp_with_nulls(self):
-        df = pd.DataFrame({'test': [pd.datetime(2016, 1, 1),
+        df = pd.DataFrame({'test': [pd.Timestamp(2016, 1, 1),
                                     None,
-                                    pd.datetime(2016, 1, 3)]})
+                                    pd.Timestamp(2016, 1, 3)]})
         df['with_tz'] = df.test.dt.tz_localize('utc')
 
         self._check_pandas_roundtrip(df, null_counts=[1, 1])
@@ -540,9 +540,12 @@ class TestFeatherReader(unittest.TestCase):
         # https://github.com/wesm/feather/issues/240
         # serializing actual python objects
 
-        # period
-        df = pd.DataFrame({'a': pd.period_range('2013', freq='M', periods=3)})
-        self._assert_error_on_write(df, TypeError)
+        # custom python objects
+        class A:
+            pass
+
+        df = pd.DataFrame({'a': [A(), A()]})
+        self._assert_error_on_write(df, ValueError)
 
         # non-strings
         df = pd.DataFrame({'a': ['a', 1, 2.0]})

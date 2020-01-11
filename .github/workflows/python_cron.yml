@@ -18,6 +18,12 @@
 name: Python Cron
 
 on:
+  push:
+    paths:
+      - '.github/workflows/python_cron.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/python_cron.yml'
   schedule:
     - cron: |
         0 */12 * * *

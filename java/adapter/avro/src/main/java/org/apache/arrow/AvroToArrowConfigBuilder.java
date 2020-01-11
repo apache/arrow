@@ -28,7 +28,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
  */
 public class AvroToArrowConfigBuilder {
 
-  private  BufferAllocator allocator;
+  private BufferAllocator allocator;
 
   private int targetBatchSize;
 

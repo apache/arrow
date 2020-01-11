@@ -68,7 +68,7 @@ public final class DurationVector extends BaseFixedWidthVector {
   public DurationVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
     reader = new DurationReaderImpl(DurationVector.this);
-    this.unit =  ((ArrowType.Duration)field.getFieldType().getType()).getUnit();
+    this.unit = ((ArrowType.Duration)field.getFieldType().getType()).getUnit();
   }
 
   /**
@@ -152,7 +152,7 @@ public final class DurationVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final long value =  get(valueBuffer, index);
+      final long value = get(valueBuffer, index);
       return toDuration(value, unit);
     }
   }

@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
@@ -129,8 +128,7 @@ public class ByteFunctionHelpersBenchmarks {
             state.buffer2, 0, ArrowArrayEqualState.BUFFER_CAPACITY);
   }
 
-  @Test
-  public void evaluate() throws RunnerException {
+  public static void main(String[] args) throws RunnerException {
     Options opt = new OptionsBuilder()
         .include(ByteFunctionHelpersBenchmarks.class.getSimpleName())
         .forks(1)

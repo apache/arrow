@@ -42,7 +42,7 @@ write_parquet(
 
 \item{write_statistics}{Specify if we should write statistics. Default \code{TRUE}}
 
-\item{data_page_size}{Set a target threshhold for the approximate encoded
+\item{data_page_size}{Set a target threshold for the approximate encoded
 size of data pages within a column chunk (in bytes). Default 1 MiB.}
 
 \item{properties}{properties for parquet writer, derived from arguments
@@ -96,11 +96,11 @@ Note that "uncompressed" columns may still have dictionary encoding.
 \examples{
 \donttest{
 tf1 <- tempfile(fileext = ".parquet")
-write_parquet(data.frame(x = 1:5), tf2)
+write_parquet(data.frame(x = 1:5), tf1)
 
 # using compression
 tf2 <- tempfile(fileext = ".gz.parquet")
-write_parquet(data.frame(x = 1:5), compression = "gzip", compression_level = 5)
+write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
 
 }
 }

@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.ipc;
 
 import static java.util.Arrays.asList;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -33,7 +34,6 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowMessage;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -58,7 +58,7 @@ public class MessageSerializerTest {
   }
 
   public static byte[] array(ArrowBuf buf) {
-    byte[] bytes = new byte[buf.readableBytes()];
+    byte[] bytes = new byte[checkedCastToInt(buf.readableBytes())];
     buf.readBytes(bytes);
     return bytes;
   }
@@ -147,18 +147,6 @@ public class MessageSerializerTest {
 
   @Rule
   public ExpectedException expectedEx = ExpectedException.none();
-
-  @Test
-  public void testDeserializeRecordBatchLongMetaData() throws IOException {
-    expectedEx.expect(IOException.class);
-    expectedEx.expectMessage("Cannot currently deserialize record batches over 2GB");
-    int offset = 0;
-    int metadataLength = 1;
-    long bodyLength = Integer.MAX_VALUE + 10L;
-    ArrowBlock block = new ArrowBlock(offset, metadataLength, bodyLength);
-    long totalLen = block.getMetadataLength() + block.getBodyLength();
-    MessageSerializer.deserializeRecordBatch(null, block, null);
-  }
 
   @Test
   public void testSerializeRecordBatch() throws IOException {

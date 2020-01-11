@@ -72,23 +72,23 @@ public class InNode implements TreeNode {
     inNode.setField(fieldNode);
 
     if (intValues != null) {
-      GandivaTypes.IntConstants.Builder intConstants =  GandivaTypes.IntConstants.newBuilder();
+      GandivaTypes.IntConstants.Builder intConstants = GandivaTypes.IntConstants.newBuilder();
       intValues.stream().forEach(val -> intConstants.addIntValues(GandivaTypes.IntNode.newBuilder()
               .setValue(val).build()));
       inNode.setIntValues(intConstants.build());
     } else if (longValues != null) {
-      GandivaTypes.LongConstants.Builder longConstants =  GandivaTypes.LongConstants.newBuilder();
+      GandivaTypes.LongConstants.Builder longConstants = GandivaTypes.LongConstants.newBuilder();
       longValues.stream().forEach(val -> longConstants.addLongValues(GandivaTypes.LongNode.newBuilder()
               .setValue(val).build()));
       inNode.setLongValues(longConstants.build());
     } else if (stringValues != null) {
-      GandivaTypes.StringConstants.Builder stringConstants =  GandivaTypes.StringConstants
+      GandivaTypes.StringConstants.Builder stringConstants = GandivaTypes.StringConstants
               .newBuilder();
       stringValues.stream().forEach(val -> stringConstants.addStringValues(GandivaTypes.StringNode
               .newBuilder().setValue(ByteString.copyFrom(val.getBytes(charset))).build()));
       inNode.setStringValues(stringConstants.build());
     } else if (binaryValues != null) {
-      GandivaTypes.BinaryConstants.Builder binaryConstants =  GandivaTypes.BinaryConstants
+      GandivaTypes.BinaryConstants.Builder binaryConstants = GandivaTypes.BinaryConstants
               .newBuilder();
       binaryValues.stream().forEach(val -> binaryConstants.addBinaryValues(GandivaTypes.BinaryNode
               .newBuilder().setValue(ByteString.copyFrom(val)).build()));

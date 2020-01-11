@@ -35,7 +35,7 @@ import io.netty.buffer.UnsafeDirectLittleEndian;
  * ArrowBufs managed by this reference manager share a common
  * fate (same reference count).
  */
-public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, ReferenceManager  {
+public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, ReferenceManager {
   private final IdentityHashMap<ArrowBuf, Object> buffers =
           BaseAllocator.DEBUG ? new IdentityHashMap<>() : null;
   private static final AtomicLong LEDGER_ID_GENERATOR = new AtomicLong(0);
@@ -208,7 +208,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * @return derived buffer
    */
   @Override
-  public ArrowBuf deriveBuffer(final ArrowBuf sourceBuffer, int index, int length) {
+  public ArrowBuf deriveBuffer(final ArrowBuf sourceBuffer, long index, long length) {
     /*
      * Usage type 1 for deriveBuffer():
      * Used for slicing where index represents a relative index in the source ArrowBuf
@@ -265,11 +265,11 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * @return A new ArrowBuf that shares references with all ArrowBufs associated
    *         with this BufferLedger
    */
-  ArrowBuf newArrowBuf(final int length, final BufferManager manager) {
+  ArrowBuf newArrowBuf(final long length, final BufferManager manager) {
     allocator.assertOpen();
 
     // the start virtual address of the ArrowBuf will be same as address of memory chunk
-    final long startAddress = allocationManager.getMemoryChunk().memoryAddress();
+    final long startAddress = allocationManager.memoryAddress();
 
     // create ArrowBuf
     final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress, false);
@@ -326,7 +326,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // and this will be true for all the existing buffers currently managed by targetrefmanager
     final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator)target);
     // create a new ArrowBuf to associate with new allocator and target ref manager
-    final int targetBufLength = srcBuffer.capacity();
+    final long targetBufLength = srcBuffer.capacity();
     ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(srcBuffer, 0, targetBufLength);
     targetArrowBuf.readerIndex(srcBuffer.readerIndex());
     targetArrowBuf.writerIndex(srcBuffer.writerIndex());
@@ -423,7 +423,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // and this will be true for all the existing buffers currently managed by targetrefmanager
     final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator)target);
     // create a new ArrowBuf to associate with new allocator and target ref manager
-    final int targetBufLength = srcBuffer.capacity();
+    final long targetBufLength = srcBuffer.capacity();
     final ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(srcBuffer, 0, targetBufLength);
     targetArrowBuf.readerIndex(srcBuffer.readerIndex());
     targetArrowBuf.writerIndex(srcBuffer.writerIndex());
@@ -463,7 +463,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * @return Size (in bytes) of the memory chunk
    */
   @Override
-  public int getSize() {
+  public long getSize() {
     return allocationManager.getSize();
   }
 
@@ -474,7 +474,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * @return Amount of accounted(owned) memory associated with this ledger.
    */
   @Override
-  public int getAccountedSize() {
+  public long getAccountedSize() {
     synchronized (allocationManager) {
       if (allocationManager.getOwningLedger() == this) {
         return allocationManager.getSize();
@@ -523,7 +523,41 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     }
   }
 
+  /**
+   * @deprecated Use #unwrap(UnsafeDirectLittleEndian.class) instead.
+   */
+  @Deprecated
   public UnsafeDirectLittleEndian getUnderlying() {
-    return allocationManager.getMemoryChunk();
+    return unwrap(UnsafeDirectLittleEndian.class);
+  }
+
+  /**
+   * Get the {@link AllocationManager} used by this BufferLedger.
+   *
+   * @return The AllocationManager used by this BufferLedger.
+   */
+  public AllocationManager getAllocationManager() {
+    return allocationManager;
+  }
+
+  /**
+   * Return the {@link AllocationManager} used or underlying {@link UnsafeDirectLittleEndian} instance
+   * (in the case of we use a {@link NettyAllocationManager}), and cast to desired class.
+   *
+   * @param clazz The desired class to cast into
+   * @return The AllocationManager used by this BufferLedger, or the underlying UnsafeDirectLittleEndian object.
+   */
+  public <T> T unwrap(Class<T> clazz) {
+    if (clazz.isInstance(allocationManager)) {
+      return clazz.cast(allocationManager);
+    }
+
+    if (clazz == UnsafeDirectLittleEndian.class) {
+      Preconditions.checkState(allocationManager instanceof NettyAllocationManager,
+          "Underlying memory was not allocated by Netty");
+      return clazz.cast(((NettyAllocationManager) allocationManager).getMemoryChunk());
+    }
+
+    throw new IllegalArgumentException("Unexpected unwrapping class: " + clazz);
   }
 }

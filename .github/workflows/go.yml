@@ -20,10 +20,12 @@ name: Go
 on:
   push:
     paths:
+      - '.github/workflows/go.yml'
       - 'ci/**'
       - 'go/**'
   pull_request:
     paths:
+      - '.github/workflows/go.yml'
       - 'ci/**'
       - 'go/**'
 

@@ -36,13 +36,13 @@ import pytest
 import pytz
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
-from pyarrow.tests.util import random_ascii
+from pyarrow.tests.util import random_ascii, rands
 
 import pyarrow as pa
 
 try:
     import pandas as pd
-    import pandas.util.testing as tm
+    import pandas.testing as tm
     from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 except ImportError:
     pass
@@ -620,7 +620,7 @@ class TestConvertPrimitiveTypes(object):
 
     def test_float_nulls_to_ints(self):
         # ARROW-2135
-        df = pd.DataFrame({"a": [1.0, 2.0, pd.np.NaN]})
+        df = pd.DataFrame({"a": [1.0, 2.0, np.NaN]})
         schema = pa.schema([pa.field("a", pa.int16(), nullable=True)])
         table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table[0].to_pylist() == [1, 2, None]
@@ -2442,14 +2442,14 @@ class TestConvertMisc(object):
     def test_convert_empty_table(self):
         arr = pa.array([], type=pa.int64())
         empty_objects = pd.Series(np.array([], dtype=object))
-        tm.assert_almost_equal(arr.to_pandas(),
+        tm.assert_series_equal(arr.to_pandas(),
                                pd.Series(np.array([], dtype=np.int64)))
         arr = pa.array([], type=pa.string())
-        tm.assert_almost_equal(arr.to_pandas(), empty_objects)
+        tm.assert_series_equal(arr.to_pandas(), empty_objects)
         arr = pa.array([], type=pa.list_(pa.int64()))
-        tm.assert_almost_equal(arr.to_pandas(), empty_objects)
+        tm.assert_series_equal(arr.to_pandas(), empty_objects)
         arr = pa.array([], type=pa.struct([pa.field('a', pa.int64())]))
-        tm.assert_almost_equal(arr.to_pandas(), empty_objects)
+        tm.assert_series_equal(arr.to_pandas(), empty_objects)
 
     def test_non_natural_stride(self):
         """
@@ -2580,14 +2580,25 @@ def _pytime_to_micros(pytime):
 def test_convert_unsupported_type_error_message():
     # ARROW-1454
 
-    # period as yet unsupported
-    df = pd.DataFrame({
-        'a': pd.period_range('2000-01-01', periods=20),
-    })
+    # custom python objects
+    class A:
+        pass
 
-    expected_msg = 'Conversion failed for column a with type period'
-    with pytest.raises(TypeError, match=expected_msg):
+    df = pd.DataFrame({'a': [A(), A()]})
+
+    expected_msg = 'Conversion failed for column a with type object'
+    with pytest.raises(ValueError, match=expected_msg):
         pa.Table.from_pandas(df)
+
+    # period unsupported for pandas <= 0.25
+    if LooseVersion(pd.__version__) <= '0.25':
+        df = pd.DataFrame({
+            'a': pd.period_range('2000-01-01', periods=20),
+        })
+
+        expected_msg = 'Conversion failed for column a with type period'
+        with pytest.raises(TypeError, match=expected_msg):
+            pa.Table.from_pandas(df)
 
 
 # ----------------------------------------------------------------------
@@ -2595,7 +2606,7 @@ def test_convert_unsupported_type_error_message():
 
 
 def _generate_dedup_example(nunique, repeats):
-    unique_values = [tm.rands(10) for i in range(nunique)]
+    unique_values = [rands(10) for i in range(nunique)]
     return unique_values * repeats
 
 
@@ -2902,6 +2913,14 @@ def test_table_from_pandas_schema_index_columns__unnamed_index():
     schema = pa.Schema.from_pandas(df)
     table = pa.Table.from_pandas(df, schema=schema)
     assert table.schema.remove_metadata().equals(expected_schema)
+
+
+def test_table_from_pandas_schema_with_custom_metadata():
+    # ARROW-7087 - metadata disappear from pandas
+    df = pd.DataFrame()
+    schema = pa.Schema.from_pandas(df).with_metadata({'meta': 'True'})
+    table = pa.Table.from_pandas(df, schema=schema)
+    assert table.schema.metadata.get(b'meta') == b'True'
 
 
 # ----------------------------------------------------------------------

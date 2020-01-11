@@ -60,7 +60,7 @@ read_parquet <- function(file,
 #' @param compression_level compression level. Meaning depends on compression algorithm
 #' @param use_dictionary Specify if we should use dictionary encoding. Default `TRUE`
 #' @param write_statistics Specify if we should write statistics. Default `TRUE`
-#' @param data_page_size Set a target threshhold for the approximate encoded
+#' @param data_page_size Set a target threshold for the approximate encoded
 #'    size of data pages within a column chunk (in bytes). Default 1 MiB.
 #' @param properties properties for parquet writer, derived from arguments
 #'   `version`, `compression`, `compression_level`, `use_dictionary`,
@@ -104,11 +104,11 @@ read_parquet <- function(file,
 #' @examples
 #' \donttest{
 #' tf1 <- tempfile(fileext = ".parquet")
-#' write_parquet(data.frame(x = 1:5), tf2)
+#' write_parquet(data.frame(x = 1:5), tf1)
 #'
 #' # using compression
 #' tf2 <- tempfile(fileext = ".gz.parquet")
-#' write_parquet(data.frame(x = 1:5), compression = "gzip", compression_level = 5)
+#' write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
 #'
 #' }
 #' @export
@@ -205,16 +205,12 @@ ParquetArrowWriterPropertiesBuilder <- R6Class("ParquetArrowWriterPropertiesBuil
 ParquetArrowWriterProperties <- R6Class("ParquetArrowWriterProperties", inherit = Object)
 
 ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps = FALSE, coerce_timestamps = NULL, allow_truncated_timestamps = FALSE) {
-  if (!use_deprecated_int96_timestamps && is.null(coerce_timestamps) && !allow_truncated_timestamps) {
-    shared_ptr(ParquetArrowWriterProperties, parquet___default_arrow_writer_properties())
-  } else {
-    builder <- shared_ptr(ParquetArrowWriterPropertiesBuilder, parquet___ArrowWriterProperties___Builder__create())
-    builder$store_schema()
-    builder$set_int96_support(use_deprecated_int96_timestamps)
-    builder$set_coerce_timestamps(coerce_timestamps)
-    builder$set_allow_truncated_timestamps(allow_truncated_timestamps)
-    shared_ptr(ParquetArrowWriterProperties, parquet___ArrowWriterProperties___Builder__build(builder))
-  }
+  builder <- shared_ptr(ParquetArrowWriterPropertiesBuilder, parquet___ArrowWriterProperties___Builder__create())
+  builder$store_schema()
+  builder$set_int96_support(use_deprecated_int96_timestamps)
+  builder$set_coerce_timestamps(coerce_timestamps)
+  builder$set_allow_truncated_timestamps(allow_truncated_timestamps)
+  shared_ptr(ParquetArrowWriterProperties, parquet___ArrowWriterProperties___Builder__build(builder))
 }
 
 valid_parquet_version <- c(
@@ -254,7 +250,7 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
 #' - `compression_level`: Compression level; meaning depends on compression algorithm
 #' - `use_dictionary`: Specify if we should use dictionary encoding. Default `TRUE`
 #' - `write_statistics`: Specify if we should write statistics. Default `TRUE`
-#' - `data_page_size`: Set a target threshhold for the approximate encoded
+#' - `data_page_size`: Set a target threshold for the approximate encoded
 #'    size of data pages within a column chunk (in bytes). Default 1 MiB.
 #'
 #' @details The parameters `compression`, `compression_level`, `use_dictionary`

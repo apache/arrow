@@ -15,28 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.ipc.message;
+package org.apache.arrow.memory.util;
 
-/**
- * Interface for Arrow IPC messages (https://arrow.apache.org/docs/format/IPC.html).
- */
-public interface ArrowMessage extends FBSerializable, AutoCloseable {
+import org.apache.arrow.memory.BoundsChecking;
+import org.apache.arrow.util.Preconditions;
 
-  long computeBodyLength();
+/** Contains utilities for dealing with a 64-bit address base. */
+public final class LargeMemoryUtil {
 
-  <T> T accepts(ArrowMessageVisitor<T> visitor);
-
-  /** Returns the flatbuffer enum value indicating the type of the message. */
-  byte getMessageType();
+  private LargeMemoryUtil() {}
 
   /**
-   * Visitor interface for implementations of {@link ArrowMessage}.
-   *
-   * @param <T> The type of value to return after visiting.
+   * Casts length to an int, but raises an exception the value is outside
+   * the range of an int.
    */
-  interface ArrowMessageVisitor<T> {
-    T visit(ArrowDictionaryBatch message);
+  public static int checkedCastToInt(long length) {
+    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
+      Preconditions.checkArgument(length <= Integer.MAX_VALUE || length >= Integer.MIN_VALUE,
+          "Can't cast long to int: %s", length);
+    }
+    return (int) length;
+  }
 
-    T visit(ArrowRecordBatch message);
+  /**
+   * Returns a min(Integer.MAX_VALUE, length).
+   */
+  public static int capAtMaxInt(long length) {
+    return (int)Math.min(length, Integer.MAX_VALUE);
   }
 }

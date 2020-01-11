@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Memory;
+using Apache.Arrow.Types;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -32,32 +33,38 @@ namespace Apache.Arrow
                 _allocator = allocator;
             }
 
-            public BooleanArray Boolean(Action<BooleanArray.Builder> action) => Build<BooleanArray, BooleanArray.Builder>(action);
-            public Int8Array Int8(Action<Int8Array.Builder> action) => Build<Int8Array, Int8Array.Builder>(action);
-            public Int16Array Int16(Action<Int16Array.Builder> action) => Build<Int16Array, Int16Array.Builder>(action);
-            public Int32Array Int32(Action<Int32Array.Builder> action) => Build<Int32Array, Int32Array.Builder>(action);
-            public Int64Array Int64(Action<Int64Array.Builder> action) => Build<Int64Array, Int64Array.Builder>(action);
-            public UInt8Array UInt8(Action<UInt8Array.Builder> action) => Build<UInt8Array, UInt8Array.Builder>(action);
-            public UInt16Array UInt16(Action<UInt16Array.Builder> action) => Build<UInt16Array, UInt16Array.Builder>(action);
-            public UInt32Array UInt32(Action<UInt32Array.Builder> action) => Build<UInt32Array, UInt32Array.Builder>(action);
-            public UInt64Array UInt64(Action<UInt64Array.Builder> action) => Build<UInt64Array, UInt64Array.Builder>(action);
-            public FloatArray Float(Action<FloatArray.Builder> action) => Build<FloatArray, FloatArray.Builder>(action);
-            public DoubleArray Double(Action<DoubleArray.Builder> action) => Build<DoubleArray, DoubleArray.Builder>(action);
-            public Date32Array Date32(Action<Date32Array.Builder> action) => Build<Date32Array, Date32Array.Builder>(action);
-            public Date64Array Date64(Action<Date64Array.Builder> action) => Build<Date64Array, Date64Array.Builder>(action);
-            public BinaryArray Binary(Action<BinaryArray.Builder> action) => Build<BinaryArray, BinaryArray.Builder>(action);
-            public StringArray String(Action<StringArray.Builder> action) => Build<StringArray, StringArray.Builder>(action);
+            public BooleanArray Boolean(Action<BooleanArray.Builder> action) => Build<BooleanArray, BooleanArray.Builder>(new BooleanArray.Builder(), action);
+            public Int8Array Int8(Action<Int8Array.Builder> action) => Build<Int8Array, Int8Array.Builder>(new Int8Array.Builder(), action);
+            public Int16Array Int16(Action<Int16Array.Builder> action) => Build<Int16Array, Int16Array.Builder>(new Int16Array.Builder(), action);
+            public Int32Array Int32(Action<Int32Array.Builder> action) => Build<Int32Array, Int32Array.Builder>(new Int32Array.Builder(), action);
+            public Int64Array Int64(Action<Int64Array.Builder> action) => Build<Int64Array, Int64Array.Builder>(new Int64Array.Builder(), action);
+            public UInt8Array UInt8(Action<UInt8Array.Builder> action) => Build<UInt8Array, UInt8Array.Builder>(new UInt8Array.Builder(), action);
+            public UInt16Array UInt16(Action<UInt16Array.Builder> action) => Build<UInt16Array, UInt16Array.Builder>(new UInt16Array.Builder(), action);
+            public UInt32Array UInt32(Action<UInt32Array.Builder> action) => Build<UInt32Array, UInt32Array.Builder>(new UInt32Array.Builder(), action);
+            public UInt64Array UInt64(Action<UInt64Array.Builder> action) => Build<UInt64Array, UInt64Array.Builder>(new UInt64Array.Builder(), action);
+            public FloatArray Float(Action<FloatArray.Builder> action) => Build<FloatArray, FloatArray.Builder>(new FloatArray.Builder(), action);
+            public DoubleArray Double(Action<DoubleArray.Builder> action) => Build<DoubleArray, DoubleArray.Builder>(new DoubleArray.Builder(), action);
+            public Date32Array Date32(Action<Date32Array.Builder> action) => Build<Date32Array, Date32Array.Builder>(new Date32Array.Builder(), action);
+            public Date64Array Date64(Action<Date64Array.Builder> action) => Build<Date64Array, Date64Array.Builder>(new Date64Array.Builder(), action);
+            public BinaryArray Binary(Action<BinaryArray.Builder> action) => Build<BinaryArray, BinaryArray.Builder>(new BinaryArray.Builder(), action);
+            public StringArray String(Action<StringArray.Builder> action) => Build<StringArray, StringArray.Builder>(new StringArray.Builder(), action);
+            public TimestampArray Timestamp(Action<TimestampArray.Builder> action) => Build<TimestampArray, TimestampArray.Builder>(new TimestampArray.Builder(), action);
+            public TimestampArray Timestamp(TimestampType type, Action<TimestampArray.Builder> action) => 
+                Build<TimestampArray, TimestampArray.Builder>(
+                    new TimestampArray.Builder(type), action);
+            public TimestampArray Timestamp(TimeUnit unit, TimeZoneInfo timezone, Action<TimestampArray.Builder> action) =>
+                Build<TimestampArray, TimestampArray.Builder>(
+                    new TimestampArray.Builder(new TimestampType(unit, timezone)), action);
 
-            private TArray Build<TArray, TArrayBuilder>(Action<TArrayBuilder> action)
+            private TArray Build<TArray, TArrayBuilder>(TArrayBuilder builder, Action<TArrayBuilder> action)
                 where TArray: IArrowArray
-                where TArrayBuilder: IArrowArrayBuilder<TArray>, new()
+                where TArrayBuilder: IArrowArrayBuilder<TArray>
             {
                 if (action == null)
                 {
                     return default;
                 }
 
-                var builder = new TArrayBuilder();
                 action(builder);
 
                 return builder.Build(_allocator);

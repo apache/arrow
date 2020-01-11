@@ -262,7 +262,7 @@ public class BaseFileTest {
       timeStampMilliTZWriter.writeTimeStampMilliTZ(dt.atZone(ZoneId.of("Europe/Paris")).toInstant().toEpochMilli());
       // Timestamp as nanoseconds since epoch
       timeStampNanoWriter.setPosition(i);
-      long tsNanos = dt.toInstant(ZoneOffset.UTC).toEpochMilli() * 1_000_000 + i;  // need to add back in nano val
+      long tsNanos = dt.toInstant(ZoneOffset.UTC).toEpochMilli() * 1_000_000 + i; // need to add back in nano val
       timeStampNanoWriter.writeTimeStampNano(tsNanos);
     }
     writer.setValueCount(count);
@@ -324,16 +324,16 @@ public class BaseFileTest {
     vector1A.setValueCount(6);
 
     FieldVector encodedVector1A = (FieldVector) DictionaryEncoder.encode(vector1A, dictionary1);
-    vector1A.close();  // Done with this vector after encoding
+    vector1A.close(); // Done with this vector after encoding
 
     // Write this vector using indices instead of encoding
     IntVector encodedVector1B = new IntVector("varcharB", bufferAllocator);
     encodedVector1B.allocateNewSafe();
-    encodedVector1B.set(0, 2);  // "baz"
-    encodedVector1B.set(1, 1);  // "bar"
-    encodedVector1B.set(2, 2);  // "baz"
-    encodedVector1B.set(4, 1);  // "bar"
-    encodedVector1B.set(5, 0);  // "foo"
+    encodedVector1B.set(0, 2); // "baz"
+    encodedVector1B.set(1, 1); // "bar"
+    encodedVector1B.set(2, 2); // "baz"
+    encodedVector1B.set(4, 1); // "bar"
+    encodedVector1B.set(5, 0); // "foo"
     encodedVector1B.setValueCount(6);
 
     VarCharVector vector2 = newVarCharVector("sizes", bufferAllocator);
@@ -345,7 +345,7 @@ public class BaseFileTest {
     vector2.setValueCount(6);
 
     FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary2);
-    vector2.close();  // Done with this vector after encoding
+    vector2.close(); // Done with this vector after encoding
 
     List<Field> fields = Arrays.asList(encodedVector1A.getField(), encodedVector1B.getField(),
         encodedVector2.getField());

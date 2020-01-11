@@ -28,8 +28,8 @@ version: '3.5'
 # TODO(kszucs): add .ccache to the mounts
 volumes:
   # Named volumes must be predefined, so in order to use other architecture,
-  # like ARM64v8 with debian 10, then the appropiate parametrized volume name
-  # must be added the the list below: arm64v8-debian-10-cache
+  # like ARM64v8 with debian 10, then the appropriate parametrized volume name
+  # must be added the list below: arm64v8-debian-10-cache
   amd64-conda-cache:
   amd64-cuda-9.1-cache:
   amd64-cuda-10.0-cache:
@@ -478,7 +478,7 @@ services:
     # Possible $PANDAS parameters:
     #  - `latest`: latest release
     #  - `master`: git master branch, use `docker-compose run --no-cache`
-    #  - `<verion>`: specific version available on conda-forge
+    #  - `<version>`: specific version available on conda-forge
     # Usage:
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
@@ -505,7 +505,7 @@ services:
     # Possible $DASK parameters:
     #  - `latest`: latest release
     #  - `master`: git master branch, use `docker-compose run --no-cache`
-    #  - `<verion>`: specific version available on conda-forge
+    #  - `<version>`: specific version available on conda-forge
     # Usage:
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
@@ -535,7 +535,7 @@ services:
     # Possible $DASK parameters:
     #  - `latest`: latest release
     #  - `master`: git master branch, use `docker-compose run --no-cache`
-    #  - `<verion>`: specific version available under github releases
+    #  - `<version>`: specific version available under github releases
     # Usage:
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python

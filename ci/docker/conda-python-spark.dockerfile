@@ -32,7 +32,6 @@ RUN conda install -q \
 # installing specific version of spark
 ARG spark=master
 COPY ci/scripts/install_spark.sh /arrow/ci/scripts/
-COPY ci/etc/ARROW-6429.patch /arrow/ci/etc/
 RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark /arrow/ci/etc
 
 # build cpp with tests

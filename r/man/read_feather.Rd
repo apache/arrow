@@ -29,14 +29,12 @@ Read a Feather file
 }
 \examples{
 \donttest{
-try({
-  tf <- tempfile()
-  on.exit(unlink(tf))
-  write_feather(iris, tf)
-  df <- read_feather(tf)
-  dim(df)
-  # Can select columns
-  df <- read_feather(tf, col_select = starts_with("Sepal"))
-})
+tf <- tempfile()
+on.exit(unlink(tf))
+write_feather(iris, tf)
+df <- read_feather(tf)
+dim(df)
+# Can select columns
+df <- read_feather(tf, col_select = starts_with("Sepal"))
 }
 }

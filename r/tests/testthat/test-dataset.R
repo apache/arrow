@@ -90,13 +90,39 @@ test_that("Hive partitioning", {
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
+      filter(group == 2) %>%
       select(chr, dbl) %>%
       filter(dbl > 7 & dbl < 53) %>%
       arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
+    df2[1:2, c("chr", "dbl")]
+  )
+})
+
+test_that("Partition scheme inference", {
+  # These are the same tests as above, just using the *PartitionSchemeDiscovery
+  ds1 <- open_dataset(dataset_dir, partition = "part")
+  expect_identical(names(ds1), c(names(df1), "part"))
+  expect_equivalent(
+    ds1 %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 1) %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+
+  ds2 <- open_dataset(hive_dir)
+  expect_identical(names(ds2), c(names(df1), "group", "other"))
+  print(ds2$schema)
+  expect_equivalent(
+    ds2 %>%
+      filter(group == 2) %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53) %>%
+      arrange(dbl),
+    df2[1:2, c("chr", "dbl")]
   )
 })
 

@@ -35,9 +35,9 @@ public class VectorExpander {
    */
   public static class ExpandResult {
     public long address;
-    public int capacity;
+    public long capacity;
 
-    public ExpandResult(long address, int capacity) {
+    public ExpandResult(long address, long capacity) {
       this.address = address;
       this.capacity = capacity;
     }
@@ -52,7 +52,7 @@ public class VectorExpander {
    *
    * @return address and size  of the buffer after expansion.
    */
-  public ExpandResult expandOutputVectorAtIndex(int index, int toCapacity) {
+  public ExpandResult expandOutputVectorAtIndex(int index, long toCapacity) {
     if (index >= vectors.length || vectors[index] == null) {
       throw new IllegalArgumentException("invalid index " + index);
     }

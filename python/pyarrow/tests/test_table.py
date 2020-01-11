@@ -484,7 +484,7 @@ def test_table_from_batches_and_schema():
 
 @pytest.mark.pandas
 def test_table_to_batches():
-    from pandas.util.testing import assert_frame_equal
+    from pandas.testing import assert_frame_equal
     import pandas as pd
 
     df1 = pd.DataFrame({'a': list(range(10))})

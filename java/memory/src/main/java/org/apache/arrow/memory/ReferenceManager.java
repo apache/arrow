@@ -89,7 +89,7 @@ public interface ReferenceManager {
    *               have access to in underlying memory
    * @return derived buffer
    */
-  ArrowBuf deriveBuffer(ArrowBuf sourceBuffer, int index, int length);
+  ArrowBuf deriveBuffer(ArrowBuf sourceBuffer, long index, long length);
 
   /**
    * Transfer the memory accounting ownership of this ArrowBuf to another allocator.
@@ -111,13 +111,13 @@ public interface ReferenceManager {
    * Total size (in bytes) of memory underlying this reference manager.
    * @return Size (in bytes) of the memory chunk.
    */
-  int getSize();
+  long getSize();
 
   /**
    * Get the total accounted size (in bytes).
    * @return accounted size.
    */
-  int getAccountedSize();
+  long getAccountedSize();
 
   String NO_OP_ERROR_MESSAGE = "Operation not supported on NO_OP Reference Manager";
 
@@ -150,7 +150,7 @@ public interface ReferenceManager {
     }
 
     @Override
-    public ArrowBuf deriveBuffer(ArrowBuf sourceBuffer, int index, int length) {
+    public ArrowBuf deriveBuffer(ArrowBuf sourceBuffer, long index, long length) {
       return sourceBuffer;
     }
 
@@ -165,13 +165,13 @@ public interface ReferenceManager {
     }
 
     @Override
-    public int getSize() {
-      return 0;
+    public long getSize() {
+      return 0L;
     }
 
     @Override
-    public int getAccountedSize() {
-      return 0;
+    public long getAccountedSize() {
+      return 0L;
     }
 
   };

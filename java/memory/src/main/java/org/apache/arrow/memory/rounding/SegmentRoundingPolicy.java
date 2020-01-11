@@ -22,7 +22,7 @@ import org.apache.arrow.util.Preconditions;
 /**
  * The rounding policy that each buffer size must a multiple of the segment size.
  */
-public class SegmentRoundingPolicy implements  RoundingPolicy {
+public class SegmentRoundingPolicy implements RoundingPolicy {
 
   /**
    * The minimal segment size.
@@ -50,7 +50,7 @@ public class SegmentRoundingPolicy implements  RoundingPolicy {
   }
 
   @Override
-  public int getRoundedSize(int requestSize) {
+  public long getRoundedSize(long requestSize) {
     return (requestSize + (segmentSize - 1)) / segmentSize * segmentSize;
   }
 

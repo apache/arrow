@@ -17,7 +17,7 @@
 
 # Turn .dockerignore to .dockerallow by excluding everything and explicitly
 # allowing specific files and directories. This enables us to quickly add
-# dependency files to the docker contect without scanning the whole directory.
+# dependency files to the docker content without scanning the whole directory.
 # This setup requires to all of our docker containers have arrow's source
 # as a mounted directory.
 

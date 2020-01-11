@@ -37,7 +37,7 @@ and takes the following arguments:
 \item \code{compression_level}: Compression level; meaning depends on compression algorithm
 \item \code{use_dictionary}: Specify if we should use dictionary encoding. Default \code{TRUE}
 \item \code{write_statistics}: Specify if we should write statistics. Default \code{TRUE}
-\item \code{data_page_size}: Set a target threshhold for the approximate encoded
+\item \code{data_page_size}: Set a target threshold for the approximate encoded
 size of data pages within a column chunk (in bytes). Default 1 MiB.
 }
 }

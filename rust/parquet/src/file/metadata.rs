@@ -669,7 +669,7 @@ mod tests {
         assert!(row_group_meta.is_err());
         if let Err(e) = row_group_meta {
             assert_eq!(
-                e.to_string(),
+                format!("{}", e),
                 "Parquet error: Column length mismatch: 2 != 0"
             );
         }

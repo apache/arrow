@@ -46,8 +46,6 @@ using internal::GetAbstractPathParent;
 using internal::MakeAbstractPathRelative;
 using internal::RemoveLeadingSlash;
 
-static constexpr int32_t kDefaultHdfsPort = 8020;
-
 class HadoopFileSystem::Impl {
  public:
   explicit Impl(HdfsOptions options) : options_(std::move(options)) {}
@@ -301,18 +299,13 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     options_map.emplace(kv.first, kv.second);
   }
 
-  const auto port = uri.port();
-  if (port == -1) {
-    options.ConfigureEndPoint(uri.host(), kDefaultHdfsPort);
-  } else {
-    options.ConfigureEndPoint(uri.host(), port);
-  }
-
+  auto useHdfs3 = false;
   auto it = options_map.find("use_hdfs3");
   if (it != options_map.end()) {
     const auto& v = it->second;
     if (v == "1") {
       options.ConfigureHdfsDriver(true);
+      useHdfs3 = true;
     } else if (v == "0") {
       options.ConfigureHdfsDriver(false);
     } else {
@@ -321,6 +314,26 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
           "'");
     }
   }
+
+  std::string host;
+  if (useHdfs3) {
+    if (uri.scheme() == "viewfs") {
+      ARROW_LOG(WARNING)
+          << "viewfs://namenode resolves to hdfs://namenode with hdfs3 driver.";
+    }
+    host = uri.host();
+  } else {
+    host = uri.scheme() + "://" + uri.host();
+  }
+
+  const auto port = uri.port();
+  if (port == -1) {
+    // default port will be determined by hdfs FileSystem impl
+    options.ConfigureEndPoint(host, 0);
+  } else {
+    options.ConfigureEndPoint(host, port);
+  }
+
   it = options_map.find("replication");
   if (it != options_map.end()) {
     const auto& v = it->second;

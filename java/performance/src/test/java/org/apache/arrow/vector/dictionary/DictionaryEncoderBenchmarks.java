@@ -28,7 +28,6 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
-import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -137,8 +136,7 @@ public class DictionaryEncoderBenchmarks {
     return sb.toString();
   }
 
-  @Test
-  public void evaluate() throws RunnerException {
+  public static void main(String[] args) throws RunnerException {
     Options opt = new OptionsBuilder()
         .include(DictionaryEncoderBenchmarks.class.getSimpleName())
         .forks(1)

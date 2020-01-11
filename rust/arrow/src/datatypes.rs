@@ -76,7 +76,7 @@ pub enum DataType {
     FixedSizeBinary(i32),
     Utf8,
     List(Box<DataType>),
-    FixedSizeList((Box<DataType>, i32)),
+    FixedSizeList(Box<DataType>, i32),
     Struct(Vec<Field>),
 }
 
@@ -733,10 +733,10 @@ impl DataType {
                 Some(s) if s == "fixedsizelist" => {
                     // return a list with any type as its child isn't defined in the map
                     if let Some(Value::Number(size)) = map.get("listSize") {
-                        Ok(DataType::FixedSizeList((
+                        Ok(DataType::FixedSizeList(
                             Box::new(DataType::Boolean),
                             size.as_i64().unwrap() as i32,
-                        )))
+                        ))
                     } else {
                         Err(ArrowError::ParseError(format!(
                             "Expecting a listSize for fixedsizelist",
@@ -781,7 +781,7 @@ impl DataType {
             }
             DataType::Struct(_) => json!({"name": "struct"}),
             DataType::List(_) => json!({ "name": "list"}),
-            DataType::FixedSizeList((_, length)) => {
+            DataType::FixedSizeList(_, length) => {
                 json!({"name":"fixedsizelist", "listSize": length})
             }
             DataType::Time32(unit) => {
@@ -891,7 +891,7 @@ impl Field {
                 };
                 // if data_type is a struct or list, get its children
                 let data_type = match data_type {
-                    DataType::List(_) | DataType::FixedSizeList(_) => {
+                    DataType::List(_) | DataType::FixedSizeList(_, _) => {
                         match map.get("children") {
                             Some(Value::Array(values)) => {
                                 if values.len() != 1 {
@@ -903,11 +903,11 @@ impl Field {
                                     DataType::List(_) => DataType::List(Box::new(
                                         Self::from(&values[0])?.data_type,
                                     )),
-                                    DataType::FixedSizeList((_, int)) => {
-                                        DataType::FixedSizeList((
+                                    DataType::FixedSizeList(_, int) => {
+                                        DataType::FixedSizeList(
                                             Box::new(Self::from(&values[0])?.data_type),
                                             int,
-                                        ))
+                                        )
                                     }
                                     _ => unreachable!(
                                         "Data type should be a list or fixedsizelist"
@@ -966,7 +966,7 @@ impl Field {
                 let item = Field::new("item", *dtype.clone(), self.nullable);
                 vec![item.to_json()]
             }
-            DataType::FixedSizeList((dtype, _)) => {
+            DataType::FixedSizeList(dtype, _) => {
                 let item = Field::new("item", *dtype.clone(), self.nullable);
                 vec![item.to_json()]
             }
@@ -1384,7 +1384,7 @@ mod tests {
                 Field::new("c21", DataType::List(Box::new(DataType::Boolean)), false),
                 Field::new(
                     "c22",
-                    DataType::FixedSizeList((Box::new(DataType::Boolean), 5)),
+                    DataType::FixedSizeList(Box::new(DataType::Boolean), 5),
                     false,
                 ),
                 Field::new(

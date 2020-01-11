@@ -43,7 +43,7 @@ public class ByteFunctionHelpers {
    * @param rEnd   end offset in the buffer
    * @return 1 if equals, 0 otherwise
    */
-  public static final int equal(final ArrowBuf left, int lStart, int lEnd, final ArrowBuf right, int rStart, int rEnd) {
+  public static int equal(final ArrowBuf left, long lStart, long lEnd, final ArrowBuf right, long rStart, long rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       left.checkBytes(lStart, lEnd);
       right.checkBytes(rStart, rEnd);
@@ -51,13 +51,26 @@ public class ByteFunctionHelpers {
     return memEqual(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
-  private static int memEqual(final long laddr, int lStart, int lEnd, final long raddr, int rStart,
-                                    final int rEnd) {
+  private static int memEqual(final long laddr, long lStart, long lEnd, final long raddr, long rStart,
+                                    final long rEnd) {
 
-    int n = lEnd - lStart;
+    long n = lEnd - lStart;
     if (n == rEnd - rStart) {
       long lPos = laddr + lStart;
       long rPos = raddr + rStart;
+
+      while (n > 63) {
+        for (int x = 0; x < 8; x++) {
+          long leftLong = PlatformDependent.getLong(lPos);
+          long rightLong = PlatformDependent.getLong(rPos);
+          if (leftLong != rightLong) {
+            return 0;
+          }
+          lPos += 8;
+          rPos += 8;
+        }
+        n -= 64;
+      }
 
       while (n > 7) {
         long leftLong = PlatformDependent.getLong(lPos);
@@ -109,13 +122,13 @@ public class ByteFunctionHelpers {
    * @param rEnd   end offset in the buffer
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
-  public static final int compare(
+  public static int compare(
       final ArrowBuf left,
-      int lStart,
-      int lEnd,
+      long lStart,
+      long lEnd,
       final ArrowBuf right,
-      int rStart,
-      int rEnd) {
+      long rStart,
+      long rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       left.checkBytes(lStart, lEnd);
       right.checkBytes(rStart, rEnd);
@@ -125,16 +138,29 @@ public class ByteFunctionHelpers {
 
   private static int memcmp(
       final long laddr,
-      int lStart,
-      int lEnd,
+      long lStart,
+      long lEnd,
       final long raddr,
-      int rStart,
-      final int rEnd) {
-    int lLen = lEnd - lStart;
-    int rLen = rEnd - rStart;
-    int n = Math.min(rLen, lLen);
+      long rStart,
+      final long rEnd) {
+    long lLen = lEnd - lStart;
+    long rLen = rEnd - rStart;
+    long n = Math.min(rLen, lLen);
     long lPos = laddr + lStart;
     long rPos = raddr + rStart;
+
+    while (n > 63) {
+      for (int x = 0; x < 8; x++) {
+        long leftLong = PlatformDependent.getLong(lPos);
+        long rightLong = PlatformDependent.getLong(rPos);
+        if (leftLong != rightLong) {
+          return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+        }
+        lPos += 8;
+        rPos += 8;
+      }
+      n -= 64;
+    }
 
     while (n > 7) {
       long leftLong = PlatformDependent.getLong(lPos);
@@ -187,7 +213,7 @@ public class ByteFunctionHelpers {
    * @param rEnd   end offset in the byte array
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
-  public static final int compare(
+  public static int compare(
       final ArrowBuf left,
       int lStart,
       int lEnd,
@@ -273,7 +299,7 @@ public class ByteFunctionHelpers {
   /**
    * Compute hashCode with the given {@link ArrowBuf} and start/end index.
    */
-  public static final int hash(final ArrowBuf buf, int start, int end) {
+  public static int hash(final ArrowBuf buf, long start, long end) {
 
     return hash(SimpleHasher.INSTANCE, buf, start, end);
   }
@@ -281,7 +307,7 @@ public class ByteFunctionHelpers {
   /**
    * Compute hashCode with the given {@link ArrowBufHasher}, {@link ArrowBuf} and start/end index.
    */
-  public static final int hash(ArrowBufHasher hasher, final ArrowBuf buf, int start, int end) {
+  public static final int hash(ArrowBufHasher hasher, final ArrowBuf buf, long start, long end) {
 
     if (hasher == null) {
       hasher = SimpleHasher.INSTANCE;

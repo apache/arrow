@@ -56,6 +56,8 @@ import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.util.Preconditions;
 
 import static org.apache.arrow.vector.types.UnionMode.Sparse;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 
 
 
@@ -150,7 +152,7 @@ public class UnionVector implements FieldVector {
     ArrowBuf buffer = ownBuffers.get(0);
     typeBuffer.getReferenceManager().release();
     typeBuffer = buffer.getReferenceManager().retain(buffer, allocator);
-    typeBufferAllocationSizeInBytes = typeBuffer.capacity();
+    typeBufferAllocationSizeInBytes = checkedCastToInt(typeBuffer.capacity());
     this.valueCount = fieldNode.getLength();
   }
 
@@ -310,11 +312,11 @@ public class UnionVector implements FieldVector {
   }
 
   private void reallocTypeBuffer() {
-    final int currentBufferCapacity = typeBuffer.capacity();
+    final long currentBufferCapacity = typeBuffer.capacity();
     long baseSize  = typeBufferAllocationSizeInBytes;
 
-    if (baseSize < (long)currentBufferCapacity) {
-      baseSize = (long)currentBufferCapacity;
+    if (baseSize < currentBufferCapacity) {
+      baseSize = currentBufferCapacity;
     }
 
     long newAllocationSize = baseSize * 2L;
@@ -325,7 +327,7 @@ public class UnionVector implements FieldVector {
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
 
-    final ArrowBuf newBuf = allocator.buffer((int)newAllocationSize);
+    final ArrowBuf newBuf = allocator.buffer(checkedCastToInt(newAllocationSize));
     newBuf.setBytes(0, typeBuffer, 0, currentBufferCapacity);
     newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
     typeBuffer.getReferenceManager().release(1);
@@ -688,7 +690,7 @@ public class UnionVector implements FieldVector {
     }
 
     private int getTypeBufferValueCapacity() {
-      return typeBuffer.capacity() / TYPE_WIDTH;
+      return capAtMaxInt(typeBuffer.capacity() / TYPE_WIDTH);
     }
 
     @Override

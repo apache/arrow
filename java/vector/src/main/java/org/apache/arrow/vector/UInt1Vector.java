@@ -84,7 +84,7 @@ public final class UInt1Vector extends BaseFixedWidthVector implements BaseIntVe
    * @return value stored at the index.
    */
   public static short getNoOverflow(final ArrowBuf buffer, final int index) {
-    byte b =  buffer.getByte(index * TYPE_WIDTH);
+    byte b = buffer.getByte(index * TYPE_WIDTH);
     return (short)(0xFF & b);
   }
 

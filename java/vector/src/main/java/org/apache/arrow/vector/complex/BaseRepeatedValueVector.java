@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.complex;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -55,7 +57,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   protected FieldVector vector;
   protected final CallBack callBack;
   protected int valueCount;
-  protected int offsetAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH;
+  protected long offsetAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH;
   private final String name;
 
   protected String defaultDataVectorName = DATA_VECTOR_NAME;
@@ -111,27 +113,28 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   protected void reallocOffsetBuffer() {
-    final int currentBufferCapacity = offsetBuffer.capacity();
+    final long currentBufferCapacity = offsetBuffer.capacity();
     long baseSize = offsetAllocationSizeInBytes;
 
-    if (baseSize < (long) currentBufferCapacity) {
-      baseSize = (long) currentBufferCapacity;
+    if (baseSize < currentBufferCapacity) {
+      baseSize = currentBufferCapacity;
     }
 
     long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    newAllocationSize = Math.min(newAllocationSize, (long)(OFFSET_WIDTH) * Integer.MAX_VALUE);
     assert newAllocationSize >= 1;
 
-    if (newAllocationSize > MAX_ALLOCATION_SIZE) {
+    if (newAllocationSize > MAX_ALLOCATION_SIZE || newAllocationSize <= baseSize) {
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
 
-    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
+    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, offsetBuffer, 0, currentBufferCapacity);
     newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
     offsetBuffer.getReferenceManager().release(1);
     offsetBuffer = newBuf;
-    offsetAllocationSizeInBytes = (int) newAllocationSize;
+    offsetAllocationSizeInBytes = newAllocationSize;
   }
 
   @Override
@@ -205,7 +208,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   protected int getOffsetBufferValueCapacity() {
-    return offsetBuffer.capacity() / OFFSET_WIDTH;
+    return capAtMaxInt(offsetBuffer.capacity() / OFFSET_WIDTH);
   }
 
   @Override

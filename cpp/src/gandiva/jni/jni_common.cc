@@ -106,7 +106,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 
   vector_expander_method_ = env->GetMethodID(
       vector_expander_class_, "expandOutputVectorAtIndex",
-      "(II)Lorg/apache/arrow/gandiva/evaluator/VectorExpander$ExpandResult;");
+      "(IJ)Lorg/apache/arrow/gandiva/evaluator/VectorExpander$ExpandResult;");
 
   jclass local_expander_ret_class =
       env->FindClass("org/apache/arrow/gandiva/evaluator/VectorExpander$ExpandResult");
@@ -116,7 +116,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   vector_expander_ret_address_ =
       env->GetFieldID(vector_expander_ret_class_, "address", "J");
   vector_expander_ret_capacity_ =
-      env->GetFieldID(vector_expander_ret_class_, "capacity", "I");
+      env->GetFieldID(vector_expander_ret_class_, "capacity", "J");
   return JNI_VERSION;
 }
 
@@ -693,14 +693,9 @@ Status JavaResizableBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
     return Status::OK();
   }
 
-  if (new_size > INT32_MAX) {
-    return Status::OutOfMemory("java supports buffer sizes upto 2GB only");
-  }
-
   // callback into java to expand the buffer
-  int32_t updated_capacity = static_cast<int32_t>(new_size);
-  jobject ret = env_->CallObjectMethod(jexpander_, vector_expander_method_, vector_idx_,
-                                       updated_capacity);
+  jobject ret =
+      env_->CallObjectMethod(jexpander_, vector_expander_method_, vector_idx_, new_size);
   if (env_->ExceptionCheck()) {
     env_->ExceptionDescribe();
     env_->ExceptionClear();
@@ -708,8 +703,8 @@ Status JavaResizableBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
   }
 
   jlong ret_address = env_->GetLongField(ret, vector_expander_ret_address_);
-  jint ret_capacity = env_->GetIntField(ret, vector_expander_ret_capacity_);
-  DCHECK_GE(ret_capacity, updated_capacity);
+  jlong ret_capacity = env_->GetLongField(ret, vector_expander_ret_capacity_);
+  DCHECK_GE(ret_capacity, new_size);
 
   data_ = mutable_data_ = reinterpret_cast<uint8_t*>(ret_address);
   size_ = new_size;

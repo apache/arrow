@@ -22,6 +22,7 @@ import json
 import operator
 import re
 import warnings
+from copy import deepcopy
 
 import numpy as np
 
@@ -587,9 +588,11 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
             fields.append(pa.field(name, type_))
         schema = pa.schema(fields)
 
-    metadata = construct_metadata(df, column_names, index_columns,
-                                  index_descriptors, preserve_index,
-                                  types)
+    pandas_metadata = construct_metadata(df, column_names, index_columns,
+                                         index_descriptors, preserve_index,
+                                         types)
+    metadata = deepcopy(schema.metadata) if schema.metadata else dict()
+    metadata.update(pandas_metadata)
     schema = schema.with_metadata(metadata)
 
     return arrays, schema

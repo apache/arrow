@@ -18,6 +18,8 @@
 package org.apache.arrow.vector.complex;
 
 import static java.util.Collections.singletonList;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
@@ -205,7 +207,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     offsetBuffer.getReferenceManager().release();
     offsetBuffer = offBuffer.getReferenceManager().retain(offBuffer, allocator);
 
-    validityAllocationSizeInBytes = validityBuffer.capacity();
+    validityAllocationSizeInBytes = checkedCastToInt(validityBuffer.capacity());
     offsetAllocationSizeInBytes = offsetBuffer.capacity();
 
     lastSet = fieldNode.getLength() - 1;
@@ -312,7 +314,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   private void reallocValidityBuffer() {
-    final int currentBufferCapacity = validityBuffer.capacity();
+    final int currentBufferCapacity = checkedCastToInt(validityBuffer.capacity());
     long baseSize = validityAllocationSizeInBytes;
 
     if (baseSize < (long) currentBufferCapacity) {
@@ -756,7 +758,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   private int getValidityBufferValueCapacity() {
-    return validityBuffer.capacity() * 8;
+    return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
   /**

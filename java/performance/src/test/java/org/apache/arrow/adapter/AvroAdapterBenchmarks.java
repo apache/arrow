@@ -39,7 +39,6 @@ import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
-import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -131,8 +130,7 @@ public class AvroAdapterBenchmarks {
     return sum;
   }
 
-  @Test
-  public void evaluate() throws RunnerException {
+  public static void main(String[] args) throws RunnerException {
     Options opt = new OptionsBuilder()
         .include(AvroAdapterBenchmarks.class.getSimpleName())
         .forks(1)

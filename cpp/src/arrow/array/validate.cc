@@ -59,19 +59,13 @@ struct ValidateArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const BinaryArray& array) {
-    if (array.data()->buffers.size() != 3) {
-      return Status::Invalid("number of buffers is != 3");
-    }
-    return ValidateOffsets(array);
-  }
+  Status Visit(const StringArray& array) { return ValidateBinaryArray(array); }
 
-  Status Visit(const LargeBinaryArray& array) {
-    if (array.data()->buffers.size() != 3) {
-      return Status::Invalid("number of buffers is != 3");
-    }
-    return ValidateOffsets(array);
-  }
+  Status Visit(const BinaryArray& array) { return ValidateBinaryArray(array); }
+
+  Status Visit(const LargeStringArray& array) { return ValidateBinaryArray(array); }
+
+  Status Visit(const LargeBinaryArray& array) { return ValidateBinaryArray(array); }
 
   Status Visit(const ListArray& array) { return ValidateListArray(array); }
 
@@ -201,6 +195,14 @@ struct ValidateArrayVisitor {
   }
 
  protected:
+  template <typename BinaryArrayType>
+  Status ValidateBinaryArray(const BinaryArrayType& array) {
+    if (array.data()->buffers.size() != 3) {
+      return Status::Invalid("number of buffers is != 3");
+    }
+    return ValidateOffsets(array);
+  }
+
   template <typename ListArrayType>
   Status ValidateListArray(const ListArrayType& array) {
     const auto first_offset = array.value_offset(0);
@@ -234,13 +236,14 @@ struct ValidateArrayVisitor {
       }
       return Status::OK();
     }
-    if (value_offsets->size() / static_cast<int>(sizeof(offset_type)) < array.length()) {
+    auto required_offsets = (array.length() > 0) ? array.length() + 1 : 0;
+    if (value_offsets->size() / static_cast<int>(sizeof(offset_type)) <
+        required_offsets) {
       return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
                              " isn't large enough for length: ", array.length());
     }
 
-    auto first_offset = array.value_offset(0);
-    if (array.offset() == 0 && first_offset != 0) {
+    if (array.length() > 0 && array.offset() == 0 && array.value_offset(0) != 0) {
       return Status::Invalid("The first offset isn't zero");
     }
     return Status::OK();
@@ -324,6 +327,14 @@ struct ValidateArrayDataVisitor {
   // Fallback
   Status Visit(const Array& array) { return Status::OK(); }
 
+  Status Visit(const StringArray& array) { return ValidateBinaryArray(array); }
+
+  Status Visit(const BinaryArray& array) { return ValidateBinaryArray(array); }
+
+  Status Visit(const LargeStringArray& array) { return ValidateBinaryArray(array); }
+
+  Status Visit(const LargeBinaryArray& array) { return ValidateBinaryArray(array); }
+
   Status Visit(const ListArray& array) { return ValidateListArray(array); }
 
   Status Visit(const LargeListArray& array) { return ValidateListArray(array); }
@@ -393,23 +404,46 @@ struct ValidateArrayDataVisitor {
   }
 
  protected:
+  template <typename BinaryArrayType>
+  Status ValidateBinaryArray(const BinaryArrayType& array) {
+    return ValidateOffsets(array, array.value_data()->size());
+  }
+
   template <typename ListArrayType>
   Status ValidateListArray(const ListArrayType& array) {
-    const Status child_valid = ValidateArrayData(*array.values());
+    const auto& child_array = array.values();
+    const Status child_valid = ValidateArrayData(*child_array);
     if (!child_valid.ok()) {
       return Status::Invalid("List child array invalid: ", child_valid.ToString());
     }
-    return ValidateOffsets(array);
+    return ValidateOffsets(array, child_array->offset() + child_array->length());
   }
 
   template <typename ArrayType>
-  Status ValidateOffsets(const ArrayType& array) {
+  Status ValidateOffsets(const ArrayType& array, int64_t offset_limit) {
+    if (array.value_offsets() == nullptr) {
+      if (array.length() != 0) {
+        return Status::Invalid("non-empty array but value_offsets_ is null");
+      }
+      return Status::OK();
+    }
+
     auto prev_offset = array.value_offset(0);
+    if (prev_offset < 0) {
+      return Status::Invalid(
+          "Offset invariant failure: array starts at negative "
+          "offset ",
+          prev_offset);
+    }
     for (int64_t i = 1; i <= array.length(); ++i) {
       auto current_offset = array.value_offset(i);
       if (current_offset < prev_offset) {
-        return Status::Invalid("Offset invariant failure: inconsistent offset for slot ",
-                               i, ": ", current_offset, "<", prev_offset);
+        return Status::Invalid("Offset invariant failure: non-monotonic offset at slot ",
+                               i, ": ", current_offset, " < ", prev_offset);
+      }
+      if (current_offset > offset_limit) {
+        return Status::Invalid("Offset invariant failure: offset for slot ", i,
+                               " out of bounds: ", current_offset, " > ", offset_limit);
       }
       prev_offset = current_offset;
     }
