@@ -43,7 +43,18 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ListArrayBuilder()
         {
-            var list = CreateList();
+            var stringField = new Field("item", StringType.Default, true);
+            var listBuilder = new ListArray.Builder(new ListType(stringField));
+            var valueBuilder = listBuilder.ValueBuilder as StringArray.Builder;
+            Assert.NotNull(valueBuilder);
+            listBuilder.Append();
+            valueBuilder.Append("1");
+            listBuilder.Append();
+            valueBuilder.Append("22").Append("33");
+            listBuilder.Append();
+            valueBuilder.Append("444").Append("555").Append("666");
+
+            var list = listBuilder.Build();
 
             Assert.Equal(
                 new List<string> { "1" },
@@ -54,22 +65,6 @@ namespace Apache.Arrow.Tests
             Assert.Equal(
                 new List<string> { "444", "555", "666" },
                 ConvertStringArrayToList(list.GetSlicedValues(2) as StringArray));
-
-            ListArray CreateList()
-            {
-                var stringField = new Field("item", StringType.Default, true);
-                var listBuilder = new ListArray.Builder(new ListType(stringField));
-                var valueBuilder = listBuilder.ValueBuilder as StringArray.Builder;
-                Assert.NotNull(valueBuilder);
-                listBuilder.Append();
-                valueBuilder.Append("1");
-                listBuilder.Append();
-                valueBuilder.Append("22").Append("33");
-                listBuilder.Append();
-                valueBuilder.Append("444").Append("555").Append("666");
-
-                return listBuilder.Build();
-            }
 
             List<string> ConvertStringArrayToList(StringArray array)
             {
@@ -86,7 +81,29 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void NestedListArrayBuilder()
         {
-            var parentList = CreateList();
+            var int64Field = new Field("item", Int64Type.Default, true);
+            var childListType = new ListType(int64Field);
+            var parentListType = new ListType(childListType);
+            var parentListBuilder = new ListArray.Builder(parentListType);
+            var childListBuilder = parentListBuilder.ValueBuilder as ListArray.Builder;
+            Assert.NotNull(childListBuilder);
+            var valueBuilder = childListBuilder.ValueBuilder as Int64Array.Builder;
+            Assert.NotNull(valueBuilder);
+
+            parentListBuilder.Append();
+            childListBuilder.Append();
+            valueBuilder.Append(1);
+            childListBuilder.Append();
+            valueBuilder.Append(2).Append(3);
+            parentListBuilder.Append();
+            childListBuilder.Append();
+            valueBuilder.Append(4).Append(5).Append(6).Append(7);
+            parentListBuilder.Append();
+            childListBuilder.Append();
+            valueBuilder.Append(8).Append(9).Append(10).Append(11).Append(12);
+
+            var parentList = parentListBuilder.Build();
+
             var childList1 = (ListArray)parentList.GetSlicedValues(0);
             var childList2 = (ListArray)parentList.GetSlicedValues(1);
             var childList3 = (ListArray)parentList.GetSlicedValues(2);
@@ -106,32 +123,6 @@ namespace Apache.Arrow.Tests
             Assert.Equal(
                 new List<long?> { 8, 9, 10, 11, 12 },
                 ((Int64Array)childList3.GetSlicedValues(0)).ToList());
-
-            ListArray CreateList()
-            {
-                var int64Field = new Field("item", Int64Type.Default, true);
-                var childListType = new ListType(int64Field);
-                var parentListType = new ListType(childListType);
-                var parentListBuilder = new ListArray.Builder(parentListType);
-                var childListBuilder = parentListBuilder.ValueBuilder as ListArray.Builder;
-                Assert.NotNull(childListBuilder);
-                var valueBuilder = childListBuilder.ValueBuilder as Int64Array.Builder;
-                Assert.NotNull(valueBuilder);
-
-                parentListBuilder.Append();
-                childListBuilder.Append();
-                valueBuilder.Append(1);
-                childListBuilder.Append();
-                valueBuilder.Append(2).Append(3);
-                parentListBuilder.Append();
-                childListBuilder.Append();
-                valueBuilder.Append(4).Append(5).Append(6).Append(7);
-                parentListBuilder.Append();
-                childListBuilder.Append();
-                valueBuilder.Append(8).Append(9).Append(10).Append(11).Append(12);
-
-                return parentListBuilder.Build();
-            }
         }
 
         public class TimestampArrayBuilder
