@@ -43,11 +43,33 @@ set(APACHE_MIRROR "")
 
 macro(get_apache_mirror)
   if(APACHE_MIRROR STREQUAL "")
-    execute_process(COMMAND ${PYTHON_EXECUTABLE}
-                            ${CMAKE_SOURCE_DIR}/build-support/get_apache_mirror.py
-                    OUTPUT_VARIABLE APACHE_MIRROR
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set(APACHE_MIRROR_INFO_URL "https://www.apache.org/dyn/closer.cgi?as_json=1")
+    set(APACHE_MIRROR_INFO_PATH "${CMAKE_CURRENT_BINARY_DIR}/apache-mirror.json")
+    if(EXISTS "${APACHE_MIRROR_INFO_PATH}")
+      set(APACHE_MIRROR_DOWNLOAD_STATUS 0)
+    else()
+      file(DOWNLOAD "${APACHE_MIRROR_INFO_URL}" "${APACHE_MIRROR_INFO_PATH}"
+           STATUS APACHE_MIRROR_DOWNLOAD_STATUS)
+    endif()
+    if(APACHE_MIRROR_DOWNLOAD_STATUS EQUAL 0)
+      file(READ "${APACHE_MIRROR_INFO_PATH}" APACHE_MIRROR_INFO)
+      string(REGEX MATCH "\"preferred\": \"[^\"]+" APACHE_MIRROR_PREFERRED
+                   "${APACHE_MIRROR_INFO}")
+      string(REGEX
+             REPLACE "\"preferred\": \"" "" APACHE_MIRROR "${APACHE_MIRROR_PREFERRED}")
+    else()
+      file(REMOVE "${APACHE_MIRROR_INFO_PATH}")
+      message(
+        WARNING
+          "Failed to download Apache mirror information: ${APACHE_MIRROR_INFO_URL}: ${APACHE_MIRROR_DOWNLOAD_STATUS}"
+        )
+    endif()
   endif()
+  if(APACHE_MIRROR STREQUAL "")
+    # Well-known mirror, in case the URL above fails loading
+    set(APACHE_MIRROR "https://apache.osuosl.org/")
+  endif()
+  message(STATUS "Apache mirror: ${APACHE_MIRROR}")
 endmacro()
 
 # ----------------------------------------------------------------------
