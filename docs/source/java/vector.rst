@@ -31,7 +31,92 @@ Table with non-intuitive names (BigInt = 64 bit integer, etc).
 
 It is important that vector is allocated before attempting to read or write,
 :class:`ValueVector` "should" strive to guarantee this order of operation:
-allocate > mutate > set valuecount > access > clear (or allocate to start the process over)
+create > allocate > mutate > set value count > access > clear (or allocate to start the process over).
+We will go through a concrete example to demonstrate each operation in the next section.
+
+Vector Life Cycle
+====================
+As discussed above, each vector goes through several steps in its life cycle,
+and each step is triggered by a vector operation. In particular, we have the following vector operations:
+
+1. **Vector creation**: we create a new vector object by, for example, the vector constructor.
+The following code creates a new ``IntVector`` by the constructor:
+
+.. code-block:: Java
+
+    RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    ...
+    IntVector vector = new IntVector("int vector", allocator);
+
+By now, a vector object is created. However, no underlying memory has been allocated, so we need the
+following step.
+
+2. **Vector allocation**: in this step, we allocate memory for the vector. For most vectors, we
+have two options: 1) if we know the maximum vector capacity, we can specify it by calling the
+``allocateNew(int)`` method; 2) otherwise, we should call the ``allocateNew()`` method, and  a default
+capacity will be allocated for it. For our running example, we assume that the vector capacity never
+exceeds 10:
+
+.. code-block:: Java
+
+    vector.allocateNew(10);
+
+3. **Vector mutation**: now we can populate the vector with values we desire. For all vectors, we can populate
+vector values through vector writers (An example will be given in the next section). For primitive types,
+we can also mutate the vector by the set methods. There are two classes of set methods: 1) if we can
+be sure the vector has enough capacity, we can call the ``set(index, value)`` method. 2) if we are not sure
+about the vector capacity, we should call the ``setSafe(index, value)`` method, which will automatically
+take care of vector reallocation, if the capacity is not sufficient. For our running example, we know the
+vector has enough capacity, so we can call
+
+.. code-block:: Java
+
+    vector.set(/*index*/5, /*value*/25);
+
+4. **Set value count**: for this step, we set the value count of the vector by calling the
+``setValueCount(int)`` method:
+
+.. code-block:: Java
+
+    vector.setValueCount(10);
+
+After this step, the vector enters an immutable state. In other words, we should no longer mutate it.
+(Unless we reuse the vector by allocating it again. This will be discussed shortly.)
+
+5. **Vector access**: it is time to access vector values. Similarly, we have two options to access values:
+1) get methods and 2) vector reader. Vector reader works for all types of vectors, while get methods are
+only available for primitive vectors. A concrete example for vector reader will be given in the next section.
+Below is an example of vector access by get method:
+
+.. code-block:: Java
+
+    int value = vector.get(5);  // value == 25
+
+6. **Vector clear**: when we are done with the vector, we should clear it to release its memory. This is done by
+calling the ``close()`` method:
+
+.. code-block:: Java
+
+    vector.close();
+
+Some points to note about the steps above:
+
+* The steps are not necessarily performed in a linear sequence. Instead, they can be in a loop. For example,
+  when a vector enters the access step, we can also go back to the vector mutation step, and then set value
+  count, access vector, and so on.
+
+* We should try to make sure the above steps are carried out in order. Otherwise, the vector
+  may be in an undefined state, and some unexpected behavior may occur. However, this restriction
+  is not strict. That means it is possible that we violates the order above, but still get
+  correct results.
+
+* When mutating vector values through set methods, we should prefer ``set(index, value)`` methods to
+  ``setSafe(index, value)`` methods whenever possible, to avoid unnecessary performance overhead of handling
+  vector capacity.
+
+* All vectors implement the ``AutoCloseable`` interface. So they must be closed explicitly when they are
+  no longer used, to avoid resource leak. To make sure of this, it is recommended to place vector related operations
+  into a try-with-resources block.
 
 Building ValueVector
 ====================
@@ -41,21 +126,24 @@ Note that the current implementation doesn't enforce the rule that Arrow objects
 set/setSafe APIs and concrete subclasses of FieldWriter for populating values.
 
 For example, the code below shows how to build a :class:`BigIntVector`, in this case, we build a
-vector of the range 0 to 7 where the element that should hold the fourth value is nulled::
+vector of the range 0 to 7 where the element that should hold the fourth value is nulled
 
-   BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+.. code-block:: Java
 
-   BigIntVector vector = new BigIntVector("vector", allocator);
-   vector.allocateNew(8);
-   vector.set(0, 1);
-   vector.set(1, 2);
-   vector.set(2, 3);
-   vector.setNull(3);
-   vector.set(4, 5);
-   vector.set(5, 6);
-   vector.set(6, 7);
-   vector.set(7, 8);
-   vector.setValueCount(8); // this will finalizes the vector by convention.
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+      BigIntVector vector = new BigIntVector("vector", allocator)) {
+      vector.allocateNew(8);
+      vector.set(0, 1);
+      vector.set(1, 2);
+      vector.set(2, 3);
+      vector.setNull(3);
+      vector.set(4, 5);
+      vector.set(5, 6);
+      vector.set(6, 7);
+      vector.set(7, 8);
+      vector.setValueCount(8); // this will finalizes the vector by convention.
+      ...
+    }
 
 The :class:`BigIntVector` holds two ArrowBufs. The first buffer holds the null bitmap, which consists
 here of a single byte with the bits 1|1|1|1|0|1|1|1 (the bit is 1 if the value is non-null).
@@ -63,28 +151,33 @@ The second buffer contains all the above values. As the fourth entry is null, th
 in the buffer is undefined. Note compared with set API, setSafe API would check value capacity before setting
 values and reallocate buffers if necessary.
 
-Here is how to build a vector using writer::
+Here is how to build a vector using writer
 
-   BigIntVector vector = new BigIntVector("vector", allocator);
-   BigIntWriter writer = new BigIntWriterImpl(vector);
-   writer.setPosition(0);
-   writer.writeBigInt(1);
-   writer.setPosition(1);
-   writer.writeBigInt(2);
-   writer.setPosition(2);
-   writer.writeBigInt(3);
-   // writer.setPosition(3) is not called which means the forth value is null.
-   writer.setPosition(4);
-   writer.writeBigInt(5);
-   writer.setPosition(5);
-   writer.writeBigInt(6);
-   writer.setPosition(6);
-   writer.writeBigInt(7);
-   writer.setPosition(7);
-   writer.writeBigInt(8);
+.. code-block:: Java
+
+    try (BigIntVector vector = new BigIntVector("vector", allocator);
+      BigIntWriter writer = new BigIntWriterImpl(vector)) {
+      writer.setPosition(0);
+      writer.writeBigInt(1);
+      writer.setPosition(1);
+      writer.writeBigInt(2);
+      writer.setPosition(2);
+      writer.writeBigInt(3);
+      // writer.setPosition(3) is not called which means the forth value is null.
+      writer.setPosition(4);
+      writer.writeBigInt(5);
+      writer.setPosition(5);
+      writer.writeBigInt(6);
+      writer.setPosition(6);
+      writer.writeBigInt(7);
+      writer.setPosition(7);
+      writer.writeBigInt(8);
+    }
 
 There are get API and concrete subclasses of :class:`FieldReader` for accessing vector values, what needs
-to be declared is that writer/reader is not as efficient as direct access::
+to be declared is that writer/reader is not as efficient as direct access
+
+.. code-block:: Java
 
     // access via get API
     for (int i = 0; i < vector.getValueCount(); i++) {
@@ -106,7 +199,9 @@ to be declared is that writer/reader is not as efficient as direct access::
 Slicing
 =======
 Similar with C++ implementation, it is possible to make zero-copy slices of vectors to obtain a vector
-referring to some logical sub-sequence of the data through :class:`TransferPair`::
+referring to some logical sub-sequence of the data through :class:`TransferPair`
+
+.. code-block:: Java
 
     IntVector vector = new IntVector("intVector", allocator);
     for (int i = 0; i < 10; i++) {
