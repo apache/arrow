@@ -53,7 +53,7 @@ public abstract class AllocationManager {
   // see JIRA for details
   private final LowCostIdentityHashMap<BaseAllocator, BufferLedger> map = new LowCostIdentityHashMap<>();
   private final long amCreationTime = System.nanoTime();
-  private final int size;
+  private final long size;
 
   // The ReferenceManager created at the time of creation of this AllocationManager
   // is treated as the owning reference manager for the underlying chunk of memory
@@ -61,7 +61,7 @@ public abstract class AllocationManager {
   private volatile BufferLedger owningLedger;
   private volatile long amDestructionTime = 0;
 
-  protected AllocationManager(BaseAllocator accountingAllocator, int size) {
+  protected AllocationManager(BaseAllocator accountingAllocator, long size) {
     Preconditions.checkNotNull(accountingAllocator);
     accountingAllocator.assertOpen();
 
@@ -183,7 +183,7 @@ public abstract class AllocationManager {
    *
    * @return size of underlying memory chunk
    */
-  public int getSize() {
+  public long getSize() {
     return size;
   }
 
@@ -211,6 +211,6 @@ public abstract class AllocationManager {
      * @param size Size (in bytes) of memory managed by the AllocationManager
      * @return The created AllocationManager used by this allocator
      */
-    AllocationManager create(BaseAllocator accountingAllocator, int size);
+    AllocationManager create(BaseAllocator accountingAllocator, long size);
   }
 }

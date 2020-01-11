@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -183,11 +185,11 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   private int getValueBufferValueCapacity() {
-    return valueBuffer.capacity() / typeWidth;
+    return capAtMaxInt(valueBuffer.capacity() / typeWidth);
   }
 
   private int getValidityBufferValueCapacity() {
-    return validityBuffer.capacity() * 8;
+    return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
   /**

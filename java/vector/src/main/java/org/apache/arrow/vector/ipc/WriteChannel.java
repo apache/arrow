@@ -65,8 +65,14 @@ public class WriteChannel implements AutoCloseable {
   /**
    * Writes <zeroCount>zeroCount</zeroCount> zeros the underlying channel.
    */
-  public long writeZeros(int zeroCount) throws IOException {
-    return write(new byte[zeroCount]);
+  public long writeZeros(long zeroCount) throws IOException {
+    long bytesWritten = 0;
+    while (zeroCount > 0) {
+      int bytesToWrite = (int)Math.min(zeroCount, Integer.MAX_VALUE);
+      bytesWritten += write(new byte[bytesToWrite]);
+      zeroCount -= Integer.MAX_VALUE;
+    }
+    return bytesWritten;
   }
 
   /**
@@ -105,8 +111,15 @@ public class WriteChannel implements AutoCloseable {
    * Writes the buffer to the underlying channel.
    */
   public void write(ArrowBuf buffer) throws IOException {
-    ByteBuffer nioBuffer = buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
-    write(nioBuffer);
+    long bytesWritten = 0;
+    while (bytesWritten < buffer.readableBytes()) {
+      int bytesToWrite = (int)Math.min(Integer.MAX_VALUE, buffer.readableBytes() - bytesWritten);
+      ByteBuffer nioBuffer = buffer.nioBuffer(buffer.readerIndex() + bytesWritten,
+           bytesToWrite);
+      write(nioBuffer);
+      bytesWritten += bytesToWrite;
+    }
+
   }
 
   /**

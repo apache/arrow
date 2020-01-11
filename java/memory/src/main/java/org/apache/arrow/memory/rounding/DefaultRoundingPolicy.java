@@ -47,7 +47,7 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
   }
 
   @Override
-  public int getRoundedSize(int requestSize) {
+  public long getRoundedSize(long requestSize) {
     return requestSize < chunkSize ?
             BaseAllocator.nextPowerOfTwo(requestSize) : requestSize;
   }

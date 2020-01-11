@@ -36,9 +36,9 @@ public final class ArrowBufPointer {
 
   private ArrowBuf buf;
 
-  private int offset;
+  private long offset;
 
-  private int length;
+  private long length;
 
   private int hashCode = NULL_HASH_CODE;
 
@@ -71,7 +71,7 @@ public final class ArrowBufPointer {
    * @param offset the start off set of the memory region pointed to.
    * @param length the length off set of the memory region pointed to.
    */
-  public ArrowBufPointer(ArrowBuf buf, int offset, int length) {
+  public ArrowBufPointer(ArrowBuf buf, long offset, long length) {
     this(buf, offset, length, SimpleHasher.INSTANCE);
   }
 
@@ -82,7 +82,7 @@ public final class ArrowBufPointer {
    * @param length the length off set of the memory region pointed to.
    * @param hasher the hasher used to calculate the hash code.
    */
-  public ArrowBufPointer(ArrowBuf buf, int offset, int length, ArrowBufHasher hasher) {
+  public ArrowBufPointer(ArrowBuf buf, long offset, long length, ArrowBufHasher hasher) {
     Preconditions.checkNotNull(hasher);
     this.hasher = hasher;
     set(buf, offset, length);
@@ -94,7 +94,7 @@ public final class ArrowBufPointer {
    * @param offset the start off set of the memory region pointed to.
    * @param length the length off set of the memory region pointed to.
    */
-  public void set(ArrowBuf buf, int offset, int length) {
+  public void set(ArrowBuf buf, long offset, long length) {
     this.buf = buf;
     this.offset = offset;
     this.length = length;
@@ -110,11 +110,11 @@ public final class ArrowBufPointer {
     return buf;
   }
 
-  public int getOffset() {
+  public long getOffset() {
     return offset;
   }
 
-  public int getLength() {
+  public long getLength() {
     return length;
   }
 

@@ -1408,7 +1408,7 @@ public class TestValueVector {
       /* the above set method should NOT have triggered a realloc */
       assertEquals(initialCapacity, vector.getValueCapacity());
 
-      int bufSizeBefore = vector.getFieldBuffers().get(1).capacity();
+      long bufSizeBefore = vector.getFieldBuffers().get(1).capacity();
       vector.setValueCount(initialCapacity);
       assertEquals(bufSizeBefore, vector.getFieldBuffers().get(1).capacity());
       assertEquals(initialCapacity, vector.getValueCapacity());

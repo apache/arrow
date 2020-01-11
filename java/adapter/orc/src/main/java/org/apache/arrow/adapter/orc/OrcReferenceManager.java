@@ -86,7 +86,7 @@ public class OrcReferenceManager implements ReferenceManager {
   }
 
   @Override
-  public ArrowBuf deriveBuffer(ArrowBuf sourceBuffer, int index, int length) {
+  public ArrowBuf deriveBuffer(ArrowBuf sourceBuffer, long index, long length) {
     final long derivedBufferAddress = sourceBuffer.memoryAddress() + index;
 
     // create new ArrowBuf
@@ -111,12 +111,12 @@ public class OrcReferenceManager implements ReferenceManager {
   }
 
   @Override
-  public int getSize() {
-    return (int)memory.getSize();
+  public long getSize() {
+    return memory.getSize();
   }
 
   @Override
-  public int getAccountedSize() {
+  public long getAccountedSize() {
     return 0;
   }
 }

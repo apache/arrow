@@ -206,8 +206,8 @@ public class ArrowRecordBatch implements ArrowMessage {
    * Computes the size of the serialized body for this recordBatch.
    */
   @Override
-  public int computeBodyLength() {
-    int size = 0;
+  public long computeBodyLength() {
+    long size = 0;
 
     List<ArrowBuf> buffers = getBuffers();
     List<ArrowBuffer> buffersLayout = getBuffersLayout();
@@ -220,9 +220,15 @@ public class ArrowRecordBatch implements ArrowMessage {
       ArrowBuf buffer = buffers.get(i);
       ArrowBuffer layout = buffersLayout.get(i);
       size += (layout.getOffset() - size);
-      ByteBuffer nioBuffer =
-          buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
-      size += nioBuffer.remaining();
+
+      long readableBytes = buffer.readableBytes();
+      while (readableBytes > 0) {
+        int nextRead = (int)Math.min(readableBytes, Integer.MAX_VALUE);
+        ByteBuffer nioBuffer =
+            buffer.nioBuffer(buffer.readerIndex(), nextRead);
+        readableBytes -= nextRead;
+        size += nioBuffer.remaining();
+      }
 
       // round up size to the next multiple of 8
       size = DataSizeRoundingUtil.roundUpTo8Multiple(size);

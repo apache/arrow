@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -120,7 +121,7 @@ public final class BitVector extends BaseFixedWidthVector {
    */
   @Override
   public int getValueCapacity() {
-    return validityBuffer.capacity() * 8;
+    return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
   /**

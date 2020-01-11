@@ -19,6 +19,7 @@ package org.apache.arrow.vector.ipc;
 
 import static java.nio.channels.Channels.newChannel;
 import static java.util.Arrays.asList;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -121,7 +122,7 @@ public class TestArrowReaderWriter {
   }
 
   byte[] array(ArrowBuf buf) {
-    byte[] bytes = new byte[buf.readableBytes()];
+    byte[] bytes = new byte[checkedCastToInt(buf.readableBytes())];
     buf.readBytes(bytes);
     return bytes;
   }
@@ -540,7 +541,7 @@ public class TestArrowReaderWriter {
       arrBuf.writerIndex(4);
       assertEquals(4, arrBuf.writerIndex());
 
-      int n = channel.readFully(arrBuf, 4);
+      long n = channel.readFully(arrBuf, 4);
       assertEquals(4, n);
       assertEquals(8, arrBuf.writerIndex());
 

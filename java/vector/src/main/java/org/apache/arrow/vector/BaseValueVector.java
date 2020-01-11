@@ -40,7 +40,7 @@ public abstract class BaseValueVector implements ValueVector {
   private static final Logger logger = LoggerFactory.getLogger(BaseValueVector.class);
 
   public static final String MAX_ALLOCATION_SIZE_PROPERTY = "arrow.vector.max_allocation_bytes";
-  public static final int MAX_ALLOCATION_SIZE = Integer.getInteger(MAX_ALLOCATION_SIZE_PROPERTY, Integer.MAX_VALUE);
+  public static final long MAX_ALLOCATION_SIZE = Long.getLong(MAX_ALLOCATION_SIZE_PROPERTY, Long.MAX_VALUE);
   /*
    * For all fixed width vectors, the value and validity buffers are sliced from a single buffer.
    * Similarly, for variable width vectors, the offsets and validity buffers are sliced from a

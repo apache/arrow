@@ -50,7 +50,7 @@ public class SegmentRoundingPolicy implements RoundingPolicy {
   }
 
   @Override
-  public int getRoundedSize(int requestSize) {
+  public long getRoundedSize(long requestSize) {
     return (requestSize + (segmentSize - 1)) / segmentSize * segmentSize;
   }
 

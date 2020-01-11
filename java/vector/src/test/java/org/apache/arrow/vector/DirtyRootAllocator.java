@@ -36,12 +36,12 @@ public class DirtyRootAllocator extends RootAllocator {
   }
 
   @Override
-  public ArrowBuf buffer(int size) {
+  public ArrowBuf buffer(long size) {
     return buffer(size, null);
   }
 
   @Override
-  public ArrowBuf buffer(int size, BufferManager manager) {
+  public ArrowBuf buffer(long size, BufferManager manager) {
     ArrowBuf buffer = super.buffer(size, manager);
     // contaminate the buffer
     for (int i = 0; i < buffer.capacity(); i++) {

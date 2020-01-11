@@ -56,12 +56,12 @@ public class MurmurHasher implements ArrowBufHasher {
   }
 
   @Override
-  public int hashCode(long address, int length) {
+  public int hashCode(long address, long length) {
     return hashCode(address, length, seed);
   }
 
   @Override
-  public int hashCode(ArrowBuf buf, int offset, int length) {
+  public int hashCode(ArrowBuf buf, long offset, long length) {
     buf.checkBytes(offset, offset + length);
     return hashCode(buf.memoryAddress() + offset, length);
   }
@@ -74,7 +74,7 @@ public class MurmurHasher implements ArrowBufHasher {
    * @param seed the seed.
    * @return the hash code.
    */
-  public static int hashCode(ArrowBuf buf, int offset, int length, int seed) {
+  public static int hashCode(ArrowBuf buf, long offset, long length, int seed) {
     buf.checkBytes(offset, offset + length);
     return hashCode(buf.memoryAddress() + offset, length, seed);
   }
@@ -86,7 +86,7 @@ public class MurmurHasher implements ArrowBufHasher {
    * @param seed the seed.
    * @return the hash code.
    */
-  public static int hashCode(long address, int length, int seed) {
+  public static int hashCode(long address, long length, int seed) {
     int index = 0;
     int hash = seed;
     while (index + 4 <= length) {
@@ -142,8 +142,8 @@ public class MurmurHasher implements ArrowBufHasher {
    * @param length the length of the memory region.
    * @return the finalized hash code.
    */
-  public static int finalizeHashCode(int hashCode, int length) {
-    hashCode = hashCode ^ length;
+  public static int finalizeHashCode(int hashCode, long length) {
+    hashCode = hashCode ^ (int)length;
 
     hashCode = hashCode ^ (hashCode >>> 16);
     hashCode = hashCode * 0x85ebca6b;

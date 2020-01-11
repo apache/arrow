@@ -131,7 +131,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
   }
 
-  private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
+  private static String createErrorMsg(final BufferAllocator allocator, final long rounded, final long requested) {
     if (rounded != requested) {
       return String.format(
         "Unable to allocate buffer of size %d (rounded from %d) due to memory limit. Current " +
@@ -274,7 +274,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   @Override
-  public ArrowBuf buffer(final int initialRequestSize) {
+  public ArrowBuf buffer(final long initialRequestSize) {
     assertOpen();
 
     return buffer(initialRequestSize, null);
@@ -285,7 +285,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   @Override
-  public ArrowBuf buffer(final int initialRequestSize, BufferManager manager) {
+  public ArrowBuf buffer(final long initialRequestSize, BufferManager manager) {
     assertOpen();
 
     Preconditions.checkArgument(initialRequestSize >= 0, "the requested size must be non-negative");
@@ -295,7 +295,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
 
     // round the request size according to the rounding policy
-    final int actualRequestSize = roundingPolicy.getRoundedSize(initialRequestSize);
+    final long actualRequestSize = roundingPolicy.getRoundedSize(initialRequestSize);
 
     listener.onPreAllocation(actualRequestSize);
 
@@ -341,7 +341,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * Skips the typical accounting associated with creating a new buffer.
    */
   private ArrowBuf bufferWithoutReservation(
-      final int size,
+      final long size,
       BufferManager bufferManager) throws OutOfMemoryException {
     assertOpen();
 
@@ -356,12 +356,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     return buffer;
   }
 
-  private AllocationManager newAllocationManager(int size) {
+  private AllocationManager newAllocationManager(long size) {
     return newAllocationManager(this, size);
   }
 
 
-  private AllocationManager newAllocationManager(BaseAllocator accountingAllocator, int size) {
+  private AllocationManager newAllocationManager(BaseAllocator accountingAllocator, long size) {
     return allocationManagerFactory.create(accountingAllocator, size);
   }
 
@@ -722,7 +722,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
       sb.append(Integer.toString(System.identityHashCode(am)));
       sb.append("] size ");
-      sb.append(Integer.toString(am.getSize()));
+      sb.append(Long.toString(am.getSize()));
       sb.append('\n');
     }
   }

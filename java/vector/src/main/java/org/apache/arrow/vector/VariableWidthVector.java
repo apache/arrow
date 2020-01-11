@@ -28,7 +28,7 @@ public interface VariableWidthVector extends ElementAddressableVector, DensityAw
    * @param totalBytes Desired size of the underlying data buffer.
    * @param valueCount Number of values in the vector.
    */
-  void allocateNew(int totalBytes, int valueCount);
+  void allocateNew(long totalBytes, int valueCount);
 
   /**
    * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.

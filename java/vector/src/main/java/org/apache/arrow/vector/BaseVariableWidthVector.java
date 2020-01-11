@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,15 +41,14 @@ import org.apache.arrow.vector.util.TransferPair;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * BaseVariableWidthVector is a base class providing functionality for variable width
- * types (e.g. Lists, Strings, etc.)
+ * BaseVariableWidthVector is a base class providing functionality for strings/bytes types.
  */
 public abstract class BaseVariableWidthVector extends BaseValueVector
         implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private int lastValueCapacity;
-  private int lastValueAllocationSizeInBytes;
+  private long lastValueAllocationSizeInBytes;
 
   /* protected members */
   public static final int OFFSET_WIDTH = 4; /* 4 byte unsigned int to track offsets */
@@ -215,11 +216,11 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   private int getValidityBufferValueCapacity() {
-    return validityBuffer.capacity() * 8;
+    return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
   private int getOffsetBufferValueCapacity() {
-    return offsetBuffer.capacity() / OFFSET_WIDTH;
+    return capAtMaxInt(offsetBuffer.capacity() / OFFSET_WIDTH);
   }
 
   /**
@@ -374,7 +375,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   /**
    * Allocate memory for the vector. We internally use a default value count
    * of 4096 to allocate memory for at least these many elements in the
-   * vector. See {@link #allocateNew(int, int)} for allocating memory for specific
+   * vector. See {@link #allocateNew(long, int)} for allocating memory for specific
    * number of elements in the vector.
    *
    * @return false if memory allocation fails, true otherwise.
@@ -398,7 +399,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @throws org.apache.arrow.memory.OutOfMemoryException if memory allocation fails
    */
   @Override
-  public void allocateNew(int totalBytes, int valueCount) {
+  public void allocateNew(long totalBytes, int valueCount) {
     assert totalBytes >= 0;
 
     checkDataBufferSize(totalBytes);
@@ -422,7 +423,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   /* Check if the data buffer size is within bounds. */
   private void checkDataBufferSize(long size) {
-    if (size > MAX_ALLOCATION_SIZE) {
+    if (size > MAX_ALLOCATION_SIZE || size < 0) {
       throw new OversizedAllocationException("Memory required for vector " +
           " is (" + size + "), which is more than max allowed (" + MAX_ALLOCATION_SIZE + ")");
     }
@@ -446,9 +447,9 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /* allocate the inner buffers */
-  private void allocateBytes(final int valueBufferSize, final int valueCount) {
+  private void allocateBytes(final long valueBufferSize, final int valueCount) {
     /* allocate data buffer */
-    int curSize = valueBufferSize;
+    long curSize = valueBufferSize;
     valueBuffer = allocator.buffer(curSize);
     valueBuffer.readerIndex(0);
 
@@ -460,7 +461,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     initValidityBuffer();
 
     lastValueCapacity = getValueCapacity();
-    lastValueAllocationSizeInBytes = valueBuffer.capacity();
+    lastValueAllocationSizeInBytes = capAtMaxInt(valueBuffer.capacity());
   }
 
   /* allocate offset buffer */
@@ -497,7 +498,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
   public void reallocDataBuffer() {
-    final int currentBufferCapacity = valueBuffer.capacity();
+    final long currentBufferCapacity = valueBuffer.capacity();
     long newAllocationSize = currentBufferCapacity * 2;
     if (newAllocationSize == 0) {
       if (lastValueAllocationSizeInBytes > 0) {
@@ -511,7 +512,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     checkDataBufferSize(newAllocationSize);
 
-    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
+    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, valueBuffer, 0, currentBufferCapacity);
     valueBuffer.getReferenceManager().release();
     valueBuffer = newBuf;
@@ -542,7 +543,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
   public void reallocValidityAndOffsetBuffers() {
-    int targetOffsetCount = (offsetBuffer.capacity() / OFFSET_WIDTH) * 2;
+    int targetOffsetCount = capAtMaxInt((offsetBuffer.capacity() / OFFSET_WIDTH) * 2);
     if (targetOffsetCount == 0) {
       if (lastValueCapacity > 0) {
         targetOffsetCount = (lastValueCapacity + 1);
@@ -574,7 +575,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   @Override
   public int getByteCapacity() {
-    return valueBuffer.capacity();
+    return capAtMaxInt(valueBuffer.capacity());
   }
 
   @Override

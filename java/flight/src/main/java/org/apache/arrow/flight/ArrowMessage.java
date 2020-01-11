@@ -309,7 +309,7 @@ class ArrowMessage implements AutoCloseable {
         size += b.readableBytes();
         // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable from C++.
         if (b.readableBytes() % 8 != 0) {
-          int paddingBytes = 8 - (b.readableBytes() % 8);
+          int paddingBytes = (int)(8 - (b.readableBytes() % 8));
           assert paddingBytes > 0 && paddingBytes < 8;
           size += paddingBytes;
           allBufs.add(PADDING_BUFFERS.get(paddingBytes).retain());

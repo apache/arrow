@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.complex;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
@@ -107,7 +108,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     validityBuffer.getReferenceManager().release();
     validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
     valueCount = fieldNode.getLength();
-    validityAllocationSizeInBytes = validityBuffer.capacity();
+    validityAllocationSizeInBytes = checkedCastToInt(validityBuffer.capacity());
   }
 
   @Override
@@ -260,7 +261,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
    * @return number of elements that validity buffer can hold
    */
   private int getValidityBufferValueCapacity() {
-    return validityBuffer.capacity() * 8;
+    return checkedCastToInt(validityBuffer.capacity() * 8);
   }
 
   /**
@@ -420,7 +421,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   private void reallocValidityBuffer() {
-    final int currentBufferCapacity = validityBuffer.capacity();
+    final int currentBufferCapacity = checkedCastToInt(validityBuffer.capacity());
     long baseSize = validityAllocationSizeInBytes;
 
     if (baseSize < (long) currentBufferCapacity) {

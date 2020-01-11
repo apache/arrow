@@ -17,6 +17,8 @@
 
 package org.apache.arrow.memory;
 
+import org.apache.arrow.memory.util.LargeMemoryUtil;
+
 import io.netty.buffer.PooledByteBufAllocatorL;
 import io.netty.buffer.UnsafeDirectLittleEndian;
 
@@ -60,7 +62,7 @@ public class NettyAllocationManager extends AllocationManager {
   }
 
   @Override
-  public int getSize() {
+  public long getSize() {
     return size;
   }
 
@@ -71,8 +73,8 @@ public class NettyAllocationManager extends AllocationManager {
     private Factory() {}
 
     @Override
-    public AllocationManager create(BaseAllocator accountingAllocator, int size) {
-      return new NettyAllocationManager(accountingAllocator, size);
+    public AllocationManager create(BaseAllocator accountingAllocator, long size) {
+      return new NettyAllocationManager(accountingAllocator, LargeMemoryUtil.checkedCastToInt(size));
     }
   }
 }

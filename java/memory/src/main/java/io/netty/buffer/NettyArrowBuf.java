@@ -17,6 +17,8 @@
 
 package io.netty.buffer;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -156,7 +158,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public int capacity() {
-    return arrowBuf.capacity();
+    return (int) Math.min(Integer.MAX_VALUE, arrowBuf.capacity());
   }
 
   @Override
@@ -223,12 +225,24 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return nioBuffer(readerIndex(), readableBytes());
   }
 
-  @Override
+
   /**
    * Returns a buffer that is zero positioned but points
    * to a slice of the original buffer starting at given index.
    */
+  @Override
   public ByteBuffer nioBuffer(int index, int length) {
+    chk(index, length);
+    final ByteBuffer buffer = getDirectBuffer(index);
+    buffer.limit(length);
+    return buffer;
+  }
+
+  /**
+   * Returns a buffer that is zero positioned but points
+   * to a slice of the original buffer starting at given index.
+   */
+  public ByteBuffer nioBuffer(long index, int length) {
     chk(index, length);
     final ByteBuffer buffer = getDirectBuffer(index);
     buffer.limit(length);
@@ -239,8 +253,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * Get this ArrowBuf as a direct {@link ByteBuffer}.
    * @return ByteBuffer
    */
-  private ByteBuffer getDirectBuffer(int index) {
-    return PlatformDependent.directBuffer(addr(index), length - index);
+  private ByteBuffer getDirectBuffer(long index) {
+    return PlatformDependent.directBuffer(addr(index), checkedCastToInt(length - index));
   }
 
   @Override
@@ -494,7 +508,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
-  private long addr(int index) {
+  private long addr(long index) {
     return address + index;
   }
 
@@ -504,7 +518,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * @param index index (0 based relative to this ArrowBuf)
    * @param fieldLength provided length of data for get/set
    */
-  private void chk(int index, int fieldLength) {
+  private void chk(long index, long fieldLength) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       // check reference count
       ensureAccessible();
