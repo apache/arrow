@@ -28,5 +28,16 @@ export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_PATH}
 
 pushd ${build_dir}
-ctest --output-on-failure -j$(nproc)
+case "$(uname)" in
+  Linux)
+    n_jobs=$(nproc)
+    ;;
+  Darwin)
+    n_jobs=$(sysctl -n hw.ncpu)
+    ;;
+  *)
+    n_jobs=1
+    ;;
+esac
+ctest --output-on-failure -j${n_jobs}
 popd
