@@ -116,7 +116,7 @@ the install script ensures that you fetch the C++ libraries that correspond to y
 However, if you are using Arrow libraries already on your system, version match isn't guaranteed.
 
 To fix version mismatch, you can either update your system packages to match the R package version,
-or set the environment variable `ARROW_USE_PKGCONFIG=FALSE`
+or set the environment variable `ARROW_USE_PKG_CONFIG=FALSE`
 to tell the configure script not to look for system Arrow packages.
 System packages are available corresponding to all CRAN releases
 but not for nightly or dev versions, so depending on the R package version you're installing,
@@ -212,7 +212,7 @@ and avoid this build step entirely.
 
 By default, these are all unset.
 
-* `ARROW_USE_PKGCONFIG`: If set to `FALSE`, the configure script
+* `ARROW_USE_PKG_CONFIG`: If set to `FALSE`, the configure script
   won't look for Arrow libraries on your system and instead will look to download/build them.
   Use this if you have a version mismatch between installed system libraries
   and the version of the R package you're installing.
