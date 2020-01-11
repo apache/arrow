@@ -49,7 +49,7 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 download_binary <- function(os = identify_os()) {
   libfile <- tempfile()
   if (!is.null(os)) {
-    binary_url <- paste0(arrow_repo, os, "/arrow-", VERSION, ".zip")
+    binary_url <- paste0(arrow_repo, "bin/", os, "/arrow-", VERSION, ".zip")
     try(
       download.file(binary_url, libfile, quiet = quietly),
       silent = quietly
