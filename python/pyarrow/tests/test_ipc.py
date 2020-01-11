@@ -27,8 +27,7 @@ import pyarrow as pa
 
 
 try:
-    from pandas.util.testing import (assert_frame_equal,
-                                     assert_series_equal)
+    from pandas.testing import assert_frame_equal, assert_series_equal
     import pandas as pd
 except ImportError:
     pass

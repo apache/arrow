@@ -42,7 +42,7 @@ except ImportError:
 
 try:
     import pandas as pd
-    import pandas.util.testing as tm
+    import pandas.testing as tm
     from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 except ImportError:
     pd = tm = None
@@ -480,7 +480,7 @@ def _test_dataframe(size=10000, seed=0):
         'float32': np.random.randn(size).astype(np.float32),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
-        'strings': [tm.rands(10) for i in range(size)],
+        'strings': [util.rands(10) for i in range(size)],
         'all_none': [None] * size,
         'all_none_category': [None] * size
     })
@@ -3092,7 +3092,7 @@ def test_direct_read_dictionary():
     nunique = 5
 
     data = [
-        [tm.rands(10) for i in range(nunique)] * repeats,
+        [util.rands(10) for i in range(nunique)] * repeats,
 
     ]
     table = pa.table(data, names=['f0'])
@@ -3112,8 +3112,8 @@ def test_direct_read_dictionary():
 @pytest.mark.pandas
 def test_dataset_read_dictionary(tempdir):
     path = tempdir / "ARROW-3325-dataset"
-    t1 = pa.table([[tm.rands(10) for i in range(5)] * 10], names=['f0'])
-    t2 = pa.table([[tm.rands(10) for i in range(5)] * 10], names=['f0'])
+    t1 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
+    t2 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
     pq.write_to_dataset(t1, root_path=str(path))
     pq.write_to_dataset(t2, root_path=str(path))
 
@@ -3138,7 +3138,7 @@ def test_direct_read_dictionary_subfield():
     nunique = 5
 
     data = [
-        [[tm.rands(10)] for i in range(nunique)] * repeats,
+        [[util.rands(10)] for i in range(nunique)] * repeats,
     ]
     table = pa.table(data, names=['f0'])
 

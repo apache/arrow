@@ -36,13 +36,13 @@ import pytest
 import pytz
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
-from pyarrow.tests.util import random_ascii
+from pyarrow.tests.util import random_ascii, rands
 
 import pyarrow as pa
 
 try:
     import pandas as pd
-    import pandas.util.testing as tm
+    import pandas.testing as tm
     from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 except ImportError:
     pass
@@ -2442,14 +2442,14 @@ class TestConvertMisc(object):
     def test_convert_empty_table(self):
         arr = pa.array([], type=pa.int64())
         empty_objects = pd.Series(np.array([], dtype=object))
-        tm.assert_almost_equal(arr.to_pandas(),
+        tm.assert_series_equal(arr.to_pandas(),
                                pd.Series(np.array([], dtype=np.int64)))
         arr = pa.array([], type=pa.string())
-        tm.assert_almost_equal(arr.to_pandas(), empty_objects)
+        tm.assert_series_equal(arr.to_pandas(), empty_objects)
         arr = pa.array([], type=pa.list_(pa.int64()))
-        tm.assert_almost_equal(arr.to_pandas(), empty_objects)
+        tm.assert_series_equal(arr.to_pandas(), empty_objects)
         arr = pa.array([], type=pa.struct([pa.field('a', pa.int64())]))
-        tm.assert_almost_equal(arr.to_pandas(), empty_objects)
+        tm.assert_series_equal(arr.to_pandas(), empty_objects)
 
     def test_non_natural_stride(self):
         """
@@ -2606,7 +2606,7 @@ def test_convert_unsupported_type_error_message():
 
 
 def _generate_dedup_example(nunique, repeats):
-    unique_values = [tm.rands(10) for i in range(nunique)]
+    unique_values = [rands(10) for i in range(nunique)]
     return unique_values * repeats
 
 

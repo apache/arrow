@@ -30,6 +30,7 @@ import pyarrow.tests.test_parquet as test_parquet
 
 from pyarrow.compat import guid
 from pyarrow.pandas_compat import _pandas_api
+from pyarrow.tests import util
 
 
 # ----------------------------------------------------------------------
@@ -423,7 +424,7 @@ def _get_hdfs_uri(path):
 @pytest.mark.fastparquet
 @pytest.mark.parametrize('client', ['libhdfs', 'libhdfs3'])
 def test_fastparquet_read_with_hdfs(client):
-    from pandas.util.testing import assert_frame_equal, makeDataFrame
+    from pandas.testing import assert_frame_equal
 
     try:
         import snappy  # noqa
@@ -435,7 +436,8 @@ def test_fastparquet_read_with_hdfs(client):
 
     fs = hdfs_test_client(client)
 
-    df = makeDataFrame()
+    df = util.make_dataframe()
+
     table = pa.Table.from_pandas(df)
 
     path = '/tmp/testing.parquet'

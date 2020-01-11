@@ -32,7 +32,7 @@ from pyarrow.lib import FeatherWriter
 
 
 try:
-    from pandas.util.testing import assert_frame_equal
+    from pandas.testing import assert_frame_equal
     import pandas as pd
     import pyarrow.pandas_compat
 except ImportError:
