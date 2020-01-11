@@ -17,7 +17,7 @@
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>arrow-flight-grpc</artifactId>
+  <artifactId>flight-grpc</artifactId>
   <name>Arrow Flight GRPC</name>
   <description>(Experimental)Contains utility class to expose Flight gRPC service and client</description>
   <packaging>jar</packaging>
@@ -31,7 +31,7 @@
   <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-flight</artifactId>
+      <artifactId>flight-core</artifactId>
       <version>${project.version}</version>
       <exclusions>
         <exclusion>
