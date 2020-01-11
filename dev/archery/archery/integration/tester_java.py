@@ -50,7 +50,7 @@ class JavaTester(Tester):
     ARROW_FLIGHT_JAR = os.environ.get(
         'ARROW_FLIGHT_JAVA_INTEGRATION_JAR',
         os.path.join(ARROW_ROOT_DEFAULT,
-                     'java/flight/target/arrow-flight-{}-'
+                     'java/flight/flight-core/target/flight-core-{}-'
                      'jar-with-dependencies.jar'.format(_arrow_version)))
     ARROW_FLIGHT_SERVER = ('org.apache.arrow.flight.example.integration.'
                            'IntegrationTestServer')
