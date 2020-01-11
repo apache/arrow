@@ -32,7 +32,7 @@ on:
       - 'r/**'
 
 jobs:
-  ubuntu-cpp:
+  ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
     strategy:

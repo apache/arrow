@@ -86,10 +86,6 @@ test_that("Simple interface for datasets", {
 })
 
 test_that("Hive partitioning", {
-  # regex_error in arrow:::dataset___DSDiscovery__Finish2(self, schema)
-  # on centos and opensuse
-  # https://issues.apache.org/jira/browse/ARROW-7500
-  skip_on_os("linux")
   ds <- open_dataset(hive_dir, partition = hive_partition(other = utf8(), group = uint8()))
   expect_is(ds, "Dataset")
   expect_equivalent(
@@ -117,8 +113,6 @@ test_that("Partition scheme inference", {
       summarize(mean = mean(integer))
   )
 
-  skip_on_os("linux")
-  # https://issues.apache.org/jira/browse/ARROW-7500
   ds2 <- open_dataset(hive_dir)
   expect_identical(names(ds2), c(names(df1), "group", "other"))
   print(ds2$schema)
