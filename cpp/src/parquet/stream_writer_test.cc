@@ -168,43 +168,43 @@ TEST_F(TestStreamWriter, RequiredFieldChecking) {
 
   // Required field of type: bool
   EXPECT_THROW(writer_ << optional<bool>(), ParquetException);
-  EXPECT_NO_THROW(writer_ << true);
+  EXPECT_NO_THROW(writer_ << optional<bool>(true));
 
   // Required field of type: Variable length string.
   EXPECT_THROW(writer_ << optional<std::string>(), ParquetException);
-  EXPECT_NO_THROW(writer_ << std::string("ok"));
+  EXPECT_NO_THROW(writer_ << optional<std::string>("ok"));
 
   // Required field of type: A char.
   EXPECT_THROW(writer_ << optional<char>(), ParquetException);
-  EXPECT_NO_THROW(writer_ << 'K');
+  EXPECT_NO_THROW(writer_ << optional<char>('K'));
 
   // Required field of type: Fixed string of length 4
   EXPECT_THROW(writer_ << optional<char4_array_type>(), ParquetException);
-  EXPECT_NO_THROW(writer_ << char4_array);
+  EXPECT_NO_THROW(writer_ << optional<char4_array_type>(char4_array));
 
   // Required field of type: int8_t
   EXPECT_THROW(writer_ << optional<int8_t>(), ParquetException);
-  EXPECT_NO_THROW(writer_ << int8_t(51));
+  EXPECT_NO_THROW(writer_ << optional<int8_t>(51));
 
   // Required field of type: uint16_t
   EXPECT_THROW(writer_ << optional<uint16_t>(), ParquetException);
-  EXPECT_NO_THROW(writer_ << uint16_t(15));
+  EXPECT_NO_THROW(writer_ << optional<uint16_t>(15));
 
   // Required field of type: int32_t
   EXPECT_THROW(writer_ << optional<int32_t>(), ParquetException);
-  EXPECT_NO_THROW(writer_ << int32_t(329487));
+  EXPECT_NO_THROW(writer_ << optional<int32_t>(329487));
 
   // Required field of type: uint64_t
   EXPECT_THROW(writer_ << optional<uint64_t>(), ParquetException);
-  EXPECT_NO_THROW(writer_ << uint64_t((1ull << 60) + 123));
+  EXPECT_NO_THROW(writer_ << optional<uint64_t>((1ull << 60) + 123));
 
   // Required field of type: float
   EXPECT_THROW(writer_ << optional<float>(), ParquetException);
-  EXPECT_NO_THROW(writer_ << 5.4f);
+  EXPECT_NO_THROW(writer_ << optional<float>(5.4f));
 
   // Required field of type: double
   EXPECT_THROW(writer_ << optional<double>(), ParquetException);
-  EXPECT_NO_THROW(writer_ << 5.4);
+  EXPECT_NO_THROW(writer_ << optional<double>(5.4));
 
   EXPECT_NO_THROW(writer_ << EndRow);
 }

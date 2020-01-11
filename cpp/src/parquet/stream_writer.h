@@ -48,9 +48,16 @@ namespace parquet {
 ///
 /// Required and optional fields are supported:
 /// - Required fields are written using operator<<(T)
-/// - Optional fields can be written as required fields (when there is
-///   a value to write) and with operator<<(arrow::util::optional<T>)
-///   when there may or may not be a value to write.
+/// - Optional fields are written using
+///   operator<<(arrow::util::optional<T>).
+///
+/// Note that operator<<(T) can be used to write optional fields.
+///
+/// Similarly, operator<<(arrow::util::optional<T>) can be used to
+/// write required fields.  However if the optional parameter does not
+/// have a value (i.e. it is nullopt) then a ParquetException will be
+/// raised.
+///
 /// Currently there is no support for repeated fields.
 ///
 class PARQUET_EXPORT StreamWriter {

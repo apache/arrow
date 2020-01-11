@@ -46,6 +46,14 @@ namespace parquet {
 /// - Required fields are read using operator>>(T)
 /// - Optional fields are read with
 ///   operator>>(arrow::util::optional<T>)
+///
+/// Note that operator>>(arrow::util::optional<T>) can be used to read
+/// required fields.
+///
+/// Similarly operator>>(T) can be used to read optional fields.
+/// However, if the value is not present then a ParquetException will
+/// be raised.
+///
 /// Currently there is no support for repeated fields.
 ///
 class PARQUET_EXPORT StreamReader {

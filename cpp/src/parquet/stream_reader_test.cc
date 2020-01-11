@@ -341,6 +341,61 @@ TEST_F(TestStreamReader, ValueChecking) {
   EXPECT_EQ(i, TestData::num_rows);
 }
 
+TEST_F(TestStreamReader, ReadRequiredFieldAsOptionalField) {
+  /* Test that required fields can be read using optional types.
+
+    This can be useful if a schema is changed such that a field which
+    was optional is changed to be required.  Applications can continue
+    to read the field as if it were still optional.
+  */
+
+  optional<bool> opt_bool;
+  optional<std::string> opt_string;
+  optional<std::array<char, 4>> opt_char_array;
+  optional<char> opt_char;
+  optional<int8_t> opt_int8;
+  optional<uint16_t> opt_uint16;
+  optional<int32_t> opt_int32;
+  optional<uint64_t> opt_uint64;
+  optional<std::chrono::microseconds> opt_ts_us;
+  optional<float> opt_float;
+  optional<double> opt_double;
+
+  int i;
+
+  for (i = 0; !reader_.eof(); ++i) {
+    EXPECT_EQ(i, reader_.current_row());
+
+    reader_ >> opt_bool;
+    reader_ >> opt_string;
+    reader_ >> opt_char;
+    reader_ >> opt_char_array;
+    reader_ >> opt_int8;
+    reader_ >> opt_uint16;
+    reader_ >> opt_int32;
+    reader_ >> opt_uint64;
+    reader_ >> opt_ts_us;
+    reader_ >> opt_float;
+    reader_ >> opt_double;
+    reader_ >> EndRow;
+
+    EXPECT_EQ(*opt_bool, TestData::GetBool(i)) << "index: " << i;
+    EXPECT_EQ(*opt_string, TestData::GetString(i)) << "index: " << i;
+    EXPECT_EQ(*opt_char, TestData::GetChar(i)) << "index: " << i;
+    EXPECT_EQ(*opt_char_array, TestData::GetCharArray(i)) << "index: " << i;
+    EXPECT_EQ(*opt_int8, TestData::GetInt8(i)) << "index: " << i;
+    EXPECT_EQ(*opt_uint16, TestData::GetUInt16(i)) << "index: " << i;
+    EXPECT_EQ(*opt_int32, TestData::GetInt32(i)) << "index: " << i;
+    EXPECT_EQ(*opt_uint64, TestData::GetUInt64(i)) << "index: " << i;
+    EXPECT_EQ(*opt_ts_us, TestData::GetChronoMicroseconds(i)) << "index: " << i;
+    EXPECT_FLOAT_EQ(*opt_float, TestData::GetFloat(i)) << "index: " << i;
+    EXPECT_DOUBLE_EQ(*opt_double, TestData::GetDouble(i)) << "index: " << i;
+  }
+  EXPECT_EQ(reader_.current_row(), TestData::num_rows);
+  EXPECT_EQ(reader_.num_rows(), TestData::num_rows);
+  EXPECT_EQ(i, TestData::num_rows);
+}
+
 TEST_F(TestStreamReader, SkipRows) {
   // Skipping zero and negative number of rows is ok.
   //
@@ -671,14 +726,14 @@ TEST_F(TestOptionalFields, ValueChecking) {
   EXPECT_EQ(i, TestData::num_rows);
 }
 
-TEST_F(TestOptionalFields, ReadOptionalValueAsRequiredField) {
+TEST_F(TestOptionalFields, ReadOptionalFieldAsRequiredField) {
   /* Test that optional fields can be read using non-optional types
     _provided_ that the optional value is available.
 
-    This can be useful if a schema is changed such that a column is
-    optional in some conditions.  Applications for which the optional
-    conditions do not hold can continue reading the column as being
-    mandatory.
+    This can be useful if a schema is changed such that a required
+    field beomes optional.  Applications can continue reading the
+    field as if it were mandatory and do not need to be changed if the
+    field value is always provided.
 
     Of course if the optional value is not present, then the read will
     fail by throwing an exception.  This is also tested below.
