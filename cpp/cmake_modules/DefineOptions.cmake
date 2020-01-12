@@ -181,7 +181,17 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
-  define_option(ARROW_JEMALLOC "Build the Arrow jemalloc-based allocator" ON)
+  set(ARROW_JEMALLOC_DESCRIPTION "Build the Arrow jemalloc-based allocator")
+  if(WIN32 OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
+    # jemalloc is not supported on Windows.
+    #
+    # jemalloc is the default malloc implementation on FreeBSD and can't
+    # be built with --disable-libdl on FreeBSD. Because lazy-lock feature
+    # is required on FreeBSD. Lazy-lock feature requires libdl.
+    define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} OFF)
+  else()
+    define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} ON)
+  endif()
 
   define_option(ARROW_JNI "Build the Arrow JNI lib" OFF)
 
