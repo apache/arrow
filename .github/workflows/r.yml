@@ -32,7 +32,6 @@ on:
       - 'r/**'
 
 jobs:
-
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
@@ -71,34 +70,32 @@ jobs:
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push ubuntu-r
 
-  conda:
-    name: AMD64 Conda R ${{ matrix.r }}
+  rstudio:
+    name: "rstudio/r-base:${{ matrix.r_version }}-${{ matrix.r_image }}"
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
-        r: [3.6]
+        # See https://hub.docker.com/r/rstudio/r-base
+        r_version: ["3.6"]
+        r_image:
+          - centos7
     env:
-      R: ${{ matrix.r }}
+      R_ORG: "rstudio"
+      R_IMAGE: "r-base"
+      R_TAG: ${{ matrix.r_version }}-${{ matrix.r_image }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
-        with:
-          submodules: true
       - name: Docker Pull
         shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures conda-cpp
-          docker-compose pull --ignore-pull-failures conda-r
+        run: docker-compose pull --ignore-pull-failures r
       - name: Docker Build
         shell: bash
-        run: |
-          docker-compose build conda-cpp
-          docker-compose build conda-r
+        run: docker-compose build r
       - name: Docker Run
         shell: bash
-        run: docker-compose run conda-r
+        run: docker-compose run r
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -106,4 +103,4 @@ jobs:
         run: |
           docker login -u ${{ secrets.DOCKERHUB_USER }} \
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-r
+          docker-compose push r

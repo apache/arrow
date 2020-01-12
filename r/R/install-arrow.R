@@ -98,6 +98,7 @@ THEN_REINSTALL <- paste(
 SEE_README <- paste(
   "Refer to the R package README",
   "<https://github.com/apache/arrow/blob/master/r/README.md>",
+  "and `vignette('install', package = 'arrow')`",
   "for further details."
 )
 

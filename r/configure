@@ -31,7 +31,8 @@ PKG_DEB_NAME="(unsuppored)"
 PKG_RPM_NAME="(unsuppored)"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
-PKG_LIBS="-larrow -lparquet -larrow_dataset"
+# These must be the same order as $(pkg-config --libs arrow-dataset)
+PKG_LIBS="-larrow_dataset -lparquet -larrow"
 
 # generate code
 if [ "$ARROW_R_DEV" = "TRUE" ]; then
@@ -50,6 +51,7 @@ if [ "$LOCAL_AUTOBREW" = "TRUE" ]; then
   cp tools/autobrew .
   cp tools/apache-arrow.rb .
   FORCE_AUTOBREW="TRUE"
+  ARROW_USE_PKG_CONFIG="FALSE"
 fi
 
 # Note that cflags may be empty in case of success
@@ -58,9 +60,9 @@ if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
   PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
   PKG_LIBS="-L$LIB_DIR $PKG_LIBS"
 else
-  # Use pkg-config if available
+  # Use pkg-config if available and allowed
   pkg-config --version >/dev/null 2>&1
-  if [ "$FORCE_AUTOBREW" != "TRUE" ] && [ $? -eq 0 ]; then
+  if [ "$ARROW_USE_PKG_CONFIG" != "FALSE" ] && [ $? -eq 0 ]; then
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_LIBS=`pkg-config --libs --silence-errors ${PKG_CONFIG_NAME}`
   fi
@@ -91,6 +93,14 @@ else
       fi
       PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
       PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
+    elif [ "$UNAME" = "Linux" ]; then
+      VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
+      ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
+      PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
+      PKG_LIBS="-L$(pwd)/libarrow/arrow-${VERSION}/lib $PKG_LIBS"
+      # Also enumerate the static libs included in there
+      # TODO: this should be generated based on what's in the lib dir
+      PKG_LIBS="$PKG_LIBS -lthrift -lsnappy -lz -lzstd -llz4 -lbrotlidec-static -lbrotlienc-static -lbrotlicommon-static -lboost_filesystem -lboost_regex -lboost_system -ljemalloc_pic"
     fi
   fi
 fi

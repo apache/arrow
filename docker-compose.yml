@@ -662,6 +662,35 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/r_test.sh /arrow"
 
+  r:
+    # This lets you test building/installing the arrow R package
+    # (including building the C++ library) on any Docker image that contains R
+    #
+    # Usage:
+    #   R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose build r
+    #   R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose run r
+    image: ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
+      args:
+        base: ${R_ORG}/${R_IMAGE}:${R_TAG}
+    shm_size: *shm-size
+    environment:
+      TEST_R_WITH_ARROW: "true"
+      NOT_CRAN: "true"
+      LIBARROW_DOWNLOAD: "false"
+    volumes:
+      - .:/arrow:delegated
+    command: >
+      /bin/bash -c "
+        cd /arrow/r &&
+        R CMD INSTALL . &&
+        cd tests &&
+        R --no-save --no-restore -e 'library(testthat); library(arrow); library(tibble); test_check(\"arrow\", reporter = \"summary\", stop_on_warning = TRUE)'"
+
   ubuntu-r-sanitizer:
     # Only 18.04 and amd64 supported
     # Usage:

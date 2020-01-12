@@ -127,7 +127,7 @@ test_that("Partition scheme inference", {
 })
 
 test_that("filter() on a dataset won't auto-collect", {
-  ds <- open_dataset(dataset_dir)
+  ds <- open_dataset(dataset_dir, partition = "part")
   expect_error(
     ds %>% filter(int > 6, dbl > max(dbl)),
     "Filter expression not supported for Arrow Datasets: dbl > max(dbl)",

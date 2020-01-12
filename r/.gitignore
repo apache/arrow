@@ -12,5 +12,6 @@ inst/doc
 src/Makevars
 src/Makevars.win
 windows/
+libarrow/
 arrow_*.tar.gz
 arrow_*.tgz

@@ -54,16 +54,10 @@ RUN apt-get update -y && \
 
 # Ensure parallel R package installation, set CRAN repo mirror,
 # and use pre-built binaries where possible
-RUN printf "\
-    options(Ncpus = parallel::detectCores(), \
-            repos = 'https://demo.rstudiopm.com/all/__linux__/"$(lsb_release -cs)"/latest', \
-            HTTPUserAgent = sprintf(\
-                'R/%%s R (%%s)', getRversion(), \
-                paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os)))\n" \
-    >> /etc/R/Rprofile.site
-
+COPY ci/etc/rprofile /arrow/ci/etc/
+RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 # Also ensure parallel compilation of C/C++ code
-RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> /usr/lib/R/etc/Makeconf
+RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
