@@ -74,14 +74,18 @@ if [ "${PYTHON_VERSION}" = "2.7" -a "${UNICODE_WIDTH}" = "32" ]; then
 fi
 
 if [ "${PYTHON_VERSION}" != "2.7" ]; then
+  export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_FLIGHT=1
   export PYARROW_WITH_GANDIVA=1
+  export BUILD_ARROW_DATASET=ON
   export BUILD_ARROW_FLIGHT=ON
   export BUILD_ARROW_GANDIVA=ON
 else
   # Flight and Gandiva are not supported on Python 2.7
+  export PYARROW_WITH_DATASET=0
   export PYARROW_WITH_FLIGHT=0
   export PYARROW_WITH_GANDIVA=0
+  export BUILD_ARROW_DATASET=OFF
   export BUILD_ARROW_FLIGHT=OFF
   export BUILD_ARROW_GANDIVA=OFF
 fi
@@ -116,6 +120,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_WITH_LZ4=ON \
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_BROTLI=ON \
+    -DARROW_DATASET=${BUILD_ARROW_DATASET} \
     -DARROW_FLIGHT=${BUILD_ARROW_FLIGHT} \
     -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
     -DARROW_GANDIVA_JAVA=OFF \
@@ -161,6 +166,7 @@ import pyarrow.parquet
 import pyarrow.plasma
 
 if sys.version_info.major > 2:
+    import pyarrow.dataset
     import pyarrow.flight
     import pyarrow.gandiva
   "

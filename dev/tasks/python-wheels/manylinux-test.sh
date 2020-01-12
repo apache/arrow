@@ -43,6 +43,7 @@ import pyarrow.parquet
 import pyarrow.plasma
 
 if sys.version_info.major > 2:
+    import pyarrow.dataset
     import pyarrow.flight
     import pyarrow.gandiva
 "

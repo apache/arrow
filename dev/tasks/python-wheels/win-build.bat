@@ -60,6 +60,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_WITH_LZ4=ON ^
       -DARROW_WITH_SNAPPY=ON ^
       -DARROW_WITH_BROTLI=ON ^
+      -DARROW_DATASET=ON ^
       -DARROW_FLIGHT=ON ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
@@ -71,8 +72,9 @@ popd
 
 set PYARROW_BUILD_TYPE=Release
 set PYARROW_PARALLEL=8
-@rem Flight and Gandiva are not supported on Python 2.7,
+@rem Flight, Gandiva and Dataset are not supported on Python 2.7,
 @rem but we don't build 2.7 wheels for Windows.
+set PYARROW_WITH_DATASET=1
 set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_GANDIVA=1
 set PYARROW_WITH_PARQUET=1
@@ -100,7 +102,7 @@ call conda.bat activate wheel-test
 pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
 
 @rem test the imports
-python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.gandiva;" || exit /B
+python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.dataset; import pyarrow.gandiva;" || exit /B
 
 @rem run the python tests
 pytest -rs --pyargs pyarrow || exit /B
