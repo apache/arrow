@@ -569,9 +569,13 @@ test_linux_wheels() {
         continue
       fi
 
+      # check the mandatory and optional imports
       pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
-
       check_python_imports py_arch
+
+      # execute the python unit tests
+      conda install --file ${SOURCE_DIR}/ci/conda_env_python.yml
+      pytest --pyargs pyarrow
     done
 
     conda deactivate
@@ -595,9 +599,14 @@ test_macos_wheels() {
       macos_suffix="${macos_suffix}_10_9_x86_64"
       ;;
     esac
-    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-${macos_suffix}.whl
 
+    # check the mandatory and optional imports
+    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-${macos_suffix}.whl
     check_python_imports py_arch
+
+    # execute the python unit tests
+    conda install --file ${SOURCE_DIR}/ci/conda_env_python.yml
+    pytest --pyargs pyarrow
 
     conda deactivate
   done
