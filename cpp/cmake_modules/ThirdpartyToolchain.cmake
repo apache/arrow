@@ -1268,11 +1268,6 @@ endif()
 # ----------------------------------------------------------------------
 # jemalloc - Unix-only high-performance allocator
 
-if(WIN32)
-  # jemalloc is not supported on Windows
-  set(ARROW_JEMALLOC off)
-endif()
-
 if(ARROW_JEMALLOC)
   message(STATUS "Building (vendored) jemalloc from source")
   # We only use a vendored jemalloc as we want to control its version.

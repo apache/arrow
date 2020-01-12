@@ -20,7 +20,7 @@
 #ifdef _WIN32
 #define ARROW_LITTLE_ENDIAN 1
 #else
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__FreeBSD__)
 #include <machine/endian.h>
 #else
 #include <endian.h>

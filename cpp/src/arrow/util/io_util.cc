@@ -993,7 +993,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
   }
   return Status::OK();
 #else
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__FreeBSD__)
   // we have to close the mmap first, truncate the file to the new size
   // and recreate the mmap
   if (munmap(addr, old_size) == -1) {
