@@ -575,7 +575,7 @@ test_linux_wheels() {
       check_python_imports py_arch
 
       # execute the python unit tests
-      conda install -y --file ${ARROW_DIR}/ci/conda_env_python.yml
+      conda install -y --file ${ARROW_DIR}/ci/conda_env_python.yml pandas
       pytest --pyargs pyarrow
     done
 
@@ -606,7 +606,7 @@ test_macos_wheels() {
     check_python_imports py_arch
 
     # execute the python unit tests
-    conda install -y --file ${ARROW_DIR}/ci/conda_env_python.yml
+    conda install -y --file ${ARROW_DIR}/ci/conda_env_python.yml pandas
     pytest --pyargs pyarrow
 
     conda deactivate
