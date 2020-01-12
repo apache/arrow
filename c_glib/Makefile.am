@@ -36,4 +36,5 @@ EXTRA_DIST =					\
 
 arrow_glib_docdir = ${datarootdir}/doc/arrow-glib
 arrow_glib_doc_DATA =				\
+	LICENSE.txt				\
 	README.md
