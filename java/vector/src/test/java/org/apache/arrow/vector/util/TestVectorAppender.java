@@ -19,23 +19,22 @@ package org.apache.arrow.vector.util;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
-import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
-import org.apache.arrow.vector.holders.NullableBigIntHolder;
-import org.apache.arrow.vector.holders.NullableFloat4Holder;
-import org.apache.arrow.vector.holders.NullableIntHolder;
+import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -70,14 +69,8 @@ public class TestVectorAppender {
       target.allocateNew(length1);
       delta.allocateNew(length2);
 
-      for (int i = 0; i < length1; i++) {
-        target.set(i, i);
-      }
-      for (int i = 0; i < length2; i++) {
-        delta.set(i, i + length1);
-      }
-      target.setValueCount(length1);
-      delta.setValueCount(length2);
+      ValueVectorDataPopulator.setVector(target, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+      ValueVectorDataPopulator.setVector(delta, 10, 11, 12, 13, 14);
 
       VectorAppender appender = new VectorAppender(target);
       delta.accept(appender, null);
@@ -99,14 +92,8 @@ public class TestVectorAppender {
       target.allocateNew(5, length1);
       delta.allocateNew(5, length2);
 
-      for (int i = 0; i < length1; i++) {
-        target.setSafe(i, ("a" + i).getBytes());
-      }
-      for (int i = 0; i < length2; i++) {
-        delta.setSafe(i, ("a" + (i + length1)).getBytes());
-      }
-      target.setValueCount(length1);
-      delta.setValueCount(length2);
+      ValueVectorDataPopulator.setVector(target, "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9");
+      ValueVectorDataPopulator.setVector(delta, "a10", "a11", "a12", "a13", "a14");
 
       VectorAppender appender = new VectorAppender(target);
       delta.accept(appender, null);
@@ -118,40 +105,27 @@ public class TestVectorAppender {
     }
   }
 
-  private ListVector createListVector(int start, int end, int step) {
-    final int listLength = (end - start) / step;
-
-    ListVector listVector = ListVector.empty("list vector", allocator);
-
-    Types.MinorType type = Types.MinorType.INT;
-    listVector.addOrGetVector(FieldType.nullable(type.getType()));
-
-    listVector.allocateNew();
-
-    IntVector dataVector = (IntVector) listVector.getDataVector();
-
-    // set underlying vectors
-    for (int i = 0; i < end - start; i++) {
-      dataVector.set(i, i + start);
-    }
-    dataVector.setValueCount(end - start);
-
-    // set offset buffer
-    for (int i = 0; i < listLength; i++) {
-      BitVectorHelper.setBit(listVector.getValidityBuffer(), i);
-      listVector.getOffsetBuffer().setInt(i * OFFSET_WIDTH, i * step);
-      listVector.getOffsetBuffer().setInt((i + 1) * OFFSET_WIDTH, (i + 1) * step);
-    }
-    listVector.setLastSet(listLength - 1);
-    listVector.setValueCount(listLength);
-
-    return listVector;
-  }
-
   @Test
   public void testAppendListVector() {
-    try (ListVector target = createListVector(0, 10, 2);
-         ListVector delta = createListVector(10, 20, 5)) {
+    final int length1 = 5;
+    final int length2 = 2;
+    try (ListVector target = ListVector.empty("target", allocator);
+         ListVector delta = ListVector.empty("delta", allocator)) {
+
+      target.allocateNew();
+      ValueVectorDataPopulator.setVector(target,
+          Arrays.asList(0, 1),
+          Arrays.asList(2, 3),
+          Arrays.asList(4, 5),
+          Arrays.asList(6, 7),
+          Arrays.asList(8, 9));
+      assertEquals(length1, target.getValueCount());
+
+      delta.allocateNew();
+      ValueVectorDataPopulator.setVector(delta,
+          Arrays.asList(10, 11, 12, 13, 14),
+          Arrays.asList(15, 16, 17, 18, 19));
+      assertEquals(length2, delta.getValueCount());
 
       VectorAppender appender = new VectorAppender(target);
       delta.accept(appender, null);
@@ -159,7 +133,7 @@ public class TestVectorAppender {
       assertEquals(7, target.getValueCount());
 
       int curValue = 0;
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < length1; i++) {
         List<Integer> list = (List<Integer>) target.getObject(i);
         assertEquals(2, list.size());
         for (int j = 0; j < list.size(); j++) {
@@ -167,7 +141,7 @@ public class TestVectorAppender {
         }
       }
 
-      for (int i = 5; i < 7; i++) {
+      for (int i = length1; i < length1 + length2; i++) {
         List<Integer> list = (List<Integer>) target.getObject(i);
         assertEquals(5, list.size());
         for (int j = 0; j < list.size(); j++) {
@@ -175,50 +149,31 @@ public class TestVectorAppender {
         }
       }
     }
-  }
-
-  private FixedSizeListVector createFixedSizeListVector(int start, int end, int step) {
-    final int listLength = (end - start) / step;
-
-    FixedSizeListVector listVector = FixedSizeListVector.empty("fixed size list vector", step, allocator);
-
-    Types.MinorType type = Types.MinorType.INT;
-    listVector.addOrGetVector(FieldType.nullable(type.getType()));
-
-    listVector.allocateNew();
-
-    IntVector dataVector = (IntVector) listVector.getDataVector();
-
-    // set underlying vectors
-    for (int i = 0; i < end - start; i++) {
-      dataVector.set(i, i + start);
-    }
-    dataVector.setValueCount(end - start);
-
-    listVector.setValueCount(listLength);
-
-    return listVector;
   }
 
   @Test
   public void testAppendFixedSizeListVector() {
-    try (ListVector target = createListVector(0, 10, 2);
-         ListVector delta = createListVector(10, 20, 5)) {
+    try (FixedSizeListVector target = FixedSizeListVector.empty("target", 5, allocator);
+         FixedSizeListVector delta = FixedSizeListVector.empty("delta", 5, allocator)) {
+
+      target.allocateNew();
+      ValueVectorDataPopulator.setVector(target,
+          Arrays.asList(0, 1, 2, 3, 4),
+          Arrays.asList(5, 6, 7, 8, 9));
+      assertEquals(2, target.getValueCount());
+
+      delta.allocateNew();
+      ValueVectorDataPopulator.setVector(delta,
+          Arrays.asList(10, 11, 12, 13, 14),
+          Arrays.asList(15, 16, 17, 18, 19));
+      assertEquals(2, delta.getValueCount());
 
       VectorAppender appender = new VectorAppender(target);
       delta.accept(appender, null);
 
-      assertEquals(7, target.getValueCount());
+      assertEquals(4, target.getValueCount());
       int curValue = 0;
-      for (int i = 0; i < 5; i++) {
-        List<Integer> list = (List<Integer>) target.getObject(i);
-        assertEquals(2, list.size());
-        for (int j = 0; j < list.size(); j++) {
-          assertEquals(curValue++, list.get(j).intValue());
-        }
-      }
-
-      for (int i = 5; i < 7; i++) {
+      for (int i = 0; i < target.getValueCount(); i++) {
         List<Integer> list = (List<Integer>) target.getObject(i);
         assertEquals(5, list.size());
         for (int j = 0; j < list.size(); j++) {
@@ -226,34 +181,30 @@ public class TestVectorAppender {
         }
       }
     }
-  }
-
-  private StructVector createStructVector(int start, int end) {
-    final StructVector vector = StructVector.empty("vector", allocator);
-    IntVector child1 = vector.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
-    VarCharVector child2 = vector.addOrGet("f1", FieldType.nullable(new ArrowType.Utf8()), VarCharVector.class);
-
-    child1.allocateNew();
-    child2.allocateNew();
-
-    for (int i = 0; i < end - start; i++) {
-      child1.setSafe(i, start + i);
-      child2.setSafe(i, ("a" + (start + i)).getBytes());
-    }
-    child1.setValueCount(end - start);
-    child2.setLastSet(end - start - 1);
-    child2.setValueCount(end - start);
-
-    vector.setValueCount(end - start);
-    return vector;
   }
 
   @Test
   public void testAppendStructVector() {
     final int length1 = 10;
     final int length2 = 5;
-    try (final StructVector target = createStructVector(0, length1);
-         final StructVector delta = createStructVector(length1, length1 + length2)) {
+    try (final StructVector target = StructVector.empty("target", allocator);
+         final StructVector delta = StructVector.empty("delta", allocator)) {
+
+      IntVector targetChild1 = target.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+      VarCharVector targetChild2 = target.addOrGet("f1", FieldType.nullable(new ArrowType.Utf8()), VarCharVector.class);
+      targetChild1.allocateNew();
+      targetChild2.allocateNew();
+      ValueVectorDataPopulator.setVector(targetChild1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+      ValueVectorDataPopulator.setVector(targetChild2, "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9");
+      target.setValueCount(length1);
+
+      IntVector deltaChild1 = delta.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+      VarCharVector deltaChild2 = delta.addOrGet("f1", FieldType.nullable(new ArrowType.Utf8()), VarCharVector.class);
+      deltaChild1.allocateNew();
+      deltaChild2.allocateNew();
+      ValueVectorDataPopulator.setVector(deltaChild1, 10, 11, 12, 13, 14);
+      ValueVectorDataPopulator.setVector(deltaChild2, "a10", "a11", "a12", "a13", "a14");
+      delta.setValueCount(length2);
 
       VectorAppender appender = new VectorAppender(target);
       delta.accept(appender, null);
@@ -269,53 +220,65 @@ public class TestVectorAppender {
     }
   }
 
-  private UnionVector createComplexUnionVector(int start, int end) {
-    final UnionVector vector = UnionVector.empty("vector", allocator);
-
-    final NullableIntHolder intHolder = new NullableIntHolder();
-    intHolder.isSet = 1;
-
-    final NullableBigIntHolder longHolder = new NullableBigIntHolder();
-    longHolder.isSet = 1;
-
-    for (int i = 0; i < end - start; i++) {
-      vector.setType(i * 2, Types.MinorType.INT);
-      intHolder.value = i + start;
-      vector.setSafe(i * 2, intHolder);
-
-      vector.setType(i * 2 + 1, Types.MinorType.BIGINT);
-      longHolder.value = i + start;
-      vector.setSafe(i * 2 + 1, longHolder);
-    }
-
-    vector.setValueCount((end - start) * 2);
-
-    return vector;
-  }
-
-  private UnionVector createSingleUnionVector(int start, int end) {
-    final UnionVector vector = UnionVector.empty("vector", allocator);
-
-    final NullableFloat4Holder floatHolder = new NullableFloat4Holder();
-    floatHolder.isSet = 1;
-
-    for (int i = 0; i < end - start; i++) {
-      vector.setType(i, Types.MinorType.FLOAT4);
-      floatHolder.value = i + start;
-      vector.setSafe(i, floatHolder);
-    }
-
-    vector.setValueCount(end - start);
-    return vector;
-  }
-
   @Test
   public void testAppendUnionVector() {
     final int length1 = 10;
     final int length2 = 5;
 
-    try (final UnionVector target = createComplexUnionVector(0, length1);
-         final UnionVector delta = createSingleUnionVector(length1, length1 + length2)) {
+    try (final UnionVector target = UnionVector.empty("target", allocator);
+         final UnionVector delta = UnionVector.empty("delta", allocator)) {
+
+      // alternating ints and big ints
+      target.setType(0, Types.MinorType.INT);
+      target.setType(1, Types.MinorType.BIGINT);
+      target.setType(2, Types.MinorType.INT);
+      target.setType(3, Types.MinorType.BIGINT);
+      target.setType(4, Types.MinorType.INT);
+      target.setType(5, Types.MinorType.BIGINT);
+      target.setType(6, Types.MinorType.INT);
+      target.setType(7, Types.MinorType.BIGINT);
+      target.setType(8, Types.MinorType.INT);
+      target.setType(9, Types.MinorType.BIGINT);
+      target.setType(10, Types.MinorType.INT);
+      target.setType(11, Types.MinorType.BIGINT);
+      target.setType(12, Types.MinorType.INT);
+      target.setType(13, Types.MinorType.BIGINT);
+      target.setType(14, Types.MinorType.INT);
+      target.setType(15, Types.MinorType.BIGINT);
+      target.setType(16, Types.MinorType.INT);
+      target.setType(17, Types.MinorType.BIGINT);
+      target.setType(18, Types.MinorType.INT);
+      target.setType(19, Types.MinorType.BIGINT);
+
+      IntVector targetIntVec = target.getIntVector();
+      targetIntVec.allocateNew();
+      ValueVectorDataPopulator.setVector(
+          targetIntVec,
+          0, null, 1, null, 2, null, 3, null, 4, null, 5, null, 6, null, 7, null, 8, null, 9, null);
+      assertEquals(length1 * 2, targetIntVec.getValueCount());
+
+      BigIntVector targetBigIntVec = target.getBigIntVector();
+      targetBigIntVec.allocateNew();
+      ValueVectorDataPopulator.setVector(
+          targetBigIntVec,
+          null, 0L, null, 1L, null, 2L, null, 3L, null, 4L, null, 5L, null, 6L, null, 7L, null, 8L, null, 9L);
+      assertEquals(length1 * 2, targetBigIntVec.getValueCount());
+
+      target.setValueCount(length1 * 2);
+
+      // populate the delta vector
+      delta.setType(0, Types.MinorType.FLOAT4);
+      delta.setType(1, Types.MinorType.FLOAT4);
+      delta.setType(2, Types.MinorType.FLOAT4);
+      delta.setType(3, Types.MinorType.FLOAT4);
+      delta.setType(4, Types.MinorType.FLOAT4);
+
+      Float4Vector deltaFloatVector = delta.getFloat4Vector();
+      deltaFloatVector.allocateNew();
+      ValueVectorDataPopulator.setVector(deltaFloatVector, 10f, 11f, 12f, 13f, 14f);
+      assertEquals(length2, deltaFloatVector.getValueCount());
+      delta.setValueCount(length2);
+
       VectorAppender appender = new VectorAppender(target);
       delta.accept(appender, null);
 

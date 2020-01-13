@@ -37,7 +37,7 @@ import io.netty.util.internal.PlatformDependent;
 /**
  * Utility to append two vectors together.
  */
-public class VectorAppender implements VectorVisitor<ValueVector, Void> {
+class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   /**
    * The targetVector to be appended.
@@ -50,9 +50,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
    * Constructs a new targetVector appender, with the given targetVector.
    * @param targetVector the targetVector to be appended.
    */
-  public VectorAppender(ValueVector targetVector) {
+  VectorAppender(ValueVector targetVector) {
     this.targetVector = targetVector;
-    typeVisitor = new TypeEqualsVisitor(targetVector);
+    typeVisitor = new TypeEqualsVisitor(targetVector, false, true);
   }
 
   @Override
@@ -194,7 +194,7 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
     int targetListSize = targetListVector.getValueCount() * targetListVector.getListSize();
-    int deltaListSize = deltaVector.getValueCount() * deltaVector.getValueCount();
+    int deltaListSize = deltaVector.getValueCount() * deltaVector.getListSize();
 
     // make sure the underlying vector has value count set
     targetListVector.getDataVector().setValueCount(targetListSize);
