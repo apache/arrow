@@ -205,6 +205,9 @@ struct ValidateArrayVisitor {
 
   template <typename ListArrayType>
   Status ValidateListArray(const ListArrayType& array) {
+    // First validate offsets, to make sure the accesses below are valid
+    RETURN_NOT_OK(ValidateOffsets(array));
+
     const auto first_offset = array.value_offset(0);
     const auto last_offset = array.value_offset(array.length());
     const auto data_extent = last_offset - first_offset;
@@ -221,8 +224,7 @@ struct ValidateArrayVisitor {
     if (!child_valid.ok()) {
       return Status::Invalid("List child array invalid: ", child_valid.ToString());
     }
-
-    return ValidateOffsets(array);
+    return Status::OK();
   }
 
   template <typename ArrayType>
@@ -236,7 +238,8 @@ struct ValidateArrayVisitor {
       }
       return Status::OK();
     }
-    auto required_offsets = (array.length() > 0) ? array.length() + 1 : 0;
+    auto required_offsets =
+        (array.length() > 0) ? array.length() + array.offset() + 1 : 0;
     if (value_offsets->size() / static_cast<int>(sizeof(offset_type)) <
         required_offsets) {
       return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),

@@ -95,6 +95,31 @@ jobs:
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push fedora-cpp
 
+  ubuntu:
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: [16.04, 18.04]
+    env:
+      UBUNTU: ${{ matrix.ubuntu }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: docker-compose pull --ignore-pull-failures ubuntu-cpp
+      - name: Docker Build
+        shell: bash
+        run: docker-compose build ubuntu-cpp
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run ubuntu-cpp
+      # No push step, it's the same image as ubuntu-cpp-sanitizer
+
   ubuntu-cmake32:
     name: AMD64 Ubuntu 18.04 C++ CMake 3.2
     runs-on: ubuntu-latest
@@ -131,28 +156,3 @@ jobs:
           docker login -u ${{ secrets.DOCKERHUB_USER }} \
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push ubuntu-cpp-cmake32
-
-  ubuntu-sanitizer:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++ ASAN UBSAN
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        ubuntu: [18.04]
-    env:
-      UBUNTU: ${{ matrix.ubuntu }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
-        run: docker-compose pull --ignore-pull-failures ubuntu-cpp-sanitizer
-      - name: Docker Build
-        shell: bash
-        run: docker-compose build ubuntu-cpp-sanitizer
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run ubuntu-cpp-sanitizer
-      # No push step, it's the same image as ubuntu-cpp

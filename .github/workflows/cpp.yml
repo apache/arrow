@@ -58,13 +58,13 @@ jobs:
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push conda-cpp
 
-  ubuntu:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++
+  ubuntu-sanitizer:
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++ ASAN UBSAN
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        ubuntu: [16.04, 18.04]
+        ubuntu: [18.04]
     env:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
@@ -74,13 +74,13 @@ jobs:
           submodules: true
       - name: Docker Pull
         shell: bash
-        run: docker-compose pull --ignore-pull-failures ubuntu-cpp
+        run: docker-compose pull --ignore-pull-failures ubuntu-cpp-sanitizer
       - name: Docker Build
         shell: bash
-        run: docker-compose build ubuntu-cpp
+        run: docker-compose build ubuntu-cpp-sanitizer
       - name: Docker Run
         shell: bash
-        run: docker-compose run ubuntu-cpp
+        run: docker-compose run ubuntu-cpp-sanitizer
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
