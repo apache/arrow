@@ -38,13 +38,13 @@ pub trait SchemaProvider {
 }
 
 /// SQL query planner
-pub struct SqlToRel {
-    schema_provider: Arc<dyn SchemaProvider>,
+pub struct SqlToRel<S: SchemaProvider> {
+    schema_provider: S,
 }
 
-impl SqlToRel {
+impl<S: SchemaProvider> SqlToRel<S> {
     /// Create a new query planner
-    pub fn new(schema_provider: Arc<dyn SchemaProvider>) -> Self {
+    pub fn new(schema_provider: S) -> Self {
         SqlToRel { schema_provider }
     }
 
@@ -608,7 +608,7 @@ mod tests {
     fn logical_plan(sql: &str) -> Arc<LogicalPlan> {
         use sqlparser::dialect::*;
         let dialect = GenericSqlDialect {};
-        let planner = SqlToRel::new(Arc::new(MockSchemaProvider {}));
+        let planner = SqlToRel::new(MockSchemaProvider {});
         let ast = Parser::parse_sql(&dialect, sql.to_string()).unwrap();
         planner.sql_to_rel(&ast).unwrap()
     }

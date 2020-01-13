@@ -75,7 +75,7 @@ fn create_context() -> Rc<RefCell<ExecutionContext>> {
 
     let mut mut_ctx = ctx.borrow_mut();
 
-    mut_ctx.register_table("aggregate_test_100", Rc::new(mem_table));
+    mut_ctx.register_table("aggregate_test_100", Box::new(mem_table));
 
     ctx.clone()
 }
