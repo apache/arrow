@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
+import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
@@ -70,7 +71,11 @@ public class ParallelSearcher<V extends ValueVector> {
    * @param keyVector the vector containing the search key.
    * @param keyIndex the index of the search key in the key vector.
    * @return the position of a matched value in the target vector,
-   *     or -1 if none is found.
+   *     or -1 if none is found. Please note that if there are multiple
+   *     matches of the key in the target vector, this method makes no
+   *     guarantees about which instance is returned.
+   *     For an alternative search implementation that always finds the first match of the key,
+   *     see {@link VectorSearcher#linearSearch(ValueVector, VectorValueComparator, ValueVector, int)}.
    * @throws ExecutionException if an exception occurs in a thread.
    * @throws InterruptedException if a thread is interrupted.
    */
