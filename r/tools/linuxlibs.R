@@ -54,7 +54,9 @@ download_binary <- function(os = identify_os()) {
       download.file(binary_url, libfile, quiet = quietly),
       silent = quietly
     )
-    if (!file.exists(libfile)) {
+    if (file.exists(libfile)) {
+      cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", os))
+    } else {
       cat(sprintf("*** No C++ binaries found for %s\n", os))
       libfile <- NULL
     }
@@ -318,7 +320,6 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     bin_file <- download_binary()
   }
   if (!is.null(bin_file)) {
-    cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", os))
     # Extract them
     dir.create(dst_dir, showWarnings = !quietly, recursive = TRUE)
     unzip(bin_file, exdir = dst_dir)
