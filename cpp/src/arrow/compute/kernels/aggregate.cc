@@ -54,7 +54,9 @@ Status AggregateUnaryKernel::Call(FunctionContext* ctx, const Datum& input, Datu
     return Status::Invalid("AggregateKernel expects Array or ChunkedArray datum");
   }
   auto state = ManagedAggregateState::Make(aggregate_function_, ctx->memory_pool());
-  if (!state) return Status::OutOfMemory("AggregateState allocation failed");
+  if (!state) {
+    return Status::OutOfMemory("AggregateState allocation failed");
+  }
 
   if (input.is_array()) {
     auto array = input.make_array();
@@ -64,7 +66,9 @@ Status AggregateUnaryKernel::Call(FunctionContext* ctx, const Datum& input, Datu
     for (int i = 0; i < chunked_array->num_chunks(); i++) {
       auto tmp_state =
           ManagedAggregateState::Make(aggregate_function_, ctx->memory_pool());
-      if (!tmp_state) return Status::OutOfMemory("AggregateState allocation failed");
+      if (!tmp_state) {
+        return Status::OutOfMemory("AggregateState allocation failed");
+      }
       RETURN_NOT_OK(aggregate_function_->Consume(*chunked_array->chunk(i),
                                                  tmp_state->mutable_data()));
       RETURN_NOT_OK(
