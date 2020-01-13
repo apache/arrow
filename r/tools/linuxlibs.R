@@ -90,6 +90,20 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO")) {
     # In the future, we may be able to do some mapping of distro-versions to
     # versions we built for, since there's no way we'll build for everything.
     os <- paste0(distro, "-", os_version)
+  } else if (file.exists("/etc/os-release")) {
+    os_release <- readLines("/etc/os-release")
+    vals <- sub("^.*=(.*)$", "\\1", os_release)
+    names(vals) <- sub("^(.*)=.*$", "\\1", os_release)
+    distro <- vals["ID"]
+    if (distro == "ubuntu") {
+      # Keep major.minor version
+      version_regex <- '^"?([0-9]+\\.[0-9]+).*"?.*$'
+    } else {
+      # Only major version number
+      version_regex <- '^"?([0-9]+).*"?.*$'
+    }
+    os_version <- sub(version_regex, "\\1", vals["VERSION_ID"])
+    os <- paste0(distro, "-", os_version)
   } else if (file.exists("/etc/system-release")) {
     # Something like "CentOS Linux release 7.7.1908 (Core)"
     system_release <- tolower(utils::head(readLines("/etc/system-release"), 1))

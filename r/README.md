@@ -37,15 +37,11 @@ Conda users on Linux and macOS can install `arrow` from conda-forge with
     conda install -c conda-forge r-arrow
 
 On macOS and Windows, installing a binary package from CRAN will handle
-Arrow’s C++ dependencies for you. On Linux, unless you use `conda`
-you’ll need to first install the C++ library. See the [Arrow project
-installation page](https://arrow.apache.org/install/) to find
-pre-compiled binary packages for some common Linux distributions,
-including Debian, Ubuntu, and CentOS. You’ll need to install
-`libparquet-dev` on Debian and Ubuntu, or `parquet-devel` on CentOS.
-This will also automatically install the Arrow C++ library as a
-dependency. Other Linux distributions must install the C++ library from
-source.
+Arrow’s C++ dependencies for you. On Linux, unless you use `conda`, the
+R package will have to compile its bindings from source and it will need
+to find or download the C++ dependencies. As of the 0.16.0 release, this
+dependency resolution is automatic on most common Linux distributions.
+See `vignette("install", package = "arrow")` for details.
 
 If you install the `arrow` package from source and the C++ library is
 not found, the R package functions will notify you that Arrow is not
@@ -122,15 +118,12 @@ Binary R packages for macOS and Windows are built daily and hosted at
 <https://dl.bintray.com/ursalabs/arrow-r/>. To install from there:
 
 ``` r
-install.packages("arrow", repos="https://dl.bintray.com/ursalabs/arrow-r")
+install.packages("arrow", repos = "https://dl.bintray.com/ursalabs/arrow-r")
 ```
 
 These daily package builds are not official Apache releases and are not
 recommended for production use. They may be useful for testing bug fixes
 and new features under active development.
-
-Linux users will need to build the Arrow C++ library from source, then
-install the R package from source, as described in the next section.
 
 ## Developing
 
@@ -202,7 +195,8 @@ Arrow C++ was put in `make install`, e.g. `export
 R_LD_LIBRARY_PATH=/usr/local/lib`, and retry installing the R package.
 
 For any other build/configuration challenges, see the [C++ developer
-guide](https://arrow.apache.org/docs/developers/cpp.html#building).
+guide](https://arrow.apache.org/docs/developers/cpp.html#building) and
+`vignette("install", package = "arrow")`.
 
 ### Editing Rcpp code
 
@@ -255,6 +249,6 @@ from the command line (`make test`, `make doc`, `make clean`, etc.)
 ### Full package validation
 
 ``` shell
-R CMD build --keep-empty-dirs .
-R CMD check arrow_*.tar.gz --as-cran --no-manual
+R CMD build .
+R CMD check arrow_*.tar.gz --as-cran
 ```
