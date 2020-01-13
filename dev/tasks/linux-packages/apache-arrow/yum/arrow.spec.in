@@ -211,6 +211,7 @@ This package contains the libraries for Apache Arrow C++.
 %files libs
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
+%{_docdir}/arrow/
 %{_libdir}/libarrow.so.*
 
 %package devel
