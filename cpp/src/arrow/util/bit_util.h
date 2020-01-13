@@ -78,9 +78,6 @@
 
 namespace arrow {
 
-// convert a value to 0/1 by the setnz instruction
-#define SETNE(value) !!(value)
-
 class MemoryPool;
 class Status;
 class BooleanArray;
@@ -119,7 +116,7 @@ static constexpr uint8_t kBytePopcount[] = {
 
 // Returns the ceil of value/divisor
 constexpr int64_t CeilDiv(int64_t value, int64_t divisor) {
-  return SETNE(value) + (value - SETNE(value)) / divisor;
+  return (value == 0) ? 0 : 1 + (value - 1) / divisor;
 }
 
 constexpr int64_t BytesForBits(int64_t bits) { return (bits + 7) >> 3; }
