@@ -148,7 +148,7 @@ TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
 
 // TODO(bkietz) extend IpcFileFormat to support projection pushdown
 // TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected)
-// TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols)
+// TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols)
 
 TEST_F(TestIpcFileFormat, Inspect) {
   auto reader = GetRecordBatchReader();

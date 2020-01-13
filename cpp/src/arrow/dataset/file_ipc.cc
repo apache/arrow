@@ -38,7 +38,7 @@ Status WrapErrorWithSource(Status status, const FileSource& source) {
     return Status::OK();
   }
 
-  return status.WithMessage("Could not open parquet input source '", source.path(),
+  return status.WithMessage("Could not open IPC input source '", source.path(),
                             "': ", status.message());
 }
 
@@ -122,4 +122,3 @@ Result<std::shared_ptr<DataFragment>> IpcFileFormat::MakeFragment(
 
 }  // namespace dataset
 }  // namespace arrow
-

@@ -66,4 +66,3 @@ class ARROW_DS_EXPORT IpcFragment : public FileDataFragment {
 
 }  // namespace dataset
 }  // namespace arrow
-
