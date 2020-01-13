@@ -194,8 +194,7 @@ impl ExecutionContext {
 
     /// Register a table so that it can be queried from SQL
     pub fn register_table(&mut self, name: &str, provider: Box<dyn TableProvider>) {
-        self.datasources
-            .insert(name.to_string(), provider);
+        self.datasources.insert(name.to_string(), provider);
     }
 
     /// Get a table by name
