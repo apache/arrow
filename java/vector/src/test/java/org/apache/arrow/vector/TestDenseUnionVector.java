@@ -406,7 +406,7 @@ public class TestDenseUnionVector {
       subVector11.setSafe(1, 1);
       subVector11.setValueCount(2);
 
-      IntVector subVector12 =  structVector1
+      IntVector subVector12 = structVector1
               .addOrGet("sub12", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
       subVector12.allocateNew();
       subVector12.setSafe(0, 0);
@@ -434,8 +434,8 @@ public class TestDenseUnionVector {
       structVector2.setValueCount(1);
 
       // register relative types
-      int typeId1 = unionVector.getOrAllocateTypeId(structVector1.getField());
-      int typeId2 = unionVector.getOrAllocateTypeId(structVector2.getField());
+      byte typeId1 = unionVector.getOrAllocateTypeId(structVector1.getField());
+      byte typeId2 = unionVector.getOrAllocateTypeId(structVector2.getField());
       assertEquals(typeId1, MinorType.values().length);
       assertEquals(typeId2, MinorType.values().length + 1);
 

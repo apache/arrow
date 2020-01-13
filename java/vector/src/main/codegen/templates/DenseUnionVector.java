@@ -89,8 +89,8 @@ public class DenseUnionVector implements FieldVector {
   /**
    * The key is type Id, and the value is vector.
    */
-  private java.util.Map<Integer, StructVector> structVectors = new java.util.HashMap<>();
-  private java.util.Map<Integer, ListVector> listVectors = new java.util.HashMap<>();
+  private java.util.Map<Byte, StructVector> structVectors = new java.util.HashMap<>();
+  private java.util.Map<Byte, ListVector> listVectors = new java.util.HashMap<>();
 
   /**
    * The index is the type id, and the value is the type field.
@@ -100,7 +100,7 @@ public class DenseUnionVector implements FieldVector {
   /**
    * The next typd id to allocate.
    */
-  private int nextTypeId = Types.MinorType.values().length;
+  private byte nextTypeId = (byte) Types.MinorType.values().length;
 
   private FieldReader reader;
 
@@ -204,7 +204,7 @@ public class DenseUnionVector implements FieldVector {
     return type.name().toLowerCase();
   }
 
-  private String fieldName(int typeId, MinorType type) {
+  private String fieldName(byte typeId, MinorType type) {
     return type.name().toLowerCase() + typeId;
   }
 
@@ -217,7 +217,7 @@ public class DenseUnionVector implements FieldVector {
       throw new IllegalStateException("Dense union vector support at most " +
               typeFields.length + " relative types. Please use union of union instead");
     }
-    int typeId = nextTypeId;
+    byte typeId = nextTypeId;
     typeFields[typeId] = field;
     this.nextTypeId += 1;
     return typeId;
@@ -229,7 +229,7 @@ public class DenseUnionVector implements FieldVector {
    * @param field the field for which to get type id.
    * @return the typd id for the field.
    */
-  public int getOrAllocateTypeId(Field field) {
+  public byte getOrAllocateTypeId(Field field) {
     ArrowType fieldType = field.getFieldType().getType();
     if (fieldType instanceof Struct || fieldType instanceof  List) {
       // TODO: make this process faster
@@ -237,15 +237,15 @@ public class DenseUnionVector implements FieldVector {
       // search for a matching registered type id
       for (int i = Types.MinorType.values().length; i < nextTypeId; i++) {
         if (typeFields[i].relativeTypeEquals(field)) {
-          return i;
+          return (byte) i;
         }
       }
 
       // not registered yet, allocate a new type id
-      return registerNewTypeId(field);
+      return (byte) registerNewTypeId(field);
     } else {
       // for built-in types
-      return Types.getMinorTypeForArrowType(field.getFieldType().getType()).ordinal();
+      return (byte) Types.getMinorTypeForArrowType(field.getFieldType().getType()).ordinal();
     }
   }
 
@@ -253,7 +253,7 @@ public class DenseUnionVector implements FieldVector {
     return internalStruct.addOrGet(fieldName(minorType), fieldType(minorType), c);
   }
 
-  private <T extends FieldVector> T addOrGet(int typeId, MinorType minorType, Class<T> c) {
+  private <T extends FieldVector> T addOrGet(byte typeId, MinorType minorType, Class<T> c) {
     return internalStruct.addOrGet(fieldName(typeId, minorType), fieldType(minorType), c);
   }
 
@@ -281,7 +281,7 @@ public class DenseUnionVector implements FieldVector {
   @Override
   public ArrowBuf getDataBuffer() { throw new UnsupportedOperationException(); }
 
-  public StructVector getStruct(int typeId) {
+  public StructVector getStruct(byte typeId) {
     StructVector structVector = structVectors.get(typeId);
     if (structVector == null) {
       int vectorCount = internalStruct.size();
@@ -324,7 +324,7 @@ public class DenseUnionVector implements FieldVector {
     </#list>
   </#list>
 
-  public ListVector getList(int typeId) {
+  public ListVector getList(byte typeId) {
     ListVector listVector = listVectors.get(typeId);
     if (listVector == null) {
       int vectorCount = internalStruct.size();
@@ -340,7 +340,7 @@ public class DenseUnionVector implements FieldVector {
     return listVector;
   }
 
-  public int getTypeValue(int index) {
+  public byte getTypeValue(int index) {
     return typeBuffer.getByte(index * TYPE_WIDTH);
   }
 
@@ -533,7 +533,7 @@ public class DenseUnionVector implements FieldVector {
   }
 
   public FieldVector addVector(FieldVector v) {
-    int typeId = getOrAllocateTypeId(v.getField());
+    byte typeId = getOrAllocateTypeId(v.getField());
     String name = typeId < Types.MinorType.values().length ? fieldName(v.getMinorType()) :
             fieldName(typeId, v.getMinorType());
     Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
@@ -715,9 +715,9 @@ public class DenseUnionVector implements FieldVector {
   }
 
   private ValueVector getVector(int index) {
-    int type = typeBuffer.getByte(index * TYPE_WIDTH);
-    if (type < Types.MinorType.values().length) {
-      switch (MinorType.values()[type]) {
+    byte typeId = typeBuffer.getByte(index * TYPE_WIDTH);
+    if (typeId < Types.MinorType.values().length) {
+      switch (MinorType.values()[typeId]) {
         case NULL:
           return null;
       <#list vv.types as type>
@@ -732,15 +732,15 @@ public class DenseUnionVector implements FieldVector {
         </#list>
       </#list>
         default:
-          throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[type]);
+          throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[typeId]);
       }
     } else {
-      if (typeFields[type].getType() instanceof Struct) {
-        return getStruct(type);
-      } else if (typeFields[type].getType() instanceof List) {
-        return getList(type);
+      if (typeFields[typeId].getType() instanceof Struct) {
+        return getStruct(typeId);
+      } else if (typeFields[typeId].getType() instanceof List) {
+        return getList(typeId);
       } else {
-        throw new UnsupportedOperationException("Cannot support type: " + type);
+        throw new UnsupportedOperationException("Cannot support type: " + typeId);
       }
     }
   }
@@ -852,7 +852,7 @@ public class DenseUnionVector implements FieldVector {
       </#list>
     </#list>
 
-  public void setType(int index, int typeId) {
+  public void setType(int index, byte typeId) {
     while (index >= getTypeBufferValueCapacity()) {
       reallocTypeBuffer();
     }
@@ -860,7 +860,7 @@ public class DenseUnionVector implements FieldVector {
   }
 
   public void setType(int index, MinorType minorType) {
-    setType(index, minorType.ordinal());
+    setType(index, (byte) minorType.ordinal());
   }
 
   private int getTypeBufferValueCapacity() {

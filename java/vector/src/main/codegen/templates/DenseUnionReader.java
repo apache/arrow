@@ -69,22 +69,22 @@ public class DenseUnionReader extends AbstractFieldReader {
   }
 
   public void read(int index, DenseUnionHolder holder) {
-    getList(idx()).read(index, holder);
+    getList((byte) idx()).read(index, holder);
   }
 
   private FieldReader getReaderForIndex(int index) {
-    int typeValue = data.getTypeValue(index);
-    FieldReader reader = (FieldReader) readers[typeValue];
+    byte typeId = data.getTypeValue(index);
+    FieldReader reader = (FieldReader) readers[typeId];
     if (reader != null) {
       return reader;
     }
-    switch (MinorType.values()[typeValue]) {
+    switch (MinorType.values()[typeId]) {
       case NULL:
         return NullReader.INSTANCE;
       case STRUCT:
-        return (FieldReader) getStruct(typeValue);
+        return (FieldReader) getStruct(typeId);
       case LIST:
-        return (FieldReader) getList(typeValue);
+        return (FieldReader) getList(typeId);
     <#list vv.types as type>
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
@@ -96,13 +96,13 @@ public class DenseUnionReader extends AbstractFieldReader {
       </#list>
     </#list>
       default:
-        throw new UnsupportedOperationException("Unsupported type: " + MinorType.values()[typeValue]);
+        throw new UnsupportedOperationException("Unsupported type: " + MinorType.values()[typeId]);
     }
   }
 
   private SingleStructReaderImpl structReader;
 
-  private StructReader getStruct(int typeId) {
+  private StructReader getStruct(byte typeId) {
     StructReader structReader = (StructReader) readers[typeId];
     if (structReader == null) {
       structReader = (SingleStructReaderImpl) data.getStruct(typeId).getReader();
@@ -114,7 +114,7 @@ public class DenseUnionReader extends AbstractFieldReader {
 
   private UnionListReader listReader;
 
-  private FieldReader getList(int typeId) {
+  private FieldReader getList(byte typeId) {
     UnionListReader listReader = (UnionListReader) readers[typeId];
     if (listReader == null) {
       listReader = new UnionListReader(data.getList(typeId));
@@ -199,11 +199,11 @@ public class DenseUnionReader extends AbstractFieldReader {
     }
   }
 
-  public FieldReader reader(int typeId, String name){
+  public FieldReader reader(byte typeId, String name){
     return getStruct(typeId).reader(name);
   }
 
-  public FieldReader reader(int typeId) {
+  public FieldReader reader(byte typeId) {
     return getList(typeId).reader();
   }
 
