@@ -80,7 +80,7 @@ namespace Apache.Arrow.Ipc
                 int bodyLength = checked((int)message.BodyLength);
 
                 IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
-                Memory<byte> bodyBuff = bodyBuffOwner?.Memory.Slice(0, bodyLength) ?? Memory<byte>.Empty;
+                Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
                 bytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
                     .ConfigureAwait(false);
                 EnsureFullRead(bodyBuff, bytesRead);
@@ -115,7 +115,7 @@ namespace Apache.Arrow.Ipc
                 int bodyLength = checked((int)message.BodyLength);
 
                 IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
-                Memory<byte> bodyBuff = bodyBuffOwner?.Memory.Slice(0, bodyLength) ?? Memory<byte>.Empty;
+                Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
                 bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
                 EnsureFullRead(bodyBuff, bytesRead);
 
