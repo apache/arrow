@@ -165,6 +165,7 @@ On Linux and macOS:
         --file arrow/ci/conda_env_unix.yml \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_python.yml \
+        --file arrow/ci/conda_env_gandiva.yml \
         compilers \
         python=3.7 \
         pandas
