@@ -217,7 +217,9 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
           return false;
         }
       }
-      RangeEqualsVisitor visitor = createInnerVisitor(leftSubVector, rightSubVector, true);
+      TypeEqualsVisitor typeVisitor = new TypeEqualsVisitor(rightSubVector);
+      RangeEqualsVisitor visitor =
+          createInnerVisitor(leftSubVector, rightSubVector, (left, right) -> typeVisitor.equals(left));
       if (!visitor.rangeEquals(subRange)) {
         return false;
       }

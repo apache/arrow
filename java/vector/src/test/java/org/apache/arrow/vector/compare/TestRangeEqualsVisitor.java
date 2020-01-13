@@ -309,8 +309,8 @@ public class TestRangeEqualsVisitor {
       vector1.setSafe(2, intHolder);
       vector1.setValueCount(3);
 
-      vector2.setType(0, Types.MinorType.SMALLINT);
-      vector2.setSafe(0, intHolder);
+      vector2.setType(0, Types.MinorType.UINT4);
+      vector2.setSafe(0, uInt4Holder);
 
       vector2.setType(1, Types.MinorType.INT);
       vector2.setSafe(1, intHolder);
