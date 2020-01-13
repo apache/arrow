@@ -94,7 +94,7 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO")) {
     os_release <- readLines("/etc/os-release")
     vals <- sub("^.*=(.*)$", "\\1", os_release)
     names(vals) <- sub("^(.*)=.*$", "\\1", os_release)
-    distro <- vals["ID"]
+    distro <- gsub('"', '', vals["ID"])
     if (distro == "ubuntu") {
       # Keep major.minor version
       version_regex <- '^"?([0-9]+\\.[0-9]+).*"?.*$'
