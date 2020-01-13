@@ -930,6 +930,20 @@ struct InsertImplicitCastsImpl {
     *expr = scalar(*maybe_value);
   }
 
+  Result<std::shared_ptr<Expression>> operator()(const InExpression& expr) {
+    ARROW_ASSIGN_OR_RAISE(auto op, InsertCastsAndValidate(*expr.operand()));
+    auto set = expr.set();
+
+    if (!op.type->Equals(set->type())) {
+      // cast the set (which we assume to be small) to match op.type
+      compute::FunctionContext ctx;
+      const auto options = compute::CastOptions::Safe();
+      RETURN_NOT_OK(arrow::compute::Cast(&ctx, *set, op.type, options, &set));
+    }
+
+    return std::make_shared<InExpression>(std::move(op.expr), std::move(set));
+  }
+
   Result<std::shared_ptr<Expression>> operator()(const NotExpression& expr) {
     ARROW_ASSIGN_OR_RAISE(auto op, InsertCastsAndValidate(*expr.operand()));
 

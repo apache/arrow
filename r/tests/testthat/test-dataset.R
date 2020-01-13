@@ -151,8 +151,7 @@ test_that("filter() with %in%", {
   expect_equivalent(
     ds %>%
       select(int, part) %>%
-      filter(int %in% c(6L, 4L, 3L, 103L, 107L), part == 1) %>%
-      # TODO: C++ In() should cast: ARROW-7204
+      filter(int %in% c(6, 4, 3, 103, 107), part == 1) %>%
       collect(),
     tibble(int = df1$int[c(3, 4, 6)], part = 1)
   )
