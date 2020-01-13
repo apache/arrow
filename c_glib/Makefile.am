@@ -28,6 +28,7 @@ SUBDIRS =					\
 
 EXTRA_DIST =					\
 	Gemfile					\
+	LICENSE.txt				\
 	README.md				\
 	autogen.sh				\
 	meson.build				\
