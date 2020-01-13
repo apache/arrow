@@ -36,7 +36,7 @@
   TypeName& operator=(TypeName&&) = default
 #endif
 
-#define ARROW_UNUSED(x) (void)x
+#define ARROW_UNUSED(x) (void)(x)
 #define ARROW_ARG_UNUSED(x)
 //
 // GCC can be told that a certain branch is not likely to be taken (for

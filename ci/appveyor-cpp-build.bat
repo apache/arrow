@@ -41,6 +41,7 @@ if "%JOB%" == "Static_Crt_Build" (
         -DARROW_BUILD_TESTS=ON ^
         -DARROW_BUILD_EXAMPLES=ON ^
         -DCMAKE_BUILD_TYPE=Debug ^
+        -DARROW_ENABLE_TIMING_TESTS=OFF ^
         -DARROW_TEST_LINKAGE=static ^
         -DARROW_CXXFLAGS="/MP" ^
         ..  || exit /B
@@ -61,6 +62,7 @@ if "%JOB%" == "Static_Crt_Build" (
         -DARROW_BUILD_TESTS=ON ^
         -DARROW_BUILD_EXAMPLES=ON ^
         -DCMAKE_BUILD_TYPE=Release ^
+        -DARROW_ENABLE_TIMING_TESTS=OFF ^
         -DARROW_TEST_LINKAGE=static ^
         -DCMAKE_CXX_FLAGS_RELEASE="/MT %CMAKE_CXX_FLAGS_RELEASE%" ^
         -DARROW_CXXFLAGS="/WX /MP" ^
@@ -90,6 +92,7 @@ if "%JOB%" == "Build_Debug" (
         -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
         -DARROW_BUILD_STATIC=OFF ^
         -DARROW_CXXFLAGS="/MP" ^
+        -DARROW_ENABLE_TIMING_TESTS=OFF ^
         ..  || exit /B
 
   cmake --build . --config %CONFIGURATION% || exit /B

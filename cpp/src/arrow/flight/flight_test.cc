@@ -984,7 +984,11 @@ TEST_F(TestFlightClient, TimeoutFires) {
   auto start = std::chrono::system_clock::now();
   Status status = client->GetFlightInfo(options, FlightDescriptor{}, &info);
   auto end = std::chrono::system_clock::now();
+#ifdef ARROW_WITH_TIMING_TESTS
   EXPECT_LE(end - start, std::chrono::milliseconds{400});
+#else
+  ARROW_UNUSED(end - start);
+#endif
   ASSERT_RAISES(IOError, status);
 }
 
@@ -997,7 +1001,11 @@ TEST_F(TestFlightClient, NoTimeout) {
   auto descriptor = FlightDescriptor::Path({"examples", "ints"});
   Status status = client_->GetFlightInfo(options, descriptor, &info);
   auto end = std::chrono::system_clock::now();
+#ifdef ARROW_WITH_TIMING_TESTS
   EXPECT_LE(end - start, std::chrono::milliseconds{600});
+#else
+  ARROW_UNUSED(end - start);
+#endif
   ASSERT_OK(status);
   ASSERT_NE(nullptr, info);
 }

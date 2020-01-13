@@ -29,6 +29,9 @@ on:
     - cron: |
         0 */12 * * *
 
+env:
+  ARROW_ENABLE_TIMING_TESTS: OFF
+
 jobs:
 
   debian:

@@ -305,8 +305,12 @@ void TestSlowInputStream() {
   auto t2 = clock::now();
   AssertBufferEqual(*buf, "abcdef");
   auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
+#ifdef ARROW_WITH_TIMING_TESTS
   ASSERT_LT(dt, latency * 3);  // likely
   ASSERT_GT(dt, latency / 3);  // likely
+#else
+  ARROW_UNUSED(dt);
+#endif
 
   ASSERT_OK_AND_ASSIGN(util::string_view view, slow->Peek(4));
   ASSERT_EQ(view, util::string_view("ghij"));

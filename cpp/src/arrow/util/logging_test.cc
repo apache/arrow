@@ -68,6 +68,8 @@ TEST(PrintLogTest, LogTestWithInit) {
   ArrowLog::ShutDownArrowLog();
 }
 
+#ifdef ARROW_WITH_TIMING_TESTS
+
 // This test will output large amount of logs to stderr, should be disabled in travis.
 TEST(LogPerfTest, PerfTest) {
   ArrowLog::StartArrowLog("/fake/path/to/appdire/LogPerfTest", ArrowLogLevel::ARROW_ERROR,
@@ -102,6 +104,8 @@ TEST(LogPerfTest, PerfTest) {
             << " ms." << std::endl;
   ArrowLog::ShutDownArrowLog();
 }
+
+#endif
 
 }  // namespace util
 

@@ -322,6 +322,10 @@ else()
   add_dependencies(unittest all-tests)
 endif()
 
+if(ARROW_ENABLE_TIMING_TESTS)
+  add_definitions(-DARROW_WITH_TIMING_TESTS)
+endif()
+
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
 else()
