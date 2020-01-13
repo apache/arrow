@@ -29,7 +29,6 @@
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
-#include "arrow/dataset/writer.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_forest.h"
 #include "arrow/io/file.h"
@@ -108,22 +107,6 @@ class ARROW_DS_EXPORT FileSource {
 
   util::variant<PathAndFileSystem, std::shared_ptr<Buffer>> impl_;
   Compression::type compression_;
-};
-
-/// \brief Base class for file scanning options
-class ARROW_DS_EXPORT FileScanOptions : public ScanOptions {
- public:
-  /// \brief The name of the file format this options corresponds to
-  virtual std::string file_type() const = 0;
-};
-
-/// \brief Base class for file writing options
-class ARROW_DS_EXPORT FileWriteOptions : public WriteOptions {
- public:
-  virtual ~FileWriteOptions() = default;
-
-  /// \brief The name of the file format this options corresponds to
-  virtual std::string file_type() const = 0;
 };
 
 /// \brief Base class for file format implementation

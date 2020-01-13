@@ -29,10 +29,9 @@ s$field(i)
 \section{Methods}{
 
 \itemize{
-\item \code{$ToString()}: convert to a string
-\item \code{$num_fields()}: returns the number of fields
-\item \code{$field(i)}: returns the field at index \code{i} (0-based)
+\item \verb{$ToString()}: convert to a string
+\item \verb{$num_fields()}: returns the number of fields
+\item \verb{$field(i)}: returns the field at index \code{i} (0-based)
 }
 }
 
-\keyword{datasets}

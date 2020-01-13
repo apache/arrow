@@ -4,18 +4,26 @@
 \alias{write_parquet}
 \title{Write Parquet file to disk}
 \usage{
-write_parquet(x, sink, chunk_size = NULL, version = NULL,
-  compression = NULL, compression_level = NULL,
-  use_dictionary = NULL, write_statistics = NULL,
-  data_page_size = NULL, properties = ParquetWriterProperties$create(x,
-  version = version, compression = compression, compression_level =
-  compression_level, use_dictionary = use_dictionary, write_statistics =
-  write_statistics, data_page_size = data_page_size),
-  use_deprecated_int96_timestamps = FALSE, coerce_timestamps = NULL,
+write_parquet(
+  x,
+  sink,
+  chunk_size = NULL,
+  version = NULL,
+  compression = NULL,
+  compression_level = NULL,
+  use_dictionary = NULL,
+  write_statistics = NULL,
+  data_page_size = NULL,
+  properties = ParquetWriterProperties$create(x, version = version, compression =
+    compression, compression_level = compression_level, use_dictionary = use_dictionary,
+    write_statistics = write_statistics, data_page_size = data_page_size),
+  use_deprecated_int96_timestamps = FALSE,
+  coerce_timestamps = NULL,
   allow_truncated_timestamps = FALSE,
   arrow_properties = ParquetArrowWriterProperties$create(use_deprecated_int96_timestamps
-  = use_deprecated_int96_timestamps, coerce_timestamps = coerce_timestamps,
-  allow_truncated_timestamps = allow_truncated_timestamps))
+    = use_deprecated_int96_timestamps, coerce_timestamps = coerce_timestamps,
+    allow_truncated_timestamps = allow_truncated_timestamps)
+)
 }
 \arguments{
 \item{x}{An \link[=Table]{arrow::Table}, or an object convertible to it.}

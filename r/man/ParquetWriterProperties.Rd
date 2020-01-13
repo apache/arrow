@@ -45,4 +45,3 @@ size of data pages within a column chunk (in bytes). Default 1 MiB.
 \seealso{
 \link{write_parquet}
 }
-\keyword{datasets}

@@ -25,4 +25,3 @@ data$buffers()
 ...
 }
 
-\keyword{datasets}

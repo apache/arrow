@@ -27,26 +27,26 @@ various Arrays or R vectors. \code{chunked_array()} is an alias for it.
 \section{Methods}{
 
 \itemize{
-\item \code{$length()}: Size in the number of elements this array contains
-\item \code{$chunk(i)}: Extract an \code{Array} chunk by integer position
-\item \code{$as_vector()}: convert to an R vector
-\item \code{$Slice(offset, length = NULL)}: Construct a zero-copy slice of the array
+\item \verb{$length()}: Size in the number of elements this array contains
+\item \verb{$chunk(i)}: Extract an \code{Array} chunk by integer position
+\item \verb{$as_vector()}: convert to an R vector
+\item \verb{$Slice(offset, length = NULL)}: Construct a zero-copy slice of the array
 with the indicated offset and length. If length is \code{NULL}, the slice goes
 until the end of the array.
-\item \code{$Take(i)}: return a \code{ChunkedArray} with values at positions given by
+\item \verb{$Take(i)}: return a \code{ChunkedArray} with values at positions given by
 integers \code{i}. If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be
 coerced to an R vector before taking.
-\item \code{$Filter(i)}: return a \code{ChunkedArray} with values at positions where
-logical vector or Arrow boolean-type \code{(Chunked)Array} \code{i} is \code{TRUE}.
-\item \code{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
+\item \verb{$Filter(i)}: return a \code{ChunkedArray} with values at positions where
+logical vector or Arrow boolean-type \verb{(Chunked)Array} \code{i} is \code{TRUE}.
+\item \verb{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
 data in the array to change its type.
-\item \code{$null_count()}: The number of null entries in the array
-\item \code{$chunks()}: return a list of \code{Array}s
-\item \code{$num_chunks()}: integer number of chunks in the \code{ChunkedArray}
-\item \code{$type()}: logical type of data
-\item \code{$View(type)}: Construct a zero-copy view of this \code{ChunkedArray} with the
+\item \verb{$null_count()}: The number of null entries in the array
+\item \verb{$chunks()}: return a list of \code{Array}s
+\item \verb{$num_chunks()}: integer number of chunks in the \code{ChunkedArray}
+\item \verb{$type()}: logical type of data
+\item \verb{$View(type)}: Construct a zero-copy view of this \code{ChunkedArray} with the
 given type.
-\item \code{$Validate()}: Perform any validation checks to determine obvious inconsistencies
+\item \verb{$Validate()}: Perform any validation checks to determine obvious inconsistencies
 within the array's internal data. This can be an expensive check, potentially \code{O(length)}
 }
 }
@@ -54,4 +54,3 @@ within the array's internal data. This can be an expensive check, potentially \c
 \seealso{
 \link{Array}
 }
-\keyword{datasets}

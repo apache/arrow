@@ -149,7 +149,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CScanTask" arrow::dataset::ScanTask":
         CResult[CRecordBatchIterator] Execute()
 
-    cdef cppclass CSimpleScanTask "arrow::dataset::SimpleScanTask"(CScanTask):
+    cdef cppclass CInMemoryScanTask "arrow::dataset::InMemoryScanTask"(
+            CScanTask):
         pass
 
     ctypedef CIterator[shared_ptr[CScanTask]] CScanTaskIterator \
@@ -299,9 +300,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::DefaultPartitioning"(CPartitioning):
         CDefaultPartitioning()
 
-    cdef cppclass CSchemaPartitioning \
-            "arrow::dataset::SchemaPartitioning"(CPartitioning):
-        CSchemaPartitioning(shared_ptr[CSchema] schema)
+    cdef cppclass CDirectoryPartitioning \
+            "arrow::dataset::DirectoryPartitioning"(CPartitioning):
+        CDirectoryPartitioning(shared_ptr[CSchema] schema)
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(
             vector[c_string] field_names)

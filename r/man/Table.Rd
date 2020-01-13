@@ -47,33 +47,33 @@ arbitrary selection of rows by integer indices.
 In addition to the more R-friendly S3 methods, a \code{Table} object has
 the following R6 methods that map onto the underlying C++ methods:
 \itemize{
-\item \code{$column(i)}: Extract a \code{ChunkedArray} by integer position from the table
-\item \code{$ColumnNames()}: Get all column names (called by \code{names(tab)})
-\item \code{$GetColumnByName(name)}: Extract a \code{ChunkedArray} by string name
-\item \code{$field(i)}: Extract a \code{Field} from the table schema by integer position
-\item \code{$select(spec)}: Return a new table with a selection of columns.
+\item \verb{$column(i)}: Extract a \code{ChunkedArray} by integer position from the table
+\item \verb{$ColumnNames()}: Get all column names (called by \code{names(tab)})
+\item \verb{$GetColumnByName(name)}: Extract a \code{ChunkedArray} by string name
+\item \verb{$field(i)}: Extract a \code{Field} from the table schema by integer position
+\item \verb{$select(spec)}: Return a new table with a selection of columns.
 This supports the usual \code{character}, \code{numeric}, and \code{logical} selection
 methods as well as "tidy select" expressions.
-\item \code{$Slice(offset, length = NULL)}: Create a zero-copy view starting at the
+\item \verb{$Slice(offset, length = NULL)}: Create a zero-copy view starting at the
 indicated integer offset and going for the given length, or to the end
 of the table if \code{NULL}, the default.
-\item \code{$Take(i)}: return an \code{Table} with rows at positions given by
+\item \verb{$Take(i)}: return an \code{Table} with rows at positions given by
 integers \code{i}. If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be
 coerced to an R vector before taking.
-\item \code{$Filter(i)}: return an \code{Table} with rows at positions where logical
-vector or Arrow boolean-type \code{(Chunked)Array} \code{i} is \code{TRUE}.
-\item \code{$serialize(output_stream, ...)}: Write the table to the given
+\item \verb{$Filter(i)}: return an \code{Table} with rows at positions where logical
+vector or Arrow boolean-type \verb{(Chunked)Array} \code{i} is \code{TRUE}.
+\item \verb{$serialize(output_stream, ...)}: Write the table to the given
 \link{OutputStream}
-\item \code{$cast(target_schema, safe = TRUE, options = cast_options(safe))}: Alter
+\item \verb{$cast(target_schema, safe = TRUE, options = cast_options(safe))}: Alter
 the schema of the record batch.
 }
 
 There are also some active bindings
 \itemize{
-\item \code{$num_columns}
-\item \code{$num_rows}
-\item \code{$schema}
-\item \code{$columns}: Returns a list of \code{ChunkedArray}s
+\item \verb{$num_columns}
+\item \verb{$num_rows}
+\item \verb{$schema}
+\item \verb{$columns}: Returns a list of \code{ChunkedArray}s
 }
 }
 
@@ -88,4 +88,3 @@ tab[["cyl"]]
 as.data.frame(tab[4:8, c("gear", "hp", "wt")])
 }
 }
-\keyword{datasets}

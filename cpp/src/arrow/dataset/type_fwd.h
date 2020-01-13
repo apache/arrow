@@ -87,9 +87,5 @@ using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
 
 class RecordBatchProjector;
 
-class DatasetWriter;
-class WriteContext;
-class WriteOptions;
-
 }  // namespace dataset
 }  // namespace arrow

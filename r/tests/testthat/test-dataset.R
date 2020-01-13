@@ -70,7 +70,7 @@ test_that("Setup (putting data in the dir)", {
 })
 
 test_that("Simple interface for datasets", {
-  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
@@ -98,7 +98,7 @@ test_that("Simple interface for datasets", {
 })
 
 test_that("Hive partitioning", {
-  ds <- open_dataset(hive_dir, partition = hive_partition(other = utf8(), group = uint8()))
+  ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
@@ -113,7 +113,7 @@ test_that("Hive partitioning", {
 
 test_that("Partitioning inference", {
   # These are the same tests as above, just using the *PartitioningFactory
-  ds1 <- open_dataset(dataset_dir, partition = "part")
+  ds1 <- open_dataset(dataset_dir, partitioning = "part")
   expect_identical(names(ds1), c(names(df1), "part"))
   expect_equivalent(
     ds1 %>%
@@ -141,7 +141,7 @@ test_that("Partitioning inference", {
 })
 
 test_that("IPC/Arrow format data", {
-  ds <- open_dataset(ipc_dir, partition = "part", format = "arrow")
+  ds <- open_dataset(ipc_dir, partitioning = "part", format = "arrow")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_equivalent(
     ds %>%
@@ -158,8 +158,8 @@ test_that("IPC/Arrow format data", {
 
 test_that("Dataset with multiple sources", {
   ds <- open_dataset(list(
-    data_source(dataset_dir, format = "parquet", partition = "part"),
-    data_source(ipc_dir, format = "arrow", partition = "part")
+    open_source(dataset_dir, format = "parquet", partitioning = "part"),
+    open_source(ipc_dir, format = "arrow", partitioning = "part")
   ))
   expect_identical(names(ds), c(names(df1), "part"))
   expect_equivalent(
@@ -174,13 +174,13 @@ test_that("Dataset with multiple sources", {
   )
 })
 
-test_that("partition = NULL to ignore partition information (but why?)", {
-  ds <- open_dataset(hive_dir, partition = NULL)
+test_that("partitioning = NULL to ignore partition information (but why?)", {
+  ds <- open_dataset(hive_dir, partitioning = NULL)
   expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
 })
 
 test_that("filter() with is.na()", {
-  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
     ds %>%
       select(part, lgl) %>%
@@ -191,7 +191,7 @@ test_that("filter() with is.na()", {
 })
 
 test_that("filter() with %in%", {
-  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
     ds %>%
       select(int, part) %>%
@@ -202,7 +202,7 @@ test_that("filter() with %in%", {
 })
 
 test_that("filter() on timestamp columns", {
-  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   datetime_to_ns <- function (x) {
     # TODO: src/expression.cpp should handle timestamp data
     # TODO: C++ library should handle autocasting

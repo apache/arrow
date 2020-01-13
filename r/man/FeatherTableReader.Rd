@@ -25,15 +25,14 @@ takes the following arguments:
 \section{Methods}{
 
 \itemize{
-\item \code{$GetDescription()}
-\item \code{$HasDescription()}
-\item \code{$version()}
-\item \code{$num_rows()}
-\item \code{$num_columns()}
-\item \code{$GetColumnName()}
-\item \code{$GetColumn()}
-\item \code{$Read(columns)}
+\item \verb{$GetDescription()}
+\item \verb{$HasDescription()}
+\item \verb{$version()}
+\item \verb{$num_rows()}
+\item \verb{$num_columns()}
+\item \verb{$GetColumnName()}
+\item \verb{$GetColumn()}
+\item \verb{$Read(columns)}
 }
 }
 
-\keyword{datasets}

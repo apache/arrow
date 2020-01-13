@@ -716,13 +716,13 @@ cdef class Dataset:
         """
         cdef:
             Source source
-            CSourceVector sources
+            CSourceVector c_sources
             CResult[shared_ptr[CDataset]] result
 
         for source in sources:
-            sources.push_back(source.unwrap())
+            c_sources.push_back(source.unwrap())
 
-        result = CDataset.Make(sources, pyarrow_unwrap_schema(schema))
+        result = CDataset.Make(c_sources, pyarrow_unwrap_schema(schema))
         self.init(GetResultValue(result))
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
@@ -784,7 +784,7 @@ cdef class ScanTask:
 
     @staticmethod
     cdef wrap(shared_ptr[CScanTask]& sp):
-        cdef SimpleScanTask self = SimpleScanTask.__new__(SimpleScanTask)
+        cdef InMemoryScanTask self = InMemoryScanTask.__new__(InMemoryScanTask)
         self.init(sp)
         return self
 
@@ -815,15 +815,15 @@ cdef class ScanTask:
                 yield pyarrow_wrap_batch(record_batch)
 
 
-cdef class SimpleScanTask(ScanTask):
+cdef class InMemoryScanTask(ScanTask):
     """A trivial ScanTask that yields the RecordBatch of an array."""
 
     cdef:
-        CSimpleScanTask* simple_task
+        CInMemoryScanTask* in_memory_task
 
     cdef init(self, shared_ptr[CScanTask]& sp):
         ScanTask.init(self, sp)
-        self.simple_task = <CSimpleScanTask*> sp.get()
+        self.in_memory_task = <CInMemoryScanTask*> sp.get()
 
 
 cdef class ScannerBuilder:

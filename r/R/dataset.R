@@ -17,11 +17,11 @@
 
 #' Open a multi-file dataset
 #'
-#' @param Either (1) a string path to a directory containing data files,
-#' or (2) a list of `SourceFactory` objects as created by [data_source()].
+#' @param sources Either (1) a string path to a directory containing data files,
+#' or (2) a list of `SourceFactory` objects as created by [open_source()].
 #' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
 #' will be inferred from the data sources.
-#' @param partition When `sources` is a file path, one of
+#' @param partitioning When `sources` is a file path, one of
 #'   * A `Schema`, in which case the file paths relative to `sources` will be
 #'    parsed, and path segments will be matched with the schema fields. For
 #'    example, `schema(year = int16(), month = int8())` would create partitions
@@ -33,16 +33,16 @@
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
-#' @param ... additional arguments passed to `data_source()`, when `sources` is
+#' @param ... additional arguments passed to `open_source()`, when `sources` is
 #' a file path, otherwise ignored.
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call `$NewScan()` to construct a query directly.
 #' @export
 #' @seealso [Partitioning] for defining partitions
 #' @include arrow-package.R
-open_dataset <- function(sources, schema = NULL, partition = hive_partition(), ...) {
+open_dataset <- function(sources, schema = NULL, partitioning = hive_partition(), ...) {
   if (is.character(sources)) {
-    sources <- list(data_source(sources, partition = partition, ...))
+    sources <- list(open_source(sources, partitioning = partitioning, ...))
   }
   assert_is_list_of(sources, "SourceFactory")
   if (is.null(schema)) {
@@ -98,16 +98,16 @@ names.Dataset <- function(x) names(x$schema)
 #'
 #' @description
 #' A [Dataset] can have one or more `Source`s. A `Source` contains one or more
-#' `Fragments`, such as files, of a common type and partition scheme.
+#' `Fragments`, such as files, of a common type and partitioning.
 #' `SourceFactory` is used to create a `Source`, inspect the [Schema] of the
-#' fragments contained in it, and declare a partition scheme.
+#' fragments contained in it, and declare a partitioning.
 #' `FileSystemSourceFactory` is a subclass of `SourceFactory` for
 #' discovering files in the local file system, the only currently supported
 #' file system.
 #'
 #' In general, you'll deal with `SourceFactory` rather than `Source` itself.
 #' @section Factory:
-#' For the `SourceFactory$create()` factory method, see [data_source()], an
+#' For the `SourceFactory$create()` factory method, see [open_source()], an
 #' alias for it.
 #'
 #' `FileSystemSourceFactory$create()` is a lower-level factory method and
@@ -199,7 +199,7 @@ SourceFactory$create <- function(path,
 #' @param format A string identifier of the format of the files in `path`.
 #' Currently supported options are "parquet", "arrow", and "ipc" (an alias for
 #' the Arrow file format)
-#' @param partition One of
+#' @param partitioning One of
 #'   * A `Schema`, in which case the file paths relative to `sources` will be
 #'    parsed, and path segments will be matched with the schema fields. For
 #'    example, `schema(year = int16(), month = int8())` would create partitions
@@ -220,7 +220,7 @@ SourceFactory$create <- function(path,
 #' in a list potentially with other `SourceFactory` objects, to create
 #' a `Dataset`.
 #' @export
-data_source <- SourceFactory$create
+open_source <- SourceFactory$create
 
 #' @usage NULL
 #' @format NULL
