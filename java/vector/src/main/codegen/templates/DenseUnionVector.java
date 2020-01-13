@@ -766,7 +766,15 @@ public class DenseUnionVector implements FieldVector {
   }
 
   public boolean isNull(int index) {
-    return (typeBuffer.getByte(index * TYPE_WIDTH) == 0);
+    ValueVector vec = getVector(index);
+    if (vec == null) {
+      return true;
+    }
+    int vecIndex = offsetBuffer.getInt(index * OFFSET_WIDTH);
+    if (vec.getValueCount() <= vecIndex) {
+      return true;
+    }
+    return vec.isNull(vecIndex);
   }
 
   @Override

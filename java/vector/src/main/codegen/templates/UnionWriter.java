@@ -244,6 +244,6 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   @Override
   public int getValueCapacity() {
-    return (int) data.getValueCapacity();
+    return data.getValueCapacity();
   }
 }

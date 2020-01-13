@@ -94,7 +94,7 @@ public class UnionVector implements FieldVector {
   private ValueVector singleVector;
 
   private final CallBack callBack;
-  protected long typeBufferAllocationSizeInBytes;
+  private int typeBufferAllocationSizeInBytes;
 
   private final FieldType fieldType;
 
@@ -311,7 +311,7 @@ public class UnionVector implements FieldVector {
     reallocTypeBuffer();
   }
 
-  protected void reallocTypeBuffer() {
+  private void reallocTypeBuffer() {
     final long currentBufferCapacity = typeBuffer.capacity();
     long baseSize  = typeBufferAllocationSizeInBytes;
 
@@ -340,7 +340,7 @@ public class UnionVector implements FieldVector {
 
   @Override
   public int getValueCapacity() {
-    return (int) Math.min(getTypeBufferValueCapacity(), internalStruct.getValueCapacity());
+    return Math.min(getTypeBufferValueCapacity(), internalStruct.getValueCapacity());
   }
 
   @Override
@@ -550,7 +550,7 @@ public class UnionVector implements FieldVector {
     return vectors.iterator();
   }
 
-    public ValueVector getVector(int index) {
+    private ValueVector getVector(int index) {
       int type = typeBuffer.getByte(index * TYPE_WIDTH);
       switch (MinorType.values()[type]) {
         case NULL:
@@ -690,7 +690,7 @@ public class UnionVector implements FieldVector {
     }
 
     private int getTypeBufferValueCapacity() {
-      return (int) typeBuffer.capacity() / TYPE_WIDTH;
+      return capAtMaxInt(typeBuffer.capacity() / TYPE_WIDTH);
     }
 
     @Override
