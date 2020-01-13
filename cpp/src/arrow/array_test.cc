@@ -1523,6 +1523,36 @@ class TestAdaptiveIntBuilder : public TestBuilder {
 
   void Done() { FinishAndCheckPadding(builder_.get(), &result_); }
 
+  template <typename ExpectedType>
+  void TestAppendValues() {
+    using CType = typename TypeTraits<ExpectedType>::CType;
+    auto type = TypeTraits<ExpectedType>::type_singleton();
+
+    std::vector<int64_t> values(
+        {0, std::numeric_limits<CType>::min(), std::numeric_limits<CType>::max()});
+    std::vector<CType> expected_values(
+        {0, std::numeric_limits<CType>::min(), std::numeric_limits<CType>::max()});
+    ArrayFromVector<ExpectedType, CType>(expected_values, &expected_);
+
+    SetUp();
+    ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+    AssertTypeEqual(*builder_->type(), *type);
+    ASSERT_EQ(builder_->length(), static_cast<int64_t>(values.size()));
+    Done();
+    ASSERT_EQ(builder_->length(), 0);
+    AssertArraysEqual(*expected_, *result_);
+
+    // Reuse builder
+    builder_->Reset();
+    AssertTypeEqual(*builder_->type(), *int8());
+    ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+    AssertTypeEqual(*builder_->type(), *type);
+    ASSERT_EQ(builder_->length(), static_cast<int64_t>(values.size()));
+    Done();
+    ASSERT_EQ(builder_->length(), 0);
+    AssertArraysEqual(*expected_, *result_);
+  }
+
  protected:
   std::shared_ptr<AdaptiveIntBuilder> builder_;
 
@@ -1532,9 +1562,13 @@ class TestAdaptiveIntBuilder : public TestBuilder {
 
 TEST_F(TestAdaptiveIntBuilder, TestInt8) {
   ASSERT_EQ(builder_->type()->id(), Type::INT8);
+  ASSERT_EQ(builder_->length(), 0);
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->length(), 1);
   ASSERT_OK(builder_->Append(127));
+  ASSERT_EQ(builder_->length(), 2);
   ASSERT_OK(builder_->Append(-128));
+  ASSERT_EQ(builder_->length(), 3);
 
   Done();
 
@@ -1653,55 +1687,29 @@ TEST_F(TestAdaptiveIntBuilder, TestInt64) {
   AssertArraysEqual(*expected_, *result_);
 }
 
+TEST_F(TestAdaptiveIntBuilder, TestManyAppends) {
+  // More than the builder's internal scratchpad size
+  const int32_t n_values = 99999;
+  std::vector<int32_t> expected_values(n_values);
+
+  for (int32_t i = 0; i < n_values; ++i) {
+    int32_t val = (i & 1) ? i : -i;
+    expected_values[i] = val;
+    ASSERT_OK(builder_->Append(val));
+    ASSERT_EQ(builder_->length(), i + 1);
+  }
+  ASSERT_EQ(builder_->type()->id(), Type::INT32);
+  Done();
+
+  ArrayFromVector<Int32Type, int32_t>(expected_values, &expected_);
+  AssertArraysEqual(*expected_, *result_);
+}
+
 TEST_F(TestAdaptiveIntBuilder, TestAppendValues) {
-  {
-    std::vector<int64_t> expected_values(
-        {0, static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1});
-    ASSERT_OK(builder_->AppendValues(expected_values.data(), expected_values.size()));
-    Done();
-
-    ArrayFromVector<Int64Type, int64_t>(expected_values, &expected_);
-    AssertArraysEqual(*expected_, *result_);
-  }
-  {
-    SetUp();
-    std::vector<int64_t> values(
-        {0, std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max()});
-    ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
-    Done();
-
-    std::vector<int32_t> expected_values(
-        {0, std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max()});
-
-    ArrayFromVector<Int32Type, int32_t>(expected_values, &expected_);
-    AssertArraysEqual(*expected_, *result_);
-  }
-  {
-    SetUp();
-    std::vector<int64_t> values(
-        {0, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()});
-    ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
-    Done();
-
-    std::vector<int16_t> expected_values(
-        {0, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()});
-
-    ArrayFromVector<Int16Type, int16_t>(expected_values, &expected_);
-    AssertArraysEqual(*expected_, *result_);
-  }
-  {
-    SetUp();
-    std::vector<int64_t> values(
-        {0, std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()});
-    ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
-    Done();
-
-    std::vector<int8_t> expected_values(
-        {0, std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()});
-
-    ArrayFromVector<Int8Type, int8_t>(expected_values, &expected_);
-    AssertArraysEqual(*expected_, *result_);
-  }
+  this->template TestAppendValues<Int64Type>();
+  this->template TestAppendValues<Int32Type>();
+  this->template TestAppendValues<Int16Type>();
+  this->template TestAppendValues<Int8Type>();
 }
 
 TEST_F(TestAdaptiveIntBuilder, TestAssertZeroPadded) {
@@ -1752,6 +1760,36 @@ class TestAdaptiveUIntBuilder : public TestBuilder {
 
   void Done() { FinishAndCheckPadding(builder_.get(), &result_); }
 
+  template <typename ExpectedType>
+  void TestAppendValues() {
+    using CType = typename TypeTraits<ExpectedType>::CType;
+    auto type = TypeTraits<ExpectedType>::type_singleton();
+
+    std::vector<uint64_t> values(
+        {0, std::numeric_limits<CType>::min(), std::numeric_limits<CType>::max()});
+    std::vector<CType> expected_values(
+        {0, std::numeric_limits<CType>::min(), std::numeric_limits<CType>::max()});
+    ArrayFromVector<ExpectedType, CType>(expected_values, &expected_);
+
+    SetUp();
+    ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+    AssertTypeEqual(*builder_->type(), *type);
+    ASSERT_EQ(builder_->length(), static_cast<int64_t>(values.size()));
+    Done();
+    ASSERT_EQ(builder_->length(), 0);
+    AssertArraysEqual(*expected_, *result_);
+
+    // Reuse builder
+    builder_->Reset();
+    AssertTypeEqual(*builder_->type(), *uint8());
+    ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+    AssertTypeEqual(*builder_->type(), *type);
+    ASSERT_EQ(builder_->length(), static_cast<int64_t>(values.size()));
+    Done();
+    ASSERT_EQ(builder_->length(), 0);
+    AssertArraysEqual(*expected_, *result_);
+  }
+
  protected:
   std::shared_ptr<AdaptiveUIntBuilder> builder_;
 
@@ -1760,8 +1798,11 @@ class TestAdaptiveUIntBuilder : public TestBuilder {
 };
 
 TEST_F(TestAdaptiveUIntBuilder, TestUInt8) {
+  ASSERT_EQ(builder_->length(), 0);
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->length(), 1);
   ASSERT_OK(builder_->Append(255));
+  ASSERT_EQ(builder_->length(), 2);
 
   Done();
 
@@ -1848,14 +1889,29 @@ TEST_F(TestAdaptiveUIntBuilder, TestUInt64) {
   ASSERT_TRUE(expected_->Equals(result_));
 }
 
-TEST_F(TestAdaptiveUIntBuilder, TestAppendValues) {
-  std::vector<uint64_t> expected_values(
-      {0, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1});
-  ASSERT_OK(builder_->AppendValues(expected_values.data(), expected_values.size()));
+TEST_F(TestAdaptiveUIntBuilder, TestManyAppends) {
+  // More than the builder's internal scratchpad size
+  const int32_t n_values = 99999;
+  std::vector<uint32_t> expected_values(n_values);
+
+  for (int32_t i = 0; i < n_values; ++i) {
+    auto val = static_cast<uint32_t>(i);
+    expected_values[i] = val;
+    ASSERT_OK(builder_->Append(val));
+    ASSERT_EQ(builder_->length(), i + 1);
+  }
+  ASSERT_EQ(builder_->type()->id(), Type::UINT32);
   Done();
 
-  ArrayFromVector<UInt64Type, uint64_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  ArrayFromVector<UInt32Type, uint32_t>(expected_values, &expected_);
+  AssertArraysEqual(*expected_, *result_);
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestAppendValues) {
+  this->template TestAppendValues<UInt64Type>();
+  this->template TestAppendValues<UInt32Type>();
+  this->template TestAppendValues<UInt16Type>();
+  this->template TestAppendValues<UInt8Type>();
 }
 
 TEST_F(TestAdaptiveUIntBuilder, TestAssertZeroPadded) {
@@ -1896,6 +1952,9 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
     ASSERT_FALSE(result_->IsValid(index));
   }
 }
+
+// ----------------------------------------------------------------------
+// Test Decimal arrays
 
 using DecimalVector = std::vector<Decimal128>;
 
