@@ -36,7 +36,7 @@ COPY python/requirements.txt \
 RUN pip install \
     -r arrow/python/requirements.txt \
     -r arrow/python/requirements-test.txt \
-    cython setuptools
+    setuptools
 
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \
