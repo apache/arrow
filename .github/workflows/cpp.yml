@@ -30,6 +30,9 @@ on:
       - 'ci/**'
       - 'cpp/**'
 
+env:
+  ARROW_ENABLE_TIMING_TESTS: OFF
+
 jobs:
 
   conda:

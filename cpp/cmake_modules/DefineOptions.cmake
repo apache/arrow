@@ -113,6 +113,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_BUILD_TESTS "Build the Arrow googletest unit tests" OFF)
 
+  define_option(ARROW_ENABLE_TIMING_TESTS "Enable timing-sensitive tests" ON)
+
   define_option(ARROW_BUILD_INTEGRATION "Build the Arrow integration test executables"
                 OFF)
 
