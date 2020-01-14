@@ -84,6 +84,7 @@ services:
     shm_size: &shm-size 2G
     environment:
       <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${ARCH}-conda-cache:/build:delegated
@@ -109,6 +110,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &cuda-volumes
       - .:/arrow:delegated
       - ${ARCH}-cuda-${CUDA}-cache:/build:delegated
@@ -135,6 +137,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &debian-volumes
       - .:/arrow:delegated
       - ${ARCH}-debian-${DEBIAN}-cache:/build:delegated
@@ -158,6 +161,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
       - ${ARCH}-ubuntu-${UBUNTU}-cache:/build:delegated
@@ -187,6 +191,7 @@ services:
       <<: *ccache
       CC: clang-7
       CXX: clang++-7
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_JEMALLOC: "OFF"
       ARROW_ORC: "OFF"
       ARROW_USE_ASAN: "ON"
@@ -211,6 +216,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &fedora-volumes
       - .:/arrow:delegated
       - ${ARCH}-fedora-${FEDORA}-cache:/build:delegated

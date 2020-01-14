@@ -17,8 +17,7 @@
 
 // Read Arrow files and streams
 
-#ifndef ARROW_IPC_READER_H
-#define ARROW_IPC_READER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -304,5 +303,3 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
 
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_READER_H

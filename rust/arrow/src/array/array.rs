@@ -1069,10 +1069,7 @@ pub struct FixedSizeBinaryArray {
 impl BinaryArray {
     /// Returns the element at index `i` as a byte slice.
     pub fn value(&self, i: usize) -> &[u8] {
-        assert!(
-            i + self.offset() < self.data.len(),
-            "BinaryArray out of bounds access"
-        );
+        assert!(i < self.data.len(), "BinaryArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
@@ -1119,10 +1116,7 @@ impl BinaryArray {
 impl StringArray {
     /// Returns the element at index `i` as a string slice.
     pub fn value(&self, i: usize) -> &str {
-        assert!(
-            i + self.offset() < self.data.len(),
-            "StringArray out of bounds access"
-        );
+        assert!(i < self.data.len(), "StringArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
@@ -2440,6 +2434,36 @@ mod tests {
             assert!(string_array.is_valid(i));
             assert!(!string_array.is_null(i));
         }
+    }
+
+    #[test]
+    fn test_nested_string_array() {
+        let string_builder = StringBuilder::new(3);
+        let mut list_of_string_builder = ListBuilder::new(string_builder);
+
+        list_of_string_builder.values().append_value("foo").unwrap();
+        list_of_string_builder.values().append_value("bar").unwrap();
+        list_of_string_builder.append(true).unwrap();
+
+        list_of_string_builder
+            .values()
+            .append_value("foobar")
+            .unwrap();
+        list_of_string_builder.append(true).unwrap();
+        let list_of_strings = list_of_string_builder.finish();
+
+        assert_eq!(list_of_strings.len(), 2);
+
+        let first_slot = list_of_strings.value(0);
+        let first_list = first_slot.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(first_list.len(), 2);
+        assert_eq!(first_list.value(0), "foo");
+        assert_eq!(first_list.value(1), "bar");
+
+        let second_slot = list_of_strings.value(1);
+        let second_list = second_slot.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(second_list.len(), 1);
+        assert_eq!(second_list.value(0), "foobar");
     }
 
     #[test]

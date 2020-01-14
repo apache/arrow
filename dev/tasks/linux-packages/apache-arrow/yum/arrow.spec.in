@@ -1,4 +1,4 @@
-# -*- rpm -*-
+# -*- sh-shell: rpm -*-
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -211,6 +211,7 @@ This package contains the libraries for Apache Arrow C++.
 %files libs
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
+%{_docdir}/arrow/
 %{_libdir}/libarrow.so.*
 
 %package devel

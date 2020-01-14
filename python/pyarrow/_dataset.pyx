@@ -128,12 +128,16 @@ cdef class PartitionSchemeDiscovery:
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
-    @staticmethod
-    cdef wrap(const shared_ptr[CPartitionSchemeDiscovery]& sp):
-        cdef PartitionSchemeDiscovery self
-        self = PartitionSchemeDiscovery()
+    cdef init(self, const shared_ptr[CPartitionSchemeDiscovery]& sp):
         self.wrapped = sp
         self.discovery = sp.get()
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CPartitionSchemeDiscovery]& sp):
+        cdef PartitionSchemeDiscovery self = PartitionSchemeDiscovery.__new__(
+            PartitionSchemeDiscovery
+        )
+        self.init(sp)
         return self
 
     cdef inline shared_ptr[CPartitionSchemeDiscovery] unwrap(self):
@@ -196,6 +200,29 @@ cdef class SchemaPartitionScheme(PartitionScheme):
         PartitionScheme.init(self, sp)
         self.schema_scheme = <CSchemaPartitionScheme*> sp.get()
 
+    @staticmethod
+    def discover(field_names):
+        """
+        Discover a SchemaPartitionScheme.
+
+        Parameters
+        ----------
+        field_names : list of str
+            The names to associate with the values from the subdirectory names.
+
+        Returns
+        -------
+        PartionSchemeDiscovery
+            To be used in the FileSystemDiscoveryOptions.
+        """
+        cdef:
+            PartitionSchemeDiscovery discovery
+            vector[c_string] c_field_names
+        c_field_names = [tobytes(s) for s in field_names]
+        discovery = PartitionSchemeDiscovery.wrap(
+            CSchemaPartitionScheme.MakeDiscovery(c_field_names))
+        return discovery
+
 
 cdef class HivePartitionScheme(PartitionScheme):
     """
@@ -243,6 +270,22 @@ cdef class HivePartitionScheme(PartitionScheme):
     cdef init(self, const shared_ptr[CPartitionScheme]& sp):
         PartitionScheme.init(self, sp)
         self.hive_scheme = <CHivePartitionScheme*> sp.get()
+
+    @staticmethod
+    def discover():
+        """
+        Discover a HivePartitionScheme.
+
+        Returns
+        -------
+        PartionSchemeDiscovery
+            To be used in the FileSystemDiscoveryOptions.
+        """
+        cdef:
+            PartitionSchemeDiscovery discovery
+        discovery = PartitionSchemeDiscovery.wrap(
+            CHivePartitionScheme.MakeDiscovery())
+        return discovery
 
 
 cdef class FileSystemDiscoveryOptions:

@@ -352,3 +352,29 @@ def test_file_system_discovery(mockfs, paths_or_selector):
     assert isinstance(table, pa.Table)
     assert len(table) == 10
     assert table.num_columns == 4
+
+
+def test_partition_scheme_discovery(mockfs):
+    paths_or_selector = fs.FileSelector('subdir', recursive=True)
+    format = ds.ParquetFileFormat()
+
+    options = ds.FileSystemDiscoveryOptions('subdir')
+    schema_discovery = ds.SchemaPartitionScheme.discover(['group', 'key'])
+    assert isinstance(schema_discovery, ds.PartitionSchemeDiscovery)
+    options.partition_scheme_discovery = schema_discovery
+
+    discovery = ds.FileSystemDataSourceDiscovery(
+        mockfs, paths_or_selector, format, options
+    )
+    inspected_schema = discovery.inspect()
+    # i64/f64 from data, group/key from "/1/xxx" and "/2/yyy" paths
+    expected_schema = pa.schema([
+        ("i64", pa.int64()),
+        ("f64", pa.float64()),
+        ("group", pa.int32()),
+        ("key", pa.string()),
+    ])
+    assert inspected_schema.remove_metadata().equals(expected_schema)
+
+    hive_discovery = ds.HivePartitionScheme.discover()
+    assert isinstance(hive_discovery, ds.PartitionSchemeDiscovery)

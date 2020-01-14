@@ -116,7 +116,7 @@ static constexpr uint8_t kBytePopcount[] = {
 
 // Returns the ceil of value/divisor
 constexpr int64_t CeilDiv(int64_t value, int64_t divisor) {
-  return value / divisor + (value % divisor != 0);
+  return (value == 0) ? 0 : 1 + (value - 1) / divisor;
 }
 
 constexpr int64_t BytesForBits(int64_t bits) { return (bits + 7) >> 3; }
@@ -151,7 +151,7 @@ constexpr bool IsMultipleOf8(int64_t n) { return (n & 7) == 0; }
 
 // Returns 'value' rounded up to the nearest multiple of 'factor'
 constexpr int64_t RoundUp(int64_t value, int64_t factor) {
-  return (value + (factor - 1)) / factor * factor;
+  return CeilDiv(value, factor) * factor;
 }
 
 // Returns 'value' rounded down to the nearest multiple of 'factor'

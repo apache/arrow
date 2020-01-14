@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IO_INTERFACES_H
-#define ARROW_IO_INTERFACES_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -292,5 +291,3 @@ Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_INTERFACES_H

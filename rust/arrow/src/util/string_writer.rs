@@ -60,24 +60,23 @@
 //! writer.write(&batch).unwrap();
 //! ```
 
-use std::cell::RefCell;
 use std::io::{Error, ErrorKind, Result, Write};
 
 pub struct StringWriter {
-    data: RefCell<String>,
+    data: String,
 }
 
 impl StringWriter {
     pub fn new() -> Self {
         StringWriter {
-            data: RefCell::new(String::new()),
+            data: String::new(),
         }
     }
 }
 
 impl ToString for StringWriter {
     fn to_string(&self) -> String {
-        self.data.borrow().clone()
+        self.data.clone()
     }
 }
 
@@ -86,31 +85,14 @@ impl Write for StringWriter {
         let string = match String::from_utf8(buf.to_vec()) {
             Ok(x) => x,
             Err(e) => {
-                return Result::Err(Error::new(ErrorKind::InvalidData, e));
+                return Err(Error::new(ErrorKind::InvalidData, e));
             }
         };
-        self.data.get_mut().push_str(&string);
-        Result::Ok(string.len())
+        self.data.push_str(&string);
+        Ok(string.len())
     }
 
     fn flush(&mut self) -> Result<()> {
-        Result::Ok(())
-    }
-}
-
-impl Write for &StringWriter {
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        let string = match String::from_utf8(buf.to_vec()) {
-            Ok(x) => x,
-            Err(e) => {
-                return Result::Err(Error::new(ErrorKind::InvalidData, e));
-            }
-        };
-        self.data.borrow_mut().push_str(&string);
-        Result::Ok(string.len())
-    }
-
-    fn flush(&mut self) -> Result<()> {
-        Result::Ok(())
+        Ok(())
     }
 }

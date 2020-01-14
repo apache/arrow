@@ -12,8 +12,7 @@
 
 // Adapted from Apache Kudu, TensorFlow
 
-#ifndef ARROW_STATUS_H_
-#define ARROW_STATUS_H_
+#pragma once
 
 #include <cstring>
 #include <iosfwd>
@@ -322,8 +321,9 @@ class ARROW_EXPORT Status : public util::EqualityComparable<Status>,
 
   /// \brief Return a new Status with changed message, copying the
   /// existing status code and detail.
-  Status WithMessage(std::string message) const {
-    return Status(code(), std::move(message), detail());
+  template <typename... Args>
+  Status WithMessage(Args&&... args) const {
+    return FromArgs(code(), std::forward<Args>(args)...).WithDetail(detail());
   }
 
   [[noreturn]] void Abort() const;
@@ -435,5 +435,3 @@ inline Status GenericToStatus(const Status& st) { return st; }
 }  // namespace internal
 
 }  // namespace arrow
-
-#endif  // ARROW_STATUS_H_

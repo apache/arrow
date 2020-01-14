@@ -103,6 +103,22 @@ TYPED_TEST(TestSortToIndicesKernelForStrings, SortStrings) {
 }
 
 template <typename ArrowType>
+class TestSortToIndicesKernelForUInt8 : public TestSortToIndicesKernel<ArrowType> {};
+TYPED_TEST_CASE(TestSortToIndicesKernelForUInt8, UInt8Type);
+
+template <typename ArrowType>
+class TestSortToIndicesKernelForInt8 : public TestSortToIndicesKernel<ArrowType> {};
+TYPED_TEST_CASE(TestSortToIndicesKernelForInt8, Int8Type);
+
+TYPED_TEST(TestSortToIndicesKernelForUInt8, SortUInt8) {
+  this->AssertSortToIndices("[255, null, 0, 255, 10, null, 128, 0]", "[2,7,4,6,0,3,1,5]");
+}
+
+TYPED_TEST(TestSortToIndicesKernelForInt8, SortInt8) {
+  this->AssertSortToIndices("[null, 10, 127, 0, -128, -128, null]", "[4,5,3,1,2,0,6]");
+}
+
+template <typename ArrowType>
 class TestSortToIndicesKernelRandom : public ComputeFixture, public TestBase {};
 
 using SortToIndicesableTypes =

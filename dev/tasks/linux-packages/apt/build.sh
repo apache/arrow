@@ -77,7 +77,10 @@ else
 fi
 run cd -
 
+repositories="/host/repositories"
 package_initial=$(echo "${PACKAGE}" | sed -e 's/\(.\).*/\1/')
-pool_dir="/host/repositories/${distribution}/pool/${code_name}/${component}/${package_initial}/${PACKAGE}"
+pool_dir="${repositories}/${distribution}/pool/${code_name}/${component}/${package_initial}/${PACKAGE}"
 run mkdir -p "${pool_dir}/"
 run cp *.tar.* *.dsc *.deb "${pool_dir}/"
+
+run chown -R "$(stat --format "%u:%g" "${repositories}")" "${repositories}"
