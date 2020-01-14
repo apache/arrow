@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstring>
 #include <future>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -86,6 +87,13 @@ class ColumnReaderImpl : public ColumnReader {
   virtual ReaderType type() const = 0;
 };
 
+std::shared_ptr<std::unordered_set<int>> VectorToSharedSet(
+    const std::vector<int>& values) {
+  std::shared_ptr<std::unordered_set<int>> result(new std::unordered_set<int>());
+  result->insert(values.begin(), values.end());
+  return result;
+}
+
 // ----------------------------------------------------------------------
 // FileReaderImpl forward declaration
 
@@ -150,7 +158,8 @@ class FileReaderImpl : public FileReader {
     return ReadRowGroups(Iota(reader_->metadata()->num_row_groups()), indices, out);
   }
 
-  Status GetFieldReader(int i, const std::vector<int>& indices,
+  Status GetFieldReader(int i,
+                        const std::shared_ptr<std::unordered_set<int>>& included_leaves,
                         const std::vector<int>& row_groups,
                         std::unique_ptr<ColumnReaderImpl>* out) {
     auto ctx = std::make_shared<ReaderContext>();
@@ -158,20 +167,21 @@ class FileReaderImpl : public FileReader {
     ctx->pool = pool_;
     ctx->iterator_factory = SomeRowGroupsFactory(row_groups);
     ctx->filter_leaves = true;
-    ctx->included_leaves.insert(indices.begin(), indices.end());
+    ctx->included_leaves = included_leaves;
     return GetReader(manifest_.schema_fields[i], ctx, out);
   }
 
   Status GetColumn(int i, FileColumnIteratorFactory iterator_factory,
                    std::unique_ptr<ColumnReader>* out);
 
-  Status ReadSchemaField(int i, const std::vector<int>& indices,
+  Status ReadSchemaField(int i,
+                         const std::shared_ptr<std::unordered_set<int>>& included_leaves,
                          const std::vector<int>& row_groups,
                          std::shared_ptr<Field>* out_field,
                          std::shared_ptr<ChunkedArray>* out) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     std::unique_ptr<ColumnReaderImpl> reader;
-    RETURN_NOT_OK(GetFieldReader(i, indices, row_groups, &reader));
+    RETURN_NOT_OK(GetFieldReader(i, included_leaves, row_groups, &reader));
 
     *out_field = reader->field();
 
@@ -191,20 +201,24 @@ class FileReaderImpl : public FileReader {
                              reader_->metadata()->key_value_metadata(), out);
   }
 
-  Status ReadSchemaField(int i, const std::vector<int>& indices,
+  Status ReadSchemaField(int i,
+                         const std::shared_ptr<std::unordered_set<int>>& included_leaves,
                          const std::vector<int>& row_groups,
                          std::shared_ptr<ChunkedArray>* out) {
     std::shared_ptr<Field> unused;
-    return ReadSchemaField(i, indices, row_groups, &unused, out);
+    return ReadSchemaField(i, included_leaves, row_groups, &unused, out);
   }
 
-  Status ReadSchemaField(int i, const std::vector<int>& indices,
+  Status ReadSchemaField(int i,
+                         const std::shared_ptr<std::unordered_set<int>>& included_leaves,
                          std::shared_ptr<ChunkedArray>* out) {
-    return ReadSchemaField(i, indices, Iota(reader_->metadata()->num_row_groups()), out);
+    return ReadSchemaField(i, included_leaves,
+                           Iota(reader_->metadata()->num_row_groups()), out);
   }
 
   Status ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out) override {
-    return ReadSchemaField(i, Iota(reader_->metadata()->num_columns()),
+    auto included_leaves = VectorToSharedSet(Iota(reader_->metadata()->num_columns()));
+    return ReadSchemaField(i, included_leaves,
                            Iota(reader_->metadata()->num_row_groups()), out);
   }
 
@@ -301,8 +315,10 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
     }
     std::vector<std::unique_ptr<ColumnReaderImpl>> field_readers(field_indices.size());
     std::vector<std::shared_ptr<Field>> fields;
+
+    auto included_leaves = VectorToSharedSet(column_indices);
     for (size_t i = 0; i < field_indices.size(); ++i) {
-      RETURN_NOT_OK(reader->GetFieldReader(field_indices[i], column_indices, row_groups,
+      RETURN_NOT_OK(reader->GetFieldReader(field_indices[i], included_leaves, row_groups,
                                            &field_readers[i]));
       fields.push_back(field_readers[i]->field());
     }
@@ -781,8 +797,9 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
   std::vector<std::shared_ptr<Field>> fields(num_fields);
   std::vector<std::shared_ptr<ChunkedArray>> columns(num_fields);
 
+  auto included_leaves = VectorToSharedSet(indices);
   auto ReadColumnFunc = [&](int i) {
-    return ReadSchemaField(field_indices[i], indices, row_groups, &fields[i],
+    return ReadSchemaField(field_indices[i], included_leaves, row_groups, &fields[i],
                            &columns[i]);
   };
 
