@@ -38,7 +38,12 @@
 #' @export
 #' @seealso [PartitionScheme] for defining partitioning
 #' @include arrow-package.R
-open_dataset <- function (path, schema = NULL, partition = hive_partition(), ...) {
+open_dataset <- function(path, schema = NULL, partition = hive_partition(), ...) {
+  sources <- list(data_source(path, schema, partition, ...))
+  Dataset$create(sources, schema)
+}
+
+data_source <- function(path, schema = NULL, partition = hive_partition(), ...) {
   if (!is.null(partition)) {
     if (inherits(partition, "Schema")) {
       partition <- SchemaPartitionScheme$create(partition)
@@ -52,7 +57,7 @@ open_dataset <- function (path, schema = NULL, partition = hive_partition(), ...
   if (is.null(schema)) {
     schema <- dsd$Inspect()
   }
-  Dataset$create(list(dsd$Finish(schema)), schema)
+  dsd$Finish(schema)
 }
 
 #' Multi-file datasets
@@ -87,8 +92,12 @@ Dataset <- R6Class("Dataset", inherit = Object,
     schema = function() shared_ptr(Schema, dataset___Dataset__schema(self))
   )
 )
-Dataset$create <- function(sources, schema) {
+Dataset$create <- function(sources, schema = NULL) {
   assert_is_list_of(sources, "DataSource")
+  if (is.null(schema)) {
+    # TODO: this should somehow align the schema of multiple sources
+    schema <- sources[[1]]$schema
+  }
   assert_is(schema, "Schema")
   shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
 }
@@ -134,7 +143,13 @@ names.Dataset <- function(x) names(x$schema)
 #' @name DataSource
 #' @seealso [Dataset] for what do do with a `DataSource`
 #' @export
-DataSource <- R6Class("DataSource", inherit = Object)
+DataSource <- R6Class("DataSource", inherit = Object,
+  active = list(
+    #' @description
+    #' Return the DataSource's `Schema`
+    schema = function() shared_ptr(Schema, dataset___Dataset__schema(self))
+  )
+)
 
 #' @usage NULL
 #' @format NULL

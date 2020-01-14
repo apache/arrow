@@ -74,6 +74,12 @@ std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish2(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Schema> dataset___DataSource__schema(
+    const std::shared_ptr<ds::DataSource>& source) {
+  return source->schema();
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(
     const std::shared_ptr<ds::DataSourceDiscovery>& discovery) {
   return VALUE_OR_STOP(discovery->Inspect());

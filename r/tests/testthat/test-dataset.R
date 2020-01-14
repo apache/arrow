@@ -25,6 +25,9 @@ dir.create(dataset_dir)
 hive_dir <- tempfile()
 dir.create(hive_dir)
 
+ipc_dir <- tempfile()
+dir.create(ipc_dir)
+
 first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
 df1 <- tibble(
   int = 1:10,
@@ -57,6 +60,13 @@ test_that("Setup (putting data in the dir)", {
   write_parquet(df1, file.path(hive_dir, "subdir", "group=1", "other=xxx", "file1.parquet"))
   write_parquet(df2, file.path(hive_dir, "subdir", "group=2", "other=yyy", "file2.parquet"))
   expect_length(dir(hive_dir, recursive = TRUE), 2)
+
+  # Now, an IPC format dataset
+  dir.create(file.path(ipc_dir, 3))
+  dir.create(file.path(ipc_dir, 4))
+  write_arrow(df1, file.path(ipc_dir, 3, "file1.arrow"))
+  write_arrow(df2, file.path(ipc_dir, 4, "file2.arrow"))
+  expect_length(dir(ipc_dir, recursive = TRUE), 2)
 })
 
 test_that("Simple interface for datasets", {
@@ -127,6 +137,22 @@ test_that("Partition scheme inference", {
       collect() %>%
       arrange(dbl),
     df2[1:2, c("chr", "dbl")]
+  )
+})
+
+test_that("IPC/Arrow format data", {
+  ds <- open_dataset(ipc_dir, partition = "part", format = "arrow")
+  expect_identical(names(ds), c(names(df1), "part"))
+  expect_equivalent(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 3) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
   )
 })
 
