@@ -39,8 +39,13 @@
 #' @seealso [PartitionScheme] for defining partitioning
 #' @include arrow-package.R
 open_dataset <- function(path, schema = NULL, partition = hive_partition(), ...) {
-  sources <- list(data_source(path, schema, partition, ...))
-  Dataset$create(sources, schema)
+  dsd <- data_source(path, schema, partition, ...)
+  if (is.null(schema)) {
+    schema <- dsd$Inspect()
+  }
+  Dataset$create(list(dsd$Finish(schema)), schema)
+  # sources <- list(data_source(path, schema, partition, ...))
+  # Dataset$create(sources, schema)
 }
 
 data_source <- function(path, schema = NULL, partition = hive_partition(), ...) {
@@ -54,10 +59,12 @@ data_source <- function(path, schema = NULL, partition = hive_partition(), ...) 
     assert_is(partition, c("PartitionScheme", "PartitionSchemeDiscovery"))
   }
   dsd <- DataSourceDiscovery$create(path, partition_scheme = partition, ...)
-  if (is.null(schema)) {
-    schema <- dsd$Inspect()
-  }
-  dsd$Finish(schema)
+  # if (is.null(schema)) {
+  #   schema <- dsd$Inspect()
+  # }
+  # dsd$Finish(schema)
+  # HACK: return discovery bc DS doesn't yield schema yet
+  dsd
 }
 
 #' Multi-file datasets
@@ -190,7 +197,7 @@ DataSourceDiscovery$create <- function(path,
     allow_non_existent = allow_non_existent,
     recursive = recursive
   )
-  format <- match.arg(format)
+  format <- FileFormat$create(match.arg(format))
   # This may also require different initializers
   FileSystemDataSourceDiscovery$create(filesystem, selector, format, partition_scheme)
 }
@@ -232,6 +239,7 @@ FileFormat <- R6Class("FileFormat", inherit = Object)
 FileFormat$create <- function(format, ...) {
   # TODO: pass list(...) options to the initializers
   # https://issues.apache.org/jira/browse/ARROW-7547
+  print(format)
   if (format == "parquet") {
     shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make())
   } else if (format %in% c("ipc", "arrow")) { # These are aliases for the same thing

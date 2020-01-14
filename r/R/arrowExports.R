@@ -340,16 +340,24 @@ csv___TableReader__Read <- function(table_reader){
     .Call(`_arrow_csv___TableReader__Read` , table_reader)
 }
 
-dataset___FSDSDiscovery__Make2 <- function(fs, selector, partition_scheme){
-    .Call(`_arrow_dataset___FSDSDiscovery__Make2` , fs, selector, partition_scheme)
+dataset___FSDSDiscovery__Make2 <- function(fs, selector, format, partition_scheme){
+    .Call(`_arrow_dataset___FSDSDiscovery__Make2` , fs, selector, format, partition_scheme)
 }
 
-dataset___FSDSDiscovery__Make1 <- function(fs, selector){
-    .Call(`_arrow_dataset___FSDSDiscovery__Make1` , fs, selector)
+dataset___FSDSDiscovery__Make1 <- function(fs, selector, format){
+    .Call(`_arrow_dataset___FSDSDiscovery__Make1` , fs, selector, format)
 }
 
-dataset___FSDSDiscovery__Make3 <- function(fs, selector, discovery){
-    .Call(`_arrow_dataset___FSDSDiscovery__Make3` , fs, selector, discovery)
+dataset___FSDSDiscovery__Make3 <- function(fs, selector, format, discovery){
+    .Call(`_arrow_dataset___FSDSDiscovery__Make3` , fs, selector, format, discovery)
+}
+
+dataset___ParquetFileFormat__Make <- function(){
+    .Call(`_arrow_dataset___ParquetFileFormat__Make` )
+}
+
+dataset___IpcFileFormat__Make <- function(){
+    .Call(`_arrow_dataset___IpcFileFormat__Make` )
 }
 
 dataset___DSDiscovery__Finish1 <- function(discovery){

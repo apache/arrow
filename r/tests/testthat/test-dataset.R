@@ -234,7 +234,8 @@ test_that("Assembling a Dataset manually and getting a Table", {
   selector <- FileSelector$create(dataset_dir, recursive = TRUE)
   partition <- SchemaPartitionScheme$create(schema(part = double()))
 
-  dsd <- FileSystemDataSourceDiscovery$create(fs, selector, partition_scheme = partition)
+  fmt <- FileFormat$create("parquet")
+  dsd <- FileSystemDataSourceDiscovery$create(fs, selector, fmt, partition_scheme = partition)
   expect_is(dsd, "FileSystemDataSourceDiscovery")
 
   schm <- dsd$Inspect()
