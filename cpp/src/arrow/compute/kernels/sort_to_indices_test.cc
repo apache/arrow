@@ -132,7 +132,8 @@ class Comparator {
     if (array.IsNull(rhs) && array.IsNull(lhs)) return lhs < rhs;
     if (array.IsNull(rhs)) return true;
     if (array.IsNull(lhs)) return false;
-    return array.Value(lhs) <= array.Value(rhs);
+    if (array.Value(lhs) == array.Value(rhs)) return lhs < rhs;
+    return array.Value(lhs) < array.Value(rhs);
   }
 };
 
@@ -143,7 +144,8 @@ class Comparator<StringArray> {
     if (array.IsNull(rhs) && array.IsNull(lhs)) return lhs < rhs;
     if (array.IsNull(rhs)) return true;
     if (array.IsNull(lhs)) return false;
-    return array.GetView(lhs) <= array.GetView(rhs);
+    if (array.GetView(lhs) == array.GetView(rhs)) return lhs < rhs;
+    return array.GetView(lhs) < array.GetView(rhs);
   }
 };
 
