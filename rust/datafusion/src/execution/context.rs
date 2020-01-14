@@ -17,11 +17,9 @@
 
 //! ExecutionContext contains methods for registering data sources and executing queries
 
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::rc::Rc;
 use std::string::String;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
@@ -57,14 +55,14 @@ use sqlparser::sqlast::{SQLColumnDef, SQLType};
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
-    datasources: Rc<RefCell<HashMap<String, Rc<dyn TableProvider>>>>,
+    datasources: HashMap<String, Box<dyn TableProvider>>,
 }
 
 impl ExecutionContext {
     /// Create a new execution context for in-memory queries
     pub fn new() -> Self {
         Self {
-            datasources: Rc::new(RefCell::new(HashMap::new())),
+            datasources: HashMap::new(),
         }
     }
 
@@ -105,10 +103,9 @@ impl ExecutionContext {
 
         match ast {
             DFASTNode::ANSI(ansi) => {
-                let schema_provider: Arc<dyn SchemaProvider> =
-                    Arc::new(ExecutionContextSchemaProvider {
-                        datasources: self.datasources.clone(),
-                    });
+                let schema_provider = ExecutionContextSchemaProvider {
+                    datasources: &self.datasources,
+                };
 
                 // create a query planner
                 let query_planner = SqlToRel::new(schema_provider);
@@ -185,26 +182,24 @@ impl ExecutionContext {
         schema: &Schema,
         has_header: bool,
     ) {
-        self.register_table(name, Rc::new(CsvFile::new(filename, schema, has_header)));
+        self.register_table(name, Box::new(CsvFile::new(filename, schema, has_header)));
     }
 
     /// Register a Parquet file as a table so that it can be queried from SQL
     pub fn register_parquet(&mut self, name: &str, filename: &str) -> Result<()> {
         let table = ParquetTable::try_new(&filename)?;
-        self.register_table(name, Rc::new(table));
+        self.register_table(name, Box::new(table));
         Ok(())
     }
 
     /// Register a table so that it can be queried from SQL
-    pub fn register_table(&mut self, name: &str, provider: Rc<dyn TableProvider>) {
-        self.datasources
-            .borrow_mut()
-            .insert(name.to_string(), provider);
+    pub fn register_table(&mut self, name: &str, provider: Box<dyn TableProvider>) {
+        self.datasources.insert(name.to_string(), provider);
     }
 
     /// Get a table by name
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn Table>> {
-        match (*self.datasources).borrow().get(table_name) {
+        match self.datasources.get(table_name) {
             Some(provider) => {
                 Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::TableScan {
                     schema_name: "".to_string(),
@@ -245,7 +240,7 @@ impl ExecutionContext {
                 table_name,
                 projection,
                 ..
-            } => match (*self.datasources).borrow().get(table_name) {
+            } => match self.datasources.get(table_name) {
                 Some(provider) => {
                     let partitions = provider.scan(projection, batch_size)?;
                     if partitions.is_empty() {
@@ -496,15 +491,13 @@ impl ExecutionContext {
     }
 }
 
-struct ExecutionContextSchemaProvider {
-    datasources: Rc<RefCell<HashMap<String, Rc<dyn TableProvider>>>>,
+struct ExecutionContextSchemaProvider<'a> {
+    datasources: &'a HashMap<String, Box<dyn TableProvider>>,
 }
-impl SchemaProvider for ExecutionContextSchemaProvider {
+
+impl SchemaProvider for ExecutionContextSchemaProvider<'_> {
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {
-        match (*self.datasources).borrow().get(name) {
-            Some(ds) => Some(ds.schema().clone()),
-            None => None,
-        }
+        self.datasources.get(name).map(|ds| ds.schema().clone())
     }
 
     fn get_function_meta(&self, _name: &str) -> Option<Arc<FunctionMeta>> {

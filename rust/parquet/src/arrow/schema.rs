@@ -23,7 +23,7 @@
 //!
 //! The interfaces for converting arrow schema to parquet schema is coming.
 
-use std::{collections::HashSet, rc::Rc};
+use std::collections::HashSet;
 
 use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError::ArrowError, Result};
@@ -64,10 +64,9 @@ where
         }
     }
 
-    let leaves = Rc::new(leaves);
     base_nodes
         .into_iter()
-        .map(|t| ParquetTypeConverter::new(t, leaves.clone()).to_field())
+        .map(|t| ParquetTypeConverter::new(t, &leaves).to_field())
         .collect::<Result<Vec<Option<Field>>>>()
         .map(|result| result.into_iter().filter_map(|f| f).collect::<Vec<Field>>())
         .map(|fields| Schema::new(fields))
@@ -80,21 +79,21 @@ pub fn parquet_to_arrow_field(parquet_column: ColumnDescPtr) -> Result<Field> {
     let mut leaves = HashSet::new();
     leaves.insert(parquet_column.self_type() as *const Type);
 
-    ParquetTypeConverter::new(schema, Rc::new(leaves))
+    ParquetTypeConverter::new(schema, &leaves)
         .to_field()
         .map(|opt| opt.unwrap())
 }
 
 /// This struct is used to group methods and data structures used to convert parquet
 /// schema together.
-struct ParquetTypeConverter {
+struct ParquetTypeConverter<'a> {
     schema: TypePtr,
     /// This is the columns that need to be converted to arrow schema.
-    columns_to_convert: Rc<HashSet<*const Type>>,
+    columns_to_convert: &'a HashSet<*const Type>,
 }
 
-impl ParquetTypeConverter {
-    fn new(schema: TypePtr, columns_to_convert: Rc<HashSet<*const Type>>) -> Self {
+impl<'a> ParquetTypeConverter<'a> {
+    fn new(schema: TypePtr, columns_to_convert: &'a HashSet<*const Type>) -> Self {
         Self {
             schema,
             columns_to_convert,
@@ -104,12 +103,12 @@ impl ParquetTypeConverter {
     fn clone_with_schema(&self, other: TypePtr) -> Self {
         Self {
             schema: other,
-            columns_to_convert: self.columns_to_convert.clone(),
+            columns_to_convert: self.columns_to_convert,
         }
     }
 }
 
-impl ParquetTypeConverter {
+impl<'a> ParquetTypeConverter<'a> {
     // Public interfaces.
 
     /// Converts parquet schema to arrow data type.

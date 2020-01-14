@@ -19,9 +19,7 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use std::cell::RefCell;
 use std::env;
-use std::rc::Rc;
 use std::sync::Arc;
 
 extern crate arrow;
@@ -32,16 +30,15 @@ use arrow::datatypes::{DataType, Field, Schema};
 use datafusion::datasource::{CsvFile, MemTable};
 use datafusion::execution::context::ExecutionContext;
 
-fn aggregate_query(ctx: &Rc<RefCell<ExecutionContext>>, sql: &str) {
+fn aggregate_query(ctx: &mut ExecutionContext, sql: &str) {
     // execute the query
-    let mut mut_ctx = ctx.borrow_mut();
-    let results = mut_ctx.sql(&sql, 1024 * 1024).unwrap();
+    let results = ctx.sql(&sql, 1024 * 1024).unwrap();
 
     // display the relation
     for _batch in results {}
 }
 
-fn create_context() -> Rc<RefCell<ExecutionContext>> {
+fn create_context() -> ExecutionContext {
     // define schema for data source (csv file)
     let schema = Arc::new(Schema::new(vec![
         Field::new("c1", DataType::Utf8, false),
@@ -71,21 +68,17 @@ fn create_context() -> Rc<RefCell<ExecutionContext>> {
     let mem_table = MemTable::load(&csv).unwrap();
 
     // create local execution context
-    let ctx = Rc::new(RefCell::new(ExecutionContext::new()));
-
-    let mut mut_ctx = ctx.borrow_mut();
-
-    mut_ctx.register_table("aggregate_test_100", Rc::new(mem_table));
-
-    ctx.clone()
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("aggregate_test_100", Box::new(mem_table));
+    ctx
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("aggregate_query_no_group_by", |b| {
-        let ctx = create_context();
+        let mut ctx = create_context();
         b.iter(|| {
             aggregate_query(
-                &ctx,
+                &mut ctx,
                 "SELECT MIN(c12), MAX(c12) \
                  FROM aggregate_test_100",
             )
@@ -93,10 +86,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     c.bench_function("aggregate_query_group_by", |b| {
-        let ctx = create_context();
+        let mut ctx = create_context();
         b.iter(|| {
             aggregate_query(
-                &ctx,
+                &mut ctx,
                 "SELECT c1, MIN(c12), MAX(c12) \
                  FROM aggregate_test_100 GROUP BY c1",
             )
@@ -104,10 +97,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     c.bench_function("aggregate_query_group_by_with_filter", |b| {
-        let ctx = create_context();
+        let mut ctx = create_context();
         b.iter(|| {
             aggregate_query(
-                &ctx,
+                &mut ctx,
                 "SELECT c1, MIN(c12), MAX(c12) \
                  FROM aggregate_test_100 \
                  WHERE c11 > 0.1 AND c11 < 0.9 GROUP BY c1",
