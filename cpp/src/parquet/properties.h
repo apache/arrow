@@ -58,6 +58,8 @@ class PARQUET_EXPORT ReaderProperties {
 
   bool is_buffered_stream_enabled() const { return buffered_stream_enabled_; }
 
+  bool is_pre_buffer_row_group() const { return pre_buffer_row_group_; }
+
   void enable_buffered_stream() { buffered_stream_enabled_ = true; }
 
   void disable_buffered_stream() { buffered_stream_enabled_ = false; }

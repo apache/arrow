@@ -102,7 +102,6 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     partial_source_row_group_ =
       properties_.GetStream(source_, row_group_start, row_group_metadata_->total_byte_size() 
                                 + kDefaultMaxPageHeaderSize);
-    prebuffered = true;
   }
 
   const RowGroupMetaData* metadata() const override { return row_group_metadata_.get(); }
@@ -134,11 +133,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     std::shared_ptr<ArrowInputStream> stream;
-    if (!prebuffered) {
-    std::shared_ptr<ArrowInputStream> stream =
-        properties_.GetStream(source_, col_start, col_length);
-    } else {
+    if (properties()->is_pre_buffer_row_group() && properties()->is_buffered_stream_enabled()) {
       stream = partial_source_row_group_;
+    } else {
+      stream = properties_.GetStream(source_, col_start, col_length);
     }
 
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col->crypto_metadata();
