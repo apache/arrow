@@ -90,6 +90,20 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO")) {
     # In the future, we may be able to do some mapping of distro-versions to
     # versions we built for, since there's no way we'll build for everything.
     os <- paste0(distro, "-", os_version)
+  } else if (file.exists("/etc/os-release")) {
+    os_release <- readLines("/etc/os-release")
+    vals <- sub("^.*=(.*)$", "\\1", os_release)
+    names(vals) <- sub("^(.*)=.*$", "\\1", os_release)
+    distro <- gsub('"', '', vals["ID"])
+    if (distro == "ubuntu") {
+      # Keep major.minor version
+      version_regex <- '^"?([0-9]+\\.[0-9]+).*"?.*$'
+    } else {
+      # Only major version number
+      version_regex <- '^"?([0-9]+).*"?.*$'
+    }
+    os_version <- sub(version_regex, "\\1", vals["VERSION_ID"])
+    os <- paste0(distro, "-", os_version)
   } else if (file.exists("/etc/system-release")) {
     # Something like "CentOS Linux release 7.7.1908 (Core)"
     system_release <- tolower(utils::head(readLines("/etc/system-release"), 1))
@@ -98,6 +112,23 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO")) {
   } else {
     cat("*** Unable to identify current OS/version\n")
     os <- NULL
+  }
+
+  # Now look to see if we can map this os-version to one we have binaries for
+  os <- find_available_binary(os)
+  os
+}
+
+find_available_binary <- function(os) {
+  # Download a csv that maps one to the other, columns "actual" and "use_this"
+  u <- "https://raw.githubusercontent.com/ursa-labs/arrow-r-nightly/master/linux/distro-map.csv"
+  lookup <- try(utils::read.csv(u, stringsAsFactors = FALSE), silent = quietly)
+  if (!inherits(lookup, "try-error") && os %in% lookup$actual) {
+    new <- lookup$use_this[lookup$actual == os]
+    if (length(new) == 1 && !is.na(new)) { # Just some sanity checking
+      cat(sprintf("*** Using %s binary for %s\n", new, os))
+      os <- new
+    }
   }
   os
 }
