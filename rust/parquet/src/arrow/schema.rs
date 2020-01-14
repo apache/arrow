@@ -27,7 +27,7 @@ use std::collections::HashSet;
 
 use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError::ArrowError, Result};
-use crate::schema::types::{ColumnDescPtr, SchemaDescPtr, Type, TypePtr};
+use crate::schema::types::{ColumnDescPtr, SchemaDescPtr, Type};
 
 use arrow::datatypes::TimeUnit;
 use arrow::datatypes::{DataType, DateUnit, Field, Schema};
@@ -54,8 +54,8 @@ where
 
     for c in column_indices {
         let column = parquet_schema.column(c).self_type() as *const Type;
-        let root = parquet_schema.get_column_root_ptr(c);
-        let root_raw_ptr = root.clone().as_ref() as *const Type;
+        let root = parquet_schema.get_column_root(c);
+        let root_raw_ptr = root as *const Type;
 
         leaves.insert(column);
         if !base_nodes_set.contains(&root_raw_ptr) {
@@ -74,7 +74,7 @@ where
 
 /// Convert parquet column schema to arrow field.
 pub fn parquet_to_arrow_field(parquet_column: ColumnDescPtr) -> Result<Field> {
-    let schema = parquet_column.self_type_ptr();
+    let schema = parquet_column.self_type();
 
     let mut leaves = HashSet::new();
     leaves.insert(parquet_column.self_type() as *const Type);
@@ -87,20 +87,20 @@ pub fn parquet_to_arrow_field(parquet_column: ColumnDescPtr) -> Result<Field> {
 /// This struct is used to group methods and data structures used to convert parquet
 /// schema together.
 struct ParquetTypeConverter<'a> {
-    schema: TypePtr,
+    schema: &'a Type,
     /// This is the columns that need to be converted to arrow schema.
     columns_to_convert: &'a HashSet<*const Type>,
 }
 
 impl<'a> ParquetTypeConverter<'a> {
-    fn new(schema: TypePtr, columns_to_convert: &'a HashSet<*const Type>) -> Self {
+    fn new(schema: &'a Type, columns_to_convert: &'a HashSet<*const Type>) -> Self {
         Self {
             schema,
             columns_to_convert,
         }
     }
 
-    fn clone_with_schema(&self, other: TypePtr) -> Self {
+    fn clone_with_schema(&self, other: &'a Type) -> Self {
         Self {
             schema: other,
             columns_to_convert: self.columns_to_convert,
@@ -108,7 +108,7 @@ impl<'a> ParquetTypeConverter<'a> {
     }
 }
 
-impl<'a> ParquetTypeConverter<'a> {
+impl ParquetTypeConverter<'_> {
     // Public interfaces.
 
     /// Converts parquet schema to arrow data type.
@@ -121,7 +121,7 @@ impl<'a> ParquetTypeConverter<'a> {
     /// If this schema is a group type and none of its children is reserved in the
     /// conversion, the result is Ok(None).
     fn to_data_type(&self) -> Result<Option<DataType>> {
-        match self.schema.as_ref() {
+        match self.schema {
             Type::PrimitiveType { .. } => self.to_primitive_type(),
             Type::GroupType { .. } => self.to_group_type(),
         }
@@ -162,7 +162,7 @@ impl<'a> ParquetTypeConverter<'a> {
 
     fn is_self_included(&self) -> bool {
         self.columns_to_convert
-            .contains(&(self.schema.as_ref() as *const Type))
+            .contains(&(self.schema as *const Type))
     }
 
     // Functions for primitive types.
@@ -268,7 +268,7 @@ impl<'a> ParquetTypeConverter<'a> {
 
     /// Converts a parquet group type to arrow struct.
     fn to_struct(&self) -> Result<Option<DataType>> {
-        match self.schema.as_ref() {
+        match self.schema {
             Type::PrimitiveType { .. } => panic!(
                 "{:?} is a struct type, and can't be processed as primitive.",
                 self.schema
@@ -278,7 +278,7 @@ impl<'a> ParquetTypeConverter<'a> {
                 fields,
             } => fields
                 .iter()
-                .map(|field_ptr| self.clone_with_schema(field_ptr.clone()).to_field())
+                .map(|field_ptr| self.clone_with_schema(field_ptr).to_field())
                 .collect::<Result<Vec<Option<Field>>>>()
                 .map(|result| {
                     result.into_iter().filter_map(|f| f).collect::<Vec<Field>>()
@@ -298,7 +298,7 @@ impl<'a> ParquetTypeConverter<'a> {
     /// To fully understand this algorithm, please refer to
     /// [parquet doc](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md).
     fn to_list(&self) -> Result<Option<DataType>> {
-        match self.schema.as_ref() {
+        match self.schema {
             Type::PrimitiveType { .. } => panic!(
                 "{:?} is a list type and can't be processed as primitive.",
                 self.schema
@@ -308,7 +308,7 @@ impl<'a> ParquetTypeConverter<'a> {
                 fields,
             } if fields.len() == 1 => {
                 let list_item = fields.first().unwrap();
-                let item_converter = self.clone_with_schema(list_item.clone());
+                let item_converter = self.clone_with_schema(list_item);
 
                 let item_type = match list_item.as_ref() {
                     Type::PrimitiveType { .. } => {
@@ -333,7 +333,7 @@ impl<'a> ParquetTypeConverter<'a> {
                         {
                             let nested_item = fields.first().unwrap();
                             let nested_item_converter =
-                                self.clone_with_schema(nested_item.clone());
+                                self.clone_with_schema(nested_item);
 
                             nested_item_converter.to_data_type()
                         } else {
