@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pathlib
-
 import numpy as np
 
 import pytest
@@ -406,6 +404,8 @@ def test_open_dataset_single_file(tempdir):
 @pytest.mark.parquet
 def test_open_dataset_pathlib(tempdir):
     import pyarrow.parquet as pq
+    import pathlib
+
     table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
     pq.write_table(table, tempdir / "test.parquet")
 
