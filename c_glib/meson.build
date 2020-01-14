@@ -144,7 +144,8 @@ if get_option('gtk_doc')
   endif
 endif
 
-install_data('README.md',
+install_data('../LICENSE.txt',
+             'README.md',
              install_dir: join_paths(data_dir, 'doc', meson.project_name()))
 
 run_test = find_program('test/run-test.sh')
