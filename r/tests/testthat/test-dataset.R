@@ -66,6 +66,7 @@ test_that("Simple interface for datasets", {
     ds %>%
       select(chr, dbl) %>%
       filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
+      collect() %>%
       arrange(dbl),
     rbind(
       df1[8:10, c("chr", "dbl")],
@@ -77,6 +78,7 @@ test_that("Simple interface for datasets", {
     ds %>%
       select(string = chr, integer = int, part) %>%
       filter(integer > 6 & part == 1) %>% # 6 not 6L to test autocasting
+      collect() %>%
       summarize(mean = mean(integer)),
     df1 %>%
       select(string = chr, integer = int) %>%
@@ -93,6 +95,7 @@ test_that("Hive partitioning", {
       filter(group == 2) %>%
       select(chr, dbl) %>%
       filter(dbl > 7 & dbl < 53) %>%
+      collect() %>%
       arrange(dbl),
     df2[1:2, c("chr", "dbl")]
   )
@@ -106,6 +109,7 @@ test_that("Partition scheme inference", {
     ds1 %>%
       select(string = chr, integer = int, part) %>%
       filter(integer > 6 & part == 1) %>%
+      collect() %>%
       summarize(mean = mean(integer)),
     df1 %>%
       select(string = chr, integer = int) %>%
@@ -115,23 +119,14 @@ test_that("Partition scheme inference", {
 
   ds2 <- open_dataset(hive_dir)
   expect_identical(names(ds2), c(names(df1), "group", "other"))
-  print(ds2$schema)
   expect_equivalent(
     ds2 %>%
       filter(group == 2) %>%
       select(chr, dbl) %>%
       filter(dbl > 7 & dbl < 53) %>%
+      collect() %>%
       arrange(dbl),
     df2[1:2, c("chr", "dbl")]
-  )
-})
-
-test_that("filter() on a dataset won't auto-collect", {
-  ds <- open_dataset(dataset_dir, partition = "part")
-  expect_error(
-    ds %>% filter(int > 6, dbl > max(dbl)),
-    "Filter expression not supported for Arrow Datasets: dbl > max(dbl)",
-    fixed = TRUE
   )
 })
 
@@ -172,6 +167,40 @@ test_that("filter() on timestamp columns", {
       collect(),
     df1[5:10, c("ts")],
   )
+})
+
+test_that("collect() on Dataset works (if fits in memory)", {
+  skip("https://issues.apache.org/jira/browse/ARROW-7545")
+  expect_identical(
+    collect(open_dataset(dataset_dir)),
+    rbind(
+      cbind(df1, part=1),
+      cbind(df2, part=2)
+    )
+  )
+})
+
+test_that("dplyr method not implemented messages", {
+  ds <- open_dataset(dataset_dir)
+  # This one is more nuanced
+  expect_error(
+    ds %>% filter(int > 6, dbl > max(dbl)),
+    "Filter expression not supported for Arrow Datasets: dbl > max(dbl)\nCall collect() first to pull data into R.",
+    fixed = TRUE
+  )
+  # One explicit test of the full message
+  expect_error(
+    ds %>% summarize(mean(int)),
+    "summarize() is not currently implemented for Arrow Datasets. Call collect() first to pull data into R.",
+    fixed = TRUE
+  )
+  # Helper for everything else
+  expect_not_implemented <- function(x) {
+    expect_error(x, "is not currently implemented for Arrow Datasets")
+  }
+  expect_not_implemented(ds %>% arrange(int))
+  expect_not_implemented(ds %>% mutate(int = int + 2))
+  expect_not_implemented(ds %>% filter(int == 1) %>% summarize(n()))
 })
 
 test_that("Assembling a Dataset manually and getting a Table", {

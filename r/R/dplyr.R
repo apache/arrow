@@ -94,7 +94,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   }
 
   .data <- arrow_dplyr_query(.data)
-  data_is_dataset <- inherits(.data$.data, "Dataset")
+  data_is_dataset <- query_on_dataset(.data)
 
   # The filter() method works by evaluating the filters to generate Expressions
   # with references to Arrays (if .data is Table/RecordBatch) or Fields (if
@@ -140,15 +140,13 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
 
   bad_filters <- map_lgl(filters, ~inherits(., "try-error"))
   if (any(bad_filters)) {
-    # TODO: consider ways not to bail out here, e.g. defer evaluating the
-    # unsupported filters until after the data has been pulled to R.
-    # See https://issues.apache.org/jira/browse/ARROW-7095
     bads <- oxford_paste(map_chr(filts, as_label)[bad_filters], quote = FALSE)
     if (data_is_dataset) {
       # Abort. We don't want to auto-collect if this is a Dataset because that
       # could blow up, too big.
       stop(
         "Filter expression not supported for Arrow Datasets: ", bads,
+        "\nCall collect() first to pull data into R.",
         call. = FALSE
       )
     } else {
@@ -189,7 +187,7 @@ collect.arrow_dplyr_query <- function(x, ...) {
   }
 
   # Pull only the selected rows and cols into R
-  if (inherits(x$.data, "Dataset")) {
+  if (query_on_dataset(x)) {
     # See dataset.R for Dataset and Scanner(Builder) classes
     scanner_builder <- x$.data$NewScan()
     scanner_builder$UseThreads()
@@ -213,9 +211,7 @@ collect.arrow_dplyr_query <- function(x, ...) {
 }
 collect.Table <- as.data.frame.Table
 collect.RecordBatch <- as.data.frame.RecordBatch
-# We probably don't want someone to try to pull a big multi-file Dataset into
-# R without first filtering/selecting
-collect.Dataset <- function(x, ...) stop("not implemented")
+collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 
 #' @importFrom tidyselect vars_pull
 pull.arrow_dplyr_query <- function(.data, var = -1) {
@@ -227,6 +223,10 @@ pull.arrow_dplyr_query <- function(.data, var = -1) {
 pull.Dataset <- pull.Table <- pull.RecordBatch <- pull.arrow_dplyr_query
 
 summarise.arrow_dplyr_query <- function(.data, ...) {
+  .data <- arrow_dplyr_query(.data)
+  if (query_on_dataset(.data)) {
+    not_implemented_for_dataset("summarize()")
+  }
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
     unlist(lapply(quos(...), all.vars)), # vars referenced in summarise
@@ -258,18 +258,35 @@ ungroup.arrow_dplyr_query <- function(x, ...) {
 ungroup.Dataset <- ungroup.Table <- ungroup.RecordBatch <- force
 
 mutate.arrow_dplyr_query <- function(.data, ...) {
+  .data <- arrow_dplyr_query(.data)
+  if (query_on_dataset(.data)) {
+    not_implemented_for_dataset("mutate()")
+  }
   # TODO: see if we can defer evaluating the expressions and not collect here.
   # It's different from filters (as currently implemented) because the basic
   # vector transformation functions aren't yet implemented in Arrow C++.
-  dplyr::mutate(dplyr::collect(arrow_dplyr_query(.data)), ...)
+  dplyr::mutate(dplyr::collect(.data), ...)
 }
-mutate.Table <- mutate.RecordBatch <- mutate.arrow_dplyr_query
-mutate.Dataset <- function(.data, ...) stop("not implemented")
+mutate.Dataset <- mutate.Table <- mutate.RecordBatch <- mutate.arrow_dplyr_query
 # transmute() "just works" because it calls mutate() internally
 # TODO: add transmute() that does what summarise() does (select only the vars we need)
 
 arrange.arrow_dplyr_query <- function(.data, ...) {
-  dplyr::arrange(dplyr::collect(arrow_dplyr_query(.data)), ...)
+  .data <- arrow_dplyr_query(.data)
+  if (query_on_dataset(.data)) {
+    not_implemented_for_dataset("arrange()")
+  }
+
+  dplyr::arrange(dplyr::collect(.data), ...)
 }
-arrange.Table <- arrange.RecordBatch <- arrange.arrow_dplyr_query
-arrange.Dataset <- function(.data, ...) stop("not implemented")
+arrange.Dataset <- arrange.Table <- arrange.RecordBatch <- arrange.arrow_dplyr_query
+
+query_on_dataset <- function(x) inherits(x$.data, "Dataset")
+
+not_implemented_for_dataset <- function(method) {
+  stop(
+    method, " is not currently implemented for Arrow Datasets. ",
+    "Call collect() first to pull data into R.",
+    call. = FALSE
+  )
+}
