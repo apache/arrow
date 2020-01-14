@@ -56,7 +56,6 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
 
   UnsafeDirectLittleEndian(PooledUnsafeDirectByteBuf buf) {
     this(buf, true);
-
   }
 
   private UnsafeDirectLittleEndian(AbstractByteBuf buf, boolean fake) {
@@ -266,6 +265,21 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public int hashCode() {
     return System.identityHashCode(this);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+
+    if (obj instanceof UnsafeDirectLittleEndian) {
+      UnsafeDirectLittleEndian that = (UnsafeDirectLittleEndian) obj;
+      return this.wrapped.equals(that.wrapped) &&
+              this.memoryAddress == that.memoryAddress;
+    }
+
+    return false;
   }
 
 }
