@@ -346,6 +346,12 @@ TEST_F(ExpressionsTest, ImplicitCast) {
   ASSERT_EQ(E{filter}, E{"ts"_ == *MakeScalar(date)->CastTo(ns) and "b"_ == 3});
   AssertSimplifiesTo(*filter, "b"_ == 2, *never);
   AssertSimplifiesTo(*filter, "b"_ == 3, "ts"_ == *MakeScalar(date)->CastTo(ns));
+
+  // set is double but "a"_ is int32
+  auto set_double = ArrayFromJSON(float64(), R"([1, 2, 3])");
+  ASSERT_OK_AND_ASSIGN(filter, InsertImplicitCasts("a"_.In(set_double), *schema_));
+  auto set_int32 = ArrayFromJSON(int32(), R"([1, 2, 3])");
+  ASSERT_EQ(E{filter}, E{"a"_.In(set_int32)});
 }
 
 TEST_F(FilterTest, ImplicitCast) {
