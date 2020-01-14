@@ -85,9 +85,9 @@ std::string fs___FileSelector__base_dir(
 }
 
 // [[arrow::export]]
-bool fs___FileSelector__allow_non_existent(
+bool fs___FileSelector__allow_not_found(
     const std::shared_ptr<fs::FileSelector>& selector) {
-  return selector->allow_non_existent;
+  return selector->allow_not_found;
 }
 
 // [[arrow::export]]
@@ -97,11 +97,11 @@ bool fs___FileSelector__recursive(const std::shared_ptr<fs::FileSelector>& selec
 
 // [[arrow::export]]
 std::shared_ptr<fs::FileSelector> fs___FileSelector__create(const std::string& base_dir,
-                                                            bool allow_non_existent,
+                                                            bool allow_not_found,
                                                             bool recursive) {
   auto selector = std::make_shared<fs::FileSelector>();
   selector->base_dir = base_dir;
-  selector->allow_non_existent = allow_non_existent;
+  selector->allow_not_found = allow_not_found;
   selector->recursive = recursive;
   return selector;
 }

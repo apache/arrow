@@ -840,16 +840,16 @@ fs___FileSelector__base_dir <- function(selector){
     .Call(`_arrow_fs___FileSelector__base_dir` , selector)
 }
 
-fs___FileSelector__allow_non_existent <- function(selector){
-    .Call(`_arrow_fs___FileSelector__allow_non_existent` , selector)
+fs___FileSelector__allow_not_found <- function(selector){
+    .Call(`_arrow_fs___FileSelector__allow_not_found` , selector)
 }
 
 fs___FileSelector__recursive <- function(selector){
     .Call(`_arrow_fs___FileSelector__recursive` , selector)
 }
 
-fs___FileSelector__create <- function(base_dir, allow_non_existent, recursive){
-    .Call(`_arrow_fs___FileSelector__create` , base_dir, allow_non_existent, recursive)
+fs___FileSelector__create <- function(base_dir, allow_not_found, recursive){
+    .Call(`_arrow_fs___FileSelector__create` , base_dir, allow_not_found, recursive)
 }
 
 fs___FileSystem__GetTargetInfos_Paths <- function(file_system, paths){

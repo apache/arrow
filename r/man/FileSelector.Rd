@@ -18,7 +18,7 @@ described below.
 \itemize{
 \item \code{base_dir}: The directory in which to select files. If the path exists but
 doesn't point to a directory, this should be an error.
-\item \code{allow_non_existent}: The behavior if \code{base_dir} doesn't exist in the
+\item \code{allow_not_found}: The behavior if \code{base_dir} doesn't exist in the
 filesystem. If \code{FALSE}, an error is returned.  If \code{TRUE}, an empty
 selection is returned
 \item \code{recursive}: Whether to recurse into subdirectories.
