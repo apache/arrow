@@ -53,7 +53,7 @@ environment:
     ARROW_BUILD_GANDIVA: "OFF"
     ARROW_LLVM_VERSION: "7.0.*"
     ARROW_S3: "OFF"
-    PYTHON: "3.6"
+    PYTHON: "3.7"
     ARCH: "64"
 
   matrix:

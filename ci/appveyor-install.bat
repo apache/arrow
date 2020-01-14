@@ -22,7 +22,7 @@ IF "%JOB:~,5%" == "MinGW" goto mingw
 goto cpp
 
 :cpp
-set "PATH=C:\Miniconda36-x64;C:\Miniconda36-x64\Scripts;C:\Miniconda36-x64\Library\bin;%PATH%"
+set "PATH=C:\Miniconda37-x64;C:\Miniconda37-x64\Scripts;C:\Miniconda37-x64\Library\bin;%PATH%"
 set BOOST_ROOT=C:\Libraries\boost_1_67_0
 set BOOST_LIBRARYDIR=C:\Libraries\boost_1_67_0\lib64-msvc-14.0
 call ci\appveyor-cpp-setup.bat
