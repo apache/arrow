@@ -36,7 +36,7 @@ class FunctionContext;
 // the type.
 static inline void ZeroCopyData(const ArrayData& input, ArrayData* output) {
   output->length = input.length;
-  output->null_count = input.null_count;
+  output->SetNullCount(input.null_count);
   output->buffers = input.buffers;
   output->offset = input.offset;
   output->child_data = input.child_data;

@@ -55,7 +55,7 @@ TEST(PropagateNulls, UnknownNullCountWithNullsZeroCopies) {
   ASSERT_OK(PropagateNulls(&ctx, input, &output));
 
   ASSERT_THAT(output.buffers, ElementsAre(Eq(nulls)));
-  ASSERT_THAT(output.null_count, 9);
+  ASSERT_EQ(output.null_count, 9);
 }
 
 TEST(PropagateNulls, UnknownNullCountWithoutNullsLeavesNullptr) {
@@ -68,7 +68,7 @@ TEST(PropagateNulls, UnknownNullCountWithoutNullsLeavesNullptr) {
 
   ASSERT_OK(PropagateNulls(&ctx, input, &output));
 
-  EXPECT_THAT(output.null_count, Eq(0));
+  EXPECT_EQ(output.null_count, 0);
   EXPECT_THAT(output.buffers, ElementsAre(IsNull())) << output.buffers[0]->data()[0];
 }
 
@@ -125,12 +125,12 @@ TEST(AssignNullIntersection, ZeroCopyWhenZeroNullsOnOneInput) {
 
   ASSERT_OK(AssignNullIntersection(&ctx, some_nulls, no_nulls, &output));
   ASSERT_THAT(output.buffers, ElementsAre(Eq(nulls)));
-  ASSERT_THAT(output.null_count, 9);
+  ASSERT_EQ(output.null_count, 9);
 
   output.buffers[0] = nullptr;
   ASSERT_OK(AssignNullIntersection(&ctx, no_nulls, some_nulls, &output));
   ASSERT_THAT(output.buffers, ElementsAre(Eq(nulls)));
-  ASSERT_THAT(output.null_count, 9);
+  ASSERT_EQ(output.null_count, 9);
 }
 
 TEST(AssignNullIntersection, IntersectsNullsWhenSomeOnBoth) {
@@ -151,7 +151,7 @@ TEST(AssignNullIntersection, IntersectsNullsWhenSomeOnBoth) {
 
   ASSERT_OK(AssignNullIntersection(&ctx, left, right, &output));
 
-  EXPECT_THAT(output.null_count, 10);
+  EXPECT_EQ(output.null_count, 10);
   ASSERT_THAT(output.buffers, ElementsAre(NotNull()));
   const auto& output_buffer = *output.buffers[0];
   EXPECT_THAT(std::vector<uint8_t>(output_buffer.data(),
