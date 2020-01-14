@@ -3564,6 +3564,21 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
         table.to_pandas()
 
 
+def test_to_pandas_extension_dtypes_mapping():
+    if LooseVersion(pd.__version__) < "0.26.0.dev":
+        pytest.skip("Conversion to pandas IntegerArray not yet supported")
+
+    table = pa.table({'a': pa.array([1, 2, 3], pa.int64())})
+
+    # default use numpy dtype
+    result = table.to_pandas()
+    assert result['a'].dtype == np.dtype('int64')
+
+    # specify to override the default
+    result = table.to_pandas(types_mapping={pa.int64(): pd.Int64Dtype()})
+    assert isinstance(result['a'].dtype, pd.Int64Dtype)
+
+
 # ----------------------------------------------------------------------
 # Legacy metadata compatibility tests
 
