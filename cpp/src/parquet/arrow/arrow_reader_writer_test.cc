@@ -30,11 +30,14 @@
 #include <vector>
 
 #include "arrow/api.h"
+#include "arrow/record_batch.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/range.h"
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
@@ -2784,41 +2787,53 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
 
 class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
  public:
-  static constexpr int kNumRowGroups = 10;
+  static constexpr int kNumRowGroups = 16;
+
+  struct {
+    int num_rows = 1024 * kNumRowGroups;
+    int num_row_groups = kNumRowGroups;
+    int num_uniques = 128;
+  } options;
 
   void SetUp() override {
     GenerateData(GetParam());
 
-    // Write 4 row groups; each row group will have a different dictionary
+    // Write `num_row_groups` row groups; each row group will have a different dictionary
     ASSERT_NO_FATAL_FAILURE(
-        WriteTableToBuffer(expected_dense_, expected_dense_->num_rows() / kNumRowGroups,
+        WriteTableToBuffer(expected_dense_, options.num_rows / options.num_row_groups,
                            default_arrow_writer_properties(), &buffer_));
 
     properties_ = default_arrow_reader_properties();
   }
 
   void GenerateData(double null_probability) {
-    constexpr int num_unique = 1000;
-    constexpr int repeat = 50;
     constexpr int64_t min_length = 2;
     constexpr int64_t max_length = 100;
     ::arrow::random::RandomArrayGenerator rag(0);
-    dense_values_ = rag.StringWithRepeats(repeat * num_unique, num_unique, min_length,
-                                          max_length, null_probability);
+    dense_values_ = rag.StringWithRepeats(options.num_rows, options.num_uniques,
+                                          min_length, max_length, null_probability);
     expected_dense_ = MakeSimpleTable(dense_values_, /*nullable=*/true);
   }
 
   void TearDown() override {}
 
   void CheckReadWholeFile(const Table& expected) {
-    std::unique_ptr<FileReader> reader;
-
-    FileReaderBuilder builder;
-    ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer_)));
-    ASSERT_OK(builder.properties(properties_)->Build(&reader));
+    ASSERT_OK_AND_ASSIGN(auto reader, GetReader());
 
     std::shared_ptr<Table> actual;
     ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+    ::arrow::AssertTablesEqual(expected, *actual, /*same_chunk_layout=*/false);
+  }
+
+  void CheckStreamReadWholeFile(const Table& expected) {
+    ASSERT_OK_AND_ASSIGN(auto reader, GetReader());
+
+    std::unique_ptr<::arrow::RecordBatchReader> rb;
+    ASSERT_OK(reader->GetRecordBatchReader(
+        ::arrow::internal::Iota(options.num_row_groups), &rb));
+
+    std::shared_ptr<Table> actual;
+    ASSERT_OK_NO_THROW(rb->ReadAll(&actual));
     ::arrow::AssertTablesEqual(expected, *actual, /*same_chunk_layout=*/false);
   }
 
@@ -2830,6 +2845,16 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
   std::shared_ptr<Table> expected_dict_;
   std::shared_ptr<Buffer> buffer_;
   ArrowReaderProperties properties_;
+
+  ::arrow::Result<std::unique_ptr<FileReader>> GetReader() {
+    std::unique_ptr<FileReader> reader;
+
+    FileReaderBuilder builder;
+    RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer_)));
+    RETURN_NOT_OK(builder.properties(properties_)->Build(&reader));
+
+    return reader;
+  }
 };
 
 void AsDictionary32Encoded(const Array& arr, std::shared_ptr<Array>* out) {
@@ -2842,14 +2867,33 @@ void AsDictionary32Encoded(const Array& arr, std::shared_ptr<Array>* out) {
 TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
   properties_.set_read_dictionary(0, true);
 
-  std::vector<std::shared_ptr<Array>> chunks(kNumRowGroups);
-  const int64_t chunk_size = expected_dense_->num_rows() / kNumRowGroups;
-  for (int i = 0; i < kNumRowGroups; ++i) {
+  auto num_row_groups = options.num_row_groups;
+  auto chunk_size = options.num_rows / num_row_groups;
+
+  std::vector<std::shared_ptr<Array>> chunks(num_row_groups);
+  for (int i = 0; i < num_row_groups; ++i) {
     AsDictionary32Encoded(*dense_values_->Slice(chunk_size * i, chunk_size), &chunks[i]);
   }
   auto ex_table = MakeSimpleTable(std::make_shared<ChunkedArray>(chunks),
                                   /*nullable=*/true);
   CheckReadWholeFile(*ex_table);
+}
+
+TEST_P(TestArrowReadDictionary, StreamReadWholeFileDict) {
+  // ARROW-6895 and ARROW-7545 reading a parquet file with a dictionary of
+  // binary data, e.g. String, will return invalid values when using the
+  // RecordBatchReader (stream) interface. In some cases, this will trigger an
+  // infinite loop of the calling thread.
+
+  // Recompute generated data with only one row-group
+  options.num_row_groups = 1;
+  options.num_rows = 16;
+  SetUp();
+
+  // Would trigger an infinite loop when requesting a batch greater than the
+  // number of available rows in a row group.
+  properties_.set_batch_size(options.num_rows * 2);
+  CheckStreamReadWholeFile(*expected_dense_);
 }
 
 TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {

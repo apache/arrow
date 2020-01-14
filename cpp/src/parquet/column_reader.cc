@@ -1349,7 +1349,9 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
 
   std::shared_ptr<::arrow::ChunkedArray> GetResult() override {
     FlushBuilder();
-    return std::make_shared<::arrow::ChunkedArray>(result_chunks_, builder_.type());
+    std::vector<std::shared_ptr<::arrow::Array>> result;
+    std::swap(result, result_chunks_);
+    return std::make_shared<::arrow::ChunkedArray>(std::move(result), builder_.type());
   }
 
   void FlushBuilder() {
