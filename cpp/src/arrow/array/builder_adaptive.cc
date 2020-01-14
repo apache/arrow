@@ -43,6 +43,7 @@ void AdaptiveIntBuilderBase::Reset() {
   raw_data_ = nullptr;
   pending_pos_ = 0;
   pending_has_nulls_ = false;
+  int_size_ = sizeof(uint8_t);
 }
 
 Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
@@ -58,6 +59,27 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
   raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
 
   return ArrayBuilder::Resize(capacity);
+}
+
+template <typename new_type, typename old_type>
+typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
+AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
+  return Status::OK();
+}
+
+template <typename new_type, typename old_type>
+typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
+AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
+  int_size_ = sizeof(new_type);
+  RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
+
+  const old_type* src = reinterpret_cast<old_type*>(raw_data_);
+  new_type* dst = reinterpret_cast<new_type*>(raw_data_);
+  // By doing the backward copy, we ensure that no element is overriden during
+  // the copy process while the copy stays in-place.
+  std::copy_backward(src, src + length_, dst + length_);
+
+  return Status::OK();
 }
 
 std::shared_ptr<DataType> AdaptiveUIntBuilder::type() const {
@@ -137,6 +159,12 @@ static constexpr int64_t kAdaptiveIntChunkSize = 8192;
 
 Status AdaptiveIntBuilder::AppendValuesInternal(const int64_t* values, int64_t length,
                                                 const uint8_t* valid_bytes) {
+  if (pending_pos_ > 0) {
+    // UnsafeAppendToBitmap expects length_ to be the pre-update value, satisfy it
+    DCHECK_EQ(length, pending_pos_) << "AppendValuesInternal called while data pending";
+    length_ -= pending_pos_;
+  }
+
   while (length > 0) {
     // In case `length` is very large, we don't want to trash the cache by
     // scanning it twice (first to detect int width, second to copy the data).
@@ -173,7 +201,7 @@ Status AdaptiveIntBuilder::AppendValuesInternal(const int64_t* values, int64_t l
         DCHECK(false);
     }
 
-    // This updates length_
+    // UnsafeAppendToBitmap increments length_ by chunk_size
     ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, chunk_size);
     values += chunk_size;
     if (valid_bytes != nullptr) {
@@ -203,28 +231,6 @@ Status AdaptiveIntBuilder::AppendValues(const int64_t* values, int64_t length,
   RETURN_NOT_OK(Reserve(length));
 
   return AppendValuesInternal(values, length, valid_bytes);
-}
-
-template <typename new_type, typename old_type>
-typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
-AdaptiveIntBuilder::ExpandIntSizeInternal() {
-  return Status::OK();
-}
-
-template <typename new_type, typename old_type>
-typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
-AdaptiveIntBuilder::ExpandIntSizeInternal() {
-  int_size_ = sizeof(new_type);
-  RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
-  raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-  const old_type* src = reinterpret_cast<old_type*>(raw_data_);
-  new_type* dst = reinterpret_cast<new_type*>(raw_data_);
-
-  // By doing the backward copy, we ensure that no element is overriden during
-  // the copy process and the copy stays in-place.
-  std::copy_backward(src, src + length_, dst + length_);
-
-  return Status::OK();
 }
 
 template <typename new_type>
@@ -279,6 +285,12 @@ Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
 Status AdaptiveUIntBuilder::AppendValuesInternal(const uint64_t* values, int64_t length,
                                                  const uint8_t* valid_bytes) {
+  if (pending_pos_ > 0) {
+    // UnsafeAppendToBitmap expects length_ to be the pre-update value, satisfy it
+    DCHECK_EQ(length, pending_pos_) << "AppendValuesInternal called while data pending";
+    length_ -= pending_pos_;
+  }
+
   while (length > 0) {
     // See AdaptiveIntBuilder::AppendValuesInternal
     const int64_t chunk_size = std::min(length, kAdaptiveIntChunkSize);
@@ -313,7 +325,7 @@ Status AdaptiveUIntBuilder::AppendValuesInternal(const uint64_t* values, int64_t
         DCHECK(false);
     }
 
-    // This updates length_
+    // UnsafeAppendToBitmap increments length_ by chunk_size
     ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, chunk_size);
     values += chunk_size;
     if (valid_bytes != nullptr) {
@@ -330,27 +342,6 @@ Status AdaptiveUIntBuilder::AppendValues(const uint64_t* values, int64_t length,
   RETURN_NOT_OK(Reserve(length));
 
   return AppendValuesInternal(values, length, valid_bytes);
-}
-
-template <typename new_type, typename old_type>
-typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
-AdaptiveUIntBuilder::ExpandIntSizeInternal() {
-  return Status::OK();
-}
-
-template <typename new_type, typename old_type>
-typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
-AdaptiveUIntBuilder::ExpandIntSizeInternal() {
-  int_size_ = sizeof(new_type);
-  RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
-
-  old_type* src = reinterpret_cast<old_type*>(raw_data_);
-  new_type* dst = reinterpret_cast<new_type*>(raw_data_);
-  // By doing the backward copy, we ensure that no element is overriden during
-  // the copy process and the copy stays in-place.
-  std::copy_backward(src, src + length_, dst + length_);
-
-  return Status::OK();
 }
 
 template <typename new_type>

@@ -44,6 +44,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     pending_valid_[pending_pos_] = 0;
     pending_has_nulls_ = true;
     ++pending_pos_;
+    ++length_;
 
     if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
       return CommitPendingData();
@@ -55,7 +56,26 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   Status Resize(int64_t capacity) override;
 
  protected:
+  Status AppendInternal(const uint64_t val) {
+    pending_data_[pending_pos_] = val;
+    pending_valid_[pending_pos_] = 1;
+    ++pending_pos_;
+    ++length_;
+
+    if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
+      return CommitPendingData();
+    }
+    return Status::OK();
+  }
+
   virtual Status CommitPendingData() = 0;
+
+  template <typename new_type, typename old_type>
+  typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
+  ExpandIntSizeInternal();
+  template <typename new_type, typename old_type>
+  typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
+  ExpandIntSizeInternal();
 
   std::shared_ptr<ResizableBuffer> data_;
   uint8_t* raw_data_ = NULLPTR;
@@ -78,16 +98,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   using internal::AdaptiveIntBuilderBase::Reset;
 
   /// Scalar append
-  Status Append(const uint64_t val) {
-    pending_data_[pending_pos_] = val;
-    pending_valid_[pending_pos_] = 1;
-    ++pending_pos_;
-
-    if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
-      return CommitPendingData();
-    }
-    return Status::OK();
-  }
+  Status Append(const uint64_t val) { return AppendInternal(val); }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
@@ -109,13 +120,6 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   Status AppendValuesInternal(const uint64_t* values, int64_t length,
                               const uint8_t* valid_bytes);
 
-  template <typename new_type, typename old_type>
-  typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
-  ExpandIntSizeInternal();
-  template <typename new_type, typename old_type>
-  typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
-  ExpandIntSizeInternal();
-
   template <typename new_type>
   Status ExpandIntSizeN();
 };
@@ -128,18 +132,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   using internal::AdaptiveIntBuilderBase::Reset;
 
   /// Scalar append
-  Status Append(const int64_t val) {
-    auto v = static_cast<uint64_t>(val);
-
-    pending_data_[pending_pos_] = v;
-    pending_valid_[pending_pos_] = 1;
-    ++pending_pos_;
-
-    if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
-      return CommitPendingData();
-    }
-    return Status::OK();
-  }
+  Status Append(const int64_t val) { return AppendInternal(static_cast<uint64_t>(val)); }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
@@ -160,13 +153,6 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
 
   Status AppendValuesInternal(const int64_t* values, int64_t length,
                               const uint8_t* valid_bytes);
-
-  template <typename new_type, typename old_type>
-  typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
-  ExpandIntSizeInternal();
-  template <typename new_type, typename old_type>
-  typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
-  ExpandIntSizeInternal();
 
   template <typename new_type>
   Status ExpandIntSizeN();
