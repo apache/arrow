@@ -900,6 +900,29 @@ public class TestListVector {
   }
 
   @Test
+  public void testClose() throws Exception {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+
+      UnionListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      //set some values
+      writer.startList();
+      writer.integer().writeInt(1);
+      writer.integer().writeInt(2);
+      writer.endList();
+      vector.setValueCount(2);
+
+      assertTrue(vector.getBufferSize() > 0);
+      assertTrue(vector.getDataVector().getBufferSize() > 0);
+
+      writer.close();
+      assertEquals(0, vector.getBufferSize());
+      assertEquals(0, vector.getDataVector().getBufferSize());
+    }
+  }
+
+  @Test
   public void testGetBufferSizeFor() {
     try (final ListVector vector = ListVector.empty("list", allocator)) {
 
