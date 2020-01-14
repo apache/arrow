@@ -190,6 +190,12 @@ cdef class FileSystem:
                         "the subclasses instead: LocalFileSystem or "
                         "SubTreeFileSystem")
 
+    @staticmethod
+    def from_uri(uri):
+        cdef CResult[shared_ptr[CFileSystem]] result
+        result = CFileSystemFromUri(tobytes(uri))
+        return FileSystem.wrap(GetResultValue(result))
+
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         self.wrapped = wrapped
         self.fs = wrapped.get()

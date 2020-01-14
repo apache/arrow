@@ -590,3 +590,19 @@ def test_hdfs_options(hdfs_server):
     uri = "hdfs://{}:{}/?user={}".format(host, port, user)
     fs = HadoopFileSystem(uri)
     assert fs.get_target_stats(FileSelector('/'))
+
+
+@pytest.mark.parametrize(('scheme', 'klass'), [
+    ('mock', _MockFileSystem),
+    ('local', LocalFileSystem)
+])
+def test_filesystem_from_uri(scheme, klass):
+    uris = [
+        "{scheme}:",
+        "{scheme}:foo/bar",
+        "{scheme}:/foo/bar",
+        "{scheme}:///foo/bar",
+    ]
+    for uri in uris:
+        fs = FileSystem.from_uri(uri.format(scheme=scheme))
+        assert isinstance(fs, klass)
