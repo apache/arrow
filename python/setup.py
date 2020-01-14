@@ -179,6 +179,7 @@ class build_ext(_build_ext):
         '_csv',
         '_json',
         '_cuda',
+        '_compute',
         '_flight',
         '_dataset',
         '_parquet',

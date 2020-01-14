@@ -50,16 +50,33 @@ class ManagedAggregateState {
 };
 
 Status AggregateUnaryKernel::Call(FunctionContext* ctx, const Datum& input, Datum* out) {
-  if (!input.is_array()) return Status::Invalid("AggregateKernel expects Array datum");
-
+  if (!input.is_arraylike()) {
+    return Status::Invalid("AggregateKernel expects Array or ChunkedArray datum");
+  }
   auto state = ManagedAggregateState::Make(aggregate_function_, ctx->memory_pool());
-  if (!state) return Status::OutOfMemory("AggregateState allocation failed");
+  if (!state) {
+    return Status::OutOfMemory("AggregateState allocation failed");
+  }
 
-  auto array = input.make_array();
-  RETURN_NOT_OK(aggregate_function_->Consume(*array, state->mutable_data()));
-  RETURN_NOT_OK(aggregate_function_->Finalize(state->mutable_data(), out));
+  if (input.is_array()) {
+    auto array = input.make_array();
+    RETURN_NOT_OK(aggregate_function_->Consume(*array, state->mutable_data()));
+  } else {
+    auto chunked_array = input.chunked_array();
+    for (int i = 0; i < chunked_array->num_chunks(); i++) {
+      auto tmp_state =
+          ManagedAggregateState::Make(aggregate_function_, ctx->memory_pool());
+      if (!tmp_state) {
+        return Status::OutOfMemory("AggregateState allocation failed");
+      }
+      RETURN_NOT_OK(aggregate_function_->Consume(*chunked_array->chunk(i),
+                                                 tmp_state->mutable_data()));
+      RETURN_NOT_OK(
+          aggregate_function_->Merge(tmp_state->mutable_data(), state->mutable_data()));
+    }
+  }
 
-  return Status::OK();
+  return aggregate_function_->Finalize(state->mutable_data(), out);
 }
 
 std::shared_ptr<DataType> AggregateUnaryKernel::out_type() const {

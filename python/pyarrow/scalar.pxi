@@ -1031,6 +1031,7 @@ cdef class ScalarValue(Scalar):
     def __hash__(self):
         return hash(self.as_py())
 
+
 cdef class UInt8Scalar(ScalarValue):
     """
     Concrete class for uint8 scalars.
@@ -1041,7 +1042,7 @@ cdef class UInt8Scalar(ScalarValue):
         Return this value as a Python int.
         """
         cdef CUInt8Scalar* sp = <CUInt8Scalar*> self.sp_scalar.get()
-        return sp.value
+        return sp.value if sp.is_valid else None
 
 
 cdef class Int8Scalar(ScalarValue):
@@ -1054,7 +1055,7 @@ cdef class Int8Scalar(ScalarValue):
         Return this value as a Python int.
         """
         cdef CInt8Scalar* sp = <CInt8Scalar*> self.sp_scalar.get()
-        return sp.value
+        return sp.value if sp.is_valid else None
 
 
 cdef class UInt16Scalar(ScalarValue):
@@ -1067,7 +1068,7 @@ cdef class UInt16Scalar(ScalarValue):
         Return this value as a Python int.
         """
         cdef CUInt16Scalar* sp = <CUInt16Scalar*> self.sp_scalar.get()
-        return sp.value
+        return sp.value if sp.is_valid else None
 
 
 cdef class Int16Scalar(ScalarValue):
@@ -1080,7 +1081,7 @@ cdef class Int16Scalar(ScalarValue):
         Return this value as a Python int.
         """
         cdef CInt16Scalar* sp = <CInt16Scalar*> self.sp_scalar.get()
-        return sp.value
+        return sp.value if sp.is_valid else None
 
 
 cdef class UInt32Scalar(ScalarValue):
@@ -1093,7 +1094,7 @@ cdef class UInt32Scalar(ScalarValue):
         Return this value as a Python int.
         """
         cdef CUInt32Scalar* sp = <CUInt32Scalar*> self.sp_scalar.get()
-        return sp.value
+        return sp.value if sp.is_valid else None
 
 
 cdef class Int32Scalar(ScalarValue):
@@ -1106,7 +1107,7 @@ cdef class Int32Scalar(ScalarValue):
         Return this value as a Python int.
         """
         cdef CInt32Scalar* sp = <CInt32Scalar*> self.sp_scalar.get()
-        return sp.value
+        return sp.value if sp.is_valid else None
 
 
 cdef class UInt64Scalar(ScalarValue):
@@ -1119,7 +1120,7 @@ cdef class UInt64Scalar(ScalarValue):
         Return this value as a Python int.
         """
         cdef CUInt64Scalar* sp = <CUInt64Scalar*> self.sp_scalar.get()
-        return sp.value
+        return sp.value if sp.is_valid else None
 
 
 cdef class Int64Scalar(ScalarValue):
@@ -1132,7 +1133,7 @@ cdef class Int64Scalar(ScalarValue):
         Return this value as a Python int.
         """
         cdef CInt64Scalar* sp = <CInt64Scalar*> self.sp_scalar.get()
-        return sp.value
+        return sp.value if sp.is_valid else None
 
 
 cdef class FloatScalar(ScalarValue):
@@ -1145,7 +1146,7 @@ cdef class FloatScalar(ScalarValue):
         Return this value as a Python float.
         """
         cdef CFloatScalar* sp = <CFloatScalar*> self.sp_scalar.get()
-        return sp.value
+        return sp.value if sp.is_valid else None
 
 
 cdef class DoubleScalar(ScalarValue):
@@ -1158,7 +1159,7 @@ cdef class DoubleScalar(ScalarValue):
         Return this value as a Python float.
         """
         cdef CDoubleScalar* sp = <CDoubleScalar*> self.sp_scalar.get()
-        return sp.value
+        return sp.value if sp.is_valid else None
 
 
 cdef dict _scalar_classes = {

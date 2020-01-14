@@ -231,7 +231,7 @@ std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataTyp
   for (const std::string& chunk_json : json) {
     out_chunks.push_back(ArrayFromJSON(type, chunk_json));
   }
-  return std::make_shared<ChunkedArray>(std::move(out_chunks));
+  return std::make_shared<ChunkedArray>(std::move(out_chunks), type);
 }
 
 std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,

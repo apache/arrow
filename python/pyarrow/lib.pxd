@@ -30,6 +30,7 @@ cdef extern from "Python.h":
     int PySlice_Check(object)
 
 
+cdef CFunctionContext* _context() nogil
 cdef int check_status(const CStatus& status) nogil except -1
 
 cdef class Message:
@@ -429,6 +430,7 @@ cdef class ExtensionArray(Array):
 
 
 cdef wrap_array_output(PyObject* output)
+cdef wrap_datum(const CDatum& datum)
 cdef object box_scalar(DataType type,
                        const shared_ptr[CArray]& sp_array,
                        int64_t index)

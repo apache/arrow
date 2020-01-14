@@ -97,9 +97,26 @@ void ValidateSum(FunctionContext* ctx, const Array& input, Datum expected) {
 }
 
 template <typename ArrowType>
+void ValidateSum(FunctionContext* ctx, const std::shared_ptr<ChunkedArray>& input,
+                 Datum expected) {
+  using OutputType = typename FindAccumulatorType<ArrowType>::Type;
+
+  Datum result;
+  ASSERT_OK(Sum(ctx, input, &result));
+  DatumEqual<OutputType>::EnsureEqual(result, expected);
+}
+
+template <typename ArrowType>
 void ValidateSum(FunctionContext* ctx, const char* json, Datum expected) {
   auto array = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
   ValidateSum<ArrowType>(ctx, *array, expected);
+}
+
+template <typename ArrowType>
+void ValidateSum(FunctionContext* ctx, const std::vector<std::string>& json,
+                 Datum expected) {
+  auto array = ChunkedArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
+  ValidateSum<ArrowType>(ctx, array, expected);
 }
 
 template <typename ArrowType>
@@ -122,6 +139,22 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
 
   ValidateSum<TypeParam>(&this->ctx_, "[0, 1, 2, 3, 4, 5]",
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
+
+  std::vector<std::string> chunks = {"[0, 1, 2, 3, 4, 5]"};
+  ValidateSum<TypeParam>(&this->ctx_, chunks,
+                         Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
+
+  chunks = {"[0, 1, 2]", "[3, 4, 5]"};
+  ValidateSum<TypeParam>(&this->ctx_, chunks,
+                         Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
+
+  chunks = {"[0, 1, 2]", "[]", "[3, 4, 5]"};
+  ValidateSum<TypeParam>(&this->ctx_, chunks,
+                         Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
+
+  chunks = {};
+  ValidateSum<TypeParam>(&this->ctx_, chunks,
+                         Datum(std::make_shared<ScalarType>()));  // null
 
   const T expected_result = static_cast<T>(14);
   ValidateSum<TypeParam>(&this->ctx_, "[1, null, 3, null, 3, null, 7]",

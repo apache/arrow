@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 
 import pyarrow as pa
+import pyarrow.compute
 
 
 all_array_types = [
@@ -44,7 +45,7 @@ all_array_types = [
 ]
 
 
-@pytest.mark.parametrize('arrow_type', [
+numerical_arrow_types = [
     pa.int8(),
     pa.int16(),
     pa.int64(),
@@ -53,10 +54,41 @@ all_array_types = [
     pa.uint64(),
     pa.float32(),
     pa.float64()
-])
-def test_sum(arrow_type):
+]
+
+
+@pytest.mark.parametrize('arrow_type', numerical_arrow_types)
+def test_sum_array(arrow_type):
     arr = pa.array([1, 2, 3, 4], type=arrow_type)
     assert arr.sum() == 10
+    assert pa.compute.sum(arr) == 10
+
+    arr = pa.array([], type=arrow_type)
+    assert arr.sum() == None  # noqa: E711
+    assert pa.compute.sum(arr) == None  # noqa: E711
+
+
+@pytest.mark.parametrize('arrow_type', numerical_arrow_types)
+def test_sum_chunked_array(arrow_type):
+    arr = pa.chunked_array([pa.array([1, 2, 3, 4], type=arrow_type)])
+    assert pa.compute.sum(arr) == 10
+
+    arr = pa.chunked_array([
+        pa.array([1, 2], type=arrow_type), pa.array([3, 4], type=arrow_type)
+    ])
+    assert pa.compute.sum(arr) == 10
+
+    arr = pa.chunked_array([
+        pa.array([1, 2], type=arrow_type),
+        pa.array([], type=arrow_type),
+        pa.array([3, 4], type=arrow_type)
+    ])
+    assert pa.compute.sum(arr) == 10
+
+    arr = pa.chunked_array((), type=arrow_type)
+    print(arr, type(arr))
+    assert arr.num_chunks == 0
+    assert pa.compute.sum(arr) == None  # noqa: E711
 
 
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
