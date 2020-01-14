@@ -28,7 +28,6 @@ SUBDIRS =					\
 
 EXTRA_DIST =					\
 	Gemfile					\
-	LICENSE.txt				\
 	README.md				\
 	autogen.sh				\
 	meson.build				\
@@ -37,5 +36,5 @@ EXTRA_DIST =					\
 
 arrow_glib_docdir = ${datarootdir}/doc/arrow-glib
 arrow_glib_doc_DATA =				\
-	LICENSE.txt				\
+	../LICENSE.txt				\
 	README.md
