@@ -55,7 +55,9 @@ like so:
 
 .. code-block:: shell
 
+   pushd arrow/python
    pytest pyarrow
+   popd
 
 Package requirements to run the unit tests are found in
 ``requirements-test.txt`` and can be installed if needed with ``pip install -r
@@ -142,6 +144,17 @@ You should now see
    $ ls -l
    total 8
    drwxrwxr-x 12 wesm wesm 4096 Apr 15 19:19 arrow/
+
+Pull in the test data and setup the environment variables:
+
+.. code-block:: shell
+
+   pushd arrow
+   git submodule init
+   git submodule update
+   export PARQUET_TEST_DATA="${PWD}/cpp/submodules/parquet-testing/data"
+   export ARROW_TEST_DATA="${PWD}/testing/data"
+
 
 Using Conda
 ~~~~~~~~~~~
