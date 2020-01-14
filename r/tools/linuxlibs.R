@@ -113,6 +113,23 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO")) {
     cat("*** Unable to identify current OS/version\n")
     os <- NULL
   }
+
+  # Now look to see if we can map this os-version to one we have binaries for
+  os <- find_available_binary(os)
+  os
+}
+
+find_available_binary <- function(os) {
+  # Download a csv that maps one to the other, columns "actual" and "use_this"
+  u <- "https://raw.githubusercontent.com/ursa-labs/arrow-r-nightly/master/linux/distro-map.csv"
+  lookup <- try(utils::read.csv(u, stringsAsFactors = FALSE), silent = quietly)
+  if (!inherits(lookup, "try-error") && os %in% lookup$actual) {
+    new <- lookup$use_this[lookup$actual == os]
+    if (length(new) == 1 && !is.na(new)) { # Just some sanity checking
+      cat(sprintf("*** Using %s binary for %s\n", new, os))
+      os <- new
+    }
+  }
   os
 }
 
