@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <iosfwd>
 #include <memory>
@@ -146,27 +147,47 @@ struct ARROW_EXPORT ArrayData {
   ArrayData(ArrayData&& other) noexcept
       : type(std::move(other.type)),
         length(other.length),
-        null_count(other.null_count),
         offset(other.offset),
         buffers(std::move(other.buffers)),
         child_data(std::move(other.child_data)),
-        dictionary(std::move(other.dictionary)) {}
+        dictionary(std::move(other.dictionary)) {
+    SetNullCount(other.null_count);
+  }
 
   // Copy constructor
   ArrayData(const ArrayData& other) noexcept
       : type(other.type),
         length(other.length),
-        null_count(other.null_count),
         offset(other.offset),
         buffers(other.buffers),
         child_data(other.child_data),
-        dictionary(other.dictionary) {}
+        dictionary(other.dictionary) {
+    SetNullCount(other.null_count);
+  }
 
   // Move assignment
-  ArrayData& operator=(ArrayData&& other) = default;
+  ArrayData& operator=(ArrayData&& other) {
+    type = std::move(other.type);
+    length = other.length;
+    SetNullCount(other.null_count);
+    offset = other.offset;
+    buffers = std::move(other.buffers);
+    child_data = std::move(other.child_data);
+    dictionary = std::move(other.dictionary);
+    return *this;
+  }
 
   // Copy assignment
-  ArrayData& operator=(const ArrayData& other) = default;
+  ArrayData& operator=(const ArrayData& other) {
+    type = other.type;
+    length = other.length;
+    SetNullCount(other.null_count);
+    offset = other.offset;
+    buffers = other.buffers;
+    child_data = other.child_data;
+    dictionary = other.dictionary;
+    return *this;
+  }
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
@@ -203,12 +224,14 @@ struct ARROW_EXPORT ArrayData {
   // Construct a zero-copy slice of the data with the indicated offset and length
   ArrayData Slice(int64_t offset, int64_t length) const;
 
+  void SetNullCount(int64_t v) { null_count.store(v); }
+
   /// \brief Return null count, or compute and set it if it's not known
   int64_t GetNullCount() const;
 
   std::shared_ptr<DataType> type;
   int64_t length;
-  mutable int64_t null_count;
+  mutable std::atomic<int64_t> null_count;
   // The logical start point into the physical buffers (in values, not bytes).
   // Note that, for child data, this must be *added* to the child data's own offset.
   int64_t offset;

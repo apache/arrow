@@ -106,15 +106,17 @@ ArrayData ArrayData::Slice(int64_t off, int64_t len) const {
 }
 
 int64_t ArrayData::GetNullCount() const {
-  if (ARROW_PREDICT_FALSE(this->null_count == kUnknownNullCount)) {
+  int64_t precomputed = this->null_count.load();
+  if (ARROW_PREDICT_FALSE(precomputed == kUnknownNullCount)) {
     if (this->buffers[0]) {
-      this->null_count = this->length - CountSetBits(this->buffers[0]->data(),
-                                                     this->offset, this->length);
+      precomputed = this->length -
+                    CountSetBits(this->buffers[0]->data(), this->offset, this->length);
     } else {
-      this->null_count = 0;
+      precomputed = 0;
     }
+    this->null_count.store(precomputed);
   }
-  return this->null_count;
+  return precomputed;
 }
 
 // ----------------------------------------------------------------------
