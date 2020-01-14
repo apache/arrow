@@ -233,7 +233,7 @@ Since pandas's internal data representation is generally different from the
 Arrow columnar format, zero copy conversions (where no memory allocation or
 computation is required) are only possible in certain limited cases.
 
-In the worst case scenario, calling ``to_pandas`` will result in a two versions
+In the worst case scenario, calling ``to_pandas`` will result in two versions
 of the data in memory, one for Arrow and one for pandas, yielding approximately
 twice the memory footprint. We have implement some mitigations for this case,
 particularly when creating large ``DataFrame`` objects, that we describe below.
@@ -253,13 +253,13 @@ pandas Series are possible in certain narrow cases:
   i.e. ``arr.num_chunks == 1``. Multiple chunks will always require a copy
   because of pandas's contiguousness requirement.
 
-In these scenarios, ``to_pandas`` will be zero copy. In all other scenarios, a
-copy will be required.
+In these scenarios, ``to_pandas`` or ``to_numpy`` will be zero copy. In all
+other scenarios, a copy will be required.
 
 Reducing Memory Use in ``Table.to_pandas``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-As if this writing, pandas applies a data management strategy called
+As of this writing, pandas applies a data management strategy called
 "consolidation" to collect like-typed DataFrame columns in two-dimensional
 NumPy arrays, referred to internally as "blocks". We have gone to great effort
 to construct the precise "consolidated" blocks so that pandas will not perform
@@ -289,6 +289,7 @@ Used together, the call
 .. code-block:: python
 
    df = table.to_pandas(split_blocks=True, self_destruct=True)
+   del table  # not necessary, but a good practice
 
 will yield significantly lower memory usage in some scenarios. Without these
 options, ``to_pandas`` will always double memory.

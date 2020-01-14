@@ -62,8 +62,9 @@ struct PandasOptions {
 
   /// \brief If true, create one block per column rather than consolidated
   /// blocks (1 per data type). Do zero-copy wrapping when there are no
-  /// nulls. When using this, you may want to set pandas's consolidation policy
-  /// to leave the blocks split
+  /// nulls. pandas currently will consolidate the blocks on its own, causing
+  /// increased memory use, so keep this in mind if you are working on a
+  /// memory-constrained situation.
   bool split_blocks = false;
 
   /// \brief If true, attempt to deallocate buffers in passed Arrow object if

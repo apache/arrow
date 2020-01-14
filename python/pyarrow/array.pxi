@@ -527,9 +527,10 @@ cdef class _PandasConvertible:
             can temporarily reduce memory note that various pandas operations
             can trigger "consolidation" which may balloon memory use
         self_destruct : boolean, default False
-            EXPERIMENTAL: If True, attempt to deallocate memory while
-            converting the object to pandas. If you use the object after
-            calling to_pandas with this option it will crash your program
+            EXPERIMENTAL: If True, attempt to deallocate the originating Arrow
+            memory while converting the Arrow object to pandas. If you use the
+            object after calling to_pandas with this option it will crash your
+            program
 
         Returns
         -------
