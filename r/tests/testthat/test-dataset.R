@@ -156,6 +156,25 @@ test_that("IPC/Arrow format data", {
   )
 })
 
+test_that("Dataset with multiple sources", {
+  skip("Need DataSource$schema method first")
+  ds <- open_dataset(list(
+    data_source(dataset_dir, format = "parquet", partition = "part"),
+    data_source(ipc_dir, format = "arrow", partition = "part")
+  ))
+  expect_identical(names(ds), c(names(df1), "part"))
+  expect_equivalent(
+    ds %>%
+      filter(int > 6 & part %in% c(1, 3)) %>%
+      select(string = chr, integer = int) %>%
+      collect(),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      rbind(., .) # Stack it twice
+  )
+})
+
 test_that("filter() with is.na()", {
   ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
   expect_equivalent(
