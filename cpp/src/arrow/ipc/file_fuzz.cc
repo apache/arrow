@@ -17,28 +17,12 @@
 
 #include <memory>
 
-#include <arrow/buffer.h>
-#include <arrow/io/memory.h>
-#include <arrow/ipc/reader.h>
+#include "arrow/ipc/reader.h"
+#include "arrow/status.h"
+#include "arrow/util/macros.h"
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
-  arrow::Status status;
-
-  auto buffer = std::make_shared<arrow::Buffer>(data, size);
-  arrow::io::BufferReader buffer_reader(buffer);
-
-  std::shared_ptr<arrow::ipc::RecordBatchReader> batch_reader;
-  status = arrow::ipc::RecordBatchStreamReader::Open(&buffer_reader, &batch_reader);
-  if (!status.ok()) {
-    return 0;
-  }
-
-  std::shared_ptr<arrow::RecordBatch> batch;
-  do {
-    status = batch_reader->ReadNext(&batch);
-    if (!status.ok()) {
-      return 0;
-    }
-  } while (batch);
+  auto status = arrow::ipc::internal::FuzzIpcFile(data, static_cast<int64_t>(size));
+  ARROW_UNUSED(status);
   return 0;
 }

@@ -729,11 +729,19 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
     set(FUZZ_LINK_LIBS arrow_shared)
   endif()
 
+  # For OSS-Fuzz
+  # (https://google.github.io/oss-fuzz/advanced-topics/ideal-integration/)
+  if(DEFINED ENV{LIB_FUZZING_ENGINE})
+    set(FUZZ_LDFLAGS $ENV{LIB_FUZZING_ENGINE})
+  else()
+    set(FUZZ_LDFLAGS "-fsanitize=fuzzer")
+  endif()
+
   add_executable(${FUZZING_NAME} "${REL_FUZZING_NAME}.cc")
   target_link_libraries(${FUZZING_NAME} ${FUZZ_LINK_LIBS})
-  target_compile_options(${FUZZING_NAME} PRIVATE "-fsanitize=fuzzer")
+  target_compile_options(${FUZZING_NAME} PRIVATE ${FUZZ_LDFLAGS})
   set_target_properties(${FUZZING_NAME}
-                        PROPERTIES LINK_FLAGS "-fsanitize=fuzzer" LABELS "fuzzing")
+                        PROPERTIES LINK_FLAGS ${FUZZ_LDFLAGS} LABELS "fuzzing")
 endfunction()
 
 function(ARROW_INSTALL_ALL_HEADERS PATH)

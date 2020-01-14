@@ -1522,7 +1522,10 @@ macro(build_gtest)
   add_dependencies(GTest::GMock googletest_ep)
 endmacro()
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
+if(ARROW_BUILD_TESTS
+   OR ARROW_BUILD_BENCHMARKS
+   OR ARROW_BUILD_INTEGRATION
+   OR ARROW_FUZZING)
   resolve_dependency(GTest)
 
   if(NOT GTEST_VENDORED)
