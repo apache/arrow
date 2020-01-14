@@ -119,8 +119,10 @@ struct ReaderContext {
   std::shared_ptr<std::unordered_set<int>> included_leaves;
 
   bool IncludesLeaf(int leaf_index) const {
-    const auto& to_search = *included_leaves;
-    return (!this->filter_leaves || (to_search.find(leaf_index) != to_search.end()));
+    if (this->filter_leaves) {
+      return this->included_leaves->find(leaf_index) != this->included_leaves->end();
+    }
+    return true;
   }
 };
 
