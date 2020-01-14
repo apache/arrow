@@ -22,11 +22,11 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/cpu_info.h"
+#include "arrow/util/neon_util.h"
 #include "arrow/util/sse_util.h"
 
 #include "benchmark/benchmark.h"
 
-#ifdef ARROW_HAVE_SSE4_2
 namespace arrow {
 
 using internal::CpuInfo;
@@ -42,6 +42,8 @@ using BufferPtr = std::shared_ptr<Buffer>;
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 #ifndef _MSC_VER
+
+#ifdef ARROW_HAVE_SSE4_2
 
 #ifdef ARROW_AVX512
 
@@ -152,6 +154,93 @@ static void StreamReadWrite(void* src, void* dst, size_t size) {
   }
 }
 
+#endif  // ARROW_HAVE_SSE4_2
+
+#ifdef ARROW_HAVE_ARMV8_CRYPTO
+
+using VectorType = uint8x16_t;
+using VectorTypeDual = uint8x16x2_t;
+
+#define VectorSet vdupq_n_u8
+#define VectorLoadAsm vld1q_u8
+
+static void armv8_stream_load_pair(VectorType* src, VectorType* dst) {
+  asm volatile("LDNP %[reg1], %[reg2], [%[from]]\n\t"
+               : [reg1] "+r"(*dst), [reg2] "+r"(*(dst + 1))
+               : [from] "r"(src));
+}
+
+static void armv8_stream_store_pair(VectorType* src, VectorType* dst) {
+  asm volatile("STNP %[reg1], %[reg2], [%[to]]\n\t"
+               : [to] "+r"(dst)
+               : [reg1] "r"(*src), [reg2] "r"(*(src + 1))
+               : "memory");
+}
+
+static void armv8_stream_ldst_pair(VectorType* src, VectorType* dst) {
+  asm volatile(
+      "LDNP q1, q2, [%[from]]\n\t"
+      "STNP q1, q2, [%[to]]\n\t"
+      : [from] "+r"(src), [to] "+r"(dst)
+      :
+      : "memory", "v0", "v1", "v2", "v3");
+}
+
+static void Read(void* src, void* dst, size_t size) {
+  const auto simd = static_cast<uint8_t*>(src);
+  VectorType a;
+  (void)dst;
+
+  memset(&a, 0, sizeof(a));
+
+  for (size_t i = 0; i < size; i += sizeof(VectorType)) {
+    a = VectorLoadAsm(simd + i);
+  }
+
+  benchmark::DoNotOptimize(a);
+}
+
+// See http://codearcana.com/posts/2013/05/18/achieving-maximum-memory-bandwidth.html
+// for the usage of stream loads/writes. Or section 6.1, page 47 of
+// https://akkadia.org/drepper/cpumemory.pdf .
+static void StreamRead(void* src, void* dst, size_t size) {
+  auto simd = static_cast<VectorType*>(src);
+  VectorType a[2];
+  (void)dst;
+
+  memset(&a, 0, sizeof(VectorTypeDual));
+
+  for (size_t i = 0; i < size / sizeof(VectorType); i += 2) {
+    armv8_stream_load_pair(simd + i, a);
+  }
+
+  benchmark::DoNotOptimize(a);
+}
+
+static void StreamWrite(void* src, void* dst, size_t size) {
+  auto simd = static_cast<VectorType*>(dst);
+  VectorType ones[2];
+  (void)src;
+
+  ones[0] = VectorSet(1);
+  ones[1] = VectorSet(1);
+
+  for (size_t i = 0; i < size / sizeof(VectorType); i += 2) {
+    armv8_stream_store_pair(static_cast<VectorType*>(ones), simd + i);
+  }
+}
+
+static void StreamReadWrite(void* src, void* dst, size_t size) {
+  auto src_simd = static_cast<VectorType*>(src);
+  auto dst_simd = static_cast<VectorType*>(dst);
+
+  for (size_t i = 0; i < size / sizeof(VectorType); i += 2) {
+    armv8_stream_ldst_pair(src_simd + i, dst_simd + i);
+  }
+}
+
+#endif  // ARROW_HAVE_ARMV8_CRYPTO
+
 static void PlatformMemcpy(void* src, void* dst, size_t size) { memcpy(src, dst, size); }
 
 using ApplyFn = decltype(Read);
@@ -172,6 +261,7 @@ static void MemoryBandwidth(benchmark::State& state) {  // NOLINT non-const refe
   state.SetBytesProcessed(state.iterations() * buffer_size);
 }
 
+#ifdef ARROW_HAVE_SSE4_2
 static void SetCacheBandwidthArgs(benchmark::internal::Benchmark* bench) {
   auto cache_sizes = {kL1Size, kL2Size, kL3Size};
   for (auto size : cache_sizes) {
@@ -184,6 +274,7 @@ static void SetCacheBandwidthArgs(benchmark::internal::Benchmark* bench) {
 }
 
 BENCHMARK_TEMPLATE(MemoryBandwidth, Read)->Apply(SetCacheBandwidthArgs);
+#endif  // ARROW_HAVE_SSE4_2
 
 static void SetMemoryBandwidthArgs(benchmark::internal::Benchmark* bench) {
   // `UseRealTime` is required due to threads, otherwise the cumulative CPU time
@@ -269,4 +360,3 @@ BENCHMARK(BufferOutputStreamSmallWrites)->UseRealTime();
 BENCHMARK(BufferOutputStreamLargeWrites)->UseRealTime();
 
 }  // namespace arrow
-#endif  // ARROW_HAVE_SSE4_2
