@@ -343,7 +343,7 @@ class TestOptionalFields : public ::testing::Test {
   StreamWriter writer_;
 };
 
-TEST_F(TestOptionalFields, Output_operator_with_optional_T) {
+TEST_F(TestOptionalFields, OutputOperatorWithOptionalT) {
   for (int i = 0; i < 100; ++i) {
     // Write optional fields using operator<<(optional<T>).  Writing
     // of a value is skipped every 9 rows by using a optional<T>
@@ -366,7 +366,7 @@ TEST_F(TestOptionalFields, Output_operator_with_optional_T) {
   }
 }
 
-TEST_F(TestOptionalFields, Output_operator_T_and_SkipColumns) {
+TEST_F(TestOptionalFields, OutputOperatorTAndSkipColumns) {
   constexpr int num_rows = 100;
 
   EXPECT_EQ(0, writer_.current_row());
