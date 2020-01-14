@@ -77,10 +77,7 @@ pub struct ParquetFileArrowReader {
 impl ArrowReader for ParquetFileArrowReader {
     fn get_schema(&mut self) -> Result<Schema> {
         parquet_to_arrow_schema(
-            self.file_reader
-                .metadata()
-                .file_metadata()
-                .schema_descr_ptr(),
+            self.file_reader.metadata().file_metadata().schema_descr(),
         )
     }
 
@@ -89,10 +86,7 @@ impl ArrowReader for ParquetFileArrowReader {
         T: IntoIterator<Item = usize>,
     {
         parquet_to_arrow_schema_by_columns(
-            self.file_reader
-                .metadata()
-                .file_metadata()
-                .schema_descr_ptr(),
+            self.file_reader.metadata().file_metadata().schema_descr(),
             column_indices,
         )
     }

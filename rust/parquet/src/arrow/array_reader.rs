@@ -94,7 +94,7 @@ impl<T: DataType> PrimitiveArrayReader<T> {
         mut pages: Box<dyn PageIterator>,
         column_desc: ColumnDescPtr,
     ) -> Result<Self> {
-        let data_type = parquet_to_arrow_field(column_desc.clone())?
+        let data_type = parquet_to_arrow_field(column_desc.as_ref())?
             .data_type()
             .clone();
 
@@ -388,7 +388,7 @@ where
     C: Converter<Vec<Option<T::T>>, ArrayRef> + 'static,
 {
     fn new(pages: Box<dyn PageIterator>, column_desc: ColumnDescPtr) -> Result<Self> {
-        let data_type = parquet_to_arrow_field(column_desc.clone())?
+        let data_type = parquet_to_arrow_field(column_desc.as_ref())?
             .data_type()
             .clone();
 
@@ -715,9 +715,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
             }
         }
 
-        if let Some(reader) =
-            self.build_for_struct_type_inner(cur_type.clone(), &new_context)?
-        {
+        if let Some(reader) = self.build_for_struct_type_inner(&cur_type, &new_context)? {
             if cur_type.get_basic_info().has_repetition()
                 && cur_type.get_basic_info().repetition() == Repetition::REPEATED
             {
@@ -860,7 +858,7 @@ impl<'a> ArrayReaderBuilder {
     /// Constructs struct array reader without considering repetition.
     fn build_for_struct_type_inner(
         &mut self,
-        cur_type: TypePtr,
+        cur_type: &Type,
         context: &'a ArrayReaderBuilderContext,
     ) -> Result<Option<Box<dyn ArrayReader>>> {
         let mut fields = Vec::with_capacity(cur_type.get_fields().len());
