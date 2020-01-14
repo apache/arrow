@@ -637,7 +637,7 @@ TEST_F(BitmapOp, Or) {
   TestUnaligned(op, left, right, result);
 }
 
-TEST_F(BitmapOp, XorAligned) {
+TEST_F(BitmapOp, Xor) {
   BitmapXorOp op;
   std::vector<int> left = {0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1};
   std::vector<int> right = {0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0};
@@ -834,6 +834,7 @@ TEST(BitUtil, CeilDiv) {
   EXPECT_EQ(BitUtil::CeilDiv(0, 1), 0);
   EXPECT_EQ(BitUtil::CeilDiv(1, 1), 1);
   EXPECT_EQ(BitUtil::CeilDiv(1, 2), 1);
+  EXPECT_EQ(BitUtil::CeilDiv(0, 8), 0);
   EXPECT_EQ(BitUtil::CeilDiv(1, 8), 1);
   EXPECT_EQ(BitUtil::CeilDiv(7, 8), 1);
   EXPECT_EQ(BitUtil::CeilDiv(8, 8), 1);
@@ -842,6 +843,14 @@ TEST(BitUtil, CeilDiv) {
   EXPECT_EQ(BitUtil::CeilDiv(10000000000, 10), 1000000000);
   EXPECT_EQ(BitUtil::CeilDiv(10, 10000000000), 1);
   EXPECT_EQ(BitUtil::CeilDiv(100000000000, 10000000000), 10);
+
+  // test overflow
+  int64_t value = std::numeric_limits<int64_t>::max() - 1;
+  int64_t divisor = std::numeric_limits<int64_t>::max();
+  EXPECT_EQ(BitUtil::CeilDiv(value, divisor), 1);
+
+  value = std::numeric_limits<int64_t>::max();
+  EXPECT_EQ(BitUtil::CeilDiv(value, divisor), 1);
 }
 
 TEST(BitUtil, RoundUp) {
@@ -849,11 +858,20 @@ TEST(BitUtil, RoundUp) {
   EXPECT_EQ(BitUtil::RoundUp(1, 1), 1);
   EXPECT_EQ(BitUtil::RoundUp(1, 2), 2);
   EXPECT_EQ(BitUtil::RoundUp(6, 2), 6);
+  EXPECT_EQ(BitUtil::RoundUp(0, 3), 0);
   EXPECT_EQ(BitUtil::RoundUp(7, 3), 9);
   EXPECT_EQ(BitUtil::RoundUp(9, 9), 9);
   EXPECT_EQ(BitUtil::RoundUp(10000000001, 10), 10000000010);
   EXPECT_EQ(BitUtil::RoundUp(10, 10000000000), 10000000000);
   EXPECT_EQ(BitUtil::RoundUp(100000000000, 10000000000), 100000000000);
+
+  // test overflow
+  int64_t value = std::numeric_limits<int64_t>::max() - 1;
+  int64_t divisor = std::numeric_limits<int64_t>::max();
+  EXPECT_EQ(BitUtil::RoundUp(value, divisor), divisor);
+
+  value = std::numeric_limits<int64_t>::max();
+  EXPECT_EQ(BitUtil::RoundUp(value, divisor), divisor);
 }
 
 TEST(BitUtil, RoundDown) {
