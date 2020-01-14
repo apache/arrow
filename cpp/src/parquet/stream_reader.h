@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/optional.h"
 #include "parquet/column_reader.h"
 #include "parquet/file_reader.h"
 #include "parquet/stream_writer.h"
@@ -41,10 +42,25 @@ namespace parquet {
 /// The user must explicitly advance to the next row using the
 /// EndRow() function or EndRow input manipulator.
 ///
-/// Currently there is no support for optional or repeated fields.
+/// Required and optional fields are supported:
+/// - Required fields are read using operator>>(T)
+/// - Optional fields are read with
+///   operator>>(arrow::util::optional<T>)
+///
+/// Note that operator>>(arrow::util::optional<T>) can be used to read
+/// required fields.
+///
+/// Similarly operator>>(T) can be used to read optional fields.
+/// However, if the value is not present then a ParquetException will
+/// be raised.
+///
+/// Currently there is no support for repeated fields.
 ///
 class PARQUET_EXPORT StreamReader {
  public:
+  template <typename T>
+  using optional = arrow::util::optional<T>;
+
   // N.B. Default constructed objects are not usable.  This
   //      constructor is provided so that the object may be move
   //      assigned afterwards.
@@ -119,7 +135,54 @@ class PARQUET_EXPORT StreamReader {
 
   StreamReader& operator>>(std::string& v);
 
-  // Terminate current row and advance to next one.
+  // Input operators for optional fields.
+
+  StreamReader& operator>>(optional<bool>& v);
+
+  StreamReader& operator>>(optional<int8_t>& v);
+
+  StreamReader& operator>>(optional<uint8_t>& v);
+
+  StreamReader& operator>>(optional<int16_t>& v);
+
+  StreamReader& operator>>(optional<uint16_t>& v);
+
+  StreamReader& operator>>(optional<int32_t>& v);
+
+  StreamReader& operator>>(optional<uint32_t>& v);
+
+  StreamReader& operator>>(optional<int64_t>& v);
+
+  StreamReader& operator>>(optional<uint64_t>& v);
+
+  StreamReader& operator>>(optional<float>& v);
+
+  StreamReader& operator>>(optional<double>& v);
+
+  StreamReader& operator>>(optional<std::chrono::milliseconds>& v);
+
+  StreamReader& operator>>(optional<std::chrono::microseconds>& v);
+
+  StreamReader& operator>>(optional<char>& v);
+
+  StreamReader& operator>>(optional<std::string>& v);
+
+  template <std::size_t N>
+  StreamReader& operator>>(optional<std::array<char, N>>& v) {
+    CheckColumn(Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::NONE, N);
+    FixedLenByteArray flba;
+    if (ReadOptional(&flba)) {
+      v = std::array<char, N>{};
+      std::memcpy(v->data(), flba.ptr, N);
+    } else {
+      v.reset();
+    }
+    return *this;
+  }
+
+  /// \brief Terminate current row and advance to next one.
+  /// \throws ParquetException if all columns in the row were not
+  /// read or skipped.
   void EndRow();
 
   /// \brief Skip the data in the next columns.
@@ -140,17 +203,59 @@ class PARQUET_EXPORT StreamReader {
   int64_t SkipRows(int64_t num_rows_to_skip);
 
  protected:
+  [[noreturn]] void ThrowReadFailedException(
+      const std::shared_ptr<schema::PrimitiveNode>& node);
+
   template <typename ReaderType, typename T>
   void Read(T* v) {
     const auto& node = nodes_[column_index_];
     auto reader = static_cast<ReaderType*>(column_readers_[column_index_++].get());
-
+    int16_t def_level;
+    int16_t rep_level;
     int64_t values_read;
 
-    reader->ReadBatch(1, NULLPTR, NULLPTR, v, &values_read);
+    reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, v, &values_read);
 
     if (values_read != 1) {
-      throw ParquetException("Failed to read value for column '" + node->name() + "'");
+      ThrowReadFailedException(node);
+    }
+  }
+
+  template <typename ReaderType, typename ReadType, typename T>
+  void Read(T* v) {
+    const auto& node = nodes_[column_index_];
+    auto reader = static_cast<ReaderType*>(column_readers_[column_index_++].get());
+    int16_t def_level;
+    int16_t rep_level;
+    ReadType tmp;
+    int64_t values_read;
+
+    reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, &tmp, &values_read);
+
+    if (values_read == 1) {
+      *v = tmp;
+    } else {
+      ThrowReadFailedException(node);
+    }
+  }
+
+  template <typename ReaderType, typename ReadType = typename ReaderType::T, typename T>
+  void ReadOptional(optional<T>* v) {
+    const auto& node = nodes_[column_index_];
+    auto reader = static_cast<ReaderType*>(column_readers_[column_index_++].get());
+    int16_t def_level;
+    int16_t rep_level;
+    ReadType tmp;
+    int64_t values_read;
+
+    reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, &tmp, &values_read);
+
+    if (values_read == 1) {
+      *v = T(tmp);
+    } else if ((values_read == 0) && (def_level == 0)) {
+      v->reset();
+    } else {
+      ThrowReadFailedException(node);
     }
   }
 
@@ -159,6 +264,10 @@ class PARQUET_EXPORT StreamReader {
   void Read(ByteArray* v);
 
   void Read(FixedLenByteArray* v);
+
+  bool ReadOptional(ByteArray* v);
+
+  bool ReadOptional(FixedLenByteArray* v);
 
   void NextRowGroup();
 
@@ -170,20 +279,20 @@ class PARQUET_EXPORT StreamReader {
   void SetEof();
 
  private:
-  using node_ptr_type = std::shared_ptr<schema::PrimitiveNode>;
-
   std::unique_ptr<ParquetFileReader> file_reader_;
   std::shared_ptr<FileMetaData> file_metadata_;
   std::shared_ptr<RowGroupReader> row_group_reader_;
   std::vector<std::shared_ptr<ColumnReader>> column_readers_;
-  std::vector<node_ptr_type> nodes_;
+  std::vector<std::shared_ptr<schema::PrimitiveNode>> nodes_;
 
   bool eof_{true};
   int row_group_index_{0};
   int column_index_{0};
   int64_t current_row_{0};
   int64_t row_group_row_offset_{0};
-};
+
+  static constexpr int64_t kBatchSizeOne = 1;
+};  // namespace parquet
 
 PARQUET_EXPORT
 StreamReader& operator>>(StreamReader&, EndRowType);

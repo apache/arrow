@@ -21,6 +21,8 @@
 
 namespace parquet {
 
+constexpr int64_t StreamReader::kBatchSizeOne;
+
 StreamReader::StreamReader(std::unique_ptr<ParquetFileReader> reader)
     : file_reader_{std::move(reader)}, eof_{false} {
   file_metadata_ = file_reader_->metadata();
@@ -60,33 +62,25 @@ StreamReader& StreamReader::operator>>(bool& v) {
 
 StreamReader& StreamReader::operator>>(int8_t& v) {
   CheckColumn(Type::INT32, ConvertedType::INT_8);
-  int32_t tmp;
-  Read<Int32Reader>(&tmp);
-  v = static_cast<int8_t>(tmp);
+  Read<Int32Reader, int32_t>(&v);
   return *this;
 }
 
 StreamReader& StreamReader::operator>>(uint8_t& v) {
   CheckColumn(Type::INT32, ConvertedType::UINT_8);
-  int32_t tmp;
-  Read<Int32Reader>(&tmp);
-  v = static_cast<uint8_t>(tmp);
+  Read<Int32Reader, int32_t>(&v);
   return *this;
 }
 
 StreamReader& StreamReader::operator>>(int16_t& v) {
   CheckColumn(Type::INT32, ConvertedType::INT_16);
-  int32_t tmp;
-  Read<Int32Reader>(&tmp);
-  v = static_cast<int16_t>(tmp);
+  Read<Int32Reader, int32_t>(&v);
   return *this;
 }
 
 StreamReader& StreamReader::operator>>(uint16_t& v) {
   CheckColumn(Type::INT32, ConvertedType::UINT_16);
-  int32_t tmp;
-  Read<Int32Reader>(&tmp);
-  v = static_cast<uint16_t>(tmp);
+  Read<Int32Reader, int32_t>(&v);
   return *this;
 }
 
@@ -145,6 +139,7 @@ StreamReader& StreamReader::operator>>(double& v) {
 StreamReader& StreamReader::operator>>(char& v) {
   CheckColumn(Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::NONE, 1);
   FixedLenByteArray flba;
+
   Read(&flba);
   v = static_cast<char>(flba.ptr[0]);
   return *this;
@@ -153,8 +148,111 @@ StreamReader& StreamReader::operator>>(char& v) {
 StreamReader& StreamReader::operator>>(std::string& v) {
   CheckColumn(Type::BYTE_ARRAY, ConvertedType::UTF8);
   ByteArray ba;
+
   Read(&ba);
   v = std::string(reinterpret_cast<const char*>(ba.ptr), ba.len);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<bool>& v) {
+  CheckColumn(Type::BOOLEAN, ConvertedType::NONE);
+  ReadOptional<BoolReader>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<int8_t>& v) {
+  CheckColumn(Type::INT32, ConvertedType::INT_8);
+  ReadOptional<Int32Reader, int32_t>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<uint8_t>& v) {
+  CheckColumn(Type::INT32, ConvertedType::UINT_8);
+  ReadOptional<Int32Reader, int32_t>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<int16_t>& v) {
+  CheckColumn(Type::INT32, ConvertedType::INT_16);
+  ReadOptional<Int32Reader, int32_t>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<uint16_t>& v) {
+  CheckColumn(Type::INT32, ConvertedType::UINT_16);
+  ReadOptional<Int32Reader, int32_t>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<int32_t>& v) {
+  CheckColumn(Type::INT32, ConvertedType::INT_32);
+  ReadOptional<Int32Reader>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<uint32_t>& v) {
+  CheckColumn(Type::INT32, ConvertedType::UINT_32);
+  ReadOptional<Int32Reader>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<int64_t>& v) {
+  CheckColumn(Type::INT64, ConvertedType::INT_64);
+  ReadOptional<Int64Reader>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<uint64_t>& v) {
+  CheckColumn(Type::INT64, ConvertedType::UINT_64);
+  ReadOptional<Int64Reader>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<float>& v) {
+  CheckColumn(Type::FLOAT, ConvertedType::NONE);
+  ReadOptional<FloatReader>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<double>& v) {
+  CheckColumn(Type::DOUBLE, ConvertedType::NONE);
+  ReadOptional<DoubleReader>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<std::chrono::milliseconds>& v) {
+  CheckColumn(Type::INT64, ConvertedType::TIMESTAMP_MILLIS);
+  ReadOptional<Int64Reader, int64_t>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<std::chrono::microseconds>& v) {
+  CheckColumn(Type::INT64, ConvertedType::TIMESTAMP_MICROS);
+  ReadOptional<Int64Reader, int64_t>(&v);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<char>& v) {
+  CheckColumn(Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::NONE, 1);
+  FixedLenByteArray flba;
+
+  if (ReadOptional(&flba)) {
+    v = static_cast<char>(flba.ptr[0]);
+  } else {
+    v.reset();
+  }
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<std::string>& v) {
+  CheckColumn(Type::BYTE_ARRAY, ConvertedType::UTF8);
+  ByteArray ba;
+
+  if (ReadOptional(&ba)) {
+    v = std::string(reinterpret_cast<const char*>(ba.ptr), ba.len);
+  } else {
+    v.reset();
+  }
   return *this;
 }
 
@@ -168,26 +266,65 @@ void StreamReader::ReadFixedLength(char* ptr, int len) {
 void StreamReader::Read(ByteArray* v) {
   const auto& node = nodes_[column_index_];
   auto reader = static_cast<ByteArrayReader*>(column_readers_[column_index_++].get());
+  int16_t def_level;
+  int16_t rep_level;
   int64_t values_read;
 
-  reader->ReadBatch(1, nullptr, nullptr, v, &values_read);
+  reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, v, &values_read);
 
   if (values_read != 1) {
-    throw ParquetException("Failed to read value for column '" + node->name() + "'");
+    ThrowReadFailedException(node);
   }
+}
+
+bool StreamReader::ReadOptional(ByteArray* v) {
+  const auto& node = nodes_[column_index_];
+  auto reader = static_cast<ByteArrayReader*>(column_readers_[column_index_++].get());
+  int16_t def_level;
+  int16_t rep_level;
+  int64_t values_read;
+
+  reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, v, &values_read);
+
+  if (values_read == 1) {
+    return true;
+  } else if ((values_read == 0) && (def_level == 0)) {
+    return false;
+  }
+  ThrowReadFailedException(node);
 }
 
 void StreamReader::Read(FixedLenByteArray* v) {
   const auto& node = nodes_[column_index_];
   auto reader =
       static_cast<FixedLenByteArrayReader*>(column_readers_[column_index_++].get());
+  int16_t def_level;
+  int16_t rep_level;
   int64_t values_read;
 
-  reader->ReadBatch(1, nullptr, nullptr, v, &values_read);
+  reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, v, &values_read);
 
   if (values_read != 1) {
-    throw ParquetException("Failed to read value for column '" + node->name() + "'");
+    ThrowReadFailedException(node);
   }
+}
+
+bool StreamReader::ReadOptional(FixedLenByteArray* v) {
+  const auto& node = nodes_[column_index_];
+  auto reader =
+      static_cast<FixedLenByteArrayReader*>(column_readers_[column_index_++].get());
+  int16_t def_level;
+  int16_t rep_level;
+  int64_t values_read;
+
+  reader->ReadBatch(kBatchSizeOne, &def_level, &rep_level, v, &values_read);
+
+  if (values_read == 1) {
+    return true;
+  } else if ((values_read == 0) && (def_level == 0)) {
+    return false;
+  }
+  ThrowReadFailedException(node);
 }
 
 void StreamReader::EndRow() {
@@ -342,6 +479,12 @@ void StreamReader::CheckColumn(Type::type physical_type,
                            "' has length " + std::to_string(node->type_length()) +
                            "] not " + std::to_string(length));
   }
+}
+
+void StreamReader::ThrowReadFailedException(
+    const std::shared_ptr<schema::PrimitiveNode>& node) {
+  throw ParquetException("Failed to read value for column '" + node->name() +
+                         "' on row " + std::to_string(current_row_));
 }
 
 StreamReader& operator>>(StreamReader& os, EndRowType) {

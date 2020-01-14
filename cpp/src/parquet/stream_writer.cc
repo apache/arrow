@@ -23,6 +23,11 @@ namespace parquet {
 
 int64_t StreamWriter::default_row_group_size_{512 * 1024 * 1024};  // 512MB
 
+constexpr int16_t StreamWriter::kDefLevelZero;
+constexpr int16_t StreamWriter::kDefLevelOne;
+constexpr int16_t StreamWriter::kRepLevelZero;
+constexpr int64_t StreamWriter::kBatchSizeOne;
+
 StreamWriter::FixedStringView::FixedStringView(const char* data_ptr)
     : data{data_ptr}, size{std::strlen(data_ptr)} {}
 
@@ -42,16 +47,6 @@ StreamWriter::StreamWriter(std::unique_ptr<ParquetFileWriter> writer)
   }
 }
 
-StreamWriter::~StreamWriter() {
-  if (row_group_writer_) {
-    row_group_writer_->Close();
-  }
-
-  if (file_writer_) {
-    file_writer_->Close();
-  }
-}
-
 void StreamWriter::SetDefaultMaxRowGroupSize(int64_t max_size) {
   default_row_group_size_ = max_size;
 }
@@ -59,6 +54,8 @@ void StreamWriter::SetDefaultMaxRowGroupSize(int64_t max_size) {
 void StreamWriter::SetMaxRowGroupSize(int64_t max_size) {
   max_row_group_size_ = max_size;
 }
+
+int StreamWriter::num_columns() const { return static_cast<int>(nodes_.size()); }
 
 StreamWriter& StreamWriter::operator<<(bool v) {
   CheckColumn(Type::BOOLEAN, ConvertedType::NONE);
@@ -135,6 +132,10 @@ StreamWriter& StreamWriter::operator<<(const char* v) {
   return WriteVariableLength(v, std::strlen(v));
 }
 
+StreamWriter& StreamWriter::operator<<(const std::string& v) {
+  return WriteVariableLength(v.data(), v.size());
+}
+
 StreamWriter& StreamWriter::operator<<(arrow::util::string_view v) {
   return WriteVariableLength(v.data(), v.size());
 }
@@ -145,13 +146,16 @@ StreamWriter& StreamWriter::WriteVariableLength(const char* data_ptr,
 
   auto writer = static_cast<ByteArrayWriter*>(row_group_writer_->column(column_index_++));
 
-  ByteArray ba_value;
+  if (data_ptr != nullptr) {
+    ByteArray ba_value;
 
-  ba_value.ptr = reinterpret_cast<const uint8_t*>(data_ptr);
-  ba_value.len = static_cast<uint32_t>(data_len);
+    ba_value.ptr = reinterpret_cast<const uint8_t*>(data_ptr);
+    ba_value.len = static_cast<uint32_t>(data_len);
 
-  writer->WriteBatch(1, nullptr, nullptr, &ba_value);
-
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelOne, &kRepLevelZero, &ba_value);
+  } else {
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);
+  }
   if (max_row_group_size_ > 0) {
     row_group_size_ += writer->EstimatedBufferedValueBytes();
   }
@@ -165,12 +169,14 @@ StreamWriter& StreamWriter::WriteFixedLength(const char* data_ptr, std::size_t d
   auto writer =
       static_cast<FixedLenByteArrayWriter*>(row_group_writer_->column(column_index_++));
 
-  FixedLenByteArray flba_value;
+  if (data_ptr != nullptr) {
+    FixedLenByteArray flba_value;
 
-  flba_value.ptr = reinterpret_cast<const uint8_t*>(data_ptr);
-
-  writer->WriteBatch(1, nullptr, nullptr, &flba_value);
-
+    flba_value.ptr = reinterpret_cast<const uint8_t*>(data_ptr);
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelOne, &kRepLevelZero, &flba_value);
+  } else {
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);
+  }
   if (max_row_group_size_ > 0) {
     row_group_size_ += writer->EstimatedBufferedValueBytes();
   }
@@ -208,6 +214,69 @@ void StreamWriter::CheckColumn(Type::type physical_type,
   }
 }
 
+int64_t StreamWriter::SkipColumns(int num_columns_to_skip) {
+  int num_columns_skipped = 0;
+
+  for (; (num_columns_to_skip > num_columns_skipped) &&
+         static_cast<std::size_t>(column_index_) < nodes_.size();
+       ++num_columns_skipped) {
+    const auto& node = nodes_[column_index_];
+
+    if (node->is_required()) {
+      throw ParquetException("Cannot skip column '" + node->name() +
+                             "' as it is required.");
+    }
+    auto writer = row_group_writer_->column(column_index_++);
+
+    WriteNullValue(writer);
+  }
+  return num_columns_skipped;
+}
+
+void StreamWriter::WriteNullValue(ColumnWriter* writer) {
+  switch (writer->type()) {
+    case Type::BOOLEAN:
+      static_cast<BoolWriter*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                   &kRepLevelZero, nullptr);
+      break;
+    case Type::INT32:
+      static_cast<Int32Writer*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                    &kRepLevelZero, nullptr);
+      break;
+    case Type::INT64:
+      static_cast<Int64Writer*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                    &kRepLevelZero, nullptr);
+      break;
+    case Type::BYTE_ARRAY:
+      static_cast<ByteArrayWriter*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                        &kRepLevelZero, nullptr);
+      break;
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      static_cast<FixedLenByteArrayWriter*>(writer)->WriteBatch(
+          kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);
+      break;
+    case Type::FLOAT:
+      static_cast<FloatWriter*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                    &kRepLevelZero, nullptr);
+      break;
+    case Type::DOUBLE:
+      static_cast<DoubleWriter*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                     &kRepLevelZero, nullptr);
+      break;
+    case Type::INT96:
+    case Type::UNDEFINED:
+      throw ParquetException("Unexpected type: " + TypeToString(writer->type()));
+      break;
+  }
+}
+
+void StreamWriter::SkipOptionalColumn() {
+  if (SkipColumns(1) != 1) {
+    throw ParquetException("Failed to skip optional column at column index " +
+                           std::to_string(column_index_));
+  }
+}
+
 void StreamWriter::EndRow() {
   if (!file_writer_) {
     throw ParquetException("StreamWriter not initialized");
@@ -217,6 +286,7 @@ void StreamWriter::EndRow() {
                            " of " + std::to_string(nodes_.size()) + " columns written");
   }
   column_index_ = 0;
+  ++current_row_;
 
   if (max_row_group_size_ > 0) {
     if (row_group_size_ > max_row_group_size_) {

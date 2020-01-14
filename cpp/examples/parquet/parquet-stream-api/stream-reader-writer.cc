@@ -34,6 +34,9 @@
 // It shows writing/reading of the supported types as well as how a
 // user-defined type can be handled.
 
+template <typename T>
+using optional = parquet::StreamReader::optional<T>;
+
 // Example of a user-defined type to be written to/read from Parquet
 // using C++ input/output operators.
 class UserTimestamp {
@@ -78,7 +81,7 @@ std::shared_ptr<parquet::schema::GroupNode> GetSchema() {
   parquet::schema::NodeVector fields;
 
   fields.push_back(parquet::schema::PrimitiveNode::Make(
-      "string_field", parquet::Repetition::REQUIRED, parquet::Type::BYTE_ARRAY,
+      "string_field", parquet::Repetition::OPTIONAL, parquet::Type::BYTE_ARRAY,
       parquet::ConvertedType::UTF8));
 
   fields.push_back(parquet::schema::PrimitiveNode::Make(
@@ -102,7 +105,7 @@ std::shared_ptr<parquet::schema::GroupNode> GetSchema() {
       parquet::ConvertedType::INT_32));
 
   fields.push_back(parquet::schema::PrimitiveNode::Make(
-      "uint64_field", parquet::Repetition::REQUIRED, parquet::Type::INT64,
+      "uint64_field", parquet::Repetition::OPTIONAL, parquet::Type::INT64,
       parquet::ConvertedType::UINT_64));
 
   fields.push_back(parquet::schema::PrimitiveNode::Make(
@@ -127,7 +130,10 @@ struct TestData {
 
   static void init() { std::time(&ts_offset_); }
 
-  static std::string GetString(const int i) { return "Str #" + std::to_string(i); }
+  static optional<std::string> GetOptString(const int i) {
+    if (i % 2 == 0) return {};
+    return "Str #" + std::to_string(i);
+  }
   static arrow::util::string_view GetStringView(const int i) {
     string_ = "StringView #" + std::to_string(i);
     return arrow::util::string_view(string_);
@@ -140,7 +146,10 @@ struct TestData {
   static int8_t GetInt8(const int i) { return static_cast<int8_t>((i % 256) - 128); }
   static uint16_t GetUInt16(const int i) { return static_cast<uint16_t>(i); }
   static int32_t GetInt32(const int i) { return 3 * i - 17; }
-  static uint64_t GetUInt64(const int i) { return (1ull << 40) + i * i + 101; }
+  static optional<uint64_t> GetOptUInt64(const int i) {
+    if (i % 11 == 0) return {};
+    return (1ull << 40) + i * i + 101;
+  }
   static double GetDouble(const int i) { return 6.62607004e-34 * 3e8 * i; }
   static UserTimestamp GetUserTimestamp(const int i) {
     return UserTimestamp{std::chrono::microseconds{(ts_offset_ + 3 * i) * 1000000 + i}};
@@ -169,12 +178,14 @@ void WriteParquetFile() {
 
   parquet::WriterProperties::Builder builder;
 
+#if defined ARROW_WITH_BROTLI
   builder.compression(parquet::Compression::BROTLI);
+#elif defined ARROW_WITH_ZSTD
+  builder.compression(parquet::Compression::ZSTD);
+#endif
 
-  auto file_writer =
-      parquet::ParquetFileWriter::Open(outfile, GetSchema(), builder.build());
-
-  parquet::StreamWriter os{std::move(file_writer)};
+  parquet::StreamWriter os{
+      parquet::ParquetFileWriter::Open(outfile, GetSchema(), builder.build())};
 
   os.SetMaxRowGroupSize(1000);
 
@@ -183,7 +194,7 @@ void WriteParquetFile() {
     // const char *.
     switch (i % 3) {
       case 0:
-        os << TestData::GetString(i);
+        os << TestData::GetOptString(i);
         break;
       case 1:
         os << TestData::GetStringView(i);
@@ -204,7 +215,7 @@ void WriteParquetFile() {
     os << TestData::GetInt8(i);
     os << TestData::GetUInt16(i);
     os << TestData::GetInt32(i);
-    os << TestData::GetUInt64(i);
+    os << TestData::GetOptUInt64(i);
     os << TestData::GetDouble(i);
     os << TestData::GetUserTimestamp(i);
     os << TestData::GetChronoMilliseconds(i);
@@ -224,30 +235,28 @@ void ReadParquetFile() {
       infile,
       arrow::io::ReadableFile::Open("parquet-stream-api-example.parquet"));
 
-  auto file_reader = parquet::ParquetFileReader::Open(infile);
+  parquet::StreamReader os{parquet::ParquetFileReader::Open(infile)};
 
-  parquet::StreamReader os{std::move(file_reader)};
-
-  std::string s;
+  optional<std::string> opt_string;
   char ch;
   char char_array[4];
   int8_t int8;
   uint16_t uint16;
   int32_t int32;
-  uint64_t uint64;
+  optional<uint64_t> opt_uint64;
   double d;
   UserTimestamp ts_user;
   std::chrono::milliseconds ts_ms;
   int i;
 
   for (i = 0; !os.eof(); ++i) {
-    os >> s;
+    os >> opt_string;
     os >> ch;
     os >> char_array;
     os >> int8;
     os >> uint16;
     os >> int32;
-    os >> uint64;
+    os >> opt_uint64;
     os >> d;
     os >> ts_user;
     os >> ts_ms;
@@ -255,20 +264,35 @@ void ReadParquetFile() {
 
     if (0) {
       // For debugging.
-      std::cout << s << ' ' << ch << ' ' << char_array << ' ' << int(int8) << ' '
-                << uint16 << ' ' << int32 << ' ' << uint64 << ' ' << d << ' ' << ts_user
-                << ' ' << ts_ms.count() << std::endl;
+      std::cout << "Row #" << i << std::endl;
+
+      std::cout << "string[";
+      if (opt_string) {
+        std::cout << *opt_string;
+      } else {
+        std::cout << "N/A";
+      }
+      std::cout << "] char[" << ch << "] charArray[" << char_array << "] int8["
+                << int(int8) << "] uint16[" << uint16 << "] int32[" << int32;
+      std::cout << "] uint64[";
+      if (opt_uint64) {
+        std::cout << *opt_uint64;
+      } else {
+        std::cout << "N/A";
+      }
+      std::cout << "] double[" << d << "] tsUser[" << ts_user << "] tsMs["
+                << ts_ms.count() << "]" << std::endl;
     }
     // Check data.
     switch (i % 3) {
       case 0:
-        assert(s == TestData::GetString(i));
+        assert(opt_string == TestData::GetOptString(i));
         break;
       case 1:
-        assert(s == TestData::GetStringView(i));
+        assert(*opt_string == TestData::GetStringView(i));
         break;
       case 2:
-        assert(s == TestData::GetCharPtr(i));
+        assert(*opt_string == TestData::GetCharPtr(i));
         break;
     }
     assert(ch == TestData::GetChar(i));
@@ -283,7 +307,7 @@ void ReadParquetFile() {
     assert(int8 == TestData::GetInt8(i));
     assert(uint16 == TestData::GetUInt16(i));
     assert(int32 == TestData::GetInt32(i));
-    assert(uint64 == TestData::GetUInt64(i));
+    assert(opt_uint64 == TestData::GetOptUInt64(i));
     assert(std::abs(d - TestData::GetDouble(i)) < 1e-6);
     assert(ts_user == TestData::GetUserTimestamp(i));
     assert(ts_ms == TestData::GetChronoMilliseconds(i));

@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
@@ -45,10 +46,25 @@ namespace parquet {
 /// user can create new row groups by calling the EndRowGroup()
 /// function or using the EndRowGroup output manipulator.
 ///
-/// Currently there is no support for optional or repeated fields.
+/// Required and optional fields are supported:
+/// - Required fields are written using operator<<(T)
+/// - Optional fields are written using
+///   operator<<(arrow::util::optional<T>).
+///
+/// Note that operator<<(T) can be used to write optional fields.
+///
+/// Similarly, operator<<(arrow::util::optional<T>) can be used to
+/// write required fields.  However if the optional parameter does not
+/// have a value (i.e. it is nullopt) then a ParquetException will be
+/// raised.
+///
+/// Currently there is no support for repeated fields.
 ///
 class PARQUET_EXPORT StreamWriter {
  public:
+  template <typename T>
+  using optional = arrow::util::optional<T>;
+
   // N.B. Default constructed objects are not usable.  This
   //      constructor is provided so that the object may be move
   //      assigned afterwards.
@@ -56,11 +72,17 @@ class PARQUET_EXPORT StreamWriter {
 
   explicit StreamWriter(std::unique_ptr<ParquetFileWriter> writer);
 
-  ~StreamWriter();
+  ~StreamWriter() = default;
 
   static void SetDefaultMaxRowGroupSize(int64_t max_size);
 
   void SetMaxRowGroupSize(int64_t max_size);
+
+  int current_column() const { return column_index_; }
+
+  int64_t current_row() const { return current_row_; }
+
+  int num_columns() const;
 
   // Moving is possible.
   StreamWriter(StreamWriter&&) = default;
@@ -70,6 +92,8 @@ class PARQUET_EXPORT StreamWriter {
   StreamWriter(const StreamWriter&) = delete;
   StreamWriter& operator=(const StreamWriter&) = delete;
 
+  /// \brief Output operators for required fields.
+  /// These can also be used for optional fields when a value must be set.
   StreamWriter& operator<<(bool v);
 
   StreamWriter& operator<<(int8_t v);
@@ -112,7 +136,7 @@ class PARQUET_EXPORT StreamWriter {
     std::size_t size{0};
   };
 
-  // Output operators for fixed length strings.
+  /// \brief Output operators for fixed length strings.
   template <int N>
   StreamWriter& operator<<(const char (&v)[N]) {
     return WriteFixedLength(v, N);
@@ -123,14 +147,35 @@ class PARQUET_EXPORT StreamWriter {
   }
   StreamWriter& operator<<(FixedStringView v);
 
-  // Output operators for variable length strings.
+  /// \brief Output operators for variable length strings.
   StreamWriter& operator<<(const char* v);
+  StreamWriter& operator<<(const std::string& v);
   StreamWriter& operator<<(arrow::util::string_view v);
 
-  // Terminate the current row and advance to next one.
+  /// \brief Output operator for optional fields.
+  template <typename T>
+  StreamWriter& operator<<(const optional<T>& v) {
+    if (v) {
+      return operator<<(*v);
+    }
+    SkipOptionalColumn();
+    return *this;
+  }
+
+  /// \brief Skip the next N columns of optional data.  If there are
+  /// less than N columns remaining then the excess columns are
+  /// ignored.
+  /// \throws ParquetException if there is an attempt to skip any
+  /// required column.
+  /// \return Number of columns actually skipped.
+  int64_t SkipColumns(int num_columns_to_skip);
+
+  /// \brief Terminate the current row and advance to next one.
+  /// \throws ParquetException if all columns in the row were not
+  /// written or skipped.
   void EndRow();
 
-  // Terminate the current row group and create new one.
+  /// \brief Terminate the current row group and create new one.
   void EndRowGroup();
 
  protected:
@@ -138,7 +183,7 @@ class PARQUET_EXPORT StreamWriter {
   StreamWriter& Write(const T v) {
     auto writer = static_cast<WriterType*>(row_group_writer_->column(column_index_++));
 
-    writer->WriteBatch(1, NULLPTR, NULLPTR, &v);
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelOne, &kRepLevelZero, &v);
 
     if (max_row_group_size_ > 0) {
       row_group_size_ += writer->EstimatedBufferedValueBytes();
@@ -153,6 +198,13 @@ class PARQUET_EXPORT StreamWriter {
   void CheckColumn(Type::type physical_type, ConvertedType::type converted_type,
                    int length = -1);
 
+  /// \brief Skip the next column which must be optional.
+  /// \throws ParquetException if the next column does not exist or is
+  /// not optional.
+  void SkipOptionalColumn();
+
+  void WriteNullValue(ColumnWriter* writer);
+
  private:
   using node_ptr_type = std::shared_ptr<schema::PrimitiveNode>;
 
@@ -160,12 +212,19 @@ class PARQUET_EXPORT StreamWriter {
     void operator()(void*) {}
   };
 
+  int32_t column_index_{0};
+  int64_t current_row_{0};
   int64_t row_group_size_{0};
   int64_t max_row_group_size_{default_row_group_size_};
-  int32_t column_index_{0};
+
   std::unique_ptr<ParquetFileWriter> file_writer_;
   std::unique_ptr<RowGroupWriter, null_deleter> row_group_writer_;
   std::vector<node_ptr_type> nodes_;
+
+  static constexpr int16_t kDefLevelZero = 0;
+  static constexpr int16_t kDefLevelOne = 1;
+  static constexpr int16_t kRepLevelZero = 0;
+  static constexpr int64_t kBatchSizeOne = 1;
 
   static int64_t default_row_group_size_;
 };
