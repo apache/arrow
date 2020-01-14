@@ -167,8 +167,7 @@ Result<bool> DeleteDirContents(const PlatformFilename& dir_path,
 ///
 /// Return whether the directory existed.
 ARROW_EXPORT
-Result<bool> DeleteDirTree(const PlatformFilename& dir_path,
-                           bool allow_not_found = true);
+Result<bool> DeleteDirTree(const PlatformFilename& dir_path, bool allow_not_found = true);
 
 // Non-recursively list the contents of the given directory.
 // The returned names are the children's base names, not including dir_path.
@@ -179,8 +178,7 @@ Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path);
 ///
 /// Return whether the file existed.
 ARROW_EXPORT
-Result<bool> DeleteFile(const PlatformFilename& file_path,
-                        bool allow_not_found = true);
+Result<bool> DeleteFile(const PlatformFilename& file_path, bool allow_not_found = true);
 
 /// Return whether a file exists.
 ARROW_EXPORT

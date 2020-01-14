@@ -745,8 +745,7 @@ Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool allow_not_
 
 }  // namespace
 
-Result<bool> DeleteDirContents(const PlatformFilename& dir_path,
-                               bool allow_not_found) {
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool allow_not_found) {
   return DeleteDirContents(dir_path, allow_not_found, /*remove_top_dir=*/false);
 }
 

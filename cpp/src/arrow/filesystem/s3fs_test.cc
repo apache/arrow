@@ -669,10 +669,8 @@ TEST_F(TestS3FS, CopyFile) {
 
   // Nonexistent
   ASSERT_RAISES(IOError, fs_->CopyFile("bucket/nonexistent", "bucket/newfile2"));
-  ASSERT_RAISES(IOError,
-                fs_->CopyFile("nonexistent-bucket/somefile", "bucket/newfile2"));
-  ASSERT_RAISES(IOError,
-                fs_->CopyFile("bucket/somefile", "nonexistent-bucket/newfile2"));
+  ASSERT_RAISES(IOError, fs_->CopyFile("nonexistent-bucket/somefile", "bucket/newfile2"));
+  ASSERT_RAISES(IOError, fs_->CopyFile("bucket/somefile", "nonexistent-bucket/newfile2"));
   AssertFileInfo(fs_.get(), "bucket/newfile2", FileType::NotFound);
 }
 

@@ -45,8 +45,8 @@ TEST_F(TestProjector, TestNonexistentFunction) {
   auto field_result = field("res", boolean());
 
   // Build expression
-  auto lt_expr = TreeExprBuilder::MakeExpression("nonexistent_function",
-                                                 {field0, field1}, field_result);
+  auto lt_expr = TreeExprBuilder::MakeExpression("nonexistent_function", {field0, field1},
+                                                 field_result);
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
