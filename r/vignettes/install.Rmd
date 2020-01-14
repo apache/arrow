@@ -82,7 +82,8 @@ the R package installation script will next attempt to download
 prebuilt static Arrow C++ libraries, hosted by Ursa Labs,
 that match your both your local operating system and `arrow` R package version.
 If found, they will be downloaded and bundled when your R package compiles.
-<!-- TODO: link to bintray to show current list of supported OSes? -->
+For a list of supported distributions and versions,
+see the [arrow-r-nightly](https://github.com/ursa-labs/arrow-r-nightly/blob/master/README.md) project.
 
 If no binary is found, it will download the Arrow C++ source that matches the R package version
 (CRAN release or nightly build) and attempt to build it locally.
@@ -174,6 +175,12 @@ to a `distribution-version` that exists in the Ursa Labs repository.
 Setting `LIBARROW_BINARY_DISTRO` is also an option when there's not an exact match
 for your OS but a similar version would work,
 such as if you're on `ubuntu-18.10` and there's only a binary for `ubuntu-18.04`.
+
+If that workaround works for you, and you believe that it should work for everyone else too,
+you may propose [adding an entry to this lookup table](https://github.com/ursa-labs/arrow-r-nightly/edit/master/linux/distro-map.csv).
+This table is checked during the installation process
+and tells the script to use binaries built on a different operating system/version
+because they're known to work.
 
 <!-- If no binary found for current nightly R package version but yes for yesterday? -->
 <!-- TODO add a function to the package to update dev version from bintray? -->
