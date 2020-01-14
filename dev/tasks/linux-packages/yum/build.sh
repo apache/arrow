@@ -62,7 +62,8 @@ EOM
   run mkdir -p ~/rpmbuild/SRPMS
 fi
 
-repository="/host/repositories/${distribution}/${distribution_version}"
+repositories="/host/repositories"
+repository="${repositories}/${distribution}/${distribution_version}"
 rpm_dir="${repository}/${architecture}/Packages"
 srpm_dir="${repository}/source/SRPMS"
 run mkdir -p "${rpm_dir}" "${srpm_dir}"
@@ -129,3 +130,5 @@ fi
 
 run mv rpmbuild/RPMS/*/* "${rpm_dir}/"
 run mv rpmbuild/SRPMS/* "${srpm_dir}/"
+
+run chown -R "$(stat --format "%u:%g" "${repositories}")" "${repositories}"
