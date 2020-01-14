@@ -447,11 +447,19 @@ def test_open_dataset_partitioned_directory(tempdir):
     result = result.replace_schema_metadata()
     assert result.equals(pa.concat_tables([table] * 3))
 
-    # specify partition scheme
+    # specify partition scheme with discovery
     dataset = ds.open_dataset(
-        str(tempdir), partition_scheme=pa.schema([("part", pa.int8())]))
+        str(tempdir), partition_scheme=ds.hive_partition_scheme())
+    expected_schema = table.schema.append(pa.field("part", pa.int32()))
+    assert dataset.schema.equals(expected_schema, check_metadata=False)
+
+    # specify partition scheme with explicit scheme
+    dataset = ds.open_dataset(
+        str(tempdir),
+        partition_scheme=ds.hive_partition_scheme(
+            pa.schema([("part", pa.int8())])))
     expected_schema = table.schema.append(pa.field("part", pa.int8()))
-    assert dataset.schema.remove_metadata().equals(expected_schema)
+    assert dataset.schema.equals(expected_schema, check_metadata=False)
 
     result = dataset.new_scan().finish().to_table()
     result = result.replace_schema_metadata()

@@ -80,7 +80,6 @@ def open_dataset(sources, filesystem=None, partition_scheme=None,
     Dataset
 
     """
-    import pyarrow
     from pyarrow.fs import LocalFileSystem, FileType, FileSelector
 
     if filesystem is None:
@@ -110,12 +109,39 @@ def open_dataset(sources, filesystem=None, partition_scheme=None,
     options = FileSystemDiscoveryOptions()
 
     if partition_scheme is not None:
-        if isinstance(partition_scheme, pyarrow.Schema):
-            partition_scheme = HivePartitionScheme(partition_scheme)
-        options.partition_scheme = partition_scheme
+        if isinstance(partition_scheme, PartitionSchemeDiscovery):
+            options.partition_scheme_discovery = partition_scheme
+        elif isinstance(partition_scheme, PartitionScheme):
+            options.partition_scheme = partition_scheme
+        else:
+            ValueError(
+                "Expected PartitionScheme or PartitionSchemeDiscovery, got "
+                "{0}".format(type(partition_scheme)))
 
     discovery = FileSystemDataSourceDiscovery(
         filesystem, sources, format, options)
 
     inspected_schema = discovery.inspect()
     return Dataset([discovery.finish()], inspected_schema)
+
+
+def schema_partition_scheme(schema):
+    from pyarrow import Schema
+
+    if isinstance(schema, Schema):
+        return SchemaPartitionScheme(schema)
+    elif isinstance(schema, list):
+        return SchemaPartitionScheme.discover(schema)
+    raise ValueError("Expected Schema or list of names, got {0}".format(
+        type(schema)))
+
+
+def hive_partition_scheme(schema=None):
+    from pyarrow import Schema
+
+    if schema is None:
+        return HivePartitionScheme.discover()
+    elif isinstance(schema, Schema):
+        return HivePartitionScheme(schema)
+    else:
+        raise ValueError("Expected Schema, got {0}".format(type(schema)))
