@@ -33,6 +33,8 @@ use std::sync::Arc;
 /// With this api, user can get arrow schema from parquet file, and read parquet data
 /// into arrow arrays.
 pub trait ArrowReader {
+    type RecordReader: RecordBatchReader;
+
     /// Read parquet schema and convert it into arrow schema.
     fn get_schema(&mut self) -> Result<Schema>;
 
@@ -49,10 +51,7 @@ pub trait ArrowReader {
     /// `batch_size`: The size of each record batch returned from this reader. Only the
     /// last batch may contain records less than this size, otherwise record batches
     /// returned from this reader should contains exactly `batch_size` elements.
-    fn get_record_reader(
-        &mut self,
-        batch_size: usize,
-    ) -> Result<Box<dyn RecordBatchReader>>;
+    fn get_record_reader(&mut self, batch_size: usize) -> Result<Self::RecordReader>;
 
     /// Returns record batch reader whose record batch contains columns identified by
     /// `column_indices`.
@@ -65,7 +64,7 @@ pub trait ArrowReader {
         &mut self,
         column_indices: T,
         batch_size: usize,
-    ) -> Result<Box<dyn RecordBatchReader>>
+    ) -> Result<Self::RecordReader>
     where
         T: IntoIterator<Item = usize>;
 }
@@ -75,12 +74,11 @@ pub struct ParquetFileArrowReader {
 }
 
 impl ArrowReader for ParquetFileArrowReader {
+    type RecordReader = ParquetRecordBatchReader;
+
     fn get_schema(&mut self) -> Result<Schema> {
         parquet_to_arrow_schema(
-            self.file_reader
-                .metadata()
-                .file_metadata()
-                .schema_descr_ptr(),
+            self.file_reader.metadata().file_metadata().schema_descr(),
         )
     }
 
@@ -89,10 +87,7 @@ impl ArrowReader for ParquetFileArrowReader {
         T: IntoIterator<Item = usize>,
     {
         parquet_to_arrow_schema_by_columns(
-            self.file_reader
-                .metadata()
-                .file_metadata()
-                .schema_descr_ptr(),
+            self.file_reader.metadata().file_metadata().schema_descr(),
             column_indices,
         )
     }
@@ -100,7 +95,7 @@ impl ArrowReader for ParquetFileArrowReader {
     fn get_record_reader(
         &mut self,
         batch_size: usize,
-    ) -> Result<Box<dyn RecordBatchReader>> {
+    ) -> Result<ParquetRecordBatchReader> {
         let column_indices = 0..self
             .file_reader
             .metadata()
@@ -115,7 +110,7 @@ impl ArrowReader for ParquetFileArrowReader {
         &mut self,
         column_indices: T,
         batch_size: usize,
-    ) -> Result<Box<dyn RecordBatchReader>>
+    ) -> Result<ParquetRecordBatchReader>
     where
         T: IntoIterator<Item = usize>,
     {
@@ -128,10 +123,7 @@ impl ArrowReader for ParquetFileArrowReader {
             self.file_reader.clone(),
         )?;
 
-        Ok(Box::new(ParquetRecordBatchReader::try_new(
-            batch_size,
-            array_reader,
-        )?))
+        Ok(ParquetRecordBatchReader::try_new(batch_size, array_reader)?)
     }
 }
 
@@ -141,7 +133,7 @@ impl ParquetFileArrowReader {
     }
 }
 
-struct ParquetRecordBatchReader {
+pub struct ParquetRecordBatchReader {
     batch_size: usize,
     array_reader: Box<dyn ArrayReader>,
     schema: SchemaRef,
@@ -219,6 +211,7 @@ mod tests {
     use crate::schema::types::TypePtr;
     use crate::util::test_common::{get_temp_filename, RandGen};
     use arrow::array::{Array, BooleanArray, StringArray, StructArray};
+    use arrow::record_batch::RecordBatchReader;
     use serde_json::Value::Array as JArray;
     use std::cmp::min;
     use std::convert::TryFrom;
