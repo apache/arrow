@@ -116,11 +116,11 @@ struct ReaderContext {
   ::arrow::MemoryPool* pool;
   FileColumnIteratorFactory iterator_factory;
   bool filter_leaves;
-  std::unordered_set<int> included_leaves;
+  std::shared_ptr<std::unordered_set<int>> included_leaves;
 
   bool IncludesLeaf(int leaf_index) const {
-    return (!this->filter_leaves ||
-            (included_leaves.find(leaf_index) != included_leaves.end()));
+    const auto& to_search = *included_leaves;
+    return (!this->filter_leaves || (to_search.find(leaf_index) != to_search.end()));
   }
 };
 
