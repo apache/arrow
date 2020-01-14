@@ -28,6 +28,9 @@ def or_else(value, default):
     return value if value else default
 
 
+LLVM_VERSION = 7
+
+
 class CppConfiguration:
 
     def __init__(self,
@@ -35,18 +38,24 @@ class CppConfiguration:
                  cc=None, cxx=None, cxx_flags=None,
                  build_type=None, warn_level=None,
                  cpp_package_prefix=None, install_prefix=None, use_conda=None,
-                 # components
-                 with_tests=True, with_benchmarks=False, with_python=True,
-                 with_parquet=False, with_gandiva=False, with_plasma=False,
-                 with_flight=False, with_compute=False, with_dataset=False,
+                 # tests & examples
+                 with_tests=True, with_benchmarks=False, with_examples=False,
+                 # Langauges support
+                 with_python=True,
+                 # Format support
+                 with_parquet=False,
+                 # Components
+                 with_gandiva=False, with_compute=False, with_dataset=False,
+                 with_plasma=False, with_flight=False,
                  # extras
-                 with_lint_only=False,
+                 with_lint_only=False, with_fuzzing=False,
+                 use_gold_linker=True, use_sanitizers=True,
                  cmake_extras=None):
-        self.cc = cc
-        self.cxx = cxx
+        self._cc = cc
+        self._cxx = cxx
         self.cxx_flags = cxx_flags
 
-        self.build_type = build_type
+        self._build_type = build_type
         self.warn_level = warn_level
         self._install_prefix = install_prefix
         self._package_prefix = cpp_package_prefix
@@ -54,8 +63,9 @@ class CppConfiguration:
 
         self.with_tests = with_tests
         self.with_benchmarks = with_benchmarks
+        self.with_examples = with_examples
         self.with_python = with_python
-        self.with_parquet = with_parquet
+        self.with_parquet = with_parquet or with_dataset
         self.with_gandiva = with_gandiva
         self.with_plasma = with_plasma
         self.with_flight = with_flight
@@ -63,15 +73,48 @@ class CppConfiguration:
         self.with_dataset = with_dataset
 
         self.with_lint_only = with_lint_only
+        self.with_fuzzing = with_fuzzing
+        self.use_gold_linker = use_gold_linker
+        self.use_sanitizers = use_sanitizers
 
         self.cmake_extras = cmake_extras
+
+    @property
+    def build_type(self):
+        if self._build_type:
+            return self._build_type
+
+        if self.with_fuzzing:
+            return "relwithdebinfo"
+
+        return "release"
+
+    @property
+    def cc(self):
+        if self._cc:
+            return self._cc
+
+        if self.with_fuzzing:
+            return f"clang-{LLVM_VERSION}"
+
+        return None
+
+    @property
+    def cxx(self):
+        if self._cxx:
+            return self._cxx
+
+        if self.with_fuzzing:
+            return f"clang++-{LLVM_VERSION}"
+
+        return None
 
     def _gen_defs(self):
         if self.cxx_flags:
             yield ("ARROW_CXXFLAGS", self.cxx_flags)
 
         yield ("CMAKE_EXPORT_COMPILE_COMMANDS", truthifier(True))
-        yield ("CMAKE_BUILD_TYPE", or_else(self.build_type, "debug"))
+        yield ("CMAKE_BUILD_TYPE", self.build_type)
 
         if not self.with_lint_only:
             yield ("BUILD_WARNING_LEVEL",
@@ -90,16 +133,30 @@ class CppConfiguration:
 
         yield ("ARROW_BUILD_TESTS", truthifier(self.with_tests))
         yield ("ARROW_BUILD_BENCHMARKS", truthifier(self.with_benchmarks))
+        yield ("ARROW_BUILD_EXAMPLES", truthifier(self.with_examples))
 
         yield ("ARROW_PYTHON", truthifier(self.with_python))
-        yield ("ARROW_PARQUET", truthifier(self.with_parquet))
+
+        if self.with_parquet:
+            yield ("ARROW_PARQUET", truthifier(self.with_parquet))
+            yield ("ARROW_WITH_BROTLI", "ON")
+            yield ("ARROW_WITH_SNAPPY", "ON")
+
         yield ("ARROW_GANDIVA", truthifier(self.with_gandiva))
         yield ("ARROW_PLASMA", truthifier(self.with_plasma))
         yield ("ARROW_FLIGHT", truthifier(self.with_flight))
         yield ("ARROW_COMPUTE", truthifier(self.with_compute))
         yield ("ARROW_DATASET", truthifier(self.with_dataset))
 
+        if self.use_sanitizers or self.with_fuzzing:
+            yield ("ARROW_USE_ASAN", "ON")
+            yield ("ARROW_USE_UBSAN", "ON")
+
         yield ("ARROW_LINT_ONLY", truthifier(self.with_lint_only))
+        yield ("ARROW_FUZZING", truthifier(self.with_fuzzing))
+
+        if self.use_gold_linker and not self.with_fuzzing:
+            yield ("ARROW_USE_LD_GOLD", truthifier(self.use_gold_linker))
 
         # Detect custom conda toolchain
         if self.use_conda:

@@ -128,7 +128,7 @@ def _apply_options(cmd, options):
               help="Specify Arrow source directory")
 # toolchain
 @cpp_toolchain_options
-@click.option("--build-type", default="release", type=build_type,
+@click.option("--build-type", default=None, type=build_type,
               help="CMake's CMAKE_BUILD_TYPE")
 @click.option("--warn-level", default="production", type=warn_level_type,
               help="Controls compiler warnings -W(no-)error.")
@@ -137,7 +137,9 @@ def _apply_options(cmd, options):
               help="Build with tests.")
 @click.option("--with-benchmarks", default=False, type=BOOL,
               help="Build with benchmarks.")
-@click.option("--with-python", default=True, type=BOOL,
+@click.option("--with-examples", default=False, type=BOOL,
+              help="Build with examples.")
+@click.option("--with-python", default=False, type=BOOL,
               help="Build with python extension.")
 @click.option("--with-parquet", default=False, type=BOOL,
               help="Build with parquet file support.")
@@ -147,6 +149,16 @@ def _apply_options(cmd, options):
               help="Build with Plasma object store support.")
 @click.option("--with-flight", default=False, type=BOOL,
               help="Build with Flight rpc support.")
+@click.option("--with-compute", default=True, type=BOOL,
+              help="Build with compute kernels support.")
+@click.option("--with-dataset", default=False, type=BOOL,
+              help="Build with dataset support.")
+@click.option("--use-sanitizers", default=False, type=BOOL,
+              help="Toggles ARROW_USE_*SAN sanitizers.")
+@click.option("--with-fuzzing", default=False, type=BOOL,
+              help="Toggles ARROW_FUZZING.")
+@click.option("--use-gold-linker", default=True, type=BOOL,
+              help="Toggles ARROW_USE_LD_GOLD option.")
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
