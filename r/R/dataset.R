@@ -169,7 +169,7 @@ DataSourceDiscovery <- R6Class("DataSourceDiscovery", inherit = Object,
 )
 DataSourceDiscovery$create <- function(path,
                                        filesystem = c("auto", "local"),
-                                       format = c("parquet"),
+                                       format = c("parquet", "arrow", "ipc"),
                                        allow_non_existent = FALSE,
                                        recursive = TRUE,
                                        partition_scheme = NULL,
@@ -190,6 +190,7 @@ DataSourceDiscovery$create <- function(path,
     allow_non_existent = allow_non_existent,
     recursive = recursive
   )
+  format <- match.arg(format)
   # This may also require different initializers
   FileSystemDataSourceDiscovery$create(filesystem, selector, format, partition_scheme)
 }
@@ -203,29 +204,45 @@ FileSystemDataSourceDiscovery <- R6Class("FileSystemDataSourceDiscovery",
 )
 FileSystemDataSourceDiscovery$create <- function(filesystem,
                                                  selector,
-                                                 format = "parquet",
+                                                 format,
                                                  partition_scheme = NULL) {
   assert_is(filesystem, "FileSystem")
   assert_is(selector, "FileSelector")
-  format <- match.arg(format) # Only parquet for now
+  assert_is(format, "FileFormat")
   if (is.null(partition_scheme)) {
     shared_ptr(
       FileSystemDataSourceDiscovery,
-      dataset___FSDSDiscovery__Make1(filesystem, selector)
+      dataset___FSDSDiscovery__Make1(filesystem, selector, format)
     )
   } else if (inherits(partition_scheme, "PartitionSchemeDiscovery")) {
     shared_ptr(
       FileSystemDataSourceDiscovery,
-      dataset___FSDSDiscovery__Make3(filesystem, selector, partition_scheme)
+      dataset___FSDSDiscovery__Make3(filesystem, selector, format, partition_scheme)
     )
   } else {
     assert_is(partition_scheme, "PartitionScheme")
     shared_ptr(
       FileSystemDataSourceDiscovery,
-      dataset___FSDSDiscovery__Make2(filesystem, selector, partition_scheme)
+      dataset___FSDSDiscovery__Make2(filesystem, selector, format, partition_scheme)
     )
   }
 }
+
+FileFormat <- R6Class("FileFormat", inherit = Object)
+FileFormat$create <- function(format, ...) {
+  # TODO: pass list(...) options to the initializers
+  # https://issues.apache.org/jira/browse/ARROW-7547
+  if (format == "parquet") {
+    shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make())
+  } else if (format %in% c("ipc", "arrow")) { # These are aliases for the same thing
+    shared_ptr(IpcFileFormat, dataset___IpcFileFormat__Make())
+  } else {
+    stop("Unsupported file format: ", format, call. = FALSE)
+  }
+}
+
+ParquetFileFormat <- R6Class("ParquetFileFormat", inherit = FileFormat)
+IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 
 #' Scan the contents of a dataset
 #'

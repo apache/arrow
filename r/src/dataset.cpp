@@ -23,10 +23,8 @@
 std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make2(
     const std::shared_ptr<fs::FileSystem>& fs,
     const std::shared_ptr<fs::FileSelector>& selector,
+    const std::shared_ptr<fs::FileFormat>& format,
     const std::shared_ptr<ds::PartitionScheme>& partition_scheme) {
-  // TODO(npr): add format as an argument, don't hard-code Parquet
-  auto format = std::make_shared<ds::ParquetFileFormat>();
-
   // TODO(fsaintjacques): Make options configurable
   auto options = ds::FileSystemDiscoveryOptions{};
   if (partition_scheme != nullptr) {
@@ -40,24 +38,31 @@ std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make2(
 // [[arrow::export]]
 std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make1(
     const std::shared_ptr<fs::FileSystem>& fs,
-    const std::shared_ptr<fs::FileSelector>& selector) {
-  return dataset___FSDSDiscovery__Make2(fs, selector, nullptr);
+    const std::shared_ptr<fs::FileSelector>& selector,
+    const std::shared_ptr<fs::FileFormat>& format) {
+  return dataset___FSDSDiscovery__Make2(fs, selector, format, nullptr);
 }
 
 // [[arrow::export]]
 std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make3(
     const std::shared_ptr<fs::FileSystem>& fs,
     const std::shared_ptr<fs::FileSelector>& selector,
+    const std::shared_ptr<fs::FileFormat>& format,
     const std::shared_ptr<ds::PartitionSchemeDiscovery>& discovery) {
-  // TODO(npr): add format as an argument, don't hard-code Parquet
-  auto format = std::make_shared<ds::ParquetFileFormat>();
-
   // TODO(fsaintjacques): Make options configurable
   auto options = ds::FileSystemDiscoveryOptions{};
   options.partition_scheme = discovery;
 
   return VALUE_OR_STOP(
       ds::FileSystemDataSourceDiscovery::Make(fs, *selector, format, options));
+}
+
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make() {
+  return std::make_shared<ds::ParquetFileFormat>();
+}
+
+std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make() {
+  return std::make_shared<ds::IpcFileFormat>();
 }
 
 // [[arrow::export]]
