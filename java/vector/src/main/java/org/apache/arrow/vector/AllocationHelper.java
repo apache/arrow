@@ -77,7 +77,7 @@ public class AllocationHelper {
   }
 
   /**
-   * Allocates the exact amount if v is fixed width, otherwise falls back to dynamic allocation
+   * Allocates the exact amount if v is fixed width, otherwise falls back to dynamic allocation.
    *
    * @param v          value vector we are trying to allocate
    * @param valueCount size we are trying to allocate

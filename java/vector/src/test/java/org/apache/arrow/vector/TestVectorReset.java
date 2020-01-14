@@ -33,7 +33,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.FieldType;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -100,7 +99,7 @@ public class TestVectorReset {
     try (final ListVector variableList =
            new ListVector("VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
          final FixedSizeListVector fixedList =
-           new FixedSizeListVector("FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null)
+            new FixedSizeListVector("FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null)
     ) {
       // ListVector
       variableList.allocateNewSafe();
@@ -123,7 +122,7 @@ public class TestVectorReset {
     try (final NonNullableStructVector nonNullableStructVector =
            new NonNullableStructVector("Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
          final StructVector structVector =
-           new StructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
+            new StructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
     ) {
       // NonNullableStructVector
       nonNullableStructVector.allocateNewSafe();

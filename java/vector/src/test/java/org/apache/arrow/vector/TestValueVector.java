@@ -496,7 +496,7 @@ public class TestValueVector {
 
     // Create a new value vector for 1024 integers.
     try (final UInt4Vector vector = newVector(UInt4Vector.class, EMPTY_SCHEMA_PATH, new ArrowType.Int(32, false),
-      allocator);) {
+        allocator);) {
       boolean error = false;
       int initialCapacity = 1024;
 

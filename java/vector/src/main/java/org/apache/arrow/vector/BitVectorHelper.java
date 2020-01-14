@@ -74,6 +74,8 @@ public class BitVectorHelper {
   }
 
   /**
+   * Set the bit at provided index to 1.
+   *
    * @deprecated Please use {@link BitVectorHelper#setBit(ArrowBuf, int)} instead..
    */
   @Deprecated

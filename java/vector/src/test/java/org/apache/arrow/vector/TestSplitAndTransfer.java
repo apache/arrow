@@ -23,10 +23,8 @@ import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.util.TransferPair;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

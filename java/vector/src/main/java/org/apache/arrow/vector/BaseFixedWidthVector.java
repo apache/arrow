@@ -176,7 +176,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   /**
-   * Get the current value capacity for the vector
+   * Get the current value capacity for the vector.
+   *
    * @return number of elements that vector can hold.
    */
   @Override
@@ -496,7 +497,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   /**
-   * Get the buffers belonging to this vector
+   * Get the buffers belonging to this vector.
+   *
    * @return the inner buffers.
    */
   public List<ArrowBuf> getFieldBuffers() {

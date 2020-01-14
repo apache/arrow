@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.junit.After;
@@ -54,7 +53,7 @@ public class TestArrowBufPointer {
   @Test
   public void testArrowBufPointersEqual() {
     try (ArrowBuf buf1 = allocator.buffer(BUFFER_LENGTH);
-    ArrowBuf buf2 = allocator.buffer(BUFFER_LENGTH)) {
+        ArrowBuf buf2 = allocator.buffer(BUFFER_LENGTH)) {
       for (int i = 0; i < BUFFER_LENGTH / 4; i++) {
         buf1.setInt(i * 4, i * 1234);
         buf2.setInt(i * 4, i * 1234);

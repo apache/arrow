@@ -72,7 +72,7 @@ public class TestBitVectorHelper {
   public void testAllBitsNull() {
     final int bufferLength = 32 * 1024;
     try (RootAllocator allocator = new RootAllocator(bufferLength);
-    ArrowBuf validityBuffer = allocator.buffer(bufferLength)) {
+        ArrowBuf validityBuffer = allocator.buffer(bufferLength)) {
 
       validityBuffer.setZero(0, bufferLength);
       int bitLength = 1024;

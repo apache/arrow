@@ -19,7 +19,6 @@ package org.apache.arrow.flight;
 
 import java.util.Arrays;
 import java.util.Collections;
-
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -32,7 +31,6 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;

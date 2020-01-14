@@ -743,7 +743,7 @@ public class TestArrowFile extends BaseFileTest {
       Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
       try (FileOutputStream fileOutputStream = new FileOutputStream(file);
            VectorSchemaRoot root =
-             new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
+              new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
            ArrowFileWriter writer = new ArrowFileWriter(root, null, fileOutputStream.getChannel());) {
         writeBatchData(writer, vector, root);
         numBlocksWritten = writer.getRecordBlocks().size();

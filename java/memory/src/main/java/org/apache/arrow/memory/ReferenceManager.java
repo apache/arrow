@@ -102,7 +102,7 @@ public interface ReferenceManager {
   OwnershipTransferResult transferOwnership(ArrowBuf sourceBuffer, BufferAllocator targetAllocator);
 
   /**
-   * Get the buffer allocator associated with this reference manager
+   * Get the buffer allocator associated with this reference manager.
    * @return buffer allocator.
    */
   BufferAllocator getAllocator();

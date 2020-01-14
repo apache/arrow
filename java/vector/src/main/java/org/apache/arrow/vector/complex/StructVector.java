@@ -67,6 +67,8 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   private int validityAllocationSizeInBytes;
 
   /**
+   * Creates a new instance.
+   *
    * @deprecated Use FieldType or static constructor instead.
    */
   @Deprecated
@@ -75,6 +77,8 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   /**
+   * Creates a new instance.
+   * 
    * @deprecated Use FieldType or static constructor instead.
    */
   @Deprecated

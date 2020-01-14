@@ -37,7 +37,6 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,6 +84,8 @@ public class Field {
   }
 
   /**
+   * Creates a new field.
+   *
    * @deprecated Use FieldType or static constructor instead.
    */
   @Deprecated
@@ -93,6 +94,8 @@ public class Field {
   }
 
   /**
+   * Creates a new field.
+   *
    * @deprecated Use FieldType or static constructor instead.
    */
   @Deprecated

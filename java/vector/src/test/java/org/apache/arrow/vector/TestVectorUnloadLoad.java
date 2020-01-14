@@ -71,7 +71,7 @@ public class TestVectorUnloadLoad {
 
     try (
         BufferAllocator originalVectorsAllocator =
-          allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         NonNullableStructVector parent = NonNullableStructVector.empty("parent", originalVectorsAllocator)) {
 
       // write some data
@@ -120,7 +120,7 @@ public class TestVectorUnloadLoad {
     Schema schema;
     try (
         BufferAllocator originalVectorsAllocator =
-          allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         NonNullableStructVector parent = NonNullableStructVector.empty("parent", originalVectorsAllocator)) {
 
       // write some data
@@ -233,7 +233,7 @@ public class TestVectorUnloadLoad {
 
     try (
         ArrowRecordBatch recordBatch = new ArrowRecordBatch(count, asList(new ArrowFieldNode(count, 0),
-          new ArrowFieldNode(count, count)), asList(values[0], values[1], values[2], values[3]));
+            new ArrowFieldNode(count, count)), asList(values[0], values[1], values[2], values[3]));
         BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
         VectorSchemaRoot newRoot = VectorSchemaRoot.create(schema, finalVectorsAllocator);
     ) {
@@ -284,7 +284,7 @@ public class TestVectorUnloadLoad {
 
     try (
         BufferAllocator originalVectorsAllocator =
-          allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
     ) {
       List<FieldVector> sources = new ArrayList<>();
       for (Field field : schema.getFields()) {
@@ -302,7 +302,7 @@ public class TestVectorUnloadLoad {
         VectorUnloader vectorUnloader = new VectorUnloader(root);
         try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
              BufferAllocator finalVectorsAllocator =
-               allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+                allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
              VectorSchemaRoot newRoot = VectorSchemaRoot.create(schema, finalVectorsAllocator);) {
           // load it
           VectorLoader vectorLoader = new VectorLoader(newRoot);

@@ -45,7 +45,6 @@ import org.apache.arrow.util.VisibleForTesting;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
 import io.grpc.netty.NettyServerBuilder;
-
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 

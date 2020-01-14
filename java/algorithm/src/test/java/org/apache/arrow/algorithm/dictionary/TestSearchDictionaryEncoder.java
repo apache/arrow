@@ -29,7 +29,6 @@ import java.util.Random;
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
