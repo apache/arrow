@@ -17,8 +17,7 @@
 
 // Implement Arrow streaming binary format
 
-#ifndef ARROW_IPC_WRITER_H
-#define ARROW_IPC_WRITER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -412,5 +411,3 @@ Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* poo
 
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_WRITER_H
