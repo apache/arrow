@@ -21,6 +21,7 @@ from __future__ import absolute_import
 
 import sys
 
+import pyarrow as pa
 from pyarrow.util import _stringify_path
 
 
@@ -56,6 +57,90 @@ from pyarrow._dataset import (  # noqa
     Source,
     TreeSource,
 )
+
+
+def partitioning(field_names=None, flavor=None):
+    """
+    Specify a partitioning scheme.
+
+    The supported schemes include:
+
+    - "SchemaPartitioning": this scheme expects one segment in the file path
+      for each field in the specified schema (all fields are required to be
+      present). For example given schema<year:int16, month:int8> the path
+      "/2009/11" would be parsed to ("year"_ == 2009 and "month"_ == 11).
+    - "HivePartitioning": a scheme for "/$key=$value/" nested directories as
+      found in Apache Hive. This is a multi-level, directory based partitionin
+      scheme with all data files stored in the leaf directories. Data is
+      partitioned by static values of a particular column in the schema.
+      Partition keys are represented in the form $key=$value in directory
+      names. Field order is ignored, as are missing or unrecognized field
+      names.
+      For example, given schema<year:int16, month:int8, day:int8>, a possible
+      path would be "/year=2009/month=11/day=15".
+
+    Parameters
+    ----------
+    field_names : pyarrow.Schema or list of str
+        The schema that describes the partitions present in the file path. If
+        a list of strings (field names) is passed, the schema's types are
+        inferred from the file paths (only valid for SchemaPartitioning).
+    flavor : str, default None
+        The default is SchemaPartitioning. Specify ``flavor="hive"`` for
+        a HivePartitioning.
+
+    Returns
+    -------
+    PartitionScheme or PartitionDiscovery
+
+    Examples
+    --------
+
+    Specify the Schema for paths like "/2009/11":
+
+    >>> partitioning(pa.schema([("year", pa.int16()), ("month", pa.int8())]))
+
+    or let the types be inferred by only specifying the field names:
+
+    >>> partitioning(["year", "month"])
+
+    Create a Hive scheme for a path like "/year=2009/month=11":
+
+    >>> partitioning(
+    ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]),
+    ...     flavor="hive")
+
+    A Hive scheme can also be discovered from the directory structure (and
+    types will be inferred):
+
+    >>> partitioning(flavor="hive")
+
+    """
+    if flavor is None:
+        # default flavor
+        if isinstance(field_names, pa.Schema):
+            return SchemaPartitionScheme(field_names)
+        elif isinstance(field_names, list):
+            return SchemaPartitionScheme.discover(field_names)
+        elif field_names is None:
+            raise ValueError(
+                "For the default directory flavor, need to specify "
+                "'field_names' as Schema or list of field names")
+        else:
+            raise ValueError(
+                "Expected Schema or list of field names, got {0}".format(
+                    type(field_names)))
+    elif flavor == 'hive':
+        if isinstance(field_names, pa.Schema):
+            return HivePartitionScheme(field_names)
+        elif field_names is None:
+            return HivePartitionScheme.discover()
+        else:
+            raise ValueError(
+                "Expected Schema or None for 'field_names', got {0}".format(
+                    type(field_names)))
+    else:
+        raise ValueError("Unsupported flavor")
 
 
 def open_dataset(sources, filesystem=None, partition_scheme=None,
@@ -109,6 +194,8 @@ def open_dataset(sources, filesystem=None, partition_scheme=None,
     options = FileSystemDiscoveryOptions()
 
     if partition_scheme is not None:
+        if isinstance(partition_scheme, str):
+            partition_scheme = partitioning(flavor=partition_scheme)
         if isinstance(partition_scheme, PartitionSchemeDiscovery):
             options.partition_scheme_discovery = partition_scheme
         elif isinstance(partition_scheme, PartitionScheme):
@@ -123,25 +210,3 @@ def open_dataset(sources, filesystem=None, partition_scheme=None,
 
     inspected_schema = discovery.inspect()
     return Dataset([discovery.finish()], inspected_schema)
-
-
-def schema_partition_scheme(schema):
-    from pyarrow import Schema
-
-    if isinstance(schema, Schema):
-        return SchemaPartitionScheme(schema)
-    elif isinstance(schema, list):
-        return SchemaPartitionScheme.discover(schema)
-    raise ValueError("Expected Schema or list of names, got {0}".format(
-        type(schema)))
-
-
-def hive_partition_scheme(schema=None):
-    from pyarrow import Schema
-
-    if schema is None:
-        return HivePartitionScheme.discover()
-    elif isinstance(schema, Schema):
-        return HivePartitionScheme(schema)
-    else:
-        raise ValueError("Expected Schema, got {0}".format(type(schema)))

@@ -387,6 +387,35 @@ def test_paritioning_factory(mockfs):
     assert isinstance(hive_partitioning_factory, ds.PartitioningFactory)
 
 
+def test_partitioning_function():
+    schema = pa.schema([("year", pa.int16()), ("month", pa.int8())])
+    names = ["year", "month"]
+
+    # default SchemaPartitionScheme
+
+    part = ds.partitioning(schema)
+    assert isinstance(part, ds.SchemaPartitionScheme)
+    part = ds.partitioning(names)
+    assert isinstance(part, ds.PartitionSchemeDiscovery)
+    # needs schema or names
+    with pytest.raises(ValueError):
+        ds.partitioning()
+
+    # Hive partitioning
+
+    part = ds.partitioning(schema, flavor="hive")
+    assert isinstance(part, ds.HivePartitionScheme)
+    part = ds.partitioning(flavor="hive")
+    assert isinstance(part, ds.PartitionSchemeDiscovery)
+    # cannot pass list of names
+    with pytest.raises(ValueError):
+        ds.partitioning(names, flavor="hive")
+
+    # unsupported flavor
+    with pytest.raises(ValueError):
+        ds.partitioning(schema, flavor="unsupported")
+
+
 @pytest.mark.parquet
 def test_open_dataset_single_file(tempdir):
     import pyarrow.parquet as pq
@@ -449,15 +478,19 @@ def test_open_dataset_partitioned_directory(tempdir):
 
     # specify partition scheme with discovery
     dataset = ds.open_dataset(
-        str(tempdir), partition_scheme=ds.hive_partition_scheme())
+        str(tempdir), partition_scheme=ds.partitioning(flavor="hive"))
     expected_schema = table.schema.append(pa.field("part", pa.int32()))
+    assert dataset.schema.equals(expected_schema, check_metadata=False)
+
+    # specify partition scheme with string short-cut
+    dataset = ds.open_dataset(str(tempdir), partition_scheme="hive")
     assert dataset.schema.equals(expected_schema, check_metadata=False)
 
     # specify partition scheme with explicit scheme
     dataset = ds.open_dataset(
         str(tempdir),
-        partition_scheme=ds.hive_partition_scheme(
-            pa.schema([("part", pa.int8())])))
+        partition_scheme=ds.partitioning(
+            pa.schema([("part", pa.int8())]), flavor="hive"))
     expected_schema = table.schema.append(pa.field("part", pa.int8()))
     assert dataset.schema.equals(expected_schema, check_metadata=False)
 
