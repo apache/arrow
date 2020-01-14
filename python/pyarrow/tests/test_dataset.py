@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pathlib
+
 import numpy as np
 
 import pytest
@@ -381,7 +383,7 @@ def test_paritioning_factory(mockfs):
         ("group", pa.int32()),
         ("key", pa.string()),
     ])
-    assert inspected_schema.remove_metadata().equals(expected_schema)
+    assert inspected_schema.equals(expected_schema, check_metadata=False)
 
     hive_partitioning_factory = ds.HivePartitioning.discover()
     assert isinstance(hive_partitioning_factory, ds.PartitioningFactory)
@@ -394,11 +396,24 @@ def test_open_dataset_single_file(tempdir):
     pq.write_table(table, tempdir / "test.parquet")
 
     dataset = ds.open_dataset(str(tempdir / "test.parquet"))
-    assert dataset.schema.remove_metadata().equals(table.schema)
+    assert dataset.schema.equals(table.schema, check_metadata=False)
 
     result = dataset.new_scan().finish().to_table()
     result = result.replace_schema_metadata()
     assert result.equals(table)
+
+
+@pytest.mark.parquet
+def test_open_dataset_pathlib(tempdir):
+    import pyarrow.parquet as pq
+    table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+    pq.write_table(table, tempdir / "test.parquet")
+
+    path = tempdir / "test.parquet"
+    assert isinstance(path, pathlib.Path)
+    dataset = ds.open_dataset(path)
+    result = dataset.new_scan().finish().to_table()
+    assert result.replace_schema_metadata().equals(table)
 
 
 @pytest.mark.parquet
@@ -444,3 +459,8 @@ def test_open_dataset_partitioned_directory(tempdir):
     expected = expected.append_column(
         "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
     assert result.equals(expected)
+
+
+def test_open_dataset_unsupported_format(tempdir):
+    with pytest.raises(ValueError, match="format 'blabla' is not supported"):
+        ds.open_dataset(["test"], format="blabla")

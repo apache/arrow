@@ -21,6 +21,9 @@ from __future__ import absolute_import
 
 import sys
 
+from pyarrow.util import _stringify_path
+
+
 if sys.version_info < (3,):
     raise ImportError("Python Dataset bindings require Python 3")
 
@@ -55,17 +58,18 @@ from pyarrow._dataset import (  # noqa
 )
 
 
-def open_dataset(path_or_paths, filesystem=None, partition_scheme=None,
+def open_dataset(sources, filesystem=None, partition_scheme=None,
                  format="parquet"):
     """
     Open a multi-file dataset.
 
     Parameters
     ----------
-    path_or_paths : str or list of str
-        String path to a directory containing the data files.
+    sources : str, pathlib.Path, or list of those
+        Path to a directory containing the data files, or a list of paths.
     filesystem : FileSystem, default None
-        By default will be inferred from the path.
+        By default will be inferred from the path. Currently, only the local
+        file system is supported.
     partition_scheme : PartitionScheme or Schema
         If a Schema is passed, it is interpreted as a HivePartitionScheme.
     format : str
@@ -83,14 +87,19 @@ def open_dataset(path_or_paths, filesystem=None, partition_scheme=None,
         # TODO handle other file systems
         filesystem = LocalFileSystem()
 
-    if isinstance(path_or_paths, str):
-        path = filesystem.get_target_stats([path_or_paths])[0]
+    if isinstance(sources, list):
+        sources = [_stringify_path(path) for path in sources]
+    else:
+        sources = _stringify_path(sources)
+
+    if isinstance(sources, str):
+        path = filesystem.get_target_stats([sources])[0]
         if path.type == FileType.Directory:
             # for directory, pass a selector
-            path_or_paths = FileSelector(path_or_paths, recursive=True)
+            sources = FileSelector(sources, recursive=True)
         else:
-            # path_or_paths is a single file path, pass it as a list
-            path_or_paths = [path_or_paths]
+            # sources is a single file path, pass it as a list
+            sources = [sources]
 
     if format == "parquet":
         format = ParquetFileFormat()
@@ -106,7 +115,7 @@ def open_dataset(path_or_paths, filesystem=None, partition_scheme=None,
         options.partition_scheme = partition_scheme
 
     discovery = FileSystemDataSourceDiscovery(
-        filesystem, path_or_paths, format, options)
+        filesystem, sources, format, options)
 
     inspected_schema = discovery.inspect()
     return Dataset([discovery.finish()], inspected_schema)
