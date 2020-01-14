@@ -15,10 +15,11 @@
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
     <version>1.0.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
   </parent>
 
-  <artifactId>arrow-flight</artifactId>
-  <name>Arrow Flight</name>
+  <artifactId>flight-core</artifactId>
+  <name>Arrow Flight Core</name>
   <description>(Experimental)An RPC mechanism for transferring ValueVectors.</description>
   <packaging>jar</packaging>
 
@@ -139,7 +140,7 @@
         <configuration>
           <enableAssertions>false</enableAssertions>
           <systemPropertyVariables>
-            <arrow.test.dataRoot>${project.basedir}/../../testing/data</arrow.test.dataRoot>
+            <arrow.test.dataRoot>${project.basedir}/../../../testing/data</arrow.test.dataRoot>
           </systemPropertyVariables>
         </configuration>
       </plugin>
@@ -221,7 +222,7 @@
           <execution>
             <id>src</id>
             <configuration>
-              <protoSourceRoot>${basedir}/../../format/</protoSourceRoot>
+              <protoSourceRoot>${basedir}/../../../format/</protoSourceRoot>
               <outputDirectory>${project.build.directory}/generated-sources/protobuf</outputDirectory>
             </configuration>
             <goals>

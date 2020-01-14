@@ -37,7 +37,7 @@ Exposing Apache Arrow data on the wire.
 * Go Into the Flight tree
 
     ``` 
-    cd flight
+    cd flight/flight-core
     ```
 
 
@@ -50,7 +50,7 @@ Exposing Apache Arrow data on the wire.
 * In new terminal, run the TestExampleServer to populate the server with example data
 
     ```
-    cd arrow/java/flight
+    cd arrow/java/flight/flight-core
     mvn surefire:test -DdisableServer=true -Dtest=TestExampleServer
     ```
 
