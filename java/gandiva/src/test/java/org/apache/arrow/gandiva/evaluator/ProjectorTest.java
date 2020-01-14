@@ -48,7 +48,6 @@ import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Rule;
