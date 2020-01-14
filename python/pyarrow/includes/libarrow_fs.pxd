@@ -80,7 +80,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
             const c_string& path)
 
     CResult[shared_ptr[CFileSystem]] CFileSystemFromUri \
-        "arrow::fs::FileSystemFromUri"(const c_string& uri)
+        "arrow::fs::FileSystemFromUri"(const c_string& uri, c_string* out_path)
 
     cdef cppclass CLocalFileSystemOptions "arrow::fs::LocalFileSystemOptions":
         c_bool use_mmap
