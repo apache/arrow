@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_ARROW_READER_H
-#define PARQUET_ARROW_READER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -324,5 +323,3 @@ PARQUET_EXPORT
 }  // namespace internal
 }  // namespace arrow
 }  // namespace parquet
-
-#endif  // PARQUET_ARROW_READER_H

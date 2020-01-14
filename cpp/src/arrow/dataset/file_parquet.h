@@ -23,6 +23,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "parquet/properties.h"
 
 namespace parquet {
 class ParquetFileReader;
@@ -36,6 +37,23 @@ namespace dataset {
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
+  /// \defgroup parquet-file-format-reader-properties properties which correspond to
+  /// members of parquet::ReaderProperties.
+  ///
+  /// @{
+  bool use_buffered_stream = parquet::DEFAULT_USE_BUFFERED_STREAM;
+  int64_t buffer_size = parquet::DEFAULT_BUFFER_SIZE;
+  std::shared_ptr<parquet::FileDecryptionProperties> file_decryption_properties;
+  /// @}
+
+  /// \defgroup parquet-file-format-arrow-reader-properties properties which correspond to
+  /// members of parquet::ArrowReaderProperties.
+  ///
+  /// @{
+  std::unordered_set<int> read_dict_indices;
+  int64_t batch_size = parquet::kArrowDefaultBatchSize;
+  /// @}
+
   std::string type_name() const override { return "parquet"; }
 
   Result<bool> IsSupported(const FileSource& source) const override;
@@ -50,10 +68,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   Result<std::shared_ptr<Fragment>> MakeFragment(
       const FileSource& source, std::shared_ptr<ScanOptions> options) override;
-
- private:
-  Result<std::unique_ptr<::parquet::ParquetFileReader>> OpenReader(
-      const FileSource& source, MemoryPool* pool) const;
 };
 
 class ARROW_DS_EXPORT ParquetFragment : public FileFragment {
@@ -63,9 +77,6 @@ class ARROW_DS_EXPORT ParquetFragment : public FileFragment {
 
   bool splittable() const override { return true; }
 };
-
-Result<std::shared_ptr<Expression>> RowGroupStatisticsAsExpression(
-    const parquet::RowGroupMetaData& metadata);
 
 }  // namespace dataset
 }  // namespace arrow

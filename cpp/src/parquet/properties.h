@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_COLUMN_PROPERTIES_H
-#define PARQUET_COLUMN_PROPERTIES_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -721,5 +720,3 @@ PARQUET_EXPORT
 std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties();
 
 }  // namespace parquet
-
-#endif  // PARQUET_COLUMN_PROPERTIES_H
