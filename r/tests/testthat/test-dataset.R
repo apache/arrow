@@ -157,7 +157,6 @@ test_that("IPC/Arrow format data", {
 })
 
 test_that("Dataset with multiple sources", {
-  skip("Need DataSource$schema method first")
   ds <- open_dataset(list(
     data_source(dataset_dir, format = "parquet", partition = "part"),
     data_source(ipc_dir, format = "arrow", partition = "part")
@@ -173,6 +172,11 @@ test_that("Dataset with multiple sources", {
       filter(integer > 6) %>%
       rbind(., .) # Stack it twice
   )
+})
+
+test_that("partition = NULL to ignore partition information (but why?)", {
+  ds <- open_dataset(hive_dir, partition = NULL)
+  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
 })
 
 test_that("filter() with is.na()", {

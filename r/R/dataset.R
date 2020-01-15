@@ -17,7 +17,7 @@
 
 #' Open a multi-file dataset
 #'
-#' @param path String path to a directory containing the data files
+#' @param sources String path to a directory containing the data files
 #' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
 #' will be inferred from the files
 #' @param partition One of
@@ -38,17 +38,19 @@
 #' @export
 #' @seealso [PartitionScheme] for defining partitioning
 #' @include arrow-package.R
-open_dataset <- function(path, schema = NULL, partition = hive_partition(), ...) {
-  dsd <- data_source(path, schema, partition, ...)
-  if (is.null(schema)) {
-    schema <- dsd$Inspect()
+open_dataset <- function(sources, schema = NULL, partition = hive_partition(), ...) {
+  if (is.character(sources)) {
+    sources <- list(data_source(sources, partition, ...))
   }
-  Dataset$create(list(dsd$Finish(schema)), schema)
-  # sources <- list(data_source(path, schema, partition, ...))
-  # Dataset$create(sources, schema)
+  assert_is_list_of(sources, "DataSourceDiscovery")
+  if (is.null(schema)) {
+    # TODO: we should align schemas across sources, not just take first one
+    schema <- sources[[1]]$Inspect()
+  }
+  Dataset$create(map(sources, ~.$Finish(schema)), schema)
 }
 
-data_source <- function(path, schema = NULL, partition = hive_partition(), ...) {
+data_source <- function(path, partition = hive_partition(), ...) {
   if (!is.null(partition)) {
     if (inherits(partition, "Schema")) {
       partition <- SchemaPartitionScheme$create(partition)
@@ -58,13 +60,9 @@ data_source <- function(path, schema = NULL, partition = hive_partition(), ...) 
     }
     assert_is(partition, c("PartitionScheme", "PartitionSchemeDiscovery"))
   }
-  dsd <- DataSourceDiscovery$create(path, partition_scheme = partition, ...)
-  # if (is.null(schema)) {
-  #   schema <- dsd$Inspect()
-  # }
-  # dsd$Finish(schema)
-  # HACK: return discovery bc DS doesn't yield schema yet
-  dsd
+  # Note that we technically return a DataSourceDiscovery, not DataSource
+  # This is because we may need to set a common schema across multiple Sources
+  DataSourceDiscovery$create(path, partition_scheme = partition, ...)
 }
 
 #' Multi-file datasets
@@ -239,7 +237,6 @@ FileFormat <- R6Class("FileFormat", inherit = Object)
 FileFormat$create <- function(format, ...) {
   # TODO: pass list(...) options to the initializers
   # https://issues.apache.org/jira/browse/ARROW-7547
-  print(format)
   if (format == "parquet") {
     shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make())
   } else if (format %in% c("ipc", "arrow")) { # These are aliases for the same thing
