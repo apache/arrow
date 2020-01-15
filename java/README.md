@@ -22,8 +22,8 @@
 ## Setup Build Environment
 
 install:
- - java 7 or later
- - maven 3.3 or later
+ - Java 8 or later
+ - Maven 3.3 or later
 
 ## Building and running tests
 
