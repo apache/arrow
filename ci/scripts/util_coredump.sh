@@ -22,9 +22,9 @@ set -ex
 # automatic backtrace generation for at least the C++ based builds.
 
 # Enable core files
-ulimit -c unlimited -S
+# ulimit -c unlimited -S
 
-if [[ "${TRAVIS_OS_NAME}" = "osx" ]]; then
+if [ "$(uname)" == "Darwin" ]; then
   COREFILE=$(find /cores -maxdepth 1 -type f -name "core.*" | head -n 1)
   if [[ -f "$COREFILE" ]]; then
     lldb -c "$COREFILE" --batch --one-line "thread backtrace all -e true"
