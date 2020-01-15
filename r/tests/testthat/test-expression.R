@@ -46,6 +46,7 @@ test_that("C++ expressions", {
   g <- FieldExpression$create("g")
   expect_is(f == g, "ComparisonExpression")
   expect_is(f == 4, "ComparisonExpression")
+  expect_is(f == "", "ComparisonExpression")
   expect_is(f <= 2L, "ComparisonExpression")
   expect_is(f != FALSE, "ComparisonExpression")
   expect_is(f > 4, "ComparisonExpression")
