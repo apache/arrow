@@ -606,7 +606,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         }
         buffersSeen.put(am, this);
 
-        bufferTotal += am.getAllocatedSize();
+        bufferTotal += am.getSize();
       }
 
       // Preallocated space has to be accounted for
@@ -722,7 +722,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
       sb.append(Integer.toString(System.identityHashCode(am)));
       sb.append("] size ");
-      sb.append(Long.toString(am.getAllocatedSize()));
+      sb.append(Long.toString(am.getSize()));
       sb.append('\n');
     }
   }
