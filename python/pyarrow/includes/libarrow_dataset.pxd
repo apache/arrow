@@ -187,6 +187,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CDataSource "arrow::dataset::DataSource":
         CDataFragmentIterator GetFragments(shared_ptr[CScanOptions] options)
+        const shared_ptr[CSchema]& schema()
         const shared_ptr[CExpression]& partition_expression()
         c_string type_name()
 
@@ -258,11 +259,12 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::FileSystemDataSource"(CDataSource):
         @staticmethod
         CResult[shared_ptr[CDataSource]] Make(
+            shared_ptr[CSchema] schema,
+            shared_ptr[CExpression] source_partition,
+            shared_ptr[CFileFormat] format,
             shared_ptr[CFileSystem] filesystem,
             CFileStatsVector stats,
-            CExpressionVector partitions,
-            shared_ptr[CExpression] source_partition,
-            shared_ptr[CFileFormat] format)
+            CExpressionVector partitions)
         c_string type()
         shared_ptr[CDataFragmentIterator] GetFragments(
             shared_ptr[CScanOptions] options)

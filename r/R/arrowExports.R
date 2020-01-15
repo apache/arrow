@@ -368,6 +368,10 @@ dataset___DSDiscovery__Finish2 <- function(discovery, schema){
     .Call(`_arrow_dataset___DSDiscovery__Finish2` , discovery, schema)
 }
 
+dataset___DataSource__schema <- function(source){
+    .Call(`_arrow_dataset___DataSource__schema` , source)
+}
+
 dataset___DSDiscovery__Inspect <- function(discovery){
     .Call(`_arrow_dataset___DSDiscovery__Inspect` , discovery)
 }

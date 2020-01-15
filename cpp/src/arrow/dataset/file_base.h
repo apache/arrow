@@ -54,8 +54,8 @@ class ARROW_DS_EXPORT FileSource {
       : impl_(PathAndFileSystem{std::move(path), filesystem}),
         compression_(compression) {}
 
-  FileSource(std::shared_ptr<Buffer> buffer,
-             Compression::type compression = Compression::UNCOMPRESSED)
+  explicit FileSource(std::shared_ptr<Buffer> buffer,
+                      Compression::type compression = Compression::UNCOMPRESSED)
       : impl_(std::move(buffer)), compression_(compression) {}
 
   bool operator==(const FileSource& other) const {
@@ -153,16 +153,16 @@ class ARROW_DS_EXPORT FileFormat {
 /// \brief A DataFragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileDataFragment : public DataFragment {
  public:
-  FileDataFragment(const FileSource& source, std::shared_ptr<FileFormat> format,
+  FileDataFragment(FileSource source, std::shared_ptr<FileFormat> format,
                    std::shared_ptr<ScanOptions> scan_options)
       : DataFragment(std::move(scan_options)),
-        source_(source),
+        source_(std::move(source)),
         format_(std::move(format)) {}
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
 
   const FileSource& source() const { return source_; }
-  std::shared_ptr<FileFormat> format() const { return format_; }
+  const std::shared_ptr<FileFormat>& format() const { return format_; }
 
  protected:
   FileSource source_;
@@ -174,66 +174,73 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
  public:
   /// \brief Create a FileSystemDataSource.
   ///
+  /// \param[in] schema the top-level schema of the DataSource
+  /// \param[in] root_partition the top-level partition of the DataSource
+  /// \param[in] format file format to create fragments from.
   /// \param[in] filesystem the filesystem which files are from.
   /// \param[in] stats a list of files/directories to consume.
-  /// \param[in] source_partition the top-level partition of the DataSource
   /// attach additional partition expressions to FileStats found in `stats`.
-  /// \param[in] format file format to create fragments from.
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
   static Result<std::shared_ptr<DataSource>> Make(
-      std::shared_ptr<fs::FileSystem> filesystem, fs::FileStatsVector stats,
-      std::shared_ptr<Expression> source_partition, std::shared_ptr<FileFormat> format);
+      std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
+      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+      fs::FileStatsVector stats);
 
   /// \brief Create a FileSystemDataSource with file-level partitions.
   ///
+  /// \param[in] schema the top-level schema of the DataSource
+  /// \param[in] root_partition the top-level partition of the DataSource
+  /// \param[in] format file format to create fragments from.
   /// \param[in] filesystem the filesystem which files are from.
   /// \param[in] stats a list of files/directories to consume.
   /// \param[in] partitions partition information associated with `stats`.
-  /// \param[in] source_partition the top-level partition of the DataSource
   /// attach additional partition expressions to FileStats found in `stats`.
-  /// \param[in] format file format to create fragments from.
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
   static Result<std::shared_ptr<DataSource>> Make(
-      std::shared_ptr<fs::FileSystem> filesystem, fs::FileStatsVector stats,
-      ExpressionVector partitions, std::shared_ptr<Expression> source_partition,
-      std::shared_ptr<FileFormat> format);
+      std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
+      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+      fs::FileStatsVector stats, ExpressionVector partitions);
 
   /// \brief Create a FileSystemDataSource with file-level partitions.
   ///
+  /// \param[in] schema the top-level schema of the DataSource
+  /// \param[in] root_partition the top-level partition of the DataSource
+  /// \param[in] format file format to create fragments from.
   /// \param[in] filesystem the filesystem which files are from.
   /// \param[in] forest a PathForest of files/directories to consume.
   /// \param[in] partitions partition information associated with `forest`.
-  /// \param[in] source_partition the top-level partition of the DataSource
   /// attach additional partition expressions to FileStats found in `forest`.
-  /// \param[in] format file format to create fragments from.
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
   static Result<std::shared_ptr<DataSource>> Make(
-      std::shared_ptr<fs::FileSystem> filesystem, fs::PathForest forest,
-      ExpressionVector partitions, std::shared_ptr<Expression> source_partition,
-      std::shared_ptr<FileFormat> format);
+      std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
+      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+      fs::PathForest forest, ExpressionVector partitions);
 
   std::string type_name() const override { return "filesystem"; }
 
   std::string ToString() const;
 
+  const std::shared_ptr<FileFormat>& format() const { return format_; }
+
  protected:
   DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
-  FileSystemDataSource(std::shared_ptr<fs::FileSystem> filesystem, fs::PathForest forest,
-                       ExpressionVector file_partitions,
-                       std::shared_ptr<Expression> source_partition,
-                       std::shared_ptr<FileFormat> format);
+  FileSystemDataSource(std::shared_ptr<Schema> schema,
+                       std::shared_ptr<Expression> root_partition,
+                       std::shared_ptr<FileFormat> format,
+                       std::shared_ptr<fs::FileSystem> filesystem, fs::PathForest forest,
+                       ExpressionVector file_partitions);
 
+  std::shared_ptr<FileFormat> format_;
   std::shared_ptr<fs::FileSystem> filesystem_;
   fs::PathForest forest_;
   ExpressionVector partitions_;
-  std::shared_ptr<FileFormat> format_;
 };
 
 }  // namespace dataset

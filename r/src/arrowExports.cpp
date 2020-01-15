@@ -1452,6 +1452,21 @@ RcppExport SEXP _arrow_dataset___DSDiscovery__Finish2(SEXP discovery_sexp, SEXP 
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> dataset___DataSource__schema(const std::shared_ptr<ds::DataSource>& source);
+RcppExport SEXP _arrow_dataset___DataSource__schema(SEXP source_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DataSource>&>::type source(source_sexp);
+	return Rcpp::wrap(dataset___DataSource__schema(source));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DataSource__schema(SEXP source_sexp){
+	Rf_error("Cannot call dataset___DataSource__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(const std::shared_ptr<ds::DataSourceDiscovery>& discovery);
 RcppExport SEXP _arrow_dataset___DSDiscovery__Inspect(SEXP discovery_sexp){
 BEGIN_RCPP
@@ -5638,6 +5653,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___DSDiscovery__Finish1", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish1, 1}, 
 		{ "_arrow_dataset___DSDiscovery__Finish2", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish2, 2}, 
+		{ "_arrow_dataset___DataSource__schema", (DL_FUNC) &_arrow_dataset___DataSource__schema, 1}, 
 		{ "_arrow_dataset___DSDiscovery__Inspect", (DL_FUNC) &_arrow_dataset___DSDiscovery__Inspect, 1}, 
 		{ "_arrow_dataset___SchemaPartitionScheme", (DL_FUNC) &_arrow_dataset___SchemaPartitionScheme, 1}, 
 		{ "_arrow_dataset___SchemaPartitionScheme__MakeDiscovery", (DL_FUNC) &_arrow_dataset___SchemaPartitionScheme__MakeDiscovery, 1}, 

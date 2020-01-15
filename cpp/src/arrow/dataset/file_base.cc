@@ -43,43 +43,45 @@ Result<ScanTaskIterator> FileDataFragment::Scan(std::shared_ptr<ScanContext> con
   return format_->ScanFile(source_, scan_options_, context);
 }
 
-FileSystemDataSource::FileSystemDataSource(std::shared_ptr<fs::FileSystem> filesystem,
+FileSystemDataSource::FileSystemDataSource(std::shared_ptr<Schema> schema,
+                                           std::shared_ptr<Expression> root_partition,
+                                           std::shared_ptr<FileFormat> format,
+                                           std::shared_ptr<fs::FileSystem> filesystem,
                                            fs::PathForest forest,
-                                           ExpressionVector file_partitions,
-                                           std::shared_ptr<Expression> source_partition,
-                                           std::shared_ptr<FileFormat> format)
-    : DataSource(std::move(source_partition)),
+                                           ExpressionVector file_partitions)
+    : DataSource(std::move(schema), std::move(root_partition)),
+      format_(std::move(format)),
       filesystem_(std::move(filesystem)),
       forest_(std::move(forest)),
-      partitions_(std::move(file_partitions)),
-      format_(std::move(format)) {
+      partitions_(std::move(file_partitions)) {
   DCHECK_EQ(static_cast<size_t>(forest_.size()), partitions_.size());
 }
 
 Result<std::shared_ptr<DataSource>> FileSystemDataSource::Make(
-    std::shared_ptr<fs::FileSystem> filesystem, fs::FileStatsVector stats,
-    std::shared_ptr<Expression> source_partition, std::shared_ptr<FileFormat> format) {
+    std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
+    std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+    fs::FileStatsVector stats) {
   ExpressionVector partitions(stats.size(), scalar(true));
-  return Make(std::move(filesystem), std::move(stats), std::move(partitions),
-              std::move(source_partition), std::move(format));
+  return Make(std::move(schema), std::move(root_partition), std::move(format),
+              std::move(filesystem), std::move(stats), std::move(partitions));
 }
 
 Result<std::shared_ptr<DataSource>> FileSystemDataSource::Make(
-    std::shared_ptr<fs::FileSystem> filesystem, fs::FileStatsVector stats,
-    ExpressionVector partitions, std::shared_ptr<Expression> source_partition,
-    std::shared_ptr<FileFormat> format) {
+    std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
+    std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+    fs::FileStatsVector stats, ExpressionVector partitions) {
   ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(stats), &partitions));
-  return Make(std::move(filesystem), std::move(forest), std::move(partitions),
-              std::move(source_partition), std::move(format));
+  return Make(std::move(schema), std::move(root_partition), std::move(format),
+              std::move(filesystem), std::move(forest), std::move(partitions));
 }
 
 Result<std::shared_ptr<DataSource>> FileSystemDataSource::Make(
-    std::shared_ptr<fs::FileSystem> filesystem, fs::PathForest forest,
-    ExpressionVector partitions, std::shared_ptr<Expression> source_partition,
-    std::shared_ptr<FileFormat> format) {
+    std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
+    std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+    fs::PathForest forest, ExpressionVector partitions) {
   return std::shared_ptr<DataSource>(new FileSystemDataSource(
-      std::move(filesystem), std::move(forest), std::move(partitions),
-      std::move(source_partition), std::move(format)));
+      std::move(schema), std::move(root_partition), std::move(format),
+      std::move(filesystem), std::move(forest), std::move(partitions)));
 }
 
 std::string FileSystemDataSource::ToString() const {
