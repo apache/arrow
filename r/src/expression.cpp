@@ -121,7 +121,7 @@ std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
     case STRSXP:
       return ds::scalar(CHAR(STRING_ELT(x, 0)));
     default:
-      // TODO more types (factor, Date, POSIXt, etc.)
+      // TODO more types (factor, POSIXt, etc.)
       Rcpp::stop(
           tfm::format("R object of type %s not supported", Rf_type2char(TYPEOF(x))));
   }
