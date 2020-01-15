@@ -98,12 +98,8 @@ Dataset <- R6Class("Dataset", inherit = Object,
     schema = function() shared_ptr(Schema, dataset___Dataset__schema(self))
   )
 )
-Dataset$create <- function(sources, schema = NULL) {
+Dataset$create <- function(sources, schema) {
   assert_is_list_of(sources, "DataSource")
-  if (is.null(schema)) {
-    # TODO: this should somehow align the schema of multiple sources
-    schema <- sources[[1]]$schema
-  }
   assert_is(schema, "Schema")
   shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
 }
@@ -153,7 +149,10 @@ DataSource <- R6Class("DataSource", inherit = Object,
   active = list(
     #' @description
     #' Return the DataSource's `Schema`
-    schema = function() shared_ptr(Schema, dataset___Dataset__schema(self))
+    schema = function() {
+      print("hello")
+      shared_ptr(Schema, dataset___DataSource__schema(self))
+    }
   )
 )
 
