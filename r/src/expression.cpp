@@ -105,8 +105,18 @@ std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
     case LGLSXP:
       return ds::scalar(Rf_asLogical(x));
     case REALSXP:
+      if (Rf_inherits(x, "Date")) {
+        constexpr static int64_t kMillisecondsPerDay = 86400000;
+        return std::make_shared<ds::ScalarExpression>(
+          std::make_shared<arrow::Date64Scalar>(REAL(x)[0] * kMillisecondsPerDay)
+        );
+      }
       return ds::scalar(Rf_asReal(x));
     case INTSXP:
+      // TODO: figure out DictionaryScalar
+      // if (Rf_inherits(x, "factor")) {
+      //
+      // }
       return ds::scalar(Rf_asInteger(x));
     case STRSXP:
       return ds::scalar(CHAR(STRING_ELT(x, 0)));

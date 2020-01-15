@@ -44,9 +44,13 @@ test_that("array_expression print method", {
 test_that("C++ expressions", {
   f <- FieldExpression$create("f")
   g <- FieldExpression$create("g")
+  date <- ScalarExpression$create(as.Date("2020-01-15"))
   expect_is(f == g, "ComparisonExpression")
   expect_is(f == 4, "ComparisonExpression")
   expect_is(f == "", "ComparisonExpression")
+  expect_is(f == date, "ComparisonExpression")
+  # can't seem to make this work right now
+  # expect_is(f == as.Date("2020-01-15"), "ComparisonExpression")
   expect_is(f <= 2L, "ComparisonExpression")
   expect_is(f != FALSE, "ComparisonExpression")
   expect_is(f > 4, "ComparisonExpression")
