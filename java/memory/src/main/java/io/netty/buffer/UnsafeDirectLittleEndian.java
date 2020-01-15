@@ -269,17 +269,6 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
 
   @Override
   public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-
-    if (obj instanceof UnsafeDirectLittleEndian) {
-      UnsafeDirectLittleEndian that = (UnsafeDirectLittleEndian) obj;
-      return this.wrapped.equals(that.wrapped) &&
-              this.memoryAddress == that.memoryAddress;
-    }
-
-    return false;
+    return this == obj;
   }
-
 }
