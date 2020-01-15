@@ -391,36 +391,42 @@ public class TestBaseAllocator {
   private BaseAllocator createAllocatorWithCustomizedAllocationManager() {
     return new RootAllocator(BaseAllocator.configBuilder()
         .maxAllocation(MAX_ALLOCATION)
-        .allocationManagerFactory((accountingAllocator, size) -> new AllocationManager(accountingAllocator, size) {
-          private final Unsafe unsafe = getUnsafe();
-          private final long address = unsafe.allocateMemory(size);
+        .allocationManagerFactory((accountingAllocator, requestedSize) ->
+            new AllocationManager(accountingAllocator, requestedSize) {
+              private final Unsafe unsafe = getUnsafe();
+              private final long address = unsafe.allocateMemory(requestedSize);
 
-          @Override
-          protected long memoryAddress() {
-            return address;
-          }
-
-          @Override
-          protected void release0() {
-            unsafe.setMemory(address, size, (byte) 0);
-            unsafe.freeMemory(address);
-          }
-
-          private Unsafe getUnsafe() {
-            Field f = null;
-            try {
-              f = Unsafe.class.getDeclaredField("theUnsafe");
-              f.setAccessible(true);
-              return (Unsafe) f.get(null);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-              throw new RuntimeException(e);
-            } finally {
-              if (f != null) {
-                f.setAccessible(false);
+              @Override
+              protected long memoryAddress() {
+                return address;
               }
-            }
-          }
-        }).build());
+
+              @Override
+              protected void release0() {
+                unsafe.setMemory(address, requestedSize, (byte) 0);
+                unsafe.freeMemory(address);
+              }
+
+              @Override
+              public long getAllocatedSize() {
+                return requestedSize;
+              }
+
+              private Unsafe getUnsafe() {
+                Field f = null;
+                try {
+                  f = Unsafe.class.getDeclaredField("theUnsafe");
+                  f.setAccessible(true);
+                  return (Unsafe) f.get(null);
+                } catch (NoSuchFieldException | IllegalAccessException e) {
+                  throw new RuntimeException(e);
+                } finally {
+                  if (f != null) {
+                    f.setAccessible(false);
+                  }
+                }
+              }
+            }).build());
   }
 
   // Allocation listener
