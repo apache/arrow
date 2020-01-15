@@ -18,8 +18,6 @@
 # Wrap testthat::test_that with a check for the C++ library
 options(..skip.tests = !arrow:::arrow_available())
 
-stop("panic!")
-
 test_that <- function(what, code) {
   testthat::test_that(what, {
     skip_if(getOption("..skip.tests", TRUE), "arrow C++ library not available")
