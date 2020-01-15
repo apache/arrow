@@ -60,4 +60,12 @@ if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
 endif()
 
 add_arrow_benchmark(read_write_benchmark PREFIX "arrow-ipc")
-add_arrow_fuzzing(fuzzing_test PREFIX "arrow-ipc")
+
+if(ARROW_FUZZING)
+  add_executable(arrow-ipc-generate-fuzz-corpus generate_fuzz_corpus.cc)
+  target_link_libraries(arrow-ipc-generate-fuzz-corpus ${ARROW_UTIL_LIB}
+                        ${ARROW_TEST_LINK_LIBS})
+endif()
+
+add_arrow_fuzzing(file_fuzz PREFIX "arrow-ipc")
+add_arrow_fuzzing(stream_fuzz PREFIX "arrow-ipc")

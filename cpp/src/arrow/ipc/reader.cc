@@ -1146,5 +1146,47 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file) {
   return ReadSparseTensor(*message->metadata(), &buffer_reader);
 }
 
+///////////////////////////////////////////////////////////////////////////
+// Helpers for fuzzing
+
+namespace internal {
+
+Status FuzzIpcStream(const uint8_t* data, int64_t size) {
+  auto buffer = std::make_shared<Buffer>(data, size);
+  io::BufferReader buffer_reader(buffer);
+
+  std::shared_ptr<RecordBatchReader> batch_reader;
+  RETURN_NOT_OK(RecordBatchStreamReader::Open(&buffer_reader, &batch_reader));
+
+  while (true) {
+    std::shared_ptr<arrow::RecordBatch> batch;
+    RETURN_NOT_OK(batch_reader->ReadNext(&batch));
+    if (batch == nullptr) {
+      break;
+    }
+    RETURN_NOT_OK(batch->ValidateFull());
+  }
+
+  return Status::OK();
+}
+
+Status FuzzIpcFile(const uint8_t* data, int64_t size) {
+  auto buffer = std::make_shared<Buffer>(data, size);
+  io::BufferReader buffer_reader(buffer);
+
+  std::shared_ptr<RecordBatchFileReader> batch_reader;
+  RETURN_NOT_OK(RecordBatchFileReader::Open(&buffer_reader, &batch_reader));
+
+  const int n_batches = batch_reader->num_record_batches();
+  for (int i = 0; i < n_batches; ++i) {
+    std::shared_ptr<arrow::RecordBatch> batch;
+    RETURN_NOT_OK(batch_reader->ReadRecordBatch(i, &batch));
+    RETURN_NOT_OK(batch->ValidateFull());
+  }
+
+  return Status::OK();
+}
+
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
