@@ -371,8 +371,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
             targetReferenceManager.getAllocator().getName());
       }
 
-      boolean overlimit = targetAllocator.forceAllocate(allocationManager.getSize());
-      allocator.releaseBytes(allocationManager.getSize());
+      boolean overlimit = targetAllocator.forceAllocate(allocationManager.getAllocatedSize());
+      allocator.releaseBytes(allocationManager.getAllocatedSize());
       // since the transfer can only happen from the owning reference manager,
       // we need to set the target ref manager as the new owning ref manager
       // for the chunk of memory in allocation manager
@@ -464,7 +464,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    */
   @Override
   public long getSize() {
-    return allocationManager.getSize();
+    return allocationManager.getAllocatedSize();
   }
 
   /**
@@ -477,7 +477,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   public long getAccountedSize() {
     synchronized (allocationManager) {
       if (allocationManager.getOwningLedger() == this) {
-        return allocationManager.getSize();
+        return allocationManager.getAllocatedSize();
       } else {
         return 0;
       }

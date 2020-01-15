@@ -53,7 +53,7 @@ public abstract class AllocationManager {
   // see JIRA for details
   private final LowCostIdentityHashMap<BaseAllocator, BufferLedger> map = new LowCostIdentityHashMap<>();
   private final long amCreationTime = System.nanoTime();
-  private final long size;
+  private final long requestedSize;
 
   // The ReferenceManager created at the time of creation of this AllocationManager
   // is treated as the owning reference manager for the underlying chunk of memory
@@ -61,11 +61,11 @@ public abstract class AllocationManager {
   private volatile BufferLedger owningLedger;
   private volatile long amDestructionTime = 0;
 
-  protected AllocationManager(BaseAllocator accountingAllocator, long size) {
+  protected AllocationManager(BaseAllocator accountingAllocator, long requestedSize) {
     Preconditions.checkNotNull(accountingAllocator);
     accountingAllocator.assertOpen();
 
-    this.size = size;
+    this.requestedSize = requestedSize;
     this.root = accountingAllocator.root;
 
     // we do a no retain association since our creator will want to retrieve the newly created
@@ -154,10 +154,10 @@ public abstract class AllocationManager {
         // the only <allocator, reference manager> mapping was for the owner
         // which now has been removed, it implies we can safely destroy the
         // underlying memory chunk as it is no longer being referenced
-        ((BaseAllocator)oldLedger.getAllocator()).releaseBytes(getSize());
+        ((BaseAllocator)oldLedger.getAllocator()).releaseBytes(getAllocatedSize());
         // free the memory chunk associated with the allocation manager
         release0();
-        ((BaseAllocator)oldLedger.getAllocator()).getListener().onRelease(getSize());
+        ((BaseAllocator)oldLedger.getAllocator()).getListener().onRelease(getAllocatedSize());
         amDestructionTime = System.nanoTime();
         owningLedger = null;
       } else {
@@ -181,10 +181,14 @@ public abstract class AllocationManager {
   /**
    * Return the size of underlying chunk of memory managed by this Allocation Manager.
    *
+   * <p>By default the requested size is the actual size of the memory chunk.
+   * However if concrete AllocationManager impl supports allocating different bytes of memory
+   * comparing to desired, it must also override the getSize() method;
    * @return size of underlying memory chunk
    */
-  public long getSize() {
-    return size;
+  public long getAllocatedSize() {
+    // by default returns the requested size, this is the default AllcationManager behavior.
+    return requestedSize;
   }
 
   /**
