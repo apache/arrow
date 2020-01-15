@@ -766,8 +766,8 @@ def table_to_blockmanager(options, table, categories=None,
             table, [], extension_columns)
 
     _check_data_column_metadata_consistency(all_columns)
-    blocks = _table_to_blocks(options, table, categories, ext_columns_dtypes)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
+    blocks = _table_to_blocks(options, table, categories, ext_columns_dtypes)
 
     axes = [columns, index]
     return BlockManager(blocks, axes)
@@ -1108,11 +1108,9 @@ def _table_to_blocks(options, block_table, categories, extension_columns):
     # Part of table_to_blockmanager
 
     # Convert an arrow table to Block from the internal pandas API
+    columns = block_table.column_names
     result = pa.lib.table_to_blocks(options, block_table, categories,
                                     list(extension_columns.keys()))
-
-    # Defined above
-    columns = block_table.column_names
     return [_reconstruct_block(item, columns, extension_columns)
             for item in result]
 

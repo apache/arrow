@@ -185,14 +185,20 @@ class ARROW_EXPORT Table {
   static Status FromChunkedStructArray(const std::shared_ptr<ChunkedArray>& array,
                                        std::shared_ptr<Table>* table);
 
-  /// Return the table schema
+  /// \brief Return the table schema
   std::shared_ptr<Schema> schema() const { return schema_; }
 
-  /// Return a column by index
+  /// \brief Return a column by index
   virtual std::shared_ptr<ChunkedArray> column(int i) const = 0;
+
+  /// \brief Return vector of all columns for table
+  std::vector<std::shared_ptr<ChunkedArray>> columns() const;
 
   /// Return a column's field by index
   std::shared_ptr<Field> field(int i) const { return schema_->field(i); }
+
+  /// \brief Return vector of all fields for table
+  std::vector<std::shared_ptr<Field>> fields() const;
 
   /// \brief Construct a zero-copy slice of the table with the
   /// indicated offset and length

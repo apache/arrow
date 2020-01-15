@@ -273,6 +273,29 @@ TEST_F(TestTable, InvalidColumns) {
   ASSERT_RAISES(Invalid, table_->ValidateFull());
 }
 
+TEST_F(TestTable, AllColumnsAndFields) {
+  const int length = 100;
+  MakeExample1(length);
+  table_ = Table::Make(schema_, columns_);
+
+  auto columns = table_->columns();
+  auto fields = table_->fields();
+
+  for (int i = 0; i < table_->num_columns(); ++i) {
+    AssertChunkedEqual(*table_->column(i), *columns[i]);
+    AssertFieldEqual(*table_->field(i), *fields[i]);
+  }
+
+  // Zero length
+  std::vector<std::shared_ptr<Array>> t2_columns;
+  auto t2 = Table::Make(::arrow::schema({}), t2_columns);
+  columns = t2->columns();
+  fields = t2->fields();
+
+  ASSERT_EQ(0, columns.size());
+  ASSERT_EQ(0, fields.size());
+}
+
 TEST_F(TestTable, Equals) {
   const int length = 100;
   MakeExample1(length);

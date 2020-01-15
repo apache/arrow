@@ -489,7 +489,9 @@ cdef class _PandasConvertible:
             bint date_as_object=True,
             bint use_threads=True,
             bint deduplicate_objects=True,
-            bint ignore_metadata=False
+            bint ignore_metadata=False,
+            bint split_blocks=False,
+            bint self_destruct=False
     ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
@@ -519,6 +521,16 @@ cdef class _PandasConvertible:
         ignore_metadata : boolean, default False
             If True, do not use the 'pandas' metadata to reconstruct the
             DataFrame index, if present
+        split_blocks : boolean, default False
+            If True, generate one internal "block" for each column when
+            creating a pandas.DataFrame from a RecordBatch or Table. While this
+            can temporarily reduce memory note that various pandas operations
+            can trigger "consolidation" which may balloon memory use
+        self_destruct : boolean, default False
+            EXPERIMENTAL: If True, attempt to deallocate the originating Arrow
+            memory while converting the Arrow object to pandas. If you use the
+            object after calling to_pandas with this option it will crash your
+            program
 
         Returns
         -------
@@ -531,7 +543,9 @@ cdef class _PandasConvertible:
             integer_object_nulls=integer_object_nulls,
             date_as_object=date_as_object,
             use_threads=use_threads,
-            deduplicate_objects=deduplicate_objects
+            deduplicate_objects=deduplicate_objects,
+            split_blocks=split_blocks,
+            self_destruct=self_destruct
         )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata)
@@ -546,6 +560,8 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.date_as_object = options['date_as_object']
     result.use_threads = options['use_threads']
     result.deduplicate_objects = options['deduplicate_objects']
+    result.split_blocks = options['split_blocks']
+    result.self_destruct = options['self_destruct']
     return result
 
 
@@ -974,46 +990,12 @@ cdef class Array(_PandasConvertible):
         return wrap_datum(out)
 
     def _to_pandas(self, options, **kwargs):
-        cdef:
-            PyObject* out
-            PandasOptions c_options = _convert_pandas_options(options)
-            Array array
-
-        if self.type.id == _Type_TIMESTAMP and self.type.unit != 'ns':
-            # pandas only stores ns data - casting here is faster
-            array = self.cast(timestamp('ns'))
-        else:
-            array = self
-
-        with nogil:
-            check_status(ConvertArrayToPandas(c_options, array.sp_array,
-                                              array, &out))
-        result = pandas_api.series(wrap_array_output(out), name=self._name)
-
-        if isinstance(self.type, TimestampType) and self.type.tz is not None:
-            from pyarrow.pandas_compat import make_tz_aware
-
-            result = make_tz_aware(result, self.type.tz)
-
-        return result
+        return _array_like_to_pandas(self, options)
 
     def __array__(self, dtype=None):
-        cdef:
-            PyObject* out
-            PandasOptions c_options
-            object values
-
-        with nogil:
-            check_status(ConvertArrayToPandas(c_options, self.sp_array,
-                                              self, &out))
-
-        # wrap_array_output uses pandas to convert to Categorical, here
-        # always convert to numpy array
-        values = PyObject_to_object(out)
-
+        values = self.to_numpy(zero_copy_only=False)
         if isinstance(values, dict):
             values = np.take(values['dictionary'], values['indices'])
-
         if dtype is None:
             return values
         return values.astype(dtype)
@@ -1057,6 +1039,7 @@ cdef class Array(_PandasConvertible):
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
                                               self, &out))
         array = PyObject_to_object(out)
+
         if writable and not array.flags.writeable:
             # if the conversion already needed to a copy, writeable is True
             array = array.copy()
@@ -1115,6 +1098,44 @@ cdef class Array(_PandasConvertible):
         res = []
         _append_array_buffers(self.sp_array.get().data().get(), res)
         return res
+
+
+cdef _array_like_to_pandas(obj, options):
+    cdef:
+        PyObject* out
+        PandasOptions c_options = _convert_pandas_options(options)
+
+    original_type = obj.type
+
+    if obj.type.id == _Type_TIMESTAMP and obj.type.unit != 'ns':
+        # pandas only stores ns data - casting here is faster
+        obj = obj.cast(timestamp('ns'))
+
+    # ARROW-3789(wesm): when converting to DataFrame we coerce
+    # date/timestamp types to nanoseconds. Not consistent but we should
+    # make it so in the future
+    c_options.coerce_temporal_nanoseconds = False
+
+    if isinstance(obj, Array):
+        with nogil:
+            check_status(ConvertArrayToPandas(c_options,
+                                              (<Array> obj).sp_array,
+                                              obj, &out))
+    elif isinstance(obj, ChunkedArray):
+        with nogil:
+            check_status(libarrow.ConvertChunkedArrayToPandas(
+                c_options,
+                (<ChunkedArray> obj).sp_chunked_array,
+                obj, &out))
+
+    result = pandas_api.series(wrap_array_output(out), name=obj._name)
+
+    if (isinstance(original_type, TimestampType) and
+            original_type.tz is not None):
+        from pyarrow.pandas_compat import make_tz_aware
+        result = make_tz_aware(result, original_type.tz)
+
+    return result
 
 
 cdef wrap_array_output(PyObject* output):
@@ -1956,6 +1977,18 @@ cdef class ExtensionArray(Array):
         cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
         result.validate()
         return result
+
+    def _to_pandas(self, options, **kwargs):
+        result = Array._to_pandas(self, options, **kwargs)
+        # TODO(wesm): is passing through these parameters to the storage array
+        # correct?
+        return result.to_pandas(options, **kwargs)
+
+    def to_numpy(self, **kwargs):
+        """
+        See Array.to_numpy
+        """
+        return self.storage.to_numpy(**kwargs)
 
 
 cdef dict _array_classes = {

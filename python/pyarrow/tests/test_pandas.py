@@ -75,7 +75,7 @@ def _alltypes_example(size=100):
     })
 
 
-def _check_pandas_roundtrip(df, expected=None, use_threads=True,
+def _check_pandas_roundtrip(df, expected=None, use_threads=False,
                             expected_schema=None,
                             check_dtype=True, schema=None,
                             preserve_index=False,
@@ -3038,15 +3038,69 @@ def test_array_uses_memory_pool():
     assert pa.total_allocated_bytes() == prior_allocation
 
 
+def test_singleton_blocks_zero_copy():
+    # Part of ARROW-3789
+    t = pa.table([pa.array(np.arange(1000, dtype=np.int64))], ['f0'])
+    _check_to_pandas_memory_unchanged(t)
+
+
+def _check_to_pandas_memory_unchanged(obj, **kwargs):
+    prior_allocation = pa.total_allocated_bytes()
+    x = obj.to_pandas(**kwargs)  # noqa
+
+    # Memory allocation unchanged -- either zero copy or self-destructing
+    assert pa.total_allocated_bytes() == prior_allocation
+
+
+def test_to_pandas_split_blocks():
+    # ARROW-3789
+    t = pa.table([
+        pa.array([1, 2, 3, 4, 5], type='i1'),
+        pa.array([1, 2, 3, 4, 5], type='i4'),
+        pa.array([1, 2, 3, 4, 5], type='i8'),
+        pa.array([1, 2, 3, 4, 5], type='f4'),
+        pa.array([1, 2, 3, 4, 5], type='f8'),
+        pa.array([1, 2, 3, 4, 5], type='f8'),
+        pa.array([1, 2, 3, 4, 5], type='f8'),
+        pa.array([1, 2, 3, 4, 5], type='f8'),
+    ], ['f{}'.format(i) for i in range(8)])
+
+    _check_blocks_created(t, 8)
+    _check_to_pandas_memory_unchanged(t, split_blocks=True)
+
+
+def _check_blocks_created(t, number):
+    x = t.to_pandas(split_blocks=True)
+    assert len(x._data.blocks) == number
+
+
+def test_to_pandas_self_destruct():
+    K = 50
+
+    def _make_table():
+        return pa.table([
+            # Slice to force a copy
+            pa.array(np.random.randn(10000)[::2])
+            for i in range(K)
+        ], ['f{}'.format(i) for i in range(K)])
+
+    t = _make_table()
+    _check_to_pandas_memory_unchanged(t, split_blocks=True, self_destruct=True)
+
+    # Check non-split-block behavior
+    t = _make_table()
+    _check_to_pandas_memory_unchanged(t, self_destruct=True)
+
+
 def test_table_uses_memory_pool():
     N = 10000
     arr = pa.array(np.arange(N, dtype=np.int64))
-    t = pa.table([arr], ['f0'])
+    t = pa.table([arr, arr, arr], ['f0', 'f1', 'f2'])
 
     prior_allocation = pa.total_allocated_bytes()
     x = t.to_pandas()
 
-    assert pa.total_allocated_bytes() == (prior_allocation + N * 8)
+    assert pa.total_allocated_bytes() == (prior_allocation + 3 * N * 8)
 
     # Check successful garbage collection
     x = None  # noqa

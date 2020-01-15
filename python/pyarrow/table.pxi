@@ -183,37 +183,20 @@ cdef class ChunkedArray(_PandasConvertible):
         return result
 
     def _to_pandas(self, options, **kwargs):
-        cdef:
-            PyObject* out
-            PandasOptions c_options = _convert_pandas_options(options)
-            ChunkedArray array
-
-        if self.type.id == _Type_TIMESTAMP and self.type.unit != 'ns':
-            # pandas only stores ns data - casting here is faster
-            array = self.cast(timestamp('ns'))
-        else:
-            array = self
-
-        with nogil:
-            check_status(libarrow.ConvertChunkedArrayToPandas(
-                c_options,
-                array.sp_chunked_array,
-                array, &out))
-
-        result = pandas_api.series(wrap_array_output(out), name=self._name)
-
-        if isinstance(self.type, TimestampType) and self.type.tz is not None:
-            from pyarrow.pandas_compat import make_tz_aware
-
-            result = make_tz_aware(result, self.type.tz)
-
-        return result
+        return _array_like_to_pandas(self, options)
 
     def __array__(self, dtype=None):
         cdef:
             PyObject* out
             PandasOptions c_options
             object values
+
+        if self.type.id == _Type_EXTENSION:
+            return (
+                chunked_array(
+                    [self.chunk(i).storage for i in range(self.num_chunks)]
+                ).__array__(dtype)
+            )
 
         with nogil:
             check_status(libarrow.ConvertChunkedArrayToPandas(
@@ -874,22 +857,30 @@ def _reconstruct_record_batch(columns, schema):
 def table_to_blocks(options, Table table, categories, extension_columns):
     cdef:
         PyObject* result_obj
-        shared_ptr[CTable] c_table = table.sp_table
+        shared_ptr[CTable] c_table
         CMemoryPool* pool
-        unordered_set[c_string] categorical_columns
         PandasOptions c_options = _convert_pandas_options(options)
-        unordered_set[c_string] c_extension_columns
 
     if categories is not None:
-        categorical_columns = {tobytes(cat) for cat in categories}
+        c_options.categorical_columns = {tobytes(cat) for cat in categories}
     if extension_columns is not None:
-        c_extension_columns = {tobytes(col) for col in extension_columns}
+        c_options.extension_columns = {tobytes(col)
+                                       for col in extension_columns}
+
+    # ARROW-3789(wesm); Convert date/timestamp types to datetime64[ns]
+    c_options.coerce_temporal_nanoseconds = True
+
+    if c_options.self_destruct:
+        # Move the shared_ptr, table is now unsafe to use further
+        c_table = move(table.sp_table)
+        table.table = NULL
+    else:
+        c_table = table.sp_table
 
     with nogil:
         check_status(
-            libarrow.ConvertTableToPandas(
-                c_options, categorical_columns, c_extension_columns, c_table,
-                &result_obj)
+            libarrow.ConvertTableToPandas(c_options, move(c_table),
+                                          &result_obj)
         )
 
     return PyObject_to_object(result_obj)
@@ -913,6 +904,9 @@ cdef class Table(_PandasConvertible):
                         "the `Table.from_*` functions instead.")
 
     def __repr__(self):
+        if self.table == NULL:
+            raise ValueError("Table's internal pointer is NULL, do not use "
+                             "any methods or attributes on this object")
         return 'pyarrow.{}\n{}'.format(type(self).__name__, str(self.schema))
 
     cdef void init(self, const shared_ptr[CTable]& table):
