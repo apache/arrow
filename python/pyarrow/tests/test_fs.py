@@ -600,9 +600,11 @@ def test_hdfs_options(hdfs_server):
     ('mock:/foo/bar', _MockFileSystem, 'foo/bar'),
     ('mock:///foo/bar', _MockFileSystem, 'foo/bar'),
     ('file:', LocalFileSystem, ''),
+    ('file:foo/bar', LocalFileSystem, 'foo/bar'),
     ('file:/foo/bar', LocalFileSystem, '/foo/bar'),
     ('file:///foo/bar', LocalFileSystem, '/foo/bar'),
     ('', LocalFileSystem, ''),
+    ('foo/bar', LocalFileSystem, 'foo/bar'),
     ('/foo/bar', LocalFileSystem, '/foo/bar'),
 ])
 def test_filesystem_from_uri(uri, expected_klass, expected_path):
