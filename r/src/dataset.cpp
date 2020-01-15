@@ -16,7 +16,6 @@
 // under the License.
 
 #include "./arrow_types.h"
-#include <iostream>
 
 #if defined(ARROW_R_WITH_ARROW)
 
@@ -84,7 +83,6 @@ std::shared_ptr<ds::DataSource> dataset___DSDiscovery__Finish2(
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> dataset___DataSource__schema(
     const std::shared_ptr<ds::DataSource>& source) {
-  std::cout<<source->schema()->ToString()<<std::endl;
   return source->schema();
 }
 

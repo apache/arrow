@@ -111,7 +111,7 @@ class ARROW_DS_EXPORT DataSource {
   explicit DataSource(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
 
   DataSource(std::shared_ptr<Schema> schema, std::shared_ptr<Expression> e)
-      : partition_expression_(std::move(e)) {}
+      : schema_(std::move(schema)), partition_expression_(std::move(e)) {}
 
   virtual DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) = 0;
 
