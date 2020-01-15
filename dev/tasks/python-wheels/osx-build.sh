@@ -124,6 +124,7 @@ function build_wheel {
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_DATASET=ON \
           -DARROW_DEPENDENCY_SOURCE=BUNDLED \
+          -DARROW_HDFS=ON \
           -DARROW_FLIGHT=ON \
           -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
           -DARROW_JEMALLOC=ON \
@@ -166,6 +167,7 @@ function build_wheel {
 
     export PYARROW_WITH_DATASET=1
     export PYARROW_WITH_FLIGHT=1
+    export PYARROW_WITH_HDFS=1
     export PYARROW_WITH_PLASMA=1
     export PYARROW_WITH_PARQUET=1
     export PYARROW_WITH_ORC=0
@@ -220,6 +222,8 @@ import sys
 import pyarrow
 import pyarrow.parquet
 import pyarrow.plasma
+import pyarrow.fs
+import pyarrow._hdfs
 
 if sys.version_info.major > 2:
     import pyarrow.dataset
