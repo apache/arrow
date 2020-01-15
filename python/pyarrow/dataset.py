@@ -22,7 +22,7 @@ from __future__ import absolute_import
 import sys
 
 import pyarrow as pa
-from pyarrow.util import _stringify_path
+from pyarrow.util import _stringify_path, _is_path_like
 
 
 if sys.version_info < (3,):
@@ -143,26 +143,28 @@ def partitioning(field_names=None, flavor=None):
         raise ValueError("Unsupported flavor")
 
 
-def open_dataset(sources, filesystem=None, partition_scheme=None,
-                 format="parquet"):
+def source(path_or_paths, filesystem=None, partition_scheme=None,
+           format=None):
     """
-    Open a multi-file dataset.
+    Open a (multi-file) data source.
 
     Parameters
     ----------
-    sources : str, pathlib.Path, or list of those
-        Path to a directory containing the data files, or a list of paths.
+    path_or_paths : str, pathlib.Path, or list of those
+        Path to a file or to a directory containing the data files, or
+        a list of paths.
     filesystem : FileSystem, default None
         By default will be inferred from the path. Currently, only the local
         file system is supported.
-    partition_scheme : PartitionScheme or Schema
-        If a Schema is passed, it is interpreted as a HivePartitionScheme.
+    partition_scheme : PartitionScheme(Discovery) or str
+        The partitioning scheme specified with the ``partitioning()``
+        function. A flavor string can be used as shortcut.
     format : str
         Currently only "parquet" is supported.
 
     Returns
     -------
-    Dataset
+    DataSource of DataSourceDiscovery
 
     """
     from pyarrow.fs import LocalFileSystem, FileType, FileSelector
@@ -171,20 +173,21 @@ def open_dataset(sources, filesystem=None, partition_scheme=None,
         # TODO handle other file systems
         filesystem = LocalFileSystem()
 
-    if isinstance(sources, list):
-        sources = [_stringify_path(path) for path in sources]
+    if isinstance(path_or_paths, list):
+        path_or_paths = [_stringify_path(path) for path in path_or_paths]
     else:
-        sources = _stringify_path(sources)
+        path_or_paths = _stringify_path(path_or_paths)
 
-    if isinstance(sources, str):
-        path = filesystem.get_target_stats([sources])[0]
+    if isinstance(path_or_paths, str):
+        path = filesystem.get_target_stats([path_or_paths])[0]
         if path.type == FileType.Directory:
             # for directory, pass a selector
-            sources = FileSelector(sources, recursive=True)
+            path_or_paths = FileSelector(path_or_paths, recursive=True)
         else:
             # sources is a single file path, pass it as a list
-            sources = [sources]
+            path_or_paths = [path_or_paths]
 
+    format = format or "parquet"
     if format == "parquet":
         format = ParquetFileFormat()
     elif not isinstance(format, FileFormat):
@@ -206,7 +209,84 @@ def open_dataset(sources, filesystem=None, partition_scheme=None,
                 "{0}".format(type(partition_scheme)))
 
     discovery = FileSystemDataSourceDiscovery(
-        filesystem, sources, format, options)
+        filesystem, path_or_paths, format, options)
 
+    # TODO return DataSource if a specific schema was passed?
+
+    # need to return DataSourceDiscovery since `dataset` might need to
+    # finish the discovery with a unified schema
+    return discovery
+
+
+def _ensure_source(src, filesystem=None, partition_scheme=None, format=None):
+    if _is_path_like(src):
+        src = source(src, filesystem=filesystem,
+                     partition_scheme=partition_scheme, format=format)
+    # TODO also accept DataSource?
+    elif isinstance(src, FileSystemDataSourceDiscovery):
+        # when passing a DataSource, the arguments cannot be specified
+        if any(kwarg is not None
+               for kwarg in [filesystem, partition_scheme, format]):
+            raise ValueError(
+                "When passing a DataSource(Discovery), you cannot pass any "
+                "additional arguments")
+    else:
+        raise ValueError("Expected a path-like or DataSource, got {0}".format(
+            type(src)))
+    return src
+
+
+def dataset(sources, filesystem=None, partition_scheme=None, format=None):
+    """
+    Open a (multi-source) dataset.
+
+    Parameters
+    ----------
+    sources : path or list of paths or sources
+        Path to a file or to a directory containing the data files, or a list
+        of paths for a multi-source dataset. To have more control, a list of
+        sources can be passed, created with the ``source()`` function (in this
+        case, the additional keywords will be ignored).
+    filesystem : FileSystem, default None
+        By default will be inferred from the path. Currently, only the local
+        file system is supported.
+    partition_scheme : PartitionScheme(Discovery) or str
+        The partitioning scheme specified with the ``partitioning()``
+        function. A flavor string can be used as shortcut.
+    format : str
+        Currently only "parquet" is supported.
+
+    Returns
+    -------
+    Dataset
+
+    Examples
+    --------
+    Opening a dataset for a single directory:
+
+    >>> dataset("path/to/nyc-taxi/", format="parquet")
+
+    Combining different sources:
+
+    >>> dataset([
+    ...     source("s3://old-taxi-data", format="parquet"),
+    ...     source("local/path/to/new/data", format="csv")
+    ... ])
+
+    """
+    if not isinstance(sources, list):
+        sources = [sources]
+    sources = [
+        _ensure_source(src, filesystem=filesystem,
+                       partition_scheme=partition_scheme, format=format)
+        for src in sources
+    ]
+
+    # TEMP: for now only deal with a single source
+
+    if len(sources) > 1:
+        raise NotImplementedError("only a single source is supported for now")
+
+    discovery = sources[0]
     inspected_schema = discovery.inspect()
     return Dataset([discovery.finish()], inspected_schema)

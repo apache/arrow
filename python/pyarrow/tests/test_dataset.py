@@ -422,7 +422,7 @@ def test_open_dataset_single_file(tempdir):
     table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
     pq.write_table(table, tempdir / "test.parquet")
 
-    dataset = ds.open_dataset(str(tempdir / "test.parquet"))
+    dataset = ds.dataset(str(tempdir / "test.parquet"))
     assert dataset.schema.equals(table.schema, check_metadata=False)
 
     result = dataset.new_scan().finish().to_table()
@@ -440,7 +440,7 @@ def test_open_dataset_pathlib(tempdir):
 
     path = tempdir / "test.parquet"
     assert isinstance(path, pathlib.Path)
-    dataset = ds.open_dataset(path)
+    dataset = ds.dataset(path)
     result = dataset.new_scan().finish().to_table()
     assert result.replace_schema_metadata().equals(table)
 
@@ -452,7 +452,7 @@ def test_open_dataset_directory(tempdir):
     pq.write_table(table, tempdir / "test1.parquet")
     pq.write_table(table, tempdir / "test2.parquet")
 
-    dataset = ds.open_dataset(str(tempdir))
+    dataset = ds.dataset(str(tempdir))
     assert dataset.schema.remove_metadata().equals(table.schema)
 
     result = dataset.new_scan().finish().to_table()
@@ -469,7 +469,7 @@ def test_open_dataset_partitioned_directory(tempdir):
         path.mkdir()
         pq.write_table(table, path / "test.parquet")
 
-    dataset = ds.open_dataset(str(tempdir))
+    dataset = ds.dataset(str(tempdir))
     assert dataset.schema.remove_metadata().equals(table.schema)
 
     result = dataset.new_scan().finish().to_table()
@@ -477,17 +477,17 @@ def test_open_dataset_partitioned_directory(tempdir):
     assert result.equals(pa.concat_tables([table] * 3))
 
     # specify partition scheme with discovery
-    dataset = ds.open_dataset(
+    dataset = ds.dataset(
         str(tempdir), partition_scheme=ds.partitioning(flavor="hive"))
     expected_schema = table.schema.append(pa.field("part", pa.int32()))
     assert dataset.schema.equals(expected_schema, check_metadata=False)
 
     # specify partition scheme with string short-cut
-    dataset = ds.open_dataset(str(tempdir), partition_scheme="hive")
+    dataset = ds.dataset(str(tempdir), partition_scheme="hive")
     assert dataset.schema.equals(expected_schema, check_metadata=False)
 
     # specify partition scheme with explicit scheme
-    dataset = ds.open_dataset(
+    dataset = ds.dataset(
         str(tempdir),
         partition_scheme=ds.partitioning(
             pa.schema([("part", pa.int8())]), flavor="hive"))
@@ -504,4 +504,4 @@ def test_open_dataset_partitioned_directory(tempdir):
 
 def test_open_dataset_unsupported_format(tempdir):
     with pytest.raises(ValueError, match="format 'blabla' is not supported"):
-        ds.open_dataset(["test"], format="blabla")
+        ds.dataset(["test"], format="blabla")
