@@ -44,7 +44,8 @@ open_dataset <- function(sources, schema = NULL, partition = hive_partition(), .
   }
   assert_is_list_of(sources, "DataSourceDiscovery")
   if (is.null(schema)) {
-    # TODO: we should align schemas across sources, not just take first one
+    # TODO: there should be a DatasetFactory
+    # https://jira.apache.org/jira/browse/ARROW-7380
     schema <- sources[[1]]$Inspect()
   }
   Dataset$create(map(sources, ~.$Finish(schema)), schema)
