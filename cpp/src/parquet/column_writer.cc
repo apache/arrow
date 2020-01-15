@@ -1659,6 +1659,10 @@ struct SerializeFunctor<ParquetType, ArrowType, arrow::enable_if_decimal<ArrowTy
     return Status::OK();
   }
 
+  // Parquet's Decimal are stored with FixedLength values where the length is
+  // proportional to the precision. Arrow's Decimal are always stored with 16
+  // bytes. Thus the internal FLBA pointer must be adjusted by the offset calculated
+  // here.
   int32_t Offset(const arrow::Decimal128Array& array) {
     auto decimal_type = checked_pointer_cast<::arrow::Decimal128Type>(array.type());
     return decimal_type->byte_width() - internal::DecimalSize(decimal_type->precision());

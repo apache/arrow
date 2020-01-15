@@ -373,10 +373,11 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     if (!column_chunk->is_stats_set()) return;
     std::shared_ptr<Statistics> stats = column_chunk->statistics();
     // check values after serialization + deserialization
-    ASSERT_EQ(null_count, stats->null_count());
-    ASSERT_EQ(num_values - null_count, stats->num_values());
-    ASSERT_EQ(expected_stats->EncodeMin(), stats->EncodeMin());
-    ASSERT_EQ(expected_stats->EncodeMax(), stats->EncodeMax());
+    EXPECT_EQ(null_count, stats->null_count());
+    EXPECT_EQ(num_values - null_count, stats->num_values());
+    EXPECT_TRUE(expected_stats->HasMinMax());
+    EXPECT_EQ(expected_stats->EncodeMin(), stats->EncodeMin());
+    EXPECT_EQ(expected_stats->EncodeMax(), stats->EncodeMax());
   }
 };
 
@@ -921,7 +922,7 @@ void CheckExtremums() {
 
   constexpr int kNumValues = 8;
   std::array<T, kNumValues> values{0,    smin,     smax,     umin,
-                                   umax, smin - 1, smax + 1, umin - 1};
+                                   umax, smin + 1, smax - 1, umin - 1};
 
   NodePtr unsigned_node = PrimitiveNode::Make(
       "uint", Repetition::OPTIONAL,
@@ -976,6 +977,11 @@ void CheckNaNs() {
   AssertMinMaxAre(some_nan_stats, some_nans, &valid_bitmap_no_nans, min, max);
   // Ingesting NaNs with a null bitmap should not change the result.
   AssertMinMaxAre(some_nan_stats, some_nans, &valid_bitmap, min, max);
+
+  // An array that doesn't start with NaN
+  std::array<T, kNumValues> other_nans{1.5f, max, -3.0f, -1.0f, nan, 2.0f, min, nan};
+  auto other_stats = MakeStatistics<ParquetType>(&descr);
+  AssertMinMaxAre(other_stats, other_nans, min, max);
 }
 
 TEST(TestStatistic, NaNFloatValues) { CheckNaNs<FloatType>(); }
