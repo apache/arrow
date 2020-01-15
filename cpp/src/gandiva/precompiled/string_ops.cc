@@ -276,6 +276,13 @@ FORCE_INLINE
 const char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
                                    int64_t out_len, int32_t* out_length) {
   int32_t len = static_cast<int32_t>(out_len);
+
+  if (len < 0) {
+    gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative");
+    *out_length = 0;
+    return "";
+  }
+
   if (len >= data_len || len == 0) {
     *out_length = data_len;
     return data;
