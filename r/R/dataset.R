@@ -17,11 +17,12 @@
 
 #' Open a multi-file dataset
 #'
-#' @param sources String path to a directory containing the data files
+#' @param sources Either (1) a string path to a directory containing data files,
+#' or (2) a list of `DataSourceDiscovery` objects as created by [data_source()].
 #' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
-#' will be inferred from the files
-#' @param partition One of
-#'   * A `Schema`, in which case the file paths relative to `path` will be
+#' will be inferred from the data sources.
+#' @param partition When `sources` is a file path, one of
+#'   * A `Schema`, in which case the file paths relative to `sources` will be
 #'    parsed, and path segments will be matched with the schema fields. For
 #'    example, `schema(year = int16(), month = int8())` would create partitions
 #'    for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
@@ -32,7 +33,8 @@
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
-#' @param ... additional arguments passed to `DataSourceDiscovery$create()`
+#' @param ... additional arguments passed to `data_source()`, when `sources` is
+#' a file path, otherwise ignored.
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call `$NewScan()` to construct a query directly.
 #' @export
@@ -40,7 +42,7 @@
 #' @include arrow-package.R
 open_dataset <- function(sources, schema = NULL, partition = hive_partition(), ...) {
   if (is.character(sources)) {
-    sources <- list(data_source(sources, partition, ...))
+    sources <- list(data_source(sources, partition = partition, ...))
   }
   assert_is_list_of(sources, "DataSourceDiscovery")
   if (is.null(schema)) {
@@ -49,21 +51,6 @@ open_dataset <- function(sources, schema = NULL, partition = hive_partition(), .
     schema <- sources[[1]]$Inspect()
   }
   Dataset$create(map(sources, ~.$Finish(schema)), schema)
-}
-
-data_source <- function(path, partition = hive_partition(), ...) {
-  if (!is.null(partition)) {
-    if (inherits(partition, "Schema")) {
-      partition <- SchemaPartitionScheme$create(partition)
-    } else if (is.character(partition)) {
-      # These are the column/field names, and we should autodetect their types
-      partition <- SchemaPartitionSchemeDiscovery$create(partition)
-    }
-    assert_is(partition, c("PartitionScheme", "PartitionSchemeDiscovery"))
-  }
-  # Note that we technically return a DataSourceDiscovery, not DataSource
-  # This is because we may need to set a common schema across multiple Sources
-  DataSourceDiscovery$create(path, partition_scheme = partition, ...)
 }
 
 #' Multi-file datasets
@@ -117,17 +104,12 @@ names.Dataset <- function(x) names(x$schema)
 #' `FileSystemDataSourceDiscovery` is a subclass of `DataSourceDiscovery` for
 #' discovering files in the local file system, the only currently supported
 #' file system.
+#'
+#' In general, you'll deal with `DataSourceDiscovery` rather than `DataSource`
+#' itself.
 #' @section Factory:
-#' The `DataSourceDiscovery$create()` factory method instantiates a
-#' `DataSourceDiscovery` and takes the following arguments:
-#' * `path`: A string file path containing data files
-#' * `filesystem`: Currently only "local" is supported
-#' * `format`: Currently only "parquet" is supported
-#' * `allow_non_existent`: logical: is `path` allowed to not exist? Default
-#' `FALSE`. See [FileSelector].
-#' * `recursive`: logical: should files be discovered in subdirectories of
-#' * `path`? Default `TRUE`.
-#' * `...` Additional arguments passed to the [FileSystem] `$create()` method
+#' For the `DataSourceDiscovery$create()` factory method, see [data_source()],
+#' an alias for it.
 #'
 #' `FileSystemDataSourceDiscovery$create()` is a lower-level factory method and
 #' takes the following arguments:
@@ -135,7 +117,9 @@ names.Dataset <- function(x) names(x$schema)
 #' * `selector`: A [FileSelector]
 #' * `format`: Currently only "parquet" is supported
 #' @section Methods:
-#' `DataSource` has no defined methods. It is just passed to `Dataset$create()`.
+#' `DataSource` has one defined method:
+#'
+#' - `$schema`: Active binding, returns the [Schema] of the DataSource
 #'
 #' `DataSourceDiscovery` and its subclasses have the following methods:
 #'
@@ -150,7 +134,6 @@ DataSource <- R6Class("DataSource", inherit = Object,
     #' @description
     #' Return the DataSource's `Schema`
     schema = function() {
-      print("hello")
       shared_ptr(Schema, dataset___DataSource__schema(self))
     }
   )
@@ -175,9 +158,9 @@ DataSourceDiscovery <- R6Class("DataSourceDiscovery", inherit = Object,
 DataSourceDiscovery$create <- function(path,
                                        filesystem = c("auto", "local"),
                                        format = c("parquet", "arrow", "ipc"),
+                                       partition = NULL,
                                        allow_non_existent = FALSE,
                                        recursive = TRUE,
-                                       partition_scheme = NULL,
                                        ...) {
   if (!inherits(filesystem, "FileSystem")) {
     filesystem <- match.arg(filesystem)
@@ -195,10 +178,50 @@ DataSourceDiscovery$create <- function(path,
     allow_non_existent = allow_non_existent,
     recursive = recursive
   )
+
   format <- FileFormat$create(match.arg(format))
-  # This may also require different initializers
-  FileSystemDataSourceDiscovery$create(filesystem, selector, format, partition_scheme)
+
+  if (!is.null(partition)) {
+    if (inherits(partition, "Schema")) {
+      partition <- SchemaPartitionScheme$create(partition)
+    } else if (is.character(partition)) {
+      # These are the column/field names, and we should autodetect their types
+      partition <- SchemaPartitionSchemeDiscovery$create(partition)
+    }
+  }
+  FileSystemDataSourceDiscovery$create(filesystem, selector, format, partition)
 }
+
+#' Create a DataSource for a Dataset
+#'
+#' @param path A string file path containing data files
+#' @param filesystem A string identifier for the filesystem corresponding to
+#' `path`. Currently only "local" is supported.
+#' @param format A string identifier of the format of the files in `path`.
+#' Currently supported options are "parquet", "arrow", and "ipc" (an alias for
+#' the Arrow file format)
+#' @param partition One of
+#'   * A `Schema`, in which case the file paths relative to `sources` will be
+#'    parsed, and path segments will be matched with the schema fields. For
+#'    example, `schema(year = int16(), month = int8())` would create partitions
+#'    for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
+#'   * A character vector that defines the field names corresponding to those
+#'    path segments (that is, you're providing the names that would correspond
+#'    to a `Schema` but the types will be autodetected)
+#'   * A `HivePartitionScheme` or `HivePartitionSchemeDiscovery`, as returned
+#'    by [hive_partition()] which parses explicit or autodetected fields from
+#'    Hive-style path segments
+#'   * `NULL` for no partitioning
+#' @param allow_non_existent logical: is `path` allowed to not exist? Default
+#' `FALSE`. See [FileSelector].
+#' @param recursive logical: should files be discovered in subdirectories of
+#' `path`? Default `TRUE`.
+#' @param ... Additional arguments passed to the [FileSystem] `$create()` method
+#' @return A `DataSourceDiscovery` object. Pass this to [open_dataset()],
+#' in a list potentially with other `DataSourceDiscovery` objects, to create
+#' a `Dataset`.
+#' @export
+data_source <- DataSourceDiscovery$create
 
 #' @usage NULL
 #' @format NULL

@@ -271,7 +271,6 @@ test_that("Assembling a Dataset manually and getting a Table", {
   datasource <- dsd$Finish(schm)
   expect_is(datasource, "DataSource")
   expect_is(datasource$schema, "Schema")
-  print(str(datasource$schema))
   expect_equal(names(schm), names(datasource$schema))
 
   ds <- Dataset$create(list(datasource), schm)
