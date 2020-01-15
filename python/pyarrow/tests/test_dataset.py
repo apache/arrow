@@ -89,7 +89,11 @@ def test_filesystem_data_source(mockfs):
     partitions = [ds.ScalarExpression(True), ds.ScalarExpression(True)]
 
     source = ds.FileSystemDataSource(schema,
-                                     source_partition=None, file_format=file_format, filesystem=mockfs, paths_or_selector=paths, partitions=partitions)
+                                     source_partition=None,
+                                     file_format=file_format,
+                                     filesystem=mockfs,
+                                     paths_or_selector=paths,
+                                     partitions=partitions)
 
     source_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,

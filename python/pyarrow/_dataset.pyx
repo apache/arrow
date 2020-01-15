@@ -632,8 +632,10 @@ cdef class FileSystemDataSource(DataSource):
     cdef:
         CFileSystemDataSource* filesystem_source
 
-    def __init__(self, Schema schema not None, Expression source_partition not None,
-                 FileFormat file_format not None, FileSystem filesystem not None,
+    def __init__(self, Schema schema not None,
+                 Expression source_partition not None,
+                 FileFormat file_format not None,
+                 FileSystem filesystem not None,
                  paths_or_selector, partitions):
         """Create a FileSystemDataSource
 
