@@ -227,6 +227,65 @@ TEST(TestField, TestReplacement) {
   ASSERT_TRUE(f1->metadata()->Equals(*metadata));
 }
 
+TEST(TestField, TestMerge) {
+  auto metadata1 =
+      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"v"}));
+  auto metadata2 =
+      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"bar"}, {"v"}));
+  {
+    // different name.
+    ASSERT_RAISES(Invalid, field("f0", int32())->MergeWith(field("f1", int32())));
+  }
+  {
+    // Same type.
+    auto f1 = field("f", int32())->WithMetadata(metadata1);
+    auto f2 = field("f", int32())->WithMetadata(metadata2);
+    std::shared_ptr<Field> result;
+    ASSERT_OK_AND_ASSIGN(result, f1->MergeWith(f2));
+    ASSERT_TRUE(result->Equals(f1));
+    ASSERT_OK_AND_ASSIGN(result, f2->MergeWith(f1));
+    ASSERT_TRUE(result->Equals(f2));
+  }
+  {
+    // promote_nullability == false
+    auto f = field("f", int32());
+    auto null_field = field("f", null());
+    Field::MergeOptions options;
+    options.promote_nullability = false;
+    ASSERT_RAISES(Invalid, f->MergeWith(null_field, options));
+    ASSERT_RAISES(Invalid, null_field->MergeWith(f, options));
+
+    // Also rejects fields with different nullability.
+    ASSERT_RAISES(Invalid,
+                  f->WithNullable(true)->MergeWith(f->WithNullable(false), options));
+  }
+  {
+    // promote_nullability == true; merge with a null field.
+    Field::MergeOptions options;
+    options.promote_nullability = true;
+    auto f = field("f", int32())->WithNullable(false)->WithMetadata(metadata1);
+    auto null_field = field("f", null())->WithMetadata(metadata2);
+
+    std::shared_ptr<Field> result;
+    ASSERT_OK_AND_ASSIGN(result, f->MergeWith(null_field, options));
+    ASSERT_TRUE(result->Equals(f->WithNullable(true)->WithMetadata(metadata1)));
+    ASSERT_OK_AND_ASSIGN(result, null_field->MergeWith(f, options));
+    ASSERT_TRUE(result->Equals(f->WithNullable(true)->WithMetadata(metadata2)));
+  }
+  {
+    // promote_nullability == true; merge a nullable field and a in-nullable field.
+    Field::MergeOptions options;
+    options.promote_nullability = true;
+    auto f1 = field("f", int32())->WithNullable(false);
+    auto f2 = field("f", int32())->WithNullable(true);
+    std::shared_ptr<Field> result;
+    ASSERT_OK_AND_ASSIGN(result, f1->MergeWith(f2, options));
+    ASSERT_TRUE(result->Equals(f1->WithNullable(true)));
+    ASSERT_OK_AND_ASSIGN(result, f2->MergeWith(f1, options));
+    ASSERT_TRUE(result->Equals(f2));
+  }
+}
+
 using TestSchema = ::testing::Test;
 
 TEST_F(TestSchema, Basics) {
