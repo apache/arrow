@@ -189,6 +189,14 @@ def test_to_numpy_timedelta64(unit):
     np.testing.assert_array_equal(np_arr, expected)
 
 
+def test_to_numpy_dictionary():
+    # ARROW-7591
+    arr = pa.array(["a", "b", "a"]).dictionary_encode()
+    expected = np.array(["a", "b", "a"], dtype=object)
+    np_arr = arr.to_numpy(zero_copy_only=False)
+    np.testing.assert_array_equal(np_arr, expected)
+
+
 @pytest.mark.pandas
 def test_to_pandas_zero_copy():
     import gc
