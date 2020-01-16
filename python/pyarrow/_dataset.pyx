@@ -672,8 +672,9 @@ cdef class FileSystemDataSource(DataSource):
                 'equal to the number of partitions.'
             )
 
-        if source_partition is not None:
-            c_source_partition = source_partition.unwrap()
+        if source_partition is None:
+            source_partition = ScalarExpression(True)
+        c_source_partition = source_partition.unwrap()
 
         result = CFileSystemDataSource.Make(
             pyarrow_unwrap_schema(schema),
