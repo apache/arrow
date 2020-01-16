@@ -692,6 +692,22 @@ impl ArrayEqual for StructArray {
     }
 }
 
+impl ArrayEqual for UnionArray {
+    fn equals(&self, _other: &dyn Array) -> bool {
+        unimplemented!()
+    }
+
+    fn range_equals(
+        &self,
+        _other: &dyn Array,
+        _start_idx: usize,
+        _end_idx: usize,
+        _other_start_idx: usize,
+    ) -> bool {
+        unimplemented!()
+    }
+}
+
 // Compare if the common basic fields between the two arrays are equal
 fn base_equal(this: &ArrayDataRef, other: &ArrayDataRef) -> bool {
     if this.data_type() != other.data_type() {
@@ -1043,6 +1059,23 @@ impl PartialEq<FixedSizeBinaryArray> for Value {
             Value::Array(json_array) => arrow.equals_json_values(&json_array),
             _ => false,
         }
+    }
+}
+impl JsonEqual for UnionArray {
+    fn equals_json(&self, _json: &[&Value]) -> bool {
+        unimplemented!()
+    }
+}
+
+impl PartialEq<Value> for UnionArray {
+    fn eq(&self, _json: &Value) -> bool {
+        unimplemented!()
+    }
+}
+
+impl PartialEq<UnionArray> for Value {
+    fn eq(&self, _array: &UnionArray) -> bool {
+        unimplemented!()
     }
 }
 
