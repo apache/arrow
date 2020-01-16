@@ -57,14 +57,6 @@ environment:
     ARCH: "64"
 
   matrix:
-    - JOB: "2013 R with libarrow"
-      USE_CLCACHE: false
-      TEST_R_WITH_ARROW: "TRUE"
-      RWINLIB_LOCAL: '%APPVEYOR_BUILD_FOLDER%\libarrow.zip'
-      ARROW_R_CXXFLAGS: '-Werror'
-      _R_CHECK_TESTS_NLINES_: 0
-      WARNINGS_ARE_ERRORS: 1
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
     - JOB: "2015 R with libarrow"
       USE_CLCACHE: false
       TEST_R_WITH_ARROW: "TRUE"
@@ -73,22 +65,6 @@ environment:
       _R_CHECK_TESTS_NLINES_: 0
       WARNINGS_ARE_ERRORS: 1
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-    - JOB: "2017 R with libarrow"
-      USE_CLCACHE: false
-      TEST_R_WITH_ARROW: "TRUE"
-      RWINLIB_LOCAL: '%APPVEYOR_BUILD_FOLDER%\libarrow.zip'
-      ARROW_R_CXXFLAGS: '-Werror'
-      _R_CHECK_TESTS_NLINES_: 0
-      WARNINGS_ARE_ERRORS: 1
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-    - JOB: "2019 R with libarrow"
-      USE_CLCACHE: false
-      TEST_R_WITH_ARROW: "TRUE"
-      RWINLIB_LOCAL: '%APPVEYOR_BUILD_FOLDER%\libarrow.zip'
-      ARROW_R_CXXFLAGS: '-Werror'
-      _R_CHECK_TESTS_NLINES_: 0
-      WARNINGS_ARE_ERRORS: 1
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
 
 
   MSVC_DEFAULT_OPTIONS: ON

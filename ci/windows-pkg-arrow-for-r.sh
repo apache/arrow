@@ -23,7 +23,8 @@ VERSION=$(grep Version ../r/DESCRIPTION | cut -d " " -f 2)
 DST_DIR="arrow-$VERSION"
 
 # Untar the two builds we made
-ls | xargs -n 1 tar -xJf
+# Note they are .zst files, not .xz like the older ones
+ls | xargs -n 1 tar -I zstd -xf
 mkdir $DST_DIR
 # Grab the headers from one, either one is fine
 mv mingw64/include $DST_DIR
