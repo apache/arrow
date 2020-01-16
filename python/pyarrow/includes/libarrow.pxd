@@ -319,7 +319,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CField" arrow::Field":
         cppclass CMergeOptions "arrow::Field::MergeOptions":
-            c_bool promote_null_type
+            c_bool promote_nullability
 
             @staticmethod
             CMergeOptions Defaults()

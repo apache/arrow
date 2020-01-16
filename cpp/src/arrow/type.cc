@@ -98,7 +98,7 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
     return Copy();
   }
 
-  if (options.promote_null_type) {
+  if (options.promote_nullability) {
     std::shared_ptr<Field> promoted = MaybePromoteNullTypes(*this, other);
     if (promoted) return promoted;
   }

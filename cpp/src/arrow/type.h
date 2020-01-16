@@ -366,7 +366,7 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// The unified field will be of the other type and become nullable.
     /// Nullability will be promoted to the looser option (nullable if one is not
     /// nullable).
-    bool promote_null_type = true;
+    bool promote_nullability = true;
 
     static MergeOptions Defaults() { return MergeOptions(); }
   };
