@@ -43,7 +43,6 @@ public class UnionListWriter extends AbstractFieldWriter {
   protected PromotableWriter writer;
   private boolean inStruct = false;
   private String structName;
-  private int lastIndex = 0;
   private static final int OFFSET_WIDTH = 4;
 
   public UnionListWriter(ListVector vector) {
@@ -71,7 +70,7 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public Field getField() {
-    return null;
+    return vector.getField();
   }
 
   public void setValueCount(int count) {
@@ -85,7 +84,8 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public void close() throws Exception {
-
+    vector.close();
+    writer.close();
   }
 
   @Override

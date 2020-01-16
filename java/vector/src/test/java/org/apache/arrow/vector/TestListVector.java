@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -31,6 +32,8 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
@@ -870,6 +873,52 @@ public class TestListVector {
       result = vector.getObject(1);
       resultSet = (ArrayList<Long>) result;
       assertEquals(new Long(8), resultSet.get(0));
+    }
+  }
+
+  @Test
+  public void testWriterGetField() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+
+      UnionListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      //set some values
+      writer.startList();
+      writer.integer().writeInt(1);
+      writer.integer().writeInt(2);
+      writer.endList();
+      vector.setValueCount(2);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.Int(32, true)), null);
+      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+  }
+
+  @Test
+  public void testClose() throws Exception {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+
+      UnionListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      //set some values
+      writer.startList();
+      writer.integer().writeInt(1);
+      writer.integer().writeInt(2);
+      writer.endList();
+      vector.setValueCount(2);
+
+      assertTrue(vector.getBufferSize() > 0);
+      assertTrue(vector.getDataVector().getBufferSize() > 0);
+
+      writer.close();
+      assertEquals(0, vector.getBufferSize());
+      assertEquals(0, vector.getDataVector().getBufferSize());
     }
   }
 
