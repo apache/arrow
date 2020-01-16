@@ -45,6 +45,7 @@ cp ci/PKGBUILD .
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --rmdeps --cleanbuild
 
 # Collect the build artifacts and make the shape of zip file that rwinlib expects
+ls
 mkdir build
 cp *.xz build
 cd build
