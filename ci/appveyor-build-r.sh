@@ -19,8 +19,6 @@
 
 set -x
 
-shopt
-
 pacman --sync --noconfirm ccache
 
 pacman --noconfirm -Rcsu mingw-w64-{i686,x86_64}-toolchain gcc pkg-config
