@@ -58,6 +58,7 @@ RUN apt-get update -y -q && \
 # - liblz4-dev is too old
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
+    ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA_JAVA=OFF \
     ARROW_GANDIVA=OFF \

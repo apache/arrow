@@ -60,6 +60,7 @@ RUN dnf update -y && \
 # * protobuf libraries in Fedora 29 are too old for gRPC
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
+    ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \
     ARROW_GANDIVA_JAVA=ON \
     ARROW_GANDIVA=OFF \
