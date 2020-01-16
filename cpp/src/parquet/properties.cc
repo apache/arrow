@@ -27,6 +27,17 @@ namespace parquet {
 
 std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
     std::shared_ptr<ArrowInputFile> source, int64_t start, int64_t num_bytes) {
+  if (pre_buffer_row_group_) {
+    PARQUET_ASSIGN_OR_THROW(auto data, source->ReadAt(start, num_bytes));
+
+    if (data->size() != num_bytes) {
+      std::stringstream ss;
+      ss << "Tried reading " << num_bytes << " bytes starting at position " << start
+         << " from file but only got " << data->size();
+      throw ParquetException(ss.str());
+    }
+    return std::make_shared<::arrow::io::BufferReader>(data);
+  }
   if (buffered_stream_enabled_) {
     // ARROW-6180 / PARQUET-1636 Create isolated reader that references segment
     // of source

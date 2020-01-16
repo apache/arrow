@@ -90,21 +90,21 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         row_group_ordinal_(row_group_number),
         file_decryptor_(file_decryptor) {
     row_group_metadata_ = file_metadata->RowGroup(row_group_number);
-    if (properties()->is_pre_buffer_row_group() && properties()->is_buffered_stream_enabled()) {
+    if (properties()->is_pre_buffer_row_group()) {
       auto col = row_group_metadata_->ColumnChunk(0, row_group_ordinal_, file_decryptor_);
       int64_t col_start = col->data_page_offset();
       if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
          col_start > col->dictionary_page_offset()) {
         col_start = col->dictionary_page_offset();
       }
-      int64_t row_group_start = col_start;
+      row_group_start_offset = col_start;
       PARQUET_ASSIGN_OR_THROW(int64_t file_size, source_->GetSize());
-      int64_t row_group_size = file_size - row_group_start;
+      int64_t row_group_size = file_size - row_group_start_offset;
       if (row_group_metadata_->total_byte_size() + kDefaultMaxPageHeaderSize < row_group_size){
         row_group_size = row_group_metadata_->total_byte_size() + kDefaultMaxPageHeaderSize;
       }
       partial_source_row_group_ =
-        properties_.GetStream(source_, row_group_start, row_group_size);
+        properties_.GetStream(source_, row_group_start_offset, row_group_size);
     } 
   }
 
@@ -137,8 +137,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     std::shared_ptr<ArrowInputStream> stream;
-    if (properties()->is_pre_buffer_row_group() && properties()->is_buffered_stream_enabled()) {
-      stream = partial_source_row_group_;
+    if (properties()->is_pre_buffer_row_group()) {
+      PARQUET_ASSIGN_OR_THROW(auto data, std::dynamic_pointer_cast<ArrowInputFile>(partial_source_row_group_)->ReadAt(col_start - row_group_start_offset, col_length));
+      if (data->size() != col_length) {
+        std::stringstream ss;
+        ss << "Tried reading " << col_length << " bytes starting at position " << col_start
+          << " from file but only got " << data->size();
+        throw ParquetException(ss.str());
+        }
+      stream = std::make_shared<::arrow::io::BufferReader>(data);
     } else {
       stream = properties_.GetStream(source_, col_start, col_length);
     }
@@ -181,6 +188,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
  private:
   std::shared_ptr<ArrowInputFile> source_;
+  int64_t row_group_start_offset;
   bool prebuffered;
   std::shared_ptr<ArrowInputStream> partial_source_row_group_;
   FileMetaData* file_metadata_;
