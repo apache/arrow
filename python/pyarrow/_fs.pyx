@@ -190,6 +190,29 @@ cdef class FileSystem:
                         "the subclasses instead: LocalFileSystem or "
                         "SubTreeFileSystem")
 
+    @staticmethod
+    def from_uri(uri):
+        """Create a new FileSystem from by URI
+
+        A scheme-less URI is considered a local filesystem path.
+        Recognized schemes are "file", "mock", "hdfs" and "viewfs".
+
+        Parameters
+        ----------
+        uri : string
+            URI-based path, for example: file:///some/local/path
+
+        Returns
+        -------
+        With (filesystem, path) tuple where path is the abtract path inside the
+        FileSystem instance.
+        """
+        cdef:
+            c_string path
+            CResult[shared_ptr[CFileSystem]] result
+        result = CFileSystemFromUri(tobytes(uri), &path)
+        return FileSystem.wrap(GetResultValue(result)), frombytes(path)
+
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         self.wrapped = wrapped
         self.fs = wrapped.get()
