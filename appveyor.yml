@@ -115,7 +115,7 @@ before_build:
 build_script:
   - rmdir /s /Q C:\OpenSSL-Win32 C:\OpenSSL-Win64
   - C:\msys64\usr\bin\pacman --noconfirm --ask 20 --sync --refresh --refresh --sysupgrade --sysupgrade
-  - C:\msys64\usr\bin\bash --login -c "$(cygpath ${APPVEYOR_BUILD_FOLDER})/ci/appveyor-build-r.sh"
+  - cmd: bash ci/appveyor-build-r.sh
   - pushd r
   - travis-tool.sh install_deps
 
