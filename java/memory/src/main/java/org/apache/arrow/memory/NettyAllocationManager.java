@@ -64,7 +64,7 @@ public class NettyAllocationManager extends AllocationManager {
   /**
    * Returns the underlying memory chunk size managed.
    *
-   * <p>NettyAllocationManager manages memory chunk by the exact requested size.
+   * <p>NettyAllocationManager rounds requested size up to the next power of two.
    */
   @Override
   protected long getSize() {
