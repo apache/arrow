@@ -42,7 +42,9 @@ export PKG_CONFIG="/${MINGW_INSTALLS}/bin/pkg-config --static"
 
 cd $APPVEYOR_BUILD_FOLDER
 cp ci/PKGBUILD .
+cat /etc/makepkg.conf
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --rmdeps --cleanbuild
+cat /etc/makepkg.conf
 
 # Collect the build artifacts and make the shape of zip file that rwinlib expects
 ls
