@@ -33,16 +33,6 @@ class FileMetaData;
 namespace arrow {
 namespace dataset {
 
-class ARROW_DS_EXPORT ParquetScanOptions : public FileScanOptions {
- public:
-  std::string file_type() const override { return "parquet"; }
-};
-
-class ARROW_DS_EXPORT ParquetWriteOptions : public FileWriteOptions {
- public:
-  std::string file_type() const override { return "parquet"; }
-};
-
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
@@ -58,7 +48,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
                                     std::shared_ptr<ScanOptions> options,
                                     std::shared_ptr<ScanContext> context) const override;
 
-  Result<std::shared_ptr<DataFragment>> MakeFragment(
+  Result<std::shared_ptr<Fragment>> MakeFragment(
       const FileSource& source, std::shared_ptr<ScanOptions> options) override;
 
  private:
@@ -66,10 +56,10 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       const FileSource& source, MemoryPool* pool) const;
 };
 
-class ARROW_DS_EXPORT ParquetFragment : public FileDataFragment {
+class ARROW_DS_EXPORT ParquetFragment : public FileFragment {
  public:
   ParquetFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
-      : FileDataFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
+      : FileFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
 
   bool splittable() const override { return true; }
 };

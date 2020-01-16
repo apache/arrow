@@ -39,7 +39,7 @@ struct FileSelector;
 namespace dataset {
 
 // ----------------------------------------------------------------------
-// Partition schemes
+// Partitioning
 
 /// \brief Interface for parsing partition expressions from string partition
 /// identifiers.
@@ -47,19 +47,19 @@ namespace dataset {
 /// For example, the identifier "foo=5" might be parsed to an equality expression
 /// between the "foo" field and the value 5.
 ///
-/// Some partition schemes may store the field names in a metadata
+/// Some partitionings may store the field names in a metadata
 /// store instead of in file paths, for example
 /// dataset_root/2009/11/... could be used when the partition fields
 /// are "year" and "month"
 ///
 /// Paths are consumed from left to right. Paths must be relative to
 /// the root of a partition; path prefixes must be removed before passing
-/// the path to a scheme for parsing.
-class ARROW_DS_EXPORT PartitionScheme {
+/// the path to a partitioning for parsing.
+class ARROW_DS_EXPORT Partitioning {
  public:
-  virtual ~PartitionScheme() = default;
+  virtual ~Partitioning() = default;
 
-  /// \brief The name identifying the kind of partition scheme
+  /// \brief The name identifying the kind of partitioning
   virtual std::string type_name() const = 0;
 
   /// \brief Parse a path segment into a partition expression
@@ -73,37 +73,38 @@ class ARROW_DS_EXPORT PartitionScheme {
   /// \brief Parse a path into a partition expression
   Result<std::shared_ptr<Expression>> Parse(const std::string& path) const;
 
-  /// \brief A default PartitionScheme which always yields scalar(true)
-  static std::shared_ptr<PartitionScheme> Default();
+  /// \brief A default Partitioning which always yields scalar(true)
+  static std::shared_ptr<Partitioning> Default();
 
   const std::shared_ptr<Schema>& schema() { return schema_; }
 
  protected:
-  explicit PartitionScheme(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
+  explicit Partitioning(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
 
   std::shared_ptr<Schema> schema_;
 };
 
-/// \brief PartitionSchemeDiscovery provides creation of a partition scheme when the
+/// \brief PartitioningFactory provides creation of a partitioning  when the
 /// specific schema must be inferred from available paths (no explicit schema is known).
-class ARROW_DS_EXPORT PartitionSchemeDiscovery {
+class ARROW_DS_EXPORT PartitioningFactory {
  public:
-  virtual ~PartitionSchemeDiscovery() = default;
+  virtual ~PartitioningFactory() = default;
 
-  /// Get the schema for the resulting PartitionScheme.
+  /// Get the schema for the resulting Partitioning.
   virtual Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<util::string_view>& paths) const = 0;
 
-  /// Create a partition scheme using the provided schema
+  /// Create a partitioning  using the provided schema
   /// (fields may be dropped).
-  virtual Result<std::shared_ptr<PartitionScheme>> Finish(
+  virtual Result<std::shared_ptr<Partitioning>> Finish(
       const std::shared_ptr<Schema>& schema) const = 0;
 };
 
-/// \brief Subclass for representing the default, always true scheme.
-class DefaultPartitionScheme : public PartitionScheme {
+/// \brief Subclass for representing the default, a partitioning that returns
+/// the idempotent "true" partition.
+class DefaultPartitioning : public Partitioning {
  public:
-  DefaultPartitionScheme() : PartitionScheme(::arrow::schema({})) {}
+  DefaultPartitioning() : Partitioning(::arrow::schema({})) {}
 
   std::string type_name() const override { return "default"; }
 
@@ -115,13 +116,13 @@ class DefaultPartitionScheme : public PartitionScheme {
 
 /// \brief Subclass for looking up partition information from a dictionary
 /// mapping segments to expressions provided on construction.
-class ARROW_DS_EXPORT SegmentDictionaryPartitionScheme : public PartitionScheme {
+class ARROW_DS_EXPORT SegmentDictionaryPartitioning : public Partitioning {
  public:
-  SegmentDictionaryPartitionScheme(
+  SegmentDictionaryPartitioning(
       std::shared_ptr<Schema> schema,
       std::vector<std::unordered_map<std::string, std::shared_ptr<Expression>>>
           dictionaries)
-      : PartitionScheme(std::move(schema)), dictionaries_(std::move(dictionaries)) {}
+      : Partitioning(std::move(schema)), dictionaries_(std::move(dictionaries)) {}
 
   std::string type_name() const override { return "segment_dictionary"; }
 
@@ -133,9 +134,9 @@ class ARROW_DS_EXPORT SegmentDictionaryPartitionScheme : public PartitionScheme 
   std::vector<std::unordered_map<std::string, std::shared_ptr<Expression>>> dictionaries_;
 };
 
-/// \brief Subclass for the common case of a partition scheme which yields an equality
+/// \brief Subclass for the common case of a partitioning which yields an equality
 /// expression for each segment
-class ARROW_DS_EXPORT PartitionKeysScheme : public PartitionScheme {
+class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
  public:
   /// An unconverted equality expression consisting of a field name and the representation
   /// of a scalar value
@@ -155,29 +156,29 @@ class ARROW_DS_EXPORT PartitionKeysScheme : public PartitionScheme {
                                             int i) const override;
 
  protected:
-  using PartitionScheme::PartitionScheme;
+  using Partitioning::Partitioning;
 };
 
-/// \brief SchemaPartitionScheme parses one segment of a path for each field in its
-/// schema. All fields are required, so paths passed to SchemaPartitionScheme::Parse
+/// \brief DirectoryPartitioning parses one segment of a path for each field in its
+/// schema. All fields are required, so paths passed to DirectoryPartitioning::Parse
 /// must contain segments for each field.
 ///
 /// For example given schema<year:int16, month:int8> the path "/2009/11" would be
 /// parsed to ("year"_ == 2009 and "month"_ == 11)
-class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionKeysScheme {
+class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
  public:
-  explicit SchemaPartitionScheme(std::shared_ptr<Schema> schema)
-      : PartitionKeysScheme(std::move(schema)) {}
+  explicit DirectoryPartitioning(std::shared_ptr<Schema> schema)
+      : KeyValuePartitioning(std::move(schema)) {}
 
   std::string type_name() const override { return "schema"; }
 
   util::optional<Key> ParseKey(const std::string& segment, int i) const override;
 
-  static std::shared_ptr<PartitionSchemeDiscovery> MakeDiscovery(
+  static std::shared_ptr<PartitioningFactory> MakeFactory(
       std::vector<std::string> field_names);
 };
 
-/// \brief Multi-level, directory based partitioning scheme
+/// \brief Multi-level, directory based partitioning
 /// originating from Apache Hive with all data files stored in the
 /// leaf directories. Data is partitioned by static values of a
 /// particular column in the schema. Partition keys are represented in
@@ -186,10 +187,10 @@ class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionKeysScheme {
 ///
 /// For example given schema<year:int16, month:int8, day:int8> the path
 /// "/day=321/ignored=3.4/year=2009" parses to ("year"_ == 2009 and "day"_ == 321)
-class ARROW_DS_EXPORT HivePartitionScheme : public PartitionKeysScheme {
+class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
  public:
-  explicit HivePartitionScheme(std::shared_ptr<Schema> schema)
-      : PartitionKeysScheme(std::move(schema)) {}
+  explicit HivePartitioning(std::shared_ptr<Schema> schema)
+      : KeyValuePartitioning(std::move(schema)) {}
 
   std::string type_name() const override { return "hive"; }
 
@@ -199,19 +200,17 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionKeysScheme {
 
   static util::optional<Key> ParseKey(const std::string& segment);
 
-  static std::shared_ptr<PartitionSchemeDiscovery> MakeDiscovery();
+  static std::shared_ptr<PartitioningFactory> MakeFactory();
 };
 
 /// \brief Implementation provided by lambda or other callable
-class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
+class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
  public:
-  explicit FunctionPartitionScheme(
+  explicit FunctionPartitioning(
       std::shared_ptr<Schema> schema,
       std::function<Result<std::shared_ptr<Expression>>(const std::string&, int)> impl,
       std::string name = "function")
-      : PartitionScheme(std::move(schema)),
-        impl_(std::move(impl)),
-        name_(std::move(name)) {}
+      : Partitioning(std::move(schema)), impl_(std::move(impl)), name_(std::move(name)) {}
 
   std::string type_name() const override { return name_; }
 
@@ -225,45 +224,43 @@ class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
   std::string name_;
 };
 
-// TODO(bkietz) use RE2 and named groups to provide RegexpPartitionScheme
+// TODO(bkietz) use RE2 and named groups to provide RegexpPartitioning
 
-/// \brief Either a PartitionScheme or a PartitionSchemeDiscovery
-class ARROW_DS_EXPORT PartitionSchemeOrDiscovery {
+/// \brief Either a Partitioning or a PartitioningFactory
+class ARROW_DS_EXPORT PartitioningOrFactory {
  public:
-  explicit PartitionSchemeOrDiscovery(std::shared_ptr<PartitionScheme> scheme)
-      : variant_(std::move(scheme)) {}
+  explicit PartitioningOrFactory(std::shared_ptr<Partitioning> partitioning)
+      : variant_(std::move(partitioning)) {}
 
-  explicit PartitionSchemeOrDiscovery(std::shared_ptr<PartitionSchemeDiscovery> discovery)
-      : variant_(std::move(discovery)) {}
+  explicit PartitioningOrFactory(std::shared_ptr<PartitioningFactory> factory)
+      : variant_(std::move(factory)) {}
 
-  PartitionSchemeOrDiscovery& operator=(std::shared_ptr<PartitionScheme> scheme) {
-    variant_ = std::move(scheme);
+  PartitioningOrFactory& operator=(std::shared_ptr<Partitioning> partitioning) {
+    variant_ = std::move(partitioning);
     return *this;
   }
 
-  PartitionSchemeOrDiscovery& operator=(
-      std::shared_ptr<PartitionSchemeDiscovery> discovery) {
-    variant_ = std::move(discovery);
+  PartitioningOrFactory& operator=(std::shared_ptr<PartitioningFactory> factory) {
+    variant_ = std::move(factory);
     return *this;
   }
 
-  std::shared_ptr<PartitionScheme> scheme() const {
-    if (util::holds_alternative<std::shared_ptr<PartitionScheme>>(variant_)) {
-      return util::get<std::shared_ptr<PartitionScheme>>(variant_);
+  std::shared_ptr<Partitioning> partitioning() const {
+    if (util::holds_alternative<std::shared_ptr<Partitioning>>(variant_)) {
+      return util::get<std::shared_ptr<Partitioning>>(variant_);
     }
     return NULLPTR;
   }
 
-  std::shared_ptr<PartitionSchemeDiscovery> discovery() const {
-    if (util::holds_alternative<std::shared_ptr<PartitionSchemeDiscovery>>(variant_)) {
-      return util::get<std::shared_ptr<PartitionSchemeDiscovery>>(variant_);
+  std::shared_ptr<PartitioningFactory> factory() const {
+    if (util::holds_alternative<std::shared_ptr<PartitioningFactory>>(variant_)) {
+      return util::get<std::shared_ptr<PartitioningFactory>>(variant_);
     }
     return NULLPTR;
   }
 
  private:
-  util::variant<std::shared_ptr<PartitionSchemeDiscovery>,
-                std::shared_ptr<PartitionScheme>>
+  util::variant<std::shared_ptr<PartitioningFactory>, std::shared_ptr<Partitioning>>
       variant_;
 };
 

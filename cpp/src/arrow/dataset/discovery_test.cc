@@ -29,15 +29,15 @@
 namespace arrow {
 namespace dataset {
 
-class DataSourceDiscoveryTest : public TestFileSystemDataSource {
+class SourceFactoryTest : public TestFileSystemSource {
  public:
   void AssertInspect(const std::vector<std::shared_ptr<Field>>& expected_fields) {
-    ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect());
+    ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect());
     EXPECT_EQ(*actual, Schema(expected_fields));
   }
 
   void AssertInspectSchemas(std::vector<std::shared_ptr<Schema>> expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, discovery_->InspectSchemas());
+    ASSERT_OK_AND_ASSIGN(auto actual, factory_->InspectSchemas());
 
     EXPECT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++) {
@@ -46,45 +46,44 @@ class DataSourceDiscoveryTest : public TestFileSystemDataSource {
   }
 
  protected:
-  std::shared_ptr<DataSourceDiscovery> discovery_;
+  std::shared_ptr<SourceFactory> factory_;
 };
 
-class MockDataSourceDiscovery : public DataSourceDiscovery {
+class MockSourceFactory : public SourceFactory {
  public:
-  explicit MockDataSourceDiscovery(std::vector<std::shared_ptr<Schema>> schemas)
+  explicit MockSourceFactory(std::vector<std::shared_ptr<Schema>> schemas)
       : schemas_(std::move(schemas)) {}
 
   Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override {
     return schemas_;
   }
 
-  Result<std::shared_ptr<DataSource>> Finish(
-      const std::shared_ptr<Schema>& schema) override {
-    return std::make_shared<SimpleDataSource>(
-        schema, std::vector<std::shared_ptr<DataFragment>>{});
+  Result<std::shared_ptr<Source>> Finish(const std::shared_ptr<Schema>& schema) override {
+    return std::make_shared<InMemorySource>(schema,
+                                            std::vector<std::shared_ptr<Fragment>>{});
   }
 
  protected:
   std::vector<std::shared_ptr<Schema>> schemas_;
 };
 
-class MockPartitionScheme : public PartitionScheme {
+class MockPartitioning : public Partitioning {
  public:
-  explicit MockPartitionScheme(std::shared_ptr<Schema> schema)
-      : PartitionScheme(std::move(schema)) {}
+  explicit MockPartitioning(std::shared_ptr<Schema> schema)
+      : Partitioning(std::move(schema)) {}
 
   Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
                                             int i) const override {
     return nullptr;
   }
 
-  std::string type_name() const override { return "mock_partition_scheme"; }
+  std::string type_name() const override { return "mock_partitioning"; }
 };
 
-class MockDataSourceDiscoveryTest : public DataSourceDiscoveryTest {
+class MockSourceFactoryTest : public SourceFactoryTest {
  public:
-  void MakeDiscovery(std::vector<std::shared_ptr<Schema>> schemas) {
-    discovery_ = std::make_shared<MockDataSourceDiscovery>(schemas);
+  void MakeFactory(std::vector<std::shared_ptr<Schema>> schemas) {
+    factory_ = std::make_shared<MockSourceFactory>(schemas);
   }
 
  protected:
@@ -98,118 +97,117 @@ class MockDataSourceDiscoveryTest : public DataSourceDiscoveryTest {
   std::shared_ptr<Field> i32_fake = field("i32", boolean());
 };
 
-TEST_F(MockDataSourceDiscoveryTest, UnifySchemas) {
-  MakeDiscovery({});
+TEST_F(MockSourceFactoryTest, UnifySchemas) {
+  MakeFactory({});
   AssertInspect({});
 
-  MakeDiscovery({schema({i32}), schema({i32})});
+  MakeFactory({schema({i32}), schema({i32})});
   AssertInspect({i32});
 
-  MakeDiscovery({schema({i32}), schema({i64})});
+  MakeFactory({schema({i32}), schema({i64})});
   AssertInspect({i32, i64});
 
-  MakeDiscovery({schema({i32}), schema({i64})});
+  MakeFactory({schema({i32}), schema({i64})});
   AssertInspect({i32, i64});
 
-  MakeDiscovery({schema({i32}), schema({i32_req})});
+  MakeFactory({schema({i32}), schema({i32_req})});
   AssertInspect({i32});
 
-  MakeDiscovery({schema({i32, f64}), schema({i32_req, i64})});
+  MakeFactory({schema({i32, f64}), schema({i32_req, i64})});
   AssertInspect({i32, f64, i64});
 
-  MakeDiscovery({schema({i32, f64}), schema({f64, i32_fake})});
+  MakeFactory({schema({i32, f64}), schema({f64, i32_fake})});
   // Unification fails when fields with the same name have clashing types.
-  ASSERT_RAISES(Invalid, discovery_->Inspect());
+  ASSERT_RAISES(Invalid, factory_->Inspect());
   // Return the individual schema for closer inspection should not fail.
   AssertInspectSchemas({schema({i32, f64}), schema({f64, i32_fake})});
 }
 
-class FileSystemDataSourceDiscoveryTest : public DataSourceDiscoveryTest {
+class FileSystemSourceFactoryTest : public SourceFactoryTest {
  public:
-  void MakeDiscovery(const std::vector<fs::FileStats>& files) {
+  void MakeFactory(const std::vector<fs::FileStats>& files) {
     MakeFileSystem(files);
-    ASSERT_OK_AND_ASSIGN(discovery_, FileSystemDataSourceDiscovery::Make(
-                                         fs_, selector_, format_, discovery_options_));
+    ASSERT_OK_AND_ASSIGN(factory_, FileSystemSourceFactory::Make(fs_, selector_, format_,
+                                                                 factory_options_));
   }
 
   void AssertFinishWithPaths(std::vector<std::string> paths,
                              std::shared_ptr<Schema> schema = nullptr) {
     if (schema == nullptr) {
-      ASSERT_OK_AND_ASSIGN(schema, discovery_->Inspect());
+      ASSERT_OK_AND_ASSIGN(schema, factory_->Inspect());
     }
     options_ = ScanOptions::Make(schema);
-    ASSERT_OK_AND_ASSIGN(source_, discovery_->Finish(schema));
+    ASSERT_OK_AND_ASSIGN(source_, factory_->Finish(schema));
     AssertFragmentsAreFromPath(source_->GetFragments(options_), paths);
   }
 
  protected:
   fs::FileSelector selector_;
-  FileSystemDiscoveryOptions discovery_options_;
+  FileSystemFactoryOptions factory_options_;
   std::shared_ptr<FileFormat> format_ = std::make_shared<DummyFileFormat>(schema({}));
 };
 
-TEST_F(FileSystemDataSourceDiscoveryTest, Basic) {
-  MakeDiscovery({fs::File("a"), fs::File("b")});
+TEST_F(FileSystemSourceFactoryTest, Basic) {
+  MakeFactory({fs::File("a"), fs::File("b")});
   AssertFinishWithPaths({"a", "b"});
-  MakeDiscovery({fs::Dir("a"), fs::Dir("a/b"), fs::File("a/b/c")});
+  MakeFactory({fs::Dir("a"), fs::Dir("a/b"), fs::File("a/b/c")});
 }
 
-TEST_F(FileSystemDataSourceDiscoveryTest, Selector) {
+TEST_F(FileSystemSourceFactoryTest, Selector) {
   selector_.base_dir = "A";
   selector_.recursive = true;
 
-  MakeDiscovery({fs::File("0"), fs::File("A/a"), fs::File("A/A/a")});
+  MakeFactory({fs::File("0"), fs::File("A/a"), fs::File("A/A/a")});
   // "0" doesn't match selector, so it has been dropped:
   AssertFinishWithPaths({"A/a", "A/A/a"});
 
-  discovery_options_.partition_base_dir = "A/A";
-  MakeDiscovery({fs::File("0"), fs::File("A/a"), fs::File("A/A/a")});
-  // partition_base_dir should not affect filtered files, ony the applied
-  // partition scheme.
+  factory_options_.partition_base_dir = "A/A";
+  MakeFactory({fs::File("0"), fs::File("A/a"), fs::File("A/A/a")});
+  // partition_base_dir should not affect filtered files, only the applied partition
   AssertInspect({});
   AssertFinishWithPaths({"A/a", "A/A/a"});
 }
 
-TEST_F(FileSystemDataSourceDiscoveryTest, ExplicitPartition) {
+TEST_F(FileSystemSourceFactoryTest, ExplicitPartition) {
   selector_.base_dir = "a=ignored/base";
-  discovery_options_.partition_scheme =
-      std::make_shared<HivePartitionScheme>(schema({field("a", float64())}));
+  factory_options_.partitioning =
+      std::make_shared<HivePartitioning>(schema({field("a", float64())}));
 
-  MakeDiscovery(
+  MakeFactory(
       {fs::File(selector_.base_dir + "/a=1"), fs::File(selector_.base_dir + "/a=2")});
 
   AssertInspect({field("a", float64())});
   AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
 }
 
-TEST_F(FileSystemDataSourceDiscoveryTest, DiscoveredPartition) {
+TEST_F(FileSystemSourceFactoryTest, DiscoveredPartition) {
   selector_.base_dir = "a=ignored/base";
-  discovery_options_.partition_scheme = HivePartitionScheme::MakeDiscovery();
-  MakeDiscovery(
+  factory_options_.partitioning = HivePartitioning::MakeFactory();
+  MakeFactory(
       {fs::File(selector_.base_dir + "/a=1"), fs::File(selector_.base_dir + "/a=2")});
 
   AssertInspect({field("a", int32())});
   AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
 }
 
-TEST_F(FileSystemDataSourceDiscoveryTest, MissingDirectories) {
+TEST_F(FileSystemSourceFactoryTest, MissingDirectories) {
   MakeFileSystem({fs::File("base_dir/a=3/b=3/dat"), fs::File("unpartitioned/ignored=3")});
 
-  discovery_options_.partition_base_dir = "base_dir";
-  discovery_options_.partition_scheme = std::make_shared<HivePartitionScheme>(
+  factory_options_.partition_base_dir = "base_dir";
+  factory_options_.partitioning = std::make_shared<HivePartitioning>(
       schema({field("a", int32()), field("b", int32())}));
 
   ASSERT_OK_AND_ASSIGN(
-      discovery_, FileSystemDataSourceDiscovery::Make(
-                      fs_, {"base_dir/a=3/b=3/dat", "unpartitioned/ignored=3"}, format_,
-                      discovery_options_));
+      factory_, FileSystemSourceFactory::Make(
+                    fs_, {"base_dir/a=3/b=3/dat", "unpartitioned/ignored=3"}, format_,
+                    factory_options_));
 
   AssertInspect({field("a", int32()), field("b", int32())});
   AssertFinishWithPaths({"base_dir/a=3/b=3/dat", "unpartitioned/ignored=3"});
 }
 
-TEST_F(FileSystemDataSourceDiscoveryTest, OptionsIgnoredDefaultPrefixes) {
-  MakeDiscovery({
+TEST_F(FileSystemSourceFactoryTest, OptionsIgnoredDefaultPrefixes) {
+  MakeFactory({
       fs::File("."),
       fs::File("_"),
       fs::File("_$folder$"),
@@ -220,9 +218,9 @@ TEST_F(FileSystemDataSourceDiscoveryTest, OptionsIgnoredDefaultPrefixes) {
   AssertFinishWithPaths({"not_ignored_by_default"});
 }
 
-TEST_F(FileSystemDataSourceDiscoveryTest, OptionsIgnoredCustomPrefixes) {
-  discovery_options_.ignore_prefixes = {"not_ignored"};
-  MakeDiscovery({
+TEST_F(FileSystemSourceFactoryTest, OptionsIgnoredCustomPrefixes) {
+  factory_options_.ignore_prefixes = {"not_ignored"};
+  MakeFactory({
       fs::File("."),
       fs::File("_"),
       fs::File("_$folder$"),
@@ -233,15 +231,15 @@ TEST_F(FileSystemDataSourceDiscoveryTest, OptionsIgnoredCustomPrefixes) {
   AssertFinishWithPaths({".", "_", "_$folder$", "_SUCCESS"});
 }
 
-TEST_F(FileSystemDataSourceDiscoveryTest, Inspect) {
+TEST_F(FileSystemSourceFactoryTest, Inspect) {
   auto s = schema({field("f64", float64())});
   format_ = std::make_shared<DummyFileFormat>(s);
 
   // No files
-  MakeDiscovery({});
+  MakeFactory({});
   AssertInspect({});
 
-  MakeDiscovery({fs::File("test")});
+  MakeFactory({fs::File("test")});
   AssertInspect(s->fields());
 }
 

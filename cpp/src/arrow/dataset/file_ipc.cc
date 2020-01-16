@@ -129,7 +129,7 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(
   return IpcScanTaskIterator::Make(options, context, source);
 }
 
-Result<std::shared_ptr<DataFragment>> IpcFileFormat::MakeFragment(
+Result<std::shared_ptr<Fragment>> IpcFileFormat::MakeFragment(
     const FileSource& source, std::shared_ptr<ScanOptions> options) {
   return std::make_shared<IpcFragment>(source, options);
 }

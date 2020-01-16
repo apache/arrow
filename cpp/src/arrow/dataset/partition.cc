@@ -37,8 +37,7 @@ namespace dataset {
 
 using util::string_view;
 
-Result<std::shared_ptr<Expression>> PartitionScheme::Parse(
-    const std::string& path) const {
+Result<std::shared_ptr<Expression>> Partitioning::Parse(const std::string& path) const {
   ExpressionVector expressions;
   int i = 0;
 
@@ -54,11 +53,11 @@ Result<std::shared_ptr<Expression>> PartitionScheme::Parse(
   return and_(std::move(expressions));
 }
 
-std::shared_ptr<PartitionScheme> PartitionScheme::Default() {
-  return std::make_shared<DefaultPartitionScheme>();
+std::shared_ptr<Partitioning> Partitioning::Default() {
+  return std::make_shared<DefaultPartitioning>();
 }
 
-Result<std::shared_ptr<Expression>> SegmentDictionaryPartitionScheme::Parse(
+Result<std::shared_ptr<Expression>> SegmentDictionaryPartitioning::Parse(
     const std::string& segment, int i) const {
   if (static_cast<size_t>(i) < dictionaries_.size()) {
     auto it = dictionaries_[i].find(segment);
@@ -70,7 +69,7 @@ Result<std::shared_ptr<Expression>> SegmentDictionaryPartitionScheme::Parse(
   return scalar(true);
 }
 
-Result<std::shared_ptr<Expression>> PartitionKeysScheme::ConvertKey(
+Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
     const Key& key, const Schema& schema) {
   auto field = schema.GetFieldByName(key.name);
   if (field == nullptr) {
@@ -81,8 +80,8 @@ Result<std::shared_ptr<Expression>> PartitionKeysScheme::ConvertKey(
   return equal(field_ref(field->name()), scalar(converted));
 }
 
-Result<std::shared_ptr<Expression>> PartitionKeysScheme::Parse(const std::string& segment,
-                                                               int i) const {
+Result<std::shared_ptr<Expression>> KeyValuePartitioning::Parse(
+    const std::string& segment, int i) const {
   if (auto key = ParseKey(segment, i)) {
     return ConvertKey(*key, *schema_);
   }
@@ -90,7 +89,7 @@ Result<std::shared_ptr<Expression>> PartitionKeysScheme::Parse(const std::string
   return scalar(true);
 }
 
-util::optional<PartitionKeysScheme::Key> SchemaPartitionScheme::ParseKey(
+util::optional<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKey(
     const std::string& segment, int i) const {
   if (i >= schema_->num_fields()) {
     return util::nullopt;
@@ -118,9 +117,9 @@ inline std::shared_ptr<Schema> InferSchema(
   return ::arrow::schema(std::move(fields));
 }
 
-class SchemaPartitionSchemeDiscovery : public PartitionSchemeDiscovery {
+class DirectoryPartitioningFactory : public PartitioningFactory {
  public:
-  explicit SchemaPartitionSchemeDiscovery(std::vector<std::string> field_names)
+  explicit DirectoryPartitioningFactory(std::vector<std::string> field_names)
       : field_names_(std::move(field_names)) {}
 
   Result<std::shared_ptr<Schema>> Inspect(
@@ -140,7 +139,7 @@ class SchemaPartitionSchemeDiscovery : public PartitionSchemeDiscovery {
     return SchemaFromColumnNames(InferSchema(name_to_values), field_names_);
   }
 
-  Result<std::shared_ptr<PartitionScheme>> Finish(
+  Result<std::shared_ptr<Partitioning>> Finish(
       const std::shared_ptr<Schema>& schema) const override {
     for (const auto& field_name : field_names_) {
       if (schema->GetFieldIndex(field_name) == -1) {
@@ -151,20 +150,20 @@ class SchemaPartitionSchemeDiscovery : public PartitionSchemeDiscovery {
     // drop fields which aren't in field_names_
     auto out_schema = SchemaFromColumnNames(schema, field_names_);
 
-    return std::make_shared<SchemaPartitionScheme>(std::move(out_schema));
+    return std::make_shared<DirectoryPartitioning>(std::move(out_schema));
   }
 
  private:
   std::vector<std::string> field_names_;
 };
 
-std::shared_ptr<PartitionSchemeDiscovery> SchemaPartitionScheme::MakeDiscovery(
+std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
     std::vector<std::string> field_names) {
-  return std::shared_ptr<PartitionSchemeDiscovery>(
-      new SchemaPartitionSchemeDiscovery(std::move(field_names)));
+  return std::shared_ptr<PartitioningFactory>(
+      new DirectoryPartitioningFactory(std::move(field_names)));
 }
 
-util::optional<PartitionKeysScheme::Key> HivePartitionScheme::ParseKey(
+util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
     const std::string& segment) {
   auto name_end = string_view(segment).find_first_of('=');
   if (name_end == string_view::npos) {
@@ -174,7 +173,7 @@ util::optional<PartitionKeysScheme::Key> HivePartitionScheme::ParseKey(
   return Key{segment.substr(0, name_end), segment.substr(name_end + 1)};
 }
 
-class HivePartitionSchemeDiscovery : public PartitionSchemeDiscovery {
+class HivePartitioningFactory : public PartitioningFactory {
  public:
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<string_view>& paths) const override {
@@ -182,7 +181,7 @@ class HivePartitionSchemeDiscovery : public PartitionSchemeDiscovery {
 
     for (auto path : paths) {
       for (auto&& segment : fs::internal::SplitAbstractPath(path.to_string())) {
-        if (auto key = HivePartitionScheme::ParseKey(segment)) {
+        if (auto key = HivePartitioning::ParseKey(segment)) {
           name_to_values[key->name].push_back(std::move(key->value));
         }
       }
@@ -191,14 +190,14 @@ class HivePartitionSchemeDiscovery : public PartitionSchemeDiscovery {
     return InferSchema(name_to_values);
   }
 
-  Result<std::shared_ptr<PartitionScheme>> Finish(
+  Result<std::shared_ptr<Partitioning>> Finish(
       const std::shared_ptr<Schema>& schema) const override {
-    return std::shared_ptr<PartitionScheme>(new HivePartitionScheme(schema));
+    return std::shared_ptr<Partitioning>(new HivePartitioning(schema));
   }
 };
 
-std::shared_ptr<PartitionSchemeDiscovery> HivePartitionScheme::MakeDiscovery() {
-  return std::shared_ptr<PartitionSchemeDiscovery>(new HivePartitionSchemeDiscovery());
+std::shared_ptr<PartitioningFactory> HivePartitioning::MakeFactory() {
+  return std::shared_ptr<PartitioningFactory>(new HivePartitioningFactory());
 }
 
 }  // namespace dataset

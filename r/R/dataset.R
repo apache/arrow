@@ -18,10 +18,10 @@
 #' Open a multi-file dataset
 #'
 #' @param sources Either (1) a string path to a directory containing data files,
-#' or (2) a list of `DataSourceDiscovery` objects as created by [data_source()].
+#' or (2) a list of `SourceFactory` objects as created by [open_source()].
 #' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
 #' will be inferred from the data sources.
-#' @param partition When `sources` is a file path, one of
+#' @param partitioning When `sources` is a file path, one of
 #'   * A `Schema`, in which case the file paths relative to `sources` will be
 #'    parsed, and path segments will be matched with the schema fields. For
 #'    example, `schema(year = int16(), month = int8())` would create partitions
@@ -29,22 +29,22 @@
 #'   * A character vector that defines the field names corresponding to those
 #'    path segments (that is, you're providing the names that would correspond
 #'    to a `Schema` but the types will be autodetected)
-#'   * A `HivePartitionScheme` or `HivePartitionSchemeDiscovery`, as returned
+#'   * A `HivePartitioning` or `HivePartitioningFactory`, as returned
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
-#' @param ... additional arguments passed to `data_source()`, when `sources` is
+#' @param ... additional arguments passed to `open_source()`, when `sources` is
 #' a file path, otherwise ignored.
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call `$NewScan()` to construct a query directly.
 #' @export
-#' @seealso [PartitionScheme] for defining partitioning
+#' @seealso [Partitioning] for defining partitions
 #' @include arrow-package.R
-open_dataset <- function(sources, schema = NULL, partition = hive_partition(), ...) {
+open_dataset <- function(sources, schema = NULL, partitioning = hive_partition(), ...) {
   if (is.character(sources)) {
-    sources <- list(data_source(sources, partition = partition, ...))
+    sources <- list(open_source(sources, partitioning = partitioning, ...))
   }
-  assert_is_list_of(sources, "DataSourceDiscovery")
+  assert_is_list_of(sources, "SourceFactory")
   if (is.null(schema)) {
     # TODO: there should be a DatasetFactory
     # https://jira.apache.org/jira/browse/ARROW-7380
@@ -63,7 +63,7 @@ open_dataset <- function(sources, schema = NULL, partition = hive_partition(), .
 #' @section Factory:
 #' The `Dataset$create()` factory method instantiates a `Dataset` and
 #' takes the following arguments:
-#' * `sources`: a list of [DataSource] objects
+#' * `sources`: a list of [Source] objects
 #' * `schema`: a [Schema]
 #' @section Methods:
 #'
@@ -71,7 +71,7 @@ open_dataset <- function(sources, schema = NULL, partition = hive_partition(), .
 #' - `$schema`: Active binding, returns the [Schema] of the Dataset
 #' @export
 #' @seealso [open_dataset()] for a simple way to create a Dataset that has a
-#' single `DataSource`.
+#' single `Source`.
 Dataset <- R6Class("Dataset", inherit = Object,
   public = list(
     #' @description
@@ -86,7 +86,7 @@ Dataset <- R6Class("Dataset", inherit = Object,
   )
 )
 Dataset$create <- function(sources, schema) {
-  assert_is_list_of(sources, "DataSource")
+  assert_is_list_of(sources, "Source")
   assert_is(schema, "Schema")
   shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
 }
@@ -94,74 +94,73 @@ Dataset$create <- function(sources, schema) {
 #' @export
 names.Dataset <- function(x) names(x$schema)
 
-#' Data sources for a Dataset
+#' Sources for a Dataset
 #'
 #' @description
-#' A [Dataset] can have one or more `DataSource`s. A `DataSource` contains one
-#' or more `DataFragments`, such as files, of a common type and partition
-#' scheme. `DataSourceDiscovery` is used to create a `DataSource`, inspect the
-#' [Schema] of the fragments contained in it, and declare a partition scheme.
-#' `FileSystemDataSourceDiscovery` is a subclass of `DataSourceDiscovery` for
+#' A [Dataset] can have one or more `Source`s. A `Source` contains one or more
+#' `Fragments`, such as files, of a common type and partitioning.
+#' `SourceFactory` is used to create a `Source`, inspect the [Schema] of the
+#' fragments contained in it, and declare a partitioning.
+#' `FileSystemSourceFactory` is a subclass of `SourceFactory` for
 #' discovering files in the local file system, the only currently supported
 #' file system.
 #'
-#' In general, you'll deal with `DataSourceDiscovery` rather than `DataSource`
-#' itself.
+#' In general, you'll deal with `SourceFactory` rather than `Source` itself.
 #' @section Factory:
-#' For the `DataSourceDiscovery$create()` factory method, see [data_source()],
-#' an alias for it.
+#' For the `SourceFactory$create()` factory method, see [open_source()], an
+#' alias for it.
 #'
-#' `FileSystemDataSourceDiscovery$create()` is a lower-level factory method and
+#' `FileSystemSourceFactory$create()` is a lower-level factory method and
 #' takes the following arguments:
 #' * `filesystem`: A [FileSystem]
 #' * `selector`: A [FileSelector]
 #' * `format`: Currently only "parquet" is supported
 #' @section Methods:
-#' `DataSource` has one defined method:
+#' `Source` has one defined method:
 #'
-#' - `$schema`: Active binding, returns the [Schema] of the DataSource
+#' - `$schema`: Active binding, returns the [Schema] of the `Source`
 #'
-#' `DataSourceDiscovery` and its subclasses have the following methods:
+#' `SourceFactory` and its subclasses have the following methods:
 #'
 #' - `$Inspect()`: Walks the files in the directory and returns a common [Schema]
-#' - `$Finish(schema)`: Returns a `DataSource`
-#' @rdname DataSource
-#' @name DataSource
-#' @seealso [Dataset] for what do do with a `DataSource`
+#' - `$Finish(schema)`: Returns a `Source`
+#' @rdname Source
+#' @name Source
+#' @seealso [Dataset] for what do do with a `Source`
 #' @export
-DataSource <- R6Class("DataSource", inherit = Object,
+Source <- R6Class("Source", inherit = Object,
   active = list(
     #' @description
-    #' Return the DataSource's `Schema`
+    #' Return the Source's `Schema`
     schema = function() {
-      shared_ptr(Schema, dataset___DataSource__schema(self))
+      shared_ptr(Schema, dataset___Source__schema(self))
     }
   )
 )
 
 #' @usage NULL
 #' @format NULL
-#' @rdname DataSource
+#' @rdname Source
 #' @export
-DataSourceDiscovery <- R6Class("DataSourceDiscovery", inherit = Object,
+SourceFactory <- R6Class("SourceFactory", inherit = Object,
   public = list(
     Finish = function(schema = NULL) {
       if (is.null(schema)) {
-        shared_ptr(DataSource, dataset___DSDiscovery__Finish1(self))
+        shared_ptr(Source, dataset___SFactory__Finish1(self))
       } else {
-        shared_ptr(DataSource, dataset___DSDiscovery__Finish2(self, schema))
+        shared_ptr(Source, dataset___SFactory__Finish2(self, schema))
       }
     },
-    Inspect = function() shared_ptr(Schema, dataset___DSDiscovery__Inspect(self))
+    Inspect = function() shared_ptr(Schema, dataset___SFactory__Inspect(self))
   )
 )
-DataSourceDiscovery$create <- function(path,
-                                       filesystem = c("auto", "local"),
-                                       format = c("parquet", "arrow", "ipc"),
-                                       partition = NULL,
-                                       allow_non_existent = FALSE,
-                                       recursive = TRUE,
-                                       ...) {
+SourceFactory$create <- function(path,
+                                 filesystem = c("auto", "local"),
+                                 format = c("parquet", "arrow", "ipc"),
+                                 partitioning = NULL,
+                                 allow_non_existent = FALSE,
+                                 recursive = TRUE,
+                                 ...) {
   if (!inherits(filesystem, "FileSystem")) {
     filesystem <- match.arg(filesystem)
     if (filesystem == "auto") {
@@ -181,18 +180,18 @@ DataSourceDiscovery$create <- function(path,
 
   format <- FileFormat$create(match.arg(format))
 
-  if (!is.null(partition)) {
-    if (inherits(partition, "Schema")) {
-      partition <- SchemaPartitionScheme$create(partition)
-    } else if (is.character(partition)) {
+  if (!is.null(partitioning)) {
+    if (inherits(partitioning, "Schema")) {
+      partitioning <- DirectoryPartitioning$create(partitioning)
+    } else if (is.character(partitioning)) {
       # These are the column/field names, and we should autodetect their types
-      partition <- SchemaPartitionSchemeDiscovery$create(partition)
+      partitioning <- DirectoryPartitioningFactory$create(partitioning)
     }
   }
-  FileSystemDataSourceDiscovery$create(filesystem, selector, format, partition)
+  FileSystemSourceFactory$create(filesystem, selector, format, partitioning)
 }
 
-#' Create a DataSource for a Dataset
+#' Create a Source for a Dataset
 #'
 #' @param path A string file path containing data files
 #' @param filesystem A string identifier for the filesystem corresponding to
@@ -200,7 +199,7 @@ DataSourceDiscovery$create <- function(path,
 #' @param format A string identifier of the format of the files in `path`.
 #' Currently supported options are "parquet", "arrow", and "ipc" (an alias for
 #' the Arrow file format)
-#' @param partition One of
+#' @param partitioning One of
 #'   * A `Schema`, in which case the file paths relative to `sources` will be
 #'    parsed, and path segments will be matched with the schema fields. For
 #'    example, `schema(year = int16(), month = int8())` would create partitions
@@ -208,7 +207,7 @@ DataSourceDiscovery$create <- function(path,
 #'   * A character vector that defines the field names corresponding to those
 #'    path segments (that is, you're providing the names that would correspond
 #'    to a `Schema` but the types will be autodetected)
-#'   * A `HivePartitionScheme` or `HivePartitionSchemeDiscovery`, as returned
+#'   * A `HivePartitioning` or `HivePartitioningFactory`, as returned
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
@@ -217,41 +216,41 @@ DataSourceDiscovery$create <- function(path,
 #' @param recursive logical: should files be discovered in subdirectories of
 #' `path`? Default `TRUE`.
 #' @param ... Additional arguments passed to the [FileSystem] `$create()` method
-#' @return A `DataSourceDiscovery` object. Pass this to [open_dataset()],
-#' in a list potentially with other `DataSourceDiscovery` objects, to create
+#' @return A `SourceFactory` object. Pass this to [open_dataset()],
+#' in a list potentially with other `SourceFactory` objects, to create
 #' a `Dataset`.
 #' @export
-data_source <- DataSourceDiscovery$create
+open_source <- SourceFactory$create
 
 #' @usage NULL
 #' @format NULL
-#' @rdname DataSource
+#' @rdname Source
 #' @export
-FileSystemDataSourceDiscovery <- R6Class("FileSystemDataSourceDiscovery",
-  inherit = DataSourceDiscovery
+FileSystemSourceFactory <- R6Class("FileSystemSourceFactory",
+  inherit = SourceFactory
 )
-FileSystemDataSourceDiscovery$create <- function(filesystem,
-                                                 selector,
-                                                 format,
-                                                 partition_scheme = NULL) {
+FileSystemSourceFactory$create <- function(filesystem,
+                                           selector,
+                                           format,
+                                           partitioning = NULL) {
   assert_is(filesystem, "FileSystem")
   assert_is(selector, "FileSelector")
   assert_is(format, "FileFormat")
-  if (is.null(partition_scheme)) {
+  if (is.null(partitioning)) {
     shared_ptr(
-      FileSystemDataSourceDiscovery,
-      dataset___FSDSDiscovery__Make1(filesystem, selector, format)
+      FileSystemSourceFactory,
+      dataset___FSSFactory__Make1(filesystem, selector, format)
     )
-  } else if (inherits(partition_scheme, "PartitionSchemeDiscovery")) {
+  } else if (inherits(partitioning, "PartitioningFactory")) {
     shared_ptr(
-      FileSystemDataSourceDiscovery,
-      dataset___FSDSDiscovery__Make3(filesystem, selector, format, partition_scheme)
+      FileSystemSourceFactory,
+      dataset___FSSFactory__Make3(filesystem, selector, format, partitioning)
     )
   } else {
-    assert_is(partition_scheme, "PartitionScheme")
+    assert_is(partitioning, "Partitioning")
     shared_ptr(
-      FileSystemDataSourceDiscovery,
-      dataset___FSDSDiscovery__Make2(filesystem, selector, format, partition_scheme)
+      FileSystemSourceFactory,
+      dataset___FSSFactory__Make2(filesystem, selector, format, partitioning)
     )
   }
 }
@@ -275,7 +274,7 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' Scan the contents of a dataset
 #'
 #' @description
-#' A `Scanner` iterates over a [Dataset]'s data fragments and returns data
+#' A `Scanner` iterates over a [Dataset]'s fragments and returns data
 #' according to given row filtering and column projection. Use a
 #' `ScannerBuilder`, from a `Dataset`'s `$NewScan()` method, to construct one.
 #'
@@ -332,59 +331,59 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
 #' @export
 names.ScannerBuilder <- function(x) names(x$schema)
 
-#' Define a partition scheme for a DataSource
+#' Define a partitioning for a Source
 #'
 #' @description
-#' Pass a `PartitionScheme` to a [FileSystemDataSourceDiscovery]'s `$create()`
+#' Pass a `Partitioning` to a [FileSystemSourceFactory]'s `$create()`
 #' method to indicate how the file's paths should be interpreted to define
 #' partitioning.
 #'
-#' A `SchemaPartitionScheme` describes how to interpret raw path segments, in
+#' A `DirectoryPartitioning` describes how to interpret raw path segments, in
 #' order. For example, `schema(year = int16(), month = int8())` would define
 #' partitions for file paths like "2019/01/file.parquet",
 #' "2019/02/file.parquet", etc.
 #'
-#' A `HivePartitionScheme` is for Hive-style partitioning, which embeds field
+#' A `HivePartitioning` is for Hive-style partitioning, which embeds field
 #' names and values in path segments, such as
 #' "/year=2019/month=2/data.parquet". Because fields are named in the path
 #' segments, order does not matter.
 #' @section Factory:
-#' Both `SchemaPartitionScheme$create()` and `HivePartitionScheme$create()`
+#' Both `DirectoryPartitioning$create()` and `HivePartitioning$create()`
 #' factory methods take a [Schema] as a single input argument. The helper
 #' function `hive_partition(...)` is shorthand for
-#' `HivePartitionScheme$create(schema(...))`.
-#' @name PartitionScheme
-#' @rdname PartitionScheme
+#' `HivePartitioning$create(schema(...))`.
+#' @name Partitioning
+#' @rdname Partitioning
 #' @export
-PartitionScheme <- R6Class("PartitionScheme", inherit = Object)
+Partitioning <- R6Class("Partitioning", inherit = Object)
 #' @usage NULL
 #' @format NULL
-#' @rdname PartitionScheme
+#' @rdname Partitioning
 #' @export
-SchemaPartitionScheme <- R6Class("SchemaPartitionScheme", inherit = PartitionScheme)
-SchemaPartitionScheme$create <- function(schema) {
-  shared_ptr(SchemaPartitionScheme, dataset___SchemaPartitionScheme(schema))
+DirectoryPartitioning <- R6Class("DirectoryPartitioning", inherit = Partitioning)
+DirectoryPartitioning$create <- function(schema) {
+  shared_ptr(DirectoryPartitioning, dataset___DirectoryPartitioning(schema))
 }
 
 #' @usage NULL
 #' @format NULL
-#' @rdname PartitionScheme
+#' @rdname Partitioning
 #' @export
-HivePartitionScheme <- R6Class("HivePartitionScheme", inherit = PartitionScheme)
-HivePartitionScheme$create <- function(schema) {
-  shared_ptr(HivePartitionScheme, dataset___HivePartitionScheme(schema))
+HivePartitioning <- R6Class("HivePartitioning", inherit = Partitioning)
+HivePartitioning$create <- function(schema) {
+  shared_ptr(HivePartitioning, dataset___HivePartitioning(schema))
 }
 
-#' Construct a Hive partition scheme
+#' Construct a Hive partitioning
 #'
 #' Hive partitioning embeds field names and values in path segments, such as
-#' "/year=2019/month=2/data.parquet". A [HivePartitionScheme][PartitionScheme]
+#' "/year=2019/month=2/data.parquet". A [HivePartitioning][Partitioning]
 #' is used to parse that in Dataset creation.
 #'
 #' Because fields are named in the path segments, order of fields passed to
 #' `hive_partition()` does not matter.
 #' @param ... named list of [data types][data-type], passed to [schema()]
-#' @return A `HivePartitionScheme`, or a `HivePartitionSchemeDiscovery` if
+#' @return A `HivePartitioning`, or a `HivePartitioningFactory` if
 #' calling `hive_partition()` with no arguments.
 #' @examples
 #' \donttest{
@@ -394,19 +393,19 @@ HivePartitionScheme$create <- function(schema) {
 hive_partition <- function(...) {
   schm <- schema(...)
   if (length(schm) == 0) {
-    HivePartitionSchemeDiscovery$create()
+    HivePartitioningFactory$create()
   } else {
-    HivePartitionScheme$create(schm)
+    HivePartitioning$create(schm)
   }
 }
 
-PartitionSchemeDiscovery <- R6Class("PartitionSchemeDiscovery", inherit = Object)
-SchemaPartitionSchemeDiscovery <- R6Class("SchemaPartitionSchemeDiscovery", inherit = PartitionSchemeDiscovery)
-SchemaPartitionSchemeDiscovery$create <- function(x) {
-  shared_ptr(SchemaPartitionSchemeDiscovery, dataset___SchemaPartitionScheme__MakeDiscovery(x))
+PartitioningFactory <- R6Class("PartitioningFactory", inherit = Object)
+DirectoryPartitioningFactory <- R6Class("DirectoryPartitioningFactory ", inherit = PartitioningFactory)
+DirectoryPartitioningFactory$create <- function(x) {
+  shared_ptr(DirectoryPartitioningFactory, dataset___DirectoryPartitioning__MakeFactory(x))
 }
 
-HivePartitionSchemeDiscovery <- R6Class("HivePartitionSchemeDiscovery", inherit = PartitionSchemeDiscovery)
-HivePartitionSchemeDiscovery$create <- function() {
-  shared_ptr(HivePartitionSchemeDiscovery, dataset___HivePartitionScheme__MakeDiscovery())
+HivePartitioningFactory <- R6Class("HivePartitioningFactory", inherit = PartitioningFactory)
+HivePartitioningFactory$create <- function() {
+  shared_ptr(HivePartitioningFactory, dataset___HivePartitioning__MakeFactory())
 }

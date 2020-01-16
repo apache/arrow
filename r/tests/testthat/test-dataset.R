@@ -70,7 +70,7 @@ test_that("Setup (putting data in the dir)", {
 })
 
 test_that("Simple interface for datasets", {
-  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
@@ -98,7 +98,7 @@ test_that("Simple interface for datasets", {
 })
 
 test_that("Hive partitioning", {
-  ds <- open_dataset(hive_dir, partition = hive_partition(other = utf8(), group = uint8()))
+  ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
@@ -111,9 +111,9 @@ test_that("Hive partitioning", {
   )
 })
 
-test_that("Partition scheme inference", {
-  # These are the same tests as above, just using the *PartitionSchemeDiscovery
-  ds1 <- open_dataset(dataset_dir, partition = "part")
+test_that("Partitioning inference", {
+  # These are the same tests as above, just using the *PartitioningFactory
+  ds1 <- open_dataset(dataset_dir, partitioning = "part")
   expect_identical(names(ds1), c(names(df1), "part"))
   expect_equivalent(
     ds1 %>%
@@ -141,7 +141,7 @@ test_that("Partition scheme inference", {
 })
 
 test_that("IPC/Arrow format data", {
-  ds <- open_dataset(ipc_dir, partition = "part", format = "arrow")
+  ds <- open_dataset(ipc_dir, partitioning = "part", format = "arrow")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_equivalent(
     ds %>%
@@ -158,8 +158,8 @@ test_that("IPC/Arrow format data", {
 
 test_that("Dataset with multiple sources", {
   ds <- open_dataset(list(
-    data_source(dataset_dir, format = "parquet", partition = "part"),
-    data_source(ipc_dir, format = "arrow", partition = "part")
+    open_source(dataset_dir, format = "parquet", partitioning = "part"),
+    open_source(ipc_dir, format = "arrow", partitioning = "part")
   ))
   expect_identical(names(ds), c(names(df1), "part"))
   expect_equivalent(
@@ -174,13 +174,13 @@ test_that("Dataset with multiple sources", {
   )
 })
 
-test_that("partition = NULL to ignore partition information (but why?)", {
-  ds <- open_dataset(hive_dir, partition = NULL)
+test_that("partitioning = NULL to ignore partition information (but why?)", {
+  ds <- open_dataset(hive_dir, partitioning = NULL)
   expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
 })
 
 test_that("filter() with is.na()", {
-  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
     ds %>%
       select(part, lgl) %>%
@@ -191,7 +191,7 @@ test_that("filter() with is.na()", {
 })
 
 test_that("filter() with %in%", {
-  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
     ds %>%
       select(int, part) %>%
@@ -202,7 +202,7 @@ test_that("filter() with %in%", {
 })
 
 test_that("filter() on timestamp columns", {
-  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   datetime_to_ns <- function (x) {
     # TODO: src/expression.cpp should handle timestamp data
     # TODO: C++ library should handle autocasting
@@ -255,25 +255,25 @@ test_that("dplyr method not implemented messages", {
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(dataset_dir, recursive = TRUE)
-  partition <- SchemaPartitionScheme$create(schema(part = double()))
+  partitioning <- DirectoryPartitioning$create(schema(part = double()))
 
   fmt <- FileFormat$create("parquet")
-  dsd <- FileSystemDataSourceDiscovery$create(fs, selector, fmt, partition_scheme = partition)
-  expect_is(dsd, "FileSystemDataSourceDiscovery")
+  factory <- FileSystemSourceFactory$create(fs, selector, fmt, partitioning = partitioning)
+  expect_is(factory, "FileSystemSourceFactory")
 
-  schm <- dsd$Inspect()
+  schm <- factory$Inspect()
   expect_is(schm, "Schema")
 
   phys_schm <- ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
   expect_equal(names(phys_schm), names(df1))
   expect_equal(names(schm), c(names(phys_schm), "part"))
 
-  datasource <- dsd$Finish(schm)
-  expect_is(datasource, "DataSource")
-  expect_is(datasource$schema, "Schema")
-  expect_equal(names(schm), names(datasource$schema))
+  src <- factory$Finish(schm)
+  expect_is(src, "Source")
+  expect_is(src$schema, "Schema")
+  expect_equal(names(schm), names(src$schema))
 
-  ds <- Dataset$create(list(datasource), schm)
+  ds <- Dataset$create(list(src), schm)
   expect_is(ds, "Dataset")
   expect_equal(names(ds), names(schm))
 

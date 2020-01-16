@@ -29,15 +29,15 @@
 namespace arrow {
 namespace dataset {
 
-DataFragment::DataFragment(std::shared_ptr<ScanOptions> scan_options)
+Fragment::Fragment(std::shared_ptr<ScanOptions> scan_options)
     : scan_options_(std::move(scan_options)), partition_expression_(scalar(true)) {}
 
-SimpleDataFragment::SimpleDataFragment(
+InMemoryFragment::InMemoryFragment(
     std::vector<std::shared_ptr<RecordBatch>> record_batches,
     std::shared_ptr<ScanOptions> scan_options)
-    : DataFragment(std::move(scan_options)), record_batches_(std::move(record_batches)) {}
+    : Fragment(std::move(scan_options)), record_batches_(std::move(record_batches)) {}
 
-Result<ScanTaskIterator> SimpleDataFragment::Scan(std::shared_ptr<ScanContext> context) {
+Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanContext> context) {
   // Make an explicit copy of record_batches_ to ensure Scan can be called
   // multiple times.
   auto batches_it = MakeVectorIterator(record_batches_);
@@ -46,14 +46,14 @@ Result<ScanTaskIterator> SimpleDataFragment::Scan(std::shared_ptr<ScanContext> c
   auto scan_options = scan_options_;
   auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::shared_ptr<ScanTask> {
     std::vector<std::shared_ptr<RecordBatch>> batches{batch};
-    return ::arrow::internal::make_unique<SimpleScanTask>(
+    return ::arrow::internal::make_unique<InMemoryScanTask>(
         std::move(batches), std::move(scan_options), std::move(context));
   };
 
   return MakeMapIterator(fn, std::move(batches_it));
 }
 
-Result<std::shared_ptr<Dataset>> Dataset::Make(DataSourceVector sources,
+Result<std::shared_ptr<Dataset>> Dataset::Make(SourceVector sources,
                                                std::shared_ptr<Schema> schema) {
   return std::shared_ptr<Dataset>(new Dataset(std::move(sources), std::move(schema)));
 }
@@ -67,7 +67,7 @@ Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan() {
   return NewScan(std::make_shared<ScanContext>());
 }
 
-bool DataSource::AssumePartitionExpression(
+bool Source::AssumePartitionExpression(
     const std::shared_ptr<ScanOptions>& scan_options,
     std::shared_ptr<ScanOptions>* simplified_scan_options) const {
   if (partition_expression_ == nullptr) {
@@ -91,21 +91,20 @@ bool DataSource::AssumePartitionExpression(
   return true;
 }
 
-DataFragmentIterator DataSource::GetFragments(std::shared_ptr<ScanOptions> scan_options) {
+FragmentIterator Source::GetFragments(std::shared_ptr<ScanOptions> scan_options) {
   std::shared_ptr<ScanOptions> simplified_scan_options;
   if (!AssumePartitionExpression(scan_options, &simplified_scan_options)) {
-    return MakeEmptyIterator<std::shared_ptr<DataFragment>>();
+    return MakeEmptyIterator<std::shared_ptr<Fragment>>();
   }
   return GetFragmentsImpl(std::move(simplified_scan_options));
 }
 
-DataFragmentIterator SimpleDataSource::GetFragmentsImpl(
+FragmentIterator InMemorySource::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> scan_options) {
   return MakeVectorIterator(fragments_);
 }
 
-DataFragmentIterator TreeDataSource::GetFragmentsImpl(
-    std::shared_ptr<ScanOptions> options) {
+FragmentIterator TreeSource::GetFragmentsImpl(std::shared_ptr<ScanOptions> options) {
   return GetFragmentsFromSources(children_, options);
 }
 

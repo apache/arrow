@@ -5,7 +5,7 @@
 \alias{ScannerBuilder}
 \title{Scan the contents of a dataset}
 \description{
-A \code{Scanner} iterates over a \link{Dataset}'s data fragments and returns data
+A \code{Scanner} iterates over a \link{Dataset}'s fragments and returns data
 according to given row filtering and column projection. Use a
 \code{ScannerBuilder}, from a \code{Dataset}'s \verb{$NewScan()} method, to construct one.
 }

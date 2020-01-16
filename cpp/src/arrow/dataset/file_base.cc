@@ -39,17 +39,17 @@ Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
   return std::make_shared<::arrow::io::BufferReader>(buffer());
 }
 
-Result<ScanTaskIterator> FileDataFragment::Scan(std::shared_ptr<ScanContext> context) {
+Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanContext> context) {
   return format_->ScanFile(source_, scan_options_, context);
 }
 
-FileSystemDataSource::FileSystemDataSource(std::shared_ptr<Schema> schema,
-                                           std::shared_ptr<Expression> root_partition,
-                                           std::shared_ptr<FileFormat> format,
-                                           std::shared_ptr<fs::FileSystem> filesystem,
-                                           fs::PathForest forest,
-                                           ExpressionVector file_partitions)
-    : DataSource(std::move(schema), std::move(root_partition)),
+FileSystemSource::FileSystemSource(std::shared_ptr<Schema> schema,
+                                   std::shared_ptr<Expression> root_partition,
+                                   std::shared_ptr<FileFormat> format,
+                                   std::shared_ptr<fs::FileSystem> filesystem,
+                                   fs::PathForest forest,
+                                   ExpressionVector file_partitions)
+    : Source(std::move(schema), std::move(root_partition)),
       format_(std::move(format)),
       filesystem_(std::move(filesystem)),
       forest_(std::move(forest)),
@@ -57,7 +57,7 @@ FileSystemDataSource::FileSystemDataSource(std::shared_ptr<Schema> schema,
   DCHECK_EQ(static_cast<size_t>(forest_.size()), partitions_.size());
 }
 
-Result<std::shared_ptr<DataSource>> FileSystemDataSource::Make(
+Result<std::shared_ptr<Source>> FileSystemSource::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     fs::FileStatsVector stats) {
@@ -66,7 +66,7 @@ Result<std::shared_ptr<DataSource>> FileSystemDataSource::Make(
               std::move(filesystem), std::move(stats), std::move(partitions));
 }
 
-Result<std::shared_ptr<DataSource>> FileSystemDataSource::Make(
+Result<std::shared_ptr<Source>> FileSystemSource::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     fs::FileStatsVector stats, ExpressionVector partitions) {
@@ -75,17 +75,17 @@ Result<std::shared_ptr<DataSource>> FileSystemDataSource::Make(
               std::move(filesystem), std::move(forest), std::move(partitions));
 }
 
-Result<std::shared_ptr<DataSource>> FileSystemDataSource::Make(
+Result<std::shared_ptr<Source>> FileSystemSource::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     fs::PathForest forest, ExpressionVector partitions) {
-  return std::shared_ptr<DataSource>(new FileSystemDataSource(
+  return std::shared_ptr<Source>(new FileSystemSource(
       std::move(schema), std::move(root_partition), std::move(format),
       std::move(filesystem), std::move(forest), std::move(partitions)));
 }
 
-std::string FileSystemDataSource::ToString() const {
-  std::string repr = "FileSystemDataSource:";
+std::string FileSystemSource::ToString() const {
+  std::string repr = "FileSystemSource:";
 
   if (forest_.size() == 0) {
     return repr + " []";
@@ -130,9 +130,9 @@ util::optional<std::pair<std::string, std::shared_ptr<Scalar>>> GetKey(
       internal::checked_cast<const ScalarExpression&>(*cmp.right_operand()).value());
 }
 
-DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(
+FragmentIterator FileSystemSource::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> root_options) {
-  DataFragmentVector fragments;
+  FragmentVector fragments;
   std::vector<std::shared_ptr<ScanOptions>> options(forest_.size());
 
   auto collect_fragments = [&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
@@ -176,7 +176,7 @@ DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(
 
   auto status = forest_.Visit(collect_fragments);
   if (!status.ok()) {
-    return MakeErrorIterator<std::shared_ptr<DataFragment>>(status);
+    return MakeErrorIterator<std::shared_ptr<Fragment>>(status);
   }
 
   return MakeVectorIterator(std::move(fragments));

@@ -75,95 +75,95 @@ cdef class ParquetFileFormat(FileFormat):
         self.init(shared_ptr[CFileFormat](new CParquetFileFormat()))
 
 
-cdef class PartitionScheme:
+cdef class Partitioning:
 
     cdef:
-        shared_ptr[CPartitionScheme] wrapped
-        CPartitionScheme* scheme
+        shared_ptr[CPartitioning] wrapped
+        CPartitioning* partitioning
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
-    cdef init(self, const shared_ptr[CPartitionScheme]& sp):
+    cdef init(self, const shared_ptr[CPartitioning]& sp):
         self.wrapped = sp
-        self.scheme = sp.get()
+        self.partitioning = sp.get()
 
     @staticmethod
-    cdef wrap(const shared_ptr[CPartitionScheme]& sp):
-        cdef PartitionScheme self
+    cdef wrap(const shared_ptr[CPartitioning]& sp):
+        cdef Partitioning self
 
         typ = frombytes(sp.get().type_name())
         if typ == 'default':
-            self = DefaultPartitionScheme.__new__(DefaultPartitionScheme)
+            self = DefaultPartitioning.__new__(DefaultPartitioning)
         elif typ == 'schema':
-            self = SchemaPartitionScheme.__new__(SchemaPartitionScheme)
+            self = DirectoryPartitioning.__new__(DirectoryPartitioning)
         elif typ == 'hive':
-            self = HivePartitionScheme.__new__(HivePartitionScheme)
+            self = HivePartitioning.__new__(HivePartitioning)
         else:
             raise TypeError(typ)
 
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CPartitionScheme] unwrap(self):
+    cdef inline shared_ptr[CPartitioning] unwrap(self):
         return self.wrapped
 
     def parse(self, path):
         cdef CResult[shared_ptr[CExpression]] result
-        result = self.scheme.Parse(tobytes(path))
+        result = self.partitioning.Parse(tobytes(path))
         return Expression.wrap(GetResultValue(result))
 
     @property
     def schema(self):
-        """The arrow Schema describing the partition scheme."""
-        return pyarrow_wrap_schema(self.scheme.schema())
+        """The arrow Schema attached to the partitioning."""
+        return pyarrow_wrap_schema(self.partitioning.schema())
 
 
-cdef class PartitionSchemeDiscovery:
+cdef class PartitioningFactory:
 
     cdef:
-        shared_ptr[CPartitionSchemeDiscovery] wrapped
-        CPartitionSchemeDiscovery* discovery
+        shared_ptr[CPartitioningFactory] wrapped
+        CPartitioningFactory* factory
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
-    cdef init(self, const shared_ptr[CPartitionSchemeDiscovery]& sp):
+    cdef init(self, const shared_ptr[CPartitioningFactory]& sp):
         self.wrapped = sp
-        self.discovery = sp.get()
+        self.factory = sp.get()
 
     @staticmethod
-    cdef wrap(const shared_ptr[CPartitionSchemeDiscovery]& sp):
-        cdef PartitionSchemeDiscovery self = PartitionSchemeDiscovery.__new__(
-            PartitionSchemeDiscovery
+    cdef wrap(const shared_ptr[CPartitioningFactory]& sp):
+        cdef PartitioningFactory self = PartitioningFactory.__new__(
+            PartitioningFactory
         )
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CPartitionSchemeDiscovery] unwrap(self):
+    cdef inline shared_ptr[CPartitioningFactory] unwrap(self):
         return self.wrapped
 
 
-cdef class DefaultPartitionScheme(PartitionScheme):
+cdef class DefaultPartitioning(Partitioning):
 
     cdef:
-        CDefaultPartitionScheme* default_scheme
+        CDefaultPartitioning* default_partitioning
 
     def __init__(self):
-        cdef shared_ptr[CDefaultPartitionScheme] scheme
-        scheme = make_shared[CDefaultPartitionScheme]()
-        self.init(<shared_ptr[CPartitionScheme]> scheme)
+        cdef shared_ptr[CDefaultPartitioning] partitioning
+        partitioning = make_shared[CDefaultPartitioning]()
+        self.init(<shared_ptr[CPartitioning]> partitioning)
 
-    cdef init(self, const shared_ptr[CPartitionScheme]& sp):
-        PartitionScheme.init(self, sp)
-        self.default_scheme = <CDefaultPartitionScheme*> sp.get()
+    cdef init(self, const shared_ptr[CPartitioning]& sp):
+        Partitioning.init(self, sp)
+        self.default_partitioning = <CDefaultPartitioning*> sp.get()
 
 
-cdef class SchemaPartitionScheme(PartitionScheme):
+cdef class DirectoryPartitioning(Partitioning):
     """
-    A PartitionScheme based on a specified Schema.
+    A Partitioning based on a specified Schema.
 
-    The SchemaPartitionScheme expects one segment in the file path for each
+    The DirectoryPartitioning expects one segment in the file path for each
     field in the schema (all fields are required to be present).
     For example given schema<year:int16, month:int8> the path "/2009/11" would
     be parsed to ("year"_ == 2009 and "month"_ == 11).
@@ -175,35 +175,35 @@ cdef class SchemaPartitionScheme(PartitionScheme):
 
     Returns
     -------
-    SchemaPartitionScheme
+    DirectoryPartitioning
 
     Examples
     --------
-    >>> from pyarrow.dataset import SchemaPartitionScheme
-    >>> scheme = SchemaPartitionScheme(
+    >>> from pyarrow.dataset import DirectoryPartitioning
+    >>> partition = DirectoryPartitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
-    >>> print(scheme.parse("/2009/11"))
+    >>> print(partitioning.parse("/2009/11"))
     ((year == 2009:int16) and (month == 11:int8))
     """
 
     cdef:
-        CSchemaPartitionScheme* schema_scheme
+        CDirectoryPartitioning* directory_partitioning
 
     def __init__(self, Schema schema not None):
-        cdef shared_ptr[CSchemaPartitionScheme] scheme
-        scheme = make_shared[CSchemaPartitionScheme](
+        cdef shared_ptr[CDirectoryPartitioning] partitioning
+        partitioning = make_shared[CDirectoryPartitioning](
             pyarrow_unwrap_schema(schema)
         )
-        self.init(<shared_ptr[CPartitionScheme]> scheme)
+        self.init(<shared_ptr[CPartitioning]> partitioning)
 
-    cdef init(self, const shared_ptr[CPartitionScheme]& sp):
-        PartitionScheme.init(self, sp)
-        self.schema_scheme = <CSchemaPartitionScheme*> sp.get()
+    cdef init(self, const shared_ptr[CPartitioning]& sp):
+        Partitioning.init(self, sp)
+        self.directory_partitioning = <CDirectoryPartitioning*> sp.get()
 
     @staticmethod
     def discover(field_names):
         """
-        Discover a SchemaPartitionScheme.
+        Discover a DirectoryPartitioning.
 
         Parameters
         ----------
@@ -212,21 +212,21 @@ cdef class SchemaPartitionScheme(PartitionScheme):
 
         Returns
         -------
-        PartionSchemeDiscovery
-            To be used in the FileSystemDiscoveryOptions.
+        DirectoryPartitioningFactory
+            To be used in the FileSystemFactoryOptions.
         """
         cdef:
-            PartitionSchemeDiscovery discovery
+            PartitioningFactory factory
             vector[c_string] c_field_names
         c_field_names = [tobytes(s) for s in field_names]
-        discovery = PartitionSchemeDiscovery.wrap(
-            CSchemaPartitionScheme.MakeDiscovery(c_field_names))
-        return discovery
+        factory = PartitioningFactory.wrap(
+            CDirectoryPartitioning.MakeFactory(c_field_names))
+        return factory
 
 
-cdef class HivePartitionScheme(PartitionScheme):
+cdef class HivePartitioning(Partitioning):
     """
-    A PartitionScheme for "/$key=$value/" nested directories as found in
+    A Partitioning for "/$key=$value/" nested directories as found in
     Apache Hive.
 
     Multi-level, directory based partitioning scheme originating from
@@ -245,66 +245,66 @@ cdef class HivePartitionScheme(PartitionScheme):
 
     Returns
     -------
-    SchemaPartitionScheme
+    HivePartitioning
 
     Examples
     --------
-    >>> from pyarrow.dataset import HivePartitionScheme
-    >>> scheme = HivePartitionScheme(
+    >>> from pyarrow.dataset import HivePartitioning
+    >>> partitioning = HivePartitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
-    >>> print(scheme.parse("/year=2009/month=11"))
+    >>> print(partitioning.parse("/year=2009/month=11"))
     ((year == 2009:int16) and (month == 11:int8))
 
     """
 
     cdef:
-        CHivePartitionScheme* hive_scheme
+        CHivePartitioning* hive_partitioning
 
     def __init__(self, Schema schema not None):
-        cdef shared_ptr[CHivePartitionScheme] scheme
-        scheme = make_shared[CHivePartitionScheme](
+        cdef shared_ptr[CHivePartitioning] partitioning
+        partitioning = make_shared[CHivePartitioning](
             pyarrow_unwrap_schema(schema)
         )
-        self.init(<shared_ptr[CPartitionScheme]> scheme)
+        self.init(<shared_ptr[CPartitioning]> partitioning)
 
-    cdef init(self, const shared_ptr[CPartitionScheme]& sp):
-        PartitionScheme.init(self, sp)
-        self.hive_scheme = <CHivePartitionScheme*> sp.get()
+    cdef init(self, const shared_ptr[CPartitioning]& sp):
+        Partitioning.init(self, sp)
+        self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
     def discover():
         """
-        Discover a HivePartitionScheme.
+        Discover a HivePartitioning.
 
         Returns
         -------
-        PartionSchemeDiscovery
-            To be used in the FileSystemDiscoveryOptions.
+        PartitioningFactory
+            To be used in the FileSystemFactoryOptions.
         """
         cdef:
-            PartitionSchemeDiscovery discovery
-        discovery = PartitionSchemeDiscovery.wrap(
-            CHivePartitionScheme.MakeDiscovery())
-        return discovery
+            PartitioningFactory factory
+        factory = PartitioningFactory.wrap(
+            CHivePartitioning.MakeFactory())
+        return factory
 
 
-cdef class FileSystemDiscoveryOptions:
+cdef class FileSystemFactoryOptions:
     """
-    Options for FileSystemDataSourceDiscovery.
+    Options for FileSystemFactoryOptions.
 
     Parameters
     ----------
     partition_base_dir : str, optional
-        For the purposes of applying the partition scheme, paths will be
+        For the purposes of applying the partitioning, paths will be
         stripped of the partition_base_dir. Files not matching the
-        partition_base_dir prefix will be skipped for partition discovery.
-        The ignored files will still be part of the DataSource, but will not
+        partition_base_dir prefix will be skipped for partitioning discovery.
+        The ignored files will still be part of the Source, but will not
         have partition information.
     exclude_invalid_files : bool, optional (default True)
         If True, invalid files will be excluded (file format specific check).
         This will incur IO for each files in a serial and single threaded
         fashion. Disabling this feature will skip the IO, but unsupported
-        files may be present in the DataSource (resulting in an error at scan
+        files may be present in the Source (resulting in an error at scan
         time).
     ignore_prefixes : list, optional
         Files matching one of those prefixes will be ignored by the
@@ -313,7 +313,7 @@ cdef class FileSystemDiscoveryOptions:
     """
 
     cdef:
-        CFileSystemDiscoveryOptions options
+        CFileSystemFactoryOptions options
 
     __slots__ = ()  # avoid mistakingly creating attributes
 
@@ -326,44 +326,44 @@ cdef class FileSystemDiscoveryOptions:
         if ignore_prefixes is not None:
             self.ignore_prefixes = ignore_prefixes
 
-    cdef inline CFileSystemDiscoveryOptions unwrap(self):
+    cdef inline CFileSystemFactoryOptions unwrap(self):
         return self.options
 
     @property
-    def partition_scheme(self):
-        """PartitionScheme to apply to discovered files.
+    def partitioning(self):
+        """Partitioning to apply to discovered files.
 
-        NOTE: setting this property will overwrite partition_scheme_discovery.
+        NOTE: setting this property will overwrite partitioning_factory.
         """
-        c_scheme = self.options.partition_scheme.scheme()
-        if c_scheme.get() == nullptr:
+        c_partitioning = self.options.partitioning.partitioning()
+        if c_partitioning.get() == nullptr:
             return None
-        return PartitionScheme.wrap(c_scheme)
+        return Partitioning.wrap(c_partitioning)
 
-    @partition_scheme.setter
-    def partition_scheme(self, PartitionScheme value):
-        self.options.partition_scheme = (<PartitionScheme> value).unwrap()
+    @partitioning.setter
+    def partitioning(self, Partitioning value):
+        self.options.partitioning = (<Partitioning> value).unwrap()
 
     @property
-    def partition_scheme_discovery(self):
-        """PartitionSchemeDiscovery to apply to discovered files and
-        discover a PartitionScheme.
+    def partitioning_factory(self):
+        """PartitioningFactory to apply to discovered files and
+        discover a Partitioning.
 
-        NOTE: setting this property will overwrite partition_scheme.
+        NOTE: setting this property will overwrite partitioning.
         """
-        c_discovery = self.options.partition_scheme.discovery()
-        if c_discovery.get() == nullptr:
+        c_factory = self.options.partitioning.factory()
+        if c_factory.get() == nullptr:
             return None
-        return PartitionSchemeDiscovery.wrap(c_discovery)
+        return PartitioningFactory.wrap(c_factory)
 
-    @partition_scheme_discovery.setter
-    def partition_scheme_discovery(self, PartitionSchemeDiscovery value):
-        self.options.partition_scheme = value.unwrap()
+    @partitioning_factory.setter
+    def partitioning_factory(self, PartitioningFactory value):
+        self.options.partitioning = (<PartitioningFactory> value).unwrap()
 
     @property
     def partition_base_dir(self):
         """
-        Base directory to strip paths before applying the partition scheme.
+        Base directory to strip paths before applying the partitioning.
         """
         return frombytes(self.options.partition_base_dir)
 
@@ -393,32 +393,36 @@ cdef class FileSystemDiscoveryOptions:
         self.options.ignore_prefixes = [tobytes(v) for v in values]
 
 
-cdef class DataSourceDiscovery:
+cdef class SourceFactory:
+    """
+    SourceFactory is used to create a Source, inspect the Schema
+    of the fragments contained in it, and declare a partitioning.
+    """
 
     cdef:
-        shared_ptr[CDataSourceDiscovery] wrapped
-        CDataSourceDiscovery* discovery
+        shared_ptr[CSourceFactory] wrapped
+        CSourceFactory* factory
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
-    cdef init(self, shared_ptr[CDataSourceDiscovery]& sp):
+    cdef init(self, shared_ptr[CSourceFactory]& sp):
         self.wrapped = sp
-        self.discovery = sp.get()
+        self.factory = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CDataSourceDiscovery]& sp):
-        cdef DataSourceDiscovery self = \
-            DataSourceDiscovery.__new__(DataSourceDiscovery)
+    cdef wrap(shared_ptr[CSourceFactory]& sp):
+        cdef SourceFactory self = \
+            SourceFactory.__new__(SourceFactory)
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CDataSourceDiscovery] unwrap(self) nogil:
+    cdef inline shared_ptr[CSourceFactory] unwrap(self) nogil:
         return self.wrapped
 
     @property
     def root_partition(self):
-        cdef shared_ptr[CExpression] expr = self.discovery.root_partition()
+        cdef shared_ptr[CExpression] expr = self.factory.root_partition()
         if expr.get() == nullptr:
             return None
         else:
@@ -426,12 +430,12 @@ cdef class DataSourceDiscovery:
 
     @root_partition.setter
     def root_partition(self, Expression expr):
-        check_status(self.discovery.SetRootPartition(expr.unwrap()))
+        check_status(self.factory.SetRootPartition(expr.unwrap()))
 
     def inspect_schemas(self):
         cdef CResult[vector[shared_ptr[CSchema]]] result
         with nogil:
-            result = self.discovery.InspectSchemas()
+            result = self.factory.InspectSchemas()
 
         schemas = []
         for s in GetResultValue(result):
@@ -448,43 +452,40 @@ cdef class DataSourceDiscovery:
         """
         cdef CResult[shared_ptr[CSchema]] result
         with nogil:
-            result = self.discovery.Inspect()
+            result = self.factory.Inspect()
         return pyarrow_wrap_schema(GetResultValue(result))
 
     def finish(self, Schema schema=None):
         """
-        Create a DataSource using the inspected schema or an explicit schema
+        Create a Source using the inspected schema or an explicit schema
         (if given).
 
         Parameters
         ----------
         schema: Schema, default None
-            The schema to conform the datasource to.  If None, the inspected
+            The schema to conform the source to.  If None, the inspected
             schema is used.
 
         Returns
         -------
-        DataSource
+        Source
         """
         cdef:
             shared_ptr[CSchema] sp_schema
-            CResult[shared_ptr[CDataSource]] result
+            CResult[shared_ptr[CSource]] result
         if schema is not None:
             sp_schema = pyarrow_unwrap_schema(schema)
             with nogil:
-                result = self.discovery.Finish(sp_schema)
+                result = self.factory.Finish(sp_schema)
         else:
             with nogil:
-                result = self.discovery.Finish()
-        return DataSource.wrap(GetResultValue(result))
+                result = self.factory.Finish()
+        return Source.wrap(GetResultValue(result))
 
 
-cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
+cdef class FileSystemSourceFactory(SourceFactory):
     """
-    Create a DataSource from a list of paths with schema inspection.
-
-    DataSourceDiscovery is used to create a DataSource, inspect the Schema
-    of the fragments contained in it, and declare a partition scheme.
+    Create a SourceFactory from a list of paths with schema inspection.
 
     Parameters
     ----------
@@ -492,35 +493,34 @@ cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
     paths_or_selector: pyarrow.fs.Selector or list of path-likes
         Either a Selector object or a list of path-like objects.
     format : FileFormat
-    options : FileSystemDiscoveryOptions, optional
-
+    options : FileSystemFactoryOptions, optional
     """
 
     cdef:
-        CFileSystemDataSourceDiscovery* filesystem_discovery
+        CFileSystemSourceFactory* filesystem_factory
 
     def __init__(self, FileSystem filesystem not None, paths_or_selector,
                  FileFormat format not None,
-                 FileSystemDiscoveryOptions options=None):
+                 FileSystemFactoryOptions options=None):
         cdef:
             vector[c_string] paths
             CFileSelector selector
-            CResult[shared_ptr[CDataSourceDiscovery]] result
+            CResult[shared_ptr[CSourceFactory]] result
             shared_ptr[CFileSystem] c_filesystem
             shared_ptr[CFileFormat] c_format
-            CFileSystemDiscoveryOptions c_options
+            CFileSystemFactoryOptions c_options
 
         c_filesystem = filesystem.unwrap()
 
         c_format = format.unwrap()
 
-        options = options or FileSystemDiscoveryOptions()
+        options = options or FileSystemFactoryOptions()
         c_options = options.unwrap()
 
         if isinstance(paths_or_selector, FileSelector):
             with nogil:
                 selector = (<FileSelector>paths_or_selector).selector
-                result = CFileSystemDataSourceDiscovery.MakeFromSelector(
+                result = CFileSystemSourceFactory.MakeFromSelector(
                     c_filesystem,
                     selector,
                     c_format,
@@ -529,7 +529,7 @@ cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
         elif isinstance(paths_or_selector, (list, tuple)):
             paths = [tobytes(s) for s in paths_or_selector]
             with nogil:
-                result = CFileSystemDataSourceDiscovery.MakeFromPaths(
+                result = CFileSystemSourceFactory.MakeFromPaths(
                     c_filesystem,
                     paths,
                     c_format,
@@ -540,45 +540,41 @@ cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
 
         self.init(GetResultValue(result))
 
-    cdef init(self, shared_ptr[CDataSourceDiscovery]& sp):
-        DataSourceDiscovery.init(self, sp)
-        self.filesystem_discovery = <CFileSystemDataSourceDiscovery*> sp.get()
+    cdef init(self, shared_ptr[CSourceFactory]& sp):
+        SourceFactory.init(self, sp)
+        self.filesystem_factory = <CFileSystemSourceFactory*> sp.get()
 
 
-cdef class DataSource:
-    """Basic component of a Dataset which yields zero or more data fragments.
-
-    A DataSource acts as a discovery mechanism of data fragments and
-    partitions, e.g. files deeply nested in a directory.
-    """
+cdef class Source:
+    """Basic component of a Dataset which yields zero or more fragments.  """
 
     cdef:
-        shared_ptr[CDataSource] wrapped
-        CDataSource* source
+        shared_ptr[CSource] wrapped
+        CSource* source
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
-    cdef void init(self, const shared_ptr[CDataSource]& sp):
+    cdef void init(self, const shared_ptr[CSource]& sp):
         self.wrapped = sp
         self.source = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CDataSource]& sp):
-        cdef DataSource self
+    cdef wrap(shared_ptr[CSource]& sp):
+        cdef Source self
 
         typ = frombytes(sp.get().type_name())
         if typ == 'tree':
-            self = TreeDataSource.__new__(TreeDataSource)
+            self = TreeSource.__new__(TreeSource)
         elif typ == 'filesystem':
-            self = FileSystemDataSource.__new__(FileSystemDataSource)
+            self = FileSystemSource.__new__(FileSystemSource)
         else:
             raise TypeError(typ)
 
         self.init(sp)
         return self
 
-    cdef shared_ptr[CDataSource] unwrap(self) nogil:
+    cdef shared_ptr[CSource] unwrap(self) nogil:
         return self.wrapped
 
     @property
@@ -592,7 +588,7 @@ cdef class DataSource:
     def partition_expression(self):
         """
         An expression which evaluates to true for all data viewed by this
-        DataSource.
+        Source.
         """
         cdef shared_ptr[CExpression] expression
         expression = self.source.partition_expression()
@@ -602,47 +598,47 @@ cdef class DataSource:
             return Expression.wrap(expression)
 
 
-cdef class TreeDataSource(DataSource):
-    """A DataSource created from other data source objects"""
+cdef class TreeSource(Source):
+    """A Source created from other source objects"""
 
     cdef:
-        CTreeDataSource* tree_source
+        CTreeSource* tree_source
 
-    def __init__(self, schema, data_sources):
+    def __init__(self, schema, sources):
         cdef:
-            DataSource child
-            CDataSourceVector children
-            shared_ptr[CTreeDataSource] tree_source
+            Source child
+            CSourceVector children
+            shared_ptr[CTreeSource] tree_source
 
-        for child in data_sources:
+        for child in sources:
             children.push_back(child.wrapped)
 
-        tree_source = make_shared[CTreeDataSource](
+        tree_source = make_shared[CTreeSource](
             pyarrow_unwrap_schema(schema), children)
-        self.init(<shared_ptr[CDataSource]> tree_source)
+        self.init(<shared_ptr[CSource]> tree_source)
 
-    cdef void init(self, const shared_ptr[CDataSource]& sp):
-        DataSource.init(self, sp)
-        self.tree_source = <CTreeDataSource*> sp.get()
+    cdef void init(self, const shared_ptr[CSource]& sp):
+        Source.init(self, sp)
+        self.tree_source = <CTreeSource*> sp.get()
 
 
-cdef class FileSystemDataSource(DataSource):
-    """A DataSource created from a set of files on a particular filesystem"""
+cdef class FileSystemSource(Source):
+    """A Source created from a set of files on a particular filesystem"""
 
     cdef:
-        CFileSystemDataSource* filesystem_source
+        CFileSystemSource* filesystem_source
 
     def __init__(self, Schema schema not None,
                  Expression source_partition not None,
                  FileFormat file_format not None,
                  FileSystem filesystem not None,
                  paths_or_selector, partitions):
-        """Create a FileSystemDataSource
+        """Create a FileSystemSource
 
         Parameters
         ----------
         schema : Schema
-            Schema for resulting DataSource
+            Schema for resulting Source
         source_partition : Expression
         file_format : FileFormat
         filesystem : FileSystem
@@ -658,7 +654,7 @@ cdef class FileSystemDataSource(DataSource):
             Expression expression
             vector[CFileStats] c_file_stats
             vector[shared_ptr[CExpression]] c_partitions
-            CResult[shared_ptr[CDataSource]] result
+            CResult[shared_ptr[CSource]] result
 
         for stats in filesystem.get_target_stats(paths_or_selector):
             c_file_stats.push_back(stats.unwrap())
@@ -675,7 +671,7 @@ cdef class FileSystemDataSource(DataSource):
         if source_partition is not None:
             c_source_partition = source_partition.unwrap()
 
-        result = CFileSystemDataSource.Make(
+        result = CFileSystemSource.Make(
             pyarrow_unwrap_schema(schema),
             c_source_partition,
             file_format.unwrap(),
@@ -685,9 +681,9 @@ cdef class FileSystemDataSource(DataSource):
         )
         self.init(GetResultValue(result))
 
-    cdef void init(self, const shared_ptr[CDataSource]& sp):
-        DataSource.init(self, sp)
-        self.filesystem_source = <CFileSystemDataSource*> sp.get()
+    cdef void init(self, const shared_ptr[CSource]& sp):
+        Source.init(self, sp)
+        self.filesystem_source = <CFileSystemSource*> sp.get()
 
 
 cdef class Dataset:
@@ -703,30 +699,30 @@ cdef class Dataset:
         shared_ptr[CDataset] wrapped
         CDataset* dataset
 
-    def __init__(self, data_sources, Schema schema not None):
+    def __init__(self, sources, Schema schema not None):
         """Create a dataset
 
-        A schema must be passed because most of the data sources' schema is
+        A schema must be passed because most of the sources' schema is
         unknown before executing possibly expensive scanning operation, but
         projecting, filtering, predicate pushdown requires a well defined
         schema to work on.
 
         Parameters
         ----------
-        data_sources : list of DataSource
-            One or more input data sources
+        sources : list of Source
+            One or more input sources
         schema : Schema
             A known schema to conform to.
         """
         cdef:
-            DataSource source
-            CDataSourceVector sources
+            Source source
+            CSourceVector c_sources
             CResult[shared_ptr[CDataset]] result
 
-        for source in data_sources:
-            sources.push_back(source.unwrap())
+        for source in sources:
+            c_sources.push_back(source.unwrap())
 
-        result = CDataset.Make(sources, pyarrow_unwrap_schema(schema))
+        result = CDataset.Make(c_sources, pyarrow_unwrap_schema(schema))
         self.init(GetResultValue(result))
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
@@ -759,9 +755,9 @@ cdef class Dataset:
 
     @property
     def sources(self):
-        """List of the data sources"""
-        cdef vector[shared_ptr[CDataSource]] sources = self.dataset.sources()
-        return [DataSource.wrap(source) for source in sources]
+        """List of the sources"""
+        cdef vector[shared_ptr[CSource]] sources = self.dataset.sources()
+        return [Source.wrap(source) for source in sources]
 
     @property
     def schema(self):
@@ -788,7 +784,7 @@ cdef class ScanTask:
 
     @staticmethod
     cdef wrap(shared_ptr[CScanTask]& sp):
-        cdef SimpleScanTask self = SimpleScanTask.__new__(SimpleScanTask)
+        cdef InMemoryScanTask self = InMemoryScanTask.__new__(InMemoryScanTask)
         self.init(sp)
         return self
 
@@ -819,15 +815,15 @@ cdef class ScanTask:
                 yield pyarrow_wrap_batch(record_batch)
 
 
-cdef class SimpleScanTask(ScanTask):
+cdef class InMemoryScanTask(ScanTask):
     """A trivial ScanTask that yields the RecordBatch of an array."""
 
     cdef:
-        CSimpleScanTask* simple_task
+        CInMemoryScanTask* in_memory_task
 
     cdef init(self, shared_ptr[CScanTask]& sp):
         ScanTask.init(self, sp)
-        self.simple_task = <CSimpleScanTask*> sp.get()
+        self.in_memory_task = <CInMemoryScanTask*> sp.get()
 
 
 cdef class ScannerBuilder:
@@ -873,7 +869,7 @@ cdef class ScannerBuilder:
     def project(self, columns):
         """Set the subset of columns to materialize.
 
-        This subset will be passed down to DataSources and corresponding
+        This subset will be passed down to Sources and corresponding
         data fragments. The goal is to avoid loading, copying, and
         deserializing columns that will not be required further down the
         compute chain.
@@ -908,7 +904,7 @@ cdef class ScannerBuilder:
     def filter(self, Expression filter_expression not None):
         """Set the filter expression to return only rows matching the filter.
 
-        The predicate will be passed down to DataSources and corresponding
+        The predicate will be passed down to Sources and corresponding
         data fragments to exploit predicate pushdown if possible using
         partition information or internal metadata, e.g. Parquet statistics.
         Otherwise filters the loaded RecordBatches before yielding them.

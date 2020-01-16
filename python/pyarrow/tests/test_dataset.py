@@ -66,21 +66,20 @@ def mockfs():
 def dataset(mockfs):
     format = ds.ParquetFileFormat()
     selector = fs.FileSelector('subdir', recursive=True)
-    options = ds.FileSystemDiscoveryOptions('subdir')
-    options.partition_scheme = ds.SchemaPartitionScheme(
+    options = ds.FileSystemFactoryOptions('subdir')
+    options.partitioning = ds.DirectoryPartitioning(
         pa.schema([
             pa.field('group', pa.int32()),
             pa.field('key', pa.string())
         ])
     )
-    discovery = ds.FileSystemDataSourceDiscovery(mockfs, selector, format,
-                                                 options)
-    schema = discovery.inspect()
-    source = discovery.finish()
+    factory = ds.FileSystemSourceFactory(mockfs, selector, format, options)
+    schema = factory.inspect()
+    source = factory.finish()
     return ds.Dataset([source], schema)
 
 
-def test_filesystem_data_source(mockfs):
+def test_filesystem_source(mockfs):
     schema = pa.schema([])
 
     file_format = ds.ParquetFileFormat()
@@ -88,12 +87,12 @@ def test_filesystem_data_source(mockfs):
     paths = ['subdir/1/xxx/file0.parquet', 'subdir/2/yyy/file1.parquet']
     partitions = [ds.ScalarExpression(True), ds.ScalarExpression(True)]
 
-    source = ds.FileSystemDataSource(schema,
-                                     source_partition=None,
-                                     file_format=file_format,
-                                     filesystem=mockfs,
-                                     paths_or_selector=paths,
-                                     partitions=partitions)
+    source = ds.FileSystemSource(schema,
+                                 source_partition=None,
+                                 file_format=file_format,
+                                 filesystem=mockfs,
+                                 paths_or_selector=paths,
+                                 partitions=partitions)
 
     source_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
@@ -112,10 +111,10 @@ def test_filesystem_data_source(mockfs):
             ds.ScalarExpression(2)
         )
     ]
-    source = ds.FileSystemDataSource(paths_or_selector=paths, schema=schema,
-                                     source_partition=source_partition,
-                                     filesystem=mockfs, partitions=partitions,
-                                     file_format=file_format)
+    source = ds.FileSystemSource(paths_or_selector=paths, schema=schema,
+                                 source_partition=source_partition,
+                                 filesystem=mockfs, partitions=partitions,
+                                 file_format=file_format)
     assert source.partition_expression.equals(source_partition)
 
 
@@ -182,31 +181,31 @@ def test_abstract_classes():
     classes = [
         ds.FileFormat,
         ds.Scanner,
-        ds.DataSource,
+        ds.Source,
         ds.Expression,
-        ds.PartitionScheme,
+        ds.Partitioning,
     ]
     for klass in classes:
         with pytest.raises(TypeError):
             klass()
 
 
-def test_partition_scheme():
+def test_partitioning():
     schema = pa.schema([
         pa.field('i64', pa.int64()),
         pa.field('f64', pa.float64())
     ])
-    for klass in [ds.SchemaPartitionScheme, ds.HivePartitionScheme]:
-        scheme = klass(schema)
-        assert isinstance(scheme, ds.PartitionScheme)
+    for klass in [ds.DirectoryPartitioning, ds.HivePartitioning]:
+        partitioning = klass(schema)
+        assert isinstance(partitioning, ds.Partitioning)
 
-    scheme = ds.SchemaPartitionScheme(
+    partitioning = ds.DirectoryPartitioning(
         pa.schema([
             pa.field('group', pa.int64()),
             pa.field('key', pa.float64())
         ])
     )
-    expr = scheme.parse('/3/3.14')
+    expr = partitioning.parse('/3/3.14')
     assert isinstance(expr, ds.Expression)
 
     expected = ds.AndExpression(
@@ -224,15 +223,15 @@ def test_partition_scheme():
     assert expr.equals(expected)
 
     with pytest.raises(pa.ArrowInvalid):
-        scheme.parse('/prefix/3/aaa')
+        partitioning.parse('/prefix/3/aaa')
 
-    scheme = ds.HivePartitionScheme(
+    partitioning = ds.HivePartitioning(
         pa.schema([
             pa.field('alpha', pa.int64()),
             pa.field('beta', pa.int64())
         ])
     )
-    expr = scheme.parse('/alpha=0/beta=3')
+    expr = partitioning.parse('/alpha=0/beta=3')
     expected = ds.AndExpression(
         ds.ComparisonExpression(
             ds.CompareOperator.Equal,
@@ -309,11 +308,11 @@ def test_expression():
         'subdir/2/yyy/file1.parquet',
     ]
 ])
-def test_file_system_discovery(mockfs, paths_or_selector):
+def test_file_system_factory(mockfs, paths_or_selector):
     format = ds.ParquetFileFormat()
 
-    options = ds.FileSystemDiscoveryOptions('subdir')
-    options.partition_scheme = ds.SchemaPartitionScheme(
+    options = ds.FileSystemFactoryOptions('subdir')
+    options.partitioning = ds.DirectoryPartitioning(
         pa.schema([
             pa.field('group', pa.int32()),
             pa.field('key', pa.string())
@@ -323,21 +322,21 @@ def test_file_system_discovery(mockfs, paths_or_selector):
     assert options.ignore_prefixes == ['.', '_']
     assert options.exclude_invalid_files is True
 
-    discovery = ds.FileSystemDataSourceDiscovery(
+    factory = ds.FileSystemSourceFactory(
         mockfs, paths_or_selector, format, options
     )
-    inspected_schema = discovery.inspect()
+    inspected_schema = factory.inspect()
 
-    assert isinstance(discovery.inspect(), pa.Schema)
-    assert isinstance(discovery.inspect_schemas(), list)
-    assert isinstance(discovery.finish(inspected_schema),
-                      ds.FileSystemDataSource)
-    assert discovery.root_partition.equals(ds.ScalarExpression(True))
+    assert isinstance(factory.inspect(), pa.Schema)
+    assert isinstance(factory.inspect_schemas(), list)
+    assert isinstance(factory.finish(inspected_schema),
+                      ds.FileSystemSource)
+    assert factory.root_partition.equals(ds.ScalarExpression(True))
 
-    data_source = discovery.finish()
-    assert isinstance(data_source, ds.DataSource)
+    source = factory.finish()
+    assert isinstance(source, ds.Source)
 
-    dataset = ds.Dataset([data_source], inspected_schema)
+    dataset = ds.Dataset([source], inspected_schema)
 
     scanner = dataset.new_scan().finish()
     assert len(list(scanner.scan())) == 2
@@ -360,19 +359,19 @@ def test_file_system_discovery(mockfs, paths_or_selector):
     assert table.num_columns == 4
 
 
-def test_partition_scheme_discovery(mockfs):
+def test_paritioning_factory(mockfs):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
 
-    options = ds.FileSystemDiscoveryOptions('subdir')
-    schema_discovery = ds.SchemaPartitionScheme.discover(['group', 'key'])
-    assert isinstance(schema_discovery, ds.PartitionSchemeDiscovery)
-    options.partition_scheme_discovery = schema_discovery
+    options = ds.FileSystemFactoryOptions('subdir')
+    partitioning_factory = ds.DirectoryPartitioning.discover(['group', 'key'])
+    assert isinstance(partitioning_factory, ds.PartitioningFactory)
+    options.partitioning_factory = partitioning_factory
 
-    discovery = ds.FileSystemDataSourceDiscovery(
+    factory = ds.FileSystemSourceFactory(
         mockfs, paths_or_selector, format, options
     )
-    inspected_schema = discovery.inspect()
+    inspected_schema = factory.inspect()
     # i64/f64 from data, group/key from "/1/xxx" and "/2/yyy" paths
     expected_schema = pa.schema([
         ("i64", pa.int64()),
@@ -382,5 +381,5 @@ def test_partition_scheme_discovery(mockfs):
     ])
     assert inspected_schema.remove_metadata().equals(expected_schema)
 
-    hive_discovery = ds.HivePartitionScheme.discover()
-    assert isinstance(hive_discovery, ds.PartitionSchemeDiscovery)
+    hive_partitioning_factory = ds.HivePartitioning.discover()
+    assert isinstance(hive_partitioning_factory, ds.PartitioningFactory)

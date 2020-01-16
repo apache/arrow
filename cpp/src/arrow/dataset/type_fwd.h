@@ -44,15 +44,14 @@ namespace dataset {
 
 class Dataset;
 
-class DataFragment;
-using DataFragmentIterator = Iterator<std::shared_ptr<DataFragment>>;
-using DataFragmentVector = std::vector<std::shared_ptr<DataFragment>>;
+class Fragment;
+using FragmentIterator = Iterator<std::shared_ptr<Fragment>>;
+using FragmentVector = std::vector<std::shared_ptr<Fragment>>;
 
-class DataSource;
-using DataSourceVector = std::vector<std::shared_ptr<DataSource>>;
+class Source;
+using SourceVector = std::vector<std::shared_ptr<Source>>;
 
-struct DiscoveryOptions;
-class DataSourceDiscovery;
+class SourceFactory;
 
 class FileFormat;
 
@@ -70,11 +69,9 @@ class ScalarExpression;
 class FieldReferenceExpression;
 class ExpressionEvaluator;
 
-class PartitionScheme;
-
-class PartitionSchemeDiscovery;
-
-class PartitionSchemeOrDiscovery;
+class Partitioning;
+class PartitioningFactory;
+class PartitioningOrFactory;
 
 struct ScanContext;
 
@@ -89,10 +86,6 @@ using ScanTaskVector = std::vector<std::shared_ptr<ScanTask>>;
 using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
 
 class RecordBatchProjector;
-
-class DatasetWriter;
-class WriteContext;
-class WriteOptions;
 
 }  // namespace dataset
 }  // namespace arrow

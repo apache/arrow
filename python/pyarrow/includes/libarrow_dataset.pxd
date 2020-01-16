@@ -149,7 +149,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CScanTask" arrow::dataset::ScanTask":
         CResult[CRecordBatchIterator] Execute()
 
-    cdef cppclass CSimpleScanTask "arrow::dataset::SimpleScanTask"(CScanTask):
+    cdef cppclass CInMemoryScanTask "arrow::dataset::InMemoryScanTask"(
+            CScanTask):
         pass
 
     ctypedef CIterator[shared_ptr[CScanTask]] CScanTaskIterator \
@@ -169,43 +170,43 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CScanner]] Finish()
         shared_ptr[CSchema] schema() const
 
-    cdef cppclass CDataFragment "arrow::dataset::DataFragment":
+    cdef cppclass CFragment "arrow::dataset::Fragment":
         CResult[CScanTaskIterator] Scan(shared_ptr[CScanContext] context)
         c_bool splittable()
         shared_ptr[CScanOptions] scan_options()
 
-    ctypedef vector[shared_ptr[CDataFragment]] CDataFragmentVector \
-        "arrow::dataset::DataFragmentVector"
+    ctypedef vector[shared_ptr[CFragment]] CFragmentVector \
+        "arrow::dataset::FragmentVector"
 
-    ctypedef CIterator[shared_ptr[CDataFragment]] CDataFragmentIterator \
-        "arrow::dataset::DataFragmentIterator"
+    ctypedef CIterator[shared_ptr[CFragment]] CFragmentIterator \
+        "arrow::dataset::FragmentIterator"
 
-    cdef cppclass CSimpleDataFragment "arrow::dataset::SimpleDataFragment"(
-            CDataFragment):
-        CSimpleDataFragment(vector[shared_ptr[CRecordBatch]] record_batches,
-                            shared_ptr[CScanOptions] scan_options)
+    cdef cppclass CInMemoryFragment "arrow::dataset::InMemoryFragment"(
+            CFragment):
+        CInMemoryFragment(vector[shared_ptr[CRecordBatch]] record_batches,
+                          shared_ptr[CScanOptions] scan_options)
 
-    cdef cppclass CDataSource "arrow::dataset::DataSource":
-        CDataFragmentIterator GetFragments(shared_ptr[CScanOptions] options)
+    cdef cppclass CSource "arrow::dataset::Source":
+        CFragmentIterator GetFragments(shared_ptr[CScanOptions] options)
         const shared_ptr[CSchema]& schema()
         const shared_ptr[CExpression]& partition_expression()
         c_string type_name()
 
-    ctypedef vector[shared_ptr[CDataSource]] CDataSourceVector \
-        "arrow::dataset::DataSourceVector"
+    ctypedef vector[shared_ptr[CSource]] CSourceVector \
+        "arrow::dataset::SourceVector"
 
-    cdef cppclass CTreeDataSource "arrow::dataset::TreeDataSource"(
-            CDataSource):
-        CTreeDataSource(CDataSourceVector children)
+    cdef cppclass CTreeSource "arrow::dataset::TreeSource"(
+            CSource):
+        CTreeSource(CSourceVector children)
 
     cdef cppclass CDataset "arrow::dataset::Dataset":
         @staticmethod
-        CResult[shared_ptr[CDataset]] Make(CDataSourceVector sources,
+        CResult[shared_ptr[CDataset]] Make(CSourceVector sources,
                                            shared_ptr[CSchema] schema)
         CResult[shared_ptr[CScannerBuilder]] NewScanWithContext "NewScan"(
             shared_ptr[CScanContext] context)
         CResult[shared_ptr[CScannerBuilder]] NewScan()
-        const CDataSourceVector& sources()
+        const CSourceVector& sources()
         shared_ptr[CSchema] schema()
 
     cdef cppclass CFileScanOptions "arrow::dataset::FileScanOptions"(
@@ -237,28 +238,28 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                          CScanTaskIterator* out) const
         CStatus MakeFragment(const CFileSource& location,
                              shared_ptr[CScanOptions] opts,
-                             shared_ptr[CDataFragment]* out)
+                             shared_ptr[CFragment]* out)
 
-    cdef cppclass CFileDataFragment "arrow::dataset::FileDataFragment"(
-            CDataFragment):
-        CFileDataFragment(const CFileSource& source,
-                          shared_ptr[CFileFormat] format,
-                          shared_ptr[CScanOptions] scan_options)
+    cdef cppclass CFileFragment "arrow::dataset::FileFragment"(
+            CFragment):
+        CFileFragment(const CFileSource& source,
+                      shared_ptr[CFileFormat] format,
+                      shared_ptr[CScanOptions] scan_options)
         CStatus Scan(shared_ptr[CScanContext] scan_context,
                      shared_ptr[CScanTaskIterator]* out)
         const CFileSource& source()
         shared_ptr[CFileFormat] format()
         shared_ptr[CScanOptions] scan_options()
 
-    cdef cppclass CParquetDataFragment "arrow::dataset::ParquetFragment"(
-            CFileDataFragment):
-        CParquetDataFragment(const CFileSource& source,
-                             shared_ptr[CScanOptions] options)
+    cdef cppclass CParquetFragment "arrow::dataset::ParquetFragment"(
+            CFileFragment):
+        CParquetFragment(const CFileSource& source,
+                         shared_ptr[CScanOptions] options)
 
-    cdef cppclass CFileSystemDataSource \
-            "arrow::dataset::FileSystemDataSource"(CDataSource):
+    cdef cppclass CFileSystemSource \
+            "arrow::dataset::FileSystemSource"(CSource):
         @staticmethod
-        CResult[shared_ptr[CDataSource]] Make(
+        CResult[shared_ptr[CSource]] Make(
             shared_ptr[CSchema] schema,
             shared_ptr[CExpression] source_partition,
             shared_ptr[CFileFormat] format,
@@ -266,7 +267,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileStatsVector stats,
             CExpressionVector partitions)
         c_string type()
-        shared_ptr[CDataFragmentIterator] GetFragments(
+        shared_ptr[CFragmentIterator] GetFragments(
             shared_ptr[CScanOptions] options)
 
     cdef cppclass CParquetScanOptions "arrow::dataset::ParquetScanOptions"(
@@ -282,76 +283,75 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         pass
 
     cdef cppclass CParquetFragment "arrow::dataset::ParquetFragment"(
-            CFileDataFragment):
+            CFileFragment):
         CParquetFragment(const CFileSource& source,
                          shared_ptr[CScanOptions] options)
         c_bool splittable()
 
-    cdef cppclass CPartitionScheme "arrow::dataset::PartitionScheme":
+    cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
         CResult[shared_ptr[CExpression]] Parse(const c_string& path) const
         const shared_ptr[CSchema]& schema()
 
-    cdef cppclass CPartitionSchemeDiscovery \
-            "arrow::dataset::PartitionSchemeDiscovery":
+    cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         pass
 
-    cdef cppclass CDefaultPartitionScheme \
-            "arrow::dataset::DefaultPartitionScheme"(CPartitionScheme):
-        CDefaultPartitionScheme()
+    cdef cppclass CDefaultPartitioning \
+            "arrow::dataset::DefaultPartitioning"(CPartitioning):
+        CDefaultPartitioning()
 
-    cdef cppclass CSchemaPartitionScheme \
-            "arrow::dataset::SchemaPartitionScheme"(CPartitionScheme):
-        CSchemaPartitionScheme(shared_ptr[CSchema] schema)
+    cdef cppclass CDirectoryPartitioning \
+            "arrow::dataset::DirectoryPartitioning"(CPartitioning):
+        CDirectoryPartitioning(shared_ptr[CSchema] schema)
         @staticmethod
-        shared_ptr[CPartitionSchemeDiscovery] MakeDiscovery(
+        shared_ptr[CPartitioningFactory] MakeFactory(
             vector[c_string] field_names)
 
-    cdef cppclass CHivePartitionScheme \
-            "arrow::dataset::HivePartitionScheme"(CPartitionScheme):
-        CHivePartitionScheme(shared_ptr[CSchema] schema)
+    cdef cppclass CHivePartitioning \
+            "arrow::dataset::HivePartitioning"(CPartitioning):
+        CHivePartitioning(shared_ptr[CSchema] schema)
         @staticmethod
-        shared_ptr[CPartitionSchemeDiscovery] MakeDiscovery()
+        shared_ptr[CPartitioningFactory] MakeFactory()
 
-    cdef cppclass CPartitionSchemeOrDiscovery \
-            "arrow::dataset::PartitionSchemeOrDiscovery":
-        CPartitionSchemeOrDiscovery(shared_ptr[CPartitionScheme])
-        CPartitionSchemeOrDiscovery(shared_ptr[CPartitionSchemeDiscovery])
-        CPartitionSchemeOrDiscovery& operator=(shared_ptr[CPartitionScheme])
-        CPartitionSchemeOrDiscovery& operator=(
-            shared_ptr[CPartitionSchemeDiscovery])
-        shared_ptr[CPartitionScheme] scheme() const
-        shared_ptr[CPartitionSchemeDiscovery] discovery() const
+    cdef cppclass CPartitioningOrFactory \
+            "arrow::dataset::PartitioningOrFactory":
+        CPartitioningOrFactory(shared_ptr[CPartitioning])
+        CPartitioningOrFactory(shared_ptr[CPartitioningFactory])
+        CPartitioningOrFactory& operator=(shared_ptr[CPartitioning])
+        CPartitioningOrFactory& operator=(
+            shared_ptr[CPartitioningFactory])
+        shared_ptr[CPartitioning] partitioning() const
+        shared_ptr[CPartitioningFactory] factory() const
 
-    cdef cppclass CFileSystemDiscoveryOptions \
-            "arrow::dataset::FileSystemDiscoveryOptions":
-        CPartitionSchemeOrDiscovery partition_scheme
+    cdef cppclass CFileSystemFactoryOptions \
+            "arrow::dataset::FileSystemFactoryOptions":
+        CPartitioningOrFactory partitioning
         c_string partition_base_dir
         c_bool exclude_invalid_files
         vector[c_string] ignore_prefixes
 
-    cdef cppclass CDataSourceDiscovery "arrow::dataset::DataSourceDiscovery":
+    cdef cppclass CSourceFactory "arrow::dataset::SourceFactory":
         CResult[vector[shared_ptr[CSchema]]] InspectSchemas()
         CResult[shared_ptr[CSchema]] Inspect()
-        CResult[shared_ptr[CDataSource]] Finish(shared_ptr[CSchema])
-        CResult[shared_ptr[CDataSource]] Finish()
+        CResult[shared_ptr[CSource]] Finish(shared_ptr[CSchema])
+        CResult[shared_ptr[CSource]] Finish()
         shared_ptr[CExpression] root_partition()
         CStatus SetRootPartition(shared_ptr[CExpression] partition)
 
-    cdef cppclass CFileSystemDataSourceDiscovery \
-            "arrow::dataset::FileSystemDataSourceDiscovery"(
-                CDataSourceDiscovery):
+    cdef cppclass CFileSystemSourceFactory \
+            "arrow::dataset::FileSystemSourceFactory"(
+                CSourceFactory):
         @staticmethod
-        CResult[shared_ptr[CDataSourceDiscovery]] MakeFromPaths "Make"(
+        CResult[shared_ptr[CSourceFactory]] MakeFromPaths "Make"(
             shared_ptr[CFileSystem] filesystem,
             vector[c_string] paths,
             shared_ptr[CFileFormat] format,
-            CFileSystemDiscoveryOptions options
+            CFileSystemFactoryOptions options
         )
         @staticmethod
-        CResult[shared_ptr[CDataSourceDiscovery]] MakeFromSelector "Make"(
+        CResult[shared_ptr[CSourceFactory]] MakeFromSelector "Make"(
             shared_ptr[CFileSystem] filesystem,
             CFileSelector,
             shared_ptr[CFileFormat] format,
-            CFileSystemDiscoveryOptions options
+            CFileSystemFactoryOptions options
         )

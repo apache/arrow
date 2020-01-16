@@ -20,7 +20,7 @@ Return the Dataset's \code{Schema}
 The \code{Dataset$create()} factory method instantiates a \code{Dataset} and
 takes the following arguments:
 \itemize{
-\item \code{sources}: a list of \link{DataSource} objects
+\item \code{sources}: a list of \link{Source} objects
 \item \code{schema}: a \link{Schema}
 }
 }
@@ -35,5 +35,5 @@ takes the following arguments:
 
 \seealso{
 \code{\link[=open_dataset]{open_dataset()}} for a simple way to create a Dataset that has a
-single \code{DataSource}.
+single \code{Source}.
 }

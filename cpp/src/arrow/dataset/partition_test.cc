@@ -38,14 +38,14 @@ namespace dataset {
 
 using E = TestExpression;
 
-class TestPartitionScheme : public ::testing::Test {
+class TestPartitioning : public ::testing::Test {
  public:
   void AssertParseError(const std::string& path) {
-    ASSERT_RAISES(Invalid, scheme_->Parse(path).status());
+    ASSERT_RAISES(Invalid, partitioning_->Parse(path).status());
   }
 
   void AssertParse(const std::string& path, std::shared_ptr<Expression> expected) {
-    ASSERT_OK_AND_ASSIGN(auto parsed, scheme_->Parse(path));
+    ASSERT_OK_AND_ASSIGN(auto parsed, partitioning_->Parse(path));
     ASSERT_EQ(E{parsed}, E{expected});
   }
 
@@ -55,9 +55,9 @@ class TestPartitionScheme : public ::testing::Test {
 
   void AssertInspect(const std::vector<util::string_view>& paths,
                      const std::vector<std::shared_ptr<Field>>& expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect(paths));
+    ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect(paths));
     ASSERT_EQ(*actual, Schema(expected));
-    ASSERT_OK(discovery_->Finish(actual).status());
+    ASSERT_OK(factory_->Finish(actual).status());
   }
 
  protected:
@@ -69,11 +69,11 @@ class TestPartitionScheme : public ::testing::Test {
     return field(std::move(name), utf8());
   }
 
-  std::shared_ptr<PartitionScheme> scheme_;
-  std::shared_ptr<PartitionSchemeDiscovery> discovery_;
+  std::shared_ptr<Partitioning> partitioning_;
+  std::shared_ptr<PartitioningFactory> factory_;
 };
 
-TEST_F(TestPartitionScheme, SegmentDictionary) {
+TEST_F(TestPartitioning, SegmentDictionary) {
   using Dict = std::unordered_map<std::string, std::shared_ptr<Expression>>;
   Dict alpha_dict, beta_dict;
   auto add_expr = [](const std::string& segment, const Expression& expr, Dict* dict) {
@@ -88,7 +88,7 @@ TEST_F(TestPartitionScheme, SegmentDictionary) {
   add_expr("?", "beta"_ == "what", &beta_dict);
   add_expr("!", "beta"_ == "OH", &beta_dict);
 
-  scheme_.reset(new SegmentDictionaryPartitionScheme(
+  partitioning_.reset(new SegmentDictionaryPartitioning(
       schema({field("alpha", int32()), field("beta", utf8())}), {alpha_dict, beta_dict}));
 
   AssertParse("/one/?", "alpha"_ == int32_t(1) and "beta"_ == "what");
@@ -100,8 +100,8 @@ TEST_F(TestPartitionScheme, SegmentDictionary) {
   AssertParse("", scalar(true));                     // no segments to parse
 }
 
-TEST_F(TestPartitionScheme, Schema) {
-  scheme_ = std::make_shared<SchemaPartitionScheme>(
+TEST_F(TestPartitioning, DirectoryPartitioning) {
+  partitioning_ = std::make_shared<DirectoryPartitioning>(
       schema({field("alpha", int32()), field("beta", utf8())}));
 
   AssertParse("/0/hello", "alpha"_ == int32_t(0) and "beta"_ == "hello");
@@ -117,8 +117,8 @@ TEST_F(TestPartitionScheme, Schema) {
   AssertParse("/0/foo/ignored=2341", "alpha"_ == int32_t(0) and "beta"_ == "foo");
 }
 
-TEST_F(TestPartitionScheme, DiscoverSchema) {
-  discovery_ = SchemaPartitionScheme::MakeDiscovery({"alpha", "beta"});
+TEST_F(TestPartitioning, DiscoverSchema) {
+  factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"});
 
   // type is int32 if possible
   AssertInspect({"/0/1"}, {Int("alpha"), Int("beta")});
@@ -133,8 +133,8 @@ TEST_F(TestPartitionScheme, DiscoverSchema) {
   AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
 }
 
-TEST_F(TestPartitionScheme, Hive) {
-  scheme_ = std::make_shared<HivePartitionScheme>(
+TEST_F(TestPartitioning, HivePartitioning) {
+  partitioning_ = std::make_shared<HivePartitioning>(
       schema({field("alpha", int32()), field("beta", float32())}));
 
   AssertParse("/alpha=0/beta=3.25", "alpha"_ == int32_t(0) and "beta"_ == 3.25f);
@@ -154,8 +154,8 @@ TEST_F(TestPartitionScheme, Hive) {
   AssertParseError("/alpha=0.0/beta=3.25");  // conversion of "0.0" to int32 fails
 }
 
-TEST_F(TestPartitionScheme, DiscoverHiveSchema) {
-  discovery_ = HivePartitionScheme::MakeDiscovery();
+TEST_F(TestPartitioning, DiscoverHiveSchema) {
+  factory_ = HivePartitioning::MakeFactory();
 
   // type is int32 if possible
   AssertInspect({"/alpha=0/beta=1"}, {Int("alpha"), Int("beta")});
@@ -169,22 +169,22 @@ TEST_F(TestPartitionScheme, DiscoverHiveSchema) {
                 {Int("alpha"), Int("beta"), Str("gamma")});
 }
 
-TEST_F(TestPartitionScheme, EtlThenHive) {
-  SchemaPartitionScheme etl_scheme(schema({field("year", int16()), field("month", int8()),
-                                           field("day", int8()), field("hour", int8())}));
-  HivePartitionScheme alphabeta_scheme(
+TEST_F(TestPartitioning, EtlThenHive) {
+  DirectoryPartitioning etl_part(schema({field("year", int16()), field("month", int8()),
+                                         field("day", int8()), field("hour", int8())}));
+  HivePartitioning alphabeta_part(
       schema({field("alpha", int32()), field("beta", float32())}));
 
-  scheme_ = std::make_shared<FunctionPartitionScheme>(
+  partitioning_ = std::make_shared<FunctionPartitioning>(
       schema({field("year", int16()), field("month", int8()), field("day", int8()),
               field("hour", int8()), field("alpha", int32()), field("beta", float32())}),
       [&](const std::string& segment, int i) -> Result<std::shared_ptr<Expression>> {
-        if (i < etl_scheme.schema()->num_fields()) {
-          return etl_scheme.Parse(segment, i);
+        if (i < etl_part.schema()->num_fields()) {
+          return etl_part.Parse(segment, i);
         }
 
-        i -= etl_scheme.schema()->num_fields();
-        return alphabeta_scheme.Parse(segment, i);
+        i -= etl_part.schema()->num_fields();
+        return alphabeta_part.Parse(segment, i);
       });
 
   AssertParse("/1999/12/31/00/alpha=0/beta=3.25",
@@ -195,10 +195,10 @@ TEST_F(TestPartitionScheme, EtlThenHive) {
   AssertParseError("/20X6/03/21/05/alpha=0/beta=3.25");
 }
 
-TEST_F(TestPartitionScheme, Set) {
-  // An adhoc partition scheme which parses segments like "/x in [1 4 5]"
+TEST_F(TestPartitioning, Set) {
+  // An adhoc partitioning which parses segments like "/x in [1 4 5]"
   // into ("x"_ == 1 or "x"_ == 4 or "x"_ == 5)
-  scheme_ = std::make_shared<FunctionPartitionScheme>(
+  partitioning_ = std::make_shared<FunctionPartitioning>(
       schema({field("x", int32())}),
       [](const std::string& segment, int) -> Result<std::shared_ptr<Expression>> {
         std::smatch matches;
@@ -224,11 +224,11 @@ TEST_F(TestPartitionScheme, Set) {
   AssertParse("/x in []", scalar(false));
 }
 
-// An adhoc partition scheme which parses segments like "/x=[-3.25, 0.0)"
+// An adhoc partitioning which parses segments like "/x=[-3.25, 0.0)"
 // into ("x"_ >= -3.25 and "x" < 0.0)
-class RangePartitionScheme : public HivePartitionScheme {
+class RangePartitioning : public HivePartitioning {
  public:
-  using HivePartitionScheme::HivePartitionScheme;
+  using HivePartitioning::HivePartitioning;
 
   std::string type_name() const override { return "range"; }
 
@@ -275,8 +275,8 @@ class RangePartitionScheme : public HivePartitionScheme {
   }
 };
 
-TEST_F(TestPartitionScheme, Range) {
-  scheme_ = std::make_shared<RangePartitionScheme>(
+TEST_F(TestPartitioning, Range) {
+  partitioning_ = std::make_shared<RangePartitioning>(
       schema({field("x", float64()), field("y", float64()), field("z", float64())}));
 
   AssertParse("/x=[-1.5 0.0)/y=[0.0 1.5)/z=(1.5 3.0]",
