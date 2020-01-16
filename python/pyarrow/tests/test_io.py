@@ -721,7 +721,8 @@ def sample_disk_data(request, tmpdir):
     return path, data
 
 
-def _check_native_file_reader(FACTORY, sample_data):
+def _check_native_file_reader(FACTORY, sample_data,
+                              allow_read_out_of_bounds=True):
     path, data = sample_data
 
     f = FACTORY(path, mode='r')
@@ -738,9 +739,10 @@ def _check_native_file_reader(FACTORY, sample_data):
     assert f.tell() == 0
 
     # Seeking past end of file not supported in memory maps
-    f.seek(len(data) + 1)
-    assert f.tell() == len(data) + 1
-    assert f.read(5) == b''
+    if allow_read_out_of_bounds:
+        f.seek(len(data) + 1)
+        assert f.tell() == len(data) + 1
+        assert f.read(5) == b''
 
     # Test whence argument of seek, ARROW-1287
     assert f.seek(3) == 3
@@ -753,7 +755,8 @@ def _check_native_file_reader(FACTORY, sample_data):
 
 
 def test_memory_map_reader(sample_disk_data):
-    _check_native_file_reader(pa.memory_map, sample_disk_data)
+    _check_native_file_reader(pa.memory_map, sample_disk_data,
+                              allow_read_out_of_bounds=False)
 
 
 def test_memory_map_retain_buffer_reference(sample_disk_data):

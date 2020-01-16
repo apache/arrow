@@ -26,6 +26,18 @@ namespace internal {
 
 ARROW_EXPORT void CloseFromDestructor(FileInterface* file);
 
+// Validate a (offset, size) region (as given to ReadAt) against
+// the file size.  Return the actual read size.
+ARROW_EXPORT Result<int64_t> ValidateReadRegion(int64_t offset, int64_t size,
+                                                int64_t file_size);
+// Validate a (offset, size) region (as given to WriteAt) against
+// the file size.  Short writes are not allowed.
+ARROW_EXPORT Status ValidateWriteRegion(int64_t offset, int64_t size, int64_t file_size);
+
+// Validate a (offset, size) region (as given to ReadAt or WriteAt), without
+// knowing the file size.
+ARROW_EXPORT Status ValidateRegion(int64_t offset, int64_t size);
+
 }  // namespace internal
 }  // namespace io
 }  // namespace arrow

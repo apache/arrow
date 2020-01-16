@@ -226,6 +226,35 @@ void CloseFromDestructor(FileInterface* file) {
   }
 }
 
+Result<int64_t> ValidateReadRegion(int64_t offset, int64_t size, int64_t file_size) {
+  if (offset < 0 || size < 0) {
+    return Status::Invalid("Invalid read (offset = ", offset, ", size = ", size, ")");
+  }
+  if (offset > file_size) {
+    return Status::IOError("Read out of bounds (offset = ", offset, ", size = ", size,
+                           ") in file of size ", file_size);
+  }
+  return std::min(size, file_size - offset);
+}
+
+Status ValidateWriteRegion(int64_t offset, int64_t size, int64_t file_size) {
+  if (offset < 0 || size < 0) {
+    return Status::Invalid("Invalid write (offset = ", offset, ", size = ", size, ")");
+  }
+  if (offset + size > file_size) {
+    return Status::IOError("Write out of bounds (offset = ", offset, ", size = ", size,
+                           ") in file of size ", file_size);
+  }
+  return Status::OK();
+}
+
+Status ValidateRegion(int64_t offset, int64_t size) {
+  if (offset < 0 || size < 0) {
+    return Status::Invalid("Invalid IO (offset = ", offset, ", size = ", size, ")");
+  }
+  return Status::OK();
+}
+
 #ifndef NDEBUG
 
 // Debug mode concurrency checking
