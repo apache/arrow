@@ -67,7 +67,7 @@ public class NettyAllocationManager extends AllocationManager {
    * <p>NettyAllocationManager rounds requested size up to the next power of two.
    */
   @Override
-  protected long getSize() {
+  public long getSize() {
     return allocatedSize;
   }
 
