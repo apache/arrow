@@ -20,7 +20,7 @@ namespace Apache.Arrow
 {
     public class Date32Array : PrimitiveArray<int>
     {
-        private const int MillisecondsPerDay = 86400000;
+        private const long MillisecondsPerDay = 86400000;
 
         public class Builder : PrimitiveArrayBuilder<DateTimeOffset, int, Date32Array, Builder>
         {
@@ -64,7 +64,7 @@ namespace Apache.Arrow
                 return default;
             }
 
-            return DateTimeOffset.FromUnixTimeMilliseconds((long)value.Value * MillisecondsPerDay);
+            return DateTimeOffset.FromUnixTimeMilliseconds(value.Value * MillisecondsPerDay);
         }
     }
 }
