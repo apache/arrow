@@ -104,6 +104,7 @@ pub use self::array::ListArray;
 pub use self::array::PrimitiveArray;
 pub use self::array::StringArray;
 pub use self::array::StructArray;
+pub use self::array::UnionArray;
 
 pub(crate) use self::array::make_array;
 
@@ -192,6 +193,7 @@ pub use self::builder::PrimitiveDictionaryBuilder;
 pub use self::builder::StringBuilder;
 pub use self::builder::StringDictionaryBuilder;
 pub use self::builder::StructBuilder;
+// TODO: UnionBuilder
 
 pub type BooleanBuilder = PrimitiveBuilder<BooleanType>;
 pub type Int8Builder = PrimitiveBuilder<Int8Type>;
