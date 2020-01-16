@@ -86,6 +86,7 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
   @Override
   public void close() throws Exception {
     vector.close();
+    writer.close();
   }
 
   @Override
