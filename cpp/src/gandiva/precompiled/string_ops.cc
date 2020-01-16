@@ -549,14 +549,20 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
                                             int32 * out_len) {                       \
     if (len < 0) {                                                                   \
       gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");    \
-      return nullptr;                                                                \
+      *out_len = 0;                                                                  \
+      return "";                                                                     \
+    }                                                                                \
+    if (len == 0) {                                                                  \
+      *out_len = 0;                                                                  \
+      return "";                                                                     \
     }                                                                                \
     arrow::internal::StringFormatter<arrow::ARROW_TYPE> formatter;                   \
     char* ret = reinterpret_cast<char*>(                                             \
         gdv_fn_context_arena_malloc(context, static_cast<int32>(len)));              \
     if (ret == nullptr) {                                                            \
       gdv_fn_context_set_error_msg(context, "Could not allocate memory");            \
-      return nullptr;                                                                \
+      *out_len = 0;                                                                  \
+      return "";                                                                     \
     }                                                                                \
     arrow::Status status = formatter(value, [&](arrow::util::string_view v) {        \
       int64 size = static_cast<int64>(v.size());                                     \
@@ -566,7 +572,8 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
     });                                                                              \
     if (!status.ok()) {                                                              \
       gdv_fn_context_set_error_msg(context, "Could not cast to string");             \
-      return nullptr;                                                                \
+      *out_len = 0;                                                                  \
+      return "";                                                                     \
     }                                                                                \
     return ret;                                                                      \
   }
