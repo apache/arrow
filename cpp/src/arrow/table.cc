@@ -538,61 +538,59 @@ Status Table::RenameColumns(const std::vector<std::string>& names,
   return Status::OK();
 }
 
-Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
-                         std::shared_ptr<Table>* table) {
+Result<std::shared_ptr<Table>> ConcatenateTables(
+    const std::vector<std::shared_ptr<Table>>& tables,
+    const ConcatenateTablesOptions options, MemoryPool* memory_pool) {
   if (tables.size() == 0) {
     return Status::Invalid("Must pass at least one table");
   }
 
-  std::shared_ptr<Schema> schema = tables[0]->schema();
+  std::vector<std::shared_ptr<Table>> promoted_tables;
+  const std::vector<std::shared_ptr<Table>>* tables_to_concat = &tables;
+  if (options.unify_schemas) {
+    std::vector<std::shared_ptr<Schema>> schemas;
+    schemas.reserve(tables.size());
+    for (const auto& t : tables) {
+      schemas.push_back(t->schema());
+    }
 
-  const int ntables = static_cast<int>(tables.size());
-  const int ncolumns = schema->num_fields();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> unified_schema,
+                          UnifySchemas(schemas, options.field_merge_options));
 
-  for (int i = 1; i < ntables; ++i) {
-    if (!tables[i]->schema()->Equals(*schema, false)) {
-      return Status::Invalid("Schema at index ", static_cast<int>(i),
-                             " was different: \n", schema->ToString(), "\nvs\n",
-                             tables[i]->schema()->ToString());
+    promoted_tables.reserve(tables.size());
+    for (const auto& t : tables) {
+      promoted_tables.emplace_back();
+      ARROW_ASSIGN_OR_RAISE(promoted_tables.back(),
+                            PromoteTableToSchema(t, unified_schema, memory_pool));
+    }
+    tables_to_concat = &promoted_tables;
+  } else {
+    auto first_schema = tables[0]->schema();
+    for (size_t i = 1; i < tables.size(); ++i) {
+      if (!tables[i]->schema()->Equals(*first_schema, false)) {
+        return Status::Invalid("Schema at index ", i, " was different: \n",
+                               first_schema->ToString(), "\nvs\n",
+                               tables[i]->schema()->ToString());
+      }
     }
   }
+
+  std::shared_ptr<Schema> schema = tables_to_concat->front()->schema();
+
+  const int ncolumns = schema->num_fields();
 
   std::vector<std::shared_ptr<ChunkedArray>> columns(ncolumns);
   for (int i = 0; i < ncolumns; ++i) {
     std::vector<std::shared_ptr<Array>> column_arrays;
-    for (int j = 0; j < ntables; ++j) {
-      const std::vector<std::shared_ptr<Array>>& chunks = tables[j]->column(i)->chunks();
+    for (const auto& table : *tables_to_concat) {
+      const std::vector<std::shared_ptr<Array>>& chunks = table->column(i)->chunks();
       for (const auto& chunk : chunks) {
         column_arrays.push_back(chunk);
       }
     }
     columns[i] = std::make_shared<ChunkedArray>(column_arrays, schema->field(i)->type());
   }
-  *table = Table::Make(schema, columns);
-  return Status::OK();
-}
-
-Result<std::shared_ptr<Table>> ConcatenateTablesWithPromotion(
-    const std::vector<std::shared_ptr<Table>>& tables, MemoryPool* pool) {
-  std::vector<std::shared_ptr<Schema>> schemas;
-  schemas.reserve(tables.size());
-  for (const auto& t : tables) {
-    schemas.push_back(t->schema());
-  }
-
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> unified_schema, UnifySchemas(schemas));
-
-  std::vector<std::shared_ptr<Table>> promoted_tables;
-  promoted_tables.reserve(tables.size());
-  for (const auto& t : tables) {
-    promoted_tables.emplace_back();
-    ARROW_ASSIGN_OR_RAISE(promoted_tables.back(),
-                          PromoteTableToSchema(t, unified_schema, pool));
-  }
-
-  std::shared_ptr<Table> result;
-  RETURN_NOT_OK(ConcatenateTables(promoted_tables, &result));
-  return result;
+  return Table::Make(schema, columns);
 }
 
 Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,

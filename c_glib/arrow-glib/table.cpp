@@ -552,10 +552,9 @@ garrow_table_concatenate(GArrowTable *table,
     auto arrow_other_table = garrow_table_get_raw(GARROW_TABLE(node->data));
     arrow_tables.push_back(arrow_other_table);
   }
-  std::shared_ptr<arrow::Table> arrow_concatenated_table;
-  auto status = arrow::ConcatenateTables(arrow_tables, &arrow_concatenated_table);
-  if (garrow_error_check(error, status, "[table][concatenate]")) {
-    return garrow_table_new_raw(&arrow_concatenated_table);
+  auto arrow_concatenated_table = arrow::ConcatenateTables(arrow_tables);
+  if (garrow::check(error, arrow_concatenated_table, "[table][concatenate]")) {
+    return garrow_table_new_raw(&arrow_concatenated_table.ValueOrDie());
   } else {
     return NULL;
   }

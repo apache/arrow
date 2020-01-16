@@ -318,6 +318,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int scale()
 
     cdef cppclass CField" arrow::Field":
+        cppclass CMergeOptions "arrow::Field::MergeOptions":
+            c_bool promote_nullability
+
+            @staticmethod
+            CMergeOptions Defaults()
+
         const c_string& name()
         shared_ptr[CDataType] type()
         c_bool nullable()
@@ -796,11 +802,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     shared_ptr[CScalar] MakeScalar[Value](Value value)
 
-    CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
-                              shared_ptr[CTable]* result)
+    cdef cppclass CConcatenateTablesOptions" arrow::ConcatenateTablesOptions":
+        c_bool unify_schemas
+        CField.CMergeOptions field_merge_options
 
-    CResult[shared_ptr[CTable]] ConcatenateTablesWithPromotion(
-        const vector[shared_ptr[CTable]]& tables, CMemoryPool* pool)
+        @staticmethod
+        CConcatenateTablesOptions Defaults()
+
+    CResult[shared_ptr[CTable]] ConcatenateTables(
+        const vector[shared_ptr[CTable]]& tables,
+        CConcatenateTablesOptions options,
+        CMemoryPool* memory_pool)
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 

@@ -1905,12 +1905,12 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
 
   std::shared_ptr<Table> concatenated;
 
-  ASSERT_OK(ConcatenateTables({r1, r2}, &concatenated));
+  ASSERT_OK_AND_ASSIGN(concatenated, ::arrow::ConcatenateTables({r1, r2}));
   AssertTablesEqual(*concatenated, *table, /*same_chunk_layout=*/false);
 
   ASSERT_TRUE(table->Equals(*r3));
   ASSERT_TRUE(r2->Equals(*r4));
-  ASSERT_OK(ConcatenateTables({r1, r4}, &concatenated));
+  ASSERT_OK_AND_ASSIGN(concatenated, ::arrow::ConcatenateTables({r1, r4}));
   ASSERT_TRUE(table->Equals(*concatenated));
 }
 

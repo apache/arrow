@@ -358,21 +358,33 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   /// \brief Return a copy of this field with the replaced nullability.
   std::shared_ptr<Field> WithNullable(bool nullable) const;
 
+  /// \brief Options that control the behavior of `MergeWith`.
+  /// Options are to be added to allow type conversions, including integer
+  /// widening, promotion from integer to float, or conversion to or from boolean.
+  struct MergeOptions {
+    /// If true, a Field of NullType can be unified with a Field of another type.
+    /// The unified field will be of the other type and become nullable.
+    /// Nullability will be promoted to the looser option (nullable if one is not
+    /// nullable).
+    bool promote_nullability = true;
+
+    static MergeOptions Defaults() { return MergeOptions(); }
+  };
+
   /// \brief Merge the current field with a field of the same name.
   ///
   /// The two fields must be compatible, i.e:
   ///   - have the same name
-  ///   - have the same type, or one or both are NullType
+  ///   - have the same type, or of compatible types according to `options`.
   ///
-  /// Nullability will be promoted to the looser option (nullable if one is not
-  /// nullable). This method does _not_ accommodate type conversion minus
-  /// nullability. This includes integer widening, promotion from integer to
-  /// float, or conversion to or from boolean.
   ///
   /// The metadata of the current field is preserved; the metadata of the other
   /// field is discarded.
-  Result<std::shared_ptr<Field>> MergeWith(const Field& other) const;
-  Result<std::shared_ptr<Field>> MergeWith(const std::shared_ptr<Field>& other) const;
+  Result<std::shared_ptr<Field>> MergeWith(
+      const Field& other, MergeOptions options = MergeOptions::Defaults()) const;
+  Result<std::shared_ptr<Field>> MergeWith(
+      const std::shared_ptr<Field>& other,
+      MergeOptions options = MergeOptions::Defaults()) const;
 
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
@@ -1607,20 +1619,30 @@ class ARROW_EXPORT SchemaBuilder {
     CONFLICT_IGNORE,
     // Replace the existing field with the newer one.
     CONFLICT_REPLACE,
-    // Merge the fields. See documentation of `Field::MergeWith`.
+    // Merge the fields. The merging behavior can be controlled by `Field::MergeOptions`
+    // specified at construction time. Also see documentation of `Field::MergeWith`.
     CONFLICT_MERGE,
     // Refuse the new field and error out.
     CONFLICT_ERROR
   };
 
   /// \brief Construct an empty SchemaBuilder
-  explicit SchemaBuilder(ConflictPolicy conflict_policy = CONFLICT_APPEND);
+  /// `field_merge_options` is only effecitive when `conflict_policy` == `CONFLICT_MERGE`.
+  SchemaBuilder(
+      ConflictPolicy conflict_policy = CONFLICT_APPEND,
+      Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
   /// \brief Construct a SchemaBuilder from a list of fields
-  SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
-                ConflictPolicy conflict_policy = CONFLICT_APPEND);
+  /// `field_merge_options` is only effecitive when `conflict_policy` == `CONFLICT_MERGE`.
+  SchemaBuilder(
+      std::vector<std::shared_ptr<Field>> fields,
+      ConflictPolicy conflict_policy = CONFLICT_APPEND,
+      Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
   /// \brief Construct a SchemaBuilder from a schema, preserving the metadata
-  SchemaBuilder(const std::shared_ptr<Schema>& schema,
-                ConflictPolicy conflict_policy = CONFLICT_APPEND);
+  /// `field_merge_options` is only effecitive when `conflict_policy` == `CONFLICT_MERGE`.
+  SchemaBuilder(
+      const std::shared_ptr<Schema>& schema,
+      ConflictPolicy conflict_policy = CONFLICT_APPEND,
+      Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
 
   /// \brief Return the conflict resolution method.
   ConflictPolicy policy() const;
@@ -1683,12 +1705,13 @@ class ARROW_EXPORT SchemaBuilder {
   Status AppendField(const std::shared_ptr<Field>& field);
 };
 
-/// \brief Unifies schemas by unifying fields by name and promoting Null fields.
+/// \brief Unifies schemas by merging fields by name.
+///
+/// The behavior of field merging can be controlled via `Field::MergeOptions`.
 ///
 /// The resulting schema will contain the union of fields from all schemas.
-/// Fields with the same name will be unified:
-/// - They are expected to be of the same type, or of Null type. The unified
-///   field will be of that same type.
+/// Fields with the same name will be merged. See `Field::MergeOptions`.
+/// - They are expected to be mergeable under provided `field_merge_options`.
 /// - The unified field will inherit the metadata from the schema where
 ///   that field is first defined.
 /// - The first N fields in the schema will be ordered the same as the
@@ -1696,10 +1719,12 @@ class ARROW_EXPORT SchemaBuilder {
 /// The resulting schema will inherit its metadata from the first input schema.
 /// Returns an error if:
 /// - Any input schema contains fields with duplicate names.
-/// - Fields of the same name are of incompatible types.
+/// - Fields of the same name are not mergeable.
 ARROW_EXPORT
 Result<std::shared_ptr<Schema>> UnifySchemas(
-    const std::vector<std::shared_ptr<Schema>>& schemas);
+    const std::vector<std::shared_ptr<Schema>>& schemas,
+    Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
+
 }  // namespace arrow
 
 #endif  // ARROW_TYPE_H

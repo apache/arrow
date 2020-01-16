@@ -40,8 +40,25 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
-
+namespace {
 using internal::checked_cast;
+
+// Merges `existing` and `other` if one of them is of NullType, otherwise
+// returns nullptr.
+//   - if `other` if of NullType or is nullable, the unified field will be nullable.
+//   - if `existing` is of NullType but other is not, the unified field will
+//     have `other`'s type and will be nullable
+std::shared_ptr<Field> MaybePromoteNullTypes(const Field& existing, const Field& other) {
+  if (existing.type()->id() != Type::NA && other.type()->id() != Type::NA) {
+    return nullptr;
+  }
+  if (existing.type()->id() == Type::NA) {
+    return other.WithNullable(true)->WithMetadata(existing.metadata());
+  }
+  // `other` must be null.
+  return existing.WithNullable(true);
+}
+}  // namespace
 
 Field::~Field() {}
 
@@ -70,30 +87,34 @@ std::shared_ptr<Field> Field::WithNullable(const bool nullable) const {
   return std::make_shared<Field>(name_, type_, nullable, metadata_);
 }
 
-Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other) const {
+Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
+                                                MergeOptions options) const {
   if (name() != other.name()) {
     return Status::Invalid("Field ", name(), " doesn't have the same name as ",
                            other.name());
   }
-  if (type()->id() == Type::NA) {
-    return other.WithNullable(true)->WithMetadata(metadata());
+
+  if (Equals(other, /*check_metadata=*/false)) {
+    return Copy();
   }
-  if (other.type()->id() != Type::NA && !type()->Equals(other.type())) {
-    return Status::Invalid("Field ", name(),
-                           " has incompatible types: ", type()->ToString(), " vs ",
-                           other.type()->ToString());
+
+  if (options.promote_nullability) {
+    if (type()->Equals(other.type())) {
+      return Copy()->WithNullable(nullable() || other.nullable());
+    }
+    std::shared_ptr<Field> promoted = MaybePromoteNullTypes(*this, other);
+    if (promoted) return promoted;
   }
-  // At least one field is nullable thus the unified field should also be nullable.
-  if (other.type()->id() == Type::NA || other.nullable() != nullable()) {
-    return WithNullable(true);
-  }
-  return Copy();
+
+  return Status::Invalid("Unable to merge: Field ", name(),
+                         " has incompatible types: ", type()->ToString(), " vs ",
+                         other.type()->ToString());
 }
 
-Result<std::shared_ptr<Field>> Field::MergeWith(
-    const std::shared_ptr<Field>& other) const {
+Result<std::shared_ptr<Field>> Field::MergeWith(const std::shared_ptr<Field>& other,
+                                                MergeOptions options) const {
   DCHECK_NE(other, nullptr);
-  return MergeWith(*other);
+  return MergeWith(*other, options);
 }
 
 std::vector<std::shared_ptr<Field>> Field::Flatten() const {
@@ -759,14 +780,17 @@ std::vector<std::string> Schema::field_names() const {
 class SchemaBuilder::Impl {
  public:
   friend class SchemaBuilder;
-  Impl(ConflictPolicy policy) : policy_(policy) {}
+  Impl(ConflictPolicy policy, Field::MergeOptions field_merge_options)
+      : policy_(policy), field_merge_options_(field_merge_options) {}
 
   Impl(std::vector<std::shared_ptr<Field>> fields,
-       std::shared_ptr<const KeyValueMetadata> metadata, ConflictPolicy conflict_policy)
+       std::shared_ptr<const KeyValueMetadata> metadata, ConflictPolicy conflict_policy,
+       Field::MergeOptions field_merge_options)
       : fields_(std::move(fields)),
         name_to_index_(CreateNameToIndexMap(fields_)),
         metadata_(std::move(metadata)),
-        policy_(conflict_policy) {}
+        policy_(conflict_policy),
+        field_merge_options_(field_merge_options) {}
 
   Status AddField(const std::shared_ptr<Field>& field) {
     DCHECK_NE(field, nullptr);
@@ -830,28 +854,33 @@ class SchemaBuilder::Impl {
   std::unordered_multimap<std::string, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
   ConflictPolicy policy_;
+  Field::MergeOptions field_merge_options_;
 };
 
-SchemaBuilder::SchemaBuilder(ConflictPolicy policy) {
-  impl_ = internal::make_unique<Impl>(policy);
+SchemaBuilder::SchemaBuilder(ConflictPolicy policy,
+                             Field::MergeOptions field_merge_options) {
+  impl_ = internal::make_unique<Impl>(policy, field_merge_options);
 }
 
 SchemaBuilder::SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
-                             ConflictPolicy policy) {
-  impl_ = internal::make_unique<Impl>(std::move(fields), nullptr, policy);
+                             ConflictPolicy policy,
+                             Field::MergeOptions field_merge_options) {
+  impl_ = internal::make_unique<Impl>(std::move(fields), nullptr, policy,
+                                      field_merge_options);
 }
 
-SchemaBuilder::~SchemaBuilder() {}
-
-SchemaBuilder::SchemaBuilder(const std::shared_ptr<Schema>& schema,
-                             ConflictPolicy policy) {
+SchemaBuilder::SchemaBuilder(const std::shared_ptr<Schema>& schema, ConflictPolicy policy,
+                             Field::MergeOptions field_merge_options) {
   std::shared_ptr<const KeyValueMetadata> metadata;
   if (schema->HasMetadata()) {
     metadata = schema->metadata()->Copy();
   }
 
-  impl_ = internal::make_unique<Impl>(schema->fields(), std::move(metadata), policy);
+  impl_ = internal::make_unique<Impl>(schema->fields(), std::move(metadata), policy,
+                                      field_merge_options);
 }
+
+SchemaBuilder::~SchemaBuilder() {}
 
 SchemaBuilder::ConflictPolicy SchemaBuilder::policy() const { return impl_->policy_; }
 
@@ -918,7 +947,8 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
 }
 
 Result<std::shared_ptr<Schema>> UnifySchemas(
-    const std::vector<std::shared_ptr<Schema>>& schemas) {
+    const std::vector<std::shared_ptr<Schema>>& schemas,
+    const Field::MergeOptions field_merge_options) {
   if (schemas.empty()) {
     return Status::Invalid("Must provide at least one schema to unify.");
   }
@@ -927,7 +957,7 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
     return Status::Invalid("Can't unify schema with duplicate field names.");
   }
 
-  SchemaBuilder builder{schemas[0], SchemaBuilder::CONFLICT_MERGE};
+  SchemaBuilder builder{schemas[0], SchemaBuilder::CONFLICT_MERGE, field_merge_options};
 
   for (size_t i = 1; i < schemas.size(); i++) {
     const auto& schema = schemas[i];
