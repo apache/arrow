@@ -81,14 +81,19 @@ def dataset(mockfs):
 
 
 def test_filesystem_data_source(mockfs):
+    schema = pa.schema([])
+
     file_format = ds.ParquetFileFormat()
 
     paths = ['subdir/1/xxx/file0.parquet', 'subdir/2/yyy/file1.parquet']
     partitions = [ds.ScalarExpression(True), ds.ScalarExpression(True)]
 
-    source = ds.FileSystemDataSource(mockfs, paths, partitions,
+    source = ds.FileSystemDataSource(schema,
                                      source_partition=None,
-                                     file_format=file_format)
+                                     file_format=file_format,
+                                     filesystem=mockfs,
+                                     paths_or_selector=paths,
+                                     partitions=partitions)
 
     source_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
@@ -107,8 +112,9 @@ def test_filesystem_data_source(mockfs):
             ds.ScalarExpression(2)
         )
     ]
-    source = ds.FileSystemDataSource(mockfs, paths, partitions,
+    source = ds.FileSystemDataSource(paths_or_selector=paths, schema=schema,
                                      source_partition=source_partition,
+                                     filesystem=mockfs, partitions=partitions,
                                      file_format=file_format)
     assert source.partition_expression.equals(source_partition)
 

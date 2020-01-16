@@ -13,21 +13,16 @@ scheme. \code{DataSourceDiscovery} is used to create a \code{DataSource}, inspec
 \code{FileSystemDataSourceDiscovery} is a subclass of \code{DataSourceDiscovery} for
 discovering files in the local file system, the only currently supported
 file system.
+
+In general, you'll deal with \code{DataSourceDiscovery} rather than \code{DataSource}
+itself.
+
+Return the DataSource's \code{Schema}
 }
 \section{Factory}{
 
-The \code{DataSourceDiscovery$create()} factory method instantiates a
-\code{DataSourceDiscovery} and takes the following arguments:
-\itemize{
-\item \code{path}: A string file path containing data files
-\item \code{filesystem}: Currently only "local" is supported
-\item \code{format}: Currently only "parquet" is supported
-\item \code{allow_non_existent}: logical: is \code{path} allowed to not exist? Default
-\code{FALSE}. See \link{FileSelector}.
-\item \code{recursive}: logical: should files be discovered in subdirectories of
-\item \code{path}? Default \code{TRUE}.
-\item \code{...} Additional arguments passed to the \link{FileSystem} \verb{$create()} method
-}
+For the \code{DataSourceDiscovery$create()} factory method, see \code{\link[=data_source]{data_source()}},
+an alias for it.
 
 \code{FileSystemDataSourceDiscovery$create()} is a lower-level factory method and
 takes the following arguments:
@@ -40,7 +35,10 @@ takes the following arguments:
 
 \section{Methods}{
 
-\code{DataSource} has no defined methods. It is just passed to \code{Dataset$create()}.
+\code{DataSource} has one defined method:
+\itemize{
+\item \verb{$schema}: Active binding, returns the \link{Schema} of the DataSource
+}
 
 \code{DataSourceDiscovery} and its subclasses have the following methods:
 \itemize{

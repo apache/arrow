@@ -33,13 +33,20 @@
 namespace arrow {
 namespace dataset {
 
-Status WrapErrorWithSource(Status status, const FileSource& source) {
-  if (status.ok()) {
-    return Status::OK();
+Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
+    const FileSource& source, std::shared_ptr<io::RandomAccessFile> input = nullptr) {
+  if (input == nullptr) {
+    ARROW_ASSIGN_OR_RAISE(input, source.Open());
   }
 
-  return status.WithMessage("Could not open IPC input source '", source.path(),
-                            "': ", status.message());
+  std::shared_ptr<ipc::RecordBatchFileReader> reader;
+  auto status = ipc::RecordBatchFileReader::Open(std::move(input), &reader);
+  if (!status.ok()) {
+    return status.WithMessage("Could not open IPC input source '", source.path(),
+                              "': ", status.message());
+  }
+
+  return reader;
 }
 
 /// \brief A ScanTask backed by an Ipc file.
@@ -50,11 +57,24 @@ class IpcScanTask : public ScanTask {
       : ScanTask(std::move(options), std::move(context)), source_(std::move(source)) {}
 
   Result<RecordBatchIterator> Execute() override {
-    ARROW_ASSIGN_OR_RAISE(auto input, source_.Open());
-    std::shared_ptr<RecordBatchReader> reader;
-    RETURN_NOT_OK(
-        WrapErrorWithSource(ipc::RecordBatchStreamReader::Open(input, &reader), source_));
-    return MakeFunctionIterator([reader] { return reader->Next(); });
+    struct {
+      Result<std::shared_ptr<RecordBatch>> Next() {
+        if (i_ == reader_->num_record_batches()) {
+          return nullptr;
+        }
+
+        std::shared_ptr<RecordBatch> batch;
+        RETURN_NOT_OK(reader_->ReadRecordBatch(i_++, &batch));
+        return batch;
+      }
+
+      std::shared_ptr<ipc::RecordBatchFileReader> reader_;
+      int i_ = 0;
+    } batch_it;
+
+    ARROW_ASSIGN_OR_RAISE(batch_it.reader_, OpenReader(source_));
+
+    return RecordBatchIterator(std::move(batch_it));
   }
 
  private:
@@ -95,18 +115,12 @@ class IpcScanTaskIterator {
 
 Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-  ipc::DictionaryMemo dictionary_memo;
-  std::shared_ptr<Schema> schema;
-  return ipc::ReadSchema(input.get(), &dictionary_memo, &schema).ok();
+  return OpenReader(source, input).ok();
 }
 
 Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source) const {
-  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-  ipc::DictionaryMemo dictionary_memo;
-  std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(WrapErrorWithSource(
-      ipc::ReadSchema(input.get(), &dictionary_memo, &schema), source));
-  return schema;
+  ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
+  return reader->schema();
 }
 
 Result<ScanTaskIterator> IpcFileFormat::ScanFile(

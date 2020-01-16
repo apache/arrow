@@ -69,8 +69,8 @@ sink : str, pyarrow.NativeFile, or file-like Python object
 schema : pyarrow.Schema
     The Arrow schema for data to be written to the file
 use_legacy_format : boolean, default None
-    If None, use True unless overridden by ARROW_PRE_0_15_IPC_FORMAT=1
-    environment variable"""
+    If None, False will be used unless this default is overridden by
+    setting the environment variable ARROW_PRE_0_15_IPC_FORMAT=1"""
 
 
 class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):

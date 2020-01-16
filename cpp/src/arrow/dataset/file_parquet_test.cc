@@ -188,7 +188,7 @@ TEST_F(TestParquetFileFormat, OpenFailureWithRelevantError) {
   auto format = ParquetFileFormat();
 
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  auto result = format.Inspect({buf});
+  auto result = format.Inspect(FileSource(buf));
   EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr("<Buffer>"),
                                   result.status());
 

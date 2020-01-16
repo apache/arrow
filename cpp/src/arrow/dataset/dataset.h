@@ -94,6 +94,8 @@ class ARROW_DS_EXPORT DataSource {
   /// controls filtering and schema inference.
   DataFragmentIterator GetFragments(std::shared_ptr<ScanOptions> options);
 
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
+
   /// \brief An expression which evaluates to true for all data viewed by this DataSource.
   /// May be null, which indicates no information is available.
   const std::shared_ptr<Expression>& partition_expression() const {
@@ -106,9 +108,10 @@ class ARROW_DS_EXPORT DataSource {
   virtual ~DataSource() = default;
 
  protected:
-  DataSource() = default;
-  explicit DataSource(std::shared_ptr<Expression> c)
-      : partition_expression_(std::move(c)) {}
+  explicit DataSource(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
+
+  DataSource(std::shared_ptr<Schema> schema, std::shared_ptr<Expression> e)
+      : schema_(std::move(schema)), partition_expression_(std::move(e)) {}
 
   virtual DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) = 0;
 
@@ -118,14 +121,15 @@ class ARROW_DS_EXPORT DataSource {
       const std::shared_ptr<ScanOptions>& scan_options,
       std::shared_ptr<ScanOptions>* simplified_scan_options) const;
 
+  std::shared_ptr<Schema> schema_;
   std::shared_ptr<Expression> partition_expression_;
 };
 
 /// \brief A DataSource consisting of a flat sequence of DataFragments
 class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
  public:
-  explicit SimpleDataSource(DataFragmentVector fragments)
-      : fragments_(std::move(fragments)) {}
+  explicit SimpleDataSource(std::shared_ptr<Schema> schema, DataFragmentVector fragments)
+      : DataSource(std::move(schema)), fragments_(std::move(fragments)) {}
 
   DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
@@ -138,7 +142,8 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
 /// \brief A recursive DataSource with child DataSources.
 class ARROW_DS_EXPORT TreeDataSource : public DataSource {
  public:
-  explicit TreeDataSource(DataSourceVector children) : children_(std::move(children)) {}
+  explicit TreeDataSource(std::shared_ptr<Schema> schema, DataSourceVector children)
+      : DataSource(std::move(schema)), children_(std::move(children)) {}
 
   DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 

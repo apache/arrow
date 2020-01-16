@@ -1340,51 +1340,82 @@ RcppExport SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make2(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::PartitionScheme>& partition_scheme);
-RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP partition_scheme_sexp){
+std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make2(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::PartitionScheme>& partition_scheme);
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP partition_scheme_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::PartitionScheme>&>::type partition_scheme(partition_scheme_sexp);
-	return Rcpp::wrap(dataset___FSDSDiscovery__Make2(fs, selector, partition_scheme));
+	return Rcpp::wrap(dataset___FSDSDiscovery__Make2(fs, selector, format, partition_scheme));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP partition_scheme_sexp){
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP partition_scheme_sexp){
 	Rf_error("Cannot call dataset___FSDSDiscovery__Make2(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make1(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector);
-RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make1(SEXP fs_sexp, SEXP selector_sexp){
+std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make1(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format);
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make1(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
-	return Rcpp::wrap(dataset___FSDSDiscovery__Make1(fs, selector));
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
+	return Rcpp::wrap(dataset___FSDSDiscovery__Make1(fs, selector, format));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make1(SEXP fs_sexp, SEXP selector_sexp){
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make1(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp){
 	Rf_error("Cannot call dataset___FSDSDiscovery__Make1(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make3(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::PartitionSchemeDiscovery>& discovery);
-RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP discovery_sexp){
+std::shared_ptr<ds::DataSourceDiscovery> dataset___FSDSDiscovery__Make3(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::PartitionSchemeDiscovery>& discovery);
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP discovery_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::PartitionSchemeDiscovery>&>::type discovery(discovery_sexp);
-	return Rcpp::wrap(dataset___FSDSDiscovery__Make3(fs, selector, discovery));
+	return Rcpp::wrap(dataset___FSDSDiscovery__Make3(fs, selector, format, discovery));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP discovery_sexp){
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP discovery_sexp){
 	Rf_error("Cannot call dataset___FSDSDiscovery__Make3(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make();
+RcppExport SEXP _arrow_dataset___ParquetFileFormat__Make(){
+BEGIN_RCPP
+	return Rcpp::wrap(dataset___ParquetFileFormat__Make());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___ParquetFileFormat__Make(){
+	Rf_error("Cannot call dataset___ParquetFileFormat__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make();
+RcppExport SEXP _arrow_dataset___IpcFileFormat__Make(){
+BEGIN_RCPP
+	return Rcpp::wrap(dataset___IpcFileFormat__Make());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___IpcFileFormat__Make(){
+	Rf_error("Cannot call dataset___IpcFileFormat__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1416,6 +1447,21 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_dataset___DSDiscovery__Finish2(SEXP discovery_sexp, SEXP schema_sexp){
 	Rf_error("Cannot call dataset___DSDiscovery__Finish2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> dataset___DataSource__schema(const std::shared_ptr<ds::DataSource>& source);
+RcppExport SEXP _arrow_dataset___DataSource__schema(SEXP source_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DataSource>&>::type source(source_sexp);
+	return Rcpp::wrap(dataset___DataSource__schema(source));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DataSource__schema(SEXP source_sexp){
+	Rf_error("Cannot call dataset___DataSource__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5600,11 +5646,14 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1}, 
 		{ "_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4}, 
 		{ "_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1}, 
-		{ "_arrow_dataset___FSDSDiscovery__Make2", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make2, 3}, 
-		{ "_arrow_dataset___FSDSDiscovery__Make1", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make1, 2}, 
-		{ "_arrow_dataset___FSDSDiscovery__Make3", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make3, 3}, 
+		{ "_arrow_dataset___FSDSDiscovery__Make2", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make2, 4}, 
+		{ "_arrow_dataset___FSDSDiscovery__Make1", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make1, 3}, 
+		{ "_arrow_dataset___FSDSDiscovery__Make3", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make3, 4}, 
+		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 0}, 
+		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___DSDiscovery__Finish1", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish1, 1}, 
 		{ "_arrow_dataset___DSDiscovery__Finish2", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish2, 2}, 
+		{ "_arrow_dataset___DataSource__schema", (DL_FUNC) &_arrow_dataset___DataSource__schema, 1}, 
 		{ "_arrow_dataset___DSDiscovery__Inspect", (DL_FUNC) &_arrow_dataset___DSDiscovery__Inspect, 1}, 
 		{ "_arrow_dataset___SchemaPartitionScheme", (DL_FUNC) &_arrow_dataset___SchemaPartitionScheme, 1}, 
 		{ "_arrow_dataset___SchemaPartitionScheme__MakeDiscovery", (DL_FUNC) &_arrow_dataset___SchemaPartitionScheme__MakeDiscovery, 1}, 

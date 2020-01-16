@@ -217,8 +217,8 @@ Result<std::shared_ptr<DataSource>> FileSystemDataSourceDiscovery::Finish(
 
   RETURN_NOT_OK(forest_.Visit(apply_partition_scheme));
 
-  return FileSystemDataSource::Make(fs_, forest_, std::move(partitions), root_partition_,
-                                    format_);
+  return FileSystemDataSource::Make(schema, root_partition_, format_, fs_, forest_,
+                                    std::move(partitions));
 }
 
 }  // namespace dataset

@@ -25,6 +25,9 @@ dir.create(dataset_dir)
 hive_dir <- tempfile()
 dir.create(hive_dir)
 
+ipc_dir <- tempfile()
+dir.create(ipc_dir)
+
 first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
 df1 <- tibble(
   int = 1:10,
@@ -57,6 +60,13 @@ test_that("Setup (putting data in the dir)", {
   write_parquet(df1, file.path(hive_dir, "subdir", "group=1", "other=xxx", "file1.parquet"))
   write_parquet(df2, file.path(hive_dir, "subdir", "group=2", "other=yyy", "file2.parquet"))
   expect_length(dir(hive_dir, recursive = TRUE), 2)
+
+  # Now, an IPC format dataset
+  dir.create(file.path(ipc_dir, 3))
+  dir.create(file.path(ipc_dir, 4))
+  write_arrow(df1, file.path(ipc_dir, 3, "file1.arrow"))
+  write_arrow(df2, file.path(ipc_dir, 4, "file2.arrow"))
+  expect_length(dir(ipc_dir, recursive = TRUE), 2)
 })
 
 test_that("Simple interface for datasets", {
@@ -128,6 +138,45 @@ test_that("Partition scheme inference", {
       arrange(dbl),
     df2[1:2, c("chr", "dbl")]
   )
+})
+
+test_that("IPC/Arrow format data", {
+  ds <- open_dataset(ipc_dir, partition = "part", format = "arrow")
+  expect_identical(names(ds), c(names(df1), "part"))
+  expect_equivalent(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 3) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Dataset with multiple sources", {
+  ds <- open_dataset(list(
+    data_source(dataset_dir, format = "parquet", partition = "part"),
+    data_source(ipc_dir, format = "arrow", partition = "part")
+  ))
+  expect_identical(names(ds), c(names(df1), "part"))
+  expect_equivalent(
+    ds %>%
+      filter(int > 6 & part %in% c(1, 3)) %>%
+      select(string = chr, integer = int) %>%
+      collect(),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      rbind(., .) # Stack it twice
+  )
+})
+
+test_that("partition = NULL to ignore partition information (but why?)", {
+  ds <- open_dataset(hive_dir, partition = NULL)
+  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
 })
 
 test_that("filter() with is.na()", {
@@ -208,7 +257,8 @@ test_that("Assembling a Dataset manually and getting a Table", {
   selector <- FileSelector$create(dataset_dir, recursive = TRUE)
   partition <- SchemaPartitionScheme$create(schema(part = double()))
 
-  dsd <- FileSystemDataSourceDiscovery$create(fs, selector, partition_scheme = partition)
+  fmt <- FileFormat$create("parquet")
+  dsd <- FileSystemDataSourceDiscovery$create(fs, selector, fmt, partition_scheme = partition)
   expect_is(dsd, "FileSystemDataSourceDiscovery")
 
   schm <- dsd$Inspect()
@@ -220,6 +270,8 @@ test_that("Assembling a Dataset manually and getting a Table", {
 
   datasource <- dsd$Finish(schm)
   expect_is(datasource, "DataSource")
+  expect_is(datasource$schema, "Schema")
+  expect_equal(names(schm), names(datasource$schema))
 
   ds <- Dataset$create(list(datasource), schm)
   expect_is(ds, "Dataset")

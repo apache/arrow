@@ -45,8 +45,9 @@ class ArrowIpcWriterMixin : public ::testing::Test {
     EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create(
                                         kDefaultOutputStreamSize, default_memory_pool()));
     auto writer_schema = readers[0]->schema();
+
     EXPECT_OK_AND_ASSIGN(auto writer,
-                         ipc::RecordBatchStreamWriter::Open(sink.get(), writer_schema));
+                         ipc::RecordBatchFileWriter::Open(sink.get(), writer_schema));
 
     for (auto reader : readers) {
       std::vector<std::shared_ptr<RecordBatch>> batches;
@@ -56,6 +57,8 @@ class ArrowIpcWriterMixin : public ::testing::Test {
         ARROW_EXPECT_OK(writer->WriteRecordBatch(*batch));
       }
     }
+
+    ARROW_EXPECT_OK(writer->Close());
 
     EXPECT_OK_AND_ASSIGN(auto out, sink->Finish());
     return out;
@@ -68,9 +71,14 @@ class ArrowIpcWriterMixin : public ::testing::Test {
   std::shared_ptr<Buffer> Write(const Table& table) {
     EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create(
                                         kDefaultOutputStreamSize, default_memory_pool()));
+
     EXPECT_OK_AND_ASSIGN(auto writer,
-                         ipc::RecordBatchStreamWriter::Open(sink.get(), table.schema()));
+                         ipc::RecordBatchFileWriter::Open(sink.get(), table.schema()));
+
     ARROW_EXPECT_OK(writer->WriteTable(table));
+
+    ARROW_EXPECT_OK(writer->Close());
+
     EXPECT_OK_AND_ASSIGN(auto out, sink->Finish());
     return out;
   }
@@ -134,7 +142,7 @@ TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
   auto format = IpcFileFormat();
 
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  auto result = format.Inspect({buf});
+  auto result = format.Inspect(FileSource(buf));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("<Buffer>"),
                                   result.status());
 

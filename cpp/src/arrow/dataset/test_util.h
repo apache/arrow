@@ -294,8 +294,9 @@ class TestFileSystemDataSource : public ::testing::Test {
 
     MakeFileSystem(stats);
     auto format = std::make_shared<DummyFileFormat>();
-    ASSERT_OK_AND_ASSIGN(source_, FileSystemDataSource::Make(fs_, stats, partitions,
-                                                             source_partition, format));
+    ASSERT_OK_AND_ASSIGN(
+        source_, FileSystemDataSource::Make(schema({}), source_partition, format, fs_,
+                                            stats, partitions));
   }
 
  protected:

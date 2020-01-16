@@ -62,7 +62,7 @@ TEST_F(TestSimpleDataSource, GetFragments) {
   auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
   // It is safe to copy fragment multiple time since Scan() does not consume
   // the internal array.
-  auto source = SimpleDataSource({kNumberFragments, fragment});
+  auto source = SimpleDataSource(schema_, {kNumberFragments, fragment});
 
   AssertDataSourceEquals(reader.get(), &source);
 }
@@ -87,17 +87,17 @@ TEST_F(TestTreeDataSource, GetFragments) {
   // Creates a complete binary tree of depth kCompleteBinaryTreeDepth where the
   // leaves are SimpleDataSource containing kChildPerNode fragments.
 
-  auto l1_leaf_source =
-      std::make_shared<SimpleDataSource>(DataFragmentVector{kChildPerNode, fragment});
+  auto l1_leaf_source = std::make_shared<SimpleDataSource>(
+      schema_, DataFragmentVector{kChildPerNode, fragment});
 
-  auto l2_leaf_tree_source =
-      std::make_shared<TreeDataSource>(DataSourceVector{kChildPerNode, l1_leaf_source});
+  auto l2_leaf_tree_source = std::make_shared<TreeDataSource>(
+      schema_, DataSourceVector{kChildPerNode, l1_leaf_source});
 
   auto l3_middle_tree_source = std::make_shared<TreeDataSource>(
-      DataSourceVector{kChildPerNode, l2_leaf_tree_source});
+      schema_, DataSourceVector{kChildPerNode, l2_leaf_tree_source});
 
   auto root_source = std::make_shared<TreeDataSource>(
-      DataSourceVector{kChildPerNode, l3_middle_tree_source});
+      schema_, DataSourceVector{kChildPerNode, l3_middle_tree_source});
 
   AssertDataSourceEquals(reader.get(), root_source.get());
 }
@@ -117,8 +117,8 @@ TEST_F(TestDataset, TrivialScan) {
   DataFragmentVector fragments{kNumberFragments, fragment};
 
   DataSourceVector sources = {
-      std::make_shared<SimpleDataSource>(fragments),
-      std::make_shared<SimpleDataSource>(fragments),
+      std::make_shared<SimpleDataSource>(schema_, fragments),
+      std::make_shared<SimpleDataSource>(schema_, fragments),
   };
 
   const int64_t total_batches = sources.size() * kNumberFragments * kNumberBatches;

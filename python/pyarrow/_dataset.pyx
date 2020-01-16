@@ -582,6 +582,13 @@ cdef class DataSource:
         return self.wrapped
 
     @property
+    def schema(self):
+        """
+        Schema of all RecordBatches contained in this DataSource.
+        """
+        return pyarrow_wrap_schema(self.source.schema())
+
+    @property
     def partition_expression(self):
         """
         An expression which evaluates to true for all data viewed by this
@@ -601,7 +608,7 @@ cdef class TreeDataSource(DataSource):
     cdef:
         CTreeDataSource* tree_source
 
-    def __init__(self, data_sources):
+    def __init__(self, schema, data_sources):
         cdef:
             DataSource child
             CDataSourceVector children
@@ -610,7 +617,8 @@ cdef class TreeDataSource(DataSource):
         for child in data_sources:
             children.push_back(child.wrapped)
 
-        tree_source = make_shared[CTreeDataSource](children)
+        tree_source = make_shared[CTreeDataSource](
+            pyarrow_unwrap_schema(schema), children)
         self.init(<shared_ptr[CDataSource]> tree_source)
 
     cdef void init(self, const shared_ptr[CDataSource]& sp):
@@ -624,27 +632,31 @@ cdef class FileSystemDataSource(DataSource):
     cdef:
         CFileSystemDataSource* filesystem_source
 
-    def __init__(self, FileSystem filesystem not None, paths_or_selector,
-                 partitions, Expression source_partition,
-                 FileFormat file_format not None):
+    def __init__(self, Schema schema not None,
+                 Expression source_partition not None,
+                 FileFormat file_format not None,
+                 FileSystem filesystem not None,
+                 paths_or_selector, partitions):
         """Create a FileSystemDataSource
 
         Parameters
         ----------
+        schema : Schema
+            Schema for resulting DataSource
+        source_partition : Expression
+        file_format : FileFormat
         filesystem : FileSystem
-            Filesystem to discover.
+            FileSystem which will be explored to discover data files.
         paths_or_selector : Union[FileSelector, List[FileStats]]
             The file stats object can be queried by the
             filesystem.get_target_stats method.
         partitions : List[Expression]
-        source_partition : Expression
-        file_format : FileFormat
         """
         cdef:
+            shared_ptr[CExpression] c_source_partition
             FileStats stats
             Expression expression
             vector[CFileStats] c_file_stats
-            shared_ptr[CExpression] c_source_partition
             vector[shared_ptr[CExpression]] c_partitions
             CResult[shared_ptr[CDataSource]] result
 
@@ -664,11 +676,12 @@ cdef class FileSystemDataSource(DataSource):
             c_source_partition = source_partition.unwrap()
 
         result = CFileSystemDataSource.Make(
+            pyarrow_unwrap_schema(schema),
+            c_source_partition,
+            file_format.unwrap(),
             filesystem.unwrap(),
             c_file_stats,
-            c_partitions,
-            c_source_partition,
-            file_format.unwrap()
+            c_partitions
         )
         self.init(GetResultValue(result))
 
