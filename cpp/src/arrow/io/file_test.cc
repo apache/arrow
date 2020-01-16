@@ -354,6 +354,12 @@ TEST_F(TestReadableFile, ReadAt) {
   Buffer expected(reinterpret_cast<const uint8_t*>(test_data + 2), 5);
   ASSERT_TRUE(buffer2->Equals(expected));
 
+  // Invalid reads
+  ASSERT_RAISES(Invalid, file_->ReadAt(-1, 1));
+  ASSERT_RAISES(Invalid, file_->ReadAt(1, -1));
+  ASSERT_RAISES(Invalid, file_->ReadAt(-1, 1, buffer));
+  ASSERT_RAISES(Invalid, file_->ReadAt(1, -1, buffer));
+
   ASSERT_OK(file_->Close());
   ASSERT_RAISES(Invalid, file_->ReadAt(0, 1));
 }
@@ -582,7 +588,7 @@ TEST_F(TestMemoryMappedFile, MapPartFile) {
   ASSERT_RAISES(IOError, result->Resize(4096));
 
   // Write beyond memory mapped length
-  ASSERT_RAISES(Invalid, result->WriteAt(4096, buffer.data(), buffer_size));
+  ASSERT_RAISES(IOError, result->WriteAt(4096, buffer.data(), buffer_size));
 }
 
 TEST_F(TestMemoryMappedFile, WriteRead) {
@@ -605,6 +611,18 @@ TEST_F(TestMemoryMappedFile, WriteRead) {
 
     position += buffer_size;
   }
+}
+
+TEST_F(TestMemoryMappedFile, InvalidReads) {
+  std::string path = "io-memory-map-invalid-reads-test";
+  ASSERT_OK_AND_ASSIGN(auto result, InitMemoryMap(4096, path));
+
+  uint8_t buffer[10];
+
+  ASSERT_RAISES(Invalid, result->ReadAt(-1, 1));
+  ASSERT_RAISES(Invalid, result->ReadAt(1, -1));
+  ASSERT_RAISES(Invalid, result->ReadAt(-1, 1, buffer));
+  ASSERT_RAISES(Invalid, result->ReadAt(1, -1, buffer));
 }
 
 TEST_F(TestMemoryMappedFile, WriteResizeRead) {
@@ -788,7 +806,7 @@ TEST_F(TestMemoryMappedFile, WriteBeyondEnd) {
 
   ASSERT_OK(result->Seek(1));
   // Attempt to write beyond end of memory map
-  ASSERT_RAISES(Invalid, result->Write(buffer.data(), buffer_size));
+  ASSERT_RAISES(IOError, result->Write(buffer.data(), buffer_size));
 
   // The position should remain unchanged afterwards
   ASSERT_OK_AND_EQ(1, result->Tell());
@@ -803,7 +821,7 @@ TEST_F(TestMemoryMappedFile, WriteAtBeyondEnd) {
   ASSERT_OK_AND_ASSIGN(auto result, InitMemoryMap(buffer_size, path));
 
   // Attempt to write beyond end of memory map
-  ASSERT_RAISES(Invalid, result->WriteAt(1, buffer.data(), buffer_size));
+  ASSERT_RAISES(IOError, result->WriteAt(1, buffer.data(), buffer_size));
 
   // The position should remain unchanged afterwards
   ASSERT_OK_AND_EQ(0, result->Tell());

@@ -193,9 +193,7 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
   Result<int64_t> Tell() { return position_; }
 
   Status Write(const void* data, int64_t nbytes) {
-    if (position_ + nbytes > size_) {
-      return Status::IOError("Write out of bounds");
-    }
+    RETURN_NOT_OK(internal::ValidateWriteRegion(position_, nbytes, size_));
     if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
       ::arrow::internal::parallel_memcopy(mutable_data_ + position_,
                                           reinterpret_cast<const uint8_t*>(data), nbytes,
@@ -209,6 +207,7 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
 
   Status WriteAt(int64_t position, const void* data, int64_t nbytes) {
     std::lock_guard<std::mutex> guard(lock_);
+    RETURN_NOT_OK(internal::ValidateWriteRegion(position, nbytes, size_));
     RETURN_NOT_OK(Seek(position));
     return Write(data, nbytes);
   }
@@ -318,29 +317,23 @@ bool BufferReader::supports_zero_copy() const { return true; }
 Result<int64_t> BufferReader::DoReadAt(int64_t position, int64_t nbytes, void* buffer) {
   RETURN_NOT_OK(CheckClosed());
 
-  if (nbytes < 0) {
-    return Status::IOError("Cannot read a negative number of bytes from BufferReader.");
+  ARROW_ASSIGN_OR_RAISE(nbytes, internal::ValidateReadRegion(position, nbytes, size_));
+  DCHECK_GE(nbytes, 0);
+  if (nbytes) {
+    memcpy(buffer, data_ + position, nbytes);
   }
-  int64_t bytes_read = std::min(nbytes, size_ - position);
-  DCHECK_GE(bytes_read, 0);
-  if (bytes_read) {
-    memcpy(buffer, data_ + position, bytes_read);
-  }
-  return bytes_read;
+  return nbytes;
 }
 
 Result<std::shared_ptr<Buffer>> BufferReader::DoReadAt(int64_t position, int64_t nbytes) {
   RETURN_NOT_OK(CheckClosed());
 
-  if (nbytes < 0) {
-    return Status::IOError("Cannot read a negative number of bytes from BufferReader.");
-  }
-  int64_t size = std::min(nbytes, size_ - position);
-
-  if (size > 0 && buffer_ != nullptr) {
-    return SliceBuffer(buffer_, position, size);
+  ARROW_ASSIGN_OR_RAISE(nbytes, internal::ValidateReadRegion(position, nbytes, size_));
+  DCHECK_GE(nbytes, 0);
+  if (nbytes > 0 && buffer_ != nullptr) {
+    return SliceBuffer(buffer_, position, nbytes);
   } else {
-    return std::make_shared<Buffer>(data_ + position, size);
+    return std::make_shared<Buffer>(data_ + position, nbytes);
   }
 }
 

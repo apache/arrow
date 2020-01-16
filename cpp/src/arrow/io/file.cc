@@ -145,6 +145,7 @@ class OSFile {
 
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) {
     RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(internal::ValidateRegion(position, nbytes));
     // ReadAt() leaves the file position undefined, so require that we seek
     // before calling Read() or Write().
     need_seeking_.store(true);
@@ -693,6 +694,9 @@ Result<std::shared_ptr<Buffer>> MemoryMappedFile::ReadAt(int64_t position,
   auto guard_resize = memory_map_->writable()
                           ? std::unique_lock<std::mutex>(memory_map_->resize_lock())
                           : std::unique_lock<std::mutex>();
+
+  ARROW_ASSIGN_OR_RAISE(
+      nbytes, internal::ValidateReadRegion(position, nbytes, memory_map_->size()));
   return memory_map_->Slice(position, nbytes);
 }
 
@@ -701,7 +705,8 @@ Result<int64_t> MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, void*
   auto guard_resize = memory_map_->writable()
                           ? std::unique_lock<std::mutex>(memory_map_->resize_lock())
                           : std::unique_lock<std::mutex>();
-  nbytes = std::max<int64_t>(0, std::min(nbytes, memory_map_->size() - position));
+  ARROW_ASSIGN_OR_RAISE(
+      nbytes, internal::ValidateReadRegion(position, nbytes, memory_map_->size()));
   if (nbytes > 0) {
     memcpy(out, memory_map_->data() + position, static_cast<size_t>(nbytes));
   }
@@ -731,15 +736,9 @@ Status MemoryMappedFile::WriteAt(int64_t position, const void* data, int64_t nby
   if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");
   }
-  if (position + nbytes > memory_map_->size()) {
-    return Status::Invalid("Cannot write past end of memory map");
-  }
+  RETURN_NOT_OK(internal::ValidateWriteRegion(position, nbytes, memory_map_->size()));
 
   RETURN_NOT_OK(memory_map_->Seek(position));
-  if (nbytes + memory_map_->position() > memory_map_->size()) {
-    return Status::Invalid("Cannot write past end of memory map");
-  }
-
   return WriteInternal(data, nbytes);
 }
 
@@ -750,9 +749,8 @@ Status MemoryMappedFile::Write(const void* data, int64_t nbytes) {
   if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");
   }
-  if (nbytes + memory_map_->position() > memory_map_->size()) {
-    return Status::Invalid("Cannot write past end of memory map");
-  }
+  RETURN_NOT_OK(internal::ValidateWriteRegion(memory_map_->position(), nbytes,
+                                              memory_map_->size()));
 
   return WriteInternal(data, nbytes);
 }

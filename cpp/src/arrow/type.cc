@@ -501,8 +501,26 @@ Status Decimal128Type::Make(int32_t precision, int32_t scale,
 // ----------------------------------------------------------------------
 // Dictionary-encoded type
 
+Status DictionaryType::ValidateParameters(const DataType& index_type,
+                                          const DataType& value_type) {
+  const bool index_type_ok = is_integer(index_type.id()) &&
+                             checked_cast<const IntegerType&>(index_type).is_signed();
+  if (!index_type_ok) {
+    return Status::TypeError("Dictionary index type should be signed integer, got ",
+                             index_type.ToString());
+  }
+  return Status::OK();
+}
+
 int DictionaryType::bit_width() const {
   return checked_cast<const FixedWidthType&>(*index_type_).bit_width();
+}
+
+Result<std::shared_ptr<DataType>> DictionaryType::Make(
+    const std::shared_ptr<DataType>& index_type,
+    const std::shared_ptr<DataType>& value_type, bool ordered) {
+  RETURN_NOT_OK(ValidateParameters(*index_type, *value_type));
+  return std::make_shared<DictionaryType>(index_type, value_type, ordered);
 }
 
 DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
@@ -511,10 +529,7 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
       index_type_(index_type),
       value_type_(value_type),
       ordered_(ordered) {
-  ARROW_CHECK(is_integer(index_type->id()))
-      << "dictionary index type should be signed integer";
-  const auto& int_type = checked_cast<const IntegerType&>(*index_type);
-  ARROW_CHECK(int_type.is_signed()) << "dictionary index type should be signed integer";
+  ARROW_CHECK_OK(ValidateParameters(*index_type_, *value_type_));
 }
 
 DataTypeLayout DictionaryType::layout() const {

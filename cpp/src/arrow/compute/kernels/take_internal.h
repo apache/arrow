@@ -583,10 +583,8 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
       indices.set_never_out_of_bounds();
 
       // Allocate temporary storage for the offsets of all valid slots
-      // NB: Overestimates required space when indices and union_array are
-      //     not null at identical positions.
       auto child_offsets_storage_size =
-          indices.length() - std::max(union_array.null_count(), indices.null_count());
+          std::accumulate(child_counts.begin(), child_counts.end(), 0);
       std::shared_ptr<Buffer> child_offsets_storage;
       RETURN_NOT_OK(AllocateBuffer(pool_, child_offsets_storage_size * sizeof(int32_t),
                                    &child_offsets_storage));
@@ -599,6 +597,8 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
         child_offset_partitions[type_code] = child_offsets_storage_data;
         child_offsets_storage_data += child_counts[type_code];
       }
+      DCHECK_EQ(child_offsets_storage_data - GetInt32(child_offsets_storage),
+                child_offsets_storage_size);
 
       // Fill child_offsets_storage with the taken offsets
       RETURN_NOT_OK(offset_builder_->Reserve(indices.length()));

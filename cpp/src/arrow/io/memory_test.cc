@@ -135,6 +135,16 @@ TEST(TestFixedSizeBufferWriter, Basics) {
   ASSERT_OK(writer.Close());
 }
 
+TEST(TestFixedSizeBufferWriter, InvalidWrites) {
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_OK(AllocateBuffer(1024, &buffer));
+
+  FixedSizeBufferWriter writer(buffer);
+  const uint8_t data[10]{};
+  ASSERT_RAISES(Invalid, writer.WriteAt(-1, data, 1));
+  ASSERT_RAISES(Invalid, writer.WriteAt(1, data, -1));
+}
+
 TEST(TestBufferReader, FromStrings) {
   // ARROW-3291: construct BufferReader from std::string or
   // arrow::util::string_view
@@ -185,6 +195,17 @@ TEST(TestBufferReader, Peek) {
   ASSERT_OK_AND_ASSIGN(view, reader.Peek(20));
   ASSERT_EQ(data.size(), view.size());
   ASSERT_EQ(data, view.to_string());
+}
+
+TEST(TestBufferReader, InvalidReads) {
+  std::string data = "data123456";
+  BufferReader reader(std::make_shared<Buffer>(data));
+  uint8_t buffer[10];
+
+  ASSERT_RAISES(Invalid, reader.ReadAt(-1, 1));
+  ASSERT_RAISES(Invalid, reader.ReadAt(1, -1));
+  ASSERT_RAISES(Invalid, reader.ReadAt(-1, 1, buffer));
+  ASSERT_RAISES(Invalid, reader.ReadAt(1, -1, buffer));
 }
 
 TEST(TestBufferReader, RetainParentReference) {

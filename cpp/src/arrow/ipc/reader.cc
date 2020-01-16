@@ -696,6 +696,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
       std::unique_ptr<Message> message;
       RETURN_NOT_OK(ReadMessageFromBlock(GetDictionaryBlock(i), &message));
 
+      CHECK_HAS_BODY(*message);
       io::BufferReader reader(message->body());
       RETURN_NOT_OK(ReadDictionary(*message->metadata(), &dictionary_memo_, &reader));
     }
@@ -714,6 +715,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     std::unique_ptr<Message> message;
     RETURN_NOT_OK(ReadMessageFromBlock(GetRecordBatchBlock(i), &message));
 
+    CHECK_HAS_BODY(*message);
     io::BufferReader reader(message->body());
     return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_,
                                          &reader, batch);
@@ -835,6 +837,7 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
   auto options = IpcOptions::Defaults();
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
+  CHECK_HAS_BODY(*message);
   io::BufferReader buffer_reader(message->body());
   return ReadRecordBatch(*message->metadata(), schema, dictionary_memo, options,
                          &buffer_reader, out);
@@ -851,6 +854,7 @@ Result<std::shared_ptr<Tensor>> ReadTensor(const Message& message) {
   std::vector<int64_t> shape;
   std::vector<int64_t> strides;
   std::vector<std::string> dim_names;
+  CHECK_HAS_BODY(message);
   RETURN_NOT_OK(internal::GetTensorMetadata(*message.metadata(), &type, &shape, &strides,
                                             &dim_names));
   return Tensor::Make(type, message.body(), shape, strides, dim_names);
@@ -1133,6 +1137,7 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Buffer& metadata,
 }
 
 Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Message& message) {
+  CHECK_HAS_BODY(message);
   io::BufferReader buffer_reader(message.body());
   return ReadSparseTensor(*message.metadata(), &buffer_reader);
 }

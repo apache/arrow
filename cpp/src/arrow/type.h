@@ -1276,6 +1276,11 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   DictionaryType(const std::shared_ptr<DataType>& index_type,
                  const std::shared_ptr<DataType>& value_type, bool ordered = false);
 
+  // A constructor variant that validates its input parameters
+  static Result<std::shared_ptr<DataType>> Make(
+      const std::shared_ptr<DataType>& index_type,
+      const std::shared_ptr<DataType>& value_type, bool ordered = false);
+
   std::string ToString() const override;
   std::string name() const override { return "dictionary"; }
 
@@ -1287,6 +1292,9 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   std::shared_ptr<DataType> value_type() const { return value_type_; }
 
   bool ordered() const { return ordered_; }
+
+  static Status ValidateParameters(const DataType& index_type,
+                                   const DataType& value_type);
 
  protected:
   std::string ComputeFingerprint() const override;

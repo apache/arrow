@@ -117,6 +117,9 @@ class PoolBuffer : public ResizableBuffer {
   }
 
   Status Reserve(const int64_t capacity) override {
+    if (capacity < 0) {
+      return Status::Invalid("Negative buffer capacity: ", capacity);
+    }
     if (!mutable_data_ || capacity > capacity_) {
       uint8_t* new_data;
       int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
@@ -133,6 +136,9 @@ class PoolBuffer : public ResizableBuffer {
   }
 
   Status Resize(const int64_t new_size, bool shrink_to_fit = true) override {
+    if (new_size < 0) {
+      return Status::Invalid("Negative buffer resize: ", new_size);
+    }
     if (mutable_data_ && shrink_to_fit && new_size <= size_) {
       // Buffer is non-null and is not growing, so shrink to the requested size without
       // excess space.

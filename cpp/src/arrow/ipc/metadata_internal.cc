@@ -799,7 +799,8 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
           "is null.");
     }
     RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
-    type = ::arrow::dictionary(index_type, type, encoding->isOrdered());
+    ARROW_ASSIGN_OR_RAISE(type,
+                          DictionaryType::Make(index_type, type, encoding->isOrdered()));
     *out = ::arrow::field(field->name()->str(), type, field->nullable(), metadata);
     RETURN_NOT_OK(dictionary_memo->AddField(encoding->id(), *out));
   } else {

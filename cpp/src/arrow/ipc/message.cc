@@ -275,9 +275,7 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
   }
 
   if (flatbuffer_length == 0) {
-    // EOS
-    *message = nullptr;
-    return Status::OK();
+    return Status::Invalid("Unexpected empty message in IPC file format");
   }
 
   if (flatbuffer_length + prefix_size != metadata_length) {
