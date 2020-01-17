@@ -110,7 +110,7 @@ TEST(TestStringOps, TestCastVarhcar) {
   uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
   int32 out_len = 0;
 
-  char* out_str = castVARCHAR_utf8_int64(ctx_ptr, "asdf", 4, 1, &out_len);
+  const char* out_str = castVARCHAR_utf8_int64(ctx_ptr, "asdf", 4, 1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "a");
   EXPECT_FALSE(ctx.has_error());
 
@@ -122,6 +122,36 @@ TEST(TestStringOps, TestCastVarhcar) {
   out_str = castVARCHAR_utf8_int64(ctx_ptr, "asdf", 4, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "asdf");
   EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "", 0, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "çåå†", 9, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "çåå†", 9, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå†");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "çåå†", 9, 6, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå†");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "abc", 3, -1, &out_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
+
+  std::string d("aa\xc3");
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, d.data(), static_cast<int>(d.length()), 2,
+                                   &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\c3 encountered while decoding utf8 string"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestSubstring) {

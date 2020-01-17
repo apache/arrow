@@ -273,16 +273,34 @@ const char* reverse_utf8(int64 context, const char* data, int32 data_len,
 
 // Truncates the string to given length
 FORCE_INLINE
-char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
-                             int64_t out_len, int32_t* out_length) {
-  // TODO: handle allocation failures
-  int32_t len = data_len <= static_cast<int32_t>(out_len) || out_len == 0
-                    ? data_len
-                    : static_cast<int32_t>(out_len);
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));
-  memcpy(ret, data, len);
-  *out_length = len;
-  return ret;
+const char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
+                                   int64_t out_len, int32_t* out_length) {
+  int32_t len = static_cast<int32_t>(out_len);
+
+  if (len < 0) {
+    gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative");
+    *out_length = 0;
+    return "";
+  }
+
+  if (len >= data_len || len == 0) {
+    *out_length = data_len;
+    return data;
+  }
+
+  int32_t char_count = utf8_length(context, data, data_len);
+  if (char_count == 0) {  // data has invalid glyphs
+    *out_length = 0;
+    return "";
+  }
+
+  if (len >= char_count) {
+    *out_length = data_len;
+    return data;
+  }
+
+  *out_length = utf8_byte_pos(context, data, data_len, len);
+  return data;
 }
 
 #define IS_NULL(NAME, TYPE) \
