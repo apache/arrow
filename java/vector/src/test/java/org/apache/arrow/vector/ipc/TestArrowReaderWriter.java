@@ -21,6 +21,7 @@ import static java.nio.channels.Channels.newChannel;
 import static java.util.Arrays.asList;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
+import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -38,12 +39,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.FieldNode;
 import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
@@ -53,6 +56,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -79,8 +83,13 @@ public class TestArrowReaderWriter {
 
   private BufferAllocator allocator;
 
-  private Dictionary dictionary;
+  private VarCharVector dictionaryVector1;
+  private VarCharVector dictionaryVector2;
+  private VarCharVector dictionaryVector3;
+
+  private Dictionary dictionary1;
   private Dictionary dictionary2;
+  private Dictionary dictionary3;
 
   private Schema schema;
   private Schema encodedSchema;
@@ -89,29 +98,40 @@ public class TestArrowReaderWriter {
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
 
-    VarCharVector dictionary1Vector = newVarCharVector("D1", allocator);
-    dictionary1Vector.allocateNewSafe();
-    dictionary1Vector.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    dictionary1Vector.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-    dictionary1Vector.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-    dictionary1Vector.setValueCount(3);
+    dictionaryVector1 = newVarCharVector("D1", allocator);
+    setVector(dictionaryVector1,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8),
+        "baz".getBytes(StandardCharsets.UTF_8));
 
-    dictionary = new Dictionary(dictionary1Vector, new DictionaryEncoding(1L, false, null));
+    dictionaryVector2 = newVarCharVector("D2", allocator);
+    setVector(dictionaryVector2,
+        "aa".getBytes(StandardCharsets.UTF_8),
+        "bb".getBytes(StandardCharsets.UTF_8),
+        "cc".getBytes(StandardCharsets.UTF_8));
 
-    VarCharVector dictionary2Vector = newVarCharVector("D2", allocator);
-    dictionary2Vector.allocateNewSafe();
-    dictionary2Vector.set(0, "aa".getBytes(StandardCharsets.UTF_8));
-    dictionary2Vector.set(1, "bb".getBytes(StandardCharsets.UTF_8));
-    dictionary2Vector.set(2, "cc".getBytes(StandardCharsets.UTF_8));
-    dictionary2Vector.setValueCount(3);
+    dictionaryVector3 = newVarCharVector("D3", allocator);
+    setVector(dictionaryVector3,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8),
+        "baz".getBytes(StandardCharsets.UTF_8),
+        "aa".getBytes(StandardCharsets.UTF_8),
+        "bb".getBytes(StandardCharsets.UTF_8),
+        "cc".getBytes(StandardCharsets.UTF_8));
 
-    dictionary2 = new Dictionary(dictionary2Vector, new DictionaryEncoding(2L, false, null));
+    dictionary1 = new Dictionary(dictionaryVector1,
+        new DictionaryEncoding(/*id=*/1L, /*ordered=*/false, /*indexType=*/null));
+    dictionary2 = new Dictionary(dictionaryVector2,
+        new DictionaryEncoding(/*id=*/2L, /*ordered=*/false, /*indexType=*/null));
+    dictionary3 = new Dictionary(dictionaryVector3,
+        new DictionaryEncoding(/*id=*/1L, /*ordered=*/false, /*indexType=*/null));
   }
 
   @After
   public void terminate() throws Exception {
-    dictionary.getVector().close();
-    dictionary2.getVector().close();
+    dictionaryVector1.close();
+    dictionaryVector2.close();
+    dictionaryVector3.close();
     allocator.close();
   }
 
@@ -235,7 +255,7 @@ public class TestArrowReaderWriter {
   @Test
   public void testWriteReadWithDictionaries() throws IOException {
     DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
-    provider.put(dictionary);
+    provider.put(dictionary1);
 
     VarCharVector vector1 = newVarCharVector("varchar1", allocator);
     vector1.allocateNewSafe();
@@ -245,7 +265,7 @@ public class TestArrowReaderWriter {
     vector1.set(4, "bar".getBytes(StandardCharsets.UTF_8));
     vector1.set(5, "baz".getBytes(StandardCharsets.UTF_8));
     vector1.setValueCount(6);
-    FieldVector encodedVector1 = (FieldVector) DictionaryEncoder.encode(vector1, dictionary);
+    FieldVector encodedVector1 = (FieldVector) DictionaryEncoder.encode(vector1, dictionary1);
     vector1.close();
 
     VarCharVector vector2 = newVarCharVector("varchar2", allocator);
@@ -257,7 +277,7 @@ public class TestArrowReaderWriter {
     vector2.set(4, "foo".getBytes(StandardCharsets.UTF_8));
     vector2.set(5, "bar".getBytes(StandardCharsets.UTF_8));
     vector2.setValueCount(6);
-    FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary);
+    FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary1);
     vector2.close();
 
     List<Field> fields = Arrays.asList(encodedVector1.getField(), encodedVector2.getField());
@@ -288,7 +308,7 @@ public class TestArrowReaderWriter {
   public void testEmptyStreamInFileIPC() throws IOException {
 
     DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
-    provider.put(dictionary);
+    provider.put(dictionary1);
 
     VarCharVector vector = newVarCharVector("varchar", allocator);
     vector.allocateNewSafe();
@@ -299,7 +319,7 @@ public class TestArrowReaderWriter {
     vector.set(5, "baz".getBytes(StandardCharsets.UTF_8));
     vector.setValueCount(6);
 
-    FieldVector encodedVector1A = (FieldVector) DictionaryEncoder.encode(vector, dictionary);
+    FieldVector encodedVector1A = (FieldVector) DictionaryEncoder.encode(vector, dictionary1);
     vector.close();
 
     List<Field> fields = Arrays.asList(encodedVector1A.getField());
@@ -329,7 +349,7 @@ public class TestArrowReaderWriter {
   public void testEmptyStreamInStreamingIPC() throws IOException {
 
     DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
-    provider.put(dictionary);
+    provider.put(dictionary1);
 
     VarCharVector vector = newVarCharVector("varchar", allocator);
     vector.allocateNewSafe();
@@ -340,7 +360,7 @@ public class TestArrowReaderWriter {
     vector.set(5, "baz".getBytes(StandardCharsets.UTF_8));
     vector.setValueCount(6);
 
-    FieldVector encodedVector = (FieldVector) DictionaryEncoder.encode(vector, dictionary);
+    FieldVector encodedVector = (FieldVector) DictionaryEncoder.encode(vector, dictionary1);
     vector.close();
 
     List<Field> fields = Arrays.asList(encodedVector.getField());
@@ -365,6 +385,170 @@ public class TestArrowReaderWriter {
   }
 
   @Test
+  public void testDictionaryReplacement() throws Exception {
+    VarCharVector vector1 = newVarCharVector("varchar1", allocator);
+    setVector(vector1,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8),
+        "baz".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8));
+
+    FieldVector encodedVector1 = (FieldVector) DictionaryEncoder.encode(vector1, dictionary1);
+
+    VarCharVector vector2 = newVarCharVector("varchar2", allocator);
+    setVector(vector2,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "foo".getBytes(StandardCharsets.UTF_8));
+
+    FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary1);
+
+    DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+    provider.put(dictionary1);
+    List<Field> schemaFields = new ArrayList<>();
+    schemaFields.add(DictionaryUtility.toMessageFormat(encodedVector1.getField(), provider, new HashSet<>()));
+    schemaFields.add(DictionaryUtility.toMessageFormat(encodedVector2.getField(), provider, new HashSet<>()));
+    Schema schema = new Schema(schemaFields);
+
+    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+    WriteChannel out = new WriteChannel(newChannel(outStream));
+
+    // write schema
+    MessageSerializer.serialize(out, schema);
+
+    List<AutoCloseable> closeableList = new ArrayList<>();
+
+    // write non-delta dictionary with id=1
+    serializeDictionaryBatch(out, dictionary3, false, closeableList);
+
+    // write non-delta dictionary with id=1
+    serializeDictionaryBatch(out, dictionary1, false, closeableList);
+
+    // write recordBatch2
+    serializeRecordBatch(out, Arrays.asList(encodedVector1, encodedVector2), closeableList);
+
+    // write eos
+    out.writeIntLittleEndian(0);
+
+    try (ArrowStreamReader reader = new ArrowStreamReader(
+        new ByteArrayReadableSeekableByteChannel(outStream.toByteArray()), allocator)) {
+      assertEquals(1, reader.getDictionaryVectors().size());
+      assertTrue(reader.loadNextBatch());
+      FieldVector dictionaryVector = reader.getDictionaryVectors().get(1L).getVector();
+      // make sure the delta dictionary is concatenated.
+      assertTrue(VectorEqualsVisitor.vectorEquals(dictionaryVector, dictionaryVector1));
+      assertFalse(reader.loadNextBatch());
+    }
+
+    vector1.close();
+    vector2.close();
+    AutoCloseables.close(closeableList);
+  }
+
+  @Test
+  public void testDeltaDictionary() throws Exception {
+    VarCharVector vector1 = newVarCharVector("varchar1", allocator);
+    setVector(vector1,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8),
+        "baz".getBytes(StandardCharsets.UTF_8),
+        "bar".getBytes(StandardCharsets.UTF_8));
+
+    FieldVector encodedVector1 = (FieldVector) DictionaryEncoder.encode(vector1, dictionary1);
+
+    VarCharVector vector2 = newVarCharVector("varchar2", allocator);
+    setVector(vector2,
+        "foo".getBytes(StandardCharsets.UTF_8),
+        "aa".getBytes(StandardCharsets.UTF_8),
+        "bb".getBytes(StandardCharsets.UTF_8),
+        "cc".getBytes(StandardCharsets.UTF_8));
+
+    FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary3);
+
+    DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+    provider.put(dictionary1);
+    provider.put(dictionary3);
+    List<Field> schemaFields = new ArrayList<>();
+    schemaFields.add(DictionaryUtility.toMessageFormat(encodedVector1.getField(), provider, new HashSet<>()));
+    schemaFields.add(DictionaryUtility.toMessageFormat(encodedVector2.getField(), provider, new HashSet<>()));
+    Schema schema = new Schema(schemaFields);
+
+    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+    WriteChannel out = new WriteChannel(newChannel(outStream));
+
+    // write schema
+    MessageSerializer.serialize(out, schema);
+
+    List<AutoCloseable> closeableList = new ArrayList<>();
+
+    // write non-delta dictionary with id=1
+    serializeDictionaryBatch(out, dictionary1, false, closeableList);
+
+    // write delta dictionary with id=1
+    Dictionary deltaDictionary =
+        new Dictionary(dictionaryVector2, new DictionaryEncoding(1L, false, null));
+    serializeDictionaryBatch(out, deltaDictionary, true, closeableList);
+    deltaDictionary.getVector().close();
+
+    // write recordBatch2
+    serializeRecordBatch(out, Arrays.asList(encodedVector1, encodedVector2), closeableList);
+
+    // write eos
+    out.writeIntLittleEndian(0);
+
+    try (ArrowStreamReader reader = new ArrowStreamReader(
+        new ByteArrayReadableSeekableByteChannel(outStream.toByteArray()), allocator)) {
+      assertEquals(1, reader.getDictionaryVectors().size());
+      assertTrue(reader.loadNextBatch());
+      FieldVector dictionaryVector = reader.getDictionaryVectors().get(1L).getVector();
+      // make sure the delta dictionary is concatenated.
+      assertTrue(VectorEqualsVisitor.vectorEquals(dictionaryVector, dictionaryVector3));
+      assertFalse(reader.loadNextBatch());
+    }
+
+    vector1.close();
+    vector2.close();
+    AutoCloseables.close(closeableList);
+
+  }
+
+  private void serializeDictionaryBatch(
+      WriteChannel out,
+      Dictionary dictionary,
+      boolean isDelta,
+      List<AutoCloseable> closeables) throws IOException {
+
+    FieldVector dictVector = dictionary.getVector();
+    VectorSchemaRoot root = new VectorSchemaRoot(
+        Collections.singletonList(dictVector.getField()),
+        Collections.singletonList(dictVector),
+        dictVector.getValueCount());
+    ArrowDictionaryBatch batch =
+        new ArrowDictionaryBatch(dictionary.getEncoding().getId(), new VectorUnloader(root).getRecordBatch(), isDelta);
+    MessageSerializer.serialize(out, batch);
+    closeables.add(batch);
+    closeables.add(root);
+  }
+
+  private void serializeRecordBatch(
+      WriteChannel out,
+      List<FieldVector> vectors,
+      List<AutoCloseable> closeables) throws IOException {
+
+    List<Field> fields = vectors.stream().map(v -> v.getField()).collect(Collectors.toList());
+    VectorSchemaRoot root = new VectorSchemaRoot(
+        fields,
+        vectors,
+        vectors.get(0).getValueCount());
+    VectorUnloader unloader = new VectorUnloader(root);
+    ArrowRecordBatch batch = unloader.getRecordBatch();
+    MessageSerializer.serialize(out, batch);
+    closeables.add(batch);
+    closeables.add(root);
+  }
+
+  @Test
   public void testReadInterleavedData() throws IOException {
     List<ArrowRecordBatch> batches = createRecordBatches();
 
@@ -375,7 +559,7 @@ public class TestArrowReaderWriter {
     MessageSerializer.serialize(out, schema);
 
     // write dictionary1
-    FieldVector dictVector1 = dictionary.getVector();
+    FieldVector dictVector1 = dictionary1.getVector();
     VectorSchemaRoot dictRoot1 = new VectorSchemaRoot(
         Collections.singletonList(dictVector1.getField()),
         Collections.singletonList(dictVector1),
@@ -424,7 +608,7 @@ public class TestArrowReaderWriter {
     List<ArrowRecordBatch> batches = new ArrayList<>();
 
     DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
-    provider.put(dictionary);
+    provider.put(dictionary1);
     provider.put(dictionary2);
 
     VarCharVector vectorA1 = newVarCharVector("varcharA1", allocator);
@@ -438,7 +622,7 @@ public class TestArrowReaderWriter {
 
     VarCharVector vectorA2 = newVarCharVector("varcharA2", allocator);
     vectorA2.setValueCount(6);
-    FieldVector encodedVectorA1 = (FieldVector) DictionaryEncoder.encode(vectorA1, dictionary);
+    FieldVector encodedVectorA1 = (FieldVector) DictionaryEncoder.encode(vectorA1, dictionary1);
     vectorA1.close();
     FieldVector encodedVectorA2 = (FieldVector) DictionaryEncoder.encode(vectorA1, dictionary2);
     vectorA2.close();
@@ -462,7 +646,7 @@ public class TestArrowReaderWriter {
     vectorB2.set(4, "bb".getBytes(StandardCharsets.UTF_8));
     vectorB2.set(5, "cc".getBytes(StandardCharsets.UTF_8));
     vectorB2.setValueCount(6);
-    FieldVector encodedVectorB1 = (FieldVector) DictionaryEncoder.encode(vectorB1, dictionary);
+    FieldVector encodedVectorB1 = (FieldVector) DictionaryEncoder.encode(vectorB1, dictionary1);
     vectorB1.close();
     FieldVector encodedVectorB2 = (FieldVector) DictionaryEncoder.encode(vectorB2, dictionary2);
     vectorB2.close();

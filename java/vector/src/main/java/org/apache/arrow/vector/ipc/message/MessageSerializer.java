@@ -490,7 +490,7 @@ public class MessageSerializer {
       throws IOException {
     DictionaryBatch dictionaryBatchFB = (DictionaryBatch) message.header(new DictionaryBatch());
     ArrowRecordBatch recordBatch = deserializeRecordBatch(dictionaryBatchFB.data(), bodyBuffer);
-    return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch);
+    return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch, dictionaryBatchFB.isDelta());
   }
 
   /**
@@ -565,7 +565,7 @@ public class MessageSerializer {
     final ArrowBuf body = buffer.slice(block.getMetadataLength(),
          totalLen - block.getMetadataLength());
     ArrowRecordBatch recordBatch = deserializeRecordBatch(dictionaryBatchFB.data(), body);
-    return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch);
+    return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch, dictionaryBatchFB.isDelta());
   }
 
   /**

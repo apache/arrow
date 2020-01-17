@@ -35,6 +35,7 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
+import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * Abstract class to read Schema and ArrowRecordBatches.
@@ -219,6 +220,18 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
       throw new IllegalArgumentException("Dictionary ID " + id + " not defined in schema");
     }
     FieldVector vector = dictionary.getVector();
+    // if is deltaVector, concat it with non-delta vector with the same ID.
+    if (dictionaryBatch.isDelta()) {
+      FieldVector deltaVector = vector.getField().createVector(allocator);
+      load(dictionaryBatch, deltaVector);
+      concatDeltaDictionary(vector, deltaVector);
+      return;
+    }
+
+    load(dictionaryBatch, vector);
+  }
+
+  private void load(ArrowDictionaryBatch dictionaryBatch, FieldVector vector) {
     VectorSchemaRoot root = new VectorSchemaRoot(
         Collections.singletonList(vector.getField()),
         Collections.singletonList(vector), 0);
@@ -228,5 +241,19 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     } finally {
       dictionaryBatch.close();
     }
+  }
+
+  /**
+   * Concat dictionary vector and delta dictionary vector.
+   */
+  private void concatDeltaDictionary(FieldVector vector, FieldVector deltaVector) {
+    final int valueCount = vector.getValueCount();
+    final int deltaValueCount = deltaVector.getValueCount();
+    final TransferPair transferPair = deltaVector.makeTransferPair(vector);
+    for (int i = 0; i < deltaValueCount; i++) {
+      transferPair.copyValueSafe(i, valueCount + i);
+    }
+    deltaVector.close();
+    vector.setValueCount(valueCount + deltaValueCount);
   }
 }
