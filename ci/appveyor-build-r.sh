@@ -40,10 +40,12 @@ export PKG_CONFIG="/${MINGW_INSTALLS}/bin/pkg-config --static"
 
 cd $APPVEYOR_BUILD_FOLDER
 cp ci/PKGBUILD .
+export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --rmdeps --cleanbuild
 
 # Collect the build artifacts and make the shape of zip file that rwinlib expects
+ls
 mkdir build
-cp *.xz build
+cp mingw* build
 cd build
 source ../ci/windows-pkg-arrow-for-r.sh
