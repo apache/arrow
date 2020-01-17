@@ -271,7 +271,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
       ListVector listVector = (ListVector) v;
       primitives.addAll(getPrimitiveVectors(listVector.getDataVector()));
     } else if (v instanceof FixedSizeListVector) {
-      ListVector listVector = (ListVector) v;
+      FixedSizeListVector listVector = (FixedSizeListVector) v;
       primitives.addAll(getPrimitiveVectors(listVector.getDataVector()));
     } else if (v instanceof UnionVector) {
       UnionVector unionVector = (UnionVector) v;
