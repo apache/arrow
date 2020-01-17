@@ -108,8 +108,11 @@ std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
       if (Rf_inherits(x, "Date")) {
         constexpr static int64_t kMillisecondsPerDay = 86400000;
         return std::make_shared<ds::ScalarExpression>(
-          std::make_shared<arrow::Date64Scalar>(REAL(x)[0] * kMillisecondsPerDay)
-        );
+            std::make_shared<arrow::Date64Scalar>(REAL(x)[0] * kMillisecondsPerDay));
+      } else if (Rf_inherits(x, "POSIXct")) {
+        return std::make_shared<ds::ScalarExpression>(
+            std::make_shared<arrow::TimestampScalar>(
+                REAL(x)[0], arrow::timestamp(arrow::TimeUnit::SECOND)));
       }
       return ds::scalar(Rf_asReal(x));
     case INTSXP:
