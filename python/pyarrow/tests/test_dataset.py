@@ -391,12 +391,12 @@ def test_partitioning_function():
     schema = pa.schema([("year", pa.int16()), ("month", pa.int8())])
     names = ["year", "month"]
 
-    # default SchemaPartitionScheme
+    # default DirectoryPartitioning
 
     part = ds.partitioning(schema)
-    assert isinstance(part, ds.SchemaPartitionScheme)
+    assert isinstance(part, ds.DirectoryPartitioning)
     part = ds.partitioning(names)
-    assert isinstance(part, ds.PartitionSchemeDiscovery)
+    assert isinstance(part, ds.PartitioningFactory)
     # needs schema or names
     with pytest.raises(ValueError):
         ds.partitioning()
@@ -404,9 +404,9 @@ def test_partitioning_function():
     # Hive partitioning
 
     part = ds.partitioning(schema, flavor="hive")
-    assert isinstance(part, ds.HivePartitionScheme)
+    assert isinstance(part, ds.HivePartitioning)
     part = ds.partitioning(flavor="hive")
-    assert isinstance(part, ds.PartitionSchemeDiscovery)
+    assert isinstance(part, ds.PartitioningFactory)
     # cannot pass list of names
     with pytest.raises(ValueError):
         ds.partitioning(names, flavor="hive")
@@ -521,5 +521,6 @@ def test_open_dataset_filesystem(tempdir):
 
 
 def test_open_dataset_unsupported_format(tempdir):
+    _, path = _create_single_file(tempdir)
     with pytest.raises(ValueError, match="format 'blabla' is not supported"):
-        ds.dataset(["test"], format="blabla")
+        ds.dataset([path], format="blabla")
