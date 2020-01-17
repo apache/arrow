@@ -31,6 +31,9 @@ table Footer {
   dictionaries: [ Block ];
 
   recordBatches: [ Block ];
+
+  /// User-defined metadata
+  custom_metadata: [ KeyValue ];
 }
 
 struct Block {
