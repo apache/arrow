@@ -994,8 +994,6 @@ cdef class Array(_PandasConvertible):
 
     def __array__(self, dtype=None):
         values = self.to_numpy(zero_copy_only=False)
-        if isinstance(values, dict):
-            values = np.take(values['dictionary'], values['indices'])
         if dtype is None:
             return values
         return values.astype(dtype)
@@ -1038,7 +1036,13 @@ cdef class Array(_PandasConvertible):
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
                                               self, &out))
+
+        # wrap_array_output uses pandas to convert to Categorical, here
+        # always convert to numpy array without pandas dependency
         array = PyObject_to_object(out)
+
+        if isinstance(array, dict):
+            array = np.take(array['dictionary'], array['indices'])
 
         if writable and not array.flags.writeable:
             # if the conversion already needed to a copy, writeable is True
