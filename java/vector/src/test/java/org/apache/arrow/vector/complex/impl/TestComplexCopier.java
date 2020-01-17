@@ -163,7 +163,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyListVector() {
     try (ListVector from = ListVector.empty("from", allocator);
-         ListVector to = ListVector.empty("from", allocator)) {
+         ListVector to = ListVector.empty("to", allocator)) {
 
       UnionListWriter listWriter = from.getWriter();
       listWriter.allocate();
