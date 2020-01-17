@@ -629,7 +629,7 @@ cdef class FileSystemSource(Source):
         CFileSystemSource* filesystem_source
 
     def __init__(self, Schema schema not None,
-                 Expression source_partition not None,
+                 Expression source_partition,
                  FileFormat file_format not None,
                  FileSystem filesystem not None,
                  paths_or_selector, partitions):
@@ -668,8 +668,9 @@ cdef class FileSystemSource(Source):
                 'equal to the number of partitions.'
             )
 
-        if source_partition is not None:
-            c_source_partition = source_partition.unwrap()
+        if source_partition is None:
+            source_partition = ScalarExpression(True)
+        c_source_partition = source_partition.unwrap()
 
         result = CFileSystemSource.Make(
             pyarrow_unwrap_schema(schema),

@@ -102,6 +102,7 @@ jobs:
       ARROW_HOME: /usr/local
       ARROW_JEMALLOC: ON
       # TODO(kszucs): link error in the tests
+      ARROW_DATASET: ON
       ARROW_ORC: OFF
       ARROW_FLIGHT: ON
       ARROW_HDFS: ON
@@ -148,6 +149,7 @@ jobs:
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       ARROW_HOME: /usr
+      ARROW_DATASET: ON
       ARROW_JEMALLOC: OFF
       ARROW_FLIGHT: OFF
       ARROW_HDFS: ON

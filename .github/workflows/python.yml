@@ -148,6 +148,7 @@ jobs:
     runs-on: macos-latest
     env:
       ARROW_HOME: /usr/local
+      ARROW_DATASET: ON
       ARROW_JEMALLOC: ON
       ARROW_ORC: ON
       ARROW_PYTHON: ON

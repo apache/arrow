@@ -96,6 +96,7 @@ RUN apt-get update -y -q && \
 # - thrift is too old
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
+    ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=ON \
     ARROW_HDFS=ON \
