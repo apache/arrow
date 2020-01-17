@@ -34,7 +34,7 @@ before_script:
 - brew --version
 - brew unlink python@2
 - brew config
-- brew doctor
+- brew doctor || true
 - brew audit $ARROW_FORMULA
 script:
 - brew install -v --build-from-source --HEAD $ARROW_FORMULA
