@@ -391,9 +391,9 @@ public class TestBaseAllocator {
   private BaseAllocator createAllocatorWithCustomizedAllocationManager() {
     return new RootAllocator(BaseAllocator.configBuilder()
         .maxAllocation(MAX_ALLOCATION)
-        .allocationManagerFactory((accountingAllocator, size) -> new AllocationManager(accountingAllocator, size) {
+        .allocationManagerFactory((accountingAllocator, requestedSize) -> new AllocationManager(accountingAllocator) {
           private final Unsafe unsafe = getUnsafe();
-          private final long address = unsafe.allocateMemory(size);
+          private final long address = unsafe.allocateMemory(requestedSize);
 
           @Override
           protected long memoryAddress() {
@@ -402,8 +402,13 @@ public class TestBaseAllocator {
 
           @Override
           protected void release0() {
-            unsafe.setMemory(address, size, (byte) 0);
+            unsafe.setMemory(address, requestedSize, (byte) 0);
             unsafe.freeMemory(address);
+          }
+
+          @Override
+          public long getSize() {
+            return requestedSize;
           }
 
           private Unsafe getUnsafe() {

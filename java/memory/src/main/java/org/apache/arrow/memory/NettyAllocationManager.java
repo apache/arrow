@@ -34,13 +34,13 @@ public class NettyAllocationManager extends AllocationManager {
   static final UnsafeDirectLittleEndian EMPTY = INNER_ALLOCATOR.empty;
   static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
 
-  private final int size;
+  private final int allocatedSize;
   private final UnsafeDirectLittleEndian memoryChunk;
 
-  NettyAllocationManager(BaseAllocator accountingAllocator, int size) {
-    super(accountingAllocator, size);
-    this.memoryChunk = INNER_ALLOCATOR.allocate(size);
-    this.size = memoryChunk.capacity();
+  NettyAllocationManager(BaseAllocator accountingAllocator, int requestedSize) {
+    super(accountingAllocator);
+    this.memoryChunk = INNER_ALLOCATOR.allocate(requestedSize);
+    this.allocatedSize = memoryChunk.capacity();
   }
 
   /**
@@ -61,9 +61,14 @@ public class NettyAllocationManager extends AllocationManager {
     memoryChunk.release();
   }
 
+  /**
+   * Returns the underlying memory chunk size managed.
+   *
+   * <p>NettyAllocationManager rounds requested size up to the next power of two.
+   */
   @Override
   public long getSize() {
-    return size;
+    return allocatedSize;
   }
 
   /**
