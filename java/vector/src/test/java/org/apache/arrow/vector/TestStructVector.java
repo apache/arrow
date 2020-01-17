@@ -31,7 +31,6 @@ import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;

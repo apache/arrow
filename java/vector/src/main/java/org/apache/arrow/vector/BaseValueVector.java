@@ -185,7 +185,8 @@ public abstract class BaseValueVector implements ValueVector {
           break;
         }
         --actualCount;
-      } while (true);
+      }
+      while (true);
     }
 
 

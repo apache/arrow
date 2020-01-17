@@ -39,7 +39,6 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
-
 import org.junit.Assert;
 import org.junit.Test;
 

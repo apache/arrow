@@ -20,16 +20,21 @@ package org.apache.arrow.vector.util;
 import io.netty.buffer.ArrowBuf;
 
 /**
+ * Utility methods for memory comparison at a byte level.
+ * 
  * @deprecated This class will be removed. Please use org.apache.arrow.memory.util.ByteFunctionHelpers instead.
  */
 @Deprecated
 public class ByteFunctionHelpers {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
 
-  private ByteFunctionHelpers() {}
+  private ByteFunctionHelpers() {
+  }
 
   /**
-   * @deprecated Helper function to check for equality of bytes in two ArrowBufs.
+   * Helper function to check for equality of bytes in two ArrowBufs.
+   * 
+   * @deprecated 
    *
    * @param left   Left ArrowBuf for comparison
    * @param lStart start offset in the buffer
@@ -45,9 +50,11 @@ public class ByteFunctionHelpers {
   }
 
   /**
-   * @deprecated Helper function to compare a set of bytes in two ArrowBufs.
-   *     Function will check data before completing in the case that
-   *
+   * Helper function to compare a set of bytes in two ArrowBufs.
+   * Function will check data before completing in the case that.
+   * 
+   * @deprecated 
+   * 
    * @param left   Left ArrowBuf to compare
    * @param lStart start offset in the buffer
    * @param lEnd   end offset in the buffer
@@ -68,7 +75,9 @@ public class ByteFunctionHelpers {
   }
 
   /**
-   * @deprecated Helper function to compare a set of bytes in ArrowBuf to a ByteArray.
+   * Helper function to compare a set of bytes in ArrowBuf to a ByteArray.
+   * 
+   * @deprecated 
    *
    * @param left   Left ArrowBuf for comparison purposes
    * @param lStart start offset in the buffer
@@ -90,8 +99,10 @@ public class ByteFunctionHelpers {
   }
 
   /**
-   * @deprecated Compares the two specified {@code long} values, treating them as unsigned values between
+   * Compares the two specified {@code long} values, treating them as unsigned values between
    * {@code 0} and {@code 2^64 - 1} inclusive.
+   * 
+   * @deprecated 
    *
    * @param a the first unsigned {@code long} to compare
    * @param b the second unsigned {@code long} to compare

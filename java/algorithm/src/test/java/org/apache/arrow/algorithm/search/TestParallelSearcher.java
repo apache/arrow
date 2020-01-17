@@ -59,7 +59,7 @@ public class TestParallelSearcher {
   @Test
   public void testParallelIntSearch() throws ExecutionException, InterruptedException {
     try (IntVector targetVector = new IntVector("targetVector", allocator);
-    IntVector keyVector = new IntVector("keyVector", allocator)) {
+        IntVector keyVector = new IntVector("keyVector", allocator)) {
       targetVector.allocateNew(VECTOR_LENGTH);
       keyVector.allocateNew(VECTOR_LENGTH);
 

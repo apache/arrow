@@ -50,19 +50,6 @@
 
     <module name="NewlineAtEndOfFile"/>
 
-    <!--
-    If you wish to turn off checking for a section of code, you can put a comment in the source
-    before and after the section, with the following syntax:
-    // checkstyle:off no.XXX (such as checkstyle.off: NoFinalizer)
-    ...  // stuff that breaks the styles
-    // checkstyle:on
-    -->
-    <module name="SuppressionCommentFilter">
-      <property name="offCommentFormat" value="checkstyle:off: ([\w\|]+)"/>
-      <property name="onCommentFormat" value="checkstyle:on: ([\w\|]+)"/>
-      <property name="checkFormat" value="$1"/>
-    </module>
-
     <!-- Google style modules -->
 
     <!-- Checks for whitespace                               -->
@@ -71,7 +58,25 @@
       <property name="eachLine" value="true"/>
     </module>
 
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+    </module>
+    
     <module name="TreeWalker">
+        <!--
+        If you wish to turn off checking for a section of code, you can put a comment in the source
+        before and after the section, with the following syntax:
+
+          // checkstyle.off: XXX (such as checkstyle.off: NoFinalizer)
+          ...  // stuff that breaks the styles
+          // checkstyle.on: XXX (such as checkstyle.on: NoFinalizer)
+        -->
+        <module name="SuppressionCommentFilter">
+            <property name="offCommentFormat" value="checkstyle\.off\: ([\w\|]+)"/>
+            <property name="onCommentFormat" value="checkstyle\.on\: ([\w\|]+)"/>
+            <property name="checkFormat" value="$1"/>
+        </module>
         <module name="OuterTypeFilename"/>
         <module name="IllegalTokenText">
             <property name="tokens" value="STRING_LITERAL, CHAR_LITERAL"/>
@@ -83,10 +88,6 @@
             <property name="allowByTailComment" value="true"/>
             <property name="allowNonPrintableEscapes" value="true"/>
         </module>
-        <module name="LineLength">
-            <property name="max" value="120"/>
-            <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
-        </module>
         <module name="OneTopLevelClass"/>
         <module name="NoLineWrap"/>
         <module name="EmptyBlock">
@@ -94,10 +95,7 @@
             <property name="tokens" value="LITERAL_TRY, LITERAL_FINALLY, LITERAL_IF, LITERAL_ELSE, LITERAL_SWITCH"/>
         </module>
         <module name="NeedBraces"/>
-        <module name="LeftCurly">
-            <property name="maxLineLength" value="100"/>
-        </module>
-        <module name="RightCurly"/>
+        <module name="LeftCurly"/>
         <module name="RightCurly">
             <property name="option" value="alone"/>
             <property name="tokens" value="CLASS_DEF, METHOD_DEF, CTOR_DEF, LITERAL_FOR, LITERAL_WHILE, LITERAL_DO, STATIC_INIT, INSTANCE_INIT"/>
@@ -237,12 +235,14 @@
             <property name="allowMissingParamTags" value="true"/>
             <property name="allowMissingThrowsTags" value="true"/>
             <property name="allowMissingReturnTag" value="true"/>
-            <property name="minLineCount" value="2"/>
             <property name="allowedAnnotations" value="Override, Test"/>
             <property name="allowThrowsTagsForSubclasses" value="true"/>
             <!-- This seems partially broken under JDK >= 9. -->
             <property name="suppressLoadErrors" value="true"/>
+        </module>
+        <module name="MissingJavadocMethod">
             <property name="ignoreMethodNamesRegex" value="main"/>
+            <property name="minLineCount" value="2"/>
         </module>
         <module name="JavadocType">
             <property name="scope" value="public"/>
@@ -265,8 +265,6 @@
             <property name="exceptionVariableName" value="expected|ignore"/>
         </module>
         <module name="CommentsIndentation"/>
-        <!-- needed so that filters can access file contents -->
-        <module name="FileContentsHolder"/>
         <module name="UnusedImports">
             <property name="severity" value="error"/>
             <property name="processJavadoc" value="true"/>

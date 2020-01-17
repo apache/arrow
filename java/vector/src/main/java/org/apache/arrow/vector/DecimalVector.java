@@ -58,7 +58,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
   public DecimalVector(String name, BufferAllocator allocator,
                                int precision, int scale) {
     this(name, FieldType.nullable(
-      new ArrowType.Decimal(precision, scale)), allocator);
+        new ArrowType.Decimal(precision, scale)), allocator);
   }
 
   /**

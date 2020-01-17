@@ -34,7 +34,6 @@ import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
-
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 

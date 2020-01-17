@@ -23,7 +23,8 @@ import org.apache.arrow.util.Preconditions;
 /** Contains utilities for dealing with a 64-bit address base. */
 public final class LargeMemoryUtil {
 
-  private LargeMemoryUtil() {}
+  private LargeMemoryUtil() {
+  }
 
   /**
    * Casts length to an int, but raises an exception the value is outside

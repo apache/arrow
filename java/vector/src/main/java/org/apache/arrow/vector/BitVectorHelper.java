@@ -35,7 +35,8 @@ import io.netty.util.internal.PlatformDependent;
  */
 public class BitVectorHelper {
 
-  private BitVectorHelper() {}
+  private BitVectorHelper() {
+  }
 
   /**
    * Get the index of byte corresponding to bit index in validity buffer.
@@ -74,7 +75,9 @@ public class BitVectorHelper {
   }
 
   /**
-   * @deprecated Please use {@link BitVectorHelper#setBit(ArrowBuf, int)} instead..
+   * Set the bit.
+   * 
+   * @deprecated Please use {@link BitVectorHelper#setBit(ArrowBuf, int)} instead.
    */
   @Deprecated
   public static void setValidityBitToOne(ArrowBuf validityBuffer, int index) {

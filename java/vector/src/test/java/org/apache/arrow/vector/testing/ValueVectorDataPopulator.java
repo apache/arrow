@@ -54,11 +54,12 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.holders.IntervalDayHolder;
 
 /**
- * Utility for populating {@link org.apache.arrow.vector.ValueVector}
+ * Utility for populating {@link org.apache.arrow.vector.ValueVector}.
  */
 public class ValueVectorDataPopulator {
 
-  private ValueVectorDataPopulator(){}
+  private ValueVectorDataPopulator(){
+  }
 
   /**
    * Populate values for BigIntVector.

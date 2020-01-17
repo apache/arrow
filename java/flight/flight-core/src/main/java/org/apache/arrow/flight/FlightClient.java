@@ -59,7 +59,6 @@ import io.grpc.stub.ClientCallStreamObserver;
 import io.grpc.stub.ClientCalls;
 import io.grpc.stub.ClientResponseObserver;
 import io.grpc.stub.StreamObserver;
-
 import io.netty.buffer.ArrowBuf;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;

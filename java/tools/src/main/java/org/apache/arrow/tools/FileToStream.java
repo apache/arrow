@@ -34,7 +34,8 @@ import org.apache.arrow.vector.ipc.ArrowStreamWriter;
  * first argument and the output is written to standard out.
  */
 public class FileToStream {
-  private FileToStream() {}
+  private FileToStream() {
+  }
 
   /**
    * Reads an Arrow file from in and writes it back to out.

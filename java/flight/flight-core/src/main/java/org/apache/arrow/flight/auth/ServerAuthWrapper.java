@@ -27,7 +27,6 @@ import org.apache.arrow.flight.auth.ServerAuthHandler.ServerAuthSender;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -116,7 +115,9 @@ public class ServerAuthWrapper {
     @Override
     public void onError(Throwable t) {
       completed = true;
-      while (future == null) {/* busy wait */}
+      while (future == null) {
+        /* busy wait */
+      }
       future.cancel(true);
     }
 

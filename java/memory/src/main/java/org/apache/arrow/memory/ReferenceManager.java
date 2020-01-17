@@ -102,7 +102,7 @@ public interface ReferenceManager {
   OwnershipTransferResult transferOwnership(ArrowBuf sourceBuffer, BufferAllocator targetAllocator);
 
   /**
-   * Get the buffer allocator associated with this reference manager
+   * Get the buffer allocator associated with this reference manager.
    * @return buffer allocator.
    */
   BufferAllocator getAllocator();
@@ -139,10 +139,12 @@ public interface ReferenceManager {
     }
 
     @Override
-    public void retain() { }
+    public void retain() {
+    }
 
     @Override
-    public void retain(int increment) { }
+    public void retain(int increment) {
+    }
 
     @Override
     public ArrowBuf retain(ArrowBuf srcBuffer, BufferAllocator targetAllocator) {

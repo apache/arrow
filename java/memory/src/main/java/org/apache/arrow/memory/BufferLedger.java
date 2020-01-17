@@ -524,6 +524,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   }
 
   /**
+   * Get underlying class.
+   * 
    * @deprecated Use #unwrap(UnsafeDirectLittleEndian.class) instead.
    */
   @Deprecated

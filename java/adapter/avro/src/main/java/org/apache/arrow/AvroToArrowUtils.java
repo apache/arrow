@@ -139,7 +139,7 @@ public class AvroToArrowUtils {
   }
 
   /**
-   * Create a consumer with the given avro schema
+   * Create a consumer with the given avro schema.
    * @param schema avro schema
    * @param name arrow field name
    * @param consumerVector vector to keep in consumer, if v == null, will create a new vector via field.

@@ -384,7 +384,7 @@ public class TestJSONFile extends BaseFileTest {
 
     // write
     try (
-      BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
     ) {
 
       try (VectorSchemaRoot root = writeMapData(vectorAllocator)) {
@@ -396,7 +396,7 @@ public class TestJSONFile extends BaseFileTest {
 
     // read
     try (
-      BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
     ) {
       JsonFileReader reader = new JsonFileReader(file, readerAllocator);
       Schema schema = reader.start();

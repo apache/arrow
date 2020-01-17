@@ -16,10 +16,10 @@
  */
 
 /**
- *  Memory Allocation, Account and Management
+ *  Memory Allocation, Account and Management.
  *
- *  See the README.md file in this directory for detailed information about Arrow's memory
- *  allocation subsystem.
+ *  <p>See the README.md file in this directory for detailed information about Arrow's memory
+ *  allocation subsystem.</p>
  *
  */
 

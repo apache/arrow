@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
-
 import org.apache.arrow.vector.VarCharVector;
 import org.junit.After;
 import org.junit.Before;
@@ -53,9 +52,9 @@ public class TestVectorRunDeduplicator {
   @Test
   public void testDeduplicateFixedWidth() {
     try (IntVector origVec = new IntVector("original vec", allocator);
-    IntVector dedupVec = new IntVector("deduplicated vec", allocator);
-    IntVector lengthVec = new IntVector("length vec", allocator);
-    VectorRunDeduplicator<IntVector> deduplicator =
+        IntVector dedupVec = new IntVector("deduplicated vec", allocator);
+        IntVector lengthVec = new IntVector("length vec", allocator);
+        VectorRunDeduplicator<IntVector> deduplicator =
                  new VectorRunDeduplicator<>(origVec, allocator)) {
       origVec.allocateNew(VECTOR_LENGTH * REPETITION_COUNT);
       origVec.setValueCount(VECTOR_LENGTH * REPETITION_COUNT);

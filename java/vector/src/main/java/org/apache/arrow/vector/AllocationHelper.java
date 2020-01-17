@@ -22,7 +22,8 @@ import org.apache.arrow.vector.complex.RepeatedVariableWidthVectorLike;
 
 /** Helper utility methods for allocating storage for Vectors. */
 public class AllocationHelper {
-  private AllocationHelper() {}
+  private AllocationHelper() {
+  }
 
   /**
    * Allocates the vector.
@@ -77,7 +78,7 @@ public class AllocationHelper {
   }
 
   /**
-   * Allocates the exact amount if v is fixed width, otherwise falls back to dynamic allocation
+   * Allocates the exact amount if v is fixed width, otherwise falls back to dynamic allocation.
    *
    * @param v          value vector we are trying to allocate
    * @param valueCount size we are trying to allocate

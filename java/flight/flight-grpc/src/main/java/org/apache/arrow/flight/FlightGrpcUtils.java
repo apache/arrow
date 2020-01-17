@@ -31,7 +31,8 @@ import io.grpc.ManagedChannel;
  */
 public class FlightGrpcUtils {
 
-  private FlightGrpcUtils() {}
+  private FlightGrpcUtils() {
+  }
 
   /**
    * Creates a Flight service.

@@ -86,6 +86,8 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   private int lastSet;
 
   /**
+   * Constructs a new instance.
+   * 
    * @deprecated Use FieldType or static constructor instead.
    */
   @Deprecated
@@ -94,6 +96,8 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   /**
+   * List Vector.
+   * 
    * @deprecated Use FieldType or static constructor instead.
    */
   @Deprecated

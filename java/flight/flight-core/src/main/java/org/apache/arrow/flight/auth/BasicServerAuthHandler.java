@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.Optional;
 
 import org.apache.arrow.flight.impl.Flight.BasicAuth;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
