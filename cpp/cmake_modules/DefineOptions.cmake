@@ -385,22 +385,15 @@ macro(config_summary_message)
       set(description ${${name}_OPTION_DESCRIPTION})
 
       if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
-        set(summary "[default=${${name}_OPTION_ENUM}] ${value}")
+        set(summary "=${value} [default=${${name}_OPTION_ENUM}]")
       else()
-        set(summary "[default=${${name}_OPTION_DEFAULT}] ${value}")
+        set(summary "=${value} [default=${${name}_OPTION_DEFAULT}]")
       endif()
 
-      string(LENGTH "${summary}" summary_length)
-      string(LENGTH "${name}" name_length)
-      math(EXPR padding_length "${summary_length} + ${name_length}")
-      string(SUBSTRING "                                                \
-                                    ${summary}" ${padding_length} -1 right_padded_summary)
-
-      message(STATUS "  ${name} ${right_padded_summary}")
+      message(STATUS "  ${name}${summary}")
       foreach(description_line ${description})
         message(STATUS "      ${description_line}")
       endforeach()
-      message(STATUS)
     endforeach()
 
   endforeach()
