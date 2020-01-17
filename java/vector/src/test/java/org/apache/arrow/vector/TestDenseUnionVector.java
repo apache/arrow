@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
@@ -33,6 +34,7 @@ import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
+import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -73,9 +75,10 @@ public class TestDenseUnionVector {
       unionVector.allocateNew();
 
       // write some data
-      unionVector.setType(0, MinorType.UINT4);
+      byte uint4TypeId = unionVector.registerNewTypeId(Field.nullable("", MinorType.UINT4.getType()));
+      unionVector.setTypeId(0, uint4TypeId);
       unionVector.setSafe(0, uInt4Holder);
-      unionVector.setType(2, MinorType.UINT4);
+      unionVector.setTypeId(2, uint4TypeId);
       unionVector.setSafe(2, uInt4Holder);
       unionVector.setValueCount(4);
 
@@ -100,13 +103,15 @@ public class TestDenseUnionVector {
       srcVector.allocateNew();
 
       // write some data
-      srcVector.setType(0, MinorType.INT);
+      byte intTypeId = srcVector.registerNewTypeId(Field.nullable("", MinorType.INT.getType()));
+      srcVector.setTypeId(0, intTypeId);
       srcVector.setSafe(0, newIntHolder(5));
-      srcVector.setType(1, MinorType.BIT);
+      byte bitTypeId = srcVector.registerNewTypeId(Field.nullable("", MinorType.BIT.getType()));
+      srcVector.setTypeId(1, bitTypeId);
       srcVector.setSafe(1, newBitHolder(false));
-      srcVector.setType(3, MinorType.INT);
+      srcVector.setTypeId(3, intTypeId);
       srcVector.setSafe(3, newIntHolder(10));
-      srcVector.setType(5, MinorType.BIT);
+      srcVector.setTypeId(5, bitTypeId);
       srcVector.setSafe(5, newBitHolder(false));
       srcVector.setValueCount(6);
 
@@ -150,25 +155,26 @@ public class TestDenseUnionVector {
       sourceVector.allocateNew();
 
       /* populate the UnionVector */
-      sourceVector.setType(0, MinorType.INT);
+      byte intTypeId = sourceVector.registerNewTypeId(Field.nullable("", MinorType.INT.getType()));
+      sourceVector.setTypeId(0, intTypeId);
       sourceVector.setSafe(0, newIntHolder(5));
-      sourceVector.setType(1, MinorType.INT);
+      sourceVector.setTypeId(1, intTypeId);
       sourceVector.setSafe(1, newIntHolder(10));
-      sourceVector.setType(2, MinorType.INT);
+      sourceVector.setTypeId(2, intTypeId);
       sourceVector.setSafe(2, newIntHolder(15));
-      sourceVector.setType(3, MinorType.INT);
+      sourceVector.setTypeId(3, intTypeId);
       sourceVector.setSafe(3, newIntHolder(20));
-      sourceVector.setType(4, MinorType.INT);
+      sourceVector.setTypeId(4, intTypeId);
       sourceVector.setSafe(4, newIntHolder(25));
-      sourceVector.setType(5, MinorType.INT);
+      sourceVector.setTypeId(5, intTypeId);
       sourceVector.setSafe(5, newIntHolder(30));
-      sourceVector.setType(6, MinorType.INT);
+      sourceVector.setTypeId(6, intTypeId);
       sourceVector.setSafe(6, newIntHolder(35));
-      sourceVector.setType(7, MinorType.INT);
+      sourceVector.setTypeId(7, intTypeId);
       sourceVector.setSafe(7, newIntHolder(40));
-      sourceVector.setType(8, MinorType.INT);
+      sourceVector.setTypeId(8, intTypeId);
       sourceVector.setSafe(8, newIntHolder(45));
-      sourceVector.setType(9, MinorType.INT);
+      sourceVector.setTypeId(9, intTypeId);
       sourceVector.setSafe(9, newIntHolder(50));
       sourceVector.setValueCount(10);
 
@@ -230,34 +236,38 @@ public class TestDenseUnionVector {
       sourceVector.allocateNew();
 
       /* populate the UnionVector */
-      sourceVector.setType(0, MinorType.INT);
+      byte intTypeId = sourceVector.registerNewTypeId(Field.nullable("", MinorType.INT.getType()));
+
+      sourceVector.setTypeId(0, intTypeId);
       sourceVector.setSafe(0, newIntHolder(5));
 
-      sourceVector.setType(1, MinorType.FLOAT4);
+      byte float4TypeId = sourceVector.registerNewTypeId(Field.nullable("", MinorType.FLOAT4.getType()));
+
+      sourceVector.setTypeId(1, float4TypeId);
       sourceVector.setSafe(1, newFloat4Holder(5.5f));
 
-      sourceVector.setType(2, MinorType.INT);
+      sourceVector.setTypeId(2, intTypeId);
       sourceVector.setSafe(2, newIntHolder(10));
 
-      sourceVector.setType(3, MinorType.FLOAT4);
+      sourceVector.setTypeId(3, float4TypeId);
       sourceVector.setSafe(3, newFloat4Holder(10.5f));
 
-      sourceVector.setType(4, MinorType.INT);
+      sourceVector.setTypeId(4, intTypeId);
       sourceVector.setSafe(4, newIntHolder(15));
 
-      sourceVector.setType(5, MinorType.FLOAT4);
+      sourceVector.setTypeId(5, float4TypeId);
       sourceVector.setSafe(5, newFloat4Holder(15.5f));
 
-      sourceVector.setType(6, MinorType.INT);
+      sourceVector.setTypeId(6, intTypeId);
       sourceVector.setSafe(6, newIntHolder(20));
 
-      sourceVector.setType(7, MinorType.FLOAT4);
+      sourceVector.setTypeId(7, float4TypeId);
       sourceVector.setSafe(7, newFloat4Holder(20.5f));
 
-      sourceVector.setType(8, MinorType.INT);
+      sourceVector.setTypeId(8, intTypeId);
       sourceVector.setSafe(8, newIntHolder(30));
 
-      sourceVector.setType(9, MinorType.FLOAT4);
+      sourceVector.setTypeId(9, float4TypeId);
       sourceVector.setSafe(9, newFloat4Holder(30.5f));
       sourceVector.setValueCount(10);
 
@@ -342,16 +352,18 @@ public class TestDenseUnionVector {
       vector.allocateNew();
 
       /* populate the UnionVector */
-      vector.setType(0, MinorType.INT);
+      byte intTypeId = vector.registerNewTypeId(Field.nullable("", MinorType.INT.getType()));
+      vector.setTypeId(0, intTypeId);
       vector.setSafe(0, newIntHolder(5));
 
-      vector.setType(1, MinorType.FLOAT4);
+      byte float4TypeId = vector.registerNewTypeId(Field.nullable("", MinorType.INT.getType()));
+      vector.setTypeId(1, float4TypeId);
       vector.setSafe(1, newFloat4Holder(5.5f));
 
-      vector.setType(2, MinorType.INT);
+      vector.setTypeId(2, intTypeId);
       vector.setSafe(2, newIntHolder(10));
 
-      vector.setType(3, MinorType.FLOAT4);
+      vector.setTypeId(3, float4TypeId);
       vector.setSafe(3, newFloat4Holder(10.5f));
 
       vector.setValueCount(10);
@@ -373,16 +385,16 @@ public class TestDenseUnionVector {
       long offsetAddress = vector.getOffsetBufferAddress();
 
       try {
-        long dataAddress = vector.getDataBufferAddress();
+        vector.getDataBufferAddress();
       } catch (UnsupportedOperationException ue) {
         error = true;
       } finally {
         assertTrue(error);
       }
 
-      assertEquals(2, buffers.size());
+      assertEquals(3, buffers.size());
       assertEquals(bitAddress, buffers.get(0).memoryAddress());
-      assertEquals(offsetAddress, buffers.get(1).memoryAddress());
+      assertEquals(offsetAddress, buffers.get(2).memoryAddress());
     }
   }
 
@@ -402,16 +414,12 @@ public class TestDenseUnionVector {
       IntVector subVector11 = structVector1
               .addOrGet("sub11", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
       subVector11.allocateNew();
-      subVector11.setSafe(0, 0);
-      subVector11.setSafe(1, 1);
-      subVector11.setValueCount(2);
+      ValueVectorDataPopulator.setVector(subVector11, 0, 1);
 
       IntVector subVector12 = structVector1
               .addOrGet("sub12", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
       subVector12.allocateNew();
-      subVector12.setSafe(0, 0);
-      subVector12.setSafe(1, 10);
-      subVector12.setValueCount(2);
+      ValueVectorDataPopulator.setVector(subVector12, 0, 10);
 
       structVector1.setIndexDefined(0);
       structVector1.setIndexDefined(1);
@@ -421,42 +429,40 @@ public class TestDenseUnionVector {
       VarCharVector subVector21 = structVector2
               .addOrGet("sub21", FieldType.nullable(MinorType.VARCHAR.getType()), VarCharVector.class);
       subVector21.allocateNew();
-      subVector21.setSafe(0, "a0".getBytes());
-      subVector21.setValueCount(1);
+      ValueVectorDataPopulator.setVector(subVector21, "a0");
 
       VarCharVector subVector22 = structVector2
               .addOrGet("sub22", FieldType.nullable(MinorType.VARCHAR.getType()), VarCharVector.class);
       subVector22.allocateNew();
-      subVector22.setSafe(0, "b0".getBytes());
-      subVector22.setValueCount(1);
+      ValueVectorDataPopulator.setVector(subVector22, "b0");
 
       structVector2.setIndexDefined(0);
       structVector2.setValueCount(1);
 
       // register relative types
-      byte typeId1 = unionVector.getOrAllocateTypeId(structVector1.getField());
-      byte typeId2 = unionVector.getOrAllocateTypeId(structVector2.getField());
-      assertEquals(typeId1, MinorType.values().length);
-      assertEquals(typeId2, MinorType.values().length + 1);
+      byte typeId1 = unionVector.registerNewTypeId(structVector1.getField());
+      byte typeId2 = unionVector.registerNewTypeId(structVector2.getField());
+      assertEquals(typeId1, 0);
+      assertEquals(typeId2, 1);
 
       // add two struct vectors to union vector
-      unionVector.addVector(structVector1);
-      unionVector.addVector(structVector2);
+      unionVector.addVector(typeId1, structVector1);
+      unionVector.addVector(typeId2, structVector2);
       unionVector.setValueCount(3);
 
       ArrowBuf offsetBuf = unionVector.getOffsetBuffer();
 
-      unionVector.setType(0, typeId1);
+      unionVector.setTypeId(0, typeId1);
       offsetBuf.setInt(0, 0);
-      BitVectorHelper.setValidityBitToOne(unionVector.getValidityBuffer(), 0);
+      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 0);
 
-      unionVector.setType(1, typeId2);
+      unionVector.setTypeId(1, typeId2);
       offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH, 0);
-      BitVectorHelper.setValidityBitToOne(unionVector.getValidityBuffer(), 1);
+      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 1);
 
-      unionVector.setType(2, typeId1);
+      unionVector.setTypeId(2, typeId1);
       offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH * 2, 1);
-      BitVectorHelper.setValidityBitToOne(unionVector.getValidityBuffer(), 2);
+      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 2);
 
       Map<String, Integer> value0 = new JsonStringHashMap<>();
       value0.put("sub11", 0);
@@ -475,6 +481,66 @@ public class TestDenseUnionVector {
       value2.put("sub12", 10);
 
       assertEquals(value2, unionVector.getObject(2));
+    }
+  }
+
+  /**
+   * Test adding two varchar vectors to the dense union vector.
+   */
+  @Test
+  public void testMultipleVarChars() {
+    FieldType type = new FieldType(true, ArrowType.Struct.INSTANCE, null, null);
+    try (VarCharVector childVector1 = new VarCharVector("child1", allocator);
+         VarCharVector childVector2 = new VarCharVector("child2", allocator);
+         DenseUnionVector unionVector = DenseUnionVector.empty("union", allocator)) {
+
+      // prepare sub vectors
+      ValueVectorDataPopulator.setVector(childVector1, "a0", "a4");
+      ValueVectorDataPopulator.setVector(childVector2, "b1", "b2");
+
+      // register relative types
+      byte typeId1 = unionVector.registerNewTypeId(childVector1.getField());
+      byte typeId2 = unionVector.registerNewTypeId(childVector2.getField());
+
+      assertEquals(typeId1, 0);
+      assertEquals(typeId2, 1);
+
+      unionVector.setValueCount(5);
+
+      // add two struct vectors to union vector
+      unionVector.addVector(typeId1, childVector1);
+      unionVector.addVector(typeId2, childVector2);
+
+      ArrowBuf offsetBuf = unionVector.getOffsetBuffer();
+
+      // slot 0 points to child1
+      unionVector.setTypeId(0, typeId1);
+      offsetBuf.setInt(0, 0);
+      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 0);
+
+      // slot 1 points to child2
+      unionVector.setTypeId(1, typeId2);
+      offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH, 0);
+      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 1);
+
+      // slot 2 points to child2
+      unionVector.setTypeId(2, typeId2);
+      offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH * 2, 1);
+      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 2);
+
+      // slot 3 points to null
+      BitVectorHelper.unsetBit(unionVector.getValidityBuffer(), 3);
+
+      // slot 4 points to child1
+      unionVector.setTypeId(4, typeId1);
+      offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH * 4, 1);
+      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 4);
+
+      assertEquals(new Text("a0"), unionVector.getObject(0));
+      assertEquals(new Text("b1"), unionVector.getObject(1));
+      assertEquals(new Text("b2"), unionVector.getObject(2));
+      assertNull(unionVector.getObject(3));
+      assertEquals(new Text("a4"), unionVector.getObject(4));
     }
   }
 

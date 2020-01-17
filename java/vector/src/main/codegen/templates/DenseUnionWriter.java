@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriterFactory;
 import org.apache.arrow.vector.types.Types;
 
@@ -58,62 +59,60 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
     }
   }
 
-
   @Override
   public void start() {
-    byte typeId = data.getTypeValue(idx());
-    data.setType(idx(), typeId);
+    byte typeId = data.getTypeId(idx());
     getStructWriter((byte) idx()).start();
   }
 
   @Override
   public void end() {
-    getStructWriter((byte) idx()).end();
+    byte typeId = data.getTypeId(idx());
+    getStructWriter(typeId).end();
   }
 
   @Override
   public void startList() {
-    byte typeId = data.getTypeValue(idx());
-    getListWriter((byte) idx()).startList();
-    data.setType(idx(), typeId);
+    byte typeId = data.getTypeId(idx());
+    getListWriter(typeId).startList();
   }
 
   @Override
   public void endList() {
-    getListWriter((byte) idx()).endList();
+    byte typeId = data.getTypeId(idx());
+    getListWriter(typeId).endList();
   }
 
   private StructWriter getStructWriter(byte typeId) {
     StructWriter structWriter = (StructWriter) writers[typeId];
     if (structWriter == null) {
-      structWriter = nullableStructWriterFactory.build(data.getStruct(typeId));
-      structWriter.setPosition(idx());
+      structWriter = nullableStructWriterFactory.build((StructVector) data.getVectorByType(typeId));
       writers[typeId] = structWriter;
     }
     return structWriter;
   }
 
   public StructWriter asStruct(byte typeId) {
-    data.setType(idx(), typeId);
+    data.setTypeId(idx(), typeId);
     return getStructWriter(typeId);
   }
 
   private ListWriter getListWriter(byte typeId) {
     ListWriter listWriter = (ListWriter) writers[typeId];
     if (listWriter == null) {
-      listWriter = new UnionListWriter(data.getList((byte) idx()), nullableStructWriterFactory);
-      listWriter.setPosition(idx());
+      listWriter = new UnionListWriter((ListVector) data.getVectorByType(typeId), nullableStructWriterFactory);
       writers[typeId] = listWriter;
     }
     return listWriter;
   }
 
   public ListWriter asList(byte typeId) {
-    data.setType(idx(), typeId);
+    data.setTypeId(idx(), typeId);
     return getListWriter(typeId);
   }
 
-  BaseWriter getWriter(MinorType minorType, byte typeId) {
+  BaseWriter getWriter(byte typeId) {
+    MinorType minorType = data.getVectorByType(typeId).getMinorType();
     switch (minorType) {
       case STRUCT:
         return getStructWriter(typeId);
@@ -126,7 +125,7 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
         <#assign uncappedName = name?uncap_first/>
         <#if !minor.typeParams??>
       case ${name?upper_case}:
-      return get${name}Writer();
+      return get${name}Writer(typeId);
         </#if>
       </#list>
     </#list>
@@ -141,33 +140,29 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
       <#assign uncappedName = name?uncap_first/>
       <#if !minor.typeParams?? >
 
-  private ${name}Writer ${name?uncap_first}Writer;
-
-  private ${name}Writer get${name}Writer() {
-    if (${uncappedName}Writer == null) {
-      ${uncappedName}Writer = new ${name}WriterImpl(data.get${name}Vector());
-      ${uncappedName}Writer.setPosition(idx());
-      writers[idx()] = ${uncappedName}Writer;
+  private ${name}Writer get${name}Writer(byte typeId) {
+    ${name}Writer writer = (${name}Writer) writers[typeId];
+    if (writer == null) {
+      writer = new ${name}WriterImpl((${name}Vector) data.getVectorByType(typeId));
+      writers[typeId] = writer;
     }
-    return ${uncappedName}Writer;
+    return writer;
   }
 
-  public ${name}Writer as${name}() {
-    data.setType(idx(), MinorType.${name?upper_case});
-    return get${name}Writer();
+  public ${name}Writer as${name}(byte typeId) {
+    data.setTypeId(idx(), typeId);
+    return get${name}Writer(typeId);
   }
 
   @Override
   public void write(${name}Holder holder) {
-    data.setType(idx(), MinorType.${name?upper_case});
-    get${name}Writer().setPosition(idx());
-    get${name}Writer().write${name}(<#list fields as field>holder.${field.name}<#if field_has_next>, </#if></#list>);
+    throw new UnsupportedOperationException();
   }
 
-  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
-    data.setType(idx(), MinorType.${name?upper_case});
-    get${name}Writer().setPosition(idx());
-    get${name}Writer().write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>, byte typeId) {
+    data.setTypeId(idx(), typeId);
+    get${name}Writer(typeId).setPosition(data.getOffset(idx()));
+    get${name}Writer(typeId).write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
       </#if>
     </#list>
@@ -178,33 +173,33 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
 
   @Override
   public StructWriter struct() {
-    byte typeId = data.getTypeValue(idx());
-    data.setType(idx(), typeId);
-    getListWriter(typeId).setPosition(idx());
+    byte typeId = data.getTypeId(idx());
+    data.setTypeId(idx(), typeId);
+    getListWriter(typeId).setPosition(data.getOffset(idx()));
     return getListWriter(typeId).struct();
   }
 
   @Override
   public ListWriter list() {
-    byte typeId = data.getTypeValue(idx());
-    data.setType(idx(), typeId);
-    getListWriter(typeId).setPosition(idx());
+    byte typeId = data.getTypeId(idx());
+    data.setTypeId(idx(), typeId);
+    getListWriter(typeId).setPosition(data.getOffset(idx()));
     return getListWriter(typeId).list();
   }
 
   @Override
   public ListWriter list(String name) {
-    byte typeId = data.getTypeValue(idx());
-    data.setType(idx(), typeId);
-    getStructWriter(typeId).setPosition(idx());
+    byte typeId = data.getTypeId(idx());
+    data.setTypeId(idx(), typeId);
+    getStructWriter(typeId).setPosition(data.getOffset(idx()));
     return getStructWriter(typeId).list(name);
   }
 
   @Override
   public StructWriter struct(String name) {
-    byte typeId = data.getTypeValue(idx());
-    data.setType(idx(), typeId);
-    getStructWriter(typeId).setPosition(idx());
+    byte typeId = data.getTypeId(idx());
+    data.setTypeId(idx(), typeId);
+    getStructWriter(typeId).setPosition(data.getOffset(idx()));
     return getStructWriter(typeId).struct(name);
   }
 
@@ -216,17 +211,17 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
   <#if !minor.typeParams?? >
   @Override
   public ${capName}Writer ${lowerName}(String name) {
-    byte typeId = data.getTypeValue(idx());
-    data.setType((byte) idx(), typeId);
-    getStructWriter(typeId).setPosition(idx());
+    byte typeId = data.getTypeId(idx());
+    data.setTypeId(idx(), typeId);
+    getStructWriter(typeId).setPosition(data.getOffset(idx()));
     return getStructWriter(typeId).${lowerName}(name);
   }
 
   @Override
   public ${capName}Writer ${lowerName}() {
-    byte typeId = data.getTypeValue(idx());
-    data.setType(idx(), typeId);
-    getListWriter(typeId).setPosition(idx());
+    byte typeId = data.getTypeId(idx());
+    data.setTypeId(idx(), typeId);
+    getListWriter(typeId).setPosition(data.getOffset(idx()));
     return getListWriter(typeId).${lowerName}();
   }
   </#if>

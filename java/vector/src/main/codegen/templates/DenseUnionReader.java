@@ -43,15 +43,12 @@ public class DenseUnionReader extends AbstractFieldReader {
   }
 
   public MinorType getMinorType() {
-    return TYPES[data.getTypeValue(idx())];
+    byte typeId = data.getTypeId(idx());
+    return data.getVectorByType(typeId).getMinorType();
   }
 
-  private static MinorType[] TYPES = new MinorType[43];
-
-  static {
-    for (MinorType minorType : MinorType.values()) {
-      TYPES[minorType.ordinal()] = minorType;
-    }
+  public byte getTypeId() {
+    return data.getTypeId(idx());
   }
 
   @Override
@@ -63,41 +60,49 @@ public class DenseUnionReader extends AbstractFieldReader {
     return !data.isNull(idx());
   }
 
-  public void read(UnionHolder holder) {
+  public void read(DenseUnionHolder holder) {
     holder.reader = this;
     holder.isSet = this.isSet() ? 1 : 0;
+    holder.typeId = getTypeId();
   }
 
-  public void read(int index, DenseUnionHolder holder) {
-    getList((byte) idx()).read(index, holder);
+  public void read(int index, UnionHolder holder) {
+    byte typeId = data.getTypeId(index);
+    getList(typeId).read(index, holder);
   }
 
   private FieldReader getReaderForIndex(int index) {
-    byte typeId = data.getTypeValue(index);
+    byte typeId = data.getTypeId(index);
+    MinorType minorType = data.getVectorByType(typeId).getMinorType();
     FieldReader reader = (FieldReader) readers[typeId];
     if (reader != null) {
       return reader;
     }
-    switch (MinorType.values()[typeId]) {
+    switch (minorType) {
       case NULL:
-        return NullReader.INSTANCE;
+        reader = NullReader.INSTANCE;
+        break;
       case STRUCT:
-        return (FieldReader) getStruct(typeId);
+        reader = (FieldReader) getStruct(typeId);
+        break;
       case LIST:
-        return (FieldReader) getList(typeId);
+        reader = (FieldReader) getList(typeId);
+        break;
     <#list vv.types as type>
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
         <#assign uncappedName = name?uncap_first/>
         <#if !minor.typeParams?? >
       case ${name?upper_case}:
-      return (FieldReader) get${name}();
+      reader = (FieldReader) get${name}(typeId);
+      break;
         </#if>
       </#list>
     </#list>
       default:
         throw new UnsupportedOperationException("Unsupported type: " + MinorType.values()[typeId]);
     }
+    return reader;
   }
 
   private SingleStructReaderImpl structReader;
@@ -105,7 +110,7 @@ public class DenseUnionReader extends AbstractFieldReader {
   private StructReader getStruct(byte typeId) {
     StructReader structReader = (StructReader) readers[typeId];
     if (structReader == null) {
-      structReader = (SingleStructReaderImpl) data.getStruct(typeId).getReader();
+      structReader = (SingleStructReaderImpl) data.getVectorByType(typeId).getReader();
       structReader.setPosition(idx());
       readers[typeId] = structReader;
     }
@@ -117,7 +122,7 @@ public class DenseUnionReader extends AbstractFieldReader {
   private FieldReader getList(byte typeId) {
     UnionListReader listReader = (UnionListReader) readers[typeId];
     if (listReader == null) {
-      listReader = new UnionListReader(data.getList(typeId));
+      listReader = new UnionListReader((ListVector) data.getVectorByType(typeId));
       listReader.setPosition(idx());
       readers[typeId] = listReader;
     }
@@ -162,15 +167,14 @@ public class DenseUnionReader extends AbstractFieldReader {
       <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
       <#if !minor.typeParams?? >
 
-  private ${name}ReaderImpl ${uncappedName}Reader;
-
-  private ${name}ReaderImpl get${name}() {
-    if (${uncappedName}Reader == null) {
-      ${uncappedName}Reader = new ${name}ReaderImpl(data.get${name}Vector());
-      ${uncappedName}Reader.setPosition(idx());
-      readers[MinorType.${name?upper_case}.ordinal()] = ${uncappedName}Reader;
+  private ${name}ReaderImpl get${name}(byte typeId) {
+    ${name}ReaderImpl reader = (${name}ReaderImpl) readers[typeId];
+    if (reader == null) {
+      reader = new ${name}ReaderImpl((${name}Vector) data.getVectorByType(typeId));
+      reader.setPosition(idx());
+      readers[typeId] = reader;
     }
-    return ${uncappedName}Reader;
+    return reader;
   }
 
   public void read(Nullable${name}Holder holder){

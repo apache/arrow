@@ -26,6 +26,7 @@ import org.apache.arrow.vector.types.Types;
 public class DenseUnionHolder implements ValueHolder {
   public FieldReader reader;
   public int isSet;
+  public byte typeId;
 
   public Types.MinorType getMinorType() {
     return reader.getMinorType();
