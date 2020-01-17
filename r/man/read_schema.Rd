@@ -7,9 +7,12 @@
 read_schema(stream, ...)
 }
 \arguments{
-\item{stream}{a stream}
+\item{stream}{a \code{Message}, \code{InputStream}, or \code{Buffer}}
 
 \item{...}{currently ignored}
+}
+\value{
+A \link{Schema}
 }
 \description{
 read a Schema from a stream

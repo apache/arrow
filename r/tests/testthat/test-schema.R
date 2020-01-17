@@ -25,6 +25,20 @@ test_that("Alternate type names are supported", {
   expect_equal(names(schema(b = double(), c = bool(), d = string())), c("b", "c", "d"))
 })
 
+test_that("Schema print method", {
+  expect_output(
+    print(schema(b = double(), c = bool(), d = string())),
+    paste(
+      "Schema",
+      "b: double",
+      "c: bool",
+      "d: string",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+})
+
 test_that("reading schema from Buffer", {
   # TODO: this uses the streaming format, i.e. from RecordBatchStreamWriter
   #       maybe there is an easier way to serialize a schema

@@ -5254,16 +5254,77 @@ RcppExport SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
 
 // schema.cpp
 #if defined(ARROW_R_WITH_ARROW)
-Rcpp::CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema);
-RcppExport SEXP _arrow_Schema__names(SEXP schema_sexp){
+std::shared_ptr<arrow::Field> Schema__GetFieldByName(const std::shared_ptr<arrow::Schema>& s, std::string x);
+RcppExport SEXP _arrow_Schema__GetFieldByName(SEXP s_sexp, SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	return Rcpp::wrap(Schema__names(schema));
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	Rcpp::traits::input_parameter<std::string>::type x(x_sexp);
+	return Rcpp::wrap(Schema__GetFieldByName(s, x));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_Schema__names(SEXP schema_sexp){
-	Rf_error("Cannot call Schema__names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_Schema__GetFieldByName(SEXP s_sexp, SEXP x_sexp){
+	Rf_error("Cannot call Schema__GetFieldByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::shared_ptr<arrow::Field>> Schema__fields(const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_Schema__fields(SEXP schema_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(Schema__fields(schema));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__fields(SEXP schema_sexp){
+	Rf_error("Cannot call Schema__fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::string> Schema__field_names(const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_Schema__field_names(SEXP schema_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(Schema__field_names(schema));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__field_names(SEXP schema_sexp){
+	Rf_error("Cannot call Schema__field_names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool Schema__HasMetadata(const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_Schema__HasMetadata(SEXP schema_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(Schema__HasMetadata(schema));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__HasMetadata(SEXP schema_sexp){
+	Rf_error("Cannot call Schema__HasMetadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string Schema__metadata(const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_Schema__metadata(SEXP schema_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(Schema__metadata(schema));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__metadata(SEXP schema_sexp){
+	Rf_error("Cannot call Schema__metadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5897,7 +5958,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1}, 
 		{ "_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1}, 
 		{ "_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2}, 
-		{ "_arrow_Schema__names", (DL_FUNC) &_arrow_Schema__names, 1}, 
+		{ "_arrow_Schema__GetFieldByName", (DL_FUNC) &_arrow_Schema__GetFieldByName, 2}, 
+		{ "_arrow_Schema__fields", (DL_FUNC) &_arrow_Schema__fields, 1}, 
+		{ "_arrow_Schema__field_names", (DL_FUNC) &_arrow_Schema__field_names, 1}, 
+		{ "_arrow_Schema__HasMetadata", (DL_FUNC) &_arrow_Schema__HasMetadata, 1}, 
+		{ "_arrow_Schema__metadata", (DL_FUNC) &_arrow_Schema__metadata, 1}, 
 		{ "_arrow_Schema__serialize", (DL_FUNC) &_arrow_Schema__serialize, 1}, 
 		{ "_arrow_Schema__Equals", (DL_FUNC) &_arrow_Schema__Equals, 3}, 
 		{ "_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1}, 

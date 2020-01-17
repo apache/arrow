@@ -252,6 +252,58 @@ test_that("dplyr method not implemented messages", {
   expect_not_implemented(ds %>% filter(int == 1) %>% summarize(n()))
 })
 
+test_that("Dataset and query print methods", {
+  ds <- open_dataset(hive_dir)
+  expect_output(
+    print(ds),
+    paste(
+      "Dataset",
+      "int: int32",
+      "dbl: double",
+      "lgl: bool",
+      "chr: string",
+      "fct: dictionary<values=string, indices=int32>",
+      "ts: timestamp[us, tz=GMT]",
+      "group: int32",
+      "other: string",
+      "",
+      "See $metadata for additional Schema metadata",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+  expect_is(ds$metadata, "character")
+  q <- select(ds, string = chr, lgl, integer = int)
+  expect_output(
+    print(q),
+    paste(
+      "Dataset (query)",
+      "string: string",
+      "lgl: bool",
+      "integer: int32",
+      "",
+      "See $.data for the source Arrow object",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+  expect_output(
+    print(q %>% filter(integer == 6) %>% group_by(lgl)),
+    paste(
+      "Dataset (query)",
+      "string: string",
+      "lgl: bool",
+      "integer: int32",
+      "",
+      "* Filter: (int == 6:double)",
+      "* Grouped by lgl",
+      "See $.data for the source Arrow object",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+})
+
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(dataset_dir, recursive = TRUE)

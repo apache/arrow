@@ -4,18 +4,18 @@
 \alias{Partitioning}
 \alias{DirectoryPartitioning}
 \alias{HivePartitioning}
-\title{Define a partitioning for a Source}
+\title{Define Partitioning for a Source}
 \description{
-Pass a \code{Partitioning} to a \link{FileSystemSourceFactory}'s \verb{$create()}
+Pass a \code{Partitioning} object to a \link{FileSystemSourceFactory}'s \verb{$create()}
 method to indicate how the file's paths should be interpreted to define
 partitioning.
 
-A \code{DirectoryPartitioning} describes how to interpret raw path segments, in
+\code{DirectoryPartitioning} describes how to interpret raw path segments, in
 order. For example, \code{schema(year = int16(), month = int8())} would define
 partitions for file paths like "2019/01/file.parquet",
 "2019/02/file.parquet", etc.
 
-A \code{HivePartitioning} is for Hive-style partitioning, which embeds field
+\code{HivePartitioning} is for Hive-style partitioning, which embeds field
 names and values in path segments, such as
 "/year=2019/month=2/data.parquet". Because fields are named in the path
 segments, order does not matter.

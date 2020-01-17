@@ -77,12 +77,14 @@ Dataset <- R6Class("Dataset", inherit = Object,
     #' @description
     #' Start a new scan of the data
     #' @return A [ScannerBuilder]
-    NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self))
+    NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self)),
+    ToString = function() self$schema$ToString()
   ),
   active = list(
     #' @description
     #' Return the Dataset's `Schema`
-    schema = function() shared_ptr(Schema, dataset___Dataset__schema(self))
+    schema = function() shared_ptr(Schema, dataset___Dataset__schema(self)),
+    metadata = function() self$schema$metadata
   )
 )
 Dataset$create <- function(sources, schema) {
@@ -331,19 +333,19 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
 #' @export
 names.ScannerBuilder <- function(x) names(x$schema)
 
-#' Define a partitioning for a Source
+#' Define Partitioning for a Source
 #'
 #' @description
-#' Pass a `Partitioning` to a [FileSystemSourceFactory]'s `$create()`
+#' Pass a `Partitioning` object to a [FileSystemSourceFactory]'s `$create()`
 #' method to indicate how the file's paths should be interpreted to define
 #' partitioning.
 #'
-#' A `DirectoryPartitioning` describes how to interpret raw path segments, in
+#' `DirectoryPartitioning` describes how to interpret raw path segments, in
 #' order. For example, `schema(year = int16(), month = int8())` would define
 #' partitions for file paths like "2019/01/file.parquet",
 #' "2019/02/file.parquet", etc.
 #'
-#' A `HivePartitioning` is for Hive-style partitioning, which embeds field
+#' `HivePartitioning` is for Hive-style partitioning, which embeds field
 #' names and values in path segments, such as
 #' "/year=2019/month=2/data.parquet". Because fields are named in the path
 #' segments, order does not matter.
@@ -374,16 +376,15 @@ HivePartitioning$create <- function(schema) {
   shared_ptr(HivePartitioning, dataset___HivePartitioning(schema))
 }
 
-#' Construct a Hive partitioning
+#' Construct Hive partitioning
 #'
 #' Hive partitioning embeds field names and values in path segments, such as
-#' "/year=2019/month=2/data.parquet". A [HivePartitioning][Partitioning]
-#' is used to parse that in Dataset creation.
+#' "/year=2019/month=2/data.parquet".
 #'
 #' Because fields are named in the path segments, order of fields passed to
 #' `hive_partition()` does not matter.
 #' @param ... named list of [data types][data-type], passed to [schema()]
-#' @return A `HivePartitioning`, or a `HivePartitioningFactory` if
+#' @return A [HivePartitioning][Partitioning], or a `HivePartitioningFactory` if
 #' calling `hive_partition()` with no arguments.
 #' @examples
 #' \donttest{
