@@ -17,6 +17,10 @@
 
 package org.apache.arrow.vector.compare;
 
+import static org.apache.arrow.vector.compare.RangeEqualsVisitor.DEFAULT_TYPE_COMPARATOR;
+
+import java.util.function.BiFunction;
+
 import org.apache.arrow.vector.ValueVector;
 
 /**
@@ -25,28 +29,32 @@ import org.apache.arrow.vector.ValueVector;
 public class VectorEqualsVisitor {
 
   /**
-   * Checks if two vectors are equals.
+   * Checks if two vectors are equals with default type comparator.
    * @param left the left vector to compare.
    * @param right the right vector to compare.
    * @return true if the vectors are equal, and false otherwise.
    */
   public static boolean vectorEquals(ValueVector left, ValueVector right) {
-    return vectorEquals(left, right, true);
+    return vectorEquals(left, right, DEFAULT_TYPE_COMPARATOR);
   }
 
   /**
    * Checks if two vectors are equals.
    * @param left the left vector to compare.
    * @param right the right vector to compare.
-   * @param isTypeCheckNeeded check equality of types
+   * @param typeComparator type comparator to compare vector type.
    * @return true if the vectors are equal, and false otherwise.
    */
-  public static boolean vectorEquals(ValueVector left, ValueVector right, boolean isTypeCheckNeeded) {
+  public static boolean vectorEquals(
+      ValueVector left,
+      ValueVector right,
+      BiFunction<ValueVector, ValueVector, Boolean> typeComparator) {
+
     if (left.getValueCount() != right.getValueCount()) {
       return false;
     }
 
-    RangeEqualsVisitor visitor = new RangeEqualsVisitor(left, right, isTypeCheckNeeded);
+    RangeEqualsVisitor visitor = new RangeEqualsVisitor(left, right, typeComparator);
     return visitor.rangeEquals(new Range(0, 0, left.getValueCount()));
   }
 }

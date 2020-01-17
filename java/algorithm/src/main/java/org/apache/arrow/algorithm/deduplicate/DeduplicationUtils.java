@@ -44,7 +44,7 @@ class DeduplicationUtils {
     runStarts.setZero(0, bufSize);
 
     BitVectorHelper.setBit(runStarts, 0);
-    RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector, vector, false);
+    RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector, vector, null);
     Range range = new Range(0, 0, 1);
     for (int i = 1; i < vector.getValueCount(); i++) {
       range.setLeftStart(i).setRightStart(i - 1);

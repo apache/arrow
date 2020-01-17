@@ -148,7 +148,7 @@ public class DictionaryHashTable {
     int hash = toEncode.hashCode(indexInArray, this.hasher);
     int index = indexFor(hash, table.length);
 
-    RangeEqualsVisitor equalVisitor = new RangeEqualsVisitor(dictionary, toEncode, false);
+    RangeEqualsVisitor equalVisitor = new RangeEqualsVisitor(dictionary, toEncode, null);
     Range range = new Range(0, 0, 1);
 
     for (DictionaryHashTable.Entry e = table[index]; e != null ; e = e.next) {

@@ -20,8 +20,11 @@ package org.apache.arrow.vector.complex.impl;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.function.BiFunction;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -39,6 +42,9 @@ public class TestComplexCopier {
   private BufferAllocator allocator;
 
   private static final int COUNT = 100;
+
+  private static final BiFunction<ValueVector, ValueVector, Boolean> TYPE_COMPARATOR =
+      (v1, v2) -> v1.getField().getType().equals(v2.getField().getType());
 
   @Before
   public void init() {
@@ -80,7 +86,7 @@ public class TestComplexCopier {
       }
 
       // validate equals
-      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to, TYPE_COMPARATOR));
 
     }
   }
@@ -149,7 +155,7 @@ public class TestComplexCopier {
       to.setValueCount(COUNT);
 
       // validate equals
-      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to, TYPE_COMPARATOR));
 
     }
   }

@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.compare;
 
 import java.util.List;
+import java.util.function.BiFunction;
 
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
@@ -38,20 +39,39 @@ import org.apache.arrow.vector.complex.UnionVector;
 public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
   private ValueVector left;
   private ValueVector right;
-  private boolean isTypeCheckNeeded;
+
+  private BiFunction<ValueVector, ValueVector, Boolean> typeComparator;
   private boolean typeCompareResult;
+
+  /**
+   * Default type comparator.
+   */
+  public static final BiFunction<ValueVector, ValueVector, Boolean> DEFAULT_TYPE_COMPARATOR =
+      (v1, v2) -> new TypeEqualsVisitor(v2).equals(v1);
+
+  /**
+   * Constructs a new instance with default type comparator.
+   * @param left left vector
+   * @param right right vector
+   */
+  public RangeEqualsVisitor(ValueVector left, ValueVector right) {
+    this (left, right, DEFAULT_TYPE_COMPARATOR);
+  }
 
   /**
    * Constructs a new instance.
    *
    * @param left left vector
    * @param right right vector
-   * @param isTypeCheckNeeded type check needed
+   * @param typeComparator type comparator to compare vector type.
    */
-  public RangeEqualsVisitor(ValueVector left, ValueVector right, boolean isTypeCheckNeeded) {
+  public RangeEqualsVisitor(
+      ValueVector left,
+      ValueVector right,
+      BiFunction<ValueVector, ValueVector, Boolean> typeComparator) {
     this.left = left;
     this.right = right;
-    this.isTypeCheckNeeded = isTypeCheckNeeded;
+    this.typeComparator = typeComparator;
 
     Preconditions.checkArgument(left != null,
         "left vector cannot be null");
@@ -63,12 +83,10 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
   }
 
   private void checkType() {
-    if (!isTypeCheckNeeded) {
-      typeCompareResult = true;
-    } else if (left == right) {
+    if (typeComparator == null || left == right) {
       typeCompareResult = true;
     } else {
-      typeCompareResult = left.getField().getType().equals(right.getField().getType());
+      typeCompareResult = typeComparator.apply(left, right);
     }
   }
 
@@ -81,16 +99,6 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       checkType();
     }
     return typeCompareResult;
-  }
-
-  /**
-   * Constructs a new instance.
-   *
-   * @param left left vector
-   * @param right right vector
-   */
-  public RangeEqualsVisitor(ValueVector left, ValueVector right) {
-    this(left, right, true);
   }
 
   /**
@@ -184,7 +192,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
    * @return the visitor for child vecors.
    */
   protected RangeEqualsVisitor createInnerVisitor(ValueVector leftInner, ValueVector rightInner) {
-    return new RangeEqualsVisitor(leftInner, rightInner, isTypeCheckNeeded);
+    return new RangeEqualsVisitor(leftInner, rightInner, typeComparator);
   }
 
   protected boolean compareUnionVectors(Range range) {

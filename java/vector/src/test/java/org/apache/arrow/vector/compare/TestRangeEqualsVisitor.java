@@ -22,6 +22,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.Charset;
+import java.util.Arrays;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -45,6 +46,7 @@ import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
@@ -84,9 +86,9 @@ public class TestRangeEqualsVisitor {
 
   @Test
   public void testEqualsWithTypeChange() {
-    try (final IntVector vector1 = new IntVector("intVector1", allocator);
-         final IntVector vector2 = new IntVector("intVector2", allocator);
-         final BigIntVector vector3 = new BigIntVector("bigIntVector", allocator)) {
+    try (final IntVector vector1 = new IntVector("vector", allocator);
+         final IntVector vector2 = new IntVector("vector", allocator);
+         final BigIntVector vector3 = new BigIntVector("vector", allocator)) {
 
       setVector(vector1, 1, 2);
       setVector(vector2, 1, 2);
@@ -122,6 +124,24 @@ public class TestRangeEqualsVisitor {
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
       assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
+    }
+  }
+
+  @Test
+  public void testListVectorWithDifferentChild() {
+    try (final ListVector vector1 = ListVector.empty("list", allocator);
+         final ListVector vector2 = ListVector.empty("list", allocator);) {
+
+      vector1.allocateNew();
+      vector1.initializeChildrenFromFields(
+          Arrays.asList(Field.nullable("child", new ArrowType.Int(32, true))));
+
+      vector2.allocateNew();
+      vector2.initializeChildrenFromFields(
+          Arrays.asList(Field.nullable("child", new ArrowType.Int(64, true))));
+
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertFalse(visitor.rangeEquals(new Range(0, 0, 0)));
     }
   }
 
@@ -268,8 +288,8 @@ public class TestRangeEqualsVisitor {
     try (final IntVector intVector = new IntVector("int", allocator);
          final ZeroVector zeroVector = new ZeroVector()) {
 
-      assertTrue(VectorEqualsVisitor.vectorEquals(intVector, zeroVector, false));
-      assertTrue(VectorEqualsVisitor.vectorEquals(zeroVector, intVector, false));
+      assertTrue(VectorEqualsVisitor.vectorEquals(intVector, zeroVector, null));
+      assertTrue(VectorEqualsVisitor.vectorEquals(zeroVector, intVector, null));
     }
   }
 
