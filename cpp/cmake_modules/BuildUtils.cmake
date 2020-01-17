@@ -141,43 +141,37 @@ function(create_merged_static_lib output_target)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  set(output_lib_path
-    ${CMAKE_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${ARG_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
+  set(
+    output_lib_path
+    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${CMAKE_STATIC_LIBRARY_PREFIX}${ARG_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}
+    )
 
   set(ar_script_path ${CMAKE_BINARY_DIR}/${ARG_NAME}.ar)
 
-  file(WRITE ${ar_script_path}.in "CREATE ${output_lib_path}\n" )
+  file(WRITE ${ar_script_path}.in "CREATE ${output_lib_path}\n")
 
-  file(APPEND ${ar_script_path}.in "ADDLIB $<TARGET_FILE:${ROOT}>\n")
+  file(APPEND ${ar_script_path}.in "ADDLIB $<TARGET_FILE:${ARG_ROOT}>\n")
   foreach(lib ${ARG_TO_MERGE})
     file(APPEND ${ar_script_path}.in "ADDLIB $<TARGET_FILE:${lib}>\n")
   endforeach()
   file(APPEND ${ar_script_path}.in "SAVE\nEND\n")
 
-  file(GENERATE
-    OUTPUT ${ar_script_path}
-    INPUT ${ar_script_path}.in)
+  file(GENERATE OUTPUT ${ar_script_path} INPUT ${ar_script_path}.in)
 
   set(ar_tool ${CMAKE_AR})
-  if (CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+  if(CMAKE_INTERPROCEDURAL_OPTIMIZATION)
     set(ar_tool ${CMAKE_CXX_COMPILER_AR})
   endif()
 
-  add_custom_command(
-    COMMAND ${ar_tool} -M < ${ar_script_path}
-    OUTPUT ${output_lib_path}
-    COMMENT "Bundling ${bundled_tgt_name}"
-    VERBATIM)
+  add_custom_command(COMMAND ${ar_tool} -M < ${ar_script_path}
+                     OUTPUT ${output_lib_path}
+                     COMMENT "Bundling ${output_lib_path}"
+                     VERBATIM)
 
-  add_custom_target(${output_target}_bundling ALL DEPENDS ${output_lib_path})
-  add_dependencies(${output_target}_bundling ${ARG_ROOT} ${ARG_TO_MERGE})
+  message(STATUS "bundled target: ${output_target}")
 
-  add_library(${output_target} STATIC IMPORTED)
-  set_target_properties(${output_target}
-    PROPERTIES
-      IMPORTED_LOCATION ${output_lib_path}
-      INTERFACE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:${ARG_ROOT},INTERFACE_INCLUDE_DIRECTORIES>)
-  add_dependencies(${output_target} ${output_target}_bundling)
+  add_custom_target(${output_target} ALL DEPENDS ${output_lib_path})
+  add_dependencies(${output_target} ${ARG_ROOT} ${ARG_TO_MERGE})
 endfunction()
 
 # \arg OUTPUTS list to append built targets to
@@ -394,6 +388,11 @@ function(ADD_ARROW_LIB LIB_NAME)
       set(LIB_NAME_STATIC ${LIB_NAME})
     endif()
 
+    if(ARG_BUNDLE_STATIC_LIBS)
+      set(LIB_NAME_BUNDLED ${LIB_NAME_STATIC})
+      set(LIB_NAME_STATIC ${LIB_NAME_STATIC}_unbundled)
+    endif()
+
     if(ARROW_BUILD_STATIC AND WIN32)
       target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
     endif()
@@ -411,6 +410,16 @@ function(ADD_ARROW_LIB LIB_NAME)
     target_link_libraries(${LIB_NAME}_static LINK_PUBLIC
                           "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>"
                           "$<INSTALL_INTERFACE:${INTERFACE_LIBS}>")
+
+    if(ARG_BUNDLE_STATIC_LIBS)
+      create_merged_static_lib(${LIB_NAME}_static_bundled
+                               NAME
+                               ${LIB_NAME_BUNDLED}
+                               ROOT
+                               ${LIB_NAME}_static
+                               TO_MERGE
+                               ${ARG_BUNDLE_STATIC_LIBS})
+    endif()
 
     install(TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
             EXPORT ${LIB_NAME}_targets

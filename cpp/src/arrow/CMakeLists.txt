@@ -416,6 +416,14 @@ endif()
 
 set(ARROW_ALL_SRCS ${ARROW_SRCS} ${ARROW_C_SRCS})
 
+if(ARROW_JEMALLOC)
+  set(ARROW_BUNDLE_STATIC_LIBS jemalloc::jemalloc)
+endif()
+
+if(ARROW_MIMALLOC)
+  set(ARROW_BUNDLE_STATIC_LIBS mimalloc::mimalloc)
+endif()
+
 add_arrow_lib(arrow
               CMAKE_PACKAGE_NAME
               Arrow
