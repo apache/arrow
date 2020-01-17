@@ -143,6 +143,34 @@ def partitioning(field_names=None, flavor=None):
         raise ValueError("Unsupported flavor")
 
 
+def _ensure_fs_and_paths(path_or_paths, filesystem=None):
+    # Validate and convert the path-likes and filesystem.
+    # Returns filesystem and list of string paths or FileSelector
+    from pyarrow.fs import FileSystem, FileType, FileSelector
+
+    if isinstance(path_or_paths, list):
+        paths_or_selector = [_stringify_path(path) for path in path_or_paths]
+        if filesystem is None:
+            # infer from first path
+            filesystem, _ = FileSystem.from_uri(paths_or_selector[0])
+    else:
+        path = _stringify_path(path_or_paths)
+        if filesystem is None:
+            filesystem, path = FileSystem.from_uri(path)
+
+        stats = filesystem.get_target_stats([path])[0]
+        if stats.type == FileType.Directory:
+            # for directory, pass a selector
+            paths_or_selector = FileSelector(path, recursive=True)
+        elif stats.type == FileType.File:
+            # for a single file path, pass it as a list
+            paths_or_selector = [path]
+        else:
+            raise FileNotFoundError(path)
+
+    return filesystem, paths_or_selector
+
+
 def source(path_or_paths, filesystem=None, partition_scheme=None,
            format=None):
     """
@@ -167,25 +195,8 @@ def source(path_or_paths, filesystem=None, partition_scheme=None,
     DataSource of DataSourceDiscovery
 
     """
-    from pyarrow.fs import LocalFileSystem, FileType, FileSelector
-
-    if filesystem is None:
-        # TODO handle other file systems
-        filesystem = LocalFileSystem()
-
-    if isinstance(path_or_paths, list):
-        path_or_paths = [_stringify_path(path) for path in path_or_paths]
-    else:
-        path_or_paths = _stringify_path(path_or_paths)
-
-    if isinstance(path_or_paths, str):
-        path = filesystem.get_target_stats([path_or_paths])[0]
-        if path.type == FileType.Directory:
-            # for directory, pass a selector
-            path_or_paths = FileSelector(path_or_paths, recursive=True)
-        else:
-            # sources is a single file path, pass it as a list
-            path_or_paths = [path_or_paths]
+    filesystem, paths_or_selector = _ensure_fs_and_paths(
+        path_or_paths, filesystem)
 
     format = format or "parquet"
     if format == "parquet":
@@ -209,7 +220,7 @@ def source(path_or_paths, filesystem=None, partition_scheme=None,
                 "{0}".format(type(partition_scheme)))
 
     discovery = FileSystemDataSourceDiscovery(
-        filesystem, path_or_paths, format, options)
+        filesystem, paths_or_selector, format, options)
 
     # TODO return DataSource if a specific schema was passed?
 

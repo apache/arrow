@@ -416,29 +416,29 @@ def test_partitioning_function():
         ds.partitioning(schema, flavor="unsupported")
 
 
-@pytest.mark.parquet
-def test_open_dataset_single_file(tempdir):
+def _create_single_file(base_dir):
     import pyarrow.parquet as pq
     table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
-    pq.write_table(table, tempdir / "test.parquet")
+    path = base_dir / "test.parquet"
+    pq.write_table(table, path)
+    return table, path
 
-    dataset = ds.dataset(str(tempdir / "test.parquet"))
+
+@pytest.mark.parquet
+def test_open_dataset_single_file(tempdir):
+    table, path = _create_single_file(tempdir)
+
+    dataset = ds.dataset(str(path))
     assert dataset.schema.equals(table.schema, check_metadata=False)
-
     result = dataset.new_scan().finish().to_table()
-    result = result.replace_schema_metadata()
-    assert result.equals(table)
+    assert result.replace_schema_metadata().equals(table)
 
 
 @pytest.mark.parquet
 def test_open_dataset_pathlib(tempdir):
-    import pyarrow.parquet as pq
     import pathlib
 
-    table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
-    pq.write_table(table, tempdir / "test.parquet")
-
-    path = tempdir / "test.parquet"
+    table, path = _create_single_file(tempdir)
     assert isinstance(path, pathlib.Path)
     dataset = ds.dataset(path)
     result = dataset.new_scan().finish().to_table()
@@ -500,6 +500,24 @@ def test_open_dataset_partitioned_directory(tempdir):
     expected = expected.append_column(
         "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
     assert result.equals(expected)
+
+
+@pytest.mark.parquet
+def test_open_dataset_filesystem(tempdir):
+    # # single file
+    table, path = _create_single_file(tempdir)
+
+    # filesystem inferred from path
+    dataset1 = ds.dataset(str(path))
+    assert dataset1.schema.equals(table.schema, check_metadata=False)
+
+    # filesystem specified
+    dataset2 = ds.dataset(str(path), filesystem=fs.LocalFileSystem())
+    assert dataset2.schema.equals(table.schema, check_metadata=False)
+
+    # passing different filesystem
+    with pytest.raises(FileNotFoundError):
+        ds.dataset(str(path), filesystem=fs._MockFileSystem())
 
 
 def test_open_dataset_unsupported_format(tempdir):
