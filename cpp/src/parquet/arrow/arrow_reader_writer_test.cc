@@ -2170,6 +2170,44 @@ TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
   ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, table->num_rows()));
 }
 
+// Disabled until implementation can be finished.
+TEST(TestArrowReadWrite, DISABLED_CanonicalNestedRoundTrip) {
+  auto doc_id = field("DocId", ::arrow::int64(), /*nullable=*/false);
+  auto links = field(
+      "Links",
+      ::arrow::struct_({field("Backward", list(::arrow::int64()), /*nullable=*/false),
+                        field("Forward", list(::arrow::int64()), /*nullable=*/false)}));
+  auto name_struct = field(
+      "NameStruct",
+      ::arrow::struct_(
+          {field("Language",
+                 ::arrow::list(field(
+                     "lang_struct",
+                     ::arrow::struct_({field("Code", ::arrow::utf8(), /*nullable=*/false),
+                                       field("Country", ::arrow::utf8())})))),
+           field("Url", ::arrow::utf8())}));
+  auto name = field("Name", ::arrow::list(name_struct), /*nullable=*/false);
+  auto schema = std::make_shared<::arrow::Schema>(
+      std::vector<std::shared_ptr<::arrow::Field>>({doc_id, links, name}));
+
+  auto doc_id_array = ::arrow::ArrayFromJSON(doc_id->type(), "[10, 20]");
+  auto links_id_array =
+      ::arrow::ArrayFromJSON(links->type(),
+                             "[{\"Backward\":[], \"Forward\":[20, 40, 60]}, "
+                             "{\"Backward\":[10, 30], \"Forward\":[80]}]");
+  auto name_array =
+      ::arrow::ArrayFromJSON(name->type(),
+                             R"([[{"Language": [{"Code": "en_us", "Country":"us"},
+                                   {"Code": "en_us", "Country": null}], 
+                      "Url": "http://A"},
+                     {"Url": "http://B"},
+                     {"Language": [{"Code": "en-gb", "Country": "gb"}]}],
+                    [{"Url": "http://C"}]])");
+  auto expected =
+      ::arrow::Table::Make(schema, {doc_id_array, links_id_array, name_array});
+  CheckSimpleRoundtrip(expected, 2);
+}
+
 TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   // This is a regression test for this:
   //
