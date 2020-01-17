@@ -1167,7 +1167,7 @@ endif()
 
 macro(build_protobuf)
   message("Building Protocol Buffers from source")
-  set(PROTOBUF_PREFIX "${THIRDPARTY_DIR}/protobuf_ep-install")
+  set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep-install")
   set(PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
   set(
     PROTOBUF_STATIC_LIB
@@ -1938,7 +1938,7 @@ endif()
 
 macro(build_cares)
   message(STATUS "Building c-ares from source")
-  set(CARES_PREFIX "${THIRDPARTY_DIR}/cares_ep-install")
+  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_ep-install")
   set(CARES_INCLUDE_DIR "${CARES_PREFIX}/include")
 
   # If you set -DCARES_SHARED=ON then the build system names the library
@@ -1995,7 +1995,7 @@ endif()
 macro(build_grpc)
   message(STATUS "Building gRPC from source")
   set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
-  set(GRPC_PREFIX "${THIRDPARTY_DIR}/grpc_ep-install")
+  set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-install")
   set(GRPC_HOME "${GRPC_PREFIX}")
   set(GRPC_INCLUDE_DIR "${GRPC_PREFIX}/include")
   set(GRPC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}"
@@ -2317,7 +2317,7 @@ macro(build_awssdk)
     FATAL_ERROR "FIXME: Building AWS C++ SDK from source will link with wrong libcrypto")
   message("Building AWS C++ SDK from source")
 
-  set(AWSSDK_PREFIX "${THIRDPARTY_DIR}/awssdk_ep-install")
+  set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
 
   if(WIN32)
