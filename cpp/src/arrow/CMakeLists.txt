@@ -437,6 +437,8 @@ add_arrow_lib(arrow
               ${ARROW_SHARED_PRIVATE_LINK_LIBS}
               STATIC_LINK_LIBS
               ${ARROW_STATIC_LINK_LIBS}
+              BUNDLE_STATIC_LIBS
+              ${ARROW_BUNDLE_STATIC_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
               ${ARROW_SHARED_INSTALL_INTERFACE_LIBS}
               STATIC_INSTALL_INTERFACE_LIBS

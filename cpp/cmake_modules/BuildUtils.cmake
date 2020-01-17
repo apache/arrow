@@ -128,6 +128,58 @@ function(REUSE_PRECOMPILED_HEADER_LIB TARGET_NAME LIB_NAME)
   endif()
 endfunction()
 
+function(create_merged_static_lib output_target)
+  set(options)
+  set(one_value_args NAME ROOT)
+  set(multi_value_args TO_MERGE)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
+  set(output_lib_path
+    ${CMAKE_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${ARG_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
+
+  set(ar_script_path ${CMAKE_BINARY_DIR}/${ARG_NAME}.ar)
+
+  file(WRITE ${ar_script_path}.in "CREATE ${output_lib_path}\n" )
+
+  file(APPEND ${ar_script_path}.in "ADDLIB $<TARGET_FILE:${ROOT}>\n")
+  foreach(lib ${ARG_TO_MERGE})
+    file(APPEND ${ar_script_path}.in "ADDLIB $<TARGET_FILE:${lib}>\n")
+  endforeach()
+  file(APPEND ${ar_script_path}.in "SAVE\nEND\n")
+
+  file(GENERATE
+    OUTPUT ${ar_script_path}
+    INPUT ${ar_script_path}.in)
+
+  set(ar_tool ${CMAKE_AR})
+  if (CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+    set(ar_tool ${CMAKE_CXX_COMPILER_AR})
+  endif()
+
+  add_custom_command(
+    COMMAND ${ar_tool} -M < ${ar_script_path}
+    OUTPUT ${output_lib_path}
+    COMMENT "Bundling ${bundled_tgt_name}"
+    VERBATIM)
+
+  add_custom_target(${output_target}_bundling ALL DEPENDS ${output_lib_path})
+  add_dependencies(${output_target}_bundling ${ARG_ROOT} ${ARG_TO_MERGE})
+
+  add_library(${output_target} STATIC IMPORTED)
+  set_target_properties(${output_target}
+    PROPERTIES
+      IMPORTED_LOCATION ${output_lib_path}
+      INTERFACE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:${ARG_ROOT},INTERFACE_INCLUDE_DIRECTORIES>)
+  add_dependencies(${output_target} ${output_target}_bundling)
+endfunction()
+
 # \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
   set(options BUILD_SHARED BUILD_STATIC)
@@ -140,6 +192,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       STATIC_LINK_LIBS
       SHARED_LINK_LIBS
       SHARED_PRIVATE_LINK_LIBS
+      BUNDLE_STATIC_LIBS
       EXTRA_INCLUDES
       PRIVATE_INCLUDES
       DEPENDENCIES
