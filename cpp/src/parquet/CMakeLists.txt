@@ -88,6 +88,28 @@ function(ADD_PARQUET_BENCHMARK REL_TEST_NAME)
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
+function(ADD_PARQUET_FUZZING REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+  if(ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "parquet")
+  endif()
+
+  add_arrow_fuzzing(${REL_TEST_NAME}
+                    PREFIX
+                    ${PREFIX}
+                    EXTRA_LINK_LIBS
+                    ${PARQUET_FUZZING_LINK_OPTION})
+endfunction()
+
 # ----------------------------------------------------------------------
 # Link libraries setup
 
@@ -257,8 +279,10 @@ endif()
 if(NOT ARROW_BUILD_SHARED)
   set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS benchmark::benchmark_main
                                     ${PARQUET_STATIC_TEST_LINK_LIBS})
+  set(PARQUET_FUZZING_LINK_OPTION STATIC_LINK_LIBS ${PARQUET_STATIC_TEST_LINK_LIBS})
 else()
   set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS})
+  set(PARQUET_FUZZING_LINK_OPTION EXTRA_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS})
 endif()
 
 if(ARROW_BUILD_STATIC AND WIN32)
@@ -348,6 +372,8 @@ add_parquet_test(schema_test)
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
+
+add_parquet_fuzzing(arrow/fuzzing-test PREFIX "parquet-arrow")
 
 if(ARROW_WITH_BROTLI)
   add_definitions(-DARROW_WITH_BROTLI)

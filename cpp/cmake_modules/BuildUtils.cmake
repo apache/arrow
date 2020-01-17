@@ -700,7 +700,7 @@ endfunction()
 function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
   set(options)
   set(one_value_args)
-  set(multi_value_args PREFIX)
+  set(multi_value_args PREFIX EXTRA_LINK_LIBS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -727,6 +727,9 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
     set(FUZZ_LINK_LIBS arrow_static)
   else()
     set(FUZZ_LINK_LIBS arrow_shared)
+  endif()
+  if(ARG_EXTRA_LINK_LIBS)
+    set(FUZZ_LINK_LIBS ${FUZZ_LINK_LIBS} ${ARG_EXTRA_LINK_LIBS})
   endif()
 
   # For OSS-Fuzz
