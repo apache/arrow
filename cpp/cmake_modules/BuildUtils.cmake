@@ -128,6 +128,8 @@ function(REUSE_PRECOMPILED_HEADER_LIB TARGET_NAME LIB_NAME)
   endif()
 endfunction()
 
+# Based on MIT-licensed
+# https://gist.github.com/cristianadam/ef920342939a89fae3e8a85ca9459b49
 function(create_merged_static_lib output_target)
   set(options)
   set(one_value_args NAME ROOT)
