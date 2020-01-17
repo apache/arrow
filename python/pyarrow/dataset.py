@@ -174,7 +174,23 @@ def _ensure_fs_and_paths(path_or_paths, filesystem=None):
     return filesystem, paths_or_selector
 
 
-def source(path_or_paths, filesystem=None, partition_scheme=None,
+def _ensure_partitioning(scheme):
+    # Validate input and return a Partitioning(Factory) or passthrough None
+    # for no partitioning
+    if scheme is None:
+        pass
+    elif isinstance(scheme, str):
+        scheme = partitioning(flavor=scheme)
+    elif isinstance(scheme, (Partitioning, PartitioningFactory)):
+        pass
+    else:
+        ValueError(
+            "Expected Partitioning or PartitioningFactory, got {0}".format(
+                type(scheme)))
+    return scheme
+
+
+def source(path_or_paths, filesystem=None, partitioning=None,
            format=None):
     """
     Open a (multi-file) data source.
@@ -186,7 +202,7 @@ def source(path_or_paths, filesystem=None, partition_scheme=None,
         a list of paths.
     filesystem : FileSystem, default None
         By default will be inferred from the path.
-    partition_scheme : Partitioning(Factory) or str
+    partitioning : Partitioning(Factory) or str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut.
     format : str
@@ -200,6 +216,8 @@ def source(path_or_paths, filesystem=None, partition_scheme=None,
     filesystem, paths_or_selector = _ensure_fs_and_paths(
         path_or_paths, filesystem)
 
+    partitioning = _ensure_partitioning(partitioning)
+
     format = format or "parquet"
     if format == "parquet":
         format = ParquetFileFormat()
@@ -209,17 +227,10 @@ def source(path_or_paths, filesystem=None, partition_scheme=None,
     # TODO pass through options
     options = FileSystemFactoryOptions()
 
-    if partition_scheme is not None:
-        if isinstance(partition_scheme, str):
-            partition_scheme = partitioning(flavor=partition_scheme)
-        if isinstance(partition_scheme, PartitioningFactory):
-            options.partitioning_factory = partition_scheme
-        elif isinstance(partition_scheme, Partitioning):
-            options.partitioning = partition_scheme
-        else:
-            ValueError(
-                "Expected Partitioning or PartitioningFactory, got "
-                "{0}".format(type(partition_scheme)))
+    if isinstance(partitioning, PartitioningFactory):
+        options.partitioning_factory = partitioning
+    elif isinstance(partitioning, Partitioning):
+        options.partitioning = partitioning
 
     discovery = FileSystemSourceFactory(
         filesystem, paths_or_selector, format, options)
@@ -231,15 +242,15 @@ def source(path_or_paths, filesystem=None, partition_scheme=None,
     return discovery
 
 
-def _ensure_source(src, filesystem=None, partition_scheme=None, format=None):
+def _ensure_source(src, filesystem=None, partitioning=None, format=None):
     if _is_path_like(src):
         src = source(src, filesystem=filesystem,
-                     partition_scheme=partition_scheme, format=format)
+                     partitioning=partitioning, format=format)
     # TODO also accept Source?
     elif isinstance(src, FileSystemSourceFactory):
         # when passing a SourceFactory, the arguments cannot be specified
         if any(kwarg is not None
-               for kwarg in [filesystem, partition_scheme, format]):
+               for kwarg in [filesystem, partitioning, format]):
             raise ValueError(
                 "When passing a Source(Factory), you cannot pass any "
                 "additional arguments")
@@ -249,7 +260,7 @@ def _ensure_source(src, filesystem=None, partition_scheme=None, format=None):
     return src
 
 
-def dataset(sources, filesystem=None, partition_scheme=None, format=None):
+def dataset(sources, filesystem=None, partitioning=None, format=None):
     """
     Open a (multi-source) dataset.
 
@@ -262,7 +273,7 @@ def dataset(sources, filesystem=None, partition_scheme=None, format=None):
         case, the additional keywords will be ignored).
     filesystem : FileSystem, default None
         By default will be inferred from the path.
-    partition_scheme : Partitioning(Factory) or str
+    partitioning : Partitioning(Factory) or str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut.
     format : str
@@ -290,7 +301,7 @@ def dataset(sources, filesystem=None, partition_scheme=None, format=None):
         sources = [sources]
     sources = [
         _ensure_source(src, filesystem=filesystem,
-                       partition_scheme=partition_scheme, format=format)
+                       partitioning=partitioning, format=format)
         for src in sources
     ]
 

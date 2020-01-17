@@ -424,40 +424,66 @@ def _create_single_file(base_dir):
     return table, path
 
 
-@pytest.mark.parquet
-def test_open_dataset_single_file(tempdir):
-    table, path = _create_single_file(tempdir)
+def _create_directory_of_files(base_dir):
+    import pyarrow.parquet as pq
+    table1 = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+    path1 = base_dir / "test1.parquet"
+    pq.write_table(table1, path1)
+    table2 = pa.table({'a': range(9, 18), 'b': [0.] * 4 + [1.] * 5})
+    path2 = base_dir / "test2.parquet"
+    pq.write_table(table2, path2)
+    return (table1, table2), (path1, path2)
 
-    dataset = ds.dataset(str(path))
+
+def _check_dataset_from_path(path, table, **kwargs):
+    import pathlib
+
+    # pathlib object
+    assert isinstance(path, pathlib.Path)
+    dataset = ds.dataset(ds.source(path, **kwargs))
+    assert dataset.schema.equals(table.schema, check_metadata=False)
+    result = dataset.new_scan().finish().to_table()
+    assert result.replace_schema_metadata().equals(table)
+
+    # string path
+    dataset = ds.dataset(ds.source(str(path), **kwargs))
+    assert dataset.schema.equals(table.schema, check_metadata=False)
+    result = dataset.new_scan().finish().to_table()
+    assert result.replace_schema_metadata().equals(table)
+
+    # passing directly to dataset
+    dataset = ds.dataset(str(path), **kwargs)
     assert dataset.schema.equals(table.schema, check_metadata=False)
     result = dataset.new_scan().finish().to_table()
     assert result.replace_schema_metadata().equals(table)
 
 
 @pytest.mark.parquet
-def test_open_dataset_pathlib(tempdir):
-    import pathlib
-
+def test_open_dataset_single_file(tempdir):
     table, path = _create_single_file(tempdir)
-    assert isinstance(path, pathlib.Path)
-    dataset = ds.dataset(path)
-    result = dataset.new_scan().finish().to_table()
-    assert result.replace_schema_metadata().equals(table)
+    _check_dataset_from_path(path, table)
 
 
 @pytest.mark.parquet
 def test_open_dataset_directory(tempdir):
-    import pyarrow.parquet as pq
-    table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
-    pq.write_table(table, tempdir / "test1.parquet")
-    pq.write_table(table, tempdir / "test2.parquet")
+    tables, _ = _create_directory_of_files(tempdir)
+    table = pa.concat_tables(tables)
+    _check_dataset_from_path(tempdir, table)
 
-    dataset = ds.dataset(str(tempdir))
-    assert dataset.schema.remove_metadata().equals(table.schema)
 
-    result = dataset.new_scan().finish().to_table()
-    result = result.replace_schema_metadata()
-    assert result.equals(pa.concat_tables([table, table]))
+@pytest.mark.parquet
+def test_open_dataset_list_of_files(tempdir):
+    tables, (path1, path2) = _create_directory_of_files(tempdir)
+    table = pa.concat_tables(tables)
+
+    # list of exact files needs to be passed to source() function
+    # (dataset() will interpret it as separate sources)
+    for dataset in [
+            ds.dataset(ds.source([path1, path2])),
+            ds.dataset(ds.source([str(path1), str(path2)]))]:
+        assert dataset.schema.equals(table.schema, check_metadata=False)
+        result = dataset.new_scan().finish().to_table()
+        assert result.replace_schema_metadata().equals(table)
 
 
 @pytest.mark.parquet
@@ -469,37 +495,32 @@ def test_open_dataset_partitioned_directory(tempdir):
         path.mkdir()
         pq.write_table(table, path / "test.parquet")
 
-    dataset = ds.dataset(str(tempdir))
-    assert dataset.schema.remove_metadata().equals(table.schema)
-
-    result = dataset.new_scan().finish().to_table()
-    result = result.replace_schema_metadata()
-    assert result.equals(pa.concat_tables([table] * 3))
+    # no partitioning specified, just read all individual files
+    full_table = pa.concat_tables([table] * 3)
+    _check_dataset_from_path(tempdir, full_table)
 
     # specify partition scheme with discovery
     dataset = ds.dataset(
-        str(tempdir), partition_scheme=ds.partitioning(flavor="hive"))
+        str(tempdir), partitioning=ds.partitioning(flavor="hive"))
     expected_schema = table.schema.append(pa.field("part", pa.int32()))
     assert dataset.schema.equals(expected_schema, check_metadata=False)
 
     # specify partition scheme with string short-cut
-    dataset = ds.dataset(str(tempdir), partition_scheme="hive")
+    dataset = ds.dataset(str(tempdir), partitioning="hive")
     assert dataset.schema.equals(expected_schema, check_metadata=False)
 
     # specify partition scheme with explicit scheme
     dataset = ds.dataset(
         str(tempdir),
-        partition_scheme=ds.partitioning(
+        partitioning=ds.partitioning(
             pa.schema([("part", pa.int8())]), flavor="hive"))
     expected_schema = table.schema.append(pa.field("part", pa.int8()))
     assert dataset.schema.equals(expected_schema, check_metadata=False)
 
     result = dataset.new_scan().finish().to_table()
-    result = result.replace_schema_metadata()
-    expected = pa.concat_tables([table] * 3)
-    expected = expected.append_column(
+    expected = full_table.append_column(
         "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
-    assert result.equals(expected)
+    assert result.replace_schema_metadata().equals(expected)
 
 
 @pytest.mark.parquet
@@ -524,3 +545,17 @@ def test_open_dataset_unsupported_format(tempdir):
     _, path = _create_single_file(tempdir)
     with pytest.raises(ValueError, match="format 'blabla' is not supported"):
         ds.dataset([path], format="blabla")
+
+
+def test_open_dataset_from_source_additional_kwargs(tempdir):
+    _, path = _create_single_file(tempdir)
+    with pytest.raises(ValueError, match="cannot pass any additional"):
+        ds.dataset(ds.source(path), format="parquet")
+
+
+def test_open_dataset_validate_sources(tempdir):
+    _, path = _create_single_file(tempdir)
+    dataset = ds.dataset(path)
+    with pytest.raises(ValueError,
+                       match="Expected a path-like or Source, got"):
+        ds.dataset([dataset])
