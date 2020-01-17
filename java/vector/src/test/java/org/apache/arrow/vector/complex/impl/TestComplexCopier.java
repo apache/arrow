@@ -163,7 +163,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyListVector() {
     try (ListVector from = ListVector.empty("from", allocator);
-         ListVector to = ListVector.empty("to", allocator)) {
+         ListVector to = ListVector.empty("from", allocator)) {
 
       UnionListWriter listWriter = from.getWriter();
       listWriter.allocate();
@@ -202,7 +202,7 @@ public class TestComplexCopier {
       to.setValueCount(COUNT);
 
       // validate equals
-      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to, TYPE_COMPARATOR));
 
     }
   }
