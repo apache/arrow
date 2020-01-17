@@ -23,6 +23,12 @@ add_custom_target(toolchain)
 add_custom_target(toolchain-benchmarks)
 add_custom_target(toolchain-tests)
 
+# Accumulate all bundled targets and we will splice them together later as
+# libarrow_dependencies.a so that third party libraries have something usable
+# to create statically-linked builds with some BUNDLED dependencies, including
+# allocators like jemalloc and mimalloc
+set(ARROW_BUNDLED_STATIC_LIBS)
+
 # ----------------------------------------------------------------------
 # Toolchain linkage options
 
@@ -685,6 +691,8 @@ macro(build_boost)
   set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
   add_dependencies(toolchain boost_ep)
   set(BOOST_VENDORED TRUE)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static boost_regex_static)
 endmacro()
 
 if(ARROW_FLIGHT AND ARROW_BUILD_TESTS)
@@ -833,6 +841,8 @@ macro(build_snappy)
                                    "${SNAPPY_PREFIX}/include")
   add_dependencies(toolchain snappy_ep)
   add_dependencies(Snappy::snappy snappy_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS Snappy::snappy)
 endmacro()
 
 if(ARROW_WITH_SNAPPY)
@@ -919,6 +929,8 @@ macro(build_brotli)
                         PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_DEC}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlidec brotli_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS Brotli::brotlicommon Brotli::brotlienc Brotli::brotlidec)
 endmacro()
 
 if(ARROW_WITH_BROTLI)
@@ -1036,6 +1048,8 @@ macro(build_glog)
                         PROPERTIES IMPORTED_LOCATION "${GLOG_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GLOG_INCLUDE_DIR}")
   add_dependencies(glog::glog glog_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS glog::glog)
 endmacro()
 
 if(ARROW_USE_GLOG)
@@ -1105,6 +1119,8 @@ macro(build_gflags)
   set(GFLAGS_LIBRARIES ${GFLAGS_LIBRARY})
 
   set(GFLAGS_VENDORED TRUE)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS gflags_static)
 endmacro()
 
 if(ARROW_NEED_GFLAGS)
@@ -1212,6 +1228,8 @@ macro(build_thrift)
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(THRIFT_VERSION ${ARROW_THRIFT_BUILD_VERSION})
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS thrift::thrift)
 endmacro()
 
 if(ARROW_WITH_THRIFT)
@@ -1304,6 +1322,8 @@ macro(build_protobuf)
 
   add_dependencies(toolchain protobuf_ep)
   add_dependencies(arrow::protobuf::libprotobuf protobuf_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS arrow::protobuf::libprotobuf)
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
@@ -1440,6 +1460,8 @@ if(ARROW_JEMALLOC)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
 endif()
 
 # ----------------------------------------------------------------------
@@ -1490,6 +1512,8 @@ if(ARROW_MIMALLOC)
                                    "${MIMALLOC_INCLUDE_DIR}")
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
 endif()
 
 # ----------------------------------------------------------------------
@@ -1821,6 +1845,8 @@ macro(build_zlib)
 
   add_dependencies(toolchain zlib_ep)
   add_dependencies(ZLIB::ZLIB zlib_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
 endmacro()
 
 if(ARROW_WITH_ZLIB)
@@ -1883,6 +1909,8 @@ macro(build_lz4)
                                    INTERFACE_INCLUDE_DIRECTORIES "${LZ4_PREFIX}/include")
   add_dependencies(toolchain lz4_ep)
   add_dependencies(LZ4::lz4 lz4_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
 endmacro()
 
 if(ARROW_WITH_LZ4)
@@ -1945,6 +1973,8 @@ macro(build_zstd)
 
   add_dependencies(toolchain zstd_ep)
   add_dependencies(zstd::libzstd zstd_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
@@ -1998,6 +2028,8 @@ macro(build_re2)
 
   add_dependencies(toolchain re2_ep)
   add_dependencies(RE2::re2 re2_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS RE2::re2)
 endmacro()
 
 if(ARROW_GANDIVA)
@@ -2038,6 +2070,8 @@ macro(build_bzip2)
 
   add_dependencies(toolchain bzip2_ep)
   add_dependencies(BZip2::BZip2 bzip2_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS BZip2::BZip2)
 endmacro()
 
 if(ARROW_WITH_BZ2)
@@ -2090,6 +2124,8 @@ macro(build_utf8proc)
 
   add_dependencies(toolchain utf8proc_ep)
   add_dependencies(utf8proc::utf8proc utf8proc_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS utf8proc::utf8proc)
 endmacro()
 
 if(ARROW_WITH_UTF8PROC)
@@ -2147,6 +2183,8 @@ macro(build_cares)
                                    INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
 
   set(CARES_VENDORED TRUE)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS c-ares::cares)
 endmacro()
 
 if(ARROW_WITH_GRPC)
@@ -2369,6 +2407,8 @@ macro(build_grpc)
   add_dependencies(gRPC::grpc++ grpc_ep)
   add_dependencies(gRPC::grpc_cpp_plugin grpc_ep)
   set(GRPC_VENDORED TRUE)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS gRPC::upb gRPC::gpr gRPC::gprc gRPC::address_sorting gRPC::grpc++)
 endmacro()
 
 if(ARROW_WITH_GRPC)
@@ -2513,6 +2553,8 @@ macro(build_orc)
 
   add_dependencies(toolchain orc_ep)
   add_dependencies(orc::liborc orc_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::liborc)
 endmacro()
 
 if(ARROW_ORC)
@@ -2573,6 +2615,8 @@ macro(build_awssdk)
   add_dependencies(toolchain awssdk_ep)
   set(AWSSDK_LINK_LIBRARIES ${AWSSDK_SHARED_LIBS})
   set(AWSSDK_VENDORED TRUE)
+
+  # AWSSDK is shared-only build
 endmacro()
 
 if(ARROW_S3)
@@ -2604,6 +2648,8 @@ if(ARROW_S3)
                                      "-pthread;pthread;-framework CoreFoundation")
   endif()
 endif()
+
+message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
 
 # Write out the package configurations.
 
