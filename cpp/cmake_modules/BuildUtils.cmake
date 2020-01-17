@@ -150,10 +150,15 @@ function(create_merged_static_lib output_target)
   foreach(lib ${ARG_TO_MERGE})
     list(APPEND all_library_paths $<TARGET_FILE:${lib}>)
   endforeach()
-  
+
   if(APPLE)
-    set(BUNDLE_COMMAND "libtool" "-no_warning_for_no_symbols" "-static" "-o" 
-      ${output_lib_path} ${all_library_paths})
+    set(BUNDLE_COMMAND
+        "libtool"
+        "-no_warning_for_no_symbols"
+        "-static"
+        "-o"
+        ${output_lib_path}
+        ${all_library_paths})
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|GNU)$")
     set(ar_script_path ${CMAKE_BINARY_DIR}/${ARG_NAME}.ar)
 
@@ -171,24 +176,25 @@ function(create_merged_static_lib output_target)
     if(CMAKE_INTERPROCEDURAL_OPTIMIZATION)
       set(ar_tool ${CMAKE_CXX_COMPILER_AR})
     endif()
-    
+
     set(BUNDLE_COMMAND ${ar_tool} -M < ${ar_script_path})
 
-    elseif(MSVC)
-      if(NOT CMAKE_LIBTOOL)
-        find_program(lib_tool lib HINTS "${CMAKE_CXX_COMPILER}/..")
-        if("${lib_tool}" STREQUAL "lib_tool-NOTFOUND")
-          message(FATAL_ERROR "Cannot locate libtool to bundle libraries")
-        endif()
-      else()
-        set(${lib_tool} ${CMAKE_LIBTOOL})
+  elseif(MSVC)
+    if(NOT CMAKE_LIBTOOL)
+      find_program(lib_tool lib HINTS "${CMAKE_CXX_COMPILER}/..")
+      if("${lib_tool}" STREQUAL "lib_tool-NOTFOUND")
+        message(FATAL_ERROR "Cannot locate libtool to bundle libraries")
       endif()
-      set(BUNDLE_TOOL ${lib_tool})
-      set(BUNDLE_COMMAND ${BUNDLE_TOOL} /NOLOGO /OUT:${output_lib_path} ${all_library_paths})
     else()
-      message(FATAL_ERROR "Unknown bundle scenario!")
+      set(${lib_tool} ${CMAKE_LIBTOOL})
+    endif()
+    set(BUNDLE_TOOL ${lib_tool})
+    set(BUNDLE_COMMAND ${BUNDLE_TOOL} /NOLOGO /OUT:${output_lib_path}
+                       ${all_library_paths})
+  else()
+    message(FATAL_ERROR "Unknown bundle scenario!")
   endif()
-  
+
   add_custom_command(COMMAND ${BUNDLE_COMMAND}
                      OUTPUT ${output_lib_path}
                      COMMENT "Bundling ${output_lib_path}"
@@ -196,13 +202,7 @@ function(create_merged_static_lib output_target)
 
   add_custom_target(${output_target} ALL DEPENDS ${output_lib_path})
   add_dependencies(${output_target} ${ARG_ROOT} ${ARG_TO_MERGE})
-
-  add_library(${output_target}_lib STATIC IMPORTED)
-  set_target_properties(${output_target}_lib
-        PROPERTIES
-            IMPORTED_LOCATION ${bundled_tgt_full_name}
-            INTERFACE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:${tgt_name},INTERFACE_INCLUDE_DIRECTORIES>)
-    add_dependencies(${bundled_tgt_name} ${tgt_name})
+  install(FILES ${output_lib_path} DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endfunction()
 
 # \arg OUTPUTS list to append built targets to
