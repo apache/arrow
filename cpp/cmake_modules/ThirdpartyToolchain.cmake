@@ -2049,6 +2049,15 @@ macro(build_grpc)
   # ZLIB is never vendored
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
 
+  if(APPLE)
+    # gRPC on MacOS will fail to build due to thread local variables.
+    # While the issue is for Bazel builds, CMake is also affected.
+    # https://github.com/grpc/grpc/issues/13856
+    set(GRPC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -DGRPC_BAZEL_BUILD")
+  else()
+    set(GRPC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS}")
+  endif()
+
   if(RAPIDJSON_VENDORED)
     add_dependencies(grpc_dependencies rapidjson_ep)
   endif()
@@ -2064,7 +2073,7 @@ macro(build_grpc)
       -DgRPC_PROTOBUF_PROVIDER=package
       -DgRPC_SSL_PROVIDER=package
       -DgRPC_ZLIB_PROVIDER=package
-      -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
+      -DCMAKE_CXX_FLAGS=${GRPC_CMAKE_CXX_FLAGS}
       -DCMAKE_C_FLAGS=${EP_C_FLAGS}
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
