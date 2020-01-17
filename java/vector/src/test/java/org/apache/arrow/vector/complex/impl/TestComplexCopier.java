@@ -17,7 +17,6 @@
 
 package org.apache.arrow.vector.complex.impl;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -156,9 +155,7 @@ public class TestComplexCopier {
       to.setValueCount(COUNT);
 
       // validate equals
-      assertTrue(VectorEqualsVisitor.vectorEquals(from, to, null));
-      assertEquals(from.getField().getFieldType(), to.getField().getFieldType());
-
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to, TYPE_COMPARATOR));
     }
   }
 
