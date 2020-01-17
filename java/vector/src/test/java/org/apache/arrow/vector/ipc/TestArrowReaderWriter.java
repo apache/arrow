@@ -437,7 +437,7 @@ public class TestArrowReaderWriter {
       assertTrue(reader.loadNextBatch());
       FieldVector dictionaryVector = reader.getDictionaryVectors().get(1L).getVector();
       // make sure the delta dictionary is concatenated.
-      assertTrue(VectorEqualsVisitor.vectorEquals(dictionaryVector, dictionaryVector1));
+      assertTrue(VectorEqualsVisitor.vectorEquals(dictionaryVector, dictionaryVector1, null));
       assertFalse(reader.loadNextBatch());
     }
 
@@ -503,7 +503,7 @@ public class TestArrowReaderWriter {
       assertTrue(reader.loadNextBatch());
       FieldVector dictionaryVector = reader.getDictionaryVectors().get(1L).getVector();
       // make sure the delta dictionary is concatenated.
-      assertTrue(VectorEqualsVisitor.vectorEquals(dictionaryVector, dictionaryVector3));
+      assertTrue(VectorEqualsVisitor.vectorEquals(dictionaryVector, dictionaryVector3, null));
       assertFalse(reader.loadNextBatch());
     }
 

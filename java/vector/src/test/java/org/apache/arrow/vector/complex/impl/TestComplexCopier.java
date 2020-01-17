@@ -202,7 +202,7 @@ public class TestComplexCopier {
       to.setValueCount(COUNT);
 
       // validate equals
-      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to, TYPE_COMPARATOR));
 
     }
   }
