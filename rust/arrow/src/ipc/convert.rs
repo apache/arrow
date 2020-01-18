@@ -490,7 +490,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
                 Some(children),
             )
         }
-        FixedSizeList((ref list_type, len)) => {
+        FixedSizeList(ref list_type, len) => {
             let inner_types = get_fb_field_type(list_type, &mut fbb);
             let child = ipc::Field::create(
                 &mut fbb,
