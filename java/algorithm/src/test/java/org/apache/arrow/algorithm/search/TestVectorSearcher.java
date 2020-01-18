@@ -31,7 +31,6 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.FieldType;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

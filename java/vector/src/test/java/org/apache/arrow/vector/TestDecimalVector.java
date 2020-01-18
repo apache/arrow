@@ -61,7 +61,7 @@ public class TestDecimalVector {
   @Test
   public void testValuesWriteRead() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-      new ArrowType.Decimal(10, scale), allocator);) {
+        new ArrowType.Decimal(10, scale), allocator);) {
 
       try (DecimalVector oldConstructor = new DecimalVector("decimal", allocator, 10, scale);) {
         assertEquals(decimalVector.getField().getType(), oldConstructor.getField().getType());
@@ -87,7 +87,7 @@ public class TestDecimalVector {
   @Test
   public void testBigDecimalDifferentScaleAndPrecision() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-      new ArrowType.Decimal(4, 2), allocator);) {
+        new ArrowType.Decimal(4, 2), allocator);) {
       decimalVector.allocateNew();
 
       // test BigDecimal with different scale
@@ -117,7 +117,7 @@ public class TestDecimalVector {
   @Test
   public void testWriteBigEndian() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-      new ArrowType.Decimal(38, 9), allocator);) {
+        new ArrowType.Decimal(38, 9), allocator);) {
       decimalVector.allocateNew();
       BigDecimal decimal1 = new BigDecimal("123456789.000000000");
       BigDecimal decimal2 = new BigDecimal("11.123456789");
@@ -183,7 +183,7 @@ public class TestDecimalVector {
   @Test
   public void testBigDecimalReadWrite() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-      new ArrowType.Decimal(38, 9), allocator);) {
+        new ArrowType.Decimal(38, 9), allocator);) {
       decimalVector.allocateNew();
       BigDecimal decimal1 = new BigDecimal("123456789.000000000");
       BigDecimal decimal2 = new BigDecimal("11.123456789");
@@ -223,7 +223,7 @@ public class TestDecimalVector {
   @Test
   public void decimalBE2LE() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-      new ArrowType.Decimal(21, 2), allocator)) {
+        new ArrowType.Decimal(21, 2), allocator)) {
       decimalVector.allocateNew();
 
       BigInteger[] testBigInts = new BigInteger[] {

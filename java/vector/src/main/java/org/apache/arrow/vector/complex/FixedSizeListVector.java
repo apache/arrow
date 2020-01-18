@@ -79,6 +79,8 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   private int validityAllocationSizeInBytes;
 
   /**
+   * Creates a new instance.
+   *
    * @deprecated use FieldType or static constructor instead.
    */
   @Deprecated

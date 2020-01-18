@@ -64,7 +64,7 @@ public class VectorSchemaRoot implements AutoCloseable {
     this(
         StreamSupport.stream(vectors.spliterator(), false).map(t -> t.getField()).collect(Collectors.toList()),
         StreamSupport.stream(vectors.spliterator(), false).collect(Collectors.toList())
-        );
+    );
   }
 
   /**

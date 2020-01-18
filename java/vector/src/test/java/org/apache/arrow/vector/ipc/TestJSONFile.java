@@ -115,8 +115,8 @@ public class TestJSONFile extends BaseFileTest {
     // read
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator);
     ) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
@@ -124,7 +124,6 @@ public class TestJSONFile extends BaseFileTest {
       try (VectorSchemaRoot root = reader.read();) {
         validateComplexContent(count, root);
       }
-      reader.close();
     }
   }
 
@@ -203,8 +202,8 @@ public class TestJSONFile extends BaseFileTest {
     // read
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
     ) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
@@ -212,7 +211,6 @@ public class TestJSONFile extends BaseFileTest {
       try (VectorSchemaRoot root = reader.read();) {
         validateDateTimeContent(count, root);
       }
-      reader.close();
     }
   }
 
@@ -241,8 +239,8 @@ public class TestJSONFile extends BaseFileTest {
     // read
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
     ) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
@@ -250,7 +248,6 @@ public class TestJSONFile extends BaseFileTest {
       try (VectorSchemaRoot root = reader.read();) {
         validateFlatDictionary(root, reader);
       }
-      reader.close();
     }
   }
 
@@ -282,8 +279,8 @@ public class TestJSONFile extends BaseFileTest {
     // read
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
     ) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
@@ -291,7 +288,6 @@ public class TestJSONFile extends BaseFileTest {
       try (VectorSchemaRoot root = reader.read();) {
         validateNestedDictionary(root, reader);
       }
-      reader.close();
     }
   }
 
@@ -300,22 +296,18 @@ public class TestJSONFile extends BaseFileTest {
     File file = new File("target/mytest_decimal.json");
 
     // write
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
-    ) {
-
-      try (VectorSchemaRoot root = writeDecimalData(vectorAllocator)) {
-        printVectors(root.getFieldVectors());
-        validateDecimalData(root);
-        writeJSON(file, root, null);
-      }
+    try (BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        VectorSchemaRoot root = writeDecimalData(vectorAllocator)) {
+      printVectors(root.getFieldVectors());
+      validateDecimalData(root);
+      writeJSON(file, root, null);
     }
 
     // read
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
     ) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
@@ -323,7 +315,6 @@ public class TestJSONFile extends BaseFileTest {
       try (VectorSchemaRoot root = reader.read();) {
         validateDecimalData(root);
       }
-      reader.close();
     }
   }
 
@@ -335,8 +326,8 @@ public class TestJSONFile extends BaseFileTest {
     }
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
     ) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
@@ -364,9 +355,8 @@ public class TestJSONFile extends BaseFileTest {
     }
 
     // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE)) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+    try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
@@ -374,7 +364,6 @@ public class TestJSONFile extends BaseFileTest {
       try (VectorSchemaRoot root = reader.read();) {
         validateVarBinary(count, root);
       }
-      reader.close();
     }
   }
 
@@ -383,22 +372,16 @@ public class TestJSONFile extends BaseFileTest {
     File file = new File("target/mytest_map.json");
 
     // write
-    try (
-      BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
-    ) {
-
-      try (VectorSchemaRoot root = writeMapData(vectorAllocator)) {
-        printVectors(root.getFieldVectors());
-        validateMapData(root);
-        writeJSON(file, root, null);
-      }
+    try (BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        VectorSchemaRoot root = writeMapData(vectorAllocator)) {
+      printVectors(root.getFieldVectors());
+      validateMapData(root);
+      writeJSON(file, root, null);
     }
 
     // read
-    try (
-      BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-    ) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+    try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
@@ -406,7 +389,6 @@ public class TestJSONFile extends BaseFileTest {
       try (VectorSchemaRoot root = reader.read();) {
         validateMapData(root);
       }
-      reader.close();
     }
   }
 
@@ -416,22 +398,19 @@ public class TestJSONFile extends BaseFileTest {
     int valueCount = 10;
 
     // write
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
-    ) {
-
-      try (VectorSchemaRoot root = writeNullData(valueCount)) {
-        printVectors(root.getFieldVectors());
-        validateNullData(root, valueCount);
-        writeJSON(file, root, null);
-      }
+    try (BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        VectorSchemaRoot root = writeNullData(valueCount)) {
+      printVectors(root.getFieldVectors());
+      validateNullData(root, valueCount);
+      writeJSON(file, root, null);
     }
 
     // read
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
     ) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
@@ -439,7 +418,6 @@ public class TestJSONFile extends BaseFileTest {
       try (VectorSchemaRoot root = reader.read();) {
         validateNullData(root, valueCount);
       }
-      reader.close();
     }
   }
 

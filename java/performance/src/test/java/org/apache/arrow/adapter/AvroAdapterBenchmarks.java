@@ -108,7 +108,7 @@ public class AvroAdapterBenchmarks {
   }
 
   /**
-   * Test {@link AvroToArrow#avroToArrowIterator(Schema, Decoder, AvroToArrowConfig)}
+   * Test {@link AvroToArrow#avroToArrowIterator(Schema, Decoder, AvroToArrowConfig)}.
    * @return useless. To avoid DCE by JIT.
    */
   @Benchmark

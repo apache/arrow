@@ -42,7 +42,7 @@ public interface AllocationReservation extends AutoCloseable {
    * @return true if the addition is possible, false otherwise
    * @throws IllegalStateException if called after buffer() is used to allocate the reservation
    */
-  boolean add(final int nBytes);
+  boolean add(int nBytes);
 
   /**
    * Requests a reservation of additional space.

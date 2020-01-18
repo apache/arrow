@@ -83,7 +83,8 @@ public final class ArrowBuf implements AutoCloseable {
   private volatile long length;
 
   /**
-   * Constructs a new ArrowBuf
+   * Constructs a new ArrowBuf.
+   *
    * @param referenceManager The memory manager to track memory usage and reference count of this buffer
    * @param length The  byte length of this buffer
    * @param isEmpty  Indicates if this buffer is empty which enables some optimizations.

@@ -24,7 +24,6 @@ import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-
 import org.junit.Test;
 
 public class TestAuth {

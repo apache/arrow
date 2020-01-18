@@ -62,6 +62,8 @@ public class NonNullableStructVector extends AbstractStructVector {
   public int valueCount;
 
   /**
+   * Constructs a new instance.
+   *
    * @deprecated Use FieldType or static constructor instead.
    */
   @Deprecated

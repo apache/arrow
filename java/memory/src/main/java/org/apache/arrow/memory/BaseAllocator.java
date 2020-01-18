@@ -69,7 +69,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private volatile boolean isClosed = false; // the allocator has been closed
 
   /**
-   * Initialize an allocator
+   * Initialize an allocator.
+   *
    * @param parentAllocator   parent allocator. null if defining a root allocator
    * @param name              name of this allocator
    * @param config            configuration including other options of this allocator

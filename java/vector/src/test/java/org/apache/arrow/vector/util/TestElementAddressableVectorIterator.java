@@ -25,7 +25,6 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

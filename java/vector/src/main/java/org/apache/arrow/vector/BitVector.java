@@ -115,7 +115,7 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get the current value capacity for the vector
+   * Get the current value capacity for the vector.
    *
    * @return number of elements that vector can hold.
    */
@@ -140,8 +140,7 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get the size (number of bytes) of underlying buffers used by this
-   * vector
+   * Get the size (number of bytes) of underlying buffers used by this vector.
    *
    * @return size of underlying buffers.
    */

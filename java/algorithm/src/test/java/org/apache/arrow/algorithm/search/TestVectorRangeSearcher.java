@@ -27,7 +27,6 @@ import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -91,7 +90,7 @@ public class TestVectorRangeSearcher {
   public void testGetLowerBoundsNegative() {
     final int maxValue = 100;
     try (IntVector intVector = new IntVector("int vec", allocator);
-    IntVector negVector = new IntVector("neg vec", allocator)) {
+        IntVector negVector = new IntVector("neg vec", allocator)) {
       // allocate vector
       intVector.allocateNew(maxValue * repeat);
       intVector.setValueCount(maxValue * repeat);

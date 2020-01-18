@@ -272,7 +272,7 @@ public class TestBaseAllocator {
   public void testRootAllocator_createChildAndUse() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator(
-        "createChildAndUse", 0, MAX_ALLOCATION)) {
+          "createChildAndUse", 0, MAX_ALLOCATION)) {
         final ArrowBuf arrowBuf = childAllocator.buffer(512);
         assertNotNull("allocation failed", arrowBuf);
         arrowBuf.getReferenceManager().release();
@@ -326,7 +326,7 @@ public class TestBaseAllocator {
   public void testSegmentAllocator_childAllocator() {
     RoundingPolicy policy = new SegmentRoundingPolicy(1024);
     try (RootAllocator allocator = new RootAllocator(AllocationListener.NOOP, 1024 * 1024, policy);
-      BufferAllocator childAllocator = allocator.newChildAllocator("child", 0, 512 * 1024)) {
+        BufferAllocator childAllocator = allocator.newChildAllocator("child", 0, 512 * 1024)) {
 
       assertEquals("child", childAllocator.getName());
 
@@ -588,7 +588,7 @@ public class TestBaseAllocator {
     // the allocation succeeds.
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       try (final BufferAllocator c1 = rootAllocator.newChildAllocator("c1", l1, 0,
-        MAX_ALLOCATION / 2)) {
+          MAX_ALLOCATION / 2)) {
         try {
           c1.buffer(MAX_ALLOCATION);
           fail("allocated memory beyond max allowed");
@@ -782,7 +782,7 @@ public class TestBaseAllocator {
       testAllocator_sliceUpBufferAndRelease(rootAllocator, rootAllocator);
 
       try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator("createSlices", 0,
-        MAX_ALLOCATION)) {
+          MAX_ALLOCATION)) {
         testAllocator_sliceUpBufferAndRelease(rootAllocator, childAllocator);
       }
       rootAllocator.verify();
@@ -790,7 +790,7 @@ public class TestBaseAllocator {
       testAllocator_sliceUpBufferAndRelease(rootAllocator, rootAllocator);
 
       try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator("createSlices", 0,
-        MAX_ALLOCATION)) {
+          MAX_ALLOCATION)) {
         try (final BufferAllocator childAllocator2 =
                  childAllocator.newChildAllocator("createSlices", 0, MAX_ALLOCATION)) {
           final ArrowBuf arrowBuf1 = childAllocator2.buffer(MAX_ALLOCATION / 8);
@@ -1038,7 +1038,7 @@ public class TestBaseAllocator {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
 
       try (final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator(
-        "claimedReservation", 0, MAX_ALLOCATION)) {
+          "claimedReservation", 0, MAX_ALLOCATION)) {
 
         try (final AllocationReservation reservation = childAllocator1.newReservation()) {
           assertTrue(reservation.add(32));

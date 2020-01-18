@@ -303,7 +303,7 @@ public class JdbcAdapterBenchmarks {
   }
 
   /**
-   * Test {@link JdbcToArrow#sqlToArrowVectorIterator(ResultSet, JdbcToArrowConfig)}
+   * Test {@link JdbcToArrow#sqlToArrowVectorIterator(ResultSet, JdbcToArrowConfig)}.
    * @return useless. To avoid DCE by JIT.
    */
   @Benchmark
