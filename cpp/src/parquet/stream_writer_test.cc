@@ -23,6 +23,7 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/io/api.h"
 #include "parquet/exception.h"
 
 namespace parquet {
@@ -35,6 +36,8 @@ using char4_array_type = std::array<char, 4>;
 
 class TestStreamWriter : public ::testing::Test {
  protected:
+  const char* GetDataFile() const { return "stream_writer_test.parquet"; }
+
   void SetUp() {
     writer_ = StreamWriter{ParquetFileWriter::Open(CreateOutputStream(), GetSchema())};
   }
@@ -292,6 +295,23 @@ TEST_F(TestStreamWriter, SkipColumns) {
           << int32_t(4) << uint64_t(5) << 6.0f << 7.0;
   writer_ << EndRow;
 }
+
+TEST_F(TestStreamWriter, AppendNotImplemented) {
+  PARQUET_ASSIGN_OR_THROW(auto outfile, arrow::io::FileOutputStream::Open(GetDataFile()));
+
+  writer_ = StreamWriter{ParquetFileWriter::Open(outfile, GetSchema())};
+  writer_ << false << std::string("Just one row") << 'x'
+          << std::array<char, 4>{'A', 'B', 'C', 'D'} << int8_t(2) << uint16_t(3)
+          << int32_t(4) << uint64_t(5) << 6.0f << 7.0;
+  writer_ << EndRow;
+  writer_ = StreamWriter{};
+
+  // Re-open file in append mode.
+  PARQUET_ASSIGN_OR_THROW(outfile,
+                          arrow::io::FileOutputStream::Open(GetDataFile(), true));
+
+  EXPECT_THROW(ParquetFileWriter::Open(outfile, GetSchema()), ParquetException);
+}  // namespace test
 
 class TestOptionalFields : public ::testing::Test {
  protected:

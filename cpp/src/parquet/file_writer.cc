@@ -342,7 +342,11 @@ class FileSerializer : public ParquetFileWriter::Contents {
         num_row_groups_(0),
         num_rows_(0),
         metadata_(FileMetaDataBuilder::Make(&schema_, properties_, key_value_metadata_)) {
-    StartFile();
+    if (sink_->Tell().ValueOrDie() == 0) {
+      StartFile();
+    } else {
+      throw ParquetException("Appending to file not implemented.");
+    }
   }
 
   void CloseEncryptedFile(FileEncryptionProperties* file_encryption_properties) {
