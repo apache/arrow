@@ -233,3 +233,28 @@ are immediately excluded: we don't have to load them in order to find that no
 rows match the filter. Relatedly, since Parquet files contain row groups with
 statistics on the data within, there may be entire chunks of data we can
 avoid scanning because they have no rows where `total_amount > 100`.
+
+## Going farther
+
+There are a few ways you can control the Dataset creation to adapt to special use cases.
+For one, you can specify a `schema` argument to declare the columns and their data types.
+This is useful if you have data files that have different storage schema
+(for example, a column could be `int32` in one and `int8` in another)
+and you want to ensure that the resulting Dataset has a specific type.
+To be clear, it's not necessary to specify a schema, even in this example of
+mixed integer types, because the Dataset constructor will reconcile differences like these.
+The schema specification just lets you declare what you want the result to be.
+
+Similarly, you can provide a Schema in the `partitioning` argument of `open_dataset()`
+in order to declare the types of the virtual columns that define the partitions.
+This would be useful, in our taxi dataset example, if you wanted to keep
+"month" as a string instead of an integer for some reason.
+
+Another feature of Datasets is that they can be composed of multiple data sources.
+That is, you may have a directory of partitioned Parquet files in one location,
+and in another directory, files that haven't been partitioned.
+In the future, when there is support for cloud storage and other file formats,
+this would mean you could point to an S3 bucked of Parquet data and a directory
+of CSVs on the local file system and query them together as a single dataset.
+To create a multi-source dataset, provide a list of sources to `open_dataset()`
+instead of a file path. See `?open_source` for creating data sources. 
