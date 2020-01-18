@@ -1344,8 +1344,24 @@ Schema__field <- function(s, i){
     .Call(`_arrow_Schema__field` , s, i)
 }
 
-Schema__names <- function(schema){
-    .Call(`_arrow_Schema__names` , schema)
+Schema__GetFieldByName <- function(s, x){
+    .Call(`_arrow_Schema__GetFieldByName` , s, x)
+}
+
+Schema__fields <- function(schema){
+    .Call(`_arrow_Schema__fields` , schema)
+}
+
+Schema__field_names <- function(schema){
+    .Call(`_arrow_Schema__field_names` , schema)
+}
+
+Schema__HasMetadata <- function(schema){
+    .Call(`_arrow_Schema__HasMetadata` , schema)
+}
+
+Schema__metadata <- function(schema){
+    .Call(`_arrow_Schema__metadata` , schema)
 }
 
 Schema__serialize <- function(schema){

@@ -47,6 +47,26 @@ arrow_dplyr_query <- function(.data) {
   )
 }
 
+#' @export
+print.arrow_dplyr_query <- function(x, ...) {
+  schm <- x$.data$schema
+  cols <- x$selected_columns
+  fields <- map_chr(cols, ~schm$GetFieldByName(.)$ToString())
+  # Strip off the field names as they are in the dataset and add the renamed ones
+  fields <- paste(names(cols), sub("^.*?: ", "", fields), sep = ": ", collapse = "\n")
+  cat(class(x$.data)[1], " (query)\n", sep = "")
+  cat(fields, "\n", sep = "")
+  cat("\n")
+  if (!isTRUE(x$filtered_rows)) {
+    cat("* Filter: ", x$filtered_rows$ToString(), "\n", sep = "")
+  }
+  if (length(x$group_by_vars)) {
+    cat("* Grouped by ", paste(x$group_by_vars, collapse = ", "), "\n", sep = "")
+  }
+  cat("See $.data for the source Arrow object\n")
+  invisible(x)
+}
+
 # These are the names reflecting all select/rename, not what is in Arrow
 names.arrow_dplyr_query <- function(x) names(x$selected_columns)
 

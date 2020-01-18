@@ -33,14 +33,14 @@
 #' s <- schema(...)
 #'
 #' s$ToString()
-#' s$num_fields()
+#' s$num_fields
 #' s$field(i)
 #' ```
 #'
 #' @section Methods:
 #'
 #' - `$ToString()`: convert to a string
-#' - `$num_fields()`: returns the number of fields
+#' - `$num_fields`: returns the number of fields
 #' - `$field(i)`: returns the field at index `i` (0-based)
 #'
 #' @rdname Schema
@@ -49,60 +49,60 @@
 Schema <- R6Class("Schema",
   inherit = Object,
   public = list(
-    ToString = function() prettier_dictionary_type(Schema__ToString(self)),
-    num_fields = function() Schema__num_fields(self),
+    ToString = function() {
+      fields <- print_schema_fields(self)
+      if (self$HasMetadata) {
+        fields <- paste0(fields, "\n\nSee $metadata for additional Schema metadata")
+      }
+      fields
+    },
     field = function(i) shared_ptr(Field, Schema__field(self, i)),
+    GetFieldByName = function(x) shared_ptr(Field, Schema__GetFieldByName(self, x)),
     serialize = function() Schema__serialize(self),
-    Equals = function(other, check_metadata = TRUE) Schema__Equals(self, other, isTRUE(check_metadata))
+    Equals = function(other, check_metadata = TRUE) {
+      Schema__Equals(self, other, isTRUE(check_metadata))
+    }
   ),
   active = list(
-    names = function() Schema__names(self)
+    names = function() Schema__field_names(self),
+    num_fields = function() Schema__num_fields(self),
+    fields = function() map(Schema__fields(self), shared_ptr, class = Field),
+    metadata = function() Schema__metadata(self),
+    HasMetadata = function() Schema__HasMetadata(self)
   )
 )
 Schema$create <- function(...) shared_ptr(Schema, schema_(.fields(list2(...))))
 
+print_schema_fields <- function(s) {
+  # Alternative to Schema__ToString that doesn't print metadata
+  paste(map_chr(s$fields, ~.$ToString()), collapse = "\n")
+}
+
 #' @param ... named list of [data types][data-type]
 #' @export
 #' @rdname Schema
-# TODO (npr): add examples once ARROW-5505 merges
 schema <- Schema$create
 
 #' @export
 names.Schema <- function(x) x$names
 
 #' @export
-length.Schema <- function(x) x$num_fields()
+length.Schema <- function(x) x$num_fields
 
 #' read a Schema from a stream
 #'
-#' @param stream a stream
+#' @param stream a `Message`, `InputStream`, or `Buffer`
 #' @param ... currently ignored
-#'
+#' @return A [Schema]
 #' @export
 read_schema <- function(stream, ...) {
-  UseMethod("read_schema")
-}
-
-#' @export
-read_schema.InputStream <- function(stream, ...) {
-  shared_ptr(Schema, ipc___ReadSchema_InputStream(stream))
-}
-
-#' @export
-read_schema.Buffer <- function(stream, ...) {
-  stream <- BufferReader$create(stream)
-  on.exit(stream$close())
-  shared_ptr(Schema, ipc___ReadSchema_InputStream(stream))
-}
-
-#' @export
-read_schema.raw <- function(stream, ...) {
-  stream <- BufferReader$create(stream)
-  on.exit(stream$close())
-  shared_ptr(Schema, ipc___ReadSchema_InputStream(stream))
-}
-
-#' @export
-read_schema.Message <- function(stream, ...) {
-  shared_ptr(Schema, ipc___ReadSchema_Message(stream))
+  if (inherits(stream, "Message")) {
+    return(shared_ptr(Schema, ipc___ReadSchema_Message(stream)))
+  } else {
+    if (!inherits(stream, "InputStream")) {
+      stream <- BufferReader$create(stream)
+      on.exit(stream$close())
+    }
+    return(shared_ptr(Schema, ipc___ReadSchema_InputStream(stream)))
+  }
 }

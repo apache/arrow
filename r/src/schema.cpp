@@ -45,11 +45,32 @@ std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>
 }
 
 // [[arrow::export]]
-Rcpp::CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema) {
-  auto fields = schema->fields();
-  return Rcpp::CharacterVector(
-      fields.begin(), fields.end(),
-      [](const std::shared_ptr<arrow::Field>& field) { return field->name(); });
+std::shared_ptr<arrow::Field> Schema__GetFieldByName(
+    const std::shared_ptr<arrow::Schema>& s, std::string x) {
+  return s->GetFieldByName(x);
+}
+
+// [[arrow::export]]
+std::vector<std::shared_ptr<arrow::Field>> Schema__fields(
+    const std::shared_ptr<arrow::Schema>& schema) {
+  return schema->fields();
+}
+
+// [[arrow::export]]
+std::vector<std::string> Schema__field_names(
+    const std::shared_ptr<arrow::Schema>& schema) {
+  return schema->field_names();
+}
+
+// [[arrow::export]]
+bool Schema__HasMetadata(const std::shared_ptr<arrow::Schema>& schema) {
+  return schema->HasMetadata();
+}
+
+// [[arrow::export]]
+std::string Schema__metadata(const std::shared_ptr<arrow::Schema>& schema) {
+  // TODO: return a useful object, not just ToString?
+  return schema->metadata()->ToString();
 }
 
 // [[arrow::export]]

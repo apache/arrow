@@ -21,7 +21,7 @@ specific numeric precision.
 \preformatted{s <- schema(...)
 
 s$ToString()
-s$num_fields()
+s$num_fields
 s$field(i)
 }
 }
@@ -30,7 +30,7 @@ s$field(i)
 
 \itemize{
 \item \verb{$ToString()}: convert to a string
-\item \verb{$num_fields()}: returns the number of fields
+\item \verb{$num_fields}: returns the number of fields
 \item \verb{$field(i)}: returns the field at index \code{i} (0-based)
 }
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/dataset.R
 \name{hive_partition}
 \alias{hive_partition}
-\title{Construct a Hive partitioning}
+\title{Construct Hive partitioning}
 \usage{
 hive_partition(...)
 }
@@ -10,13 +10,12 @@ hive_partition(...)
 \item{...}{named list of \link[=data-type]{data types}, passed to \code{\link[=schema]{schema()}}}
 }
 \value{
-A \code{HivePartitioning}, or a \code{HivePartitioningFactory} if
+A \link[=Partitioning]{HivePartitioning}, or a \code{HivePartitioningFactory} if
 calling \code{hive_partition()} with no arguments.
 }
 \description{
 Hive partitioning embeds field names and values in path segments, such as
-"/year=2019/month=2/data.parquet". A \link[=Partitioning]{HivePartitioning}
-is used to parse that in Dataset creation.
+"/year=2019/month=2/data.parquet".
 }
 \details{
 Because fields are named in the path segments, order of fields passed to
