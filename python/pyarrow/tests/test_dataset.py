@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import numpy as np
+
 import pytest
 
 import pyarrow as pa
@@ -379,7 +381,181 @@ def test_paritioning_factory(mockfs):
         ("group", pa.int32()),
         ("key", pa.string()),
     ])
-    assert inspected_schema.remove_metadata().equals(expected_schema)
+    assert inspected_schema.equals(expected_schema, check_metadata=False)
 
     hive_partitioning_factory = ds.HivePartitioning.discover()
     assert isinstance(hive_partitioning_factory, ds.PartitioningFactory)
+
+
+def test_partitioning_function():
+    schema = pa.schema([("year", pa.int16()), ("month", pa.int8())])
+    names = ["year", "month"]
+
+    # default DirectoryPartitioning
+
+    part = ds.partitioning(schema)
+    assert isinstance(part, ds.DirectoryPartitioning)
+    part = ds.partitioning(names)
+    assert isinstance(part, ds.PartitioningFactory)
+    # needs schema or names
+    with pytest.raises(ValueError):
+        ds.partitioning()
+
+    # Hive partitioning
+
+    part = ds.partitioning(schema, flavor="hive")
+    assert isinstance(part, ds.HivePartitioning)
+    part = ds.partitioning(flavor="hive")
+    assert isinstance(part, ds.PartitioningFactory)
+    # cannot pass list of names
+    with pytest.raises(ValueError):
+        ds.partitioning(names, flavor="hive")
+
+    # unsupported flavor
+    with pytest.raises(ValueError):
+        ds.partitioning(schema, flavor="unsupported")
+
+
+def _create_single_file(base_dir):
+    import pyarrow.parquet as pq
+    table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+    path = base_dir / "test.parquet"
+    pq.write_table(table, path)
+    return table, path
+
+
+def _create_directory_of_files(base_dir):
+    import pyarrow.parquet as pq
+    table1 = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+    path1 = base_dir / "test1.parquet"
+    pq.write_table(table1, path1)
+    table2 = pa.table({'a': range(9, 18), 'b': [0.] * 4 + [1.] * 5})
+    path2 = base_dir / "test2.parquet"
+    pq.write_table(table2, path2)
+    return (table1, table2), (path1, path2)
+
+
+def _check_dataset_from_path(path, table, **kwargs):
+    import pathlib
+
+    # pathlib object
+    assert isinstance(path, pathlib.Path)
+    dataset = ds.dataset(ds.source(path, **kwargs))
+    assert dataset.schema.equals(table.schema, check_metadata=False)
+    result = dataset.new_scan().finish().to_table()
+    assert result.replace_schema_metadata().equals(table)
+
+    # string path
+    dataset = ds.dataset(ds.source(str(path), **kwargs))
+    assert dataset.schema.equals(table.schema, check_metadata=False)
+    result = dataset.new_scan().finish().to_table()
+    assert result.replace_schema_metadata().equals(table)
+
+    # passing directly to dataset
+    dataset = ds.dataset(str(path), **kwargs)
+    assert dataset.schema.equals(table.schema, check_metadata=False)
+    result = dataset.new_scan().finish().to_table()
+    assert result.replace_schema_metadata().equals(table)
+
+
+@pytest.mark.parquet
+def test_open_dataset_single_file(tempdir):
+    table, path = _create_single_file(tempdir)
+    _check_dataset_from_path(path, table)
+
+
+@pytest.mark.parquet
+def test_open_dataset_directory(tempdir):
+    tables, _ = _create_directory_of_files(tempdir)
+    table = pa.concat_tables(tables)
+    _check_dataset_from_path(tempdir, table)
+
+
+@pytest.mark.parquet
+def test_open_dataset_list_of_files(tempdir):
+    tables, (path1, path2) = _create_directory_of_files(tempdir)
+    table = pa.concat_tables(tables)
+
+    # list of exact files needs to be passed to source() function
+    # (dataset() will interpret it as separate sources)
+    for dataset in [
+            ds.dataset(ds.source([path1, path2])),
+            ds.dataset(ds.source([str(path1), str(path2)]))]:
+        assert dataset.schema.equals(table.schema, check_metadata=False)
+        result = dataset.new_scan().finish().to_table()
+        assert result.replace_schema_metadata().equals(table)
+
+
+@pytest.mark.parquet
+def test_open_dataset_partitioned_directory(tempdir):
+    import pyarrow.parquet as pq
+    table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+    for part in range(3):
+        path = tempdir / "part={0}".format(part)
+        path.mkdir()
+        pq.write_table(table, path / "test.parquet")
+
+    # no partitioning specified, just read all individual files
+    full_table = pa.concat_tables([table] * 3)
+    _check_dataset_from_path(tempdir, full_table)
+
+    # specify partition scheme with discovery
+    dataset = ds.dataset(
+        str(tempdir), partitioning=ds.partitioning(flavor="hive"))
+    expected_schema = table.schema.append(pa.field("part", pa.int32()))
+    assert dataset.schema.equals(expected_schema, check_metadata=False)
+
+    # specify partition scheme with string short-cut
+    dataset = ds.dataset(str(tempdir), partitioning="hive")
+    assert dataset.schema.equals(expected_schema, check_metadata=False)
+
+    # specify partition scheme with explicit scheme
+    dataset = ds.dataset(
+        str(tempdir),
+        partitioning=ds.partitioning(
+            pa.schema([("part", pa.int8())]), flavor="hive"))
+    expected_schema = table.schema.append(pa.field("part", pa.int8()))
+    assert dataset.schema.equals(expected_schema, check_metadata=False)
+
+    result = dataset.new_scan().finish().to_table()
+    expected = full_table.append_column(
+        "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
+    assert result.replace_schema_metadata().equals(expected)
+
+
+@pytest.mark.parquet
+def test_open_dataset_filesystem(tempdir):
+    # # single file
+    table, path = _create_single_file(tempdir)
+
+    # filesystem inferred from path
+    dataset1 = ds.dataset(str(path))
+    assert dataset1.schema.equals(table.schema, check_metadata=False)
+
+    # filesystem specified
+    dataset2 = ds.dataset(str(path), filesystem=fs.LocalFileSystem())
+    assert dataset2.schema.equals(table.schema, check_metadata=False)
+
+    # passing different filesystem
+    with pytest.raises(FileNotFoundError):
+        ds.dataset(str(path), filesystem=fs._MockFileSystem())
+
+
+def test_open_dataset_unsupported_format(tempdir):
+    _, path = _create_single_file(tempdir)
+    with pytest.raises(ValueError, match="format 'blabla' is not supported"):
+        ds.dataset([path], format="blabla")
+
+
+def test_open_dataset_from_source_additional_kwargs(tempdir):
+    _, path = _create_single_file(tempdir)
+    with pytest.raises(ValueError, match="cannot pass any additional"):
+        ds.dataset(ds.source(path), format="parquet")
+
+
+def test_open_dataset_validate_sources(tempdir):
+    _, path = _create_single_file(tempdir)
+    dataset = ds.dataset(path)
+    with pytest.raises(ValueError,
+                       match="Expected a path-like or Source, got"):
+        ds.dataset([dataset])
