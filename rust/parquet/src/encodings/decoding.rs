@@ -1452,9 +1452,9 @@ mod tests {
     {
         default fn to_byte_array(data: &[T::T]) -> Vec<u8> {
             let mut v = vec![];
-            let type_len = ::std::mem::size_of::<T::T>();
+            let type_len = std::mem::size_of::<T::T>();
             v.extend_from_slice(unsafe {
-                ::std::slice::from_raw_parts(
+                std::slice::from_raw_parts(
                     data.as_ptr() as *const u8,
                     data.len() * type_len,
                 )
@@ -1484,7 +1484,7 @@ mod tests {
             for d in data {
                 unsafe {
                     let copy =
-                        ::std::slice::from_raw_parts(d.data().as_ptr() as *const u8, 12);
+                        std::slice::from_raw_parts(d.data().as_ptr() as *const u8, 12);
                     v.extend_from_slice(copy);
                 };
             }

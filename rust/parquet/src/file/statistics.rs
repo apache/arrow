@@ -149,20 +149,16 @@ pub fn from_thrift(
                     let min = min.map(|data| {
                         assert_eq!(data.len(), 12);
                         unsafe {
-                            let raw = ::std::slice::from_raw_parts(
-                                data.as_ptr() as *mut u32,
-                                3,
-                            );
+                            let raw =
+                                std::slice::from_raw_parts(data.as_ptr() as *mut u32, 3);
                             Int96::from(Vec::from(raw))
                         }
                     });
                     let max = max.map(|data| {
                         assert_eq!(data.len(), 12);
                         unsafe {
-                            let raw = ::std::slice::from_raw_parts(
-                                data.as_ptr() as *mut u32,
-                                3,
-                            );
+                            let raw =
+                                std::slice::from_raw_parts(data.as_ptr() as *mut u32, 3);
                             Int96::from(Vec::from(raw))
                         }
                     });

@@ -100,7 +100,7 @@ impl<T: Clone> Buffer<T> {
         Buffer {
             data: vec![],
             mem_tracker: None,
-            type_length: ::std::mem::size_of::<T>(),
+            type_length: std::mem::size_of::<T>(),
         }
     }
 

@@ -52,7 +52,7 @@ impl<'b> flatbuffers::Push for Block {
     #[inline]
     fn push(&self, dst: &mut [u8], _rest: &[u8]) {
         let src = unsafe {
-            ::std::slice::from_raw_parts(self as *const Block as *const u8, Self::size())
+            std::slice::from_raw_parts(self as *const Block as *const u8, Self::size())
         };
         dst.copy_from_slice(src);
     }
@@ -63,7 +63,7 @@ impl<'b> flatbuffers::Push for &'b Block {
     #[inline]
     fn push(&self, dst: &mut [u8], _rest: &[u8]) {
         let src = unsafe {
-            ::std::slice::from_raw_parts(*self as *const Block as *const u8, Self::size())
+            std::slice::from_raw_parts(*self as *const Block as *const u8, Self::size())
         };
         dst.copy_from_slice(src);
     }

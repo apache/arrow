@@ -32,7 +32,7 @@ macro_rules! read_num_bytes {
         assert!($size <= $src.len());
         let mut data: $ty = Default::default();
         unsafe {
-            ::std::ptr::copy_nonoverlapping(
+            std::ptr::copy_nonoverlapping(
                 $src.as_ptr(),
                 &mut data as *mut $ty as *mut u8,
                 $size,
@@ -55,11 +55,7 @@ pub fn convert_to_bytes<T>(val: &T, num_bytes: usize) -> Vec<u8> {
 pub fn memcpy(source: &[u8], target: &mut [u8]) {
     assert!(target.len() >= source.len());
     unsafe {
-        ::std::ptr::copy_nonoverlapping(
-            source.as_ptr(),
-            target.as_mut_ptr(),
-            source.len(),
-        )
+        std::ptr::copy_nonoverlapping(source.as_ptr(), target.as_mut_ptr(), source.len())
     }
 }
 
@@ -72,7 +68,7 @@ pub fn memcpy_value<T>(source: &T, num_bytes: usize, target: &mut [u8]) {
         num_bytes
     );
     unsafe {
-        ::std::ptr::copy_nonoverlapping(
+        std::ptr::copy_nonoverlapping(
             source as *const T as *const u8,
             target.as_mut_ptr(),
             num_bytes,
@@ -518,13 +514,13 @@ impl BitReader {
                         // We need to copy from smaller size to bigger size to avoid
                         // overwriting other memory regions.
                         if size_of::<T>() > size_of::<u32>() {
-                            ::std::ptr::copy_nonoverlapping(
+                            std::ptr::copy_nonoverlapping(
                                 out_buf[n..].as_ptr() as *const u32,
                                 &mut batch[i] as *mut T as *mut u32,
                                 1,
                             );
                         } else {
-                            ::std::ptr::copy_nonoverlapping(
+                            std::ptr::copy_nonoverlapping(
                                 out_buf[n..].as_ptr() as *const T,
                                 &mut batch[i] as *mut T,
                                 1,
@@ -1003,7 +999,7 @@ mod tests {
         assert!(num_bits <= 32);
         assert!(total % 2 == 0);
 
-        let aligned_value_byte_width = ::std::mem::size_of::<T>();
+        let aligned_value_byte_width = std::mem::size_of::<T>();
         let value_byte_width = ceil(num_bits as i64, 8) as usize;
         let mut writer =
             BitWriter::new((total / 2) * (aligned_value_byte_width + value_byte_width));

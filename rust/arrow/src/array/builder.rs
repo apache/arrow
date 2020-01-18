@@ -104,7 +104,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 
     /// Reset this builder and returns an immutable `Buffer`.
     default fn finish(&mut self) -> Buffer {
-        let buf = ::std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
+        let buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
         self.len = 0;
         buf.freeze()
     }
@@ -200,7 +200,7 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
         // `append` does not update the buffer's `len` so do it before `freeze` is called.
         let new_buffer_len = bit_util::ceil(self.len, 8);
         debug_assert!(new_buffer_len >= self.buffer.len());
-        let mut buf = ::std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
+        let mut buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
         self.len = 0;
         buf.resize(new_buffer_len).unwrap();
         buf.freeze()
@@ -968,8 +968,8 @@ impl StructBuilder {
 impl Drop for StructBuilder {
     fn drop(&mut self) {
         // To avoid double drop on the field array builders.
-        let builders = ::std::mem::replace(&mut self.field_builders, Vec::new());
-        ::std::mem::forget(builders);
+        let builders = std::mem::replace(&mut self.field_builders, Vec::new());
+        std::mem::forget(builders);
     }
 }
 

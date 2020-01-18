@@ -49,8 +49,7 @@ fn main() -> Result<()> {
         Field::new("c13", DataType::Utf8, false),
     ]));
 
-    let testdata =
-        ::std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    let testdata = std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
 
     // register csv file with the execution context
     ctx.register_csv(

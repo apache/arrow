@@ -30,7 +30,7 @@ fn main() -> Result<()> {
     let mut ctx = ExecutionContext::new();
 
     let testdata =
-        ::std::env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+        std::env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
 
     // register parquet file with the execution context
     ctx.register_parquet(

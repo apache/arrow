@@ -172,7 +172,7 @@ fn slice_data(data: ArrayDataRef, mut offset: usize, length: usize) -> ArrayData
     assert!((offset + length) <= data.len());
 
     let mut new_data = data.as_ref().clone();
-    let len = ::std::cmp::min(new_data.len - offset, length);
+    let len = std::cmp::min(new_data.len - offset, length);
 
     offset += data.offset;
     new_data.len = len;
@@ -1073,7 +1073,7 @@ impl BinaryArray {
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
-            ::std::slice::from_raw_parts(
+            std::slice::from_raw_parts(
                 self.value_data.get().offset(pos as isize),
                 (self.value_offset_at(offset + 1) - pos) as usize,
             )
@@ -1120,7 +1120,7 @@ impl StringArray {
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
-            let slice = ::std::slice::from_raw_parts(
+            let slice = std::slice::from_raw_parts(
                 self.value_data.get().offset(pos as isize),
                 (self.value_offset_at(offset + 1) - pos) as usize,
             );
@@ -1171,7 +1171,7 @@ impl FixedSizeBinaryArray {
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
-            ::std::slice::from_raw_parts(
+            std::slice::from_raw_parts(
                 self.value_data.get().offset(pos as isize),
                 (self.value_offset_at(offset + 1) - pos) as usize,
             )
@@ -1657,7 +1657,7 @@ mod tests {
         let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
         let buf2 = buf.clone();
         let arr = Int32Array::new(5, buf, 0, 0);
-        let slice = unsafe { ::std::slice::from_raw_parts(arr.raw_values(), 5) };
+        let slice = unsafe { std::slice::from_raw_parts(arr.raw_values(), 5) };
         assert_eq!(buf2, arr.values());
         assert_eq!(&[0, 1, 2, 3, 4], slice);
         assert_eq!(5, arr.len());
