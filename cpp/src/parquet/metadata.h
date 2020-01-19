@@ -126,7 +126,8 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   static std::unique_ptr<ColumnChunkMetaData> Make(
       const void* metadata, const ColumnDescriptor* descr,
       const ApplicationVersion* writer_version = NULLPTR, int16_t row_group_ordinal = -1,
-      int16_t column_ordinal = -1, InternalFileDecryptor* file_decryptor = NULLPTR);
+      int16_t column_ordinal = -1,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   ~ColumnChunkMetaData();
 
@@ -155,10 +156,10 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const;
 
  private:
-  explicit ColumnChunkMetaData(const void* metadata, const ColumnDescriptor* descr,
-                               int16_t row_group_ordinal, int16_t column_ordinal,
-                               const ApplicationVersion* writer_version = NULLPTR,
-                               InternalFileDecryptor* file_decryptor = NULLPTR);
+  explicit ColumnChunkMetaData(
+      const void* metadata, const ColumnDescriptor* descr, int16_t row_group_ordinal,
+      int16_t column_ordinal, const ApplicationVersion* writer_version = NULLPTR,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
   // PIMPL Idiom
   class ColumnChunkMetaDataImpl;
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
@@ -170,7 +171,7 @@ class PARQUET_EXPORT RowGroupMetaData {
   static std::unique_ptr<RowGroupMetaData> Make(
       const void* metadata, const SchemaDescriptor* schema,
       const ApplicationVersion* writer_version = NULLPTR,
-      InternalFileDecryptor* file_decryptor = NULLPTR);
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   ~RowGroupMetaData();
 
@@ -184,9 +185,10 @@ class PARQUET_EXPORT RowGroupMetaData {
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) const;
 
  private:
-  explicit RowGroupMetaData(const void* metadata, const SchemaDescriptor* schema,
-                            const ApplicationVersion* writer_version = NULLPTR,
-                            InternalFileDecryptor* file_decryptor = NULLPTR);
+  explicit RowGroupMetaData(
+      const void* metadata, const SchemaDescriptor* schema,
+      const ApplicationVersion* writer_version = NULLPTR,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
   // PIMPL Idiom
   class RowGroupMetaDataImpl;
   std::unique_ptr<RowGroupMetaDataImpl> impl_;
@@ -200,7 +202,7 @@ class PARQUET_EXPORT FileMetaData {
 
   static std::shared_ptr<FileMetaData> Make(
       const void* serialized_metadata, uint32_t* inout_metadata_len,
-      InternalFileDecryptor* file_decryptor = NULLPTR);
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   ~FileMetaData();
 
@@ -250,9 +252,9 @@ class PARQUET_EXPORT FileMetaData {
   friend class SerializedFile;
 
   explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len,
-                        InternalFileDecryptor* file_decryptor = NULLPTR);
+                        std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
-  void set_file_decryptor(InternalFileDecryptor* file_decryptor);
+  void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
 
   // PIMPL Idiom
   FileMetaData();
