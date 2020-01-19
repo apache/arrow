@@ -29,7 +29,11 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.compare.Range;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.compare.TypeEqualsVisitor;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -76,8 +80,11 @@ public class TestVectorAppender {
       delta.accept(appender, null);
 
       assertEquals(length1 + length2, target.getValueCount());
-      for (int i = 0; i < target.getValueCount(); i++) {
-        assertEquals(i, target.get(i));
+
+      try (IntVector expected = new IntVector("expected", allocator)) {
+        expected.allocateNew();
+        ValueVectorDataPopulator.setVector(expected, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+        assertVectorsEqual(expected, target);
       }
     }
   }
@@ -98,9 +105,11 @@ public class TestVectorAppender {
       VectorAppender appender = new VectorAppender(target);
       delta.accept(appender, null);
 
-      assertEquals(length1 + length2, target.getValueCount());
-      for (int i = 0; i < target.getValueCount(); i++) {
-        assertEquals("a" + i, new String(target.get(i)));
+      try (VarCharVector expected = new VarCharVector("expected", allocator)) {
+        expected.allocateNew();
+        ValueVectorDataPopulator.setVector(expected,
+            "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "a10", "a11", "a12", "a13", "a14");
+        assertVectorsEqual(expected, target);
       }
     }
   }
@@ -132,22 +141,26 @@ public class TestVectorAppender {
 
       assertEquals(7, target.getValueCount());
 
-      int curValue = 0;
-      for (int i = 0; i < length1; i++) {
-        List<Integer> list = (List<Integer>) target.getObject(i);
-        assertEquals(2, list.size());
-        for (int j = 0; j < list.size(); j++) {
-          assertEquals(curValue++, list.get(j).intValue());
-        }
-      }
+      List<Integer> expected = Arrays.asList(0, 1);
+      assertEquals(expected, target.getObject(0));
 
-      for (int i = length1; i < length1 + length2; i++) {
-        List<Integer> list = (List<Integer>) target.getObject(i);
-        assertEquals(5, list.size());
-        for (int j = 0; j < list.size(); j++) {
-          assertEquals(curValue++, list.get(j).intValue());
-        }
-      }
+      expected = Arrays.asList(2, 3);
+      assertEquals(expected, target.getObject(1));
+
+      expected = Arrays.asList(4, 5);
+      assertEquals(expected, target.getObject(2));
+
+      expected = Arrays.asList(6, 7);
+      assertEquals(expected, target.getObject(3));
+
+      expected = Arrays.asList(8, 9);
+      assertEquals(expected, target.getObject(4));
+
+      expected = Arrays.asList(10, 11, 12, 13, 14);
+      assertEquals(expected, target.getObject(5));
+
+      expected = Arrays.asList(15, 16, 17, 18, 19);
+      assertEquals(expected, target.getObject(6));
     }
   }
 
@@ -172,14 +185,11 @@ public class TestVectorAppender {
       delta.accept(appender, null);
 
       assertEquals(4, target.getValueCount());
-      int curValue = 0;
-      for (int i = 0; i < target.getValueCount(); i++) {
-        List<Integer> list = (List<Integer>) target.getObject(i);
-        assertEquals(5, list.size());
-        for (int j = 0; j < list.size(); j++) {
-          assertEquals(curValue++, list.get(j).intValue());
-        }
-      }
+
+      assertEquals(Arrays.asList(0, 1, 2, 3, 4), target.getObject(0));
+      assertEquals(Arrays.asList(5, 6, 7, 8, 9), target.getObject(1));
+      assertEquals(Arrays.asList(10, 11, 12, 13, 14), target.getObject(2));
+      assertEquals(Arrays.asList(15, 16, 17, 18, 19), target.getObject(3));
     }
   }
 
@@ -213,9 +223,17 @@ public class TestVectorAppender {
       IntVector child1 = (IntVector) target.getVectorById(0);
       VarCharVector child2 = (VarCharVector) target.getVectorById(1);
 
-      for (int i = 0; i < target.getValueCount(); i++) {
-        assertEquals(i, child1.get(i));
-        assertEquals("a" + i, new String(child2.get(i)));
+      try (IntVector expected1 = new IntVector("expected1", allocator);
+           VarCharVector expected2 = new VarCharVector("expected2", allocator)) {
+        expected1.allocateNew();
+        expected2.allocateNew();
+
+        ValueVectorDataPopulator.setVector(expected1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+        ValueVectorDataPopulator.setVector(expected2,
+            "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "a10", "a11", "a12", "a13", "a14");
+
+        assertVectorsEqual(expected1, target.getChild("f0"));
+        assertVectorsEqual(expected2, target.getChild("f1"));
       }
     }
   }
@@ -316,5 +334,14 @@ public class TestVectorAppender {
       assertThrows(IllegalArgumentException.class,
           () -> delta.accept(appender, null));
     }
+  }
+
+  public static void assertVectorsEqual(ValueVector vector1, ValueVector vector2) {
+    assertEquals(vector1.getValueCount(), vector2.getValueCount());
+
+    TypeEqualsVisitor typeEqualsVisitor = new TypeEqualsVisitor(vector1, false, false);
+    RangeEqualsVisitor equalsVisitor =
+        new RangeEqualsVisitor(vector1, vector2, (v1, v2) -> typeEqualsVisitor.equals(vector2));
+    assertTrue(equalsVisitor.rangeEquals(new Range(0, 0, vector1.getValueCount())));
   }
 }
