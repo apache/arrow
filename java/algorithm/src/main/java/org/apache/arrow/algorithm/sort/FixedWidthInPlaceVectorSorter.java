@@ -31,6 +31,8 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
    */
   public static final int CHANGE_ALGORITHM_THRESHOLD = 15;
 
+  static final int STOP_CHOOSING_PIVOT_THRESHOLD = 3;
+
   VectorValueComparator<V> comparator;
 
   /**
@@ -102,7 +104,7 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
    */
   void choosePivot(int low, int high) {
     // we need at least 3 items
-    if (high - low < 3) {
+    if (high - low + 1 < STOP_CHOOSING_PIVOT_THRESHOLD) {
       pivotBuffer.copyFrom(low, 0, vec);
       return;
     }
@@ -113,23 +115,23 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
     // find the median by at most 3 comparisons
     int medianIdx;
     if (comparator.compare(low, mid) < 0) {
-      if (comparator.compare(mid, high - 1) < 0) {
+      if (comparator.compare(mid, high) < 0) {
         medianIdx = mid;
       } else {
-        if (comparator.compare(low, high - 1) < 0) {
-          medianIdx = high - 1;
+        if (comparator.compare(low, high) < 0) {
+          medianIdx = high;
         } else {
           medianIdx = low;
         }
       }
     } else {
-      if (comparator.compare(mid, high - 1) > 0) {
+      if (comparator.compare(mid, high) > 0) {
         medianIdx = mid;
       } else {
-        if (comparator.compare(low, high - 1) < 0) {
+        if (comparator.compare(low, high) < 0) {
           medianIdx = low;
         } else {
-          medianIdx = high - 1;
+          medianIdx = high;
         }
       }
     }

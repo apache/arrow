@@ -106,7 +106,7 @@ public class IndexSorter<V extends ValueVector> {
   static <T extends ValueVector> int choosePivot(
           int low, int high, IntVector indices, VectorValueComparator<T> comparator) {
     // we need at least 3 items
-    if (high - low < 3) {
+    if (high - low + 1 < FixedWidthInPlaceVectorSorter.STOP_CHOOSING_PIVOT_THRESHOLD) {
       return indices.get(low);
     }
 
@@ -115,23 +115,23 @@ public class IndexSorter<V extends ValueVector> {
     // find the median by at most 3 comparisons
     int medianIdx;
     if (comparator.compare(indices.get(low), indices.get(mid)) < 0) {
-      if (comparator.compare(indices.get(mid), indices.get(high - 1)) < 0) {
+      if (comparator.compare(indices.get(mid), indices.get(high)) < 0) {
         medianIdx = mid;
       } else {
-        if (comparator.compare(indices.get(low), indices.get(high - 1)) < 0) {
-          medianIdx = high - 1;
+        if (comparator.compare(indices.get(low), indices.get(high)) < 0) {
+          medianIdx = high;
         } else {
           medianIdx = low;
         }
       }
     } else {
-      if (comparator.compare(indices.get(mid), indices.get(high - 1)) > 0) {
+      if (comparator.compare(indices.get(mid), indices.get(high)) > 0) {
         medianIdx = mid;
       } else {
-        if (comparator.compare(indices.get(low), indices.get(high - 1)) < 0) {
+        if (comparator.compare(indices.get(low), indices.get(high)) < 0) {
           medianIdx = low;
         } else {
-          medianIdx = high - 1;
+          medianIdx = high;
         }
       }
     }
