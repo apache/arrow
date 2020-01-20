@@ -3285,6 +3285,19 @@ def test_variable_dictionary_to_pandas():
     tm.assert_series_equal(result_dense, expected_dense)
 
 
+def test_dictionary_encoded_nested_to_pandas():
+    # ARROW-6899
+    child = pa.array([u'a', u'a', u'a', u'b', u'b']).dictionary_encode()
+
+    arr = pa.ListArray.from_arrays([0, 3, 5], child)
+
+    result = arr.to_pandas()
+    expected = pd.Series([np.array([u'a', u'a', u'a'], dtype=object),
+                          np.array([u'b', u'b'], dtype=object)])
+
+    tm.assert_series_equal(result, expected)
+
+
 def test_dictionary_from_pandas():
     cat = pd.Categorical([u'a', u'b', u'a'])
     expected_type = pa.dictionary(pa.int8(), pa.string())

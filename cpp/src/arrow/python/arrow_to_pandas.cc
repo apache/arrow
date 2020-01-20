@@ -156,6 +156,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::TIME64:
     case Type::TIMESTAMP:
     case Type::DURATION:
+    case Type::DICTIONARY:
     case Type::NA:  // empty list
       // The above types are all supported.
       return true;
@@ -668,16 +669,38 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
   return Status::OK();
 }
 
-template <typename ArrowType>
-inline Status ConvertListsLike(const PandasOptions& options, const ChunkedArray& data,
-                               PyObject** out_values) {
+Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& dense_type,
+                          std::vector<std::shared_ptr<Array>>* arrays) {
+  compute::FunctionContext ctx(pool);
+  compute::CastOptions options;
+
+  for (size_t i = 0; i < arrays->size(); ++i) {
+    std::shared_ptr<Array> out;
+    RETURN_NOT_OK(compute::Cast(&ctx, *(*arrays)[i], dense_type, options, &out));
+    (*arrays)[i] = out;
+  }
+  return Status::OK();
+}
+
+Status ConvertListsLike(const PandasOptions& options, const ChunkedArray& data,
+                        PyObject** out_values) {
   // Get column of underlying value arrays
   std::vector<std::shared_ptr<Array>> value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = checked_cast<const ListArray&>(*data.chunk(c));
     value_arrays.emplace_back(arr.values());
   }
-  auto value_type = checked_cast<const ListType&>(*data.type()).value_type();
+  const auto& list_type = checked_cast<const ListType&>(*data.type());
+  auto value_type = list_type.value_type();
+
+  if (value_type->id() == Type::DICTIONARY) {
+    // ARROW-6899: Convert dictionary-encoded children to dense instead of
+    // failing below. A more efficient conversion than this could be done later
+    auto dense_type = checked_cast<const DictionaryType&>(*value_type).value_type();
+    RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &value_arrays));
+    value_type = dense_type;
+  }
+
   auto flat_column = std::make_shared<ChunkedArray>(value_arrays, value_type);
   // TODO(ARROW-489): Currently we don't have a Python reference for single columns.
   //    Storing a reference to the whole Array would be too expensive.
@@ -916,39 +939,12 @@ struct ObjectWriterVisitor {
   }
 
   Status Visit(const ListType& type) {
-#define CONVERTLISTSLIKE_CASE(ArrowType, ArrowEnum) \
-  case Type::ArrowEnum:                             \
-    return ConvertListsLike<ArrowType>(options, data, out_values);
-
-    switch (type.value_type()->id()) {
-      CONVERTLISTSLIKE_CASE(BooleanType, BOOL)
-      CONVERTLISTSLIKE_CASE(UInt8Type, UINT8)
-      CONVERTLISTSLIKE_CASE(Int8Type, INT8)
-      CONVERTLISTSLIKE_CASE(UInt16Type, UINT16)
-      CONVERTLISTSLIKE_CASE(Int16Type, INT16)
-      CONVERTLISTSLIKE_CASE(UInt32Type, UINT32)
-      CONVERTLISTSLIKE_CASE(Int32Type, INT32)
-      CONVERTLISTSLIKE_CASE(UInt64Type, UINT64)
-      CONVERTLISTSLIKE_CASE(Int64Type, INT64)
-      CONVERTLISTSLIKE_CASE(Date32Type, DATE32)
-      CONVERTLISTSLIKE_CASE(Date64Type, DATE64)
-      CONVERTLISTSLIKE_CASE(Time32Type, TIME32)
-      CONVERTLISTSLIKE_CASE(Time64Type, TIME64)
-      CONVERTLISTSLIKE_CASE(TimestampType, TIMESTAMP)
-      CONVERTLISTSLIKE_CASE(DurationType, DURATION)
-      CONVERTLISTSLIKE_CASE(FloatType, FLOAT)
-      CONVERTLISTSLIKE_CASE(DoubleType, DOUBLE)
-      CONVERTLISTSLIKE_CASE(DecimalType, DECIMAL)
-      CONVERTLISTSLIKE_CASE(BinaryType, BINARY)
-      CONVERTLISTSLIKE_CASE(StringType, STRING)
-      CONVERTLISTSLIKE_CASE(ListType, LIST)
-      CONVERTLISTSLIKE_CASE(NullType, NA)
-      default: {
-        return Status::NotImplemented(
-            "Not implemented type for conversion from List to Pandas: ",
-            type.value_type()->ToString());
-      }
+    if (!ListTypeSupported(*type.value_type())) {
+      return Status::NotImplemented(
+          "Not implemented type for conversion from List to Pandas: ",
+          type.value_type()->ToString());
     }
+    return ConvertListsLike(options, data, out_values);
   }
 
   Status Visit(const StructType& type) {
@@ -1722,7 +1718,7 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::LIST: {
       auto list_type = std::static_pointer_cast<ListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
-        return Status::NotImplemented("Not implemented type for list in DataFrameBlock: ",
+        return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
                                       list_type->value_type()->ToString());
       }
       *output_type = PandasWriter::OBJECT;
