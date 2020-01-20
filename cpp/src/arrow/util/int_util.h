@@ -19,6 +19,7 @@
 #define ARROW_UTIL_INT_UTIL_H
 
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 
 #include "arrow/util/visibility.h"
@@ -81,6 +82,19 @@ template <typename SignedInt, typename Shift>
 SignedInt SafeLeftShift(SignedInt u, Shift shift) {
   using UnsignedInt = typename std::make_unsigned<SignedInt>::type;
   return static_cast<SignedInt>(static_cast<UnsignedInt>(u) << shift);
+}
+
+/// Detect multiplication overflow between *positive* integers
+template <typename Integer>
+bool HasMultiplyOverflow(Integer value, Integer multiplicand) {
+  return (multiplicand != 0 &&
+          value > std::numeric_limits<Integer>::max() / multiplicand);
+}
+
+/// Detect addition overflow between *positive* integers
+template <typename Integer>
+bool HasAdditionOverflow(Integer value, Integer addend) {
+  return (value > std::numeric_limits<Integer>::max() - addend);
 }
 
 /// Upcast an integer to the largest possible width (currently 64 bits)

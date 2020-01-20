@@ -241,8 +241,9 @@ std::string FormatMessageType(Message::Type type) {
 
 Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
                    std::unique_ptr<Message>* message) {
-  ARROW_CHECK_GT(static_cast<size_t>(metadata_length), sizeof(int32_t))
-      << "metadata_length should be at least 4";
+  if (static_cast<size_t>(metadata_length) < sizeof(int32_t)) {
+    return Status::Invalid("metadata_length should be at least 4");
+  }
 
   ARROW_ASSIGN_OR_RAISE(auto buffer, file->ReadAt(offset, metadata_length));
 
@@ -278,7 +279,7 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
     return Status::Invalid("Unexpected empty message in IPC file format");
   }
 
-  if (flatbuffer_length + prefix_size != metadata_length) {
+  if (flatbuffer_length != metadata_length - prefix_size) {
     return Status::Invalid("flatbuffer size ", flatbuffer_length,
                            " invalid. File offset: ", offset,
                            ", metadata length: ", metadata_length);

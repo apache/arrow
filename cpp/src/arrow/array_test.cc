@@ -309,6 +309,57 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
   }
 }
 
+TEST_F(TestArray, ValidateBuffersPrimitive) {
+  auto empty_buffer = std::make_shared<Buffer>("");
+  auto null_buffer = Buffer::FromString("\xff");
+  auto data_buffer = Buffer::FromString("123456789abcdef0");
+
+  auto data = ArrayData::Make(int64(), 2, {null_buffer, data_buffer});
+  auto array = MakeArray(data);
+  ASSERT_OK(array->ValidateFull());
+  data = ArrayData::Make(boolean(), 8, {null_buffer, data_buffer});
+  array = MakeArray(data);
+  ASSERT_OK(array->ValidateFull());
+
+  // Null buffer too small
+  data = ArrayData::Make(int64(), 2, {empty_buffer, data_buffer});
+  array = MakeArray(data);
+  ASSERT_RAISES(Invalid, array->Validate());
+  data = ArrayData::Make(boolean(), 9, {null_buffer, data_buffer});
+  array = MakeArray(data);
+  ASSERT_RAISES(Invalid, array->Validate());
+
+  // Data buffer too small
+  data = ArrayData::Make(int64(), 3, {null_buffer, data_buffer});
+  array = MakeArray(data);
+  ASSERT_RAISES(Invalid, array->Validate());
+
+  // Null buffer absent but null_count > 0
+  data = ArrayData::Make(int64(), 2, {nullptr, data_buffer}, 1);
+  array = MakeArray(data);
+  ASSERT_RAISES(Invalid, array->Validate());
+
+  //
+  // With offset > 0
+  //
+  data = ArrayData::Make(int64(), 1, {null_buffer, data_buffer}, kUnknownNullCount, 1);
+  array = MakeArray(data);
+  ASSERT_OK(array->ValidateFull());
+  data = ArrayData::Make(boolean(), 6, {null_buffer, data_buffer}, kUnknownNullCount, 2);
+  array = MakeArray(data);
+  ASSERT_OK(array->ValidateFull());
+
+  // Null buffer too small
+  data = ArrayData::Make(boolean(), 7, {null_buffer, data_buffer}, kUnknownNullCount, 2);
+  array = MakeArray(data);
+  ASSERT_RAISES(Invalid, array->Validate());
+
+  // Data buffer too small
+  data = ArrayData::Make(int64(), 2, {null_buffer, data_buffer}, kUnknownNullCount, 1);
+  array = MakeArray(data);
+  ASSERT_RAISES(Invalid, array->Validate());
+}
+
 // ----------------------------------------------------------------------
 // Null type tests
 

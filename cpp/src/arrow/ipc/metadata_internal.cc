@@ -161,19 +161,20 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
 
   const flatbuffers::Vector<int32_t>* fb_type_ids = union_data->typeIds();
   if (fb_type_ids == nullptr) {
-    // TODO validate that children.size() <= 127?
     for (int8_t i = 0; i < static_cast<int8_t>(children.size()); ++i) {
       type_codes.push_back(i);
     }
   } else {
     for (int32_t id : (*fb_type_ids)) {
-      // TODO(wesm): can these values exceed 127?
-      type_codes.push_back(static_cast<int8_t>(id));
+      const auto type_code = static_cast<int8_t>(id);
+      if (id != type_code) {
+        return Status::Invalid("union type id out of bounds");
+      }
+      type_codes.push_back(type_code);
     }
   }
 
-  *out = union_(children, type_codes, mode);
-  return Status::OK();
+  return UnionType::Make(children, type_codes, mode).Value(out);
 }
 
 #define INT_TO_FB_CASE(BIT_WIDTH, IS_SIGNED)            \
