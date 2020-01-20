@@ -140,10 +140,8 @@ jobs:
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        # to show the coredumps below
-        continue-on-error: true
         run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
-      - name:
+      - name: Show Coredump
         shell: bash
         if: failure()
         run: ci/scripts/util_coredump.sh
