@@ -44,7 +44,7 @@ jobs:
         # TODO(kou): Uncomment this when we resolve "ADD never use cache" problem.
         # docker-compose build $BUILD_IMAGE
         docker-compose run \
-          -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
+          -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
           -e PYTHON_VERSION="{{ python_version }}" \
           -e UNICODE_WIDTH="{{ unicode_width }}" \
           $BUILD_IMAGE

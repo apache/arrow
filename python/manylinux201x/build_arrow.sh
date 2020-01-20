@@ -46,7 +46,7 @@ export PYARROW_CMAKE_GENERATOR='Ninja'
 # ARROW-6860: Disabling ORC in wheels until Protobuf static linking issues
 # across projects is resolved
 export PYARROW_WITH_ORC=0
-
+export PYARROW_WITH_HDFS=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1

@@ -50,7 +50,7 @@ test:
     - pyarrow.parquet
     - pyarrow.plasma   # [unix]
     - pyarrow.fs
-    - pyarrow._s3
+    - pyarrow._s3fs
     - pyarrow._hdfs
 
   requires:
