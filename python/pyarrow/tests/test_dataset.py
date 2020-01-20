@@ -150,14 +150,13 @@ def test_dataset(dataset):
         ds.ScalarExpression(1)
     )
     scanner = dataset.new_scan().use_threads(True).filter(condition).finish()
-    result = scanner.to_table()
+    result = scanner.to_table().to_pydict()
 
-    assert result.to_pydict() == {
-        'i64': [1, 1],
-        'f64': [1., 1.],
-        'group': [1, 2],
-        'key': ['xxx', 'yyy']
-    }
+    # don't rely on the scanning order
+    assert result['i64'] == [1, 1]
+    assert result['f64'] == [1., 1.]
+    assert sorted(result['group']) == [1, 2]
+    assert sorted(result['key']) == ['xxx', 'yyy']
 
 
 def test_scanner_builder(dataset):

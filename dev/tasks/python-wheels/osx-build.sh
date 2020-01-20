@@ -122,10 +122,10 @@ function build_wheel {
     cmake -DARROW_BOOST_USE_SHARED=ON \
           -DARROW_BUILD_SHARED=ON \
           -DARROW_BUILD_TESTS=OFF \
+          -DARROW_DATASET=ON \
           -DARROW_DEPENDENCY_SOURCE=BUNDLED \
           -DARROW_FLIGHT=ON \
           -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
-          -DARROW_BOOST_USE_SHARED=ON \
           -DARROW_JEMALLOC=ON \
           -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \
@@ -140,17 +140,17 @@ function build_wheel {
           -DARROW_WITH_SNAPPY=ON \
           -DARROW_WITH_ZLIB=ON \
           -DARROW_WITH_ZSTD=ON \
-          -DBOOST_SOURCE=SYSTEM \
-          -DBOOST_ROOT="$arrow_boost_dist" \
           -DBoost_NAMESPACE=arrow_boost \
           -DBoost_NO_BOOST_CMAKE=ON \
+          -DBOOST_ROOT="$arrow_boost_dist" \
+          -DBOOST_SOURCE=SYSTEM \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+          -DgRPC_SOURCE=SYSTEM \
           -DLLVM_SOURCE=SYSTEM \
           -DMAKE=make \
           -DOPENSSL_USE_STATIC_LIBS=ON \
           -DProtobuf_SOURCE=SYSTEM \
-          -DgRPC_SOURCE=SYSTEM \
           ..
     make -j$(sysctl -n hw.logicalcpu)
     make install
@@ -164,6 +164,7 @@ function build_wheel {
     unset ARROW_HOME
     unset PARQUET_HOME
 
+    export PYARROW_WITH_DATASET=1
     export PYARROW_WITH_FLIGHT=1
     export PYARROW_WITH_PLASMA=1
     export PYARROW_WITH_PARQUET=1
@@ -221,6 +222,7 @@ import pyarrow.parquet
 import pyarrow.plasma
 
 if sys.version_info.major > 2:
+    import pyarrow.dataset
     import pyarrow.flight
     import pyarrow.gandiva
 "

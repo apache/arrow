@@ -45,6 +45,7 @@ test:
   imports:
     - pyarrow
     - pyarrow.fs
+    - pyarrow.dataset  # [not py==27]
     - pyarrow.flight   # [not py==27]
     - pyarrow.gandiva  # [not py==27]
     - pyarrow.orc      # [unix]
