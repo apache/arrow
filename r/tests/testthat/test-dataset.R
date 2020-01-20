@@ -157,6 +157,7 @@ test_that("IPC/Arrow format data", {
 })
 
 test_that("Dataset with multiple sources", {
+  skip("https://issues.apache.org/jira/browse/ARROW-7653")
   ds <- open_dataset(list(
     open_source(dataset_dir, format = "parquet", partitioning = "part"),
     open_source(ipc_dir, format = "arrow", partitioning = "part")

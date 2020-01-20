@@ -15,6 +15,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' @usage NULL
+#' @format NULL
+#' @rdname Source
+#' @export
+DatasetFactory <- R6Class("DatasetFactory", inherit = Object,
+  public = list(
+    Finish = function(schema = NULL) {
+      if (is.null(schema)) {
+        shared_ptr(Dataset, dataset___DFactory__Finish1(self))
+      } else {
+        shared_ptr(Dataset, dataset___DFactory__Finish2(self, schema))
+      }
+    },
+    Inspect = function() shared_ptr(Schema, dataset___DFactory__Inspect(self))
+  )
+)
+DatasetFactory$create <- function(sources, partitioning = hive_partition(), ...) {
+  if (is.character(sources)) {
+    sources <- list(open_source(sources, partitioning = partitioning, ...))
+  }
+  assert_is_list_of(sources, "SourceFactory")
+  shared_ptr(DatasetFactory, dataset___DFactory__Make(sources))
+}
+
 #' Open a multi-file dataset
 #'
 #' Arrow Datasets allow you to query against data that has been split across
@@ -47,16 +71,8 @@
 #' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
 open_dataset <- function(sources, schema = NULL, partitioning = hive_partition(), ...) {
-  if (is.character(sources)) {
-    sources <- list(open_source(sources, partitioning = partitioning, ...))
-  }
-  assert_is_list_of(sources, "SourceFactory")
-  if (is.null(schema)) {
-    # TODO: there should be a DatasetFactory
-    # https://jira.apache.org/jira/browse/ARROW-7380
-    schema <- sources[[1]]$Inspect()
-  }
-  Dataset$create(map(sources, ~.$Finish(schema)), schema)
+  factory <- DatasetFactory$create(sources, partitioning = partitioning, ...)
+  factory$Finish(schema = schema)
 }
 
 #' Multi-file datasets
