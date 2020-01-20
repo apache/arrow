@@ -159,3 +159,44 @@ jobs:
           docker login -u ${{ secrets.DOCKERHUB_USER }} \
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push ubuntu-cpp-cmake32
+
+  oss-fuzz:
+    name: OSS-Fuzz build check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: [18.04]
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          path: arrow
+          submodules: true
+      - name: Checkout OSS-Fuzz
+        uses: actions/checkout@v1
+        with:
+          path: oss-fuzz
+          repository: google/oss-fuzz
+          ref: master
+      - name: Install dependencies
+        shell: bash
+        working-directory: ../oss-fuzz
+        run: |
+          python3 -m pip install setuptools
+          python3 -m pip install -r infra/travis/requirements.txt
+      - name: Build image
+        shell: bash
+        working-directory: ../oss-fuzz
+        run: |
+          python3 infra/helper.py build_image --pull arrow
+      - name: Build fuzzers
+        shell: bash
+        working-directory: ../oss-fuzz
+        run: |
+          python3 infra/helper.py build_fuzzers arrow `pwd`/../arrow
+      - name: Check build
+        shell: bash
+        working-directory: ../oss-fuzz
+        run: |
+          python3 infra/helper.py check_build arrow
