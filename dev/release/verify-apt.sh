@@ -16,7 +16,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
 
 set -exu
 
@@ -39,9 +38,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 apt update
 apt install -y -V \
-  apt-transport-https \
   curl \
-  gnupg \
   lsb-release
 
 code_name="$(lsb_release --codename --short)"
@@ -51,13 +48,12 @@ if [ "${IS_RC}" = "yes" ]; then
   bintray_base_url="${bintray_base_url}-rc"
 fi
 
-have_signed_by=yes
 have_flight=yes
 have_python=yes
 have_gandiva=yes
 need_llvm_apt=no
-case "${distribution}-${code_name}" in
-  debian-stretch)
+case "${distribution}-${code_name}-$(arch)" in
+  debian-stretch-*)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
@@ -67,47 +63,45 @@ deb http://deb.debian.org/debian ${code_name}-backports main
 APT_LINE
     need_llvm_apt=yes
     ;;
-  debian-buster)
+  debian-buster-*)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
       /etc/apt/sources.list
     ;;
-  ubuntu-xenial)
-    have_signed_by=no
+  ubuntu-xenial-x86_64)
     need_llvm_apt=yes
     have_flight=no
     ;;
-  ubuntu-trusty)
-    have_signed_by=no
+  ubuntu-xenial-aarch64)
     have_flight=no
-    have_python=no
     have_gandiva=no
     ;;
 esac
 
-if [ "${have_signed_by}" = "yes" ]; then
-  keyring_path="/usr/share/keyrings/apache-arrow-keyring.gpg"
-  curl \
-    --output "${keyring_path}" \
-    "${bintray_base_url}/apache-arrow-keyring.gpg"
-  cat <<APT_LINE > /etc/apt/sources.list.d/apache-arrow.list
-deb [arch=amd64 signed-by=${keyring_path}] ${bintray_base_url}/ ${code_name} main
-deb-src [signed-by=${keyring_path}] ${bintray_base_url}/ ${code_name} main
-APT_LINE
+keyring_archive_base_name="apache-arrow-archive-keyring-latest-${code_name}.deb"
+curl \
+  --output "${keyring_archive_base_name}" \
+  "${bintray_base_url}/${keyring_archive_base_name}"
+apt install -y -V "./${keyring_archive_base_name}"
+if [ "${BINTRAY_REPOSITORY}" = "apache/arrow" ]; then
+  if [ "${IS_RC}" = "yes" ]; then
+    sed \
+      -i"" \
+      -e "s,^URIs: \\(.*\\)/,URIs: \\1-rc/,g" \
+      /etc/apt/sources.list.d/apache-arrow.sources
+  fi
 else
-  curl https://dist.apache.org/repos/dist/dev/arrow/KEYS | apt-key add -
-  cat <<APT_LINE > /etc/apt/sources.list.d/apache-arrow.list
-deb [arch=amd64] ${bintray_base_url}/ ${code_name} main
-deb-src ${bintray_base_url}/ ${code_name} main
-APT_LINE
+  sed \
+    -i"" \
+    -e "s,^URIs: .*,URIs: ${bintray_base_url}/,g" \
+    /etc/apt/sources.list.d/apache-arrow.sources
 fi
 
 if [ "${need_llvm_apt}" = "yes" ]; then
   curl https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
   cat <<APT_LINE > /etc/apt/sources.list.d/llvm.list
 deb http://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-7 main
-deb-src http://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-7 main
 APT_LINE
 fi
 

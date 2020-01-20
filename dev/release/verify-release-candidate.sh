@@ -129,10 +129,26 @@ test_binary() {
 
 test_apt() {
   for target in "debian:stretch" \
+                "arm64v8/debian:stretch" \
                 "debian:buster" \
+                "arm64v8/debian:buster" \
                 "ubuntu:xenial" \
+                "arm64v8/ubuntu:xenial" \
                 "ubuntu:bionic" \
-                "ubuntu:disco"; do
+                "arm64v8/ubuntu:bionic" \
+                "ubuntu:disco" \
+                "arm64v8/ubuntu:disco" \
+                "ubuntu:eoan" \
+                "arm64v8/ubuntu:eoan"; do \
+    case "${target}" in
+      arm64v8/*)
+        if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
+          : # OK
+        else
+          continue
+        fi
+        ;;
+    esac
     if ! docker run -v "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
@@ -147,7 +163,19 @@ test_apt() {
 
 test_yum() {
   for target in "centos:6" \
-                "centos:7"; do
+                "centos:7" \
+                "arm64v8/centos:7" \
+                "centos:8" \
+                "arm64v8/centos:8"; do
+    case "${target}" in
+      arm64v8/*)
+        if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
+          : # OK
+        else
+          continue
+        fi
+        ;;
+    esac
     if ! docker run -v "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \

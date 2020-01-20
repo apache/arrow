@@ -856,6 +856,7 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -873,6 +874,13 @@ tasks:
       - libarrow-python16_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow16-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow16_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib16-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib16_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva16-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva16_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -971,6 +979,7 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -988,6 +997,13 @@ tasks:
       - libarrow-python16_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow16-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow16_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib16-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib16_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva16-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva16_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1073,7 +1089,6 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1090,11 +1105,6 @@ tasks:
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python16_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow16_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib16_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva16_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
