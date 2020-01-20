@@ -59,19 +59,24 @@ struct Footer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_VERSION = 4,
     VT_SCHEMA = 6,
     VT_DICTIONARIES = 8,
-    VT_RECORDBATCHES = 10
+    VT_RECORDBATCHES = 10,
+    VT_CUSTOM_METADATA = 12
   };
-  org::apache::arrow::flatbuf::MetadataVersion version() const {
-    return static_cast<org::apache::arrow::flatbuf::MetadataVersion>(GetField<int16_t>(VT_VERSION, 0));
+  MetadataVersion version() const {
+    return static_cast<MetadataVersion>(GetField<int16_t>(VT_VERSION, 0));
   }
-  const org::apache::arrow::flatbuf::Schema *schema() const {
-    return GetPointer<const org::apache::arrow::flatbuf::Schema *>(VT_SCHEMA);
+  const Schema *schema() const {
+    return GetPointer<const Schema *>(VT_SCHEMA);
   }
-  const flatbuffers::Vector<const org::apache::arrow::flatbuf::Block *> *dictionaries() const {
-    return GetPointer<const flatbuffers::Vector<const org::apache::arrow::flatbuf::Block *> *>(VT_DICTIONARIES);
+  const flatbuffers::Vector<const Block *> *dictionaries() const {
+    return GetPointer<const flatbuffers::Vector<const Block *> *>(VT_DICTIONARIES);
   }
-  const flatbuffers::Vector<const org::apache::arrow::flatbuf::Block *> *recordBatches() const {
-    return GetPointer<const flatbuffers::Vector<const org::apache::arrow::flatbuf::Block *> *>(VT_RECORDBATCHES);
+  const flatbuffers::Vector<const Block *> *recordBatches() const {
+    return GetPointer<const flatbuffers::Vector<const Block *> *>(VT_RECORDBATCHES);
+  }
+  /// User-defined metadata
+  const flatbuffers::Vector<flatbuffers::Offset<KeyValue>> *custom_metadata() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<KeyValue>> *>(VT_CUSTOM_METADATA);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -82,6 +87,9 @@ struct Footer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(dictionaries()) &&
            VerifyOffset(verifier, VT_RECORDBATCHES) &&
            verifier.VerifyVector(recordBatches()) &&
+           VerifyOffset(verifier, VT_CUSTOM_METADATA) &&
+           verifier.VerifyVector(custom_metadata()) &&
+           verifier.VerifyVectorOfTables(custom_metadata()) &&
            verifier.EndTable();
   }
 };
@@ -89,17 +97,20 @@ struct Footer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct FooterBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_version(org::apache::arrow::flatbuf::MetadataVersion version) {
+  void add_version(MetadataVersion version) {
     fbb_.AddElement<int16_t>(Footer::VT_VERSION, static_cast<int16_t>(version), 0);
   }
-  void add_schema(flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema) {
+  void add_schema(flatbuffers::Offset<Schema> schema) {
     fbb_.AddOffset(Footer::VT_SCHEMA, schema);
   }
-  void add_dictionaries(flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Block *>> dictionaries) {
+  void add_dictionaries(flatbuffers::Offset<flatbuffers::Vector<const Block *>> dictionaries) {
     fbb_.AddOffset(Footer::VT_DICTIONARIES, dictionaries);
   }
-  void add_recordBatches(flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Block *>> recordBatches) {
+  void add_recordBatches(flatbuffers::Offset<flatbuffers::Vector<const Block *>> recordBatches) {
     fbb_.AddOffset(Footer::VT_RECORDBATCHES, recordBatches);
+  }
+  void add_custom_metadata(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<KeyValue>>> custom_metadata) {
+    fbb_.AddOffset(Footer::VT_CUSTOM_METADATA, custom_metadata);
   }
   explicit FooterBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -115,11 +126,13 @@ struct FooterBuilder {
 
 inline flatbuffers::Offset<Footer> CreateFooter(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion_V1,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0,
-    flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Block *>> dictionaries = 0,
-    flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Block *>> recordBatches = 0) {
+    MetadataVersion version = MetadataVersion::V1,
+    flatbuffers::Offset<Schema> schema = 0,
+    flatbuffers::Offset<flatbuffers::Vector<const Block *>> dictionaries = 0,
+    flatbuffers::Offset<flatbuffers::Vector<const Block *>> recordBatches = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<KeyValue>>> custom_metadata = 0) {
   FooterBuilder builder_(_fbb);
+  builder_.add_custom_metadata(custom_metadata);
   builder_.add_recordBatches(recordBatches);
   builder_.add_dictionaries(dictionaries);
   builder_.add_schema(schema);
@@ -129,18 +142,21 @@ inline flatbuffers::Offset<Footer> CreateFooter(
 
 inline flatbuffers::Offset<Footer> CreateFooterDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion_V1,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0,
-    const std::vector<org::apache::arrow::flatbuf::Block> *dictionaries = nullptr,
-    const std::vector<org::apache::arrow::flatbuf::Block> *recordBatches = nullptr) {
-  auto dictionaries__ = dictionaries ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::Block>(*dictionaries) : 0;
-  auto recordBatches__ = recordBatches ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::Block>(*recordBatches) : 0;
+    MetadataVersion version = MetadataVersion::V1,
+    flatbuffers::Offset<Schema> schema = 0,
+    const std::vector<Block> *dictionaries = nullptr,
+    const std::vector<Block> *recordBatches = nullptr,
+    const std::vector<flatbuffers::Offset<KeyValue>> *custom_metadata = nullptr) {
+  auto dictionaries__ = dictionaries ? _fbb.CreateVectorOfStructs<Block>(*dictionaries) : 0;
+  auto recordBatches__ = recordBatches ? _fbb.CreateVectorOfStructs<Block>(*recordBatches) : 0;
+  auto custom_metadata__ = custom_metadata ? _fbb.CreateVector<flatbuffers::Offset<KeyValue>>(*custom_metadata) : 0;
   return org::apache::arrow::flatbuf::CreateFooter(
       _fbb,
       version,
       schema,
       dictionaries__,
-      recordBatches__);
+      recordBatches__,
+      custom_metadata__);
 }
 
 inline const org::apache::arrow::flatbuf::Footer *GetFooter(const void *buf) {

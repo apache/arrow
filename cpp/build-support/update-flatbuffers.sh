@@ -25,6 +25,7 @@ SOURCE_DIR=$CWD/../src
 FORMAT_DIR=$CWD/../../format
 
 flatc -c -o $SOURCE_DIR/generated \
+      --scoped-enums \
       $FORMAT_DIR/Message.fbs \
       $FORMAT_DIR/File.fbs \
       $FORMAT_DIR/Schema.fbs \

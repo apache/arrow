@@ -156,7 +156,7 @@ class ARROW_EXPORT TableMetadata {
 
 static inline flatbuffers::Offset<fbs::PrimitiveArray> GetPrimitiveArray(
     FBB& fbb, const ArrayMetadata& array) {
-  return fbs::CreatePrimitiveArray(fbb, array.type, fbs::Encoding_PLAIN, array.offset,
+  return fbs::CreatePrimitiveArray(fbb, array.type, fbs::Encoding::PLAIN, array.offset,
                                    array.length, array.null_count, array.total_bytes);
 }
 
@@ -171,11 +171,11 @@ static inline TimeUnit::type FromFlatbufferEnum(fbs::TimeUnit unit) {
 // Convert Feather enums to Flatbuffer enums
 
 const fbs::TypeMetadata COLUMN_TYPE_ENUM_MAPPING[] = {
-    fbs::TypeMetadata_NONE,               // PRIMITIVE
-    fbs::TypeMetadata_CategoryMetadata,   // CATEGORY
-    fbs::TypeMetadata_TimestampMetadata,  // TIMESTAMP
-    fbs::TypeMetadata_DateMetadata,       // DATE
-    fbs::TypeMetadata_TimeMetadata        // TIME
+    fbs::TypeMetadata::NONE,               // PRIMITIVE
+    fbs::TypeMetadata::CategoryMetadata,   // CATEGORY
+    fbs::TypeMetadata::TimestampMetadata,  // TIMESTAMP
+    fbs::TypeMetadata::DateMetadata,       // DATE
+    fbs::TypeMetadata::TimeMetadata        // TIME
 };
 
 static inline fbs::TypeMetadata ToFlatbufferEnum(ColumnType::type column_type) {

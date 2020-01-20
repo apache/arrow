@@ -91,7 +91,7 @@ TEST(TestMessage, SerializeTo) {
 
   flatbuffers::FlatBufferBuilder fbb;
   fbb.Finish(flatbuf::CreateMessage(fbb, internal::kCurrentMetadataVersion,
-                                    flatbuf::MessageHeader_RecordBatch, 0 /* header */,
+                                    flatbuf::MessageHeader::RecordBatch, 0 /* header */,
                                     body_length));
 
   std::shared_ptr<Buffer> metadata;
