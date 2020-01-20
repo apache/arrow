@@ -544,7 +544,10 @@ static BasicDecimal128 ModifyScaleAndPrecision(const BasicDecimalScalar128& x,
     return x.value().IncreaseScaleBy(delta_scale);
   } else {
     // Do not do any rounding, that is handled by the caller.
-    return x.value().ReduceScaleBy(-delta_scale, false);
+    auto result = x.value().ReduceScaleBy(-delta_scale, false);
+    DECIMAL_OVERFLOW_IF(BasicDecimal128::Abs(result) > GetMaxValue(out_precision),
+                        overflow);
+    return result;
   }
 }
 
