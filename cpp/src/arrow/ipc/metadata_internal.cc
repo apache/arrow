@@ -1233,7 +1233,7 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
     }
   }
 
-  if (tensor->strides()->size() > 0) {
+  if (tensor->strides() && tensor->strides()->size() > 0) {
     for (int i = 0; i < ndim; ++i) {
       strides->push_back(tensor->strides()->Get(i));
     }

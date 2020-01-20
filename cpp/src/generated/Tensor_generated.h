@@ -169,6 +169,7 @@ struct Tensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<TensorDim>> *>(VT_SHAPE);
   }
   /// Non-negative byte offsets to advance one value cell along each dimension
+  /// If omitted, default to row-major order (C-like).
   const flatbuffers::Vector<int64_t> *strides() const {
     return GetPointer<const flatbuffers::Vector<int64_t> *>(VT_STRIDES);
   }
@@ -179,14 +180,14 @@ struct Tensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_TYPE_TYPE) &&
-           VerifyOffset(verifier, VT_TYPE) &&
+           VerifyOffsetRequired(verifier, VT_TYPE) &&
            VerifyType(verifier, type(), type_type()) &&
-           VerifyOffset(verifier, VT_SHAPE) &&
+           VerifyOffsetRequired(verifier, VT_SHAPE) &&
            verifier.VerifyVector(shape()) &&
            verifier.VerifyVectorOfTables(shape()) &&
            VerifyOffset(verifier, VT_STRIDES) &&
            verifier.VerifyVector(strides()) &&
-           VerifyField<Buffer>(verifier, VT_DATA) &&
+           VerifyFieldRequired<Buffer>(verifier, VT_DATA) &&
            verifier.EndTable();
   }
 };
@@ -301,6 +302,9 @@ struct TensorBuilder {
   flatbuffers::Offset<Tensor> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Tensor>(end);
+    fbb_.Required(o, Tensor::VT_TYPE);
+    fbb_.Required(o, Tensor::VT_SHAPE);
+    fbb_.Required(o, Tensor::VT_DATA);
     return o;
   }
 };
