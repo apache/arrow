@@ -173,6 +173,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
 
   @Override
   public Boolean visit(DenseUnionVector left, Range range) {
+    // TODO: support dense union
     throw new UnsupportedOperationException();
   }
 

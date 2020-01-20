@@ -35,6 +35,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
+import javax.lang.model.type.UnionType;
+
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/DenseUnionVector.java" />
 
@@ -117,8 +119,8 @@ public class DenseUnionVector implements FieldVector {
   private static final byte TYPE_WIDTH = 1;
   public static final byte OFFSET_WIDTH = 4;
 
-  private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(false /*nullable*/,
-          ArrowType.Struct.INSTANCE, null /*dictionary*/, null /*metadata*/);
+  private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(/*nullable*/ false,
+          ArrowType.Struct.INSTANCE, /*dictionary*/ null, /*metadata*/ null);
 
   public static DenseUnionVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = FieldType.nullable(new ArrowType.Union(
@@ -164,7 +166,8 @@ public class DenseUnionVector implements FieldVector {
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     if (ownBuffers.size() != 3) {
-      throw new IllegalArgumentException("Illegal buffer count, expected " + 2 + ", got: " + ownBuffers.size());
+      throw new IllegalArgumentException("Illegal buffer count for dense union with type " + getField().getFieldType() +
+          ", expected " + 2 + ", got: " + ownBuffers.size());
     }
 
     ArrowBuf buffer = ownBuffers.get(0);
@@ -521,7 +524,7 @@ public class DenseUnionVector implements FieldVector {
     if (this.fieldType == null) {
       fieldType = FieldType.nullable(new ArrowType.Union(Dense, typeIds));
     } else {
-      final UnionMode mode = ((ArrowType.Union) this.fieldType.getType()).getMode();
+      final UnionMode mode = UnionMode.Dense;
       fieldType = new FieldType(this.fieldType.isNullable(), new ArrowType.Union(mode, typeIds),
               this.fieldType.getDictionary(), this.fieldType.getMetadata());
     }
@@ -769,8 +772,7 @@ public class DenseUnionVector implements FieldVector {
 
   public void get(int index, DenseUnionHolder holder) {
     FieldReader reader = new DenseUnionReader(DenseUnionVector.this);
-    int offset = offsetBuffer.getInt(index * OFFSET_WIDTH);
-    reader.setPosition(offset);
+    reader.setPosition(index);
     holder.reader = reader;
   }
 

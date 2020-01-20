@@ -196,10 +196,10 @@ public class DenseUnionReader extends AbstractFieldReader {
   @Override
   public void setPosition(int index) {
     super.setPosition(index);
-    for (BaseReader reader : readers) {
-      if (reader != null) {
-        reader.setPosition(index);
-      }
+    byte typeId = data.getTypeId(index);
+    if (readers[typeId] != null) {
+      int offset = data.getOffset(index);
+      readers[typeId].setPosition(offset);
     }
   }
 
