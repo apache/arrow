@@ -969,6 +969,11 @@ class ARROW_EXPORT UnionType : public NestedType {
             const std::vector<int8_t>& type_codes,
             UnionMode::type mode = UnionMode::SPARSE);
 
+  // A constructor variant that validates input parameters
+  static Result<std::shared_ptr<DataType>> Make(
+      const std::vector<std::shared_ptr<Field>>& fields,
+      const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+
   DataTypeLayout layout() const override;
 
   std::string ToString() const override;
@@ -989,6 +994,10 @@ class ARROW_EXPORT UnionType : public NestedType {
 
  private:
   std::string ComputeFingerprint() const override;
+
+  static Status ValidateParameters(const std::vector<std::shared_ptr<Field>>& fields,
+                                   const std::vector<int8_t>& type_codes,
+                                   UnionMode::type mode);
 
   UnionMode::type mode_;
 
@@ -1305,10 +1314,10 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   bool ordered() const { return ordered_; }
 
+ protected:
   static Status ValidateParameters(const DataType& index_type,
                                    const DataType& value_type);
 
- protected:
   std::string ComputeFingerprint() const override;
 
   // Must be an integer type (not currently checked)

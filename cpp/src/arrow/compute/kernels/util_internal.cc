@@ -217,21 +217,30 @@ Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* o
 
   // Handle validity bitmap
   output->null_count = input.GetNullCount();
-  if (input.offset != 0 && output->null_count > 0) {
-    DCHECK(input.buffers[0]);
-    const Buffer& validity_bitmap = *input.buffers[0];
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(ctx->Allocate(BitUtil::BytesForBits(length), &buffer));
-    // Per spec all trailing bits should indicate nullness, since
-    // the last byte might only be partially set, we ensure the
-    // remaining bit is set.
-    ZeroLastByte(buffer.get());
-    buffer->ZeroPadding();
-    internal::CopyBitmap(validity_bitmap.data(), input.offset, length,
-                         buffer->mutable_data(), 0 /* destination offset */);
-    output->buffers[0] = std::move(buffer);
-  } else if (output->null_count > 0) {
-    output->buffers[0] = input.buffers[0];
+  if (output->null_count > 0) {
+    if (input.buffers[0] == nullptr) {
+      // Input was null, need to allocate new null bitmap
+      DCHECK_EQ(input.type->id(), Type::NA);
+      std::shared_ptr<Buffer> buffer;
+      RETURN_NOT_OK(ctx->Allocate(BitUtil::BytesForBits(length), &buffer));
+      memset(buffer->mutable_data(), 0, static_cast<size_t>(buffer->size()));
+      output->buffers[0] = std::move(buffer);
+    } else if (input.offset != 0) {
+      // Realign input null bitmap
+      const Buffer& validity_bitmap = *input.buffers[0];
+      std::shared_ptr<Buffer> buffer;
+      RETURN_NOT_OK(ctx->Allocate(BitUtil::BytesForBits(length), &buffer));
+      // Per spec all trailing bits should indicate nullness, since
+      // the last byte might only be partially set, we ensure the
+      // remaining bit is set.
+      ZeroLastByte(buffer.get());
+      internal::CopyBitmap(validity_bitmap.data(), input.offset, length,
+                           buffer->mutable_data(), 0 /* destination offset */);
+      output->buffers[0] = std::move(buffer);
+    } else {
+      // Use input null bitmap as-is
+      output->buffers[0] = input.buffers[0];
+    }
   }
   return Status::OK();
 }

@@ -18,6 +18,7 @@
 #include "arrow/array/validate.h"
 
 #include "arrow/array.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -208,16 +209,19 @@ struct ValidateArrayVisitor {
     // First validate offsets, to make sure the accesses below are valid
     RETURN_NOT_OK(ValidateOffsets(array));
 
-    const auto first_offset = array.value_offset(0);
-    const auto last_offset = array.value_offset(array.length());
-    const auto data_extent = last_offset - first_offset;
-    if (data_extent > 0 && !array.values()) {
-      return Status::Invalid("values is null");
-    }
-    const auto values_length = array.values()->length();
-    if (values_length < data_extent) {
-      return Status::Invalid("Length spanned by list offsets (", data_extent,
-                             ") larger than values array (length ", values_length, ")");
+    // An empty list array can have 0 offsets
+    if (array.length() > 0) {
+      const auto first_offset = array.value_offset(0);
+      const auto last_offset = array.value_offset(array.length());
+      const auto data_extent = last_offset - first_offset;
+      if (data_extent > 0 && !array.values()) {
+        return Status::Invalid("values is null");
+      }
+      const auto values_length = array.values()->length();
+      if (values_length < data_extent) {
+        return Status::Invalid("Length spanned by list offsets (", data_extent,
+                               ") larger than values array (length ", values_length, ")");
+      }
     }
 
     const Status child_valid = ValidateArray(*array.values());
@@ -238,6 +242,7 @@ struct ValidateArrayVisitor {
       }
       return Status::OK();
     }
+    // An empty list array can have 0 offsets
     auto required_offsets =
         (array.length() > 0) ? array.length() + array.offset() + 1 : 0;
     if (value_offsets->size() / static_cast<int>(sizeof(offset_type)) <
@@ -266,16 +271,43 @@ Status ValidateArray(const Array& array) {
     return Status::Invalid("Array length is negative");
   }
 
-  if (array.null_count() > array.length()) {
-    return Status::Invalid("Null count exceeds array length");
-  }
-
   if (data.buffers.size() != layout.bit_widths.size()) {
     return Status::Invalid("Expected ", layout.bit_widths.size(),
                            " buffers in array "
                            "of type ",
                            type.ToString(), ", got ", data.buffers.size());
   }
+  for (int i = 0; i < static_cast<int>(data.buffers.size()); ++i) {
+    const auto& buffer = data.buffers[i];
+    const auto bit_width = layout.bit_widths[i];
+    if (buffer == nullptr || bit_width <= 0) {
+      continue;
+    }
+    if (internal::HasAdditionOverflow(array.length(), array.offset()) ||
+        internal::HasMultiplyOverflow(array.length() + array.offset(), bit_width)) {
+      return Status::Invalid("Array of type ", type.ToString(),
+                             " has impossibly large length and offset");
+    }
+    const auto min_buffer_size =
+        BitUtil::BytesForBits(bit_width * (array.length() + array.offset()));
+    if (buffer->size() < min_buffer_size) {
+      return Status::Invalid("Buffer #", i, " too small in array of type ",
+                             type.ToString(), " and length ", array.length(),
+                             ": expected at least ", min_buffer_size, " byte(s), got ",
+                             buffer->size());
+    }
+  }
+  if (type.id() != Type::NA && data.null_count > 0 && data.buffers[0] == nullptr) {
+    return Status::Invalid("Array of type ", type.ToString(), " has ", data.null_count,
+                           " nulls but no null bitmap");
+  }
+
+  // Check null_count() *after* validating the buffer sizes, to avoid
+  // reading out of bounds.
+  if (array.null_count() > array.length()) {
+    return Status::Invalid("Null count exceeds array length");
+  }
+
   if (type.id() != Type::EXTENSION) {
     if (data.child_data.size() != static_cast<size_t>(type.num_children())) {
       return Status::Invalid("Expected ", type.num_children(),
@@ -424,11 +456,11 @@ struct ValidateArrayDataVisitor {
 
   template <typename ArrayType>
   Status ValidateOffsets(const ArrayType& array, int64_t offset_limit) {
-    if (array.value_offsets() == nullptr) {
-      if (array.length() != 0) {
-        return Status::Invalid("non-empty array but value_offsets_ is null");
-      }
+    if (array.length() == 0) {
       return Status::OK();
+    }
+    if (array.value_offsets() == nullptr) {
+      return Status::Invalid("non-empty array but value_offsets_ is null");
     }
 
     auto prev_offset = array.value_offset(0);

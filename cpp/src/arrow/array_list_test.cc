@@ -408,6 +408,9 @@ class TestListArray : public TestBuilder {
     auto empty_values = ArrayFromJSON(int16(), "[]");
     auto values = ArrayFromJSON(int16(), "[1, 2, 3, 4, 5, 6, 7]");
 
+    // An empty list array can have omitted or 0-length offsets
+    ASSERT_OK(ValidateOffsets(0, {}, empty_values));
+
     ASSERT_OK(ValidateOffsets(0, {0}, empty_values));
     ASSERT_OK(ValidateOffsets(1, {0, 7}, values));
     ASSERT_OK(ValidateOffsets(2, {0, 4, 7}, values));

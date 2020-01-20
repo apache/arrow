@@ -622,7 +622,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
   RecordBatchFileReaderImpl() : file_(NULLPTR), footer_offset_(0), footer_(NULLPTR) {}
 
   Status ReadFooter() {
-    int magic_size = static_cast<int>(strlen(kArrowMagicBytes));
+    const int32_t magic_size = static_cast<int>(strlen(kArrowMagicBytes));
 
     if (footer_offset_ <= magic_size * 2 + 4) {
       return Status::Invalid("File is too small: ", footer_offset_);
@@ -643,7 +643,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
 
     int32_t footer_length = *reinterpret_cast<const int32_t*>(buffer->data());
 
-    if (footer_length <= 0 || footer_length + magic_size * 2 + 4 > footer_offset_) {
+    if (footer_length <= 0 || footer_length > footer_offset_ - magic_size * 2 - 4) {
       return Status::Invalid("File is smaller than indicated metadata size");
     }
 
@@ -679,9 +679,11 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
   }
 
   Status ReadMessageFromBlock(const FileBlock& block, std::unique_ptr<Message>* out) {
-    DCHECK(BitUtil::IsMultipleOf8(block.offset));
-    DCHECK(BitUtil::IsMultipleOf8(block.metadata_length));
-    DCHECK(BitUtil::IsMultipleOf8(block.body_length));
+    if (!BitUtil::IsMultipleOf8(block.offset) ||
+        !BitUtil::IsMultipleOf8(block.metadata_length) ||
+        !BitUtil::IsMultipleOf8(block.body_length)) {
+      return Status::Invalid("Unaligned block in IPC file");
+    }
 
     RETURN_NOT_OK(ReadMessage(block.offset, block.metadata_length, file_, out));
 

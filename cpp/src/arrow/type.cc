@@ -351,16 +351,33 @@ UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
       mode_(mode),
       type_codes_(type_codes),
       child_ids_(kMaxTypeCode + 1, kInvalidChildId) {
-  DCHECK_LE(fields.size(), type_codes.size()) << "union field with unknown type id";
-  DCHECK_GE(fields.size(), type_codes.size())
-      << "type id provided without corresponding union field";
+  DCHECK_OK(ValidateParameters(fields, type_codes, mode));
   children_ = fields;
   for (int child_id = 0; child_id < static_cast<int>(type_codes_.size()); ++child_id) {
     const auto type_code = type_codes_[child_id];
-    DCHECK_GE(type_code, 0);
-    DCHECK_LE(type_code, kMaxTypeCode);
     child_ids_[type_code] = child_id;
   }
+}
+
+Result<std::shared_ptr<DataType>> UnionType::Make(
+    const std::vector<std::shared_ptr<Field>>& fields,
+    const std::vector<int8_t>& type_codes, UnionMode::type mode) {
+  RETURN_NOT_OK(ValidateParameters(fields, type_codes, mode));
+  return std::make_shared<UnionType>(fields, type_codes, mode);
+}
+
+Status UnionType::ValidateParameters(const std::vector<std::shared_ptr<Field>>& fields,
+                                     const std::vector<int8_t>& type_codes,
+                                     UnionMode::type mode) {
+  if (fields.size() != type_codes.size()) {
+    return Status::Invalid("Union should get the same number of fields as type codes");
+  }
+  for (const auto type_code : type_codes) {
+    if (type_code < 0 || type_code > kMaxTypeCode) {
+      return Status::Invalid("Union type code out of bounds");
+    }
+  }
+  return Status::OK();
 }
 
 DataTypeLayout UnionType::layout() const {
