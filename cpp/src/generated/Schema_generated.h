@@ -63,31 +63,31 @@ struct Buffer;
 
 struct Schema;
 
-enum MetadataVersion {
+enum class MetadataVersion : int16_t {
   /// 0.1.0
-  MetadataVersion_V1 = 0,
-  /// 0.2.0
-  MetadataVersion_V2 = 1,
-  /// 0.3.0 -> 0.7.1
-  MetadataVersion_V3 = 2,
-  /// >= 0.8.0
-  MetadataVersion_V4 = 3,
-  MetadataVersion_MIN = MetadataVersion_V1,
-  MetadataVersion_MAX = MetadataVersion_V4
+  V1 = 0  /// 0.2.0
+,
+  V2 = 1  /// 0.3.0 -> 0.7.1
+,
+  V3 = 2  /// >= 0.8.0
+,
+  V4 = 3,
+  MIN = V1,
+  MAX = V4
 };
 
 inline const MetadataVersion (&EnumValuesMetadataVersion())[4] {
   static const MetadataVersion values[] = {
-    MetadataVersion_V1,
-    MetadataVersion_V2,
-    MetadataVersion_V3,
-    MetadataVersion_V4
+    MetadataVersion::V1,
+    MetadataVersion::V2,
+    MetadataVersion::V3,
+    MetadataVersion::V4
   };
   return values;
 }
 
 inline const char * const *EnumNamesMetadataVersion() {
-  static const char * const names[5] = {
+  static const char * const names[] = {
     "V1",
     "V2",
     "V3",
@@ -98,28 +98,28 @@ inline const char * const *EnumNamesMetadataVersion() {
 }
 
 inline const char *EnumNameMetadataVersion(MetadataVersion e) {
-  if (e < MetadataVersion_V1 || e > MetadataVersion_V4) return "";
+  if (e < MetadataVersion::V1 || e > MetadataVersion::V4) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMetadataVersion()[index];
 }
 
-enum UnionMode {
-  UnionMode_Sparse = 0,
-  UnionMode_Dense = 1,
-  UnionMode_MIN = UnionMode_Sparse,
-  UnionMode_MAX = UnionMode_Dense
+enum class UnionMode : int16_t {
+  Sparse = 0,
+  Dense = 1,
+  MIN = Sparse,
+  MAX = Dense
 };
 
 inline const UnionMode (&EnumValuesUnionMode())[2] {
   static const UnionMode values[] = {
-    UnionMode_Sparse,
-    UnionMode_Dense
+    UnionMode::Sparse,
+    UnionMode::Dense
   };
   return values;
 }
 
 inline const char * const *EnumNamesUnionMode() {
-  static const char * const names[3] = {
+  static const char * const names[] = {
     "Sparse",
     "Dense",
     nullptr
@@ -128,30 +128,30 @@ inline const char * const *EnumNamesUnionMode() {
 }
 
 inline const char *EnumNameUnionMode(UnionMode e) {
-  if (e < UnionMode_Sparse || e > UnionMode_Dense) return "";
+  if (e < UnionMode::Sparse || e > UnionMode::Dense) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesUnionMode()[index];
 }
 
-enum Precision {
-  Precision_HALF = 0,
-  Precision_SINGLE = 1,
-  Precision_DOUBLE = 2,
-  Precision_MIN = Precision_HALF,
-  Precision_MAX = Precision_DOUBLE
+enum class Precision : int16_t {
+  HALF = 0,
+  SINGLE = 1,
+  DOUBLE = 2,
+  MIN = HALF,
+  MAX = DOUBLE
 };
 
 inline const Precision (&EnumValuesPrecision())[3] {
   static const Precision values[] = {
-    Precision_HALF,
-    Precision_SINGLE,
-    Precision_DOUBLE
+    Precision::HALF,
+    Precision::SINGLE,
+    Precision::DOUBLE
   };
   return values;
 }
 
 inline const char * const *EnumNamesPrecision() {
-  static const char * const names[4] = {
+  static const char * const names[] = {
     "HALF",
     "SINGLE",
     "DOUBLE",
@@ -161,28 +161,28 @@ inline const char * const *EnumNamesPrecision() {
 }
 
 inline const char *EnumNamePrecision(Precision e) {
-  if (e < Precision_HALF || e > Precision_DOUBLE) return "";
+  if (e < Precision::HALF || e > Precision::DOUBLE) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPrecision()[index];
 }
 
-enum DateUnit {
-  DateUnit_DAY = 0,
-  DateUnit_MILLISECOND = 1,
-  DateUnit_MIN = DateUnit_DAY,
-  DateUnit_MAX = DateUnit_MILLISECOND
+enum class DateUnit : int16_t {
+  DAY = 0,
+  MILLISECOND = 1,
+  MIN = DAY,
+  MAX = MILLISECOND
 };
 
 inline const DateUnit (&EnumValuesDateUnit())[2] {
   static const DateUnit values[] = {
-    DateUnit_DAY,
-    DateUnit_MILLISECOND
+    DateUnit::DAY,
+    DateUnit::MILLISECOND
   };
   return values;
 }
 
 inline const char * const *EnumNamesDateUnit() {
-  static const char * const names[3] = {
+  static const char * const names[] = {
     "DAY",
     "MILLISECOND",
     nullptr
@@ -191,32 +191,32 @@ inline const char * const *EnumNamesDateUnit() {
 }
 
 inline const char *EnumNameDateUnit(DateUnit e) {
-  if (e < DateUnit_DAY || e > DateUnit_MILLISECOND) return "";
+  if (e < DateUnit::DAY || e > DateUnit::MILLISECOND) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesDateUnit()[index];
 }
 
-enum TimeUnit {
-  TimeUnit_SECOND = 0,
-  TimeUnit_MILLISECOND = 1,
-  TimeUnit_MICROSECOND = 2,
-  TimeUnit_NANOSECOND = 3,
-  TimeUnit_MIN = TimeUnit_SECOND,
-  TimeUnit_MAX = TimeUnit_NANOSECOND
+enum class TimeUnit : int16_t {
+  SECOND = 0,
+  MILLISECOND = 1,
+  MICROSECOND = 2,
+  NANOSECOND = 3,
+  MIN = SECOND,
+  MAX = NANOSECOND
 };
 
 inline const TimeUnit (&EnumValuesTimeUnit())[4] {
   static const TimeUnit values[] = {
-    TimeUnit_SECOND,
-    TimeUnit_MILLISECOND,
-    TimeUnit_MICROSECOND,
-    TimeUnit_NANOSECOND
+    TimeUnit::SECOND,
+    TimeUnit::MILLISECOND,
+    TimeUnit::MICROSECOND,
+    TimeUnit::NANOSECOND
   };
   return values;
 }
 
 inline const char * const *EnumNamesTimeUnit() {
-  static const char * const names[5] = {
+  static const char * const names[] = {
     "SECOND",
     "MILLISECOND",
     "MICROSECOND",
@@ -227,28 +227,28 @@ inline const char * const *EnumNamesTimeUnit() {
 }
 
 inline const char *EnumNameTimeUnit(TimeUnit e) {
-  if (e < TimeUnit_SECOND || e > TimeUnit_NANOSECOND) return "";
+  if (e < TimeUnit::SECOND || e > TimeUnit::NANOSECOND) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesTimeUnit()[index];
 }
 
-enum IntervalUnit {
-  IntervalUnit_YEAR_MONTH = 0,
-  IntervalUnit_DAY_TIME = 1,
-  IntervalUnit_MIN = IntervalUnit_YEAR_MONTH,
-  IntervalUnit_MAX = IntervalUnit_DAY_TIME
+enum class IntervalUnit : int16_t {
+  YEAR_MONTH = 0,
+  DAY_TIME = 1,
+  MIN = YEAR_MONTH,
+  MAX = DAY_TIME
 };
 
 inline const IntervalUnit (&EnumValuesIntervalUnit())[2] {
   static const IntervalUnit values[] = {
-    IntervalUnit_YEAR_MONTH,
-    IntervalUnit_DAY_TIME
+    IntervalUnit::YEAR_MONTH,
+    IntervalUnit::DAY_TIME
   };
   return values;
 }
 
 inline const char * const *EnumNamesIntervalUnit() {
-  static const char * const names[3] = {
+  static const char * const names[] = {
     "YEAR_MONTH",
     "DAY_TIME",
     nullptr
@@ -257,7 +257,7 @@ inline const char * const *EnumNamesIntervalUnit() {
 }
 
 inline const char *EnumNameIntervalUnit(IntervalUnit e) {
-  if (e < IntervalUnit_YEAR_MONTH || e > IntervalUnit_DAY_TIME) return "";
+  if (e < IntervalUnit::YEAR_MONTH || e > IntervalUnit::DAY_TIME) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesIntervalUnit()[index];
 }
@@ -265,63 +265,63 @@ inline const char *EnumNameIntervalUnit(IntervalUnit e) {
 /// ----------------------------------------------------------------------
 /// Top-level Type value, enabling extensible type-specific metadata. We can
 /// add new logical types to Type without breaking backwards compatibility
-enum Type {
-  Type_NONE = 0,
-  Type_Null = 1,
-  Type_Int = 2,
-  Type_FloatingPoint = 3,
-  Type_Binary = 4,
-  Type_Utf8 = 5,
-  Type_Bool = 6,
-  Type_Decimal = 7,
-  Type_Date = 8,
-  Type_Time = 9,
-  Type_Timestamp = 10,
-  Type_Interval = 11,
-  Type_List = 12,
-  Type_Struct_ = 13,
-  Type_Union = 14,
-  Type_FixedSizeBinary = 15,
-  Type_FixedSizeList = 16,
-  Type_Map = 17,
-  Type_Duration = 18,
-  Type_LargeBinary = 19,
-  Type_LargeUtf8 = 20,
-  Type_LargeList = 21,
-  Type_MIN = Type_NONE,
-  Type_MAX = Type_LargeList
+enum class Type : uint8_t {
+  NONE = 0,
+  Null = 1,
+  Int = 2,
+  FloatingPoint = 3,
+  Binary = 4,
+  Utf8 = 5,
+  Bool = 6,
+  Decimal = 7,
+  Date = 8,
+  Time = 9,
+  Timestamp = 10,
+  Interval = 11,
+  List = 12,
+  Struct_ = 13,
+  Union = 14,
+  FixedSizeBinary = 15,
+  FixedSizeList = 16,
+  Map = 17,
+  Duration = 18,
+  LargeBinary = 19,
+  LargeUtf8 = 20,
+  LargeList = 21,
+  MIN = NONE,
+  MAX = LargeList
 };
 
 inline const Type (&EnumValuesType())[22] {
   static const Type values[] = {
-    Type_NONE,
-    Type_Null,
-    Type_Int,
-    Type_FloatingPoint,
-    Type_Binary,
-    Type_Utf8,
-    Type_Bool,
-    Type_Decimal,
-    Type_Date,
-    Type_Time,
-    Type_Timestamp,
-    Type_Interval,
-    Type_List,
-    Type_Struct_,
-    Type_Union,
-    Type_FixedSizeBinary,
-    Type_FixedSizeList,
-    Type_Map,
-    Type_Duration,
-    Type_LargeBinary,
-    Type_LargeUtf8,
-    Type_LargeList
+    Type::NONE,
+    Type::Null,
+    Type::Int,
+    Type::FloatingPoint,
+    Type::Binary,
+    Type::Utf8,
+    Type::Bool,
+    Type::Decimal,
+    Type::Date,
+    Type::Time,
+    Type::Timestamp,
+    Type::Interval,
+    Type::List,
+    Type::Struct_,
+    Type::Union,
+    Type::FixedSizeBinary,
+    Type::FixedSizeList,
+    Type::Map,
+    Type::Duration,
+    Type::LargeBinary,
+    Type::LargeUtf8,
+    Type::LargeList
   };
   return values;
 }
 
 inline const char * const *EnumNamesType() {
-  static const char * const names[23] = {
+  static const char * const names[] = {
     "NONE",
     "Null",
     "Int",
@@ -350,97 +350,97 @@ inline const char * const *EnumNamesType() {
 }
 
 inline const char *EnumNameType(Type e) {
-  if (e < Type_NONE || e > Type_LargeList) return "";
+  if (e < Type::NONE || e > Type::LargeList) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesType()[index];
 }
 
 template<typename T> struct TypeTraits {
-  static const Type enum_value = Type_NONE;
+  static const Type enum_value = Type::NONE;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Null> {
-  static const Type enum_value = Type_Null;
+template<> struct TypeTraits<Null> {
+  static const Type enum_value = Type::Null;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Int> {
-  static const Type enum_value = Type_Int;
+template<> struct TypeTraits<Int> {
+  static const Type enum_value = Type::Int;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::FloatingPoint> {
-  static const Type enum_value = Type_FloatingPoint;
+template<> struct TypeTraits<FloatingPoint> {
+  static const Type enum_value = Type::FloatingPoint;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Binary> {
-  static const Type enum_value = Type_Binary;
+template<> struct TypeTraits<Binary> {
+  static const Type enum_value = Type::Binary;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Utf8> {
-  static const Type enum_value = Type_Utf8;
+template<> struct TypeTraits<Utf8> {
+  static const Type enum_value = Type::Utf8;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Bool> {
-  static const Type enum_value = Type_Bool;
+template<> struct TypeTraits<Bool> {
+  static const Type enum_value = Type::Bool;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Decimal> {
-  static const Type enum_value = Type_Decimal;
+template<> struct TypeTraits<Decimal> {
+  static const Type enum_value = Type::Decimal;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Date> {
-  static const Type enum_value = Type_Date;
+template<> struct TypeTraits<Date> {
+  static const Type enum_value = Type::Date;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Time> {
-  static const Type enum_value = Type_Time;
+template<> struct TypeTraits<Time> {
+  static const Type enum_value = Type::Time;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Timestamp> {
-  static const Type enum_value = Type_Timestamp;
+template<> struct TypeTraits<Timestamp> {
+  static const Type enum_value = Type::Timestamp;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Interval> {
-  static const Type enum_value = Type_Interval;
+template<> struct TypeTraits<Interval> {
+  static const Type enum_value = Type::Interval;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::List> {
-  static const Type enum_value = Type_List;
+template<> struct TypeTraits<List> {
+  static const Type enum_value = Type::List;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Struct_> {
-  static const Type enum_value = Type_Struct_;
+template<> struct TypeTraits<Struct_> {
+  static const Type enum_value = Type::Struct_;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Union> {
-  static const Type enum_value = Type_Union;
+template<> struct TypeTraits<Union> {
+  static const Type enum_value = Type::Union;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::FixedSizeBinary> {
-  static const Type enum_value = Type_FixedSizeBinary;
+template<> struct TypeTraits<FixedSizeBinary> {
+  static const Type enum_value = Type::FixedSizeBinary;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::FixedSizeList> {
-  static const Type enum_value = Type_FixedSizeList;
+template<> struct TypeTraits<FixedSizeList> {
+  static const Type enum_value = Type::FixedSizeList;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Map> {
-  static const Type enum_value = Type_Map;
+template<> struct TypeTraits<Map> {
+  static const Type enum_value = Type::Map;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::Duration> {
-  static const Type enum_value = Type_Duration;
+template<> struct TypeTraits<Duration> {
+  static const Type enum_value = Type::Duration;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::LargeBinary> {
-  static const Type enum_value = Type_LargeBinary;
+template<> struct TypeTraits<LargeBinary> {
+  static const Type enum_value = Type::LargeBinary;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::LargeUtf8> {
-  static const Type enum_value = Type_LargeUtf8;
+template<> struct TypeTraits<LargeUtf8> {
+  static const Type enum_value = Type::LargeUtf8;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::LargeList> {
-  static const Type enum_value = Type_LargeList;
+template<> struct TypeTraits<LargeList> {
+  static const Type enum_value = Type::LargeList;
 };
 
 bool VerifyType(flatbuffers::Verifier &verifier, const void *obj, Type type);
@@ -451,21 +451,21 @@ bool VerifyTypeVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector
 /// Maintained for forwards compatibility, in the future
 /// Dictionaries might be explicit maps between integers and values
 /// allowing for non-contiguous index values
-enum DictionaryKind {
-  DictionaryKind_DenseArray = 0,
-  DictionaryKind_MIN = DictionaryKind_DenseArray,
-  DictionaryKind_MAX = DictionaryKind_DenseArray
+enum class DictionaryKind : int16_t {
+  DenseArray = 0,
+  MIN = DenseArray,
+  MAX = DenseArray
 };
 
 inline const DictionaryKind (&EnumValuesDictionaryKind())[1] {
   static const DictionaryKind values[] = {
-    DictionaryKind_DenseArray
+    DictionaryKind::DenseArray
   };
   return values;
 }
 
 inline const char * const *EnumNamesDictionaryKind() {
-  static const char * const names[2] = {
+  static const char * const names[] = {
     "DenseArray",
     nullptr
   };
@@ -473,30 +473,30 @@ inline const char * const *EnumNamesDictionaryKind() {
 }
 
 inline const char *EnumNameDictionaryKind(DictionaryKind e) {
-  if (e < DictionaryKind_DenseArray || e > DictionaryKind_DenseArray) return "";
+  if (e < DictionaryKind::DenseArray || e > DictionaryKind::DenseArray) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesDictionaryKind()[index];
 }
 
 /// ----------------------------------------------------------------------
 /// Endianness of the platform producing the data
-enum Endianness {
-  Endianness_Little = 0,
-  Endianness_Big = 1,
-  Endianness_MIN = Endianness_Little,
-  Endianness_MAX = Endianness_Big
+enum class Endianness : int16_t {
+  Little = 0,
+  Big = 1,
+  MIN = Little,
+  MAX = Big
 };
 
 inline const Endianness (&EnumValuesEndianness())[2] {
   static const Endianness values[] = {
-    Endianness_Little,
-    Endianness_Big
+    Endianness::Little,
+    Endianness::Big
   };
   return values;
 }
 
 inline const char * const *EnumNamesEndianness() {
-  static const char * const names[3] = {
+  static const char * const names[] = {
     "Little",
     "Big",
     nullptr
@@ -505,7 +505,7 @@ inline const char * const *EnumNamesEndianness() {
 }
 
 inline const char *EnumNameEndianness(Endianness e) {
-  if (e < Endianness_Little || e > Endianness_Big) return "";
+  if (e < Endianness::Little || e > Endianness::Big) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesEndianness()[index];
 }
@@ -774,8 +774,8 @@ struct Union FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_MODE = 4,
     VT_TYPEIDS = 6
   };
-  org::apache::arrow::flatbuf::UnionMode mode() const {
-    return static_cast<org::apache::arrow::flatbuf::UnionMode>(GetField<int16_t>(VT_MODE, 0));
+  UnionMode mode() const {
+    return static_cast<UnionMode>(GetField<int16_t>(VT_MODE, 0));
   }
   const flatbuffers::Vector<int32_t> *typeIds() const {
     return GetPointer<const flatbuffers::Vector<int32_t> *>(VT_TYPEIDS);
@@ -792,7 +792,7 @@ struct Union FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct UnionBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_mode(org::apache::arrow::flatbuf::UnionMode mode) {
+  void add_mode(UnionMode mode) {
     fbb_.AddElement<int16_t>(Union::VT_MODE, static_cast<int16_t>(mode), 0);
   }
   void add_typeIds(flatbuffers::Offset<flatbuffers::Vector<int32_t>> typeIds) {
@@ -812,7 +812,7 @@ struct UnionBuilder {
 
 inline flatbuffers::Offset<Union> CreateUnion(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::UnionMode mode = org::apache::arrow::flatbuf::UnionMode_Sparse,
+    UnionMode mode = UnionMode::Sparse,
     flatbuffers::Offset<flatbuffers::Vector<int32_t>> typeIds = 0) {
   UnionBuilder builder_(_fbb);
   builder_.add_typeIds(typeIds);
@@ -822,7 +822,7 @@ inline flatbuffers::Offset<Union> CreateUnion(
 
 inline flatbuffers::Offset<Union> CreateUnionDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::UnionMode mode = org::apache::arrow::flatbuf::UnionMode_Sparse,
+    UnionMode mode = UnionMode::Sparse,
     const std::vector<int32_t> *typeIds = nullptr) {
   auto typeIds__ = typeIds ? _fbb.CreateVector<int32_t>(*typeIds) : 0;
   return org::apache::arrow::flatbuf::CreateUnion(
@@ -885,8 +885,8 @@ struct FloatingPoint FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PRECISION = 4
   };
-  org::apache::arrow::flatbuf::Precision precision() const {
-    return static_cast<org::apache::arrow::flatbuf::Precision>(GetField<int16_t>(VT_PRECISION, 0));
+  Precision precision() const {
+    return static_cast<Precision>(GetField<int16_t>(VT_PRECISION, 0));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -898,7 +898,7 @@ struct FloatingPoint FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct FloatingPointBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_precision(org::apache::arrow::flatbuf::Precision precision) {
+  void add_precision(Precision precision) {
     fbb_.AddElement<int16_t>(FloatingPoint::VT_PRECISION, static_cast<int16_t>(precision), 0);
   }
   explicit FloatingPointBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -915,7 +915,7 @@ struct FloatingPointBuilder {
 
 inline flatbuffers::Offset<FloatingPoint> CreateFloatingPoint(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::Precision precision = org::apache::arrow::flatbuf::Precision_HALF) {
+    Precision precision = Precision::HALF) {
   FloatingPointBuilder builder_(_fbb);
   builder_.add_precision(precision);
   return builder_.Finish();
@@ -1170,8 +1170,8 @@ struct Date FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4
   };
-  org::apache::arrow::flatbuf::DateUnit unit() const {
-    return static_cast<org::apache::arrow::flatbuf::DateUnit>(GetField<int16_t>(VT_UNIT, 1));
+  DateUnit unit() const {
+    return static_cast<DateUnit>(GetField<int16_t>(VT_UNIT, 1));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1183,7 +1183,7 @@ struct Date FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct DateBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_unit(org::apache::arrow::flatbuf::DateUnit unit) {
+  void add_unit(DateUnit unit) {
     fbb_.AddElement<int16_t>(Date::VT_UNIT, static_cast<int16_t>(unit), 1);
   }
   explicit DateBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1200,7 +1200,7 @@ struct DateBuilder {
 
 inline flatbuffers::Offset<Date> CreateDate(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::DateUnit unit = org::apache::arrow::flatbuf::DateUnit_MILLISECOND) {
+    DateUnit unit = DateUnit::MILLISECOND) {
   DateBuilder builder_(_fbb);
   builder_.add_unit(unit);
   return builder_.Finish();
@@ -1214,8 +1214,8 @@ struct Time FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_UNIT = 4,
     VT_BITWIDTH = 6
   };
-  org::apache::arrow::flatbuf::TimeUnit unit() const {
-    return static_cast<org::apache::arrow::flatbuf::TimeUnit>(GetField<int16_t>(VT_UNIT, 1));
+  TimeUnit unit() const {
+    return static_cast<TimeUnit>(GetField<int16_t>(VT_UNIT, 1));
   }
   int32_t bitWidth() const {
     return GetField<int32_t>(VT_BITWIDTH, 32);
@@ -1231,7 +1231,7 @@ struct Time FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct TimeBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_unit(org::apache::arrow::flatbuf::TimeUnit unit) {
+  void add_unit(TimeUnit unit) {
     fbb_.AddElement<int16_t>(Time::VT_UNIT, static_cast<int16_t>(unit), 1);
   }
   void add_bitWidth(int32_t bitWidth) {
@@ -1251,7 +1251,7 @@ struct TimeBuilder {
 
 inline flatbuffers::Offset<Time> CreateTime(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::TimeUnit unit = org::apache::arrow::flatbuf::TimeUnit_MILLISECOND,
+    TimeUnit unit = TimeUnit::MILLISECOND,
     int32_t bitWidth = 32) {
   TimeBuilder builder_(_fbb);
   builder_.add_bitWidth(bitWidth);
@@ -1270,8 +1270,8 @@ struct Timestamp FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_UNIT = 4,
     VT_TIMEZONE = 6
   };
-  org::apache::arrow::flatbuf::TimeUnit unit() const {
-    return static_cast<org::apache::arrow::flatbuf::TimeUnit>(GetField<int16_t>(VT_UNIT, 0));
+  TimeUnit unit() const {
+    return static_cast<TimeUnit>(GetField<int16_t>(VT_UNIT, 0));
   }
   /// The time zone is a string indicating the name of a time zone, one of:
   ///
@@ -1308,7 +1308,7 @@ struct Timestamp FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct TimestampBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_unit(org::apache::arrow::flatbuf::TimeUnit unit) {
+  void add_unit(TimeUnit unit) {
     fbb_.AddElement<int16_t>(Timestamp::VT_UNIT, static_cast<int16_t>(unit), 0);
   }
   void add_timezone(flatbuffers::Offset<flatbuffers::String> timezone) {
@@ -1328,7 +1328,7 @@ struct TimestampBuilder {
 
 inline flatbuffers::Offset<Timestamp> CreateTimestamp(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::TimeUnit unit = org::apache::arrow::flatbuf::TimeUnit_SECOND,
+    TimeUnit unit = TimeUnit::SECOND,
     flatbuffers::Offset<flatbuffers::String> timezone = 0) {
   TimestampBuilder builder_(_fbb);
   builder_.add_timezone(timezone);
@@ -1338,7 +1338,7 @@ inline flatbuffers::Offset<Timestamp> CreateTimestamp(
 
 inline flatbuffers::Offset<Timestamp> CreateTimestampDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::TimeUnit unit = org::apache::arrow::flatbuf::TimeUnit_SECOND,
+    TimeUnit unit = TimeUnit::SECOND,
     const char *timezone = nullptr) {
   auto timezone__ = timezone ? _fbb.CreateString(timezone) : 0;
   return org::apache::arrow::flatbuf::CreateTimestamp(
@@ -1351,8 +1351,8 @@ struct Interval FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4
   };
-  org::apache::arrow::flatbuf::IntervalUnit unit() const {
-    return static_cast<org::apache::arrow::flatbuf::IntervalUnit>(GetField<int16_t>(VT_UNIT, 0));
+  IntervalUnit unit() const {
+    return static_cast<IntervalUnit>(GetField<int16_t>(VT_UNIT, 0));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1364,7 +1364,7 @@ struct Interval FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct IntervalBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_unit(org::apache::arrow::flatbuf::IntervalUnit unit) {
+  void add_unit(IntervalUnit unit) {
     fbb_.AddElement<int16_t>(Interval::VT_UNIT, static_cast<int16_t>(unit), 0);
   }
   explicit IntervalBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1381,7 +1381,7 @@ struct IntervalBuilder {
 
 inline flatbuffers::Offset<Interval> CreateInterval(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::IntervalUnit unit = org::apache::arrow::flatbuf::IntervalUnit_YEAR_MONTH) {
+    IntervalUnit unit = IntervalUnit::YEAR_MONTH) {
   IntervalBuilder builder_(_fbb);
   builder_.add_unit(unit);
   return builder_.Finish();
@@ -1391,8 +1391,8 @@ struct Duration FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4
   };
-  org::apache::arrow::flatbuf::TimeUnit unit() const {
-    return static_cast<org::apache::arrow::flatbuf::TimeUnit>(GetField<int16_t>(VT_UNIT, 1));
+  TimeUnit unit() const {
+    return static_cast<TimeUnit>(GetField<int16_t>(VT_UNIT, 1));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1404,7 +1404,7 @@ struct Duration FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct DurationBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_unit(org::apache::arrow::flatbuf::TimeUnit unit) {
+  void add_unit(TimeUnit unit) {
     fbb_.AddElement<int16_t>(Duration::VT_UNIT, static_cast<int16_t>(unit), 1);
   }
   explicit DurationBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1421,7 +1421,7 @@ struct DurationBuilder {
 
 inline flatbuffers::Offset<Duration> CreateDuration(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::TimeUnit unit = org::apache::arrow::flatbuf::TimeUnit_MILLISECOND) {
+    TimeUnit unit = TimeUnit::MILLISECOND) {
   DurationBuilder builder_(_fbb);
   builder_.add_unit(unit);
   return builder_.Finish();
@@ -1509,8 +1509,8 @@ struct DictionaryEncoding FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   /// The dictionary indices are constrained to be positive integers. If this
   /// field is null, the indices must be signed int32
-  const org::apache::arrow::flatbuf::Int *indexType() const {
-    return GetPointer<const org::apache::arrow::flatbuf::Int *>(VT_INDEXTYPE);
+  const Int *indexType() const {
+    return GetPointer<const Int *>(VT_INDEXTYPE);
   }
   /// By default, dictionaries are not ordered, or the order does not have
   /// semantic meaning. In some statistical, applications, dictionary-encoding
@@ -1519,8 +1519,8 @@ struct DictionaryEncoding FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool isOrdered() const {
     return GetField<uint8_t>(VT_ISORDERED, 0) != 0;
   }
-  org::apache::arrow::flatbuf::DictionaryKind dictionaryKind() const {
-    return static_cast<org::apache::arrow::flatbuf::DictionaryKind>(GetField<int16_t>(VT_DICTIONARYKIND, 0));
+  DictionaryKind dictionaryKind() const {
+    return static_cast<DictionaryKind>(GetField<int16_t>(VT_DICTIONARYKIND, 0));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1539,13 +1539,13 @@ struct DictionaryEncodingBuilder {
   void add_id(int64_t id) {
     fbb_.AddElement<int64_t>(DictionaryEncoding::VT_ID, id, 0);
   }
-  void add_indexType(flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indexType) {
+  void add_indexType(flatbuffers::Offset<Int> indexType) {
     fbb_.AddOffset(DictionaryEncoding::VT_INDEXTYPE, indexType);
   }
   void add_isOrdered(bool isOrdered) {
     fbb_.AddElement<uint8_t>(DictionaryEncoding::VT_ISORDERED, static_cast<uint8_t>(isOrdered), 0);
   }
-  void add_dictionaryKind(org::apache::arrow::flatbuf::DictionaryKind dictionaryKind) {
+  void add_dictionaryKind(DictionaryKind dictionaryKind) {
     fbb_.AddElement<int16_t>(DictionaryEncoding::VT_DICTIONARYKIND, static_cast<int16_t>(dictionaryKind), 0);
   }
   explicit DictionaryEncodingBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1563,9 +1563,9 @@ struct DictionaryEncodingBuilder {
 inline flatbuffers::Offset<DictionaryEncoding> CreateDictionaryEncoding(
     flatbuffers::FlatBufferBuilder &_fbb,
     int64_t id = 0,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indexType = 0,
+    flatbuffers::Offset<Int> indexType = 0,
     bool isOrdered = false,
-    org::apache::arrow::flatbuf::DictionaryKind dictionaryKind = org::apache::arrow::flatbuf::DictionaryKind_DenseArray) {
+    DictionaryKind dictionaryKind = DictionaryKind::DenseArray) {
   DictionaryEncodingBuilder builder_(_fbb);
   builder_.add_id(id);
   builder_.add_indexType(indexType);
@@ -1595,89 +1595,89 @@ struct Field FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool nullable() const {
     return GetField<uint8_t>(VT_NULLABLE, 0) != 0;
   }
-  org::apache::arrow::flatbuf::Type type_type() const {
-    return static_cast<org::apache::arrow::flatbuf::Type>(GetField<uint8_t>(VT_TYPE_TYPE, 0));
+  Type type_type() const {
+    return static_cast<Type>(GetField<uint8_t>(VT_TYPE_TYPE, 0));
   }
   /// This is the type of the decoded value if the field is dictionary encoded.
   const void *type() const {
     return GetPointer<const void *>(VT_TYPE);
   }
   template<typename T> const T *type_as() const;
-  const org::apache::arrow::flatbuf::Null *type_as_Null() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Null ? static_cast<const org::apache::arrow::flatbuf::Null *>(type()) : nullptr;
+  const Null *type_as_Null() const {
+    return type_type() == Type::Null ? static_cast<const Null *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Int *type_as_Int() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Int ? static_cast<const org::apache::arrow::flatbuf::Int *>(type()) : nullptr;
+  const Int *type_as_Int() const {
+    return type_type() == Type::Int ? static_cast<const Int *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::FloatingPoint *type_as_FloatingPoint() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_FloatingPoint ? static_cast<const org::apache::arrow::flatbuf::FloatingPoint *>(type()) : nullptr;
+  const FloatingPoint *type_as_FloatingPoint() const {
+    return type_type() == Type::FloatingPoint ? static_cast<const FloatingPoint *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Binary *type_as_Binary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Binary ? static_cast<const org::apache::arrow::flatbuf::Binary *>(type()) : nullptr;
+  const Binary *type_as_Binary() const {
+    return type_type() == Type::Binary ? static_cast<const Binary *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Utf8 *type_as_Utf8() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Utf8 ? static_cast<const org::apache::arrow::flatbuf::Utf8 *>(type()) : nullptr;
+  const Utf8 *type_as_Utf8() const {
+    return type_type() == Type::Utf8 ? static_cast<const Utf8 *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Bool *type_as_Bool() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Bool ? static_cast<const org::apache::arrow::flatbuf::Bool *>(type()) : nullptr;
+  const Bool *type_as_Bool() const {
+    return type_type() == Type::Bool ? static_cast<const Bool *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Decimal *type_as_Decimal() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Decimal ? static_cast<const org::apache::arrow::flatbuf::Decimal *>(type()) : nullptr;
+  const Decimal *type_as_Decimal() const {
+    return type_type() == Type::Decimal ? static_cast<const Decimal *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Date *type_as_Date() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Date ? static_cast<const org::apache::arrow::flatbuf::Date *>(type()) : nullptr;
+  const Date *type_as_Date() const {
+    return type_type() == Type::Date ? static_cast<const Date *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Time *type_as_Time() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Time ? static_cast<const org::apache::arrow::flatbuf::Time *>(type()) : nullptr;
+  const Time *type_as_Time() const {
+    return type_type() == Type::Time ? static_cast<const Time *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Timestamp *type_as_Timestamp() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Timestamp ? static_cast<const org::apache::arrow::flatbuf::Timestamp *>(type()) : nullptr;
+  const Timestamp *type_as_Timestamp() const {
+    return type_type() == Type::Timestamp ? static_cast<const Timestamp *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Interval *type_as_Interval() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Interval ? static_cast<const org::apache::arrow::flatbuf::Interval *>(type()) : nullptr;
+  const Interval *type_as_Interval() const {
+    return type_type() == Type::Interval ? static_cast<const Interval *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::List *type_as_List() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_List ? static_cast<const org::apache::arrow::flatbuf::List *>(type()) : nullptr;
+  const List *type_as_List() const {
+    return type_type() == Type::List ? static_cast<const List *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Struct_ *type_as_Struct_() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Struct_ ? static_cast<const org::apache::arrow::flatbuf::Struct_ *>(type()) : nullptr;
+  const Struct_ *type_as_Struct_() const {
+    return type_type() == Type::Struct_ ? static_cast<const Struct_ *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Union *type_as_Union() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Union ? static_cast<const org::apache::arrow::flatbuf::Union *>(type()) : nullptr;
+  const Union *type_as_Union() const {
+    return type_type() == Type::Union ? static_cast<const Union *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::FixedSizeBinary *type_as_FixedSizeBinary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_FixedSizeBinary ? static_cast<const org::apache::arrow::flatbuf::FixedSizeBinary *>(type()) : nullptr;
+  const FixedSizeBinary *type_as_FixedSizeBinary() const {
+    return type_type() == Type::FixedSizeBinary ? static_cast<const FixedSizeBinary *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::FixedSizeList *type_as_FixedSizeList() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_FixedSizeList ? static_cast<const org::apache::arrow::flatbuf::FixedSizeList *>(type()) : nullptr;
+  const FixedSizeList *type_as_FixedSizeList() const {
+    return type_type() == Type::FixedSizeList ? static_cast<const FixedSizeList *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Map *type_as_Map() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Map ? static_cast<const org::apache::arrow::flatbuf::Map *>(type()) : nullptr;
+  const Map *type_as_Map() const {
+    return type_type() == Type::Map ? static_cast<const Map *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Duration *type_as_Duration() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_Duration ? static_cast<const org::apache::arrow::flatbuf::Duration *>(type()) : nullptr;
+  const Duration *type_as_Duration() const {
+    return type_type() == Type::Duration ? static_cast<const Duration *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::LargeBinary *type_as_LargeBinary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_LargeBinary ? static_cast<const org::apache::arrow::flatbuf::LargeBinary *>(type()) : nullptr;
+  const LargeBinary *type_as_LargeBinary() const {
+    return type_type() == Type::LargeBinary ? static_cast<const LargeBinary *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::LargeUtf8 *type_as_LargeUtf8() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_LargeUtf8 ? static_cast<const org::apache::arrow::flatbuf::LargeUtf8 *>(type()) : nullptr;
+  const LargeUtf8 *type_as_LargeUtf8() const {
+    return type_type() == Type::LargeUtf8 ? static_cast<const LargeUtf8 *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::LargeList *type_as_LargeList() const {
-    return type_type() == org::apache::arrow::flatbuf::Type_LargeList ? static_cast<const org::apache::arrow::flatbuf::LargeList *>(type()) : nullptr;
+  const LargeList *type_as_LargeList() const {
+    return type_type() == Type::LargeList ? static_cast<const LargeList *>(type()) : nullptr;
   }
   /// Present only if the field is dictionary encoded.
-  const org::apache::arrow::flatbuf::DictionaryEncoding *dictionary() const {
-    return GetPointer<const org::apache::arrow::flatbuf::DictionaryEncoding *>(VT_DICTIONARY);
+  const DictionaryEncoding *dictionary() const {
+    return GetPointer<const DictionaryEncoding *>(VT_DICTIONARY);
   }
   /// children apply only to nested data types like Struct, List and Union. For
   /// primitive types children will have length 0.
-  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>> *children() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>> *>(VT_CHILDREN);
+  const flatbuffers::Vector<flatbuffers::Offset<Field>> *children() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<Field>> *>(VT_CHILDREN);
   }
   /// User-defined metadata
-  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *>(VT_CUSTOM_METADATA);
+  const flatbuffers::Vector<flatbuffers::Offset<KeyValue>> *custom_metadata() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<KeyValue>> *>(VT_CUSTOM_METADATA);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1699,87 +1699,87 @@ struct Field FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-template<> inline const org::apache::arrow::flatbuf::Null *Field::type_as<org::apache::arrow::flatbuf::Null>() const {
+template<> inline const Null *Field::type_as<Null>() const {
   return type_as_Null();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Int *Field::type_as<org::apache::arrow::flatbuf::Int>() const {
+template<> inline const Int *Field::type_as<Int>() const {
   return type_as_Int();
 }
 
-template<> inline const org::apache::arrow::flatbuf::FloatingPoint *Field::type_as<org::apache::arrow::flatbuf::FloatingPoint>() const {
+template<> inline const FloatingPoint *Field::type_as<FloatingPoint>() const {
   return type_as_FloatingPoint();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Binary *Field::type_as<org::apache::arrow::flatbuf::Binary>() const {
+template<> inline const Binary *Field::type_as<Binary>() const {
   return type_as_Binary();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Utf8 *Field::type_as<org::apache::arrow::flatbuf::Utf8>() const {
+template<> inline const Utf8 *Field::type_as<Utf8>() const {
   return type_as_Utf8();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Bool *Field::type_as<org::apache::arrow::flatbuf::Bool>() const {
+template<> inline const Bool *Field::type_as<Bool>() const {
   return type_as_Bool();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Decimal *Field::type_as<org::apache::arrow::flatbuf::Decimal>() const {
+template<> inline const Decimal *Field::type_as<Decimal>() const {
   return type_as_Decimal();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Date *Field::type_as<org::apache::arrow::flatbuf::Date>() const {
+template<> inline const Date *Field::type_as<Date>() const {
   return type_as_Date();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Time *Field::type_as<org::apache::arrow::flatbuf::Time>() const {
+template<> inline const Time *Field::type_as<Time>() const {
   return type_as_Time();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Timestamp *Field::type_as<org::apache::arrow::flatbuf::Timestamp>() const {
+template<> inline const Timestamp *Field::type_as<Timestamp>() const {
   return type_as_Timestamp();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Interval *Field::type_as<org::apache::arrow::flatbuf::Interval>() const {
+template<> inline const Interval *Field::type_as<Interval>() const {
   return type_as_Interval();
 }
 
-template<> inline const org::apache::arrow::flatbuf::List *Field::type_as<org::apache::arrow::flatbuf::List>() const {
+template<> inline const List *Field::type_as<List>() const {
   return type_as_List();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Struct_ *Field::type_as<org::apache::arrow::flatbuf::Struct_>() const {
+template<> inline const Struct_ *Field::type_as<Struct_>() const {
   return type_as_Struct_();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Union *Field::type_as<org::apache::arrow::flatbuf::Union>() const {
+template<> inline const Union *Field::type_as<Union>() const {
   return type_as_Union();
 }
 
-template<> inline const org::apache::arrow::flatbuf::FixedSizeBinary *Field::type_as<org::apache::arrow::flatbuf::FixedSizeBinary>() const {
+template<> inline const FixedSizeBinary *Field::type_as<FixedSizeBinary>() const {
   return type_as_FixedSizeBinary();
 }
 
-template<> inline const org::apache::arrow::flatbuf::FixedSizeList *Field::type_as<org::apache::arrow::flatbuf::FixedSizeList>() const {
+template<> inline const FixedSizeList *Field::type_as<FixedSizeList>() const {
   return type_as_FixedSizeList();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Map *Field::type_as<org::apache::arrow::flatbuf::Map>() const {
+template<> inline const Map *Field::type_as<Map>() const {
   return type_as_Map();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Duration *Field::type_as<org::apache::arrow::flatbuf::Duration>() const {
+template<> inline const Duration *Field::type_as<Duration>() const {
   return type_as_Duration();
 }
 
-template<> inline const org::apache::arrow::flatbuf::LargeBinary *Field::type_as<org::apache::arrow::flatbuf::LargeBinary>() const {
+template<> inline const LargeBinary *Field::type_as<LargeBinary>() const {
   return type_as_LargeBinary();
 }
 
-template<> inline const org::apache::arrow::flatbuf::LargeUtf8 *Field::type_as<org::apache::arrow::flatbuf::LargeUtf8>() const {
+template<> inline const LargeUtf8 *Field::type_as<LargeUtf8>() const {
   return type_as_LargeUtf8();
 }
 
-template<> inline const org::apache::arrow::flatbuf::LargeList *Field::type_as<org::apache::arrow::flatbuf::LargeList>() const {
+template<> inline const LargeList *Field::type_as<LargeList>() const {
   return type_as_LargeList();
 }
 
@@ -1792,19 +1792,19 @@ struct FieldBuilder {
   void add_nullable(bool nullable) {
     fbb_.AddElement<uint8_t>(Field::VT_NULLABLE, static_cast<uint8_t>(nullable), 0);
   }
-  void add_type_type(org::apache::arrow::flatbuf::Type type_type) {
+  void add_type_type(Type type_type) {
     fbb_.AddElement<uint8_t>(Field::VT_TYPE_TYPE, static_cast<uint8_t>(type_type), 0);
   }
   void add_type(flatbuffers::Offset<void> type) {
     fbb_.AddOffset(Field::VT_TYPE, type);
   }
-  void add_dictionary(flatbuffers::Offset<org::apache::arrow::flatbuf::DictionaryEncoding> dictionary) {
+  void add_dictionary(flatbuffers::Offset<DictionaryEncoding> dictionary) {
     fbb_.AddOffset(Field::VT_DICTIONARY, dictionary);
   }
-  void add_children(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>>> children) {
+  void add_children(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Field>>> children) {
     fbb_.AddOffset(Field::VT_CHILDREN, children);
   }
-  void add_custom_metadata(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata) {
+  void add_custom_metadata(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<KeyValue>>> custom_metadata) {
     fbb_.AddOffset(Field::VT_CUSTOM_METADATA, custom_metadata);
   }
   explicit FieldBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1823,11 +1823,11 @@ inline flatbuffers::Offset<Field> CreateField(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> name = 0,
     bool nullable = false,
-    org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type_NONE,
+    Type type_type = Type::NONE,
     flatbuffers::Offset<void> type = 0,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::DictionaryEncoding> dictionary = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>>> children = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata = 0) {
+    flatbuffers::Offset<DictionaryEncoding> dictionary = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Field>>> children = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<KeyValue>>> custom_metadata = 0) {
   FieldBuilder builder_(_fbb);
   builder_.add_custom_metadata(custom_metadata);
   builder_.add_children(children);
@@ -1843,14 +1843,14 @@ inline flatbuffers::Offset<Field> CreateFieldDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *name = nullptr,
     bool nullable = false,
-    org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type_NONE,
+    Type type_type = Type::NONE,
     flatbuffers::Offset<void> type = 0,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::DictionaryEncoding> dictionary = 0,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>> *children = nullptr,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata = nullptr) {
+    flatbuffers::Offset<DictionaryEncoding> dictionary = 0,
+    const std::vector<flatbuffers::Offset<Field>> *children = nullptr,
+    const std::vector<flatbuffers::Offset<KeyValue>> *custom_metadata = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
-  auto children__ = children ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>>(*children) : 0;
-  auto custom_metadata__ = custom_metadata ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>(*custom_metadata) : 0;
+  auto children__ = children ? _fbb.CreateVector<flatbuffers::Offset<Field>>(*children) : 0;
+  auto custom_metadata__ = custom_metadata ? _fbb.CreateVector<flatbuffers::Offset<KeyValue>>(*custom_metadata) : 0;
   return org::apache::arrow::flatbuf::CreateField(
       _fbb,
       name__,
@@ -1873,14 +1873,14 @@ struct Schema FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   /// endianness of the buffer
   /// it is Little Endian by default
   /// if endianness doesn't match the underlying system then the vectors need to be converted
-  org::apache::arrow::flatbuf::Endianness endianness() const {
-    return static_cast<org::apache::arrow::flatbuf::Endianness>(GetField<int16_t>(VT_ENDIANNESS, 0));
+  Endianness endianness() const {
+    return static_cast<Endianness>(GetField<int16_t>(VT_ENDIANNESS, 0));
   }
-  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>> *fields() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>> *>(VT_FIELDS);
+  const flatbuffers::Vector<flatbuffers::Offset<Field>> *fields() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<Field>> *>(VT_FIELDS);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *>(VT_CUSTOM_METADATA);
+  const flatbuffers::Vector<flatbuffers::Offset<KeyValue>> *custom_metadata() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<KeyValue>> *>(VT_CUSTOM_METADATA);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1898,13 +1898,13 @@ struct Schema FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct SchemaBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_endianness(org::apache::arrow::flatbuf::Endianness endianness) {
+  void add_endianness(Endianness endianness) {
     fbb_.AddElement<int16_t>(Schema::VT_ENDIANNESS, static_cast<int16_t>(endianness), 0);
   }
-  void add_fields(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>>> fields) {
+  void add_fields(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Field>>> fields) {
     fbb_.AddOffset(Schema::VT_FIELDS, fields);
   }
-  void add_custom_metadata(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata) {
+  void add_custom_metadata(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<KeyValue>>> custom_metadata) {
     fbb_.AddOffset(Schema::VT_CUSTOM_METADATA, custom_metadata);
   }
   explicit SchemaBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1921,9 +1921,9 @@ struct SchemaBuilder {
 
 inline flatbuffers::Offset<Schema> CreateSchema(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::Endianness endianness = org::apache::arrow::flatbuf::Endianness_Little,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>>> fields = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata = 0) {
+    Endianness endianness = Endianness::Little,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Field>>> fields = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<KeyValue>>> custom_metadata = 0) {
   SchemaBuilder builder_(_fbb);
   builder_.add_custom_metadata(custom_metadata);
   builder_.add_fields(fields);
@@ -1933,11 +1933,11 @@ inline flatbuffers::Offset<Schema> CreateSchema(
 
 inline flatbuffers::Offset<Schema> CreateSchemaDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::Endianness endianness = org::apache::arrow::flatbuf::Endianness_Little,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>> *fields = nullptr,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata = nullptr) {
-  auto fields__ = fields ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>>(*fields) : 0;
-  auto custom_metadata__ = custom_metadata ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>(*custom_metadata) : 0;
+    Endianness endianness = Endianness::Little,
+    const std::vector<flatbuffers::Offset<Field>> *fields = nullptr,
+    const std::vector<flatbuffers::Offset<KeyValue>> *custom_metadata = nullptr) {
+  auto fields__ = fields ? _fbb.CreateVector<flatbuffers::Offset<Field>>(*fields) : 0;
+  auto custom_metadata__ = custom_metadata ? _fbb.CreateVector<flatbuffers::Offset<KeyValue>>(*custom_metadata) : 0;
   return org::apache::arrow::flatbuf::CreateSchema(
       _fbb,
       endianness,
@@ -1947,94 +1947,94 @@ inline flatbuffers::Offset<Schema> CreateSchemaDirect(
 
 inline bool VerifyType(flatbuffers::Verifier &verifier, const void *obj, Type type) {
   switch (type) {
-    case Type_NONE: {
+    case Type::NONE: {
       return true;
     }
-    case Type_Null: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Null *>(obj);
+    case Type::Null: {
+      auto ptr = reinterpret_cast<const Null *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Int: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Int *>(obj);
+    case Type::Int: {
+      auto ptr = reinterpret_cast<const Int *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_FloatingPoint: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::FloatingPoint *>(obj);
+    case Type::FloatingPoint: {
+      auto ptr = reinterpret_cast<const FloatingPoint *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Binary: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Binary *>(obj);
+    case Type::Binary: {
+      auto ptr = reinterpret_cast<const Binary *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Utf8: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Utf8 *>(obj);
+    case Type::Utf8: {
+      auto ptr = reinterpret_cast<const Utf8 *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Bool: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Bool *>(obj);
+    case Type::Bool: {
+      auto ptr = reinterpret_cast<const Bool *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Decimal: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Decimal *>(obj);
+    case Type::Decimal: {
+      auto ptr = reinterpret_cast<const Decimal *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Date: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Date *>(obj);
+    case Type::Date: {
+      auto ptr = reinterpret_cast<const Date *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Time: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Time *>(obj);
+    case Type::Time: {
+      auto ptr = reinterpret_cast<const Time *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Timestamp: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Timestamp *>(obj);
+    case Type::Timestamp: {
+      auto ptr = reinterpret_cast<const Timestamp *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Interval: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Interval *>(obj);
+    case Type::Interval: {
+      auto ptr = reinterpret_cast<const Interval *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_List: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::List *>(obj);
+    case Type::List: {
+      auto ptr = reinterpret_cast<const List *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Struct_: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Struct_ *>(obj);
+    case Type::Struct_: {
+      auto ptr = reinterpret_cast<const Struct_ *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Union: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Union *>(obj);
+    case Type::Union: {
+      auto ptr = reinterpret_cast<const Union *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_FixedSizeBinary: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::FixedSizeBinary *>(obj);
+    case Type::FixedSizeBinary: {
+      auto ptr = reinterpret_cast<const FixedSizeBinary *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_FixedSizeList: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::FixedSizeList *>(obj);
+    case Type::FixedSizeList: {
+      auto ptr = reinterpret_cast<const FixedSizeList *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Map: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Map *>(obj);
+    case Type::Map: {
+      auto ptr = reinterpret_cast<const Map *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_Duration: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Duration *>(obj);
+    case Type::Duration: {
+      auto ptr = reinterpret_cast<const Duration *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_LargeBinary: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::LargeBinary *>(obj);
+    case Type::LargeBinary: {
+      auto ptr = reinterpret_cast<const LargeBinary *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_LargeUtf8: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::LargeUtf8 *>(obj);
+    case Type::LargeUtf8: {
+      auto ptr = reinterpret_cast<const LargeUtf8 *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type_LargeList: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::LargeList *>(obj);
+    case Type::LargeList: {
+      auto ptr = reinterpret_cast<const LargeList *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    default: return true;
+    default: return false;
   }
 }
 

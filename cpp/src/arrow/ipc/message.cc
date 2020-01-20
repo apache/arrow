@@ -58,15 +58,15 @@ class Message::MessageImpl {
 
   Message::Type type() const {
     switch (message_->header_type()) {
-      case flatbuf::MessageHeader_Schema:
+      case flatbuf::MessageHeader::Schema:
         return Message::SCHEMA;
-      case flatbuf::MessageHeader_DictionaryBatch:
+      case flatbuf::MessageHeader::DictionaryBatch:
         return Message::DICTIONARY_BATCH;
-      case flatbuf::MessageHeader_RecordBatch:
+      case flatbuf::MessageHeader::RecordBatch:
         return Message::RECORD_BATCH;
-      case flatbuf::MessageHeader_Tensor:
+      case flatbuf::MessageHeader::Tensor:
         return Message::TENSOR;
-      case flatbuf::MessageHeader_SparseTensor:
+      case flatbuf::MessageHeader::SparseTensor:
         return Message::SPARSE_TENSOR;
       default:
         return Message::NONE;

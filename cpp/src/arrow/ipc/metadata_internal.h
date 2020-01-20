@@ -63,10 +63,10 @@ namespace internal {
 constexpr int32_t kIpcContinuationToken = -1;
 
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
-    flatbuf::MetadataVersion_V4;
+    flatbuf::MetadataVersion::V4;
 
 static constexpr flatbuf::MetadataVersion kMinMetadataVersion =
-    flatbuf::MetadataVersion_V4;
+    flatbuf::MetadataVersion::V4;
 
 MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version);
 

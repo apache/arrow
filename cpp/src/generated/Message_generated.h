@@ -31,31 +31,31 @@ struct Message;
 /// Arrow implementations do not need to implement all of the message types,
 /// which may include experimental metadata types. For maximum compatibility,
 /// it is best to send data using RecordBatch
-enum MessageHeader {
-  MessageHeader_NONE = 0,
-  MessageHeader_Schema = 1,
-  MessageHeader_DictionaryBatch = 2,
-  MessageHeader_RecordBatch = 3,
-  MessageHeader_Tensor = 4,
-  MessageHeader_SparseTensor = 5,
-  MessageHeader_MIN = MessageHeader_NONE,
-  MessageHeader_MAX = MessageHeader_SparseTensor
+enum class MessageHeader : uint8_t {
+  NONE = 0,
+  Schema = 1,
+  DictionaryBatch = 2,
+  RecordBatch = 3,
+  Tensor = 4,
+  SparseTensor = 5,
+  MIN = NONE,
+  MAX = SparseTensor
 };
 
 inline const MessageHeader (&EnumValuesMessageHeader())[6] {
   static const MessageHeader values[] = {
-    MessageHeader_NONE,
-    MessageHeader_Schema,
-    MessageHeader_DictionaryBatch,
-    MessageHeader_RecordBatch,
-    MessageHeader_Tensor,
-    MessageHeader_SparseTensor
+    MessageHeader::NONE,
+    MessageHeader::Schema,
+    MessageHeader::DictionaryBatch,
+    MessageHeader::RecordBatch,
+    MessageHeader::Tensor,
+    MessageHeader::SparseTensor
   };
   return values;
 }
 
 inline const char * const *EnumNamesMessageHeader() {
-  static const char * const names[7] = {
+  static const char * const names[] = {
     "NONE",
     "Schema",
     "DictionaryBatch",
@@ -68,33 +68,33 @@ inline const char * const *EnumNamesMessageHeader() {
 }
 
 inline const char *EnumNameMessageHeader(MessageHeader e) {
-  if (e < MessageHeader_NONE || e > MessageHeader_SparseTensor) return "";
+  if (e < MessageHeader::NONE || e > MessageHeader::SparseTensor) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMessageHeader()[index];
 }
 
 template<typename T> struct MessageHeaderTraits {
-  static const MessageHeader enum_value = MessageHeader_NONE;
+  static const MessageHeader enum_value = MessageHeader::NONE;
 };
 
-template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::Schema> {
-  static const MessageHeader enum_value = MessageHeader_Schema;
+template<> struct MessageHeaderTraits<Schema> {
+  static const MessageHeader enum_value = MessageHeader::Schema;
 };
 
-template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::DictionaryBatch> {
-  static const MessageHeader enum_value = MessageHeader_DictionaryBatch;
+template<> struct MessageHeaderTraits<DictionaryBatch> {
+  static const MessageHeader enum_value = MessageHeader::DictionaryBatch;
 };
 
-template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::RecordBatch> {
-  static const MessageHeader enum_value = MessageHeader_RecordBatch;
+template<> struct MessageHeaderTraits<RecordBatch> {
+  static const MessageHeader enum_value = MessageHeader::RecordBatch;
 };
 
-template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::Tensor> {
-  static const MessageHeader enum_value = MessageHeader_Tensor;
+template<> struct MessageHeaderTraits<Tensor> {
+  static const MessageHeader enum_value = MessageHeader::Tensor;
 };
 
-template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::SparseTensor> {
-  static const MessageHeader enum_value = MessageHeader_SparseTensor;
+template<> struct MessageHeaderTraits<SparseTensor> {
+  static const MessageHeader enum_value = MessageHeader::SparseTensor;
 };
 
 bool VerifyMessageHeader(flatbuffers::Verifier &verifier, const void *obj, MessageHeader type);
@@ -151,8 +151,8 @@ struct RecordBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetField<int64_t>(VT_LENGTH, 0);
   }
   /// Nodes correspond to the pre-ordered flattened logical schema
-  const flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *> *nodes() const {
-    return GetPointer<const flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *> *>(VT_NODES);
+  const flatbuffers::Vector<const FieldNode *> *nodes() const {
+    return GetPointer<const flatbuffers::Vector<const FieldNode *> *>(VT_NODES);
   }
   /// Buffers correspond to the pre-ordered flattened buffer tree
   ///
@@ -160,8 +160,8 @@ struct RecordBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   /// example, most primitive arrays will have 2 buffers, 1 for the validity
   /// bitmap and 1 for the values. For struct arrays, there will only be a
   /// single buffer for the validity (nulls) bitmap
-  const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *buffers() const {
-    return GetPointer<const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *>(VT_BUFFERS);
+  const flatbuffers::Vector<const Buffer *> *buffers() const {
+    return GetPointer<const flatbuffers::Vector<const Buffer *> *>(VT_BUFFERS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -180,10 +180,10 @@ struct RecordBatchBuilder {
   void add_length(int64_t length) {
     fbb_.AddElement<int64_t>(RecordBatch::VT_LENGTH, length, 0);
   }
-  void add_nodes(flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *>> nodes) {
+  void add_nodes(flatbuffers::Offset<flatbuffers::Vector<const FieldNode *>> nodes) {
     fbb_.AddOffset(RecordBatch::VT_NODES, nodes);
   }
-  void add_buffers(flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> buffers) {
+  void add_buffers(flatbuffers::Offset<flatbuffers::Vector<const Buffer *>> buffers) {
     fbb_.AddOffset(RecordBatch::VT_BUFFERS, buffers);
   }
   explicit RecordBatchBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -201,8 +201,8 @@ struct RecordBatchBuilder {
 inline flatbuffers::Offset<RecordBatch> CreateRecordBatch(
     flatbuffers::FlatBufferBuilder &_fbb,
     int64_t length = 0,
-    flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *>> nodes = 0,
-    flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> buffers = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<const FieldNode *>> nodes = 0,
+    flatbuffers::Offset<flatbuffers::Vector<const Buffer *>> buffers = 0) {
   RecordBatchBuilder builder_(_fbb);
   builder_.add_length(length);
   builder_.add_buffers(buffers);
@@ -213,10 +213,10 @@ inline flatbuffers::Offset<RecordBatch> CreateRecordBatch(
 inline flatbuffers::Offset<RecordBatch> CreateRecordBatchDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     int64_t length = 0,
-    const std::vector<org::apache::arrow::flatbuf::FieldNode> *nodes = nullptr,
-    const std::vector<org::apache::arrow::flatbuf::Buffer> *buffers = nullptr) {
-  auto nodes__ = nodes ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::FieldNode>(*nodes) : 0;
-  auto buffers__ = buffers ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::Buffer>(*buffers) : 0;
+    const std::vector<FieldNode> *nodes = nullptr,
+    const std::vector<Buffer> *buffers = nullptr) {
+  auto nodes__ = nodes ? _fbb.CreateVectorOfStructs<FieldNode>(*nodes) : 0;
+  auto buffers__ = buffers ? _fbb.CreateVectorOfStructs<Buffer>(*buffers) : 0;
   return org::apache::arrow::flatbuf::CreateRecordBatch(
       _fbb,
       length,
@@ -239,8 +239,8 @@ struct DictionaryBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int64_t id() const {
     return GetField<int64_t>(VT_ID, 0);
   }
-  const org::apache::arrow::flatbuf::RecordBatch *data() const {
-    return GetPointer<const org::apache::arrow::flatbuf::RecordBatch *>(VT_DATA);
+  const RecordBatch *data() const {
+    return GetPointer<const RecordBatch *>(VT_DATA);
   }
   /// If isDelta is true the values in the dictionary are to be appended to a
   /// dictionary with the indicated id. If isDelta is false this dictionary
@@ -264,7 +264,7 @@ struct DictionaryBatchBuilder {
   void add_id(int64_t id) {
     fbb_.AddElement<int64_t>(DictionaryBatch::VT_ID, id, 0);
   }
-  void add_data(flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch> data) {
+  void add_data(flatbuffers::Offset<RecordBatch> data) {
     fbb_.AddOffset(DictionaryBatch::VT_DATA, data);
   }
   void add_isDelta(bool isDelta) {
@@ -285,7 +285,7 @@ struct DictionaryBatchBuilder {
 inline flatbuffers::Offset<DictionaryBatch> CreateDictionaryBatch(
     flatbuffers::FlatBufferBuilder &_fbb,
     int64_t id = 0,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch> data = 0,
+    flatbuffers::Offset<RecordBatch> data = 0,
     bool isDelta = false) {
   DictionaryBatchBuilder builder_(_fbb);
   builder_.add_id(id);
@@ -302,36 +302,36 @@ struct Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_BODYLENGTH = 10,
     VT_CUSTOM_METADATA = 12
   };
-  org::apache::arrow::flatbuf::MetadataVersion version() const {
-    return static_cast<org::apache::arrow::flatbuf::MetadataVersion>(GetField<int16_t>(VT_VERSION, 0));
+  MetadataVersion version() const {
+    return static_cast<MetadataVersion>(GetField<int16_t>(VT_VERSION, 0));
   }
-  org::apache::arrow::flatbuf::MessageHeader header_type() const {
-    return static_cast<org::apache::arrow::flatbuf::MessageHeader>(GetField<uint8_t>(VT_HEADER_TYPE, 0));
+  MessageHeader header_type() const {
+    return static_cast<MessageHeader>(GetField<uint8_t>(VT_HEADER_TYPE, 0));
   }
   const void *header() const {
     return GetPointer<const void *>(VT_HEADER);
   }
   template<typename T> const T *header_as() const;
-  const org::apache::arrow::flatbuf::Schema *header_as_Schema() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader_Schema ? static_cast<const org::apache::arrow::flatbuf::Schema *>(header()) : nullptr;
+  const Schema *header_as_Schema() const {
+    return header_type() == MessageHeader::Schema ? static_cast<const Schema *>(header()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::DictionaryBatch *header_as_DictionaryBatch() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader_DictionaryBatch ? static_cast<const org::apache::arrow::flatbuf::DictionaryBatch *>(header()) : nullptr;
+  const DictionaryBatch *header_as_DictionaryBatch() const {
+    return header_type() == MessageHeader::DictionaryBatch ? static_cast<const DictionaryBatch *>(header()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::RecordBatch *header_as_RecordBatch() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader_RecordBatch ? static_cast<const org::apache::arrow::flatbuf::RecordBatch *>(header()) : nullptr;
+  const RecordBatch *header_as_RecordBatch() const {
+    return header_type() == MessageHeader::RecordBatch ? static_cast<const RecordBatch *>(header()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::Tensor *header_as_Tensor() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader_Tensor ? static_cast<const org::apache::arrow::flatbuf::Tensor *>(header()) : nullptr;
+  const Tensor *header_as_Tensor() const {
+    return header_type() == MessageHeader::Tensor ? static_cast<const Tensor *>(header()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::SparseTensor *header_as_SparseTensor() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader_SparseTensor ? static_cast<const org::apache::arrow::flatbuf::SparseTensor *>(header()) : nullptr;
+  const SparseTensor *header_as_SparseTensor() const {
+    return header_type() == MessageHeader::SparseTensor ? static_cast<const SparseTensor *>(header()) : nullptr;
   }
   int64_t bodyLength() const {
     return GetField<int64_t>(VT_BODYLENGTH, 0);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *>(VT_CUSTOM_METADATA);
+  const flatbuffers::Vector<flatbuffers::Offset<KeyValue>> *custom_metadata() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<KeyValue>> *>(VT_CUSTOM_METADATA);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -347,33 +347,33 @@ struct Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-template<> inline const org::apache::arrow::flatbuf::Schema *Message::header_as<org::apache::arrow::flatbuf::Schema>() const {
+template<> inline const Schema *Message::header_as<Schema>() const {
   return header_as_Schema();
 }
 
-template<> inline const org::apache::arrow::flatbuf::DictionaryBatch *Message::header_as<org::apache::arrow::flatbuf::DictionaryBatch>() const {
+template<> inline const DictionaryBatch *Message::header_as<DictionaryBatch>() const {
   return header_as_DictionaryBatch();
 }
 
-template<> inline const org::apache::arrow::flatbuf::RecordBatch *Message::header_as<org::apache::arrow::flatbuf::RecordBatch>() const {
+template<> inline const RecordBatch *Message::header_as<RecordBatch>() const {
   return header_as_RecordBatch();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Tensor *Message::header_as<org::apache::arrow::flatbuf::Tensor>() const {
+template<> inline const Tensor *Message::header_as<Tensor>() const {
   return header_as_Tensor();
 }
 
-template<> inline const org::apache::arrow::flatbuf::SparseTensor *Message::header_as<org::apache::arrow::flatbuf::SparseTensor>() const {
+template<> inline const SparseTensor *Message::header_as<SparseTensor>() const {
   return header_as_SparseTensor();
 }
 
 struct MessageBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_version(org::apache::arrow::flatbuf::MetadataVersion version) {
+  void add_version(MetadataVersion version) {
     fbb_.AddElement<int16_t>(Message::VT_VERSION, static_cast<int16_t>(version), 0);
   }
-  void add_header_type(org::apache::arrow::flatbuf::MessageHeader header_type) {
+  void add_header_type(MessageHeader header_type) {
     fbb_.AddElement<uint8_t>(Message::VT_HEADER_TYPE, static_cast<uint8_t>(header_type), 0);
   }
   void add_header(flatbuffers::Offset<void> header) {
@@ -382,7 +382,7 @@ struct MessageBuilder {
   void add_bodyLength(int64_t bodyLength) {
     fbb_.AddElement<int64_t>(Message::VT_BODYLENGTH, bodyLength, 0);
   }
-  void add_custom_metadata(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata) {
+  void add_custom_metadata(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<KeyValue>>> custom_metadata) {
     fbb_.AddOffset(Message::VT_CUSTOM_METADATA, custom_metadata);
   }
   explicit MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -399,11 +399,11 @@ struct MessageBuilder {
 
 inline flatbuffers::Offset<Message> CreateMessage(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion_V1,
-    org::apache::arrow::flatbuf::MessageHeader header_type = org::apache::arrow::flatbuf::MessageHeader_NONE,
+    MetadataVersion version = MetadataVersion::V1,
+    MessageHeader header_type = MessageHeader::NONE,
     flatbuffers::Offset<void> header = 0,
     int64_t bodyLength = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<KeyValue>>> custom_metadata = 0) {
   MessageBuilder builder_(_fbb);
   builder_.add_bodyLength(bodyLength);
   builder_.add_custom_metadata(custom_metadata);
@@ -415,12 +415,12 @@ inline flatbuffers::Offset<Message> CreateMessage(
 
 inline flatbuffers::Offset<Message> CreateMessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion_V1,
-    org::apache::arrow::flatbuf::MessageHeader header_type = org::apache::arrow::flatbuf::MessageHeader_NONE,
+    MetadataVersion version = MetadataVersion::V1,
+    MessageHeader header_type = MessageHeader::NONE,
     flatbuffers::Offset<void> header = 0,
     int64_t bodyLength = 0,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata = nullptr) {
-  auto custom_metadata__ = custom_metadata ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>(*custom_metadata) : 0;
+    const std::vector<flatbuffers::Offset<KeyValue>> *custom_metadata = nullptr) {
+  auto custom_metadata__ = custom_metadata ? _fbb.CreateVector<flatbuffers::Offset<KeyValue>>(*custom_metadata) : 0;
   return org::apache::arrow::flatbuf::CreateMessage(
       _fbb,
       version,
@@ -432,30 +432,30 @@ inline flatbuffers::Offset<Message> CreateMessageDirect(
 
 inline bool VerifyMessageHeader(flatbuffers::Verifier &verifier, const void *obj, MessageHeader type) {
   switch (type) {
-    case MessageHeader_NONE: {
+    case MessageHeader::NONE: {
       return true;
     }
-    case MessageHeader_Schema: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Schema *>(obj);
+    case MessageHeader::Schema: {
+      auto ptr = reinterpret_cast<const Schema *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader_DictionaryBatch: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::DictionaryBatch *>(obj);
+    case MessageHeader::DictionaryBatch: {
+      auto ptr = reinterpret_cast<const DictionaryBatch *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader_RecordBatch: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::RecordBatch *>(obj);
+    case MessageHeader::RecordBatch: {
+      auto ptr = reinterpret_cast<const RecordBatch *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader_Tensor: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Tensor *>(obj);
+    case MessageHeader::Tensor: {
+      auto ptr = reinterpret_cast<const Tensor *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader_SparseTensor: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::SparseTensor *>(obj);
+    case MessageHeader::SparseTensor: {
+      auto ptr = reinterpret_cast<const SparseTensor *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    default: return true;
+    default: return false;
   }
 }
 

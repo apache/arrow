@@ -105,7 +105,7 @@ TEST_F(TestTableBuilder, AddPrimitiveColumn) {
 
   ArrayMetadata values1;
   ArrayMetadata values2;
-  values1.type = fbs::Type_INT32;
+  values1.type = fbs::Type::INT32;
   values1.offset = 10000;
   values1.length = 1000;
   values1.null_count = 100;
@@ -120,7 +120,7 @@ TEST_F(TestTableBuilder, AddPrimitiveColumn) {
 
   cb = tb_->AddColumn("f1");
 
-  values2.type = fbs::Type_UTF8;
+  values2.type = fbs::Type::UTF8;
   values2.offset = 14000;
   values2.length = 1000;
   values2.null_count = 100;
@@ -151,8 +151,8 @@ TEST_F(TestTableBuilder, AddPrimitiveColumn) {
 }
 
 TEST_F(TestTableBuilder, AddCategoryColumn) {
-  ArrayMetadata values1(fbs::Type_UINT8, 10000, 1000, 100, 4000);
-  ArrayMetadata levels(fbs::Type_UTF8, 14000, 10, 0, 300);
+  ArrayMetadata values1(fbs::Type::UINT8, 10000, 1000, 100, 4000);
+  ArrayMetadata levels(fbs::Type::UTF8, 14000, 10, 0, 300);
 
   std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("c0");
   cb->SetValues(values1);
@@ -167,7 +167,7 @@ TEST_F(TestTableBuilder, AddCategoryColumn) {
   Finish();
 
   auto col = table_->column(0);
-  ASSERT_EQ(fbs::TypeMetadata_CategoryMetadata, col->metadata_type());
+  ASSERT_EQ(fbs::TypeMetadata::CategoryMetadata, col->metadata_type());
 
   ArrayMetadata result;
   FromFlatbuffer(col->values(), &result);
@@ -187,7 +187,7 @@ TEST_F(TestTableBuilder, AddCategoryColumn) {
 }
 
 TEST_F(TestTableBuilder, AddTimestampColumn) {
-  ArrayMetadata values1(fbs::Type_INT64, 10000, 1000, 100, 4000);
+  ArrayMetadata values1(fbs::Type::INT64, 10000, 1000, 100, 4000);
   std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("c0");
   cb->SetValues(values1);
   cb->SetTimestamp(TimeUnit::MILLI);
@@ -205,23 +205,23 @@ TEST_F(TestTableBuilder, AddTimestampColumn) {
 
   auto col = table_->column(0);
 
-  ASSERT_EQ(fbs::TypeMetadata_TimestampMetadata, col->metadata_type());
+  ASSERT_EQ(fbs::TypeMetadata::TimestampMetadata, col->metadata_type());
 
   ArrayMetadata result;
   FromFlatbuffer(col->values(), &result);
   AssertArrayEquals(result, values1);
 
   auto ts_ptr = static_cast<const fbs::TimestampMetadata*>(col->metadata());
-  ASSERT_EQ(fbs::TimeUnit_MILLISECOND, ts_ptr->unit());
+  ASSERT_EQ(fbs::TimeUnit::MILLISECOND, ts_ptr->unit());
 
   col = table_->column(1);
   ts_ptr = static_cast<const fbs::TimestampMetadata*>(col->metadata());
-  ASSERT_EQ(fbs::TimeUnit_SECOND, ts_ptr->unit());
+  ASSERT_EQ(fbs::TimeUnit::SECOND, ts_ptr->unit());
   ASSERT_EQ(tz, ts_ptr->timezone()->str());
 }
 
 TEST_F(TestTableBuilder, AddDateColumn) {
-  ArrayMetadata values1(fbs::Type_INT64, 10000, 1000, 100, 4000);
+  ArrayMetadata values1(fbs::Type::INT64, 10000, 1000, 100, 4000);
   std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("d0");
   cb->SetValues(values1);
   cb->SetDate();
@@ -231,14 +231,14 @@ TEST_F(TestTableBuilder, AddDateColumn) {
 
   auto col = table_->column(0);
 
-  ASSERT_EQ(fbs::TypeMetadata_DateMetadata, col->metadata_type());
+  ASSERT_EQ(fbs::TypeMetadata::DateMetadata, col->metadata_type());
   ArrayMetadata result;
   FromFlatbuffer(col->values(), &result);
   AssertArrayEquals(result, values1);
 }
 
 TEST_F(TestTableBuilder, AddTimeColumn) {
-  ArrayMetadata values1(fbs::Type_INT64, 10000, 1000, 100, 4000);
+  ArrayMetadata values1(fbs::Type::INT64, 10000, 1000, 100, 4000);
   std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("c0");
   cb->SetValues(values1);
   cb->SetTime(TimeUnit::SECOND);
@@ -247,13 +247,13 @@ TEST_F(TestTableBuilder, AddTimeColumn) {
 
   auto col = table_->column(0);
 
-  ASSERT_EQ(fbs::TypeMetadata_TimeMetadata, col->metadata_type());
+  ASSERT_EQ(fbs::TypeMetadata::TimeMetadata, col->metadata_type());
   ArrayMetadata result;
   FromFlatbuffer(col->values(), &result);
   AssertArrayEquals(result, values1);
 
   auto t_ptr = static_cast<const fbs::TimeMetadata*>(col->metadata());
-  ASSERT_EQ(fbs::TimeUnit_SECOND, t_ptr->unit());
+  ASSERT_EQ(fbs::TimeUnit::SECOND, t_ptr->unit());
 }
 
 void CheckArrays(const Array& expected, const Array& result) {

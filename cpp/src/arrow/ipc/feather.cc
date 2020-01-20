@@ -315,24 +315,24 @@ class TableReader::TableReaderImpl {
                      const void* metadata, std::shared_ptr<DataType>* out,
                      std::shared_ptr<Array>* out_dictionary = nullptr) {
 #define PRIMITIVE_CASE(CAP_TYPE, FACTORY_FUNC) \
-  case fbs::Type_##CAP_TYPE:                   \
+  case fbs::Type::CAP_TYPE:                    \
     *out = FACTORY_FUNC();                     \
     break;
 
     switch (metadata_type) {
-      case fbs::TypeMetadata_CategoryMetadata: {
+      case fbs::TypeMetadata::CategoryMetadata: {
         auto meta = static_cast<const fbs::CategoryMetadata*>(metadata);
 
         std::shared_ptr<DataType> index_type;
-        RETURN_NOT_OK(GetDataType(values, fbs::TypeMetadata_NONE, nullptr, &index_type));
+        RETURN_NOT_OK(GetDataType(values, fbs::TypeMetadata::NONE, nullptr, &index_type));
 
         RETURN_NOT_OK(
-            LoadValues(meta->levels(), fbs::TypeMetadata_NONE, nullptr, out_dictionary));
+            LoadValues(meta->levels(), fbs::TypeMetadata::NONE, nullptr, out_dictionary));
 
         *out = dictionary(index_type, (*out_dictionary)->type(), meta->ordered());
         break;
       }
-      case fbs::TypeMetadata_TimestampMetadata: {
+      case fbs::TypeMetadata::TimestampMetadata: {
         auto meta = static_cast<const fbs::TimestampMetadata*>(metadata);
         TimeUnit::type unit = FromFlatbufferEnum(meta->unit());
         std::string tz;
@@ -344,10 +344,10 @@ class TableReader::TableReaderImpl {
         }
         *out = timestamp(unit, tz);
       } break;
-      case fbs::TypeMetadata_DateMetadata:
+      case fbs::TypeMetadata::DateMetadata:
         *out = date32();
         break;
-      case fbs::TypeMetadata_TimeMetadata: {
+      case fbs::TypeMetadata::TimeMetadata: {
         auto meta = static_cast<const fbs::TimeMetadata*>(metadata);
         *out = time32(FromFlatbufferEnum(meta->unit()));
       } break;
@@ -565,48 +565,48 @@ Status TableReader::Read(const std::vector<std::string>& names,
 fbs::Type ToFlatbufferType(Type::type type) {
   switch (type) {
     case Type::BOOL:
-      return fbs::Type_BOOL;
+      return fbs::Type::BOOL;
     case Type::INT8:
-      return fbs::Type_INT8;
+      return fbs::Type::INT8;
     case Type::INT16:
-      return fbs::Type_INT16;
+      return fbs::Type::INT16;
     case Type::INT32:
-      return fbs::Type_INT32;
+      return fbs::Type::INT32;
     case Type::INT64:
-      return fbs::Type_INT64;
+      return fbs::Type::INT64;
     case Type::UINT8:
-      return fbs::Type_UINT8;
+      return fbs::Type::UINT8;
     case Type::UINT16:
-      return fbs::Type_UINT16;
+      return fbs::Type::UINT16;
     case Type::UINT32:
-      return fbs::Type_UINT32;
+      return fbs::Type::UINT32;
     case Type::UINT64:
-      return fbs::Type_UINT64;
+      return fbs::Type::UINT64;
     case Type::FLOAT:
-      return fbs::Type_FLOAT;
+      return fbs::Type::FLOAT;
     case Type::DOUBLE:
-      return fbs::Type_DOUBLE;
+      return fbs::Type::DOUBLE;
     case Type::STRING:
-      return fbs::Type_UTF8;
+      return fbs::Type::UTF8;
     case Type::BINARY:
-      return fbs::Type_BINARY;
+      return fbs::Type::BINARY;
     case Type::LARGE_STRING:
-      return fbs::Type_LARGE_UTF8;
+      return fbs::Type::LARGE_UTF8;
     case Type::LARGE_BINARY:
-      return fbs::Type_LARGE_BINARY;
+      return fbs::Type::LARGE_BINARY;
     case Type::DATE32:
-      return fbs::Type_INT32;
+      return fbs::Type::INT32;
     case Type::TIMESTAMP:
-      return fbs::Type_INT64;
+      return fbs::Type::INT64;
     case Type::TIME32:
-      return fbs::Type_INT32;
+      return fbs::Type::INT32;
     case Type::TIME64:
-      return fbs::Type_INT64;
+      return fbs::Type::INT64;
     default:
       DCHECK(false) << "Cannot reach this code";
   }
   // prevent compiler warning
-  return fbs::Type_MIN;
+  return fbs::Type::MIN;
 }
 
 static Status SanitizeUnsupportedTypes(const Array& values, std::shared_ptr<Array>* out) {

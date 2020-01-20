@@ -916,7 +916,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
   }
 
   switch (sparse_index->compressedAxis()) {
-    case flatbuf::SparseMatrixCompressedAxis_Row: {
+    case flatbuf::SparseMatrixCompressedAxis::Row: {
       std::vector<int64_t> indptr_shape({shape[0] + 1});
       const int64_t indptr_minimum_bytes =
           indptr_shape[0] *
@@ -928,7 +928,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
           std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
           std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
     }
-    case flatbuf::SparseMatrixCompressedAxis_Column: {
+    case flatbuf::SparseMatrixCompressedAxis::Column: {
       std::vector<int64_t> indptr_shape({shape[1] + 1});
       const int64_t indptr_minimum_bytes =
           indptr_shape[0] *
