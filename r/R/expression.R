@@ -99,6 +99,7 @@ FieldExpression$create <- function(name) {
 #' @export
 ScalarExpression <- R6Class("ScalarExpression", inherit = Expression)
 ScalarExpression$create <- function(x) {
+  stopifnot(vec_size(x) == 1L || is.null(x))
   shared_ptr(ScalarExpression, dataset___expr__scalar(x))
 }
 

@@ -72,4 +72,6 @@ test_that("C++ expressions", {
     'ComparisonExpression\n(f > 4:double)',
     fixed = TRUE
   )
+
+  expect_error(f == c(1L, 2L))
 })
