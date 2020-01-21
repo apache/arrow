@@ -63,8 +63,6 @@ SCHEMA_IMPORT="\nuse crate::ipc::gen::Schema::*;"
 SPARSE_TENSOR_IMPORT="\nuse crate::ipc::gen::SparseTensor::*;"
 TENSOR_IMPORT="\nuse crate::ipc::gen::Tensor::*;"
 
-# check which platform script is running
-echo $OSTYPE
 
 # Remove all generated lines we don't need
 for f in `ls *.rs`; do
@@ -74,22 +72,42 @@ for f in `ls *.rs`; do
     fi
 
     echo "Modifying: $f"
-    sed -i '/extern crate flatbuffers;/d' $f
-    sed -i '/use self::flatbuffers::EndianScalar;/d' $f
-    sed -i '/\#\[allow(unused_imports, dead_code)\]/d' $f
-    sed -i '/pub mod org {/d' $f
-    sed -i '/pub mod apache {/d' $f
-    sed -i '/pub mod arrow {/d' $f
-    sed -i '/pub mod flatbuf {/d' $f
-    sed -i '/}  \/\/ pub mod flatbuf/d' $f
-    sed -i '/}  \/\/ pub mod arrow/d' $f
-    sed -i '/}  \/\/ pub mod apache/d' $f
-    sed -i '/}  \/\/ pub mod org/d' $f
-    sed -i '/use std::mem;/d' $f
-    sed -i '/use std::cmp::Ordering;/d' $f
+    # Invoke sed with correct arguments depending on platform
+    if [[ $OSTYPE == "msys" ]]; then
+        sed -i '/extern crate flatbuffers;/d' $f
+        sed -i '/use self::flatbuffers::EndianScalar;/d' $f
+        sed -i '/\#\[allow(unused_imports, dead_code)\]/d' $f
+        sed -i '/pub mod org {/d' $f
+        sed -i '/pub mod apache {/d' $f
+        sed -i '/pub mod arrow {/d' $f
+        sed -i '/pub mod flatbuf {/d' $f
+        sed -i '/}  \/\/ pub mod flatbuf/d' $f
+        sed -i '/}  \/\/ pub mod arrow/d' $f
+        sed -i '/}  \/\/ pub mod apache/d' $f
+        sed -i '/}  \/\/ pub mod org/d' $f
+        sed -i '/use std::mem;/d' $f
+        sed -i '/use std::cmp::Ordering;/d' $f
 
-    # Replace all occurrences of type__ with type_
-    sed -i 's/type__/type_/g' $f
+        # Replace all occurrences of type__ with type_
+        sed -i 's/type__/type_/g' $f
+    else
+        sed -i '' '/extern crate flatbuffers;/d' $f
+        sed -i '' '/use self::flatbuffers::EndianScalar;/d' $f
+        sed -i '' '/\#\[allow(unused_imports, dead_code)\]/d' $f
+        sed -i '' '/pub mod org {/d' $f
+        sed -i '' '/pub mod apache {/d' $f
+        sed -i '' '/pub mod arrow {/d' $f
+        sed -i '' '/pub mod flatbuf {/d' $f
+        sed -i '' '/}  \/\/ pub mod flatbuf/d' $f
+        sed -i '' '/}  \/\/ pub mod arrow/d' $f
+        sed -i '' '/}  \/\/ pub mod apache/d' $f
+        sed -i '' '/}  \/\/ pub mod org/d' $f
+        sed -i '' '/use std::mem;/d' $f
+        sed -i '' '/use std::cmp::Ordering;/d' $f
+
+        # Replace all occurrences of type__ with type_
+        sed -i '' 's/type__/type_/g' $f
+    fi
 
     # Some files need prefixes
     if [[ $f == "File.rs" ]]; then 
