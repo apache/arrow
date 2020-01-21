@@ -434,7 +434,7 @@ impl Type {
     }
 
     fn from_type_path(f: &syn::Field, p: &syn::TypePath) -> Self {
-        let last_segment = p.path.segments.last().unwrap().into_value();
+        let last_segment = p.path.segments.last().unwrap();
 
         let is_vec =
             last_segment.ident == syn::Ident::new("Vec", proc_macro2::Span::call_site());
