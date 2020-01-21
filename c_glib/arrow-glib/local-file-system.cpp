@@ -18,16 +18,16 @@
  */
 
 #include <arrow-glib/file-system.hpp>
-#include <arrow-glib/local-file-system.hpp>
+#include <arrow-glib/local-file-system.h>
 
 G_BEGIN_DECLS
 
 typedef struct GArrowLocalFileSystemOptionsPrivate_ {
-  std::shared_ptr<arrow::fs::LocalFileSystemOptions> local_file_system_options;
+  arrow::fs::LocalFileSystemOptions local_file_system_options;
 } GArrowLocalFileSystemOptionsPrivate;
 
 enum {
-  PROP_LOCAL_FILE_SYSTEM_OPTIONS = 1
+  PROP_LOCAL_FILE_SYSTEM_OPTIONS_USE_MMAP = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowLocalFileSystemOptions,
@@ -40,16 +40,6 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowLocalFileSystemOptions,
        GARROW_LOCAL_FILE_SYSTEM_OPTIONS(obj)))
 
 static void
-garrow_local_file_system_options_finalize(GObject *object)
-{
-  auto priv = GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(object);
-
-  priv->local_file_system_options = nullptr;
-
-  G_OBJECT_CLASS(garrow_local_file_system_options_parent_class)->finalize(object);
-}
-
-static void
 garrow_local_file_system_options_set_property(GObject *object,
                                               guint prop_id,
                                               const GValue *value,
@@ -58,9 +48,8 @@ garrow_local_file_system_options_set_property(GObject *object,
   auto priv = GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_LOCAL_FILE_SYSTEM_OPTIONS:
-    priv->local_file_system_options =
-      *static_cast<std::shared_ptr<arrow::fs::LocalFileSystemOptions> *>(g_value_get_pointer(value));
+  case PROP_LOCAL_FILE_SYSTEM_OPTIONS_USE_MMAP:
+    priv->local_file_system_options.use_mmap = g_value_get_boolean(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -69,8 +58,38 @@ garrow_local_file_system_options_set_property(GObject *object,
 }
 
 static void
+garrow_local_file_system_options_get_property(GObject *object,
+                                              guint prop_id,
+                                              GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto priv = GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_LOCAL_FILE_SYSTEM_OPTIONS_USE_MMAP:
+    g_value_set_boolean(value, priv->local_file_system_options.use_mmap);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_local_file_system_options_finalize(GObject *object)
+{
+  auto priv = GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(object);
+
+  priv->local_file_system_options.~LocalFileSystemOptions();
+
+  G_OBJECT_CLASS(garrow_local_file_system_options_parent_class)->finalize(object);
+}
+
+static void
 garrow_local_file_system_options_init(GArrowLocalFileSystemOptions *object)
 {
+  auto priv = GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(object);
+  new(&priv->local_file_system_options) arrow::fs::LocalFileSystemOptions;
 }
 
 static void
@@ -82,13 +101,26 @@ garrow_local_file_system_options_class_init(GArrowLocalFileSystemOptionsClass *k
 
   gobject_class->finalize     = garrow_local_file_system_options_finalize;
   gobject_class->set_property = garrow_local_file_system_options_set_property;
+  gobject_class->get_property = garrow_local_file_system_options_get_property;
 
-  spec = g_param_spec_pointer("local_file_system_options",
-                              "LocalFileSystemOptions",
-                              "The raw std::shared<arrow::fs::LocalFileSystemOptions> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_LOCAL_FILE_SYSTEM_OPTIONS, spec);
+  auto local_file_system_options = arrow::fs::LocalFileSystemOptions::Defaults();
+
+  /**
+   * GArrowLocalFileSystemOptions:use-mmap:
+   *
+   * Whether open_input_stream and open_input_file return a mmap'ed file,
+   * or a regular one.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_boolean("use-mmap",
+                              "Use mmap",
+                              "Whether to use mmap",
+                              local_file_system_options.use_mmap,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_LOCAL_FILE_SYSTEM_OPTIONS_USE_MMAP,
+                                  spec);
 }
 
 /**
@@ -101,10 +133,13 @@ garrow_local_file_system_options_class_init(GArrowLocalFileSystemOptionsClass *k
 GArrowLocalFileSystemOptions *
 garrow_local_file_system_options_defaults(void)
 {
-  auto arrow_local_file_system_options =
-    std::make_shared<arrow::fs::LocalFileSystemOptions>(
-        arrow::fs::LocalFileSystemOptions::Defaults());
-  return garrow_local_file_system_options_new_raw(&arrow_local_file_system_options);
+  auto local_file_system_options =
+    GARROW_LOCAL_FILE_SYSTEM_OPTIONS(g_object_new(GARROW_TYPE_LOCAL_FILE_SYSTEM_OPTIONS, NULL));
+  auto priv = GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(local_file_system_options);
+
+  priv->local_file_system_options = arrow::fs::LocalFileSystemOptions::Defaults();
+
+  return local_file_system_options;
 }
 
 /* arrow::fs::LocalFileSystem */
@@ -150,31 +185,12 @@ garrow_local_file_system_new()
 GArrowLocalFileSystem *
 garrow_local_file_system_new_with_options(GArrowLocalFileSystemOptions *options)
 {
-  auto arrow_options = garrow_local_file_system_options_get_raw(options);
-  auto arrow_local_file_system = std::make_shared<arrow::fs::LocalFileSystem>(*arrow_options);
+  const auto& arrow_options =
+    GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(options)->local_file_system_options;
+  auto arrow_local_file_system = std::make_shared<arrow::fs::LocalFileSystem>(arrow_options);
   std::shared_ptr<arrow::fs::FileSystem> arrow_file_system = arrow_local_file_system;
   auto file_system = garrow_file_system_new_raw(&arrow_file_system, GARROW_TYPE_LOCAL_FILE_SYSTEM);
   return GARROW_LOCAL_FILE_SYSTEM(file_system);
 }
 
 G_END_DECLS
-
-GArrowLocalFileSystemOptions *
-garrow_local_file_system_options_new_raw(
-    std::shared_ptr<arrow::fs::LocalFileSystemOptions> *arrow_local_file_system_options)
-{
-  return GARROW_LOCAL_FILE_SYSTEM_OPTIONS(g_object_new(
-        GARROW_TYPE_LOCAL_FILE_SYSTEM_OPTIONS,
-        "local_file_system_options", arrow_local_file_system_options,
-        NULL));
-}
-
-std::shared_ptr<arrow::fs::LocalFileSystemOptions>
-garrow_local_file_system_options_get_raw(GArrowLocalFileSystemOptions *local_file_system_options)
-{
-  if (!local_file_system_options)
-    return nullptr;
-
-  auto priv = GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(local_file_system_options);
-  return priv->local_file_system_options;
-}

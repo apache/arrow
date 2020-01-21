@@ -40,15 +40,6 @@ GARROW_AVAILABLE_IN_1_0
 GArrowLocalFileSystemOptions *
 garrow_local_file_system_options_defaults(void);
 
-GARROW_AVAILABLE_IN_1_0
-gboolean
-garrow_local_file_system_options_get_use_mmap(GArrowLocalFileSystemOptions *options);
-
-GARROW_AVAILABLE_IN_1_0
-void
-garrow_local_file_system_options_set_use_mmap(GArrowLocalFileSystemOptions *options,
-                                              gboolean use_mmap);
-
 /* arrow::fs::LocalFileSystem */
 
 #define GARROW_TYPE_LOCAL_FILE_SYSTEM (garrow_local_file_system_get_type())
