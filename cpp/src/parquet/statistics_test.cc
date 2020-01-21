@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -372,10 +373,11 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     if (!column_chunk->is_stats_set()) return;
     std::shared_ptr<Statistics> stats = column_chunk->statistics();
     // check values after serialization + deserialization
-    ASSERT_EQ(null_count, stats->null_count());
-    ASSERT_EQ(num_values - null_count, stats->num_values());
-    ASSERT_EQ(expected_stats->EncodeMin(), stats->EncodeMin());
-    ASSERT_EQ(expected_stats->EncodeMax(), stats->EncodeMax());
+    EXPECT_EQ(null_count, stats->null_count());
+    EXPECT_EQ(num_values - null_count, stats->num_values());
+    EXPECT_TRUE(expected_stats->HasMinMax());
+    EXPECT_EQ(expected_stats->EncodeMin(), stats->EncodeMin());
+    EXPECT_EQ(expected_stats->EncodeMax(), stats->EncodeMax());
   }
 };
 
@@ -874,159 +876,183 @@ TEST_F(TestStatisticsSortOrderFLBA, UnknownSortOrder) {
   ASSERT_FALSE(cc_metadata->is_stats_set());
 }
 
-// PARQUET-1225: Float NaN values may lead to incorrect filtering under certain
-// circumstances
-TEST(TestStatisticsSortOrderFloatNaN, NaNValues) {
-  constexpr int NUM_VALUES = 10;
-  NodePtr node = PrimitiveNode::Make("nan_float", Repetition::OPTIONAL, Type::FLOAT);
+template <typename Stats, typename Array, typename T = typename Array::value_type>
+void AssertMinMaxAre(Stats stats, const Array& values, T expected_min, T expected_max) {
+  stats->Update(values.data(), values.size(), 0);
+  ASSERT_TRUE(stats->HasMinMax());
+  ASSERT_EQ(stats->min(), expected_min);
+  ASSERT_EQ(stats->max(), expected_max);
+}
+
+template <typename Stats, typename Array, typename T = typename Array::value_type>
+void AssertMinMaxAre(Stats stats, const Array& values, const uint8_t* valid_bitmap,
+                     T expected_min, T expected_max) {
+  auto n_values = values.size();
+  auto null_count = ::arrow::internal::CountSetBits(valid_bitmap, n_values, 0);
+  auto non_null_count = n_values - null_count;
+  stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count, null_count);
+  ASSERT_TRUE(stats->HasMinMax());
+  ASSERT_EQ(stats->min(), expected_min);
+  ASSERT_EQ(stats->max(), expected_max);
+}
+
+template <typename Stats, typename Array>
+void AssertUnsetMinMax(Stats stats, const Array& values) {
+  stats->Update(values.data(), values.size(), 0);
+  ASSERT_FALSE(stats->HasMinMax());
+}
+
+template <typename Stats, typename Array>
+void AssertUnsetMinMax(Stats stats, const Array& values, const uint8_t* valid_bitmap) {
+  auto n_values = values.size();
+  auto null_count = ::arrow::internal::CountSetBits(valid_bitmap, n_values, 0);
+  auto non_null_count = n_values - null_count;
+  stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count, null_count);
+  ASSERT_FALSE(stats->HasMinMax());
+}
+
+template <typename ParquetType, typename T = typename ParquetType::c_type>
+void CheckExtremums() {
+  using UT = typename std::make_unsigned<T>::type;
+
+  T smin = std::numeric_limits<T>::min();
+  T smax = std::numeric_limits<T>::max();
+  T umin = std::numeric_limits<UT>::min();
+  T umax = std::numeric_limits<UT>::max();
+
+  constexpr int kNumValues = 8;
+  std::array<T, kNumValues> values{0,    smin,     smax,     umin,
+                                   umax, smin + 1, smax - 1, umin - 1};
+
+  NodePtr unsigned_node = PrimitiveNode::Make(
+      "uint", Repetition::OPTIONAL,
+      LogicalType::Int(sizeof(T) * CHAR_BIT, false /*signed*/), ParquetType::type_num);
+  ColumnDescriptor unsigned_descr(unsigned_node, 1, 1);
+  NodePtr signed_node = PrimitiveNode::Make(
+      "int", Repetition::OPTIONAL,
+      LogicalType::Int(sizeof(T) * CHAR_BIT, true /*signed*/), ParquetType::type_num);
+  ColumnDescriptor signed_descr(signed_node, 1, 1);
+
+  auto unsigned_stats = MakeStatistics<ParquetType>(&unsigned_descr);
+  AssertMinMaxAre(unsigned_stats, values, umin, umax);
+
+  auto signed_stats = MakeStatistics<ParquetType>(&signed_descr);
+  AssertMinMaxAre(signed_stats, values, smin, smax);
+}
+
+TEST(TestStatistic, Int32Extremums) { CheckExtremums<Int32Type>(); }
+TEST(TestStatistic, Int64Extremums) { CheckExtremums<Int64Type>(); }
+
+// PARQUET-1225: Float NaN values may lead to incorrect min-max
+template <typename ParquetType>
+void CheckNaNs() {
+  using T = typename ParquetType::c_type;
+
+  constexpr int kNumValues = 8;
+  NodePtr node = PrimitiveNode::Make("f", Repetition::OPTIONAL, ParquetType::type_num);
   ColumnDescriptor descr(node, 1, 1);
-  float values[NUM_VALUES] = {std::nanf(""), -4.0f, -3.0f, -2.0f, -1.0f,
-                              std::nanf(""), 1.0f,  2.0f,  3.0f,  std::nanf("")};
-  float nan_values[NUM_VALUES];
-  for (int i = 0; i < NUM_VALUES; i++) {
-    nan_values[i] = std::nanf("");
-  }
+
+  constexpr T nan = std::numeric_limits<T>::quiet_NaN();
+  constexpr T min = -4.0f;
+  constexpr T max = 3.0f;
+
+  std::array<T, kNumValues> all_nans{nan, nan, nan, nan, nan, nan, nan, nan};
+  std::array<T, kNumValues> some_nans{nan, max, -3.0f, -1.0f, nan, 2.0f, min, nan};
+  uint8_t valid_bitmap = 0x7F;  // 0b01111111
+  // NaNs excluded
+  uint8_t valid_bitmap_no_nans = 0x6E;  // 0b01101110
 
   // Test values
-  auto nan_stats = MakeStatistics<FloatType>(&descr);
-  nan_stats->Update(&values[0], NUM_VALUES, 0);
-  float min = nan_stats->min();
-  float max = nan_stats->max();
-  ASSERT_EQ(min, -4.0f);
-  ASSERT_EQ(max, 3.0f);
+  auto some_nan_stats = MakeStatistics<ParquetType>(&descr);
+  // Ingesting only nans should not yield valid min max
+  AssertUnsetMinMax(some_nan_stats, all_nans);
+  // Ingesting a mix of NaNs and non-NaNs should not yield valid min max.
+  AssertMinMaxAre(some_nan_stats, some_nans, min, max);
+  // Ingesting only nans after a valid min/max, should have not effect
+  AssertMinMaxAre(some_nan_stats, all_nans, min, max);
 
-  // Test all NaNs
-  auto all_nan_stats = MakeStatistics<FloatType>(&descr);
-  all_nan_stats->Update(&nan_values[0], NUM_VALUES, 0);
-  min = all_nan_stats->min();
-  max = all_nan_stats->max();
-  ASSERT_TRUE(std::isnan(min));
-  ASSERT_TRUE(std::isnan(max));
+  some_nan_stats = MakeStatistics<ParquetType>(&descr);
+  AssertUnsetMinMax(some_nan_stats, all_nans, &valid_bitmap);
+  // NaNs should not pollute min max when excluded via null bitmap.
+  AssertMinMaxAre(some_nan_stats, some_nans, &valid_bitmap_no_nans, min, max);
+  // Ingesting NaNs with a null bitmap should not change the result.
+  AssertMinMaxAre(some_nan_stats, some_nans, &valid_bitmap, min, max);
 
-  // Test values followed by all NaNs
-  nan_stats->Update(&nan_values[0], NUM_VALUES, 0);
-  min = nan_stats->min();
-  max = nan_stats->max();
-  ASSERT_EQ(min, -4.0f);
-  ASSERT_EQ(max, 3.0f);
-
-  // Test all NaNs followed by values
-  all_nan_stats->Update(&values[0], NUM_VALUES, 0);
-  min = all_nan_stats->min();
-  max = all_nan_stats->max();
-  ASSERT_EQ(min, -4.0f);
-  ASSERT_EQ(max, 3.0f);
-
-  // Test values followed by all NaNs followed by values
-  nan_stats->Update(&values[0], NUM_VALUES, 0);
-  min = nan_stats->min();
-  max = nan_stats->max();
-  ASSERT_EQ(min, -4.0f);
-  ASSERT_EQ(max, 3.0f);
+  // An array that doesn't start with NaN
+  std::array<T, kNumValues> other_nans{1.5f, max, -3.0f, -1.0f, nan, 2.0f, min, nan};
+  auto other_stats = MakeStatistics<ParquetType>(&descr);
+  AssertMinMaxAre(other_stats, other_nans, min, max);
 }
 
-// PARQUET-1225: Float NaN values may lead to incorrect filtering under certain
-// circumstances
-TEST(TestStatisticsSortOrderFloatNaN, NaNValuesSpaced) {
-  constexpr int NUM_VALUES = 10;
+TEST(TestStatistic, NaNFloatValues) { CheckNaNs<FloatType>(); }
+
+TEST(TestStatistic, NaNDoubleValues) { CheckNaNs<DoubleType>(); }
+
+// ARROW-7376
+TEST(TestStatisticsSortOrderFloatNaN, NaNAndNullsInfiniteLoop) {
+  constexpr int kNumValues = 8;
   NodePtr node = PrimitiveNode::Make("nan_float", Repetition::OPTIONAL, Type::FLOAT);
   ColumnDescriptor descr(node, 1, 1);
-  float values[NUM_VALUES] = {std::nanf(""), -4.0f, -3.0f, -2.0f, -1.0f,
-                              std::nanf(""), 1.0f,  2.0f,  3.0f,  std::nanf("")};
-  float nan_values[NUM_VALUES];
-  for (int i = 0; i < NUM_VALUES; i++) {
-    nan_values[i] = std::nanf("");
-  }
-  std::vector<uint8_t> valid_bits(BitUtil::BytesForBits(NUM_VALUES) + 1, 255);
 
-  // Test values
-  auto nan_stats = MakeStatistics<FloatType>(&descr);
-  nan_stats->UpdateSpaced(&values[0], valid_bits.data(), 0, NUM_VALUES, 0);
-  float min = nan_stats->min();
-  float max = nan_stats->max();
-  ASSERT_EQ(min, -4.0f);
-  ASSERT_EQ(max, 3.0f);
+  constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+  std::array<float, kNumValues> nans_but_last{nan, nan, nan, nan, nan, nan, nan, 0.0f};
 
-  // Test all NaNs
-  auto all_nan_stats = MakeStatistics<FloatType>(&descr);
-  all_nan_stats->UpdateSpaced(&nan_values[0], valid_bits.data(), 0, NUM_VALUES, 0);
-  min = all_nan_stats->min();
-  max = all_nan_stats->max();
-  ASSERT_TRUE(std::isnan(min));
-  ASSERT_TRUE(std::isnan(max));
-
-  // Test values followed by all NaNs
-  nan_stats->UpdateSpaced(&nan_values[0], valid_bits.data(), 0, NUM_VALUES, 0);
-  min = nan_stats->min();
-  max = nan_stats->max();
-  ASSERT_EQ(min, -4.0f);
-  ASSERT_EQ(max, 3.0f);
-
-  // Test all NaNs followed by values
-  all_nan_stats->UpdateSpaced(&values[0], valid_bits.data(), 0, NUM_VALUES, 0);
-  min = all_nan_stats->min();
-  max = all_nan_stats->max();
-  ASSERT_EQ(min, -4.0f);
-  ASSERT_EQ(max, 3.0f);
-
-  // Test values followed by all NaNs followed by values
-  nan_stats->UpdateSpaced(&values[0], valid_bits.data(), 0, NUM_VALUES, 0);
-  min = nan_stats->min();
-  max = nan_stats->max();
-  ASSERT_EQ(min, -4.0f);
-  ASSERT_EQ(max, 3.0f);
+  uint8_t all_but_last_valid = 0x7F;  // 0b01111111
+  auto stats = MakeStatistics<FloatType>(&descr);
+  AssertUnsetMinMax(stats, nans_but_last, &all_but_last_valid);
 }
 
-// NaN double values may lead to incorrect filtering under certain circumstances
-TEST(TestStatisticsSortOrderDoubleNaN, NaNValues) {
-  constexpr int NUM_VALUES = 10;
-  NodePtr node = PrimitiveNode::Make("nan_double", Repetition::OPTIONAL, Type::DOUBLE);
-  ColumnDescriptor descr(node, 1, 1);
+template <typename Stats, typename Array, typename T = typename Array::value_type>
+void AssertMinMaxZeroesSign(Stats stats, const Array& values) {
+  stats->Update(values.data(), values.size(), 0);
+  ASSERT_TRUE(stats->HasMinMax());
 
-  auto nan_stats = MakeStatistics<DoubleType>(&descr);
-  double values[NUM_VALUES] = {std::nan(""), std::nan(""), -3.0, -2.0, -1.0,
-                               0.0,          1.0,          2.0,  3.0,  4.0};
-  nan_stats->Update(values, NUM_VALUES, 0);
-  ASSERT_EQ(nan_stats->min(), -3.0);
-  ASSERT_EQ(nan_stats->max(), 4.0);
+  T zero{};
+  ASSERT_EQ(stats->min(), zero);
+  ASSERT_TRUE(std::signbit(stats->min()));
+
+  ASSERT_EQ(stats->max(), zero);
+  ASSERT_FALSE(std::signbit(stats->max()));
 }
 
+// ARROW-5562: Ensure that -0.0f and 0.0f values are properly handled like in
+// parquet-mr
 template <typename ParquetType>
 void CheckNegativeZeroStats() {
   using T = typename ParquetType::c_type;
 
-  constexpr int NUM_VALUES = 2;
   NodePtr node = PrimitiveNode::Make("f", Repetition::OPTIONAL, ParquetType::type_num);
   ColumnDescriptor descr(node, 1, 1);
-  T zero = 0;
+  T zero{};
 
-  // Test that the min and max are always unsigned
   {
-    T values[NUM_VALUES] = {-zero, zero};
+    std::array<T, 2> values{-zero, zero};
     auto stats = MakeStatistics<ParquetType>(&descr);
-    stats->Update(values, NUM_VALUES, 0);
-    // The min and max are unsigned
-    ASSERT_FALSE(std::signbit(stats->min()));
-    ASSERT_FALSE(std::signbit(stats->max()));
+    AssertMinMaxZeroesSign(stats, values);
   }
 
   {
-    T values[NUM_VALUES] = {zero, -zero};
+    std::array<T, 2> values{zero, -zero};
     auto stats = MakeStatistics<ParquetType>(&descr);
-    stats->Update(values, NUM_VALUES, 0);
-    ASSERT_FALSE(std::signbit(stats->min()));
-    ASSERT_FALSE(std::signbit(stats->max()));
+    AssertMinMaxZeroesSign(stats, values);
+  }
+
+  {
+    std::array<T, 2> values{-zero, -zero};
+    auto stats = MakeStatistics<ParquetType>(&descr);
+    AssertMinMaxZeroesSign(stats, values);
+  }
+
+  {
+    std::array<T, 2> values{zero, zero};
+    auto stats = MakeStatistics<ParquetType>(&descr);
+    AssertMinMaxZeroesSign(stats, values);
   }
 }
 
-TEST(TestStatistics, NegativeZero) {
-  // ARROW-5562
-  CheckNegativeZeroStats<FloatType>();
-  CheckNegativeZeroStats<DoubleType>();
+TEST(TestStatistics, FloatNegativeZero) { CheckNegativeZeroStats<FloatType>(); }
 
-  // Modern computers use two's complement encoding of integers which does not
-  // allow for negative zero
-}
+TEST(TestStatistics, DoubleNegativeZero) { CheckNegativeZeroStats<DoubleType>(); }
 
 // Test statistics for binary column with UNSIGNED sort order
 TEST(TestStatisticsSortOrderMinMax, Unsigned) {
@@ -1055,5 +1081,6 @@ TEST(TestStatisticsSortOrderMinMax, Unsigned) {
   ASSERT_EQ(0x00, stats->EncodeMin()[0]);
   ASSERT_EQ(0x0b, stats->EncodeMax()[0]);
 }
+
 }  // namespace test
 }  // namespace parquet

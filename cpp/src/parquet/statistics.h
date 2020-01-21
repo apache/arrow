@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -76,12 +77,12 @@ class TypedComparator : public Comparator {
 
   /// \brief Compute maximum and minimum elements in a batch of
   /// elements without any nulls
-  virtual void GetMinMax(const T* values, int64_t length, T* out_min, T* out_max) = 0;
+  virtual std::pair<T, T> GetMinMax(const T* values, int64_t length) = 0;
 
   /// \brief Compute minimum and maximum elements from an Arrow array. Only
   /// valid for certain Parquet Type / Arrow Type combinations, like BYTE_ARRAY
   /// / arrow::BinaryArray
-  virtual void GetMinMax(const ::arrow::Array& values, T* out_min, T* out_max) = 0;
+  virtual std::pair<T, T> GetMinMax(const ::arrow::Array& values) = 0;
 
   /// \brief Compute maximum and minimum elements in a batch of
   /// elements with accompanying bitmap indicating which elements are
@@ -93,10 +94,9 @@ class TypedComparator : public Comparator {
   /// included (1) or excluded (0)
   /// \param[in] valid_bits_offset the bit offset into the bitmap of
   /// the first element in the sequence
-  /// \param[out] out_min the returned minimum element
-  /// \param[out] out_max the returned maximum element
-  virtual void GetMinMaxSpaced(const T* values, int64_t length, const uint8_t* valid_bits,
-                               int64_t valid_bits_offset, T* out_min, T* out_max) = 0;
+  virtual std::pair<T, T> GetMinMaxSpaced(const T* values, int64_t length,
+                                          const uint8_t* valid_bits,
+                                          int64_t valid_bits_offset) = 0;
 };
 
 /// \brief Typed version of Comparator::Make

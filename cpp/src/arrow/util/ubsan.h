@@ -21,6 +21,7 @@
 
 #include <cstring>
 #include <memory>
+#include <type_traits>
 
 #include "arrow/util/macros.h"
 
@@ -64,6 +65,16 @@ inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoad(
     const T* unaligned) {
   typename std::remove_const<T>::type ret;
   std::memcpy(&ret, unaligned, sizeof(T));
+  return ret;
+}
+
+template <typename U, typename T>
+inline typename std::enable_if<std::is_trivial<T>::value && std::is_trivial<U>::value &&
+                                   sizeof(T) == sizeof(U),
+                               U>::type
+SafeCopy(T value) {
+  typename std::remove_const<U>::type ret;
+  std::memcpy(&ret, &value, sizeof(T));
   return ret;
 }
 

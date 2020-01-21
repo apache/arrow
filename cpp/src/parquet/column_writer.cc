@@ -28,6 +28,7 @@
 #include "arrow/array.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_stream_utils.h"
@@ -1214,19 +1215,12 @@ struct SerializeFunctor {
 };
 
 template <typename ParquetType, typename ArrowType>
-inline Status SerializeData(const arrow::Array& array, ArrowWriteContext* ctx,
-                            typename ParquetType::c_type* out) {
-  using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
-  SerializeFunctor<ParquetType, ArrowType> functor;
-  return functor.Serialize(checked_cast<const ArrayType&>(array), ctx, out);
-}
-
-template <typename ParquetType, typename ArrowType>
 Status WriteArrowSerialize(const arrow::Array& array, int64_t num_levels,
                            const int16_t* def_levels, const int16_t* rep_levels,
                            ArrowWriteContext* ctx,
                            TypedColumnWriter<ParquetType>* writer) {
   using ParquetCType = typename ParquetType::c_type;
+  using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
 
   ParquetCType* buffer = nullptr;
   PARQUET_THROW_NOT_OK(ctx->GetScratchData<ParquetCType>(array.length(), &buffer));
@@ -1234,8 +1228,9 @@ Status WriteArrowSerialize(const arrow::Array& array, int64_t num_levels,
   bool no_nulls =
       writer->descr()->schema_node()->is_required() || (array.null_count() == 0);
 
-  Status s = SerializeData<ParquetType, ArrowType>(array, ctx, buffer);
-  RETURN_NOT_OK(s);
+  SerializeFunctor<ParquetType, ArrowType> functor;
+  RETURN_NOT_OK(functor.Serialize(checked_cast<const ArrayType&>(array), ctx, buffer));
+
   if (no_nulls) {
     PARQUET_CATCH_NOT_OK(writer->WriteBatch(num_levels, def_levels, rep_levels, buffer));
   } else {
@@ -1613,8 +1608,10 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(const int16_t* def_
 // Write Arrow to FIXED_LEN_BYTE_ARRAY
 
 template <typename ParquetType, typename ArrowType>
-struct SerializeFunctor<ParquetType, ArrowType,
-                        arrow::enable_if_fixed_size_binary<ArrowType>> {
+struct SerializeFunctor<
+    ParquetType, ArrowType,
+    arrow::enable_if_t<arrow::is_fixed_size_binary_type<ArrowType>::value &&
+                       !arrow::is_decimal_type<ArrowType>::value>> {
   Status Serialize(const arrow::FixedSizeBinaryArray& array, ArrowWriteContext*,
                    FLBA* out) {
     if (array.null_count() == 0) {
@@ -1634,55 +1631,61 @@ struct SerializeFunctor<ParquetType, ArrowType,
   }
 };
 
-template <>
-Status WriteArrowSerialize<FLBAType, arrow::Decimal128Type>(
-    const arrow::Array& array, int64_t num_levels, const int16_t* def_levels,
-    const int16_t* rep_levels, ArrowWriteContext* ctx,
-    TypedColumnWriter<FLBAType>* writer) {
-  const auto& data = static_cast<const arrow::Decimal128Array&>(array);
-  const int64_t length = data.length();
+// ----------------------------------------------------------------------
+// Write Arrow to Decimal128
 
-  FLBA* buffer;
-  RETURN_NOT_OK(ctx->GetScratchData<FLBA>(num_levels, &buffer));
+using arrow::internal::checked_pointer_cast;
 
-  const auto& decimal_type = static_cast<const arrow::Decimal128Type&>(*data.type());
-  const int32_t offset =
-      decimal_type.byte_width() - internal::DecimalSize(decimal_type.precision());
+// Requires a custom serializer because decimal128 in parquet are in big-endian
+// format. Thus, a temporary local buffer is required.
+template <typename ParquetType, typename ArrowType>
+struct SerializeFunctor<ParquetType, ArrowType, arrow::enable_if_decimal<ArrowType>> {
+  Status Serialize(const arrow::Decimal128Array& array, ArrowWriteContext* ctx,
+                   FLBA* out) {
+    AllocateScratch(array, ctx);
+    auto offset = Offset(array);
 
-  const bool does_not_have_nulls =
-      writer->descr()->schema_node()->is_required() || data.null_count() == 0;
-
-  const auto valid_value_count = static_cast<size_t>(length - data.null_count()) * 2;
-  std::vector<uint64_t> big_endian_values(valid_value_count);
-
-  // TODO(phillipc): Look into whether our compilers will perform loop unswitching so we
-  // don't have to keep writing two loops to handle the case where we know there are no
-  // nulls
-  if (does_not_have_nulls) {
-    // no nulls, just dump the data
-    // todo(advancedxy): use a writeBatch to avoid this step
-    for (int64_t i = 0, j = 0; i < length; ++i, j += 2) {
-      auto unsigned_64_bit = reinterpret_cast<const uint64_t*>(data.GetValue(i));
-      big_endian_values[j] = arrow::BitUtil::ToBigEndian(unsigned_64_bit[1]);
-      big_endian_values[j + 1] = arrow::BitUtil::ToBigEndian(unsigned_64_bit[0]);
-      buffer[i] = FixedLenByteArray(
-          reinterpret_cast<const uint8_t*>(&big_endian_values[j]) + offset);
-    }
-  } else {
-    for (int64_t i = 0, buffer_idx = 0, j = 0; i < length; ++i) {
-      if (data.IsValid(i)) {
-        auto unsigned_64_bit = reinterpret_cast<const uint64_t*>(data.GetValue(i));
-        big_endian_values[j] = arrow::BitUtil::ToBigEndian(unsigned_64_bit[1]);
-        big_endian_values[j + 1] = arrow::BitUtil::ToBigEndian(unsigned_64_bit[0]);
-        buffer[buffer_idx++] = FixedLenByteArray(
-            reinterpret_cast<const uint8_t*>(&big_endian_values[j]) + offset);
-        j += 2;
+    if (array.null_count() == 0) {
+      for (int64_t i = 0; i < array.length(); i++) {
+        out[i] = FixDecimalEndianess(array.GetValue(i), offset);
+      }
+    } else {
+      for (int64_t i = 0; i < array.length(); i++) {
+        out[i] = array.IsValid(i) ? FixDecimalEndianess(array.GetValue(i), offset)
+                                  : FixedLenByteArray();
       }
     }
+
+    return Status::OK();
   }
-  PARQUET_CATCH_NOT_OK(writer->WriteBatch(num_levels, def_levels, rep_levels, buffer));
-  return Status::OK();
-}
+
+  // Parquet's Decimal are stored with FixedLength values where the length is
+  // proportional to the precision. Arrow's Decimal are always stored with 16
+  // bytes. Thus the internal FLBA pointer must be adjusted by the offset calculated
+  // here.
+  int32_t Offset(const arrow::Decimal128Array& array) {
+    auto decimal_type = checked_pointer_cast<::arrow::Decimal128Type>(array.type());
+    return decimal_type->byte_width() - internal::DecimalSize(decimal_type->precision());
+  }
+
+  void AllocateScratch(const arrow::Decimal128Array& array, ArrowWriteContext* ctx) {
+    int64_t non_null_count = array.length() - array.null_count();
+    int64_t size = non_null_count * 16;
+    scratch_buffer = AllocateBuffer(ctx->memory_pool, size);
+    scratch = reinterpret_cast<int64_t*>(scratch_buffer->mutable_data());
+  }
+
+  FixedLenByteArray FixDecimalEndianess(const uint8_t* in, int64_t offset) {
+    const auto* u64_in = reinterpret_cast<const int64_t*>(in);
+    auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
+    *scratch++ = arrow::BitUtil::ToBigEndian(u64_in[1]);
+    *scratch++ = arrow::BitUtil::ToBigEndian(u64_in[0]);
+    return FixedLenByteArray(out);
+  }
+
+  std::shared_ptr<ResizableBuffer> scratch_buffer;
+  int64_t* scratch;
+};
 
 template <>
 Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(const int16_t* def_levels,

@@ -18,12 +18,17 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <type_traits>
+#include <utility>
 
 #include "arrow/array.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/optional.h"
+#include "arrow/util/ubsan.h"
 
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
@@ -42,239 +47,325 @@ namespace parquet {
 
 template <typename DType, bool is_signed>
 struct CompareHelper {
-  typedef typename DType::c_type T;
+  using T = typename DType::c_type;
+
+  constexpr static T DefaultMin() { return std::numeric_limits<T>::max(); }
+  constexpr static T DefaultMax() { return std::numeric_limits<T>::lowest(); }
+
+  // MSVC17 fix, isnan is not overloaded for IntegralType as per C++11
+  // standard requirements.
+  template <typename T1 = T>
+  static arrow::enable_if_t<std::is_floating_point<T1>::value, T> Coalesce(T val,
+                                                                           T fallback) {
+    return std::isnan(val) ? fallback : val;
+  }
+
+  template <typename T1 = T>
+  static arrow::enable_if_t<!std::is_floating_point<T1>::value, T> Coalesce(T val,
+                                                                            T fallback) {
+    return val;
+  }
+
   static inline bool Compare(int type_length, const T& a, const T& b) { return a < b; }
+
+  static T Min(int type_length, T a, T b) { return a < b ? a : b; }
+  static T Max(int type_length, T a, T b) { return a < b ? b : a; }
 };
 
-template <>
-struct CompareHelper<Int96Type, true> {
-  static inline bool Compare(int type_length, const Int96& a, const Int96& b) {
-    // Only the MSB bit is by Signed comparison
-    // For little-endian, this is the last bit of Int96 type
-    const int32_t amsb = static_cast<const int32_t>(a.value[2]);
-    const int32_t bmsb = static_cast<const int32_t>(b.value[2]);
-    if (amsb != bmsb) {
-      return (amsb < bmsb);
-    } else if (a.value[1] != b.value[1]) {
-      return (a.value[1] < b.value[1]);
-    }
-    return (a.value[0] < b.value[0]);
+template <typename DType>
+struct UnsignedCompareHelperBase {
+  using T = typename DType::c_type;
+  using UCType = typename std::make_unsigned<T>::type;
+
+  constexpr static T DefaultMin() { return std::numeric_limits<UCType>::max(); }
+  constexpr static T DefaultMax() { return std::numeric_limits<UCType>::lowest(); }
+  static T Coalesce(T val, T fallback) { return val; }
+
+  static inline bool Compare(int type_length, T a, T b) {
+    return arrow::util::SafeCopy<UCType>(a) < arrow::util::SafeCopy<UCType>(b);
   }
+
+  static T Min(int type_length, T a, T b) { return Compare(type_length, a, b) ? a : b; }
+  static T Max(int type_length, T a, T b) { return Compare(type_length, a, b) ? b : a; }
 };
 
 template <>
-struct CompareHelper<ByteArrayType, true> {
-  static inline bool Compare(int type_length, const ByteArray& a, const ByteArray& b) {
-    const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
-    const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
-    return std::lexicographical_compare(aptr, aptr + a.len, bptr, bptr + b.len);
+struct CompareHelper<Int32Type, false> : public UnsignedCompareHelperBase<Int32Type> {};
+
+template <>
+struct CompareHelper<Int64Type, false> : public UnsignedCompareHelperBase<Int64Type> {};
+
+template <bool is_signed>
+struct CompareHelper<Int96Type, is_signed> {
+  using T = typename Int96Type::c_type;
+  using msb_type = typename std::conditional<is_signed, int32_t, uint32_t>::type;
+
+  static T DefaultMin() {
+    uint32_t kMsbMax = std::numeric_limits<msb_type>::max();
+    uint32_t kMax = std::numeric_limits<uint32_t>::max();
+    return {kMax, kMax, kMsbMax};
   }
-};
-
-template <>
-struct CompareHelper<FLBAType, true> {
-  static inline bool Compare(int type_length, const FLBA& a, const FLBA& b) {
-    const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
-    const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
-    return std::lexicographical_compare(aptr, aptr + type_length, bptr,
-                                        bptr + type_length);
+  static T DefaultMax() {
+    uint32_t kMsbMin = std::numeric_limits<msb_type>::min();
+    uint32_t kMin = std::numeric_limits<uint32_t>::min();
+    return {kMin, kMin, kMsbMin};
   }
-};
+  static T Coalesce(T val, T fallback) { return val; }
 
-template <>
-struct CompareHelper<Int32Type, false> {
-  static inline bool Compare(int type_length, int32_t a, int32_t b) {
-    const uint32_t ua = a;
-    const uint32_t ub = b;
-    return ua < ub;
-  }
-};
-
-template <>
-struct CompareHelper<Int64Type, false> {
-  static inline bool Compare(int type_length, int64_t a, int64_t b) {
-    const uint64_t ua = a;
-    const uint64_t ub = b;
-    return ua < ub;
-  }
-};
-
-template <>
-struct CompareHelper<Int96Type, false> {
-  static inline bool Compare(int type_length, const Int96& a, const Int96& b) {
+  static inline bool Compare(int type_length, const T& a, const T& b) {
     if (a.value[2] != b.value[2]) {
-      return (a.value[2] < b.value[2]);
+      // Only the MSB bit is by Signed comparison. For little-endian, this is the
+      // last bit of Int96 type.
+      return arrow::util::SafeCopy<msb_type>(a.value[2]) <
+             arrow::util::SafeCopy<msb_type>(b.value[2]);
     } else if (a.value[1] != b.value[1]) {
       return (a.value[1] < b.value[1]);
     }
     return (a.value[0] < b.value[0]);
   }
-};
 
-template <>
-struct CompareHelper<ByteArrayType, false> {
-  static inline bool Compare(int type_length, const ByteArray& a, const ByteArray& b) {
-    const uint8_t* aptr = reinterpret_cast<const uint8_t*>(a.ptr);
-    const uint8_t* bptr = reinterpret_cast<const uint8_t*>(b.ptr);
+  static T Min(int type_length, const T& a, const T& b) {
+    return Compare(0, a, b) ? a : b;
+  }
+  static T Max(int type_length, const T& a, const T& b) {
+    return Compare(0, a, b) ? b : a;
+  }
+};  // namespace parquet
+
+template <typename DType, bool is_signed>
+struct ByteLikeCompareHelperBase {
+  using T = ByteArrayType::c_type;
+  using PtrType = typename std::conditional<is_signed, int8_t, uint8_t>::type;
+
+  static T DefaultMin() { return {}; }
+  static T DefaultMax() { return {}; }
+  static T Coalesce(T val, T fallback) { return val; }
+
+  static inline bool Compare(int type_length, const T& a, const T& b) {
+    const auto* aptr = reinterpret_cast<const PtrType*>(a.ptr);
+    const auto* bptr = reinterpret_cast<const PtrType*>(b.ptr);
     return std::lexicographical_compare(aptr, aptr + a.len, bptr, bptr + b.len);
   }
-};
 
-template <>
-struct CompareHelper<FLBAType, false> {
-  static inline bool Compare(int type_length, const FLBA& a, const FLBA& b) {
-    const uint8_t* aptr = reinterpret_cast<const uint8_t*>(a.ptr);
-    const uint8_t* bptr = reinterpret_cast<const uint8_t*>(b.ptr);
-    return std::lexicographical_compare(aptr, aptr + type_length, bptr,
-                                        bptr + type_length);
+  static T Min(int type_length, const T& a, const T& b) {
+    if (a.ptr == nullptr) return b;
+    if (b.ptr == nullptr) return a;
+    return Compare(type_length, a, b) ? a : b;
+  }
+
+  static T Max(int type_length, const T& a, const T& b) {
+    if (a.ptr == nullptr) return b;
+    if (b.ptr == nullptr) return a;
+    return Compare(type_length, a, b) ? b : a;
   }
 };
+
+template <typename DType, bool is_signed>
+struct BinaryLikeCompareHelperBase {
+  using T = typename DType::c_type;
+  using PtrType = typename std::conditional<is_signed, int8_t, uint8_t>::type;
+
+  static T DefaultMin() { return {}; }
+  static T DefaultMax() { return {}; }
+  static T Coalesce(T val, T fallback) { return val; }
+
+  static int value_length(int value_length, const ByteArray& value) { return value.len; }
+
+  static int value_length(int type_length, const FLBA& value) { return type_length; }
+
+  static inline bool Compare(int type_length, const T& a, const T& b) {
+    const auto* aptr = reinterpret_cast<const PtrType*>(a.ptr);
+    const auto* bptr = reinterpret_cast<const PtrType*>(b.ptr);
+    return std::lexicographical_compare(aptr, aptr + value_length(type_length, a), bptr,
+                                        bptr + value_length(type_length, b));
+  }
+
+  static T Min(int type_length, const T& a, const T& b) {
+    if (a.ptr == nullptr) return b;
+    if (b.ptr == nullptr) return a;
+    return Compare(type_length, a, b) ? a : b;
+  }
+
+  static T Max(int type_length, const T& a, const T& b) {
+    if (a.ptr == nullptr) return b;
+    if (b.ptr == nullptr) return a;
+    return Compare(type_length, a, b) ? b : a;
+  }
+};
+
+template <bool is_signed>
+struct CompareHelper<ByteArrayType, is_signed>
+    : public BinaryLikeCompareHelperBase<ByteArrayType, is_signed> {};
+
+template <bool is_signed>
+struct CompareHelper<FLBAType, is_signed>
+    : public BinaryLikeCompareHelperBase<FLBAType, is_signed> {};
+
+using ::arrow::util::optional;
 
 template <typename T>
-T CleanStatistic(T val) {
-  return val;
+::arrow::enable_if_t<std::is_integral<T>::value, optional<std::pair<T, T>>>
+CleanStatistic(std::pair<T, T> min_max) {
+  return min_max;
 }
 
-template <>
-float CleanStatistic(float val) {
-  // ARROW-5562: Return positive 0 for -0 and any value within float epsilon of
-  // 0
-  return fabs(val) < 1E-7 ? 0.0f : val;
+// In case of floating point types, the following rules are applied (as per
+// upstream parquet-mr):
+// - If any of min/max is NaN, return nothing.
+// - If min is 0.0f, replace with -0.0f
+// - If max is -0.0f, replace with 0.0f
+template <typename T>
+::arrow::enable_if_t<std::is_floating_point<T>::value, optional<std::pair<T, T>>>
+CleanStatistic(std::pair<T, T> min_max) {
+  T min = min_max.first;
+  T max = min_max.second;
+
+  // Ignore if one of the value is nan.
+  if (std::isnan(min) || std::isnan(max)) {
+    return nonstd::nullopt;
+  }
+
+  if (min == std::numeric_limits<T>::max() && max == std::numeric_limits<T>::lowest()) {
+    return nonstd::nullopt;
+  }
+
+  T zero{};
+
+  if (min == zero && !std::signbit(min)) {
+    min = -min;
+  }
+
+  if (max == zero && std::signbit(max)) {
+    max = -max;
+  }
+
+  return {{min, max}};
 }
 
-template <>
-double CleanStatistic(double val) {
-  // ARROW-5562: Return positive 0 for -0 and any value within double epsilon
-  // of 0
-  return fabs(val) < 1E-13 ? 0.0 : val;
+optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max) {
+  if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
+    return nonstd::nullopt;
+  }
+  return min_max;
+}
+
+optional<std::pair<ByteArray, ByteArray>> CleanStatistic(
+    std::pair<ByteArray, ByteArray> min_max) {
+  if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
+    return nonstd::nullopt;
+  }
+  return min_max;
 }
 
 template <bool is_signed, typename DType>
 class TypedComparatorImpl : virtual public TypedComparator<DType> {
  public:
-  typedef typename DType::c_type T;
+  using T = typename DType::c_type;
+  using Helper = CompareHelper<DType, is_signed>;
 
   explicit TypedComparatorImpl(int type_length = -1) : type_length_(type_length) {}
 
   bool CompareInline(const T& a, const T& b) const {
-    return CompareHelper<DType, is_signed>::Compare(type_length_, a, b);
+    return Helper::Compare(type_length_, a, b);
   }
 
   bool Compare(const T& a, const T& b) override { return CompareInline(a, b); }
 
-  void GetMinMax(const T* values, int64_t length, T* out_min, T* out_max) override {
-    T min = values[0];
-    T max = values[0];
-    for (int64_t i = 1; i < length; i++) {
-      if (CompareInline(values[i], min)) {
-        min = values[i];
-      } else if (CompareInline(max, values[i])) {
-        max = values[i];
-      }
+  std::pair<T, T> GetMinMax(const T* values, int64_t length) override {
+    DCHECK_GT(length, 0);
+
+    T min = Helper::DefaultMin();
+    T max = Helper::DefaultMax();
+
+    for (int64_t i = 0; i < length; i++) {
+      auto val = values[i];
+      min = Helper::Min(type_length_, min, Helper::Coalesce(val, Helper::DefaultMin()));
+      max = Helper::Max(type_length_, max, Helper::Coalesce(val, Helper::DefaultMax()));
     }
-    *out_min = CleanStatistic<T>(min);
-    *out_max = CleanStatistic<T>(max);
+
+    return {min, max};
   }
 
-  void GetMinMaxSpaced(const T* values, int64_t length, const uint8_t* valid_bits,
-                       int64_t valid_bits_offset, T* out_min, T* out_max) override {
-    ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                      length);
+  std::pair<T, T> GetMinMaxSpaced(const T* values, int64_t length,
+                                  const uint8_t* valid_bits,
+                                  int64_t valid_bits_offset) override {
+    DCHECK_GT(length, 0);
 
-    // Find the first non-null value
-    int64_t first_non_null = 0;
-    while (!valid_bits_reader.IsSet()) {
-      ++first_non_null;
-      valid_bits_reader.Next();
-    }
+    T min = Helper::DefaultMin();
+    T max = Helper::DefaultMax();
 
-    T min = values[first_non_null];
-    T max = values[first_non_null];
-    valid_bits_reader.Next();
-    for (int64_t i = first_non_null + 1; i < length; i++) {
-      if (valid_bits_reader.IsSet()) {
-        if (CompareInline(values[i], min)) {
-          min = values[i];
-        } else if (CompareInline(max, values[i])) {
-          max = values[i];
-        }
+    ::arrow::internal::BitmapReader reader(valid_bits, valid_bits_offset, length);
+    for (int64_t i = 0; i < length; i++, reader.Next()) {
+      if (reader.IsSet()) {
+        auto val = values[i];
+        min = Helper::Min(type_length_, min, Helper::Coalesce(val, Helper::DefaultMin()));
+        max = Helper::Max(type_length_, max, Helper::Coalesce(val, Helper::DefaultMax()));
       }
-      valid_bits_reader.Next();
     }
-    *out_min = CleanStatistic<T>(min);
-    *out_max = CleanStatistic<T>(max);
+
+    return {min, max};
   }
 
-  void GetMinMax(const ::arrow::Array& values, T* out_min, T* out_max) override;
+  std::pair<T, T> GetMinMax(const ::arrow::Array& values) override;
 
  private:
   int type_length_;
 };
 
 template <bool is_signed, typename DType>
-void TypedComparatorImpl<is_signed, DType>::GetMinMax(const ::arrow::Array& values,
-                                                      typename DType::c_type* out_min,
-                                                      typename DType::c_type* out_max) {
+std::pair<typename DType::c_type, typename DType::c_type>
+TypedComparatorImpl<is_signed, DType>::GetMinMax(const ::arrow::Array& values) {
   ParquetException::NYI(values.type()->ToString());
 }
 
 template <bool is_signed>
-void GetMinMaxBinaryHelper(
+std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
     const TypedComparatorImpl<is_signed, ByteArrayType>& comparator,
-    const ::arrow::Array& values, ByteArray* out_min, ByteArray* out_max) {
+    const ::arrow::Array& values) {
   const auto& data = checked_cast<const ::arrow::BinaryArray&>(values);
 
   ByteArray min, max;
   if (data.null_count() > 0) {
-    ::arrow::internal::BitmapReader valid_bits_reader(data.null_bitmap_data(),
-                                                      data.offset(), data.length());
-
-    int64_t first_non_null = 0;
-    while (!valid_bits_reader.IsSet()) {
-      ++first_non_null;
-      valid_bits_reader.Next();
+    ::arrow::internal::BitmapReader reader(data.null_bitmap_data(), data.offset(),
+                                           data.length());
+    int64_t i = 0;
+    while (!reader.IsSet()) {
+      ++i;
+      reader.Next();
     }
-    min = data.GetView(first_non_null);
-    max = data.GetView(first_non_null);
-    for (int64_t i = first_non_null; i < data.length(); i++) {
+
+    min = data.GetView(i);
+    max = data.GetView(i);
+    for (; i < data.length(); i++, reader.Next()) {
       ByteArray val = data.GetView(i);
-      if (valid_bits_reader.IsSet()) {
-        if (comparator.CompareInline(val, min)) {
-          min = val;
-        } else if (comparator.CompareInline(max, val)) {
-          max = val;
-        }
+      if (reader.IsSet()) {
+        min = comparator.CompareInline(val, min) ? val : min;
+        max = comparator.CompareInline(max, val) ? val : max;
       }
-      valid_bits_reader.Next();
     }
   } else {
     min = data.GetView(0);
     max = data.GetView(0);
     for (int64_t i = 0; i < data.length(); i++) {
       ByteArray val = data.GetView(i);
-      if (comparator.CompareInline(val, min)) {
-        min = val;
-      } else if (comparator.CompareInline(max, val)) {
-        max = val;
-      }
+      min = comparator.CompareInline(val, min) ? val : min;
+      max = comparator.CompareInline(max, val) ? val : max;
     }
   }
-  *out_min = min;
-  *out_max = max;
+
+  return {min, max};
 }
 
 template <>
-void TypedComparatorImpl<true, ByteArrayType>::GetMinMax(const ::arrow::Array& values,
-                                                         ByteArray* out_min,
-                                                         ByteArray* out_max) {
-  GetMinMaxBinaryHelper<true>(*this, values, out_min, out_max);
+std::pair<ByteArray, ByteArray> TypedComparatorImpl<true, ByteArrayType>::GetMinMax(
+    const ::arrow::Array& values) {
+  return GetMinMaxBinaryHelper<true>(*this, values);
 }
 
 template <>
-void TypedComparatorImpl<false, ByteArrayType>::GetMinMax(const ::arrow::Array& values,
-                                                          ByteArray* out_min,
-                                                          ByteArray* out_max) {
-  GetMinMaxBinaryHelper<false>(*this, values, out_min, out_max);
+std::pair<ByteArray, ByteArray> TypedComparatorImpl<false, ByteArrayType>::GetMinMax(
+    const ::arrow::Array& values) {
+  return GetMinMaxBinaryHelper<false>(*this, values);
 }
 
 std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
@@ -324,61 +415,6 @@ std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
 
 std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
   return Make(descr->physical_type(), descr->sort_order(), descr->type_length());
-}
-
-// ----------------------------------------------------------------------
-
-template <typename T, typename Enable = void>
-struct StatsHelper {
-  bool CanHaveNaN() { return false; }
-
-  inline int64_t GetValueBeginOffset(const T* values, int64_t count) { return 0; }
-
-  inline int64_t GetValueEndOffset(const T* values, int64_t count) { return count; }
-
-  inline bool IsNaN(const T value) { return false; }
-};
-
-template <typename T>
-struct StatsHelper<T, ::arrow::enable_if_t<std::is_floating_point<T>::value>> {
-  bool CanHaveNaN() { return true; }
-
-  inline int64_t GetValueBeginOffset(const T* values, int64_t count) {
-    // Skip NaNs
-    for (int64_t i = 0; i < count; i++) {
-      if (!std::isnan(values[i])) {
-        return i;
-      }
-    }
-    return count;
-  }
-
-  inline int64_t GetValueEndOffset(const T* values, int64_t count) {
-    // Skip NaNs
-    for (int64_t i = (count - 1); i >= 0; i--) {
-      if (!std::isnan(values[i])) {
-        return (i + 1);
-      }
-    }
-    return 0;
-  }
-
-  inline bool IsNaN(const T value) { return std::isnan(value); }
-};
-
-template <typename T>
-void SetNaN(T* value) {
-  // no-op
-}
-
-template <>
-void SetNaN<float>(float* value) {
-  *value = std::nanf("");
-}
-
-template <>
-void SetNaN<double>(double* value) {
-  *value = std::nan("");
 }
 
 template <typename DType>
@@ -436,16 +472,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   void SetMinMax(const T& arg_min, const T& arg_max) override {
-    if (!has_min_max_) {
-      has_min_max_ = true;
-      Copy(arg_min, &min_, min_buffer_.get());
-      Copy(arg_max, &max_, max_buffer_.get());
-    } else {
-      Copy(comparator_->Compare(min_, arg_min) ? min_ : arg_min, &min_,
-           min_buffer_.get());
-      Copy(comparator_->Compare(max_, arg_max) ? arg_max : max_, &max_,
-           max_buffer_.get());
-    }
+    SetMinMaxPair({arg_min, arg_max});
   }
 
   void Merge(const TypedStatistics<DType>& other) override {
@@ -462,19 +489,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     IncrementNullCount(values.null_count());
     IncrementNumValues(values.length() - values.null_count());
 
-    // TODO: support distinct count?
     if (values.null_count() == values.length()) {
       return;
     }
 
-    StatsHelper<T> helper;
-    if (helper.CanHaveNaN()) {
-      ParquetException::NYI("No NaN handling for Arrow arrays yet");
-    }
-
-    T batch_min, batch_max;
-    comparator_->GetMinMax(values, &batch_min, &batch_max);
-    SetMinMax(batch_min, batch_max);
+    SetMinMaxPair(comparator_->GetMinMax(values));
   }
 
   const T& min() const override { return min_; }
@@ -544,6 +563,24 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->statistics_.distinct_count = 0;
     this->num_values_ = 0;
   }
+
+  void SetMinMaxPair(std::pair<T, T> min_max) {
+    // CleanStatistic can return a nullopt in case of erronous values, e.g. NaN
+    auto maybe_min_max = CleanStatistic(min_max);
+    if (!maybe_min_max) return;
+
+    auto min = maybe_min_max.value().first;
+    auto max = maybe_min_max.value().second;
+
+    if (!has_min_max_) {
+      has_min_max_ = true;
+      Copy(min, &min_, min_buffer_.get());
+      Copy(max, &max_, max_buffer_.get());
+    } else {
+      Copy(comparator_->Compare(min_, min) ? min_ : min, &min_, min_buffer_.get());
+      Copy(comparator_->Compare(max_, max) ? max : max_, &max_, max_buffer_.get());
+    }
+  }
 };
 
 template <>
@@ -573,32 +610,9 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_not_null,
 
   IncrementNullCount(num_null);
   IncrementNumValues(num_not_null);
-  // TODO: support distinct count?
+
   if (num_not_null == 0) return;
-
-  // PARQUET-1225: Handle NaNs
-  // The problem arises only if the starting/ending value(s)
-  // of the values-buffer contain NaN
-  StatsHelper<T> helper;
-  int64_t begin_offset = helper.GetValueBeginOffset(values, num_not_null);
-  int64_t end_offset = helper.GetValueEndOffset(values, num_not_null);
-
-  // All values are NaN
-  if (helper.CanHaveNaN() && end_offset < begin_offset) {
-    // Set min/max to NaNs in this case.
-    // Don't set has_min_max flag since
-    // these values must be over-written by valid stats later
-    if (!has_min_max_) {
-      SetNaN(&min_);
-      SetNaN(&max_);
-    }
-    return;
-  }
-
-  T batch_min, batch_max;
-  comparator_->GetMinMax(values + begin_offset, end_offset - begin_offset, &batch_min,
-                         &batch_max);
-  SetMinMax(batch_min, batch_max);
+  SetMinMaxPair(comparator_->GetMinMax(values, num_not_null));
 }
 
 template <typename DType>
@@ -610,42 +624,12 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
 
   IncrementNullCount(num_null);
   IncrementNumValues(num_not_null);
-  // TODO: support distinct count?
+
   if (num_not_null == 0) return;
 
-  // Find first valid entry and use that for min/max
-  // As (num_not_null != 0) there must be one
   int64_t length = num_null + num_not_null;
-  int64_t i = 0;
-  StatsHelper<T> helper;
-  if (helper.CanHaveNaN()) {
-    ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                      length);
-    for (; i < length; i++) {
-      // PARQUET-1225: Handle NaNs
-      if (valid_bits_reader.IsSet() && !helper.IsNaN(values[i])) {
-        break;
-      }
-      valid_bits_reader.Next();
-    }
-
-    // All are NaNs and stats are not set yet
-    if ((i == length) && helper.IsNaN(values[i - 1])) {
-      // Don't set has_min_max flag since
-      // these values must be over-written by valid stats later
-      if (!has_min_max_) {
-        SetNaN(&min_);
-        SetNaN(&max_);
-      }
-      return;
-    }
-  }
-
-  // Find min and max values from remaining non-NaN values
-  T batch_min, batch_max;
-  comparator_->GetMinMaxSpaced(values + i, length - i, valid_bits, valid_bits_offset + i,
-                               &batch_min, &batch_max);
-  SetMinMax(batch_min, batch_max);
+  SetMinMaxPair(
+      comparator_->GetMinMaxSpaced(values, length, valid_bits, valid_bits_offset));
 }
 
 template <typename DType>
