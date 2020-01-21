@@ -31,13 +31,22 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace ipc {
 
 using ::arrow::internal::CreateDir;
 using ::arrow::internal::PlatformFilename;
+
+Result<std::shared_ptr<RecordBatch>> MakeExtensionBatch() {
+  auto array = ExampleUUID();
+  auto md = key_value_metadata({"key1", "key2"}, {"value1", ""});
+  auto schema = ::arrow::schema({field("f0", array->type())}, md);
+  return RecordBatch::Make(schema, array->length(), {array});
+}
 
 Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
   std::vector<std::shared_ptr<RecordBatch>> batches;
@@ -58,6 +67,8 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
   batches.push_back(batch);
   RETURN_NOT_OK(test::MakeFixedSizeListRecordBatch(&batch));
   batches.push_back(batch);
+  ARROW_ASSIGN_OR_RAISE(batch, MakeExtensionBatch());
+  batches.push_back(batch);
   return batches;
 }
 
@@ -76,19 +87,21 @@ Status DoMain(bool is_stream_format, const std::string& out_dir) {
   ARROW_ASSIGN_OR_RAISE(auto dir_fn, PlatformFilename::FromString(out_dir));
   RETURN_NOT_OK(CreateDir(dir_fn));
 
+  int sample_num = 1;
+  auto sample_name = [&]() -> std::string {
+    return "batch-" + std::to_string(sample_num++);
+  };
+
   auto serialize_func = is_stream_format ? SerializeRecordBatch<RecordBatchStreamWriter>
                                          : SerializeRecordBatch<RecordBatchFileWriter>;
-
   ARROW_ASSIGN_OR_RAISE(auto batches, Batches());
-  int batch_num = 1;
+
   for (const auto& batch : batches) {
     RETURN_NOT_OK(batch->ValidateFull());
     ARROW_ASSIGN_OR_RAISE(auto buf, serialize_func(batch));
-    auto name = "batch-" + std::to_string(batch_num++);
-
-    ARROW_ASSIGN_OR_RAISE(auto batch_fn, dir_fn.Join(name));
-    std::cerr << batch_fn.ToString() << std::endl;
-    ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(batch_fn.ToString()));
+    ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
+    std::cerr << sample_fn.ToString() << std::endl;
+    ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(sample_fn.ToString()));
     RETURN_NOT_OK(file->Write(buf));
     RETURN_NOT_OK(file->Close());
   }
