@@ -45,6 +45,14 @@
     </chapter>
   </part>
 
+  <part id="misc">
+    <title>Misc</title>
+    <chapter id="version">
+      <title>Version</title>
+      <xi:include href="xml/version.xml"></xi:include>
+    </chapter>
+  </part>
+
   <chapter id="object-tree">
     <title>Object Hierarchy</title>
     <xi:include href="xml/tree_index.sgml"/>

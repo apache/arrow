@@ -56,10 +56,14 @@ libparquet_glib_la_headers =			\
 	arrow-file-writer.h			\
 	parquet-glib.h
 
+libparquet_glib_la_generated_headers =		\
+	version.h
+
 libparquet_glib_la_sources =			\
 	arrow-file-reader.cpp			\
 	arrow-file-writer.cpp			\
-	$(libparquet_glib_la_headers)
+	$(libparquet_glib_la_headers)		\
+	$(libparquet_glib_la_generated_headers)
 
 libparquet_glib_la_cpp_headers =		\
 	arrow-file-reader.hpp			\
@@ -69,6 +73,9 @@ libparquet_glib_la_cpp_headers =		\
 libparquet_glib_la_SOURCES =			\
 	$(libparquet_glib_la_sources)		\
 	$(libparquet_glib_la_cpp_headers)
+
+BUILT_SOURCES =					\
+	$(libparquet_glib_la_generated_headers)
 
 parquet_glib_includedir = $(includedir)/parquet-glib
 parquet_glib_include_HEADERS =			\
