@@ -284,6 +284,8 @@ class RBuffer : public MutableBuffer {
   Vec vec_;
 };
 
+std::shared_ptr<arrow::DataType> GetFactorType(SEXP);
+
 }  // namespace r
 }  // namespace arrow
 
