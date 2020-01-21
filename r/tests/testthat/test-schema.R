@@ -39,6 +39,18 @@ test_that("Schema print method", {
   )
 })
 
+test_that("Schema $metadata when there is none", {
+  expect_null(schema(b = double())$metadata)
+})
+
+test_that("Schema $GetFieldByName", {
+  schm <- schema(b = double(), c = string())
+  expect_equal(schm$GetFieldByName("b"), field("b", double()))
+  expect_null(schm$GetFieldByName("f"))
+  # TODO: schema(b = double(), b = string())$GetFieldByName("b")
+  # also returns NULL and probably should error bc duplicated names
+})
+
 test_that("reading schema from Buffer", {
   # TODO: this uses the streaming format, i.e. from RecordBatchStreamWriter
   #       maybe there is an easier way to serialize a schema
@@ -68,8 +80,8 @@ test_that("reading schema from Buffer", {
 })
 
 test_that("Input validation when creating a table with a schema", {
-  # TODO (npr): consider using table_from_dots once ARROW-5505 lands, and also
-  # allowing a list of types as a schema here
-  expect_error(Table__from_dots(list(b = 1), schema = c(b = float64())),
-    "schema must be an arrow::Schema or NULL")
+  expect_error(
+    Table$create(b = 1, schema = c(b = float64())), # list not Schema
+    "schema must be an arrow::Schema or NULL"
+  )
 })

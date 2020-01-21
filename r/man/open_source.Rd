@@ -53,5 +53,13 @@ in a list potentially with other \code{SourceFactory} objects, to create
 a \code{Dataset}.
 }
 \description{
-Create a Source for a Dataset
+A \link{Dataset} can have one or more \link{Source}s. A \code{Source} contains one or more
+\code{Fragments}, such as files, of a common storage location, format, and
+partitioning. This function helps you construct a \code{Source} that you can
+pass to \code{\link[=open_dataset]{open_dataset()}}.
+}
+\details{
+If you only have a single \code{Source}, such as a directory containing Parquet
+files, you can call \code{open_dataset()} directly. Use \code{open_source()} when you
+want to combine different directories, file systems, or file formats.
 }

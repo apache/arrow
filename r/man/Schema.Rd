@@ -12,26 +12,43 @@ schema(...)
 \item{...}{named list of \link[=data-type]{data types}}
 }
 \description{
-Create a \code{Schema} when you
+A \code{Schema} is a list of \link{Field}s, which map names to
+Arrow \link[=data-type]{data types}. Create a \code{Schema} when you
 want to convert an R \code{data.frame} to Arrow but don't want to rely on the
 default mapping of R types to Arrow types, such as when you want to choose a
-specific numeric precision.
-}
-\section{Usage}{
-\preformatted{s <- schema(...)
+specific numeric precision, or when creating a \link{Dataset} and you want to
+ensure a specific schema rather than inferring it from the various files.
 
-s$ToString()
-s$num_fields
-s$field(i)
+Many Arrow objects, including \link{Table} and \link{Dataset}, have a \verb{$schema} method
+(active binding) that lets you access their schema.
 }
-}
-
 \section{Methods}{
 
 \itemize{
 \item \verb{$ToString()}: convert to a string
-\item \verb{$num_fields}: returns the number of fields
 \item \verb{$field(i)}: returns the field at index \code{i} (0-based)
+\item \verb{$GetFieldByName(x)}: returns the field with name \code{x}
 }
 }
 
+\section{Active bindings}{
+
+\itemize{
+\item \verb{$names}: returns the field names (called in \code{names(Schema)})
+\item \verb{$num_fields}: returns the number of fields (called in \code{length(Schema)})
+\item \verb{$fields}: returns the list of \code{Field}s in the \code{Schema}, suitable for
+iterating over
+\item \verb{$HasMetadata}: logical: does this \code{Schema} have extra metadata?
+\item \verb{$metadata}: returns the extra metadata, if present, else \code{NULL}
+}
+}
+
+\examples{
+\donttest{
+df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
+tab1 <- Table$create(df)
+tab1$schema
+tab2 <- Table$create(df, schema = schema(col1 = int8(), col2 = float32()))
+tab2$schema
+}
+}

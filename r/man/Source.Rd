@@ -28,7 +28,9 @@ takes the following arguments:
 \itemize{
 \item \code{filesystem}: A \link{FileSystem}
 \item \code{selector}: A \link{FileSelector}
-\item \code{format}: Currently only "parquet" is supported
+\item \code{format}: A string identifier of the format of the files in \code{path}.
+Currently supported options are "parquet", "arrow", and "ipc" (an alias for
+the Arrow file format)
 }
 }
 
