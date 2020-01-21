@@ -47,12 +47,15 @@ test_that("C++ expressions", {
   date <- ScalarExpression$create(as.Date("2020-01-15"))
   ts <- ScalarExpression$create(as.POSIXct("2020-01-17 11:11:11"))
   i64 <- ScalarExpression$create(bit64::as.integer64(42))
+  time <- ScalarExpression$create(hms::hms(56, 34, 12))
+
   expect_is(f == g, "ComparisonExpression")
   expect_is(f == 4, "ComparisonExpression")
   expect_is(f == "", "ComparisonExpression")
   expect_is(f == NULL, "ComparisonExpression")
   expect_is(f == date, "ComparisonExpression")
   expect_is(f == i64, "ComparisonExpression")
+  expect_is(f == time, "ComparisonExpression")
   # can't seem to make this work right now
   # expect_is(f == as.Date("2020-01-15"), "ComparisonExpression")
   expect_is(f == ts, "ComparisonExpression")

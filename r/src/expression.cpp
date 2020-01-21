@@ -118,6 +118,26 @@ std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
       } else if (Rf_inherits(x, "integer64")) {
         int64_t value = *reinterpret_cast<int64_t*>(REAL(x));
         return ds::scalar(value);
+      } else if (Rf_inherits(x, "difftime")) {
+        int multiplier = 0;
+        // TODO: shared with TimeConverter<> in array_from_vector.cpp
+        std::string unit(CHAR(STRING_ELT(Rf_getAttrib(x, arrow::r::symbols::units), 0)));
+        if (unit == "secs") {
+          multiplier = 1;
+        } else if (unit == "mins") {
+          multiplier = 60;
+        } else if (unit == "hours") {
+          multiplier = 3600;
+        } else if (unit == "days") {
+          multiplier = 86400;
+        } else if (unit == "weeks") {
+          multiplier = 604800;
+        } else {
+          Rcpp::stop("unknown difftime unit");
+        }
+        return ds::scalar(std::make_shared<arrow::Time32Scalar>(
+            static_cast<int>(REAL(x)[0] * multiplier),
+            arrow::time32(arrow::TimeUnit::SECOND)));
       }
       return ds::scalar(Rf_asReal(x));
     case INTSXP:
