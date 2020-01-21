@@ -639,7 +639,7 @@ garrow_file_stats_list_from_result(arrow::Result<std::vector<arrow::fs::FileStat
 /**
  * garrow_file_system_get_target_stats_paths:
  * @file_system: A #GArrowFileSystem.
- * @paths: The paths of the targets.
+ * @paths: (array length=n_paths): The paths of the targets.
  * @n_paths: The number of items in @paths.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
@@ -782,7 +782,8 @@ garrow_file_system_delete_file(GArrowFileSystem *file_system,
 /**
  * garrow_file_system_delete_files:
  * @file_system: A #GArrowFileSystem.
- * @paths: The paths of the files to be delete.
+ * @paths: (array length=n_paths):
+ *   The paths of the files to be delete.
  * @n_paths: The number of items in @paths.
  * @error: (nullable): Return location for a #GError or %NULL.
  *

@@ -170,7 +170,7 @@ module GenericFileSystemTestMethods
                  },
                  all_entries)
 
-    @fs.delete_files(["abc", "AB/def"], 2)
+    @fs.delete_files(["abc", "AB/def"])
     assert_equal({
                    "AB" => :directory,
                    "AB/ghi" => :file,
@@ -279,7 +279,7 @@ module GenericFileSystemTestMethods
     mkpath("AB/CD")
     create_file("AB/CD/ghi", "some data")
 
-    sts = @fs.get_target_stats_paths(["AB", "AB/CD/ghi"], 2)
+    sts = @fs.get_target_stats_paths(["AB", "AB/CD/ghi"])
     assert_equal({
                    "AB" => -1,
                    "AB/CD/ghi" => 9
