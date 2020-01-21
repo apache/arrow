@@ -39,6 +39,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -46,47 +47,6 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-
-class UUIDArray : public ExtensionArray {
- public:
-  using ExtensionArray::ExtensionArray;
-};
-
-class UUIDType : public ExtensionType {
- public:
-  UUIDType() : ExtensionType(fixed_size_binary(16)) {}
-
-  std::string extension_name() const override { return "uuid"; }
-
-  bool ExtensionEquals(const ExtensionType& other) const override {
-    const auto& other_ext = static_cast<const ExtensionType&>(other);
-    if (other_ext.extension_name() != this->extension_name()) {
-      return false;
-    }
-    return true;
-  }
-
-  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
-    DCHECK_EQ(data->type->id(), Type::EXTENSION);
-    DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
-    return std::make_shared<UUIDArray>(data);
-  }
-
-  Status Deserialize(std::shared_ptr<DataType> storage_type,
-                     const std::string& serialized,
-                     std::shared_ptr<DataType>* out) const override {
-    if (serialized != "uuid-type-unique-code") {
-      return Status::Invalid("Type identifier did not match");
-    }
-    DCHECK(storage_type->Equals(*fixed_size_binary(16)));
-    *out = std::make_shared<UUIDType>();
-    return Status::OK();
-  }
-
-  std::string Serialize() const override { return "uuid-type-unique-code"; }
-};
-
-std::shared_ptr<DataType> uuid() { return std::make_shared<UUIDType>(); }
 
 class Parametric1Array : public ExtensionArray {
  public:
@@ -268,19 +228,6 @@ auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
   ASSERT_OK(ipc::RecordBatchStreamReader::Open(&reader, &batch_reader));
   ASSERT_OK(batch_reader->ReadNext(out));
 };
-
-std::shared_ptr<Array> ExampleUUID() {
-  auto storage_type = fixed_size_binary(16);
-  auto ext_type = uuid();
-
-  auto arr = ArrayFromJSON(
-      storage_type,
-      "[null, \"abcdefghijklmno0\", \"abcdefghijklmno1\", \"abcdefghijklmno2\"]");
-
-  auto ext_data = arr->data()->Copy();
-  ext_data->type = ext_type;
-  return MakeArray(ext_data);
-}
 
 TEST_F(TestExtensionType, IpcRoundtrip) {
   auto ext_arr = ExampleUUID();

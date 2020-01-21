@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/extension_type.h"
 
 #ifndef _WIN32
 #include <sys/stat.h>  // IWYU pragma: keep
@@ -364,6 +365,51 @@ void TestInitialized(const Array& array) {
       throw_away = total;
     }
   }
+}
+
+///////////////////////////////////////////////////////////////////////////
+// Extension types
+
+bool UUIDType::ExtensionEquals(const ExtensionType& other) const {
+  const auto& other_ext = static_cast<const ExtensionType&>(other);
+  if (other_ext.extension_name() != this->extension_name()) {
+    return false;
+  }
+  return true;
+}
+
+std::shared_ptr<Array> UUIDType::MakeArray(std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<UUIDArray>(data);
+}
+
+Status UUIDType::Deserialize(std::shared_ptr<DataType> storage_type,
+                             const std::string& serialized,
+                             std::shared_ptr<DataType>* out) const {
+  if (serialized != "uuid-type-unique-code") {
+    return Status::Invalid("Type identifier did not match");
+  }
+  if (!storage_type->Equals(*fixed_size_binary(16))) {
+    return Status::Invalid("Invalid storage type for UUIDType");
+  }
+  *out = std::make_shared<UUIDType>();
+  return Status::OK();
+}
+
+std::shared_ptr<DataType> uuid() { return std::make_shared<UUIDType>(); }
+
+std::shared_ptr<Array> ExampleUUID() {
+  auto storage_type = fixed_size_binary(16);
+  auto ext_type = uuid();
+
+  auto arr = ArrayFromJSON(
+      storage_type,
+      "[null, \"abcdefghijklmno0\", \"abcdefghijklmno1\", \"abcdefghijklmno2\"]");
+
+  auto ext_data = arr->data()->Copy();
+  ext_data->type = ext_type;
+  return MakeArray(ext_data);
 }
 
 }  // namespace arrow
