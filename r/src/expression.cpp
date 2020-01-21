@@ -141,10 +141,11 @@ std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
       }
       return ds::scalar(Rf_asReal(x));
     case INTSXP:
-      // TODO: figure out DictionaryScalar
-      // if (Rf_inherits(x, "factor")) {
-      //
-      // }
+      if (Rf_inherits(x, "factor")) {
+        // TODO: This does not use the actual value, just the levels
+        auto type = arrow::r::GetFactorType(x);
+        return ds::scalar(std::make_shared<arrow::DictionaryScalar>(type));
+      }
       return ds::scalar(Rf_asInteger(x));
     case STRSXP:
       return ds::scalar(CHAR(STRING_ELT(x, 0)));
