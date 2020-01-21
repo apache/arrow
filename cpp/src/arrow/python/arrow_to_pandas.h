@@ -67,6 +67,11 @@ struct PandasOptions {
   /// memory-constrained situation.
   bool split_blocks = false;
 
+  /// \brief If true, allow non-writable zero-copy views to be created for
+  /// single column blocks. This option is also used to provide zero copy for
+  /// Series data
+  bool allow_zero_copy_blocks = false;
+
   /// \brief If true, attempt to deallocate buffers in passed Arrow object if
   /// it is the only remaining shared_ptr copy of it. See ARROW-3789 for
   /// original context for this feature. Only currently implemented for Table

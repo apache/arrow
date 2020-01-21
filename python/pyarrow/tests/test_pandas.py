@@ -3041,7 +3041,14 @@ def test_array_uses_memory_pool():
 def test_singleton_blocks_zero_copy():
     # Part of ARROW-3789
     t = pa.table([pa.array(np.arange(1000, dtype=np.int64))], ['f0'])
-    _check_to_pandas_memory_unchanged(t)
+
+    # Zero copy if split_blocks=True
+    _check_to_pandas_memory_unchanged(t, split_blocks=True)
+
+    prior_allocation = pa.total_allocated_bytes()
+    result = t.to_pandas()
+    assert result['f0'].values.flags.writeable
+    assert pa.total_allocated_bytes() > prior_allocation
 
 
 def _check_to_pandas_memory_unchanged(obj, **kwargs):
