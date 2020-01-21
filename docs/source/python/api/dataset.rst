@@ -15,25 +15,39 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _api:
+.. currentmodule:: pyarrow.dataset
 
-*************
-API Reference
-*************
+.. _api.dataset:
 
-.. toctree::
-   :maxdepth: 2
+Datasets
+========
 
-   api/datatypes
-   api/arrays
-   api/memory
-   api/files
-   api/tables
-   api/ipc
-   api/flight
-   api/formats
-   api/filesystems
-   api/dataset
-   api/plasma
-   api/cuda
-   api/misc
+Factory functions
+-----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   source
+   dataset
+   partitioning
+
+Classes
+-------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   FileFormat
+   ParquetFileFormat
+   Partitioning
+   PartitioningFactory
+   DirectoryPartitioning
+   HivePartitioning
+   Source
+   FileSystemSource
+   FileSystemFactoryOptions
+   FileSystemSourceFactory
+   Dataset
+   ScannerBuilder
+   Scanner
