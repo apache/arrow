@@ -118,6 +118,18 @@ TEST(TestStringOps, TestCastVarhcar) {
   EXPECT_EQ(std::string(out_str, out_len), "asdf");
   EXPECT_FALSE(ctx.has_error());
 
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "asdf", 4, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asd");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "asdf", 4, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asdf");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "asdf", 4, 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asdf");
+  EXPECT_FALSE(ctx.has_error());
+
   // do not truncate if output length is 0
   out_str = castVARCHAR_utf8_int64(ctx_ptr, "asdf", 4, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "asdf");
@@ -129,6 +141,14 @@ TEST(TestStringOps, TestCastVarhcar) {
 
   out_str = castVARCHAR_utf8_int64(ctx_ptr, "çåå†", 9, 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "çåå");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "çåå†", 9, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå†");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "çåå†", 9, 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå†");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = castVARCHAR_utf8_int64(ctx_ptr, "çåå†", 9, 10, &out_len);
@@ -147,11 +167,8 @@ TEST(TestStringOps, TestCastVarhcar) {
   std::string d("aa\xc3");
   out_str = castVARCHAR_utf8_int64(ctx_ptr, d.data(), static_cast<int>(d.length()), 2,
                                    &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "");
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "unexpected byte \\c3 encountered while decoding utf8 string"));
-  ctx.Reset();
+  EXPECT_EQ(std::string(out_str, out_len), "aa");
+  EXPECT_FALSE(ctx.has_error());
 }
 
 TEST(TestStringOps, TestSubstring) {

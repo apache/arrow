@@ -154,9 +154,6 @@ int32 utf8_byte_pos(int64 context, const char* str, int32 str_len, int32 char_po
     }
     byte_index += char_len;
   }
-  if (byte_index >= str_len) {
-    return -1;
-  }
   return byte_index;
 }
 
@@ -286,18 +283,16 @@ const char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_l
     return data;
   }
 
-  int32_t char_count = utf8_length(context, data, data_len);
-  if (char_count == 0) {  // data has invalid glyphs
+  int32_t byte_pos = utf8_byte_pos(context, data, data_len, len);
+  if (byte_pos < 0) {
     *out_length = 0;
     return "";
   }
-
-  if (len >= char_count) {
+  if (byte_pos > data_len) {
     *out_length = data_len;
-    return data;
+  } else {
+    *out_length = byte_pos;
   }
-
-  *out_length = utf8_byte_pos(context, data, data_len, len);
   return data;
 }
 
@@ -471,7 +466,7 @@ int32 locate_utf8_utf8_int32(int64 context, const char* sub_str, int32 sub_str_l
   }
 
   int32 byte_pos = utf8_byte_pos(context, str, str_len, start_pos - 1);
-  if (byte_pos < 0) {
+  if (byte_pos < 0 || byte_pos >= str_len) {
     return 0;
   }
   for (int32 i = byte_pos; i <= str_len - sub_str_len; ++i) {
