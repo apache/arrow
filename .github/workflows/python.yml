@@ -176,6 +176,9 @@ jobs:
           pip3 install -r python/requirements.txt \
                        -r python/requirements-test.txt \
                        cython
+      - name: Enable Coredump
+        shell: bash
+        run: ulimit -c unlimited -S
       - name: Build
         shell: bash
         run: |
@@ -185,3 +188,7 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+      - name: Show Coredump
+        shell: bash
+        if: failure()
+        run: ci/scripts/util_coredump.sh

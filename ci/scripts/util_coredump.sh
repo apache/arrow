@@ -18,12 +18,6 @@
 
 set -ex
 
-# TODO(kszucs): GitHub actions doesn't use this file yet, but we should enable
-# automatic backtrace generation for at least the C++ based builds.
-
-# Enable core files
-# ulimit -c unlimited -S
-
 if [ "$(uname)" == "Darwin" ]; then
   COREFILE=$(find /cores -maxdepth 1 -type f -name "core.*" | head -n 1)
   if [[ -f "$COREFILE" ]]; then

@@ -127,11 +127,11 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: brew bundle --file=cpp/Brewfile
-      #   # ARROW-7551: for now, build without Homebrew gRPC, as gRPC
-      #   # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662
-      # - name: Uninstall Problematic Homebrew Dependencies
-      #   shell: bash
-      #   run: brew uninstall grpc protobuf
+        # ARROW-7551: for now, build without Homebrew gRPC, as gRPC
+        # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662
+      - name: Uninstall Problematic Homebrew Dependencies
+        shell: bash
+        run: brew uninstall grpc protobuf
       - name: Enable Coredump
         shell: bash
         run: ulimit -c unlimited -S
