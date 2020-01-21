@@ -562,10 +562,14 @@ public class ValueVectorDataPopulator {
     int curPos = 0;
     vector.getOffsetBuffer().setInt(0, curPos);
     for (int i = 0; i < values.length; i++) {
-      BitVectorHelper.setBit(vector.getValidityBuffer(), i);
-      for (int value : values[i]) {
-        dataVector.set(curPos, value);
-        curPos += 1;
+      if (values[i] == null) {
+        BitVectorHelper.unsetBit(vector.getValidityBuffer(), i);
+      } else {
+        BitVectorHelper.setBit(vector.getValidityBuffer(), i);
+        for (int value : values[i]) {
+          dataVector.set(curPos, value);
+          curPos += 1;
+        }
       }
       vector.getOffsetBuffer().setInt((i + 1) * BaseRepeatedValueVector.OFFSET_WIDTH, curPos);
     }
@@ -579,7 +583,9 @@ public class ValueVectorDataPopulator {
    */
   public static void setVector(FixedSizeListVector vector, List<Integer>... values) {
     for (int i = 0; i < values.length; i++) {
-      assertEquals(vector.getListSize(), values[i].size());
+      if (values[i] != null) {
+        assertEquals(vector.getListSize(), values[i].size());
+      }
     }
 
     Types.MinorType type = Types.MinorType.INT;
@@ -591,10 +597,14 @@ public class ValueVectorDataPopulator {
     // set underlying vectors
     int curPos = 0;
     for (int i = 0; i < values.length; i++) {
-      BitVectorHelper.setBit(vector.getValidityBuffer(), i);
-      for (int value : values[i]) {
-        dataVector.set(curPos, value);
-        curPos += 1;
+      if (values[i] == null) {
+        BitVectorHelper.unsetBit(vector.getValidityBuffer(), i);
+      } else {
+        BitVectorHelper.setBit(vector.getValidityBuffer(), i);
+        for (int value : values[i]) {
+          dataVector.set(curPos, value);
+          curPos += 1;
+        }
       }
     }
     dataVector.setValueCount(curPos);

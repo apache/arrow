@@ -75,7 +75,7 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     // append data buffer
     PlatformDependent.copyMemory(deltaVector.getDataBuffer().memoryAddress(),
             targetVector.getDataBuffer().memoryAddress() + deltaVector.getTypeWidth() * targetVector.getValueCount(),
-            deltaVector.getTypeWidth() * targetVector.getValueCount());
+            deltaVector.getTypeWidth() * deltaVector.getValueCount());
     targetVector.setValueCount(newValueCount);
     return targetVector;
   }

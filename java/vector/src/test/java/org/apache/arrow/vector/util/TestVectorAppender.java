@@ -73,8 +73,8 @@ public class TestVectorAppender {
       target.allocateNew(length1);
       delta.allocateNew(length2);
 
-      ValueVectorDataPopulator.setVector(target, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-      ValueVectorDataPopulator.setVector(delta, 10, 11, 12, 13, 14);
+      ValueVectorDataPopulator.setVector(target, 0, 1, 2, 3, 4, 5, 6, null, 8, 9);
+      ValueVectorDataPopulator.setVector(delta, null, 11, 12, 13, 14);
 
       VectorAppender appender = new VectorAppender(target);
       delta.accept(appender, null);
@@ -83,7 +83,7 @@ public class TestVectorAppender {
 
       try (IntVector expected = new IntVector("expected", allocator)) {
         expected.allocateNew();
-        ValueVectorDataPopulator.setVector(expected, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+        ValueVectorDataPopulator.setVector(expected, 0, 1, 2, 3, 4, 5, 6, null, 8, 9, null, 11, 12, 13, 14);
         assertVectorsEqual(expected, target);
       }
     }
@@ -99,8 +99,8 @@ public class TestVectorAppender {
       target.allocateNew(5, length1);
       delta.allocateNew(5, length2);
 
-      ValueVectorDataPopulator.setVector(target, "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9");
-      ValueVectorDataPopulator.setVector(delta, "a10", "a11", "a12", "a13", "a14");
+      ValueVectorDataPopulator.setVector(target, "a0", "a1", "a2", "a3", null, "a5", "a6", "a7", "a8", "a9");
+      ValueVectorDataPopulator.setVector(delta, "a10", "a11", "a12", "a13", null);
 
       VectorAppender appender = new VectorAppender(target);
       delta.accept(appender, null);
@@ -108,7 +108,7 @@ public class TestVectorAppender {
       try (VarCharVector expected = new VarCharVector("expected", allocator)) {
         expected.allocateNew();
         ValueVectorDataPopulator.setVector(expected,
-            "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "a10", "a11", "a12", "a13", "a14");
+            "a0", "a1", "a2", "a3", null, "a5", "a6", "a7", "a8", "a9", "a10", "a11", "a12", "a13", null);
         assertVectorsEqual(expected, target);
       }
     }
@@ -125,7 +125,7 @@ public class TestVectorAppender {
       ValueVectorDataPopulator.setVector(target,
           Arrays.asList(0, 1),
           Arrays.asList(2, 3),
-          Arrays.asList(4, 5),
+          null,
           Arrays.asList(6, 7),
           Arrays.asList(8, 9));
       assertEquals(length1, target.getValueCount());
@@ -147,8 +147,7 @@ public class TestVectorAppender {
       expected = Arrays.asList(2, 3);
       assertEquals(expected, target.getObject(1));
 
-      expected = Arrays.asList(4, 5);
-      assertEquals(expected, target.getObject(2));
+      assertTrue(target.isNull(2));
 
       expected = Arrays.asList(6, 7);
       assertEquals(expected, target.getObject(3));
@@ -172,7 +171,7 @@ public class TestVectorAppender {
       target.allocateNew();
       ValueVectorDataPopulator.setVector(target,
           Arrays.asList(0, 1, 2, 3, 4),
-          Arrays.asList(5, 6, 7, 8, 9));
+          null);
       assertEquals(2, target.getValueCount());
 
       delta.allocateNew();
@@ -187,7 +186,7 @@ public class TestVectorAppender {
       assertEquals(4, target.getValueCount());
 
       assertEquals(Arrays.asList(0, 1, 2, 3, 4), target.getObject(0));
-      assertEquals(Arrays.asList(5, 6, 7, 8, 9), target.getObject(1));
+      assertTrue(target.isNull(1));
       assertEquals(Arrays.asList(10, 11, 12, 13, 14), target.getObject(2));
       assertEquals(Arrays.asList(15, 16, 17, 18, 19), target.getObject(3));
     }
@@ -204,15 +203,15 @@ public class TestVectorAppender {
       VarCharVector targetChild2 = target.addOrGet("f1", FieldType.nullable(new ArrowType.Utf8()), VarCharVector.class);
       targetChild1.allocateNew();
       targetChild2.allocateNew();
-      ValueVectorDataPopulator.setVector(targetChild1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-      ValueVectorDataPopulator.setVector(targetChild2, "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9");
+      ValueVectorDataPopulator.setVector(targetChild1, 0, 1, 2, 3, 4, null, 6, 7, 8, 9);
+      ValueVectorDataPopulator.setVector(targetChild2, "a0", "a1", "a2", "a3", "a4", "a5", "a6", null, "a8", "a9");
       target.setValueCount(length1);
 
       IntVector deltaChild1 = delta.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       VarCharVector deltaChild2 = delta.addOrGet("f1", FieldType.nullable(new ArrowType.Utf8()), VarCharVector.class);
       deltaChild1.allocateNew();
       deltaChild2.allocateNew();
-      ValueVectorDataPopulator.setVector(deltaChild1, 10, 11, 12, 13, 14);
+      ValueVectorDataPopulator.setVector(deltaChild1, 10, 11, 12, null, 14);
       ValueVectorDataPopulator.setVector(deltaChild2, "a10", "a11", "a12", "a13", "a14");
       delta.setValueCount(length2);
 
@@ -228,9 +227,9 @@ public class TestVectorAppender {
         expected1.allocateNew();
         expected2.allocateNew();
 
-        ValueVectorDataPopulator.setVector(expected1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+        ValueVectorDataPopulator.setVector(expected1, 0, 1, 2, 3, 4, null, 6, 7, 8, 9, 10, 11, 12, null, 14);
         ValueVectorDataPopulator.setVector(expected2,
-            "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "a10", "a11", "a12", "a13", "a14");
+            "a0", "a1", "a2", "a3", "a4", "a5", "a6", null, "a8", "a9", "a10", "a11", "a12", "a13", "a14");
 
         assertVectorsEqual(expected1, target.getChild("f0"));
         assertVectorsEqual(expected2, target.getChild("f1"));
