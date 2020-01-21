@@ -115,6 +115,9 @@ std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
         return std::make_shared<ds::ScalarExpression>(
             std::make_shared<arrow::TimestampScalar>(
                 REAL(x)[0], arrow::timestamp(arrow::TimeUnit::SECOND)));
+      } else if (Rf_inherits(x, "integer64")) {
+        int64_t value = *reinterpret_cast<int64_t*>(REAL(x));
+        return ds::scalar(value);
       }
       return ds::scalar(Rf_asReal(x));
     case INTSXP:
