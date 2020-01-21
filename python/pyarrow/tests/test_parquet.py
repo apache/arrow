@@ -178,11 +178,11 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size):
 
 
 def test_set_data_page_size():
-    arr = pa.array([1, 2, 3] * 1000000)
+    arr = pa.array([1, 2, 3] * 100000)
     t = pa.Table.from_arrays([arr], names=['f0'])
 
-    # 128K, 256K, 512K
-    page_sizes = [2 << 16, 2 << 17, 2 << 18]
+    # 128K, 512K
+    page_sizes = [2 << 16, 2 << 18]
     for target_page_size in page_sizes:
         _check_roundtrip(t, data_page_size=target_page_size)
 
