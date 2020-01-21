@@ -132,6 +132,12 @@ jobs:
       - name: Uninstall Problematic Homebrew Dependencies
         shell: bash
         run: brew uninstall grpc protobuf
+      - name: Debug
+        shell: bash
+        run: |
+          whoami
+          ls -lah /
+          sudo chown -R $USER /cores
       - name: Enable Coredump
         shell: bash
         run: ulimit -c unlimited -S
