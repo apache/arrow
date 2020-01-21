@@ -90,6 +90,8 @@ dim.arrow_dplyr_query <- function(x) {
 }
 
 # The following S3 methods are registered on load if dplyr is present
+tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
+
 select.arrow_dplyr_query <- function(.data, ...) {
   column_select(arrow_dplyr_query(.data), !!!enquos(...))
 }

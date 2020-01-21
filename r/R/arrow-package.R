@@ -39,6 +39,8 @@
       s3_register(m, cl)
     }
   }
+  
+  s3_register("dplyr::tbl_vars", "arrow_dplyr_query")
   s3_register("reticulate::py_to_r", "pyarrow.lib.Array")
   s3_register("reticulate::py_to_r", "pyarrow.lib.RecordBatch")
   s3_register("reticulate::r_to_py", "Array")
