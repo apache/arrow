@@ -19,7 +19,6 @@
 #include <gtest/gtest.h>
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
-#include "gandiva/simple_arena.h"
 
 namespace gandiva {
 
@@ -424,11 +423,7 @@ TEST(TestStringOps, TestCastVARCHARFromInt32) {
   uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
   int32 out_len = 0;
 
-  const char* out_str = castVARCHAR_int32_int64(ctx_ptr, 347, 0, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "");
-  EXPECT_FALSE(ctx.has_error());
-
-  out_str = castVARCHAR_int32_int64(ctx_ptr, -46, 100, &out_len);
+  const char* out_str = castVARCHAR_int32_int64(ctx_ptr, -46, 100, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "-46");
   EXPECT_FALSE(ctx.has_error());
 
@@ -447,6 +442,10 @@ TEST(TestStringOps, TestCastVARCHARFromInt32) {
   // test with required length less than actual buffer length
   out_str = castVARCHAR_int32_int64(ctx_ptr, 34567, 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "345");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int32_int64(ctx_ptr, 347, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = castVARCHAR_int32_int64(ctx_ptr, 347, -1, &out_len);
