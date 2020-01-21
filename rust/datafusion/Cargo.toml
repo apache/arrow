@@ -25,6 +25,7 @@ authors = ["Apache Arrow <dev@arrow.apache.org>"]
 license = "Apache-2.0"
 keywords = [ "arrow", "query", "sql" ]
 include = [
+    "benches/*.rs",
     "src/**/*.rs",
     "Cargo.toml",
 ]
@@ -59,4 +60,3 @@ tempdir = "0.3.7"
 [[bench]]
 name = "aggregate_query_sql"
 harness = false
-

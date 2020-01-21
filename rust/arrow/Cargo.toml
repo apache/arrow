@@ -25,6 +25,7 @@ authors = ["Apache Arrow <dev@arrow.apache.org>"]
 license = "Apache-2.0"
 keywords = [ "arrow" ]
 include = [
+    "benches/*.rs",
     "src/**/*.rs",
     "Cargo.toml",
 ]
