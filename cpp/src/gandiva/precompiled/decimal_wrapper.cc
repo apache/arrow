@@ -228,6 +228,7 @@ void castDECIMAL_float32(float in, int32_t x_precision, int32_t x_scale,
   castDECIMAL_float64(in, x_precision, x_scale, out_high, out_low);
 }
 
+FORCE_INLINE
 boolean castDecimal_return_overflow(int64_t x_high, uint64_t x_low, int32_t x_precision,
                                     int32_t x_scale, int32_t out_precision,
                                     int32_t out_scale, int64_t* out_high,
