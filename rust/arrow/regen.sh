@@ -108,4 +108,4 @@ done
 
 # Return back to base directory
 popd
-cargo +stable fmt -- src/ipc/gen/*
+# cargo +stable fmt -- src/ipc/gen/*

@@ -2,3 +2,10 @@ Cargo.lock
 target
 
 .history
+
+# Ignore Rust flatbuffer files as they are generated at build time
+arrow/src/ipc/gen/File.rs
+arrow/src/ipc/gen/Message.rs
+arrow/src/ipc/gen/Schema.rs
+arrow/src/ipc/gen/SparseTensor.rs
+arrow/src/ipc/gen/Tensor.rs
