@@ -5,6 +5,7 @@
 \alias{DirectoryPartitioning}
 \alias{HivePartitioning}
 \alias{DirectoryPartitioningFactory}
+\alias{HivePartitioningFactory}
 \title{Define Partitioning for a Source}
 \description{
 Pass a \code{Partitioning} object to a \link{FileSystemSourceFactory}'s \verb{$create()}

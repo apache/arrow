@@ -455,6 +455,7 @@ hive_partition <- function(...) {
 }
 
 PartitioningFactory <- R6Class("PartitioningFactory", inherit = Object)
+
 #' @usage NULL
 #' @format NULL
 #' @rdname Partitioning
@@ -464,11 +465,11 @@ DirectoryPartitioningFactory$create <- function(x) {
   shared_ptr(DirectoryPartitioningFactory, dataset___DirectoryPartitioning__MakeFactory(x))
 }
 
-HivePartitioningFactory <- R6Class("HivePartitioningFactory", inherit = PartitioningFactory)
 #' @usage NULL
 #' @format NULL
 #' @rdname Partitioning
 #' @export
+HivePartitioningFactory <- R6Class("HivePartitioningFactory", inherit = PartitioningFactory)
 HivePartitioningFactory$create <- function() {
   shared_ptr(HivePartitioningFactory, dataset___HivePartitioning__MakeFactory())
 }
