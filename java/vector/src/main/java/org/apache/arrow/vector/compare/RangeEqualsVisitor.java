@@ -185,15 +185,6 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     return true;
   }
 
-  /**
-   * Creates a visitor to visit child vectors.
-   * It is used for complex vector types.
-   * @return the visitor for child vectors.
-   */
-  protected RangeEqualsVisitor createInnerVisitor(ValueVector leftInner, ValueVector rightInner) {
-    return this.createInnerVisitor(leftInner, rightInner, this.typeComparator);
-  }
-
   protected RangeEqualsVisitor createInnerVisitor(
           ValueVector leftInner, ValueVector rightInner,
           BiFunction<ValueVector, ValueVector, Boolean> typeComparator) {
@@ -237,7 +228,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     }
 
     for (String name : leftChildNames) {
-      RangeEqualsVisitor visitor = createInnerVisitor(leftVector.getChild(name), rightVector.getChild(name));
+      RangeEqualsVisitor visitor = createInnerVisitor(leftVector.getChild(name), rightVector.getChild(name), null);
       if (!visitor.rangeEquals(range)) {
         return false;
       }
@@ -316,7 +307,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     ListVector leftVector = (ListVector) left;
     ListVector rightVector = (ListVector) right;
 
-    RangeEqualsVisitor innerVisitor = createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector());
+    RangeEqualsVisitor innerVisitor = createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector(), null);
     Range innerRange = new Range();
 
     for (int i = 0; i < range.getLength(); i++) {
@@ -362,7 +353,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     }
 
     int listSize = leftVector.getListSize();
-    RangeEqualsVisitor innerVisitor = createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector());
+    RangeEqualsVisitor innerVisitor = createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector(), null);
     Range innerRange = new Range(0, 0, listSize);
 
     for (int i = 0; i < range.getLength(); i++) {
