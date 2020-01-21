@@ -49,6 +49,7 @@ test_that("C++ expressions", {
   expect_is(f == g, "ComparisonExpression")
   expect_is(f == 4, "ComparisonExpression")
   expect_is(f == "", "ComparisonExpression")
+  expect_is(f == NULL, "ComparisonExpression")
   expect_is(f == date, "ComparisonExpression")
   # can't seem to make this work right now
   # expect_is(f == as.Date("2020-01-15"), "ComparisonExpression")

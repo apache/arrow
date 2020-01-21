@@ -102,6 +102,8 @@ std::shared_ptr<ds::IsValidExpression> dataset___expr__is_valid(
 // [[arrow::export]]
 std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
   switch (TYPEOF(x)) {
+    case NILSXP:
+      return ds::scalar(std::make_shared<arrow::NullScalar>());
     case LGLSXP:
       return ds::scalar(Rf_asLogical(x));
     case REALSXP:
@@ -124,10 +126,10 @@ std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
     case STRSXP:
       return ds::scalar(CHAR(STRING_ELT(x, 0)));
     default:
-      // TODO more types (factor, POSIXt, etc.)
       Rcpp::stop(
           tfm::format("R object of type %s not supported", Rf_type2char(TYPEOF(x))));
   }
+
   return nullptr;
 }
 
