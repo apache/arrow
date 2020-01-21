@@ -27,7 +27,7 @@ In a future release, you'll be able to point your R session at S3 and query
 the dataset from there. For now, datasets need to be on your local file system.
 To download the files,
 
-```r
+```{eval = FALSE}
 bucket <- "https://ursa-labs-taxi-data.s3.us-east-2.amazonaws.com"
 dir.create("nyc-taxi")
 for (year in 2009:2019) {
@@ -41,6 +41,10 @@ for (year in 2009:2019) {
     ))
   }
 }
+```
+
+```{r, include = FALSE}
+knitr::opts_chunk(eval = file.exists("nyc-taxi"))
 ```
 
 It is expected that some files will not download because they do not exist--December 2019,
@@ -58,14 +62,14 @@ Because `dplyr` is not necessary for many Arrow workflows,
 it is an optional (`Suggests`) dependency. So, to work with Datasets,
 we need to load both `arrow` and `dplyr`.
 
-```r
+```{r}
 library(arrow)
 library(dplyr)
 ```
 
 The first step is to create our Dataset object, pointing at the directory of data.
 
-```r
+```{r}
 ds <- open_dataset("nyc-taxi", partitioning = c("year", "month"))
 ```
 
