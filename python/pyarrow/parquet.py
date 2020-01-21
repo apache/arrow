@@ -357,7 +357,7 @@ coerce_timestamps : string, default None
     Valid values: {None, 'ms', 'us'}
 data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data
-    pages within a column chunk. If None, use the default data page
+    pages within a column chunk (in bytes). If None, use the default data page
     size of 1MByte.
 allow_truncated_timestamps : boolean, default False
     Allow loss of data when coercing timestamps to a particular
