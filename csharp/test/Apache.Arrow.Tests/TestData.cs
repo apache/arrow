@@ -185,7 +185,7 @@ namespace Apache.Arrow.Tests
 
             public void Visit(ListType type)
             {
-                var builder = new ListArray.Builder(type).Reserve(Length);
+                var builder = new ListArray.Builder(type.ValueField).Reserve(Length);
 
                 //Todo : Support various types
                 var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length);

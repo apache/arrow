@@ -43,8 +43,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ListArrayBuilder()
         {
-            var stringField = new Field("item", StringType.Default, true);
-            var listBuilder = new ListArray.Builder(new ListType(stringField));
+            var listBuilder = new ListArray.Builder(StringType.Default);
             var valueBuilder = listBuilder.ValueBuilder as StringArray.Builder;
             Assert.NotNull(valueBuilder);
             listBuilder.Append();
@@ -81,10 +80,8 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void NestedListArrayBuilder()
         {
-            var int64Field = new Field("item", Int64Type.Default, true);
-            var childListType = new ListType(int64Field);
-            var parentListType = new ListType(childListType);
-            var parentListBuilder = new ListArray.Builder(parentListType);
+            var childListType = new ListType(Int64Type.Default);
+            var parentListBuilder = new ListArray.Builder(childListType);
             var childListBuilder = parentListBuilder.ValueBuilder as ListArray.Builder;
             Assert.NotNull(childListBuilder);
             var valueBuilder = childListBuilder.ValueBuilder as Int64Array.Builder;

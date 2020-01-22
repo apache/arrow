@@ -35,7 +35,15 @@ namespace Apache.Arrow
 
             private IArrowType DataType { get; }
 
-            public Builder(ListType dataType)
+            public Builder(IArrowType valueDataType) : this(new ListType(valueDataType))
+            {
+            }
+
+            public Builder(Field valueField) : this(new ListType(valueField))
+            {
+            }
+
+            internal Builder(ListType dataType)
             {
                 ValueBuilder = ArrowArrayBuilderFactory.Build(dataType.ValueDataType);
                 ValueOffsetsBufferBuilder = new ArrowBuffer.Builder<int>();
