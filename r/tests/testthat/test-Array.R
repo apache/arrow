@@ -532,5 +532,11 @@ test_that("Dictionary array: create from arrays, not factor", {
 
 test_that("Dictionary array: translate to R when dict isn't string", {
   a <- DictionaryArray$create(c(2L, 1L, 1L, 2L, 0L), c(4.5, 3.2, 1.1))
-  as.vector(a)
+  expect_warning(
+    expect_identical(
+      as.vector(a),
+      factor(c(3, 2, 2, 3, 1), labels = c("4.5", "3.2", "1.1"))
+    ),
+    "Coercing dictionary values from type double to R character factor levels"
+  )
 })
