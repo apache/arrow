@@ -1529,53 +1529,58 @@ TEST(TestArrowReadWrite, CoerceTimestampsLosePrecision) {
   auto t3 = Table::Make(s3, {a_us});
   auto t4 = Table::Make(s4, {a_ns});
 
-  auto sink = CreateOutputStream();
-
   // OK to write to millis
   auto coerce_millis =
       (ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MILLI)->build());
-  ASSERT_OK_NO_THROW(WriteTable(*t1, ::arrow::default_memory_pool(), sink, 10,
-                                default_writer_properties(), coerce_millis));
-  ASSERT_OK_NO_THROW(WriteTable(*t2, ::arrow::default_memory_pool(), sink, 10,
-                                default_writer_properties(), coerce_millis));
+  ASSERT_OK_NO_THROW(WriteTable(*t1, ::arrow::default_memory_pool(), CreateOutputStream(),
+                                10, default_writer_properties(), coerce_millis));
+
+  ASSERT_OK_NO_THROW(WriteTable(*t2, ::arrow::default_memory_pool(), CreateOutputStream(),
+                                10, default_writer_properties(), coerce_millis));
 
   // Loss of precision
-  ASSERT_RAISES(Invalid, WriteTable(*t3, ::arrow::default_memory_pool(), sink, 10,
-                                    default_writer_properties(), coerce_millis));
-  ASSERT_RAISES(Invalid, WriteTable(*t4, ::arrow::default_memory_pool(), sink, 10,
-                                    default_writer_properties(), coerce_millis));
+  ASSERT_RAISES(Invalid,
+                WriteTable(*t3, ::arrow::default_memory_pool(), CreateOutputStream(), 10,
+                           default_writer_properties(), coerce_millis));
+  ASSERT_RAISES(Invalid,
+                WriteTable(*t4, ::arrow::default_memory_pool(), CreateOutputStream(), 10,
+                           default_writer_properties(), coerce_millis));
 
   // OK to lose micros/nanos -> millis precision if we explicitly allow it
   auto allow_truncation_to_millis = (ArrowWriterProperties::Builder()
                                          .coerce_timestamps(TimeUnit::MILLI)
                                          ->allow_truncated_timestamps()
                                          ->build());
-  ASSERT_OK_NO_THROW(WriteTable(*t3, ::arrow::default_memory_pool(), sink, 10,
-                                default_writer_properties(), allow_truncation_to_millis));
-  ASSERT_OK_NO_THROW(WriteTable(*t4, ::arrow::default_memory_pool(), sink, 10,
-                                default_writer_properties(), allow_truncation_to_millis));
+  ASSERT_OK_NO_THROW(WriteTable(*t3, ::arrow::default_memory_pool(), CreateOutputStream(),
+                                10, default_writer_properties(),
+                                allow_truncation_to_millis));
+  ASSERT_OK_NO_THROW(WriteTable(*t4, ::arrow::default_memory_pool(), CreateOutputStream(),
+                                10, default_writer_properties(),
+                                allow_truncation_to_millis));
 
   // OK to write to micros
   auto coerce_micros =
       (ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MICRO)->build());
-  ASSERT_OK_NO_THROW(WriteTable(*t1, ::arrow::default_memory_pool(), sink, 10,
-                                default_writer_properties(), coerce_micros));
-  ASSERT_OK_NO_THROW(WriteTable(*t2, ::arrow::default_memory_pool(), sink, 10,
-                                default_writer_properties(), coerce_micros));
-  ASSERT_OK_NO_THROW(WriteTable(*t3, ::arrow::default_memory_pool(), sink, 10,
-                                default_writer_properties(), coerce_micros));
+  ASSERT_OK_NO_THROW(WriteTable(*t1, ::arrow::default_memory_pool(), CreateOutputStream(),
+                                10, default_writer_properties(), coerce_micros));
+  ASSERT_OK_NO_THROW(WriteTable(*t2, ::arrow::default_memory_pool(), CreateOutputStream(),
+                                10, default_writer_properties(), coerce_micros));
+  ASSERT_OK_NO_THROW(WriteTable(*t3, ::arrow::default_memory_pool(), CreateOutputStream(),
+                                10, default_writer_properties(), coerce_micros));
 
   // Loss of precision
-  ASSERT_RAISES(Invalid, WriteTable(*t4, ::arrow::default_memory_pool(), sink, 10,
-                                    default_writer_properties(), coerce_micros));
+  ASSERT_RAISES(Invalid,
+                WriteTable(*t4, ::arrow::default_memory_pool(), CreateOutputStream(), 10,
+                           default_writer_properties(), coerce_micros));
 
   // OK to lose nanos -> micros precision if we explicitly allow it
   auto allow_truncation_to_micros = (ArrowWriterProperties::Builder()
                                          .coerce_timestamps(TimeUnit::MICRO)
                                          ->allow_truncated_timestamps()
                                          ->build());
-  ASSERT_OK_NO_THROW(WriteTable(*t4, ::arrow::default_memory_pool(), sink, 10,
-                                default_writer_properties(), allow_truncation_to_micros));
+  ASSERT_OK_NO_THROW(WriteTable(*t4, ::arrow::default_memory_pool(), CreateOutputStream(),
+                                10, default_writer_properties(),
+                                allow_truncation_to_micros));
 }
 
 TEST(TestArrowReadWrite, ImplicitSecondToMillisecondTimestampCoercion) {
@@ -1675,16 +1680,17 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
       ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::NANO)->build();
   {
     // Neither Parquet version 1.0 nor 2.0 allow coercing to seconds
-    auto sink = CreateOutputStream();
     std::shared_ptr<Table> actual_table;
-    ASSERT_RAISES(NotImplemented,
-                  WriteTable(*input_table, ::arrow::default_memory_pool(), sink,
-                             input_table->num_rows(), parquet_version_1_properties,
-                             arrow_coerce_to_seconds_properties));
-    ASSERT_RAISES(NotImplemented,
-                  WriteTable(*input_table, ::arrow::default_memory_pool(), sink,
-                             input_table->num_rows(), parquet_version_2_properties,
-                             arrow_coerce_to_seconds_properties));
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*input_table, ::arrow::default_memory_pool(), CreateOutputStream(),
+                   input_table->num_rows(), parquet_version_1_properties,
+                   arrow_coerce_to_seconds_properties));
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*input_table, ::arrow::default_memory_pool(), CreateOutputStream(),
+                   input_table->num_rows(), parquet_version_2_properties,
+                   arrow_coerce_to_seconds_properties));
   }
   {
     // Using Parquet version 1.0, coercing to milliseconds or microseconds is allowed
@@ -1720,12 +1726,12 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
   }
   {
     // Using Parquet version 1.0, coercing to (int64) nanoseconds is not allowed
-    auto sink = CreateOutputStream();
     std::shared_ptr<Table> actual_table;
-    ASSERT_RAISES(NotImplemented,
-                  WriteTable(*input_table, ::arrow::default_memory_pool(), sink,
-                             input_table->num_rows(), parquet_version_1_properties,
-                             arrow_coerce_to_nanos_properties));
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*input_table, ::arrow::default_memory_pool(), CreateOutputStream(),
+                   input_table->num_rows(), parquet_version_1_properties,
+                   arrow_coerce_to_nanos_properties));
   }
   {
     // Using Parquet version 2.0, coercing to (int64) nanoseconds is allowed
@@ -2117,8 +2123,8 @@ TEST(TestArrowReadWrite, InvalidTable) {
   auto sink = CreateOutputStream();
   auto invalid_table = InvalidTable();
 
-  ASSERT_RAISES(Invalid, WriteTable(*invalid_table, ::arrow::default_memory_pool(), sink,
-                                    1, default_writer_properties(),
+  ASSERT_RAISES(Invalid, WriteTable(*invalid_table, ::arrow::default_memory_pool(),
+                                    CreateOutputStream(), 1, default_writer_properties(),
                                     default_arrow_writer_properties()));
 }
 
@@ -2198,7 +2204,7 @@ TEST(TestArrowReadWrite, DISABLED_CanonicalNestedRoundTrip) {
   auto name_array =
       ::arrow::ArrayFromJSON(name->type(),
                              R"([[{"Language": [{"Code": "en_us", "Country":"us"},
-                                   {"Code": "en_us", "Country": null}], 
+                                   {"Code": "en_us", "Country": null}],
                       "Url": "http://A"},
                      {"Url": "http://B"},
                      {"Language": [{"Code": "en-gb", "Country": "gb"}]}],
