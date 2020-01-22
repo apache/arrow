@@ -23,6 +23,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <ciso646>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
