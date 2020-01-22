@@ -28,7 +28,7 @@ namespace Apache.Arrow.Benchmarks
         [Params(10_000, 1_000_000)]
         public int BatchLength{ get; set; }
 
-        [Params(10, 20)]
+        [Params(10, 25)]
         public int ColumnSetCount { get; set; }
 
         private MemoryStream _memoryStream;

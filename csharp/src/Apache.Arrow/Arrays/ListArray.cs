@@ -37,7 +37,7 @@ namespace Apache.Arrow
 
             public Builder(ListType dataType)
             {
-                ValueBuilder = ArrowArrayBuilderFactory.BuildBuilder(dataType.ValueDataType);
+                ValueBuilder = ArrowArrayBuilderFactory.Build(dataType.ValueDataType);
                 ValueOffsetsBufferBuilder = new ArrowBuffer.Builder<int>();
                 DataType = dataType;
             }

@@ -20,7 +20,7 @@ namespace Apache.Arrow
 {
     static class ArrowArrayBuilderFactory
     {
-        internal static IArrowArrayBuilder<IArrowArray, IArrowArrayBuilder<IArrowArray>> BuildBuilder(IArrowType dataType)
+        internal static IArrowArrayBuilder<IArrowArray, IArrowArrayBuilder<IArrowArray>> Build(IArrowType dataType)
         {
             switch (dataType.TypeId)
             {

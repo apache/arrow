@@ -172,7 +172,7 @@ namespace Apache.Arrow.Tests
 
             public void Visit(StringType type)
             {
-                var str = "helloworld";
+                var str = "hello";
                 var builder = new StringArray.Builder();
 
                 for (var i = 0; i < Length; i++)
