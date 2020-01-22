@@ -146,6 +146,14 @@ public interface FlightProducer {
      */
     void completed();
 
+    /**
+     * Set a callback for when the client cancels a call, i.e. {@link #isCancelled()} has become true.
+     *
+     * <p>Note that this callback may only be called some time after {@link #isCancelled()} becomes true, and may never
+     * be called if all executor threads on the server are busy, or the RPC method body is implemented in a blocking
+     * fashion.
+     */
+    void setOnCancelHandler(Runnable handler);
   }
 
   /**

@@ -71,8 +71,9 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
       errorHandler.accept(t);
       return;
     }
-    delegate.onError(StatusUtils.toGrpcException(t));
+    // Set closed to true in case onError throws, so that we don't try to close again
     closed = true;
+    delegate.onError(StatusUtils.toGrpcException(t));
   }
 
   @Override
@@ -81,8 +82,9 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
       errorHandler.accept(new IllegalStateException("Tried to complete already-completed call"));
       return;
     }
-    delegate.onCompleted();
+    // Set closed to true in case onCompleted throws, so that we don't try to close again
     closed = true;
+    delegate.onCompleted();
   }
 
   /**
