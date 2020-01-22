@@ -1123,7 +1123,11 @@ TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
   ASSERT_OK(status);
   status = writer->Close();
   ASSERT_RAISES(IOError, status);
-  ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
+  // ARROW-7583: don't check the error message here.
+  // Because gRPC reports errors in some paths with booleans, instead
+  // of statuses, we can fail the call without knowing why it fails,
+  // instead reporting a generic error message. This is
+  // nondeterministic, so don't assert any particular message here.
 }
 
 TEST_F(TestAuthHandler, CheckPeerIdentity) {
