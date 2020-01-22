@@ -22,12 +22,14 @@ set -ex
 arrow_dir=${1}
 source_dir=${1}/cpp
 build_dir=${2}/cpp
+binary_output_dir=${build_dir}/${ARROW_BUILD_TYPE:-debug}
 
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_PATH}
 
 pushd ${build_dir}
+
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
@@ -40,4 +42,12 @@ case "$(uname)" in
     ;;
 esac
 ctest --output-on-failure -j${n_jobs}
+
+if [ "${ARROW_FUZZING}" == "ON" ]; then
+    # Fuzzing regression tests
+    ${binary_output_dir}/arrow-ipc-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-stream/crash-*
+    ${binary_output_dir}/arrow-ipc-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-stream/*-testcase-*
+    ${binary_output_dir}/arrow-ipc-file-fuzz ${ARROW_TEST_DATA}/arrow-ipc-file/*-testcase-*
+fi
+
 popd
