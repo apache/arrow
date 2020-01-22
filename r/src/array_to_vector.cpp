@@ -288,8 +288,9 @@ class Converter_Dictionary : public Converter {
     }
 
     if (dict->type_id() != Type::STRING) {
-      Rcpp::warning("Coercing dictionary values from type %s to R character factor levels",
-                    dict->type()->ToString());
+      Rcpp::warning(
+          "Coercing dictionary values from type %s to R character factor levels",
+          dict->type()->ToString());
     }
     bool ordered = dict_array->dict_type()->ordered();
 
@@ -297,7 +298,8 @@ class Converter_Dictionary : public Converter {
     // TODO (npr): this coercion should be optional, "dictionariesAsFactors" ;)
     // Alternative: preserve the logical type of the dictionary values
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
-    data.attr("levels") = Rf_coerceVector(ArrayVector__as_vector(dict->length(), {dict}), STRSXP);
+    data.attr("levels") =
+        Rf_coerceVector(ArrayVector__as_vector(dict->length(), {dict}), STRSXP);
     if (ordered) {
       data.attr("class") = Rcpp::CharacterVector::create("ordered", "factor");
     } else {
