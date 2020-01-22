@@ -23,8 +23,14 @@ check_cxx_compiler_flag("-msse4.2" CXX_SUPPORTS_SSE4_2)
 # power compiler flags
 check_cxx_compiler_flag("-maltivec" CXX_SUPPORTS_ALTIVEC)
 # Arm64 compiler flags
-check_cxx_compiler_flag("-march=armv8-a+crc" CXX_SUPPORTS_ARMCRC)
-check_cxx_compiler_flag("-march=armv8-a+crc+crypto" CXX_SUPPORTS_ARMV8_CRC_CRYPTO)
+set(ARROW_ARMV8_CRC_FLAG "-march=armv8-a+crc")
+check_cxx_compiler_flag(${ARROW_ARMV8_CRC_FLAG} CXX_SUPPORTS_ARMCRC)
+set(ARROW_ARMV8_CRC_CRYPTO_FLAG "-march=armv8-a+crc+crypto")
+check_cxx_compiler_flag(${ARROW_ARMV8_CRC_CRYPTO_FLAG} CXX_SUPPORTS_ARMV8_CRC_CRYPTO)
+set(ARROW_ARMV8_NEON_FLAG "-mfpu=neon-fp-armv8")
+check_cxx_compiler_flag(${ARROW_ARMV8_NEON_FLAG} CXX_SUPPORTS_ARMV8_NEON)
+set(ARROW_ARMV8_NEON_CRYPTO_FLAG "-mfpu=crypto-neon-fp-armv8")
+check_cxx_compiler_flag(${ARROW_ARMV8_NEON_CRYPTO_FLAG} CXX_SUPPORTS_ARMV8_NEON_CRYPTO)
 
 # Support C11
 set(CMAKE_C_STANDARD 11)
@@ -268,10 +274,19 @@ endif()
 
 if(CXX_SUPPORTS_ARMCRC)
   if(CXX_SUPPORTS_ARMV8_CRC_CRYPTO)
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc+crypto")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_CRC_CRYPTO_FLAG}")
   else()
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_CRC_FLAG}")
   endif()
+endif()
+
+if(CXX_SUPPORTS_ARMV8_NEON)
+  if(CXX_SUPPORTS_ARMV8_NEON_CRYPTO)
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_NEON_CRYPTO_FLAG}")
+  else()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_NEON_FLAG}")
+  endif()
+  add_definitions(-DARROW_HAVE_NEON)
 endif()
 
 if(ARROW_USE_SIMD)
