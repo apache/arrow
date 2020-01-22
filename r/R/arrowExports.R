@@ -120,6 +120,10 @@ ChunkedArray__from_list <- function(chunks, s_type){
     .Call(`_arrow_ChunkedArray__from_list` , chunks, s_type)
 }
 
+DictionaryArray__FromArrays <- function(type, indices, dict){
+    .Call(`_arrow_DictionaryArray__FromArrays` , type, indices, dict)
+}
+
 Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector` , array)
 }

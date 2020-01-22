@@ -473,6 +473,23 @@ RcppExport SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sex
 }
 #endif
 
+// array_from_vector.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(const std::shared_ptr<arrow::DataType>& type, const std::shared_ptr<arrow::Array>& indices, const std::shared_ptr<arrow::Array>& dict);
+RcppExport SEXP _arrow_DictionaryArray__FromArrays(SEXP type_sexp, SEXP indices_sexp, SEXP dict_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type dict(dict_sexp);
+	return Rcpp::wrap(DictionaryArray__FromArrays(type, indices, dict));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_DictionaryArray__FromArrays(SEXP type_sexp, SEXP indices_sexp, SEXP dict_sexp){
+	Rf_error("Cannot call DictionaryArray__FromArrays(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // array_to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
@@ -5652,6 +5669,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
 		{ "_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2}, 
 		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 
+		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 

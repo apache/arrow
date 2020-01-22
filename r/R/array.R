@@ -142,6 +142,23 @@ DictionaryArray <- R6Class("DictionaryArray", inherit = Array,
     dictionary = function() Array$create(DictionaryArray__dictionary(self))
   )
 )
+DictionaryArray$create <- function(x, dict = NULL) {
+  if (is.factor(x)) {
+    # The simple case: converting a factor.
+    # Ignoring `dict`; should probably error if dict is not NULL
+    return(Array$create(x))
+  }
+
+  assert_that(!is.null(dict))
+  if (!is.Array(x)) {
+    x <- Array$create(x)
+  }
+  if (!is.Array(dict)) {
+    dict <- Array$create(dict)
+  }
+  type <- DictionaryType$create(x$type, dict$type)
+  shared_ptr(DictionaryArray, DictionaryArray__FromArrays(type, x, dict))
+}
 
 StructArray <- R6Class("StructArray", inherit = Array,
   public = list(
