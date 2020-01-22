@@ -60,11 +60,6 @@ rm -f $LOGFILE $LOGFILE.gz
 
 pipe_cmd=cat
 
-# Allow for collecting core dumps.
-ARROW_TEST_ULIMIT_CORE=${ARROW_TEST_ULIMIT_CORE:-0}
-ulimit -c $ARROW_TEST_ULIMIT_CORE
-
-
 function setup_sanitizers() {
   # Sets environment variables for different sanitizers (it configures how) the run_tests. Function works.
 
@@ -124,6 +119,55 @@ function run_test() {
   fi
 }
 
+function enable_coredumps() {
+  # Allow for collecting core dumps.
+  if [ -z "${ARROW_TEST_ULIMIT_CORE}" ]; then
+    return 0
+  fi
+  ulimit -c $ARROW_TEST_ULIMIT_CORE
+}
+
+function handle_coredumps() {
+  # In case of macOS kern.corefile must be set relative to the binary:
+  #   sudo sysctl -w kern.corefile=core.%P
+
+  if [ -z "${ARROW_TEST_ULIMIT_CORE}" ]; then
+    return 0
+  fi
+
+  COREFILES=$(ls | grep ^core)
+
+  if [ -n "$COREFILES" ]; then
+    echo "Found core dump. Printing backtrace and moving the coredump under ./cores"
+
+    for COREFILE in $COREFILES; do
+      # Print backtrace
+      if [ "$(uname)" == "Darwin" ]; then
+        lldb -c "$COREFILE" --batch --one-line "thread backtrace all -e true"
+
+        # ls -la ~/Library/Logs/DiagnosticReports/
+        # cat ~/Library/Logs/DiagnosticReports/*.crash
+      else
+        gdb -c "${COREFILE}" $TEST_EXECUTABLE -ex "thread apply all bt" -ex "set pagination 0" -batch
+      fi
+
+      # Archive coredump to ./cores directory
+      mkdir -p cores
+      mv $COREFILE cores/
+    done
+
+    # gzip < $TEST_EXECUTABLE > "$TEST_DEBUGDIR/$TEST_NAME.gz" || exit $?
+    # for COREFILE in $COREFILES; do
+    #   gzip < $COREFILE > "$TEST_DEBUGDIR/$TEST_NAME.$COREFILE.gz" || exit $?
+    # done
+    # # Pull in any .so files as well.
+    # for LIB in $(ldd $TEST_EXECUTABLE | grep $ROOT | awk '{print $3}'); do
+    #   LIB_NAME=$(basename $LIB)
+    #   gzip < $LIB > "$TEST_DEBUGDIR/$LIB_NAME.gz" || exit $?
+    # done
+  fi
+}
+
 function post_process_tests() {
   # If we have a LeakSanitizer report, and XML reporting is configured, add a new test
   # case result to the XML file for the leak report. Otherwise Jenkins won't show
@@ -148,8 +192,10 @@ function run_other() {
 }
 
 if [ $RUN_TYPE = "test" ]; then
-    setup_sanitizers
+  setup_sanitizers
 fi
+
+enable_coredumps
 
 # Run the actual test.
 for ATTEMPT_NUMBER in $(seq 1 $TEST_EXECUTION_ATTEMPTS) ; do
@@ -200,20 +246,7 @@ if [ $RUN_TYPE = "test" ]; then
   post_process_tests
 fi
 
-# Capture and compress core file and binary.
-COREFILES=$(ls | grep ^core)
-if [ -n "$COREFILES" ]; then
-  echo Found core dump. Saving executable and core files.
-  gzip < $TEST_EXECUTABLE > "$TEST_DEBUGDIR/$TEST_NAME.gz" || exit $?
-  for COREFILE in $COREFILES; do
-    gzip < $COREFILE > "$TEST_DEBUGDIR/$TEST_NAME.$COREFILE.gz" || exit $?
-  done
-  # Pull in any .so files as well.
-  for LIB in $(ldd $TEST_EXECUTABLE | grep $ROOT | awk '{print $3}'); do
-    LIB_NAME=$(basename $LIB)
-    gzip < $LIB > "$TEST_DEBUGDIR/$LIB_NAME.gz" || exit $?
-  done
-fi
+handle_coredumps
 
 popd
 rm -Rf $TEST_WORKDIR

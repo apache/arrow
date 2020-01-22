@@ -116,7 +116,7 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: ON
       # ARROW-7551: for now, build without Homebrew gRPC, as gRPC
-      # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662
+      # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662x
       gRPC_SOURCE: BUNDLED
       Protobuf_SOURCE: BUNDLED
     steps:
@@ -132,30 +132,18 @@ jobs:
       - name: Uninstall Problematic Homebrew Dependencies
         shell: bash
         run: brew uninstall grpc protobuf
-      - name: Enable Coredump
-        shell: bash
-        run: |
-          whoami
-          ls -lah /
-          sudo chown -R $USER /cores
-          ls -lah /
-          touch /cores/test
-          ulimit -a
-          ulimit -c unlimited
-          ulimit -a
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        run: |
-          ulimit -a
-          touch /cores/test-test
-          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
-      - name: Show Coredump
-        shell: bash
-        if: failure()
-        run: ci/scripts/util_coredump.sh
+        env:
+          ARROW_TEST_ULIMIT_CORE: unlimited
+        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+      # - name: Show Coredump
+      #   shell: bash
+      #   if: failure()
+      #   run: ci/scripts/util_coredump.sh
 
   windows:
     name: AMD64 ${{ matrix.name }} C++
