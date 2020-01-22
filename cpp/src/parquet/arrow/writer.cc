@@ -604,8 +604,10 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   std::shared_ptr<const KeyValueMetadata> metadata;
   RETURN_NOT_OK(GetSchemaMetadata(schema, pool, *arrow_properties, &metadata));
 
-  std::unique_ptr<ParquetFileWriter> base_writer = ParquetFileWriter::Open(
-      std::move(sink), schema_node, std::move(properties), std::move(metadata));
+  std::unique_ptr<ParquetFileWriter> base_writer;
+  PARQUET_CATCH_NOT_OK(base_writer = ParquetFileWriter::Open(std::move(sink), schema_node,
+                                                             std::move(properties),
+                                                             std::move(metadata)));
 
   auto schema_ptr = std::make_shared<::arrow::Schema>(schema);
   return Make(pool, std::move(base_writer), std::move(schema_ptr),

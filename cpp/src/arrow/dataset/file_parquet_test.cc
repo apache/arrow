@@ -103,13 +103,14 @@ class ArrowParquetWriterMixin : public ::testing::Test {
     auto pool = ::arrow::default_memory_pool();
 
     std::shared_ptr<Buffer> out;
-    auto sink = CreateOutputStream(pool);
 
     for (auto reader : readers) {
+      auto sink = CreateOutputStream(pool);
+
       ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
+      // XXX the rest of the test may crash if this fails, since out will be nullptr
+      EXPECT_OK_AND_ASSIGN(out, sink->Finish());
     }
-    // XXX the rest of the test may crash if this fails, since out will be nullptr
-    EXPECT_OK_AND_ASSIGN(out, sink->Finish());
     return out;
   }
 
