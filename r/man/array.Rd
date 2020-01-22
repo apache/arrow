@@ -4,10 +4,15 @@
 \name{array}
 \alias{array}
 \alias{Array}
-\title{Array class}
+\alias{DictionaryArray}
+\alias{StructArray}
+\alias{ListArray}
+\title{Arrow Arrays}
 \description{
-Array base type. Immutable data array with some logical type
-and some length.
+An \code{Array} is an immutable data array with some logical type
+and some length. Most logical types are contained in the base
+\code{Array} class; there are also subclasses for \code{DictionaryArray}, \code{ListArray},
+and \code{StructArray}.
 }
 \section{Factory}{
 
@@ -17,6 +22,17 @@ takes the following arguments:
 \item \code{x}: an R vector, list, or \code{data.frame}
 \item \code{type}: an optional \link[=data-type]{data type} for \code{x}. If omitted, the type
 will be inferred from the data.
+}
+
+\code{Array$create()} will return the appropriate subclass of \code{Array}, such as
+\code{DictionaryArray} when given an R factor.
+
+To compose a \code{DictionaryArray} directly, call \code{DictionaryArray$create()},
+which takes two arguments:
+\itemize{
+\item \code{x}: an R vector or \code{Array} of integers for the dictionary indices
+\item \code{dict}: an R vector or \code{Array} of dictionary values (like R factor levels
+but not limited to strings only)
 }
 }
 

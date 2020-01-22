@@ -17,9 +17,11 @@
 
 #' @include arrow-package.R
 
-#' @title Array class
-#' @description Array base type. Immutable data array with some logical type
-#' and some length.
+#' @title Arrow Arrays
+#' @description An `Array` is an immutable data array with some logical type
+#' and some length. Most logical types are contained in the base
+#' `Array` class; there are also subclasses for `DictionaryArray`, `ListArray`,
+#' and `StructArray`.
 #' @usage NULL
 #' @format NULL
 #' @docType class
@@ -30,6 +32,15 @@
 #' * `x`: an R vector, list, or `data.frame`
 #' * `type`: an optional [data type][data-type] for `x`. If omitted, the type
 #'    will be inferred from the data.
+#'
+#' `Array$create()` will return the appropriate subclass of `Array`, such as
+#' `DictionaryArray` when given an R factor.
+#'
+#' To compose a `DictionaryArray` directly, call `DictionaryArray$create()`,
+#' which takes two arguments:
+#' * `x`: an R vector or `Array` of integers for the dictionary indices
+#' * `dict`: an R vector or `Array` of dictionary values (like R factor levels
+#'   but not limited to strings only)
 #' @section Usage:
 #'
 #' ```
@@ -135,7 +146,25 @@ Array <- R6Class("Array",
     type = function() DataType$create(Array__type(self))
   )
 )
+Array$create <- function(x, type = NULL) {
+  if (!inherits(x, "externalptr")) {
+    x <- Array__from_vector(x, type)
+  }
+  a <- shared_ptr(Array, x)
+  if (a$type_id() == Type$DICTIONARY){
+    a <- shared_ptr(DictionaryArray, x)
+  } else if (a$type_id() == Type$STRUCT) {
+    a <- shared_ptr(StructArray, x)
+  } else if (a$type_id() == Type$LIST) {
+    a <- shared_ptr(ListArray, x)
+  }
+  a
+}
 
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
 DictionaryArray <- R6Class("DictionaryArray", inherit = Array,
   public = list(
     indices = function() Array$create(DictionaryArray__indices(self)),
@@ -160,6 +189,10 @@ DictionaryArray$create <- function(x, dict = NULL) {
   shared_ptr(DictionaryArray, DictionaryArray__FromArrays(type, x, dict))
 }
 
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
 StructArray <- R6Class("StructArray", inherit = Array,
   public = list(
     field = function(i) Array$create(StructArray__field(self, i)),
@@ -168,6 +201,10 @@ StructArray <- R6Class("StructArray", inherit = Array,
   )
 )
 
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
 ListArray <- R6Class("ListArray", inherit = Array,
   public = list(
     values = function() Array$create(ListArray__values(self)),
@@ -179,22 +216,6 @@ ListArray <- R6Class("ListArray", inherit = Array,
     value_type = function() DataType$create(ListArray__value_type(self))
   )
 )
-
-# Add a class method
-Array$create <- function(x, type = NULL) {
-  if (!inherits(x, "externalptr")) {
-    x <- Array__from_vector(x, type)
-  }
-  a <- shared_ptr(Array, x)
-  if (a$type_id() == Type$DICTIONARY){
-    a <- shared_ptr(DictionaryArray, x)
-  } else if (a$type_id() == Type$STRUCT) {
-    a <- shared_ptr(StructArray, x)
-  } else if (a$type_id() == Type$LIST) {
-    a <- shared_ptr(ListArray, x)
-  }
-  a
-}
 
 #' @export
 length.Array <- function(x) x$length()
