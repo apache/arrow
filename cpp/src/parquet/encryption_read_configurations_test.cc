@@ -16,17 +16,14 @@
 // under the License.
 
 #include <gtest/gtest.h>
-
 #include <stdio.h>
+
 #include <fstream>
 
 #include "arrow/io/file.h"
-
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
-#include "parquet/file_writer.h"
-#include "parquet/platform.h"
 #include "parquet/test_encryption_util.h"
 #include "parquet/test_util.h"
 
@@ -189,6 +186,9 @@ class TestDecryptionConfiguration
       std::shared_ptr<parquet::RowGroupReader> row_group_reader =
           file_reader->RowGroup(r);
 
+      // Get the RowGroupMetaData
+      std::unique_ptr<RowGroupMetaData> rg_metadata = file_metadata->RowGroup(r);
+
       int64_t values_read = 0;
       int64_t rows_read = 0;
       int16_t definition_level;
@@ -200,6 +200,9 @@ class TestDecryptionConfiguration
       column_reader = row_group_reader->Column(0);
       parquet::BoolReader* bool_reader =
           static_cast<parquet::BoolReader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the boolean column
+      std::unique_ptr<ColumnChunkMetaData> boolean_md = rg_metadata->ColumnChunk(0);
 
       // Read all the rows in the column
       i = 0;
@@ -217,10 +220,17 @@ class TestDecryptionConfiguration
         ASSERT_EQ(value, expected_value);
         i++;
       }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(boolean_md->num_values(), i);
+
       // Get the Column Reader for the Int32 column
       column_reader = row_group_reader->Column(1);
       parquet::Int32Reader* int32_reader =
           static_cast<parquet::Int32Reader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the Int32 column
+      std::unique_ptr<ColumnChunkMetaData> int32_md = rg_metadata->ColumnChunk(1);
+
       // Read all the rows in the column
       i = 0;
       while (int32_reader->HasNext()) {
@@ -236,10 +246,17 @@ class TestDecryptionConfiguration
         ASSERT_EQ(value, i);
         i++;
       }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(int32_md->num_values(), i);
+
       // Get the Column Reader for the Int64 column
       column_reader = row_group_reader->Column(2);
       parquet::Int64Reader* int64_reader =
           static_cast<parquet::Int64Reader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the Int64 column
+      std::unique_ptr<ColumnChunkMetaData> int64_md = rg_metadata->ColumnChunk(2);
+
       // Read all the rows in the column
       i = 0;
       while (int64_reader->HasNext()) {
@@ -263,11 +280,17 @@ class TestDecryptionConfiguration
         }
         i++;
       }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(int64_md->num_values(), i);
 
       // Get the Column Reader for the Int96 column
       column_reader = row_group_reader->Column(3);
       parquet::Int96Reader* int96_reader =
           static_cast<parquet::Int96Reader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the Int96 column
+      std::unique_ptr<ColumnChunkMetaData> int96_md = rg_metadata->ColumnChunk(3);
+
       // Read all the rows in the column
       i = 0;
       while (int96_reader->HasNext()) {
@@ -289,12 +312,18 @@ class TestDecryptionConfiguration
         }
         i++;
       }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(int96_md->num_values(), i);
 
       if (decryption_config_num != 3) {
         // Get the Column Reader for the Float column
         column_reader = row_group_reader->Column(4);
         parquet::FloatReader* float_reader =
             static_cast<parquet::FloatReader*>(column_reader.get());
+
+        // Get the ColumnChunkMetaData for the Float column
+        std::unique_ptr<ColumnChunkMetaData> float_md = rg_metadata->ColumnChunk(4);
+
         // Read all the rows in the column
         i = 0;
         while (float_reader->HasNext()) {
@@ -311,11 +340,17 @@ class TestDecryptionConfiguration
           ASSERT_EQ(value, expected_value);
           i++;
         }
+        // make sure we got the same number of values the metadata says
+        ASSERT_EQ(float_md->num_values(), i);
 
         // Get the Column Reader for the Double column
         column_reader = row_group_reader->Column(5);
         parquet::DoubleReader* double_reader =
             static_cast<parquet::DoubleReader*>(column_reader.get());
+
+        // Get the ColumnChunkMetaData for the Dobule column
+        std::unique_ptr<ColumnChunkMetaData> double_md = rg_metadata->ColumnChunk(5);
+
         // Read all the rows in the column
         i = 0;
         while (double_reader->HasNext()) {
@@ -332,12 +367,18 @@ class TestDecryptionConfiguration
           ASSERT_EQ(value, expected_value);
           i++;
         }
+        // make sure we got the same number of values the metadata says
+        ASSERT_EQ(double_md->num_values(), i);
       }
 
       // Get the Column Reader for the ByteArray column
       column_reader = row_group_reader->Column(6);
       parquet::ByteArrayReader* ba_reader =
           static_cast<parquet::ByteArrayReader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the ByteArray column
+      std::unique_ptr<ColumnChunkMetaData> ba_md = rg_metadata->ColumnChunk(6);
+
       // Read all the rows in the column
       i = 0;
       while (ba_reader->HasNext()) {
@@ -366,10 +407,17 @@ class TestDecryptionConfiguration
         }
         i++;
       }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(ba_md->num_values(), i);
+
       // Get the Column Reader for the FixedLengthByteArray column
       column_reader = row_group_reader->Column(7);
       parquet::FixedLenByteArrayReader* flba_reader =
           static_cast<parquet::FixedLenByteArrayReader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the FixedLengthByteArray column
+      std::unique_ptr<ColumnChunkMetaData> flba_md = rg_metadata->ColumnChunk(7);
+
       // Read all the rows in the column
       i = 0;
       while (flba_reader->HasNext()) {
@@ -387,6 +435,8 @@ class TestDecryptionConfiguration
         ASSERT_EQ(memcmp(value.ptr, &expected_value[0], kFixedLength), 0);
         i++;
       }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(flba_md->num_values(), i);
     }
     file_reader->Close();
   }

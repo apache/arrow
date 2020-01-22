@@ -83,7 +83,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
  public:
   SerializedRowGroup(std::shared_ptr<ArrowInputFile> source, FileMetaData* file_metadata,
                      int row_group_number, const ReaderProperties& props,
-                     InternalFileDecryptor* file_decryptor = nullptr)
+                     std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
       : source_(std::move(source)),
         file_metadata_(file_metadata),
         properties_(props),
@@ -98,7 +98,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
     // Read column chunk from the file
-    auto col = row_group_metadata_->ColumnChunk(i, row_group_ordinal_, file_decryptor_);
+    auto col = row_group_metadata_->ColumnChunk(i);
 
     int64_t col_start = col->data_page_offset();
     if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
@@ -165,7 +165,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   std::unique_ptr<RowGroupMetaData> row_group_metadata_;
   ReaderProperties properties_;
   int16_t row_group_ordinal_;
-  InternalFileDecryptor* file_decryptor_;
+  std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 };
 
 // ----------------------------------------------------------------------
@@ -194,7 +194,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::unique_ptr<SerializedRowGroup> contents(
         new SerializedRowGroup(source_, file_metadata_.get(), static_cast<int16_t>(i),
-                               properties_, file_decryptor_.get()));
+                               properties_, file_decryptor_));
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
@@ -261,7 +261,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   std::shared_ptr<FileMetaData> file_metadata_;
   ReaderProperties properties_;
 
-  std::unique_ptr<InternalFileDecryptor> file_decryptor_;
+  std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 
   void ParseUnencryptedFileMetadata(const std::shared_ptr<Buffer>& footer_buffer,
                                     int64_t footer_read_size, int64_t file_size,
@@ -352,9 +352,10 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
   // Handle AAD prefix
   EncryptionAlgorithm algo = file_crypto_metadata->encryption_algorithm();
   std::string file_aad = HandleAadPrefix(file_decryption_properties, algo);
-  file_decryptor_.reset(new InternalFileDecryptor(
+  file_decryptor_ = std::make_shared<InternalFileDecryptor>(
       file_decryption_properties, file_aad, algo.algorithm,
-      file_crypto_metadata->key_metadata(), properties_.memory_pool()));
+      file_crypto_metadata->key_metadata(), properties_.memory_pool());
+
   int64_t metadata_offset = file_size - kFooterSize - footer_len + crypto_metadata_len;
   uint32_t metadata_len = footer_len - crypto_metadata_len;
   PARQUET_ASSIGN_OR_THROW(auto metadata_buffer,
@@ -365,9 +366,8 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
                            std::to_string(metadata_buffer->size()) + " bytes)");
   }
 
-  auto footer_decryptor = file_decryptor_->GetFooterDecryptor();
   file_metadata_ =
-      FileMetaData::Make(metadata_buffer->data(), &metadata_len, footer_decryptor);
+      FileMetaData::Make(metadata_buffer->data(), &metadata_len, file_decryptor_);
 }
 
 void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
@@ -380,9 +380,12 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
     EncryptionAlgorithm algo = file_metadata_->encryption_algorithm();
     // Handle AAD prefix
     std::string file_aad = HandleAadPrefix(file_decryption_properties, algo);
-    file_decryptor_.reset(new InternalFileDecryptor(
+    file_decryptor_ = std::make_shared<InternalFileDecryptor>(
         file_decryption_properties, file_aad, algo.algorithm,
-        file_metadata_->footer_signing_key_metadata(), properties_.memory_pool()));
+        file_metadata_->footer_signing_key_metadata(), properties_.memory_pool());
+    // set the InternalFileDecryptor in the metadata as well, as it's used
+    // for signature verification and for ColumnChunkMetaData creation.
+    file_metadata_->set_file_decryptor(file_decryptor_);
 
     if (file_decryption_properties->check_plaintext_footer_integrity()) {
       if (metadata_len - read_metadata_len !=
@@ -393,8 +396,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
             " bytes but have ", metadata_len - read_metadata_len, " bytes)");
       }
 
-      if (!file_metadata_->VerifySignature(file_decryptor_.get(),
-                                           metadata_buffer->data() + read_metadata_len)) {
+      if (!file_metadata_->VerifySignature(metadata_buffer->data() + read_metadata_len)) {
         throw ParquetInvalidOrCorruptedFileException(
             "Parquet crypto signature verification failed");
       }
