@@ -99,7 +99,7 @@ The final output is located under ``docs/_build/html``.
 Building with Vcpkg
 -------------------
 
-You can download and install arrow using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
+You can download and install arrow using the `vcpkg <https://github.com/Microsoft/vcpkg>`_ dependency manager:
 
 .. code-block:: shell
 
@@ -109,4 +109,4 @@ You can download and install arrow using the [vcpkg](https://github.com/Microsof
     ./vcpkg integrate install
     ./vcpkg install arrow
 
-The arrow port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
+The arrow port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please `create an issue or pull request <https://github.com/Microsoft/vcpkg>`_ on the vcpkg repository.
