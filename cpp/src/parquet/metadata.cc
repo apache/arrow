@@ -359,6 +359,10 @@ Compression::type ColumnChunkMetaData::compression() const {
   return impl_->compression();
 }
 
+bool ColumnChunkMetaData::can_decompress() const {
+  return ::arrow::util::Codec::IsAvailable(compression());
+}
+
 const std::vector<Encoding::type>& ColumnChunkMetaData::encodings() const {
   return impl_->encodings();
 }
@@ -447,6 +451,16 @@ const SchemaDescriptor* RowGroupMetaData::schema() const { return impl_->schema(
 
 std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(int i) const {
   return impl_->ColumnChunk(i);
+}
+
+bool RowGroupMetaData::can_decompress() const {
+  int n_columns = num_columns();
+  for (int i = 0; i < n_columns; i++) {
+    if (!ColumnChunk(i)->can_decompress()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // file metadata
@@ -689,6 +703,16 @@ int FileMetaData::num_columns() const { return impl_->num_columns(); }
 int64_t FileMetaData::num_rows() const { return impl_->num_rows(); }
 
 int FileMetaData::num_row_groups() const { return impl_->num_row_groups(); }
+
+bool FileMetaData::can_decompress() const {
+  int n_row_groups = num_row_groups();
+  for (int i = 0; i < n_row_groups; i++) {
+    if (!RowGroup(i)->can_decompress()) {
+      return false;
+    }
+  }
+  return true;
+}
 
 bool FileMetaData::is_encryption_algorithm_set() const {
   return impl_->is_encryption_algorithm_set();

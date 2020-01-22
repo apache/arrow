@@ -230,6 +230,8 @@ Result<bool> ParquetFileFormat::IsSupported(const FileSource& source) const {
   try {
     ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
     auto reader = parquet::ParquetFileReader::Open(input);
+    auto metadata = reader->metadata();
+    return metadata != nullptr && metadata->can_decompress();
   } catch (const ::parquet::ParquetInvalidOrCorruptedFileException& e) {
     ARROW_UNUSED(e);
     return false;
