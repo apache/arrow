@@ -23,6 +23,8 @@ use std::mem;
 use byteorder::{BigEndian, ByteOrder};
 
 use crate::basic::Type;
+use crate::column::reader::{ColumnReader, ColumnReaderImpl};
+use crate::column::writer::{ColumnWriter, ColumnWriterImpl};
 use crate::errors::{ParquetError, Result};
 use crate::util::memory::{ByteBuffer, ByteBufferPtr};
 use std::str::from_utf8;
@@ -376,10 +378,30 @@ pub trait DataType: 'static {
 
     /// Returns size in bytes for Rust representation of the physical type.
     fn get_type_size() -> usize;
+
+    fn get_column_reader(column_writer: ColumnReader) -> Option<ColumnReaderImpl<Self>>
+    where
+        Self: Sized;
+
+    fn get_column_writer(column_writer: ColumnWriter) -> Option<ColumnWriterImpl<Self>>
+    where
+        Self: Sized;
+
+    fn get_column_writer_ref(
+        column_writer: &ColumnWriter,
+    ) -> Option<&ColumnWriterImpl<Self>>
+    where
+        Self: Sized;
+
+    fn get_column_writer_mut(
+        column_writer: &mut ColumnWriter,
+    ) -> Option<&mut ColumnWriterImpl<Self>>
+    where
+        Self: Sized;
 }
 
 macro_rules! make_type {
-    ($name:ident, $physical_ty:path, $native_ty:ty, $size:expr) => {
+    ($name:ident, $physical_ty:path, $reader_ident: ident, $writer_ident: ident, $native_ty:ty, $size:expr) => {
         pub struct $name {}
 
         impl DataType for $name {
@@ -392,27 +414,109 @@ macro_rules! make_type {
             fn get_type_size() -> usize {
                 $size
             }
+
+            fn get_column_reader(
+                column_writer: ColumnReader,
+            ) -> Option<ColumnReaderImpl<Self>> {
+                match column_writer {
+                    ColumnReader::$reader_ident(w) => Some(w),
+                    _ => None,
+                }
+            }
+
+            fn get_column_writer(
+                column_writer: ColumnWriter,
+            ) -> Option<ColumnWriterImpl<Self>> {
+                match column_writer {
+                    ColumnWriter::$writer_ident(w) => Some(w),
+                    _ => None,
+                }
+            }
+
+            fn get_column_writer_ref(
+                column_writer: &ColumnWriter,
+            ) -> Option<&ColumnWriterImpl<Self>> {
+                match column_writer {
+                    ColumnWriter::$writer_ident(w) => Some(w),
+                    _ => None,
+                }
+            }
+
+            fn get_column_writer_mut(
+                column_writer: &mut ColumnWriter,
+            ) -> Option<&mut ColumnWriterImpl<Self>> {
+                match column_writer {
+                    ColumnWriter::$writer_ident(w) => Some(w),
+                    _ => None,
+                }
+            }
         }
     };
 }
 
 // Generate struct definitions for all physical types
 
-make_type!(BoolType, Type::BOOLEAN, bool, 1);
-make_type!(Int32Type, Type::INT32, i32, 4);
-make_type!(Int64Type, Type::INT64, i64, 8);
-make_type!(Int96Type, Type::INT96, Int96, mem::size_of::<Int96>());
-make_type!(FloatType, Type::FLOAT, f32, 4);
-make_type!(DoubleType, Type::DOUBLE, f64, 8);
+make_type!(
+    BoolType,
+    Type::BOOLEAN,
+    BoolColumnReader,
+    BoolColumnWriter,
+    bool,
+    1
+);
+make_type!(
+    Int32Type,
+    Type::INT32,
+    Int32ColumnReader,
+    Int32ColumnWriter,
+    i32,
+    4
+);
+make_type!(
+    Int64Type,
+    Type::INT64,
+    Int64ColumnReader,
+    Int64ColumnWriter,
+    i64,
+    8
+);
+make_type!(
+    Int96Type,
+    Type::INT96,
+    Int96ColumnReader,
+    Int96ColumnWriter,
+    Int96,
+    mem::size_of::<Int96>()
+);
+make_type!(
+    FloatType,
+    Type::FLOAT,
+    FloatColumnReader,
+    FloatColumnWriter,
+    f32,
+    4
+);
+make_type!(
+    DoubleType,
+    Type::DOUBLE,
+    DoubleColumnReader,
+    DoubleColumnWriter,
+    f64,
+    8
+);
 make_type!(
     ByteArrayType,
     Type::BYTE_ARRAY,
+    ByteArrayColumnReader,
+    ByteArrayColumnWriter,
     ByteArray,
     mem::size_of::<ByteArray>()
 );
 make_type!(
     FixedLenByteArrayType,
     Type::FIXED_LEN_BYTE_ARRAY,
+    FixedLenByteArrayColumnReader,
+    FixedLenByteArrayColumnWriter,
     ByteArray,
     mem::size_of::<ByteArray>()
 );

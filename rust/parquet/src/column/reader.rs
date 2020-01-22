@@ -20,7 +20,6 @@
 use std::{
     cmp::{max, min},
     collections::HashMap,
-    mem,
 };
 
 use super::page::{Page, PageReader};
@@ -90,21 +89,11 @@ pub fn get_column_reader(
 /// Gets a typed column reader for the specific type `T`, by "up-casting" `col_reader` of
 /// non-generic type to a generic column reader type `ColumnReaderImpl`.
 ///
-/// NOTE: the caller MUST guarantee that the actual enum value for `col_reader` matches
-/// the type `T`. Otherwise, disastrous consequence could happen.
+/// Panics if actual enum value for `col_reader` does not match the type `T`.
 pub fn get_typed_column_reader<T: DataType>(
     col_reader: ColumnReader,
 ) -> ColumnReaderImpl<T> {
-    match col_reader {
-        ColumnReader::BoolColumnReader(r) => unsafe { mem::transmute(r) },
-        ColumnReader::Int32ColumnReader(r) => unsafe { mem::transmute(r) },
-        ColumnReader::Int64ColumnReader(r) => unsafe { mem::transmute(r) },
-        ColumnReader::Int96ColumnReader(r) => unsafe { mem::transmute(r) },
-        ColumnReader::FloatColumnReader(r) => unsafe { mem::transmute(r) },
-        ColumnReader::DoubleColumnReader(r) => unsafe { mem::transmute(r) },
-        ColumnReader::ByteArrayColumnReader(r) => unsafe { mem::transmute(r) },
-        ColumnReader::FixedLenByteArrayColumnReader(r) => unsafe { mem::transmute(r) },
-    }
+    T::get_column_reader(col_reader).expect("Column type mismatch")
 }
 
 /// Typed value reader for a particular primitive column.
