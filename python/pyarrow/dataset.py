@@ -164,7 +164,7 @@ def _ensure_fs(filesystem, path):
     if filesystem is None:
         try:
             filesystem, _ = FileSystem.from_uri(path)
-        except IOError:
+        except Exception:
             # when path is not found, we fall back to local file system
             filesystem = LocalFileSystem()
     return filesystem
