@@ -923,7 +923,16 @@ cdef class ScannerBuilder:
         -------
         self : ScannerBuilder
         """
-        check_status(self.builder.Filter(filter_expression.unwrap()))
+        cdef:
+            shared_ptr[CExpression] c_casting_filter_expression
+
+        c_casting_filter_expression = GetResultValue(
+            CInsertImplicitCasts(
+                deref(filter_expression.unwrap().get()),
+                deref(self.builder.schema().get())
+            )
+        )
+        check_status(self.builder.Filter(c_casting_filter_expression))
         return self
 
     def use_threads(self, bint value):
