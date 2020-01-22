@@ -58,6 +58,12 @@ std::shared_ptr<ds::SourceFactory> dataset___FSSFactory__Make3(
 }
 
 // [[arrow::export]]
+std::string dataset___FileFormat__type_name(
+    const std::shared_ptr<ds::FileFormat>& format) {
+  return format->type_name();
+}
+
+// [[arrow::export]]
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make() {
   return std::make_shared<ds::ParquetFileFormat>();
 }
@@ -81,15 +87,32 @@ std::shared_ptr<ds::Source> dataset___SFactory__Finish2(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Schema> dataset___SFactory__Inspect(
+    const std::shared_ptr<ds::SourceFactory>& factory) {
+  return VALUE_OR_STOP(factory->Inspect());
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> dataset___Source__schema(
     const std::shared_ptr<ds::Source>& source) {
   return source->schema();
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> dataset___SFactory__Inspect(
-    const std::shared_ptr<ds::SourceFactory>& factory) {
-  return VALUE_OR_STOP(factory->Inspect());
+std::string dataset___Source__type_name(const std::shared_ptr<ds::Source>& source) {
+  return source->type_name();
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::FileFormat> dataset___FSSource__format(
+    const std::shared_ptr<ds::FileSystemSource>& source) {
+  return source->format();
+}
+
+// [[arrow::export]]
+std::vector<std::string> dataset___FSSource__files(
+    const std::shared_ptr<ds::FileSystemSource>& source) {
+  return source->files();
 }
 
 // DatasetFactory
@@ -152,6 +175,12 @@ std::shared_ptr<ds::Dataset> dataset___Dataset__create(
 std::shared_ptr<arrow::Schema> dataset___Dataset__schema(
     const std::shared_ptr<ds::Dataset>& ds) {
   return ds->schema();
+}
+
+// [[arrow::export]]
+std::vector<std::shared_ptr<ds::Source>> dataset___Dataset__sources(
+    const std::shared_ptr<ds::Dataset>& ds) {
+  return ds->sources();
 }
 
 // [[arrow::export]]

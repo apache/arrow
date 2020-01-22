@@ -383,14 +383,20 @@ test_that("Assembling a Dataset manually and getting a Table", {
   schm <- factory$Inspect()
   expect_is(schm, "Schema")
 
-  phys_schm <- ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
+  file1 <- file.path(dataset_dir, 1, "file1.parquet")
+  file2 <- file.path(dataset_dir, 2, "file2.parquet")
+  phys_schm <- ParquetFileReader$create(file1)$GetSchema()
   expect_equal(names(phys_schm), names(df1))
   expect_equal(names(schm), c(names(phys_schm), "part"))
 
   src <- factory$Finish(schm)
-  expect_is(src, "Source")
+  expect_is(src, "FileSystemSource")
   expect_is(src$schema, "Schema")
+  expect_is(src$format, "ParquetFileFormat")
   expect_equal(names(schm), names(src$schema))
+
+
+  expect_equivalent(src$files, c(file1, file2))
 
   ds <- Dataset$create(list(src), schm)
   expect_is(ds, "Dataset")
@@ -400,9 +406,11 @@ test_that("Assembling a Dataset manually and getting a Table", {
 })
 
 test_that("Assembling multiple SourceFactories with DatasetFactory", {
-  src1 <- open_source(file.path(dataset_dir, 1), format = "parquet")
+  dir1 <- file.path(dataset_dir, 1)
+  src1 <- open_source(dir1, format = "parquet")
   expect_is(src1, "FileSystemSourceFactory")
-  src2 <- open_source(file.path(dataset_dir, 2), format = "parquet")
+  dir2 <- file.path(dataset_dir, 2)
+  src2 <- open_source(dir2, format = "parquet")
   expect_is(src2, "FileSystemSourceFactory")
 
   factory <- DatasetFactory$create(c(src1, src2))
@@ -418,6 +426,10 @@ test_that("Assembling multiple SourceFactories with DatasetFactory", {
   expect_is(ds, "Dataset")
   expect_is(ds$schema, "Schema")
   expect_equal(names(schm), names(ds$schema))
+
+  sources <- ds$sources
+  expect_equivalent(c(map(sources, function(x) x$files)),
+                    c(file.path(dir1, "file1.parquet"), file.path(dir2, "file2.parquet")))
 
   expect_scan_result(ds, schm)
 })

@@ -212,9 +212,11 @@ class ARROW_DS_EXPORT FileSystemSource : public Source {
 
   std::string type_name() const override { return "filesystem"; }
 
-  std::string ToString() const;
-
   const std::shared_ptr<FileFormat>& format() const { return format_; }
+
+  std::vector<std::string> files() const;
+
+  std::string ToString() const;
 
  protected:
   FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;

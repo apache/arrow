@@ -93,7 +93,13 @@ Dataset <- R6Class("Dataset", inherit = Object,
     #' @description
     #' Return the Dataset's `Schema`
     schema = function() shared_ptr(Schema, dataset___Dataset__schema(self)),
-    metadata = function() self$schema$metadata
+    metadata = function() self$schema$metadata,
+    #' @description
+    #' Return the Dataset's `Source`s
+    sources = function() {
+      srcs <- dataset___Dataset__sources(self)
+      map(srcs, Source$..dispatch)
+    }
   )
 )
 Dataset$create <- function(sources, schema) {
@@ -138,7 +144,7 @@ DatasetFactory$create <- function(sources) {
 #' fragments contained in it, and declare a partitioning.
 #' `FileSystemSourceFactory` is a subclass of `SourceFactory` for
 #' discovering files in the local file system, the only currently supported
-#' file system.
+#' file system, it constructs an instance of `FileSystemSource`.
 #'
 #' In general, you'll deal with `SourceFactory` rather than `Source` itself.
 #' @section Factory:
@@ -153,9 +159,14 @@ DatasetFactory$create <- function(sources) {
 #'   Currently supported options are "parquet", "arrow", and "ipc" (an alias for
 #'   the Arrow file format)
 #' @section Methods:
-#' `Source` has one defined method:
+#' `Source` and its subclasses have the following method:
 #'
 #' - `$schema`: Active binding, returns the [Schema] of the `Source`
+#'
+#' `FileSystemSource` has the following methods:
+#'
+#' - `$files`: Active binding, returns the files of the `FileSystemSource`
+#' - `$format`: Active binding, returns the [FileFormat] of the `FileSystemSource`
 #'
 #' `SourceFactory` and its subclasses have the following methods:
 #'
@@ -163,7 +174,7 @@ DatasetFactory$create <- function(sources) {
 #' - `$Finish(schema)`: Returns a `Source`
 #' @rdname Source
 #' @name Source
-#' @seealso [Dataset] for what do do with a `Source`
+#' @seealso [Dataset] for what to do with a `Source`
 #' @export
 Source <- R6Class("Source", inherit = Object,
   active = list(
@@ -171,9 +182,37 @@ Source <- R6Class("Source", inherit = Object,
     #' Return the Source's `Schema`
     schema = function() {
       shared_ptr(Schema, dataset___Source__schema(self))
-    }
+    },
+    #' @description
+    #' Return the Source's type.
+    type = function() dataset___Source__type_name(self)
   )
 )
+
+#' @name FileSystemSource
+#' @rdname Source
+#' @export
+FileSystemSource <- R6Class("FileSystemSource", inherit = Source,
+  active = list(
+    #' @description
+    #' Return the files contained in this `Source`
+    files = function() dataset___FSSource__files(self),
+    #' @description
+    #' Return the format of files in this `Source`
+    format = function() FileFormat$create(dataset___FSSource__format(self))
+  )
+)
+
+Source$..dispatch <- function(x) {
+  assert_is(x, "externalptr")
+  src <- shared_ptr(Source, x)
+  type <- src$type
+  if (type == "filesystem") {
+    shared_ptr(FileSystemSource, x)
+  } else {
+    src
+  }
+}
 
 #' @usage NULL
 #' @format NULL
@@ -182,11 +221,12 @@ Source <- R6Class("Source", inherit = Object,
 SourceFactory <- R6Class("SourceFactory", inherit = Object,
   public = list(
     Finish = function(schema = NULL) {
-      if (is.null(schema)) {
-        shared_ptr(Source, dataset___SFactory__Finish1(self))
+      ptr <- if (is.null(schema)) {
+        dataset___SFactory__Finish1(self)
       } else {
-        shared_ptr(Source, dataset___SFactory__Finish2(self, schema))
+        dataset___SFactory__Finish2(self, schema)
       }
+      Source$..dispatch(ptr)
     },
     Inspect = function() shared_ptr(Schema, dataset___SFactory__Inspect(self))
   )
@@ -282,23 +322,18 @@ FileSystemSourceFactory$create <- function(filesystem,
   assert_is(filesystem, "FileSystem")
   assert_is(selector, "FileSelector")
   assert_is(format, "FileFormat")
-  if (is.null(partitioning)) {
-    shared_ptr(
-      FileSystemSourceFactory,
-      dataset___FSSFactory__Make1(filesystem, selector, format)
-    )
+
+  ptr <- if (is.null(partitioning)) {
+    dataset___FSSFactory__Make1(filesystem, selector, format)
   } else if (inherits(partitioning, "PartitioningFactory")) {
-    shared_ptr(
-      FileSystemSourceFactory,
-      dataset___FSSFactory__Make3(filesystem, selector, format, partitioning)
-    )
+    dataset___FSSFactory__Make3(filesystem, selector, format, partitioning)
+  } else if (inherits(partitioning, "Partitioning")) {
+    dataset___FSSFactory__Make2(filesystem, selector, format, partitioning)
   } else {
-    assert_is(partitioning, "Partitioning")
-    shared_ptr(
-      FileSystemSourceFactory,
-      dataset___FSSFactory__Make2(filesystem, selector, format, partitioning)
-    )
+    stop("Expected partitioning to be NULL, PartitioningFactory or Partitioning")
   }
+
+  shared_ptr(FileSystemSourceFactory, ptr)
 }
 
 #' Dataset file formats
@@ -319,16 +354,34 @@ FileSystemSourceFactory$create <- function(filesystem,
 #' @rdname FileFormat
 #' @name FileFormat
 #' @export
-FileFormat <- R6Class("FileFormat", inherit = Object)
+FileFormat <- R6Class("FileFormat", inherit = Object,
+  active = list(
+    #' @description
+    #' Return the `FileFormat`'s type
+    type = function() dataset___FileFormat__type_name(self)
+  )
+)
 FileFormat$create <- function(format, ...) {
   # TODO: pass list(...) options to the initializers
   # https://issues.apache.org/jira/browse/ARROW-7547
-  if (format == "parquet") {
-    shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make())
-  } else if (format %in% c("ipc", "arrow")) { # These are aliases for the same thing
-    shared_ptr(IpcFileFormat, dataset___IpcFileFormat__Make())
+  if (is.character(format)) {
+    if (format == "parquet") {
+      shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make())
+    } else if (format %in% c("ipc", "arrow")) { # These are aliases for the same thing
+      shared_ptr(IpcFileFormat, dataset___IpcFileFormat__Make())
+    } else {
+      stop("Unsupported file format: ", format, call. = FALSE)
+    }
+  } else if (inherits(format, "externalptr")) {
+    format <- shared_ptr(FileFormat, format)
+    type <- format$type
+    if (type == "parquet") {
+      shared_ptr(ParquetFileFormat, format$pointer())
+    } else if (type == "ipc") {
+      shared_ptr(IpcFileFormat, format$pointer())
+    }
   } else {
-    stop("Unsupported file format: ", format, call. = FALSE)
+    stop("Unsupported object for FileFormat$create")
   }
 }
 

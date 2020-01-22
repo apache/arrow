@@ -356,6 +356,10 @@ dataset___FSSFactory__Make3 <- function(fs, selector, format, factory){
     .Call(`_arrow_dataset___FSSFactory__Make3` , fs, selector, format, factory)
 }
 
+dataset___FileFormat__type_name <- function(format){
+    .Call(`_arrow_dataset___FileFormat__type_name` , format)
+}
+
 dataset___ParquetFileFormat__Make <- function(){
     .Call(`_arrow_dataset___ParquetFileFormat__Make` )
 }
@@ -372,12 +376,24 @@ dataset___SFactory__Finish2 <- function(factory, schema){
     .Call(`_arrow_dataset___SFactory__Finish2` , factory, schema)
 }
 
+dataset___SFactory__Inspect <- function(factory){
+    .Call(`_arrow_dataset___SFactory__Inspect` , factory)
+}
+
 dataset___Source__schema <- function(source){
     .Call(`_arrow_dataset___Source__schema` , source)
 }
 
-dataset___SFactory__Inspect <- function(factory){
-    .Call(`_arrow_dataset___SFactory__Inspect` , factory)
+dataset___Source__type_name <- function(source){
+    .Call(`_arrow_dataset___Source__type_name` , source)
+}
+
+dataset___FSSource__format <- function(source){
+    .Call(`_arrow_dataset___FSSource__format` , source)
+}
+
+dataset___FSSource__files <- function(source){
+    .Call(`_arrow_dataset___FSSource__files` , source)
 }
 
 dataset___DFactory__Make <- function(sources){
@@ -418,6 +434,10 @@ dataset___Dataset__create <- function(sources, schm){
 
 dataset___Dataset__schema <- function(ds){
     .Call(`_arrow_dataset___Dataset__schema` , ds)
+}
+
+dataset___Dataset__sources <- function(ds){
+    .Call(`_arrow_dataset___Dataset__sources` , ds)
 }
 
 dataset___Dataset__NewScan <- function(ds){
