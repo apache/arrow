@@ -132,21 +132,26 @@ jobs:
       - name: Uninstall Problematic Homebrew Dependencies
         shell: bash
         run: brew uninstall grpc protobuf
-      - name: Debug
+      - name: Enable Coredump
         shell: bash
-        run: |
+        run:
           whoami
           ls -lah /
           sudo chown -R $USER /cores
-      - name: Enable Coredump
-        shell: bash
-        run: ulimit -c unlimited -S
+          ls -lah /
+          touch /cores/test
+          ulimit -a
+          ulimit -c unlimited
+          ulimit -a
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+        run: |
+          ulimit -a
+          touch /cores/test-test
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
       - name: Show Coredump
         shell: bash
         if: failure()
