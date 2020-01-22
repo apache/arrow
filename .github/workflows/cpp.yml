@@ -134,7 +134,7 @@ jobs:
         run: brew uninstall grpc protobuf
       - name: Enable Coredump
         shell: bash
-        run:
+        run: |
           whoami
           ls -lah /
           sudo chown -R $USER /cores
