@@ -71,7 +71,7 @@ such topics as:
    :caption: Development and Contributing
 
    developers/contributing
-   developers/cpp
+   developers/cpp/index
    developers/python
    developers/integration
    developers/crossbow
