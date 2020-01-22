@@ -34,6 +34,8 @@ class ARROW_EXPORT Uri {
  public:
   Uri();
   ~Uri();
+  Uri(Uri&&);
+  Uri& operator=(Uri&&);
 
   // XXX Should we use util::string_view instead?  These functions are
   // not performance-critical.

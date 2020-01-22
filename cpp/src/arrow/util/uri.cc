@@ -78,6 +78,13 @@ Uri::Uri() : impl_(new Impl) {}
 
 Uri::~Uri() {}
 
+Uri::Uri(Uri&& u) : impl_(std::move(u.impl_)) {}
+
+Uri& Uri::operator=(Uri&& u) {
+  impl_ = std::move(u.impl_);
+  return *this;
+}
+
 std::string Uri::scheme() const { return TextRangeToString(impl_->uri_.scheme); }
 
 std::string Uri::host() const { return TextRangeToString(impl_->uri_.hostText); }

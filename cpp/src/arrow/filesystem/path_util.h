@@ -105,6 +105,15 @@ std::string JoinAbstractPath(const StringRange& range) {
   return JoinAbstractPath(range.begin(), range.end());
 }
 
+/// Convert slashes to backslashes, on all platforms.  Mostly useful for testing.
+ARROW_EXPORT
+std::string ToBackslashes(util::string_view s);
+
+/// Ensure a local path is abstract, by converting backslashes to regular slashes
+/// on Windows.  Return the path unchanged on other systems.
+ARROW_EXPORT
+std::string ToSlashes(util::string_view s);
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

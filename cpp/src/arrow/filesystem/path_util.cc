@@ -208,6 +208,28 @@ std::vector<std::string> AncestorsFromBasePath(util::string_view base_path,
   return ancestry;
 }
 
+std::string ToBackslashes(util::string_view v) {
+  std::string s(v);
+  for (auto& c : s) {
+    if (c == '/') {
+      c = '\\';
+    }
+  }
+  return s;
+}
+
+std::string ToSlashes(util::string_view v) {
+  std::string s(v);
+#ifdef _WIN32
+  for (auto& c : s) {
+    if (c == '\\') {
+      c = '/';
+    }
+  }
+#endif
+  return s;
+}
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow
