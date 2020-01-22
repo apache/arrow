@@ -38,12 +38,12 @@ r_only({
   test_that("Solaris and Linux dev version get pointed to C++ guide", {
     expect_match(
       install_arrow_msg(FALSE, "0.13.0", os="sunos"),
-      "See the Arrow C++ developer guide",
+      "See the Arrow developer guide",
       fixed = TRUE
     )
     expect_match(
       install_arrow_msg(FALSE, "0.13.0.9000", os="linux"),
-      "See the Arrow C++ developer guide",
+      "See the Arrow developer guide",
       fixed = TRUE
     )
   })
@@ -51,7 +51,7 @@ r_only({
   test_that("Linux on release version gets pointed to PPA first, then C++", {
     expect_match(
       install_arrow_msg(FALSE, "0.13.0", os="linux"),
-      "dependency. Or, see the Arrow C++ developer guide",
+      "dependency. Or, see the Arrow developer guide",
       fixed = TRUE
     )
   })
