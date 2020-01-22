@@ -93,3 +93,20 @@ You can use Docker to build the documentation:
   make -f Makefile.docker docs
 
 The final output is located under ``docs/_build/html``.
+
+.. _building-vcpkg:
+
+Building with Vcpkg
+-------------------
+
+You can download and install arrow using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
+
+.. code-block:: shell
+
+    git clone https://github.com/Microsoft/vcpkg.git
+    cd vcpkg
+    ./bootstrap-vcpkg.sh
+    ./vcpkg integrate install
+    ./vcpkg install arrow
+
+The arrow port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
