@@ -10,9 +10,20 @@ vignette: >
 
 The Apache Arrow C++ library provides rich, powerful features for working with columnar data. The `arrow` R package provides both a low-level interface to the C++ library and some higher-level, R-flavored tools for working with it. This vignette provides an overview of how the pieces fit together, and it describes the conventions that the classes and methods follow in R.
 
+# Multi-file datasets
+
+The `arrow` package lets you work efficiently with large, multi-file datasets
+using `dplyr` methods. See `vignette("dataset", package = "arrow")` for an overview.
+
 # Reading and writing files
 
-The `arrow` package provides some simple functions for using the Arrow C++ library to read and write files. These functions are designed to drop into your normal R workflow without requiring any knowledge of the Arrow C++ library and use naming conventions and arguments that follow popular R packages, particularly `readr`. The readers return `data.frame`s (or if you use the `tibble` package, they will act like `tbl_df`s), and the writers take `data.frame`s.
+`arrow` provides some simple functions for using the Arrow C++ library to read and write files.
+These functions are designed to drop into your normal R workflow
+without requiring any knowledge of the Arrow C++ library
+and use naming conventions and arguments that follow popular R packages, particularly `readr`.
+The readers return `data.frame`s
+(or if you use the `tibble` package, they will act like `tbl_df`s),
+and the writers take `data.frame`s.
 
 Importantly, `arrow` provides basic read and write support for the [Apache
 Parquet](https://parquet.apache.org/) columnar data file format, without having to set up a database.
@@ -24,8 +35,12 @@ df <- read_parquet("path/to/file.parquet")
 
 This function, along with the other readers in the package, takes an optional
 `col_select` argument, inspired by the
-[`vroom`](https://vroom.r-lib.org/reference/vroom.html) package. This argument
-lets you use the ["tidyselect" helper functions](https://tidyselect.r-lib.org/reference/select_helpers.html), as you can do in `dplyr::select()`, to specify that you only want to keep certain columns. You may also provide a character vector of column names to keep, as in the "select" argument to `data.table::fread()`. By narrowing your selection at read time, you can load a `data.frame` with less memory overhead.
+[`vroom`](https://vroom.r-lib.org/reference/vroom.html) package.
+This argument lets you use the ["tidyselect" helper functions](https://tidyselect.r-lib.org/reference/select_helpers.html),
+as you can do in `dplyr::select()`, to specify that you only want to keep certain columns.
+You may also provide a character vector of column names to keep,
+as in the "select" argument to `data.table::fread()`.
+By narrowing your selection at read time, you can load a `data.frame` with less memory overhead.
 
 For example, suppose you had written the `iris` dataset to Parquet. You could
 read a `data.frame` with only the columns `c("Sepal.Length", "Sepal.Width")` by
@@ -42,21 +57,10 @@ write_parquet(df, "path/to/different_file.parquet")
 ```
 
 The `arrow` package also includes a faster and more robust implementation of the
-Feather file format, providing `read_feather()` and
-`write_feather()`. [Feather](https://github.com/wesm/feather) was one of the
-initial applications of Apache Arrow for Python and R, providing an efficient,
-common file format language-agnostic data frame storage, along with
-implementations in R and Python.
-
-As Arrow progressed, development of Feather moved to the
-[`apache/arrow`](https://github.com/apache/arrow) project, and for the last two
-years, the Python implementation of Feather has just been a wrapper around
-`pyarrow`. This meant that as Arrow progressed and bugs were fixed, the Python
-version of Feather got the improvements but sadly R did not.
-
-In the `arrow` package, the R implementation of Feather depends
-on the same underlying C++ library as the Python version does. This should
-result in more reliable and consistent behavior across the two languages, as
+[Feather](https://github.com/wesm/feather) file format, providing `read_feather()` and
+`write_feather()`. This implementation depends
+on the same underlying C++ library as the Python version does,
+resulting in more reliable and consistent behavior across the two languages, as
 well as [improved performance](https://wesmckinney.com/blog/feather-arrow-future/).
 
 In addition to these readers and writers, the `arrow` package has wrappers for

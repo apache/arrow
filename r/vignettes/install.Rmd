@@ -62,7 +62,7 @@ built yourself outside of the context of installing the R package;
 or, if you don't already have it, the R package will attempt to resolve it
 automatically when it installs.
 
-If you are authorized to install system packages, and you're installing a CRAN release,
+If you are authorized to install system packages and you're installing a CRAN release,
 you may want to use the official Apache Arrow release packages corresponding to the R package version.
 See the [Arrow project installation page](https://arrow.apache.org/install/)
 to find pre-compiled binary packages for some common Linux distributions,
@@ -79,7 +79,7 @@ you'll need to install them before installing the R package.
 
 If no Arrow C++ libraries are found on the system,
 the R package installation script will next attempt to download
-prebuilt static Arrow C++ libraries, hosted by Ursa Labs,
+prebuilt static Arrow C++ libraries
 that match your both your local operating system and `arrow` R package version.
 If found, they will be downloaded and bundled when your R package compiles.
 For a list of supported distributions and versions,
@@ -267,8 +267,8 @@ You can test the `arrow` R package installation using the `docker-compose`
 setup included in the `apache/arrow` git repository. For example,
 
 ```
-R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose build r-hub
-R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose run r-hub
+R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose build r
+R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose run r
 ```
 
 installs the `arrow` R package, including the C++ source build, on the

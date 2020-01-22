@@ -4,6 +4,8 @@
 \alias{Partitioning}
 \alias{DirectoryPartitioning}
 \alias{HivePartitioning}
+\alias{DirectoryPartitioningFactory}
+\alias{HivePartitioningFactory}
 \title{Define Partitioning for a Source}
 \description{
 Pass a \code{Partitioning} object to a \link{FileSystemSourceFactory}'s \verb{$create()}
@@ -19,12 +21,22 @@ partitions for file paths like "2019/01/file.parquet",
 names and values in path segments, such as
 "/year=2019/month=2/data.parquet". Because fields are named in the path
 segments, order does not matter.
+
+\code{PartitioningFactory} subclasses instruct the \code{SourceFactory} to detect
+partition features from the file paths.
 }
 \section{Factory}{
 
 Both \code{DirectoryPartitioning$create()} and \code{HivePartitioning$create()}
-factory methods take a \link{Schema} as a single input argument. The helper
-function \code{hive_partition(...)} is shorthand for
+methods take a \link{Schema} as a single input argument. The helper
+function \code{\link[=hive_partition]{hive_partition(...)}} is shorthand for
 \code{HivePartitioning$create(schema(...))}.
+
+With \code{DirectoryPartitioningFactory$create()}, you can provide just the
+names of the path segments (in our example, \code{c("year", "month")}), and
+the \code{SourceFactory} will infer the data types for those partition variables.
+\code{HivePartitioningFactory$create()} takes no arguments: both variable names
+and their types can be inferred from the file paths. \code{hive_partition()} with
+no arguments returns a \code{HivePartitioningFactory}.
 }
 

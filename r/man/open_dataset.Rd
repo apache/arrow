@@ -7,8 +7,8 @@
 open_dataset(sources, schema = NULL, partitioning = hive_partition(), ...)
 }
 \arguments{
-\item{sources}{Either (1) a string path to a directory containing data files,
-or (2) a list of \code{SourceFactory} objects as created by \code{\link[=open_source]{open_source()}}.}
+\item{sources}{Either a string path to a directory containing data files,
+or a list of \code{SourceFactory} objects as created by \code{\link[=open_source]{open_source()}}.}
 
 \item{schema}{\link{Schema} for the dataset. If \code{NULL} (the default), the schema
 will be inferred from the data sources.}
@@ -28,16 +28,20 @@ Hive-style path segments
 \item \code{NULL} for no partitioning
 }}
 
-\item{...}{additional arguments passed to \code{open_source()}, when \code{sources} is
+\item{...}{additional arguments passed to \code{open_source()} when \code{sources} is
 a file path, otherwise ignored.}
 }
 \value{
 A \link{Dataset} R6 object. Use \code{dplyr} methods on it to query the data,
-or call \verb{$NewScan()} to construct a query directly.
+or call \code{\link[=Scanner]{$NewScan()}} to construct a query directly.
 }
 \description{
-Open a multi-file dataset
+Arrow Datasets allow you to query against data that has been split across
+multiple files. This sharding of data may indicate partitioning, which
+can accelerate queries that only touch some partitions (files). Call
+\code{open_dataset()} to point to a directory of data files and return a
+\code{Dataset}, then use \code{dplyr} methods to query it.
 }
 \seealso{
-\link{Partitioning} for defining partitions
+\code{vignette("dataset", package = "arrow")}
 }

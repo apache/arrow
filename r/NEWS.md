@@ -19,10 +19,27 @@
 
 # arrow 0.15.1.9000
 
+## Multi-file datasets
+
+This release includes a `dplyr` interface to Arrow Datasets,
+which let you work efficiently with large, multi-file datasets as a single entity.
+Explore a directory of data files with `open_dataset()` and then use `dplyr` methods to `select()`, `filter()`, etc. Work will be done where possible in Arrow memory. When necessary, data is pulled into R for further computation. `dplyr` methods are conditionally loaded if you have `dplyr` available; it is not a hard dependency.
+
+See `vignette("dataset", package = "arrow")` for details.
+
+## Linux installation
+
+A source package installation (as from CRAN) will now handle its C++ dependencies automatically.
+For common Linux distributions and versions, installation will retrieve a prebuilt static
+C++ library for inclusion in the package; where this binary is not available,
+the package executes a bundled script that should build the Arrow C++ library with
+no system dependencies beyond what R requires.
+
+See `vignette("install", package = "arrow")` for details.
+
 ## Data exploration
 
-* Explore a multi-file dataset with `open_dataset()` and then use `dplyr` methods to `select()`, `filter()`, etc., and work will be done where possible in Arrow memory. When necessary, data is pulled into R for further computation. `dplyr` methods are conditionally loaded if you have `dplyr` available; it is not a hard dependency.
-* Tables and RecordBatches also have `dplyr` methods.
+* `Table`s and `RecordBatch`es also have `dplyr` methods.
 * For exploration without `dplyr`, `[` methods for Tables, RecordBatches, Arrays, and ChunkedArrays now support natural row extraction operations. These use the C++ `Filter`, `Slice`, and `Take` methods for efficient access, depending on the type of selection vector.
 * An experimental, lazily evaluated `array_expression` class has also been added, enabling among other things the ability to filter a Table with some function of Arrays, such as `arrow_table[arrow_table$var1 > 5, ]` without having to pull everything into R first.
 
@@ -30,6 +47,13 @@
 
 * `write_parquet()` now supports compression
 * `codec_is_available()` returns `TRUE` or `FALSE` whether the Arrow C++ library was built with support for a given compression library (e.g. gzip, lz4, snappy)
+* Windows builds now include support for zstd and lz4 compression (#5814, @gnguy)
+
+## Other fixes and improvements
+
+* Arrow null type is now supported
+* Factor types are now preserved in round trip through Parquet format (#6135, @yutannihilation)
+* Many improvements to Parquet function documentation (@karldw, @khughitt)
 
 # arrow 0.15.1
 

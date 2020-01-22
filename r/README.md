@@ -19,7 +19,8 @@ also provides computational libraries and zero-copy streaming messaging
 and interprocess communication.
 
 The `arrow` package exposes an interface to the Arrow C++ library to
-access many of its features in R. This includes support for working with
+access many of its features in R. This includes support for analyzing
+large, multi-file datasets (`open_dataset()`), working with individual
 Parquet (`read_parquet()`, `write_parquet()`) and Feather
 (`read_feather()`, `write_feather()`) files, as well as lower-level
 access to Arrow memory and messages.
@@ -36,12 +37,12 @@ Conda users on Linux and macOS can install `arrow` from conda-forge with
 
     conda install -c conda-forge r-arrow
 
-On macOS and Windows, installing a binary package from CRAN will handle
-Arrow’s C++ dependencies for you. On Linux, unless you use `conda`, the
-R package will have to compile its bindings from source and it will need
-to find or download the C++ dependencies. As of the 0.16.0 release, this
-dependency resolution is automatic on most common Linux distributions.
-See `vignette("install", package = "arrow")` for details.
+Installing a released version of the `arrow` package should require no
+additional system dependencies. For macOS and Windows, CRAN hosts binary
+packages that contain the Arrow C++ library. On Linux, source package
+installation will download necessary C++ dependencies automatically on
+most common Linux distributions. See `vignette("install", package =
+"arrow")` for details.
 
 If you install the `arrow` package from source and the C++ library is
 not found, the R package functions will notify you that Arrow is not
@@ -54,20 +55,10 @@ arrow::install_arrow()
 for version- and platform-specific guidance on installing the Arrow C++
 library.
 
-When installing from source, if the R and C++ library versions do not
-match, installation may fail. If you’ve previously installed the
-libraries and want to upgrade the R package, you’ll need to update the
-Arrow C++ library first.
-
 ## Example
 
 ``` r
-library(arrow)
-#> 
-#> Attaching package: 'arrow'
-#> The following object is masked from 'package:utils':
-#> 
-#>     timestamp
+library(arrow, warn.conflicts = FALSE)
 set.seed(24)
 
 tab <- Table$create(
@@ -193,6 +184,11 @@ If the package fails to install/load with an error like this:
 try setting the environment variable `R_LD_LIBRARY_PATH` to wherever
 Arrow C++ was put in `make install`, e.g. `export
 R_LD_LIBRARY_PATH=/usr/local/lib`, and retry installing the R package.
+
+When installing from source, if the R and C++ library versions do not
+match, installation may fail. If you’ve previously installed the
+libraries and want to upgrade the R package, you’ll need to update the
+Arrow C++ library first.
 
 For any other build/configuration challenges, see the [C++ developer
 guide](https://arrow.apache.org/docs/developers/cpp.html#building) and

@@ -58,10 +58,16 @@ navbar:
         - text: R
           href: index.html
 reference:
-- title: Installation helpers
+- title: Multi-file datasets
   contents:
-  - arrow_available
-  - install_arrow
+  - open_dataset
+  - open_source
+  - hive_partition
+  - Dataset
+  - Source
+  - Partitioning
+  - Expression
+  - Scanner
 - title: Reading and writing files
   contents:
   - read_delim_arrow
@@ -76,6 +82,8 @@ reference:
   contents:
   - ParquetFileReader
   - ParquetReaderProperties
+  - ParquetFileWriter
+  - ParquetWriterProperties
   - FeatherTableReader
   - FeatherTableWriter
   - CsvTableReader
@@ -116,8 +124,13 @@ reference:
   - MessageReader
   - compression
   - Codec
+  - codec_is_available
   - MemoryPool
   - default_memory_pool
   - FileSystem
   - FileStats
   - FileSelector
+- title: Installation helpers
+  contents:
+  - arrow_available
+  - install_arrow

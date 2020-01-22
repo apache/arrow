@@ -17,8 +17,14 @@
 
 #' Open a multi-file dataset
 #'
-#' @param sources Either (1) a string path to a directory containing data files,
-#' or (2) a list of `SourceFactory` objects as created by [open_source()].
+#' Arrow Datasets allow you to query against data that has been split across
+#' multiple files. This sharding of data may indicate partitioning, which
+#' can accelerate queries that only touch some partitions (files). Call
+#' `open_dataset()` to point to a directory of data files and return a
+#' `Dataset`, then use `dplyr` methods to query it.
+#'
+#' @param sources Either a string path to a directory containing data files,
+#' or a list of `SourceFactory` objects as created by [open_source()].
 #' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
 #' will be inferred from the data sources.
 #' @param partitioning When `sources` is a file path, one of
@@ -33,12 +39,12 @@
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
-#' @param ... additional arguments passed to `open_source()`, when `sources` is
+#' @param ... additional arguments passed to `open_source()` when `sources` is
 #' a file path, otherwise ignored.
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
-#' or call `$NewScan()` to construct a query directly.
+#' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
-#' @seealso [Partitioning] for defining partitions
+#' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
 open_dataset <- function(sources, schema = NULL, partitioning = hive_partition(), ...) {
   if (is.character(sources)) {
@@ -116,7 +122,9 @@ names.Dataset <- function(x) names(x$schema)
 #' takes the following arguments:
 #' * `filesystem`: A [FileSystem]
 #' * `selector`: A [FileSelector]
-#' * `format`: Currently only "parquet" is supported
+#' * `format`: A string identifier of the format of the files in `path`.
+#'   Currently supported options are "parquet", "arrow", and "ipc" (an alias for
+#'   the Arrow file format)
 #' @section Methods:
 #' `Source` has one defined method:
 #'
@@ -195,6 +203,15 @@ SourceFactory$create <- function(path,
 
 #' Create a Source for a Dataset
 #'
+#' A [Dataset] can have one or more [Source]s. A `Source` contains one or more
+#' `Fragments`, such as files, of a common storage location, format, and
+#' partitioning. This function helps you construct a `Source` that you can
+#' pass to [open_dataset()].
+#'
+#' If you only have a single `Source`, such as a directory containing Parquet
+#' files, you can call `open_dataset()` directly. Use `open_source()` when you
+#' want to combine different directories, file systems, or file formats.
+#'
 #' @param path A string file path containing data files
 #' @param filesystem A string identifier for the filesystem corresponding to
 #' `path`. Currently only "local" is supported.
@@ -257,6 +274,24 @@ FileSystemSourceFactory$create <- function(filesystem,
   }
 }
 
+#' Dataset file formats
+#'
+#' @description
+#' A `FileFormat` holds information about how to read and parse the files
+#' included in a `Source`. There are subclasses corresponding to the supported
+#' file formats (`ParquetFileFormat` and `IpcFileFormat`).
+#'
+#' @section Factory:
+#' `FileFormat$create()` takes the following arguments:
+#' * `format`: A string identifier of the format of the files in `path`.
+#'   Currently supported options are "parquet", "arrow", and "ipc" (an alias for
+#'   the Arrow file format)
+#' * `...`: Additional format-specific options
+#'
+#' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
+#' @rdname FileFormat
+#' @name FileFormat
+#' @export
 FileFormat <- R6Class("FileFormat", inherit = Object)
 FileFormat$create <- function(format, ...) {
   # TODO: pass list(...) options to the initializers
@@ -270,7 +305,16 @@ FileFormat$create <- function(format, ...) {
   }
 }
 
+#' @usage NULL
+#' @format NULL
+#' @rdname FileFormat
+#' @export
 ParquetFileFormat <- R6Class("ParquetFileFormat", inherit = FileFormat)
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FileFormat
+#' @export
 IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 
 #' Scan the contents of a dataset
@@ -349,11 +393,21 @@ names.ScannerBuilder <- function(x) names(x$schema)
 #' names and values in path segments, such as
 #' "/year=2019/month=2/data.parquet". Because fields are named in the path
 #' segments, order does not matter.
+#'
+#' `PartitioningFactory` subclasses instruct the `SourceFactory` to detect
+#' partition features from the file paths.
 #' @section Factory:
 #' Both `DirectoryPartitioning$create()` and `HivePartitioning$create()`
-#' factory methods take a [Schema] as a single input argument. The helper
-#' function `hive_partition(...)` is shorthand for
+#' methods take a [Schema] as a single input argument. The helper
+#' function [`hive_partition(...)`][hive_partition] is shorthand for
 #' `HivePartitioning$create(schema(...))`.
+#'
+#' With `DirectoryPartitioningFactory$create()`, you can provide just the
+#' names of the path segments (in our example, `c("year", "month")`), and
+#' the `SourceFactory` will infer the data types for those partition variables.
+#' `HivePartitioningFactory$create()` takes no arguments: both variable names
+#' and their types can be inferred from the file paths. `hive_partition()` with
+#' no arguments returns a `HivePartitioningFactory`.
 #' @name Partitioning
 #' @rdname Partitioning
 #' @export
@@ -401,11 +455,20 @@ hive_partition <- function(...) {
 }
 
 PartitioningFactory <- R6Class("PartitioningFactory", inherit = Object)
+
+#' @usage NULL
+#' @format NULL
+#' @rdname Partitioning
+#' @export
 DirectoryPartitioningFactory <- R6Class("DirectoryPartitioningFactory ", inherit = PartitioningFactory)
 DirectoryPartitioningFactory$create <- function(x) {
   shared_ptr(DirectoryPartitioningFactory, dataset___DirectoryPartitioning__MakeFactory(x))
 }
 
+#' @usage NULL
+#' @format NULL
+#' @rdname Partitioning
+#' @export
 HivePartitioningFactory <- R6Class("HivePartitioningFactory", inherit = PartitioningFactory)
 HivePartitioningFactory$create <- function() {
   shared_ptr(HivePartitioningFactory, dataset___HivePartitioning__MakeFactory())
