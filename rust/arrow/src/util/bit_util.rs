@@ -95,7 +95,7 @@ pub fn count_set_bits_offset(data: &[u8], offset: usize, length: usize) -> usize
     let bit_end = offset + length;
     assert!(bit_end <= (data.len() << 3));
 
-    let byte_start = ::std::cmp::min(round_upto_power_of_2(offset, 8), bit_end);
+    let byte_start = std::cmp::min(round_upto_power_of_2(offset, 8), bit_end);
     let num_bytes = (bit_end - byte_start) >> 3;
 
     let mut result = 0;

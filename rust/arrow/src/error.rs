@@ -36,7 +36,7 @@ pub enum ArrowError {
 }
 
 impl From<::std::io::Error> for ArrowError {
-    fn from(error: ::std::io::Error) -> Self {
+    fn from(error: std::io::Error) -> Self {
         ArrowError::IoError(error.description().to_string())
     }
 }
@@ -66,7 +66,7 @@ impl From<csv_crate::Error> for ArrowError {
 }
 
 impl From<::std::string::FromUtf8Error> for ArrowError {
-    fn from(error: ::std::string::FromUtf8Error) -> Self {
+    fn from(error: std::string::FromUtf8Error) -> Self {
         ArrowError::ParseError(error.description().to_string())
     }
 }
@@ -93,4 +93,4 @@ impl Display for ArrowError {
 
 impl Error for ArrowError {}
 
-pub type Result<T> = ::std::result::Result<T, ArrowError>;
+pub type Result<T> = std::result::Result<T, ArrowError>;

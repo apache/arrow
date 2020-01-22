@@ -127,7 +127,7 @@ impl RleEncoder {
         );
         let max_rle_run_size =
             bit_util::MAX_VLQ_BYTE_LEN + bit_util::ceil(bit_width as i64, 8) as usize;
-        ::std::cmp::max(max_bit_packed_run_size as usize, max_rle_run_size)
+        std::cmp::max(max_bit_packed_run_size as usize, max_rle_run_size)
     }
 
     /// Returns the maximum buffer size takes to encode `num_values` values with
@@ -142,7 +142,7 @@ impl RleEncoder {
         let min_rle_run_size = 1 + bit_util::ceil(bit_width as i64, 8) as usize;
         let rle_max_size =
             bit_util::ceil(num_values as i64, 8) as usize * min_rle_run_size;
-        ::std::cmp::max(bit_packed_max_size, rle_max_size) as usize
+        std::cmp::max(bit_packed_max_size, rle_max_size) as usize
     }
 
     /// Encodes `value`, which must be representable with `bit_width` bits.

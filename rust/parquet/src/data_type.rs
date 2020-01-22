@@ -306,9 +306,9 @@ macro_rules! gen_as_bytes {
         impl AsBytes for $source_ty {
             fn as_bytes(&self) -> &[u8] {
                 unsafe {
-                    ::std::slice::from_raw_parts(
+                    std::slice::from_raw_parts(
                         self as *const $source_ty as *const u8,
-                        ::std::mem::size_of::<$source_ty>(),
+                        std::mem::size_of::<$source_ty>(),
                     )
                 }
             }
@@ -327,7 +327,7 @@ gen_as_bytes!(f64);
 impl AsBytes for Int96 {
     fn as_bytes(&self) -> &[u8] {
         unsafe {
-            ::std::slice::from_raw_parts(self.data() as *const [u32] as *const u8, 12)
+            std::slice::from_raw_parts(self.data() as *const [u32] as *const u8, 12)
         }
     }
 }
@@ -365,10 +365,10 @@ impl AsBytes for str {
 /// Contains the Parquet physical type information as well as the Rust primitive type
 /// presentation.
 pub trait DataType: 'static {
-    type T: ::std::cmp::PartialEq
-        + ::std::fmt::Debug
-        + ::std::default::Default
-        + ::std::clone::Clone
+    type T: std::cmp::PartialEq
+        + std::fmt::Debug
+        + std::default::Default
+        + std::clone::Clone
         + AsBytes;
 
     /// Returns Parquet physical type.

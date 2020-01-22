@@ -81,7 +81,7 @@ const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
 fn write_primitive_value<T>(array: &ArrayRef, i: usize) -> String
 where
     T: ArrowNumericType,
-    T::Native: ::std::string::ToString,
+    T::Native: std::string::ToString,
 {
     let c = array.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     c.value(i).to_string()

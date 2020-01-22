@@ -141,7 +141,7 @@ impl Buffer {
 
     /// Returns the byte slice stored in this buffer
     pub fn data(&self) -> &[u8] {
-        unsafe { ::std::slice::from_raw_parts(self.raw_data(), self.len()) }
+        unsafe { std::slice::from_raw_parts(self.raw_data(), self.len()) }
     }
 
     /// Returns a slice of this buffer, starting from `offset`.
@@ -374,7 +374,7 @@ impl MutableBuffer {
         assert!(end <= self.capacity);
         let v = if val { 255 } else { 0 };
         unsafe {
-            ::std::ptr::write_bytes(self.data, v, end);
+            std::ptr::write_bytes(self.data, v, end);
             self.len = end;
         }
         self
@@ -388,7 +388,7 @@ impl MutableBuffer {
     pub fn set_null_bits(&mut self, start: usize, count: usize) {
         assert!(start + count <= self.capacity);
         unsafe {
-            ::std::ptr::write_bytes(self.data.offset(start as isize), 0, count);
+            std::ptr::write_bytes(self.data.offset(start as isize), 0, count);
         }
     }
 
@@ -451,14 +451,12 @@ impl MutableBuffer {
 
     /// Returns the data stored in this buffer as a slice.
     pub fn data(&self) -> &[u8] {
-        unsafe { ::std::slice::from_raw_parts(self.raw_data(), self.len()) }
+        unsafe { std::slice::from_raw_parts(self.raw_data(), self.len()) }
     }
 
     /// Returns the data stored in this buffer as a mutable slice.
     pub fn data_mut(&mut self) -> &mut [u8] {
-        unsafe {
-            ::std::slice::from_raw_parts_mut(self.raw_data() as *mut u8, self.len())
-        }
+        unsafe { std::slice::from_raw_parts_mut(self.raw_data() as *mut u8, self.len()) }
     }
 
     /// Returns a raw pointer for this buffer.
@@ -476,7 +474,7 @@ impl MutableBuffer {
             len: self.len,
             owned: true,
         };
-        ::std::mem::forget(self);
+        std::mem::forget(self);
         Buffer {
             data: Arc::new(buffer_data),
             offset: 0,

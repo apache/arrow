@@ -628,7 +628,7 @@ where
 fn cast_numeric_to_string<FROM>(array: &ArrayRef) -> Result<ArrayRef>
 where
     FROM: ArrowNumericType,
-    FROM::Native: ::std::string::ToString,
+    FROM::Native: std::string::ToString,
 {
     match numeric_to_string_cast::<FROM>(
         array
@@ -644,7 +644,7 @@ where
 fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> Result<StringArray>
 where
     T: ArrowPrimitiveType + ArrowNumericType,
-    T::Native: ::std::string::ToString,
+    T::Native: std::string::ToString,
 {
     let mut b = StringBuilder::new(from.len());
 

@@ -220,7 +220,7 @@ impl Codec for LZ4Codec {
         let mut encoder = lz4::EncoderBuilder::new().build(output_buf)?;
         let mut from = 0;
         loop {
-            let to = ::std::cmp::min(from + LZ4_BUFFER_SIZE, input_buf.len());
+            let to = std::cmp::min(from + LZ4_BUFFER_SIZE, input_buf.len());
             encoder.write_all(&input_buf[from..to])?;
             from += LZ4_BUFFER_SIZE;
             if from >= input_buf.len() {

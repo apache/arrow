@@ -141,7 +141,7 @@ impl<'b> flatbuffers::Push for FieldNode {
     #[inline]
     fn push(&self, dst: &mut [u8], _rest: &[u8]) {
         let src = unsafe {
-            ::std::slice::from_raw_parts(
+            std::slice::from_raw_parts(
                 self as *const FieldNode as *const u8,
                 Self::size(),
             )
@@ -155,7 +155,7 @@ impl<'b> flatbuffers::Push for &'b FieldNode {
     #[inline]
     fn push(&self, dst: &mut [u8], _rest: &[u8]) {
         let src = unsafe {
-            ::std::slice::from_raw_parts(
+            std::slice::from_raw_parts(
                 *self as *const FieldNode as *const u8,
                 Self::size(),
             )
