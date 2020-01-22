@@ -192,6 +192,7 @@ services:
       CC: clang-7
       CXX: clang++-7
       ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
       ARROW_ORC: "OFF"
       ARROW_USE_ASAN: "ON"
