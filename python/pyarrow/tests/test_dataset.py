@@ -394,11 +394,15 @@ def test_partitioning_function():
 
     part = ds.partitioning(schema)
     assert isinstance(part, ds.DirectoryPartitioning)
-    part = ds.partitioning(names)
+    part = ds.partitioning(field_names=names)
     assert isinstance(part, ds.PartitioningFactory)
-    # needs schema or names
+    # needs schema or list of names
     with pytest.raises(ValueError):
         ds.partitioning()
+    with pytest.raises(ValueError, match="Expected list"):
+        ds.partitioning(field_names=schema)
+    with pytest.raises(ValueError, match="Cannot specify both"):
+        ds.partitioning(schema, field_names=schema)
 
     # Hive partitioning
 
@@ -409,6 +413,8 @@ def test_partitioning_function():
     # cannot pass list of names
     with pytest.raises(ValueError):
         ds.partitioning(names, flavor="hive")
+    with pytest.raises(ValueError, match="Cannot specify 'field_names'"):
+        ds.partitioning(field_names=names, flavor="hive")
 
     # unsupported flavor
     with pytest.raises(ValueError):

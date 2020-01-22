@@ -59,7 +59,7 @@ from pyarrow._dataset import (  # noqa
 )
 
 
-def partitioning(field_names=None, flavor=None):
+def partitioning(schema=None, field_names=None, flavor=None):
     """
     Specify a partitioning scheme.
 
@@ -81,9 +81,13 @@ def partitioning(field_names=None, flavor=None):
 
     Parameters
     ----------
-    field_names : pyarrow.Schema or list of str
-        The schema that describes the partitions present in the file path. If
-        a list of strings (field names) is passed, the schema's types are
+    schema : pyarrow.Schema, default None
+        The schema that describes the partitions present in the file path.
+        If not specified, and `field_names` and/or `flavor` are specified,
+        the schema will be inferred from the file path (and a
+        PartitioningFactory is returned).
+    field_names :  list of str, default None
+        A list of strings (field names). If specified, the schema's types are
         inferred from the file paths (only valid for DirectoryPartitioning).
     flavor : str, default None
         The default is DirectoryPartitioning. Specify ``flavor="hive"`` for
@@ -102,7 +106,7 @@ def partitioning(field_names=None, flavor=None):
 
     or let the types be inferred by only specifying the field names:
 
-    >>> partitioning(["year", "month"])
+    >>> partitioning(field_names=["year", "month"])
 
     For paths like "/2009/June", the year will be inferred as int32 while month
     will be inferred as string.
@@ -121,27 +125,34 @@ def partitioning(field_names=None, flavor=None):
     """
     if flavor is None:
         # default flavor
-        if isinstance(field_names, pa.Schema):
-            return DirectoryPartitioning(field_names)
-        elif isinstance(field_names, list):
-            return DirectoryPartitioning.discover(field_names)
-        elif field_names is None:
+        if schema is not None:
+            if field_names is not None:
+                raise ValueError(
+                    "Cannot specify both 'schema' and 'field_names'")
+            return DirectoryPartitioning(schema)
+        elif field_names is not None:
+            if isinstance(field_names, list):
+                return DirectoryPartitioning.discover(field_names)
+            else:
+                raise ValueError(
+                    "Expected list of field names, got {0}".format(
+                        type(field_names)))
+        else:
             raise ValueError(
                 "For the default directory flavor, need to specify "
-                "'field_names' as Schema or list of field names")
-        else:
-            raise ValueError(
-                "Expected Schema or list of field names, got {0}".format(
-                    type(field_names)))
+                "a Schema or a list of field names")
     elif flavor == 'hive':
-        if isinstance(field_names, pa.Schema):
-            return HivePartitioning(field_names)
-        elif field_names is None:
-            return HivePartitioning.discover()
+        if field_names is not None:
+            raise ValueError("Cannot specify 'field_names' for flavor 'hive'")
+        elif schema is not None:
+            if isinstance(schema, pa.Schema):
+                return HivePartitioning(schema)
+            else:
+                raise ValueError(
+                    "Expected Schema for 'schema', got {0}".format(
+                        type(schema)))
         else:
-            raise ValueError(
-                "Expected Schema or None for 'field_names', got {0}".format(
-                    type(field_names)))
+            return HivePartitioning.discover()
     else:
         raise ValueError("Unsupported flavor")
 
@@ -181,6 +192,8 @@ def _ensure_partitioning(scheme):
         pass
     elif isinstance(scheme, str):
         scheme = partitioning(flavor=scheme)
+    elif isinstance(scheme, list):
+        scheme = partitioning(field_names=scheme)
     elif isinstance(scheme, (Partitioning, PartitioningFactory)):
         pass
     else:
@@ -202,9 +215,10 @@ def source(path_or_paths, filesystem=None, partitioning=None,
         a list of paths.
     filesystem : FileSystem, default None
         By default will be inferred from the path.
-    partitioning : Partitioning(Factory) or str
+    partitioning : Partitioning(Factory), str or list of str
         The partitioning scheme specified with the ``partitioning()``
-        function. A flavor string can be used as shortcut.
+        function. A flavor string can be used as shortcut, and with a list of
+        field names a DirectionaryPartitioning will be inferred.
     format : str
         Currently only "parquet" is supported.
 
@@ -273,9 +287,10 @@ def dataset(sources, filesystem=None, partitioning=None, format=None):
         case, the additional keywords will be ignored).
     filesystem : FileSystem, default None
         By default will be inferred from the path.
-    partitioning : Partitioning(Factory) or str
+    partitioning : Partitioning(Factory), str, list of str
         The partitioning scheme specified with the ``partitioning()``
-        function. A flavor string can be used as shortcut.
+        function. A flavor string can be used as shortcut, and with a list of
+        field names a DirectionaryPartitioning will be inferred.
     format : str
         Currently only "parquet" is supported.
 
