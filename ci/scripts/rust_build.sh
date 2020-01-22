@@ -36,17 +36,10 @@ pushd ${source_dir}
 
 # flatbuffer codegen
 echo "Generating IPC"
-pwd
-
-echo "generating from fbs files:"
-ls ../format/*.fbs
-
 flatc --rust -o arrow/src/ipc/gen/ ../format/*.fbs
 
 # work around some bugs in flatbuffers
-find arrow/src/ipc/gen/
-
-#find arrow/src/ipc/gen/ -name "*_generated.rs" -exec sed -i 's/type__type/type_type/g' {} \; 2>/dev/null
+#find arrow/src/ipc/gen/ -name "*_generated.rs" -exec sed -i 's/type__type/type_type/g' {} \;
 
 # build entire project
 RUSTFLAGS="-D warnings" cargo build --all-targets
