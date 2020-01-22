@@ -373,3 +373,10 @@ test_that("DictionaryType works as expected (ARROW-3355)", {
   ord <- dictionary(ordered = TRUE)
   expect_equal(ord$ToString(), "dictionary<values=string, indices=int32, ordered>")
 })
+
+test_that("DictionaryType validation", {
+  expect_error(
+    dictionary(utf8(), int32()),
+    "Dictionary index type should be signed integer, got string"
+  )
+})
