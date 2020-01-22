@@ -368,7 +368,7 @@ class PandasWriter {
   virtual Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
                        int64_t rel_placement) {
     RETURN_NOT_OK(EnsurePlacementAllocated());
-    if (num_columns_ == 1) {
+    if (num_columns_ == 1 && options_.allow_zero_copy_blocks) {
       RETURN_NOT_OK(TransferSingle(data, /*py_ref=*/nullptr));
     } else {
       RETURN_NOT_OK(
@@ -1512,6 +1512,11 @@ class ExtensionWriter : public PandasWriter {
  public:
   using PandasWriter::PandasWriter;
 
+  Status Allocate() override {
+    // no-op
+    return Status::OK();
+  }
+
   Status TransferSingle(std::shared_ptr<ChunkedArray> data, PyObject* py_ref) override {
     PyAcquireGIL lock;
     PyObject* py_array;
@@ -2027,6 +2032,11 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   PandasOptions modified_options = options;
   modified_options.strings_to_categorical = false;
 
+  // ARROW-7596: We permit the hybrid Series/DataFrame code path to do zero copy
+  // optimizations that we do not allow in the default case when converting
+  // Table->DataFrame
+  modified_options.allow_zero_copy_blocks = true;
+
   PandasWriter::type output_type;
   RETURN_NOT_OK(GetPandasWriterType(*arr, modified_options, &output_type));
 
@@ -2053,6 +2063,7 @@ Status ConvertTableToPandas(const PandasOptions& options, std::shared_ptr<Table>
   modified_options.categorical_columns.clear();
 
   if (options.split_blocks) {
+    modified_options.allow_zero_copy_blocks = true;
     SplitBlockCreator helper(modified_options, std::move(fields), std::move(arrays));
     return helper.Convert(out);
   } else {
