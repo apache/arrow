@@ -244,8 +244,6 @@ class TestStringArray : public ::testing::Test {
     ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 4}, "data"));
     ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 4}, "data", 1));
 
-    // First offset != 0
-    ASSERT_RAISES(Invalid, ValidateOffsets(1, {1, 4}, "data"));
     // Offset out of bounds
     ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 5}, "data"));
     // Negative offset
