@@ -51,6 +51,8 @@ jobs:
       - name: Docker Run
         shell: bash
         run: |
+          ls -lah /proc/sys/kernel/core_pattern
+          cat /proc/sys/kernel/core_pattern
           sudo echo "core.%e.%p" > /proc/sys/kernel/core_pattern
           docker-compose run conda-cpp
       - name: Docker Push
@@ -142,6 +144,8 @@ jobs:
         run: |
           sudo ulimit -c unlimited
           sudo sysctl -w kern.corefile=core.%N.%P
+
+          ulimit -a
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
