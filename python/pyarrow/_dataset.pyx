@@ -21,6 +21,7 @@
 
 from __future__ import absolute_import
 
+import six
 from cython.operator cimport dereference as deref
 
 import pyarrow as pa
@@ -1250,6 +1251,8 @@ cdef class ScalarExpression(Expression):
             scalar = MakeScalar(<double>value)
         elif isinstance(value, int):
             scalar = MakeScalar(<int64_t>value)
+        elif isinstance(value, six.string_types):
+            scalar = MakeStringScalar(tobytes(value))
         else:
             raise TypeError('Not yet supported scalar value: {}'.format(value))
 

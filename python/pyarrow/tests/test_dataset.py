@@ -337,6 +337,7 @@ def test_expression():
     a = ds.ScalarExpression(1)
     b = ds.ScalarExpression(1.1)
     c = ds.ScalarExpression(True)
+    d = ds.ScalarExpression("string")
 
     equal = ds.ComparisonExpression(ds.CompareOperator.Equal, a, b)
     assert equal.op() == ds.CompareOperator.Equal
@@ -349,7 +350,7 @@ def test_expression():
 
     ds.AndExpression(a, b, c)
     ds.OrExpression(a, b)
-    ds.OrExpression(a, b, c)
+    ds.OrExpression(a, b, c, d)
     ds.NotExpression(ds.OrExpression(a, b, c))
     ds.IsValidExpression(a)
     ds.CastExpression(a, pa.int32())
@@ -387,12 +388,14 @@ def test_expression_ergonomics():
     one = ds.scalar(1)
     true = ds.scalar(True)
     false = ds.scalar(False)
+    string = ds.scalar("string")
     field = ds.field("field")
 
     assert one.equals(ds.ScalarExpression(1))
     assert zero.equals(ds.ScalarExpression(0))
     assert true.equals(ds.ScalarExpression(True))
     assert false.equals(ds.ScalarExpression(False))
+    assert string.equals(ds.ScalarExpression("string"))
     assert field.equals(ds.FieldExpression("field"))
 
     expr = one & zero
