@@ -190,8 +190,8 @@ build_libarrow <- function(src_dir, dst_dir) {
   # * m4 (for building flex and bison)
   cmake <- ensure_cmake()
   m4 <- ensure_m4()
+  flex <- ensure_flex(m4)
   bison <- ensure_bison(m4)
-  flex <- ensure_flex(m4, bison)
   env_vars <- sprintf(
     "SOURCE_DIR=%s BUILD_DIR=libarrow/build DEST_DIR=%s CMAKE=%s",
     src_dir,                                dst_dir,    cmake
@@ -242,7 +242,7 @@ ensure_cmake <- function() {
 }
 
 # TODO: move ensure_flex/bison/m4 to cmake: https://issues.apache.org/jira/browse/ARROW-7501
-ensure_flex <- function(m4 = ensure_m4(), bison = ensure_bison()) {
+ensure_flex <- function(m4 = ensure_m4()) {
   if (nzchar(Sys.which("flex"))) {
     # We already have flex.
     # NULL will tell the caller not to append FLEX_ROOT to env vars bc it's not needed
@@ -267,20 +267,17 @@ ensure_flex <- function(m4 = ensure_m4(), bison = ensure_bison()) {
   untar(flex_tar, exdir = flex_dir)
   unlink(flex_tar)
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), flex_dir))
-  # flex also needs m4 and bison
-  path <- '$PATH'
+  # flex also needs m4
   if (!is.null(m4)) {
-    path <- sprintf('%s:%s', m4, path)
+    # If we just built it, put it on PATH for building bison
+    path <- sprintf('export PATH="%s:$PATH" && ', m4)
+  } else {
+    path <- ""
   }
-  if (!is.null(bison)) {
-    path <- sprintf('%s:%s', bison, path)
-  }
-  path_export <- sprintf('export PATH="%s" && ', path)
   # Now, build flex
   flex_dir <- paste0(flex_dir, "/flex-", FLEX_VERSION)
   cmd <- sprintf("cd %s && ./configure && make", shQuote(flex_dir))
-  cat("*** Path export for flex:", path_export, "\n")
-  system(paste0(path_export, cmd))
+  system(paste0(path, cmd))
   # The built flex should be in ./src. Return that so we can set as FLEX_ROOT
   paste0(flex_dir, "/src")
 }
