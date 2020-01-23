@@ -108,11 +108,7 @@ namespace Apache.Arrow
 
                 var memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
                 var memoryOwner = memoryAllocator.Allocate(bufferLength);
-
-                if (memoryOwner != null)
-                {
-                    Memory.Slice(0, currentBytesLength).CopyTo(memoryOwner.Memory);
-                }
+                Memory.Slice(0, currentBytesLength).CopyTo(memoryOwner.Memory);
 
                 return new ArrowBuffer(memoryOwner);
             }

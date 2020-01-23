@@ -23,6 +23,8 @@ namespace Apache.Arrow.Memory
     {
         public const int DefaultAlignment = 64;
 
+        private static readonly IMemoryOwner<byte> NullMemoryOwner = new NullMemoryOwner();
+
         public static Lazy<MemoryAllocator> Default { get; } = new Lazy<MemoryAllocator>(BuildDefault, true);
 
         public class Stats
@@ -59,7 +61,7 @@ namespace Apache.Arrow.Memory
 
             if (length == 0)
             {
-                return null;
+                return NullMemoryOwner;
             }
 
             var memoryOwner = AllocateInternal(length, out var bytesAllocated);
