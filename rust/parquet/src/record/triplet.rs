@@ -518,8 +518,9 @@ mod tests {
     ) {
         let file = get_test_file(file_name);
         let file_reader = SerializedFileReader::new(file).unwrap();
+        let metadata = file_reader.metadata();
         // Get schema descriptor
-        let file_metadata = file_reader.metadata().file_metadata();
+        let file_metadata = metadata.file_metadata();
         let schema = file_metadata.schema_descr();
         // Get first row group
         let row_group_reader = file_reader.get_row_group(0).unwrap();

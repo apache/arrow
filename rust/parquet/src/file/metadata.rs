@@ -45,31 +45,25 @@ use crate::schema::types::{
     Type as SchemaType, TypePtr,
 };
 
-/// Reference counted pointer for [`ParquetMetaData`].
-pub type ParquetMetaDataPtr = Rc<ParquetMetaData>;
-
 /// Global Parquet metadata.
 pub struct ParquetMetaData {
-    file_metadata: FileMetaDataPtr,
-    row_groups: Vec<RowGroupMetaDataPtr>,
+    file_metadata: FileMetaData,
+    row_groups: Vec<RowGroupMetaData>,
 }
 
 impl ParquetMetaData {
     /// Creates Parquet metadata from file metadata and a list of row group metadata `Rc`s
     /// for each available row group.
-    pub fn new(
-        file_metadata: FileMetaData,
-        row_group_ptrs: Vec<RowGroupMetaDataPtr>,
-    ) -> Self {
+    pub fn new(file_metadata: FileMetaData, row_groups: Vec<RowGroupMetaData>) -> Self {
         ParquetMetaData {
-            file_metadata: Rc::new(file_metadata),
-            row_groups: row_group_ptrs,
+            file_metadata,
+            row_groups,
         }
     }
 
-    /// Returns file metadata as reference counted clone.
-    pub fn file_metadata(&self) -> FileMetaDataPtr {
-        self.file_metadata.clone()
+    /// Returns file metadata as reference.
+    pub fn file_metadata(&self) -> &FileMetaData {
+        &self.file_metadata
     }
 
     /// Returns number of row groups in this file.
@@ -79,13 +73,13 @@ impl ParquetMetaData {
 
     /// Returns row group metadata for `i`th position.
     /// Position should be less than number of row groups `num_row_groups`.
-    pub fn row_group(&self, i: usize) -> RowGroupMetaDataPtr {
-        self.row_groups[i].clone()
+    pub fn row_group(&self, i: usize) -> &RowGroupMetaData {
+        &self.row_groups[i]
     }
 
-    /// Returns slice of row group reference counted pointers in this file.
-    pub fn row_groups(&self) -> &[RowGroupMetaDataPtr] {
-        &self.row_groups.as_slice()
+    /// Returns slice of row groups in this file.
+    pub fn row_groups(&self) -> &[RowGroupMetaData] {
+        &self.row_groups
     }
 }
 
