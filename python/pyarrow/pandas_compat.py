@@ -742,7 +742,7 @@ def make_datetimetz(tz):
 
 def table_to_blockmanager(options, table, categories=None,
                           extension_columns=None, ignore_metadata=False,
-                          types_mapping=None):
+                          types_mapper=None):
     from pandas.core.internals import BlockManager
 
     all_columns = []
@@ -757,14 +757,14 @@ def table_to_blockmanager(options, table, categories=None,
         table, index = _reconstruct_index(table, index_descriptors,
                                           all_columns)
         ext_columns_dtypes = _get_extension_dtypes(
-            table, all_columns, extension_columns, types_mapping)
+            table, all_columns, extension_columns, types_mapper)
     else:
         index = _pandas_api.pd.RangeIndex(table.num_rows)
         if extension_columns:
             raise ValueError("extension_columns not supported if there is "
                              "no pandas_metadata")
         ext_columns_dtypes = _get_extension_dtypes(
-            table, [], extension_columns, types_mapping)
+            table, [], extension_columns, types_mapper)
 
     _check_data_column_metadata_consistency(all_columns)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
@@ -784,7 +784,7 @@ _pandas_supported_numpy_types = set([
 
 
 def _get_extension_dtypes(table, columns_metadata, extension_columns,
-                          types_mapping=None):
+                          types_mapper=None):
     """
     Based on the stored column pandas metadata and the extension types
     in the arrow schema, infer which columns should be converted to a
@@ -842,11 +842,12 @@ def _get_extension_dtypes(table, columns_metadata, extension_columns,
                                  "converted to extension dtype")
             ext_columns[name] = pandas_dtype
 
-    if types_mapping:
+    if types_mapper:
         for field in table.schema:
             typ = field.type
-            if typ in types_mapping:
-                ext_columns[field.name] = types_mapping[typ]
+            ext_dtype = types_mapper(typ)
+            if ext_dtype is not None:
+                ext_columns[field.name] = ext_dtype
 
     return ext_columns
 

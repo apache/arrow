@@ -3575,7 +3575,7 @@ def test_to_pandas_extension_dtypes_mapping():
     assert result['a'].dtype == np.dtype('int64')
 
     # specify to override the default
-    result = table.to_pandas(types_mapping={pa.int64(): pd.Int64Dtype()})
+    result = table.to_pandas(types_mapper={pa.int64(): pd.Int64Dtype()}.get)
     assert isinstance(result['a'].dtype, pd.Int64Dtype)
 
 
