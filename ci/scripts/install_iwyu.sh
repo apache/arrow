@@ -20,7 +20,7 @@ set -eu
 
 source_dir=${1:-/tmp/iwyu}
 install_prefix=${2:-/usr/local}
-llvm_major=${3:-7}
+llvm_major=${3:-8}
 
 git clone --single-branch --branch "clang_${llvm_major}.0" \
     https://github.com/include-what-you-use/include-what-you-use.git ${source_dir}

@@ -28,16 +28,16 @@ RUN \
   echo 'APT::Install-Recommends "false";' > \
     /etc/apt/apt.conf.d/disable-install-recommends
 
-ARG DEBUG
-
 RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
 
+ARG DEBUG
+ARG LLVM_VERSION=8
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
-    clang-7 \
+    clang-${LLVM_VERSION} \
     cmake \
     debhelper \
     devscripts \
@@ -59,7 +59,7 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libzstd-dev \
-    llvm-7-dev \
+    llvm-${LLVM_VERSION}-dev \
     lsb-release \
     ninja-build \
     pkg-config \

@@ -19,15 +19,17 @@ ARG base
 FROM hadolint/hadolint:v1.17.2 AS hadolint
 FROM ${base}
 
+ARG llvm_version
+
 RUN apt-get update && \
     apt-get install -y -q \
-        clang-7 \
-        clang-format-7 \
-        clang-tidy-7 \
-        clang-tools-7 \
+        clang-${llvm_version} \
+        clang-format-${llvm_version} \
+        clang-tidy-${llvm_version} \
+        clang-tools-${llvm_version} \
         cmake \
         curl \
-        libclang-7-dev \
+        libclang-${llvm_version}-dev \
         openjdk-11-jdk-headless \
         python3 \
         python3-dev \
@@ -41,7 +43,7 @@ COPY --from=hadolint /bin/hadolint /usr/bin/hadolint
 
 # IWYU
 COPY ci/scripts/install_iwyu.sh /arrow/ci/scripts/
-RUN arrow/ci/scripts/install_iwyu.sh /tmp/iwyu /usr/local 7
+RUN arrow/ci/scripts/install_iwyu.sh /tmp/iwyu /usr/local ${llvm_version}
 
 # Rust linter
 ARG rust=nightly-2019-09-25

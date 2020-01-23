@@ -24,24 +24,12 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
-        wget \
-        software-properties-common \
-        gpg-agent && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists*
-
-# Installs LLVM toolchain, for gandiva and testing other compilers
+# Installs LLVM toolchain, for Gandiva and testing other compilers
 #
 # Note that this is installed before the base packages to improve iteration
-# while debugging package list with docker build due to slow download speed of
-# llvm compared to ubuntu apt mirrors.
-ARG llvm_version=7
-ARG llvm_apt_url="http://apt.llvm.org/bionic/"
-ARG llvm_apt_arch="llvm-toolchain-bionic-${llvm_version}"
-RUN wget -q -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    apt-add-repository -y --update "deb ${llvm_apt_url} ${llvm_apt_arch} main" && \
+# while debugging package list with docker build.
+ARG llvm_version
+RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         clang-${llvm_version} \
         clang-format-${llvm_version} \
@@ -80,6 +68,7 @@ RUN apt-get update -y -q && \
         pkg-config \
         protobuf-compiler \
         rapidjson-dev \
+        python \
         tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*

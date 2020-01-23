@@ -74,7 +74,7 @@ find_program(CLANG_EXECUTABLE
 if(CLANG_EXECUTABLE)
   message(STATUS "Found clang ${LLVM_PACKAGE_VERSION} ${CLANG_EXECUTABLE}")
 else()
-  # If clang-7 not available, switch to normal clang.
+  # If clang-8 not available, switch to normal clang.
   find_program(CLANG_EXECUTABLE NAMES clang HINTS ${LLVM_TOOLS_BINARY_DIR})
   if(CLANG_EXECUTABLE)
     message(STATUS "Found clang ${CLANG_EXECUTABLE}")
