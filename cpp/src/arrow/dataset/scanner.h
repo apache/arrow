@@ -132,7 +132,7 @@ class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
 };
 
-Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
+ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
     std::vector<std::shared_ptr<RecordBatch>> batches,
     std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext>);
 

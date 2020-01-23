@@ -18,6 +18,7 @@
 #pragma once
 
 #include <algorithm>
+#include <ciso646>
 #include <functional>
 #include <memory>
 #include <string>

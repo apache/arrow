@@ -42,7 +42,8 @@ TEST_F(TestInMemoryFragment, Scan) {
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
   // Creates a InMemoryFragment of the same repeated batch.
-  auto fragment = InMemoryFragment({kNumberBatches, batch}, options_);
+  auto fragment =
+      InMemoryFragment({static_cast<size_t>(kNumberBatches), batch}, options_);
 
   AssertFragmentEquals(reader.get(), &fragment);
 }
@@ -58,11 +59,13 @@ TEST_F(TestInMemorySource, GetFragments) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches * kNumberFragments, batch);
 
-  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
+  std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
+                                                    batch};
   auto fragment = std::make_shared<InMemoryFragment>(batches, options_);
   // It is safe to copy fragment multiple time since Scan() does not consume
   // the internal array.
-  auto source = InMemorySource(schema_, {kNumberFragments, fragment});
+  auto source =
+      InMemorySource(schema_, {static_cast<size_t>(kNumberFragments), fragment});
 
   AssertSourceEquals(reader.get(), &source);
 }
@@ -81,23 +84,24 @@ TEST_F(TestTreeSource, GetFragments) {
   auto n_leaves = 1U << kCompleteBinaryTreeDepth;
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches * n_leaves, batch);
 
-  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
+  std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
+                                                    batch};
   auto fragment = std::make_shared<InMemoryFragment>(batches, options_);
 
   // Creates a complete binary tree of depth kCompleteBinaryTreeDepth where the
   // leaves are InMemorySource containing kChildPerNode fragments.
 
-  auto l1_leaf_source =
-      std::make_shared<InMemorySource>(schema_, FragmentVector{kChildPerNode, fragment});
+  auto l1_leaf_source = std::make_shared<InMemorySource>(
+      schema_, FragmentVector{static_cast<size_t>(kChildPerNode), fragment});
 
-  auto l2_leaf_tree_source =
-      std::make_shared<TreeSource>(schema_, SourceVector{kChildPerNode, l1_leaf_source});
+  auto l2_leaf_tree_source = std::make_shared<TreeSource>(
+      schema_, SourceVector{static_cast<size_t>(kChildPerNode), l1_leaf_source});
 
   auto l3_middle_tree_source = std::make_shared<TreeSource>(
-      schema_, SourceVector{kChildPerNode, l2_leaf_tree_source});
+      schema_, SourceVector{static_cast<size_t>(kChildPerNode), l2_leaf_tree_source});
 
   auto root_source = std::make_shared<TreeSource>(
-      schema_, SourceVector{kChildPerNode, l3_middle_tree_source});
+      schema_, SourceVector{static_cast<size_t>(kChildPerNode), l3_middle_tree_source});
 
   AssertSourceEquals(reader.get(), root_source.get());
 }
@@ -112,9 +116,10 @@ TEST_F(TestDataset, TrivialScan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
 
-  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
+  std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
+                                                    batch};
   auto fragment = std::make_shared<InMemoryFragment>(batches, options_);
-  FragmentVector fragments{kNumberFragments, fragment};
+  FragmentVector fragments{static_cast<size_t>(kNumberFragments), fragment};
 
   SourceVector sources = {
       std::make_shared<InMemorySource>(schema_, fragments),
@@ -160,8 +165,8 @@ TEST(TestProjector, AugmentWithNull) {
 }
 
 TEST(TestProjector, AugmentWithScalar) {
-  constexpr int64_t kBatchSize = 1024;
-  constexpr int32_t kScalarValue = 3;
+  static constexpr int64_t kBatchSize = 1024;
+  static constexpr int32_t kScalarValue = 3;
 
   auto from_schema = schema({field("f64", float64()), field("b", boolean())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, from_schema);
@@ -185,9 +190,9 @@ TEST(TestProjector, AugmentWithScalar) {
 }
 
 TEST(TestProjector, NonTrivial) {
-  constexpr int64_t kBatchSize = 1024;
+  static constexpr int64_t kBatchSize = 1024;
 
-  constexpr float kScalarValue = 3.14f;
+  static constexpr float kScalarValue = 3.14f;
 
   auto from_schema =
       schema({field("i8", int8()), field("u8", uint8()), field("i16", int16()),
@@ -420,10 +425,10 @@ class TestSchemaUnification : public TestDataset {
     // Thus, the fixture helps verifying various scenarios where the Scanner
     // must fix the RecordBatches to align with the final unified schema exposed
     // to the consumer.
-    constexpr auto ds1_df1 = "/dataset/alpha/part_ds=1/part_df=1/data.json";
-    constexpr auto ds1_df2 = "/dataset/alpha/part_ds=1/part_df=2/data.json";
-    constexpr auto ds2_df1 = "/dataset/beta/part_ds=2/part_df=1/data.json";
-    constexpr auto ds2_df2 = "/dataset/beta/part_ds=2/part_df=2/data.json";
+    static constexpr auto ds1_df1 = "/dataset/alpha/part_ds=1/part_df=1/data.json";
+    static constexpr auto ds1_df2 = "/dataset/alpha/part_ds=1/part_df=2/data.json";
+    static constexpr auto ds2_df1 = "/dataset/beta/part_ds=2/part_df=1/data.json";
+    static constexpr auto ds2_df2 = "/dataset/beta/part_ds=2/part_df=2/data.json";
     auto files = PathAndContent{
         // First Source
         {ds1_df1, R"([{"phy_1": 111, "phy_2": 211}])"},
