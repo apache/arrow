@@ -55,7 +55,10 @@ inline std::shared_ptr<Schema> SchemaFromColumnNames(
     const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
   std::vector<std::shared_ptr<Field>> columns;
   for (const auto& name : column_names) {
-    columns.push_back(input->GetFieldByName(name));
+    auto field = input->GetFieldByName(name);
+    if (field != nullptr) {
+      columns.push_back(std::move(field));
+    }
   }
 
   return std::make_shared<Schema>(columns);

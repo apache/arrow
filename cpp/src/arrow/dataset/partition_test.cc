@@ -133,6 +133,13 @@ TEST_F(TestPartitioning, DiscoverSchema) {
   AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
 }
 
+TEST_F(TestPartitioning, DiscoverSchemaSegfault) {
+  // ARROW-7638
+  factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"});
+  ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect({"oops.txt"}));
+  ASSERT_EQ(*actual, Schema({Str("alpha")}));
+}
+
 TEST_F(TestPartitioning, HivePartitioning) {
   partitioning_ = std::make_shared<HivePartitioning>(
       schema({field("alpha", int32()), field("beta", float32())}));
