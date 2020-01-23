@@ -169,7 +169,7 @@ shape: {0.shape}""".format(self)
                 c_dim_names.push_back(tobytes(x))
 
         # Enforce precondition for SparseCOOTensor indices
-        coords = np.require(coords, dtype='i8', requirements='F')
+        coords = np.require(coords, dtype='i8', requirements='C')
         if coords.ndim != 2:
             raise ValueError("Expected 2-dimensional array for "
                              "SparseCOOTensor indices")
@@ -200,7 +200,7 @@ shape: {0.shape}""".format(self)
                 c_dim_names.push_back(tobytes(x))
 
         coords = np.vstack([obj.row, obj.col]).T
-        coords = np.require(coords, dtype='i8', requirements='F')
+        coords = np.require(coords, dtype='i8', requirements='C')
 
         check_status(NdarraysToSparseCOOTensor(c_default_memory_pool(),
                      obj.data, coords, c_shape, c_dim_names,
@@ -227,7 +227,7 @@ shape: {0.shape}""".format(self)
             for x in dim_names:
                 c_dim_names.push_back(tobytes(x))
 
-        coords = np.require(obj.coords.T, dtype='i8', requirements='F')
+        coords = np.require(obj.coords.T, dtype='i8', requirements='C')
 
         check_status(NdarraysToSparseCOOTensor(c_default_memory_pool(),
                      obj.data, coords, c_shape, c_dim_names,

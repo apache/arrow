@@ -869,6 +869,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
     const flatbuf::SparseTensor* sparse_tensor, const std::vector<int64_t>& shape,
     int64_t non_zero_length, io::RandomAccessFile* file) {
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexCOO();
+  const auto ndim = static_cast<int64_t>(shape.size());
 
   std::shared_ptr<DataType> indices_type;
   RETURN_NOT_OK(internal::GetSparseCOOIndexMetadata(sparse_index, &indices_type));
@@ -878,8 +879,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
   auto* indices_buffer = sparse_index->indicesBuffer();
   ARROW_ASSIGN_OR_RAISE(auto indices_data,
                         file->ReadAt(indices_buffer->offset(), indices_buffer->length()));
-  std::vector<int64_t> indices_shape(
-      {non_zero_length, static_cast<int64_t>(shape.size())});
+  std::vector<int64_t> indices_shape({non_zero_length, ndim});
   auto* indices_strides = sparse_index->indicesStrides();
   std::vector<int64_t> strides(2);
   if (indices_strides && indices_strides->size() > 0) {
@@ -889,9 +889,9 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
     strides[0] = indices_strides->Get(0);
     strides[1] = indices_strides->Get(1);
   } else {
-    // Column-major by default
-    strides[0] = indices_elsize;
-    strides[1] = indices_elsize * non_zero_length;
+    // Row-major by default
+    strides[0] = indices_elsize * ndim;
+    strides[1] = indices_elsize;
   }
   return std::make_shared<SparseCOOIndex>(
       std::make_shared<Tensor>(indices_type, indices_data, indices_shape, strides));

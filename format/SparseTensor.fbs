@@ -58,7 +58,7 @@ table SparseTensorIndexCOO {
   indicesType: Int (required);
 
   /// Non-negative byte offsets to advance one value cell along each dimension
-  /// If omitted, default to column-major order (Fortran-like).
+  /// If omitted, default to row-major order (C-like).
   indicesStrides: [long];
 
   /// The location and size of the indices matrix's data

@@ -101,6 +101,9 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
       const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data);
 
   /// \brief Make SparseCOOIndex from sparse tensor's shape properties and data
+  ///
+  /// The indices_data should be in row-major (C-like) order.  If not,
+  /// use the raw properties constructor.
   static Result<std::shared_ptr<SparseCOOIndex>> Make(
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
       int64_t non_zero_length, std::shared_ptr<Buffer> indices_data);
@@ -110,10 +113,10 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
 
   /// \brief Return a tensor that has the coordinates of the non-zero values
   ///
-  /// The returned tensor is a Nx3 tensor where N is the number of non-zero
-  /// values.  Each 3-element column has the form `{row, column, index}`,
-  /// indicating that the value for the logical element at `{row, column}`
-  /// should be found at the given physical index.
+  /// The returned tensor is a N x D tensor where N is the number of non-zero
+  /// values and D is the number of dimensions in the logical data.
+  /// The column at index `i` is a D-tuple of coordinates indicating that the
+  /// logical value at those coordinates should be found at physical index `i`.
   const std::shared_ptr<Tensor>& indices() const { return coords_; }
 
   /// \brief Return a string representation of the sparse index
@@ -378,12 +381,16 @@ class ARROW_EXPORT SparseTensor {
   bool Equals(const SparseTensor& other) const;
 
   /// \brief Return dense representation of sparse tensor as tensor
+  ///
+  /// The returned Tensor has row-major order (C-like).
   Status ToTensor(std::shared_ptr<Tensor>* out) const {
     return ToTensor(default_memory_pool(), out);
   }
 
   /// \brief Return dense representation of sparse tensor as tensor
   /// using specified memory pool
+  ///
+  /// The returned Tensor has row-major order (C-like).
   Status ToTensor(MemoryPool* pool, std::shared_ptr<Tensor>* out) const;
 
  protected:

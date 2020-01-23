@@ -139,7 +139,7 @@ struct SparseTensorIndexCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     return GetPointer<const Int *>(VT_INDICESTYPE);
   }
   /// Non-negative byte offsets to advance one value cell along each dimension
-  /// If omitted, default to column-major order (Fortran-like).
+  /// If omitted, default to row-major order (C-like).
   const flatbuffers::Vector<int64_t> *indicesStrides() const {
     return GetPointer<const flatbuffers::Vector<int64_t> *>(VT_INDICESSTRIDES);
   }
