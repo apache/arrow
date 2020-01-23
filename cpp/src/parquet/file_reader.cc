@@ -99,12 +99,25 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   const ReaderProperties* properties() const override { return &properties_; }
 
-  void GoToPage(int64_t v, int64_t default_start, int64_t default_next_page_offset, int64_t default_num_values,parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index, uint64_t& page_offset,uint64_t& num_values,uint64_t& next_page_offset) const {
-      std::vector<int>::size_type itemindex = 0;
+
+  void GetRowRangeForPage(uint64_t& row_group_index, parquet::format::OffsetIndex offset_index, uint64_t page_idx, uint64_t& row_range_start, uint64_t& row_range_end) {
+    const auto& page_locations = offset_index.page_locations;
+    DCHECK(page_idx <  page_locations.size()) << "The page start index " << page_idx << " is greater than last page" << page_locations.size();
+    row_range_start = page_locations[page_idx].first_row_index;
+    if (page_idx == page_locations.size() - 1) {
+      row_range_end = row_range_end - row_range_start - 1;
+    } else {
+      row_range_end = page_locations[page_idx + 1].first_row_index - 1;
+    }
+  }
+
+  void GoToPage(int64_t v, int64_t default_start, int64_t default_next_page_offset, int64_t default_num_values,parquet::format::ColumnIndex col_index, 
+              parquet::format::OffsetIndex offset_index, uint64_t& page_offset,uint64_t& num_values,uint64_t& next_page_offset) const {
+//      std::vector<int>::size_type itemindex = 0;
       //std::vector<int64_t> min_vec = std::vector<std::basic_string<char>>(col_index.min_values.begin(), col_index.min_values.end());
       int64_t min_diff = std::numeric_limits<int64_t>::max();//std::lower_bound(min_vec.begin(),min_vec.end(),v);
-      int64_t min_index = 0;
-      for (;itemindex < col_index.min_values.size();itemindex++) {
+      int64_t min_index = -1;
+      for (uint64_t itemindex = 0;itemindex < col_index.min_values.size();itemindex++) {
            int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
 
            if ( *page_min <= v && min_diff >= v - *page_min ) {
@@ -113,9 +126,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
            }
       }
 
-      if ( page_offset == 0 && next_page_offset == 0 && num_values == 0 && offset_index.page_locations.size()>1) {
+      if ( page_offset == 0 && next_page_offset == 0 && num_values == 0 && offset_index.page_locations.size()>1 && min_index != -1 ) {
         page_offset = offset_index.page_locations[min_index].offset;
-        next_page_offset=offset_index.page_locations[min_index+1].offset;
+        next_page_offset = offset_index.page_locations[min_index+1].offset;
         num_values = offset_index.page_locations[min_index+1].first_row_index - offset_index.page_locations[min_index].first_row_index;
       }
     
@@ -128,6 +141,17 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   void GoToPagewoIndex(int64_t v) const {
   }
+
+
+/// ---- Page filtering ----
+/// A Parquet file can contain a so called "page index". It has two parts, a column index
+/// and an offset index. The column index contains statistics like minimum and maximum
+/// values for each page. The offset index contains information about page locations in
+/// the Parquet file and top-level row ranges. HdfsParquetScanner evaluates the min/max
+/// conjuncts against the column index and determines the surviving pages with the help of
+/// the offset index. Then it will configure the column readers to only scan the pages
+/// and row ranges that have a chance to store rows that pass the conjuncts.
+
 
   bool HasPageIndex(ColumnChunkMetaData* col) {
 
@@ -203,20 +227,22 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     int64_t col_length = col->total_compressed_size();
 
     bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
-    
+
+    int64_t predicate = 24003303;
+
     if (has_page_index) {
         parquet::format::ColumnIndex col_index;
         parquet::format::OffsetIndex offset_index;
         DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
         DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
         page_offset = 0, next_page_offset =0, num_values = 0;
-        GoToPage(39, col_start,col_length,col->num_values(),col_index,offset_index,page_offset,num_values,next_page_offset);
+        GoToPage(predicate, col_start,col_length,col->num_values(),col_index,offset_index,page_offset,num_values,next_page_offset);
     }
     else{
        page_offset = col_start;
        next_page_offset = page_offset + col_length;
        num_values = col->num_values();
-       GoToPagewoIndex(39);
+       GoToPagewoIndex(predicate);
     }
     // PARQUET-816 workaround for old files created by older parquet-mr
     const ApplicationVersion& version = file_metadata_->writer_version();
