@@ -292,6 +292,21 @@ const char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_l
     // So for a single byte char, a bitwise-and with x80 (10000000) will be 0
     // and it won't be 0 for bytes of a multibyte char
     char* data_ptr = const_cast<char*>(data);
+
+    // we advance byte by byte till the 8 byte boudary then advance 8 bytes at a time
+    auto num_bytes = reinterpret_cast<uintptr_t>(data_ptr) & 0x07;
+    num_bytes = (8 - num_bytes) & 0x07;
+    while (num_bytes > 0) {
+      uint8_t* ptr = reinterpret_cast<uint8_t*>(data_ptr + index);
+      if ((*ptr & 0x80) != 0) {
+        is_multibyte = true;
+        break;
+      }
+      index++;
+      remaining--;
+      num_bytes--;
+    }
+    if (is_multibyte) break;
     while (remaining >= 8) {
       uint64_t* ptr = reinterpret_cast<uint64_t*>(data_ptr + index);
       if ((*ptr & 0x8080808080808080) != 0) {
