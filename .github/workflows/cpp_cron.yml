@@ -54,6 +54,11 @@ jobs:
       - name: Docker Build
         shell: bash
         run: docker-compose build debian-cpp
+      - name: Enable Coredumps
+        shell: bash
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
       - name: Docker Run
         shell: bash
         run: docker-compose run debian-cpp
@@ -86,6 +91,11 @@ jobs:
       - name: Docker Build
         shell: bash
         run: docker-compose build fedora-cpp
+      - name: Enable Coredumps
+        shell: bash
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
       - name: Docker Run
         shell: bash
         run: docker-compose run fedora-cpp
@@ -115,6 +125,11 @@ jobs:
       - name: Docker Pull
         shell: bash
         run: docker-compose pull --ignore-pull-failures ubuntu-cpp
+      - name: Enable Coredumps
+        shell: bash
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
       - name: Docker Build
         shell: bash
         run: docker-compose build ubuntu-cpp

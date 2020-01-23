@@ -48,11 +48,14 @@ jobs:
       - name: Docker Build
         shell: bash
         run: docker-compose build conda-cpp
-      - name: Docker Run
+      - name: Enable Coredumps
         shell: bash
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          docker-compose run conda-cpp
+          ulimit -c unlimited
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run conda-cpp
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -137,14 +140,14 @@ jobs:
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
-      - name: Test
+      - name: Enable Coredumps
         shell: bash
         run: |
           sudo sysctl -w kern.corefile=core.%N.%P
-          ulimit -a
           ulimit -c unlimited
-          ulimit -a
-          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+      - name: Test
+        shell: bash
+        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
     name: AMD64 ${{ matrix.name }} C++
