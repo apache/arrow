@@ -421,9 +421,10 @@ def test_partitioning_function():
         ds.partitioning(schema, flavor="unsupported")
 
 
-def _create_single_file(base_dir):
+def _create_single_file(base_dir, table=None):
     import pyarrow.parquet as pq
-    table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+    if table is None:
+        table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
     path = base_dir / "test.parquet"
     pq.write_table(table, path)
     return table, path
@@ -564,3 +565,21 @@ def test_open_dataset_validate_sources(tempdir):
     with pytest.raises(ValueError,
                        match="Expected a path-like or Source, got"):
         ds.dataset([dataset])
+
+
+def test_filter_implicit_cast(tempdir):
+    # ARROW-7652
+    table = pa.table({'a': pa.array([0, 1, 2, 3, 4, 5], type=pa.int8())})
+    _, path = _create_single_file(tempdir, table)
+    dataset = ds.dataset(str(path))
+
+    filter_ = ds.ComparisonExpression(
+        ds.CompareOperator.Greater,
+        ds.FieldExpression('a'),
+        ds.ScalarExpression(2)
+    )
+
+    scanner_builder = dataset.new_scan()
+    scanner_builder.filter(filter_)
+    result = scanner_builder.finish().to_table()
+    assert len(result) == 3

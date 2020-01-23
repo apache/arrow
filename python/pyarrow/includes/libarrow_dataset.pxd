@@ -127,6 +127,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef shared_ptr[CExpression] MakeOrExpression "arrow::dataset::or_"(
         const CExpressionVector& subexpressions)
 
+    cdef CResult[shared_ptr[CExpression]] CInsertImplicitCasts \
+        "arrow::dataset::InsertImplicitCasts"(
+            const CExpression&, const CSchema&)
+
     cdef cppclass CFilter "arrow::dataset::Filter":
         pass
 
