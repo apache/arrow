@@ -140,9 +140,9 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          sudo ulimit -c unlimited
           sudo sysctl -w kern.corefile=core.%N.%P
-
+          ulimit -a
+          ulimit -c unlimited
           ulimit -a
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
