@@ -242,6 +242,7 @@ struct ValidateArrayVisitor {
       }
       return Status::OK();
     }
+
     // An empty list array can have 0 offsets
     auto required_offsets =
         (array.length() > 0) ? array.length() + array.offset() + 1 : 0;
@@ -251,9 +252,6 @@ struct ValidateArrayVisitor {
                              " isn't large enough for length: ", array.length());
     }
 
-    if (array.length() > 0 && array.offset() == 0 && array.value_offset(0) != 0) {
-      return Status::Invalid("The first offset isn't zero");
-    }
     return Status::OK();
   }
 };
