@@ -159,7 +159,7 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
 
 class TestParquetFileFormat : public ParquetBufferFixtureMixin {
  protected:
-  ParquetFileFormat format_;
+  std::shared_ptr<ParquetFileFormat> format_ = ParquetFileFormat::Make();
   std::shared_ptr<ScanOptions> opts_;
   std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 };
@@ -169,7 +169,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
-  auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
+  auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
 
   ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
   int64_t row_count = 0;
@@ -192,8 +192,8 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
 
   opts_ = ScanOptions::Make(reader->schema());
 
-  format_.read_dict_indices.insert(0);
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_.MakeFragment(*source, opts_));
+  format_->read_dict_indices.insert(0);
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
 
   ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
   int64_t row_count = 0;
@@ -215,14 +215,14 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
 
 TEST_F(TestParquetFileFormat, OpenFailureWithRelevantError) {
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  auto result = format_.Inspect(FileSource(buf));
+  auto result = format_->Inspect(FileSource(buf));
   EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr("<Buffer>"),
                                   result.status());
 
   constexpr auto file_name = "herp/derp";
   ASSERT_OK_AND_ASSIGN(
       auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
-  result = format_.Inspect({file_name, fs.get()});
+  result = format_->Inspect({file_name, fs.get()});
   EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr(file_name),
                                   result.status());
 }
@@ -241,7 +241,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
 
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
-  auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
+  auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
 
   ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
   int64_t row_count = 0;
@@ -283,7 +283,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
 
   auto source =
       GetFileSource({reader.get(), reader_without_i32.get(), reader_without_f64.get()});
-  auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
+  auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
 
   ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
   int64_t row_count = 0;
@@ -304,7 +304,7 @@ TEST_F(TestParquetFileFormat, Inspect) {
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
 
-  ASSERT_OK_AND_ASSIGN(auto actual, format_.Inspect(*source.get()));
+  ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
   AssertSchemaEqual(*actual, *schema_, /*check_metadata=*/false);
 }
 
@@ -312,8 +312,8 @@ TEST_F(TestParquetFileFormat, InspectDictEncoded) {
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
 
-  format_.read_dict_indices.insert(0);
-  ASSERT_OK_AND_ASSIGN(auto actual, format_.Inspect(*source.get()));
+  format_->read_dict_indices.insert(0);
+  ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
 
   Schema expected_schema({field("f64", dictionary(int32(), float64()))});
   EXPECT_EQ(*actual, expected_schema);
@@ -326,14 +326,14 @@ TEST_F(TestParquetFileFormat, IsSupported) {
   bool supported = false;
 
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  ASSERT_OK_AND_ASSIGN(supported, format_.IsSupported(FileSource(buf)));
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
   ASSERT_EQ(supported, false);
 
   buf = std::make_shared<Buffer>(util::string_view("corrupted"));
-  ASSERT_OK_AND_ASSIGN(supported, format_.IsSupported(FileSource(buf)));
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
   ASSERT_EQ(supported, false);
 
-  ASSERT_OK_AND_ASSIGN(supported, format_.IsSupported(*source));
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
   EXPECT_EQ(supported, true);
 }
 
@@ -358,12 +358,12 @@ void CountRowsInScan(ScanTaskIterator& it, int64_t expected_rows,
 
 class TestParquetFileFormatPushDown : public TestParquetFileFormat {
  public:
-  void CountRowsAndBatchesInScan(Fragment& fragment, int64_t expected_rows,
-                                 int64_t expected_batches) {
+  void CountRowsAndBatchesInScan(const std::shared_ptr<Fragment>& fragment,
+                                 int64_t expected_rows, int64_t expected_batches) {
     int64_t actual_rows = 0;
     int64_t actual_batches = 0;
 
-    ASSERT_OK_AND_ASSIGN(auto it, fragment.Scan(ctx_));
+    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(ctx_));
     for (auto maybe_scan_task : it) {
       ASSERT_OK_AND_ASSIGN(auto scan_task, std::move(maybe_scan_task));
       ASSERT_OK_AND_ASSIGN(auto rb_it, scan_task->Execute());
@@ -399,35 +399,35 @@ TEST_F(TestParquetFileFormatPushDown, Basic) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
-  auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
+  auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
 
   opts_->filter = scalar(true);
-  CountRowsAndBatchesInScan(*fragment, kTotalNumRows, kNumRowGroups);
+  CountRowsAndBatchesInScan(fragment, kTotalNumRows, kNumRowGroups);
 
   for (int64_t i = 1; i <= kNumRowGroups; i++) {
     opts_->filter = ("i64"_ == int64_t(i)).Copy();
-    CountRowsAndBatchesInScan(*fragment, i, 1);
+    CountRowsAndBatchesInScan(fragment, i, 1);
   }
 
   /* Out of bound filters should skip all RowGroups. */
   opts_->filter = scalar(false);
-  CountRowsAndBatchesInScan(*fragment, 0, 0);
+  CountRowsAndBatchesInScan(fragment, 0, 0);
   opts_->filter = ("i64"_ == int64_t(kNumRowGroups + 1)).Copy();
-  CountRowsAndBatchesInScan(*fragment, 0, 0);
+  CountRowsAndBatchesInScan(fragment, 0, 0);
   opts_->filter = ("i64"_ == int64_t(-1)).Copy();
-  CountRowsAndBatchesInScan(*fragment, 0, 0);
+  CountRowsAndBatchesInScan(fragment, 0, 0);
   // No rows match 1 and 2.
   opts_->filter = ("i64"_ == int64_t(1) and "u8"_ == uint8_t(2)).Copy();
-  CountRowsAndBatchesInScan(*fragment, 0, 0);
+  CountRowsAndBatchesInScan(fragment, 0, 0);
 
   opts_->filter = ("i64"_ == int64_t(2) or "i64"_ == int64_t(4)).Copy();
-  CountRowsAndBatchesInScan(*fragment, 2 + 4, 2);
+  CountRowsAndBatchesInScan(fragment, 2 + 4, 2);
 
   opts_->filter = ("i64"_ < int64_t(6)).Copy();
-  CountRowsAndBatchesInScan(*fragment, 5 * (5 + 1) / 2, 5);
+  CountRowsAndBatchesInScan(fragment, 5 * (5 + 1) / 2, 5);
 
   opts_->filter = ("i64"_ >= int64_t(6)).Copy();
-  CountRowsAndBatchesInScan(*fragment, kTotalNumRows - (5 * (5 + 1) / 2),
+  CountRowsAndBatchesInScan(fragment, kTotalNumRows - (5 * (5 + 1) / 2),
                             kNumRowGroups - 5);
 }
 

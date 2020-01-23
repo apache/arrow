@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
@@ -37,6 +38,12 @@ namespace dataset {
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
+  static std::shared_ptr<ParquetFileFormat> Make() {
+    std::shared_ptr<ParquetFileFormat> out{new ParquetFileFormat};
+    out->weak_this_ = out;
+    return out;
+  }
+
   /// \defgroup parquet-file-format-reader-properties properties which correspond to
   /// members of parquet::ReaderProperties.
   ///
@@ -67,13 +74,19 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
                                     std::shared_ptr<ScanContext> context) const override;
 
   Result<std::shared_ptr<Fragment>> MakeFragment(
-      const FileSource& source, std::shared_ptr<ScanOptions> options) override;
+      FileSource source, std::shared_ptr<ScanOptions> options) override;
+
+ private:
+  ParquetFileFormat() = default;
+
+  std::weak_ptr<ParquetFileFormat> weak_this_;
 };
 
 class ARROW_DS_EXPORT ParquetFragment : public FileFragment {
  public:
-  ParquetFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
-      : FileFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
+  ParquetFragment(FileSource source, std::shared_ptr<ParquetFileFormat> format,
+                  std::shared_ptr<ScanOptions> options)
+      : FileFragment(std::move(source), std::move(format), std::move(options)) {}
 
   bool splittable() const override { return true; }
 };

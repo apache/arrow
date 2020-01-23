@@ -285,7 +285,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CParquetFileFormat "arrow::dataset::ParquetFileFormat"(
             CFileFormat):
-        pass
+        c_bool use_buffered_stream
+        int64_t buffer_size
+        unordered_set[c_int] read_dict_indices
+        int64_t batch_size
 
     cdef cppclass CParquetFragment "arrow::dataset::ParquetFragment"(
             CFileFragment):

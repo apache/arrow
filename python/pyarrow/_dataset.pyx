@@ -75,8 +75,16 @@ cdef class FileFormat:
 
 cdef class ParquetFileFormat(FileFormat):
 
+    cdef:
+        CParquetFileFormat* parquet_format
+
     def __init__(self):
         self.init(shared_ptr[CFileFormat](new CParquetFileFormat()))
+
+    @property
+    def use_buffered_stream(self):
+        """The arrow Schema describing the partition scheme."""
+        return self.wrapped.
 
 
 cdef class IpcFileFormat(FileFormat):

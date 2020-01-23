@@ -373,8 +373,9 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
 }
 
 Result<std::shared_ptr<Fragment>> ParquetFileFormat::MakeFragment(
-    const FileSource& source, std::shared_ptr<ScanOptions> options) {
-  return std::make_shared<ParquetFragment>(source, options);
+    FileSource source, std::shared_ptr<ScanOptions> options) {
+  auto format = weak_this_.lock();
+  return std::make_shared<ParquetFragment>(std::move(source), format, std::move(options));
 }
 
 }  // namespace dataset
