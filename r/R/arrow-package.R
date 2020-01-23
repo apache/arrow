@@ -18,7 +18,7 @@
 #' @importFrom R6 R6Class
 #' @importFrom purrr map map_int map_lgl map_chr map2
 #' @importFrom assertthat assert_that
-#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env as_label
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env env_bind as_label set_names
 #' @importFrom Rcpp sourceCpp
 #' @importFrom tidyselect vars_select
 #' @useDynLib arrow, .registration = TRUE

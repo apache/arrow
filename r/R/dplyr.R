@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' @include expression.R
 #' @include record-batch.R
 #' @include table.R
 
@@ -36,7 +37,7 @@ arrow_dplyr_query <- function(.data) {
       # * vector contents are the names of the columns in the data
       # * vector names are the names they should be in the end (i.e. this
       #   records any renaming)
-      selected_columns = stats::setNames(names(.data), names(.data)),
+      selected_columns = set_names(names(.data)),
       # filtered_rows will be a ComparisonExpression
       filtered_rows = TRUE,
       # group_by_vars is a character vector of columns (as renamed)
@@ -68,6 +69,7 @@ print.arrow_dplyr_query <- function(x, ...) {
 }
 
 # These are the names reflecting all select/rename, not what is in Arrow
+#' @export
 names.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 # The following S3 methods are registered on load if dplyr is present
@@ -89,7 +91,7 @@ column_select <- function(.data, ..., .FUN = vars_select) {
   out <- .FUN(names(.data), !!!enquos(...))
   # Make sure that the resulting selected columns map back to the original data,
   # as in when there are multiple renaming steps
-  .data$selected_columns <- stats::setNames(.data$selected_columns[out], names(out))
+  .data$selected_columns <- set_names(.data$selected_columns[out], names(out))
 
   # If we've renamed columns, we need to project that renaming into other
   # query parameters we've collected
@@ -114,39 +116,18 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   }
 
   .data <- arrow_dplyr_query(.data)
-  data_is_dataset <- query_on_dataset(.data)
-
   # The filter() method works by evaluating the filters to generate Expressions
   # with references to Arrays (if .data is Table/RecordBatch) or Fields (if
   # .data is a Dataset).
-  filter_data <- env()
-  vars_in_filters <- intersect(unlist(lapply(filts, all.vars)), names(.data))
-  for (v in vars_in_filters) {
-    # Map any renamed vars to their name in the underlying Arrow schema
-    old_var_name <- .data$selected_columns[v]
-    if (data_is_dataset) {
-      # Make a FieldExpression
-      this <- FieldExpression$create(old_var_name)
-    } else {
-      # Get the (reference to the) Array
-      this <- .data$.data[[old_var_name]]
-    }
-    assign(v, this, envir = filter_data)
-  }
-  # Add %in% function since we can't define that as a field/array method naturally
-  # (it's not a generic)
-  if (data_is_dataset) {
-    assign("%in%", InExpression$create, envir = filter_data)
-  } else {
-    assign("%in%", function(x, table) array_expression("%in%", x, table), envir = filter_data)
-  }
-  dm <- new_data_mask(filter_data)
+  dm <- filter_mask(.data)
   filters <- lapply(filts, function (f) {
     # This should yield an Expression as long as the filter function(s) are
     # implemented in Arrow.
     tryCatch(eval_tidy(f, dm), error = function(e) {
       # Look for the cases where bad input was given, i.e. this would fail
-      # in regular dplyr anyway
+      # in regular dplyr anyway, and let those raise those as errors;
+      # else, for things not supported by Arrow return a "try-error",
+      # which we'll handle differently
       msg <- conditionMessage(e)
       if (grepl("object '.*'.not.found", msg)) {
         stop(e)
@@ -157,11 +138,10 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
       invisible(structure(msg, class = "try-error", condition = e))
     })
   })
-
   bad_filters <- map_lgl(filters, ~inherits(., "try-error"))
   if (any(bad_filters)) {
     bads <- oxford_paste(map_chr(filts, as_label)[bad_filters], quote = FALSE)
-    if (data_is_dataset) {
+    if (query_on_dataset(.data)) {
       # Abort. We don't want to auto-collect if this is a Dataset because that
       # could blow up, too big.
       stop(
@@ -186,6 +166,36 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
 }
 filter.Dataset <- filter.Table <- filter.RecordBatch <- filter.arrow_dplyr_query
 
+# Create a data mask for evaluating a filter expression
+filter_mask <- function(.data) {
+  f_env <- env()
+
+  # Insert functions/operators and field references
+  # TODO: define functions in env once, outside of this function
+  # filter_env <- env(parent = if (data_is_dataset) function_env1 else function_env2)
+  if (query_on_dataset(.data)) {
+    comp_func <- function(operator) {
+      force(operator)
+      function(e1, e2) make_expression(operator, e1, e2)
+    }
+    var_binder <- function(x) FieldExpression$create(x)
+  } else {
+    comp_func <- function(operator) {
+      force(operator)
+      function(e1, e2) array_expression(operator, e1, e2)
+    }
+    var_binder <- function(x) .data$.data[[x]]
+  }
+
+  # First add the functions
+  func_names <- set_names(c(names(comparison_function_map), "&", "|", "%in%"))
+  env_bind(f_env, !!!lapply(func_names, comp_func))
+  # Then add the column references
+  # Renaming is handled automatically by the named list
+  env_bind(f_env, !!!lapply(.data$selected_columns, var_binder))
+  new_data_mask(f_env)
+}
+
 set_filters <- function(.data, expressions) {
   # expressions is a list of Expressions. AND them together and set them on .data
   new_filter <- Reduce("&", expressions)
@@ -203,7 +213,7 @@ collect.arrow_dplyr_query <- function(x, ...) {
   # Be sure to retain any group_by vars
   gv <- setdiff(dplyr::group_vars(x), names(colnames))
   if (length(gv)) {
-    colnames <- c(colnames, stats::setNames(gv, gv))
+    colnames <- c(colnames, set_names(gv))
   }
 
   # Pull only the selected rows and cols into R
@@ -237,7 +247,7 @@ collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data <- arrow_dplyr_query(.data)
   var <- vars_pull(names(.data), !!enquo(var))
-  .data$selected_columns <- stats::setNames(.data$selected_columns[var], var)
+  .data$selected_columns <- set_names(.data$selected_columns[var], var)
   dplyr::collect(.data)[[1]]
 }
 pull.Dataset <- pull.Table <- pull.RecordBatch <- pull.arrow_dplyr_query

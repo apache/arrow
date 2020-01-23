@@ -206,7 +206,8 @@ test_that("filter() on timestamp columns", {
   datetime_to_ns <- function (x) {
     # TODO: src/expression.cpp should handle timestamp data
     # TODO: C++ library should handle autocasting
-    as.numeric(x) * 1000000
+    # as.numeric(x) * 1000000
+    x
   }
   expect_equivalent(
     ds %>%
@@ -219,12 +220,11 @@ test_that("filter() on timestamp columns", {
 })
 
 test_that("collect() on Dataset works (if fits in memory)", {
-  skip("https://issues.apache.org/jira/browse/ARROW-7545")
-  expect_identical(
+  expect_equal(
     collect(open_dataset(dataset_dir)),
     rbind(
-      cbind(df1, part=1),
-      cbind(df2, part=2)
+      cbind(df1),
+      cbind(df2)
     )
   )
 })
