@@ -39,7 +39,7 @@ using internal::make_unique;
 using util::string_view;
 
 static size_t ConsumeWhitespace(string_view view) {
-#if defined(ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD)
+#ifdef RAPIDJSON_SIMD
   auto data = view.data();
   auto nonws_begin = rj::SkipWhitespace_SIMD(data, data + view.size());
   return nonws_begin - data;
