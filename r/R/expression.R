@@ -173,6 +173,14 @@ Ops.Expression <- function(e1, e2) {
   if (.Generic == "!") {
     return(NotExpression$create(e1))
   }
+  make_expression(.Generic, e1, e2)
+}
+
+make_expression <- function(operator, e1, e2) {
+  if (operator == "%in%") {
+    # In doesn't take Scalar, it takes Array
+    return(InExpression$create(e1, e2))
+  }
   # Check for non-expressions and convert to ScalarExpressions
   if (!inherits(e1, "Expression")) {
     e1 <- ScalarExpression$create(e1)
@@ -180,12 +188,12 @@ Ops.Expression <- function(e1, e2) {
   if (!inherits(e2, "Expression")) {
     e2 <- ScalarExpression$create(e2)
   }
-  if (.Generic == "&") {
+  if (operator == "&") {
     AndExpression$create(e1, e2)
-  } else if (.Generic == "|") {
+  } else if (operator == "|") {
     OrExpression$create(e1, e2)
   } else {
-    ComparisonExpression$create(.Generic, e1, e2)
+    ComparisonExpression$create(operator, e1, e2)
   }
 }
 
