@@ -132,9 +132,15 @@ function print_coredumps() {
   # and the ulimit must be increased:
   #   sudo ulimit -c unlimited
 
-  PATTERN="^core\.$(basename ${TEST_EXECUTABLE})"
-  COREFILES=$(ls | grep $PATTERN)
+  pwd
 
+  # filename is truncated to the first 15 characters in case of linux, so limit
+  # the pattern for the first 15 characters
+  FILENAME=$(basename "${TEST_EXECUTABLE}")
+  FILENAME=$(echo ${FILENAME} | cut -c-15)
+  PATTERN="^core\.${FILENAME}"
+
+  COREFILES=$(ls | grep $PATTERN)
   if [ -n "$COREFILES" ]; then
     echo "Found core dump. Printing backtrace and moving the coredump under ./cores"
 
