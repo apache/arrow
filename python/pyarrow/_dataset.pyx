@@ -23,6 +23,7 @@ from __future__ import absolute_import
 
 from cython.operator cimport dereference as deref
 
+import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
@@ -1158,6 +1159,54 @@ cdef class Expression:
 
     def assume(self, Expression given):
         return Expression.wrap(self.expression.Assume(given.unwrap()))
+
+    def _compare(self, other, op):
+        if isinstance(other, Expression):
+            return ComparisonExpression(op, self, other)
+        else:
+            return NotImplemented
+
+    def __eq__(self, other):
+        return self._compare(other, CompareOperator.Equal)
+
+    def __ne__(self, other):
+        return self._compare(other, CompareOperator.NotEqual)
+
+    def __gt__(self, other):
+        return self._compare(other, CompareOperator.Greater)
+
+    def __ge__(self, other):
+        return self._compare(other, CompareOperator.GreaterEqual)
+
+    def __lt__(self, other):
+        return self._compare(other, CompareOperator.Less)
+
+    def __le__(self, other):
+        return self._compare(other, CompareOperator.LessEqual)
+
+    def __invert__(self):
+        return NotExpression(self)
+
+    def __and__(self, other):
+        if isinstance(other, Expression):
+            return AndExpression(self, other)
+        else:
+            return NotImplemented
+
+    def __or__(self, other):
+        if isinstance(other, Expression):
+            return OrExpression(self, other)
+        else:
+            return NotImplemented
+
+    def is_valid(self):
+        return IsValidExpression(self)
+
+    def cast(self, type, bint safe=True):
+        return CastExpression(self, to=ensure_type(type), safe=safe)
+
+    def isin(self, values):
+        return InExpression(self, pa.array(values))
 
 
 cdef class UnaryExpression(Expression):

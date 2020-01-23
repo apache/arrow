@@ -382,6 +382,52 @@ def test_expression():
     assert str(condition) == "(i64 > 5:int64)"
 
 
+def test_expression_ergonomics():
+    zero = ds.scalar(0)
+    one = ds.scalar(1)
+    true = ds.scalar(True)
+    false = ds.scalar(False)
+    field = ds.field("field")
+
+    assert one.equals(ds.ScalarExpression(1))
+    assert zero.equals(ds.ScalarExpression(0))
+    assert true.equals(ds.ScalarExpression(True))
+    assert false.equals(ds.ScalarExpression(False))
+    assert field.equals(ds.FieldExpression("field"))
+
+    expr = one & zero
+    expected = ds.AndExpression(ds.ScalarExpression(1), ds.ScalarExpression(0))
+    assert expr.equals(expected)
+
+    expr = one | zero
+    expected = ds.OrExpression(ds.ScalarExpression(1), ds.ScalarExpression(0))
+    assert expr.equals(expected)
+
+    expr = zero <= one
+    expected = ds.ComparisonExpression(ds.CompareOperator.LessEqual, zero, one)
+    assert expr.equals(expected)
+
+    expr = ~true == false
+    expected = ds.ComparisonExpression(
+        ds.CompareOperator.Equal,
+        ds.NotExpression(ds.ScalarExpression(True)),
+        ds.ScalarExpression(False)
+    )
+    assert expr.equals(expected)
+
+    expr = field.cast("bool") == true
+    expected = ds.ComparisonExpression(
+        ds.CompareOperator.Equal,
+        ds.CastExpression(ds.FieldExpression("field"), pa.bool_()),
+        ds.ScalarExpression(True)
+    )
+    assert expr.equals(expected)
+
+    expr = field.isin([1, 2])
+    expected = ds.InExpression(ds.FieldExpression("field"), pa.array([1, 2]))
+    assert expr.equals(expected)
+
+
 @pytest.mark.parametrize('paths_or_selector', [
     fs.FileSelector('subdir', recursive=True),
     [

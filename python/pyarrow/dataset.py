@@ -332,5 +332,12 @@ def dataset(sources, filesystem=None, partitioning=None, format=None):
                        format=format)
         for src in sources
     ]
-
     return DatasetFactory(sources).finish()
+
+
+def field(name):
+    return FieldExpression(name)
+
+
+def scalar(value):
+    return ScalarExpression(value)
