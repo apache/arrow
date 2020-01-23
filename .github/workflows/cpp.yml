@@ -50,7 +50,9 @@ jobs:
         run: docker-compose build conda-cpp
       - name: Docker Run
         shell: bash
-        run: docker-compose run -e ARROW_TEST_ULIMIT_CORE=unlimited conda-cpp
+        run: |
+          sudo echo "core.%e.%p" > /proc/sys/kernel/core_pattern
+          docker-compose run conda-cpp
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -137,15 +139,10 @@ jobs:
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        env:
-          ARROW_TEST_ULIMIT_CORE: unlimited
         run: |
-          sudo sysctl -w kern.corefile=core.%P
+          sudo ulimit -c unlimited
+          sudo sysctl -w kern.corefile=core.%N.%P
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
-      # - name: Show Coredump
-      #   shell: bash
-      #   if: failure()
-      #   run: ci/scripts/util_coredump.sh
 
   windows:
     name: AMD64 ${{ matrix.name }} C++
