@@ -176,9 +176,11 @@ build_libarrow <- function(src_dir, dst_dir) {
   # We'll need to compile R bindings with these libs, so delete any .o files
   system("rm src/*.o", ignore.stdout = quietly, ignore.stderr = quietly)
   # Set up make for parallel building
-  library(parallel)
-  makeflags <- sprintf("-j%s", detectCores())
-  Sys.setenv(MAKEFLAGS = makeflags)
+  makeflags <- Sys.getenv("MAKEFLAGS")
+  if (makeflags == "") {
+    makeflags <- sprintf("-j%s", parallel::detectCores())
+    Sys.setenv(MAKEFLAGS = makeflags)
+  }
   if (!quietly) {
     cat("*** Building with MAKEFLAGS=", makeflags, "\n")
   }
