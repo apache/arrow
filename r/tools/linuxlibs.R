@@ -175,14 +175,21 @@ find_local_source <- function() {
 build_libarrow <- function(src_dir, dst_dir) {
   # We'll need to compile R bindings with these libs, so delete any .o files
   system("rm src/*.o", ignore.stdout = quietly, ignore.stderr = quietly)
+  # Set up make for parallel building
+  library(parallel)
+  makeflags <- sprintf("-j%s", detectCores())
+  Sys.setenv(MAKEFLAGS = makeflags)
+  if (!quietly) {
+    cat("*** Building with MAKEFLAGS=", makeflags, "\n")
+  }
   # Check for libarrow build dependencies:
   # * cmake
   # * flex and bison (for building thrift)
   # * m4 (for building flex and bison)
   cmake <- ensure_cmake()
   m4 <- ensure_m4()
-  flex <- ensure_flex(m4)
   bison <- ensure_bison(m4)
+  flex <- ensure_flex(m4, bison)
   env_vars <- sprintf(
     "SOURCE_DIR=%s BUILD_DIR=libarrow/build DEST_DIR=%s CMAKE=%s",
     src_dir,                                dst_dir,    cmake
@@ -192,10 +199,10 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
   }
   if (!is.null(bison)) {
-    system(paste0(bison, "/bin/bison --version"))
+    system(paste0(bison, "/bison --version"))
     env_vars <- sprintf(
-      "PATH=%s/bin:$PATH %s BISON_PKGDATADIR=%s/share/bison",
-            bison,       env_vars,           bison
+      "PATH=%s:$PATH %s BISON_PKGDATADIR=%s/../share/bison",
+            bison,   env_vars,           bison
     )
   }
   if (!quietly) {
@@ -233,7 +240,7 @@ ensure_cmake <- function() {
 }
 
 # TODO: move ensure_flex/bison/m4 to cmake: https://issues.apache.org/jira/browse/ARROW-7501
-ensure_flex <- function(m4 = ensure_m4()) {
+ensure_flex <- function(m4 = ensure_m4(), bison = ensure_bison()) {
   if (nzchar(Sys.which("flex"))) {
     # We already have flex.
     # NULL will tell the caller not to append FLEX_ROOT to env vars bc it's not needed
@@ -258,17 +265,20 @@ ensure_flex <- function(m4 = ensure_m4()) {
   untar(flex_tar, exdir = flex_dir)
   unlink(flex_tar)
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), flex_dir))
-  # flex also needs m4
+  # flex also needs m4 and bison
+  path <- '$PATH'
   if (!is.null(m4)) {
-    # If we just built it, put it on PATH for building bison
-    path <- sprintf('export PATH="%s:$PATH" && ', m4)
-  } else {
-    path <- ""
+    path <- sprintf('%s:%s', m4, path)
   }
+  if (!is.null(bison)) {
+    path <- sprintf('%s:%s', bison, path)
+  }
+  path_export <- sprintf('export PATH="%s" && ', path)
   # Now, build flex
   flex_dir <- paste0(flex_dir, "/flex-", FLEX_VERSION)
   cmd <- sprintf("cd %s && ./configure && make", shQuote(flex_dir))
-  system(paste0(path, cmd))
+  cat("*** Path export for flex:", path_export, "\n")
+  system(paste0(path_export, cmd))
   # The built flex should be in ./src. Return that so we can set as FLEX_ROOT
   paste0(flex_dir, "/src")
 }
@@ -309,7 +319,8 @@ ensure_bison <- function(m4 = ensure_m4()) {
         shQuote(build_dir),          install_dir
   )
   system(paste0(path, cmd))
-  install_dir
+  # Return the path to the bison binaries
+  paste0(install_dir, "/bin")
 }
 
 ensure_m4 <- function() {

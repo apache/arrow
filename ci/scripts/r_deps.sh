@@ -22,6 +22,14 @@ set -ex
 
 source_dir=${1}/r
 
+# Install minimal development dependencies
+# for slightly faster live building Arrow C++ from R.
+if [[ -x "$(which apt-get)" ]]; then
+    apt-get install -qy --no-install-recommends bison flex m4
+elif [[ -x "$(which yum)" ]]; then
+    yum install -y bison flex m4
+fi
+
 pushd ${source_dir}
 
 # Install R package dependencies
