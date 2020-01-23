@@ -36,6 +36,7 @@ RUN apt-get update -y -q && \
         flex \
         g++ \
         gcc \
+        gdb \
         git \
         libboost-all-dev \
         libbrotli-dev \
