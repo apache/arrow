@@ -107,5 +107,5 @@ add_arrow_dataset_test(partition_test)
 add_arrow_dataset_test(scanner_test)
 
 if(ARROW_PARQUET)
-add_arrow_dataset_test(file_parquet_test)
+  add_arrow_dataset_test(file_parquet_test)
 endif()

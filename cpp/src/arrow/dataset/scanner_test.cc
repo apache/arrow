@@ -36,12 +36,13 @@ class TestScanner : public DatasetFixtureMixin {
   static constexpr int64_t kBatchSize = 1024;
 
   Scanner MakeScanner(std::shared_ptr<RecordBatch> batch) {
-    std::vector<std::shared_ptr<RecordBatch>> batches{size_t(kNumberBatches), batch};
+    std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
+                                                      batch};
 
-    FragmentVector fragments{size_t(kNumberFragments),
+    FragmentVector fragments{static_cast<size_t>(kNumberFragments),
                              std::make_shared<InMemoryFragment>(batches, options_)};
 
-    SourceVector sources{size_t(kNumberSources),
+    SourceVector sources{static_cast<size_t>(kNumberSources),
                          std::make_shared<InMemorySource>(batch->schema(), fragments)};
 
     return Scanner{sources, options_, ctx_};

@@ -42,7 +42,8 @@ TEST_F(TestInMemoryFragment, Scan) {
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
   // Creates a InMemoryFragment of the same repeated batch.
-  auto fragment = InMemoryFragment({size_t(kNumberBatches), batch}, options_);
+  auto fragment =
+      InMemoryFragment({static_cast<size_t>(kNumberBatches), batch}, options_);
 
   AssertFragmentEquals(reader.get(), &fragment);
 }
@@ -58,11 +59,13 @@ TEST_F(TestInMemorySource, GetFragments) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches * kNumberFragments, batch);
 
-  std::vector<std::shared_ptr<RecordBatch>> batches{size_t(kNumberBatches), batch};
+  std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
+                                                    batch};
   auto fragment = std::make_shared<InMemoryFragment>(batches, options_);
   // It is safe to copy fragment multiple time since Scan() does not consume
   // the internal array.
-  auto source = InMemorySource(schema_, {size_t(kNumberFragments), fragment});
+  auto source =
+      InMemorySource(schema_, {static_cast<size_t>(kNumberFragments), fragment});
 
   AssertSourceEquals(reader.get(), &source);
 }
@@ -81,23 +84,24 @@ TEST_F(TestTreeSource, GetFragments) {
   auto n_leaves = 1U << kCompleteBinaryTreeDepth;
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches * n_leaves, batch);
 
-  std::vector<std::shared_ptr<RecordBatch>> batches{size_t(kNumberBatches), batch};
+  std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
+                                                    batch};
   auto fragment = std::make_shared<InMemoryFragment>(batches, options_);
 
   // Creates a complete binary tree of depth kCompleteBinaryTreeDepth where the
   // leaves are InMemorySource containing kChildPerNode fragments.
 
-  auto l1_leaf_source =
-      std::make_shared<InMemorySource>(schema_, FragmentVector{size_t(kChildPerNode), fragment});
+  auto l1_leaf_source = std::make_shared<InMemorySource>(
+      schema_, FragmentVector{static_cast<size_t>(kChildPerNode), fragment});
 
-  auto l2_leaf_tree_source =
-      std::make_shared<TreeSource>(schema_, SourceVector{size_t(kChildPerNode), l1_leaf_source});
+  auto l2_leaf_tree_source = std::make_shared<TreeSource>(
+      schema_, SourceVector{static_cast<size_t>(kChildPerNode), l1_leaf_source});
 
   auto l3_middle_tree_source = std::make_shared<TreeSource>(
-      schema_, SourceVector{size_t(kChildPerNode), l2_leaf_tree_source});
+      schema_, SourceVector{static_cast<size_t>(kChildPerNode), l2_leaf_tree_source});
 
   auto root_source = std::make_shared<TreeSource>(
-      schema_, SourceVector{size_t(kChildPerNode), l3_middle_tree_source});
+      schema_, SourceVector{static_cast<size_t>(kChildPerNode), l3_middle_tree_source});
 
   AssertSourceEquals(reader.get(), root_source.get());
 }
@@ -112,9 +116,10 @@ TEST_F(TestDataset, TrivialScan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
 
-  std::vector<std::shared_ptr<RecordBatch>> batches{size_t(kNumberBatches), batch};
+  std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
+                                                    batch};
   auto fragment = std::make_shared<InMemoryFragment>(batches, options_);
-  FragmentVector fragments{size_t(kNumberFragments), fragment};
+  FragmentVector fragments{static_cast<size_t>(kNumberFragments), fragment};
 
   SourceVector sources = {
       std::make_shared<InMemorySource>(schema_, fragments),
