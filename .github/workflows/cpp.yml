@@ -51,9 +51,7 @@ jobs:
       - name: Docker Run
         shell: bash
         run: |
-          ls -lah /proc/sys/kernel/core_pattern
-          cat /proc/sys/kernel/core_pattern
-          sudo echo "core.%e.%p" > /proc/sys/kernel/core_pattern
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
           docker-compose run conda-cpp
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
@@ -120,7 +118,7 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: ON
       # ARROW-7551: for now, build without Homebrew gRPC, as gRPC
-      # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662x
+      # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662
       gRPC_SOURCE: BUNDLED
       Protobuf_SOURCE: BUNDLED
     steps:
