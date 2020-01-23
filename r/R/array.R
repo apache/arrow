@@ -17,9 +17,11 @@
 
 #' @include arrow-package.R
 
-#' @title Array class
-#' @description Array base type. Immutable data array with some logical type
-#' and some length.
+#' @title Arrow Arrays
+#' @description An `Array` is an immutable data array with some logical type
+#' and some length. Most logical types are contained in the base
+#' `Array` class; there are also subclasses for `DictionaryArray`, `ListArray`,
+#' and `StructArray`.
 #' @usage NULL
 #' @format NULL
 #' @docType class
@@ -30,6 +32,15 @@
 #' * `x`: an R vector, list, or `data.frame`
 #' * `type`: an optional [data type][data-type] for `x`. If omitted, the type
 #'    will be inferred from the data.
+#'
+#' `Array$create()` will return the appropriate subclass of `Array`, such as
+#' `DictionaryArray` when given an R factor.
+#'
+#' To compose a `DictionaryArray` directly, call `DictionaryArray$create()`,
+#' which takes two arguments:
+#' * `x`: an R vector or `Array` of integers for the dictionary indices
+#' * `dict`: an R vector or `Array` of dictionary values (like R factor levels
+#'   but not limited to strings only)
 #' @section Usage:
 #'
 #' ```
@@ -135,35 +146,6 @@ Array <- R6Class("Array",
     type = function() DataType$create(Array__type(self))
   )
 )
-
-DictionaryArray <- R6Class("DictionaryArray", inherit = Array,
-  public = list(
-    indices = function() Array$create(DictionaryArray__indices(self)),
-    dictionary = function() Array$create(DictionaryArray__dictionary(self))
-  )
-)
-
-StructArray <- R6Class("StructArray", inherit = Array,
-  public = list(
-    field = function(i) Array$create(StructArray__field(self, i)),
-    GetFieldByName = function(name) Array$create(StructArray__GetFieldByName(self, name)),
-    Flatten = function() map(StructArray__Flatten(self), ~ Array$create(.x))
-  )
-)
-
-ListArray <- R6Class("ListArray", inherit = Array,
-  public = list(
-    values = function() Array$create(ListArray__values(self)),
-    value_length = function(i) ListArray__value_length(self, i),
-    value_offset = function(i) ListArray__value_offset(self, i),
-    raw_value_offsets = function() ListArray__raw_value_offsets(self)
-  ),
-  active = list(
-    value_type = function() DataType$create(ListArray__value_type(self))
-  )
-)
-
-# Add a class method
 Array$create <- function(x, type = NULL) {
   if (!inherits(x, "externalptr")) {
     x <- Array__from_vector(x, type)
@@ -178,6 +160,62 @@ Array$create <- function(x, type = NULL) {
   }
   a
 }
+
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
+DictionaryArray <- R6Class("DictionaryArray", inherit = Array,
+  public = list(
+    indices = function() Array$create(DictionaryArray__indices(self)),
+    dictionary = function() Array$create(DictionaryArray__dictionary(self))
+  )
+)
+DictionaryArray$create <- function(x, dict = NULL) {
+  if (is.factor(x)) {
+    # The simple case: converting a factor.
+    # Ignoring `dict`; should probably error if dict is not NULL
+    return(Array$create(x))
+  }
+
+  assert_that(!is.null(dict))
+  if (!is.Array(x)) {
+    x <- Array$create(x)
+  }
+  if (!is.Array(dict)) {
+    dict <- Array$create(dict)
+  }
+  type <- DictionaryType$create(x$type, dict$type)
+  shared_ptr(DictionaryArray, DictionaryArray__FromArrays(type, x, dict))
+}
+
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
+StructArray <- R6Class("StructArray", inherit = Array,
+  public = list(
+    field = function(i) Array$create(StructArray__field(self, i)),
+    GetFieldByName = function(name) Array$create(StructArray__GetFieldByName(self, name)),
+    Flatten = function() map(StructArray__Flatten(self), ~ Array$create(.x))
+  )
+)
+
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
+ListArray <- R6Class("ListArray", inherit = Array,
+  public = list(
+    values = function() Array$create(ListArray__values(self)),
+    value_length = function(i) ListArray__value_length(self, i),
+    value_offset = function(i) ListArray__value_offset(self, i),
+    raw_value_offsets = function() ListArray__raw_value_offsets(self)
+  ),
+  active = list(
+    value_type = function() DataType$create(ListArray__value_type(self))
+  )
+)
 
 #' @export
 length.Array <- function(x) x$length()

@@ -53,6 +53,7 @@ See `vignette("install", package = "arrow")` for details.
 
 * Arrow null type is now supported
 * Factor types are now preserved in round trip through Parquet format (#6135, @yutannihilation)
+* Reading an Arrow dictionary type coerces dictionary values to `character` (as R `factor` levels are required to be) instead of raising an error
 * Many improvements to Parquet function documentation (@karldw, @khughitt)
 
 # arrow 0.15.1

@@ -1120,4 +1120,14 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
   return std::make_shared<arrow::ChunkedArray>(std::move(vec));
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(
+    const std::shared_ptr<arrow::DataType>& type,
+    const std::shared_ptr<arrow::Array>& indices,
+    const std::shared_ptr<arrow::Array>& dict) {
+  std::shared_ptr<arrow::Array> out;
+  STOP_IF_NOT_OK(arrow::DictionaryArray::FromArrays(type, indices, dict, &out));
+  return out;
+}
+
 #endif

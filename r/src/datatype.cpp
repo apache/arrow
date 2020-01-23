@@ -211,7 +211,7 @@ arrow::TimeUnit::type TimestampType__unit(
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(
     const std::shared_ptr<arrow::DataType>& index_type,
     const std::shared_ptr<arrow::DataType>& value_type, bool ordered) {
-  return arrow::dictionary(index_type, value_type, ordered);
+  return VALUE_OR_STOP(arrow::DictionaryType::Make(index_type, value_type, ordered));
 }
 
 // [[arrow::export]]
