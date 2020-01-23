@@ -491,7 +491,8 @@ cdef class _PandasConvertible:
             bint deduplicate_objects=True,
             bint ignore_metadata=False,
             bint split_blocks=False,
-            bint self_destruct=False
+            bint self_destruct=False,
+            types_mapper=None
     ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
@@ -531,6 +532,14 @@ cdef class _PandasConvertible:
             memory while converting the Arrow object to pandas. If you use the
             object after calling to_pandas with this option it will crash your
             program
+        types_mapper : function, default None
+            A function mapping a pyarrow DataType to a pandas ExtensionDtype.
+            This can be used to override the default pandas type for conversion
+            of built-in pyarrow types or in absence of pandas_metadata in the
+            Table schema. The function receives a pyarrow DataType and is
+            expected to return a pandas ExtensionDtype or ``None`` if the
+            default conversion should be used for that type. If you have
+            a dictionary mapping, you can pass ``dict.get`` as function.
 
         Returns
         -------
@@ -548,7 +557,8 @@ cdef class _PandasConvertible:
             self_destruct=self_destruct
         )
         return self._to_pandas(options, categories=categories,
-                               ignore_metadata=ignore_metadata)
+                               ignore_metadata=ignore_metadata,
+                               types_mapper=types_mapper)
 
 
 cdef PandasOptions _convert_pandas_options(dict options):

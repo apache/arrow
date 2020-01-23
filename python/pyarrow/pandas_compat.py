@@ -741,7 +741,7 @@ def make_datetimetz(tz):
 
 
 def table_to_blockmanager(options, table, categories=None,
-                          extension_columns=None, ignore_metadata=False):
+                          ignore_metadata=False, types_mapper=None):
     from pandas.core.internals import BlockManager
 
     all_columns = []
@@ -756,14 +756,10 @@ def table_to_blockmanager(options, table, categories=None,
         table, index = _reconstruct_index(table, index_descriptors,
                                           all_columns)
         ext_columns_dtypes = _get_extension_dtypes(
-            table, all_columns, extension_columns)
+            table, all_columns, types_mapper)
     else:
         index = _pandas_api.pd.RangeIndex(table.num_rows)
-        if extension_columns:
-            raise ValueError("extension_columns not supported if there is "
-                             "no pandas_metadata")
-        ext_columns_dtypes = _get_extension_dtypes(
-            table, [], extension_columns)
+        ext_columns_dtypes = _get_extension_dtypes(table, [], types_mapper)
 
     _check_data_column_metadata_consistency(all_columns)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
@@ -782,7 +778,7 @@ _pandas_supported_numpy_types = set([
 ])
 
 
-def _get_extension_dtypes(table, columns_metadata, extension_columns):
+def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
     """
     Based on the stored column pandas metadata and the extension types
     in the arrow schema, infer which columns should be converted to a
@@ -799,46 +795,38 @@ def _get_extension_dtypes(table, columns_metadata, extension_columns):
 
     # older pandas version that does not yet support extension dtypes
     if _pandas_api.extension_dtype is None:
-        if extension_columns is not None:
-            raise ValueError(
-                "Converting to pandas ExtensionDtypes is not supported")
         return ext_columns
 
-    if extension_columns is None:
-        # infer the extension columns from the pandas metadata
-        for col_meta in columns_metadata:
-            name = col_meta['name']
-            dtype = col_meta['numpy_type']
-            if dtype not in _pandas_supported_numpy_types:
-                # pandas_dtype is expensive, so avoid doing this for types
-                # that are certainly numpy dtypes
-                pandas_dtype = _pandas_api.pandas_dtype(dtype)
-                if isinstance(pandas_dtype, _pandas_api.extension_dtype):
-                    if hasattr(pandas_dtype, "__from_arrow__"):
-                        ext_columns[name] = pandas_dtype
-        # infer from extension type in the schema
+    # infer the extension columns from the pandas metadata
+    for col_meta in columns_metadata:
+        name = col_meta['name']
+        dtype = col_meta['numpy_type']
+        if dtype not in _pandas_supported_numpy_types:
+            # pandas_dtype is expensive, so avoid doing this for types
+            # that are certainly numpy dtypes
+            pandas_dtype = _pandas_api.pandas_dtype(dtype)
+            if isinstance(pandas_dtype, _pandas_api.extension_dtype):
+                if hasattr(pandas_dtype, "__from_arrow__"):
+                    ext_columns[name] = pandas_dtype
+
+    # infer from extension type in the schema
+    for field in table.schema:
+        typ = field.type
+        if isinstance(typ, pa.BaseExtensionType):
+            try:
+                pandas_dtype = typ.to_pandas_dtype()
+            except NotImplementedError:
+                pass
+            else:
+                ext_columns[field.name] = pandas_dtype
+
+    # use the specified mapping of built-in arrow types to pandas dtypes
+    if types_mapper:
         for field in table.schema:
             typ = field.type
-            if isinstance(typ, pa.BaseExtensionType):
-                try:
-                    pandas_dtype = typ.to_pandas_dtype()
-                except NotImplementedError:
-                    pass
-                else:
-                    ext_columns[field.name] = pandas_dtype
-
-    else:
-        # get the extension dtype for the specified columns
-        for name in extension_columns:
-            col_meta = [
-                meta for meta in columns_metadata if meta['name'] == name][0]
-            pandas_dtype = _pandas_api.pandas_dtype(col_meta['numpy_type'])
-            if not isinstance(pandas_dtype, _pandas_api.extension_dtype):
-                raise ValueError("not an extension dtype")
-            if not hasattr(pandas_dtype, "__from_arrow__"):
-                raise ValueError("this column does not support to be "
-                                 "converted to extension dtype")
-            ext_columns[name] = pandas_dtype
+            pandas_dtype = types_mapper(typ)
+            if pandas_dtype is not None:
+                ext_columns[field.name] = pandas_dtype
 
     return ext_columns
 

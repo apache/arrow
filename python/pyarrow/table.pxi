@@ -1361,11 +1361,13 @@ cdef class Table(_PandasConvertible):
 
         return result
 
-    def _to_pandas(self, options, categories=None, ignore_metadata=False):
+    def _to_pandas(self, options, categories=None, ignore_metadata=False,
+                   types_mapper=None):
         from pyarrow.pandas_compat import table_to_blockmanager
         mgr = table_to_blockmanager(
             options, self, categories,
-            ignore_metadata=ignore_metadata)
+            ignore_metadata=ignore_metadata,
+            types_mapper=types_mapper)
         return pandas_api.data_frame(mgr)
 
     def to_pydict(self):
