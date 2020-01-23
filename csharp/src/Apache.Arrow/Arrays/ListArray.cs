@@ -14,12 +14,85 @@
 // limitations under the License.
 
 using System;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
     public class ListArray : Array
     {
+
+
+        public class Builder : IArrowArrayBuilder<ListArray, Builder>
+        {
+            // TODO: Implement support for null values (null bitmaps)
+
+            public IArrowArrayBuilder<IArrowArray, IArrowArrayBuilder<IArrowArray>> ValueBuilder { get; }
+
+            public int Length => ValueOffsetsBufferBuilder.Length;
+
+            private ArrowBuffer.Builder<int> ValueOffsetsBufferBuilder { get; }
+
+            private IArrowType DataType { get; }
+
+            public Builder(IArrowType valueDataType) : this(new ListType(valueDataType))
+            {
+            }
+
+            public Builder(Field valueField) : this(new ListType(valueField))
+            {
+            }
+
+            internal Builder(ListType dataType)
+            {
+                ValueBuilder = ArrowArrayBuilderFactory.Build(dataType.ValueDataType);
+                ValueOffsetsBufferBuilder = new ArrowBuffer.Builder<int>();
+                DataType = dataType;
+            }
+
+            /// <summary>
+            /// Start a new variable-length list slot
+            ///
+            /// This function should be called before beginning to append elements to the
+            /// value builder
+            /// </summary>
+            /// <returns></returns>
+            public Builder Append()
+            {
+                ValueOffsetsBufferBuilder.Append(ValueBuilder.Length);
+                return this;
+            }
+
+            public ListArray Build(MemoryAllocator allocator = default)
+            {
+                Append();
+
+                return new ListArray(DataType, Length - 1,
+                    ValueOffsetsBufferBuilder.Build(allocator), ValueBuilder.Build(allocator),
+                    new ArrowBuffer(), 0, 0);
+            }
+
+            public Builder Reserve(int capacity)
+            {
+                ValueOffsetsBufferBuilder.Reserve(capacity + 1);
+                return this;
+            }
+
+            public Builder Resize(int length)
+            {
+                ValueOffsetsBufferBuilder.Resize(length + 1);
+                return this;
+            }
+
+            public Builder Clear()
+            {
+                ValueOffsetsBufferBuilder.Clear();
+                ValueBuilder.Clear();
+                return this;
+            }
+
+        }
+
         public IArrowArray Values { get; }
 
         public ArrowBuffer ValueOffsetsBuffer => Data.Buffers[1];
@@ -49,15 +122,40 @@ namespace Apache.Arrow
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
+
+        [Obsolete]
         public int GetValueOffset(int index)
         {
+            if (index < 0 || index > Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
             return ValueOffsets[index];
         }
 
         public int GetValueLength(int index)
         {
+            if (index < 0 || index >= Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
             var offsets = ValueOffsets;
             return offsets[index + 1] - offsets[index];
+        }
+
+        public IArrowArray GetSlicedValues(int index)
+        {
+            if (index < 0 || index >= Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            if (!(Values is Array array))
+            {
+                return default;
+            }
+
+            return array.Slice(ValueOffsets[index], GetValueLength(index));
         }
 
         protected override void Dispose(bool disposing)

@@ -15,6 +15,7 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -38,6 +39,89 @@ namespace Apache.Arrow.Tests
             TestArrayBuilder<DoubleArray, DoubleArray.Builder>(x => x.Append(10).Append(20).Append(30));
         }
 
+
+        [Fact]
+        public void ListArrayBuilder()
+        {
+            var listBuilder = new ListArray.Builder(StringType.Default);
+            var valueBuilder = listBuilder.ValueBuilder as StringArray.Builder;
+            Assert.NotNull(valueBuilder);
+            listBuilder.Append();
+            valueBuilder.Append("1");
+            listBuilder.Append();
+            valueBuilder.Append("22").Append("33");
+            listBuilder.Append();
+            valueBuilder.Append("444").Append("555").Append("666");
+
+            var list = listBuilder.Build();
+
+            Assert.Equal(
+                new List<string> { "1" },
+                ConvertStringArrayToList(list.GetSlicedValues(0) as StringArray));
+            Assert.Equal(
+                new List<string> { "22", "33" },
+                ConvertStringArrayToList(list.GetSlicedValues(1) as StringArray));
+            Assert.Equal(
+                new List<string> { "444", "555", "666" },
+                ConvertStringArrayToList(list.GetSlicedValues(2) as StringArray));
+
+            List<string> ConvertStringArrayToList(StringArray array)
+            {
+                var length = array.Length;
+                var resultList = new List<string>(length);
+                for (var index = 0; index < length; index++)
+                {
+                    resultList.Add(array.GetString(index));
+                }
+                return resultList;
+            }
+        }
+
+        [Fact]
+        public void NestedListArrayBuilder()
+        {
+            var childListType = new ListType(Int64Type.Default);
+            var parentListBuilder = new ListArray.Builder(childListType);
+            var childListBuilder = parentListBuilder.ValueBuilder as ListArray.Builder;
+            Assert.NotNull(childListBuilder);
+            var valueBuilder = childListBuilder.ValueBuilder as Int64Array.Builder;
+            Assert.NotNull(valueBuilder);
+
+            parentListBuilder.Append();
+            childListBuilder.Append();
+            valueBuilder.Append(1);
+            childListBuilder.Append();
+            valueBuilder.Append(2).Append(3);
+            parentListBuilder.Append();
+            childListBuilder.Append();
+            valueBuilder.Append(4).Append(5).Append(6).Append(7);
+            parentListBuilder.Append();
+            childListBuilder.Append();
+            valueBuilder.Append(8).Append(9).Append(10).Append(11).Append(12);
+
+            var parentList = parentListBuilder.Build();
+
+            var childList1 = (ListArray)parentList.GetSlicedValues(0);
+            var childList2 = (ListArray)parentList.GetSlicedValues(1);
+            var childList3 = (ListArray)parentList.GetSlicedValues(2);
+
+            Assert.Equal(2, childList1.Length);
+            Assert.Equal(1, childList2.Length);
+            Assert.Equal(1, childList3.Length);
+            Assert.Equal(
+                new List<long?> { 1 },
+                ((Int64Array)childList1.GetSlicedValues(0)).ToList());
+            Assert.Equal(
+                new List<long?> { 2, 3 },
+                ((Int64Array)childList1.GetSlicedValues(1)).ToList());
+            Assert.Equal(
+                new List<long?> { 4, 5, 6, 7 },
+                ((Int64Array)childList2.GetSlicedValues(0)).ToList());
+            Assert.Equal(
+                new List<long?> { 8, 9, 10, 11, 12 },
+                ((Int64Array)childList3.GetSlicedValues(0)).ToList());
+        }
+
         public class TimestampArrayBuilder
         {
             [Fact]
@@ -56,8 +140,8 @@ namespace Apache.Arrow.Tests
         }
 
         private static void TestArrayBuilder<TArray, TArrayBuilder>(Action<TArrayBuilder> action)
-            where TArray: IArrowArray
-            where TArrayBuilder: IArrowArrayBuilder<TArray>, new()
+            where TArray : IArrowArray
+            where TArrayBuilder : IArrowArrayBuilder<TArray>, new()
         {
             var builder = new TArrayBuilder();
             action(builder);
@@ -68,6 +152,6 @@ namespace Apache.Arrow.Tests
             Assert.Equal(3, array.Length);
             Assert.Equal(0, array.NullCount);
         }
-        
+
     }
 }
