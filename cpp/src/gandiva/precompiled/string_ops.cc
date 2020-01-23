@@ -283,16 +283,50 @@ const char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_l
     return data;
   }
 
-  int32_t byte_pos = utf8_byte_pos(context, data, data_len, len);
+  int32_t remaining = len;
+  int32_t index = 0;
+  bool flag = false;
+  do {
+    char* data_ptr = const_cast<char*>(data);
+    while (remaining >= 8) {
+      uint64_t* ptr = reinterpret_cast<uint64_t*>(data_ptr + index);
+      if ((*ptr & 0x8080808080808080) != 0) {
+        flag = true;
+        break;
+      }
+      index += 8;
+      remaining -= 8;
+    }
+    if (flag) break;
+    if (remaining >= 4) {
+      uint32_t* ptr = reinterpret_cast<uint32_t*>(data_ptr + index);
+      if ((*ptr & 0x80808080) != 0) break;
+      index += 4;
+      remaining -= 4;
+    }
+    while (remaining > 0) {
+      uint8_t* ptr = reinterpret_cast<uint8_t*>(data_ptr + index);
+      if ((*ptr & 0x80) != 0) {
+        flag = true;
+        break;
+      }
+      index++;
+      remaining--;
+    }
+    if (flag) break;
+    // reached here; all are single byte characters
+    *out_length = len;
+    return data;
+  } while (false);
+
+  // detected multibyte utf8 characters; slow path
+  int32_t byte_pos = utf8_byte_pos(context, data + index, data_len - index, len - index);
   if (byte_pos < 0) {
     *out_length = 0;
     return "";
   }
-  if (byte_pos > data_len) {
-    *out_length = data_len;
-  } else {
-    *out_length = byte_pos;
-  }
+
+  *out_length = index + byte_pos;
   return data;
 }
 

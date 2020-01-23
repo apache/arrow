@@ -169,6 +169,67 @@ TEST(TestStringOps, TestCastVarhcar) {
                                    &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "aa");
   EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "1234567812341234", 16, 16, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1234567812341234");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "1234567812341234", 16, 15, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123456781234123");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "1234567812341234", 16, 12, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123456781234");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "1234567812341234", 16, 8, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "12345678");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "1234567812341234", 16, 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1234567");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "1234567812341234", 16, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1234");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "1234567812341234", 16, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "1234567812çåå†123456", 25, 16, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1234567812çåå†12");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "123456781234çåå†1234", 25, 15, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123456781234çåå");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "12çåå†34567812123456", 25, 16, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "12çåå†3456781212");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "çåå†1234567812123456", 25, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå†");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "çåå†1234567812123456", 25, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "123456781234çåå†", 21, 40, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123456781234çåå†");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string f("123456781234çåå\xc3");
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, f.data(), static_cast<int32_t>(f.length()),
+                                   16, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\c3 encountered while decoding utf8 string"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestSubstring) {
