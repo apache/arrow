@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TABLE_H
-#define ARROW_TABLE_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -381,5 +380,3 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(
     MemoryPool* pool = default_memory_pool());
 
 }  // namespace arrow
-
-#endif  // ARROW_TABLE_H
