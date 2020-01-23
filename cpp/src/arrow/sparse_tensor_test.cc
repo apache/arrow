@@ -52,7 +52,7 @@ TEST(TestSparseCOOIndex, Make) {
                                  1, 0, 1, 1, 0, 3, 1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
   auto data = Buffer::Wrap(values);
   std::vector<int64_t> shape = {12, 3};
-  std::vector<int64_t> strides = {3 * sizeof(int32_t), sizeof(int32_t)};
+  std::vector<int64_t> strides = {3 * sizeof(int32_t), sizeof(int32_t)};  // Row-major
 
   // OK
   std::shared_ptr<SparseCOOIndex> si;
@@ -73,6 +73,13 @@ TEST(TestSparseCOOIndex, Make) {
   res = SparseCOOIndex::Make(int32(), {6, 3}, {6 * sizeof(int32_t), 2 * sizeof(int32_t)},
                              data);
   ASSERT_RAISES(Invalid, res);
+
+  // Make from sparse tensor properties
+  // (shape is arbitrary 3-dim, non-zero length = 12)
+  ASSERT_OK_AND_ASSIGN(si, SparseCOOIndex::Make(int32(), {99, 99, 99}, 12, data));
+  ASSERT_EQ(shape, si->indices()->shape());
+  ASSERT_EQ(strides, si->indices()->strides());
+  ASSERT_EQ(data->data(), si->indices()->raw_data());
 }
 
 TEST(TestSparseCSRIndex, Make) {
@@ -211,7 +218,7 @@ TEST_F(TestSparseCOOTensor, CreationFromNumericTensor) {
 
   std::shared_ptr<Tensor> sidx = si->indices();
   ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
-  ASSERT_TRUE(sidx->is_column_major());
+  ASSERT_TRUE(sidx->is_row_major());
 
   AssertCOOIndex(sidx, 0, {0, 0, 0});
   AssertCOOIndex(sidx, 1, {0, 0, 2});

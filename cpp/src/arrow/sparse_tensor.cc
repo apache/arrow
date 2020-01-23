@@ -24,6 +24,7 @@
 #include <numeric>
 
 #include "arrow/compare.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -116,19 +117,16 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
       }
     } else {
       const std::vector<int64_t>& shape = tensor_.shape();
-      std::vector<int64_t> coord(ndim, 0);
+      std::vector<int64_t> coord(ndim, 0);  // The current logical coordinates
 
       for (int64_t n = tensor_.size(); n > 0; n--) {
         const value_type x = tensor_.Value(coord);
         if (tensor_.Value(coord) != 0) {
           *values++ = x;
-
-          c_index_value_type* indp = indices;
+          // Write indices in row-major order.
           for (int64_t i = 0; i < ndim; ++i) {
-            *indp = static_cast<c_index_value_type>(coord[i]);
-            indp += nonzero_count;
+            *indices++ = static_cast<c_index_value_type>(coord[i]);
           }
-          indices++;
         }
 
         // increment index
@@ -146,8 +144,7 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
 
     // make results
     const std::vector<int64_t> indices_shape = {nonzero_count, ndim};
-    const std::vector<int64_t> indices_strides = {indices_elsize,
-                                                  indices_elsize * nonzero_count};
+    const std::vector<int64_t> indices_strides = {indices_elsize * ndim, indices_elsize};
     sparse_index = std::make_shared<SparseCOOIndex>(std::make_shared<Tensor>(
         index_value_type_, indices_buffer, indices_shape, indices_strides));
     data = values_buffer;
@@ -702,9 +699,13 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
     int64_t non_zero_length, std::shared_ptr<Buffer> indices_data) {
   auto ndim = static_cast<int64_t>(shape.size());
-  const int64_t elsize = sizeof(indices_type.get());
+  if (!is_integer(indices_type->id())) {
+    return Status::TypeError("Type of SparseCOOIndex indices must be integer");
+  }
+  const int64_t elsize =
+      internal::checked_cast<const IntegerType&>(*indices_type).bit_width() / 8;
   std::vector<int64_t> indices_shape({non_zero_length, ndim});
-  std::vector<int64_t> indices_strides({elsize, elsize * non_zero_length});
+  std::vector<int64_t> indices_strides({elsize * ndim, elsize});
   return Make(indices_type, indices_shape, indices_strides, indices_data);
 }
 

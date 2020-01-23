@@ -103,14 +103,6 @@ Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject
 ARROW_PYTHON_EXPORT
 Status SerializeTensor(std::shared_ptr<Tensor> tensor, py::SerializedPyObject* out);
 
-/// \brief Serialize an Arrow SparseCOOTensor as a SerializedPyObject.
-/// \param[in] sparse_tensor SparseCOOTensor to be serialized
-/// \param[out] out The serialized representation
-/// \return Status
-ARROW_PYTHON_EXPORT
-Status SerializeSparseTensor(std::shared_ptr<SparseTensor> sparse_tensor,
-                             py::SerializedPyObject* out);
-
 /// \brief Write the Tensor metadata header to an OutputStream.
 /// \param[in] dtype DataType of the Tensor
 /// \param[in] shape The shape of the tensor

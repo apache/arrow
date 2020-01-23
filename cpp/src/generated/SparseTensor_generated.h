@@ -139,6 +139,7 @@ struct SparseTensorIndexCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     return GetPointer<const Int *>(VT_INDICESTYPE);
   }
   /// Non-negative byte offsets to advance one value cell along each dimension
+  /// If omitted, default to row-major order (C-like).
   const flatbuffers::Vector<int64_t> *indicesStrides() const {
     return GetPointer<const flatbuffers::Vector<int64_t> *>(VT_INDICESSTRIDES);
   }
@@ -148,11 +149,11 @@ struct SparseTensorIndexCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_INDICESTYPE) &&
+           VerifyOffsetRequired(verifier, VT_INDICESTYPE) &&
            verifier.VerifyTable(indicesType()) &&
            VerifyOffset(verifier, VT_INDICESSTRIDES) &&
            verifier.VerifyVector(indicesStrides()) &&
-           VerifyField<Buffer>(verifier, VT_INDICESBUFFER) &&
+           VerifyFieldRequired<Buffer>(verifier, VT_INDICESBUFFER) &&
            verifier.EndTable();
   }
 };
@@ -177,6 +178,8 @@ struct SparseTensorIndexCOOBuilder {
   flatbuffers::Offset<SparseTensorIndexCOO> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<SparseTensorIndexCOO>(end);
+    fbb_.Required(o, SparseTensorIndexCOO::VT_INDICESTYPE);
+    fbb_.Required(o, SparseTensorIndexCOO::VT_INDICESBUFFER);
     return o;
   }
 };
@@ -267,12 +270,12 @@ struct SparseMatrixIndexCSX FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int16_t>(verifier, VT_COMPRESSEDAXIS) &&
-           VerifyOffset(verifier, VT_INDPTRTYPE) &&
+           VerifyOffsetRequired(verifier, VT_INDPTRTYPE) &&
            verifier.VerifyTable(indptrType()) &&
-           VerifyField<Buffer>(verifier, VT_INDPTRBUFFER) &&
-           VerifyOffset(verifier, VT_INDICESTYPE) &&
+           VerifyFieldRequired<Buffer>(verifier, VT_INDPTRBUFFER) &&
+           VerifyOffsetRequired(verifier, VT_INDICESTYPE) &&
            verifier.VerifyTable(indicesType()) &&
-           VerifyField<Buffer>(verifier, VT_INDICESBUFFER) &&
+           VerifyFieldRequired<Buffer>(verifier, VT_INDICESBUFFER) &&
            verifier.EndTable();
   }
 };
@@ -303,6 +306,10 @@ struct SparseMatrixIndexCSXBuilder {
   flatbuffers::Offset<SparseMatrixIndexCSX> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<SparseMatrixIndexCSX>(end);
+    fbb_.Required(o, SparseMatrixIndexCSX::VT_INDPTRTYPE);
+    fbb_.Required(o, SparseMatrixIndexCSX::VT_INDPTRBUFFER);
+    fbb_.Required(o, SparseMatrixIndexCSX::VT_INDICESTYPE);
+    fbb_.Required(o, SparseMatrixIndexCSX::VT_INDICESBUFFER);
     return o;
   }
 };
@@ -435,16 +442,16 @@ struct SparseTensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_TYPE_TYPE) &&
-           VerifyOffset(verifier, VT_TYPE) &&
+           VerifyOffsetRequired(verifier, VT_TYPE) &&
            VerifyType(verifier, type(), type_type()) &&
-           VerifyOffset(verifier, VT_SHAPE) &&
+           VerifyOffsetRequired(verifier, VT_SHAPE) &&
            verifier.VerifyVector(shape()) &&
            verifier.VerifyVectorOfTables(shape()) &&
            VerifyField<int64_t>(verifier, VT_NON_ZERO_LENGTH) &&
            VerifyField<uint8_t>(verifier, VT_SPARSEINDEX_TYPE) &&
-           VerifyOffset(verifier, VT_SPARSEINDEX) &&
+           VerifyOffsetRequired(verifier, VT_SPARSEINDEX) &&
            VerifySparseTensorIndex(verifier, sparseIndex(), sparseIndex_type()) &&
-           VerifyField<Buffer>(verifier, VT_DATA) &&
+           VerifyFieldRequired<Buffer>(verifier, VT_DATA) &&
            verifier.EndTable();
   }
 };
@@ -573,6 +580,10 @@ struct SparseTensorBuilder {
   flatbuffers::Offset<SparseTensor> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<SparseTensor>(end);
+    fbb_.Required(o, SparseTensor::VT_TYPE);
+    fbb_.Required(o, SparseTensor::VT_SHAPE);
+    fbb_.Required(o, SparseTensor::VT_SPARSEINDEX);
+    fbb_.Required(o, SparseTensor::VT_DATA);
     return o;
   }
 };

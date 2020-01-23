@@ -91,7 +91,7 @@ def test_sparse_coo_tensor_base_object():
     sparse_tensor = None
     assert np.array_equal(expected_data, result_data)
     assert np.array_equal(expected_coords, result_coords)
-    assert result_coords.flags.f_contiguous  # column-major
+    assert result_coords.flags.c_contiguous  # row-major
 
 
 def test_sparse_csr_matrix_base_object():
