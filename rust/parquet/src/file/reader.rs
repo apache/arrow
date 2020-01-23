@@ -596,7 +596,7 @@ impl FilePageIterator {
         let num_columns = file_reader
             .metadata()
             .file_metadata()
-            .schema_descr_ptr()
+            .schema_descr()
             .num_columns();
 
         if column_index >= num_columns {

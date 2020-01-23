@@ -100,7 +100,7 @@ impl ArrowReader for ParquetFileArrowReader {
             .file_reader
             .metadata()
             .file_metadata()
-            .schema_descr_ptr()
+            .schema_descr()
             .num_columns();
 
         self.get_record_reader_by_columns(column_indices, batch_size)
