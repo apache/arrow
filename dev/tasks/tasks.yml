@@ -89,7 +89,7 @@ groups:
     - test-debian-10-cpp
     - test-ubuntu-16.04-cpp
     - test-ubuntu-18.04-cpp
-    - test-fedora-29-cpp
+    - test-fedora-30-cpp
     - test-ubuntu-18.04-cpp-release
     - test-ubuntu-18.04-cpp-static
     - test-ubuntu-18.04-cpp-cmake32
@@ -102,7 +102,7 @@ groups:
     - test-conda-python-3.8
     - test-debian-10-python-3
     - test-ubuntu-18.04-python-3
-    - test-fedora-29-python-3
+    - test-fedora-30-python-3
     - test-r-rhub-ubuntu-gcc-release
     - test-r-rhub-debian-gcc-devel
     - test-r-rocker-r-base-latest    
@@ -134,7 +134,7 @@ groups:
     - test-debian-10-cpp
     - test-ubuntu-16.04-cpp
     - test-ubuntu-18.04-cpp
-    - test-fedora-29-cpp
+    - test-fedora-30-cpp
     - test-ubuntu-18.04-cpp-release
     - test-ubuntu-18.04-cpp-static
     - test-ubuntu-18.04-cpp-cmake32
@@ -147,7 +147,7 @@ groups:
     - test-conda-python-3.8
     - test-debian-10-python-3
     - test-ubuntu-18.04-python-3
-    - test-fedora-29-python-3
+    - test-fedora-30-python-3
     - test-r-rhub-ubuntu-gcc-release
     - test-r-rhub-debian-gcc-devel
     - test-r-rocker-r-base-latest
@@ -166,7 +166,7 @@ groups:
     - test-debian-10-cpp
     - test-ubuntu-16.04-cpp
     - test-ubuntu-18.04-cpp
-    - test-fedora-29-cpp
+    - test-fedora-30-cpp
     - test-ubuntu-18.04-cpp-release
     - test-ubuntu-18.04-cpp-static
     - test-ubuntu-18.04-cpp-cmake32
@@ -181,7 +181,7 @@ groups:
     - test-conda-python-3.8
     - test-debian-10-python-3
     - test-ubuntu-18.04-python-3
-    - test-fedora-29-python-3
+    - test-fedora-30-python-3
 
   r:
     - test-conda-r-3.6
@@ -262,7 +262,7 @@ groups:
     - test-debian-10-cpp
     - test-ubuntu-16.04-cpp
     - test-ubuntu-18.04-cpp
-    - test-fedora-29-cpp
+    - test-fedora-30-cpp
     - test-ubuntu-18.04-cpp-release
     - test-ubuntu-18.04-cpp-static
     - test-ubuntu-18.04-cpp-cmake32
@@ -274,7 +274,7 @@ groups:
     - test-conda-python-3.7
     - test-debian-10-python-3
     - test-ubuntu-18.04-python-3
-    - test-fedora-29-python-3
+    - test-fedora-30-python-3
     - test-r-rhub-ubuntu-gcc-release
     - test-r-rhub-debian-gcc-devel
     - test-r-rocker-r-base-latest
@@ -1679,13 +1679,13 @@ tasks:
         - docker-compose build ubuntu-cpp
         - docker-compose run ubuntu-cpp
 
-  test-fedora-29-cpp:
+  test-fedora-30-cpp:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - export FEDORA=29
+        - export FEDORA=30
         - docker-compose pull --ignore-pull-failures fedora-cpp
         - docker-compose build fedora-cpp
         - docker-compose run fedora-cpp
@@ -1837,13 +1837,13 @@ tasks:
         - docker-compose build ubuntu-python
         - docker-compose run ubuntu-python
 
-  test-fedora-29-python-3:
+  test-fedora-30-python-3:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - export FEDORA=29
+        - export FEDORA=30
         - docker-compose pull --ignore-pull-failures fedora-cpp
         - docker-compose pull --ignore-pull-failures fedora-python
         - docker-compose build fedora-cpp

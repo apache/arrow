@@ -65,7 +65,7 @@ volumes:
   amd64-cuda-10.1-cache:
   amd64-debian-9-cache:
   amd64-debian-10-cache:
-  amd64-fedora-29-cache:
+  amd64-fedora-30-cache:
   amd64-ubuntu-14.04-cache:
   amd64-ubuntu-16.04-cache:
   amd64-ubuntu-18.04-cache:
@@ -274,7 +274,7 @@ services:
     #   docker-compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 29, ...
+    #   FEDORA: 30, ...
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     build:
       context: .
@@ -284,6 +284,7 @@ services:
       args:
         arch: ${ARCH}
         llvm_version: ${LLVM_VERSION_MAJOR}
+        fedora_version: ${FEDORA}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
