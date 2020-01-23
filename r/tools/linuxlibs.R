@@ -175,6 +175,15 @@ find_local_source <- function() {
 build_libarrow <- function(src_dir, dst_dir) {
   # We'll need to compile R bindings with these libs, so delete any .o files
   system("rm src/*.o", ignore.stdout = quietly, ignore.stderr = quietly)
+  # Set up make for parallel building
+  makeflags <- Sys.getenv("MAKEFLAGS")
+  if (makeflags == "") {
+    makeflags <- sprintf("-j%s", parallel::detectCores())
+    Sys.setenv(MAKEFLAGS = makeflags)
+  }
+  if (!quietly) {
+    cat("*** Building with MAKEFLAGS=", makeflags, "\n")
+  }
   # Check for libarrow build dependencies:
   # * cmake
   # * flex and bison (for building thrift)
@@ -192,10 +201,10 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
   }
   if (!is.null(bison)) {
-    system(paste0(bison, "/bin/bison --version"))
+    system(paste0(bison, "/bison --version"))
     env_vars <- sprintf(
-      "PATH=%s/bin:$PATH %s BISON_PKGDATADIR=%s/share/bison",
-            bison,       env_vars,           bison
+      "PATH=%s:$PATH %s BISON_PKGDATADIR=%s/../share/bison",
+            bison,   env_vars,           bison
     )
   }
   if (!quietly) {
@@ -309,7 +318,8 @@ ensure_bison <- function(m4 = ensure_m4()) {
         shQuote(build_dir),          install_dir
   )
   system(paste0(path, cmd))
-  install_dir
+  # Return the path to the bison binaries
+  paste0(install_dir, "/bin")
 }
 
 ensure_m4 <- function() {
