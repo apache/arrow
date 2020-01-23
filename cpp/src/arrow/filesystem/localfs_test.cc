@@ -50,12 +50,15 @@ class LocalFSTestMixin : public ::testing::Test {
 };
 
 struct CommonPathFormatter {
-  std::string operator()(const PlatformFilename& fn) { return fn.ToString(); }
+  std::string operator()(std::string fn) { return fn; }
+  bool supports_uri() { return true; }
 };
 
 #ifdef _WIN32
 struct ExtendedLengthPathFormatter {
-  std::string operator()(const PlatformFilename& fn) { return "//?/" + fn.ToString(); }
+  std::string operator()(std::string fn) { return "//?/" + fn; }
+  // The path prefix conflicts with URI syntax
+  bool supports_uri() { return false; }
 };
 
 using PathFormatters = ::testing::Types<CommonPathFormatter, ExtendedLengthPathFormatter>;
@@ -72,7 +75,7 @@ class TestLocalFSGeneric : public LocalFSTestMixin, public GenericFileSystemTest
   void SetUp() override {
     LocalFSTestMixin::SetUp();
     local_fs_ = std::make_shared<LocalFileSystem>(options());
-    auto path = PathFormatter()(temp_dir_->path());
+    auto path = PathFormatter()(temp_dir_->path().ToString());
     fs_ = std::make_shared<SubTreeFileSystem>(path, local_fs_);
   }
 
@@ -108,18 +111,41 @@ class TestLocalFS : public LocalFSTestMixin {
  public:
   void SetUp() {
     LocalFSTestMixin::SetUp();
+    path_formatter_ = PathFormatter();
     local_fs_ = std::make_shared<LocalFileSystem>();
-    local_path_ = EnsureTrailingSlash(PathFormatter()(temp_dir_->path()));
+    local_path_ = EnsureTrailingSlash(path_formatter_(temp_dir_->path().ToString()));
     fs_ = std::make_shared<SubTreeFileSystem>(local_path_, local_fs_);
   }
 
   void TestFileSystemFromUri(const std::string& uri) {
+    if (!path_formatter_.supports_uri()) {
+      return;  // skip
+    }
     std::string path;
     ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri(uri, &path));
+    ASSERT_EQ(path, local_path_);
 
     // Test that the right location on disk is accessed
     CreateFile(fs_.get(), local_path_ + "abc", "some data");
     CheckConcreteFile(this->temp_dir_->path().ToString() + "abc", 9);
+  }
+
+  void TestLocalUri(const std::string& uri, const std::string& expected_path) {
+    // Like TestFileSystemFromUri, but with an arbitrary non-existing path
+    if (!path_formatter_.supports_uri()) {
+      return;  // skip
+    }
+    std::string path;
+    ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri(uri, &path));
+    ASSERT_EQ(fs_->type_name(), "local");
+    ASSERT_EQ(path, expected_path);
+  }
+
+  void TestInvalidUri(const std::string& uri) {
+    if (!path_formatter_.supports_uri()) {
+      return;  // skip
+    }
+    ASSERT_RAISES(Invalid, FileSystemFromUri(uri));
   }
 
   void CheckConcreteFile(const std::string& path, int64_t expected_size) {
@@ -132,6 +158,7 @@ class TestLocalFS : public LocalFSTestMixin {
   }
 
  protected:
+  PathFormatter path_formatter_;
   std::shared_ptr<LocalFileSystem> local_fs_;
   std::shared_ptr<FileSystem> fs_;
   std::string local_path_;
@@ -158,6 +185,32 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {
 
 TYPED_TEST(TestLocalFS, FileSystemFromUriNoScheme) {
   this->TestFileSystemFromUri(this->local_path_);
+}
+
+TYPED_TEST(TestLocalFS, FileSystemFromUriFileBackslashes) {
+#ifdef _WIN32
+  this->TestFileSystemFromUri(ToBackslashes("file:" + this->local_path_));
+
+  // Variations
+  this->TestLocalUri("file:" + this->path_formatter_("C:foo\\bar"), "C:foo/bar");
+  this->TestLocalUri("file:" + this->path_formatter_("C:\\foo\\bar"), "C:/foo/bar");
+  this->TestLocalUri("file:" + this->path_formatter_("C:bar\\"), "C:bar/");
+#else
+  this->TestInvalidUri(ToBackslashes("file:" + this->local_path_));
+#endif
+}
+
+TYPED_TEST(TestLocalFS, FileSystemFromUriNoSchemeBackslashes) {
+#ifdef _WIN32
+  this->TestFileSystemFromUri(ToBackslashes(this->local_path_));
+
+  // Variations
+  this->TestLocalUri(this->path_formatter_("C:foo\\bar"), "C:foo/bar");
+  this->TestLocalUri(this->path_formatter_("C:\\foo\\bar"), "C:/foo/bar");
+  this->TestLocalUri(this->path_formatter_("C:bar\\"), "C:bar/");
+#else
+  this->TestInvalidUri(ToBackslashes(this->local_path_));
+#endif
 }
 
 TYPED_TEST(TestLocalFS, DirectoryMTime) {

@@ -223,6 +223,22 @@ TEST(PathUtil, AncestorsFromBasePath) {
             V({"foo/bar", "foo/bar/baz"}));
 }
 
+TEST(PathUtil, ToBackslashes) {
+  ASSERT_EQ(ToBackslashes("foo/bar"), "foo\\bar");
+  ASSERT_EQ(ToBackslashes("//foo/bar/"), "\\\\foo\\bar\\");
+  ASSERT_EQ(ToBackslashes("foo\\bar"), "foo\\bar");
+}
+
+TEST(PathUtil, ToSlashes) {
+#ifdef _WIN32
+  ASSERT_EQ(ToSlashes("foo\\bar"), "foo/bar");
+  ASSERT_EQ(ToSlashes("\\\\foo\\bar\\"), "//foo/bar/");
+#else
+  ASSERT_EQ(ToSlashes("foo\\bar"), "foo\\bar");
+  ASSERT_EQ(ToSlashes("\\\\foo\\bar\\"), "\\\\foo\\bar\\");
+#endif
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Generic MockFileSystem tests
 
