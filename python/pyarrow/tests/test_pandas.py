@@ -3578,6 +3578,19 @@ def test_to_pandas_extension_dtypes_mapping():
     result = table.to_pandas(types_mapper={pa.int64(): pd.Int64Dtype()}.get)
     assert isinstance(result['a'].dtype, pd.Int64Dtype)
 
+    # types that return None in function get normal conversion
+    table = pa.table({'a': pa.array([1, 2, 3], pa.int32())})
+    result = table.to_pandas(types_mapper={pa.int64(): pd.Int64Dtype()}.get)
+    assert result['a'].dtype == np.dtype('int32')
+
+    # `types_mapper` overrules the pandas metadata
+    table = pa.table(pd.DataFrame({'a': pd.array([1, 2, 3], dtype="Int64")}))
+    result = table.to_pandas()
+    assert isinstance(result['a'].dtype, pd.Int64Dtype)
+    result = table.to_pandas(
+        types_mapper={pa.int64(): pd.PeriodDtype('D')}.get)
+    assert isinstance(result['a'].dtype, pd.PeriodDtype)
+
 
 # ----------------------------------------------------------------------
 # Legacy metadata compatibility tests
