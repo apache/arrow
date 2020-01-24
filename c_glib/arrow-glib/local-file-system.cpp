@@ -22,6 +22,19 @@
 
 G_BEGIN_DECLS
 
+/**
+ * SECTION: local-file-system
+ * @section_id: local-file-system-classes
+ * @title: Local file system classes
+ * @include: arrow-glib/arrow-glib.h
+ *
+ * #GArrowLocalFileSystemOptions is a class for specifyiing options of
+ * an instance of #GArrowLocalFileSystem.
+ *
+ * #GArrowLocalFileSystem is a class for an implementation of a file system
+ * that accesses files on the local machine.
+ */
+
 typedef struct GArrowLocalFileSystemOptionsPrivate_ {
   arrow::fs::LocalFileSystemOptions local_file_system_options;
 } GArrowLocalFileSystemOptionsPrivate;
