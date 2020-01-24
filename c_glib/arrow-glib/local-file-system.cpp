@@ -198,7 +198,7 @@ garrow_local_file_system_new()
 GArrowLocalFileSystem *
 garrow_local_file_system_new_with_options(GArrowLocalFileSystemOptions *options)
 {
-  const auto& arrow_options =
+  const auto &arrow_options =
     GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(options)->local_file_system_options;
   auto arrow_local_file_system = std::make_shared<arrow::fs::LocalFileSystem>(arrow_options);
   std::shared_ptr<arrow::fs::FileSystem> arrow_file_system = arrow_local_file_system;

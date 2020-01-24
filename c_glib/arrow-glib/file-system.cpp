@@ -308,9 +308,9 @@ gboolean
 garrow_file_stats_equal(GArrowFileStats *file_stats,
                         GArrowFileStats *other_file_stats)
 {
-  const auto& arrow_file_stats =
+  const auto &arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  const auto& arrow_other_file_stats =
+  const auto &arrow_other_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(other_file_stats)->file_stats;
   return arrow_file_stats.Equals(arrow_other_file_stats);
 }
@@ -318,7 +318,7 @@ garrow_file_stats_equal(GArrowFileStats *file_stats,
 gboolean
 garrow_file_stats_is_file(GArrowFileStats *file_stats)
 {
-  const auto& arrow_file_stats =
+  const auto &arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
   return arrow_file_stats.IsFile();
 }
@@ -326,7 +326,7 @@ garrow_file_stats_is_file(GArrowFileStats *file_stats)
 gboolean
 garrow_file_stats_is_directory(GArrowFileStats *file_stats)
 {
-  const auto& arrow_file_stats =
+  const auto &arrow_file_stats =
     GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
   return arrow_file_stats.IsDirectory();
 }
@@ -608,7 +608,7 @@ garrow_file_system_get_target_stats_path(GArrowFileSystem *file_system,
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_result = arrow_file_system->GetTargetStats(path);
   if (garrow::check(error, arrow_result, "[filesystem][get-target-stats]")) {
-    const auto& arrow_file_stats = arrow_result.ValueOrDie();
+    const auto &arrow_file_stats = arrow_result.ValueOrDie();
     return garrow_file_stats_new_raw(arrow_file_stats);
   } else {
     return NULL;
@@ -686,7 +686,7 @@ garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
                                              GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
-  const auto& arrow_file_selector =
+  const auto &arrow_file_selector =
     GARROW_FILE_SELECTOR_GET_PRIVATE(file_selector)->file_selector;
   return garrow_file_stats_list_from_result(arrow_file_system->GetTargetStats(arrow_file_selector),
                                             error, "[filesystem][get-target-stats-list]");
