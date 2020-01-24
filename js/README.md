@@ -43,6 +43,7 @@ Check out our [API documentation][7] to learn more about how to use Apache Arrow
 
 * [Observable: Introduction to Apache Arrow][5]
 * [Observable: Manipulating flat arrays arrow-style][6]
+* [Observable: Rich columnar data tables - Dictionary-encoded strings, 64bit ints, and nested structs][8]
 * [/js/test/unit](https://github.com/apache/arrow/tree/master/js/test/unit) - Unit tests for Table and Vector
 
 ## Cookbook
@@ -277,3 +278,4 @@ Full list of broader Apache Arrow [projects & organizations](https://arrow.apach
 [5]: https://beta.observablehq.com/@theneuralbit/introduction-to-apache-arrow
 [6]: https://beta.observablehq.com/@lmeyerov/manipulating-flat-arrays-arrow-style
 [7]: https://arrow.apache.org/docs/js/
+[8]: https://observablehq.com/@lmeyerov/rich-data-types-in-apache-arrow-js-efficient-data-tables-wit
