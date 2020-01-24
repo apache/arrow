@@ -43,41 +43,6 @@ table FrameOfReferenceIntEncoding {
 union BufferEncodingType {
   /// NONE indicates Dense encoding (e.g. bitmaps for validity buffers).
   FrameOfReferenceIntEncoding = 1,
-  /// We use the following scheme for managing extensions.  We define a slot
-  /// as the location within a nested-flatbuffer hierarchy reserved for a type.
-  /// We define a type ID as an unique unsigned integer that has a 1-to-1 mapping
-  /// with a type and slot.
-  ///
-  /// We use the following slot reservations in this union:
-  /// - Slots 1-63 (inclusive) are reserved for additional concrete types (tables)
-  /// - Slots 64-250 (inclusive) are reserved for tables containing a single union
-  ///   which in turn contains concrete types.  This facilitates
-  ///   an type ID range of from 1 to ~47,748.
-  /// - Slots 251-255 are reserved for further extension.
-  ///
-  /// Type IDs 1 - 63 are reserved for official Arrow use-cases.
-  /// The remaining type IDs are available for extension.  A Type ID is
-  /// reserved by using the number of a PR you previously had merged to the
-  /// repository (where PR# >63).  Mapping from an type ID to a slot
-  /// is done by with following pseudo-code:
-  ///      if (type_id <= 63) {
-  ///         type = BufferEncodingType[type_id]
-  ///      } else {
-  ///         type = BufferEncodingType[(type_id-64)/255 + 64][(type_id-64) % 255) + 1]
-  ///      }
-
-  /// The following is an example of how an extension beyond type ID 63 is modelled.
-  /// First the following structures are defined external to this union:
-  ///
-  /// table SampleBufferEncodingExtensionType {}
-  /// union BufferEncodingExtensionType_64 { SampleBufferEncodingExtensionType = 1 }
-  /// table BufferEncodingExtensionTable_64 { type : BufferEncodingExtensionType_64;}
-  ///
-  /// Then a new entry is added to this union:
-  /// BufferEncodingExtensionTable_64 = 64
-  ///
-  /// This extension mechanism is designed so users of Arrow can prototype
-  /// extensions and contribute them back with minimal effort.
 }
 
 /// A buffer that represents values encoded in a specific manner.
