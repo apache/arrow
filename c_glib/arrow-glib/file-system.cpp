@@ -1079,7 +1079,7 @@ garrow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_sy
                            GType type)
 {
   auto file_system = GARROW_FILE_SYSTEM(g_object_new(type,
-                                                     "file_system", arrow_file_system,
+                                                     "file-system", arrow_file_system,
                                                      NULL));
   return file_system;
 }
