@@ -204,7 +204,7 @@ function install_wheel {
     echo $supported_wheels
 
     # Install compatible wheel
-    pip install $(pip_opts) ${supported_wheels}
+    pip install $(pip_opts) $wheelhouse/*.whl
 
     popd
 }
