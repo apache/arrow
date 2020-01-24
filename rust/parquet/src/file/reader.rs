@@ -55,13 +55,13 @@ use crate::util::{io::FileSource, memory::ByteBufferPtr};
 /// Parquet file, can get reader for each row group, and access record iterator.
 pub trait FileReader {
     /// Get metadata information about this file.
-    fn metadata(&self) -> ParquetMetaDataPtr;
+    fn metadata(&self) -> &ParquetMetaData;
 
     /// Get the total number of row groups for this file.
     fn num_row_groups(&self) -> usize;
 
     /// Get the `i`th row group reader. Note this doesn't do bound check.
-    fn get_row_group(&self, i: usize) -> Result<Box<RowGroupReader>>;
+    fn get_row_group(&self, i: usize) -> Result<Box<RowGroupReader + '_>>;
 
     /// Get full iterator of `Row`s from a file (over all row groups).
     ///
@@ -76,7 +76,7 @@ pub trait FileReader {
 /// row group, as well as readers for each individual column chunk.
 pub trait RowGroupReader {
     /// Get metadata information about this row group.
-    fn metadata(&self) -> RowGroupMetaDataPtr;
+    fn metadata(&self) -> &RowGroupMetaData;
 
     /// Get the total number of column chunks in this row group.
     fn num_columns(&self) -> usize;
@@ -144,7 +144,7 @@ impl<T: Read + Seek + Length + TryClone> ParquetReader for T {}
 /// A serialized implementation for Parquet [`FileReader`].
 pub struct SerializedFileReader<R: ParquetReader> {
     buf: BufReader<R>,
-    metadata: ParquetMetaDataPtr,
+    metadata: ParquetMetaData,
 }
 
 impl<R: ParquetReader> SerializedFileReader<R> {
@@ -153,10 +153,7 @@ impl<R: ParquetReader> SerializedFileReader<R> {
     pub fn new(reader: R) -> Result<Self> {
         let mut buf = BufReader::new(reader);
         let metadata = Self::parse_metadata(&mut buf)?;
-        Ok(Self {
-            buf,
-            metadata: Rc::new(metadata),
-        })
+        Ok(Self { buf, metadata })
     }
 
     // Layout of Parquet file
@@ -205,10 +202,7 @@ impl<R: ParquetReader> SerializedFileReader<R> {
         let schema_descr = Rc::new(SchemaDescriptor::new(schema.clone()));
         let mut row_groups = Vec::new();
         for rg in t_file_metadata.row_groups {
-            row_groups.push(Rc::new(RowGroupMetaData::from_thrift(
-                schema_descr.clone(),
-                rg,
-            )?));
+            row_groups.push(RowGroupMetaData::from_thrift(schema_descr.clone(), rg)?);
         }
         let column_orders =
             Self::parse_column_orders(t_file_metadata.column_orders, &schema_descr);
@@ -258,15 +252,15 @@ impl<R: ParquetReader> SerializedFileReader<R> {
 }
 
 impl<R: 'static + ParquetReader> FileReader for SerializedFileReader<R> {
-    fn metadata(&self) -> ParquetMetaDataPtr {
-        self.metadata.clone()
+    fn metadata(&self) -> &ParquetMetaData {
+        &self.metadata
     }
 
     fn num_row_groups(&self) -> usize {
         self.metadata.num_row_groups()
     }
 
-    fn get_row_group(&self, i: usize) -> Result<Box<RowGroupReader>> {
+    fn get_row_group(&self, i: usize) -> Result<Box<RowGroupReader + '_>> {
         let row_group_metadata = self.metadata.row_group(i);
         // Row groups should be processed sequentially.
         let f = self.buf.get_ref().try_clone()?;
@@ -326,22 +320,22 @@ impl IntoIterator for SerializedFileReader<File> {
 }
 
 /// A serialized implementation for Parquet [`RowGroupReader`].
-pub struct SerializedRowGroupReader<R: ParquetReader> {
+pub struct SerializedRowGroupReader<'a, R: ParquetReader> {
     buf: BufReader<R>,
-    metadata: RowGroupMetaDataPtr,
+    metadata: &'a RowGroupMetaData,
 }
 
-impl<R: 'static + ParquetReader> SerializedRowGroupReader<R> {
+impl<'a, R: 'static + ParquetReader> SerializedRowGroupReader<'a, R> {
     /// Creates new row group reader from a file and row group metadata.
-    fn new(file: R, metadata: RowGroupMetaDataPtr) -> Self {
+    fn new(file: R, metadata: &'a RowGroupMetaData) -> Self {
         let buf = BufReader::new(file);
         Self { buf, metadata }
     }
 }
 
-impl<R: 'static + ParquetReader> RowGroupReader for SerializedRowGroupReader<R> {
-    fn metadata(&self) -> RowGroupMetaDataPtr {
-        self.metadata.clone()
+impl<'a, R: 'static + ParquetReader> RowGroupReader for SerializedRowGroupReader<'a, R> {
+    fn metadata(&self) -> &RowGroupMetaData {
+        &self.metadata
     }
 
     fn num_columns(&self) -> usize {
@@ -602,7 +596,7 @@ impl FilePageIterator {
         let num_columns = file_reader
             .metadata()
             .file_metadata()
-            .schema_descr_ptr()
+            .schema_descr()
             .num_columns();
 
         if column_index >= num_columns {

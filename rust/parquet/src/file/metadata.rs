@@ -45,31 +45,25 @@ use crate::schema::types::{
     Type as SchemaType, TypePtr,
 };
 
-/// Reference counted pointer for [`ParquetMetaData`].
-pub type ParquetMetaDataPtr = Rc<ParquetMetaData>;
-
 /// Global Parquet metadata.
 pub struct ParquetMetaData {
-    file_metadata: FileMetaDataPtr,
-    row_groups: Vec<RowGroupMetaDataPtr>,
+    file_metadata: FileMetaData,
+    row_groups: Vec<RowGroupMetaData>,
 }
 
 impl ParquetMetaData {
     /// Creates Parquet metadata from file metadata and a list of row group metadata `Rc`s
     /// for each available row group.
-    pub fn new(
-        file_metadata: FileMetaData,
-        row_group_ptrs: Vec<RowGroupMetaDataPtr>,
-    ) -> Self {
+    pub fn new(file_metadata: FileMetaData, row_groups: Vec<RowGroupMetaData>) -> Self {
         ParquetMetaData {
-            file_metadata: Rc::new(file_metadata),
-            row_groups: row_group_ptrs,
+            file_metadata,
+            row_groups,
         }
     }
 
-    /// Returns file metadata as reference counted clone.
-    pub fn file_metadata(&self) -> FileMetaDataPtr {
-        self.file_metadata.clone()
+    /// Returns file metadata as reference.
+    pub fn file_metadata(&self) -> &FileMetaData {
+        &self.file_metadata
     }
 
     /// Returns number of row groups in this file.
@@ -79,13 +73,13 @@ impl ParquetMetaData {
 
     /// Returns row group metadata for `i`th position.
     /// Position should be less than number of row groups `num_row_groups`.
-    pub fn row_group(&self, i: usize) -> RowGroupMetaDataPtr {
-        self.row_groups[i].clone()
+    pub fn row_group(&self, i: usize) -> &RowGroupMetaData {
+        &self.row_groups[i]
     }
 
-    /// Returns slice of row group reference counted pointers in this file.
-    pub fn row_groups(&self) -> &[RowGroupMetaDataPtr] {
-        &self.row_groups.as_slice()
+    /// Returns slice of row groups in this file.
+    pub fn row_groups(&self) -> &[RowGroupMetaData] {
+        &self.row_groups
     }
 }
 
@@ -185,7 +179,7 @@ pub type RowGroupMetaDataPtr = Rc<RowGroupMetaData>;
 
 /// Metadata for a row group.
 pub struct RowGroupMetaData {
-    columns: Vec<ColumnChunkMetaDataPtr>,
+    columns: Vec<ColumnChunkMetaData>,
     num_rows: i64,
     total_byte_size: i64,
     schema_descr: SchemaDescPtr,
@@ -207,8 +201,8 @@ impl RowGroupMetaData {
         &self.columns[i]
     }
 
-    /// Returns slice of column chunk metadata [`Rc`] pointers.
-    pub fn columns(&self) -> &[ColumnChunkMetaDataPtr] {
+    /// Returns slice of column chunk metadata.
+    pub fn columns(&self) -> &[ColumnChunkMetaData] {
         &self.columns
     }
 
@@ -243,7 +237,7 @@ impl RowGroupMetaData {
         let mut columns = vec![];
         for (c, d) in rg.columns.drain(0..).zip(schema_descr.columns()) {
             let cc = ColumnChunkMetaData::from_thrift(d.clone(), c)?;
-            columns.push(Rc::new(cc));
+            columns.push(cc);
         }
         Ok(RowGroupMetaData {
             columns,
@@ -266,7 +260,7 @@ impl RowGroupMetaData {
 
 /// Builder for row group metadata.
 pub struct RowGroupMetaDataBuilder {
-    columns: Vec<ColumnChunkMetaDataPtr>,
+    columns: Vec<ColumnChunkMetaData>,
     schema_descr: SchemaDescPtr,
     num_rows: i64,
     total_byte_size: i64,
@@ -296,7 +290,7 @@ impl RowGroupMetaDataBuilder {
     }
 
     /// Sets column metadata for this row group.
-    pub fn set_column_metadata(mut self, value: Vec<ColumnChunkMetaDataPtr>) -> Self {
+    pub fn set_column_metadata(mut self, value: Vec<ColumnChunkMetaData>) -> Self {
         self.columns = value;
         self
     }
@@ -319,9 +313,6 @@ impl RowGroupMetaDataBuilder {
         })
     }
 }
-
-/// Reference counted pointer for [`ColumnChunkMetaData`].
-pub type ColumnChunkMetaDataPtr = Rc<ColumnChunkMetaData>;
 
 /// Metadata for a column chunk.
 pub struct ColumnChunkMetaData {
@@ -642,7 +633,7 @@ mod tests {
         let mut columns = vec![];
         for ptr in schema_descr.columns() {
             let column = ColumnChunkMetaData::builder(ptr.clone()).build().unwrap();
-            columns.push(Rc::new(column));
+            columns.push(column);
         }
         let row_group_meta = RowGroupMetaData::builder(schema_descr.clone())
             .set_num_rows(1000)

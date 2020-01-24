@@ -265,7 +265,7 @@ pub struct SerializedRowGroupWriter<W: ParquetWriter> {
     column_index: usize,
     previous_writer_closed: bool,
     row_group_metadata: Option<RowGroupMetaDataPtr>,
-    column_chunks: Vec<ColumnChunkMetaDataPtr>,
+    column_chunks: Vec<ColumnChunkMetaData>,
 }
 
 impl<W: 'static + ParquetWriter> SerializedRowGroupWriter<W> {
@@ -303,7 +303,7 @@ impl<W: 'static + ParquetWriter> SerializedRowGroupWriter<W> {
 
         // Update row group writer metrics
         self.total_bytes_written += bytes_written;
-        self.column_chunks.push(Rc::new(metadata));
+        self.column_chunks.push(metadata);
         if let Some(rows) = self.total_rows_written {
             if rows != rows_written {
                 return Err(general_err!(
@@ -372,8 +372,9 @@ impl<W: 'static + ParquetWriter> RowGroupWriter for SerializedRowGroupWriter<W> 
         if self.row_group_metadata.is_none() {
             self.assert_previous_writer_closed()?;
 
+            let column_chunks = std::mem::replace(&mut self.column_chunks, vec![]);
             let row_group_metadata = RowGroupMetaData::builder(self.descr.clone())
-                .set_column_metadata(self.column_chunks.clone())
+                .set_column_metadata(column_chunks)
                 .set_total_byte_size(self.total_bytes_written as i64)
                 .set_num_rows(self.total_rows_written.unwrap_or(0) as i64)
                 .build()?;
