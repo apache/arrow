@@ -533,7 +533,6 @@ def connect_jira(cmd):
         raise e
 
 
-
 def get_pr_num():
     if len(sys.argv) == 2:
         return sys.argv[1]
