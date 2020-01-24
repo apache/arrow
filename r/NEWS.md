@@ -55,6 +55,7 @@ See `vignette("install", package = "arrow")` for details.
 * Factor types are now preserved in round trip through Parquet format (#6135, @yutannihilation)
 * Reading an Arrow dictionary type coerces dictionary values to `character` (as R `factor` levels are required to be) instead of raising an error
 * Many improvements to Parquet function documentation (@karldw, @khughitt)
+* List columns supported for `write_parquet` (#7662, @michaelchirico)
 
 # arrow 0.15.1
 
