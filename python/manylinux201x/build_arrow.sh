@@ -46,7 +46,7 @@ export PYARROW_CMAKE_GENERATOR='Ninja'
 # ARROW-6860: Disabling ORC in wheels until Protobuf static linking issues
 # across projects is resolved
 export PYARROW_WITH_ORC=0
-
+export PYARROW_WITH_HDFS=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
@@ -98,38 +98,40 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 ARROW_BUILD_DIR=/tmp/build-PY${PYTHON_VERSION}-${UNICODE_WIDTH}
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
-PATH="${CPYTHON_PATH}/bin:${PATH}" cmake -DCMAKE_BUILD_TYPE=Release \
-    -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
-    -DZLIB_ROOT=/usr/local \
-    -DCMAKE_INSTALL_PREFIX=/arrow-dist \
-    -DCMAKE_INSTALL_LIBDIR=lib \
-    -DARROW_BUILD_TESTS=OFF \
+PATH="${CPYTHON_PATH}/bin:${PATH}" cmake \
+    -DARROW_BOOST_USE_SHARED=ON \
     -DARROW_BUILD_SHARED=ON \
     -DARROW_BUILD_STATIC=OFF \
-    -DARROW_BOOST_USE_SHARED=ON \
+    -DARROW_BUILD_TESTS=OFF \
+    -DARROW_DATASET=${BUILD_ARROW_DATASET} \
+    -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
+    -DARROW_FLIGHT=${BUILD_ARROW_FLIGHT} \
+    -DARROW_GANDIVA_JAVA=OFF \
     -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-8/root/usr/include/c++/8/;-isystem;/opt/rh/devtoolset-8/root/usr/include/c++/8/x86_64-redhat-linux/" \
+    -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
+    -DARROW_HDFS=ON \
     -DARROW_JEMALLOC=ON \
-    -DARROW_RPATH_ORIGIN=ON \
-    -DARROW_PYTHON=ON \
-    -DARROW_PARQUET=ON \
-    -DPythonInterp_FIND_VERSION=${PYTHON_VERSION} \
-    -DARROW_PLASMA=ON \
-    -DARROW_TENSORFLOW=ON \
     -DARROW_ORC=OFF \
-    -DORC_SOURCE=BUNDLED \
+    -DARROW_PARQUET=ON \
+    -DARROW_PLASMA=ON \
+    -DARROW_PYTHON=ON \
+    -DARROW_RPATH_ORIGIN=ON \
+    -DARROW_TENSORFLOW=ON \
+    -DARROW_WITH_BROTLI=ON \
     -DARROW_WITH_BZ2=ON \
-    -DARROW_WITH_ZLIB=ON \
-    -DARROW_WITH_ZSTD=ON \
     -DARROW_WITH_LZ4=ON \
     -DARROW_WITH_SNAPPY=ON \
-    -DARROW_WITH_BROTLI=ON \
-    -DARROW_DATASET=${BUILD_ARROW_DATASET} \
-    -DARROW_FLIGHT=${BUILD_ARROW_FLIGHT} \
-    -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
-    -DARROW_GANDIVA_JAVA=OFF \
+    -DARROW_WITH_ZLIB=ON \
+    -DARROW_WITH_ZSTD=ON \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DCMAKE_INSTALL_PREFIX=/arrow-dist \
     -DOPENSSL_USE_STATIC_LIBS=ON \
+    -DORC_SOURCE=BUNDLED \
+    -DPythonInterp_FIND_VERSION=${PYTHON_VERSION} \
+    -DZLIB_ROOT=/usr/local \
     -GNinja /arrow/cpp
 ninja install
 popd
@@ -162,6 +164,8 @@ import sys
 import pyarrow
 import pyarrow.parquet
 import pyarrow.plasma
+import pyarrow.fs
+import pyarrow._hdfs
 
 if sys.version_info.major > 2:
     import pyarrow.dataset

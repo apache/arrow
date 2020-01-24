@@ -40,6 +40,7 @@ cmake \
     -DARROW_PYTHON=ON \
     -DARROW_PARQUET=ON \
     -DARROW_GANDIVA=ON \
+    -DARROW_HDFS=ON \
     -DARROW_ORC=ON \
     -DARROW_S3=ON \
     -DCMAKE_AR=${AR} \
