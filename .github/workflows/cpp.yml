@@ -143,11 +143,9 @@ jobs:
       - name: Enable Coredumps
         shell: bash
         run: |
+          sudo sysctl -a | grep core
+          sudo sysctl -w kern.coredump=1
           sudo sysctl -w kern.corefile=core.%N.%P
-          echo ">>>>>>>>>>>>>>>> ROOT"
-          sudo ulimit -a
-          sudo ulimit -c unlimited
-          sudo ulimit -a
           echo ">>>>>>>>>>>>>>>> RUNNER"
           ulimit -a
           ulimit -c unlimited
