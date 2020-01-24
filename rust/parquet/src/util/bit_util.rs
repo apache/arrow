@@ -21,7 +21,7 @@ use crate::data_type::AsBytes;
 use crate::errors::{ParquetError, Result};
 use crate::util::{bit_packing::unpack32, memory::ByteBufferPtr};
 
-fn from_ne_slice<T: FromBytes>(bs: &[u8]) -> T {
+pub fn from_ne_slice<T: FromBytes>(bs: &[u8]) -> T {
     let mut b = T::Buffer::default();
     {
         let b = b.as_mut();

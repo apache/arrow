@@ -27,7 +27,7 @@ use crate::column::reader::{ColumnReader, ColumnReaderImpl};
 use crate::column::writer::{ColumnWriter, ColumnWriterImpl};
 use crate::errors::{ParquetError, Result};
 use crate::util::{
-    bit_util::FromBytes,
+    bit_util::{from_ne_slice, FromBytes},
     memory::{ByteBuffer, ByteBufferPtr},
 };
 use std::str::from_utf8;
@@ -543,8 +543,14 @@ impl FromBytes for Int96 {
     fn from_be_bytes(_bs: Self::Buffer) -> Self {
         unimplemented!()
     }
-    fn from_ne_bytes(_bs: Self::Buffer) -> Self {
-        unimplemented!()
+    fn from_ne_bytes(bs: Self::Buffer) -> Self {
+        let mut i = Int96::new();
+        i.set_data(
+            from_ne_slice(&bs[0..4]),
+            from_ne_slice(&bs[4..8]),
+            from_ne_slice(&bs[8..12]),
+        );
+        i
     }
 }
 
