@@ -877,8 +877,8 @@ std::shared_ptr<arrow::DataType> InferType(SEXP x) {
         for (R_xlen_t i = 1; i < n; i++) {
           if (InferType(VECTOR_ELT(x, i)) != element_type) {
             Rcpp::stop(
-              "list elements correspond to different arrow DataTypes; check element %d",
-              i + 1);
+                "list elements correspond to different arrow DataTypes; check element %d",
+                i + 1);
           }
         }
         return std::make_shared<ListType>(element_type);
