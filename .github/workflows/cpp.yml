@@ -144,7 +144,14 @@ jobs:
         shell: bash
         run: |
           sudo sysctl -w kern.corefile=core.%N.%P
+          echo ">>>>>>>>>>>>>>>> ROOT"
+          sudo ulimit -a
+          sudo ulimit -c unlimited
+          sudo ulimit -a
+          echo ">>>>>>>>>>>>>>>> RUNNER"
+          ulimit -a
           ulimit -c unlimited
+          ulimit -a
       - name: Test
         shell: bash
         run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
