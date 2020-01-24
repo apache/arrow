@@ -551,8 +551,7 @@ impl Field {
         match descr.physical_type() {
             PhysicalType::BYTE_ARRAY => match descr.logical_type() {
                 LogicalType::UTF8 | LogicalType::ENUM | LogicalType::JSON => {
-                    let value =
-                        unsafe { String::from_utf8_unchecked(value.data().to_vec()) };
+                    let value = String::from_utf8(value.data().to_vec()).unwrap();
                     Field::Str(value)
                 }
                 LogicalType::BSON | LogicalType::NONE => Field::Bytes(value),
