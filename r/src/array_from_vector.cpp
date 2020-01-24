@@ -872,8 +872,8 @@ std::shared_ptr<arrow::DataType> InferType(SEXP x) {
         R_xlen_t n = XLENGTH(x);
         if (n == 0)
           Rcpp::stop("received length-0 list");
-        std::shared_ptr<arrow::Type> element_type = InferType(VECTOR_ELT(x, 0));
-        for (R_xlent_t i=1; i<n; i++) {
+        std::shared_ptr<arrow::DataType> element_type = InferType(VECTOR_ELT(x, 0));
+        for (R_xlen_t i=1; i<n; i++) {
           if (InferType(VECTOR_ELT(x, i)) != element_type) {
             Rcpp::stop("list elements correspond to different arrow DataTypes; check element %d", i+1);
           }
