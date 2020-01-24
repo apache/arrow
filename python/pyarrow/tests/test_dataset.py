@@ -16,9 +16,9 @@
 # under the License.
 
 import sys
+import operator
 
 import numpy as np
-
 import pytest
 
 import pyarrow as pa
@@ -398,17 +398,26 @@ def test_expression_ergonomics():
     assert string.equals(ds.ScalarExpr("string"))
     assert field.equals(ds.FieldExpr("field"))
 
-    expr = one & zero
     expected = ds.AndExpr(ds.ScalarExpr(1), ds.ScalarExpr(0))
-    assert expr.equals(expected)
+    for expr in [one & zero, 1 & zero, one & 0]:
+        assert expr.equals(expected)
 
-    expr = one | zero
     expected = ds.OrExpr(ds.ScalarExpr(1), ds.ScalarExpr(0))
-    assert expr.equals(expected)
+    for expr in [one | zero, 1 | zero, one | 0]:
+        assert expr.equals(expected)
 
-    expr = zero <= one
-    expected = ds.ComparisonExpr(ds.CompareOperator.LessEqual, zero, one)
-    assert expr.equals(expected)
+    comparison_ops = [
+        (operator.eq, ds.CompareOperator.Equal),
+        (operator.ne, ds.CompareOperator.NotEqual),
+        (operator.ge, ds.CompareOperator.GreaterEqual),
+        (operator.le, ds.CompareOperator.LessEqual),
+        (operator.lt, ds.CompareOperator.Less),
+        (operator.gt, ds.CompareOperator.Greater),
+    ]
+    for op, compare_op in comparison_ops:
+        expr = op(zero, one)
+        expected = ds.ComparisonExpr(compare_op, zero, one)
+        assert expr.equals(expected)
 
     expr = ~true == false
     expected = ds.ComparisonExpr(
@@ -418,17 +427,21 @@ def test_expression_ergonomics():
     )
     assert expr.equals(expected)
 
-    expr = field.cast("bool") == true
-    expected = ds.ComparisonExpr(
-        ds.CompareOperator.Equal,
-        ds.CastExpr(ds.FieldExpr("field"), pa.bool_()),
-        ds.ScalarExpr(True)
-    )
-    assert expr.equals(expected)
+    for typ in ("bool", pa.bool_()):
+        expr = field.cast(typ) == true
+        expected = ds.ComparisonExpr(
+            ds.CompareOperator.Equal,
+            ds.CastExpr(ds.FieldExpr("field"), pa.bool_()),
+            ds.ScalarExpr(True)
+        )
+        assert expr.equals(expected)
 
     expr = field.isin([1, 2])
     expected = ds.InExpr(ds.FieldExpr("field"), pa.array([1, 2]))
     assert expr.equals(expected)
+
+    with pytest.raises(TypeError):
+        field.isin(1)
 
 
 @pytest.mark.parametrize('paths_or_selector', [

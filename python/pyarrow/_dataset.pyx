@@ -22,6 +22,7 @@
 from __future__ import absolute_import
 
 import six
+from cpython.object cimport Py_LT, Py_EQ, Py_GT, Py_LE, Py_NE, Py_GE
 from cython.operator cimport dereference as deref
 
 import pyarrow as pa
@@ -1099,6 +1100,29 @@ cdef class Scanner:
         return pyarrow_wrap_table(GetResultValue(result))
 
 
+def _binop(fn, left, right):
+    # cython doesn't support reverse operands like __radd__ just passes the
+    # arguments in the same order as the binary operator called
+
+    if isinstance(left, Expr) and isinstance(right, Expr):
+        pass
+    elif isinstance(left, Expr):
+        try:
+            right = ScalarExpr(right)
+        except TypeError:
+            return NotImplemented
+
+    elif isinstance(right, Expr):
+        try:
+            left = ScalarExpr(left)
+        except TypeError:
+            return NotImplemented
+    else:
+        raise TypeError('Neither left nor right arguments are Expressions')
+
+    return fn(left, right)
+
+
 cdef class Expr:
 
     cdef:
@@ -1161,41 +1185,34 @@ cdef class Expr:
     def assume(self, Expr given):
         return Expr.wrap(self.expr.Assume(given.unwrap()))
 
-    def _compare(self, other, op):
-        if not isinstance(other, Expr):
-            other = ScalarExpr(other)
-        return ComparisonExpr(op, self, other)
-
-    def __eq__(self, other):
-        return self._compare(other, CompareOperator.Equal)
-
-    def __ne__(self, other):
-        return self._compare(other, CompareOperator.NotEqual)
-
-    def __gt__(self, other):
-        return self._compare(other, CompareOperator.Greater)
-
-    def __ge__(self, other):
-        return self._compare(other, CompareOperator.GreaterEqual)
-
-    def __lt__(self, other):
-        return self._compare(other, CompareOperator.Less)
-
-    def __le__(self, other):
-        return self._compare(other, CompareOperator.LessEqual)
-
     def __invert__(self):
         return NotExpr(self)
 
-    def __and__(self, other):
+    def __richcmp__(self, other, int op):
+        cdef Compare
+
+        operator_mapping = {
+            Py_EQ: CompareOperator.Equal,
+            Py_NE: CompareOperator.NotEqual,
+            Py_GT: CompareOperator.Greater,
+            Py_GE: CompareOperator.GreaterEqual,
+            Py_LT: CompareOperator.Less,
+            Py_LE: CompareOperator.LessEqual
+        }
+
         if not isinstance(other, Expr):
-            other = ScalarExpr(other)
-        return AndExpr(self, other)
+            try:
+                other = ScalarExpr(other)
+            except TypeError:
+                return NotImplemented
+
+        return ComparisonExpr(operator_mapping[op], self, other)
+
+    def __and__(self, other):
+        return _binop(AndExpr, self, other)
 
     def __or__(self, other):
-        if not isinstance(other, Expr):
-            other = ScalarExpr(other)
-        return OrExpr(self, other)
+        return _binop(OrExpr, self, other)
 
     def is_valid(self):
         return IsValidExpr(self)
