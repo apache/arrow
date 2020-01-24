@@ -28,29 +28,29 @@ if sys.version_info < (3,):
     raise ImportError("Python Dataset bindings require Python 3")
 
 from pyarrow._dataset import (  # noqa
-    AndExpression,
-    CastExpression,
+    AndExpr,
+    CastExpr,
     CompareOperator,
-    ComparisonExpression,
+    ComparisonExpr,
     Dataset,
     DatasetFactory,
     DefaultPartitioning,
     DirectoryPartitioning,
-    Expression,
-    FieldExpression,
+    Expr,
+    FieldExpr,
     FileFormat,
     FileSystemSource,
     FileSystemSourceFactory,
     FileSystemFactoryOptions,
     HivePartitioning,
-    InExpression,
-    IsValidExpression,
-    NotExpression,
-    OrExpression,
+    InExpr,
+    IsValidExpr,
+    NotExpr,
+    OrExpr,
     ParquetFileFormat,
     Partitioning,
     PartitioningFactory,
-    ScalarExpression,
+    ScalarExpr,
     Scanner,
     ScannerBuilder,
     ScanTask,
@@ -336,8 +336,34 @@ def dataset(sources, filesystem=None, partitioning=None, format=None):
 
 
 def field(name):
-    return FieldExpression(name)
+    """References a named column of the dataset.
+
+    Stores only the field's name, type and other information is known only when
+    the expression is applied on a dataset having an explicit scheme.
+
+    Parameters
+    ----------
+    name : string
+        The name of the field the expression references to.
+
+    Returns
+    -------
+    field_expr : FieldExpr
+    """
+    return FieldExpr(name)
 
 
 def scalar(value):
-    return ScalarExpression(value)
+    """Expression representing a scalar value.
+
+    Parameters
+    ----------
+    value : bool, int, float or string
+        Python value of the scalar. Note that only a subset of types are
+        currently supported.
+
+    Returns
+    -------
+    scalar_expr : ScalarExpr
+    """
+    return ScalarExpr(value)

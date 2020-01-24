@@ -120,11 +120,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CUnaryExpression):
         CInExpression(shared_ptr[CExpression] operand, shared_ptr[CArray] set)
 
-    cdef shared_ptr[CNotExpression] MakeNotExpression "arrow::dataset::not_"(
+    cdef shared_ptr[CNotExpression] CMakeNotExpression "arrow::dataset::not_"(
         shared_ptr[CExpression] operand)
-    cdef shared_ptr[CExpression] MakeAndExpression "arrow::dataset::and_"(
+    cdef shared_ptr[CExpression] CMakeAndExpression "arrow::dataset::and_"(
         const CExpressionVector& subexpressions)
-    cdef shared_ptr[CExpression] MakeOrExpression "arrow::dataset::or_"(
+    cdef shared_ptr[CExpression] CMakeOrExpression "arrow::dataset::or_"(
         const CExpressionVector& subexpressions)
 
     cdef CResult[shared_ptr[CExpression]] CInsertImplicitCasts \
