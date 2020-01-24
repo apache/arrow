@@ -273,5 +273,38 @@ TEST(ReaderTest, MultipleChunksParallel) {
   AssertTablesEqual(*serial, *threaded);
 }
 
+TEST(ReaderTest, ListArrayWithFewValues) {
+  // ARROW-7647
+  ParseOptions parse_options;
+  parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  ReadOptions read_options;
+
+  auto expected_batch = RecordBatchFromJSON(
+      schema({field("a", list(int64())),
+              field("b", struct_({field("c", boolean()),
+                                  field("d", timestamp(TimeUnit::SECOND))}))}),
+      R"([
+        {"a": [1], "b": {"c": true, "d": "1991-02-03"}},
+        {"a": [], "b": {"c": false, "d": "2019-04-01"}}
+      ])");
+  std::shared_ptr<Table> expected_table;
+  ASSERT_OK(Table::FromRecordBatches({expected_batch}, &expected_table));
+
+  std::string json = R"({"a": [1], "b": {"c": true, "d": "1991-02-03"}}
+{"a": [], "b": {"c": false, "d": "2019-04-01"}}
+)";
+  std::shared_ptr<io::InputStream> input;
+  ASSERT_OK(MakeStream(json, &input));
+
+  std::shared_ptr<TableReader> reader;
+  read_options.use_threads = false;
+  ASSERT_OK(TableReader::Make(default_memory_pool(), input, read_options, parse_options,
+                              &reader));
+
+  std::shared_ptr<Table> actual_table;
+  ASSERT_OK(reader->Read(&actual_table));
+  AssertTablesEqual(*actual_table, *expected_table);
+}
+
 }  // namespace json
 }  // namespace arrow

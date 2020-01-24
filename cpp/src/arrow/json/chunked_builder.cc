@@ -224,16 +224,16 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
   Status Finish(std::shared_ptr<ChunkedArray>* out) override {
     RETURN_NOT_OK(task_group_->Finish());
 
-    std::shared_ptr<ChunkedArray> child_array;
-    RETURN_NOT_OK(value_builder_->Finish(&child_array));
+    std::shared_ptr<ChunkedArray> value_array;
+    RETURN_NOT_OK(value_builder_->Finish(&value_array));
 
-    auto type = list(value_field_->WithType(child_array->type()));
+    auto type = list(value_field_->WithType(value_array->type())->WithMetadata(nullptr));
     ArrayVector chunks(null_bitmap_chunks_.size());
     for (size_t i = 0; i < null_bitmap_chunks_.size(); ++i) {
-      auto child_chunk = child_array->chunk(static_cast<int>(i));
-      chunks[i] =
-          std::make_shared<ListArray>(type, child_chunk->length(), offset_chunks_[i],
-                                      child_chunk, null_bitmap_chunks_[i]);
+      auto value_chunk = value_array->chunk(static_cast<int>(i));
+      auto length = offset_chunks_[i]->size() / sizeof(int32_t) - 1;
+      chunks[i] = std::make_shared<ListArray>(type, length, offset_chunks_[i],
+                                              value_chunk, null_bitmap_chunks_[i]);
     }
 
     *out = std::make_shared<ChunkedArray>(std::move(chunks), type);
