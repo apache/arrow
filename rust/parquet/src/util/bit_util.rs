@@ -15,14 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{
-    cmp,
-    mem::{size_of, transmute_copy},
-};
+use std::{cmp, mem::size_of};
 
 use crate::data_type::AsBytes;
 use crate::errors::{ParquetError, Result};
 use crate::util::{bit_packing::unpack32, memory::ByteBufferPtr};
+
+fn from_ne_slice<T: FromBytes>(bs: &[u8]) -> T {
+    let mut b = T::Buffer::default();
+    {
+        let b = b.as_mut();
+        let bs = &bs[..b.len()];
+        b.copy_from_slice(bs);
+    }
+    T::from_ne_bytes(b)
+}
 
 pub trait FromBytes: Sized {
     type Buffer: AsMut<[u8]> + Default;
@@ -50,7 +57,24 @@ macro_rules! from_le_bytes {
     };
 }
 
-from_le_bytes! { u8, u16, u32, u64, i8, i16, i32, i64 }
+impl FromBytes for bool {
+    type Buffer = [u8; 1];
+    fn from_le_bytes(bs: Self::Buffer) -> Self {
+        Self::from_ne_bytes(bs)
+    }
+    fn from_be_bytes(bs: Self::Buffer) -> Self {
+        Self::from_ne_bytes(bs)
+    }
+    fn from_ne_bytes(bs: Self::Buffer) -> Self {
+        match bs[0] {
+            0 => false,
+            1 => true,
+            _ => panic!("Invalid byte when reading bool"),
+        }
+    }
+}
+
+from_le_bytes! { u8, u16, u32, u64, i8, i16, i32, i64, f32, f64 }
 
 /// Reads `$size` of bytes from `$src`, and reinterprets them as type `$ty`, in
 /// little-endian order. `$ty` must implement the `Default` trait. Otherwise this won't
@@ -465,7 +489,7 @@ impl BitReader {
     ///
     /// Returns `None` if there's not enough data available. `Some` otherwise.
     #[inline]
-    pub fn get_value<T: Default>(&mut self, num_bits: usize) -> Option<T> {
+    pub fn get_value<T: FromBytes>(&mut self, num_bits: usize) -> Option<T> {
         assert!(num_bits <= 64);
         assert!(num_bits <= size_of::<T>() * 8);
 
@@ -487,12 +511,11 @@ impl BitReader {
         }
 
         // TODO: better to avoid copying here
-        let result: T = unsafe { transmute_copy::<u64, T>(&v) };
-        Some(result)
+        Some(from_ne_slice(v.as_bytes()))
     }
 
     #[inline]
-    pub fn get_batch<T: Default>(&mut self, batch: &mut [T], num_bits: usize) -> usize {
+    pub fn get_batch<T: FromBytes>(&mut self, batch: &mut [T], num_bits: usize) -> usize {
         assert!(num_bits <= 32);
         assert!(num_bits <= size_of::<T>() * 8);
 
@@ -965,7 +988,7 @@ mod tests {
 
     fn test_get_batch_helper<T>(total: usize, num_bits: usize)
     where
-        T: Default + Clone + Debug + Eq,
+        T: FromBytes + Default + Clone + Debug + Eq,
     {
         assert!(num_bits <= 32);
         let num_bytes = ceil(num_bits as i64, 8);
@@ -977,10 +1000,8 @@ mod tests {
             .collect();
 
         // Generic values used to check against actual values read from `get_batch`.
-        let expected_values: Vec<T> = values
-            .iter()
-            .map(|v| unsafe { transmute_copy::<u32, T>(&v) })
-            .collect();
+        let expected_values: Vec<T> =
+            values.iter().map(|v| from_ne_slice(v.as_bytes())).collect();
 
         for i in 0..total {
             assert!(writer.put_value(values[i] as u64, num_bits));

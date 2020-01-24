@@ -22,7 +22,7 @@ use std::{
 
 use crate::errors::{ParquetError, Result};
 use crate::util::{
-    bit_util::{self, BitReader, BitWriter},
+    bit_util::{self, BitReader, BitWriter, FromBytes},
     memory::ByteBufferPtr,
 };
 
@@ -369,7 +369,7 @@ impl RleDecoder {
     }
 
     #[inline]
-    pub fn get<T: Default>(&mut self) -> Result<Option<T>> {
+    pub fn get<T: FromBytes>(&mut self) -> Result<Option<T>> {
         assert!(size_of::<T>() <= 8);
 
         while self.rle_left <= 0 && self.bit_packed_left <= 0 {
@@ -402,7 +402,7 @@ impl RleDecoder {
     }
 
     #[inline]
-    pub fn get_batch<T: Default>(&mut self, buffer: &mut [T]) -> Result<usize> {
+    pub fn get_batch<T: FromBytes>(&mut self, buffer: &mut [T]) -> Result<usize> {
         assert!(self.bit_reader.is_some());
         assert!(size_of::<T>() <= 8);
 

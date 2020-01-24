@@ -26,7 +26,10 @@ use crate::basic::Type;
 use crate::column::reader::{ColumnReader, ColumnReaderImpl};
 use crate::column::writer::{ColumnWriter, ColumnWriterImpl};
 use crate::errors::{ParquetError, Result};
-use crate::util::memory::{ByteBuffer, ByteBufferPtr};
+use crate::util::{
+    bit_util::FromBytes,
+    memory::{ByteBuffer, ByteBufferPtr},
+};
 use std::str::from_utf8;
 
 /// Rust representation for logical type INT96, value is backed by an array of `u32`.
@@ -381,7 +384,8 @@ pub trait DataType: 'static {
         + std::fmt::Debug
         + std::default::Default
         + std::clone::Clone
-        + AsBytes;
+        + AsBytes
+        + FromBytes;
 
     /// Returns Parquet physical type.
     fn get_physical_type() -> Type;
@@ -530,6 +534,34 @@ make_type!(
     ByteArray,
     mem::size_of::<ByteArray>()
 );
+
+impl FromBytes for Int96 {
+    type Buffer = [u8; 12];
+    fn from_le_bytes(_bs: Self::Buffer) -> Self {
+        unimplemented!()
+    }
+    fn from_be_bytes(_bs: Self::Buffer) -> Self {
+        unimplemented!()
+    }
+    fn from_ne_bytes(_bs: Self::Buffer) -> Self {
+        unimplemented!()
+    }
+}
+
+// FIXME Needed to satisfy the constraint of many decoding functions but ByteArray does not
+// appear to actual be converted directly from bytes
+impl FromBytes for ByteArray {
+    type Buffer = [u8; 8];
+    fn from_le_bytes(_bs: Self::Buffer) -> Self {
+        unreachable!()
+    }
+    fn from_be_bytes(_bs: Self::Buffer) -> Self {
+        unreachable!()
+    }
+    fn from_ne_bytes(_bs: Self::Buffer) -> Self {
+        unreachable!()
+    }
+}
 
 #[cfg(test)]
 mod tests {

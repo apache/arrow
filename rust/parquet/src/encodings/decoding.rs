@@ -28,7 +28,7 @@ use crate::data_type::*;
 use crate::errors::{ParquetError, Result};
 use crate::schema::types::ColumnDescPtr;
 use crate::util::{
-    bit_util::{self, BitReader},
+    bit_util::{self, BitReader, FromBytes},
     memory::{ByteBuffer, ByteBufferPtr},
 };
 
@@ -541,7 +541,10 @@ impl<T: DataType> DeltaBitPackDecoder<T> {
 
     /// Loads delta into mini block.
     #[inline]
-    fn load_deltas_in_mini_block(&mut self) -> Result<()> {
+    fn load_deltas_in_mini_block(&mut self) -> Result<()>
+    where
+        T::T: FromBytes,
+    {
         self.deltas_in_mini_block.clear();
         if self.use_batch {
             self.deltas_in_mini_block
@@ -566,7 +569,10 @@ impl<T: DataType> DeltaBitPackDecoder<T> {
     }
 }
 
-impl<T: DataType> Decoder<T> for DeltaBitPackDecoder<T> {
+impl<T: DataType> Decoder<T> for DeltaBitPackDecoder<T>
+where
+    T::T: FromBytes,
+{
     // # of total values is derived from encoding
     #[inline]
     default fn set_data(&mut self, data: ByteBufferPtr, _: usize) -> Result<()> {
