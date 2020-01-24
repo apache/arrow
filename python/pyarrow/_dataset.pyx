@@ -590,7 +590,7 @@ cdef class Source:
         return pyarrow_wrap_schema(self.source.schema())
 
     @property
-    def partition_Expr(self):
+    def partition_expression(self):
         """
         An Expr which evaluates to true for all data viewed by this
         Source.
