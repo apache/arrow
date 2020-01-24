@@ -264,6 +264,7 @@ groups:
     - ubuntu-xenial
     - ubuntu-bionic
     - ubuntu-disco
+    - ubuntu-eoan
     - centos-6
     - centos-7
     - centos-8
