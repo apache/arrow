@@ -808,26 +808,50 @@ cdef class Dataset:
     cdef inline shared_ptr[CDataset] unwrap(self) nogil:
         return self.wrapped
 
-    def new_scan(self, MemoryPool memory_pool=None):
-        """
-        Begin to build a new Scan operation against this Dataset.
+    def scan(self, columns=None, filter=None, use_threads=None,
+             MemoryPool memory_pool=None):
+        """Read the dataset as materialized record batches.
+
+        Builds and executes a scan operation against the dataset.
+
+        Scanner object can be instantiated manually, without executing the scan
+        operation: Scanner(dataset, columns, filter, use_threads).
 
         Parameters
         ----------
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required. If not specified, uses the
-            default pool.
+        columns : list of str, default None
+            List of columns to project. Order and duplicates will be preserved.
+            The goal is to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected, raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expr, default None
+            Set the filter Expr to return only rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        use_threads : bool, default True
+            Set whether the Scanner should make use of the thread pool.
 
         Returns
         -------
-        ScannerBuilder
+        record_batches : iterator of RecordBatch
+
+        Examples
+        --------
+        TODO(kszucs)
         """
-        cdef:
-            shared_ptr[CScanContext] context = make_shared[CScanContext]()
-            CResult[shared_ptr[CScannerBuilder]] result
-        context.get().pool = maybe_unbox_memory_pool(memory_pool)
-        result = self.dataset.NewScanWithContext(context)
-        return ScannerBuilder.wrap(GetResultValue(result))
+        scanner = Scanner(self, columns=columns, filter=filter,
+                          use_threads=use_threads, memory_pool=memory_pool)
+        return scanner.scan()
+
+    def to_table(self, columns=None, filter=None, use_threads=None,
+                 MemoryPool memory_pool=None):
+        scanner = Scanner(self, columns=columns, filter=filter,
+                          use_threads=use_threads, memory_pool=memory_pool)
+        return scanner.to_table()
 
     @property
     def sources(self):
@@ -860,7 +884,7 @@ cdef class ScanTask:
 
     @staticmethod
     cdef wrap(shared_ptr[CScanTask]& sp):
-        cdef InMemoryScanTask self = InMemoryScanTask.__new__(InMemoryScanTask)
+        cdef ScanTask self = ScanTask.__new__(ScanTask)
         self.init(sp)
         return self
 
@@ -891,145 +915,131 @@ cdef class ScanTask:
                 yield pyarrow_wrap_batch(record_batch)
 
 
-cdef class InMemoryScanTask(ScanTask):
-    """A trivial ScanTask that yields the RecordBatch of an array."""
+# cdef class ScannerBuilder:
+#     """Factory class to construct a Scanner.
 
-    cdef:
-        CInMemoryScanTask* in_memory_task
+#     It is used to pass information, notably a potential filter expression and a
+#     subset of columns to materialize.
 
-    cdef init(self, shared_ptr[CScanTask]& sp):
-        ScanTask.init(self, sp)
-        self.in_memory_task = <CInMemoryScanTask*> sp.get()
+#     Parameters
+#     ----------
+#     dataset : Dataset
+#         The dataset to scan.
+#     memory_pool : MemoryPool, default None
+#         For memory allocations, if required. If not specified, uses the
+#         default pool.
+#     """
 
+#     cdef:
+#         shared_ptr[CScannerBuilder] wrapped
+#         CScannerBuilder* builder
 
-cdef class ScannerBuilder:
-    """Factory class to construct a Scanner.
+#     def __init__(self, Dataset dataset not None, MemoryPool memory_pool=None):
+#         cdef:
+#             shared_ptr[CScannerBuilder] builder
+#             shared_ptr[CScanContext] context = make_shared[CScanContext]()
+#         context.get().pool = maybe_unbox_memory_pool(memory_pool)
+#         builder = make_shared[CScannerBuilder](dataset.unwrap(), context)
+#         self.init(builder)
 
-    It is used to pass information, notably a potential filter expression and a
-    subset of columns to materialize.
+#     cdef void init(self, shared_ptr[CScannerBuilder]& sp):
+#         self.wrapped = sp
+#         self.builder = sp.get()
 
-    Parameters
-    ----------
-    dataset : Dataset
-        The dataset to scan.
-    memory_pool : MemoryPool, default None
-        For memory allocations, if required. If not specified, uses the
-        default pool.
-    """
+#     @staticmethod
+#     cdef wrap(shared_ptr[CScannerBuilder]& sp):
+#         cdef ScannerBuilder self = ScannerBuilder.__new__(ScannerBuilder)
+#         self.init(sp)
+#         return self
 
-    cdef:
-        shared_ptr[CScannerBuilder] wrapped
-        CScannerBuilder* builder
+#     cdef inline shared_ptr[CScannerBuilder] unwrap(self) nogil:
+#         return self.wrapped
 
-    def __init__(self, Dataset dataset not None, MemoryPool memory_pool=None):
-        cdef:
-            shared_ptr[CScannerBuilder] builder
-            shared_ptr[CScanContext] context = make_shared[CScanContext]()
-        context.get().pool = maybe_unbox_memory_pool(memory_pool)
-        builder = make_shared[CScannerBuilder](dataset.unwrap(), context)
-        self.init(builder)
+#     def project(self, columns):
+#         """Set the subset of columns to materialize.
 
-    cdef void init(self, shared_ptr[CScannerBuilder]& sp):
-        self.wrapped = sp
-        self.builder = sp.get()
+#         This subset will be passed down to Sources and corresponding
+#         data fragments. The goal is to avoid loading, copying, and
+#         deserializing columns that will not be required further down the
+#         compute chain.
 
-    @staticmethod
-    cdef wrap(shared_ptr[CScannerBuilder]& sp):
-        cdef ScannerBuilder self = ScannerBuilder.__new__(ScannerBuilder)
-        self.init(sp)
-        return self
+#         It alters the object in place and returns the object itself enabling
+#         method chaining. Raises exception if any of the referenced column names
+#         does not exists in the dataset's Schema.
 
-    cdef inline shared_ptr[CScannerBuilder] unwrap(self) nogil:
-        return self.wrapped
+#         Parameters
+#         ----------
+#         columns : list of str
+#             List of columns to project. Order and duplicates will be preserved.
 
-    def project(self, columns):
-        """Set the subset of columns to materialize.
+#         Returns
+#         -------
+#         self : ScannerBuilder
+#         """
+#         cdef vector[c_string] cols = [tobytes(c) for c in columns]
+#         check_status(self.builder.Project(cols))
+#         return self
 
-        This subset will be passed down to Sources and corresponding
-        data fragments. The goal is to avoid loading, copying, and
-        deserializing columns that will not be required further down the
-        compute chain.
+#     def finish(self):
+#         """Return the constructed now-immutable Scanner object
 
-        It alters the object in place and returns the object itself enabling
-        method chaining. Raises exception if any of the referenced column names
-        does not exists in the dataset's Schema.
+#         Returns
+#         -------
+#         Scanner
+#         """
+#         return Scanner.wrap(GetResultValue(self.builder.Finish()))
 
-        Parameters
-        ----------
-        columns : list of str
-            List of columns to project. Order and duplicates will be preserved.
+#     def filter(self, Expr filter not None):
+#         """Set the filter Expr to return only rows matching the filter.
 
-        Returns
-        -------
-        self : ScannerBuilder
-        """
-        cdef vector[c_string] cols = [tobytes(c) for c in columns]
-        check_status(self.builder.Project(cols))
+#         The predicate will be passed down to Sources and corresponding
+#         data fragments to exploit predicate pushdown if possible using
+#         partition information or internal metadata, e.g. Parquet statistics.
+#         Otherwise filters the loaded RecordBatches before yielding them.
 
-        return self
+#         It alters the object in place and returns the object itself enabling
+#         method chaining. Raises exception if any of the referenced column names
+#         does not exists in the dataset's Schema.
 
-    def finish(self):
-        """Return the constructed now-immutable Scanner object
+#         Parameters
+#         ----------
+#         filter : Expr
+#             Boolean Expr to filter rows with.
 
-        Returns
-        -------
-        Scanner
-        """
-        return Scanner.wrap(GetResultValue(self.builder.Finish()))
+#         Returns
+#         -------
+#         self : ScannerBuilder
+#         """
+#         cdef shared_ptr[CExpression] casted
+#         casted = GetResultValue(
+#             CInsertImplicitCasts(
+#                 deref(expr.unwrap().get()),
+#                 deref(self.builder.schema().get())
+#             )
+#         )
+#         check_status(self.builder.Filter(casted))
+#         return self
 
-    def filter(self, Expr filter_expr not None):
-        """Set the filter Expr to return only rows matching the filter.
+#     def use_threads(self, bint value):
+#         """Set whether the Scanner should make use of the thread pool.
 
-        The predicate will be passed down to Sources and corresponding
-        data fragments to exploit predicate pushdown if possible using
-        partition information or internal metadata, e.g. Parquet statistics.
-        Otherwise filters the loaded RecordBatches before yielding them.
+#         It alters the object in place and returns with the object itself
+#         enabling method chaining.
 
-        It alters the object in place and returns the object itself enabling
-        method chaining. Raises exception if any of the referenced column names
-        does not exists in the dataset's Schema.
+#         Parameters
+#         ----------
+#         value : boolean
 
-        Parameters
-        ----------
-        filter_expr : Expr
-            Boolean Expr to filter rows with.
+#         Returns
+#         -------
+#         self : ScannerBuilder
+#         """
 
-        Returns
-        -------
-        self : ScannerBuilder
-        """
-        cdef:
-            shared_ptr[CExpression] c_casting_filter_expression
+#         return self
 
-        c_casting_filter_expression = GetResultValue(
-            CInsertImplicitCasts(
-                deref(filter_expression.unwrap().get()),
-                deref(self.builder.schema().get())
-            )
-        )
-        check_status(self.builder.Filter(c_casting_filter_expression))
-        return self
-
-    def use_threads(self, bint value):
-        """Set whether the Scanner should make use of the thread pool.
-
-        It alters the object in place and returns with the object itself
-        enabling method chaining.
-
-        Parameters
-        ----------
-        value : boolean
-
-        Returns
-        -------
-        self : ScannerBuilder
-        """
-        check_status(self.builder.UseThreads(value))
-        return self
-
-    @property
-    def schema(self):
-        return pyarrow_wrap_schema(self.builder.schema())
+#     @property
+#     def schema(self):
+#         return pyarrow_wrap_schema(self.builder.schema())
 
 
 cdef class Scanner:
@@ -1045,9 +1055,41 @@ cdef class Scanner:
         shared_ptr[CScanner] wrapped
         CScanner* scanner
 
-    def __init__(self):
-        raise TypeError('Scanner cannot be initialized directly, use '
-                        'ScannerBuilder instead')
+    def __init__(self, Dataset dataset, list columns=None, Expr filter=None,
+                 bint use_threads=True, MemoryPool memory_pool=None):
+        cdef:
+            shared_ptr[CScanContext] context
+            shared_ptr[CScannerBuilder] builder
+            shared_ptr[CExpression] filter_expression
+            vector[c_string] columns_to_project
+
+        # create scan context
+        context = make_shared[CScanContext]()
+        context.get().pool = maybe_unbox_memory_pool(memory_pool)
+
+        # create scanner builder
+        builder = GetResultValue(
+            dataset.unwrap().get().NewScanWithContext(context)
+        )
+
+        # set the builder's properties
+        if columns is not None:
+            columns_to_project = [tobytes(c) for c in columns]
+            check_status(builder.get().Project(columns_to_project))
+        if filter is not None:
+            filter_expression = GetResultValue(
+                CInsertImplicitCasts(
+                    deref(filter.unwrap().get()),
+                    deref(builder.get().schema().get())
+                )
+            )
+            check_status(builder.get().Filter(filter_expression))
+        if use_threads is not None:
+            check_status(builder.get().UseThreads(use_threads))
+
+        # instantiate the scanner object
+        scanner = GetResultValue(builder.get().Finish())
+        self.init(scanner)
 
     cdef void init(self, shared_ptr[CScanner]& sp):
         self.wrapped = sp

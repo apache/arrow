@@ -52,7 +52,7 @@ from pyarrow._dataset import (  # noqa
     PartitioningFactory,
     ScalarExpr,
     Scanner,
-    ScannerBuilder,
+    # ScannerBuilder,
     ScanTask,
     Source,
     TreeSource,

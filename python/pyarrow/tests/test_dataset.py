@@ -202,7 +202,7 @@ def test_filesystem_source(mockfs):
                                  source_partition=source_partition,
                                  filesystem=mockfs, partitions=partitions,
                                  file_format=file_format)
-    assert source.partition_Expr.equals(source_partition)
+    assert source.partition_expression.equals(source_partition)
 
 
 def test_dataset(dataset):
@@ -210,10 +210,7 @@ def test_dataset(dataset):
     assert isinstance(dataset.schema, pa.Schema)
 
     # TODO(kszucs): test non-boolean Exprs for filter do raise
-    builder = dataset.new_scan()
-    assert isinstance(builder, ds.ScannerBuilder)
-
-    scanner = builder.finish()
+    scanner = ds.Scanner(dataset)
     assert isinstance(scanner, ds.Scanner)
     assert len(list(scanner.scan())) == 2
 
@@ -234,7 +231,7 @@ def test_dataset(dataset):
         ds.FieldExpr('i64'),
         ds.ScalarExpr(1)
     )
-    scanner = dataset.new_scan().use_threads(True).filter(condition).finish()
+    scanner = ds.Scanner(dataset, use_threads=True, filter=condition)
     result = scanner.to_table().to_pydict()
 
     # don't rely on the scanning order
@@ -244,17 +241,16 @@ def test_dataset(dataset):
     assert sorted(result['key']) == ['xxx', 'yyy']
 
 
-def test_scanner_builder(dataset):
-    builder = ds.ScannerBuilder(dataset, memory_pool=pa.default_memory_pool())
-    scanner = builder.finish()
+def test_scanner(dataset):
+    scanner = ds.Scanner(dataset, memory_pool=pa.default_memory_pool())
     assert isinstance(scanner, ds.Scanner)
     assert len(list(scanner.scan())) == 2
 
     with pytest.raises(pa.ArrowInvalid):
-        dataset.new_scan().project(['unknown'])
+        dataset.scan(columns=['unknown'])
 
-    builder = dataset.new_scan(memory_pool=pa.default_memory_pool())
-    scanner = builder.project(['i64']).finish()
+    scanner = ds.Scanner(dataset, columns=['i64'],
+                         memory_pool=pa.default_memory_pool())
 
     assert isinstance(scanner, ds.Scanner)
     assert len(list(scanner.scan())) == 2
@@ -485,10 +481,9 @@ def test_file_system_factory(mockfs, paths_or_selector):
     assert isinstance(source, ds.Source)
 
     dataset = ds.Dataset([source], inspected_schema)
+    assert len(list(dataset.scan())) == 2
 
-    scanner = dataset.new_scan().finish()
-    assert len(list(scanner.scan())) == 2
-
+    scanner = ds.Scanner(dataset)
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
     for task, group, key in zip(scanner.scan(), [1, 2], ['xxx', 'yyy']):
@@ -501,7 +496,7 @@ def test_file_system_factory(mockfs, paths_or_selector):
             assert batch[2].equals(expected_group_column)
             assert batch[3].equals(expected_key_column)
 
-    table = scanner.to_table()
+    table = dataset.to_table()
     assert isinstance(table, pa.Table)
     assert len(table) == 10
     assert table.num_columns == 4
@@ -595,19 +590,19 @@ def _check_dataset_from_path(path, table, **kwargs):
     assert isinstance(path, pathlib.Path)
     dataset = ds.dataset(ds.source(path, **kwargs))
     assert dataset.schema.equals(table.schema, check_metadata=False)
-    result = dataset.new_scan().finish().to_table()
+    result = dataset.to_table()
     assert result.replace_schema_metadata().equals(table)
 
     # string path
     dataset = ds.dataset(ds.source(str(path), **kwargs))
     assert dataset.schema.equals(table.schema, check_metadata=False)
-    result = dataset.new_scan().finish().to_table()
+    result = dataset.to_table()
     assert result.replace_schema_metadata().equals(table)
 
     # passing directly to dataset
     dataset = ds.dataset(str(path), **kwargs)
     assert dataset.schema.equals(table.schema, check_metadata=False)
-    result = dataset.new_scan().finish().to_table()
+    result = dataset.to_table()
     assert result.replace_schema_metadata().equals(table)
 
 
@@ -635,7 +630,7 @@ def test_open_dataset_list_of_files(tempdir):
             ds.dataset(ds.source([path1, path2])),
             ds.dataset(ds.source([str(path1), str(path2)]))]:
         assert dataset.schema.equals(table.schema, check_metadata=False)
-        result = dataset.new_scan().finish().to_table()
+        result = dataset.to_table()
         assert result.replace_schema_metadata().equals(table)
 
 
@@ -671,7 +666,7 @@ def test_open_dataset_partitioned_directory(tempdir):
     expected_schema = table.schema.append(pa.field("part", pa.int8()))
     assert dataset.schema.equals(expected_schema, check_metadata=False)
 
-    result = dataset.new_scan().finish().to_table()
+    result = dataset.to_table()
     expected = full_table.append_column(
         "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
     assert result.replace_schema_metadata().equals(expected)
@@ -724,15 +719,13 @@ def test_filter_implicit_cast(tempdir):
     _, path = _create_single_file(tempdir, table)
     dataset = ds.dataset(str(path))
 
-    filter_ = ds.ComparisonExpression(
+    filter_ = ds.ComparisonExpr(
         ds.CompareOperator.Greater,
-        ds.FieldExpression('a'),
-        ds.ScalarExpression(2)
+        ds.FieldExpr('a'),
+        ds.ScalarExpr(2)
     )
-
-    scanner_builder = dataset.new_scan()
-    scanner_builder.filter(filter_)
-    result = scanner_builder.finish().to_table()
+    scanner = ds.Scanner(dataset, filter=filter_)
+    result = scanner.to_table()
     assert len(result) == 3
 
 
