@@ -24,6 +24,7 @@ import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
@@ -93,6 +94,11 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
 
   @Override
   public Boolean visit(UnionVector left, Void value) {
+    return compareField(left.getField(), right.getField());
+  }
+
+  @Override
+  public Boolean visit(DenseUnionVector left, Void value) {
     return compareField(left.getField(), right.getField());
   }
 
