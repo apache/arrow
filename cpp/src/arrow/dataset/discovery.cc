@@ -76,7 +76,7 @@ Result<std::shared_ptr<Schema>> DatasetFactory::Inspect() {
   ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
 
   if (schemas.empty()) {
-    schemas.push_back(arrow::schema({}));
+    return arrow::schema({});
   }
 
   return UnifySchemas(schemas);

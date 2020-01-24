@@ -246,8 +246,6 @@ TEST_F(FileSystemSourceFactoryTest, Inspect) {
   MakeFactory({});
   AssertInspect({});
 
-  AssertInspect({});
-
   MakeFactory({fs::File("test")});
   AssertInspect(s->fields());
 }
@@ -273,7 +271,7 @@ std::shared_ptr<SourceFactory> SourceFactoryFromSchemas(
 TEST(DatasetFactoryTest, Basic) {
   auto f64 = field("f64", float64());
   auto i32 = field("i32", int32());
-  auto i32_req = field("i32", int32(), false /*nullabled*/);
+  auto i32_req = field("i32", int32(), /*nullable*/ false);
   auto str = field("str", utf8());
 
   auto schema_1 = schema({f64, i32_req});
@@ -305,7 +303,7 @@ TEST(DatasetFactoryTest, Basic) {
 TEST(DatasetFactoryTest, ConflictingSchemas) {
   auto f64 = field("f64", float64());
   auto i32 = field("i32", int32());
-  auto i32_req = field("i32", int32(), false /*nullabled*/);
+  auto i32_req = field("i32", int32(), /*nullable*/ false);
   auto bad_f64 = field("f64", float32());
 
   auto schema_1 = schema({f64, i32_req});

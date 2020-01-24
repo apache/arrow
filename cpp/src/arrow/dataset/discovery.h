@@ -77,7 +77,7 @@ class ARROW_DS_EXPORT DatasetFactory {
       std::vector<std::shared_ptr<SourceFactory>> factories);
 
   /// \brief Return the list of SourceFactory
-  const std::vector<std::shared_ptr<SourceFactory>> factories() const {
+  const std::vector<std::shared_ptr<SourceFactory>>& factories() const {
     return factories_;
   }
 
@@ -94,7 +94,7 @@ class ARROW_DS_EXPORT DatasetFactory {
   Result<std::shared_ptr<Dataset>> Finish();
 
  protected:
-  explicit DatasetFactory(std::vector<std::shared_ptr<SourceFactory>> schema);
+  explicit DatasetFactory(std::vector<std::shared_ptr<SourceFactory>> factories);
 
   std::vector<std::shared_ptr<SourceFactory>> factories_;
 };

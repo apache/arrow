@@ -17,7 +17,7 @@
 
 #' @usage NULL
 #' @format NULL
-#' @rdname Source
+#' @rdname Dataset
 #' @export
 DatasetFactory <- R6Class("DatasetFactory", inherit = Object,
   public = list(
@@ -25,6 +25,7 @@ DatasetFactory <- R6Class("DatasetFactory", inherit = Object,
       if (is.null(schema)) {
         shared_ptr(Dataset, dataset___DFactory__Finish1(self))
       } else {
+        assert_is(schema, "Schema")
         shared_ptr(Dataset, dataset___DFactory__Finish2(self, schema))
       }
     },
