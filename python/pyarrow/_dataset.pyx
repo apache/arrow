@@ -939,8 +939,9 @@ cdef class Scanner:
         shared_ptr[CScanner] wrapped
         CScanner* scanner
 
-    def __init__(self, Dataset dataset, list columns=None, Expression filter=None,
-                 bint use_threads=True, MemoryPool memory_pool=None):
+    def __init__(self, Dataset dataset, list columns=None,
+                 Expression filter=None, bint use_threads=True,
+                 MemoryPool memory_pool=None):
         cdef:
             shared_ptr[CScanContext] context
             shared_ptr[CScannerBuilder] builder
