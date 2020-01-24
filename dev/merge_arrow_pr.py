@@ -47,6 +47,7 @@ import six
 
 try:
     import jira.client
+    import jira.exceptions
 except ImportError:
     print("Could not find jira library. "
           "Run 'sudo pip install jira' to install.")
@@ -516,8 +517,20 @@ def get_credentials(cmd):
 
 
 def connect_jira(cmd):
-    return jira.client.JIRA({'server': JIRA_API_BASE},
-                            basic_auth=get_credentials(cmd))
+    try:
+        return jira.client.JIRA({'server': JIRA_API_BASE},
+                                basic_auth=get_credentials(cmd))
+    except jira.exceptions.JIRAError as e:
+        if "CAPTCHA_CHALLENGE" in e.text:
+            print("")
+            print("It looks like you need to answer a captcha challenge for "
+                  "this account (probably due to a login attempt with an "
+                  "incorrect password). Please log in at "
+                  "https://issues.apache.org/jira and complete the captcha "
+                  "before running this tool again.")
+            print("Exiting.")
+            sys.exit(1)
+        raise e
 
 
 def get_pr_num():
