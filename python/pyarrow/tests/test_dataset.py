@@ -210,27 +210,23 @@ def test_dataset(dataset):
     assert isinstance(dataset.schema, pa.Schema)
 
     # TODO(kszucs): test non-boolean Exprs for filter do raise
-    scanner = ds.Scanner(dataset)
-    assert isinstance(scanner, ds.Scanner)
-    assert len(list(scanner.scan())) == 2
 
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
-    for task in scanner.scan():
+    for task in dataset.scan():
         assert isinstance(task, ds.ScanTask)
         for batch in task.execute():
             assert batch.column(0).equals(expected_i64)
             assert batch.column(1).equals(expected_f64)
 
-    table = scanner.to_table()
+    batches = dataset.to_batches()
+    assert all(isinstance(batch, pa.RecordBatch) for batch in batches)
+
+    table = dataset.to_table()
     assert isinstance(table, pa.Table)
     assert len(table) == 10
 
-    condition = ds.ComparisonExpr(
-        ds.CompareOperator.Equal,
-        ds.FieldExpr('i64'),
-        ds.ScalarExpr(1)
-    )
+    condition = ds.field('i64') == 1
     scanner = ds.Scanner(dataset, use_threads=True, filter=condition)
     result = scanner.to_table().to_pydict()
 
@@ -290,18 +286,7 @@ def test_partitioning():
     expr = partitioning.parse('/3/3.14')
     assert isinstance(expr, ds.Expr)
 
-    expected = ds.AndExpr(
-        ds.ComparisonExpr(
-            ds.CompareOperator.Equal,
-            ds.FieldExpr('group'),
-            ds.ScalarExpr(3)
-        ),
-        ds.ComparisonExpr(
-            ds.CompareOperator.Equal,
-            ds.FieldExpr('key'),
-            ds.ScalarExpr(3.14)
-        )
-    )
+    expected = (ds.field('group') == 3) & (ds.field('key') == 3.14)
     assert expr.equals(expected)
 
     with pytest.raises(pa.ArrowInvalid):
@@ -314,17 +299,9 @@ def test_partitioning():
         ])
     )
     expr = partitioning.parse('/alpha=0/beta=3')
-    expected = ds.AndExpr(
-        ds.ComparisonExpr(
-            ds.CompareOperator.Equal,
-            ds.FieldExpr('alpha'),
-            ds.ScalarExpr(0)
-        ),
-        ds.ComparisonExpr(
-            ds.CompareOperator.Equal,
-            ds.FieldExpr('beta'),
-            ds.ScalarExpr(3)
-        )
+    expected = (
+        (ds.field('alpha') == ds.scalar(0)) &
+        (ds.field('beta') == ds.scalar(3))
     )
     assert expr.equals(expected)
 
@@ -719,11 +696,7 @@ def test_filter_implicit_cast(tempdir):
     _, path = _create_single_file(tempdir, table)
     dataset = ds.dataset(str(path))
 
-    filter_ = ds.ComparisonExpr(
-        ds.CompareOperator.Greater,
-        ds.FieldExpr('a'),
-        ds.ScalarExpr(2)
-    )
+    filter_ = ds.field('a') > 2
     scanner = ds.Scanner(dataset, filter=filter_)
     result = scanner.to_table()
     assert len(result) == 3

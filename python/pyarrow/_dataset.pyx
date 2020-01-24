@@ -98,9 +98,7 @@ cdef class Partitioning:
         cdef Partitioning self
 
         typ = frombytes(sp.get().type_name())
-        if typ == 'default':
-            self = DefaultPartitioning.__new__(DefaultPartitioning)
-        elif typ == 'schema':
+        if typ == 'schema':
             self = DirectoryPartitioning.__new__(DirectoryPartitioning)
         elif typ == 'hive':
             self = HivePartitioning.__new__(HivePartitioning)
@@ -147,21 +145,6 @@ cdef class PartitioningFactory:
 
     cdef inline shared_ptr[CPartitioningFactory] unwrap(self):
         return self.wrapped
-
-
-cdef class DefaultPartitioning(Partitioning):
-
-    cdef:
-        CDefaultPartitioning* default_partitioning
-
-    def __init__(self):
-        cdef shared_ptr[CDefaultPartitioning] partitioning
-        partitioning = make_shared[CDefaultPartitioning]()
-        self.init(<shared_ptr[CPartitioning]> partitioning)
-
-    cdef init(self, const shared_ptr[CPartitioning]& sp):
-        Partitioning.init(self, sp)
-        self.default_partitioning = <CDefaultPartitioning*> sp.get()
 
 
 cdef class DirectoryPartitioning(Partitioning):
@@ -516,7 +499,6 @@ cdef class FileSystemSourceFactory(SourceFactory):
             CFileSystemFactoryOptions c_options
 
         c_filesystem = filesystem.unwrap()
-
         c_format = format.unwrap()
 
         options = options or FileSystemFactoryOptions()
@@ -812,10 +794,10 @@ cdef class Dataset:
              MemoryPool memory_pool=None):
         """Read the dataset as materialized record batches.
 
-        Builds and executes a scan operation against the dataset.
+        Builds and executes a scan operation against the dataset. It poduces
+        a stream of RecordBatches, so
 
-        Scanner object can be instantiated manually, without executing the scan
-        operation: Scanner(dataset, columns, filter, use_threads).
+        The Scanner object can be instantiated manually, see the Scanner class.
 
         Parameters
         ----------
@@ -846,6 +828,14 @@ cdef class Dataset:
         scanner = Scanner(self, columns=columns, filter=filter,
                           use_threads=use_threads, memory_pool=memory_pool)
         return scanner.scan()
+
+    def to_batches(self, columns=None, filter=None, use_threads=None,
+                   MemoryPool memory_pool=None):
+        scanner = Scanner(self, columns=columns, filter=filter,
+                          use_threads=use_threads, memory_pool=memory_pool)
+        for task in scanner.scan():
+            for batch in task.execute():
+                yield batch
 
     def to_table(self, columns=None, filter=None, use_threads=None,
                  MemoryPool memory_pool=None):
@@ -915,140 +905,34 @@ cdef class ScanTask:
                 yield pyarrow_wrap_batch(record_batch)
 
 
-# cdef class ScannerBuilder:
-#     """Factory class to construct a Scanner.
-
-#     It is used to pass information, notably a potential filter expression and a
-#     subset of columns to materialize.
-
-#     Parameters
-#     ----------
-#     dataset : Dataset
-#         The dataset to scan.
-#     memory_pool : MemoryPool, default None
-#         For memory allocations, if required. If not specified, uses the
-#         default pool.
-#     """
-
-#     cdef:
-#         shared_ptr[CScannerBuilder] wrapped
-#         CScannerBuilder* builder
-
-#     def __init__(self, Dataset dataset not None, MemoryPool memory_pool=None):
-#         cdef:
-#             shared_ptr[CScannerBuilder] builder
-#             shared_ptr[CScanContext] context = make_shared[CScanContext]()
-#         context.get().pool = maybe_unbox_memory_pool(memory_pool)
-#         builder = make_shared[CScannerBuilder](dataset.unwrap(), context)
-#         self.init(builder)
-
-#     cdef void init(self, shared_ptr[CScannerBuilder]& sp):
-#         self.wrapped = sp
-#         self.builder = sp.get()
-
-#     @staticmethod
-#     cdef wrap(shared_ptr[CScannerBuilder]& sp):
-#         cdef ScannerBuilder self = ScannerBuilder.__new__(ScannerBuilder)
-#         self.init(sp)
-#         return self
-
-#     cdef inline shared_ptr[CScannerBuilder] unwrap(self) nogil:
-#         return self.wrapped
-
-#     def project(self, columns):
-#         """Set the subset of columns to materialize.
-
-#         This subset will be passed down to Sources and corresponding
-#         data fragments. The goal is to avoid loading, copying, and
-#         deserializing columns that will not be required further down the
-#         compute chain.
-
-#         It alters the object in place and returns the object itself enabling
-#         method chaining. Raises exception if any of the referenced column names
-#         does not exists in the dataset's Schema.
-
-#         Parameters
-#         ----------
-#         columns : list of str
-#             List of columns to project. Order and duplicates will be preserved.
-
-#         Returns
-#         -------
-#         self : ScannerBuilder
-#         """
-#         cdef vector[c_string] cols = [tobytes(c) for c in columns]
-#         check_status(self.builder.Project(cols))
-#         return self
-
-#     def finish(self):
-#         """Return the constructed now-immutable Scanner object
-
-#         Returns
-#         -------
-#         Scanner
-#         """
-#         return Scanner.wrap(GetResultValue(self.builder.Finish()))
-
-#     def filter(self, Expr filter not None):
-#         """Set the filter Expr to return only rows matching the filter.
-
-#         The predicate will be passed down to Sources and corresponding
-#         data fragments to exploit predicate pushdown if possible using
-#         partition information or internal metadata, e.g. Parquet statistics.
-#         Otherwise filters the loaded RecordBatches before yielding them.
-
-#         It alters the object in place and returns the object itself enabling
-#         method chaining. Raises exception if any of the referenced column names
-#         does not exists in the dataset's Schema.
-
-#         Parameters
-#         ----------
-#         filter : Expr
-#             Boolean Expr to filter rows with.
-
-#         Returns
-#         -------
-#         self : ScannerBuilder
-#         """
-#         cdef shared_ptr[CExpression] casted
-#         casted = GetResultValue(
-#             CInsertImplicitCasts(
-#                 deref(expr.unwrap().get()),
-#                 deref(self.builder.schema().get())
-#             )
-#         )
-#         check_status(self.builder.Filter(casted))
-#         return self
-
-#     def use_threads(self, bint value):
-#         """Set whether the Scanner should make use of the thread pool.
-
-#         It alters the object in place and returns with the object itself
-#         enabling method chaining.
-
-#         Parameters
-#         ----------
-#         value : boolean
-
-#         Returns
-#         -------
-#         self : ScannerBuilder
-#         """
-
-#         return self
-
-#     @property
-#     def schema(self):
-#         return pyarrow_wrap_schema(self.builder.schema())
-
-
 cdef class Scanner:
     """A materialized scan operation with context and options bound.
 
-    Create this using the ScannerBuilder factory class.
-
     A scanner is the class that glues the scan tasks, data fragments and data
     sources together.
+
+    Parameters
+    ----------
+    dataset : Dataset instance
+        The dataset to scan.
+    columns : list of strings, default None
+        List of projectable columns during the scan operation. Order and
+        duplicates will be preserved.
+        This subset will be passed down to Sources and corresponding data
+        fragments. The goal is to avoid loading, copying, and deserializing
+        columns that will not be required further down the compute chain.
+        By default all available columns will be projected.
+    filter : Expr, default None
+        Scan will return only the rows matching the filter.
+        The predicate will be passed down to Sources and corresponding
+        data fragments to exploit predicate pushdown if possible using
+        partition information or internal metadata, e.g. Parquet statistics.
+        Otherwise filters the loaded RecordBatches before yielding them.
+    use_threads : bool, default True
+        Set whether the Scanner should make use of the thread pool.
+    memory_pool : MemoryPool, default None
+        For memory allocations, if required. If not specified, uses the
+        default pool.
     """
 
     cdef:
