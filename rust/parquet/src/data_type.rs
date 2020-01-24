@@ -303,6 +303,12 @@ pub trait AsBytes {
     fn as_bytes(&self) -> &[u8];
 }
 
+impl AsBytes for [u8] {
+    fn as_bytes(&self) -> &[u8] {
+        self
+    }
+}
+
 macro_rules! gen_as_bytes {
     ($source_ty:ident) => {
         impl AsBytes for $source_ty {
@@ -319,10 +325,14 @@ macro_rules! gen_as_bytes {
 }
 
 gen_as_bytes!(bool);
-gen_as_bytes!(u8);
+gen_as_bytes!(i8);
+gen_as_bytes!(i16);
 gen_as_bytes!(i32);
-gen_as_bytes!(u32);
 gen_as_bytes!(i64);
+gen_as_bytes!(u8);
+gen_as_bytes!(u16);
+gen_as_bytes!(u32);
+gen_as_bytes!(u64);
 gen_as_bytes!(f32);
 gen_as_bytes!(f64);
 

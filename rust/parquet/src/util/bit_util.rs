@@ -20,6 +20,7 @@ use std::{
     mem::{size_of, transmute_copy},
 };
 
+use crate::data_type::AsBytes;
 use crate::errors::{ParquetError, Result};
 use crate::util::{bit_packing::unpack32, memory::ByteBufferPtr};
 
@@ -67,35 +68,33 @@ macro_rules! read_num_bytes {
 /// Converts value `val` of type `T` to a byte vector, by reading `num_bytes` from `val`.
 /// NOTE: if `val` is less than the size of `T` then it can be truncated.
 #[inline]
-pub fn convert_to_bytes<T>(val: &T, num_bytes: usize) -> Vec<u8> {
+pub fn convert_to_bytes<T>(val: &T, num_bytes: usize) -> Vec<u8>
+where
+    T: ?Sized + AsBytes,
+{
     let mut bytes: Vec<u8> = vec![0; num_bytes];
-    memcpy_value(val, num_bytes, &mut bytes);
+    memcpy_value(val.as_bytes(), num_bytes, &mut bytes);
     bytes
 }
 
 #[inline]
 pub fn memcpy(source: &[u8], target: &mut [u8]) {
     assert!(target.len() >= source.len());
-    unsafe {
-        std::ptr::copy_nonoverlapping(source.as_ptr(), target.as_mut_ptr(), source.len())
-    }
+    target[..source.len()].copy_from_slice(source)
 }
 
 #[inline]
-pub fn memcpy_value<T>(source: &T, num_bytes: usize, target: &mut [u8]) {
+pub fn memcpy_value<T>(source: &T, num_bytes: usize, target: &mut [u8])
+where
+    T: ?Sized + AsBytes,
+{
     assert!(
         target.len() >= num_bytes,
         "Not enough space. Only had {} bytes but need to put {} bytes",
         target.len(),
         num_bytes
     );
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            source as *const T as *const u8,
-            target.as_mut_ptr(),
-            num_bytes,
-        )
-    }
+    memcpy(&source.as_bytes()[..num_bytes], target)
 }
 
 /// Returns the ceil of value/divisor
@@ -338,7 +337,7 @@ impl BitWriter {
     ///
     /// Returns false if there's not enough room left. True otherwise.
     #[inline]
-    pub fn put_aligned<T: Copy>(&mut self, val: T, num_bytes: usize) -> bool {
+    pub fn put_aligned<T: AsBytes>(&mut self, val: T, num_bytes: usize) -> bool {
         let result = self.get_next_byte_ptr(num_bytes);
         if result.is_err() {
             // TODO: should we return `Result` for this func?
@@ -358,7 +357,7 @@ impl BitWriter {
     /// Returns false if there's not enough room left, or the `pos` is not valid.
     /// True otherwise.
     #[inline]
-    pub fn put_aligned_offset<T: Copy>(
+    pub fn put_aligned_offset<T: AsBytes>(
         &mut self,
         val: T,
         num_bytes: usize,
@@ -1015,7 +1014,7 @@ mod tests {
 
     fn test_put_aligned_rand_numbers<T>(total: usize, num_bits: usize)
     where
-        T: Copy + FromBytes + Debug + PartialEq,
+        T: Copy + FromBytes + AsBytes + Debug + PartialEq,
         Standard: Distribution<T>,
     {
         assert!(num_bits <= 32);
