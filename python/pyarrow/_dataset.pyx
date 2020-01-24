@@ -114,7 +114,7 @@ cdef class Partitioning:
     def parse(self, path):
         cdef CResult[shared_ptr[CExpression]] result
         result = self.partitioning.Parse(tobytes(path))
-        return Expr.wrap(GetResultValue(result))
+        return Expression.wrap(GetResultValue(result))
 
     @property
     def schema(self):
@@ -414,10 +414,10 @@ cdef class SourceFactory:
         if expr.get() == nullptr:
             return None
         else:
-            return Expr.wrap(expr)
+            return Expression.wrap(expr)
 
     @root_partition.setter
-    def root_partition(self, Expr expr):
+    def root_partition(self, Expression expr):
         check_status(self.factory.SetRootPartition(expr.unwrap()))
 
     def inspect_schemas(self):
@@ -574,7 +574,7 @@ cdef class Source:
     @property
     def partition_expression(self):
         """
-        An Expr which evaluates to true for all data viewed by this
+        An Expression which evaluates to true for all data viewed by this
         Source.
         """
         cdef shared_ptr[CExpression] expr
@@ -582,7 +582,7 @@ cdef class Source:
         if expr.get() == nullptr:
             return None
         else:
-            return Expr.wrap(expr)
+            return Expression.wrap(expr)
 
 
 cdef class TreeSource(Source):
@@ -616,7 +616,7 @@ cdef class FileSystemSource(Source):
         CFileSystemSource* filesystem_source
 
     def __init__(self, Schema schema not None,
-                 Expr source_partition,
+                 Expression source_partition,
                  FileFormat file_format not None,
                  FileSystem filesystem not None,
                  paths_or_selector, partitions):
@@ -638,7 +638,7 @@ cdef class FileSystemSource(Source):
         cdef:
             shared_ptr[CExpression] c_source_partition
             FileStats stats
-            Expr expr
+            Expression expr
             vector[CFileStats] c_file_stats
             vector[shared_ptr[CExpression]] c_partitions
             CResult[shared_ptr[CSource]] result
@@ -656,7 +656,7 @@ cdef class FileSystemSource(Source):
             )
 
         if source_partition is None:
-            source_partition = ScalarExpr(True)
+            source_partition = ScalarExpression(True)
         c_source_partition = source_partition.unwrap()
 
         result = CFileSystemSource.Make(
@@ -809,7 +809,7 @@ cdef class Dataset:
             an exception if any of the referenced column names does not exist
             in the dataset's Schema.
         filter : Expr, default None
-            Set the filter Expr to return only rows matching the filter.
+            Set the filter Expression to return only rows matching the filter.
             If possible the predicate will be pushed down to exploit the
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
@@ -939,7 +939,7 @@ cdef class Scanner:
         shared_ptr[CScanner] wrapped
         CScanner* scanner
 
-    def __init__(self, Dataset dataset, list columns=None, Expr filter=None,
+    def __init__(self, Dataset dataset, list columns=None, Expression filter=None,
                  bint use_threads=True, MemoryPool memory_pool=None):
         cdef:
             shared_ptr[CScanContext] context
@@ -1030,17 +1030,17 @@ def _binop(fn, left, right):
     # cython doesn't support reverse operands like __radd__ just passes the
     # arguments in the same order as the binary operator called
 
-    if isinstance(left, Expr) and isinstance(right, Expr):
+    if isinstance(left, Expression) and isinstance(right, Expression):
         pass
-    elif isinstance(left, Expr):
+    elif isinstance(left, Expression):
         try:
-            right = ScalarExpr(right)
+            right = ScalarExpression(right)
         except TypeError:
             return NotImplemented
 
-    elif isinstance(right, Expr):
+    elif isinstance(right, Expression):
         try:
-            left = ScalarExpr(left)
+            left = ScalarExpression(left)
         except TypeError:
             return NotImplemented
     else:
@@ -1049,7 +1049,7 @@ def _binop(fn, left, right):
     return fn(left, right)
 
 
-cdef class Expr:
+cdef class Expression:
 
     cdef:
         shared_ptr[CExpression] wrapped
@@ -1064,27 +1064,27 @@ cdef class Expr:
 
     @staticmethod
     cdef wrap(const shared_ptr[CExpression]& sp):
-        cdef Expr self
+        cdef Expression self
 
         typ = sp.get().type()
         if typ == CExpressionType_FIELD:
-            self = FieldExpr.__new__(FieldExpr)
+            self = FieldExpression.__new__(FieldExpression)
         elif typ == CExpressionType_SCALAR:
-            self = ScalarExpr.__new__(ScalarExpr)
+            self = ScalarExpression.__new__(ScalarExpression)
         elif typ == CExpressionType_NOT:
-            self = NotExpr.__new__(NotExpr)
+            self = NotExpression.__new__(NotExpression)
         elif typ == CExpressionType_CAST:
-            self = CastExpr.__new__(CastExpr)
+            self = CastExpression.__new__(CastExpression)
         elif typ == CExpressionType_AND:
-            self = AndExpr.__new__(AndExpr)
+            self = AndExpression.__new__(AndExpression)
         elif typ == CExpressionType_OR:
-            self = OrExpr.__new__(OrExpr)
+            self = OrExpression.__new__(OrExpression)
         elif typ == CExpressionType_COMPARISON:
-            self = ComparisonExpr.__new__(ComparisonExpr)
+            self = ComparisonExpression.__new__(ComparisonExpression)
         elif typ == CExpressionType_IS_VALID:
-            self = IsValidExpr.__new__(IsValidExpr)
+            self = IsValidExpression.__new__(IsValidExpression)
         elif typ == CExpressionType_IN:
-            self = InExpr.__new__(InExpr)
+            self = InExpression.__new__(InExpression)
         else:
             raise TypeError(typ)
 
@@ -1094,7 +1094,7 @@ cdef class Expr:
     cdef inline shared_ptr[CExpression] unwrap(self):
         return self.wrapped
 
-    def equals(self, Expr other):
+    def equals(self, Expression other):
         return self.expr.Equals(other.unwrap())
 
     def __str__(self):
@@ -1108,15 +1108,13 @@ cdef class Expr:
         result = self.expr.Validate(deref(sp_schema))
         return pyarrow_wrap_data_type(GetResultValue(result))
 
-    def assume(self, Expr given):
-        return Expr.wrap(self.expr.Assume(given.unwrap()))
+    def assume(self, Expression given):
+        return Expression.wrap(self.expr.Assume(given.unwrap()))
 
     def __invert__(self):
-        return NotExpr(self)
+        return NotExpression(self)
 
     def __richcmp__(self, other, int op):
-        cdef Compare
-
         operator_mapping = {
             Py_EQ: CompareOperator.Equal,
             Py_NE: CompareOperator.NotEqual,
@@ -1126,57 +1124,57 @@ cdef class Expr:
             Py_LE: CompareOperator.LessEqual
         }
 
-        if not isinstance(other, Expr):
+        if not isinstance(other, Expression):
             try:
-                other = ScalarExpr(other)
+                other = ScalarExpression(other)
             except TypeError:
                 return NotImplemented
 
-        return ComparisonExpr(operator_mapping[op], self, other)
+        return ComparisonExpression(operator_mapping[op], self, other)
 
     def __and__(self, other):
-        return _binop(AndExpr, self, other)
+        return _binop(AndExpression, self, other)
 
     def __or__(self, other):
-        return _binop(OrExpr, self, other)
+        return _binop(OrExpression, self, other)
 
     def is_valid(self):
-        return IsValidExpr(self)
+        return IsValidExpression(self)
 
     def cast(self, type, bint safe=True):
-        return CastExpr(self, to=ensure_type(type), safe=safe)
+        return CastExpression(self, to=ensure_type(type), safe=safe)
 
     def isin(self, values):
-        return InExpr(self, pa.array(values))
+        return InExpression(self, pa.array(values))
 
 
-cdef class UnaryExpr(Expr):
+cdef class UnaryExpression(Expression):
 
     cdef CUnaryExpression* unary
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
-        Expr.init(self, sp)
+        Expression.init(self, sp)
         self.unary = <CUnaryExpression*> sp.get()
 
 
-cdef class BinaryExpr(Expr):
+cdef class BinaryExpression(Expression):
 
     cdef CBinaryExpression* binary
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
-        Expr.init(self, sp)
+        Expression.init(self, sp)
         self.binary = <CBinaryExpression*> sp.get()
 
     @property
     def left_operand(self):
-        return Expr.wrap(self.binary.left_operand())
+        return Expression.wrap(self.binary.left_operand())
 
     @property
     def right_operand(self):
-        return Expr.wrap(self.binary.right_operand())
+        return Expression.wrap(self.binary.right_operand())
 
 
-cdef class ScalarExpr(Expr):
+cdef class ScalarExpression(Expression):
 
     cdef CScalarExpression* scalar
 
@@ -1200,11 +1198,11 @@ cdef class ScalarExpr(Expr):
         self.init(<shared_ptr[CExpression]> expr)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
-        Expr.init(self, sp)
+        Expression.init(self, sp)
         self.scalar = <CScalarExpression*> sp.get()
 
 
-cdef class FieldExpr(Expr):
+cdef class FieldExpression(Expression):
 
     cdef CFieldExpression* scalar
 
@@ -1216,7 +1214,7 @@ cdef class FieldExpr(Expr):
         self.init(expr)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
-        Expr.init(self, sp)
+        Expression.init(self, sp)
         self.scalar = <CFieldExpression*> sp.get()
 
     def name(self):
@@ -1232,12 +1230,12 @@ cpdef enum CompareOperator:
     LessEqual = <int8_t> CCompareOperator_LESS_EQUAL
 
 
-cdef class ComparisonExpr(BinaryExpr):
+cdef class ComparisonExpression(BinaryExpression):
 
     cdef CComparisonExpression* comparison
 
-    def __init__(self, CompareOperator op, Expr left not None,
-                 Expr right not None):
+    def __init__(self, CompareOperator op, Expression left not None,
+                 Expression right not None):
         cdef shared_ptr[CComparisonExpression] expr
         expr.reset(
             new CComparisonExpression(
@@ -1249,63 +1247,63 @@ cdef class ComparisonExpr(BinaryExpr):
         self.init(<shared_ptr[CExpression]> expr)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
-        BinaryExpr.init(self, sp)
+        BinaryExpression.init(self, sp)
         self.comparison = <CComparisonExpression*> sp.get()
 
     def op(self):
         return <CompareOperator> self.comparison.op()
 
 
-cdef class IsValidExpr(UnaryExpr):
+cdef class IsValidExpression(UnaryExpression):
 
-    def __init__(self, Expr operand not None):
+    def __init__(self, Expression operand not None):
         cdef shared_ptr[CIsValidExpression] expr
         expr = make_shared[CIsValidExpression](operand.unwrap())
         self.init(<shared_ptr[CExpression]> expr)
 
 
-cdef class CastExpr(UnaryExpr):
+cdef class CastExpression(UnaryExpression):
 
-    def __init__(self, Expr operand not None, DataType to not None,
+    def __init__(self, Expression operand not None, DataType to not None,
                  bint safe=True):
         # TODO(kszucs): safe is consistently used across pyarrow, but on long
         #               term we should expose the CastOptions object
         cdef:
             CastOptions options
-            shared_ptr[CExpression] Expr
+            shared_ptr[CExpression] expr
         options = CastOptions.safe() if safe else CastOptions.unsafe()
-        Expr.reset(new CCastExpression(
+        expr.reset(new CCastExpression(
             operand.unwrap(),
             pyarrow_unwrap_data_type(to),
             options.unwrap()
         ))
-        self.init(Expr)
+        self.init(expr)
 
 
-cdef class InExpr(UnaryExpr):
+cdef class InExpression(UnaryExpression):
 
-    def __init__(self, Expr operand not None, Array haystack not None):
-        cdef shared_ptr[CExpression] Expr
-        Expr.reset(
+    def __init__(self, Expression operand not None, Array haystack not None):
+        cdef shared_ptr[CExpression] expr
+        expr.reset(
             new CInExpression(operand.unwrap(), pyarrow_unwrap_array(haystack))
         )
-        self.init(Expr)
+        self.init(expr)
 
 
-cdef class NotExpr(UnaryExpr):
+cdef class NotExpression(UnaryExpression):
 
-    def __init__(self, Expr operand not None):
-        cdef shared_ptr[CNotExpression] Expr
+    def __init__(self, Expression operand not None):
+        cdef shared_ptr[CNotExpression] expr
         expr = CMakeNotExpression(operand.unwrap())
         self.init(<shared_ptr[CExpression]> expr)
 
 
-cdef class AndExpr(BinaryExpr):
+cdef class AndExpression(BinaryExpression):
 
-    def __init__(self, Expr left not None, Expr right not None,
+    def __init__(self, Expression left not None, Expression right not None,
                  *additional_operands):
         cdef:
-            Expr operand
+            Expression operand
             vector[shared_ptr[CExpression]] exprs
         exprs.push_back(left.unwrap())
         exprs.push_back(right.unwrap())
@@ -1314,12 +1312,12 @@ cdef class AndExpr(BinaryExpr):
         self.init(CMakeAndExpression(exprs))
 
 
-cdef class OrExpr(BinaryExpr):
+cdef class OrExpression(BinaryExpression):
 
-    def __init__(self, Expr left not None, Expr right not None,
+    def __init__(self, Expression left not None, Expression right not None,
                  *additional_operands):
         cdef:
-            Expr operand
+            Expression operand
             vector[shared_ptr[CExpression]] exprs
         exprs.push_back(left.unwrap())
         exprs.push_back(right.unwrap())

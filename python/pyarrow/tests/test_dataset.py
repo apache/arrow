@@ -172,7 +172,7 @@ def test_filesystem_source(mockfs):
     file_format = ds.ParquetFileFormat()
 
     paths = ['subdir/1/xxx/file0.parquet', 'subdir/2/yyy/file1.parquet']
-    partitions = [ds.ScalarExpr(True), ds.ScalarExpr(True)]
+    partitions = [ds.ScalarExpression(True), ds.ScalarExpression(True)]
 
     source = ds.FileSystemSource(schema,
                                  source_partition=None,
@@ -181,21 +181,21 @@ def test_filesystem_source(mockfs):
                                  paths_or_selector=paths,
                                  partitions=partitions)
 
-    source_partition = ds.ComparisonExpr(
+    source_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
-        ds.FieldExpr('source'),
-        ds.ScalarExpr(1337)
+        ds.FieldExpression('source'),
+        ds.ScalarExpression(1337)
     )
     partitions = [
-        ds.ComparisonExpr(
+        ds.ComparisonExpression(
             ds.CompareOperator.Equal,
-            ds.FieldExpr('part'),
-            ds.ScalarExpr(1)
+            ds.FieldExpression('part'),
+            ds.ScalarExpression(1)
         ),
-        ds.ComparisonExpr(
+        ds.ComparisonExpression(
             ds.CompareOperator.Equal,
-            ds.FieldExpr('part'),
-            ds.ScalarExpr(2)
+            ds.FieldExpression('part'),
+            ds.ScalarExpression(2)
         )
     ]
     source = ds.FileSystemSource(paths_or_selector=paths, schema=schema,
@@ -260,7 +260,7 @@ def test_abstract_classes():
         ds.FileFormat,
         ds.Scanner,
         ds.Source,
-        ds.Expr,
+        ds.Expression,
         ds.Partitioning,
     ]
     for klass in classes:
@@ -284,7 +284,7 @@ def test_partitioning():
         ])
     )
     expr = partitioning.parse('/3/3.14')
-    assert isinstance(expr, ds.Expr)
+    assert isinstance(expr, ds.Expression)
 
     expected = (ds.field('group') == 3) & (ds.field('key') == 3.14)
     assert expr.equals(expected)
@@ -307,33 +307,33 @@ def test_partitioning():
 
 
 def test_expression():
-    a = ds.ScalarExpr(1)
-    b = ds.ScalarExpr(1.1)
-    c = ds.ScalarExpr(True)
-    d = ds.ScalarExpr("string")
+    a = ds.ScalarExpression(1)
+    b = ds.ScalarExpression(1.1)
+    c = ds.ScalarExpression(True)
+    d = ds.ScalarExpression("string")
 
-    equal = ds.ComparisonExpr(ds.CompareOperator.Equal, a, b)
+    equal = ds.ComparisonExpression(ds.CompareOperator.Equal, a, b)
     assert equal.op() == ds.CompareOperator.Equal
 
-    and_ = ds.AndExpr(a, b)
+    and_ = ds.AndExpression(a, b)
     assert and_.left_operand.equals(a)
     assert and_.right_operand.equals(b)
-    assert and_.equals(ds.AndExpr(a, b))
+    assert and_.equals(ds.AndExpression(a, b))
     assert and_.equals(and_)
 
-    ds.AndExpr(a, b, c)
-    ds.OrExpr(a, b)
-    ds.OrExpr(a, b, c, d)
-    ds.NotExpr(ds.OrExpr(a, b, c))
-    ds.IsValidExpr(a)
-    ds.CastExpr(a, pa.int32())
-    ds.CastExpr(a, pa.int32(), safe=True)
-    ds.InExpr(a, pa.array([1, 2, 3]))
+    ds.AndExpression(a, b, c)
+    ds.OrExpression(a, b)
+    ds.OrExpression(a, b, c, d)
+    ds.NotExpression(ds.OrExpression(a, b, c))
+    ds.IsValidExpression(a)
+    ds.CastExpression(a, pa.int32())
+    ds.CastExpression(a, pa.int32(), safe=True)
+    ds.InExpression(a, pa.array([1, 2, 3]))
 
-    condition = ds.ComparisonExpr(
+    condition = ds.ComparisonExpression(
         ds.CompareOperator.Greater,
-        ds.FieldExpr('i64'),
-        ds.ScalarExpr(5)
+        ds.FieldExpression('i64'),
+        ds.ScalarExpression(5)
     )
     schema = pa.schema([
         pa.field('i64', pa.int64()),
@@ -341,18 +341,18 @@ def test_expression():
     ])
     assert condition.validate(schema) == pa.bool_()
 
-    i64_is_5 = ds.ComparisonExpr(
+    i64_is_5 = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
-        ds.FieldExpr('i64'),
-        ds.ScalarExpr(5)
+        ds.FieldExpression('i64'),
+        ds.ScalarExpression(5)
     )
-    i64_is_7 = ds.ComparisonExpr(
+    i64_is_7 = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
-        ds.FieldExpr('i64'),
-        ds.ScalarExpr(7)
+        ds.FieldExpression('i64'),
+        ds.ScalarExpression(7)
     )
-    assert condition.assume(i64_is_5).equals(ds.ScalarExpr(False))
-    assert condition.assume(i64_is_7).equals(ds.ScalarExpr(True))
+    assert condition.assume(i64_is_5).equals(ds.ScalarExpression(False))
+    assert condition.assume(i64_is_7).equals(ds.ScalarExpression(True))
     assert str(condition) == "(i64 > 5:int64)"
 
 
@@ -364,18 +364,18 @@ def test_expression_ergonomics():
     string = ds.scalar("string")
     field = ds.field("field")
 
-    assert one.equals(ds.ScalarExpr(1))
-    assert zero.equals(ds.ScalarExpr(0))
-    assert true.equals(ds.ScalarExpr(True))
-    assert false.equals(ds.ScalarExpr(False))
-    assert string.equals(ds.ScalarExpr("string"))
-    assert field.equals(ds.FieldExpr("field"))
+    assert one.equals(ds.ScalarExpression(1))
+    assert zero.equals(ds.ScalarExpression(0))
+    assert true.equals(ds.ScalarExpression(True))
+    assert false.equals(ds.ScalarExpression(False))
+    assert string.equals(ds.ScalarExpression("string"))
+    assert field.equals(ds.FieldExpression("field"))
 
-    expected = ds.AndExpr(ds.ScalarExpr(1), ds.ScalarExpr(0))
+    expected = ds.AndExpression(ds.ScalarExpression(1), ds.ScalarExpression(0))
     for expr in [one & zero, 1 & zero, one & 0]:
         assert expr.equals(expected)
 
-    expected = ds.OrExpr(ds.ScalarExpr(1), ds.ScalarExpr(0))
+    expected = ds.OrExpression(ds.ScalarExpression(1), ds.ScalarExpression(0))
     for expr in [one | zero, 1 | zero, one | 0]:
         assert expr.equals(expected)
 
@@ -389,28 +389,28 @@ def test_expression_ergonomics():
     ]
     for op, compare_op in comparison_ops:
         expr = op(zero, one)
-        expected = ds.ComparisonExpr(compare_op, zero, one)
+        expected = ds.ComparisonExpression(compare_op, zero, one)
         assert expr.equals(expected)
 
     expr = ~true == false
-    expected = ds.ComparisonExpr(
+    expected = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
-        ds.NotExpr(ds.ScalarExpr(True)),
-        ds.ScalarExpr(False)
+        ds.NotExpression(ds.ScalarExpression(True)),
+        ds.ScalarExpression(False)
     )
     assert expr.equals(expected)
 
     for typ in ("bool", pa.bool_()):
         expr = field.cast(typ) == true
-        expected = ds.ComparisonExpr(
+        expected = ds.ComparisonExpression(
             ds.CompareOperator.Equal,
-            ds.CastExpr(ds.FieldExpr("field"), pa.bool_()),
-            ds.ScalarExpr(True)
+            ds.CastExpression(ds.FieldExpression("field"), pa.bool_()),
+            ds.ScalarExpression(True)
         )
         assert expr.equals(expected)
 
     expr = field.isin([1, 2])
-    expected = ds.InExpr(ds.FieldExpr("field"), pa.array([1, 2]))
+    expected = ds.InExpression(ds.FieldExpression("field"), pa.array([1, 2]))
     assert expr.equals(expected)
 
     with pytest.raises(TypeError):
@@ -452,7 +452,7 @@ def test_file_system_factory(mockfs, paths_or_selector):
     assert isinstance(factory.inspect_schemas(), list)
     assert isinstance(factory.finish(inspected_schema),
                       ds.FileSystemSource)
-    assert factory.root_partition.equals(ds.ScalarExpr(True))
+    assert factory.root_partition.equals(ds.ScalarExpression(True))
 
     source = factory.finish()
     assert isinstance(source, ds.Source)
