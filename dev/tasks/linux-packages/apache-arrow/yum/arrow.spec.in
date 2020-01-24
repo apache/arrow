@@ -38,6 +38,7 @@
 
 %define use_flight (%{_centos_ver} >= 8)
 %define use_gandiva (%{_centos_ver} >= 8)
+%define use_ninja (%{_centos_ver} >= 8)
 %define use_parquet (%{_centos_ver} >= 7)
 
 %define use_glib (%{_centos_ver} >= 7)
@@ -135,8 +136,16 @@ cd cpp/build
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
   -DPythonInterp_FIND_VERSION=ON \
-  -DPythonInterp_FIND_VERSION_MAJOR=3
+  -DPythonInterp_FIND_VERSION_MAJOR=3 \
+%if %{use_ninja}
+  -GNinja
+%endif
+
+%if %{use_ninja}
+ninja
+%else
 make %{?_smp_mflags}
+%endif
 cd -
 
 %if %{use_glib} && !%{use_meson}
@@ -159,7 +168,11 @@ cd -
 %install
 cpp_build_type=release
 cd cpp/build
+%if %{use_ninja}
+DESTDIR=$RPM_BUILD_ROOT ninja install
+%else
 make install DESTDIR=$RPM_BUILD_ROOT
+%endif
 cd -
 
 %if %{use_glib}
@@ -175,7 +188,7 @@ meson setup build \
   -Dgtk_doc=true
 LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type \
   ninja -C build all
-DESTDIR=$RPM_BUILD_ROOT/ \
+DESTDIR=$RPM_BUILD_ROOT \
   ninja -C build install
   %else
 make install DESTDIR=$RPM_BUILD_ROOT
