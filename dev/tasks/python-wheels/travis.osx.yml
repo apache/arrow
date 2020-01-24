@@ -63,8 +63,16 @@ install:
   # test the built wheels, move Homebrew directory to ensure
   # things are properly statically-linked
   - sudo mv $(brew --cellar){,.bak}
+
+  # debugging paths
+  - pwd
+  - ls -lah
+  - ls -lah arrow
+
   # install the built wheel and test dependencies
   - install_wheel arrow
+
+
   # run unit tests before removing the system libraries
   - run_unit_tests arrow
   # run the import tests

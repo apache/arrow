@@ -21,6 +21,7 @@ set -e
 
 # overrides multibuild's default build_wheel
 function build_wheel {
+    echo ">>>>>>>>>>>>>>>>>>>>>>> BUILD WHEEL <<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
     pip install -U pip
 
     # ARROW-5670: Python 3.5 can fail with HTTPS error in CMake build
@@ -189,19 +190,27 @@ function build_wheel {
 }
 
 function install_wheel {
+    echo ">>>>>>>>>>>>>>>>>>>>>>> INSTALL WHEEL <<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    echo "INSTALL WHEEL"
     multibuild_dir=`realpath $MULTIBUILD_DIR`
 
     pushd $1  # enter arrow's directory
     wheelhouse="$PWD/python/dist"
 
+    echo "${wheelhouse}"
+    ls -lah "${wheelhouse}"
+
+    supported_wheels=$(python $multibuild_dir/supported_wheels.py $wheelhouse/*.whl)
+    echo $supported_wheels
+
     # Install compatible wheel
-    pip install $(pip_opts) \
-        $(python $multibuild_dir/supported_wheels.py $wheelhouse/*.whl)
+    pip install $(pip_opts) ${supported_wheels}
 
     popd
 }
 
 function run_unit_tests {
+    echo ">>>>>>>>>>>>>>>>>>>>>>> UNITTESTS <<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
     pushd $1
 
     # Install test dependencies
@@ -214,6 +223,7 @@ function run_unit_tests {
 }
 
 function run_import_tests {
+    echo ">>>>>>>>>>>>>>>>>>>>>>> IMPORT TESTS <<<<<<<<<<<<<<<<<<<<<<<<<<<"
     # Test optional dependencies
     python -c "
 import sys
