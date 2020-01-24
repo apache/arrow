@@ -23,6 +23,34 @@ use std::{
 use crate::errors::{ParquetError, Result};
 use crate::util::{bit_packing::unpack32, memory::ByteBufferPtr};
 
+pub trait FromBytes: Sized {
+    type Buffer: AsMut<[u8]> + Default;
+    fn from_le_bytes(bs: Self::Buffer) -> Self;
+    fn from_be_bytes(bs: Self::Buffer) -> Self;
+    fn from_ne_bytes(bs: Self::Buffer) -> Self;
+}
+
+macro_rules! from_le_bytes {
+    ($($ty: ty),*) => {
+        $(
+        impl FromBytes for $ty {
+            type Buffer = [u8; size_of::<Self>()];
+            fn from_le_bytes(bs: Self::Buffer) -> Self {
+                <$ty>::from_le_bytes(bs)
+            }
+            fn from_be_bytes(bs: Self::Buffer) -> Self {
+                <$ty>::from_be_bytes(bs)
+            }
+            fn from_ne_bytes(bs: Self::Buffer) -> Self {
+                <$ty>::from_ne_bytes(bs)
+            }
+        }
+        )*
+    };
+}
+
+from_le_bytes! { u8, u16, u32, u64, i8, i16, i32, i64 }
+
 /// Reads `$size` of bytes from `$src`, and reinterprets them as type `$ty`, in
 /// little-endian order. `$ty` must implement the `Default` trait. Otherwise this won't
 /// compile.
@@ -30,15 +58,9 @@ use crate::util::{bit_packing::unpack32, memory::ByteBufferPtr};
 macro_rules! read_num_bytes {
     ($ty:ty, $size:expr, $src:expr) => {{
         assert!($size <= $src.len());
-        let mut data: $ty = Default::default();
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                $src.as_ptr(),
-                &mut data as *mut $ty as *mut u8,
-                $size,
-            );
-        }
-        data
+        let mut buffer = <$ty as $crate::util::bit_util::FromBytes>::Buffer::default();
+        buffer.as_mut()[..$size].copy_from_slice(&$src[..$size]);
+        <$ty>::from_ne_bytes(buffer)
     }};
 }
 
@@ -553,7 +575,7 @@ impl BitReader {
     /// Returns `Some` if there's enough bytes left to form a value of `T`.
     /// Otherwise `None`.
     #[inline]
-    pub fn get_aligned<T: Default>(&mut self, num_bytes: usize) -> Option<T> {
+    pub fn get_aligned<T: FromBytes>(&mut self, num_bytes: usize) -> Option<T> {
         let bytes_read = ceil(self.bit_offset as i64, 8) as usize;
         if self.byte_offset + bytes_read + num_bytes > self.total_bytes {
             return None;
@@ -993,7 +1015,7 @@ mod tests {
 
     fn test_put_aligned_rand_numbers<T>(total: usize, num_bits: usize)
     where
-        T: Copy + Default + Debug + PartialEq,
+        T: Copy + FromBytes + Debug + PartialEq,
         Standard: Distribution<T>,
     {
         assert!(num_bits <= 32);
