@@ -278,7 +278,7 @@ cdef class HivePartitioning(Partitioning):
 
 cdef class FileSystemFactoryOptions:
     """
-    Options for FileSystemFactoryOptions.
+    Influences the discovery of filesystem paths.
 
     Parameters
     ----------
@@ -478,10 +478,13 @@ cdef class FileSystemSourceFactory(SourceFactory):
     Parameters
     ----------
     filesystem : pyarrow.fs.FileSystem
+        Filesystem to discover.
     paths_or_selector: pyarrow.fs.Selector or list of path-likes
         Either a Selector object or a list of path-like objects.
     format : FileFormat
+        Currently only ParquetFileFormat is supported.
     options : FileSystemFactoryOptions, optional
+        Various flags influencing the discovery of filesystem paths.
     """
 
     cdef:
@@ -615,8 +618,7 @@ cdef class FileSystemSource(Source):
     cdef:
         CFileSystemSource* filesystem_source
 
-    def __init__(self, Schema schema not None,
-                 Expression source_partition,
+    def __init__(self, Schema schema not None, Expression root_partition,
                  FileFormat file_format not None,
                  FileSystem filesystem not None,
                  paths_or_selector, partitions):
@@ -625,18 +627,20 @@ cdef class FileSystemSource(Source):
         Parameters
         ----------
         schema : Schema
-            Schema for resulting Source
-        source_partition : Expr
+            The top-level schema of the DataSource.
+        root_partition : Expression
+            The top-level partition of the DataSource.
         file_format : FileFormat
+            File format to create fragments from, currently only
+            ParquetFileFormat is supported.
         filesystem : FileSystem
-            FileSystem which will be explored to discover data files.
+            The filesystem which files are from.
         paths_or_selector : Union[FileSelector, List[FileStats]]
-            The file stats object can be queried by the
-            filesystem.get_target_stats method.
-        partitions : List[Expr]
+            List of files/directories to consume.
+        partitions : List[Expression]
+            Attach aditional partition information for the file paths.
         """
         cdef:
-            shared_ptr[CExpression] c_source_partition
             FileStats stats
             Expression expr
             vector[CFileStats] c_file_stats
@@ -655,13 +659,12 @@ cdef class FileSystemSource(Source):
                 'equal to the number of partitions.'
             )
 
-        if source_partition is None:
-            source_partition = ScalarExpression(True)
-        c_source_partition = source_partition.unwrap()
+        if root_partition is None:
+            root_partition = ScalarExpression(True)
 
         result = CFileSystemSource.Make(
             pyarrow_unwrap_schema(schema),
-            c_source_partition,
+            root_partition.unwrap(),
             file_format.unwrap(),
             filesystem.unwrap(),
             c_file_stats,
@@ -790,8 +793,7 @@ cdef class Dataset:
     cdef inline shared_ptr[CDataset] unwrap(self) nogil:
         return self.wrapped
 
-    def scan(self, columns=None, filter=None, use_threads=None,
-             MemoryPool memory_pool=None):
+    def scan(self, columns=None, filter=None, MemoryPool memory_pool=None):
         """Read the dataset as materialized record batches.
 
         Builds and executes a scan operation against the dataset. It poduces
@@ -808,28 +810,22 @@ cdef class Dataset:
             By default all of the available columns are projected, raises
             an exception if any of the referenced column names does not exist
             in the dataset's Schema.
-        filter : Expr, default None
+        filter : Expression, default None
             Set the filter Expression to return only rows matching the filter.
             If possible the predicate will be pushed down to exploit the
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        use_threads : bool, default True
-            Set whether the Scanner should make use of the thread pool.
 
         Returns
         -------
         record_batches : iterator of RecordBatch
-
-        Examples
-        --------
-        TODO(kszucs)
         """
         scanner = Scanner(self, columns=columns, filter=filter,
                           use_threads=use_threads, memory_pool=memory_pool)
         return scanner.scan()
 
-    def to_batches(self, columns=None, filter=None, use_threads=None,
+    def to_batches(self, columns=None, filter=None,
                    MemoryPool memory_pool=None):
         scanner = Scanner(self, columns=columns, filter=filter,
                           use_threads=use_threads, memory_pool=memory_pool)
@@ -837,8 +833,21 @@ cdef class Dataset:
             for batch in task.execute():
                 yield batch
 
-    def to_table(self, columns=None, filter=None, use_threads=None,
+    def to_table(self, columns=None, filter=None, use_threads=True,
                  MemoryPool memory_pool=None):
+        """Convert the dataset to a Table
+
+        Note, that this method reads all the selected data from the dataset
+        into memory.
+
+        Parameters
+        ----------
+        columns : list of strings
+        filter : Expression
+        use_threads : boolean, default True
+            If enabled, then maximum paralellism will be used determined by
+            the number of available CPU cores.
+        """
         scanner = Scanner(self, columns=columns, filter=filter,
                           use_threads=use_threads, memory_pool=memory_pool)
         return scanner.to_table()
@@ -922,7 +931,7 @@ cdef class Scanner:
         fragments. The goal is to avoid loading, copying, and deserializing
         columns that will not be required further down the compute chain.
         By default all available columns will be projected.
-    filter : Expr, default None
+    filter : Expression, default None
         Scan will return only the rows matching the filter.
         The predicate will be passed down to Sources and corresponding
         data fragments to exploit predicate pushdown if possible using
