@@ -424,8 +424,6 @@ class TestListArray : public TestBuilder {
     ASSERT_RAISES(Invalid, ValidateOffsets(1, {0}, values));
     ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 0}, values, 1));
 
-    // First offset != 0
-    ASSERT_RAISES(Invalid, ValidateOffsets(1, {1, 7}, values));
     // Offset out of bounds
     ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 8}, values));
     ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 8, 8}, values, 1));

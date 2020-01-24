@@ -235,5 +235,18 @@ TEST(BlockParser, Nested) {
                       R"([{"ps":null}, null, {"ps":"78"}, {"ps":"90"}])"});
 }
 
+TEST(BlockParser, AdHoc) {
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  AssertParseColumns(
+      options, R"({"a": [1], "b": {"c": true, "d": "1991-02-03"}}
+{"a": [], "b": {"c": false, "d": "2019-04-01"}}
+)",
+      {field("a", list(utf8())),
+       field("b", struct_({field("c", boolean()), field("d", utf8())}))},
+      {R"([["1"], []])",
+       R"([{"c":true, "d": "1991-02-03"}, {"c":false, "d":"2019-04-01"}])"});
+}
+
 }  // namespace json
 }  // namespace arrow

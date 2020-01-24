@@ -21,15 +21,10 @@ override_dh_auto_configure:
 	  ARROW_CUDA=OFF;					\
 	  ARROW_PLASMA=OFF;					\
 	fi;							\
-	if dpkg -l libprotobuf-dev > /dev/null 2>&1; then	\
-	  cpp_build_system=cmake+ninja;				\
-	else							\
-	  cpp_build_system=cmake;				\
-	fi;							\
 	dh_auto_configure					\
 	  --sourcedirectory=cpp					\
 	  --builddirectory=cpp_build				\
-	  --buildsystem=$${cpp_build_system}			\
+	  --buildsystem=cmake+ninja				\
 	  --							\
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
 	  -DARROW_FLIGHT=ON					\
