@@ -132,11 +132,6 @@ function print_coredumps() {
   # and the ulimit must be increased:
   #   sudo ulimit -c unlimited
 
-  echo "<<<<<<<<<<<<<<< Searching for coredumps >>>>>>>>>>>>>>>>>>>>"
-  pwd
-  ulimit -a
-  ls -lah
-
   # filename is truncated to the first 15 characters in case of linux, so limit
   # the pattern for the first 15 characters
   FILENAME=$(basename "${TEST_EXECUTABLE}")
@@ -151,8 +146,6 @@ function print_coredumps() {
       # Print backtrace
       if [ "$(uname)" == "Darwin" ]; then
         lldb -c "$COREFILE" --batch --one-line "thread backtrace all -e true"
-        # ls -la ~/Library/Logs/DiagnosticReports/
-        # cat ~/Library/Logs/DiagnosticReports/*.crash
       else
         gdb -c "${COREFILE}" $TEST_EXECUTABLE -ex "thread apply all bt" -ex "set pagination 0" -batch
       fi
