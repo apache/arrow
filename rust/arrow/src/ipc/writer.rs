@@ -36,8 +36,6 @@ pub struct FileWriter<W: Write> {
     writer: BufWriter<W>,
     /// A reference to the schema, used in validating record batches
     schema: Schema,
-    /// The number of bytes written for the header (up to schema)
-    header_bytes: usize,
     /// The number of bytes between each block of bytes, as an offset for random access
     block_offsets: usize,
     /// Dictionary blocks that will be written as part of the IPC footer
@@ -61,7 +59,6 @@ impl<W: Write> FileWriter<W> {
         Ok(Self {
             writer,
             schema: schema.clone(),
-            header_bytes: written,
             block_offsets: written,
             dictionary_blocks: vec![],
             record_blocks: vec![],
