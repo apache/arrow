@@ -86,8 +86,8 @@ pub fn parquet_record_writer(input: proc_macro::TokenStream) -> proc_macro::Toke
     let input: DeriveInput = parse_macro_input!(input as DeriveInput);
     let fields = match input.data {
         Data::Struct(DataStruct { fields, .. }) => fields,
-        Data::Enum(_) => unimplemented!("don't support enum"),
-        Data::Union(_) => unimplemented!("don't support union"),
+        Data::Enum(_) => unimplemented!("Enum currently is not supported"),
+        Data::Union(_) => unimplemented!("Union currently is not supported"),
     };
 
     let field_infos: Vec<_> = fields
@@ -114,7 +114,7 @@ pub fn parquet_record_writer(input: proc_macro::TokenStream) -> proc_macro::Toke
                   #writer_snippets
                   row_group_writer.close_column(column_writer)?;
               } else {
-                  return Err(parquet::errors::ParquetError::General("failed to get next column".into()))
+                  return Err(parquet::errors::ParquetError::General("Failed to get next column".into()))
               }
           }
         );*

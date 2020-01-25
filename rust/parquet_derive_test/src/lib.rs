@@ -37,7 +37,6 @@ struct ACompleteRecord<'a> {
     pub maybe_best_pi: Option<f64>,
     pub borrowed_maybe_a_string: &'a Option<String>,
     pub borrowed_maybe_a_str: &'a Option<&'a str>,
-    //  pub unsigned_magic_number: u32,
 }
 
 #[cfg(test)]
@@ -96,7 +95,6 @@ mod tests {
             maybe_best_pi: Some(3.1415),
             borrowed_maybe_a_string: &maybe_a_string,
             borrowed_maybe_a_str: &maybe_a_str,
-            //      unsigned_magic_number: 1000,
         }];
 
         let mut row_group = writer.next_row_group().unwrap();

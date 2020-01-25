@@ -53,7 +53,7 @@ impl Field {
             ident: f
                 .ident
                 .clone()
-                .expect("we only support structs with named fields"),
+                .expect("Only structs with named fields are currently supported"),
             ty,
             is_a_byte_buf,
             third_party_type,
@@ -90,9 +90,9 @@ impl Field {
                 Type::TypePath(_) => self.option_into_vals(),
                 Type::Reference(_, ref second_type) => match **second_type {
                     Type::TypePath(_) => self.option_into_vals(),
-                    _ => unimplemented!("sorry charlie"),
+                    _ => unimplemented!("Unsupported type encountered"),
                 },
-                ref f @ _ => unimplemented!("whoa: {:#?}", f),
+                ref f @ _ => unimplemented!("Unsupported: {:#?}", f),
             },
             Type::Reference(_, ref first_type) => match **first_type {
                 Type::TypePath(_) => self.copied_direct_vals(),
@@ -100,25 +100,25 @@ impl Field {
                     Type::TypePath(_) => self.option_into_vals(),
                     Type::Reference(_, ref second_type) => match **second_type {
                         Type::TypePath(_) => self.option_into_vals(),
-                        _ => unimplemented!("sorry charlie"),
+                        _ => unimplemented!("Unsupported type encountered"),
                     },
-                    ref f @ _ => unimplemented!("whoa: {:#?}", f),
+                    ref f @ _ => unimplemented!("Unsupported: {:#?}", f),
                 },
-                ref f @ _ => unimplemented!("whoa: {:#?}", f),
+                ref f @ _ => unimplemented!("Unsupported: {:#?}", f),
             },
-            f @ _ => unimplemented!("don't support {:#?}", f),
+            f @ _ => unimplemented!("Unsupported: {:#?}", f),
         };
 
         let definition_levels = match &self.ty {
             Type::TypePath(_) => None,
             Type::Option(ref first_type) => match **first_type {
                 Type::TypePath(_) => Some(self.optional_definition_levels()),
-                Type::Option(_) => unimplemented!("nested options? that's weird"),
+                Type::Option(_) => unimplemented!("Unsupported nesting encountered"),
                 Type::Reference(_, ref second_type)
                 | Type::Vec(ref second_type)
                 | Type::Array(ref second_type) => match **second_type {
                     Type::TypePath(_) => Some(self.optional_definition_levels()),
-                    _ => unimplemented!("a little too much nesting. bailing out."),
+                    _ => unimplemented!("Unsupported nesting encountered"),
                 },
             },
             Type::Reference(_, ref first_type)
@@ -132,13 +132,9 @@ impl Field {
                     Type::TypePath(_) => Some(self.optional_definition_levels()),
                     Type::Reference(_, ref third_type) => match **third_type {
                         Type::TypePath(_) => Some(self.optional_definition_levels()),
-                        _ => unimplemented!(
-                            "we don't do some more complex definition levels... yet!"
-                        ),
+                        _ => unimplemented!("Unsupported definition encountered"),
                     },
-                    _ => unimplemented!(
-                        "we don't do more complex definition levels... yet!"
-                    ),
+                    _ => unimplemented!("Unsupported definition encountered"),
                 },
             },
         };
@@ -154,7 +150,7 @@ impl Field {
                 if let #column_writer(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], Some(&definition_levels[..]), None)?;
                 } else {
-                    panic!("schema and struct disagree on type for {}", stringify!{#ident})
+                    panic!("Schema and struct disagree on type for {}", stringify!{#ident})
                 }
             }
         } else {
@@ -162,7 +158,7 @@ impl Field {
                 if let #column_writer(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], None, None)?;
                 } else {
-                    panic!("schema and struct disagree on type for {}", stringify!{#ident})
+                    panic!("Schema and struct disagree on type for {}", stringify!{#ident})
                 }
             }
         };
@@ -410,7 +406,7 @@ impl Type {
             "f32" => BasicType::FLOAT,
             "f64" => BasicType::DOUBLE,
             "String" | "str" | "Uuid" => BasicType::BYTE_ARRAY,
-            f @ _ => unimplemented!("sorry, don't handle {} yet!", f),
+            f @ _ => unimplemented!("{} currently is not supported", f),
         }
     }
 
@@ -426,7 +422,7 @@ impl Type {
             syn::Type::Reference(ref tr) => Type::from_type_reference(f, tr),
             syn::Type::Array(ref ta) => Type::from_type_array(f, ta),
             other @ _ => unimplemented!(
-                "we can't derive for {:?}. it is an unsupported type\n{:#?}",
+                "Unable to derive {:?} - it is currently an unsupported type\n{:#?}",
                 f.ident.as_ref().unwrap(),
                 other
             ),
@@ -449,10 +445,10 @@ impl Type {
 
                     match first_arg {
                         syn::GenericArgument::Type(ref typath) => typath.clone(),
-                        other @ _ => unimplemented!("don't know {:#?}", other),
+                        other @ _ => unimplemented!("Unsupported: {:#?}", other),
                     }
                 }
-                other @ _ => unimplemented!("don't know: {:#?}", other),
+                other @ _ => unimplemented!("Unsupported: {:#?}", other),
             };
 
             if is_vec {
@@ -487,7 +483,7 @@ mod test {
 
         let fields = match input.data {
             Data::Struct(DataStruct { fields, .. }) => fields,
-            _ => panic!("input must be a struct"),
+            _ => panic!("Input must be a struct"),
         };
 
         fields.iter().map(|field| field.to_owned()).collect()
@@ -513,7 +509,7 @@ mod test {
                             if let parquet::column::writer::ColumnWriter::Int64ColumnWriter ( ref mut typed ) = column_writer {
                                 typed . write_batch ( & vals [ .. ] , None , None ) ?;
                             }  else {
-                                panic!("schema and struct disagree on type for {}" , stringify!{ counter } )
+                                panic!("Schema and struct disagree on type for {}" , stringify!{ counter } )
                             }
                         }
                    }).to_string()
@@ -550,7 +546,7 @@ mod test {
                 if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter ( ref mut typed ) = column_writer {
                     typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) ? ;
                 } else {
-                    panic!("schema and struct disagree on type for {}" , stringify ! { optional_str } )
+                    panic!("Schema and struct disagree on type for {}" , stringify ! { optional_str } )
                 }
            }
             }
@@ -574,7 +570,7 @@ mod test {
                         if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter ( ref mut typed ) = column_writer {
                             typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) ? ;
                         } else {
-                            panic!("schema and struct disagree on type for {}" , stringify ! { optional_string } )
+                            panic!("Schema and struct disagree on type for {}" , stringify ! { optional_string } )
                         }
                     }
         }).to_string());
@@ -597,7 +593,7 @@ mod test {
                         if let parquet::column::writer::ColumnWriter::Int32ColumnWriter ( ref mut typed ) = column_writer {
                             typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) ? ;
                         }  else {
-                            panic!("schema and struct disagree on type for {}" , stringify ! { optional_dumb_int } )
+                            panic!("Schema and struct disagree on type for {}" , stringify ! { optional_dumb_int } )
                         }
                     }
         }).to_string());
@@ -819,7 +815,7 @@ mod test {
                 if let parquet::column::writer::ColumnWriter::Int64ColumnWriter(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], None, None) ?;
                 } else {
-                    panic!("schema and struct disagree on type for {}" , stringify!{ henceforth })
+                    panic!("Schema and struct disagree on type for {}" , stringify!{ henceforth })
                 }
             }
         }).to_string());
@@ -839,7 +835,7 @@ mod test {
                 if let parquet::column::writer::ColumnWriter::Int64ColumnWriter(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], Some(&definition_levels[..]), None) ?;
                 } else {
-                    panic!("schema and struct disagree on type for {}" , stringify!{ maybe_happened })
+                    panic!("Schema and struct disagree on type for {}" , stringify!{ maybe_happened })
                 }
             }
         }).to_string());
@@ -863,7 +859,7 @@ mod test {
                 if let parquet::column::writer::ColumnWriter::Int32ColumnWriter(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], None, None) ?;
                 } else {
-                    panic!("schema and struct disagree on type for {}" , stringify!{ henceforth })
+                    panic!("Schema and struct disagree on type for {}" , stringify!{ henceforth })
                 }
             }
         }).to_string());
@@ -883,7 +879,7 @@ mod test {
                 if let parquet::column::writer::ColumnWriter::Int32ColumnWriter(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], Some(&definition_levels[..]), None) ?;
                 } else {
-                    panic!("schema and struct disagree on type for {}" , stringify!{ maybe_happened })
+                    panic!("Schema and struct disagree on type for {}" , stringify!{ maybe_happened })
                 }
             }
         }).to_string());
@@ -907,7 +903,7 @@ mod test {
                 if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], None, None) ?;
                 } else {
-                    panic!("schema and struct disagree on type for {}" , stringify!{ unique_id })
+                    panic!("Schema and struct disagree on type for {}" , stringify!{ unique_id })
                 }
             }
         }).to_string());
@@ -927,7 +923,7 @@ mod test {
                 if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], Some(&definition_levels[..]), None) ?;
                 } else {
-                    panic!("schema and struct disagree on type for {}" , stringify!{ maybe_unique_id })
+                    panic!("Schema and struct disagree on type for {}" , stringify!{ maybe_unique_id })
                 }
             }
         }).to_string());
