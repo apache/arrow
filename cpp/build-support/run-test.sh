@@ -132,7 +132,10 @@ function print_coredumps() {
   # and the ulimit must be increased:
   #   sudo ulimit -c unlimited
 
+  echo "<<<<<<<<<<<<<<< Searching for coredumps >>>>>>>>>>>>>>>>>>>>"
   pwd
+  ulimit -a
+  ls -lah
 
   # filename is truncated to the first 15 characters in case of linux, so limit
   # the pattern for the first 15 characters
