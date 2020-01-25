@@ -794,59 +794,111 @@ cdef class Dataset:
         return self.wrapped
 
     def scan(self, columns=None, filter=None, MemoryPool memory_pool=None):
-        """Read the dataset as materialized record batches.
+        """Builds a scan operation against the dataset.
 
-        Builds and executes a scan operation against the dataset. It poduces
-        a stream of RecordBatches, so
-
-        The Scanner object can be instantiated manually, see the Scanner class.
+        It poduces a stream of ScanTasks which is meant to be a unit of work to
+        be dispatched. The tasks are not executed automatically, the user is
+        responsible to execute and dispatch the individual tasks, so custom
+        local task scheduling can be implemented.
 
         Parameters
         ----------
         columns : list of str, default None
             List of columns to project. Order and duplicates will be preserved.
-            The goal is to avoid loading, copying, and deserializing columns
+            The columns will be passed down to Sources and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
-            By default all of the available columns are projected, raises
+            By default all of the available columns are projected. Raises
             an exception if any of the referenced column names does not exist
             in the dataset's Schema.
         filter : Expression, default None
-            Set the filter Expression to return only rows matching the filter.
+            Scan will return only the rows matching the filter.
             If possible the predicate will be pushed down to exploit the
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+
+        Returns
+        -------
+        scan_tasks : iterator of ScanTask
+        """
+        scanner = Scanner(self, columns=columns, filter=filter,
+                          memory_pool=memory_pool)
+        return scanner.scan()
+
+    def to_batches(self, columns=None, filter=None,
+                   MemoryPool memory_pool=None):
+        """Read the dataset as materialized record batches.
+
+        Builds a scan operation against the dataset and sequentially executes
+        the ScanTasks as the returned generator gets consumed.
+
+        Parameters
+        ----------
+        columns : list of str, default None
+            List of columns to project. Order and duplicates will be preserved.
+            The columns will be passed down to Sources and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
         record_batches : iterator of RecordBatch
         """
         scanner = Scanner(self, columns=columns, filter=filter,
-                          use_threads=use_threads, memory_pool=memory_pool)
-        return scanner.scan()
-
-    def to_batches(self, columns=None, filter=None,
-                   MemoryPool memory_pool=None):
-        scanner = Scanner(self, columns=columns, filter=filter,
-                          use_threads=use_threads, memory_pool=memory_pool)
+                          memory_pool=memory_pool)
         for task in scanner.scan():
             for batch in task.execute():
                 yield batch
 
     def to_table(self, columns=None, filter=None, use_threads=True,
                  MemoryPool memory_pool=None):
-        """Convert the dataset to a Table
+        """Read the dataset to an arrow table.
 
         Note, that this method reads all the selected data from the dataset
         into memory.
 
         Parameters
         ----------
-        columns : list of strings
-        filter : Expression
+        columns : list of str, default None
+            List of columns to project. Order and duplicates will be preserved.
+            The columns will be passed down to Sources and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
         use_threads : boolean, default True
             If enabled, then maximum paralellism will be used determined by
             the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+
+        Returns
+        -------
+        table : Table instance
         """
         scanner = Scanner(self, columns=columns, filter=filter,
                           use_threads=use_threads, memory_pool=memory_pool)
@@ -854,7 +906,7 @@ cdef class Dataset:
 
     @property
     def sources(self):
-        """List of the sources"""
+        """List of the data sources"""
         cdef vector[shared_ptr[CSource]] sources = self.dataset.sources()
         return [Source.wrap(source) for source in sources]
 
@@ -904,14 +956,16 @@ cdef class ScanTask:
             CRecordBatchIterator iterator
             shared_ptr[CRecordBatch] record_batch
 
-        iterator = move(GetResultValue(move(self.task.Execute())))
+        with nogil:
+            iterator = move(GetResultValue(move(self.task.Execute())))
 
-        while True:
-            record_batch = GetResultValue(iterator.Next())
-            if record_batch.get() == nullptr:
-                raise StopIteration()
-            else:
-                yield pyarrow_wrap_batch(record_batch)
+            while True:
+                record_batch = GetResultValue(iterator.Next())
+                if record_batch.get() == nullptr:
+                    raise StopIteration()
+                else:
+                    with gil:
+                        yield pyarrow_wrap_batch(record_batch)
 
 
 cdef class Scanner:
@@ -922,23 +976,23 @@ cdef class Scanner:
 
     Parameters
     ----------
-    dataset : Dataset instance
-        The dataset to scan.
-    columns : list of strings, default None
-        List of projectable columns during the scan operation. Order and
-        duplicates will be preserved.
-        This subset will be passed down to Sources and corresponding data
-        fragments. The goal is to avoid loading, copying, and deserializing
-        columns that will not be required further down the compute chain.
-        By default all available columns will be projected.
+    columns : list of str, default None
+        List of columns to project. Order and duplicates will be preserved.
+        The columns will be passed down to Sources and corresponding data
+        fragments to avoid loading, copying, and deserializing columns
+        that will not be required further down the compute chain.
+        By default all of the available columns are projected. Raises
+        an exception if any of the referenced column names does not exist
+        in the dataset's Schema.
     filter : Expression, default None
         Scan will return only the rows matching the filter.
-        The predicate will be passed down to Sources and corresponding
-        data fragments to exploit predicate pushdown if possible using
-        partition information or internal metadata, e.g. Parquet statistics.
-        Otherwise filters the loaded RecordBatches before yielding them.
-    use_threads : bool, default True
-        Set whether the Scanner should make use of the thread pool.
+        If possible the predicate will be pushed down to exploit the
+        partition information or internal metadata found in the data
+        source, e.g. Parquet statistics. Otherwise filters the loaded
+        RecordBatches before yielding them.
+    use_threads : boolean, default True
+        If enabled, then maximum paralellism will be used determined by
+        the number of available CPU cores.
     memory_pool : MemoryPool, default None
         For memory allocations, if required. If not specified, uses the
         default pool.

@@ -175,13 +175,13 @@ def test_filesystem_source(mockfs):
     partitions = [ds.ScalarExpression(True), ds.ScalarExpression(True)]
 
     source = ds.FileSystemSource(schema,
-                                 source_partition=None,
+                                 root_partition=None,
                                  file_format=file_format,
                                  filesystem=mockfs,
                                  paths_or_selector=paths,
                                  partitions=partitions)
 
-    source_partition = ds.ComparisonExpression(
+    root_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
         ds.FieldExpression('source'),
         ds.ScalarExpression(1337)
@@ -199,10 +199,10 @@ def test_filesystem_source(mockfs):
         )
     ]
     source = ds.FileSystemSource(paths_or_selector=paths, schema=schema,
-                                 source_partition=source_partition,
+                                 root_partition=root_partition,
                                  filesystem=mockfs, partitions=partitions,
                                  file_format=file_format)
-    assert source.partition_expression.equals(source_partition)
+    assert source.partition_expression.equals(root_partition)
 
 
 def test_dataset(dataset):
