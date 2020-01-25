@@ -192,7 +192,7 @@ std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>&
   return std::make_shared<StructArray>(type, children[0]->length(), children);
 }
 
-std::shared_ptr<Array> MakeListArray(SEXP df, const std::shared_ptr<DataType>& type) {
+std::shared_ptr<Array> MakeListArray(SEXP x, const std::shared_ptr<DataType>& type) {
   int n = type->num_children();
   std::vector<std::shared_ptr<Array>> children(n);
   for (int i = 0; i < n; i++) {
@@ -991,9 +991,13 @@ arrow::Status CheckCompatibleList(SEXP obj,
     return Status::RError("Conversion to array requires list input");
   }
 
-  // All list elements must be the same type
-  std::shared_ptr<arrow::DataType> element_type = type -> value_type();
   R_xlen_t n = XLENGTH(obj);
+  if (n == 0) {
+    return Status::RError("Length-0 list input");
+  }
+
+  // All list elements must be the same type
+  std::shared_ptr<arrow::DataType> element_type = InferType(VECTOR_ELT(obj, 0));
   for (R_xlen_t i = 1; i < n; i++) {
     if (InferType(VECTOR_ELT(obj, i)) != element_type) {
       return Status::RError(
@@ -1065,6 +1069,10 @@ std::shared_ptr<arrow::Array> Array__from_vector(
   }
 
   if (type->id() == Type::LIST) {
+    if (!type_inferred) {
+      STOP_IF_NOT_OK(arrow::r::CheckCompatibleList(x, type));
+    }
+
     return arrow::r::MakeListArray(x, type);
   }
 
