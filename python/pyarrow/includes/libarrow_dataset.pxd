@@ -141,8 +141,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CExpression] filter
         shared_ptr[CSchema] schema
         c_bool use_threads
-        # shared_ptr[CExpressionEvaluator] evaluator
-        # shared_ptr[CRecordBatchProjector] projector
 
         @staticmethod
         shared_ptr[CScanOptions] Defaults()
@@ -152,10 +150,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CScanTask" arrow::dataset::ScanTask":
         CResult[CRecordBatchIterator] Execute()
-
-    cdef cppclass CInMemoryScanTask "arrow::dataset::InMemoryScanTask"(
-            CScanTask):
-        pass
 
     ctypedef CIterator[shared_ptr[CScanTask]] CScanTaskIterator \
         "arrow::dataset::ScanTaskIterator"

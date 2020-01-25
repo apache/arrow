@@ -336,7 +336,7 @@ def dataset(sources, filesystem=None, partitioning=None, format=None):
 def field(name):
     """References a named column of the dataset.
 
-    Stores only the field's name, type and other information is known only when
+    Stores only the field's name. Type and other information is known only when
     the expression is applied on a dataset having an explicit scheme.
 
     Parameters

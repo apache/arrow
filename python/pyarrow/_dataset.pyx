@@ -870,7 +870,7 @@ cdef class Dataset:
                  MemoryPool memory_pool=None):
         """Read the dataset to an arrow table.
 
-        Note, that this method reads all the selected data from the dataset
+        Note that this method reads all the selected data from the dataset
         into memory.
 
         Parameters
@@ -976,6 +976,8 @@ cdef class Scanner:
 
     Parameters
     ----------
+    dataset : Dataset
+        Dataset to scan.
     columns : list of str, default None
         List of columns to project. Order and duplicates will be preserved.
         The columns will be passed down to Sources and corresponding data
@@ -1165,6 +1167,21 @@ cdef class Expression:
         return frombytes(self.expr.ToString())
 
     def validate(self, Schema schema not None):
+        """Validate this expression for execution against a schema.
+
+        This will check that all reference fields are present (fields not in
+        the schema will be replaced with null) and all subexpressions are
+        executable. Returns the type to which this expression will evaluate.
+
+        Parameters
+        ----------
+        schema : Schema
+            Schema to execute the expression on.
+
+        Returns
+        -------
+        type : DataType
+        """
         cdef:
             shared_ptr[CSchema] sp_schema
             CResult[shared_ptr[CDataType]] result
@@ -1173,6 +1190,7 @@ cdef class Expression:
         return pyarrow_wrap_data_type(GetResultValue(result))
 
     def assume(self, Expression given):
+        """Simplify to an equivalent Expression given assumed constraints."""
         return Expression.wrap(self.expr.Assume(given.unwrap()))
 
     def __invert__(self):
@@ -1203,12 +1221,15 @@ cdef class Expression:
         return _binop(OrExpression, self, other)
 
     def is_valid(self):
+        """Checks whether the expression is not-null (valid)"""
         return IsValidExpression(self)
 
     def cast(self, type, bint safe=True):
+        """Explicitly change the expression's data type"""
         return CastExpression(self, to=ensure_type(type), safe=safe)
 
     def isin(self, values):
+        """Checks whether the expression is contained in values"""
         return InExpression(self, pa.array(values))
 
 
