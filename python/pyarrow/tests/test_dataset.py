@@ -102,12 +102,12 @@ def mockfs():
 def multisourcefs():
     import pyarrow.parquet as pq
 
-    df = _generate_data(600)
+    df = _generate_data(1000)
     mockfs = fs._MockFileSystem()
 
     # simply split the dataframe into three chunks to construct a data source
     # from each chunk into its own directory
-    df_a, df_b, df_c = np.array_split(df, 3)
+    df_a, df_b, df_c, df_d = np.array_split(df, 4)
 
     # create a directory containing a flat sequence of parquet files without
     # any partitioning involved
@@ -119,7 +119,7 @@ def multisourcefs():
 
     # create one with schema partitioning by week and color
     mockfs.create_dir('schema')
-    for part, chunk in df.groupby([df.date.dt.week, df.color]):
+    for part, chunk in df_b.groupby([df_b.date.dt.week, df_b.color]):
         folder = 'schema/{}/{}'.format(*part)
         path = '{}/chunk.parquet'.format(folder)
         mockfs.create_dir(folder)
@@ -128,8 +128,17 @@ def multisourcefs():
 
     # create one with hive partitioning by year and month
     mockfs.create_dir('hive')
-    for part, chunk in df.groupby([df.date.dt.year, df.date.dt.month]):
+    for part, chunk in df_c.groupby([df_c.date.dt.year, df_c.date.dt.month]):
         folder = 'hive/year={}/month={}'.format(*part)
+        path = '{}/chunk.parquet'.format(folder)
+        mockfs.create_dir(folder)
+        with mockfs.open_output_stream(path) as out:
+            pq.write_table(_table_from_pandas(chunk), out)
+
+    # create one with hive partitioning by color
+    mockfs.create_dir('hive_color')
+    for part, chunk in df_d.groupby(["color"]):
+        folder = 'hive_color/color={}'.format(*part)
         path = '{}/chunk.parquet'.format(folder)
         mockfs.create_dir(folder)
         with mockfs.open_output_stream(path) as out:
@@ -680,14 +689,27 @@ def test_multiple_sources(multisourcefs):
     assert assembled.schema.equals(expected_schema, check_metadata=False)
 
 
-def test_multiple_sources_without_partitioning(multisourcefs):
-    dataset = ds.dataset(['/plain', '/schema', '/hive'], format='parquet',
-                         filesystem=multisourcefs)
-
+def test_multiple_sources_with_selectors(multisourcefs):
+    # without partitioning
+    dataset = ds.dataset(['/plain', '/schema', '/hive'],
+                         filesystem=multisourcefs, format='parquet')
     expected_schema = pa.schema([
         pa.field('date', pa.date32()),
         pa.field('index', pa.int64()),
         pa.field('value', pa.float64()),
         pa.field('color', pa.string())
+    ])
+    assert dataset.schema.equals(expected_schema, check_metadata=False)
+
+    # with hive partitioning for two hive sources
+    dataset = ds.dataset(['/hive', '/hive_color'], filesystem=multisourcefs,
+                         format='parquet', partitioning='hive')
+    expected_schema = pa.schema([
+        pa.field('date', pa.date32()),
+        pa.field('index', pa.int64()),
+        pa.field('value', pa.float64()),
+        pa.field('color', pa.string()),
+        pa.field('month', pa.int32()),
+        pa.field('year', pa.int32())
     ])
     assert dataset.schema.equals(expected_schema, check_metadata=False)
