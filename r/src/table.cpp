@@ -221,6 +221,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     Rcpp::stop("schema must be an arrow::Schema or NULL");
   }
 
+  Rprintf("here\n");
   return arrow::Table::Make(schema, columns);
 }
 
