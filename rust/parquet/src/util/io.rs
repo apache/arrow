@@ -47,8 +47,11 @@ pub struct FileSource<R: ParquetReader> {
 impl<R: ParquetReader> FileSource<R> {
     /// Creates new file reader with start and length from a file handle
     pub fn new(fd: &R, start: u64, length: usize) -> Self {
+        let mut reader = BufReader::new(fd.try_clone().unwrap());
+        reader.seek(SeekFrom::Start(start as u64)).unwrap();
+
         Self {
-            reader: Mutex::new(BufReader::new(fd.try_clone().unwrap())),
+            reader: Mutex::new(reader),
             start,
             end: start + length as u64,
         }
@@ -65,7 +68,6 @@ impl<R: ParquetReader> Read for FileSource<R> {
         let bytes_to_read = cmp::min(buf.len(), (self.end - self.start) as usize);
         let buf = &mut buf[0..bytes_to_read];
 
-        reader.seek(SeekFrom::Start(self.start as u64))?;
         let res = reader.read(buf);
         if let Ok(bytes_read) = res {
             self.start += bytes_read as u64;
