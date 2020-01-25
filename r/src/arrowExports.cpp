@@ -1499,6 +1499,67 @@ RcppExport SEXP _arrow_dataset___SFactory__Inspect(SEXP factory_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::DatasetFactory> dataset___DFactory__Make(const std::vector<std::shared_ptr<ds::SourceFactory>>& sources);
+RcppExport SEXP _arrow_dataset___DFactory__Make(SEXP sources_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::vector<std::shared_ptr<ds::SourceFactory>>&>::type sources(sources_sexp);
+	return Rcpp::wrap(dataset___DFactory__Make(sources));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DFactory__Make(SEXP sources_sexp){
+	Rf_error("Cannot call dataset___DFactory__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> dataset___DFactory__Inspect(const std::shared_ptr<ds::DatasetFactory>& factory);
+RcppExport SEXP _arrow_dataset___DFactory__Inspect(SEXP factory_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DatasetFactory>&>::type factory(factory_sexp);
+	return Rcpp::wrap(dataset___DFactory__Inspect(factory));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DFactory__Inspect(SEXP factory_sexp){
+	Rf_error("Cannot call dataset___DFactory__Inspect(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::Dataset> dataset___DFactory__Finish1(const std::shared_ptr<ds::DatasetFactory>& factory);
+RcppExport SEXP _arrow_dataset___DFactory__Finish1(SEXP factory_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DatasetFactory>&>::type factory(factory_sexp);
+	return Rcpp::wrap(dataset___DFactory__Finish1(factory));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DFactory__Finish1(SEXP factory_sexp){
+	Rf_error("Cannot call dataset___DFactory__Finish1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::Dataset> dataset___DFactory__Finish2(const std::shared_ptr<ds::DatasetFactory>& factory, const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_dataset___DFactory__Finish2(SEXP factory_sexp, SEXP schema_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DatasetFactory>&>::type factory(factory_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(dataset___DFactory__Finish2(factory, schema));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DFactory__Finish2(SEXP factory_sexp, SEXP schema_sexp){
+	Rf_error("Cannot call dataset___DFactory__Finish2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<ds::Partitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp){
 BEGIN_RCPP
@@ -5734,6 +5795,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___SFactory__Finish2", (DL_FUNC) &_arrow_dataset___SFactory__Finish2, 2}, 
 		{ "_arrow_dataset___Source__schema", (DL_FUNC) &_arrow_dataset___Source__schema, 1}, 
 		{ "_arrow_dataset___SFactory__Inspect", (DL_FUNC) &_arrow_dataset___SFactory__Inspect, 1}, 
+		{ "_arrow_dataset___DFactory__Make", (DL_FUNC) &_arrow_dataset___DFactory__Make, 1}, 
+		{ "_arrow_dataset___DFactory__Inspect", (DL_FUNC) &_arrow_dataset___DFactory__Inspect, 1}, 
+		{ "_arrow_dataset___DFactory__Finish1", (DL_FUNC) &_arrow_dataset___DFactory__Finish1, 1}, 
+		{ "_arrow_dataset___DFactory__Finish2", (DL_FUNC) &_arrow_dataset___DFactory__Finish2, 2}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 
 		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 1}, 
 		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 1}, 

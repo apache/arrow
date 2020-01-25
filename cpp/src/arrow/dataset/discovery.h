@@ -30,28 +30,15 @@
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_forest.h"
+#include "arrow/result.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 
 namespace arrow {
 namespace dataset {
 
-/// \brief SourceFactory provides a way to inspect/discover a Source potential
-/// schema before materializing it. Thus, the user can peek the schema for
-/// sources and decide on a unified schema. The pseudocode would look like
-///
-/// def get_dataset(factories):
-///   schemas = []
-///   for m in factories:
-///     schemas.append(m.Inspect())
-///
-///   common_schema = UnifySchemas(schemas)
-///
-///   sources = []
-///   for m in factories:
-///     sources.append(f.Finish(common_schema))
-///
-///   return Dataset(sources, common_schema)
+/// \brief SourceFactory provides a way to inspect/discover a Source's expected
+/// schema before materializing said Source.
 class ARROW_DS_EXPORT SourceFactory {
  public:
   /// \brief Get the schemas of the Fragments and Partitioning.
@@ -64,7 +51,7 @@ class ARROW_DS_EXPORT SourceFactory {
   virtual Result<std::shared_ptr<Source>> Finish(
       const std::shared_ptr<Schema>& schema) = 0;
 
-  /// \brief Create a Source using an inspected schema.
+  /// \brief Create a Source using the inspected schema.
   virtual Result<std::shared_ptr<Source>> Finish();
 
   /// \brief Optional root partition for the resulting Source.
@@ -80,6 +67,36 @@ class ARROW_DS_EXPORT SourceFactory {
   SourceFactory();
 
   std::shared_ptr<Expression> root_partition_;
+};
+
+/// \brief DatasetFactory provides a way to inspect/discover a Dataset's
+/// expected schema before materializing the Dataset and underlying Sources.
+class ARROW_DS_EXPORT DatasetFactory {
+ public:
+  static Result<std::shared_ptr<DatasetFactory>> Make(
+      std::vector<std::shared_ptr<SourceFactory>> factories);
+
+  /// \brief Return the list of SourceFactory
+  const std::vector<std::shared_ptr<SourceFactory>>& factories() const {
+    return factories_;
+  }
+
+  /// \brief Get the schemas of the Sources.
+  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas();
+
+  /// \brief Get unified schema for the resulting Dataset.
+  Result<std::shared_ptr<Schema>> Inspect();
+
+  /// \brief Create a Dataset with the given schema.
+  Result<std::shared_ptr<Dataset>> Finish(const std::shared_ptr<Schema>& schema);
+
+  /// \brief Create a Dataset using the inspected schema.
+  Result<std::shared_ptr<Dataset>> Finish();
+
+ protected:
+  explicit DatasetFactory(std::vector<std::shared_ptr<SourceFactory>> factories);
+
+  std::vector<std::shared_ptr<SourceFactory>> factories_;
 };
 
 struct FileSystemFactoryOptions {

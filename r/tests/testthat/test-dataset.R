@@ -157,6 +157,7 @@ test_that("IPC/Arrow format data", {
 })
 
 test_that("Dataset with multiple sources", {
+  skip("https://issues.apache.org/jira/browse/ARROW-7653")
   ds <- open_dataset(list(
     open_source(dataset_dir, format = "parquet", partitioning = "part"),
     open_source(ipc_dir, format = "arrow", partitioning = "part")
@@ -298,6 +299,25 @@ test_that("Dataset and query print methods", {
   )
 })
 
+expect_scan_result <- function(ds, schm) {
+  sb <- ds$NewScan()
+  expect_is(sb, "ScannerBuilder")
+  expect_equal(sb$schema, schm)
+
+  sb$Project(c("chr", "lgl"))
+  sb$Filter(FieldExpression$create("dbl") == 8)
+  scn <- sb$Finish()
+  expect_is(scn, "Scanner")
+
+  tab <- scn$ToTable()
+  expect_is(tab, "Table")
+
+  expect_equivalent(
+    as.data.frame(tab),
+    df1[8, c("chr", "lgl")]
+  )
+}
+
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(dataset_dir, recursive = TRUE)
@@ -323,20 +343,28 @@ test_that("Assembling a Dataset manually and getting a Table", {
   expect_is(ds, "Dataset")
   expect_equal(names(ds), names(schm))
 
-  sb <- ds$NewScan()
-  expect_is(sb, "ScannerBuilder")
-  expect_equal(sb$schema, schm)
+  expect_scan_result(ds, schm)
+})
 
-  sb$Project(c("chr", "lgl"))
-  sb$Filter(FieldExpression$create("dbl") == 8)
-  scn <- sb$Finish()
-  expect_is(scn, "Scanner")
+test_that("Assembling multiple SourceFactories with DatasetFactory", {
+  src1 <- open_source(file.path(dataset_dir, 1), format = "parquet")
+  expect_is(src1, "FileSystemSourceFactory")
+  src2 <- open_source(file.path(dataset_dir, 2), format = "parquet")
+  expect_is(src2, "FileSystemSourceFactory")
 
-  tab <- scn$ToTable()
-  expect_is(tab, "Table")
+  factory <- DatasetFactory$create(c(src1, src2))
+  expect_is(factory, "DatasetFactory")
 
-  expect_equivalent(
-    as.data.frame(tab),
-    df1[8, c("chr", "lgl")]
-  )
+  schm <- factory$Inspect()
+  expect_is(schm, "Schema")
+
+  phys_schm <- ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
+  expect_equal(names(phys_schm), names(df1))
+
+  ds <- factory$Finish(schm)
+  expect_is(ds, "Dataset")
+  expect_is(ds$schema, "Schema")
+  expect_equal(names(schm), names(ds$schema))
+
+  expect_scan_result(ds, schm)
 })
