@@ -630,18 +630,21 @@ def test_open_dataset_filesystem(tempdir):
         ds.dataset(str(path), filesystem=fs._MockFileSystem())
 
 
+@pytest.mark.parquet
 def test_open_dataset_unsupported_format(tempdir):
     _, path = _create_single_file(tempdir)
     with pytest.raises(ValueError, match="format 'blabla' is not supported"):
         ds.dataset([path], format="blabla")
 
 
+@pytest.mark.parquet
 def test_open_dataset_from_source_additional_kwargs(tempdir):
     _, path = _create_single_file(tempdir)
     with pytest.raises(ValueError, match="cannot pass any additional"):
         ds.dataset(ds.source(path), format="parquet")
 
 
+@pytest.mark.parquet
 def test_open_dataset_validate_sources(tempdir):
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
@@ -649,6 +652,7 @@ def test_open_dataset_validate_sources(tempdir):
         ds.dataset([dataset])
 
 
+@pytest.mark.parquet
 def test_filter_implicit_cast(tempdir):
     # ARROW-7652
     table = pa.table({'a': pa.array([0, 1, 2, 3, 4, 5], type=pa.int8())})
@@ -667,6 +671,21 @@ def test_filter_implicit_cast(tempdir):
     assert len(result) == 3
 
 
+@pytest.mark.parquet
+def test_dataset_factory(multisourcefs):
+    src = ds.source('/plain', filesystem=multisourcefs, format='parquet')
+    factory = ds.DatasetFactory([src])
+
+    assert len(factory.sources) == 1
+    assert len(factory.inspect_schemas()) == 1
+    assert all(isinstance(s, ds.SourceFactory) for s in factory.sources)
+    assert all(isinstance(s, pa.Schema) for s in factory.inspect_schemas())
+    assert factory.inspect_schemas()[0].equals(src.inspect())
+    assert factory.inspect().equals(src.inspect())
+    assert isinstance(factory.finish(), ds.Dataset)
+
+
+@pytest.mark.parquet
 def test_multiple_sources(multisourcefs):
     src1 = ds.source('/plain', filesystem=multisourcefs, format='parquet')
     src2 = ds.source('/schema', filesystem=multisourcefs, format='parquet',
@@ -689,6 +708,7 @@ def test_multiple_sources(multisourcefs):
     assert assembled.schema.equals(expected_schema, check_metadata=False)
 
 
+@pytest.mark.parquet
 def test_multiple_sources_with_selectors(multisourcefs):
     # without partitioning
     dataset = ds.dataset(['/plain', '/schema', '/hive'],

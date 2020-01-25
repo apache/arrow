@@ -724,10 +724,13 @@ cdef class DatasetFactory:
     cdef inline shared_ptr[CDatasetFactory] unwrap(self) nogil:
         return self.wrapped
 
-    # @property
-    # def sources(self):
-    #     cdef shared_ptr[CSourceFactory] factory
-    #     return [SourceFactory.wrap(sp) for sp in self.factory.factories()]
+    @property
+    def sources(self):
+        cdef:
+            shared_ptr[CSourceFactory] source
+            vector[shared_ptr[CSourceFactory]] sources
+        sources = self.factory.factories()
+        return [SourceFactory.wrap(source) for source in sources]
 
     def inspect_schemas(self):
         cdef vector[shared_ptr[CSchema]] schemas
