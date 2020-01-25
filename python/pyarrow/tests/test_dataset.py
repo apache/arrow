@@ -672,6 +672,7 @@ def test_filter_implicit_cast(tempdir):
 
 
 @pytest.mark.parquet
+@pytest.mark.pandas
 def test_dataset_factory(multisourcefs):
     src = ds.source('/plain', filesystem=multisourcefs, format='parquet')
     factory = ds.DatasetFactory([src])
@@ -686,6 +687,7 @@ def test_dataset_factory(multisourcefs):
 
 
 @pytest.mark.parquet
+@pytest.mark.pandas
 def test_multiple_sources(multisourcefs):
     src1 = ds.source('/plain', filesystem=multisourcefs, format='parquet')
     src2 = ds.source('/schema', filesystem=multisourcefs, format='parquet',
@@ -709,6 +711,7 @@ def test_multiple_sources(multisourcefs):
 
 
 @pytest.mark.parquet
+@pytest.mark.pandas
 def test_multiple_sources_with_selectors(multisourcefs):
     # without partitioning
     dataset = ds.dataset(['/plain', '/schema', '/hive'],
