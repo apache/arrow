@@ -678,13 +678,13 @@ def test_multiple_sources(multisourcefs):
     assert isinstance(assembled, ds.Dataset)
 
     expected_schema = pa.schema([
-        pa.field('date', pa.date32()),
-        pa.field('index', pa.int64()),
-        pa.field('value', pa.float64()),
-        pa.field('color', pa.string()),
-        pa.field('week', pa.int32()),
-        pa.field('month', pa.int32()),
-        pa.field('year', pa.int32()),
+        ('date', pa.date32()),
+        ('index', pa.int64()),
+        ('value', pa.float64()),
+        ('color', pa.string()),
+        ('week', pa.int32()),
+        ('month', pa.int32()),
+        ('year', pa.int32()),
     ])
     assert assembled.schema.equals(expected_schema, check_metadata=False)
 
@@ -694,10 +694,10 @@ def test_multiple_sources_with_selectors(multisourcefs):
     dataset = ds.dataset(['/plain', '/schema', '/hive'],
                          filesystem=multisourcefs, format='parquet')
     expected_schema = pa.schema([
-        pa.field('date', pa.date32()),
-        pa.field('index', pa.int64()),
-        pa.field('value', pa.float64()),
-        pa.field('color', pa.string())
+        ('date', pa.date32()),
+        ('index', pa.int64()),
+        ('value', pa.float64()),
+        ('color', pa.string())
     ])
     assert dataset.schema.equals(expected_schema, check_metadata=False)
 
@@ -705,11 +705,11 @@ def test_multiple_sources_with_selectors(multisourcefs):
     dataset = ds.dataset(['/hive', '/hive_color'], filesystem=multisourcefs,
                          format='parquet', partitioning='hive')
     expected_schema = pa.schema([
-        pa.field('date', pa.date32()),
-        pa.field('index', pa.int64()),
-        pa.field('value', pa.float64()),
-        pa.field('color', pa.string()),
-        pa.field('month', pa.int32()),
-        pa.field('year', pa.int32())
+        ('date', pa.date32()),
+        ('index', pa.int64()),
+        ('value', pa.float64()),
+        ('color', pa.string()),
+        ('month', pa.int32()),
+        ('year', pa.int32())
     ])
     assert dataset.schema.equals(expected_schema, check_metadata=False)

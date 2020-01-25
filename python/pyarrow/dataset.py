@@ -209,7 +209,7 @@ def _ensure_format(obj):
         return obj
     elif obj == "parquet":
         return ParquetFileFormat()
-    elif not isinstance(obj, FileFormat):
+    else:
         raise ValueError("format '{0}' is not supported".format(obj))
 
 
@@ -252,6 +252,9 @@ def source(path_or_paths, filesystem=None, partitioning=None,
 
 
 def _ensure_source(src, **kwargs):
+    # Need to return SourceFactory since `dataset` might need to finish the
+    # factory with a unified schema.
+    # TODO: return Source if a specific schema was passed?
     if _is_path_like(src):
         return source(src, **kwargs)
     elif isinstance(src, SourceFactory):
@@ -265,7 +268,7 @@ def _ensure_source(src, **kwargs):
     elif isinstance(src, Source):
         raise TypeError(
             "Source objects are currently not supported, only SourceFactory "
-            "instances. Use the ds.source() function to create such objects."
+            "instances. Use the source() function to create such objects."
         )
     else:
         raise TypeError(
