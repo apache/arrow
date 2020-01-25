@@ -352,7 +352,7 @@ test_that("Assembling a Dataset manually and getting a Table", {
   expect_scan_result(ds, schm)
 })
 
-test_that("Assembling a Dataset automatically and getting a Table", {
+test_that("Assembling multiple SourceFactories with DatasetFactory", {
   src1 <- open_source(file.path(dataset_dir, 1), format = "parquet")
   expect_is(src1, "FileSystemSourceFactory")
   src2 <- open_source(file.path(dataset_dir, 2), format = "parquet")
