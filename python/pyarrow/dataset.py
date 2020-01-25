@@ -157,21 +157,31 @@ def partitioning(schema=None, field_names=None, flavor=None):
         raise ValueError("Unsupported flavor")
 
 
+def _ensure_fs(filesystem, path):
+    # Validate or infer the filesystem from the path
+    from pyarrow.fs import FileSystem, LocalFileSystem
+
+    if filesystem is None:
+        try:
+            filesystem, _ = FileSystem.from_uri(path)
+        except Exception:
+            # when path is not found, we fall back to local file system
+            filesystem = LocalFileSystem()
+    return filesystem
+
+
 def _ensure_fs_and_paths(path_or_paths, filesystem=None):
     # Validate and convert the path-likes and filesystem.
     # Returns filesystem and list of string paths or FileSelector
-    from pyarrow.fs import FileSystem, FileType, FileSelector
+    from pyarrow.fs import FileType, FileSelector
 
     if isinstance(path_or_paths, list):
         paths_or_selector = [_stringify_path(path) for path in path_or_paths]
-        if filesystem is None:
-            # infer from first path
-            filesystem, _ = FileSystem.from_uri(paths_or_selector[0])
+        # infer from first path
+        filesystem = _ensure_fs(filesystem, paths_or_selector[0])
     else:
         path = _stringify_path(path_or_paths)
-        if filesystem is None:
-            filesystem, path = FileSystem.from_uri(path)
-
+        filesystem = _ensure_fs(filesystem, path)
         stats = filesystem.get_target_stats([path])[0]
         if stats.type == FileType.Directory:
             # for directory, pass a selector
