@@ -36,6 +36,8 @@ Factory functions
    source
    dataset
    partitioning
+   field
+   scalar
 
 Classes
 -------
@@ -56,3 +58,4 @@ Classes
    Dataset
    ScannerBuilder
    Scanner
+   Expression

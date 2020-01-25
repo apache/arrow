@@ -352,7 +352,7 @@ def field(name):
 
 
 def scalar(value):
-    """Expressionession representing a scalar value.
+    """Expression representing a scalar value.
 
     Parameters
     ----------
