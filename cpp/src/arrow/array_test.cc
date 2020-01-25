@@ -89,7 +89,7 @@ TEST_F(TestArray, TestLength) {
 
 Status MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool,
                                std::shared_ptr<Array>* out) {
-  // int64_t null_count = v.size() - std::accumulate(v.begin(), v.end(), 0);
+  int64_t null_count = v.size() - std::accumulate(v.begin(), v.end(), 0);
 
   ARROW_ASSIGN_OR_RAISE(auto null_buf, BitUtil::BytesToBits(v));
 
@@ -100,8 +100,7 @@ Status MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool,
 
   std::shared_ptr<Buffer> values;
   RETURN_NOT_OK(value_builder.Finish(&values));
-  *out = NULL;
-  //*out = std::make_shared<Int32Array>(v.size(), values, null_buf, null_count);
+  *out = std::make_shared<Int32Array>(v.size(), values, null_buf, null_count);
   return Status::OK();
 }
 
