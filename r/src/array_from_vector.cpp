@@ -878,19 +878,11 @@ std::shared_ptr<arrow::DataType> InferType(SEXP x) {
         }
         return std::make_shared<StructType>(std::move(fields));
       } else {
-        R_xlen_t n = XLENGTH(x);
-        if (n == 0) {
+        if (XLENGTH(x) == 0) {
           Rcpp::stop("received length-0 list");
         }
-        std::shared_ptr<arrow::DataType> element_type = InferType(VECTOR_ELT(x, 0));
-        for (R_xlen_t i = 1; i < n; i++) {
-          if (InferType(VECTOR_ELT(x, i)) != element_type) {
-            Rcpp::stop(
-                "list elements correspond to different arrow DataTypes; check element %d",
-                i + 1);
-          }
-        }
-        return std::make_shared<ListType>(element_type);
+
+        return std::make_shared<ListType>(InferType(VECTOR_ELT(x, 0)));
       }
       break;
     default:
@@ -991,6 +983,26 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
   arrow::DictionaryType* dict_type =
       arrow::checked_cast<arrow::DictionaryType*>(type.get());
   return dict_type->value_type() == utf8();
+}
+
+arrow::Status CheckCompatibleList(SEXP obj,
+                                  const std::shared_ptr<arrow::DataType>& type) {
+  if (TYPEOF(obj) != VECSXP) {
+    return Status::RError("Conversion to array requires list input");
+  }
+
+  // All list elements must be the same type
+  std::shared_ptr<arrow::DataType> element_type = type -> value_type();
+  R_xlen_t n = XLENGTH(obj);
+  for (R_xlen_t i = 1; i < n; i++) {
+    if (InferType(VECTOR_ELT(obj, i)) != element_type) {
+      return Status::RError(
+        "list elements correspond to different arrow DataTypes; check element ",
+        i + 1);
+    }
+  }
+
+  return Status::OK();
 }
 
 arrow::Status CheckCompatibleStruct(SEXP obj,
