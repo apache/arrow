@@ -193,12 +193,93 @@ std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>&
 }
 
 std::shared_ptr<Array> MakeListArray(SEXP x, const std::shared_ptr<DataType>& type) {
-  int n = type->num_children();
-  std::vector<std::shared_ptr<Array>> children(n);
-  for (int i = 0; i < n; i++) {
-    children[i] = Array__from_vector(VECTOR_ELT(df, i), type->child(i)->type(), true);
+  R_xlen_t n = XLENGTH(x);
+  if (n == 0) {
+    Rcpp::stop("0-length list input not supported");
   }
-  return std::make_shared<ListArray>(type, children[0]->length(), children);
+
+  std::shared_ptr<Buffer> null_buffer;
+  std::shared_ptr<Buffer> offset_buffer;
+  std::shared_ptr<Buffer> value_buffer;
+
+  // there is always an offset buffer
+  STOP_IF_NOT_OK(AllocateBuffer((n + 1) * sizeof(int32_t), &offset_buffer));
+
+  R_xlen_t i = 0;
+  int current_offset = 0;
+  int64_t null_count = 0;
+  auto p_offset = reinterpret_cast<int32_t*>(offset_buffer->mutable_data());
+  *p_offset = 0;
+  for (++p_offset; i < n; i++, ++p_offset) {
+    SEXP s = VECTOR_ELT(x, i);
+    if (s == R_NilValue) {
+      // break as we are going to need a null_bitmap buffer
+      break;
+    }
+
+    *p_offset = current_offset += LENGTH(s);
+  }
+
+  if (i < n) {
+    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
+    internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
+
+    // catch up
+    for (R_xlen_t j = 0; j < i; j++, null_bitmap_writer.Next()) {
+      null_bitmap_writer.Set();
+    }
+
+    // resume offset filling
+    for (; i < n; i++, ++p_offset, null_bitmap_writer.Next()) {
+      SEXP s = VECTOR_ELT(x, i);
+      if (s == R_NilValue) {
+        null_bitmap_writer.Clear();
+        *p_offset = current_offset;
+        null_count++;
+      } else {
+        null_bitmap_writer.Set();
+        *p_offset = current_offset += LENGTH(s);
+      }
+    }
+
+    null_bitmap_writer.Finish();
+  }
+
+  // ----- data buffer
+  if (current_offset > 0) {
+    STOP_IF_NOT_OK(AllocateBuffer(current_offset, &value_buffer));
+    p_offset = reinterpret_cast<int32_t*>(offset_buffer->mutable_data());
+    switch(TYPEOF(x)) {
+    case INTSXP: {
+      auto p_data = reinterpret_cast<int*>(value_buffer->mutable_data());
+      for (R_xlen_t i = 0; i < n; i++) {
+        SEXP s = VECTOR_ELT(x, i);
+        if (s != R_NilValue) {
+          auto ni = LENGTH(s);
+          std::copy_n(INTEGER(s), ni, p_data);
+          p_data += ni;
+        }
+      }
+    } break;
+    case REALSXP: {
+      auto p_data = reinterpret_cast<double*>(value_buffer->mutable_data());
+
+      for (R_xlen_t i = 0; i < n; i++) {
+        SEXP s = VECTOR_ELT(x, i);
+        if (s != R_NilValue) {
+          auto ni = LENGTH(s);
+          std::copy_n(REAL(s), ni, p_data);
+          p_data += ni;
+        }
+      }
+    } break;
+    default:
+      Rcpp::stop("list value type not supported");
+    }
+  }
+
+  return std::make_shared<ListArray>(
+    type, n, offset_buffer, value_buffer, null_buffer, null_count);
 }
 
 template <typename T>
