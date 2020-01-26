@@ -385,7 +385,8 @@ impl<'a> DictionaryBatch<'a> {
             )
     }
     /// If isDelta is true the values in the dictionary are to be appended to a
-    /// dictionary with the indicated id
+    /// dictionary with the indicated id. If isDelta is false this dictionary
+    /// should replace the existing dictionary.
     #[inline]
     pub fn isDelta(&self) -> bool {
         self._tab

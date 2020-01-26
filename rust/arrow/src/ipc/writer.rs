@@ -36,8 +36,6 @@ pub struct FileWriter<W: Write> {
     writer: BufWriter<W>,
     /// A reference to the schema, used in validating record batches
     schema: Schema,
-    /// The number of bytes written for the header (up to schema)
-    header_bytes: usize,
     /// The number of bytes between each block of bytes, as an offset for random access
     block_offsets: usize,
     /// Dictionary blocks that will be written as part of the IPC footer
@@ -61,7 +59,6 @@ impl<W: Write> FileWriter<W> {
         Ok(Self {
             writer,
             schema: schema.clone(),
-            header_bytes: written,
             block_offsets: written,
             dictionary_blocks: vec![],
             record_blocks: vec![],
@@ -76,7 +73,7 @@ impl<W: Write> FileWriter<W> {
                 "Cannot write record batch to file writer as it is closed".to_string(),
             ));
         }
-        let (meta, data) = write_record_batch(&mut self.writer, batch)?;
+        let (meta, data) = write_record_batch(&mut self.writer, batch, false)?;
         // add a record block for the footer
         self.record_blocks.push(ipc::Block::new(
             self.block_offsets as i64,
@@ -87,7 +84,7 @@ impl<W: Write> FileWriter<W> {
         Ok(())
     }
 
-    /// write footer and closing tag, then mark the writer as done
+    /// Write footer and closing tag, then mark the writer as done
     pub fn finish(&mut self) -> Result<()> {
         let mut fbb = FlatBufferBuilder::new();
         let dictionaries = fbb.create_vector(&self.dictionary_blocks);
@@ -160,6 +157,58 @@ impl<W: Write> Drop for FileWriter<W> {
     }
 }
 
+pub struct StreamWriter<W: Write> {
+    /// The object to write to
+    writer: BufWriter<W>,
+    /// A reference to the schema, used in validating record batches
+    schema: Schema,
+    /// Whether the writer footer has been written, and the writer is finished
+    finished: bool,
+}
+
+impl<W: Write> StreamWriter<W> {
+    /// Try create a new writer, with the schema written as part of the header
+    pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
+        let mut writer = BufWriter::new(writer);
+        // write the schema, set the written bytes to the schema
+        write_schema(&mut writer, schema)?;
+        Ok(Self {
+            writer,
+            schema: schema.clone(),
+            finished: false,
+        })
+    }
+
+    /// Write a record batch to the stream
+    pub fn write(&mut self, batch: &RecordBatch) -> Result<()> {
+        if self.finished {
+            return Err(ArrowError::IoError(
+                "Cannot write record batch to stream writer as it is closed".to_string(),
+            ));
+        }
+        write_record_batch(&mut self.writer, batch, true)?;
+        Ok(())
+    }
+
+    /// Write continuation bytes, and mark the stream as done
+    pub fn finish(&mut self) -> Result<()> {
+        self.writer.write(&[0u8, 0, 0, 0])?;
+        self.writer.write(&[255u8, 255, 255, 255])?;
+        self.finished = true;
+
+        Ok(())
+    }
+}
+
+/// Finish the stream if it is not 'finished' when it goes out of scope
+impl<W: Write> Drop for StreamWriter<W> {
+    fn drop(&mut self) {
+        if !self.finished {
+            self.finish().unwrap();
+        }
+    }
+}
+
 /// Convert the schema to its IPC representation, and write it to the `writer`
 fn write_schema<R: Write>(writer: &mut BufWriter<R>, schema: &Schema) -> Result<usize> {
     let mut fbb = FlatBufferBuilder::new();
@@ -217,10 +266,12 @@ fn write_padded_data<R: Write>(
     Ok(total_len as usize)
 }
 
-/// Write a record batch to the writer
+/// Write a record batch to the writer, writing the message size before the message
+/// if the record batch is being written to a stream
 fn write_record_batch<R: Write>(
     writer: &mut BufWriter<R>,
     batch: &RecordBatch,
+    is_stream: bool,
 ) -> Result<(usize, usize)> {
     let mut fbb = FlatBufferBuilder::new();
 
@@ -261,6 +312,12 @@ fn write_record_batch<R: Write>(
     message.add_header(root);
     let root = message.finish();
     fbb.finish(root, None);
+    let finished_data = fbb.finished_data();
+    // write the length of data if writing to stream
+    if is_stream {
+        let total_len: u32 = finished_data.len() as u32;
+        writer.write(&total_len.to_le_bytes()[..])?;
+    }
     let meta_written =
         write_padded_data(writer, fbb.finished_data(), WriteDataType::Body)?;
     let arrow_data_written =
@@ -415,7 +472,7 @@ mod tests {
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
-                "{}/arrow-ipc/integration/0.14.1/{}.arrow_file",
+                "{}/arrow-ipc-stream/integration/0.14.1/{}.arrow_file",
                 testdata, path
             ))
             .unwrap();
@@ -443,11 +500,54 @@ mod tests {
             assert!(arrow_json.equals_reader(&mut reader));
         });
     }
+
+    #[test]
+    fn read_and_rewrite_generated_streams() {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        // the test is repetitive, thus we can read all supported files at once
+        let paths = vec![
+            "generated_interval",
+            "generated_datetime",
+            "generated_nested",
+            "generated_primitive_no_batches",
+            "generated_primitive_zerolength",
+            "generated_primitive",
+        ];
+        paths.iter().for_each(|path| {
+            let file = File::open(format!(
+                "{}/arrow-ipc-stream/integration/0.14.1/{}.stream",
+                testdata, path
+            ))
+            .unwrap();
+
+            let mut reader = StreamReader::try_new(file).unwrap();
+
+            // read and rewrite the stream to a temp location
+            {
+                let file = File::create(format!("target/debug/testdata/{}.stream", path))
+                    .unwrap();
+                let mut writer = StreamWriter::try_new(file, &reader.schema()).unwrap();
+                while let Ok(Some(batch)) = reader.next() {
+                    writer.write(&batch).unwrap();
+                }
+                writer.finish().unwrap();
+            }
+
+            let file =
+                File::open(format!("target/debug/testdata/{}.stream", path)).unwrap();
+            let mut reader = StreamReader::try_new(file).unwrap();
+
+            // read expected JSON output
+            let arrow_json = read_gzip_json(path);
+            assert!(arrow_json.equals_reader(&mut reader));
+        });
+    }
+
     /// Read gzipped JSON file
     fn read_gzip_json(path: &str) -> ArrowJson {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         let file = File::open(format!(
-            "{}/arrow-ipc/integration/0.14.1/{}.json.gz",
+            "{}/arrow-ipc-stream/integration/0.14.1/{}.json.gz",
             testdata, path
         ))
         .unwrap();
