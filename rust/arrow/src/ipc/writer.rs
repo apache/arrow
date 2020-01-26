@@ -472,7 +472,7 @@ mod tests {
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
-                "{}/arrow-ipc/integration/0.14.1/{}.arrow_file",
+                "{}/arrow-ipc-stream/integration/0.14.1/{}.arrow_file",
                 testdata, path
             ))
             .unwrap();
@@ -515,7 +515,7 @@ mod tests {
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
-                "{}/arrow-ipc/integration/0.14.1/{}.stream",
+                "{}/arrow-ipc-stream/integration/0.14.1/{}.stream",
                 testdata, path
             ))
             .unwrap();
@@ -547,7 +547,7 @@ mod tests {
     fn read_gzip_json(path: &str) -> ArrowJson {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         let file = File::open(format!(
-            "{}/arrow-ipc/integration/0.14.1/{}.json.gz",
+            "{}/arrow-ipc-stream/integration/0.14.1/{}.json.gz",
             testdata, path
         ))
         .unwrap();
