@@ -800,7 +800,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDoubleScalar" arrow::DoubleScalar"(CScalar):
         double value
 
+    cdef cppclass CStringScalar" arrow::StringScalar"(CScalar):
+        pass
+
     shared_ptr[CScalar] MakeScalar[Value](Value value)
+    shared_ptr[CScalar] MakeStringScalar" arrow::MakeScalar"(c_string value)
 
     cdef cppclass CConcatenateTablesOptions" arrow::ConcatenateTablesOptions":
         c_bool unify_schemas

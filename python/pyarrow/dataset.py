@@ -34,7 +34,6 @@ from pyarrow._dataset import (  # noqa
     ComparisonExpression,
     Dataset,
     DatasetFactory,
-    DefaultPartitioning,
     DirectoryPartitioning,
     Expression,
     FieldExpression,
@@ -52,7 +51,6 @@ from pyarrow._dataset import (  # noqa
     PartitioningFactory,
     ScalarExpression,
     Scanner,
-    ScannerBuilder,
     ScanTask,
     Source,
     TreeSource,
@@ -332,5 +330,38 @@ def dataset(sources, filesystem=None, partitioning=None, format=None):
                        format=format)
         for src in sources
     ]
-
     return DatasetFactory(sources).finish()
+
+
+def field(name):
+    """References a named column of the dataset.
+
+    Stores only the field's name. Type and other information is known only when
+    the expression is applied on a dataset having an explicit scheme.
+
+    Parameters
+    ----------
+    name : string
+        The name of the field the expression references to.
+
+    Returns
+    -------
+    field_expr : FieldExpression
+    """
+    return FieldExpression(name)
+
+
+def scalar(value):
+    """Expression representing a scalar value.
+
+    Parameters
+    ----------
+    value : bool, int, float or string
+        Python value of the scalar. Note that only a subset of types are
+        currently supported.
+
+    Returns
+    -------
+    scalar_expr : ScalarExpression
+    """
+    return ScalarExpression(value)

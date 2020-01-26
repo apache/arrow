@@ -16,9 +16,9 @@
 # under the License.
 
 import sys
+import operator
 
 import numpy as np
-
 import pytest
 
 import pyarrow as pa
@@ -175,13 +175,13 @@ def test_filesystem_source(mockfs):
     partitions = [ds.ScalarExpression(True), ds.ScalarExpression(True)]
 
     source = ds.FileSystemSource(schema,
-                                 source_partition=None,
+                                 root_partition=None,
                                  file_format=file_format,
                                  filesystem=mockfs,
                                  paths_or_selector=paths,
                                  partitions=partitions)
 
-    source_partition = ds.ComparisonExpression(
+    root_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
         ds.FieldExpression('source'),
         ds.ScalarExpression(1337)
@@ -199,42 +199,35 @@ def test_filesystem_source(mockfs):
         )
     ]
     source = ds.FileSystemSource(paths_or_selector=paths, schema=schema,
-                                 source_partition=source_partition,
+                                 root_partition=root_partition,
                                  filesystem=mockfs, partitions=partitions,
                                  file_format=file_format)
-    assert source.partition_expression.equals(source_partition)
+    assert source.partition_expression.equals(root_partition)
 
 
 def test_dataset(dataset):
     assert isinstance(dataset, ds.Dataset)
     assert isinstance(dataset.schema, pa.Schema)
 
-    # TODO(kszucs): test non-boolean expressions for filter do raise
-    builder = dataset.new_scan()
-    assert isinstance(builder, ds.ScannerBuilder)
-
-    scanner = builder.finish()
-    assert isinstance(scanner, ds.Scanner)
-    assert len(list(scanner.scan())) == 2
+    # TODO(kszucs): test non-boolean Exprs for filter do raise
 
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
-    for task in scanner.scan():
+    for task in dataset.scan():
         assert isinstance(task, ds.ScanTask)
         for batch in task.execute():
             assert batch.column(0).equals(expected_i64)
             assert batch.column(1).equals(expected_f64)
 
-    table = scanner.to_table()
+    batches = dataset.to_batches()
+    assert all(isinstance(batch, pa.RecordBatch) for batch in batches)
+
+    table = dataset.to_table()
     assert isinstance(table, pa.Table)
     assert len(table) == 10
 
-    condition = ds.ComparisonExpression(
-        ds.CompareOperator.Equal,
-        ds.FieldExpression('i64'),
-        ds.ScalarExpression(1)
-    )
-    scanner = dataset.new_scan().use_threads(True).filter(condition).finish()
+    condition = ds.field('i64') == 1
+    scanner = ds.Scanner(dataset, use_threads=True, filter=condition)
     result = scanner.to_table().to_pydict()
 
     # don't rely on the scanning order
@@ -244,17 +237,16 @@ def test_dataset(dataset):
     assert sorted(result['key']) == ['xxx', 'yyy']
 
 
-def test_scanner_builder(dataset):
-    builder = ds.ScannerBuilder(dataset, memory_pool=pa.default_memory_pool())
-    scanner = builder.finish()
+def test_scanner(dataset):
+    scanner = ds.Scanner(dataset, memory_pool=pa.default_memory_pool())
     assert isinstance(scanner, ds.Scanner)
     assert len(list(scanner.scan())) == 2
 
     with pytest.raises(pa.ArrowInvalid):
-        dataset.new_scan().project(['unknown'])
+        dataset.scan(columns=['unknown'])
 
-    builder = dataset.new_scan(memory_pool=pa.default_memory_pool())
-    scanner = builder.project(['i64']).finish()
+    scanner = ds.Scanner(dataset, columns=['i64'],
+                         memory_pool=pa.default_memory_pool())
 
     assert isinstance(scanner, ds.Scanner)
     assert len(list(scanner.scan())) == 2
@@ -294,18 +286,7 @@ def test_partitioning():
     expr = partitioning.parse('/3/3.14')
     assert isinstance(expr, ds.Expression)
 
-    expected = ds.AndExpression(
-        ds.ComparisonExpression(
-            ds.CompareOperator.Equal,
-            ds.FieldExpression('group'),
-            ds.ScalarExpression(3)
-        ),
-        ds.ComparisonExpression(
-            ds.CompareOperator.Equal,
-            ds.FieldExpression('key'),
-            ds.ScalarExpression(3.14)
-        )
-    )
+    expected = (ds.field('group') == 3) & (ds.field('key') == 3.14)
     assert expr.equals(expected)
 
     with pytest.raises(pa.ArrowInvalid):
@@ -318,17 +299,9 @@ def test_partitioning():
         ])
     )
     expr = partitioning.parse('/alpha=0/beta=3')
-    expected = ds.AndExpression(
-        ds.ComparisonExpression(
-            ds.CompareOperator.Equal,
-            ds.FieldExpression('alpha'),
-            ds.ScalarExpression(0)
-        ),
-        ds.ComparisonExpression(
-            ds.CompareOperator.Equal,
-            ds.FieldExpression('beta'),
-            ds.ScalarExpression(3)
-        )
+    expected = (
+        (ds.field('alpha') == ds.scalar(0)) &
+        (ds.field('beta') == ds.scalar(3))
     )
     assert expr.equals(expected)
 
@@ -337,6 +310,7 @@ def test_expression():
     a = ds.ScalarExpression(1)
     b = ds.ScalarExpression(1.1)
     c = ds.ScalarExpression(True)
+    d = ds.ScalarExpression("string")
 
     equal = ds.ComparisonExpression(ds.CompareOperator.Equal, a, b)
     assert equal.op() == ds.CompareOperator.Equal
@@ -349,7 +323,7 @@ def test_expression():
 
     ds.AndExpression(a, b, c)
     ds.OrExpression(a, b)
-    ds.OrExpression(a, b, c)
+    ds.OrExpression(a, b, c, d)
     ds.NotExpression(ds.OrExpression(a, b, c))
     ds.IsValidExpression(a)
     ds.CastExpression(a, pa.int32())
@@ -380,6 +354,67 @@ def test_expression():
     assert condition.assume(i64_is_5).equals(ds.ScalarExpression(False))
     assert condition.assume(i64_is_7).equals(ds.ScalarExpression(True))
     assert str(condition) == "(i64 > 5:int64)"
+
+
+def test_expression_ergonomics():
+    zero = ds.scalar(0)
+    one = ds.scalar(1)
+    true = ds.scalar(True)
+    false = ds.scalar(False)
+    string = ds.scalar("string")
+    field = ds.field("field")
+
+    assert one.equals(ds.ScalarExpression(1))
+    assert zero.equals(ds.ScalarExpression(0))
+    assert true.equals(ds.ScalarExpression(True))
+    assert false.equals(ds.ScalarExpression(False))
+    assert string.equals(ds.ScalarExpression("string"))
+    assert field.equals(ds.FieldExpression("field"))
+
+    expected = ds.AndExpression(ds.ScalarExpression(1), ds.ScalarExpression(0))
+    for expr in [one & zero, 1 & zero, one & 0]:
+        assert expr.equals(expected)
+
+    expected = ds.OrExpression(ds.ScalarExpression(1), ds.ScalarExpression(0))
+    for expr in [one | zero, 1 | zero, one | 0]:
+        assert expr.equals(expected)
+
+    comparison_ops = [
+        (operator.eq, ds.CompareOperator.Equal),
+        (operator.ne, ds.CompareOperator.NotEqual),
+        (operator.ge, ds.CompareOperator.GreaterEqual),
+        (operator.le, ds.CompareOperator.LessEqual),
+        (operator.lt, ds.CompareOperator.Less),
+        (operator.gt, ds.CompareOperator.Greater),
+    ]
+    for op, compare_op in comparison_ops:
+        expr = op(zero, one)
+        expected = ds.ComparisonExpression(compare_op, zero, one)
+        assert expr.equals(expected)
+
+    expr = ~true == false
+    expected = ds.ComparisonExpression(
+        ds.CompareOperator.Equal,
+        ds.NotExpression(ds.ScalarExpression(True)),
+        ds.ScalarExpression(False)
+    )
+    assert expr.equals(expected)
+
+    for typ in ("bool", pa.bool_()):
+        expr = field.cast(typ) == true
+        expected = ds.ComparisonExpression(
+            ds.CompareOperator.Equal,
+            ds.CastExpression(ds.FieldExpression("field"), pa.bool_()),
+            ds.ScalarExpression(True)
+        )
+        assert expr.equals(expected)
+
+    expr = field.isin([1, 2])
+    expected = ds.InExpression(ds.FieldExpression("field"), pa.array([1, 2]))
+    assert expr.equals(expected)
+
+    with pytest.raises(TypeError):
+        field.isin(1)
 
 
 @pytest.mark.parametrize('paths_or_selector', [
@@ -423,10 +458,9 @@ def test_file_system_factory(mockfs, paths_or_selector):
     assert isinstance(source, ds.Source)
 
     dataset = ds.Dataset([source], inspected_schema)
+    assert len(list(dataset.scan())) == 2
 
-    scanner = dataset.new_scan().finish()
-    assert len(list(scanner.scan())) == 2
-
+    scanner = ds.Scanner(dataset)
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
     for task, group, key in zip(scanner.scan(), [1, 2], ['xxx', 'yyy']):
@@ -439,7 +473,7 @@ def test_file_system_factory(mockfs, paths_or_selector):
             assert batch[2].equals(expected_group_column)
             assert batch[3].equals(expected_key_column)
 
-    table = scanner.to_table()
+    table = dataset.to_table()
     assert isinstance(table, pa.Table)
     assert len(table) == 10
     assert table.num_columns == 4
@@ -533,19 +567,19 @@ def _check_dataset_from_path(path, table, **kwargs):
     assert isinstance(path, pathlib.Path)
     dataset = ds.dataset(ds.source(path, **kwargs))
     assert dataset.schema.equals(table.schema, check_metadata=False)
-    result = dataset.new_scan().finish().to_table()
+    result = dataset.to_table()
     assert result.replace_schema_metadata().equals(table)
 
     # string path
     dataset = ds.dataset(ds.source(str(path), **kwargs))
     assert dataset.schema.equals(table.schema, check_metadata=False)
-    result = dataset.new_scan().finish().to_table()
+    result = dataset.to_table()
     assert result.replace_schema_metadata().equals(table)
 
     # passing directly to dataset
     dataset = ds.dataset(str(path), **kwargs)
     assert dataset.schema.equals(table.schema, check_metadata=False)
-    result = dataset.new_scan().finish().to_table()
+    result = dataset.to_table()
     assert result.replace_schema_metadata().equals(table)
 
 
@@ -573,7 +607,7 @@ def test_open_dataset_list_of_files(tempdir):
             ds.dataset(ds.source([path1, path2])),
             ds.dataset(ds.source([str(path1), str(path2)]))]:
         assert dataset.schema.equals(table.schema, check_metadata=False)
-        result = dataset.new_scan().finish().to_table()
+        result = dataset.to_table()
         assert result.replace_schema_metadata().equals(table)
 
 
@@ -609,7 +643,7 @@ def test_open_dataset_partitioned_directory(tempdir):
     expected_schema = table.schema.append(pa.field("part", pa.int8()))
     assert dataset.schema.equals(expected_schema, check_metadata=False)
 
-    result = dataset.new_scan().finish().to_table()
+    result = dataset.to_table()
     expected = full_table.append_column(
         "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
     assert result.replace_schema_metadata().equals(expected)
@@ -662,15 +696,9 @@ def test_filter_implicit_cast(tempdir):
     _, path = _create_single_file(tempdir, table)
     dataset = ds.dataset(str(path))
 
-    filter_ = ds.ComparisonExpression(
-        ds.CompareOperator.Greater,
-        ds.FieldExpression('a'),
-        ds.ScalarExpression(2)
-    )
-
-    scanner_builder = dataset.new_scan()
-    scanner_builder.filter(filter_)
-    result = scanner_builder.finish().to_table()
+    filter_ = ds.field('a') > 2
+    scanner = ds.Scanner(dataset, filter=filter_)
+    result = scanner.to_table()
     assert len(result) == 3
 
 

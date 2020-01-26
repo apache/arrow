@@ -120,11 +120,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CUnaryExpression):
         CInExpression(shared_ptr[CExpression] operand, shared_ptr[CArray] set)
 
-    cdef shared_ptr[CNotExpression] MakeNotExpression "arrow::dataset::not_"(
+    cdef shared_ptr[CNotExpression] CMakeNotExpression "arrow::dataset::not_"(
         shared_ptr[CExpression] operand)
-    cdef shared_ptr[CExpression] MakeAndExpression "arrow::dataset::and_"(
+    cdef shared_ptr[CExpression] CMakeAndExpression "arrow::dataset::and_"(
         const CExpressionVector& subexpressions)
-    cdef shared_ptr[CExpression] MakeOrExpression "arrow::dataset::or_"(
+    cdef shared_ptr[CExpression] CMakeOrExpression "arrow::dataset::or_"(
         const CExpressionVector& subexpressions)
 
     cdef CResult[shared_ptr[CExpression]] CInsertImplicitCasts \
@@ -141,8 +141,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CExpression] filter
         shared_ptr[CSchema] schema
         c_bool use_threads
-        # shared_ptr[CExpressionEvaluator] evaluator
-        # shared_ptr[CRecordBatchProjector] projector
 
         @staticmethod
         shared_ptr[CScanOptions] Defaults()
@@ -152,10 +150,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CScanTask" arrow::dataset::ScanTask":
         CResult[CRecordBatchIterator] Execute()
-
-    cdef cppclass CInMemoryScanTask "arrow::dataset::InMemoryScanTask"(
-            CScanTask):
-        pass
 
     ctypedef CIterator[shared_ptr[CScanTask]] CScanTaskIterator \
         "arrow::dataset::ScanTaskIterator"
@@ -310,10 +304,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         pass
-
-    cdef cppclass CDefaultPartitioning \
-            "arrow::dataset::DefaultPartitioning"(CPartitioning):
-        CDefaultPartitioning()
 
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):

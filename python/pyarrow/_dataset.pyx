@@ -21,8 +21,11 @@
 
 from __future__ import absolute_import
 
+import six
+from cpython.object cimport Py_LT, Py_EQ, Py_GT, Py_LE, Py_NE, Py_GE
 from cython.operator cimport dereference as deref
 
+import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
@@ -95,9 +98,7 @@ cdef class Partitioning:
         cdef Partitioning self
 
         typ = frombytes(sp.get().type_name())
-        if typ == 'default':
-            self = DefaultPartitioning.__new__(DefaultPartitioning)
-        elif typ == 'schema':
+        if typ == 'schema':
             self = DirectoryPartitioning.__new__(DirectoryPartitioning)
         elif typ == 'hive':
             self = HivePartitioning.__new__(HivePartitioning)
@@ -144,21 +145,6 @@ cdef class PartitioningFactory:
 
     cdef inline shared_ptr[CPartitioningFactory] unwrap(self):
         return self.wrapped
-
-
-cdef class DefaultPartitioning(Partitioning):
-
-    cdef:
-        CDefaultPartitioning* default_partitioning
-
-    def __init__(self):
-        cdef shared_ptr[CDefaultPartitioning] partitioning
-        partitioning = make_shared[CDefaultPartitioning]()
-        self.init(<shared_ptr[CPartitioning]> partitioning)
-
-    cdef init(self, const shared_ptr[CPartitioning]& sp):
-        Partitioning.init(self, sp)
-        self.default_partitioning = <CDefaultPartitioning*> sp.get()
 
 
 cdef class DirectoryPartitioning(Partitioning):
@@ -292,7 +278,7 @@ cdef class HivePartitioning(Partitioning):
 
 cdef class FileSystemFactoryOptions:
     """
-    Options for FileSystemFactoryOptions.
+    Influences the discovery of filesystem paths.
 
     Parameters
     ----------
@@ -492,10 +478,13 @@ cdef class FileSystemSourceFactory(SourceFactory):
     Parameters
     ----------
     filesystem : pyarrow.fs.FileSystem
+        Filesystem to discover.
     paths_or_selector: pyarrow.fs.Selector or list of path-likes
         Either a Selector object or a list of path-like objects.
     format : FileFormat
+        Currently only ParquetFileFormat is supported.
     options : FileSystemFactoryOptions, optional
+        Various flags influencing the discovery of filesystem paths.
     """
 
     cdef:
@@ -513,7 +502,6 @@ cdef class FileSystemSourceFactory(SourceFactory):
             CFileSystemFactoryOptions c_options
 
         c_filesystem = filesystem.unwrap()
-
         c_format = format.unwrap()
 
         options = options or FileSystemFactoryOptions()
@@ -589,15 +577,15 @@ cdef class Source:
     @property
     def partition_expression(self):
         """
-        An expression which evaluates to true for all data viewed by this
+        An Expression which evaluates to true for all data viewed by this
         Source.
         """
-        cdef shared_ptr[CExpression] expression
-        expression = self.source.partition_expression()
-        if expression.get() == nullptr:
+        cdef shared_ptr[CExpression] expr
+        expr = self.source.partition_expression()
+        if expr.get() == nullptr:
             return None
         else:
-            return Expression.wrap(expression)
+            return Expression.wrap(expr)
 
 
 cdef class TreeSource(Source):
@@ -630,8 +618,7 @@ cdef class FileSystemSource(Source):
     cdef:
         CFileSystemSource* filesystem_source
 
-    def __init__(self, Schema schema not None,
-                 Expression source_partition,
+    def __init__(self, Schema schema not None, Expression root_partition,
                  FileFormat file_format not None,
                  FileSystem filesystem not None,
                  paths_or_selector, partitions):
@@ -640,20 +627,22 @@ cdef class FileSystemSource(Source):
         Parameters
         ----------
         schema : Schema
-            Schema for resulting Source
-        source_partition : Expression
+            The top-level schema of the DataSource.
+        root_partition : Expression
+            The top-level partition of the DataSource.
         file_format : FileFormat
+            File format to create fragments from, currently only
+            ParquetFileFormat is supported.
         filesystem : FileSystem
-            FileSystem which will be explored to discover data files.
+            The filesystem which files are from.
         paths_or_selector : Union[FileSelector, List[FileStats]]
-            The file stats object can be queried by the
-            filesystem.get_target_stats method.
+            List of files/directories to consume.
         partitions : List[Expression]
+            Attach aditional partition information for the file paths.
         """
         cdef:
-            shared_ptr[CExpression] c_source_partition
             FileStats stats
-            Expression expression
+            Expression expr
             vector[CFileStats] c_file_stats
             vector[shared_ptr[CExpression]] c_partitions
             CResult[shared_ptr[CSource]] result
@@ -661,8 +650,8 @@ cdef class FileSystemSource(Source):
         for stats in filesystem.get_target_stats(paths_or_selector):
             c_file_stats.push_back(stats.unwrap())
 
-        for expression in partitions:
-            c_partitions.push_back(expression.unwrap())
+        for expr in partitions:
+            c_partitions.push_back(expr.unwrap())
 
         if c_file_stats.size() != c_partitions.size():
             raise ValueError(
@@ -670,13 +659,12 @@ cdef class FileSystemSource(Source):
                 'equal to the number of partitions.'
             )
 
-        if source_partition is None:
-            source_partition = ScalarExpression(True)
-        c_source_partition = source_partition.unwrap()
+        if root_partition is None:
+            root_partition = ScalarExpression(True)
 
         result = CFileSystemSource.Make(
             pyarrow_unwrap_schema(schema),
-            c_source_partition,
+            root_partition.unwrap(),
             file_format.unwrap(),
             filesystem.unwrap(),
             c_file_stats,
@@ -805,30 +793,120 @@ cdef class Dataset:
     cdef inline shared_ptr[CDataset] unwrap(self) nogil:
         return self.wrapped
 
-    def new_scan(self, MemoryPool memory_pool=None):
-        """
-        Begin to build a new Scan operation against this Dataset.
+    def scan(self, columns=None, filter=None, MemoryPool memory_pool=None):
+        """Builds a scan operation against the dataset.
+
+        It poduces a stream of ScanTasks which is meant to be a unit of work to
+        be dispatched. The tasks are not executed automatically, the user is
+        responsible to execute and dispatch the individual tasks, so custom
+        local task scheduling can be implemented.
 
         Parameters
         ----------
+        columns : list of str, default None
+            List of columns to project. Order and duplicates will be preserved.
+            The columns will be passed down to Sources and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
 
         Returns
         -------
-        ScannerBuilder
+        scan_tasks : iterator of ScanTask
         """
-        cdef:
-            shared_ptr[CScanContext] context = make_shared[CScanContext]()
-            CResult[shared_ptr[CScannerBuilder]] result
-        context.get().pool = maybe_unbox_memory_pool(memory_pool)
-        result = self.dataset.NewScanWithContext(context)
-        return ScannerBuilder.wrap(GetResultValue(result))
+        scanner = Scanner(self, columns=columns, filter=filter,
+                          memory_pool=memory_pool)
+        return scanner.scan()
+
+    def to_batches(self, columns=None, filter=None,
+                   MemoryPool memory_pool=None):
+        """Read the dataset as materialized record batches.
+
+        Builds a scan operation against the dataset and sequentially executes
+        the ScanTasks as the returned generator gets consumed.
+
+        Parameters
+        ----------
+        columns : list of str, default None
+            List of columns to project. Order and duplicates will be preserved.
+            The columns will be passed down to Sources and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+
+        Returns
+        -------
+        record_batches : iterator of RecordBatch
+        """
+        scanner = Scanner(self, columns=columns, filter=filter,
+                          memory_pool=memory_pool)
+        for task in scanner.scan():
+            for batch in task.execute():
+                yield batch
+
+    def to_table(self, columns=None, filter=None, use_threads=True,
+                 MemoryPool memory_pool=None):
+        """Read the dataset to an arrow table.
+
+        Note that this method reads all the selected data from the dataset
+        into memory.
+
+        Parameters
+        ----------
+        columns : list of str, default None
+            List of columns to project. Order and duplicates will be preserved.
+            The columns will be passed down to Sources and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        use_threads : boolean, default True
+            If enabled, then maximum paralellism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+
+        Returns
+        -------
+        table : Table instance
+        """
+        scanner = Scanner(self, columns=columns, filter=filter,
+                          use_threads=use_threads, memory_pool=memory_pool)
+        return scanner.to_table()
 
     @property
     def sources(self):
-        """List of the sources"""
+        """List of the data sources"""
         cdef vector[shared_ptr[CSource]] sources = self.dataset.sources()
         return [Source.wrap(source) for source in sources]
 
@@ -857,7 +935,7 @@ cdef class ScanTask:
 
     @staticmethod
     cdef wrap(shared_ptr[CScanTask]& sp):
-        cdef InMemoryScanTask self = InMemoryScanTask.__new__(InMemoryScanTask)
+        cdef ScanTask self = ScanTask.__new__(ScanTask)
         self.init(sp)
         return self
 
@@ -878,173 +956,90 @@ cdef class ScanTask:
             CRecordBatchIterator iterator
             shared_ptr[CRecordBatch] record_batch
 
-        iterator = move(GetResultValue(move(self.task.Execute())))
+        with nogil:
+            iterator = move(GetResultValue(move(self.task.Execute())))
 
-        while True:
-            record_batch = GetResultValue(iterator.Next())
-            if record_batch.get() == nullptr:
-                raise StopIteration()
-            else:
-                yield pyarrow_wrap_batch(record_batch)
-
-
-cdef class InMemoryScanTask(ScanTask):
-    """A trivial ScanTask that yields the RecordBatch of an array."""
-
-    cdef:
-        CInMemoryScanTask* in_memory_task
-
-    cdef init(self, shared_ptr[CScanTask]& sp):
-        ScanTask.init(self, sp)
-        self.in_memory_task = <CInMemoryScanTask*> sp.get()
+            while True:
+                record_batch = GetResultValue(iterator.Next())
+                if record_batch.get() == nullptr:
+                    raise StopIteration()
+                else:
+                    with gil:
+                        yield pyarrow_wrap_batch(record_batch)
 
 
-cdef class ScannerBuilder:
-    """Factory class to construct a Scanner.
+cdef class Scanner:
+    """A materialized scan operation with context and options bound.
 
-    It is used to pass information, notably a potential filter expression and a
-    subset of columns to materialize.
+    A scanner is the class that glues the scan tasks, data fragments and data
+    sources together.
 
     Parameters
     ----------
     dataset : Dataset
-        The dataset to scan.
+        Dataset to scan.
+    columns : list of str, default None
+        List of columns to project. Order and duplicates will be preserved.
+        The columns will be passed down to Sources and corresponding data
+        fragments to avoid loading, copying, and deserializing columns
+        that will not be required further down the compute chain.
+        By default all of the available columns are projected. Raises
+        an exception if any of the referenced column names does not exist
+        in the dataset's Schema.
+    filter : Expression, default None
+        Scan will return only the rows matching the filter.
+        If possible the predicate will be pushed down to exploit the
+        partition information or internal metadata found in the data
+        source, e.g. Parquet statistics. Otherwise filters the loaded
+        RecordBatches before yielding them.
+    use_threads : boolean, default True
+        If enabled, then maximum paralellism will be used determined by
+        the number of available CPU cores.
     memory_pool : MemoryPool, default None
         For memory allocations, if required. If not specified, uses the
         default pool.
     """
 
     cdef:
-        shared_ptr[CScannerBuilder] wrapped
-        CScannerBuilder* builder
-
-    def __init__(self, Dataset dataset not None, MemoryPool memory_pool=None):
-        cdef:
-            shared_ptr[CScannerBuilder] builder
-            shared_ptr[CScanContext] context = make_shared[CScanContext]()
-        context.get().pool = maybe_unbox_memory_pool(memory_pool)
-        builder = make_shared[CScannerBuilder](dataset.unwrap(), context)
-        self.init(builder)
-
-    cdef void init(self, shared_ptr[CScannerBuilder]& sp):
-        self.wrapped = sp
-        self.builder = sp.get()
-
-    @staticmethod
-    cdef wrap(shared_ptr[CScannerBuilder]& sp):
-        cdef ScannerBuilder self = ScannerBuilder.__new__(ScannerBuilder)
-        self.init(sp)
-        return self
-
-    cdef inline shared_ptr[CScannerBuilder] unwrap(self) nogil:
-        return self.wrapped
-
-    def project(self, columns):
-        """Set the subset of columns to materialize.
-
-        This subset will be passed down to Sources and corresponding
-        data fragments. The goal is to avoid loading, copying, and
-        deserializing columns that will not be required further down the
-        compute chain.
-
-        It alters the object in place and returns the object itself enabling
-        method chaining. Raises exception if any of the referenced column names
-        does not exists in the dataset's Schema.
-
-        Parameters
-        ----------
-        columns : list of str
-            List of columns to project. Order and duplicates will be preserved.
-
-        Returns
-        -------
-        self : ScannerBuilder
-        """
-        cdef vector[c_string] cols = [tobytes(c) for c in columns]
-        check_status(self.builder.Project(cols))
-
-        return self
-
-    def finish(self):
-        """Return the constructed now-immutable Scanner object
-
-        Returns
-        -------
-        Scanner
-        """
-        return Scanner.wrap(GetResultValue(self.builder.Finish()))
-
-    def filter(self, Expression filter_expression not None):
-        """Set the filter expression to return only rows matching the filter.
-
-        The predicate will be passed down to Sources and corresponding
-        data fragments to exploit predicate pushdown if possible using
-        partition information or internal metadata, e.g. Parquet statistics.
-        Otherwise filters the loaded RecordBatches before yielding them.
-
-        It alters the object in place and returns the object itself enabling
-        method chaining. Raises exception if any of the referenced column names
-        does not exists in the dataset's Schema.
-
-        Parameters
-        ----------
-        filter_expression : Expression
-            Boolean expression to filter rows with.
-
-        Returns
-        -------
-        self : ScannerBuilder
-        """
-        cdef:
-            shared_ptr[CExpression] c_casting_filter_expression
-
-        c_casting_filter_expression = GetResultValue(
-            CInsertImplicitCasts(
-                deref(filter_expression.unwrap().get()),
-                deref(self.builder.schema().get())
-            )
-        )
-        check_status(self.builder.Filter(c_casting_filter_expression))
-        return self
-
-    def use_threads(self, bint value):
-        """Set whether the Scanner should make use of the thread pool.
-
-        It alters the object in place and returns with the object itself
-        enabling method chaining.
-
-        Parameters
-        ----------
-        value : boolean
-
-        Returns
-        -------
-        self : ScannerBuilder
-        """
-        check_status(self.builder.UseThreads(value))
-        return self
-
-    @property
-    def schema(self):
-        return pyarrow_wrap_schema(self.builder.schema())
-
-
-cdef class Scanner:
-    """A materialized scan operation with context and options bound.
-
-    Create this using the ScannerBuilder factory class.
-
-    A scanner is the class that glues the scan tasks, data fragments and data
-    sources together.
-    """
-
-    cdef:
         shared_ptr[CScanner] wrapped
         CScanner* scanner
 
-    def __init__(self):
-        raise TypeError('Scanner cannot be initialized directly, use '
-                        'ScannerBuilder instead')
+    def __init__(self, Dataset dataset, list columns=None,
+                 Expression filter=None, bint use_threads=True,
+                 MemoryPool memory_pool=None):
+        cdef:
+            shared_ptr[CScanContext] context
+            shared_ptr[CScannerBuilder] builder
+            shared_ptr[CExpression] filter_expression
+            vector[c_string] columns_to_project
+
+        # create scan context
+        context = make_shared[CScanContext]()
+        context.get().pool = maybe_unbox_memory_pool(memory_pool)
+
+        # create scanner builder
+        builder = GetResultValue(
+            dataset.unwrap().get().NewScanWithContext(context)
+        )
+
+        # set the builder's properties
+        if columns is not None:
+            columns_to_project = [tobytes(c) for c in columns]
+            check_status(builder.get().Project(columns_to_project))
+        if filter is not None:
+            filter_expression = GetResultValue(
+                CInsertImplicitCasts(
+                    deref(filter.unwrap().get()),
+                    deref(builder.get().schema().get())
+                )
+            )
+            check_status(builder.get().Filter(filter_expression))
+        if use_threads is not None:
+            check_status(builder.get().UseThreads(use_threads))
+
+        # instantiate the scanner object
+        scanner = GetResultValue(builder.get().Finish())
+        self.init(scanner)
 
     cdef void init(self, shared_ptr[CScanner]& sp):
         self.wrapped = sp
@@ -1097,18 +1092,41 @@ cdef class Scanner:
         return pyarrow_wrap_table(GetResultValue(result))
 
 
+def _binop(fn, left, right):
+    # cython doesn't support reverse operands like __radd__ just passes the
+    # arguments in the same order as the binary operator called
+
+    if isinstance(left, Expression) and isinstance(right, Expression):
+        pass
+    elif isinstance(left, Expression):
+        try:
+            right = ScalarExpression(right)
+        except TypeError:
+            return NotImplemented
+
+    elif isinstance(right, Expression):
+        try:
+            left = ScalarExpression(left)
+        except TypeError:
+            return NotImplemented
+    else:
+        raise TypeError('Neither left nor right arguments are Expressions')
+
+    return fn(left, right)
+
+
 cdef class Expression:
 
     cdef:
         shared_ptr[CExpression] wrapped
-        CExpression* expression
+        CExpression* expr
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
         self.wrapped = sp
-        self.expression = sp.get()
+        self.expr = sp.get()
 
     @staticmethod
     cdef wrap(const shared_ptr[CExpression]& sp):
@@ -1143,21 +1161,76 @@ cdef class Expression:
         return self.wrapped
 
     def equals(self, Expression other):
-        return self.expression.Equals(other.unwrap())
+        return self.expr.Equals(other.unwrap())
 
     def __str__(self):
-        return frombytes(self.expression.ToString())
+        return frombytes(self.expr.ToString())
 
     def validate(self, Schema schema not None):
+        """Validate this expression for execution against a schema.
+
+        This will check that all reference fields are present (fields not in
+        the schema will be replaced with null) and all subexpressions are
+        executable. Returns the type to which this expression will evaluate.
+
+        Parameters
+        ----------
+        schema : Schema
+            Schema to execute the expression on.
+
+        Returns
+        -------
+        type : DataType
+        """
         cdef:
             shared_ptr[CSchema] sp_schema
             CResult[shared_ptr[CDataType]] result
         sp_schema = pyarrow_unwrap_schema(schema)
-        result = self.expression.Validate(deref(sp_schema))
+        result = self.expr.Validate(deref(sp_schema))
         return pyarrow_wrap_data_type(GetResultValue(result))
 
     def assume(self, Expression given):
-        return Expression.wrap(self.expression.Assume(given.unwrap()))
+        """Simplify to an equivalent Expression given assumed constraints."""
+        return Expression.wrap(self.expr.Assume(given.unwrap()))
+
+    def __invert__(self):
+        return NotExpression(self)
+
+    def __richcmp__(self, other, int op):
+        operator_mapping = {
+            Py_EQ: CompareOperator.Equal,
+            Py_NE: CompareOperator.NotEqual,
+            Py_GT: CompareOperator.Greater,
+            Py_GE: CompareOperator.GreaterEqual,
+            Py_LT: CompareOperator.Less,
+            Py_LE: CompareOperator.LessEqual
+        }
+
+        if not isinstance(other, Expression):
+            try:
+                other = ScalarExpression(other)
+            except TypeError:
+                return NotImplemented
+
+        return ComparisonExpression(operator_mapping[op], self, other)
+
+    def __and__(self, other):
+        return _binop(AndExpression, self, other)
+
+    def __or__(self, other):
+        return _binop(OrExpression, self, other)
+
+    def is_valid(self):
+        """Checks whether the expression is not-null (valid)"""
+        return IsValidExpression(self)
+
+    def cast(self, type, bint safe=True):
+        """Explicitly change the expression's data type"""
+        return CastExpression(self, to=ensure_type(type), safe=safe)
+
+    def isin(self, values):
+        """Checks whether the expression is contained in values"""
+        return InExpression(self, pa.array(values))
 
 
 cdef class UnaryExpression(Expression):
@@ -1193,7 +1266,7 @@ cdef class ScalarExpression(Expression):
     def __init__(self, value):
         cdef:
             shared_ptr[CScalar] scalar
-            shared_ptr[CScalarExpression] expression
+            shared_ptr[CScalarExpression] expr
 
         if isinstance(value, bool):
             scalar = MakeScalar(<c_bool>value)
@@ -1201,20 +1274,17 @@ cdef class ScalarExpression(Expression):
             scalar = MakeScalar(<double>value)
         elif isinstance(value, int):
             scalar = MakeScalar(<int64_t>value)
+        elif isinstance(value, six.string_types):
+            scalar = MakeStringScalar(tobytes(value))
         else:
             raise TypeError('Not yet supported scalar value: {}'.format(value))
 
-        expression.reset(new CScalarExpression(scalar))
-        self.init(<shared_ptr[CExpression]> expression)
+        expr.reset(new CScalarExpression(scalar))
+        self.init(<shared_ptr[CExpression]> expr)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
         Expression.init(self, sp)
         self.scalar = <CScalarExpression*> sp.get()
-
-    # TODO(kszucs): implement once we have proper Scalar bindings
-    # @property
-    # def value(self):
-    #     return pyarrow_wrap_scalar(self.scalar.value())
 
 
 cdef class FieldExpression(Expression):
@@ -1224,9 +1294,9 @@ cdef class FieldExpression(Expression):
     def __init__(self, name):
         cdef:
             c_string field_name = tobytes(name)
-            shared_ptr[CExpression] expression
-        expression.reset(new CFieldExpression(field_name))
-        self.init(expression)
+            shared_ptr[CExpression] expr
+        expr.reset(new CFieldExpression(field_name))
+        self.init(expr)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
         Expression.init(self, sp)
@@ -1249,18 +1319,17 @@ cdef class ComparisonExpression(BinaryExpression):
 
     cdef CComparisonExpression* comparison
 
-    def __init__(self, CompareOperator op,
-                 Expression left_operand not None,
-                 Expression right_operand not None):
-        cdef shared_ptr[CComparisonExpression] expression
-        expression.reset(
+    def __init__(self, CompareOperator op, Expression left not None,
+                 Expression right not None):
+        cdef shared_ptr[CComparisonExpression] expr
+        expr.reset(
             new CComparisonExpression(
                 <CCompareOperator>op,
-                left_operand.unwrap(),
-                right_operand.unwrap()
+                left.unwrap(),
+                right.unwrap()
             )
         )
-        self.init(<shared_ptr[CExpression]> expression)
+        self.init(<shared_ptr[CExpression]> expr)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
         BinaryExpression.init(self, sp)
@@ -1273,9 +1342,9 @@ cdef class ComparisonExpression(BinaryExpression):
 cdef class IsValidExpression(UnaryExpression):
 
     def __init__(self, Expression operand not None):
-        cdef shared_ptr[CIsValidExpression] expression
-        expression = make_shared[CIsValidExpression](operand.unwrap())
-        self.init(<shared_ptr[CExpression]> expression)
+        cdef shared_ptr[CIsValidExpression] expr
+        expr = make_shared[CIsValidExpression](operand.unwrap())
+        self.init(<shared_ptr[CExpression]> expr)
 
 
 cdef class CastExpression(UnaryExpression):
@@ -1286,59 +1355,57 @@ cdef class CastExpression(UnaryExpression):
         #               term we should expose the CastOptions object
         cdef:
             CastOptions options
-            shared_ptr[CExpression] expression
+            shared_ptr[CExpression] expr
         options = CastOptions.safe() if safe else CastOptions.unsafe()
-        expression.reset(new CCastExpression(
+        expr.reset(new CCastExpression(
             operand.unwrap(),
             pyarrow_unwrap_data_type(to),
             options.unwrap()
         ))
-        self.init(expression)
+        self.init(expr)
 
 
 cdef class InExpression(UnaryExpression):
 
     def __init__(self, Expression operand not None, Array haystack not None):
-        cdef shared_ptr[CExpression] expression
-        expression.reset(
+        cdef shared_ptr[CExpression] expr
+        expr.reset(
             new CInExpression(operand.unwrap(), pyarrow_unwrap_array(haystack))
         )
-        self.init(expression)
+        self.init(expr)
 
 
 cdef class NotExpression(UnaryExpression):
 
     def __init__(self, Expression operand not None):
-        cdef shared_ptr[CNotExpression] expression
-        expression = MakeNotExpression(operand.unwrap())
-        self.init(<shared_ptr[CExpression]> expression)
+        cdef shared_ptr[CNotExpression] expr
+        expr = CMakeNotExpression(operand.unwrap())
+        self.init(<shared_ptr[CExpression]> expr)
 
 
 cdef class AndExpression(BinaryExpression):
 
-    def __init__(self, Expression left_operand not None,
-                 Expression right_operand not None,
+    def __init__(self, Expression left not None, Expression right not None,
                  *additional_operands):
         cdef:
             Expression operand
             vector[shared_ptr[CExpression]] exprs
-        exprs.push_back(left_operand.unwrap())
-        exprs.push_back(right_operand.unwrap())
+        exprs.push_back(left.unwrap())
+        exprs.push_back(right.unwrap())
         for operand in additional_operands:
             exprs.push_back(operand.unwrap())
-        self.init(MakeAndExpression(exprs))
+        self.init(CMakeAndExpression(exprs))
 
 
 cdef class OrExpression(BinaryExpression):
 
-    def __init__(self, Expression left_operand not None,
-                 Expression right_operand not None,
+    def __init__(self, Expression left not None, Expression right not None,
                  *additional_operands):
         cdef:
             Expression operand
             vector[shared_ptr[CExpression]] exprs
-        exprs.push_back(left_operand.unwrap())
-        exprs.push_back(right_operand.unwrap())
+        exprs.push_back(left.unwrap())
+        exprs.push_back(right.unwrap())
         for operand in additional_operands:
             exprs.push_back(operand.unwrap())
-        self.init(MakeOrExpression(exprs))
+        self.init(CMakeOrExpression(exprs))
