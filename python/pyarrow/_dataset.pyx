@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+"""Dataset is currently unstable. APIs subject to change without notice."""
+
 from __future__ import absolute_import
 
 from cython.operator cimport dereference as deref
@@ -687,6 +689,70 @@ cdef class FileSystemSource(Source):
         self.filesystem_source = <CFileSystemSource*> sp.get()
 
 
+cdef class DatasetFactory:
+    """
+    Provides a way to inspect/discover a Dataset's expected schema before
+    materializing the Dataset and underlying Sources.
+
+    Parameters
+    ----------
+    factories : list of SourceFactory
+    """
+
+    cdef:
+        shared_ptr[CDatasetFactory] wrapped
+        CDatasetFactory* factory
+
+    def __init__(self, list factories):
+        cdef:
+            SourceFactory factory
+            vector[shared_ptr[CSourceFactory]] c_factories
+        for factory in factories:
+            c_factories.push_back(factory.unwrap())
+        self.init(GetResultValue(CDatasetFactory.Make(c_factories)))
+
+    cdef void init(self, const shared_ptr[CDatasetFactory]& sp):
+        self.wrapped = sp
+        self.factory = sp.get()
+
+    @staticmethod
+    cdef wrap(shared_ptr[CDatasetFactory]& sp):
+        cdef DatasetFactory self = DatasetFactory.__new__(DatasetFactory)
+        self.init(sp)
+        return self
+
+    cdef inline shared_ptr[CDatasetFactory] unwrap(self) nogil:
+        return self.wrapped
+
+    @property
+    def sources(self):
+        cdef:
+            shared_ptr[CSourceFactory] source
+            vector[shared_ptr[CSourceFactory]] sources
+        sources = self.factory.factories()
+        return [SourceFactory.wrap(source) for source in sources]
+
+    def inspect_schemas(self):
+        cdef vector[shared_ptr[CSchema]] schemas
+        schemas = GetResultValue(self.factory.InspectSchemas())
+        return [pyarrow_wrap_schema(schema) for schema in schemas]
+
+    def inspect(self):
+        return pyarrow_wrap_schema(GetResultValue(self.factory.Inspect()))
+
+    def finish(self, Schema schema=None):
+        cdef CResult[shared_ptr[CDataset]] result
+
+        if schema is None:
+            result = self.factory.Finish()
+        else:
+            result = self.factory.FinishWithSchema(
+                pyarrow_unwrap_schema(schema)
+            )
+
+        return Dataset.wrap(GetResultValue(result))
+
+
 cdef class Dataset:
     """
     Collection of data fragments coming from possibly multiple sources.
@@ -729,6 +795,12 @@ cdef class Dataset:
     cdef void init(self, const shared_ptr[CDataset]& sp):
         self.wrapped = sp
         self.dataset = sp.get()
+
+    @staticmethod
+    cdef wrap(shared_ptr[CDataset]& sp):
+        cdef Dataset self = Dataset.__new__(Dataset)
+        self.init(sp)
+        return self
 
     cdef inline shared_ptr[CDataset] unwrap(self) nogil:
         return self.wrapped

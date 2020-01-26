@@ -213,6 +213,17 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const CSourceVector& sources()
         shared_ptr[CSchema] schema()
 
+    cdef cppclass CDatasetFactory "arrow::dataset::DatasetFactory":
+        @staticmethod
+        CResult[shared_ptr[CDatasetFactory]] Make(
+            vector[shared_ptr[CSourceFactory]] factories)
+        const vector[shared_ptr[CSourceFactory]]& factories() const
+        CResult[vector[shared_ptr[CSchema]]] InspectSchemas()
+        CResult[shared_ptr[CSchema]] Inspect()
+        CResult[shared_ptr[CDataset]] FinishWithSchema "Finish"(
+            const shared_ptr[CSchema]& schema)
+        CResult[shared_ptr[CDataset]] Finish()
+
     cdef cppclass CFileScanOptions "arrow::dataset::FileScanOptions"(
             CScanOptions):
         c_string file_type()

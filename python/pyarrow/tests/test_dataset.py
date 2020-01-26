@@ -25,6 +25,11 @@ import pyarrow as pa
 import pyarrow.fs as fs
 
 try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
+try:
     import pyarrow.dataset as ds
 except ImportError:
     ds = None
@@ -32,6 +37,33 @@ except ImportError:
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
 pytestmark = pytest.mark.dataset
+
+
+def _generate_data(n):
+    import datetime
+    import itertools
+
+    day = datetime.datetime(2000, 1, 1)
+    interval = datetime.timedelta(days=5)
+    colors = itertools.cycle(['green', 'blue', 'yellow', 'red', 'orange'])
+
+    data = []
+    for i in range(n):
+        data.append((day, i, float(i), next(colors)))
+        day += interval
+
+    return pd.DataFrame(data, columns=['date', 'index', 'value', 'color'])
+
+
+def _table_from_pandas(df):
+    schema = pa.schema([
+        pa.field('date', pa.date32()),
+        pa.field('index', pa.int64()),
+        pa.field('value', pa.float64()),
+        pa.field('color', pa.string()),
+    ])
+    table = pa.Table.from_pandas(df, schema=schema, preserve_index=False)
+    return table.replace_schema_metadata()
 
 
 @pytest.fixture
@@ -62,6 +94,57 @@ def mockfs():
         mockfs.create_dir(directory)
         with mockfs.open_output_stream(path) as out:
             pq.write_table(table, out)
+
+    return mockfs
+
+
+@pytest.fixture(scope='module')
+@pytest.mark.pandas
+@pytest.mark.parquet
+def multisourcefs():
+    import pyarrow.parquet as pq
+
+    df = _generate_data(1000)
+    mockfs = fs._MockFileSystem()
+
+    # simply split the dataframe into three chunks to construct a data source
+    # from each chunk into its own directory
+    df_a, df_b, df_c, df_d = np.array_split(df, 4)
+
+    # create a directory containing a flat sequence of parquet files without
+    # any partitioning involved
+    mockfs.create_dir('plain')
+    for i, chunk in enumerate(np.array_split(df_a, 10)):
+        path = 'plain/chunk-{}.parquet'.format(i)
+        with mockfs.open_output_stream(path) as out:
+            pq.write_table(_table_from_pandas(chunk), out)
+
+    # create one with schema partitioning by week and color
+    mockfs.create_dir('schema')
+    for part, chunk in df_b.groupby([df_b.date.dt.week, df_b.color]):
+        folder = 'schema/{}/{}'.format(*part)
+        path = '{}/chunk.parquet'.format(folder)
+        mockfs.create_dir(folder)
+        with mockfs.open_output_stream(path) as out:
+            pq.write_table(_table_from_pandas(chunk), out)
+
+    # create one with hive partitioning by year and month
+    mockfs.create_dir('hive')
+    for part, chunk in df_c.groupby([df_c.date.dt.year, df_c.date.dt.month]):
+        folder = 'hive/year={}/month={}'.format(*part)
+        path = '{}/chunk.parquet'.format(folder)
+        mockfs.create_dir(folder)
+        with mockfs.open_output_stream(path) as out:
+            pq.write_table(_table_from_pandas(chunk), out)
+
+    # create one with hive partitioning by color
+    mockfs.create_dir('hive_color')
+    for part, chunk in df_d.groupby(["color"]):
+        folder = 'hive_color/color={}'.format(*part)
+        path = '{}/chunk.parquet'.format(folder)
+        mockfs.create_dir(folder)
+        with mockfs.open_output_stream(path) as out:
+            pq.write_table(_table_from_pandas(chunk), out)
 
     return mockfs
 
@@ -550,26 +633,29 @@ def test_open_dataset_filesystem(tempdir):
         ds.dataset(str(path), filesystem=fs._MockFileSystem())
 
 
+@pytest.mark.parquet
 def test_open_dataset_unsupported_format(tempdir):
     _, path = _create_single_file(tempdir)
     with pytest.raises(ValueError, match="format 'blabla' is not supported"):
         ds.dataset([path], format="blabla")
 
 
+@pytest.mark.parquet
 def test_open_dataset_from_source_additional_kwargs(tempdir):
     _, path = _create_single_file(tempdir)
     with pytest.raises(ValueError, match="cannot pass any additional"):
         ds.dataset(ds.source(path), format="parquet")
 
 
+@pytest.mark.parquet
 def test_open_dataset_validate_sources(tempdir):
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
-    with pytest.raises(ValueError,
-                       match="Expected a path-like or Source, got"):
+    with pytest.raises(TypeError, match="Expected a path-like or Source, got"):
         ds.dataset([dataset])
 
 
+@pytest.mark.parquet
 def test_filter_implicit_cast(tempdir):
     # ARROW-7652
     table = pa.table({'a': pa.array([0, 1, 2, 3, 4, 5], type=pa.int8())})
@@ -586,3 +672,70 @@ def test_filter_implicit_cast(tempdir):
     scanner_builder.filter(filter_)
     result = scanner_builder.finish().to_table()
     assert len(result) == 3
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_dataset_factory(multisourcefs):
+    src = ds.source('/plain', filesystem=multisourcefs, format='parquet')
+    factory = ds.DatasetFactory([src])
+
+    assert len(factory.sources) == 1
+    assert len(factory.inspect_schemas()) == 1
+    assert all(isinstance(s, ds.SourceFactory) for s in factory.sources)
+    assert all(isinstance(s, pa.Schema) for s in factory.inspect_schemas())
+    assert factory.inspect_schemas()[0].equals(src.inspect())
+    assert factory.inspect().equals(src.inspect())
+    assert isinstance(factory.finish(), ds.Dataset)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_multiple_sources(multisourcefs):
+    src1 = ds.source('/plain', filesystem=multisourcefs, format='parquet')
+    src2 = ds.source('/schema', filesystem=multisourcefs, format='parquet',
+                     partitioning=['week', 'color'])
+    src3 = ds.source('/hive', filesystem=multisourcefs, format='parquet',
+                     partitioning='hive')
+
+    assembled = ds.dataset([src1, src2, src3])
+    assert isinstance(assembled, ds.Dataset)
+
+    expected_schema = pa.schema([
+        ('date', pa.date32()),
+        ('index', pa.int64()),
+        ('value', pa.float64()),
+        ('color', pa.string()),
+        ('week', pa.int32()),
+        ('month', pa.int32()),
+        ('year', pa.int32()),
+    ])
+    assert assembled.schema.equals(expected_schema, check_metadata=False)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_multiple_sources_with_selectors(multisourcefs):
+    # without partitioning
+    dataset = ds.dataset(['/plain', '/schema', '/hive'],
+                         filesystem=multisourcefs, format='parquet')
+    expected_schema = pa.schema([
+        ('date', pa.date32()),
+        ('index', pa.int64()),
+        ('value', pa.float64()),
+        ('color', pa.string())
+    ])
+    assert dataset.schema.equals(expected_schema, check_metadata=False)
+
+    # with hive partitioning for two hive sources
+    dataset = ds.dataset(['/hive', '/hive_color'], filesystem=multisourcefs,
+                         format='parquet', partitioning='hive')
+    expected_schema = pa.schema([
+        ('date', pa.date32()),
+        ('index', pa.int64()),
+        ('value', pa.float64()),
+        ('color', pa.string()),
+        ('month', pa.int32()),
+        ('year', pa.int32())
+    ])
+    assert dataset.schema.equals(expected_schema, check_metadata=False)
