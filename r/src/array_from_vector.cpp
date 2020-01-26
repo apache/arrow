@@ -278,8 +278,12 @@ std::shared_ptr<Array> MakeListArray(SEXP x, const std::shared_ptr<DataType>& ty
     }
   }
 
+  auto array_indices_data =
+      ArrayData::Make(type, n, std::move(value_buffer), 0, 0);
+  auto array_indices = MakeArray(array_indices_data);
+
   return std::make_shared<ListArray>(
-    type, n, offset_buffer, value_buffer, null_buffer, null_count);
+    type, n, offset_buffer, array_indices, null_buffer, null_count);
 }
 
 template <typename T>
