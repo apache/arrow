@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#![feature(bufreader_seek_relative)]
+#![feature(seek_convenience)]
 #![feature(specialization)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
