@@ -26,3 +26,6 @@ add_arrow_test(test
 
 add_arrow_benchmark(parser_benchmark PREFIX "arrow-json")
 arrow_install_all_headers("arrow/json")
+
+# pkg-config support
+arrow_add_pkg_config("arrow-json")
