@@ -113,6 +113,7 @@ def unflatten_tree(files):
 # - circle requires the configuration to be present on all branch, even ones
 #   that are configured to be skipped
 # - azure skips branches without azure-pipelines.yml by default
+# - github skips branches without .github/workflows/ by default
 
 _default_travis_yml = """
 branches:
@@ -736,7 +737,7 @@ class Task(Serializable):
 
     def __init__(self, platform, ci, template, artifacts=None, params=None):
         assert platform in {'win', 'osx', 'linux'}
-        assert ci in {'circle', 'travis', 'appveyor', 'azure'}
+        assert ci in {'circle', 'travis', 'appveyor', 'azure', 'github'}
         self.ci = ci
         self.platform = platform
         self.template = template
@@ -766,7 +767,8 @@ class Task(Serializable):
             'circle': '.circleci/config.yml',
             'travis': '.travis.yml',
             'appveyor': 'appveyor.yml',
-            'azure': 'azure-pipelines.yml'
+            'azure': 'azure-pipelines.yml',
+            'github': '.github/workflows/crossbow.yml',
         }
         return config_files[self.ci]
 
