@@ -678,18 +678,18 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   void print(StringBuilder sb, int level, Verbosity verbosity) {
 
     indent(sb, level)
-      .append("Allocator(")
-      .append(name)
-      .append(") ")
-      .append(reservation)
-      .append('/')
-      .append(getAllocatedMemory())
-      .append('/')
-      .append(getPeakMemoryAllocation())
-      .append('/')
-      .append(getLimit())
-      .append(" (res/actual/peak/limit)")
-      .append('\n');
+        .append("Allocator(")
+        .append(name)
+        .append(") ")
+        .append(reservation)
+        .append('/')
+        .append(getAllocatedMemory())
+        .append('/')
+        .append(getPeakMemoryAllocation())
+        .append('/')
+        .append(getLimit())
+        .append(" (res/actual/peak/limit)")
+        .append('\n');
 
     if (DEBUG) {
       indent(sb, level + 1).append(String.format("child allocators: %d\n", childAllocators.size()));

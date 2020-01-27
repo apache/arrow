@@ -28,7 +28,8 @@ import io.netty.util.internal.PlatformDependent;
  * Utility methods for configurable precision Decimal values (e.g. {@link BigDecimal}).
  */
 public class DecimalUtility {
-  private DecimalUtility() {}
+  private DecimalUtility() {
+  }
 
   public static final int DECIMAL_BYTE_LENGTH = 16;
   public static final byte [] zeroes = new byte[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};

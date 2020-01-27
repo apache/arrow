@@ -493,28 +493,28 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    */
   void print(StringBuilder sb, int indent, BaseAllocator.Verbosity verbosity) {
     indent(sb, indent)
-      .append("ledger[")
-      .append(ledgerId)
-      .append("] allocator: ")
-      .append(allocator.name)
-      .append("), isOwning: ")
-      .append(", size: ")
-      .append(", references: ")
-      .append(bufRefCnt.get())
-      .append(", life: ")
-      .append(lCreationTime)
-      .append("..")
-      .append(lDestructionTime)
-      .append(", allocatorManager: [")
-      .append(", life: ");
+        .append("ledger[")
+        .append(ledgerId)
+        .append("] allocator: ")
+        .append(allocator.name)
+        .append("), isOwning: ")
+        .append(", size: ")
+        .append(", references: ")
+        .append(bufRefCnt.get())
+        .append(", life: ")
+        .append(lCreationTime)
+        .append("..")
+        .append(lDestructionTime)
+        .append(", allocatorManager: [")
+        .append(", life: ");
 
     if (!BaseAllocator.DEBUG) {
       sb.append("]\n");
     } else {
       synchronized (buffers) {
         sb.append("] holds ")
-          .append(buffers.size())
-          .append(" buffers. \n");
+            .append(buffers.size())
+            .append(" buffers. \n");
         for (ArrowBuf buf : buffers.keySet()) {
           buf.print(sb, indent + 2, verbosity);
           sb.append('\n');

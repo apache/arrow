@@ -34,8 +34,8 @@ import io.netty.util.internal.PlatformDependent;
  * External use of this class is not recommended.
  */
 public class BitVectorHelper {
-
-  private BitVectorHelper() {}
+  private BitVectorHelper() {
+  }
 
   /**
    * Get the index of byte corresponding to bit index in validity buffer.

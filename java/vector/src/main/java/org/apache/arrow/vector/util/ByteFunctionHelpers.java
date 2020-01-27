@@ -28,7 +28,8 @@ import io.netty.buffer.ArrowBuf;
 public class ByteFunctionHelpers {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
 
-  private ByteFunctionHelpers() {}
+  private ByteFunctionHelpers() {
+  }
 
   /**
    * Helper function to check for equality of bytes in two ArrowBufs.

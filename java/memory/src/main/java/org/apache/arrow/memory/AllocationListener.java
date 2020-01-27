@@ -25,7 +25,8 @@ package org.apache.arrow.memory;
  */
 public interface AllocationListener {
 
-  AllocationListener NOOP = new AllocationListener() {};
+  AllocationListener NOOP = new AllocationListener() {
+  };
 
   /**
    * Called each time a new buffer has been requested.
@@ -34,7 +35,8 @@ public interface AllocationListener {
    *
    * @param size the buffer size being allocated
    */
-  default void onPreAllocation(long size) {}
+  default void onPreAllocation(long size) {
+  }
 
   /**
    * Called each time a new buffer has been allocated.
@@ -43,7 +45,8 @@ public interface AllocationListener {
    *
    * @param size the buffer size being allocated
    */
-  default void onAllocation(long size) {}
+  default void onAllocation(long size) {
+  }
 
   /**
    * Informed each time a buffer is released from allocation.
@@ -51,7 +54,8 @@ public interface AllocationListener {
    * <p>An exception cannot be thrown by this method.
    * @param size The size of the buffer being released.
    */
-  default void onRelease(long size) {}
+  default void onRelease(long size) {
+  }
 
 
   /**
@@ -73,7 +77,8 @@ public interface AllocationListener {
    * @param parentAllocator The parent allocator to which a child was added
    * @param childAllocator  The child allocator that was just added
    */
-  default void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {}
+  default void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
+  }
 
   /**
    * Called immediately after a child allocator was removed from the parent allocator.
@@ -81,5 +86,6 @@ public interface AllocationListener {
    * @param parentAllocator The parent allocator from which a child was removed
    * @param childAllocator The child allocator that was just removed
    */
-  default void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {}
+  default void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
+  }
 }
