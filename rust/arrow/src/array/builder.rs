@@ -1098,7 +1098,7 @@ where
 /// arrays or result in an ordered dictionary.
 pub struct StringDictionaryBuilder<K>
 where
-    K: ArrowPrimitiveType,
+    K: ArrowDictionaryKeyType,
 {
     keys_builder: PrimitiveBuilder<K>,
     values_builder: StringBuilder,
@@ -1107,7 +1107,7 @@ where
 
 impl<K> StringDictionaryBuilder<K>
 where
-    K: ArrowPrimitiveType,
+    K: ArrowDictionaryKeyType,
 {
     /// Creates a new `StringDictionaryBuilder` from a keys builder and a value builder.
     pub fn new(
@@ -1124,7 +1124,7 @@ where
 
 impl<K> ArrayBuilder for StringDictionaryBuilder<K>
 where
-    K: ArrowPrimitiveType,
+    K: ArrowDictionaryKeyType,
 {
     /// Returns the builder as an non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
@@ -1154,7 +1154,7 @@ where
 
 impl<K> StringDictionaryBuilder<K>
 where
-    K: ArrowPrimitiveType,
+    K: ArrowDictionaryKeyType,
 {
     /// Append a primitive value to the array. Return an existing index
     /// if already present in the values array or a new index if the
@@ -2051,7 +2051,7 @@ mod tests {
 
     #[test]
     fn test_string_dictionary_builder() {
-        let key_builder = PrimitiveBuilder::<UInt8Type>::new(5);
+        let key_builder = PrimitiveBuilder::<Int8Type>::new(5);
         let value_builder = StringBuilder::new(2);
         let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
         builder.append("abc").unwrap();

@@ -1813,7 +1813,7 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
 }
 
 /// Constructs a `DictionaryArray` from an iterator of optional strings.
-impl<T: ArrowPrimitiveType> FromIterator<Option<&'static str>> for DictionaryArray<T> {
+impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<Option<&'static str>> for DictionaryArray<T> {
     fn from_iter<I: IntoIterator<Item = Option<&'static str>>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let (lower, _) = iter.size_hint();
@@ -1835,7 +1835,7 @@ impl<T: ArrowPrimitiveType> FromIterator<Option<&'static str>> for DictionaryArr
 }
 
 /// Constructs a `DictionaryArray` from an iterator of strings.
-impl<T: ArrowPrimitiveType> FromIterator<&'static str> for DictionaryArray<T> {
+impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<&'static str> for DictionaryArray<T> {
     fn from_iter<I: IntoIterator<Item = &'static str>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let (lower, _) = iter.size_hint();
