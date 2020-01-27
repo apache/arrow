@@ -1008,7 +1008,7 @@ garrow_slow_file_system_class_init(GArrowSlowFileSystemClass *klass)
 }
 
 /**
- * garrow_slow_file_system_new_by_average_latency:
+ * garrow_slow_file_system_new_average_latency:
  * @base_file_system: A #GArrowFileSystem as the base file system.
  * @average_latency: The average value of the latency.
  *
@@ -1022,8 +1022,8 @@ garrow_slow_file_system_class_init(GArrowSlowFileSystemClass *klass)
  * Since: 1.0.0
  */
 GArrowSlowFileSystem *
-garrow_slow_file_system_new_by_average_latency(GArrowFileSystem *base_file_system,
-                                               gdouble average_latency)
+garrow_slow_file_system_new_average_latency(GArrowFileSystem *base_file_system,
+                                            gdouble average_latency)
 {
   auto arrow_base_file_system = garrow_file_system_get_raw(base_file_system);
   auto arrow_slow_file_system =
@@ -1035,7 +1035,7 @@ garrow_slow_file_system_new_by_average_latency(GArrowFileSystem *base_file_syste
 }
 
 /**
- * garrow_slow_file_system_new_by_average_latency_and_seed:
+ * garrow_slow_file_system_new_average_latency_and_seed:
  * @base_file_system: A #GArrowFileSystem as the base file system.
  * @average_latency: The average value of the latency.
  * @seed: A random seed.
@@ -1048,9 +1048,9 @@ garrow_slow_file_system_new_by_average_latency(GArrowFileSystem *base_file_syste
  * Since: 1.0.0
  */
 GArrowSlowFileSystem *
-garrow_slow_file_system_new_by_average_latency_and_seed(GArrowFileSystem *base_file_system,
-                                                        gdouble average_latency,
-                                                        gint32 seed)
+garrow_slow_file_system_new_average_latency_and_seed(GArrowFileSystem *base_file_system,
+                                                     gdouble average_latency,
+                                                     gint32 seed)
 {
   auto arrow_base_file_system = garrow_file_system_get_raw(base_file_system);
   auto arrow_slow_file_system =

@@ -224,13 +224,13 @@ garrow_slow_file_system_new(GArrowFileSystem *base_file_system,
 
 GARROW_AVAILABLE_IN_1_0
 GArrowSlowFileSystem *
-garrow_slow_file_system_new_by_average_latency(GArrowFileSystem *base_file_system,
-                                               gdouble average_latency);
+garrow_slow_file_system_new_average_latency(GArrowFileSystem *base_file_system,
+                                            gdouble average_latency);
 
 GARROW_AVAILABLE_IN_1_0
 GArrowSlowFileSystem *
-garrow_slow_file_system_new_by_average_latency_and_seed(GArrowFileSystem *base_file_system,
-                                                        gdouble average_latency,
-                                                        gint32 seed);
+garrow_slow_file_system_new_average_latency_and_seed(GArrowFileSystem *base_file_system,
+                                                     gdouble average_latency,
+                                                     gint32 seed);
 
 G_END_DECLS
