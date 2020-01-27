@@ -1568,14 +1568,8 @@ mod tests {
             get_test_column_reader::<T>(page_reader, max_def_level, max_rep_level);
 
         let mut actual_values = vec![T::T::default(); max_batch_size];
-        let mut actual_def_levels = match def_levels {
-            Some(_) => Some(vec![0i16; max_batch_size]),
-            None => None,
-        };
-        let mut actual_rep_levels = match rep_levels {
-            Some(_) => Some(vec![0i16; max_batch_size]),
-            None => None,
-        };
+        let mut actual_def_levels = def_levels.map(|_| vec![0i16; max_batch_size]);
+        let mut actual_rep_levels = rep_levels.map(|_| vec![0i16; max_batch_size]);
 
         let (values_read, levels_read) = read_fully(
             reader,
@@ -1656,14 +1650,8 @@ mod tests {
         mut rep_levels: Option<&mut Vec<i16>>,
         values: &mut [T::T],
     ) -> (usize, usize) {
-        let actual_def_levels = match &mut def_levels {
-            Some(ref mut vec) => Some(&mut vec[..]),
-            None => None,
-        };
-        let actual_rep_levels = match rep_levels {
-            Some(ref mut vec) => Some(&mut vec[..]),
-            None => None,
-        };
+        let actual_def_levels = def_levels.as_mut().map(|vec| &mut vec[..]);
+        let actual_rep_levels = rep_levels.as_mut().map(|vec| &mut vec[..]);
         reader
             .read_batch(batch_size, actual_def_levels, actual_rep_levels, values)
             .unwrap()

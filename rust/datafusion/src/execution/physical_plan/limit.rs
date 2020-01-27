@@ -125,10 +125,7 @@ impl Partition for LimitPartition {
 /// Truncate a RecordBatch to maximum of n rows
 pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
     let limited_columns: Result<Vec<ArrayRef>> = (0..batch.num_columns())
-        .map(|i| match limit(batch.column(i), n) {
-            Ok(result) => Ok(result),
-            Err(error) => Err(ExecutionError::from(error)),
-        })
+        .map(|i| limit(batch.column(i), n).map_err(|error| ExecutionError::from(error)))
         .collect();
 
     Ok(RecordBatch::try_new(
