@@ -150,7 +150,7 @@ write_parquet <- function(x,
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)
     on.exit(sink$close())
-  } else if (!inherits(sink, OutputStream)) {
+  } else if (!inherits(sink, "OutputStream")) {
     abort("sink must be a file path or an OutputStream")
   }
 
