@@ -1825,9 +1825,9 @@ impl<T: ArrowPrimitiveType> FromIterator<Option<&'static str>> for DictionaryArr
             if let Some(i) = i {
                 // Note: impl ... for Result<DictionaryArray<T>> fails with
                 // error[E0117]: only traits defined in the current crate can be implemented for arbitrary types
-                builder.append(i).unwrap();
+                builder.append(i).expect("Unable to append a value to a dictionary array.");
             } else {
-                builder.append_null().unwrap();
+                builder.append_null().expect("Unable to append a null value to a dictionary array.");
             }
         }
 
@@ -1845,7 +1845,7 @@ impl<T: ArrowPrimitiveType> FromIterator<&'static str> for DictionaryArray<T> {
         // Note: "true" here reserves one value element for null.
         let mut builder = StringDictionaryBuilder::new(key_builder, value_builder, false);
         for i in iter {
-            builder.append(i).unwrap();
+            builder.append(i).expect("Unable to append a value to a dictionary array.");
         }
 
         builder.finish()
