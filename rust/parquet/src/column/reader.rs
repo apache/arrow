@@ -93,7 +93,12 @@ pub fn get_column_reader(
 pub fn get_typed_column_reader<T: DataType>(
     col_reader: ColumnReader,
 ) -> ColumnReaderImpl<T> {
-    T::get_column_reader(col_reader).expect("Column type mismatch")
+    T::get_column_reader(col_reader).unwrap_or_else(|| {
+        panic!(
+            "Failed to convert column reader into a typed column reader for `{}` typ",
+            T::get_physical_type()
+        )
+    })
 }
 
 /// Typed value reader for a particular primitive column.

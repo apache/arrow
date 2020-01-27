@@ -102,21 +102,36 @@ pub fn get_column_writer(
 pub fn get_typed_column_writer<T: DataType>(
     col_writer: ColumnWriter,
 ) -> ColumnWriterImpl<T> {
-    T::get_column_writer(col_writer).expect("Column type mismatch")
+    T::get_column_writer(col_writer).unwrap_or_else(|| {
+        panic!(
+            "Failed to convert column writer into a typed column writer for `{}` typ",
+            T::get_physical_type()
+        )
+    })
 }
 
 /// Similar to `get_typed_column_writer` but returns a reference.
 pub fn get_typed_column_writer_ref<T: DataType>(
     col_writer: &ColumnWriter,
 ) -> &ColumnWriterImpl<T> {
-    T::get_column_writer_ref(col_writer).expect("Column type mismatch")
+    T::get_column_writer_ref(col_writer).unwrap_or_else(|| {
+        panic!(
+            "Failed to convert column writer into a typed column writer for `{}` typ",
+            T::get_physical_type()
+        )
+    })
 }
 
 /// Similar to `get_typed_column_writer` but returns a reference.
 pub fn get_typed_column_writer_mut<T: DataType>(
     col_writer: &mut ColumnWriter,
 ) -> &mut ColumnWriterImpl<T> {
-    T::get_column_writer_mut(col_writer).expect("Column type mismatch")
+    T::get_column_writer_mut(col_writer).unwrap_or_else(|| {
+        panic!(
+            "Failed to convert column writer into a typed column writer for `{}` typ",
+            T::get_physical_type()
+        )
+    })
 }
 
 /// Typed column writer for a primitive column.
