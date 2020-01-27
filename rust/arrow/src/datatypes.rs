@@ -419,20 +419,15 @@ make_type!(
 
 /// A subtype of primitive type that represents legal dictionary keys.
 /// See https://arrow.apache.org/docs/format/Columnar.html
-pub trait ArrowDictionaryKeyType: ArrowPrimitiveType {
-}
+pub trait ArrowDictionaryKeyType: ArrowPrimitiveType {}
 
-impl ArrowDictionaryKeyType for Int8Type {
-}
+impl ArrowDictionaryKeyType for Int8Type {}
 
-impl ArrowDictionaryKeyType for Int16Type {
-}
+impl ArrowDictionaryKeyType for Int16Type {}
 
-impl ArrowDictionaryKeyType for Int32Type {
-}
+impl ArrowDictionaryKeyType for Int32Type {}
 
-impl ArrowDictionaryKeyType for Int64Type {
-}
+impl ArrowDictionaryKeyType for Int64Type {}
 
 /// A subtype of primitive type that represents numeric values.
 ///

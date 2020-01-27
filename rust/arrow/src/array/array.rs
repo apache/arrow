@@ -1813,7 +1813,9 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
 }
 
 /// Constructs a `DictionaryArray` from an iterator of optional strings.
-impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<Option<&'static str>> for DictionaryArray<T> {
+impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<Option<&'static str>>
+    for DictionaryArray<T>
+{
     fn from_iter<I: IntoIterator<Item = Option<&'static str>>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let (lower, _) = iter.size_hint();
@@ -1824,9 +1826,13 @@ impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<Option<&'stati
             if let Some(i) = i {
                 // Note: impl ... for Result<DictionaryArray<T>> fails with
                 // error[E0117]: only traits defined in the current crate can be implemented for arbitrary types
-                builder.append(i).expect("Unable to append a value to a dictionary array.");
+                builder
+                    .append(i)
+                    .expect("Unable to append a value to a dictionary array.");
             } else {
-                builder.append_null().expect("Unable to append a null value to a dictionary array.");
+                builder
+                    .append_null()
+                    .expect("Unable to append a null value to a dictionary array.");
             }
         }
 
@@ -1835,7 +1841,9 @@ impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<Option<&'stati
 }
 
 /// Constructs a `DictionaryArray` from an iterator of strings.
-impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<&'static str> for DictionaryArray<T> {
+impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<&'static str>
+    for DictionaryArray<T>
+{
     fn from_iter<I: IntoIterator<Item = &'static str>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let (lower, _) = iter.size_hint();
@@ -1843,7 +1851,9 @@ impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<&'static str> 
         let value_builder = StringBuilder::new(256);
         let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
         for i in iter {
-            builder.append(i).expect("Unable to append a value to a dictionary array.");
+            builder
+                .append(i)
+                .expect("Unable to append a value to a dictionary array.");
         }
 
         builder.finish()

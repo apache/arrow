@@ -1110,10 +1110,7 @@ where
     K: ArrowDictionaryKeyType,
 {
     /// Creates a new `StringDictionaryBuilder` from a keys builder and a value builder.
-    pub fn new(
-        keys_builder: PrimitiveBuilder<K>,
-        values_builder: StringBuilder,
-    ) -> Self {
+    pub fn new(keys_builder: PrimitiveBuilder<K>, values_builder: StringBuilder) -> Self {
         Self {
             keys_builder,
             values_builder,
