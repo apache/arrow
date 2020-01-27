@@ -1679,7 +1679,7 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
 ///     use arrow::datatypes::Int8Type;
 ///     let test = vec!["a", "a", "b", "c"];
 ///     let array : DictionaryArray<Int8Type> = test.iter().map(|&x| if x == "b" {None} else {Some(x)}).collect();
-///     assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(1), Some(1), Some(0), Some(2)]);
+///     assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), None, Some(1)]);
 /// ```
 ///
 /// Example without nullable data:
@@ -1819,8 +1819,7 @@ impl<T: ArrowPrimitiveType> FromIterator<Option<&'static str>> for DictionaryArr
         let (lower, _) = iter.size_hint();
         let key_builder = PrimitiveBuilder::<T>::new(lower);
         let value_builder = StringBuilder::new(256);
-        // Note: "true" here reserves one value element for null.
-        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder, true);
+        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
         for i in iter {
             if let Some(i) = i {
                 // Note: impl ... for Result<DictionaryArray<T>> fails with
@@ -1842,8 +1841,7 @@ impl<T: ArrowPrimitiveType> FromIterator<&'static str> for DictionaryArray<T> {
         let (lower, _) = iter.size_hint();
         let key_builder = PrimitiveBuilder::<T>::new(lower);
         let value_builder = StringBuilder::new(256);
-        // Note: "true" here reserves one value element for null.
-        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder, false);
+        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
         for i in iter {
             builder.append(i).expect("Unable to append a value to a dictionary array.");
         }
@@ -3247,7 +3245,7 @@ mod tests {
             .map(|&x| if x == "b" { None } else { Some(x) })
             .collect();
         assert_eq!(
-            "DictionaryArray {keys: [Some(1), Some(1), Some(0), Some(2)] values: StringArray\n[\n  null,\n  \"a\",\n  \"c\",\n]}\n",
+            "DictionaryArray {keys: [Some(0), Some(0), None, Some(1)] values: StringArray\n[\n  \"a\",\n  \"c\",\n]}\n",
             format!("{:?}", array)
         );
 

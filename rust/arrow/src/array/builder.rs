@@ -1103,7 +1103,6 @@ where
     keys_builder: PrimitiveBuilder<K>,
     values_builder: StringBuilder,
     map: HashMap<Box<[u8]>, K::Native>,
-    null_is_zero: bool,
 }
 
 impl<K> StringDictionaryBuilder<K>
@@ -1111,20 +1110,14 @@ where
     K: ArrowPrimitiveType,
 {
     /// Creates a new `StringDictionaryBuilder` from a keys builder and a value builder.
-    /// Set null_is_zero if you want zero to be the null value (recommended).
     pub fn new(
         keys_builder: PrimitiveBuilder<K>,
-        mut values_builder: StringBuilder,
-        null_is_zero: bool,
+        values_builder: StringBuilder,
     ) -> Self {
-        if null_is_zero {
-            values_builder.append_null().unwrap();
-        }
         Self {
             keys_builder,
             values_builder,
             map: HashMap::new(),
-            null_is_zero,
         }
     }
 }
@@ -1183,12 +1176,7 @@ where
     }
 
     pub fn append_null(&mut self) -> Result<()> {
-        if self.null_is_zero {
-            self.keys_builder
-                .append_value(K::Native::from_usize(0).unwrap())
-        } else {
-            self.keys_builder.append_null()
-        }
+        self.keys_builder.append_null()
     }
 
     /// Builds the `DictionaryArray` and reset this builder.
@@ -2065,7 +2053,7 @@ mod tests {
     fn test_string_dictionary_builder() {
         let key_builder = PrimitiveBuilder::<UInt8Type>::new(5);
         let value_builder = StringBuilder::new(2);
-        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder, true);
+        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
         builder.append("abc").unwrap();
         builder.append_null().unwrap();
         builder.append("def").unwrap();
@@ -2080,10 +2068,9 @@ mod tests {
         let av = array.values();
         let ava: &StringArray = av.as_any().downcast_ref::<StringArray>().unwrap();
 
-        assert_eq!(aks, vec![Some(1), Some(0), Some(2), Some(2), Some(1)]);
-        assert_eq!(ava.is_null(0), true);
-        assert_eq!(ava.value(1), "abc");
-        assert_eq!(ava.value(2), "def");
+        assert_eq!(aks, vec![Some(0), None, Some(1), Some(1), Some(0)]);
+        assert_eq!(ava.value(0), "abc");
+        assert_eq!(ava.value(1), "def");
     }
 
     #[test]
