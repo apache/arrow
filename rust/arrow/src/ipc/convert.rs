@@ -583,6 +583,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
                 Some(children),
             )
         }
+        t @ _ => unimplemented!("Type {:?} not supported", t),
     }
 }
 
