@@ -205,7 +205,7 @@ if [ ${PREPARE_LINUX_PACKAGES} -gt 0 ]; then
     version:update \
     ARROW_RELEASE_TIME="$(date +%Y-%m-%dT%H:%M:%S%z)" \
     ARROW_VERSION=${version}
-  git add debian*/changelog yum/*.spec.in
+  git add */debian*/changelog */yum/*.spec.in
   git commit -m "[Release] Update .deb/.rpm changelogs for $version"
   cd -
 fi
@@ -289,6 +289,6 @@ if [ ${PREPARE_DEB_PACKAGE_NAMES} -gt 0 ]; then
     git commit -m "[Release] Update .deb package names for $next_version"
     cd -
   fi
-fi
+fiq
 
 echo "Finish staging binary artifacts by running: dev/release/01-perform.sh"
