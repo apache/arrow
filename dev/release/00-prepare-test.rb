@@ -38,6 +38,10 @@ class PrepareTest < Test::Unit::TestCase
     end
   end
 
+  def omit_on_release_branch
+    omit("Not for release branch") if on_release_branch?
+  end
+
   def prepare(*targets)
     env = {"PREPARE_DEFAULT" => "0"}
     targets.each do |target|
@@ -69,6 +73,7 @@ class PrepareTest < Test::Unit::TestCase
   end
 
   def test_version_pre_tag
+    omit_on_release_branch
     prepare("VERSION_PRE_TAG")
     assert_equal([
                    {
@@ -245,8 +250,12 @@ class PrepareTest < Test::Unit::TestCase
   end
 
   def test_version_post_tag
-    prepare("VERSION_PRE_TAG",
-            "VERSION_POST_TAG")
+    if on_release_branch?
+      prepare("VERSION_POST_TAG")
+    else
+      prepare("VERSION_PRE_TAG",
+              "VERSION_POST_TAG")
+    end
     assert_equal([
                    {
                      path: "c_glib/configure.ac",
