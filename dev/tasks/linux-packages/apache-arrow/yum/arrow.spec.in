@@ -251,9 +251,12 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/arrow-config.cmake
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so
-%{_libdir}/pkgconfig/arrow.pc
 %{_libdir}/pkgconfig/arrow-compute.pc
+%{_libdir}/pkgconfig/arrow-csv.pc
+%{_libdir}/pkgconfig/arrow-filesystem.pc
+%{_libdir}/pkgconfig/arrow-json.pc
 %{_libdir}/pkgconfig/arrow-orc.pc
+%{_libdir}/pkgconfig/arrow.pc
 
 %package dataset-libs
 Summary:	C++ library to read and write semantic datasets stored in different locations and formats
