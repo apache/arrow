@@ -289,6 +289,6 @@ if [ ${PREPARE_DEB_PACKAGE_NAMES} -gt 0 ]; then
     git commit -m "[Release] Update .deb package names for $next_version"
     cd -
   fi
-fiq
+fi
 
 echo "Finish staging binary artifacts by running: dev/release/01-perform.sh"
