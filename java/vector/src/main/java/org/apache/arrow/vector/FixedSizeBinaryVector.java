@@ -117,7 +117,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
       return null;
     }
     final byte[] dst = new byte[byteWidth];
-    valueBuffer.getBytes(index * byteWidth, dst, 0, byteWidth);
+    valueBuffer.getBytes((long) index * byteWidth, dst, 0, byteWidth);
     return dst;
   }
 
@@ -136,7 +136,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
       return;
     }
     holder.isSet = 1;
-    holder.buffer = valueBuffer.slice(index * byteWidth, byteWidth);
+    holder.buffer = valueBuffer.slice((long) index * byteWidth, byteWidth);
   }
 
   /**
@@ -167,7 +167,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     Preconditions.checkNotNull(value, "expecting a valid byte array");
     assert byteWidth <= value.length;
     BitVectorHelper.setBit(validityBuffer, index);
-    valueBuffer.setBytes(index * byteWidth, value, 0, byteWidth);
+    valueBuffer.setBytes((long) index * byteWidth, value, 0, byteWidth);
   }
 
   /**
@@ -205,7 +205,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     assert index >= 0;
     assert byteWidth <= buffer.capacity();
     BitVectorHelper.setBit(validityBuffer, index);
-    valueBuffer.setBytes(index * byteWidth, buffer, 0, byteWidth);
+    valueBuffer.setBytes((long) index * byteWidth, buffer, 0, byteWidth);
   }
 
   /**
@@ -316,7 +316,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    */
   public static byte[] get(final ArrowBuf buffer, final int index, final int byteWidth) {
     final byte[] dst = new byte[byteWidth];
-    buffer.getBytes(index * byteWidth, dst, 0, byteWidth);
+    buffer.getBytes((long) index * byteWidth, dst, 0, byteWidth);
     return dst;
   }
 

@@ -23,7 +23,7 @@ import io.netty.buffer.PooledByteBufAllocatorL;
 import io.netty.buffer.UnsafeDirectLittleEndian;
 
 /**
- * The default implementation of AllocationManagerBase. The implementation is responsible for managing when memory
+ * The default implementation of {@link AllocationManager}. The implementation is responsible for managing when memory
  * is allocated and returned to the Netty-based PooledByteBufAllocatorL.
  */
 public class NettyAllocationManager extends AllocationManager {
