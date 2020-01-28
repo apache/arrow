@@ -228,7 +228,8 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     }
 
     for (String name : leftChildNames) {
-      RangeEqualsVisitor visitor = createInnerVisitor(leftVector.getChild(name), rightVector.getChild(name), null);
+      RangeEqualsVisitor visitor =
+          createInnerVisitor(leftVector.getChild(name), rightVector.getChild(name), /*type comparator*/ null);
       if (!visitor.rangeEquals(range)) {
         return false;
       }
@@ -307,7 +308,8 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     ListVector leftVector = (ListVector) left;
     ListVector rightVector = (ListVector) right;
 
-    RangeEqualsVisitor innerVisitor = createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector(), null);
+    RangeEqualsVisitor innerVisitor =
+        createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector(), /*type comparator*/ null);
     Range innerRange = new Range();
 
     for (int i = 0; i < range.getLength(); i++) {
@@ -353,7 +355,8 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     }
 
     int listSize = leftVector.getListSize();
-    RangeEqualsVisitor innerVisitor = createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector(), null);
+    RangeEqualsVisitor innerVisitor =
+        createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector(), /*type comparator*/ null);
     Range innerRange = new Range(0, 0, listSize);
 
     for (int i = 0; i < range.getLength(); i++) {

@@ -296,8 +296,8 @@ public class TestRangeEqualsVisitor {
       uInt4Holder.isSet = 1;
 
       final NullableIntHolder intHolder = new NullableIntHolder();
-      uInt4Holder.value = 20;
-      uInt4Holder.isSet = 1;
+      intHolder.value = 20;
+      intHolder.isSet = 1;
 
       vector1.setType(0, Types.MinorType.UINT4);
       vector1.setSafe(0, uInt4Holder);
@@ -307,7 +307,11 @@ public class TestRangeEqualsVisitor {
 
       vector1.setType(2, Types.MinorType.INT);
       vector1.setSafe(2, intHolder);
-      vector1.setValueCount(3);
+
+      vector1.setType(3, Types.MinorType.INT);
+      vector1.setSafe(3, intHolder);
+
+      vector1.setValueCount(4);
 
       vector2.setType(0, Types.MinorType.UINT4);
       vector2.setSafe(0, uInt4Holder);
@@ -317,9 +321,14 @@ public class TestRangeEqualsVisitor {
 
       vector2.setType(2, Types.MinorType.INT);
       vector2.setSafe(2, intHolder);
-      vector2.setValueCount(3);
+
+      vector2.setType(3, Types.MinorType.UINT4);
+      vector2.setSafe(3, uInt4Holder);
+
+      vector2.setValueCount(4);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertFalse(visitor.rangeEquals(new Range(0, 0, 4)));
       assertTrue(visitor.rangeEquals(new Range(1, 1, 2)));
     }
   }
