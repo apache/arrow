@@ -93,7 +93,12 @@ class SourceTest < Test::Unit::TestCase
     source
     Dir.chdir("#{@tag_name}/python") do
       sh("python3", "setup.py", "sdist")
-      assert_equal(["dist/pyarrow-#{@release_version}a0.tar.gz"],
+      if on_release_branch?
+        pyarrow_source_archive = "dist/pyarrow-#{@release_version}.tar.gz"
+      else
+        pyarrow_source_archive = "dist/pyarrow-#{@release_version}a0.tar.gz"
+      end
+      assert_equal([pyarrow_source_archive],
                    Dir.glob("dist/pyarrow-*.tar.gz"))
     end
   end
