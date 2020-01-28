@@ -169,10 +169,7 @@ pub(crate) fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
 }
 
 /// Get the Arrow data type from the flatbuffer Field table
-<<<<<<< HEAD
-pub(crate) fn get_data_type(field: ipc::Field) -> DataType {
-=======
-fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataType {
+pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataType {
     if let Some(dictionary) = field.dictionary() {
         if may_be_dictionary {
             let int = dictionary.indexType().unwrap();
@@ -194,7 +191,6 @@ fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataType {
         }
     }
 
->>>>>>> Rebase master
     match field.type_type() {
         ipc::Type::Bool => DataType::Boolean,
         ipc::Type::Int => {
