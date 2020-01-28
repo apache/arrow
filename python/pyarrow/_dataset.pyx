@@ -1191,7 +1191,8 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                     c_options
                 )
         else:
-            raise TypeError('Must pass either paths or a FileSelector')
+            raise TypeError('Must pass either paths or a FileSelector, but '
+                            'passed {}'.format(type(paths_or_selector)))
 
         self.init(GetResultValue(result))
 

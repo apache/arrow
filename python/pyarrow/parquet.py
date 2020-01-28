@@ -1285,7 +1285,24 @@ Returns
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
-               buffer_size=0):
+               buffer_size=0, use_datasets=True):
+    if use_datasets:
+        import pyarrow.dataset as ds
+
+        dataset = ds.dataset(source, filesystem=filesystem, format="parquet")
+        # TODO implement filter (tuple -> expression conversion)
+        table = dataset.to_table(columns=columns)
+
+        # remove ARROW:schema metadata, current parquet version doesn't
+        # preserve this
+        metadata = table.schema.metadata
+        if metadata:
+            metadata.pop(b"ARROW:schema", None)
+            if len(metadata) == 0:
+                metadata = None
+            table = table.replace_schema_metadata(metadata)
+        return table
+
     if _is_path_like(source):
         pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
                             read_dictionary=read_dictionary,
