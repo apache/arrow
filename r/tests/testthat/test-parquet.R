@@ -120,3 +120,13 @@ test_that("Factors are preserved when writing/reading from Parquet", {
   df_read <- read_parquet(pq_tmp_file)
   expect_identical(df, df_read)
 })
+
+test_that("write_parquet() to stream", {
+  df <- tibble::tibble(x = 1:5)
+  tf <- tempfile()
+  con <- FileOutputStream$create(tf)
+  on.exit(unlink(tf))
+  write_parquet(df, con)
+  con$close()
+  expect_equal(read_parquet(tf), df)
+})
