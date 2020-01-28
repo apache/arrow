@@ -18,6 +18,7 @@
 import pytest
 import decimal
 import datetime
+from typing import List, Optional
 
 import pyarrow as pa
 
@@ -58,7 +59,7 @@ def fix_example_values(actual_cols, expected_cols):
             # # date fields are represented as strings in JSON files
             expected = expected.dt.date
         elif typ is decimal.Decimal:
-            converted_decimals = [None] * len(expected)
+            converted_decimals = [None] * len(expected)  # type: List[Optional[decimal.Decimal]]
             # decimal fields are represented as reals in JSON files
             for i, (d, v) in enumerate(zip(actual, expected)):
                 if not pd.isnull(v):

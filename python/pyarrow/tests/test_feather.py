@@ -332,7 +332,7 @@ class TestFeatherReader(unittest.TestCase):
         self.test_files.append(path)
 
         for i in range(16, 256):
-            values = pa.array([None] + list(range(i)), type=pa.float64())
+            values = pa.array([None] + list(range(i)), type=pa.float64())  # type: ignore
 
             writer = FeatherWriter()
             writer.open(path)

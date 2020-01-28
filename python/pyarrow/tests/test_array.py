@@ -25,6 +25,7 @@ import pickle
 import pytest
 import struct
 import sys
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 try:
@@ -639,9 +640,9 @@ def test_map_from_arrays():
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
     offsets = pa.array(offsets_arr, type='int32')
     pykeys = [b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h']
-    pyitems = list(range(len(pykeys)))
-    pypairs = list(zip(pykeys, pyitems))
-    pyentries = [pypairs[:2], pypairs[2:5], pypairs[5:8]]
+    pyitems = list(range(len(pykeys)))  # type: List[Optional[int]]
+    pypairs = list(zip(pykeys, pyitems))  # type: List[Optional[Tuple[bytes, Optional[int]]]]
+    pyentries = [pypairs[:2], pypairs[2:5], pypairs[5:8]] # type: List[Optional[List[Optional[Tuple[bytes, Optional[int]]]]]]
     keys = pa.array(pykeys, type='binary')
     items = pa.array(pyitems, type='i4')
 
@@ -1279,7 +1280,7 @@ def test_pickling(arr):
 @pickle_test_parametrize
 def test_array_pickle5(data, typ):
     # Test zero-copy pickling with protocol 5 (PEP 574)
-    picklemod = pickle5 or pickle
+    picklemod = pickle5 or pickle  # type: Any
     if pickle5 is None and picklemod.HIGHEST_PROTOCOL < 5:
         pytest.skip("need pickle5 package or Python 3.8+")
 
@@ -1288,7 +1289,7 @@ def test_array_pickle5(data, typ):
                  for buf in array.buffers()]
 
     for proto in range(5, pickle.HIGHEST_PROTOCOL + 1):
-        buffers = []
+        buffers = []  # type: List[Any]
         pickled = picklemod.dumps(array, proto, buffer_callback=buffers.append)
         result = picklemod.loads(pickled, buffers=buffers)
         assert array.equals(result)
@@ -2047,7 +2048,7 @@ def test_numpy_binary_overflow_to_chunked():
         for i in range(arrow_arr.num_chunks):
             chunk = arrow_arr.chunk(i)
             for val in chunk:
-                assert val.as_py() == case[value_index]
+                assert val.as_py() == case[value_index]  # type: ignore
                 value_index += 1
 
 
@@ -2126,9 +2127,9 @@ def test_array_protocol():
         def __arrow_array__(self, type=None):
             return np.array(self.data)
 
-    arr = MyArrayInvalid(np.array([1, 2, 3], dtype='int64'))
+    arr_invalid = MyArrayInvalid(np.array([1, 2, 3], dtype='int64'))
     with pytest.raises(TypeError):
-        pa.array(arr)
+        pa.array(arr_invalid)
 
     # ARROW-7066 - allow ChunkedArray output
     class MyArray2:
@@ -2138,8 +2139,8 @@ def test_array_protocol():
         def __arrow_array__(self, type=None):
             return pa.chunked_array([self.data], type=type)
 
-    arr = MyArray2(np.array([1, 2, 3], dtype='int64'))
-    result = pa.array(arr)
+    arr2 = MyArray2(np.array([1, 2, 3], dtype='int64'))
+    result = pa.array(arr2)
     expected = pa.chunked_array([[1, 2, 3]], type=pa.int64())
     assert result.equals(expected)
 

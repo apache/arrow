@@ -17,6 +17,7 @@
 # under the License.
 
 from collections import OrderedDict
+from typing import List, Union
 import pickle
 import sys
 
@@ -75,11 +76,11 @@ def test_chunked_array_str():
 
 
 def test_chunked_array_getitem():
-    data = [
+    data_for_array = [
         pa.array([1, 2, 3]),
         pa.array([4, 5, 6])
     ]
-    data = pa.chunked_array(data)
+    data = pa.chunked_array(data_for_array)
     assert data[1].as_py() == 2
     assert data[-1].as_py() == 6
     assert data[-6].as_py() == 1
@@ -820,11 +821,11 @@ def test_concat_tables():
     data = [
         list(range(5)),
         [-10., -5., 0., 5., 10.]
-    ]
+    ]  # type: List[List[Union[int, float]]]
     data2 = [
         list(range(5, 10)),
         [1., 2., 3., 4., 5.]
-    ]
+    ]  # type: List[List[Union[int, float]]]
 
     t1 = pa.Table.from_arrays([pa.array(x) for x in data],
                               names=('a', 'b'))

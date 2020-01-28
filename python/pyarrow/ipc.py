@@ -30,6 +30,9 @@ import pyarrow.lib as lib
 
 class _ReadPandasOption(object):
 
+    def read_all(self, *args, **kwargs):
+        raise NotImplementedError("Needs to be implemented in child class")
+
     def read_pandas(self, **options):
         """
         Read contents of stream and convert to pandas.DataFrame using

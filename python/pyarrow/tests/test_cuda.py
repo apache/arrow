@@ -39,8 +39,9 @@ cuda_ipc = pytest.mark.skipif(
     not has_ipc_support,
     reason='CUDA IPC not supported in platform `%s`' % (platform))
 
-global_context = None  # for flake8
-global_context1 = None  # for flake8
+# TODO(ARROW-XXXX): Refactor to use module-level fixtures
+global_context = None # type: ignore
+global_context1 = None  # type: ignore
 
 
 def setup_module(module):

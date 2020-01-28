@@ -85,6 +85,9 @@ def test_parse_options():
 
 class BaseTestJSONRead:
 
+    def read_json(self, *args, **kwargs):
+        raise NotImplementedError()
+
     def read_bytes(self, b, **kwargs):
         return self.read_json(pa.py_buffer(b), **kwargs)
 

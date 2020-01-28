@@ -19,7 +19,7 @@ from datetime import datetime
 try:
     import pathlib
 except ImportError:
-    import pathlib2 as pathlib  # py2 compat
+    import pathlib2 as pathlib  # type: ignore
 
 import pytest
 

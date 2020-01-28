@@ -30,7 +30,7 @@ import weakref
 try:
     import pathlib
 except ImportError:
-    import pathlib2 as pathlib
+    import pathlib2 as pathlib  # type: ignore
 
 import numpy as np
 
@@ -591,7 +591,7 @@ def test_buffer_memoryview_is_immutable():
 
     b = bytes(buf)
     with pytest.raises(TypeError) as exc:
-        b[0] = b'h'
+        b[0] = b'h' # type: ignore
         assert 'cannot modify read-only' in str(exc.value)
 
 

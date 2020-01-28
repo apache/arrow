@@ -93,7 +93,7 @@ def dataframe_with_lists(include_index=False, parquet_compatible=False):
     parquet_compatible: bool
         Exclude types not supported by parquet
     """
-    arrays = OrderedDict()
+    arrays = OrderedDict()  # type: ignore
     fields = []
 
     fields.append(pa.field('int64', pa.list_(pa.int64())))

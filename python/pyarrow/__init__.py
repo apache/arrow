@@ -19,11 +19,13 @@
 
 from __future__ import absolute_import
 
+from typing import Optional
 import os as _os
 import sys as _sys
 
 try:
-    from ._generated_version import version as __version__
+    from ._generated_version import version as __version_imported__
+    __version__ = __version_imported__  # type: Optional[str]
 except ImportError:
     # Package is not installed, parse git tag at runtime
     try:
@@ -58,6 +60,7 @@ from pyarrow.lib import (null, bool_,
                          list_, large_list, map_, struct, union, dictionary,
                          field,
                          type_for_alias,
+                         NAType,
                          DataType, DictionaryType, StructType,
                          ListType, LargeListType, MapType, FixedSizeListType,
                          UnionType,
@@ -181,8 +184,9 @@ def _plasma_store_entry_point():
     given arguments.
     """
     import pyarrow
-    plasma_store_executable = _os.path.join(pyarrow.__path__[0],
-                                            "plasma-store-server")
+    plasma_store_executable = _os.path.join(
+         pyarrow.__path__[0],  # type: ignore
+        "plasma-store-server")
     _os.execv(plasma_store_executable, _sys.argv)
 
 # ----------------------------------------------------------------------

@@ -560,6 +560,7 @@ install_requires = (
     'numpy >= 1.14',
     'six >= 1.0.0',
     'futures; python_version < "3.2"',
+    'typing; python_version < "3"',
     'enum34 >= 1.1.6; python_version < "3.4"',
 )
 

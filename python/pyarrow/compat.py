@@ -19,6 +19,7 @@
 
 from __future__ import absolute_import
 
+from typing import List
 import itertools
 
 import numpy as np
@@ -36,7 +37,7 @@ PY2 = sys.version_info[0] == 2
 if PY26:
     import unittest2 as unittest
 else:
-    import unittest
+    import unittest  # type: ignore
 
 
 if PY2:
@@ -86,12 +87,12 @@ else:
     try:
         import pickle5 as builtin_pickle
     except ImportError:
-        import pickle as builtin_pickle
+        import pickle as builtin_pickle  # type: ignore
 
     from collections.abc import Iterable, Mapping, Sequence
 
     unicode_type = str
-    file_type = None
+    file_type = None  # type: ignore
     def lzip(*x):
         return list(zip(*x))
     long = int
@@ -206,8 +207,8 @@ except ImportError:
         names, formats, offsets = zip(*fields)
         # names may be (title, names) tuples
         nametups = (n  if isinstance(n, tuple) else (None, n) for n in names)
-        titles, names = zip(*nametups)
+        titles, names = zip(*nametups)  # type: ignore
         return np.dtype({'names': names, 'formats': formats, 'titles': titles,
                             'offsets': offsets, 'itemsize': offset})
 
-__all__ = []
+__all__ = []  # type: List[str]

@@ -22,6 +22,7 @@ import decimal
 import json
 import multiprocessing as mp
 import sys
+from typing import List, Optional
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
@@ -70,7 +71,7 @@ def _alltypes_example(size=100):
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
                               dtype='datetime64[ms]'),
         'str': [str(x) for x in range(size)],
-        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
+        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],  # type: ignore
         'empty_str': [''] * size
     })
 
@@ -520,7 +521,7 @@ class TestConvertMetadata(object):
         # Create table with array of empty lists, forced to have type
         # list(string) in pyarrow
         c1 = [["test"], ["a", "b"], None]
-        c2 = [[], [], []]
+        c2 = [[], [], []]  # type: List[Optional[List[str]]]
         arrays = OrderedDict([
             ('c1', pa.array(c1, type=pa.list_(pa.string()))),
             ('c2', pa.array(c2, type=pa.list_(pa.string()))),
@@ -1228,7 +1229,7 @@ class TestConvertDateTimeLikeTypes(object):
         # microseconds
         t1 = pa.time64('us')
 
-        aobjs = np.array(pytimes + [None], dtype=object)
+        aobjs = np.array(pytimes + [None], dtype=object)  # type: ignore
         parr = pa.array(aobjs)
         assert parr.type == t1
         assert parr[0].as_py() == pytimes[0]
@@ -1263,13 +1264,13 @@ class TestConvertDateTimeLikeTypes(object):
                    time(4, 5, 6, 1356),
                    time(0, 0, 0)]
 
-        expected = np.array(pytimes[:2] + [None])
+        expected = np.array(pytimes[:2] + [None])  # type: ignore
         expected_ms = np.array([x.replace(microsecond=1000)
                                 for x in pytimes[:2]] +
-                               [None])
+                                [None])  # type: ignore
         expected_s = np.array([x.replace(microsecond=0)
                                for x in pytimes[:2]] +
-                              [None])
+                               [None])  # type: ignore
 
         arr = np.array([_pytime_to_micros(v) for v in pytimes],
                        dtype='int64')
@@ -1440,7 +1441,7 @@ class TestConvertStringLikeTypes(object):
 
         # ARROW-2227, hit exactly 2GB on the nose
         df = pd.DataFrame({
-            'strings': [v1] * 20 + [v2] + ['x'] * 20
+            'strings': [v1] * 20 + [v2] + ['x'] * 20  # type: ignore
         })
         arr = pa.array(df['strings'])
         assert isinstance(arr, pa.ChunkedArray)

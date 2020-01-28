@@ -29,6 +29,7 @@ import itertools
 import math
 import traceback
 import sys
+from typing import Dict, List, Optional
 
 import numpy as np
 import pytz
@@ -873,11 +874,11 @@ class MyTimedelta(datetime.timedelta):
 
 
 def test_datetime_subclassing():
-    data = [
+    data_date = [
         MyDate(2007, 7, 13),
     ]
     date_type = pa.date32()
-    arr_date = pa.array(data, type=date_type)
+    arr_date = pa.array(data_date, type=date_type)
     assert len(arr_date) == 1
     assert arr_date.type == date_type
     assert arr_date[0].as_py() == datetime.date(2007, 7, 13)
@@ -908,7 +909,7 @@ def test_datetime_subclassing():
     assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
                                                   23, 34, 123456)
 
-    data = [
+    data_td = [
         MyTimedelta(123, 456, 1002),
     ]
 
@@ -916,22 +917,22 @@ def test_datetime_subclassing():
     ms = pa.duration('ms')
     us = pa.duration('us')
 
-    arr_s = pa.array(data)
+    arr_s = pa.array(data_td)
     assert len(arr_s) == 1
     assert arr_s.type == us
     assert arr_s[0].as_py() == datetime.timedelta(123, 456, 1002)
 
-    arr_s = pa.array(data, type=s)
+    arr_s = pa.array(data_td, type=s)
     assert len(arr_s) == 1
     assert arr_s.type == s
     assert arr_s[0].as_py() == datetime.timedelta(123, 456)
 
-    arr_ms = pa.array(data, type=ms)
+    arr_ms = pa.array(data_td, type=ms)
     assert len(arr_ms) == 1
     assert arr_ms.type == ms
     assert arr_ms[0].as_py() == datetime.timedelta(123, 456, 1000)
 
-    arr_us = pa.array(data, type=us)
+    arr_us = pa.array(data_td, type=us)
     assert len(arr_us) == 1
     assert arr_us.type == us
     assert arr_us[0].as_py() == datetime.timedelta(123, 456, 1002)
@@ -1091,25 +1092,25 @@ def test_sequence_duration_nested_lists_numpy():
 
 
 def test_sequence_nesting_levels():
-    data = [1, 2, None]
-    arr = pa.array(data)
+    data1 = [1, 2, None]
+    arr = pa.array(data1)
     assert arr.type == pa.int64()
-    assert arr.to_pylist() == data
+    assert arr.to_pylist() == data1
 
-    data = [[1], [2], None]
-    arr = pa.array(data)
+    data2 = [[1], [2], None]
+    arr = pa.array(data2)
     assert arr.type == pa.list_(pa.int64())
-    assert arr.to_pylist() == data
+    assert arr.to_pylist() == data2
 
-    data = [[1], [2, 3, 4], [None]]
-    arr = pa.array(data)
+    data3 = [[1], [2, 3, 4], [None]]
+    arr = pa.array(data3)
     assert arr.type == pa.list_(pa.int64())
-    assert arr.to_pylist() == data
+    assert arr.to_pylist() == data3
 
-    data = [None, [[None, 1]], [[2, 3, 4], None], [None]]
-    arr = pa.array(data)
+    data4 = [None, [[None, 1]], [[2, 3, 4], None], [None]]
+    arr = pa.array(data4)
     assert arr.type == pa.list_(pa.list_(pa.int64()))
-    assert arr.to_pylist() == data
+    assert arr.to_pylist() == data4
 
     exceptions = (pa.ArrowInvalid, pa.ArrowTypeError)
 
@@ -1245,8 +1246,9 @@ def test_struct_from_dicts():
     arr = pa.array([], type=ty)
     assert arr.to_pylist() == []
 
+    # TODO: TypedDict
     data = [{'a': 5, 'b': 'foo', 'c': True},
-            {'a': 6, 'b': 'bar', 'c': False}]
+            {'a': 6, 'b': 'bar', 'c': False}]  # type: List[Optional[Dict[str, Optional[bool]]]]
     arr = pa.array(data, type=ty)
     assert arr.to_pylist() == data
 

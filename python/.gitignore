@@ -8,6 +8,7 @@ build/
 Testing/
 
 # Python stuff
+.mypy_cache
 
 # Editor temporary/working/backup files
 *flymake*

@@ -26,7 +26,8 @@ nb_cuda = pytest.importorskip("numba.cuda")
 from numba.cuda.cudadrv.devicearray import DeviceNDArray  # noqa: E402
 
 
-context_choices = None
+# TODO(ARROW-XXXX): Refactor to use module-level fixture
+context_choices = None  # type: ignore
 context_choice_ids = ['pyarrow.cuda', 'numba.cuda']
 
 

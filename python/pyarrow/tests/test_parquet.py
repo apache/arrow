@@ -25,6 +25,7 @@ import os
 import six
 import pickle
 import pytest
+from typing import Any, List, Optional
 
 import numpy as np
 
@@ -37,7 +38,7 @@ from pyarrow.filesystem import LocalFileSystem, FileSystem
 try:
     import pyarrow.parquet as pq
 except ImportError:
-    pq = None
+    pq = None  # type: ignore
 
 
 try:
@@ -148,9 +149,9 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
                               dtype='datetime64[ms]'),
         'str': pd.Series([str(x) for x in range(size)]),
         'empty_str': [''] * size,
-        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
+        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],  # type: ignore
         'null': [None] * size,
-        'null_list': [None] * 2 + [[None] * (x % 4) for x in range(size - 2)],
+        'null_list': [None] * 2 + [[None] * (x % 4) for x in range(size - 2)],  # type: ignore
     }
     if categorical:
         arrays['str_category'] = arrays['str'].astype('category')
@@ -405,7 +406,7 @@ def test_pandas_parquet_1_0_roundtrip(tempdir):
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
         'str': [str(x) for x in range(size)],
-        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
+        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],  # type: ignore
         'empty_str': [''] * size
     })
     filename = tempdir / 'pandas_roundtrip.parquet'
@@ -1519,7 +1520,7 @@ def test_partition_set_dictionary_type():
     assert isinstance(set1.dictionary, pa.StringArray)
     assert isinstance(set2.dictionary, pa.IntegerArray)
 
-    set3 = pq.PartitionSet('key2', [datetime.datetime(2007, 1, 1)])
+    set3 = pq.PartitionSet('key2', [datetime.datetime(2007, 1, 1)])  # type: ignore
     with pytest.raises(TypeError):
         set3.dictionary
 
@@ -1542,6 +1543,7 @@ def test_create_parquet_dataset_multi_threaded(tempdir):
     dataset = pq.ParquetDataset(base_path, filesystem=fs, metadata_nthreads=16)
     assert len(dataset.pieces) > 0
     partitions = dataset.partitions
+    assert partitions is not None
     assert len(partitions.partition_names) > 0
     assert partitions.partition_names == manifest.partitions.partition_names
     assert len(partitions.levels) == len(manifest.partitions.levels)
@@ -1997,10 +1999,12 @@ def _test_read_common_metadata_files(fs, base_path):
 
     with fs.open(data_path) as f:
         common_schema = pq.read_metadata(f).schema
+    assert dataset.schema is not None
     assert dataset.schema.equals(common_schema)
 
     # handle list of one directory
     dataset2 = pq.ParquetDataset([base_path], filesystem=fs)
+    assert dataset2.schema is not None
     assert dataset2.schema.equals(dataset.schema)
 
 
@@ -2036,6 +2040,7 @@ def test_read_metadata_files(tempdir):
 
     with fs.open(data_path) as f:
         metadata_schema = pq.read_metadata(f).schema
+    assert dataset.schema is not None
     assert dataset.schema.equals(metadata_schema)
 
 
@@ -2450,6 +2455,7 @@ def _test_write_to_dataset_with_partitions(base_path,
                                 filesystem=filesystem,
                                 validate_schema=True)
     # ARROW-2209: Ensure the dataset schema also includes the partition columns
+    assert dataset.schema is not None
     dataset_cols = set(dataset.schema.to_arrow_schema().names)
     assert dataset_cols == set(output_table.schema.names)
 
@@ -3181,7 +3187,7 @@ def test_dataset_metadata(tempdir):
     })
     table = pa.Table.from_pandas(df)
 
-    metadata_list = []
+    metadata_list = []  # type: List[Any]
     pq.write_to_dataset(table, root_path=str(path),
                         partition_cols=['one', 'two'],
                         metadata_collector=metadata_list)
@@ -3328,9 +3334,9 @@ def test_multi_dataset_metadata(tempdir):
     table = pa.Table.from_pandas(df)
 
     # write dataset twice and collect/merge metadata
-    _meta = None
+    _meta = None  # type: Optional[pq.FileMetaData]
     for filename in filenames:
-        meta = []
+        meta = []  # type: List[pq.FileMetaData]
         pq.write_table(table, str(tempdir / filename),
                        metadata_collector=meta)
         meta[0].set_file_path(filename)
@@ -3339,13 +3345,14 @@ def test_multi_dataset_metadata(tempdir):
         else:
             _meta.append_row_groups(meta[0])
 
+    assert _meta is not None
     # Write merged metadata-only file
     with open(metapath, "wb") as f:
         _meta.write_metadata_file(f)
 
     # Read back the metadata
-    meta = pq.read_metadata(metapath)
-    md = meta.to_dict()
+    resulting_meta = pq.read_metadata(metapath)
+    md = resulting_meta.to_dict()
     _md = _meta.to_dict()
     for key in _md:
         if key != 'serialized_size':

@@ -43,7 +43,7 @@ class FileSystem(object):
         with self.open(path, 'rb') as f:
             return f.read()
 
-    def ls(self, path):
+    def ls(self, path, detail=False):
         """
         Return list of file paths
         """
@@ -192,10 +192,16 @@ class FileSystem(object):
     def pathsep(self):
         return '/'
 
+    def walk(self, path):
+        """
+        Directory tree generator, see os.walk
+        """
+        raise NotImplementedError('FileSystem.walk')
+
 
 class LocalFileSystem(FileSystem):
 
-    _instance = None
+    _instance = None  # type: LocalFileSystem
 
     @classmethod
     def get_instance(cls):
@@ -204,7 +210,7 @@ class LocalFileSystem(FileSystem):
         return cls._instance
 
     @implements(FileSystem.ls)
-    def ls(self, path):
+    def ls(self, path, detail=False):
         path = _stringify_path(path)
         return sorted(pjoin(path, x) for x in os.listdir(path))
 
@@ -348,23 +354,23 @@ class S3FSWrapper(DaskFileSystem):
         files
         """
         path = _sanitize_s3(_stringify_path(path))
-        directories = set()
-        files = set()
+        dir_set = set()
+        file_set = set()
 
         for key in list(self.fs._ls(path, refresh=refresh)):
             path = key['Key']
             if key['StorageClass'] == 'DIRECTORY':
-                directories.add(path)
+                dir_set.add(path)
             elif key['StorageClass'] == 'BUCKET':
                 pass
             else:
-                files.add(path)
+                file_set.add(path)
 
         # s3fs creates duplicate 'DIRECTORY' entries
-        files = sorted([posixpath.split(f)[1] for f in files
-                        if f not in directories])
+        files = sorted([posixpath.split(f)[1] for f in file_set
+                        if f not in dir_set])
         directories = sorted([posixpath.split(x)[1]
-                              for x in directories])
+                              for x in dir_set])
 
         yield path, directories, files
 

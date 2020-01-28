@@ -39,7 +39,7 @@ try:
         ClientMiddleware, ClientMiddlewareFactory,
     )
 except ImportError:
-    flight = None
+    flight = None  # type: ignore
     FlightClient, FlightServerBase = object, object
     ServerAuthHandler, ClientAuthHandler = object, object
     ServerMiddleware, ServerMiddlewareFactory = object, object
@@ -194,6 +194,7 @@ class EchoStreamFlightServer(EchoFlightServer):
     """An echo server that streams individual record batches."""
 
     def do_get(self, context, ticket):
+        assert self.last_message is not None
         return flight.GeneratorStream(
             self.last_message.schema,
             self.last_message.to_batches(max_chunksize=1024))
@@ -279,7 +280,7 @@ class InvalidStreamFlightServer(FlightServerBase):
     def do_get(self, context, ticket):
         data1 = [pa.array([-10, -5, 0, 5, 10], type=pa.int32())]
         data2 = [pa.array([-10.0, -5.0, 0.0, 5.0, 10.0], type=pa.float64())]
-        assert data1.type != data2.type
+        assert data1[0].type != data2[0].type
         table1 = pa.Table.from_arrays(data1, names=['a'])
         table2 = pa.Table.from_arrays(data2, names=['a'])
         assert table1.schema == self.schema
@@ -491,13 +492,13 @@ def test_server_exit_reraises_exception():
 @pytest.mark.slow
 def test_client_wait_for_available():
     location = ('localhost', find_free_port())
-    server = None
+    server = None  # Optional[FlightServerBase]
 
     def serve():
         global server
         time.sleep(0.5)
-        server = FlightServerBase(location)
-        server.serve()
+        server = FlightServerBase(location)  # type: ignore
+        server.serve()  # type: ignore
 
     client = FlightClient(location)
     thread = threading.Thread(target=serve, daemon=True)
@@ -868,8 +869,8 @@ def test_flight_do_get_metadata():
                 idx += 1
             except StopIteration:
                 break
-        data = pa.Table.from_batches(batches)
-        assert data.equals(table)
+        result = pa.Table.from_batches(batches)
+        assert result.equals(table)
 
 
 def test_flight_do_put_metadata():

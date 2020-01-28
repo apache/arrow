@@ -66,3 +66,8 @@ repos:
          - file
          - cython
        args: [--config=python/.flake8.cython]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    # TODO: Update to latest
+    rev: v0.740
+    hooks:
+     - id: mypy

@@ -41,6 +41,7 @@ _NESTED_TYPES = {lib.Type_LIST, lib.Type_LARGE_LIST, lib.Type_STRUCT,
 
 
 def is_null(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a null type
     """
@@ -48,6 +49,7 @@ def is_null(t):
 
 
 def is_boolean(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a boolean type
     """
@@ -55,6 +57,7 @@ def is_boolean(t):
 
 
 def is_integer(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of any integer type
     """
@@ -62,6 +65,7 @@ def is_integer(t):
 
 
 def is_signed_integer(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of any signed integer type
     """
@@ -69,6 +73,7 @@ def is_signed_integer(t):
 
 
 def is_unsigned_integer(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of any unsigned integer type
     """
@@ -76,6 +81,7 @@ def is_unsigned_integer(t):
 
 
 def is_int8(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of an int8 type
     """
@@ -83,6 +89,7 @@ def is_int8(t):
 
 
 def is_int16(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of an int16 type
     """
@@ -90,6 +97,7 @@ def is_int16(t):
 
 
 def is_int32(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of an int32 type
     """
@@ -97,6 +105,7 @@ def is_int32(t):
 
 
 def is_int64(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of an int64 type
     """
@@ -104,6 +113,7 @@ def is_int64(t):
 
 
 def is_uint8(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of an uint8 type
     """
@@ -111,6 +121,7 @@ def is_uint8(t):
 
 
 def is_uint16(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of an uint16 type
     """
@@ -118,6 +129,7 @@ def is_uint16(t):
 
 
 def is_uint32(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of an uint32 type
     """
@@ -125,6 +137,7 @@ def is_uint32(t):
 
 
 def is_uint64(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of an uint64 type
     """
@@ -132,6 +145,7 @@ def is_uint64(t):
 
 
 def is_floating(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a floating point numeric type
     """
@@ -139,6 +153,7 @@ def is_floating(t):
 
 
 def is_float16(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a float16 (half-precision) type
     """
@@ -146,6 +161,7 @@ def is_float16(t):
 
 
 def is_float32(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a float32 (single precision) type
     """
@@ -153,6 +169,7 @@ def is_float32(t):
 
 
 def is_float64(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a float64 (double precision) type
     """
@@ -160,6 +177,7 @@ def is_float64(t):
 
 
 def is_list(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a list type
     """
@@ -167,6 +185,7 @@ def is_list(t):
 
 
 def is_large_list(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a large list type
     """
@@ -174,6 +193,7 @@ def is_large_list(t):
 
 
 def is_fixed_size_list(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a fixed size list type
     """
@@ -181,6 +201,7 @@ def is_fixed_size_list(t):
 
 
 def is_struct(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a struct type
     """
@@ -188,6 +209,7 @@ def is_struct(t):
 
 
 def is_union(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a union type
     """
@@ -195,6 +217,7 @@ def is_union(t):
 
 
 def is_nested(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a nested type
     """
@@ -202,6 +225,7 @@ def is_nested(t):
 
 
 def is_temporal(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a temporal (date, time, timestamp)
     type
@@ -210,6 +234,7 @@ def is_temporal(t):
 
 
 def is_timestamp(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a timestamp type
     """
@@ -217,6 +242,7 @@ def is_timestamp(t):
 
 
 def is_duration(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a duration type
     """
@@ -224,6 +250,7 @@ def is_duration(t):
 
 
 def is_time(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a time type
     """
@@ -231,6 +258,7 @@ def is_time(t):
 
 
 def is_time32(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a time32 type
     """
@@ -238,6 +266,7 @@ def is_time32(t):
 
 
 def is_time64(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a time64 type
     """
@@ -245,6 +274,7 @@ def is_time64(t):
 
 
 def is_binary(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a variable-length binary type
     """
@@ -252,6 +282,7 @@ def is_binary(t):
 
 
 def is_large_binary(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a large variable-length
     binary type
@@ -260,6 +291,7 @@ def is_large_binary(t):
 
 
 def is_unicode(t):
+    # type: (lib.DataType) -> bool
     """
     Alias for is_string
     """
@@ -267,6 +299,7 @@ def is_unicode(t):
 
 
 def is_string(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of string (utf8 unicode) type
     """
@@ -274,6 +307,7 @@ def is_string(t):
 
 
 def is_large_unicode(t):
+    # type: (lib.DataType) -> bool
     """
     Alias for is_large_string
     """
@@ -281,6 +315,7 @@ def is_large_unicode(t):
 
 
 def is_large_string(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of large string (utf8 unicode) type
     """
@@ -288,6 +323,7 @@ def is_large_string(t):
 
 
 def is_fixed_size_binary(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a fixed size binary type
     """
@@ -295,6 +331,7 @@ def is_fixed_size_binary(t):
 
 
 def is_date(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a date type
     """
@@ -302,6 +339,7 @@ def is_date(t):
 
 
 def is_date32(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a date32 (days) type
     """
@@ -309,6 +347,7 @@ def is_date32(t):
 
 
 def is_date64(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a date64 (milliseconds) type
     """
@@ -316,6 +355,7 @@ def is_date64(t):
 
 
 def is_map(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a map logical type
     """
@@ -323,6 +363,7 @@ def is_map(t):
 
 
 def is_decimal(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a decimal type
     """
@@ -330,6 +371,7 @@ def is_decimal(t):
 
 
 def is_dictionary(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if value is an instance of a dictionary-encoded type
     """
@@ -337,6 +379,7 @@ def is_dictionary(t):
 
 
 def is_primitive(t):
+    # type: (lib.DataType) -> bool
     """
     Return True if the value is an instance of a primitive type
     """

@@ -15,9 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from typing import Any
+
 import pytz
 import hypothesis as h
-import hypothesis.strategies as st
+import hypothesis.strategies as st, SearchStrategy
 import hypothesis.extra.numpy as npst
 import hypothesis.extra.pytz as tzst
 import numpy as np
@@ -193,7 +195,7 @@ def arrays(draw, type, size=None):
         return pa.array(np_arr, type=type)
 
     if pa.types.is_null(type):
-        value = st.none()
+        value = st.none()  # type: SearchStrategy[Any]
     elif pa.types.is_time(type):
         value = st.times()
     elif pa.types.is_date(type):

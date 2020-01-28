@@ -50,6 +50,9 @@ class IpcFixture(object):
     def get_source(self):
         return self.sink.getvalue()
 
+    def _get_writer(self, sink, schema: pa.Schema):
+        raise NotImplementedError("_get_writer")
+
     def write_batches(self, num_batches=5, as_table=False):
         nrows = 5
         df = pd.DataFrame({

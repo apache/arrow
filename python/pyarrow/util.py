@@ -24,12 +24,12 @@ import functools
 import six
 import socket
 import warnings
-
+from typing import Any, Iterable, Optional, Sequence, Tuple
 
 try:
     from textwrap import indent
 except ImportError:
-    def indent(text, prefix):
+    def indent(text, prefix):  # type: ignore
         return ''.join(prefix + line for line in text.splitlines(True))
 
 try:
@@ -37,7 +37,8 @@ try:
     try:
         import pathlib
     except ImportError:
-        import pathlib2 as pathlib  # python 2 backport
+        # python 2 backport
+        import pathlib2 as pathlib  # type: ignore
     _has_pathlib = True
 except ImportError:
     _has_pathlib = False
@@ -69,6 +70,7 @@ def _is_path_like(path):
 
 
 def _stringify_path(path):
+    # type: (Any) -> str
     """
     Convert *path* to a string or unicode path if possible.
     """
@@ -87,6 +89,7 @@ def _stringify_path(path):
 
 
 def product(seq):
+    # type: (Iterable[int]) -> int
     """
     Return a product of sequence items.
     """
@@ -94,6 +97,7 @@ def product(seq):
 
 
 def get_contiguous_span(shape, strides, itemsize):
+    # type: (Tuple[int], Optional[Sequence[int]], int) -> Tuple[int, int]
     """
     Return a contiguous span of N-D array data.
 

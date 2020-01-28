@@ -57,10 +57,10 @@ def make_random_csv(num_cols=2, num_rows=10, linesep=u'\r\n'):
     for row in arr.T:
         csv.write(u",".join(map(str, row)))
         csv.write(linesep)
-    csv = csv.getvalue().encode()
+    csv_bytes = csv.getvalue().encode()
     columns = [pa.array(a, type=pa.int64()) for a in arr]
     expected = pa.Table.from_arrays(columns, col_names)
-    return csv, expected
+    return csv_bytes, expected
 
 
 def make_empty_csv(column_names):
@@ -179,6 +179,9 @@ def test_convert_options():
 
 
 class BaseTestCSVRead:
+
+    def read_csv(self, *args, **kwargs):
+        raise NotImplementedError()
 
     def read_bytes(self, b, **kwargs):
         return self.read_csv(pa.py_buffer(b), **kwargs)
@@ -770,6 +773,10 @@ class TestParallelCSVRead(BaseTestCSVRead, unittest.TestCase):
 
 class BaseTestCompressedCSVRead:
 
+    def write_file(self, path, contents):
+        # type: (str, bytes) -> None
+        raise NotImplementedError()
+
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix='arrow-csv-test-')
 
@@ -784,7 +791,8 @@ class BaseTestCompressedCSVRead:
 
     def test_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=100)
-        csv_path = os.path.join(self.tmpdir, self.csv_filename)
+        # csv_filename needs to be a type-only declaration, add this when we drop Py2
+        csv_path = os.path.join(self.tmpdir, self.csv_filename)  # type: ignore
         self.write_file(csv_path, csv)
         table = self.read_csv(csv_path)
         table.validate(full=True)

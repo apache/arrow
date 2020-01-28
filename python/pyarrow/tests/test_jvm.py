@@ -36,11 +36,14 @@ def root_allocator():
         os.path.dirname(__file__), '..', '..', '..',
         'java', 'pom.xml')
     tree = ET.parse(pom_path)
-    version = tree.getroot().find(
+    version_field = tree.getroot().find(
         'POM:version',
         namespaces={
             'POM': 'http://maven.apache.org/POM/4.0.0'
-        }).text
+        })
+    if version_field is None:
+        raise ValueError("Couldn't detect the arrow version from the pom.xml")
+    version = version_field.text
     jar_path = os.path.join(
         os.path.dirname(__file__), '..', '..', '..',
         'java', 'tools', 'target',

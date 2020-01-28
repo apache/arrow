@@ -38,13 +38,13 @@ except ImportError:
     torch = None
     # Blacklist the module in case `import torch` is costly before
     # failing (ARROW-2071)
-    sys.modules['torch'] = None
+    sys.modules['torch'] = None  # type: ignore
 
 try:
     from scipy.sparse import csr_matrix, coo_matrix
 except ImportError:
-    coo_matrix = None
-    csr_matrix = None
+    coo_matrix = None  # type: ignore
+    csr_matrix = None  # type: ignore
 
 try:
     import sparse
@@ -752,24 +752,24 @@ def test_arrow_limits(self):
         # Test that objects that are too large for Arrow throw a Python
         # exception. These tests give out of memory errors on Travis and need
         # to be run on a machine with lots of RAM.
-        x = 2 ** 29 * [1.0]
-        serialization_roundtrip(x, mmap)
-        del x
-        x = 2 ** 29 * ["s"]
-        serialization_roundtrip(x, mmap)
-        del x
-        x = 2 ** 29 * [["1"], 2, 3, [{"s": 4}]]
-        serialization_roundtrip(x, mmap)
-        del x
-        x = 2 ** 29 * [{"s": 1}] + 2 ** 29 * [1.0]
-        serialization_roundtrip(x, mmap)
-        del x
-        x = np.zeros(2 ** 25)
-        serialization_roundtrip(x, mmap)
-        del x
-        x = [np.zeros(2 ** 18) for _ in range(2 ** 7)]
-        serialization_roundtrip(x, mmap)
-        del x
+        x1 = 2 ** 29 * [1.0]
+        serialization_roundtrip(x1, mmap)
+        del x1
+        x2 = 2 ** 29 * ["s"]
+        serialization_roundtrip(x2, mmap)
+        del x2
+        x3 = 2 ** 29 * [["1"], 2, 3, [{"s": 4}]]
+        serialization_roundtrip(x3, mmap)
+        del x3
+        x4 = 2 ** 29 * [{"s": 1}] + 2 ** 29 * [1.0]  # type: ignore
+        serialization_roundtrip(x4, mmap)
+        del x4
+        x5 = np.zeros(2 ** 25)
+        serialization_roundtrip(x5, mmap)
+        del x5
+        x6 = [np.zeros(2 ** 18) for _ in range(2 ** 7)]
+        serialization_roundtrip(x6, mmap)
+        del x6
 
 
 def test_serialization_callback_error():
@@ -949,7 +949,7 @@ def test_deserialize_in_different_process():
     serialized = pa.serialize(regex, serialization_context)
     serialized_bytes = serialized.to_buffer().to_pybytes()
 
-    q = Queue()
+    q = Queue()  # type: ignore
     p = Process(target=deserialize_regex, args=(serialized_bytes, q))
     p.start()
     assert q.get().pattern == regex.pattern
@@ -1057,22 +1057,22 @@ def test_serialize_recursive_objects():
         pass
 
     # Make a list that contains itself.
-    lst = []
+    lst = []  # type: ignore
     lst.append(lst)
 
     # Make an object that contains itself as a field.
-    a1 = ClassA()
-    a1.field = a1
+    a1 = ClassA()  # type: ignore
+    a1.field = a1  # type: ignore
 
     # Make two objects that contain each other as fields.
     a2 = ClassA()
     a3 = ClassA()
-    a2.field = a3
-    a3.field = a2
+    a2.field = a3  # type: ignore
+    a3.field = a2  # type: ignore
 
     # Make a dictionary that contains itself.
-    d1 = {}
-    d1["key"] = d1
+    d1 = {}  # type: ignore
+    d1["key"] = d1  # type: ignore
 
     # Make a numpy array that contains itself.
     arr = np.array([None], dtype=object)

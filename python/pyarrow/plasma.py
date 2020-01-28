@@ -38,10 +38,11 @@ from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
 # the function build_plasma_tensorflow_op can be used to compile it.
 
 
-TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], "tensorflow", "plasma_op.so")
+TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], "tensorflow", "plasma_op.so")  # type: ignore
 
 
-tf_plasma_op = None
+# TODO(ARROW-XXXX): Refactor to use module-level fixture
+tf_plasma_op = None  # type: ignore
 
 
 def load_plasma_tensorflow_op():
@@ -106,7 +107,7 @@ def start_plasma_store(plasma_store_memory,
     try:
         plasma_store_name = os.path.join(tmpdir, 'plasma.sock')
         plasma_store_executable = os.path.join(
-            pa.__path__[0], "plasma-store-server")
+            pa.__path__[0], "plasma-store-server")  # type: ignore
         command = [plasma_store_executable,
                    "-s", plasma_store_name,
                    "-m", str(plasma_store_memory)]

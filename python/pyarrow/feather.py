@@ -184,7 +184,7 @@ def write_feather(df, dest):
     except Exception:
         # Try to make sure the resource is closed
         import gc
-        writer = None
+        writer = None  # type: ignore
         gc.collect()
         if isinstance(dest, six.string_types):
             try:

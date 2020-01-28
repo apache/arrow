@@ -23,6 +23,7 @@ import operator
 import re
 import warnings
 from copy import deepcopy
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -34,7 +35,7 @@ from pyarrow.compat import (builtin_pickle,  # noqa
                             PY2, zip_longest, Sequence, u_utf8)
 
 
-_logical_type_map = {}
+_logical_type_map = {}  # type: Dict[Any, str]
 
 
 def get_logical_type_map():
@@ -117,6 +118,7 @@ def get_logical_type_from_numpy(pandas_collection):
 
 
 def get_extension_dtype_info(column):
+    # type: (Any) -> Tuple[str, Optional[Dict[str, Any]]]
     dtype = column.dtype
     if str(dtype) == 'category':
         cats = getattr(column, 'cat', column)
@@ -124,7 +126,7 @@ def get_extension_dtype_info(column):
         metadata = {
             'num_categories': len(cats.categories),
             'ordered': cats.ordered,
-        }
+        }  # type: Optional[Dict[str, Any]]
         physical_dtype = str(cats.codes.dtype)
     elif hasattr(dtype, 'tz'):
         metadata = {'timezone': pa.lib.tzinfo_to_string(dtype.tz)}
@@ -347,7 +349,7 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     )
 
     columns_to_convert = []
-    convert_fields = []
+    convert_fields = []  # type: List[Optional[Any]]
 
     for name in columns:
         col = df[name]
@@ -791,7 +793,7 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
     and then we can check if this dtype supports conversion from arrow.
 
     """
-    ext_columns = {}
+    ext_columns = {}  # type: Dict[str, Any]
 
     # older pandas version that does not yet support extension dtypes
     if _pandas_api.extension_dtype is None:

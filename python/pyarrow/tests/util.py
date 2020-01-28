@@ -25,11 +25,13 @@ import numpy as np
 import os
 import random
 import string
+from typing import Any, Dict, Iterator
 
 import pyarrow as pa
 
 
 def randsign():
+    # type: () -> int
     """Randomly choose either 1 or -1.
 
     Returns
@@ -41,6 +43,7 @@ def randsign():
 
 @contextlib.contextmanager
 def random_seed(seed):
+    # type: (int) -> Iterator[Any]
     """Set the random seed inside of a context manager.
 
     Parameters
@@ -62,6 +65,7 @@ def random_seed(seed):
 
 
 def randdecimal(precision, scale):
+    # type: (int, int) -> decimal.Decimal
     """Generate a random decimal value with specified precision and scale.
 
     Parameters
@@ -99,10 +103,12 @@ def randdecimal(precision, scale):
 
 
 def random_ascii(length):
+    # type: (int) -> bytes
     return bytes(np.random.randint(65, 123, size=length, dtype='i1'))
 
 
 def rands(nchars):
+    # type: (int) -> str
     """
     Generate one random string.
     """
@@ -123,6 +129,7 @@ def make_dataframe():
 
 
 def get_modified_env_with_pythonpath():
+    # type: () -> Dict[str, str]
     # Prepend pyarrow root directory to PYTHONPATH
     env = os.environ.copy()
     existing_pythonpath = env.get('PYTHONPATH', '')

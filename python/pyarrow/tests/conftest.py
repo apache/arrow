@@ -25,7 +25,7 @@ import hypothesis as h
 try:
     import pathlib
 except ImportError:
-    import pathlib2 as pathlib  # py2 compat
+    import pathlib2 as pathlib  # type: ignore
 
 from pyarrow.util import find_free_port
 
@@ -231,7 +231,7 @@ try:
 except ImportError:
     import shutil
 
-    class TemporaryDirectory(object):
+    class TemporaryDirectory(object):  # type: ignore
         """Temporary directory implementation for python 2"""
 
         def __enter__(self):
