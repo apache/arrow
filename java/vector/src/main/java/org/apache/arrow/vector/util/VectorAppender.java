@@ -27,6 +27,7 @@ import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.TypeEqualsVisitor;
 import org.apache.arrow.vector.compare.VectorVisitor;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
@@ -309,6 +310,11 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     targetVector.setValueCount(newValueCount);
     return targetVector;
+  }
+
+  @Override
+  public ValueVector visit(DenseUnionVector left, Void value) {
+    throw new UnsupportedOperationException();
   }
 
   @Override
