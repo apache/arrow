@@ -43,10 +43,16 @@ class PrepareTest < Test::Unit::TestCase
   end
 
   def prepare(*targets)
+    if targets.last.is_a?(Hash)
+      additional_env = targets.pop
+    else
+      additional_env = {}
+    end
     env = {"PREPARE_DEFAULT" => "0"}
     targets.each do |target|
       env["PREPARE_#{target}"] = "1"
     end
+    env = env.merge(additional_env)
     sh(env, @script, @release_version, @next_version)
   end
 
@@ -70,6 +76,59 @@ class PrepareTest < Test::Unit::TestCase
     diffs.sort_by do |diff|
       diff[:path]
     end
+  end
+
+  def test_linux_packages
+    user = "Arrow Developers"
+    email = "dev@arrow.apache.org"
+    prepare("LINUX_PACKAGES",
+            "DEBFULLNAME" => user,
+            "DEBEMAIL" => email)
+    changes = parse_patch(git("log", "-n", "1", "-p"))
+    sampled_changes = changes.collect do |change|
+      {
+        path: change[:path],
+        sampled_hunks: change[:hunks].collect(&:first),
+        # sampled_hunks: change[:hunks],
+      }
+    end
+    base_dir = "dev/tasks/linux-packages"
+    today = Time.now.utc.strftime("%a %b %d %Y")
+    expected_changes = [
+      {
+        path: "#{base_dir}/apache-arrow-archive-keyring/debian/changelog",
+        sampled_hunks: [
+          "+apache-arrow-archive-keyring (#{@release_version}-1) " +
+          "unstable; urgency=low",
+        ],
+      },
+      {
+        path:
+          "#{base_dir}/apache-arrow-release/yum/apache-arrow-release.spec.in",
+        sampled_hunks: [
+          "+* #{today} #{user} <#{email}> - #{@release_version}-1",
+        ],
+      },
+      {
+        path: "#{base_dir}/apache-arrow/debian.ubuntu-xenial/changelog",
+        sampled_hunks: [
+          "+apache-arrow (#{@release_version}-1) unstable; urgency=low",
+        ],
+      },
+      {
+        path: "#{base_dir}/apache-arrow/debian/changelog",
+        sampled_hunks: [
+          "+apache-arrow (#{@release_version}-1) unstable; urgency=low",
+        ],
+      },
+      {
+        path: "#{base_dir}/apache-arrow/yum/arrow.spec.in",
+        sampled_hunks: [
+          "+* #{today} #{user} <#{email}> - #{@release_version}-1",
+        ],
+      },
+    ]
+    assert_equal(expected_changes, sampled_changes)
   end
 
   def test_version_pre_tag
