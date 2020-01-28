@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -30,6 +31,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -998,6 +1000,27 @@ Status MakeDictExtension(std::shared_ptr<RecordBatch>* out) {
 
   *out = RecordBatch::Make(schema, a1->length(), {a0, a1});
   return Status::OK();
+}
+
+Status MakeTensor(const std::shared_ptr<DataType>& type,
+                  const std::vector<int64_t>& shape, bool row_major_p,
+                  std::shared_ptr<Tensor>* out) {
+  const auto& element_type = internal::checked_cast<const FixedWidthType&>(*type);
+  std::vector<int64_t> strides;
+  if (row_major_p) {
+    internal::ComputeRowMajorStrides(element_type, shape, &strides);
+  } else {
+    internal::ComputeColumnMajorStrides(element_type, shape, &strides);
+  }
+
+  const int64_t element_size = element_type.bit_width() / CHAR_BIT;
+  const int64_t len =
+      std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>());
+
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> data,
+                        AllocateBuffer(element_size * len));
+
+  return Tensor::Make(type, data, shape, strides).Value(out);
 }
 
 }  // namespace test

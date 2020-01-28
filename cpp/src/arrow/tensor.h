@@ -60,6 +60,11 @@ void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_
                             std::vector<int64_t>* strides);
 
 ARROW_EXPORT
+void ComputeColumnMajorStrides(const FixedWidthType& type,
+                               const std::vector<int64_t>& shape,
+                               std::vector<int64_t>* strides);
+
+ARROW_EXPORT
 bool IsTensorStridesContiguous(const std::shared_ptr<DataType>& type,
                                const std::vector<int64_t>& shape,
                                const std::vector<int64_t>& strides);

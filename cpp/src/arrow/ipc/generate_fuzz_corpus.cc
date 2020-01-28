@@ -39,9 +39,14 @@
 namespace arrow {
 namespace ipc {
 
-using ::arrow::internal::CreateDir;
 using ::arrow::internal::PlatformFilename;
 using internal::json::ArrayFromJSON;
+
+Result<PlatformFilename> PrepareDirectory(const std::string& dir) {
+  ARROW_ASSIGN_OR_RAISE(auto dir_fn, PlatformFilename::FromString(dir));
+  RETURN_NOT_OK(::arrow::internal::CreateDir(dir_fn));
+  return std::move(dir_fn);
+}
 
 Result<std::shared_ptr<RecordBatch>> MakeExtensionBatch() {
   auto array = ExampleUuid();
@@ -94,24 +99,29 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
   return batches;
 }
 
-Result<std::shared_ptr<Buffer>> SerializeRecordBatch(
-    const std::shared_ptr<RecordBatch>& batch, bool is_stream_format) {
+Result<std::shared_ptr<Buffer>> MakeSerializedBuffer(
+    std::function<Status(const std::shared_ptr<io::BufferOutputStream>&)> fn) {
   ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create(1024));
-  std::shared_ptr<RecordBatchWriter> writer;
-  if (is_stream_format) {
-    ARROW_ASSIGN_OR_RAISE(writer, MakeStreamWriter(sink, batch->schema()));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(writer, MakeFileWriter(sink, batch->schema()));
-  }
-  RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-  RETURN_NOT_OK(writer->Close());
+  RETURN_NOT_OK(fn(sink));
   return sink->Finish();
 }
 
-Status DoMain(bool is_stream_format, const std::string& out_dir) {
-  ARROW_ASSIGN_OR_RAISE(auto dir_fn, PlatformFilename::FromString(out_dir));
-  RETURN_NOT_OK(CreateDir(dir_fn));
+Result<std::shared_ptr<Buffer>> SerializeRecordBatch(
+    const std::shared_ptr<RecordBatch>& batch, bool is_stream_format) {
+  return MakeSerializedBuffer(
+      [&](const std::shared_ptr<io::BufferOutputStream>& sink) {
+        std::shared_ptr<RecordBatchWriter> writer;
+        if (is_stream_format) {
+          ARROW_ASSIGN_OR_RAISE(writer, MakeStreamWriter(sink, batch->schema()));
+        } else {
+          ARROW_ASSIGN_OR_RAISE(writer, MakeFileWriter(sink, batch->schema()));
+        }
+        RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+        return writer->Close();
+      });
+}
 
+Status GenerateRecordBatches(bool is_stream_format, const PlatformFilename& dir_fn) {
   int sample_num = 1;
   auto sample_name = [&]() -> std::string {
     return "batch-" + std::to_string(sample_num++);
@@ -131,23 +141,98 @@ Status DoMain(bool is_stream_format, const std::string& out_dir) {
   return Status::OK();
 }
 
+Result<std::shared_ptr<Buffer>> SerializeTensor(
+    const std::shared_ptr<Tensor>& tensor, bool is_stream_format) {
+  return MakeSerializedBuffer(
+      [&](const std::shared_ptr<io::BufferOutputStream>& sink) -> Status {
+        int32_t metadata_length;
+        int64_t body_length;
+        // TODO(mrkn): FileWriter for tensors
+        return ipc::WriteTensor(*tensor, sink.get(), &metadata_length, &body_length);
+      });
+}
+
+Result<std::vector<std::shared_ptr<Tensor>>> Tensors() {
+  std::vector<std::shared_ptr<Tensor>> tensors;
+  std::shared_ptr<Tensor> tensor;
+  std::vector<int64_t> shape = {5, 3, 7};
+  std::shared_ptr<DataType> types[] = {int8(),  int16(),  int32(),  int64(),
+                                       uint8(), uint16(), uint32(), uint64()};
+  for (auto type : types) {
+    RETURN_NOT_OK(test::MakeTensor(type, shape, true, &tensor));
+    tensors.push_back(tensor);
+    RETURN_NOT_OK(test::MakeTensor(type, shape, false, &tensor));
+    tensors.push_back(tensor);
+  }
+  return tensors;
+}
+
+Status GenerateTensors(bool is_stream_format, const PlatformFilename& dir_fn) {
+  if (!is_stream_format) {
+    return Status::NotImplemented("Tensor now does not support serialization to a file");
+  }
+
+  int sample_num = 1;
+  auto sample_name = [&]() -> std::string {
+    return "tensor-" + std::to_string(sample_num++);
+  };
+
+  ARROW_ASSIGN_OR_RAISE(auto tensors, Tensors());
+
+  for (const auto& tensor : tensors) {
+    ARROW_ASSIGN_OR_RAISE(auto buf, SerializeTensor(tensor, is_stream_format));
+    ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
+    std::cerr << sample_fn.ToString() << std::endl;
+    ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(sample_fn.ToString()));
+    RETURN_NOT_OK(file->Write(buf));
+    RETURN_NOT_OK(file->Close());
+  }
+  return Status::OK();
+}
+
+Status DoMain(bool is_stream_format, const std::string& type,
+              const std::string& out_dir) {
+  ARROW_ASSIGN_OR_RAISE(auto dir_fn, PrepareDirectory(out_dir));
+
+  if (type == "record_batch") {
+    return GenerateRecordBatches(is_stream_format, dir_fn);
+  } else if (type == "tensor") {
+    return GenerateTensors(is_stream_format, dir_fn);
+  }
+
+  return Status::Invalid("Unknown type: " + type);
+}
+
 ARROW_NORETURN void Usage() {
   std::cerr << "Usage: arrow-ipc-generate-fuzz-corpus "
-            << "[-stream|-file] <output directory>" << std::endl;
+            << "[-stream|-file] [record_batch|tensor] "
+            << "<output directory>" << std::endl;
   std::exit(2);
 }
 
 int Main(int argc, char** argv) {
-  if (argc != 3) {
+  if (argc != 4) {
     Usage();
   }
+
   auto opt = std::string(argv[1]);
   if (opt != "-stream" && opt != "-file") {
     Usage();
   }
-  auto out_dir = std::string(argv[2]);
 
-  Status st = DoMain(opt == "-stream", out_dir);
+  auto type = std::string(argv[2]);
+  if (type != "record_batch" && type != "tensor") {
+    Usage();
+  }
+
+  if (opt == "-file" && type == "tensor") {
+    std::cerr << "file output for " << type << " is currently unsupported" << std::endl;
+    Usage();
+  }
+
+  auto out_dir = std::string(argv[3]);
+
+  Status st = DoMain(opt == "-stream", type, out_dir);
   if (!st.ok()) {
     std::cerr << st.ToString() << std::endl;
     return 1;
