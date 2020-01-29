@@ -266,13 +266,8 @@ fn write_padded_data<R: Write>(
     Ok(total_len as usize)
 }
 
-/// Write a record batch to the writer, writing the message size before the message
-/// if the record batch is being written to a stream
-fn write_record_batch<R: Write>(
-    writer: &mut BufWriter<R>,
-    batch: &RecordBatch,
-    is_stream: bool,
-) -> Result<(usize, usize)> {
+/// Write a `RecordBatch` into a tuple of bytes, one for the header (ipc::Message) and the other for the batch's data
+pub(crate) fn record_batch_to_bytes(batch: &RecordBatch) -> (Vec<u8>, Vec<u8>) {
     let mut fbb = FlatBufferBuilder::new();
 
     let mut nodes: Vec<ipc::FieldNode> = vec![];
@@ -313,13 +308,24 @@ fn write_record_batch<R: Write>(
     let root = message.finish();
     fbb.finish(root, None);
     let finished_data = fbb.finished_data();
+
+    (finished_data.to_vec(), arrow_data)
+}
+
+/// Write a record batch to the writer, writing the message size before the message
+/// if the record batch is being written to a stream
+fn write_record_batch<R: Write>(
+    writer: &mut BufWriter<R>,
+    batch: &RecordBatch,
+    is_stream: bool,
+) -> Result<(usize, usize)> {
+    let (meta_data, arrow_data) = record_batch_to_bytes(batch);
     // write the length of data if writing to stream
     if is_stream {
-        let total_len: u32 = finished_data.len() as u32;
+        let total_len: u32 = meta_data.len() as u32;
         writer.write(&total_len.to_le_bytes()[..])?;
     }
-    let meta_written =
-        write_padded_data(writer, fbb.finished_data(), WriteDataType::Body)?;
+    let meta_written = write_padded_data(writer, &meta_data[..], WriteDataType::Body)?;
     let arrow_data_written =
         write_padded_data(writer, &arrow_data[..], WriteDataType::Body)?;
     Ok((meta_written, arrow_data_written))

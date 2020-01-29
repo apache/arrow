@@ -50,10 +50,12 @@ packed_simd = { version = "0.3.1", optional = true }
 chrono = "0.4"
 flatbuffers = "0.6.0"
 hex = "0.4"
+arrow-flight = { path = "../arrow-flight", optional = true }
 
 [features]
 simd = ["packed_simd"]
-default = ["simd"]
+flight = ["arrow-flight"]
+default = ["simd", "flight"]
 
 [dev-dependencies]
 criterion = "0.2"

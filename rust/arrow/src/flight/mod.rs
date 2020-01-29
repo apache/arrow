@@ -15,29 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! A native Rust implementation of [Apache Arrow](https://arrow.apache.org), a cross-language
-//! development platform for in-memory data.
-//!
-//! Currently the project is developed and tested against nightly Rust. To learn more
-//! about the status of Arrow in Rust, see `README.md`.
+//! Utilities to assist with reading and writing Arrow data as Flight messages
 
-#![feature(specialization)]
-#![allow(dead_code)]
-#![allow(non_camel_case_types)]
-#![allow(bare_trait_objects)]
+use flight::FlightData;
 
-pub mod array;
-pub mod bitmap;
-pub mod buffer;
-pub mod compute;
-pub mod csv;
-pub mod datatypes;
-pub mod error;
-#[cfg(feature = "flight")]
-pub mod flight;
-pub mod ipc;
-pub mod json;
-pub mod memory;
-pub mod record_batch;
-pub mod tensor;
-pub mod util;
+use crate::ipc::writer;
+use crate::record_batch::RecordBatch;
+
+/// Convert a `RecordBatch` to `FlightData by getting the header and body as bytes
+impl From<&RecordBatch> for FlightData {
+    fn from(batch: &RecordBatch) -> Self {
+        let (header, body) = writer::record_batch_to_bytes(batch);
+        Self {
+            flight_descriptor: None,
+            app_metadata: vec![],
+            data_header: header,
+            data_body: body,
+        }
+    }
+}
+
+// TODO: add more explicit conversion that expoess flight descriptor and metadata options

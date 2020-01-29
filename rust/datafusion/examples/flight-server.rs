@@ -6,7 +6,6 @@ use tonic::{Request, Response, Status, Streaming};
 
 use datafusion::execution::context::ExecutionContext;
 
-use arrow::record_batch::RecordBatch;
 use flight::{
     flight_service_server::FlightService, flight_service_server::FlightServiceServer,
     Action, ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
@@ -62,14 +61,16 @@ impl FlightService for FlightServiceImpl {
                 // execute the query
                 let results = ctx.collect(plan.as_ref()).map_err(|e| to_tonic_err(&e))?;
 
-                let flights: Vec<Result<FlightData, Status>> =
-                    results.iter().map(|batch| to_flight_data(batch)).collect();
+                let flights: Vec<Result<FlightData, Status>> = results
+                    .iter()
+                    .map(|batch| Ok(FlightData::from(batch)))
+                    .collect();
 
                 let output = futures::stream::iter(flights);
 
                 Ok(Response::new(Box::pin(output) as Self::DoGetStream))
             }
-            Err(e) => Err(Status::unimplemented(format!("Invalid ticket: {:?}", e))),
+            Err(e) => Err(Status::invalid_argument(format!("Invalid ticket: {:?}", e))),
         }
     }
 
@@ -123,25 +124,8 @@ impl FlightService for FlightServiceImpl {
     }
 }
 
-fn to_flight_data(_batch: &RecordBatch) -> Result<FlightData, Status> {
-    //TODO implement .. need help on how to encode the batches using IPC here
-
-    Ok(FlightData {
-        flight_descriptor: None,
-        app_metadata: vec![],
-        /// Header for message data as described in Message.fbs::Message
-        data_header: vec![],
-        /// The actual batch of Arrow data. Preferably handled with minimal-copies
-        /// coming last in the definition to help with sidecar patterns (it is
-        /// expected that some implementations will fetch this field off the wire
-        /// with specialized code to avoid extra memory copies).
-        ///
-        data_body: vec![],
-    })
-}
-
 fn to_tonic_err(e: &datafusion::error::ExecutionError) -> Status {
-    Status::unimplemented(format!("{:?}", e))
+    Status::internal(format!("{:?}", e))
 }
 
 #[tokio::main]
