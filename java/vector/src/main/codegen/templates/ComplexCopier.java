@@ -16,6 +16,7 @@
  */
 
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
+import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 
 <@pp.dropOutputFile />
@@ -49,12 +50,32 @@ public class ComplexCopier {
       switch (mt) {
 
       case LIST:
-      case MAP:
       case FIXED_SIZE_LIST:
         if (reader.isSet()) {
           writer.startList();
           while (reader.next()) {
             writeValue(reader.reader(), getListWriterForReader(reader.reader(), writer));
+          }
+          writer.endList();
+        }
+        break;
+      case MAP:
+        if (reader.isSet()) {
+          writer.startList();
+          while (reader.next()) {
+            FieldReader structReader = reader.reader();
+            UnionMapWriter structWriter = (UnionMapWriter) getListWriterForReader(reader.reader(), writer);
+            if (structReader.isSet()) {
+              structWriter.start();
+              for(String name : structReader){
+                FieldReader childReader = structReader.reader(name);
+                structWriter.writer.setAddVectorAsNullable(childReader.getField().isNullable());
+                if(childReader.isSet()){
+                  writeValue(childReader, getStructWriterForReader(childReader, structWriter, name));
+                }
+              }
+              structWriter.end();
+            }
           }
           writer.endList();
         }
