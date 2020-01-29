@@ -98,14 +98,34 @@ impl Debug for BufferData {
 
 impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
-    /// buffer will free this piece of memory when dropped.
-    pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
+    /// `Buffer` will free this piece of memory when dropped.
+    ///
+    /// # Arguments
+    ///
+    /// * `ptr` - Pointer to raw parts
+    /// * `len` - Length of raw parts in **bytes**
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
+    /// bytes.
+    pub unsafe fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
         Buffer::build_with_arguments(ptr, len, true)
     }
 
     /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
-    /// buffers doesn't free this piece of memory when dropped.
-    pub fn from_unowned(ptr: *const u8, len: usize) -> Self {
+    /// `Buffer` **does not** free this piece of memory when dropped.
+    ///
+    /// # Arguments
+    ///
+    /// * `ptr` - Pointer to raw parts
+    /// * `len` - Length of raw parts in **bytes**
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
+    /// bytes.
+    pub unsafe fn from_unowned(ptr: *const u8, len: usize) -> Self {
         Buffer::build_with_arguments(ptr, len, false)
     }
 
@@ -113,11 +133,16 @@ impl Buffer {
     ///
     /// # Arguments
     ///
-    /// * `ptr` - Pointer to raw parts.
+    /// * `ptr` - Pointer to raw parts
     /// * `len` - Length of raw parts in bytes
-    /// * `owned` - Whether the raw parts is owned by this buffer. If true, this buffer will free
-    /// this memory when dropped, otherwise it will skip freeing the raw parts.
-    fn build_with_arguments(ptr: *const u8, len: usize, owned: bool) -> Self {
+    /// * `owned` - Whether the raw parts is owned by this `Buffer`. If true, this `Buffer` will
+    /// free this memory when dropped, otherwise it will skip freeing the raw parts.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
+    /// bytes.
+    unsafe fn build_with_arguments(ptr: *const u8, len: usize, owned: bool) -> Self {
         assert!(
             memory::is_aligned(ptr, memory::ALIGNMENT),
             "memory not aligned"
@@ -178,7 +203,7 @@ impl Buffer {
 
     /// Returns an empty buffer.
     pub fn empty() -> Self {
-        Self::from_raw_parts(::std::ptr::null(), 0)
+        unsafe { Self::from_raw_parts(::std::ptr::null(), 0) }
     }
 }
 
@@ -202,8 +227,8 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         let buffer = memory::allocate_aligned(capacity);
         unsafe {
             memory::memcpy(buffer, slice.as_ptr(), len);
+            Buffer::from_raw_parts(buffer, len)
         }
-        Buffer::from_raw_parts(buffer, len)
     }
 }
 
@@ -552,7 +577,7 @@ mod tests {
 
     #[test]
     fn test_from_raw_parts() {
-        let buf = Buffer::from_raw_parts(null_mut(), 0);
+        let buf = unsafe { Buffer::from_raw_parts(null_mut(), 0) };
         assert_eq!(0, buf.len());
         assert_eq!(0, buf.data().len());
         assert!(buf.raw_data().is_null());
