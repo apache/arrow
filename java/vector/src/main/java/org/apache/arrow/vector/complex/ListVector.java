@@ -735,7 +735,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   @Override
   public boolean isEmpty(int index) {
     if (isNull(index)) {
-      return false;
+      return true;
     } else {
       final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
       final int end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);

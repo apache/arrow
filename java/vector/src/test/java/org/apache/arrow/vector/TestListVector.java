@@ -965,7 +965,7 @@ public class TestListVector {
       writer.setValueCount(4);
 
       assertTrue(vector.isNull(1));
-      assertFalse(vector.isEmpty(1));
+      assertTrue(vector.isEmpty(1));
 
       assertFalse(vector.isNull(2));
       assertTrue(vector.isEmpty(2));
