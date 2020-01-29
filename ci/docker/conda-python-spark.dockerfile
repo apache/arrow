@@ -34,7 +34,7 @@ RUN conda install -q \
 # installing specific version of spark
 ARG spark=master
 COPY ci/scripts/install_spark.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark /arrow/ci/etc
+RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark
 
 # build cpp with tests
 ENV CC=gcc \
