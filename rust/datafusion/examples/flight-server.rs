@@ -61,8 +61,15 @@ impl FlightService for FlightServiceImpl {
                 // create local execution context
                 let mut ctx = ExecutionContext::new();
 
-                ctx.register_parquet("alltypes_plain", "alltypes_plain.snappy.parquet")
-                    .unwrap();
+                let testdata = std::env::var("PARQUET_TEST_DATA")
+                    .expect("PARQUET_TEST_DATA not defined");
+
+                // register parquet file with the execution context
+                ctx.register_parquet(
+                    "alltypes_plain",
+                    &format!("{}/alltypes_plain.parquet", testdata),
+                )
+                .map_err(|e| to_tonic_err(&e))?;
 
                 // create the query plan
                 let plan = ctx
