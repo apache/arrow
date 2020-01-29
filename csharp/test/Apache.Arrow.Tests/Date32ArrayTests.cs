@@ -28,7 +28,13 @@ namespace Apache.Arrow.Tests
                 var now = DateTimeOffset.UtcNow;
 
                 // throw away the time portion of the date time
-                var expected = new DateTime(now.Year, now.Month, now.Day);
+                var expected = new DateTime(now.Year,
+					    now.Month,
+					    now.Day,
+					    0,
+					    0,
+					    0,
+					    DateTimeKind.Utc);
 
                 var array = new Date32Array.Builder()
                     .Resize(1)
