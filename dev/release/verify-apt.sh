@@ -49,8 +49,8 @@ if [ "${IS_RC}" = "yes" ]; then
 fi
 
 have_flight=yes
-have_python=yes
 have_gandiva=yes
+have_plasma=yes
 need_llvm_apt=no
 case "${distribution}-${code_name}-$(arch)" in
   debian-stretch-*)
@@ -76,6 +76,10 @@ APT_LINE
   ubuntu-xenial-aarch64)
     have_flight=no
     have_gandiva=no
+    have_plasma=no
+    ;;
+  ubuntu-bionic-aarch64)
+    have_plasma=no
     ;;
 esac
 
@@ -114,13 +118,13 @@ if [ "${have_flight}" = "yes" ]; then
   apt install -y -V libarrow-flight-dev=${deb_version}
 fi
 
-if [ "${have_python}" = "yes" ]; then
-  apt install -y -V libarrow-python-dev=${deb_version}
-fi
+apt install -y -V libarrow-python-dev=${deb_version}
 
-apt install -y -V libplasma-glib-dev=${deb_version}
-apt install -y -V libplasma-glib-doc=${deb_version}
-apt install -y -V plasma-store-server=${deb_version}
+if [ "${have_plasma}" = "yes" ]; then
+  apt install -y -V libplasma-glib-dev=${deb_version}
+  apt install -y -V libplasma-glib-doc=${deb_version}
+  apt install -y -V plasma-store-server=${deb_version}
+fi
 
 if [ "${have_gandiva}" = "yes" ]; then
   apt install -y -V libgandiva-glib-dev=${deb_version}
