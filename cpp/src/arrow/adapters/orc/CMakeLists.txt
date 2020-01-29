@@ -52,3 +52,10 @@ add_arrow_test(adapter_test
                "arrow-orc"
                STATIC_LINK_LIBS
                ${ORC_STATIC_TEST_LINK_LIBS})
+
+set_source_files_properties(adapter_test.cc
+                            PROPERTIES
+                            SKIP_PRECOMPILE_HEADERS
+                            ON
+                            SKIP_UNITY_BUILD_INCLUSION
+                            ON)

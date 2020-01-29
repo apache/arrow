@@ -34,24 +34,6 @@ namespace json {
 
 using util::string_view;
 
-static std::string scalars_only_src() {
-  return R"(
-    { "hello": 3.5, "world": false, "yo": "thing" }
-    { "hello": 3.25, "world": null }
-    { "hello": 3.125, "world": null, "yo": "\u5fcd" }
-    { "hello": 0.0, "world": true, "yo": null }
-  )";
-}
-
-static std::string nested_src() {
-  return R"(
-    { "hello": 3.5, "world": false, "yo": "thing", "arr": [1, 2, 3], "nuf": {} }
-    { "hello": 3.25, "world": null, "arr": [2], "nuf": null }
-    { "hello": 3.125, "world": null, "yo": "\u5fcd", "arr": [], "nuf": { "ps": 78 } }
-    { "hello": 0.0, "world": true, "yo": null, "arr": null, "nuf": { "ps": 90 } }
-  )";
-}
-
 void AssertUnconvertedStructArraysEqual(const StructArray& expected,
                                         const StructArray& actual);
 

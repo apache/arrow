@@ -69,12 +69,12 @@ environment:
       ARROW_S3: "ON"
       ARROW_BUILD_FLIGHT: "ON"
       ARROW_BUILD_GANDIVA: "ON"
-    # NOTE: Since ARROW-5403 we have disabled the static CRT build
-    # - JOB: "Static_Crt_Build"
-    #   GENERATOR: Ninja
     - JOB: "Build_Debug"
       GENERATOR: Ninja
       CONFIGURATION: "Debug"
+    # NOTE: Since ARROW-5403 we have disabled the static CRT build
+    # - JOB: "Static_Crt_Build"
+    #   GENERATOR: Ninja
     - JOB: "MinGW32"
       MINGW_ARCH: i686
       MINGW_PACKAGE_PREFIX: mingw-w64-i686

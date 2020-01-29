@@ -113,6 +113,8 @@ add_arrow_lib(gandiva
               gandiva
               SOURCES
               ${SRC_FILES}
+              PRECOMPILED_HEADERS
+              "$<$<COMPILE_LANGUAGE:CXX>:gandiva/pch.h>"
               OUTPUTS
               GANDIVA_LIBRARIES
               DEPENDENCIES

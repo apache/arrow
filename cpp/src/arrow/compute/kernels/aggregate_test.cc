@@ -167,8 +167,8 @@ class TestRandomNumericSumKernel : public ComputeFixture, public TestBase {};
 TYPED_TEST_CASE(TestRandomNumericSumKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericSumKernel, RandomArraySum) {
   auto rand = random::RandomArrayGenerator(0x5487655);
-  for (size_t i = 3; i < 14; i++) {
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+  for (size_t i = 3; i < 14; i += 2) {
+    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
         auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
@@ -189,7 +189,7 @@ TYPED_TEST(TestRandomNumericSumKernel, RandomSliceArraySum) {
 
   // Trigger ConsumeSparse with different slice offsets.
   auto rand = random::RandomArrayGenerator(0xfa432643);
-  const int64_t length = 1U << 6;
+  const int64_t length = 1U << 5;
   auto array = rand.Numeric<TypeParam>(length, 0, 10, 0.5);
   for (size_t i = 1; i < 16; i++) {
     for (size_t j = 1; j < 16; j++) {
@@ -266,8 +266,8 @@ class TestRandomNumericMeanKernel : public ComputeFixture, public TestBase {};
 TYPED_TEST_CASE(TestRandomNumericMeanKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMean) {
   auto rand = random::RandomArrayGenerator(0x8afc055);
-  for (size_t i = 3; i < 14; i++) {
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+  for (size_t i = 3; i < 14; i += 2) {
+    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
         auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);

@@ -15,28 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+// Often-used headers, for precompiling.
+// If updating this header, please make sure you check compilation speed
+// before checking in.  Adding headers which are not used extremely often
+// may incur a slowdown, since it makes the precompiled header heavier to load.
 
-#ifdef _WIN32
-
-// Windows defines min and max macros that mess up std::min/max
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-
-#define WIN32_LEAN_AND_MEAN
-
-// Set Windows 7 as a conservative minimum for Apache Arrow
-#if defined(_WIN32_WINNT) && _WIN32_WINNT < 0x601
-#undef _WIN32_WINNT
-#endif
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x601
-#endif
-
-#include <winsock2.h>
-#include <windows.h>
-
-#include "arrow/util/windows_fixup.h"
-
-#endif  // _WIN32
+#include "arrow/pch.h"
+#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"

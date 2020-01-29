@@ -163,6 +163,7 @@ jobs:
       CMAKE_GENERATOR: ${{ matrix.generator }}
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
+      CMAKE_UNITY_BUILD: ON
       ARROW_HOME: /usr
       ARROW_DATASET: ON
       ARROW_JEMALLOC: OFF

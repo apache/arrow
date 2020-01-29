@@ -34,6 +34,7 @@
 #include "arrow/io/file.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 namespace fs {

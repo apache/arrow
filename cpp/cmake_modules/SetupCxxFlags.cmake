@@ -227,6 +227,12 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # Work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43407
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-attributes")
   endif()
+
+  if(CMAKE_UNITY_BUILD)
+    # Work around issue similar to https://bugs.webkit.org/show_bug.cgi?id=176869
+    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-subobject-linkage")
+  endif()
+
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
        OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # Clang options for all builds

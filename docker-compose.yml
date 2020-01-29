@@ -117,6 +117,7 @@ services:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_USE_LD_GOLD: "ON"
+      ARROW_USE_PRECOMPILED_HEADERS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${ARCH}-conda-cache:/build:delegated

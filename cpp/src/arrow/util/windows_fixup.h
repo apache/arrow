@@ -15,28 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+// This header may be included multiple times, it's ok.
 
 #ifdef _WIN32
 
-// Windows defines min and max macros that mess up std::min/max
-#ifndef NOMINMAX
-#define NOMINMAX
+// The Windows API defines macros from *File resolving to either
+// *FileA or *FileW.  Need to undo them.
+#ifdef CopyFile
+#undef CopyFile
 #endif
-
-#define WIN32_LEAN_AND_MEAN
-
-// Set Windows 7 as a conservative minimum for Apache Arrow
-#if defined(_WIN32_WINNT) && _WIN32_WINNT < 0x601
-#undef _WIN32_WINNT
+#ifdef CreateFile
+#undef CreateFile
 #endif
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x601
+#ifdef DeleteFile
+#undef DeleteFile
 #endif
-
-#include <winsock2.h>
-#include <windows.h>
-
-#include "arrow/util/windows_fixup.h"
 
 #endif  // _WIN32

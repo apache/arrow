@@ -24,12 +24,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/windows_compatibility.h"
-
-#ifdef _WIN32
-#ifdef DeleteFile
-#undef DeleteFile
-#endif
-#endif
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 namespace internal {

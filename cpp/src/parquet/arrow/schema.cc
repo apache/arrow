@@ -49,6 +49,8 @@ using ParquetType = parquet::Type;
 using parquet::ConvertedType;
 using parquet::LogicalType;
 
+using parquet::internal::DecimalSize;
+
 namespace parquet {
 
 namespace arrow {
@@ -262,7 +264,7 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
           static_cast<const ::arrow::Decimal128Type&>(*field->type());
       precision = decimal_type.precision();
       scale = decimal_type.scale();
-      length = internal::DecimalSize(precision);
+      length = DecimalSize(precision);
       PARQUET_CATCH_NOT_OK(logical_type = LogicalType::Decimal(precision, scale));
     } break;
     case ArrowTypeId::DATE32:

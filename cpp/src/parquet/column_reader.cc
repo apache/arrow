@@ -62,7 +62,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
   bit_width_ = BitUtil::Log2(max_level + 1);
   switch (encoding) {
     case Encoding::RLE: {
-      num_bytes = arrow::util::SafeLoadAs<int32_t>(data);
+      num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
       const uint8_t* decoder_data = data + sizeof(int32_t);
       if (!rle_decoder_) {
         rle_decoder_.reset(
@@ -109,8 +109,6 @@ ReaderProperties default_reader_properties() {
 // ----------------------------------------------------------------------
 // SerializedPageReader deserializes Thrift metadata and pages that have been
 // assembled in a serialized stream for storing in a Parquet files
-
-static constexpr int16_t kNonPageOrdinal = static_cast<int16_t>(-1);
 
 // This subclass delimits pages appearing in a serialized stream, each preceded
 // by a serialized Thrift format::PageHeader indicating the type of each page
@@ -1435,7 +1433,7 @@ template <>
 void TypedRecordReader<FLBAType>::DebugPrintState() {}
 
 std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* descr,
-                                                        arrow::MemoryPool* pool,
+                                                        ::arrow::MemoryPool* pool,
                                                         bool read_dictionary) {
   if (read_dictionary) {
     return std::make_shared<ByteArrayDictionaryRecordReader>(descr, pool);
