@@ -300,8 +300,9 @@ groups:
     - test-ubuntu-18.04-r-sanitizer
     - test-debian-10-go-1.12
     - test-ubuntu-18.04-docs
-    - test-ubuntu-fuzzit-fuzzing
-    - test-ubuntu-fuzzit-regression
+    # https://issues.apache.org/jira/browse/ARROW-7712
+    # - test-ubuntu-fuzzit-fuzzing
+    # - test-ubuntu-fuzzit-regression
     - test-conda-python-2.7-pandas-latest
     - test-conda-python-3.7-pandas-latest
     - test-conda-python-3.7-pandas-master
