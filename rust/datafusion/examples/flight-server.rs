@@ -77,11 +77,23 @@ impl FlightService for FlightServiceImpl {
 
                 // execute the query
                 let results = ctx.collect(plan.as_ref()).map_err(|e| to_tonic_err(&e))?;
+                if results.is_empty() {
+                    return Err(Status::internal("There were no results from ticket"));
+                }
 
-                let flights: Vec<Result<FlightData, Status>> = results
+                // add an initial FlightData message that sends schema
+                // TODO: find a more ergonomic way of doing this
+                let schema = results[0].schema();
+                let mut flights: Vec<Result<FlightData, Status>> =
+                    vec![Ok(FlightData::from(schema.as_ref()))];
+
+                let mut batches: Vec<Result<FlightData, Status>> = results
                     .iter()
                     .map(|batch| Ok(FlightData::from(batch)))
                     .collect();
+
+                // append batch vector to schema vector, so that the first message sent is the schema
+                flights.append(&mut batches);
 
                 let output = futures::stream::iter(flights);
 
