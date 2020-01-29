@@ -314,7 +314,7 @@ test_csharp() {
     esac
     local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
     local dotnet_download_url=$( \
-      curl ${dotnet_download_thank_you_url} | \
+      curl --location ${dotnet_download_thank_you_url} | \
         grep 'window\.open' | \
         grep -E -o '[^"]+' | \
         sed -n 2p)
