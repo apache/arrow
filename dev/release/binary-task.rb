@@ -569,12 +569,12 @@ class BinaryTask
     end
 
     def download_file(path, output_path)
-      max_n_retries = 3
+      max_n_retries = 5
       n_retries = 0
       url = URI("https://dl.bintray.com/#{@repository}/#{path}")
       begin
         download_url(url, output_path)
-      rescue SocketError, Timeout::Error => error
+      rescue SocketError, SystemCallError, Timeout::Error => error
         n_retries += 1
         if n_retries <= max_n_retries
           $stderr.puts
@@ -761,7 +761,7 @@ class BinaryTask
             $stderr.puts(error)
           end
         end
-      rescue SocketError, Timeout::Error => error
+      rescue SocketError, SystemCallError, Timeout::Error => error
         n_retries += 1
         if n_retries <= max_n_retries
           $stderr.puts
