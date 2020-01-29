@@ -382,10 +382,7 @@ where
     ///
     /// If a data type cannot be converted to `NaiveDate`, a `None` is returned
     pub fn value_as_date(&self, i: usize) -> Option<NaiveDate> {
-        match self.value_as_datetime(i) {
-            Some(datetime) => Some(datetime.date()),
-            None => None,
-        }
+        self.value_as_datetime(i).map(|datetime| datetime.date())
     }
 
     /// Returns a value as a chrono `NaiveTime`
@@ -435,10 +432,9 @@ where
                     _ => None,
                 }
             }
-            DataType::Timestamp(_, _) => match self.value_as_datetime(i) {
-                Some(datetime) => Some(datetime.time()),
-                None => None,
-            },
+            DataType::Timestamp(_, _) => {
+                self.value_as_datetime(i).map(|datetime| datetime.time())
+            }
             DataType::Date32(_) | DataType::Date64(_) => {
                 Some(NaiveTime::from_hms(0, 0, 0))
             }

@@ -1286,14 +1286,10 @@ mod tests {
             let mut curr_levels_read = 0;
             let mut done = false;
             while !done {
-                let actual_def_levels = match &mut def_levels {
-                    Some(ref mut vec) => Some(&mut vec[curr_levels_read..]),
-                    None => None,
-                };
-                let actual_rep_levels = match rep_levels {
-                    Some(ref mut vec) => Some(&mut vec[curr_levels_read..]),
-                    None => None,
-                };
+                let actual_def_levels =
+                    def_levels.as_mut().map(|vec| &mut vec[curr_levels_read..]);
+                let actual_rep_levels =
+                    rep_levels.as_mut().map(|vec| &mut vec[curr_levels_read..]);
 
                 let (values_read, levels_read) = typed_column_reader
                     .read_batch(

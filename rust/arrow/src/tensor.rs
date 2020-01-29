@@ -129,10 +129,9 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
         shape: Option<Vec<usize>>,
         names: Option<Vec<&'a str>>,
     ) -> Self {
-        let strides = match &shape {
-            None => None,
-            Some(ref s) => Some(compute_row_major_strides::<T>(&s)),
-        };
+        let strides = shape
+            .as_ref()
+            .map(|ref s| compute_row_major_strides::<T>(&s));
         Self::new(buffer, shape, strides, names)
     }
 
@@ -142,10 +141,9 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
         shape: Option<Vec<usize>>,
         names: Option<Vec<&'a str>>,
     ) -> Self {
-        let strides = match &shape {
-            None => None,
-            Some(ref s) => Some(compute_column_major_strides::<T>(&s)),
-        };
+        let strides = shape
+            .as_ref()
+            .map(|ref s| compute_column_major_strides::<T>(&s));
         Self::new(buffer, shape, strides, names)
     }
 
@@ -184,10 +182,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
 
     /// The name of dimension i
     pub fn dim_name(&self, i: usize) -> Option<&'a str> {
-        match &self.names {
-            None => None,
-            Some(ref names) => Some(&names[i]),
-        }
+        self.names.as_ref().map(|ref names| names[i])
     }
 
     /// The total number of elements in the `Tensor`
