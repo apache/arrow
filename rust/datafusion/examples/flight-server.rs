@@ -89,8 +89,7 @@ impl FlightService for FlightServiceImpl {
                 }
 
                 // add an initial FlightData message that sends schema
-                // TODO: find a more ergonomic way of doing this
-                let schema = results[0].schema();
+                let schema = plan.schema();
                 let mut flights: Vec<Result<FlightData, Status>> =
                     vec![Ok(FlightData::from(schema.as_ref()))];
 
