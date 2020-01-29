@@ -140,6 +140,11 @@ test_apt() {
                 "arm64v8/ubuntu:disco" \
                 "ubuntu:eoan" \
                 "arm64v8/ubuntu:eoan"; do \
+    # We can't build some arm64 binaries by Crossbow for now.
+    if [ "${target}" = "arm64v8/debian:stretch" ]; then continue; fi
+    if [ "${target}" = "arm64v8/debian:buster" ]; then continue; fi
+    if [ "${target}" = "arm64v8/ubuntu:disco" ]; then continue; fi
+    if [ "${target}" = "arm64v8/ubuntu:eoan" ]; then continue; fi
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
