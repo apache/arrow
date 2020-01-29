@@ -19,7 +19,7 @@
 
 set -e
 
-if [ "$#" -ne 3 ]; then
+if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <spark version> <target directory>"
   exit 1
 fi
