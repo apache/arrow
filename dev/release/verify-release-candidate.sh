@@ -592,7 +592,7 @@ test_linux_wheels() {
     conda create -yq -n ${env} python=${py_arch//[mu]/}
     conda activate ${env}
 
-    for ml_spec in manylinuxes; do
+    for ml_spec in ${manylinuxes}; do
       if [[ "$py_arch" = "2.7mu" && "$ml_spec" = "2014" ]]; then
         # manylinux2014 does not support py2.7, so skip that one
         continue
