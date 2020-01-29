@@ -1833,6 +1833,20 @@ tasks:
         HDFS: 2.9.2
       run: conda-python-hdfs
 
+  test-conda-python-3.6-spark-2.4.4:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - export PYTHON=3.6 SPARK="v2.4.4"
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-spark
+        - docker-compose run conda-python-spark
+
   test-conda-python-3.7-spark-master:
     ci: github
     template: docker-tests/github.linux.yml
