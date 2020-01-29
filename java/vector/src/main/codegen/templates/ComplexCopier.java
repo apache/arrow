@@ -85,10 +85,6 @@ public class ComplexCopier {
           writer.start();
           for(String name : reader){
             FieldReader childReader = reader.reader(name);
-            if (writer instanceof UnionMapWriter) {
-              final boolean nullable = childReader.getField().isNullable();
-              ((UnionMapWriter) writer).writer.setAddVectorAsNullable(nullable);
-            }
             if(childReader.isSet()){
               writeValue(childReader, getStructWriterForReader(childReader, writer, name));
             }
