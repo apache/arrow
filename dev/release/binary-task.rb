@@ -1016,7 +1016,7 @@ class BinaryTask
       ["ubuntu", "xenial", "main"],
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "disco", "main"],
-      ["ubuntu", "eoan", "universe"],
+      ["ubuntu", "eoan", "main"],
     ]
   end
 
