@@ -567,19 +567,19 @@ def _check_dataset_from_path(path, table, **kwargs):
     assert isinstance(path, pathlib.Path)
     dataset = ds.dataset(ds.source(path, **kwargs))
     assert dataset.schema.equals(table.schema, check_metadata=False)
-    result = dataset.to_table()
+    result = dataset.to_table(use_threads=False)  # deterministic row order
     assert result.replace_schema_metadata().equals(table)
 
     # string path
     dataset = ds.dataset(ds.source(str(path), **kwargs))
     assert dataset.schema.equals(table.schema, check_metadata=False)
-    result = dataset.to_table()
+    result = dataset.to_table(use_threads=False)  # deterministic row order
     assert result.replace_schema_metadata().equals(table)
 
     # passing directly to dataset
     dataset = ds.dataset(str(path), **kwargs)
     assert dataset.schema.equals(table.schema, check_metadata=False)
-    result = dataset.to_table()
+    result = dataset.to_table(use_threads=False)  # deterministic row order
     assert result.replace_schema_metadata().equals(table)
 
 
@@ -607,7 +607,7 @@ def test_open_dataset_list_of_files(tempdir):
             ds.dataset(ds.source([path1, path2])),
             ds.dataset(ds.source([str(path1), str(path2)]))]:
         assert dataset.schema.equals(table.schema, check_metadata=False)
-        result = dataset.to_table()
+        result = dataset.to_table(use_threads=False)  # deterministic row order
         assert result.replace_schema_metadata().equals(table)
 
 
@@ -643,7 +643,7 @@ def test_open_dataset_partitioned_directory(tempdir):
     expected_schema = table.schema.append(pa.field("part", pa.int8()))
     assert dataset.schema.equals(expected_schema, check_metadata=False)
 
-    result = dataset.to_table()
+    result = dataset.to_table(use_threads=False)
     expected = full_table.append_column(
         "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
     assert result.replace_schema_metadata().equals(expected)
