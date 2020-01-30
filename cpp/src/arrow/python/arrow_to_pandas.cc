@@ -620,7 +620,13 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
   std::vector<OwnedRef> fields_data(num_fields);
   OwnedRef dict_item;
 
-  // XXX(wesm): In ARROW-7723, we found as a result of ARROW-3789
+  // XXX(wesm): In ARROW-7723, we found as a result of ARROW-3789 that second
+  // through microsecond resolution tz-aware timestamps were being promoted to
+  // use the DATETIME_NANO_TZ conversion path, yielding a datetime64[ns] NumPy
+  // array in this function. PyArray_GETITEM returns datetime.datetime for
+  // units second through microsecond but PyLong for nanosecond (because
+  // datetime.datetime does not support nanoseconds). We inserted this hack to
+  // preserve the <= 0.15.1 behavior until a better solution can be devised
   PandasOptions modified_options = options;
   modified_options.ignore_timezone = true;
 
