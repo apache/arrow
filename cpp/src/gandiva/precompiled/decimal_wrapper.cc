@@ -229,10 +229,9 @@ void castDECIMAL_float32(float in, int32_t x_precision, int32_t x_scale,
 }
 
 FORCE_INLINE
-boolean castDecimal_return_overflow(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                                    int32_t x_scale, int32_t out_precision,
-                                    int32_t out_scale, int64_t* out_high,
-                                    int64_t* out_low) {
+boolean castDecimal_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                             int32_t x_scale, int32_t out_precision, int32_t out_scale,
+                             int64_t* out_high, int64_t* out_low) {
   gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
   bool overflow = false;
   auto out = gandiva::decimalops::Convert(x, out_precision, out_scale, &overflow);
@@ -245,8 +244,8 @@ FORCE_INLINE
 void castDECIMAL_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
                             int32_t x_scale, int32_t out_precision, int32_t out_scale,
                             int64_t* out_high, int64_t* out_low) {
-  castDecimal_return_overflow(x_high, x_low, x_precision, x_scale, out_precision,
-                              out_scale, out_high, out_low);
+  castDecimal_internal(x_high, x_low, x_precision, x_scale, out_precision, out_scale,
+                       out_high, out_low);
 }
 
 FORCE_INLINE
@@ -262,8 +261,8 @@ void castDECIMALNullOnOverflow_decimal128(int64_t x_high, uint64_t x_low,
     return;
   }
 
-  if (castDecimal_return_overflow(x_high, x_low, x_precision, x_scale, out_precision,
-                                  out_scale, out_high, out_low)) {
+  if (castDecimal_internal(x_high, x_low, x_precision, x_scale, out_precision, out_scale,
+                           out_high, out_low)) {
     *out_valid = false;
   }
 }

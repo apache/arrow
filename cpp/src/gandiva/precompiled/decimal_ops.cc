@@ -617,6 +617,10 @@ static BasicDecimal128 RoundWithPositiveScale(const BasicDecimalScalar128& x,
   DCHECK_GE(out_scale, 0);
 
   auto scaled = ModifyScaleAndPrecision(x, out_precision, out_scale, overflow);
+  if (*overflow) {
+    return 0;
+  }
+
   auto delta = ComputeRoundingDelta(x.value(), x.scale(), out_scale, round_type);
   if (delta == 0) {
     return scaled;
