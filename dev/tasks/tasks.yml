@@ -122,8 +122,6 @@ groups:
     - test-ubuntu-18.04-r-sanitizer
     - test-debian-10-go-1.12
     - test-ubuntu-18.04-docs
-    - test-ubuntu-fuzzit-fuzzing
-    - test-ubuntu-fuzzit-regression
     - test-conda-python-2.7-pandas-latest
     - test-conda-python-2.7-pandas-master
     - test-conda-python-3.7-pandas-latest
@@ -300,9 +298,6 @@ groups:
     - test-ubuntu-18.04-r-sanitizer
     - test-debian-10-go-1.12
     - test-ubuntu-18.04-docs
-    # https://issues.apache.org/jira/browse/ARROW-7712
-    # - test-ubuntu-fuzzit-fuzzing
-    # - test-ubuntu-fuzzit-regression
     - test-conda-python-2.7-pandas-latest
     - test-conda-python-3.7-pandas-latest
     - test-conda-python-3.7-pandas-master
@@ -2057,30 +2052,6 @@ tasks:
         - docker-compose build ubuntu-python
         - docker-compose build ubuntu-docs
         - docker-compose run ubuntu-docs
-
-  test-ubuntu-fuzzit-fuzzing:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
-    params:
-      commands:
-        - docker-compose pull --ignore-pull-failures ubuntu-cpp
-        - docker-compose pull --ignore-pull-failures ubuntu-fuzzit
-        - docker-compose build ubuntu-cpp
-        - docker-compose build ubuntu-fuzzit
-        - docker-compose run -e FUZZIT_JOB_TYPE=fuzzing ubuntu-fuzzit
-
-  test-ubuntu-fuzzit-regression:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
-    params:
-      commands:
-        - docker-compose pull --ignore-pull-failures ubuntu-cpp
-        - docker-compose pull --ignore-pull-failures ubuntu-fuzzit
-        - docker-compose build ubuntu-cpp
-        - docker-compose build ubuntu-fuzzit
-        - docker-compose run -e FUZZIT_JOB_TYPE=regression ubuntu-fuzzit
 
   ############################## Integration tests ############################
 
