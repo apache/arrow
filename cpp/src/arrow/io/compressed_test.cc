@@ -127,7 +127,7 @@ void CheckCompressedInputStream(Codec* codec, const std::vector<uint8_t>& data) 
 void CheckCompressedOutputStream(Codec* codec, const std::vector<uint8_t>& data,
                                  bool do_flush) {
   // Create compressed output stream
-  ASSERT_OK_AND_ASSIGN(auto buffer_writer, BufferOutputStream::Create(1024));
+  ASSERT_OK_AND_ASSIGN(auto buffer_writer, BufferOutputStream::Create());
   ASSERT_OK_AND_ASSIGN(auto stream, CompressedOutputStream::Make(codec, buffer_writer));
   ASSERT_OK_AND_EQ(0, stream->Tell());
 
