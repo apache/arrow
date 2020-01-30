@@ -3215,7 +3215,9 @@ def test_struct_with_timestamp_tz():
     # ARROW-7723
     ts = pd.Timestamp.now()
 
-    for unit in ['s', 'ms', 'us', 'ns']:
+    # XXX: Ensure that this data does not get promoted to nanoseconds (and thus
+    # integers) to preserve behavior in 0.15.1
+    for unit in ['s', 'ms', 'us']:
         arr = pa.array([ts], type=pa.timestamp(unit))
         arr2 = pa.array([ts], type=pa.timestamp(unit, tz='America/New_York'))
 
