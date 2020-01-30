@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 0.15.1.9000
+# arrow 0.16.0
 
 ## Multi-file datasets
 
