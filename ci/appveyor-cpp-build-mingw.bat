@@ -20,6 +20,10 @@
 set CMAKE_BUILD_TYPE=release
 set MESON_BUILD_TYPE=release
 
+@rem In release mode, disable optimizations (-O0) for faster compiling
+set CMAKE_CXX_FLAGS=-O0
+set CMAKE_CXX_FLAGS_RELEASE=-O0
+
 set INSTALL_DIR=%HOMEDRIVE%%HOMEPATH%\install
 set PATH=%INSTALL_DIR%\bin;%PATH%
 set PKG_CONFIG_PATH=%INSTALL_DIR%\lib\pkgconfig
@@ -56,12 +60,17 @@ cmake ^
     -DARROW_WITH_ZLIB=ON ^
     -DARROW_WITH_ZSTD=ON ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
+    -DCMAKE_CXX_FLAGS="%CMAKE_CXX_FLAGS%" ^
+    -DCMAKE_CXX_FLAGS_RELEASE="%CMAKE_CXX_FLAGS_RELEASE%" ^
     -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR% ^
+    -DCMAKE_VERBOSE_MAKEFILE=ON ^
     -DPARQUET_REQUIRE_ENCRYPTION=ON ^
     -DPythonInterp_FIND_VERSION=ON ^
     -DPythonInterp_FIND_VERSION_MAJOR=3 ^
     .. || exit /B
-make -j4 || exit /B
+
+make -j2 || exit /B
+
 setlocal
 set PYTHONHOME=%MINGW_PREFIX%\lib\python%PYTHON_VERSION%
 set PYTHONPATH=%PYTHONHOME%
