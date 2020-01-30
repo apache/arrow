@@ -114,71 +114,9 @@ table SparseMatrixIndexCSX {
   indicesBuffer: Buffer (required);
 }
 
-/// Compressed Sparse Fiber (CSF) sparse tensor index.
-table SparseTensorIndexCSF {
-  /// CSF is a generalization of compressed sparse row (CSR) index.
-  /// See [smith2017knl]: http://shaden.io/pub-files/smith2017knl.pdf
-  ///
-  /// CSF recursively compresses each mode of the tensor into a set
-  /// of prefix trees. Each path from a root to leaf forms one tensor
-  /// non-zero index. CSF is implemented with two buffers and three arrays.
-  ///
-  /// For example, let X be a 3x3x3x4 tensor, and it has the following
-  /// 8 non-zero values:
-  ///
-  ///   X[1, 1, 1, 2] := 1
-  ///   X[1, 1, 1, 3] := 2
-  ///   X[1, 2, 1, 1] := 3
-  ///   X[1, 2, 1, 3] := 4
-  ///   X[1, 2, 2, 1] := 5
-  ///   X[2, 2, 2, 1] := 6
-  ///   X[2, 2, 2, 2] := 7
-  ///   X[2, 2, 2, 3] := 8
-  ///
-  /// As a prefix tree this would be represented be:
-  ///
-  ///         1          2
-  ///        / \         |
-  ///       1   2        2
-  ///      /   / \       |
-  ///     1   1   2      2
-  ///    /|  /|   |    /| |
-  ///   2 3 1 3   1   1 2 3
-
-  /// The type of values in indptrBuffers
-  indptrType: Int (required);
-
-  /// indptrBuffers stores the sparsity structure.
-  /// Position in the indptrBuffers vector signifies the dimension.
-  /// For example, the indptrBuffers for the above X is:
-  ///
-  ///   indptrBuffer(X) = [[0, 2, 3], [0, 1, 3, 4], [0, 2, 4, 5, 8]].
-  ///
-  indptrBuffers: [Buffer] (required);
-
-  /// The type of values in indicesBuffers
-  indicesType: Int (required);
-
-  /// indicesBuffers stores the label of each node.
-  /// Position in the indicesBuffers vector signifies the dimension.
-  /// For example, the indicesBuffers for the above X is:
-  ///
-  ///   indicesBuffer(X) = [[1, 2], [1, 2, 2], [1, 1, 2, 2], [2, 3, 1, 3, 1, 1, 2, 3]].
-  ///
-  indicesBuffers: [Buffer] (required);
-
-  /// axisOrder stores the sequence in which dimensions were traversed to produce the prefix tree.
-  /// For example, the axisOrder for the above X is:
-  ///
-  ///   axisOrder(X) = [0, 1, 2, 3].
-  ///
-  axisOrder: [Int] (required);
-}
-
 union SparseTensorIndex {
   SparseTensorIndexCOO,
-  SparseMatrixIndexCSX,
-  SparseTensorIndexCSF
+  SparseMatrixIndexCSX
 }
 
 table SparseTensor {
