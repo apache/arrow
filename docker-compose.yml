@@ -951,30 +951,6 @@ services:
     command: >
       /bin/bash -c "pip install -e /arrow/dev/archery && archery lint"
 
-  ubuntu-fuzzit:
-    # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-fuzzit
-    #   docker-compose run ubuntu-fuzzit
-    build:
-      context: .
-      dockerfile: ci/docker/linux-apt-fuzzit.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-fuzzit
-      args:
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-    environment:
-      <<: *ccache
-      FUZZIT_API_KEY: c0b760d37db6012fcaafd8ca5f412ba7bcd297ac969650502994b51aa11798153824442f999a067e1ef67821989ed664
-      FUZZIT_HOST: bionic-llvm7
-      CI_ARROW_SHA: ${CI_ARROW_SHA:-UNSET}
-      CI_ARROW_BRANCH: ${CI_ARROW_BRANCH:-UNSET}
-    volumes: *debian-volumes
-    command: >
-      /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/fuzzit_build.sh /arrow /build"
-
   ######################### Integration Tests #################################
 
   postgres:
