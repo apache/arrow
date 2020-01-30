@@ -619,13 +619,24 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
   auto array_type = arr->type();
   std::vector<OwnedRef> fields_data(num_fields);
   OwnedRef dict_item;
+
+  // XXX(wesm): In ARROW-7723, we found as a result of ARROW-3789 that second
+  // through microsecond resolution tz-aware timestamps were being promoted to
+  // use the DATETIME_NANO_TZ conversion path, yielding a datetime64[ns] NumPy
+  // array in this function. PyArray_GETITEM returns datetime.datetime for
+  // units second through microsecond but PyLong for nanosecond (because
+  // datetime.datetime does not support nanoseconds). We inserted this hack to
+  // preserve the <= 0.15.1 behavior until a better solution can be devised
+  PandasOptions modified_options = options;
+  modified_options.ignore_timezone = true;
+
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = checked_cast<const StructArray*>(data.chunk(c).get());
     // Convert the struct arrays first
     for (int32_t i = 0; i < num_fields; i++) {
       PyObject* numpy_array;
-      RETURN_NOT_OK(ConvertArrayToPandas(options, arr->field(static_cast<int>(i)),
-                                         nullptr, &numpy_array));
+      RETURN_NOT_OK(ConvertArrayToPandas(
+          modified_options, arr->field(static_cast<int>(i)), nullptr, &numpy_array));
       fields_data[i].reset(numpy_array);
     }
 
@@ -1678,7 +1689,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       break;
     case Type::TIMESTAMP: {
       const auto& ts_type = checked_cast<const TimestampType&>(*data.type());
-      if (ts_type.timezone() != "") {
+      // XXX: Hack here for ARROW-7723
+      if (ts_type.timezone() != "" && !options.ignore_timezone) {
         *output_type = PandasWriter::DATETIME_NANO_TZ;
       } else if (options.coerce_temporal_nanoseconds) {
         *output_type = PandasWriter::DATETIME_NANO;

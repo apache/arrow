@@ -55,6 +55,10 @@ struct PandasOptions {
   /// Coerce all date and timestamp to datetime64[ns]
   bool coerce_temporal_nanoseconds = false;
 
+  /// XXX(wesm): Hack for ARROW-7723 to opt out of DATETIME_NANO_TZ conversion
+  /// path
+  bool ignore_timezone = false;
+
   /// \brief If true, do not create duplicate PyObject versions of equal
   /// objects. This only applies to immutable objects like strings or datetime
   /// objects
