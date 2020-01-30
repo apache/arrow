@@ -205,6 +205,26 @@ def test_chunked_array_to_pandas():
 
 
 @pytest.mark.pandas
+def test_chunked_array_to_pandas_preserve_name():
+    # https://issues.apache.org/jira/browse/ARROW-7709
+    import pandas as pd
+    import pandas.testing as tm
+
+    for data in [
+            pa.array([1, 2, 3]),
+            pa.array(pd.Categorical(["a", "b", "a"])),
+            pa.array(pd.date_range("2012", periods=3)),
+            pa.array(pd.date_range("2012", periods=3, tz="Europe/Brussels")),
+            pa.array([1, 2, 3], pa.timestamp("ms")),
+            pa.array([1, 2, 3], pa.timestamp("ms", "Europe/Brussels"))]:
+        table = pa.table({"name": data})
+        result = table.column("name").to_pandas()
+        assert result.name == "name"
+        expected = pd.Series(data.to_pandas(), name="name")
+        tm.assert_series_equal(result, expected)
+
+
+@pytest.mark.pandas
 @pytest.mark.nopandas
 def test_chunked_array_asarray():
     # ensure this is tested both when pandas is present or not (ARROW-6564)
