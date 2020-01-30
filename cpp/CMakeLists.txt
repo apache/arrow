@@ -352,6 +352,10 @@ if(ARROW_LARGE_MEMORY_TESTS)
   add_definitions(-DARROW_LARGE_MEMORY_TESTS)
 endif()
 
+if(ARROW_TEST_MEMCHECK)
+  add_definitions(-DARROW_VALGRIND)
+endif()
+
 if(MSVC
    AND ARROW_USE_CLCACHE
    AND (("${CMAKE_GENERATOR}" STREQUAL "NMake Makefiles")

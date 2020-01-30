@@ -306,7 +306,7 @@ class QuadraticSpaceMyersDiff {
 
     int64_t length = edit_count_ + 1;
     std::shared_ptr<Buffer> insert_buf, run_length_buf;
-    RETURN_NOT_OK(AllocateBitmap(pool, length, &insert_buf));
+    RETURN_NOT_OK(AllocateEmptyBitmap(pool, length, &insert_buf));
     RETURN_NOT_OK(AllocateBuffer(pool, length * sizeof(int64_t), &run_length_buf));
     auto run_length = reinterpret_cast<int64_t*>(run_length_buf->mutable_data());
 

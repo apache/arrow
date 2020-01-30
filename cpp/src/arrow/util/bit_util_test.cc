@@ -1213,6 +1213,9 @@ TEST(Bitmap, VisitWords) {
   }
 }
 
+#ifndef ARROW_VALGRIND
+
+// This test reads uninitialized memory
 TEST(Bitmap, VisitPartialWords) {
   uint64_t words[2];
   constexpr auto nbytes = sizeof(words);
@@ -1230,6 +1233,8 @@ TEST(Bitmap, VisitPartialWords) {
   auto last_byte_was_missing = Bitmap(SliceBuffer(buffer, 0, nbytes - 1), 0, nbits - 8);
   ASSERT_EQ(Copy(last_byte_was_missing, storage), bitmap.Slice(0, nbits - 8));
 }
+
+#endif  // ARROW_VALGRIND
 
 // compute bitwise AND of bitmaps using word-wise visit
 TEST(Bitmap, VisitWordsAnd) {

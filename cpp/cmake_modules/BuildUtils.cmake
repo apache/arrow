@@ -590,9 +590,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
   endif()
 
   if(ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
-    set_property(TARGET ${TEST_NAME}
-                 APPEND_STRING
-                 PROPERTY COMPILE_FLAGS " -DARROW_VALGRIND")
     add_test(
       ${TEST_NAME} bash -c
       "cd '${CMAKE_SOURCE_DIR}'; \

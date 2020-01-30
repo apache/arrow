@@ -271,6 +271,7 @@ groups:
     - gandiva-jar-osx
     - macos-r-autobrew
     - test-conda-cpp
+    - test-conda-cpp-valgrind
     - test-debian-10-cpp
     - test-ubuntu-16.04-cpp
     - test-ubuntu-18.04-cpp
@@ -1719,6 +1720,16 @@ tasks:
         - docker-compose pull --ignore-pull-failures conda-cpp
         - docker-compose build conda-cpp
         - docker-compose run conda-cpp
+
+  test-conda-cpp-valgrind:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose build conda-cpp
+        - docker-compose run conda-cpp-valgrind
 
   test-debian-10-cpp:
     ci: circle
