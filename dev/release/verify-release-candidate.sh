@@ -172,6 +172,8 @@ test_yum() {
                 "arm64v8/centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do
+    # We can't build some arm64 binaries by Crossbow for now.
+    if [ "${target}" = "arm64v8/centos:8" ]; then continue; fi
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
