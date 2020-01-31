@@ -111,6 +111,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      ARROW_CXXFLAGS: "-Og"  # Shrink test runtime by enabling minimal optimizations
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FLIGHT: "OFF"
       ARROW_GANDIVA: "OFF"
@@ -118,6 +119,7 @@ services:
       ARROW_S3: "OFF"
       ARROW_TEST_MEMCHECK: "ON"
       ARROW_USE_LD_GOLD: "ON"
+      BUILD_WARNING_LEVEL: "PRODUCTION"
     volumes: *conda-volumes
     command: *cpp-conda-command
 
