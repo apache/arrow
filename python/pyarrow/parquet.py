@@ -130,11 +130,13 @@ class ParquetFile(object):
         column chunks. Otherwise IO calls are unbuffered.
     """
     def __init__(self, source, metadata=None, common_metadata=None,
-                 read_dictionary=None, memory_map=False, buffer_size=0):
+                 read_dictionary=None, memory_map=False, buffer_size=0,
+                batch_size=0):
         self.reader = ParquetReader()
         self.reader.open(source, use_memory_map=memory_map,
                          buffer_size=buffer_size,
-                         read_dictionary=read_dictionary, metadata=metadata)
+                         read_dictionary=read_dictionary, metadata=metadata,
+                         batch_size=batch_size)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
 

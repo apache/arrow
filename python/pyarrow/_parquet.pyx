@@ -38,7 +38,9 @@ from pyarrow.lib cimport (Buffer, Array, Schema,
                           pyarrow_wrap_schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_buffer,
-                          NativeFile, get_reader, get_writer)
+                          pyarrow_wrap_batch,
+                          NativeFile, get_reader, get_writer,
+                          RecordBatch, CStatus)
 
 from pyarrow.compat import tobytes, frombytes
 from pyarrow.lib import (ArrowException, NativeFile, _stringify_path,
@@ -1008,7 +1010,7 @@ cdef class ParquetReader:
 
     def open(self, object source, bint use_memory_map=True,
              read_dictionary=None, FileMetaData metadata=None,
-             int buffer_size=0):
+             int buffer_size=0, int batch_size=0):
         cdef:
             shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
@@ -1017,6 +1019,9 @@ cdef class ParquetReader:
                 default_arrow_reader_properties())
             c_string path
             FileReaderBuilder builder
+
+        if batch_size != 0:
+            arrow_props.set_batch_size(batch_size)
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
@@ -1082,6 +1087,39 @@ cdef class ParquetReader:
 
     def set_use_threads(self, bint use_threads):
         self.reader.get().set_use_threads(use_threads)
+
+    def get_batches(self, row_groups, column_indices):
+        cdef:
+            vector[int] c_row_groups
+            vector[int] c_column_indices
+            shared_ptr[CRecordBatch] record_batch
+            shared_ptr[TableBatchReader] batch_reader
+            unique_ptr[CRecordBatchReader] recordbatchreader
+
+        for row_group in row_groups:
+            c_row_groups.push_back(row_group)
+
+        for index in column_indices:
+            c_column_indices.push_back(index)
+
+        check_status(
+            self.reader.get().GetRecordBatchReader(
+                c_row_groups, c_column_indices, &recordbatchreader
+            )
+        )
+
+        while True:
+            with nogil:
+                check_status(
+                    recordbatchreader.get().ReadNext(&record_batch)
+                )
+
+            if record_batch.get() == NULL:
+                break
+
+            py_record_batch = pyarrow_wrap_batch(record_batch)
+
+            yield py_record_batch
 
     def read_row_group(self, int i, column_indices=None,
                        bint use_threads=True):

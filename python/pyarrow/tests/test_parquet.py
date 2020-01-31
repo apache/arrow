@@ -158,6 +158,75 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
 
 
 @pytest.mark.pandas
+@pytest.mark.parametrize('chunk_size', [1000])
+def test_get_record_batch_reader(tempdir, chunk_size):
+    df = alltypes_sample(size=10000, categorical=True)
+
+    filename = tempdir / 'pandas_roundtrip.parquet'
+    arrow_table = pa.Table.from_pandas(df)
+    assert arrow_table.schema.pandas_metadata is not None
+
+    _write_table(arrow_table, filename, version="2.0",
+                 coerce_timestamps='ms', chunk_size=chunk_size)
+
+    file_ = pq.ParquetFile(filename, batch_size=900)
+
+    def get_all_batches(f):
+        for row_group in range(f.num_row_groups):
+            batches = f.reader.get_batches(
+                [row_group],
+                range(len(f.schema))
+            )
+
+            dictionary_fields = {}
+
+            for batch in batches:
+
+                for idx, array in enumerate(batch):
+                    if isinstance(array.type, pa.DictionaryType):
+                        if array.dictionary:
+                            dictionary_fields[idx] = array.dictionary
+
+                if dictionary_fields:
+                    # if there's a dictionary field we need to fix
+                    # the categorical types here.
+                    arrays = []
+                    for idx, array in enumerate(batch):
+                        if idx in dictionary_fields:
+                            arrays.append(
+                                pa.DictionaryArray.from_arrays(
+                                    array.indices, dictionary_fields[idx]
+                                )
+                            )
+                        else:
+                            arrays.append(array)
+
+                    batch = pa.RecordBatch.from_arrays(arrays, batch.schema)
+
+                yield batch
+
+    batches = list(get_all_batches(file_))
+    batch_no = 0
+
+    for i in range(file_.num_row_groups):
+        tm.assert_frame_equal(
+            batches[batch_no].to_pandas(),
+            file_.read_row_groups([i]).to_pandas().head(900)
+        )
+
+        batch_no += 1
+
+        tm.assert_frame_equal(
+            batches[batch_no].to_pandas().reset_index(drop=True),
+            file_.read_row_groups([i]).to_pandas().iloc[900:].reset_index(
+                drop=True
+            )
+        )
+
+        batch_no += 1
+
+
+@pytest.mark.pandas
 @pytest.mark.parametrize('chunk_size', [None, 1000])
 def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size):
     df = alltypes_sample(size=10000, categorical=True)
