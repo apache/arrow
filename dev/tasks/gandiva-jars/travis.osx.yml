@@ -59,12 +59,12 @@ script:
   - pip3 install click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz
   - >
     python3 dev/tasks/crossbow.py
-      --queue-path $TRAVIS_BUILD_DIR
-      --queue-remote {{ queue.remote_url }}
-      upload-artifacts
-      --sha {{ task.branch }}
-      --tag {{ task.tag }}
-      --pattern "dist/*.jar"
+    --queue-path $TRAVIS_BUILD_DIR
+    --queue-remote {{ queue.remote_url }}
+    upload-artifacts
+    --sha {{ task.branch }}
+    --tag {{ task.tag }}
+    --pattern "dist/*.jar"
 
 notifications:
   email:
