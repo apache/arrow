@@ -56,7 +56,7 @@ script:
   # deploy using crossbow
   - brew install libgit2 python3
   - pip3 install click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz
-  - python arrow/dev/tasks/crossbow.py \
+  - python3 dev/tasks/crossbow.py \
       --queue-path . \
       --queue-remote {{ queue.remote_url }} \
       upload-artifacts \
