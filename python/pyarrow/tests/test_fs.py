@@ -207,7 +207,7 @@ def test_non_path_like_input_raises(fs):
             fs.create_dir(path)
 
 
-def test_get_target_stats(fs, pathfn):
+def test_info(fs, pathfn):
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
     c = pathfn('c.txt')
@@ -219,8 +219,10 @@ def test_get_target_stats(fs, pathfn):
     with fs.open_output_stream(c) as fp:
         fp.write(b'test')
 
-    aaa_stat, bb_stat, c_stat, zzz_stat = \
-        fs.get_target_stats([aaa, bb, c, zzz])
+    aaa_stat = fs.info(aaa)
+    bb_stat = fs.info(bb)
+    c_stat = fs.info(c)
+    zzz_stat = fs.info(zzz)
 
     assert aaa_stat.path == aaa
     assert 'aaa' in repr(aaa_stat)
@@ -252,7 +254,8 @@ def test_get_target_stats(fs, pathfn):
     assert isinstance(c_stat.mtime, datetime)
 
 
-def test_get_target_stats_with_selector(fs, pathfn):
+@pytest.mark.parametrize("use_selector", [True, False])
+def test_ls(fs, pathfn, use_selector):
     base_dir = pathfn('selector-dir/')
     file_a = pathfn('selector-dir/test_file_a')
     file_b = pathfn('selector-dir/test_file_b')
@@ -266,11 +269,19 @@ def test_get_target_stats_with_selector(fs, pathfn):
             pass
         fs.create_dir(dir_a)
 
-        selector = FileSelector(base_dir, allow_non_existent=False,
-                                recursive=True)
-        assert selector.base_dir == base_dir
+        if use_selector:
+            selector = FileSelector(
+                 base_dir,
+                 allow_non_existent=False,
+                 recursive=True)
+            assert selector.base_dir == base_dir
+            stats = fs.ls(selector, detail=True)
+        else:
+            stats = fs.ls(
+                base_dir,
+                detail=True,
+                recursive=True)
 
-        stats = fs.get_target_stats(selector)
         assert len(stats) == 3
 
         for st in stats:
@@ -589,7 +600,7 @@ def test_hdfs_options(hdfs_server):
     host, port, user = hdfs_server
     uri = "hdfs://{}:{}/?user={}".format(host, port, user)
     fs = HadoopFileSystem(uri)
-    assert fs.get_target_stats(FileSelector('/'))
+    assert fs.ls('/')
 
 
 @pytest.mark.parametrize(('uri', 'expected_klass', 'expected_path'), [

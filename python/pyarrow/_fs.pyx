@@ -45,7 +45,7 @@ cdef class FileStats:
 
     def __init__(self):
         raise TypeError("FileStats cannot be instantiated directly, use "
-                        "FileSystem.get_target_stats method instead.")
+                        "FileSystem.ls method instead.")
 
     @staticmethod
     cdef wrap(CFileStats stats):
@@ -243,8 +243,8 @@ cdef class FileSystem:
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil:
         return self.wrapped
 
-    def get_target_stats(self, paths_or_selector):
-        """Get statistics for the given target.
+    def info(self, path):
+        """Give details of entry at path
 
         Any symlink is automatically dereferenced, recursively. A non-existing
         or unreachable file returns a FileStats object and has a FileType of
@@ -253,32 +253,70 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        paths_or_selector: FileSelector or list of path-likes
-            Either a selector object or a list of path-like objects.
-            The selector's base directory will not be part of the results, even
-            if it exists. If it doesn't exist, use `allow_non_existent`.
+        path: str
 
         Returns
         -------
-        file_stats : list of FileStats
+        file_stat: FileStats
+        """
+        cdef:
+            CFileStats stat
+            c_string c_path
+        c_path = _path_as_bytes(path)
+        with nogil:
+            stat = GetResultValue(self.fs.GetTargetStats(c_path))
+        return FileStats.wrap(stat)
+
+    def ls(self, path, detail=False, recursive=False):
+        """List objects at path.
+
+        Any symlink is automatically dereferenced, recursively. A non-existing
+        or unreachable file returns a FileStats object and has a FileType of
+        value NonExistent. An exception indicates a truly exceptional condition
+        (low-level I/O error, etc.).
+
+        Parameters
+        ----------
+        path: str, list of str or FileSelector
+        detail: bool, default False
+            if True, gives a list of dictionaries, where each is the same as
+            the result of ``info(path)``. If False, gives a list of paths
+            (str).
+        recursive : bool, default False
+            Whether to recurse into subdirectories.
+
+        Returns
+        -------
+        file_stats: List of strings if detail is False or
+             list of FileStats if detail is True.
         """
         cdef:
             vector[CFileStats] stats
             vector[c_string] paths
             CFileSelector selector
 
-        if isinstance(paths_or_selector, FileSelector):
+        if isinstance(path, (FileSelector,) + six.string_types):
+            file_selector = path
+            if isinstance(path, six.string_types):
+                file_selector = FileSelector(
+                    path,
+                    allow_non_existent=False,
+                    recursive=recursive)
             with nogil:
-                selector = (<FileSelector>paths_or_selector).selector
+                selector = (<FileSelector>file_selector).selector
                 stats = GetResultValue(self.fs.GetTargetStats(selector))
-        elif isinstance(paths_or_selector, (list, tuple)):
-            paths = [_path_as_bytes(s) for s in paths_or_selector]
+        elif isinstance(path, (list, tuple)):
+            paths = [_path_as_bytes(s) for s in path]
             with nogil:
                 stats = GetResultValue(self.fs.GetTargetStats(paths))
         else:
-            raise TypeError('Must pass either paths or a FileSelector')
+            raise TypeError('Must pass either str,'
+                            'list of str or FileSelector')
 
-        return [FileStats.wrap(stat) for stat in stats]
+        if detail:
+            return [FileStats.wrap(stat) for stat in stats]
+        else:
+            return [FileStats.wrap(stat).path for stat in stats]
 
     def create_dir(self, path, *, bint recursive=True):
         """Create a directory and subdirectories.

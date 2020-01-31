@@ -647,7 +647,7 @@ cdef class FileSystemSource(Source):
             vector[shared_ptr[CExpression]] c_partitions
             CResult[shared_ptr[CSource]] result
 
-        for stats in filesystem.get_target_stats(paths_or_selector):
+        for stats in filesystem.ls(paths_or_selector, detail=True):
             c_file_stats.push_back(stats.unwrap())
 
         for expr in partitions:
