@@ -37,30 +37,32 @@ before_script:
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - if [ $CROSSBOW_USE_COMMIT_ID = true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
 
-  - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
-  - brew update
-  - brew install bison flex llvm@7
-  - brew tap adoptopenjdk/openjdk
-  - brew cask install adoptopenjdk8
-  - export JAVA_HOME=/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home
-  - export PATH="$JAVA_HOME/bin:$PATH"
-  - echo $JAVA_HOME
-  - which java
+  # - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
+  # - brew update
+  # - brew install bison flex llvm@7
+  # - brew tap adoptopenjdk/openjdk
+  # - brew cask install adoptopenjdk8
+  # - export JAVA_HOME=/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home
+  # - export PATH="$JAVA_HOME/bin:$PATH"
+  # - echo $JAVA_HOME
+  # - which java
 
 script:
   - cd arrow
   - mkdir -p dist
-  - dev/tasks/gandiva-jars/build-cpp-osx.sh || travis_terminate 1
-  - dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file: dist/*.jar
-  skip_cleanup: true
-  on:
-    tags: true
+  # - dev/tasks/gandiva-jars/build-cpp-osx.sh || travis_terminate 1
+  # - dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
+  - echo "gandiva" > dist/test.jar
+  # deploy using crossbow
+  - brew install libgit2 python3
+  - pip3 install click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz
+  - python arrow/dev/tasks/crossbow.py \
+      --queue-path . \
+      --queue-remote {{ queue.remote_url }} \
+      upload-artifacts \
+      --sha {{ task.branch }} \
+      --tag {{ task.tag }} \
+      --pattern "dist/*.jar"
 
 notifications:
   email:
