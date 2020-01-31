@@ -151,7 +151,11 @@ AC_ARG_WITH(arrow-cpp-build-dir,
 if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
   USE_ARROW_BUILD_DIR=no
 
-  PKG_CHECK_MODULES([ARROW], [arrow arrow-compute])
+  arrow_packages="arrow"
+  arrow_packages="${arrow_packages} arrow-compute"
+  arrow_packages="${arrow_packages} arrow-csv"
+  arrow_packages="${arrow_packages} arrow-filesystem"
+  PKG_CHECK_MODULES([ARROW], [${arrow_packages}])
   _PKG_CONFIG(ARROW_LIB_DIR, [variable=libdir], [arrow])
   ARROW_LIB_DIR="$pkg_cv_ARROW_LIB_DIR"
   PKG_CHECK_MODULES([ARROW_ORC],
