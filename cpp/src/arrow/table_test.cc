@@ -319,6 +319,12 @@ TEST_F(TestTable, Equals) {
 
   other = Table::Make(schema_, other_columns);
   ASSERT_FALSE(table_->Equals(*other));
+
+  // Differring schema metadata
+  other_schema = schema_->WithMetadata(::arrow::key_value_metadata({"key"}, {"value"}));
+  other = Table::Make(other_schema, columns_);
+  ASSERT_FALSE(table_->Equals(*other));
+  ASSERT_TRUE(table_->Equals(*other, /*check_metadata=*/false));
 }
 
 TEST_F(TestTable, FromRecordBatches) {
