@@ -36,9 +36,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ticket: "SELECT id FROM alltypes_plain".into(),
     });
 
-    let response = client.do_get(request).await?;
+    let mut stream = client.do_get(request).await?.into_inner();
 
-    println!("RESPONSE={:?}", response);
+    while let Some(batch) = stream.message().await? {
+        println!("BATCH = {:?}", batch);
+    }
 
     Ok(())
 }

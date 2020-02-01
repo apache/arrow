@@ -209,8 +209,7 @@ impl<W: Write> Drop for StreamWriter<W> {
     }
 }
 
-/// Convert the schema to its IPC representation, and write it to the `writer`
-fn write_schema<R: Write>(writer: &mut BufWriter<R>, schema: &Schema) -> Result<usize> {
+pub(crate) fn schema_to_bytes(schema: &Schema) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let schema = {
         let fb = ipc::convert::schema_to_fb_offset(&mut fbb, schema);
@@ -227,9 +226,13 @@ fn write_schema<R: Write>(writer: &mut BufWriter<R>, schema: &Schema) -> Result<
     fbb.finish(data, None);
 
     let data = fbb.finished_data();
-    let written = write_padded_data(writer, data, WriteDataType::Header);
+    data.to_vec()
+}
 
-    written
+/// Convert the schema to its IPC representation, and write it to the `writer`
+fn write_schema<R: Write>(writer: &mut BufWriter<R>, schema: &Schema) -> Result<usize> {
+    let data = schema_to_bytes(schema);
+    write_padded_data(writer, &data[..], WriteDataType::Header)
 }
 
 /// The message type being written. This determines whether to write the data length or not.

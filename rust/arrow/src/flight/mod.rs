@@ -19,10 +19,11 @@
 
 use flight::FlightData;
 
+use crate::datatypes::Schema;
 use crate::ipc::writer;
 use crate::record_batch::RecordBatch;
 
-/// Convert a `RecordBatch` to `FlightData by getting the header and body as bytes
+/// Convert a `RecordBatch` to `FlightData` by getting the header and body as bytes
 impl From<&RecordBatch> for FlightData {
     fn from(batch: &RecordBatch) -> Self {
         let (header, body) = writer::record_batch_to_bytes(batch);
@@ -31,6 +32,19 @@ impl From<&RecordBatch> for FlightData {
             app_metadata: vec![],
             data_header: header,
             data_body: body,
+        }
+    }
+}
+
+/// Convert a `Schema` to `FlightData` by converting to an IPC message
+impl From<&Schema> for FlightData {
+    fn from(schema: &Schema) -> Self {
+        let schema = writer::schema_to_bytes(schema);
+        Self {
+            flight_descriptor: None,
+            app_metadata: vec![],
+            data_header: schema,
+            data_body: vec![],
         }
     }
 }
