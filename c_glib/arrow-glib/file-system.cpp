@@ -579,7 +579,8 @@ const gchar *
 garrow_file_system_get_type_name(GArrowFileSystem *file_system)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
-  return arrow_file_system->type_name().c_str();
+  auto type_name = arrow_file_system->type_name();
+  return g_strndup(type_name.data(), type_name.size());
 }
 
 /**
