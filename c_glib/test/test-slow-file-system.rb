@@ -17,30 +17,16 @@
 
 require_relative "helper/generic-file-system"
 
-class TestLocalFileSystem < Test::Unit::TestCase
+class TestSlowFileSystem < Test::Unit::TestCase
   def setup
     Dir.mktmpdir do |tmpdir|
-      @local_fs = Arrow::LocalFileSystem.new(build_options)
-      @fs = Arrow::SubTreeFileSystem.new(tmpdir, @local_fs)
+      options = Arrow::LocalFileSystemOptions.defaults
+      local_fs = Arrow::LocalFileSystem.new(options)
+      subtree_fs = Arrow::SubTreeFileSystem.new(tmpdir, local_fs)
+      @fs = Arrow::SlowFileSystem.new(subtree_fs, 0.001)
       yield
     end
   end
 
-  def build_options
-    Arrow::LocalFileSystemOptions.defaults
-  end
-
-  sub_test_case("do not use mmap") do
-    include GenericFileSystemTestMethods
-  end
-
-  sub_test_case("use mmap") do
-    include GenericFileSystemTestMethods
-
-    def build_options
-      options = Arrow::LocalFileSystemOptions.defaults
-      options.use_mmap = true
-      options
-    end
-  end
+  include GenericFileSystemTestMethods
 end
