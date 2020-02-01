@@ -21,7 +21,6 @@ use flight::Ticket;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let mut client = FlightServiceClient::connect("http://localhost:50051").await?;
 
     let request = tonic::Request::new(Ticket {
