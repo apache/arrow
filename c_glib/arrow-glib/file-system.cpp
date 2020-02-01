@@ -549,6 +549,8 @@ garrow_file_system_set_property(GObject *object,
 static void
 garrow_file_system_init(GArrowFileSystem *object)
 {
+  auto priv = GARROW_FILE_SYSTEM_GET_PRIVATE(object);
+  new(&priv->file_system) std::shared_ptr<arrow::fs::FileSystem>;
 }
 
 static void
