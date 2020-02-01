@@ -74,13 +74,9 @@ impl FlightService for FlightServiceImpl {
                 // create the query plan
                 let plan = ctx
                     .create_logical_plan(&sql)
+                    .and_then(|plan| ctx.optimize(&plan))
+                    .and_then(|plan| ctx.create_physical_plan(&plan, 1024 * 1024))
                     .map_err(|e| to_tonic_err(&e))?;
-                let plan = ctx.optimize(&plan).map_err(|e| to_tonic_err(&e))?;
-                let plan = ctx
-                    .create_physical_plan(&plan, 1024 * 1024)
-                    .map_err(|e| to_tonic_err(&e))?;
-
-                //TODO make this async
 
                 // execute the query
                 let results = ctx.collect(plan.as_ref()).map_err(|e| to_tonic_err(&e))?;
