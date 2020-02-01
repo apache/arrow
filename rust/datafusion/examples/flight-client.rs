@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use arrow::ipc::reader;
 use flight::flight_service_client::FlightServiceClient;
-
 use flight::Ticket;
 
 #[tokio::main]
@@ -31,6 +31,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     while let Some(batch) = stream.message().await? {
         println!("BATCH = {:?}", batch);
+
+        let schema = reader::schema_from_bytes(&batch.data_header);
+
+        println!("SCHEMA = {:?}", schema);
     }
 
     Ok(())

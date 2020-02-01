@@ -29,6 +29,7 @@ use crate::compute::cast;
 use crate::datatypes::{DataType, IntervalUnit, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
+use crate::ipc::convert::fb_to_schema;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
 use DataType::*;
 
@@ -661,6 +662,11 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
     fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
         self.next()
     }
+}
+
+pub fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
+    let ipc = ipc::get_root_as_message(&bytes[..]);
+    ipc.header_as_schema().map(|schema| fb_to_schema(schema))
 }
 
 #[cfg(test)]
