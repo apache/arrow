@@ -90,6 +90,8 @@ impl FlightService for FlightServiceImpl {
                     .map(|batch| Ok(FlightData::from(batch)))
                     .collect();
 
+                println!("Returning {} flights", flights.len());
+
                 let output = futures::stream::iter(flights);
 
                 Ok(Response::new(Box::pin(output) as Self::DoGetStream))
