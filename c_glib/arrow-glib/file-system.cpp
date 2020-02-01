@@ -34,7 +34,7 @@ G_BEGIN_DECLS
  *
  * #GArrowFileStats is a class for a stats of file system entry.
  *
- * #GArrowFileSelector is a class for a selector for filesystem APIs.
+ * #GArrowFileSelector is a class for a selector for file system APIs.
  *
  * #GArrowFileSystem is an interface for file system.
  *
@@ -193,7 +193,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   /**
    * GArrowFileStats:path:
    *
-   * The full file path in the filesystem.
+   * The full file path in the file system.
    *
    * Since: 1.0.0
    */
@@ -453,14 +453,14 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
   /**
    * GArrowFileSelector:allow-non-existent:
    *
-   * The behavior if `base_dir` doesn't exist in the filesystem.
+   * The behavior if `base_dir` doesn't exist in the file system.
    * If false, an error is returned.  If true, an empty selection is returned.
    *
    * Since: 1.0.0
    */
   spec = g_param_spec_boolean("allow-non-existent",
                               "Allow non existent",
-                              "The behavior if `base_dir` doesn't exist in the filesystem.",
+                              "The behavior if `base_dir` doesn't exist in the file system.",
                               file_selector.allow_non_existent,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT, spec);
@@ -607,7 +607,7 @@ garrow_file_system_get_target_stats_path(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_result = arrow_file_system->GetTargetStats(path);
-  if (garrow::check(error, arrow_result, "[filesystem][get-target-stats]")) {
+  if (garrow::check(error, arrow_result, "[file-system][get-target-stats][path]")) {
     const auto &arrow_file_stats = arrow_result.ValueOrDie();
     return garrow_file_stats_new_raw(arrow_file_stats);
   } else {
@@ -660,7 +660,7 @@ garrow_file_system_get_target_stats_paths(GArrowFileSystem *file_system,
     arrow_paths.push_back(paths[i]);
   }
   return garrow_file_stats_list_from_result(arrow_file_system->GetTargetStats(arrow_paths),
-                                            error, "[filesystem][get-target-stats-list]");
+                                            error, "[file-system][get-target-stats][paths]");
 }
 
 /**
@@ -689,7 +689,7 @@ garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
   const auto &arrow_file_selector =
     GARROW_FILE_SELECTOR_GET_PRIVATE(file_selector)->file_selector;
   return garrow_file_stats_list_from_result(arrow_file_system->GetTargetStats(arrow_file_selector),
-                                            error, "[filesystem][get-target-stats-list]");
+                                            error, "[file-system][get-target-stats][selector]");
 }
 
 /**
@@ -711,7 +711,7 @@ garrow_file_system_create_dir(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->CreateDir(path, recursive);
-  return garrow::check(error, status, "[filesystem][create-dir]");
+  return garrow::check(error, status, "[file-system][create-dir]");
 }
 
 /**
@@ -731,7 +731,7 @@ garrow_file_system_delete_dir(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->DeleteDir(path);
-  return garrow::check(error, status, "[filesystem][delete-dir]");
+  return garrow::check(error, status, "[file-system][delete-dir]");
 }
 
 /**
@@ -742,7 +742,7 @@ garrow_file_system_delete_dir(GArrowFileSystem *file_system,
  *
  * Delete a directory's cooontents, recursively.
  * Like garrow_file_system_delete_dir, but doesn't delete the directory itself.
- * Passing an empty path ("") will wipe the entire filesystem tree.
+ * Passing an empty path ("") will wipe the entire file system tree.
  *
  * Since: 1.0.0
  */
@@ -753,7 +753,7 @@ garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->DeleteDirContents(path);
-  return garrow::check(error, status, "[filesystem][delete-dir-contents]");
+  return garrow::check(error, status, "[file-system][delete-dir-contents]");
 }
 
 /**
@@ -773,7 +773,7 @@ garrow_file_system_delete_file(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->DeleteFile(path);
-  return garrow::check(error, status, "[filesystem][delete-file]");
+  return garrow::check(error, status, "[file-system][delete-file]");
 }
 
 /**
@@ -801,7 +801,7 @@ garrow_file_system_delete_files(GArrowFileSystem *file_system,
     arrow_paths.emplace_back(paths[i]);
   }
   auto status = arrow_file_system->DeleteFiles(arrow_paths);
-  return garrow::check(error, status, "[filesystem][delete-files]");
+  return garrow::check(error, status, "[file-system][delete-files]");
 }
 
 /**
@@ -827,7 +827,7 @@ garrow_file_system_move(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->Move(src, dest);
-  return garrow::check(error, status, "[filesystem][move]");
+  return garrow::check(error, status, "[file-system][move]");
 }
 
 /**
@@ -851,7 +851,7 @@ garrow_file_system_copy_file(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto status = arrow_file_system->CopyFile(src, dest);
-  return garrow::check(error, status, "[filesystem][copy-file]");
+  return garrow::check(error, status, "[file-system][copy-file]");
 }
 
 /**
@@ -874,7 +874,7 @@ garrow_file_system_open_input_stream(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_input_stream = arrow_file_system->OpenInputStream(path);
-  if (garrow::check(error, arrow_input_stream, "[filesystem][open-input-stream]")) {
+  if (garrow::check(error, arrow_input_stream, "[file-system][open-input-stream]")) {
     return garrow_input_stream_new_raw(&(arrow_input_stream.ValueOrDie()));
   } else {
     return NULL;
@@ -889,7 +889,7 @@ garrow_file_system_open_input_file(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_random_access_file = arrow_file_system->OpenInputFile(path);
-  if (garrow::check(error, arrow_random_access_file, "[filesystem][open-input-file]")) {
+  if (garrow::check(error, arrow_random_access_file, "[file-system][open-input-file]")) {
     return garrow_random_access_file_new_raw(&(arrow_random_access_file.ValueOrDie()));
   } else {
     return NULL;
@@ -918,7 +918,7 @@ garrow_file_system_open_output_stream(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_output_stream = arrow_file_system->OpenOutputStream(path);
-  if (garrow::check(error, arrow_output_stream, "[filesystem][open-append-stream]")) {
+  if (garrow::check(error, arrow_output_stream, "[file-system][open-append-stream]")) {
     return garrow_output_stream_new_raw(&(arrow_output_stream.ValueOrDie()));
   } else {
     return NULL;
@@ -946,7 +946,7 @@ garrow_file_system_open_append_stream(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_output_stream = arrow_file_system->OpenAppendStream(path);
-  if (garrow::check(error, arrow_output_stream, "[filesystem][open-append-stream]")) {
+  if (garrow::check(error, arrow_output_stream, "[file-system][open-append-stream]")) {
     return garrow_output_stream_new_raw(&(arrow_output_stream.ValueOrDie()));
   } else {
     return NULL;
