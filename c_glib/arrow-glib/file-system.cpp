@@ -184,7 +184,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
    */
   spec = g_param_spec_enum("type",
                            "Type",
-                           "The file type.",
+                           "The file type",
                            GARROW_TYPE_FILE_TYPE,
                            GARROW_FILE_TYPE_UNKNOWN,
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
@@ -199,7 +199,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
    */
   spec = g_param_spec_string("path",
                              "Path",
-                             "The full file path.",
+                             "The full file path",
                              "",
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_PATH, spec);
@@ -213,7 +213,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
    */
   spec = g_param_spec_string("base-name",
                              "Base name",
-                             "The file base name.",
+                             "The file base name",
                              "",
                              static_cast<GParamFlags>(G_PARAM_READABLE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_BASE_NAME, spec);
@@ -227,7 +227,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
    */
   spec = g_param_spec_string("dir-name",
                              "Dir name",
-                             "The directory base name.",
+                             "The directory base name",
                              "",
                              static_cast<GParamFlags>(G_PARAM_READABLE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_DIR_NAME, spec);
@@ -241,7 +241,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
    */
   spec = g_param_spec_string("extension",
                              "Extension",
-                             "The file extension.",
+                             "The file extension",
                              "",
                              static_cast<GParamFlags>(G_PARAM_READABLE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_EXTENSION, spec);
@@ -256,7 +256,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
    */
   spec = g_param_spec_int64("size",
                             "Size",
-                            "The size in bytes.",
+                            "The size in bytes",
                             -1,
                             INT64_MAX,
                             -1,
@@ -445,7 +445,7 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
    */
   spec = g_param_spec_string("base-dir",
                              "Base dir",
-                             "The directory in which to select files.",
+                             "The directory in which to select files",
                              file_selector.base_dir.c_str(),
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_BASE_DIR, spec);
@@ -460,7 +460,7 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
    */
   spec = g_param_spec_boolean("allow-non-existent",
                               "Allow non existent",
-                              "The behavior if `base_dir` doesn't exist in the file system.",
+                              "The behavior if `base_dir` doesn't exist in the file system",
                               file_selector.allow_non_existent,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT, spec);
@@ -474,7 +474,7 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
    */
   spec = g_param_spec_boolean("recursive",
                               "Recursive",
-                              "Whether to recurse into subdirectories.",
+                              "Whether to recurse into subdirectories",
                               file_selector.recursive,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_RECURSIVE, spec);
@@ -488,7 +488,7 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
    */
   spec = g_param_spec_int("max-recursion",
                           "Max recursion",
-                          "The maximum number of subdirectories to recurse into.",
+                          "The maximum number of subdirectories to recurse into",
                           0,
                           INT32_MAX,
                           file_selector.max_recursion,
