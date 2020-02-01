@@ -388,13 +388,14 @@ end
 
 class TestLocalFileSystem < Test::Unit::TestCase
   def setup
-    @tmpdir = Dir.mktmpdir
-    @options ||= Arrow::LocalFileSystemOptions.defaults
-    @local_fs = Arrow::LocalFileSystem.new(@options)
-    @fs = Arrow::SubTreeFileSystem.new(@tmpdir, @local_fs)
+    Dir.mktmpdir do |tmpdir|
+      @local_fs = Arrow::LocalFileSystem.new(build_options)
+      @fs = Arrow::SubTreeFileSystem.new(tmpdir, @local_fs)
+      yield
+    end
   end
 
-  def options
+  def build_options
     Arrow::LocalFileSystemOptions.defaults
   end
 
@@ -403,12 +404,12 @@ class TestLocalFileSystem < Test::Unit::TestCase
   end
 
   sub_test_case("use mmap") do
-    def setup
-      @options = Arrow::LocalFileSystemOptions.defaults
-      @options.use_mmap = true
-      super
-    end
-
     include GenericFileSystemTestMethods
+
+    def build_options
+      options = Arrow::LocalFileSystemOptions.defaults
+      options.use_mmap = true
+      options
+    end
   end
 end
