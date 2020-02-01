@@ -202,7 +202,7 @@ GArrowSubTreeFileSystem *
 garrow_sub_tree_file_system_new(const gchar *base_path,
                                 GArrowFileSystem *base_file_system);
 
-/* TODO: arrow::fs::SlowFileSystem */
+/* arrow::fs::SlowFileSystem */
 
 #define GARROW_TYPE_SLOW_FILE_SYSTEM (garrow_slow_file_system_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowSlowFileSystem,
