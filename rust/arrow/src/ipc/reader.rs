@@ -669,6 +669,16 @@ pub fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
     ipc.header_as_schema().map(|schema| fb_to_schema(schema))
 }
 
+pub fn recordbatch_from_bytes(
+    bytes: &[u8],
+    schema: Arc<Schema>,
+) -> Result<Option<RecordBatch>> {
+    let ipc = ipc::get_root_as_message(&bytes[..]);
+    match ipc.header_as_record_batch() {
+        Some(batch) => read_record_batch(&bytes[..].to_vec(), batch, schema),
+        None => Ok(None),
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

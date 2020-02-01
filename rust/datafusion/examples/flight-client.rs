@@ -15,9 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use arrow::datatypes::Schema;
 use arrow::ipc::reader;
 use flight::flight_service_client::FlightServiceClient;
 use flight::Ticket;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -28,13 +30,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let mut stream = client.do_get(request).await?.into_inner();
+    let mut batch_schema: Option<Arc<Schema>> = None;
 
-    while let Some(batch) = stream.message().await? {
-        println!("BATCH = {:?}", batch);
+    while let Some(flight_data) = stream.message().await? {
+        println!("FlightData = {:?}", flight_data);
 
-        let schema = reader::schema_from_bytes(&batch.data_header);
+        if let Some(schema) = reader::schema_from_bytes(&flight_data.data_header) {
+            println!("Schema = {:?}", schema);
+            batch_schema = Some(Arc::new(schema.clone()));
+        }
 
-        println!("SCHEMA = {:?}", schema);
+        match batch_schema {
+            Some(ref schema) => {
+                if let Some(record_batch) = reader::recordbatch_from_bytes(
+                    &flight_data.data_header,
+                    schema.clone(),
+                )? {
+                    println!(
+                        "record_batch has {} columns and {} rows",
+                        record_batch.num_columns(),
+                        record_batch.num_rows()
+                    );
+                }
+            }
+            None => {}
+        }
     }
 
     Ok(())
