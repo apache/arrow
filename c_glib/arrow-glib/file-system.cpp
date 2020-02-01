@@ -918,7 +918,7 @@ garrow_file_system_open_output_stream(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_output_stream = arrow_file_system->OpenOutputStream(path);
-  if (garrow::check(error, arrow_output_stream, "[file-system][open-append-stream]")) {
+  if (garrow::check(error, arrow_output_stream, "[file-system][open-output-stream]")) {
     return garrow_output_stream_new_raw(&(arrow_output_stream.ValueOrDie()));
   } else {
     return NULL;
