@@ -112,7 +112,7 @@ class Bintray:
         bintray_abspath = os.path.join(BINTRAY_DL_ROOT, self.repo, relpath)
 
         cmd = [
-            'curl', '--fail', '--location',
+            'curl', '--fail', '--location', '--retry', '5',
             '--output', dest_path, bintray_abspath
         ]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
