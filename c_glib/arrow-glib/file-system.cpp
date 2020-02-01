@@ -175,6 +175,8 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   gobject_class->set_property = garrow_file_stats_set_property;
   gobject_class->get_property = garrow_file_stats_get_property;
 
+  auto stats = arrow::fs::FileStats();
+
   /**
    * GArrowFileStats:type:
    *
@@ -200,7 +202,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   spec = g_param_spec_string("path",
                              "Path",
                              "The full file path",
-                             "",
+                             stats.path().c_str(),
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_PATH, spec);
 
@@ -214,7 +216,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   spec = g_param_spec_string("base-name",
                              "Base name",
                              "The file base name",
-                             "",
+                             stats.base_name().c_str(),
                              static_cast<GParamFlags>(G_PARAM_READABLE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_BASE_NAME, spec);
 
@@ -228,7 +230,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   spec = g_param_spec_string("dir-name",
                              "Directory name",
                              "The directory base name",
-                             "",
+                             stats.dir_name().c_str(),
                              static_cast<GParamFlags>(G_PARAM_READABLE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_DIR_NAME, spec);
 
@@ -242,7 +244,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   spec = g_param_spec_string("extension",
                              "Extension",
                              "The file extension",
-                             "",
+                             stats.extension().c_str(),
                              static_cast<GParamFlags>(G_PARAM_READABLE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_EXTENSION, spec);
 
@@ -259,7 +261,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
                             "The size in bytes",
                             -1,
                             INT64_MAX,
-                            -1,
+                            stats.size(),
                             static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_SIZE, spec);
 
@@ -275,7 +277,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
                             "The time of last modification",
                             -1,
                             INT64_MAX,
-                            -1,
+                            stats.mtime().time_since_epoch().count(),
                             static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_MTIME, spec);
 }
