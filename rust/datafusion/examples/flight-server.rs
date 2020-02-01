@@ -98,12 +98,8 @@ impl FlightService for FlightServiceImpl {
                     .map(|batch| Ok(FlightData::from(batch)))
                     .collect();
 
-<<<<<<< HEAD
-                println!("Returning {} flights", flights.len());
-=======
                 // append batch vector to schema vector, so that the first message sent is the schema
                 flights.append(&mut batches);
->>>>>>> ab28da82e43f15a07f13f745701f9f1eadef56b8
 
                 let output = futures::stream::iter(flights);
 

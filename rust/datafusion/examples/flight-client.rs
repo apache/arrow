@@ -15,17 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::pin::Pin;
-
-use futures::Stream;
-use tonic::transport::Server;
-use tonic::{Request, Response, Status, Streaming};
-
 use flight::flight_service_client::FlightServiceClient;
 
-use flight::{
-    FlightData, FlightDescriptor, FlightInfo, Ticket,
-};
+use flight::Ticket;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
