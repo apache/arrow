@@ -953,7 +953,6 @@ public class TestListVector {
   @Test
   public void testIsEmpty() {
     try (final ListVector vector = ListVector.empty("list", allocator)) {
-
       UnionListWriter writer = vector.getWriter();
       writer.allocate();
 
@@ -964,18 +963,14 @@ public class TestListVector {
       writeIntValues(writer, new int[] {5, 6});
       writer.setValueCount(4);
 
+      assertFalse(vector.isEmpty(0));
       assertTrue(vector.isNull(1));
       assertTrue(vector.isEmpty(1));
-
       assertFalse(vector.isNull(2));
       assertTrue(vector.isEmpty(2));
-
-      assertFalse(vector.isEmpty(0));
       assertFalse(vector.isEmpty(3));
-
     }
   }
-
 
   private void writeIntValues(UnionListWriter writer, int[] values) {
     writer.startList();

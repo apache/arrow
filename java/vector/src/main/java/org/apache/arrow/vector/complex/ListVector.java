@@ -730,7 +730,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   /**
    * Check if element at given index is empty list.
    * @param index position of element
-   * @return true if element at given index is empty list, false otherwise
+   * @return true if element at given index is empty list or NULL, false otherwise
    */
   @Override
   public boolean isEmpty(int index) {
