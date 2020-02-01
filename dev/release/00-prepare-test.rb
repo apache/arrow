@@ -275,8 +275,10 @@ class PrepareTest < Test::Unit::TestCase
                         "+version = \"#{@release_version}\""],
                        ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
                         "-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\" }",
+                        "-arrow-flight = { path = \"../arrow-flight\", version = \"#{@snapshot_version}\" }",
                         "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
-                        "+parquet = { path = \"../parquet\", version = \"#{@release_version}\" }"]
+                        "+parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
+                        "+arrow-flight = { path = \"../arrow-flight\", version = \"#{@release_version}\" }"]
                      ],
                    },
                    {
