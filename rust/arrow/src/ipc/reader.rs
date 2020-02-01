@@ -29,7 +29,6 @@ use crate::compute::cast;
 use crate::datatypes::{DataType, IntervalUnit, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
-use crate::ipc::convert::fb_to_schema;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
 use DataType::*;
 
@@ -349,7 +348,7 @@ fn create_list_array(
 }
 
 /// Creates a record batch from binary data using the `ipc::RecordBatch` indexes and the `Schema`
-fn read_record_batch(
+pub(crate) fn read_record_batch(
     buf: &Vec<u8>,
     batch: ipc::RecordBatch,
     schema: Arc<Schema>,
@@ -664,21 +663,6 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
     }
 }
 
-pub fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
-    let ipc = ipc::get_root_as_message(&bytes[..]);
-    ipc.header_as_schema().map(|schema| fb_to_schema(schema))
-}
-
-pub fn recordbatch_from_bytes(
-    bytes: &[u8],
-    schema: Arc<Schema>,
-) -> Result<Option<RecordBatch>> {
-    let ipc = ipc::get_root_as_message(&bytes[..]);
-    match ipc.header_as_record_batch() {
-        Some(batch) => read_record_batch(&bytes[..].to_vec(), batch, schema),
-        None => Ok(None),
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;

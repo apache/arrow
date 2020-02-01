@@ -17,10 +17,14 @@
 
 //! Utilities to assist with reading and writing Arrow data as Flight messages
 
+use std::convert::TryFrom;
+use std::sync::Arc;
+
 use flight::FlightData;
 
 use crate::datatypes::Schema;
-use crate::ipc::writer;
+use crate::error::{ArrowError, Result};
+use crate::ipc::{convert, reader, writer};
 use crate::record_batch::RecordBatch;
 
 /// Convert a `RecordBatch` to `FlightData` by getting the header and body as bytes
@@ -47,6 +51,33 @@ impl From<&Schema> for FlightData {
             data_body: vec![],
         }
     }
+}
+
+/// Try convert `FlightData` into an Arrow Schema
+///
+/// Returns an error if the `FlightData` header is not a valid IPC schema
+impl TryFrom<&FlightData> for Schema {
+    type Error = ArrowError;
+    fn try_from(data: &FlightData) -> Result<Self> {
+        convert::schema_from_bytes(&data.data_header[..]).ok_or(ArrowError::ParseError(
+            "Unable to convert flight data to Arrow schema".to_string(),
+        ))
+    }
+}
+
+/// Convert a FlightData message to a RecordBatch
+pub fn flight_data_to_batch(
+    data: &FlightData,
+    schema: Arc<Schema>,
+) -> Result<Option<RecordBatch>> {
+    // check that the data_header is a record batch message
+    let message = crate::ipc::get_root_as_message(&data.data_header[..]);
+    let batch_header = message
+        .header_as_record_batch()
+        .ok_or(ArrowError::ParseError(
+            "Unable to convert flight data header to a record batch".to_string(),
+        ))?;
+    reader::read_record_batch(&data.data_body, batch_header, schema)
 }
 
 // TODO: add more explicit conversion that expoess flight descriptor and metadata options

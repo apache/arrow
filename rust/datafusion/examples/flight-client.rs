@@ -15,11 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::convert::TryFrom;
+use std::sync::Arc;
+
+use arrow::array::Int32Array;
 use arrow::datatypes::Schema;
-use arrow::ipc::reader;
+use arrow::flight::flight_data_to_batch;
 use flight::flight_service_client::FlightServiceClient;
 use flight::Ticket;
-use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,31 +33,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let mut stream = client.do_get(request).await?.into_inner();
-    let mut batch_schema: Option<Arc<Schema>> = None;
 
+    // the schema should be the first message returned, else client should error
+    let flight_data = stream.message().await?.unwrap();
+    // convert FlightData to a stream
+    let schema = Arc::new(Schema::try_from(&flight_data)?);
+    println!("Schema: {:?}", schema);
+
+    // all the remaining stream messages should be dictionary and record batches
     while let Some(flight_data) = stream.message().await? {
-        println!("FlightData = {:?}", flight_data);
+        // the unwrap is infallible and thus safe
+        let record_batch = flight_data_to_batch(&flight_data, schema.clone())?.unwrap();
 
-        if let Some(schema) = reader::schema_from_bytes(&flight_data.data_header) {
-            println!("Schema = {:?}", schema);
-            batch_schema = Some(Arc::new(schema.clone()));
-        }
-
-        match batch_schema {
-            Some(ref schema) => {
-                if let Some(record_batch) = reader::recordbatch_from_bytes(
-                    &flight_data.data_header,
-                    schema.clone(),
-                )? {
-                    println!(
-                        "record_batch has {} columns and {} rows",
-                        record_batch.num_columns(),
-                        record_batch.num_rows()
-                    );
-                }
-            }
-            None => {}
-        }
+        println!(
+            "record_batch has {} columns and {} rows",
+            record_batch.num_columns(),
+            record_batch.num_rows()
+        );
+        let column = record_batch.column(0);
+        let column = column
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .expect("Unable to get column");
+        println!("Column 1: {:?}", column);
     }
 
     Ok(())
