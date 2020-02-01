@@ -224,6 +224,7 @@ setup_miniconda() {
   rm -f miniconda.sh
 
   . $MINICONDA/etc/profile.d/conda.sh
+  conda config --add channels conda-forge
 }
 
 # Build and test Java (Requires newer Maven -- I used 3.3.9)
