@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include <parquet/arrow/writer.h>
 
 #include <parquet-glib/arrow-file-writer.h>
@@ -27,3 +29,11 @@ GParquetArrowFileWriter *
 gparquet_arrow_file_writer_new_raw(parquet::arrow::FileWriter *parquet_arrow_file_writer);
 parquet::arrow::FileWriter *
 gparquet_arrow_file_writer_get_raw(GParquetArrowFileWriter *arrow_file_writer);
+GParquetWriterProperties *
+gparquet_writer_properties_new_raw(std::shared_ptr<parquet::WriterProperties> *parquet_writer_properties);
+std::shared_ptr<parquet::WriterProperties>
+gparquet_writer_properties_get_raw(GParquetWriterProperties *writer_properties);
+GParquetWriterPropertiesBuilder *
+gparquet_writer_properties_builder_new_raw(parquet::WriterProperties::Builder *parquet_writer_properties_builder);
+parquet::WriterProperties::Builder *
+gparquet_writer_properties_builder_get_raw(GParquetWriterPropertiesBuilder *builder);

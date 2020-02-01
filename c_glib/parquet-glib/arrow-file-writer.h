@@ -23,6 +23,43 @@
 
 G_BEGIN_DECLS
 
+#define GPARQUET_TYPE_WRITER_PROPERTIES         \
+  (gparquet_writer_properties_get_type())
+G_DECLARE_DERIVABLE_TYPE(GParquetWriterProperties,
+                         gparquet_writer_properties,
+                         GPARQUET,
+                         WRITER_PROPERTIES,
+                         GObject)
+struct _GParquetWriterPropertiesClass
+{
+  GObjectClass parent_class;
+};
+
+GParquetWriterProperties *gparquet_writer_properties_new(void);
+
+
+#define GPARQUET_TYPE_WRITER_PROPERTIES_BUILDER         \
+  (gparquet_writer_properties_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GParquetWriterPropertiesBuilder,
+                         gparquet_writer_properties_builder,
+                         GPARQUET,
+                         WRITER_PROPERTIES_BUILDER,
+                         GObject)
+struct _GParquetWriterPropertiesBuilderClass
+{
+  GObjectClass parent_class;
+};
+
+GParquetWriterPropertiesBuilder *gparquet_writer_properties_builder_new(void);
+void
+gparquet_writer_properties_builder_set_compression(GParquetWriterPropertiesBuilder *builder,
+                                                   GArrowCompressionType compression_type);
+GArrowCompressionType
+gparquet_writer_properties_builder_get_compression(GParquetWriterPropertiesBuilder *builder);
+GParquetWriterProperties *
+gparquet_writer_properties_builder_build(GParquetWriterPropertiesBuilder *builder);
+
+
 #define GPARQUET_TYPE_ARROW_FILE_WRITER (gparquet_arrow_file_writer_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetArrowFileWriter,
                          gparquet_arrow_file_writer,
@@ -37,10 +74,12 @@ struct _GParquetArrowFileWriterClass
 GParquetArrowFileWriter *
 gparquet_arrow_file_writer_new_arrow(GArrowSchema *schema,
                                      GArrowOutputStream *sink,
+                                     GParquetWriterProperties *writer_properties,
                                      GError **error);
 GParquetArrowFileWriter *
 gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
                                     const gchar *path,
+                                    GParquetWriterProperties *writer_properties,
                                     GError **error);
 
 gboolean
