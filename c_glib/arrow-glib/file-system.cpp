@@ -559,7 +559,7 @@ garrow_file_system_class_init(GArrowFileSystemClass *klass)
   gobject_class->finalize     = garrow_file_system_finalize;
   gobject_class->set_property = garrow_file_system_set_property;
 
-  spec = g_param_spec_pointer("file_system",
+  spec = g_param_spec_pointer("file-system",
                               "FileSystem",
                               "The raw std::shared<arrow::fs::FileSystem> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
