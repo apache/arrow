@@ -617,9 +617,9 @@ garrow_file_system_get_target_stats_path(GArrowFileSystem *file_system,
 }
 
 static inline GList *
-garrow_file_stats_list_from_result(arrow::Result<std::vector<arrow::fs::FileStats>>&& arrow_result,
-                                   GError **error,
-                                   const gchar *context)
+garrow_file_stats_list_new(arrow::Result<std::vector<arrow::fs::FileStats>>&& arrow_result,
+                           GError **error,
+                           const gchar *context)
 {
   if (garrow::check(error, arrow_result, context)) {
     auto arrow_file_stats_vector = arrow_result.ValueOrDie();
@@ -660,8 +660,8 @@ garrow_file_system_get_target_stats_paths(GArrowFileSystem *file_system,
   for (gsize i = 0; i < n_paths; ++i) {
     arrow_paths.push_back(paths[i]);
   }
-  return garrow_file_stats_list_from_result(arrow_file_system->GetTargetStats(arrow_paths),
-                                            error, "[file-system][get-target-stats][paths]");
+  return garrow_file_stats_list_new(arrow_file_system->GetTargetStats(arrow_paths),
+                                    error, "[file-system][get-target-stats][paths]");
 }
 
 /**
@@ -689,8 +689,8 @@ garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   const auto &arrow_file_selector =
     GARROW_FILE_SELECTOR_GET_PRIVATE(file_selector)->file_selector;
-  return garrow_file_stats_list_from_result(arrow_file_system->GetTargetStats(arrow_file_selector),
-                                            error, "[file-system][get-target-stats][selector]");
+  return garrow_file_stats_list_new(arrow_file_system->GetTargetStats(arrow_file_selector),
+                                    error, "[file-system][get-target-stats][selector]");
 }
 
 /**
