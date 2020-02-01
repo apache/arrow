@@ -226,7 +226,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
    * Since: 1.0.0
    */
   spec = g_param_spec_string("dir-name",
-                             "Dir name",
+                             "Directory name",
                              "The directory base name",
                              "",
                              static_cast<GParamFlags>(G_PARAM_READABLE));
@@ -271,7 +271,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
    * Since: 1.0.0
    */
   spec = g_param_spec_int64("mtime",
-                            "Mtime",
+                            "Last modified time",
                             "The time of last modification",
                             -1,
                             INT64_MAX,
