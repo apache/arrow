@@ -16,6 +16,10 @@
 # under the License.
 
 class TestParquetWriterPropertiesBuilder < Test::Unit::TestCase
+  def setup
+    omit("Parquet is required") unless defined?(::Parquet)
+  end
+
   def test_compression
     builder = Parquet::WriterPropertiesBuilder.new
     builder.compression = :gzip
