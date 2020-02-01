@@ -75,26 +75,26 @@ garrow_file_stats_set_property(GObject *object,
                                const GValue *value,
                                GParamSpec *pspec)
 {
-  auto priv = GARROW_FILE_STATS_GET_PRIVATE(object);
+  auto &arrow_file_stats = garrow_file_stats_get_raw(GARROW_FILE_STATS(object));
 
   switch (prop_id) {
   case PROP_FILE_STATS_TYPE:
     {
       auto arrow_file_type = static_cast<arrow::fs::FileType>(g_value_get_enum(value));
-      priv->file_stats.set_type(arrow_file_type);
+      arrow_file_stats.set_type(arrow_file_type);
     }
     break;
   case PROP_FILE_STATS_PATH:
-    priv->file_stats.set_path(g_value_get_string(value));
+    arrow_file_stats.set_path(g_value_get_string(value));
     break;
   case PROP_FILE_STATS_SIZE:
-    priv->file_stats.set_size(g_value_get_int64(value));
+    arrow_file_stats.set_size(g_value_get_int64(value));
     break;
   case PROP_FILE_STATS_MTIME:
     {
       const gint64 mtime = g_value_get_int64(value);
       const arrow::fs::TimePoint::duration duration(mtime);
-      priv->file_stats.set_mtime(arrow::fs::TimePoint(duration));
+      arrow_file_stats.set_mtime(arrow::fs::TimePoint(duration));
     }
     break;
   default:
@@ -109,34 +109,34 @@ garrow_file_stats_get_property(GObject *object,
                                GValue *value,
                                GParamSpec *pspec)
 {
-  auto priv = GARROW_FILE_STATS_GET_PRIVATE(object);
+  const auto &arrow_file_stats = garrow_file_stats_get_raw(GARROW_FILE_STATS(object));
 
   switch (prop_id) {
   case PROP_FILE_STATS_TYPE:
     {
-      const auto arrow_file_type = priv->file_stats.type();
+      const auto arrow_file_type = arrow_file_stats.type();
       const auto file_type = static_cast<GArrowFileType>(arrow_file_type);
       g_value_set_enum(value, file_type);
     }
     break;
   case PROP_FILE_STATS_PATH:
-    g_value_set_string(value, priv->file_stats.path().c_str());
+    g_value_set_string(value, arrow_file_stats.path().c_str());
     break;
   case PROP_FILE_STATS_BASE_NAME:
-    g_value_set_string(value, priv->file_stats.base_name().c_str());
+    g_value_set_string(value, arrow_file_stats.base_name().c_str());
     break;
   case PROP_FILE_STATS_DIR_NAME:
-    g_value_set_string(value, priv->file_stats.dir_name().c_str());
+    g_value_set_string(value, arrow_file_stats.dir_name().c_str());
     break;
   case PROP_FILE_STATS_EXTENSION:
-    g_value_set_string(value, priv->file_stats.extension().c_str());
+    g_value_set_string(value, arrow_file_stats.extension().c_str());
     break;
   case PROP_FILE_STATS_SIZE:
-    g_value_set_int64(value, priv->file_stats.size());
+    g_value_set_int64(value, arrow_file_stats.size());
     break;
   case PROP_FILE_STATS_MTIME:
     {
-      const auto arrow_mtime = priv->file_stats.mtime();
+      const auto arrow_mtime = arrow_file_stats.mtime();
       const auto mtime = arrow_mtime.time_since_epoch().count();
       g_value_set_int64(value, mtime);
     }
@@ -310,26 +310,22 @@ gboolean
 garrow_file_stats_equal(GArrowFileStats *file_stats,
                         GArrowFileStats *other_file_stats)
 {
-  const auto &arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
-  const auto &arrow_other_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(other_file_stats)->file_stats;
+  const auto &arrow_file_stats = garrow_file_stats_get_raw(file_stats);
+  const auto &arrow_other_file_stats = garrow_file_stats_get_raw(other_file_stats);
   return arrow_file_stats.Equals(arrow_other_file_stats);
 }
 
 gboolean
 garrow_file_stats_is_file(GArrowFileStats *file_stats)
 {
-  const auto &arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
+  const auto &arrow_file_stats = garrow_file_stats_get_raw(file_stats);
   return arrow_file_stats.IsFile();
 }
 
 gboolean
 garrow_file_stats_is_directory(GArrowFileStats *file_stats)
 {
-  const auto &arrow_file_stats =
-    GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
+  const auto &arrow_file_stats = garrow_file_stats_get_raw(file_stats);
   return arrow_file_stats.IsDirectory();
 }
 
@@ -1073,6 +1069,12 @@ garrow_file_stats_new_raw(const arrow::fs::FileStats& arrow_file_stats)
   auto file_stats = garrow_file_stats_new();
   GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats = arrow_file_stats;
   return file_stats;
+}
+
+arrow::fs::FileStats &
+garrow_file_stats_get_raw(GArrowFileStats *file_stats)
+{
+  return GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
 }
 
 GArrowFileSystem *
