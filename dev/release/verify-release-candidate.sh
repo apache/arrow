@@ -609,9 +609,11 @@ test_linux_wheels() {
       pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
       check_python_imports py_arch
 
-      # execute the python unit tests
-      conda install -y --file ${ARROW_DIR}/ci/conda_env_python.yml pandas
-      pytest --pyargs pyarrow
+      # install test requirements
+      pip install -r ${ARROW_DIR}/python/requirements-test.txt
+
+      # execute the tests
+      pytest -sv --pyargs pyarrow
     done
 
     conda deactivate
@@ -640,9 +642,11 @@ test_macos_wheels() {
     pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-${macos_suffix}.whl
     check_python_imports py_arch
 
-    # execute the python unit tests
-    conda install -y --file ${ARROW_DIR}/ci/conda_env_python.yml pandas
-    pytest --pyargs pyarrow
+    # install test requirements
+    pip install -r ${ARROW_DIR}/python/requirements-test.txt
+
+    # execute the tests
+    pytest -sv --pyargs pyarrow
 
     conda deactivate
   done
