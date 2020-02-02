@@ -65,7 +65,7 @@ pub trait RowAccessor {
     fn get_ulong(&self, i: usize) -> Result<u64>;
     fn get_float(&self, i: usize) -> Result<f32>;
     fn get_double(&self, i: usize) -> Result<f64>;
-    fn get_timestamp(&self, i: usize) -> Result<u64>; // TODO
+    fn get_timestamp(&self, i: usize) -> Result<u64>;
     fn get_timestamp_micros(&self, i: usize) -> Result<u64>;
     fn get_decimal(&self, i: usize) -> Result<&Decimal>;
     fn get_string(&self, i: usize) -> Result<&String>;
