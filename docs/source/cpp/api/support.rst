@@ -33,6 +33,14 @@ Error return and reporting
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: parquet::ParquetException
+   :project: arrow_cpp
+   :members:
+
 .. doxygendefine:: ARROW_RETURN_NOT_OK
 
 .. doxygendefine:: ARROW_ASSIGN_OR_RAISE
+
+.. doxygendefine:: PARQUET_THROW_NOT_OK
+
+.. doxygendefine:: PARQUET_ASSIGN_OR_THROW
