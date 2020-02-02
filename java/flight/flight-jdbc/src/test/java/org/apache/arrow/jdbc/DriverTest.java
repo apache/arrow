@@ -17,10 +17,13 @@
 
 package org.apache.arrow.jdbc;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Properties;
 
 import org.junit.Test;
 
@@ -44,5 +47,17 @@ public class DriverTest {
   @Test
   public void rejectsNullUrl() throws SQLException {
     assertFalse(driver.acceptsURL(null));
+  }
+
+  @Test
+  public void executeQuery() throws SQLException {
+    try (Connection conn = driver.connect("jdbc:arrow://localhost:50051", new Properties())) {
+      try (Statement stmt = conn.createStatement()) {
+        try (ResultSet rs = stmt.executeQuery("SELECT id FROM alltypes_plain")) {
+          assertTrue(rs.next());
+          assertEquals(1, rs.getInt(1));
+        }
+      }
+    }
   }
 }

@@ -49,7 +49,7 @@ public class Connection implements java.sql.Connection {
 
   @Override
   public Statement createStatement() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return new Statement(this);
   }
 
   @Override

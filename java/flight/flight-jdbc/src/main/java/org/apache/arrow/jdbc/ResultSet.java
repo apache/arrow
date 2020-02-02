@@ -40,6 +40,7 @@ import java.util.Calendar;
 import java.util.Map;
 
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.vector.VectorSchemaRoot;
 
 /**
  * ResultSet.
@@ -51,22 +52,32 @@ public class ResultSet implements java.sql.ResultSet {
    */
   private final FlightStream stream;
 
+  private VectorSchemaRoot root;
+
   private boolean wasNull;
 
-  public ResultSet(FlightStream stream) {
+  /**
+   * Create a ResultSet to wrap a FlightStream.
+   */
+  public ResultSet(final FlightStream stream) {
     this.stream = stream;
+
+    if (stream.next()) {
+      this.root = stream.getRoot();
+    }
   }
 
   @Override
   public boolean next() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    //TODO
+    return true;
   }
 
   @Override
   public Object getObject(int i) throws SQLException {
-    //TODO implement
-    this.wasNull = false;
-    throw new SQLFeatureNotSupportedException();
+    final Object value = this.root.getFieldVectors().get(i - 1).getObject(i);
+    this.wasNull = value == null;
+    return value;
   }
 
   @Override

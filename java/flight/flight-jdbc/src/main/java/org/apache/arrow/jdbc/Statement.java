@@ -37,7 +37,11 @@ import org.apache.arrow.memory.RootAllocator;
  */
 public class Statement implements java.sql.Statement {
 
-  private org.apache.arrow.jdbc.Connection connection;
+  protected final org.apache.arrow.jdbc.Connection connection;
+
+  public Statement(org.apache.arrow.jdbc.Connection connection) {
+    this.connection = connection;
+  }
 
   @Override
   public ResultSet executeQuery(String query) throws SQLException {
