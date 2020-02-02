@@ -37,23 +37,23 @@ import java.util.concurrent.Executor;
 /**
  * Connection.
  */
-public class Connection implements java.sql.Connection {
+public class FlightConnection implements java.sql.Connection {
 
   protected final String host;
   protected final int port;
 
-  public Connection(String host, int port) {
+  public FlightConnection(String host, int port) {
     this.host = host;
     this.port = port;
   }
 
   @Override
-  public Statement createStatement() throws SQLException {
-    return new Statement(this);
+  public FlightStatement createStatement() throws SQLException {
+    return new FlightStatement(this);
   }
 
   @Override
-  public PreparedStatement prepareStatement(String s) throws SQLException {
+  public FlightPreparedStatement prepareStatement(String s) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
@@ -143,12 +143,12 @@ public class Connection implements java.sql.Connection {
   }
 
   @Override
-  public Statement createStatement(int i, int i1) throws SQLException {
+  public FlightStatement createStatement(int i, int i1) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
   @Override
-  public PreparedStatement prepareStatement(String s, int i, int i1) throws SQLException {
+  public FlightPreparedStatement prepareStatement(String s, int i, int i1) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
@@ -198,12 +198,12 @@ public class Connection implements java.sql.Connection {
   }
 
   @Override
-  public Statement createStatement(int i, int i1, int i2) throws SQLException {
+  public FlightStatement createStatement(int i, int i1, int i2) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
   @Override
-  public PreparedStatement prepareStatement(String s, int i, int i1, int i2) throws SQLException {
+  public FlightPreparedStatement prepareStatement(String s, int i, int i1, int i2) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
@@ -213,17 +213,17 @@ public class Connection implements java.sql.Connection {
   }
 
   @Override
-  public PreparedStatement prepareStatement(String s, int i) throws SQLException {
+  public FlightPreparedStatement prepareStatement(String s, int i) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
   @Override
-  public PreparedStatement prepareStatement(String s, int[] ints) throws SQLException {
+  public FlightPreparedStatement prepareStatement(String s, int[] ints) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
   @Override
-  public PreparedStatement prepareStatement(String s, String[] strings) throws SQLException {
+  public FlightPreparedStatement prepareStatement(String s, String[] strings) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 

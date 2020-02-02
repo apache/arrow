@@ -40,10 +40,14 @@ import java.util.Calendar;
 /**
  * PreparedStatement.
  */
-public class PreparedStatement extends Statement implements java.sql.PreparedStatement {
+public class FlightPreparedStatement extends FlightStatement implements java.sql.PreparedStatement {
+
+  public FlightPreparedStatement(FlightConnection flightConnection) {
+    super(flightConnection);
+  }
 
   @Override
-  public ResultSet executeQuery() throws SQLException {
+  public FlightResultSet executeQuery() throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 

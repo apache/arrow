@@ -45,7 +45,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 /**
  * ResultSet.
  */
-public class ResultSet implements java.sql.ResultSet {
+public class FlightResultSet implements java.sql.ResultSet {
 
   /**
    * Stream of RecordBatch.
@@ -59,7 +59,7 @@ public class ResultSet implements java.sql.ResultSet {
   /**
    * Create a ResultSet to wrap a FlightStream.
    */
-  public ResultSet(final FlightStream stream) {
+  public FlightResultSet(final FlightStream stream) {
     this.stream = stream;
 
     if (stream.next()) {

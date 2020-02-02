@@ -35,12 +35,12 @@ import org.apache.arrow.memory.RootAllocator;
 /**
  * Statement.
  */
-public class Statement implements java.sql.Statement {
+public class FlightStatement implements java.sql.Statement {
 
-  protected final org.apache.arrow.jdbc.Connection connection;
+  protected final FlightConnection flightConnection;
 
-  public Statement(org.apache.arrow.jdbc.Connection connection) {
-    this.connection = connection;
+  public FlightStatement(FlightConnection flightConnection) {
+    this.flightConnection = flightConnection;
   }
 
   @Override
@@ -48,7 +48,7 @@ public class Statement implements java.sql.Statement {
 
     FlightClient client = FlightClient.builder()
         .allocator(new RootAllocator(Long.MAX_VALUE))
-        .location(Location.forGrpcInsecure(connection.host, connection.port))
+        .location(Location.forGrpcInsecure(flightConnection.host, flightConnection.port))
         .build();
 
     CallOption callOptions = CallOptions.timeout(5, TimeUnit.SECONDS);
@@ -57,7 +57,7 @@ public class Statement implements java.sql.Statement {
 
     FlightStream stream = client.getStream(ticket, callOptions);
 
-    return new org.apache.arrow.jdbc.ResultSet(stream);
+    return new FlightResultSet(stream);
   }
 
   @Override
