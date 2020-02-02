@@ -427,6 +427,10 @@ class FileWriterImpl : public FileWriter {
         closed_(false) {}
 
   Status Init() {
+    if (arrow_properties_->engine() != ArrowEngineVersion::kDefault) {
+      return Status::NotImplemented("Engine version '", (int)arrow_properties_->engine(),
+                                    "' not implemented.");
+    }
     return SchemaManifest::Make(writer_->schema(), /*schema_metadata=*/nullptr,
                                 default_arrow_reader_properties(), &schema_manifest_);
   }

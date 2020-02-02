@@ -535,6 +535,19 @@ static constexpr bool kArrowDefaultUseThreads = false;
 // Default number of rows to read when using ::arrow::RecordBatchReader
 static constexpr int64_t kArrowDefaultBatchSize = 64 * 1024;
 
+// At times the arrow code base might contain multiple iterations
+// of code to read/write data to Parquet.  This enum allows
+// selection of the given code.
+enum class ArrowEngineVersion {
+  // The current default engine. This doesn't support mixed
+  // struct list date.
+  kDefault = 0,
+
+  // Not fully implemented.  When done this will support reading/
+  // writing all forms of nested data.
+  kNextGen = 1
+};
+
 /// EXPERIMENTAL: Properties for configuring FileReader behavior.
 class PARQUET_EXPORT ArrowReaderProperties {
  public:
@@ -554,6 +567,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
       read_dict_indices_.erase(column_index);
     }
   }
+
   bool read_dictionary(int column_index) const {
     if (read_dict_indices_.find(column_index) != read_dict_indices_.end()) {
       return true;
@@ -566,10 +580,15 @@ class PARQUET_EXPORT ArrowReaderProperties {
 
   int64_t batch_size() const { return batch_size_; }
 
+  void set_engine(ArrowEngineVersion engine) { engine_ = engine; }
+
+  ArrowEngineVersion engine() { return engine_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
   int64_t batch_size_;
+  ArrowEngineVersion engine_ = ArrowEngineVersion::kDefault;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties
@@ -595,6 +614,11 @@ class PARQUET_EXPORT ArrowWriterProperties {
 
     Builder* enable_deprecated_int96_timestamps() {
       write_timestamps_as_int96_ = true;
+      return this;
+    }
+
+    Builder* set_arrow_engine(ArrowEngineVersion engine) {
+      engine_ = engine;
       return this;
     }
 
@@ -625,7 +649,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
     std::shared_ptr<ArrowWriterProperties> build() {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
-          truncated_timestamps_allowed_, store_schema_));
+          truncated_timestamps_allowed_, store_schema_, engine_));
     }
 
    private:
@@ -633,6 +657,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
 
     bool coerce_timestamps_enabled_;
     ::arrow::TimeUnit::type coerce_timestamps_unit_;
+    ArrowEngineVersion engine_ = ArrowEngineVersion::kDefault;
     bool truncated_timestamps_allowed_;
 
     bool store_schema_;
@@ -645,6 +670,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
     return coerce_timestamps_unit_;
   }
 
+  ArrowEngineVersion engine() { return engine_; }
+
   bool truncated_timestamps_allowed() const { return truncated_timestamps_allowed_; }
 
   bool store_schema() const { return store_schema_; }
@@ -653,16 +680,19 @@ class PARQUET_EXPORT ArrowWriterProperties {
   explicit ArrowWriterProperties(bool write_nanos_as_int96,
                                  bool coerce_timestamps_enabled,
                                  ::arrow::TimeUnit::type coerce_timestamps_unit,
-                                 bool truncated_timestamps_allowed, bool store_schema)
+                                 bool truncated_timestamps_allowed, bool store_schema,
+                                 ArrowEngineVersion engine)
       : write_timestamps_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
         coerce_timestamps_unit_(coerce_timestamps_unit),
+        engine_(engine),
         truncated_timestamps_allowed_(truncated_timestamps_allowed),
         store_schema_(store_schema) {}
 
   const bool write_timestamps_as_int96_;
   const bool coerce_timestamps_enabled_;
   const ::arrow::TimeUnit::type coerce_timestamps_unit_;
+  const ArrowEngineVersion engine_;
   const bool truncated_timestamps_allowed_;
   const bool store_schema_;
 };

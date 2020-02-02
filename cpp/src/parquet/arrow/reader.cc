@@ -104,6 +104,11 @@ class FileReaderImpl : public FileReader {
       : pool_(pool), reader_(std::move(reader)), reader_properties_(properties) {}
 
   Status Init() {
+    if (reader_properties_.engine() != ArrowEngineVersion::kDefault) {
+      return Status::NotImplemented("Engine version '", (int)reader_properties_.engine(),
+                                    "' not implemented.");
+    }
+
     return SchemaManifest::Make(reader_->metadata()->schema(),
                                 reader_->metadata()->key_value_metadata(),
                                 reader_properties_, &manifest_);
