@@ -32,7 +32,8 @@ public class Driver implements java.sql.Driver {
   private static final String PREFIX = "jdbc:arrow:";
 
   @Override
-  public Connection connect(String s, Properties properties) throws SQLException {
+  public Connection connect(String url, Properties properties) throws SQLException {
+
     throw new SQLFeatureNotSupportedException();
   }
 

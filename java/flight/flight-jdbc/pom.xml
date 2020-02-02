@@ -160,23 +160,6 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>1.6.0</version>
-        <configuration>
-          <executable>java</executable>
-          <classpathScope>test</classpathScope>
-          <arguments>
-            <argument>-classpath</argument>
-            <classpath />
-            <argument>-Xms64m</argument>
-            <argument>-Xmx64m</argument>
-            <argument>-XX:MaxDirectMemorySize=4g</argument>
-            <argument>org.apache.arrow.flight.example.ExampleFlightServer</argument>
-          </arguments>
-        </configuration>
-      </plugin>
-      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
         <executions>
