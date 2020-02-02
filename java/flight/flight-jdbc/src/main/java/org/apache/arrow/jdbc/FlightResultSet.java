@@ -82,21 +82,12 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public String getString(int i) throws SQLException {
-    return String.valueOf(getObject(i));
+    return ResultSetHelper.getString(getObject(i));
   }
 
   @Override
   public boolean getBoolean(int i) throws SQLException {
-    final Object value = getObject(i);
-    if (value == null) {
-      throw new SQLFeatureNotSupportedException();
-    } else if (value instanceof Boolean) {
-      return (Boolean) value;
-    } else if (value instanceof String) {
-      return ((String) value).equalsIgnoreCase("true");
-    } else {
-      throw new SQLException();
-    }
+    return ResultSetHelper.getBoolean(getObject(i));
   }
 
   @Override
@@ -115,32 +106,32 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public byte getByte(int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSetHelper.getByte(getObject(i));
   }
 
   @Override
   public short getShort(int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSetHelper.getShort(getObject(i));
   }
 
   @Override
   public int getInt(int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSetHelper.getInt(getObject(i));
   }
 
   @Override
   public long getLong(int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSetHelper.getLong(getObject(i));
   }
 
   @Override
   public float getFloat(int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSetHelper.getFloat(getObject(i));
   }
 
   @Override
   public double getDouble(int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSetHelper.getDouble(getObject(i));
   }
 
   @Override
@@ -150,22 +141,22 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public byte[] getBytes(int i) throws SQLException {
-    return new byte[0];
+    return ResultSetHelper.getBytes(getObject(i));
   }
 
   @Override
   public Date getDate(int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSetHelper.getDate(getObject(i));
   }
 
   @Override
   public Time getTime(int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSetHelper.getTime(getObject(i));
   }
 
   @Override
   public Timestamp getTimestamp(int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSetHelper.getTimestamp(getObject(i));
   }
 
   @Override
@@ -184,57 +175,57 @@ public class FlightResultSet implements java.sql.ResultSet {
   }
 
   @Override
-  public String getString(String s) throws SQLException {
+  public String getString(String columnName) throws SQLException {
+    return ResultSetHelper.getString(getObject(columnName));
+  }
+
+  @Override
+  public boolean getBoolean(String columnName) throws SQLException {
+    return ResultSetHelper.getBoolean(getObject(columnName));
+  }
+
+  @Override
+  public byte getByte(String columnName) throws SQLException {
+    return ResultSetHelper.getByte(getObject(columnName));
+  }
+
+  @Override
+  public short getShort(String columnName) throws SQLException {
+    return ResultSetHelper.getShort(getObject(columnName));
+  }
+
+  @Override
+  public int getInt(String columnName) throws SQLException {
+    return ResultSetHelper.getInt(getObject(columnName));
+  }
+
+  @Override
+  public long getLong(String columnName) throws SQLException {
+    return ResultSetHelper.getLong(getObject(columnName));
+  }
+
+  @Override
+  public float getFloat(String columnName) throws SQLException {
+    return ResultSetHelper.getFloat(getObject(columnName));
+  }
+
+  @Override
+  public double getDouble(String columnName) throws SQLException {
+    return ResultSetHelper.getDouble(getObject(columnName));
+  }
+
+  @Override
+  public BigDecimal getBigDecimal(String columnName, int i) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
   @Override
-  public boolean getBoolean(String s) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+  public byte[] getBytes(String columnName) throws SQLException {
+    return ResultSetHelper.getBytes(getObject(columnName));
   }
 
   @Override
-  public byte getByte(String s) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
-  }
-
-  @Override
-  public short getShort(String s) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
-  }
-
-  @Override
-  public int getInt(String s) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
-  }
-
-  @Override
-  public long getLong(String s) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
-  }
-
-  @Override
-  public float getFloat(String s) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
-  }
-
-  @Override
-  public double getDouble(String s) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
-  }
-
-  @Override
-  public BigDecimal getBigDecimal(String s, int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
-  }
-
-  @Override
-  public byte[] getBytes(String s) throws SQLException {
-    return new byte[0];
-  }
-
-  @Override
-  public Date getDate(String s) throws SQLException {
+  public Date getDate(String columnName) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
@@ -244,22 +235,22 @@ public class FlightResultSet implements java.sql.ResultSet {
   }
 
   @Override
-  public Timestamp getTimestamp(String s) throws SQLException {
+  public Timestamp getTimestamp(String columnName) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
   @Override
-  public InputStream getAsciiStream(String s) throws SQLException {
+  public InputStream getAsciiStream(String columnName) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
   @Override
-  public InputStream getUnicodeStream(String s) throws SQLException {
+  public InputStream getUnicodeStream(String columnName) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
   @Override
-  public InputStream getBinaryStream(String s) throws SQLException {
+  public InputStream getBinaryStream(String columnName) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
