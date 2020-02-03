@@ -69,12 +69,13 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
           AllocateBuffer(pool_, dictionary.length() * sizeof(int32_t), &result));
       auto result_raw = reinterpret_cast<int32_t*>(result->mutable_data());
       for (int64_t i = 0; i < values.length(); ++i) {
-        result_raw[i] = memo_table_.GetOrInsert(values.GetView(i));
+        RETURN_NOT_OK(memo_table_.GetOrInsert(values.GetView(i), &result_raw[i]));
       }
       *out = result;
     } else {
       for (int64_t i = 0; i < values.length(); ++i) {
-        memo_table_.GetOrInsert(values.GetView(i));
+        int32_t unused_memo_index;
+        RETURN_NOT_OK(memo_table_.GetOrInsert(values.GetView(i), &unused_memo_index));
       }
     }
     return Status::OK();
