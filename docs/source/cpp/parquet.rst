@@ -30,15 +30,19 @@ from tight integration with Arrow C++.
 The :class:`arrow::FileReader` class reads data for an entire
 file or row group into an :class:`::arrow::Table`.
 
-The :func:`arrow::WriteTable` method writes an entire
+The :func:`arrow::WriteTable` function writes an entire
 :class:`::arrow::Table` to an output file.
 
 The :class:`StreamReader` and :class:`StreamWriter` classes allow for
 data to be written using a C++ input/output streams approach to
-read/write fields column by column and row by row.  This is approach
-is offered for ease of use and type-safety.  It is of course also
-useful when data must be streamed as files are read and written
+read/write fields column by column and row by row.  This approach is
+offered for ease of use and type-safety.  It is of course also useful
+when data must be streamed as files are read and written
 incrementally.
+
+Please note that the performance of the :class:`StreamReader` and
+:class:`StreamWriter` classes will not be as good due to the type
+checking and the fact that column values are processed one at a time.
 
 FileReader
 ==========
@@ -80,7 +84,7 @@ Finer-grained options are available through the
 WriteTable
 ==========
 
-The :func:`arrow::WriteTable` method writes an entire
+The :func:`arrow::WriteTable` function writes an entire
 :class:`::arrow::Table` to an output file.
 
 .. code-block:: cpp
