@@ -190,11 +190,7 @@ jobs:
           submodules: true
       - name: Build
         shell: bash
-        run: |
-          export BOOST_ROOT="$(ls -1 /c/local/boost_* | tail -n1)"
-          export BOOST_LIBRARYDIR="${BOOST_ROOT}\\lib64-msvc-14.1"
-          echo "BOOST_ROOT: ${BOOST_ROOT}"
-          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
