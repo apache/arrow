@@ -503,7 +503,7 @@ test_integration() {
   export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
   export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
 
-  pip3 install -e dev/archery
+  pip install -e dev/archery
 
   INTEGRATION_TEST_ARGS=""
 
