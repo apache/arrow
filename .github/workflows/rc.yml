@@ -69,7 +69,7 @@ jobs:
             # sudo apt-get install -u oracle-java8-set-default
             # Maven
             MAVEN_VERSION=3.6.3
-            wget https://apache.mirrors.lucidnetworks.net/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.zip
+            wget http://apache.mirrors.lucidnetworks.net/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.zip
             unzip apache-maven-$MAVEN_VERSION-bin.zip
             mkdir -p $HOME/java
             mv apache-maven-$MAVEN_VERSION $HOME/java
