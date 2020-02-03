@@ -1,0 +1,55 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: R
+
+on:
+  push:
+    paths:
+      - '.github/workflows/rc.yml'
+      # This is just a file we know will get edited when a version is bumped
+      # and shouldn't get touched otherwise
+      - 'ruby/red-arrow/lib/arrow/version.rb'
+  pull_request:
+    paths:
+      - '.github/workflows/rc.yml'
+      - 'ruby/red-arrow/lib/arrow/version.rb'
+
+jobs:
+  verify:
+    name: Verify ${{ matrix.os }} ${{ matrix.job }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        job: [source, binaries, wheels]
+    env:
+      RC_NUM: 2
+      # TODO: read this from file
+      VERSION: 0.16.0
+      JOB: ${{ matrix.job }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Run verification
+        shell: bash
+        run: |
+          # TODO: don't run if VERSION has SNAPSHOT in it? I.e. just for rc
+          dev/release/verify-release-candidate.sh $JOB $VERSION $RC_NUM
