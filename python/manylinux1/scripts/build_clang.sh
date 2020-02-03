@@ -18,8 +18,8 @@
 
 source /multibuild/manylinux_utils.sh
 
-export LLVM_VERSION="7.0.1"
-curl -sL https://releases.llvm.org/${LLVM_VERSION}/cfe-${LLVM_VERSION}.src.tar.xz -o cfe-${LLVM_VERSION}.src.tar.xz
+export LLVM_VERSION="8.0.1"
+curl -sL https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/cfe-${LLVM_VERSION}.src.tar.xz -o cfe-${LLVM_VERSION}.src.tar.xz
 unxz cfe-${LLVM_VERSION}.src.tar.xz
 tar xf cfe-${LLVM_VERSION}.src.tar
 pushd cfe-${LLVM_VERSION}.src
@@ -31,9 +31,10 @@ cmake  \
     -DCLANG_INCLUDE_DOCS=OFF \
     -DLLVM_INCLUDE_TESTS=OFF \
     -DLLVM_INCLUDE_DOCS=OFF \
+    -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=ON \
     -GNinja \
     ..
-ninja install
+ninja -w dupbuild=warn install
 popd
 popd
 rm -rf cfe-${LLVM_VERSION}.src.tar.xz cfe-${LLVM_VERSION}.src.tar cfe-${LLVM_VERSION}.src
