@@ -19,7 +19,7 @@
 BISON_VERSION=3.3.2
 NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
 
-wget https://ftp.gnu.org/gnu/bison/bison-${BISON_VERSION}.tar.gz
+curl -sL https://ftp.gnu.org/gnu/bison/bison-${BISON_VERSION}.tar.gz -o bison-${BISON_VERSION}.tar.gz
 tar xf bison-${BISON_VERSION}.tar.gz
 pushd bison-${BISON_VERSION}
 ./configure --prefix=/usr
