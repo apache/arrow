@@ -96,7 +96,7 @@ services:
   conda-cpp-valgrind:
     # Usage:
     #   docker-compose build conda-cpp
-    #   docker-compose run --rm conda-cpp
+    #   docker-compose run --rm conda-cpp-valgrind
     # Parameters:
     #   ARCH: amd64, arm32v7
     image: ${REPO}:${ARCH}-conda-cpp
