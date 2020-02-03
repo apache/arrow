@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: R
+name: Release candidate verification
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
+        os: [ubuntu-latest, macOS-latest]
         job: [source, wheels]
     env:
       RC_NUM: 2
@@ -51,8 +51,79 @@ jobs:
       - name: Run verification
         shell: bash
         run: |
-          if which choco >/dev/null 2>&1; then
-            choco install wget
+          if [ $(uname) = "Darwin"]; then
+            brew install llvm@7
+          else
+            sudo apt-get install -y \
+              llvm-7 \
+              wget curl libboost-all-dev jq \
+              autoconf-archive gtk-doc-tools libgirepository1.0-dev
+            # JDK 8
+            sudo add-apt-repository ppa:webupd8team/java -y
+            sudo apt-get update -qq
+            echo "oracle-java8-installer shared/accepted-oracle-license-v1-1 select true" | sudo debconf-set-selections
+            sudo apt-get install -y oracle-java8-installer
+            sudo apt-get install -u oracle-java8-set-default
+            # Maven
+            MAVEN_VERSION=3.6.0
+            unzip apache-maven-$MAVEN_VERSION-bin.zip
+            mkdir -p $HOME/java
+            mv apache-maven-$MAVEN_VERSION $HOME/java
+            export PATH=$HOME/java/apache-maven-$MAVEN_VERSION/bin:$PATH
+            # Node
+            curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | bash
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+            [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+            nvm install 11
+            # Build and install Ruby from source
+            sudo apt-get build-dep -y ruby-defaults
+            RUBY_VERSION=2.6.2
+            wget https://cache.ruby-lang.org/pub/ruby/$(echo $RUBY_VERSION | sed -e 's/\.[0-9]*$//')/ruby-$RUBY_VERSION.tar.gz
+            tar xvf ruby-$RUBY_VERSION.tar.gz
+            pushd ruby-$RUBY_VERSION
+            CC=gcc ./configure --prefix=$HOME/ruby
+            CC=gcc make -j8
+            make install
+            popd
+            rm -rf ruby-$RUBY_VERSION
+            rm -rf ruby-$RUBY_VERSION.tar.gz
+            # Add Ruby to PATH
+            export PATH=$HOME/ruby/bin:$PATH
           fi
           # TODO: don't run if VERSION has SNAPSHOT in it? I.e. just for rc
           dev/release/verify-release-candidate.sh $JOB $VERSION $RC_NUM
+  windows-source:
+    name: Verify Windows source
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    env:
+      RC_NUM: 2
+      # TODO: read this from file
+      VERSION: 0.16.0
+      JOB: ${{ matrix.job }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Run verification
+        run: dev/release/verify-release-candidate.bat %VERSION% %RC_NUM%
+  windows-wheels:
+    name: Verify Windows wheels
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    env:
+      RC_NUM: 2
+      # TODO: read this from file
+      VERSION: 0.16.0
+      JOB: ${{ matrix.job }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Run verification
+        run: dev/release/verify-release-candidate-wheels.bat %VERSION% %RC_NUM%
