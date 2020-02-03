@@ -21,8 +21,10 @@ import static org.junit.Assert.*;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -63,11 +65,17 @@ public class DriverTest {
     try (Connection conn = driver.connect("jdbc:arrow://localhost:50051", new Properties())) {
       try (Statement stmt = conn.createStatement()) {
         try (ResultSet rs = stmt.executeQuery("SELECT id FROM alltypes_plain")) {
+
+          ResultSetMetaData md = rs.getMetaData();
+          assertEquals(1, md.getColumnCount());
+          assertEquals("c0", md.getColumnName(1));
+          assertEquals(Types.INTEGER, md.getColumnType(1));
+
           List<Integer> ids = new ArrayList<>();
           while (rs.next()) {
             ids.add(rs.getInt(1));
           }
-          assertEquals(ImmutableList.of(5, 6, 7, 2, 3, 0, 1, 0), ids);
+          assertEquals(ImmutableList.of(4, 5, 6, 7, 2, 3, 0, 1), ids);
         }
       }
     }

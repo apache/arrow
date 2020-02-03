@@ -48,19 +48,20 @@ import org.apache.arrow.vector.VectorSchemaRoot;
  */
 public class FlightResultSet implements java.sql.ResultSet {
 
-  /**
-   * Stream of RecordBatch.
-   */
+  /** Stream of RecordBatch instances. */
   private final FlightStream stream;
 
   /** The current record batch. */
   private VectorSchemaRoot root;
 
+  /** Current row index into the current batch. */
   private int batchIndex;
 
-  private boolean wasNull;
-
+  /** Current row index into the stream. */
   private int rowIndex = -1;
+
+  /** Cache whether the last accessor method encountered a null value. */
+  private boolean wasNull;
 
   /**
    * Create a ResultSet to wrap a FlightStream.
@@ -68,24 +69,34 @@ public class FlightResultSet implements java.sql.ResultSet {
   public FlightResultSet(final FlightStream stream) {
     this.stream = stream;
 
-    if (stream.next()) {
-      this.root = stream.getRoot();
-    }
+    // fetch the first batch right away so we have meta-data
+    getNextBatch();
   }
 
   @Override
   public boolean next() throws SQLException {
-    if (batchIndex < root.getRowCount()) {
+    if (batchIndex + 1 == root.getRowCount()) {
+      if (getNextBatch()) {
+        batchIndex++;
+        rowIndex++;
+        return true;
+      } else {
+        return false;
+      }
+    } else {
       batchIndex++;
       rowIndex++;
       return true;
-    } else if (stream.next()) {
-      this.root = stream.getRoot();
-      batchIndex = 0;
-      rowIndex++;
+    }
+  }
+
+  private boolean getNextBatch() {
+    batchIndex = -1;
+    if (stream.next()) {
+      root = stream.getRoot();
       return true;
     } else {
-      this.root = null;
+      root = null;
       return false;
     }
   }
@@ -151,8 +162,9 @@ public class FlightResultSet implements java.sql.ResultSet {
     return ResultSetHelper.getDouble(getObject(i));
   }
 
+  @Deprecated
   @Override
-  public BigDecimal getBigDecimal(int i, int i1) throws SQLException {
+  public BigDecimal getBigDecimal(int i, int scale) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
@@ -231,8 +243,9 @@ public class FlightResultSet implements java.sql.ResultSet {
     return ResultSetHelper.getDouble(getObject(columnName));
   }
 
+  @Deprecated
   @Override
-  public BigDecimal getBigDecimal(String columnName, int i) throws SQLException {
+  public BigDecimal getBigDecimal(String columnName, int scale) throws SQLException {
     throw new SQLFeatureNotSupportedException();
   }
 
@@ -243,12 +256,12 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public Date getDate(String columnName) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSetHelper.getDate(getObject(columnName));
   }
 
   @Override
-  public Time getTime(String s) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+  public Time getTime(String columnName) throws SQLException {
+    return ResultSetHelper.getTime(getObject(columnName));
   }
 
   @Override
@@ -273,7 +286,7 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public SQLWarning getWarnings() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return null;
   }
 
   @Override
@@ -287,7 +300,7 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public ResultSetMetaData getMetaData() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return new FlightResultSetMetaData(this.root.getFieldVectors());
   }
 
   @Override
