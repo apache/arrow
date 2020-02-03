@@ -653,6 +653,11 @@ test_macos_wheels() {
 }
 
 test_wheels() {
+  if [ ! -d "arrow-testing" ]; then
+    git clone https://github.com/apache/arrow-testing.git
+  fi
+  export ARROW_TEST_DATA=$PWD/arrow-testing/data
+  
   local download_dir=binaries
   mkdir -p ${download_dir}
 
