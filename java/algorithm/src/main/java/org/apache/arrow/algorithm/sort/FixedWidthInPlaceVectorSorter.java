@@ -46,6 +46,7 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
       this.comparator = comparator;
       this.pivotBuffer = (V) vec.getField().createVector(vec.getAllocator());
       this.pivotBuffer.allocateNew(1);
+      this.pivotBuffer.setValueCount(1);
 
       comparator.attachVectors(vec, pivotBuffer);
       quickSort();
