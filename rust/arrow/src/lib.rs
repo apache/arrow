@@ -33,6 +33,8 @@ pub mod compute;
 pub mod csv;
 pub mod datatypes;
 pub mod error;
+#[cfg(feature = "flight")]
+pub mod flight;
 pub mod ipc;
 pub mod json;
 pub mod memory;
