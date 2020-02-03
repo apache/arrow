@@ -37,7 +37,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
-        job: [source, binaries, wheels]
+        job: [source, wheels]
     env:
       RC_NUM: 2
       # TODO: read this from file
