@@ -51,7 +51,7 @@ jobs:
       - name: Run verification
         shell: bash
         run: |
-          if [ $(uname) = "Darwin"]; then
+          if [ $(uname) = "Darwin" ]; then
             brew install llvm@7
           else
             sudo apt-get install -y \
