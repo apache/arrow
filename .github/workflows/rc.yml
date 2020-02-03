@@ -66,6 +66,7 @@ jobs:
             # sudo apt-get install -u oracle-java8-set-default
             # Maven
             MAVEN_VERSION=3.6.0
+            wget http://apache.mirrors.lucidnetworks.net/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.zip
             unzip apache-maven-$MAVEN_VERSION-bin.zip
             mkdir -p $HOME/java
             mv apache-maven-$MAVEN_VERSION $HOME/java
@@ -112,6 +113,7 @@ jobs:
       - name: Run verification
         run: |
           choco install wget
+          choco install boost-msvc-14.1
           dev/release/verify-release-candidate.bat %VERSION% %RC_NUM%
   windows-wheels:
     name: Verify Windows wheels

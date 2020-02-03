@@ -33,9 +33,6 @@ if not exist %_VERIFICATION_DIR% mkdir %_VERIFICATION_DIR%
 
 cd %_VERIFICATION_DIR%
 
-CALL :verify_wheel 3.5 %1 %2
-if errorlevel 1 GOTO error
-
 CALL :verify_wheel 3.6 %1 %2
 if errorlevel 1 GOTO error
 
