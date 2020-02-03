@@ -613,7 +613,7 @@ test_linux_wheels() {
       pip install -r ${ARROW_DIR}/python/requirements-test.txt
 
       # execute the tests
-      pytest -sv --pyargs pyarrow
+      pytest --pyargs pyarrow
     done
 
     conda deactivate
@@ -646,7 +646,7 @@ test_macos_wheels() {
     pip install -r ${ARROW_DIR}/python/requirements-test.txt
 
     # execute the tests
-    pytest -sv --pyargs pyarrow
+    pytest --pyargs pyarrow
 
     conda deactivate
   done
