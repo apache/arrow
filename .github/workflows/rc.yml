@@ -51,5 +51,8 @@ jobs:
       - name: Run verification
         shell: bash
         run: |
+          if which choco >/dev/null 2>&1; then
+            choco install wget
+          fi
           # TODO: don't run if VERSION has SNAPSHOT in it? I.e. just for rc
           dev/release/verify-release-candidate.sh $JOB $VERSION $RC_NUM

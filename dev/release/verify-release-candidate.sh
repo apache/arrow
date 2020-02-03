@@ -621,7 +621,7 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
-  local py_arches="2.7m 3.5m 3.6m 3.7m 3.8"
+  local py_arches="3.6m 3.7m 3.8"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
@@ -657,7 +657,7 @@ test_wheels() {
     git clone https://github.com/apache/arrow-testing.git
   fi
   export ARROW_TEST_DATA=$PWD/arrow-testing/data
-  
+
   local download_dir=binaries
   mkdir -p ${download_dir}
 
