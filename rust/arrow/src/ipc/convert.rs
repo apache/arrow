@@ -152,6 +152,12 @@ pub(crate) fn fb_to_schema(fb: ipc::Schema) -> Schema {
     Schema::new_with_metadata(fields, metadata)
 }
 
+/// Deserialize an IPC message into a schema
+pub(crate) fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
+    let ipc = ipc::get_root_as_message(bytes);
+    ipc.header_as_schema().map(|schema| fb_to_schema(schema))
+}
+
 /// Get the Arrow data type from the flatbuffer Field table
 pub(crate) fn get_data_type(field: ipc::Field) -> DataType {
     match field.type_type() {

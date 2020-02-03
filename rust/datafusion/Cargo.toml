@@ -56,6 +56,12 @@ crossbeam = "0.7.1"
 [dev-dependencies]
 criterion = "0.2.0"
 tempdir = "0.3.7"
+futures = "0.3"
+prost = "0.6"
+tokio = { version = "0.2", features = ["macros"] }
+tonic = "0.1"
+flatbuffers = "0.6.0"
+arrow-flight = { path = "../arrow-flight", version = "0.16.0-SNAPSHOT" }
 
 [[bench]]
 name = "aggregate_query_sql"

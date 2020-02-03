@@ -348,7 +348,7 @@ fn create_list_array(
 }
 
 /// Creates a record batch from binary data using the `ipc::RecordBatch` indexes and the `Schema`
-fn read_record_batch(
+pub(crate) fn read_record_batch(
     buf: &Vec<u8>,
     batch: ipc::RecordBatch,
     schema: Arc<Schema>,
