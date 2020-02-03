@@ -25,6 +25,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -52,6 +53,7 @@ public class DriverTest {
   /**
    * Note that this is a manual integration test that requires the Rust flight-server example to be running.
    */
+  @Ignore
   @Test
   public void executeQuery() throws SQLException {
     try (Connection conn = driver.connect("jdbc:arrow://localhost:50051", new Properties())) {
