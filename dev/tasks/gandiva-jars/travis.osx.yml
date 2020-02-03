@@ -53,14 +53,15 @@ script:
   - dev/tasks/gandiva-jars/build-cpp-osx.sh || travis_terminate 1
   - dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
 
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file: dist/*.jar
-  skip_cleanup: true
-  on:
-    tags: true
+# ARROW-7466
+# deploy:
+#   provider: releases
+#   api_key: $CROSSBOW_GITHUB_TOKEN
+#   file_glob: true
+#   file: dist/*.jar
+#   skip_cleanup: true
+#   on:
+#     tags: true
 
 notifications:
   email:
