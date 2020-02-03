@@ -24,7 +24,6 @@ import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
@@ -193,12 +192,9 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     return true;
   }
 
-  /**
-   * Creates a visitor to visit child vectors.
-   * It is used for complex vector types.
-   * @return the visitor for child vecors.
-   */
-  protected RangeEqualsVisitor createInnerVisitor(ValueVector leftInner, ValueVector rightInner) {
+  protected RangeEqualsVisitor createInnerVisitor(
+          ValueVector leftInner, ValueVector rightInner,
+          BiFunction<ValueVector, ValueVector, Boolean> typeComparator) {
     return new RangeEqualsVisitor(leftInner, rightInner, typeComparator);
   }
 
@@ -206,16 +202,23 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     UnionVector leftVector = (UnionVector) left;
     UnionVector rightVector = (UnionVector) right;
 
-    List<FieldVector> leftChildren = leftVector.getChildrenFromFields();
-    List<FieldVector> rightChildren = rightVector.getChildrenFromFields();
+    Range subRange = new Range(0, 0, 1);
+    for (int i = 0; i < range.getLength(); i++) {
+      subRange.setLeftStart(range.getLeftStart() + i).setRightStart(range.getRightStart() + i);
+      ValueVector leftSubVector = leftVector.getVector(range.getLeftStart() + i);
+      ValueVector rightSubVector = rightVector.getVector(range.getRightStart() + i);
 
-    if (leftChildren.size() != rightChildren.size()) {
-      return false;
-    }
-
-    for (int k = 0; k < leftChildren.size(); k++) {
-      RangeEqualsVisitor visitor = createInnerVisitor(leftChildren.get(k), rightChildren.get(k));
-      if (!visitor.rangeEquals(range)) {
+      if (leftSubVector == null || rightSubVector == null) {
+        if (leftSubVector == rightSubVector) {
+          continue;
+        } else {
+          return false;
+        }
+      }
+      TypeEqualsVisitor typeVisitor = new TypeEqualsVisitor(rightSubVector);
+      RangeEqualsVisitor visitor =
+          createInnerVisitor(leftSubVector, rightSubVector, (left, right) -> typeVisitor.equals(left));
+      if (!visitor.rangeEquals(subRange)) {
         return false;
       }
     }
@@ -232,7 +235,8 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     }
 
     for (String name : leftChildNames) {
-      RangeEqualsVisitor visitor = createInnerVisitor(leftVector.getChild(name), rightVector.getChild(name));
+      RangeEqualsVisitor visitor =
+          createInnerVisitor(leftVector.getChild(name), rightVector.getChild(name), /*type comparator*/ null);
       if (!visitor.rangeEquals(range)) {
         return false;
       }
@@ -311,7 +315,8 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     ListVector leftVector = (ListVector) left;
     ListVector rightVector = (ListVector) right;
 
-    RangeEqualsVisitor innerVisitor = createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector());
+    RangeEqualsVisitor innerVisitor =
+        createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector(), /*type comparator*/ null);
     Range innerRange = new Range();
 
     for (int i = 0; i < range.getLength(); i++) {
@@ -357,7 +362,8 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     }
 
     int listSize = leftVector.getListSize();
-    RangeEqualsVisitor innerVisitor = createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector());
+    RangeEqualsVisitor innerVisitor =
+        createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector(), /*type comparator*/ null);
     Range innerRange = new Range(0, 0, listSize);
 
     for (int i = 0; i < range.getLength(); i++) {
