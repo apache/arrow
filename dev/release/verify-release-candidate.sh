@@ -28,6 +28,9 @@
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
+#
+# To reuse build artifacts between runs set TMPDIR environment variable to
+# a directory where the temporary files should be placed to.
 
 case $# in
   3) ARTIFACT="$1"
@@ -205,7 +208,12 @@ setup_tempdir() {
     fi
   }
   trap cleanup EXIT
-  TMPDIR=$(mktemp -d -t "$1.XXXXX")
+
+  if [ -z "${TMPDIR}" ]; then
+    TMPDIR=$(mktemp -d -t "$1.XXXXX")
+  else
+    mkdir -p "${TMPDIR}"
+  fi
 }
 
 
@@ -219,9 +227,12 @@ setup_miniconda() {
 
   MINICONDA=$PWD/test-miniconda
 
-  wget -O miniconda.sh $MINICONDA_URL
-  bash miniconda.sh -b -p $MINICONDA
-  rm -f miniconda.sh
+  if [ ! -d "${MINICONDA}" ]; then
+    # Setup miniconda only if the directory doesn't exist yet
+    wget -O miniconda.sh $MINICONDA_URL
+    bash miniconda.sh -b -p $MINICONDA
+    rm -f miniconda.sh
+  fi
 
   . $MINICONDA/etc/profile.d/conda.sh
 }
@@ -249,7 +260,7 @@ test_and_install_cpp() {
         cython
   conda activate arrow-test
 
-  mkdir cpp/build
+  mkdir -p cpp/build
   pushd cpp/build
 
   ARROW_CMAKE_OPTIONS="
@@ -523,10 +534,14 @@ test_source_distribution() {
     NPROC=$(nproc)
   fi
 
-  git clone https://github.com/apache/arrow-testing.git
+  # Clone testing repositories if not cloned already
+  if [ ! -d "arrow-testing" ]; then
+    git clone https://github.com/apache/arrow-testing.git
+  fi
+  if [ ! -d "parquet-testing" ]; then
+    git clone https://github.com/apache/parquet-testing.git
+  fi
   export ARROW_TEST_DATA=$PWD/arrow-testing/data
-
-  git clone https://github.com/apache/parquet-testing.git
   export PARQUET_TEST_DATA=$PWD/parquet-testing/data
 
   if [ ${TEST_JAVA} -gt 0 ]; then
@@ -612,7 +627,7 @@ test_linux_wheels() {
       # install test requirements
       pip install -r ${ARROW_DIR}/python/requirements-test.txt
 
-      # execute the tests
+      # execute the python unit tests
       pytest --pyargs pyarrow
     done
 
@@ -645,7 +660,7 @@ test_macos_wheels() {
     # install test requirements
     pip install -r ${ARROW_DIR}/python/requirements-test.txt
 
-    # execute the tests
+    # execute the python unit tests
     pytest --pyargs pyarrow
 
     conda deactivate
