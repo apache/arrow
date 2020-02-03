@@ -109,7 +109,9 @@ jobs:
         with:
           submodules: true
       - name: Run verification
-        run: dev/release/verify-release-candidate.bat %VERSION% %RC_NUM%
+        run: |
+          choco install wget
+          dev/release/verify-release-candidate.bat %VERSION% %RC_NUM%
   windows-wheels:
     name: Verify Windows wheels
     runs-on: windows-latest
@@ -126,4 +128,6 @@ jobs:
         with:
           submodules: true
       - name: Run verification
-        run: dev/release/verify-release-candidate-wheels.bat %VERSION% %RC_NUM%
+        run: |
+          choco install wget
+          dev/release/verify-release-candidate-wheels.bat %VERSION% %RC_NUM%
