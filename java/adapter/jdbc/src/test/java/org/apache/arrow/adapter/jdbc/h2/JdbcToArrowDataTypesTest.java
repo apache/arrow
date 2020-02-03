@@ -50,7 +50,7 @@ import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
@@ -202,8 +202,8 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
             table.getCharValues());
         break;
       case DATE:
-        assertDateVectorValues((DateMilliVector) root.getVector(table.getVector()), table.getValues().length,
-            table.getLongValues());
+        assertDateVectorValues((DateDayVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getIntValues());
         break;
       case TIME:
         assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length,

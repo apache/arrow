@@ -38,7 +38,7 @@ import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
@@ -51,6 +51,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -66,6 +67,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     super(table);
   }
 
+  @Test
   @Override
   public void testJdbcToArrowValues() throws SQLException, IOException {
 
@@ -91,7 +93,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     List<VarCharVector> vectorsForChar = new ArrayList<>();
     List<BitVector> vectorsForBit = new ArrayList<>();
     List<BitVector> vectorsForBool = new ArrayList<>();
-    List<DateMilliVector> dateMilliVectors = new ArrayList<>();
+    List<DateDayVector> dateDayVectors = new ArrayList<>();
     List<TimeMilliVector> timeMilliVectors = new ArrayList<>();
     List<TimeStampVector> timeStampVectors = new ArrayList<>();
     List<DecimalVector> decimalVectors = new ArrayList<>();
@@ -115,7 +117,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
       vectorsForChar.add((VarCharVector) root.getVector(CHAR));
       vectorsForBit.add((BitVector) root.getVector(BIT));
       vectorsForBool.add((BitVector) root.getVector(BOOL));
-      dateMilliVectors.add((DateMilliVector) root.getVector(DATE));
+      dateDayVectors.add((DateDayVector) root.getVector(DATE));
       timeMilliVectors.add((TimeMilliVector) root.getVector(TIME));
       timeStampVectors.add((TimeStampVector) root.getVector(TIMESTAMP));
       decimalVectors.add((DecimalVector) root.getVector(DECIMAL));
@@ -134,7 +136,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     assertVarCharVectorValues(vectorsForChar, table.getRowCount(), getCharArray(table.getValues(), CHAR));
     assertBitVectorValues(vectorsForBit, table.getRowCount(), getIntValues(table.getValues(), BIT));
     assertBooleanVectorValues(vectorsForBool, table.getRowCount(), getBooleanValues(table.getValues(), BOOL));
-    assertDateMilliVectorValues(dateMilliVectors, table.getRowCount(), getLongValues(table.getValues(), DATE));
+    assertDateDayVectorValues(dateDayVectors, table.getRowCount(), getLongValues(table.getValues(), DATE));
     assertTimeMilliVectorValues(timeMilliVectors, table.getRowCount(), getLongValues(table.getValues(), TIME));
     assertTimeStampVectorValues(timeStampVectors, table.getRowCount(), getLongValues(table.getValues(), TIMESTAMP));
     assertDecimalVectorValues(decimalVectors, table.getRowCount(), getDecimalValues(table.getValues(), DECIMAL));
@@ -205,12 +207,12 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
   }
 
-  private void assertDateMilliVectorValues(List<DateMilliVector> vectors, int rowCount, Long[] values) {
+  private void assertDateDayVectorValues(List<DateDayVector> vectors, int rowCount, Long[] values) {
     int valueCount = vectors.stream().mapToInt(ValueVector::getValueCount).sum();
     assertEquals(rowCount, valueCount);
 
     int index = 0;
-    for (DateMilliVector vector : vectors) {
+    for (DateDayVector vector : vectors) {
       for (int i = 0; i < vector.getValueCount(); i++) {
         assertEquals(values[index++].longValue(), vector.get(i));
       }
