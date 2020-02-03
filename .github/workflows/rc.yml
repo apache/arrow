@@ -92,6 +92,7 @@ jobs:
             # Add Ruby to PATH
             export PATH=$HOME/ruby/bin:$PATH
           fi
+          export TMPDIR=/tmp/arrow
           # TODO: don't run if VERSION has SNAPSHOT in it? I.e. just for rc
           dev/release/verify-release-candidate.sh $JOB $VERSION $RC_NUM
   windows-source:
