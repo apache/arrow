@@ -25,7 +25,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -50,14 +49,16 @@ public class DriverTest {
     assertFalse(driver.acceptsURL(null));
   }
 
-  @Ignore
+  /**
+   * Note that this is a manual integration test that requires the Rust flight-server example to be running.
+   */
   @Test
   public void executeQuery() throws SQLException {
     try (Connection conn = driver.connect("jdbc:arrow://localhost:50051", new Properties())) {
       try (Statement stmt = conn.createStatement()) {
         try (ResultSet rs = stmt.executeQuery("SELECT id FROM alltypes_plain")) {
           assertTrue(rs.next());
-          assertEquals(1, rs.getInt(1));
+          assertEquals(5, rs.getInt(1));
         }
       }
     }

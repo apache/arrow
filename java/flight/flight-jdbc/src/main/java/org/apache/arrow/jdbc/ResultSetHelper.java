@@ -43,7 +43,7 @@ public class ResultSetHelper {
     } else if (value instanceof String) {
       return ((String) value).equalsIgnoreCase("true");
     } else {
-      throw new SQLException();
+      throw unsupportedConversion("boolean", value);
     }
   }
 
@@ -59,7 +59,13 @@ public class ResultSetHelper {
 
   /** Convert value to int. */
   public static int getInt(final Object value) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    if (value == null) {
+      return 0;
+    } else if (value instanceof Integer) {
+      return (Integer) value;
+    } else {
+      throw unsupportedConversion("int", value);
+    }
   }
 
   /** Convert value to String. */
@@ -102,4 +108,9 @@ public class ResultSetHelper {
     throw new SQLFeatureNotSupportedException();
   }
 
+  /** Convenience method for building an exception for unsupported conversions. */
+  private static SQLException unsupportedConversion(String t, Object value) {
+    return new SQLException("Cannot convert value '" + value + "' to type " + t);
+
+  }
 }
