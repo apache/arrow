@@ -714,6 +714,10 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   public void splitAndTransferTo(int startIndex, int length,
                                  BaseVariableWidthVector target) {
+    Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
+        "Invalid startIndex: %s", startIndex);
+    Preconditions.checkArgument(startIndex + length <= valueCount,
+        "Invalid length: %s", length);
     compareTypes(target, "splitAndTransferTo");
     target.clear();
     splitAndTransferValidityBuffer(startIndex, length, target);
@@ -750,7 +754,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   private void splitAndTransferValidityBuffer(int startIndex, int length,
                                               BaseVariableWidthVector target) {
-    Preconditions.checkArgument(startIndex + length <= valueCount);
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
     int byteSizeTarget = getValidityBufferSizeFromCount(length);
