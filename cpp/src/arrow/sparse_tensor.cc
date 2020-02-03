@@ -58,6 +58,37 @@ class SparseTensorConverter {
 };
 
 // ----------------------------------------------------------------------
+// IncrementIndex for SparseCOOIndex and SparseCSFIndex
+
+void IncrementIndex(std::vector<int64_t>& coord, const std::vector<int64_t> shape) {
+  const int64_t ndim = shape.size();
+  ++coord[ndim - 1];
+  if (coord[ndim - 1] == shape[ndim - 1]) {
+    int64_t d = ndim - 1;
+    while (d > 0 && coord[d] == shape[d]) {
+      coord[d] = 0;
+      ++coord[d - 1];
+      --d;
+    }
+  }
+}
+
+void IncrementIndex(std::vector<int64_t>& coord, const std::vector<int64_t> shape,
+                    std::vector<int64_t> axis_order) {
+  const int64_t ndim = shape.size();
+  const int64_t last_axis = axis_order[ndim - 1];
+  ++coord[last_axis];
+  if (coord[last_axis] == shape[last_axis]) {
+    int64_t d = ndim - 1;
+    while (d > 0 && coord[axis_order[d]] == shape[axis_order[d]]) {
+      coord[axis_order[d]] = 0;
+      ++coord[axis_order[d - 1]];
+      --d;
+    }
+  }
+}
+
+// ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCOOIndex
 
 template <typename TYPE>
@@ -130,15 +161,8 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
             *indices++ = static_cast<c_index_value_type>(coord[i]);
           }
         }
-        // increment index
-        ++coord[ndim - 1];
-        if (n > 1 && coord[ndim - 1] == shape[ndim - 1]) {
-          int64_t d = ndim - 1;
-          while (d > 0 && coord[d] == shape[d]) {
-            coord[d] = 0;
-            ++coord[d - 1];
-            --d;
-          }
+        if (n > 1) {
+          IncrementIndex(coord, shape);
         }
       }
     }
@@ -488,16 +512,8 @@ class SparseTensorConverter<TYPE, SparseCSFIndex>
           }
           previous_coord = coord;
         }
-        // increment index
-        int64_t last_axis = axis_order[ndim - 1];
-        ++coord[last_axis];
-        if (n > 1 && coord[last_axis] == shape[last_axis]) {
-          int64_t d = ndim - 1;
-          while (d > 0 && coord[axis_order[d]] == shape[axis_order[d]]) {
-            coord[axis_order[d]] = 0;
-            ++coord[axis_order[d - 1]];
-            --d;
-          }
+        if (n > 1) {
+          IncrementIndex(coord, shape, axis_order);
         }
       }
     }
