@@ -292,6 +292,7 @@ class ARROW_EXPORT Status : public util::EqualityComparable<Status>,
   }
 
   bool IsExecutionError() const { return code() == StatusCode::ExecutionError; }
+  bool IsAlreadyExists() const { return code() == StatusCode::AlreadyExists; }
 
   /// \brief Return a string representation of this status suitable for printing.
   ///
@@ -385,8 +386,11 @@ bool Status::Equals(const Status& s) const {
     return false;
   }
 
-  if (detail() != s.detail() && !(*detail() == *s.detail())) {
-    return false;
+  if (detail() != s.detail()) {
+    if ((detail() && !s.detail()) || (!detail() && s.detail())) {
+      return false;
+    }
+    return *detail() == *s.detail();
   }
 
   return code() == s.code() && message() == s.message();
