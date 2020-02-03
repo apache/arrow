@@ -74,12 +74,6 @@ jobs:
             mkdir -p $HOME/java
             mv apache-maven-$MAVEN_VERSION $HOME/java
             export PATH=$HOME/java/apache-maven-$MAVEN_VERSION/bin:$PATH
-            # Node
-            curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | bash
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-            [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-            nvm install 11
             # Build and install Ruby from source
             sudo apt-get build-dep -y ruby-defaults
             RUBY_VERSION=2.6.2
