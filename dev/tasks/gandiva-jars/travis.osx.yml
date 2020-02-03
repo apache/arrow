@@ -33,10 +33,10 @@ env:
     - ARROW_TRAVIS_GANDIVA=1
 
 before_script:
+  - pwd
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - if [ $CROSSBOW_USE_COMMIT_ID = true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
-
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
   - brew update
   - brew install bison flex llvm@7
@@ -52,15 +52,17 @@ script:
   - mkdir -p dist
   - dev/tasks/gandiva-jars/build-cpp-osx.sh || travis_terminate 1
   - dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file: dist/*.jar
-  skip_cleanup: true
-  on:
-    tags: true
+  # deploy using crossbow
+  - brew install libgit2
+  - pip3 install click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz
+  - >
+    python3 dev/tasks/crossbow.py
+    --queue-path $TRAVIS_BUILD_DIR
+    --queue-remote {{ queue.remote_url }}
+    upload-artifacts
+    --sha {{ task.branch }}
+    --tag {{ task.tag }}
+    --pattern "dist/*.jar"
 
 notifications:
   email:
