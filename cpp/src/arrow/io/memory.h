@@ -46,7 +46,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   /// \param[in,out] pool a MemoryPool to use for allocations
   /// \return the created stream
   static Result<std::shared_ptr<BufferOutputStream>> Create(
-      int64_t initial_capacity, MemoryPool* pool = default_memory_pool());
+      int64_t initial_capacity = 4096, MemoryPool* pool = default_memory_pool());
 
   ARROW_DEPRECATED("Use Result-returning overload")
   static Status Create(int64_t initial_capacity, MemoryPool* pool,

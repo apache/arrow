@@ -34,7 +34,6 @@
 namespace arrow {
 namespace dataset {
 
-constexpr int64_t kDefaultOutputStreamSize = 1024;
 constexpr int64_t kBatchSize = 1UL << 12;
 constexpr int64_t kBatchRepetitions = 1 << 5;
 constexpr int64_t kNumRows = kBatchSize * kBatchRepetitions;
@@ -42,8 +41,7 @@ constexpr int64_t kNumRows = kBatchSize * kBatchRepetitions;
 class ArrowIpcWriterMixin : public ::testing::Test {
  public:
   std::shared_ptr<Buffer> Write(std::vector<RecordBatchReader*> readers) {
-    EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create(
-                                        kDefaultOutputStreamSize, default_memory_pool()));
+    EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
     auto writer_schema = readers[0]->schema();
 
     EXPECT_OK_AND_ASSIGN(auto writer,
@@ -69,8 +67,7 @@ class ArrowIpcWriterMixin : public ::testing::Test {
   }
 
   std::shared_ptr<Buffer> Write(const Table& table) {
-    EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create(
-                                        kDefaultOutputStreamSize, default_memory_pool()));
+    EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
 
     EXPECT_OK_AND_ASSIGN(auto writer,
                          ipc::RecordBatchFileWriter::Open(sink.get(), table.schema()));
