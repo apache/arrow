@@ -49,20 +49,38 @@ public class ResultSetHelper {
 
   /** Convert value to byte. */
   public static byte getByte(final Object value) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    if (value == null) {
+      return 0;
+    } else if (value instanceof Number) {
+      return ((Number) value).byteValue();
+    } else if (value instanceof String) {
+      return Byte.parseByte((String) value);
+    } else {
+      throw unsupportedConversion("byte", value);
+    }
   }
 
   /** Convert value to short. */
   public static short getShort(final Object value) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    if (value == null) {
+      return 0;
+    } else if (value instanceof Number) {
+      return ((Number) value).shortValue();
+    } else if (value instanceof String) {
+      return Short.parseShort((String) value);
+    } else {
+      throw unsupportedConversion("short", value);
+    }
   }
 
   /** Convert value to int. */
   public static int getInt(final Object value) throws SQLException {
     if (value == null) {
       return 0;
-    } else if (value instanceof Integer) {
-      return (Integer) value;
+    } else if (value instanceof Number) {
+      return ((Number) value).intValue();
+    } else if (value instanceof String) {
+      return Integer.parseInt((String) value);
     } else {
       throw unsupportedConversion("int", value);
     }
@@ -70,17 +88,41 @@ public class ResultSetHelper {
 
   /** Convert value to String. */
   public static long getLong(final Object value) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    if (value == null) {
+      return 0;
+    } else if (value instanceof Number) {
+      return ((Number) value).longValue();
+    } else if (value instanceof String) {
+      return Long.parseLong((String) value);
+    } else {
+      throw unsupportedConversion("long", value);
+    }
   }
 
   /** Convert value to float. */
   public static float getFloat(final Object value) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    if (value == null) {
+      return 0;
+    } else if (value instanceof Number) {
+      return ((Number) value).floatValue();
+    } else if (value instanceof String) {
+      return Float.parseFloat((String) value);
+    } else {
+      throw unsupportedConversion("float", value);
+    }
   }
 
   /** Convert value to double. */
   public static double getDouble(final Object value) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    if (value == null) {
+      return 0;
+    } else if (value instanceof Number) {
+      return ((Number) value).doubleValue();
+    } else if (value instanceof String) {
+      return Double.parseDouble((String) value);
+    } else {
+      throw unsupportedConversion("double", value);
+    }
   }
 
   /** Convert value to BigDecimal. */
@@ -110,7 +152,10 @@ public class ResultSetHelper {
 
   /** Convenience method for building an exception for unsupported conversions. */
   private static SQLException unsupportedConversion(String t, Object value) {
-    return new SQLException("Cannot convert value '" + value + "' to type " + t);
-
+    if (value == null) {
+      return new SQLException(String.format("Cannot convert null value to type %s", t));
+    } else {
+      return new SQLException(String.format("Cannot convert %s value '%s' to type %s", value.getClass(), value, t));
+    }
   }
 }

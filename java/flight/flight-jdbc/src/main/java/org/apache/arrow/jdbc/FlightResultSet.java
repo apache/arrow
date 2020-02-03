@@ -27,6 +27,7 @@ import java.sql.Clob;
 import java.sql.Date;
 import java.sql.NClob;
 import java.sql.Ref;
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.RowId;
 import java.sql.SQLException;
@@ -52,9 +53,14 @@ public class FlightResultSet implements java.sql.ResultSet {
    */
   private final FlightStream stream;
 
+  /** The current record batch. */
   private VectorSchemaRoot root;
 
+  private int batchIndex;
+
   private boolean wasNull;
+
+  private int rowIndex = -1;
 
   /**
    * Create a ResultSet to wrap a FlightStream.
@@ -69,13 +75,24 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public boolean next() throws SQLException {
-    //TODO
-    return true;
+    if (batchIndex < root.getRowCount()) {
+      batchIndex++;
+      rowIndex++;
+      return true;
+    } else if (stream.next()) {
+      this.root = stream.getRoot();
+      batchIndex = 0;
+      rowIndex++;
+      return true;
+    } else {
+      this.root = null;
+      return false;
+    }
   }
 
   @Override
-  public Object getObject(int i) throws SQLException {
-    final Object value = this.root.getFieldVectors().get(i - 1).getObject(i);
+  public Object getObject(int columnIndex) throws SQLException {
+    final Object value = this.root.getFieldVectors().get(columnIndex - 1).getObject(batchIndex);
     this.wasNull = value == null;
     return value;
   }
@@ -295,7 +312,7 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public BigDecimal getBigDecimal(int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSetHelper.getBigDecimal(getObject(i));
   }
 
   @Override
@@ -305,7 +322,7 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public boolean isBeforeFirst() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return rowIndex < 0;
   }
 
   @Override
@@ -315,7 +332,7 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public boolean isFirst() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return rowIndex == 0;
   }
 
   @Override
@@ -345,7 +362,7 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public int getRow() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return rowIndex;
   }
 
   @Override
@@ -365,12 +382,14 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public int getFetchDirection() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return ResultSet.FETCH_FORWARD;
   }
 
   @Override
-  public void setFetchDirection(int i) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+  public void setFetchDirection(int fetchDirection) throws SQLException {
+    if (fetchDirection != ResultSet.FETCH_FORWARD) {
+      throw new SQLFeatureNotSupportedException();
+    }
   }
 
   @Override

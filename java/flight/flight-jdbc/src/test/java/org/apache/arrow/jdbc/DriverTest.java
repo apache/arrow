@@ -23,10 +23,14 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 import org.junit.Ignore;
 import org.junit.Test;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * JDBC Driver unit tests.
@@ -53,14 +57,17 @@ public class DriverTest {
   /**
    * Note that this is a manual integration test that requires the Rust flight-server example to be running.
    */
-  @Ignore
   @Test
+  @Ignore
   public void executeQuery() throws SQLException {
     try (Connection conn = driver.connect("jdbc:arrow://localhost:50051", new Properties())) {
       try (Statement stmt = conn.createStatement()) {
         try (ResultSet rs = stmt.executeQuery("SELECT id FROM alltypes_plain")) {
-          assertTrue(rs.next());
-          assertEquals(5, rs.getInt(1));
+          List<Integer> ids = new ArrayList<>();
+          while (rs.next()) {
+            ids.add(rs.getInt(1));
+          }
+          assertEquals(ImmutableList.of(5, 6, 7, 2, 3, 0, 1, 0), ids);
         }
       }
     }
