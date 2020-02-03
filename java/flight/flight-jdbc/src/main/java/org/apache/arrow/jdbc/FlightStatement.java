@@ -67,7 +67,6 @@ public class FlightStatement implements java.sql.Statement {
 
   @Override
   public void close() throws SQLException {
-
   }
 
   @Override
@@ -87,12 +86,12 @@ public class FlightStatement implements java.sql.Statement {
 
   @Override
   public void setMaxRows(int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void setEscapeProcessing(boolean b) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -102,12 +101,12 @@ public class FlightStatement implements java.sql.Statement {
 
   @Override
   public void setQueryTimeout(int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void cancel() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -117,12 +116,11 @@ public class FlightStatement implements java.sql.Statement {
 
   @Override
   public void clearWarnings() throws SQLException {
-
   }
 
   @Override
   public void setCursorName(String s) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -152,7 +150,7 @@ public class FlightStatement implements java.sql.Statement {
 
   @Override
   public void setFetchDirection(int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -162,7 +160,7 @@ public class FlightStatement implements java.sql.Statement {
 
   @Override
   public void setFetchSize(int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -177,17 +175,17 @@ public class FlightStatement implements java.sql.Statement {
 
   @Override
   public void addBatch(String s) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void clearBatch() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public int[] executeBatch() throws SQLException {
-    return new int[0];
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -252,12 +250,12 @@ public class FlightStatement implements java.sql.Statement {
 
   @Override
   public void setPoolable(boolean b) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void closeOnCompletion() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override

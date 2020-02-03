@@ -74,17 +74,17 @@ public class FlightConnection implements java.sql.Connection {
 
   @Override
   public void setAutoCommit(boolean b) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void commit() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void rollback() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -109,7 +109,7 @@ public class FlightConnection implements java.sql.Connection {
 
   @Override
   public void setReadOnly(boolean b) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -119,7 +119,7 @@ public class FlightConnection implements java.sql.Connection {
 
   @Override
   public void setCatalog(String s) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -129,7 +129,7 @@ public class FlightConnection implements java.sql.Connection {
 
   @Override
   public void setTransactionIsolation(int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -139,7 +139,7 @@ public class FlightConnection implements java.sql.Connection {
 
   @Override
   public void clearWarnings() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -164,7 +164,7 @@ public class FlightConnection implements java.sql.Connection {
 
   @Override
   public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -174,7 +174,7 @@ public class FlightConnection implements java.sql.Connection {
 
   @Override
   public void setHoldability(int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -189,12 +189,12 @@ public class FlightConnection implements java.sql.Connection {
 
   @Override
   public void rollback(Savepoint savepoint) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void releaseSavepoint(Savepoint savepoint) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -254,6 +254,7 @@ public class FlightConnection implements java.sql.Connection {
 
   @Override
   public void setClientInfo(String s, String s1) throws SQLClientInfoException {
+    throw new SQLClientInfoException();
 
   }
 
@@ -269,7 +270,7 @@ public class FlightConnection implements java.sql.Connection {
 
   @Override
   public void setClientInfo(Properties properties) throws SQLClientInfoException {
-
+    throw new SQLClientInfoException();
   }
 
   @Override
@@ -289,17 +290,17 @@ public class FlightConnection implements java.sql.Connection {
 
   @Override
   public void setSchema(String s) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void abort(Executor executor) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void setNetworkTimeout(Executor executor, int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override

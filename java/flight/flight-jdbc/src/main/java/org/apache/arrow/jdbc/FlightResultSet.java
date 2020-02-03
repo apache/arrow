@@ -261,7 +261,6 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public void clearWarnings() throws SQLException {
-
   }
 
   @Override
@@ -326,12 +325,12 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public void beforeFirst() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void afterLast() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -371,7 +370,7 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public void setFetchDirection(int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -381,7 +380,7 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public void setFetchSize(int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -411,227 +410,227 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public void updateNull(int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBoolean(int i, boolean b) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateByte(int i, byte b) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateShort(int i, short i1) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateInt(int i, int i1) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateLong(int i, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateFloat(int i, float v) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateDouble(int i, double v) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBigDecimal(int i, BigDecimal bigDecimal) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateString(int i, String s) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBytes(int i, byte[] bytes) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateDate(int i, Date date) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateTime(int i, Time time) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateTimestamp(int i, Timestamp timestamp) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateAsciiStream(int i, InputStream inputStream, int i1) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBinaryStream(int i, InputStream inputStream, int i1) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateCharacterStream(int i, Reader reader, int i1) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateObject(int i, Object o, int i1) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateObject(int i, Object o) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateNull(String s) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBoolean(String s, boolean b) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateByte(String s, byte b) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateShort(String s, short i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateInt(String s, int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateLong(String s, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateFloat(String s, float v) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateDouble(String s, double v) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBigDecimal(String s, BigDecimal bigDecimal) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateString(String s, String s1) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBytes(String s, byte[] bytes) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateDate(String s, Date date) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateTime(String s, Time time) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateTimestamp(String s, Timestamp timestamp) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateAsciiStream(String s, InputStream inputStream, int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBinaryStream(String s, InputStream inputStream, int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateCharacterStream(String s, Reader reader, int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateObject(String s, Object o, int i) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateObject(String s, Object o) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void insertRow() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateRow() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void deleteRow() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void refreshRow() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void cancelRowUpdates() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void moveToInsertRow() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void moveToCurrentRow() throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -731,42 +730,42 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public void updateRef(int i, Ref ref) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateRef(String s, Ref ref) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBlob(int i, Blob blob) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBlob(String s, Blob blob) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateClob(int i, Clob clob) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateClob(String s, Clob clob) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateArray(int i, Array array) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateArray(String s, Array array) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -781,12 +780,12 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public void updateRowId(int i, RowId rowId) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateRowId(String s, RowId rowId) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -801,22 +800,22 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public void updateNString(int i, String s) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateNString(String s, String s1) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateNClob(int i, NClob nClob) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateNClob(String s, NClob nClob) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -841,12 +840,12 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public void updateSQLXML(int i, SQLXML sqlxml) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateSQLXML(String s, SQLXML sqlxml) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
@@ -871,142 +870,142 @@ public class FlightResultSet implements java.sql.ResultSet {
 
   @Override
   public void updateNCharacterStream(int i, Reader reader, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateNCharacterStream(String s, Reader reader, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateAsciiStream(int i, InputStream inputStream, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBinaryStream(int i, InputStream inputStream, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateCharacterStream(int i, Reader reader, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateAsciiStream(String s, InputStream inputStream, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBinaryStream(String s, InputStream inputStream, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateCharacterStream(String s, Reader reader, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBlob(int i, InputStream inputStream, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBlob(String s, InputStream inputStream, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateClob(int i, Reader reader, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateClob(String s, Reader reader, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateNClob(int i, Reader reader, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateNClob(String s, Reader reader, long l) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateNCharacterStream(int i, Reader reader) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateNCharacterStream(String s, Reader reader) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateAsciiStream(int i, InputStream inputStream) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBinaryStream(int i, InputStream inputStream) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateCharacterStream(int i, Reader reader) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateAsciiStream(String s, InputStream inputStream) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBinaryStream(String s, InputStream inputStream) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateCharacterStream(String s, Reader reader) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBlob(int i, InputStream inputStream) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateBlob(String s, InputStream inputStream) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateClob(int i, Reader reader) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateClob(String s, Reader reader) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateNClob(int i, Reader reader) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
   public void updateNClob(String s, Reader reader) throws SQLException {
-
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override

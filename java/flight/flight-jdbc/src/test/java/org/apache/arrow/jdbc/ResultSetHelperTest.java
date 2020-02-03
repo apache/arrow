@@ -32,7 +32,7 @@ public class ResultSetHelperTest {
 
   @Test
   public void testString() throws SQLException {
-    assertEquals(null, ResultSetHelper.getString(null));
+    assertNull(ResultSetHelper.getString(null));
     assertEquals("a", ResultSetHelper.getString("a"));
     assertEquals("123", ResultSetHelper.getString(123));
   }

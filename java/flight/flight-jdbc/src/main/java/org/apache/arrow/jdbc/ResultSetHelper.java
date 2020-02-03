@@ -31,7 +31,7 @@ public class ResultSetHelper {
 
   /** Convert value to String. */
   public static String getString(final Object value) throws SQLException {
-    return String.valueOf(value);
+    return value == null ? null : String.valueOf(value);
   }
 
   /** Convert value to boolean. */
