@@ -75,6 +75,7 @@ python -c "import pyarrow" || EXIT /B 1
 python -c "import pyarrow.flight" || EXIT /B 1
 python -c "import pyarrow.gandiva" || EXIT /B 1
 python -c "import pyarrow.parquet" || EXIT /B 1
+python -c "import pyarrow.dataset" || EXIT /B 1
 
 call deactivate
 

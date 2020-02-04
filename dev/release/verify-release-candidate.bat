@@ -90,6 +90,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_WITH_BROTLI=ON ^
       -DARROW_FLIGHT=ON ^
       -DARROW_PYTHON=ON ^
+      -DARROW_DATASET=ON ^
       -DARROW_PARQUET=ON ^
       ..  || exit /B
 
@@ -120,6 +121,7 @@ pushd %ARROW_SOURCE%\python
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
 set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_PARQUET=1
+set PYARROW_WITH_DATASET=1
 python setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel  || exit /B
 py.test pyarrow -v -s --parquet || exit /B
 
