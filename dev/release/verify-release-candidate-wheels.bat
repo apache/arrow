@@ -25,16 +25,13 @@
 @echo on
 
 set _CURRENT_DIR=%CD%
-set _VERIFICATION_DIR=C:\tmp\arrow-verify-release
+set _VERIFICATION_DIR=C:\tmp\arrow-verify-release-wheels
 
 if not exist "C:\tmp\" mkdir C:\tmp
 if exist %_VERIFICATION_DIR% rd %_VERIFICATION_DIR% /s /q
 if not exist %_VERIFICATION_DIR% mkdir %_VERIFICATION_DIR%
 
 cd %_VERIFICATION_DIR%
-
-CALL :verify_wheel 3.5 %1 %2
-if errorlevel 1 GOTO error
 
 CALL :verify_wheel 3.6 %1 %2
 if errorlevel 1 GOTO error
@@ -62,7 +59,7 @@ set ARROW_VERSION=%2
 set RC_NUMBER=%3
 set PY_VERSION_NO_PERIOD=%PY_VERSION:.=%
 
-set CONDA_ENV_PATH=C:\tmp\arrow-verify-release\_verify-wheel-%PY_VERSION%
+set CONDA_ENV_PATH=%_VERIFICATION_DIR%\_verify-wheel-%PY_VERSION%
 call conda create -p %CONDA_ENV_PATH% ^
     --no-shortcuts -f -q -y python=%PY_VERSION% ^
     || EXIT /B 1
