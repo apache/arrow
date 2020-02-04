@@ -657,11 +657,11 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
   }
 
   int num_dictionaries() const {
-    return FLATBUFFERS_VECTOR_SIZE(footer_->dictionaries());
+    return static_cast<int>(internal::FlatBuffersVectorSize(footer_->dictionaries()));
   }
 
   int num_record_batches() const {
-    return FLATBUFFERS_VECTOR_SIZE(footer_->recordBatches());
+    return static_cast<int>(internal::FlatBuffersVectorSize(footer_->recordBatches()));
   }
 
   MetadataVersion version() const {

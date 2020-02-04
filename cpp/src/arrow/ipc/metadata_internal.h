@@ -96,8 +96,10 @@ struct FileBlock {
                            " in flatbuffer-encoded metadata"); \
   }
 
-#define FLATBUFFERS_VECTOR_SIZE(fb_vector) \
-  ((fb_vector == NULLPTR) ? 0 : fb_vector->size())
+template <typename T>
+inline uint32_t FlatBuffersVectorSize(const flatbuffers::Vector<T>* vec) {
+  return (vec == NULLPTR) ? 0 : vec->size();
+}
 
 inline std::string StringFromFlatbuffers(const flatbuffers::String* s) {
   return (s == NULLPTR) ? "" : s->str();
