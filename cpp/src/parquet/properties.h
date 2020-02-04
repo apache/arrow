@@ -541,11 +541,11 @@ static constexpr int64_t kArrowDefaultBatchSize = 64 * 1024;
 enum class ArrowEngineVersion {
   // The current default engine. This doesn't support mixed
   // struct list date.
-  kDefault = 0,
+  V1 = 0,
 
   // Not fully implemented.  When done this will support reading/
   // writing all forms of nested data.
-  kNextGen = 1
+  V2 = 1
 };
 
 /// EXPERIMENTAL: Properties for configuring FileReader behavior.
@@ -588,7 +588,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
   int64_t batch_size_;
-  ArrowEngineVersion engine_ = ArrowEngineVersion::kDefault;
+  ArrowEngineVersion engine_ = ArrowEngineVersion::V1;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties
@@ -657,7 +657,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
 
     bool coerce_timestamps_enabled_;
     ::arrow::TimeUnit::type coerce_timestamps_unit_;
-    ArrowEngineVersion engine_ = ArrowEngineVersion::kDefault;
+    ArrowEngineVersion engine_ = ArrowEngineVersion::V1;
     bool truncated_timestamps_allowed_;
 
     bool store_schema_;

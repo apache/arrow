@@ -427,7 +427,7 @@ class FileWriterImpl : public FileWriter {
         closed_(false) {}
 
   Status Init() {
-    if (arrow_properties_->engine() != ArrowEngineVersion::kDefault) {
+    if (arrow_properties_->engine() != ArrowEngineVersion::V1) {
       return Status::NotImplemented("Engine version '", (int)arrow_properties_->engine(),
                                     "' not implemented.");
     }
