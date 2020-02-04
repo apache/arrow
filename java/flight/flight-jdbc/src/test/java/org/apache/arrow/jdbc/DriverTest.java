@@ -20,6 +20,7 @@ package org.apache.arrow.jdbc;
 import static org.junit.Assert.*;
 
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -62,7 +63,7 @@ public class DriverTest {
   @Test
   @Ignore
   public void executeQuery() throws SQLException {
-    try (Connection conn = driver.connect("jdbc:arrow://localhost:50051", new Properties())) {
+    try (Connection conn = DriverManager.getConnection("jdbc:arrow://localhost:50051", new Properties())) {
       try (Statement stmt = conn.createStatement()) {
         try (ResultSet rs = stmt.executeQuery("SELECT id FROM alltypes_plain")) {
 

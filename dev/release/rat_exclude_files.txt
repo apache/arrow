@@ -232,3 +232,4 @@ r/vignettes/*.Rmd
 ruby/red-arrow/.yardopts
 rust/arrow/test/data/*.csv
 rust/rust-toolchain
+java/flight/flight-jdbc/src/main/resources/META-INF/services/java.sql.Driver

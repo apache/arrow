@@ -137,6 +137,7 @@
             <exclude>**/client/build/**</exclude>
             <exclude>**/*.tbl</exclude>
             <exclude>**/*.iml</exclude>
+            <exclude>**/java.sql.Driver</exclude>
           </excludes>
         </configuration>
       </plugin>
