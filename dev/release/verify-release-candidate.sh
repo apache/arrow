@@ -276,6 +276,7 @@ ${ARROW_CMAKE_OPTIONS:-}
 -DARROW_PYTHON=ON
 -DARROW_GANDIVA=ON
 -DARROW_PARQUET=ON
+-DARROW_DATASET=ON
 -DPARQUET_REQUIRE_ENCRYPTION=ON
 -DARROW_WITH_BZ2=ON
 -DARROW_WITH_ZLIB=ON
@@ -365,6 +366,7 @@ test_python() {
 
   pip install -r requirements.txt -r requirements-test.txt
 
+  export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_GANDIVA=1
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
@@ -605,7 +607,8 @@ check_python_imports() {
   python -c "import pyarrow.fs"
 
   if [[ "$py_arch" =~ ^3 ]]; then
-    # Flight and Gandiva are only available for py3
+    # Flight, Gandiva and Dataset are only available for py3
+    python -c "import pyarrow.dataset"
     python -c "import pyarrow.flight"
     python -c "import pyarrow.gandiva"
   fi
