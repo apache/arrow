@@ -123,7 +123,7 @@ namespace Apache.Arrow
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
 
-        [Obsolete("This method has been deprecated. Please use ValueOffsets instead.")]
+        [Obsolete("This method has been deprecated. Please use ValueOffsets[index] instead.")]
         public int GetValueOffset(int index)
         {
             if (index < 0 || index > Length)
