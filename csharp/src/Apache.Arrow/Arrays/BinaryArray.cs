@@ -171,7 +171,7 @@ namespace Apache.Arrow
         public ReadOnlySpan<byte> Values => ValueBuffer.Span.CastTo<byte>();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [Obsolete]
+        [Obsolete("This method has been deprecated. Please use ValueOffsets instead.")]
         public int GetValueOffset(int index)
         {
             if (index < 0 || index > Length)
