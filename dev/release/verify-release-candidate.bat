@@ -71,7 +71,10 @@ pushd %ARROW_SOURCE%\cpp\build
 @rem This is the path for Visual Studio Community 2017
 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
 
-cmake -G "Ninja" ^
+@rem NOTE(wesm): not using Ninja for now to be able to more easily control the
+@rem generator used
+
+cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BOOST_USE_SHARED=ON ^
@@ -90,11 +93,13 @@ cmake -G "Ninja" ^
       -DARROW_PARQUET=ON ^
       ..  || exit /B
 
+cmake --build . --target INSTALL --config Release
+
 @rem NOTE(wesm): Building googletest is flaky for me with ninja. Building it
 @rem first fixes the problem
-ninja googletest_ep || exit /B
 
-ninja install || exit /B
+@rem ninja googletest_ep || exit /B
+@rem ninja install || exit /B
 
 @rem Get testing datasets for Parquet unit tests
 git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
@@ -112,6 +117,7 @@ popd
 @rem Build and import pyarrow
 pushd %ARROW_SOURCE%\python
 
+set PYARROW_CMAKE_GENERATOR=%GENERATOR%
 set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_PARQUET=1
 python setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel  || exit /B
