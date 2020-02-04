@@ -30,7 +30,8 @@
 # LD_LIBRARY_PATH.
 #
 # To reuse build artifacts between runs set TMPDIR environment variable to
-# a directory where the temporary files should be placed to.
+# a directory where the temporary files should be placed to, note that this
+# directory is not cleaned up automatically.
 
 case $# in
   3) ARTIFACT="$1"
@@ -126,7 +127,7 @@ test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
 
-  python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
+  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
   verify_dir_artifact_signatures ${download_dir}
 }
 
@@ -207,11 +208,13 @@ setup_tempdir() {
       echo "Failed to verify release candidate. See ${TMPDIR} for details."
     fi
   }
-  trap cleanup EXIT
 
   if [ -z "${TMPDIR}" ]; then
+    # clean up automatically if TMPDIR is not defined
     TMPDIR=$(mktemp -d -t "$1.XXXXX")
+    trap cleanup EXIT
   else
+    # don't clean up automatically
     mkdir -p "${TMPDIR}"
   fi
 }
@@ -235,6 +238,15 @@ setup_miniconda() {
   fi
 
   . $MINICONDA/etc/profile.d/conda.sh
+
+  conda create -n arrow-test -y -q -c conda-forge \
+        python=3.6 \
+        nomkl \
+        numpy \
+        pandas \
+        six \
+        cython
+  conda activate arrow-test
 }
 
 # Build and test Java (Requires newer Maven -- I used 3.3.9)
@@ -251,15 +263,6 @@ test_package_java() {
 # Build and test C++
 
 test_and_install_cpp() {
-  conda create -n arrow-test -y -q -c conda-forge \
-        python=3.6 \
-        nomkl \
-        numpy \
-        pandas \
-        six \
-        cython
-  conda activate arrow-test
-
   mkdir -p cpp/build
   pushd cpp/build
 
@@ -503,7 +506,7 @@ test_integration() {
   export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
   export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
 
-  pip3 install -e dev/archery
+  pip install -e dev/archery
 
   INTEGRATION_TEST_ARGS=""
 
@@ -552,7 +555,6 @@ test_source_distribution() {
     test_package_java
   fi
   if [ ${TEST_CPP} -gt 0 ]; then
-    setup_miniconda
     test_and_install_cpp
   fi
   if [ ${TEST_CSHARP} -gt 0 ]; then
@@ -686,9 +688,9 @@ test_wheels() {
   conda create -yq -n py3-base python=3.7
   conda activate py3-base
 
-  python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-          --regex=${filter_regex} \
-          --dest=${download_dir}
+  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+         --regex=${filter_regex} \
+         --dest=${download_dir}
 
   verify_dir_artifact_signatures ${download_dir}
 
@@ -751,6 +753,9 @@ setup_tempdir "arrow-${VERSION}"
 echo "Working in sandbox ${TMPDIR}"
 cd ${TMPDIR}
 
+setup_miniconda
+echo "Using miniconda environment ${MINICONDA}"
+
 if [ "${ARTIFACT}" == "source" ]; then
   dist_name="apache-arrow-${VERSION}"
   if [ ${TEST_SOURCE} -gt 0 ]; then
@@ -759,6 +764,10 @@ if [ "${ARTIFACT}" == "source" ]; then
     tar xf ${dist_name}.tar.gz
   else
     mkdir -p ${dist_name}
+    if [ ! -f ${TEST_ARCHIVE} ]; then
+      echo "${TEST_ARCHIVE} not found, did you mean to pass TEST_SOURCE=1?"
+      exit 1
+    fi
     tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
   fi
   pushd ${dist_name}
@@ -766,7 +775,6 @@ if [ "${ARTIFACT}" == "source" ]; then
   popd
 elif [ "${ARTIFACT}" == "wheels" ]; then
   import_gpg_keys
-  setup_miniconda
   test_wheels
 else
   import_gpg_keys

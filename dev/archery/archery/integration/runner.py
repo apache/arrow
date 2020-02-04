@@ -227,23 +227,23 @@ def get_static_json_files():
     ]
 
 
-def run_all_tests(enable_cpp=True, enable_java=True, enable_js=True,
-                  enable_go=True, run_flight=False,
+def run_all_tests(with_cpp=True, with_java=True, with_js=True,
+                  with_go=True, run_flight=False,
                   tempdir=None, **kwargs):
     tempdir = tempdir or tempfile.mkdtemp()
 
     testers = []
 
-    if enable_cpp:
+    if with_cpp:
         testers.append(CPPTester(kwargs))
 
-    if enable_java:
+    if with_java:
         testers.append(JavaTester(kwargs))
 
-    if enable_js:
+    if with_js:
         testers.append(JSTester(kwargs))
 
-    if enable_go:
+    if with_go:
         testers.append(GoTester(kwargs))
 
     static_json_files = get_static_json_files()
