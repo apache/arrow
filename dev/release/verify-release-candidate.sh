@@ -30,7 +30,8 @@
 # LD_LIBRARY_PATH.
 #
 # To reuse build artifacts between runs set TMPDIR environment variable to
-# a directory where the temporary files should be placed to.
+# a directory where the temporary files should be placed to, note that this
+# directory is not cleaned up automatically.
 
 case $# in
   3) ARTIFACT="$1"
@@ -126,7 +127,7 @@ test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
 
-  python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
+  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
   verify_dir_artifact_signatures ${download_dir}
 }
 
@@ -207,11 +208,13 @@ setup_tempdir() {
       echo "Failed to verify release candidate. See ${TMPDIR} for details."
     fi
   }
-  trap cleanup EXIT
 
   if [ -z "${TMPDIR}" ]; then
+    # clean up automatically if TMPDIR is not defined
     TMPDIR=$(mktemp -d -t "$1.XXXXX")
+    trap cleanup EXIT
   else
+    # don't clean up automatically
     mkdir -p "${TMPDIR}"
   fi
 }
@@ -552,7 +555,6 @@ test_source_distribution() {
     test_package_java
   fi
   if [ ${TEST_CPP} -gt 0 ]; then
-    setup_miniconda
     test_and_install_cpp
   fi
   if [ ${TEST_CSHARP} -gt 0 ]; then
@@ -686,9 +688,9 @@ test_wheels() {
   conda create -yq -n py3-base python=3.7
   conda activate py3-base
 
-  python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-          --regex=${filter_regex} \
-          --dest=${download_dir}
+  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+         --regex=${filter_regex} \
+         --dest=${download_dir}
 
   verify_dir_artifact_signatures ${download_dir}
 
@@ -751,6 +753,9 @@ setup_tempdir "arrow-${VERSION}"
 echo "Working in sandbox ${TMPDIR}"
 cd ${TMPDIR}
 
+setup_miniconda
+echo "Using miniconda environment ${MINICONDA}"
+
 if [ "${ARTIFACT}" == "source" ]; then
   dist_name="apache-arrow-${VERSION}"
   if [ ${TEST_SOURCE} -gt 0 ]; then
@@ -766,7 +771,6 @@ if [ "${ARTIFACT}" == "source" ]; then
   popd
 elif [ "${ARTIFACT}" == "wheels" ]; then
   import_gpg_keys
-  setup_miniconda
   test_wheels
 else
   import_gpg_keys
