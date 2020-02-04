@@ -102,10 +102,7 @@ class IpcComponentSource {
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
     auto buffers = metadata_->buffers();
-    if (buffers == nullptr) {
-      return Status::IOError(
-          "Buffers-pointer of flatbuffer-encoded RecordBatch is null.");
-    }
+    CHECK_FLATBUFFERS_NOT_NULL(buffers, "RecordBatch.buffers");
     if (buffer_index >= static_cast<int>(buffers->size())) {
       return Status::IOError("buffer_index out of range.");
     }
@@ -127,9 +124,7 @@ class IpcComponentSource {
 
   Status GetFieldMetadata(int field_index, ArrayData* out) {
     auto nodes = metadata_->nodes();
-    if (nodes == nullptr) {
-      return Status::IOError("Nodes-pointer of flatbuffer-encoded Table is null.");
-    }
+    CHECK_FLATBUFFERS_NOT_NULL(nodes, "Table.nodes");
     // pop off a field
     if (field_index >= static_cast<int>(nodes->size())) {
       return Status::Invalid("Ran out of field metadata, likely malformed");
@@ -441,6 +436,7 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   // The dictionary is embedded in a record batch with a single column
   std::shared_ptr<RecordBatch> batch;
   auto batch_meta = dictionary_batch->data();
+  CHECK_FLATBUFFERS_NOT_NULL(batch_meta, "DictionaryBatch.data");
   RETURN_NOT_OK(ReadRecordBatch(batch_meta, ::arrow::schema({value_field}),
                                 dictionary_memo, options, file, &batch));
   if (batch->num_columns() != 1) {
@@ -475,9 +471,6 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     }
     CHECK_MESSAGE_TYPE(Message::SCHEMA, message->type());
     CHECK_HAS_NO_BODY(*message);
-    if (message->header() == nullptr) {
-      return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
-    }
     return internal::GetSchema(message->header(), &dictionary_memo_, &schema_);
   }
 
@@ -663,9 +656,13 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     return Status::OK();
   }
 
-  int num_dictionaries() const { return footer_->dictionaries()->size(); }
+  int num_dictionaries() const {
+    return static_cast<int>(internal::FlatBuffersVectorSize(footer_->dictionaries()));
+  }
 
-  int num_record_batches() const { return footer_->recordBatches()->size(); }
+  int num_record_batches() const {
+    return static_cast<int>(internal::FlatBuffersVectorSize(footer_->recordBatches()));
+  }
 
   MetadataVersion version() const {
     return internal::GetMetadataVersion(footer_->version());
