@@ -60,7 +60,8 @@ class SparseTensorConverter {
 // ----------------------------------------------------------------------
 // IncrementIndex for SparseCOOIndex and SparseCSFIndex
 
-void IncrementIndex(std::vector<int64_t>& coord, const std::vector<int64_t> shape) {
+inline void IncrementIndex(std::vector<int64_t>& coord,
+                           const std::vector<int64_t>& shape) {
   const int64_t ndim = shape.size();
   ++coord[ndim - 1];
   if (coord[ndim - 1] == shape[ndim - 1]) {
@@ -73,8 +74,8 @@ void IncrementIndex(std::vector<int64_t>& coord, const std::vector<int64_t> shap
   }
 }
 
-void IncrementIndex(std::vector<int64_t>& coord, const std::vector<int64_t> shape,
-                    std::vector<int64_t> axis_order) {
+inline void IncrementIndex(std::vector<int64_t>& coord, const std::vector<int64_t>& shape,
+                           const std::vector<int64_t>& axis_order) {
   const int64_t ndim = shape.size();
   const int64_t last_axis = axis_order[ndim - 1];
   ++coord[last_axis];
@@ -161,9 +162,7 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
             *indices++ = static_cast<c_index_value_type>(coord[i]);
           }
         }
-        if (n > 1) {
-          IncrementIndex(coord, shape);
-        }
+        IncrementIndex(coord, shape);
       }
     }
 
@@ -496,11 +495,9 @@ class SparseTensorConverter<TYPE, SparseCSFIndex>
 
           for (int64_t i = 0; i < ndim; ++i) {
             int64_t dimension = axis_order[i];
-            bool change = coord[dimension] != previous_coord[dimension];
 
-            if (tree_split || change) {
-              if (change) tree_split = true;
-
+            tree_split = tree_split || (coord[dimension] != previous_coord[dimension]);
+            if (tree_split) {
               if (i < ndim - 1) {
                 RETURN_NOT_OK(indptr_buffer_builders[i].Append(
                     static_cast<c_index_value_type>(counts[i + 1])));
@@ -512,9 +509,7 @@ class SparseTensorConverter<TYPE, SparseCSFIndex>
           }
           previous_coord = coord;
         }
-        if (n > 1) {
-          IncrementIndex(coord, shape, axis_order);
-        }
+        IncrementIndex(coord, shape, axis_order);
       }
     }
 
@@ -682,25 +677,26 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
 namespace {
 
 template <typename TYPE, typename IndexValueType>
-void ExpandSparseCSFTensorValues(int64_t dimension, int64_t offset, int64_t first_ptr,
-                                 int64_t last_ptr, const SparseCSFIndex* sparse_index,
-                                 const TYPE* raw_data, const std::vector<int64_t> strides,
-                                 const std::vector<int64_t> axis_order, TYPE* out) {
+void ExpandSparseCSFTensorValues(int64_t dimension, int64_t dense_offset,
+                                 int64_t first_ptr, int64_t last_ptr,
+                                 const SparseCSFIndex& sparse_index, const TYPE* raw_data,
+                                 const std::vector<int64_t>& strides,
+                                 const std::vector<int64_t>& axis_order, TYPE* out) {
   int64_t ndim = axis_order.size();
 
   for (int64_t i = first_ptr; i < last_ptr; ++i) {
-    int64_t tmp_offset =
-        offset + sparse_index->indices()[dimension]->Value<IndexValueType>({i}) *
-                     strides[axis_order[dimension]];
+    int64_t tmp_dense_offset =
+        dense_offset + sparse_index.indices()[dimension]->Value<IndexValueType>({i}) *
+                           strides[axis_order[dimension]];
 
     if (dimension < ndim - 1) {
       ExpandSparseCSFTensorValues<TYPE, IndexValueType>(
-          dimension + 1, tmp_offset,
-          sparse_index->indptr()[dimension]->Value<IndexValueType>({i}),
-          sparse_index->indptr()[dimension]->Value<IndexValueType>({i + 1}), sparse_index,
+          dimension + 1, tmp_dense_offset,
+          sparse_index.indptr()[dimension]->Value<IndexValueType>({i}),
+          sparse_index.indptr()[dimension]->Value<IndexValueType>({i + 1}), sparse_index,
           raw_data, strides, axis_order, out);
     } else {
-      out[tmp_offset] = raw_data[i];
+      out[tmp_dense_offset] = raw_data[i];
     }
   }
 }
@@ -797,7 +793,7 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
           internal::checked_cast<const SparseCSFIndex&>(*sparse_tensor->sparse_index());
 
       ExpandSparseCSFTensorValues<value_type, IndexValueType>(
-          0, 0, 0, sparse_index.indptr()[0]->size() - 1, &sparse_index, raw_data, strides,
+          0, 0, 0, sparse_index.indptr()[0]->size() - 1, sparse_index, raw_data, strides,
           sparse_index.axis_order(), values);
       *out = std::make_shared<Tensor>(sparse_tensor->type(), values_buffer,
                                       sparse_tensor->shape(), empty_strides,
@@ -995,11 +991,11 @@ inline Status CheckSparseCSFIndexValidity(const std::shared_ptr<DataType>& indpt
   }
   if (num_indptrs + 1 != num_indices) {
     return Status::Invalid(
-        "Length of indices must be equal to length of inptrs + 1 for SparseCSFIndex.");
+        "Length of indices must be equal to length of indptrs + 1 for SparseCSFIndex.");
   }
   if (axis_order_size != num_indices) {
     return Status::Invalid(
-        "Length of indices must be equal number of dimensions for SparseCSFIndex.");
+        "Length of indices must be equal to number of dimensions for SparseCSFIndex.");
   }
   return Status::OK();
 }
@@ -1044,6 +1040,16 @@ SparseCSFIndex::SparseCSFIndex(std::vector<std::shared_ptr<Tensor>>& indptr,
 }
 
 std::string SparseCSFIndex::ToString() const { return std::string("SparseCSFIndex"); }
+
+bool SparseCSFIndex::Equals(const SparseCSFIndex& other) const {
+  for (int64_t i = 0; i < static_cast<int64_t>(indices().size()); ++i) {
+    if (!indices()[i]->Equals(*other.indices()[i])) return false;
+  }
+  for (int64_t i = 0; i < static_cast<int64_t>(indptr().size()); ++i) {
+    if (!indptr()[i]->Equals(*other.indptr()[i])) return false;
+  }
+  return axis_order() == other.axis_order();
+}
 
 // ----------------------------------------------------------------------
 // SparseTensor

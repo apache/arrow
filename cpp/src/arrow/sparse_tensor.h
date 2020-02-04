@@ -372,10 +372,10 @@ class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIn
                           std::vector<std::shared_ptr<Tensor>>& indices,
                           const std::vector<int64_t>& axis_order);
 
-  /// \brief Return a 1D tensor of indptr vector
+  /// \brief Return a 1D vector of indptr tensors
   const std::vector<std::shared_ptr<Tensor>>& indptr() const { return indptr_; }
 
-  /// \brief Return a 1D tensor of indices vector
+  /// \brief Return a 1D vector of indices tensors
   const std::vector<std::shared_ptr<Tensor>>& indices() const { return indices_; }
 
   /// \brief Return a 1D vector specifying the order of axes
@@ -385,13 +385,7 @@ class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIn
   std::string ToString() const override;
 
   /// \brief Return whether the CSF indices are equal
-  bool Equals(const SparseCSFIndex& other) const {
-    for (int64_t i = 0; i < static_cast<int64_t>(indices().size()); ++i)
-      if (!indices()[i]->Equals(*other.indices()[i])) return false;
-    for (int64_t i = 0; i < static_cast<int64_t>(indptr().size()); ++i)
-      if (!indptr()[i]->Equals(*other.indptr()[i])) return false;
-    return axis_order() == other.axis_order();
-  }
+  bool Equals(const SparseCSFIndex& other) const;
 
  protected:
   std::vector<std::shared_ptr<Tensor>> indptr_;

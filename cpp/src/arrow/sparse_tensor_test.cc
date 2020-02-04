@@ -26,11 +26,11 @@
 
 #include <gtest/gtest.h>
 
-#include <arrow/util/sort.h>
 #include "arrow/sparse_tensor.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/sort.h"
 
 namespace arrow {
 
@@ -949,7 +949,7 @@ class TestSparseCSFTensorForIndexValueType
     : public TestSparseCSFTensorBase<IndexValueType> {
  protected:
   std::shared_ptr<SparseCSFIndex> MakeSparseCSFIndex(
-      const std::vector<int64_t> axis_order,
+      const std::vector<int64_t>& axis_order,
       std::vector<std::vector<typename IndexValueType::c_type>>& indptr_values,
       std::vector<std::vector<typename IndexValueType::c_type>>& indices_values) const {
     int64_t ndim = axis_order.size();
@@ -972,7 +972,8 @@ class TestSparseCSFTensorForIndexValueType
   template <typename CValueType>
   std::shared_ptr<SparseCSFTensor> MakeSparseTensor(
       const std::shared_ptr<SparseCSFIndex>& si, std::vector<CValueType>& sparse_values,
-      const std::vector<int64_t> shape, const std::vector<std::string> dim_names) const {
+      const std::vector<int64_t>& shape,
+      const std::vector<std::string>& dim_names) const {
     auto data_buffer = Buffer::Wrap(sparse_values);
     return std::make_shared<SparseCSFTensor>(
         si, CTypeTraits<CValueType>::type_singleton(), data_buffer, shape, dim_names);
@@ -1001,29 +1002,10 @@ TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestCreateSparseTensor) {
 }
 
 TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestTensorToSparseTensor) {
-  using IndexValueType = TypeParam;
-  std::vector<int64_t> shape = {2, 3, 4, 5};
-  int16_t dense_values[2][3][4][5] = {};  // zero-initialized
-  dense_values[0][0][0][1] = 1;
-  dense_values[0][0][0][2] = 2;
-  dense_values[0][1][0][0] = 3;
-  dense_values[0][1][0][2] = 4;
-  dense_values[0][1][1][0] = 5;
-  dense_values[1][1][1][0] = 6;
-  dense_values[1][1][1][1] = 7;
-  dense_values[1][1][1][2] = 8;
-  auto dense_buffer = Buffer::Wrap(dense_values, sizeof(dense_values));
-  Tensor dense_tensor(int16(), dense_buffer, shape, {}, this->dim_names_);
-
-  std::shared_ptr<SparseCSFTensor> sparse_tensor;
-  ASSERT_OK_AND_ASSIGN(
-      sparse_tensor,
-      SparseCSFTensor::Make(dense_tensor, TypeTraits<IndexValueType>::type_singleton()));
-
-  ASSERT_EQ(8, sparse_tensor->non_zero_length());
-  ASSERT_TRUE(sparse_tensor->is_mutable());
-  ASSERT_TRUE(sparse_tensor->Equals(*this->sparse_tensor_from_dense_));
-  ASSERT_EQ(sparse_tensor->dim_names(), dense_tensor.dim_names());
+  std::vector<std::string> dim_names = {"a", "b", "c", "d"};
+  ASSERT_EQ(8, this->sparse_tensor_from_dense_->non_zero_length());
+  ASSERT_TRUE(this->sparse_tensor_from_dense_->is_mutable());
+  ASSERT_EQ(dim_names, this->sparse_tensor_from_dense_->dim_names());
 }
 
 TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestSparseTensorToTensor) {
