@@ -6,7 +6,6 @@ pandas
 setuptools_scm==3.2.0
 six>=1.0.0
 # TODO: TensorFlow doesn't support Python 3.8 yet.
+# See https://github.com/tensorflow/tensorflow/issues/33374
 tensorflow; python_version >= "3.0" and python_version < "3.8"
-# pin wheel, because auditwheel is not compatible with wheel=0.32
-# TODO(kszucs): remove after auditwheel properly supports wheel>0.31
-wheel==0.31.1
+wheel
