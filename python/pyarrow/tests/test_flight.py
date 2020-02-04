@@ -60,7 +60,7 @@ def resource_root():
     """Get the path to the test resources directory."""
     if not os.environ.get("ARROW_TEST_DATA"):
         raise RuntimeError("Test resources not found; set "
-                           "ARROW_TEST_DATA to <repo root>/testing")
+                           "ARROW_TEST_DATA to <repo root>/testing/data")
     return pathlib.Path(os.environ["ARROW_TEST_DATA"]) / "flight"
 
 

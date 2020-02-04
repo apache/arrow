@@ -522,6 +522,18 @@ test_integration() {
               $INTEGRATION_TEST_ARGS
 }
 
+clone_testing_repositories() {
+  # Clone testing repositories if not cloned already
+  if [ ! -d "arrow-testing" ]; then
+    git clone https://github.com/apache/arrow-testing.git
+  fi
+  if [ ! -d "parquet-testing" ]; then
+    git clone https://github.com/apache/parquet-testing.git
+  fi
+  export ARROW_TEST_DATA=$PWD/arrow-testing/data
+  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
+}
+
 test_source_distribution() {
   export ARROW_HOME=$TMPDIR/install
   export PARQUET_HOME=$TMPDIR/install
@@ -534,15 +546,7 @@ test_source_distribution() {
     NPROC=$(nproc)
   fi
 
-  # Clone testing repositories if not cloned already
-  if [ ! -d "arrow-testing" ]; then
-    git clone https://github.com/apache/arrow-testing.git
-  fi
-  if [ ! -d "parquet-testing" ]; then
-    git clone https://github.com/apache/parquet-testing.git
-  fi
-  export ARROW_TEST_DATA=$PWD/arrow-testing/data
-  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
+  clone_testing_repositories
 
   if [ ${TEST_JAVA} -gt 0 ]; then
     test_package_java
@@ -668,6 +672,8 @@ test_macos_wheels() {
 }
 
 test_wheels() {
+  clone_testing_repositories
+
   local download_dir=binaries
   mkdir -p ${download_dir}
 
