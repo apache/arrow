@@ -75,19 +75,20 @@ jobs:
             mv apache-maven-$MAVEN_VERSION $HOME/java
             export PATH=$HOME/java/apache-maven-$MAVEN_VERSION/bin:$PATH
             # Build and install Ruby from source
-            sudo apt-get build-dep -y ruby-defaults
-            RUBY_VERSION=2.6.2
-            wget https://cache.ruby-lang.org/pub/ruby/$(echo $RUBY_VERSION | sed -e 's/\.[0-9]*$//')/ruby-$RUBY_VERSION.tar.gz
-            tar xvf ruby-$RUBY_VERSION.tar.gz
-            pushd ruby-$RUBY_VERSION
-            CC=gcc ./configure --prefix=$HOME/ruby
-            CC=gcc make -j8
-            make install
-            popd
-            rm -rf ruby-$RUBY_VERSION
-            rm -rf ruby-$RUBY_VERSION.tar.gz
-            # Add Ruby to PATH
-            export PATH=$HOME/ruby/bin:$PATH
+            # sudo apt-get build-dep -y ruby-defaults
+            # RUBY_VERSION=2.6.2
+            # wget https://cache.ruby-lang.org/pub/ruby/$(echo $RUBY_VERSION | sed -e 's/\.[0-9]*$//')/ruby-$RUBY_VERSION.tar.gz
+            # tar xvf ruby-$RUBY_VERSION.tar.gz
+            # pushd ruby-$RUBY_VERSION
+            # CC=gcc ./configure --prefix=$HOME/ruby
+            # CC=gcc make -j8
+            # make install
+            # popd
+            # rm -rf ruby-$RUBY_VERSION
+            # rm -rf ruby-$RUBY_VERSION.tar.gz
+            # # Add Ruby to PATH
+            # export PATH=$HOME/ruby/bin:$PATH
+            ruby --version
           fi
           export TMPDIR=/tmp/arrow
           # TODO: don't run if VERSION has SNAPSHOT in it? I.e. just for rc
@@ -110,8 +111,8 @@ jobs:
       - uses: s-weigand/setup-conda@v1
       - name: Run verification
         run: |
-          choco install wget
           choco install boost-msvc-14.1
+          choco install wget
           dev/release/verify-release-candidate.bat %VERSION% %RC_NUM%
   windows-wheels:
     name: Verify Windows wheels
