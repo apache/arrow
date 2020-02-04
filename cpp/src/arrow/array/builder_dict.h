@@ -124,8 +124,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
       enable_if_parameter_free<T1, MemoryPool*> pool = default_memory_pool())
       : DictionaryBuilderBase<BuilderType, T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
-  ARROW_DEPRECATED(
-      "This constructor doesn't check for errors. Use InsertMemoValues instead.")
+  // This constructor doesn't check for errors. Use InsertMemoValues instead.
   DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
                         MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool),
@@ -162,6 +161,18 @@ class DictionaryBuilderBase : public ArrayBuilder {
   template <typename T1 = T>
   enable_if_fixed_size_binary<T1, Status> Append(const char* value) {
     return Append(util::string_view(value, byte_width_));
+  }
+
+  /// \brief Append a string (only for binary types)
+  template <typename T1 = T>
+  enable_if_binary_like<T1, Status> Append(const uint8_t* value, int32_t length) {
+    return Append(reinterpret_cast<const char*>(value), length);
+  }
+
+  /// \brief Append a string (only for binary types)
+  template <typename T1 = T>
+  enable_if_binary_like<T1, Status> Append(const char* value, int32_t length) {
+    return Append(util::string_view(value, length));
   }
 
   /// \brief Append a scalar null value
@@ -423,71 +434,13 @@ class Dictionary32Builder : public internal::DictionaryBuilderBase<Int32Builder,
 };
 
 // ----------------------------------------------------------------------
-// Binary / Unicode builders with slightly expanded APIs
+// Binary / Unicode builders
+// (compatibility aliases; those used to be derived classes with additional
+//  Append() overloads, but they have been folded into DictionaryBuilderBase)
 
-namespace internal {
-
-template <typename T>
-class BinaryDictionaryBuilderImpl : public DictionaryBuilder<T> {
- public:
-  using BASE = DictionaryBuilder<T>;
-  using BASE::Append;
-  using BASE::AppendIndices;
-  using BASE::BASE;
-
-  BinaryDictionaryBuilderImpl() : BinaryDictionaryBuilderImpl(default_memory_pool()) {}
-
-  Status Append(const uint8_t* value, int32_t length) {
-    return Append(reinterpret_cast<const char*>(value), length);
-  }
-
-  Status Append(const char* value, int32_t length) {
-    return Append(util::string_view(value, length));
-  }
-};
-
-template <typename T>
-class BinaryDictionary32BuilderImpl : public Dictionary32Builder<T> {
- public:
-  using BASE = Dictionary32Builder<T>;
-  using BASE::Append;
-  using BASE::AppendIndices;
-  using BASE::BASE;
-
-  BinaryDictionary32BuilderImpl()
-      : BinaryDictionary32BuilderImpl(default_memory_pool()) {}
-
-  Status Append(const uint8_t* value, int32_t length) {
-    return Append(reinterpret_cast<const char*>(value), length);
-  }
-
-  Status Append(const char* value, int32_t length) {
-    return Append(util::string_view(value, length));
-  }
-};
-
-}  // namespace internal
-
-class BinaryDictionaryBuilder : public internal::BinaryDictionaryBuilderImpl<BinaryType> {
-  using BASE = internal::BinaryDictionaryBuilderImpl<BinaryType>;
-  using BASE::BASE;
-};
-
-class StringDictionaryBuilder : public internal::BinaryDictionaryBuilderImpl<StringType> {
-  using BASE = BinaryDictionaryBuilderImpl<StringType>;
-  using BASE::BASE;
-};
-
-class BinaryDictionary32Builder
-    : public internal::BinaryDictionary32BuilderImpl<BinaryType> {
-  using BASE = internal::BinaryDictionary32BuilderImpl<BinaryType>;
-  using BASE::BASE;
-};
-
-class StringDictionary32Builder
-    : public internal::BinaryDictionary32BuilderImpl<StringType> {
-  using BASE = internal::BinaryDictionary32BuilderImpl<StringType>;
-  using BASE::BASE;
-};
+using BinaryDictionaryBuilder = DictionaryBuilder<BinaryType>;
+using StringDictionaryBuilder = DictionaryBuilder<StringType>;
+using BinaryDictionary32Builder = Dictionary32Builder<BinaryType>;
+using StringDictionary32Builder = Dictionary32Builder<StringType>;
 
 }  // namespace arrow

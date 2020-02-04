@@ -404,8 +404,6 @@ class ScalarMemoTable : public MemoTable {
     }
   }
 
-  // TODO ARROW_PREDICT_FALSE on not-found paths?
-
   template <typename Func1, typename Func2>
   Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
                      int32_t* out_memo_index) {

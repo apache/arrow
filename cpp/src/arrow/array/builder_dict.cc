@@ -111,7 +111,7 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
     template <typename T>
     enable_if_memoize<T, Status> Visit(const T&) {
       using ConcreteMemoTable = typename DictionaryTraits<T>::MemoTableType;
-      auto memo_table = static_cast<ConcreteMemoTable*>(memo_table_);
+      auto memo_table = checked_cast<ConcreteMemoTable*>(memo_table_);
       return DictionaryTraits<T>::GetDictionaryArrayData(pool_, value_type_, *memo_table,
                                                          start_offset_, out_);
     }
@@ -135,13 +135,8 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
 
   template <typename T>
   Status GetOrInsert(const T& value, int32_t* out) {
-    using ConcreteMemoTable =
-        typename DictionaryTraits<typename CTypeTraits<T>::ArrowType>::MemoTableType;
-    return static_cast<ConcreteMemoTable*>(memo_table_.get())->GetOrInsert(value, out);
-  }
-
-  Status GetOrInsert(const util::string_view& value, int32_t* out) {
-    return static_cast<BinaryMemoTable*>(memo_table_.get())->GetOrInsert(value, out);
+    using ConcreteMemoTable = typename DictionaryCTraits<T>::MemoTableType;
+    return checked_cast<ConcreteMemoTable*>(memo_table_.get())->GetOrInsert(value, out);
   }
 
   Status GetArrayData(int64_t start_offset, std::shared_ptr<ArrayData>* out) {
