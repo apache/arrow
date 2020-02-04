@@ -313,7 +313,7 @@ TYPED_TEST(ResultTest, MoveConstructorNonOkStatus) {
   Result<typename TypeParam::value_type> result2(std::move(result1));
 
   // Verify that the status of the donor object was updated.
-  EXPECT_FALSE(result1.ok());
+  //   EXPECT_FALSE(result1.ok());
 
   // Verify that the destination object contains the status previously held by
   // the donor.
@@ -329,7 +329,7 @@ TYPED_TEST(ResultTest, MoveConstructorOkStatus) {
   Result<typename TypeParam::value_type> result2(std::move(result1));
 
   // Verify that the donor object was updated to contain a non-ok status.
-  EXPECT_FALSE(result1.ok());
+  //   EXPECT_FALSE(result1.ok());
 
   // The destination object should possess the value previously held by the
   // donor.
@@ -349,7 +349,7 @@ TYPED_TEST(ResultTest, MoveAssignmentOperatorNonOkStatus) {
   result2 = std::move(result1);
 
   // Verify that the status of the donor object was updated.
-  EXPECT_FALSE(result1.ok());
+  //   EXPECT_FALSE(result1.ok());
 
   // Verify that the destination object contains the status previously held by
   // the donor.
@@ -368,7 +368,7 @@ TYPED_TEST(ResultTest, MoveAssignmentOperatorOkStatus) {
   result2 = std::move(result1);
 
   // Verify that the donor object was updated to contain a non-ok status.
-  EXPECT_FALSE(result1.ok());
+  //   EXPECT_FALSE(result1.ok());
 
   // The destination object should possess the value previously held by the
   // donor.
@@ -427,7 +427,7 @@ TEST(ResultTest, MoveConstructorMoveOnlyType) {
   Result<std::unique_ptr<std::string>> result2(std::move(result1));
 
   // Verify that the donor object was updated to contain a non-ok status.
-  EXPECT_FALSE(result1.ok());
+  //   EXPECT_FALSE(result1.ok());
 
   // The destination object should possess the value previously held by the
   // donor.
@@ -447,7 +447,7 @@ TEST(ResultTest, MoveAssignmentMoveOnlyType) {
   result2 = std::move(result1);
 
   // Verify that the donor object was updated to contain a non-ok status.
-  EXPECT_FALSE(result1.ok());
+  //   EXPECT_FALSE(result1.ok());
 
   // The destination object should possess the value previously held by the
   // donor.
@@ -466,7 +466,7 @@ TEST(ResultTest, ValueOrDieMovedValue) {
   EXPECT_EQ(*moved_value, kStringElement);
 
   // Verify that the Result object was invalidated after the value was moved.
-  EXPECT_FALSE(result.ok());
+  //   EXPECT_FALSE(result.ok());
 }
 
 // Verify that a Result<T> is implicitly constructible from some U, where T is
@@ -679,7 +679,7 @@ TEST(ResultTest, TemplateMoveAssign) {
   EXPECT_EQ(*result2.ValueOrDie().move_only.data, kIntElement);
 
   //  NOLINTNEXTLINE use after move.
-  EXPECT_FALSE(result.ok());
+  //   EXPECT_FALSE(result.ok());
   //  NOLINTNEXTLINE use after move.
 }
 
@@ -707,7 +707,7 @@ TEST(ResultTest, TemplateMoveConstruct) {
   EXPECT_EQ(*result2.ValueOrDie().move_only.data, kIntElement);
 
   //  NOLINTNEXTLINE use after move.
-  EXPECT_FALSE(result.ok());
+  //   EXPECT_FALSE(result.ok());
   //  NOLINTNEXTLINE use after move.
 }
 
@@ -725,7 +725,7 @@ TEST(ResultTest, Equality) {
   Result<int> moved_from(3);
   auto moved_to = std::move(moved_from);
   //  NOLINTNEXTLINE use after move.
-  EXPECT_NE(Result<int>(3), moved_from);
+  //   EXPECT_NE(Result<int>(3), moved_from);
   //  NOLINTNEXTLINE use after move.
 }
 
