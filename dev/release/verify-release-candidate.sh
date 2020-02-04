@@ -238,6 +238,15 @@ setup_miniconda() {
   fi
 
   . $MINICONDA/etc/profile.d/conda.sh
+
+  conda create -n arrow-test -y -q -c conda-forge \
+        python=3.6 \
+        nomkl \
+        numpy \
+        pandas \
+        six \
+        cython
+  conda activate arrow-test
 }
 
 # Build and test Java (Requires newer Maven -- I used 3.3.9)
@@ -254,15 +263,6 @@ test_package_java() {
 # Build and test C++
 
 test_and_install_cpp() {
-  conda create -n arrow-test -y -q -c conda-forge \
-        python=3.6 \
-        nomkl \
-        numpy \
-        pandas \
-        six \
-        cython
-  conda activate arrow-test
-
   mkdir -p cpp/build
   pushd cpp/build
 
@@ -764,6 +764,10 @@ if [ "${ARTIFACT}" == "source" ]; then
     tar xf ${dist_name}.tar.gz
   else
     mkdir -p ${dist_name}
+    if [ ! -f ${TEST_ARCHIVE} ]; then
+      echo "${TEST_ARCHIVE} not found, did you mean to pass TEST_SOURCE=1?"
+      exit 1
+    fi
     tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
   fi
   pushd ${dist_name}
