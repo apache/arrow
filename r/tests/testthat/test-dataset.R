@@ -206,9 +206,17 @@ test_that("Dataset with multiple file formats", {
   )
 })
 
-test_that("lapply_batches", {
+test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
-  lapply_batches(ds$NewScan()$Finish(), print)
+  expect_equivalent(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~summarize(.,
+        min_int = min(int)
+      )),
+    tibble(min_int = c(6L, 101L))
+  )
 })
 
 test_that("partitioning = NULL to ignore partition information (but why?)", {

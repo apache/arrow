@@ -456,12 +456,12 @@ dataset___Scanner__ToTable <- function(scanner){
     .Call(`_arrow_dataset___Scanner__ToTable` , scanner)
 }
 
-dataset___Scanner__ToBatchIterators <- function(scanner){
-    .Call(`_arrow_dataset___Scanner__ToBatchIterators` , scanner)
+dataset___Scanner__Scan <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__Scan` , scanner)
 }
 
-RBI_get_batches <- function(rbi){
-    .Call(`_arrow_RBI_get_batches` , rbi)
+dataset___ScanTask__get_batches <- function(scan_task){
+    .Call(`_arrow_dataset___ScanTask__get_batches` , scan_task)
 }
 
 shared_ptr_is_null <- function(xp){

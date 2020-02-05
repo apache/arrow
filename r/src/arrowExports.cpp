@@ -1801,31 +1801,31 @@ RcppExport SEXP _arrow_dataset___Scanner__ToTable(SEXP scanner_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<arrow::RecordBatchIterator>> dataset___Scanner__ToBatchIterators(const std::shared_ptr<ds::Scanner>& scanner);
-RcppExport SEXP _arrow_dataset___Scanner__ToBatchIterators(SEXP scanner_sexp){
+std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner);
+RcppExport SEXP _arrow_dataset___Scanner__Scan(SEXP scanner_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
-	return Rcpp::wrap(dataset___Scanner__ToBatchIterators(scanner));
+	return Rcpp::wrap(dataset___Scanner__Scan(scanner));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___Scanner__ToBatchIterators(SEXP scanner_sexp){
-	Rf_error("Cannot call dataset___Scanner__ToBatchIterators(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_dataset___Scanner__Scan(SEXP scanner_sexp){
+	Rf_error("Cannot call dataset___Scanner__Scan(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<arrow::RecordBatch>> RBI_get_batches(const std::shared_ptr<arrow::RecordBatchIterator>& rbi);
-RcppExport SEXP _arrow_RBI_get_batches(SEXP rbi_sexp){
+std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(const std::shared_ptr<ds::ScanTask>& scan_task);
+RcppExport SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatchIterator>&>::type rbi(rbi_sexp);
-	return Rcpp::wrap(RBI_get_batches(rbi));
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScanTask>&>::type scan_task(scan_task_sexp);
+	return Rcpp::wrap(dataset___ScanTask__get_batches(scan_task));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_RBI_get_batches(SEXP rbi_sexp){
-	Rf_error("Cannot call RBI_get_batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
+	Rf_error("Cannot call dataset___ScanTask__get_batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5893,8 +5893,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___ScannerBuilder__schema", (DL_FUNC) &_arrow_dataset___ScannerBuilder__schema, 1}, 
 		{ "_arrow_dataset___ScannerBuilder__Finish", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Finish, 1}, 
 		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
-		{ "_arrow_dataset___Scanner__ToBatchIterators", (DL_FUNC) &_arrow_dataset___Scanner__ToBatchIterators, 1}, 
-		{ "_arrow_RBI_get_batches", (DL_FUNC) &_arrow_RBI_get_batches, 1}, 
+		{ "_arrow_dataset___Scanner__Scan", (DL_FUNC) &_arrow_dataset___Scanner__Scan, 1}, 
+		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
 		{ "_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1}, 
 		{ "_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1}, 
 		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0}, 

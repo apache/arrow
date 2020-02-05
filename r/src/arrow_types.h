@@ -215,6 +215,7 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/type.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/compression.h>
+#include <arrow/util/iterator.h>
 #include <arrow/util/ubsan.h>
 #include <arrow/visitor_inline.h>
 #include <parquet/arrow/reader.h>

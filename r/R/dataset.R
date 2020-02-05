@@ -443,11 +443,47 @@ Scanner <- R6Class("Scanner", inherit = ArrowObject,
     ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self))
   )
 )
+Scanner$create <- function(dataset, projection = NULL, filter = TRUE, use_threads = TRUE, ...) {
+  if (inherits(dataset, "arrow_dplyr_query") && inherits(dataset$.data, "Dataset")) {
+    return(Scanner$create(
+      dataset$.data,
+      dataset$selected_columns,
+      dataset$filtered_rows,
+      use_threads,
+      ...
+    ))
+  }
+  assert_is(dataset, "Dataset")
+  scanner_builder <- dataset$NewScan()
+  if (use_threads) {
+    scanner_builder$UseThreads()
+  }
+  if (!is.null(projection)) {
+    scanner_builder$Project(projection)
+  }
+  if (!isTRUE(filter)) {
+    scanner_builder$Filter(filter)
+  }
+  scanner_builder$Finish()
+}
 
-lapply_scanner <- function(X, FUN, ...) {
-  lapply(dataset___Scanner__ToBatchIterators(X), function(rbi) {
-    batch_ptrs <- lapply(rbi, RBI_get_batches)
+map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
+  if (.data.frame) {
+    lapply <- purrr::map_dfr
+  }
+  scanner <- Scanner$create(X)
+  # If X is arrow_dplyr_query and !all(names(X$selected_columns) == X$selected_columns) warn
+  FUN <- purrr::as_mapper(FUN)
+  message("Making ScanTasks")
+  scan_tasks <- dataset___Scanner__Scan(scanner)
+  message("Done making ScanTasks")
+  lapply(scan_tasks, function(rbi) {
+    # This outer lapply could be parallelized
+    message("Making Batches")
+    batch_ptrs <- dataset___ScanTask__get_batches(shared_ptr(Object, rbi))
     lapply(batch_ptrs, function(b) {
+      message("Processing Batch")
+      # This inner lapply cannot be parallelized
       FUN(shared_ptr(RecordBatch, b), ...)
     })
   })

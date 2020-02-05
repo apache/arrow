@@ -239,17 +239,12 @@ collect.arrow_dplyr_query <- function(x, ...) {
   # Pull only the selected rows and cols into R
   if (query_on_dataset(x)) {
     # See dataset.R for Dataset and Scanner(Builder) classes
-    scanner_builder <- x$.data$NewScan()
-    scanner_builder$UseThreads()
-    scanner_builder$Project(colnames)
-    if (!isTRUE(x$filtered_rows)) {
-      scanner_builder$Filter(x$filtered_rows)
-    }
-    df <- as.data.frame(scanner_builder$Finish()$ToTable())
+    df <- Scanner$create(x)$ToTable()
   } else {
     # This is a Table/RecordBatch. See record-batch.R for the [ method
-    df <- as.data.frame(x$.data[x$filtered_rows, colnames, keep_na = FALSE])
+    df <- x$.data[x$filtered_rows, colnames, keep_na = FALSE]
   }
+  df <- as.data.frame(df)
   # In case variables were renamed, apply those names
   names(df) <- names(colnames)
 
