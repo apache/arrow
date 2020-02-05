@@ -326,8 +326,8 @@ public class TestDenseUnionVector {
     metadata.put("key1", "value1");
 
     int[] typeIds = new int[2];
-    typeIds[0] = MinorType.INT.ordinal();
-    typeIds[1] = MinorType.VARCHAR.ordinal();
+    typeIds[0] = 0;
+    typeIds[1] = 1;
 
     List<Field> children = new ArrayList<>();
     children.add(new Field("int", FieldType.nullable(MinorType.INT.getType()), null));
@@ -341,7 +341,7 @@ public class TestDenseUnionVector {
     DenseUnionVector vector = (DenseUnionVector) minorType.getNewVector(field, allocator, null);
     vector.initializeChildrenFromFields(children);
 
-    assertTrue(vector.getField().equals(field));
+    assertEquals(vector.getField(), field);
   }
 
   @Test

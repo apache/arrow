@@ -27,12 +27,17 @@ import java.util.Map;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
@@ -133,6 +138,48 @@ public class TestTypeEqualsVisitor {
       TypeEqualsVisitor visitor = new TypeEqualsVisitor(right);
       assertTrue(visitor.equals(left1));
       assertFalse(visitor.equals(left2));
+    }
+  }
+
+  @Test
+  public void testDenseUnionTypeEquals() {
+    try (DenseUnionVector vector1 = new DenseUnionVector("vector1", allocator, null, null);
+         DenseUnionVector vector2 = new DenseUnionVector("vector2", allocator, null, null)) {
+      vector1.allocateNew();
+      vector2.allocateNew();
+
+      // set children for vector1
+      byte intTypeId = vector1.registerNewTypeId(Field.nullable("int", Types.MinorType.INT.getType()));
+      byte longTypeId = vector1.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
+      byte floatTypeId = vector1.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      byte doubleTypeId = vector1.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+
+      vector1.addVector(floatTypeId, new Float4Vector("", allocator));
+      vector1.addVector(longTypeId, new BigIntVector("", allocator));
+      vector1.addVector(intTypeId, new IntVector("", allocator));
+      vector1.addVector(doubleTypeId, new Float8Vector("", allocator));
+
+      // set children for vector2
+      intTypeId = vector2.registerNewTypeId(Field.nullable("int", Types.MinorType.INT.getType()));
+      longTypeId = vector2.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
+      floatTypeId = vector2.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      doubleTypeId = vector2.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+
+      // add vectors in a different order
+      vector2.addVector(intTypeId, new IntVector("", allocator));
+      vector2.addVector(floatTypeId, new Float4Vector("", allocator));
+      vector2.addVector(doubleTypeId, new Float8Vector("", allocator));
+      vector2.addVector(longTypeId, new BigIntVector("", allocator));
+
+      // compare ranges
+      TypeEqualsVisitor typeVisitor =
+          new TypeEqualsVisitor(vector2, /* check name */ false, /* check meta data */ true);
+      assertTrue(typeVisitor.equals(vector1));
+
+      // if we check names, the types should be different
+      typeVisitor =
+          new TypeEqualsVisitor(vector2, /* check name */ true, /* check meta data */ true);
+      assertFalse(typeVisitor.equals(vector1));
     }
   }
 }
