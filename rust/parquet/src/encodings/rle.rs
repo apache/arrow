@@ -15,14 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{
-    cmp,
-    mem::{size_of, transmute_copy},
-};
+use std::{cmp, mem::size_of};
 
 use crate::errors::{ParquetError, Result};
 use crate::util::{
-    bit_util::{self, BitReader, BitWriter, FromBytes},
+    bit_util::{self, from_ne_slice, BitReader, BitWriter, FromBytes},
     memory::ByteBufferPtr,
 };
 
@@ -379,13 +376,13 @@ impl RleDecoder {
         }
 
         let value = if self.rle_left > 0 {
-            let rle_value = unsafe {
-                transmute_copy::<u64, T>(
-                    self.current_value
-                        .as_mut()
-                        .expect("current_value should be Some"),
-                )
-            };
+            let rle_value = from_ne_slice(
+                &self
+                    .current_value
+                    .as_mut()
+                    .expect("current_value should be Some")
+                    .to_ne_bytes(),
+            );
             self.rle_left -= 1;
             rle_value
         } else {
@@ -413,9 +410,9 @@ impl RleDecoder {
                 let num_values =
                     cmp::min(buffer.len() - values_read, self.rle_left as usize);
                 for i in 0..num_values {
-                    let repeated_value = unsafe {
-                        transmute_copy::<u64, T>(self.current_value.as_mut().unwrap())
-                    };
+                    let repeated_value = from_ne_slice(
+                        &self.current_value.as_mut().unwrap().to_ne_bytes(),
+                    );
                     buffer[values_read + i] = repeated_value;
                 }
                 self.rle_left -= num_values as u32;
