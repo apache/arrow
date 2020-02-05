@@ -177,6 +177,12 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size):
     tm.assert_frame_equal(df, df_read)
 
 
+def test_parquet_invalid_version(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+    with pytest.raises(ValueError, match="Unsupported Parquet format version"):
+        _write_table(table, tempdir / 'test_version.parquet', version="2.2")
+
+
 def test_set_data_page_size():
     arr = pa.array([1, 2, 3] * 100000)
     t = pa.Table.from_arrays([arr], names=['f0'])
