@@ -36,28 +36,11 @@ struct _GParquetWriterPropertiesClass
 };
 
 GParquetWriterProperties *gparquet_writer_properties_new(void);
-
-
-#define GPARQUET_TYPE_WRITER_PROPERTIES_BUILDER         \
-  (gparquet_writer_properties_builder_get_type())
-G_DECLARE_DERIVABLE_TYPE(GParquetWriterPropertiesBuilder,
-                         gparquet_writer_properties_builder,
-                         GPARQUET,
-                         WRITER_PROPERTIES_BUILDER,
-                         GObject)
-struct _GParquetWriterPropertiesBuilderClass
-{
-  GObjectClass parent_class;
-};
-
-GParquetWriterPropertiesBuilder *gparquet_writer_properties_builder_new(void);
 void
-gparquet_writer_properties_builder_set_compression(GParquetWriterPropertiesBuilder *builder,
-                                                   GArrowCompressionType compression_type);
+gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
+                                           GArrowCompressionType compression_type);
 GArrowCompressionType
-gparquet_writer_properties_builder_get_compression(GParquetWriterPropertiesBuilder *builder);
-GParquetWriterProperties *
-gparquet_writer_properties_builder_build(GParquetWriterPropertiesBuilder *builder);
+gparquet_writer_properties_get_compression(GParquetWriterProperties *properties);
 
 
 #define GPARQUET_TYPE_ARROW_FILE_WRITER (gparquet_arrow_file_writer_get_type())
