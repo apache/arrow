@@ -30,6 +30,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/ubsan.h"
 
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -40,6 +41,7 @@
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
+using arrow::util::SafeLoadAs;
 
 // TODO(hatemhelal): investigate whether this can be replaced with GTEST_SKIP in a future
 // gtest release that contains https://github.com/google/googletest/pull/1544
@@ -957,13 +959,10 @@ TEST(ByteStreamSplitEncodeDecode, DecodeMultipleTimes) {
     int num_decoded = decoder->Decode(decoded_data.data(), step);
     ASSERT_EQ(step, num_decoded);
     for (int j = 0; j < step; ++j) {
-      const uint32_t assembled_value =
-          static_cast<uint32_t>(data[i + j]) |
-          (static_cast<uint32_t>(data[(i + j) + num_values]) << 8U) |
-          (static_cast<uint32_t>(data[(i + j) + num_values * 2]) << 16U) |
-          (static_cast<uint32_t>(data[(i + j) + num_values * 3]) << 24U);
-      const float assembled_value_as_float =
-          *reinterpret_cast<const float*>(&assembled_value);
+      const uint8_t assembled_data[] = {data[i + j], data[i + j + num_values],
+                                        data[i + j + num_values * 2],
+                                        data[i + j + num_values * 3]};
+      const float assembled_value_as_float = SafeLoadAs<float>(assembled_data);
       ASSERT_EQ(assembled_value_as_float, decoded_data[j]);
     }
   }

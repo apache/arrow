@@ -1010,7 +1010,7 @@ Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor, int64_t bod
 
   auto fb_shape = fbb.CreateVector(dims);
 
-  flatbuf::SparseTensorIndex fb_sparse_index_type;
+  flatbuf::SparseTensorIndex fb_sparse_index_type = flatbuf::SparseTensorIndex::NONE;
   Offset fb_sparse_index;
   size_t num_index_buffers = 0;
   RETURN_NOT_OK(MakeSparseTensorIndex(fbb, *sparse_tensor.sparse_index(), buffers,
