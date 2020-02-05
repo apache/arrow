@@ -233,4 +233,25 @@ std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
   return VALUE_OR_STOP(scanner->ToTable());
 }
 
+// [[arrow::export]]
+std::vector<std::shared_ptr<arrow::RecordBatchIterator>> dataset___Scanner__ToBatchIterators(
+    const std::shared_ptr<ds::Scanner>& scanner) {
+  auto it = VALUE_OR_STOP(scanner->Scan());
+  std::vector<std::shared_ptr<arrow::RecordBatchIterator>> out;
+  for (auto rbi : it) {
+    VALUE_OR_STOP(out.push_back(rbi));
+  }
+  return(out);
+}
+
+// [[arrow::export]]
+std::vector<std::shared_ptr<arrow::RecordBatch>> RBI_get_batches(
+    const std::shared_ptr<arrow::RecordBatchIterator>& rbi) {
+  std::vector<std::shared_ptr<arrow::RecordBatch>> out;
+  for (auto batch : rbi) {
+    VALUE_OR_STOP(out.push_back(batch));
+  }
+  return(out);
+}
+
 #endif

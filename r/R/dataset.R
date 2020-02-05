@@ -444,6 +444,15 @@ Scanner <- R6Class("Scanner", inherit = ArrowObject,
   )
 )
 
+lapply_scanner <- function(X, FUN, ...) {
+  lapply(dataset___Scanner__ToBatchIterators(X), function(rbi) {
+    batch_ptrs <- lapply(rbi, RBI_get_batches)
+    lapply(batch_ptrs, function(b) {
+      FUN(shared_ptr(RecordBatch, b), ...)
+    })
+  })
+}
+
 #' @usage NULL
 #' @format NULL
 #' @rdname Scanner

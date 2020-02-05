@@ -456,6 +456,14 @@ dataset___Scanner__ToTable <- function(scanner){
     .Call(`_arrow_dataset___Scanner__ToTable` , scanner)
 }
 
+dataset___Scanner__ToBatchIterators <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__ToBatchIterators` , scanner)
+}
+
+RBI_get_batches <- function(rbi){
+    .Call(`_arrow_RBI_get_batches` , rbi)
+}
+
 shared_ptr_is_null <- function(xp){
     .Call(`_arrow_shared_ptr_is_null` , xp)
 }

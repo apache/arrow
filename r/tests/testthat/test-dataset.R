@@ -206,6 +206,11 @@ test_that("Dataset with multiple file formats", {
   )
 })
 
+test_that("lapply_batches", {
+  ds <- open_dataset(dataset_dir, partitioning = "part")
+  lapply_batches(ds$NewScan()$Finish(), print)
+})
+
 test_that("partitioning = NULL to ignore partition information (but why?)", {
   ds <- open_dataset(hive_dir, partitioning = NULL)
   expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
