@@ -684,7 +684,7 @@ tasks:
     params:
       python_version: 2.7
     artifacts:
-      - pyarrow-{no_rc_version}-cp27-cp27m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp27-cp27m-macosx_10_9_intel.whl
 
   wheel-osx-cp35m:
     ci: travis
@@ -693,7 +693,7 @@ tasks:
     params:
       python_version: 3.5
     artifacts:
-      - pyarrow-{no_rc_version}-cp35-cp35m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp35-cp35m-macosx_10_9_intel.whl
 
   wheel-osx-cp36m:
     ci: travis
@@ -702,7 +702,7 @@ tasks:
     params:
       python_version: 3.6
     artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_9_intel.whl
 
   wheel-osx-cp37m:
     ci: travis
@@ -711,7 +711,7 @@ tasks:
     params:
       python_version: 3.7
     artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_9_intel.whl
 
   wheel-osx-cp37m-azure:
     ci: azure
@@ -720,7 +720,7 @@ tasks:
     params:
       python_version: 3.7
     artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_9_intel.whl
 
   wheel-osx-cp38:
     ci: travis
@@ -758,7 +758,7 @@ tasks:
     params:
       python_version: 3.8
     artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38m-win_amd64.whl
+      - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
 
   ############################## Linux PKGS ####################################
 

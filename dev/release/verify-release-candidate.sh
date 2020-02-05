@@ -655,7 +655,7 @@ test_macos_wheels() {
     macos_suffix=macosx
     case "${py_arch}" in
     *m)
-      macos_suffix="${macos_suffix}_10_6_intel"
+      macos_suffix="${macos_suffix}_10_9_intel"
       ;;
     *)
       macos_suffix="${macos_suffix}_10_9_x86_64"
