@@ -33,10 +33,10 @@ if not exist %_VERIFICATION_DIR% mkdir %_VERIFICATION_DIR%
 
 cd %_VERIFICATION_DIR%
 
-CALL :verify_wheel 3.6 %1 %2
+CALL :verify_wheel 3.6 %1 %2 m
 if errorlevel 1 GOTO error
 
-CALL :verify_wheel 3.7 %1 %2
+CALL :verify_wheel 3.7 %1 %2 m
 if errorlevel 1 GOTO error
 
 CALL :verify_wheel 3.8 %1 %2
@@ -57,6 +57,7 @@ goto done
 set PY_VERSION=%1
 set ARROW_VERSION=%2
 set RC_NUMBER=%3
+set ABI_TAG=%4
 set PY_VERSION_NO_PERIOD=%PY_VERSION:.=%
 
 set CONDA_ENV_PATH=%_VERIFICATION_DIR%\_verify-wheel-%PY_VERSION%
@@ -65,7 +66,7 @@ call conda create -p %CONDA_ENV_PATH% ^
     || EXIT /B 1
 call activate %CONDA_ENV_PATH%
 
-set WHEEL_FILENAME=pyarrow-%ARROW_VERSION%-cp%PY_VERSION_NO_PERIOD%-cp%PY_VERSION_NO_PERIOD%m-win_amd64.whl
+set WHEEL_FILENAME=pyarrow-%ARROW_VERSION%-cp%PY_VERSION_NO_PERIOD%-cp%PY_VERSION_NO_PERIOD%%ABI_TAG%-win_amd64.whl
 
 @rem Requires GNU Wget for Windows
 wget --no-check-certificate -O %WHEEL_FILENAME% https://bintray.com/apache/arrow/download_file?file_path=python-rc%%2F%ARROW_VERSION%-rc%RC_NUMBER%%%2F%WHEEL_FILENAME% || EXIT /B 1
