@@ -17,7 +17,7 @@
 
 //! Contains all supported encoders for Parquet.
 
-use std::{cmp, io::Write, marker::PhantomData, mem, slice};
+use std::{cmp, io::Write, marker::PhantomData, mem};
 
 use crate::basic::*;
 use crate::data_type::*;
@@ -129,17 +129,6 @@ impl<T: DataType> PlainEncoder<T> {
 }
 
 impl<T: DataType> Encoder<T> for PlainEncoder<T> {
-    default fn put(&mut self, values: &[T::T]) -> Result<()> {
-        let bytes = unsafe {
-            slice::from_raw_parts(
-                values as *const [T::T] as *const u8,
-                mem::size_of::<T::T>() * values.len(),
-            )
-        };
-        self.buffer.write(bytes)?;
-        Ok(())
-    }
-
     fn encoding(&self) -> Encoding {
         Encoding::PLAIN
     }
@@ -155,6 +144,21 @@ impl<T: DataType> Encoder<T> for PlainEncoder<T> {
         self.bit_writer.clear();
 
         Ok(self.buffer.consume())
+    }
+
+    default fn put(&mut self, _values: &[T::T]) -> Result<()> {
+        unreachable!()
+    }
+}
+
+impl<T: SliceAsBytesDataType> Encoder<T> for PlainEncoder<T>
+where
+    T::T: SliceAsBytes,
+{
+    default fn put(&mut self, values: &[T::T]) -> Result<()> {
+        let bytes = T::T::slice_as_bytes(values);
+        self.buffer.write(bytes)?;
+        Ok(())
     }
 }
 
