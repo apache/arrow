@@ -73,6 +73,7 @@ impl<'a, T> FatPtr<'a, T> {
         type_size: usize,
     ) -> Self {
         assert!(align_of::<T>() <= memory::ALIGNMENT);
+        // TODO Prevent this from being called with non primitive types (like `Box<A>`)
         unsafe {
             FatPtr::new(slice::from_raw_parts_mut(
                 &mut *(buf.raw_data() as *mut T).add(offset),

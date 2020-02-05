@@ -541,6 +541,18 @@ impl MutableBuffer {
             offset: 0,
         }
     }
+
+    /// View buffer as typed slice.
+    pub fn typed_data_mut<T: ArrowNativeType + num::Num>(&mut self) -> &mut [T] {
+        assert_eq!(self.len() % mem::size_of::<T>(), 0);
+        assert!(memory::is_ptr_aligned::<T>(self.raw_data() as *const T));
+        unsafe {
+            from_raw_parts_mut(
+                self.raw_data() as *mut T,
+                self.len() / mem::size_of::<T>(),
+            )
+        }
+    }
 }
 
 impl Drop for MutableBuffer {

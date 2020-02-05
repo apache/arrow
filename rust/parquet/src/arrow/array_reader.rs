@@ -19,10 +19,8 @@ use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::mem::size_of;
-use std::mem::transmute;
 use std::rc::Rc;
 use std::result::Result::Ok;
-use std::slice::from_raw_parts_mut;
 use std::sync::Arc;
 use std::vec::Vec;
 
@@ -505,10 +503,7 @@ impl ArrayReader for StructArrayReader {
         let mut def_level_data_buffer = MutableBuffer::new(buffer_size);
         def_level_data_buffer.resize(buffer_size)?;
 
-        let def_level_data = unsafe {
-            let ptr = transmute::<*const u8, *mut i16>(def_level_data_buffer.raw_data());
-            from_raw_parts_mut(ptr, children_array_len)
-        };
+        let def_level_data = def_level_data_buffer.typed_data_mut();
 
         def_level_data
             .iter_mut()
