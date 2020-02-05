@@ -116,7 +116,7 @@ table SparseMatrixIndexCSX {
 
 union SparseTensorIndex {
   SparseTensorIndexCOO,
-  SparseMatrixIndexCSX,
+  SparseMatrixIndexCSX
 }
 
 table SparseTensor {
