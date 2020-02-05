@@ -95,7 +95,7 @@ pub fn get_typed_column_reader<T: DataType>(
 ) -> ColumnReaderImpl<T> {
     T::get_column_reader(col_reader).unwrap_or_else(|| {
         panic!(
-            "Failed to convert column reader into a typed column reader for `{}` typ",
+            "Failed to convert column reader into a typed column reader for `{}` type",
             T::get_physical_type()
         )
     })

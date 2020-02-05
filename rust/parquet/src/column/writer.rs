@@ -104,7 +104,7 @@ pub fn get_typed_column_writer<T: DataType>(
 ) -> ColumnWriterImpl<T> {
     T::get_column_writer(col_writer).unwrap_or_else(|| {
         panic!(
-            "Failed to convert column writer into a typed column writer for `{}` typ",
+            "Failed to convert column writer into a typed column writer for `{}` type",
             T::get_physical_type()
         )
     })
@@ -116,7 +116,7 @@ pub fn get_typed_column_writer_ref<T: DataType>(
 ) -> &ColumnWriterImpl<T> {
     T::get_column_writer_ref(col_writer).unwrap_or_else(|| {
         panic!(
-            "Failed to convert column writer into a typed column writer for `{}` typ",
+            "Failed to convert column writer into a typed column writer for `{}` type",
             T::get_physical_type()
         )
     })
@@ -128,7 +128,7 @@ pub fn get_typed_column_writer_mut<T: DataType>(
 ) -> &mut ColumnWriterImpl<T> {
     T::get_column_writer_mut(col_writer).unwrap_or_else(|| {
         panic!(
-            "Failed to convert column writer into a typed column writer for `{}` typ",
+            "Failed to convert column writer into a typed column writer for `{}` type",
             T::get_physical_type()
         )
     })
