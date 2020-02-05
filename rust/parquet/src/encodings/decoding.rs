@@ -17,7 +17,7 @@
 
 //! Contains all supported decoders for Parquet.
 
-use std::{cmp, marker::PhantomData, mem, slice::from_raw_parts_mut};
+use std::{cmp, marker::PhantomData, mem};
 
 use super::rle::RleDecoder;
 
@@ -188,7 +188,17 @@ impl<T: DataType> Decoder<T> for PlainDecoder<T> {
     }
 
     #[inline]
-    default fn get(&mut self, buffer: &mut [T::T]) -> Result<usize> {
+    default fn get(&mut self, _buffer: &mut [T::T]) -> Result<usize> {
+        unreachable!()
+    }
+}
+
+impl<T: SliceAsBytesDataType> Decoder<T> for PlainDecoder<T>
+where
+    T::T: SliceAsBytes,
+{
+    #[inline]
+    fn get(&mut self, buffer: &mut [T::T]) -> Result<usize> {
         assert!(self.data.is_some());
 
         let data = self.data.as_mut().unwrap();
@@ -198,8 +208,7 @@ impl<T: DataType> Decoder<T> for PlainDecoder<T> {
         if bytes_left < bytes_to_decode {
             return Err(eof_err!("Not enough bytes to decode"));
         }
-        let raw_buffer: &mut [u8] =
-            unsafe { from_raw_parts_mut(buffer.as_ptr() as *mut u8, bytes_to_decode) };
+        let raw_buffer = &mut T::T::slice_as_bytes_mut(buffer)[..bytes_to_decode];
         raw_buffer.copy_from_slice(data.range(self.start, bytes_to_decode).as_ref());
         self.start += bytes_to_decode;
         self.num_values -= num_values;
@@ -245,7 +254,7 @@ impl Decoder<BoolType> for PlainDecoder<BoolType> {
         Ok(())
     }
 
-    fn get(&mut self, buffer: &mut [bool]) -> Result<usize> {
+    default fn get(&mut self, buffer: &mut [bool]) -> Result<usize> {
         assert!(self.bit_reader.is_some());
 
         let bit_reader = self.bit_reader.as_mut().unwrap();
@@ -1454,18 +1463,11 @@ mod tests {
 
     impl<T> ToByteArray<T> for T
     where
-        T: DataType,
+        T: SliceAsBytesDataType,
+        <T as DataType>::T: SliceAsBytes,
     {
         default fn to_byte_array(data: &[T::T]) -> Vec<u8> {
-            let mut v = vec![];
-            let type_len = std::mem::size_of::<T::T>();
-            v.extend_from_slice(unsafe {
-                std::slice::from_raw_parts(
-                    data.as_ptr() as *const u8,
-                    data.len() * type_len,
-                )
-            });
-            v
+            <T as DataType>::T::slice_as_bytes(data).to_vec()
         }
     }
 

@@ -306,6 +306,13 @@ pub trait AsBytes {
     fn as_bytes(&self) -> &[u8];
 }
 
+/// Converts an slice of a data type to a slice of bytes.
+pub trait SliceAsBytes: Sized {
+    /// Returns slice of bytes for a slice of this data type.
+    fn slice_as_bytes(self_: &[Self]) -> &[u8];
+    fn slice_as_bytes_mut(self_: &mut [Self]) -> &mut [u8];
+}
+
 impl AsBytes for [u8] {
     fn as_bytes(&self) -> &[u8] {
         self
@@ -324,10 +331,27 @@ macro_rules! gen_as_bytes {
                 }
             }
         }
+        impl SliceAsBytes for $source_ty {
+            fn slice_as_bytes(self_: &[Self]) -> &[u8] {
+                unsafe {
+                    std::slice::from_raw_parts(
+                        self_.as_ptr() as *const u8,
+                        std::mem::size_of::<$source_ty>() * self_.len(),
+                    )
+                }
+            }
+            fn slice_as_bytes_mut(self_: &mut [Self]) -> &mut [u8] {
+                unsafe {
+                    std::slice::from_raw_parts_mut(
+                        self_.as_mut_ptr() as *mut u8,
+                        std::mem::size_of::<$source_ty>() * self_.len(),
+                    )
+                }
+            }
+        }
     };
 }
 
-gen_as_bytes!(bool);
 gen_as_bytes!(i8);
 gen_as_bytes!(i16);
 gen_as_bytes!(i32);
@@ -338,6 +362,12 @@ gen_as_bytes!(u32);
 gen_as_bytes!(u64);
 gen_as_bytes!(f32);
 gen_as_bytes!(f64);
+
+impl AsBytes for bool {
+    fn as_bytes(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self as *const bool as *const u8, 1) }
+    }
+}
 
 impl AsBytes for Int96 {
     fn as_bytes(&self) -> &[u8] {
@@ -412,6 +442,20 @@ pub trait DataType: 'static {
     ) -> Option<&mut ColumnWriterImpl<Self>>
     where
         Self: Sized;
+}
+
+// Workaround bug in specialization
+pub trait SliceAsBytesDataType: DataType
+where
+    Self::T: SliceAsBytes,
+{
+}
+
+impl<T> SliceAsBytesDataType for T
+where
+    T: DataType,
+    <T as DataType>::T: SliceAsBytes,
+{
 }
 
 macro_rules! make_type {
