@@ -214,6 +214,21 @@ test_that("filter() on timestamp columns", {
   )
 })
 
+test_that("filter() on date32 columns", {
+  tmp <- tempfile()
+  dir.create(tmp)
+  df <- data.frame(date = as.Date(c("2020-02-02", "2020-02-03")))
+  write_parquet(df, file.path(tmp, "file.parquet"))
+
+  expect_equal(
+    open_dataset(tmp) %>%
+      filter(date > as.Date("2020-02-02")) %>%
+      collect() %>%
+      nrow(),
+    1L
+  )
+})
+
 test_that("collect() on Dataset works (if fits in memory)", {
   expect_equal(
     collect(open_dataset(dataset_dir)),
