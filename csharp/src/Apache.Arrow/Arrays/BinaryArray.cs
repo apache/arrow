@@ -171,6 +171,7 @@ namespace Apache.Arrow
         public ReadOnlySpan<byte> Values => ValueBuffer.Span.CastTo<byte>();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [Obsolete("This method has been deprecated. Please use ValueOffsets[index] instead.")]
         public int GetValueOffset(int index)
         {
             if (index < 0 || index > Length)
@@ -193,10 +194,12 @@ namespace Apache.Arrow
 
         public ReadOnlySpan<byte> GetBytes(int index)
         {
-            var offset = GetValueOffset(index);
-            var length = GetValueLength(index);
+            if (index < 0 || index >= Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
 
-            return ValueBuffer.Span.Slice(offset, length);
+            return ValueBuffer.Span.Slice(ValueOffsets[index], GetValueLength(index));
         }
 
     }
