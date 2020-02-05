@@ -1432,8 +1432,8 @@ Table__Slice2 <- function(table, offset, length){
     .Call(`_arrow_Table__Slice2` , table, offset, length)
 }
 
-Table__Equals <- function(lhs, rhs){
-    .Call(`_arrow_Table__Equals` , lhs, rhs)
+Table__Equals <- function(lhs, rhs, check_metadata){
+    .Call(`_arrow_Table__Equals` , lhs, rhs, check_metadata)
 }
 
 Table__GetColumnByName <- function(table, name){
