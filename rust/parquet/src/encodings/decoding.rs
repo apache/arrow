@@ -934,7 +934,7 @@ impl Decoder<FixedLenByteArrayType> for DeltaByteArrayDecoder<FixedLenByteArrayT
 mod tests {
     use super::{super::encoding::*, *};
 
-    use std::{mem, rc::Rc};
+    use std::rc::Rc;
 
     use crate::schema::types::{
         ColumnDescPtr, ColumnDescriptor, ColumnPath, Type as SchemaType,
@@ -1444,7 +1444,7 @@ mod tests {
     }
 
     fn usize_to_bytes(v: usize) -> [u8; 4] {
-        unsafe { mem::transmute::<u32, [u8; 4]>(v as u32) }
+        (v as u32).to_ne_bytes()
     }
 
     /// A util trait to convert slices of different types to byte arrays
@@ -1488,11 +1488,7 @@ mod tests {
         fn to_byte_array(data: &[Int96]) -> Vec<u8> {
             let mut v = vec![];
             for d in data {
-                unsafe {
-                    let copy =
-                        std::slice::from_raw_parts(d.data().as_ptr() as *const u8, 12);
-                    v.extend_from_slice(copy);
-                };
+                v.extend_from_slice(d.as_bytes());
             }
             v
         }
