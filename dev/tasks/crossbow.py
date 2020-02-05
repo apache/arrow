@@ -23,10 +23,11 @@ import glob
 import time
 import mimetypes
 import textwrap
+import concurrent.futures
 from io import StringIO
 from pathlib import Path
 from textwrap import dedent
-from datetime import datetime
+from datetime import datetime, date
 from functools import partial
 from collections import namedtuple
 
@@ -77,6 +78,11 @@ def unflatten(mapping):
         temp[leaf] = value
 
     return result
+
+
+def unflatten_tree(files):
+    files = toolz.keymap(lambda path: tuple(path.split('/')), files)
+    return unflatten(files)
 
 
 # configurations for setting up branch skipping
@@ -294,10 +300,11 @@ class Repo:
         refspec = '+refs/heads/*:refs/remotes/origin/*'
         self.origin.fetch([refspec])
 
-    def push(self):
+    def push(self, refs=None):
         callbacks = GitRemoteCallbacks(self.github_token)
+        refs = refs or []
         try:
-            self.origin.push(self._updated_refs, callbacks=callbacks)
+            self.origin.push(refs + self._updated_refs, callbacks=callbacks)
         except pygit2.GitError:
             raise RuntimeError('Failed to push updated references, '
                                'potentially because of credential issues: {}'
@@ -373,21 +380,22 @@ class Repo:
         tree_id = builder.write()
         return tree_id
 
-    def create_branch(self, branch_name, files, parents=[], message='',
-                      signature=None):
-        # 1. create tree
-        files = toolz.keymap(lambda path: tuple(path.split('/')), files)
-        files = unflatten(files)
+    def create_commit(self, files, parents=None, message='',
+                      reference_name=None):
+        parents = parents or []
         tree_id = self.create_tree(files)
 
-        # 2. create commit with the tree created above
-        # TODO(kszucs): pass signature explicitly
         author = committer = self.signature
-        commit_id = self.repo.create_commit(None, author, committer, message,
-                                            tree_id, parents)
-        commit = self.repo[commit_id]
+        commit_id = self.repo.create_commit(reference_name, author, committer,
+                                            message, tree_id, parents)
+        return self.repo[commit_id]
 
-        # 3. create branch pointing to the previously created commit
+    def create_branch(self, branch_name, files, parents=None, message='',
+                      signature=None):
+        # create commit with the passed tree
+        commit = self.create_commit(files, parents=parents, message=message)
+
+        # create branch pointing to the previously created commit
         branch = self.repo.create_branch(branch_name, commit)
 
         # append to the pushable references
@@ -559,10 +567,34 @@ class Queue(Repo):
         job_name = '{}-{}'.format(prefix, latest_id)
         return self.get(job_name)
 
+    def date_of(self, job):
+        # it'd be better to bound to the queue repository on deserialization
+        # and reorganize these methods to Job
+        branch_name = 'origin/{}'.format(job.branch)
+        branch = self.repo.branches[branch_name]
+        commit = self.repo[branch.target]
+        return date.fromtimestamp(commit.commit_time)
+
+    def jobs(self, pattern):
+        """Return jobs sorted by its identifier in reverse order"""
+        job_names = []
+        for name in self.repo.branches.remote:
+            origin, name = name.split('/', 1)
+            result = re.match(pattern, name)
+            if result:
+                job_names.append(name)
+
+        for name in sorted(job_names, reverse=True):
+            yield self.get(name)
+
     def get(self, job_name):
         branch_name = 'origin/{}'.format(job_name)
         branch = self.repo.branches[branch_name]
-        content = self.file_contents(branch.target, 'job.yml')
+        try:
+            content = self.file_contents(branch.target, 'job.yml')
+        except KeyError:
+            raise ValueError('No job is found with name: {}'.format(job_name))
+
         buffer = StringIO(content.decode('utf-8'))
         job = yaml.load(buffer)
         job.queue = self
@@ -695,7 +727,8 @@ class Task(Serializable):
         params = toolz.merge(self.params, extra_params)
         template = Template(path.read_text(), undefined=StrictUndefined)
         rendered = template.render(task=self, **params)
-        return toolz.merge(_default_tree, {self.filename: rendered})
+        tree = toolz.merge(_default_tree, {self.filename: rendered})
+        return unflatten_tree(tree)
 
     @property
     def tag(self):
@@ -762,7 +795,8 @@ class Job(Serializable):
         with StringIO() as buf:
             yaml.dump(self, buf)
             content = buf.getvalue()
-        return toolz.merge(_default_tree, {'job.yml': content})
+        tree = toolz.merge(_default_tree, {'job.yml': content})
+        return unflatten_tree(tree)
 
     @property
     def queue(self):
@@ -779,6 +813,10 @@ class Job(Serializable):
     @property
     def email(self):
         return os.environ.get('CROSSBOW_EMAIL', self.target.email)
+
+    @property
+    def date(self):
+        return self.queue.date_of(self)
 
     @classmethod
     def from_config(cls, config, target, task_whitelist=None,
@@ -843,6 +881,20 @@ class Job(Serializable):
             click.echo('Waiting {} minutes and then checking again'
                        .format(poll_interval_minutes))
             time.sleep(poll_interval_minutes * 60)
+
+    def query_assets(self, max_workers=8):
+        futures = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers) as executor:
+            for task_name, task in sorted(self.tasks.items()):
+                futures.append((
+                    task_name,
+                    task,
+                    executor.submit(task.status),
+                    executor.submit(task.assets)
+                ))
+
+        for task_name, task, status, assets in futures:
+            yield (task_name, task, status.result(), assets.result())
 
 
 class Report:
@@ -915,10 +967,7 @@ class ConsoleReport(Report):
         echo(self.header())
 
         # write table's body
-        for task_name, task in sorted(self.job.tasks.items()):
-            status = task.status()
-            assets = task.assets()
-
+        for task_name, task, status, assets in self.job.query_assets():
             # write summary of the uploaded vs total assets
             n_expected = len(assets)
             n_uploaded = len(list(filter(None, assets.values())))
@@ -1030,6 +1079,74 @@ class EmailReport(Report):
         server.login(smtp_user, smtp_password)
         server.sendmail(smtp_user, self.recipient_email, email)
         server.close()
+
+
+class GithubPage:
+
+    def __init__(self, jobs):
+        self.jobs = jobs
+
+    def _generate_page(self, links):
+        links = ['<li><a href="{}">{}</a></li>'.format(url, name)
+                 for name, url in sorted(links.items())]
+        return '<html><body><ul>{}</ul></body></html>'.format(''.join(links))
+
+    def _generate_toc(self, files):
+        links = {}
+        for k, v in files.items():
+            if isinstance(v, dict):
+                links[k] = self._generate_toc(v)
+            else:
+                links[k] = '{}/'.format(k)
+
+        return toolz.merge([
+            files,
+            {'index.html': self._generate_page(links)}
+        ])
+
+    def render_wheels(self):
+        files = {}
+        for job in self.jobs:
+            click.echo('\nJOB: {}'.format(job.branch))
+            links = {}
+
+            for task_name, task, status, assets in job.query_assets():
+                if not task_name.startswith('wheel'):
+                    continue
+
+                if status.state == 'success':
+                    msg = click.style('[  OK] {}'.format(task_name),
+                                      fg='green')
+                    click.echo(msg)
+                else:
+                    msg = click.style('[FAIL] {}'.format(task_name),
+                                      fg='yellow')
+                    click.echo(msg)
+                    continue
+
+                for filename, asset in assets.items():
+                    if asset is not None:
+                        links[filename] = asset.browser_download_url
+
+            page_content = self._generate_page(links)
+            files[str(job.date)] = {'index.html': page_content}
+
+        # write the most recent wheels under the latest directory
+        if 'latest' not in files:
+            files['latest'] = {'index.html': page_content}
+
+        return files
+
+    def render(self):
+        # directory structure for the github pages, only wheels are supported
+        # at the moment
+        files = self._generate_toc({
+            'nightly': {
+                'wheel': self.render_wheels()
+            }
+        })
+        files['.nojekyll'] = ''
+        return files
 
 
 # configure yaml serializer
@@ -1249,6 +1366,50 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
         )
     else:
         report.show(output)
+
+
+@crossbow.group()
+@click.pass_context
+def github_page(ctx):
+    # currently We only list links to nightly binary wheels
+    pass
+
+
+@github_page.command('generate')
+@click.option('-n', default=10,
+              help='Number of most recent jobs')
+@click.option('--gh-branch', default='gh-pages', help='Github pages branch')
+@click.option('--job-prefix', default='nightly',
+              help='Job/tag prefix the wheel links should be generated for')
+@click.option('--dry-run/--push', default=False,
+              help='Just render the files without pushing')
+@click.pass_context
+def generate_github_page(ctx, n, gh_branch, job_prefix, dry_run):
+    queue = ctx.obj['queue']
+    queue.fetch()
+
+    # $ at the end of the pattern is important because we're only looking for
+    # branches belonging to jobs not branches belonging to tasks
+    # the branches we're looking for are like 2020-01-01-0
+    jobs = queue.jobs(pattern="^nightly-(\d{4})-(\d{2})-(\d{2})-(\d+)$")
+    page = GithubPage(toolz.take(n, jobs))
+    files = page.render()
+    files.update(unflatten_tree(_default_tree))
+
+    if dry_run:
+        click.echo(files)
+        return
+
+    branch = queue.repo.branches[gh_branch]
+    head = queue.repo[branch.target]
+
+    refname = 'refs/heads/{}'.format(branch.branch_name)
+    message = 'Update nightly wheel links {}'.format(date.today())
+    commit = queue.create_commit(files, parents=[head.id], message=message,
+                                 reference_name=refname)
+    click.echo('Updated `{}` branch\'s head to `{}`'
+                .format(branch.branch_name, commit.id))
+    queue.push([refname])
 
 
 @crossbow.command()
