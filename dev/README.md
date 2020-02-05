@@ -22,22 +22,38 @@
 This directory contains scripts useful to developers when packaging,
 testing, or committing to Arrow.
 
-Merging a pull request requires being a committer on the project.
+Merging a pull request requires being a committer on the project. In addition
+you need to have linked your GitHub and ASF accounts on
+https://gitbox.apache.org/setup/ to be able to push to GitHub as the main
+remote.
 
-* How to merge a Pull request:
-have an apache and apache-github remote setup
+## How to merge a Pull request
+
 ```
-git remote add apache-github https://github.com/apache/arrow.git
-git remote add apache https://git-wip-us.apache.org/repos/asf/arrow.git
+git remote add apache git@github.com:apache/arrow.git
 ```
+
 run the following command
+
 ```
 dev/merge_arrow_pr.py
 ```
 
-Note:
-* The directory name of your Arrow git clone must be called arrow
-* Without jira-python installed you'll have to close the JIRA manually
+This script uses requests and jira libraries.  Before running this script,
+run the following command to prepare them:
+
+```
+pip install requests jira
+```
+
+This uses the GitHub REST API; if you encounter rate limit issues, you may set
+a `ARROW_GITHUB_API_TOKEN` environment variable to use a Personal Access Token.
+
+You can specify the username and the password of your JIRA account in
+`APACHE_JIRA_USERNAME` and `APACHE_JIRA_PASSWORD` environment variables.
+If these aren't supplied, the script will ask you the values of them.
+
+Note that the directory name of your Arrow git clone must be called arrow.
 
 example output:
 ```
@@ -92,3 +108,74 @@ Merge hash: 485658a5
 Would you like to pick 485658a5 into another branch? (y/n):
 ```
 For now just say n as we have 1 branch
+
+## Verifying Release Candidates
+
+We have provided a script to assist with verifying release candidates:
+
+```shell
+bash dev/release/verify-release-candidate.sh 0.7.0 0
+```
+
+Currently this only works on Linux (patches to expand to macOS welcome!). Read
+the script for information about system dependencies.
+
+On Windows, we have a script that verifies C++ and Python (requires Visual
+Studio 2015):
+
+```
+dev/release/verify-release-candidate.bat apache-arrow-0.7.0.tar.gz
+```
+
+### Verifying the JavaScript release
+
+For JavaScript-specific releases, use a different verification script:
+
+```shell
+bash dev/release/js-verify-release-candidate.sh 0.7.0 0
+```
+
+# Integration testing
+
+Build the following base image used by multiple tests:
+
+```shell
+docker build -t arrow_integration_xenial_base -f docker_common/Dockerfile.xenial.base .
+```
+
+## HDFS C++ / Python support
+
+```shell
+docker-compose build conda-cpp
+docker-compose build conda-python
+docker-compose build conda-python-hdfs
+docker-compose run --rm conda-python-hdfs
+```
+
+## Apache Spark Integration Tests
+
+Tests can be run to ensure that the current snapshot of Java and Python Arrow
+works with Spark. This will run a docker image to build Arrow C++
+and Python in a Conda environment, build and install Arrow Java to the local
+Maven repository, build Spark with the new Arrow artifact, and run Arrow
+related unit tests in Spark for Java and Python. Any errors will exit with a
+non-zero value. To run, use the following command:
+
+```shell
+docker-compose build conda-cpp
+docker-compose build conda-python
+docker-compose build conda-python-spark
+docker-compose run --rm conda-python-spark
+```
+
+If you already are building Spark, these commands will map your local Maven
+repo to the image and save time by not having to download all dependencies.
+Be aware, that docker write files as root, which can cause problems for maven
+on the host.
+
+```shell
+docker-compose run --rm -v $HOME/.m2:/root/.m2 conda-python-spark
+```
+
+NOTE: If the Java API has breaking changes, a patched version of Spark might
+need to be used to successfully build.

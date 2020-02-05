@@ -1,0 +1,760 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#pragma once
+
+#include <memory>
+#include <string>
+#include <type_traits>
+#include <vector>
+
+#include "arrow/type_fwd.h"
+#include "arrow/util/bit_util.h"
+
+namespace arrow {
+
+//
+// Per-type type traits
+//
+
+template <typename T>
+struct TypeTraits {};
+
+template <typename T>
+struct CTypeTraits {};
+
+template <>
+struct TypeTraits<NullType> {
+  using ArrayType = NullArray;
+  using BuilderType = NullBuilder;
+  using ScalarType = NullScalar;
+
+  static constexpr int64_t bytes_required(int64_t) { return 0; }
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return null(); }
+};
+
+template <>
+struct TypeTraits<BooleanType> {
+  using ArrayType = BooleanArray;
+  using BuilderType = BooleanBuilder;
+  using ScalarType = BooleanScalar;
+  using CType = bool;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return BitUtil::BytesForBits(elements);
+  }
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return boolean(); }
+};
+
+template <>
+struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
+  using ArrowType = BooleanType;
+};
+
+#define PRIMITIVE_TYPE_TRAITS_DEF_(CType_, ArrowType_, ArrowArrayType, ArrowBuilderType, \
+                                   ArrowScalarType, ArrowTensorType, SingletonFn)        \
+  template <>                                                                            \
+  struct TypeTraits<ArrowType_> {                                                        \
+    using ArrayType = ArrowArrayType;                                                    \
+    using BuilderType = ArrowBuilderType;                                                \
+    using ScalarType = ArrowScalarType;                                                  \
+    using TensorType = ArrowTensorType;                                                  \
+    using CType = ArrowType_::c_type;                                                    \
+    static constexpr int64_t bytes_required(int64_t elements) {                          \
+      return elements * static_cast<int64_t>(sizeof(CType));                             \
+    }                                                                                    \
+    constexpr static bool is_parameter_free = true;                                      \
+    static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); }   \
+  };                                                                                     \
+                                                                                         \
+  template <>                                                                            \
+  struct CTypeTraits<CType_> : public TypeTraits<ArrowType_> {                           \
+    using ArrowType = ArrowType_;                                                        \
+  };
+
+#define PRIMITIVE_TYPE_TRAITS_DEF(CType, ArrowShort, SingletonFn)             \
+  PRIMITIVE_TYPE_TRAITS_DEF_(                                                 \
+      CType, ARROW_CONCAT(ArrowShort, Type), ARROW_CONCAT(ArrowShort, Array), \
+      ARROW_CONCAT(ArrowShort, Builder), ARROW_CONCAT(ArrowShort, Scalar),    \
+      ARROW_CONCAT(ArrowShort, Tensor), SingletonFn)
+
+PRIMITIVE_TYPE_TRAITS_DEF(uint8_t, UInt8, uint8)
+PRIMITIVE_TYPE_TRAITS_DEF(int8_t, Int8, int8)
+PRIMITIVE_TYPE_TRAITS_DEF(uint16_t, UInt16, uint16)
+PRIMITIVE_TYPE_TRAITS_DEF(int16_t, Int16, int16)
+PRIMITIVE_TYPE_TRAITS_DEF(uint32_t, UInt32, uint32)
+PRIMITIVE_TYPE_TRAITS_DEF(int32_t, Int32, int32)
+PRIMITIVE_TYPE_TRAITS_DEF(uint64_t, UInt64, uint64)
+PRIMITIVE_TYPE_TRAITS_DEF(int64_t, Int64, int64)
+PRIMITIVE_TYPE_TRAITS_DEF(float, Float, float32)
+PRIMITIVE_TYPE_TRAITS_DEF(double, Double, float64)
+
+#undef PRIMITIVE_TYPE_TRAITS_DEF
+#undef PRIMITIVE_TYPE_TRAITS_DEF_
+
+template <>
+struct TypeTraits<Date64Type> {
+  using ArrayType = Date64Array;
+  using BuilderType = Date64Builder;
+  using ScalarType = Date64Scalar;
+  using CType = Date64Type::c_type;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(int64_t));
+  }
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return date64(); }
+};
+
+template <>
+struct TypeTraits<Date32Type> {
+  using ArrayType = Date32Array;
+  using BuilderType = Date32Builder;
+  using ScalarType = Date32Scalar;
+  using CType = Date32Type::c_type;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(int32_t));
+  }
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return date32(); }
+};
+
+template <>
+struct TypeTraits<TimestampType> {
+  using ArrayType = TimestampArray;
+  using BuilderType = TimestampBuilder;
+  using ScalarType = TimestampScalar;
+  using CType = TimestampType::c_type;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(int64_t));
+  }
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<DurationType> {
+  using ArrayType = DurationArray;
+  using BuilderType = DurationBuilder;
+  using ScalarType = DurationScalar;
+  using CType = DurationType::c_type;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(int64_t));
+  }
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<DayTimeIntervalType> {
+  using ArrayType = DayTimeIntervalArray;
+  using BuilderType = DayTimeIntervalBuilder;
+  using ScalarType = DayTimeIntervalScalar;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(DayTimeIntervalType::DayMilliseconds));
+  }
+  constexpr static bool is_parameter_free = true;
+  static std::shared_ptr<DataType> type_singleton() { return day_time_interval(); }
+};
+
+template <>
+struct TypeTraits<MonthIntervalType> {
+  using ArrayType = MonthIntervalArray;
+  using BuilderType = MonthIntervalBuilder;
+  using ScalarType = MonthIntervalScalar;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(int32_t));
+  }
+  constexpr static bool is_parameter_free = true;
+  static std::shared_ptr<DataType> type_singleton() { return month_interval(); }
+};
+
+template <>
+struct TypeTraits<Time32Type> {
+  using ArrayType = Time32Array;
+  using BuilderType = Time32Builder;
+  using ScalarType = Time32Scalar;
+  using CType = Time32Type::c_type;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(int32_t));
+  }
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<Time64Type> {
+  using ArrayType = Time64Array;
+  using BuilderType = Time64Builder;
+  using ScalarType = Time64Scalar;
+  using CType = Time64Type::c_type;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(int64_t));
+  }
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<HalfFloatType> {
+  using ArrayType = HalfFloatArray;
+  using BuilderType = HalfFloatBuilder;
+  using ScalarType = HalfFloatScalar;
+  using TensorType = HalfFloatTensor;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(uint16_t));
+  }
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return float16(); }
+};
+
+template <>
+struct TypeTraits<Decimal128Type> {
+  using ArrayType = Decimal128Array;
+  using BuilderType = Decimal128Builder;
+  using ScalarType = Decimal128Scalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<BinaryType> {
+  using ArrayType = BinaryArray;
+  using BuilderType = BinaryBuilder;
+  using ScalarType = BinaryScalar;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return binary(); }
+};
+
+template <>
+struct TypeTraits<LargeBinaryType> {
+  using ArrayType = LargeBinaryArray;
+  using BuilderType = LargeBinaryBuilder;
+  using ScalarType = LargeBinaryScalar;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return large_binary(); }
+};
+
+template <>
+struct TypeTraits<FixedSizeBinaryType> {
+  using ArrayType = FixedSizeBinaryArray;
+  using BuilderType = FixedSizeBinaryBuilder;
+  using ScalarType = FixedSizeBinaryScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<StringType> {
+  using ArrayType = StringArray;
+  using BuilderType = StringBuilder;
+  using ScalarType = StringScalar;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return utf8(); }
+};
+
+template <>
+struct TypeTraits<LargeStringType> {
+  using ArrayType = LargeStringArray;
+  using BuilderType = LargeStringBuilder;
+  using ScalarType = LargeStringScalar;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }
+};
+
+template <>
+struct CTypeTraits<std::string> : public TypeTraits<StringType> {
+  using ArrowType = StringType;
+};
+
+template <>
+struct CTypeTraits<const char*> : public CTypeTraits<std::string> {};
+
+template <size_t N>
+struct CTypeTraits<const char (&)[N]> : public CTypeTraits<std::string> {};
+
+template <>
+struct CTypeTraits<DayTimeIntervalType::DayMilliseconds>
+    : public TypeTraits<DayTimeIntervalType> {
+  using ArrowType = DayTimeIntervalType;
+};
+
+template <>
+struct TypeTraits<ListType> {
+  using ArrayType = ListArray;
+  using BuilderType = ListBuilder;
+  using ScalarType = ListScalar;
+  using OffsetType = Int32Type;
+  using OffsetArrayType = Int32Array;
+  using OffsetBuilderType = Int32Builder;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<LargeListType> {
+  using ArrayType = LargeListArray;
+  using BuilderType = LargeListBuilder;
+  using ScalarType = LargeListScalar;
+  using OffsetType = Int64Type;
+  using OffsetArrayType = Int64Array;
+  using OffsetBuilderType = Int64Builder;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<MapType> {
+  using ArrayType = MapArray;
+  using BuilderType = MapBuilder;
+  using ScalarType = MapScalar;
+  using OffsetType = Int32Type;
+  using OffsetArrayType = Int32Array;
+  using OffsetBuilderType = Int32Builder;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<FixedSizeListType> {
+  using ArrayType = FixedSizeListArray;
+  using BuilderType = FixedSizeListBuilder;
+  using ScalarType = FixedSizeListScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <typename CType>
+struct CTypeTraits<std::vector<CType>> : public TypeTraits<ListType> {
+  using ArrowType = ListType;
+
+  static inline std::shared_ptr<DataType> type_singleton() {
+    return list(CTypeTraits<CType>::type_singleton());
+  }
+};
+
+template <>
+struct TypeTraits<StructType> {
+  using ArrayType = StructArray;
+  using BuilderType = StructBuilder;
+  using ScalarType = StructScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<UnionType> {
+  using ArrayType = UnionArray;
+  using ScalarType = UnionScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<DictionaryType> {
+  using ArrayType = DictionaryArray;
+  using ScalarType = DictionaryScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<ExtensionType> {
+  using ArrayType = ExtensionArray;
+  using ScalarType = ExtensionScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+namespace internal {
+
+template <typename... Ts>
+struct make_void {
+  using type = void;
+};
+
+template <typename... Ts>
+using void_t = typename make_void<Ts...>::type;
+
+}  // namespace internal
+
+//
+// Useful type predicates
+//
+
+// only in C++14
+template <bool B, typename T = void>
+using enable_if_t = typename std::enable_if<B, T>::type;
+
+template <typename T>
+using is_null_type = std::is_same<NullType, T>;
+
+template <typename T, typename R = void>
+using enable_if_null = enable_if_t<is_null_type<T>::value, R>;
+
+template <typename T>
+using is_boolean_type = std::is_same<BooleanType, T>;
+
+template <typename T, typename R = void>
+using enable_if_boolean = enable_if_t<is_boolean_type<T>::value, R>;
+
+template <typename T>
+using is_number_type = std::is_base_of<NumberType, T>;
+
+template <typename T, typename R = void>
+using enable_if_number = enable_if_t<is_number_type<T>::value, R>;
+
+template <typename T>
+using is_integer_type = std::is_base_of<IntegerType, T>;
+
+template <typename T, typename R = void>
+using enable_if_integer = enable_if_t<is_integer_type<T>::value, R>;
+
+template <typename T>
+using is_signed_integer_type =
+    std::integral_constant<bool, is_integer_type<T>::value &&
+                                     std::is_signed<typename T::c_type>::value>;
+
+template <typename T, typename R = void>
+using enable_if_signed_integer = enable_if_t<is_signed_integer_type<T>::value, R>;
+
+template <typename T>
+using is_unsigned_integer_type =
+    std::integral_constant<bool, is_integer_type<T>::value &&
+                                     std::is_unsigned<typename T::c_type>::value>;
+
+template <typename T, typename R = void>
+using enable_if_unsigned_integer = enable_if_t<is_unsigned_integer_type<T>::value, R>;
+
+// Note this will also include HalfFloatType which is represented by a
+// non-floating point primitive (uint16_t).
+template <typename T>
+using is_floating_type = std::is_base_of<FloatingPointType, T>;
+
+template <typename T, typename R = void>
+using enable_if_floating_point = enable_if_t<is_floating_type<T>::value, R>;
+
+// Half floats are special in that they behave physically like an unsigned
+// integer.
+template <typename T>
+using is_half_float_type = std::is_same<HalfFloatType, T>;
+
+template <typename T, typename R = void>
+using enable_if_half_float = enable_if_t<is_half_float_type<T>::value, R>;
+
+// Binary Types
+
+// Base binary refers to Binary/LargeBinary/String/LargeString
+template <typename T>
+using is_base_binary_type = std::is_base_of<BaseBinaryType, T>;
+
+template <typename T, typename R = void>
+using enable_if_base_binary = enable_if_t<is_base_binary_type<T>::value, R>;
+
+// Any binary excludes string from Base binary
+template <typename T>
+using is_any_binary_type =
+    std::integral_constant<bool, std::is_same<BinaryType, T>::value ||
+                                     std::is_same<LargeBinaryType, T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_any_binary = enable_if_t<is_any_binary_type<T>::value, R>;
+
+template <typename T>
+using is_string_like_type =
+    std::integral_constant<bool, is_base_binary_type<T>::value && T::is_utf8>;
+
+template <typename T, typename R = void>
+using enable_if_string_like = enable_if_t<is_string_like_type<T>::value, R>;
+
+// Note that this also includes DecimalType
+template <typename T>
+using is_fixed_size_binary_type = std::is_base_of<FixedSizeBinaryType, T>;
+
+template <typename T, typename R = void>
+using enable_if_fixed_size_binary = enable_if_t<is_fixed_size_binary_type<T>::value, R>;
+
+template <typename T>
+using is_binary_like_type =
+    std::integral_constant<bool, (is_base_binary_type<T>::value &&
+                                  !is_string_like_type<T>::value) ||
+                                     is_fixed_size_binary_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_binary_like = enable_if_t<is_binary_like_type<T>::value, R>;
+
+template <typename T>
+using is_decimal_type = std::is_base_of<DecimalType, T>;
+
+template <typename T, typename R = void>
+using enable_if_decimal = enable_if_t<is_decimal_type<T>::value, R>;
+
+// Nested Types
+
+template <typename T>
+using is_nested_type = std::is_base_of<NestedType, T>;
+
+template <typename T, typename R = void>
+using enable_if_nested = enable_if_t<is_nested_type<T>::value, R>;
+
+template <typename T>
+using is_base_list_type = std::is_base_of<BaseListType, T>;
+
+template <typename T, typename R = void>
+using enable_if_base_list = enable_if_t<is_base_list_type<T>::value, R>;
+
+template <typename T>
+using is_fixed_size_list_type = std::is_same<FixedSizeListType, T>;
+
+template <typename T, typename R = void>
+using enable_if_fixed_size_list = enable_if_t<is_fixed_size_list_type<T>::value, R>;
+
+template <typename T>
+using is_list_like_type =
+    std::integral_constant<bool, is_base_list_type<T>::value ||
+                                     is_fixed_size_list_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_list_like = enable_if_t<is_list_like_type<T>::value, R>;
+
+template <typename T>
+using is_struct_type = std::is_base_of<StructType, T>;
+
+template <typename T, typename R = void>
+using enable_if_struct = enable_if_t<is_struct_type<T>::value, R>;
+
+template <typename T>
+using is_union_type = std::is_base_of<UnionType, T>;
+
+template <typename T, typename R = void>
+using enable_if_union = enable_if_t<is_union_type<T>::value, R>;
+
+// TemporalTypes
+
+template <typename T>
+using is_temporal_type = std::is_base_of<TemporalType, T>;
+
+template <typename T, typename R = void>
+using enable_if_temporal = enable_if_t<is_temporal_type<T>::value, R>;
+
+template <typename T>
+using is_date_type = std::is_base_of<DateType, T>;
+
+template <typename T, typename R = void>
+using enable_if_date = enable_if_t<is_date_type<T>::value, R>;
+
+template <typename T>
+using is_time_type = std::is_base_of<TimeType, T>;
+
+template <typename T, typename R = void>
+using enable_if_time = enable_if_t<is_time_type<T>::value, R>;
+
+template <typename T>
+using is_timestamp_type = std::is_base_of<TimestampType, T>;
+
+template <typename T, typename R = void>
+using enable_if_timestamp = enable_if_t<is_timestamp_type<T>::value, R>;
+
+template <typename T>
+using is_duration_type = std::is_base_of<DurationType, T>;
+
+template <typename T, typename R = void>
+using enable_if_duration = enable_if_t<is_duration_type<T>::value, R>;
+
+template <typename T>
+using is_interval_type = std::is_base_of<IntervalType, T>;
+
+template <typename T, typename R = void>
+using enable_if_interval = enable_if_t<is_interval_type<T>::value, R>;
+
+// Attribute differentiation
+
+template <typename T>
+using is_primitive_ctype = std::is_base_of<PrimitiveCType, T>;
+
+template <typename T, typename R = void>
+using enable_if_primitive_ctype = enable_if_t<is_primitive_ctype<T>::value, R>;
+
+template <typename T>
+using has_c_type = std::integral_constant<bool, is_primitive_ctype<T>::value ||
+                                                    is_temporal_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_has_c_type = enable_if_t<has_c_type<T>::value, R>;
+
+template <typename T>
+using has_string_view = std::integral_constant<bool, is_binary_like_type<T>::value ||
+                                                         is_string_like_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_has_string_view = enable_if_t<has_string_view<T>::value, R>;
+
+template <typename T>
+using is_8bit_int = std::integral_constant<bool, std::is_same<UInt8Type, T>::value ||
+                                                     std::is_same<Int8Type, T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_8bit_int = enable_if_t<is_8bit_int<T>::value, R>;
+
+template <typename T>
+using is_paramater_free_type =
+    std::integral_constant<bool, TypeTraits<T>::is_parameter_free>;
+
+template <typename T, typename R = void>
+using enable_if_parameter_free = enable_if_t<is_paramater_free_type<T>::value, R>;
+
+// Physical representation quirks
+
+template <typename T>
+using is_physical_signed_integer_type =
+    std::integral_constant<bool,
+                           is_signed_integer_type<T>::value ||
+                               (is_temporal_type<T>::value && has_c_type<T>::value)>;
+
+template <typename T, typename R = void>
+using enable_if_physical_signed_integer =
+    enable_if_t<is_physical_signed_integer_type<T>::value, R>;
+
+template <typename T>
+using is_physical_unsigned_integer_type =
+    std::integral_constant<bool, is_unsigned_integer_type<T>::value ||
+                                     is_half_float_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_physical_unsigned_integer =
+    enable_if_t<is_physical_unsigned_integer_type<T>::value, R>;
+
+// Like is_floating_type but excluding half-floats which don't have a
+// float-like c type.
+template <typename T>
+using is_physical_floating_type =
+    std::integral_constant<bool,
+                           is_floating_type<T>::value && !is_half_float_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_physical_floating_point =
+    enable_if_t<is_physical_floating_type<T>::value, R>;
+
+static inline bool is_integer(Type::type type_id) {
+  switch (type_id) {
+    case Type::UINT8:
+    case Type::INT8:
+    case Type::UINT16:
+    case Type::INT16:
+    case Type::UINT32:
+    case Type::INT32:
+    case Type::UINT64:
+    case Type::INT64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_floating(Type::type type_id) {
+  switch (type_id) {
+    case Type::HALF_FLOAT:
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_primitive(Type::type type_id) {
+  switch (type_id) {
+    case Type::NA:
+    case Type::BOOL:
+    case Type::UINT8:
+    case Type::INT8:
+    case Type::UINT16:
+    case Type::INT16:
+    case Type::UINT32:
+    case Type::INT32:
+    case Type::UINT64:
+    case Type::INT64:
+    case Type::HALF_FLOAT:
+    case Type::FLOAT:
+    case Type::DOUBLE:
+    case Type::DATE32:
+    case Type::DATE64:
+    case Type::TIME32:
+    case Type::TIME64:
+    case Type::TIMESTAMP:
+    case Type::DURATION:
+    case Type::INTERVAL:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_base_binary_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::BINARY:
+    case Type::LARGE_BINARY:
+    case Type::STRING:
+    case Type::LARGE_STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_binary_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::BINARY:
+    case Type::STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_large_binary_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_dictionary(Type::type type_id) {
+  return type_id == Type::DICTIONARY;
+}
+
+static inline bool is_fixed_size_binary(Type::type type_id) {
+  switch (type_id) {
+    case Type::DECIMAL:
+    case Type::FIXED_SIZE_BINARY:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_fixed_width(Type::type type_id) {
+  return is_primitive(type_id) || is_dictionary(type_id) || is_fixed_size_binary(type_id);
+}
+
+}  // namespace arrow

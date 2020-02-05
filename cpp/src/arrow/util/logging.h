@@ -18,116 +18,236 @@
 #ifndef ARROW_UTIL_LOGGING_H
 #define ARROW_UTIL_LOGGING_H
 
-#include <cstdlib>
-#include <iostream>
+#ifdef GANDIVA_IR
+
+// The LLVM IR code doesn't have an NDEBUG mode. And, it shouldn't include references to
+// streams or stdc++. So, making the DCHECK calls void in that case.
+
+#define ARROW_IGNORE_EXPR(expr) ((void)(expr))
+
+#define DCHECK(condition) ARROW_IGNORE_EXPR(condition)
+#define DCHECK_OK(status) ARROW_IGNORE_EXPR(status)
+#define DCHECK_EQ(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_NE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_LE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_LT(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_GE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_GT(val1, val2) ARROW_IGNORE_EXPR(val1)
+
+#else  // !GANDIVA_IR
+
+#include <memory>
+#include <ostream>
+#include <string>
+
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace util {
 
-// Stubbed versions of macros defined in glog/logging.h, intended for
-// environments where glog headers aren't available.
-//
-// Add more as needed.
+enum class ArrowLogLevel : int {
+  ARROW_DEBUG = -1,
+  ARROW_INFO = 0,
+  ARROW_WARNING = 1,
+  ARROW_ERROR = 2,
+  ARROW_FATAL = 3
+};
 
-// Log levels. LOG ignores them, so their values are abitrary.
+#define ARROW_LOG_INTERNAL(level) ::arrow::util::ArrowLog(__FILE__, __LINE__, level)
+#define ARROW_LOG(level) ARROW_LOG_INTERNAL(::arrow::util::ArrowLogLevel::ARROW_##level)
 
-#define ARROW_INFO 0
-#define ARROW_WARNING 1
-#define ARROW_ERROR 2
-#define ARROW_FATAL 3
+#define ARROW_IGNORE_EXPR(expr) ((void)(expr))
 
-#define ARROW_LOG_INTERNAL(level) ::arrow::internal::CerrLog(level)
-#define ARROW_LOG(level) ARROW_LOG_INTERNAL(ARROW_##level)
+#define ARROW_CHECK(condition)                                               \
+  ARROW_PREDICT_TRUE(condition)                                              \
+  ? ARROW_IGNORE_EXPR(0)                                                     \
+  : ::arrow::util::Voidify() &                                               \
+          ::arrow::util::ArrowLog(__FILE__, __LINE__,                        \
+                                  ::arrow::util::ArrowLogLevel::ARROW_FATAL) \
+              << " Check failed: " #condition " "
 
-#define ARROW_CHECK(condition)                               \
-  (condition) ? 0 : ::arrow::internal::FatalLog(ARROW_FATAL) \
-                        << __FILE__ << __LINE__ << " Check failed: " #condition " "
+// If 'to_call' returns a bad status, CHECK immediately with a logged message
+// of 'msg' followed by the status.
+#define ARROW_CHECK_OK_PREPEND(to_call, msg)                                         \
+  do {                                                                               \
+    ::arrow::Status _s = (to_call);                                                  \
+    ARROW_CHECK(_s.ok()) << "Operation failed: " << ARROW_STRINGIFY(to_call) << "\n" \
+                         << (msg) << ": " << _s.ToString();                          \
+  } while (false)
+
+// If the status is bad, CHECK immediately, appending the status to the
+// logged message.
+#define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status")
+
+#define ARROW_CHECK_EQ(val1, val2) ARROW_CHECK((val1) == (val2))
+#define ARROW_CHECK_NE(val1, val2) ARROW_CHECK((val1) != (val2))
+#define ARROW_CHECK_LE(val1, val2) ARROW_CHECK((val1) <= (val2))
+#define ARROW_CHECK_LT(val1, val2) ARROW_CHECK((val1) < (val2))
+#define ARROW_CHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
+#define ARROW_CHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
 
 #ifdef NDEBUG
-#define ARROW_DFATAL ARROW_WARNING
+#define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_WARNING
 
-#define DCHECK(condition) \
-  while (false)           \
-  ::arrow::internal::NullLog()
-#define DCHECK_EQ(val1, val2) \
-  while (false)               \
-  ::arrow::internal::NullLog()
-#define DCHECK_NE(val1, val2) \
-  while (false)               \
-  ::arrow::internal::NullLog()
-#define DCHECK_LE(val1, val2) \
-  while (false)               \
-  ::arrow::internal::NullLog()
-#define DCHECK_LT(val1, val2) \
-  while (false)               \
-  ::arrow::internal::NullLog()
-#define DCHECK_GE(val1, val2) \
-  while (false)               \
-  ::arrow::internal::NullLog()
-#define DCHECK_GT(val1, val2) \
-  while (false)               \
-  ::arrow::internal::NullLog()
+// CAUTION: DCHECK_OK() always evaluates its argument, but other DCHECK*() macros
+// only do so in debug mode.
+
+#define DCHECK(condition)                     \
+  while (false) ARROW_IGNORE_EXPR(condition); \
+  while (false) ::arrow::util::detail::NullLog()
+#define DCHECK_OK(s)    \
+  ARROW_IGNORE_EXPR(s); \
+  while (false) ::arrow::util::detail::NullLog()
+#define DCHECK_EQ(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
+  while (false) ::arrow::util::detail::NullLog()
+#define DCHECK_NE(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
+  while (false) ::arrow::util::detail::NullLog()
+#define DCHECK_LE(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
+  while (false) ::arrow::util::detail::NullLog()
+#define DCHECK_LT(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
+  while (false) ::arrow::util::detail::NullLog()
+#define DCHECK_GE(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
+  while (false) ::arrow::util::detail::NullLog()
+#define DCHECK_GT(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
+  while (false) ::arrow::util::detail::NullLog()
 
 #else
-#define ARROW_DFATAL ARROW_FATAL
+#define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
 
-#define DCHECK(condition) ARROW_CHECK(condition)
-#define DCHECK_EQ(val1, val2) ARROW_CHECK((val1) == (val2))
-#define DCHECK_NE(val1, val2) ARROW_CHECK((val1) != (val2))
-#define DCHECK_LE(val1, val2) ARROW_CHECK((val1) <= (val2))
-#define DCHECK_LT(val1, val2) ARROW_CHECK((val1) < (val2))
-#define DCHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
-#define DCHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
+#define DCHECK ARROW_CHECK
+#define DCHECK_OK ARROW_CHECK_OK
+#define DCHECK_EQ ARROW_CHECK_EQ
+#define DCHECK_NE ARROW_CHECK_NE
+#define DCHECK_LE ARROW_CHECK_LE
+#define DCHECK_LT ARROW_CHECK_LT
+#define DCHECK_GE ARROW_CHECK_GE
+#define DCHECK_GT ARROW_CHECK_GT
 
 #endif  // NDEBUG
 
-namespace internal {
+// This code is adapted from
+// https://github.com/ray-project/ray/blob/master/src/ray/util/logging.h.
 
+// To make the logging lib pluggable with other logging libs and make
+// the implementation unawared by the user, ArrowLog is only a declaration
+// which hide the implementation into logging.cc file.
+// In logging.cc, we can choose different log libs using different macros.
+
+// This is also a null log which does not output anything.
+class ARROW_EXPORT ArrowLogBase {
+ public:
+  virtual ~ArrowLogBase() {}
+
+  virtual bool IsEnabled() const { return false; }
+
+  template <typename T>
+  ArrowLogBase& operator<<(const T& t) {
+    if (IsEnabled()) {
+      Stream() << t;
+    }
+    return *this;
+  }
+
+ protected:
+  virtual std::ostream& Stream() = 0;
+};
+
+class ARROW_EXPORT ArrowLog : public ArrowLogBase {
+ public:
+  ArrowLog(const char* file_name, int line_number, ArrowLogLevel severity);
+  ~ArrowLog() override;
+
+  /// Return whether or not current logging instance is enabled.
+  ///
+  /// \return True if logging is enabled and false otherwise.
+  bool IsEnabled() const override;
+
+  /// The init function of arrow log for a program which should be called only once.
+  ///
+  /// \param appName The app name which starts the log.
+  /// \param severity_threshold Logging threshold for the program.
+  /// \param logDir Logging output file name. If empty, the log won't output to file.
+  static void StartArrowLog(const std::string& appName,
+                            ArrowLogLevel severity_threshold = ArrowLogLevel::ARROW_INFO,
+                            const std::string& logDir = "");
+
+  /// The shutdown function of arrow log, it should be used with StartArrowLog as a pair.
+  static void ShutDownArrowLog();
+
+  /// Install the failure signal handler to output call stack when crash.
+  /// If glog is not installed, this function won't do anything.
+  static void InstallFailureSignalHandler();
+
+  /// Uninstall the signal actions installed by InstallFailureSignalHandler.
+  static void UninstallSignalAction();
+
+  /// Return whether or not the log level is enabled in current setting.
+  ///
+  /// \param log_level The input log level to test.
+  /// \return True if input log level is not lower than the threshold.
+  static bool IsLevelEnabled(ArrowLogLevel log_level);
+
+ private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ArrowLog);
+
+  // Hide the implementation of log provider by void *.
+  // Otherwise, lib user may define the same macro to use the correct header file.
+  void* logging_provider_;
+  /// True if log messages should be logged and false if they should be ignored.
+  bool is_enabled_;
+
+  static ArrowLogLevel severity_threshold_;
+
+ protected:
+  std::ostream& Stream() override;
+};
+
+// This class make ARROW_CHECK compilation pass to change the << operator to void.
+// This class is copied from glog.
+class ARROW_EXPORT Voidify {
+ public:
+  Voidify() {}
+  // This has to be an operator with a precedence lower than << but
+  // higher than ?:
+  void operator&(ArrowLogBase&) {}
+};
+
+namespace detail {
+
+/// @brief A helper for the nil log sink.
+///
+/// Using this helper is analogous to sending log messages to /dev/null:
+/// nothing gets logged.
 class NullLog {
  public:
+  /// The no-op output operator.
+  ///
+  /// @param [in] t
+  ///   The object to send into the nil sink.
+  /// @return Reference to the updated object.
   template <class T>
   NullLog& operator<<(const T& t) {
     return *this;
   }
 };
 
-class CerrLog {
- public:
-  CerrLog(int severity)  // NOLINT(runtime/explicit)
-      : severity_(severity),
-        has_logged_(false) {}
-
-  virtual ~CerrLog() {
-    if (has_logged_) { std::cerr << std::endl; }
-    if (severity_ == ARROW_FATAL) { std::exit(1); }
-  }
-
-  template <class T>
-  CerrLog& operator<<(const T& t) {
-    has_logged_ = true;
-    std::cerr << t;
-    return *this;
-  }
-
- protected:
-  const int severity_;
-  bool has_logged_;
-};
-
-// Clang-tidy isn't smart enough to determine that DCHECK using CerrLog doesn't
-// return so we create a new class to give it a hint.
-class FatalLog : public CerrLog {
- public:
-  explicit FatalLog(int /* severity */)  // NOLINT
-      : CerrLog(ARROW_FATAL) {}          // NOLINT
-
-  [[noreturn]] ~FatalLog() {
-    if (has_logged_) { std::cerr << std::endl; }
-    std::exit(1);
-  }
-};
-
-}  // namespace internal
-
+}  // namespace detail
+}  // namespace util
 }  // namespace arrow
+
+#endif  // GANDIVA_IR
 
 #endif  // ARROW_UTIL_LOGGING_H

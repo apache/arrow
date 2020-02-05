@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,33 +22,23 @@
 package org.apache.arrow.vector.types.pojo;
 
 import com.google.flatbuffers.FlatBufferBuilder;
-import org.apache.arrow.flatbuf.Type;
 
-import java.io.IOException;
 import java.util.Objects;
 
-import org.apache.arrow.flatbuf.Precision;
-import org.apache.arrow.flatbuf.UnionMode;
-import org.apache.arrow.flatbuf.TimeUnit;
-import org.apache.arrow.flatbuf.IntervalUnit;
+import org.apache.arrow.flatbuf.Type;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.types.*;
+import org.apache.arrow.vector.FieldVector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 /**
  * Arrow types
+ * Source code generated using FreeMarker template ${.template_name}
  **/
 @JsonTypeInfo(
   use = JsonTypeInfo.Id.NAME,
@@ -57,164 +46,147 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
   property = "name")
 @JsonSubTypes({
 <#list arrowTypes.types as type>
-  @JsonSubTypes.Type(value = ArrowType.${type.name}.class, name = "${type.name?remove_ending("_")?lower_case}"),
+  @JsonSubTypes.Type(value = ArrowType.${type.name?remove_ending("_")}.class, name = "${type.name?remove_ending("_")?lower_case}"),
 </#list>
 })
 public abstract class ArrowType {
 
-  private static class FloatingPointPrecisionSerializer extends JsonSerializer<Short> {
+  public static abstract class PrimitiveType extends ArrowType {
+
+    private PrimitiveType() {
+    }
+
     @Override
-    public void serialize(Short precision,
-        JsonGenerator jsonGenerator,
-        SerializerProvider serializerProvider)
-            throws IOException, JsonProcessingException {
-      jsonGenerator.writeObject(Precision.name(precision));
+    public boolean isComplex() {
+      return false;
     }
   }
 
-  private static class FloatingPointPrecisionDeserializer extends JsonDeserializer<Short> {
+  public static abstract class ComplexType extends ArrowType {
+
+    private ComplexType() {
+    }
+
     @Override
-    public Short deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      String name = p.getText();
-      switch(name) {
-        case "HALF":
-          return Precision.HALF;
-        case "SINGLE":
-          return Precision.SINGLE;
-        case "DOUBLE":
-          return Precision.DOUBLE;
-        default:
-          throw new IllegalArgumentException("unknown precision: " + name);
-      }
+    public boolean isComplex() {
+      return true;
     }
   }
 
-  private static class UnionModeSerializer extends JsonSerializer<Short> {
-    @Override
-    public void serialize(Short mode,
-        JsonGenerator jsonGenerator,
-        SerializerProvider serializerProvider)
-            throws IOException, JsonProcessingException {
-      jsonGenerator.writeObject(UnionMode.name(mode));
-    }
-  }
+  public static enum ArrowTypeID {
+    <#list arrowTypes.types as type>
+    <#assign name = type.name>
+    ${name?remove_ending("_")}(Type.${name}),
+    </#list>
+    NONE(Type.NONE);
 
-  private static class UnionModeDeserializer extends JsonDeserializer<Short> {
-    @Override
-    public Short deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      String name = p.getText();
-      switch(name) {
-        case "Sparse":
-          return UnionMode.Sparse;
-        case "Dense":
-          return UnionMode.Dense;
-        default:
-          throw new IllegalArgumentException("unknown union mode: " + name);
-      }
-    }
-  }
+    private final byte flatbufType;
 
-  private static class TimestampUnitSerializer extends JsonSerializer<Short> {
-    @Override
-    public void serialize(Short unit,
-        JsonGenerator jsonGenerator,
-        SerializerProvider serializerProvider)
-            throws IOException, JsonProcessingException {
-      jsonGenerator.writeObject(TimeUnit.name(unit));
+    public byte getFlatbufID() {
+      return this.flatbufType;
     }
-  }
 
-  private static class TimestampUnitDeserializer extends JsonDeserializer<Short> {
-    @Override
-    public Short deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      String name = p.getText();
-      switch(name) {
-        case "SECOND":
-          return TimeUnit.SECOND;
-        case "MILLISECOND":
-          return TimeUnit.MILLISECOND;
-        case "MICROSECOND":
-          return TimeUnit.MICROSECOND;
-        case "NANOSECOND":
-          return TimeUnit.NANOSECOND;
-        default:
-          throw new IllegalArgumentException("unknown time unit: " + name);
-      }
-    }
-  }
-
-  private static class IntervalUnitSerializer extends JsonSerializer<Short> {
-    @Override
-    public void serialize(Short unit,
-        JsonGenerator jsonGenerator,
-        SerializerProvider serializerProvider)
-            throws IOException, JsonProcessingException {
-      jsonGenerator.writeObject(IntervalUnit.name(unit));
-    }
-  }
-
-  private static class IntervalUnitDeserializer extends JsonDeserializer<Short> {
-    @Override
-    public Short deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      String name = p.getText();
-      switch(name) {
-        case "YEAR_MONTH":
-          return IntervalUnit.YEAR_MONTH;
-        case "DAY_TIME":
-          return IntervalUnit.DAY_TIME;
-        default:
-          throw new IllegalArgumentException("unknown interval unit: " + name);
-      }
+    private ArrowTypeID(byte flatbufType) {
+      this.flatbufType = flatbufType;
     }
   }
 
   @JsonIgnore
-  public abstract byte getTypeType();
+  public abstract ArrowTypeID getTypeID();
+  @JsonIgnore
+  public abstract boolean isComplex();
   public abstract int getType(FlatBufferBuilder builder);
   public abstract <T> T accept(ArrowTypeVisitor<T> visitor);
 
   /**
    * to visit the ArrowTypes
    * <code>
-   *   type.accept(new ArrowTypeVisitor<Type>() {
+   *   type.accept(new ArrowTypeVisitor&lt;Type&gt;() {
    *   ...
    *   });
    * </code>
    */
   public static interface ArrowTypeVisitor<T> {
   <#list arrowTypes.types as type>
-    T visit(${type.name} type);
+    T visit(${type.name?remove_ending("_")} type);
+  </#list>
+    default T visit(ExtensionType type) {
+      return type.storageType().accept(this);
+    }
+  }
+
+  /**
+   * to visit the Complex ArrowTypes and bundle Primitive ones in one case
+   */
+  public static abstract class ComplexTypeVisitor<T> implements ArrowTypeVisitor<T> {
+
+    public T visit(PrimitiveType type) {
+      throw new UnsupportedOperationException("Unexpected Primitive type: " + type);
+    }
+
+  <#list arrowTypes.types as type>
+    <#if !type.complex>
+    public final T visit(${type.name?remove_ending("_")} type) {
+      return visit((PrimitiveType) type);
+    }
+    </#if>
+  </#list>
+  }
+
+  /**
+   * to visit the Primitive ArrowTypes and bundle Complex ones under one case
+   */
+  public static abstract class PrimitiveTypeVisitor<T> implements ArrowTypeVisitor<T> {
+
+    public T visit(ComplexType type) {
+      throw new UnsupportedOperationException("Unexpected Complex type: " + type);
+    }
+
+  <#list arrowTypes.types as type>
+    <#if type.complex>
+    public final T visit(${type.name?remove_ending("_")} type) {
+      return visit((ComplexType) type);
+    }
+    </#if>
   </#list>
   }
 
   <#list arrowTypes.types as type>
-  <#assign name = type.name>
+  <#assign name = type.name?remove_ending("_")>
   <#assign fields = type.fields>
-  public static class ${name} extends ArrowType {
-    public static final byte TYPE_TYPE = Type.${name};
+  public static class ${name} extends <#if type.complex>ComplexType<#else>PrimitiveType</#if> {
+    public static final ArrowTypeID TYPE_TYPE = ArrowTypeID.${name};
     <#if type.fields?size == 0>
     public static final ${name} INSTANCE = new ${name}();
-    </#if>
+    <#else>
 
     <#list fields as field>
-    ${field.type} ${field.name};
+    <#assign fieldType = field.valueType!field.type>
+    ${fieldType} ${field.name};
     </#list>
 
-    <#if type.fields?size != 0>
     @JsonCreator
     public ${type.name}(
     <#list type.fields as field>
-      <#if field.type == "short"> @JsonDeserialize(using = ${type.name}${field.name?cap_first}Deserializer.class) </#if>@JsonProperty("${field.name}") ${field.type} ${field.name}<#if field_has_next>, </#if>
+    <#assign fieldType = field.valueType!field.type>
+      @JsonProperty("${field.name}") ${fieldType} ${field.name}<#if field_has_next>, </#if>
     </#list>
     ) {
       <#list type.fields as field>
       this.${field.name} = ${field.name};
       </#list>
     }
+
+    <#list fields as field>
+    <#assign fieldType = field.valueType!field.type>
+    public ${fieldType} get${field.name?cap_first}() {
+      return ${field.name};
+    }
+    </#list>
     </#if>
 
     @Override
-    public byte getTypeType() {
+    public ArrowTypeID getTypeID() {
       return TYPE_TYPE;
     }
 
@@ -235,37 +207,32 @@ public abstract class ArrowType {
         org.apache.arrow.flatbuf.${type.name}.add${field.name?cap_first}(builder, ${field.name});
       }
       <#else>
-      org.apache.arrow.flatbuf.${type.name}.add${field.name?cap_first}(builder, this.${field.name});
+      org.apache.arrow.flatbuf.${type.name}.add${field.name?cap_first}(builder, this.${field.name}<#if field.valueType??>.getFlatbufID()</#if>);
       </#if>
       </#list>
       return org.apache.arrow.flatbuf.${type.name}.end${type.name}(builder);
     }
 
-    <#list fields as field>
-      <#if field.type == "short">
-    @JsonSerialize(using = ${type.name}${field.name?cap_first}Serializer.class)
-      </#if>
-    public ${field.type} get${field.name?cap_first}() {
-      return ${field.name};
-    }
-    </#list>
-
     public String toString() {
-      return "${name}{"
+      return "${name}"
+      <#if fields?size != 0>
+        + "("
       <#list fields as field>
-        + <#if field.type == "int[]">java.util.Arrays.toString(${field.name})<#else>${field.name}</#if><#if field_has_next> + ", " </#if>
+        +   <#if field.type == "int[]">java.util.Arrays.toString(${field.name})<#else>${field.name}</#if><#if field_has_next> + ", " </#if>
       </#list>
-      + "}";
+        + ")"
+      </#if>
+      ;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(<#list type.fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+      return java.util.Arrays.deepHashCode(new Object[] {<#list type.fields as field>${field.name}<#if field_has_next>, </#if></#list>});
     }
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof ${type.name})) {
+      if (!(obj instanceof ${name})) {
         return false;
       }
       <#if type.fields?size == 0>
@@ -284,10 +251,65 @@ public abstract class ArrowType {
   }
   </#list>
 
+  /**
+   * A user-defined data type that wraps an underlying storage type.
+   */
+  public abstract static class ExtensionType extends ComplexType {
+    /** The on-wire type for this user-defined type. */
+    public abstract ArrowType storageType();
+    /** The name of this user-defined type. Used to identify the type during serialization. */
+    public abstract String extensionName();
+    /** Check equality of this type to another user-defined type. */
+    public abstract boolean extensionEquals(ExtensionType other);
+    /** Save any metadata for this type. */
+    public abstract String serialize();
+    /** Given saved metadata and the underlying storage type, construct a new instance of the user type. */
+    public abstract ArrowType deserialize(ArrowType storageType, String serializedData);
+    /** Construct a vector for the user type. */
+    public abstract FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator);
+
+    /** The field metadata key storing the name of the extension type. */
+    public static final String EXTENSION_METADATA_KEY_NAME = "ARROW:extension:name";
+    /** The field metadata key storing metadata for the extension type. */
+    public static final String EXTENSION_METADATA_KEY_METADATA = "ARROW:extension:metadata";
+
+    @Override
+    public ArrowTypeID getTypeID() {
+      return storageType().getTypeID();
+    }
+
+    @Override
+    public int getType(FlatBufferBuilder builder) {
+      return storageType().getType(builder);
+    }
+
+    public String toString() {
+      return "ExtensionType(" + extensionName() + ", " + storageType().toString() + ")";
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Arrays.deepHashCode(new Object[] {storageType(), extensionName()});
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof ExtensionType)) {
+        return false;
+      }
+      return this.extensionEquals((ExtensionType) obj);
+    }
+
+    @Override
+    public <T> T accept(ArrowTypeVisitor<T> visitor) {
+      return visitor.visit(this);
+    }
+  }
+
   public static org.apache.arrow.vector.types.pojo.ArrowType getTypeForField(org.apache.arrow.flatbuf.Field field) {
     switch(field.typeType()) {
     <#list arrowTypes.types as type>
-    <#assign name = type.name>
+    <#assign name = type.name?remove_ending("_")>
     <#assign nameLower = type.name?lower_case>
     <#assign fields = type.fields>
     case Type.${type.name}: {
@@ -302,7 +324,7 @@ public abstract class ArrowType {
       ${field.type} ${field.name} = ${nameLower}Type.${field.name}();
       </#if>
       </#list>
-      return new ${type.name}(<#list type.fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+      return new ${name}(<#list type.fields as field><#if field.valueType??>${field.valueType}.fromFlatbufID(${field.name})<#else>${field.name}</#if><#if field_has_next>, </#if></#list>);
     }
     </#list>
     default:

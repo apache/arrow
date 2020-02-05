@@ -20,28 +20,35 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>0.1.1-SNAPSHOT</version>
+  <version>0.16.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
-  <description>Apache arrow is an open source, low latency SQL query engine for Hadoop and NoSQL.</description>
-  <url>http://arrow.apache.org/</url>
+  <description>Apache Arrow is open source, in-memory columnar data structures and low-overhead messaging</description>
+  <url>https://arrow.apache.org/</url>
 
   <properties>
     <target.gen.source.path>${project.basedir}/target/generated-sources</target.gen.source.path>
-    <dep.junit.version>4.11</dep.junit.version>
-    <dep.slf4j.version>1.7.6</dep.slf4j.version>
-    <dep.guava.version>18.0</dep.guava.version>
+    <dep.junit.platform.version>1.4.0</dep.junit.platform.version>
+    <dep.junit.jupiter.version>5.4.0</dep.junit.jupiter.version>
+    <dep.slf4j.version>1.7.25</dep.slf4j.version>
+    <dep.guava.version>20.0</dep.guava.version>
+    <dep.netty.version>4.1.27.Final</dep.netty.version>
+    <dep.jackson.version>2.9.8</dep.jackson.version>
+    <dep.hadoop.version>2.7.1</dep.hadoop.version>
+    <dep.fbs.version>1.9.0</dep.fbs.version>
+    <dep.flatc.version>1.9.0</dep.flatc.version>
+    <arrow.vector.classifier />
     <forkCount>2</forkCount>
-    <jackson.version>2.7.1</jackson.version>
-    <hadoop.version>2.7.1</hadoop.version>
+    <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
+    <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
   </properties>
 
   <scm>
-    <connection>scm:git:https://git-wip-us.apache.org/repos/asf/arrow.git</connection>
-    <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/arrow.git</developerConnection>
+    <connection>scm:git:https://github.com/apache/arrow.git</connection>
+    <developerConnection>scm:git:https://github.com/apache/arrow.git</developerConnection>
     <url>https://github.com/apache/arrow</url>
-    <tag>HEAD</tag>
+    <tag>apache-arrow-0.10.0</tag>
   </scm>
 
   <mailingLists>
@@ -50,20 +57,20 @@
       <subscribe>dev-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>dev-unsubscribe@arrow.apache.org</unsubscribe>
       <post>dev@arrow.apache.org</post>
-      <archive>http://mail-archives.apache.org/mod_mbox/arrow-dev/</archive>
+      <archive>https://mail-archives.apache.org/mod_mbox/arrow-dev/</archive>
     </mailingList>
     <mailingList>
       <name>Commits List</name>
       <subscribe>commits-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>commits-unsubscribe@arrow.apache.org</unsubscribe>
       <post>commits@arrow.apache.org</post>
-      <archive>http://mail-archives.apache.org/mod_mbox/arrow-commits/</archive>
+      <archive>https://mail-archives.apache.org/mod_mbox/arrow-commits/</archive>
     </mailingList>
     <mailingList>
       <name>Issues List</name>
       <subscribe>issues-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>issues-unsubscribe@arrow.apache.org</unsubscribe>
-      <archive>http://mail-archives.apache.org/mod_mbox/arrow-issues/</archive>
+      <archive>https://mail-archives.apache.org/mod_mbox/arrow-issues/</archive>
     </mailingList>
   </mailingLists>
 
@@ -92,8 +99,9 @@
           </execution>
         </executions>
         <configuration>
-          <excludeSubprojects>false</excludeSubprojects>
+          <excludeSubProjects>false</excludeSubProjects>
           <excludes>
+            <exclude>**/dependency-reduced-pom.xml</exclude>
             <exclude>**/*.log</exclude>
             <exclude>**/*.css</exclude>
             <exclude>**/*.js</exclude>
@@ -115,7 +123,6 @@
             <exclude>**/*.proto</exclude>
             <exclude>**/*.fmpp</exclude>
             <exclude>**/target/**</exclude>
-            <exclude>**/*.iml</exclude>
             <exclude>**/*.tdd</exclude>
             <exclude>**/*.project</exclude>
             <exclude>**/TAGS</exclude>
@@ -129,6 +136,7 @@
             <exclude>**/*.linux</exclude>
             <exclude>**/client/build/**</exclude>
             <exclude>**/*.tbl</exclude>
+            <exclude>**/*.iml</exclude>
           </excludes>
         </configuration>
       </plugin>
@@ -152,7 +160,7 @@
             <manifestEntries>
               <Extension-Name>org.apache.arrow</Extension-Name>
               <Built-By>${username}</Built-By>
-              <url>http://arrow.apache.org/</url>
+              <url>https://arrow.apache.org/</url>
             </manifestEntries>
           </archive>
         </configuration>
@@ -180,8 +188,8 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <source>1.7</source>
-          <target>1.7</target>
+          <source>1.8</source>
+          <target>1.8</target>
           <maxmem>2048m</maxmem>
           <useIncrementalCompilation>false</useIncrementalCompilation>
           <fork>true</fork>
@@ -200,7 +208,7 @@
             <configuration>
               <rules>
                 <requireMavenVersion>
-                  <version>[3.0.4,4)</version>
+                  <version>[3.3.0,4)</version>
                 </requireMavenVersion>
               </rules>
             </configuration>
@@ -230,7 +238,7 @@
       <plugin>
         <groupId>pl.project13.maven</groupId>
         <artifactId>git-commit-id-plugin</artifactId>
-        <version>2.1.9</version>
+        <version>2.2.2</version>
         <executions>
           <execution>
             <id>for-jars</id>
@@ -256,7 +264,7 @@
 
         <configuration>
           <dateFormat>dd.MM.yyyy '@' HH:mm:ss z</dateFormat>
-          <verbose>true</verbose>
+          <verbose>false</verbose>
           <skipPoms>false</skipPoms>
           <generateGitPropertiesFile>true</generateGitPropertiesFile>
           <failOnNoGitDirectory>false</failOnNoGitDirectory>
@@ -269,14 +277,87 @@
           </gitDescribe>
         </configuration>
       </plugin>
-    </plugins>
-    <pluginManagement>
 
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.1.0</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>8.19</version>
+          </dependency>
+          <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${dep.guava.version}</version>
+          </dependency>
+          <dependency>
+              <groupId>org.slf4j</groupId>
+              <artifactId>jcl-over-slf4j</artifactId>
+              <version>1.7.5</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <id>validate</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
+          <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
+          <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+          <encoding>UTF-8</encoding>
+          <consoleOutput>true</consoleOutput>
+          <failsOnError>${checkstyle.failOnViolation}</failsOnError>
+          <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
+          <violationSeverity>warning</violationSeverity>
+          <format>xml</format>
+          <format>html</format>
+          <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
+          <linkXRef>false</linkXRef>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>analyze</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>analyze-only</goal>
+            </goals>
+            <configuration>
+              <ignoreNonCompile>true</ignoreNonCompile>
+              <failOnWarning>true</failOnWarning>
+              <ignoredDependencies>
+                <!-- source annotations (not kept in compiled code) -->
+                <ignoredDependency>javax.annotation:javax.annotation-api:*</ignoredDependency>
+              </ignoredDependencies>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+
+    <pluginManagement>
       <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>3.0.1</version>
+        </plugin>
         <plugin>
           <groupId>org.apache.rat</groupId>
           <artifactId>apache-rat-plugin</artifactId>
-          <version>0.11</version>
+          <version>0.13</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -286,21 +367,43 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.2</version>
+          <version>3.6.2</version>
+          <configuration>
+            <compilerArgs>
+              <arg>-XDcompilePolicy=simple</arg>
+              <arg>-Xplugin:ErrorProne</arg>
+            </compilerArgs>
+            <annotationProcessorPaths>
+              <path>
+                <groupId>com.google.errorprone</groupId>
+                <artifactId>error_prone_core</artifactId>
+                <version>2.3.3</version>
+              </path>
+              <path>
+                <groupId>org.immutables</groupId>
+                <artifactId>value</artifactId>
+                <version>2.8.2</version>
+              </path>
+            </annotationProcessorPaths>
+          </configuration>
         </plugin>
         <plugin>
           <artifactId>maven-enforcer-plugin</artifactId>
-          <version>1.3.1</version>
+          <version>3.0.0-M2</version>
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>2.17</version>
+          <version>3.0.0-M3</version>
           <configuration>
             <enableAssertions>true</enableAssertions>
+            <childDelegation>true</childDelegation>
             <forkCount>${forkCount}</forkCount>
             <reuseForks>true</reuseForks>
             <systemPropertyVariables>
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+              <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
+              <arrow.vector.max_allocation_bytes>1048576</arrow.vector.max_allocation_bytes>
+              <user.timezone>UTC</user.timezone>
             </systemPropertyVariables>
             <!-- Note: changing the below configuration might increase the max allocation size for a vector
             which in turn can cause OOM. -->
@@ -382,6 +485,19 @@
                     <ignore />
                   </action>
                 </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <versionRange>[0,)</versionRange>
+                    <goals>
+                      <goal>check</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore />
+                  </action>
+                </pluginExecution>
               </pluginExecutions>
             </lifecycleMappingMetadata>
           </configuration>
@@ -389,69 +505,138 @@
       </plugins>
     </pluginManagement>
   </build>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.google.flatbuffers</groupId>
+        <artifactId>flatbuffers-java</artifactId>
+        <version>${dep.fbs.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>${dep.guava.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-handler</artifactId>
+        <version>${dep.netty.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-buffer</artifactId>
+        <version>${dep.netty.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-common</artifactId>
+        <version>${dep.netty.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-core</artifactId>
+        <version>${dep.jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-annotations</artifactId>
+        <version>${dep.jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${dep.jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.code.findbugs</groupId>
+        <artifactId>jsr305</artifactId>
+        <version>3.0.2</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${dep.slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>javax.annotation</groupId>
+        <artifactId>javax.annotation-api</artifactId>
+        <version>1.3.2</version>
+      </dependency>
+      <dependency>
+        <groupId>org.immutables</groupId>
+        <artifactId>value</artifactId>
+        <version>2.8.2</version>
+        <scope>provided</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
-
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-handler</artifactId>
-      <version>4.0.41.Final</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>${dep.guava.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>${dep.slf4j.version}</version>
-    </dependency>
-
+    <!-- Test Dependencies -->
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>jul-to-slf4j</artifactId>
       <version>${dep.slf4j.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>jcl-over-slf4j</artifactId>
       <version>${dep.slf4j.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>log4j-over-slf4j</artifactId>
       <version>${dep.slf4j.version}</version>
-    </dependency>
-
-    <!-- Test Dependencies -->
-    <dependency>
-      <!-- JMockit needs to be on class path before JUnit. -->
-      <groupId>com.googlecode.jmockit</groupId>
-      <artifactId>jmockit</artifactId>
-      <version>1.3</version>
       <scope>test</scope>
     </dependency>
+
+
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-runner</artifactId>
+      <version>${dep.junit.platform.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>${dep.junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>${dep.junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.vintage</groupId>
+      <artifactId>junit-vintage-engine</artifactId>
+      <version>${dep.junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Use to keep older tests running -->
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>${dep.junit.version}</version>
+      <version>4.12</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <!-- Mockito needs to be on the class path after JUnit (or Hamcrest) as 
-           long as Mockito _contains_ older Hamcrest classes.  See arrow-2130. --> 
       <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
-      <version>1.9.5</version>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <version>2.25.1</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.0.13</version>
+      <version>1.2.3</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -463,9 +648,97 @@
 
   </dependencies>
 
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.0.0-M1</version>
+        <reportSets>
+          <reportSet><!-- by default, id = "default" -->
+            <reports><!-- select non-aggregate reports -->
+              <report>javadoc</report>
+              <report>test-javadoc</report>
+            </reports>
+          </reportSet>
+          <reportSet><!-- aggregate reportSet, to define in poms having modules -->
+            <id>aggregate</id>
+            <inherited>false</inherited><!-- don't run aggregate in child modules -->
+            <reports>
+              <report>aggregate</report>
+            </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
+    </plugins>
+  </reporting>
+
   <modules>
     <module>format</module>
     <module>memory</module>
     <module>vector</module>
+    <module>tools</module>
+    <module>adapter/jdbc</module>
+    <module>plasma</module>
+    <module>flight/flight-core</module>
+    <module>flight/flight-grpc</module>
+    <module>performance</module>
+    <module>algorithm</module>
+    <module>adapter/avro</module>
   </modules>
+
+  <profiles>
+    <profile>
+      <id>java-8</id>
+      <activation>
+        <jdk>[1.8,)</jdk>
+      </activation>
+      <properties>
+        <doclint>none</doclint>
+        <additionalparam>-Xdoclint:none</additionalparam>
+      </properties>
+    </profile>
+
+    <profile>
+      <!-- orc java depends on arrow cpp, and arrow cpp isn't enabled by default yet -->
+      <id>arrow-jni</id>
+      <modules>
+        <!-- these have dependency on cpp -->
+        <module>adapter/orc</module>
+        <module>gandiva</module>
+      </modules>
+    </profile>
+
+    <profile>
+      <!-- Use the version of arrow-vector that shades flatbuffers and packages format -->
+      <id>shade-flatbuffers</id>
+      <properties>
+       <arrow.vector.classifier>shade-format-flatbuffers</arrow.vector.classifier>
+      </properties>
+    </profile>
+
+    <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
+    <profile>
+      <id>jdk8</id>
+      <activation>
+        <jdk>1.8</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <fork>true</fork>
+              <compilerArgs combine.children="append">
+                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${errorprone.javac.version}/javac-${errorprone.javac.version}.jar</arg>
+              </compilerArgs>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+  </profiles>
+
 </project>

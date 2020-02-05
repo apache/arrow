@@ -17,110 +17,201 @@
 
 #include "arrow/builder.h"
 
-#include <cstring>
+#include <string>
+#include <utility>
+#include <vector>
 
-#include "arrow/util/bit-util.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/status.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/hashing.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
-Status ArrayBuilder::AppendToBitmap(bool is_valid) {
-  if (length_ == capacity_) {
-    // If the capacity was not already a multiple of 2, do so here
-    // TODO(emkornfield) doubling isn't great default allocation practice
-    // see https://github.com/facebook/folly/blob/master/folly/docs/FBVector.md
-    // fo discussion
-    RETURN_NOT_OK(Resize(BitUtil::NextPower2(capacity_ + 1)));
+class MemoryPool;
+
+// ----------------------------------------------------------------------
+// Helper functions
+
+struct DictionaryBuilderCase {
+  template <typename ValueType>
+  Status Visit(const ValueType&, typename ValueType::c_type* = nullptr) {
+    return CreateFor<ValueType>();
   }
-  UnsafeAppendToBitmap(is_valid);
-  return Status::OK();
-}
 
-Status ArrayBuilder::AppendToBitmap(const uint8_t* valid_bytes, int32_t length) {
-  RETURN_NOT_OK(Reserve(length));
+  Status Visit(const BinaryType&) { return Create<BinaryDictionaryBuilder>(); }
+  Status Visit(const StringType&) { return Create<StringDictionaryBuilder>(); }
+  Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
 
-  UnsafeAppendToBitmap(valid_bytes, length);
-  return Status::OK();
-}
-
-Status ArrayBuilder::Init(int32_t capacity) {
-  int32_t to_alloc = BitUtil::CeilByte(capacity) / 8;
-  null_bitmap_ = std::make_shared<PoolBuffer>(pool_);
-  RETURN_NOT_OK(null_bitmap_->Resize(to_alloc));
-  // Buffers might allocate more then necessary to satisfy padding requirements
-  const int byte_capacity = null_bitmap_->capacity();
-  capacity_ = capacity;
-  null_bitmap_data_ = null_bitmap_->mutable_data();
-  memset(null_bitmap_data_, 0, byte_capacity);
-  return Status::OK();
-}
-
-Status ArrayBuilder::Resize(int32_t new_bits) {
-  if (!null_bitmap_) { return Init(new_bits); }
-  int32_t new_bytes = BitUtil::CeilByte(new_bits) / 8;
-  int32_t old_bytes = null_bitmap_->size();
-  RETURN_NOT_OK(null_bitmap_->Resize(new_bytes));
-  null_bitmap_data_ = null_bitmap_->mutable_data();
-  // The buffer might be overpadded to deal with padding according to the spec
-  const int32_t byte_capacity = null_bitmap_->capacity();
-  capacity_ = new_bits;
-  if (old_bytes < new_bytes) {
-    memset(null_bitmap_data_ + old_bytes, 0, byte_capacity - old_bytes);
+  Status Visit(const DataType& value_type) { return NotImplemented(value_type); }
+  Status Visit(const HalfFloatType& value_type) { return NotImplemented(value_type); }
+  Status NotImplemented(const DataType& value_type) {
+    return Status::NotImplemented(
+        "MakeBuilder: cannot construct builder for dictionaries with value type ",
+        value_type);
   }
-  return Status::OK();
+
+  template <typename ValueType>
+  Status CreateFor() {
+    return Create<DictionaryBuilder<ValueType>>();
+  }
+
+  template <typename BuilderType>
+  Status Create() {
+    if (dictionary != nullptr) {
+      out->reset(new BuilderType(dictionary, pool));
+    } else {
+      out->reset(new BuilderType(value_type, pool));
+    }
+    return Status::OK();
+  }
+
+  Status Make() { return VisitTypeInline(*value_type, this); }
+
+  MemoryPool* pool;
+  const std::shared_ptr<DataType>& value_type;
+  const std::shared_ptr<Array>& dictionary;
+  std::unique_ptr<ArrayBuilder>* out;
+};
+
+#define BUILDER_CASE(ENUM, BuilderType)      \
+  case Type::ENUM:                           \
+    out->reset(new BuilderType(type, pool)); \
+    return Status::OK();
+
+Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                   std::unique_ptr<ArrayBuilder>* out) {
+  switch (type->id()) {
+    case Type::NA: {
+      out->reset(new NullBuilder(pool));
+      return Status::OK();
+    }
+      BUILDER_CASE(UINT8, UInt8Builder);
+      BUILDER_CASE(INT8, Int8Builder);
+      BUILDER_CASE(UINT16, UInt16Builder);
+      BUILDER_CASE(INT16, Int16Builder);
+      BUILDER_CASE(UINT32, UInt32Builder);
+      BUILDER_CASE(INT32, Int32Builder);
+      BUILDER_CASE(UINT64, UInt64Builder);
+      BUILDER_CASE(INT64, Int64Builder);
+      BUILDER_CASE(DATE32, Date32Builder);
+      BUILDER_CASE(DATE64, Date64Builder);
+      BUILDER_CASE(DURATION, DurationBuilder);
+      BUILDER_CASE(TIME32, Time32Builder);
+      BUILDER_CASE(TIME64, Time64Builder);
+      BUILDER_CASE(TIMESTAMP, TimestampBuilder);
+      BUILDER_CASE(BOOL, BooleanBuilder);
+      BUILDER_CASE(HALF_FLOAT, HalfFloatBuilder);
+      BUILDER_CASE(FLOAT, FloatBuilder);
+      BUILDER_CASE(DOUBLE, DoubleBuilder);
+      BUILDER_CASE(STRING, StringBuilder);
+      BUILDER_CASE(BINARY, BinaryBuilder);
+      BUILDER_CASE(LARGE_STRING, LargeStringBuilder);
+      BUILDER_CASE(LARGE_BINARY, LargeBinaryBuilder);
+      BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
+      BUILDER_CASE(DECIMAL, Decimal128Builder);
+
+    case Type::DICTIONARY: {
+      const auto& dict_type = static_cast<const DictionaryType&>(*type);
+      DictionaryBuilderCase visitor = {pool, dict_type.value_type(), nullptr, out};
+      return visitor.Make();
+    }
+
+    case Type::INTERVAL: {
+      const auto& interval_type = internal::checked_cast<const IntervalType&>(*type);
+      if (interval_type.interval_type() == IntervalType::MONTHS) {
+        out->reset(new MonthIntervalBuilder(type, pool));
+        return Status::OK();
+      }
+      if (interval_type.interval_type() == IntervalType::DAY_TIME) {
+        out->reset(new DayTimeIntervalBuilder(pool));
+        return Status::OK();
+      }
+      break;
+    }
+
+    case Type::LIST: {
+      std::unique_ptr<ArrayBuilder> value_builder;
+      std::shared_ptr<DataType> value_type =
+          internal::checked_cast<const ListType&>(*type).value_type();
+      RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
+      out->reset(new ListBuilder(pool, std::move(value_builder), type));
+      return Status::OK();
+    }
+
+    case Type::LARGE_LIST: {
+      std::unique_ptr<ArrayBuilder> value_builder;
+      std::shared_ptr<DataType> value_type =
+          internal::checked_cast<const LargeListType&>(*type).value_type();
+      RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
+      out->reset(new LargeListBuilder(pool, std::move(value_builder), type));
+      return Status::OK();
+    }
+
+    case Type::MAP: {
+      const auto& map_type = internal::checked_cast<const MapType&>(*type);
+      std::unique_ptr<ArrayBuilder> key_builder, item_builder;
+      RETURN_NOT_OK(MakeBuilder(pool, map_type.key_type(), &key_builder));
+      RETURN_NOT_OK(MakeBuilder(pool, map_type.item_type(), &item_builder));
+      out->reset(
+          new MapBuilder(pool, std::move(key_builder), std::move(item_builder), type));
+      return Status::OK();
+    }
+
+    case Type::FIXED_SIZE_LIST: {
+      const auto& list_type = internal::checked_cast<const FixedSizeListType&>(*type);
+      std::unique_ptr<ArrayBuilder> value_builder;
+      auto value_type = list_type.value_type();
+      RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
+      out->reset(new FixedSizeListBuilder(pool, std::move(value_builder), type));
+      return Status::OK();
+    }
+
+    case Type::STRUCT: {
+      const std::vector<std::shared_ptr<Field>>& fields = type->children();
+      std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
+
+      for (const auto& it : fields) {
+        std::unique_ptr<ArrayBuilder> builder;
+        RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
+        field_builders.emplace_back(std::move(builder));
+      }
+      out->reset(new StructBuilder(type, pool, std::move(field_builders)));
+      return Status::OK();
+    }
+
+    case Type::UNION: {
+      const auto& union_type = internal::checked_cast<const UnionType&>(*type);
+      const std::vector<std::shared_ptr<Field>>& fields = type->children();
+      std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
+
+      for (const auto& it : fields) {
+        std::unique_ptr<ArrayBuilder> builder;
+        RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
+        field_builders.emplace_back(std::move(builder));
+      }
+      if (union_type.mode() == UnionMode::DENSE) {
+        out->reset(new DenseUnionBuilder(pool, std::move(field_builders), type));
+      } else {
+        out->reset(new SparseUnionBuilder(pool, std::move(field_builders), type));
+      }
+      return Status::OK();
+    }
+
+    default:
+      break;
+  }
+  return Status::NotImplemented("MakeBuilder: cannot construct builder for type ",
+                                type->ToString());
 }
 
-Status ArrayBuilder::Advance(int32_t elements) {
-  if (length_ + elements > capacity_) {
-    return Status::Invalid("Builder must be expanded");
-  }
-  length_ += elements;
-  return Status::OK();
-}
-
-Status ArrayBuilder::Reserve(int32_t elements) {
-  if (length_ + elements > capacity_) {
-    // TODO(emkornfield) power of 2 growth is potentially suboptimal
-    int32_t new_capacity = BitUtil::NextPower2(length_ + elements);
-    return Resize(new_capacity);
-  }
-  return Status::OK();
-}
-
-Status ArrayBuilder::SetNotNull(int32_t length) {
-  RETURN_NOT_OK(Reserve(length));
-  UnsafeSetNotNull(length);
-  return Status::OK();
-}
-
-void ArrayBuilder::UnsafeAppendToBitmap(bool is_valid) {
-  if (is_valid) {
-    BitUtil::SetBit(null_bitmap_data_, length_);
-  } else {
-    ++null_count_;
-  }
-  ++length_;
-}
-
-void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int32_t length) {
-  if (valid_bytes == nullptr) {
-    UnsafeSetNotNull(length);
-    return;
-  }
-  for (int32_t i = 0; i < length; ++i) {
-    // TODO(emkornfield) Optimize for large values of length?
-    UnsafeAppendToBitmap(valid_bytes[i] > 0);
-  }
-}
-
-void ArrayBuilder::UnsafeSetNotNull(int32_t length) {
-  const int32_t new_length = length + length_;
-  // TODO(emkornfield) Optimize for large values of length?
-  for (int32_t i = length_; i < new_length; ++i) {
-    BitUtil::SetBit(null_bitmap_data_, i);
-  }
-  length_ = new_length;
+Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                             const std::shared_ptr<Array>& dictionary,
+                             std::unique_ptr<ArrayBuilder>* out) {
+  const auto& dict_type = static_cast<const DictionaryType&>(*type);
+  DictionaryBuilderCase visitor = {pool, dict_type.value_type(), dictionary, out};
+  return visitor.Make();
 }
 
 }  // namespace arrow

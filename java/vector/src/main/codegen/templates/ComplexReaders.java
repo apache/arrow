@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +21,7 @@ import java.util.List;
 import org.apache.arrow.record.TransferPair;
 import org.apache.arrow.vector.complex.IndexHolder;
 import org.apache.arrow.vector.complex.writer.IntervalWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 
 <@pp.dropOutputFile />
 <#list vv.types as type>
@@ -47,12 +46,15 @@ package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
 
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 @SuppressWarnings("unused")
 public class ${name}ReaderImpl extends AbstractFieldReader {
   
-  private final ${nullMode}${name}Vector vector;
+  private final ${name}Vector vector;
   
-  public ${name}ReaderImpl(${nullMode}${name}Vector vector){
+  public ${name}ReaderImpl(${name}Vector vector){
     super();
     this.vector = vector;
   }
@@ -66,11 +68,7 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
   }
   
   public boolean isSet(){
-    <#if nullMode == "Nullable">
-    return !vector.getAccessor().isNull(idx());
-    <#else>
-    return true;
-    </#if>
+    return !vector.isNull(idx());
   }
 
   public void copyAsValue(${minor.class?cap_first}Writer writer){
@@ -78,31 +76,41 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
     impl.vector.copyFromSafe(idx(), impl.idx(), vector);
   }
   
-  public void copyAsField(String name, MapWriter writer){
+  public void copyAsField(String name, StructWriter writer){
     ${minor.class?cap_first}WriterImpl impl = (${minor.class?cap_first}WriterImpl) writer.${lowerName}(name);
     impl.vector.copyFromSafe(idx(), impl.idx(), vector);
   }
 
   <#if nullMode != "Nullable">
   public void read(${minor.class?cap_first}Holder h){
-    vector.getAccessor().get(idx(), h);
+    vector.get(idx(), h);
   }
   </#if>
 
   public void read(Nullable${minor.class?cap_first}Holder h){
-    vector.getAccessor().get(idx(), h);
+    vector.get(idx(), h);
   }
   
   public ${friendlyType} read${safeType}(){
-    return vector.getAccessor().getObject(idx());
+    return vector.getObject(idx());
   }
+
+  <#if minor.class == "TimeStampSec" ||
+       minor.class == "TimeStampMilli" ||
+       minor.class == "TimeStampMicro" ||
+       minor.class == "TimeStampNano">
+  @Override
+  public ${minor.boxedType} read${minor.boxedType}(){
+    return vector.get(idx());
+  }
+  </#if>
   
   public void copyValue(FieldWriter w){
     
   }
   
   public Object readObject(){
-    return vector.getAccessor().getObject(idx());
+    return (Object)vector.getObject(idx());
   }
 }
 </#if>
@@ -113,12 +121,16 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
 package org.apache.arrow.vector.complex.reader;
 
 <#include "/@includes/vv_imports.ftl" />
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 @SuppressWarnings("unused")
 public interface ${name}Reader extends BaseReader{
   
   public void read(${minor.class?cap_first}Holder h);
   public void read(Nullable${minor.class?cap_first}Holder h);
   public Object readObject();
+  // read friendly type
   public ${friendlyType} read${safeType}();
   public boolean isSet();
   public void copyAsValue(${minor.class}Writer writer);

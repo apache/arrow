@@ -1,0 +1,34 @@
+# Copyright (c) 2016 manylinux
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# The following is taken from docker/build_scripts/requirements.txt
+# from the manylinux1 project (https://github.com/pypa/manylinux/).
+
+# pip requirements for all cpythons
+# NOTE: pip has GPG signatures; could download and verify independently.
+pip==19.0.3 \
+    --hash=sha256:6e6f197a1abfb45118dbb878b5c859a0edbdd33fd250100bc015b67fded4b9f2 \
+    --hash=sha256:bd812612bbd8ba84159d9ddc0266b7fbce712fc9bc98c82dee5750546ec8ec64
+wheel==0.31.1 \
+    --hash=sha256:80044e51ec5bbf6c894ba0bc48d26a8c20a9ba629f4ca19ea26ecfcf87685f5f \
+    --hash=sha256:0a2e54558a0628f2145d2fc822137e322412115173e8a2ddbe1c9024338ae83c
+setuptools==40.7.3 \
+    --hash=sha256:4f4acaf06d617dccfd3fbbc9fbd83cf4749759a1fa2bdf589206a3278e0d537a \
+    --hash=sha256:702fdd31cb10a65a94beba1a7d89219a58d2587a349e0a1b7827b133e99ca430

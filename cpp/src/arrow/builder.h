@@ -15,121 +15,45 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_BUILDER_H
-#define ARROW_BUILDER_H
+#pragma once
 
-#include <cstdint>
 #include <memory>
-#include <vector>
 
-#include "arrow/type.h"
-#include "arrow/util/macros.h"
-#include "arrow/util/status.h"
+#include "arrow/array/builder_adaptive.h"   // IWYU pragma: export
+#include "arrow/array/builder_base.h"       // IWYU pragma: export
+#include "arrow/array/builder_binary.h"     // IWYU pragma: export
+#include "arrow/array/builder_decimal.h"    // IWYU pragma: export
+#include "arrow/array/builder_dict.h"       // IWYU pragma: export
+#include "arrow/array/builder_nested.h"     // IWYU pragma: export
+#include "arrow/array/builder_primitive.h"  // IWYU pragma: export
+#include "arrow/array/builder_time.h"       // IWYU pragma: export
+#include "arrow/array/builder_union.h"      // IWYU pragma: export
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class Array;
+class DataType;
 class MemoryPool;
-class PoolBuffer;
 
-static constexpr int32_t kMinBuilderCapacity = 1 << 5;
+/// \brief Construct an empty ArrayBuilder corresponding to the data
+/// type
+/// \param[in] pool the MemoryPool to use for allocations
+/// \param[in] type an instance of DictionaryType
+/// \param[out] out the created ArrayBuilder
+ARROW_EXPORT
+Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                   std::unique_ptr<ArrayBuilder>* out);
 
-// Base class for all data array builders.
-// This class provides a facilities for incrementally building the null bitmap
-// (see Append methods) and as a side effect the current number of slots and
-// the null count.
-class ARROW_EXPORT ArrayBuilder {
- public:
-  explicit ArrayBuilder(MemoryPool* pool, const TypePtr& type)
-      : pool_(pool),
-        type_(type),
-        null_bitmap_(nullptr),
-        null_count_(0),
-        null_bitmap_data_(nullptr),
-        length_(0),
-        capacity_(0) {}
-
-  virtual ~ArrayBuilder() = default;
-
-  // For nested types. Since the objects are owned by this class instance, we
-  // skip shared pointers and just return a raw pointer
-  ArrayBuilder* child(int i) { return children_[i].get(); }
-
-  int num_children() const { return children_.size(); }
-
-  int32_t length() const { return length_; }
-  int32_t null_count() const { return null_count_; }
-  int32_t capacity() const { return capacity_; }
-
-  // Append to null bitmap
-  Status AppendToBitmap(bool is_valid);
-  // Vector append. Treat each zero byte as a null.   If valid_bytes is null
-  // assume all of length bits are valid.
-  Status AppendToBitmap(const uint8_t* valid_bytes, int32_t length);
-  // Set the next length bits to not null (i.e. valid).
-  Status SetNotNull(int32_t length);
-
-  // Allocates initial capacity requirements for the builder.  In most
-  // cases subclasses should override and call there parent classes
-  // method as well.
-  virtual Status Init(int32_t capacity);
-
-  // Resizes the null_bitmap array.  In most
-  // cases subclasses should override and call there parent classes
-  // method as well.
-  virtual Status Resize(int32_t new_bits);
-
-  // Ensures there is enough space for adding the number of elements by checking
-  // capacity and calling Resize if necessary.
-  Status Reserve(int32_t elements);
-
-  // For cases where raw data was memcpy'd into the internal buffers, allows us
-  // to advance the length of the builder. It is your responsibility to use
-  // this function responsibly.
-  Status Advance(int32_t elements);
-
-  const std::shared_ptr<PoolBuffer>& null_bitmap() const { return null_bitmap_; }
-
-  // Creates new array object to hold the contents of the builder and transfers
-  // ownership of the data.  This resets all variables on the builder.
-  virtual Status Finish(std::shared_ptr<Array>* out) = 0;
-
-  const std::shared_ptr<DataType>& type() const { return type_; }
-
- protected:
-  MemoryPool* pool_;
-
-  std::shared_ptr<DataType> type_;
-
-  // When null_bitmap are first appended to the builder, the null bitmap is allocated
-  std::shared_ptr<PoolBuffer> null_bitmap_;
-  int32_t null_count_;
-  uint8_t* null_bitmap_data_;
-
-  // Array length, so far. Also, the index of the next element to be added
-  int32_t length_;
-  int32_t capacity_;
-
-  // Child value array builders. These are owned by this class
-  std::vector<std::unique_ptr<ArrayBuilder>> children_;
-
-  //
-  // Unsafe operations (don't check capacity/don't resize)
-  //
-
-  // Append to null bitmap.
-  void UnsafeAppendToBitmap(bool is_valid);
-  // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
-  // assume all of length bits are valid.
-  void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int32_t length);
-  // Set the next length bits to not null (i.e. valid).
-  void UnsafeSetNotNull(int32_t length);
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
-};
+/// \brief Construct an empty DictionaryBuilder initialized optionally
+/// with a pre-existing dictionary
+/// \param[in] pool the MemoryPool to use for allocations
+/// \param[in] type an instance of DictionaryType
+/// \param[in] dictionary the initial dictionary, if any. May be nullptr
+/// \param[out] out the created ArrayBuilder
+ARROW_EXPORT
+Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                             const std::shared_ptr<Array>& dictionary,
+                             std::unique_ptr<ArrayBuilder>* out);
 
 }  // namespace arrow
-
-#endif  // ARROW_BUILDER_H_

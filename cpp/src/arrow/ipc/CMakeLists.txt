@@ -15,108 +15,57 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
-# arrow_ipc
-#######################################
+#
+# Messaging and interprocess communication
 
-set(ARROW_IPC_LINK_LIBS
-  arrow_io
-  arrow_shared
-)
+add_arrow_test(feather_test)
+add_arrow_test(read_write_test PREFIX "arrow-ipc")
+add_arrow_test(json_simple_test PREFIX "arrow-ipc")
+add_arrow_test(json_test PREFIX "arrow-ipc")
 
-set(ARROW_IPC_PRIVATE_LINK_LIBS
-  )
+# json_integration_test is two things at the same time:
+# - an executable that can be called to answer integration test requests
+# - a self-(unit)test for the C++ side of integration testing
+if(ARROW_BUILD_TESTS)
+  add_arrow_test(json_integration_test EXTRA_LINK_LIBS ${GFLAGS_LIBRARIES})
+  add_dependencies(arrow-integration arrow-json-integration-test)
+elseif(ARROW_BUILD_INTEGRATION)
+  add_executable(arrow-json-integration-test json_integration_test.cc)
+  target_link_libraries(arrow-json-integration-test ${ARROW_TEST_LINK_LIBS}
+                        ${GFLAGS_LIBRARIES} GTest::GTest)
 
-set(ARROW_IPC_TEST_LINK_LIBS
-  arrow_ipc
-  ${ARROW_IPC_PRIVATE_LINK_LIBS})
-
-set(ARROW_IPC_SRCS
-  adapter.cc
-  file.cc
-  metadata.cc
-  metadata-internal.cc
-)
-
-# TODO(wesm): SHARED and STATIC targets
-add_library(arrow_ipc SHARED
-  ${ARROW_IPC_SRCS}
-)
-if(FLATBUFFERS_VENDORED)
-  add_dependencies(arrow_ipc flatbuffers_ep)
+  add_dependencies(arrow-json-integration-test arrow arrow_testing)
+  add_dependencies(arrow-integration arrow-json-integration-test)
 endif()
-target_link_libraries(arrow_ipc
-  LINK_PUBLIC ${ARROW_IPC_LINK_LIBS}
-  LINK_PRIVATE ${ARROW_IPC_PRIVATE_LINK_LIBS})
-
-if(NOT APPLE)
-  # Localize thirdparty symbols using a linker version script. This hides them
-  # from the client application. The OS X linker does not support the
-  # version-script option.
-  set(ARROW_IPC_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
-endif()
-
-SET_TARGET_PROPERTIES(arrow_ipc PROPERTIES
-  LINKER_LANGUAGE CXX
-  LINK_FLAGS "${ARROW_IPC_LINK_FLAGS}")
-
-if (APPLE)
-  set_target_properties(arrow_ipc
-    PROPERTIES
-    BUILD_WITH_INSTALL_RPATH ON
-    INSTALL_NAME_DIR "@rpath")
-endif()
-
-ADD_ARROW_TEST(ipc-adapter-test)
-ARROW_TEST_LINK_LIBRARIES(ipc-adapter-test
-  ${ARROW_IPC_TEST_LINK_LIBS})
-
-ADD_ARROW_TEST(ipc-file-test)
-ARROW_TEST_LINK_LIBRARIES(ipc-file-test
-  ${ARROW_IPC_TEST_LINK_LIBS})
-
-ADD_ARROW_TEST(ipc-metadata-test)
-ARROW_TEST_LINK_LIBRARIES(ipc-metadata-test
-  ${ARROW_IPC_TEST_LINK_LIBS})
-
-# make clean will delete the generated file
-set_source_files_properties(Metadata_generated.h PROPERTIES GENERATED TRUE)
-
-set(OUTPUT_DIR ${CMAKE_SOURCE_DIR}/src/arrow/ipc)
-set(FBS_OUTPUT_FILES "${OUTPUT_DIR}/Message_generated.h")
-
-set(FBS_SRC
-  ${CMAKE_SOURCE_DIR}/../format/Message.fbs
-  ${CMAKE_SOURCE_DIR}/../format/File.fbs)
-
-foreach(FIL ${FBS_SRC})
-  get_filename_component(ABS_FIL ${FIL} ABSOLUTE)
-  list(APPEND ABS_FBS_SRC ${ABS_FIL})
-endforeach()
-
-if(FLATBUFFERS_VENDORED)
-  set(FBS_DEPENDS ${ABS_FBS_SRC} flatbuffers_ep)
-else()
-  set(FBS_DEPENDS ${ABS_FBS_SRC})
-endif()
-add_custom_command(
-  OUTPUT ${FBS_OUTPUT_FILES}
-  COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${ABS_FBS_SRC}
-  DEPENDS ${FBS_DEPENDS}
-  COMMENT "Running flatc compiler on ${ABS_FBS_SRC}"
-  VERBATIM
-)
-
-add_custom_target(metadata_fbs DEPENDS ${FBS_OUTPUT_FILES})
-add_dependencies(arrow_objlib metadata_fbs)
 
 # Headers: top level
-install(FILES
-  adapter.h
-  file.h
-  metadata.h
-  DESTINATION include/arrow/ipc)
+arrow_install_all_headers("arrow/ipc")
 
-install(TARGETS arrow_ipc
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib)
+if(ARROW_BUILD_STATIC)
+  set(ARROW_UTIL_LIB arrow_static)
+else()
+  set(ARROW_UTIL_LIB arrow_shared)
+endif()
+
+if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
+  add_executable(arrow-file-to-stream file_to_stream.cc)
+  target_link_libraries(arrow-file-to-stream ${ARROW_UTIL_LIB})
+  add_executable(arrow-stream-to-file stream_to_file.cc)
+  target_link_libraries(arrow-stream-to-file ${ARROW_UTIL_LIB})
+
+  if(ARROW_BUILD_INTEGRATION)
+    add_dependencies(arrow-integration arrow-file-to-stream)
+    add_dependencies(arrow-integration arrow-stream-to-file)
+  endif()
+endif()
+
+add_arrow_benchmark(read_write_benchmark PREFIX "arrow-ipc")
+
+if(ARROW_FUZZING)
+  add_executable(arrow-ipc-generate-fuzz-corpus generate_fuzz_corpus.cc)
+  target_link_libraries(arrow-ipc-generate-fuzz-corpus ${ARROW_UTIL_LIB}
+                        ${ARROW_TEST_LINK_LIBS})
+endif()
+
+add_arrow_fuzzing(file_fuzz PREFIX "arrow-ipc")
+add_arrow_fuzzing(stream_fuzz PREFIX "arrow-ipc")

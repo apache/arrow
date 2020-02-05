@@ -1,0 +1,51 @@
+# ARROW-3229: this is a meta-package to prevent conflicts in the future
+
+{% set parquet_version = "1.5.1" %}
+
+package:
+  name: parquet-cpp
+  version: {{ parquet_version }}
+
+build:
+  number: 0
+  skip: true  # [win32]
+  skip: true  # [win and py<35]
+
+requirements:
+  host:
+    # NOTE: in the upstream feedstock use >= instead of =
+    - arrow-cpp ={{ ARROW_VERSION }}
+  run:
+    - arrow-cpp ={{ ARROW_VERSION }}
+
+test:
+  commands:
+    # headers
+    - test -f $PREFIX/include/parquet/api/reader.h               # [unix]
+    - if not exist %LIBRARY_INC%\\parquet\\api\\reader.h exit 1  # [win]
+
+    # shared
+    - test -f $PREFIX/lib/libparquet.so                        # [linux]
+    - test -f $PREFIX/lib/libparquet.dylib                     # [osx]
+    - if not exist %PREFIX%\\Library\\bin\\parquet.dll exit 1  # [win]
+
+    # absence of static libraries
+    - test ! -f $PREFIX/lib/libparquet.a                          # [unix]
+    - if exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1  # [win]
+
+about:
+  home: http://github.com/apache/arrow
+  license: Apache 2.0
+  summary: 'C++ libraries for the Apache Parquet file format'
+
+extra:
+  recipe-maintainers:
+    - wesm
+    - xhochy
+    - leifwalsh
+    - jreback
+    - cpcloud
+    - siddharthteotia
+    - kou
+    - kszucs
+    - pitrou

@@ -1,56 +1,59 @@
 <!---
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License. See accompanying LICENSE file.
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
 -->
 
 ## Python library for Apache Arrow
 
-This library provides a Pythonic API wrapper for the reference Arrow C++
-implementation, along with tools for interoperability with pandas, NumPy, and
-other traditional Python scientific computing packages.
+[![pypi](https://img.shields.io/pypi/v/pyarrow.svg)](https://pypi.org/project/pyarrow/) [![conda-forge](https://img.shields.io/conda/vn/conda-forge/pyarrow.svg)](https://anaconda.org/conda-forge/pyarrow)
 
-### Development details
+This library provides a Python API for functionality provided by the Arrow C++
+libraries, along with tools for Arrow integration and interoperability with
+pandas, NumPy, and other software in the Python ecosystem.
 
-This project is layered in two pieces:
+## Installing
 
-* pyarrow, a C++ library for easier interoperability between Arrow C++, NumPy,
-  and pandas
-* Cython extensions and pure Python code under arrow/ which expose Arrow C++
-  and pyarrow to pure Python users
+Across platforms, you can install a recent version of pyarrow with the conda
+package manager:
 
-#### PyArrow Dependencies:
-These are the various projects that PyArrow depends on.
-
-1. **g++ and gcc Version >= 4.8**
-2. **cmake > 2.8.6**
-3. **boost**
-4. **Arrow-cpp and its dependencies***
-
-The Arrow C++ library must be built with all options enabled and installed with
-``ARROW_HOME`` environment variable set to the installation location. Look at
-(https://github.com/apache/arrow/blob/master/cpp/README.md) for instructions.
-
-5. **Python dependencies: numpy, pandas, cython, pytest**
-
-#### Build pyarrow and run the unit tests
-
-```bash
-python setup.py build_ext --inplace
-py.test pyarrow
+```shell
+conda install pyarrow -c conda-forge
 ```
 
-#### Build the documentation
+On Linux, macOS, and Windows, you can also install binary wheels from PyPI with
+pip:
 
-```bash
-pip install -r doc/requirements.txt
-python setup.py build_sphinx
+```shell
+pip install pyarrow
 ```
+
+If you encounter any issues importing the pip wheels on Windows, you may need
+to install the [Visual C++ Redistributable for Visual Studio 2015][6].
+
+## Development
+
+See [Python Development][2] in the documentation subproject.
+
+### Building the documentation
+
+See [documentation build instructions][1] in the documentation subproject.
+
+[1]: https://github.com/apache/arrow/blob/master/docs/source/developers/documentation.rst
+[2]: https://github.com/apache/arrow/blob/master/docs/source/developers/python.rst
+[3]: https://github.com/pandas-dev/pandas
+[5]: https://arrow.apache.org/docs/latest/python/benchmarks.html
+[6]: https://www.microsoft.com/en-us/download/details.aspx?id=48145

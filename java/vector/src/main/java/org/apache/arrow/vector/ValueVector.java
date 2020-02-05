@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,15 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import java.io.Closeable;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
@@ -31,52 +34,63 @@ import io.netty.buffer.ArrowBuf;
 /**
  * An abstraction that is used to store a sequence of values in an individual column.
  *
- * A {@link ValueVector value vector} stores underlying data in-memory in a columnar fashion that is compact and
+ * <p>A {@link ValueVector value vector} stores underlying data in-memory in a columnar fashion that is compact and
  * efficient. The column whose data is stored, is referred by {@link #getField()}.
  *
- * It is important that vector is allocated before attempting to read or write.
+ * <p>It is important that vector is allocated before attempting to read or write.
  *
- * There are a few "rules" around vectors:
+ * <p>There are a few "rules" around vectors:
  *
  * <ul>
- *   <li>values need to be written in order (e.g. index 0, 1, 2, 5)</li>
- *   <li>null vectors start with all values as null before writing anything</li>
- *   <li>for variable width types, the offset vector should be all zeros before writing</li>
- *   <li>you must call setValueCount before a vector can be read</li>
- *   <li>you should never write to a vector once it has been read.</li>
+ * <li>values need to be written in order (e.g. index 0, 1, 2, 5)</li>
+ * <li>null vectors start with all values as null before writing anything</li>
+ * <li>for variable width types, the offset vector should be all zeros before writing</li>
+ * <li>you must call setValueCount before a vector can be read</li>
+ * <li>you should never write to a vector once it has been read.</li>
  * </ul>
  *
- * Please note that the current implementation doesn't enfore those rules, hence we may find few places that
+ * <p>Please note that the current implementation doesn't enforce those rules, hence we may find few places that
  * deviate from these rules (e.g. offset vectors in Variable Length and Repeated vector)
  *
- * This interface "should" strive to guarantee this order of operation:
+ * <p>This interface "should" strive to guarantee this order of operation:
  * <blockquote>
- * allocate > mutate > setvaluecount > access > clear (or allocate to start the process over).
+ * allocate &gt; mutate &gt; setvaluecount &gt; access &gt; clear (or allocate to start the process over).
  * </blockquote>
  */
 public interface ValueVector extends Closeable, Iterable<ValueVector> {
   /**
    * Allocate new buffers. ValueVector implements logic to determine how much to allocate.
+   *
    * @throws OutOfMemoryException Thrown if no memory can be allocated.
    */
   void allocateNew() throws OutOfMemoryException;
 
   /**
    * Allocates new buffers. ValueVector implements logic to determine how much to allocate.
+   *
    * @return Returns true if allocation was successful.
    */
   boolean allocateNewSafe();
 
+  /**
+   * Allocate new buffer with double capacity, and copy data into the new buffer.
+   * Replace vector's buffer with new buffer, and release old one
+   */
+  void reAlloc();
+
   BufferAllocator getAllocator();
 
   /**
-   * Set the initial record capacity
+   * Set the initial record capacity.
+   *
    * @param numRecords the initial record capacity.
    */
   void setInitialCapacity(int numRecords);
 
   /**
    * Returns the maximum number of values that can be stored in this vector instance.
+   *
+   * @return the maximum number of values that can be stored in this vector instance.
    */
   int getValueCapacity();
 
@@ -87,64 +101,68 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   void close();
 
   /**
-   * Release the underlying ArrowBuf and reset the ValueVector to empty.
+   * Release any owned ArrowBuf and reset the ValueVector to the initial state. If the
+   * vector has any child vectors, they will also be cleared.
    */
   void clear();
 
   /**
+   * Reset the ValueVector to the initial state without releasing any owned ArrowBuf.
+   * Buffer capacities will remain unchanged and any previous data will be zeroed out.
+   * This includes buffers for data, validity, offset, etc. If the vector has any
+   * child vectors, they will also be reset.
+   */
+  void reset();
+
+  /**
    * Get information about how this field is materialized.
+   *
+   * @return the field corresponding to this vector
    */
   Field getField();
 
   MinorType getMinorType();
 
   /**
-   * Returns a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new target vector of
-   * the same type.
+   * To transfer quota responsibility.
+   *
+   * @param allocator the target allocator
+   * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new target vector of
+   *         the same type.
    */
   TransferPair getTransferPair(BufferAllocator allocator);
 
   TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
+  TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack);
+
   /**
-   * Returns a new {@link org.apache.arrow.vector.util.TransferPair transfer pair} that is used to transfer underlying
-   * buffers into the target vector.
+   * Makes a new transfer pair used to transfer underlying buffers.
+   *
+   * @param target the target for the transfer
+   * @return a new {@link org.apache.arrow.vector.util.TransferPair transfer pair} that is used to transfer underlying
+   *         buffers into the target vector.
    */
   TransferPair makeTransferPair(ValueVector target);
 
   /**
-   * Returns an {@link org.apache.arrow.vector.ValueVector.Accessor accessor} that is used to read from this vector
-   * instance.
-   */
-  Accessor getAccessor();
-
-  /**
-   * Returns an {@link org.apache.arrow.vector.ValueVector.Mutator mutator} that is used to write to this vector
-   * instance.
-   */
-  Mutator getMutator();
-
-  /**
-   * Returns a {@link org.apache.arrow.vector.complex.reader.FieldReader field reader} that supports reading values
-   * from this vector.
+   * Get a reader for this vector.
+   *
+   * @return a {@link org.apache.arrow.vector.complex.reader.FieldReader field reader} that supports reading values
+   *         from this vector.
    */
   FieldReader getReader();
 
   /**
-   * Get the metadata for this field. Used in serialization
+   * Get the number of bytes used by this vector.
    *
-   * @return FieldMetadata for this field.
-   */
-//  SerializedField getMetadata();
-
-  /**
-   * Returns the number of bytes that is used by this vector instance.
+   * @return the number of bytes that is used by this vector instance.
    */
   int getBufferSize();
 
   /**
    * Returns the number of bytes that is used by this vector if it holds the given number
-   * of values. The result will be the same as if Mutator.setValueCount() were called, followed
+   * of values. The result will be the same as if setValueCount() were called, followed
    * by calling getBufferSize(), but without any of the closing side-effects that setValueCount()
    * implies wrt finishing off the population of a vector. Some operations might wish to use
    * this to determine how much memory has been used by a vector so far, even though it is
@@ -159,66 +177,110 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    * Return the underlying buffers associated with this vector. Note that this doesn't impact the reference counts for
    * this buffer so it only should be used for in-context access. Also note that this buffer changes regularly thus
    * external classes shouldn't hold a reference to it (unless they change it).
-   * @param clear Whether to clear vector before returning; the buffers will still be refcounted;
-   *   but the returned array will be the only reference to them
    *
+   * @param clear Whether to clear vector before returning; the buffers will still be refcounted;
+   *              but the returned array will be the only reference to them
    * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this vector instance.
    */
   ArrowBuf[] getBuffers(boolean clear);
 
   /**
-   * Load the data provided in the buffer. Typically used when deserializing from the wire.
+   * Gets the underlying buffer associated with validity vector.
    *
-   * @param metadata
-   *          Metadata used to decode the incoming buffer.
-   * @param buffer
-   *          The buffer that contains the ValueVector.
+   * @return buffer
    */
-//  void load(SerializedField metadata, DrillBuf buffer);
+  ArrowBuf getValidityBuffer();
 
   /**
-   * An abstraction that is used to read from this vector instance.
+   * Gets the underlying buffer associated with data vector.
+   *
+   * @return buffer
    */
-  interface Accessor {
-    /**
-     * Get the Java Object representation of the element at the specified position. Useful for testing.
-     *
-     * @param index
-     *          Index of the value to get
-     */
-    Object getObject(int index);
-
-    /**
-     * Returns the number of values that is stored in this vector.
-     */
-    int getValueCount();
-
-    /**
-     * Returns true if the value at the given index is null, false otherwise.
-     */
-    boolean isNull(int index);
-  }
+  ArrowBuf getDataBuffer();
 
   /**
-   * An abstraction that is used to write into this vector instance.
+   * Gets the underlying buffer associated with offset vector.
+   *
+   * @return buffer
    */
-  interface Mutator {
-    /**
-     * Sets the number of values that is stored in this vector to the given value count.
-     *
-     * @param valueCount  value count to set.
-     */
-    void setValueCount(int valueCount);
+  ArrowBuf getOffsetBuffer();
 
-    /**
-     * Resets the mutator to pristine state.
-     */
-    void reset();
+  /**
+   * Gets the number of values.
+   *
+   * @return number of values in the vector
+   */
+  int getValueCount();
 
-    /**
-     * @deprecated  this has nothing to do with value vector abstraction and should be removed.
-     */
-    @Deprecated
-    void generateTestData(int values);
-  }
+  /**
+   * Set number of values in the vector.
+   */
+  void setValueCount(int valueCount);
+
+  /**
+   * Get friendly type object from the vector.
+   *
+   * @param index index of object to get
+   * @return friendly type object
+   */
+  Object getObject(int index);
+
+  /**
+   * Returns number of null elements in the vector.
+   *
+   * @return number of null elements
+   */
+  int getNullCount();
+
+  /**
+   * Check whether an element in the vector is null.
+   *
+   * @param index index to check for null
+   * @return true if element is null
+   */
+  boolean isNull(int index);
+
+  /**
+   * Returns hashCode of element in index with the default hasher.
+   */
+  int hashCode(int index);
+
+  /**
+   * Returns hashCode of element in index with the given hasher.
+   */
+  int hashCode(int index, ArrowBufHasher hasher);
+
+  /**
+   * Copy a cell value from a particular index in source vector to a particular
+   * position in this vector.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  void copyFrom(int fromIndex, int thisIndex, ValueVector from);
+
+  /**
+   * Same as {@link #copyFrom(int, int, ValueVector)} except that
+   * it handles the case when the capacity of the vector needs to be expanded
+   * before copy.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  void copyFromSafe(int fromIndex, int thisIndex, ValueVector from);
+
+  /**
+   * Accept a generic {@link VectorVisitor} and return the result.
+   * @param <OUT> the output result type.
+   * @param <IN> the input data together with visitor.
+   */
+  <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value);
+
+  /**
+   * Gets the name of the vector.
+   * @return the name of the vector.
+   */
+  String getName();
 }

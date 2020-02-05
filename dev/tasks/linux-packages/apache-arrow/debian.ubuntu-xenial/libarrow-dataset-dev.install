@@ -1,0 +1,4 @@
+usr/lib/*/cmake/arrow/FindArrowDataset.cmake
+usr/lib/*/libarrow_dataset.a
+usr/lib/*/libarrow_dataset.so
+usr/lib/*/pkgconfig/arrow-dataset.pc

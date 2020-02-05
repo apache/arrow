@@ -1,0 +1,17 @@
+Meta
+docs/
+inst/doc
+*.o
+*.o-*
+*.d
+*.so
+*.dll
+.RData
+.Rproj.user
+.Rhistory
+src/Makevars
+src/Makevars.win
+windows/
+libarrow/
+arrow_*.tar.gz
+arrow_*.tgz

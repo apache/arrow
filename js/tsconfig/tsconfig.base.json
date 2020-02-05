@@ -1,0 +1,37 @@
+{
+  "exclude": ["../node_modules"],
+  "include": ["../src/**/*.ts"],
+  "compileOnSave": false,
+  "compilerOptions": {
+
+    /* Basic stuff */
+    "moduleResolution": "node",
+    "lib": ["dom", "esnext", "esnext.asynciterable"],
+
+    /* Control what is emitted */
+    "declaration": true,
+    "noEmitOnError": true,
+    "removeComments": false,
+    "noErrorTruncation": true,
+    "downlevelIteration": true,
+
+    /* Create inline sourcemaps with sources */
+    "sourceMap": false,
+    "inlineSources": true,
+    "inlineSourceMap": true,
+
+    /* The most restrictive settings possible */
+    "strict": true,
+    "skipLibCheck": false,
+    "importHelpers": true,
+    "noEmitHelpers": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noImplicitReturns": true,
+    "allowUnusedLabels": false,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex.impl;
 
 import java.util.Iterator;
@@ -22,10 +22,15 @@ import java.util.Iterator;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.holders.DenseUnionHolder;
 import org.apache.arrow.vector.holders.UnionHolder;
 
-
-abstract class AbstractBaseReader implements FieldReader{
+/**
+ * Base class providing common functionality for {@link FieldReader} implementations.
+ *
+ * <p>This includes tracking the current index and throwing implementations of optional methods.
+ */
+abstract class AbstractBaseReader implements FieldReader {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractBaseReader.class);
 
@@ -35,11 +40,16 @@ abstract class AbstractBaseReader implements FieldReader{
     super();
   }
 
-  public void setPosition(int index){
+  @Override
+  public int getPosition() {
+    return index;
+  }
+
+  public void setPosition(int index) {
     this.index = index;
   }
 
-  protected int idx(){
+  protected int idx() {
     return index;
   }
 
@@ -80,7 +90,23 @@ abstract class AbstractBaseReader implements FieldReader{
   }
 
   @Override
+  public void read(DenseUnionHolder holder) {
+    holder.reader = this;
+    holder.isSet = this.isSet() ? 1 : 0;
+  }
+
+  @Override
+  public void read(int index, DenseUnionHolder holder) {
+    throw new IllegalStateException("The current reader doesn't support reading dense union type");
+  }
+
+  @Override
+  public void copyAsValue(DenseUnionWriter writer) {
+    throw new IllegalStateException("The current reader doesn't support reading dense union type");
+  }
+
+  @Override
   public void copyAsValue(ListWriter writer) {
-    ComplexCopier.copy(this, (FieldWriter)writer);
+    ComplexCopier.copy(this, (FieldWriter) writer);
   }
 }

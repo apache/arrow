@@ -17,111 +17,178 @@
 
 // Public API for different memory sharing / IO mechanisms
 
-#ifndef ARROW_IO_MEMORY_H
-#define ARROW_IO_MEMORY_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
-#include <string>
 
+#include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
-
-#include "arrow/util/macros.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class Buffer;
-class ResizableBuffer;
 class Status;
 
 namespace io {
 
-// An output stream that writes to a MutableBuffer, such as one obtained from a
-// memory map
+/// \brief An output stream that writes to a resizable buffer
 class ARROW_EXPORT BufferOutputStream : public OutputStream {
  public:
   explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
 
+  /// \brief Create in-memory output stream with indicated capacity using a
+  /// memory pool
+  /// \param[in] initial_capacity the initial allocated internal capacity of
+  /// the OutputStream
+  /// \param[in,out] pool a MemoryPool to use for allocations
+  /// \return the created stream
+  static Result<std::shared_ptr<BufferOutputStream>> Create(
+      int64_t initial_capacity = 4096, MemoryPool* pool = default_memory_pool());
+
+  ARROW_DEPRECATED("Use Result-returning overload")
+  static Status Create(int64_t initial_capacity, MemoryPool* pool,
+                       std::shared_ptr<BufferOutputStream>* out);
+
+  ~BufferOutputStream() override;
+
   // Implement the OutputStream interface
+
+  /// Close the stream, preserving the buffer (retrieve it with Finish()).
   Status Close() override;
-  Status Tell(int64_t* position) override;
-  Status Write(const uint8_t* data, int64_t nbytes) override;
+  bool closed() const override;
+  Result<int64_t> Tell() const override;
+  Status Write(const void* data, int64_t nbytes) override;
+
+  /// \cond FALSE
+  using OutputStream::Write;
+  /// \endcond
+
+  /// Close the stream and return the buffer
+  Result<std::shared_ptr<Buffer>> Finish();
+
+  ARROW_DEPRECATED("Use Result-returning overload")
+  Status Finish(std::shared_ptr<Buffer>* result);
+
+  /// \brief Initialize state of OutputStream with newly allocated memory and
+  /// set position to 0
+  /// \param[in] initial_capacity the starting allocated capacity
+  /// \param[in,out] pool the memory pool to use for allocations
+  /// \return Status
+  Status Reset(int64_t initial_capacity = 1024, MemoryPool* pool = default_memory_pool());
+
+  int64_t capacity() const { return capacity_; }
 
  private:
+  BufferOutputStream();
+
   // Ensures there is sufficient space available to write nbytes
   Status Reserve(int64_t nbytes);
 
   std::shared_ptr<ResizableBuffer> buffer_;
+  bool is_open_;
   int64_t capacity_;
   int64_t position_;
   uint8_t* mutable_data_;
 };
 
-// A memory source that uses memory-mapped files for memory interactions
-class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
+/// \brief A helper class to tracks the size of allocations
+///
+/// Writes to this stream do not copy or retain any data, they just bump
+/// a size counter that can be later used to know exactly which data size
+/// needs to be allocated for actual writing.
+class ARROW_EXPORT MockOutputStream : public OutputStream {
  public:
-  ~MemoryMappedFile();
+  MockOutputStream() : extent_bytes_written_(0), is_open_(true) {}
 
-  static Status Open(const std::string& path, FileMode::type mode,
-      std::shared_ptr<MemoryMappedFile>* out);
-
+  // Implement the OutputStream interface
   Status Close() override;
+  bool closed() const override;
+  Result<int64_t> Tell() const override;
+  Status Write(const void* data, int64_t nbytes) override;
+  /// \cond FALSE
+  using Writable::Write;
+  /// \endcond
 
-  Status Tell(int64_t* position) override;
-
-  Status Seek(int64_t position) override;
-
-  // Required by ReadableFileInterface, copies memory into out
-  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
-
-  // Zero copy read
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
-  bool supports_zero_copy() const override;
-
-  Status Write(const uint8_t* data, int64_t nbytes) override;
-
-  Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) override;
-
-  // @return: the size in bytes of the memory source
-  Status GetSize(int64_t* size) override;
+  int64_t GetExtentBytesWritten() const { return extent_bytes_written_; }
 
  private:
-  explicit MemoryMappedFile(FileMode::type mode);
-
-  Status WriteInternal(const uint8_t* data, int64_t nbytes);
-
-  // Hide the internal details of this class for now
-  class ARROW_NO_EXPORT MemoryMappedFileImpl;
-  std::unique_ptr<MemoryMappedFileImpl> impl_;
+  int64_t extent_bytes_written_;
+  bool is_open_;
 };
 
-class ARROW_EXPORT BufferReader : public ReadableFileInterface {
+/// \brief An output stream that writes into a fixed-size mutable buffer
+class ARROW_EXPORT FixedSizeBufferWriter : public WritableFile {
  public:
-  BufferReader(const uint8_t* buffer, int buffer_size);
-  ~BufferReader();
+  /// Input buffer must be mutable, will abort if not
+  explicit FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer);
+  ~FixedSizeBufferWriter() override;
 
   Status Close() override;
-  Status Tell(int64_t* position) override;
-
-  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
-
-  // Zero copy read
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
-  Status GetSize(int64_t* size) override;
+  bool closed() const override;
   Status Seek(int64_t position) override;
+  Result<int64_t> Tell() const override;
+  Status Write(const void* data, int64_t nbytes) override;
+  /// \cond FALSE
+  using Writable::Write;
+  /// \endcond
+
+  Status WriteAt(int64_t position, const void* data, int64_t nbytes) override;
+
+  void set_memcopy_threads(int num_threads);
+  void set_memcopy_blocksize(int64_t blocksize);
+  void set_memcopy_threshold(int64_t threshold);
+
+ protected:
+  class FixedSizeBufferWriterImpl;
+  std::unique_ptr<FixedSizeBufferWriterImpl> impl_;
+};
+
+/// \class BufferReader
+/// \brief Random access zero-copy reads on an arrow::Buffer
+class ARROW_EXPORT BufferReader
+    : public internal::RandomAccessFileConcurrencyWrapper<BufferReader> {
+ public:
+  explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
+  explicit BufferReader(const Buffer& buffer);
+  BufferReader(const uint8_t* data, int64_t size);
+
+  /// \brief Instantiate from std::string or arrow::util::string_view. Does not
+  /// own data
+  explicit BufferReader(const util::string_view& data);
+
+  bool closed() const override;
 
   bool supports_zero_copy() const override;
 
- private:
-  const uint8_t* buffer_;
-  int buffer_size_;
+  std::shared_ptr<Buffer> buffer() const { return buffer_; }
+
+ protected:
+  friend RandomAccessFileConcurrencyWrapper<BufferReader>;
+
+  // These methods are virtual for CudaBuffer...
+  virtual Status DoClose();
+
+  virtual Result<int64_t> DoRead(int64_t nbytes, void* buffer);
+  virtual Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
+  virtual Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
+  virtual Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
+  Result<util::string_view> DoPeek(int64_t nbytes) override;
+
+  Result<int64_t> DoTell() const;
+  Status DoSeek(int64_t position);
+  Result<int64_t> DoGetSize();
+
+  inline Status CheckClosed() const;
+
+  std::shared_ptr<Buffer> buffer_;
+  const uint8_t* data_;
+  int64_t size_;
   int64_t position_;
+  bool is_open_;
 };
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_MEMORY_H

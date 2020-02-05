@@ -1,24 +1,22 @@
-/*******************************************************************************
-
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
+
 package org.apache.arrow.vector.complex.impl;
 
-import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -26,22 +24,30 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.UnionHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 
+/**
+ * {@link FieldReader} for list of union types.
+ */
 public class UnionListReader extends AbstractFieldReader {
 
   private ListVector vector;
   private ValueVector data;
-  private UInt4Vector offsets;
+  private static final int OFFSET_WIDTH = 4;
 
   public UnionListReader(ListVector vector) {
     this.vector = vector;
     this.data = vector.getDataVector();
-    this.offsets = vector.getOffsetVector();
+  }
+
+  @Override
+  public Field getField() {
+    return vector.getField();
   }
 
   @Override
   public boolean isSet() {
-    return !vector.getAccessor().isNull(idx());
+    return !vector.isNull(idx());
   }
 
   private int currentOffset;
@@ -50,8 +56,8 @@ public class UnionListReader extends AbstractFieldReader {
   @Override
   public void setPosition(int index) {
     super.setPosition(index);
-    currentOffset = offsets.getAccessor().get(index) - 1;
-    maxOffset = offsets.getAccessor().get(index + 1);
+    currentOffset = vector.getOffsetBuffer().getInt(index * OFFSET_WIDTH) - 1;
+    maxOffset = vector.getOffsetBuffer().getInt((index + 1) * OFFSET_WIDTH);
   }
 
   @Override
@@ -61,7 +67,7 @@ public class UnionListReader extends AbstractFieldReader {
 
   @Override
   public Object readObject() {
-    return vector.getAccessor().getObject(idx());
+    return vector.getObject(idx());
   }
 
   @Override

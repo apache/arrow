@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2042
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FluentBuilderExample", "FluentBuilderExample\FluentBuilderExample.csproj", "{ECE22119-D91D-44F7-9575-85B98F946289}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow", "..\src\Apache.Arrow\Apache.Arrow.csproj", "{1FE1DE95-FF6E-4895-82E7-909713C53524}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ECE22119-D91D-44F7-9575-85B98F946289}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ECE22119-D91D-44F7-9575-85B98F946289}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ECE22119-D91D-44F7-9575-85B98F946289}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ECE22119-D91D-44F7-9575-85B98F946289}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1FE1DE95-FF6E-4895-82E7-909713C53524}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FE1DE95-FF6E-4895-82E7-909713C53524}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FE1DE95-FF6E-4895-82E7-909713C53524}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FE1DE95-FF6E-4895-82E7-909713C53524}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C22A81AD-8B64-4D7C-97AC-49E9F118AE78}
+	EndGlobalSection
+EndGlobal

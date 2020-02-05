@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +15,9 @@
  * limitations under the License.
  */
 
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
 <@pp.dropOutputFile />
@@ -39,25 +41,24 @@ package org.apache.arrow.vector.complex.impl;
 abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   /**
    * Retrieve the FieldWriter, promoting if it is not a FieldWriter of the specified type
-   * @param type
-   * @return
+   * @param type the type of the values we want to write
+   * @return the corresponding field writer
    */
   abstract protected FieldWriter getWriter(MinorType type);
 
   /**
-   * Return the current FieldWriter
-   * @return
+   * @return the current FieldWriter
    */
   abstract protected FieldWriter getWriter();
 
   @Override
   public void start() {
-    getWriter(MinorType.MAP).start();
+    getWriter(MinorType.STRUCT).start();
   }
 
   @Override
   public void end() {
-    getWriter(MinorType.MAP).end();
+    getWriter(MinorType.STRUCT).end();
     setPosition(idx() + 1);
   }
 
@@ -73,8 +74,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-  <#assign fields = minor.fields!type.fields />
-  <#if !minor.class?starts_with("Decimal") >
+    <#assign fields = minor.fields!type.fields />
   @Override
   public void write(${name}Holder holder) {
     getWriter(MinorType.${name?upper_case}).write(holder);
@@ -84,26 +84,19 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
     getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
 
-  <#else>
-  @Override
-  public void write(DecimalHolder holder) {
-    getWriter(MinorType.DECIMAL).write(holder);
+  <#if minor.class == "Decimal">
+  public void writeBigEndianBytesToDecimal(byte[] value) {
+    getWriter(MinorType.DECIMAL).writeBigEndianBytesToDecimal(value);
   }
-
-  public void writeDecimal(int start, ArrowBuf buffer) {
-    getWriter(MinorType.DECIMAL).writeDecimal(start, buffer);
-  }
-
   </#if>
 
   </#list></#list>
-
   public void writeNull() {
   }
 
   @Override
-  public MapWriter map() {
-    return getWriter(MinorType.LIST).map();
+  public StructWriter struct() {
+    return getWriter(MinorType.LIST).struct();
   }
 
   @Override
@@ -112,13 +105,13 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public MapWriter map(String name) {
-    return getWriter(MinorType.MAP).map(name);
+  public StructWriter struct(String name) {
+    return getWriter(MinorType.STRUCT).struct(name);
   }
 
   @Override
   public ListWriter list(String name) {
-    return getWriter(MinorType.MAP).list(name);
+    return getWriter(MinorType.STRUCT).list(name);
   }
 
   <#list vv.types as type><#list type.minor as minor>
@@ -126,14 +119,17 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
-  <#if minor.class?starts_with("Decimal") >
-  public ${capName}Writer ${lowerName}(String name, int scale, int precision) {
-    return getWriter(MinorType.MAP).${lowerName}(name, scale, precision);
+
+  <#if minor.typeParams?? >
+  @Override
+  public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+    return getWriter(MinorType.STRUCT).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
+
   </#if>
   @Override
   public ${capName}Writer ${lowerName}(String name) {
-    return getWriter(MinorType.MAP).${lowerName}(name);
+    return getWriter(MinorType.STRUCT).${lowerName}(name);
   }
 
   @Override

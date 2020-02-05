@@ -1,14 +1,17 @@
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
 #
-#   http://www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License. See accompanying LICENSE file.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 {
   modes: [
@@ -56,8 +59,10 @@
         { class: "Int", valueHolder: "IntHolder"},
         { class: "UInt4", valueHolder: "UInt4Holder" },
         { class: "Float4", javaType: "float" , boxedType: "Float", fields: [{name: "value", type: "float"}]},
-        { class: "IntervalYear", javaType: "int", friendlyType: "Period" }
-        { class: "Time", javaType: "int", friendlyType: "DateTime" }
+        { class: "DateDay" },
+        { class: "IntervalYear", javaType: "int", friendlyType: "Period" },
+        { class: "TimeSec" },
+        { class: "TimeMilli", javaType: "int", friendlyType: "LocalDateTime" }
       ]
     },
     {
@@ -69,9 +74,34 @@
       minor: [
         { class: "BigInt"},
         { class: "UInt8" },
-        { class: "Float8", javaType: "double" , boxedType: "Double", fields: [{name: "value", type: "double"}], },
-        { class: "Date", javaType: "long", friendlyType: "DateTime" },
-        { class: "TimeStamp", javaType: "long", friendlyType: "DateTime" }
+        { class: "Float8",           javaType: "double", boxedType: "Double", fields: [{name: "value", type: "double"}] },
+        { class: "DateMilli",        javaType: "long",                      friendlyType: "LocalDateTime" },
+        { class: "Duration", javaType: "long", friendlyType: "Duration",
+          arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Duration",
+          typeParams: [ {name: "unit", type: "org.apache.arrow.vector.types.TimeUnit"} ],
+          arrowTypeConstructorParams: ["unit"]}
+        { class: "TimeStampSec",     javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
+        { class: "TimeStampMilli",   javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
+        { class: "TimeStampMicro",   javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
+        { class: "TimeStampNano",    javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
+        { class: "TimeStampSecTZ", javaType: "long",   boxedType: "Long",
+                                     typeParams: [ {name: "timezone", type: "String"} ],
+                                     arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Timestamp",
+                                     arrowTypeConstructorParams: ["org.apache.arrow.vector.types.TimeUnit.SECOND", "timezone"] },
+        { class: "TimeStampMilliTZ", javaType: "long",   boxedType: "Long",
+                                     typeParams: [ {name: "timezone", type: "String"} ],
+                                     arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Timestamp",
+                                     arrowTypeConstructorParams: ["org.apache.arrow.vector.types.TimeUnit.MILLISECOND", "timezone"] },
+        { class: "TimeStampMicroTZ", javaType: "long",   boxedType: "Long",
+                                     typeParams: [ {name: "timezone", type: "String"} ],
+                                     arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Timestamp",
+                                     arrowTypeConstructorParams: ["org.apache.arrow.vector.types.TimeUnit.MICROSECOND", "timezone"] },
+        { class: "TimeStampNanoTZ", javaType: "long",   boxedType: "Long",
+                                     typeParams: [ {name: "timezone", type: "String"} ],
+                                     arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Timestamp",
+                                     arrowTypeConstructorParams: ["org.apache.arrow.vector.types.TimeUnit.NANOSECOND", "timezone"] },
+        { class: "TimeMicro" },
+        { class: "TimeNano" }
       ]
     },
     {
@@ -80,7 +110,7 @@
       javaType: "ArrowBuf",
       boxedType: "ArrowBuf",
       minor: [
-        { class: "IntervalDay", millisecondsOffset: 4, friendlyType: "Period", fields: [ {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }
+        { class: "IntervalDay", millisecondsOffset: 4, friendlyType: "Duration", fields: [ {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }
       ]
     },
     {
@@ -90,7 +120,28 @@
       boxedType: "ArrowBuf",
 
       minor: [
-        { class: "Decimal", maxPrecisionDigits: 38, nDecimalDigits: 4, friendlyType: "BigDecimal", fields: [{name: "start", type: "int"}, {name: "buffer", type: "ArrowBuf"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] }
+        {
+          class: "Decimal",
+          maxPrecisionDigits: 38, nDecimalDigits: 4, friendlyType: "BigDecimal",
+          typeParams: [ {name: "scale", type: "int"}, { name: "precision", type: "int"}],
+          arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Decimal",
+          fields: [{name: "start", type: "int"}, {name: "buffer", type: "ArrowBuf"}]
+        }
+      ]
+    },
+    {
+      major: "Fixed",
+      width: -1,
+      javaType: "byte[]",
+      boxedType: "ArrowBuf",
+      minor: [
+        {
+          class: "FixedSizeBinary",
+          typeParams: [ {name: "byteWidth", type: "int"} ],
+          arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary",
+          friendlyType: "byte[]",
+          fields: [{name: "buffer", type: "ArrowBuf"}],
+        }
       ]
     },
     {

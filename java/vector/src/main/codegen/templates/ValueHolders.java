@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,6 +28,9 @@ package org.apache.arrow.vector.holders;
 
 <#include "/@includes/vv_imports.ftl" />
 
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 public final class ${className} implements ValueHolder{
   
     <#if mode.name == "Repeated">
@@ -47,7 +49,7 @@ public final class ${className} implements ValueHolder{
     
     <#if mode.name == "Optional">public int isSet;
     <#else>public final int isSet = 1;</#if>
-    <#assign fields = minor.fields!type.fields />
+    <#assign fields = (minor.fields!type.fields) + (minor.typeParams![]) />
     <#list fields as field>
     public ${field.type} ${field.name};
     </#list>

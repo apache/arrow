@@ -15,60 +15,52 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
+#
 # arrow_util
-#######################################
+#
 
 # Headers: top level
-install(FILES
-  bit-util.h
-  buffer.h
-  logging.h
-  macros.h
-  memory-pool.h
-  random.h
-  status.h
-  visibility.h
-  DESTINATION include/arrow/util)
+arrow_install_all_headers("arrow/util")
 
-#######################################
+#
 # arrow_test_main
-#######################################
+#
 
-if (ARROW_BUILD_TESTS)
-  add_library(arrow_test_main
-	test_main.cc)
+add_arrow_test(utility-test
+               SOURCES
+               align_util_test.cc
+               checked_cast_test.cc
+               formatting_util_test.cc
+               key_value_metadata_test.cc
+               hashing_test.cc
+               int_util_test.cc
+               io_util_test.cc
+               iterator_test.cc
+               parsing_util_test.cc
+               range_test.cc
+               stl_util_test.cc
+               string_test.cc
+               time_test.cc
+               trie_test.cc
+               utf8_util_test.cc)
 
-  if (APPLE)
-	target_link_libraries(arrow_test_main
-      gtest
-      dl)
-	set_target_properties(arrow_test_main
-      PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-  else()
-	target_link_libraries(arrow_test_main
-      gtest
-      pthread
-      dl
-	  )
-  endif()
-endif()
+add_arrow_test(bit_util_test)
+add_arrow_test(compression_test)
+add_arrow_test(decimal_test)
+add_arrow_test(logging_test)
+add_arrow_test(rle_encoding_test)
+add_arrow_test(task_group_test)
+add_arrow_test(thread_pool_test)
+add_arrow_test(uri_test)
 
-if (ARROW_BUILD_BENCHMARKS)
-  add_library(arrow_benchmark_main benchmark_main.cc)
-  if (APPLE)
-    target_link_libraries(arrow_benchmark_main
-      benchmark
-    )
-  else()
-	  target_link_libraries(arrow_benchmark_main
-      benchmark
-      pthread
-	  )
-  endif()
-endif()
-
-ADD_ARROW_TEST(bit-util-test)
-ADD_ARROW_TEST(buffer-test)
-ADD_ARROW_TEST(memory-pool-test)
-ADD_ARROW_TEST(status-test)
+add_arrow_benchmark(bit_util_benchmark)
+add_arrow_benchmark(compression_benchmark)
+add_arrow_benchmark(decimal_benchmark)
+add_arrow_benchmark(hashing_benchmark)
+add_arrow_benchmark(int_util_benchmark)
+add_arrow_benchmark(machine_benchmark)
+add_arrow_benchmark(number_parsing_benchmark)
+add_arrow_benchmark(range_benchmark)
+add_arrow_benchmark(thread_pool_benchmark)
+add_arrow_benchmark(trie_benchmark)
+add_arrow_benchmark(utf8_util_benchmark)

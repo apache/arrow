@@ -15,204 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+include "Schema.fbs";
+include "SparseTensor.fbs";
+include "Tensor.fbs";
+
 namespace org.apache.arrow.flatbuf;
-
-enum MetadataVersion:short {
-  V1_SNAPSHOT
-}
-
-/// ----------------------------------------------------------------------
-/// Logical types and their metadata (if any)
-///
-/// These are stored in the flatbuffer in the Type union below
-
-table Null {
-}
-
-/// A Struct_ in the flatbuffer metadata is the same as an Arrow Struct
-/// (according to the physical memory layout). We used Struct_ here as
-/// Struct is a reserved word in Flatbuffers
-table Struct_ {
-}
-
-table List {
-}
-
-enum UnionMode:short { Sparse, Dense }
-
-/// A union is a complex type with children in Field
-/// By default ids in the type vector refer to the offsets in the children
-/// optionally typeIds provides an indirection between the child offset and the type id
-/// for each child typeIds[offset] is the id used in the type vector
-table Union {
-  mode: UnionMode;
-  typeIds: [ int ]; // optional, describes typeid of each child.
-}
-
-table Int {
-  bitWidth: int; // restricted to 8, 16, 32, and 64 in v1
-  is_signed: bool;
-}
-
-enum Precision:short {HALF, SINGLE, DOUBLE}
-
-table FloatingPoint {
-  precision: Precision;
-}
-
-/// Unicode with UTF-8 encoding
-table Utf8 {
-}
-
-table Binary {
-}
-
-table Bool {
-}
-
-table Decimal {
-  precision: int;
-  scale: int;
-}
-
-table Date {
-}
-
-table Time {
-}
-
-enum TimeUnit: short { SECOND, MILLISECOND, MICROSECOND, NANOSECOND }
-
-/// time from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
-table Timestamp {
-  unit: TimeUnit;
-}
-
-enum IntervalUnit: short { YEAR_MONTH, DAY_TIME}
-table Interval {
-  unit: IntervalUnit;
-}
-
-/// ----------------------------------------------------------------------
-/// Top-level Type value, enabling extensible type-specific metadata. We can
-/// add new logical types to Type without breaking backwards compatibility
-
-union Type {
-  Null,
-  Int,
-  FloatingPoint,
-  Binary,
-  Utf8,
-  Bool,
-  Decimal,
-  Date,
-  Time,
-  Timestamp,
-  Interval,
-  List,
-  Struct_,
-  Union
-}
-
-/// ----------------------------------------------------------------------
-/// The possible types of a vector
-
-enum VectorType: short {
-  /// used in List type, Dense Union and variable length primitive types (String, Binary)
-  OFFSET,
-  /// actual data, either wixed width primitive types in slots or variable width delimited by an OFFSET vector
-  DATA,
-  /// Bit vector indicating if each value is null
-  VALIDITY,
-  /// Type vector used in Union type
-  TYPE
-}
-
-/// ----------------------------------------------------------------------
-/// represents the physical layout of a buffer
-/// buffers have fixed width slots of a given type
-
-table VectorLayout {
-  /// the width of a slot in the buffer (typically 1, 8, 16, 32 or 64)
-  bit_width: short;
-  /// the purpose of the vector
-  type: VectorType;
-}
-
-
-/// ----------------------------------------------------------------------
-/// user defined key value pairs to add custom metadata to arrow
-/// key namespacing is the responsibility of the user
-
-table KeyValue {
-  key: string;
-  value: [ubyte];
-}
-
-/// ----------------------------------------------------------------------
-/// A field represents a named column in a record / row batch or child of a
-/// nested type.
-///
-/// - children is only for nested Arrow arrays
-/// - For primitive types, children will have length 0
-/// - nullable should default to true in general
-
-table Field {
-  // Name is not required, in i.e. a List
-  name: string;
-  nullable: bool;
-  type: Type;
-  // present only if the field is dictionary encoded
-  // will point to a dictionary provided by a DictionaryBatch message
-  dictionary: long;
-  // children apply only to Nested data types like Struct, List and Union
-  children: [Field];
-  /// layout of buffers produced for this type (as derived from the Type)
-  /// does not include children
-  /// each recordbatch will return instances of those Buffers.
-  layout: [ VectorLayout ];
-  // User-defined metadata
-  custom_metadata: [ KeyValue ];
-}
-
-/// ----------------------------------------------------------------------
-/// Endianness of the platform that produces the RecordBatch
-
-enum Endianness:short { Little, Big }
-
-/// ----------------------------------------------------------------------
-/// A Schema describes the columns in a row batch
-
-table Schema {
-
-  /// endianness of the buffer
-  /// it is Little Endian by default
-  /// if endianness doesn't match the underlying system then the vectors need to be converted
-  endianness: Endianness=Little;
-
-  fields: [Field];
-  // User-defined metadata
-  custom_metadata: [ KeyValue ];
-}
 
 /// ----------------------------------------------------------------------
 /// Data structures for describing a table row batch (a collection of
 /// equal-length Arrow arrays)
-
-/// A Buffer represents a single contiguous memory segment
-struct Buffer {
-  /// The shared memory page id where this buffer is located. Currently this is
-  /// not used
-  page: int;
-
-  /// The relative offset into the shared memory page where the bytes for this
-  /// buffer starts
-  offset: long;
-
-  /// The absolute length (in bytes) of the memory buffer. The memory is found
-  /// from offset (inclusive) to offset + length (non-inclusive).
-  length: long;
-}
 
 /// Metadata about a field at some level of a nested type tree (but not
 /// its children).
@@ -223,12 +34,12 @@ struct Buffer {
 struct FieldNode {
   /// The number of value slots in the Arrow array at this level of a nested
   /// tree
-  length: int;
+  length: long;
 
   /// The number of observed nulls. Fields with null_count == 0 may choose not
   /// to write their physical validity bitmap out as a materialized buffer,
   /// instead setting the length of the bitmap buffer to 0.
-  null_count: int;
+  null_count: long;
 }
 
 /// A data header describing the shared memory layout of a "record" or "row"
@@ -237,7 +48,7 @@ struct FieldNode {
 table RecordBatch {
   /// number of records / rows. The arrays in the batch should all have this
   /// length
-  length: int;
+  length: long;
 
   /// Nodes correspond to the pre-ordered flattened logical schema
   nodes: [FieldNode];
@@ -251,16 +62,21 @@ table RecordBatch {
   buffers: [Buffer];
 }
 
-/// ----------------------------------------------------------------------
 /// For sending dictionary encoding information. Any Field can be
 /// dictionary-encoded, but in this case none of its children may be
 /// dictionary-encoded.
-/// There is one dictionary batch per dictionary
-///
+/// There is one vector / column per dictionary, but that vector / column
+/// may be spread across multiple dictionary batches by using the isDelta
+/// flag
 
 table DictionaryBatch {
   id: long;
   data: RecordBatch;
+
+  /// If isDelta is true the values in the dictionary are to be appended to a
+  /// dictionary with the indicated id. If isDelta is false this dictionary
+  /// should replace the existing dictionary.
+  isDelta: bool = false;
 }
 
 /// ----------------------------------------------------------------------
@@ -268,14 +84,19 @@ table DictionaryBatch {
 
 /// This union enables us to easily send different message types without
 /// redundant storage, and in the future we can easily add new message types.
+///
+/// Arrow implementations do not need to implement all of the message types,
+/// which may include experimental metadata types. For maximum compatibility,
+/// it is best to send data using RecordBatch
 union MessageHeader {
-  Schema, DictionaryBatch, RecordBatch
+  Schema, DictionaryBatch, RecordBatch, Tensor, SparseTensor
 }
 
 table Message {
   version: org.apache.arrow.flatbuf.MetadataVersion;
   header: MessageHeader;
   bodyLength: long;
+  custom_metadata: [ KeyValue ];
 }
 
 root_type Message;

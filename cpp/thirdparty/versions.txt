@@ -1,0 +1,83 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Toolchain library versions
+#
+# This file is used by `download_dependencies.sh` and cmake to figure out which
+# version of a dependency to fetch. In order to add a new dependency, add a
+# version variable, e.g. MY_DEP_VERSION and append an entry in the
+# `DEPENDENCIES` array (see the comment on top of the declaration for the
+# format).
+
+ARROW_AWSSDK_BUILD_VERSION=1.7.160
+ARROW_BOOST_BUILD_VERSION=1.71.0
+ARROW_BROTLI_BUILD_VERSION=v1.0.7
+ARROW_BZIP2_BUILD_VERSION=1.0.8
+ARROW_CARES_BUILD_VERSION=1.15.0
+ARROW_GBENCHMARK_BUILD_VERSION=v1.5.0
+ARROW_GFLAGS_BUILD_VERSION=v2.2.0
+ARROW_GLOG_BUILD_VERSION=v0.3.5
+ARROW_GRPC_BUILD_VERSION=v1.25.0
+ARROW_GTEST_BUILD_VERSION=1.8.1
+ARROW_JEMALLOC_BUILD_VERSION=5.2.1
+ARROW_LZ4_BUILD_VERSION=v1.9.2
+# Need post-v1.0.6 version for https://github.com/microsoft/mimalloc/pull/140,
+# https://github.com/microsoft/mimalloc/pull/145 and
+# https://github.com/microsoft/mimalloc/pull/148
+ARROW_MIMALLOC_BUILD_VERSION=270e765454f98e8bab9d42609b153425f749fff6
+ARROW_ORC_BUILD_VERSION=1.5.7
+ARROW_PROTOBUF_BUILD_VERSION=v3.7.1
+# Because of https://github.com/Tencent/rapidjson/pull/1323, we require
+# a pre-release version of RapidJSON to build with GCC 8 without
+# warnings.
+ARROW_RAPIDJSON_BUILD_VERSION=2bbd33b33217ff4a73434ebf10cdac41e2ef5e34
+ARROW_RE2_BUILD_VERSION=2019-08-01
+ARROW_SNAPPY_BUILD_VERSION=1.1.7
+ARROW_THRIFT_BUILD_VERSION=0.12.0
+ARROW_THRIFT_BUILD_MD5_CHECKSUM=3deebbb4d1ca77dd9c9e009a1ea02183
+ARROW_ZLIB_BUILD_VERSION=1.2.11
+ARROW_ZSTD_BUILD_VERSION=v1.4.3
+
+# The first field is the name of the environment variable expected by cmake.
+# This _must_ match what is defined. The second field is the name of the
+# generated archive file. The third field is the url of the project for the
+# given version.
+DEPENDENCIES=(
+  "ARROW_AWSSDK_URL aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+  "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION//./_}.tar.gz"
+  "ARROW_BROTLI_URL brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
+  "ARROW_BZIP2_URL bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+  "ARROW_CARES_URL cares-${ARROW_CARES_BUILD_VERSION}.tar.gz https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
+  "ARROW_GBENCHMARK_URL gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
+  "ARROW_GFLAGS_URL gflags-${ARROW_GFLAGS_BUILD_VERSION}.tar.gz https://github.com/gflags/gflags/archive/${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
+  "ARROW_GLOG_URL glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz"
+  "ARROW_GRPC_URL grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz"
+  "ARROW_GTEST_URL gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+  "ARROW_JEMALLOC_URL jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/${ARROW_JEMALLOC_BUILD_VERSION}/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
+  "ARROW_LZ4_URL lz4-${ARROW_LZ4_BUILD_VERSION}.tar.gz https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz"
+  "ARROW_MIMALLOC_URL mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
+  "ARROW_ORC_URL orc-${ARROW_ORC_BUILD_VERSION}.tar.gz https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+  "ARROW_PROTOBUF_URL protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz https://github.com/google/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_BUILD_VERSION:1}.tar.gz"
+  "ARROW_RAPIDJSON_URL rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
+  "ARROW_RE2_URL re2-${ARROW_RE2_BUILD_VERSION}.tar.gz https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
+  "ARROW_SNAPPY_URL snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+  "ARROW_THRIFT_URL thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz https://archive.apache.org/dist/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+  "ARROW_ZLIB_URL zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
+  "ARROW_ZSTD_URL zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
+)
+
+# vim: set filetype=sh:

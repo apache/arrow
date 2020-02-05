@@ -18,36 +18,26 @@
 # under the License.
 #
 
-# download apache rat
-curl -s https://repo1.maven.org/maven2/org/apache/rat/apache-rat/0.12/apache-rat-0.12.jar > apache-rat-0.12.jar
+RAT_VERSION=0.13
 
-RAT="java -jar apache-rat-0.12.jar -d "
+# download apache rat
+if [ ! -f apache-rat-${RAT_VERSION}.jar ]; then
+  curl -s https://repo1.maven.org/maven2/org/apache/rat/apache-rat/${RAT_VERSION}/apache-rat-${RAT_VERSION}.jar > apache-rat-${RAT_VERSION}.jar
+fi
+
+RAT="java -jar apache-rat-${RAT_VERSION}.jar -x "
+
+RELEASE_DIR=$(cd "$(dirname "$BASH_SOURCE")"; pwd)
 
 # generate the rat report
-$RAT $1 \
-  -e ".*" \
-  -e mman.h \
-  -e "*_generated.h" \
-  -e random.h \
-  -e status.cc \
-  -e status.h \
-  -e asan_symbolize.py \
-  -e cpplint.py \
-  -e FindPythonLibsNew.cmake \
-  -e pax_global_header \
-  -e MANIFEST.in \
-  -e __init__.pxd \
-  -e __init__.py \
-  -e requirements.txt \
-  > rat.txt
-cat rat.txt
-UNAPPROVED=`cat rat.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
+$RAT $1 > rat.txt
+python $RELEASE_DIR/check-rat-report.py $RELEASE_DIR/rat_exclude_files.txt rat.txt > filtered_rat.txt
+cat filtered_rat.txt
+UNAPPROVED=`cat filtered_rat.txt  | grep "NOT APPROVED" | wc -l`
 
 if [ "0" -eq "${UNAPPROVED}" ]; then
-  echo "No unnaproved licenses"
+  echo "No unapproved licenses"
 else
   echo "${UNAPPROVED} unapproved licences. Check rat report: rat.txt"
   exit 1
 fi
-
-

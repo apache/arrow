@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +15,12 @@
  * limitations under the License.
  */
 
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.vector.complex.writer.DecimalWriter;
+import org.apache.arrow.vector.holders.DecimalHolder;
+
 import java.lang.UnsupportedOperationException;
+import java.math.BigDecimal;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionListWriter.java" />
@@ -35,17 +39,19 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class UnionListWriter extends AbstractFieldWriter {
 
-  private ListVector vector;
-  private UInt4Vector offsets;
-  private PromotableWriter writer;
-  private boolean inMap = false;
-  private String mapName;
-  private int lastIndex = 0;
+  protected ListVector vector;
+  protected PromotableWriter writer;
+  private boolean inStruct = false;
+  private String structName;
+  private static final int OFFSET_WIDTH = 4;
 
   public UnionListWriter(ListVector vector) {
+    this(vector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
+  }
+
+  public UnionListWriter(ListVector vector, NullableStructWriterFactory nullableStructWriterFactory) {
     this.vector = vector;
-    this.writer = new PromotableWriter(vector.getDataVector(), vector);
-    this.offsets = vector.getOffsetVector();
+    this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableStructWriterFactory);
   }
 
   public UnionListWriter(ListVector vector, AbstractFieldWriter parent) {
@@ -64,11 +70,11 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public Field getField() {
-    return null;
+    return vector.getField();
   }
 
   public void setValueCount(int count) {
-    vector.getMutator().setValueCount(count);
+    vector.setValueCount(count);
   }
 
   @Override
@@ -78,39 +84,51 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public void close() throws Exception {
-
+    vector.close();
+    writer.close();
   }
 
   @Override
   public void setPosition(int index) {
     super.setPosition(index);
   }
-
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
-
-  <#if !minor.class?starts_with("Decimal")>
+  <#if uncappedName == "int" ><#assign uncappedName = "integer" /></#if>
+  <#if !minor.typeParams?? >
 
   @Override
-  public ${name}Writer <#if uncappedName == "int">integer<#else>${uncappedName}</#if>() {
+  public ${name}Writer ${uncappedName}() {
     return this;
   }
 
   @Override
-  public ${name}Writer <#if uncappedName == "int">integer<#else>${uncappedName}</#if>(String name) {
-//    assert inMap;
-    mapName = name;
-    return writer.<#if uncappedName == "int">integer<#else>${uncappedName}</#if>(name);
+  public ${name}Writer ${uncappedName}(String name) {
+    structName = name;
+    return writer.${uncappedName}(name);
   }
-
   </#if>
-
   </#list></#list>
 
   @Override
-  public MapWriter map() {
-    inMap = true;
+  public DecimalWriter decimal() {
+    return this;
+  }
+
+  @Override
+  public DecimalWriter decimal(String name, int scale, int precision) {
+    return writer.decimal(name, scale, precision);
+  }
+
+  @Override
+  public DecimalWriter decimal(String name) {
+    return writer.decimal(name);
+  }
+
+  @Override
+  public StructWriter struct() {
+    inStruct = true;
     return this;
   }
 
@@ -126,52 +144,68 @@ public class UnionListWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public MapWriter map(String name) {
-    MapWriter mapWriter = writer.map(name);
-    return mapWriter;
+  public StructWriter struct(String name) {
+    StructWriter structWriter = writer.struct(name);
+    return structWriter;
   }
 
   @Override
   public void startList() {
-    vector.getMutator().startNewValue(idx());
-    writer.setPosition(offsets.getAccessor().get(idx() + 1));
+    vector.startNewValue(idx());
+    writer.setPosition(vector.getOffsetBuffer().getInt((idx() + 1) * OFFSET_WIDTH));
   }
 
   @Override
   public void endList() {
-    offsets.getMutator().set(idx() + 1, writer.idx());
+    vector.getOffsetBuffer().setInt((idx() + 1) * OFFSET_WIDTH, writer.idx());
     setPosition(idx() + 1);
   }
 
   @Override
   public void start() {
-//    assert inMap;
     writer.start();
   }
 
   @Override
   public void end() {
-//    if (inMap) {
     writer.end();
-    inMap = false;
-//    }
+    inStruct = false;
   }
 
-  <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-  <#assign fields = minor.fields!type.fields />
-  <#assign uncappedName = name?uncap_first/>
+  @Override
+  public void write(DecimalHolder holder) {
+    writer.write(holder);
+    writer.setPosition(writer.idx()+1);
+  }
 
-  <#if !minor.class?starts_with("Decimal")>
+  public void writeDecimal(int start, ArrowBuf buffer) {
+    writer.writeDecimal(start, buffer);
+    writer.setPosition(writer.idx()+1);
+  }
 
+  public void writeDecimal(BigDecimal value) {
+    writer.writeDecimal(value);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  <#list vv.types as type>
+    <#list type.minor as minor>
+      <#assign name = minor.class?cap_first />
+      <#assign fields = minor.fields!type.fields />
+      <#assign uncappedName = name?uncap_first/>
+      <#if !minor.typeParams?? >
   @Override
   public void write${name}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
-//    assert !inMap;
     writer.write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
     writer.setPosition(writer.idx()+1);
   }
 
-  </#if>
+  public void write(${name}Holder holder) {
+    writer.write${name}(<#list fields as field>holder.${field.name}<#if field_has_next>, </#if></#list>);
+    writer.setPosition(writer.idx()+1);
+  }
 
-  </#list></#list>
-
+      </#if>
+    </#list>
+  </#list>
 }

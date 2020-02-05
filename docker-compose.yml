@@ -1,0 +1,1078 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# The environment variables referenced from this docker-compose can be set by
+# defining them before running docker-compose, the defaults are set in .env
+# file.
+#
+# Example:
+# $ ARCH=arm64v8 docker-compose build ubuntu-bionic-cpp
+# $ ARCH=arm64v8 docker-compose run ubuntu-bionic-cpp
+
+version: '3.5'
+
+# TODO(kszucs): add .ccache to the mounts
+volumes:
+  # Named volumes must be predefined, so in order to use other architecture,
+  # like ARM64v8 with debian 10, then the appropriate parametrized volume name
+  # must be added the list below: arm64v8-debian-10-cache
+  amd64-conda-cache:
+  amd64-cuda-9.1-cache:
+  amd64-cuda-10.0-cache:
+  amd64-cuda-10.1-cache:
+  amd64-debian-9-cache:
+  amd64-debian-10-cache:
+  amd64-fedora-29-cache:
+  amd64-ubuntu-14.04-cache:
+  amd64-ubuntu-16.04-cache:
+  amd64-ubuntu-18.04-cache:
+  maven-cache:
+
+x-ccache: &ccache
+  CCACHE_COMPILERCHECK: content
+  CCACHE_COMPRESS: 1
+  CCACHE_COMPRESSLEVEL: 5
+  CCACHE_MAXSIZE: 500M
+  CCACHE_DIR: /build/ccache
+
+services:
+
+  ################################# C++ #######################################
+  # Release build:
+  #   docker-compose run -e ARROW_BUILD_TYPE=release conda-cpp|debian-cpp|...
+  # Shared only:
+  #   docker-compose run -e ARROW_BUILD_STATIC=OFF conda-cpp|debian-cpp|...
+  # Static only:
+  #   docker-compose run \
+  #     -e ARROW_BUILD_SHARED=OFF \
+  #     -e ARROW_TEST_LINKAGE=static \
+  #     conda-cpp|debian-cpp|...
+  # Minimum boost - Ubuntu Xenial 16.04 has Boost 1.58:
+  #   UBUNTU=16.04 docker-compose build \
+  #     -e BOOST_SOURCE=SYSTEM \
+  #     ubuntu-cpp
+
+  conda-cpp:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose run --rm conda-cpp
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-conda-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/conda-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-cpp
+      args:
+        arch: ${ARCH}
+        prefix: /opt/conda
+    shm_size: &shm-size 2G
+    environment:
+      <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+    volumes: &conda-volumes
+      - .:/arrow:delegated
+      - ${ARCH}-conda-cache:/build:delegated
+    command: &cpp-conda-command
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"]
+
+  cuda-cpp:
+    # Usage:
+    #   docker-compose build cuda-cpp
+    #   docker-compose run --rm cuda-cpp
+    # Also need to edit the host docker configuration as follows:
+    #   https://github.com/docker/compose/issues/6691#issuecomment-561504928
+    # Parameters:
+    #   ARCH: amd64
+    #   CUDA: 9.1, 10.0, 10.1
+    image: ${REPO}:${ARCH}-cuda-${CUDA}-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/cuda-${CUDA}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-cuda-${CUDA}-cpp
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+    volumes: &cuda-volumes
+      - .:/arrow:delegated
+      - ${ARCH}-cuda-${CUDA}-cache:/build:delegated
+    command: &cpp-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"
+
+  debian-cpp:
+    # Usage:
+    #   docker-compose build debian-cpp
+    #   docker-compose run --rm debian-cpp
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 9, 10
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/debian-${DEBIAN}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
+      args:
+        arch: ${ARCH}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+    volumes: &debian-volumes
+      - .:/arrow:delegated
+      - ${ARCH}-debian-${DEBIAN}-cache:/build:delegated
+    command: *cpp-command
+
+  ubuntu-cpp:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose run --rm ubuntu-cpp
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+      args:
+        arch: ${ARCH}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+    volumes: &ubuntu-volumes
+      - .:/arrow:delegated
+      - ${ARCH}-ubuntu-${UBUNTU}-cache:/build:delegated
+    command: *cpp-command
+
+  ubuntu-cpp-sanitizer:
+    # Usage:
+    #   docker-compose build ubuntu-cpp-sanitizer
+    #   docker-compose run --rm ubuntu-cpp-sanitizer
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    cap_add:
+      # For LeakSanitizer
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+      args:
+        arch: ${ARCH}
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    environment:
+      <<: *ccache
+      CC: clang-7
+      CXX: clang++-7
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_FUZZING: "ON"  # Check fuzz regressions
+      ARROW_JEMALLOC: "OFF"
+      ARROW_ORC: "OFF"
+      ARROW_USE_ASAN: "ON"
+      ARROW_USE_UBSAN: "ON"
+    command: *cpp-command
+
+  fedora-cpp:
+    # Usage:
+    #   docker-compose build fedora-cpp
+    #   docker-compose run --rm fedora-cpp
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   FEDORA: 29, ...
+    image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/fedora-${FEDORA}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
+      args:
+        arch: ${ARCH}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+    volumes: &fedora-volumes
+      - .:/arrow:delegated
+      - ${ARCH}-fedora-${FEDORA}-cache:/build:delegated
+    command: *cpp-command
+
+  ############################### C GLib ######################################
+
+  debian-c-glib:
+    # Usage:
+    #   docker-compose build debian-cpp
+    #   docker-compose build debian-c-glib
+    #   docker-compose run --rm debian-c-glib
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 9, 10
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-c-glib.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
+      args:
+        base: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
+    environment:
+      ARROW_GLIB_GTK_DOC: "true"
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *debian-volumes
+    command: &c-glib-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
+        /arrow/ci/scripts/c_glib_test.sh /arrow /build"
+
+  ubuntu-c-glib:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-c-glib
+    #   docker-compose run --rm ubuntu-c-glib
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-c-glib.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
+      args:
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    environment:
+      <<: *ccache
+      ARROW_GLIB_GTK_DOC: "true"
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    command: *c-glib-command
+
+  ############################### Ruby ########################################
+  # Until Ruby is the only dependent implementation on top of C Glib we can
+  # test C Glib and Ruby in one pass. This is an optimization to avoid
+  # redundant (one for C GLib and one for Ruby doing the same work twice)
+  # builds on CI services.
+
+  debian-ruby:
+    # Usage:
+    #   docker-compose build debian-cpp
+    #   docker-compose build debian-c-glib
+    #   docker-compose build debian-ruby
+    #   docker-compose run --rm debian-ruby
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 9, 10
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-ruby
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-ruby.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-ruby
+      args:
+        base: ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *debian-volumes
+    command: &ruby-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
+        /arrow/ci/scripts/c_glib_test.sh /arrow /build &&
+        /arrow/ci/scripts/ruby_test.sh /arrow"
+
+  ubuntu-ruby:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-c-glib
+    #   docker-compose build ubuntu-ruby
+    #   docker-compose run --rm ubuntu-ruby
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-ruby.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
+      args:
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *ubuntu-volumes
+    command: *ruby-command
+
+  ############################### Python ######################################
+
+  conda-python:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose run --rm conda-python
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    #   PYTHON: 2.7, 3.6, 3.7, 3.8
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *conda-volumes
+    command: &python-conda-command
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_test.sh /arrow"]
+
+  cuda-python:
+    # Usage:
+    #   docker-compose build cuda-cpp
+    #   docker-compose build cuda-python
+    #   docker-compose run --rm cuda-python
+    # Parameters:
+    #   ARCH: amd64
+    #   CUDA: 8.0, 10.0, ...
+    image: ${REPO}:${ARCH}-cuda-${CUDA}-python-3
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-python-3.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-cuda-${CUDA}-python-3
+      args:
+        base: ${REPO}:${ARCH}-cuda-${CUDA}-cpp
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *cuda-volumes
+    command: &python-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_test.sh /arrow"
+
+  debian-python:
+    # Usage:
+    #   docker-compose build debian-cpp
+    #   docker-compose build debian-python
+    #   docker-compose run --rm debian-python
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 9, 10
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-python-3.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
+      args:
+        base: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *debian-volumes
+    command: *python-command
+
+  ubuntu-python:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-python
+    #   docker-compose run --rm ubuntu-python
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-python-3.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+      args:
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *ubuntu-volumes
+    command: *python-command
+
+  fedora-python:
+    # Usage:
+    #   docker-compose build fedora-cpp
+    #   docker-compose build fedora-python
+    #   docker-compose run --rm fedora-python
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 29, ...
+    image: ${REPO}:${ARCH}-fedora-${FEDORA}-python-3
+    build:
+      context: .
+      dockerfile: ci/docker/linux-dnf-python-3.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-fedora-${FEDORA}-python-3
+      args:
+        base: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *fedora-volumes
+    command: *python-command
+
+  ##############################  Integration #################################
+
+  ubuntu-cpp-cmake32:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-cpp-cmake32
+    #   docker-compose run ubuntu-cpp-cmake32
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-cmake-3.2
+    build:
+      context: .
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-cmake-3.2
+      dockerfile: ci/docker/linux-apt-cmake.dockerfile
+      args:
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+        cmake: 3.2.3
+    environment:
+      <<: *ccache
+      ARROW_ORC: "OFF"
+      ARROW_GANDIVA: "OFF"
+      # uriparser requires cmake 3.3
+      ARROW_FLIGHT: "OFF"
+      # Vendor boost to avoid dealing with stale FindBoost.
+      BOOST_SOURCE: "BUNDLED"
+    volumes: *ubuntu-volumes
+    command: *cpp-command
+
+  conda-python-pandas:
+    # Possible $PANDAS parameters:
+    #  - `latest`: latest release
+    #  - `master`: git master branch, use `docker-compose run --no-cache`
+    #  - `<version>`: specific version available on conda-forge
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-pandas
+    #   docker-compose run --rm conda-python-pandas
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-pandas.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+        pandas: ${PANDAS}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *conda-volumes
+    command: *python-conda-command
+
+  conda-python-dask:
+    # Possible $DASK parameters:
+    #  - `latest`: latest release
+    #  - `master`: git master branch, use `docker-compose run --no-cache`
+    #  - `<version>`: specific version available on conda-forge
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-dask
+    #   docker-compose run --rm conda-python-dask
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-dask-${DASK}
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-dask.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-dask-${DASK}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+        dask: ${DASK}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *conda-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_dask.sh"]
+
+  conda-python-turbodbc:
+    # Possible $DASK parameters:
+    #  - `latest`: latest release
+    #  - `master`: git master branch, use `docker-compose run --no-cache`
+    #  - `<version>`: specific version available under github releases
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-turbodbc
+    #   docker-compose run --rm conda-python-turbodbc
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-turbodbc-${TURBODBC}
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-turbodbc.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-turbodbc-${TURBODBC}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+        turbodbc: ${TURBODBC}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *conda-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_turbodbc.sh /turbodbc /build"]
+
+  ########################## Python Wheels ####################################
+
+  centos-python-manylinux1:
+    image: ${REPO}:amd64-centos-5.11-python-manylinux1
+    build:
+      context: python/manylinux1
+      dockerfile: Dockerfile-x86_64_base
+      cache_from:
+        - ${REPO}:amd64-centos-5.11-python-manylinux1
+    shm_size: *shm-size
+    environment:
+      PYARROW_PARALLEL: 3
+      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
+    volumes:
+      - .:/arrow:delegated
+      - ./python/manylinux1:/io:delegated
+    command: &manylinux-command /io/build_arrow.sh
+
+  centos-python-manylinux2010:
+    image: ${REPO}:amd64-centos-6.10-python-manylinux2010
+    build:
+      context: python/manylinux201x
+      dockerfile: Dockerfile-x86_64_base_2010
+      cache_from:
+        - ${REPO}:amd64-centos-6.10-python-manylinux2010
+    shm_size: *shm-size
+    environment:
+      PYARROW_PARALLEL: 3
+      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
+    volumes:
+      - .:/arrow:delegated
+      - ./python/manylinux201x:/io:delegated
+    command: *manylinux-command
+
+  centos-python-manylinux2014:
+    image: ${REPO}:amd64-centos-7.7-python-manylinux2014
+    build:
+      context: python/manylinux201x
+      dockerfile: Dockerfile-x86_64_base_2014
+      cache_from:
+        - ${REPO}:amd64-centos-7.7-python-manylinux2014
+    shm_size: *shm-size
+    environment:
+      PYARROW_PARALLEL: 3
+      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
+    volumes:
+      - .:/arrow:delegated
+      - ./python/manylinux201x:/io:delegated
+    command: *manylinux-command
+
+  ################################## R ########################################
+
+  conda-r:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-r
+    #   docker-compose run conda-r
+    image: ${REPO}:${ARCH}-conda-r-${R}
+    build:
+      context: .
+      dockerfile: ci/docker/conda-r.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-r-${R}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        r: ${R}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *conda-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/r_test.sh /arrow"]
+
+  ubuntu-r:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-r
+    #   docker-compose run ubuntu-r
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-r-${R}
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-r.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-r-${R}
+      args:
+        r: ${R}
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/r_test.sh /arrow"
+
+  r:
+    # This lets you test building/installing the arrow R package
+    # (including building the C++ library) on any Docker image that contains R
+    #
+    # Usage:
+    #   R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose build r
+    #   R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose run r
+    image: ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
+      args:
+        base: ${R_ORG}/${R_IMAGE}:${R_TAG}
+    shm_size: *shm-size
+    environment:
+      TEST_R_WITH_ARROW: "true"
+      NOT_CRAN: "true"
+      LIBARROW_DOWNLOAD: "false"
+    volumes:
+      - .:/arrow:delegated
+    command: >
+      /bin/bash -c "
+        cd /arrow/r &&
+        R CMD INSTALL . &&
+        cd tests &&
+        R --no-save --no-restore -e 'library(testthat); library(arrow); library(tibble); test_check(\"arrow\", reporter = \"summary\", stop_on_warning = TRUE)'"
+
+  ubuntu-r-sanitizer:
+    # Only 18.04 and amd64 supported
+    # Usage:
+    #   docker-compose build ubuntu-r-sanitizer
+    #   docker-compose run ubuntu-r-sanitizer
+    image: ${REPO}:amd64-ubuntu-18.04-r-sanitizer
+    cap_add:
+      # LeakSanitizer and gdb requires ptrace(2)
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-18.04-r-sanitizer.dockerfile
+      cache_from:
+        - ${REPO}:amd64-ubuntu-18.04-r-sanitizer
+    environment:
+      <<: *ccache
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/r_sanitize.sh /arrow"
+
+  ################################ Rust #######################################
+
+  debian-rust:
+    # Usage:
+    #   docker-compose build debian-rust
+    #   docker-compose run debian-rust
+    image: ${REPO}:${ARCH}-debian-10-rust-${RUST}
+    build:
+      context: .
+      dockerfile: ci/docker/debian-10-rust.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-10-rust-${RUST}
+      args:
+        arch: ${ARCH}
+        rust: ${RUST}
+    shm_size: *shm-size
+    environment:
+      CARGO_HOME: /build/cargo
+    volumes: *debian-volumes
+    command: &rust-command >
+      /bin/bash -c "
+        echo ${RUST} > /arrow/rust/rust-toolchain &&
+        /arrow/ci/scripts/rust_build.sh /arrow /build &&
+        /arrow/ci/scripts/rust_test.sh /arrow /build"
+
+  ################################# Go ########################################
+
+  debian-go:
+    # Usage:
+    #   docker-compose build debian-go
+    #   docker-compose run debian-go
+    image: ${REPO}:${ARCH}-debian-10-go-${GO}
+    build:
+      context: .
+      dockerfile: ci/docker/debian-10-go.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-10-go-${GO}
+      args:
+        arch: ${ARCH}
+        go: ${GO}
+    shm_size: *shm-size
+    volumes: *debian-volumes
+    command: &go-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/go_build.sh /arrow &&
+        /arrow/ci/scripts/go_test.sh /arrow"
+
+  ############################# JavaScript ####################################
+
+  debian-js:
+    # Usage:
+    #   docker-compose build debian-js
+    #   docker-compose run debian-js
+    image: ${REPO}:${ARCH}-debian-10-js-${NODE}
+    build:
+      context: .
+      dockerfile: ci/docker/debian-10-js.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-10-js-${NODE}
+      args:
+        arch: ${ARCH}
+        node: ${NODE}
+    shm_size: *shm-size
+    volumes: *debian-volumes
+    command: &js-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/js_build.sh /arrow &&
+        /arrow/ci/scripts/js_test.sh /arrow"
+
+  #################################### C# #####################################
+
+  ubuntu-csharp:
+    # Usage:
+    #   docker-compose build debian-csharp
+    #   docker-compose run debian-csharp
+    image: ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-18.04-csharp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
+      args:
+        dotnet: ${DOTNET}
+        platform: bionic  # use bionic-arm64v8 for ARM
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    command: &csharp-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/csharp_build.sh /arrow &&
+        /arrow/ci/scripts/csharp_test.sh /arrow"
+
+  ################################ Java #######################################
+
+  debian-java:
+    # Usage:
+    #   docker-compose build debian-java
+    #   docker-compose run debian-java
+    image: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
+    build:
+      context: .
+      dockerfile: ci/docker/debian-9-java.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
+      args:
+        arch: ${ARCH}
+        jdk: ${JDK}
+        maven: ${MAVEN}
+    shm_size: *shm-size
+    volumes: &java-volumes
+      - .:/arrow:delegated
+      - maven-cache:/root/.m2:delegated
+    command: &java-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_test.sh /arrow /build"
+
+  debian-java-jni:
+    # Includes plasma test and jni for gandiva and orc.
+    # Usage:
+    #   docker-compose build debian-java
+    #   docker-compose build debian-java-jni
+    #   docker-compose run debian-java-jni
+    image: ${REPO}:${ARCH}-debian-9-java-jni
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-jni.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-9-java-jni
+      args:
+        base: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes:
+      - .:/arrow:delegated
+      - maven-cache:/root/.m2:delegated
+      - ${ARCH}-debian-9-cache:/build:delegated
+    command:
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_test.sh /arrow /build"
+
+  ############################## Integration ##################################
+
+  conda-integration:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-integration
+    #   docker-compose run conda-integration
+    image: ${REPO}:${ARCH}-conda-integration
+    build:
+      context: .
+      dockerfile: ci/docker/conda-integration.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-integration
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        jdk: ${JDK}
+        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
+        # be set to ${MAVEN}
+        maven: 3.5
+        node: ${NODE}
+        go: ${GO}
+    volumes: *conda-volumes
+    environment:
+      <<: *ccache
+      # tell archery where the arrow binaries are located
+      ARROW_CPP_EXE_PATH: /build/cpp/debug
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/go_build.sh /arrow &&
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/js_build.sh /arrow /build &&
+        pip install -e /arrow/dev/archery &&
+        archery integration --with-all --run-flight"]
+
+  ################################ Docs #######################################
+
+  ubuntu-docs:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-python
+    #   docker-compose build ubuntu-docs
+    #   docker-compose run --rm ubuntu-docs
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-docs.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
+      args:
+        jdk: ${JDK}
+        node: ${NODE}
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+    environment:
+      <<: *ccache
+      ARROW_GLIB_GTK_DOC: "true"
+    volumes: *ubuntu-volumes
+    command:
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build true &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_build.sh /arrow /build true &&
+        /arrow/ci/scripts/js_build.sh /arrow true &&
+        /arrow/ci/scripts/docs_build.sh /arrow /build"
+
+  ################################# Tools #####################################
+
+  ubuntu-lint:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-lint
+    #   docker-compose run ubuntu-lint
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-lint.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
+      args:
+        rust: ${RUST}
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    environment:
+      <<: *ccache
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "pip install -e /arrow/dev/archery && archery lint"
+
+  ######################### Integration Tests #################################
+
+  postgres:
+    # required for the impala service
+    image: postgres
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_PASSWORD: postgres
+
+  impala:
+    # required for the hiveserver and hdfs tests
+    image: ibisproject/impala:latest
+    hostname: impala
+    links:
+      - postgres:postgres
+    environment:
+      PGPASSWORD: postgres
+    ports:
+      # HDFS
+      - 9020:9020
+      - 50070:50070
+      - 50075:50075
+      - 8020:8020
+      - 8042:8042
+      # Hive
+      - 9083:9083
+      # Impala
+      - 21000:21000
+      - 21050:21050
+      - 25000:25000
+      - 25010:25010
+      - 25020:25020
+
+  conda-cpp-hiveserver2:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-cpp-hiveserver2
+    #   docker-compose run conda-cpp-hiveserver2
+    image: ${REPO}:${ARCH}-conda-cpp
+    links:
+      - impala:impala
+    environment:
+      - ARROW_FLIGHT=OFF
+      - ARROW_GANDIVA=OFF
+      - ARROW_PLASMA=OFF
+      - ARROW_HIVESERVER2=ON
+      - ARROW_HIVESERVER2_TEST_HOST=impala
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *conda-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_hiveserver2.sh /arrow /build"]
+
+  conda-python-hdfs:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-hdfs
+    #   docker-compose run conda-python-hdfs
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-hdfs-${HDFS}
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-hdfs.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-hdfs-${HDFS}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+        jdk: ${JDK}
+        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
+        # be set to ${MAVEN}
+        maven: 3.5
+        hdfs: ${HDFS}
+    links:
+      - impala:impala
+    environment:
+      <<: *ccache
+      ARROW_HDFS: "ON"
+      ARROW_HDFS_TEST_HOST: impala
+      ARROW_HDFS_TEST_PORT: 8020
+      ARROW_HDFS_TEST_USER: hdfs
+    shm_size: *shm-size
+    volumes: &conda-maven-volumes
+      - .:/arrow:delegated
+      - maven-cache:/root/.m2:delegated
+      - ${ARCH}-conda-cache:/build:delegated
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_hdfs.sh /arrow /build"]
+
+  conda-python-spark:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-spark
+    #   docker-compose run conda-python-spark
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-spark-${SPARK}
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-spark.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-spark-${SPARK}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+        jdk: ${JDK}
+        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
+        # be set to ${MAVEN}
+        maven: 3.5
+        spark: ${SPARK}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *conda-maven-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_spark.sh /arrow /spark"]

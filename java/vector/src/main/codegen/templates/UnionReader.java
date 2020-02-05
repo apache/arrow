@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +17,7 @@
 
 
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionReader.java" />
@@ -28,7 +28,9 @@ import org.apache.arrow.vector.types.Types.MinorType;
 package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
-
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 @SuppressWarnings("unused")
 public class UnionReader extends AbstractFieldReader {
 
@@ -51,8 +53,13 @@ public class UnionReader extends AbstractFieldReader {
     }
   }
 
+  @Override
+  public Field getField() {
+    return data.getField();
+  }
+
   public boolean isSet(){
-    return !data.getAccessor().isNull(idx());
+    return !data.isNull(idx());
   }
 
   public void read(UnionHolder holder) {
@@ -73,31 +80,34 @@ public class UnionReader extends AbstractFieldReader {
     switch (MinorType.values()[typeValue]) {
     case NULL:
       return NullReader.INSTANCE;
-    case MAP:
-      return (FieldReader) getMap();
+    case STRUCT:
+      return (FieldReader) getStruct();
     case LIST:
       return (FieldReader) getList();
-    <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-    <#assign uncappedName = name?uncap_first/>
-    <#if !minor.class?starts_with("Decimal")>
+    <#list vv.types as type>
+      <#list type.minor as minor>
+        <#assign name = minor.class?cap_first />
+        <#assign uncappedName = name?uncap_first/>
+        <#if !minor.typeParams?? >
     case ${name?upper_case}:
       return (FieldReader) get${name}();
-    </#if>
-    </#list></#list>
+        </#if>
+      </#list>
+    </#list>
     default:
       throw new UnsupportedOperationException("Unsupported type: " + MinorType.values()[typeValue]);
     }
   }
 
-  private SingleMapReaderImpl mapReader;
+  private SingleStructReaderImpl structReader;
 
-  private MapReader getMap() {
-    if (mapReader == null) {
-      mapReader = (SingleMapReaderImpl) data.getMap().getReader();
-      mapReader.setPosition(idx());
-      readers[MinorType.MAP.ordinal()] = mapReader;
+  private StructReader getStruct() {
+    if (structReader == null) {
+      structReader = (SingleStructReaderImpl) data.getStruct().getReader();
+      structReader.setPosition(idx());
+      readers[MinorType.STRUCT.ordinal()] = structReader;
     }
-    return mapReader;
+    return structReader;
   }
 
   private UnionListReader listReader;
@@ -113,7 +123,7 @@ public class UnionReader extends AbstractFieldReader {
 
   @Override
   public java.util.Iterator<String> iterator() {
-    return getMap().iterator();
+    return getStruct().iterator();
   }
 
   @Override
@@ -121,9 +131,9 @@ public class UnionReader extends AbstractFieldReader {
     writer.data.copyFrom(idx(), writer.idx(), data);
   }
 
-  <#list ["Object", "Integer", "Long", "Boolean",
-          "Character", "DateTime", "Double", "Float",
-          "Text", "Byte", "Short", "byte[]"] as friendlyType>
+  <#list ["Object", "BigDecimal", "Short", "Integer", "Long", "Boolean",
+          "LocalDateTime", "Duration", "Period", "Double", "Float",
+          "Character", "Text", "Byte", "byte[]"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
 
@@ -138,14 +148,16 @@ public class UnionReader extends AbstractFieldReader {
     return getReaderForIndex(idx()).size();
   }
 
-  <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-          <#assign uncappedName = name?uncap_first/>
-  <#assign boxedType = (minor.boxedType!type.boxedType) />
-  <#assign javaType = (minor.javaType!type.javaType) />
-  <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
-  <#assign safeType=friendlyType />
-  <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
-  <#if !minor.class?starts_with("Decimal")>
+  <#list vv.types as type>
+    <#list type.minor as minor>
+      <#assign name = minor.class?cap_first />
+      <#assign uncappedName = name?uncap_first/>
+      <#assign boxedType = (minor.boxedType!type.boxedType) />
+      <#assign javaType = (minor.javaType!type.javaType) />
+      <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
+      <#assign safeType=friendlyType />
+      <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
+      <#if !minor.typeParams?? >
 
   private ${name}ReaderImpl ${uncappedName}Reader;
 
@@ -165,8 +177,9 @@ public class UnionReader extends AbstractFieldReader {
   public void copyAsValue(${name}Writer writer){
     getReaderForIndex(idx()).copyAsValue(writer);
   }
-  </#if>
-  </#list></#list>
+      </#if>
+    </#list>
+  </#list>
 
   @Override
   public void copyAsValue(ListWriter writer) {
@@ -182,9 +195,9 @@ public class UnionReader extends AbstractFieldReader {
       }
     }
   }
-  
+
   public FieldReader reader(String name){
-    return getMap().reader(name);
+    return getStruct().reader(name);
   }
 
   public FieldReader reader() {
@@ -195,6 +208,3 @@ public class UnionReader extends AbstractFieldReader {
     return getReaderForIndex(idx()).next();
   }
 }
-
-
-

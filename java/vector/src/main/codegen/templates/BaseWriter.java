@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,37 +29,37 @@ package org.apache.arrow.vector.complex.writer;
  * File generated from ${.template_name} using FreeMarker.
  */
 @SuppressWarnings("unused")
-  public interface BaseWriter extends AutoCloseable, Positionable {
+public interface BaseWriter extends AutoCloseable, Positionable {
   int getValueCapacity();
 
-  public interface MapWriter extends BaseWriter {
+  public interface StructWriter extends BaseWriter {
 
     Field getField();
 
     /**
-     * Whether this writer is a map writer and is empty (has no children).
-     * 
+     * Whether this writer is a struct writer and is empty (has no children).
+     *
      * <p>
      *   Intended only for use in determining whether to add dummy vector to
      *   avoid empty (zero-column) schema, as in JsonReader.
      * </p>
-     * 
+     * @return whether the struct is empty
      */
-    boolean isEmptyMap();
+    boolean isEmptyStruct();
 
     <#list vv.types as type><#list type.minor as minor>
     <#assign lowerName = minor.class?uncap_first />
     <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
     <#assign upperName = minor.class?upper_case />
     <#assign capName = minor.class?cap_first />
-    <#if minor.class?starts_with("Decimal") >
-    ${capName}Writer ${lowerName}(String name, int scale, int precision);
+    <#if minor.typeParams?? >
+    ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>);
     </#if>
     ${capName}Writer ${lowerName}(String name);
     </#list></#list>
 
     void copyReaderToField(String name, FieldReader reader);
-    MapWriter map(String name);
+    StructWriter struct(String name);
     ListWriter list(String name);
     void start();
     void end();
@@ -69,7 +68,7 @@ package org.apache.arrow.vector.complex.writer;
   public interface ListWriter extends BaseWriter {
     void startList();
     void endList();
-    MapWriter map();
+    StructWriter struct();
     ListWriter list();
     void copyReader(FieldReader reader);
 
@@ -89,7 +88,7 @@ package org.apache.arrow.vector.complex.writer;
     void allocate();
     void clear();
     void copyReader(FieldReader reader);
-    MapWriter rootAsMap();
+    StructWriter rootAsStruct();
     ListWriter rootAsList();
 
     void setPosition(int index);
@@ -97,13 +96,13 @@ package org.apache.arrow.vector.complex.writer;
     void reset();
   }
 
-  public interface MapOrListWriter {
+  public interface StructOrListWriter {
     void start();
     void end();
-    MapOrListWriter map(String name);
-    MapOrListWriter listoftmap(String name);
-    MapOrListWriter list(String name);
-    boolean isMapWriter();
+    StructOrListWriter struct(String name);
+    StructOrListWriter listoftstruct(String name);
+    StructOrListWriter list(String name);
+    boolean isStructWriter();
     boolean isListWriter();
     VarCharWriter varChar(String name);
     IntWriter integer(String name);

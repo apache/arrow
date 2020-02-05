@@ -1,0 +1,150 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+namespace arrow.ipc.feather.fbs;
+
+/// Feather is an experimental serialization format implemented using
+/// techniques from Apache Arrow. It was created as a proof-of-concept of an
+/// interoperable file format for storing data frames originating in Python or
+/// R. It enabled the developers to sidestep some of the open design questions
+/// in Arrow from early 2016 and instead create something simple and useful for
+/// the intended use cases.
+
+enum Type : byte {
+  BOOL = 0,
+
+  INT8 = 1,
+  INT16 = 2,
+  INT32 = 3,
+  INT64 = 4,
+
+  UINT8 = 5,
+  UINT16 = 6,
+  UINT32 = 7,
+  UINT64 = 8,
+
+  FLOAT = 9,
+  DOUBLE = 10,
+
+  UTF8 = 11,
+
+  BINARY = 12,
+
+  CATEGORY = 13,
+
+  TIMESTAMP = 14,
+  DATE = 15,
+  TIME = 16,
+
+  LARGE_UTF8 = 17,
+  LARGE_BINARY = 18
+}
+
+enum Encoding : byte {
+  PLAIN = 0,
+
+  /// Data is stored dictionary-encoded
+  /// dictionary size: <INT32 Dictionary size>
+  /// dictionary data: <TYPE primitive array>
+  /// dictionary index: <INT32 primitive array>
+  ///
+  /// TODO: do we care about storing the index values in a smaller typeclass
+  DICTIONARY = 1
+}
+
+enum TimeUnit : byte {
+  SECOND = 0,
+  MILLISECOND = 1,
+  MICROSECOND = 2,
+  NANOSECOND = 3
+}
+
+table PrimitiveArray {
+  type: Type;
+
+  encoding: Encoding = PLAIN;
+
+  /// Relative memory offset of the start of the array data excluding the size
+  /// of the metadata
+  offset: long;
+
+  /// The number of logical values in the array
+  length: long;
+
+  /// The number of observed nulls
+  null_count: long;
+
+  /// The total size of the actual data in the file
+  total_bytes: long;
+
+  /// TODO: Compression
+}
+
+table CategoryMetadata {
+  /// The category codes are presumed to be integers that are valid indexes into
+  /// the levels array
+
+  levels: PrimitiveArray;
+  ordered: bool = false;
+}
+
+table TimestampMetadata {
+  unit: TimeUnit;
+
+  /// Timestamp data is assumed to be UTC, but the time zone is stored here for
+  /// presentation as localized
+  timezone: string;
+}
+
+table DateMetadata {
+}
+
+table TimeMetadata {
+  unit: TimeUnit;
+}
+
+union TypeMetadata {
+  CategoryMetadata,
+  TimestampMetadata,
+  DateMetadata,
+  TimeMetadata,
+}
+
+table Column {
+  name: string;
+  values: PrimitiveArray;
+  metadata: TypeMetadata;
+
+  /// This should (probably) be JSON
+  user_metadata: string;
+}
+
+table CTable {
+  /// Some text (or a name) metadata about what the file is, optional
+  description: string;
+
+  num_rows: long;
+  columns: [Column];
+
+  /// Version number of the Feather format
+  version: int;
+
+  /// Table metadata (likely JSON), not yet used
+  metadata: string;
+}
+
+root_type CTable;

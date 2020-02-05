@@ -1,0 +1,136 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# NPR: uncomment this to build docs for release
+# destination: ../../arrow-site/asf-site/docs/r/
+url: https://arrow.apache.org/docs/r/
+title: Arrow R Package
+template:
+  params:
+    bootswatch: cosmo
+    ganalytics: UA-107500873-1
+navbar:
+  structure:
+    left:
+    - home
+    - intro
+    - reference
+    - articles
+    - news
+    - project
+    right: github
+  components:
+    home:
+      text: ❯❯❯
+      href: https://arrow.apache.org/
+    reference:
+      text: Reference
+      href: reference/index.html
+    project:
+      text: Project docs
+      menu:
+        - text: Specification
+          href: https://arrow.apache.org/docs/format/README.html
+        - text: C GLib
+          href: https://arrow.apache.org/docs/c_glib
+        - text: C++
+          href: https://arrow.apache.org/docs/cpp
+        - text: Java
+          href: https://arrow.apache.org/docs/java
+        - text: JavaScript
+          href: https://arrow.apache.org/docs/js
+        - text: Python
+          href: https://arrow.apache.org/docs/python
+        - text: R
+          href: index.html
+reference:
+- title: Multi-file datasets
+  contents:
+  - open_dataset
+  - open_source
+  - hive_partition
+  - Dataset
+  - Source
+  - Partitioning
+  - Expression
+  - Scanner
+- title: Reading and writing files
+  contents:
+  - read_delim_arrow
+  - read_json_arrow
+  - read_feather
+  - read_parquet
+  - read_table
+  - write_arrow
+  - write_feather
+  - write_parquet
+- title: C++ reader/writer interface
+  contents:
+  - ParquetFileReader
+  - ParquetReaderProperties
+  - ParquetFileWriter
+  - ParquetWriterProperties
+  - FeatherTableReader
+  - FeatherTableWriter
+  - CsvTableReader
+  - RecordBatchReader
+  - RecordBatchWriter
+  - CsvReadOptions
+- title: Arrow data containers
+  contents:
+  - buffer
+  - array
+  - ArrayData
+  - chunked_array
+  - ChunkedArray
+  - record_batch
+  - RecordBatch
+  - Table
+  - read_message
+  - read_record_batch
+- title: Arrow data types and schema
+  contents:
+  - Schema
+  - type
+  - dictionary
+  - Field
+  - read_schema
+  - data-type
+  - DataType
+  - DictionaryType
+  - FixedWidthType
+  - cast_options
+- title: Input/Output
+  contents:
+  - InputStream
+  - mmap_open
+  - mmap_create
+  - OutputStream
+  - Message
+  - MessageReader
+  - compression
+  - Codec
+  - codec_is_available
+  - MemoryPool
+  - default_memory_pool
+  - FileSystem
+  - FileStats
+  - FileSelector
+- title: Installation helpers
+  contents:
+  - arrow_available
+  - install_arrow

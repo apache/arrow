@@ -22,45 +22,25 @@
 
 #include "arrow/array.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/util/status.h"
+#include "arrow/status.h"
 
 namespace arrow {
 namespace ipc {
 
-// Align on 8-byte boundaries
-static constexpr int kArrowAlignment = 8;
-
 // Buffers are padded to 64-byte boundaries (for SIMD)
-static constexpr int kArrowBufferAlignment = 64;
+static constexpr int32_t kArrowAlignment = 64;
 
-static constexpr uint8_t kPaddingBytes[kArrowBufferAlignment] = {0};
+// Tensors are padded to 64-byte boundaries
+static constexpr int32_t kTensorAlignment = 64;
 
-static inline int64_t PaddedLength(int64_t nbytes, int64_t alignment = kArrowAlignment) {
+// Align on 8-byte boundaries in IPC
+static constexpr int32_t kArrowIpcAlignment = 8;
+
+static constexpr uint8_t kPaddingBytes[kArrowAlignment] = {0};
+
+static inline int64_t PaddedLength(int64_t nbytes, int32_t alignment = kArrowAlignment) {
   return ((nbytes + alignment - 1) / alignment) * alignment;
 }
-
-// A helper class to tracks the size of allocations
-class MockOutputStream : public io::OutputStream {
- public:
-  MockOutputStream() : extent_bytes_written_(0) {}
-
-  Status Close() override { return Status::OK(); }
-
-  Status Write(const uint8_t* data, int64_t nbytes) override {
-    extent_bytes_written_ += nbytes;
-    return Status::OK();
-  }
-
-  Status Tell(int64_t* position) override {
-    *position = extent_bytes_written_;
-    return Status::OK();
-  }
-
-  int64_t GetExtentBytesWritten() const { return extent_bytes_written_; }
-
- private:
-  int64_t extent_bytes_written_;
-};
 
 }  // namespace ipc
 }  // namespace arrow

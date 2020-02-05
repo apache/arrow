@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import java.util.List;
+
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReferenceManager;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.compare.VectorVisitor;
+import org.apache.arrow.vector.types.UnionMode;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
@@ -26,16 +39,25 @@ import java.util.List;
 package org.apache.arrow.vector.complex;
 
 <#include "/@includes/vv_imports.ftl" />
-import com.google.common.collect.ImmutableList;
+import io.netty.buffer.ArrowBuf;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
-import org.apache.arrow.vector.BaseDataValueVector;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
-import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.util.ValueVectorUtility;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.util.OversizedAllocationException;
+import org.apache.arrow.util.Preconditions;
 
-import static org.apache.arrow.flatbuf.UnionMode.Sparse;
+import static org.apache.arrow.vector.types.UnionMode.Sparse;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 
 
 
@@ -46,25 +68,24 @@ import static org.apache.arrow.flatbuf.UnionMode.Sparse;
 
 
 /**
- * A vector which can hold values of different types. It does so by using a MapVector which contains a vector for each
- * primitive type that is stored. MapVector is used in order to take advantage of its serialization/deserialization methods,
+ * A vector which can hold values of different types. It does so by using a StructVector which contains a vector for each
+ * primitive type that is stored. StructVector is used in order to take advantage of its serialization/deserialization methods,
  * as well as the addOrGet method.
  *
- * For performance reasons, UnionVector stores a cached reference to each subtype vector, to avoid having to do the map lookup
+ * For performance reasons, UnionVector stores a cached reference to each subtype vector, to avoid having to do the struct lookup
  * each time the vector is accessed.
+ * Source code generated using FreeMarker template ${.template_name}
  */
 public class UnionVector implements FieldVector {
 
   private String name;
   private BufferAllocator allocator;
-  private Accessor accessor = new Accessor();
-  private Mutator mutator = new Mutator();
   int valueCount;
 
-  MapVector internalMap;
-  UInt1Vector typeVector;
+  NonNullableStructVector internalStruct;
+  protected ArrowBuf typeBuffer;
 
-  private NullableMapVector mapVector;
+  private StructVector structVector;
   private ListVector listVector;
 
   private FieldReader reader;
@@ -73,15 +94,34 @@ public class UnionVector implements FieldVector {
   private ValueVector singleVector;
 
   private final CallBack callBack;
-  private final List<BufferBacked> innerVectors;
+  private int typeBufferAllocationSizeInBytes;
 
+  private final FieldType fieldType;
+
+  private static final byte TYPE_WIDTH = 1;
+  private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(false /*nullable*/,
+      ArrowType.Struct.INSTANCE, null /*dictionary*/, null /*metadata*/);
+
+  public static UnionVector empty(String name, BufferAllocator allocator) {
+    FieldType fieldType = FieldType.nullable(new ArrowType.Union(
+        UnionMode.Sparse, null));
+    return new UnionVector(name, allocator, fieldType, null);
+  }
+
+  @Deprecated
   public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
+    this(name, allocator, null, callBack);
+  }
+
+  public UnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     this.name = name;
     this.allocator = allocator;
-    this.internalMap = new MapVector("internal", allocator, callBack);
-    this.typeVector = new UInt1Vector("types", allocator);
+    this.fieldType = fieldType;
+    this.internalStruct = new NonNullableStructVector("internal", allocator, INTERNAL_STRUCT_TYPE,
+        callBack);
+    this.typeBuffer = allocator.getEmpty();
     this.callBack = callBack;
-    this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(typeVector));
+    this.typeBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH;
   }
 
   public BufferAllocator getAllocator() {
@@ -95,56 +135,111 @@ public class UnionVector implements FieldVector {
 
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    internalMap.initializeChildrenFromFields(children);
+    internalStruct.initializeChildrenFromFields(children);
   }
 
   @Override
   public List<FieldVector> getChildrenFromFields() {
-    return internalMap.getChildrenFromFields();
+    return internalStruct.getChildrenFromFields();
   }
 
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    BaseDataValueVector.load(getFieldInnerVectors(), ownBuffers);
+    if (ownBuffers.size() != 1) {
+      throw new IllegalArgumentException("Illegal buffer count, expected " + 1 + ", got: " + ownBuffers.size());
+    }
+
+    ArrowBuf buffer = ownBuffers.get(0);
+    typeBuffer.getReferenceManager().release();
+    typeBuffer = buffer.getReferenceManager().retain(buffer, allocator);
+    typeBufferAllocationSizeInBytes = checkedCastToInt(typeBuffer.capacity());
     this.valueCount = fieldNode.getLength();
   }
 
   @Override
   public List<ArrowBuf> getFieldBuffers() {
-    return BaseDataValueVector.unload(getFieldInnerVectors());
+    List<ArrowBuf> result = new ArrayList<>(1);
+    setReaderAndWriterIndex();
+    result.add(typeBuffer);
+
+    return result;
+  }
+
+  private void setReaderAndWriterIndex() {
+    typeBuffer.readerIndex(0);
+    typeBuffer.writerIndex(valueCount * TYPE_WIDTH);
   }
 
   @Override
+  @Deprecated
   public List<BufferBacked> getFieldInnerVectors() {
-     return this.innerVectors;
+     throw new UnsupportedOperationException("There are no inner vectors. Use geFieldBuffers");
   }
-  
-  public NullableMapVector getMap() {
-    if (mapVector == null) {
-      int vectorCount = internalMap.size();
-      mapVector = internalMap.addOrGet("map", MinorType.MAP, NullableMapVector.class);
-      if (internalMap.size() > vectorCount) {
-        mapVector.allocateNew();
+
+  private String fieldName(MinorType type) {
+    return type.name().toLowerCase();
+  }
+
+  private FieldType fieldType(MinorType type) {
+    return FieldType.nullable(type.getType());
+  }
+
+  private <T extends FieldVector> T addOrGet(MinorType minorType, Class<T> c) {
+    return internalStruct.addOrGet(fieldName(minorType), fieldType(minorType), c);
+  }
+
+  @Override
+  public long getValidityBufferAddress() {
+    return typeBuffer.memoryAddress();
+  }
+
+  @Override
+  public long getDataBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public long getOffsetBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrowBuf getValidityBuffer() { return typeBuffer; }
+
+  @Override
+  public ArrowBuf getDataBuffer() { throw new UnsupportedOperationException(); }
+
+  @Override
+  public ArrowBuf getOffsetBuffer() { throw new UnsupportedOperationException(); }
+
+  public StructVector getStruct() {
+    if (structVector == null) {
+      int vectorCount = internalStruct.size();
+      structVector = addOrGet(MinorType.STRUCT, StructVector.class);
+      if (internalStruct.size() > vectorCount) {
+        structVector.allocateNew();
         if (callBack != null) {
           callBack.doWork();
         }
       }
     }
-    return mapVector;
+    return structVector;
   }
+  <#list vv.types as type>
+    <#list type.minor as minor>
+      <#assign name = minor.class?cap_first />
+      <#assign fields = minor.fields!type.fields />
+      <#assign uncappedName = name?uncap_first/>
+      <#assign lowerCaseName = name?lower_case/>
+      <#if !minor.typeParams?? >
 
-  <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-  <#assign fields = minor.fields!type.fields />
-  <#assign uncappedName = name?uncap_first/>
-  <#if !minor.class?starts_with("Decimal")>
+  private ${name}Vector ${uncappedName}Vector;
 
-  private Nullable${name}Vector ${uncappedName}Vector;
-
-  public Nullable${name}Vector get${name}Vector() {
+  public ${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
-      int vectorCount = internalMap.size();
-      ${uncappedName}Vector = internalMap.addOrGet("${uncappedName}", MinorType.${name?upper_case}, Nullable${name}Vector.class);
-      if (internalMap.size() > vectorCount) {
+      int vectorCount = internalStruct.size();
+      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}, ${name}Vector.class);
+      if (internalStruct.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
         if (callBack != null) {
           callBack.doWork();
@@ -153,16 +248,15 @@ public class UnionVector implements FieldVector {
     }
     return ${uncappedName}Vector;
   }
-
-  </#if>
-
-  </#list></#list>
+      </#if>
+    </#list>
+  </#list>
 
   public ListVector getList() {
     if (listVector == null) {
-      int vectorCount = internalMap.size();
-      listVector = internalMap.addOrGet("list", MinorType.LIST, ListVector.class);
-      if (internalMap.size() > vectorCount) {
+      int vectorCount = internalStruct.size();
+      listVector = addOrGet(MinorType.LIST, ListVector.class);
+      if (internalStruct.size() > vectorCount) {
         listVector.allocateNew();
         if (callBack != null) {
           callBack.doWork();
@@ -173,41 +267,80 @@ public class UnionVector implements FieldVector {
   }
 
   public int getTypeValue(int index) {
-    return typeVector.getAccessor().get(index);
-  }
-
-  public UInt1Vector getTypeVector() {
-    return typeVector;
+    return typeBuffer.getByte(index * TYPE_WIDTH);
   }
 
   @Override
   public void allocateNew() throws OutOfMemoryException {
-    internalMap.allocateNew();
-    typeVector.allocateNew();
-    if (typeVector != null) {
-      typeVector.zeroVector();
+    /* new allocation -- clear the current buffers */
+    clear();
+    internalStruct.allocateNew();
+    try {
+      allocateTypeBuffer();
+    } catch (Exception e) {
+      clear();
+      throw e;
     }
   }
 
   @Override
   public boolean allocateNewSafe() {
-    boolean safe = internalMap.allocateNewSafe();
-    safe = safe && typeVector.allocateNewSafe();
-    if (safe) {
-      if (typeVector != null) {
-        typeVector.zeroVector();
-      }
+    /* new allocation -- clear the current buffers */
+    clear();
+    boolean safe = internalStruct.allocateNewSafe();
+    if (!safe) { return false; }
+    try {
+      allocateTypeBuffer();
+    } catch (Exception e) {
+      clear();
+      return  false;
     }
-    return safe;
+
+    return true;
+  }
+
+  private void allocateTypeBuffer() {
+    typeBuffer = allocator.buffer(typeBufferAllocationSizeInBytes);
+    typeBuffer.readerIndex(0);
+    typeBuffer.setZero(0, typeBuffer.capacity());
   }
 
   @Override
-  public void setInitialCapacity(int numRecords) {
+  public void reAlloc() {
+    internalStruct.reAlloc();
+    reallocTypeBuffer();
   }
+
+  private void reallocTypeBuffer() {
+    final long currentBufferCapacity = typeBuffer.capacity();
+    long baseSize  = typeBufferAllocationSizeInBytes;
+
+    if (baseSize < currentBufferCapacity) {
+      baseSize = currentBufferCapacity;
+    }
+
+    long newAllocationSize = baseSize * 2L;
+    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    assert newAllocationSize >= 1;
+
+    if (newAllocationSize > BaseValueVector.MAX_ALLOCATION_SIZE) {
+      throw new OversizedAllocationException("Unable to expand the buffer");
+    }
+
+    final ArrowBuf newBuf = allocator.buffer(checkedCastToInt(newAllocationSize));
+    newBuf.setBytes(0, typeBuffer, 0, currentBufferCapacity);
+    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
+    typeBuffer.getReferenceManager().release(1);
+    typeBuffer = newBuf;
+    typeBufferAllocationSizeInBytes = (int)newAllocationSize;
+  }
+
+  @Override
+  public void setInitialCapacity(int numRecords) { }
 
   @Override
   public int getValueCapacity() {
-    return Math.min(typeVector.getValueCapacity(), internalMap.getValueCapacity());
+    return Math.min(getTypeBufferValueCapacity(), internalStruct.getValueCapacity());
   }
 
   @Override
@@ -217,30 +350,54 @@ public class UnionVector implements FieldVector {
 
   @Override
   public void clear() {
-    typeVector.clear();
-    internalMap.clear();
+    valueCount = 0;
+    typeBuffer.getReferenceManager().release();
+    typeBuffer = allocator.getEmpty();
+    internalStruct.clear();
+  }
+
+  @Override
+  public void reset() {
+    valueCount = 0;
+    typeBuffer.setZero(0, typeBuffer.capacity());
+    internalStruct.reset();
   }
 
   @Override
   public Field getField() {
     List<org.apache.arrow.vector.types.pojo.Field> childFields = new ArrayList<>();
-    List<FieldVector> children = internalMap.getChildren();
+    List<FieldVector> children = internalStruct.getChildren();
     int[] typeIds = new int[children.size()];
     for (ValueVector v : children) {
       typeIds[childFields.size()] = v.getMinorType().ordinal();
       childFields.add(v.getField());
     }
-    return new Field(name, true, new ArrowType.Union(Sparse, typeIds), childFields);
+
+    FieldType fieldType;
+    if (this.fieldType == null) {
+      fieldType = FieldType.nullable(new ArrowType.Union(Sparse, typeIds));
+    } else {
+      final UnionMode mode = ((ArrowType.Union)this.fieldType.getType()).getMode();
+      fieldType = new FieldType(this.fieldType.isNullable(), new ArrowType.Union(mode, typeIds),
+          this.fieldType.getDictionary(), this.fieldType.getMetadata());
+    }
+
+    return new Field(name, fieldType, childFields);
   }
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new TransferImpl(name, allocator);
+    return getTransferPair(name, allocator);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new TransferImpl(ref, allocator);
+    return getTransferPair(ref, allocator, null);
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
+    return new org.apache.arrow.vector.complex.UnionVector.TransferImpl(ref, allocator, callBack);
   }
 
   @Override
@@ -248,58 +405,82 @@ public class UnionVector implements FieldVector {
     return new TransferImpl((UnionVector) target);
   }
 
-  public void transferTo(org.apache.arrow.vector.complex.UnionVector target) {
-    typeVector.makeTransferPair(target.typeVector).transfer();
-    internalMap.makeTransferPair(target.internalMap).transfer();
-    target.valueCount = valueCount;
-  }
-
-  public void copyFrom(int inIndex, int outIndex, UnionVector from) {
-    from.getReader().setPosition(inIndex);
+  @Override
+  public void copyFrom(int inIndex, int outIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
+    UnionVector fromCast = (UnionVector) from;
+    fromCast.getReader().setPosition(inIndex);
     getWriter().setPosition(outIndex);
-    ComplexCopier.copy(from.reader, mutator.writer);
+    ComplexCopier.copy(fromCast.reader, writer);
   }
 
-  public void copyFromSafe(int inIndex, int outIndex, UnionVector from) {
+  @Override
+  public void copyFromSafe(int inIndex, int outIndex, ValueVector from) {
     copyFrom(inIndex, outIndex, from);
   }
 
   public FieldVector addVector(FieldVector v) {
     String name = v.getMinorType().name().toLowerCase();
-    Preconditions.checkState(internalMap.getChild(name) == null, String.format("%s vector already exists", name));
-    final FieldVector newVector = internalMap.addOrGet(name, v.getMinorType(), v.getClass());
+    Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
+    final FieldVector newVector = internalStruct.addOrGet(name, v.getField().getFieldType(), v.getClass());
     v.makeTransferPair(newVector).transfer();
-    internalMap.putChild(name, newVector);
+    internalStruct.putChild(name, newVector);
     if (callBack != null) {
       callBack.doWork();
     }
     return newVector;
   }
 
+  /**
+   * Directly put a vector to internalStruct without creating a new one with same type.
+   */
+  public void directAddVector(FieldVector v) {
+    String name = v.getMinorType().name().toLowerCase();
+    Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
+    internalStruct.putChild(name, v);
+    if (callBack != null) {
+      callBack.doWork();
+    }
+  }
+
   private class TransferImpl implements TransferPair {
+    private final TransferPair internalStructVectorTransferPair;
+    private final UnionVector to;
 
-    UnionVector to;
-
-    public TransferImpl(String name, BufferAllocator allocator) {
-      to = new UnionVector(name, allocator, null);
+    public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
+      to = new UnionVector(name, allocator, callBack);
+      internalStructVectorTransferPair = internalStruct.makeTransferPair(to.internalStruct);
     }
 
     public TransferImpl(UnionVector to) {
       this.to = to;
+      internalStructVectorTransferPair = internalStruct.makeTransferPair(to.internalStruct);
     }
 
     @Override
     public void transfer() {
-      transferTo(to);
+      to.clear();
+      final ReferenceManager refManager = typeBuffer.getReferenceManager();
+      to.typeBuffer = refManager.transferOwnership(typeBuffer, to.allocator).getTransferredBuffer();
+      internalStructVectorTransferPair.transfer();
+      to.valueCount = valueCount;
+      clear();
     }
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      to.allocateNew();
-      for (int i = 0; i < length; i++) {
-        to.copyFromSafe(startIndex + i, i, org.apache.arrow.vector.complex.UnionVector.this);
-      }
-      to.getMutator().setValueCount(length);
+      Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
+          "Invalid startIndex: %s", startIndex);
+      Preconditions.checkArgument(startIndex + length <= valueCount,
+          "Invalid length: %s", length);
+      to.clear();
+      internalStructVectorTransferPair.splitAndTransfer(startIndex, length);
+      final int startPoint = startIndex * TYPE_WIDTH;
+      final int sliceLength = length * TYPE_WIDTH;
+      final ArrowBuf slicedBuffer = typeBuffer.slice(startPoint, sliceLength);
+      final ReferenceManager refManager = slicedBuffer.getReferenceManager();
+      to.typeBuffer = refManager.transferOwnership(slicedBuffer, to.allocator).getTransferredBuffer();
+      to.setValueCount(length);
     }
 
     @Override
@@ -314,16 +495,6 @@ public class UnionVector implements FieldVector {
   }
 
   @Override
-  public Accessor getAccessor() {
-    return accessor;
-  }
-
-  @Override
-  public Mutator getMutator() {
-    return mutator;
-  }
-
-  @Override
   public FieldReader getReader() {
     if (reader == null) {
       reader = new UnionReader(this);
@@ -332,15 +503,17 @@ public class UnionVector implements FieldVector {
   }
 
   public FieldWriter getWriter() {
-    if (mutator.writer == null) {
-      mutator.writer = new UnionWriter(this);
+    if (writer == null) {
+      writer = new UnionWriter(this);
     }
-    return mutator.writer;
+    return writer;
   }
 
   @Override
   public int getBufferSize() {
-    return typeVector.getBufferSize() + internalMap.getBufferSize();
+    if (valueCount == 0) { return 0; }
+
+    return (valueCount * TYPE_WIDTH) + internalStruct.getBufferSize();
   }
 
   @Override
@@ -354,50 +527,67 @@ public class UnionVector implements FieldVector {
       bufferSize += v.getBufferSizeFor(valueCount);
     }
 
-    return (int) bufferSize;
+    return (int) bufferSize + (valueCount * TYPE_WIDTH);
   }
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    ImmutableList.Builder<ArrowBuf> builder = ImmutableList.builder();
-    builder.add(typeVector.getBuffers(clear));
-    builder.add(internalMap.getBuffers(clear));
-    List<ArrowBuf> list = builder.build();
+    List<ArrowBuf> list = new java.util.ArrayList<>();
+    setReaderAndWriterIndex();
+    if (getBufferSize() != 0) {
+      list.add(typeBuffer);
+      list.addAll(java.util.Arrays.asList(internalStruct.getBuffers(clear)));
+    }
+    if (clear) {
+      valueCount = 0;
+      typeBuffer.getReferenceManager().retain();
+      typeBuffer.getReferenceManager().release();
+      typeBuffer = allocator.getEmpty();
+    }
     return list.toArray(new ArrowBuf[list.size()]);
   }
 
   @Override
   public Iterator<ValueVector> iterator() {
-    List<ValueVector> vectors = Lists.newArrayList(internalMap.iterator());
-    vectors.add(typeVector);
+    List<ValueVector> vectors = org.apache.arrow.util.Collections2.toList(internalStruct.iterator());
     return vectors.iterator();
   }
 
-  public class Accessor extends BaseValueVector.BaseAccessor {
+  public ValueVector getVector(int index) {
+    int type = typeBuffer.getByte(index * TYPE_WIDTH);
+    return getVectorByType(type);
+  }
 
-
-    @Override
-    public Object getObject(int index) {
-      int type = typeVector.getAccessor().get(index);
-      switch (MinorType.values()[type]) {
-      case NULL:
-        return null;
-      <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-      <#assign fields = minor.fields!type.fields />
-      <#assign uncappedName = name?uncap_first/>
-      <#if !minor.class?starts_with("Decimal")>
-      case ${name?upper_case}:
-        return get${name}Vector().getAccessor().getObject(index);
-      </#if>
-
-      </#list></#list>
-      case MAP:
-        return getMap().getAccessor().getObject(index);
-      case LIST:
-        return getList().getAccessor().getObject(index);
-      default:
-        throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[type]);
+    public ValueVector getVectorByType(int typeId) {
+      switch (MinorType.values()[typeId]) {
+        case NULL:
+          return null;
+      <#list vv.types as type>
+        <#list type.minor as minor>
+          <#assign name = minor.class?cap_first />
+          <#assign fields = minor.fields!type.fields />
+          <#assign uncappedName = name?uncap_first/>
+          <#if !minor.typeParams?? >
+        case ${name?upper_case}:
+        return get${name}Vector();
+          </#if>
+        </#list>
+      </#list>
+        case STRUCT:
+          return getStruct();
+        case LIST:
+          return getList();
+        default:
+          throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[typeId]);
       }
+    }
+
+    public Object getObject(int index) {
+      ValueVector vector = getVector(index);
+      if (vector != null) {
+        return vector.getObject(index);
+      }
+      return null;
     }
 
     public byte[] get(int index) {
@@ -413,30 +603,41 @@ public class UnionVector implements FieldVector {
       holder.reader = reader;
     }
 
-    @Override
     public int getValueCount() {
       return valueCount;
     }
 
-    @Override
     public boolean isNull(int index) {
-      return typeVector.getAccessor().get(index) == 0;
+      ValueVector vec = getVector(index);
+      if (vec == null) {
+        return true;
+      }
+      return vec.isNull(index);
+    }
+
+    @Override
+    public int getNullCount() {
+      int nullCount = 0;
+      for (int i = 0; i < getValueCount(); i++) {
+        if (isNull(i)) {
+          nullCount++;
+        }
+      }
+      return nullCount;
     }
 
     public int isSet(int index) {
       return isNull(index) ? 0 : 1;
     }
-  }
-
-  public class Mutator extends BaseValueVector.BaseMutator {
 
     UnionWriter writer;
 
-    @Override
     public void setValueCount(int valueCount) {
-      UnionVector.this.valueCount = valueCount;
-      typeVector.getMutator().setValueCount(valueCount);
-      internalMap.getMutator().setValueCount(valueCount);
+      this.valueCount = valueCount;
+      while (valueCount > getTypeBufferValueCapacity()) {
+        reallocTypeBuffer();
+      }
+      internalStruct.setValueCount(valueCount);
     }
 
     public void setSafe(int index, UnionHolder holder) {
@@ -447,18 +648,21 @@ public class UnionVector implements FieldVector {
       writer.setPosition(index);
       MinorType type = reader.getMinorType();
       switch (type) {
-      <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-      <#assign fields = minor.fields!type.fields />
-      <#assign uncappedName = name?uncap_first/>
-      <#if !minor.class?starts_with("Decimal")>
+      <#list vv.types as type>
+        <#list type.minor as minor>
+          <#assign name = minor.class?cap_first />
+          <#assign fields = minor.fields!type.fields />
+          <#assign uncappedName = name?uncap_first/>
+          <#if !minor.typeParams?? >
       case ${name?upper_case}:
         Nullable${name}Holder ${uncappedName}Holder = new Nullable${name}Holder();
         reader.read(${uncappedName}Holder);
         setSafe(index, ${uncappedName}Holder);
         break;
-      </#if>
-      </#list></#list>
-      case MAP: {
+          </#if>
+        </#list>
+      </#list>
+      case STRUCT: {
         ComplexCopier.copy(reader, writer);
         break;
       }
@@ -470,27 +674,58 @@ public class UnionVector implements FieldVector {
         throw new UnsupportedOperationException();
       }
     }
-
-    <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-    <#assign fields = minor.fields!type.fields />
-    <#assign uncappedName = name?uncap_first/>
-    <#if !minor.class?starts_with("Decimal")>
+    <#list vv.types as type>
+      <#list type.minor as minor>
+        <#assign name = minor.class?cap_first />
+        <#assign fields = minor.fields!type.fields />
+        <#assign uncappedName = name?uncap_first/>
+        <#if !minor.typeParams?? >
     public void setSafe(int index, Nullable${name}Holder holder) {
       setType(index, MinorType.${name?upper_case});
-      get${name}Vector().getMutator().setSafe(index, holder);
+      get${name}Vector().setSafe(index, holder);
     }
 
-    </#if>
-    </#list></#list>
+        </#if>
+      </#list>
+    </#list>
 
     public void setType(int index, MinorType type) {
-      typeVector.getMutator().setSafe(index, (byte) type.ordinal());
+      while (index >= getTypeBufferValueCapacity()) {
+        reallocTypeBuffer();
+      }
+      typeBuffer.setByte(index * TYPE_WIDTH , (byte) type.ordinal());
+    }
+
+    private int getTypeBufferValueCapacity() {
+      return capAtMaxInt(typeBuffer.capacity() / TYPE_WIDTH);
     }
 
     @Override
-    public void reset() { }
+    public int hashCode(int index) {
+      return hashCode(index, null);
+    }
 
     @Override
-    public void generateTestData(int values) { }
-  }
+    public int hashCode(int index, ArrowBufHasher hasher) {
+      ValueVector vec = getVector(index);
+      if (vec == null) {
+        return ArrowBufPointer.NULL_HASH_CODE;
+      }
+      return vec.hashCode(index, hasher);
+    }
+
+    @Override
+    public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
+      return visitor.visit(this, value);
+    }
+
+    @Override
+    public String getName() {
+      return name;
+    }
+
+    @Override
+    public String toString() {
+      return ValueVectorUtility.getToString(this, 0, getValueCount());
+    }
 }

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-include "Message.fbs";
+include "Schema.fbs";
 
 namespace org.apache.arrow.flatbuf;
 
@@ -31,16 +31,22 @@ table Footer {
   dictionaries: [ Block ];
 
   recordBatches: [ Block ];
+
+  /// User-defined metadata
+  custom_metadata: [ KeyValue ];
 }
 
 struct Block {
 
+  /// Index to the start of the RecordBlock (note this is past the Message header)
   offset: long;
 
+  /// Length of the metadata
   metaDataLength: int;
 
+  /// Length of the data (this is aligned so there can be a gap between this and
+  /// the metatdata).
   bodyLength: long;
-
 }
 
 root_type Footer;

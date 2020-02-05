@@ -1,0 +1,46 @@
+#Licensed to the Apache Software Foundation (ASF) under one or more contributor
+#license agreements. See the NOTICE file distributed with this work for additional
+#information regarding copyright ownership. The ASF licenses this file to
+#You under the Apache License, Version 2.0 (the "License"); you may not use
+#this file except in compliance with the License. You may obtain a copy of
+#the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required
+#by applicable law or agreed to in writing, software distributed under the
+#License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
+#OF ANY KIND, either express or implied. See the License for the specific
+#language governing permissions and limitations under the License.
+
+name: 'table1'
+
+type: 'selected_null_column'
+
+vectors:
+ - 'BIGINT_FIELD5'
+ - 'DECIMAL_FIELD6' 
+ - 'DOUBLE_FIELD7'
+ - 'REAL_FIELD8'
+ - 'TIME_FIELD9'
+ - 'DATE_FIELD10' 
+ - 'TIMESTAMP_FIELD11'
+ - 'BINARY_FIELD12'
+ - 'VARCHAR_FIELD13'
+ - 'BLOB_FIELD14'
+ - 'CLOB_FIELD15' 
+ - 'CHAR_FIELD16'
+ - 'BIT_FIELD17'
+
+rowCount: '5'
+
+create: 'CREATE TABLE table1 (int_field1 INT, bool_field2 BOOLEAN, tinyint_field3 TINYINT, smallint_field4 SMALLINT, bigint_field5 BIGINT,
+    decimal_field6 DECIMAL(20,2), double_field7 DOUBLE, real_field8 REAL, time_field9 TIME, date_field10 DATE, timestamp_field11 TIMESTAMP,
+    binary_field12 BINARY(100), varchar_field13 VARCHAR(256), blob_field14 BLOB, clob_field15 CLOB, char_field16 CHAR(16), bit_field17 BIT);'
+
+data:
+  - 'INSERT INTO table1 (int_field1, bool_field2, tinyint_field3, smallint_field4) VALUES (102, 0, 46, 12001);'
+  - 'INSERT INTO table1 (int_field1, bool_field2, tinyint_field3, smallint_field4) VALUES (102, 0, 46, 12001);'
+  - 'INSERT INTO table1 (int_field1, bool_field2, tinyint_field3, smallint_field4) VALUES (102, 0, 46, 12001);'
+  - 'INSERT INTO table1 (int_field1, bool_field2, tinyint_field3, smallint_field4) VALUES (102, 0, 46, 12001);'
+  - 'INSERT INTO table1 (int_field1, bool_field2, tinyint_field3, smallint_field4) VALUES (102, 0, 46, 12001);'
+
+query: 'select bigint_field5, decimal_field6, double_field7, real_field8, time_field9, date_field10, timestamp_field11, binary_field12, varchar_field13, blob_field14, clob_field15, char_field16, bit_field17 from table1'
+
+drop: 'DROP table table1;'

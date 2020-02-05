@@ -19,13 +19,29 @@
 #define ARROW_UTIL_VISIBILITY_H
 
 #if defined(_WIN32) || defined(__CYGWIN__)
+#if defined(_MSC_VER)
+#pragma warning(disable : 4251)
+#else
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
+
+#ifdef ARROW_STATIC
+#define ARROW_EXPORT
+#elif defined(ARROW_EXPORTING)
 #define ARROW_EXPORT __declspec(dllexport)
+#else
+#define ARROW_EXPORT __declspec(dllimport)
+#endif
+
+#define ARROW_NO_EXPORT
+#define ARROW_FORCE_INLINE __forceinline
 #else  // Not Windows
 #ifndef ARROW_EXPORT
 #define ARROW_EXPORT __attribute__((visibility("default")))
 #endif
 #ifndef ARROW_NO_EXPORT
 #define ARROW_NO_EXPORT __attribute__((visibility("hidden")))
+#define ARROW_FORCE_INLINE
 #endif
 #endif  // Non-Windows
 

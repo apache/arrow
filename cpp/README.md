@@ -1,85 +1,34 @@
 <!---
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License. See accompanying LICENSE file.
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
 -->
 
-# Arrow C++
+# Apache Arrow C++
 
-## Setup Build Environment
+This directory contains the code and build system for the Arrow C++ libraries,
+as well as for the C++ libraries for Apache Parquet.
 
-Arrow uses CMake as a build configuration system. Currently, it supports in-source and
-out-of-source builds with the latter one being preferred.
+## Installation
 
-Arrow requires a C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
-sufficient.
+See https://arrow.apache.org/install/ for the latest instructions how
+to install pre-compiled binary versions of the library.
 
-Simple debug build:
+## Source Builds and Development
 
-    mkdir debug
-    cd debug
-    cmake ..
-    make unittest
+Please refer to our latest [C++ Development Documentation][1].
 
-Simple release build:
-
-    mkdir release
-    cd release
-    cmake .. -DCMAKE_BUILD_TYPE=Release
-    make unittest
-
-Detailed unit test logs will be placed in the build directory under `build/test-logs`.
-
-### Building/Running benchmarks
-
-Follow the directions for simple build except run cmake
-with the `--ARROW_BUILD_BENCHMARKS` parameter set correctly:
-
-    cmake -DARROW_BUILD_BENCHMARKS=ON ..
-
-and instead of make unittest run either `make; ctest` to run both unit tests
-and benchmarks or `make runbenchmark` to run only the benchmark tests.
-
-Benchmark logs will be placed in the build directory under `build/benchmark-logs`.
-
-
-### Third-party environment variables
-
-To set up your own specific build toolchain, here are the relevant environment
-variables
-
-* Googletest: `GTEST_HOME` (only required to build the unit tests)
-* Google Benchmark: `GBENCHMARK_HOME` (only required if building benchmarks)
-* Flatbuffers: `FLATBUFFERS_HOME` (only required for the IPC extensions)
-* Hadoop: `HADOOP_HOME` (only required for the HDFS I/O extensions)
-
-## Continuous Integration
-
-Pull requests are run through travis-ci for continuous integration.  You can avoid
-build failures by running the following checks before submitting your pull request:
-
-    make unittest
-    make lint
-    # The next two commands may change your code.  It is recommended you commit
-    # before running them.
-    make clang-tidy # requires clang-tidy is installed
-    make format # requires clang-format is installed
-
-Note that the clang-tidy target may take a while to run.  You might consider
-running clang-tidy separately on the files you have added/changed before
-invoking the make target to reduce iteration time.  Also, it might generate warnings
-that aren't valid.  To avoid these you can use add a line comment `// NOLINT`. If  
-NOLINT doesn't suppress the warnings, you add the file in question to 
-the .clang-tidy-ignore file.  This will allow `make check-clang-tidy` to pass in 
-travis-CI (but still surface the potential warnings in `make clang-tidy`).   Ideally,
-both of these options would be used rarely.  Current known uses-cases whent hey are required:
-
-*  Parameterized tests in google test.
+[1]: https://github.com/apache/arrow/blob/master/docs/source/developers/cpp

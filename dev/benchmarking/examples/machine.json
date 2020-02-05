@@ -1,0 +1,22 @@
+{
+  "mac_address": "0a:00:2d:01:02:03",
+  "machine_name": "Yet-Another-Machine-Name",
+  "memory_bytes": 8589934592,
+  "cpu_actual_frequency_hz": 2300000000,
+  "os_name": "OSX",
+  "architecture_name": "x86_64",
+  "kernel_name": "18.2.0",
+  "cpu_model_name": "Intel(R) Core(TM) i5-7360U CPU @ 2.30GHz",
+  "cpu_core_count": 2,
+  "cpu_thread_count": 4,
+  "cpu_frequency_max_hz": 2300000000,
+  "cpu_frequency_min_hz": 2300000000,
+  "cpu_l1d_cache_bytes": 32768,
+  "cpu_l1i_cache_bytes": 32768,
+  "cpu_l2_cache_bytes": 262144,
+  "cpu_l3_cache_bytes": 4194304,
+  "machine_other_attributes": {"just": "an example"},
+  "gpu_information": "",
+  "gpu_part_number": "",
+  "gpu_product_name": ""
+}

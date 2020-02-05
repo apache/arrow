@@ -1,13 +1,12 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,15 +17,16 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 /**
  * This class tests that OversizedAllocationException occurs when a large memory is allocated for a vector.
@@ -35,7 +35,7 @@ import static org.junit.Assert.assertTrue;
  */
 public class TestOversizedAllocationForValueVector {
 
-  private final static String EMPTY_SCHEMA_PATH = "";
+  private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
 
@@ -53,7 +53,7 @@ public class TestOversizedAllocationForValueVector {
   public void testFixedVectorReallocation() {
     final UInt4Vector vector = new UInt4Vector(EMPTY_SCHEMA_PATH, allocator);
     // edge case 1: buffer size = max value capacity
-    final int expectedValueCapacity = BaseValueVector.MAX_ALLOCATION_SIZE / 4;
+    final int expectedValueCapacity = checkedCastToInt(BaseValueVector.MAX_ALLOCATION_SIZE / 4);
     try {
       vector.allocateNew(expectedValueCapacity);
       assertEquals(expectedValueCapacity, vector.getValueCapacity());
@@ -65,7 +65,7 @@ public class TestOversizedAllocationForValueVector {
 
     // common case: value count < max value capacity
     try {
-      vector.allocateNew(BaseValueVector.MAX_ALLOCATION_SIZE / 8);
+      vector.allocateNew(checkedCastToInt(BaseValueVector.MAX_ALLOCATION_SIZE / 8));
       vector.reAlloc(); // value allocation reaches to MAX_VALUE_ALLOCATION
       vector.reAlloc(); // this should throw an IOOB
     } finally {
@@ -90,7 +90,7 @@ public class TestOversizedAllocationForValueVector {
     // common: value count < MAX_VALUE_ALLOCATION
     try {
       vector.allocateNew(expectedValueCapacity);
-      for (int i=0; i<3;i++) {
+      for (int i = 0; i < 3; i++) {
         vector.reAlloc(); // expand buffer size
       }
       assertEquals(Integer.MAX_VALUE, vector.getValueCapacity());
@@ -107,15 +107,15 @@ public class TestOversizedAllocationForValueVector {
   public void testVariableVectorReallocation() {
     final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
     // edge case 1: value count = MAX_VALUE_ALLOCATION
-    final int expectedAllocationInBytes = BaseValueVector.MAX_ALLOCATION_SIZE;
+    final long expectedAllocationInBytes = BaseValueVector.MAX_ALLOCATION_SIZE;
     final int expectedOffsetSize = 10;
     try {
       vector.allocateNew(expectedAllocationInBytes, 10);
       assertTrue(expectedOffsetSize <= vector.getValueCapacity());
-      assertTrue(expectedAllocationInBytes <= vector.getBuffer().capacity());
+      assertTrue(expectedAllocationInBytes <= vector.getDataBuffer().capacity());
       vector.reAlloc();
       assertTrue(expectedOffsetSize * 2 <= vector.getValueCapacity());
-      assertTrue(expectedAllocationInBytes * 2 <= vector.getBuffer().capacity());
+      assertTrue(expectedAllocationInBytes * 2 <= vector.getDataBuffer().capacity());
     } finally {
       vector.close();
     }

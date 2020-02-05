@@ -21,14 +21,25 @@
 cmake_minimum_required(VERSION 2.7)
 project(pyarrow)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
+# Running from a Python sdist tarball
+set(LOCAL_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/cmake_modules")
+if(EXISTS "${LOCAL_CMAKE_MODULES}")
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LOCAL_CMAKE_MODULES})
+endif()
 
-# Use common cmake modules from Arrow C++ if available
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../cpp/cmake_modules")
+# Running from a git source tree
+set(CPP_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/../cpp/cmake_modules")
+if(EXISTS "${CPP_CMAKE_MODULES}")
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CPP_CMAKE_MODULES})
+endif()
 
 include(CMakeParseArguments)
 
-set(BUILD_SUPPORT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/build-support)
+# Compatibility with CMake 3.1
+if(POLICY CMP0054)
+  # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
+  cmake_policy(SET CMP0054 NEW)
+endif()
 
 # Allow "make install" to not depend on all targets.
 #
@@ -41,15 +52,27 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9)
 # Generate a Clang compile_commands.json "compilation database" file for use
 # with various development tools, such as Vim's YouCompleteMe plugin.
 # See http://clang.llvm.org/docs/JSONCompilationDatabase.html
-if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1")
+if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1")
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
-  option(PYARROW_BUILD_TESTS
-    "Build the PyArrow C++ googletest unit tests"
-    OFF)
+  option(PYARROW_BUILD_CUDA "Build the PyArrow CUDA support" OFF)
+  option(PYARROW_BUILD_FLIGHT "Build the PyArrow Flight integration" OFF)
+  option(PYARROW_BUILD_DATASET "Build the PyArrow Dataset integration" OFF)
+  option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
+  option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
+  option(PYARROW_PARQUET_USE_SHARED "Rely on parquet shared libraries where relevant" ON)
+  option(PYARROW_BOOST_USE_SHARED
+         "Rely on boost shared libraries on linking static parquet" ON)
+  option(PYARROW_BUILD_PLASMA "Build the PyArrow Plasma integration" OFF)
+  option(PYARROW_USE_TENSORFLOW "Build PyArrow with TensorFlow support" OFF)
+  option(PYARROW_BUILD_ORC "Build the PyArrow ORC integration" OFF)
+  option(PYARROW_BUNDLE_ARROW_CPP "Bundle the Arrow C++ libraries" OFF)
+  option(PYARROW_BUNDLE_BOOST "Bundle the Boost libraries when we bundle Arrow C++" OFF)
+  option(PYARROW_GENERATE_COVERAGE "Build with Cython code coverage enabled" OFF)
+  set(PYARROW_CXXFLAGS "" CACHE STRING "Compiler flags to append when compiling Arrow")
 endif()
 
 find_program(CCACHE_FOUND ccache)
@@ -58,154 +81,93 @@ if(CCACHE_FOUND)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif(CCACHE_FOUND)
 
-############################################################
+#
 # Compiler flags
-############################################################
+#
 
-# compiler flags that are common across debug/release builds
-set(CXX_COMMON_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
+include(BuildUtils)
 
-# compiler flags for different build types (run 'cmake -DCMAKE_BUILD_TYPE=<type> .')
-# For all builds:
-# For CMAKE_BUILD_TYPE=Debug
-#   -ggdb: Enable gdb debugging
-# For CMAKE_BUILD_TYPE=FastDebug
-#   Same as DEBUG, except with some optimizations on.
-# For CMAKE_BUILD_TYPE=Release
-#   -O3: Enable all compiler optimizations
-#   -g: Enable symbols for profiler tools (TODO: remove for shipping)
-#   -DNDEBUG: Turn off dchecks/asserts/debug only code.
-set(CXX_FLAGS_DEBUG "-ggdb -O0")
-set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
-set(CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG")
+# Cython generated code emits way to many warnings at CHECKIN and EVERYTHING
+set(BUILD_WARNING_LEVEL "PRODUCTION")
 
-# if no build build type is specified, default to debug builds
-if (NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug)
-endif(NOT CMAKE_BUILD_TYPE)
-
-string (TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
-
-# Set compile flags based on the build type.
-message("Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})")
-if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-  set(CMAKE_CXX_FLAGS ${CXX_FLAGS_DEBUG})
-elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
-  set(CMAKE_CXX_FLAGS ${CXX_FLAGS_FASTDEBUG})
-elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-  set(CMAKE_CXX_FLAGS ${CXX_FLAGS_RELEASE})
-else()
-  message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
-endif ()
+include(SetupCxxFlags)
 
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PYARROW_CXXFLAGS}")
 
-# Determine compiler version
-include(CompilerInfo)
+if(MSVC)
+  # MSVC version of -Wno-return-type-c-linkage
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4190")
 
-if ("${COMPILER_FAMILY}" STREQUAL "clang")
-  # Using Clang with ccache causes a bunch of spurious warnings that are
-  # purportedly fixed in the next version of ccache. See the following for details:
-  #
-  #   http://petereisentraut.blogspot.com/2011/05/ccache-and-clang.html
-  #   http://petereisentraut.blogspot.com/2011/09/ccache-and-clang-part-2.html
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
+  # Cython generates some bitshift expressions that MSVC does not like in
+  # __Pyx_PyFloat_DivideObjC
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4293")
+
+  # Converting to/from C++ bool is pretty wonky in Cython. The C4800 warning
+  # seem harmless, and probably not worth the effort of working around it
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4800")
+
+  # See https://github.com/cython/cython/issues/2731. Change introduced in
+  # Cython 0.29.1 causes "unsafe use of type 'bool' in operation"
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4804")
+else()
+  # Enable perf and other tools to work properly
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
+
+  # Suppress Cython warnings
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-maybe-uninitialized")
+
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    # Cython warnings in clang
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-declarations")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sometimes-uninitialized")
+
+    # We have public Cython APIs which return C++ types, which are in an extern
+    # "C" blog (no symbol mangling) and clang doesn't like this
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-return-type-c-linkage")
+  endif()
 endif()
-
-set(PYARROW_LINK "a")
 
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
 
-# Code coverage
-if ("${PYARROW_GENERATE_COVERAGE}")
-  if("${CMAKE_CXX_COMPILER}" MATCHES ".*clang.*")
-    # There appears to be some bugs in clang 3.3 which cause code coverage
-    # to have link errors, not locating the llvm_gcda_* symbols.
-    # This should be fixed in llvm 3.4 with http://llvm.org/viewvc/llvm-project?view=revision&revision=184666
-    message(SEND_ERROR "Cannot currently generate coverage with clang")
-  endif()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -DCOVERAGE_BUILD")
+# Add C++-only flags, like -std=c++11
+set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
 
-  # For coverage to work properly, we need to use static linkage. Otherwise,
-  # __gcov_flush() doesn't properly flush coverage from every module.
-  # See http://stackoverflow.com/questions/28164543/using-gcov-flush-within-a-library-doesnt-force-the-other-modules-to-yield-gc
-  if("${PYARROW_LINK}" STREQUAL "a")
-    message("Using static linking for coverage build")
-    set(PYARROW_LINK "s")
-  elseif("${PYARROW_LINK}" STREQUAL "d")
-    message(SEND_ERROR "Cannot use coverage with static linking")
-  endif()
-endif()
-
-# If we still don't know what kind of linking to perform, choose based on
-# build type (developers like fast builds).
-if ("${PYARROW_LINK}" STREQUAL "a")
-  if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG" OR
-      "${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
-    message("Using dynamic linking for ${CMAKE_BUILD_TYPE} builds")
-    set(PYARROW_LINK "d")
-  else()
-    message("Using static linking for ${CMAKE_BUILD_TYPE} builds")
-    set(PYARROW_LINK "s")
-  endif()
-endif()
-
-# Are we using the gold linker? It doesn't work with dynamic linking as
-# weak symbols aren't properly overridden, causing tcmalloc to be omitted.
-# Let's flag this as an error in RELEASE builds (we shouldn't release a
-# product like this).
-#
-# See https://sourceware.org/bugzilla/show_bug.cgi?id=16979 for details.
-#
-# The gold linker is only for ELF binaries, which OSX doesn't use. We can
-# just skip.
-if (NOT APPLE)
-  execute_process(COMMAND ${CMAKE_CXX_COMPILER} -Wl,--version OUTPUT_VARIABLE LINKER_OUTPUT)
-endif ()
-if (LINKER_OUTPUT MATCHES "gold")
-  if ("${PYARROW_LINK}" STREQUAL "d" AND
-      "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-    message(SEND_ERROR "Cannot use gold with dynamic linking in a RELEASE build "
-      "as it would cause tcmalloc symbols to get dropped")
-  else()
-    message("Using gold linker")
-  endif()
-  set(PYARROW_USING_GOLD 1)
+if(MSVC)
+  # MSVC makes its own output directories based on the build configuration
+  set(BUILD_SUBDIR_NAME "")
 else()
-  message("Using ld linker")
+  # Set compile output directory
+  string(TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
 endif()
-
-# Having set PYARROW_LINK due to build type and/or sanitizer, it's now safe to
-# act on its value.
-if ("${PYARROW_LINK}" STREQUAL "d")
-  set(BUILD_SHARED_LIBS ON)
-
-  # Position independent code is only necessary when producing shared objects.
-  add_definitions(-fPIC)
-endif()
-
-# set compile output directory
-string (TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
 
 # If build in-source, create the latest symlink. If build out-of-source, which is
 # preferred, simply output the binaries in the build folder
-if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
-  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/build/${BUILD_SUBDIR_NAME}/")
+if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
+  set(BUILD_OUTPUT_ROOT_DIRECTORY
+      "${CMAKE_CURRENT_BINARY_DIR}/build/${BUILD_SUBDIR_NAME}")
   # Link build/latest to the current build directory, to avoid developers
   # accidentally running the latest debug build when in fact they're building
   # release builds.
-  FILE(MAKE_DIRECTORY ${BUILD_OUTPUT_ROOT_DIRECTORY})
-  if (NOT APPLE)
+  file(MAKE_DIRECTORY ${BUILD_OUTPUT_ROOT_DIRECTORY})
+  if(NOT APPLE)
     set(MORE_ARGS "-T")
   endif()
-EXECUTE_PROCESS(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-  ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
+  execute_process(COMMAND ln
+                          ${MORE_ARGS}
+                          -sf
+                          ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                          ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
-  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
-  # set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
+  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}")
 endif()
+
+message(STATUS "Build output directory: ${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # where to put generated archives (.a files)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
@@ -218,292 +180,427 @@ set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 # where to put generated binaries
 set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
-## Python and libraries
+if(PYARROW_USE_TENSORFLOW)
+  # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+endif()
+
+# Python and libraries
 find_package(PythonLibsNew REQUIRED)
 find_package(NumPy REQUIRED)
 include(UseCython)
 
-include_directories(SYSTEM
-  ${NUMPY_INCLUDE_DIRS}
-  ${PYTHON_INCLUDE_DIRS}
-  src)
+include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} src)
 
-############################################################
-# Testing
-############################################################
-
-# Add a new test case, with or without an executable that should be built.
 #
-# REL_TEST_NAME is the name of the test. It may be a single component
-# (e.g. monotime-test) or contain additional components (e.g.
-# net/net_util-test). Either way, the last component must be a globally
-# unique name.
-#
-# Arguments after the test name will be passed to set_tests_properties().
-function(ADD_PYARROW_TEST REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME}.cc)
-    # This test has a corresponding .cc file, set it up as an executable.
-    set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
-    add_executable(${TEST_NAME} "${REL_TEST_NAME}.cc")
-    target_link_libraries(${TEST_NAME} ${PYARROW_TEST_LINK_LIBS})
-  else()
-    # No executable, just invoke the test (probably a script) directly.
-    set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
-  endif()
-
-  add_test(${TEST_NAME}
-    ${BUILD_SUPPORT_DIR}/run-test.sh ${TEST_PATH})
-  if(ARGN)
-    set_tests_properties(${TEST_NAME} PROPERTIES ${ARGN})
-  endif()
-endfunction()
-
-# A wrapper for add_dependencies() that is compatible with NO_TESTS.
-function(ADD_PYARROW_TEST_DEPENDENCIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  add_dependencies(${TEST_NAME} ${ARGN})
-endfunction()
-
-enable_testing()
-
-############################################################
 # Dependencies
-############################################################
-function(ADD_THIRDPARTY_LIB LIB_NAME)
+#
+
+if(PYARROW_BUILD_FLIGHT)
+  set(ARROW_FLIGHT TRUE)
+endif()
+
+# Arrow
+find_package(ArrowPython REQUIRED)
+include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
+
+function(bundle_arrow_lib library_path)
   set(options)
-  set(one_value_args SHARED_LIB STATIC_LIB)
-  set(multi_value_args DEPS)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  set(one_value_args SO_VERSION)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  if(("${PYARROW_LINK}" STREQUAL "s" AND ARG_STATIC_LIB) OR (NOT ARG_SHARED_LIB))
-    if(NOT ARG_STATIC_LIB)
-      message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
-    endif()
-    add_library(${LIB_NAME} STATIC IMPORTED)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
-    message(STATUS "Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
-  else()
-    add_library(${LIB_NAME} SHARED IMPORTED)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
-    message(STATUS "Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
+  get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
+  get_filename_component(LIBRARY_NAME ${${library_path}} NAME_WE)
+  configure_file(
+    ${${library_path}}
+    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} COPYONLY)
+
+  if(APPLE)
+    configure_file(
+      ${LIBRARY_DIR}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+      COPYONLY)
+  elseif(NOT MSVC)
+    configure_file(
+      ${${library_path}}.${ARG_SO_VERSION}
+      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
+      COPYONLY)
   endif()
 
-  if(ARG_DEPS)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
-  endif()
+endfunction(bundle_arrow_lib)
 
-  # Set up an "exported variant" for this thirdparty library (see "Visibility"
-  # above). It's the same as the real target, just with an "_exported" suffix.
-  # We prefer the static archive if it exists (as it's akin to an "internal"
-  # library), but we'll settle for the shared object if we must.
-  #
-  # A shared object exported variant will force any "leaf" library that
-  # transitively depends on it to also depend on it at runtime; this is
-  # desirable for some libraries (e.g. cyrus_sasl).
-  set(LIB_NAME_EXPORTED ${LIB_NAME}_exported)
-  if(ARG_STATIC_LIB)
-    add_library(${LIB_NAME_EXPORTED} STATIC IMPORTED)
-    set_target_properties(${LIB_NAME_EXPORTED}
-      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
+function(bundle_arrow_import_lib library_path)
+  get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
+  get_filename_component(LIBRARY_NAME ${${library_path}} NAME_WE)
+  configure_file(${${library_path}} ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.lib
+                 COPYONLY)
+endfunction(bundle_arrow_import_lib)
+
+function(bundle_boost_lib library_path)
+  get_filename_component(LIBRARY_NAME ${${library_path}} NAME)
+  get_filename_component(LIBRARY_NAME_WE ${${library_path}} NAME_WE)
+  configure_file(${${library_path}} ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}
+                 COPYONLY)
+  set(Boost_SO_VERSION
+      "${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
+  if(APPLE)
+    configure_file(
+      ${${library_path}}
+      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}
+      COPYONLY)
   else()
-    add_library(${LIB_NAME_EXPORTED} SHARED IMPORTED)
-    set_target_properties(${LIB_NAME_EXPORTED}
-      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
-  endif()
-  if(ARG_DEPS)
-    set_target_properties(${LIB_NAME_EXPORTED}
-      PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
+    configure_file(
+      ${${library_path}}
+      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}.${Boost_SO_VERSION}
+      COPYONLY)
   endif()
 endfunction()
 
-## GMock
-if (PYARROW_BUILD_TESTS)
-  find_package(GTest REQUIRED)
-  include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(gtest
-    STATIC_LIB ${GTEST_STATIC_LIB})
+function(bundle_arrow_dependency library_name)
+  if(MSVC)
+    if(DEFINED ENV{CONDA_PREFIX})
+      file(TO_CMAKE_PATH "$ENV{CONDA_PREFIX}\\Library" SHARED_LIB_HOME)
+    endif()
+  else()
+    if(DEFINED ENV{CONDA_PREFIX})
+      file(TO_CMAKE_PATH "$ENV{CONDA_PREFIX}" SHARED_LIB_HOME)
+    endif()
+  endif()
+  if(DEFINED ENV{${library_name}_HOME})
+    file(TO_CMAKE_PATH "$ENV{${library_name}_HOME}" SHARED_LIB_HOME)
+  endif()
+  arrow_build_shared_library_name(shared_lib_name "${library_name}")
+  unset(SHARED_LIB_PATH CACHE)
+  if(MSVC)
+    set(CMAKE_SHARED_LIBRARY_SUFFIXES_ORIGINAL ${CMAKE_FIND_LIBRARY_SUFFIXES})
+    # .dll isn't found by find_library with MSVC because .dll isn't included in
+    # CMAKE_FIND_LIBRARY_SUFFIXES.
+    list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  endif()
+  if(SHARED_LIB_HOME)
+    find_library(SHARED_LIB_PATH
+                 NAMES "${shared_lib_name}"
+                 PATHS "${SHARED_LIB_HOME}"
+                 PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
+                 NO_DEFAULT_PATH)
+  else()
+    find_library(SHARED_LIB_PATH
+                 NAMES "${shared_lib_name}"
+                 PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES})
+  endif()
+  if(MSVC)
+    set(CMAKE_SHARED_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_ORIGINAL})
+  endif()
+  if(SHARED_LIB_PATH)
+    get_filename_component(SHARED_LIB_REALPATH ${SHARED_LIB_PATH} REALPATH)
+    get_filename_component(SHARED_LIB_NAME ${SHARED_LIB_PATH} NAME)
+    message(
+      STATUS
+        "Bundle dependency ${library_name}: ${SHARED_LIB_REALPATH} as ${SHARED_LIB_NAME}")
+    configure_file(${SHARED_LIB_REALPATH}
+                   ${BUILD_OUTPUT_ROOT_DIRECTORY}/${SHARED_LIB_NAME} COPYONLY)
+  else()
+    message(FATAL_ERROR "Unable to bundle dependency: ${library_name}")
+  endif()
+endfunction()
+
+# Always bundle includes
+file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+
+if(PYARROW_BUNDLE_ARROW_CPP)
+  # arrow
+  bundle_arrow_lib(ARROW_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+  bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+
+  # boost
+  if(PYARROW_BOOST_USE_SHARED AND PYARROW_BUNDLE_BOOST)
+    set(Boost_USE_STATIC_LIBS OFF)
+    set(Boost_USE_MULTITHREADED ON)
+    if(MSVC AND ARROW_USE_STATIC_CRT)
+      set(Boost_USE_STATIC_RUNTIME ON)
+    endif()
+    set(Boost_ADDITIONAL_VERSIONS
+        "1.66.0"
+        "1.66"
+        "1.65.0"
+        "1.65"
+        "1.64.0"
+        "1.64"
+        "1.63.0"
+        "1.63"
+        "1.62.0"
+        "1.61"
+        "1.61.0"
+        "1.62"
+        "1.60.0"
+        "1.60")
+    list(GET Boost_ADDITIONAL_VERSIONS 0 BOOST_LATEST_VERSION)
+    string(REPLACE "." "_" BOOST_LATEST_VERSION_IN_PATH ${BOOST_LATEST_VERSION})
+    if(MSVC)
+      # disable autolinking in boost
+      add_definitions(-DBOOST_ALL_NO_LIB)
+    endif()
+    find_package(Boost COMPONENTS system filesystem regex REQUIRED)
+    bundle_boost_lib(Boost_REGEX_LIBRARY)
+    bundle_boost_lib(Boost_FILESYSTEM_LIBRARY)
+    bundle_boost_lib(Boost_SYSTEM_LIBRARY)
+  endif()
+
+  if(MSVC)
+    find_package(ZLIB)
+    bundle_arrow_import_lib(ARROW_IMPORT_LIB)
+    bundle_arrow_import_lib(ARROW_PYTHON_IMPORT_LIB)
+    bundle_arrow_dependency(zlib)
+  endif()
 endif()
 
-## Parquet
-find_package(Parquet)
-if(PARQUET_FOUND)
-  include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
-endif()
-
-## Arrow
-find_package(Arrow REQUIRED)
-include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
-ADD_THIRDPARTY_LIB(arrow
-  SHARED_LIB ${ARROW_SHARED_LIB})
-ADD_THIRDPARTY_LIB(arrow_io
-  SHARED_LIB ${ARROW_IO_SHARED_LIB})
-ADD_THIRDPARTY_LIB(arrow_ipc
-  SHARED_LIB ${ARROW_IPC_SHARED_LIB})
-
-############################################################
-# Linker setup
-############################################################
-
-set(PYARROW_MIN_TEST_LIBS
-  pyarrow_test_main
-  pyarrow)
-
-set(PYARROW_MIN_TEST_LIBS
-  pyarrow_test_main
-  pyarrow
-  ${PYARROW_BASE_LIBS})
-
-set(PYARROW_TEST_LINK_LIBS ${PYARROW_MIN_TEST_LIBS})
-
-############################################################
-# "make ctags" target
-############################################################
-if (UNIX)
-  add_custom_target(ctags ctags -R --languages=c++,c --exclude=thirdparty/installed)
-endif (UNIX)
-
-############################################################
-# "make etags" target
-############################################################
-if (UNIX)
-  add_custom_target(tags etags --members --declarations
-  `find ${CMAKE_CURRENT_SOURCE_DIR}/src
-   -name \\*.cc -or -name \\*.hh -or -name \\*.cpp -or -name \\*.h -or -name \\*.c -or
-   -name \\*.f`)
-  add_custom_target(etags DEPENDS tags)
-endif (UNIX)
-
-############################################################
-# "make cscope" target
-############################################################
-if (UNIX)
-  add_custom_target(cscope find ${CMAKE_CURRENT_SOURCE_DIR}
-  ( -name \\*.cc -or -name \\*.hh -or -name \\*.cpp -or
-    -name \\*.h -or -name \\*.c -or -name \\*.f )
-  -exec echo \"{}\" \; > cscope.files && cscope -q -b VERBATIM)
-endif (UNIX)
-
-############################################################
-# "make lint" target
-############################################################
-if (UNIX)
-  # Full lint
-  add_custom_target(lint ${BUILD_SUPPORT_DIR}/cpplint.py
-  --verbose=2
-  --filter=-whitespace/comments,-readability/todo,-build/header_guard
-    `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc -or -name \\*.h`)
-endif (UNIX)
-
-############################################################
+#
 # Subdirectories
-############################################################
+#
 
-if (UNIX)
+if(UNIX)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
-add_subdirectory(src/pyarrow)
-add_subdirectory(src/pyarrow/util)
-
 set(CYTHON_EXTENSIONS
-  array
-  config
-  error
-  io
-  ipc
-  scalar
-  schema
-  table
-)
+    lib
+    _fs
+    _csv
+    _json
+    _compute)
 
-set(PYARROW_SRCS
-  src/pyarrow/common.cc
-  src/pyarrow/config.cc
-  src/pyarrow/helpers.cc
-  src/pyarrow/io.cc
-  src/pyarrow/adapters/builtin.cc
-  src/pyarrow/adapters/pandas.cc
-)
+set(LINK_LIBS arrow_shared arrow_python_shared)
 
-set(LINK_LIBS
-  arrow
-  arrow_io
-  arrow_ipc
-)
-
-if(PARQUET_FOUND AND PARQUET_ARROW_FOUND)
-  ADD_THIRDPARTY_LIB(parquet_arrow
-    SHARED_LIB ${PARQUET_ARROW_SHARED_LIB})
-  set(LINK_LIBS
-    ${LINK_LIBS}
-    parquet_arrow)
-  set(CYTHON_EXTENSIONS
-    ${CYTHON_EXTENSIONS}
-    parquet)
+if(PYARROW_BUILD_S3)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _s3fs)
 endif()
 
-add_library(pyarrow SHARED
-  ${PYARROW_SRCS})
-target_link_libraries(pyarrow ${LINK_LIBS})
-
-if(APPLE)
-  set_target_properties(pyarrow PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+if(PYARROW_BUILD_HDFS)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _hdfs)
 endif()
 
-############################################################
+if(PYARROW_BUILD_CUDA)
+  # Arrow CUDA
+  find_package(ArrowCUDA REQUIRED)
+
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(ARROW_CUDA_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    if(MSVC)
+      bundle_arrow_import_lib(ARROW_CUDA_IMPORT_LIB)
+    endif()
+  endif()
+  set(CUDA_LINK_LIBS arrow_cuda_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
+endif()
+
+# Dataset
+if(PYARROW_BUILD_DATASET)
+  # Arrow Dataset
+  find_package(ArrowDataset REQUIRED)
+
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(ARROW_DATASET_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    if(MSVC)
+      bundle_arrow_import_lib(ARROW_DATASET_IMPORT_LIB)
+    endif()
+  endif()
+
+  set(DATASET_LINK_LIBS arrow_dataset_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset)
+endif()
+
+if(PYARROW_BUILD_PARQUET)
+  # Parquet
+  find_package(Parquet REQUIRED)
+
+  include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
+
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    file(COPY ${PARQUET_INCLUDE_DIR}/parquet
+         DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+  endif()
+
+  if(PYARROW_PARQUET_USE_SHARED)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(PARQUET_SHARED_LIB SO_VERSION ${PARQUET_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(PARQUET_IMPORT_LIB)
+      endif()
+    endif()
+    set(PARQUET_LINK_LIBS parquet_shared)
+  else()
+    find_package(Thrift)
+    if(PYARROW_BOOST_USE_SHARED)
+      set(Boost_USE_STATIC_LIBS OFF)
+    else()
+      set(Boost_USE_STATIC_LIBS ON)
+    endif()
+    find_package(Boost COMPONENTS regex REQUIRED)
+    add_thirdparty_lib(boost_regex STATIC_LIB ${Boost_REGEX_LIBRARY_RELEASE})
+    add_thirdparty_lib(thrift STATIC_LIB ${THRIFT_STATIC_LIB})
+    set(PARQUET_LINK_LIBS parquet_static thrift_static boost_regex_static)
+  endif()
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet)
+endif()
+
+# Plasma
+if(PYARROW_BUILD_PLASMA)
+  find_package(Plasma REQUIRED)
+
+  include_directories(SYSTEM ${PLASMA_INCLUDE_DIR})
+
+  file(COPY ${ARROW_INCLUDE_DIR}/plasma
+       DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(PLASMA_SHARED_LIB SO_VERSION ${PLASMA_SO_VERSION})
+  endif()
+  set(PLASMA_LINK_LIBS plasma_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _plasma)
+  file(COPY ${PLASMA_STORE_SERVER} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+endif()
+
+if(PYARROW_BUILD_ORC)
+  # ORC
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _orc)
+endif()
+
+# Flight
+if(PYARROW_BUILD_FLIGHT)
+  # Arrow Flight
+  find_package(ArrowPythonFlight REQUIRED)
+
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(ARROW_FLIGHT_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    bundle_arrow_lib(ARROW_PYTHON_FLIGHT_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    if(MSVC)
+      bundle_arrow_import_lib(ARROW_FLIGHT_IMPORT_LIB)
+      bundle_arrow_import_lib(ARROW_PYTHON_FLIGHT_IMPORT_LIB)
+      bundle_arrow_dependency(cares)
+      bundle_arrow_dependency(libprotobuf)
+      # XXX Hardcoded library names because CMake is too stupid to give us
+      # the shared library paths.
+      # https://gitlab.kitware.com/cmake/cmake/issues/16210
+      bundle_arrow_dependency(libcrypto-1_1-x64)
+      bundle_arrow_dependency(libssl-1_1-x64)
+    endif()
+  endif()
+
+  set(FLIGHT_LINK_LIBS arrow_flight_shared arrow_python_flight_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
+endif()
+
+# Gandiva
+if(PYARROW_BUILD_GANDIVA)
+  find_package(Gandiva REQUIRED)
+
+  include_directories(SYSTEM ${GANDIVA_INCLUDE_DIR})
+
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    file(COPY ${GANDIVA_INCLUDE_DIR}/gandiva
+         DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+
+    bundle_arrow_lib(GANDIVA_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+
+    if(MSVC)
+      bundle_arrow_import_lib(GANDIVA_IMPORT_LIB)
+    endif()
+  endif()
+
+  set(GANDIVA_LINK_LIBS gandiva_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
+endif()
+
+#
 # Setup and build Cython modules
-############################################################
+#
+
+if(PYARROW_GENERATE_COVERAGE)
+  set(CYTHON_FLAGS "${CYTHON_FLAGS}" "-Xlinetrace=True")
+endif()
 
 foreach(module ${CYTHON_EXTENSIONS})
-    string(REPLACE "." ";" directories ${module})
-    list(GET directories -1 module_name)
-    list(REMOVE_AT directories -1)
+  string(REPLACE "." ";" directories ${module})
+  list(GET directories -1 module_name)
+  list(REMOVE_AT directories -1)
 
-    string(REPLACE "." "/" module_root "${module}")
-    set(module_SRC pyarrow/${module_root}.pyx)
-    set_source_files_properties(${module_SRC} PROPERTIES CYTHON_IS_CXX 1)
+  string(REPLACE "." "/" module_root "${module}")
+  set(module_SRC pyarrow/${module_root}.pyx)
+  set_source_files_properties(${module_SRC} PROPERTIES CYTHON_IS_CXX 1)
 
-    cython_add_module(${module_name}
-      ${module_name}_pyx
-      ${module_name}_output
-      ${module_SRC})
+  cython_add_module(${module_name} ${module_name}_pyx ${module_name}_output ${module_SRC})
 
-    if (directories)
-        string(REPLACE ";" "/" module_output_directory ${directories})
-        set_target_properties(${module_name} PROPERTIES
-          LIBRARY_OUTPUT_DIRECTORY ${module_output_directory})
-    endif()
+  if(directories)
+    string(REPLACE ";" "/" module_output_directory ${directories})
+    set_target_properties(${module_name}
+                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${module_output_directory})
+  endif()
 
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    # In the event that we are bundling the shared libraries (e.g. in a
+    # manylinux1 wheel), we need to set the RPATH of the extensions to the
+    # root of the pyarrow/ package so that libarrow/libarrow_python are able
+    # to be loaded properly
     if(APPLE)
-        set(module_install_rpath "@loader_path")
+      set(module_install_rpath "@loader_path/")
     else()
-        set(module_install_rpath "\$ORIGIN")
+      set(module_install_rpath "\$ORIGIN")
     endif()
-    list(LENGTH directories i)
-    while(${i} GREATER 0)
-        set(module_install_rpath "${module_install_rpath}/..")
-        math(EXPR i "${i} - 1" )
-    endwhile(${i} GREATER 0)
 
-    # for inplace development for now
-    #set(module_install_rpath "${CMAKE_SOURCE_DIR}/pyarrow/")
+    # XXX(wesm): ARROW-2326 this logic is only needed when we have Cython
+    # modules in interior directories. Since all of our C extensions and
+    # bundled libraries are in the same place, we can skip this part
 
-    set_target_properties(${module_name} PROPERTIES
-      INSTALL_RPATH ${module_install_rpath})
-    target_link_libraries(${module_name} pyarrow)
+    # list(LENGTH directories i)
+    # while(${i} GREATER 0)
+    #   set(module_install_rpath "${module_install_rpath}/..")
+    #   math(EXPR i "${i} - 1" )
+    # endwhile(${i} GREATER 0)
+
+    set_target_properties(${module_name} PROPERTIES INSTALL_RPATH ${module_install_rpath})
+  endif()
+
+  if(PYARROW_GENERATE_COVERAGE)
+    set_target_properties(${module_name}
+                          PROPERTIES COMPILE_DEFINITIONS
+                                     "CYTHON_TRACE=1;CYTHON_TRACE_NOGIL=1")
+  endif()
+
+  target_link_libraries(${module_name} ${LINK_LIBS})
+
+  # Generated files will be moved to the right directory by setup.py.
 endforeach(module)
+
+# Additional link libraries
+
+if(PYARROW_BUILD_CUDA)
+  target_link_libraries(_cuda ${CUDA_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_FLIGHT)
+  target_link_libraries(_flight ${FLIGHT_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_DATASET)
+  target_link_libraries(_dataset ${DATASET_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_GANDIVA)
+  target_link_libraries(gandiva ${GANDIVA_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_PARQUET)
+  target_link_libraries(_parquet ${PARQUET_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_PLASMA)
+  target_link_libraries(_plasma ${PLASMA_LINK_LIBS})
+endif()

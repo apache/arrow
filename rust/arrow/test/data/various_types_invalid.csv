@@ -1,0 +1,6 @@
+c_int|c_float|c_string|c_bool
+1|1.1|"1.11"|true
+2|2.2|"2.22"|true
+3||"3.33"|true
+4|4.x4||false
+5|6.6|""|false

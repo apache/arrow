@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig/tsconfig.base.json",
+  "formatCodeOptions": {
+    "tabSize": 4,
+    "indentSize": 4
+  },
+  "compilerOptions": {
+    "target": "ESNEXT",
+    "module": "commonjs"
+  }
+}

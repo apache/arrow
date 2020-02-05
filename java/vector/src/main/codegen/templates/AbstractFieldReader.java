@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,16 +25,19 @@ package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
 
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 @SuppressWarnings("unused")
 abstract class AbstractFieldReader extends AbstractBaseReader implements FieldReader{
-  
+
   AbstractFieldReader(){
     super();
   }
 
   /**
    * Returns true if the current value of the reader is not null
-   * @return
+   * @return whether the current value is set
    */
   public boolean isSet() {
     return true;
@@ -47,83 +49,79 @@ abstract class AbstractFieldReader extends AbstractBaseReader implements FieldRe
     return null;
   }
 
-  <#list ["Object", "BigDecimal", "Integer", "Long", "Boolean",
-          "Character", "DateTime", "Period", "Double", "Float",
-          "Text", "String", "Byte", "Short", "byte[]"] as friendlyType>
+  <#list ["Object", "BigDecimal", "Short", "Integer", "Long", "Boolean",
+          "LocalDateTime", "Duration", "Period", "Double", "Float",
+          "Character", "Text", "String", "Byte", "byte[]"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
-  
-  public ${friendlyType} read${safeType}(int arrayIndex){
+  public ${friendlyType} read${safeType}(int arrayIndex) {
     fail("read${safeType}(int arrayIndex)");
     return null;
   }
-  
-  public ${friendlyType} read${safeType}(){
+
+  public ${friendlyType} read${safeType}() {
     fail("read${safeType}()");
     return null;
   }
-  
+
   </#list>
-  
-  public void copyAsValue(MapWriter writer){
-    fail("CopyAsValue MapWriter");
-  }
-  public void copyAsField(String name, MapWriter writer){
-    fail("CopyAsField MapWriter");
+  public void copyAsValue(StructWriter writer) {
+    fail("CopyAsValue StructWriter");
   }
 
-  public void copyAsField(String name, ListWriter writer){
+  public void copyAsField(String name, StructWriter writer) {
+    fail("CopyAsField StructWriter");
+  }
+
+  public void copyAsField(String name, ListWriter writer) {
     fail("CopyAsFieldList");
   }
-  
+
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign boxedType = (minor.boxedType!type.boxedType) />
-
-  public void read(${name}Holder holder){
+  public void read(${name}Holder holder) {
     fail("${name}");
   }
 
-  public void read(Nullable${name}Holder holder){
+  public void read(Nullable${name}Holder holder) {
     fail("${name}");
   }
-  
-  public void read(int arrayIndex, ${name}Holder holder){
+
+  public void read(int arrayIndex, ${name}Holder holder) {
     fail("Repeated${name}");
   }
-  
-  public void read(int arrayIndex, Nullable${name}Holder holder){
+
+  public void read(int arrayIndex, Nullable${name}Holder holder) {
     fail("Repeated${name}");
   }
-  
-  public void copyAsValue(${name}Writer writer){
+
+  public void copyAsValue(${name}Writer writer) {
     fail("CopyAsValue${name}");
   }
-  public void copyAsField(String name, ${name}Writer writer){
+
+  public void copyAsField(String name, ${name}Writer writer) {
     fail("CopyAsField${name}");
   }
+
   </#list></#list>
-  
-  public FieldReader reader(String name){
+  public FieldReader reader(String name) {
     fail("reader(String name)");
     return null;
   }
 
-  public FieldReader reader(){
+  public FieldReader reader() {
     fail("reader()");
     return null;
-    
   }
-  
-  public int size(){
+
+  public int size() {
     fail("size()");
     return -1;
   }
-  
-  private void fail(String name){
+
+  private void fail(String name) {
     throw new IllegalArgumentException(String.format("You tried to read a [%s] type when you are using a field reader of type [%s].", name, this.getClass().getSimpleName()));
   }
-  
-  
 }
 
 

@@ -1,0 +1,5 @@
+breathe
+ipython
+numpydoc
+sphinx
+sphinx_rtd_theme

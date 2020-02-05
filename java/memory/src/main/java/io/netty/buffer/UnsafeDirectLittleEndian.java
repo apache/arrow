@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,8 +17,6 @@
 
 package io.netty.buffer;
 
-import io.netty.util.internal.PlatformDependent;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -29,64 +26,63 @@ import java.util.concurrent.atomic.AtomicLong;
 import io.netty.util.internal.PlatformDependent;
 
 /**
- * The underlying class we use for little-endian access to memory. Is used underneath ArrowBufs to abstract away the
+ * The underlying class we use for little-endian access to memory. Is used underneath ArrowBufs
+ * to abstract away the
  * Netty classes and underlying Netty memory management.
  */
-public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
+public class UnsafeDirectLittleEndian extends WrappedByteBuf {
+
+  public static final boolean ASSERT_ENABLED;
   private static final boolean NATIVE_ORDER = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
   private static final AtomicLong ID_GENERATOR = new AtomicLong(0);
+
+  static {
+    boolean isAssertEnabled = false;
+    assert isAssertEnabled = true;
+    ASSERT_ENABLED = isAssertEnabled;
+  }
 
   public final long id = ID_GENERATOR.incrementAndGet();
   private final AbstractByteBuf wrapped;
   private final long memoryAddress;
 
-  private final AtomicLong bufferCount;
-  private final AtomicLong bufferSize;
-  private final long initCap;
-
   UnsafeDirectLittleEndian(DuplicatedByteBuf buf) {
-    this(buf, true, null, null);
+    this(buf, true);
   }
 
   UnsafeDirectLittleEndian(LargeBuffer buf) {
-    this(buf, true, null, null);
+    this(buf, true);
   }
 
-  UnsafeDirectLittleEndian(PooledUnsafeDirectByteBuf buf, AtomicLong bufferCount, AtomicLong bufferSize) {
-    this(buf, true, bufferCount, bufferSize);
-
+  UnsafeDirectLittleEndian(PooledUnsafeDirectByteBuf buf) {
+    this(buf, true);
   }
 
-  private UnsafeDirectLittleEndian(AbstractByteBuf buf, boolean fake, AtomicLong bufferCount, AtomicLong bufferSize) {
+  private UnsafeDirectLittleEndian(AbstractByteBuf buf, boolean fake) {
     super(buf);
     if (!NATIVE_ORDER || buf.order() != ByteOrder.BIG_ENDIAN) {
       throw new IllegalStateException("Arrow only runs on LittleEndian systems.");
     }
 
-    this.bufferCount = bufferCount;
-    this.bufferSize = bufferSize;
-
-    // initCap is used if we're tracking memory release. If we're in non-debug mode, we'll skip this.
-    this.initCap = ASSERT_ENABLED ? buf.capacity() : -1;
-
     this.wrapped = buf;
     this.memoryAddress = buf.memoryAddress();
   }
-    private long addr(int index) {
-        return memoryAddress + index;
-    }
 
-    @Override
-    public long getLong(int index) {
-//        wrapped.checkIndex(index, 8);
-        long v = PlatformDependent.getLong(addr(index));
-        return v;
-    }
+  private long addr(int index) {
+    return memoryAddress + index;
+  }
 
-    @Override
-    public float getFloat(int index) {
-        return Float.intBitsToFloat(getInt(index));
-    }
+  @Override
+  public long getLong(int index) {
+    // wrapped.checkIndex(index, 8);
+    long v = PlatformDependent.getLong(addr(index));
+    return v;
+  }
+
+  @Override
+  public float getFloat(int index) {
+    return Float.intBitsToFloat(getInt(index));
+  }
 
   @Override
   public ByteBuf slice() {
@@ -138,21 +134,21 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public ByteBuf setShort(int index, int value) {
     wrapped.checkIndex(index, 2);
-    _setShort(index, value);
+    setShort_(index, value);
     return this;
   }
 
   @Override
   public ByteBuf setInt(int index, int value) {
     wrapped.checkIndex(index, 4);
-    _setInt(index, value);
+    setInt_(index, value);
     return this;
   }
 
   @Override
   public ByteBuf setLong(int index, long value) {
     wrapped.checkIndex(index, 8);
-    _setLong(index, value);
+    setLong_(index, value);
     return this;
   }
 
@@ -177,7 +173,7 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public ByteBuf writeShort(int value) {
     wrapped.ensureWritable(2);
-    _setShort(wrapped.writerIndex, value);
+    setShort_(wrapped.writerIndex, value);
     wrapped.writerIndex += 2;
     return this;
   }
@@ -185,7 +181,7 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public ByteBuf writeInt(int value) {
     wrapped.ensureWritable(4);
-    _setInt(wrapped.writerIndex, value);
+    setInt_(wrapped.writerIndex, value);
     wrapped.writerIndex += 4;
     return this;
   }
@@ -193,7 +189,7 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public ByteBuf writeLong(long value) {
     wrapped.ensureWritable(8);
-    _setLong(wrapped.writerIndex, value);
+    setLong_(wrapped.writerIndex, value);
     wrapped.writerIndex += 8;
     return this;
   }
@@ -216,15 +212,15 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
     return this;
   }
 
-  private void _setShort(int index, int value) {
+  private void setShort_(int index, int value) {
     PlatformDependent.putShort(addr(index), (short) value);
   }
 
-  private void _setInt(int index, int value) {
+  private void setInt_(int index, int value) {
     PlatformDependent.putInt(addr(index), value);
   }
 
-  private void _setLong(int index, long value) {
+  private void setLong_(int index, long value) {
     PlatformDependent.putLong(addr(index), value);
   }
 
@@ -242,16 +238,6 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public boolean release() {
     return release(1);
-  }
-
-  @Override
-  public boolean release(int decrement) {
-    final boolean released = super.release(decrement);
-    if (ASSERT_ENABLED && released && bufferCount != null && bufferSize != null) {
-      bufferCount.decrementAndGet();
-      bufferSize.addAndGet(-initCap);
-    }
-    return released;
   }
 
   @Override
@@ -281,12 +267,8 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
     return System.identityHashCode(this);
   }
 
-  public static final boolean ASSERT_ENABLED;
-
-  static {
-    boolean isAssertEnabled = false;
-    assert isAssertEnabled = true;
-    ASSERT_ENABLED = isAssertEnabled;
+  @Override
+  public boolean equals(Object obj) {
+    return this == obj;
   }
-
 }

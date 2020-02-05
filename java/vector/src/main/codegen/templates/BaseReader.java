@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,8 +25,9 @@ package org.apache.arrow.vector.complex.reader;
 
 <#include "/@includes/vv_imports.ftl" />
 
-
-
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 @SuppressWarnings("unused")
 public interface BaseReader extends Positionable{
   Field getField();
@@ -36,16 +36,19 @@ public interface BaseReader extends Positionable{
   void read(UnionHolder holder);
   void read(int index, UnionHolder holder);
   void copyAsValue(UnionWriter writer);
+  void read(DenseUnionHolder holder);
+  void read(int index, DenseUnionHolder holder);
+  void copyAsValue(DenseUnionWriter writer);
   boolean isSet();
 
-  public interface MapReader extends BaseReader, Iterable<String>{
+  public interface StructReader extends BaseReader, Iterable<String>{
     FieldReader reader(String name);
   }
   
-  public interface RepeatedMapReader extends MapReader{
+  public interface RepeatedStructReader extends StructReader{
     boolean next();
     int size();
-    void copyAsValue(MapWriter writer);
+    void copyAsValue(StructWriter writer);
   }
   
   public interface ListReader extends BaseReader{
@@ -63,9 +66,9 @@ public interface BaseReader extends Positionable{
   BaseReader {}
   
   interface ComplexReader{
-    MapReader rootAsMap();
+    StructReader rootAsStruct();
     ListReader rootAsList();
-    boolean rootIsMap();
+    boolean rootIsStruct();
     boolean ok();
   }
 }

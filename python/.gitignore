@@ -12,33 +12,34 @@ Testing/
 # Editor temporary/working/backup files
 *flymake*
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.dylib
-.build_cache_dir
-MANIFEST
-
 # Generated sources
 *.c
 *.cpp
-pyarrow/version.py
-# Python files
+pyarrow/*_api.h
+pyarrow/_generated_version.py
+
+# Bundled headers
+pyarrow/include
 
 # setup.py working directory
 build
 # setup.py dist directory
 dist
-# Egg metadata
-*.egg-info
-# coverage
+# Coverage
 .coverage
 coverage.xml
-# cache
+htmlcov
+# Cache
 .cache
 
 # benchmark working dir
 .asv
+pyarrow/_table_api.h
+
+# manylinux temporary files
+manylinux1/arrow
+nm_arrow.log
+visible_symbols.log
+
+# plasma store
+pyarrow/plasma-store-server

@@ -1,0 +1,5 @@
+usr/include/gandiva-glib/
+usr/lib/*/libgandiva-glib.a
+usr/lib/*/libgandiva-glib.so
+usr/lib/*/pkgconfig/gandiva-glib.pc
+usr/share/gir-1.0/Gandiva-1.0.gir
