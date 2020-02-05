@@ -634,11 +634,7 @@ impl<T: DataType> DeltaBitPackEncoder<T> {
         self.bit_writer.put_zigzag_vlq_int(min_delta);
 
         // Slice to store bit width for each mini block
-        // apply unsafe allocation to avoid double mutable borrow
-        let mini_block_widths: &mut [u8] = unsafe {
-            let tmp_slice = self.bit_writer.get_next_byte_ptr(self.num_mini_blocks)?;
-            slice::from_raw_parts_mut(tmp_slice.as_ptr() as *mut u8, self.num_mini_blocks)
-        };
+        let offset = self.bit_writer.skip(self.num_mini_blocks)?;
 
         for i in 0..self.num_mini_blocks {
             // Find how many values we need to encode - either block size or whatever
@@ -657,7 +653,7 @@ impl<T: DataType> DeltaBitPackEncoder<T> {
 
             // Compute bit width to store (max_delta - min_delta)
             let bit_width = num_required_bits(self.subtract_u64(max_delta, min_delta));
-            mini_block_widths[i] = bit_width as u8;
+            self.bit_writer.write_at(offset + i, bit_width as u8);
 
             // Encode values in current mini block using min_delta and bit_width
             for j in 0..n {

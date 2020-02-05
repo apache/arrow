@@ -321,6 +321,10 @@ impl BitWriter {
         self.max_bytes
     }
 
+    pub fn write_at(&mut self, offset: usize, value: u8) {
+        self.buffer[offset] = value;
+    }
+
     /// Writes the `num_bits` LSB of value `v` to the internal buffer of this writer.
     /// The `num_bits` must not be greater than 64. This is bit packed.
     ///
@@ -541,6 +545,7 @@ impl BitReader {
         unsafe {
             let in_buf = &self.buffer.data()[self.byte_offset..];
             let mut in_ptr = in_buf as *const [u8] as *const u8 as *const u32;
+            // FIXME assert!(memory::is_ptr_aligned(in_ptr));
             if size_of::<T>() == 4 {
                 while values_to_read - i >= 32 {
                     let out_ptr = &mut batch[i..] as *mut [T] as *mut T as *mut u32;
