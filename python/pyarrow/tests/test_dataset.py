@@ -574,7 +574,7 @@ def _check_dataset_from_path(path, table, **kwargs):
     dataset = ds.dataset(ds.source(str(path), **kwargs))
     assert dataset.schema.equals(table.schema, check_metadata=False)
     result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table, check_matadata=False)
+    assert result.equals(table, check_metadata=False)
 
     # passing directly to dataset
     dataset = ds.dataset(str(path), **kwargs)
