@@ -17,11 +17,13 @@
 
 package org.apache.arrow.algorithm.sort;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -43,51 +45,49 @@ public class TestInsertionSorter {
     allocator.close();
   }
 
-  private void testSortIntVectorRange(int start, int end, int vectorLength) {
+  private static final int VECTOR_LENGTH = 10;
+
+  private void testSortIntVectorRange(int start, int end, int[] expected) {
     try (IntVector vector = new IntVector("vector", allocator);
          IntVector buffer = new IntVector("buffer", allocator)) {
 
-      vector.allocateNew(vectorLength);
       buffer.allocateNew(1);
 
-      for (int i = 0; i < vectorLength; i++) {
-        // place values in reverse order
-        vector.set(i, vectorLength - i - 1);
-      }
+      ValueVectorDataPopulator.setVector(vector, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+      assertEquals(VECTOR_LENGTH, vector.getValueCount());
 
       VectorValueComparator<IntVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vector);
       InsertionSorter.insertionSort(vector, start, end, comparator, buffer);
 
-      // verify results
-      for (int i = start, expected = vectorLength - end - 1; i < end; i++, expected++) {
-        assertEquals(expected, vector.get(i));
+      assertEquals(VECTOR_LENGTH, expected.length);
+      for (int i = 0; i < VECTOR_LENGTH; i++) {
+        assertFalse(vector.isNull(i));
+        assertEquals(expected[i], vector.get(i));
       }
     }
   }
 
   @Test
   public void testSortIntVector() {
-    testSortIntVectorRange(0, 99, 100);
-    testSortIntVectorRange(15, 30, 100);
-    testSortIntVectorRange(50, 50, 100);
-    testSortIntVectorRange(50, 51, 100);
-    testSortIntVectorRange(0, 30, 100);
-    testSortIntVectorRange(72, 99, 100);
+    testSortIntVectorRange(2, 5, new int[] {9, 8, 4, 5, 6, 7, 3, 2, 1, 0});
+    testSortIntVectorRange(3, 7, new int[] {9, 8, 7, 2, 3, 4, 5, 6, 1, 0});
+    testSortIntVectorRange(3, 4, new int[] {9, 8, 7, 5, 6, 4, 3, 2, 1, 0});
+    testSortIntVectorRange(7, 7, new int[] {9, 8, 7, 6, 5, 4, 3, 2, 1, 0});
+    testSortIntVectorRange(0, 5, new int[] {4, 5, 6, 7, 8, 9, 3, 2, 1, 0});
+    testSortIntVectorRange(8, 9, new int[] {9, 8, 7, 6, 5, 4, 3, 2, 0, 1});
+    testSortIntVectorRange(0, 9, new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
   }
 
-  private void testSortIndicesRange(int start, int end, int vectorLength) {
+  private void testSortIndicesRange(int start, int end, int[] expectedIndices) {
     try (IntVector vector = new IntVector("vector", allocator);
          IntVector indices = new IntVector("indices", allocator)) {
 
-      vector.allocateNew(vectorLength);
-      indices.allocateNew(vectorLength);
+      ValueVectorDataPopulator.setVector(vector, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+      ValueVectorDataPopulator.setVector(indices, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 
-      for (int i = 0; i < vectorLength; i++) {
-        // place values in reverse order
-        vector.set(i, (vectorLength - i - 1) * 10);
-        indices.set(i, i);
-      }
+      assertEquals(VECTOR_LENGTH, vector.getValueCount());
+      assertEquals(VECTOR_LENGTH, indices.getValueCount());
 
       VectorValueComparator<IntVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vector);
@@ -96,19 +96,22 @@ public class TestInsertionSorter {
       InsertionSorter.insertionSort(indices, start, end, comparator);
 
       // verify results
-      for (int i = start, expected = vectorLength - end - 1; i < end; i++, expected++) {
-        assertEquals(expected, indices.get(i));
+      assertEquals(VECTOR_LENGTH, expectedIndices.length);
+      for (int i = 0; i < VECTOR_LENGTH; i++) {
+        assertFalse(indices.isNull(i));
+        assertEquals(expectedIndices[i], indices.get(i));
       }
     }
   }
 
   @Test
   public void testSortIndices() {
-    testSortIntVectorRange(0, 99, 100);
-    testSortIntVectorRange(15, 30, 100);
-    testSortIntVectorRange(50, 50, 100);
-    testSortIntVectorRange(50, 51, 100);
-    testSortIntVectorRange(0, 30, 100);
-    testSortIntVectorRange(72, 99, 100);
+    testSortIndicesRange(2, 5, new int[] {0, 1, 5, 4, 3, 2, 6, 7, 8, 9});
+    testSortIndicesRange(3, 7, new int[] {0, 1, 2, 7, 6, 5, 4, 3, 8, 9});
+    testSortIndicesRange(3, 4, new int[] {0, 1, 2, 4, 3, 5, 6, 7, 8, 9});
+    testSortIndicesRange(7, 7, new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+    testSortIndicesRange(0, 5, new int[] {5, 4, 3, 2, 1, 0, 6, 7, 8, 9});
+    testSortIndicesRange(8, 9, new int[] {0, 1, 2, 3, 4, 5, 6, 7, 9, 8});
+    testSortIndicesRange(0, 9, new int[] {9, 8, 7, 6, 5, 4, 3, 2, 1, 0});
   }
 }
