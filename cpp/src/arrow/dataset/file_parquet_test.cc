@@ -187,6 +187,8 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
 }
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
+  schema_ = schema({field("utf8", utf8())});
+
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
 
@@ -198,7 +200,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
   ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
   int64_t row_count = 0;
 
-  Schema expected_schema({field("f64", dictionary(int32(), float64()))});
+  Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});
 
   for (auto maybe_task : scan_task_it) {
     ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
@@ -309,13 +311,15 @@ TEST_F(TestParquetFileFormat, Inspect) {
 }
 
 TEST_F(TestParquetFileFormat, InspectDictEncoded) {
+  schema_ = schema({field("utf8", utf8())});
+
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
 
   format_->read_dict_indices.insert(0);
   ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
 
-  Schema expected_schema({field("f64", dictionary(int32(), float64()))});
+  Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});
   EXPECT_EQ(*actual, expected_schema);
 }
 

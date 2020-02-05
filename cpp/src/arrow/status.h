@@ -302,6 +302,7 @@ class ARROW_EXPORT Status : public util::EqualityComparable<Status>,
   /// \brief Return a string representation of the status code, without the message
   /// text or POSIX code information.
   std::string CodeAsString() const;
+  static std::string CodeAsString(StatusCode);
 
   /// \brief Return the StatusCode value attached to this status.
   StatusCode code() const { return ok() ? StatusCode::OK : state_->code; }

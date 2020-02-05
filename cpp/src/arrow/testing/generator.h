@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "arrow/record_batch.h"
@@ -118,6 +119,14 @@ class ARROW_EXPORT ConstantArrayGenerator {
   /// \return a generated Array
   static std::shared_ptr<arrow::Array> Float64(int64_t size, double value = 0);
 
+  /// \brief Generates a constant StringArray
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] value to repeat
+  ///
+  /// \return a generated Array
+  static std::shared_ptr<arrow::Array> String(int64_t size, std::string value = "");
+
   template <typename ArrowType, typename CType = typename ArrowType::c_type>
   static std::shared_ptr<arrow::Array> Numeric(int64_t size, CType value = 0) {
     switch (ArrowType::type_id) {
@@ -179,6 +188,8 @@ class ARROW_EXPORT ConstantArrayGenerator {
         return Float32(size);
       case Type::DOUBLE:
         return Float64(size);
+      case Type::STRING:
+        return String(size);
       default:
         return nullptr;
     }
