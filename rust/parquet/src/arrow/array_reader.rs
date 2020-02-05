@@ -151,119 +151,62 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
 
         // convert to arrays
         let array = match (&self.data_type, T::get_physical_type()) {
-            (ArrowType::Boolean, PhysicalType::BOOLEAN) => unsafe {
-                BoolConverter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<BoolType>,
-                >(&mut self.record_reader))
-            },
-            (ArrowType::Int8, PhysicalType::INT32) => unsafe {
-                Int8Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int32Type>,
-                >(&mut self.record_reader))
-            },
-            (ArrowType::Int16, PhysicalType::INT32) => unsafe {
-                Int16Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int32Type>,
-                >(&mut self.record_reader))
-            },
-            (ArrowType::Int32, PhysicalType::INT32) => unsafe {
-                Int32Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int32Type>,
-                >(&mut self.record_reader))
-            },
-            (ArrowType::UInt8, PhysicalType::INT32) => unsafe {
-                UInt8Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int32Type>,
-                >(&mut self.record_reader))
-            },
-            (ArrowType::UInt16, PhysicalType::INT32) => unsafe {
-                UInt16Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int32Type>,
-                >(&mut self.record_reader))
-            },
-            (ArrowType::UInt32, PhysicalType::INT32) => unsafe {
-                UInt32Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int32Type>,
-                >(&mut self.record_reader))
-            },
-            (ArrowType::Int64, PhysicalType::INT64) => unsafe {
-                Int64Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int64Type>,
-                >(&mut self.record_reader))
-            },
-            (ArrowType::UInt64, PhysicalType::INT64) => unsafe {
-                UInt64Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int64Type>,
-                >(&mut self.record_reader))
-            },
-            (ArrowType::Float32, PhysicalType::FLOAT) => unsafe {
-                Float32Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<FloatType>,
-                >(&mut self.record_reader))
-            },
-            (ArrowType::Float64, PhysicalType::DOUBLE) => unsafe {
-                Float64Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<DoubleType>,
-                >(&mut self.record_reader))
-            },
+            (ArrowType::Boolean, PhysicalType::BOOLEAN) => {
+                BoolConverter::convert(self.record_reader.cast::<BoolType>())
+            }
+            (ArrowType::Int8, PhysicalType::INT32) => {
+                Int8Converter::convert(self.record_reader.cast::<Int32Type>())
+            }
+            (ArrowType::Int16, PhysicalType::INT32) => {
+                Int16Converter::convert(self.record_reader.cast::<Int32Type>())
+            }
+            (ArrowType::Int32, PhysicalType::INT32) => {
+                Int32Converter::convert(self.record_reader.cast::<Int32Type>())
+            }
+            (ArrowType::UInt8, PhysicalType::INT32) => {
+                UInt8Converter::convert(self.record_reader.cast::<Int32Type>())
+            }
+            (ArrowType::UInt16, PhysicalType::INT32) => {
+                UInt16Converter::convert(self.record_reader.cast::<Int32Type>())
+            }
+            (ArrowType::UInt32, PhysicalType::INT32) => {
+                UInt32Converter::convert(self.record_reader.cast::<Int32Type>())
+            }
+            (ArrowType::Int64, PhysicalType::INT64) => {
+                Int64Converter::convert(self.record_reader.cast::<Int64Type>())
+            }
+            (ArrowType::UInt64, PhysicalType::INT64) => {
+                UInt64Converter::convert(self.record_reader.cast::<Int64Type>())
+            }
+            (ArrowType::Float32, PhysicalType::FLOAT) => {
+                Float32Converter::convert(self.record_reader.cast::<FloatType>())
+            }
+            (ArrowType::Float64, PhysicalType::DOUBLE) => {
+                Float64Converter::convert(self.record_reader.cast::<DoubleType>())
+            }
             (ArrowType::Timestamp(_, _), PhysicalType::INT64) => unsafe {
-                UInt64Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int64Type>,
-                >(&mut self.record_reader))
+                UInt64Converter::convert(self.record_reader.cast::<Int64Type>())
             },
             (ArrowType::Date32(_), PhysicalType::INT32) => unsafe {
-                UInt32Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int32Type>,
-                >(&mut self.record_reader))
+                UInt32Converter::convert(self.record_reader.cast::<Int32Type>())
             },
             (ArrowType::Date64(_), PhysicalType::INT64) => unsafe {
-                UInt64Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int64Type>,
-                >(&mut self.record_reader))
+                UInt64Converter::convert(self.record_reader.cast::<Int64Type>())
             },
             (ArrowType::Time32(_), PhysicalType::INT32) => unsafe {
-                UInt32Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int32Type>,
-                >(&mut self.record_reader))
+                UInt32Converter::convert(self.record_reader.cast::<Int32Type>())
             },
             (ArrowType::Time64(_), PhysicalType::INT64) => unsafe {
-                UInt64Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int64Type>,
-                >(&mut self.record_reader))
+                UInt64Converter::convert(self.record_reader.cast::<Int64Type>())
             },
             (ArrowType::Interval(IntervalUnit::YearMonth), PhysicalType::INT32) => unsafe {
-                UInt32Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int32Type>,
-                >(&mut self.record_reader))
+                UInt32Converter::convert(self.record_reader.cast::<Int32Type>())
             },
             (ArrowType::Interval(IntervalUnit::DayTime), PhysicalType::INT64) => unsafe {
-                UInt64Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int64Type>,
-                >(&mut self.record_reader))
+                UInt64Converter::convert(self.record_reader.cast::<Int64Type>())
             },
             (ArrowType::Duration(_), PhysicalType::INT64) => unsafe {
-                UInt64Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int64Type>,
-                >(&mut self.record_reader))
+                UInt64Converter::convert(self.record_reader.cast::<Int64Type>())
             },
             (arrow_type, physical_type) => Err(general_err!(
                 "Reading {:?} type from parquet {:?} is not supported yet.",
