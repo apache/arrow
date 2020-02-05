@@ -1065,6 +1065,8 @@ cdef class Table(_PandasConvertible):
         Parameters
         ----------
         other : pyarrow.Table
+        check_metadata : bool, default True
+            Whether metadata equality should be checked as well.
 
         Returns
         -------
