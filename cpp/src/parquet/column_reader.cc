@@ -577,6 +577,12 @@ class ColumnReaderImplBase {
           decoders_[static_cast<int>(encoding)] = std::move(decoder);
           break;
         }
+        case Encoding::BYTE_STREAM_SPLIT: {
+          auto decoder = MakeTypedDecoder<DType>(Encoding::BYTE_STREAM_SPLIT, descr_);
+          current_decoder_ = decoder.get();
+          decoders_[static_cast<int>(encoding)] = std::move(decoder);
+          break;
+        }
         case Encoding::RLE_DICTIONARY:
           throw ParquetException("Dictionary page must be before data page.");
 
