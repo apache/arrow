@@ -65,7 +65,7 @@ impl RecordBatch {
             }
             if columns[i].data_type() != schema.field(i).data_type() {
                 return Err(ArrowError::InvalidArgumentError(format!(
-                    "column types must match schema types, expected {:?} but found {:?} at column index {}", 
+                    "column types must match schema types, expected {:?} but found {:?} at column index {}",
                     schema.field(i).data_type(),
                     columns[i].data_type(),
                     i)));
@@ -129,9 +129,6 @@ impl Into<StructArray> for RecordBatch {
             .into()
     }
 }
-
-unsafe impl Send for RecordBatch {}
-unsafe impl Sync for RecordBatch {}
 
 /// Definition of record batch reader.
 pub trait RecordBatchReader {
