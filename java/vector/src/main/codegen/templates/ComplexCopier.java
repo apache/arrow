@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
@@ -61,23 +63,21 @@ public class ComplexCopier {
         break;
       case MAP:
         if (reader.isSet()) {
-          writer.startList();
-          while (reader.next()) {
+          UnionMapWriter mapWriter = (UnionMapWriter) writer;
+          UnionMapReader mapReader = (UnionMapReader) reader;
+
+          mapWriter.startMap();
+          while (mapReader.next()) {
             FieldReader structReader = reader.reader();
-            UnionMapWriter structWriter = (UnionMapWriter) getListWriterForReader(reader.reader(), writer);
+            UnionMapWriter structWriter = (UnionMapWriter) writer.struct();
             if (structReader.isSet()) {
-              structWriter.start();
-              for(String name : structReader){
-                FieldReader childReader = structReader.reader(name);
-                structWriter.writer.setAddVectorAsNullable(childReader.getField().isNullable());
-                if(childReader.isSet()){
-                  writeValue(childReader, getStructWriterForReader(childReader, structWriter, name));
-                }
-              }
-              structWriter.end();
+              mapWriter.startEntry();
+              writeValue(mapReader.key(), getStructWriterForReader(mapReader.key(), structWriter.key(), MapVector.KEY_NAME));
+              writeValue(mapReader.value(), getStructWriterForReader(mapReader.value(), structWriter.value(), MapVector.VALUE_NAME));
+              mapWriter.endEntry();
             }
           }
-          writer.endList();
+          mapWriter.endMap();
         }
         break;
       case STRUCT:

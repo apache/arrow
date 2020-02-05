@@ -98,18 +98,6 @@ public class UnionMapWriter extends UnionListWriter {
     entryWriter = struct();
   }
 
-  @Override
-  public void start() {
-    writer.setAddVectorAsNullable(false);
-    writer.start();
-  }
-
-  @Override
-  public void end() {
-    writer.setAddVectorAsNullable(true);
-    super.end();
-  }
-
   /** Start writing a map that consists of 1 or more entries. */
   public void startMap() {
     startList();
