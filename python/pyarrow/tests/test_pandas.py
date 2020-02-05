@@ -1343,25 +1343,28 @@ class TestConvertDateTimeLikeTypes:
 
     def test_timestamp_to_pandas_out_of_bounds(self):
         # ARROW-7758 check for out of bounds timestamps for non-ns timestamps
-        arr = pa.array([datetime(1, 1, 1)], pa.timestamp('ms'))
-        table = pa.table({'a': arr})
 
-        msg = "would result in out of bounds timestamp"
-        with pytest.raises(ValueError, match=msg):
-            arr.to_pandas()
+        for unit in ['s', 'ms', 'us']:
+            for tz in [None, 'America/New_York']:
+                arr = pa.array([datetime(1, 1, 1)], pa.timestamp(unit, tz=tz))
+                table = pa.table({'a': arr})
 
-        with pytest.raises(ValueError, match=msg):
-            table.to_pandas()
+                msg = "would result in out of bounds timestamp"
+                with pytest.raises(ValueError, match=msg):
+                    arr.to_pandas()
 
-        with pytest.raises(ValueError, match=msg):
-            # chunked array
-            table.column('a').to_pandas()
+                with pytest.raises(ValueError, match=msg):
+                    table.to_pandas()
 
-        # just ensure those don't give an error, but do not check actual
-        # garbage output
-        arr.to_pandas(safe=False)
-        table.to_pandas(safe=False)
-        table.column('a').to_pandas(safe=False)
+                with pytest.raises(ValueError, match=msg):
+                    # chunked array
+                    table.column('a').to_pandas()
+
+                # just ensure those don't give an error, but do not
+                # check actual garbage output
+                arr.to_pandas(safe=False)
+                table.to_pandas(safe=False)
+                table.column('a').to_pandas(safe=False)
 
     @pytest.mark.parametrize('dtype', [pa.date32(), pa.date64()])
     def test_numpy_datetime64_day_unit(self, dtype):
