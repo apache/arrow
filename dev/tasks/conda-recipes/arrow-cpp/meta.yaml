@@ -20,6 +20,7 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
   host:
+    - abseil-cpp
     - aws-sdk-cpp
     - boost-cpp
     - brotli
