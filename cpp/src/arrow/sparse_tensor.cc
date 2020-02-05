@@ -1006,8 +1006,8 @@ Result<std::shared_ptr<SparseCSFIndex>> SparseCSFIndex::Make(
     const std::shared_ptr<DataType>& indptr_type,
     const std::shared_ptr<DataType>& indices_type,
     const std::vector<int64_t>& indices_shapes, const std::vector<int64_t>& axis_order,
-    std::vector<std::shared_ptr<Buffer>> indptr_data,
-    std::vector<std::shared_ptr<Buffer>> indices_data) {
+    const std::vector<std::shared_ptr<Buffer>>& indptr_data,
+    const std::vector<std::shared_ptr<Buffer>>& indices_data) {
   int64_t ndim = axis_order.size();
   std::vector<std::shared_ptr<Tensor>> indptr(ndim - 1);
   std::vector<std::shared_ptr<Tensor>> indices(ndim);
@@ -1027,8 +1027,8 @@ Result<std::shared_ptr<SparseCSFIndex>> SparseCSFIndex::Make(
 }
 
 // Constructor with two index vectors
-SparseCSFIndex::SparseCSFIndex(std::vector<std::shared_ptr<Tensor>>& indptr,
-                               std::vector<std::shared_ptr<Tensor>>& indices,
+SparseCSFIndex::SparseCSFIndex(const std::vector<std::shared_ptr<Tensor>>& indptr,
+                               const std::vector<std::shared_ptr<Tensor>>& indices,
                                const std::vector<int64_t>& axis_order)
     : SparseIndexBase(indices.back()->size()),
       indptr_(indptr),

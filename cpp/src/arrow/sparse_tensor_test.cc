@@ -950,8 +950,9 @@ class TestSparseCSFTensorForIndexValueType
  protected:
   std::shared_ptr<SparseCSFIndex> MakeSparseCSFIndex(
       const std::vector<int64_t>& axis_order,
-      std::vector<std::vector<typename IndexValueType::c_type>>& indptr_values,
-      std::vector<std::vector<typename IndexValueType::c_type>>& indices_values) const {
+      const std::vector<std::vector<typename IndexValueType::c_type>>& indptr_values,
+      const std::vector<std::vector<typename IndexValueType::c_type>>& indices_values)
+      const {
     int64_t ndim = axis_order.size();
     std::vector<std::shared_ptr<Tensor>> indptr(ndim - 1);
     std::vector<std::shared_ptr<Tensor>> indices(ndim);

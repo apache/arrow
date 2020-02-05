@@ -354,22 +354,22 @@ class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIn
       const std::shared_ptr<DataType>& indptr_type,
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indices_shapes, const std::vector<int64_t>& axis_order,
-      std::vector<std::shared_ptr<Buffer>> indptr_data,
-      std::vector<std::shared_ptr<Buffer>> indices_data);
+      const std::vector<std::shared_ptr<Buffer>>& indptr_data,
+      const std::vector<std::shared_ptr<Buffer>>& indices_data);
 
   /// \brief Make SparseCSFIndex from raw properties
   static Result<std::shared_ptr<SparseCSFIndex>> Make(
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indices_shapes, const std::vector<int64_t>& axis_order,
-      std::vector<std::shared_ptr<Buffer>> indptr_data,
-      std::vector<std::shared_ptr<Buffer>> indices_data) {
+      const std::vector<std::shared_ptr<Buffer>>& indptr_data,
+      const std::vector<std::shared_ptr<Buffer>>& indices_data) {
     return Make(indices_type, indices_type, indices_shapes, axis_order, indptr_data,
                 indices_data);
   }
 
   /// \brief Construct SparseCSFIndex from two index vectors
-  explicit SparseCSFIndex(std::vector<std::shared_ptr<Tensor>>& indptr,
-                          std::vector<std::shared_ptr<Tensor>>& indices,
+  explicit SparseCSFIndex(const std::vector<std::shared_ptr<Tensor>>& indptr,
+                          const std::vector<std::shared_ptr<Tensor>>& indices,
                           const std::vector<int64_t>& axis_order);
 
   /// \brief Return a 1D vector of indptr tensors
