@@ -239,6 +239,7 @@ std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(
   auto it = VALUE_OR_STOP(scanner->Scan());
   std::vector<std::shared_ptr<ds::ScanTask>> out;
   std::shared_ptr<ds::ScanTask> scan_task;
+  // TODO(npr): can this iteration be parallelized?
   for (auto st : it) {
     scan_task = VALUE_OR_STOP(st);
     out.push_back(scan_task);

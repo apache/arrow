@@ -415,9 +415,20 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #'
 #' @description
 #' A `Scanner` iterates over a [Dataset]'s fragments and returns data
-#' according to given row filtering and column projection. Use a
-#' `ScannerBuilder`, from a `Dataset`'s `$NewScan()` method, to construct one.
+#' according to given row filtering and column projection. A `ScannerBuilder`
+#' can help create one.
 #'
+#' @section Factory:
+#' `Scanner$create()` wraps the `ScannerBuilder` interface to make a `Scanner`.
+#' It takes the following arguments:
+#'
+#' * `dataset`: A `Dataset` or `arrow_dplyr_query` object, as returned by the
+#'    `dplyr` methods on `Dataset`.
+#' * `projection`: A character vector of column names to select
+#' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
+#'    to keep all rows.
+#' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
+#' * `...`: Additional arguments, currently ignored
 #' @section Methods:
 #' `ScannerBuilder` has the following methods:
 #'
@@ -467,22 +478,42 @@ Scanner$create <- function(dataset, projection = NULL, filter = TRUE, use_thread
   scanner_builder$Finish()
 }
 
+#' Apply a function to a stream of RecordBatches
+#'
+#' As an alternative to calling `collect()` on a `Dataset` query, you can
+#' use this function to access the stream of `RecordBatch`es in the `Dataset`.
+#' This lets you aggregate on each chunk and pull the intermediate results into
+#' a `data.frame` for further aggregation, even if you couldn't fit the whole
+#' `Dataset` result in memory.
+#'
+#' This is experimental and not recommended for production use.
+#'
+#' @param X A `Dataset` or `arrow_dplyr_query` object, as returned by the
+#' `dplyr` methods on `Dataset`.
+#' @param FUN A function or `purrr`-style lambda expression to apply to each
+#' batch
+#' @param ... Additional arguments passed to `FUN`
+#' @param .data.frame logical: collect the resulting chunks into a single
+#' `data.frame`? Default `TRUE`
+#' @export
 map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   if (.data.frame) {
-    lapply <- purrr::map_dfr
+    lapply <- map_dfr
   }
   scanner <- Scanner$create(X)
   # If X is arrow_dplyr_query and !all(names(X$selected_columns) == X$selected_columns) warn
-  FUN <- purrr::as_mapper(FUN)
-  message("Making ScanTasks")
+  # that renaming is not handled
+  # Likewise, we aren't incorporating any group_by yet
+  FUN <- as_mapper(FUN)
+  # message("Making ScanTasks")
   scan_tasks <- dataset___Scanner__Scan(scanner)
-  message("Done making ScanTasks")
+  # message("Done making ScanTasks")
   lapply(scan_tasks, function(rbi) {
     # This outer lapply could be parallelized
-    message("Making Batches")
+    # message("Making Batches")
     batch_ptrs <- dataset___ScanTask__get_batches(shared_ptr(Object, rbi))
     lapply(batch_ptrs, function(b) {
-      message("Processing Batch")
+      # message("Processing Batch")
       # This inner lapply cannot be parallelized
       FUN(shared_ptr(RecordBatch, b), ...)
     })
