@@ -676,7 +676,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_columns()
         int64_t num_rows()
 
-        c_bool Equals(const CTable& other)
+        c_bool Equals(const CTable& other, c_bool check_metadata)
 
         shared_ptr[CSchema] schema()
         shared_ptr[CChunkedArray] column(int i)
