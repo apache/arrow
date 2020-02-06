@@ -38,7 +38,9 @@ G_BEGIN_DECLS
  */
 
 typedef struct GParquetWriterPropertiesPrivate_ {
+  std::shared_ptr<parquet::WriterProperties> properties;
   parquet::WriterProperties::Builder *builder;
+  gboolean changed;
 } GParquetWriterPropertiesPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(GParquetWriterProperties,
@@ -55,6 +57,7 @@ gparquet_writer_properties_finalize(GObject *object)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(object);
 
+  priv->properties = nullptr;
   delete priv->builder;
 
   G_OBJECT_CLASS(gparquet_writer_properties_parent_class)->finalize(object);
@@ -65,6 +68,7 @@ gparquet_writer_properties_init(GParquetWriterProperties *object)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(object);
   priv->builder = new parquet::WriterProperties::Builder();
+  priv->changed = TRUE;
 }
 
 static void
@@ -104,6 +108,7 @@ gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
   auto arrow_compression_type = garrow_compression_type_to_raw(compression_type);
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
   priv->builder->compression(arrow_compression_type);
+  priv->changed = TRUE;
 }
 
 /**
@@ -380,5 +385,9 @@ std::shared_ptr<parquet::WriterProperties>
 gparquet_writer_properties_get_raw(GParquetWriterProperties *properties)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
-  return priv->builder->build();
+  if (priv->changed) {
+    priv->properties = priv->builder->build();
+  }
+  priv->changed = FALSE;
+  return priv->properties;
 }
