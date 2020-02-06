@@ -40,7 +40,8 @@ void
 gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
                                            GArrowCompressionType compression_type);
 GArrowCompressionType
-gparquet_writer_properties_get_compression(GParquetWriterProperties *properties);
+gparquet_writer_properties_get_compression(GParquetWriterProperties *properties,
+                                           gchar *dotstring);
 
 
 #define GPARQUET_TYPE_ARROW_FILE_WRITER (gparquet_arrow_file_writer_get_type())

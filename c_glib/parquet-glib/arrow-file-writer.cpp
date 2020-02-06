@@ -39,7 +39,6 @@ G_BEGIN_DECLS
 
 typedef struct GParquetWriterPropertiesPrivate_ {
   parquet::WriterProperties::Builder *builder;
-  GArrowCompressionType compression_type;
 } GParquetWriterPropertiesPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(GParquetWriterProperties,
@@ -110,16 +109,20 @@ gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
 /**
  * gparquet_writer_properties_get_compression:
  * @properties: A #GParquetWriterProperties.
+ * @dotstring: The dot string path.
  *
  * Returns: The compression type of #GParquetWriterProperties.
  *
  * Since: 1.0.0
  */
 GArrowCompressionType
-gparquet_writer_properties_get_compression(GParquetWriterProperties *properties)
+gparquet_writer_properties_get_compression(GParquetWriterProperties *properties,
+                                           gchar *dotstring)
 {
-  auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
-  return priv->compression_type;
+  auto parquet_properties = gparquet_writer_properties_get_raw(properties);
+  auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(dotstring);
+  auto arrow_compression = parquet_properties->compression(parquet_column_path);
+  return garrow_compression_type_from_raw(arrow_compression);
 }
 
 
