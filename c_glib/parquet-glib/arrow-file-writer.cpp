@@ -51,10 +51,6 @@ G_DEFINE_TYPE_WITH_PRIVATE(GParquetWriterProperties,
     gparquet_writer_properties_get_instance_private(   \
       GPARQUET_WRITER_PROPERTIES(object)))
 
-enum {
-  PROP_BUILDER = 1
-};
-
 static void
 gparquet_writer_properties_finalize(GObject *object)
 {
@@ -66,45 +62,18 @@ gparquet_writer_properties_finalize(GObject *object)
 }
 
 static void
-gparquet_writer_properties_set_property(GObject *object,
-                                        guint prop_id,
-                                        const GValue *value,
-                                        GParamSpec *pspec)
-{
-  auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_BUILDER:
-    priv->builder =
-      static_cast<parquet::WriterProperties::Builder *>(g_value_get_pointer(value));
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
 gparquet_writer_properties_init(GParquetWriterProperties *object)
 {
+  auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(object);
+  priv->builder = new parquet::WriterProperties::Builder();
 }
 
 static void
 gparquet_writer_properties_class_init(GParquetWriterPropertiesClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize     = gparquet_writer_properties_finalize;
-  gobject_class->set_property = gparquet_writer_properties_set_property;
-
-  spec = g_param_spec_pointer("builder",
-                              "Builder",
-                              "The raw parquet::WriterProperties::Builder *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_BUILDER, spec);
 }
 
 /**
@@ -117,9 +86,9 @@ gparquet_writer_properties_class_init(GParquetWriterPropertiesClass *klass)
 GParquetWriterProperties *
 gparquet_writer_properties_new(void)
 {
-  auto parquet_builder = new parquet::WriterProperties::Builder();
-  auto properties = gparquet_writer_properties_new_raw(parquet_builder);
-  return GPARQUET_WRITER_PROPERTIES(properties);
+  auto writer_properties = g_object_new(GPARQUET_TYPE_WRITER_PROPERTIES,
+                                        NULL);
+  return GPARQUET_WRITER_PROPERTIES(writer_properties);
 }
 
 /**
@@ -136,7 +105,6 @@ gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
   auto arrow_compression_type = garrow_compression_type_to_raw(compression_type);
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
   priv->builder->compression(arrow_compression_type);
-  priv->compression_type = compression_type;
 }
 
 /**
@@ -403,15 +371,6 @@ gparquet_arrow_file_writer_get_raw(GParquetArrowFileWriter *arrow_file_writer)
 {
   auto priv = GPARQUET_ARROW_FILE_WRITER_GET_PRIVATE(arrow_file_writer);
   return priv->arrow_file_writer;
-}
-
-GParquetWriterProperties *
-gparquet_writer_properties_new_raw(parquet::WriterProperties::Builder *parquet_builder)
-{
-  auto writer_properties = g_object_new(GPARQUET_TYPE_WRITER_PROPERTIES,
-                                        "builder", parquet_builder,
-                                        NULL);
-  return GPARQUET_WRITER_PROPERTIES(writer_properties);
 }
 
 std::shared_ptr<parquet::WriterProperties>
