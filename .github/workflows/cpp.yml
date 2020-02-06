@@ -153,7 +153,7 @@ jobs:
             name: Windows 2019
             generator: Visual Studio 16 2019
     env:
-      CMAKE_ARGS: '-A x64'
+      CMAKE_ARGS: '-A x64 -DOPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64'
       CMAKE_GENERATOR: ${{ matrix.generator }}
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
@@ -162,12 +162,12 @@ jobs:
       ARROW_JEMALLOC: OFF
       ARROW_FLIGHT: OFF
       ARROW_HDFS: ON
-      ARROW_PARQUET: OFF
-      ARROW_WITH_ZLIB: OFF
+      ARROW_PARQUET: ON
+      ARROW_WITH_ZLIB: ON
       ARROW_WITH_LZ4: OFF
       ARROW_WITH_BZ2: OFF
-      ARROW_WITH_ZSTD: OFF
-      ARROW_WITH_SNAPPY: OFF
+      ARROW_WITH_ZSTD: ON
+      ARROW_WITH_SNAPPY: ON
       ARROW_WITH_BROTLI: OFF
       ARROW_USE_GLOG: OFF
       ARROW_BUILD_TESTS: ON
@@ -182,8 +182,8 @@ jobs:
         run: reg add "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" /v DontShowUI /t REG_DWORD /d 1 /f
       - name: Installed Packages
         run: choco list -l
-      - name: Install Boost
-        run: choco install -y boost-msvc-14.1
+      - name: Install Dependencies
+        run: choco install -y --no-progress openssl boost-msvc-14.1
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:

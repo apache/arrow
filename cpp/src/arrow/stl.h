@@ -483,7 +483,7 @@ class allocator {
   explicit allocator(MemoryPool* pool) noexcept : pool_(pool) {}
 
   template <class U>
-  allocator(const allocator<U>& rhs) noexcept : pool_(rhs.pool_) {}
+  allocator(const allocator<U>& rhs) noexcept : pool_(rhs.pool()) {}
 
   ~allocator() { pool_ = NULLPTR; }
 
