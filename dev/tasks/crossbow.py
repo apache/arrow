@@ -433,7 +433,7 @@ class Repo:
         if self._github_repo is None:
             username, reponame = self._parse_github_user_repo()
             gh = github3.login(token=self.github_token)
-            return gh.repository(username, reponame)
+            self._github_repo = gh.repository(username, reponame)
         return self._github_repo
 
     def github_commit_status(self, commit):
@@ -1115,13 +1115,11 @@ class GithubPage:
     def _is_failed(self, status, task_name):
         # for showing task statuses during the rendering procedure
         if status.state == 'success':
-            msg = click.style('[  OK] {}'.format(task_name),
-                                fg='green')
+            msg = click.style('[  OK] {}'.format(task_name), fg='green')
             failed = False
             click.echo(msg)
         else:
-            msg = click.style('[FAIL] {}'.format(task_name),
-                                fg='yellow')
+            msg = click.style('[FAIL] {}'.format(task_name), fg='yellow')
             failed = True
 
         click.echo(msg)
@@ -1427,7 +1425,7 @@ def generate_github_page(ctx, n, gh_branch, job_prefix, dry_run):
     # $ at the end of the pattern is important because we're only looking for
     # branches belonging to jobs not branches belonging to tasks
     # the branches we're looking for are like 2020-01-01-0
-    jobs = queue.jobs(pattern="^nightly-(\d{4})-(\d{2})-(\d{2})-(\d+)$")
+    jobs = queue.jobs(pattern=r"^nightly-(\d{4})-(\d{2})-(\d{2})-(\d+)$")
     page = GithubPage(toolz.take(n, jobs))
     files = page.render()
     files.update(unflatten_tree(_default_tree))
@@ -1444,7 +1442,7 @@ def generate_github_page(ctx, n, gh_branch, job_prefix, dry_run):
     commit = queue.create_commit(files, parents=[head.id], message=message,
                                  reference_name=refname)
     click.echo('Updated `{}` branch\'s head to `{}`'
-                .format(branch.branch_name, commit.id))
+               .format(branch.branch_name, commit.id))
     queue.push([refname])
 
 
