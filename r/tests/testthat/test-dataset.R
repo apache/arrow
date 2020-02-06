@@ -212,9 +212,11 @@ test_that("map_batches", {
     ds %>%
       filter(int > 5) %>%
       select(int, lgl) %>%
-      map_batches(~summarize(.,
-        min_int = min(int)
-      )),
+      map_batches(
+        ~summarize(.,
+          min_int = min(int)
+        )
+      ),
     tibble(min_int = c(6L, 101L))
   )
 })

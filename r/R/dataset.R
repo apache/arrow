@@ -451,7 +451,8 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @export
 Scanner <- R6Class("Scanner", inherit = ArrowObject,
   public = list(
-    ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self))
+    ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self)),
+    Scan = function() map(dataset___Scanner__Scan(self), shared_ptr, class = ScanTask)
   )
 )
 Scanner$create <- function(dataset, projection = NULL, filter = TRUE, use_threads = TRUE, ...) {
@@ -478,6 +479,12 @@ Scanner$create <- function(dataset, projection = NULL, filter = TRUE, use_thread
   scanner_builder$Finish()
 }
 
+ScanTask <- R6Class("ScanTask", inherit = Object,
+  public = list(
+    Execute = function() map(dataset___ScanTask__get_batches(self), shared_ptr, class = RecordBatch)
+  )
+)
+
 #' Apply a function to a stream of RecordBatches
 #'
 #' As an alternative to calling `collect()` on a `Dataset` query, you can
@@ -500,22 +507,18 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   if (.data.frame) {
     lapply <- map_dfr
   }
-  scanner <- Scanner$create(X)
-  # If X is arrow_dplyr_query and !all(names(X$selected_columns) == X$selected_columns) warn
-  # that renaming is not handled
-  # Likewise, we aren't incorporating any group_by yet
+  scanner <- Scanner$create(ensure_group_vars(X))
   FUN <- as_mapper(FUN)
   # message("Making ScanTasks")
-  scan_tasks <- dataset___Scanner__Scan(scanner)
-  # message("Done making ScanTasks")
-  lapply(scan_tasks, function(rbi) {
+  lapply(scanner$Scan(), function(scan_task) {
     # This outer lapply could be parallelized
     # message("Making Batches")
-    batch_ptrs <- dataset___ScanTask__get_batches(shared_ptr(Object, rbi))
-    lapply(batch_ptrs, function(b) {
+    lapply(scan_task$Execute(), function(batch) {
       # message("Processing Batch")
       # This inner lapply cannot be parallelized
-      FUN(shared_ptr(RecordBatch, b), ...)
+      # TODO: wrap batch in arrow_dplyr_query with X$selected_columns and X$group_by_vars
+      # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
+      FUN(batch, ...)
     })
   })
 }
