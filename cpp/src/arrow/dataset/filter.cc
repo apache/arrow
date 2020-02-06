@@ -917,17 +917,16 @@ struct InsertImplicitCastsImpl {
     return std::move(out);
   }
 
-  void Cast(std::shared_ptr<DataType> type, std::shared_ptr<Expression>* expr) {
-    if ((*expr)->type() != ExpressionType::SCALAR) {
-      *expr = (*expr)->CastTo(type).Copy();
-      return;
+  Result<std::shared_ptr<Expression>> Cast(std::shared_ptr<DataType> type,
+                                           const Expression& expr) {
+    if (expr.type() != ExpressionType::SCALAR) {
+      return expr.CastTo(type).Copy();
     }
 
     // cast the scalar directly
-    const auto& value = checked_cast<const ScalarExpression&>(**expr).value();
-    auto maybe_value = value->CastTo(std::move(type));
-    DCHECK_OK(maybe_value.status());
-    *expr = scalar(*maybe_value);
+    const auto& value = checked_cast<const ScalarExpression&>(expr).value();
+    ARROW_ASSIGN_OR_RAISE(auto cast_value, value->CastTo(std::move(type)));
+    return scalar(cast_value);
   }
 
   Result<std::shared_ptr<Expression>> operator()(const InExpression& expr) {
@@ -948,7 +947,7 @@ struct InsertImplicitCastsImpl {
     ARROW_ASSIGN_OR_RAISE(auto op, InsertCastsAndValidate(*expr.operand()));
 
     if (op.type->id() != Type::BOOL) {
-      Cast(boolean(), &op.expr);
+      ARROW_ASSIGN_OR_RAISE(op.expr, Cast(boolean(), *op.expr));
     }
     return not_(std::move(op.expr));
   }
@@ -958,10 +957,10 @@ struct InsertImplicitCastsImpl {
     ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCastsAndValidate(*expr.right_operand()));
 
     if (lhs.type->id() != Type::BOOL) {
-      Cast(boolean(), &lhs.expr);
+      ARROW_ASSIGN_OR_RAISE(lhs.expr, Cast(boolean(), *lhs.expr));
     }
     if (rhs.type->id() != Type::BOOL) {
-      Cast(boolean(), &rhs.expr);
+      ARROW_ASSIGN_OR_RAISE(rhs.expr, Cast(boolean(), *rhs.expr));
     }
     return and_(std::move(lhs.expr), std::move(rhs.expr));
   }
@@ -971,10 +970,10 @@ struct InsertImplicitCastsImpl {
     ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCastsAndValidate(*expr.right_operand()));
 
     if (lhs.type->id() != Type::BOOL) {
-      Cast(boolean(), &lhs.expr);
+      ARROW_ASSIGN_OR_RAISE(lhs.expr, Cast(boolean(), *lhs.expr));
     }
     if (rhs.type->id() != Type::BOOL) {
-      Cast(boolean(), &rhs.expr);
+      ARROW_ASSIGN_OR_RAISE(rhs.expr, Cast(boolean(), *rhs.expr));
     }
     return or_(std::move(lhs.expr), std::move(rhs.expr));
   }
@@ -988,9 +987,9 @@ struct InsertImplicitCastsImpl {
     }
 
     if (lhs.expr->type() == ExpressionType::SCALAR) {
-      Cast(rhs.type, &lhs.expr);
+      ARROW_ASSIGN_OR_RAISE(lhs.expr, Cast(rhs.type, *lhs.expr));
     } else {
-      Cast(lhs.type, &rhs.expr);
+      ARROW_ASSIGN_OR_RAISE(rhs.expr, Cast(lhs.type, *rhs.expr));
     }
     return std::make_shared<ComparisonExpression>(expr.op(), std::move(lhs.expr),
                                                   std::move(rhs.expr));
