@@ -790,7 +790,6 @@ class Job(Serializable):
         self.tasks = tasks
         self.branch = None  # filled after adding to a queue
         self._queue = None  # set by the queue object after put or get
-        self._assets = None  # set by query_assets
 
     def render_files(self):
         with StringIO() as buf:
@@ -883,12 +882,17 @@ class Job(Serializable):
                        .format(poll_interval_minutes))
             time.sleep(poll_interval_minutes * 60)
 
-    def query_assets(self, max_workers=8):
+    def query_assets(self, max_workers=4, ignore_prefix=None):
         # cache the futures for later use
-        if self._assets is None:
+        if not hasattr(self, '_assets'):
             self._assets = []
             with concurrent.futures.ThreadPoolExecutor(max_workers) as pool:
                 for task_name, task in sorted(self.tasks.items()):
+                    # HACK: spare some queires because of the rate limit, and
+                    # don't query tasks with specieid prefig, e.g. "test-"
+                    if (ignore_prefix is not None and
+                            task_name.startswith(ignore_prefix)):
+                        continue
                     self._assets.append((
                         task_name,
                         task,
@@ -1087,12 +1091,12 @@ class EmailReport(Report):
 class GithubPage:
 
     def __init__(self, jobs):
-        self.jobs = jobs
+        self.jobs = list(jobs)
 
     def _generate_page(self, links):
-        links = ['<li><a href="{}">{}</a></li>'.format(url, name)
+        links = ['<a href="{}">{}</a>'.format(url, name)
                  for name, url in sorted(links.items())]
-        return '<html><body><ul>{}</ul></body></html>'.format(''.join(links))
+        return '<html><body>{}</body></html>'.format('<br>'.join(links))
 
     def _generate_toc(self, files):
         result, links = {}, {}
@@ -1130,7 +1134,8 @@ class GithubPage:
             click.echo('\nJOB: {}'.format(job.branch))
             tasks = {}
 
-            for task_name, task, status, assets in job.query_assets():
+            it = job.query_assets(ignore_prefix='test')
+            for task_name, task, status, assets in it:
                 links = {}
                 if self._is_failed(status, task_name):
                     continue
@@ -1138,8 +1143,9 @@ class GithubPage:
                     if asset is not None:
                         links[asset.name] = asset.browser_download_url
 
-                page_content = self._generate_page(links)
-                tasks[task_name] = {'index.html': page_content}
+                if links:
+                    page_content = self._generate_page(links)
+                    tasks[task_name] = {'index.html': page_content}
 
             files[str(job.date)] = tasks
 
@@ -1147,7 +1153,7 @@ class GithubPage:
         if 'latest' not in files:
             files['latest'] = tasks
 
-        return self._generate_toc(files)
+        return files
 
     def render_pypi_simple(self):
         click.echo('\n\nRENDERING PYPI')
@@ -1156,7 +1162,8 @@ class GithubPage:
         for job in self.jobs:
             click.echo('\nJOB: {}'.format(job.branch))
 
-            for task_name, task, status, assets in job.query_assets():
+            it = job.query_assets(ignore_prefix='test')
+            for task_name, task, status, assets in it:
                 if not task_name.startswith('wheel'):
                     continue
                 if self._is_failed(status, task_name):
@@ -1165,17 +1172,17 @@ class GithubPage:
                     if asset is not None:
                         wheels[asset.name] = asset.browser_download_url
 
-        files = {'pyarrow': {'index.html': self._generate_toc(wheels)}}
-        return self._generate_page(files)
+        return {'pyarrow': {'index.html': self._generate_page(wheels)}}
 
     def render(self):
         # directory structure for the github pages, only wheels are supported
         # at the moment
-        return {
+        files = self._generate_toc({
             'nightly': self.render_nightlies(),
             'pypi': self.render_pypi_simple(),
-            '.nojekyll': ''
-        }
+        })
+        files['.nojekyll'] = ''
+        return files
 
 
 # configure yaml serializer
