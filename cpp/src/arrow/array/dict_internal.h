@@ -32,6 +32,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -186,6 +187,17 @@ struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
     *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_data}, null_count);
     return Status::OK();
   }
+};
+
+template <typename T>
+struct DictionaryCTraits {
+  using ArrowType = typename CTypeTraits<T>::ArrowType;
+  using MemoTableType = typename DictionaryTraits<ArrowType>::MemoTableType;
+};
+
+template <>
+struct DictionaryCTraits<util::string_view> {
+  using MemoTableType = DictionaryTraits<BinaryType>::MemoTableType;
 };
 
 }  // namespace internal
