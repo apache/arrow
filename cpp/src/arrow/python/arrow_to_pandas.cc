@@ -577,7 +577,8 @@ inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArra
   int32_t memo_size = 0;
 
   auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
-    int32_t memo_index = memo_table.GetOrInsert(value);
+    int32_t memo_index;
+    RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
     if (memo_index == memo_size) {
       // New entry
       RETURN_NOT_OK(wrap_func(value, out_values));

@@ -293,52 +293,11 @@ static std::vector<std::string> MakeStringDictFodder() {
 }
 
 template <class DictionaryBuilderType, class Scalar>
-static void BenchmarkScalarDictionaryArray(
+static void BenchmarkDictionaryArray(
     benchmark::State& state,  // NOLINT non-const reference
-    const std::vector<Scalar>& fodder) {
+    const std::vector<Scalar>& fodder, size_t fodder_nbytes = 0) {
   for (auto _ : state) {
-    DictionaryBuilder<Int64Type> builder(default_memory_pool());
-
-    for (int64_t i = 0; i < kRounds; i++) {
-      for (const auto value : fodder) {
-        ABORT_NOT_OK(builder.Append(value));
-      }
-    }
-
-    std::shared_ptr<Array> out;
-    ABORT_NOT_OK(builder.Finish(&out));
-  }
-
-  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
-}
-
-static void BuildInt64DictionaryArrayRandom(
-    benchmark::State& state) {  // NOLINT non-const reference
-  const auto fodder = MakeRandomIntDictFodder();
-  BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
-}
-
-static void BuildInt64DictionaryArraySequential(
-    benchmark::State& state) {  // NOLINT non-const reference
-  const auto fodder = MakeSequentialIntDictFodder();
-  BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
-}
-
-static void BuildInt64DictionaryArraySimilar(
-    benchmark::State& state) {  // NOLINT non-const reference
-  const auto fodder = MakeSimilarIntDictFodder();
-  BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
-}
-
-static void BuildStringDictionaryArray(
-    benchmark::State& state) {  // NOLINT non-const reference
-  const auto fodder = MakeStringDictFodder();
-  auto fodder_size =
-      std::accumulate(fodder.begin(), fodder.end(), 0ULL,
-                      [&](size_t acc, const std::string& s) { return acc + s.size(); });
-
-  for (auto _ : state) {
-    BinaryDictionaryBuilder builder(default_memory_pool());
+    DictionaryBuilderType builder(default_memory_pool());
 
     for (int64_t i = 0; i < kRounds; i++) {
       for (const auto& value : fodder) {
@@ -350,7 +309,37 @@ static void BuildStringDictionaryArray(
     ABORT_NOT_OK(builder.Finish(&out));
   }
 
-  state.SetBytesProcessed(state.iterations() * fodder_size * kRounds);
+  if (fodder_nbytes == 0) {
+    fodder_nbytes = fodder.size() * sizeof(Scalar);
+  }
+  state.SetBytesProcessed(state.iterations() * fodder_nbytes * kRounds);
+}
+
+static void BuildInt64DictionaryArrayRandom(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const auto fodder = MakeRandomIntDictFodder();
+  BenchmarkDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
+}
+
+static void BuildInt64DictionaryArraySequential(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const auto fodder = MakeSequentialIntDictFodder();
+  BenchmarkDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
+}
+
+static void BuildInt64DictionaryArraySimilar(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const auto fodder = MakeSimilarIntDictFodder();
+  BenchmarkDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
+}
+
+static void BuildStringDictionaryArray(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const auto fodder = MakeStringDictFodder();
+  auto fodder_nbytes =
+      std::accumulate(fodder.begin(), fodder.end(), 0ULL,
+                      [&](size_t acc, const std::string& s) { return acc + s.size(); });
+  BenchmarkDictionaryArray<BinaryDictionaryBuilder>(state, fodder, fodder_nbytes);
 }
 
 static void ArrayDataConstructDestruct(

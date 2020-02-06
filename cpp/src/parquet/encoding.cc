@@ -645,7 +645,8 @@ inline void DictEncoderImpl<DType>::Put(const T& v) {
     dict_encoded_size_ += static_cast<int>(sizeof(T));
   };
 
-  auto memo_index = memo_table_.GetOrInsert(v, on_found, on_not_found);
+  int32_t memo_index;
+  PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(v, on_found, on_not_found, &memo_index));
   buffered_indices_.push_back(memo_index);
 }
 
@@ -666,7 +667,9 @@ inline void DictEncoderImpl<ByteArrayType>::PutByteArray(const void* ptr,
 
   DCHECK(ptr != nullptr || length == 0);
   ptr = (ptr != nullptr) ? ptr : empty;
-  auto memo_index = memo_table_.GetOrInsert(ptr, length, on_found, on_not_found);
+  int32_t memo_index;
+  PARQUET_THROW_NOT_OK(
+      memo_table_.GetOrInsert(ptr, length, on_found, on_not_found, &memo_index));
   buffered_indices_.push_back(memo_index);
 }
 
@@ -684,7 +687,9 @@ inline void DictEncoderImpl<FLBAType>::Put(const FixedLenByteArray& v) {
 
   DCHECK(v.ptr != nullptr || type_length_ == 0);
   const void* ptr = (v.ptr != nullptr) ? v.ptr : empty;
-  auto memo_index = memo_table_.GetOrInsert(ptr, type_length_, on_found, on_not_found);
+  int32_t memo_index;
+  PARQUET_THROW_NOT_OK(
+      memo_table_.GetOrInsert(ptr, type_length_, on_found, on_not_found, &memo_index));
   buffered_indices_.push_back(memo_index);
 }
 
@@ -775,10 +780,8 @@ void DictEncoderImpl<DType>::PutDictionary(const arrow::Array& values) {
 
   dict_encoded_size_ += static_cast<int>(sizeof(typename DType::c_type) * data.length());
   for (int64_t i = 0; i < data.length(); i++) {
-    ARROW_IGNORE_EXPR(
-        memo_table_.GetOrInsert(data.Value(i),
-                                /*on_found=*/[](int32_t memo_index) {},
-                                /*on_not_found=*/[](int32_t memo_index) {}));
+    int32_t unused_memo_index;
+    PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(data.Value(i), &unused_memo_index));
   }
 }
 
@@ -791,10 +794,9 @@ void DictEncoderImpl<FLBAType>::PutDictionary(const arrow::Array& values) {
 
   dict_encoded_size_ += static_cast<int>(type_length_ * data.length());
   for (int64_t i = 0; i < data.length(); i++) {
-    ARROW_IGNORE_EXPR(
-        memo_table_.GetOrInsert(data.Value(i), type_length_,
-                                /*on_found=*/[](int32_t memo_index) {},
-                                /*on_not_found=*/[](int32_t memo_index) {}));
+    int32_t unused_memo_index;
+    PARQUET_THROW_NOT_OK(
+        memo_table_.GetOrInsert(data.Value(i), type_length_, &unused_memo_index));
   }
 }
 
@@ -808,10 +810,9 @@ void DictEncoderImpl<ByteArrayType>::PutDictionary(const arrow::Array& values) {
   for (int64_t i = 0; i < data.length(); i++) {
     auto v = data.GetView(i);
     dict_encoded_size_ += static_cast<int>(v.size() + sizeof(uint32_t));
-    ARROW_IGNORE_EXPR(
-        memo_table_.GetOrInsert(v.data(), static_cast<int32_t>(v.size()),
-                                /*on_found=*/[](int32_t memo_index) {},
-                                /*on_not_found=*/[](int32_t memo_index) {}));
+    int32_t unused_memo_index;
+    PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(v.data(), static_cast<int32_t>(v.size()),
+                                                 &unused_memo_index));
   }
 }
 
