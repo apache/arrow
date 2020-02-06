@@ -71,7 +71,17 @@ impl ExecutionContext {
     pub fn sql(&mut self, sql: &str, batch_size: usize) -> Result<Vec<RecordBatch>> {
         let plan = self.create_logical_plan(sql)?;
 
-        match plan.as_ref() {
+        return self.collect_plan(plan.as_ref(), batch_size);
+    }
+
+    /// Executes a logical plan and produce a Relation (a schema-aware iterator over a series
+    /// of RecordBatch instances)
+    pub fn collect_plan(
+        &mut self,
+        plan: &LogicalPlan,
+        batch_size: usize,
+    ) -> Result<Vec<RecordBatch>> {
+        match plan {
             LogicalPlan::CreateExternalTable {
                 ref schema,
                 ref name,
