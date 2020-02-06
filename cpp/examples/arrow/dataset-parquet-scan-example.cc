@@ -65,7 +65,8 @@ struct Configuration {
   std::shared_ptr<ds::Expression> filter = ("total_amount"_ > 1000.0f).Copy();
 } conf;
 
-std::shared_ptr<fs::FileSystem> GetFileSystemFromUri(const std::string& uri, std::string* path) {
+std::shared_ptr<fs::FileSystem> GetFileSystemFromUri(const std::string& uri,
+                                                     std::string* path) {
   return fs::FileSystemFromUri(uri, path).ValueOrDie();
 }
 
@@ -117,8 +118,6 @@ std::shared_ptr<Table> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner)
 }
 
 int main(int argc, char** argv) {
-  auto format = std::make_shared<ds::ParquetFileFormat>();
-
   if (argc != 2) {
     // Fake success for CI purposes.
     return EXIT_SUCCESS;
@@ -127,7 +126,7 @@ int main(int argc, char** argv) {
   std::string path;
   auto fs = GetFileSystemFromUri(argv[1], &path);
 
-  auto dataset = GetDatasetFromPath(fs, format, path);
+  auto dataset = GetDatasetFromPath(fs, ds::ParquetFileFormat::Make(), path);
 
   auto scanner = GetScannerFromDataset(dataset, conf.projected_columns, conf.filter,
                                        conf.use_threads);

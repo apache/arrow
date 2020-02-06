@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"

@@ -65,7 +65,7 @@ std::string dataset___FileFormat__type_name(
 
 // [[arrow::export]]
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make() {
-  return std::make_shared<ds::ParquetFileFormat>();
+  return ds::ParquetFileFormat::Make();
 }
 
 // [[arrow::export]]

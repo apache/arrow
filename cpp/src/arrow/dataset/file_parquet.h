@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <unordered_set>
+#include <utility>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
