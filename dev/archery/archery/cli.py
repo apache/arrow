@@ -541,6 +541,9 @@ def _set_default(opt, default):
               help='Stop on first error')
 @click.option('--gold_dirs', multiple=True,
               help="gold integration test file paths")
+@click.option('-k', '--match',
+              help=("Substring for test names to include in run, "
+                    "e.g. -k primitive"))
 def integration(with_all=False, random_seed=12345, **args):
     from .integration.runner import write_js_test_json, run_all_tests
     import numpy as np

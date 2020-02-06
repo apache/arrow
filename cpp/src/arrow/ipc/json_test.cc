@@ -120,7 +120,7 @@ void CheckPrimitive(const std::shared_ptr<DataType>& type,
 
   std::shared_ptr<Array> array;
   ASSERT_OK(builder.Finish(&array));
-  TestArrayRoundTrip(*array.get());
+  TestArrayRoundTrip(*array);
 }
 
 TEST(TestJsonSchemaWriter, FlatTypes) {
@@ -147,6 +147,7 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
       field("f18", union_({field("u1", int8()), field("u2", time32(TimeUnit::MILLI))},
                           {0, 1}, UnionMode::DENSE)),
       field("f19", large_list(uint8())),
+      field("f20", null()),
   };
 
   Schema schema(fields);
@@ -160,6 +161,11 @@ void PrimitiveTypesCheckOne() {
   std::vector<bool> is_valid = {true, false, true, true, true, false, true, true};
   std::vector<c_type> values = {0, 1, 2, 3, 4, 5, 6, 7};
   CheckPrimitive<T, c_type>(std::make_shared<T>(), is_valid, values);
+}
+
+TEST(TestJsonArrayWriter, NullType) {
+  auto arr = std::make_shared<NullArray>(10);
+  TestArrayRoundTrip(*arr);
 }
 
 TEST(TestJsonArrayWriter, PrimitiveTypes) {
@@ -249,8 +255,7 @@ TEST(TestJsonArrayWriter, Unions) {
   ASSERT_OK(MakeUnion(&batch));
 
   for (int i = 0; i < batch->num_columns(); ++i) {
-    std::shared_ptr<Array> col = batch->column(i);
-    TestArrayRoundTrip(*col.get());
+    TestArrayRoundTrip(*batch->column(i));
   }
 }
 
