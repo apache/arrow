@@ -719,12 +719,28 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   /**
    * Check if element at given index is null.
    *
-   * @param index  position of element
+   * @param index position of element
    * @return true if element at given index is null, false otherwise
    */
   @Override
   public boolean isNull(int index) {
     return (isSet(index) == 0);
+  }
+
+  /**
+   * Check if element at given index is empty list.
+   * @param index position of element
+   * @return true if element at given index is empty list or NULL, false otherwise
+   */
+  @Override
+  public boolean isEmpty(int index) {
+    if (isNull(index)) {
+      return true;
+    } else {
+      final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
+      final int end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
+      return start == end;
+    }
   }
 
   /**
