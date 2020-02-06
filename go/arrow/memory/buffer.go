@@ -63,7 +63,6 @@ func (b *Buffer) Release() {
 
 // Reset resets the buffer for reuse.
 func (b *Buffer) Reset(buf []byte) {
-	b.refCount = 0
 	b.buf = buf
 	b.length = len(buf)
 }
