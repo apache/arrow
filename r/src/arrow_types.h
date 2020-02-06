@@ -210,7 +210,10 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/json/reader.h>
 #include <arrow/result.h>
 #include <arrow/type.h>
+#include <arrow/util/checked_cast.h>
 #include <arrow/util/compression.h>
+#include <arrow/util/ubsan.h>
+#include <arrow/visitor_inline.h>
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
 #include <parquet/exception.h>
@@ -284,7 +287,7 @@ class RBuffer : public MutableBuffer {
   Vec vec_;
 };
 
-std::shared_ptr<arrow::DataType> GetFactorType(SEXP);
+std::shared_ptr<arrow::DataType> InferArrowTypeFromFactor(SEXP);
 
 }  // namespace r
 }  // namespace arrow

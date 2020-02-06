@@ -143,7 +143,7 @@ std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
     case INTSXP:
       if (Rf_inherits(x, "factor")) {
         // TODO: This does not use the actual value, just the levels
-        auto type = arrow::r::GetFactorType(x);
+        auto type = arrow::r::InferArrowTypeFromFactor(x);
         return ds::scalar(std::make_shared<arrow::DictionaryScalar>(type));
       }
       return ds::scalar(Rf_asInteger(x));

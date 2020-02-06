@@ -459,6 +459,53 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
   expect_error(Array$create(df, type = type), regexp = "Cannot convert R object to string array")
 })
 
+test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
+  verify <- function(v, type) {
+    a <- Array$create(v)
+    expect_equal(a$type, list_of(type))
+    expect_equivalent(a$as_vector(), v)
+  }
+
+  # logical
+  verify(list(NA), bool())
+  verify(list(logical(0)), bool())
+  verify(list(c(TRUE), c(FALSE), c(FALSE, TRUE)), bool())
+  verify(list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)), bool())
+
+  # integer
+  verify(list(NA_integer_), int32())
+  verify(list(integer(0)), int32())
+  verify(list(1:2, 3:4, 12:18), int32())
+  verify(list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)), int32())
+
+  # numeric
+  verify(list(NA_real_), float64())
+  verify(list(numeric(0)), float64())
+  verify(list(1, c(2, 3), 4), float64())
+  verify(list(1, numeric(0), c(2, 3, NA_real_), 4), float64())
+
+  # character
+  verify(list(NA_character_), utf8())
+  verify(list(character(0)), utf8())
+  verify(list("itsy", c("bitsy", "spider"), c("is")), utf8())
+  verify(list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")), utf8())
+})
+
+test_that("Array$create() should refuse heterogeneous lists", {
+  verify <- function(...) {
+    expect_error(Array$create(list(...)), regexp = "Invalid list, expected vector")
+  }
+
+  lgl <- logical(0)
+  int <- integer(0)
+  num <- numeric(0)
+  char <- character(0)
+
+  verify(lgl, lgl, int)
+  verify(char, num, char)
+  verify(int, int, num)
+})
+
 test_that("Array$View() (ARROW-6542)", {
   a <- Array$create(1:3)
   b <- a$View(float32())
