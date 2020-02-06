@@ -1094,9 +1094,9 @@ class GithubPage:
         self.jobs = list(jobs)
 
     def _generate_page(self, links):
-        links = ['<a href="{}">{}</a>'.format(url, name)
+        links = ['<li><a href="{}">{}</a></li>'.format(url, name)
                  for name, url in sorted(links.items())]
-        return '<html><body>{}</body></html>'.format('<br>'.join(links))
+        return '<html><body><ul>{}</ul></body></html>'.format(''.join(links))
 
     def _generate_toc(self, files):
         result, links = {}, {}
