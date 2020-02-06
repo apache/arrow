@@ -114,7 +114,7 @@ public class FieldType {
     if (!(obj instanceof FieldType)) {
       return false;
     }
-    Field that = (Field) obj;
+    FieldType that = (FieldType) obj;
     return Objects.equals(this.isNullable(), that.isNullable()) &&
         Objects.equals(this.getType(), that.getType()) &&
         Objects.equals(this.getDictionary(), that.getDictionary()) &&
