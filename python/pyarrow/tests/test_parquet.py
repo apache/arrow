@@ -1897,8 +1897,6 @@ def test_invalid_pred_op(tempdir):
                           ])
 
 
-# TODO implement filters
-@pytest.mark.skip
 @pytest.mark.pandas
 def test_filters_read_table(tempdir):
     # test that filters keyword is passed through in read_table

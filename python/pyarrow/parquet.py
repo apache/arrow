@@ -102,6 +102,66 @@ def _check_filters(filters):
                     )
     return filters
 
+
+def _filters_to_expression(filters):
+    """
+    Check if filters are well-formed.
+
+    Predicates are expressed in disjunctive normal form (DNF). This means
+    that the innermost tuple describe a single column predicate. These
+    inner predicate make are all combined with a conjunction (AND) into a
+    larger predicate. The most outer list then combines all filters
+    with a disjunction (OR). By this, we should be able to express all
+    kinds of filters that are possible using boolean logic.
+    """
+    import pyarrow.dataset as ds
+
+    filters = _check_filters(filters)
+
+    def convert_single_predicate(col, op, val):
+        field = ds.field(col)
+
+        if op == "=" or op == "==":
+            return field == val
+        elif op == "!=":
+            return field != val
+        elif op == '<':
+            return field < val
+        elif op == '>':
+            return field > val
+        elif op == '<=':
+            return field <= val
+        elif op == '>=':
+            return field >= val
+        elif op == 'in':
+            return field.isin(val)
+        elif op == 'not in':
+            return ~field.isin(val)
+        else:
+            raise ValueError(
+                '"{0}" is not a valid operator in predicates.'.format(
+                    (col, op, val)))
+
+    or_exprs = []
+
+    for conjunction in filters:
+        and_exprs = []
+        for col, op, val in conjunction:
+            and_exprs.append(convert_single_predicate(col, op, val))
+        if len(and_exprs) > 1:
+            expr = ds.AndExpression(*and_exprs)
+        else:
+            expr = and_exprs[0]
+        or_exprs.append(expr)
+
+    if len(or_exprs) > 1:
+        expr = ds.OrExpression(*or_exprs)
+    else:
+        expr = or_exprs[0]
+
+    return expr
+
+
 # ----------------------------------------------------------------------
 # Reading a single Parquet file
 
@@ -1288,10 +1348,17 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                buffer_size=0, use_datasets=True):
     if use_datasets:
         import pyarrow.dataset as ds
+        import pyarrow.fs
 
-        dataset = ds.dataset(source, filesystem=filesystem, format="parquet")
-        # TODO implement filter (tuple -> expression conversion)
-        table = dataset.to_table(columns=columns)
+        # map old filesystems to new one
+        if isinstance(filesystem, LocalFileSystem):
+            filesystem = pyarrow.fs.LocalFileSystem()
+
+        dataset = ds.dataset(source, filesystem=filesystem, format="parquet",
+                             partitioning="hive")
+        if filters is not None and not isinstance(filters, ds.Expression):
+            filters = _filters_to_expression(filters)
+        table = dataset.to_table(columns=columns, filter=filters)
 
         # remove ARROW:schema metadata, current parquet version doesn't
         # preserve this
