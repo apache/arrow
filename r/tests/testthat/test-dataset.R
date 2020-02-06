@@ -316,10 +316,21 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
 test_that("collect() on Dataset works (if fits in memory)", {
   expect_equal(
     collect(open_dataset(dataset_dir)),
-    rbind(
-      cbind(df1),
-      cbind(df2)
-    )
+    rbind(df1, df2)
+  )
+})
+
+test_that("count()", {
+  skip("count() is not a generic so we have to get here through summarize()")
+  ds <- open_dataset(dataset_dir)
+  df <- rbind(df1, df2)
+  expect_equal(
+    ds %>%
+      filter(int > 6, int < 108) %>%
+      count(chr),
+    df %>%
+      filter(int > 6, int < 108) %>%
+      count(chr)
   )
 })
 
