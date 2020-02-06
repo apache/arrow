@@ -790,6 +790,7 @@ class Job(Serializable):
         self.tasks = tasks
         self.branch = None  # filled after adding to a queue
         self._queue = None  # set by the queue object after put or get
+        self._assets = None  # set by query_assets
 
     def render_files(self):
         with StringIO() as buf:
@@ -883,17 +884,19 @@ class Job(Serializable):
             time.sleep(poll_interval_minutes * 60)
 
     def query_assets(self, max_workers=8):
-        futures = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers) as executor:
-            for task_name, task in sorted(self.tasks.items()):
-                futures.append((
-                    task_name,
-                    task,
-                    executor.submit(task.status),
-                    executor.submit(task.assets)
-                ))
+        # cache the futures for later use
+        if self._assets is None:
+            self._assets = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers) as pool:
+                for task_name, task in sorted(self.tasks.items()):
+                    self._assets.append((
+                        task_name,
+                        task,
+                        pool.submit(task.status),
+                        pool.submit(task.assets)
+                    ))
 
-        for task_name, task, status, assets in futures:
+        for task_name, task, status, assets in self._assets:
             yield (task_name, task, status.result(), assets.result())
 
 
@@ -1092,61 +1095,87 @@ class GithubPage:
         return '<html><body><ul>{}</ul></body></html>'.format(''.join(links))
 
     def _generate_toc(self, files):
-        links = {}
+        result, links = {}, {}
         for k, v in files.items():
             if isinstance(v, dict):
-                links[k] = self._generate_toc(v)
-            else:
+                result[k] = self._generate_toc(v)
                 links[k] = '{}/'.format(k)
+            else:
+                result[k] = v
 
-        return toolz.merge([
-            files,
-            {'index.html': self._generate_page(links)}
-        ])
+        if links:
+            result['index.html'] = self._generate_page(links)
 
-    def render_wheels(self):
+        return result
+
+    def _is_failed(self, status, task_name):
+        # for showing task statuses during the rendering procedure
+        if status.state == 'success':
+            msg = click.style('[  OK] {}'.format(task_name),
+                                fg='green')
+            failed = False
+            click.echo(msg)
+        else:
+            msg = click.style('[FAIL] {}'.format(task_name),
+                                fg='yellow')
+            failed = True
+
+        click.echo(msg)
+        return failed
+
+    def render_nightlies(self):
+        click.echo('\n\nRENDERING NIGHTLIES')
         files = {}
         for job in self.jobs:
             click.echo('\nJOB: {}'.format(job.branch))
-            links = {}
+            tasks = {}
+
+            for task_name, task, status, assets in job.query_assets():
+                links = {}
+                if self._is_failed(status, task_name):
+                    continue
+                for asset in assets.values():
+                    if asset is not None:
+                        links[asset.name] = asset.browser_download_url
+
+                page_content = self._generate_page(links)
+                tasks[task_name] = {'index.html': page_content}
+
+            files[str(job.date)] = tasks
+
+        # write the most recent wheels under the latest directory
+        if 'latest' not in files:
+            files['latest'] = tasks
+
+        return self._generate_toc(files)
+
+    def render_pypi_simple(self):
+        click.echo('\n\nRENDERING PYPI')
+
+        wheels = {}
+        for job in self.jobs:
+            click.echo('\nJOB: {}'.format(job.branch))
 
             for task_name, task, status, assets in job.query_assets():
                 if not task_name.startswith('wheel'):
                     continue
-
-                if status.state == 'success':
-                    msg = click.style('[  OK] {}'.format(task_name),
-                                      fg='green')
-                    click.echo(msg)
-                else:
-                    msg = click.style('[FAIL] {}'.format(task_name),
-                                      fg='yellow')
-                    click.echo(msg)
+                if self._is_failed(status, task_name):
                     continue
-
-                for filename, asset in assets.items():
+                for asset in assets.values():
                     if asset is not None:
-                        links[filename] = asset.browser_download_url
+                        wheels[asset.name] = asset.browser_download_url
 
-            page_content = self._generate_page(links)
-            files[str(job.date)] = {'index.html': page_content}
-
-        # write the most recent wheels under the latest directory
-        if 'latest' not in files:
-            files['latest'] = {'index.html': page_content}
-
-        return files
+        files = {'pyarrow': {'index.html': self._generate_toc(wheels)}}
+        return self._generate_page(files)
 
     def render(self):
         # directory structure for the github pages, only wheels are supported
         # at the moment
-        files = self._generate_toc({
-            'nightly': {
-                'wheel': self.render_wheels()
-            }
-        })
-        files['.nojekyll'] = ''
-        return files
+        return {
+            'nightly': self.render_nightlies(),
+            'pypi': self.render_pypi_simple(),
+            '.nojekyll': ''
+        }
 
 
 # configure yaml serializer
