@@ -59,7 +59,7 @@ script:
   - cd $TRAVIS_BUILD_DIR
   - mkdir -p dist
   # please refer to README for steps to update this image
-  - docker run -v $PWD:/io -v $PWD:/arrow quay.io/praveenbingo/arrow:buildGandivaDocker /io/dev/tasks/gandiva-jars/build-cpp-linux.sh || travis_terminate 1
+  - docker run -v $PWD:/io -v $PWD:/arrow quay.io/prudhvi/arrow:buildGandivaDocker /io/dev/tasks/gandiva-jars/build-cpp-linux.sh || travis_terminate 1
   - dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
   # deploy using crossbow
   - >
