@@ -65,7 +65,7 @@ pub trait RowAccessor {
     fn get_ulong(&self, i: usize) -> Result<u64>;
     fn get_float(&self, i: usize) -> Result<f32>;
     fn get_double(&self, i: usize) -> Result<f64>;
-    fn get_timestamp(&self, i: usize) -> Result<u64>;
+    fn get_timestamp_millis(&self, i: usize) -> Result<u64>;
     fn get_timestamp_micros(&self, i: usize) -> Result<u64>;
     fn get_decimal(&self, i: usize) -> Result<&Decimal>;
     fn get_string(&self, i: usize) -> Result<&String>;
@@ -138,7 +138,7 @@ impl RowAccessor for Row {
 
     row_primitive_accessor!(get_double, Double, f64);
 
-    row_primitive_accessor!(get_timestamp, TimestampMillis, u64);
+    row_primitive_accessor!(get_timestamp_millis, TimestampMillis, u64);
 
     row_primitive_accessor!(get_timestamp_micros, TimestampMicros, u64);
 
@@ -209,7 +209,7 @@ pub trait ListAccessor {
     fn get_ulong(&self, i: usize) -> Result<u64>;
     fn get_float(&self, i: usize) -> Result<f32>;
     fn get_double(&self, i: usize) -> Result<f64>;
-    fn get_timestamp(&self, i: usize) -> Result<u64>;
+    fn get_timestamp_millis(&self, i: usize) -> Result<u64>;
     fn get_timestamp_micros(&self, i: usize) -> Result<u64>;
     fn get_decimal(&self, i: usize) -> Result<&Decimal>;
     fn get_string(&self, i: usize) -> Result<&String>;
@@ -274,7 +274,7 @@ impl ListAccessor for List {
 
     list_primitive_accessor!(get_double, Double, f64);
 
-    list_primitive_accessor!(get_timestamp, TimestampMillis, u64);
+    list_primitive_accessor!(get_timestamp_millis, TimestampMillis, u64);
 
     list_primitive_accessor!(get_timestamp_micros, TimestampMicros, u64);
 
@@ -359,7 +359,7 @@ impl<'a> ListAccessor for MapList<'a> {
 
     map_list_primitive_accessor!(get_double, Double, f64);
 
-    map_list_primitive_accessor!(get_timestamp, TimestampMillis, u64);
+    map_list_primitive_accessor!(get_timestamp_millis, TimestampMillis, u64);
 
     map_list_primitive_accessor!(get_timestamp_micros, TimestampMicros, u64);
 
