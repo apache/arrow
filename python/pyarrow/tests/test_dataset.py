@@ -568,19 +568,19 @@ def _check_dataset_from_path(path, table, **kwargs):
     dataset = ds.dataset(ds.source(path, **kwargs))
     assert dataset.schema.equals(table.schema, check_metadata=False)
     result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.replace_schema_metadata().equals(table)
+    assert result.equals(table, check_metadata=False)
 
     # string path
     dataset = ds.dataset(ds.source(str(path), **kwargs))
     assert dataset.schema.equals(table.schema, check_metadata=False)
     result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.replace_schema_metadata().equals(table)
+    assert result.equals(table, check_metadata=False)
 
     # passing directly to dataset
     dataset = ds.dataset(str(path), **kwargs)
     assert dataset.schema.equals(table.schema, check_metadata=False)
     result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.replace_schema_metadata().equals(table)
+    assert result.equals(table, check_metadata=False)
 
 
 @pytest.mark.parquet
@@ -608,7 +608,7 @@ def test_open_dataset_list_of_files(tempdir):
             ds.dataset(ds.source([str(path1), str(path2)]))]:
         assert dataset.schema.equals(table.schema, check_metadata=False)
         result = dataset.to_table(use_threads=False)  # deterministic row order
-        assert result.replace_schema_metadata().equals(table)
+        assert result.equals(table, check_metadata=False)
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="fails on windows")
@@ -646,7 +646,7 @@ def test_open_dataset_partitioned_directory(tempdir):
     result = dataset.to_table(use_threads=False)
     expected = full_table.append_column(
         "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
-    assert result.replace_schema_metadata().equals(expected)
+    assert result.equals(expected, check_metadata=False)
 
 
 @pytest.mark.parquet

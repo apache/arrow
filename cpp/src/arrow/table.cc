@@ -666,11 +666,11 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
   return Table::Make(schema, std::move(columns));
 }
 
-bool Table::Equals(const Table& other) const {
+bool Table::Equals(const Table& other, bool check_metadata) const {
   if (this == &other) {
     return true;
   }
-  if (!schema_->Equals(*other.schema())) {
+  if (!schema_->Equals(*other.schema(), check_metadata)) {
     return false;
   }
   if (this->num_columns() != other.num_columns()) {

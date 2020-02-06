@@ -480,6 +480,10 @@ def test_table_equals():
     # ARROW-4822
     assert not table.equals(None)
 
+    other = pa.Table.from_arrays([], names=[], metadata={'key': 'value'})
+    assert not table.equals(other)
+    assert table.equals(other, check_metadata=False)
+
 
 def test_table_from_batches_and_schema():
     schema = pa.schema([
