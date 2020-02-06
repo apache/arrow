@@ -23,9 +23,6 @@
 
 using arrow::internal::checked_cast;
 
-constexpr static auto kInheritsNullToken = "vctrs_unspecified";
-constexpr static auto kInheritsInt64Token = "integer64";
-
 namespace arrow {
 namespace r {
 
@@ -53,18 +50,12 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
 
 struct VectorToArrayConverter {
   Status Visit(const arrow::NullType& type) {
-    ARROW_RETURN_IF(TYPEOF(x) != LGLSXP,
-                    Status::Invalid("Expected vector of type LGLSXP"));
-    ARROW_RETURN_IF(
-        Rf_inherits(x, kInheritsNullToken),
-        Status::Invalid("Expected a vector that inherits '", kInheritsNullToken, "'"));
     auto* null_builder = checked_cast<NullBuilder*>(builder);
     return null_builder->AppendNulls(XLENGTH(x));
   }
 
   Status Visit(const arrow::BooleanType& type) {
-    ARROW_RETURN_IF(TYPEOF(x) != LGLSXP,
-                    Status::Invalid("Expected vector of type LGLSXP"));
+    ARROW_RETURN_IF(TYPEOF(x) != LGLSXP, Status::RError("Expecting a logical vector"));
     R_xlen_t n = XLENGTH(x);
 
     auto* bool_builder = checked_cast<BooleanBuilder*>(builder);
@@ -83,8 +74,7 @@ struct VectorToArrayConverter {
   }
 
   Status Visit(const arrow::Int32Type& type) {
-    ARROW_RETURN_IF(TYPEOF(x) != INTSXP,
-                    Status::Invalid("Expected vector of type VECSXP"));
+    ARROW_RETURN_IF(TYPEOF(x) != INTSXP, Status::RError("Expecting an integer vector"));
 
     auto* int_builder = checked_cast<Int32Builder*>(builder);
 
@@ -105,11 +95,9 @@ struct VectorToArrayConverter {
   }
 
   Status Visit(const arrow::Int64Type& type) {
-    ARROW_RETURN_IF(TYPEOF(x) != REALSXP,
-                    Status::Invalid("Expected vector of type REALSXP"));
-    ARROW_RETURN_IF(
-        Rf_inherits(x, kInheritsInt64Token),
-        Status::Invalid("Expected a vector that inherits '", kInheritsInt64Token, "'"));
+    ARROW_RETURN_IF(TYPEOF(x) != REALSXP, Status::RError("Expecting a numeric vector"));
+    ARROW_RETURN_IF(Rf_inherits(x, "integer64"),
+                    Status::RError("Expecting a vector that inherits integer64"));
 
     auto* int_builder = checked_cast<Int64Builder*>(builder);
 
@@ -130,8 +118,7 @@ struct VectorToArrayConverter {
   }
 
   Status Visit(const arrow::DoubleType& type) {
-    ARROW_RETURN_IF(TYPEOF(x) != REALSXP,
-                    Status::Invalid("Expected vector of type REALSXP"));
+    ARROW_RETURN_IF(TYPEOF(x) != REALSXP, Status::RError("Expecting a numeric vector"));
 
     auto* double_builder = checked_cast<DoubleBuilder*>(builder);
 
@@ -154,10 +141,13 @@ struct VectorToArrayConverter {
   template <typename T>
   arrow::enable_if_base_binary<T, Status> Visit(const T& type) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
+
+    ARROW_RETURN_IF(TYPEOF(x) != STRSXP, Status::RError("Expecting a character vector"));
+
     auto* binary_builder = checked_cast<BuilderType*>(builder);
 
     R_xlen_t n = XLENGTH(x);
-    builder->Reserve(n);
+    RETURN_NOT_OK(builder->Reserve(n));
     for (R_xlen_t i = 0; i < n; i++) {
       SEXP s = STRING_ELT(x, i);
       if (s == NA_STRING) {
@@ -175,17 +165,14 @@ struct VectorToArrayConverter {
   arrow::enable_if_base_list<T, Status> Visit(const T& type) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
 
+    ARROW_RETURN_IF(TYPEOF(x) != VECSXP, Status::RError("Expecting a list vector"));
+
     auto* list_builder = checked_cast<BuilderType*>(builder);
     auto* value_builder = list_builder->value_builder();
     auto value_type = type.value_type();
 
     R_xlen_t n = XLENGTH(x);
-
-    ARROW_RETURN_IF(TYPEOF(x) != VECSXP,
-                    Status::Invalid("Expected vector of type VECSXP"));
-    ARROW_RETURN_IF(n == 0, Status::Invalid("0-length vector input not supported"));
-
-    builder->Reserve(n);
+    RETURN_NOT_OK(builder->Reserve(n));
     for (R_xlen_t i = 0; i < n; i++) {
       SEXP vector = VECTOR_ELT(x, i);
       if (vector == R_NilValue) {
@@ -197,9 +184,8 @@ struct VectorToArrayConverter {
 
       auto vect_type = arrow::r::InferArrowType(vector);
       if (!value_type->Equals(vect_type)) {
-        return Status::Invalid("Invalid list, expected vector type",
-                               value_type->ToString(), " but got ",
-                               vect_type->ToString());
+        return Status::RError("List vector expecting elements vector of type ",
+                              value_type->ToString(), " but got ", vect_type->ToString());
       }
 
       // Recurse.
@@ -211,8 +197,8 @@ struct VectorToArrayConverter {
   }
 
   Status Visit(const arrow::DataType& type) {
-    return Status::NotImplemented("VectorToArrayConverter support for type ",
-                                  type.ToString(), " not implemented");
+    return Status::NotImplemented("Converting vector to arrow type ", type.ToString(),
+                                  " not implemented");
   }
 
   static std::shared_ptr<Array> Visit(SEXP x, const std::shared_ptr<DataType>& type) {
@@ -471,7 +457,7 @@ struct Unbox<Type, enable_if_integer<Type>> {
       case INTSXP:
         return IngestRange<int>(builder, INTEGER(obj), XLENGTH(obj));
       case REALSXP:
-        if (Rf_inherits(obj, kInheritsInt64Token)) {
+        if (Rf_inherits(obj, "integer64")) {
           return IngestRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)),
                                       XLENGTH(obj));
         }
@@ -511,7 +497,7 @@ struct Unbox<DoubleType> {
       case INTSXP:
         return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
       case REALSXP:
-        if (Rf_inherits(obj, kInheritsInt64Token)) {
+        if (Rf_inherits(obj, "integer64")) {
           return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)),
                                          XLENGTH(obj), NA_INT64);
         }
@@ -556,7 +542,7 @@ struct Unbox<FloatType> {
       case INTSXP:
         return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
       case REALSXP:
-        if (Rf_inherits(obj, kInheritsInt64Token)) {
+        if (Rf_inherits(obj, "integer64")) {
           return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)),
                                          XLENGTH(obj), NA_INT64);
         }
@@ -957,7 +943,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<ENVSXP>(SEXP x) {
 
 template <>
 std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<LGLSXP>(SEXP x) {
-  return Rf_inherits(x, kInheritsNullToken) ? null() : boolean();
+  return Rf_inherits(x, "vctrs_unspecified") ? null() : boolean();
 }
 
 template <>
@@ -980,7 +966,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
   if (Rf_inherits(x, "POSIXct")) {
     return timestamp(TimeUnit::MICRO, "GMT");
   }
-  if (Rf_inherits(x, kInheritsInt64Token)) {
+  if (Rf_inherits(x, "integer64")) {
     return int64();
   }
   if (Rf_inherits(x, "difftime")) {
@@ -1006,7 +992,8 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
     return InferArrowTypeFromDataFrame(x);
   } else {
     if (XLENGTH(x) == 0) {
-      Rcpp::stop("received length-0 list");
+      Rcpp::stop(
+          "Requires at least one element to infer the values' type of a list vector");
     }
 
     return arrow::list(InferArrowType(VECTOR_ELT(x, 0)));
@@ -1033,7 +1020,7 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
       break;
   }
 
-  Rcpp::stop("cannot infer type from data");
+  Rcpp::stop("Cannot infer type from vector");
 }
 
 // in some situations we can just use the memory of the R object in an RBuffer
@@ -1047,7 +1034,7 @@ bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
     case Type::INT8:
       return TYPEOF(x) == RAWSXP && !OBJECT(x);
     case Type::INT64:
-      return TYPEOF(x) == REALSXP && Rf_inherits(x, kInheritsInt64Token);
+      return TYPEOF(x) == REALSXP && Rf_inherits(x, "integer64");
     default:
       break;
   }
@@ -1108,7 +1095,7 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
 
   if (type == INTSXP) {
     return MakeSimpleArray<INTSXP, Int32Type>(x);
-  } else if (type == REALSXP && Rf_inherits(x, kInheritsInt64Token)) {
+  } else if (type == REALSXP && Rf_inherits(x, "integer64")) {
     return MakeSimpleArray<REALSXP, Int64Type>(x);
   } else if (type == REALSXP) {
     return MakeSimpleArray<REALSXP, DoubleType>(x);
@@ -1126,29 +1113,6 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
 
   auto* dict_type = checked_cast<arrow::DictionaryType*>(type.get());
   return dict_type->value_type()->Equals(utf8());
-}
-
-arrow::Status CheckCompatibleList(SEXP obj,
-                                  const std::shared_ptr<arrow::DataType>& type) {
-  if (TYPEOF(obj) != VECSXP) {
-    return Status::RError("Conversion to array requires list input");
-  }
-
-  R_xlen_t n = XLENGTH(obj);
-  if (n == 0) {
-    return Status::RError("Length-0 list input");
-  }
-
-  // All list elements must be the same type
-  std::shared_ptr<arrow::DataType> element_type = InferArrowType(VECTOR_ELT(obj, 0));
-  for (R_xlen_t i = 1; i < n; i++) {
-    if (InferArrowType(VECTOR_ELT(obj, i)) != element_type) {
-      return Status::RError(
-          "list elements correspond to different arrow DataTypes; check element ", i + 1);
-    }
-  }
-
-  return Status::OK();
 }
 
 arrow::Status CheckCompatibleStruct(SEXP obj,
@@ -1197,7 +1161,6 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 
   // treat strings separately for now
   if (type->id() == Type::STRING) {
-    STOP_IF_NOT(TYPEOF(x) == STRSXP, "Cannot convert R object to string array");
     return arrow::r::MakeStringArray(x, type);
   }
 
@@ -1211,10 +1174,6 @@ std::shared_ptr<arrow::Array> Array__from_vector(
   }
 
   if (type->id() == Type::LIST) {
-    if (!type_inferred) {
-      STOP_IF_NOT_OK(arrow::r::CheckCompatibleList(x, type));
-    }
-
     return arrow::r::MakeListArray(x, type);
   }
 
