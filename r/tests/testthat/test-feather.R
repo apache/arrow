@@ -25,7 +25,7 @@ test_that("Write a feather file", {
   expect_true(file.exists(feather_file))
 })
 
-test_that("write_feather() returns it's input", {
+test_that("write_feather() returns its input", {
   tib_out <- write_feather(tib, feather_file)
   expect_identical(tib_out, tib)
 })
