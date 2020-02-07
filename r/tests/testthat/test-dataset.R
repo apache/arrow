@@ -212,6 +212,59 @@ test_that("filter() on timestamp columns", {
       collect(),
     df1[5:10, c("ts")],
   )
+
+  # Now with Date
+  expect_equivalent(
+    ds %>%
+      filter(ts >= as.Date("2015-05-04")) %>%
+      filter(part == 1) %>%
+      select(ts) %>%
+      collect(),
+    df1[5:10, c("ts")],
+  )
+
+  # Now with bare string date
+  expect_equivalent(
+    ds %>%
+      filter(ts >= "2015-05-04") %>%
+      filter(part == 1) %>%
+      select(ts) %>%
+      collect(),
+    df1[5:10, c("ts")],
+  )
+})
+
+test_that("filter() on date32 columns", {
+  tmp <- tempfile()
+  dir.create(tmp)
+  df <- data.frame(date = as.Date(c("2020-02-02", "2020-02-03")))
+  write_parquet(df, file.path(tmp, "file.parquet"))
+
+  expect_equal(
+    open_dataset(tmp) %>%
+      filter(date > as.Date("2020-02-02")) %>%
+      collect() %>%
+      nrow(),
+    1L
+  )
+
+  # Also with timestamp scalar
+  expect_equal(
+    open_dataset(tmp) %>%
+      filter(date > lubridate::ymd_hms("2020-02-02 00:00:00")) %>%
+      collect() %>%
+      nrow(),
+    1L
+  )
+})
+
+test_that("filter scalar validation doesn't crash (ARROW-7772)", {
+  expect_error(
+    ds %>%
+      filter(int == "fff", part == 1) %>%
+      collect(),
+    "error parsing 'fff' as scalar of type int32"
+  )
 })
 
 test_that("collect() on Dataset works (if fits in memory)", {

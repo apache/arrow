@@ -352,6 +352,8 @@ TEST_F(ExpressionsTest, ImplicitCast) {
   ASSERT_OK_AND_ASSIGN(filter, InsertImplicitCasts("a"_.In(set_double), *schema_));
   auto set_int32 = ArrayFromJSON(int32(), R"([1, 2, 3])");
   ASSERT_EQ(E{filter}, E{"a"_.In(set_int32)});
+
+  ASSERT_RAISES(Invalid, InsertImplicitCasts("nope"_ == 0.0, *schema_));
 }
 
 TEST_F(FilterTest, ImplicitCast) {
