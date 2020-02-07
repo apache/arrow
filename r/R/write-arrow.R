@@ -76,7 +76,7 @@ write_arrow.character <- function(x, sink, ...) {
   # on.exit(file_writer$close(), add = TRUE, after = FALSE)
   write_arrow(x, file_writer, ...)
 
-  x_out
+  invisible(x_out)
 }
 
 #' @export

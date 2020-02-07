@@ -45,7 +45,7 @@ write_feather <- function(x, sink) {
   writer <- FeatherTableWriter$create(sink)
   ipc___TableWriter__RecordBatch__WriteFeather(writer, x)
 
-  x_out
+  invisible(x_out)
 }
 
 #' @title FeatherTableWriter class
