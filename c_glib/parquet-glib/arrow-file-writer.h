@@ -42,6 +42,34 @@ gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
 GArrowCompressionType
 gparquet_writer_properties_get_compression(GParquetWriterProperties *properties,
                                            gchar *dotstring);
+void
+gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *properties);
+void
+gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properties);
+gboolean
+gparquet_writer_properties_dictionary_enabled(GParquetWriterProperties *properties,
+                                              gchar *dotstring);
+void
+gparquet_writer_properties_set_dictionary_pagesize_limit(GParquetWriterProperties *properties,
+                                                         gint64 dictinary_pagesize_limit);
+gint64
+gparquet_writer_properties_get_dictionary_pagesize_limit(GParquetWriterProperties *properties);
+void
+gparquet_writer_properties_set_batch_size(GParquetWriterProperties *properties,
+                                          gint64 batch_size);
+gint64
+gparquet_writer_properties_get_batch_size(GParquetWriterProperties *properties);
+void
+gparquet_writer_properties_set_max_row_group_length(GParquetWriterProperties *properties,
+                                                    gint64 max_row_group_length);
+gint64
+gparquet_writer_properties_get_max_row_group_length(GParquetWriterProperties *properties);
+void
+gparquet_writer_properties_set_data_pagesize(GParquetWriterProperties *properties,
+                                             gint64 data_pagesize);
+gint64
+gparquet_writer_properties_get_data_pagesize(GParquetWriterProperties *properties);
+
 
 
 #define GPARQUET_TYPE_ARROW_FILE_WRITER (gparquet_arrow_file_writer_get_type())

@@ -130,6 +130,175 @@ gparquet_writer_properties_get_compression(GParquetWriterProperties *properties,
   return garrow_compression_type_from_raw(arrow_compression);
 }
 
+/**
+ * gparquet_writer_properties_enable_dictionary:
+ * @properties: A #GParquetWriterProperties.
+ *
+ * Since: 1.0.0
+ */
+void
+gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *properties)
+{
+  auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
+  priv->builder->enable_dictionary();
+  priv->changed = TRUE;
+}
+
+/**
+ * gparquet_writer_properties_disable_dictionary:
+ * @properties: A #GParquetWriterProperties.
+ *
+ * Since: 1.0.0
+ */
+void
+gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properties)
+{
+  auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
+  priv->builder->disable_dictionary();
+  priv->changed = TRUE;
+}
+
+/**
+ * gparquet_writer_properties_dictionary_enabled:
+ * @properties: A #GParquetWriterProperties.
+ *
+ * Returns: %TRUE on dictionary enabled, %FALSE on dictionary disabled.
+ *
+ * Since: 1.0.0
+ */
+gboolean
+gparquet_writer_properties_dictionary_enabled(GParquetWriterProperties *properties,
+                                              gchar *dotstring)
+{
+  auto parquet_properties = gparquet_writer_properties_get_raw(properties);
+  auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(dotstring);
+  return parquet_properties->dictionary_enabled(parquet_column_path);
+}
+
+/**
+ * gparquet_writer_properties_set_dictionary_pagesize_limit:
+ * @properties: A #GParquetWriterProperties.
+ * @dictionary_pagesize_limit: The dictionary page size limit.
+ *
+ * Since: 1.0.0
+ */
+void
+gparquet_writer_properties_set_dictionary_pagesize_limit(GParquetWriterProperties *properties,
+                                                         gint64 dictionary_pagesize_limit)
+{
+  auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
+  priv->builder->dictionary_pagesize_limit(dictionary_pagesize_limit);
+  priv->changed = TRUE;
+}
+
+/**
+ * gparquet_writer_properties_get_dictionary_pagesize_limit:
+ * @properties: A #GParquetWriterProperties.
+ *
+ * Returns: The dictionary page size limit.
+ *
+ * Since: 1.0.0
+ */
+gint64
+gparquet_writer_properties_get_dictionary_pagesize_limit(GParquetWriterProperties *properties)
+{
+  auto parquet_properties = gparquet_writer_properties_get_raw(properties);
+  return parquet_properties->dictionary_pagesize_limit();
+}
+
+/**
+ * gparquet_writer_properties_set_batch_size:
+ * @properties: A #GParquetWriterProperties.
+ * @batch_size: The batch size.
+ *
+ * Since: 1.0.0
+ */
+void
+gparquet_writer_properties_set_batch_size(GParquetWriterProperties *properties,
+                                          gint64 batch_size)
+{
+  auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
+  priv->builder->write_batch_size(batch_size);
+  priv->changed = TRUE;
+}
+
+/**
+ * gparquet_writer_properties_get_batch_size:
+ * @properties: A #GParquetWriterProperties.
+ *
+ * Returns: The batch size.
+ *
+ * Since: 1.0.0
+ */
+gint64
+gparquet_writer_properties_get_batch_size(GParquetWriterProperties *properties)
+{
+  auto parquet_properties = gparquet_writer_properties_get_raw(properties);
+  return parquet_properties->write_batch_size();
+}
+
+/**
+ * gparquet_writer_properties_set_max_row_group_length:
+ * @properties: A #GParquetWriterProperties.
+ * @max_row_group_length: The max row group length.
+ *
+ * Since: 1.0.0
+ */
+void
+gparquet_writer_properties_set_max_row_group_length(GParquetWriterProperties *properties,
+                                                    gint64 max_row_group_length)
+{
+  auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
+  priv->builder->max_row_group_length(max_row_group_length);
+  priv->changed = TRUE;
+}
+
+/**
+ * gparquet_writer_properties_get_max_row_group_length:
+ * @properties: A #GParquetWriterProperties.
+ *
+ * Returns: The max row group length.
+ *
+ * Since: 1.0.0
+ */
+gint64
+gparquet_writer_properties_get_max_row_group_length(GParquetWriterProperties *properties)
+{
+  auto parquet_properties = gparquet_writer_properties_get_raw(properties);
+  return parquet_properties->max_row_group_length();
+}
+
+/**
+ * gparquet_writer_properties_set_data_pagesize:
+ * @properties: A #GParquetWriterProperties.
+ * @data_pagesize: The data page size.
+ *
+ * Since: 1.0.0
+ */
+void
+gparquet_writer_properties_set_data_pagesize(GParquetWriterProperties *properties,
+                                             gint64 data_pagesize)
+{
+  auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
+  priv->builder->data_pagesize(data_pagesize);
+  priv->changed = TRUE;
+}
+
+/**
+ * gparquet_writer_properties_get_data_pagesize:
+ * @properties: A #GParquetWriterProperties.
+ *
+ * Returns: The data page size.
+ *
+ * Since: 1.0.0
+ */
+gint64
+gparquet_writer_properties_get_data_pagesize(GParquetWriterProperties *properties)
+{
+  auto parquet_properties = gparquet_writer_properties_get_raw(properties);
+  return parquet_properties->data_pagesize();
+}
+
 
 typedef struct GParquetArrowFileWriterPrivate_ {
   parquet::arrow::FileWriter *arrow_file_writer;

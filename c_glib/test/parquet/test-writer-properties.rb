@@ -18,12 +18,48 @@
 class TestParquetWriterProperties < Test::Unit::TestCase
   def setup
     omit("Parquet is required") unless defined?(::Parquet)
+    @properties = Parquet::WriterProperties.new
   end
 
   def test_compression
-    properties = Parquet::WriterProperties.new
-    properties.compression = :gzip
+    @properties.compression = :gzip
     assert_equal(Arrow::CompressionType.new("gzip"),
-                 properties.get_compression("gzip"))
+                 @properties.get_compression("a_column"))
+  end
+
+  def test_enable_dictionary
+    @properties.enable_dictionary
+    assert_equal(true,
+                 @properties.dictionary_enabled("a_column"))
+  end
+
+  def test_disable_dictionary
+    @properties.disable_dictionary
+    assert_equal(false,
+                 @properties.dictionary_enabled("a_column"))
+  end
+
+  def test_dictionary_pagesize_limit
+    @properties.dictionary_pagesize_limit = 4096
+    assert_equal(4096,
+                 @properties.dictionary_pagesize_limit)
+  end
+
+  def test_batch_size
+    @properties.batch_size = 100
+    assert_equal(100,
+                 @properties.batch_size)
+  end
+
+  def test_data_pagesize
+    @properties.data_pagesize = 128
+    assert_equal(128,
+                 @properties.data_pagesize)
+  end
+
+  def test_max_row_group_length
+    @properties.max_row_group_length = 1024
+    assert_equal(1024,
+                 @properties.max_row_group_length)
   end
 end
