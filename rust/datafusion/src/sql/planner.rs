@@ -308,6 +308,18 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 Ok(Expr::IsNotNull(Arc::new(self.sql_to_rex(expr, schema)?)))
             }
 
+            ASTNode::SQLUnary{
+                ref operator,
+                ref expr,
+            } => {
+                match *operator {
+                    SQLOperator::Not => Ok(Expr::Not(Arc::new(self.sql_to_rex(expr, schema)?))),
+                    _ => Err(ExecutionError::InternalError(format!(
+                        "SQL binary operator cannot be interpreted as a unary operator"
+                    ))),
+                }
+            }
+
             ASTNode::SQLBinaryExpr {
                 ref left,
                 ref op,
@@ -332,11 +344,16 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     SQLOperator::NotLike => Operator::NotLike,
                 };
 
-                Ok(Expr::BinaryExpr {
-                    left: Arc::new(self.sql_to_rex(&left, &schema)?),
-                    op: operator,
-                    right: Arc::new(self.sql_to_rex(&right, &schema)?),
-                })
+                match operator {
+                    Operator::Not => Err(ExecutionError::InternalError(format!(
+                        "SQL unary operator \"NOT\" cannot be interpreted as a binary operator"
+                    ))),
+                    _ => Ok(Expr::BinaryExpr {
+                        left: Arc::new(self.sql_to_rex(&left, &schema)?),
+                        op: operator,
+                        right: Arc::new(self.sql_to_rex(&right, &schema)?),
+                    })
+                }
             }
 
             //            &ASTNode::SQLOrderBy { ref expr, asc } => Ok(Expr::Sort {
@@ -491,6 +508,16 @@ mod tests {
                    FROM person WHERE state = 'CO'";
         let expected = "Projection: #0, #1, #2\
                         \n  Selection: #4 Eq Utf8(\"CO\")\
+                        \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_neg_selection() {
+        let sql = "SELECT id, first_name, last_name \
+                   FROM person WHERE NOT state";
+        let expected = "Projection: #0, #1, #2\
+                        \n  Selection: NOT #4\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
