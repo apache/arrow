@@ -19,6 +19,8 @@
 
 # arrow 0.16.0.9000
 
+* Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types.
+
 # arrow 0.16.0
 
 ## Multi-file datasets
