@@ -19,6 +19,9 @@
 
 # arrow 0.16.0.9000
 
+* `write_feather`, `write_arrow` and `write_parquet` now return their input
+similar to `write_*` functions from `readr` (#7796 @boshek)
+
 # arrow 0.16.0
 
 ## Multi-file datasets
