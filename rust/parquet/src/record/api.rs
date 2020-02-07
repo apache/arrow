@@ -65,7 +65,8 @@ pub trait RowAccessor {
     fn get_ulong(&self, i: usize) -> Result<u64>;
     fn get_float(&self, i: usize) -> Result<f32>;
     fn get_double(&self, i: usize) -> Result<f64>;
-    fn get_timestamp(&self, i: usize) -> Result<u64>;
+    fn get_timestamp_millis(&self, i: usize) -> Result<u64>;
+    fn get_timestamp_micros(&self, i: usize) -> Result<u64>;
     fn get_decimal(&self, i: usize) -> Result<&Decimal>;
     fn get_string(&self, i: usize) -> Result<&String>;
     fn get_bytes(&self, i: usize) -> Result<&ByteArray>;
@@ -137,7 +138,9 @@ impl RowAccessor for Row {
 
     row_primitive_accessor!(get_double, Double, f64);
 
-    row_primitive_accessor!(get_timestamp, Timestamp, u64);
+    row_primitive_accessor!(get_timestamp_millis, TimestampMillis, u64);
+
+    row_primitive_accessor!(get_timestamp_micros, TimestampMicros, u64);
 
     row_complex_accessor!(get_decimal, Decimal, Decimal);
 
@@ -206,7 +209,8 @@ pub trait ListAccessor {
     fn get_ulong(&self, i: usize) -> Result<u64>;
     fn get_float(&self, i: usize) -> Result<f32>;
     fn get_double(&self, i: usize) -> Result<f64>;
-    fn get_timestamp(&self, i: usize) -> Result<u64>;
+    fn get_timestamp_millis(&self, i: usize) -> Result<u64>;
+    fn get_timestamp_micros(&self, i: usize) -> Result<u64>;
     fn get_decimal(&self, i: usize) -> Result<&Decimal>;
     fn get_string(&self, i: usize) -> Result<&String>;
     fn get_bytes(&self, i: usize) -> Result<&ByteArray>;
@@ -270,7 +274,9 @@ impl ListAccessor for List {
 
     list_primitive_accessor!(get_double, Double, f64);
 
-    list_primitive_accessor!(get_timestamp, Timestamp, u64);
+    list_primitive_accessor!(get_timestamp_millis, TimestampMillis, u64);
+
+    list_primitive_accessor!(get_timestamp_micros, TimestampMicros, u64);
 
     list_complex_accessor!(get_decimal, Decimal, Decimal);
 
@@ -353,7 +359,9 @@ impl<'a> ListAccessor for MapList<'a> {
 
     map_list_primitive_accessor!(get_double, Double, f64);
 
-    map_list_primitive_accessor!(get_timestamp, Timestamp, u64);
+    map_list_primitive_accessor!(get_timestamp_millis, TimestampMillis, u64);
+
+    map_list_primitive_accessor!(get_timestamp_micros, TimestampMicros, u64);
 
     list_complex_accessor!(get_decimal, Decimal, Decimal);
 
@@ -422,7 +430,9 @@ pub enum Field {
     /// Unix epoch, 1 January 1970.
     Date(u32),
     /// Milliseconds from the Unix epoch, 1 January 1970.
-    Timestamp(u64),
+    TimestampMillis(u64),
+    /// Microseconds from the Unix epoch, 1 Janiary 1970.
+    TimestampMicros(u64),
 
     // ----------------------------------------------------------------------
     // Complex types
@@ -454,7 +464,8 @@ impl Field {
             Field::Date(_) => "Date",
             Field::Str(_) => "Str",
             Field::Bytes(_) => "Bytes",
-            Field::Timestamp(_) => "Timestamp",
+            Field::TimestampMillis(_) => "TimestampMillis",
+            Field::TimestampMicros(_) => "TimestampMicros",
             Field::Group(_) => "Group",
             Field::ListInternal(_) => "ListInternal",
             Field::MapInternal(_) => "MapInternal",
@@ -503,7 +514,8 @@ impl Field {
         match descr.logical_type() {
             LogicalType::INT_64 | LogicalType::NONE => Field::Long(value),
             LogicalType::UINT_64 => Field::ULong(value as u64),
-            LogicalType::TIMESTAMP_MILLIS => Field::Timestamp(value as u64),
+            LogicalType::TIMESTAMP_MILLIS => Field::TimestampMillis(value as u64),
+            LogicalType::TIMESTAMP_MICROS => Field::TimestampMicros(value as u64),
             LogicalType::DECIMAL => Field::Decimal(Decimal::from_i64(
                 value,
                 descr.type_precision(),
@@ -517,7 +529,7 @@ impl Field {
     /// `Timestamp` value.
     #[inline]
     pub fn convert_int96(_descr: &ColumnDescPtr, value: Int96) -> Self {
-        Field::Timestamp(value.to_i64() as u64)
+        Field::TimestampMillis(value.to_i64() as u64)
     }
 
     /// Converts Parquet FLOAT type with logical type into `f32` value.
@@ -598,8 +610,11 @@ impl fmt::Display for Field {
             Field::Str(ref value) => write!(f, "\"{}\"", value),
             Field::Bytes(ref value) => write!(f, "{:?}", value.data()),
             Field::Date(value) => write!(f, "{}", convert_date_to_string(value)),
-            Field::Timestamp(value) => {
-                write!(f, "{}", convert_timestamp_to_string(value))
+            Field::TimestampMillis(value) => {
+                write!(f, "{}", convert_timestamp_millis_to_string(value))
+            }
+            Field::TimestampMicros(value) => {
+                write!(f, "{}", convert_timestamp_micros_to_string(value))
             }
             Field::Group(ref fields) => write!(f, "{}", fields),
             Field::ListInternal(ref list) => {
@@ -644,9 +659,17 @@ fn convert_date_to_string(value: u32) -> String {
 /// Input `value` is a number of milliseconds since the epoch in UTC.
 /// Datetime is displayed in local timezone.
 #[inline]
-fn convert_timestamp_to_string(value: u64) -> String {
+fn convert_timestamp_millis_to_string(value: u64) -> String {
     let dt = Local.timestamp((value / 1000) as i64, 0);
     format!("{}", dt.format("%Y-%m-%d %H:%M:%S %:z"))
+}
+
+/// Helper method to convert Parquet timestamp into a string.
+/// Input `value` is a number of microseconds since the epoch in UTC.
+/// Datetime is displayed in local timezone.
+#[inline]
+fn convert_timestamp_micros_to_string(value: u64) -> String {
+    convert_timestamp_millis_to_string(value / 1000)
 }
 
 /// Helper method to convert Parquet decimal into a string.
@@ -788,7 +811,12 @@ mod tests {
         let descr =
             make_column_descr![PhysicalType::INT64, LogicalType::TIMESTAMP_MILLIS];
         let row = Field::convert_int64(&descr, 1541186529153);
-        assert_eq!(row, Field::Timestamp(1541186529153));
+        assert_eq!(row, Field::TimestampMillis(1541186529153));
+
+        let descr =
+            make_column_descr![PhysicalType::INT64, LogicalType::TIMESTAMP_MICROS];
+        let row = Field::convert_int64(&descr, 1541186529153123);
+        assert_eq!(row, Field::TimestampMicros(1541186529153123));
 
         let descr = make_column_descr![PhysicalType::INT64, LogicalType::NONE];
         let row = Field::convert_int64(&descr, 2222);
@@ -807,11 +835,11 @@ mod tests {
 
         let value = Int96::from(vec![0, 0, 2454923]);
         let row = Field::convert_int96(&descr, value);
-        assert_eq!(row, Field::Timestamp(1238544000000));
+        assert_eq!(row, Field::TimestampMillis(1238544000000));
 
         let value = Int96::from(vec![4165425152, 13, 2454923]);
         let row = Field::convert_int96(&descr, value);
-        assert_eq!(row, Field::Timestamp(1238544060000));
+        assert_eq!(row, Field::TimestampMillis(1238544060000));
     }
 
     #[test]
@@ -926,7 +954,7 @@ mod tests {
         fn check_datetime_conversion(y: u32, m: u32, d: u32, h: u32, mi: u32, s: u32) {
             let datetime = chrono::NaiveDate::from_ymd(y as i32, m, d).and_hms(h, mi, s);
             let dt = Local.from_utc_datetime(&datetime);
-            let res = convert_timestamp_to_string(dt.timestamp_millis() as u64);
+            let res = convert_timestamp_millis_to_string(dt.timestamp_millis() as u64);
             let exp = format!("{}", dt.format("%Y-%m-%d %H:%M:%S %:z"));
             assert_eq!(res, exp);
         }
@@ -1025,8 +1053,12 @@ mod tests {
             convert_date_to_string(14611)
         );
         assert_eq!(
-            format!("{}", Field::Timestamp(1262391174000)),
-            convert_timestamp_to_string(1262391174000)
+            format!("{}", Field::TimestampMillis(1262391174000)),
+            convert_timestamp_millis_to_string(1262391174000)
+        );
+        assert_eq!(
+            format!("{}", Field::TimestampMicros(1262391174000000)),
+            convert_timestamp_micros_to_string(1262391174000000)
         );
         assert_eq!(
             format!("{}", Field::Decimal(Decimal::from_i32(4, 8, 2))),
@@ -1079,7 +1111,8 @@ mod tests {
         assert!(Field::Double(6.1234).is_primitive());
         assert!(Field::Str("abc".to_string()).is_primitive());
         assert!(Field::Bytes(ByteArray::from(vec![1, 2, 3])).is_primitive());
-        assert!(Field::Timestamp(12345678).is_primitive());
+        assert!(Field::TimestampMillis(12345678).is_primitive());
+        assert!(Field::TimestampMicros(12345678901).is_primitive());
         assert!(Field::Decimal(Decimal::from_i32(4, 8, 2)).is_primitive());
 
         // complex types
@@ -1138,8 +1171,9 @@ mod tests {
                 Field::Bytes(ByteArray::from(vec![1, 2, 3, 4, 5])),
             ),
             ("14".to_string(), Field::Date(14611)),
-            ("15".to_string(), Field::Timestamp(1262391174000)),
-            ("16".to_string(), Field::Decimal(Decimal::from_i32(4, 7, 2))),
+            ("15".to_string(), Field::TimestampMillis(1262391174000)),
+            ("16".to_string(), Field::TimestampMicros(1262391174000000)),
+            ("17".to_string(), Field::Decimal(Decimal::from_i32(4, 7, 2))),
         ]);
 
         assert_eq!("null", format!("{}", row.fmt(0)));
@@ -1158,10 +1192,14 @@ mod tests {
         assert_eq!("[1, 2, 3, 4, 5]", format!("{}", row.fmt(13)));
         assert_eq!(convert_date_to_string(14611), format!("{}", row.fmt(14)));
         assert_eq!(
-            convert_timestamp_to_string(1262391174000),
+            convert_timestamp_millis_to_string(1262391174000),
             format!("{}", row.fmt(15))
         );
-        assert_eq!("0.04", format!("{}", row.fmt(16)));
+        assert_eq!(
+            convert_timestamp_micros_to_string(1262391174000000),
+            format!("{}", row.fmt(16))
+        );
+        assert_eq!("0.04", format!("{}", row.fmt(17)));
     }
 
     #[test]
