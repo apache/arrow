@@ -640,6 +640,9 @@ class ARROW_EXPORT DoubleType
 class ARROW_EXPORT BaseListType : public NestedType {
  public:
   using NestedType::NestedType;
+  std::shared_ptr<Field> value_field() const { return children_[0]; }
+
+  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 };
 
 /// \brief Concrete type class for list data
@@ -661,10 +664,6 @@ class ARROW_EXPORT ListType : public BaseListType {
   explicit ListType(const std::shared_ptr<Field>& value_field) : BaseListType(type_id) {
     children_ = {value_field};
   }
-
-  std::shared_ptr<Field> value_field() const { return children_[0]; }
-
-  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
   DataTypeLayout layout() const override {
     return DataTypeLayout(
@@ -698,10 +697,6 @@ class ARROW_EXPORT LargeListType : public BaseListType {
     children_ = {value_field};
   }
 
-  std::shared_ptr<Field> value_field() const { return children_[0]; }
-
-  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
-
   DataTypeLayout layout() const override {
     return DataTypeLayout(
         {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(offset_type))});
@@ -729,9 +724,14 @@ class ARROW_EXPORT MapType : public ListType {
   MapType(const std::shared_ptr<DataType>& key_type,
           const std::shared_ptr<DataType>& item_type, bool keys_sorted = false);
 
-  std::shared_ptr<DataType> key_type() const { return value_type()->child(0)->type(); }
+  MapType(const std::shared_ptr<DataType>& key_type,
+          const std::shared_ptr<Field>& item_field, bool keys_sorted = false);
 
-  std::shared_ptr<DataType> item_type() const { return value_type()->child(1)->type(); }
+  std::shared_ptr<Field> key_field() const { return value_type()->child(0); }
+  std::shared_ptr<DataType> key_type() const { return key_field()->type(); }
+
+  std::shared_ptr<Field> item_field() const { return value_type()->child(1); }
+  std::shared_ptr<DataType> item_type() const { return item_field()->type(); }
 
   std::string ToString() const override;
 
@@ -746,7 +746,7 @@ class ARROW_EXPORT MapType : public ListType {
 };
 
 /// \brief Concrete type class for fixed size list data
-class ARROW_EXPORT FixedSizeListType : public NestedType {
+class ARROW_EXPORT FixedSizeListType : public BaseListType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
   using offset_type = int32_t;
@@ -758,13 +758,9 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
       : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
 
   FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
-      : NestedType(type_id), list_size_(list_size) {
+      : BaseListType(type_id), list_size_(list_size) {
     children_ = {value_field};
   }
-
-  std::shared_ptr<Field> value_field() const { return children_[0]; }
-
-  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
   DataTypeLayout layout() const override {
     return DataTypeLayout({DataTypeLayout::Bitmap()});
@@ -1524,7 +1520,15 @@ std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type
 /// \brief Create a MapType instance from its key and value DataTypes
 ARROW_EXPORT
 std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<DataType>& value_type,
+                              const std::shared_ptr<DataType>& item_type,
+                              bool keys_sorted = false);
+
+/// \brief Create a MapType instance from its key DataType and value field.
+///
+/// The field override is provided to communicate nullability of the value.
+ARROW_EXPORT
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<Field>& item_field,
                               bool keys_sorted = false);
 
 /// \brief Create a FixedSizeListType instance from its child Field type
