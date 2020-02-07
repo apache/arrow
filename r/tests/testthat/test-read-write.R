@@ -114,7 +114,7 @@ test_that("table round trip handles NA in integer and numeric", {
 })
 
 
-test_that("write_arrow() returns it's input", {
+test_that("write_arrow() returns its input", {
   df <- tibble::tibble(x = 1:5)
   tf <- tempfile()
   on.exit(unlink(tf))
