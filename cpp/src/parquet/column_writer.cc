@@ -50,6 +50,17 @@
 
 namespace parquet {
 
+namespace {
+
+inline const int16_t* AddIfNotNull(const int16_t* base, int64_t offset) {
+  if (base != nullptr) {
+    return base + offset;
+  }
+  return nullptr;
+}
+
+}  // namespace
+
 using arrow::Status;
 using arrow::compute::Datum;
 using arrow::internal::checked_cast;
@@ -837,8 +848,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     // pagesize limit
     int64_t value_offset = 0;
     auto WriteChunk = [&](int64_t offset, int64_t batch_size) {
-      int64_t values_to_write =
-          WriteLevels(batch_size, def_levels + offset, rep_levels + offset);
+      int64_t values_to_write = WriteLevels(batch_size, AddIfNotNull(def_levels, offset),
+                                            AddIfNotNull(rep_levels, offset));
       // PARQUET-780
       if (values_to_write > 0) {
         DCHECK_NE(nullptr, values);
@@ -862,8 +873,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     auto WriteChunk = [&](int64_t offset, int64_t batch_size) {
       int64_t batch_num_values = 0;
       int64_t batch_num_spaced_values = 0;
-      WriteLevelsSpaced(batch_size, def_levels + offset, rep_levels + offset,
-                        &batch_num_values, &batch_num_spaced_values);
+      WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
+                        AddIfNotNull(rep_levels, offset), &batch_num_values,
+                        &batch_num_spaced_values);
       WriteValuesSpaced(values + value_offset, batch_num_values, batch_num_spaced_values,
                         valid_bits, valid_bits_offset + value_offset);
       CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values);
@@ -1164,8 +1176,9 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(const int16_t* def_lev
   auto WriteIndicesChunk = [&](int64_t offset, int64_t batch_size) {
     int64_t batch_num_values = 0;
     int64_t batch_num_spaced_values = 0;
-    WriteLevelsSpaced(batch_size, def_levels + offset, rep_levels + offset,
-                      &batch_num_values, &batch_num_spaced_values);
+    WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
+                      AddIfNotNull(rep_levels, offset), &batch_num_values,
+                      &batch_num_spaced_values);
     dict_encoder->PutIndices(*indices->Slice(value_offset, batch_num_spaced_values));
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values);
     value_offset += batch_num_spaced_values;
@@ -1586,8 +1599,9 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(const int16_t* def_
   auto WriteChunk = [&](int64_t offset, int64_t batch_size) {
     int64_t batch_num_values = 0;
     int64_t batch_num_spaced_values = 0;
-    WriteLevelsSpaced(batch_size, def_levels + offset, rep_levels + offset,
-                      &batch_num_values, &batch_num_spaced_values);
+    WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
+                      AddIfNotNull(rep_levels, offset), &batch_num_values,
+                      &batch_num_spaced_values);
     std::shared_ptr<arrow::Array> data_slice =
         array.Slice(value_offset, batch_num_spaced_values);
     current_encoder_->Put(*data_slice);
