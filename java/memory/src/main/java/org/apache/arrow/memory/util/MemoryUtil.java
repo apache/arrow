@@ -19,8 +19,11 @@ package org.apache.arrow.memory.util;
 
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.util.internal.ReflectionUtil;
 import sun.misc.Unsafe;
 
 /**
@@ -44,23 +47,39 @@ public class MemoryUtil {
   static final long BYTE_BUFFER_ADDRESS_OFFSET;
 
   static {
-    // get the unsafe object
     try {
-      Field unsafeField = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
-      unsafeField.setAccessible(true);
-      UNSAFE = (Unsafe) unsafeField.get(null);
-    } catch (Throwable e) {
-      throw new Error("Failed to get the unsafe object.", e);
-    }
+      // try to get the unsafe object
+      final Object maybeUnsafe = AccessController.doPrivileged(new PrivilegedAction<Object>() {
+        @Override
+        public Object run() {
+          try {
+            final Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
+            Throwable cause = ReflectionUtil.trySetAccessible(unsafeField, false);
+            if (cause != null) {
+              return cause;
+            }
+            return unsafeField.get(null);
+          } catch (Throwable e) {
+            return e;
+          }
+        }
+      });
 
-    BYTE_ARRAY_BASE_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
+      if (maybeUnsafe instanceof Throwable) {
+        throw (Throwable) maybeUnsafe;
+      }
 
-    try {
+      UNSAFE = (Unsafe) maybeUnsafe;
+
+      // get the offset of the data inside a byte array object
+      BYTE_ARRAY_BASE_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
+
+      // get the offset of the address field in a java.nio.Buffer object
       Field addressField = java.nio.Buffer.class.getDeclaredField("address");
       addressField.setAccessible(true);
       BYTE_BUFFER_ADDRESS_OFFSET = UNSAFE.objectFieldOffset(addressField);
-    } catch (NoSuchFieldException e) {
-      throw new Error("Failed to get java.nio.Buffer#address field.", e);
+    } catch (Throwable e) {
+      throw new RuntimeException("Failed to initialize MemoryUtil.", e);
     }
   }
 
