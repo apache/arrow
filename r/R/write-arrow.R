@@ -61,6 +61,7 @@ write_arrow.RecordBatchWriter <- function(x, sink, ...){
 
 #' @export
 write_arrow.character <- function(x, sink, ...) {
+  x_out <- x
   assert_that(length(sink) == 1L)
   x <- to_arrow(x)
   file_stream <- FileOutputStream$create(sink)
@@ -74,6 +75,8 @@ write_arrow.character <- function(x, sink, ...) {
   # Available on R >= 3.5
   # on.exit(file_writer$close(), add = TRUE, after = FALSE)
   write_arrow(x, file_writer, ...)
+
+  x_out
 }
 
 #' @export
