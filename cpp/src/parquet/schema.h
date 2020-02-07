@@ -460,7 +460,7 @@ class PARQUET_EXPORT SchemaDescriptor {
   // -- -- b     |
   // -- -- -- c  |
   // -- -- -- -- d
-  std::unordered_map<int, const schema::NodePtr> leaf_to_base_;
+  std::unordered_map<int, schema::NodePtr> leaf_to_base_;
 
   // Mapping between ColumnPath DotString to the leaf index
   std::unordered_multimap<std::string, int> leaf_to_idx_;

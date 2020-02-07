@@ -19,22 +19,22 @@
 
 # Native Rust implementation of Apache Arrow
 
-[![Build Status](https://travis-ci.org/apache/arrow.svg?branch=master)](https://travis-ci.org/apache/arrow)
 [![Coverage Status](https://coveralls.io/repos/github/apache/arrow/badge.svg)](https://coveralls.io/github/apache/arrow)
 
 ## Status
 
 This is a native Rust implementation of Apache Arrow. Currently the project
-is developed and tested against nightly Rust.  The current status is:
+is developed and tested against nightly Rust. The current status is:
 
 - [x] Primitive Arrays
 - [x] List Arrays
 - [x] Struct Arrays
 - [x] CSV Reader
-- [ ] CSV Writer
+- [X] CSV Writer
+- [X] JSON Reader
 - [ ] Parquet Reader
 - [ ] Parquet Writer
-- [ ] Arrow IPC
+- [X] Arrow IPC
 - [ ] Interop tests with other implementations
 
 ## Examples

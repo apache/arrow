@@ -40,6 +40,8 @@ struct SparseTensorFormat {
     CSR,
     /// Compressed sparse column (CSC) format.
     CSC,
+    /// Compressed sparse fiber (CSF) format.
+    CSF
   };
 };
 
@@ -330,6 +332,68 @@ class ARROW_EXPORT SparseCSCIndex
 };
 
 // ----------------------------------------------------------------------
+// SparseCSFIndex class
+
+/// \brief EXPERIMENTAL: The index data for a CSF sparse tensor
+///
+/// A CSF sparse index manages the location of its non-zero values by set of
+/// prefix trees. Each path from a root to leaf forms one tensor non-zero index.
+/// CSF is implemented with three vectors.
+///
+/// Vectors inptr and indices contain N-1 and N buffers respectively, where N is the
+/// number of dimensions. Axis_order is a vector of integers of legth N. Indptr and
+/// indices describe the set of prefix trees. Trees traverse dimensions in order given by
+/// axis_order.
+class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIndex> {
+ public:
+  static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSF;
+  static constexpr char const* kTypeName = "SparseCSFIndex";
+
+  /// \brief Make SparseCSFIndex from raw properties
+  static Result<std::shared_ptr<SparseCSFIndex>> Make(
+      const std::shared_ptr<DataType>& indptr_type,
+      const std::shared_ptr<DataType>& indices_type,
+      const std::vector<int64_t>& indices_shapes, const std::vector<int64_t>& axis_order,
+      const std::vector<std::shared_ptr<Buffer>>& indptr_data,
+      const std::vector<std::shared_ptr<Buffer>>& indices_data);
+
+  /// \brief Make SparseCSFIndex from raw properties
+  static Result<std::shared_ptr<SparseCSFIndex>> Make(
+      const std::shared_ptr<DataType>& indices_type,
+      const std::vector<int64_t>& indices_shapes, const std::vector<int64_t>& axis_order,
+      const std::vector<std::shared_ptr<Buffer>>& indptr_data,
+      const std::vector<std::shared_ptr<Buffer>>& indices_data) {
+    return Make(indices_type, indices_type, indices_shapes, axis_order, indptr_data,
+                indices_data);
+  }
+
+  /// \brief Construct SparseCSFIndex from two index vectors
+  explicit SparseCSFIndex(const std::vector<std::shared_ptr<Tensor>>& indptr,
+                          const std::vector<std::shared_ptr<Tensor>>& indices,
+                          const std::vector<int64_t>& axis_order);
+
+  /// \brief Return a 1D vector of indptr tensors
+  const std::vector<std::shared_ptr<Tensor>>& indptr() const { return indptr_; }
+
+  /// \brief Return a 1D vector of indices tensors
+  const std::vector<std::shared_ptr<Tensor>>& indices() const { return indices_; }
+
+  /// \brief Return a 1D vector specifying the order of axes
+  const std::vector<int64_t>& axis_order() const { return axis_order_; }
+
+  /// \brief Return a string representation of the sparse index
+  std::string ToString() const override;
+
+  /// \brief Return whether the CSF indices are equal
+  bool Equals(const SparseCSFIndex& other) const;
+
+ protected:
+  std::vector<std::shared_ptr<Tensor>> indptr_;
+  std::vector<std::shared_ptr<Tensor>> indices_;
+  std::vector<int64_t> axis_order_;
+};
+
+// ----------------------------------------------------------------------
 // SparseTensor class
 
 /// \brief EXPERIMENTAL: The base class of sparse tensor container
@@ -526,6 +590,9 @@ using SparseCSRMatrix = SparseTensorImpl<SparseCSRIndex>;
 
 /// \brief EXPERIMENTAL: Type alias for CSC sparse matrix
 using SparseCSCMatrix = SparseTensorImpl<SparseCSCIndex>;
+
+/// \brief EXPERIMENTAL: Type alias for CSF sparse matrix
+using SparseCSFTensor = SparseTensorImpl<SparseCSFIndex>;
 
 }  // namespace arrow
 

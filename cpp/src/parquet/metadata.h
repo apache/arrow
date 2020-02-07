@@ -144,7 +144,12 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
   std::shared_ptr<Statistics> statistics() const;
+
   Compression::type compression() const;
+  // Indicate if the ColumnChunk compression is supported by the current
+  // compiled parquet library.
+  bool can_decompress() const;
+
   const std::vector<Encoding::type>& encodings() const;
   bool has_dictionary_page() const;
   int64_t dictionary_page_offset() const;
@@ -181,6 +186,8 @@ class PARQUET_EXPORT RowGroupMetaData {
   int64_t total_byte_size() const;
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
+  // Indicate if all of the RowGroup's ColumnChunks can be decompressed.
+  bool can_decompress() const;
 
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) const;
 
@@ -224,6 +231,8 @@ class PARQUET_EXPORT FileMetaData {
   int num_schema_elements() const;
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) const;
   const ApplicationVersion& writer_version() const;
+  // Indicate if all of the FileMetadata's RowGroups can be decompressed.
+  bool can_decompress() const;
 
   bool is_encryption_algorithm_set() const;
   EncryptionAlgorithm encryption_algorithm() const;

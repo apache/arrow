@@ -1259,7 +1259,7 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
               help='Directory to download the build artifacts')
 @click.pass_obj
 def download_artifacts(obj, job_name, target_dir):
-    """Download and sign build artifacts from github releases"""
+    """Download build artifacts from GitHub releases"""
     output = obj['output']
 
     # fetch the queue repository

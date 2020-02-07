@@ -38,11 +38,21 @@ class PrepareTest < Test::Unit::TestCase
     end
   end
 
+  def omit_on_release_branch
+    omit("Not for release branch") if on_release_branch?
+  end
+
   def prepare(*targets)
+    if targets.last.is_a?(Hash)
+      additional_env = targets.pop
+    else
+      additional_env = {}
+    end
     env = {"PREPARE_DEFAULT" => "0"}
     targets.each do |target|
       env["PREPARE_#{target}"] = "1"
     end
+    env = env.merge(additional_env)
     sh(env, @script, @release_version, @next_version)
   end
 
@@ -68,7 +78,61 @@ class PrepareTest < Test::Unit::TestCase
     end
   end
 
+  def test_linux_packages
+    user = "Arrow Developers"
+    email = "dev@arrow.apache.org"
+    prepare("LINUX_PACKAGES",
+            "DEBFULLNAME" => user,
+            "DEBEMAIL" => email)
+    changes = parse_patch(git("log", "-n", "1", "-p"))
+    sampled_changes = changes.collect do |change|
+      {
+        path: change[:path],
+        sampled_hunks: change[:hunks].collect(&:first),
+        # sampled_hunks: change[:hunks],
+      }
+    end
+    base_dir = "dev/tasks/linux-packages"
+    today = Time.now.utc.strftime("%a %b %d %Y")
+    expected_changes = [
+      {
+        path: "#{base_dir}/apache-arrow-archive-keyring/debian/changelog",
+        sampled_hunks: [
+          "+apache-arrow-archive-keyring (#{@release_version}-1) " +
+          "unstable; urgency=low",
+        ],
+      },
+      {
+        path:
+          "#{base_dir}/apache-arrow-release/yum/apache-arrow-release.spec.in",
+        sampled_hunks: [
+          "+* #{today} #{user} <#{email}> - #{@release_version}-1",
+        ],
+      },
+      {
+        path: "#{base_dir}/apache-arrow/debian.ubuntu-xenial/changelog",
+        sampled_hunks: [
+          "+apache-arrow (#{@release_version}-1) unstable; urgency=low",
+        ],
+      },
+      {
+        path: "#{base_dir}/apache-arrow/debian/changelog",
+        sampled_hunks: [
+          "+apache-arrow (#{@release_version}-1) unstable; urgency=low",
+        ],
+      },
+      {
+        path: "#{base_dir}/apache-arrow/yum/arrow.spec.in",
+        sampled_hunks: [
+          "+* #{today} #{user} <#{email}> - #{@release_version}-1",
+        ],
+      },
+    ]
+    assert_equal(expected_changes, sampled_changes)
+  end
+
   def test_version_pre_tag
+    omit_on_release_branch
     prepare("VERSION_PRE_TAG")
     assert_equal([
                    {
@@ -212,7 +276,9 @@ class PrepareTest < Test::Unit::TestCase
                        ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
                         "-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\" }",
                         "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
-                        "+parquet = { path = \"../parquet\", version = \"#{@release_version}\" }"]
+                        "+parquet = { path = \"../parquet\", version = \"#{@release_version}\" }"],
+                       ["-arrow-flight = { path = \"../arrow-flight\", version = \"#{@snapshot_version}\" }",
+                        "+arrow-flight = { path = \"../arrow-flight\", version = \"#{@release_version}\" }"]
                      ],
                    },
                    {
@@ -245,8 +311,12 @@ class PrepareTest < Test::Unit::TestCase
   end
 
   def test_version_post_tag
-    prepare("VERSION_PRE_TAG",
-            "VERSION_POST_TAG")
+    if on_release_branch?
+      prepare("VERSION_POST_TAG")
+    else
+      prepare("VERSION_PRE_TAG",
+              "VERSION_POST_TAG")
+    end
     assert_equal([
                    {
                      path: "c_glib/configure.ac",
@@ -390,7 +460,9 @@ class PrepareTest < Test::Unit::TestCase
                        ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
                         "-parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
                         "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }",
-                        "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\" }"]
+                        "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\" }"],
+                       ["-arrow-flight = { path = \"../arrow-flight\", version = \"#{@release_version}\" }",
+                        "+arrow-flight = { path = \"../arrow-flight\", version = \"#{@next_snapshot_version}\" }"]
                      ],
                    },
                    {

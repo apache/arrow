@@ -1304,14 +1304,15 @@ cdef class ParquetWriter:
         else:
             props.disallow_truncated_timestamps()
 
-    cdef void _set_version(self, WriterProperties.Builder* props):
+    cdef int _set_version(self, WriterProperties.Builder* props) except -1:
         if self.version is not None:
             if self.version == "1.0":
                 props.version(ParquetVersion_V1)
             elif self.version == "2.0":
                 props.version(ParquetVersion_V2)
             else:
-                raise ArrowException("Unsupported Parquet format version")
+                raise ValueError("Unsupported Parquet format version: {0}"
+                                 .format(self.version))
 
     cdef void _set_compression_props(self, WriterProperties.Builder* props):
         if isinstance(self.compression, basestring):

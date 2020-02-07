@@ -380,6 +380,22 @@ dataset___SFactory__Inspect <- function(factory){
     .Call(`_arrow_dataset___SFactory__Inspect` , factory)
 }
 
+dataset___DFactory__Make <- function(sources){
+    .Call(`_arrow_dataset___DFactory__Make` , sources)
+}
+
+dataset___DFactory__Inspect <- function(factory){
+    .Call(`_arrow_dataset___DFactory__Inspect` , factory)
+}
+
+dataset___DFactory__Finish1 <- function(factory){
+    .Call(`_arrow_dataset___DFactory__Finish1` , factory)
+}
+
+dataset___DFactory__Finish2 <- function(factory, schema){
+    .Call(`_arrow_dataset___DFactory__Finish2` , factory, schema)
+}
+
 dataset___DirectoryPartitioning <- function(schm){
     .Call(`_arrow_dataset___DirectoryPartitioning` , schm)
 }
@@ -1416,8 +1432,8 @@ Table__Slice2 <- function(table, offset, length){
     .Call(`_arrow_Table__Slice2` , table, offset, length)
 }
 
-Table__Equals <- function(lhs, rhs){
-    .Call(`_arrow_Table__Equals` , lhs, rhs)
+Table__Equals <- function(lhs, rhs, check_metadata){
+    .Call(`_arrow_Table__Equals` , lhs, rhs, check_metadata)
 }
 
 Table__GetColumnByName <- function(table, name){

@@ -698,6 +698,8 @@ Status StructReader::NextBatch(int64_t records_to_read,
 
 Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& ctx,
                  std::unique_ptr<ColumnReaderImpl>* out) {
+  BEGIN_PARQUET_CATCH_EXCEPTIONS
+
   auto type_id = field.field->type()->id();
   if (field.children.size() == 0) {
     std::unique_ptr<FileColumnIterator> input(
@@ -754,6 +756,8 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
     return Status::Invalid("Unsupported nested type: ", field.field->ToString());
   }
   return Status::OK();
+
+  END_PARQUET_CATCH_EXCEPTIONS
 }
 
 Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_indices,

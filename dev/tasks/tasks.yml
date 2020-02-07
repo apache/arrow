@@ -122,8 +122,6 @@ groups:
     - test-ubuntu-18.04-r-sanitizer
     - test-debian-10-go-1.12
     - test-ubuntu-18.04-docs
-    - test-ubuntu-fuzzit-fuzzing
-    - test-ubuntu-fuzzit-regression
     - test-conda-python-2.7-pandas-latest
     - test-conda-python-2.7-pandas-master
     - test-conda-python-3.7-pandas-latest
@@ -300,8 +298,6 @@ groups:
     - test-ubuntu-18.04-r-sanitizer
     - test-debian-10-go-1.12
     - test-ubuntu-18.04-docs
-    - test-ubuntu-fuzzit-fuzzing
-    - test-ubuntu-fuzzit-regression
     - test-conda-python-2.7-pandas-latest
     - test-conda-python-3.7-pandas-latest
     - test-conda-python-3.7-pandas-master
@@ -688,7 +684,7 @@ tasks:
     params:
       python_version: 2.7
     artifacts:
-      - pyarrow-{no_rc_version}-cp27-cp27m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp27-cp27m-macosx_10_9_intel.whl
 
   wheel-osx-cp35m:
     ci: travis
@@ -697,7 +693,7 @@ tasks:
     params:
       python_version: 3.5
     artifacts:
-      - pyarrow-{no_rc_version}-cp35-cp35m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp35-cp35m-macosx_10_9_intel.whl
 
   wheel-osx-cp36m:
     ci: travis
@@ -706,7 +702,7 @@ tasks:
     params:
       python_version: 3.6
     artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_9_intel.whl
 
   wheel-osx-cp37m:
     ci: travis
@@ -715,7 +711,7 @@ tasks:
     params:
       python_version: 3.7
     artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_9_intel.whl
 
   wheel-osx-cp37m-azure:
     ci: azure
@@ -724,7 +720,7 @@ tasks:
     params:
       python_version: 3.7
     artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_9_intel.whl
 
   wheel-osx-cp38:
     ci: travis
@@ -762,7 +758,7 @@ tasks:
     params:
       python_version: 3.8
     artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38m-win_amd64.whl
+      - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
 
   ############################## Linux PKGS ####################################
 
@@ -856,6 +852,7 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -873,6 +870,13 @@ tasks:
       - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -971,6 +975,7 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -988,6 +993,13 @@ tasks:
       - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1073,7 +1085,6 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1090,11 +1101,6 @@ tasks:
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -2046,30 +2052,6 @@ tasks:
         - docker-compose build ubuntu-python
         - docker-compose build ubuntu-docs
         - docker-compose run ubuntu-docs
-
-  test-ubuntu-fuzzit-fuzzing:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
-    params:
-      commands:
-        - docker-compose pull --ignore-pull-failures ubuntu-cpp
-        - docker-compose pull --ignore-pull-failures ubuntu-fuzzit
-        - docker-compose build ubuntu-cpp
-        - docker-compose build ubuntu-fuzzit
-        - docker-compose run -e FUZZIT_JOB_TYPE=fuzzing ubuntu-fuzzit
-
-  test-ubuntu-fuzzit-regression:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
-    params:
-      commands:
-        - docker-compose pull --ignore-pull-failures ubuntu-cpp
-        - docker-compose pull --ignore-pull-failures ubuntu-fuzzit
-        - docker-compose build ubuntu-cpp
-        - docker-compose build ubuntu-fuzzit
-        - docker-compose run -e FUZZIT_JOB_TYPE=regression ubuntu-fuzzit
 
   ############################## Integration tests ############################
 

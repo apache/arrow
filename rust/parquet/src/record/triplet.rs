@@ -296,16 +296,10 @@ impl<T: DataType> TypedTripletIter<T> {
         if self.curr_triplet_index >= self.triplets_left {
             let (values_read, levels_read) = {
                 // Get slice of definition levels, if available
-                let def_levels = match self.def_levels {
-                    Some(ref mut vec) => Some(&mut vec[..]),
-                    None => None,
-                };
+                let def_levels = self.def_levels.as_mut().map(|vec| &mut vec[..]);
 
                 // Get slice of repetition levels, if available
-                let rep_levels = match self.rep_levels {
-                    Some(ref mut vec) => Some(&mut vec[..]),
-                    None => None,
-                };
+                let rep_levels = self.rep_levels.as_mut().map(|vec| &mut vec[..]);
 
                 // Buffer triplets
                 self.reader.read_batch(

@@ -50,13 +50,7 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
   if (is.character(sources)) {
     sources <- list(open_source(sources, partitioning = partitioning, ...))
   }
-  assert_is_list_of(sources, "SourceFactory")
-  if (is.null(schema)) {
-    # TODO: there should be a DatasetFactory
-    # https://jira.apache.org/jira/browse/ARROW-7380
-    schema <- sources[[1]]$Inspect()
-  }
-  Dataset$create(map(sources, ~.$Finish(schema)), schema)
+  DatasetFactory$create(sources)$Finish(schema)
 }
 
 #' Multi-file datasets
@@ -66,18 +60,27 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #' multiple files. This sharding of data may indicate partitioning, which
 #' can accelerate queries that only touch some partitions (files).
 #'
+#' `DatasetFactory` is used to help in the creation of `Dataset`s.
 #' @section Factory:
-#' The `Dataset$create()` factory method instantiates a `Dataset` and
+#' The `Dataset$create()` method instantiates a `Dataset` and
 #' takes the following arguments:
 #' * `sources`: a list of [Source] objects
 #' * `schema`: a [Schema]
+#'
+#' The `DatasetFactory$create()` takes the following arguments:
+#' * `sources`: a list of [SourceFactory] objects
 #' @section Methods:
 #'
+#' A `Dataset` has the following methods:
 #' - `$NewScan()`: Returns a [ScannerBuilder] for building a query
 #' - `$schema`: Active binding, returns the [Schema] of the Dataset
+#'
+#' A `DatasetFactory` has:
+#'
+#' - `$Inspect()`: Returns a common [Schema] for the `Sources` in the factory.
+#' - `$Finish(schema)`: Returns a `Dataset`
 #' @export
-#' @seealso [open_dataset()] for a simple way to create a Dataset that has a
-#' single `Source`.
+#' @seealso [open_dataset()] for a simple interface to creating a `Dataset`
 Dataset <- R6Class("Dataset", inherit = Object,
   public = list(
     #' @description
@@ -94,6 +97,7 @@ Dataset <- R6Class("Dataset", inherit = Object,
   )
 )
 Dataset$create <- function(sources, schema) {
+  # TODO: consider deleting Dataset$create since we have DatasetFactory$create
   assert_is_list_of(sources, "Source")
   assert_is(schema, "Schema")
   shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
@@ -101,6 +105,29 @@ Dataset$create <- function(sources, schema) {
 
 #' @export
 names.Dataset <- function(x) names(x$schema)
+
+#' @usage NULL
+#' @format NULL
+#' @rdname Dataset
+#' @export
+DatasetFactory <- R6Class("DatasetFactory", inherit = Object,
+  public = list(
+    Finish = function(schema = NULL) {
+      if (is.null(schema)) {
+        shared_ptr(Dataset, dataset___DFactory__Finish1(self))
+      } else {
+        assert_is(schema, "Schema")
+        shared_ptr(Dataset, dataset___DFactory__Finish2(self, schema))
+      }
+    },
+    Inspect = function() shared_ptr(Schema, dataset___DFactory__Inspect(self))
+  )
+)
+DatasetFactory$create <- function(sources) {
+  assert_is_list_of(sources, "SourceFactory")
+  shared_ptr(DatasetFactory, dataset___DFactory__Make(sources))
+}
+
 
 #' Sources for a Dataset
 #'

@@ -24,7 +24,6 @@ import sys
 import pyarrow as pa
 from pyarrow.util import _stringify_path, _is_path_like
 
-
 if sys.version_info < (3,):
     raise ImportError("Python Dataset bindings require Python 3")
 
@@ -34,7 +33,7 @@ from pyarrow._dataset import (  # noqa
     CompareOperator,
     ComparisonExpression,
     Dataset,
-    DefaultPartitioning,
+    DatasetFactory,
     DirectoryPartitioning,
     Expression,
     FieldExpression,
@@ -52,10 +51,10 @@ from pyarrow._dataset import (  # noqa
     PartitioningFactory,
     ScalarExpression,
     Scanner,
-    ScannerBuilder,
     ScanTask,
     Source,
     TreeSource,
+    SourceFactory
 )
 
 
@@ -157,21 +156,31 @@ def partitioning(schema=None, field_names=None, flavor=None):
         raise ValueError("Unsupported flavor")
 
 
+def _ensure_fs(filesystem, path):
+    # Validate or infer the filesystem from the path
+    from pyarrow.fs import FileSystem, LocalFileSystem
+
+    if filesystem is None:
+        try:
+            filesystem, _ = FileSystem.from_uri(path)
+        except Exception:
+            # when path is not found, we fall back to local file system
+            filesystem = LocalFileSystem()
+    return filesystem
+
+
 def _ensure_fs_and_paths(path_or_paths, filesystem=None):
     # Validate and convert the path-likes and filesystem.
     # Returns filesystem and list of string paths or FileSelector
-    from pyarrow.fs import FileSystem, FileType, FileSelector
+    from pyarrow.fs import FileType, FileSelector
 
     if isinstance(path_or_paths, list):
         paths_or_selector = [_stringify_path(path) for path in path_or_paths]
-        if filesystem is None:
-            # infer from first path
-            filesystem, _ = FileSystem.from_uri(paths_or_selector[0])
+        # infer from first path
+        filesystem = _ensure_fs(filesystem, paths_or_selector[0])
     else:
         path = _stringify_path(path_or_paths)
-        if filesystem is None:
-            filesystem, path = FileSystem.from_uri(path)
-
+        filesystem = _ensure_fs(filesystem, path)
         stats = filesystem.get_target_stats([path])[0]
         if stats.type == FileType.Directory:
             # for directory, pass a selector
@@ -203,6 +212,15 @@ def _ensure_partitioning(scheme):
     return scheme
 
 
+def _ensure_format(obj):
+    if isinstance(obj, FileFormat):
+        return obj
+    elif obj == "parquet":
+        return ParquetFileFormat()
+    else:
+        raise ValueError("format '{0}' is not supported".format(obj))
+
+
 def source(path_or_paths, filesystem=None, partitioning=None,
            format=None):
     """
@@ -219,7 +237,7 @@ def source(path_or_paths, filesystem=None, partitioning=None,
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
         field names a DirectionaryPartitioning will be inferred.
-    format : str
+    format : str, default None
         Currently only "parquet" is supported.
 
     Returns
@@ -227,51 +245,43 @@ def source(path_or_paths, filesystem=None, partitioning=None,
     DataSource of DataSourceDiscovery
 
     """
-    filesystem, paths_or_selector = _ensure_fs_and_paths(
-        path_or_paths, filesystem)
-
+    fs, paths_or_selector = _ensure_fs_and_paths(path_or_paths, filesystem)
     partitioning = _ensure_partitioning(partitioning)
-
-    format = format or "parquet"
-    if format == "parquet":
-        format = ParquetFileFormat()
-    elif not isinstance(format, FileFormat):
-        raise ValueError("format '{0}' is not supported".format(format))
+    format = _ensure_format(format or "parquet")
 
     # TODO pass through options
     options = FileSystemFactoryOptions()
-
     if isinstance(partitioning, PartitioningFactory):
         options.partitioning_factory = partitioning
     elif isinstance(partitioning, Partitioning):
         options.partitioning = partitioning
 
-    discovery = FileSystemSourceFactory(
-        filesystem, paths_or_selector, format, options)
-
-    # TODO return Source if a specific schema was passed?
-
-    # need to return SourceFactory since `dataset` might need to
-    # finish the factory with a unified schema
-    return discovery
+    return FileSystemSourceFactory(fs, paths_or_selector, format, options)
 
 
-def _ensure_source(src, filesystem=None, partitioning=None, format=None):
+def _ensure_source(src, **kwargs):
+    # Need to return SourceFactory since `dataset` might need to finish the
+    # factory with a unified schema.
+    # TODO: return Source if a specific schema was passed?
     if _is_path_like(src):
-        src = source(src, filesystem=filesystem,
-                     partitioning=partitioning, format=format)
-    # TODO also accept Source?
-    elif isinstance(src, FileSystemSourceFactory):
-        # when passing a SourceFactory, the arguments cannot be specified
-        if any(kwarg is not None
-               for kwarg in [filesystem, partitioning, format]):
+        return source(src, **kwargs)
+    elif isinstance(src, SourceFactory):
+        if any(v is not None for v in kwargs.values()):
+            # when passing a SourceFactory, the arguments cannot be specified
             raise ValueError(
                 "When passing a Source(Factory), you cannot pass any "
-                "additional arguments")
+                "additional arguments"
+            )
+        return src
+    elif isinstance(src, Source):
+        raise TypeError(
+            "Source objects are currently not supported, only SourceFactory "
+            "instances. Use the source() function to create such objects."
+        )
     else:
-        raise ValueError("Expected a path-like or Source, got {0}".format(
-            type(src)))
-    return src
+        raise TypeError(
+            "Expected a path-like or Source, got {0}".format(type(src))
+        )
 
 
 def dataset(sources, filesystem=None, partitioning=None, format=None):
@@ -280,7 +290,7 @@ def dataset(sources, filesystem=None, partitioning=None, format=None):
 
     Parameters
     ----------
-    sources : path or list of paths or sources
+    sources : path or list of paths or source or list of sources
         Path to a file or to a directory containing the data files, or a list
         of paths for a multi-source dataset. To have more control, a list of
         sources can be passed, created with the ``source()`` function (in this
@@ -314,17 +324,44 @@ def dataset(sources, filesystem=None, partitioning=None, format=None):
     """
     if not isinstance(sources, list):
         sources = [sources]
+
     sources = [
-        _ensure_source(src, filesystem=filesystem,
-                       partitioning=partitioning, format=format)
+        _ensure_source(src, filesystem=filesystem, partitioning=partitioning,
+                       format=format)
         for src in sources
     ]
+    return DatasetFactory(sources).finish()
 
-    # TEMP: for now only deal with a single source
 
-    if len(sources) > 1:
-        raise NotImplementedError("only a single source is supported for now")
+def field(name):
+    """References a named column of the dataset.
 
-    discovery = sources[0]
-    inspected_schema = discovery.inspect()
-    return Dataset([discovery.finish()], inspected_schema)
+    Stores only the field's name. Type and other information is known only when
+    the expression is applied on a dataset having an explicit scheme.
+
+    Parameters
+    ----------
+    name : string
+        The name of the field the expression references to.
+
+    Returns
+    -------
+    field_expr : FieldExpression
+    """
+    return FieldExpression(name)
+
+
+def scalar(value):
+    """Expression representing a scalar value.
+
+    Parameters
+    ----------
+    value : bool, int, float or string
+        Python value of the scalar. Note that only a subset of types are
+        currently supported.
+
+    Returns
+    -------
+    scalar_expr : ScalarExpression
+    """
+    return ScalarExpression(value)

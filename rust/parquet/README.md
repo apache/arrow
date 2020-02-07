@@ -58,7 +58,7 @@ version is available. Then simply update version of `parquet-format` crate in Ca
 - [X] Read support
   - [X] Primitive column value readers
   - [X] Row record reader
-  - [ ] Arrow record reader
+  - [X] Arrow record reader
 - [X] Statistics support
 - [X] Write support
   - [X] Primitive column value writers
@@ -66,7 +66,6 @@ version is available. Then simply update version of `parquet-format` crate in Ca
   - [ ] Arrow record writer
 - [ ] Predicate pushdown
 - [ ] Parquet format 2.5 support
-- [ ] HDFS support
 
 ## Requirements
 - Rust nightly

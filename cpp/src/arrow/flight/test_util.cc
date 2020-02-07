@@ -454,7 +454,8 @@ Status TestClientBasicAuthHandler::GetToken(std::string* token) {
 Status GetTestResourceRoot(std::string* out) {
   const char* c_root = std::getenv("ARROW_TEST_DATA");
   if (!c_root) {
-    return Status::IOError("Test resources not found, set ARROW_TEST_DATA");
+    return Status::IOError(
+        "Test resources not found, set ARROW_TEST_DATA to <repo root>/testing/data");
   }
   *out = std::string(c_root);
   return Status::OK();

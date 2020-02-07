@@ -17,7 +17,12 @@
   under the License.
 -->
 
-# arrow 0.15.1.9000
+# arrow 0.16.0.9000
+
+* Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types.
+* Can now infer the type of an R `list` and create a ListArray when all list elements are the same type (#6275, @michaelchirico)
+
+# arrow 0.16.0
 
 ## Multi-file datasets
 
@@ -55,7 +60,6 @@ See `vignette("install", package = "arrow")` for details.
 * Factor types are now preserved in round trip through Parquet format (#6135, @yutannihilation)
 * Reading an Arrow dictionary type coerces dictionary values to `character` (as R `factor` levels are required to be) instead of raising an error
 * Many improvements to Parquet function documentation (@karldw, @khughitt)
-* Can now infer the type of an R `list` and create a ListArray when all list elements are the same type (#6275, @michaelchirico)
 
 # arrow 0.15.1
 

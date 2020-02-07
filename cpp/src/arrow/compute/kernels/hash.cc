@@ -333,8 +333,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
       action_.ObserveNotFound(memo_index);
     };
 
-    memo_table_->GetOrInsert(value, on_found, on_not_found);
-    return Status::OK();
+    int32_t unused_memo_index;
+    return memo_table_->GetOrInsert(value, on_found, on_not_found, &unused_memo_index);
   }
 
   template <bool HasError = with_error_status>
@@ -344,7 +344,9 @@ class RegularHashKernelImpl : public HashKernelImpl {
     auto on_not_found = [this, &s](int32_t memo_index) {
       action_.ObserveNotFound(memo_index, &s);
     };
-    memo_table_->GetOrInsert(value, on_found, on_not_found);
+    int32_t unused_memo_index;
+    RETURN_NOT_OK(
+        memo_table_->GetOrInsert(value, on_found, on_not_found, &unused_memo_index));
     return s;
   }
 

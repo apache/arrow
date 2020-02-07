@@ -196,9 +196,8 @@ function install_wheel {
     pushd $1  # enter arrow's directory
     wheelhouse="$PWD/python/dist"
 
-    # Install compatible wheel
-    pip install $(pip_opts) \
-        $(python $multibuild_dir/supported_wheels.py $wheelhouse/*.whl)
+    # Install wheel
+    pip install $(pip_opts) $wheelhouse/*.whl
 
     popd
 }

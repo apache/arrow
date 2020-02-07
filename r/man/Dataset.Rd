@@ -2,6 +2,7 @@
 % Please edit documentation in R/dataset.R
 \name{Dataset}
 \alias{Dataset}
+\alias{DatasetFactory}
 \title{Multi-file datasets}
 \value{
 A \link{ScannerBuilder}
@@ -11,29 +12,43 @@ Arrow Datasets allow you to query against data that has been split across
 multiple files. This sharding of data may indicate partitioning, which
 can accelerate queries that only touch some partitions (files).
 
+\code{DatasetFactory} is used to help in the creation of \code{Dataset}s.
+
 Start a new scan of the data
 
 Return the Dataset's \code{Schema}
 }
 \section{Factory}{
 
-The \code{Dataset$create()} factory method instantiates a \code{Dataset} and
+The \code{Dataset$create()} method instantiates a \code{Dataset} and
 takes the following arguments:
 \itemize{
 \item \code{sources}: a list of \link{Source} objects
 \item \code{schema}: a \link{Schema}
 }
+
+The \code{DatasetFactory$create()} takes the following arguments:
+\itemize{
+\item \code{sources}: a list of \link{SourceFactory} objects
+}
 }
 
 \section{Methods}{
 
+
+A \code{Dataset} has the following methods:
 \itemize{
 \item \verb{$NewScan()}: Returns a \link{ScannerBuilder} for building a query
 \item \verb{$schema}: Active binding, returns the \link{Schema} of the Dataset
 }
+
+A \code{DatasetFactory} has:
+\itemize{
+\item \verb{$Inspect()}: Returns a common \link{Schema} for the \code{Sources} in the factory.
+\item \verb{$Finish(schema)}: Returns a \code{Dataset}
+}
 }
 
 \seealso{
-\code{\link[=open_dataset]{open_dataset()}} for a simple way to create a Dataset that has a
-single \code{Source}.
+\code{\link[=open_dataset]{open_dataset()}} for a simple interface to creating a \code{Dataset}
 }

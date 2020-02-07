@@ -1120,6 +1120,7 @@ cdef _array_like_to_pandas(obj, options):
         PandasOptions c_options = _convert_pandas_options(options)
 
     original_type = obj.type
+    name = obj._name
 
     if obj.type.id == _Type_TIMESTAMP and obj.type.unit != 'ns':
         # pandas only stores ns data - casting here is faster
@@ -1142,7 +1143,7 @@ cdef _array_like_to_pandas(obj, options):
                 (<ChunkedArray> obj).sp_chunked_array,
                 obj, &out))
 
-    result = pandas_api.series(wrap_array_output(out), name=obj._name)
+    result = pandas_api.series(wrap_array_output(out), name=name)
 
     if (isinstance(original_type, TimestampType) and
             original_type.tz is not None):

@@ -64,4 +64,9 @@ public class AsyncPutListener implements FlightClient.PutListener {
   public final void onCompleted() {
     completed.complete(null);
   }
+
+  @Override
+  public boolean isCancelled() {
+    return completed.isDone();
+  }
 }

@@ -92,6 +92,33 @@ std::shared_ptr<arrow::Schema> dataset___SFactory__Inspect(
   return VALUE_OR_STOP(factory->Inspect());
 }
 
+// DatasetFactory
+
+// [[arrow::export]]
+std::shared_ptr<ds::DatasetFactory> dataset___DFactory__Make(
+    const std::vector<std::shared_ptr<ds::SourceFactory>>& sources) {
+  return VALUE_OR_STOP(ds::DatasetFactory::Make(sources));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> dataset___DFactory__Inspect(
+    const std::shared_ptr<ds::DatasetFactory>& factory) {
+  return VALUE_OR_STOP(factory->Inspect());
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::Dataset> dataset___DFactory__Finish1(
+    const std::shared_ptr<ds::DatasetFactory>& factory) {
+  return VALUE_OR_STOP(factory->Finish());
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::Dataset> dataset___DFactory__Finish2(
+    const std::shared_ptr<ds::DatasetFactory>& factory,
+    const std::shared_ptr<arrow::Schema>& schema) {
+  return VALUE_OR_STOP(factory->Finish(schema));
+}
+
 // [[arrow::export]]
 std::shared_ptr<ds::Partitioning> dataset___DirectoryPartitioning(
     const std::shared_ptr<arrow::Schema>& schm) {

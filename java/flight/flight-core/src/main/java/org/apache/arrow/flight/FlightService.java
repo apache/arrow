@@ -129,6 +129,7 @@ class FlightService extends FlightServiceImplBase {
   private static class GetListener implements ServerStreamListener {
     private ServerCallStreamObserver<ArrowMessage> responseObserver;
     private final Consumer<Throwable> errorHandler;
+    private Runnable onCancelHandler = null;
     // null until stream started
     private volatile VectorUnloader unloader;
     private boolean completed;
@@ -144,6 +145,14 @@ class FlightService extends FlightServiceImplBase {
 
     private void onCancel() {
       logger.debug("Stream cancelled by client.");
+      if (onCancelHandler != null) {
+        onCancelHandler.run();
+      }
+    }
+
+    @Override
+    public void setOnCancelHandler(Runnable handler) {
+      this.onCancelHandler = handler;
     }
 
     @Override
@@ -151,6 +160,7 @@ class FlightService extends FlightServiceImplBase {
       return responseObserver.isReady();
     }
 
+    @Override
     public boolean isCancelled() {
       return responseObserver.isCancelled();
     }
@@ -164,7 +174,13 @@ class FlightService extends FlightServiceImplBase {
     public void start(VectorSchemaRoot root, DictionaryProvider provider) {
       unloader = new VectorUnloader(root, true, true);
 
-      DictionaryUtils.generateSchemaMessages(root.getSchema(), null, provider, responseObserver::onNext);
+      try {
+        DictionaryUtils.generateSchemaMessages(root.getSchema(), null, provider, responseObserver::onNext);
+      } catch (Exception e) {
+        // Only happens if closing buffers somehow fails - indicates application is an unknown state so propagate
+        // the exception
+        throw new RuntimeException("Could not generate and send all schema messages", e);
+      }
     }
 
     @Override
@@ -175,7 +191,18 @@ class FlightService extends FlightServiceImplBase {
     @Override
     public void putNext(ArrowBuf metadata) {
       Preconditions.checkNotNull(unloader);
-      responseObserver.onNext(new ArrowMessage(unloader.getRecordBatch(), metadata));
+      // close is a no-op if the message has been written to gRPC, otherwise frees the associated buffers
+      // in some code paths (e.g. if the call is cancelled), gRPC does not write the message, so we need to clean up
+      // ourselves. Normally, writing the ArrowMessage will transfer ownership of the data to gRPC/Netty.
+      try (final ArrowMessage message = new ArrowMessage(unloader.getRecordBatch(), metadata)) {
+        responseObserver.onNext(message);
+      } catch (Exception e) {
+        // This exception comes from ArrowMessage#close, not responseObserver#onNext.
+        // Generally this should not happen - ArrowMessage's implementation only closes non-throwing things.
+        // The user can't reasonably do anything about this, but if something does throw, we shouldn't let
+        // execution continue since other state (e.g. allocators) may be in an odd state.
+        throw new RuntimeException("Could not free ArrowMessage", e);
+      }
     }
 
     @Override

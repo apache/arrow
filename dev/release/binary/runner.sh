@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+#!/bin/bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,31 +17,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -euxo pipefail
+set -u
 
-export TARGET_ID=apache-arrow/arrow-ipc-fuzzing
+export LANG=C
 
-source_dir=${1}/cpp
-build_dir=${2}/cpp
+target_dir=/host/binary/tmp
+original_owner=$(stat --format=%u ${target_dir})
+original_group=$(stat --format=%g ${target_dir})
 
-pushd ${build_dir}/relwithdebinfo
+sudo -H chown -R ${USER}: ${target_dir}
+restore_owner() {
+  sudo -H chown -R ${original_owner}:${original_group} ${target_dir}
+}
+trap restore_owner EXIT
 
-mkdir -p out
+cd /host
 
-cp arrow-ipc-fuzzing-test out/fuzzer
-ldd arrow-ipc-fuzzing-test | grep "=> /" | awk '{print $3}' | xargs -I '{}' cp -v '{}' out/
-
-pushd out
-tar -czvf fuzzer.tar.gz *
-stat fuzzer.tar.gz
-popd
-
-fuzzit create job \
-    --type $FUZZIT_JOB_TYPE \
-    --host $FUZZIT_HOST \
-    --revision $CI_ARROW_SHA \
-    --branch $CI_ARROW_BRANCH \
-    $TARGET_ID \
-    out/fuzzer.tar.gz
-
-popd
+"$@"

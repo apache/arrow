@@ -349,13 +349,9 @@ impl<R: Read> Reader<R> {
 
         let projected_schema = Arc::new(Schema::new(projected_fields));
 
-        match arrays {
-            Ok(arr) => match RecordBatch::try_new(projected_schema, arr) {
-                Ok(batch) => Ok(Some(batch)),
-                Err(e) => Err(e),
-            },
-            Err(e) => Err(e),
-        }
+        arrays.and_then(|arr| {
+            RecordBatch::try_new(projected_schema, arr).map(|batch| Some(batch))
+        })
     }
 
     fn build_primitive_array<T: ArrowPrimitiveType>(

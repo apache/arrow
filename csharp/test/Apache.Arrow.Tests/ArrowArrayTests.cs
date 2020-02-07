@@ -40,11 +40,19 @@ namespace Apache.Arrow.Tests
             Assert.Equal(1, array.GetValueLength(1));
             Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValueLength(2));
 
+#pragma warning disable 618
             Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValueOffset(-1));
             Assert.Equal(0, array.GetValueOffset(0));
             Assert.Equal(1, array.GetValueOffset(1));
             Assert.Equal(2, array.GetValueOffset(2));
             Assert.Throws<ArgumentOutOfRangeException>(() => array.GetValueOffset(3));
+#pragma warning restore 618
+
+            Assert.Throws<IndexOutOfRangeException>(() => array.ValueOffsets[-1]);
+            Assert.Equal(0, array.ValueOffsets[0]);
+            Assert.Equal(1, array.ValueOffsets[1]);
+            Assert.Equal(2, array.ValueOffsets[2]);
+            Assert.Throws<IndexOutOfRangeException>(() => array.ValueOffsets[3]);
 
         }
 

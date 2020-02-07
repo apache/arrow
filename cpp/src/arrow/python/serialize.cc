@@ -654,6 +654,7 @@ Status CountSparseTensors(
   OwnedRef num_sparse_tensors(PyDict_New());
   size_t num_coo = 0;
   size_t num_csr = 0;
+  size_t num_csf = 0;
 
   for (const auto& sparse_tensor : sparse_tensors) {
     switch (sparse_tensor->format_id()) {
@@ -663,6 +664,9 @@ Status CountSparseTensors(
       case SparseTensorFormat::CSR:
         ++num_csr;
         break;
+      case SparseTensorFormat::CSF:
+        ++num_csf;
+        break;
       case SparseTensorFormat::CSC:
         // TODO(mrkn): support csc
         break;
@@ -671,6 +675,7 @@ Status CountSparseTensors(
 
   PyDict_SetItemString(num_sparse_tensors.obj(), "coo", PyLong_FromSize_t(num_coo));
   PyDict_SetItemString(num_sparse_tensors.obj(), "csr", PyLong_FromSize_t(num_csr));
+  PyDict_SetItemString(num_sparse_tensors.obj(), "csf", PyLong_FromSize_t(num_csf));
   RETURN_IF_PYERROR();
 
   *out = num_sparse_tensors.detach();

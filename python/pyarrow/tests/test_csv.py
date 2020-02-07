@@ -211,6 +211,20 @@ class BaseTestCSVRead:
         table = self.read_bytes(rows)
         assert table.to_pydict() == expected_data
 
+    def test_one_chunk(self):
+        # ARROW-7661: lack of newline at end of file should not produce
+        # an additional chunk.
+        rows = [b"a,b", b"1,2", b"3,4", b"56,78"]
+        for line_ending in [b'\n', b'\r', b'\r\n']:
+            for file_ending in [b'', line_ending]:
+                data = line_ending.join(rows) + file_ending
+                table = self.read_bytes(data)
+                assert len(table.to_batches()) == 1
+                assert table.to_pydict() == {
+                    "a": [1, 3, 56],
+                    "b": [2, 4, 78],
+                }
+
     def test_header_skip_rows(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 

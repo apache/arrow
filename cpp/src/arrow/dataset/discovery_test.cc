@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/discovery.h"
 
+#include <memory>
 #include <utility>
 
 #include <gmock/gmock.h>
@@ -25,9 +26,19 @@
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace dataset {
+
+void AssertSchemasAre(std::vector<std::shared_ptr<Schema>> actual,
+                      std::vector<std::shared_ptr<Schema>> expected) {
+  EXPECT_EQ(actual.size(), expected.size());
+  for (size_t i = 0; i < actual.size(); i++) {
+    EXPECT_EQ(*actual[i], *expected[i]);
+  }
+}
 
 class SourceFactoryTest : public TestFileSystemSource {
  public:
@@ -38,11 +49,7 @@ class SourceFactoryTest : public TestFileSystemSource {
 
   void AssertInspectSchemas(std::vector<std::shared_ptr<Schema>> expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, factory_->InspectSchemas());
-
-    EXPECT_EQ(actual.size(), expected.size());
-    for (size_t i = 0; i < actual.size(); i++) {
-      EXPECT_EQ(*actual[i], *expected[i]);
-    }
+    AssertSchemasAre(actual, expected);
   }
 
  protected:
@@ -241,6 +248,89 @@ TEST_F(FileSystemSourceFactoryTest, Inspect) {
 
   MakeFactory({fs::File("test")});
   AssertInspect(s->fields());
+}
+
+TEST_F(FileSystemSourceFactoryTest, FinishWithIncompatibleSchemaShouldFail) {
+  auto s = schema({field("f64", float64())});
+  format_ = std::make_shared<DummyFileFormat>(s);
+
+  auto broken_s = schema({field("f64", utf8())});
+  // No files
+  MakeFactory({});
+  ASSERT_OK_AND_ASSIGN(auto dataset, factory_->Finish(broken_s));
+
+  MakeFactory({fs::File("test")});
+  ASSERT_RAISES(Invalid, factory_->Finish(broken_s));
+}
+
+std::shared_ptr<SourceFactory> SourceFactoryFromSchemas(
+    std::vector<std::shared_ptr<Schema>> schemas) {
+  return std::make_shared<MockSourceFactory>(schemas);
+}
+
+TEST(DatasetFactoryTest, Basic) {
+  auto f64 = field("f64", float64());
+  auto i32 = field("i32", int32());
+  auto i32_req = field("i32", int32(), /*nullable*/ false);
+  auto str = field("str", utf8());
+
+  auto schema_1 = schema({f64, i32_req});
+  auto schema_2 = schema({f64, i32});
+  auto schema_3 = schema({str, i32});
+
+  auto source_1 = SourceFactoryFromSchemas({schema_1, schema_2});
+  auto source_2 = SourceFactoryFromSchemas({schema_2});
+  auto source_3 = SourceFactoryFromSchemas({schema_3});
+
+  ASSERT_OK_AND_ASSIGN(auto factory,
+                       DatasetFactory::Make({source_1, source_2, source_3}));
+
+  ASSERT_OK_AND_ASSIGN(auto schemas, factory->InspectSchemas());
+  AssertSchemasAre(schemas, {schema_2, schema_2, schema_3});
+
+  auto expected_schema = schema({f64, i32, str});
+  ASSERT_OK_AND_ASSIGN(auto inspected, factory->Inspect());
+  EXPECT_EQ(*inspected, *expected_schema);
+
+  ASSERT_OK_AND_ASSIGN(auto dataset, factory->Finish());
+  EXPECT_EQ(*dataset->schema(), *expected_schema);
+
+  auto f64_schema = schema({f64});
+  ASSERT_OK_AND_ASSIGN(dataset, factory->Finish(f64_schema));
+  EXPECT_EQ(*dataset->schema(), *f64_schema);
+}
+
+TEST(DatasetFactoryTest, ConflictingSchemas) {
+  auto f64 = field("f64", float64());
+  auto i32 = field("i32", int32());
+  auto i32_req = field("i32", int32(), /*nullable*/ false);
+  auto bad_f64 = field("f64", float32());
+
+  auto schema_1 = schema({f64, i32_req});
+  auto schema_2 = schema({f64, i32});
+  // Incompatible with schema_1
+  auto schema_3 = schema({bad_f64, i32});
+
+  auto source_factory_1 = SourceFactoryFromSchemas({schema_1, schema_2});
+  auto source_factory_2 = SourceFactoryFromSchemas({schema_2});
+  auto source_factory_3 = SourceFactoryFromSchemas({schema_3});
+
+  ASSERT_OK_AND_ASSIGN(
+      auto factory,
+      DatasetFactory::Make({source_factory_1, source_factory_2, source_factory_3}));
+
+  // schema_3 conflicts with other, Inspect/Finish should not work
+  ASSERT_RAISES(Invalid, factory->Inspect());
+  ASSERT_RAISES(Invalid, factory->Finish());
+
+  // The user can inspect without error
+  ASSERT_OK_AND_ASSIGN(auto schemas, factory->InspectSchemas());
+  AssertSchemasAre(schemas, {schema_2, schema_2, schema_3});
+
+  // The user decided to ignore the conflicting `f64` field.
+  auto i32_schema = schema({i32});
+  ASSERT_OK_AND_ASSIGN(auto dataset, factory->Finish(i32_schema));
+  EXPECT_EQ(*dataset->schema(), *i32_schema);
 }
 
 }  // namespace dataset

@@ -17,10 +17,14 @@
 
 package org.apache.arrow.vector.testing;
 
+import static org.junit.Assert.assertEquals;
+
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
@@ -51,7 +55,12 @@ import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.holders.IntervalDayHolder;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.FieldType;
 
 /**
  * Utility for populating {@link org.apache.arrow.vector.ValueVector}.
@@ -533,10 +542,72 @@ public class ValueVectorDataPopulator {
     vector.allocateNewSafe();
     for (int i = 0; i < length; i++) {
       if (values[i] != null) {
-        vector.set(i, values[i].getBytes(StandardCharsets.UTF_8));
+        vector.setSafe(i, values[i].getBytes(StandardCharsets.UTF_8));
       }
     }
     vector.setValueCount(length);
   }
 
+  /**
+   * Populate values for {@link ListVector}.
+   */
+  public static void setVector(ListVector vector, List<Integer>... values) {
+    Types.MinorType type = Types.MinorType.INT;
+    vector.addOrGetVector(FieldType.nullable(type.getType()));
+
+    IntVector dataVector = (IntVector) vector.getDataVector();
+    dataVector.allocateNew();
+
+    // set underlying vectors
+    int curPos = 0;
+    vector.getOffsetBuffer().setInt(0, curPos);
+    for (int i = 0; i < values.length; i++) {
+      if (values[i] == null) {
+        BitVectorHelper.unsetBit(vector.getValidityBuffer(), i);
+      } else {
+        BitVectorHelper.setBit(vector.getValidityBuffer(), i);
+        for (int value : values[i]) {
+          dataVector.set(curPos, value);
+          curPos += 1;
+        }
+      }
+      vector.getOffsetBuffer().setInt((i + 1) * BaseRepeatedValueVector.OFFSET_WIDTH, curPos);
+    }
+    dataVector.setValueCount(curPos);
+    vector.setLastSet(values.length - 1);
+    vector.setValueCount(values.length);
+  }
+
+  /**
+   * Populate values for {@link FixedSizeListVector}.
+   */
+  public static void setVector(FixedSizeListVector vector, List<Integer>... values) {
+    for (int i = 0; i < values.length; i++) {
+      if (values[i] != null) {
+        assertEquals(vector.getListSize(), values[i].size());
+      }
+    }
+
+    Types.MinorType type = Types.MinorType.INT;
+    vector.addOrGetVector(FieldType.nullable(type.getType()));
+
+    IntVector dataVector = (IntVector) vector.getDataVector();
+    dataVector.allocateNew();
+
+    // set underlying vectors
+    int curPos = 0;
+    for (int i = 0; i < values.length; i++) {
+      if (values[i] == null) {
+        BitVectorHelper.unsetBit(vector.getValidityBuffer(), i);
+      } else {
+        BitVectorHelper.setBit(vector.getValidityBuffer(), i);
+        for (int value : values[i]) {
+          dataVector.set(curPos, value);
+          curPos += 1;
+        }
+      }
+    }
+    dataVector.setValueCount(curPos);
+    vector.setValueCount(values.length);
+  }
 }

@@ -30,7 +30,6 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/filesystem/path_forest.h"
 #include "arrow/filesystem/path_util.h"
-#include "arrow/status.h"
 
 namespace arrow {
 namespace dataset {
@@ -45,6 +44,59 @@ Result<std::shared_ptr<Schema>> SourceFactory::Inspect() {
   }
 
   return UnifySchemas(schemas);
+}
+
+DatasetFactory::DatasetFactory(std::vector<std::shared_ptr<SourceFactory>> factories)
+    : factories_(std::move(factories)) {}
+
+Result<std::shared_ptr<DatasetFactory>> DatasetFactory::Make(
+    std::vector<std::shared_ptr<SourceFactory>> factories) {
+  for (const auto& factory : factories) {
+    if (factory == nullptr) {
+      return Status::Invalid("Can't accept nullptr SourceFactory");
+    }
+  }
+
+  // DatasetFactory constructor is protected, can't use make_shared.
+  return std::shared_ptr<DatasetFactory>{new DatasetFactory(std::move(factories))};
+}
+
+Result<std::vector<std::shared_ptr<Schema>>> DatasetFactory::InspectSchemas() {
+  std::vector<std::shared_ptr<Schema>> schemas;
+
+  for (const auto& source_factory : factories_) {
+    ARROW_ASSIGN_OR_RAISE(auto schema, source_factory->Inspect());
+    schemas.emplace_back(schema);
+  }
+
+  return schemas;
+}
+
+Result<std::shared_ptr<Schema>> DatasetFactory::Inspect() {
+  ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
+
+  if (schemas.empty()) {
+    return arrow::schema({});
+  }
+
+  return UnifySchemas(schemas);
+}
+
+Result<std::shared_ptr<Dataset>> DatasetFactory::Finish(
+    const std::shared_ptr<Schema>& schema) {
+  std::vector<std::shared_ptr<Source>> sources;
+
+  for (const auto& source_factory : factories_) {
+    ARROW_ASSIGN_OR_RAISE(auto source, source_factory->Finish(schema));
+    sources.emplace_back(source);
+  }
+
+  return Dataset::Make(sources, schema);
+}
+
+Result<std::shared_ptr<Dataset>> DatasetFactory::Finish() {
+  ARROW_ASSIGN_OR_RAISE(auto schema, Inspect());
+  return Finish(schema);
 }
 
 FileSystemSourceFactory::FileSystemSourceFactory(
@@ -190,8 +242,13 @@ Result<std::shared_ptr<Source>> SourceFactory::Finish() {
 
 Result<std::shared_ptr<Source>> FileSystemSourceFactory::Finish(
     const std::shared_ptr<Schema>& schema) {
-  ExpressionVector partitions(forest_.size(), scalar(true));
+  // This validation can be costly, but better safe than sorry.
+  ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
+  for (const auto& s : schemas) {
+    RETURN_NOT_OK(SchemaBuilder::AreCompatible({schema, s}));
+  }
 
+  ExpressionVector partitions(forest_.size(), scalar(true));
   std::shared_ptr<Partitioning> partitioning = options_.partitioning.partitioning();
   if (partitioning == nullptr) {
     auto factory = options_.partitioning.factory();

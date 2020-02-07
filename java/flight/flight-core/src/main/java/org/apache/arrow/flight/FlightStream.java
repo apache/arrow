@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.ArrowMessage.HeaderType;
 import org.apache.arrow.flight.grpc.StatusUtils;
@@ -41,8 +40,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.SettableFuture;
 
 import io.grpc.stub.StreamObserver;
@@ -53,14 +50,15 @@ import io.netty.buffer.ArrowBuf;
  */
 public class FlightStream implements AutoCloseable {
 
-
-  private final Object DONE = new Object();
-  private final Object DONE_EX = new Object();
-
+  // Use AutoCloseable sentinel objects to simplify logic in #close
+  private final AutoCloseable DONE = () -> {
+  };
+  private final AutoCloseable DONE_EX = () -> {
+  };
 
   private final BufferAllocator allocator;
   private final Cancellable cancellable;
-  private final LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
+  private final LinkedBlockingQueue<AutoCloseable> queue = new LinkedBlockingQueue<>();
   private final SettableFuture<VectorSchemaRoot> root = SettableFuture.create();
   private final int pendingTarget;
   private final Requestor requestor;
@@ -72,7 +70,6 @@ public class FlightStream implements AutoCloseable {
   private volatile VectorLoader loader;
   private volatile Throwable ex;
   private volatile FlightDescriptor descriptor;
-  private volatile Schema schema;
   private volatile ArrowBuf applicationMetadata = null;
 
   /**
@@ -81,7 +78,7 @@ public class FlightStream implements AutoCloseable {
    * @param allocator  The allocator to use for creating/reallocating buffers for Vectors.
    * @param pendingTarget Target number of messages to receive.
    * @param cancellable Only provided for streams from server to client, used to cancel mid-stream requests.
-   * @param requestor A callback do determine how many pending items there are.
+   * @param requestor A callback to determine how many pending items there are.
    */
   public FlightStream(BufferAllocator allocator, int pendingTarget, Cancellable cancellable, Requestor requestor) {
     this.allocator = allocator;
@@ -91,8 +88,11 @@ public class FlightStream implements AutoCloseable {
     this.dictionaries = new DictionaryProvider.MapDictionaryProvider();
   }
 
+  /**
+   * Get the schema for this stream. Blocks until the schema is available.
+   */
   public Schema getSchema() {
-    return schema;
+    return getRoot().getSchema();
   }
 
   /**
@@ -131,33 +131,37 @@ public class FlightStream implements AutoCloseable {
     return provider;
   }
 
+  /**
+   * Get the descriptor for this stream. Only applicable on the server side of a DoPut operation. Will block until the
+   * client sends the descriptor.
+   */
   public FlightDescriptor getDescriptor() {
+    // This blocks until the schema message (with the descriptor) is sent.
+    getRoot();
     return descriptor;
   }
 
   /**
    * Closes the stream (freeing any existing resources).
    *
-   * <p>If the stream is isn't complete and is cancellable this method will cancel the stream first.</p>
+   * <p>If the stream isn't complete and is cancellable, this method will cancel the stream first.</p>
    */
   public void close() throws Exception {
-    if (!completed && cancellable != null) {
-      cancel("Stream closed before end.", null);
+    final List<AutoCloseable> closeables = new ArrayList<>();
+    // cancellation can throw, but we still want to clean up resources, so make it an AutoCloseable too
+    closeables.add(() -> {
+      if (!completed && cancellable != null) {
+        cancel("Stream closed before end.", /* no exception to report */ null);
+      }
+    });
+    closeables.add(root.get());
+    closeables.add(applicationMetadata);
+    closeables.addAll(queue);
+    if (dictionaries != null) {
+      dictionaries.getDictionaryIds().forEach(id -> closeables.add(dictionaries.lookup(id).getVector()));
     }
-    List<AutoCloseable> closeables = ImmutableList.copyOf(queue.toArray()).stream()
-        .filter(t -> AutoCloseable.class.isAssignableFrom(t.getClass()))
-        .map(t -> ((AutoCloseable) t))
-        .collect(Collectors.toList());
 
-    final List<FieldVector> dictionaryVectors =
-        dictionaries == null ? Collections.emptyList() : dictionaries.getDictionaryIds().stream()
-        .map(id -> dictionaries.lookup(id).getVector()).collect(Collectors.toList());
-
-    // Must check for null since ImmutableList doesn't accept nulls
-    AutoCloseables.close(Iterables.concat(closeables,
-        dictionaryVectors,
-        applicationMetadata != null ? ImmutableList.of(root.get(), applicationMetadata)
-            : ImmutableList.of(root.get())));
+    AutoCloseables.close(closeables);
   }
 
   /**
@@ -235,7 +239,14 @@ public class FlightStream implements AutoCloseable {
     }
   }
 
-  /** Get the current vector data from the stream. */
+  /**
+   * Get the current vector data from the stream.
+   *
+   * <p>The data in the root may change at any time. Clients should NOT modify the root, but instead unload the data
+   * into their own root.
+   *
+   * @throws FlightRuntimeException if there was an error reading the schema from the stream.
+   */
   public VectorSchemaRoot getRoot() {
     try {
       return root.get();
@@ -266,7 +277,7 @@ public class FlightStream implements AutoCloseable {
 
   private class Observer implements StreamObserver<ArrowMessage> {
 
-    public Observer() {
+    Observer() {
       super();
     }
 
@@ -275,7 +286,7 @@ public class FlightStream implements AutoCloseable {
       requestOutstanding();
       switch (msg.getMessageType()) {
         case SCHEMA: {
-          schema = msg.asSchema();
+          Schema schema = msg.asSchema();
           final List<Field> fields = new ArrayList<>();
           final Map<Long, Dictionary> dictionaryMap = new HashMap<>();
           for (final Field originalField : schema.getFields()) {
@@ -304,9 +315,7 @@ public class FlightStream implements AutoCloseable {
         default:
           queue.add(DONE_EX);
           ex = new UnsupportedOperationException("Unable to handle message of type: " + msg.getMessageType());
-
       }
-
     }
 
     @Override

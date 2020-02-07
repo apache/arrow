@@ -29,6 +29,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -38,6 +39,7 @@
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
+using arrow::internal::checked_cast;
 
 // TODO(hatemhelal): investigate whether this can be replaced with GTEST_SKIP in a future
 // gtest release that contains https://github.com/google/googletest/pull/1544
@@ -860,6 +862,191 @@ TEST_F(DictEncoding, CheckDecodeIndicesNoNulls) {
   dict_decoder_->InsertDictionary(builder.get());
   auto actual_num_values = dict_decoder_->DecodeIndices(num_values_, builder.get());
   CheckDict(actual_num_values, *builder);
+}
+
+// ----------------------------------------------------------------------
+// BYTE_STREAM_SPLIT encode/decode tests.
+
+template <typename DType>
+void TestByteStreamSplitDecodePath(const uint8_t* encoded_data,
+                                   const int64_t encoded_data_size,
+                                   const typename DType::c_type* expected_decoded_data,
+                                   const int num_elements,
+                                   const bool request_more_values) {
+  std::unique_ptr<TypedDecoder<DType>> decoder =
+      MakeTypedDecoder<DType>(Encoding::BYTE_STREAM_SPLIT);
+  decoder->SetData(num_elements, encoded_data, static_cast<int>(encoded_data_size));
+  std::vector<typename DType::c_type> decoded_data(num_elements);
+  int num_elements_to_decode = num_elements;
+  if (request_more_values) {
+    num_elements_to_decode += 100;
+  }
+  int num_decoded_elements = decoder->Decode(decoded_data.data(), num_elements_to_decode);
+  ASSERT_EQ(num_elements, num_decoded_elements);
+  for (size_t i = 0U; i < decoded_data.size(); ++i) {
+    ASSERT_EQ(expected_decoded_data[i], decoded_data[i]);
+  }
+  ASSERT_EQ(0, decoder->values_left());
+}
+
+template <typename DType>
+void TestByteStreamSplitRoundTrip(const typename DType::c_type* input_data, const int n) {
+  auto encoder = MakeTypedEncoder<DType>(Encoding::BYTE_STREAM_SPLIT);
+  encoder->Put(input_data, n);
+  const int64_t estimated_num_bytes = encoder->EstimatedDataEncodedSize();
+  ASSERT_EQ(static_cast<int64_t>(n) * sizeof(typename DType::c_type),
+            estimated_num_bytes);
+  std::shared_ptr<Buffer> buffer = encoder->FlushValues();
+  TestByteStreamSplitDecodePath<DType>(buffer->data(), buffer->size(), input_data, n,
+                                       false);
+}
+
+template <typename DType>
+void TestEncodeDecodeWithBigInput() {
+  const int nvalues = 10000;
+  using T = typename DType::c_type;
+  std::vector<T> data(nvalues);
+  GenerateData<T>(nvalues, data.data(), nullptr);
+  TestByteStreamSplitRoundTrip<DType>(data.data(), nvalues);
+}
+
+// Check that the encoder can handle input with one element.
+TEST(ByteStreamSplitEncodeDecode, EncodeOneLenInput) {
+  const float value = 1.0f;
+  TestByteStreamSplitRoundTrip<FloatType>(&value, 1);
+}
+
+// Check that the decoder can handle empty input.
+TEST(ByteStreamSplitEncodeDecode, DecodeZeroLenInput) {
+  std::unique_ptr<TypedDecoder<FloatType>> decoder =
+      MakeTypedDecoder<FloatType>(Encoding::BYTE_STREAM_SPLIT);
+  decoder->SetData(0, NULL, 0);
+  ASSERT_EQ(0U, decoder->Decode(NULL, 0));
+}
+
+TEST(ByteStreamSplitEncodeDecode, DecodeOneLenInput) {
+  const uint8_t data[] = {0x47U, 0x24U, 0xa7U, 0x44U};
+  TestByteStreamSplitDecodePath<FloatType>(
+      data, 4, reinterpret_cast<const float*>(&data[0]), 1, false);
+}
+
+// Check that requesting to decode more elements than is available in the storage
+// of the decoder works correctly.
+TEST(ByteStreamSplitEncodeDecode, DecodeLargerPortion) {
+  const uint8_t data[] = {0xDEU, 0xC0U, 0x37U, 0x13U, 0x11U, 0x22U, 0x33U, 0x44U,
+                          0xAAU, 0xBBU, 0xCCU, 0xDDU, 0x55U, 0x66U, 0x77U, 0x88U};
+  const uint64_t expected_output[2] = {0x7755CCAA331137DEULL, 0x8866DDBB442213C0ULL};
+  TestByteStreamSplitDecodePath<DoubleType>(
+      data, sizeof(data), reinterpret_cast<const double*>(&expected_output[0]), 2, true);
+}
+
+// Check that the decoder can decode the input in smaller steps.
+TEST(ByteStreamSplitEncodeDecode, DecodeMultipleTimes) {
+  std::unique_ptr<TypedDecoder<FloatType>> decoder =
+      MakeTypedDecoder<FloatType>(Encoding::BYTE_STREAM_SPLIT);
+  const int num_values = 100;
+  std::vector<uint8_t> data(num_values * 4);
+  for (size_t i = 0; i < data.size(); ++i) {
+    data[i] = static_cast<uint8_t>(i & 0xFFU);
+  }
+  decoder->SetData(num_values, data.data(), num_values * 4);
+
+  const int step = 25;
+  std::vector<float> decoded_data(step);
+  for (int i = 0; i < num_values; i += step) {
+    int num_decoded = decoder->Decode(decoded_data.data(), step);
+    ASSERT_EQ(step, num_decoded);
+    for (int j = 0; j < step; ++j) {
+      const uint32_t assembled_value =
+          static_cast<uint32_t>(data[i + j]) |
+          (static_cast<uint32_t>(data[(i + j) + num_values]) << 8U) |
+          (static_cast<uint32_t>(data[(i + j) + num_values * 2]) << 16U) |
+          (static_cast<uint32_t>(data[(i + j) + num_values * 3]) << 24U);
+      const float assembled_value_as_float =
+          *reinterpret_cast<const float*>(&assembled_value);
+      ASSERT_EQ(assembled_value_as_float, decoded_data[j]);
+    }
+  }
+}
+
+// Check that an encode-decode pipeline produces the original small input.
+// This small-input test is added to ease debugging in case of changes to
+// the encoder/decoder implementation.
+TEST(ByteStreamSplitEncodeDecode, SmallInput) {
+  const float data[] = {-166.166f, -0.2566f, .0f, 322.0f, 178888.189f};
+  const int num_values = sizeof(data) / sizeof(data[0U]);
+  TestByteStreamSplitRoundTrip<FloatType>(data, num_values);
+}
+
+TEST(ByteStreamSplitEncodeDecode, PutSpaced) {
+  const float data[] = {-1.0f, .0f,       .0f, 3.0f,          .0f,       22.1234f,
+                        .0f,   198891.0f, .0f, -223345.4455f, 24443.124f};
+  const float valid_data[] = {-1.0f,     3.0f,          22.1234f,
+                              198891.0f, -223345.4455f, 24443.124f};
+  // The valid ones are the ones which are non-zero.
+  // The enable bits are: 10010101 011.
+  const uint8_t valid_bits[2] = {0xA9U, 0x6U};
+  const int num_values = sizeof(data) / sizeof(data[0U]);
+  const int num_valid_values = sizeof(valid_data) / sizeof(valid_data[0U]);
+  std::unique_ptr<TypedEncoder<FloatType>> encoder =
+      MakeTypedEncoder<FloatType>(Encoding::BYTE_STREAM_SPLIT);
+  encoder->PutSpaced(data, num_values, valid_bits, 0);
+  std::shared_ptr<Buffer> buffer = encoder->FlushValues();
+
+  TestByteStreamSplitDecodePath<FloatType>(buffer->data(), buffer->size(), valid_data,
+                                           num_valid_values, false);
+}
+
+TEST(ByteStreamSplitEncodeDecode, PutArrow) {
+  arrow::random::RandomArrayGenerator rag{1337};
+  const int num_values = 123;
+  auto arr = rag.Float32(num_values, -2048.0f, 2048.0f, 0);
+  std::unique_ptr<TypedEncoder<FloatType>> encoder =
+      MakeTypedEncoder<FloatType>(Encoding::BYTE_STREAM_SPLIT);
+  encoder->Put(*arr);
+  std::shared_ptr<Buffer> buffer = encoder->FlushValues();
+
+  auto raw_values = checked_cast<const arrow::FloatArray&>(*arr).raw_values();
+  TestByteStreamSplitDecodePath<FloatType>(buffer->data(), buffer->size(), raw_values,
+                                           num_values, false);
+}
+
+// Test that the encode-decode pipeline can handle big 32-bit FP input.
+TEST(ByteStreamSplitEncodeDecode, BigInputFloat) {
+  TestEncodeDecodeWithBigInput<FloatType>();
+}
+
+// Test that the encode-decode pipeline can handle big 64-bit FP input.
+TEST(ByteStreamSplitEncodeDecode, BigInputDouble) {
+  TestEncodeDecodeWithBigInput<DoubleType>();
+}
+
+TEST(ByteStreamSplitEncodeDecode, InvalidDataTypes) {
+  // First check encoders.
+  ASSERT_THROW(MakeTypedEncoder<Int32Type>(Encoding::BYTE_STREAM_SPLIT),
+               ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<Int64Type>(Encoding::BYTE_STREAM_SPLIT),
+               ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<Int96Type>(Encoding::BYTE_STREAM_SPLIT),
+               ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<BooleanType>(Encoding::BYTE_STREAM_SPLIT),
+               ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<ByteArrayType>(Encoding::BYTE_STREAM_SPLIT),
+               ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<FLBAType>(Encoding::BYTE_STREAM_SPLIT), ParquetException);
+
+  // Then check decoders.
+  ASSERT_THROW(MakeTypedDecoder<Int32Type>(Encoding::BYTE_STREAM_SPLIT),
+               ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<Int64Type>(Encoding::BYTE_STREAM_SPLIT),
+               ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<Int96Type>(Encoding::BYTE_STREAM_SPLIT),
+               ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<BooleanType>(Encoding::BYTE_STREAM_SPLIT),
+               ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<ByteArrayType>(Encoding::BYTE_STREAM_SPLIT),
+               ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<FLBAType>(Encoding::BYTE_STREAM_SPLIT), ParquetException);
 }
 
 }  // namespace test

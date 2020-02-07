@@ -469,7 +469,10 @@ public class UnionVector implements FieldVector {
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      Preconditions.checkArgument(startIndex + length <= valueCount);
+      Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
+          "Invalid startIndex: %s", startIndex);
+      Preconditions.checkArgument(startIndex + length <= valueCount,
+          "Invalid length: %s", length);
       to.clear();
       internalStructVectorTransferPair.splitAndTransfer(startIndex, length);
       final int startPoint = startIndex * TYPE_WIDTH;
@@ -550,9 +553,13 @@ public class UnionVector implements FieldVector {
     return vectors.iterator();
   }
 
-    private ValueVector getVector(int index) {
-      int type = typeBuffer.getByte(index * TYPE_WIDTH);
-      switch (MinorType.values()[type]) {
+  public ValueVector getVector(int index) {
+    int type = typeBuffer.getByte(index * TYPE_WIDTH);
+    return getVectorByType(type);
+  }
+
+    public ValueVector getVectorByType(int typeId) {
+      switch (MinorType.values()[typeId]) {
         case NULL:
           return null;
       <#list vv.types as type>
@@ -571,7 +578,7 @@ public class UnionVector implements FieldVector {
         case LIST:
           return getList();
         default:
-          throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[type]);
+          throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[typeId]);
       }
     }
 

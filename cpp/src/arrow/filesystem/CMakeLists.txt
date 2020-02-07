@@ -18,6 +18,9 @@
 # Headers: top level
 arrow_install_all_headers("arrow/filesystem")
 
+# pkg-config support
+arrow_add_pkg_config("arrow-filesystem")
+
 add_arrow_test(filesystem_test)
 add_arrow_test(localfs_test)
 add_arrow_test(path_forest_test)

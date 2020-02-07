@@ -24,6 +24,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.flight.grpc.AddWritableBuffer;
@@ -120,7 +121,6 @@ class ArrowMessage implements AutoCloseable {
   private final ArrowBuf appMetadata;
   private final List<ArrowBuf> bufs;
 
-
   public ArrowMessage(FlightDescriptor descriptor, Schema schema) {
     ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(schema);
     this.message = MessageMetadataResult.create(serializedMessage.slice(),
@@ -196,6 +196,7 @@ class ArrowMessage implements AutoCloseable {
     ArrowBuf underlying = bufs.get(0);
     // Retain a reference to keep the batch alive when the message is closed
     underlying.getReferenceManager().retain();
+    // Do not set drained - we still want to release our reference
     return MessageSerializer.deserializeDictionaryBatch(message, underlying);
   }
 
@@ -264,6 +265,9 @@ class ArrowMessage implements AutoCloseable {
 
   /**
    * Convert the ArrowMessage to an InputStream.
+   *
+   * <p>Implicitly, this transfers ownership of the contained buffers to the InputStream.
+   *
    * @return InputStream
    */
   private InputStream asInputStream(BufferAllocator allocator) {
@@ -297,8 +301,6 @@ class ArrowMessage implements AutoCloseable {
       if (appMetadata != null && appMetadata.capacity() > 0) {
         // Must call slice() as CodedOutputStream#writeByteBuffer writes -capacity- bytes, not -limit- bytes
         cos.writeByteBuffer(FlightData.APP_METADATA_FIELD_NUMBER, appMetadata.asNettyBuffer().nioBuffer().slice());
-        // This is weird, but implicitly, writing an ArrowMessage frees any references it has
-        appMetadata.getReferenceManager().release();
       }
 
       cos.writeTag(FlightData.DATA_BODY_FIELD_NUMBER, WireFormat.WIRETYPE_LENGTH_DELIMITED);
@@ -314,6 +316,9 @@ class ArrowMessage implements AutoCloseable {
           size += paddingBytes;
           allBufs.add(PADDING_BUFFERS.get(paddingBytes).retain());
         }
+        // gRPC/Netty will decrement the reference count (via the ByteBufInputStream below) when written, so increment
+        // the reference count
+        b.getReferenceManager().retain();
       }
       // rawvarint is used for length definition.
       cos.writeUInt32NoTag(size);
@@ -323,7 +328,6 @@ class ArrowMessage implements AutoCloseable {
       initialBuf.writeBytes(baos.toByteArray());
       final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true, bufs.size() + 1,
           ImmutableList.<ByteBuf>builder().add(initialBuf.asNettyBuffer()).addAll(allBufs).build());
-      // Implicitly, transfer ownership of our buffers to the input stream (which will decrement the refcount when done)
       final ByteBufInputStream is = new DrainableByteBufInputStream(bb);
       return is;
     } catch (Exception ex) {
@@ -332,7 +336,7 @@ class ArrowMessage implements AutoCloseable {
 
   }
 
-  private class DrainableByteBufInputStream extends ByteBufInputStream implements Drainable {
+  private static class DrainableByteBufInputStream extends ByteBufInputStream implements Drainable {
 
     private final CompositeByteBuf buf;
 
@@ -387,9 +391,6 @@ class ArrowMessage implements AutoCloseable {
 
   @Override
   public void close() throws Exception {
-    AutoCloseables.close(bufs);
-    if (appMetadata != null) {
-      appMetadata.close();
-    }
+    AutoCloseables.close(Iterables.concat(bufs, Collections.singletonList(appMetadata)));
   }
 }
