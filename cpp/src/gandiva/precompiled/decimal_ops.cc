@@ -544,7 +544,10 @@ static BasicDecimal128 ModifyScaleAndPrecision(const BasicDecimalScalar128& x,
     return x.value().IncreaseScaleBy(delta_scale);
   } else {
     // Do not do any rounding, that is handled by the caller.
-    return x.value().ReduceScaleBy(-delta_scale, false);
+    auto result = x.value().ReduceScaleBy(-delta_scale, false);
+    DECIMAL_OVERFLOW_IF(BasicDecimal128::Abs(result) > GetMaxValue(out_precision),
+                        overflow);
+    return result;
   }
 }
 
@@ -614,6 +617,10 @@ static BasicDecimal128 RoundWithPositiveScale(const BasicDecimalScalar128& x,
   DCHECK_GE(out_scale, 0);
 
   auto scaled = ModifyScaleAndPrecision(x, out_precision, out_scale, overflow);
+  if (*overflow) {
+    return 0;
+  }
+
   auto delta = ComputeRoundingDelta(x.value(), x.scale(), out_scale, round_type);
   if (delta == 0) {
     return scaled;

@@ -1062,4 +1062,61 @@ TEST_F(TestDecimal, TestVarCharDecimalNestedCast) {
   EXPECT_ARROW_ARRAY_EQUALS(array_dec_res, outputs[0]);
 }
 
+TEST_F(TestDecimal, TestCastDecimalOverflow) {
+  // schema for input fields
+  constexpr int32_t precision_in = 5;
+  constexpr int32_t scale_in = 2;
+  constexpr int32_t precision_out = 3;
+  constexpr int32_t scale_out = 1;
+  auto decimal_5_2 = std::make_shared<arrow::Decimal128Type>(precision_in, scale_in);
+  auto decimal_3_1 = std::make_shared<arrow::Decimal128Type>(precision_out, scale_out);
+
+  auto field_dec = field("dec", decimal_5_2);
+  auto schema = arrow::schema({field_dec});
+
+  // build expressions
+  auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("castDECIMAL", {field_dec},
+                                      field("dec_to_dec", decimal_3_1)),
+      TreeExprBuilder::MakeExpression("castDECIMALNullOnOverflow", {field_dec},
+                                      field("dec_to_dec_null_overflow", decimal_3_1)),
+  };
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto validity = {true, true, true, true};
+
+  auto array_dec = MakeArrowArrayDecimal(
+      decimal_5_2, MakeDecimalVector({"1.23", "671.58", "-1.23", "-1.58"}, scale_in),
+      validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_dec});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  DCHECK_OK(status);
+
+  // Validate results
+  // castDECIMAL(decimal)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(arrow::decimal(precision_out, 1),
+                            MakeDecimalVector({"1.2", "0.0", "-1.2", "-1.6"}, 1),
+                            validity),
+      outputs[0]);
+
+  // castDECIMALNullOnOverflow(decimal)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(arrow::decimal(precision_out, 1),
+                            MakeDecimalVector({"1.2", "1.6", "-1.2", "-1.6"}, 1),
+                            {true, false, true, true}),
+      outputs[1]);
+}
+
 }  // namespace gandiva
