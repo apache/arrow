@@ -121,7 +121,8 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   if (isTRUE(as_data_frame)) {
     out <- as.data.frame(out)
   }
-  out
+  on.exit(reader$close())  
+  return(out)
 }
 
 #' @title FeatherTableReader class
