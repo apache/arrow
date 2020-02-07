@@ -99,7 +99,7 @@ read_parquet <- function(file,
 #' disable compression, set `compression = "uncompressed"`.
 #' Note that "uncompressed" columns may still have dictionary encoding.
 #'
-#' @return `NULL`, invisibly
+#' @return the input `x` invisibly.
 #'
 #' @examples
 #' \donttest{
@@ -145,6 +145,7 @@ write_parquet <- function(x,
     allow_truncated_timestamps = allow_truncated_timestamps
   )
 ) {
+  x_out <- x
   x <- to_arrow(x)
 
   if (is.character(sink)) {
@@ -164,6 +165,8 @@ write_parquet <- function(x,
   writer <- ParquetFileWriter$create(schema, sink, properties = properties, arrow_properties = arrow_properties)
   writer$WriteTable(x, chunk_size = chunk_size %||% x$num_rows)
   writer$Close()
+
+  invisible(x_out)
 }
 
 

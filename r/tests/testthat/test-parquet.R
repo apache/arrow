@@ -130,3 +130,11 @@ test_that("write_parquet() to stream", {
   con$close()
   expect_equal(read_parquet(tf), df)
 })
+
+test_that("write_parquet() returns its input", {
+  df <- tibble::tibble(x = 1:5)
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  df_out <- write_parquet(df, tf)
+  expect_identical(df, df_out)
+})
