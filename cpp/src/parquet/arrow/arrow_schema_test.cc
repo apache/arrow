@@ -658,12 +658,7 @@ class TestConvertArrowSchema : public ::testing::Test {
     for (int i = 0; i < expected_schema_node->field_count(); i++) {
       auto lhs = result_schema_node->field(i);
       auto rhs = expected_schema_node->field(i);
-      SchemaDescriptor lhs_d, rhs_d;
-      lhs_d.Init(lhs);
-      rhs_d.Init(rhs);
-      EXPECT_TRUE(lhs->Equals(rhs.get()))
-          << "result(i=" << i << "): actual: \n"
-          << lhs_d.ToString() << "\n expected: \n  " << rhs_d.ToString();
+      EXPECT_TRUE(lhs->Equals(rhs.get()));
     }
   }
 
