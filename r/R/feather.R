@@ -29,6 +29,8 @@
 #' }
 #' @include arrow-package.R
 write_feather <- function(x, sink) {
+  x_out <- x
+
   if (is.data.frame(x)) {
     x <- record_batch(x)
   }
@@ -42,6 +44,8 @@ write_feather <- function(x, sink) {
 
   writer <- FeatherTableWriter$create(sink)
   ipc___TableWriter__RecordBatch__WriteFeather(writer, x)
+
+  x_out
 }
 
 #' @title FeatherTableWriter class
