@@ -49,6 +49,7 @@ to_arrow.data.frame <- function(x) Table$create(!!!x)
 #' `write_arrow` is a convenience function, the classes [arrow::RecordBatchFileWriter][RecordBatchFileWriter]
 #' and [arrow::RecordBatchStreamWriter][RecordBatchStreamWriter] can be used for more flexibility.
 #'
+#' @return the input `x` invisibly.
 #' @export
 write_arrow <- function(x, sink, ...) {
   UseMethod("write_arrow", sink)

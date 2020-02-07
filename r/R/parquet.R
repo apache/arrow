@@ -99,7 +99,7 @@ read_parquet <- function(file,
 #' disable compression, set `compression = "uncompressed"`.
 #' Note that "uncompressed" columns may still have dictionary encoding.
 #'
-#' @return `NULL`, invisibly
+#' @return the input `x` invisibly.
 #'
 #' @examples
 #' \donttest{

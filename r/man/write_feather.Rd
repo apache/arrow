@@ -11,6 +11,9 @@ write_feather(x, sink)
 
 \item{sink}{A file path or an OutputStream}
 }
+\value{
+the input \code{x} invisibly.
+}
 \description{
 Write data in the Feather format
 }

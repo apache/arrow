@@ -20,6 +20,8 @@
 #' @param x `data.frame` or RecordBatch
 #' @param sink A file path or an OutputStream
 #'
+#' @return the input `x` invisibly.
+#'
 #' @export
 #' @examples
 #' \donttest{

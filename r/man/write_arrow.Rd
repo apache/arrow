@@ -27,6 +27,9 @@ dispatch). \code{x} is serialized using the streaming format, i.e. using the
 \code{write_arrow} is a convenience function, the classes \link[=RecordBatchFileWriter]{arrow::RecordBatchFileWriter}
 and \link[=RecordBatchStreamWriter]{arrow::RecordBatchStreamWriter} can be used for more flexibility.}
 }
+\value{
+the input \code{x} invisibly.
+}
 \description{
 Write Arrow formatted data
 }
