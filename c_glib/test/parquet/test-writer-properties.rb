@@ -15,20 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestParquetWriterPropertiesBuilder < Test::Unit::TestCase
+class TestParquetWriterProperties < Test::Unit::TestCase
   def setup
     omit("Parquet is required") unless defined?(::Parquet)
   end
 
   def test_compression
-    builder = Parquet::WriterPropertiesBuilder.new
-    builder.compression = :gzip
-    assert_equal("gzip", builder.compression.nick)
-  end
-
-  def test_build
-    builder = Parquet::WriterPropertiesBuilder.new
-    assert_equal(Parquet::WriterProperties,
-                 builder.build.class)
+    properties = Parquet::WriterProperties.new
+    properties.compression = :gzip
+    assert_equal(Arrow::CompressionType.new("gzip"),
+                 properties.get_compression("gzip"))
   end
 end
