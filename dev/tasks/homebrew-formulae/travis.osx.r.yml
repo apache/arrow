@@ -20,6 +20,7 @@ language: r
 cache: packages
 r: {{ r_version }}
 fortran: false
+latex: false
 cran: https://mac.r-project.org
 
 # don't build twice
