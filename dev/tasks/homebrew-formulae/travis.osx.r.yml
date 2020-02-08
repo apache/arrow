@@ -15,6 +15,7 @@
 # limitations under the License.
 
 os: osx
+# CRAN builds on macOS 10.11, so make sure that's what we're testing
 osx_image: xcode7.3
 language: r
 cache: packages
@@ -39,9 +40,10 @@ before_install:
 - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
 - if [ $CROSSBOW_USE_COMMIT_ID = true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
 - cd arrow/r
-# This script used to be inside r/tools/ but was moved
+# Put the formula inside r/ so that it's included in the package build
 - cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
 before_script:
+# Hack for old macOS (10.11)
 # See https://travis-ci.community/t/library-developer-commandlinetools-sdks-macosx-sdk-missing-on-el-capitain/3213/3
 - sed -i.bak 's/-isysroot /-I/g' $(R RHOME)/etc/Makeconf
 script:
