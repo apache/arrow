@@ -31,7 +31,6 @@ class ApacheArrow < Formula
 
   # NOTE: if you add something here, be sure to add to PKG_LIBS in r/tools/autobrew
   depends_on "cmake" => :build
-  depends_on "flatbuffers" => :build
   depends_on "boost"
   depends_on "lz4"
   depends_on "snappy"
@@ -57,7 +56,6 @@ class ApacheArrow < Formula
       -DARROW_WITH_SNAPPY=ON
       -DARROW_BUILD_UTILITIES=ON
       -DPARQUET_BUILD_EXECUTABLES=ON
-      -DFLATBUFFERS_HOME=#{Formula["flatbuffers"].prefix}
       -DLZ4_HOME=#{Formula["lz4"].prefix}
       -DTHRIFT_HOME=#{Formula["thrift"].prefix}
     ]

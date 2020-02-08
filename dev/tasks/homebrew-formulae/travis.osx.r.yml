@@ -18,6 +18,8 @@ os: osx
 language: r
 cache: packages
 r: {{ r_version }}
+fortran: false
+cran: https://mac.r-project.org
 
 # don't build twice
 if: tag IS blank
