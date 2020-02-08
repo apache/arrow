@@ -341,4 +341,51 @@ ggandiva_if_node_new(GGandivaNode *condition_node,
                      GArrowDataType *return_type,
                      GError **error);
 
+
+#define GGANDIVA_TYPE_BOOLEAN_NODE (ggandiva_boolean_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaBooleanNode,
+                         ggandiva_boolean_node,
+                         GGANDIVA,
+                         BOOLEAN_NODE,
+                         GGandivaNode)
+
+struct _GGandivaBooleanNodeClass
+{
+  GObjectClass parent_class;
+};
+
+
+#define GGANDIVA_TYPE_AND_NODE (ggandiva_and_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaAndNode,
+                         ggandiva_and_node,
+                         GGANDIVA,
+                         AND_NODE,
+                         GGandivaBooleanNode)
+struct _GGandivaAndNodeClass
+{
+  GGandivaNodeClass parent_class;
+};
+
+GGandivaAndNode *
+ggandiva_and_node_new(GList *parameters);
+GList *
+ggandiva_and_node_get_parameters(GGandivaAndNode *node);
+
+
+#define GGANDIVA_TYPE_OR_NODE (ggandiva_or_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaOrNode,
+                         ggandiva_or_node,
+                         GGANDIVA,
+                         OR_NODE,
+                         GGandivaBooleanNode)
+struct _GGandivaOrNodeClass
+{
+  GGandivaNodeClass parent_class;
+};
+
+GGandivaOrNode *
+ggandiva_or_node_new(GList *parameters);
+GList *
+ggandiva_or_node_get_parameters(GGandivaOrNode *node);
+
 G_END_DECLS
