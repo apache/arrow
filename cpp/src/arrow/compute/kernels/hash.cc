@@ -460,7 +460,9 @@ struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
   PROCESS(Time64Type)                         \
   PROCESS(TimestampType)                      \
   PROCESS(BinaryType)                         \
+  PROCESS(LargeBinaryType)                    \
   PROCESS(StringType)                         \
+  PROCESS(LargeStringType)                    \
   PROCESS(FixedSizeBinaryType)                \
   PROCESS(Decimal128Type)
 

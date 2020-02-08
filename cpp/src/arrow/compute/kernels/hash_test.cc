@@ -417,6 +417,101 @@ TEST_F(TestHashKernel, BinaryResizeTable) {
                                            indices);
 }
 
+TEST_F(TestHashKernel, UniqueLargeBinary) {
+  CheckUnique<LargeBinaryType, std::string>(
+      &this->ctx_, large_binary(), {"test", "", "test2", "test"},
+      {true, false, true, true}, {"test", "", "test2"}, {1, 0, 1});
+
+  CheckUnique<LargeStringType, std::string>(
+      &this->ctx_, large_utf8(), {"test", "", "test2", "test"}, {true, false, true, true},
+      {"test", "", "test2"}, {1, 0, 1});
+
+  // Sliced
+  CheckUnique(&this->ctx_,
+              ArrayFromJSON(large_binary(), R"(["ab", null, "cd", "ef", "cd", "gh"])")
+                  ->Slice(1, 4),
+              ArrayFromJSON(large_binary(), R"([null, "cd", "ef"])"));
+}
+
+TEST_F(TestHashKernel, ValueCountsLargeBinary) {
+  CheckValueCounts<LargeBinaryType, std::string>(
+      &this->ctx_, large_binary(), {"test", "", "test2", "test"},
+      {true, false, true, true}, {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
+
+  CheckValueCounts<LargeStringType, std::string>(
+      &this->ctx_, large_utf8(), {"test", "", "test2", "test"}, {true, false, true, true},
+      {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
+
+  // Sliced
+  CheckValueCounts(
+      &this->ctx_,
+      ArrayFromJSON(large_binary(), R"(["ab", null, "cd", "ab", "cd", "ef"])")
+          ->Slice(1, 4),
+      ArrayFromJSON(large_binary(), R"([null, "cd", "ab"])"),
+      ArrayFromJSON(int64(), "[1, 2, 1]"));
+}
+
+TEST_F(TestHashKernel, DictEncodeLargeBinary) {
+  CheckDictEncode<LargeBinaryType, std::string>(
+      &this->ctx_, large_binary(), {"test", "", "test2", "test", "baz"},
+      {true, false, true, true, true}, {"test", "test2", "baz"}, {}, {0, 0, 1, 0, 2});
+
+  CheckDictEncode<LargeStringType, std::string>(
+      &this->ctx_, large_utf8(), {"test", "", "test2", "test", "baz"},
+      {true, false, true, true, true}, {"test", "test2", "baz"}, {}, {0, 0, 1, 0, 2});
+
+  // Sliced
+  CheckDictEncode(&this->ctx_,
+                  ArrayFromJSON(large_binary(), R"(["ab", null, "cd", "ab", "cd", "ef"])")
+                      ->Slice(1, 4),
+                  ArrayFromJSON(large_binary(), R"(["cd", "ab"])"),
+                  ArrayFromJSON(int32(), "[null, 0, 1, 0]"));
+}
+
+TEST_F(TestHashKernel, LargeBinaryResizeTable) {
+  const int32_t kTotalValues = 10000;
+#if !defined(ARROW_VALGRIND)
+  const int32_t kRepeats = 10;
+#else
+  // Mitigate Valgrind's slowness
+  const int32_t kRepeats = 3;
+#endif
+
+  std::vector<std::string> values;
+  std::vector<std::string> uniques;
+  std::vector<int32_t> indices;
+  std::vector<int64_t> counts;
+  char buf[20] = "test";
+
+  for (int32_t i = 0; i < kTotalValues * kRepeats; i++) {
+    int32_t index = i % kTotalValues;
+
+    ASSERT_GE(snprintf(buf + 4, sizeof(buf) - 4, "%d", index), 0);
+    values.emplace_back(buf);
+
+    if (i < kTotalValues) {
+      uniques.push_back(values.back());
+      counts.push_back(kRepeats);
+    }
+    indices.push_back(index);
+  }
+
+  CheckUnique<LargeBinaryType, std::string>(&this->ctx_, large_binary(), values, {},
+                                            uniques, {});
+  CheckValueCounts<LargeBinaryType, std::string>(&this->ctx_, large_binary(), values, {},
+                                                 uniques, {}, counts);
+
+  CheckDictEncode<LargeBinaryType, std::string>(&this->ctx_, large_binary(), values, {},
+                                                uniques, {}, indices);
+
+  CheckUnique<LargeStringType, std::string>(&this->ctx_, large_utf8(), values, {},
+                                            uniques, {});
+  CheckValueCounts<LargeStringType, std::string>(&this->ctx_, large_utf8(), values, {},
+                                                 uniques, {}, counts);
+  CheckDictEncode<LargeStringType, std::string>(&this->ctx_, large_utf8(), values, {},
+                                                uniques, {}, indices);
+}
+
 TEST_F(TestHashKernel, UniqueFixedSizeBinary) {
   auto type = fixed_size_binary(3);
 
