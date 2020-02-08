@@ -45,9 +45,9 @@ before_script:
 # See https://travis-ci.community/t/library-developer-commandlinetools-sdks-macosx-sdk-missing-on-el-capitain/3213/3
 - sed -i.bak 's/-isysroot /-I/g' $(R RHOME)/etc/Makeconf
 script:
-- travis_wait R CMD build .
+- travis_wait R CMD build --no-build-vignettes .
 # Note that this is not --as-cran. CRAN doesn't do macOS checks --as-cran
-- travis_wait R CMD check arrow_*.tar.gz --install-args="--build"
+- travis_wait R CMD check arrow_*.tar.gz --no-manual --ignore-vignettes --install-args="--build"
 after_failure:
 # If there's a build failure, it's probably in this log
 - cat arrow.Rcheck/00install.out
