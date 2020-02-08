@@ -15,6 +15,7 @@
 # limitations under the License.
 
 os: osx
+osx_image: xcode8
 language: r
 cache: packages
 r: {{ r_version }}
