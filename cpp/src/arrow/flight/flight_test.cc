@@ -859,6 +859,14 @@ TEST_F(TestFlightClient, ListFlights) {
   ASSERT_TRUE(info == nullptr);
 }
 
+TEST_F(TestFlightClient, ListFlightsWithCriteria) {
+  std::unique_ptr<FlightListing> listing;
+  ASSERT_OK(client_->ListFlights(FlightCallOptions(), {"foo"}, &listing));
+  std::unique_ptr<FlightInfo> info;
+  ASSERT_OK(listing->Next(&info));
+  ASSERT_TRUE(info == nullptr);
+}
+
 TEST_F(TestFlightClient, GetFlightInfo) {
   auto descr = FlightDescriptor::Path({"examples", "ints"});
   std::unique_ptr<FlightInfo> info;

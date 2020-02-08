@@ -112,9 +112,22 @@ public class TestBasicOperation {
   @Test
   public void getDescriptors() throws Exception {
     test(c -> {
+      int count = 0;
       for (FlightInfo i : c.listFlights(Criteria.ALL)) {
-        System.out.println(i.getDescriptor());
+        count += 1;
       }
+      Assert.assertEquals(1, count);
+    });
+  }
+
+  @Test
+  public void getDescriptorsWithCriteria() throws Exception {
+    test(c -> {
+      int count = 0;
+      for (FlightInfo i : c.listFlights(new Criteria(new byte[]{1}))) {
+        count += 1;
+      }
+      Assert.assertEquals(0, count);
     });
   }
 
@@ -268,6 +281,11 @@ public class TestBasicOperation {
     @Override
     public void listFlights(CallContext context, Criteria criteria,
         StreamListener<FlightInfo> listener) {
+      if (criteria.getExpression().length > 0) {
+        // Don't send anything if criteria are set
+        listener.onCompleted();
+      }
+
       Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
           .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
               .setType(DescriptorType.CMD)
