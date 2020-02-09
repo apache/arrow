@@ -43,67 +43,67 @@ pub fn sort_to_indices(
     options: Option<SortOptions>,
 ) -> Result<UInt32Array> {
     let options = options.unwrap_or(Default::default());
-    let descending = options.descending;
     let range = values.offset()..values.len();
     let (v, n): (Vec<usize>, Vec<usize>) =
         range.partition(|index| values.is_valid(*index));
+    let n = n.into_iter().map(|i| i as u32).collect();
     match values.data_type() {
-        DataType::Boolean => sort_primitive::<BooleanType>(values, v, n, descending),
-        DataType::Int8 => sort_primitive::<Int8Type>(values, v, n, descending),
-        DataType::Int16 => sort_primitive::<Int16Type>(values, v, n, descending),
-        DataType::Int32 => sort_primitive::<Int32Type>(values, v, n, descending),
-        DataType::Int64 => sort_primitive::<Int64Type>(values, v, n, descending),
-        DataType::UInt8 => sort_primitive::<UInt8Type>(values, v, n, descending),
-        DataType::UInt16 => sort_primitive::<UInt16Type>(values, v, n, descending),
-        DataType::UInt32 => sort_primitive::<UInt32Type>(values, v, n, descending),
-        DataType::UInt64 => sort_primitive::<UInt64Type>(values, v, n, descending),
+        DataType::Boolean => sort_primitive::<BooleanType>(values, v, n, &options),
+        DataType::Int8 => sort_primitive::<Int8Type>(values, v, n, &options),
+        DataType::Int16 => sort_primitive::<Int16Type>(values, v, n, &options),
+        DataType::Int32 => sort_primitive::<Int32Type>(values, v, n, &options),
+        DataType::Int64 => sort_primitive::<Int64Type>(values, v, n, &options),
+        DataType::UInt8 => sort_primitive::<UInt8Type>(values, v, n, &options),
+        DataType::UInt16 => sort_primitive::<UInt16Type>(values, v, n, &options),
+        DataType::UInt32 => sort_primitive::<UInt32Type>(values, v, n, &options),
+        DataType::UInt64 => sort_primitive::<UInt64Type>(values, v, n, &options),
         // DataType::Float32 => sort_primitive::<Float32Type>(values, v, n, descending),
         // DataType::Float64 => sort_primitive::<Float64Type>(values, v, n, descending),
-        DataType::Date32(_) => sort_primitive::<Date32Type>(values, v, n, descending),
-        DataType::Date64(_) => sort_primitive::<Date64Type>(values, v, n, descending),
+        DataType::Date32(_) => sort_primitive::<Date32Type>(values, v, n, &options),
+        DataType::Date64(_) => sort_primitive::<Date64Type>(values, v, n, &options),
         DataType::Time32(Second) => {
-            sort_primitive::<Time32SecondType>(values, v, n, descending)
+            sort_primitive::<Time32SecondType>(values, v, n, &options)
         }
         DataType::Time32(Millisecond) => {
-            sort_primitive::<Time32MillisecondType>(values, v, n, descending)
+            sort_primitive::<Time32MillisecondType>(values, v, n, &options)
         }
         DataType::Time64(Microsecond) => {
-            sort_primitive::<Time64MicrosecondType>(values, v, n, descending)
+            sort_primitive::<Time64MicrosecondType>(values, v, n, &options)
         }
         DataType::Time64(Nanosecond) => {
-            sort_primitive::<Time64NanosecondType>(values, v, n, descending)
+            sort_primitive::<Time64NanosecondType>(values, v, n, &options)
         }
         DataType::Timestamp(Second, _) => {
-            sort_primitive::<TimestampSecondType>(values, v, n, descending)
+            sort_primitive::<TimestampSecondType>(values, v, n, &options)
         }
         DataType::Timestamp(Millisecond, _) => {
-            sort_primitive::<TimestampMillisecondType>(values, v, n, descending)
+            sort_primitive::<TimestampMillisecondType>(values, v, n, &options)
         }
         DataType::Timestamp(Microsecond, _) => {
-            sort_primitive::<TimestampMicrosecondType>(values, v, n, descending)
+            sort_primitive::<TimestampMicrosecondType>(values, v, n, &options)
         }
         DataType::Timestamp(Nanosecond, _) => {
-            sort_primitive::<TimestampNanosecondType>(values, v, n, descending)
+            sort_primitive::<TimestampNanosecondType>(values, v, n, &options)
         }
         DataType::Interval(IntervalUnit::YearMonth) => {
-            sort_primitive::<IntervalYearMonthType>(values, v, n, descending)
+            sort_primitive::<IntervalYearMonthType>(values, v, n, &options)
         }
         DataType::Interval(IntervalUnit::DayTime) => {
-            sort_primitive::<IntervalDayTimeType>(values, v, n, descending)
+            sort_primitive::<IntervalDayTimeType>(values, v, n, &options)
         }
         DataType::Duration(TimeUnit::Second) => {
-            sort_primitive::<DurationSecondType>(values, v, n, descending)
+            sort_primitive::<DurationSecondType>(values, v, n, &options)
         }
         DataType::Duration(TimeUnit::Millisecond) => {
-            sort_primitive::<DurationMillisecondType>(values, v, n, descending)
+            sort_primitive::<DurationMillisecondType>(values, v, n, &options)
         }
         DataType::Duration(TimeUnit::Microsecond) => {
-            sort_primitive::<DurationMicrosecondType>(values, v, n, descending)
+            sort_primitive::<DurationMicrosecondType>(values, v, n, &options)
         }
         DataType::Duration(TimeUnit::Nanosecond) => {
-            sort_primitive::<DurationNanosecondType>(values, v, n, descending)
+            sort_primitive::<DurationNanosecondType>(values, v, n, &options)
         }
-        DataType::Utf8 => sort_string(values, v, n, descending),
+        DataType::Utf8 => sort_string(values, v, n, &options),
         t @ _ => Err(ArrowError::ComputeError(format!(
             "Sort not supported for data type {:?}",
             t
@@ -116,11 +116,16 @@ pub fn sort_to_indices(
 pub struct SortOptions {
     /// Whether to sort in descending order
     descending: bool,
+    /// Whether to sort nulls first
+    nulls_first: bool,
 }
 
 impl Default for SortOptions {
     fn default() -> Self {
-        Self { descending: false }
+        Self {
+            descending: false,
+            nulls_first: false,
+        }
     }
 }
 
@@ -128,8 +133,8 @@ impl Default for SortOptions {
 fn sort_primitive<T>(
     values: &ArrayRef,
     value_indices: Vec<usize>,
-    null_indices: Vec<usize>,
-    reverse: bool,
+    null_indices: Vec<u32>,
+    options: &SortOptions,
 ) -> Result<UInt32Array>
 where
     T: ArrowPrimitiveType,
@@ -141,16 +146,22 @@ where
         .into_iter()
         .map(|index| (index as u32, values.value(index)))
         .collect::<Vec<(u32, T::Native)>>();
-    if !reverse {
+    let mut nulls = null_indices;
+    if !options.descending {
         valids.sort_by_key(|a| a.1);
     } else {
         valids.sort_by_key(|a| Reverse(a.1));
+        nulls.reverse();
     }
     // collect the order of valid tuples
     let mut valid_indices: Vec<u32> = valids.iter().map(|tuple| tuple.0).collect();
 
+    if options.nulls_first {
+        nulls.append(&mut valid_indices);
+        return Ok(UInt32Array::from(nulls));
+    }
     // no need to sort nulls as they are in the correct order already
-    valid_indices.append(&mut null_indices.into_iter().map(|i| i as u32).collect());
+    valid_indices.append(&mut nulls);
 
     Ok(UInt32Array::from(valid_indices))
 }
@@ -159,15 +170,15 @@ where
 fn sort_string(
     values: &ArrayRef,
     value_indices: Vec<usize>,
-    null_indices: Vec<usize>,
-    descending: bool,
+    null_indices: Vec<u32>,
+    options: &SortOptions,
 ) -> Result<UInt32Array> {
     let values = values.as_any().downcast_ref::<StringArray>().unwrap();
     let mut valids = value_indices
         .into_iter()
         .map(|index| (index as u32, values.value(index)))
         .collect::<Vec<(u32, &str)>>();
-    if !descending {
+    if !options.descending {
         valids.sort_by_key(|a| a.1);
     } else {
         valids.sort_by_key(|a| Reverse(a.1));
@@ -197,7 +208,6 @@ mod tests {
         let output = PrimitiveArray::<T>::from(data);
         let expected = UInt32Array::from(expected_data);
         let output = sort_to_indices(&(Arc::new(output) as ArrayRef), options).unwrap();
-        dbg!(&output);
         assert!(output.equals(&expected))
     }
 
@@ -228,8 +238,21 @@ mod tests {
         // int8 descending
         test_sort_to_indices_primitive_arrays::<Int8Type>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
-            Some(SortOptions { descending: true }),
-            vec![5, 0, 2, 4, 1, 3],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: false,
+            }),
+            vec![2, 1, 4, 3, 5, 0], // [2, 4, 1, 3, 5, 0]
+        );
+
+        // int8 descending, nulls first
+        test_sort_to_indices_primitive_arrays::<Int8Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: true,
+            }),
+            vec![5, 0, 2, 1, 4, 3], // [5, 0, 2, 4, 1, 3]
         );
 
         // boolean
@@ -237,6 +260,26 @@ mod tests {
             vec![None, Some(false), Some(true), Some(true), Some(false), None],
             None,
             vec![1, 4, 2, 3, 0, 5],
+        );
+
+        // boolean, descending
+        test_sort_to_indices_primitive_arrays::<BooleanType>(
+            vec![None, Some(false), Some(true), Some(true), Some(false), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: false,
+            }),
+            vec![2, 3, 1, 4, 5, 0],
+        );
+
+        // boolean, descending, nulls first
+        test_sort_to_indices_primitive_arrays::<BooleanType>(
+            vec![None, Some(false), Some(true), Some(true), Some(false), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: true,
+            }),
+            vec![5, 0, 2, 3, 1, 4],
         );
     }
 
