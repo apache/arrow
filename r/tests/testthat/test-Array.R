@@ -456,7 +456,68 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
   expect_error(Array$create(df, type = type), regexp = "Field name in position.*does not match the name of the column of the data frame")
 
   type <- struct(x = float64(), y = utf8())
-  expect_error(Array$create(df, type = type), regexp = "Cannot convert R object to string array")
+  expect_error(Array$create(df, type = type), regexp = "Expecting a character vector")
+})
+
+test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
+  expect_list_array <- function(v, type) {
+    a <- Array$create(v)
+    expect_equal(a$type, list_of(type))
+    expect_equivalent(a$as_vector(), v)
+  }
+
+  # Should be able to create an empty list with a type hint.
+  Array$create(list(), list_of(bool()))
+
+  # logical
+  expect_list_array(list(NA), bool())
+  expect_list_array(list(logical(0)), bool())
+  expect_list_array(list(c(TRUE), c(FALSE), c(FALSE, TRUE)), bool())
+  expect_list_array(list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)), bool())
+
+  # integer
+  expect_list_array(list(NA_integer_), int32())
+  expect_list_array(list(integer(0)), int32())
+  expect_list_array(list(1:2, 3:4, 12:18), int32())
+  expect_list_array(list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)), int32())
+
+  # numeric
+  expect_list_array(list(NA_real_), float64())
+  expect_list_array(list(numeric(0)), float64())
+  expect_list_array(list(1, c(2, 3), 4), float64())
+  expect_list_array(list(1, numeric(0), c(2, 3, NA_real_), 4), float64())
+
+  # character
+  expect_list_array(list(NA_character_), utf8())
+  expect_list_array(list(character(0)), utf8())
+  expect_list_array(list("itsy", c("bitsy", "spider"), c("is")), utf8())
+  expect_list_array(list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")), utf8())
+})
+
+test_that("Array$create() should have helpful error on lists with type hint", {
+  expect_error(Array$create(list(numeric(0)), list_of(bool())),
+               regexp = "List vector expecting elements vector of type")
+  expect_error(Array$create(list(numeric(0)), list_of(int32())),
+               regexp = "List vector expecting elements vector of type")
+  expect_error(Array$create(list(integer(0)), list_of(float64())),
+               regexp = "List vector expecting elements vector of type")
+})
+
+test_that("Array$create() should refuse heterogeneous lists", {
+  lgl <- logical(0)
+  int <- integer(0)
+  num <- numeric(0)
+  char <- character(0)
+
+  expect_error(Array$create(list()),
+               regexp = "Requires at least one element to infer the values'")
+
+  expect_error(Array$create(list(lgl, lgl, int)),
+               regexp = "List vector expecting elements vector of type")
+  expect_error(Array$create(list(char, num, char)),
+               regexp = "List vector expecting elements vector of type")
+  expect_error(Array$create(list(int, int, num)),
+               regexp = "List vector expecting elements vector of type")
 })
 
 test_that("Array$View() (ARROW-6542)", {
