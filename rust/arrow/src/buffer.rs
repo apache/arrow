@@ -68,14 +68,11 @@ struct BufferData {
 
 impl PartialEq for BufferData {
     fn eq(&self, other: &BufferData) -> bool {
-        if self.len != other.len {
-            return false;
-        }
         if self.capacity != other.capacity {
             return false;
         }
 
-        unsafe { memory::memcmp(self.ptr, other.ptr, self.len) == 0 }
+        self.data() == other.data()
     }
 }
 
@@ -103,6 +100,16 @@ impl Debug for BufferData {
         }
 
         write!(f, " }}")
+    }
+}
+
+impl BufferData {
+    fn data(&self) -> &[u8] {
+        if self.ptr.is_null() {
+            &[]
+        } else {
+            unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
+        }
     }
 }
 
@@ -194,7 +201,7 @@ impl Buffer {
 
     /// Returns the byte slice stored in this buffer
     pub fn data(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.raw_data(), self.len()) }
+        self.data.data()
     }
 
     /// Returns a slice of this buffer, starting from `offset`.
@@ -511,12 +518,22 @@ impl MutableBuffer {
 
     /// Returns the data stored in this buffer as a slice.
     pub fn data(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.raw_data(), self.len()) }
+        if self.data.is_null() {
+            &[]
+        } else {
+            unsafe { std::slice::from_raw_parts(self.raw_data(), self.len()) }
+        }
     }
 
     /// Returns the data stored in this buffer as a mutable slice.
     pub fn data_mut(&mut self) -> &mut [u8] {
-        unsafe { std::slice::from_raw_parts_mut(self.raw_data() as *mut u8, self.len()) }
+        if self.data.is_null() {
+            &mut []
+        } else {
+            unsafe {
+                std::slice::from_raw_parts_mut(self.raw_data() as *mut u8, self.len())
+            }
+        }
     }
 
     /// Returns a raw pointer for this buffer.
