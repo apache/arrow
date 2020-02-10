@@ -93,11 +93,7 @@ impl Debug for BufferData {
             self.ptr, self.len, self.capacity
         )?;
 
-        unsafe {
-            f.debug_list()
-                .entries(std::slice::from_raw_parts(self.ptr, self.len).iter())
-                .finish()?;
-        }
+        f.debug_list().entries(self.data().iter()).finish()?;
 
         write!(f, " }}")
     }
