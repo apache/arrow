@@ -28,12 +28,21 @@ the dataset from there. For now, datasets need to be on your local file system.
 To download the files,
 
 ```r
-bucket <- "https://ursa-labs-taxi-data.s3.us-east-2.amazonaws.com"
-dir.create("nyc-taxi")
+if(!dir.exists("nyc-taxi")) {
+  dir.create("nyc-taxi")
+}
+
 for (year in 2009:2019) {
+  if(!dir.exists(glue::glue("nyc-taxi/{year}/"))) {
+    dir.create(glue::glue("nyc-taxi/{year}/"))
+  }
+  
   for (month in 1:12) {
     if (month < 10) {
       month <- paste0("0", month)
+    }
+    if(!dir.exists(glue::glue("nyc-taxi/{year}/{month}"))) {
+      dir.create(glue::glue("nyc-taxi/{year}/{month}"))
     }
     try(download.file(
       paste(bucket, year, month, "data.parquet", sep = "/"),
