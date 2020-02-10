@@ -125,9 +125,9 @@ function print_coredumps() {
   # patterns must be set with prefix `core.{test-executable}*`:
   #
   # In case of macOS:
-  #   sudo sysctl -w kern.corefile=core.%N.%P or simply core
+  #   sudo sysctl -w kern.corefile=core.%N.%P
   # On Linux:
-  #   sudo echo "core.%e.%p" > /proc/sys/kernel/core_pattern
+  #   sudo sysctl -w kernel.core_pattern=core.%e.%p
   #
   # and the ulimit must be increased:
   #   sudo ulimit -c unlimited
@@ -140,17 +140,17 @@ function print_coredumps() {
 
   COREFILES=$(ls | grep $PATTERN)
   if [ -n "$COREFILES" ]; then
-    echo "Found core dump. Printing backtrace and moving the coredump under ./cores"
+    echo "Found core dump, printing backtrace:"
 
     for COREFILE in $COREFILES; do
       # Print backtrace
       if [ "$(uname)" == "Darwin" ]; then
-        lldb -c "$COREFILE" --batch --one-line "thread backtrace all -e true"
+        lldb -c "${COREFILE}" --batch --one-line "thread backtrace all -e true"
       else
         gdb -c "${COREFILE}" $TEST_EXECUTABLE -ex "thread apply all bt" -ex "set pagination 0" -batch
       fi
       # Remove the coredump, regenerate it via running the test case directly
-      rm $COREFILE
+      rm "${COREFILE}"
     done
   fi
 }

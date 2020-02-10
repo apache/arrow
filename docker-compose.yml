@@ -38,7 +38,7 @@
 # WARNING: setting this will affect the host machine.
 #
 # Linux host:
-#   $ echo "core.%e.%p" > /proc/sys/kernel/core_pattern
+#   $ sudo sysctl -w kernel.core_pattern=core.%e.%p
 #
 # macOS host running Docker for Mac (won't persist between restarts):
 #   $ screen ~/Library/Containers/com.docker.docker/Data/vms/0/tty
