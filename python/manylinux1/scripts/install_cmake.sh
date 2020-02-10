@@ -16,7 +16,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export CMAKE_VERSION=3.13.3 # 3.13.3 to avoid building 3.15.2 version from source
+# pip tries to install 3.16.3 but there is no wheel for this version yet so it tries to 
+# build from source and fails. 
+# Pinning to 3.13.3 to avoid building cmake from source
+export CMAKE_VERSION=3.13.3 
 /opt/python/cp37-cp37m/bin/pip install cmake==${CMAKE_VERSION} ninja
 ln -s /opt/python/cp37-cp37m/bin/cmake /usr/bin/cmake
 ln -s /opt/python/cp37-cp37m/bin/ninja /usr/bin/ninja
