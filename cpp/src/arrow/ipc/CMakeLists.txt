@@ -80,3 +80,4 @@ endif()
 
 add_arrow_fuzz_target(file_fuzz PREFIX "arrow-ipc")
 add_arrow_fuzz_target(stream_fuzz PREFIX "arrow-ipc")
+add_arrow_fuzz_target(tensor_stream_fuzz PREFIX "arrow-ipc")
