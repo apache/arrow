@@ -19,6 +19,8 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+using Rcpp::List_;
+
 // [[arrow::export]]
 std::shared_ptr<ds::SourceFactory> dataset___FSSFactory__Make2(
     const std::shared_ptr<fs::FileSystem>& fs,
@@ -64,12 +66,26 @@ std::string dataset___FileFormat__type_name(
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make() {
-  return ds::ParquetFileFormat::Make();
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(List_ options) {
+  auto fmt = ds::ParquetFileFormat::Make();
+  if (options.containsElementNamed("use_buffered_stream")) {
+    fmt->use_buffered_stream = options["use_buffered_stream"];
+  }
+  if (options.containsElementNamed("buffer_size")) {
+    fmt->buffer_size = options["buffer_size"];
+  }
+  if (options.containsElementNamed("read_dict_indices")) {
+    List_ indices = options["read_dict_indices"];
+    fmt->read_dict_indices.insert(indices.begin(), indices.end());
+  }
+  if (options.containsElementNamed("batch_size")) {
+    fmt->batch_size = options["batch_size"];
+  }
+  return fmt;
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make() {
+std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make(List_ options) {
   return std::make_shared<ds::IpcFileFormat>();
 }
 

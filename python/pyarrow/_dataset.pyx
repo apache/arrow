@@ -79,12 +79,50 @@ cdef class ParquetFileFormat(FileFormat):
         CParquetFileFormat* parquet_format
 
     def __init__(self):
-        self.init(shared_ptr[CFileFormat](new CParquetFileFormat()))
+        self.init(<shared_ptr[CFileFormat]> CParquetFileFormat.Make())
+        self.parquet_format = <CParquetFileFormat*> self.wrapped.get()
 
     @property
     def use_buffered_stream(self):
-        """The arrow Schema describing the partition scheme."""
-        return self.wrapped.
+        """Read files through buffered input streams rather than
+        loading entire chunks at a time."""
+        return self.parquet_format.use_buffered_stream
+
+    @use_buffered_stream.setter
+    def use_buffered_stream(self, bint value):
+        self.parquet_format.use_buffered_stream = value
+
+    @property
+    def buffer_size(self):
+        """Size of buffered stream, if enabled."""
+        return self.parquet_format.buffer_size
+
+    @buffer_size.setter
+    def buffer_size(self, int value):
+        self.parquet_format.buffer_size = value
+
+    @property
+    def read_dict_indices(self):
+        """Indices of columns which should be read as dictionaries."""
+        return self.parquet_format.read_dict_indices
+
+    @read_dict_indices.setter
+    def read_dict_indices(self, set values):
+        self.parquet_format.read_dict_indices.clear()
+        for value in values:
+            self.read_dict_index(int(value))
+
+    def read_dict_index(self, int value):
+        self.parquet_format.read_dict_indices.insert(value)
+
+    @property
+    def batch_size(self):
+        """Maximum number of rows in read record batches."""
+        return self.parquet_format.batch_size
+
+    @batch_size.setter
+    def batch_size(self, int value):
+        self.parquet_format.batch_size = value
 
 
 cdef class IpcFileFormat(FileFormat):

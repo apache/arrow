@@ -254,7 +254,11 @@ SourceFactory$create <- function(path,
     recursive = recursive
   )
 
-  format <- FileFormat$create(match.arg(format))
+  if (is.character(format)) {
+    format <- FileFormat$create(match.arg(format))
+  } else {
+    assert_is(format, "FileFormat")
+  }
 
   if (!is.null(partitioning)) {
     if (inherits(partitioning, "Schema")) {
@@ -376,12 +380,10 @@ FileFormat <- R6Class("FileFormat", inherit = Object,
   )
 )
 FileFormat$create <- function(format, ...) {
-  # TODO: pass list(...) options to the initializers
-  # https://issues.apache.org/jira/browse/ARROW-7547
   if (format == "parquet") {
-    shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make())
+    shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make(list(...)))
   } else if (format %in% c("ipc", "arrow")) { # These are aliases for the same thing
-    shared_ptr(IpcFileFormat, dataset___IpcFileFormat__Make())
+    shared_ptr(IpcFileFormat, dataset___IpcFileFormat__Make(list(...)))
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)
   }
