@@ -382,9 +382,13 @@ Status UnionType::ValidateParameters(const std::vector<std::shared_ptr<Field>>& 
 
 DataTypeLayout UnionType::layout() const {
   if (mode_ == UnionMode::SPARSE) {
-    return {{1, CHAR_BIT, DataTypeLayout::kAlwaysNullBuffer}, false};
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(uint8_t)),
+                           DataTypeLayout::AlwaysNull()});
   } else {
-    return {{1, CHAR_BIT, sizeof(int32_t) * CHAR_BIT}, false};
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(uint8_t)),
+                           DataTypeLayout::FixedWidth(sizeof(int32_t))});
   }
 }
 

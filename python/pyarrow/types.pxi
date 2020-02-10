@@ -142,7 +142,7 @@ cdef class DataType:
         Number of data buffers required to construct Array type
         excluding children
         """
-        return self.type.layout().bit_widths.size()
+        return self.type.layout().buffers.size()
 
     def __str__(self):
         return frombytes(self.type.ToString())

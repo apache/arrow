@@ -91,8 +91,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         TimeUnit_MICRO" arrow::TimeUnit::MICRO"
         TimeUnit_NANO" arrow::TimeUnit::NANO"
 
+    cdef cppclass CBufferSpec" arrow::DataTypeLayout::BufferSpec":
+        pass
+
     cdef cppclass CDataTypeLayout" arrow::DataTypeLayout":
-        vector[int64_t] bit_widths
+        vector[CBufferSpec] buffers
         c_bool has_dictionary
 
     cdef cppclass CDataType" arrow::DataType":
