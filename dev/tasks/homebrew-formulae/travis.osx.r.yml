@@ -42,7 +42,8 @@ before_install:
 - cd arrow/r
 # Put the formula inside r/ so that it's included in the package build
 - cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
-before_script:
+# Always use binary packages
+- echo 'options(install.packages.check.source = "no")' >> $R_PROFILE
 # Hack for old macOS (10.11)
 # See https://travis-ci.community/t/library-developer-commandlinetools-sdks-macosx-sdk-missing-on-el-capitain/3213/3
 - sed -i.bak 's/-isysroot /-I/g' $(R RHOME)/etc/Makeconf
