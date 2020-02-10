@@ -19,6 +19,8 @@ from datetime import datetime
 import gzip
 import pathlib
 
+import urllib.parse
+
 import pytest
 
 import pyarrow as pa
@@ -608,3 +610,21 @@ def test_filesystem_from_uri(uri, expected_klass, expected_path):
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, expected_klass)
     assert path == expected_path
+
+
+@pytest.mark.s3
+def test_filesystem_from_uri_s3(minio_server):
+    from pyarrow.fs import S3FileSystem
+
+    address, access_key, secret_key = minio_server
+    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}" \
+        .format(access_key, secret_key, urllib.parse.quote(address))
+
+    fs, path = FileSystem.from_uri(uri)
+    assert isinstance(fs, S3FileSystem)
+    assert path == "mybucket/foo/bar"
+
+    fs.create_dir(path)
+    [st] = fs.get_target_stats([path])
+    assert st.path == path
+    assert st.type == FileType.Directory

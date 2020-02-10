@@ -29,6 +29,12 @@
 namespace arrow {
 namespace internal {
 
+TEST(UriEscape, Basics) {
+  ASSERT_EQ(UriEscape(""), "");
+  ASSERT_EQ(UriEscape("foo123"), "foo123");
+  ASSERT_EQ(UriEscape("/El Niño/"), "%2FEl%20Ni%C3%B1o%2F");
+}
+
 TEST(Uri, Empty) {
   Uri uri;
   ASSERT_EQ(uri.scheme(), "");
@@ -128,42 +134,84 @@ TEST(Uri, ParseHostPort) {
   ASSERT_EQ(uri.host(), "localhost");
   ASSERT_EQ(uri.port_text(), "80");
   ASSERT_EQ(uri.port(), 80);
+  ASSERT_EQ(uri.username(), "");
+  ASSERT_EQ(uri.password(), "");
 
   ASSERT_OK(uri.Parse("http://1.2.3.4"));
   ASSERT_EQ(uri.scheme(), "http");
   ASSERT_EQ(uri.host(), "1.2.3.4");
   ASSERT_EQ(uri.port_text(), "");
   ASSERT_EQ(uri.port(), -1);
+  ASSERT_EQ(uri.username(), "");
+  ASSERT_EQ(uri.password(), "");
 
   ASSERT_OK(uri.Parse("http://1.2.3.4:"));
   ASSERT_EQ(uri.scheme(), "http");
   ASSERT_EQ(uri.host(), "1.2.3.4");
   ASSERT_EQ(uri.port_text(), "");
   ASSERT_EQ(uri.port(), -1);
+  ASSERT_EQ(uri.username(), "");
+  ASSERT_EQ(uri.password(), "");
 
   ASSERT_OK(uri.Parse("http://1.2.3.4:80"));
   ASSERT_EQ(uri.scheme(), "http");
   ASSERT_EQ(uri.host(), "1.2.3.4");
   ASSERT_EQ(uri.port_text(), "80");
   ASSERT_EQ(uri.port(), 80);
+  ASSERT_EQ(uri.username(), "");
+  ASSERT_EQ(uri.password(), "");
 
   ASSERT_OK(uri.Parse("http://[::1]"));
   ASSERT_EQ(uri.scheme(), "http");
   ASSERT_EQ(uri.host(), "::1");
   ASSERT_EQ(uri.port_text(), "");
   ASSERT_EQ(uri.port(), -1);
+  ASSERT_EQ(uri.username(), "");
+  ASSERT_EQ(uri.password(), "");
 
   ASSERT_OK(uri.Parse("http://[::1]:"));
   ASSERT_EQ(uri.scheme(), "http");
   ASSERT_EQ(uri.host(), "::1");
   ASSERT_EQ(uri.port_text(), "");
   ASSERT_EQ(uri.port(), -1);
+  ASSERT_EQ(uri.username(), "");
+  ASSERT_EQ(uri.password(), "");
 
   ASSERT_OK(uri.Parse("http://[::1]:80"));
   ASSERT_EQ(uri.scheme(), "http");
   ASSERT_EQ(uri.host(), "::1");
   ASSERT_EQ(uri.port_text(), "80");
   ASSERT_EQ(uri.port(), 80);
+  ASSERT_EQ(uri.username(), "");
+  ASSERT_EQ(uri.password(), "");
+}
+
+TEST(Uri, ParseUserPass) {
+  Uri uri;
+
+  ASSERT_OK(uri.Parse("http://someuser@localhost:80"));
+  ASSERT_EQ(uri.scheme(), "http");
+  ASSERT_EQ(uri.host(), "localhost");
+  ASSERT_EQ(uri.username(), "someuser");
+  ASSERT_EQ(uri.password(), "");
+
+  ASSERT_OK(uri.Parse("http://someuser:@localhost:80"));
+  ASSERT_EQ(uri.scheme(), "http");
+  ASSERT_EQ(uri.host(), "localhost");
+  ASSERT_EQ(uri.username(), "someuser");
+  ASSERT_EQ(uri.password(), "");
+
+  ASSERT_OK(uri.Parse("http://someuser:somepass@localhost:80"));
+  ASSERT_EQ(uri.scheme(), "http");
+  ASSERT_EQ(uri.host(), "localhost");
+  ASSERT_EQ(uri.username(), "someuser");
+  ASSERT_EQ(uri.password(), "somepass");
+
+  ASSERT_OK(uri.Parse("http://someuser:somepass@localhost"));
+  ASSERT_EQ(uri.scheme(), "http");
+  ASSERT_EQ(uri.host(), "localhost");
+  ASSERT_EQ(uri.username(), "someuser");
+  ASSERT_EQ(uri.password(), "somepass");
 }
 
 TEST(Uri, ParseError) {
