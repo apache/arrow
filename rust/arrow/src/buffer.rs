@@ -97,7 +97,7 @@ impl Debug for BufferData {
 }
 
 impl Buffer {
-    /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
+    /// Creates a buffer from an existing memory region (must already be byte-aligned), this
     /// `Buffer` will free this piece of memory when dropped.
     ///
     /// # Arguments
@@ -113,7 +113,7 @@ impl Buffer {
         Buffer::build_with_arguments(ptr, len, true)
     }
 
-    /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
+    /// Creates a buffer from an existing memory region (must already be byte-aligned), this
     /// `Buffer` **does not** free this piece of memory when dropped.
     ///
     /// # Arguments
@@ -129,7 +129,7 @@ impl Buffer {
         Buffer::build_with_arguments(ptr, len, false)
     }
 
-    /// Creates a buffer from an existing memory region (must already be byte-aligned)
+    /// Creates a buffer from an existing memory region (must already be byte-aligned).
     ///
     /// # Arguments
     ///
@@ -190,15 +190,22 @@ impl Buffer {
     }
 
     /// View buffer as typed slice.
-    pub fn typed_data<T: ArrowNativeType + num::Num>(&self) -> &[T] {
+    ///
+    /// # Safety
+    ///
+    /// `ArrowNativeType` is public so that it can be used as a trait bound for other public
+    /// components, such as the `ToByteSlice`.  However, this means that it can be implemented
+    /// by user defined types, which it is not intended for.
+    ///
+    /// Also `typed_data::<bool>` is unsafe as `0x00` and `0x01` are the only valid values for
+    /// `bool` in Rust.  However, `bool` arrays in Arrow are bit-packed which breaks this condition.
+    pub unsafe fn typed_data<T: ArrowNativeType + num::Num>(&self) -> &[T] {
         assert_eq!(self.len() % mem::size_of::<T>(), 0);
         assert!(memory::is_ptr_aligned::<T>(self.raw_data() as *const T));
-        unsafe {
-            from_raw_parts(
-                mem::transmute::<*const u8, *const T>(self.raw_data()),
-                self.len() / mem::size_of::<T>(),
-            )
-        }
+        from_raw_parts(
+            mem::transmute::<*const u8, *const T>(self.raw_data()),
+            self.len() / mem::size_of::<T>(),
+        )
     }
 
     /// Returns an empty buffer.
@@ -797,7 +804,7 @@ mod tests {
     macro_rules! check_as_typed_data {
         ($input: expr, $native_t: ty) => {{
             let buffer = Buffer::from($input.to_byte_slice());
-            let slice: &[$native_t] = buffer.typed_data::<$native_t>();
+            let slice: &[$native_t] = unsafe { buffer.typed_data::<$native_t>() };
             assert_eq!($input, slice);
         }};
     }
