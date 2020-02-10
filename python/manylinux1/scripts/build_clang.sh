@@ -34,7 +34,7 @@ cmake  \
     -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=ON \
     -GNinja \
     ..
-ninja -w dupbuild=warn install
+ninja -w dupbuild=warn install # both clang and llvm builds generate llvm-config file
 popd
 popd
 rm -rf cfe-${LLVM_VERSION}.src.tar.xz cfe-${LLVM_VERSION}.src.tar cfe-${LLVM_VERSION}.src
