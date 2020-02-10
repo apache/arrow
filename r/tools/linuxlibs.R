@@ -66,23 +66,21 @@ download_binary <- function(os = identify_os()) {
   libfile
 }
 
-# Function to figure out which flavor of binary we should download.
-# By default, it will try to discover from the OS what distro-version we're on
+# Function to figure out which flavor of binary we should download, if at all.
+# By default ("FALSE"), it will not download a precompiled library,
 # but you can override this by setting the env var LIBARROW_BINARY_DISTRO to:
-# * `FALSE` (not case-sensitive), which tells the script not to download a binary,
+# * `TRUE` (not case-sensitive), to try to discover your current OS, or
 # * some other string, presumably a related "distro-version" that has binaries
 #   built that work for your OS
-identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO")) {
-  if (nzchar(os)) {
+identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO", "false")) {
     if (identical(tolower(os), "false")) {
       # Env var says not to download a binary
       return(NULL)
-    } else {
+    } else if (!identical(tolower(os), "true")) {
       # Env var provided an os-version to use--maybe you're on Ubuntu 18.10 but
       # we only build for 18.04 and that's fine--so use what the user set
       return(os)
     }
-  }
 
   if (nzchar(Sys.which("lsb_release"))) {
     distro <- tolower(system("lsb_release -is", intern = TRUE))
