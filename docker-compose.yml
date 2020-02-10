@@ -85,12 +85,43 @@ services:
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_USE_LD_GOLD: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${ARCH}-conda-cache:/build:delegated
     command: &cpp-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
+
+  conda-cpp-valgrind:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose run --rm conda-cpp-valgrind
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-conda-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/conda-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-cpp
+      args:
+        arch: ${ARCH}
+        prefix: /opt/conda
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      ARROW_CXXFLAGS: "-Og"  # Shrink test runtime by enabling minimal optimizations
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_FLIGHT: "OFF"
+      ARROW_GANDIVA: "OFF"
+      ARROW_JEMALLOC: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_TEST_MEMCHECK: "ON"
+      ARROW_USE_LD_GOLD: "ON"
+      BUILD_WARNING_LEVEL: "PRODUCTION"
+    volumes: *conda-volumes
+    command: *cpp-conda-command
 
   cuda-cpp:
     # Usage:
