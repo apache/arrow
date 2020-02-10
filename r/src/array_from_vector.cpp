@@ -176,11 +176,11 @@ struct VectorToArrayConverter {
     for (R_xlen_t i = 0; i < n; i++) {
       SEXP vector = VECTOR_ELT(x, i);
       if (vector == R_NilValue) {
-        list_builder->AppendNull();
+        RETURN_NOT_OK(list_builder->AppendNull());
         continue;
       }
 
-      list_builder->Append();
+      RETURN_NOT_OK(list_builder->Append());
 
       auto vect_type = arrow::r::InferArrowType(vector);
       if (!value_type->Equals(vect_type)) {
