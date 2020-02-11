@@ -1483,8 +1483,8 @@ ggandiva_and_node_new(GList *children)
     gandiva_nodes.push_back(gandiva_node);
   }
   auto gandiva_node = gandiva::TreeExprBuilder::MakeAnd(gandiva_nodes);
-  return ggandiva_and_node_new_raw(&gandiva_node,
-                                   children);
+  return GGANDIVA_AND_NODE(ggandiva_boolean_node_new_raw(&gandiva_node,
+                                                         children));
 }
 
 
@@ -1519,8 +1519,8 @@ ggandiva_or_node_new(GList *children)
     gandiva_nodes.push_back(gandiva_node);
   }
   auto gandiva_node = gandiva::TreeExprBuilder::MakeOr(gandiva_nodes);
-  return ggandiva_or_node_new_raw(&gandiva_node,
-                                  children);
+  return GGANDIVA_OR_NODE(ggandiva_boolean_node_new_raw(&gandiva_node,
+                                                        children));
 }
 
 G_END_DECLS
@@ -1666,34 +1666,27 @@ ggandiva_if_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
   return GGANDIVA_IF_NODE(if_node);
 }
 
-GGandivaAndNode *
-ggandiva_and_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                          GList *children)
+GGandivaBooleanNode *
+ggandiva_boolean_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
+                              GList *children)
 {
-  auto and_node = g_object_new(GGANDIVA_TYPE_AND_NODE,
-                               "node", gandiva_node,
-                               NULL);
-  auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(and_node);
-  for (auto node = children; node; node = g_list_next(node)) {
-    auto parameter = GGANDIVA_NODE(node->data);
-    priv->children = g_list_prepend(priv->children, g_object_ref(parameter));
-  }
-  priv->children = g_list_reverse(priv->children);
-  return GGANDIVA_AND_NODE(and_node);
-}
+  auto gandiva_boolean_node =
+    std::static_pointer_cast<gandiva::BooleanNode>(*gandiva_node);
 
-GGandivaOrNode *
-ggandiva_or_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                         GList *children)
-{
-  auto or_node = g_object_new(GGANDIVA_TYPE_OR_NODE,
-                              "node", gandiva_node,
-                              NULL);
-  auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(or_node);
+  GType type;
+  if (gandiva_boolean_node->expr_type() == gandiva::BooleanNode::AND) {
+    type = GGANDIVA_TYPE_AND_NODE;
+  } else {
+    type = GGANDIVA_TYPE_OR_NODE;
+  }
+  auto boolean_node = g_object_new(type,
+                                   "node", gandiva_node,
+                                   NULL);
+  auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(boolean_node);
   for (auto node = children; node; node = g_list_next(node)) {
     auto parameter = GGANDIVA_NODE(node->data);
     priv->children = g_list_prepend(priv->children, g_object_ref(parameter));
   }
   priv->children = g_list_reverse(priv->children);
-  return GGANDIVA_OR_NODE(or_node);
+  return GGANDIVA_BOOLEAN_NODE(boolean_node);
 }
