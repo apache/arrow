@@ -35,6 +35,7 @@ import java.util.Iterator;
 import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
+import org.apache.arrow.memory.util.AssertionUtil;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
@@ -1129,6 +1130,34 @@ public class TestBaseAllocator {
       frag2.close();
       frag3.close();
 
+    }
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testMemoryLeakWithReservation() {
+    AssertionUtil.class.getClassLoader().setClassAssertionStatus(AssertionUtil.class.getName(), false);
+    try (RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+      ChildAllocator childAllocator1 = (ChildAllocator) rootAllocator.newChildAllocator(
+              "child1", 1024, MAX_ALLOCATION);
+      rootAllocator.verify();
+
+      ChildAllocator childAllocator2 = (ChildAllocator) childAllocator1.newChildAllocator(
+              "child2", 1024, MAX_ALLOCATION);
+      rootAllocator.verify();
+
+      ArrowBuf buff = childAllocator2.buffer(256);
+
+      Exception exception = assertThrows(IllegalStateException.class, () -> {
+        childAllocator2.close();
+      });
+      String exMessage = exception.getMessage();
+      assertTrue(exMessage.contains("Memory leaked: (256)"));
+
+      exception = assertThrows(IllegalStateException.class, () -> {
+        childAllocator1.close();
+      });
+      exMessage = exception.getMessage();
+      assertTrue(exMessage.contains("Memory leaked: (256)"));
     }
   }
 

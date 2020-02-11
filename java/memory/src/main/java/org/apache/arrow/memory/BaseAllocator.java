@@ -429,6 +429,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     isClosed = true;
 
+    StringBuilder outstandingChildAllocators = new StringBuilder();
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
         verifyAllocator();
@@ -464,6 +465,15 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         }
 
       }
+    } else {
+      if (!childAllocators.isEmpty()) {
+        outstandingChildAllocators.append("Outstanding child allocators : \n");
+        synchronized (childAllocators) {
+          for (final BaseAllocator childAllocator : childAllocators.keySet()) {
+            outstandingChildAllocators.append(String.format("  %s", childAllocator.toString()));
+          }
+        }
+      }
     }
 
     // Is there unaccounted-for outstanding allocation?
@@ -472,8 +482,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       if (parent != null && reservation > allocated) {
         parent.releaseBytes(reservation - allocated);
       }
-      String msg = String.format("Memory was leaked by query. Memory leaked: (%d)\n%s", allocated,
-          toString());
+      String msg = String.format("Memory was leaked by query. Memory leaked: (%d)\n%s%s", allocated,
+          outstandingChildAllocators.toString(), toString());
       logger.error(msg);
       throw new IllegalStateException(msg);
     }
