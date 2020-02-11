@@ -22,27 +22,33 @@ class TestParquetWriterProperties < Test::Unit::TestCase
   end
 
   def test_compression
-    @properties.compression = :gzip
+    @properties.set_compression(:gzip)
     assert_equal(Arrow::CompressionType.new("gzip"),
-                 @properties.get_compression("not-specified"))
+                 @properties.get_compression_dot_string("not-specified"))
+  end
+
+  def test_compression_with_path
+    @properties.set_compression(:gzip, "column1")
+    assert_equal(Arrow::CompressionType.new("gzip"),
+                 @properties.get_compression_dot_string("column1"))
   end
 
   def test_enable_dictionary
     @properties.enable_dictionary
     assert_equal(true,
-                 @properties.dictionary_enabled("not-specified"))
+                 @properties.dictionary_enabled?("not-specified"))
   end
 
   def test_disable_dictionary
     @properties.disable_dictionary
     assert_equal(false,
-                 @properties.dictionary_enabled("not-specified"))
+                 @properties.dictionary_enabled?("not-specified"))
   end
 
-  def test_dictionary_pagesize_limit
-    @properties.dictionary_pagesize_limit = 4096
+  def test_dictionary_page_size_limit
+    @properties.dictionary_page_size_limit = 4096
     assert_equal(4096,
-                 @properties.dictionary_pagesize_limit)
+                 @properties.dictionary_page_size_limit)
   end
 
   def test_batch_size
@@ -51,10 +57,10 @@ class TestParquetWriterProperties < Test::Unit::TestCase
                  @properties.batch_size)
   end
 
-  def test_data_pagesize
-    @properties.data_pagesize = 128
+  def test_data_page_size
+    @properties.data_page_size = 128
     assert_equal(128,
-                 @properties.data_pagesize)
+                 @properties.data_page_size)
   end
 
   def test_max_row_group_length
