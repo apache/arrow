@@ -46,7 +46,10 @@ RUN conda create -n arrow -q \
         --file arrow/ci/conda_env_unix.yml \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_gandiva.yml \
-        git compilers valgrind && \
+        compilers \
+        gdb \
+        git \
+        valgrind && \
     conda clean --all
 
 # activate the created environment by default

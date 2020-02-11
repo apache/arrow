@@ -50,7 +50,10 @@ jobs:
         run: docker-compose build conda-cpp
       - name: Docker Run
         shell: bash
-        run: docker-compose run conda-cpp
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          docker-compose run conda-cpp
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -137,7 +140,11 @@ jobs:
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+        run: |
+          sudo sysctl -w kern.coredump=1
+          sudo sysctl -w kern.corefile=core.%N.%P
+          ulimit -c unlimited  # must enable within the same shell
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
     name: AMD64 ${{ matrix.name }} C++

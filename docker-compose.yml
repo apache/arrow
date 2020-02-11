@@ -15,17 +15,46 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# The environment variables referenced from this docker-compose can be set by
-# defining them before running docker-compose, the defaults are set in .env
-# file.
+# Usage
+# -----
+#
+# The docker compose file is parametrized using environment variables, the
+# defaults are set in .env file.
 #
 # Example:
 # $ ARCH=arm64v8 docker-compose build ubuntu-bionic-cpp
 # $ ARCH=arm64v8 docker-compose run ubuntu-bionic-cpp
+#
+#
+# Coredumps
+# ---------
+#
+# In order to enable coredumps for the C++ tests run by CTest either with
+# command `make unittest` or `ctest --output-on-failure` the correct coredump
+# patterns must be set.
+# The kernel settings are coming from the host, so while it can be enabled from
+# a running container using --priviled option the change will affect all other
+# containers, so prefer setting it explicitly, directly on the host.
+# WARNING: setting this will affect the host machine.
+#
+# Linux host:
+#   $ sudo sysctl -w kernel.core_pattern=core.%e.%p
+#
+# macOS host running Docker for Mac (won't persist between restarts):
+#   $ screen ~/Library/Containers/com.docker.docker/Data/vms/0/tty
+#   # echo "core.%e.%p" > /proc/sys/kernel/core_pattern
+#
+# The setup attempts to generate coredumps by default, but the correct paths
+# above must be set. In order to disable the coredump generation set
+# ULIMIT_CORE environment variable to 0 before running docker-compose
+# (or by setting it in .env file):
+#
+# ULIMIT_CORE=0 docker-compose run --rm conda-cpp
+#
+# See more in cpp/build-support/run-test.sh::print_coredumps
 
 version: '3.5'
 
-# TODO(kszucs): add .ccache to the mounts
 volumes:
   # Named volumes must be predefined, so in order to use other architecture,
   # like ARM64v8 with debian 10, then the appropriate parametrized volume name
@@ -82,6 +111,8 @@ services:
         arch: ${ARCH}
         prefix: /opt/conda
     shm_size: &shm-size 2G
+    ulimits: &ulimits
+      core: ${ULIMIT_CORE}
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -139,6 +170,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-cuda-${CUDA}-cpp
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -166,6 +198,7 @@ services:
       args:
         arch: ${ARCH}
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -190,6 +223,7 @@ services:
       args:
         arch: ${ARCH}
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -246,6 +280,7 @@ services:
       args:
         arch: ${ARCH}
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -272,11 +307,11 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
       args:
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
-    environment:
-      ARROW_GLIB_GTK_DOC: "true"
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
+      ARROW_GLIB_GTK_DOC: "true"
     volumes: *debian-volumes
     command: &c-glib-command >
       /bin/bash -c "
@@ -300,6 +335,8 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_GLIB_GTK_DOC: "true"
@@ -501,6 +538,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
         cmake: 3.2.3
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_ORC: "OFF"

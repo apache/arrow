@@ -28,8 +28,6 @@ export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_PATH}
 
-pushd ${build_dir}
-
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
@@ -41,6 +39,9 @@ case "$(uname)" in
     n_jobs=1
     ;;
 esac
+
+pushd ${build_dir}
+
 ctest --output-on-failure -j${n_jobs}
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
