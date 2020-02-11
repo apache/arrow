@@ -111,6 +111,15 @@
 #endif
 
 /**
+ * GPARQUET_VERSION_1_0:
+ *
+ * You can use this macro value for compile time API version check.
+ *
+ * Since: 1.0.0
+ */
+#define GPARQUET_VERSION_1_0 G_ENCODE_VERSION(1, 0)
+
+/**
  * GPARQUET_VERSION_0_16:
  *
  * You can use this macro value for compile time API version check.
@@ -165,6 +174,20 @@
 
 
 #define GPARQUET_AVAILABLE_IN_ALL
+
+#if GPARQUET_VERSION_MIN_REQUIRED >= GPARQUET_VERSION_1_0
+#  define GPARQUET_DEPRECATED_IN_1_0               GPARQUET_DEPRECATED
+#  define GPARQUET_DEPRECATED_IN_1_0_FOR(function) GPARQUET_DEPRECATED_FOR(function)
+#else
+#  define GPARQUET_DEPRECATED_IN_1_0
+#  define GPARQUET_DEPRECATED_IN_1_0_FOR(function)
+#endif
+
+#if GPARQUET_VERSION_MAX_ALLOWED < GPARQUET_VERSION_1_0
+#  define GPARQUET_AVAILABLE_IN_1_0 GPARQUET_UNAVAILABLE(1, 0)
+#else
+#  define GPARQUET_AVAILABLE_IN_1_0
+#endif
 
 #if GPARQUET_VERSION_MIN_REQUIRED >= GPARQUET_VERSION_0_16
 #  define GPARQUET_DEPRECATED_IN_0_16               GPARQUET_DEPRECATED

@@ -21,6 +21,8 @@
 
 #include <arrow-glib/arrow-glib.h>
 
+#include <parquet-glib/version.h>
+
 G_BEGIN_DECLS
 
 #define GPARQUET_TYPE_WRITER_PROPERTIES         \
@@ -35,39 +37,53 @@ struct _GParquetWriterPropertiesClass
   GObjectClass parent_class;
 };
 
+GPARQUET_AVAILABLE_IN_1_0
 GParquetWriterProperties *gparquet_writer_properties_new(void);
+GPARQUET_AVAILABLE_IN_1_0
 void
 gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
                                            GArrowCompressionType compression_type,
                                            const gchar *path);
+GPARQUET_AVAILABLE_IN_1_0
 GArrowCompressionType
 gparquet_writer_properties_get_compression_dot_string(GParquetWriterProperties *properties,
                                                       const gchar *dot_string);
+GPARQUET_AVAILABLE_IN_1_0
 void
 gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *properties);
+GPARQUET_AVAILABLE_IN_1_0
 void
 gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properties);
+GPARQUET_AVAILABLE_IN_1_0
 gboolean
 gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *properties,
                                                  const gchar *dot_string);
+GPARQUET_AVAILABLE_IN_1_0
 void
 gparquet_writer_properties_set_dictionary_page_size_limit(GParquetWriterProperties *properties,
                                                           gint64 limit);
+GPARQUET_AVAILABLE_IN_1_0
 gint64
 gparquet_writer_properties_get_dictionary_page_size_limit(GParquetWriterProperties *properties);
+GPARQUET_AVAILABLE_IN_1_0
 void
 gparquet_writer_properties_set_batch_size(GParquetWriterProperties *properties,
                                           gint64 batch_size);
+GPARQUET_AVAILABLE_IN_1_0
 gint64
 gparquet_writer_properties_get_batch_size(GParquetWriterProperties *properties);
+GPARQUET_AVAILABLE_IN_1_0
 void
 gparquet_writer_properties_set_max_row_group_length(GParquetWriterProperties *properties,
                                                     gint64 length);
+GPARQUET_AVAILABLE_IN_1_0
 gint64
 gparquet_writer_properties_get_max_row_group_length(GParquetWriterProperties *properties);
+GPARQUET_AVAILABLE_IN_1_0
 void
 gparquet_writer_properties_set_data_page_size(GParquetWriterProperties *properties,
                                               gint64 data_page_size);
+GPARQUET_AVAILABLE_IN_1_0
 gint64
 gparquet_writer_properties_get_data_page_size(GParquetWriterProperties *properties);
 
