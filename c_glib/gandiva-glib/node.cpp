@@ -1413,11 +1413,7 @@ ggandiva_boolean_node_dispose(GObject *object)
   auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(object);
 
   if (priv->parameters) {
-    for (auto node = priv->parameters; node; node = g_list_next(node)) {
-      auto parameter = GGANDIVA_NODE(node->data);
-      g_object_unref(parameter);
-    }
-    g_list_free(priv->parameters);
+    g_list_free_full(priv->parameters, g_object_unref);
     priv->parameters = nullptr;
   }
 
