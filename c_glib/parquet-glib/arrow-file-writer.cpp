@@ -98,16 +98,22 @@ gparquet_writer_properties_new(void)
  * gparquet_writer_properties_set_compression:
  * @properties: A #GParquetWriterProperties.
  * @compression_type: A #GArrowCompressionType.
+ * @path: (nullable): A column path.
  *
  * Since: 1.0.0
  */
 void
 gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
-                                           GArrowCompressionType compression_type)
+                                           GArrowCompressionType compression_type,
+                                           const gchar *path)
 {
   auto arrow_compression_type = garrow_compression_type_to_raw(compression_type);
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
-  priv->builder->compression(arrow_compression_type);
+  if (path) {
+    priv->builder->compression(path, arrow_compression_type);
+  } else {
+    priv->builder->compression(arrow_compression_type);
+  }
   priv->changed = TRUE;
 }
 
@@ -121,8 +127,8 @@ gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
  * Since: 1.0.0
  */
 GArrowCompressionType
-gparquet_writer_properties_get_compression(GParquetWriterProperties *properties,
-                                           gchar *dot_string)
+gparquet_writer_properties_get_compression_dot_string(GParquetWriterProperties *properties,
+                                                      const gchar *dot_string)
 {
   auto parquet_properties = gparquet_writer_properties_get_raw(properties);
   auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(dot_string);
