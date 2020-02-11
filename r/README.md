@@ -49,54 +49,7 @@ available. Call
 arrow::install_arrow()
 ```
 
-for version- and platform-specific guidance on installing the Arrow C++
-library.
-
-## Example
-
-``` r
-library(arrow, warn.conflicts = FALSE)
-set.seed(24)
-
-tab <- Table$create(
-  x = 1:10,
-  y = rnorm(10),
-  z = as.factor(rep(c("b", "c"), 5))
-)
-tab
-#> Table
-#> 10 rows x 3 columns
-#> $x <int32>
-#> $y <double>
-#> $z <dictionary<values=string, indices=int8>>
-tab$x
-#> ChunkedArray
-#> <int32>
-#> [
-#>   1,
-#>   2,
-#>   3,
-#>   4,
-#>   5,
-#>   6,
-#>   7,
-#>   8,
-#>   9,
-#>   10
-#> ]
-as.data.frame(tab)
-#>     x            y z
-#> 1   1 -0.545880758 b
-#> 2   2  0.536585304 c
-#> 3   3  0.419623149 b
-#> 4   4 -0.583627199 c
-#> 5   5  0.847460017 b
-#> 6   6  0.266021979 c
-#> 7   7  0.444585270 b
-#> 8   8 -0.466495124 c
-#> 9   9 -0.848370044 b
-#> 10 10  0.002311942 c
-```
+to retry installation.
 
 ## Installing a development version
 
@@ -105,6 +58,12 @@ Binary R packages for macOS and Windows are built daily and hosted at
 
 ``` r
 install.packages("arrow", repos = "https://dl.bintray.com/ursalabs/arrow-r")
+```
+
+Or, if you have `arrow` installed, you can get the latest dev build with
+
+```r
+arrow::install_arrow(nightly = TRUE)
 ```
 
 These daily package builds are not official Apache releases and are not

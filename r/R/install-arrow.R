@@ -54,6 +54,7 @@ install_arrow <- function(nightly = FALSE,
     Sys.setenv(LIBARROW_BINARY_DISTRO = binary)
     Sys.setenv(ARROW_USE_PKG_CONFIG = use_system)
     install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
+    message('Please restart R to use the newly installed "arrow" package.')
   } else {
     # Solaris
     message(SEE_README)
