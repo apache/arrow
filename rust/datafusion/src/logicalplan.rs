@@ -192,6 +192,8 @@ pub enum Expr {
         /// Right-hand side of the expression
         right: Arc<Expr>,
     },
+    /// unary NOT
+    Not(Arc<Expr>),
     /// unary IS NOT NULL
     IsNotNull(Arc<Expr>),
     /// unary IS NULL
@@ -239,6 +241,7 @@ impl Expr {
             Expr::Cast { data_type, .. } => data_type.clone(),
             Expr::ScalarFunction { return_type, .. } => return_type.clone(),
             Expr::AggregateFunction { return_type, .. } => return_type.clone(),
+            Expr::Not(_) => DataType::Boolean,
             Expr::IsNull(_) => DataType::Boolean,
             Expr::IsNotNull(_) => DataType::Boolean,
             Expr::BinaryExpr {
@@ -333,6 +336,11 @@ impl Expr {
             right: Arc::new(other.clone()),
         }
     }
+
+    /// Not
+    pub fn not(&self) -> Expr {
+        Expr::Not(Arc::new(self.clone()))
+    }
 }
 
 impl fmt::Debug for Expr {
@@ -343,6 +351,7 @@ impl fmt::Debug for Expr {
             Expr::Cast { expr, data_type } => {
                 write!(f, "CAST({:?} AS {:?})", expr, data_type)
             }
+            Expr::Not(expr) => write!(f, "NOT {:?}", expr),
             Expr::IsNull(expr) => write!(f, "{:?} IS NULL", expr),
             Expr::IsNotNull(expr) => write!(f, "{:?} IS NOT NULL", expr),
             Expr::BinaryExpr { left, op, right } => {
