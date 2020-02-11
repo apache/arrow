@@ -65,6 +65,35 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
   endif()
 endfunction()
 
+function(ADD_PARQUET_FUZZ_TARGET REL_FUZZING_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+
+  if(ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "parquet")
+  endif()
+
+  if(ARROW_BUILD_STATIC)
+    set(LINK_LIBS parquet_static)
+  else()
+    set(LINK_LIBS parquet_shared)
+  endif()
+  add_fuzz_target(${REL_FUZZING_NAME}
+                  PREFIX
+                  ${PREFIX}
+                  LINK_LIBS
+                  ${LINK_LIBS}
+                  ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
 function(ADD_PARQUET_BENCHMARK REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)

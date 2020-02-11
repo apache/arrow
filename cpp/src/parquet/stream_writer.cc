@@ -104,12 +104,12 @@ StreamWriter& StreamWriter::operator<<(uint64_t v) {
 
 StreamWriter& StreamWriter::operator<<(const std::chrono::milliseconds& v) {
   CheckColumn(Type::INT64, ConvertedType::TIMESTAMP_MILLIS);
-  return Write<Int64Writer>(v.count());
+  return Write<Int64Writer>(static_cast<int64_t>(v.count()));
 }
 
 StreamWriter& StreamWriter::operator<<(const std::chrono::microseconds& v) {
   CheckColumn(Type::INT64, ConvertedType::TIMESTAMP_MICROS);
-  return Write<Int64Writer>(v.count());
+  return Write<Int64Writer>(static_cast<int64_t>(v.count()));
 }
 
 StreamWriter& StreamWriter::operator<<(float v) {

@@ -67,5 +67,5 @@ if(ARROW_FUZZING)
                         ${ARROW_TEST_LINK_LIBS})
 endif()
 
-add_arrow_fuzzing(file_fuzz PREFIX "arrow-ipc")
-add_arrow_fuzzing(stream_fuzz PREFIX "arrow-ipc")
+add_arrow_fuzz_target(file_fuzz PREFIX "arrow-ipc")
+add_arrow_fuzz_target(stream_fuzz PREFIX "arrow-ipc")
