@@ -557,7 +557,7 @@ gparquet_writer_properties_get_raw(GParquetWriterProperties *properties)
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
   if (priv->changed) {
     priv->properties = priv->builder->build();
+    priv->changed = FALSE;
   }
-  priv->changed = FALSE;
   return priv->properties;
 }
