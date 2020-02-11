@@ -73,14 +73,14 @@ download_binary <- function(os = identify_os()) {
 # * some other string, presumably a related "distro-version" that has binaries
 #   built that work for your OS
 identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO", "false")) {
-    if (identical(tolower(os), "false")) {
-      # Env var says not to download a binary
-      return(NULL)
-    } else if (!identical(tolower(os), "true")) {
-      # Env var provided an os-version to use--maybe you're on Ubuntu 18.10 but
-      # we only build for 18.04 and that's fine--so use what the user set
-      return(os)
-    }
+  if (identical(tolower(os), "false")) {
+    # Env var says not to download a binary
+    return(NULL)
+  } else if (!identical(tolower(os), "true")) {
+    # Env var provided an os-version to use--maybe you're on Ubuntu 18.10 but
+    # we only build for 18.04 and that's fine--so use what the user set
+    return(os)
+  }
 
   if (nzchar(Sys.which("lsb_release"))) {
     distro <- tolower(system("lsb_release -is", intern = TRUE))
