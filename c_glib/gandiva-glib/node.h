@@ -21,6 +21,8 @@
 
 #include <arrow-glib/arrow-glib.h>
 
+#include <gandiva-glib/version.h>
+
 G_BEGIN_DECLS
 
 #define GGANDIVA_TYPE_NODE (ggandiva_node_get_type())
@@ -354,6 +356,7 @@ struct _GGandivaBooleanNodeClass
   GObjectClass parent_class;
 };
 
+GGANDIVA_AVAILABLE_IN_1_0
 GList *
 ggandiva_boolean_node_get_children(GGandivaBooleanNode *node);
 
@@ -369,6 +372,7 @@ struct _GGandivaAndNodeClass
   GGandivaNodeClass parent_class;
 };
 
+GGANDIVA_AVAILABLE_IN_1_0
 GGandivaAndNode *
 ggandiva_and_node_new(GList *children);
 
@@ -384,6 +388,7 @@ struct _GGandivaOrNodeClass
   GGandivaNodeClass parent_class;
 };
 
+GGANDIVA_AVAILABLE_IN_1_0
 GGandivaOrNode *
 ggandiva_or_node_new(GList *children);
 
