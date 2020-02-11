@@ -24,19 +24,19 @@ class TestParquetWriterProperties < Test::Unit::TestCase
   def test_compression
     @properties.compression = :gzip
     assert_equal(Arrow::CompressionType.new("gzip"),
-                 @properties.get_compression("a_column"))
+                 @properties.get_compression("not-specified"))
   end
 
   def test_enable_dictionary
     @properties.enable_dictionary
     assert_equal(true,
-                 @properties.dictionary_enabled("a_column"))
+                 @properties.dictionary_enabled("not-specified"))
   end
 
   def test_disable_dictionary
     @properties.disable_dictionary
     assert_equal(false,
-                 @properties.dictionary_enabled("a_column"))
+                 @properties.dictionary_enabled("not-specified"))
   end
 
   def test_dictionary_pagesize_limit
