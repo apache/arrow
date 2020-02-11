@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -35,7 +36,6 @@ import java.util.Iterator;
 import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
-import org.apache.arrow.memory.util.AssertionUtil;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
@@ -1134,9 +1134,12 @@ public class TestBaseAllocator {
   }
 
   @Test(expected = IllegalStateException.class)
-  public void testMemoryLeakWithReservation() {
-    AssertionUtil.class.getClassLoader().setClassAssertionStatus(AssertionUtil.class.getName(), false);
+  public void testMemoryLeakWithReservation() throws Exception {
+    Boolean isDebug = BaseAllocator.DEBUG;;
     try (RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+      Field debugField = BaseAllocator.class.getField("DEBUG");
+      setFinalStatic(debugField, false);
+
       ChildAllocator childAllocator1 = (ChildAllocator) rootAllocator.newChildAllocator(
               "child1", 1024, MAX_ALLOCATION);
       rootAllocator.verify();
@@ -1158,7 +1161,19 @@ public class TestBaseAllocator {
       });
       exMessage = exception.getMessage();
       assertTrue(exMessage.contains("Memory leaked: (256)"));
+    } finally {
+      Field debugField = BaseAllocator.class.getField("DEBUG");
+      setFinalStatic(debugField, isDebug);
     }
+  }
+
+  private void setFinalStatic(Field field, Object newValue) throws Exception {
+    // remove final modifier from field
+    Field modifiersField = Field.class.getDeclaredField("modifiers");
+    modifiersField.setAccessible(true);
+    modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
+
+    field.set(null, newValue);
   }
 
   public void assertEquiv(ArrowBuf origBuf, ArrowBuf newBuf) {
