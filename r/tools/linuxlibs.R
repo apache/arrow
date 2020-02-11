@@ -31,9 +31,9 @@ on.exit(unlink(getOption(".arrow.cleanup")))
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 
 # This condition identifies when you're installing locally, either by presence
-# of NOT_CRAN or by absence of a `check` env var. So even if you don't have
+# of NOT_CRAN or by absence of any `check` env vars. So even if you don't have
 # NOT_CRAN set in your dev environment, this will still pass outside R CMD check
-locally_installing <- env_is("NOT_CRAN", "true") || env_is("_R_CHECK_SIZE_OF_TARBALL_", "")
+locally_installing <- env_is("NOT_CRAN", "true") || !any(grepl("_R_CHECK", names(Sys.getenv())))
 # Combine with explicit vars to turn off downloading and building. I.e. only
 # downloads/builds when local, but can turn off either with these env vars.
 # * no download, build_ok: Only build with local git checkout

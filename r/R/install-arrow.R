@@ -31,6 +31,9 @@
 #' from source. Other valid values are strings corresponding to a Linux
 #' distribution-version, to override the value that would be detected.
 #' See `vignette("install", package = "arrow")` for further details.
+#' @param use_system logical: Should we use `pkg-config` to look for Arrow
+#' system packages? Default is `FALSE`. If `TRUE`, source installation may be
+#' faster, but there is a risk of version mismatch.
 #' @param repos character vector of base URLs of the repositories to install
 #' from (passed to `install.packages()`)
 #' @param ... Additional arguments passed to `install.packages()`
@@ -39,12 +42,17 @@
 #' @seealso [arrow_available()] to see if the package was configured with
 #' necessary C++ dependencies. `vignette("install", package = "arrow")` for
 #' more ways to tune installation on Linux.
-install_arrow <- function(nightly = FALSE, binary = TRUE, repos = getOption("repos"), ...) {
+install_arrow <- function(nightly = FALSE,
+                          binary = TRUE,
+                          use_system = FALSE,
+                          repos = getOption("repos"),
+                          ...) {
   if (tolower(Sys.info()[["sysname"]]) %in% c("windows", "darwin", "linux")) {
     # Set this flag so the right C++ libs get pulled on Linux
     # TODO: replace LIBARROW_BINARY_DISTRO with LIBARROW_BINARY
     # following next CRAN release after 0.16.0.1
     Sys.setenv(LIBARROW_BINARY_DISTRO = binary)
+    Sys.setenv(ARROW_USE_PKG_CONFIG = use_system)
     install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
   } else {
     # Solaris

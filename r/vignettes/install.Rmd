@@ -52,6 +52,11 @@ cd arrow/r
 R CMD INSTALL .
 ```
 
+If you have `arrow` installed and want to upgrade to a different version,
+install a development build, or try to reinstall and fix issues with Linux
+C++ binaries, you can call `install_arrow()`. `install_arrow()` will install
+from CRAN, while `install_arrow(nightly = TRUE)` will give you a development build.
+
 <!-- TODO: does remotes::install_github("apache/arrow/r") work now? -->
 
 # How dependencies are resolved
@@ -81,6 +86,9 @@ If no Arrow C++ libraries are found on the system,
 the R package installation script will next attempt to download
 prebuilt static Arrow C++ libraries
 that match your both your local operating system and `arrow` R package version.
+Binaries will only be retrieved if you have set the environment variable
+`LIBARROW_BINARY` or `NOT_CRAN`.
+(Note that in the 0.16.0.1 CRAN release, `LIBARROW_BINARY_DISTRO` is the variable you need to set.)
 If found, they will be downloaded and bundled when your R package compiles.
 For a list of supported distributions and versions,
 see the [arrow-r-nightly](https://github.com/ursa-labs/arrow-r-nightly/blob/master/README.md) project.
@@ -105,6 +113,26 @@ The intent is that `install.packages("arrow")` will just work and handle all C++
 dependencies, but depending on your system, you may have better results if you
 tune one of several parameters. Here are some known complications and ways to address them.
 
+## Package installed without C++ dependencies
+
+If you get an error like
+
+```
+Cannot call io___MemoryMappedFile__Open(). Please use arrow::install_arrow() to install required runtime libraries.
+```
+
+for every `arrow` function you call,
+that means that installing the package failed to retrieve or build C++ libraries
+compatible with the current version of the R package. `install_arrow()` provides
+some convenience wrappers around the various environment variables described below
+and has defaults that should isolate the package installation and make it
+more likely to succeed. See its help page for details.
+
+If you experience compilation errors as described below and want to install
+`arrow` without the C++ libraries in order to access the `install_arrow()`
+function, set the environment variables `ARROW_USE_PKG_CONFIG=FALSE`,
+`LIBARROW_DOWNLOAD=FALSE`, and `LIBARROW_BUILD=FALSE`, then reinstall the package.
+
 ## Using system libraries
 
 If a system library or other installed Arrow is found but it doesn't match the R package version
@@ -119,6 +147,7 @@ However, if you are using Arrow libraries already on your system, version match 
 To fix version mismatch, you can either update your system packages to match the R package version,
 or set the environment variable `ARROW_USE_PKG_CONFIG=FALSE`
 to tell the configure script not to look for system Arrow packages.
+(The latter is the default of `install_arrow()`.)
 System packages are available corresponding to all CRAN releases
 but not for nightly or dev versions, so depending on the R package version you're installing,
 system packages may not be an option.
