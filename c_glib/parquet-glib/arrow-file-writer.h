@@ -39,17 +39,17 @@ GParquetWriterProperties *gparquet_writer_properties_new(void);
 void
 gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
                                            GArrowCompressionType compression_type,
-                                           gchar *path);
+                                           const gchar *path);
 GArrowCompressionType
 gparquet_writer_properties_get_compression_dot_string(GParquetWriterProperties *properties,
-                                                      gchar *dot_string);
+                                                      const gchar *dot_string);
 void
 gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *properties);
 void
 gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properties);
 gboolean
 gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *properties,
-                                                 gchar *dot_string);
+                                                 const gchar *dot_string);
 void
 gparquet_writer_properties_set_dictionary_page_size_limit(GParquetWriterProperties *properties,
                                                           gint64 limit);
