@@ -177,15 +177,15 @@ gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *prope
 }
 
 /**
- * gparquet_writer_properties_set_dictionary_pagesize_limit:
+ * gparquet_writer_properties_set_dictionary_page_size_limit:
  * @properties: A #GParquetWriterProperties.
  * @limit: The dictionary page size limit.
  *
  * Since: 1.0.0
  */
 void
-gparquet_writer_properties_set_dictionary_pagesize_limit(GParquetWriterProperties *properties,
-                                                         gint64 limit)
+gparquet_writer_properties_set_dictionary_page_size_limit(GParquetWriterProperties *properties,
+                                                          gint64 limit)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
   priv->builder->dictionary_pagesize_limit(limit);
@@ -193,7 +193,7 @@ gparquet_writer_properties_set_dictionary_pagesize_limit(GParquetWriterPropertie
 }
 
 /**
- * gparquet_writer_properties_get_dictionary_pagesize_limit:
+ * gparquet_writer_properties_get_dictionary_page_size_limit:
  * @properties: A #GParquetWriterProperties.
  *
  * Returns: The dictionary page size limit.
@@ -201,7 +201,7 @@ gparquet_writer_properties_set_dictionary_pagesize_limit(GParquetWriterPropertie
  * Since: 1.0.0
  */
 gint64
-gparquet_writer_properties_get_dictionary_pagesize_limit(GParquetWriterProperties *properties)
+gparquet_writer_properties_get_dictionary_page_size_limit(GParquetWriterProperties *properties)
 {
   auto parquet_properties = gparquet_writer_properties_get_raw(properties);
   return parquet_properties->dictionary_pagesize_limit();
@@ -270,23 +270,23 @@ gparquet_writer_properties_get_max_row_group_length(GParquetWriterProperties *pr
 }
 
 /**
- * gparquet_writer_properties_set_data_pagesize:
+ * gparquet_writer_properties_set_data_page_size:
  * @properties: A #GParquetWriterProperties.
- * @data_pagesize: The data page size.
+ * @data_page_size: The data page size.
  *
  * Since: 1.0.0
  */
 void
-gparquet_writer_properties_set_data_pagesize(GParquetWriterProperties *properties,
-                                             gint64 data_pagesize)
+gparquet_writer_properties_set_data_page_size(GParquetWriterProperties *properties,
+                                              gint64 data_page_size)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
-  priv->builder->data_pagesize(data_pagesize);
+  priv->builder->data_pagesize(data_page_size);
   priv->changed = TRUE;
 }
 
 /**
- * gparquet_writer_properties_get_data_pagesize:
+ * gparquet_writer_properties_get_data_page_size:
  * @properties: A #GParquetWriterProperties.
  *
  * Returns: The data page size.
@@ -294,7 +294,7 @@ gparquet_writer_properties_set_data_pagesize(GParquetWriterProperties *propertie
  * Since: 1.0.0
  */
 gint64
-gparquet_writer_properties_get_data_pagesize(GParquetWriterProperties *properties)
+gparquet_writer_properties_get_data_page_size(GParquetWriterProperties *properties)
 {
   auto parquet_properties = gparquet_writer_properties_get_raw(properties);
   return parquet_properties->data_pagesize();
