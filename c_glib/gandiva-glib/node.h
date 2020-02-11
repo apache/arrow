@@ -367,9 +367,9 @@ struct _GGandivaAndNodeClass
 };
 
 GGandivaAndNode *
-ggandiva_and_node_new(GList *parameters);
+ggandiva_and_node_new(GList *children);
 GList *
-ggandiva_and_node_get_parameters(GGandivaAndNode *node);
+ggandiva_and_node_get_children(GGandivaAndNode *node);
 
 
 #define GGANDIVA_TYPE_OR_NODE (ggandiva_or_node_get_type())
@@ -384,8 +384,8 @@ struct _GGandivaOrNodeClass
 };
 
 GGandivaOrNode *
-ggandiva_or_node_new(GList *parameters);
+ggandiva_or_node_new(GList *children);
 GList *
-ggandiva_or_node_get_parameters(GGandivaOrNode *node);
+ggandiva_or_node_get_children(GGandivaOrNode *node);
 
 G_END_DECLS
