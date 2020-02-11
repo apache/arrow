@@ -17,14 +17,16 @@
 
 context("install_arrow()")
 
-test_that("arrow_repos", {
-  cran <- "https://cloud.r-project.org/"
-  bt <- "https://dl.bintray.com/ursalabs/arrow-r"
-  other <- "https://cran.fiocruz.br/"
-  expect_identical(arrow_repos(), cran)
-  expect_identical(arrow_repos(c(cran, bt)), cran)
-  expect_identical(arrow_repos(c(bt, other)), other)
-  expect_identical(arrow_repos(nightly = TRUE), c(bt, cran))
-  expect_identical(arrow_repos(c(cran, bt), nightly = TRUE), c(bt, cran))
-  expect_identical(arrow_repos(c(bt, other), nightly = TRUE), c(bt, other))
+r_only({
+  test_that("arrow_repos", {
+    cran <- "https://cloud.r-project.org/"
+    bt <- "https://dl.bintray.com/ursalabs/arrow-r"
+    other <- "https://cran.fiocruz.br/"
+    expect_identical(arrow_repos(), cran)
+    expect_identical(arrow_repos(c(cran, bt)), cran)
+    expect_identical(arrow_repos(c(bt, other)), other)
+    expect_identical(arrow_repos(nightly = TRUE), c(bt, cran))
+    expect_identical(arrow_repos(c(cran, bt), nightly = TRUE), c(bt, cran))
+    expect_identical(arrow_repos(c(bt, other), nightly = TRUE), c(bt, other))
+  })
 })
