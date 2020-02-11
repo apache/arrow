@@ -18,7 +18,9 @@
 //! Table API for building a logical query plan. This is similar to the Table API in Ibis
 //! and the DataFrame API in Apache Spark
 
+use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
+use crate::execution::context::ExecutionContext;
 use crate::logicalplan::{Expr, LogicalPlan};
 use std::sync::Arc;
 
@@ -66,4 +68,11 @@ pub trait Table {
 
     /// Return the index of a column within this table's schema
     fn column_index(&self, name: &str) -> Result<usize>;
+
+    /// Collects the result as a vector of RecordBatch.
+    fn collect(
+        &self,
+        ctx: &mut ExecutionContext,
+        batch_size: usize,
+    ) -> Result<Vec<RecordBatch>>;
 }
