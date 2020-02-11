@@ -51,7 +51,7 @@ gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *prope
                                                  gchar *dot_string);
 void
 gparquet_writer_properties_set_dictionary_pagesize_limit(GParquetWriterProperties *properties,
-                                                         gint64 dictinary_pagesize_limit);
+                                                         gint64 limit);
 gint64
 gparquet_writer_properties_get_dictionary_pagesize_limit(GParquetWriterProperties *properties);
 void
@@ -61,7 +61,7 @@ gint64
 gparquet_writer_properties_get_batch_size(GParquetWriterProperties *properties);
 void
 gparquet_writer_properties_set_max_row_group_length(GParquetWriterProperties *properties,
-                                                    gint64 max_row_group_length);
+                                                    gint64 length);
 gint64
 gparquet_writer_properties_get_max_row_group_length(GParquetWriterProperties *properties);
 void

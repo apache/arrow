@@ -179,16 +179,16 @@ gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *prope
 /**
  * gparquet_writer_properties_set_dictionary_pagesize_limit:
  * @properties: A #GParquetWriterProperties.
- * @dictionary_pagesize_limit: The dictionary page size limit.
+ * @limit: The dictionary page size limit.
  *
  * Since: 1.0.0
  */
 void
 gparquet_writer_properties_set_dictionary_pagesize_limit(GParquetWriterProperties *properties,
-                                                         gint64 dictionary_pagesize_limit)
+                                                         gint64 limit)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
-  priv->builder->dictionary_pagesize_limit(dictionary_pagesize_limit);
+  priv->builder->dictionary_pagesize_limit(limit);
   priv->changed = TRUE;
 }
 
@@ -241,16 +241,16 @@ gparquet_writer_properties_get_batch_size(GParquetWriterProperties *properties)
 /**
  * gparquet_writer_properties_set_max_row_group_length:
  * @properties: A #GParquetWriterProperties.
- * @max_row_group_length: The max row group length.
+ * @length: The max row group length.
  *
  * Since: 1.0.0
  */
 void
 gparquet_writer_properties_set_max_row_group_length(GParquetWriterProperties *properties,
-                                                    gint64 max_row_group_length)
+                                                    gint64 length)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
-  priv->builder->max_row_group_length(max_row_group_length);
+  priv->builder->max_row_group_length(length);
   priv->changed = TRUE;
 }
 
