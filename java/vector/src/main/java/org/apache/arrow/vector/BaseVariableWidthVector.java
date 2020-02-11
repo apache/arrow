@@ -739,7 +739,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     final int dataLength = end - start;
 
     if (startIndex == 0) {
-      target.offsetBuffer = offsetBuffer.slice();
+      target.offsetBuffer = offsetBuffer.slice(0, (1 + length) * OFFSET_WIDTH);
       target.offsetBuffer.getReferenceManager().retain();
     } else {
       target.allocateOffsetBuffer((long) (length + 1) * OFFSET_WIDTH);
