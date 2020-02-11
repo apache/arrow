@@ -112,7 +112,7 @@ gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
 }
 
 /**
- * gparquet_writer_properties_get_compression:
+ * gparquet_writer_properties_get_compression_dot_string:
  * @properties: A #GParquetWriterProperties.
  * @dotstring: The dot string path.
  *

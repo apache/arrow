@@ -40,8 +40,8 @@ void
 gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
                                            GArrowCompressionType compression_type);
 GArrowCompressionType
-gparquet_writer_properties_get_compression(GParquetWriterProperties *properties,
-                                           gchar *dotstring);
+gparquet_writer_properties_get_compression_dot_string(GParquetWriterProperties *properties,
+                                                      gchar *dotstring);
 void
 gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *properties);
 void
