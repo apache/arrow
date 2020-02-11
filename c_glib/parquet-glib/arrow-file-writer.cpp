@@ -114,7 +114,7 @@ gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
 /**
  * gparquet_writer_properties_get_compression_dot_string:
  * @properties: A #GParquetWriterProperties.
- * @dotstring: The dot string path.
+ * @dot_string: The dot string path.
  *
  * Returns: The compression type of #GParquetWriterProperties.
  *
@@ -122,10 +122,10 @@ gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
  */
 GArrowCompressionType
 gparquet_writer_properties_get_compression(GParquetWriterProperties *properties,
-                                           gchar *dotstring)
+                                           gchar *dot_string)
 {
   auto parquet_properties = gparquet_writer_properties_get_raw(properties);
-  auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(dotstring);
+  auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(dot_string);
   auto arrow_compression = parquet_properties->compression(parquet_column_path);
   return garrow_compression_type_from_raw(arrow_compression);
 }
@@ -161,6 +161,7 @@ gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properti
 /**
  * gparquet_writer_properties_dictionary_enabled:
  * @properties: A #GParquetWriterProperties.
+ * @dot_string: The dot string path.
  *
  * Returns: %TRUE on dictionary enabled, %FALSE on dictionary disabled.
  *
@@ -168,10 +169,10 @@ gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properti
  */
 gboolean
 gparquet_writer_properties_dictionary_enabled(GParquetWriterProperties *properties,
-                                              gchar *dotstring)
+                                              gchar *dot_string)
 {
   auto parquet_properties = gparquet_writer_properties_get_raw(properties);
-  auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(dotstring);
+  auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(dot_string);
   return parquet_properties->dictionary_enabled(parquet_column_path);
 }
 
