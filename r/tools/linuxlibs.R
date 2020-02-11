@@ -68,11 +68,11 @@ download_binary <- function(os = identify_os()) {
 
 # Function to figure out which flavor of binary we should download, if at all.
 # By default ("FALSE"), it will not download a precompiled library,
-# but you can override this by setting the env var LIBARROW_BINARY_DISTRO to:
+# but you can override this by setting the env var LIBARROW_BINARY to:
 # * `TRUE` (not case-sensitive), to try to discover your current OS, or
 # * some other string, presumably a related "distro-version" that has binaries
 #   built that work for your OS
-identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO", "false")) {
+identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", "false")) {
   if (identical(tolower(os), "false")) {
     # Env var says not to download a binary
     return(NULL)

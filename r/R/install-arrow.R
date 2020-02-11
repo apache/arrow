@@ -24,7 +24,7 @@
 #' @param nightly logical: Should we install a development version of the
 #' package, or should we install from CRAN (the default).
 #' @param binary On Linux, value to set for the environment variable
-#' `LIBARROW_BINARY_DISTRO`, which governs how C++ binaries are used, if at all.
+#' `LIBARROW_BINARY`, which governs how C++ binaries are used, if at all.
 #' The default value, `TRUE`, tells the installation script to detect the
 #' Linux distribution and version and find an appropriate C++ library. `FALSE`
 #' would tell the script not to retrieve a binary and instead build Arrow C++
@@ -42,6 +42,8 @@
 install_arrow <- function(nightly = FALSE, binary = TRUE, repos = getOption("repos"), ...) {
   if (tolower(Sys.info()[["sysname"]]) %in% c("windows", "darwin", "linux")) {
     # Set this flag so the right C++ libs get pulled on Linux
+    # TODO: replace LIBARROW_BINARY_DISTRO with LIBARROW_BINARY
+    # following next CRAN release after 0.16.0.1
     Sys.setenv(LIBARROW_BINARY_DISTRO = binary)
     install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
   } else {

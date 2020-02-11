@@ -158,7 +158,7 @@ please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
 This is likely a compiler mismatch and may be resolvable by setting some
 environment variables to instruct R to compile the packages to match the C++ library.
 
-A workaround would be to set the environment variable `LIBARROW_BINARY_DISTRO=FALSE`
+A workaround would be to set the environment variable `LIBARROW_BINARY=FALSE`
 and retry installation: this value instructs the package to build the C++ library from source
 instead of downloading the prebuilt binary.
 That should guarantee that the compiler settings match.
@@ -170,9 +170,9 @@ If you see either, please [report an issue](https://issues.apache.org/jira/proje
 You may also set the environment variable `ARROW_R_DEV=TRUE` for additional
 debug messages.
 
-A workaround would be to set the environment variable `LIBARROW_BINARY_DISTRO`
+A workaround would be to set the environment variable `LIBARROW_BINARY`
 to a `distribution-version` that exists in the Ursa Labs repository.
-Setting `LIBARROW_BINARY_DISTRO` is also an option when there's not an exact match
+Setting `LIBARROW_BINARY` is also an option when there's not an exact match
 for your OS but a similar version would work,
 such as if you're on `ubuntu-18.10` and there's only a binary for `ubuntu-18.04`.
 
@@ -232,7 +232,7 @@ By default, these are all unset.
   a working `arrow` R package if a prebuilt binary is found.
   Use this if you want to avoid compiling the C++ library, which may be slow
   and resource-intensive, and ensure that you only use a prebuilt binary.
-* `LIBARROW_BINARY_DISTRO`: If set to `FALSE` (case insensitive),
+* `LIBARROW_BINARY`: If set to `FALSE` (case insensitive),
   the script will not download a binary, but it may still download a source bundle.
   You may also set it to some other string,
   a related "distro-version" that has binaries built that work for your OS.

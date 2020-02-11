@@ -95,8 +95,13 @@ else
       PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
     elif [ "$UNAME" = "Linux" ]; then
       VERSION=`grep ^Version DESCRIPTION | sed s/Version:\ //`
-      if [ "${LIBARROW_BINARY_DISTRO}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
-        export LIBARROW_BINARY_DISTRO=$NOT_CRAN
+      # TODO: remove LIBARROW_BINARY_DISTRO default value check
+      # following next CRAN release after 0.16.0.1
+      if [ "${LIBARROW_BINARY}" = "" ] && [ "${LIBARROW_BINARY_DISTRO}" != "" ]; then
+        export LIBARROW_BINARY=$LIBARROW_BINARY_DISTRO
+      fi
+      if [ "${LIBARROW_BINARY}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
+        export LIBARROW_BINARY=$NOT_CRAN
       fi
       ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
       PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
