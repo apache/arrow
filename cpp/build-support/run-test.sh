@@ -130,7 +130,7 @@ function print_coredumps() {
   #   sudo sysctl -w kernel.core_pattern=core.%e.%p
   #
   # and the ulimit must be increased:
-  #   sudo ulimit -c unlimited
+  #   ulimit -c unlimited
 
   # filename is truncated to the first 15 characters in case of linux, so limit
   # the pattern for the first 15 characters
