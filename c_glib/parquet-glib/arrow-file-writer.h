@@ -47,8 +47,8 @@ gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *propertie
 void
 gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properties);
 gboolean
-gparquet_writer_properties_dictionary_enabled(GParquetWriterProperties *properties,
-                                              gchar *dot_string);
+gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *properties,
+                                                 gchar *dot_string);
 void
 gparquet_writer_properties_set_dictionary_pagesize_limit(GParquetWriterProperties *properties,
                                                          gint64 dictinary_pagesize_limit);

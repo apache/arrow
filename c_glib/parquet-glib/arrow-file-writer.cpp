@@ -159,7 +159,7 @@ gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properti
 }
 
 /**
- * gparquet_writer_properties_dictionary_enabled:
+ * gparquet_writer_properties_is_dictionary_enabled:
  * @properties: A #GParquetWriterProperties.
  * @dot_string: The dot string path.
  *
@@ -168,8 +168,8 @@ gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properti
  * Since: 1.0.0
  */
 gboolean
-gparquet_writer_properties_dictionary_enabled(GParquetWriterProperties *properties,
-                                              gchar *dot_string)
+gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *properties,
+                                                 gchar *dot_string)
 {
   auto parquet_properties = gparquet_writer_properties_get_raw(properties);
   auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(dot_string);
