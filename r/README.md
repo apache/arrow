@@ -1,6 +1,3 @@
-
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-
 # arrow
 
 [![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
@@ -230,7 +227,6 @@ Within an R session, these can help with package development:
 devtools::load_all() # Load the dev package
 devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
 devtools::document() # Update roxygen documentation
-rmarkdown::render("README.Rmd") # To rebuild README.md
 pkgdown::build_site() # To preview the documentation website
 devtools::check() # All package checks; see also below
 covr::package_coverage() # See test coverage statistics

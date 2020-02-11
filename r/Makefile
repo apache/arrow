@@ -19,7 +19,7 @@ VERSION=$(shell grep ^Version DESCRIPTION | sed s/Version:\ //)
 ARROW_R_DEV="TRUE"
 
 doc:
-	R --slave -e 'rmarkdown::render("README.Rmd"); roxygen2::roxygenize()'
+	R --slave -e 'roxygen2::roxygenize()'
 	-git add --all man/*.Rd
 
 test:
