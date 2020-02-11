@@ -29,6 +29,7 @@
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/dataset/writer.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_forest.h"
 #include "arrow/io/file.h"
@@ -39,8 +40,6 @@ namespace arrow {
 
 namespace dataset {
 
-class Filter;
-
 /// \brief The path and filesystem where an actual file is located or a buffer which can
 /// be read like a file
 class ARROW_DS_EXPORT FileSource {
@@ -49,13 +48,19 @@ class ARROW_DS_EXPORT FileSource {
   enum DatasetType { PATH, BUFFER };
 
   FileSource(std::string path, fs::FileSystem* filesystem,
-             Compression::type compression = Compression::UNCOMPRESSED)
+             Compression::type compression = Compression::UNCOMPRESSED,
+             bool writable = true)
       : impl_(PathAndFileSystem{std::move(path), filesystem}),
-        compression_(compression) {}
+        compression_(compression),
+        writable_(writable) {}
 
   explicit FileSource(std::shared_ptr<Buffer> buffer,
                       Compression::type compression = Compression::UNCOMPRESSED)
       : impl_(std::move(buffer)), compression_(compression) {}
+
+  explicit FileSource(std::shared_ptr<ResizableBuffer> buffer,
+                      Compression::type compression = Compression::UNCOMPRESSED)
+      : impl_(std::move(buffer)), compression_(compression), writable_(true) {}
 
   bool operator==(const FileSource& other) const {
     if (type() != other.type()) {
@@ -75,6 +80,9 @@ class ARROW_DS_EXPORT FileSource {
 
   /// \brief Return the type of raw compression on the file, if any
   Compression::type compression() const { return compression_; }
+
+  /// \brief Whether the this source may be opened writable
+  bool writable() const { return writable_; }
 
   /// \brief Return the file path, if any. Only valid when file source
   /// type is PATH
@@ -99,6 +107,9 @@ class ARROW_DS_EXPORT FileSource {
   /// \brief Get a RandomAccessFile which views this file source
   Result<std::shared_ptr<arrow::io::RandomAccessFile>> Open() const;
 
+  /// \brief Get an OutputStream which wraps this file source
+  Result<std::shared_ptr<arrow::io::OutputStream>> OpenWritable() const;
+
  private:
   struct PathAndFileSystem {
     std::string path;
@@ -107,6 +118,7 @@ class ARROW_DS_EXPORT FileSource {
 
   util::variant<PathAndFileSystem, std::shared_ptr<Buffer>> impl_;
   Compression::type compression_;
+  bool writable_ = false;
 };
 
 /// \brief Base class for file format implementation
@@ -132,12 +144,17 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
       std::shared_ptr<ScanContext> context) const = 0;
 
   /// \brief Open a fragment
-  Result<std::shared_ptr<Fragment>> MakeFragment(
+  virtual Result<std::shared_ptr<Fragment>> MakeFragment(
       FileSource source, std::shared_ptr<ScanOptions> options,
       std::shared_ptr<Expression> partition_expression);
 
   Result<std::shared_ptr<Fragment>> MakeFragment(FileSource source,
                                                  std::shared_ptr<ScanOptions> options);
+
+  /// \brief Write a fragment
+  virtual Result<std::shared_ptr<WriteTask>> WriteFragment(
+      FileSource destination,
+      std::shared_ptr<Fragment> fragment);  // FIXME(bkietz) make this pure virtual
 };
 
 /// \brief A Fragment that is stored in a file with a known format
@@ -221,18 +238,28 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
-  static Result<std::shared_ptr<Dataset>> Make(std::shared_ptr<Schema> schema,
-                                               std::shared_ptr<Expression> root_partition,
-                                               std::shared_ptr<FileFormat> format,
-                                               std::shared_ptr<fs::FileSystem> filesystem,
-                                               fs::PathForest forest,
-                                               ExpressionVector partitions);
+  static Result<std::shared_ptr<FileSystemDataset>> Make(
+      std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
+      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+      fs::PathForest forest, ExpressionVector partitions);
+
+  /// \brief Write to a new format and filesystem location, preserving partitioning.
+  ///
+  /// \param[in] format the FileFormat to use when writing.
+  /// \param[in] filesystem the FileSystem in which to write.
+  /// \param[in] base_dirs the root directories in which to write.
+  /// \param[in] use_threads use threads when writing files.
+  Result<std::shared_ptr<FileSystemDataset>> Write(
+      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+      const std::vector<std::string>& base_dirs, bool use_threads = false);
 
   std::string type_name() const override { return "filesystem"; }
 
   const std::shared_ptr<FileFormat>& format() const { return format_; }
 
   std::vector<std::string> files() const;
+
+  const ExpressionVector& partitions() const { return partitions_; }
 
   std::string ToString() const;
 

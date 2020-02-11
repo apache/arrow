@@ -19,34 +19,34 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
+#include <vector>
 
-#include "arrow/dataset/file_base.h"
+#include "arrow/compute/context.h"
+#include "arrow/dataset/dataset.h"
+#include "arrow/dataset/projector.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/memory_pool.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+class Table;
+
+namespace internal {
+class TaskGroup;
+};
+
 namespace dataset {
 
-/// \brief A FileFormat implementation that reads from Ipc files
-class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
+/// \brief Write a fragment to a single OutputStream.
+class ARROW_DS_EXPORT WriteTask {
  public:
-  std::string type_name() const override { return "ipc"; }
+  virtual Result<std::shared_ptr<FileFragment>> Execute() = 0;
 
-  bool splittable() const override { return true; }
-
-  Result<bool> IsSupported(const FileSource& source) const override;
-
-  /// \brief Return the schema of the file if possible.
-  Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
-
-  /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(const FileSource& source,
-                                    std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context) const override;
-
-  Result<std::shared_ptr<WriteTask>> WriteFragment(
-      FileSource destination, std::shared_ptr<Fragment> fragment) override;
+  virtual ~WriteTask() = default;
 };
 
 }  // namespace dataset

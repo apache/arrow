@@ -37,6 +37,8 @@ constexpr int64_t kBatchSize = 1UL << 12;
 constexpr int64_t kBatchRepetitions = 1 << 5;
 constexpr int64_t kNumRows = kBatchSize * kBatchRepetitions;
 
+using internal::checked_pointer_cast;
+
 class ArrowIpcWriterMixin : public ::testing::Test {
  public:
   std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
@@ -85,6 +87,12 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
                                     kBatchRepetitions);
   }
 
+  Result<FileSource> GetFileSink() {
+    std::shared_ptr<ResizableBuffer> buffer;
+    RETURN_NOT_OK(AllocateResizableBuffer(0, &buffer));
+    return FileSource(buffer);
+  }
+
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
     return MakeFlattenIterator(MakeMaybeMapIterator(
         [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
@@ -97,7 +105,7 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
   }
 
  protected:
-  std::shared_ptr<FileFormat> format_ = std::make_shared<IpcFileFormat>();
+  std::shared_ptr<IpcFileFormat> format_ = std::make_shared<IpcFileFormat>();
   std::shared_ptr<ScanOptions> opts_;
   std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
   std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
@@ -118,6 +126,68 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
   }
 
   ASSERT_EQ(row_count, kNumRows);
+}
+
+TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
+  std::shared_ptr<RecordBatchReader> reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+
+  opts_ = ScanOptions::Make(reader->schema());
+  auto fragment = std::make_shared<IpcFragment>(*source, opts_);
+
+  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
+
+  EXPECT_OK_AND_ASSIGN(auto write_task, format_->WriteFragment(sink, fragment));
+
+  EXPECT_OK_AND_ASSIGN(auto written_fragment, write_task->Execute());
+  EXPECT_EQ(written_fragment->source(), sink);
+
+  AssertBufferEqual(*sink.buffer(), *source->buffer());
+}
+
+TEST_F(TestIpcFileFormat, WriteFileSystemSource) {
+  fs::FileStatsVector stats{fs::Dir("old_root_0"),      fs::File("old_root_0/aaa"),
+                            fs::File("old_root_0/bbb"), fs::File("old_root_0/ccc"),
+                            fs::Dir("old_root_1"),      fs::File("old_root_1/aaa"),
+                            fs::File("old_root_1/bbb"), fs::File("old_root_1/ccc")};
+  ASSERT_OK_AND_ASSIGN(auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
+
+  ExpressionVector partitions = {
+      ("i32"_ == 0).Copy(),     ("str"_ == "aaa").Copy(), ("str"_ == "bbb").Copy(),
+      ("str"_ == "ccc").Copy(), ("i32"_ == 1).Copy(),     ("str"_ == "aaa").Copy(),
+      ("str"_ == "bbb").Copy(), ("str"_ == "ccc").Copy(),
+  };
+
+  auto schema = arrow::schema({field("i32", int32()), field("str", utf8())});
+  ASSERT_OK_AND_ASSIGN(
+      auto boxed_source,
+      FileSystemSource::Make(schema, ("root"_ == true).Copy(),
+                             std::make_shared<DummyFileFormat>(), fs, stats, partitions));
+  auto source = checked_pointer_cast<FileSystemSource>(boxed_source);
+
+  ASSERT_OK_AND_ASSIGN(auto written_boxed_source,
+                       source->Write(format_, fs, {"new_root_0", "new_root_1"}));
+  auto written_source = checked_pointer_cast<FileSystemSource>(written_boxed_source);
+
+  using E = TestExpression;
+  for (size_t i = 0; i < partitions.size(); ++i) {
+    ASSERT_EQ(E{partitions[i]}, E{written_source->partitions()[i]});
+  }
+
+  auto stat_it = stats.begin();
+  auto offset = sizeof("old_root_0");
+  opts_ = ScanOptions::Make(schema);
+  for (auto maybe_fragment : written_source->GetFragments(opts_)) {
+    ASSERT_OK_AND_ASSIGN(auto fragment, maybe_fragment);
+    auto actual =
+        checked_pointer_cast<FileFragment>(fragment)->source().path().substr(offset);
+
+    while (!stat_it->IsFile()) ++stat_it;
+    auto expected = stat_it->path().substr(offset) + ".ipc";
+
+    ASSERT_EQ(actual, expected);
+    ++stat_it;
+  }
 }
 
 TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {

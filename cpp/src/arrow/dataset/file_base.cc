@@ -27,6 +27,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/task_group.h"
 
 namespace arrow {
 namespace dataset {
@@ -50,6 +51,23 @@ Result<std::shared_ptr<Fragment>> FileFormat::MakeFragment(
   return std::make_shared<FileFragment>(std::move(source), shared_from_this(), options,
                                         std::move(partition_expression));
 }
+Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable() const {
+  if (!writable_) {
+    return Status::Invalid("file source '", path(), "' is not writable");
+  }
+
+  if (type() == PATH) {
+    return filesystem()->OpenOutputStream(path());
+  }
+
+  auto b = internal::checked_pointer_cast<ResizableBuffer>(buffer());
+  return std::make_shared<::arrow::io::BufferOutputStream>(b);
+}
+
+Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
+    FileSource destination, std::shared_ptr<Fragment> fragment) {
+  return Status::NotImplemented("writing fragment of format ", type_name());
+}
 
 Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanContext> context) {
   return format_->ScanFile(source_, scan_options_, std::move(context));
@@ -69,7 +87,7 @@ FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
   DCHECK_EQ(static_cast<size_t>(forest_.size()), partitions_.size());
 }
 
-Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
+Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     std::vector<fs::FileInfo> infos) {
@@ -78,7 +96,7 @@ Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
               std::move(filesystem), std::move(infos), std::move(partitions));
 }
 
-Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
+Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     std::vector<fs::FileInfo> infos, ExpressionVector partitions) {
@@ -87,11 +105,11 @@ Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
               std::move(filesystem), std::move(forest), std::move(partitions));
 }
 
-Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
+Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     fs::PathForest forest, ExpressionVector partitions) {
-  return std::shared_ptr<Dataset>(new FileSystemDataset(
+  return std::shared_ptr<FileSystemDataset>(new FileSystemDataset(
       std::move(schema), std::move(root_partition), std::move(format),
       std::move(filesystem), std::move(forest), std::move(partitions)));
 }
@@ -107,6 +125,67 @@ std::vector<std::string> FileSystemDataset::files() const {
   }));
 
   return files;
+}
+
+using arrow::internal::GetCpuThreadPool;
+using arrow::internal::TaskGroup;
+
+Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
+    std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+    const std::vector<std::string>& base_dirs, bool use_threads) {
+  auto roots = forest_.roots();
+  DCHECK_EQ(static_cast<size_t>(roots.size()), base_dirs.size());
+
+  auto scan_options = ScanOptions::Make(schema_);
+  auto task_group =
+      use_threads ? TaskGroup::MakeThreaded(GetCpuThreadPool()) : TaskGroup::MakeSerial();
+
+  auto new_files = forest_.stats();
+
+  int root_i = -1;
+  auto collect_fragments = [&](fs::PathForest::Ref ref) -> Status {
+    if (!ref.parent()) {
+      ++root_i;
+      new_files[ref.i].set_path(base_dirs[root_i]);
+    } else {
+      // remove old base dir, tack on new base dir
+      const auto& old_root = roots[root_i].stats().path();
+      auto rel = fs::internal::RemoveAncestor(old_root, ref.stats().path());
+      DCHECK(rel.has_value());
+
+      auto new_path = fs::internal::ConcatAbstractPath(
+          base_dirs[root_i], rel->to_string() + "." + format->type_name());
+      new_files[ref.i].set_path(std::move(new_path));
+    }
+
+    if (ref.stats().IsFile()) {
+      // generate a fragment for this file
+      FileSource src(ref.stats().path(), filesystem_.get());
+      ARROW_ASSIGN_OR_RAISE(auto fragment,
+                            format_->MakeFragment(std::move(src), scan_options));
+
+      FileSource dest(new_files[ref.i].path(), filesystem.get());
+      ARROW_ASSIGN_OR_RAISE(auto write_task,
+                            format->WriteFragment(std::move(dest), std::move(fragment)));
+
+      task_group->Append([write_task] { return write_task->Execute().status(); });
+    } else {
+      auto new_path = &new_files[ref.i].path();
+      task_group->Append([&, new_path] { return filesystem->CreateDir(*new_path); });
+    }
+
+    return Status::OK();
+  };
+
+  RETURN_NOT_OK(forest_.Visit(collect_fragments));
+
+  RETURN_NOT_OK(task_group->Finish());
+
+  ARROW_ASSIGN_OR_RAISE(auto forest,
+                        fs::PathForest::MakeFromPreSorted(std::move(new_files)));
+
+  return Make(schema_, partition_expression_, std::move(format), std::move(filesystem),
+              std::move(forest), partitions_);
 }
 
 std::string FileSystemDataset::ToString() const {

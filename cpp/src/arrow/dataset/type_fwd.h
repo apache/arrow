@@ -50,6 +50,7 @@ using FragmentVector = std::vector<std::shared_ptr<Fragment>>;
 
 class FileFormat;
 class FileFragment;
+class FileSystemDataset;
 
 class Expression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;

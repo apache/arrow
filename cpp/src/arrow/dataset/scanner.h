@@ -56,6 +56,7 @@ class ARROW_DS_EXPORT ScanOptions {
   }
 
   // Construct a copy of these options with a different schema.
+  // The projector will be reconstructed.
   std::shared_ptr<ScanOptions> ReplaceSchema(std::shared_ptr<Schema> schema) const;
 
   // Indicate if the Scanner should make use of the ThreadPool found in the
@@ -203,7 +204,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any column name does not exists in the dataset's
   ///         Schema.
-  Status Project(const std::vector<std::string>& columns);
+  Status Project(std::vector<std::string> columns);
 
   /// \brief Set the filter expression to return only rows matching the filter.
   ///

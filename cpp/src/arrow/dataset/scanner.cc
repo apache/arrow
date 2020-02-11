@@ -116,10 +116,10 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
       options_(ScanOptions::Make(dataset_->schema())),
       context_(std::move(context)) {}
 
-Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
+Status ScannerBuilder::Project(std::vector<std::string> columns) {
   RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(columns));
   has_projection_ = true;
-  project_columns_ = columns;
+  project_columns_ = std::move(columns);
   return Status::OK();
 }
 

@@ -148,5 +148,48 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(
   return IpcScanTaskIterator::Make(options, context, source);
 }
 
+Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
+    FileSource destination, std::shared_ptr<Fragment> fragment) {
+  struct Task : WriteTask {
+    Task(FileSource destination, std::shared_ptr<Fragment> fragment)
+        : destination_(std::move(destination)), fragment_(std::move(fragment)) {}
+
+    Result<std::shared_ptr<FileFragment>> Execute() override {
+      ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.OpenWritable());
+
+      ARROW_ASSIGN_OR_RAISE(auto writer, ipc::RecordBatchFileWriter::Open(
+                                             out_stream.get(), fragment_->schema()));
+
+      auto context = std::make_shared<ScanContext>();
+      ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment_->Scan(context));
+
+      for (auto maybe_scan_task : scan_task_it) {
+        ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
+
+        ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
+
+        for (auto maybe_batch : batch_it) {
+          ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+          RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+        }
+      }
+
+      RETURN_NOT_OK(writer->Close());
+
+      // TODO(bkietz) this needs to be the invoking format as a data member
+      auto format = std::make_shared<IpcFileFormat>();
+
+      // empty any existing projector
+      auto scan_options = fragment_->scan_options()->ReplaceSchema(fragment_->schema());
+      return format->MakeFragment(std::move(destination_), std::move(scan_options));
+    }
+
+    FileSource destination_;
+    std::shared_ptr<Fragment> fragment_;
+  };
+
+  return std::make_shared<Task>(std::move(destination), std::move(fragment));
+}
+
 }  // namespace dataset
 }  // namespace arrow
