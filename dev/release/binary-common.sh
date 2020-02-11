@@ -26,6 +26,10 @@ else
 fi
 docker_ssh_key="${SOURCE_DIR}/binary/id_rsa"
 
+if [ ! -f "${docker_ssh_key}" ]; then
+  ssh-keygen -N "" -f "${docker_ssh_key}"
+fi
+
 docker_gpg_ssh() {
   local ssh_port=$1
   shift

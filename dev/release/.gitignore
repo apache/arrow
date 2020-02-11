@@ -16,4 +16,6 @@
 # under the License.
 
 /.env
+/binary/id_rsa
+/binary/id_rsa.pub
 /binary/tmp/
