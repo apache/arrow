@@ -27,12 +27,12 @@ class TestGandivaBooleanNode < Test::Unit::TestCase
   def test_and
     and_node = Gandiva::AndNode.new([@field1_node, @field2_node])
     assert_equal([@field1_node, @field2_node],
-                 and_node.parameters)
+                 and_node.children)
   end
 
   def test_or
     or_node = Gandiva::OrNode.new([@field1_node, @field2_node])
     assert_equal([@field1_node, @field2_node],
-                 or_node.parameters)
+                 or_node.children)
   end
 end

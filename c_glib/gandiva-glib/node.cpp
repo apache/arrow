@@ -1435,6 +1435,22 @@ ggandiva_boolean_node_class_init(GGandivaBooleanNodeClass *klass)
   gobject_class->dispose = ggandiva_boolean_node_dispose;
 }
 
+/**
+ * ggandiva_boolean_node_get_children:
+ * @node: A #GGandivaBooleanNode.
+ *
+ * Returns: (transfer none) (element-type GGandivaNode):
+ *   The children of the Boolean node.
+ *
+ * Since: 1.0.0
+ */
+GList *
+ggandiva_boolean_node_get_children(GGandivaBooleanNode *node)
+{
+  auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(node);
+  return priv->children;
+}
+
 
 G_DEFINE_TYPE(GGandivaAndNode,
               ggandiva_and_node,
@@ -1471,22 +1487,6 @@ ggandiva_and_node_new(GList *children)
                                    children);
 }
 
-/**
- * ggandiva_and_node_get_children:
- * @node: A #GGandivaAndNode.
- *
- * Returns: (transfer none) (element-type GGandivaNode):
- *   The children of the AND node.
- *
- * Since: 1.0.0
- */
-GList *
-ggandiva_and_node_get_children(GGandivaAndNode *node)
-{
-  auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(node);
-  return priv->children;
-}
-
 
 G_DEFINE_TYPE(GGandivaOrNode,
               ggandiva_or_node,
@@ -1521,22 +1521,6 @@ ggandiva_or_node_new(GList *children)
   auto gandiva_node = gandiva::TreeExprBuilder::MakeOr(gandiva_nodes);
   return ggandiva_or_node_new_raw(&gandiva_node,
                                   children);
-}
-
-/**
- * ggandiva_or_node_get_children:
- * @node: A #GGandivaOrNode.
- *
- * Returns: (transfer none) (element-type GGandivaNode):
- *   The children of the OR node.
- *
- * Since: 1.0.0
- */
-GList *
-ggandiva_or_node_get_children(GGandivaOrNode *node)
-{
-  auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(node);
-  return priv->children;
 }
 
 G_END_DECLS

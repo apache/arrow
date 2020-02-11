@@ -354,6 +354,9 @@ struct _GGandivaBooleanNodeClass
   GObjectClass parent_class;
 };
 
+GList *
+ggandiva_boolean_node_get_children(GGandivaBooleanNode *node);
+
 
 #define GGANDIVA_TYPE_AND_NODE (ggandiva_and_node_get_type())
 G_DECLARE_DERIVABLE_TYPE(GGandivaAndNode,
@@ -368,8 +371,6 @@ struct _GGandivaAndNodeClass
 
 GGandivaAndNode *
 ggandiva_and_node_new(GList *children);
-GList *
-ggandiva_and_node_get_children(GGandivaAndNode *node);
 
 
 #define GGANDIVA_TYPE_OR_NODE (ggandiva_or_node_get_type())
@@ -385,7 +386,5 @@ struct _GGandivaOrNodeClass
 
 GGandivaOrNode *
 ggandiva_or_node_new(GList *children);
-GList *
-ggandiva_or_node_get_children(GGandivaOrNode *node);
 
 G_END_DECLS
