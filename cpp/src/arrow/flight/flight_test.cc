@@ -1247,7 +1247,13 @@ TEST_F(TestBasicAuthHandler, CheckPeerIdentity) {
   ASSERT_EQ(result->body->ToString(), "user");
 }
 
+#ifdef __APPLE__
+// ARROW-7701: this test is flaky on MacOS and segfaults (due to gRPC
+// bug?)
+TEST_F(TestTls, DISABLED_DoAction) {
+#else
 TEST_F(TestTls, DoAction) {
+#endif
   FlightCallOptions options;
   options.timeout = TimeoutDuration{5.0};
   Action action;
