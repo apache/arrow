@@ -890,7 +890,7 @@ class Job(Serializable):
             self._assets = []
             with concurrent.futures.ThreadPoolExecutor(max_workers) as pool:
                 for task_name, task in sorted(self.tasks.items()):
-                    # HACK: spare some queires because of the rate limit, and
+                    # HACK: spare some queries because of the rate limit, and
                     # don't query tasks with specieid prefig, e.g. "test-"
                     if (ignore_prefix is not None and
                             task_name.startswith(ignore_prefix)):
@@ -1429,7 +1429,7 @@ def github_page(ctx):
 def generate_github_page(ctx, n, gh_branch, job_prefix, dry_run,
                          github_push_token):
     queue = ctx.obj['queue']
-    # queue.fetch()
+    queue.fetch()
 
     # fail early if the requested branch is not available in the local checkout
     remote = 'origin'
