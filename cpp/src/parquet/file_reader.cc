@@ -81,20 +81,20 @@ std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
 }
 
 
-std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReaderWithIndex(int i,int64_t predicate) {
+std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReaderWithIndex(int i,int64_t predicate, int64_t& min_index) {
   DCHECK(i < metadata()->num_columns())
       << "The RowGroup only has " << metadata()->num_columns()
       << "columns, requested column: " << i;
-  return contents_->GetColumnPageReaderWithIndex(i,predicate);
+  return contents_->GetColumnPageReaderWithIndex(i,predicate, min_index);
 }
 
-std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithIndex(int i,int64_t predicate) {
+std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithIndex(int i,int64_t predicate, int64_t& min_index) {
   DCHECK(i < metadata()->num_columns())
       << "The RowGroup only has " << metadata()->num_columns()
       << "columns, requested column: " << i;
   const ColumnDescriptor* descr = metadata()->schema()->Column(i);
 
-  std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReaderWithIndex(i,predicate);
+  std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReaderWithIndex(i,predicate, min_index);
   return ColumnReader::Make(
       descr, std::move(page_reader),
       const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
@@ -132,12 +132,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
   }
 
-  void GoToPage(int64_t v, int64_t default_start, int64_t default_next_page_offset, int64_t default_num_values,parquet::format::ColumnIndex col_index, 
-              parquet::format::OffsetIndex offset_index, uint64_t& page_offset,uint64_t& num_values,uint64_t& next_page_offset) const {
+  void GetPageIndex(int64_t v, int64_t& min_index, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index) const {
 //      std::vector<int>::size_type itemindex = 0;
       //std::vector<int64_t> min_vec = std::vector<std::basic_string<char>>(col_index.min_values.begin(), col_index.min_values.end());
       int64_t min_diff = std::numeric_limits<int64_t>::max();//std::lower_bound(min_vec.begin(),min_vec.end(),v);
-      int64_t min_index = -1;
+      
       for (uint64_t itemindex = 0;itemindex < col_index.min_values.size();itemindex++) {
            int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
 
@@ -145,19 +144,6 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                min_index = itemindex;
                min_diff = abs(*page_min - v);
            }
-      }
-      
-      if ( page_offset == 0 && next_page_offset == 0 && num_values == 0 && offset_index.page_locations.size()>=1 && min_index != -1 ) {
-        page_offset = offset_index.page_locations[min_index].offset;
-        next_page_offset = offset_index.page_locations[min_index+1].offset;  // -- need  to verify if I have to do this for cases when the min_index reaches the end of the page_loc array
-                                                                            // offset_index.page_locations[min_index].offset + offset_index.page_locations[min_index].compressed_page_size;
-        num_values = offset_index.page_locations[min_index+1].first_row_index - offset_index.page_locations[min_index].first_row_index;
-      }
-    
-      if(page_offset == 0 && next_page_offset == 0 && num_values == 0) {
-           page_offset = default_start;
-           next_page_offset = page_offset + default_next_page_offset;
-           num_values = default_num_values;
       }
   }
 
@@ -237,7 +223,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   }
 
 
-  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, int64_t predicate) {
+  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, int64_t predicate, int64_t& min_index) {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(column_index);
 
@@ -248,7 +234,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     int64_t col_length = col->total_compressed_size();
-
+    
     bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
 
     if ( has_page_index ) {
@@ -257,14 +243,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
         DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
         page_offset = 0, next_page_offset =0, num_values = 0;
-        GoToPage(predicate, col_start,col_length,col->num_values(),col_index,offset_index,page_offset,num_values,next_page_offset);
+        GetPageIndex(predicate, min_index, col_index,offset_index);
     }
-    else{
-       page_offset = col_start;
-       next_page_offset = page_offset + col_length;
-       num_values = col->num_values();
-       GoToPagewoIndex(predicate);
-    }
+    
     // PARQUET-816 workaround for old files created by older parquet-mr
     const ApplicationVersion& version = file_metadata_->writer_version();
     if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION())) {
@@ -279,8 +260,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     std::shared_ptr<ArrowInputStream> stream =
-        properties_.GetStream(source_, page_offset, next_page_offset-page_offset);
-    return PageReader::Open(stream, num_values, col->compression(),
+        properties_.GetStream(source_, col_start , col_length);
+
+    return PageReader::Open(stream, col->num_values(), col->compression(),
                             properties_.memory_pool());
   }
 

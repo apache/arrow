@@ -19,7 +19,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
-
+#include <cstdio>
 #include <reader_writer.h>
 
 /*
@@ -84,13 +84,29 @@ int main(int argc, char** argv) {
       std::shared_ptr<parquet::ColumnReader> column_reader;
       int col_id = 0;
 
+      std::cout<< "test arg v" <<argv[1] << std::endl;
+      
+      int64_t page_index = -1;
+      int64_t predicate;
+      char c;
+      sscanf(argv[1], "%" SCNd64 "%c", &predicate, &c);
+      
       // Get the Column Reader for the Int64 column
-      column_reader = row_group_reader->Column(col_id);
+      column_reader = row_group_reader->ColumnWithIndex(col_id,predicate,page_index);
       parquet::Int64Reader* int64_reader =
           static_cast<parquet::Int64Reader*>(column_reader.get());
       // Read all the rows in the column
+      std::cout << "page index:" << page_index << std::endl;
+     
+      int counter = 0;
+     
+      while ( counter < page_index && int64_reader->HasNext() ) {
+          counter++;
+      }
+
       while (int64_reader->HasNext()) {
         int64_t value;
+        
         // Read one value at a time. The number of rows read is returned. values_read
         // contains the number of non-null rows
         rows_read = int64_reader->ReadBatch(1, &definition_level, &repetition_level,
@@ -100,10 +116,12 @@ int main(int argc, char** argv) {
         // There are no NULL values in the rows written
         assert(values_read == 1);
         // Verify the value written
-        std::cout << value << "\n";
+        if ( value == predicate)
+               std::cout << value << "\n";
         int64_t expected_value = col_row_counts[col_id];
 //        assert(value == expected_value);
-        col_row_counts[col_id]++;
+        col_row_counts[col_id]++; 
+       
       }
 
 
