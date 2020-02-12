@@ -17,10 +17,13 @@
 
 add_executable(parquet-low-level-example low-level-api/reader-writer.cc)
 add_executable(parquet-low-level-example2 low-level-api/reader-writer2.cc)
+add_executable(parquet-with-index-page-skipping low-level-api/reader-writer-with-index.cc)
 target_include_directories(parquet-low-level-example PRIVATE low-level-api/)
 target_include_directories(parquet-low-level-example2 PRIVATE low-level-api/)
+target_include_directories(parquet-with-index-page-skipping PRIVATE low-level-api/)
 target_link_libraries(parquet-low-level-example parquet_static)
 target_link_libraries(parquet-low-level-example2 parquet_static)
+target_link_libraries(parquet-with-index-page-skipping parquet_static)
 
 add_executable(parquet-arrow-example parquet-arrow/reader-writer.cc)
 # Prefer shared linkage but use static if shared build is deactivated
@@ -33,4 +36,5 @@ endif()
 add_dependencies(parquet
   parquet-low-level-example
   parquet-low-level-example2
+  parquet-with-index-page-skipping
   parquet-arrow-example)

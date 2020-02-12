@@ -58,6 +58,8 @@ class PARQUET_EXPORT RowGroupReader {
 
   std::unique_ptr<PageReader> GetColumnPageReader(int i);
 
+  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(std::vector<int> column_numbers, int predicate);
+
  private:
   // Holds a pointer to an instance of Contents implementation
   std::unique_ptr<Contents> contents_;

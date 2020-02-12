@@ -120,15 +120,16 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       for (uint64_t itemindex = 0;itemindex < col_index.min_values.size();itemindex++) {
            int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
 
-           if ( *page_min <= v && min_diff >= v - *page_min ) {
+           if ( *page_min <= v && min_diff >= abs(v - *page_min) ) {
                min_index = itemindex;
                min_diff = abs(*page_min - v);
            }
       }
-
-      if ( page_offset == 0 && next_page_offset == 0 && num_values == 0 && offset_index.page_locations.size()>1 && min_index != -1 ) {
+      
+      if ( page_offset == 0 && next_page_offset == 0 && num_values == 0 && offset_index.page_locations.size()>=1 && min_index != -1 ) {
         page_offset = offset_index.page_locations[min_index].offset;
-        next_page_offset = offset_index.page_locations[min_index+1].offset;
+        next_page_offset = offset_index.page_locations[min_index+1].offset;  // -- need  to verify if I have to do this for cases when the min_index reaches the end of the page_loc array
+                                                                            // offset_index.page_locations[min_index].offset + offset_index.page_locations[min_index].compressed_page_size;
         num_values = offset_index.page_locations[min_index+1].first_row_index - offset_index.page_locations[min_index].first_row_index;
       }
     
@@ -214,9 +215,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(page_buffer.data()), &length, offset_index);
   }
 
-  std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
+
+  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(std::vector<int> column_numbers, int64_t predicate) {
     // Read column chunk from the file
-    auto col = row_group_metadata_->ColumnChunk(i);
+    auto col = row_group_metadata_->ColumnChunk(column_numbers[0]);
 
     int64_t col_start = col->data_page_offset();
     if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
@@ -228,9 +230,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
 
-    int64_t predicate = 24003303;
-
-    if (has_page_index) {
+    if ( has_page_index ) {
         parquet::format::ColumnIndex col_index;
         parquet::format::OffsetIndex offset_index;
         DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
@@ -260,6 +260,39 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     std::shared_ptr<ArrowInputStream> stream =
         properties_.GetStream(source_, page_offset, next_page_offset-page_offset);
     return PageReader::Open(stream, num_values, col->compression(),
+                            properties_.memory_pool());
+  }
+
+
+
+  std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
+    // Read column chunk from the file
+    auto col = row_group_metadata_->ColumnChunk(i);
+
+    int64_t col_start = col->data_page_offset();
+    if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
+        col_start > col->dictionary_page_offset()) {
+      col_start = col->dictionary_page_offset();
+    }
+
+    int64_t col_length = col->total_compressed_size();
+
+    // PARQUET-816 workaround for old files created by older parquet-mr
+    const ApplicationVersion& version = file_metadata_->writer_version();
+    if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION())) {
+      // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
+      // dictionary page header size in total_compressed_size and total_uncompressed_size
+      // (see IMPALA-694). We add padding to compensate.
+      int64_t size = -1;
+      PARQUET_THROW_NOT_OK(source_->GetSize(&size));
+      int64_t bytes_remaining = size - (col_start + col_length);
+      int64_t padding = std::min<int64_t>(kMaxDictHeaderSize, bytes_remaining);
+      col_length += padding;
+    }
+
+    std::shared_ptr<ArrowInputStream> stream =
+        properties_.GetStream(source_, col_start, col_length);
+    return PageReader::Open(stream, col->num_values(), col->compression(),
                             properties_.memory_pool());
   }
 
