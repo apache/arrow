@@ -31,15 +31,12 @@ jobs:
       - uses: actions/checkout@v1
       - name: Set up git remote for pushing to
         run: |
-          OWNER=$(jq --raw-output .pull_request.head.user.login ${GITHUB_EVENT_PATH})
-          echo "::set-env name=OWNER::${OWNER}"
-          REPO=$(jq --raw-output .pull_request.head.repo.name ${GITHUB_EVENT_PATH})
-          if [ "$OWNER" != "apache" ]; then
+          if [ "${{ github.repository }}" != "apache/arrow" ]; then
             git config user.name "$(git log -1 --pretty=format:%an)"
             git config user.email "$(git log -1 --pretty=format:%ae)"
-            git remote add deploy https://x-access-token:${GITHUB_TOKEN}@github.com/${OWNER}/${REPO}.git
+            git remote add deploy https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
             git fetch deploy
-            git checkout --track deploy/${{ github.head_ref }}
+            git checkout --track deploy/${{ github.ref }}
           fi
       - uses: r-lib/actions/setup-r@v1
       - name: Install dependencies
@@ -50,7 +47,7 @@ jobs:
           Rscript -e 'roxygen2::roxygenize()'
       - name: Commit results
         run: |
-          if [ "$OWNER" != "apache" ]; then
+          if [ "${{ github.repository }}" != "apache/arrow" ]; then
             git commit -a -m 'Update docs' || echo "No changes to commit"
-            git push deploy ${{ github.head_ref }} || echo "No changes to commit"
+            git push deploy ${{ github.ef }} || echo "No changes to commit"
           fi
