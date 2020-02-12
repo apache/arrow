@@ -4,20 +4,30 @@
 \alias{install_arrow}
 \title{Install or upgrade the Arrow library}
 \usage{
-install_arrow(nightly = FALSE, binary = TRUE, repos = getOption("repos"), ...)
+install_arrow(
+  nightly = FALSE,
+  binary = TRUE,
+  use_system = FALSE,
+  repos = getOption("repos"),
+  ...
+)
 }
 \arguments{
 \item{nightly}{logical: Should we install a development version of the
 package, or should we install from CRAN (the default).}
 
 \item{binary}{On Linux, value to set for the environment variable
-\code{LIBARROW_BINARY_DISTRO}, which governs how C++ binaries are used, if at all.
+\code{LIBARROW_BINARY}, which governs how C++ binaries are used, if at all.
 The default value, \code{TRUE}, tells the installation script to detect the
 Linux distribution and version and find an appropriate C++ library. \code{FALSE}
 would tell the script not to retrieve a binary and instead build Arrow C++
 from source. Other valid values are strings corresponding to a Linux
 distribution-version, to override the value that would be detected.
 See \code{vignette("install", package = "arrow")} for further details.}
+
+\item{use_system}{logical: Should we use \code{pkg-config} to look for Arrow
+system packages? Default is \code{FALSE}. If \code{TRUE}, source installation may be
+faster, but there is a risk of version mismatch.}
 
 \item{repos}{character vector of base URLs of the repositories to install
 from (passed to \code{install.packages()})}
