@@ -875,7 +875,7 @@ Status TransferDate64(RecordReader* reader, MemoryPool* pool,
 Status TransferDictionary(RecordReader* reader,
                           const std::shared_ptr<DataType>& logical_value_type,
                           std::shared_ptr<ChunkedArray>* out) {
-  auto dict_reader = checked_cast<DictionaryRecordReader*>(reader);
+  auto dict_reader = dynamic_cast<DictionaryRecordReader*>(reader);
   DCHECK(dict_reader);
   *out = dict_reader->GetResult();
   if (!logical_value_type->Equals(*(*out)->type())) {
@@ -891,7 +891,7 @@ Status TransferBinary(RecordReader* reader,
     return TransferDictionary(
         reader, ::arrow::dictionary(::arrow::int32(), logical_value_type), out);
   }
-  auto binary_reader = checked_cast<BinaryRecordReader*>(reader);
+  auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
   auto chunks = binary_reader->GetBuilderChunks();
   for (const auto& chunk : chunks) {
@@ -1184,7 +1184,7 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
                        const std::shared_ptr<DataType>& type, Datum* out) {
   DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
 
-  auto binary_reader = checked_cast<BinaryRecordReader*>(reader);
+  auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
   ::arrow::ArrayVector chunks = binary_reader->GetBuilderChunks();
   for (size_t i = 0; i < chunks.size(); ++i) {
