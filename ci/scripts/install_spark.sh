@@ -27,5 +27,5 @@ fi
 spark=$1
 target=$2
 
-mkdir "${target}"
-wget -q -O - https://github.com/apache/spark/archive/${spark}.tar.gz | tar -xzf - --strip-components=1 -C "${target}"
+git clone https://github.com/apache/spark "${target}"
+git -C "${target}" checkout "${spark}"
