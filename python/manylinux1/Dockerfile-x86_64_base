@@ -17,7 +17,7 @@
 
 # See https://quay.io/repository/pypa/manylinux1_x86_64?tab=history
 # to update base image.
-FROM quay.io/pypa/manylinux1_x86_64:latest
+FROM quay.io/pypa/manylinux1_x86_64:2020-01-31-d8fa357
 
 # Install dependencies
 RUN yum install -y xz ccache flex && yum clean all
