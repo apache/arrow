@@ -38,6 +38,7 @@ jobs:
           Rscript -e 'roxygen2::roxygenize()'
       - name: Commit results
         run: |
-          git add .
-          git commit -m 'Update docs' || echo "No changes to commit"
-          git push https://${{github.actor}}:${{secrets.GITHUB_TOKEN}}@github.com/${{github.repository}}.git HEAD:${{ github.ref }} || echo "No changes to commit"
+          OWNER=$(jq --raw-output .pull_request.head.user.login ${GITHUB_EVENT_PATH})
+          REPO=$(jq --raw-output .pull_request.head.repo.name ${GITHUB_EVENT_PATH})
+          git commit -a -m 'Update docs' || echo "No changes to commit"
+          git push https://${{github.actor}}:${{secrets.GITHUB_TOKEN}}@github.com/${OWNER}/${REPO}.git HEAD:${{ github.ref }} || echo "No changes to commit"
