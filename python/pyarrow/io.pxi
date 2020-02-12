@@ -913,8 +913,11 @@ cdef class Buffer:
     def address(self):
         """
         The buffer's address, as an integer.
+
+        The returned address may point to CPU or device memory.
+        Use `is_cpu()` to disambiguate.
         """
-        return <uintptr_t> self.buffer.get().data()
+        return self.buffer.get().address()
 
     def hex(self):
         """
@@ -932,6 +935,13 @@ cdef class Buffer:
         Whether the buffer is mutable.
         """
         return self.buffer.get().is_mutable()
+
+    @property
+    def is_cpu(self):
+        """
+        Whether the buffer is CPU-accessible.
+        """
+        return self.buffer.get().is_cpu()
 
     @property
     def parent(self):

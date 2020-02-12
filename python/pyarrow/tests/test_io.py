@@ -311,6 +311,7 @@ def test_buffer_bytes():
     buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
     assert not buf.is_mutable
+    assert buf.is_cpu
 
     result = buf.to_pybytes()
 
@@ -328,6 +329,7 @@ def test_buffer_memoryview():
     buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
     assert not buf.is_mutable
+    assert buf.is_cpu
 
     result = memoryview(buf)
 
@@ -340,6 +342,7 @@ def test_buffer_bytearray():
     buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
     assert buf.is_mutable
+    assert buf.is_cpu
 
     result = bytearray(buf)
 
@@ -377,9 +380,13 @@ def test_buffer_from_numpy():
     # C-contiguous
     arr = np.arange(12, dtype=np.int8).reshape((3, 4))
     buf = pa.py_buffer(arr)
+    assert buf.is_cpu
+    assert buf.is_mutable
     assert buf.to_pybytes() == arr.tobytes()
     # F-contiguous; note strides informations is lost
     buf = pa.py_buffer(arr.T)
+    assert buf.is_cpu
+    assert buf.is_mutable
     assert buf.to_pybytes() == arr.tobytes()
     # Non-contiguous
     with pytest.raises(ValueError, match="not contiguous"):

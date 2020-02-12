@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_GPU_CUDA_MEMORY_H
-#define ARROW_GPU_CUDA_MEMORY_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 
 #include "arrow/buffer.h"
-#include "arrow/io/memory.h"
+#include "arrow/io/concurrency.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 
@@ -38,7 +37,11 @@ class CudaIpcMemHandle;
 /// Be careful using this in any Arrow code which may not be GPU-aware
 class ARROW_EXPORT CudaBuffer : public Buffer {
  public:
+  // XXX deprecate?
   CudaBuffer(uint8_t* data, int64_t size, const std::shared_ptr<CudaContext>& context,
+             bool own_data = false, bool is_ipc = false);
+
+  CudaBuffer(uintptr_t address, int64_t size, const std::shared_ptr<CudaContext>& context,
              bool own_data = false, bool is_ipc = false);
 
   CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t offset,
@@ -97,7 +100,7 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   /// when the CudaBuffer is destructed
   virtual Status ExportForIpc(std::shared_ptr<CudaIpcMemHandle>* handle);
 
-  std::shared_ptr<CudaContext> context() const { return context_; }
+  const std::shared_ptr<CudaContext>& context() const { return context_; }
 
  protected:
   std::shared_ptr<CudaContext> context_;
@@ -113,6 +116,9 @@ class ARROW_EXPORT CudaHostBuffer : public MutableBuffer {
  public:
   using MutableBuffer::MutableBuffer;
   ~CudaHostBuffer();
+
+  /// \brief Return a device address the GPU can read this memory from.
+  Result<uintptr_t> GetDeviceAddress(const std::shared_ptr<CudaContext>& ctx);
 };
 
 /// \class CudaIpcHandle
@@ -156,22 +162,44 @@ class ARROW_EXPORT CudaIpcMemHandle {
 /// pointing to CPU memory.
 /// Reading to a raw pointer, though, copies device memory into the host
 /// memory pointed to.
-class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
+class ARROW_EXPORT CudaBufferReader
+    : public ::arrow::io::internal::RandomAccessFileConcurrencyWrapper<CudaBufferReader> {
  public:
   explicit CudaBufferReader(const std::shared_ptr<Buffer>& buffer);
-  ~CudaBufferReader() override;
 
- private:
-  // Read to host memory (copy)
-  Result<int64_t> DoRead(int64_t nbytes, void* out) override;
-  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out) override;
+  bool closed() const override;
 
-  // Read to device buffer (zero-copy)
-  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes) override;
-  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes) override;
+  bool supports_zero_copy() const override;
 
-  std::shared_ptr<CudaBuffer> cuda_buffer_;
+  std::shared_ptr<CudaBuffer> buffer() const { return buffer_; }
+
+ protected:
+  friend ::arrow::io::internal::RandomAccessFileConcurrencyWrapper<CudaBufferReader>;
+
+  Status DoClose();
+
+  Result<int64_t> DoRead(int64_t nbytes, void* buffer);
+  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
+  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
+  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
+
+  Result<int64_t> DoTell() const;
+  Status DoSeek(int64_t position);
+  Result<int64_t> DoGetSize();
+
+  Status CheckClosed() const {
+    if (!is_open_) {
+      return Status::Invalid("Operation forbidden on closed CudaBufferReader");
+    }
+    return Status::OK();
+  }
+
+  std::shared_ptr<CudaBuffer> buffer_;
   std::shared_ptr<CudaContext> context_;
+  const uintptr_t address_;
+  int64_t size_;
+  int64_t position_;
+  bool is_open_;
 };
 
 /// \class CudaBufferWriter
@@ -216,6 +244,10 @@ class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
 };
 
 /// \brief Allocate CUDA-accessible memory on CPU host
+///
+/// The GPU will benefit from fast access to this CPU-located buffer,
+/// including fast memory copy.
+///
 /// \param[in] device_number device to expose host memory
 /// \param[in] size number of bytes
 /// \param[out] out the allocated buffer
@@ -224,7 +256,12 @@ ARROW_EXPORT
 Status AllocateCudaHostBuffer(int device_number, const int64_t size,
                               std::shared_ptr<CudaHostBuffer>* out);
 
+/// Low-level: get a device address through which the CPU data be accessed.
+Result<uintptr_t> GetDeviceAddress(const uint8_t* cpu_data,
+                                   const std::shared_ptr<CudaContext>& ctx);
+
+/// Low-level: get a CPU address through which the device data be accessed.
+Result<uint8_t*> GetHostAddress(uintptr_t device_ptr);
+
 }  // namespace cuda
 }  // namespace arrow
-
-#endif  // ARROW_GPU_CUDA_MEMORY_H

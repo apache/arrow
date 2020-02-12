@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/io/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
@@ -30,10 +31,7 @@
 namespace arrow {
 namespace io {
 
-struct FileMode {
-  enum type { READ, WRITE, READWRITE };
-};
-
+/// DEPRECATED.  Use the FileSystem API in arrow::fs instead.
 struct ObjectType {
   enum type { FILE, DIRECTORY };
 };

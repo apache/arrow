@@ -288,7 +288,7 @@ def test_foreign_buffer():
     fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size)
     del hbuf
     with pytest.raises(pa.ArrowIOError,
-                       match=('Cuda Driver API call in')):
+                       match=('Cuda error ')):
         fbuf.copy_to_host()
 
 
@@ -298,7 +298,10 @@ def test_CudaBuffer(size):
     assert arr.tobytes() == buf.to_pybytes()
     cbuf = global_context.buffer_from_data(buf)
     assert cbuf.size == size
+    assert not cbuf.is_cpu
     assert arr.tobytes() == cbuf.to_pybytes()
+    if size > 0:
+        assert cbuf.address > 0
 
     for i in range(size):
         assert cbuf[i] == arr[i]
@@ -324,6 +327,7 @@ def test_HostBuffer(size):
     hbuf = cuda.new_host_buffer(size)
     np.frombuffer(hbuf, dtype=np.uint8)[:] = arr
     assert hbuf.size == size
+    assert hbuf.is_cpu
     assert arr.tobytes() == hbuf.to_pybytes()
     for i in range(size):
         assert hbuf[i] == arr[i]
@@ -360,6 +364,7 @@ def test_copy_from_to_host(size):
     assert isinstance(device_buffer, cuda.CudaBuffer)
     assert isinstance(device_buffer, pa.Buffer)
     assert device_buffer.size == size
+    assert not device_buffer.is_cpu
 
     device_buffer.copy_from_host(buf, position=0, nbytes=size)
 
@@ -373,16 +378,20 @@ def test_copy_to_host(size):
     arr, dbuf = make_random_buffer(size, target='device')
 
     buf = dbuf.copy_to_host()
+    assert buf.is_cpu
     np.testing.assert_equal(arr, np.frombuffer(buf, dtype=np.uint8))
 
     buf = dbuf.copy_to_host(position=size//4)
+    assert buf.is_cpu
     np.testing.assert_equal(arr[size//4:], np.frombuffer(buf, dtype=np.uint8))
 
     buf = dbuf.copy_to_host(position=size//4, nbytes=size//8)
+    assert buf.is_cpu
     np.testing.assert_equal(arr[size//4:size//4+size//8],
                             np.frombuffer(buf, dtype=np.uint8))
 
     buf = dbuf.copy_to_host(position=size//4, nbytes=0)
+    assert buf.is_cpu
     assert buf.size == 0
 
     for (position, nbytes) in [

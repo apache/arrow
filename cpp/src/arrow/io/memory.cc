@@ -292,13 +292,6 @@ Status BufferReader::DoClose() {
 
 bool BufferReader::closed() const { return !is_open_; }
 
-Status BufferReader::CheckClosed() const {
-  if (!is_open_) {
-    return Status::Invalid("Operation forbidden on closed BufferReader");
-  }
-  return Status::OK();
-}
-
 Result<int64_t> BufferReader::DoTell() const {
   RETURN_NOT_OK(CheckClosed());
   return position_;
