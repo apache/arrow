@@ -64,6 +64,8 @@ cdef class FileFormat:
         typ = frombytes(sp.get().type_name())
         if typ == 'parquet':
             self = ParquetFileFormat.__new__(ParquetFileFormat)
+        if typ == 'ipc':
+            self = IpcFileFormat.__new__(IpcFileFormat)
         else:
             raise TypeError(typ)
 
@@ -78,6 +80,12 @@ cdef class ParquetFileFormat(FileFormat):
 
     def __init__(self):
         self.init(shared_ptr[CFileFormat](new CParquetFileFormat()))
+
+
+cdef class IpcFileFormat(FileFormat):
+
+    def __init__(self):
+        self.init(shared_ptr[CFileFormat](new CIpcFileFormat()))
 
 
 cdef class Partitioning:
@@ -482,7 +490,7 @@ cdef class FileSystemSourceFactory(SourceFactory):
     paths_or_selector: pyarrow.fs.Selector or list of path-likes
         Either a Selector object or a list of path-like objects.
     format : FileFormat
-        Currently only ParquetFileFormat is supported.
+        Currently only ParquetFileFormat and IpcFileFormat are supported.
     options : FileSystemFactoryOptions, optional
         Various flags influencing the discovery of filesystem paths.
     """
@@ -632,7 +640,7 @@ cdef class FileSystemSource(Source):
             The top-level partition of the DataSource.
         file_format : FileFormat
             File format to create fragments from, currently only
-            ParquetFileFormat is supported.
+            ParquetFileFormat and IpcFileFormat are supported.
         filesystem : FileSystem
             The filesystem which files are from.
         paths_or_selector : Union[FileSelector, List[FileStats]]

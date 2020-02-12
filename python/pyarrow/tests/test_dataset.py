@@ -767,3 +767,22 @@ def test_multiple_sources_with_selectors(multisourcefs):
         ('year', pa.int32())
     ])
     assert dataset.schema.equals(expected_schema, check_metadata=False)
+
+
+def test_ipc_format(tempdir):
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.arrow')
+    with pa.output_stream(path) as sink:
+        writer = pa.RecordBatchFileWriter(sink, table.schema)
+        writer.write_batch(table.to_batches()[0])
+        writer.close()
+
+    dataset = ds.dataset(path, format=ds.IpcFileFormat())
+    result = dataset.to_table()
+    assert result.equals(table)
+
+    dataset = ds.dataset(path, format="ipc")
+    result = dataset.to_table()
+    assert result.equals(table)
