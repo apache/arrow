@@ -18,19 +18,30 @@
 
 #pragma once
 
+#include <new>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include "arrow/status.h"
 #include "arrow/util/compare.h"
-#include "arrow/util/macros.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 
 namespace internal {
 
+#if __cplusplus >= 201703L
+using std::launder;
+#else
+template <class T>
+constexpr T* launder(T* p) noexcept {
+  return p;
+}
+#endif
+
 ARROW_EXPORT void DieWithMessage(const std::string& msg);
+
+ARROW_EXPORT void InvalidValueOrDie(const Status& st);
 
 }  // namespace internal
 
@@ -91,8 +102,6 @@ class Result : public util::EqualityComparable<Result<T>> {
   template <typename U>
   friend class Result;
 
-  using VariantType = arrow::util::variant<T, Status, const char*>;
-
   static_assert(!std::is_same<T, Status>::value,
                 "this assert indicates you have probably made a metaprogramming error");
 
@@ -107,9 +116,9 @@ class Result : public util::EqualityComparable<Result<T>> {
   /// an empty vector, it will actually invoke the default constructor of
   /// Result.
   explicit Result()  // NOLINT(runtime/explicit)
-      : variant_(Status::UnknownError("Unknown error")) {}
+      : status_(Status::UnknownError("Uninitialized Result<T>")) {}
 
-  ~Result() = default;
+  ~Result() noexcept { Destroy(); }
 
   /// Constructs a Result object with the given non-OK Status object. All
   /// calls to ValueOrDie() on this object will abort. The given `status` must
@@ -122,7 +131,7 @@ class Result : public util::EqualityComparable<Result<T>> {
   ///
   /// \param status The non-OK Status object to initialize to.
   Result(const Status& status)  // NOLINT(runtime/explicit)
-      : variant_(status) {
+      : status_(status) {
     if (ARROW_PREDICT_FALSE(status.ok())) {
       internal::DieWithMessage(std::string("Constructed with a non-error status: ") +
                                status.ToString());
@@ -154,8 +163,9 @@ class Result : public util::EqualityComparable<Result<T>> {
                 !std::is_same<typename std::remove_reference<
                                   typename std::remove_cv<U>::type>::type,
                               Status>::value>::type>
-  Result(U&& value)  // NOLINT(runtime/explicit)
-      : variant_(T(std::forward<U>(value))) {}
+  Result(U&& value) noexcept {  // NOLINT(runtime/explicit)
+    ConstructValue(std::forward<U>(value));
+  }
 
   /// Constructs a Result object that contains `value`. The resulting object
   /// is considered to have an OK status. The wrapped element can be accessed
@@ -168,8 +178,9 @@ class Result : public util::EqualityComparable<Result<T>> {
   /// \param value The value to initialize to.
   // NOTE `Result(U&& value)` above should be sufficient, but some compilers
   // fail matching it.
-  Result(T&& value)  // NOLINT(runtime/explicit)
-      : variant_(std::move(value)) {}
+  Result(T&& value) noexcept {  // NOLINT(runtime/explicit)
+    ConstructValue(std::move(value));
+  }
 
   /// Copy constructor.
   ///
@@ -181,7 +192,11 @@ class Result : public util::EqualityComparable<Result<T>> {
   /// object results in a compilation error.
   ///
   /// \param other The value to copy from.
-  Result(const Result& other) = default;
+  Result(const Result& other) : status_(other.status_) {
+    if (ARROW_PREDICT_TRUE(status_.ok())) {
+      ConstructValue(other.ValueUnsafe());
+    }
+  }
 
   /// Templatized constructor that constructs a `Result<T>` from a const
   /// reference to a `Result<U>`.
@@ -192,14 +207,27 @@ class Result : public util::EqualityComparable<Result<T>> {
   template <typename U, typename E = typename std::enable_if<
                             std::is_constructible<T, const U&>::value &&
                             std::is_convertible<U, T>::value>::type>
-  Result(const Result<U>& other) : variant_("unitialized") {
-    AssignVariant(other.variant_);
+  Result(const Result<U>& other) : status_(other.status_) {
+    if (ARROW_PREDICT_TRUE(status_.ok())) {
+      ConstructValue(other.ValueUnsafe());
+    }
   }
 
   /// Copy-assignment operator.
   ///
   /// \param other The Result object to copy.
-  Result& operator=(const Result& other) = default;
+  Result& operator=(const Result& other) {
+    // Check for self-assignment.
+    if (this == &other) {
+      return *this;
+    }
+    Destroy();
+    status_ = other.status_;
+    if (ARROW_PREDICT_TRUE(status_.ok())) {
+      ConstructValue(other.ValueUnsafe());
+    }
+    return *this;
+  }
 
   /// Templatized constructor which constructs a `Result<T>` by moving the
   /// contents of a `Result<U>`. `T` must be implicitly constructible from `U
@@ -212,9 +240,15 @@ class Result : public util::EqualityComparable<Result<T>> {
   template <typename U,
             typename E = typename std::enable_if<std::is_constructible<T, U&&>::value &&
                                                  std::is_convertible<U, T>::value>::type>
-  Result(Result<U>&& other) : variant_("unitialized") {
-    AssignVariant(std::move(other.variant_));
-    other.variant_ = "Value was moved to another Result.";
+  Result(Result<U>&& other) noexcept {
+    if (ARROW_PREDICT_TRUE(other.status_.ok())) {
+      status_ = std::move(other.status_);
+      ConstructValue(other.MoveValueUnsafe());
+    } else {
+      // If we moved the status, the other status may become ok but the other
+      // value hasn't been constructed => crash on other destructor.
+      status_ = other.status_;
+    }
   }
 
   /// Move-assignment operator.
@@ -223,19 +257,30 @@ class Result : public util::EqualityComparable<Result<T>> {
   ///
   /// \param other The Result object to assign from and set to a non-OK
   /// status.
-  Result& operator=(Result&& other) {
+  Result& operator=(Result&& other) noexcept {
     // Check for self-assignment.
     if (this == &other) {
       return *this;
     }
-    AssignVariant(std::move(other.variant_));
-    other.variant_ = "Value was moved to another Result.";
-
+    Destroy();
+    if (ARROW_PREDICT_TRUE(other.status_.ok())) {
+      status_ = std::move(other.status_);
+      ConstructValue(other.MoveValueUnsafe());
+    } else {
+      // If we moved the status, the other status may become ok but the other
+      // value hasn't been constructed => crash on other destructor.
+      status_ = other.status_;
+    }
     return *this;
   }
 
   /// Compare to another Result.
-  bool Equals(const Result& other) const { return variant_ == other.variant_; }
+  bool Equals(const Result& other) const {
+    if (ARROW_PREDICT_TRUE(status_.ok())) {
+      return other.status_.ok() && ValueUnsafe() == other.ValueUnsafe();
+    }
+    return status_ == other.status_;
+  }
 
   /// Indicates whether the object contains a `T` value.  Generally instead
   /// of accessing this directly you will want to use ASSIGN_OR_RAISE defined
@@ -244,7 +289,7 @@ class Result : public util::EqualityComparable<Result<T>> {
   /// \return True if this Result object's status is OK (i.e. a call to ok()
   /// returns true). If this function returns true, then it is safe to access
   /// the wrapped element through a call to ValueOrDie().
-  bool ok() const { return arrow::util::holds_alternative<T>(variant_); }
+  bool ok() const { return status_.ok(); }
 
   /// \brief Equivalent to ok().
   // operator bool() const { return ok(); }
@@ -253,9 +298,7 @@ class Result : public util::EqualityComparable<Result<T>> {
   ///
   /// \return The stored non-OK status object, or an OK status if this object
   ///         has a value.
-  Status status() const {
-    return ok() ? Status::OK() : arrow::util::get<Status>(variant_);
-  }
+  Status status() const { return status_; }
 
   /// Gets the stored `T` value.
   ///
@@ -265,10 +308,9 @@ class Result : public util::EqualityComparable<Result<T>> {
   /// \return The stored `T` value.
   const T& ValueOrDie() const& {
     if (ARROW_PREDICT_FALSE(!ok())) {
-      internal::DieWithMessage(std::string("ValueOrDie called on an error: ") +
-                               status().ToString());
+      internal::InvalidValueOrDie(status_);
     }
-    return arrow::util::get<T>(variant_);
+    return ValueUnsafe();
   }
   const T& operator*() const& { return ValueOrDie(); }
 
@@ -280,10 +322,9 @@ class Result : public util::EqualityComparable<Result<T>> {
   /// \return The stored `T` value.
   T& ValueOrDie() & {
     if (ARROW_PREDICT_FALSE(!ok())) {
-      internal::DieWithMessage(std::string("ValueOrDie called on an error: ") +
-                               status().ToString());
+      internal::InvalidValueOrDie(status_);
     }
-    return arrow::util::get<T>(variant_);
+    return ValueUnsafe();
   }
   T& operator*() & { return ValueOrDie(); }
 
@@ -297,12 +338,9 @@ class Result : public util::EqualityComparable<Result<T>> {
   /// \return The stored `T` value.
   T ValueOrDie() && {
     if (ARROW_PREDICT_FALSE(!ok())) {
-      internal::DieWithMessage(std::string("ValueOrDie called on an error: ") +
-                               status().ToString());
+      internal::InvalidValueOrDie(status_);
     }
-    T tmp(std::move(arrow::util::get<T>(variant_)));
-    variant_ = "Object already returned with ValueOrDie";
-    return tmp;
+    return MoveValueUnsafe();
   }
   T operator*() && { return std::move(*this).ValueOrDie(); }
 
@@ -316,7 +354,7 @@ class Result : public util::EqualityComparable<Result<T>> {
     if (!ok()) {
       return status();
     }
-    *out = U(std::move(*this).ValueOrDie());
+    *out = U(MoveValueUnsafe());
     return Status::OK();
   }
 
@@ -325,7 +363,7 @@ class Result : public util::EqualityComparable<Result<T>> {
     if (!ok()) {
       return alternative;
     }
-    return std::move(arrow::util::get<T>(variant_));
+    return MoveValueUnsafe();
   }
 
   /// Retrieve the value if ok(), falling back to an alternative generated by the provided
@@ -333,7 +371,7 @@ class Result : public util::EqualityComparable<Result<T>> {
   template <typename G>
   T ValueOrElse(G&& generate_alternative) && {
     if (ok()) {
-      return std::move(*this).ValueOrDie();
+      return MoveValueUnsafe();
     }
     return generate_alternative();
   }
@@ -345,7 +383,7 @@ class Result : public util::EqualityComparable<Result<T>> {
     if (!ok()) {
       return status();
     }
-    return std::forward<M>(m)(std::move(arrow::util::get<T>(variant_)));
+    return std::forward<M>(m)(MoveValueUnsafe());
   }
 
   /// Apply a function to the internally stored value to produce a new result or propagate
@@ -355,43 +393,41 @@ class Result : public util::EqualityComparable<Result<T>> {
     if (!ok()) {
       return status();
     }
-    return std::forward<M>(m)(arrow::util::get<T>(variant_));
+    return std::forward<M>(m)(ValueUnsafe());
+  }
+
+  const T& ValueUnsafe() const& {
+    return *internal::launder(reinterpret_cast<const T*>(&data_));
+  }
+
+  T& ValueUnsafe() & { return *internal::launder(reinterpret_cast<T*>(&data_)); }
+
+  T ValueUnsafe() && { return MoveValueUnsafe(); }
+
+  T MoveValueUnsafe() {
+    return std::move(*internal::launder(reinterpret_cast<T*>(&data_)));
   }
 
  private:
-  // Assignment is disabled by default so we need to destruct/reconstruct
-  // the value.
+  Status status_;  // pointer-sized
+  typename std::aligned_storage<sizeof(T), alignof(T)>::type data_;
+
   template <typename U>
-  void AssignVariant(arrow::util::variant<U, Status, const char*>&& other) {
-    variant_.~variant();
-    if (arrow::util::holds_alternative<U>(other)) {
-      // Reuse memory of variant_ for construction
-      new (&variant_) VariantType(arrow::util::get<U>(std::move(other)));
-    } else {
-      new (&variant_) VariantType(arrow::util::get<Status>(std::move(other)));
-    }
+  void ConstructValue(U&& u) {
+    new (&data_) T(std::forward<U>(u));
   }
 
-  // Assignment is disabled by default so we need to destruct/reconstruct
-  // the value.
-  template <typename U>
-  void AssignVariant(const arrow::util::variant<U, Status, const char*>& other) {
-    variant_.~variant();
-    if (arrow::util::holds_alternative<U>(other)) {
-      // Reuse memory of variant_ for construction
-      new (&variant_) VariantType(arrow::util::get<U>(other));
-    } else {
-      new (&variant_) VariantType(arrow::util::get<Status>(other));
+  void Destroy() {
+    if (ARROW_PREDICT_TRUE(status_.ok())) {
+      internal::launder(reinterpret_cast<const T*>(&data_))->~T();
     }
   }
-
-  arrow::util::variant<T, Status, const char*> variant_;
 };
 
 #define ARROW_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr) \
   auto result_name = (rexpr);                               \
   ARROW_RETURN_NOT_OK((result_name).status());              \
-  lhs = std::move(result_name).ValueOrDie();
+  lhs = std::move(result_name).MoveValueUnsafe();
 
 #define ARROW_ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
 

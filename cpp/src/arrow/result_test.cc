@@ -312,9 +312,6 @@ TYPED_TEST(ResultTest, MoveConstructorNonOkStatus) {
   Result<typename TypeParam::value_type> result1(status);
   Result<typename TypeParam::value_type> result2(std::move(result1));
 
-  // Verify that the status of the donor object was updated.
-  EXPECT_FALSE(result1.ok());
-
   // Verify that the destination object contains the status previously held by
   // the donor.
   EXPECT_FALSE(result2.ok());
@@ -327,9 +324,6 @@ TYPED_TEST(ResultTest, MoveConstructorOkStatus) {
   typename TypeParam::value_type value = TypeParam()();
   Result<typename TypeParam::value_type> result1(value);
   Result<typename TypeParam::value_type> result2(std::move(result1));
-
-  // Verify that the donor object was updated to contain a non-ok status.
-  EXPECT_FALSE(result1.ok());
 
   // The destination object should possess the value previously held by the
   // donor.
@@ -348,9 +342,6 @@ TYPED_TEST(ResultTest, MoveAssignmentOperatorNonOkStatus) {
   // Invoke the move-assignment operator.
   result2 = std::move(result1);
 
-  // Verify that the status of the donor object was updated.
-  EXPECT_FALSE(result1.ok());
-
   // Verify that the destination object contains the status previously held by
   // the donor.
   EXPECT_FALSE(result2.ok());
@@ -366,9 +357,6 @@ TYPED_TEST(ResultTest, MoveAssignmentOperatorOkStatus) {
 
   // Invoke the move-assignment operator.
   result2 = std::move(result1);
-
-  // Verify that the donor object was updated to contain a non-ok status.
-  EXPECT_FALSE(result1.ok());
 
   // The destination object should possess the value previously held by the
   // donor.
@@ -426,9 +414,6 @@ TEST(ResultTest, MoveConstructorMoveOnlyType) {
   Result<std::unique_ptr<std::string>> result1(std::move(value));
   Result<std::unique_ptr<std::string>> result2(std::move(result1));
 
-  // Verify that the donor object was updated to contain a non-ok status.
-  EXPECT_FALSE(result1.ok());
-
   // The destination object should possess the value previously held by the
   // donor.
   ASSERT_TRUE(result2.ok());
@@ -446,9 +431,6 @@ TEST(ResultTest, MoveAssignmentMoveOnlyType) {
   // Invoke the move-assignment operator.
   result2 = std::move(result1);
 
-  // Verify that the donor object was updated to contain a non-ok status.
-  EXPECT_FALSE(result1.ok());
-
   // The destination object should possess the value previously held by the
   // donor.
   ASSERT_TRUE(result2.ok());
@@ -464,9 +446,6 @@ TEST(ResultTest, ValueOrDieMovedValue) {
   std::unique_ptr<std::string> moved_value = std::move(result).ValueOrDie();
   EXPECT_EQ(moved_value.get(), str);
   EXPECT_EQ(*moved_value, kStringElement);
-
-  // Verify that the Result object was invalidated after the value was moved.
-  EXPECT_FALSE(result.ok());
 }
 
 // Verify that a Result<T> is implicitly constructible from some U, where T is
@@ -677,10 +656,6 @@ TEST(ResultTest, TemplateMoveAssign) {
 
   EXPECT_TRUE(result2.ok());
   EXPECT_EQ(*result2.ValueOrDie().move_only.data, kIntElement);
-
-  //  NOLINTNEXTLINE use after move.
-  EXPECT_FALSE(result.ok());
-  //  NOLINTNEXTLINE use after move.
 }
 
 // Verify that a Result<U> is constructible from a Result<T>, where T is a
@@ -705,10 +680,6 @@ TEST(ResultTest, TemplateMoveConstruct) {
 
   EXPECT_TRUE(result2.ok());
   EXPECT_EQ(*result2.ValueOrDie().move_only.data, kIntElement);
-
-  //  NOLINTNEXTLINE use after move.
-  EXPECT_FALSE(result.ok());
-  //  NOLINTNEXTLINE use after move.
 }
 
 TEST(ResultTest, Equality) {
@@ -722,11 +693,24 @@ TEST(ResultTest, Equality) {
   EXPECT_NE(Result<int>(Status::Invalid("error")),
             Result<int>(Status::Invalid("other error")));
 
-  Result<int> moved_from(3);
-  auto moved_to = std::move(moved_from);
-  //  NOLINTNEXTLINE use after move.
-  EXPECT_NE(Result<int>(3), moved_from);
-  //  NOLINTNEXTLINE use after move.
+  {
+    Result<int> moved_from(3);
+    auto moved_to = std::move(moved_from);
+    EXPECT_EQ(moved_to, Result<int>(3));
+  }
+  {
+    Result<std::vector<int>> a, b, c;
+    a = std::vector<int>{1, 2, 3, 4, 5};
+    b = std::vector<int>{1, 2, 3, 4, 5};
+    c = std::vector<int>{1, 2, 3, 4};
+    EXPECT_EQ(a, b);
+    EXPECT_NE(a, c);
+
+    c = std::move(b);
+    EXPECT_EQ(a, c);
+    EXPECT_EQ(c.ValueOrDie(), (std::vector<int>{1, 2, 3, 4, 5}));
+    EXPECT_NE(a, b);  // b's value was moved
+  }
 }
 
 }  // namespace
