@@ -43,6 +43,7 @@ class PARQUET_EXPORT RowGroupReader {
   struct Contents {
     virtual ~Contents() {}
     virtual std::unique_ptr<PageReader> GetColumnPageReader(int i) = 0;
+    virtual std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int i,int64_t predicate) = 0;
     virtual const RowGroupMetaData* metadata() const = 0;
     virtual const ReaderProperties* properties() const = 0;
   };
@@ -60,7 +61,7 @@ class PARQUET_EXPORT RowGroupReader {
 
   std::unique_ptr<PageReader> GetColumnPageReader(int i);
 
-  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, int predicate);
+  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, int64_t predicate);
 
  private:
   // Holds a pointer to an instance of Contents implementation

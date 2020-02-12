@@ -81,7 +81,7 @@ std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
 }
 
 
-std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReaderWithIndex(int column_index,int64_t predicate) {
+std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReaderWithIndex(int i,int64_t predicate) {
   DCHECK(i < metadata()->num_columns())
       << "The RowGroup only has " << metadata()->num_columns()
       << "columns, requested column: " << i;
