@@ -29,35 +29,51 @@
 #include "arrow/io/file.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/key_value_metadata.h"
 #include "parquet/arrow/writer.h"
 
 namespace arrow {
 
 using ::arrow::internal::CreateDir;
 using ::arrow::internal::PlatformFilename;
+using ::parquet::WriterProperties;
 
 static constexpr int32_t kBatchSize = 1000;
 static constexpr int32_t kChunkSize = kBatchSize * 3 / 8;
 
+std::shared_ptr<WriterProperties> GetWriterProperties() {
+  WriterProperties::Builder builder{};
+  builder.disable_dictionary("no_dict");
+  return builder.build();
+}
+
 Result<std::shared_ptr<RecordBatch>> ExampleBatch1() {
   random::RandomArrayGenerator gen(42);
-  std::shared_ptr<Array> a, b, c, d;
+  std::shared_ptr<Array> a, b, c, d, e, no_dict;
   a = gen.Int16(kBatchSize, -10000, 10000, /*null_probability=*/0.2);
   b = gen.Float64(kBatchSize, -1e10, 1e10, /*null_probability=*/0.0);
-  c = gen.String(kBatchSize, 0, 30, /*null_probability=*/0.2);
+  // A column of tiny strings that will hopefully trigger dict encoding
+  c = gen.String(kBatchSize, 0, 3, /*null_probability=*/0.2);
   {
     auto values = gen.Int64(kBatchSize * 10, -10000, 10000, /*null_probability=*/0.2);
     auto offsets = gen.Offsets(kBatchSize + 1, 0, static_cast<int32_t>(values->length()));
     RETURN_NOT_OK(ListArray::FromArrays(*offsets, *values, default_memory_pool(), &d));
   }
+  // A column of a repeated constant that will hopefully trigger RLE encoding
+  RETURN_NOT_OK(MakeArrayFromScalar(Int16Scalar(42), kBatchSize, &e));
+  // A non-dict-encoded column
+  no_dict = gen.String(kBatchSize, 0, 30, /*null_probability=*/0.2);
 
-  auto schema = ::arrow::schema({field("a", a->type()), field("b", b->type()),
-                                 field("c", c->type()), field("d", d->type())});
-  // TODO add metadata
-  return RecordBatch::Make(schema, kBatchSize, {a, b, c, d});
+  auto schema = ::arrow::schema(
+      {field("a", a->type()), field("b", b->type()), field("c", c->type()),
+       field("d", d->type()), field("e", e->type()), field("no_dict", no_dict->type())});
+  auto md = key_value_metadata({"key1", "key2"}, {"value1", ""});
+  schema = schema->WithMetadata(md);
+  return RecordBatch::Make(schema, kBatchSize, {a, b, c, d, e, no_dict});
 }
 
 Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
@@ -78,6 +94,8 @@ Status DoMain(const std::string& out_dir) {
 
   ARROW_ASSIGN_OR_RAISE(auto batches, Batches());
 
+  auto writer_properties = GetWriterProperties();
+
   for (const auto& batch : batches) {
     RETURN_NOT_OK(batch->ValidateFull());
     std::shared_ptr<Table> table;
@@ -86,8 +104,8 @@ Status DoMain(const std::string& out_dir) {
     ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
     std::cerr << sample_fn.ToString() << std::endl;
     ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(sample_fn.ToString()));
-    RETURN_NOT_OK(
-        ::parquet::arrow::WriteTable(*table, default_memory_pool(), file, kChunkSize));
+    RETURN_NOT_OK(::parquet::arrow::WriteTable(*table, default_memory_pool(), file,
+                                               kChunkSize, writer_properties));
     RETURN_NOT_OK(file->Close());
   }
   return Status::OK();
