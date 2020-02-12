@@ -34,6 +34,12 @@ namespace arrow {
 #define ARROW_HAVE_ARMV8_CRYPTO
 #endif  // __ARM_FEATURE_CRYPTO
 
+#if defined(__GNUC__) && defined(__linux__)
+#define L1_DCACHE_SIZE "/sys/devices/system/cpu/cpu0/cache/index0/size"
+#define L2_CACHE_SIZE "/sys/devices/system/cpu/cpu0/cache/index2/size"
+#define L3_CACHE_SIZE "/sys/devices/system/cpu/cpu0/cache/index3/size"
+#endif
+
 #endif  // __ARM_FEATURE_CRC32
 
 #endif  // defined(__aarch64__) || defined(__AARCH64__)

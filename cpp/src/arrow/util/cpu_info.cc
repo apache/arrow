@@ -59,6 +59,62 @@ void __cpuidex(int CPUInfo[4], int function_id, int subfunction_id) {
 }
 #endif
 
+#if defined(__GNUC__) && defined(__linux__) && defined(__aarch64__)
+// There is no direct instruction to get cache size on Arm64 like '__cpuid' on x86;
+// Get Arm64 cache size by reading '/sys/devices/system/cpu/cpu0/cache/index*/size';
+// index* :
+//   index0: L1 Dcache
+//   index1: L1 Icache
+//   index2: L2 cache
+//   index3: L3 cache
+#include <errno.h>
+bool get_cache_size_arm64(const char* filename, int* size) {
+  bool cache_supported = false;
+  char *content = nullptr;
+  char* last_char = nullptr;
+  size_t file_len = 0;
+  int cardinal_num = 0;
+  int multip = 0;
+
+  if (size == nullptr)
+    return cache_supported;
+  *size = 0;
+
+  FILE* cache_file = fopen(filename, "r");
+  if (cache_file == nullptr)
+    return cache_supported;
+
+  // Read cache file to 'content' for getting cache size.
+  // Filename: '/sys/devices/system/cpu/cpu0/cache/index0/size' -> 32k
+  if (getline(&content, &file_len, cache_file) == -1)
+    goto done;
+
+  errno = 0;
+  cardinal_num = strtoull(content, &last_char, 0);
+  if (errno != 0)
+    goto done;
+
+  // KB, MB, or GB
+  multip = 1;
+  switch(*last_char) {
+    case 'g':
+    case 'G': multip = 1024;
+    case 'm':
+    case 'M': multip = multip*1024;
+    case 'k':
+    case 'K': multip = multip*1024;
+  }
+  *size = cardinal_num * multip;
+  cache_supported = true;
+
+done:
+  fclose(cache_file);
+  free(content);
+
+  return cache_supported;
+}
+#endif
+
 namespace arrow {
 namespace internal {
 
@@ -66,10 +122,15 @@ static struct {
   std::string name;
   int64_t flag;
 } flag_mappings[] = {
+#if (defined(_M_AMD64) || defined(_M_X64))
     {"ssse3", CpuInfo::SSSE3},
     {"sse4_1", CpuInfo::SSE4_1},
     {"sse4_2", CpuInfo::SSE4_2},
     {"popcnt", CpuInfo::POPCNT},
+#endif
+#if defined(__aarch64__)
+    {"asimd", CpuInfo::ASIMD},
+#endif
 };
 static const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]);
 
@@ -221,7 +282,7 @@ void CpuInfo::Init() {
     if (colon != std::string::npos) {
       name = TrimString(line.substr(0, colon - 1));
       value = TrimString(line.substr(colon + 1, std::string::npos));
-      if (name.compare("flags") == 0) {
+      if (name.compare("flags") == 0 || name.compare("Features") == 0) {
         hardware_flags_ |= ParseCPUFlags(value);
       } else if (name.compare("cpu MHz") == 0) {
         // Every core will report a different speed.  We'll take the max, assuming
@@ -277,11 +338,19 @@ void CpuInfo::Init() {
 }
 
 void CpuInfo::VerifyCpuRequirements() {
+#ifdef ARROW_HAVE_SSE4_2
   if (!IsSupported(CpuInfo::SSSE3)) {
     DCHECK(false) << "CPU does not support the Supplemental SSE3 instruction set";
   }
+#endif
+#if defined(__aarch64__)
+  if (!IsSupported(CpuInfo::ASIMD)) {
+    DCHECK(false) << "CPU does not support the Armv8 Neon instruction set";
+  }
+#endif
 }
 
+#ifdef ARROW_HAVE_SSE4_2
 bool CpuInfo::CanUseSSE4_2() const {
 #ifdef ARROW_USE_SIMD
   return IsSupported(CpuInfo::SSE4_2);
@@ -289,6 +358,7 @@ bool CpuInfo::CanUseSSE4_2() const {
   return false;
 #endif
 }
+#endif
 
 void CpuInfo::EnableFeature(int64_t flag, bool enable) {
   if (!enable) {
@@ -311,16 +381,25 @@ int CpuInfo::num_cores() { return num_cores_; }
 std::string CpuInfo::model_name() { return model_name_; }
 
 void CpuInfo::SetDefaultCacheSize() {
-#ifndef _SC_LEVEL1_DCACHE_SIZE
-  // Provide reasonable default values if no info
-  cache_sizes_[0] = 32 * 1024;    // Level 1: 32k
-  cache_sizes_[1] = 256 * 1024;   // Level 2: 256k
-  cache_sizes_[2] = 3072 * 1024;  // Level 3: 3M
-#else
+#ifdef _SC_LEVEL1_DCACHE_SIZE
   // Call sysconf to query for the cache sizes
   cache_sizes_[0] = sysconf(_SC_LEVEL1_DCACHE_SIZE);
   cache_sizes_[1] = sysconf(_SC_LEVEL2_CACHE_SIZE);
   cache_sizes_[2] = sysconf(_SC_LEVEL3_CACHE_SIZE);
+#elif defined(__GNUC__) && defined(__linux__) && defined(__aarch64__)
+  // If there is no cache file related with non-standard linux kernel,
+  // Provide reasonable default values.
+  if (!get_cache_size_arm64(L1_DCACHE_SIZE, &cache_sizes_[0]))
+    cache_sizes_[0] = 32 * 1024;
+  if (!get_cache_size_arm64(L2_CACHE_SIZE, &cache_sizes_[1]))
+    cache_sizes_[1] = 256 * 1024;
+  if (!get_cache_size_arm64(L3_CACHE_SIZE, &cache_sizes_[2]))
+    cache_sizes_[2] = 3072 * 1024;
+#else
+  // Provide reasonable default values if no info
+  cache_sizes_[0] = 32 * 1024;    // Level 1: 32k
+  cache_sizes_[1] = 256 * 1024;   // Level 2: 256k
+  cache_sizes_[2] = 3072 * 1024;  // Level 3: 3M
 #endif
 }
 
