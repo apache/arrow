@@ -130,6 +130,63 @@ class ARROW_EXPORT ChunkedArray {
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 
+namespace internal {
+
+/// \brief EXPERIMENTAL: Utility for incremental iteration over contiguous
+/// pieces of potentially differently-chunked ChunkedArray objects
+class MultipleChunkIterator {
+ public:
+  MultipleChunkIterator(const ChunkedArray& left, const ChunkedArray& right)
+      : left_(left),
+        right_(right),
+        pos_(0),
+        length_(left.length()),
+        chunk_idx_left_(0),
+        chunk_idx_right_(0),
+        chunk_pos_left_(0),
+        chunk_pos_right_(0) {}
+
+  bool Next(std::shared_ptr<Array>* next_left, std::shared_ptr<Array>* next_right);
+
+  int64_t position() const { return pos_; }
+
+ private:
+  const ChunkedArray& left_;
+  const ChunkedArray& right_;
+
+  // The amount of the entire ChunkedArray consumed
+  int64_t pos_;
+
+  // Length of the chunked array(s)
+  int64_t length_;
+
+  // Current left chunk
+  int chunk_idx_left_;
+
+  // Current right chunk
+  int chunk_idx_right_;
+
+  // Offset into the current left chunk
+  int64_t chunk_pos_left_;
+
+  // Offset into the current right chunk
+  int64_t chunk_pos_right_;
+};
+
+// Execute the passed function
+template <typename Action>
+Status ApplyToChunkOverlaps(const ChunkedArray& left, const ChunkedArray& right,
+                            Action&& action) {
+  MultipleChunkIterator iterator(left, right);
+  std::shared_ptr<Array> left_piece, right_piece;
+  while (iterator.Next(&left_piece, &right_piece)) {
+    ARROW_RETURN_NOT_OK(action(*left_piece, *right_piece, iterator.position()));
+  }
+  return Status::OK();
+}
+
+}  // namespace internal
+
 /// \class Table
 /// \brief Logical table as sequence of chunked arrays
 class ARROW_EXPORT Table {

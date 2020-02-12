@@ -718,19 +718,8 @@ cdef class ParquetSchema:
         self.schema = container._metadata.schema()
 
     def __repr__(self):
-        cdef const ColumnDescriptor* descr
-        elements = []
-        for i in range(self.schema.num_columns()):
-            col = self.column(i)
-            logical_type = col.logical_type
-            formatted = '{0}: {1}'.format(col.path, col.physical_type)
-            if logical_type.type != 'NONE':
-                formatted += ' {0}'.format(str(logical_type))
-            elements.append(formatted)
-
         return """{0}
-{1}
- """.format(object.__repr__(self), '\n'.join(elements))
+{1}""".format(object.__repr__(self), frombytes(self.schema.ToString()))
 
     def __reduce__(self):
         return ParquetSchema, (self.parent,)
@@ -1072,6 +1061,13 @@ cdef class ParquetReader:
     @property
     def metadata(self):
         return self._metadata
+
+    @property
+    def schema_arrow(self):
+        cdef shared_ptr[CSchema] out
+        with nogil:
+            check_status(self.reader.get().GetSchema(&out))
+        return pyarrow_wrap_schema(out)
 
     @property
     def num_row_groups(self):

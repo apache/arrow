@@ -63,12 +63,13 @@ class TestConvertParquetSchema : public ::testing::Test {
  public:
   virtual void SetUp() {}
 
-  void CheckFlatSchema(const std::shared_ptr<::arrow::Schema>& expected_schema) {
+  void CheckFlatSchema(const std::shared_ptr<::arrow::Schema>& expected_schema,
+                       bool check_metadata = false) {
     ASSERT_EQ(expected_schema->num_fields(), result_schema_->num_fields());
     for (int i = 0; i < expected_schema->num_fields(); ++i) {
       auto result_field = result_schema_->field(i);
       auto expected_field = expected_schema->field(i);
-      EXPECT_TRUE(result_field->Equals(expected_field))
+      EXPECT_TRUE(result_field->Equals(expected_field, check_metadata))
           << "Field " << i << "\n  result: " << result_field->ToString()
           << "\n  expected: " << expected_field->ToString();
     }

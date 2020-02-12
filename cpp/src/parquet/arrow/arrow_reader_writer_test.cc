@@ -406,12 +406,14 @@ void CheckConfiguredRoundtrip(
   ASSERT_NO_FATAL_FAILURE(DoRoundtrip(input_table, input_table->num_rows(), &actual_table,
                                       writer_properties, arrow_writer_properties));
   if (expected_table) {
-    ASSERT_NO_FATAL_FAILURE(
-        ::arrow::AssertSchemaEqual(*actual_table->schema(), *expected_table->schema()));
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*actual_table->schema(),
+                                                       *expected_table->schema(),
+                                                       /*check_metadata=*/false));
     ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected_table, *actual_table));
   } else {
-    ASSERT_NO_FATAL_FAILURE(
-        ::arrow::AssertSchemaEqual(*actual_table->schema(), *input_table->schema()));
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*actual_table->schema(),
+                                                       *input_table->schema(),
+                                                       /*check_metadata=*/false));
     ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*input_table, *actual_table));
   }
 }
@@ -445,7 +447,8 @@ void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group
   std::shared_ptr<Table> result;
   DoSimpleRoundtrip(table, false /* use_threads */, row_group_size, {}, &result,
                     arrow_properties);
-  ::arrow::AssertSchemaEqual(*table->schema(), *result->schema());
+  ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
+                             /*check_metadata=*/false);
   ::arrow::AssertTablesEqual(*table, *result, false);
 }
 
@@ -1371,8 +1374,8 @@ TEST(TestArrowReadWrite, DateTimeTypes) {
       DoSimpleRoundtrip(table, false /* use_threads */, table->num_rows(), {}, &result));
 
   MakeDateTimeTypesTable(&table, true);  // build expected result
-  ASSERT_NO_FATAL_FAILURE(
-      ::arrow::AssertSchemaEqual(*table->schema(), *result->schema()));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
+                                                     /*check_metadata=*/false));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 }
 
@@ -1419,8 +1422,9 @@ TEST(TestArrowReadWrite, UseDeprecatedInt96) {
       input, false /* use_threads */, input->num_rows(), {}, &result,
       ArrowWriterProperties::Builder().enable_deprecated_int96_timestamps()->build()));
 
-  ASSERT_NO_FATAL_FAILURE(
-      ::arrow::AssertSchemaEqual(*ex_result->schema(), *result->schema()));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*ex_result->schema(),
+                                                     *result->schema(),
+                                                     /*check_metadata=*/false));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_result, *result));
 
   // Ensure enable_deprecated_int96_timestamps as precedence over
@@ -1432,8 +1436,9 @@ TEST(TestArrowReadWrite, UseDeprecatedInt96) {
                                                 ->coerce_timestamps(TimeUnit::MILLI)
                                                 ->build()));
 
-  ASSERT_NO_FATAL_FAILURE(
-      ::arrow::AssertSchemaEqual(*ex_result->schema(), *result->schema()));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*ex_result->schema(),
+                                                     *result->schema(),
+                                                     /*check_metadata=*/false));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_result, *result));
 }
 
@@ -1476,8 +1481,9 @@ TEST(TestArrowReadWrite, CoerceTimestamps) {
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
       input, false /* use_threads */, input->num_rows(), {}, &milli_result,
       ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MILLI)->build()));
-  ASSERT_NO_FATAL_FAILURE(
-      ::arrow::AssertSchemaEqual(*ex_milli_result->schema(), *milli_result->schema()));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*ex_milli_result->schema(),
+                                                     *milli_result->schema(),
+                                                     /*check_metadata=*/false));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_milli_result, *milli_result));
 
   // Result when coercing to microseconds
@@ -1488,8 +1494,9 @@ TEST(TestArrowReadWrite, CoerceTimestamps) {
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
       input, false /* use_threads */, input->num_rows(), {}, &micro_result,
       ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MICRO)->build()));
-  ASSERT_NO_FATAL_FAILURE(
-      ::arrow::AssertSchemaEqual(*ex_micro_result->schema(), *micro_result->schema()));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*ex_micro_result->schema(),
+                                                     *micro_result->schema(),
+                                                     /*check_metadata=*/false));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_micro_result, *micro_result));
 }
 
@@ -1612,7 +1619,8 @@ TEST(TestArrowReadWrite, ImplicitSecondToMillisecondTimestampCoercion) {
   // default properties (without explicit coercion instructions) used ...
   ASSERT_NO_FATAL_FAILURE(
       DoSimpleRoundtrip(ti, false /* use_threads */, ti->num_rows(), {}, &to));
-  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*tx->schema(), *to->schema()));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*tx->schema(), *to->schema(),
+                                                     /*check_metadata=*/false));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*tx, *to));
 }
 
@@ -1808,8 +1816,9 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
   ASSERT_NO_FATAL_FAILURE(
       DoSimpleRoundtrip(table, false /* use_threads */, table->num_rows(), {}, &result));
 
-  ASSERT_NO_FATAL_FAILURE(
-      ::arrow::AssertSchemaEqual(*ex_table->schema(), *result->schema()));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*ex_table->schema(),
+                                                     *result->schema(),
+                                                     /*check_metadata=*/false));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_table, *result));
 }
 
@@ -1915,10 +1924,11 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
   ASSERT_OK_AND_ASSIGN(concatenated, ::arrow::ConcatenateTables({r1, r2}));
   AssertTablesEqual(*concatenated, *table, /*same_chunk_layout=*/false);
 
-  ASSERT_TRUE(table->Equals(*r3));
+  AssertTablesEqual(*table, *r3, /*same_chunk_layout=*/false);
   ASSERT_TRUE(r2->Equals(*r4));
   ASSERT_OK_AND_ASSIGN(concatenated, ::arrow::ConcatenateTables({r1, r4}));
-  ASSERT_TRUE(table->Equals(*concatenated));
+
+  AssertTablesEqual(*table, *concatenated, /*same_chunk_layout=*/false);
 }
 
 TEST(TestArrowReadWrite, GetRecordBatchReader) {

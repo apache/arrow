@@ -182,6 +182,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         shared_ptr[Node] schema()
         GroupNode* group()
         c_bool Equals(const SchemaDescriptor& other)
+        c_string ToString()
         int num_columns()
 
     cdef c_string FormatStatValue(ParquetType parquet_type, c_string val)
@@ -377,6 +378,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     cdef cppclass FileReader:
         FileReader(CMemoryPool* pool, unique_ptr[ParquetFileReader] reader)
+
+        CStatus GetSchema(shared_ptr[CSchema]* out)
+
         CStatus ReadColumn(int i, shared_ptr[CChunkedArray]* out)
         CStatus ReadSchemaField(int i, shared_ptr[CChunkedArray]* out)
 

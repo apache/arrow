@@ -360,6 +360,12 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   std::shared_ptr<Field> WithMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
 
+  /// \brief EXPERIMENTAL: Return a copy of this field with the given metadata
+  /// merged with existing metadata (any colliding keys will be overridden by
+  /// the passed metadata)
+  std::shared_ptr<Field> WithMergedMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
   ARROW_DEPRECATED("Use WithMetadata")
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
@@ -394,7 +400,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   /// The two fields must be compatible, i.e:
   ///   - have the same name
   ///   - have the same type, or of compatible types according to `options`.
-  ///
   ///
   /// The metadata of the current field is preserved; the metadata of the other
   /// field is discarded.
