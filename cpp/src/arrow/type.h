@@ -24,6 +24,7 @@
 #include <iosfwd>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/type_fwd.h"  // IWYU pragma: export
@@ -191,16 +192,33 @@ class ARROW_EXPORT Fingerprintable {
 
 }  // namespace detail
 
+/// EXPERIMENTAL: Layout specification for a data type
 struct ARROW_EXPORT DataTypeLayout {
-  // The bit width for each buffer in this DataType's representation
-  // (kVariableSizeBuffer if the item size for a given buffer is unknown or variable,
-  //  kAlwaysNullBuffer if the buffer is always null).
-  // Child types are not included, they should be inspected separately.
-  std::vector<int64_t> bit_widths;
-  bool has_dictionary;
+  enum BufferKind { FIXED_WIDTH, VARIABLE_WIDTH, BITMAP, ALWAYS_NULL };
 
-  static constexpr int64_t kAlwaysNullBuffer = 0;
-  static constexpr int64_t kVariableSizeBuffer = -1;
+  /// Layout specification for a single data type buffer
+  struct BufferSpec {
+    BufferKind kind;
+    int64_t byte_width;  // For FIXED_WIDTH
+
+    bool operator==(const BufferSpec& other) const {
+      return kind == other.kind &&
+             (kind != FIXED_WIDTH || byte_width == other.byte_width);
+    }
+    bool operator!=(const BufferSpec& other) const { return !(*this == other); }
+  };
+
+  static BufferSpec FixedWidth(int64_t w) { return BufferSpec{FIXED_WIDTH, w}; }
+  static BufferSpec VariableWidth() { return BufferSpec{VARIABLE_WIDTH, -1}; }
+  static BufferSpec Bitmap() { return BufferSpec{BITMAP, -1}; }
+  static BufferSpec AlwaysNull() { return BufferSpec{ALWAYS_NULL, -1}; }
+
+  /// A vector of buffer layout specifications, one for each expected buffer
+  std::vector<BufferSpec> buffers;
+  /// Whether this type expects an associated dictionary array.
+  bool has_dictionary = false;
+
+  explicit DataTypeLayout(std::vector<BufferSpec> v) : buffers(std::move(v)) {}
 };
 
 /// \brief Base class for all data types
@@ -449,7 +467,10 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
-  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
+  DataTypeLayout layout() const override {
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(C_TYPE))});
+  }
 
   std::string name() const override { return DERIVED::type_name(); }
 
@@ -475,7 +496,7 @@ class ARROW_EXPORT NullType : public DataType {
   std::string ToString() const override;
 
   DataTypeLayout layout() const override {
-    return {{DataTypeLayout::kAlwaysNullBuffer}, false};
+    return DataTypeLayout({DataTypeLayout::AlwaysNull()});
   }
 
   std::string name() const override { return "null"; }
@@ -492,6 +513,10 @@ class ARROW_EXPORT BooleanType
 
   // BooleanType within arrow use a single bit instead of the C 8-bits layout.
   int bit_width() const final { return 1; }
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap(), DataTypeLayout::Bitmap()});
+  }
 
  protected:
   std::string ComputeFingerprint() const override;
@@ -642,7 +667,8 @@ class ARROW_EXPORT ListType : public BaseListType {
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
   DataTypeLayout layout() const override {
-    return {{1, CHAR_BIT * sizeof(offset_type)}, false};
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(offset_type))});
   }
 
   std::string ToString() const override;
@@ -677,7 +703,8 @@ class ARROW_EXPORT LargeListType : public BaseListType {
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
   DataTypeLayout layout() const override {
-    return {{1, CHAR_BIT * sizeof(offset_type)}, false};
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(offset_type))});
   }
 
   std::string ToString() const override;
@@ -739,7 +766,9 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
-  DataTypeLayout layout() const override { return {{1}, false}; }
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap()});
+  }
 
   std::string ToString() const override;
 
@@ -769,8 +798,9 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
   BinaryType() : BinaryType(Type::BINARY) {}
 
   DataTypeLayout layout() const override {
-    return {{1, CHAR_BIT * sizeof(offset_type), DataTypeLayout::kVariableSizeBuffer},
-            false};
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(offset_type)),
+                           DataTypeLayout::VariableWidth()});
   }
 
   std::string ToString() const override;
@@ -795,8 +825,9 @@ class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
   LargeBinaryType() : LargeBinaryType(Type::LARGE_BINARY) {}
 
   DataTypeLayout layout() const override {
-    return {{1, CHAR_BIT * sizeof(offset_type), DataTypeLayout::kVariableSizeBuffer},
-            false};
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(offset_type)),
+                           DataTypeLayout::VariableWidth()});
   }
 
   std::string ToString() const override;
@@ -861,7 +892,10 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   std::string ToString() const override;
   std::string name() const override { return "fixed_size_binary"; }
 
-  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
+  DataTypeLayout layout() const override {
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(byte_width())});
+  }
 
   int32_t byte_width() const { return byte_width_; }
   int bit_width() const override;
@@ -883,7 +917,9 @@ class ARROW_EXPORT StructType : public NestedType {
 
   ~StructType() override;
 
-  DataTypeLayout layout() const override { return {{1}, false}; }
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap()});
+  }
 
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
@@ -1015,7 +1051,10 @@ class ARROW_EXPORT TemporalType : public FixedWidthType {
  public:
   using FixedWidthType::FixedWidthType;
 
-  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
+  DataTypeLayout layout() const override {
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(bit_width() / 8)});
+  }
 };
 
 /// \brief Base type class for date data

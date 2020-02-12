@@ -131,6 +131,22 @@ TEST(BitUtilTests, TestNextPower2) {
   ASSERT_EQ(1LL << 62, NextPower2((1LL << 62) - 1));
 }
 
+TEST(BitUtilTests, BytesForBits) {
+  using BitUtil::BytesForBits;
+
+  ASSERT_EQ(BytesForBits(0), 0);
+  ASSERT_EQ(BytesForBits(1), 1);
+  ASSERT_EQ(BytesForBits(7), 1);
+  ASSERT_EQ(BytesForBits(8), 1);
+  ASSERT_EQ(BytesForBits(9), 2);
+  ASSERT_EQ(BytesForBits(0xffff), 8192);
+  ASSERT_EQ(BytesForBits(0x10000), 8192);
+  ASSERT_EQ(BytesForBits(0x10001), 8193);
+  ASSERT_EQ(BytesForBits(0x7ffffffffffffff8ll), 0x0fffffffffffffffll);
+  ASSERT_EQ(BytesForBits(0x7ffffffffffffff9ll), 0x1000000000000000ll);
+  ASSERT_EQ(BytesForBits(0x7fffffffffffffffll), 0x1000000000000000ll);
+}
+
 TEST(BitmapReader, NormalOperation) {
   std::shared_ptr<Buffer> buffer;
   int64_t length;

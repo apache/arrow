@@ -1101,7 +1101,7 @@ struct ViewDataImpl {
     }
     while (true) {
       // Skip exhausted layout (might be empty layout)
-      while (in_buffer_idx >= in_layouts[in_layout_idx].bit_widths.size()) {
+      while (in_buffer_idx >= in_layouts[in_layout_idx].buffers.size()) {
         in_buffer_idx = 0;
         ++in_layout_idx;
         if (in_layout_idx >= in_layouts.size()) {
@@ -1109,8 +1109,8 @@ struct ViewDataImpl {
           return;
         }
       }
-      auto bit_width = in_layouts[in_layout_idx].bit_widths[in_buffer_idx];
-      if (bit_width > 0 || bit_width == DataTypeLayout::kVariableSizeBuffer) {
+      const auto& in_spec = in_layouts[in_layout_idx].buffers[in_buffer_idx];
+      if (in_spec.kind != DataTypeLayout::ALWAYS_NULL) {
         return;
       }
       // Skip always-null input buffers
@@ -1157,11 +1157,11 @@ struct ViewDataImpl {
     }
 
     // No type has a purely empty layout
-    DCHECK_GT(out_layout.bit_widths.size(), 0);
+    DCHECK_GT(out_layout.buffers.size(), 0);
 
-    if (out_layout.bit_widths[0] == 0) {
+    if (out_layout.buffers[0].kind == DataTypeLayout::ALWAYS_NULL) {
       // Assuming null type or equivalent.
-      DCHECK_EQ(out_layout.bit_widths.size(), 1);
+      DCHECK_EQ(out_layout.buffers.size(), 1);
       *out = ArrayData::Make(out_type, out_length, {nullptr}, out_length);
       return Status::OK();
     }
@@ -1169,7 +1169,7 @@ struct ViewDataImpl {
     std::vector<std::shared_ptr<Buffer>> out_buffers;
 
     // Process null bitmap
-    DCHECK_EQ(out_layout.bit_widths[0], 1);
+    DCHECK_EQ(out_layout.buffers[0].kind, DataTypeLayout::BITMAP);
     if (in_buffer_idx == 0) {
       // Copy input null bitmap
       RETURN_NOT_OK(CheckInputAvailable());
@@ -1191,11 +1191,11 @@ struct ViewDataImpl {
     }
 
     // Process other buffers in output layout
-    for (size_t out_buffer_idx = 1; out_buffer_idx < out_layout.bit_widths.size();
+    for (size_t out_buffer_idx = 1; out_buffer_idx < out_layout.buffers.size();
          ++out_buffer_idx) {
-      auto out_bit_width = out_layout.bit_widths[out_buffer_idx];
+      const auto& out_spec = out_layout.buffers[out_buffer_idx];
       // If always-null buffer is expected, just construct it
-      if (out_bit_width == DataTypeLayout::kAlwaysNullBuffer) {
+      if (out_spec.kind == DataTypeLayout::ALWAYS_NULL) {
         out_buffers.push_back(nullptr);
         continue;
       }
@@ -1211,8 +1211,8 @@ struct ViewDataImpl {
       }
 
       RETURN_NOT_OK(CheckInputAvailable());
-      auto in_bit_width = in_layouts[in_layout_idx].bit_widths[in_buffer_idx];
-      if (out_bit_width != in_bit_width) {
+      const auto& in_spec = in_layouts[in_layout_idx].buffers[in_buffer_idx];
+      if (out_spec != in_spec) {
         return InvalidView("incompatible layouts");
       }
       // Copy input buffer
