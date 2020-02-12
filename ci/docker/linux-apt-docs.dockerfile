@@ -18,8 +18,6 @@
 ARG base
 FROM ${base}
 
-# NOTE: as of 2019-12, R 3.5 and 3.6 are available in the repos with -cran35 suffix
-# R 3.2, 3.3, 3.4 are available without the suffix but only for trusty and xenial
 ARG r=3.6
 ARG jdk=8
 
@@ -78,7 +76,7 @@ RUN gem install bundler && \
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow && \
-    R -e "install.packages('pkgdown', verbose = TRUE)"
+    R -e "install.packages('pkgdown')"
 
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \
