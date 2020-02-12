@@ -17,7 +17,7 @@
 
 #' @include arrow-package.R
 
-#' @title class arrow::Message
+#' @title Message
 #'
 #' @usage NULL
 #' @format NULL
@@ -25,7 +25,13 @@
 #'
 #' @section Methods:
 #'
-#' TODO
+#' * `$Equals(other)`: Test for equality
+#' * `$body_length()`:
+#' * `$Verify()`:
+#' @section Active bindings:
+#' * `$type`:
+#' * `$metadata`:
+#' * `$body`:
 #'
 #' @rdname Message
 #' @name Message
@@ -74,7 +80,7 @@ MessageReader$create <- function(stream) {
 #' Read a Message from a stream
 #'
 #' @param stream an InputStream
-#'
+#' @return A [Message]
 #' @export
 read_message <- function(stream) {
   UseMethod("read_message")
