@@ -56,9 +56,11 @@ class PARQUET_EXPORT RowGroupReader {
   // column. Ownership is shared with the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(int i);
 
+  std::shared_ptr<ColumnReader> ColumnWithIndex(int i,int64_t predicate);
+
   std::unique_ptr<PageReader> GetColumnPageReader(int i);
 
-  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(std::vector<int> column_numbers, int predicate);
+  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, int predicate);
 
  private:
   // Holds a pointer to an instance of Contents implementation

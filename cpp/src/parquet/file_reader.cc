@@ -80,6 +80,27 @@ std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
   return contents_->GetColumnPageReader(i);
 }
 
+
+std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReaderWithIndex(int column_index,int64_t predicate) {
+  DCHECK(i < metadata()->num_columns())
+      << "The RowGroup only has " << metadata()->num_columns()
+      << "columns, requested column: " << i;
+  return contents_->GetColumnPageReaderWithIndex(i,predicate);
+}
+
+std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithIndex(int i,int64_t predicate) {
+  DCHECK(i < metadata()->num_columns())
+      << "The RowGroup only has " << metadata()->num_columns()
+      << "columns, requested column: " << i;
+  const ColumnDescriptor* descr = metadata()->schema()->Column(i);
+
+  std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReaderWithIndex(i,predicate);
+  return ColumnReader::Make(
+      descr, std::move(page_reader),
+      const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
+}
+
+
 // Returns the rowgroup metadata
 const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->metadata(); }
 
@@ -216,9 +237,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   }
 
 
-  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(std::vector<int> column_numbers, int64_t predicate) {
+  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, int64_t predicate) {
     // Read column chunk from the file
-    auto col = row_group_metadata_->ColumnChunk(column_numbers[0]);
+    auto col = row_group_metadata_->ColumnChunk(column_index);
 
     int64_t col_start = col->data_page_offset();
     if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
