@@ -300,8 +300,9 @@ class Repo:
         refspec = '+refs/heads/*:refs/remotes/origin/*'
         self.origin.fetch([refspec])
 
-    def push(self, refs=None):
-        callbacks = GitRemoteCallbacks(self.github_token)
+    def push(self, refs=None, github_token=None):
+        github_token = github_token or self.github_token
+        callbacks = GitRemoteCallbacks(github_token)
         refs = refs or []
         try:
             self.origin.push(refs + self._updated_refs, callbacks=callbacks)
@@ -428,11 +429,12 @@ class Repo:
         user, repo = m.group(1), m.group(2)
         return user, repo
 
-    def as_github_repo(self):
+    def as_github_repo(self, github_token=None):
         """Converts it to a repository object which wraps the GitHub API"""
         if self._github_repo is None:
+            github_token = github_token or self.github_token
             username, reponame = self._parse_github_user_repo()
-            gh = github3.login(token=self.github_token)
+            gh = github3.login(token=github_token)
             self._github_repo = gh.repository(username, reponame)
         return self._github_repo
 
@@ -1412,15 +1414,27 @@ def github_page(ctx):
 @github_page.command('generate')
 @click.option('-n', default=10,
               help='Number of most recent jobs')
-@click.option('--gh-branch', default='gh-pages', help='Github pages branch')
+@click.option('--gh-branch', default='gh-pages',
+              help='Github pages branch')
 @click.option('--job-prefix', default='nightly',
               help='Job/tag prefix the wheel links should be generated for')
 @click.option('--dry-run/--push', default=False,
               help='Just render the files without pushing')
+@click.option('--github-push-token', '-t', default=None,
+              help='OAuth token for GitHub authentication only used for '
+                   'pushing to the crossbow repository, the API requests '
+                   'will consume the token passed to the top level crossbow '
+                   'command.')
 @click.pass_context
-def generate_github_page(ctx, n, gh_branch, job_prefix, dry_run):
+def generate_github_page(ctx, n, gh_branch, job_prefix, dry_run,
+                         github_push_token):
     queue = ctx.obj['queue']
-    queue.fetch()
+    # queue.fetch()
+
+    # fail early if the requested branch is not available in the local checkout
+    remote = 'origin'
+    branch = queue.repo.branches['{}/{}'.format(remote, gh_branch)]
+    head = queue.repo[branch.target]
 
     # $ at the end of the pattern is important because we're only looking for
     # branches belonging to jobs not branches belonging to tasks
@@ -1434,16 +1448,13 @@ def generate_github_page(ctx, n, gh_branch, job_prefix, dry_run):
         click.echo(files)
         return
 
-    branch = queue.repo.branches[gh_branch]
-    head = queue.repo[branch.target]
-
-    refname = 'refs/heads/{}'.format(branch.branch_name)
+    refname = 'refs/heads/{}'.format(gh_branch)
     message = 'Update nightly wheel links {}'.format(date.today())
     commit = queue.create_commit(files, parents=[head.id], message=message,
                                  reference_name=refname)
     click.echo('Updated `{}` branch\'s head to `{}`'
-               .format(branch.branch_name, commit.id))
-    queue.push([refname])
+               .format(gh_branch, commit.id))
+    queue.push([refname], github_token=github_push_token)
 
 
 @crossbow.command()
