@@ -29,15 +29,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - name: Set up git remote for pushing to
-        run: |
-          if [ "${{ github.repository }}" != "apache/arrow" ]; then
-            git config user.name "$(git log -1 --pretty=format:%an)"
-            git config user.email "$(git log -1 --pretty=format:%ae)"
-            git remote add deploy https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-            git fetch deploy
-            git checkout --track deploy/${{ github.ref }}
-          fi
       - uses: r-lib/actions/setup-r@v1
       - name: Install dependencies
         run: Rscript -e 'source("ci/etc/rprofile"); install.packages(c("remotes", "roxygen2")); remotes::install_deps("r")'
@@ -49,5 +40,5 @@ jobs:
         run: |
           if [ "${{ github.repository }}" != "apache/arrow" ]; then
             git commit -a -m 'Update docs' || echo "No changes to commit"
-            git push deploy ${{ github.ef }} || echo "No changes to commit"
+            git push https://${{github.actor}}:${{secrets.GITHUB_TOKEN}}@github.com/${{github.repository}}.git HEAD:${{ github.ref }} || echo "No changes to commit"
           fi
