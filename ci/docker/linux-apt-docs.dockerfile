@@ -18,23 +18,40 @@
 ARG base
 FROM ${base}
 
+# NOTE: as of 2019-12, R 3.5 and 3.6 are available in the repos with -cran35 suffix
+# R 3.2, 3.3, 3.4 are available without the suffix but only for trusty and xenial
+ARG r=3.6
 ARG jdk=8
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
+
+RUN apt-get update -y && \
+    apt-get install -y \
+        dirmngr \
+        apt-transport-https \
+        software-properties-common && \
+    apt-key adv \
+        --keyserver keyserver.ubuntu.com \
+        --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
+    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran35/' && \
+    apt-get install -y \
         autoconf-archive \
         automake \
         doxygen \
         gobject-introspection \
         gtk-doc-tools \
+        libcurl4-openssl-dev \
         libgirepository1.0-dev \
         libglib2.0-doc \
         libtool \
+        libxml2-dev \
         ninja-build \
         openjdk-${jdk}-jdk-headless \
-        ruby-dev \
-        rsync && \
+        pandoc \
+        r-base=${r}* \
+        rsync \
+        ruby-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
 ENV JAVA_HOME=/usr/lib/jvm/java-${jdk}-openjdk-amd64
 
 ARG maven=3.5.4
@@ -57,6 +74,11 @@ RUN pip install \
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install bundler && \
     bundle install --gemfile /arrow/c_glib/Gemfile
+
+COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
+COPY r/DESCRIPTION /arrow/r/
+RUN /arrow/ci/scripts/r_deps.sh /arrow && \
+    R -e "install.packages('pkgdown', verbose = TRUE)"
 
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \
