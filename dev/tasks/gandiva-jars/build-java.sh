@@ -23,8 +23,32 @@ CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/dist/
 
 pushd java
   if [ $TRAVIS_OS_NAME == "linux" ]; then
-    ldd $CPP_BUILD_DIR/libgandiva_jni.so
+    SO_DEP=ldd
+    GANDIVA_LIB="$CPP_BUILD_DIR"libgandiva_jni.so
+    WHITELIST=(linux-vdso libz librt libdl libpthread libstdc++ libm libgcc_s libc ld-linux-x86-64)
+  else
+    SO_DEP="otool -L"
+    GANDIVA_LIB="$CPP_BUILD_DIR"libgandiva_jni.dylib
+    WHITELIST=(libgandiva_jni libz libncurses libSystem libc++)
   fi
+
+  # print the shared library dependencies
+  eval "$SO_DEP" "$GANDIVA_LIB"
+  # exit if any shared library not in whitelisted set is founds
+  while read -r line
+  do
+    found=false
+    for item in "${WHITELIST[@]}"
+    do
+      if [[ "$line" == *"$item"* ]] ; then
+          found=true
+      fi
+    done
+    if [[ "$found" == false ]] ; then
+      echo "Unexpected shared dependency found"
+      exit 1
+    fi
+  done < <(eval "$SO_DEP" "$GANDIVA_LIB" | awk '{print $1}')
 
   # build the entire project
   mvn clean install -q -DskipTests -P arrow-jni -Darrow.cpp.build.dir=$CPP_BUILD_DIR
