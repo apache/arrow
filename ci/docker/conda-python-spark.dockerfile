@@ -41,4 +41,5 @@ ENV CC=gcc \
     CXX=g++ \
     ARROW_PYTHON=ON \
     ARROW_HDFS=ON \
-    ARROW_BUILD_TESTS=OFF
+    ARROW_BUILD_TESTS=OFF \
+    SPARK_VERSION=${spark}

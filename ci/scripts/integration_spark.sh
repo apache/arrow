@@ -20,6 +20,12 @@ set -eu
 
 source_dir=${1}
 spark_dir=${2}
+spark_version=${SPARK_VERSION:-master}
+
+if [ "${SPARK_VERSION:0:2}" == "2." ]; then
+  # https://github.com/apache/spark/blob/master/docs/sql-pyspark-pandas-with-arrow.md#compatibility-setting-for-pyarrow--0150-and-spark-23x-24x
+  export ARROW_PRE_0_15_IPC_FORMAT=1
+fi
 
 pushd ${source_dir}/java
   arrow_version=`mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | sed -n -e '/^\[.*\]/ !{ /^[0-9]/ { p; q } }'`
