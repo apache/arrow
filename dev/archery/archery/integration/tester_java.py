@@ -20,7 +20,7 @@ import os
 import subprocess
 
 from .tester import Tester
-from .util import run_cmd, ARROW_ROOT_DEFAULT
+from .util import run_cmd, ARROW_ROOT_DEFAULT, log
 
 
 def load_version_from_pom():
@@ -36,8 +36,6 @@ class JavaTester(Tester):
     CONSUMER = True
     FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
-
-    FLIGHT_PORT = 31338
 
     JAVA_OPTS = ['-Dio.netty.tryReflectionSetAccessible=true']
 
@@ -72,7 +70,7 @@ class JavaTester(Tester):
         cmd.extend(['-c', command])
 
         if self.debug:
-            print(' '.join(cmd))
+            log(' '.join(cmd))
 
         run_cmd(cmd)
 
@@ -87,7 +85,7 @@ class JavaTester(Tester):
             ['-cp', self.ARROW_TOOLS_JAR,
              'org.apache.arrow.tools.StreamToFile', stream_path, file_path]
         if self.debug:
-            print(' '.join(cmd))
+            log(' '.join(cmd))
         run_cmd(cmd)
 
     def file_to_stream(self, file_path, stream_path):
@@ -95,7 +93,7 @@ class JavaTester(Tester):
             ['-cp', self.ARROW_TOOLS_JAR,
              'org.apache.arrow.tools.FileToStream', file_path, stream_path]
         if self.debug:
-            print(' '.join(cmd))
+            log(' '.join(cmd))
         run_cmd(cmd)
 
     def flight_request(self, port, json_path):
@@ -103,23 +101,27 @@ class JavaTester(Tester):
             ['-cp', self.ARROW_FLIGHT_JAR, self.ARROW_FLIGHT_CLIENT,
              '-port', str(port), '-j', json_path]
         if self.debug:
-            print(' '.join(cmd))
+            log(' '.join(cmd))
         run_cmd(cmd)
 
     @contextlib.contextmanager
-    def flight_server(self):
+    def flight_server(self, port):
         cmd = ['java'] + self.JAVA_OPTS + \
             ['-cp', self.ARROW_FLIGHT_JAR, self.ARROW_FLIGHT_SERVER,
-             '-port', str(self.FLIGHT_PORT)]
+             '-port', str(port)]
         if self.debug:
-            print(' '.join(cmd))
-        server = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            log(' '.join(cmd))
+        server = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE)
         try:
             output = server.stdout.readline().decode()
             if not output.startswith("Server listening on localhost"):
+                server.kill()
+                out, err = server.communicate()
                 raise RuntimeError(
-                    "Flight-Java server did not start properly, output: " +
-                    output)
+                    "Flight-Java server did not start properly, "
+                    "stdout:\n{}\n\nstderr:\n{}\n"
+                    .format(output + out.decode(), err.decode()))
             yield
         finally:
             server.kill()

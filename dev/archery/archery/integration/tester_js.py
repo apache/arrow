@@ -18,7 +18,7 @@
 import os
 
 from .tester import Tester
-from .util import run_cmd, ARROW_ROOT_DEFAULT
+from .util import run_cmd, ARROW_ROOT_DEFAULT, log
 
 
 class JSTester(Tester):
@@ -46,7 +46,7 @@ class JSTester(Tester):
         cmd.extend(['--mode', command])
 
         if self.debug:
-            print(' '.join(cmd))
+            log(' '.join(cmd))
 
         run_cmd(cmd)
 
@@ -61,13 +61,13 @@ class JSTester(Tester):
         self.run_shell_command(cmd)
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = ['cat', stream_path, '|',
-               'node', '--no-warnings', self.STREAM_TO_FILE, '>',
-               file_path]
+        cmd = ['node', '--no-warnings', self.STREAM_TO_FILE,
+               '<', stream_path,
+               '>', file_path]
         self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = ['cat', file_path, '|',
-               'node', '--no-warnings', self.FILE_TO_STREAM, '>',
-               stream_path]
+        cmd = ['node', '--no-warnings', self.FILE_TO_STREAM,
+               '<', file_path,
+               '>', stream_path]
         self.run_shell_command(cmd)

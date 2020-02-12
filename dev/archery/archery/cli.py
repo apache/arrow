@@ -498,8 +498,10 @@ def _set_default(opt, default):
               help='Generate test JSON to indicated path')
 @click.option('--run-flight', is_flag=True, default=False,
               help='Run Flight integration tests')
-@click.option('--debug', type=bool, default=False,
+@click.option('--debug', is_flag=True, default=False,
               help='Run executables in debug mode as relevant')
+@click.option('--serial', is_flag=True, default=False,
+              help='Run tests serially, rather than in parallel')
 @click.option('--tempdir', default=None,
               help=('Directory to use for writing '
                     'integration test temporary files'))
