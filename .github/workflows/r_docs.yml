@@ -38,6 +38,8 @@ jobs:
           Rscript -e 'roxygen2::roxygenize()'
       - name: Commit results
         run: |
+          git config user.name "$(git log -1 --pretty=format:%an)"
+          git config user.email "$(git log -1 --pretty=format:%ae)"
           OWNER=$(jq --raw-output .pull_request.head.user.login ${GITHUB_EVENT_PATH})
           REPO=$(jq --raw-output .pull_request.head.repo.name ${GITHUB_EVENT_PATH})
           git commit -a -m 'Update docs' || echo "No changes to commit"
