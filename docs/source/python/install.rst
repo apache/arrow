@@ -28,8 +28,7 @@ using a 64-bit system.
 Python Compatibility
 --------------------
 
-PyArrow pledges to maintain compatibility with Python 2.7 until the end of 2019.
-Other than that, PyArrow is currently compatible with Python 3.5, 3.6 and 3.7.
+PyArrow is currently compatible with Python 3.5, 3.6, 3.7 and 3.8.
 
 Using Conda
 -----------
@@ -54,11 +53,6 @@ and macOS):
 If you encounter any importing issues of the pip wheels on Windows, you may
 need to install the `Visual C++ Redistributable for Visual Studio 2015
 <https://www.microsoft.com/en-us/download/details.aspx?id=48145>`_.
-
-.. note::
-
-   Windows packages are only available for Python 3.5 and higher (this is also
-   true for TensorFlow and any package that is implemented with modern C++).
 
 Installing from source
 ----------------------

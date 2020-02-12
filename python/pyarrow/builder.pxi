@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import six
-
 from pyarrow.compat import tobytes
 
 
@@ -45,7 +43,7 @@ cdef class StringBuilder:
         """
         if value is None or value is np.nan:
             self.builder.get().AppendNull()
-        elif isinstance(value, (six.string_types, six.binary_type)):
+        elif isinstance(value, (bytes, str)):
             self.builder.get().Append(tobytes(value))
         else:
             raise TypeError('StringBuilder only accepts string objects')

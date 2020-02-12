@@ -136,7 +136,7 @@ cdef class ChunkedArray(_PandasConvertible):
     def __getitem__(self, key):
         if isinstance(key, slice):
             return _normalize_slice(self, key)
-        elif isinstance(key, six.integer_types):
+        elif isinstance(key, int):
             return self.getitem(key)
         else:
             raise TypeError("key must either be a slice or integer")
@@ -457,7 +457,7 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
         c_type = (<DataType> val.type).sp_type
 
         if names[i] is None:
-            c_name = tobytes(u'None')
+            c_name = b'None'
         else:
             c_name = tobytes(names[i])
         c_fields[i].reset(new CField(c_name, c_type, True))
@@ -1429,13 +1429,13 @@ cdef class Table(_PandasConvertible):
         -------
         pyarrow.ChunkedArray
         """
-        if isinstance(i, six.string_types):
+        if isinstance(i, (bytes, str)):
             field_index = self.schema.get_field_index(i)
             if field_index < 0:
                 raise KeyError("Column {} does not exist in table".format(i))
             else:
                 return self._column(field_index)
-        elif isinstance(i, six.integer_types):
+        elif isinstance(i, int):
             return self._column(i)
         else:
             raise TypeError("Index must either be string or integer")

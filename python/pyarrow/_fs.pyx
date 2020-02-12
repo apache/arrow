@@ -17,7 +17,6 @@
 
 # cython: language_level = 3
 
-import six
 from cpython.datetime cimport datetime, PyDateTime_DateTime
 
 from pyarrow.compat import frombytes, tobytes
@@ -32,7 +31,7 @@ from pyarrow.lib cimport *
 cdef inline c_string _path_as_bytes(path) except *:
     # handle only abstract paths, not bound to any filesystem like pathlib is,
     # so we only accept plain strings
-    if not isinstance(path, six.string_types):
+    if not isinstance(path, (bytes, str)):
         raise TypeError('Path must be a string')
     # tobytes always uses utf-8, which is more or less ok, at least on Windows
     # since the C++ side then decodes from utf-8. On Unix, os.fsencode may be

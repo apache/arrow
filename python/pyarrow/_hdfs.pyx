@@ -17,8 +17,6 @@
 
 # cython: language_level = 3
 
-import six
-
 from pyarrow.lib cimport check_status
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
@@ -167,7 +165,7 @@ cdef class HadoopFileSystem(FileSystem):
             HdfsOptions options
             shared_ptr[CHadoopFileSystem] wrapped
 
-        if isinstance(options_or_uri, six.string_types):
+        if isinstance(options_or_uri, str):
             options = HdfsOptions.from_uri(options_or_uri)
         elif isinstance(options_or_uri, HdfsOptions):
             options = options_or_uri

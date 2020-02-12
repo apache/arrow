@@ -17,8 +17,6 @@
 
 # cython: language_level = 3
 
-import six
-
 from pyarrow.lib cimport check_status
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *

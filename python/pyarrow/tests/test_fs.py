@@ -16,16 +16,13 @@
 # under the License.
 
 from datetime import datetime
-try:
-    import pathlib
-except ImportError:
-    import pathlib2 as pathlib  # py2 compat
+import gzip
+import pathlib
 
 import pytest
 
 import pyarrow as pa
-from pyarrow.tests.test_io import (gzip_compress, gzip_decompress,
-                                   assert_file_not_found)
+from pyarrow.tests.test_io import assert_file_not_found
 from pyarrow.fs import (FileType, FileSelector, FileSystem, LocalFileSystem,
                         LocalFileSystemOptions, SubTreeFileSystem,
                         _MockFileSystem)
@@ -387,8 +384,8 @@ def identity(v):
     [
         (None, None, identity),
         (None, 64, identity),
-        ('gzip', None, gzip_compress),
-        ('gzip', 256, gzip_compress),
+        ('gzip', None, gzip.compress),
+        ('gzip', 256, gzip.compress),
     ]
 )
 def test_open_input_stream(fs, pathfn, compression, buffer_size, compressor):
@@ -424,8 +421,8 @@ def test_open_input_file(fs, pathfn):
     [
         (None, None, identity),
         (None, 64, identity),
-        ('gzip', None, gzip_decompress),
-        ('gzip', 256, gzip_decompress),
+        ('gzip', None, gzip.decompress),
+        ('gzip', 256, gzip.decompress),
     ]
 )
 def test_open_output_stream(fs, pathfn, compression, buffer_size,
@@ -445,8 +442,8 @@ def test_open_output_stream(fs, pathfn, compression, buffer_size,
     [
         (None, None, identity, identity),
         (None, 64, identity, identity),
-        ('gzip', None, gzip_compress, gzip_decompress),
-        ('gzip', 256, gzip_compress, gzip_decompress),
+        ('gzip', None, gzip.compress, gzip.decompress),
+        ('gzip', 256, gzip.compress, gzip.decompress),
     ]
 )
 def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,

@@ -15,11 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from __future__ import absolute_import
-
 import collections
-import six
-import sys
 
 import numpy as np
 
@@ -129,10 +125,7 @@ def _pickle_to_buffer(x):
 
 def _load_pickle_from_buffer(data):
     as_memoryview = memoryview(data)
-    if six.PY2:
-        return builtin_pickle.loads(as_memoryview.tobytes())
-    else:
-        return builtin_pickle.loads(as_memoryview)
+    return builtin_pickle.loads(as_memoryview)
 
 
 # ----------------------------------------------------------------------
@@ -393,12 +386,6 @@ def register_default_serialization_handlers(serialization_context):
         int, "int",
         custom_serializer=lambda obj: str(obj),
         custom_deserializer=lambda data: int(data))
-
-    if (sys.version_info < (3, 0)):
-        serialization_context.register_type(
-            long, "long",  # noqa: F821
-            custom_serializer=lambda obj: str(obj),
-            custom_deserializer=lambda data: long(data))  # noqa: F821
 
     serialization_context.register_type(
         type(lambda: 0), "function",

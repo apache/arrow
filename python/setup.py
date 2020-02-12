@@ -559,8 +559,6 @@ class BinaryDistribution(Distribution):
 install_requires = (
     'numpy >= 1.14',
     'six >= 1.0.0',
-    'futures; python_version < "3.2"',
-    'enum34 >= 1.1.6; python_version < "3.4"',
 )
 
 
@@ -597,8 +595,7 @@ setup(
     },
     setup_requires=['setuptools_scm', 'cython >= 0.29'] + setup_requires,
     install_requires=install_requires,
-    tests_require=['pytest', 'pandas', 'hypothesis',
-                   'pathlib2; python_version < "3.4"'],
+    tests_require=['pytest', 'pandas', 'hypothesis'],
     description='Python library for Apache Arrow',
     long_description=long_description,
     long_description_content_type='text/markdown',

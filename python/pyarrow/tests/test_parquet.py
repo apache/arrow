@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -22,14 +21,13 @@ import decimal
 import io
 import json
 import os
-import six
 import pickle
 import pytest
 
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.compat import guid, u, BytesIO, unichar, PY2
+from pyarrow.compat import guid
 from pyarrow.pandas_compat import _pandas_api
 from pyarrow.tests import util
 from pyarrow.filesystem import LocalFileSystem, FileSystem
@@ -301,7 +299,7 @@ def test_pandas_parquet_datetime_tz():
                        'tz_eastern': s.dt.tz_convert('US/Eastern')},
                       index=s)
 
-    f = BytesIO()
+    f = io.BytesIO()
 
     arrow_table = pa.Table.from_pandas(df)
 
@@ -315,8 +313,6 @@ def test_pandas_parquet_datetime_tz():
 
 
 @pytest.mark.pandas
-@pytest.mark.skipif(six.PY2, reason='datetime.timezone is available since '
-                                    'python version 3.2')
 def test_datetime_timezone_tzinfo():
     value = datetime.datetime(2018, 1, 1, 1, 23, 45,
                               tzinfo=datetime.timezone.utc)
@@ -800,8 +796,8 @@ def test_parquet_metadata_lifetime(tempdir):
             'DOUBLE', -1.1, 4.4, 1, 4, 0
         ),
         (
-            [u'', u'b', unichar(1000), None, u'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'', unichar(1000).encode('utf-8'), 1, 4, 0
+            ['', 'b', chr(1000), None, 'aaa'], pa.binary(),
+            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, 0
         ),
         (
             [True, False, False, True, True], pa.bool_(),
@@ -863,7 +859,7 @@ def test_statistics_convert_logical_types(tempdir):
     # (min, max, type)
     cases = [(10, 11164359321221007157, pa.uint64()),
              (10, 4294967295, pa.uint32()),
-             (u"ähnlich", u"öffentlich", pa.utf8()),
+             ("ähnlich", "öffentlich", pa.utf8()),
              (datetime.time(10, 30, 0, 1000), datetime.time(15, 30, 0, 1000),
               pa.time32('ms')),
              (datetime.time(10, 30, 0, 1000), datetime.time(15, 30, 0, 1000),
@@ -1055,15 +1051,6 @@ def test_column_of_lists(tempdir):
     _write_table(arrow_table, filename, version='2.0')
     table_read = _read_table(filename)
     df_read = table_read.to_pandas()
-
-    if PY2:
-        # assert_frame_equal fails when comparing datetime.date and
-        # np.datetime64, even with check_datetimelike_compat=True so
-        # convert the values to np.datetime64 instead
-        for col in ['date32[day]_list', 'date64[ms]_list']:
-            df[col] = df[col].apply(
-                lambda x: list(map(np.datetime64, x)) if x else x
-            )
 
     tm.assert_frame_equal(df, df_read)
 
@@ -1513,7 +1500,7 @@ def test_parquet_piece_basics():
 
 
 def test_partition_set_dictionary_type():
-    set1 = pq.PartitionSet('key1', [u('foo'), u('bar'), u('baz')])
+    set1 = pq.PartitionSet('key1', ['foo', 'bar', 'baz'])
     set2 = pq.PartitionSet('key2', [2007, 2008, 2009])
 
     assert isinstance(set1.dictionary, pa.StringArray)
@@ -1619,7 +1606,7 @@ def test_equivalency(tempdir):
         filters = [[('string', '==', b'1\0a')]]
         pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
     with pytest.raises(NotImplementedError):
-        filters = [[('string', '==', u'1\0a')]]
+        filters = [[('string', '==', '1\0a')]]
         pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
 
 
@@ -1879,7 +1866,7 @@ def s3_example(minio_server, s3_bucket):
     )
 
     test_dir = guid()
-    bucket_uri = 's3://{0}/{1}'.format(s3_bucket, test_dir)
+    bucket_uri = 's3://{}/{}'.format(s3_bucket, test_dir)
 
     fs.mkdir(bucket_uri)
     yield fs, bucket_uri
@@ -1948,7 +1935,7 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
 
             level_dir = fs._path_join(
                 str(base_dir),
-                '{0}={1}'.format(name, value)
+                '{}={}'.format(name, value)
             )
             fs.mkdir(level_dir)
 
@@ -2292,7 +2279,7 @@ def test_ignore_private_directories(tempdir):
     (dirpath / '_impala_staging').mkdir()
 
     dataset = pq.ParquetDataset(dirpath)
-    assert set(map(str, paths)) == set(x.path for x in dataset.pieces)
+    assert set(map(str, paths)) == {x.path for x in dataset.pieces}
 
 
 @pytest.mark.pandas
@@ -2310,7 +2297,7 @@ def test_ignore_hidden_files_dot(tempdir):
         f.write(b'gibberish')
 
     dataset = pq.ParquetDataset(dirpath)
-    assert set(map(str, paths)) == set(x.path for x in dataset.pieces)
+    assert set(map(str, paths)) == {x.path for x in dataset.pieces}
 
 
 @pytest.mark.pandas
@@ -2328,7 +2315,7 @@ def test_ignore_hidden_files_underscore(tempdir):
         f.write(b'abcd')
 
     dataset = pq.ParquetDataset(dirpath)
-    assert set(map(str, paths)) == set(x.path for x in dataset.pieces)
+    assert set(map(str, paths)) == {x.path for x in dataset.pieces}
 
 
 @pytest.mark.pandas
@@ -2539,7 +2526,7 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(tempdir):
     path = str(tempdir)
 
     def partition_filename_callback(keys):
-        return "{0}-{1}.parquet".format(*keys)
+        return "{}-{}.parquet".format(*keys)
 
     pq.write_to_dataset(output_table, path,
                         partition_by, partition_filename_callback)

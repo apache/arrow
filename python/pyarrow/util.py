@@ -17,30 +17,11 @@
 
 # Miscellaneous utility code
 
-from __future__ import absolute_import
-
 import contextlib
 import functools
-import six
+import pathlib
 import socket
 import warnings
-
-
-try:
-    from textwrap import indent
-except ImportError:
-    def indent(text, prefix):
-        return ''.join(prefix + line for line in text.splitlines(True))
-
-try:
-    # pathlib might not be available
-    try:
-        import pathlib
-    except ImportError:
-        import pathlib2 as pathlib  # python 2 backport
-    _has_pathlib = True
-except ImportError:
-    _has_pathlib = False
 
 
 def implements(f):
@@ -51,7 +32,7 @@ def implements(f):
 
 
 def _deprecate_api(old_name, new_name, api, next_version):
-    msg = ('pyarrow.{0} is deprecated as of {1}, please use {2} instead'
+    msg = ('pyarrow.{} is deprecated as of {}, please use {} instead'
            .format(old_name, next_version, new_name))
 
     def wrapper(*args, **kwargs):
@@ -63,16 +44,16 @@ def _deprecate_api(old_name, new_name, api, next_version):
 def _is_path_like(path):
     # PEP519 filesystem path protocol is available from python 3.6, so pathlib
     # doesn't implement __fspath__ for earlier versions
-    return (isinstance(path, six.string_types) or
+    return (isinstance(path, str) or
             hasattr(path, '__fspath__') or
-            (_has_pathlib and isinstance(path, pathlib.Path)))
+            isinstance(path, pathlib.Path))
 
 
 def _stringify_path(path):
     """
     Convert *path* to a string or unicode path if possible.
     """
-    if isinstance(path, six.string_types):
+    if isinstance(path, str):
         return path
 
     # checking whether path implements the filesystem protocol
@@ -80,7 +61,7 @@ def _stringify_path(path):
         return path.__fspath__()  # new in python 3.6
     except AttributeError:
         # fallback pathlib ckeck for earlier python versions than 3.6
-        if _has_pathlib and isinstance(path, pathlib.Path):
+        if isinstance(path, pathlib.Path):
             return str(path)
 
     raise TypeError("not a path-like object")
