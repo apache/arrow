@@ -25,6 +25,8 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -47,6 +49,7 @@ using arrow::Field;
 using arrow::Int32Array;
 using arrow::ListArray;
 using arrow::MemoryPool;
+using arrow::RecordBatchReader;
 using arrow::ResizableBuffer;
 using arrow::Status;
 using arrow::StructArray;
@@ -60,7 +63,6 @@ using parquet::schema::PrimitiveNode;
 
 // Help reduce verbosity
 using ParquetReader = parquet::ParquetFileReader;
-using arrow::RecordBatchReader;
 
 using parquet::internal::RecordReader;
 
@@ -840,6 +842,23 @@ std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
 // ----------------------------------------------------------------------
 // Public factory functions
 
+Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                        std::shared_ptr<RecordBatchReader>* out) {
+  std::unique_ptr<RecordBatchReader> tmp;
+  ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, &tmp));
+  out->reset(tmp.release());
+  return Status::OK();
+}
+
+Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                        const std::vector<int>& column_indices,
+                                        std::shared_ptr<RecordBatchReader>* out) {
+  std::unique_ptr<RecordBatchReader> tmp;
+  ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
+  out->reset(tmp.release());
+  return Status::OK();
+}
+
 Status FileReader::Make(::arrow::MemoryPool* pool,
                         std::unique_ptr<ParquetFileReader> reader,
                         const ArrowReaderProperties& properties,
@@ -905,6 +924,34 @@ Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool*
   RETURN_NOT_OK(builder.Open(std::move(file)));
   return builder.memory_pool(pool)->properties(properties)->Build(reader);
 }
+
+namespace internal {
+
+Status FuzzReader(std::unique_ptr<FileReader> reader) {
+  auto st = Status::OK();
+  for (int i = 0; i < reader->num_row_groups(); ++i) {
+    std::shared_ptr<Table> table;
+    auto row_group_status = reader->ReadRowGroup(i, &table);
+    if (row_group_status.ok()) {
+      row_group_status &= table->ValidateFull();
+    }
+    st &= row_group_status;
+  }
+  return st;
+}
+
+Status FuzzReader(const uint8_t* data, int64_t size) {
+  auto buffer = std::make_shared<::arrow::Buffer>(data, size);
+  auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
+  FileReaderBuilder builder;
+  RETURN_NOT_OK(builder.Open(std::move(file)));
+
+  std::unique_ptr<FileReader> reader;
+  RETURN_NOT_OK(builder.Build(&reader));
+  return FuzzReader(std::move(reader));
+}
+
+}  // namespace internal
 
 }  // namespace arrow
 }  // namespace parquet
