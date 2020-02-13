@@ -54,7 +54,10 @@ install_arrow <- function(nightly = FALSE,
     Sys.setenv(LIBARROW_BINARY_DISTRO = binary)
     Sys.setenv(ARROW_USE_PKG_CONFIG = use_system)
     install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
-    message('Please restart R to use the newly installed "arrow" package.')
+    if ("arrow" %in% loadedNamespaces()) {
+      # If you've just sourced this file, "arrow" won't be (re)loaded
+      reload_arrow()
+    }
   } else {
     # Solaris
     message(SEE_README)
@@ -74,6 +77,20 @@ arrow_repos <- function(repos = getOption("repos"), nightly = FALSE) {
     repos <- c(bintray, repos)
   }
   repos
+}
+
+reload_arrow <- function() {
+  if (requireNamespace("pkgload", quietly = TRUE)) {
+    is_attached <- "package:arrow" %in% search()
+    pkgload::unload("arrow")
+    if (is_attached) {
+      require("arrow", character.only = TRUE, quietly = TRUE)
+    } else {
+      requireNamespace("arrow", quietly = TRUE)
+    }
+  } else {
+    message("Please restart R to use the 'arrow' package.")
+  }
 }
 
 SEE_README <- paste(
