@@ -176,13 +176,7 @@ cdef class DataType:
         """
         cdef DataType other_type
 
-        if not isinstance(other, DataType):
-            if not isinstance(other, six.string_types):
-                raise TypeError(other)
-            other_type = type_for_alias(other)
-        else:
-            other_type = other
-
+        other_type = ensure_type(other)
         return self.type.Equals(deref(other_type.type))
 
     def to_pandas_dtype(self):
@@ -384,9 +378,9 @@ cdef class StructType(DataType):
         """
         Return the struct field with the given index or name.
         """
-        if isinstance(i, six.string_types):
+        if isinstance(i, (bytes, str)):
             return self.field_by_name(i)
-        elif isinstance(i, six.integer_types):
+        elif isinstance(i, int):
             return self.child(i)
         else:
             raise TypeError('Expected integer or string index')
@@ -1096,13 +1090,13 @@ cdef class Schema:
         -------
         pyarrow.Field
         """
-        if isinstance(i, six.string_types):
+        if isinstance(i, (bytes, str)):
             field_index = self.get_field_index(i)
             if field_index < 0:
                 raise KeyError("Column {} does not exist in schema".format(i))
             else:
                 return self._field(field_index)
-        elif isinstance(i, six.integer_types):
+        elif isinstance(i, int):
             return self._field(i)
         else:
             raise TypeError("Index must either be string or integer")
@@ -1524,7 +1518,7 @@ def tzinfo_to_string(tz):
     elif isinstance(tz, pytz._FixedOffset):
         return fixed_offset_to_string(tz)
     elif isinstance(tz, datetime.tzinfo):
-        if six.PY3 and isinstance(tz, datetime.timezone):
+        if isinstance(tz, datetime.timezone):
             return fixed_offset_to_string(tz)
         else:
             raise ValueError('Unable to convert timezone `{}` to string'
@@ -1607,7 +1601,7 @@ def timestamp(unit, tz=None):
             return _timestamp_type_cache[unit_code]
         _timestamp_type_cache[unit_code] = out
     else:
-        if not isinstance(tz, six.string_types):
+        if not isinstance(tz, (bytes, str)):
             tz = tzinfo_to_string(tz)
 
         c_timezone = tobytes(tz)
@@ -2157,7 +2151,7 @@ cdef DataType ensure_type(object ty, c_bool allow_none=False):
         return None
     elif isinstance(ty, DataType):
         return ty
-    elif isinstance(ty, six.string_types):
+    elif isinstance(ty, str):
         return type_for_alias(ty)
     else:
         raise TypeError('DataType expected, got {!r}'.format(type(ty)))

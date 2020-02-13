@@ -47,11 +47,7 @@ def fix_example_values(actual_cols, expected_cols):
         expected = expected_cols[name]
         actual = actual_cols[name]
         typ = actual[0].__class__
-        if typ is bytes:
-            # bytes fields are represented as lists of ints in JSON files
-            # (Python 2: need to use bytearray, not bytes)
-            expected = [bytearray(v) for v in expected]
-        elif issubclass(typ, datetime.datetime):
+        if issubclass(typ, datetime.datetime):
             # timestamp fields are represented as strings in JSON files
             expected = pd.to_datetime(expected)
         elif issubclass(typ, datetime.date):

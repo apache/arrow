@@ -104,13 +104,13 @@ def test_filter():
 def test_in_expr():
     import pyarrow.gandiva as gandiva
 
-    arr = pa.array([u"ga", u"an", u"nd", u"di", u"iv", u"va"])
+    arr = pa.array(["ga", "an", "nd", "di", "iv", "va"])
     table = pa.Table.from_arrays([arr], ["a"])
 
     # string
     builder = gandiva.TreeExprBuilder()
     node_a = builder.make_field(table.schema.field("a"))
-    cond = builder.make_in_expression(node_a, [u"an", u"nd"], pa.string())
+    cond = builder.make_in_expression(node_a, ["an", "nd"], pa.string())
     condition = builder.make_condition(cond)
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())

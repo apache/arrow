@@ -17,8 +17,6 @@
 
 # cython: language_level = 3
 
-import six
-
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport PyDateTime_from_TimePoint

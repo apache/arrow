@@ -356,14 +356,14 @@ class TestFeatherReader(unittest.TestCase):
         if sys.platform == 'win32':
             pytest.skip('Windows hangs on to file handle for some reason')
 
-        class CustomClass(object):
+        class CustomClass:
             pass
 
         # strings will fail
         df = pd.DataFrame(
             {
                 'numbers': range(5),
-                'strings': [b'foo', None, u'bar', CustomClass(), np.nan]},
+                'strings': [b'foo', None, 'bar', CustomClass(), np.nan]},
             columns=['numbers', 'strings'])
 
         path = random_path()
@@ -378,7 +378,7 @@ class TestFeatherReader(unittest.TestCase):
         repeats = 1000
 
         # Mixed bytes, unicode, strings coerced to binary
-        values = [b'foo', None, u'bar', 'qux', np.nan]
+        values = [b'foo', None, 'bar', 'qux', np.nan]
         df = pd.DataFrame({'strings': values * repeats})
 
         ex_values = [b'foo', None, b'bar', b'qux', np.nan]
@@ -411,7 +411,7 @@ class TestFeatherReader(unittest.TestCase):
         self._check_pandas_roundtrip(df, null_counts=[0, 3])
 
     def test_multithreaded_read(self):
-        data = {'c{0}'.format(i): [''] * 10
+        data = {'c{}'.format(i): [''] * 10
                 for i in range(100)}
         df = pd.DataFrame(data)
         self._check_pandas_roundtrip(df, use_threads=True)
@@ -424,7 +424,7 @@ class TestFeatherReader(unittest.TestCase):
 
     def test_category(self):
         repeats = 1000
-        values = ['foo', None, u'bar', 'qux', np.nan]
+        values = ['foo', None, 'bar', 'qux', np.nan]
         df = pd.DataFrame({'strings': values * repeats})
         df['strings'] = df['strings'].astype('category')
 

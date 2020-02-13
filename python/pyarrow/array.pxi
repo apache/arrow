@@ -1848,11 +1848,11 @@ cdef class StructArray(Array):
             CStructArray* arr = <CStructArray*> self.ap
             shared_ptr[CArray] child
 
-        if isinstance(index, six.string_types):
+        if isinstance(index, (bytes, str)):
             child = arr.GetFieldByName(tobytes(index))
             if child == nullptr:
                 raise KeyError(index)
-        elif isinstance(index, six.integer_types):
+        elif isinstance(index, int):
             child = arr.field(
                 <int>_normalize_index(index, self.ap.num_fields()))
         else:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -18,7 +17,7 @@
 
 import pytest
 
-from pyarrow.compat import unittest, u  # noqa
+from pyarrow.compat import unittest  # noqa
 from pyarrow.pandas_compat import _pandas_api  # noqa
 import pyarrow as pa
 
@@ -28,11 +27,9 @@ import decimal
 import itertools
 import math
 import traceback
-import sys
 
 import numpy as np
 import pytz
-import six
 
 
 int_type_pairs = [
@@ -145,7 +142,7 @@ def _as_deque(xs):
 def _as_dict_values(xs):
     # a dict values object is not a sequence, just a regular iterable
     dct = {k: v for k, v in enumerate(xs)}
-    return six.viewvalues(dct)
+    return dct.values()
 
 
 def _as_numpy_array(xs):
@@ -651,7 +648,7 @@ def test_nested_ndarray_different_dtypes():
 
 
 def test_sequence_unicode():
-    data = [u'foo', u'bar', None, u'mañana']
+    data = ['foo', 'bar', None, 'mañana']
     arr = pa.array(data)
     assert len(arr) == 4
     assert arr.null_count == 1
@@ -660,9 +657,9 @@ def test_sequence_unicode():
 
 
 def check_array_mixed_unicode_bytes(binary_type, string_type):
-    values = [u'qux', b'foo', bytearray(b'barz')]
+    values = ['qux', b'foo', bytearray(b'barz')]
     b_values = [b'qux', b'foo', b'barz']
-    u_values = [u'qux', u'foo', u'barz']
+    u_values = ['qux', 'foo', 'barz']
 
     arr = pa.array(values)
     expected = pa.array(b_values, type=pa.binary())
@@ -732,10 +729,10 @@ def test_sequence_utf8_to_unicode(ty):
     data = [b'foo', None, b'bar']
     arr = pa.array(data, type=ty)
     assert arr.type == ty
-    assert arr[0].as_py() == u'foo'
+    assert arr[0].as_py() == 'foo'
 
     # test a non-utf8 unicode string
-    val = (u'mañana').encode('utf-16-le')
+    val = ('mañana').encode('utf-16-le')
     with pytest.raises(pa.ArrowInvalid):
         pa.array([val], type=ty)
 
@@ -990,12 +987,7 @@ def test_sequence_timestamp_from_int_with_unit():
     assert repr(arr_ns[0]) == "Timestamp('1970-01-01 00:00:00.000000001')"
     assert str(arr_ns[0]) == "1970-01-01 00:00:00.000000001"
 
-    if sys.version_info >= (3,):
-        expected_exc = TypeError
-    else:
-        # Can have "AttributeError: CustomClass instance
-        # has no attribute '__trunc__'"
-        expected_exc = (TypeError, AttributeError)
+    expected_exc = TypeError
 
     class CustomClass():
         pass
@@ -1218,16 +1210,16 @@ def test_structarray():
     assert arr.to_pylist() == []
 
     ints = pa.array([None, 2, 3], type=pa.int64())
-    strs = pa.array([u'a', None, u'c'], type=pa.string())
+    strs = pa.array(['a', None, 'c'], type=pa.string())
     bools = pa.array([True, False, None], type=pa.bool_())
     arr = pa.StructArray.from_arrays(
         [ints, strs, bools],
         ['ints', 'strs', 'bools'])
 
     expected = [
-        {'ints': None, 'strs': u'a', 'bools': True},
+        {'ints': None, 'strs': 'a', 'bools': True},
         {'ints': 2, 'strs': None, 'bools': False},
-        {'ints': 3, 'strs': u'c', 'bools': None},
+        {'ints': 3, 'strs': 'c', 'bools': None},
     ]
 
     pylist = arr.to_pylist()
@@ -1329,8 +1321,8 @@ def test_struct_from_dicts_inference():
     expected_type = pa.struct([pa.field('a', pa.int64()),
                                pa.field('b', pa.string()),
                                pa.field('c', pa.bool_())])
-    data = [{'a': 5, 'b': u'foo', 'c': True},
-            {'a': 6, 'b': u'bar', 'c': False}]
+    data = [{'a': 5, 'b': 'foo', 'c': True},
+            {'a': 6, 'b': 'bar', 'c': False}]
     arr = pa.array(data)
     check_struct_type(arr.type, expected_type)
     assert arr.to_pylist() == data
@@ -1339,11 +1331,11 @@ def test_struct_from_dicts_inference():
     data = [{'a': 5, 'c': True},
             None,
             {},
-            {'a': None, 'b': u'bar'}]
+            {'a': None, 'b': 'bar'}]
     expected = [{'a': 5, 'b': None, 'c': True},
                 None,
                 {'a': None, 'b': None, 'c': None},
-                {'a': None, 'b': u'bar', 'c': None}]
+                {'a': None, 'b': 'bar', 'c': None}]
     arr = pa.array(data)
     data_as_ndarray = np.empty(len(data), dtype=object)
     data_as_ndarray[:] = data
@@ -1377,7 +1369,7 @@ def test_struct_from_dicts_inference():
 def test_structarray_from_arrays_coerce():
     # ARROW-1706
     ints = [None, 2, 3]
-    strs = [u'a', None, u'c']
+    strs = ['a', None, 'c']
     bools = [True, False, None]
     ints_nonnull = [1, 2, 3]
 

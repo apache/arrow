@@ -19,10 +19,8 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from __future__ import absolute_import
-
 import io
-import six
+from textwrap import indent
 import warnings
 
 import numpy as np
@@ -46,7 +44,6 @@ from pyarrow.lib import (ArrowException, NativeFile, _stringify_path,
                          _datetime_conversion_functions,
                          _box_time_milli,
                          _box_time_micro)
-from pyarrow.util import indent
 
 cimport cpython as cp
 

@@ -18,13 +18,10 @@
 # ----------------------------------------------------------------------
 # HDFS IO implementation
 
-_HDFS_PATH_RE = re.compile(r'hdfs://(.*):(\d+)(.*)')
+from queue import Queue, Empty as QueueEmpty, Full as QueueFull
 
-try:
-    # Python 3
-    from queue import Queue, Empty as QueueEmpty, Full as QueueFull
-except ImportError:
-    from Queue import Queue, Empty as QueueEmpty, Full as QueueFull
+
+_HDFS_PATH_RE = re.compile(r'hdfs://(.*):(\d+)(.*)')
 
 
 def have_libhdfs():

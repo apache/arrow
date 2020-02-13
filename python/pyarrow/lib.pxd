@@ -17,8 +17,6 @@
 
 # cython: language_level = 3
 
-from __future__ import absolute_import
-
 from cpython cimport PyObject
 from libcpp cimport nullptr
 from libcpp.cast cimport dynamic_cast

@@ -16,8 +16,6 @@
 # under the License.
 
 
-from __future__ import absolute_import
-
 from pyarrow.compat import tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_cuda cimport *
@@ -696,14 +694,6 @@ cdef class CudaBuffer(Buffer):
         # Device buffer contains data pointers on the device. Hence,
         # cannot support buffer protocol PEP-3118 for CudaBuffer.
         raise BufferError('buffer protocol for device buffer not supported')
-
-    def __getreadbuffer__(self, Py_ssize_t idx, void** p):
-        # Python 2.x specific method
-        raise NotImplementedError('CudaBuffer.__getreadbuffer__')
-
-    def __getwritebuffer__(self, Py_ssize_t idx, void** p):
-        # Python 2.x specific method
-        raise NotImplementedError('CudaBuffer.__getwritebuffer__')
 
 
 cdef class HostBuffer(Buffer):

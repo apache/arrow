@@ -21,20 +21,16 @@ from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
 import gc
 import gzip
 import os
+import pathlib
 import pickle
 import pytest
 import sys
 import tempfile
 import weakref
 
-try:
-    import pathlib
-except ImportError:
-    import pathlib2 as pathlib
-
 import numpy as np
 
-from pyarrow.compat import u, guid, PY2
+from pyarrow.compat import guid
 import pyarrow as pa
 
 
@@ -58,12 +54,8 @@ def check_large_seeks(file_factory):
 
 @contextmanager
 def assert_file_not_found():
-    if PY2:
-        with pytest.raises(IOError):
-            yield
-    else:
-        with pytest.raises(FileNotFoundError):
-            yield
+    with pytest.raises(FileNotFoundError):
+        yield
 
 
 # ----------------------------------------------------------------------
@@ -225,7 +217,7 @@ def test_bytes_reader():
 
 def test_bytes_reader_non_bytes():
     with pytest.raises(TypeError):
-        pa.BufferReader(u('some sample data'))
+        pa.BufferReader('some sample data')
 
 
 def test_bytes_reader_retains_parent_reference():
@@ -449,7 +441,7 @@ def test_buffer_eq_bytes():
     assert buf != b'some dat1'
 
     with pytest.raises(TypeError):
-        buf == u'some data'
+        buf == 'some data'
 
 
 def test_buffer_getitem():
@@ -909,7 +901,7 @@ def test_native_file_write_reject_unicode():
     # ARROW-3227
     nf = pa.BufferOutputStream()
     with pytest.raises(TypeError):
-        nf.write(u'foo')
+        nf.write('foo')
 
 
 def test_native_file_modes(tmpdir):
@@ -994,9 +986,9 @@ def test_native_file_raises_ValueError_after_close(tmpdir):
 
 
 def test_native_file_TextIOWrapper(tmpdir):
-    data = (u'foooo\n'
-            u'barrr\n'
-            u'bazzz\n')
+    data = ('foooo\n'
+            'barrr\n'
+            'bazzz\n')
 
     path = os.path.join(str(tmpdir), guid())
     with open(path, 'wb') as f:
@@ -1256,40 +1248,13 @@ def test_compressed_recordbatch_stream(compression):
 # ----------------------------------------------------------------------
 # High-level API
 
-if PY2:
-    def gzip_compress(data):
-        fd, fn = tempfile.mkstemp(suffix='.gz')
-        try:
-            os.close(fd)
-            with gzip.GzipFile(fn, 'wb') as f:
-                f.write(data)
-            with open(fn, 'rb') as f:
-                return f.read()
-        finally:
-            os.unlink(fn)
-
-    def gzip_decompress(data):
-        fd, fn = tempfile.mkstemp(suffix='.gz')
-        try:
-            os.close(fd)
-            with open(fn, 'wb') as f:
-                f.write(data)
-            with gzip.GzipFile(fn, 'rb') as f:
-                return f.read()
-        finally:
-            os.unlink(fn)
-else:
-    gzip_compress = gzip.compress
-    gzip_decompress = gzip.decompress
-
-
 def test_input_stream_buffer():
     data = b"some test data\n" * 10 + b"eof\n"
     for arg in [pa.py_buffer(data), memoryview(data)]:
         stream = pa.input_stream(arg)
         assert stream.read() == data
 
-    gz_data = gzip_compress(data)
+    gz_data = gzip.compress(data)
     stream = pa.input_stream(memoryview(gz_data))
     assert stream.read() == gz_data
     stream = pa.input_stream(memoryview(gz_data), compression='gzip')
@@ -1298,7 +1263,7 @@ def test_input_stream_buffer():
 
 def test_input_stream_duck_typing():
     # Accept objects having the right file-like methods...
-    class DuckReader(object):
+    class DuckReader:
 
         def close(self):
             pass
@@ -1330,7 +1295,7 @@ def test_input_stream_file_path(tmpdir):
 
 def test_input_stream_file_path_compressed(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
-    gz_data = gzip_compress(data)
+    gz_data = gzip.compress(data)
     file_path = tmpdir / 'input_stream.gz'
     with open(str(file_path), 'wb') as f:
         f.write(gz_data)
@@ -1376,7 +1341,7 @@ def test_input_stream_file_path_buffered(tmpdir):
 
 def test_input_stream_file_path_compressed_and_buffered(tmpdir):
     data = b"some test data\n" * 100 + b"eof\n"
-    gz_data = gzip_compress(data)
+    gz_data = gzip.compress(data)
     file_path = tmpdir / 'input_stream_compressed_and_buffered.gz'
     with open(str(file_path), 'wb') as f:
         f.write(gz_data)
@@ -1396,7 +1361,7 @@ def test_input_stream_python_file(tmpdir):
     stream = pa.input_stream(bio)
     assert stream.read() == data
 
-    gz_data = gzip_compress(data)
+    gz_data = gzip.compress(data)
     bio = BytesIO(gz_data)
     stream = pa.input_stream(bio)
     assert stream.read() == gz_data
@@ -1414,7 +1379,7 @@ def test_input_stream_python_file(tmpdir):
 
 def test_input_stream_native_file():
     data = b"some test data\n" * 10 + b"eof\n"
-    gz_data = gzip_compress(data)
+    gz_data = gzip.compress(data)
     reader = pa.BufferReader(gz_data)
     stream = pa.input_stream(reader)
     assert stream is reader
@@ -1455,7 +1420,7 @@ def test_output_stream_buffer():
 
 def test_output_stream_duck_typing():
     # Accept objects having the right file-like methods...
-    class DuckWriter(object):
+    class DuckWriter:
         def __init__(self):
             self.buf = pa.BufferOutputStream()
 
@@ -1500,12 +1465,12 @@ def test_output_stream_file_path_compressed(tmpdir):
         with open(str(file_path), 'rb') as f:
             return f.read()
 
-    assert gzip_decompress(check_data(file_path, data)) == data
-    assert gzip_decompress(check_data(str(file_path), data)) == data
-    assert gzip_decompress(
+    assert gzip.decompress(check_data(file_path, data)) == data
+    assert gzip.decompress(check_data(str(file_path), data)) == data
+    assert gzip.decompress(
         check_data(pathlib.Path(str(file_path)), data)) == data
 
-    assert gzip_decompress(
+    assert gzip.decompress(
         check_data(file_path, data, compression='gzip')) == data
     assert check_data(file_path, data, compression=None) == data
 
@@ -1551,13 +1516,13 @@ def test_output_stream_file_path_compressed_and_buffered(tmpdir):
             return f.read()
 
     result = check_data(file_path, data, buffer_size=32)
-    assert gzip_decompress(result) == data
+    assert gzip.decompress(result) == data
 
     result = check_data(file_path, data, buffer_size=1024)
-    assert gzip_decompress(result) == data
+    assert gzip.decompress(result) == data
 
     result = check_data(file_path, data, buffer_size=1024, compression='gzip')
-    assert gzip_decompress(result) == data
+    assert gzip.decompress(result) == data
 
 
 def test_output_stream_destructor(tmpdir):
@@ -1594,7 +1559,7 @@ def test_output_stream_python_file(tmpdir):
             return f.read()
 
     assert check_data(data) == data
-    assert gzip_decompress(check_data(data, compression='gzip')) == data
+    assert gzip.decompress(check_data(data, compression='gzip')) == data
 
 
 def test_output_stream_errors(tmpdir):

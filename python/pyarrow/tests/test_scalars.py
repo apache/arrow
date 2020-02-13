@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -21,7 +20,7 @@ import pytest
 
 import numpy as np
 
-from pyarrow.compat import unittest, u, unicode_type
+from pyarrow.compat import unittest
 import pyarrow as pa
 
 
@@ -91,14 +90,14 @@ class TestScalars(unittest.TestCase):
         assert arr[1] is pa.NA
 
     def test_string_unicode(self):
-        arr = pa.array([u'foo', None, u'mañana'])
+        arr = pa.array(['foo', None, 'mañana'])
 
         v = arr[0]
         assert isinstance(v, pa.StringValue)
-        assert v.as_py() == u'foo'
-        assert repr(v) == repr(u"foo")
-        assert str(v) == str(u"foo")
-        assert v == u'foo'
+        assert v.as_py() == 'foo'
+        assert repr(v) == repr("foo")
+        assert str(v) == "foo"
+        assert v == 'foo'
         # Assert that newly created values are equal to the previously created
         # one.
         assert v == arr[0]
@@ -106,18 +105,18 @@ class TestScalars(unittest.TestCase):
         assert arr[1] is pa.NA
 
         v = arr[2].as_py()
-        assert v == u'mañana'
-        assert isinstance(v, unicode_type)
+        assert v == 'mañana'
+        assert isinstance(v, str)
 
     def test_large_string_unicode(self):
-        arr = pa.array([u'foo', None, u'mañana'], type=pa.large_string())
+        arr = pa.array(['foo', None, 'mañana'], type=pa.large_string())
 
         v = arr[0]
         assert isinstance(v, pa.LargeStringValue)
-        assert v.as_py() == u'foo'
-        assert repr(v) == repr(u"foo")
-        assert str(v) == str(u"foo")
-        assert v == u'foo'
+        assert v.as_py() == 'foo'
+        assert repr(v) == repr("foo")
+        assert str(v) == "foo"
+        assert v == 'foo'
         # Assert that newly created values are equal to the previously created
         # one.
         assert v == arr[0]
@@ -125,11 +124,11 @@ class TestScalars(unittest.TestCase):
         assert arr[1] is pa.NA
 
         v = arr[2].as_py()
-        assert v == u'mañana'
-        assert isinstance(v, unicode_type)
+        assert v == 'mañana'
+        assert isinstance(v, str)
 
     def test_bytes(self):
-        arr = pa.array([b'foo', None, u('bar')])
+        arr = pa.array([b'foo', None, 'bar'])
 
         def check_value(v, expected):
             assert isinstance(v, pa.BinaryValue)
@@ -147,7 +146,7 @@ class TestScalars(unittest.TestCase):
         check_value(arr[2], b'bar')
 
     def test_large_bytes(self):
-        arr = pa.array([b'foo', None, u('bar')], type=pa.large_binary())
+        arr = pa.array([b'foo', None, 'bar'], type=pa.large_binary())
 
         def check_value(v, expected):
             assert isinstance(v, pa.LargeBinaryValue)
@@ -224,14 +223,14 @@ class TestScalars(unittest.TestCase):
         assert len(v) == 0
 
     def test_map(self):
-        arr = pa.array([[(u'a', 1), (u'b', 2)], None, [], [(u'c', None)]],
+        arr = pa.array([[('a', 1), ('b', 2)], None, [], [('c', None)]],
                        pa.map_(pa.string(), pa.int8()))
         v = arr[0]
         assert len(v) == 2
         assert isinstance(v, pa.MapValue)
-        assert repr(v) == repr([(u'a', 1), (u'b', 2)])
-        assert v.as_py() == [(u'a', 1), (u'b', 2)]
-        assert v[1] == (u'b', 2)
+        assert repr(v) == repr([('a', 1), ('b', 2)])
+        assert v.as_py() == [('a', 1), ('b', 2)]
+        assert v[1] == ('b', 2)
         assert v[-1] == v[1]
         assert v[-2] == v[0]
         with pytest.raises(IndexError):
@@ -244,9 +243,9 @@ class TestScalars(unittest.TestCase):
         assert len(arr[2]) == 0
 
         v = arr[3]
-        assert v == [(u'c', None)]
+        assert v == [('c', None)]
         assert len(v) == 1
-        assert v[0][0] == u'c'
+        assert v[0][0] == 'c'
         assert v[0][1] is pa.NA
 
     def test_fixed_size_list(self):
@@ -283,7 +282,7 @@ class TestScalars(unittest.TestCase):
         units = ['ns', 'us', 'ms', 's']
 
         for i, unit in enumerate(units):
-            dtype = 'datetime64[{0}]'.format(unit)
+            dtype = 'datetime64[{}]'.format(unit)
             arrow_arr = pa.Array.from_pandas(arr.astype(dtype))
             expected = pd.Timestamp('2000-01-01 12:34:56')
 
@@ -293,7 +292,7 @@ class TestScalars(unittest.TestCase):
             tz = 'America/New_York'
             arrow_type = pa.timestamp(unit, tz=tz)
 
-            dtype = 'datetime64[{0}]'.format(unit)
+            dtype = 'datetime64[{}]'.format(unit)
             arrow_arr = pa.Array.from_pandas(arr.astype(dtype),
                                              type=arrow_type)
             expected = (pd.Timestamp('2000-01-01 12:34:56')
@@ -347,7 +346,7 @@ class TestScalars(unittest.TestCase):
         units = ['us', 'ms', 's']
 
         for i, unit in enumerate(units):
-            dtype = 'timedelta64[{0}]'.format(unit)
+            dtype = 'timedelta64[{}]'.format(unit)
             arrow_arr = pa.array(arr.astype(dtype))
             expected = datetime.timedelta(seconds=60*60)
             assert isinstance(arrow_arr[1].as_py(), datetime.timedelta)

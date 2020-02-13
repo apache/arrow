@@ -21,7 +21,6 @@
 from libc.stdlib cimport malloc, free
 
 import re
-import six
 import sys
 import threading
 import time
@@ -30,7 +29,7 @@ from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 
 from pyarrow.util import _stringify_path
 from pyarrow.compat import (
-    builtin_pickle, frombytes, tobytes, encode_file_path, file_type)
+    builtin_pickle, frombytes, tobytes, encode_file_path)
 
 
 # 64K
@@ -664,14 +663,6 @@ cdef class PythonFile(NativeFile):
                         raise TypeError("readable file expected")
                 else:
                     if not handle.writable():
-                        raise TypeError("writable file expected")
-            elif file_type is not None and isinstance(handle, file_type):
-                # Python 2 file type
-                if kind == 'r':
-                    if 'r' not in handle.mode and '+' not in handle.mode:
-                        raise TypeError("readable file expected")
-                else:
-                    if 'w' not in handle.mode and '+' not in handle.mode:
                         raise TypeError("writable file expected")
             # (other duck-typed file-like objects are possible)
 
@@ -1492,7 +1483,7 @@ cdef CompressionType _get_compression_type(object name) except *:
 
 
 def _detect_compression(path):
-    if isinstance(path, six.string_types):
+    if isinstance(path, str):
         if path.endswith('.bz2'):
             return 'bz2'
         elif path.endswith('.gz'):

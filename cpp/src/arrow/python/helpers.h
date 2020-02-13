@@ -65,13 +65,7 @@ ARROW_PYTHON_EXPORT
 Status ImportFromModule(PyObject* module, const std::string& name, OwnedRef* ref);
 
 // \brief Check whether obj is an integer, independent of Python versions.
-inline bool IsPyInteger(PyObject* obj) {
-#if PYARROW_IS_PY2
-  return PyLong_Check(obj) || PyInt_Check(obj);
-#else
-  return PyLong_Check(obj);
-#endif
-}
+inline bool IsPyInteger(PyObject* obj) { return PyLong_Check(obj); }
 
 // \brief Use pandas missing value semantics to check if a value is null
 ARROW_PYTHON_EXPORT

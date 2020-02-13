@@ -617,7 +617,7 @@ def test_open_dataset_partitioned_directory(tempdir):
     import pyarrow.parquet as pq
     table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
     for part in range(3):
-        path = tempdir / "part={0}".format(part)
+        path = tempdir / "part={}".format(part)
         path.mkdir()
         pq.write_table(table, path / "test.parquet")
 

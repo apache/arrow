@@ -694,7 +694,6 @@ def other_process_for_test_IPC(handle_buffer, expected_arr):
 
 
 @cuda_ipc
-@pytest.mark.skipif(sys.version_info[0] == 2, reason="test needs Python 3")
 @pytest.mark.parametrize("size", [0, 1, 1000])
 def test_IPC(size):
     import multiprocessing

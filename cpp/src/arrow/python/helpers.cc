@@ -96,23 +96,15 @@ std::string PyBytes_AsStdString(PyObject* obj) {
 
 Status PyUnicode_AsStdString(PyObject* obj, std::string* out) {
   DCHECK(PyUnicode_Check(obj));
-#if PY_MAJOR_VERSION >= 3
   Py_ssize_t size;
   // The utf-8 representation is cached on the unicode object
   const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
   RETURN_IF_PYERROR();
   *out = std::string(data, size);
   return Status::OK();
-#else
-  OwnedRef bytes_ref(PyUnicode_AsUTF8String(obj));
-  RETURN_IF_PYERROR();
-  *out = PyBytes_AsStdString(bytes_ref.obj());
-  return Status::OK();
-#endif
 }
 
 std::string PyObject_StdStringRepr(PyObject* obj) {
-#if PY_MAJOR_VERSION >= 3
   OwnedRef unicode_ref(PyObject_Repr(obj));
   OwnedRef bytes_ref;
 
@@ -120,9 +112,6 @@ std::string PyObject_StdStringRepr(PyObject* obj) {
     bytes_ref.reset(
         PyUnicode_AsEncodedString(unicode_ref.obj(), "utf8", "backslashreplace"));
   }
-#else
-  OwnedRef bytes_ref(PyObject_Repr(obj));
-#endif
   if (!bytes_ref) {
     PyErr_Clear();
     std::stringstream ss;
@@ -135,12 +124,7 @@ std::string PyObject_StdStringRepr(PyObject* obj) {
 Status PyObject_StdStringStr(PyObject* obj, std::string* out) {
   OwnedRef string_ref(PyObject_Str(obj));
   RETURN_IF_PYERROR();
-#if PY_MAJOR_VERSION >= 3
   return PyUnicode_AsStdString(string_ref.obj(), out);
-#else
-  *out = PyBytes_AsStdString(string_ref.obj());
-  return Status::OK();
-#endif
 }
 
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
@@ -259,18 +243,10 @@ template Status CIntFromPython(PyObject*, uint64_t*, const std::string&);
 
 inline bool MayHaveNaN(PyObject* obj) {
   // Some core types can be very quickly type-checked and do not allow NaN values
-#if PYARROW_IS_PY2
-  const int64_t non_nan_tpflags = Py_TPFLAGS_INT_SUBCLASS | Py_TPFLAGS_LONG_SUBCLASS |
-                                  Py_TPFLAGS_LIST_SUBCLASS | Py_TPFLAGS_TUPLE_SUBCLASS |
-                                  Py_TPFLAGS_STRING_SUBCLASS |
-                                  Py_TPFLAGS_UNICODE_SUBCLASS | Py_TPFLAGS_DICT_SUBCLASS |
-                                  Py_TPFLAGS_BASE_EXC_SUBCLASS | Py_TPFLAGS_TYPE_SUBCLASS;
-#else
   const int64_t non_nan_tpflags = Py_TPFLAGS_LONG_SUBCLASS | Py_TPFLAGS_LIST_SUBCLASS |
                                   Py_TPFLAGS_TUPLE_SUBCLASS | Py_TPFLAGS_BYTES_SUBCLASS |
                                   Py_TPFLAGS_UNICODE_SUBCLASS | Py_TPFLAGS_DICT_SUBCLASS |
                                   Py_TPFLAGS_BASE_EXC_SUBCLASS | Py_TPFLAGS_TYPE_SUBCLASS;
-#endif
   return !PyType_HasFeature(Py_TYPE(obj), non_nan_tpflags);
 }
 
@@ -313,10 +289,6 @@ Status UnboxIntegerAsInt64(PyObject* obj, int64_t* out) {
     if (overflow) {
       return Status::Invalid("PyLong is too large to fit int64");
     }
-#if PY_MAJOR_VERSION < 3
-  } else if (PyInt_Check(obj)) {
-    *out = static_cast<int64_t>(PyInt_AS_LONG(obj));
-#endif
   } else if (PyArray_IsScalar(obj, UByte)) {
     *out = reinterpret_cast<PyUByteScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, Short)) {

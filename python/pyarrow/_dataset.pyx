@@ -19,9 +19,6 @@
 
 """Dataset is currently unstable. APIs subject to change without notice."""
 
-from __future__ import absolute_import
-
-import six
 from cpython.object cimport Py_LT, Py_EQ, Py_GT, Py_LE, Py_NE, Py_GE
 from cython.operator cimport dereference as deref
 
@@ -1274,7 +1271,7 @@ cdef class ScalarExpression(Expression):
             scalar = MakeScalar(<double>value)
         elif isinstance(value, int):
             scalar = MakeScalar(<int64_t>value)
-        elif isinstance(value, six.string_types):
+        elif isinstance(value, (bytes, str)):
             scalar = MakeStringScalar(tobytes(value))
         else:
             raise TypeError('Not yet supported scalar value: {}'.format(value))
