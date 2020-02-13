@@ -70,39 +70,38 @@ void __cpuidex(int CPUInfo[4], int function_id, int subfunction_id) {
 #include <errno.h>
 bool get_cache_size_arm64(const char* filename, int* size) {
   bool cache_supported = false;
-  char *content = nullptr;
+  char* content = nullptr;
   char* last_char = nullptr;
   size_t file_len = 0;
   int cardinal_num = 0;
   int multip = 0;
 
-  if (size == nullptr)
-    return cache_supported;
+  if (size == nullptr) return cache_supported;
   *size = 0;
 
   FILE* cache_file = fopen(filename, "r");
-  if (cache_file == nullptr)
-    return cache_supported;
+  if (cache_file == nullptr) return cache_supported;
 
   // Read cache file to 'content' for getting cache size.
   // Filename: '/sys/devices/system/cpu/cpu0/cache/index0/size' -> 32k
-  if (getline(&content, &file_len, cache_file) == -1)
-    goto done;
+  if (getline(&content, &file_len, cache_file) == -1) goto done;
 
   errno = 0;
   cardinal_num = strtoull(content, &last_char, 0);
-  if (errno != 0)
-    goto done;
+  if (errno != 0) goto done;
 
   // KB, MB, or GB
   multip = 1;
-  switch(*last_char) {
+  switch (*last_char) {
     case 'g':
-    case 'G': multip = 1024;
+    case 'G':
+      multip = 1024;
     case 'm':
-    case 'M': multip = multip*1024;
+    case 'M':
+      multip = multip * 1024;
     case 'k':
-    case 'K': multip = multip*1024;
+    case 'K':
+      multip = multip * 1024;
   }
   *size = cardinal_num * multip;
   cache_supported = true;
@@ -123,10 +122,8 @@ static struct {
   int64_t flag;
 } flag_mappings[] = {
 #if (defined(_M_AMD64) || defined(_M_X64))
-    {"ssse3", CpuInfo::SSSE3},
-    {"sse4_1", CpuInfo::SSE4_1},
-    {"sse4_2", CpuInfo::SSE4_2},
-    {"popcnt", CpuInfo::POPCNT},
+    {"ssse3", CpuInfo::SSSE3},   {"sse4_1", CpuInfo::SSE4_1},
+    {"sse4_2", CpuInfo::SSE4_2}, {"popcnt", CpuInfo::POPCNT},
 #endif
 #if defined(__aarch64__)
     {"asimd", CpuInfo::ASIMD},
