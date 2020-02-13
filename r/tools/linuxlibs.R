@@ -32,7 +32,7 @@ env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 # * no download, build_ok: Only build with local git checkout
 # * download_ok, no build: Only use prebuilt binary, if found
 # * neither: Get the arrow-without-arrow package
-download_ok <- env_is("LIBARROW_DOWNLOAD", "true")
+download_ok <- env_is("LIBARROW_DOWNLOAD", "true") || !env_is("LIBARROW_BINARY", "false")
 build_ok <- !env_is("LIBARROW_BUILD", "false")
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
