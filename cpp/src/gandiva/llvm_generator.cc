@@ -39,8 +39,7 @@ namespace gandiva {
     AddTrace(__VA_ARGS__); \
   }
 
-LLVMGenerator::LLVMGenerator()
-    : dump_ir_(false), optimise_ir_(true), enable_ir_traces_(false) {}
+LLVMGenerator::LLVMGenerator() : enable_ir_traces_(false) {}
 
 Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
                            std::unique_ptr<LLVMGenerator>* llvm_generator) {
@@ -77,16 +76,17 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs, SelectionVector::Mode
     auto output = annotator_.AddOutputFieldDescriptor(expr->result());
     ARROW_RETURN_NOT_OK(Add(expr, output));
   }
-  // optimise, compile and finalize the module
-  ARROW_RETURN_NOT_OK(engine_->FinalizeModule(optimise_ir_, dump_ir_));
+
+  // Compile and inject into the process' memory the generated function.
+  ARROW_RETURN_NOT_OK(engine_->FinalizeModule());
 
   // setup the jit functions for each expression.
   for (auto& compiled_expr : compiled_exprs_) {
-    auto ir_function = compiled_expr->GetIRFunction(mode);
-    auto jit_function =
-        reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_function));
-    compiled_expr->SetJITFunction(selection_vector_mode_, jit_function);
+    auto ir_fn = compiled_expr->GetIRFunction(mode);
+    auto jit_fn = reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_fn));
+    compiled_expr->SetJITFunction(selection_vector_mode_, jit_fn);
   }
+
   return Status::OK();
 }
 
@@ -143,10 +143,9 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
 
 llvm::Value* LLVMGenerator::LoadVectorAtIndex(llvm::Value* arg_addrs, int idx,
                                               const std::string& name) {
-  llvm::IRBuilder<>* builder = ir_builder();
-  llvm::Value* offset =
-      builder->CreateGEP(arg_addrs, types()->i32_constant(idx), name + "_mem_addr");
-  return builder->CreateLoad(offset, name + "_mem");
+  auto* idx_val = types()->i32_constant(idx);
+  auto* offset = ir_builder()->CreateGEP(arg_addrs, idx_val, name + "_mem_addr");
+  return ir_builder()->CreateLoad(offset, name + "_mem");
 }
 
 /// Get reference to validity array at specified index in the args list.
@@ -268,7 +267,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
     case SelectionVector::MODE_UINT64:
       arguments.push_back(types()->i64_ptr_type());
   }
-  arguments.push_back(types()->i64_type());  // ctxt_ptr
+  arguments.push_back(types()->i64_type());  // ctx_ptr
   arguments.push_back(types()->i64_type());  // nrec
   llvm::FunctionType* prototype =
       llvm::FunctionType::get(types()->i32_type(), arguments, false /*isVarArg*/);
@@ -284,10 +283,10 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   // Name the arguments
   llvm::Function::arg_iterator args = (*fn)->arg_begin();
   llvm::Value* arg_addrs = &*args;
-  arg_addrs->setName("args");
+  arg_addrs->setName("inputs_addr");
   ++args;
   llvm::Value* arg_addr_offsets = &*args;
-  arg_addr_offsets->setName("arg_addr_offsets");
+  arg_addr_offsets->setName("inputs_addr_offsets");
   ++args;
   llvm::Value* arg_local_bitmaps = &*args;
   arg_local_bitmaps->setName("local_bitmaps");

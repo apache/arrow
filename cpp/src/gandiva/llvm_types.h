@@ -33,6 +33,8 @@ class GANDIVA_EXPORT LLVMTypes {
  public:
   explicit LLVMTypes(llvm::LLVMContext& context);
 
+  llvm::Type* void_type() { return llvm::Type::getVoidTy(context_); }
+
   llvm::Type* i1_type() { return llvm::Type::getInt1Ty(context_); }
 
   llvm::Type* i8_type() { return llvm::Type::getInt8Ty(context_); }
@@ -45,68 +47,42 @@ class GANDIVA_EXPORT LLVMTypes {
 
   llvm::Type* i128_type() { return llvm::Type::getInt128Ty(context_); }
 
-  llvm::Type* float_type() { return llvm::Type::getFloatTy(context_); }
-
-  llvm::Type* double_type() { return llvm::Type::getDoubleTy(context_); }
-
-  llvm::PointerType* i8_ptr_type() { return llvm::PointerType::get(i8_type(), 0); }
-
-  llvm::PointerType* i32_ptr_type() { return llvm::PointerType::get(i32_type(), 0); }
-
-  llvm::PointerType* i64_ptr_type() { return llvm::PointerType::get(i64_type(), 0); }
-
-  llvm::PointerType* i128_ptr_type() { return llvm::PointerType::get(i128_type(), 0); }
-
   llvm::StructType* i128_split_type() {
     // struct with high/low bits (see decimal_ops.cc:DecimalSplit)
     return llvm::StructType::get(context_, {i64_type(), i64_type()}, false);
   }
 
-  llvm::Type* void_type() { return llvm::Type::getVoidTy(context_); }
+  llvm::Type* float_type() { return llvm::Type::getFloatTy(context_); }
 
-  llvm::PointerType* ptr_type(llvm::Type* base_type) {
-    return llvm::PointerType::get(base_type, 0);
+  llvm::Type* double_type() { return llvm::Type::getDoubleTy(context_); }
+
+  llvm::PointerType* ptr_type(llvm::Type* type) { return type->getPointerTo(); }
+
+  llvm::PointerType* i8_ptr_type() { return ptr_type(i8_type()); }
+
+  llvm::PointerType* i32_ptr_type() { return ptr_type(i32_type()); }
+
+  llvm::PointerType* i64_ptr_type() { return ptr_type(i64_type()); }
+
+  llvm::PointerType* i128_ptr_type() { return ptr_type(i128_type()); }
+
+  template <typename ctype, size_t N = (sizeof(ctype) * CHAR_BIT)>
+  llvm::Constant* int_constant(ctype val) {
+    return llvm::ConstantInt::get(context_, llvm::APInt(N, val));
   }
 
-  llvm::Constant* true_constant() {
-    return llvm::ConstantInt::get(context_, llvm::APInt(1, 1));
-  }
+  llvm::Constant* i1_constant(bool val) { return int_constant<bool, 1>(val); }
+  llvm::Constant* i8_constant(int8_t val) { return int_constant(val); }
+  llvm::Constant* i16_constant(int16_t val) { return int_constant(val); }
+  llvm::Constant* i32_constant(int32_t val) { return int_constant(val); }
+  llvm::Constant* i64_constant(int64_t val) { return int_constant(val); }
+  llvm::Constant* i128_constant(int64_t val) { return int_constant<int64_t, 128>(val); }
 
-  llvm::Constant* false_constant() {
-    return llvm::ConstantInt::get(context_, llvm::APInt(1, 0));
-  }
+  llvm::Constant* true_constant() { return i1_constant(true); }
+  llvm::Constant* false_constant() { return i1_constant(false); }
 
-  llvm::Constant* i1_constant(bool val) {
-    return llvm::ConstantInt::get(context_, llvm::APInt(1, val));
-  }
-
-  llvm::Constant* i8_constant(bool val) {
-    return llvm::ConstantInt::get(context_, llvm::APInt(8, val));
-  }
-
-  llvm::Constant* i16_constant(bool val) {
-    return llvm::ConstantInt::get(context_, llvm::APInt(16, val));
-  }
-
-  llvm::Constant* i32_constant(int32_t val) {
-    return llvm::ConstantInt::get(context_, llvm::APInt(32, val));
-  }
-
-  llvm::Constant* i64_constant(int64_t val) {
-    return llvm::ConstantInt::get(context_, llvm::APInt(64, val));
-  }
-
-  llvm::Constant* i128_constant(int64_t val) {
-    return llvm::ConstantInt::get(context_, llvm::APInt(128, val));
-  }
-
-  llvm::Constant* i128_zero() {
-    return llvm::ConstantInt::get(context_, llvm::APInt(128, 0));
-  }
-
-  llvm::Constant* i128_one() {
-    return llvm::ConstantInt::get(context_, llvm::APInt(128, 1));
-  }
+  llvm::Constant* i128_zero() { return i128_constant(0); }
+  llvm::Constant* i128_one() { return i128_constant(1); }
 
   llvm::Constant* float_constant(float val) {
     return llvm::ConstantFP::get(float_type(), val);

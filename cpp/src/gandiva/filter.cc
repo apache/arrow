@@ -103,4 +103,6 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
   return out_selection->PopulateFromBitMap(result, bitmap_size, num_rows - 1);
 }
 
+std::string Filter::DumpIR() { return llvm_generator_->DumpIR(); }
+
 }  // namespace gandiva
