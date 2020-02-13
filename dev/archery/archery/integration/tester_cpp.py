@@ -20,7 +20,7 @@ import os
 import subprocess
 
 from .tester import Tester
-from .util import run_cmd, ARROW_ROOT_DEFAULT
+from .util import run_cmd, ARROW_ROOT_DEFAULT, log
 
 
 class CPPTester(Tester):
@@ -37,11 +37,8 @@ class CPPTester(Tester):
     STREAM_TO_FILE = os.path.join(EXE_PATH, 'arrow-stream-to-file')
     FILE_TO_STREAM = os.path.join(EXE_PATH, 'arrow-file-to-stream')
 
-    FLIGHT_PORT = 31337
-
     FLIGHT_SERVER_CMD = [
-        os.path.join(EXE_PATH, 'flight-test-integration-server'),
-        "-port", str(FLIGHT_PORT)]
+        os.path.join(EXE_PATH, 'flight-test-integration-server')]
     FLIGHT_CLIENT_CMD = [
         os.path.join(EXE_PATH, 'flight-test-integration-client'),
         "-host", "localhost"]
@@ -60,7 +57,7 @@ class CPPTester(Tester):
         cmd.append('--mode=' + command)
 
         if self.debug:
-            print(' '.join(cmd))
+            log(' '.join(cmd))
 
         run_cmd(cmd)
 
@@ -71,7 +68,7 @@ class CPPTester(Tester):
         return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = ['cat', stream_path, '|', self.STREAM_TO_FILE, '>', file_path]
+        cmd = [self.STREAM_TO_FILE, '<', stream_path, '>', file_path]
         self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
@@ -79,17 +76,22 @@ class CPPTester(Tester):
         self.run_shell_command(cmd)
 
     @contextlib.contextmanager
-    def flight_server(self):
+    def flight_server(self, port):
+        cmd = self.FLIGHT_SERVER_CMD + ['-port=' + str(port)]
         if self.debug:
-            print(' '.join(self.FLIGHT_SERVER_CMD))
-        server = subprocess.Popen(self.FLIGHT_SERVER_CMD,
-                                  stdout=subprocess.PIPE)
+            log(' '.join(cmd))
+        server = subprocess.Popen(cmd,
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE)
         try:
             output = server.stdout.readline().decode()
             if not output.startswith("Server listening on localhost"):
+                server.kill()
+                out, err = server.communicate()
                 raise RuntimeError(
-                    "Flight-C++ server did not start properly, output: " +
-                    output)
+                    "Flight-C++ server did not start properly, "
+                    "stdout:\n{}\n\nstderr:\n{}\n"
+                    .format(output + out.decode(), err.decode()))
             yield
         finally:
             server.kill()
@@ -101,5 +103,5 @@ class CPPTester(Tester):
             '-path=' + json_path,
         ]
         if self.debug:
-            print(' '.join(cmd))
+            log(' '.join(cmd))
         run_cmd(cmd)

@@ -15,9 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import contextlib
+import io
 import os
+import socket
 import string
 import subprocess
+import sys
+import threading
 import uuid
 
 import numpy as np
@@ -38,6 +43,61 @@ ARROW_ROOT_DEFAULT = os.environ.get(
     'ARROW_ROOT',
     os.path.abspath(__file__).rsplit("/", 5)[0]
 )
+
+
+class _Printer:
+    """
+    A print()-providing object that can override the stream output on
+    a per-thread basis.
+    """
+
+    def __init__(self):
+        self._tls = threading.local()
+
+    def _get_stdout(self):
+        try:
+            return self._tls.stdout
+        except AttributeError:
+            self._tls.stdout = sys.stdout
+            self._tls.corked = False
+            return self._tls.stdout
+
+    def print(self, *args, **kwargs):
+        """
+        A variant of print() that writes to a thread-local stream.
+        """
+        print(*args, file=self._get_stdout(), **kwargs)
+
+    @property
+    def stdout(self):
+        """
+        A thread-local stdout wrapper that may be temporarily buffered
+        using `cork()`.
+        """
+        return self._get_stdout()
+
+    @contextlib.contextmanager
+    def cork(self):
+        """
+        Temporarily buffer this thread's stream and write out its contents
+        at the end of the context manager.  Useful to avoid interleaved
+        output when multiple threads output progress information.
+        """
+        outer_stdout = self._get_stdout()
+        assert not self._tls.corked, "reentrant call"
+        inner_stdout = self._tls.stdout = io.StringIO()
+        self._tls.corked = True
+        try:
+            yield
+        finally:
+            self._tls.stdout = outer_stdout
+            self._tls.corked = False
+            outer_stdout.write(inner_stdout.getvalue())
+            outer_stdout.flush()
+
+
+printer = _Printer()
+log = printer.print
 
 
 def rands(nchars):
@@ -70,11 +130,28 @@ def run_cmd(cmd):
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         # this avoids hiding the stdout / stderr of failed processes
-        print('Command failed: %s' % ' '.join(cmd))
-        print('With output:')
-        print('--------------')
-        print(frombytes(e.output))
-        print('--------------')
-        raise e
+        sio = io.StringIO()
+        print('Command failed:', cmd, file=sio)
+        print('With output:', file=sio)
+        print('--------------', file=sio)
+        print(frombytes(e.output), file=sio)
+        print('--------------', file=sio)
+        raise RuntimeError(sio.getvalue())
 
     return frombytes(output)
+
+
+# Adapted from CPython
+def find_unused_port(family=socket.AF_INET, socktype=socket.SOCK_STREAM):
+    """Returns an unused port that should be suitable for binding.  This is
+    achieved by creating a temporary socket with the same family and type as
+    the 'sock' parameter (default is AF_INET, SOCK_STREAM), and binding it to
+    the specified host address (defaults to 0.0.0.0) with the port set to 0,
+    eliciting an unused ephemeral port from the OS.  The temporary socket is
+    then closed and deleted, and the ephemeral port is returned.
+    """
+    with socket.socket(family, socktype) as tempsock:
+        tempsock.bind(('', 0))
+        port = tempsock.getsockname()[1]
+    del tempsock
+    return port
