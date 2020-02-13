@@ -2,16 +2,45 @@
 % Please edit documentation in R/install-arrow.R
 \name{install_arrow}
 \alias{install_arrow}
-\title{Help installing the Arrow C++ library}
+\title{Install or upgrade the Arrow library}
 \usage{
-install_arrow()
+install_arrow(
+  nightly = FALSE,
+  binary = TRUE,
+  use_system = FALSE,
+  repos = getOption("repos"),
+  ...
+)
+}
+\arguments{
+\item{nightly}{logical: Should we install a development version of the
+package, or should we install from CRAN (the default).}
+
+\item{binary}{On Linux, value to set for the environment variable
+\code{LIBARROW_BINARY}, which governs how C++ binaries are used, if at all.
+The default value, \code{TRUE}, tells the installation script to detect the
+Linux distribution and version and find an appropriate C++ library. \code{FALSE}
+would tell the script not to retrieve a binary and instead build Arrow C++
+from source. Other valid values are strings corresponding to a Linux
+distribution-version, to override the value that would be detected.
+See \code{vignette("install", package = "arrow")} for further details.}
+
+\item{use_system}{logical: Should we use \code{pkg-config} to look for Arrow
+system packages? Default is \code{FALSE}. If \code{TRUE}, source installation may be
+faster, but there is a risk of version mismatch.}
+
+\item{repos}{character vector of base URLs of the repositories to install
+from (passed to \code{install.packages()})}
+
+\item{...}{Additional arguments passed to \code{install.packages()}}
 }
 \description{
-Binary package installations should come with a working Arrow C++ library,
-but when installing from source, you'll need to obtain the C++ library
-first. This function offers guidance on how to get the C++ library depending
-on your operating system and package version.
+Use this function to install the latest release of \code{arrow}, to switch to or
+from a nightly development version, or on Linux to try reinstalling with
+all necessary C++ dependencies.
 }
-\examples{
-install_arrow()
+\seealso{
+\code{\link[=arrow_available]{arrow_available()}} to see if the package was configured with
+necessary C++ dependencies. \code{vignette("install", package = "arrow")} for
+more ways to tune installation on Linux.
 }

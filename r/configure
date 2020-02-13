@@ -95,7 +95,9 @@ else
       PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
     elif [ "$UNAME" = "Linux" ]; then
       VERSION=`grep ^Version DESCRIPTION | sed s/Version:\ //`
-      : ${LIBARROW_BINARY_DISTRO:="$NOT_CRAN"}
+      if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
+        export LIBARROW_DOWNLOAD=$NOT_CRAN
+      fi
       ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
       PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
       PKG_LIBS="-L$(pwd)/libarrow/arrow-${VERSION}/lib $PKG_LIBS"

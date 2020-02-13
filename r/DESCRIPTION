@@ -44,6 +44,7 @@ Suggests:
     hms,
     knitr,
     lubridate,
+    pkgload,
     rmarkdown,
     testthat,
     tibble
