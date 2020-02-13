@@ -27,9 +27,7 @@ use std::fmt::{Debug, Formatter};
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
-use std::slice::from_raw_parts;
-#[cfg(feature = "simd")]
-use std::slice::from_raw_parts_mut;
+use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
 use crate::array::{BufferBuilderTrait, UInt8BufferBuilder};
