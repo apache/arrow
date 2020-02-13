@@ -21,7 +21,7 @@ dst_dir <- paste0("libarrow/arrow-", VERSION)
 
 arrow_repo <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/"
 apache_src_url <- paste0(
-  "https://www.apache.org/dyn/closer.cgi/arrow/arrow-", VERSION,
+  "https://archive.apache.org/dist/arrow/arrow-", VERSION,
   "/apache-arrow-", VERSION, ".tar.gz"
 )
 
@@ -32,7 +32,7 @@ env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 # * no download, build_ok: Only build with local git checkout
 # * download_ok, no build: Only use prebuilt binary, if found
 # * neither: Get the arrow-without-arrow package
-download_ok <- env_is("LIBARROW_DOWNLOAD", "true") || !env_is("LIBARROW_BINARY", "false")
+download_ok <- env_is("LIBARROW_DOWNLOAD", "true") || !(tolower(Sys.getenv("LIBARROW_BINARY")) %in% c("", "false"))
 build_ok <- !env_is("LIBARROW_BUILD", "false")
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
@@ -58,13 +58,13 @@ download_binary <- function(os = identify_os()) {
 }
 
 # Function to figure out which flavor of binary we should download, if at all.
-# By default ("FALSE"), it will not download a precompiled library,
+# By default (unset or "FALSE"), it will not download a precompiled library,
 # but you can override this by setting the env var LIBARROW_BINARY to:
 # * `TRUE` (not case-sensitive), to try to discover your current OS, or
 # * some other string, presumably a related "distro-version" that has binaries
 #   built that work for your OS
 identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_DOWNLOAD"))) {
-  if (identical(tolower(os), "false")) {
+  if (tolower(os) %in% c("", "false")) {
     # Env var says not to download a binary
     return(NULL)
   } else if (!identical(tolower(os), "true")) {
