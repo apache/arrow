@@ -197,7 +197,7 @@ impl Buffer {
 
     /// Returns the byte slice stored in this buffer
     pub fn data(&self) -> &[u8] {
-        self.data.data()
+        &self.data.data()[self.offset..]
     }
 
     /// Returns a slice of this buffer, starting from `offset`.
