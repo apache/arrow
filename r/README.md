@@ -30,16 +30,12 @@ Install the latest release of `arrow` from CRAN with
 install.packages("arrow")
 ```
 
-Conda users on Linux and macOS can install `arrow` from conda-forge with
-
-    conda install -c conda-forge r-arrow
-
 Installing a released version of the `arrow` package should require no
 additional system dependencies. For macOS and Windows, CRAN hosts binary
 packages that contain the Arrow C++ library. On Linux, source package
-installation will download necessary C++ dependencies automatically on
-most common Linux distributions. See `vignette("install", package =
-"arrow")` for details.
+installation will download necessary C++ dependencies if you set the
+environment variable `LIBARROW_DOWNLOAD=true`.
+See `vignette("install", package = "arrow")` for details.
 
 If you install the `arrow` package from source and the C++ library is
 not found, the R package functions will notify you that Arrow is not
@@ -49,7 +45,19 @@ available. Call
 arrow::install_arrow()
 ```
 
-to retry installation.
+to retry installation with dependencies.
+
+Note that `install_arrow()` is available as a standalone script, so you can
+access it for convenience without first installing the package:
+
+```r
+source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")
+install_arrow()
+```
+
+Conda users on Linux and macOS can install `arrow` from conda-forge with
+
+    conda install -c conda-forge r-arrow
 
 ## Installing a development version
 
@@ -60,10 +68,10 @@ Binary R packages for macOS and Windows are built daily and hosted at
 install.packages("arrow", repos = "https://dl.bintray.com/ursalabs/arrow-r")
 ```
 
-Or, if you have `arrow` installed, you can get the latest dev build with
+Or
 
 ```r
-arrow::install_arrow(nightly = TRUE)
+install_arrow(nightly = TRUE)
 ```
 
 These daily package builds are not official Apache releases and are not

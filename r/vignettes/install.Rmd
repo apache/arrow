@@ -42,6 +42,11 @@ can be installed from the Ursa Labs repository:
 install.packages("arrow", repos = "https://dl.bintray.com/ursalabs/arrow-r")
 ```
 
+In order for `install.packages()` to download C++ dependencies for `arrow` on
+Linux, first set the environment variable `LIBARROW_DOWNLOAD=true`. If you have
+set the `NOT_CRAN` environment variable, that will be used as a default value
+for `LIBARROW_DOWNLOAD`.
+
 There currently are no daily `conda` builds.
 
 You can also install the R package from a git checkout:
@@ -54,8 +59,19 @@ R CMD INSTALL .
 
 If you have `arrow` installed and want to upgrade to a different version,
 install a development build, or try to reinstall and fix issues with Linux
-C++ binaries, you can call `install_arrow()`. `install_arrow()` will install
-from CRAN, while `install_arrow(nightly = TRUE)` will give you a development build.
+C++ binaries, you can call `install_arrow()`.
+This function is part of the `arrow` package,
+and it is also available as a standalone script, so you can
+access it for convenience without first installing the package:
+
+```r
+source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")
+```
+
+`install_arrow()` will install from CRAN,
+while `install_arrow(nightly = TRUE)` will give you a development build.
+`install_arrow()` does not require environment variables to be set in order to
+satisfy C++ dependencies.
 
 <!-- TODO: does remotes::install_github("apache/arrow/r") work now? -->
 
@@ -86,9 +102,8 @@ If no Arrow C++ libraries are found on the system,
 the R package installation script will next attempt to download
 prebuilt static Arrow C++ libraries
 that match your both your local operating system and `arrow` R package version.
-Binaries will only be retrieved if you have set the environment variable
+C++ libraries (source or binary) will only be retrieved if you have set the environment variable
 `LIBARROW_BINARY` or `NOT_CRAN`.
-(Note that in the 0.16.0.1 CRAN release, `LIBARROW_BINARY_DISTRO` is the variable you need to set.)
 If found, they will be downloaded and bundled when your R package compiles.
 For a list of supported distributions and versions,
 see the [arrow-r-nightly](https://github.com/ursa-labs/arrow-r-nightly/blob/master/README.md) project.
@@ -127,11 +142,6 @@ compatible with the current version of the R package. `install_arrow()` provides
 some convenience wrappers around the various environment variables described below
 and has defaults that should isolate the package installation and make it
 more likely to succeed. See its help page for details.
-
-If you experience compilation errors as described below and want to install
-`arrow` without the C++ libraries in order to access the `install_arrow()`
-function, set the environment variables `ARROW_USE_PKG_CONFIG=FALSE`,
-`LIBARROW_DOWNLOAD=FALSE`, and `LIBARROW_BUILD=FALSE`, then reinstall the package.
 
 ## Using system libraries
 
@@ -252,10 +262,10 @@ By default, these are all unset.
   won't look for Arrow libraries on your system and instead will look to download/build them.
   Use this if you have a version mismatch between installed system libraries
   and the version of the R package you're installing.
-* `LIBARROW_DOWNLOAD`: If set to `FALSE` (case insensitive), the build script
+* `LIBARROW_DOWNLOAD`: Unless set to `TRUE` (case insensitive), the build script
   will not attempt to download C++ binary or source bundles.
-  Use this if you're in a checkout of the `apache/arrow` git repository
-  and want to build the C++ library from the local source.
+  If you're in a checkout of the `apache/arrow` git repository
+  and want to build the C++ library from the local source, make this `FALSE`.
 * `LIBARROW_BUILD`: If set to `FALSE` (case insensitive), the build script
   will not attempt to build the C++ from source. This means you will only get
   a working `arrow` R package if a prebuilt binary is found.
