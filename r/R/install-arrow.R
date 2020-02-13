@@ -48,10 +48,8 @@ install_arrow <- function(nightly = FALSE,
                           repos = getOption("repos"),
                           ...) {
   if (tolower(Sys.info()[["sysname"]]) %in% c("windows", "darwin", "linux")) {
-    # Set this flag so the right C++ libs get pulled on Linux
-    # TODO: replace LIBARROW_BINARY_DISTRO with LIBARROW_BINARY
-    # following next CRAN release after 0.16.0.1
-    Sys.setenv(LIBARROW_BINARY_DISTRO = binary)
+    Sys.setenv(LIBARROW_DOWNLOAD = "true")
+    Sys.setenv(LIBARROW_BINARY = binary)
     Sys.setenv(ARROW_USE_PKG_CONFIG = use_system)
     install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
     if ("arrow" %in% loadedNamespaces()) {

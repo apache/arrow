@@ -29,20 +29,11 @@ options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
 
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
-
-# This condition identifies when you're installing locally, either by presence
-# of NOT_CRAN or by absence of any `check` env vars. So even if you don't have
-# NOT_CRAN set in your dev environment, this will still pass outside R CMD check
-locally_installing <- env_is("NOT_CRAN", "true") || !any(grepl("_R_CHECK", names(Sys.getenv())))
-# Combine with explicit vars to turn off downloading and building. I.e. only
-# downloads/builds when local, but can turn off either with these env vars.
 # * no download, build_ok: Only build with local git checkout
 # * download_ok, no build: Only use prebuilt binary, if found
 # * neither: Get the arrow-without-arrow package
-download_ok <- locally_installing && !env_is("LIBARROW_DOWNLOAD", "false")
-build_ok <- locally_installing && !env_is("LIBARROW_BUILD", "false")
-# TODO: allow LIBARROW_DOWNLOAD=true to override locally_installing? or just set NOT_CRAN?
-
+download_ok <- env_is("LIBARROW_DOWNLOAD", "true")
+build_ok <- !env_is("LIBARROW_BUILD", "false")
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
@@ -72,7 +63,7 @@ download_binary <- function(os = identify_os()) {
 # * `TRUE` (not case-sensitive), to try to discover your current OS, or
 # * some other string, presumably a related "distro-version" that has binaries
 #   built that work for your OS
-identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", "false")) {
+identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_DOWNLOAD"))) {
   if (identical(tolower(os), "false")) {
     # Env var says not to download a binary
     return(NULL)
