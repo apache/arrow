@@ -1073,13 +1073,17 @@ cdef class FlightClient:
                     break
             yield result
 
-    def list_flights(self, options: FlightCallOptions = None):
+    def list_flights(self, criteria: bytes = None,
+                     options: FlightCallOptions = None):
         """List the flights available on a service."""
         cdef:
             unique_ptr[CFlightListing] listing
             FlightInfo result
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
             CCriteria c_criteria
+
+        if criteria:
+            c_criteria.expression = tobytes(criteria)
 
         with nogil:
             check_flight_status(

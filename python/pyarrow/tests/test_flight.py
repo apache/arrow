@@ -120,6 +120,8 @@ class ConstantFlightServer(FlightServerBase):
     does not properly hold a reference to the Table object.
     """
 
+    CRITERIA = b"the expected criteria"
+
     def __init__(self, location=None, **kwargs):
         super().__init__(location, **kwargs)
         # Ticket -> Table
@@ -127,6 +129,15 @@ class ConstantFlightServer(FlightServerBase):
             b'ints': simple_ints_table,
             b'dicts': simple_dicts_table,
         }
+
+    def list_flights(self, context, criteria):
+        if criteria == self.CRITERIA:
+            yield flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path('/foo'),
+                [],
+                -1, -1
+            )
 
     def do_get(self, context, ticket):
         # Return a fresh table, so that Flight is the only one keeping a
@@ -505,6 +516,15 @@ def test_client_wait_for_available():
     client.wait_for_available(timeout=5)
     elapsed = time.time() - started
     assert elapsed >= 0.5
+
+
+def test_flight_list_flights():
+    """Try a simple list_flights call."""
+    with ConstantFlightServer() as server:
+        client = flight.connect(('localhost', server.port))
+        assert list(client.list_flights()) == []
+        flights = client.list_flights(ConstantFlightServer.CRITERIA)
+        assert len(list(flights)) == 1
 
 
 def test_flight_do_get_ints():
