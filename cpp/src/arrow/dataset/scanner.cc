@@ -112,27 +112,15 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
       options_(ScanOptions::Make(dataset_->schema())),
       context_(std::move(context)) {}
 
-Status EnsureColumnsInSchema(const std::shared_ptr<Schema>& schema,
-                             const std::vector<std::string>& columns) {
-  for (const auto& column : columns) {
-    if (schema->GetFieldByName(column) == nullptr) {
-      return Status::Invalid("Requested column ", column,
-                             " not found in dataset's schema.");
-    }
-  }
-
-  return Status::OK();
-}
-
 Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
-  RETURN_NOT_OK(EnsureColumnsInSchema(schema(), columns));
+  RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(columns));
   has_projection_ = true;
   project_columns_ = columns;
   return Status::OK();
 }
 
 Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
-  RETURN_NOT_OK(EnsureColumnsInSchema(schema(), FieldsInExpression(*filter)));
+  RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(FieldsInExpression(*filter)));
   RETURN_NOT_OK(filter->Validate(*schema()).status());
   options_->filter = std::move(filter);
   return Status::OK();
