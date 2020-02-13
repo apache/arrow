@@ -24,6 +24,7 @@ from .git import git
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
 from ..lang.rust import Cargo
+from ..lang.python import Flake8, NumpyDoc
 from .rat import Rat, exclusion_from_globs
 from .tmpdir import tmpdir
 
@@ -98,13 +99,8 @@ def cmake_linter(src, fix=False):
     yield LintResult.from_cmd(cmake_format("--check"))
 
 
-class Flake8(Command):
-    def __init__(self, flake8_bin=None):
-        self.bin = default_bin(flake8_bin, "flake8")
-
-
 def python_linter(src):
-    """ Run flake8 linter on python/pyarrow, and dev/. """
+    """Run flake8 linter on python/pyarrow, and dev/. """
     logger.info("Running python linters")
     flake8 = Flake8()
 
@@ -118,6 +114,43 @@ def python_linter(src):
     config = os.path.join(src.python, ".flake8.cython")
     yield LintResult.from_cmd(flake8("--config=" + config, src.pyarrow,
                                      check=False))
+
+
+def python_numpydoc():
+    """Run numpydoc linter on python.
+
+    Pyarrow must be available for import.
+    """
+    logger.info("Running python docstring linters")
+    packages = {
+        'pyarrow',
+        'pyarrow.dataset',
+        'pyarrow.flight',
+        'pyarrow.fs',
+        'pyarrow.gandiva',
+        'pyarrow.orc',
+        'pyarrow.parquet',
+        'pyarrow.plasma',
+    }
+    try:
+        numpydoc = NumpyDoc(packages)
+    except RuntimeError:
+        logger.error('Numpydoc is not available')
+        return
+
+    results = numpydoc.validate()
+
+    if len(results) == 0:
+        yield LintResult(success=True)
+    else:
+        # TODO(kszucs): nicer output
+        for obj, result in results:
+            errors = result['errors']
+            print()
+            print(obj)
+            for error in errors:
+                print('{}: {}'.format(*error))
+        yield LintResult(success=False, reason='EEE')
 
 
 def rat_linter(src, root):
@@ -199,7 +232,7 @@ def docker_linter(src):
 
 def linter(src, with_clang_format=True, with_cpplint=True,
            with_clang_tidy=False, with_iwyu=False,
-           with_flake8=True, with_cmake_format=True,
+           with_flake8=True, with_numpydoc=False, with_cmake_format=True,
            with_rat=True, with_r=True, with_rust=True,
            with_docker=True,
            fix=False):
@@ -222,6 +255,9 @@ def linter(src, with_clang_format=True, with_cpplint=True,
 
         if with_flake8:
             results.extend(python_linter(src))
+
+        if with_numpydoc:
+            results.extend(python_numpydoc())
 
         if with_cmake_format:
             results.extend(cmake_linter(src, fix=fix))
