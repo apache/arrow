@@ -19,6 +19,8 @@ context("install_arrow()")
 
 r_only({
   test_that("arrow_repos", {
+    old <- options(repos=c(CRAN = "@CRAN")) # Restore default
+    on.exit(options(old))
     cran <- "https://cloud.r-project.org/"
     bt <- "https://dl.bintray.com/ursalabs/arrow-r"
     other <- "https://cran.fiocruz.br/"
