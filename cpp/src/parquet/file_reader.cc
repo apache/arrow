@@ -133,16 +133,14 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   }
 
   void GetPageIndex(int64_t v, int64_t& min_index, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index) const {
-//      std::vector<int>::size_type itemindex = 0;
-      //std::vector<int64_t> min_vec = std::vector<std::basic_string<char>>(col_index.min_values.begin(), col_index.min_values.end());
-      int64_t min_diff = std::numeric_limits<int64_t>::max();//std::lower_bound(min_vec.begin(),min_vec.end(),v);
       
-      for (uint64_t itemindex = 0;itemindex < col_index.min_values.size();itemindex++) {
+      for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
            int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
-
-           if ( *page_min <= v && min_diff >= abs(v - *page_min) ) {
+           int64_t* page_max = (int64_t*)(void *)col_index.max_values[itemindex].c_str();
+           int64_t max_diff = *page_max - *page_min;
+           
+           if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
                min_index = itemindex;
-               min_diff = abs(*page_min - v);
            }
       }
   }
