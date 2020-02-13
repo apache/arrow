@@ -593,6 +593,8 @@ class Converter_List : public Converter {
 
     return Status::OK();
   }
+
+  bool Parallel() const { return false; }
 };
 
 class Converter_Int64 : public Converter {
