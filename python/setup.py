@@ -558,7 +558,6 @@ class BinaryDistribution(Distribution):
 
 install_requires = (
     'numpy >= 1.14',
-    'six >= 1.0.0',
 )
 
 

@@ -43,7 +43,7 @@ wget -O miniconda.sh $MINICONDA_URL
 bash miniconda.sh -b -p miniconda
 export PATH=`pwd`/miniconda/bin:$PATH
 
-conda create -n arrow-integration python=3.6 nomkl numpy six
+conda create -n arrow-integration python=3.6 nomkl numpy
 conda activate arrow-integration
 ```
 
@@ -68,15 +68,15 @@ the test run. For example, if you only have the C++ project built, you set:
 
 ```
 export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/debug
-archery integration --enable-cpp=1
+archery integration --with-cpp=1
 ```
 
 For Java, it may look like:
 
 ```
-VERSION=0.11.0-SNAPSHOT
+VERSION=1.0.0-SNAPSHOT
 export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
-archery integration --enable-cpp=1 --enable-java=1
+archery integration --with-cpp=1 --with-java=1
 ```
 
 [1]: https://conda.io/miniconda.html

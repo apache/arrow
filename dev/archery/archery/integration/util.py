@@ -16,7 +16,6 @@
 # under the License.
 
 import os
-import six
 import string
 import subprocess
 import uuid
@@ -52,19 +51,19 @@ def rands(nchars):
 
 
 def tobytes(o):
-    if isinstance(o, six.text_type):
+    if isinstance(o, str):
         return o.encode('utf8')
     return o
 
 
 def frombytes(o):
-    if isinstance(o, six.binary_type):
+    if isinstance(o, bytes):
         return o.decode('utf8')
     return o
 
 
 def run_cmd(cmd):
-    if isinstance(cmd, six.string_types):
+    if isinstance(cmd, str):
         cmd = cmd.split(' ')
 
     try:

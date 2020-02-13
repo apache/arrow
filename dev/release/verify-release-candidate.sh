@@ -244,7 +244,6 @@ setup_miniconda() {
         nomkl \
         numpy \
         pandas \
-        six \
         cython
   conda activate arrow-test
 }
