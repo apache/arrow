@@ -66,6 +66,7 @@ def md(template, *args, **kwargs):
 
 
 def unflatten(mapping):
+    """Converts a flat tuple => object mapping to hierarchical one"""
     result = {}
     for path, value in mapping.items():
         parents, leaf = path[:-1], path[-1]
@@ -81,6 +82,25 @@ def unflatten(mapping):
 
 
 def unflatten_tree(files):
+    """Converts a flat path => object mapping to a hierarchical directories
+
+    Input:
+        {
+            'path/to/file.a': a_content,
+            'path/to/file.b': b_content,
+            'path/file.c': c_content
+        }
+    Output:
+        {
+            'path': {
+                'to': {
+                    'file.a': a_content,
+                    'file.b': b_content
+                },
+                'file.c': c_content
+            }
+        }
+    """
     files = toolz.keymap(lambda path: tuple(path.split('/')), files)
     return unflatten(files)
 
@@ -891,7 +911,7 @@ class Job(Serializable):
             with concurrent.futures.ThreadPoolExecutor(max_workers) as pool:
                 for task_name, task in sorted(self.tasks.items()):
                     # HACK: spare some queries because of the rate limit, and
-                    # don't query tasks with specieid prefig, e.g. "test-"
+                    # don't query tasks with specified prefix, e.g. "test-"
                     if (ignore_prefix is not None and
                             task_name.startswith(ignore_prefix)):
                         continue
