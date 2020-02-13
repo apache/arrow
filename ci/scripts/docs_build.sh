@@ -28,16 +28,19 @@ export CFLAGS="-DARROW_NO_DEPRECATED_API"
 export CXXFLAGS="-DARROW_NO_DEPRECATED_API"
 
 # Prose and Python
-sphinx-build -b html ${arrow_dir}/docs/source ${build_dir}/sphinx
+sphinx-build -b html ${arrow_dir}/docs/source ${build_dir}
 
-# C++
-rsync -a --delete ${arrow_dir}/cpp/apidoc/* ${build_dir}/cpp
+# C++ - original doxygen
+# rsync -a ${arrow_dir}/cpp/apidoc/ ${build_dir}/cpp
+
+# R
+rsync -a ${arrow_dir}/r/docs/ ${build_dir}/r
 
 # C GLib
-rsync -a --delete ${ARROW_HOME}/share/gtk-doc/html/* ${build_dir}/c_glib
+rsync -a ${ARROW_HOME}/share/gtk-doc/html/ ${build_dir}/c_glib
 
 # Java
-rsync -a --delete ${arrow_dir}/java/target/site/apidocs ${build_dir}/java
+rsync -a ${arrow_dir}/java/target/site/apidocs/ ${build_dir}/java
 
 # Javascript
-rsync -a --delete ${arrow_dir}/js/doc ${build_dir}/js
+rsync -a ${arrow_dir}/js/doc/ ${build_dir}/js
