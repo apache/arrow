@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <memory>
 #include <mutex>
+#include <utility>
 
 #include <cuda.h>
 
@@ -51,7 +52,9 @@ struct CudaIpcMemHandle::CudaIpcMemHandleImpl {
 
   explicit CudaIpcMemHandleImpl(int64_t memory_size, const void* cu_handle)
       : memory_size(memory_size) {
-    if (memory_size != 0) memcpy(&ipc_handle, cu_handle, sizeof(CUipcMemHandle));
+    if (memory_size != 0) {
+      memcpy(&ipc_handle, cu_handle, sizeof(CUipcMemHandle));
+    }
   }
 
   CUipcMemHandle ipc_handle;  /// initialized only when memory_size != 0
@@ -68,24 +71,33 @@ CudaIpcMemHandle::CudaIpcMemHandle(int64_t memory_size, const void* cu_handle) {
 
 CudaIpcMemHandle::~CudaIpcMemHandle() {}
 
+Result<std::shared_ptr<CudaIpcMemHandle>> CudaIpcMemHandle::FromBuffer(
+    const void* opaque_handle) {
+  return std::shared_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(opaque_handle));
+}
+
 Status CudaIpcMemHandle::FromBuffer(const void* opaque_handle,
                                     std::shared_ptr<CudaIpcMemHandle>* handle) {
-  *handle = std::shared_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(opaque_handle));
-  return Status::OK();
+  return FromBuffer(opaque_handle).Value(handle);
+}
+
+Result<std::shared_ptr<Buffer>> CudaIpcMemHandle::Serialize(MemoryPool* pool) const {
+  std::shared_ptr<Buffer> buffer;
+  int64_t size = impl_->memory_size;
+  const size_t handle_size =
+      (size > 0 ? sizeof(int64_t) + sizeof(CUipcMemHandle) : sizeof(int64_t));
+
+  RETURN_NOT_OK(AllocateBuffer(pool, static_cast<int64_t>(handle_size), &buffer));
+  memcpy(buffer->mutable_data(), &impl_->memory_size, sizeof(impl_->memory_size));
+  if (size > 0) {
+    memcpy(buffer->mutable_data() + sizeof(impl_->memory_size), &impl_->ipc_handle,
+           sizeof(impl_->ipc_handle));
+  }
+  return buffer;
 }
 
 Status CudaIpcMemHandle::Serialize(MemoryPool* pool, std::shared_ptr<Buffer>* out) const {
-  std::shared_ptr<Buffer> buffer;
-  int64_t size = impl_->memory_size;
-  size_t kHandleSize =
-      (size > 0 ? sizeof(int64_t) + sizeof(CUipcMemHandle) : sizeof(int64_t));
-  RETURN_NOT_OK(AllocateBuffer(pool, static_cast<int64_t>(kHandleSize), &buffer));
-  memcpy(buffer->mutable_data(), &impl_->memory_size, sizeof(impl_->memory_size));
-  if (size > 0)
-    memcpy(buffer->mutable_data() + sizeof(impl_->memory_size), &impl_->ipc_handle,
-           sizeof(impl_->ipc_handle));
-  *out = buffer;
-  return Status::OK();
+  return Serialize(pool).Value(out);
 }
 
 const void* CudaIpcMemHandle::handle() const { return &impl_->ipc_handle; }
@@ -133,13 +145,16 @@ CudaBuffer::CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t 
   }
 }
 
-Status CudaBuffer::FromBuffer(std::shared_ptr<Buffer> buffer,
-                              std::shared_ptr<CudaBuffer>* out) {
+Result<std::shared_ptr<CudaBuffer>> CudaBuffer::FromBuffer(
+    std::shared_ptr<Buffer> buffer) {
   int64_t offset = 0, size = buffer->size();
   bool is_mutable = buffer->is_mutable();
+  std::shared_ptr<CudaBuffer> cuda_buffer;
+
   // The original CudaBuffer may have been wrapped in another Buffer
   // (for example through slicing).
-  while (!(*out = std::dynamic_pointer_cast<CudaBuffer>(buffer))) {
+  // TODO check device instead
+  while (!(cuda_buffer = std::dynamic_pointer_cast<CudaBuffer>(buffer))) {
     const std::shared_ptr<Buffer> parent = buffer->parent();
     if (!parent) {
       return Status::TypeError("buffer is not backed by a CudaBuffer");
@@ -148,11 +163,16 @@ Status CudaBuffer::FromBuffer(std::shared_ptr<Buffer> buffer,
     buffer = parent;
   }
   // Re-slice to represent the same memory area
-  if (offset != 0 || (*out)->size() != size || !is_mutable) {
-    *out = std::make_shared<CudaBuffer>(*out, offset, size);
-    (*out)->is_mutable_ = is_mutable;
+  if (offset != 0 || cuda_buffer->size() != size || !is_mutable) {
+    cuda_buffer = std::make_shared<CudaBuffer>(std::move(cuda_buffer), offset, size);
+    cuda_buffer->is_mutable_ = is_mutable;
   }
-  return Status::OK();
+  return cuda_buffer;
+}
+
+Status CudaBuffer::FromBuffer(std::shared_ptr<Buffer> buffer,
+                              std::shared_ptr<CudaBuffer>* out) {
+  return FromBuffer(std::move(buffer)).Value(out);
 }
 
 Status CudaBuffer::CopyToHost(const int64_t position, const int64_t nbytes,
@@ -186,19 +206,23 @@ Status CudaBuffer::CopyFromAnotherDevice(const std::shared_ptr<CudaContext>& src
                                             nbytes);
 }
 
-Status CudaBuffer::ExportForIpc(std::shared_ptr<CudaIpcMemHandle>* handle) {
+Result<std::shared_ptr<CudaIpcMemHandle>> CudaBuffer::ExportForIpc() {
   if (is_ipc_) {
     return Status::Invalid("Buffer has already been exported for IPC");
   }
-  RETURN_NOT_OK(context_->ExportIpcBuffer(mutable_data_, size_, handle));
+  ARROW_ASSIGN_OR_RAISE(auto handle, context_->ExportIpcBuffer(mutable_data_, size_));
   own_data_ = false;
-  return Status::OK();
+  return handle;
+}
+
+Status CudaBuffer::ExportForIpc(std::shared_ptr<CudaIpcMemHandle>* handle) {
+  return ExportForIpc().Value(handle);
 }
 
 CudaHostBuffer::~CudaHostBuffer() {
-  CudaDeviceManager* manager = nullptr;
-  ARROW_CHECK_OK(CudaDeviceManager::GetInstance(&manager));
-  ARROW_CHECK_OK(manager->FreeHost(mutable_data_, size_));
+  auto maybe_manager = CudaDeviceManager::Instance();
+  ARROW_CHECK_OK(maybe_manager.status());
+  ARROW_CHECK_OK((*maybe_manager)->FreeHost(mutable_data_, size_));
 }
 
 Result<uintptr_t> CudaHostBuffer::GetDeviceAddress(
@@ -211,9 +235,11 @@ Result<uintptr_t> CudaHostBuffer::GetDeviceAddress(
 
 CudaBufferReader::CudaBufferReader(const std::shared_ptr<Buffer>& buffer)
     : address_(buffer->address()), size_(buffer->size()), position_(0), is_open_(true) {
-  if (!CudaBuffer::FromBuffer(buffer, &buffer_).ok()) {
+  auto maybe_buffer = CudaBuffer::FromBuffer(buffer);
+  if (ARROW_PREDICT_FALSE(!maybe_buffer.ok())) {
     throw std::bad_cast();
   }
+  buffer_ = *std::move(maybe_buffer);
   context_ = buffer_->context();
 }
 
@@ -381,8 +407,9 @@ class CudaBufferWriter::CudaBufferWriterImpl {
       // Flush any buffered data
       RETURN_NOT_OK(Flush());
     }
-    RETURN_NOT_OK(AllocateCudaHostBuffer(context_.get()->device_number(), buffer_size,
-                                         &host_buffer_));
+    ARROW_ASSIGN_OR_RAISE(
+        host_buffer_,
+        AllocateCudaHostBuffer(context_.get()->device_number(), buffer_size));
     host_buffer_data_ = host_buffer_->mutable_data();
     buffer_size_ = buffer_size;
     return Status::OK();
@@ -449,11 +476,15 @@ int64_t CudaBufferWriter::num_bytes_buffered() const { return impl_->buffer_posi
 
 // ----------------------------------------------------------------------
 
+Result<std::shared_ptr<CudaHostBuffer>> AllocateCudaHostBuffer(int device_number,
+                                                               const int64_t size) {
+  ARROW_ASSIGN_OR_RAISE(auto manager, CudaDeviceManager::Instance());
+  return manager->AllocateHost(device_number, size);
+}
+
 Status AllocateCudaHostBuffer(int device_number, const int64_t size,
                               std::shared_ptr<CudaHostBuffer>* out) {
-  CudaDeviceManager* manager = nullptr;
-  RETURN_NOT_OK(CudaDeviceManager::GetInstance(&manager));
-  return manager->AllocateHost(device_number, size, out);
+  return AllocateCudaHostBuffer(device_number, size).Value(out);
 }
 
 Result<uintptr_t> GetDeviceAddress(const uint8_t* cpu_data,

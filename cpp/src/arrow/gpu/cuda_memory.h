@@ -22,7 +22,6 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/concurrency.h"
-#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 
 namespace arrow {
@@ -51,11 +50,20 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
 
   /// \brief Convert back generic buffer into CudaBuffer
   /// \param[in] buffer buffer to convert
+  /// \return CudaBuffer or Status
+  ///
+  /// \note This function returns an error if the buffer isn't backed
+  /// by GPU memory
+  static Result<std::shared_ptr<CudaBuffer>> FromBuffer(std::shared_ptr<Buffer> buffer);
+
+  /// \brief Convert back generic buffer into CudaBuffer
+  /// \param[in] buffer buffer to convert
   /// \param[out] out conversion result
   /// \return Status
   ///
   /// \note This function returns an error if the buffer isn't backed
   /// by GPU memory
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status FromBuffer(std::shared_ptr<Buffer> buffer,
                            std::shared_ptr<CudaBuffer>* out);
 
@@ -93,11 +101,19 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
                                const int64_t position, const void* data, int64_t nbytes);
 
   /// \brief Expose this device buffer as IPC memory which can be used in other processes
+  /// \return Handle or Status
+  ///
+  /// \note After calling this function, this device memory will not be freed
+  /// when the CudaBuffer is destructed
+  virtual Result<std::shared_ptr<CudaIpcMemHandle>> ExportForIpc();
+
+  /// \brief Expose this device buffer as IPC memory which can be used in other processes
   /// \param[out] handle the exported IPC handle
   /// \return Status
   ///
   /// \note After calling this function, this device memory will not be freed
   /// when the CudaBuffer is destructed
+  ARROW_DEPRECATED("Use Result-returning version")
   virtual Status ExportForIpc(std::shared_ptr<CudaIpcMemHandle>* handle);
 
   const std::shared_ptr<CudaContext>& context() const { return context_; }
@@ -129,15 +145,28 @@ class ARROW_EXPORT CudaIpcMemHandle {
 
   /// \brief Create CudaIpcMemHandle from opaque buffer (e.g. from another process)
   /// \param[in] opaque_handle a CUipcMemHandle as a const void*
+  /// \return Handle or Status
+  static Result<std::shared_ptr<CudaIpcMemHandle>> FromBuffer(const void* opaque_handle);
+
+  /// \brief Create CudaIpcMemHandle from opaque buffer (e.g. from another process)
+  /// \param[in] opaque_handle a CUipcMemHandle as a const void*
   /// \param[out] handle the CudaIpcMemHandle instance
   /// \return Status
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status FromBuffer(const void* opaque_handle,
                            std::shared_ptr<CudaIpcMemHandle>* handle);
 
   /// \brief Write CudaIpcMemHandle to a Buffer
   /// \param[in] pool a MemoryPool to allocate memory from
+  /// \return Buffer or Status
+  Result<std::shared_ptr<Buffer>> Serialize(
+      MemoryPool* pool = default_memory_pool()) const;
+
+  /// \brief Write CudaIpcMemHandle to a Buffer
+  /// \param[in] pool a MemoryPool to allocate memory from
   /// \param[out] out the serialized buffer
   /// \return Status
+  ARROW_DEPRECATED("Use Result-returning version")
   Status Serialize(MemoryPool* pool, std::shared_ptr<Buffer>* out) const;
 
  private:
@@ -250,8 +279,21 @@ class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
 ///
 /// \param[in] device_number device to expose host memory
 /// \param[in] size number of bytes
+/// \return Host buffer or Status
+ARROW_EXPORT
+Result<std::shared_ptr<CudaHostBuffer>> AllocateCudaHostBuffer(int device_number,
+                                                               const int64_t size);
+
+/// \brief Allocate CUDA-accessible memory on CPU host
+///
+/// The GPU will benefit from fast access to this CPU-located buffer,
+/// including fast memory copy.
+///
+/// \param[in] device_number device to expose host memory
+/// \param[in] size number of bytes
 /// \param[out] out the allocated buffer
 /// \return Status
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status AllocateCudaHostBuffer(int device_number, const int64_t size,
                               std::shared_ptr<CudaHostBuffer>* out);

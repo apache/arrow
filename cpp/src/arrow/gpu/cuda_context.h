@@ -41,9 +41,10 @@ class CudaMemoryManager;
 
 class ARROW_EXPORT CudaDeviceManager {
  public:
-  static Status GetInstance(CudaDeviceManager** manager);
-
   static Result<CudaDeviceManager*> Instance();
+
+  ARROW_DEPRECATED("Use Instance()")
+  static Status GetInstance(CudaDeviceManager** manager);
 
   /// \brief Get a CudaDevice instance for a particular device
   /// \param[in] device_number the CUDA device number
@@ -51,20 +52,40 @@ class ARROW_EXPORT CudaDeviceManager {
 
   /// \brief Get the CUDA driver context for a particular device
   /// \param[in] device_number the CUDA device number
+  /// \return cached context
+  Result<std::shared_ptr<CudaContext>> GetContext(int device_number);
+
+  /// \brief Get the CUDA driver context for a particular device
+  /// \param[in] device_number the CUDA device number
   /// \param[out] out cached context
+  ARROW_DEPRECATED("Use Result-returning version")
   Status GetContext(int device_number, std::shared_ptr<CudaContext>* out);
 
   /// \brief Get the shared CUDA driver context for a particular device
   /// \param[in] device_number the CUDA device number
-  /// \param[in] handle CUDA context handler created by another library
+  /// \param[in] handle CUDA context handle created by another library
+  /// \return shared context
+  Result<std::shared_ptr<CudaContext>> GetSharedContext(int device_number, void* handle);
+
+  /// \brief Get the shared CUDA driver context for a particular device
+  /// \param[in] device_number the CUDA device number
+  /// \param[in] handle CUDA context handle created by another library
   /// \param[out] out shared context
+  ARROW_DEPRECATED("Use Result-returning version")
   Status GetSharedContext(int device_number, void* handle,
                           std::shared_ptr<CudaContext>* out);
 
   /// \brief Allocate host memory with fast access to given GPU device
   /// \param[in] device_number the CUDA device number
   /// \param[in] nbytes number of bytes
+  /// \return Host buffer or Status
+  Result<std::shared_ptr<CudaHostBuffer>> AllocateHost(int device_number, int64_t nbytes);
+
+  /// \brief Allocate host memory with fast access to given GPU device
+  /// \param[in] device_number the CUDA device number
+  /// \param[in] nbytes number of bytes
   /// \param[out] out the allocated buffer
+  ARROW_DEPRECATED("Use Result-returning version")
   Status AllocateHost(int device_number, int64_t nbytes,
                       std::shared_ptr<CudaHostBuffer>* out);
 
@@ -220,8 +241,14 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
 
   /// \brief Allocate CUDA memory on GPU device for this context
   /// \param[in] nbytes number of bytes
+  /// \return the allocated buffer
+  Result<std::shared_ptr<CudaBuffer>> Allocate(int64_t nbytes);
+
+  /// \brief Allocate CUDA memory on GPU device for this context
+  /// \param[in] nbytes number of bytes
   /// \param[out] out the allocated buffer
   /// \return Status
+  ARROW_DEPRECATED("Use Result-returning version")
   Status Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* out);
 
   /// \brief Release CUDA memory on GPU device for this context
@@ -233,18 +260,35 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// \brief Create a view of CUDA memory on GPU device of this context
   /// \param[in] data the starting device address
   /// \param[in] nbytes number of bytes
+  /// \return the view buffer
+  ///
+  /// \note The caller is responsible for allocating and freeing the
+  /// memory as well as ensuring that the memory belongs to the CUDA
+  /// context that this CudaContext instance holds.
+  Result<std::shared_ptr<CudaBuffer>> View(uint8_t* data, int64_t nbytes);
+
+  /// \brief Create a view of CUDA memory on GPU device of this context
+  /// \param[in] data the starting device address
+  /// \param[in] nbytes number of bytes
   /// \param[out] out the view buffer
   /// \return Status
   ///
   /// \note The caller is responsible for allocating and freeing the
   /// memory as well as ensuring that the memory belongs to the CUDA
   /// context that this CudaContext instance holds.
+  ARROW_DEPRECATED("Use Result-returning version")
   Status View(uint8_t* data, int64_t nbytes, std::shared_ptr<CudaBuffer>* out);
+
+  /// \brief Open existing CUDA IPC memory handle
+  /// \param[in] ipc_handle opaque pointer to CUipcMemHandle (driver API)
+  /// \return a CudaBuffer referencing the IPC segment
+  Result<std::shared_ptr<CudaBuffer>> OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle);
 
   /// \brief Open existing CUDA IPC memory handle
   /// \param[in] ipc_handle opaque pointer to CUipcMemHandle (driver API)
   /// \param[out] out a CudaBuffer referencing the IPC segment
   /// \return Status
+  ARROW_DEPRECATED("Use Result-returning version")
   Status OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
                        std::shared_ptr<CudaBuffer>* out);
 
@@ -273,6 +317,20 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// \brief Return the device address that is reachable from kernels
   /// running in the context
   /// \param[in] addr device or host memory address
+  /// \return the device address
+  ///
+  /// The device address is defined as a memory address accessible by
+  /// device. While it is often a device memory address, it can be
+  /// also a host memory address, for instance, when the memory is
+  /// allocated as host memory (using cudaMallocHost or cudaHostAlloc)
+  /// or as managed memory (using cudaMallocManaged) or the host
+  /// memory is page-locked (using cudaHostRegister).
+  Result<uintptr_t> GetDeviceAddress(uint8_t* addr);
+  Result<uintptr_t> GetDeviceAddress(uintptr_t addr);
+
+  /// \brief Return the device address that is reachable from kernels
+  /// running in the context
+  /// \param[in] addr device or host memory address
   /// \param[out] devaddr the device address
   /// \return Status
   ///
@@ -282,13 +340,13 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// allocated as host memory (using cudaMallocHost or cudaHostAlloc)
   /// or as managed memory (using cudaMallocManaged) or the host
   /// memory is page-locked (using cudaHostRegister).
+  ARROW_DEPRECATED("Use Result-returning version")
   Status GetDeviceAddress(uint8_t* addr, uint8_t** devaddr);
 
  private:
   CudaContext();
 
-  Status ExportIpcBuffer(void* data, int64_t size,
-                         std::shared_ptr<CudaIpcMemHandle>* handle);
+  Result<std::shared_ptr<CudaIpcMemHandle>> ExportIpcBuffer(void* data, int64_t size);
   Status CopyHostToDevice(void* dst, const void* src, int64_t nbytes);
   Status CopyHostToDevice(uintptr_t dst, const void* src, int64_t nbytes);
   Status CopyDeviceToHost(void* dst, const void* src, int64_t nbytes);

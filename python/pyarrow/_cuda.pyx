@@ -49,18 +49,17 @@ cdef class Context:
 
     def __cinit__(self, int device_number=0, uintptr_t handle=0):
         cdef CCudaDeviceManager* manager
-        check_status(CCudaDeviceManager.GetInstance(&manager))
+        manager = GetResultValue(CCudaDeviceManager.Instance())
         cdef int n = manager.num_devices()
         if device_number >= n or device_number < 0:
             self.context.reset()
             raise ValueError('device_number argument must be '
                              'non-negative less than %s' % (n))
         if handle == 0:
-            check_status(manager.GetContext(device_number, &self.context))
+            self.context = GetResultValue(manager.GetContext(device_number))
         else:
-            check_status(manager.GetSharedContext(device_number,
-                                                  <void*>handle,
-                                                  &self.context))
+            self.context = GetResultValue(manager.GetSharedContext(
+                device_number, <void*>handle))
         self.device_number = device_number
 
     @staticmethod
@@ -113,7 +112,7 @@ cdef class Context:
         """ Return the number of GPU devices.
         """
         cdef CCudaDeviceManager* manager
-        check_status(CCudaDeviceManager.GetInstance(&manager))
+        manager = GetResultValue(CCudaDeviceManager.Instance())
         return manager.num_devices()
 
     @property
@@ -143,7 +142,7 @@ cdef class Context:
         """
         return self.context.get().bytes_allocated()
 
-    def get_device_address(self, address):
+    def get_device_address(self, uintptr_t address):
         """Return the device address that is reachable from kernels running in
         the context
 
@@ -166,14 +165,9 @@ cdef class Context:
         cudaHostAlloc) or as managed memory (using cudaMallocManaged)
         or the host memory is page-locked (using cudaHostRegister).
         """
-        cdef:
-            uintptr_t c_addr = address
-            uint8_t* c_devaddr
-        check_status(self.context.get().GetDeviceAddress(<uint8_t*>c_addr,
-                                                         &c_devaddr))
-        return <uintptr_t>c_devaddr
+        return GetResultValue(self.context.get().GetDeviceAddress(address))
 
-    def new_buffer(self, nbytes):
+    def new_buffer(self, int64_t nbytes):
         """Return new device buffer.
 
         Parameters
@@ -186,8 +180,10 @@ cdef class Context:
         buf : CudaBuffer
           Allocated buffer.
         """
-        cdef shared_ptr[CCudaBuffer] cudabuf
-        check_status(self.context.get().Allocate(nbytes, &cudabuf))
+        cdef:
+            shared_ptr[CCudaBuffer] cudabuf
+        with nogil:
+            cudabuf = GetResultValue(self.context.get().Allocate(nbytes))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
     def foreign_buffer(self, address, size, base=None):
@@ -221,9 +217,9 @@ cdef class Context:
             uintptr_t c_addr = self.get_device_address(address)
             int64_t c_size = size
             shared_ptr[CCudaBuffer] cudabuf
-        check_status(self.context.get().View(<uint8_t*>c_addr,
-                                             c_size,
-                                             &cudabuf))
+
+        cudabuf = GetResultValue(self.context.get().View(
+            <uint8_t*>c_addr, c_size))
         return pyarrow_wrap_cudabuffer_base(cudabuf, base)
 
     def open_ipc_buffer(self, ipc_handle):
@@ -241,8 +237,9 @@ cdef class Context:
         """
         handle = pyarrow_unwrap_cudaipcmemhandle(ipc_handle)
         cdef shared_ptr[CCudaBuffer] cudabuf
-        check_status(self.context.get().OpenIpcBuffer(handle.get()[0],
-                                                      &cudabuf))
+        with nogil:
+            cudabuf = GetResultValue(
+                self.context.get().OpenIpcBuffer(handle.get()[0]))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
     def buffer_from_data(self, object data, int64_t offset=0, int64_t size=-1):
@@ -350,9 +347,12 @@ cdef class IpcMemHandle:
         -------
         ipc_handle : IpcMemHandle
         """
-        cdef shared_ptr[CCudaIpcMemHandle] handle
-        buf_ = pyarrow_unwrap_buffer(opaque_handle)
-        check_status(CCudaIpcMemHandle.FromBuffer(buf_.get().data(), &handle))
+        c_buf = pyarrow_unwrap_buffer(opaque_handle)
+        cdef:
+            shared_ptr[CCudaIpcMemHandle] handle
+
+        handle = GetResultValue(
+            CCudaIpcMemHandle.FromBuffer(c_buf.get().data()))
         return pyarrow_wrap_cudaipcmemhandle(handle)
 
     def serialize(self, pool=None):
@@ -371,7 +371,8 @@ cdef class IpcMemHandle:
         cdef CMemoryPool* pool_ = maybe_unbox_memory_pool(pool)
         cdef shared_ptr[CBuffer] buf
         cdef CCudaIpcMemHandle* h = self.handle.get()
-        check_status(h.Serialize(pool_, &buf))
+        with nogil:
+            buf = GetResultValue(h.Serialize(pool_))
         return pyarrow_wrap_buffer(buf)
 
 
@@ -410,10 +411,9 @@ cdef class CudaBuffer(Buffer):
         dbuf : CudaBuffer
           Resulting device buffer.
         """
-        buf_ = pyarrow_unwrap_buffer(buf)
-        cdef shared_ptr[CCudaBuffer] cbuf
-        check_status(CCudaBuffer.FromBuffer(buf_, &cbuf))
-        return pyarrow_wrap_cudabuffer(cbuf)
+        c_buf = pyarrow_unwrap_buffer(buf)
+        cuda_buffer = GetResultValue(CCudaBuffer.FromBuffer(c_buf))
+        return pyarrow_wrap_cudabuffer(cuda_buffer)
 
     @staticmethod
     def from_numba(mem):
@@ -643,7 +643,8 @@ cdef class CudaBuffer(Buffer):
 
         """
         cdef shared_ptr[CCudaIpcMemHandle] handle
-        check_status(self.cuda_buffer.get().ExportForIpc(&handle))
+        with nogil:
+            handle = GetResultValue(self.cuda_buffer.get().ExportForIpc())
         return pyarrow_wrap_cudaipcmemhandle(handle)
 
     @property
@@ -865,7 +866,8 @@ def new_host_buffer(const int64_t size, int device=0):
       Allocated host buffer
     """
     cdef shared_ptr[CCudaHostBuffer] buffer
-    check_status(AllocateCudaHostBuffer(device, size, &buffer))
+    with nogil:
+        buffer = GetResultValue(AllocateCudaHostBuffer(device, size))
     return pyarrow_wrap_cudahostbuffer(buffer)
 
 
@@ -888,7 +890,7 @@ def serialize_record_batch(object batch, object ctx):
     cdef CRecordBatch* batch_ = pyarrow_unwrap_batch(batch).get()
     cdef CCudaContext* ctx_ = pyarrow_unwrap_cudacontext(ctx).get()
     with nogil:
-        check_status(CudaSerializeRecordBatch(batch_[0], ctx_, &buffer))
+        buffer = GetResultValue(CudaSerializeRecordBatch(batch_[0], ctx_))
     return pyarrow_wrap_cudabuffer(buffer)
 
 
@@ -912,7 +914,9 @@ def read_message(object source, pool=None):
     cdef CMemoryPool* pool_ = maybe_unbox_memory_pool(pool)
     if not isinstance(source, BufferReader):
         reader = BufferReader(source)
-    check_status(CudaReadMessage(reader.reader, pool_, &result.message))
+    with nogil:
+        result.message = move(
+            GetResultValue(ReadMessage(reader.reader, pool_)))
     return result
 
 
@@ -941,7 +945,8 @@ def read_record_batch(object buffer, object schema, pool=None):
     cdef shared_ptr[CCudaBuffer] buffer_ = pyarrow_unwrap_cudabuffer(buffer)
     cdef CMemoryPool* pool_ = maybe_unbox_memory_pool(pool)
     cdef shared_ptr[CRecordBatch] batch
-    check_status(CudaReadRecordBatch(schema_, buffer_, pool_, &batch))
+    with nogil:
+        batch = GetResultValue(CudaReadRecordBatch(schema_, buffer_, pool_))
     return pyarrow_wrap_batch(batch)
 
 

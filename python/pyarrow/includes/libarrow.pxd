@@ -1225,7 +1225,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         CStatus ReadRecordBatch(int i, shared_ptr[CRecordBatch]* batch)
 
-    CStatus ReadMessage(CInputStream* stream, unique_ptr[CMessage]* message)
+    CResult[unique_ptr[CMessage]] ReadMessage(CInputStream* stream,
+                                              CMemoryPool* pool)
 
     CStatus GetRecordBatchSize(const CRecordBatch& batch, int64_t* size)
     CStatus GetTensorSize(const CTensor& tensor, int64_t* size)

@@ -214,7 +214,7 @@ Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
   flatbuffers::Offset<fb::CudaHandle> ipc_handle;
   if (object->device_num != 0) {
     std::shared_ptr<arrow::Buffer> handle;
-    RETURN_NOT_OK(object->ipc_handle->Serialize(arrow::default_memory_pool(), &handle));
+    ARROW_ASSIGN_OR_RAISE(handle, object->ipc_handle->Serialize());
     ipc_handle =
         fb::CreateCudaHandle(fbb, fbb.CreateVector(handle->data(), handle->size()));
   }
@@ -254,8 +254,9 @@ Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
   object->device_num = message->plasma_object()->device_num();
 #ifdef PLASMA_CUDA
   if (object->device_num != 0) {
-    RETURN_NOT_OK(CudaIpcMemHandle::FromBuffer(message->ipc_handle()->handle()->data(),
-                                               &object->ipc_handle));
+    ARROW_ASSIGN_OR_RAISE(
+        object->ipc_handle,
+        CudaIpcMemHandle::FromBuffer(message->ipc_handle()->handle()->data()));
   }
 #endif
   return PlasmaErrorStatus(message->error());
@@ -679,7 +680,7 @@ Status SendGetReply(int sock, ObjectID object_ids[],
 #ifdef PLASMA_CUDA
     if (object.device_num != 0) {
       std::shared_ptr<arrow::Buffer> handle;
-      RETURN_NOT_OK(object.ipc_handle->Serialize(arrow::default_memory_pool(), &handle));
+      ARROW_ASSIGN_OR_RAISE(handle, object.ipc_handle->Serialize());
       handles.push_back(
           fb::CreateCudaHandle(fbb, fbb.CreateVector(handle->data(), handle->size())));
     }
@@ -717,8 +718,8 @@ Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
 #ifdef PLASMA_CUDA
     if (object->device_num() != 0) {
       const void* ipc_handle = message->handles()->Get(handle_pos)->handle()->data();
-      RETURN_NOT_OK(
-          CudaIpcMemHandle::FromBuffer(ipc_handle, &plasma_objects[i].ipc_handle));
+      ARROW_ASSIGN_OR_RAISE(plasma_objects[i].ipc_handle,
+                            CudaIpcMemHandle::FromBuffer(ipc_handle));
       handle_pos++;
     }
 #endif
