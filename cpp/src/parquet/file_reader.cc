@@ -278,6 +278,14 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     int64_t col_length = col->total_compressed_size();
 
+    bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
+    if ( has_page_index ) {
+        parquet::format::ColumnIndex col_index;
+        parquet::format::OffsetIndex offset_index;
+        DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
+        DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
+    }
+
     // PARQUET-816 workaround for old files created by older parquet-mr
     const ApplicationVersion& version = file_metadata_->writer_version();
     if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION())) {

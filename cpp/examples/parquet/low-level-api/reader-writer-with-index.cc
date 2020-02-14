@@ -21,6 +21,8 @@
 #include <memory>
 #include <cstdio>
 #include <reader_writer.h>
+#include <iomanip>
+
 
 /*
  * This example describes writing and reading Parquet Files in C++ and serves as a
@@ -45,7 +47,8 @@
 constexpr int NUM_ROWS = 20;
 constexpr int PREDICATE_COL = 0;
 constexpr int64_t ROW_GROUP_SIZE = 215;//16 * 1024 * 1024;  // 16 MB
-const char PARQUET_FILENAME[] = "/home/abalajiee/parquet_data/test_7_cols.parq";
+//const char PARQUET_FILENAME[] = "/home/abalajiee/parquet_data/test_7_cols.parq";
+const char PARQUET_FILENAME[] = "/home/abalajiee/parquet_data/3_pages.parquet";
 
 int main(int argc, char** argv) {
 
@@ -132,7 +135,7 @@ int main(int argc, char** argv) {
 
       ind = 0;
       // Get the Column Reader for the Int64 column
-      column_reader = row_group_reader->Column(col_id);
+      /*column_reader = row_group_reader->Column(col_id);
     
       int64_reader = static_cast<parquet::Int64Reader*>(column_reader.get());
       // Read all the rows in the column
@@ -157,8 +160,7 @@ int main(int argc, char** argv) {
 //        assert(value == expected_value);
         col_row_counts[col_id]++; 
        
-      }
-
+      }*/
 
     }
   } catch (const std::exception& e) {
@@ -322,3 +324,50 @@ int parquet_writer() {
 
 return 0;
 }
+
+
+
+/*
+
+      column_reader = row_group_reader->Column(col_id);
+      parquet::FloatReader* float_reader =
+          static_cast<parquet::FloatReader*>(column_reader.get());
+      // Read all the rows in the column
+      i = 0;
+      while (float_reader->HasNext()) {
+        float value;
+        // Read one value at a time. The number of rows read is returned. values_read
+        // contains the number of non-null rows
+        rows_read = float_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+        // Ensure only one value is read
+        assert(rows_read == 1);
+        // There are no NULL values in the rows written
+        assert(values_read == 1);
+        // Verify the value written
+        float expected_value = static_cast<float>(i) * 1.1f;
+        assert(value == expected_value);
+        i++;
+      }
+
+      // Get the Column Reader for the Double column
+      column_reader = row_group_reader->Column(col_id);
+      parquet::DoubleReader* double_reader =
+          static_cast<parquet::DoubleReader*>(column_reader.get());
+      // Read all the rows in the column
+      i = 0;
+      while (double_reader->HasNext()) {
+        double value;
+        // Read one value at a time. The number of rows read is returned. values_read
+        // contains the number of non-null rows
+        rows_read = double_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+        // Ensure only one value is read
+        assert(rows_read == 1);
+        // There are no NULL values in the rows written
+        assert(values_read == 1);
+        // Verify the value written
+        double expected_value = i * 1.1111111;
+        assert(value == expected_value);
+        i++;
+      }
+
+*/
