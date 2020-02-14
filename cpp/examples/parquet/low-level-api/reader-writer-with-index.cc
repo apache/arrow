@@ -43,9 +43,9 @@
  **/
 
 constexpr int NUM_ROWS = 20;
-constexpr int NUM_COLS = 1;
+constexpr int PREDICATE_COL = 0;
 constexpr int64_t ROW_GROUP_SIZE = 215;//16 * 1024 * 1024;  // 16 MB
-const char PARQUET_FILENAME[] = "/home/abalajiee/parquet_data/test_export.parq";
+const char PARQUET_FILENAME[] = "/home/abalajiee/parquet_data/test_7_cols.parq";
 
 int main(int argc, char** argv) {
 
@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
 
     // Get the number of Columns
     int num_columns = file_metadata->num_columns();
-    assert(num_columns == NUM_COLS);
+//    assert(num_columns == NUM_COLS);
 
     std::vector<int> col_row_counts(num_columns, 0);
 
@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
       std::shared_ptr<parquet::RowGroupReader> row_group_reader =
           parquet_reader->RowGroup(r);
 
-      assert(row_group_reader->metadata()->total_byte_size() < ROW_GROUP_SIZE);
+//      assert(row_group_reader->metadata()->total_byte_size() < ROW_GROUP_SIZE);
 
       int64_t values_read = 0;
       int64_t rows_read = 0;
@@ -104,8 +104,10 @@ int main(int argc, char** argv) {
           counter++;
       }
 
+      int row_counter = 0, ind = 0;
       while (int64_reader->HasNext()) {
         int64_t value;
+        ind++;
         
         // Read one value at a time. The number of rows read is returned. values_read
         // contains the number of non-null rows
@@ -116,8 +118,41 @@ int main(int argc, char** argv) {
         // There are no NULL values in the rows written
         assert(values_read == 1);
         // Verify the value written
-        if ( value == predicate)
-               std::cout << value << "\n";
+        if ( value == predicate ) {
+               row_counter = ind;
+               std::cout << "row number: " << row_counter << " " << value << "\n";
+        }
+        int64_t expected_value = col_row_counts[col_id];
+//        assert(value == expected_value);
+        col_row_counts[col_id]++; 
+       
+      }
+      
+      col_id++;
+
+      ind = 0;
+      // Get the Column Reader for the Int64 column
+      column_reader = row_group_reader->Column(col_id);
+    
+      int64_reader = static_cast<parquet::Int64Reader*>(column_reader.get());
+      // Read all the rows in the column
+      std::cout << "page index:" << page_index << std::endl;
+      
+      while (int64_reader->HasNext()) {
+        int64_t value;
+        
+        ind++;
+        // Read one value at a time. The number of rows read is returned. values_read
+        // contains the number of non-null rows
+        rows_read = int64_reader->ReadBatch(1, &definition_level, &repetition_level,
+                                            &value, &values_read);
+        // Ensure only one value is read
+        assert(rows_read == 1);
+        // There are no NULL values in the rows written
+        assert(values_read == 1);
+        // Verify the value written
+        if ( ind == row_counter )
+             std::cout << "row number: " << row_counter << " " << value << "\n";
         int64_t expected_value = col_row_counts[col_id];
 //        assert(value == expected_value);
         col_row_counts[col_id]++; 
