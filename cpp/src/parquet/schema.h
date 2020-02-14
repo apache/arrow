@@ -124,8 +124,7 @@ class PARQUET_EXPORT Node {
 
   /// \brief The field_id value for the serialized SchemaElement. If the
   /// field_id is less than 0 (e.g. -1), it will not be set when serialized to
-  /// Thrift. Note that such unassigned field_ids will be overridden and set to
-  /// a default value determined by depth-first traversal when
+  /// Thrift.
   int field_id() const { return field_id_; }
 
   PARQUET_DEPRECATED("id() is deprecated. Use field_id() instead")
@@ -204,7 +203,7 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
   // The field_id here is the default to use if it is not set in the SchemaElement
   static std::unique_ptr<Node> FromParquet(const void* opaque_element, int field_id = -1);
 
-  // A field_id -1 means to use the default next_id()
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              Type::type type,
                              ConvertedType::type converted_type = ConvertedType::NONE,
@@ -215,7 +214,7 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
   }
 
   // If no logical type, pass LogicalType::None() or nullptr
-  // A field_id -1 means to use the default next_id()
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              std::shared_ptr<const LogicalType> logical_type,
                              Type::type primitive_type, int primitive_length = -1,
@@ -271,7 +270,7 @@ class PARQUET_EXPORT GroupNode : public Node {
   static std::unique_ptr<Node> FromParquet(const void* opaque_element,
                                            NodeVector fields = {}, int field_id = -1);
 
-  // A field_id -1 means to use the default next_id()
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              const NodeVector& fields,
                              ConvertedType::type converted_type = ConvertedType::NONE,
@@ -280,7 +279,7 @@ class PARQUET_EXPORT GroupNode : public Node {
   }
 
   // If no logical type, pass nullptr
-  // A field_id -1 means to use the default next_id()
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              const NodeVector& fields,
                              std::shared_ptr<const LogicalType> logical_type,
