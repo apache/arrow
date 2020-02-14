@@ -67,28 +67,39 @@ void __cpuidex(int CPUInfo[4], int function_id, int subfunction_id) {
 //   index1: L1 Icache
 //   index2: L2 cache
 //   index3: L3 cache
-#include <errno.h>
-bool get_cache_size_arm64(const char* filename, int* size) {
-  bool cache_supported = false;
+#define L1_DCACHE_SIZE_FILE "/sys/devices/system/cpu/cpu0/cache/index0/size"
+#define L2_CACHE_SIZE_FILE "/sys/devices/system/cpu/cpu0/cache/index2/size"
+#define L3_CACHE_SIZE_FILE "/sys/devices/system/cpu/cpu0/cache/index3/size"
+
+int get_cache_size_arm64(const char* filename, int* size) {
+  int cache_supported = -1;
   char* content = nullptr;
   char* last_char = nullptr;
   size_t file_len = 0;
   int cardinal_num = 0;
   int multip = 0;
 
-  if (size == nullptr) return cache_supported;
+  if (size == nullptr) {
+    return cache_supported;
+  }
   *size = 0;
 
   FILE* cache_file = fopen(filename, "r");
-  if (cache_file == nullptr) return cache_supported;
+  if (cache_file == nullptr) {
+    return cache_supported;
+  }
 
   // Read cache file to 'content' for getting cache size.
   // Filename: '/sys/devices/system/cpu/cpu0/cache/index0/size' -> 32k
-  if (getline(&content, &file_len, cache_file) == -1) goto done;
+  if (getline(&content, &file_len, cache_file) == -1) {
+    goto done;
+  }
 
   errno = 0;
   cardinal_num = strtoull(content, &last_char, 0);
-  if (errno != 0) goto done;
+  if (errno != 0) {
+    goto done;
+  }
 
   // KB, MB, or GB
   multip = 1;
@@ -104,7 +115,7 @@ bool get_cache_size_arm64(const char* filename, int* size) {
       multip = multip * 1024;
   }
   *size = cardinal_num * multip;
-  cache_supported = true;
+  cache_supported = 0;
 
 done:
   fclose(cache_file);
@@ -121,7 +132,7 @@ static struct {
   std::string name;
   int64_t flag;
 } flag_mappings[] = {
-#if (defined(_M_AMD64) || defined(_M_X64))
+#if (defined(_M_AMD64) || defined(_M_X64) || defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64))
     {"ssse3", CpuInfo::SSSE3},   {"sse4_1", CpuInfo::SSE4_1},
     {"sse4_2", CpuInfo::SSE4_2}, {"popcnt", CpuInfo::POPCNT},
 #endif
@@ -347,15 +358,17 @@ void CpuInfo::VerifyCpuRequirements() {
 #endif
 }
 
-#ifdef ARROW_HAVE_SSE4_2
 bool CpuInfo::CanUseSSE4_2() const {
+#ifdef ARROW_HAVE_SSE4_2
 #ifdef ARROW_USE_SIMD
   return IsSupported(CpuInfo::SSE4_2);
 #else
   return false;
 #endif
-}
+#else
+  return false;
 #endif
+}
 
 void CpuInfo::EnableFeature(int64_t flag, bool enable) {
   if (!enable) {
@@ -386,12 +399,15 @@ void CpuInfo::SetDefaultCacheSize() {
 #elif defined(__GNUC__) && defined(__linux__) && defined(__aarch64__)
   // If there is no cache file related with non-standard linux kernel,
   // Provide reasonable default values.
-  if (!get_cache_size_arm64(L1_DCACHE_SIZE, &cache_sizes_[0]))
+  if (get_cache_size_arm64(L1_DCACHE_SIZE_FILE, &cache_sizes_[0])) {
     cache_sizes_[0] = 32 * 1024;
-  if (!get_cache_size_arm64(L2_CACHE_SIZE, &cache_sizes_[1]))
+  }
+  if (get_cache_size_arm64(L2_CACHE_SIZE_FILE, &cache_sizes_[1])) {
     cache_sizes_[1] = 256 * 1024;
-  if (!get_cache_size_arm64(L3_CACHE_SIZE, &cache_sizes_[2]))
+  }
+  if (get_cache_size_arm64(L3_CACHE_SIZE_FILE, &cache_sizes_[2])) {
     cache_sizes_[2] = 3072 * 1024;
+  }
 #else
   // Provide reasonable default values if no info
   cache_sizes_[0] = 32 * 1024;    // Level 1: 32k

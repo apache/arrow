@@ -21,11 +21,10 @@
 #ifndef ARROW_UTIL_CPU_INFO_H
 #define ARROW_UTIL_CPU_INFO_H
 
+#include <errno.h>
 #include <cstdint>
 #include <string>
 
-#include "arrow/util/neon_util.h"
-#include "arrow/util/sse_util.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -62,11 +61,9 @@ class ARROW_EXPORT CpuInfo {
   /// Returns whether of not the cpu supports this flag
   bool IsSupported(int64_t flag) const { return (hardware_flags_ & flag) != 0; }
 
-#ifdef ARROW_HAVE_SSE4_2
   /// \brief The processor supports SSE4.2 and the Arrow libraries are built
   /// with support for it
   bool CanUseSSE4_2() const;
-#endif
 
   /// Toggle a hardware feature on and off.  It is not valid to turn on a feature
   /// that the underlying hardware cannot support. This is useful for testing.
