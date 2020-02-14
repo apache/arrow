@@ -991,6 +991,7 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 38;
+  using c_type = arrow::Decimal128;
 };
 
 struct UnionMode {

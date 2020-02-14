@@ -130,6 +130,7 @@ class StructArray;
 class StructBuilder;
 struct StructScalar;
 
+class Decimal128;
 class Decimal128Type;
 class Decimal128Array;
 class Decimal128Builder;

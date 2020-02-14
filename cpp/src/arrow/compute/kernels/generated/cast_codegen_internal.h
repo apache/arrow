@@ -171,6 +171,10 @@
   TEMPLATE(DoubleType, StringType) \
   TEMPLATE(DoubleType, LargeStringType)
 
+#define DECIMAL128_CASES(TEMPLATE) \
+  TEMPLATE(Decimal128Type, Decimal128Type) \
+  TEMPLATE(Decimal128Type, Int64Type)
+
 #define DATE32_CASES(TEMPLATE) \
   TEMPLATE(Date32Type, Date64Type)
 
