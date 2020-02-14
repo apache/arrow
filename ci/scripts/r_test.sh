@@ -24,14 +24,17 @@ source_dir=${1}/r
 
 pushd ${source_dir}
 
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
-export ARROW_R_CXXFLAGS='-Werror'
+if [ "$ARROW_HOME" != "" ]; then
+  export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
+  export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
+fi
+if [ "$ARROW_R_CXXFLAGS" != "" ]; then
+  export _R_CHECK_COMPILATION_FLAGS_=FALSE
+fi
 export TEST_R_WITH_ARROW=TRUE
 export _R_CHECK_TESTS_NLINES_=0
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE
-export _R_CHECK_COMPILATION_FLAGS_=FALSE
 export VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
 
 ${R_BIN} -e "rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')"
