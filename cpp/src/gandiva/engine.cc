@@ -24,6 +24,8 @@
 #include "gandiva/engine.h"
 
 #include <iostream>
+#include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -41,8 +43,11 @@
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Bitcode/BitcodeReader.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/IR/DataLayout.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
@@ -61,72 +66,87 @@
 #pragma warning(pop)
 #endif
 
+#include "gandiva/configuration.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/exported_funcs_registry.h"
+
+#include "arrow/util/make_unique.h"
 
 namespace gandiva {
 
 extern const unsigned char kPrecompiledBitcode[];
 extern const size_t kPrecompiledBitcodeSize;
 
-std::once_flag init_once_flag;
+std::once_flag llvm_init_once_flag;
+static bool llvm_init = false;
 
-bool Engine::init_once_done_ = false;
-std::set<std::string> Engine::loaded_libs_ = {};
-std::mutex Engine::mtx_;
-
-// One-time initializations.
 void Engine::InitOnce() {
-  DCHECK_EQ(init_once_done_, false);
+  DCHECK_EQ(llvm_init, false);
 
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
   llvm::InitializeNativeTargetAsmParser();
   llvm::InitializeNativeTargetDisassembler();
-
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
-  init_once_done_ = true;
+  llvm_init = true;
+}
+
+Engine::Engine(const std::shared_ptr<Configuration>& conf,
+               std::unique_ptr<llvm::LLVMContext> ctx,
+               std::unique_ptr<llvm::ExecutionEngine> engine, llvm::Module* module)
+    : context_(std::move(ctx)),
+      execution_engine_(std::move(engine)),
+      ir_builder_(arrow::internal::make_unique<llvm::IRBuilder<>>(*context_)),
+      module_(module),
+      types_(*context_),
+      optimize_(conf->optimize()) {}
+
+Status Engine::Init() {
+  // Add mappings for functions that can be accessed from LLVM/IR module.
+  AddGlobalMappings();
+
+  ARROW_RETURN_NOT_OK(LoadPreCompiledIR());
+  ARROW_RETURN_NOT_OK(DecimalIR::AddFunctions(this));
+
+  return Status::OK();
 }
 
 /// factory method to construct the engine.
-Status Engine::Make(std::shared_ptr<Configuration> config,
-                    std::unique_ptr<Engine>* engine) {
-  static auto host_cpu_name = llvm::sys::getHostCPUName();
-  std::unique_ptr<Engine> engine_obj(new Engine());
+Status Engine::Make(const std::shared_ptr<Configuration>& conf,
+                    std::unique_ptr<Engine>* out) {
+  std::call_once(llvm_init_once_flag, InitOnce);
 
-  std::call_once(init_once_flag, [&engine_obj] { engine_obj->InitOnce(); });
-  engine_obj->context_.reset(new llvm::LLVMContext());
-  engine_obj->ir_builder_.reset(new llvm::IRBuilder<>(*(engine_obj->context())));
-  engine_obj->types_.reset(new LLVMTypes(*(engine_obj->context())));
+  auto ctx = arrow::internal::make_unique<llvm::LLVMContext>();
+  auto module = arrow::internal::make_unique<llvm::Module>("codegen", *ctx);
 
-  // Create the execution engine
-  std::unique_ptr<llvm::Module> cg_module(
-      new llvm::Module("codegen", *(engine_obj->context())));
-  engine_obj->module_ = cg_module.get();
+  // Capture before moving, ExceutionEngine does not allow retrieving the
+  // original Module.
+  auto module_ptr = module.get();
 
-  llvm::EngineBuilder engineBuilder(std::move(cg_module));
-  engineBuilder.setMCPU(host_cpu_name);
-  engineBuilder.setEngineKind(llvm::EngineKind::JIT);
-  engineBuilder.setOptLevel(llvm::CodeGenOpt::Aggressive);
-  engineBuilder.setErrorStr(&(engine_obj->llvm_error_));
-  engine_obj->execution_engine_.reset(engineBuilder.create());
-  if (engine_obj->execution_engine_ == NULL) {
-    engine_obj->module_ = NULL;
-    return Status::CodeGenError(engine_obj->llvm_error_);
+  auto opt_level =
+      conf->optimize() ? llvm::CodeGenOpt::Aggressive : llvm::CodeGenOpt::None;
+  // Note that the lifetime of the error string is not captured by the
+  // ExecutionEngine but only for the lifetime of the builder. Found by
+  // inspecting LLVM sources.
+  std::string builder_error;
+  std::unique_ptr<llvm::ExecutionEngine> exec_engine{
+      llvm::EngineBuilder(std::move(module))
+          .setMCPU(llvm::sys::getHostCPUName())
+          .setEngineKind(llvm::EngineKind::JIT)
+          .setOptLevel(opt_level)
+          .setErrorStr(&builder_error)
+          .create()};
+
+  if (exec_engine == nullptr) {
+    return Status::CodeGenError("Could not instantiate llvm::ExecutionEngine: ",
+                                builder_error);
   }
 
-  // Add mappings for functions that can be accessed from LLVM/IR module.
-  engine_obj->AddGlobalMappings();
-
-  auto status = engine_obj->LoadPreCompiledIR();
-  ARROW_RETURN_NOT_OK(status);
-
-  // Add decimal functions
-  status = DecimalIR::AddFunctions(engine_obj.get());
-  ARROW_RETURN_NOT_OK(status);
-
-  *engine = std::move(engine_obj);
+  std::unique_ptr<Engine> engine{
+      new Engine(conf, std::move(ctx), std::move(exec_engine), module_ptr)};
+  ARROW_RETURN_NOT_OK(engine->Init());
+  *out = std::move(engine);
   return Status::OK();
 }
 
@@ -191,15 +211,10 @@ Status Engine::RemoveUnusedFunctions() {
 }
 
 // Optimise and compile the module.
-Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir, std::string* final_ir) {
-  auto status = RemoveUnusedFunctions();
-  ARROW_RETURN_NOT_OK(status);
+Status Engine::FinalizeModule() {
+  ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
-  if (dump_ir) {
-    DumpIR("Before optimise");
-  }
-
-  if (optimise_ir) {
+  if (optimize_) {
     // misc passes to allow for inlining, vectorization, ..
     std::unique_ptr<llvm::legacy::PassManager> pass_manager(
         new llvm::legacy::PassManager());
@@ -222,15 +237,8 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir, std::string* final
     pass_builder.OptLevel = 3;
     pass_builder.populateModulePassManager(*pass_manager);
     pass_manager->run(*module_);
+  }
 
-    if (dump_ir) {
-      DumpIR("After optimise");
-    }
-  }
-  if (final_ir != nullptr) {
-    llvm::raw_string_ostream stream(*final_ir);
-    module_->print(stream, nullptr);
-  }
   ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
                   Status::CodeGenError("Module verification failed after optimizer"));
 
@@ -249,20 +257,20 @@ void* Engine::CompiledFunction(llvm::Function* irFunction) {
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                      const std::vector<llvm::Type*>& args,
                                      void* function_ptr) {
-  auto prototype = llvm::FunctionType::get(ret_type, args, false /*isVarArg*/);
-  auto fn = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name,
-                                   module());
+  constexpr bool is_var_arg = false;
+  auto prototype = llvm::FunctionType::get(ret_type, args, is_var_arg);
+  constexpr auto linkage = llvm::GlobalValue::ExternalLinkage;
+  auto fn = llvm::Function::Create(prototype, linkage, name, module());
   execution_engine_->addGlobalMapping(fn, function_ptr);
 }
 
 void Engine::AddGlobalMappings() { ExportedFuncsRegistry::AddMappings(this); }
 
-void Engine::DumpIR(std::string prefix) {
-  std::string str;
-
-  llvm::raw_string_ostream stream(str);
+std::string Engine::DumpIR() {
+  std::string ir;
+  llvm::raw_string_ostream stream(ir);
   module_->print(stream, nullptr);
-  std::cout << "====" << prefix << "===" << str << "\n";
+  return ir;
 }
 
 }  // namespace gandiva

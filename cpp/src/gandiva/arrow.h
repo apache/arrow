@@ -51,6 +51,9 @@ using ArrayDataVector = std::vector<ArrayDataPtr>;
 using Status = arrow::Status;
 using StatusCode = arrow::StatusCode;
 
+template <typename T>
+using Result = arrow::Result<T>;
+
 static inline bool is_decimal_128(DataTypePtr type) {
   if (type->id() == arrow::Type::DECIMAL) {
     auto decimal_type = arrow::internal::checked_cast<arrow::DecimalType*>(type.get());

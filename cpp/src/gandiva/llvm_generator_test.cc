@@ -20,6 +20,7 @@
 #include <memory>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "gandiva/configuration.h"
 #include "gandiva/dex.h"
@@ -40,22 +41,18 @@ class TestLLVMGenerator : public ::testing::Test {
 // Verify that a valid pc function exists for every function in the registry.
 TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
   std::unique_ptr<LLVMGenerator> generator;
-  auto status = LLVMGenerator::Make(TestConfiguration(), &generator);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), &generator));
 
   llvm::Module* module = generator->module();
   for (auto& iter : registry_) {
-    llvm::Function* fn = module->getFunction(iter.pc_name());
-    EXPECT_NE(fn, nullptr) << "function " << iter.pc_name()
-                           << " missing in precompiled module\n";
+    EXPECT_NE(module->getFunction(iter.pc_name()), nullptr);
   }
 }
 
 TEST_F(TestLLVMGenerator, TestAdd) {
   // Setup LLVM generator to do an arithmetic add of two vectors
   std::unique_ptr<LLVMGenerator> generator;
-  auto status = LLVMGenerator::Make(TestConfiguration(), &generator);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), &generator));
   Annotator annotator;
 
   auto field0 = std::make_shared<arrow::Field>("f0", arrow::int32());
@@ -86,39 +83,34 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 
   llvm::Function* ir_func = nullptr;
 
-  status = generator->CodeGenExprValue(func_dex, 4, desc_sum, 0, &ir_func,
-                                       SelectionVector::MODE_NONE);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ASSERT_OK(generator->CodeGenExprValue(func_dex, 4, desc_sum, 0, &ir_func,
+                                        SelectionVector::MODE_NONE));
 
-  std::string final_ir;
-  status = generator->engine_->FinalizeModule(true, false, &final_ir);
-  EXPECT_TRUE(status.ok()) << status.message();
-  EXPECT_TRUE(final_ir.find("vector.body") != std::string::npos)
-      << "missing vectorization: " << final_ir;
+  ASSERT_OK(generator->engine_->FinalizeModule());
+  auto ir = generator->engine_->DumpIR();
+  EXPECT_THAT(ir, testing::HasSubstr("vector.body"));
 
   EvalFunc eval_func = (EvalFunc)generator->engine_->CompiledFunction(ir_func);
 
-  int num_records = 4;
-  uint32_t a0[] = {1, 2, 3, 4};
-  uint32_t a1[] = {5, 6, 7, 8};
+  constexpr size_t kNumRecords = 4;
+  std::array<uint32_t, kNumRecords> a0{1, 2, 3, 4};
+  std::array<uint32_t, kNumRecords> a1{5, 6, 7, 8};
   uint64_t in_bitmap = 0xffffffffffffffffull;
 
-  uint32_t out[] = {0, 0, 0, 0};
+  std::array<uint32_t, kNumRecords> out{0, 0, 0, 0};
   uint64_t out_bitmap = 0;
 
-  uint8_t* addrs[] = {
-      reinterpret_cast<uint8_t*>(a0),  reinterpret_cast<uint8_t*>(&in_bitmap),
-      reinterpret_cast<uint8_t*>(a1),  reinterpret_cast<uint8_t*>(&in_bitmap),
-      reinterpret_cast<uint8_t*>(out), reinterpret_cast<uint8_t*>(&out_bitmap),
+  std::array<uint8_t*, 6> addrs{
+      reinterpret_cast<uint8_t*>(a0.data()),  reinterpret_cast<uint8_t*>(&in_bitmap),
+      reinterpret_cast<uint8_t*>(a1.data()),  reinterpret_cast<uint8_t*>(&in_bitmap),
+      reinterpret_cast<uint8_t*>(out.data()), reinterpret_cast<uint8_t*>(&out_bitmap),
   };
-  int64_t addr_offsets[] = {0, 0, 0, 0, 0, 0};
-  eval_func(addrs, addr_offsets, nullptr, nullptr, 0 /* dummy context ptr */,
-            num_records);
+  std::array<int64_t, 6> addr_offsets{0, 0, 0, 0, 0, 0};
+  eval_func(addrs.data(), addr_offsets.data(), nullptr, nullptr,
+            0 /* dummy context ptr */, kNumRecords);
 
-  uint32_t expected[] = {6, 8, 10, 12};
-  for (int i = 0; i < num_records; i++) {
-    EXPECT_EQ(expected[i], out[i]);
-  }
+  EXPECT_THAT(out, testing::ElementsAre(6, 8, 10, 12));
+  EXPECT_EQ(out_bitmap, 0ULL);
 }
 
 }  // namespace gandiva

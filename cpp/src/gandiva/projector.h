@@ -117,6 +117,8 @@ class GANDIVA_EXPORT Projector {
   Status Evaluate(const arrow::RecordBatch& batch,
                   const SelectionVector* selection_vector, const ArrayDataVector& output);
 
+  std::string DumpIR();
+
  private:
   Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
             const FieldVector& output_fields, std::shared_ptr<Configuration>);
@@ -132,10 +134,10 @@ class GANDIVA_EXPORT Projector {
   /// Validate the common args for Evaluate() APIs.
   Status ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch);
 
-  const std::unique_ptr<LLVMGenerator> llvm_generator_;
-  const SchemaPtr schema_;
-  const FieldVector output_fields_;
-  const std::shared_ptr<Configuration> configuration_;
+  std::unique_ptr<LLVMGenerator> llvm_generator_;
+  SchemaPtr schema_;
+  FieldVector output_fields_;
+  std::shared_ptr<Configuration> configuration_;
 };
 
 }  // namespace gandiva
