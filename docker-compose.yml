@@ -757,14 +757,12 @@ services:
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
     shm_size: *shm-size
-    environment:
-      TEST_R_WITH_ARROW: "true"
-      NOT_CRAN: "true"
-      LIBARROW_DOWNLOAD: "false"
     volumes:
       - .:/arrow:delegated
     command: >
       /bin/bash -c "
+        export NOT_CRAN=true &&
+        export LIBARROW_DOWNLOAD=false &&
         /arrow/ci/scripts/r_test.sh /arrow &&
         cat /arrow/r/check/arrow.Rcheck/00install.out"
 
