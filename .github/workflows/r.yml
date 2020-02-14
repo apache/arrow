@@ -102,6 +102,11 @@ jobs:
       - name: Dump install logs on failure
         if: failure()
         run: cat r/check/arrow.Rcheck/00install.out
+      - name: Inspect home dir
+        if: success() || failure()
+        run: |
+          ls -alh ~/
+          ls -alh ~/.cmake
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
