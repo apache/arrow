@@ -151,11 +151,11 @@ download_source <- function() {
   src_dir
 }
 
-find_local_source <- function() {
-  if (file.exists("../cpp/src/arrow/api.h")) {
+find_local_source <- function(arrow_home = Sys.getenv("ARROW_HOME", "..")) {
+  if (file.exists(paste0(arrow_home, "/cpp/src/arrow/api.h"))) {
     # We're in a git checkout of arrow, so we can build it
     cat("*** Found local C++ source\n")
-    return("../cpp")
+    return(paste0(arrow_home, "/cpp"))
   } else {
     return(NULL)
   }

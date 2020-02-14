@@ -24,10 +24,8 @@ source_dir=${1}/r
 
 pushd ${source_dir}
 
-if [ "$ARROW_HOME" != "" ]; then
-  export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-  export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
-fi
+export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
+export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
 if [ "$ARROW_R_CXXFLAGS" != "" ]; then
   export _R_CHECK_COMPILATION_FLAGS_=FALSE
 fi

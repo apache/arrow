@@ -763,6 +763,7 @@ services:
       /bin/bash -c "
         export NOT_CRAN=true &&
         export LIBARROW_DOWNLOAD=false &&
+        export ARROW_HOME="/arrow" &&
         /arrow/ci/scripts/r_test.sh /arrow &&
         cat /arrow/r/check/arrow.Rcheck/00install.out"
 
