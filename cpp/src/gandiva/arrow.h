@@ -25,7 +25,6 @@
 #include <arrow/builder.h>
 #include <arrow/pretty_print.h>
 #include <arrow/record_batch.h>
-#include <arrow/result.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
 

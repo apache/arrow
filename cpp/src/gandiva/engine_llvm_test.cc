@@ -24,7 +24,7 @@
 
 namespace gandiva {
 
-typedef int64_t (*add_vector_func_t)(int64_t*, int);
+typedef int64_t (*add_vector_func_t)(int64_t* data, int n);
 
 class TestEngine : public ::testing::Test {
  protected:

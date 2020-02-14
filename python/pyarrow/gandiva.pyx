@@ -150,7 +150,7 @@ cdef class Projector:
         return self
 
     @property
-    def ir(self):
+    def llvm_ir(self):
         return self.projector.get().DumpIR().decode()
 
     def evaluate(self, RecordBatch batch):
@@ -179,7 +179,7 @@ cdef class Filter:
         return self
 
     @property
-    def ir(self):
+    def llvm_ir(self):
         return self.filter.get().DumpIR().decode()
 
     def evaluate(self, RecordBatch batch, MemoryPool pool, dtype='int32'):

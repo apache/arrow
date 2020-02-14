@@ -25,7 +25,6 @@
 
 #include "arrow/util/macros.h"
 
-#include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
 #include "gandiva/llvm_includes.h"
 #include "gandiva/llvm_types.h"
