@@ -43,12 +43,8 @@ pub fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut u8 {
             Layout::from_size_align_unchecked(old_size, ALIGNMENT),
             new_size,
         );
-        if new_size > old_size {
-            std::ptr::write_bytes(
-                new_ptr.offset(old_size as isize),
-                0,
-                new_size - old_size,
-            );
+        if !new_ptr.is_null() && new_size > old_size {
+            new_ptr.add(old_size).write_bytes(0, new_size - old_size);
         }
         new_ptr
     }
