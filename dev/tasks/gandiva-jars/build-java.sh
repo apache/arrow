@@ -34,21 +34,24 @@ pushd java
 
   # print the shared library dependencies
   eval "$SO_DEP" "$GANDIVA_LIB"
-  # exit if any shared library not in whitelisted set is founds
-  while read -r line
-  do
-    found=false
-    for item in "${WHITELIST[@]}"
+
+  if [[ $CHECK_SHARED_DEPENDENCIES ]] ; then
+    # exit if any shared library not in whitelisted set is found
+    while read -r line
     do
-      if [[ "$line" == *"$item"* ]] ; then
-          found=true
+      found=false
+      for item in "${WHITELIST[@]}"
+      do
+        if [[ "$line" == *"$item"* ]] ; then
+            found=true
+        fi
+      done
+      if [[ "$found" == false ]] ; then
+        echo "Unexpected shared dependency found"
+        exit 1
       fi
-    done
-    if [[ "$found" == false ]] ; then
-      echo "Unexpected shared dependency found"
-      exit 1
-    fi
-  done < <(eval "$SO_DEP" "$GANDIVA_LIB" | awk '{print $1}')
+    done < <(eval "$SO_DEP" "$GANDIVA_LIB" | awk '{print $1}')
+  fi
 
   # build the entire project
   mvn clean install -q -DskipTests -P arrow-jni -Darrow.cpp.build.dir=$CPP_BUILD_DIR
