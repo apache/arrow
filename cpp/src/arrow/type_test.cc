@@ -47,7 +47,7 @@ TEST(TestField, Basics) {
 }
 
 TEST(TestField, ToString) {
-  auto metadata = KeyValueMetadata::Make({"foo", "bar"}, {"bizz", "buzz"});
+  auto metadata = key_value_metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto f0 = field("f0", int32(), false, metadata);
 
   std::string result = f0->ToString();
@@ -140,7 +140,7 @@ TEST(TestField, IsCompatibleWith) {
 }
 
 TEST(TestField, TestMetadataConstruction) {
-  auto metadata = KeyValueMetadata::Make({"foo", "bar"}, {"bizz", "buzz"});
+  auto metadata = key_value_metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto metadata2 = metadata->Copy();
   auto f0 = field("f0", int32(), true, metadata);
   auto f1 = field("f0", int32(), true, metadata2);
@@ -149,7 +149,7 @@ TEST(TestField, TestMetadataConstruction) {
 }
 
 TEST(TestField, TestWithMetadata) {
-  auto metadata = KeyValueMetadata::Make({"foo", "bar"}, {"bizz", "buzz"});
+  auto metadata = key_value_metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto f0 = field("f0", int32());
   auto f1 = field("f0", int32(), true, metadata);
   std::shared_ptr<Field> f2 = f0->WithMetadata(metadata);
@@ -164,11 +164,11 @@ TEST(TestField, TestWithMetadata) {
 }
 
 TEST(TestField, TestWithMergedMetadata) {
-  auto metadata = KeyValueMetadata::Make({"foo", "bar"}, {"bizz", "buzz"});
+  auto metadata = key_value_metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto f0 = field("f0", int32(), true, metadata);
   auto f1 = field("f0", int32());
 
-  auto metadata2 = KeyValueMetadata::Make({"bar", "baz"}, {"bozz", "bazz"});
+  auto metadata2 = key_value_metadata({"bar", "baz"}, {"bozz", "bazz"});
 
   auto f2 = f0->WithMergedMetadata(metadata2);
   auto expected = field("f0", int32(), true, metadata->Merge(*metadata2));
@@ -180,7 +180,7 @@ TEST(TestField, TestWithMergedMetadata) {
 }
 
 TEST(TestField, TestRemoveMetadata) {
-  auto metadata = KeyValueMetadata::Make({"foo", "bar"}, {"bizz", "buzz"});
+  auto metadata = key_value_metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto f0 = field("f0", int32());
   auto f1 = field("f0", int32(), true, metadata);
   std::shared_ptr<Field> f2 = f1->RemoveMetadata();
@@ -203,7 +203,7 @@ TEST(TestField, TestEmptyMetadata) {
 }
 
 TEST(TestField, TestFlatten) {
-  auto metadata = KeyValueMetadata::Make({"foo", "bar"}, {"bizz", "buzz"});
+  auto metadata = key_value_metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto f0 = field("f0", int32(), true /* nullable */, metadata);
   auto vec = f0->Flatten();
   ASSERT_EQ(vec.size(), 1);
@@ -229,7 +229,7 @@ TEST(TestField, TestFlatten) {
 }
 
 TEST(TestField, TestReplacement) {
-  auto metadata = KeyValueMetadata::Make({"foo", "bar"}, {"bizz", "buzz"});
+  auto metadata = key_value_metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto f0 = field("f0", int32(), true, metadata);
   auto fzero = f0->WithType(utf8());
   auto f1 = f0->WithName("f1");
@@ -251,8 +251,8 @@ TEST(TestField, TestReplacement) {
 }
 
 TEST(TestField, TestMerge) {
-  auto metadata1 = KeyValueMetadata::Make({"foo"}, {"v"});
-  auto metadata2 = KeyValueMetadata::Make({"bar"}, {"v"});
+  auto metadata1 = key_value_metadata({"foo"}, {"v"});
+  auto metadata2 = key_value_metadata({"bar"}, {"v"});
   {
     // different name.
     ASSERT_RAISES(Invalid, field("f0", int32())->MergeWith(field("f1", int32())));
@@ -505,7 +505,7 @@ TEST_F(TestSchema, TestWithMetadata) {
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
   std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
-  auto metadata = KeyValueMetadata::Make({"foo", "bar"}, {"bizz", "buzz"});
+  auto metadata = key_value_metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto schema = std::make_shared<Schema>(fields);
   std::shared_ptr<Schema> new_schema = schema->WithMetadata(metadata);
   ASSERT_TRUE(metadata->Equals(*new_schema->metadata()));
@@ -779,8 +779,8 @@ TEST_F(TestUnifySchemas, MissingField) {
   auto int32_field = field("int32_field", int32());
   auto uint8_field = field("uint8_field", uint8(), false);
   auto utf8_field = field("utf8_field", utf8());
-  auto metadata1 = KeyValueMetadata::Make({"foo"}, {"bar"});
-  auto metadata2 = KeyValueMetadata::Make({"q"}, {"42"});
+  auto metadata1 = key_value_metadata({"foo"}, {"bar"});
+  auto metadata2 = key_value_metadata({"q"}, {"42"});
 
   auto schema1 = schema({int32_field, uint8_field})->WithMetadata(metadata1);
   auto schema2 = schema({uint8_field, utf8_field->WithMetadata(metadata2)});
@@ -793,7 +793,7 @@ TEST_F(TestUnifySchemas, MissingField) {
 }
 
 TEST_F(TestUnifySchemas, PromoteNullTypeField) {
-  auto metadata = KeyValueMetadata::Make({"foo"}, {"bar"});
+  auto metadata = key_value_metadata({"foo"}, {"bar"});
   auto null_field = field("f", null());
   auto int32_field = field("f", int32(), /*nullable=*/false);
 

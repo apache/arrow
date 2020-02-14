@@ -72,6 +72,9 @@ def _read_table(*args, **kwargs):
 
 
 def assert_tables_equal(left, right):
+    # This is a helper method particular to this testing module because the
+    # round trip to Parquet adds extra Field-level metadata for the Parquet
+    # field_ids
     assert left.equals(right, check_metadata=False)
 
 
@@ -3297,7 +3300,7 @@ def test_field_id_metadata():
     #   optional binary field_id=5 f2;
     # }
 
-    field_name = b'PARQUET::field_id'
+    field_name = b'PARQUET:field_id'
     assert schema[0].metadata[field_name] == b'1'
 
     list_field = schema[1]

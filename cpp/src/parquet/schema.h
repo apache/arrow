@@ -124,7 +124,8 @@ class PARQUET_EXPORT Node {
 
   /// \brief The field_id value for the serialized SchemaElement. If the
   /// field_id is less than 0 (e.g. -1), it will not be set when serialized to
-  /// Thrift
+  /// Thrift. Note that such unassigned field_ids will be overridden and set to
+  /// a default value determined by depth-first traversal when
   int field_id() const { return field_id_; }
 
   PARQUET_DEPRECATED("id() is deprecated. Use field_id() instead")

@@ -173,10 +173,31 @@ class MultipleChunkIterator {
   int64_t chunk_pos_right_;
 };
 
-// Execute the passed function
+/// \brief Evaluate binary function on two ChunkedArray objects having possibly
+/// different chunk layouts. The passed binary function / functor should have
+/// the following signature.
+///
+///    Status(const Array&, const Array&, int64_t)
+///
+/// The third argument is the absolute position relative to the start of each
+/// ChunkedArray. The function is executed against each contiguous pair of
+/// array segments, slicing if necessary.
+///
+/// For example, if two arrays have chunk sizes
+///
+///   left: [10, 10, 20]
+///   right: [15, 10, 15]
+///
+/// Then the following invocations take place (pseudocode)
+///
+///   func(left.chunk[0][0:10], right.chunk[0][0:10], 0)
+///   func(left.chunk[1][0:5], right.chunk[0][10:15], 10)
+///   func(left.chunk[1][5:10], right.chunk[1][0:5], 15)
+///   func(left.chunk[2][0:5], right.chunk[1][5:10], 20)
+///   func(left.chunk[2][5:20], right.chunk[2][:], 25)
 template <typename Action>
-Status ApplyToChunkOverlaps(const ChunkedArray& left, const ChunkedArray& right,
-                            Action&& action) {
+Status ApplyBinaryChunked(const ChunkedArray& left, const ChunkedArray& right,
+                          Action&& action) {
   MultipleChunkIterator iterator(left, right);
   std::shared_ptr<Array> left_piece, right_piece;
   while (iterator.Next(&left_piece, &right_piece)) {

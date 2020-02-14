@@ -278,7 +278,7 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
       options.window = 50;
 
       if (!actual_col->Equals(*expected_col)) {
-        ASSERT_OK(internal::ApplyToChunkOverlaps(
+        ASSERT_OK(internal::ApplyBinaryChunked(
             *actual_col, *expected_col,
             [&](const Array& left_piece, const Array& right_piece, int64_t position) {
               std::stringstream diff;

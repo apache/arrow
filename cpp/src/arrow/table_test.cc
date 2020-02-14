@@ -109,7 +109,7 @@ TEST_F(TestChunkedArray, EqualsDifferingLengths) {
 TEST_F(TestChunkedArray, EqualsDifferingMetadata) {
   auto left_ty = list(field("item", int32()));
 
-  auto metadata = KeyValueMetadata::Make({"foo"}, {"bar"});
+  auto metadata = key_value_metadata({"foo"}, {"bar"});
   auto right_ty = list(field("item", int32(), true, metadata));
 
   std::vector<std::shared_ptr<Array>> left_chunks = {ArrayFromJSON(left_ty, "[[]]")};

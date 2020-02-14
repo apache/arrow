@@ -44,7 +44,7 @@ TEST(KeyValueMetadataTest, StringVectorConstruction) {
   ASSERT_EQ(2, metadata.size());
 
   std::shared_ptr<KeyValueMetadata> metadata2 =
-      KeyValueMetadata::Make({"foo", "bar"}, {"bizz", "buzz"});
+      key_value_metadata({"foo", "bar"}, {"bizz", "buzz"});
   ASSERT_TRUE(metadata.Equals(*metadata2));
 }
 

@@ -79,7 +79,7 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
 
   // Check contents of the underlying arrays. This checks for equality of
   // the underlying data independently of the chunk size.
-  return internal::ApplyToChunkOverlaps(
+  return internal::ApplyBinaryChunked(
              *this, other,
              [](const Array& left_piece, const Array& right_piece,
                 int64_t ARROW_ARG_UNUSED(position)) {

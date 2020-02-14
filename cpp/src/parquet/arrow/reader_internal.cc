@@ -381,8 +381,7 @@ bool HasStructListName(const GroupNode& node) {
 }
 
 std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
-  return ::arrow::KeyValueMetadata::Make({"PARQUET::field_id"},
-                                         {std::to_string(field_id)});
+  return ::arrow::key_value_metadata({"PARQUET:field_id"}, {std::to_string(field_id)});
 }
 
 Status GroupToStruct(const GroupNode& node, int16_t max_def_level, int16_t max_rep_level,

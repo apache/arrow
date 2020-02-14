@@ -78,7 +78,6 @@ static void CheckNodeRoundtrip(const Node& node) {
       << "Recovered node not equivalent to original node constructed "
       << "with logical type " << node.logical_type()->ToString() << " got "
       << recovered->logical_type()->ToString();
-  ASSERT_EQ(recovered->field_id(), node.field_id());
 }
 
 static void ConfirmPrimitiveNodeRoundtrip(
@@ -831,6 +830,7 @@ TEST(TestSchemaPrinter, Examples) {
                                    /*logical_type=*/nullptr, 0);
 
   std::string result = Print(schema);
+
   std::string expected = R"(repeated group field_id=0 schema {
   required int32 field_id=1 a;
   optional group field_id=2 bag {
