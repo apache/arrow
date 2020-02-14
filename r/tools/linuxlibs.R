@@ -203,9 +203,7 @@ build_libarrow <- function(src_dir, dst_dir) {
             bison,   env_vars,           bison
     )
   }
-  if (!quietly) {
-    cat("*** Building with ", env_vars, "\n")
-  }
+  cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   system(
     paste(env_vars, "inst/build_arrow_static.sh"),
     ignore.stdout = quietly, ignore.stderr = quietly
@@ -216,7 +214,7 @@ ensure_cmake <- function() {
   cmake <- Sys.which("cmake")
   if (!nzchar(cmake)) {
     # If not found, download it
-    cat("*** Downloading cmake\n")
+    cat("**** cmake\n")
     CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.16.2")
     cmake_binary_url <- paste0(
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
@@ -248,7 +246,7 @@ ensure_flex <- function(m4 = ensure_m4()) {
     return(NULL)
   }
   # If not found, download it
-  cat("*** Downloading and building flex\n")
+  cat("**** flex\n")
   # Flex 2.6.4 (latest release) causes segfaults on some platforms (ubuntu bionic, debian e.g.)
   # See https://github.com/westes/flex/issues/219
   # Allegedly it has been fixed in master but there hasn't been a release since May 2017
@@ -275,8 +273,10 @@ ensure_flex <- function(m4 = ensure_m4()) {
   }
   # Now, build flex
   flex_dir <- paste0(flex_dir, "/flex-", FLEX_VERSION)
-  cmd <- sprintf("cd %s && ./configure && make", shQuote(flex_dir))
-  system(paste0(path, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
+  base_cmd <- paste0(path, "cd ", shQuote(flex_dir), " &&")
+  for (cmd in c("./configure", "make")) {
+    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
+  }
   # The built flex should be in ./src. Return that so we can set as FLEX_ROOT
   paste0(flex_dir, "/src")
 }
@@ -288,7 +288,7 @@ ensure_bison <- function(m4 = ensure_m4()) {
     return(NULL)
   }
   # If not found, download it
-  cat("*** Downloading and building bison\n")
+  cat("**** bison\n")
   BISON_VERSION <- Sys.getenv("BISON_VERSION", "3.5")
   source_url <- paste0("https://ftp.gnu.org/gnu/bison/bison-", BISON_VERSION, ".tar.gz")
   tar_file <- tempfile()
@@ -312,11 +312,10 @@ ensure_bison <- function(m4 = ensure_m4()) {
   }
   # Now, build bison
   build_dir <- paste0(build_dir, "/bison-", BISON_VERSION)
-  cmd <- sprintf(
-    "cd %s && ./configure --prefix=%s && make && make install",
-        shQuote(build_dir),          install_dir
-  )
-  system(paste0(path, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
+  base_cmd <- paste0(path, "cd ", shQuote(build_dir), " &&")
+  for (cmd in c(paste0("./configure --prefix=", install_dir), "make", "make install")) {
+    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
+  }
   # Return the path to the bison binaries
   paste0(install_dir, "/bin")
 }
@@ -327,7 +326,7 @@ ensure_m4 <- function() {
     return(NULL)
   }
   # If not found, download it
-  cat("*** Downloading and building m4\n")
+  cat("**** m4\n")
   M4_VERSION <- Sys.getenv("M4_VERSION", "1.4.18")
   source_url <- paste0("https://ftp.gnu.org/gnu/m4/m4-", M4_VERSION, ".tar.gz")
   tar_file <- tempfile()
@@ -344,10 +343,10 @@ ensure_m4 <- function() {
 
   # Now, build it
   dst_dir <- paste0(dst_dir, "/m4-", M4_VERSION)
-  system(
-    sprintf("cd %s && ./configure && make", shQuote(dst_dir)),
-    ignore.stdout = quietly, ignore.stderr = quietly
-  )
+  base_cmd <- paste("cd", shQuote(dst_dir), "&&")
+  for (cmd in c("./configure", "make")) {
+    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
+  }
   # The built m4 should be in ./src. Return that so we can put that on the PATH
   paste0(dst_dir, "/src")
 }
