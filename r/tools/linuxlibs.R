@@ -189,11 +189,15 @@ build_libarrow <- function(src_dir, dst_dir) {
     src_dir,       build_dir,   dst_dir,    cmake
   )
   if (!is.null(flex)) {
-    system(paste0(flex, "/flex --version"))
+    if (!quietly) {
+      system(paste0(flex, "/flex --version"))
+    }
     env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
   }
   if (!is.null(bison)) {
-    system(paste0(bison, "/bison --version"))
+    if (!quietly) {
+      system(paste0(bison, "/bison --version"))
+    }
     env_vars <- sprintf(
       "PATH=%s:$PATH %s BISON_PKGDATADIR=%s/../share/bison",
             bison,   env_vars,           bison
@@ -202,7 +206,10 @@ build_libarrow <- function(src_dir, dst_dir) {
   if (!quietly) {
     cat("*** Building with ", env_vars, "\n")
   }
-  system(paste(env_vars, "inst/build_arrow_static.sh"))
+  system(
+    paste(env_vars, "inst/build_arrow_static.sh"),
+    ignore.stdout = quietly, ignore.stderr = quietly
+  )
 }
 
 ensure_cmake <- function() {
@@ -269,7 +276,7 @@ ensure_flex <- function(m4 = ensure_m4()) {
   # Now, build flex
   flex_dir <- paste0(flex_dir, "/flex-", FLEX_VERSION)
   cmd <- sprintf("cd %s && ./configure && make", shQuote(flex_dir))
-  system(paste0(path, cmd))
+  system(paste0(path, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
   # The built flex should be in ./src. Return that so we can set as FLEX_ROOT
   paste0(flex_dir, "/src")
 }
@@ -309,7 +316,7 @@ ensure_bison <- function(m4 = ensure_m4()) {
     "cd %s && ./configure --prefix=%s && make && make install",
         shQuote(build_dir),          install_dir
   )
-  system(paste0(path, cmd))
+  system(paste0(path, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
   # Return the path to the bison binaries
   paste0(install_dir, "/bin")
 }
@@ -337,7 +344,10 @@ ensure_m4 <- function() {
 
   # Now, build it
   dst_dir <- paste0(dst_dir, "/m4-", M4_VERSION)
-  system(sprintf("cd %s && ./configure && make", shQuote(dst_dir)))
+  system(
+    sprintf("cd %s && ./configure && make", shQuote(dst_dir)),
+    ignore.stdout = quietly, ignore.stderr = quietly
+  )
   # The built m4 should be in ./src. Return that so we can put that on the PATH
   paste0(dst_dir, "/src")
 }
