@@ -687,17 +687,17 @@ endfunction()
 #
 # Fuzzing
 #
-# Add new fuzzing test executable.
+# Add new fuzz target executable.
 #
 # The single source file must define a function:
 #   extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #
 # No main function must be present within the source file!
 #
-function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
+function(ADD_FUZZ_TARGET REL_FUZZING_NAME)
   set(options)
-  set(one_value_args)
-  set(multi_value_args PREFIX)
+  set(one_value_args PREFIX)
+  set(multi_value_args LINK_LIBS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -720,12 +720,6 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
     set(FUZZING_NAME "${ARG_PREFIX}-${FUZZING_NAME}")
   endif()
 
-  if(ARROW_BUILD_STATIC)
-    set(FUZZ_LINK_LIBS arrow_static)
-  else()
-    set(FUZZ_LINK_LIBS arrow_shared)
-  endif()
-
   # For OSS-Fuzz
   # (https://google.github.io/oss-fuzz/advanced-topics/ideal-integration/)
   if(DEFINED ENV{LIB_FUZZING_ENGINE})
@@ -735,7 +729,7 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
   endif()
 
   add_executable(${FUZZING_NAME} "${REL_FUZZING_NAME}.cc")
-  target_link_libraries(${FUZZING_NAME} ${FUZZ_LINK_LIBS})
+  target_link_libraries(${FUZZING_NAME} ${LINK_LIBS})
   target_compile_options(${FUZZING_NAME} PRIVATE ${FUZZ_LDFLAGS})
   set_target_properties(${FUZZING_NAME}
                         PROPERTIES LINK_FLAGS ${FUZZ_LDFLAGS} LABELS "fuzzing")

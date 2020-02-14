@@ -17,7 +17,6 @@
 
 # flake8: noqa
 
-from __future__ import absolute_import
 
 from pyarrow._cuda import (Context, IpcMemHandle, CudaBuffer,
                            HostBuffer, BufferReader, BufferWriter,

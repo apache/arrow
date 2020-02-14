@@ -159,6 +159,10 @@ class FlightTestServer : public FlightServerBase {
   Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
                      std::unique_ptr<FlightListing>* listings) override {
     std::vector<FlightInfo> flights = ExampleFlightInfo();
+    if (criteria && criteria->expression != "") {
+      // For test purposes, if we get criteria, return no results
+      flights.clear();
+    }
     *listings = std::unique_ptr<FlightListing>(new SimpleFlightListing(flights));
     return Status::OK();
   }

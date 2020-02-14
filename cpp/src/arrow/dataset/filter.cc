@@ -1004,6 +1004,7 @@ struct InsertImplicitCastsImpl {
 
 Result<std::shared_ptr<Expression>> InsertImplicitCasts(const Expression& expr,
                                                         const Schema& schema) {
+  RETURN_NOT_OK(schema.CanReferenceFieldsByNames(FieldsInExpression(expr)));
   return VisitExpression(expr, InsertImplicitCastsImpl{schema});
 }
 

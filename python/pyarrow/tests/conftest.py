@@ -16,16 +16,12 @@
 # under the License.
 
 import os
+import pathlib
 import subprocess
-import tempfile
+from tempfile import TemporaryDirectory
 
 import pytest
 import hypothesis as h
-
-try:
-    import pathlib
-except ImportError:
-    import pathlib2 as pathlib  # py2 compat
 
 from pyarrow.util import find_free_port
 
@@ -178,7 +174,7 @@ def pytest_addoption(parser):
                              help=('Enable the {} test group'.format(group)))
 
 
-class PyArrowConfig(object):
+class PyArrowConfig:
     def __init__(self):
         self.is_enabled = {}
 
@@ -189,7 +185,7 @@ class PyArrowConfig(object):
 
     def requires(self, group):
         if not self.is_enabled[group]:
-            pytest.skip('{0} NOT enabled'.format(group))
+            pytest.skip('{} NOT enabled'.format(group))
 
 
 def pytest_configure(config):
@@ -201,8 +197,8 @@ def pytest_configure(config):
             "markers", mark,
         )
 
-        flag = '--{0}'.format(mark)
-        enable_flag = '--enable-{0}'.format(mark)
+        flag = '--{}'.format(mark)
+        enable_flag = '--enable-{}'.format(mark)
 
         is_enabled = (config.getoption(flag) or
                       config.getoption(enable_flag))
@@ -224,22 +220,6 @@ def tempdir(tmpdir):
 @pytest.fixture(scope='session')
 def datadir():
     return pathlib.Path(__file__).parent / 'data'
-
-
-try:
-    from tempfile import TemporaryDirectory
-except ImportError:
-    import shutil
-
-    class TemporaryDirectory(object):
-        """Temporary directory implementation for python 2"""
-
-        def __enter__(self):
-            self.tmp = tempfile.mkdtemp()
-            return self.tmp
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            shutil.rmtree(self.tmp)
 
 
 # TODO(kszucs): move the following fixtures to test_fs.py once the previous
@@ -273,7 +253,7 @@ def minio_server():
         proc = None
         try:
             proc = subprocess.Popen(args, env=env)
-        except (OSError, IOError):
+        except OSError:
             pytest.skip('`minio` command cannot be located')
         else:
             yield address, access_key, secret_key

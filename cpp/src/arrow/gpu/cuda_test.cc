@@ -19,8 +19,11 @@
 #include <limits>
 #include <string>
 
+#include <cuda.h>
+
 #include "gtest/gtest.h"
 
+#include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/test_common.h"
@@ -29,43 +32,219 @@
 #include "arrow/testing/util.h"
 
 #include "arrow/gpu/cuda_api.h"
+#include "arrow/gpu/cuda_internal.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace cuda {
 
-constexpr int kGpuNumber = 0;
+using internal::StatusFromCuda;
 
-class TestCudaBufferBase : public ::testing::Test {
+#define ASSERT_CUDA_OK(expr) ASSERT_OK(::arrow::cuda::internal::StatusFromCuda((expr)))
+
+constexpr int kGpuNumber = 0;
+// Needs a second GPU installed
+constexpr int kOtherGpuNumber = 1;
+
+template <typename Expected>
+void AssertCudaBufferEquals(const CudaBuffer& buffer, Expected&& expected) {
+  std::shared_ptr<Buffer> result;
+  ASSERT_OK(AllocateBuffer(default_memory_pool(), buffer.size(), &result));
+  ASSERT_OK(buffer.CopyToHost(0, buffer.size(), result->mutable_data()));
+  AssertBufferEqual(*result, expected);
+}
+
+template <typename Expected>
+void AssertCudaBufferEquals(const Buffer& buffer, Expected&& expected) {
+  ASSERT_TRUE(IsCudaDevice(*buffer.device()));
+  AssertCudaBufferEquals(checked_cast<const CudaBuffer&>(buffer),
+                         std::forward<Expected>(expected));
+}
+
+Result<std::shared_ptr<CudaBuffer>> AsCudaBuffer(const std::shared_ptr<Buffer>& buffer) {
+  std::shared_ptr<CudaBuffer> cuda_buffer;
+  RETURN_NOT_OK(CudaBuffer::FromBuffer(buffer, &cuda_buffer));
+  return cuda_buffer;
+}
+
+class TestCudaBase : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_OK(CudaDeviceManager::GetInstance(&manager_));
-    ASSERT_OK(manager_->GetContext(kGpuNumber, &context_));
+    ASSERT_OK_AND_ASSIGN(manager_, CudaDeviceManager::Instance());
+    ASSERT_OK_AND_ASSIGN(device_, manager_->GetDevice(kGpuNumber));
+    //     ASSERT_OK(device_->GetContext(kGpuNumber, &context_));
+    ASSERT_OK_AND_ASSIGN(context_, device_->GetContext());
+    ASSERT_OK_AND_ASSIGN(mm_, AsCudaMemoryManager(device_->default_memory_manager()));
+    cpu_device_ = CPUDevice::Instance();
+    cpu_mm_ = cpu_device_->default_memory_manager();
+  }
+
+  void TearDown() {
+    for (auto cu_context : non_primary_contexts_) {
+      ASSERT_CUDA_OK(cuCtxDestroy(cu_context));
+    }
+  }
+
+  Result<CUcontext> NonPrimaryRawContext() {
+    CUcontext ctx;
+    RETURN_NOT_OK(StatusFromCuda(cuCtxCreate(&ctx, /*flags=*/0, device_->handle())));
+    non_primary_contexts_.push_back(ctx);
+    return ctx;
+  }
+
+  Result<std::shared_ptr<CudaContext>> NonPrimaryContext() {
+    ARROW_ASSIGN_OR_RAISE(auto cuctx, NonPrimaryRawContext());
+    return device_->GetSharedContext(cuctx);
+  }
+
+  // Returns nullptr if kOtherGpuNumber does not correspond to an installed GPU
+  Result<std::shared_ptr<CudaDevice>> OtherGpuDevice() {
+    auto maybe_device = CudaDevice::Make(kOtherGpuNumber);
+    if (maybe_device.status().IsInvalid()) {
+      return nullptr;
+    }
+    return maybe_device;
   }
 
  protected:
   CudaDeviceManager* manager_;
+  std::shared_ptr<CudaDevice> device_;
+  std::shared_ptr<CudaMemoryManager> mm_;
   std::shared_ptr<CudaContext> context_;
+  std::shared_ptr<Device> cpu_device_;
+  std::shared_ptr<MemoryManager> cpu_mm_;
+  std::vector<CUcontext> non_primary_contexts_;
 };
 
-class TestCudaBuffer : public TestCudaBufferBase {
+// ------------------------------------------------------------------------
+// Test CudaDevice
+
+class TestCudaDevice : public TestCudaBase {
  public:
-  void SetUp() { TestCudaBufferBase::SetUp(); }
+  void SetUp() { TestCudaBase::SetUp(); }
+};
+
+TEST_F(TestCudaDevice, Basics) {
+  ASSERT_FALSE(device_->is_cpu());
+  ASSERT_TRUE(IsCudaDevice(*device_));
+  ASSERT_EQ(device_->device_number(), kGpuNumber);
+  ASSERT_GE(device_->total_memory(), 1 << 20);
+  ASSERT_NE(device_->device_name(), "");
+  ASSERT_NE(device_->ToString(), "");
+
+  ASSERT_OK_AND_ASSIGN(auto other_device, CudaDevice::Make(kGpuNumber));
+  ASSERT_FALSE(other_device->is_cpu());
+  ASSERT_TRUE(IsCudaDevice(*other_device));
+  ASSERT_EQ(other_device->device_number(), kGpuNumber);
+  ASSERT_EQ(other_device->total_memory(), device_->total_memory());
+  ASSERT_EQ(other_device->handle(), device_->handle());
+  ASSERT_EQ(other_device->device_name(), device_->device_name());
+  ASSERT_EQ(*other_device, *device_);
+
+  ASSERT_FALSE(IsCudaDevice(*cpu_device_));
+
+  // Try another device if possible
+  ASSERT_OK_AND_ASSIGN(other_device, OtherGpuDevice());
+  if (other_device != nullptr) {
+    ASSERT_FALSE(other_device->is_cpu());
+    ASSERT_EQ(other_device->device_number(), kOtherGpuNumber);
+    ASSERT_NE(*other_device, *device_);
+    ASSERT_NE(other_device->handle(), device_->handle());
+    ASSERT_NE(other_device->ToString(), device_->ToString());
+  }
+
+  ASSERT_RAISES(Invalid, CudaDevice::Make(-1));
+  ASSERT_RAISES(Invalid, CudaDevice::Make(99));
+}
+
+TEST_F(TestCudaDevice, Copy) {
+  auto cpu_buffer = Buffer::FromString("some data");
+
+  // CPU -> device
+  ASSERT_OK_AND_ASSIGN(auto other_buffer, Buffer::Copy(cpu_buffer, mm_));
+  ASSERT_EQ(other_buffer->device(), device_);
+  AssertCudaBufferEquals(*other_buffer, "some data");
+
+  // device -> CPU
+  ASSERT_OK_AND_ASSIGN(cpu_buffer, Buffer::Copy(other_buffer, cpu_mm_));
+  ASSERT_TRUE(cpu_buffer->device()->is_cpu());
+  AssertBufferEqual(*cpu_buffer, "some data");
+
+  // device -> device
+  const auto old_address = other_buffer->address();
+  ASSERT_OK_AND_ASSIGN(other_buffer, Buffer::Copy(other_buffer, mm_));
+  ASSERT_EQ(other_buffer->device(), device_);
+  ASSERT_NE(other_buffer->address(), old_address);
+  AssertCudaBufferEquals(*other_buffer, "some data");
+
+  // device (other context) -> device
+  std::shared_ptr<CudaBuffer> cuda_buffer;
+  ASSERT_OK_AND_ASSIGN(auto other_context, NonPrimaryContext());
+  ASSERT_OK(other_context->Allocate(9, &cuda_buffer));
+  ASSERT_OK(cuda_buffer->CopyFromHost(0, "some data", 9));
+  ASSERT_OK_AND_ASSIGN(other_buffer, Buffer::Copy(cuda_buffer, mm_));
+  ASSERT_EQ(other_buffer->device(), device_);
+  AssertCudaBufferEquals(*other_buffer, "some data");
+  auto other_handle = cuda_buffer->context()->handle();
+  ASSERT_OK_AND_ASSIGN(cuda_buffer, AsCudaBuffer(other_buffer));
+  ASSERT_NE(cuda_buffer->context()->handle(), other_handle);
+
+  // device -> other device
+  ASSERT_OK_AND_ASSIGN(auto other_device, OtherGpuDevice());
+  if (other_device != nullptr) {
+    ASSERT_OK_AND_ASSIGN(
+        other_buffer, Buffer::Copy(cuda_buffer, other_device->default_memory_manager()));
+    ASSERT_EQ(other_buffer->device(), other_device);
+    AssertCudaBufferEquals(*other_buffer, "some data");
+  }
+}
+
+// ------------------------------------------------------------------------
+// Test CudaContext
+
+class TestCudaContext : public TestCudaBase {
+ public:
+  void SetUp() { TestCudaBase::SetUp(); }
+};
+
+TEST_F(TestCudaContext, Basics) { ASSERT_EQ(*context_->device(), *device_); }
+
+TEST_F(TestCudaContext, NonPrimaryContext) {
+  ASSERT_OK_AND_ASSIGN(auto other_context, NonPrimaryContext());
+  ASSERT_EQ(*other_context->device(), *device_);
+  ASSERT_NE(other_context->handle(), context_->handle());
+}
+
+TEST_F(TestCudaContext, GetDeviceAddress) {
+  const int64_t kSize = 100;
+  std::shared_ptr<CudaBuffer> buffer;
+  ASSERT_OK(context_->Allocate(kSize, &buffer));
+  uint8_t* address = reinterpret_cast<uint8_t*>(buffer->address());
+  uint8_t* devptr = NULL;
+  ASSERT_OK(context_->GetDeviceAddress(address, &devptr));
+  ASSERT_EQ(address, devptr);
+}
+
+// ------------------------------------------------------------------------
+// Test CudaBuffer
+
+class TestCudaBuffer : public TestCudaBase {
+ public:
+  void SetUp() { TestCudaBase::SetUp(); }
 };
 
 TEST_F(TestCudaBuffer, Allocate) {
   const int64_t kSize = 100;
   std::shared_ptr<CudaBuffer> buffer;
   ASSERT_OK(context_->Allocate(kSize, &buffer));
+  ASSERT_EQ(buffer->device(), context_->device());
   ASSERT_EQ(kSize, buffer->size());
   ASSERT_EQ(kSize, context_->bytes_allocated());
-}
-
-void AssertCudaBufferEquals(const CudaBuffer& buffer, const uint8_t* host_data,
-                            const int64_t nbytes) {
-  std::shared_ptr<Buffer> result;
-  ASSERT_OK(AllocateBuffer(default_memory_pool(), nbytes, &result));
-  ASSERT_OK(buffer.CopyToHost(0, buffer.size(), result->mutable_data()));
-  ASSERT_EQ(0, std::memcmp(result->data(), host_data, nbytes));
+  ASSERT_FALSE(buffer->is_cpu());
 }
 
 TEST_F(TestCudaBuffer, CopyFromHost) {
@@ -79,7 +258,7 @@ TEST_F(TestCudaBuffer, CopyFromHost) {
   ASSERT_OK(device_buffer->CopyFromHost(0, host_buffer->data(), 500));
   ASSERT_OK(device_buffer->CopyFromHost(500, host_buffer->data() + 500, kSize - 500));
 
-  AssertCudaBufferEquals(*device_buffer, host_buffer->data(), kSize);
+  AssertCudaBufferEquals(*device_buffer, *host_buffer);
 }
 
 TEST_F(TestCudaBuffer, FromBuffer) {
@@ -91,7 +270,7 @@ TEST_F(TestCudaBuffer, FromBuffer) {
   ASSERT_OK(MakeRandomByteBuffer(kSize, default_memory_pool(), &host_buffer));
   ASSERT_OK(device_buffer->CopyFromHost(0, host_buffer->data(), 1000));
   // Sanity check
-  AssertCudaBufferEquals(*device_buffer, host_buffer->data(), kSize);
+  AssertCudaBufferEquals(*device_buffer, *host_buffer);
 
   // Get generic Buffer from device buffer
   std::shared_ptr<Buffer> buffer;
@@ -100,29 +279,30 @@ TEST_F(TestCudaBuffer, FromBuffer) {
   ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
   ASSERT_EQ(result->size(), kSize);
   ASSERT_EQ(result->is_mutable(), true);
-  ASSERT_EQ(result->mutable_data(), buffer->mutable_data());
-  AssertCudaBufferEquals(*result, host_buffer->data(), kSize);
+  ASSERT_EQ(result->address(), buffer->address());
+  AssertCudaBufferEquals(*result, *host_buffer);
 
   buffer = SliceBuffer(device_buffer, 0, kSize);
   ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
   ASSERT_EQ(result->size(), kSize);
   ASSERT_EQ(result->is_mutable(), false);
-  AssertCudaBufferEquals(*result, host_buffer->data(), kSize);
+  ASSERT_EQ(result->address(), buffer->address());
+  AssertCudaBufferEquals(*result, *host_buffer);
 
   buffer = SliceMutableBuffer(device_buffer, 0, kSize);
   ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
   ASSERT_EQ(result->size(), kSize);
   ASSERT_EQ(result->is_mutable(), true);
-  ASSERT_EQ(result->mutable_data(), buffer->mutable_data());
-  AssertCudaBufferEquals(*result, host_buffer->data(), kSize);
+  ASSERT_EQ(result->address(), buffer->address());
+  AssertCudaBufferEquals(*result, *host_buffer);
 
   buffer = SliceMutableBuffer(device_buffer, 3, kSize - 10);
   buffer = SliceMutableBuffer(buffer, 8, kSize - 20);
   ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
   ASSERT_EQ(result->size(), kSize - 20);
   ASSERT_EQ(result->is_mutable(), true);
-  ASSERT_EQ(result->mutable_data(), buffer->mutable_data());
-  AssertCudaBufferEquals(*result, host_buffer->data() + 11, kSize - 20);
+  ASSERT_EQ(result->address(), buffer->address());
+  AssertCudaBufferEquals(*result, *SliceBuffer(host_buffer, 11, kSize - 20));
 }
 
 // IPC only supported on Linux
@@ -162,9 +342,57 @@ TEST_F(TestCudaBuffer, DISABLED_ExportForIpc) {
 
 #endif
 
-class TestCudaBufferWriter : public TestCudaBufferBase {
+// ------------------------------------------------------------------------
+// Test CudaHostBuffer
+
+class TestCudaHostBuffer : public TestCudaBase {
  public:
-  void SetUp() { TestCudaBufferBase::SetUp(); }
+};
+
+TEST_F(TestCudaHostBuffer, AllocateGlobal) {
+  // Allocation using the global AllocateCudaHostBuffer() function
+  std::shared_ptr<CudaHostBuffer> host_buffer;
+  ASSERT_OK(AllocateCudaHostBuffer(kGpuNumber, 1024, &host_buffer));
+
+  ASSERT_TRUE(host_buffer->is_cpu());
+  ASSERT_EQ(host_buffer->memory_manager(), cpu_mm_);
+
+  ASSERT_OK_AND_ASSIGN(auto device_address, host_buffer->GetDeviceAddress(context_));
+  ASSERT_NE(device_address, 0);
+  ASSERT_OK_AND_ASSIGN(auto host_address, GetHostAddress(device_address));
+  ASSERT_EQ(host_address, host_buffer->data());
+}
+
+TEST_F(TestCudaHostBuffer, ViewOnDevice) {
+  ASSERT_OK_AND_ASSIGN(auto host_buffer, device_->AllocateHostBuffer(1024));
+
+  ASSERT_TRUE(host_buffer->is_cpu());
+  ASSERT_EQ(host_buffer->memory_manager(), cpu_mm_);
+
+  // Try to view the host buffer on the device.  This should correspond to
+  // GetDeviceAddress() in the previous test.
+  ASSERT_OK_AND_ASSIGN(auto device_buffer, Buffer::View(host_buffer, mm_));
+  ASSERT_FALSE(device_buffer->is_cpu());
+  ASSERT_EQ(device_buffer->memory_manager(), mm_);
+  ASSERT_NE(device_buffer->address(), 0);
+  ASSERT_EQ(device_buffer->size(), host_buffer->size());
+  ASSERT_EQ(device_buffer->parent(), host_buffer);
+
+  // View back the device buffer on the CPU.  This should roundtrip.
+  ASSERT_OK_AND_ASSIGN(auto buffer, Buffer::View(device_buffer, cpu_mm_));
+  ASSERT_TRUE(buffer->is_cpu());
+  ASSERT_EQ(buffer->memory_manager(), cpu_mm_);
+  ASSERT_EQ(buffer->address(), host_buffer->address());
+  ASSERT_EQ(buffer->size(), host_buffer->size());
+  ASSERT_EQ(buffer->parent(), device_buffer);
+}
+
+// ------------------------------------------------------------------------
+// Test CudaBufferWriter
+
+class TestCudaBufferWriter : public TestCudaBase {
+ public:
+  void SetUp() { TestCudaBase::SetUp(); }
 
   void Allocate(const int64_t size) {
     ASSERT_OK(context_->Allocate(size, &device_buffer_));
@@ -198,7 +426,7 @@ class TestCudaBufferWriter : public TestCudaBufferBase {
 
     ASSERT_OK(writer_->Flush());
 
-    AssertCudaBufferEquals(*device_buffer_, buffer->data(), total_bytes);
+    AssertCudaBufferEquals(*device_buffer_, *buffer);
   }
 
  protected:
@@ -256,12 +484,15 @@ TEST_F(TestCudaBufferWriter, EdgeCases) {
   ASSERT_OK(writer_->Close());
 
   // Check that everything was written
-  AssertCudaBufferEquals(*device_buffer_, host_data, 1000);
+  AssertCudaBufferEquals(*device_buffer_, Buffer(host_data, 1000));
 }
 
-class TestCudaBufferReader : public TestCudaBufferBase {
+// ------------------------------------------------------------------------
+// Test CudaBufferReader
+
+class TestCudaBufferReader : public TestCudaBase {
  public:
-  void SetUp() { TestCudaBufferBase::SetUp(); }
+  void SetUp() { TestCudaBase::SetUp(); }
 };
 
 TEST_F(TestCudaBufferReader, Basics) {
@@ -297,6 +528,8 @@ TEST_F(TestCudaBufferReader, Basics) {
   ASSERT_OK(reader.Seek(925));
   ASSERT_OK_AND_ASSIGN(auto tmp, reader.Read(100));
   ASSERT_EQ(75, tmp->size());
+  ASSERT_FALSE(tmp->is_cpu());
+  ASSERT_EQ(*tmp->device(), *device_);
   ASSERT_OK_AND_EQ(1000, reader.Tell());
 
   ASSERT_OK(std::dynamic_pointer_cast<CudaBuffer>(tmp)->CopyToHost(0, tmp->size(),
@@ -307,6 +540,8 @@ TEST_F(TestCudaBufferReader, Basics) {
   ASSERT_OK(reader.Seek(42));
   ASSERT_OK_AND_ASSIGN(tmp, reader.ReadAt(980, 30));
   ASSERT_EQ(20, tmp->size());
+  ASSERT_FALSE(tmp->is_cpu());
+  ASSERT_EQ(*tmp->device(), *device_);
   ASSERT_OK_AND_EQ(42, reader.Tell());
 
   ASSERT_OK(std::dynamic_pointer_cast<CudaBuffer>(tmp)->CopyToHost(0, tmp->size(),
@@ -314,10 +549,13 @@ TEST_F(TestCudaBufferReader, Basics) {
   ASSERT_EQ(0, std::memcmp(stack_buffer, host_data + 980, tmp->size()));
 }
 
-class TestCudaArrowIpc : public TestCudaBufferBase {
+// ------------------------------------------------------------------------
+// Test Cuda IPC
+
+class TestCudaArrowIpc : public TestCudaBase {
  public:
   void SetUp() {
-    TestCudaBufferBase::SetUp();
+    TestCudaBase::SetUp();
     pool_ = default_memory_pool();
   }
 
@@ -349,20 +587,6 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   ASSERT_OK(ipc::ReadRecordBatch(batch->schema(), &unused_memo, &cpu_reader, &cpu_batch));
 
   CompareBatch(*batch, *cpu_batch);
-}
-
-class TestCudaContext : public TestCudaBufferBase {
- public:
-  void SetUp() { TestCudaBufferBase::SetUp(); }
-};
-
-TEST_F(TestCudaContext, GetDeviceAddress) {
-  const int64_t kSize = 100;
-  std::shared_ptr<CudaBuffer> buffer;
-  uint8_t* devptr = NULL;
-  ASSERT_OK(context_->Allocate(kSize, &buffer));
-  ASSERT_OK(context_->GetDeviceAddress(buffer.get()->mutable_data(), &devptr));
-  ASSERT_EQ(buffer.get()->mutable_data(), devptr);
 }
 
 }  // namespace cuda

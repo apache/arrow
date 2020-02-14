@@ -869,6 +869,9 @@ using arrow::cuda::CudaBuffer;
 using arrow::cuda::CudaBufferReader;
 using arrow::cuda::CudaBufferWriter;
 
+// actual CUDA device number + 1
+constexpr int kGpuDeviceNumber = 1;
+
 namespace {
 
 void AssertCudaRead(const std::shared_ptr<Buffer>& buffer,
@@ -907,8 +910,8 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data_buffer;
   std::shared_ptr<CudaBuffer> gpu_buffer;
-  ARROW_CHECK_OK(
-      client_.Create(object_id, data_size, metadata, metadata_size, &data_buffer, 1));
+  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size,
+                                &data_buffer, kGpuDeviceNumber));
   ARROW_CHECK_OK(CudaBuffer::FromBuffer(data_buffer, &gpu_buffer));
   CudaBufferWriter writer(gpu_buffer);
   ARROW_CHECK_OK(writer.Write(data, data_size));
@@ -917,7 +920,7 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   object_buffers.clear();
   ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
   ASSERT_EQ(object_buffers.size(), 1);
-  ASSERT_EQ(object_buffers[0].device_num, 1);
+  ASSERT_EQ(object_buffers[0].device_num, kGpuDeviceNumber);
   // Check data
   AssertCudaRead(object_buffers[0].data, {4, 5, 3, 1});
   // Check metadata
@@ -937,11 +940,11 @@ TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(
-      client_.Create(object_id1, data_size, metadata, metadata_size, &data, 1));
+  ARROW_CHECK_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data,
+                                kGpuDeviceNumber));
   ARROW_CHECK_OK(client_.Seal(object_id1));
-  ARROW_CHECK_OK(
-      client_.Create(object_id2, data_size, metadata, metadata_size, &data, 1));
+  ARROW_CHECK_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data,
+                                kGpuDeviceNumber));
   ARROW_CHECK_OK(client_.Seal(object_id2));
   // Release the ref count of Create function.
   ARROW_CHECK_OK(client_.Release(object_id1));
@@ -983,7 +986,7 @@ TEST_F(TestPlasmaStore, RepeatlyCreateGPUTest) {
     ObjectID& object_id = object_ids[i];
 
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, 1));
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, kGpuDeviceNumber));
     ARROW_CHECK_OK(client_.Seal(object_id));
     ARROW_CHECK_OK(client_.Release(object_id));
   }
@@ -995,7 +998,7 @@ TEST_F(TestPlasmaStore, RepeatlyCreateGPUTest) {
     ARROW_CHECK_OK(client_.Delete(object_id));
 
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, 1));
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, kGpuDeviceNumber));
     ARROW_CHECK_OK(client_.Seal(object_id));
     ARROW_CHECK_OK(client_.Release(object_id));
   }
@@ -1010,7 +1013,8 @@ TEST_F(TestPlasmaStore, GPUBufferLifetime) {
   const int64_t data_size = 40;
 
   std::shared_ptr<Buffer> create_buff;
-  ARROW_CHECK_OK(client_.Create(object_id, data_size, nullptr, 0, &create_buff, 1));
+  ARROW_CHECK_OK(
+      client_.Create(object_id, data_size, nullptr, 0, &create_buff, kGpuDeviceNumber));
   ARROW_CHECK_OK(client_.Seal(object_id));
   ARROW_CHECK_OK(client_.Release(object_id));
 
@@ -1043,8 +1047,8 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(
-      client2_.Create(object_id, data_size, metadata, metadata_size, &data, 1));
+  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data,
+                                 kGpuDeviceNumber));
   ARROW_CHECK_OK(client2_.Seal(object_id));
   // Test that the first client can get the object.
   ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
@@ -1054,8 +1058,8 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   // Test that one client disconnecting does not interfere with the other.
   // First create object on the second client.
   object_id = random_object_id();
-  ARROW_CHECK_OK(
-      client2_.Create(object_id, data_size, metadata, metadata_size, &data, 1));
+  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data,
+                                 kGpuDeviceNumber));
   // Disconnect the first client.
   ARROW_CHECK_OK(client_.Disconnect());
   // Test that the second client can seal and get the created object.
@@ -1065,7 +1069,7 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   ASSERT_TRUE(has_object);
   ARROW_CHECK_OK(client2_.Get({object_id}, -1, &object_buffers));
   ASSERT_EQ(object_buffers.size(), 1);
-  ASSERT_EQ(object_buffers[0].device_num, 1);
+  ASSERT_EQ(object_buffers[0].device_num, kGpuDeviceNumber);
   AssertCudaRead(object_buffers[0].metadata, {5});
 }
 

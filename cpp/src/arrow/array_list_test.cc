@@ -981,4 +981,11 @@ TEST_F(TestFixedSizeListArray, TestBuilderPreserveFieldName) {
   ASSERT_EQ("counts", type.value_field()->name());
 }
 
+TEST_F(TestFixedSizeListArray, NegativeLength) {
+  type_ = fixed_size_list(value_type_, -42);
+  auto values = ArrayFromJSON(value_type_, "[]");
+  result_ = std::make_shared<FixedSizeListArray>(type_, 0, values);
+  ASSERT_RAISES(Invalid, result_->ValidateFull());
+}
+
 }  // namespace arrow

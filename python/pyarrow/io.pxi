@@ -21,7 +21,6 @@
 from libc.stdlib cimport malloc, free
 
 import re
-import six
 import sys
 import threading
 import time
@@ -30,7 +29,7 @@ from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 
 from pyarrow.util import _stringify_path
 from pyarrow.compat import (
-    builtin_pickle, frombytes, tobytes, encode_file_path, file_type)
+    builtin_pickle, frombytes, tobytes, encode_file_path)
 
 
 # 64K
@@ -665,14 +664,6 @@ cdef class PythonFile(NativeFile):
                 else:
                     if not handle.writable():
                         raise TypeError("writable file expected")
-            elif file_type is not None and isinstance(handle, file_type):
-                # Python 2 file type
-                if kind == 'r':
-                    if 'r' not in handle.mode and '+' not in handle.mode:
-                        raise TypeError("readable file expected")
-                else:
-                    if 'w' not in handle.mode and '+' not in handle.mode:
-                        raise TypeError("writable file expected")
             # (other duck-typed file-like objects are possible)
 
         # If possible, check the file is a binary file
@@ -913,8 +904,11 @@ cdef class Buffer:
     def address(self):
         """
         The buffer's address, as an integer.
+
+        The returned address may point to CPU or device memory.
+        Use `is_cpu()` to disambiguate.
         """
-        return <uintptr_t> self.buffer.get().data()
+        return self.buffer.get().address()
 
     def hex(self):
         """
@@ -932,6 +926,13 @@ cdef class Buffer:
         Whether the buffer is mutable.
         """
         return self.buffer.get().is_mutable()
+
+    @property
+    def is_cpu(self):
+        """
+        Whether the buffer is CPU-accessible.
+        """
+        return self.buffer.get().is_cpu()
 
     @property
     def parent(self):
@@ -1482,7 +1483,7 @@ cdef CompressionType _get_compression_type(object name) except *:
 
 
 def _detect_compression(path):
-    if isinstance(path, six.string_types):
+    if isinstance(path, str):
         if path.endswith('.bz2'):
             return 'bz2'
         elif path.endswith('.gz'):

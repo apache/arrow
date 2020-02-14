@@ -158,14 +158,7 @@ class PARQUET_EXPORT FileReader {
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
 
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                       std::shared_ptr<::arrow::RecordBatchReader>* out) {
-    std::unique_ptr<::arrow::RecordBatchReader> tmp;
-
-    ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, &tmp));
-    out->reset(tmp.release());
-
-    return ::arrow::Status::OK();
-  }
+                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   /// \brief Return a RecordBatchReader of row groups selected from
   ///     row_group_indices, whose columns are selected by column_indices. The
@@ -176,16 +169,9 @@ class PARQUET_EXPORT FileReader {
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
 
-  virtual ::arrow::Status GetRecordBatchReader(
-      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
-      std::shared_ptr<::arrow::RecordBatchReader>* out) {
-    std::unique_ptr<::arrow::RecordBatchReader> tmp;
-
-    ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
-    out->reset(tmp.release());
-
-    return ::arrow::Status::OK();
-  }
+  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                       const std::vector<int>& column_indices,
+                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   /// Read all columns into a Table
   virtual ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out) = 0;
@@ -330,6 +316,12 @@ PARQUET_EXPORT
                                     std::shared_ptr<::arrow::Scalar>* min,
                                     std::shared_ptr<::arrow::Scalar>* max);
 
+namespace internal {
+
+PARQUET_EXPORT
+::arrow::Status FuzzReader(const uint8_t* data, int64_t size);
+
+}  // namespace internal
 }  // namespace arrow
 }  // namespace parquet
 

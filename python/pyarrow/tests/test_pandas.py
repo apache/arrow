@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,7 +16,6 @@
 # under the License.
 
 import gc
-import six
 import decimal
 import json
 import multiprocessing as mp
@@ -138,7 +136,7 @@ def _check_array_from_pandas_roundtrip(np_array, type=None):
     npt.assert_array_equal(result, np_array)
 
 
-class TestConvertMetadata(object):
+class TestConvertMetadata:
     """
     Conversion tests for Pandas metadata & indices.
     """
@@ -249,7 +247,7 @@ class TestConvertMetadata(object):
         tm.assert_frame_equal(df_expected, reconstructed)
 
     def test_multiindex_columns_unicode(self):
-        columns = pd.MultiIndex.from_arrays([[u'あ', u'い'], ['X', 'Y']])
+        columns = pd.MultiIndex.from_arrays([['あ', 'い'], ['X', 'Y']])
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
         _check_pandas_roundtrip(df, preserve_index=True)
 
@@ -330,17 +328,12 @@ class TestConvertMetadata(object):
         assert column_indexes['name'] == 'stringz'
         assert column_indexes['name'] == column_indexes['field_name']
         assert column_indexes['numpy_type'] == 'object'
-        assert column_indexes['pandas_type'] == (
-            'bytes' if six.PY2 else 'unicode'
-        )
+        assert column_indexes['pandas_type'] == 'unicode'
 
         md = column_indexes['metadata']
 
-        if not six.PY2:
-            assert len(md) == 1
-            assert md['encoding'] == 'UTF-8'
-        else:
-            assert md is None or 'encoding' not in md
+        assert len(md) == 1
+        assert md['encoding'] == 'UTF-8'
 
     def test_datetimetz_column_index(self):
         df = pd.DataFrame(
@@ -398,7 +391,7 @@ class TestConvertMetadata(object):
                 table.to_pandas()
 
     def test_unicode_with_unicode_column_and_index(self):
-        df = pd.DataFrame({u'あ': [u'い']}, index=[u'う'])
+        df = pd.DataFrame({'あ': ['い']}, index=['う'])
 
         _check_pandas_roundtrip(df, preserve_index=True)
 
@@ -406,7 +399,7 @@ class TestConvertMetadata(object):
         # mixed type column names are not reconstructed exactly
         df = pd.DataFrame({'a': [1, 2], 'b': [3, 4]})
 
-        for cols in [[u'あ', b'a'], [1, '2'], [1, 1.5]]:
+        for cols in [['あ', b'a'], [1, '2'], [1, 1.5]]:
             df.columns = pd.Index(cols, dtype=object)
 
             # assert that the from_pandas raises the warning
@@ -414,14 +407,14 @@ class TestConvertMetadata(object):
                 pa.Table.from_pandas(df)
 
             expected = df.copy()
-            expected.columns = df.columns.astype(six.text_type)
+            expected.columns = df.columns.astype(str)
             with pytest.warns(UserWarning):
                 _check_pandas_roundtrip(df, expected=expected,
                                         preserve_index=True)
 
     def test_binary_column_name(self):
-        column_data = [u'い']
-        key = u'あ'.encode('utf8')
+        column_data = ['い']
+        key = 'あ'.encode()
         data = {key: column_data}
         df = pd.DataFrame(data)
 
@@ -448,7 +441,7 @@ class TestConvertMetadata(object):
         tm.assert_frame_equal(result_df, df)
 
     def test_metadata_with_mixed_types(self):
-        df = pd.DataFrame({'data': [b'some_bytes', u'some_unicode']})
+        df = pd.DataFrame({'data': [b'some_bytes', 'some_unicode']})
         table = pa.Table.from_pandas(df)
         js = table.schema.pandas_metadata
         assert 'mixed' not in js
@@ -566,7 +559,7 @@ class TestConvertMetadata(object):
         assert table.schema.pandas_metadata['pandas_version'] is not None
 
 
-class TestConvertPrimitiveTypes(object):
+class TestConvertPrimitiveTypes:
     """
     Conversion tests for primitive (e.g. numeric) types.
     """
@@ -904,7 +897,7 @@ def test_table_integer_object_nulls_option(dtype):
     tm.assert_frame_equal(result, expected)
 
 
-class TestConvertDateTimeLikeTypes(object):
+class TestConvertDateTimeLikeTypes:
     """
     Conversion tests for datetime- and timestamp-like types (date64, etc.).
     """
@@ -993,8 +986,6 @@ class TestConvertDateTimeLikeTypes(object):
         df = pd.DataFrame({'datetime': values})
         _check_pandas_roundtrip(df)
 
-    @pytest.mark.skipif(six.PY2, reason='datetime.timezone is available since '
-                                        'python version 3.2')
     def test_python_datetime_with_timezone_tzinfo(self):
         from datetime import timezone
 
@@ -1411,11 +1402,11 @@ class TestConvertDateTimeLikeTypes(object):
 # Conversion tests for string and binary types.
 
 
-class TestConvertStringLikeTypes(object):
+class TestConvertStringLikeTypes:
 
     def test_pandas_unicode(self):
         repeats = 1000
-        values = [u'foo', None, u'bar', u'mañana', np.nan]
+        values = ['foo', None, 'bar', 'mañana', np.nan]
         df = pd.DataFrame({'strings': values * repeats})
         field = pa.field('strings', pa.string())
         schema = pa.schema([field])
@@ -1423,7 +1414,7 @@ class TestConvertStringLikeTypes(object):
         _check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_bytes_to_binary(self):
-        values = [u'qux', b'foo', None, bytearray(b'barz'), 'qux', np.nan]
+        values = ['qux', b'foo', None, bytearray(b'barz'), 'qux', np.nan]
         df = pd.DataFrame({'strings': values})
 
         table = pa.Table.from_pandas(df)
@@ -1608,7 +1599,7 @@ class TestConvertStringLikeTypes(object):
             pa.array(arr, type=pa.binary(3))
 
 
-class TestConvertDecimalTypes(object):
+class TestConvertDecimalTypes:
     """
     Conversion test for decimal types.
     """
@@ -1699,7 +1690,7 @@ class TestConvertDecimalTypes(object):
         _check_pandas_roundtrip(df)
 
 
-class TestConvertListTypes(object):
+class TestConvertListTypes:
     """
     Conversion tests for list<> types.
     """
@@ -1884,7 +1875,7 @@ class TestConvertListTypes(object):
 
     def test_nested_list_first_empty(self):
         # ARROW-2711
-        data = pd.Series([[], [u"a"]])
+        data = pd.Series([[], ["a"]])
         arr = pa.array(data)
         expected = pa.array(list(data))
         assert arr.equals(expected)
@@ -1909,8 +1900,8 @@ class TestConvertListTypes(object):
         data = OrderedDict([
             ('nan_ints', [[None, 1], [2, 3]]),
             ('ints', [[0, 1], [2, 3]]),
-            ('strs', [[None, u'b'], [u'c', u'd']]),
-            ('nested_strs', [[[None, u'b'], [u'c', u'd']], None])
+            ('strs', [[None, 'b'], ['c', 'd']]),
+            ('nested_strs', [[[None, 'b'], ['c', 'd']], None])
         ])
         df = pd.DataFrame(data)
 
@@ -1945,8 +1936,8 @@ class TestConvertListTypes(object):
         ),
         (
             pa.string,
-            [[u'aaa', u'bb'], [u'c'], None],
-            [None, [u'c'], None]
+            [['aaa', 'bb'], ['c'], None],
+            [None, ['c'], None]
         ),
         (
             pa.null,
@@ -1985,7 +1976,7 @@ class TestConvertListTypes(object):
             assert result.equals(expected)
 
 
-class TestConvertStructTypes(object):
+class TestConvertStructTypes:
     """
     Conversion tests for struct types.
     """
@@ -2005,16 +1996,16 @@ class TestConvertStructTypes(object):
 
     def test_to_pandas(self):
         ints = pa.array([None, 2, 3], type=pa.int64())
-        strs = pa.array([u'a', None, u'c'], type=pa.string())
+        strs = pa.array(['a', None, 'c'], type=pa.string())
         bools = pa.array([True, False, None], type=pa.bool_())
         arr = pa.StructArray.from_arrays(
             [ints, strs, bools],
             ['ints', 'strs', 'bools'])
 
         expected = pd.Series([
-            {'ints': None, 'strs': u'a', 'bools': True},
+            {'ints': None, 'strs': 'a', 'bools': True},
             {'ints': 2, 'strs': None, 'bools': False},
-            {'ints': 3, 'strs': u'c', 'bools': None},
+            {'ints': 3, 'strs': 'c', 'bools': None},
         ])
 
         series = pd.Series(arr.to_pandas())
@@ -2097,8 +2088,7 @@ class TestConvertStructTypes(object):
 
         def iter_chunked_array(arr):
             for chunk in arr.iterchunks():
-                for item in chunk:
-                    yield item
+                yield from chunk
 
         def check(arr, data, mask=None):
             assert len(arr) == len(data)
@@ -2164,7 +2154,7 @@ class TestConvertStructTypes(object):
             expected_schema=expected_schema)
 
 
-class TestZeroCopyConversion(object):
+class TestZeroCopyConversion:
     """
     Tests that zero-copy conversion works with some types.
     """
@@ -2223,7 +2213,6 @@ class TestZeroCopyConversion(object):
         self.check_zero_copy_failure(pa.array(arr))
 
 
-# This function must be at the top-level for Python 2.7's multiprocessing
 def _non_threaded_conversion():
     df = _alltypes_example()
     _check_pandas_roundtrip(df, use_threads=False)
@@ -2236,7 +2225,7 @@ def _threaded_conversion():
     _check_pandas_roundtrip(df, use_threads=True, as_batch=True)
 
 
-class TestConvertMisc(object):
+class TestConvertMisc:
     """
     Miscellaneous conversion tests.
     """
@@ -3316,19 +3305,19 @@ def test_variable_dictionary_to_pandas():
 
 def test_dictionary_encoded_nested_to_pandas():
     # ARROW-6899
-    child = pa.array([u'a', u'a', u'a', u'b', u'b']).dictionary_encode()
+    child = pa.array(['a', 'a', 'a', 'b', 'b']).dictionary_encode()
 
     arr = pa.ListArray.from_arrays([0, 3, 5], child)
 
     result = arr.to_pandas()
-    expected = pd.Series([np.array([u'a', u'a', u'a'], dtype=object),
-                          np.array([u'b', u'b'], dtype=object)])
+    expected = pd.Series([np.array(['a', 'a', 'a'], dtype=object),
+                          np.array(['b', 'b'], dtype=object)])
 
     tm.assert_series_equal(result, expected)
 
 
 def test_dictionary_from_pandas():
-    cat = pd.Categorical([u'a', u'b', u'a'])
+    cat = pd.Categorical(['a', 'b', 'a'])
     expected_type = pa.dictionary(pa.int8(), pa.string())
 
     result = pa.array(cat)
@@ -3336,7 +3325,7 @@ def test_dictionary_from_pandas():
     assert result.type.equals(expected_type)
 
     # with missing values in categorical
-    cat = pd.Categorical([u'a', u'b', None, u'a'])
+    cat = pd.Categorical(['a', 'b', None, 'a'])
 
     result = pa.array(cat)
     assert result.to_pylist() == ['a', 'b', None, 'a']
@@ -3621,8 +3610,8 @@ def test_to_pandas_extension_dtypes_mapping():
 def test_metadata_compat_range_index_pre_0_12():
     # Forward compatibility for metadata created from pandas.RangeIndex
     # prior to pyarrow 0.13.0
-    a_values = [u'foo', u'bar', None, u'baz']
-    b_values = [u'a', u'a', u'b', u'b']
+    a_values = ['foo', 'bar', None, 'baz']
+    b_values = ['a', 'a', 'b', 'b']
     a_arrow = pa.array(a_values, type='utf8')
     b_arrow = pa.array(b_values, type='utf8')
 
@@ -3794,7 +3783,7 @@ def test_metadata_compat_missing_field_name():
     # only added later)
 
     a_values = [1, 2, 3, 4]
-    b_values = [u'a', u'b', u'c', u'd']
+    b_values = ['a', 'b', 'c', 'd']
     a_arrow = pa.array(a_values, type='int64')
     b_arrow = pa.array(b_values, type='utf8')
 

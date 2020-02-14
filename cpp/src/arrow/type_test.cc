@@ -403,6 +403,27 @@ TEST_F(TestSchema, GetFieldDuplicates) {
   ASSERT_EQ(results.size(), 0);
 }
 
+TEST_F(TestSchema, CanReferenceFieldsByNames) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  auto f3 = field("f1", list(int16()));
+
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
+
+  ASSERT_OK(schema->CanReferenceFieldsByNames({"f0", "f2"}));
+  ASSERT_OK(schema->CanReferenceFieldsByNames({"f2", "f0"}));
+
+  // Not found
+  ASSERT_RAISES(Invalid, schema->CanReferenceFieldsByNames({"nope"}));
+  ASSERT_RAISES(Invalid, schema->CanReferenceFieldsByNames({"f0", "nope"}));
+  // Duplicates
+  ASSERT_RAISES(Invalid, schema->CanReferenceFieldsByNames({"f1"}));
+  ASSERT_RAISES(Invalid, schema->CanReferenceFieldsByNames({"f0", "f1"}));
+  // Both
+  ASSERT_RAISES(Invalid, schema->CanReferenceFieldsByNames({"f0", "f1", "nope"}));
+}
+
 TEST_F(TestSchema, TestMetadataConstruction) {
   auto metadata0 = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
   auto metadata1 = key_value_metadata({{"foo", "baz"}});

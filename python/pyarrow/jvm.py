@@ -25,9 +25,6 @@ through jpype. Modules that talk to a remote JVM like py4j will not work as the
 memory addresses reported by them are not reachable in the python process.
 """
 
-from __future__ import absolute_import
-
-
 import pyarrow as pa
 
 

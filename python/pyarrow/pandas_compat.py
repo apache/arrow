@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from __future__ import absolute_import
 
 import ast
+from itertools import zip_longest
 import json
 import operator
 import re
@@ -26,12 +26,10 @@ from copy import deepcopy
 
 import numpy as np
 
-import six
-
 import pyarrow as pa
 from pyarrow.lib import _pandas_api
 from pyarrow.compat import (builtin_pickle,  # noqa
-                            PY2, zip_longest, Sequence, u_utf8)
+                            frombytes, Sequence)
 
 
 _logical_type_map = {}
@@ -96,8 +94,8 @@ _numpy_logical_type_map = {
     np.float32: 'float32',
     np.float64: 'float64',
     'datetime64[D]': 'date',
-    np.unicode_: 'string' if not PY2 else 'unicode',
-    np.bytes_: 'bytes' if not PY2 else 'string',
+    np.unicode_: 'string',
+    np.bytes_: 'bytes',
 }
 
 
@@ -112,7 +110,7 @@ def get_logical_type_from_numpy(pandas_collection):
             return 'datetime64[ns]'
         result = _pandas_api.infer_dtype(pandas_collection)
         if result == 'string':
-            return 'bytes' if PY2 else 'unicode'
+            return 'unicode'
         return result
 
 
@@ -162,14 +160,14 @@ def get_column_metadata(column, name, arrow_type, field_name):
         }
         string_dtype = 'object'
 
-    if name is not None and not isinstance(name, six.string_types):
+    if name is not None and not isinstance(name, str):
         raise TypeError(
             'Column name must be a string. Got column {} of type {}'.format(
                 name, type(name).__name__
             )
         )
 
-    assert field_name is None or isinstance(field_name, six.string_types), \
+    assert field_name is None or isinstance(field_name, str), \
         str(type(field_name))
     return {
         'name': name,
@@ -295,9 +293,9 @@ def _column_name_to_strings(name):
     >>> _column_name_to_strings(name)
     ('1', '2017-02-01 00:00:00')
     """
-    if isinstance(name, six.string_types):
+    if isinstance(name, str):
         return name
-    elif isinstance(name, six.binary_type):
+    elif isinstance(name, bytes):
         # XXX: should we assume that bytes in Python 3 are UTF-8?
         return name.decode('utf8')
     elif isinstance(name, tuple):
@@ -561,7 +559,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
         except (pa.ArrowInvalid,
                 pa.ArrowNotImplementedError,
                 pa.ArrowTypeError) as e:
-            e.args += ("Conversion failed for column {0!s} with type {1!s}"
+            e.args += ("Conversion failed for column {!s} with type {!s}"
                        .format(col.name, col.dtype),)
             raise e
         if not field_nullable and result.null_count > 0:
@@ -771,11 +769,11 @@ def table_to_blockmanager(options, table, categories=None,
 
 # Set of the string repr of all numpy dtypes that can be stored in a pandas
 # dataframe (complex not included since not supported by Arrow)
-_pandas_supported_numpy_types = set([
+_pandas_supported_numpy_types = {
     str(np.dtype(typ))
     for typ in (np.sctypes['int'] + np.sctypes['uint'] + np.sctypes['float']
                 + ['object', 'bool'])
-])
+}
 
 
 def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
@@ -843,7 +841,8 @@ def _check_data_column_metadata_consistency(all_columns):
 
 
 def _deserialize_column_index(block_table, all_columns, column_indexes):
-    column_strings = [u_utf8(x) for x in block_table.column_names]
+    column_strings = [frombytes(x) if isinstance(x, bytes) else x
+                      for x in block_table.column_names]
     if all_columns:
         columns_name_dict = {
             c.get('field_name', _column_name_to_strings(c['name'])): c['name']
@@ -898,7 +897,7 @@ def _reconstruct_index(table, index_descriptors, all_columns):
     index_names = []
     result_table = table
     for descr in index_descriptors:
-        if isinstance(descr, six.string_types):
+        if isinstance(descr, str):
             result_table, index_level, index_name = _extract_index_level(
                 table, result_table, descr, field_name_to_metadata)
             if index_level is None:
@@ -914,7 +913,7 @@ def _reconstruct_index(table, index_descriptors, all_columns):
                 # Possibly the result of munged metadata
                 continue
         else:
-            raise ValueError("Unrecognized index kind: {0}"
+            raise ValueError("Unrecognized index kind: {}"
                              .format(descr['kind']))
         index_arrays.append(index_level)
         index_names.append(index_name)
@@ -1128,7 +1127,7 @@ def _add_any_metadata(table, pandas_metadata):
     index_columns = pandas_metadata['index_columns']
     # only take index columns into account if they are an actual table column
     index_columns = [idx_col for idx_col in index_columns
-                     if isinstance(idx_col, six.string_types)]
+                     if isinstance(idx_col, str)]
     n_index_levels = len(index_columns)
     n_columns = len(pandas_metadata['columns']) - n_index_levels
 

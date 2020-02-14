@@ -40,6 +40,13 @@ public class Criteria {
     this.bytes = criteria.getExpression().toByteArray();
   }
 
+  /**
+   * Get the contained filter criteria.
+   */
+  public byte[] getExpression() {
+    return bytes;
+  }
+
   Flight.Criteria asCriteria() {
     Flight.Criteria.Builder b = Flight.Criteria.newBuilder();
     if (bytes != null) {

@@ -36,19 +36,17 @@ The process is split up in two parts:
 ### Building PyArrow
 
 You can build the PyArrow wheels by running the following command in this
-directory (this is for Python 2.7 with unicode width 16, similarly you can pass
-in `PYTHON_VERSION="3.5"`, `PYTHON_VERSION="3.6"` or `PYTHON_VERSION="3.7"` or
-use `PYTHON_VERSION="2.7"` with `UNICODE_WIDTH=32`):
+directory (this is for Python 3.7, similarly you can pass another value
+for `PYTHON_VERSION`):
 
 ```bash
 # Build the python packages
-docker-compose run -e PYTHON_VERSION="2.7" -e UNICODE_WIDTH=16 centos-python-manylinux2010
+docker-compose run -e PYTHON_VERSION="3.7" centos-python-manylinux2010
 # Now the new packages are located in the dist/ folder
 ls -l dist/
 ```
 
 You can do the same for `manylinux2014` by substituting `centos-python-manylinux2014`.
-Note that `manylinux2014` does not support Python 2.7.
 
 ### Re-building the build image
 

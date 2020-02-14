@@ -23,25 +23,14 @@
 #include <memory>
 #include <string>
 
+#include "arrow/io/type_fwd.h"
 #include "arrow/ipc/options.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Buffer;
-class MemoryPool;
-
-namespace io {
-
-class FileInterface;
-class InputStream;
-class OutputStream;
-class RandomAccessFile;
-
-}  // namespace io
-
 namespace ipc {
 
 enum class MetadataVersion : char {
@@ -229,11 +218,15 @@ Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message);
 
 /// \brief Read encapsulated IPC message (metadata and body) from InputStream
 ///
-/// Like ReadMessage, except that the metadata is copied in a new buffer.
-/// This is necessary if the stream returns non-CPU buffers.
+/// Returns null if there are not enough bytes available or the
+/// message length is 0 (e.g. EOS in a stream)
+///
+/// \param[in] stream an input stream
+/// \param[in] pool an optional MemoryPool to copy metadata on the CPU, if required
+/// \return Message
 ARROW_EXPORT
-Status ReadMessageCopy(io::InputStream* stream, MemoryPool* pool,
-                       std::unique_ptr<Message>* message);
+Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* stream,
+                                             MemoryPool* pool = default_memory_pool());
 
 /// Write encapsulated IPC message Does not make assumptions about
 /// whether the stream is aligned already. Can write legacy (pre

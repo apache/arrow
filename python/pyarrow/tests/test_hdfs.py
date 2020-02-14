@@ -50,7 +50,7 @@ def hdfs_test_client(driver='libhdfs'):
 
 
 @pytest.mark.hdfs
-class HdfsTestCases(object):
+class HdfsTestCases:
 
     def _make_test_file(self, hdfs, test_name, test_path, test_data):
         base_path = pjoin(self.tmp_path, test_name)
@@ -67,7 +67,7 @@ class HdfsTestCases(object):
     def setUpClass(cls):
         cls.check_driver()
         cls.hdfs = hdfs_test_client(cls.DRIVER)
-        cls.tmp_path = '/tmp/pyarrow-test-{0}'.format(random.randint(0, 1000))
+        cls.tmp_path = '/tmp/pyarrow-test-{}'.format(random.randint(0, 1000))
         cls.hdfs.mkdir(cls.tmp_path)
 
     @classmethod
@@ -287,7 +287,7 @@ class HdfsTestCases(object):
             # Hack so that we don't have a dtype cast in v1 files
             df['uint32'] = df['uint32'].astype(np.int64)
 
-            path = pjoin(tmpdir, '{0}.parquet'.format(i))
+            path = pjoin(tmpdir, '{}.parquet'.format(i))
 
             table = pa.Table.from_pandas(df, preserve_index=False)
             with self.hdfs.open(path, 'wb') as f:

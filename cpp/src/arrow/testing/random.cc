@@ -31,6 +31,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace random {
@@ -41,10 +42,12 @@ struct GenerateOptions {
       : min_(min), max_(max), seed_(seed), probability_(probability) {}
 
   void GenerateData(uint8_t* buffer, size_t n) {
+    GenerateTypedData(reinterpret_cast<ValueType*>(buffer), n);
+  }
+
+  void GenerateTypedData(ValueType* data, size_t n) {
     std::default_random_engine rng(seed_++);
     DistributionType dist(min_, max_);
-
-    ValueType* data = reinterpret_cast<ValueType*>(buffer);
 
     // A static cast is required due to the int16 -> int8 handling.
     std::generate(data, data + n,
@@ -146,10 +149,9 @@ PRIMITIVE_RAND_FLOAT_IMPL(Float64, double, DoubleType)
 #undef PRIMITIVE_RAND_IMPL
 
 template <typename TypeClass>
-static std::shared_ptr<arrow::Array> GenerateBinaryArray(RandomArrayGenerator* gen,
-                                                         int64_t size, int32_t min_length,
-                                                         int32_t max_length,
-                                                         double null_probability) {
+static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int64_t size,
+                                                  int32_t min_length, int32_t max_length,
+                                                  double null_probability) {
   using offset_type = typename TypeClass::offset_type;
   using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
@@ -179,30 +181,30 @@ static std::shared_ptr<arrow::Array> GenerateBinaryArray(RandomArrayGenerator* g
     }
   }
 
-  std::shared_ptr<arrow::Array> result;
+  std::shared_ptr<Array> result;
   ABORT_NOT_OK(builder.Finish(&result));
   return result;
 }
 
-std::shared_ptr<arrow::Array> RandomArrayGenerator::String(int64_t size,
-                                                           int32_t min_length,
-                                                           int32_t max_length,
-                                                           double null_probability) {
+std::shared_ptr<Array> RandomArrayGenerator::String(int64_t size, int32_t min_length,
+                                                    int32_t max_length,
+                                                    double null_probability) {
   return GenerateBinaryArray<StringType>(this, size, min_length, max_length,
                                          null_probability);
 }
 
-std::shared_ptr<arrow::Array> RandomArrayGenerator::LargeString(int64_t size,
-                                                                int32_t min_length,
-                                                                int32_t max_length,
-                                                                double null_probability) {
+std::shared_ptr<Array> RandomArrayGenerator::LargeString(int64_t size, int32_t min_length,
+                                                         int32_t max_length,
+                                                         double null_probability) {
   return GenerateBinaryArray<LargeStringType>(this, size, min_length, max_length,
                                               null_probability);
 }
 
-std::shared_ptr<arrow::Array> RandomArrayGenerator::BinaryWithRepeats(
-    int64_t size, int64_t unique, int32_t min_length, int32_t max_length,
-    double null_probability) {
+std::shared_ptr<Array> RandomArrayGenerator::BinaryWithRepeats(int64_t size,
+                                                               int64_t unique,
+                                                               int32_t min_length,
+                                                               int32_t max_length,
+                                                               double null_probability) {
   auto strings =
       StringWithRepeats(size, unique, min_length, max_length, null_probability);
   std::shared_ptr<Array> out;
@@ -210,9 +212,11 @@ std::shared_ptr<arrow::Array> RandomArrayGenerator::BinaryWithRepeats(
   return out;
 }
 
-std::shared_ptr<arrow::Array> RandomArrayGenerator::StringWithRepeats(
-    int64_t size, int64_t unique, int32_t min_length, int32_t max_length,
-    double null_probability) {
+std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(int64_t size,
+                                                               int64_t unique,
+                                                               int32_t min_length,
+                                                               int32_t max_length,
+                                                               double null_probability) {
   // Generate a random string dictionary without any nulls
   auto array = String(unique, min_length, max_length, /*null_probability=*/0);
   auto dictionary = std::dynamic_pointer_cast<StringArray>(array);
@@ -236,5 +240,28 @@ std::shared_ptr<arrow::Array> RandomArrayGenerator::StringWithRepeats(
   ABORT_NOT_OK(builder.Finish(&result));
   return result;
 }
+
+std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first_offset,
+                                                     int32_t last_offset) {
+  using GenOpt = GenerateOptions<int32_t, std::uniform_int_distribution<int32_t>>;
+  GenOpt options(seed(), first_offset, last_offset, /*null_probability=*/0);
+
+  BufferVector buffers{2};
+
+  ABORT_NOT_OK(AllocateBuffer(sizeof(int32_t) * size, &buffers[1]));
+  auto data = reinterpret_cast<int32_t*>(buffers[1]->mutable_data());
+  options.GenerateTypedData(data, size);
+  // Ensure offsets are in increasing order
+  std::sort(data, data + size);
+  // Ensure first and last offsets are as required
+  DCHECK_GE(data[0], first_offset);
+  DCHECK_LE(data[size - 1], last_offset);
+  data[0] = first_offset;
+  data[size - 1] = last_offset;
+
+  auto array_data = ArrayData::Make(int32(), size, buffers, /*null_count=*/0);
+  return std::make_shared<Int32Array>(array_data);
+}
+
 }  // namespace random
 }  // namespace arrow

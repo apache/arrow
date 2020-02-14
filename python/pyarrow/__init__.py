@@ -17,7 +17,6 @@
 
 # flake8: noqa
 
-from __future__ import absolute_import
 
 import os as _os
 import sys as _sys
@@ -261,7 +260,7 @@ def get_library_dirs():
                 if not library_dir.startswith("-L"):
                     raise ValueError(
                         "pkg-config --libs-only-L returned unexpected "
-                        "value {0!r}".format(library_dir))
+                        "value {!r}".format(library_dir))
                 append_library_dir(library_dir[2:])
 
     if _sys.platform == 'win32':

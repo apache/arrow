@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from __future__ import absolute_import
 
 import os
 import posixpath
@@ -53,15 +52,15 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
     @implements(FileSystem.isdir)
     def isdir(self, path):
-        return super(HadoopFileSystem, self).isdir(path)
+        return super().isdir(path)
 
     @implements(FileSystem.isfile)
     def isfile(self, path):
-        return super(HadoopFileSystem, self).isfile(path)
+        return super().isfile(path)
 
     @implements(FileSystem.delete)
     def delete(self, path, recursive=False):
-        return super(HadoopFileSystem, self).delete(path, recursive)
+        return super().delete(path, recursive)
 
     def mkdir(self, path, **kwargs):
         """
@@ -76,15 +75,15 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         -----
         libhdfs does not support create_parents=False, so we ignore this here
         """
-        return super(HadoopFileSystem, self).mkdir(path)
+        return super().mkdir(path)
 
     @implements(FileSystem.rename)
     def rename(self, path, new_path):
-        return super(HadoopFileSystem, self).rename(path, new_path)
+        return super().rename(path, new_path)
 
     @implements(FileSystem.exists)
     def exists(self, path):
-        return super(HadoopFileSystem, self).exists(path)
+        return super().exists(path)
 
     def ls(self, path, detail=False):
         """
@@ -100,7 +99,7 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         -------
         result : list of dicts (detail=True) or strings (detail=False)
         """
-        return super(HadoopFileSystem, self).ls(path, detail)
+        return super().ls(path, detail)
 
     def walk(self, top_path):
         """
@@ -120,8 +119,7 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         directories, files = _libhdfs_walk_files_dirs(top_path, contents)
         yield top_path, directories, files
         for dirname in directories:
-            for tup in self.walk(self._path_join(top_path, dirname)):
-                yield tup
+            yield from self.walk(self._path_join(top_path, dirname))
 
 
 def _maybe_set_hadoop_classpath():
@@ -134,7 +132,7 @@ def _maybe_set_hadoop_classpath():
         if sys.platform != 'win32':
             classpath = _derive_hadoop_classpath()
         else:
-            hadoop_bin = '{0}/bin/hadoop'.format(os.environ['HADOOP_HOME'])
+            hadoop_bin = '{}/bin/hadoop'.format(os.environ['HADOOP_HOME'])
             classpath = _hadoop_classpath_glob(hadoop_bin)
     else:
         classpath = _hadoop_classpath_glob('hadoop')

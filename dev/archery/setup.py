@@ -32,7 +32,7 @@ setup(
     maintainer='Arrow Developers',
     maintainer_email='dev@arrow.apache.org',
     packages=['archery'],
-    install_requires=['click', 'six'],
+    install_requires=['click'],
     entry_points='''
         [console_scripts]
         archery=archery.cli:archery

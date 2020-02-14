@@ -134,8 +134,6 @@ auto SafeCallIntoPython(Function&& func) -> decltype(func()) {
   return maybe_status;
 }
 
-#define PYARROW_IS_PY2 PY_MAJOR_VERSION <= 2
-
 // A RAII primitive that DECREFs the underlying PyObject* when it
 // goes out of scope.
 class ARROW_PYTHON_EXPORT OwnedRef {
@@ -211,7 +209,6 @@ struct PyBytesView {
   }
 
   Status FromUnicode(PyObject* obj) {
-#if PY_MAJOR_VERSION >= 3
     Py_ssize_t size;
     // The utf-8 representation is cached on the unicode object
     const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
@@ -219,13 +216,6 @@ struct PyBytesView {
     this->bytes = data;
     this->size = size;
     this->ref.reset();
-#else
-    PyObject* converted = PyUnicode_AsUTF8String(obj);
-    RETURN_IF_PYERROR();
-    this->bytes = PyBytes_AS_STRING(converted);
-    this->size = PyBytes_GET_SIZE(converted);
-    this->ref.reset(converted);
-#endif
     return Status::OK();
   }
 

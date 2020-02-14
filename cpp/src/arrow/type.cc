@@ -382,9 +382,13 @@ Status UnionType::ValidateParameters(const std::vector<std::shared_ptr<Field>>& 
 
 DataTypeLayout UnionType::layout() const {
   if (mode_ == UnionMode::SPARSE) {
-    return {{1, CHAR_BIT, DataTypeLayout::kAlwaysNullBuffer}, false};
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(uint8_t)),
+                           DataTypeLayout::AlwaysNull()});
   } else {
-    return {{1, CHAR_BIT, sizeof(int32_t) * CHAR_BIT}, false};
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(uint8_t)),
+                           DataTypeLayout::FixedWidth(sizeof(int32_t))});
   }
 }
 
@@ -691,6 +695,17 @@ std::vector<int> Schema::GetAllFieldIndices(const std::string& name) const {
     result.push_back(it->second);
   }
   return result;
+}
+
+Status Schema::CanReferenceFieldsByNames(const std::vector<std::string>& names) const {
+  for (const auto& name : names) {
+    if (GetFieldByName(name) == nullptr) {
+      return Status::Invalid("Field named '", name,
+                             "' not found or not unique in the schema.");
+    }
+  }
+
+  return Status::OK();
 }
 
 std::vector<std::shared_ptr<Field>> Schema::GetAllFieldsByName(

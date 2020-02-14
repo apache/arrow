@@ -60,11 +60,6 @@ rm -f $LOGFILE $LOGFILE.gz
 
 pipe_cmd=cat
 
-# Allow for collecting core dumps.
-ARROW_TEST_ULIMIT_CORE=${ARROW_TEST_ULIMIT_CORE:-0}
-ulimit -c $ARROW_TEST_ULIMIT_CORE
-
-
 function setup_sanitizers() {
   # Sets environment variables for different sanitizers (it configures how) the run_tests. Function works.
 
@@ -124,6 +119,42 @@ function run_test() {
   fi
 }
 
+function print_coredumps() {
+  # The script expects core files relative to the build directory with unique
+  # names per test executable because of the parallel running. So the corefile
+  # patterns must be set with prefix `core.{test-executable}*`:
+  #
+  # In case of macOS:
+  #   sudo sysctl -w kern.corefile=core.%N.%P
+  # On Linux:
+  #   sudo sysctl -w kernel.core_pattern=core.%e.%p
+  #
+  # and the ulimit must be increased:
+  #   ulimit -c unlimited
+
+  # filename is truncated to the first 15 characters in case of linux, so limit
+  # the pattern for the first 15 characters
+  FILENAME=$(basename "${TEST_EXECUTABLE}")
+  FILENAME=$(echo ${FILENAME} | cut -c-15)
+  PATTERN="^core\.${FILENAME}"
+
+  COREFILES=$(ls | grep $PATTERN)
+  if [ -n "$COREFILES" ]; then
+    echo "Found core dump, printing backtrace:"
+
+    for COREFILE in $COREFILES; do
+      # Print backtrace
+      if [ "$(uname)" == "Darwin" ]; then
+        lldb -c "${COREFILE}" --batch --one-line "thread backtrace all -e true"
+      else
+        gdb -c "${COREFILE}" $TEST_EXECUTABLE -ex "thread apply all bt" -ex "set pagination 0" -batch
+      fi
+      # Remove the coredump, regenerate it via running the test case directly
+      rm "${COREFILE}"
+    done
+  fi
+}
+
 function post_process_tests() {
   # If we have a LeakSanitizer report, and XML reporting is configured, add a new test
   # case result to the XML file for the leak report. Otherwise Jenkins won't show
@@ -148,7 +179,7 @@ function run_other() {
 }
 
 if [ $RUN_TYPE = "test" ]; then
-    setup_sanitizers
+  setup_sanitizers
 fi
 
 # Run the actual test.
@@ -200,20 +231,7 @@ if [ $RUN_TYPE = "test" ]; then
   post_process_tests
 fi
 
-# Capture and compress core file and binary.
-COREFILES=$(ls | grep ^core)
-if [ -n "$COREFILES" ]; then
-  echo Found core dump. Saving executable and core files.
-  gzip < $TEST_EXECUTABLE > "$TEST_DEBUGDIR/$TEST_NAME.gz" || exit $?
-  for COREFILE in $COREFILES; do
-    gzip < $COREFILE > "$TEST_DEBUGDIR/$TEST_NAME.$COREFILE.gz" || exit $?
-  done
-  # Pull in any .so files as well.
-  for LIB in $(ldd $TEST_EXECUTABLE | grep $ROOT | awk '{print $3}'); do
-    LIB_NAME=$(basename $LIB)
-    gzip < $LIB > "$TEST_DEBUGDIR/$LIB_NAME.gz" || exit $?
-  done
-fi
+print_coredumps
 
 popd
 rm -Rf $TEST_WORKDIR

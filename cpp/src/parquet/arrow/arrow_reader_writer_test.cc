@@ -73,6 +73,7 @@ using arrow::random_is_valid;
 
 using ArrowId = ::arrow::Type;
 using ParquetType = parquet::Type;
+
 using parquet::arrow::FromParquetSchema;
 using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
@@ -464,7 +465,7 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
         case ::arrow::Type::DECIMAL: {
           const auto& decimal_type =
               static_cast<const ::arrow::Decimal128Type&>(values_type);
-          byte_width = internal::DecimalSize(decimal_type.precision());
+          byte_width = ::parquet::internal::DecimalSize(decimal_type.precision());
         } break;
         default:
           break;
@@ -475,7 +476,7 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
       break;
     case ::arrow::Type::DECIMAL: {
       const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(type);
-      byte_width = internal::DecimalSize(decimal_type.precision());
+      byte_width = ::parquet::internal::DecimalSize(decimal_type.precision());
     } break;
     default:
       break;
@@ -2662,7 +2663,7 @@ TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
   Int96 calculated;
 
   Int96 expected = {{UINT32_C(632093973), UINT32_C(13871), UINT32_C(2457925)}};
-  internal::NanosecondsToImpalaTimestamp(nanoseconds, &calculated);
+  ::parquet::internal::NanosecondsToImpalaTimestamp(nanoseconds, &calculated);
   ASSERT_EQ(expected, calculated);
 }
 

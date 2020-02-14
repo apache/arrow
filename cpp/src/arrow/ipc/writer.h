@@ -206,6 +206,15 @@ ARROW_EXPORT
 Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                             std::shared_ptr<Buffer>* out);
 
+/// \brief Serialize record batch as encapsulated IPC message in a new buffer
+///
+/// \param[in] batch the record batch
+/// \param[in] mm a MemoryManager to allocate memory from
+/// \return the serialized message
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
+                                                     std::shared_ptr<MemoryManager> mm);
+
 /// \brief Write record batch to OutputStream
 ///
 /// \param[in] batch the record batch to write

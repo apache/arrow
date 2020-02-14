@@ -77,6 +77,44 @@ Status Buffer::FromString(const std::string& data, std::shared_ptr<Buffer>* out)
   return FromString(data, default_memory_pool(), out);
 }
 
+std::string Buffer::ToString() const {
+  return std::string(reinterpret_cast<const char*>(data_), static_cast<size_t>(size_));
+}
+
+void Buffer::CheckMutable() const { DCHECK(is_mutable()) << "buffer not mutable"; }
+
+void Buffer::CheckCPU() const {
+  DCHECK(is_cpu()) << "not a CPU buffer (device: " << device()->ToString() << ")";
+}
+
+Result<std::shared_ptr<io::RandomAccessFile>> Buffer::GetReader(
+    std::shared_ptr<Buffer> buf) {
+  return buf->memory_manager_->GetBufferReader(buf);
+}
+
+Result<std::shared_ptr<io::OutputStream>> Buffer::GetWriter(std::shared_ptr<Buffer> buf) {
+  return buf->memory_manager_->GetBufferWriter(buf);
+}
+
+Result<std::shared_ptr<Buffer>> Buffer::Copy(std::shared_ptr<Buffer> source,
+                                             const std::shared_ptr<MemoryManager>& to) {
+  return MemoryManager::CopyBuffer(source, to);
+}
+
+Result<std::shared_ptr<Buffer>> Buffer::View(std::shared_ptr<Buffer> source,
+                                             const std::shared_ptr<MemoryManager>& to) {
+  return MemoryManager::ViewBuffer(source, to);
+}
+
+Result<std::shared_ptr<Buffer>> Buffer::ViewOrCopy(
+    std::shared_ptr<Buffer> source, const std::shared_ptr<MemoryManager>& to) {
+  auto maybe_buffer = MemoryManager::ViewBuffer(source, to);
+  if (maybe_buffer.ok()) {
+    return maybe_buffer;
+  }
+  return MemoryManager::CopyBuffer(source, to);
+}
+
 class StlStringBuffer : public Buffer {
  public:
   explicit StlStringBuffer(std::string&& data)
@@ -94,21 +132,27 @@ std::shared_ptr<Buffer> Buffer::FromString(std::string&& data) {
   return std::make_shared<StlStringBuffer>(std::move(data));
 }
 
-std::string Buffer::ToString() const {
-  return std::string(reinterpret_cast<const char*>(data_), static_cast<size_t>(size_));
+std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
+                                           const int64_t offset, const int64_t length) {
+  return std::make_shared<MutableBuffer>(buffer, offset, length);
 }
 
-void Buffer::CheckMutable() const { DCHECK(is_mutable()) << "buffer not mutable"; }
+MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_t offset,
+                             const int64_t size)
+    : MutableBuffer(reinterpret_cast<uint8_t*>(parent->mutable_address()) + offset,
+                    size) {
+  DCHECK(parent->is_mutable()) << "Must pass mutable buffer";
+  parent_ = parent;
+}
+
+// -----------------------------------------------------------------------
+// Pool buffer and allocation
 
 /// A Buffer whose lifetime is tied to a particular MemoryPool
 class PoolBuffer : public ResizableBuffer {
  public:
-  explicit PoolBuffer(MemoryPool* pool) : ResizableBuffer(nullptr, 0) {
-    if (pool == nullptr) {
-      pool = default_memory_pool();
-    }
-    pool_ = pool;
-  }
+  explicit PoolBuffer(std::shared_ptr<MemoryManager> mm, MemoryPool* pool)
+      : ResizableBuffer(nullptr, 0, std::move(mm)), pool_(pool) {}
 
   ~PoolBuffer() override {
     if (mutable_data_ != nullptr) {
@@ -157,21 +201,31 @@ class PoolBuffer : public ResizableBuffer {
     return Status::OK();
   }
 
+  static std::shared_ptr<PoolBuffer> MakeShared(MemoryPool* pool) {
+    std::shared_ptr<MemoryManager> mm;
+    if (pool == nullptr) {
+      pool = default_memory_pool();
+      mm = default_cpu_memory_manager();
+    } else {
+      mm = CPUDevice::memory_manager(pool);
+    }
+    return std::make_shared<PoolBuffer>(std::move(mm), pool);
+  }
+
+  static std::unique_ptr<PoolBuffer> MakeUnique(MemoryPool* pool) {
+    std::shared_ptr<MemoryManager> mm;
+    if (pool == nullptr) {
+      pool = default_memory_pool();
+      mm = default_cpu_memory_manager();
+    } else {
+      mm = CPUDevice::memory_manager(pool);
+    }
+    return std::unique_ptr<PoolBuffer>(new PoolBuffer(std::move(mm), pool));
+  }
+
  private:
   MemoryPool* pool_;
 };
-
-std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
-                                           const int64_t offset, const int64_t length) {
-  return std::make_shared<MutableBuffer>(buffer, offset, length);
-}
-
-MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_t offset,
-                             const int64_t size)
-    : MutableBuffer(parent->mutable_data() + offset, size) {
-  DCHECK(parent->is_mutable()) << "Must pass mutable buffer";
-  parent_ = parent;
-}
 
 namespace {
 // A utility that does most of the work of the `AllocateBuffer` and
@@ -189,40 +243,40 @@ inline Status ResizePoolBuffer(PoolBufferPtr&& buffer, const int64_t size,
 
 Status AllocateBuffer(MemoryPool* pool, const int64_t size,
                       std::shared_ptr<Buffer>* out) {
-  return ResizePoolBuffer(std::make_shared<PoolBuffer>(pool), size, out);
+  return ResizePoolBuffer(PoolBuffer::MakeShared(pool), size, out);
 }
 
 Status AllocateBuffer(MemoryPool* pool, const int64_t size,
                       std::unique_ptr<Buffer>* out) {
-  return ResizePoolBuffer(std::unique_ptr<PoolBuffer>(new PoolBuffer(pool)), size, out);
+  return ResizePoolBuffer(PoolBuffer::MakeUnique(pool), size, out);
 }
 
 Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out) {
-  return AllocateBuffer(default_memory_pool(), size, out);
+  return AllocateBuffer(nullptr, size, out);
 }
 
 Status AllocateBuffer(const int64_t size, std::unique_ptr<Buffer>* out) {
-  return AllocateBuffer(default_memory_pool(), size, out);
+  return AllocateBuffer(nullptr, size, out);
 }
 
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out) {
-  return ResizePoolBuffer(std::make_shared<PoolBuffer>(pool), size, out);
+  return ResizePoolBuffer(PoolBuffer::MakeShared(pool), size, out);
 }
 
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::unique_ptr<ResizableBuffer>* out) {
-  return ResizePoolBuffer(std::unique_ptr<PoolBuffer>(new PoolBuffer(pool)), size, out);
+  return ResizePoolBuffer(PoolBuffer::MakeUnique(pool), size, out);
 }
 
 Status AllocateResizableBuffer(const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out) {
-  return AllocateResizableBuffer(default_memory_pool(), size, out);
+  return AllocateResizableBuffer(nullptr, size, out);
 }
 
 Status AllocateResizableBuffer(const int64_t size,
                                std::unique_ptr<ResizableBuffer>* out) {
-  return AllocateResizableBuffer(default_memory_pool(), size, out);
+  return AllocateResizableBuffer(nullptr, size, out);
 }
 
 Status AllocateBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out) {

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -72,7 +71,7 @@ def test_list_format():
 
 
 def test_string_format():
-    arr = pa.array([u'', None, u'foo'])
+    arr = pa.array(['', None, 'foo'])
     result = arr.format()
     expected = """\
 [
@@ -396,7 +395,7 @@ def test_array_from_buffers():
     assert arr.to_pylist() == [None, 6, 7]
 
     with pytest.raises(TypeError):
-        pa.Array.from_buffers(pa.int16(), 3, [u'', u''], offset=1)
+        pa.Array.from_buffers(pa.int16(), 3, ['', ''], offset=1)
 
 
 def test_string_binary_from_buffers():
@@ -1023,9 +1022,9 @@ def test_cast_from_null():
 
 def test_cast_string_to_number_roundtrip():
     cases = [
-        (pa.array([u"1", u"127", u"-128"]),
+        (pa.array(["1", "127", "-128"]),
          pa.array([1, 127, -128], type=pa.int8())),
-        (pa.array([None, u"18446744073709551615"]),
+        (pa.array([None, "18446744073709551615"]),
          pa.array([None, 18446744073709551615], type=pa.uint64())),
     ]
     for in_arr, expected in cases:
@@ -1040,8 +1039,8 @@ def test_cast_string_to_number_roundtrip():
 def test_cast_dictionary():
     arr = pa.DictionaryArray.from_arrays(
         pa.array([0, 1, None], type=pa.int32()),
-        pa.array([u"foo", u"bar"]))
-    assert arr.cast(pa.string()).equals(pa.array([u"foo", u"bar", None]))
+        pa.array(["foo", "bar"]))
+    assert arr.cast(pa.string()).equals(pa.array(["foo", "bar", None]))
     with pytest.raises(NotImplementedError):
         # Shouldn't crash (ARROW-7077)
         arr.cast(pa.int32())
@@ -1172,7 +1171,7 @@ def test_cast_binary_to_utf8():
 
     assert utf8_arr.equals(expected)
 
-    non_utf8_values = [(u'mañana').encode('utf-16-le')]
+    non_utf8_values = [('mañana').encode('utf-16-le')]
     non_utf8_binary = pa.array(non_utf8_values)
     assert non_utf8_binary.type == pa.binary()
     with pytest.raises(ValueError):
@@ -1994,7 +1993,7 @@ def test_array_from_numpy_str_utf8():
 
     arr = pa.array(vec, pa.string())
     arr2 = pa.array(vec2, pa.string())
-    expected = pa.array([u"toto", u"tata"])
+    expected = pa.array(["toto", "tata"])
     assert arr.equals(expected)
     assert arr2.equals(expected)
 
@@ -2004,7 +2003,7 @@ def test_array_from_numpy_str_utf8():
     assert arr.equals(expected)
 
     # UTF8 validation failures
-    vec = np.array([(u'mañana').encode('utf-16-le')])
+    vec = np.array([('mañana').encode('utf-16-le')])
     with pytest.raises(ValueError):
         pa.array(vec, pa.string())
 
@@ -2018,7 +2017,7 @@ def test_numpy_binary_overflow_to_chunked():
 
     # 2^31 + 1 bytes
     values = [b'x']
-    unicode_values = [u'x']
+    unicode_values = ['x']
 
     # Make 10 unique 1MB strings then repeat then 2048 times
     unique_strings = {
@@ -2060,12 +2059,12 @@ def test_list_child_overflow_to_chunked():
 
 def test_infer_type_masked():
     # ARROW-5208
-    ty = pa.infer_type([u'foo', u'bar', None, 2],
+    ty = pa.infer_type(['foo', 'bar', None, 2],
                        mask=[False, False, False, True])
     assert ty == pa.utf8()
 
     # all masked
-    ty = pa.infer_type([u'foo', u'bar', None, 2],
+    ty = pa.infer_type(['foo', 'bar', None, 2],
                        mask=np.array([True, True, True, True]))
     assert ty == pa.null()
 

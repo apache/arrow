@@ -56,6 +56,7 @@ These should be used to create Arrow data types and schemas.
    decimal128
    list_
    large_list
+   map_
    struct
    dictionary
    field
@@ -77,6 +78,7 @@ functions above.
    DataType
    DictionaryType
    ListType
+   MapType
    StructType
    UnionType
    TimestampType

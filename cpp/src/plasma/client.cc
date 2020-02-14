@@ -108,7 +108,7 @@ std::mutex gpu_mutex;
 // but able to persist after the original IPC-backed buffer is closed
 // (ARROW-5924).
 std::shared_ptr<Buffer> MakeBufferFromGpuProcessHandle(GpuProcessHandle* handle) {
-  return std::make_shared<CudaBuffer>(handle->ptr->mutable_data(), handle->ptr->size(),
+  return std::make_shared<CudaBuffer>(handle->ptr->address(), handle->ptr->size(),
                                       handle->ptr->context());
 }
 
@@ -308,9 +308,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   uint64_t ComputeObjectHash(const ObjectBuffer& obj_buffer);
 
-  uint64_t ComputeObjectHash(const uint8_t* data, int64_t data_size,
-                             const uint8_t* metadata, int64_t metadata_size,
-                             int device_num);
+  uint64_t ComputeObjectHashCPU(const uint8_t* data, int64_t data_size,
+                                const uint8_t* metadata, int64_t metadata_size);
 
   /// File descriptor of the Unix domain socket that connects to the store.
   int store_conn_;
@@ -490,12 +489,9 @@ Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
   ARROW_LOG(DEBUG) << "called CreateAndSeal on conn " << store_conn_;
   // Compute the object hash.
   static unsigned char digest[kDigestSize];
-  // CreateAndSeal currently only supports device_num = 0, which corresponds to
-  // the host.
-  int device_num = 0;
-  uint64_t hash = ComputeObjectHash(
+  uint64_t hash = ComputeObjectHashCPU(
       reinterpret_cast<const uint8_t*>(data.data()), data.size(),
-      reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
+      reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size());
   memcpy(&digest[0], &hash, sizeof(hash));
 
   RETURN_NOT_OK(SendCreateAndSealRequest(store_conn_, object_id, data, metadata, digest));
@@ -513,16 +509,13 @@ Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& objec
 
   ARROW_LOG(DEBUG) << "called CreateAndSealBatch on conn " << store_conn_;
 
-  int device_num = 0;
   std::vector<std::string> digests;
   for (size_t i = 0; i < object_ids.size(); i++) {
     // Compute the object hash.
     std::string digest;
-    // CreateAndSeal currently only supports device_num = 0, which corresponds to
-    // the host.
-    uint64_t hash = ComputeObjectHash(
+    uint64_t hash = ComputeObjectHashCPU(
         reinterpret_cast<const uint8_t*>(data.data()), data.size(),
-        reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
+        reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size());
     digest.assign(reinterpret_cast<char*>(&hash), sizeof(hash));
     digests.push_back(digest);
   }
@@ -815,21 +808,20 @@ bool PlasmaClient::Impl::ComputeObjectHashParallel(XXH64_state_t* hash_state,
 }
 
 uint64_t PlasmaClient::Impl::ComputeObjectHash(const ObjectBuffer& obj_buffer) {
-  return ComputeObjectHash(obj_buffer.data->data(), obj_buffer.data->size(),
-                           obj_buffer.metadata->data(), obj_buffer.metadata->size(),
-                           obj_buffer.device_num);
-}
-
-uint64_t PlasmaClient::Impl::ComputeObjectHash(const uint8_t* data, int64_t data_size,
-                                               const uint8_t* metadata,
-                                               int64_t metadata_size, int device_num) {
-  DCHECK(metadata);
-  DCHECK(data);
-  XXH64_state_t hash_state;
-  if (device_num != 0) {
+  if (obj_buffer.device_num != 0) {
     // TODO(wap): Create cuda program to hash data on gpu.
     return 0;
   }
+  return ComputeObjectHashCPU(obj_buffer.data->data(), obj_buffer.data->size(),
+                              obj_buffer.metadata->data(), obj_buffer.metadata->size());
+}
+
+uint64_t PlasmaClient::Impl::ComputeObjectHashCPU(const uint8_t* data, int64_t data_size,
+                                                  const uint8_t* metadata,
+                                                  int64_t metadata_size) {
+  DCHECK(metadata);
+  DCHECK(data);
+  XXH64_state_t hash_state;
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
   if (data_size >= kBytesInMB) {
     ComputeObjectHashParallel(&hash_state, reinterpret_cast<const unsigned char*>(data),

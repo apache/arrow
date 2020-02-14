@@ -123,14 +123,6 @@ class PythonFile {
   Status Write(const std::shared_ptr<Buffer>& buffer) {
     RETURN_NOT_OK(CheckClosed());
 
-#if PY_MAJOR_VERSION < 3
-    // On Python 2, a write() method can typically call str() on its argument
-    // to get its bytes payload (this is the case with socket.makefile()).
-    // Unfortunately, on non-bytes buffer-like objects this will give out
-    // the repr() of the object rather than its data.  So fall back on
-    // copying the data to a bytes object.
-    return Write(buffer->data(), buffer->size());
-#else
     PyObject* py_data = wrap_buffer(buffer);
     PY_RETURN_IF_ERROR(StatusCode::IOError);
 
@@ -139,7 +131,6 @@ class PythonFile {
     Py_XDECREF(result);
     PY_RETURN_IF_ERROR(StatusCode::IOError);
     return Status::OK();
-#endif
   }
 
   Result<int64_t> Tell() {

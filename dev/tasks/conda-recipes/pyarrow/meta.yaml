@@ -26,7 +26,6 @@ requirements:
     - python
     - setuptools
     - setuptools_scm
-    - six
 
   run:
     - {{ pin_compatible('arrow-cpp') }}
@@ -38,7 +37,6 @@ requirements:
     # empty parquet-cpp metapackage, force old versions to be uninstalled
     - parquet-cpp 1.5.1.*
     - python
-    - six
     - snappy
 
 test:
