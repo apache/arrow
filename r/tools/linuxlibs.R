@@ -181,9 +181,12 @@ build_libarrow <- function(src_dir, dst_dir) {
   m4 <- ensure_m4()
   flex <- ensure_flex(m4)
   bison <- ensure_bison(m4)
+
+  build_dir <- tempfile()
+  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
   env_vars <- sprintf(
-    "SOURCE_DIR=%s BUILD_DIR=libarrow/build DEST_DIR=%s CMAKE=%s",
-    src_dir,                                dst_dir,    cmake
+    "SOURCE_DIR=%s BUILD_DIR=%s DEST_DIR=%s CMAKE=%s",
+    src_dir,       build_dir,   dst_dir,    cmake
   )
   if (!is.null(flex)) {
     system(paste0(flex, "/flex --version"))

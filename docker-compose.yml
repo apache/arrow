@@ -739,8 +739,6 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH} &&
-        export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH} &&
         /arrow/ci/scripts/r_test.sh /arrow"
 
   r:
@@ -766,8 +764,8 @@ services:
         export NOT_CRAN=true &&
         export LIBARROW_DOWNLOAD=false &&
         export ARROW_HOME="/arrow" &&
-        /arrow/ci/scripts/r_test.sh /arrow &&
-        cat /arrow/r/check/arrow.Rcheck/00install.out"
+        export ARROW_USE_PKG_CONFIG=FALSE &&
+        /arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
     # Only 18.04 and amd64 supported
