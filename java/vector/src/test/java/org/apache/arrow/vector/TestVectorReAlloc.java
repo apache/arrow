@@ -200,6 +200,31 @@ public class TestVectorReAlloc {
   }
 
   @Test
+  public void testLargeVariableAllocateAfterReAlloc() throws Exception {
+    try (final LargeVarCharVector vector = new LargeVarCharVector("", allocator)) {
+      /*
+       * Allocate the default size, and then, reAlloc. This should double the allocation.
+       */
+      vector.allocateNewSafe(); // Initial allocation
+      vector.reAlloc(); // Double the allocation size.
+      int savedValueCapacity = vector.getValueCapacity();
+      long savedValueBufferSize = vector.valueBuffer.capacity();
+
+      /*
+       * Clear and allocate again.
+       */
+      vector.clear();
+      vector.allocateNewSafe();
+
+      /*
+       * Verify that the buffer sizes haven't changed.
+       */
+      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      Assert.assertEquals(vector.valueBuffer.capacity(), savedValueBufferSize);
+    }
+  }
+
+  @Test
   public void testVarCharAllocateNew() throws Exception {
     final int count = 6000;
 
@@ -208,7 +233,20 @@ public class TestVectorReAlloc {
       
       // verify that the validity buffer and value buffer have capacity for atleast 'count' elements.
       Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * VarCharVector.OFFSET_WIDTH);
+      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
+    }
+  }
+
+  @Test
+  public void testLargeVarCharAllocateNew() throws Exception {
+    final int count = 6000;
+
+    try (final LargeVarCharVector vector = new LargeVarCharVector("", allocator)) {
+      vector.allocateNew(count);
+      
+      // verify that the validity buffer and value buffer have capacity for atleast 'count' elements.
+      Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -221,7 +259,20 @@ public class TestVectorReAlloc {
 
       // verify that the validity buffer and value buffer have capacity for atleast 'count' elements.
       Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * VarCharVector.OFFSET_WIDTH);
+      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
+    }
+  }
+
+  @Test
+  public void testLargeVarCharAllocateNewUsingHelper() throws Exception {
+    final int count = 6000;
+
+    try (final LargeVarCharVector vector = new LargeVarCharVector("", allocator)) {
+      AllocationHelper.allocateNew(vector, count);
+
+      // verify that the validity buffer and value buffer have capacity for atleast 'count' elements.
+      Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     }
   }
 

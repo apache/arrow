@@ -94,6 +94,18 @@ public class TestVectorReset {
   }
 
   @Test
+  public void testLargeVariableTypeReset() {
+    try (final LargeVarCharVector vector = new LargeVarCharVector("LargeVarChar", allocator)) {
+      vector.allocateNewSafe();
+      vector.set(0, "a".getBytes(StandardCharsets.UTF_8));
+      vector.setLastSet(0);
+      vector.setValueCount(1);
+      resetVectorAndVerify(vector, vector.getBuffers(false));
+      assertEquals(-1, vector.getLastSet());
+    }
+  }
+
+  @Test
   public void testListTypeReset() {
     try (final ListVector variableList =
            new ListVector("VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
