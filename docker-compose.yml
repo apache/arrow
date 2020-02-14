@@ -757,14 +757,15 @@ services:
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
     shm_size: *shm-size
+    environment:
+      NOT_CRAN: "true"
+      LIBARROW_DOWNLOAD: "false"
+      ARROW_HOME: "/arrow"
+      ARROW_USE_PKG_CONFIG: "FALSE"
     volumes:
       - .:/arrow:delegated
     command: >
       /bin/bash -c "
-        export NOT_CRAN=true &&
-        export LIBARROW_DOWNLOAD=false &&
-        export ARROW_HOME="/arrow" &&
-        export ARROW_USE_PKG_CONFIG=FALSE &&
         /arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
