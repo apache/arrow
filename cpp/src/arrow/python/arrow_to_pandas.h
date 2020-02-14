@@ -68,7 +68,7 @@ struct PandasOptions {
   /// data in a pandas DataFrame or Series (e.g. timestamps are always stored
   /// as nanoseconds in pandas). This option controls whether it is a safe
   /// cast or not.
-  bool safe = true;
+  bool safe_cast = true;
 
   /// \brief If true, create one block per column rather than consolidated
   /// blocks (1 per data type). Do zero-copy wrapping when there are no

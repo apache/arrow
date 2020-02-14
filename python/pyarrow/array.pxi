@@ -577,7 +577,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.date_as_object = options['date_as_object']
     result.use_threads = options['use_threads']
     result.deduplicate_objects = options['deduplicate_objects']
-    result.safe = options['safe']
+    result.safe_cast = options['safe']
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
     return result

@@ -1205,7 +1205,7 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
     int64_t* out_values = this->GetBlockColumnStart(rel_placement);
     compute::FunctionContext ctx(options_.pool);
     compute::CastOptions options;
-    if (options_.safe) {
+    if (options_.safe_cast) {
       options = compute::CastOptions::Safe();
     } else {
       options = compute::CastOptions::Unsafe();
