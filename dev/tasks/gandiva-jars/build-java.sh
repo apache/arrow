@@ -37,6 +37,7 @@ pushd java
 
   if [[ $CHECK_SHARED_DEPENDENCIES ]] ; then
     # exit if any shared library not in whitelisted set is found
+    echo "Checking shared dependencies"
     while read -r line
     do
       found=false
