@@ -37,6 +37,6 @@ export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE
 export VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
 
-${R_BIN} -e "rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')"
+${R_BIN} -e "rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'), error_on = 'warning')"
 
 popd

@@ -63,7 +63,7 @@ jobs:
         run: docker-compose run ubuntu-r
       - name: Dump install logs on failure
         if: failure()
-        run: cat /arrow/r/check/arrow.Rcheck/00install.out
+        run: cat /arrow/r/arrow.Rcheck/00install.out
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -101,7 +101,7 @@ jobs:
         run: docker-compose run r
       - name: Dump install logs on failure
         if: failure()
-        run: cat /arrow/r/check/arrow.Rcheck/00install.out
+        run: cat /arrow/r/arrow.Rcheck/00install.out
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
