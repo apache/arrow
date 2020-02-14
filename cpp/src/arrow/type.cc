@@ -700,6 +700,17 @@ std::vector<int> Schema::GetAllFieldIndices(const std::string& name) const {
   return result;
 }
 
+Status Schema::CanReferenceFieldsByNames(const std::vector<std::string>& names) const {
+  for (const auto& name : names) {
+    if (GetFieldByName(name) == nullptr) {
+      return Status::Invalid("Field named '", name,
+                             "' not found or not unique in the schema.");
+    }
+  }
+
+  return Status::OK();
+}
+
 std::vector<std::shared_ptr<Field>> Schema::GetAllFieldsByName(
     const std::string& name) const {
   std::vector<std::shared_ptr<Field>> result;

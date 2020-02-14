@@ -353,7 +353,9 @@ TEST_F(ExpressionsTest, ImplicitCast) {
   auto set_int32 = ArrayFromJSON(int32(), R"([1, 2, 3])");
   ASSERT_EQ(E{filter}, E{"a"_.In(set_int32)});
 
-  ASSERT_RAISES(Invalid, InsertImplicitCasts("nope"_ == 0.0, *schema_));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Field named 'nope' not found"),
+                                  InsertImplicitCasts("nope"_ == 0.0, *schema_));
 }
 
 TEST_F(FilterTest, ImplicitCast) {
