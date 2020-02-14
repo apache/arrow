@@ -117,6 +117,18 @@ void AppendEnvVarFilename(const char* var_name,
   }
 }
 
+void AppendEnvVarFilename(const char* var_name, const char* suffix,
+                          std::vector<PlatformFilename>* filenames) {
+  auto maybe_env_var = GetEnvVarNative(var_name);
+  if (maybe_env_var.ok()) {
+    auto maybe_env_var_with_suffix =
+        PlatformFilename(std::move(*maybe_env_var)).Join(suffix);
+    if (maybe_env_var_with_suffix.ok()) {
+      filenames->emplace_back(std::move(*maybe_env_var_with_suffix));
+    }
+  }
+}
+
 void InsertEnvVarFilename(const char* var_name,
                           std::vector<PlatformFilename>* filenames) {
   auto maybe_env_var = GetEnvVarNative(var_name);
@@ -142,7 +154,7 @@ Result<std::vector<PlatformFilename>> get_potential_libhdfs_paths() {
   ARROW_ASSIGN_OR_RAISE(auto search_paths, MakeFilenameVector({"", "."}));
 
   // Path from environment variable
-  AppendEnvVarFilename("HADOOP_HOME", &search_paths);
+  AppendEnvVarFilename("HADOOP_HOME", "lib/native", &search_paths);
   AppendEnvVarFilename("ARROW_LIBHDFS_DIR", &search_paths);
 
   // All paths with file name
