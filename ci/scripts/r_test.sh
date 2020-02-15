@@ -45,6 +45,7 @@ ${R_BIN} -e "rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c(
 AFTER=$(ls -alh ~/)
 if [ "$BEFORE" != "$AFTER" ]; then
   ls -alh ~/.cmake
+  ls -alh ~/.cmake/package
   exit 1
 fi
 popd
