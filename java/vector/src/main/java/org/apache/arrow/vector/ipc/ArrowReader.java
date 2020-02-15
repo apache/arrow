@@ -35,7 +35,7 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
-import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.VectorBatchAppender;
 
 /**
  * Abstract class to read Schema and ArrowRecordBatches.
@@ -224,7 +224,8 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     if (dictionaryBatch.isDelta()) {
       FieldVector deltaVector = vector.getField().createVector(allocator);
       load(dictionaryBatch, deltaVector);
-      concatDeltaDictionary(vector, deltaVector);
+      VectorBatchAppender.batchAppend(vector, deltaVector);
+      deltaVector.close();
       return;
     }
 
@@ -241,19 +242,5 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     } finally {
       dictionaryBatch.close();
     }
-  }
-
-  /**
-   * Concat dictionary vector and delta dictionary vector.
-   */
-  private void concatDeltaDictionary(FieldVector vector, FieldVector deltaVector) {
-    final int valueCount = vector.getValueCount();
-    final int deltaValueCount = deltaVector.getValueCount();
-    final TransferPair transferPair = deltaVector.makeTransferPair(vector);
-    for (int i = 0; i < deltaValueCount; i++) {
-      transferPair.copyValueSafe(i, valueCount + i);
-    }
-    deltaVector.close();
-    vector.setValueCount(valueCount + deltaValueCount);
   }
 }
