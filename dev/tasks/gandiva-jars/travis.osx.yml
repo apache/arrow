@@ -55,7 +55,7 @@ script:
   # deploy using crossbow
   # pip install pygit2 fails if MACOS_DEPLOYMENT_TARGET is set to an earlier version. Since the
   # gandiva libraries are already built we can reset MACOS_DEPLOYMENT_TARGET to current osx version
-  - export MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | cut -d '.' -f 1,2)
+  - if [[ $MACOSX_DEPLOYMENT_TARGET ]] ; then export MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | cut -d '.' -f 1,2) ; fi
   - brew install libgit2
   - pip3 install click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz
   - >
