@@ -124,7 +124,6 @@ impl Buffer {
         Buffer::build_with_arguments(ptr, len, capacity, true)
     }
 
-
     /// Creates a buffer from an existing memory region (must already be byte-aligned), this
     /// `Buffer` **does not** free this piece of memory when dropped.
     ///
@@ -156,14 +155,22 @@ impl Buffer {
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes.
-    unsafe fn build_with_arguments(ptr: *const u8, len: usize, capacity: usize, owned: bool) -> Self {
-    /// Creates a buffer from an existing memory region (must already be byte-aligned)
-    pub fn from_raw_parts(ptr: *const u8, len: usize, capacity: usize) -> Self {
+    unsafe fn build_with_arguments(
+        ptr: *const u8,
+        len: usize,
+        capacity: usize,
+        owned: bool,
+    ) -> Self {
         assert!(
             memory::is_aligned(ptr, memory::ALIGNMENT),
             "memory not aligned"
         );
-        let buf_data = BufferData { ptr, len, capacity, owned };
+        let buf_data = BufferData {
+            ptr,
+            len,
+            capacity,
+            owned,
+        };
         Buffer {
             data: Arc::new(buf_data),
             offset: 0,
@@ -257,7 +264,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
             memory::memcpy(buffer, slice.as_ptr(), len);
             Buffer::from_raw_parts(buffer, len, capacity)
         }
-    } 
+    }
 }
 
 ///  Helper function for SIMD `BitAnd` and `BitOr` implementations
