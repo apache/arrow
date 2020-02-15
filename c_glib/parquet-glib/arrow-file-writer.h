@@ -88,7 +88,6 @@ gint64
 gparquet_writer_properties_get_data_page_size(GParquetWriterProperties *properties);
 
 
-
 #define GPARQUET_TYPE_ARROW_FILE_WRITER (gparquet_arrow_file_writer_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetArrowFileWriter,
                          gparquet_arrow_file_writer,
