@@ -90,6 +90,29 @@ garrow_struct_data_type_get_field_index(GArrowStructDataType *struct_data_type,
                                         const gchar *name);
 
 
+#define GARROW_TYPE_MAP_DATA_TYPE (garrow_map_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMapDataType,
+                         garrow_map_data_type,
+                         GARROW,
+                         MAP_DATA_TYPE,
+                         GArrowListDataType)
+struct _GArrowMapDataTypeClass
+{
+  GArrowListDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_1_0
+GArrowMapDataType *
+garrow_map_data_type_new(GArrowDataType *key_type,
+                         GArrowDataType *item_type);
+GARROW_AVAILABLE_IN_1_0
+GArrowDataType *
+garrow_map_data_type_get_key_type(GArrowMapDataType *map_data_type);
+GARROW_AVAILABLE_IN_1_0
+GArrowDataType *
+garrow_map_data_type_get_item_type(GArrowMapDataType *map_data_type);
+
+
 #define GARROW_TYPE_UNION_DATA_TYPE (garrow_union_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowUnionDataType,
                          garrow_union_data_type,
