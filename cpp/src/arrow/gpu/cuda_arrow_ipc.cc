@@ -42,11 +42,16 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace cuda {
 
-Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
-                            std::shared_ptr<CudaBuffer>* out) {
+Result<std::shared_ptr<CudaBuffer>> SerializeRecordBatch(const RecordBatch& batch,
+                                                         CudaContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(auto buf,
                         ipc::SerializeRecordBatch(batch, ctx->memory_manager()));
-  return CudaBuffer::FromBuffer(buf, out);
+  return CudaBuffer::FromBuffer(buf);
+}
+
+Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
+                            std::shared_ptr<CudaBuffer>* out) {
+  return SerializeRecordBatch(batch, ctx).Value(out);
 }
 
 Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
@@ -54,9 +59,9 @@ Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
   return ipc::ReadMessage(reader, pool).Value(out);
 }
 
-Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
-                       const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool,
-                       std::shared_ptr<RecordBatch>* out) {
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const std::shared_ptr<Schema>& schema, const std::shared_ptr<CudaBuffer>& buffer,
+    MemoryPool* pool) {
   CudaBufferReader cuda_reader(buffer);
 
   // The pool is only used for metadata allocation
@@ -67,7 +72,15 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
 
   // Zero-copy read on device memory
   ipc::DictionaryMemo unused_memo;
-  return ipc::ReadRecordBatch(*message, schema, &unused_memo, out);
+  std::shared_ptr<RecordBatch> batch;
+  RETURN_NOT_OK(ipc::ReadRecordBatch(*message, schema, &unused_memo, &batch));
+  return batch;
+}
+
+Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
+                       const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool,
+                       std::shared_ptr<RecordBatch>* out) {
+  return ReadRecordBatch(schema, buffer, pool).Value(out);
 }
 
 }  // namespace cuda

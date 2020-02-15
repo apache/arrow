@@ -65,12 +65,6 @@ void AssertCudaBufferEquals(const Buffer& buffer, Expected&& expected) {
                          std::forward<Expected>(expected));
 }
 
-Result<std::shared_ptr<CudaBuffer>> AsCudaBuffer(const std::shared_ptr<Buffer>& buffer) {
-  std::shared_ptr<CudaBuffer> cuda_buffer;
-  RETURN_NOT_OK(CudaBuffer::FromBuffer(buffer, &cuda_buffer));
-  return cuda_buffer;
-}
-
 class TestCudaBase : public ::testing::Test {
  public:
   void SetUp() {
@@ -182,15 +176,14 @@ TEST_F(TestCudaDevice, Copy) {
   AssertCudaBufferEquals(*other_buffer, "some data");
 
   // device (other context) -> device
-  std::shared_ptr<CudaBuffer> cuda_buffer;
   ASSERT_OK_AND_ASSIGN(auto other_context, NonPrimaryContext());
-  ASSERT_OK(other_context->Allocate(9, &cuda_buffer));
+  ASSERT_OK_AND_ASSIGN(auto cuda_buffer, other_context->Allocate(9));
   ASSERT_OK(cuda_buffer->CopyFromHost(0, "some data", 9));
   ASSERT_OK_AND_ASSIGN(other_buffer, Buffer::Copy(cuda_buffer, mm_));
   ASSERT_EQ(other_buffer->device(), device_);
   AssertCudaBufferEquals(*other_buffer, "some data");
   auto other_handle = cuda_buffer->context()->handle();
-  ASSERT_OK_AND_ASSIGN(cuda_buffer, AsCudaBuffer(other_buffer));
+  ASSERT_OK_AND_ASSIGN(cuda_buffer, CudaBuffer::FromBuffer(other_buffer));
   ASSERT_NE(cuda_buffer->context()->handle(), other_handle);
 
   // device -> other device
@@ -221,12 +214,10 @@ TEST_F(TestCudaContext, NonPrimaryContext) {
 
 TEST_F(TestCudaContext, GetDeviceAddress) {
   const int64_t kSize = 100;
-  std::shared_ptr<CudaBuffer> buffer;
-  ASSERT_OK(context_->Allocate(kSize, &buffer));
-  uint8_t* address = reinterpret_cast<uint8_t*>(buffer->address());
-  uint8_t* devptr = NULL;
-  ASSERT_OK(context_->GetDeviceAddress(address, &devptr));
-  ASSERT_EQ(address, devptr);
+  ASSERT_OK_AND_ASSIGN(auto buffer, context_->Allocate(kSize));
+  // GetDeviceAddress() is idempotent on device addresses
+  ASSERT_OK_AND_ASSIGN(auto devptr, context_->GetDeviceAddress(buffer->address()));
+  ASSERT_EQ(devptr, buffer->address());
 }
 
 // ------------------------------------------------------------------------
@@ -240,7 +231,7 @@ class TestCudaBuffer : public TestCudaBase {
 TEST_F(TestCudaBuffer, Allocate) {
   const int64_t kSize = 100;
   std::shared_ptr<CudaBuffer> buffer;
-  ASSERT_OK(context_->Allocate(kSize, &buffer));
+  ASSERT_OK_AND_ASSIGN(buffer, context_->Allocate(kSize));
   ASSERT_EQ(buffer->device(), context_->device());
   ASSERT_EQ(kSize, buffer->size());
   ASSERT_EQ(kSize, context_->bytes_allocated());
@@ -250,7 +241,7 @@ TEST_F(TestCudaBuffer, Allocate) {
 TEST_F(TestCudaBuffer, CopyFromHost) {
   const int64_t kSize = 1000;
   std::shared_ptr<CudaBuffer> device_buffer;
-  ASSERT_OK(context_->Allocate(kSize, &device_buffer));
+  ASSERT_OK_AND_ASSIGN(device_buffer, context_->Allocate(kSize));
 
   std::shared_ptr<ResizableBuffer> host_buffer;
   ASSERT_OK(MakeRandomByteBuffer(kSize, default_memory_pool(), &host_buffer));
@@ -266,7 +257,7 @@ TEST_F(TestCudaBuffer, FromBuffer) {
   // Initialize device buffer with random data
   std::shared_ptr<ResizableBuffer> host_buffer;
   std::shared_ptr<CudaBuffer> device_buffer;
-  ASSERT_OK(context_->Allocate(kSize, &device_buffer));
+  ASSERT_OK_AND_ASSIGN(device_buffer, context_->Allocate(kSize));
   ASSERT_OK(MakeRandomByteBuffer(kSize, default_memory_pool(), &host_buffer));
   ASSERT_OK(device_buffer->CopyFromHost(0, host_buffer->data(), 1000));
   // Sanity check
@@ -276,21 +267,21 @@ TEST_F(TestCudaBuffer, FromBuffer) {
   std::shared_ptr<Buffer> buffer;
   std::shared_ptr<CudaBuffer> result;
   buffer = std::static_pointer_cast<Buffer>(device_buffer);
-  ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
+  ASSERT_OK_AND_ASSIGN(result, CudaBuffer::FromBuffer(buffer));
   ASSERT_EQ(result->size(), kSize);
   ASSERT_EQ(result->is_mutable(), true);
   ASSERT_EQ(result->address(), buffer->address());
   AssertCudaBufferEquals(*result, *host_buffer);
 
   buffer = SliceBuffer(device_buffer, 0, kSize);
-  ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
+  ASSERT_OK_AND_ASSIGN(result, CudaBuffer::FromBuffer(buffer));
   ASSERT_EQ(result->size(), kSize);
   ASSERT_EQ(result->is_mutable(), false);
   ASSERT_EQ(result->address(), buffer->address());
   AssertCudaBufferEquals(*result, *host_buffer);
 
   buffer = SliceMutableBuffer(device_buffer, 0, kSize);
-  ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
+  ASSERT_OK_AND_ASSIGN(result, CudaBuffer::FromBuffer(buffer));
   ASSERT_EQ(result->size(), kSize);
   ASSERT_EQ(result->is_mutable(), true);
   ASSERT_EQ(result->address(), buffer->address());
@@ -298,7 +289,7 @@ TEST_F(TestCudaBuffer, FromBuffer) {
 
   buffer = SliceMutableBuffer(device_buffer, 3, kSize - 10);
   buffer = SliceMutableBuffer(buffer, 8, kSize - 20);
-  ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
+  ASSERT_OK_AND_ASSIGN(result, CudaBuffer::FromBuffer(buffer));
   ASSERT_EQ(result->size(), kSize - 20);
   ASSERT_EQ(result->is_mutable(), true);
   ASSERT_EQ(result->address(), buffer->address());
@@ -312,7 +303,7 @@ TEST_F(TestCudaBuffer, DISABLED_ExportForIpc) {
   // For this test to work, a second process needs to be spawned
   const int64_t kSize = 1000;
   std::shared_ptr<CudaBuffer> device_buffer;
-  ASSERT_OK(context_->Allocate(kSize, &device_buffer));
+  ASSERT_OK_AND_ASSIGN(device_buffer, context_->Allocate(kSize));
 
   std::shared_ptr<ResizableBuffer> host_buffer;
   ASSERT_OK(MakeRandomByteBuffer(kSize, default_memory_pool(), &host_buffer));
@@ -320,17 +311,18 @@ TEST_F(TestCudaBuffer, DISABLED_ExportForIpc) {
 
   // Export for IPC and serialize
   std::shared_ptr<CudaIpcMemHandle> ipc_handle;
-  ASSERT_OK(device_buffer->ExportForIpc(&ipc_handle));
+  ASSERT_OK_AND_ASSIGN(ipc_handle, device_buffer->ExportForIpc());
 
   std::shared_ptr<Buffer> serialized_handle;
-  ASSERT_OK(ipc_handle->Serialize(default_memory_pool(), &serialized_handle));
+  ASSERT_OK_AND_ASSIGN(serialized_handle, ipc_handle->Serialize());
 
   // Deserialize IPC handle and open
   std::shared_ptr<CudaIpcMemHandle> ipc_handle2;
-  ASSERT_OK(CudaIpcMemHandle::FromBuffer(serialized_handle->data(), &ipc_handle2));
+  ASSERT_OK_AND_ASSIGN(ipc_handle2,
+                       CudaIpcMemHandle::FromBuffer(serialized_handle->data()));
 
   std::shared_ptr<CudaBuffer> ipc_buffer;
-  ASSERT_OK(context_->OpenIpcBuffer(*ipc_handle2, &ipc_buffer));
+  ASSERT_OK_AND_ASSIGN(ipc_buffer, context_->OpenIpcBuffer(*ipc_handle2));
 
   ASSERT_EQ(kSize, ipc_buffer->size());
 
@@ -352,7 +344,7 @@ class TestCudaHostBuffer : public TestCudaBase {
 TEST_F(TestCudaHostBuffer, AllocateGlobal) {
   // Allocation using the global AllocateCudaHostBuffer() function
   std::shared_ptr<CudaHostBuffer> host_buffer;
-  ASSERT_OK(AllocateCudaHostBuffer(kGpuNumber, 1024, &host_buffer));
+  ASSERT_OK_AND_ASSIGN(host_buffer, AllocateCudaHostBuffer(kGpuNumber, 1024));
 
   ASSERT_TRUE(host_buffer->is_cpu());
   ASSERT_EQ(host_buffer->memory_manager(), cpu_mm_);
@@ -395,7 +387,7 @@ class TestCudaBufferWriter : public TestCudaBase {
   void SetUp() { TestCudaBase::SetUp(); }
 
   void Allocate(const int64_t size) {
-    ASSERT_OK(context_->Allocate(size, &device_buffer_));
+    ASSERT_OK_AND_ASSIGN(device_buffer_, context_->Allocate(size));
     writer_.reset(new CudaBufferWriter(device_buffer_));
   }
 
@@ -499,7 +491,7 @@ TEST_F(TestCudaBufferReader, Basics) {
   std::shared_ptr<CudaBuffer> device_buffer;
 
   const int64_t size = 1000;
-  ASSERT_OK(context_->Allocate(size, &device_buffer));
+  ASSERT_OK_AND_ASSIGN(device_buffer, context_->Allocate(size));
 
   std::shared_ptr<ResizableBuffer> buffer;
   ASSERT_OK(MakeRandomByteBuffer(1000, default_memory_pool(), &buffer));
@@ -568,12 +560,11 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch));
 
   std::shared_ptr<CudaBuffer> device_serialized;
-  ASSERT_OK(SerializeRecordBatch(*batch, context_.get(), &device_serialized));
+  ASSERT_OK_AND_ASSIGN(device_serialized, SerializeRecordBatch(*batch, context_.get()));
 
   // Test that ReadRecordBatch works properly
   std::shared_ptr<RecordBatch> device_batch;
-  ASSERT_OK(ReadRecordBatch(batch->schema(), device_serialized, default_memory_pool(),
-                            &device_batch));
+  ASSERT_OK_AND_ASSIGN(device_batch, ReadRecordBatch(batch->schema(), device_serialized));
 
   // Copy data from device, read batch, and compare
   std::shared_ptr<Buffer> host_buffer;

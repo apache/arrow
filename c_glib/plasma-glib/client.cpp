@@ -539,22 +539,19 @@ gplasma_client_refer_object(GPlasmaClient *client,
     metadata = garrow_buffer_new_raw(&plasma_metadata);
   } else {
 #ifdef HAVE_ARROW_CUDA
-    std::shared_ptr<arrow::cuda::CudaBuffer> plasma_cuda_data;
-    status = arrow::cuda::CudaBuffer::FromBuffer(plasma_data,
-                                                 &plasma_cuda_data);
-    if (!garrow_error_check(error, status, context)) {
+    auto plasma_cuda_data = arrow::cuda::CudaBuffer::FromBuffer(plasma_data);
+    if (!garrow::check(error, plasma_cuda_data, context)) {
       return NULL;
     }
-    std::shared_ptr<arrow::cuda::CudaBuffer> plasma_cuda_metadata;
-    status = arrow::cuda::CudaBuffer::FromBuffer(plasma_metadata,
-                                                 &plasma_cuda_metadata);
-    if (!garrow_error_check(error, status, context)) {
+    auto plasma_cuda_metadata =
+      arrow::cuda::CudaBuffer::FromBuffer(plasma_metadata);
+    if (!garrow::check(error, plasma_cuda_metadata, context)) {
       return NULL;
     }
 
-    data = GARROW_BUFFER(garrow_cuda_buffer_new_raw(&plasma_cuda_data));
+    data = GARROW_BUFFER(garrow_cuda_buffer_new_raw(&(*plasma_cuda_data)));
     metadata =
-      GARROW_BUFFER(garrow_cuda_buffer_new_raw(&plasma_cuda_metadata));
+      GARROW_BUFFER(garrow_cuda_buffer_new_raw(&(*plasma_cuda_metadata)));
 #else
     g_set_error(error,
                 GARROW_ERROR,

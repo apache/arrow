@@ -22,7 +22,7 @@
 #include <memory>
 
 #include "arrow/buffer.h"
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 #include "arrow/gpu/cuda_memory.h"
@@ -44,13 +44,20 @@ namespace cuda {
 /// \brief Write record batch message to GPU device memory
 /// \param[in] batch record batch to write
 /// \param[in] ctx CudaContext to allocate device memory from
+/// \return CudaBuffer or Status
+ARROW_EXPORT
+Result<std::shared_ptr<CudaBuffer>> SerializeRecordBatch(const RecordBatch& batch,
+                                                         CudaContext* ctx);
+
+/// \brief Write record batch message to GPU device memory
+/// \param[in] batch record batch to write
+/// \param[in] ctx CudaContext to allocate device memory from
 /// \param[out] out the returned device buffer which contains the record batch message
 /// \return Status
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
                             std::shared_ptr<CudaBuffer>* out);
-
-// TODO deprecate for ipc::ReadMessage()?
 
 /// \brief Read Arrow IPC message located on GPU device
 /// \param[in] reader a CudaBufferReader
@@ -59,6 +66,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
 ///
 /// This function reads the message metadata into host memory, but leaves the
 /// message body on the device
+ARROW_DEPRECATED("Use arrow::ipc::ReadMessage")
 ARROW_EXPORT
 Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
                    std::unique_ptr<ipc::Message>* message);
@@ -67,7 +75,18 @@ Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
 /// \param[in] schema the Schema for the record batch
 /// \param[in] buffer a CudaBuffer containing the complete IPC message
 /// \param[in] pool a MemoryPool to use for allocating space for the metadata
+/// \return RecordBatch or Status
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const std::shared_ptr<Schema>& schema, const std::shared_ptr<CudaBuffer>& buffer,
+    MemoryPool* pool = default_memory_pool());
+
+/// \brief ReadRecordBatch specialized to handle metadata on CUDA device
+/// \param[in] schema the Schema for the record batch
+/// \param[in] buffer a CudaBuffer containing the complete IPC message
+/// \param[in] pool a MemoryPool to use for allocating space for the metadata
 /// \param[out] out the reconstructed RecordBatch, with device pointers
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
                        const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool,

@@ -341,7 +341,9 @@ PlasmaBuffer::~PlasmaBuffer() { ARROW_UNUSED(client_->Release(object_id_)); }
 
 PlasmaClient::Impl::Impl() : store_conn_(0), store_capacity_(0) {
 #ifdef PLASMA_CUDA
-  DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
+  auto maybe_manager = CudaDeviceManager::Instance();
+  DCHECK_OK(maybe_manager.status());
+  manager_ = *maybe_manager;
 #endif
 }
 
@@ -450,10 +452,10 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
   } else {
 #ifdef PLASMA_CUDA
     std::shared_ptr<CudaContext> context;
-    RETURN_NOT_OK(manager_->GetContext(device_num - 1, &context));
+    ARROW_ASSIGN_OR_RAISE(context, manager_->GetContext(device_num - 1));
     GpuProcessHandle* handle = new GpuProcessHandle();
     handle->client_count = 2;
-    RETURN_NOT_OK(context->OpenIpcBuffer(*object.ipc_handle, &handle->ptr));
+    ARROW_ASSIGN_OR_RAISE(handle->ptr, context->OpenIpcBuffer(*object.ipc_handle));
     {
       std::lock_guard<std::mutex> lock(gpu_mutex);
       gpu_object_map[object_id] = handle;
@@ -632,10 +634,11 @@ Status PlasmaClient::Impl::GetBuffers(
         auto iter = gpu_object_map.find(object_ids[i]);
         if (iter == gpu_object_map.end()) {
           std::shared_ptr<CudaContext> context;
-          RETURN_NOT_OK(manager_->GetContext(object->device_num - 1, &context));
+          ARROW_ASSIGN_OR_RAISE(context, manager_->GetContext(object->device_num - 1));
           GpuProcessHandle* obj_handle = new GpuProcessHandle();
           obj_handle->client_count = 1;
-          RETURN_NOT_OK(context->OpenIpcBuffer(*object->ipc_handle, &obj_handle->ptr));
+          ARROW_ASSIGN_OR_RAISE(obj_handle->ptr,
+                                context->OpenIpcBuffer(*object->ipc_handle));
           gpu_object_map[object_ids[i]] = obj_handle;
           physical_buf = MakeBufferFromGpuProcessHandle(obj_handle);
         } else {

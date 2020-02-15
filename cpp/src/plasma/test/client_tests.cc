@@ -879,7 +879,7 @@ void AssertCudaRead(const std::shared_ptr<Buffer>& buffer,
   std::shared_ptr<CudaBuffer> gpu_buffer;
   const size_t data_size = expected_data.size();
 
-  ARROW_CHECK_OK(CudaBuffer::FromBuffer(buffer, &gpu_buffer));
+  ASSERT_OK_AND_ASSIGN(gpu_buffer, CudaBuffer::FromBuffer(buffer));
   ASSERT_EQ(gpu_buffer->size(), data_size);
 
   CudaBufferReader reader(gpu_buffer);
@@ -912,7 +912,7 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   std::shared_ptr<CudaBuffer> gpu_buffer;
   ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size,
                                 &data_buffer, kGpuDeviceNumber));
-  ARROW_CHECK_OK(CudaBuffer::FromBuffer(data_buffer, &gpu_buffer));
+  ASSERT_OK_AND_ASSIGN(gpu_buffer, CudaBuffer::FromBuffer(data_buffer));
   CudaBufferWriter writer(gpu_buffer);
   ARROW_CHECK_OK(writer.Write(data, data_size));
   ARROW_CHECK_OK(client_.Seal(object_id));
