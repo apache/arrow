@@ -66,8 +66,7 @@ public class OrcStripeReader extends ArrowReader {
               new OrcReferenceManager(buffer),
               null,
               (int) buffer.getSize(),
-              buffer.getMemoryAddress(),
-              false));
+              buffer.getMemoryAddress()));
     }
 
     loadRecordBatch(new ArrowRecordBatch(
