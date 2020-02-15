@@ -232,8 +232,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
             this,
             null,
             length, // length (in bytes) in the underlying memory chunk for this new ArrowBuf
-            derivedBufferAddress, // starting byte address in the underlying memory for this new ArrowBuf,
-            false);
+            derivedBufferAddress // starting byte address in the underlying memory for this new ArrowBuf
+            );
 
     // logging
     if (BaseAllocator.DEBUG) {
@@ -271,7 +271,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     final long startAddress = allocationManager.memoryAddress();
 
     // create ArrowBuf
-    final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress, false);
+    final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress);
 
     // logging
     if (BaseAllocator.DEBUG) {
@@ -308,9 +308,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    */
   @Override
   public ArrowBuf retain(final ArrowBuf srcBuffer, BufferAllocator target) {
-    if (srcBuffer.isEmpty()) {
-      return srcBuffer;
-    }
 
     if (BaseAllocator.DEBUG) {
       historicalLog.recordEvent("retain(%s)", target.getName());
@@ -410,9 +407,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    */
   @Override
   public TransferResult transferOwnership(final ArrowBuf srcBuffer, final BufferAllocator target) {
-    if (srcBuffer.isEmpty()) {
-      return new TransferResult(true, srcBuffer);
-    }
     // the call to associate will return the corresponding reference manager (buffer ledger) for
     // the target allocator. if the allocation manager didn't already have a mapping
     // for the target allocator, it will create one and return the new reference manager with a

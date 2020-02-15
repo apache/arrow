@@ -70,7 +70,6 @@ public final class ArrowBuf implements AutoCloseable {
   private final ReferenceManager referenceManager;
   private final BufferManager bufferManager;
   private final long addr;
-  private final boolean isEmpty;
   private long readerIndex;
   private long writerIndex;
   private final HistoricalLog historicalLog = BaseAllocator.DEBUG ?
@@ -82,17 +81,14 @@ public final class ArrowBuf implements AutoCloseable {
    *
    * @param referenceManager The memory manager to track memory usage and reference count of this buffer
    * @param length The  byte length of this buffer
-   * @param isEmpty  Indicates if this buffer is empty which enables some optimizations.
    */
   public ArrowBuf(
       final ReferenceManager referenceManager,
       final BufferManager bufferManager,
       final long length,
-      final long memoryAddress,
-      boolean isEmpty) {
+      final long memoryAddress) {
     this.referenceManager = referenceManager;
     this.bufferManager = bufferManager;
-    this.isEmpty = isEmpty;
     this.addr = memoryAddress;
     this.length = length;
     this.readerIndex = 0;
@@ -103,7 +99,7 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   public int refCnt() {
-    return isEmpty ? 1 : referenceManager.getRefCount();
+    return referenceManager.getRefCount();
   }
 
   /**
@@ -140,7 +136,7 @@ public final class ArrowBuf implements AutoCloseable {
 
     final NettyArrowBuf nettyArrowBuf = new NettyArrowBuf(
             this,
-            isEmpty ? null : referenceManager.getAllocator().getAsByteBufAllocator(),
+            referenceManager.getAllocator().getAsByteBufAllocator(),
             checkedCastToInt(length));
     nettyArrowBuf.readerIndex(checkedCastToInt(readerIndex));
     nettyArrowBuf.writerIndex(checkedCastToInt(writerIndex));
@@ -153,10 +149,6 @@ public final class ArrowBuf implements AutoCloseable {
    */
   public ReferenceManager getReferenceManager() {
     return referenceManager;
-  }
-
-  public boolean isEmpty() {
-    return isEmpty;
   }
 
   public long capacity() {
@@ -218,9 +210,6 @@ public final class ArrowBuf implements AutoCloseable {
    *  Returns a slice (view) starting at <code>index</code> with the given <code>length</code>.
    */
   public ArrowBuf slice(long index, long length) {
-    if (isEmpty) {
-      return this;
-    }
 
     Preconditions.checkPositionIndex(index, this.length);
     Preconditions.checkPositionIndex(index + length, this.length);
@@ -236,11 +225,11 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   public ByteBuffer nioBuffer() {
-    return isEmpty ? ByteBuffer.allocateDirect(0) : asNettyBuffer().nioBuffer();
+    return asNettyBuffer().nioBuffer();
   }
 
   public ByteBuffer nioBuffer(long index, int length) {
-    return isEmpty ? ByteBuffer.allocateDirect(0) : asNettyBuffer().nioBuffer(index, length);
+    return asNettyBuffer().nioBuffer(index, length);
   }
 
   public long memoryAddress() {
@@ -1056,7 +1045,7 @@ public final class ArrowBuf implements AutoCloseable {
    * @return Size in bytes.
    */
   public long getPossibleMemoryConsumed() {
-    return isEmpty ? 0 : referenceManager.getSize();
+    return referenceManager.getSize();
   }
 
   /**
@@ -1065,7 +1054,7 @@ public final class ArrowBuf implements AutoCloseable {
    * @return Size in bytes.
    */
   public long getActualMemoryConsumed() {
-    return isEmpty ? 0 : referenceManager.getAccountedSize();
+    return referenceManager.getAccountedSize();
   }
 
   /**
@@ -1114,7 +1103,7 @@ public final class ArrowBuf implements AutoCloseable {
   public void print(StringBuilder sb, int indent, Verbosity verbosity) {
     BaseAllocator.indent(sb, indent).append(toString());
 
-    if (BaseAllocator.DEBUG && !isEmpty && verbosity.includeHistoricalLog) {
+    if (BaseAllocator.DEBUG && verbosity.includeHistoricalLog) {
       sb.append("\n");
       historicalLog.buildHistory(sb, indent + 1, verbosity.includeStackTraces);
     }
