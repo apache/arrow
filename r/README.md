@@ -108,7 +108,7 @@ or if you can’t get a binary version of the latest C++ library
 elsewhere, you’ll need to build it from source too.
 
 First, install the C++ library. See the [developer
-guide](https://arrow.apache.org/docs/developers/index.html) for details.
+guide](https://arrow.apache.org/docs/developers/cpp/building.html) for details.
 
 Note that after any change to the C++ library, you must reinstall it and
 run `make clean` or `git clean -fdx .` to remove any cached object code
@@ -153,7 +153,7 @@ libraries and want to upgrade the R package, you’ll need to update the
 Arrow C++ library first.
 
 For any other build/configuration challenges, see the [C++ developer
-guide](https://arrow.apache.org/docs/developers/cpp.html#building) and
+guide](https://arrow.apache.org/docs/developers/cpp/building.html) and
 `vignette("install", package = "arrow")`.
 
 ### Editing Rcpp code

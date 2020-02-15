@@ -19,11 +19,12 @@
 
 # arrow 0.16.0.9000
 
-
-* `write_feather`, `write_arrow` and `write_parquet` now return their input
-similar to `write_*` functions from `readr` (#6387, @boshek)
-* Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types.
+* `install_arrow()` now installs the latest release of `arrow`, including Linux dependencies, either for CRAN releases or for development builds (if `nightly = TRUE`)
+* Package installation on Linux no longer downloads C++ dependencies unless the `LIBARROW_DOWNLOAD` or `NOT_CRAN` enviroment variable is set
+* `write_feather()`, `write_arrow()` and `write_parquet()` now return their input,
+similar to the `write_*` functions in the `readr` package (#6387, @boshek)
 * Can now infer the type of an R `list` and create a ListArray when all list elements are the same type (#6275, @michaelchirico)
+* Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types.
 
 # arrow 0.16.0
 

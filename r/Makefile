@@ -37,6 +37,10 @@ check: build
 	-export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE && export ARROW_R_DEV=$(ARROW_R_DEV) && export _R_CHECK_TESTS_NLINES_=0 && R CMD check --as-cran --run-donttest arrow_$(VERSION).tar.gz
 	rm -rf arrow.Rcheck/
 
+release: build
+	-export _R_CHECK_TESTS_NLINES_=0 && R CMD check --as-cran --run-donttest arrow_$(VERSION).tar.gz
+	rm -rf arrow.Rcheck/
+
 clean:
 	-rm src/*.o
 	-rm src/*.so

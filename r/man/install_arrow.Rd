@@ -6,8 +6,8 @@
 \usage{
 install_arrow(
   nightly = FALSE,
-  binary = TRUE,
-  use_system = FALSE,
+  binary = Sys.getenv("LIBARROW_BINARY", TRUE),
+  use_system = Sys.getenv("ARROW_USE_PKG_CONFIG", FALSE),
   repos = getOption("repos"),
   ...
 )
