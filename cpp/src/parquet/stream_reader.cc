@@ -17,11 +17,30 @@
 
 #include "parquet/stream_reader.h"
 
+#include <set>
 #include <utility>
 
 namespace parquet {
 
 constexpr int64_t StreamReader::kBatchSizeOne;
+
+// The converted type expected by the stream reader does not always
+// exactly match with the schema in the Parquet file.  The following
+// is a list of converted types which are allowed instead of the
+// expected converted type.
+// Each pair given is:
+//   {<StreamReader expected type>, <Parquet file converted type>}
+// So for example {ConvertedType::INT_32, ConvertedType::NONE} means
+// that if the StreamReader was expecting the converted type INT_32,
+// then it will allow the Parquet file to use the converted type
+// NONE.
+//
+static const std::set<std::pair<ConvertedType::type, ConvertedType::type> >
+    converted_type_exceptions = {{ConvertedType::INT_32, ConvertedType::NONE},
+                                 {ConvertedType::INT_64, ConvertedType::NONE},
+                                 {ConvertedType::INT_32, ConvertedType::DECIMAL},
+                                 {ConvertedType::INT_64, ConvertedType::DECIMAL},
+                                 {ConvertedType::UTF8, ConvertedType::NONE}};
 
 StreamReader::StreamReader(std::unique_ptr<ParquetFileReader> reader)
     : file_reader_{std::move(reader)}, eof_{false} {
@@ -439,6 +458,8 @@ void StreamReader::SkipRowsInColumn(ColumnReader* reader, int64_t num_rows_to_sk
       num_skipped = static_cast<DoubleReader*>(reader)->Skip(num_rows_to_skip);
       break;
     case Type::INT96:
+      num_skipped = static_cast<Int96Reader*>(reader)->Skip(num_rows_to_skip);
+      break;
     case Type::UNDEFINED:
       throw ParquetException("Unexpected type: " + TypeToString(reader->type()));
       break;
@@ -468,10 +489,15 @@ void StreamReader::CheckColumn(Type::type physical_type,
                            "' not '" + TypeToString(physical_type) + "'");
   }
   if (converted_type != node->converted_type()) {
-    throw ParquetException("Column converted type mismatch.  Column '" + node->name() +
-                           "' has converted type '" +
-                           ConvertedTypeToString(node->converted_type()) + "' not '" +
-                           ConvertedTypeToString(converted_type) + "'");
+    // The converted type does not always match with the value
+    // provided so check the set of exceptions.
+    if (converted_type_exceptions.find({converted_type, node->converted_type()}) ==
+        converted_type_exceptions.end()) {
+      throw ParquetException("Column converted type mismatch.  Column '" + node->name() +
+                             "' has converted type '" +
+                             ConvertedTypeToString(node->converted_type()) + "' not '" +
+                             ConvertedTypeToString(converted_type) + "'");
+    }
   }
   // Length must be exact.
   if (length != node->type_length()) {
@@ -479,7 +505,7 @@ void StreamReader::CheckColumn(Type::type physical_type,
                            "' has length " + std::to_string(node->type_length()) +
                            "] not " + std::to_string(length));
   }
-}
+}  // namespace parquet
 
 void StreamReader::ThrowReadFailedException(
     const std::shared_ptr<schema::PrimitiveNode>& node) {
