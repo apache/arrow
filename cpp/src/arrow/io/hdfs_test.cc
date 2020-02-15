@@ -107,14 +107,23 @@ class TestHadoopFileSystem : public ::testing::Test {
     if (DRIVER::type == HdfsDriver::LIBHDFS) {
       msg = ConnectLibHdfs(&driver_shim);
       if (!msg.ok()) {
-        std::cout << "Loading libhdfs failed, skipping tests gracefully" << std::endl;
+        if (std::getenv("ARROW_HDFS_TEST_LIBHDFS_REQUIRE")) {
+          FAIL() << "Loading libhdfs failed: " << msg.ToString();
+        } else {
+          std::cout << "Loading libhdfs failed, skipping tests gracefully: "
+                    << msg.ToString() << std::endl;
+        }
         return;
       }
     } else {
       msg = ConnectLibHdfs3(&driver_shim);
       if (!msg.ok()) {
-        std::cout << "Loading libhdfs3 failed, skipping tests gracefully. "
-                  << msg.ToString() << std::endl;
+        if (std::getenv("ARROW_HDFS_TEST_LIBHDFS3_REQUIRE")) {
+          FAIL() << "Loading libhdfs3 failed: " << msg.ToString();
+        } else {
+          std::cout << "Loading libhdfs3 failed, skipping tests gracefully: "
+                    << msg.ToString() << std::endl;
+        }
         return;
       }
     }

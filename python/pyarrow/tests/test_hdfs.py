@@ -384,7 +384,11 @@ class TestLibHdfs(HdfsTestCases, unittest.TestCase):
     @classmethod
     def check_driver(cls):
         if not pa.have_libhdfs():
-            pytest.skip('No libhdfs available on system')
+            message = 'No libhdfs available on system'
+            if os.environ.get('PYARROW_HDFS_TEST_LIBHDFS_REQUIRE'):
+                pytest.fail(message)
+            else:
+                pytest.skip(message)
 
     def test_orphaned_file(self):
         hdfs = hdfs_test_client()
@@ -403,7 +407,11 @@ class TestLibHdfs3(HdfsTestCases, unittest.TestCase):
     @classmethod
     def check_driver(cls):
         if not pa.have_libhdfs3():
-            pytest.skip('No libhdfs3 available on system')
+            message = 'No libhdfs3 available on system'
+            if os.environ.get('PYARROW_HDFS_TEST_LIBHDFS3_REQUIRE'):
+                pytest.fail(message)
+            else:
+                pytest.skip(message)
 
 
 def _get_hdfs_uri(path):
