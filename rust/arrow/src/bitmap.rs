@@ -24,7 +24,7 @@ use crate::util::bit_util;
 
 use std::ops::{BitAnd, BitOr};
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Bitmap {
     pub(crate) bits: Buffer,
 }
@@ -84,6 +84,19 @@ impl<'a, 'b> BitOr<&'b Bitmap> for &'a Bitmap {
 impl From<Buffer> for Bitmap {
     fn from(buf: Buffer) -> Self {
         Self { bits: buf }
+    }
+}
+
+impl PartialEq for Bitmap {
+    fn eq(&self, other: &Self) -> bool {
+        // buffer equality considers capacity, but here we want to only compare
+        // actual data contents
+        let self_len = self.bits.len();
+        let other_len = other.bits.len();
+        if self_len != other_len {
+            return false;
+        }
+        &self.bits.data()[..self_len] == &other.bits.data()[..self_len]
     }
 }
 
