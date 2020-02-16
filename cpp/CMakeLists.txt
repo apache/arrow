@@ -670,9 +670,9 @@ if(ARROW_ORC)
 endif()
 
 if(ARROW_USE_GLOG)
-  list(APPEND ARROW_LINK_LIBS GLOG::glog)
-  list(APPEND ARROW_STATIC_LINK_LIBS GLOG::glog)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS GLOG::glog)
+  list(APPEND ARROW_LINK_LIBS glog::glog)
+  list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
   add_definitions("-DARROW_USE_GLOG")
 endif()
 
@@ -707,9 +707,9 @@ if(NOT MSVC)
 endif()
 
 set(ARROW_TEST_LINK_TOOLCHAIN
-    GTest::Main
-    GTest::GTest
-    GTest::GMock
+    GTest::gtest_main
+    GTest::gtest
+    GTest::gmock
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_SYSTEM_LIBRARY})
 

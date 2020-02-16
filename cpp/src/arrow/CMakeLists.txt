@@ -457,7 +457,7 @@ if(ARROW_BUILD_TESTS
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
                 arrow_shared
-                GTest::GTest
+                GTest::gtest
                 STATIC_LINK_LIBS
                 arrow_static)
 

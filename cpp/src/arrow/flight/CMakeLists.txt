@@ -121,7 +121,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
                 SOURCES
                 test_util.cc
                 DEPENDENCIES
-                GTest::GTest
+                GTest::gtest
                 flight_grpc_gen
                 arrow_dependencies
                 SHARED_LINK_LIBS
@@ -130,7 +130,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
                 arrow_testing_shared
                 ${BOOST_FILESYSTEM_LIBRARY}
                 ${BOOST_SYSTEM_LIBRARY}
-                GTest::GTest
+                GTest::gtest
                 STATIC_LINK_LIBS
                 arrow_static
                 arrow_flight_static
@@ -151,7 +151,7 @@ add_arrow_test(flight_test
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_executable(flight-test-server test_server.cc)
   target_link_libraries(flight-test-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::GTest)
+                        ${GFLAGS_LIBRARIES} GTest::gtest)
 
   if(ARROW_BUILD_TESTS)
     add_dependencies(arrow-flight-test flight-test-server)
@@ -163,11 +163,11 @@ endif()
 if(ARROW_BUILD_INTEGRATION)
   add_executable(flight-test-integration-server test_integration_server.cc)
   target_link_libraries(flight-test-integration-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::GTest)
+                        ${GFLAGS_LIBRARIES} GTest::gtest)
 
   add_executable(flight-test-integration-client test_integration_client.cc)
   target_link_libraries(flight-test-integration-client ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::GTest)
+                        ${GFLAGS_LIBRARIES} GTest::gtest)
 
   add_dependencies(arrow_flight flight-test-integration-client
                    flight-test-integration-server)
@@ -187,11 +187,11 @@ if(ARROW_BUILD_BENCHMARKS)
 
   add_executable(arrow-flight-perf-server perf_server.cc perf.pb.cc)
   target_link_libraries(arrow-flight-perf-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::GTest)
+                        ${GFLAGS_LIBRARIES} GTest::gtest)
 
   add_executable(arrow-flight-benchmark flight_benchmark.cc perf.pb.cc)
   target_link_libraries(arrow-flight-benchmark ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::GTest)
+                        ${GFLAGS_LIBRARIES} GTest::gtest)
 
   add_dependencies(arrow-flight-benchmark arrow-flight-perf-server)
 

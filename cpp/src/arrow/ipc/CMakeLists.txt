@@ -32,7 +32,7 @@ if(ARROW_BUILD_TESTS)
 elseif(ARROW_BUILD_INTEGRATION)
   add_executable(arrow-json-integration-test json_integration_test.cc)
   target_link_libraries(arrow-json-integration-test ${ARROW_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::GTest)
+                        ${GFLAGS_LIBRARIES} GTest::gtest)
 
   add_dependencies(arrow-json-integration-test arrow arrow_testing)
   add_dependencies(arrow-integration arrow-json-integration-test)

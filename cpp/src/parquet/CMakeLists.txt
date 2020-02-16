@@ -136,7 +136,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_L
   list(APPEND PARQUET_BOOST_LINK_LIBS ${BOOST_REGEX_LIBRARY})
 endif()
 
-set(PARQUET_MIN_TEST_LIBS GTest::Main GTest::GTest)
+set(PARQUET_MIN_TEST_LIBS GTest::gtest_main GTest::gtest)
 
 if(APPLE)
   set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
@@ -145,7 +145,7 @@ elseif(NOT MSVC)
 endif()
 
 set(PARQUET_SHARED_TEST_LINK_LIBS arrow_testing_shared ${PARQUET_MIN_TEST_LIBS}
-                                  parquet_shared Thrift::thrift)
+                                  parquet_shared thrift::thrift)
 
 set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static
                                   ${ARROW_LIBRARIES_FOR_STATIC_TESTS})
@@ -177,7 +177,7 @@ add_custom_command(OUTPUT ${THRIFT_OUTPUT_FILES}
                            -out
                            ${THRIFT_OUTPUT_DIR}
                            ${CMAKE_CURRENT_SOURCE_DIR}/parquet.thrift
-                   DEPENDS ${ABS_PARQUET_THRIFT} Thrift::thrift
+                   DEPENDS ${ABS_PARQUET_THRIFT} thrift::thrift
                    COMMENT "Running thrift compiler on parquet.thrift"
                    VERBATIM)
 
@@ -229,12 +229,12 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
 
   # These are libraries that we will link privately with parquet_shared (as they
   # do not need to be linked transitively by other linkers)
-  set(PARQUET_SHARED_PRIVATE_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS} Thrift::thrift)
+  set(PARQUET_SHARED_PRIVATE_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS} thrift::thrift)
 
   # Link publicly with parquet_static (because internal users need to
   # transitively link all dependencies)
   set(PARQUET_STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS} ${PARQUET_BOOST_LINK_LIBS}
-                               Thrift::thrift)
+                               thrift::thrift)
 
   # Although we don't link parquet_objlib against anything, we need it to depend
   # on these libs as we may generate their headers via ExternalProject_Add
