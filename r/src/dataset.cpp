@@ -20,6 +20,7 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 using Rcpp::List_;
+using Rcpp::String;
 
 // [[arrow::export]]
 std::shared_ptr<ds::SourceFactory> dataset___FSSFactory__Make2(
@@ -68,18 +69,23 @@ std::string dataset___FileFormat__type_name(
 // [[arrow::export]]
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(List_ options) {
   auto fmt = ds::ParquetFileFormat::Make();
-  if (options.containsElementNamed("use_buffered_stream")) {
-    fmt->use_buffered_stream = options["use_buffered_stream"];
-  }
-  if (options.containsElementNamed("buffer_size")) {
-    fmt->buffer_size = options["buffer_size"];
-  }
-  if (options.containsElementNamed("read_dict_indices")) {
-    List_ indices = options["read_dict_indices"];
-    fmt->read_dict_indices.insert(indices.begin(), indices.end());
-  }
-  if (options.containsElementNamed("batch_size")) {
-    fmt->batch_size = options["batch_size"];
+  if (options.containsElementNamed("reader_options")) {
+    List_ reader_options = options["reader_options"];
+    if (reader_options.containsElementNamed("use_buffered_stream")) {
+      fmt->reader_options.use_buffered_stream = reader_options["use_buffered_stream"];
+    }
+    if (reader_options.containsElementNamed("buffer_size")) {
+      fmt->reader_options.buffer_size = reader_options["buffer_size"];
+    }
+    if (reader_options.containsElementNamed("dict_columns")) {
+      List_ dict_columns = reader_options["dict_columns"];
+      for (String name : dict_columns) {
+        fmt->reader_options.dict_columns.insert(name);
+      }
+    }
+    if (reader_options.containsElementNamed("batch_size")) {
+      fmt->reader_options.batch_size = reader_options["batch_size"];
+    }
   }
   return fmt;
 }

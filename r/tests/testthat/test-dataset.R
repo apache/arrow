@@ -98,9 +98,10 @@ test_that("Simple interface for datasets", {
 })
 
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
+  reader_options = list(dict_indices = 0, use_buffered_stream = TRUE)
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
-                     format = FileFormat$create("parquet", read_dict_indices = 0,
-                                                use_buffered_stream = TRUE))
+                     format = FileFormat$create("parquet",
+                                                reader_options=reader_options))
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
