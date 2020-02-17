@@ -22,6 +22,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <sstream>
+#include <unordered_map>
 #include <utility>
 
 #ifdef _WIN32
@@ -71,6 +72,9 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::Uri;
+
 namespace fs {
 
 using ::Aws::Client::AWSError;
@@ -91,12 +95,13 @@ const char* kS3DefaultRegion = "us-east-1";
 
 static const char kSep = '/';
 
-static std::mutex aws_init_lock;
-static Aws::SDKOptions aws_options;
-static std::atomic<bool> aws_initialized(false);
+namespace {
 
-Status InitializeS3(const S3GlobalOptions& options) {
-  std::lock_guard<std::mutex> lock(aws_init_lock);
+std::mutex aws_init_lock;
+Aws::SDKOptions aws_options;
+std::atomic<bool> aws_initialized(false);
+
+Status DoInitializeS3(const S3GlobalOptions& options) {
   Aws::Utils::Logging::LogLevel aws_log_level;
 
 #define LOG_LEVEL_CASE(level_name)                             \
@@ -128,10 +133,26 @@ Status InitializeS3(const S3GlobalOptions& options) {
   return Status::OK();
 }
 
+}  // namespace
+
+Status InitializeS3(const S3GlobalOptions& options) {
+  std::lock_guard<std::mutex> lock(aws_init_lock);
+  return DoInitializeS3(options);
+}
+
 Status FinalizeS3() {
   std::lock_guard<std::mutex> lock(aws_init_lock);
   Aws::ShutdownAPI(aws_options);
   aws_initialized.store(false);
+  return Status::OK();
+}
+
+Status EnsureS3Initialized() {
+  std::lock_guard<std::mutex> lock(aws_init_lock);
+  if (!aws_initialized.load()) {
+    S3GlobalOptions options{S3LogLevel::Fatal};
+    return DoInitializeS3(options);
+  }
   return Status::OK();
 }
 
@@ -157,6 +178,65 @@ S3Options S3Options::FromAccessKey(const std::string& access_key,
   S3Options options;
   options.ConfigureAccessKey(access_key, secret_key);
   return options;
+}
+
+Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
+  S3Options options;
+
+  const auto bucket = uri.host();
+  auto path = uri.path();
+  if (bucket.empty()) {
+    if (!path.empty()) {
+      return Status::Invalid("Missing bucket name in S3 URI");
+    }
+  } else {
+    if (path.empty()) {
+      path = bucket;
+    } else {
+      if (path[0] != '/') {
+        return Status::Invalid("S3 URI should absolute, not relative");
+      }
+      path = bucket + path;
+    }
+  }
+  if (out_path != nullptr) {
+    *out_path = std::string(internal::RemoveTrailingSlash(path));
+  }
+
+  std::unordered_map<std::string, std::string> options_map;
+  ARROW_ASSIGN_OR_RAISE(const auto options_items, uri.query_items());
+  for (const auto& kv : options_items) {
+    options_map.emplace(kv.first, kv.second);
+  }
+
+  const auto username = uri.username();
+  if (!username.empty()) {
+    options.ConfigureAccessKey(username, uri.password());
+  } else {
+    options.ConfigureDefaultCredentials();
+  }
+
+  auto it = options_map.find("region");
+  if (it != options_map.end()) {
+    options.region = it->second;
+  }
+  it = options_map.find("scheme");
+  if (it != options_map.end()) {
+    options.scheme = it->second;
+  }
+  it = options_map.find("endpoint_override");
+  if (it != options_map.end()) {
+    options.endpoint_override = it->second;
+  }
+
+  return options;
+}
+
+Result<S3Options> S3Options::FromUri(const std::string& uri_string,
+                                     std::string* out_path) {
+  Uri uri;
+  RETURN_NOT_OK(uri.Parse(uri_string));
+  return FromUri(uri, out_path);
 }
 
 namespace {

@@ -23,6 +23,7 @@
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/uri.h"
 
 namespace Aws {
 namespace Auth {
@@ -68,6 +69,11 @@ struct ARROW_EXPORT S3Options {
   /// \brief Initialize with explicit access and secret key
   static S3Options FromAccessKey(const std::string& access_key,
                                  const std::string& secret_key);
+
+  static Result<S3Options> FromUri(const ::arrow::internal::Uri& uri,
+                                   std::string* out_path = NULLPTR);
+  static Result<S3Options> FromUri(const std::string& uri,
+                                   std::string* out_path = NULLPTR);
 };
 
 /// S3-backed FileSystem implementation.
@@ -144,6 +150,11 @@ struct ARROW_EXPORT S3GlobalOptions {
 /// before using S3FileSystem.
 ARROW_EXPORT
 Status InitializeS3(const S3GlobalOptions& options);
+
+/// Ensure the S3 APIs are initialized, but only if not already done.
+/// If necessary, this will call InitializeS3() with some default options.
+ARROW_EXPORT
+Status EnsureS3Initialized();
 
 /// Shutdown the S3 APIs.
 ARROW_EXPORT

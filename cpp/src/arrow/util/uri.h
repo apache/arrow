@@ -43,6 +43,7 @@ class ARROW_EXPORT Uri {
   /// The URI scheme, such as "http", or the empty string if the URI has no
   /// explicit scheme.
   std::string scheme() const;
+
   /// Whether the URI has an explicit host name.  This may return true if
   /// the URI has an empty host (e.g. "file:///tmp/foo"), while it returns
   /// false is the URI has not host component at all (e.g. "file:/tmp/foo").
@@ -50,16 +51,25 @@ class ARROW_EXPORT Uri {
   /// The URI host name, such as "localhost", "127.0.0.1" or "::1", or the empty
   /// string is the URI does not have a host component.
   std::string host() const;
+
   /// The URI port number, as a string such as "80", or the empty string is the URI
   /// does not have a port number component.
   std::string port_text() const;
   /// The URI port parsed as an integer, or -1 if the URI does not have a port
   /// number component.
   int32_t port() const;
+
+  /// The username specified in the URI.
+  std::string username() const;
+  /// The password specified in the URI.
+  std::string password() const;
+
   /// The URI path component.
   std::string path() const;
+
   /// The URI query string
   std::string query_string() const;
+
   /// The URI query items
   ///
   /// Note this API doesn't allow differentiating between an empty value
@@ -76,6 +86,10 @@ class ARROW_EXPORT Uri {
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };
+
+/// Percent-encode the input string, for use e.g. as a URI query parameter.
+ARROW_EXPORT
+std::string UriEscape(const std::string& s);
 
 }  // namespace internal
 }  // namespace arrow

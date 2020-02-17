@@ -22,6 +22,9 @@
 #ifdef ARROW_HDFS
 #include "arrow/filesystem/hdfs.h"
 #endif
+#ifdef ARROW_S3
+#include "arrow/filesystem/s3fs.h"
+#endif
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -386,7 +389,17 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const FileSystemUri& f
     ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options));
     return hdfs;
 #else
-    return Status::NotImplemented("Arrow compiled without HDFS support");
+    return Status::NotImplemented("Got HDFS URI but Arrow compiled without HDFS support");
+#endif
+  }
+  if (fsuri.scheme == "s3") {
+#ifdef ARROW_S3
+    RETURN_NOT_OK(EnsureS3Initialized());
+    ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(fsuri.uri, out_path));
+    ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options));
+    return s3fs;
+#else
+    return Status::NotImplemented("Got S3 URI but Arrow compiled without S3 support");
 #endif
   }
 
