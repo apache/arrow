@@ -26,6 +26,9 @@ from pyarrow.includes.libarrow cimport (
 )
 from pyarrow.lib import _detect_compression
 from pyarrow.lib cimport *
+from pyarrow.util import _stringify_path
+
+import pathlib
 
 
 cdef inline c_string _path_as_bytes(path) except *:
@@ -191,10 +194,11 @@ cdef class FileSystem:
 
     @staticmethod
     def from_uri(uri):
-        """Create a new FileSystem from by URI
+        """Create a new FileSystem from URI or Path
 
-        A scheme-less URI is considered a local filesystem path.
-        Recognized schemes are "file", "mock", "hdfs" and "viewfs".
+        Recognized URI schemes are "file", "mock", "s3fs", "hdfs" and "viewfs".
+        In addition, the argument can be a pathlib.Path object, or a string
+        describing an absolute local path.
 
         Parameters
         ----------
@@ -209,7 +213,12 @@ cdef class FileSystem:
         cdef:
             c_string path
             CResult[shared_ptr[CFileSystem]] result
-        result = CFileSystemFromUri(tobytes(uri), &path)
+
+        if isinstance(uri, pathlib.Path):
+            # Make absolute
+            uri = uri.resolve().absolute()
+        uri = _stringify_path(uri)
+        result = CFileSystemFromUriOrPath(tobytes(uri), &path)
         return FileSystem.wrap(GetResultValue(result)), frombytes(path)
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):

@@ -198,6 +198,11 @@ Status Uri::Parse(const std::string& uri_string) {
       URI_SUCCESS) {
     return Status::Invalid("Cannot parse URI: '", uri_string, "'");
   }
+
+  if (scheme().empty()) {
+    return Status::Invalid("URI has empty scheme: '", uri_string, "'");
+  }
+
   // Parse port number
   auto port_text = TextRangeToView(impl_->uri_.portText);
   if (port_text.size()) {
