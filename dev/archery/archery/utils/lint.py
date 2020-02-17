@@ -141,6 +141,7 @@ def python_numpydoc():
         return
 
     results = numpydoc.validate(rules_blacklist={
+        'GL01',
         'SA01',
         'EX01',
         'ES01'
@@ -149,6 +150,7 @@ def python_numpydoc():
         yield LintResult(success=True)
         return
 
+    number_of_violations = 0
     for obj, result in results:
         errors = result['errors']
 
@@ -176,13 +178,20 @@ def python_numpydoc():
             click.echo(click.style('-> {}'.format(signature), fg='yellow'))
 
         for error in errors:
+            number_of_violations += 1
             click.echo('{}: {}'.format(*error))
+
+    msg = 'Total number of docstring violations: {}'.format(
+        number_of_violations
+    )
+    click.echo()
+    click.echo(click.style(msg, fg='red'))
 
     yield LintResult(success=False)
 
 
 def rat_linter(src, root):
-    """ Run apache-rat license linter. """
+    """Run apache-rat license linter."""
     logger.info("Running apache-rat linter")
 
     if src.git_dirty:
@@ -206,14 +215,14 @@ def rat_linter(src, root):
 
 
 def r_linter(src):
-    """ Run R linter. """
+    """Run R linter."""
     logger.info("Running r linter")
     r_lint_sh = os.path.join(src.r, "lint.sh")
     yield LintResult.from_cmd(Bash().run(r_lint_sh, check=False))
 
 
 def rust_linter(src):
-    """ Run Rust linter. """
+    """Run Rust linter."""
     logger.info("Running rust linter")
     cargo = Cargo()
 
@@ -242,7 +251,7 @@ def is_docker_image(path):
 
 
 def docker_linter(src):
-    """ Run Hadolint docker linter. """
+    """Run Hadolint docker linter."""
     logger.info("Running docker linter")
 
     hadolint = Hadolint()
@@ -264,7 +273,7 @@ def linter(src, with_clang_format=True, with_cpplint=True,
            with_rat=True, with_r=True, with_rust=True,
            with_docker=True,
            fix=False):
-    """ Run all linters. """
+    """Run all linters."""
     with tmpdir(prefix="arrow-lint-") as root:
         build_dir = os.path.join(root, "cpp-build")
 

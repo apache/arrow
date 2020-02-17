@@ -250,6 +250,21 @@ def lint(ctx, src, **kwargs):
         sys.exit(1)
 
 
+@archery.command(short_help="Lint python docstring with NumpyDoc")
+@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory")
+def numpydoc(src):
+    try:
+        linter(src, with_clang_format=False, with_cpplint=False,
+               with_clang_tidy=False, with_iwyu=False,
+               with_flake8=False, with_cmake_format=False,
+               with_rat=False, with_r=False, with_rust=False,
+               with_docker=False, fix=False, with_numpydoc=True)
+    except LintValidationException:
+        sys.exit(1)
+
+
 @archery.group()
 @click.pass_context
 def benchmark(ctx):
