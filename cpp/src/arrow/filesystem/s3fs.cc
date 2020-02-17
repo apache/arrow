@@ -95,12 +95,13 @@ const char* kS3DefaultRegion = "us-east-1";
 
 static const char kSep = '/';
 
-static std::mutex aws_init_lock;
-static Aws::SDKOptions aws_options;
-static std::atomic<bool> aws_initialized(false);
+namespace {
 
-Status InitializeS3(const S3GlobalOptions& options) {
-  std::lock_guard<std::mutex> lock(aws_init_lock);
+std::mutex aws_init_lock;
+Aws::SDKOptions aws_options;
+std::atomic<bool> aws_initialized(false);
+
+Status DoInitializeS3(const S3GlobalOptions& options) {
   Aws::Utils::Logging::LogLevel aws_log_level;
 
 #define LOG_LEVEL_CASE(level_name)                             \
@@ -132,10 +133,26 @@ Status InitializeS3(const S3GlobalOptions& options) {
   return Status::OK();
 }
 
+}  // namespace
+
+Status InitializeS3(const S3GlobalOptions& options) {
+  std::lock_guard<std::mutex> lock(aws_init_lock);
+  return DoInitializeS3(options);
+}
+
 Status FinalizeS3() {
   std::lock_guard<std::mutex> lock(aws_init_lock);
   Aws::ShutdownAPI(aws_options);
   aws_initialized.store(false);
+  return Status::OK();
+}
+
+Status EnsureS3Initialized() {
+  std::lock_guard<std::mutex> lock(aws_init_lock);
+  if (!aws_initialized.load()) {
+    S3GlobalOptions options{S3LogLevel::Fatal};
+    return DoInitializeS3(options);
+  }
   return Status::OK();
 }
 

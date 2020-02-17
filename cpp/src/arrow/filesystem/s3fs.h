@@ -151,6 +151,11 @@ struct ARROW_EXPORT S3GlobalOptions {
 ARROW_EXPORT
 Status InitializeS3(const S3GlobalOptions& options);
 
+/// Ensure the S3 APIs are initialized, but only if not already done.
+/// If necessary, this will call InitializeS3() with some default options.
+ARROW_EXPORT
+Status EnsureS3Initialized();
+
 /// Shutdown the S3 APIs.
 ARROW_EXPORT
 Status FinalizeS3();

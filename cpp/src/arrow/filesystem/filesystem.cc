@@ -394,6 +394,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const FileSystemUri& f
   }
   if (fsuri.scheme == "s3") {
 #ifdef ARROW_S3
+    RETURN_NOT_OK(EnsureS3Initialized());
     ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(fsuri.uri, out_path));
     ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options));
     return s3fs;
