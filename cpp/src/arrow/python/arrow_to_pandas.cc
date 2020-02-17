@@ -630,6 +630,7 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
   // preserve the <= 0.15.1 behavior until a better solution can be devised
   PandasOptions modified_options = options;
   modified_options.ignore_timezone = true;
+  modified_options.coerce_temporal_nanoseconds = false;
 
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = checked_cast<const StructArray*>(data.chunk(c).get());
@@ -1202,6 +1203,15 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
   Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
     Type::type type = data->type()->id();
     int64_t* out_values = this->GetBlockColumnStart(rel_placement);
+    compute::FunctionContext ctx(options_.pool);
+    compute::CastOptions options;
+    if (options_.safe_cast) {
+      options = compute::CastOptions::Safe();
+    } else {
+      options = compute::CastOptions::Unsafe();
+    }
+    compute::Datum out;
+    auto target_type = timestamp(TimeUnit::NANO);
 
     if (type == Type::DATE32) {
       // Convert from days since epoch to datetime64[ns]
@@ -1215,12 +1225,12 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
 
       if (ts_type.unit() == TimeUnit::NANO) {
         ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_values);
-      } else if (ts_type.unit() == TimeUnit::MICRO) {
-        ConvertDatetimeLikeNanos<int64_t, 1000L>(*data, out_values);
-      } else if (ts_type.unit() == TimeUnit::MILLI) {
-        ConvertDatetimeLikeNanos<int64_t, 1000000L>(*data, out_values);
-      } else if (ts_type.unit() == TimeUnit::SECOND) {
-        ConvertDatetimeLikeNanos<int64_t, 1000000000L>(*data, out_values);
+      } else if (ts_type.unit() == TimeUnit::MICRO || ts_type.unit() == TimeUnit::MILLI ||
+                 ts_type.unit() == TimeUnit::SECOND) {
+        RETURN_NOT_OK(
+            arrow::compute::Cast(&ctx, compute::Datum(data), target_type, options, &out));
+        ConvertNumericNullable<int64_t>(*out.chunked_array(), kPandasTimestampNull,
+                                        out_values);
       } else {
         return Status::NotImplemented("Unsupported time unit");
       }

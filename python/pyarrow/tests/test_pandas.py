@@ -1340,6 +1340,31 @@ class TestConvertDateTimeLikeTypes:
         s = arr.to_pandas()
         tm.assert_series_equal(s, expected)
 
+    def test_timestamp_to_pandas_out_of_bounds(self):
+        # ARROW-7758 check for out of bounds timestamps for non-ns timestamps
+
+        for unit in ['s', 'ms', 'us']:
+            for tz in [None, 'America/New_York']:
+                arr = pa.array([datetime(1, 1, 1)], pa.timestamp(unit, tz=tz))
+                table = pa.table({'a': arr})
+
+                msg = "would result in out of bounds timestamp"
+                with pytest.raises(ValueError, match=msg):
+                    arr.to_pandas()
+
+                with pytest.raises(ValueError, match=msg):
+                    table.to_pandas()
+
+                with pytest.raises(ValueError, match=msg):
+                    # chunked array
+                    table.column('a').to_pandas()
+
+                # just ensure those don't give an error, but do not
+                # check actual garbage output
+                arr.to_pandas(safe=False)
+                table.to_pandas(safe=False)
+                table.column('a').to_pandas(safe=False)
+
     @pytest.mark.parametrize('dtype', [pa.date32(), pa.date64()])
     def test_numpy_datetime64_day_unit(self, dtype):
         datetime64_d = np.array([
@@ -3220,6 +3245,15 @@ def test_struct_with_timestamp_tz():
         result = arr4.to_pandas()
         assert isinstance(result[0]['start'], datetime)
         assert isinstance(result[0]['stop'], datetime)
+
+        # same conversion for table
+        result = pa.table({'a': arr3}).to_pandas()
+        assert isinstance(result['a'][0]['start'], datetime)
+        assert isinstance(result['a'][0]['stop'], datetime)
+
+        result = pa.table({'a': arr4}).to_pandas()
+        assert isinstance(result['a'][0]['start'], datetime)
+        assert isinstance(result['a'][0]['stop'], datetime)
 
 
 # ----------------------------------------------------------------------
