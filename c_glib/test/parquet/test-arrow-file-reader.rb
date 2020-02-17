@@ -35,7 +35,11 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
   def test_schema
     assert_equal(<<-SCHEMA.chomp, @reader.schema.to_s)
 a: string
+-- metadata --
+PARQUET:field_id: 1
 b: int32
+-- metadata --
+PARQUET:field_id: 2
     SCHEMA
   end
 

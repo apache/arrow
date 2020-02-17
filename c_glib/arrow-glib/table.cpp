@@ -342,7 +342,25 @@ garrow_table_equal(GArrowTable *table, GArrowTable *other_table)
 {
   const auto arrow_table = garrow_table_get_raw(table);
   const auto arrow_other_table = garrow_table_get_raw(other_table);
-  return arrow_table->Equals(*arrow_other_table);
+  return arrow_table->Equals(*arrow_other_table, false);
+}
+
+/**
+ * garrow_table_equal_metadata:
+ * @table: A #GArrowTable.
+ * @other_table: A #GArrowTable to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data including
+ *   the metadata, %FALSE otherwise.
+ *
+ * Since: 1.0.0
+ */
+gboolean
+garrow_table_equal_metadata(GArrowTable *table, GArrowTable *other_table)
+{
+  const auto arrow_table = garrow_table_get_raw(table);
+  const auto arrow_other_table = garrow_table_get_raw(other_table);
+  return arrow_table->Equals(*arrow_other_table, true);
 }
 
 /**
