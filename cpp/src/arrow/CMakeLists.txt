@@ -199,10 +199,6 @@ set(ARROW_SRCS
 # Disable DLL exports in vendored uriparser library
 add_definitions(-DURI_STATIC_BUILD)
 
-if(ARROW_WITH_BOOST_FILESYSTEM)
-  add_definitions(-DARROW_WITH_BOOST_FILESYSTEM)
-endif()
-
 if(ARROW_WITH_BROTLI)
   add_definitions(-DARROW_WITH_BROTLI)
   list(APPEND ARROW_SRCS util/compression_brotli.cc)
