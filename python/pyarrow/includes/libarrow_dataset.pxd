@@ -283,14 +283,17 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileWriteOptions):
         c_string file_type()
 
+    cdef cppclass CParquetFileFormatReaderOptions "arrow::dataset::ParquetFileFormat::ReaderOptions":
+        c_bool use_buffered_stream
+        int64_t buffer_size
+        unordered_set[c_string] dict_columns
+        int64_t batch_size
+
     cdef cppclass CParquetFileFormat "arrow::dataset::ParquetFileFormat"(
             CFileFormat):
         @staticmethod
         shared_ptr[CParquetFileFormat] Make()
-        c_bool use_buffered_stream
-        int64_t buffer_size
-        unordered_set[int] read_dict_indices
-        int64_t batch_size
+        CParquetFileFormatReaderOptions reader_options
 
     cdef cppclass CParquetFragment "arrow::dataset::ParquetFragment"(
             CFileFragment):

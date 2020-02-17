@@ -73,56 +73,67 @@ cdef class FileFormat:
         return self.wrapped
 
 
-cdef class ParquetFileFormat(FileFormat):
-
+cdef class ParquetFileFormatReaderOptions:
     cdef:
-        CParquetFileFormat* parquet_format
+        CParquetFileFormatReaderOptions* options
 
-    def __init__(self):
-        self.init(<shared_ptr[CFileFormat]> CParquetFileFormat.Make())
-        self.parquet_format = <CParquetFileFormat*> self.wrapped.get()
+    def __init__(self, ParquetFileFormat fmt):
+        self.options = &fmt.parquet_format.reader_options
 
     @property
     def use_buffered_stream(self):
         """Read files through buffered input streams rather than
         loading entire chunks at a time."""
-        return self.parquet_format.use_buffered_stream
+        return self.options.use_buffered_stream
 
     @use_buffered_stream.setter
     def use_buffered_stream(self, bint value):
-        self.parquet_format.use_buffered_stream = value
+        self.options.use_buffered_stream = value
 
     @property
     def buffer_size(self):
         """Size of buffered stream, if enabled."""
-        return self.parquet_format.buffer_size
+        return self.options.buffer_size
 
     @buffer_size.setter
     def buffer_size(self, int value):
-        self.parquet_format.buffer_size = value
+        self.options.buffer_size = value
 
     @property
-    def read_dict_indices(self):
-        """Indices of columns which should be read as dictionaries."""
-        return self.parquet_format.read_dict_indices
+    def dict_columns(self):
+        """Names of columns which should be read as dictionaries."""
+        return self.options.dict_columns
 
-    @read_dict_indices.setter
-    def read_dict_indices(self, set values):
-        self.parquet_format.read_dict_indices.clear()
-        for value in values:
-            self.read_dict_index(int(value))
-
-    def read_dict_index(self, int value):
-        self.parquet_format.read_dict_indices.insert(value)
+    @dict_columns.setter
+    def dict_columns(self, values):
+        self.options.dict_columns.clear()
+        for value in set(values):
+            self.options.dict_columns.insert(tobytes(value))
 
     @property
     def batch_size(self):
         """Maximum number of rows in read record batches."""
-        return self.parquet_format.batch_size
+        return self.options.batch_size
 
     @batch_size.setter
     def batch_size(self, int value):
-        self.parquet_format.batch_size = value
+        self.options.batch_size = value
+
+
+cdef class ParquetFileFormat(FileFormat):
+
+    cdef:
+        CParquetFileFormat* parquet_format
+
+    def __init__(self, dict reader_options=dict()):
+        self.init(<shared_ptr[CFileFormat]> CParquetFileFormat.Make())
+        self.parquet_format = <CParquetFileFormat*> self.wrapped.get()
+        for name, value in reader_options.items():
+            setattr(self.reader_options, name, value)
+
+    @property
+    def reader_options(self):
+        return ParquetFileFormatReaderOptions(self)
 
 
 cdef class IpcFileFormat(FileFormat):

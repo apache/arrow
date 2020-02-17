@@ -45,22 +45,24 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     return out;
   }
 
-  /// \defgroup parquet-file-format-reader-properties properties which correspond to
-  /// members of parquet::ReaderProperties.
-  ///
-  /// @{
-  bool use_buffered_stream = parquet::DEFAULT_USE_BUFFERED_STREAM;
-  int64_t buffer_size = parquet::DEFAULT_BUFFER_SIZE;
-  std::shared_ptr<parquet::FileDecryptionProperties> file_decryption_properties;
-  /// @}
+  struct ReaderOptions {
+    /// \defgroup parquet-file-format-reader-properties properties which correspond to
+    /// members of parquet::ReaderProperties.
+    ///
+    /// @{
+    bool use_buffered_stream = parquet::DEFAULT_USE_BUFFERED_STREAM;
+    int64_t buffer_size = parquet::DEFAULT_BUFFER_SIZE;
+    std::shared_ptr<parquet::FileDecryptionProperties> file_decryption_properties;
+    /// @}
 
-  /// \defgroup parquet-file-format-arrow-reader-properties properties which correspond to
-  /// members of parquet::ArrowReaderProperties.
-  ///
-  /// @{
-  std::unordered_set<int> read_dict_indices;
-  int64_t batch_size = parquet::kArrowDefaultBatchSize;
-  /// @}
+    /// \defgroup parquet-file-format-arrow-reader-properties properties which correspond
+    /// to members of parquet::ArrowReaderProperties.
+    ///
+    /// @{
+    std::unordered_set<std::string> dict_columns;
+    int64_t batch_size = parquet::kArrowDefaultBatchSize;
+    /// @}
+  } reader_options;
 
   std::string type_name() const override { return "parquet"; }
 

@@ -194,7 +194,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
 
   opts_ = ScanOptions::Make(reader->schema());
 
-  format_->read_dict_indices.insert(0);
+  format_->reader_options.dict_columns = {"utf8"};
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
 
   ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
@@ -316,7 +316,7 @@ TEST_F(TestParquetFileFormat, InspectDictEncoded) {
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
 
-  format_->read_dict_indices.insert(0);
+  format_->reader_options.dict_columns = {"utf8"};
   ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
 
   Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});

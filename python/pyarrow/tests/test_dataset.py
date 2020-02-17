@@ -433,8 +433,7 @@ def test_expression_ergonomics():
     ]
 ])
 def test_file_system_factory(mockfs, paths_or_selector):
-    format = ds.ParquetFileFormat()
-    format.read_dict_indices = {2}
+    format = ds.ParquetFileFormat(reader_options=dict(dict_columns={"str"}))
 
     options = ds.FileSystemFactoryOptions('subdir')
     options.partitioning = ds.DirectoryPartitioning(
