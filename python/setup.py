@@ -372,14 +372,6 @@ class build_ext(_build_ext):
                 if not self.with_static_boost and self.bundle_boost:
                     move_shared_libs(
                         build_prefix, build_lib,
-                        "{}_filesystem".format(self.boost_namespace),
-                        implib_required=False)
-                    move_shared_libs(
-                        build_prefix, build_lib,
-                        "{}_system".format(self.boost_namespace),
-                        implib_required=False)
-                    move_shared_libs(
-                        build_prefix, build_lib,
                         "{}_regex".format(self.boost_namespace),
                         implib_required=False)
                 if sys.platform == 'win32':

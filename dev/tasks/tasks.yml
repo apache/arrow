@@ -22,11 +22,9 @@ groups:
   ############################# Packaging tasks ###############################
 
   conda:
-    - conda-linux-gcc-py27
     - conda-linux-gcc-py36
     - conda-linux-gcc-py37
     - conda-linux-gcc-py38
-    - conda-osx-clang-py27
     - conda-osx-clang-py36
     - conda-osx-clang-py37
     - conda-osx-clang-py38
@@ -35,14 +33,10 @@ groups:
     - conda-win-vs2015-py38
 
   wheel:
-    - wheel-manylinux1-cp27m
-    - wheel-manylinux1-cp27mu
     - wheel-manylinux1-cp35m
     - wheel-manylinux1-cp36m
     - wheel-manylinux1-cp37m
     - wheel-manylinux1-cp38
-    - wheel-manylinux2010-cp27m
-    - wheel-manylinux2010-cp27mu
     - wheel-manylinux2010-cp35m
     - wheel-manylinux2010-cp36m
     - wheel-manylinux2010-cp37m
@@ -51,7 +45,6 @@ groups:
     - wheel-manylinux2014-cp36m
     - wheel-manylinux2014-cp37m
     - wheel-manylinux2014-cp38
-    - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
     - wheel-osx-cp37m
@@ -222,11 +215,9 @@ groups:
   ######################## Tasks to run regularly #############################
 
   nightly:
-    - conda-linux-gcc-py27
     - conda-linux-gcc-py36
     - conda-linux-gcc-py37
     - conda-linux-gcc-py38
-    - conda-osx-clang-py27
     - conda-osx-clang-py36
     - conda-osx-clang-py37
     - conda-osx-clang-py38
@@ -317,16 +308,6 @@ tasks:
 
   ############################## Conda Linux ##################################
 
-  conda-linux-gcc-py27:
-    ci: azure
-    platform: linux
-    template: conda-recipes/azure.linux.yml
-    params:
-      config: linux_python2.7
-    artifacts:
-      - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
-
   conda-linux-gcc-py36:
     ci: azure
     platform: linux
@@ -358,16 +339,6 @@ tasks:
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Conda OSX ####################################
-
-  conda-osx-clang-py27:
-    ci: azure
-    platform: osx
-    template: conda-recipes/azure.osx.yml
-    params:
-      config: osx_python2.7
-    artifacts:
-      - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-clang-py36:
     ci: azure
