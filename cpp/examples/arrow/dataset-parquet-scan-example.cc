@@ -26,7 +26,7 @@
 #include <arrow/dataset/file_parquet.h>
 #include <arrow/dataset/filter.h>
 #include <arrow/dataset/scanner.h>
-#include <arrow/filesystem/localfs.h>
+#include <arrow/filesystem/filesystem.h>
 
 using arrow::field;
 using arrow::int16;
@@ -64,6 +64,10 @@ struct Configuration {
   // make use of partition information and/or file metadata if possible.
   std::shared_ptr<ds::Expression> filter = ("total_amount"_ > 1000.0f).Copy();
 } conf;
+
+std::shared_ptr<fs::FileSystem> GetFileSystemFromUri(const std::string& uri, std::string* path) {
+  return fs::FileSystemFromUri(uri, path).ValueOrDie();
+}
 
 std::shared_ptr<ds::Dataset> GetDatasetFromPath(std::shared_ptr<fs::FileSystem> fs,
                                                 std::shared_ptr<ds::FileFormat> format,
@@ -113,7 +117,6 @@ std::shared_ptr<Table> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner)
 }
 
 int main(int argc, char** argv) {
-  auto fs = std::make_shared<fs::LocalFileSystem>();
   auto format = std::make_shared<ds::ParquetFileFormat>();
 
   if (argc != 2) {
@@ -121,7 +124,10 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  auto dataset = GetDatasetFromPath(fs, format, argv[1]);
+  std::string path;
+  auto fs = GetFileSystemFromUri(argv[1], &path);
+
+  auto dataset = GetDatasetFromPath(fs, format, path);
 
   auto scanner = GetScannerFromDataset(dataset, conf.projected_columns, conf.filter,
                                        conf.use_threads);
