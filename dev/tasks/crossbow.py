@@ -38,8 +38,10 @@ from ruamel.yaml import YAML
 
 try:
     import github3
+    _have_github3 = True
 except ImportError:
     github3 = object
+    _have_github3 = False
 
 try:
     import pygit2
@@ -452,6 +454,8 @@ class Repo:
     def as_github_repo(self, github_token=None):
         """Converts it to a repository object which wraps the GitHub API"""
         if self._github_repo is None:
+            if not _have_github3:
+                raise ImportError('Must install github3.py')
             github_token = github_token or self.github_token
             username, reponame = self._parse_github_user_repo()
             gh = github3.login(token=github_token)
@@ -904,10 +908,13 @@ class Job(Serializable):
                        .format(poll_interval_minutes))
             time.sleep(poll_interval_minutes * 60)
 
-    def query_assets(self, max_workers=4, ignore_prefix=None):
+    def query_assets(self, max_workers=None, ignore_prefix=None):
         # cache the futures for later use
         if not hasattr(self, '_assets'):
             self._assets = []
+            max_workers = (
+                max_workers or os.environ.get('CROSSBOW_QUERY_PARALLELISM', 1)
+            )
             with concurrent.futures.ThreadPoolExecutor(max_workers) as pool:
                 for task_name, task in sorted(self.tasks.items()):
                     # HACK: spare some queries because of the rate limit, and
