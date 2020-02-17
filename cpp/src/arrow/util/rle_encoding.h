@@ -123,7 +123,8 @@ class RleDecoder {
 
   /// Like GetBatch but the values are then decoded using the provided dictionary
   template <typename T>
-  int GetBatchWithDict(const T* dictionary, T* values, int batch_size);
+  int GetBatchWithDict(const T* dictionary, int32_t dictionary_length, T* values,
+                       int batch_size);
 
   /// Like GetBatchWithDict but add spacing for null entries
   ///
@@ -394,8 +395,13 @@ inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
   return values_read;
 }
 
+static inline bool idx_in_range(int32_t idx, int32_t dictionary_length) {
+  return idx >= 0 && idx < dictionary_length;
+}
+
 template <typename T>
-inline int RleDecoder::GetBatchWithDict(const T* dictionary, T* values, int batch_size) {
+inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_length,
+                                        T* values, int batch_size) {
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
 
@@ -429,10 +435,6 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, T* values, int batc
   return values_read;
 }
 
-static inline bool idx_in_range(int32_t idx, int32_t dictionary_length) {
-  return idx >= 0 && idx < dictionary_length;
-}
-
 template <typename T>
 inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
                                               int32_t dictionary_length, T* out,
@@ -455,8 +457,9 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
         if (!NextCounts<T>()) return values_read;
       }
       if (repeat_count_ > 0) {
-        if (ARROW_PREDICT_FALSE(!idx_in_range(current_value_, dictionary_length)))
+        if (ARROW_PREDICT_FALSE(!idx_in_range(current_value_, dictionary_length))) {
           return values_read;
+        }
         T value = dictionary[current_value_];
         // The current index is already valid, we don't need to check that again
         int repeat_batch = 1;
@@ -489,14 +492,20 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
         int skipped = 0;
         int literals_read = 1;
 
-        *out++ = dictionary[indices[0]];
+        int first_idx = indices[0];
+        if (ARROW_PREDICT_FALSE(!idx_in_range(first_idx, dictionary_length))) {
+          return values_read;
+        }
+        *out++ = dictionary[first_idx];
 
         // Read the first bitset to the end
         while (literals_read < literal_batch) {
           if (bit_reader.IsSet()) {
             int idx = indices[literals_read];
-            if (idx < 0 || idx >= dictionary_length) return values_read;
-            *out = dictionary[indices[idx]];
+            if (ARROW_PREDICT_FALSE(!idx_in_range(idx, dictionary_length))) {
+              return values_read;
+            }
+            *out = dictionary[idx];
             literals_read++;
           } else {
             *out = zero;
