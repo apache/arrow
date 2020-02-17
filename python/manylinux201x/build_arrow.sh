@@ -50,11 +50,10 @@ export PYARROW_WITH_HDFS=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
-export PYARROW_BUNDLE_BOOST=1
-export PYARROW_BOOST_NAMESPACE=arrow_boost
+# Boost is only a compile-time dependency for wheels => no need to bundle .so's
+export PYARROW_BUNDLE_BOOST=0
 export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/arrow-dist/lib/pkgconfig
 
-export PYARROW_CMAKE_OPTIONS='-DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist'
 # Ensure the target directory exists
 mkdir -p /io/dist
 
