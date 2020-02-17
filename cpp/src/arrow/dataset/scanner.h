@@ -90,6 +90,9 @@ class ARROW_DS_EXPORT ScanOptions {
   // sub-selection optimization.
   std::vector<std::string> MaterializedFields() const;
 
+  // Maximum row count for scanned batches.
+  int64_t batch_size = 64 << 10;
+
  private:
   explicit ScanOptions(std::shared_ptr<Schema> schema);
 };

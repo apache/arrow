@@ -83,9 +83,6 @@ std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(List_ o
         fmt->reader_options.dict_columns.insert(name);
       }
     }
-    if (reader_options.containsElementNamed("batch_size")) {
-      fmt->reader_options.batch_size = reader_options["batch_size"];
-    }
   }
   return fmt;
 }

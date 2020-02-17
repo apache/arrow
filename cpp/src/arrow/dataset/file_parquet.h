@@ -60,7 +60,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     ///
     /// @{
     std::unordered_set<std::string> dict_columns;
-    int64_t batch_size = parquet::kArrowDefaultBatchSize;
     /// @}
   } reader_options;
 

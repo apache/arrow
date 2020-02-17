@@ -103,13 +103,14 @@ static parquet::ReaderProperties MakeReaderProperties(
 }
 
 static parquet::ArrowReaderProperties MakeArrowReaderProperties(
-    const ParquetFileFormat& format, const parquet::ParquetFileReader& reader) {
+    const ParquetFileFormat& format, int64_t batch_size,
+    const parquet::ParquetFileReader& reader) {
   parquet::ArrowReaderProperties properties(/* use_threads = */ false);
   for (const std::string& name : format.reader_options.dict_columns) {
     auto column_index = reader.metadata()->schema()->ColumnIndex(name);
     properties.set_read_dictionary(column_index, true);
   }
-  properties.set_batch_size(format.reader_options.batch_size);
+  properties.set_batch_size(batch_size);
   return properties;
 }
 
@@ -351,7 +352,8 @@ Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
   auto properties = MakeReaderProperties(*this);
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source, std::move(properties)));
 
-  auto arrow_properties = MakeArrowReaderProperties(*this, *reader);
+  auto arrow_properties =
+      MakeArrowReaderProperties(*this, parquet::kArrowDefaultBatchSize, *reader);
   std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
   RETURN_NOT_OK(parquet::arrow::FileReader::Make(default_memory_pool(), std::move(reader),
                                                  std::move(arrow_properties),
@@ -368,7 +370,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
   auto properties = MakeReaderProperties(*this, context->pool);
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source, std::move(properties)));
 
-  auto arrow_properties = MakeArrowReaderProperties(*this, *reader);
+  auto arrow_properties = MakeArrowReaderProperties(*this, options->batch_size, *reader);
   return ParquetScanTaskIterator::Make(options, context, std::move(reader),
                                        std::move(arrow_properties));
 }

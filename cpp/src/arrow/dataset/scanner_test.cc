@@ -70,6 +70,14 @@ TEST_F(TestScanner, Scan) {
   AssertScannerEqualsRepetitionsOf(MakeScanner(batch), batch);
 }
 
+TEST_F(TestScanner, DISABLED_ScanWithCappedBatchSize) {
+  // TODO(bkietz) enable when InMemory* respects ScanOptions::batch_size
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  options_->batch_size = kBatchSize / 2;
+  AssertScannerEqualsRepetitionsOf(MakeScanner(batch), batch->Slice(kBatchSize / 2));
+}
+
 TEST_F(TestScanner, FilteredScan) {
   SetSchema({field("f64", float64())});
 

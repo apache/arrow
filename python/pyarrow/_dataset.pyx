@@ -110,15 +110,6 @@ cdef class ParquetFileFormatReaderOptions:
         for value in set(values):
             self.options.dict_columns.insert(tobytes(value))
 
-    @property
-    def batch_size(self):
-        """Maximum number of rows in read record batches."""
-        return self.options.batch_size
-
-    @batch_size.setter
-    def batch_size(self, int value):
-        self.options.batch_size = value
-
 
 cdef class ParquetFileFormat(FileFormat):
 
