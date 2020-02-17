@@ -1429,8 +1429,15 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
         std::min<int64_t>(len_, helper.chunk_space_remaining)));
     for (int i = 0; i < num_values; ++i) {
       if (bit_reader.IsSet()) {
-        auto value_len = static_cast<int32_t>(arrow::util::SafeLoadAs<uint32_t>(data_));
-        int increment = static_cast<int>(sizeof(uint32_t) + value_len);
+        // For compiler warnings on unsigned/signed arithmetic.
+        auto int32_s = static_cast<int32_t>(sizeof(int32_t));
+        auto value_len = arrow::util::SafeLoadAs<int32_t>(data_);
+        auto increment = int32_s + value_len;
+
+        if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - int32_s)) {
+          return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
+        }
+
         if (ARROW_PREDICT_FALSE(len_ < increment)) ParquetException::EofException();
         if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
           // This element would exceed the capacity of a chunk
@@ -1562,9 +1569,10 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     num_values_ = num_values;
     if (len == 0) return;
     uint8_t bit_width = *data;
-    ++data;
-    --len;
-    idx_decoder_ = arrow::util::RleDecoder(data, len, bit_width);
+    if (ARROW_PREDICT_FALSE(bit_width >= 64)) {
+      throw ParquetException("Invalid or corrupted bit_width");
+    }
+    idx_decoder_ = arrow::util::RleDecoder(++data, --len, bit_width);
   }
 
   int Decode(T* buffer, int num_values) override {
@@ -1582,8 +1590,9 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
                    int64_t valid_bits_offset) override {
     num_values = std::min(num_values, num_values_);
     if (num_values != idx_decoder_.GetBatchWithDictSpaced(
-                          reinterpret_cast<const T*>(dictionary_->data()), buffer,
-                          num_values, null_count, valid_bits, valid_bits_offset)) {
+                          reinterpret_cast<const T*>(dictionary_->data()),
+                          dictionary_length_, buffer, num_values, null_count, valid_bits,
+                          valid_bits_offset)) {
       ParquetException::EofException();
     }
     num_values_ -= num_values;
@@ -1977,6 +1986,10 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
         int32_t batch_size =
             std::min<int32_t>(buffer_size, num_values - num_appended - null_count);
         int num_indices = idx_decoder_.GetBatch(indices_buffer, batch_size);
+
+        if (ARROW_PREDICT_FALSE(num_indices < 1)) {
+          return Status::Invalid("Invalid number of indices '", num_indices, "'");
+        }
 
         int i = 0;
         while (true) {

@@ -361,10 +361,14 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 
 template <typename T>
 inline bool BitReader::GetAligned(int num_bytes, T* v) {
-  DCHECK_LE(num_bytes, static_cast<int>(sizeof(T)));
-  int bytes_read = static_cast<int>(BitUtil::BytesForBits(bit_offset_));
-  if (ARROW_PREDICT_FALSE(byte_offset_ + bytes_read + num_bytes > max_bytes_))
+  if (ARROW_PREDICT_FALSE(num_bytes > static_cast<int>(sizeof(T)))) {
     return false;
+  }
+
+  int bytes_read = static_cast<int>(BitUtil::BytesForBits(bit_offset_));
+  if (ARROW_PREDICT_FALSE(byte_offset_ + bytes_read + num_bytes > max_bytes_)) {
+    return false;
+  }
 
   // Advance byte_offset to next unread byte and read num_bytes
   byte_offset_ += bytes_read;
@@ -388,10 +392,12 @@ inline bool BitReader::GetVlqInt(int32_t* v) {
   int num_bytes = 0;
   uint8_t byte = 0;
   do {
-    if (!GetAligned<uint8_t>(1, &byte)) return false;
+    if (ARROW_PREDICT_FALSE(!GetAligned<uint8_t>(1, &byte) ||
+                            ++num_bytes > MAX_VLQ_BYTE_LEN)) {
+      return false;
+    }
     *v |= (byte & 0x7F) << shift;
     shift += 7;
-    DCHECK_LE(++num_bytes, MAX_VLQ_BYTE_LEN);
   } while ((byte & 0x80) != 0);
   return true;
 }

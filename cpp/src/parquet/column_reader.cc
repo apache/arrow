@@ -63,6 +63,9 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
   switch (encoding) {
     case Encoding::RLE: {
       num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
+      if (num_bytes < 0) {
+        throw ParquetException("Received invalid number of bytes");
+      }
       const uint8_t* decoder_data = data + sizeof(int32_t);
       if (!rle_decoder_) {
         rle_decoder_.reset(

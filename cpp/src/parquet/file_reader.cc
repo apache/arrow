@@ -290,7 +290,7 @@ void SerializedFile::ParseUnencryptedFileMetadata(
       reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
       kFooterSize);
   int64_t metadata_start = source_size_ - kFooterSize - *metadata_len;
-  if (kFooterSize + *metadata_len > source_size_) {
+  if (*metadata_len > source_size_ - kFooterSize) {
     throw ParquetInvalidOrCorruptedFileException(
         "Parquet file size is ", source_size_,
         " bytes, smaller than the size reported by metadata (", metadata_len, "bytes)");
