@@ -21,7 +21,6 @@
 #ifndef ARROW_UTIL_CPU_INFO_H
 #define ARROW_UTIL_CPU_INFO_H
 
-#include <errno.h>
 #include <cstdint>
 #include <string>
 

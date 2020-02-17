@@ -39,6 +39,7 @@
 #endif
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdint>
 #include <fstream>
 #include <memory>
@@ -49,6 +50,10 @@
 #include "arrow/util/string.h"
 
 using std::max;
+
+static constexpr int64_t kDefaultL1CacheSize = 32 * 1024;    // Level 1: 32k
+static constexpr int64_t kDefaultL2CacheSize = 256 * 1024;   // Level 2: 256k
+static constexpr int64_t kDefaultL3CacheSize = 3072 * 1024;  // Level 3: 3M
 
 #if defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR < 5
 void __cpuidex(int CPUInfo[4], int function_id, int subfunction_id) {
@@ -67,61 +72,46 @@ void __cpuidex(int CPUInfo[4], int function_id, int subfunction_id) {
 //   index1: L1 Icache
 //   index2: L2 cache
 //   index3: L3 cache
-#define L1_DCACHE_SIZE_FILE "/sys/devices/system/cpu/cpu0/cache/index0/size"
-#define L2_CACHE_SIZE_FILE "/sys/devices/system/cpu/cpu0/cache/index2/size"
-#define L3_CACHE_SIZE_FILE "/sys/devices/system/cpu/cpu0/cache/index3/size"
+static const char* kL1CacheSizeFile = "/sys/devices/system/cpu/cpu0/cache/index0/size";
+static const char* kL2CacheSizeFile = "/sys/devices/system/cpu/cpu0/cache/index2/size";
+static const char* kL3CacheSizeFile = "/sys/devices/system/cpu/cpu0/cache/index3/size";
 
-int get_cache_size_arm64(const char* filename, int* size) {
-  int cache_supported = -1;
+static int64_t GetArm64CacheSize(const char* filename, int64_t default_size = -1) {
   char* content = nullptr;
   char* last_char = nullptr;
   size_t file_len = 0;
-  int cardinal_num = 0;
-  int multip = 0;
-
-  if (size == nullptr) {
-    return cache_supported;
-  }
-  *size = 0;
-
-  FILE* cache_file = fopen(filename, "r");
-  if (cache_file == nullptr) {
-    return cache_supported;
-  }
 
   // Read cache file to 'content' for getting cache size.
-  // Filename: '/sys/devices/system/cpu/cpu0/cache/index0/size' -> 32k
-  if (getline(&content, &file_len, cache_file) == -1) {
-    goto done;
+  FILE* cache_file = fopen(filename, "r");
+  if (cache_file == nullptr) {
+    return default_size;
   }
+  int res = getline(&content, &file_len, cache_file);
+  fclose(cache_file);
+  if (res == -1) {
+    return default_size;
+  }
+  std::unique_ptr<char, decltype(&free)> content_guard(content, &free);
 
   errno = 0;
-  cardinal_num = strtoull(content, &last_char, 0);
+  const auto cardinal_num = strtoull(content, &last_char, 0);
   if (errno != 0) {
-    goto done;
+    return default_size;
   }
-
-  // KB, MB, or GB
-  multip = 1;
+  // kB, MB, or GB
+  int64_t multip = 1;
   switch (*last_char) {
     case 'g':
     case 'G':
-      multip = 1024;
+      multip *= 1024;
     case 'm':
     case 'M':
-      multip = multip * 1024;
+      multip *= 1024;
     case 'k':
     case 'K':
-      multip = multip * 1024;
+      multip *= 1024;
   }
-  *size = cardinal_num * multip;
-  cache_supported = 0;
-
-done:
-  fclose(cache_file);
-  free(content);
-
-  return cache_supported;
+  return cardinal_num * multip;
 }
 #endif
 
@@ -132,7 +122,7 @@ static struct {
   std::string name;
   int64_t flag;
 } flag_mappings[] = {
-#if (defined(_M_AMD64) || defined(_M_X64) || defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64))
+#if (defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64))
     {"ssse3", CpuInfo::SSSE3},   {"sse4_1", CpuInfo::SSE4_1},
     {"sse4_2", CpuInfo::SSE4_2}, {"popcnt", CpuInfo::POPCNT},
 #endif
@@ -285,7 +275,7 @@ void CpuInfo::Init() {
   // Read from /proc/cpuinfo
   std::ifstream cpuinfo("/proc/cpuinfo", std::ios::in);
   while (cpuinfo) {
-    getline(cpuinfo, line);
+    std::getline(cpuinfo, line);
     size_t colon = line.find(':');
     if (colon != std::string::npos) {
       name = TrimString(line.substr(0, colon - 1));
@@ -359,12 +349,8 @@ void CpuInfo::VerifyCpuRequirements() {
 }
 
 bool CpuInfo::CanUseSSE4_2() const {
-#ifdef ARROW_HAVE_SSE4_2
-#ifdef ARROW_USE_SIMD
+#if defined(ARROW_HAVE_SSE4_2) && defined(ARROW_USE_SIMD)
   return IsSupported(CpuInfo::SSE4_2);
-#else
-  return false;
-#endif
 #else
   return false;
 #endif
@@ -396,23 +382,18 @@ void CpuInfo::SetDefaultCacheSize() {
   cache_sizes_[0] = sysconf(_SC_LEVEL1_DCACHE_SIZE);
   cache_sizes_[1] = sysconf(_SC_LEVEL2_CACHE_SIZE);
   cache_sizes_[2] = sysconf(_SC_LEVEL3_CACHE_SIZE);
+  ARROW_UNUSED(kDefaultL1CacheSize);
+  ARROW_UNUSED(kDefaultL2CacheSize);
+  ARROW_UNUSED(kDefaultL3CacheSize);
 #elif defined(__GNUC__) && defined(__linux__) && defined(__aarch64__)
-  // If there is no cache file related with non-standard linux kernel,
-  // Provide reasonable default values.
-  if (get_cache_size_arm64(L1_DCACHE_SIZE_FILE, &cache_sizes_[0])) {
-    cache_sizes_[0] = 32 * 1024;
-  }
-  if (get_cache_size_arm64(L2_CACHE_SIZE_FILE, &cache_sizes_[1])) {
-    cache_sizes_[1] = 256 * 1024;
-  }
-  if (get_cache_size_arm64(L3_CACHE_SIZE_FILE, &cache_sizes_[2])) {
-    cache_sizes_[2] = 3072 * 1024;
-  }
+  cache_sizes_[0] = GetArm64CacheSize(kL1CacheSizeFile, kDefaultL1CacheSize);
+  cache_sizes_[1] = GetArm64CacheSize(kL2CacheSizeFile, kDefaultL2CacheSize);
+  cache_sizes_[2] = GetArm64CacheSize(kL3CacheSizeFile, kDefaultL3CacheSize);
 #else
   // Provide reasonable default values if no info
-  cache_sizes_[0] = 32 * 1024;    // Level 1: 32k
-  cache_sizes_[1] = 256 * 1024;   // Level 2: 256k
-  cache_sizes_[2] = 3072 * 1024;  // Level 3: 3M
+  cache_sizes_[0] = kDefaultL1CacheSize;
+  cache_sizes_[1] = kDefaultL2CacheSize;
+  cache_sizes_[2] = kDefaultL3CacheSize;
 #endif
 }
 
