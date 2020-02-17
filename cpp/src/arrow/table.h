@@ -134,7 +134,7 @@ namespace internal {
 
 /// \brief EXPERIMENTAL: Utility for incremental iteration over contiguous
 /// pieces of potentially differently-chunked ChunkedArray objects
-class MultipleChunkIterator {
+class ARROW_EXPORT MultipleChunkIterator {
  public:
   MultipleChunkIterator(const ChunkedArray& left, const ChunkedArray& right)
       : left_(left),
