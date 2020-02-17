@@ -18,6 +18,8 @@
 import gzip
 import os
 
+import click
+
 from .command import Bash, Command, default_bin
 from .cmake import CMake
 from .git import git
@@ -138,19 +140,45 @@ def python_numpydoc():
         logger.error('Numpydoc is not available')
         return
 
-    results = numpydoc.validate()
-
+    results = numpydoc.validate(rules_blacklist={
+        'SA01',
+        'EX01',
+        'ES01'
+    })
     if len(results) == 0:
         yield LintResult(success=True)
-    else:
-        # TODO(kszucs): nicer output
-        for obj, result in results:
-            errors = result['errors']
-            print()
-            print(obj)
-            for error in errors:
-                print('{}: {}'.format(*error))
-        yield LintResult(success=False, reason='EEE')
+        return
+
+    for obj, result in results:
+        errors = result['errors']
+
+        # inspect doesn't play nice with cython generated source code,
+        # to use a hacky way to represent a proper __qualname__
+        doc = getattr(obj, '__doc__', '')
+        name = getattr(obj, '__name__', '')
+        qualname = getattr(obj, '__qualname__', '')
+        module = getattr(obj, '__module__', '')
+        instance = getattr(obj, '__self__', '')
+        if instance:
+            klass = instance.__class__.__name__
+        else:
+            klass = ''
+        if doc:
+            signature = doc.splitlines()[0]
+        else:
+            signature = ''
+
+        desc = '.'.join(filter(None, [module, klass, qualname or name]))
+
+        click.echo()
+        click.echo(click.style(desc, bold=True, fg='yellow'))
+        if signature:
+            click.echo(click.style('-> {}'.format(signature), fg='yellow'))
+
+        for error in errors:
+            click.echo('{}: {}'.format(*error))
+
+    yield LintResult(success=False)
 
 
 def rat_linter(src, root):
