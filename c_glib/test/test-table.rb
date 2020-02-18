@@ -119,7 +119,7 @@ class TestTable < Test::Unit::TestCase
     def test_equal_metadata
       other_table = Arrow::Table.new(@schema, @columns)
       assert do
-        @table.equal_metadata(other_table)
+        @table.equal_metadata(other_table, true)
       end
     end
 
