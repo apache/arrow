@@ -889,7 +889,7 @@ cdef class Dataset:
         return scanner.scan()
 
     def to_batches(self, columns=None, filter=None,
-                   MemoryPool memory_pool=None):
+                   batch_size=64*2**10, MemoryPool memory_pool=None):
         """Read the dataset as materialized record batches.
 
         Builds a scan operation against the dataset and sequentially executes
@@ -911,6 +911,8 @@ cdef class Dataset:
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
+        batch_size : int, default 64*2**10
+            The maximum row count for scanned record batches.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -920,13 +922,13 @@ cdef class Dataset:
         record_batches : iterator of RecordBatch
         """
         scanner = Scanner(self, columns=columns, filter=filter,
-                          memory_pool=memory_pool)
+                          batch_size=batch_size, memory_pool=memory_pool)
         for task in scanner.scan():
             for batch in task.execute():
                 yield batch
 
     def to_table(self, columns=None, filter=None, use_threads=True,
-                 MemoryPool memory_pool=None):
+                 batch_size=64*2**10, MemoryPool memory_pool=None):
         """Read the dataset to an arrow table.
 
         Note that this method reads all the selected data from the dataset
@@ -951,6 +953,8 @@ cdef class Dataset:
         use_threads : boolean, default True
             If enabled, then maximum paralellism will be used determined by
             the number of available CPU cores.
+        batch_size : int, default 64*2**10
+            The maximum row count for scanned record batches.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -960,7 +964,8 @@ cdef class Dataset:
         table : Table instance
         """
         scanner = Scanner(self, columns=columns, filter=filter,
-                          use_threads=use_threads, memory_pool=memory_pool)
+                          use_threads=use_threads, batch_size=batch_size,
+                          memory_pool=memory_pool)
         return scanner.to_table()
 
     @property
@@ -1054,6 +1059,8 @@ cdef class Scanner:
     use_threads : boolean, default True
         If enabled, then maximum paralellism will be used determined by
         the number of available CPU cores.
+    batch_size : int, default 64*2**10
+        The maximum row count for scanned record batches.
     memory_pool : MemoryPool, default None
         For memory allocations, if required. If not specified, uses the
         default pool.
@@ -1065,7 +1072,7 @@ cdef class Scanner:
 
     def __init__(self, Dataset dataset, list columns=None,
                  Expression filter=None, bint use_threads=True,
-                 MemoryPool memory_pool=None):
+                 int batch_size=64*2**10, MemoryPool memory_pool=None):
         cdef:
             shared_ptr[CScanContext] context
             shared_ptr[CScannerBuilder] builder
@@ -1095,6 +1102,8 @@ cdef class Scanner:
             check_status(builder.get().Filter(filter_expression))
         if use_threads is not None:
             check_status(builder.get().UseThreads(use_threads))
+
+        check_status(builder.get().BatchSize(batch_size))
 
         # instantiate the scanner object
         scanner = GetResultValue(builder.get().Finish())

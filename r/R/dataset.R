@@ -417,6 +417,8 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' - `$UseThreads(threads)`: logical: should the scan use multithreading?
 #' The method's default input is `TRUE`, but you must call the method to enable
 #' multithreading because the scanner default is `FALSE`.
+#' - `$BatchSize(batch_size)`: integer: Maximum row count of scanned record
+#' batches. Default is 64*2**10 rows.
 #' - `$schema`: Active binding, returns the [Schema] of the Dataset
 #' - `$Finish()`: Returns a `Scanner`
 #'
@@ -449,6 +451,10 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
     },
     UseThreads = function(threads = option_use_threads()) {
       dataset___ScannerBuilder__UseThreads(self, threads)
+      self
+    },
+    BatchSize = function(batch_size) {
+      dataset___ScannerBuilder__BatchSize(self, batch_size)
       self
     },
     Finish = function() unique_ptr(Scanner, dataset___ScannerBuilder__Finish(self))

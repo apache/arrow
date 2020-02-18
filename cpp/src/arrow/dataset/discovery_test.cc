@@ -67,7 +67,7 @@ class MockSourceFactory : public SourceFactory {
 
   Result<std::shared_ptr<Source>> Finish(const std::shared_ptr<Schema>& schema) override {
     return std::make_shared<InMemorySource>(schema,
-                                            std::vector<std::shared_ptr<Fragment>>{});
+                                            std::vector<std::shared_ptr<RecordBatch>>{});
   }
 
  protected:

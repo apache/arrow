@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -47,7 +48,9 @@ class ARROW_DS_EXPORT Fragment {
   /// scanning this fragment. May be nullptr, which indicates that no filtering
   /// or schema reconciliation will be performed and all partitions will be
   /// scanned.
-  std::shared_ptr<ScanOptions> scan_options() const { return scan_options_; }
+  const std::shared_ptr<ScanOptions>& scan_options() const { return scan_options_; }
+
+  const std::shared_ptr<Schema>& schema() const;
 
   virtual ~Fragment() = default;
 
@@ -128,15 +131,23 @@ class ARROW_DS_EXPORT Source {
 /// \brief A Source consisting of a flat sequence of Fragments
 class ARROW_DS_EXPORT InMemorySource : public Source {
  public:
-  explicit InMemorySource(std::shared_ptr<Schema> schema, FragmentVector fragments)
-      : Source(std::move(schema)), fragments_(std::move(fragments)) {}
+  using RecordBatchGenerator = std::function<RecordBatchIterator()>;
+
+  InMemorySource(std::shared_ptr<Schema> schema, RecordBatchGenerator get_batches)
+      : Source(std::move(schema)), get_batches_(std::move(get_batches)) {}
+
+  // Convenience constructor taking a fixed list of batches
+  InMemorySource(std::shared_ptr<Schema> schema,
+                 std::vector<std::shared_ptr<RecordBatch>> batches);
+
+  explicit InMemorySource(std::shared_ptr<Table> table);
 
   FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
   std::string type_name() const override { return "in-memory"; }
 
  private:
-  FragmentVector fragments_;
+  RecordBatchGenerator get_batches_;
 };
 
 /// \brief A recursive Source with child Sources.

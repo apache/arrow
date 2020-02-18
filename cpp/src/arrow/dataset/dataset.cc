@@ -32,6 +32,10 @@ namespace dataset {
 Fragment::Fragment(std::shared_ptr<ScanOptions> scan_options)
     : scan_options_(std::move(scan_options)), partition_expression_(scalar(true)) {}
 
+const std::shared_ptr<Schema>& Fragment::schema() const {
+  return scan_options_->schema();
+}
+
 InMemoryFragment::InMemoryFragment(
     std::vector<std::shared_ptr<RecordBatch>> record_batches,
     std::shared_ptr<ScanOptions> scan_options)
@@ -99,9 +103,33 @@ FragmentIterator Source::GetFragments(std::shared_ptr<ScanOptions> scan_options)
   return GetFragmentsImpl(std::move(simplified_scan_options));
 }
 
+InMemorySource::InMemorySource(std::shared_ptr<Schema> schema,
+                               std::vector<std::shared_ptr<RecordBatch>> batches)
+    : Source(std::move(schema)),
+      get_batches_([batches] { return MakeVectorIterator(batches); }) {}
+
+InMemorySource::InMemorySource(std::shared_ptr<Table> table)
+    : Source(table->schema()), get_batches_([table] {
+        auto reader = std::make_shared<TableBatchReader>(*table);
+        return MakeFunctionIterator([reader, table] { return reader->Next(); });
+      }) {}
+
 FragmentIterator InMemorySource::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> scan_options) {
-  return MakeVectorIterator(fragments_);
+  auto create_batch =
+      [scan_options](std::shared_ptr<RecordBatch> batch) -> std::shared_ptr<Fragment> {
+    std::vector<std::shared_ptr<RecordBatch>> batches;
+
+    while (batch->num_rows() > scan_options->batch_size) {
+      batches.push_back(batch->Slice(0, scan_options->batch_size));
+      batch = batch->Slice(scan_options->batch_size);
+    }
+    batches.push_back(std::move(batch));
+
+    return std::make_shared<InMemoryFragment>(std::move(batches), scan_options);
+  };
+
+  return MakeMapIterator(std::move(create_batch), get_batches_());
 }
 
 FragmentIterator TreeSource::GetFragmentsImpl(std::shared_ptr<ScanOptions> options) {

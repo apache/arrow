@@ -133,6 +133,11 @@ Status ScannerBuilder::UseThreads(bool use_threads) {
   return Status::OK();
 }
 
+Status ScannerBuilder::BatchSize(int64_t batch_size) {
+  options_->batch_size = batch_size;
+  return Status::OK();
+}
+
 Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() const {
   std::shared_ptr<ScanOptions> options;
   if (has_projection_ && !project_columns_.empty()) {

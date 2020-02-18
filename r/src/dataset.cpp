@@ -230,6 +230,12 @@ void dataset___ScannerBuilder__UseThreads(const std::shared_ptr<ds::ScannerBuild
 }
 
 // [[arrow::export]]
+void dataset___ScannerBuilder__BatchSize(const std::shared_ptr<ds::ScannerBuilder>& sb,
+                                         int64_t batch_size) {
+  STOP_IF_NOT_OK(sb->BatchSize(batch_size));
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(
     const std::shared_ptr<ds::ScannerBuilder>& sb) {
   return sb->schema();

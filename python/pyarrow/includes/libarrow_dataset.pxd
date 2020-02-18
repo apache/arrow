@@ -134,13 +134,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CFilter "arrow::dataset::Filter":
         pass
 
-    cdef cppclass CWriteOptions "arrow::dataset::WriteOptions":
-        pass
-
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
         shared_ptr[CExpression] filter
         shared_ptr[CSchema] schema
         c_bool use_threads
+        int64_t batch_size
 
         @staticmethod
         shared_ptr[CScanOptions] Defaults()
@@ -165,6 +163,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CStatus Filter(const CExpression & filter)
         CStatus Filter(shared_ptr[CExpression] filter)
         CStatus UseThreads(c_bool use_threads)
+        CStatus BatchSize(int64_t batch_size)
         CResult[shared_ptr[CScanner]] Finish()
         shared_ptr[CSchema] schema() const
 
@@ -218,10 +217,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             const shared_ptr[CSchema] & schema)
         CResult[shared_ptr[CDataset]] Finish()
 
-    cdef cppclass CFileScanOptions "arrow::dataset::FileScanOptions"(
-            CScanOptions):
-        c_string file_type()
-
     cdef cppclass CFileSource "arrow::dataset::FileSource":
         CFileSource(c_string path, CFileSystem * filesystem,
                     CompressionType compression)
@@ -231,10 +226,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CFileSystem * filesystem()
         shared_ptr[CBuffer] buffer()
         CStatus Open(shared_ptr[CRandomAccessFile] * out)
-
-    cdef cppclass CFileWriteOptions "arrow::dataset::WriteOptions"(
-            CWriteOptions):
-        c_string file_type()
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         c_string type_name()
@@ -275,14 +266,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         vector[c_string] files()
         shared_ptr[CFragmentIterator] GetFragments(
             shared_ptr[CScanOptions] options)
-
-    cdef cppclass CParquetScanOptions "arrow::dataset::ParquetScanOptions"(
-            CFileScanOptions):
-        c_string file_type()
-
-    cdef cppclass CParquetWriterOptions "arrow::dataset::ParquetWriterOptions"(
-            CFileWriteOptions):
-        c_string file_type()
 
     cdef cppclass CParquetFileFormatReaderOptions \
             "arrow::dataset::ParquetFileFormat::ReaderOptions":

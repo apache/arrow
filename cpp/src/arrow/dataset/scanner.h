@@ -74,6 +74,9 @@ class ARROW_DS_EXPORT ScanOptions {
   // Projector for reconciling the final RecordBatch to the requested schema.
   RecordBatchProjector projector;
 
+  // Maximum row count for scanned batches.
+  int64_t batch_size = 64 << 10;
+
   // Return a vector of fields that requires materialization.
   //
   // This is usually the union of the fields referenced in the projection and the
@@ -89,9 +92,6 @@ class ARROW_DS_EXPORT ScanOptions {
   // This is used by Fragments implementation to apply the column
   // sub-selection optimization.
   std::vector<std::string> MaterializedFields() const;
-
-  // Maximum row count for scanned batches.
-  int64_t batch_size = 64 << 10;
 
  private:
   explicit ScanOptions(std::shared_ptr<Schema> schema);
@@ -214,6 +214,9 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanContext;
   Status UseThreads(bool use_threads = true);
+
+  /// \brief Set the maximum row count for scanned batches
+  Status BatchSize(int64_t batch_size);
 
   /// \brief Return the constructed now-immutable Scanner object
   Result<std::shared_ptr<Scanner>> Finish() const;
