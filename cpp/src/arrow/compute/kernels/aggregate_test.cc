@@ -60,16 +60,25 @@ static SumResult<ArrowType> NaiveSumPartial(const Array& array) {
   ResultType result;
 
   auto data = array.data();
-  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
   const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
   const auto values = array_numeric.raw_values();
-  for (int64_t i = 0; i < array.length(); i++) {
-    if (reader.IsSet()) {
+
+  if (array.null_count() != 0) {
+    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
+                                  array.length());
+    for (int64_t i = 0; i < array.length(); i++) {
+      if (reader.IsSet()) {
+        result.first += values[i];
+        result.second++;
+      }
+
+      reader.Next();
+    }
+  } else {
+    for (int64_t i = 0; i < array.length(); i++) {
       result.first += values[i];
       result.second++;
     }
-
-    reader.Next();
   }
 
   return result;

@@ -594,7 +594,11 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   AssertArraysEqual(*result, *expected);
 
   // buffers are correctly sized
-  ASSERT_EQ(result->data()->buffers[0]->size(), BitUtil::BytesForBits(size));
+  if (result->data()->buffers[0]) {
+    ASSERT_EQ(result->data()->buffers[0]->size(), BitUtil::BytesForBits(size));
+  } else {
+    ASSERT_EQ(result->data()->null_count, 0);
+  }
   ASSERT_EQ(result->data()->buffers[1]->size(), BitUtil::BytesForBits(size));
 
   // Builder is now reset
