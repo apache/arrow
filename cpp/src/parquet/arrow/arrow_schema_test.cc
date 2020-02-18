@@ -1031,7 +1031,7 @@ TEST_F(TestConvertArrowSchema, ParquetOtherLists) {
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
-TEST_F(TestConvertArrowSchema, ParquetNestedComplianceEnabled) {
+TEST_F(TestConvertArrowSchema, ParquetNestedComplianceEnabledNullable) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
 
@@ -1050,6 +1050,38 @@ TEST_F(TestConvertArrowSchema, ParquetNestedComplianceEnabled) {
     parquet_fields.push_back(
         GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST));
     auto arrow_element = ::arrow::field("string", UTF8, true);
+    auto arrow_list = ::arrow::large_list(arrow_element);
+    arrow_fields.push_back(::arrow::field("my_list", arrow_list, false));
+  }
+
+  ArrowWriterProperties::Builder builder;
+  builder.enable_compliant_nested_types();
+  auto arrow_properties = builder.build();
+
+  ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
+
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+}
+
+TEST_F(TestConvertArrowSchema, ParquetNestedComplianceEnabledNotNullable) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  // parquet_arrow will always generate 3-level LIST encodings
+
+  // // List<String> (list non-null, elements nullable)
+  // optional group my_list (LIST) {
+  //   repeated group list {
+  //     optional binary element (UTF8);
+  //   }
+  // }
+  {
+    auto element = PrimitiveNode::Make("element", Repetition::REQUIRED,
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST));
+    auto arrow_element = ::arrow::field("string", UTF8, false);
     auto arrow_list = ::arrow::large_list(arrow_element);
     arrow_fields.push_back(::arrow::field("my_list", arrow_list, false));
   }

@@ -219,11 +219,11 @@ std::string LargeListType::ToString() const {
 
 MapType::MapType(const std::shared_ptr<DataType>& key_type,
                  const std::shared_ptr<DataType>& item_type, bool keys_sorted)
-    : MapType(key_type, std::make_shared<Field>("value", item_type), keys_sorted) {}
+    : MapType(key_type, field("value", item_type), keys_sorted) {}
 
 MapType::MapType(const std::shared_ptr<DataType>& key_type,
                  const std::shared_ptr<Field>& item_field, bool keys_sorted)
-    : ListType(std::make_shared<Field>(
+    : ListType(field(
           "entries",
           struct_({std::make_shared<Field>("key", key_type, false), item_field}), false)),
       keys_sorted_(keys_sorted) {
