@@ -145,12 +145,6 @@ def python_numpydoc(whitelist=None, blacklist=None):
         rules_blacklist=blacklist
     )
 
-    # rules_blacklist={
-    #     'GL01',
-    #     'SA01',
-    #     'EX01',
-    #     'ES01'
-    # })
     if len(results) == 0:
         yield LintResult(success=True)
         return

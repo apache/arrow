@@ -95,7 +95,7 @@ class NumpyDoc:
 
             errors = []
             for errcode, errmsg in result.get('errors', []):
-                if rules_whitelist and not errcode in rules_whitelist:
+                if rules_whitelist and errcode not in rules_whitelist:
                     continue
                 if rules_blacklist and errcode in rules_blacklist:
                     continue

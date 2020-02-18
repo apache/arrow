@@ -257,7 +257,7 @@ def lint(ctx, src, **kwargs):
 @click.option("--whitelist", "-w", help="Allow only these rules")
 @click.option("--blacklist", "-b", help="Disallow these rules")
 def numpydoc(src, whitelist, blacklist):
-    blacklist = blacklist or  {'GL01', 'SA01', 'EX01', 'ES01'}
+    blacklist = blacklist or {'GL01', 'SA01', 'EX01', 'ES01'}
     try:
         results = python_numpydoc(whitelist=whitelist, blacklist=blacklist)
         for result in results:
