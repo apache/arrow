@@ -333,7 +333,7 @@ garrow_table_new_record_batches(GArrowSchema *schema,
  * @other_table: A #GArrowTable to be compared.
  *
  * Returns: %TRUE if both of them have the same data, %FALSE
- *   otherwise.
+ *   otherwise. Note that this function doesn't compare metadata.
  *
  * Since: 0.4.0
  */
@@ -351,8 +351,8 @@ garrow_table_equal(GArrowTable *table, GArrowTable *other_table)
  * @other_table: A #GArrowTable to be compared.
  * @metadata: Whether to compare metadata.
  *
- * Returns: %TRUE if both of them have the same data including
- *   the metadata, %FALSE otherwise.
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
  *
  * Since: 1.0.0
  */
