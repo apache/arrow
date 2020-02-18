@@ -21,8 +21,9 @@
 #ifndef ARROW_UTIL_RLE_ENCODING_H
 #define ARROW_UTIL_RLE_ENCODING_H
 
-#include <math.h>
 #include <algorithm>
+#include <array>
+#include <cmath>
 
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
@@ -295,22 +296,28 @@ inline int RleDecoder::GetBatch(T* values, int batch_size) {
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
 
+  auto* out = values;
+
   while (values_read < batch_size) {
+    int remaining = batch_size - values_read;
+
     if (repeat_count_ > 0) {
-      int repeat_batch =
-          std::min(batch_size - values_read, static_cast<int>(repeat_count_));
-      std::fill(values + values_read, values + values_read + repeat_batch,
-                static_cast<T>(current_value_));
+      int repeat_batch = std::min(remaining, static_cast<int>(repeat_count_));
+      std::fill(out, out + repeat_batch, static_cast<T>(current_value_));
+
       repeat_count_ -= repeat_batch;
       values_read += repeat_batch;
+      out += repeat_batch;
     } else if (literal_count_ > 0) {
-      int literal_batch =
-          std::min(batch_size - values_read, static_cast<int>(literal_count_));
-      int actual_read =
-          bit_reader_.GetBatch(bit_width_, values + values_read, literal_batch);
-      DCHECK_EQ(actual_read, literal_batch);
+      int literal_batch = std::min(remaining, static_cast<int>(literal_count_));
+      int actual_read = bit_reader_.GetBatch(bit_width_, out, literal_batch);
+      if (actual_read != literal_batch) {
+        return values_read;
+      }
+
       literal_count_ -= literal_batch;
       values_read += literal_batch;
+      out += literal_batch;
     } else {
       if (!NextCounts<T>()) return values_read;
     }
@@ -405,28 +412,49 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
 
+  auto* out = values;
+
   while (values_read < batch_size) {
+    int remaining = batch_size - values_read;
+
     if (repeat_count_ > 0) {
-      int repeat_batch =
-          std::min(batch_size - values_read, static_cast<int>(repeat_count_));
-      std::fill(values + values_read, values + values_read + repeat_batch,
-                dictionary[current_value_]);
+      auto idx = static_cast<int32_t>(current_value_);
+      if (ARROW_PREDICT_FALSE(!idx_in_range(idx, dictionary_length))) {
+        return values_read;
+      }
+      T val = dictionary[idx];
+
+      int repeat_batch = std::min(remaining, static_cast<int>(repeat_count_));
+      std::fill(out, out + repeat_batch, val);
+
+      /* Upkeep counters */
       repeat_count_ -= repeat_batch;
       values_read += repeat_batch;
+      out += repeat_batch;
     } else if (literal_count_ > 0) {
-      int literal_batch =
-          std::min(batch_size - values_read, static_cast<int>(literal_count_));
+      constexpr int buffer_size = 1024;
+      std::array<int, buffer_size> indices;
 
-      const int buffer_size = 1024;
-      int indices[buffer_size];
+      int literal_batch = std::min(remaining, static_cast<int>(literal_count_));
       literal_batch = std::min(literal_batch, buffer_size);
-      int actual_read = bit_reader_.GetBatch(bit_width_, &indices[0], literal_batch);
-      DCHECK_EQ(actual_read, literal_batch);
-      for (int i = 0; i < literal_batch; ++i) {
-        values[values_read + i] = dictionary[indices[i]];
+
+      int actual_read = bit_reader_.GetBatch(bit_width_, indices.data(), literal_batch);
+      if (ARROW_PREDICT_FALSE(actual_read != literal_batch)) {
+        return values_read;
       }
+
+      for (int i = 0; i < literal_batch; ++i) {
+        int index = indices[i];
+        if (ARROW_PREDICT_FALSE(!idx_in_range(index, dictionary_length))) {
+          return values_read;
+        }
+        out[i] = dictionary[index];
+      }
+
+      /* Upkeep counters */
       literal_count_ -= literal_batch;
       values_read += literal_batch;
+      out += literal_batch;
     } else {
       if (!NextCounts<T>()) return values_read;
     }
@@ -457,10 +485,11 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
         if (!NextCounts<T>()) return values_read;
       }
       if (repeat_count_ > 0) {
-        if (ARROW_PREDICT_FALSE(!idx_in_range(current_value_, dictionary_length))) {
+        auto idx = static_cast<int32_t>(current_value_);
+        if (ARROW_PREDICT_FALSE(!idx_in_range(idx, dictionary_length))) {
           return values_read;
         }
-        T value = dictionary[current_value_];
+        T value = dictionary[idx];
         // The current index is already valid, we don't need to check that again
         int repeat_batch = 1;
         repeat_count_--;
