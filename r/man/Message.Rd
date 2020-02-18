@@ -3,13 +3,25 @@
 \docType{class}
 \name{Message}
 \alias{Message}
-\title{class arrow::Message}
+\title{Message}
 \description{
-class arrow::Message
+Message
 }
 \section{Methods}{
 
+\itemize{
+\item \verb{$Equals(other)}: Test for equality
+\item \verb{$body_length()}:
+\item \verb{$Verify()}:
+}
+}
 
-TODO
+\section{Active bindings}{
+
+\itemize{
+\item \verb{$type}:
+\item \verb{$metadata}:
+\item \verb{$body}:
+}
 }
 

@@ -9,6 +9,9 @@ read_message(stream)
 \arguments{
 \item{stream}{an InputStream}
 }
+\value{
+A \link{Message}
+}
 \description{
 Read a Message from a stream
 }
