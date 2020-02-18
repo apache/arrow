@@ -37,7 +37,7 @@ class Table;
 
 namespace internal {
 class TaskGroup;
-};
+}
 
 namespace dataset {
 

@@ -63,4 +63,4 @@ ARROW_EXPORT
 Status Mean(FunctionContext* context, const Array& array, Datum* mean);
 
 }  // namespace compute
-};  // namespace arrow
+}  // namespace arrow
