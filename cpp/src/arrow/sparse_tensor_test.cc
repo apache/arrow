@@ -146,9 +146,11 @@ TEST(TestSparseCSCIndex, Make) {
                                               indices_data));
 }
 
-template <typename IndexValueType>
+template <typename IndexValueType, typename ValueType = Int64Type>
 class TestSparseCOOTensorBase : public ::testing::Test {
  public:
+  using c_value_type = typename ValueType::c_type;
+
   void SetUp() {
     shape_ = {2, 3, 4};
     dim_names_ = {"foo", "bar", "baz"};
@@ -166,10 +168,10 @@ class TestSparseCOOTensorBase : public ::testing::Test {
     //      0 15  0 16
     //   ]
     // ]
-    std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                         0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+    std::vector<c_value_type> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                              0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
     auto dense_data = Buffer::Wrap(dense_values);
-    NumericTensor<Int64Type> dense_tensor(dense_data, shape_, {}, dim_names_);
+    NumericTensor<ValueType> dense_tensor(dense_data, shape_, {}, dim_names_);
     ASSERT_OK_AND_ASSIGN(sparse_tensor_from_dense_,
                          SparseCOOTensor::Make(
                              dense_tensor, TypeTraits<IndexValueType>::type_singleton()));
@@ -292,26 +294,6 @@ TEST_F(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
   ASSERT_TRUE(st->Equals(*this->sparse_tensor_from_dense_));
 }
 
-TEST_F(TestSparseCOOTensor, TensorEquality) {
-  std::vector<int64_t> values1 = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-  std::vector<int64_t> values2 = {0, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-  std::shared_ptr<Buffer> buffer1 = Buffer::Wrap(values1);
-  std::shared_ptr<Buffer> buffer2 = Buffer::Wrap(values2);
-  NumericTensor<Int64Type> tensor1(buffer1, this->shape_);
-  NumericTensor<Int64Type> tensor2(buffer2, this->shape_);
-
-  std::shared_ptr<SparseCOOTensor> st1;
-  ASSERT_OK_AND_ASSIGN(st1, SparseCOOTensor::Make(tensor1));
-
-  std::shared_ptr<SparseCOOTensor> st2;
-  ASSERT_OK_AND_ASSIGN(st2, SparseCOOTensor::Make(tensor2));
-
-  ASSERT_TRUE(st1->Equals(*this->sparse_tensor_from_dense_));
-  ASSERT_FALSE(st1->Equals(*st2));
-}
-
 TEST_F(TestSparseCOOTensor, TestToTensor) {
   std::vector<int64_t> values = {1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
                                  0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4};
@@ -328,6 +310,105 @@ TEST_F(TestSparseCOOTensor, TestToTensor) {
   ASSERT_OK(sparse_tensor->ToTensor(&dense_tensor));
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
+
+template <typename ValueType>
+class TestSparseCOOTensorEquality : public ::testing::Test {
+ public:
+  void SetUp() {
+    shape_ = {2, 3, 4};
+    values1_ = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+    values2_ = {1, 0, 2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                0, 0, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+    auto buffer1 = Buffer::Wrap(values1_);
+    auto buffer2 = Buffer::Wrap(values2_);
+    DCHECK_OK(NumericTensor<ValueType>::Make(buffer1, this->shape_).Value(&tensor1_));
+    DCHECK_OK(NumericTensor<ValueType>::Make(buffer2, this->shape_).Value(&tensor2_));
+  }
+
+ protected:
+  std::vector<int64_t> shape_;
+  std::vector<typename ValueType::c_type> values1_;
+  std::vector<typename ValueType::c_type> values2_;
+  std::shared_ptr<NumericTensor<ValueType>> tensor1_;
+  std::shared_ptr<NumericTensor<ValueType>> tensor2_;
+};
+
+template <typename ValueType>
+class TestIntegerSparseCOOTensorEquality : public TestSparseCOOTensorEquality<ValueType> {
+};
+
+TYPED_TEST_CASE_P(TestIntegerSparseCOOTensorEquality);
+
+TYPED_TEST_P(TestIntegerSparseCOOTensorEquality, TestEquality) {
+  using ValueType = TypeParam;
+  static_assert(is_integer_type<ValueType>::value, "Integer type is required");
+
+  std::shared_ptr<SparseCOOTensor> st1, st2, st3;
+  ASSERT_OK_AND_ASSIGN(st1, SparseCOOTensor::Make(*this->tensor1_));
+  ASSERT_OK_AND_ASSIGN(st2, SparseCOOTensor::Make(*this->tensor2_));
+  ASSERT_OK_AND_ASSIGN(st3, SparseCOOTensor::Make(*this->tensor1_));
+
+  ASSERT_TRUE(st1->Equals(*st1));
+  ASSERT_FALSE(st1->Equals(*st2));
+  ASSERT_TRUE(st1->Equals(*st3));
+}
+
+REGISTER_TYPED_TEST_CASE_P(TestIntegerSparseCOOTensorEquality, TestEquality);
+
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestIntegerSparseCOOTensorEquality, Int8Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestIntegerSparseCOOTensorEquality, UInt8Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestIntegerSparseCOOTensorEquality, Int16Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestIntegerSparseCOOTensorEquality, UInt16Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestIntegerSparseCOOTensorEquality, Int32Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestIntegerSparseCOOTensorEquality, UInt32Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestIntegerSparseCOOTensorEquality, Int64Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestIntegerSparseCOOTensorEquality, UInt64Type);
+
+template <typename ValueType>
+class TestFloatingSparseCOOTensorEquality
+    : public TestSparseCOOTensorEquality<ValueType> {};
+
+TYPED_TEST_CASE_P(TestFloatingSparseCOOTensorEquality);
+
+TYPED_TEST_P(TestFloatingSparseCOOTensorEquality, TestEquality) {
+  using ValueType = TypeParam;
+  using c_value_type = typename ValueType::c_type;
+  static_assert(is_floating_type<ValueType>::value, "Float type is required");
+
+  std::shared_ptr<SparseCOOTensor> st1, st2, st3;
+  ASSERT_OK_AND_ASSIGN(st1, SparseCOOTensor::Make(*this->tensor1_));
+  ASSERT_OK_AND_ASSIGN(st2, SparseCOOTensor::Make(*this->tensor2_));
+  ASSERT_OK_AND_ASSIGN(st3, SparseCOOTensor::Make(*this->tensor1_));
+
+  ASSERT_TRUE(st1->Equals(*st1));
+  ASSERT_FALSE(st1->Equals(*st2));
+  ASSERT_TRUE(st1->Equals(*st3));
+
+  // sparse tensors with NaNs
+  const c_value_type nan_value = static_cast<c_value_type>(NAN);
+  this->values2_[13] = nan_value;
+  EXPECT_TRUE(std::isnan(this->tensor2_->Value({1, 0, 1})));
+
+  std::shared_ptr<SparseCOOTensor> st4;
+  ASSERT_OK_AND_ASSIGN(st4, SparseCOOTensor::Make(*this->tensor2_));
+  EXPECT_FALSE(st4->Equals(*st4));                                  // same object
+  EXPECT_TRUE(st4->Equals(*st4, EqualOptions().nans_equal(true)));  // same object
+
+  std::vector<c_value_type> values5 = this->values2_;
+  std::shared_ptr<SparseCOOTensor> st5;
+  std::shared_ptr<Buffer> buffer5 = Buffer::Wrap(values5);
+  NumericTensor<ValueType> tensor5(buffer5, this->shape_);
+  ASSERT_OK_AND_ASSIGN(st5, SparseCOOTensor::Make(tensor5));
+  EXPECT_FALSE(st4->Equals(*st5));                                  // different memory
+  EXPECT_TRUE(st4->Equals(*st5, EqualOptions().nans_equal(true)));  // different memory
+}
+
+REGISTER_TYPED_TEST_CASE_P(TestFloatingSparseCOOTensorEquality, TestEquality);
+
+INSTANTIATE_TYPED_TEST_CASE_P(TestFloat, TestFloatingSparseCOOTensorEquality, FloatType);
+INSTANTIATE_TYPED_TEST_CASE_P(TestDouble, TestFloatingSparseCOOTensorEquality,
+                              DoubleType);
 
 template <typename IndexValueType>
 class TestSparseCOOTensorForIndexValueType

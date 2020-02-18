@@ -86,7 +86,8 @@ bool ARROW_EXPORT TensorEquals(const Tensor& left, const Tensor& right,
                                const EqualOptions& = EqualOptions::Defaults());
 
 /// EXPERIMENTAL: Returns true if the given sparse tensors are exactly equal
-bool ARROW_EXPORT SparseTensorEquals(const SparseTensor& left, const SparseTensor& right);
+bool ARROW_EXPORT SparseTensorEquals(const SparseTensor& left, const SparseTensor& right,
+                                     const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)

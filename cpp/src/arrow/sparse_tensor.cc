@@ -1082,8 +1082,8 @@ int64_t SparseTensor::size() const {
   return std::accumulate(shape_.begin(), shape_.end(), 1LL, std::multiplies<int64_t>());
 }
 
-bool SparseTensor::Equals(const SparseTensor& other) const {
-  return SparseTensorEquals(*this, other);
+bool SparseTensor::Equals(const SparseTensor& other, const EqualOptions& opts) const {
+  return SparseTensorEquals(*this, other, opts);
 }
 
 Status SparseTensor::ToTensor(MemoryPool* pool, std::shared_ptr<Tensor>* out) const {
