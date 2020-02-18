@@ -784,6 +784,7 @@ services:
         - ${REPO}:amd64-ubuntu-18.04-r-sanitizer
     environment:
       <<: *ccache
+      LIBARROW_BUILD: 'false'
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
