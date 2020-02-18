@@ -22,8 +22,8 @@ on:
     paths:
       - '.github/workflows/r_docs.yml'
       - 'r/R/*.R'
-    # branches:
-    #   - '!master'
+    branches-ignore:
+      - master
 
 jobs:
   roxygen:
