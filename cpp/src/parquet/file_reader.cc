@@ -270,6 +270,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(i);
 
+    auto sorting_columns = row_group_metadata_->sorting_columns;
+
     int64_t col_start = col->data_page_offset();
     if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
         col_start > col->dictionary_page_offset()) {
