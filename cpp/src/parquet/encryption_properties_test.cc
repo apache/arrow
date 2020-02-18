@@ -20,15 +20,11 @@
 #include <string>
 
 #include "parquet/encryption.h"
+#include "parquet/test_encryption_util.h"
 
 namespace parquet {
 
 namespace test {
-
-const char kFooterEncryptionKey[] = "0123456789012345";  // 128bit/16
-const char kColumnEncryptionKey1[] = "1234567890123450";
-const char kColumnEncryptionKey2[] = "1234567890123451";
-const char kFileName[] = "tester";
 
 TEST(TestColumnEncryptionProperties, ColumnEncryptedWithOwnKey) {
   std::string column_path_1 = "column_1";

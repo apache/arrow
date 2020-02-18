@@ -53,7 +53,7 @@ using internal::checked_cast;
 // ----------------------------------------------------------------------
 // Public method implementations
 
-namespace internal {
+namespace {
 
 // These helper functions assume we already checked the arrays have equal
 // sizes and null bitmaps.
@@ -955,22 +955,20 @@ Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
   return formatter(*edits, left, right);
 }
 
-}  // namespace internal
+}  // namespace
 
 bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts) {
-  bool are_equal =
-      internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right, opts);
+  bool are_equal = ArrayEqualsImpl<ArrayEqualsVisitor>(left, right, opts);
   if (!are_equal) {
-    DCHECK_OK(internal::PrintDiff(left, right, opts.diff_sink()));
+    DCHECK_OK(PrintDiff(left, right, opts.diff_sink()));
   }
   return are_equal;
 }
 
 bool ArrayApproxEquals(const Array& left, const Array& right, const EqualOptions& opts) {
-  bool are_equal =
-      internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, opts);
+  bool are_equal = ArrayEqualsImpl<ApproxEqualsVisitor>(left, right, opts);
   if (!are_equal) {
-    DCHECK_OK(internal::PrintDiff(left, right, opts.diff_sink()));
+    DCHECK_OK(PrintDiff(left, right, opts.diff_sink()));
   }
   return are_equal;
 }
@@ -985,8 +983,7 @@ bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_
   } else if (left.length() == 0) {
     are_equal = true;
   } else {
-    internal::RangeEqualsVisitor visitor(right, left_start_idx, left_end_idx,
-                                         right_start_idx);
+    RangeEqualsVisitor visitor(right, left_start_idx, left_end_idx, right_start_idx);
     auto error = VisitArrayInline(left, &visitor);
     if (!error.ok()) {
       DCHECK(false) << "Arrays are not comparable: " << error.ToString();
@@ -1272,7 +1269,7 @@ bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata
     }
 
     // TODO remove check_metadata here?
-    internal::TypeEqualsVisitor visitor(right, check_metadata);
+    TypeEqualsVisitor visitor(right, check_metadata);
     auto error = VisitTypeInline(left, &visitor);
     if (!error.ok()) {
       DCHECK(false) << "Types are not comparable: " << error.ToString();
@@ -1290,7 +1287,7 @@ bool ScalarEquals(const Scalar& left, const Scalar& right) {
   } else if (left.is_valid != right.is_valid) {
     are_equal = false;
   } else {
-    internal::ScalarEqualsVisitor visitor(right);
+    ScalarEqualsVisitor visitor(right);
     auto error = VisitScalarInline(left, &visitor);
     DCHECK_OK(error);
     are_equal = visitor.result();

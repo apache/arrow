@@ -35,6 +35,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 

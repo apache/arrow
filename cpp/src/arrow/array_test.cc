@@ -1526,7 +1526,7 @@ TEST_F(TestFWBinaryArray, BuilderNulls) {
   }
 }
 
-struct Appender {
+struct FWBinaryAppender {
   Status VisitNull() {
     data.emplace_back("(null)");
     return Status::OK();
@@ -1544,7 +1544,7 @@ TEST_F(TestFWBinaryArray, ArrayDataVisitor) {
   auto type = fixed_size_binary(3);
 
   auto array = ArrayFromJSON(type, R"(["abc", null, "def"])");
-  Appender appender;
+  FWBinaryAppender appender;
   ArrayDataVisitor<FixedSizeBinaryType> visitor;
   ASSERT_OK(visitor.Visit(*array->data(), &appender));
   ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"abc", "(null)", "def"}));
@@ -1555,7 +1555,7 @@ TEST_F(TestFWBinaryArray, ArrayDataVisitorSliced) {
   auto type = fixed_size_binary(3);
 
   auto array = ArrayFromJSON(type, R"(["abc", null, "def", "ghi"])")->Slice(1, 2);
-  Appender appender;
+  FWBinaryAppender appender;
   ArrayDataVisitor<FixedSizeBinaryType> visitor;
   ASSERT_OK(visitor.Visit(*array->data(), &appender));
   ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"(null)", "def"}));

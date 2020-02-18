@@ -110,4 +110,12 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
   return string_fn_registry_;
 }
 
+#undef BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN
+
+#undef BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN
+
+#undef UNARY_OCTET_LEN_FN
+
+#undef UNARY_SAFE_NULL_NEVER_BOOL_FN
+
 }  // namespace gandiva

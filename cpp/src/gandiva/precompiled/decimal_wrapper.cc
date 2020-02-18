@@ -229,9 +229,9 @@ void castDECIMAL_float32(float in, int32_t x_precision, int32_t x_scale,
 }
 
 FORCE_INLINE
-boolean castDecimal_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                             int32_t x_scale, int32_t out_precision, int32_t out_scale,
-                             int64_t* out_high, int64_t* out_low) {
+bool castDecimal_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                          int32_t x_scale, int32_t out_precision, int32_t out_scale,
+                          int64_t* out_high, int64_t* out_low) {
   gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
   bool overflow = false;
   auto out = gandiva::decimalops::Convert(x, out_precision, out_scale, &overflow);
@@ -251,7 +251,7 @@ void castDECIMAL_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
 FORCE_INLINE
 void castDECIMALNullOnOverflow_decimal128(int64_t x_high, uint64_t x_low,
                                           int32_t x_precision, int32_t x_scale,
-                                          boolean x_isvalid, bool* out_valid,
+                                          bool x_isvalid, bool* out_valid,
                                           int32_t out_precision, int32_t out_scale,
                                           int64_t* out_high, int64_t* out_low) {
   *out_valid = true;
@@ -269,7 +269,7 @@ void castDECIMALNullOnOverflow_decimal128(int64_t x_high, uint64_t x_low,
 
 FORCE_INLINE
 int32_t hash32_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                          int32_t x_scale, boolean x_isvalid) {
+                          int32_t x_scale, gdv_boolean x_isvalid) {
   return x_isvalid
              ? hash32_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
              : 0;
@@ -277,13 +277,13 @@ int32_t hash32_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
 
 FORCE_INLINE
 int32_t hash_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                        int32_t x_scale, boolean x_isvalid) {
+                        int32_t x_scale, gdv_boolean x_isvalid) {
   return hash32_decimal128(x_high, x_low, x_precision, x_scale, x_isvalid);
 }
 
 FORCE_INLINE
 int64_t hash64_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                          int32_t x_scale, boolean x_isvalid) {
+                          int32_t x_scale, gdv_boolean x_isvalid) {
   return x_isvalid
              ? hash64_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
              : 0;
@@ -291,8 +291,8 @@ int64_t hash64_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
 
 FORCE_INLINE
 int32_t hash32WithSeed_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                                  int32_t x_scale, boolean x_isvalid, int32_t seed,
-                                  boolean seed_isvalid) {
+                                  int32_t x_scale, gdv_boolean x_isvalid, int32_t seed,
+                                  gdv_boolean seed_isvalid) {
   if (!x_isvalid) {
     return seed;
   }
@@ -301,8 +301,8 @@ int32_t hash32WithSeed_decimal128(int64_t x_high, uint64_t x_low, int32_t x_prec
 
 FORCE_INLINE
 int64_t hash64WithSeed_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                                  int32_t x_scale, boolean x_isvalid, int64_t seed,
-                                  boolean seed_isvalid) {
+                                  int32_t x_scale, gdv_boolean x_isvalid, int64_t seed,
+                                  gdv_boolean seed_isvalid) {
   if (!x_isvalid) {
     return seed;
   }
@@ -311,7 +311,7 @@ int64_t hash64WithSeed_decimal128(int64_t x_high, uint64_t x_low, int32_t x_prec
 
 FORCE_INLINE
 int32_t hash32AsDouble_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                                  int32_t x_scale, boolean x_isvalid) {
+                                  int32_t x_scale, gdv_boolean x_isvalid) {
   return x_isvalid
              ? hash32_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
              : 0;
@@ -319,7 +319,7 @@ int32_t hash32AsDouble_decimal128(int64_t x_high, uint64_t x_low, int32_t x_prec
 
 FORCE_INLINE
 int64_t hash64AsDouble_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                                  int32_t x_scale, boolean x_isvalid) {
+                                  int32_t x_scale, gdv_boolean x_isvalid) {
   return x_isvalid
              ? hash64_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
              : 0;
@@ -328,8 +328,8 @@ int64_t hash64AsDouble_decimal128(int64_t x_high, uint64_t x_low, int32_t x_prec
 FORCE_INLINE
 int32_t hash32AsDoubleWithSeed_decimal128(int64_t x_high, uint64_t x_low,
                                           int32_t x_precision, int32_t x_scale,
-                                          boolean x_isvalid, int32_t seed,
-                                          boolean seed_isvalid) {
+                                          gdv_boolean x_isvalid, int32_t seed,
+                                          gdv_boolean seed_isvalid) {
   if (!x_isvalid) {
     return seed;
   }
@@ -339,8 +339,8 @@ int32_t hash32AsDoubleWithSeed_decimal128(int64_t x_high, uint64_t x_low,
 FORCE_INLINE
 int64_t hash64AsDoubleWithSeed_decimal128(int64_t x_high, uint64_t x_low,
                                           int32_t x_precision, int32_t x_scale,
-                                          boolean x_isvalid, int64_t seed,
-                                          boolean seed_isvalid) {
+                                          gdv_boolean x_isvalid, int64_t seed,
+                                          gdv_boolean seed_isvalid) {
   if (!x_isvalid) {
     return seed;
   }
@@ -348,29 +348,28 @@ int64_t hash64AsDoubleWithSeed_decimal128(int64_t x_high, uint64_t x_low,
 }
 
 FORCE_INLINE
-boolean isnull_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                          int32_t x_scale, boolean x_isvalid) {
+gdv_boolean isnull_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                              int32_t x_scale, gdv_boolean x_isvalid) {
   return !x_isvalid;
 }
 
 FORCE_INLINE
-boolean isnotnull_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                             int32_t x_scale, boolean x_isvalid) {
+gdv_boolean isnotnull_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                 int32_t x_scale, gdv_boolean x_isvalid) {
   return x_isvalid;
 }
 
 FORCE_INLINE
-boolean isnumeric_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                             int32_t x_scale, boolean x_isvalid) {
+gdv_boolean isnumeric_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                 int32_t x_scale, gdv_boolean x_isvalid) {
   return x_isvalid;
 }
 
 FORCE_INLINE
-boolean is_not_distinct_from_decimal128_decimal128(int64_t x_high, uint64_t x_low,
-                                                   int32_t x_precision, int32_t x_scale,
-                                                   boolean x_isvalid, int64_t y_high,
-                                                   uint64_t y_low, int32_t y_precision,
-                                                   int32_t y_scale, boolean y_isvalid) {
+gdv_boolean is_not_distinct_from_decimal128_decimal128(
+    int64_t x_high, uint64_t x_low, int32_t x_precision, int32_t x_scale,
+    gdv_boolean x_isvalid, int64_t y_high, uint64_t y_low, int32_t y_precision,
+    int32_t y_scale, gdv_boolean y_isvalid) {
   if (x_isvalid != y_isvalid) {
     return false;
   }
@@ -382,11 +381,12 @@ boolean is_not_distinct_from_decimal128_decimal128(int64_t x_high, uint64_t x_lo
 }
 
 FORCE_INLINE
-boolean is_distinct_from_decimal128_decimal128(int64_t x_high, uint64_t x_low,
-                                               int32_t x_precision, int32_t x_scale,
-                                               boolean x_isvalid, int64_t y_high,
-                                               uint64_t y_low, int32_t y_precision,
-                                               int32_t y_scale, boolean y_isvalid) {
+gdv_boolean is_distinct_from_decimal128_decimal128(int64_t x_high, uint64_t x_low,
+                                                   int32_t x_precision, int32_t x_scale,
+                                                   gdv_boolean x_isvalid, int64_t y_high,
+                                                   uint64_t y_low, int32_t y_precision,
+                                                   int32_t y_scale,
+                                                   gdv_boolean y_isvalid) {
   return !is_not_distinct_from_decimal128_decimal128(x_high, x_low, x_precision, x_scale,
                                                      x_isvalid, y_high, y_low,
                                                      y_precision, y_scale, y_isvalid);

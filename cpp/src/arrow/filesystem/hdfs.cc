@@ -26,15 +26,7 @@
 #include "arrow/io/hdfs_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
-
-#ifdef _WIN32
-#ifdef DeleteFile
-#undef DeleteFile
-#endif
-#ifdef CopyFile
-#undef CopyFile
-#endif
-#endif
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 

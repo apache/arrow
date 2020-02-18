@@ -151,6 +151,11 @@ if(ARROW_USE_CCACHE)
   endif(CCACHE_FOUND)
 endif()
 
+if(ARROW_USE_PRECOMPILED_HEADERS AND ${CMAKE_VERSION} VERSION_LESS "3.16.0")
+  message(WARNING "Precompiled headers need CMake 3.16.0 or later, disabling")
+  set(ARROW_USE_PRECOMPILED_HEADERS OFF)
+endif()
+
 if(ARROW_OPTIONAL_INSTALL)
   # Don't make the "install" target depend on the "all" target
   set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)

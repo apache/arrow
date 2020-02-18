@@ -264,6 +264,8 @@ add_arrow_lib(parquet
               parquet
               SOURCES
               ${PARQUET_SRCS}
+              PRECOMPILED_HEADERS
+              "$<$<COMPILE_LANGUAGE:CXX>:parquet/pch.h>"
               OUTPUTS
               PARQUET_LIBRARIES
               DEPENDENCIES
@@ -338,6 +340,13 @@ add_parquet_test(internals-test
                  public_api_test.cc
                  types_test.cc
                  test_util.cc)
+
+set_source_files_properties(public_api_test.cc
+                            PROPERTIES
+                            SKIP_PRECOMPILE_HEADERS
+                            ON
+                            SKIP_UNITY_BUILD_INCLUSION
+                            ON)
 
 add_parquet_test(reader_test
                  SOURCES

@@ -70,6 +70,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 
@@ -83,12 +84,12 @@ namespace S3Model = Aws::S3::Model;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
 using ::arrow::fs::internal::ErrorToStatus;
+using ::arrow::fs::internal::FromAwsDatetime;
 using ::arrow::fs::internal::FromAwsString;
 using ::arrow::fs::internal::IsAlreadyExists;
 using ::arrow::fs::internal::IsNotFound;
 using ::arrow::fs::internal::OutcomeToStatus;
 using ::arrow::fs::internal::ToAwsString;
-using ::arrow::fs::internal::ToTimePoint;
 using ::arrow::fs::internal::ToURLEncodedAwsString;
 
 const char* kS3DefaultRegion = "us-east-1";
@@ -789,13 +790,13 @@ class ObjectOutputStream : public io::OutputStream {
 void FileObjectToStats(const S3Model::HeadObjectResult& obj, FileStats* st) {
   st->set_type(FileType::File);
   st->set_size(static_cast<int64_t>(obj.GetContentLength()));
-  st->set_mtime(ToTimePoint(obj.GetLastModified()));
+  st->set_mtime(FromAwsDatetime(obj.GetLastModified()));
 }
 
 void FileObjectToStats(const S3Model::Object& obj, FileStats* st) {
   st->set_type(FileType::File);
   st->set_size(static_cast<int64_t>(obj.GetSize()));
-  st->set_mtime(ToTimePoint(obj.GetLastModified()));
+  st->set_mtime(FromAwsDatetime(obj.GetLastModified()));
 }
 
 }  // namespace

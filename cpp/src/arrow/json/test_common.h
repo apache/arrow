@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include <memory>
 #include <random>
 #include <string>
@@ -193,6 +195,24 @@ static inline std::string PrettyPrint(string_view one_line) {
   rj::PrettyWriter<rj::StringBuffer> writer(sb);
   document.Accept(writer);
   return sb.GetString();
+}
+
+inline static std::string scalars_only_src() {
+  return R"(
+    { "hello": 3.5, "world": false, "yo": "thing" }
+    { "hello": 3.25, "world": null }
+    { "hello": 3.125, "world": null, "yo": "\u5fcd" }
+    { "hello": 0.0, "world": true, "yo": null }
+  )";
+}
+
+inline static std::string nested_src() {
+  return R"(
+    { "hello": 3.5, "world": false, "yo": "thing", "arr": [1, 2, 3], "nuf": {} }
+    { "hello": 3.25, "world": null, "arr": [2], "nuf": null }
+    { "hello": 3.125, "world": null, "yo": "\u5fcd", "arr": [], "nuf": { "ps": 78 } }
+    { "hello": 0.0, "world": true, "yo": null, "arr": null, "nuf": { "ps": 90 } }
+  )";
 }
 
 }  // namespace json

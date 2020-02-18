@@ -80,4 +80,12 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
   return math_fn_registry_;
 }
 
+#undef MATH_UNARY_OPS
+
+#undef MATH_BINARY_UNSAFE
+
+#undef UNARY_SAFE_NULL_NEVER_BOOL_FN
+
+#undef BINARY_SAFE_NULL_NEVER_BOOL_FN
+
 }  // namespace gandiva

@@ -30,6 +30,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/variant.h"
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 namespace fs {

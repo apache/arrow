@@ -92,6 +92,8 @@ add_arrow_lib(arrow_flight
               ARROW_FLIGHT_LIBRARIES
               SOURCES
               ${ARROW_FLIGHT_SRCS}
+              PRECOMPILED_HEADERS
+              "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/pch.h>"
               DEPENDENCIES
               flight_grpc_gen
               SHARED_LINK_FLAGS

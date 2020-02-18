@@ -164,7 +164,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     for (auto null_probability : {0.0, 0.01, 0.25, 1.0}) {
-      for (auto filter_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      for (auto filter_probability : {0.0, 0.1, 0.5, 1.0}) {
         auto values = rand.Numeric<TypeParam>(length, 0, 127, null_probability);
         auto filter = rand.Boolean(length, filter_probability, null_probability);
         this->ValidateFilter(values, filter);

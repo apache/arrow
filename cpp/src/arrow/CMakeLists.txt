@@ -30,7 +30,7 @@ add_dependencies(arrow-all
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
-  set(multi_value_args LABELS)
+  set(multi_value_args LABELS PRECOMPILED_HEADERS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -49,11 +49,22 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     set(LABELS "arrow-tests")
   endif()
 
+  # Because of https://gitlab.kitware.com/cmake/cmake/issues/20289,
+  # we must generate the precompiled header on an executable target.
+  # Do that on the first unit test target (here "arrow-array-test")
+  # and reuse the PCH for the other tests.
+  if(ARG_PRECOMPILED_HEADERS)
+    set(PCH_ARGS PRECOMPILED_HEADERS ${ARG_PRECOMPILED_HEADERS})
+  else()
+    set(PCH_ARGS PRECOMPILED_HEADER_LIB "arrow-array-test")
+  endif()
+
   add_test_case(${REL_TEST_NAME}
                 PREFIX
                 ${PREFIX}
                 LABELS
                 ${LABELS}
+                ${PCH_ARGS}
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
@@ -179,7 +190,9 @@ set(ARROW_SRCS
     vendored/double-conversion/cached-powers.cc
     vendored/double-conversion/fixed-dtoa.cc
     vendored/double-conversion/diy-fp.cc
-    vendored/double-conversion/strtod.cc
+    vendored/double-conversion/strtod.cc)
+
+set(ARROW_C_SRCS
     vendored/uriparser/UriCommon.c
     vendored/uriparser/UriCompare.c
     vendored/uriparser/UriEscape.c
@@ -195,6 +208,13 @@ set(ARROW_SRCS
     vendored/uriparser/UriRecompose.c
     vendored/uriparser/UriResolve.c
     vendored/uriparser/UriShorten.c)
+
+set_source_files_properties(vendored/datetime/tz.cpp
+                            PROPERTIES
+                            SKIP_PRECOMPILE_HEADERS
+                            ON
+                            SKIP_UNITY_BUILD_INCLUSION
+                            ON)
 
 # Disable DLL exports in vendored uriparser library
 add_definitions(-DURI_STATIC_BUILD)
@@ -256,6 +276,12 @@ if(_allocator_dependencies)
   else()
     add_dependencies(arrow_dependencies ${_allocator_dependencies})
   endif()
+  set_source_files_properties(memory_pool.cc
+                              PROPERTIES
+                              SKIP_PRECOMPILE_HEADERS
+                              ON
+                              SKIP_UNITY_BUILD_INCLUSION
+                              ON)
 endif()
 
 unset(_allocator_dependencies)
@@ -266,17 +292,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                PROPERTY COMPILE_FLAGS " -Wno-unused-macros ")
 endif()
 
-# Unconditionally install testing headers that are also useful for Arrow consumers.
-add_subdirectory(testing)
-
 #
-# Add the various components
+# Configure the base Arrow libraries
 #
-
-add_subdirectory(array)
-add_subdirectory(io)
-add_subdirectory(util)
-add_subdirectory(vendored)
 
 if(ARROW_CSV)
   list(APPEND ARROW_SRCS
@@ -286,11 +304,9 @@ if(ARROW_CSV)
               csv/options.cc
               csv/parser.cc
               csv/reader.cc)
-  add_subdirectory(csv)
 endif()
 
 if(ARROW_COMPUTE)
-  add_subdirectory(compute)
   list(APPEND ARROW_SRCS
               compute/context.cc
               compute/expression.cc
@@ -315,21 +331,10 @@ if(ARROW_COMPUTE)
               compute/operations/literal.cc)
 endif()
 
-if(ARROW_CUDA)
-  add_subdirectory(gpu)
-endif()
-
-if(ARROW_DATASET)
-  add_subdirectory(dataset)
-endif()
-
 if(ARROW_FILESYSTEM)
-  add_subdirectory(filesystem)
-
   if(ARROW_HDFS)
     add_definitions(-DARROW_HDFS)
   endif()
-
   if(ARROW_S3)
     add_definitions(-DARROW_S3)
   endif()
@@ -342,28 +347,23 @@ if(ARROW_FILESYSTEM)
               filesystem/path_util.cc
               filesystem/util_internal.cc)
 
-  if(ARROW_S3)
-    list(APPEND ARROW_SRCS filesystem/s3fs.cc)
-  endif()
-
   if(ARROW_HDFS)
     list(APPEND ARROW_SRCS filesystem/hdfs.cc)
+  endif()
+  if(ARROW_S3)
+    list(APPEND ARROW_SRCS filesystem/s3fs.cc)
+    set_source_files_properties(filesystem/s3fs.cc
+                                PROPERTIES
+                                SKIP_PRECOMPILE_HEADERS
+                                ON
+                                SKIP_UNITY_BUILD_INCLUSION
+                                ON)
   endif()
 
   list(APPEND ARROW_TESTING_SRCS filesystem/test_util.cc)
 endif()
 
-if(ARROW_FLIGHT)
-  add_subdirectory(flight)
-endif()
-
-if(ARROW_HIVESERVER2)
-  add_subdirectory(dbi/hiveserver2)
-endif()
-
 if(ARROW_IPC)
-  add_subdirectory(ipc)
-
   list(APPEND ARROW_SRCS
               ipc/dictionary.cc
               ipc/feather.cc
@@ -380,7 +380,6 @@ if(ARROW_IPC)
 endif()
 
 if(ARROW_JSON)
-  add_subdirectory(json)
   list(APPEND ARROW_SRCS
               json/options.cc
               json/chunked_builder.cc
@@ -391,16 +390,7 @@ if(ARROW_JSON)
 endif()
 
 if(ARROW_ORC)
-  add_subdirectory(adapters/orc)
   list(APPEND ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc)
-endif()
-
-if(ARROW_PYTHON)
-  add_subdirectory(python)
-endif()
-
-if(ARROW_TENSORFLOW)
-  add_subdirectory(adapters/tensorflow)
 endif()
 
 if(NOT APPLE AND NOT MSVC)
@@ -412,7 +402,7 @@ if(NOT APPLE AND NOT MSVC)
   set(ARROW_SHARED_LINK_FLAGS ${ARROW_VERSION_SCRIPT_FLAGS})
 endif()
 
-set(ARROW_ALL_SRCS ${ARROW_SRCS})
+set(ARROW_ALL_SRCS ${ARROW_SRCS} ${ARROW_C_SRCS})
 
 add_arrow_lib(arrow
               CMAKE_PACKAGE_NAME
@@ -423,6 +413,8 @@ add_arrow_lib(arrow
               ${ARROW_ALL_SRCS}
               OUTPUTS
               ARROW_LIBRARIES
+              PRECOMPILED_HEADERS
+              "$<$<COMPILE_LANGUAGE:CXX>:arrow/pch.h>"
               DEPENDENCIES
               arrow_dependencies
               SHARED_LINK_FLAGS
@@ -448,6 +440,7 @@ if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
    OR ARROW_FUZZING)
+
   # that depend on gtest
   add_arrow_lib(arrow_testing
                 CMAKE_PACKAGE_NAME
@@ -458,6 +451,8 @@ if(ARROW_BUILD_TESTS
                 ${ARROW_TESTING_SRCS}
                 OUTPUTS
                 ARROW_TESTING_LIBRARIES
+                PRECOMPILED_HEADERS
+                "$<$<COMPILE_LANGUAGE:CXX>:arrow/pch.h>"
                 DEPENDENCIES
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
@@ -509,7 +504,9 @@ add_arrow_test(array_test
                array_list_test.cc
                array_struct_test.cc
                array_union_test.cc
-               array_view_test.cc)
+               array_view_test.cc
+               PRECOMPILED_HEADERS
+               "$<$<COMPILE_LANGUAGE:CXX>:arrow/testing/pch.h>")
 add_arrow_test(buffer_test)
 
 if(ARROW_IPC)
@@ -520,6 +517,14 @@ endif()
 add_arrow_test(memory_pool_test)
 add_arrow_test(pretty_print_test)
 add_arrow_test(public_api_test)
+
+set_source_files_properties(public_api_test.cc
+                            PROPERTIES
+                            SKIP_PRECOMPILE_HEADERS
+                            ON
+                            SKIP_UNITY_BUILD_INCLUSION
+                            ON)
+
 add_arrow_test(result_test)
 add_arrow_test(scalar_test)
 add_arrow_test(status_test)
@@ -536,3 +541,63 @@ endif()
 
 add_arrow_benchmark(builder_benchmark)
 add_arrow_benchmark(type_benchmark)
+
+#
+# Recurse into sub-directories
+#
+
+# Unconditionally install testing headers that are also useful for Arrow consumers.
+add_subdirectory(testing)
+
+add_subdirectory(array)
+add_subdirectory(io)
+add_subdirectory(util)
+add_subdirectory(vendored)
+
+if(ARROW_CSV)
+  add_subdirectory(csv)
+endif()
+
+if(ARROW_COMPUTE)
+  add_subdirectory(compute)
+endif()
+
+if(ARROW_CUDA)
+  add_subdirectory(gpu)
+endif()
+
+if(ARROW_DATASET)
+  add_subdirectory(dataset)
+endif()
+
+if(ARROW_FILESYSTEM)
+  add_subdirectory(filesystem)
+endif()
+
+if(ARROW_FLIGHT)
+  add_subdirectory(flight)
+endif()
+
+if(ARROW_HIVESERVER2)
+  add_subdirectory(dbi/hiveserver2)
+endif()
+
+if(ARROW_IPC)
+  add_subdirectory(ipc)
+endif()
+
+if(ARROW_JSON)
+  add_subdirectory(json)
+endif()
+
+if(ARROW_ORC)
+  add_subdirectory(adapters/orc)
+endif()
+
+if(ARROW_PYTHON)
+  add_subdirectory(python)
+endif()
+
+if(ARROW_TENSORFLOW)
+  add_subdirectory(adapters/tensorflow)
+endif()

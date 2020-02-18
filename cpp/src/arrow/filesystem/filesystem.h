@@ -29,17 +29,7 @@
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-
-// The Windows API defines macros from *File resolving to either
-// *FileA or *FileW.  Need to undo them.
-#ifdef _WIN32
-#ifdef DeleteFile
-#undef DeleteFile
-#endif
-#ifdef CopyFile
-#undef CopyFile
-#endif
-#endif
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 

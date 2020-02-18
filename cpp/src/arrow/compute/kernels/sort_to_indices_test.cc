@@ -197,9 +197,9 @@ TYPED_TEST(TestSortToIndicesKernelRandom, SortRandomValues) {
 
   Random<TypeParam> rand(0x5487655);
   int times = 5;
-  int length = 10000;
+  int length = 1000;
   for (int test = 0; test < times; test++) {
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
       auto array = rand.Generate(length, null_probability);
       std::shared_ptr<Array> offsets;
       ASSERT_OK(arrow::compute::SortToIndices(&this->ctx_, *array, &offsets));
