@@ -34,15 +34,21 @@ PKG_TEST_HEADER="<arrow/api.h>"
 # These must be the same order as $(pkg-config --libs arrow-dataset)
 PKG_LIBS="-larrow_dataset -lparquet -larrow"
 
+# Make some env vars case-insensitive
+ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
+LOCAL_AUTOBREW=`echo $LOCAL_AUTOBREW | tr '[:upper:]' '[:lower:]'`
+FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
+ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
+
 # generate code
-if [ "$ARROW_R_DEV" = "TRUE" ]; then
+if [ "$ARROW_R_DEV" = "true" ]; then
   echo "*** Generating code with data-raw/codegen.R"
   ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
 
 UNAME=`uname -s`
 
-if [ "$LOCAL_AUTOBREW" = "TRUE" ]; then
+if [ "$LOCAL_AUTOBREW" = "true" ]; then
   # LOCAL_AUTOBREW means use the script in tools/
   # If you want to use a local apache-arrow.rb formula, do:
   # $ cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
@@ -50,8 +56,8 @@ if [ "$LOCAL_AUTOBREW" = "TRUE" ]; then
   # FORCE_AUTOBREW without LOCAL_AUTOBREW means to pull from jeroen.github.io
   cp tools/autobrew .
   cp tools/apache-arrow.rb .
-  FORCE_AUTOBREW="TRUE"
-  ARROW_USE_PKG_CONFIG="FALSE"
+  FORCE_AUTOBREW="true"
+  ARROW_USE_PKG_CONFIG="false"
 fi
 
 # Note that cflags may be empty in case of success
@@ -62,7 +68,7 @@ if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
 else
   # Use pkg-config if available and allowed
   pkg-config --version >/dev/null 2>&1
-  if [ "$ARROW_USE_PKG_CONFIG" != "FALSE" ] && [ $? -eq 0 ]; then
+  if [ "$ARROW_USE_PKG_CONFIG" != "false" ] && [ $? -eq 0 ]; then
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_LIBS=`pkg-config --libs --silence-errors ${PKG_CONFIG_NAME}`
   fi
@@ -73,7 +79,7 @@ else
     PKG_LIBS=${PKGCONFIG_LIBS}
   else
     if [ "$UNAME" = "Darwin" ]; then
-      if [ "$FORCE_AUTOBREW" != "TRUE" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
+      if [ "$FORCE_AUTOBREW" != "true" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
         echo "Using Homebrew ${PKG_BREW_NAME}"
         BREWDIR=`brew --prefix`
       else

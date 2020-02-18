@@ -761,7 +761,7 @@ services:
       NOT_CRAN: "true"
       LIBARROW_DOWNLOAD: "false"
       ARROW_HOME: "/arrow"
-      ARROW_USE_PKG_CONFIG: "FALSE"
+      ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated
     command: >

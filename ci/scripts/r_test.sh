@@ -24,7 +24,7 @@ source_dir=${1}/r
 
 pushd ${source_dir}
 
-if [ "$ARROW_USE_PKG_CONFIG" != "FALSE" ]; then
+if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
   export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
   export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
 fi

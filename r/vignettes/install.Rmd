@@ -256,22 +256,22 @@ and avoid this build step entirely.
 
 ## Summary of build environment variables
 
-By default, these are all unset.
+By default, these are all unset. All boolean variables are case-insensitive.
 
-* `ARROW_USE_PKG_CONFIG`: If set to `FALSE`, the configure script
+* `ARROW_USE_PKG_CONFIG`: If set to `false`, the configure script
   won't look for Arrow libraries on your system and instead will look to download/build them.
   Use this if you have a version mismatch between installed system libraries
   and the version of the R package you're installing.
-* `LIBARROW_DOWNLOAD`: Unless set to `TRUE` (case insensitive), the build script
+* `LIBARROW_DOWNLOAD`: Unless set to `true`, the build script
   will not attempt to download C++ binary or source bundles.
   If you're in a checkout of the `apache/arrow` git repository
   and want to build the C++ library from the local source, make this `FALSE`.
-* `LIBARROW_BUILD`: If set to `FALSE` (case insensitive), the build script
+* `LIBARROW_BUILD`: If set to `false`, the build script
   will not attempt to build the C++ from source. This means you will only get
   a working `arrow` R package if a prebuilt binary is found.
   Use this if you want to avoid compiling the C++ library, which may be slow
   and resource-intensive, and ensure that you only use a prebuilt binary.
-* `LIBARROW_BINARY`: If set to `FALSE` (case insensitive),
+* `LIBARROW_BINARY`: If set to `false`,
   the script will not download a binary, but it may still download a source bundle.
   You may also set it to some other string,
   a related "distro-version" that has binaries built that work for your OS.
@@ -281,7 +281,7 @@ By default, these are all unset.
   if you're not running `R CMD check`.
   The purpose of this protection is to avoid expensive compilation in
   automated testing environments (unless you opt-in).
-* `ARROW_R_DEV`: If set to `TRUE`, more verbose messaging will be printed
+* `ARROW_R_DEV`: If set to `true`, more verbose messaging will be printed
   in the build script. This variable also is needed if you're modifying `Rcpp`
   code in the package: see "Editing Rcpp code" in the README.
 * `DEBUG_DIR`: If the C++ library building from source fails (`cmake`),
