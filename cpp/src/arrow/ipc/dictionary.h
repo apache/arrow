@@ -61,7 +61,7 @@ class ARROW_EXPORT DictionaryMemo {
 
   /// \brief Return id for dictionary if it exists, otherwise return
   /// KeyError
-  Status GetId(const Field& type, int64_t* id) const;
+  Status GetId(const Field* type, int64_t* id) const;
 
   /// \brief Return true if dictionary for type is in this memo
   bool HasDictionary(const Field& type) const;

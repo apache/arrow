@@ -1432,7 +1432,7 @@ class ArrayReader {
 
     // Look up dictionary
     int64_t dictionary_id = -1;
-    RETURN_NOT_OK(dictionary_memo_->GetId(*field_, &dictionary_id));
+    RETURN_NOT_OK(dictionary_memo_->GetId(field_.get(), &dictionary_id));
 
     std::shared_ptr<Array> dictionary;
     RETURN_NOT_OK(dictionary_memo_->GetDictionary(dictionary_id, &dictionary));

@@ -106,6 +106,10 @@ class ARROW_EXPORT Message {
   /// \return buffer
   std::shared_ptr<Buffer> metadata() const;
 
+  /// \brief Custom metadata serialized in metadata Flatbuffer. Returns nullptr
+  /// when none set
+  std::shared_ptr<const KeyValueMetadata> custom_metadata() const;
+
   /// \brief the Message body, if any
   ///
   /// \return buffer is null if no body

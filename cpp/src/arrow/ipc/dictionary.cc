@@ -18,9 +18,7 @@
 #include "arrow/ipc/dictionary.h"
 
 #include <cstdint>
-#include <iostream>
 #include <memory>
-#include <sstream>
 #include <utility>
 
 #include "arrow/array.h"
@@ -103,15 +101,15 @@ Status DictionaryMemo::AddField(int64_t id, const std::shared_ptr<Field>& field)
   }
 }
 
-Status DictionaryMemo::GetId(const Field& field, int64_t* id) const {
-  auto it = field_to_id_.find(&field);
+Status DictionaryMemo::GetId(const Field* field, int64_t* id) const {
+  auto it = field_to_id_.find(field);
   if (it != field_to_id_.end()) {
     // Field recorded, return the id
     *id = it->second;
     return Status::OK();
   } else {
     return Status::KeyError("Field with memory address ",
-                            reinterpret_cast<int64_t>(&field), " not found");
+                            reinterpret_cast<int64_t>(field), " not found");
   }
 }
 

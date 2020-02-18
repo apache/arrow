@@ -54,6 +54,12 @@ class Message::MessageImpl {
       return Status::Invalid("Old metadata version not supported");
     }
 
+    if (message_->custom_metadata() != nullptr) {
+      // Deserialize from Flatbuffers if first time called
+      RETURN_NOT_OK(
+          internal::GetKeyValueMetadata(message_->custom_metadata(), &custom_metadata_));
+    }
+
     return Status::OK();
   }
 
@@ -86,10 +92,17 @@ class Message::MessageImpl {
 
   std::shared_ptr<Buffer> metadata() const { return metadata_; }
 
+  std::shared_ptr<const KeyValueMetadata> custom_metadata() const {
+    return custom_metadata_;
+  }
+
  private:
   // The Flatbuffer metadata
   std::shared_ptr<Buffer> metadata_;
   const flatbuf::Message* message_;
+
+  // The recontructed custom_metadata field from the Message Flatbuffer
+  std::shared_ptr<const KeyValueMetadata> custom_metadata_;
 
   // The message body, if any
   std::shared_ptr<Buffer> body_;
@@ -119,6 +132,10 @@ Message::Type Message::type() const { return impl_->type(); }
 MetadataVersion Message::metadata_version() const { return impl_->version(); }
 
 const void* Message::header() const { return impl_->header(); }
+
+std::shared_ptr<const KeyValueMetadata> Message::custom_metadata() const {
+  return impl_->custom_metadata();
+}
 
 bool Message::Equals(const Message& other) const {
   int64_t metadata_bytes = std::min(metadata()->size(), other.metadata()->size());

@@ -55,10 +55,8 @@ using RecordBatchReader = ::arrow::RecordBatchReader;
 /// This class reads the schema (plus any dictionaries) as the first messages
 /// in the stream, followed by record batches. For more granular zero-copy
 /// reads see the ReadRecordBatch functions
-class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
+class RecordBatchStreamReader {
  public:
-  ~RecordBatchStreamReader() override;
-
   /// Create batch reader from generic MessageReader.
   /// This will take ownership of the given MessageReader.
   ///
@@ -84,23 +82,12 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
   /// \return Status
   static Status Open(const std::shared_ptr<io::InputStream>& stream,
                      std::shared_ptr<RecordBatchReader>* out);
-
-  /// \brief Returns the schema read from the stream
-  std::shared_ptr<Schema> schema() const override;
-
-  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override;
-
- private:
-  RecordBatchStreamReader();
-
-  class ARROW_NO_EXPORT RecordBatchStreamReaderImpl;
-  std::unique_ptr<RecordBatchStreamReaderImpl> impl_;
 };
 
 /// \brief Reads the record batch file format
 class ARROW_EXPORT RecordBatchFileReader {
  public:
-  ~RecordBatchFileReader();
+  virtual ~RecordBatchFileReader() = default;
 
   /// \brief Open a RecordBatchFileReader
   ///
@@ -144,13 +131,13 @@ class ARROW_EXPORT RecordBatchFileReader {
                      std::shared_ptr<RecordBatchFileReader>* reader);
 
   /// \brief The schema read from the file
-  std::shared_ptr<Schema> schema() const;
+  virtual std::shared_ptr<Schema> schema() const = 0;
 
   /// \brief Returns the number of record batches in the file
-  int num_record_batches() const;
+  virtual int num_record_batches() const = 0;
 
   /// \brief Return the metadata version from the file metadata
-  MetadataVersion version() const;
+  virtual MetadataVersion version() const = 0;
 
   /// \brief Read a particular record batch from the file. Does not copy memory
   /// if the input source supports zero-copy.
@@ -158,13 +145,7 @@ class ARROW_EXPORT RecordBatchFileReader {
   /// \param[in] i the index of the record batch to return
   /// \param[out] batch the read batch
   /// \return Status
-  Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch);
-
- private:
-  RecordBatchFileReader();
-
-  class ARROW_NO_EXPORT RecordBatchFileReaderImpl;
-  std::unique_ptr<RecordBatchFileReaderImpl> impl_;
+  virtual Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) = 0;
 };
 
 // Generic read functions; does not copy data if the input supports zero copy reads
@@ -252,7 +233,7 @@ Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& sc
 /// \return Status
 ARROW_EXPORT
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-                       const DictionaryMemo* dictionary_memo, const IpcOptions& options,
+                       const DictionaryMemo* dictionary_memo, IpcOptions options,
                        io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
 
 /// \brief Read arrow::Tensor as encapsulated IPC message in file

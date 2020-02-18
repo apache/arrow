@@ -385,9 +385,6 @@ class GrpcStreamWriter : public FlightStreamWriter {
     }
     return Status::OK();
   }
-  void set_memory_pool(MemoryPool* pool) override {
-    batch_writer_->set_memory_pool(pool);
-  }
   Status Close() override { return batch_writer_->Close(); }
 
  private:

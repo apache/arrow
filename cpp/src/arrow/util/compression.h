@@ -31,11 +31,13 @@ namespace arrow {
 struct Compression {
   /// \brief Compression algorithm
   enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZO, BZ2 };
+
+  static constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
 };
 
 namespace util {
 
-constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
+constexpr int kUseDefaultCompressionLevel = Compression::kUseDefaultCompressionLevel;
 
 /// \brief Streaming compressor interface
 ///
@@ -123,6 +125,9 @@ class ARROW_EXPORT Codec {
 
   /// \brief Return a string name for compression type
   static std::string GetCodecAsString(Compression::type t);
+
+  /// \brief Return compression type for name (all upper case)
+  static Result<Compression::type> GetCompressionType(const std::string& name);
 
   /// \brief Create a codec for the given compression algorithm
   static Result<std::unique_ptr<Codec>> Create(
