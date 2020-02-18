@@ -83,8 +83,7 @@ reference:
   - ParquetReaderProperties
   - ParquetFileWriter
   - ParquetWriterProperties
-  - FeatherTableReader
-  - FeatherTableWriter
+  - FeatherReader
   - CsvTableReader
   - RecordBatchReader
   - RecordBatchWriter
