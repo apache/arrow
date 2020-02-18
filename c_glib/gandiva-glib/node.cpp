@@ -1440,7 +1440,7 @@ ggandiva_boolean_node_class_init(GGandivaBooleanNodeClass *klass)
  * @node: A #GGandivaBooleanNode.
  *
  * Returns: (transfer none) (element-type GGandivaNode):
- *   The children of the Boolean node.
+ *   The children of the boolean node.
  *
  * Since: 1.0.0
  */
