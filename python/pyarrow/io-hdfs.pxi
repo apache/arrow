@@ -33,15 +33,6 @@ def have_libhdfs():
         return False
 
 
-def have_libhdfs3():
-    try:
-        with nogil:
-            check_status(HaveLibHdfs3())
-        return True
-    except Exception:
-        return False
-
-
 def strip_hdfs_abspath(path):
     m = _HDFS_PATH_RE.match(path)
     if m:
@@ -59,11 +50,10 @@ cdef class HadoopFileSystem:
         object host
         object user
         object kerb_ticket
-        object driver
         int port
         dict extra_conf
 
-    def _connect(self, host, port, user, kerb_ticket, driver, extra_conf):
+    def _connect(self, host, port, user, kerb_ticket, extra_conf):
         cdef HdfsConnectionConfig conf
 
         if host is not None:
@@ -81,17 +71,8 @@ cdef class HadoopFileSystem:
             conf.kerb_ticket = tobytes(kerb_ticket)
         self.kerb_ticket = kerb_ticket
 
-        if driver == 'libhdfs':
-            with nogil:
-                check_status(HaveLibHdfs())
-            conf.driver = HdfsDriver_LIBHDFS
-        elif driver == 'libhdfs3':
-            with nogil:
-                check_status(HaveLibHdfs3())
-            conf.driver = HdfsDriver_LIBHDFS3
-        else:
-            raise ValueError("unknown driver: %r" % driver)
-        self.driver = driver
+        with nogil:
+            check_status(HaveLibHdfs())
 
         if extra_conf is not None and isinstance(extra_conf, dict):
             conf.extra_conf = {tobytes(k): tobytes(v)

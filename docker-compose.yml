@@ -1098,7 +1098,6 @@ services:
         # be set to ${MAVEN}
         maven: 3.5
         hdfs: ${HDFS}
-        libhdfs3: ${LIBHDFS3}
     links:
       - impala:impala
     environment:

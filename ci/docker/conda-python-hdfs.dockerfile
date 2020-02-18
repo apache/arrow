@@ -21,10 +21,8 @@ ARG python=3.6
 FROM ${repo}:${arch}-conda-python-${python}
 
 ARG jdk=8
-ARG libhdfs3=2.3
 ARG maven=3.5
 RUN conda install -q \
-        libhdfs3=${libhdfs3} \
         maven=${maven} \
         openjdk=${jdk} \
         pandas && \

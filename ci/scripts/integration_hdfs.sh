@@ -40,15 +40,8 @@ function use_libhdfs_dir() {
   export ARROW_LIBHDFS_DIR=$libhdfs_dir
 }
 
-# TODO: libhdfs3 backend may be broken
-if [ -f $CONDA_PREFIX/lib/libhdfs3.so ]; then
-  mv $CONDA_PREFIX/lib/libhdfs3.so{,.disabled}
-fi
-
 # execute cpp tests
 export ARROW_HDFS_TEST_LIBHDFS_REQUIRE=ON
-# TODO: libhdfs3 backend may be broken
-# export ARROW_HDFS_TEST_LIBHDFS3_REQUIRE=ON
 pushd ${build_dir}
 
 debug/arrow-io-hdfs-test
@@ -66,8 +59,6 @@ popd
 export PYARROW_TEST_HDFS=ON
 
 export PYARROW_HDFS_TEST_LIBHDFS_REQUIRE=ON
-# TODO: libhdfs3 backend may be broken
-# export PYARROW_HDFS_TEST_LIBHDFS3_REQUIRE=ON
 
 pytest -v --pyargs pyarrow.tests.test_fs
 pytest -v --pyargs pyarrow.tests.test_hdfs
