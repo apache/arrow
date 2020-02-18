@@ -132,6 +132,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                               properties_.memory_pool());
     }
 
+    if (file_decryptor_ == nullptr) {
+      throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
+    }
+
     // The column is encrypted
     std::shared_ptr<Decryptor> meta_decryptor;
     std::shared_ptr<Decryptor> data_decryptor;
