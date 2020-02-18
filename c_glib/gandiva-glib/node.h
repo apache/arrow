@@ -353,7 +353,7 @@ G_DECLARE_DERIVABLE_TYPE(GGandivaBooleanNode,
 
 struct _GGandivaBooleanNodeClass
 {
-  GObjectClass parent_class;
+  GGandivaNodeClass parent_class;
 };
 
 GGANDIVA_AVAILABLE_IN_1_0
@@ -369,7 +369,7 @@ G_DECLARE_DERIVABLE_TYPE(GGandivaAndNode,
                          GGandivaBooleanNode)
 struct _GGandivaAndNodeClass
 {
-  GGandivaNodeClass parent_class;
+  GGandivaBooleanNodeClass parent_class;
 };
 
 GGANDIVA_AVAILABLE_IN_1_0
@@ -385,7 +385,7 @@ G_DECLARE_DERIVABLE_TYPE(GGandivaOrNode,
                          GGandivaBooleanNode)
 struct _GGandivaOrNodeClass
 {
-  GGandivaNodeClass parent_class;
+  GGandivaBooleanNodeClass parent_class;
 };
 
 GGANDIVA_AVAILABLE_IN_1_0
