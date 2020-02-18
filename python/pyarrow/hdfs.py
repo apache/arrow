@@ -27,8 +27,9 @@ import pyarrow.lib as lib
 
 class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
     """
-    FileSystem interface for HDFS cluster. See pyarrow.hdfs.connect for full
-    connection details
+    FileSystem interface for HDFS cluster.
+
+    See pyarrow.hdfs.connect for full connection details
     """
 
     def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
@@ -44,8 +45,7 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
     def _isfilestore(self):
         """
-        Returns True if this FileSystem is a unix-style file store with
-        directories.
+        Returns True if this is a unix-style file store with directories.
         """
         return True
 
@@ -63,12 +63,12 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
     def mkdir(self, path, **kwargs):
         """
-        Create directory in HDFS
+        Create directory in HDFS.
 
         Parameters
         ----------
-        path : string
-            Directory path to create, including any parent directories
+        path : str
+            Directory path to create, including any parent directories.
 
         Notes
         -----

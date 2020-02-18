@@ -210,7 +210,7 @@ shape: {0.shape}""".format(self)
     @staticmethod
     def from_pydata_sparse(obj, dim_names=None):
         """
-        Convert pydata/sparse.COO to arrow::SparseCOOTensor
+        Convert pydata/sparse.COO to arrow::SparseCOOTensor.
         """
         import sparse
         if not isinstance(obj, sparse.COO):
@@ -237,7 +237,7 @@ shape: {0.shape}""".format(self)
     @staticmethod
     def from_tensor(obj):
         """
-        Convert arrow::Tensor to arrow::SparseCOOTensor
+        Convert arrow::Tensor to arrow::SparseCOOTensor.
         """
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
@@ -249,7 +249,7 @@ shape: {0.shape}""".format(self)
 
     def to_numpy(self):
         """
-        Convert arrow::SparseCOOTensor to numpy.ndarrays with zero copy
+        Convert arrow::SparseCOOTensor to numpy.ndarrays with zero copy.
         """
         cdef PyObject* out_data
         cdef PyObject* out_coords
@@ -260,7 +260,7 @@ shape: {0.shape}""".format(self)
 
     def to_scipy(self):
         """
-        Convert arrow::SparseCOOTensor to scipy.sparse.coo_matrix
+        Convert arrow::SparseCOOTensor to scipy.sparse.coo_matrix.
         """
         from scipy.sparse import coo_matrix
         cdef PyObject* out_data
@@ -276,7 +276,7 @@ shape: {0.shape}""".format(self)
 
     def to_pydata_sparse(self):
         """
-        Convert arrow::SparseCOOTensor to pydata/sparse.COO
+        Convert arrow::SparseCOOTensor to pydata/sparse.COO.
         """
         from sparse import COO
         cdef PyObject* out_data
@@ -291,7 +291,7 @@ shape: {0.shape}""".format(self)
 
     def to_tensor(self):
         """
-        Convert arrow::SparseCOOTensor to arrow::Tensor
+        Convert arrow::SparseCOOTensor to arrow::Tensor.
         """
 
         cdef shared_ptr[CTensor] ctensor
@@ -301,7 +301,7 @@ shape: {0.shape}""".format(self)
 
     def equals(self, SparseCOOTensor other):
         """
-        Return true if sparse tensors contains exactly equal data
+        Return true if sparse tensors contains exactly equal data.
         """
         return self.stp.Equals(deref(other.stp))
 
@@ -400,7 +400,7 @@ shape: {0.shape}""".format(self)
     @staticmethod
     def from_scipy(obj, dim_names=None):
         """
-        Convert scipy.sparse.csr_matrix to arrow::SparseCSRMatrix
+        Convert scipy.sparse.csr_matrix to arrow::SparseCSRMatrix.
         """
         import scipy.sparse
         if not isinstance(obj, scipy.sparse.csr_matrix):
@@ -430,7 +430,7 @@ shape: {0.shape}""".format(self)
     @staticmethod
     def from_tensor(obj):
         """
-        Convert arrow::Tensor to arrow::SparseCSRMatrix
+        Convert arrow::Tensor to arrow::SparseCSRMatrix.
         """
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
@@ -442,7 +442,7 @@ shape: {0.shape}""".format(self)
 
     def to_numpy(self):
         """
-        Convert arrow::SparseCSRMatrix to numpy.ndarrays with zero copy
+        Convert arrow::SparseCSRMatrix to numpy.ndarrays with zero copy.
         """
         cdef PyObject* out_data
         cdef PyObject* out_indptr
@@ -456,7 +456,7 @@ shape: {0.shape}""".format(self)
 
     def to_scipy(self):
         """
-        Convert arrow::SparseCSRMatrix to scipy.sparse.csr_matrix
+        Convert arrow::SparseCSRMatrix to scipy.sparse.csr_matrix.
         """
         from scipy.sparse import csr_matrix
         cdef PyObject* out_data
@@ -475,9 +475,8 @@ shape: {0.shape}""".format(self)
 
     def to_tensor(self):
         """
-        Convert arrow::SparseCSRMatrix to arrow::Tensor
+        Convert arrow::SparseCSRMatrix to arrow::Tensor.
         """
-
         cdef shared_ptr[CTensor] ctensor
         with nogil:
             check_status(self.stp.ToTensor(&ctensor))
@@ -486,7 +485,7 @@ shape: {0.shape}""".format(self)
 
     def equals(self, SparseCSRMatrix other):
         """
-        Return true if sparse tensors contains exactly equal data
+        Return true if sparse tensors contains exactly equal data.
         """
         return self.stp.Equals(deref(other.stp))
 

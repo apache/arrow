@@ -15,10 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-
 
 cdef class MemoryPool:
     """

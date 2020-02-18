@@ -114,16 +114,16 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
 def array(object obj, type=None, mask=None, size=None, from_pandas=None,
           bint safe=True, MemoryPool memory_pool=None):
     """
-    Create pyarrow.Array instance from a Python object
+    Create pyarrow.Array instance from a Python object.
 
     Parameters
     ----------
     obj : sequence, iterable, ndarray or Series
         If both type and size are specified may be a single use iterable. If
-        not strongly-typed, Arrow type will be inferred for resulting array
+        not strongly-typed, Arrow type will be inferred for resulting array.
     type : pyarrow.DataType
         Explicit type to attempt to coerce to, otherwise will be inferred from
-        the data
+        the data.
     mask : array (boolean), optional
         Indicate which values are null (True) or not null (False).
     size : int64, optional
@@ -138,12 +138,12 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         if a value is unmasked (not-null), but still null according to
         pandas semantics, then it is null. Defaults to False if not
         passed explicitly by user, or True if a pandas object is
-        passed in
+        passed in.
     safe : boolean, default True
-        Check for overflows or other unsafe conversions
+        Check for overflows or other unsafe conversions.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the currently-set default
-        memory pool
+        memory pool.
 
     Notes
     -----
@@ -272,8 +272,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
 def asarray(values, type=None):
     """
-    Convert to pyarrow.Array, inferring type if not provided. Attempt to cast
-    if indicated type is different
+    Convert to pyarrow.Array, inferring type if not provided.
 
     Parameters
     ----------
@@ -282,6 +281,8 @@ def asarray(values, type=None):
         pyarrow.ChunkedArray. If a ChunkedArray is passed, the output will be
         a ChunkedArray, otherwise the output will be a Array.
     type : string or DataType
+        Explicitly construct the array with this type. Attempt to cast if
+        indicated type is different.
 
     Returns
     -------
@@ -290,7 +291,6 @@ def asarray(values, type=None):
     if isinstance(values, (Array, ChunkedArray)):
         if type is not None and not values.type.equals(type):
             values = values.cast(type)
-
         return values
     else:
         return array(values, type=type)
@@ -304,11 +304,11 @@ def infer_type(values, mask=None, from_pandas=False):
     Parameters
     ----------
     values : array-like
-        Sequence to infer type from
+        Sequence to infer type from.
     mask : ndarray (bool type), optional
-        Optional exclusion mask where True marks null, False non-null
+        Optional exclusion mask where True marks null, False non-null.
     from_pandas : boolean, default False
-        Use pandas's NA/null sentinel values for type inference
+        Use pandas's NA/null sentinel values for type inference.
 
     Returns
     -------
@@ -503,24 +503,24 @@ cdef class _PandasConvertible:
         ----------
         memory_pool : MemoryPool, default None
             Arrow MemoryPool to use for allocations. Uses the default memory
-            pool is not passed
+            pool is not passed.
         strings_to_categorical : boolean, default False
-            Encode string (UTF8) and binary types to pandas.Categorical
+            Encode string (UTF8) and binary types to pandas.Categorical.
         categories: list, default empty
             List of fields that should be returned as pandas.Categorical. Only
-            applies to table-like data structures
+            applies to table-like data structures.
         zero_copy_only : boolean, default False
             Raise an ArrowException if this function call would require copying
-            the underlying data
+            the underlying data.
         integer_object_nulls : boolean, default False
             Cast integers with nulls to objects
         date_as_object : boolean, default True
             Cast dates to objects. If False, convert to datetime64[ns] dtype.
         use_threads: boolean, default True
-            Whether to parallelize the conversion using multiple threads
+            Whether to parallelize the conversion using multiple threads.
         deduplicate_objects : boolean, default False
             Do not create multiple copies Python objects when created, to save
-            on memory use. Conversion will be slower
+            on memory use. Conversion will be slower.
         ignore_metadata : boolean, default False
             If True, do not use the 'pandas' metadata to reconstruct the
             DataFrame index, if present
@@ -533,12 +533,12 @@ cdef class _PandasConvertible:
             If True, generate one internal "block" for each column when
             creating a pandas.DataFrame from a RecordBatch or Table. While this
             can temporarily reduce memory note that various pandas operations
-            can trigger "consolidation" which may balloon memory use
+            can trigger "consolidation" which may balloon memory use.
         self_destruct : boolean, default False
             EXPERIMENTAL: If True, attempt to deallocate the originating Arrow
             memory while converting the Arrow object to pandas. If you use the
             object after calling to_pandas with this option it will crash your
-            program
+            program.
         types_mapper : function, default None
             A function mapping a pyarrow DataType to a pandas ExtensionDtype.
             This can be used to override the default pandas type for conversion
@@ -609,8 +609,10 @@ cdef class Array(_PandasConvertible):
 
     def diff(self, Array other):
         """
+        Compare contents of this array against another one.
+
         Return string containing the result of arrow::Diff comparing contents
-        of this array against the other array
+        of this array against the other array.
         """
         cdef c_string result
         with nogil:
@@ -676,13 +678,15 @@ cdef class Array(_PandasConvertible):
         return pyarrow_wrap_array(result)
 
     def view(self, object target_type):
-        """Return zero-copy "view" of array as another data type. The data
-        types must have compatible columnar buffer layouts
+        """
+        Return zero-copy "view" of array as another data type.
+
+        The data types must have compatible columnar buffer layouts
 
         Parameters
         ----------
         target_type : DataType
-            Type to construct view as
+            Type to construct view as.
 
         Returns
         -------
@@ -707,7 +711,7 @@ cdef class Array(_PandasConvertible):
 
     def unique(self):
         """
-        Compute distinct elements in array
+        Compute distinct elements in array.
         """
         cdef shared_ptr[CArray] result
 
@@ -718,7 +722,7 @@ cdef class Array(_PandasConvertible):
 
     def dictionary_encode(self):
         """
-        Compute dictionary-encoded representation of array
+        Compute dictionary-encoded representation of array.
         """
         cdef CDatum out
 
@@ -747,34 +751,36 @@ cdef class Array(_PandasConvertible):
     def from_pandas(obj, mask=None, type=None, bint safe=True,
                     MemoryPool memory_pool=None):
         """
-        Convert pandas.Series to an Arrow Array, using pandas's semantics about
-        what values indicate nulls. See pyarrow.array for more general
-        conversion from arrays or sequences to Arrow arrays.
+        Convert pandas.Series to an Arrow Array.
+
+        The method is using pandas's semantics about what values indicate
+        nulls. See pyarrow.array for more general conversion from arrays or
+        sequences to Arrow arrays.
 
         Parameters
         ----------
         sequence : ndarray, pandas.Series, array-like
         mask : array (boolean), optional
-            Indicate which values are null (True) or not null (False)
+            Indicate which values are null (True) or not null (False).
         type : pyarrow.DataType
             Explicit type to attempt to coerce to, otherwise will be inferred
-            from the data
+            from the data.
         safe : boolean, default True
-            Check for overflows or other unsafe conversions
+            Check for overflows or other unsafe conversions.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the currently-set default
-            memory pool
+            memory pool.
 
         Notes
         -----
         Localized timestamps will currently be returned as UTC (pandas's native
-        representation).  Timezone-naive data will be implicitly interpreted as
+        representation). Timezone-naive data will be implicitly interpreted as
         UTC.
 
         Returns
         -------
-        array : pyarrow.Array or pyarrow.ChunkedArray (if object data
-        overflows binary buffer)
+        array : pyarrow.Array or pyarrow.ChunkedArray
+            ChunkedArray is returned if object data overflows binary buffer.
         """
         return array(obj, mask=mask, type=type, safe=safe, from_pandas=True,
                      memory_pool=memory_pool)
@@ -787,23 +793,26 @@ cdef class Array(_PandasConvertible):
     def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
                      children=None):
         """
-        Construct an Array from a sequence of buffers. The concrete type
-        returned depends on the datatype.
+        Construct an Array from a sequence of buffers.
+
+        The concrete type returned depends on the datatype.
 
         Parameters
         ----------
         type : DataType
-            The value type of the array
+            The value type of the array.
         length : int
-            The number of values in the array
-        buffers: List[Buffer]
-            The buffers backing this array
+            The number of values in the array.
+        buffers : List[Buffer]
+            The buffers backing this array.
         null_count : int, default -1
+            The number of null entries in the array. Negative value means that
+            the null count is not known.
         offset : int, default 0
             The array's logical offset (in values, not in bytes) from the
-            start of each buffer
+            start of each buffer.
         children : List[Array], default None
-            Nested type children with length matching type.num_children
+            Nested type children with length matching type.num_children.
 
         Returns
         -------
@@ -848,7 +857,9 @@ cdef class Array(_PandasConvertible):
 
     @property
     def nbytes(self):
-        """Total number of bytes consumed by the elements of the array."""
+        """
+        Total number of bytes consumed by the elements of the array.
+        """
         size = 0
         for buf in self.buffers():
             if buf is not None:
@@ -917,15 +928,15 @@ cdef class Array(_PandasConvertible):
 
     def slice(self, offset=0, length=None):
         """
-        Compute zero-copy slice of this array
+        Compute zero-copy slice of this array.
 
         Parameters
         ----------
         offset : int, default 0
-            Offset from start of array to slice
+            Offset from start of array to slice.
         length : int, default None
             Length of slice (default is until end of Array starting from
-            offset)
+            offset).
 
         Returns
         -------
@@ -1119,9 +1130,11 @@ cdef class Array(_PandasConvertible):
     @property
     def offset(self):
         """
-        A relative position into another array's data, to enable zero-copy
-        slicing. This value defaults to zero but must be applied on all
-        operations with the physical storage buffers.
+        A relative position into another array's data.
+
+        The purpose is to enable zero-copy slicing. This value defaults to zero
+        but must be applied on all operations with the physical storage
+        buffers.
         """
         return self.sp_array.get().offset()
 
@@ -1389,7 +1402,7 @@ cdef class ListArray(Array):
     @staticmethod
     def from_arrays(offsets, values, MemoryPool pool=None):
         """
-        Construct ListArray from arrays of int32 offsets and values
+        Construct ListArray from arrays of int32 offsets and values.
 
         Parameters
         ----------
@@ -1431,7 +1444,7 @@ cdef class ListArray(Array):
 
     def flatten(self, MemoryPool memory_pool=None):
         """
-        Unnest this ListArray by one level
+        Unnest this ListArray by one level.
 
         The returned Array is logically a concatenation of all the sub-lists
         in this Array.
@@ -1463,14 +1476,15 @@ cdef class ListArray(Array):
 
 cdef class LargeListArray(Array):
     """
-    Concrete class for Arrow arrays of a large list data type
-    (like ListArray, but 64-bit offsets).
+    Concrete class for Arrow arrays of a large list data type.
+
+    Identical to ListArray, but 64-bit offsets.
     """
 
     @staticmethod
     def from_arrays(offsets, values, MemoryPool pool=None):
         """
-        Construct LargeListArray from arrays of int64 offsets and values
+        Construct LargeListArray from arrays of int64 offsets and values.
 
         Parameters
         ----------
@@ -1526,7 +1540,7 @@ cdef class LargeListArray(Array):
         ----------
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the currently-set default
-            memory pool
+            memory pool.
 
         Returns
         -------
@@ -1551,7 +1565,7 @@ cdef class MapArray(Array):
     @staticmethod
     def from_arrays(offsets, keys, items, MemoryPool pool=None):
         """
-        Construct MapArray from arrays of int32 offsets and key, item arrays
+        Construct MapArray from arrays of int32 offsets and key, item arrays.
 
         Parameters
         ----------
@@ -1831,24 +1845,26 @@ cdef class DictionaryArray(Array):
                     bint from_pandas=False, bint safe=True,
                     MemoryPool memory_pool=None):
         """
-        Construct Arrow DictionaryArray from array of indices (must be
-        non-negative integers) and corresponding array of dictionary values
+        Construct a DictionaryArray from indices and the referencable values.
 
         Parameters
         ----------
-        indices : ndarray or pandas.Series, integer type
-        dictionary : ndarray or pandas.Series
-        mask : ndarray or pandas.Series, boolean type
-            True values indicate that indices are actually null
+        indices : pyarrow.Array, numpy.ndarray or pandas.Series, int type
+            Non-negative integers referencing the dictionary values by zero
+            based index.
+        dictionary : pyarrow.Array, ndarray or pandas.Series
+            A closed set of values referenced by the indices.
+        mask : ndarray or pandas.Series, bool type
+            True values indicate that indices are actually null.
         from_pandas : boolean, default False
             If True, the indices should be treated as though they originated in
-            a pandas.Categorical (null encoded as -1)
+            a pandas.Categorical (null encoded as -1).
         ordered : boolean, default False
-            Set to True if the category values are ordered
+            Set to True if the category values are ordered.
         safe : boolean, default True
-            If True, check that the dictionary indices are in range
+            If True, check that the dictionary indices are in range.
         memory_pool : MemoryPool, default None
-            For memory allocations, if required, otherwise uses default pool
+            For memory allocations, if required, otherwise uses default pool.
 
         Returns
         -------
@@ -1906,12 +1922,12 @@ cdef class StructArray(Array):
 
     def field(self, index):
         """
-        Retrieves the child array belonging to field
+        Retrieves the child array belonging to field.
 
         Parameters
         ----------
         index : Union[int, str]
-            Index / position or name of the field
+            Index / position or name of the field.
 
         Returns
         -------
@@ -1935,13 +1951,12 @@ cdef class StructArray(Array):
 
     def flatten(self, MemoryPool memory_pool=None):
         """
-        Flatten this StructArray, returning one individual array for each
-        field in the struct.
+        Return one individual array for each field in the struct.
 
         Parameters
         ----------
         memory_pool : MemoryPool, default None
-            For memory allocations, if required, otherwise use default pool
+            For memory allocations, if required, otherwise use default pool.
 
         Returns
         -------
@@ -1969,9 +1984,9 @@ cdef class StructArray(Array):
         ----------
         arrays : sequence of Array
         names : List[str] (optional)
-            Field names for each struct child
+            Field names for each struct child.
         fields : List[Field] (optional)
-            Field instances for each struct child
+            Field instances for each struct child.
 
         Returns
         -------
@@ -2074,7 +2089,11 @@ cdef class ExtensionArray(Array):
 
     def to_numpy(self, **kwargs):
         """
-        See Array.to_numpy
+        Converts extension array to a numpy ndarray.
+
+        See Also
+        --------
+        Array.to_numpy
         """
         return self.storage.to_numpy(**kwargs)
 
@@ -2132,13 +2151,18 @@ cdef object get_values(object obj, bint* is_series):
 
 def concat_arrays(arrays, MemoryPool memory_pool=None):
     """
-    Returns a concatenation of the given arrays. The contents of those arrays
-    are copied into the returned array. Raises exception if all of the arrays
-    are not of the same type.
+    Returns a concatenation of the given arrays.
+
+    The contents of those arrays are copied into the returned array.
+
+    Raises
+    ------
+    ArrowInvalid : if any of the arrays is not of the same type.
 
     Parameters
     ----------
-    arrays : iterable of pyarrow.Array objects
+    arrays : iterable of pyarrow.Array
+        Arrays to concatenate, the arrays must be identically typed.
     memory_pool : MemoryPool, default None
         For memory allocations. If None, the default pool is used.
     """
