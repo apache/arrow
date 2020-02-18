@@ -639,11 +639,10 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0"
     "1.60")
 
-if(ARROW_BUILD_INTEGRATION
-   OR ARROW_BUILD_TESTS
-   OR ARROW_HDFS
-   OR ARROW_GANDIVA
-   OR ARROW_PARQUET)
+# - Parquet requires boost only with gcc 4.8 (because of missing std::regex).
+# - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
+# - Tests needs Boost at runtime.
+if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS OR ARROW_GANDIVA OR ARROW_PARQUET)
   set(ARROW_BOOST_REQUIRED TRUE)
 else()
   set(ARROW_BOOST_REQUIRED FALSE)

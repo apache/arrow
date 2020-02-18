@@ -3,7 +3,4 @@ cython
 numpy>=1.16
 pandas
 setuptools_scm==3.2.0
-# TODO: TensorFlow doesn't support Python 3.8 yet.
-# See https://github.com/tensorflow/tensorflow/issues/33374
-tensorflow; python_version >= "3.0" and python_version < "3.8"
 wheel
