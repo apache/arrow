@@ -1334,7 +1334,7 @@ class NullArrayFactory {
     }
 
     template <typename T>
-    enable_if_base_list<T, Status> Visit(const T&) {
+    enable_if_var_size_list<T, Status> Visit(const T&) {
       // values array may be empty, but there must be at least one offset of 0
       return MaxOf(sizeof(typename T::offset_type) * (length_ + 1));
     }
@@ -1439,7 +1439,7 @@ class NullArrayFactory {
   }
 
   template <typename T>
-  enable_if_base_list<T, Status> Visit(const T& type) {
+  enable_if_var_size_list<T, Status> Visit(const T& type) {
     (*out_)->buffers.resize(2, buffer_);
     return CreateChild(0, length_, &(*out_)->child_data[0]);
   }

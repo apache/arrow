@@ -568,7 +568,7 @@ class ArrayWriter {
   }
 
   template <typename ArrayType>
-  enable_if_base_list<typename ArrayType::TypeClass, Status> Visit(
+  enable_if_var_size_list<typename ArrayType::TypeClass, Status> Visit(
       const ArrayType& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
@@ -1281,7 +1281,7 @@ class ArrayReader {
   }
 
   template <typename T>
-  enable_if_base_list<T, Status> Visit(const T& type) {
+  enable_if_var_size_list<T, Status> Visit(const T& type) {
     return CreateList<T>(type_, &result_);
   }
 

@@ -219,11 +219,13 @@ std::string LargeListType::ToString() const {
 
 MapType::MapType(const std::shared_ptr<DataType>& key_type,
                  const std::shared_ptr<DataType>& item_type, bool keys_sorted)
-    : ListType(std::make_shared<Field>(
+    : MapType(key_type, field("value", item_type), keys_sorted) {}
+
+MapType::MapType(const std::shared_ptr<DataType>& key_type,
+                 const std::shared_ptr<Field>& item_field, bool keys_sorted)
+    : ListType(field(
           "entries",
-          struct_({std::make_shared<Field>("key", key_type, false),
-                   std::make_shared<Field>("value", item_type)}),
-          false)),
+          struct_({std::make_shared<Field>("key", key_type, false), item_field}), false)),
       keys_sorted_(keys_sorted) {
   id_ = type_id;
 }
@@ -1404,9 +1406,15 @@ std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_field) 
 }
 
 std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<DataType>& value_type,
+                              const std::shared_ptr<DataType>& item_type,
                               bool keys_sorted) {
-  return std::make_shared<MapType>(key_type, value_type, keys_sorted);
+  return std::make_shared<MapType>(key_type, item_type, keys_sorted);
+}
+
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<Field>& item_field,
+                              bool keys_sorted) {
+  return std::make_shared<MapType>(key_type, item_field, keys_sorted);
 }
 
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,

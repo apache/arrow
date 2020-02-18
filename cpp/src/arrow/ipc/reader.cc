@@ -278,7 +278,7 @@ class ArrayLoader {
   }
 
   template <typename T>
-  enable_if_base_list<T, Status> Visit(const T& type) {
+  enable_if_var_size_list<T, Status> Visit(const T& type) {
     return LoadList(type);
   }
 
