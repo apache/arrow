@@ -129,6 +129,10 @@ time cmake --build . --target install
 
 popd
 
+if [ -x "$(command -v ldconfig)" ]; then
+  ldconfig
+fi
+
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     echo -e "===\n=== ccache statistics after build\n==="
     ccache -s
