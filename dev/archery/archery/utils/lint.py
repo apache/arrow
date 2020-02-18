@@ -118,7 +118,7 @@ def python_linter(src):
                                      check=False))
 
 
-def python_numpydoc():
+def python_numpydoc(whitelist=None, blacklist=None):
     """Run numpydoc linter on python.
 
     Pyarrow must be available for import.
@@ -140,12 +140,17 @@ def python_numpydoc():
         logger.error('Numpydoc is not available')
         return
 
-    results = numpydoc.validate(rules_blacklist={
-        'GL01',
-        'SA01',
-        'EX01',
-        'ES01'
-    })
+    results = numpydoc.validate(
+        rules_whitelist=whitelist,
+        rules_blacklist=blacklist
+    )
+
+    # rules_blacklist={
+    #     'GL01',
+    #     'SA01',
+    #     'EX01',
+    #     'ES01'
+    # })
     if len(results) == 0:
         yield LintResult(success=True)
         return

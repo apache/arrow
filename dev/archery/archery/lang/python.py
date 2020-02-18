@@ -87,17 +87,22 @@ class NumpyDoc:
         finally:
             Docstring._load_obj = original
 
-    def validate(self, rules_blacklist=None):
+    def validate(self, rules_blacklist=None, rules_whitelist=None):
         results = []
 
         def callback(obj):
             result = validate(obj)
-            if rules_blacklist:
-                result['errors'] = [
-                    (errcode, errmsg) for errcode, errmsg in result['errors']
-                    if errcode not in rules_blacklist
-                ]
-            if len(result['errors']):
+
+            errors = []
+            for errcode, errmsg in result.get('errors', []):
+                if rules_whitelist and not errcode in rules_whitelist:
+                    continue
+                if rules_blacklist and errcode in rules_blacklist:
+                    continue
+                errors.append((errcode, errmsg))
+
+            if len(errors):
+                result['errors'] = errors
                 results.append((obj, result))
 
         with self._patch_numpydoc():

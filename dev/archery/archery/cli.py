@@ -27,7 +27,7 @@ from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
 from .benchmark.runner import BenchmarkRunner, CppBenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.codec import JsonEncoder
-from .utils.lint import linter, LintValidationException
+from .utils.lint import linter, python_numpydoc, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources
 from .utils.tmpdir import tmpdir
@@ -254,13 +254,14 @@ def lint(ctx, src, **kwargs):
 @click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
-def numpydoc(src):
+@click.option("--whitelist", "-w", help="Allow only these rules")
+@click.option("--blacklist", "-b", help="Disallow these rules")
+def numpydoc(src, whitelist, blacklist):
+    blacklist = blacklist or  {'GL01', 'SA01', 'EX01', 'ES01'}
     try:
-        linter(src, with_clang_format=False, with_cpplint=False,
-               with_clang_tidy=False, with_iwyu=False,
-               with_flake8=False, with_cmake_format=False,
-               with_rat=False, with_r=False, with_rust=False,
-               with_docker=False, fix=False, with_numpydoc=True)
+        results = python_numpydoc(whitelist=whitelist, blacklist=blacklist)
+        for result in results:
+            result.ok()
     except LintValidationException:
         sys.exit(1)
 
