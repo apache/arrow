@@ -854,8 +854,9 @@ TEST_F(TestReadingDataFiles, AllTypesPlain) {
 
   const char* expected_date_str[] = {"03/01/09", "03/01/09", "04/01/09", "04/01/09",
                                      "02/01/09", "02/01/09", "01/01/09", "01/01/09"};
+  int i;
 
-  for (int i = 0; !reader.eof(); ++i) {
+  for (i = 0; !reader.eof(); ++i) {
     reader >> c0 >> c1 >> c2 >> c3 >> c4 >> c5;
     reader >> c6 >> c7;
     reader >> c8 >> c9;
@@ -874,6 +875,7 @@ TEST_F(TestReadingDataFiles, AllTypesPlain) {
     EXPECT_EQ(c8, expected_date_str[i]);
     EXPECT_EQ(c9, i & 1 ? "1" : "0");
   }
+  EXPECT_EQ(i, sizeof(expected_date_str) / sizeof(expected_date_str[0]));
 }
 
 TEST_F(TestReadingDataFiles, Int32Decimal) {
@@ -884,11 +886,13 @@ TEST_F(TestReadingDataFiles, Int32Decimal) {
   auto reader = StreamReader{std::move(file_reader)};
 
   int32_t x;
+  int i;
 
-  for (int i = 1; !reader.eof(); ++i) {
+  for (i = 1; !reader.eof(); ++i) {
     reader >> x >> EndRow;
     EXPECT_EQ(x, i * 100);
   }
+  EXPECT_EQ(i, 25);
 }
 
 TEST_F(TestReadingDataFiles, Int64Decimal) {
@@ -899,11 +903,13 @@ TEST_F(TestReadingDataFiles, Int64Decimal) {
   auto reader = StreamReader{std::move(file_reader)};
 
   int64_t x;
+  int i;
 
-  for (int i = 1; !reader.eof(); ++i) {
+  for (i = 1; !reader.eof(); ++i) {
     reader >> x >> EndRow;
     EXPECT_EQ(x, i * 100);
   }
+  EXPECT_EQ(i, 25);
 }
 
 }  // namespace test
