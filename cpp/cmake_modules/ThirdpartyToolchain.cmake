@@ -1641,9 +1641,12 @@ macro(build_rapidjson)
   message(STATUS "Building rapidjson from source")
   set(RAPIDJSON_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/rapidjson_ep/src/rapidjson_ep-install")
-  set(RAPIDJSON_CMAKE_ARGS -DRAPIDJSON_BUILD_DOC=OFF -DRAPIDJSON_BUILD_EXAMPLES=OFF
-                           -DRAPIDJSON_BUILD_TESTS=OFF
-                           "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
+  set(RAPIDJSON_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DRAPIDJSON_BUILD_DOC=OFF
+      -DRAPIDJSON_BUILD_EXAMPLES=OFF
+      -DRAPIDJSON_BUILD_TESTS=OFF
+      "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
 
   externalproject_add(rapidjson_ep
                       ${EP_LOG_OPTIONS}
