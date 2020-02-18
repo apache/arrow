@@ -260,11 +260,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CFileFormat] format()
         shared_ptr[CScanOptions] scan_options()
 
-    cdef cppclass CParquetFragment "arrow::dataset::ParquetFragment"(
-            CFileFragment):
-        CParquetFragment(const CFileSource& source,
-                         shared_ptr[CScanOptions] options)
-
     cdef cppclass CFileSystemSource \
             "arrow::dataset::FileSystemSource"(CSource):
         @staticmethod
@@ -296,6 +291,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CParquetFragment(const CFileSource& source,
                          shared_ptr[CScanOptions] options)
         c_bool splittable()
+
+    cdef cppclass CIpcFileFormat "arrow::dataset::IpcFileFormat"(
+            CFileFormat):
+        pass
 
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const

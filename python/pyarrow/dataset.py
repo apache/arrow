@@ -36,6 +36,7 @@ from pyarrow._dataset import (  # noqa
     FileSystemFactoryOptions,
     HivePartitioning,
     InExpression,
+    IpcFileFormat,
     IsValidExpression,
     NotExpression,
     OrExpression,
@@ -210,6 +211,8 @@ def _ensure_format(obj):
         return obj
     elif obj == "parquet":
         return ParquetFileFormat()
+    elif obj == "ipc":
+        return IpcFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 
