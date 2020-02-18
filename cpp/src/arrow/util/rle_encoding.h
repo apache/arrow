@@ -182,8 +182,8 @@ class RleEncoder {
     int max_literal_run_size =
         1 +
         static_cast<int>(BitUtil::BytesForBits(MAX_VALUES_PER_LITERAL_RUN * bit_width));
-    /// Up to MAX_VLQ_BYTE_LEN indicator and a single 'bit_width' value.
-    int max_repeated_run_size = BitUtil::BitReader::MAX_VLQ_BYTE_LEN +
+    /// Up to kMaxVlqByteLength indicator and a single 'bit_width' value.
+    int max_repeated_run_size = BitUtil::BitReader::kMaxVlqByteLength +
                                 static_cast<int>(BitUtil::BytesForBits(bit_width));
     return std::max(max_literal_run_size, max_repeated_run_size);
   }
@@ -562,21 +562,22 @@ template <typename T>
 bool RleDecoder::NextCounts() {
   // Read the next run's indicator int, it could be a literal or repeated run.
   // The int is encoded as a vlq-encoded value.
-  int32_t indicator_value = 0;
-  bool result = bit_reader_.GetVlqInt(&indicator_value);
-  if (!result) return false;
+  uint32_t indicator_value = 0;
+  if (!bit_reader_.GetVlqInt(&indicator_value)) return false;
 
   // lsb indicates if it is a literal run or repeated run
   bool is_literal = indicator_value & 1;
+  uint32_t count = indicator_value >> 1;
   if (is_literal) {
-    literal_count_ = (indicator_value >> 1) * 8;
+    if (count > UINT32_MAX / 8) return false;
+    literal_count_ = count * 8;
   } else {
-    repeat_count_ = indicator_value >> 1;
+    repeat_count_ = count;
     // XXX (ARROW-4018) this is not big-endian compatible
-    bool result =
-        bit_reader_.GetAligned<T>(static_cast<int>(BitUtil::CeilDiv(bit_width_, 8)),
-                                  reinterpret_cast<T*>(&current_value_));
-    DCHECK(result);
+    if (!bit_reader_.GetAligned<T>(static_cast<int>(BitUtil::CeilDiv(bit_width_, 8)),
+                                   reinterpret_cast<T*>(&current_value_))) {
+      return false;
+    }
   }
   return true;
 }
