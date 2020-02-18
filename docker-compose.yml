@@ -733,6 +733,8 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      ARROW_R_CXXFLAGS: '-Werror'
+      LIBARROW_BUILD: 'false'
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
@@ -756,17 +758,15 @@ services:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
     shm_size: *shm-size
     environment:
-      TEST_R_WITH_ARROW: "true"
       NOT_CRAN: "true"
       LIBARROW_DOWNLOAD: "false"
+      ARROW_HOME: "/arrow"
+      ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated
     command: >
       /bin/bash -c "
-        cd /arrow/r &&
-        R CMD INSTALL . &&
-        cd tests &&
-        R --no-save --no-restore -e 'library(testthat); library(arrow); library(tibble); test_check(\"arrow\", reporter = \"summary\", stop_on_warning = TRUE)'"
+        /arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
     # Only 18.04 and amd64 supported
