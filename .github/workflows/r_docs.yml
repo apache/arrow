@@ -22,25 +22,24 @@ on:
     paths:
       - '.github/workflows/r_docs.yml'
       - 'r/R/*.R'
+    branches:
+      - '!master'
 
 jobs:
   roxygen:
     name: Build and Push
     runs-on: ubuntu-latest
+    if: github.repository != 'apache/arrow'
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - uses: r-lib/actions/setup-r@v1
       - name: Install dependencies
         run: Rscript -e 'source("ci/etc/rprofile"); install.packages(c("remotes", "roxygen2")); remotes::install_deps("r")'
       - name: Render docs
-        run: |
-          cd r
-          Rscript -e 'roxygen2::roxygenize()'
+        run: Rscript -e 'roxygen2::roxygenize("r")'
       - name: Commit results
         run: |
-          if [ "${{ github.repository }}" != "apache/arrow" ]; then
-            git config user.name "$(git log -1 --pretty=format:%an)"
-            git config user.email "$(git log -1 --pretty=format:%ae)"
-            git commit -a -m 'Update docs' || echo "No changes to commit"
-            git push https://${{github.actor}}:${{secrets.GITHUB_TOKEN}}@github.com/${{github.repository}}.git HEAD:${{ github.ref }} || echo "No changes to commit"
-          fi
+          git config user.name "$(git log -1 --pretty=format:%an)"
+          git config user.email "$(git log -1 --pretty=format:%ae)"
+          git commit -a -m 'Update docs [automated commit]' || echo "No changes to commit"
+          git push origin ${{ github.ref }} || echo "No changes to commit"
