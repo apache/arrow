@@ -215,7 +215,10 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   static std::shared_ptr<InputStream> GetStream(std::shared_ptr<RandomAccessFile> file,
                                                 int64_t file_offset, int64_t nbytes);
 
-  /// Return the total file size in bytes.
+  /// \brief Return the total file size in bytes.
+  ///
+  /// This method does not read or move the current file position, so is safe
+  /// to call concurrently with e.g. ReadAt().
   virtual Result<int64_t> GetSize() = 0;
 
   /// \brief Read data from given file position.
