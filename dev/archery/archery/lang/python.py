@@ -70,6 +70,13 @@ def inspect_signature(obj):
     Cython puts the signatures to the first line of the docstrings, which we
     can reuse to parse the python signature from, but some gymnastics are
     required, like removing the cython typehints.
+
+    It converts the cython signature:
+        array(obj, type=None, mask=None, size=None, from_pandas=None,
+              bool safe=True, MemoryPool memory_pool=None)
+    To:
+        <Signature (obj, type=None, mask=None, size=None, from_pandas=None,
+                    safe=True, memory_pool=None)>
     """
     cython_signature = obj.__doc__.splitlines()[0]
     cython_tokens = _tokenize_signature(cython_signature)
@@ -191,19 +198,3 @@ class NumpyDoc:
                     self.traverse(callback, module, module_name)
 
         return results
-
-
-# import pyarrow as pa
-
-# print(inspect_signature(pa.array))
-
-# n = NumpyDoc()
-# with n._apply_patches():
-#     print(pa.array.__doc__)
-
-#     s = pa.array.__doc__.splitlines()[0]
-
-#     print(repr(inspect.signature(pa.array)))
-
-# import sys
-# sys.exit(0)
