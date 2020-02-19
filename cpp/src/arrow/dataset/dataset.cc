@@ -105,8 +105,14 @@ FragmentIterator Source::GetFragments(std::shared_ptr<ScanOptions> scan_options)
 
 InMemorySource::InMemorySource(std::shared_ptr<Schema> schema,
                                std::vector<std::shared_ptr<RecordBatch>> batches)
-    : Source(std::move(schema)),
-      get_batches_([batches] { return MakeVectorIterator(batches); }) {}
+    : Source(std::move(schema)) {
+  struct {
+    RecordBatchIterator operator()() { return MakeVectorIterator(batches_); }
+    std::vector<std::shared_ptr<RecordBatch>> batches_;
+  } get_batches = {std::move(batches)};
+
+  get_batches_ = std::move(get_batches);
+}
 
 InMemorySource::InMemorySource(std::shared_ptr<Table> table)
     : Source(table->schema()), get_batches_([table] {
