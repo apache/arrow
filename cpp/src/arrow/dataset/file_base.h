@@ -247,11 +247,18 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   ///
   /// \param[in] format the FileFormat to use when writing.
   /// \param[in] filesystem the FileSystem in which to write.
-  /// \param[in] base_dirs the root directories in which to write.
-  /// \param[in] use_threads use threads when writing files.
+  /// \param[in] base_dir the directory in which to write.
+  /// \param[in] partitioning a Partitioning will be used to generate file paths.
+  /// \param[in] scan_options options for scanning the source prior to writing.
+  ///
+  /// This function makes some assumptions about this source:
+  /// - no partition information is attached to files
+  /// - every directory has a unique partition expression
+  /// - every directory's partition expression can be formatted by the given partitioning
   Result<std::shared_ptr<FileSystemDataset>> Write(
       std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-      const std::vector<std::string>& base_dirs, bool use_threads = false);
+      std::string base_dir, std::shared_ptr<Partitioning> partitioning,
+      std::shared_ptr<ScanOptions> scan_options);
 
   std::string type_name() const override { return "filesystem"; }
 

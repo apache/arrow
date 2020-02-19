@@ -65,6 +65,11 @@ class ARROW_DS_EXPORT Partitioning {
   virtual Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
                                                     int i) const = 0;
 
+  virtual Result<std::string> Format(const Expression& expr, int i) const {
+    // FIXME(bkietz) make this pure virtual
+    return Status::NotImplemented("formatting paths from ", type_name(), " Partitioning");
+  }
+
   /// \brief Parse a path into a partition expression
   Result<std::shared_ptr<Expression>> Parse(const std::string& path) const;
 
@@ -147,8 +152,12 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   /// Extract a partition key from a path segment.
   virtual util::optional<Key> ParseKey(const std::string& segment, int i) const = 0;
 
+  virtual Result<std::string> FormatKey(const Key& expr, int i) const = 0;
+
   Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
                                             int i) const override;
+
+  Result<std::string> Format(const Expression& expr, int i) const override;
 
  protected:
   using Partitioning::Partitioning;
@@ -168,6 +177,8 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
   std::string type_name() const override { return "schema"; }
 
   util::optional<Key> ParseKey(const std::string& segment, int i) const override;
+
+  Result<std::string> FormatKey(const Key& key, int i) const override;
 
   static std::shared_ptr<PartitioningFactory> MakeFactory(
       std::vector<std::string> field_names);
@@ -192,6 +203,8 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
   util::optional<Key> ParseKey(const std::string& segment, int i) const override {
     return ParseKey(segment);
   }
+
+  Result<std::string> FormatKey(const Key& key, int i) const override;
 
   static util::optional<Key> ParseKey(const std::string& segment);
 

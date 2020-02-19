@@ -89,6 +89,35 @@ Result<std::shared_ptr<Expression>> KeyValuePartitioning::Parse(
   return scalar(true);
 }
 
+Result<std::string> KeyValuePartitioning::Format(const Expression& expr, int i) const {
+  if (expr.type() != ExpressionType::COMPARISON) {
+    return Status::Invalid(expr.ToString(), " is not a comparison expression");
+  }
+
+  const auto& cmp = internal::checked_cast<const ComparisonExpression&>(expr);
+  if (cmp.op() != compute::CompareOperator::EQUAL) {
+    return Status::Invalid(expr.ToString(), " is not an equality comparison expression");
+  }
+
+  if (cmp.left_operand()->type() != ExpressionType::FIELD) {
+    return Status::Invalid(expr.ToString(), " LHS is not a field");
+  }
+  const auto& lhs = internal::checked_cast<const FieldExpression&>(*cmp.left_operand());
+
+  if (cmp.right_operand()->type() != ExpressionType::SCALAR) {
+    return Status::Invalid(expr.ToString(), " RHS is not a scalar");
+  }
+  const auto& rhs = internal::checked_cast<const ScalarExpression&>(*cmp.right_operand());
+
+  auto expected_type = schema_->GetFieldByName(lhs.name())->type();
+  if (!rhs.value()->type->Equals(expected_type)) {
+    return Status::TypeError(expr.ToString(), " expected RHS to have type ",
+                             *expected_type);
+  }
+
+  return FormatKey({lhs.name(), rhs.value()->ToString()}, i);
+}
+
 util::optional<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKey(
     const std::string& segment, int i) const {
   if (i >= schema_->num_fields()) {
@@ -96,6 +125,14 @@ util::optional<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKey(
   }
 
   return Key{schema_->field(i)->name(), segment};
+}
+
+Result<std::string> DirectoryPartitioning::FormatKey(const Key& key, int i) const {
+  if (schema_->GetFieldIndex(key.name) != i) {
+    return Status::Invalid("field ", key.name, " in unexpected position ", i,
+                           " for schema ", *schema_);
+  }
+  return key.value;
 }
 
 class KeyValuePartitioningInspectImpl {
@@ -210,6 +247,10 @@ util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
   }
 
   return Key{segment.substr(0, name_end), segment.substr(name_end + 1)};
+}
+
+Result<std::string> HivePartitioning::FormatKey(const Key& key, int i) const {
+  return key.name + "=" + key.value;
 }
 
 class HivePartitioningFactory : public PartitioningFactory {

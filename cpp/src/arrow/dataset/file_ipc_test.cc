@@ -23,6 +23,7 @@
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
+#include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
@@ -146,27 +147,45 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
 }
 
 TEST_F(TestIpcFileFormat, WriteFileSystemSource) {
-  fs::FileStatsVector stats{fs::Dir("old_root_0"),      fs::File("old_root_0/aaa"),
-                            fs::File("old_root_0/bbb"), fs::File("old_root_0/ccc"),
-                            fs::Dir("old_root_1"),      fs::File("old_root_1/aaa"),
-                            fs::File("old_root_1/bbb"), fs::File("old_root_1/ccc")};
+  fs::FileStatsVector stats{
+      fs::Dir("old_root_0"),
+
+      fs::Dir("old_root_0/aaa"), fs::File("old_root_0/aaa/dat"),
+      fs::Dir("old_root_0/bbb"), fs::File("old_root_0/bbb/dat"),
+      fs::Dir("old_root_0/ccc"), fs::File("old_root_0/ccc/dat"),
+
+      fs::Dir("old_root_1"),
+
+      fs::Dir("old_root_1/aaa"), fs::File("old_root_1/aaa/dat"),
+      fs::Dir("old_root_1/bbb"), fs::File("old_root_1/bbb/dat"),
+      fs::Dir("old_root_1/ccc"), fs::File("old_root_1/ccc/dat"),
+  };
   ASSERT_OK_AND_ASSIGN(auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
 
   ExpressionVector partitions = {
-      ("i32"_ == 0).Copy(),     ("str"_ == "aaa").Copy(), ("str"_ == "bbb").Copy(),
-      ("str"_ == "ccc").Copy(), ("i32"_ == 1).Copy(),     ("str"_ == "aaa").Copy(),
-      ("str"_ == "bbb").Copy(), ("str"_ == "ccc").Copy(),
+      ("i32"_ == 0).Copy(),
+
+      ("str"_ == "aaa").Copy(), scalar(true), ("str"_ == "bbb").Copy(), scalar(true),
+      ("str"_ == "ccc").Copy(), scalar(true),
+
+      ("i32"_ == 1).Copy(),
+
+      ("str"_ == "aaa").Copy(), scalar(true), ("str"_ == "bbb").Copy(), scalar(true),
+      ("str"_ == "ccc").Copy(), scalar(true),
   };
 
   auto schema = arrow::schema({field("i32", int32()), field("str", utf8())});
+  opts_ = ScanOptions::Make(schema);
+
   ASSERT_OK_AND_ASSIGN(
       auto boxed_source,
       FileSystemSource::Make(schema, ("root"_ == true).Copy(),
                              std::make_shared<DummyFileFormat>(), fs, stats, partitions));
   auto source = checked_pointer_cast<FileSystemSource>(boxed_source);
 
+  auto partitioning = std::make_shared<HivePartitioning>(schema);
   ASSERT_OK_AND_ASSIGN(auto written_boxed_source,
-                       source->Write(format_, fs, {"new_root_0", "new_root_1"}));
+                       source->Write(format_, fs, "new_root", partitioning, opts_));
   auto written_source = checked_pointer_cast<FileSystemSource>(written_boxed_source);
 
   using E = TestExpression;
@@ -174,20 +193,15 @@ TEST_F(TestIpcFileFormat, WriteFileSystemSource) {
     ASSERT_EQ(E{partitions[i]}, E{written_source->partitions()[i]});
   }
 
-  auto stat_it = stats.begin();
-  auto offset = sizeof("old_root_0");
-  opts_ = ScanOptions::Make(schema);
-  for (auto maybe_fragment : written_source->GetFragments(opts_)) {
-    ASSERT_OK_AND_ASSIGN(auto fragment, maybe_fragment);
-    auto actual =
-        checked_pointer_cast<FileFragment>(fragment)->source().path().substr(offset);
-
-    while (!stat_it->IsFile()) ++stat_it;
-    auto expected = stat_it->path().substr(offset) + ".ipc";
-
-    ASSERT_EQ(actual, expected);
-    ++stat_it;
-  }
+  AssertFragmentsAreFromPath(written_source->GetFragments(opts_),
+                             {
+                                 "new_root/i32=0/str=aaa/dat.ipc",
+                                 "new_root/i32=0/str=bbb/dat.ipc",
+                                 "new_root/i32=0/str=ccc/dat.ipc",
+                                 "new_root/i32=1/str=aaa/dat.ipc",
+                                 "new_root/i32=1/str=bbb/dat.ipc",
+                                 "new_root/i32=1/str=ccc/dat.ipc",
+                             });
 }
 
 TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {

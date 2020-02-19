@@ -300,5 +300,92 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
   return MakeVectorIterator(std::move(fragments));
 }
 
+using arrow::internal::GetCpuThreadPool;
+using arrow::internal::TaskGroup;
+
+Result<std::shared_ptr<Source>> FileSystemSource::Write(
+    std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+    std::string base_dir, std::shared_ptr<Partitioning> partitioning,
+    std::shared_ptr<ScanOptions> scan_options) {
+  auto task_group = scan_options->use_threads
+                        ? TaskGroup::MakeThreaded(GetCpuThreadPool())
+                        : TaskGroup::MakeSerial();
+
+  fs::FileStatsVector new_files(forest_.size());
+  std::vector<std::shared_ptr<ScanOptions>> options(forest_.size());
+  std::vector<int> depths(forest_.size());
+
+  auto collect_fragments = [&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
+    auto partition = partitions_[ref.i];
+
+    std::string parent_path, basename;
+    if (auto parent = ref.parent()) {
+      depths[ref.i] = depths[parent.i] + 1;
+      parent_path = new_files[parent.i].path();
+      options[ref.i].reset(new ScanOptions(*options[parent.i]));
+    } else {
+      depths[ref.i] = 0;
+      parent_path = base_dir;
+      options[ref.i].reset(new ScanOptions(*scan_options));
+    }
+
+    if (ref.stats().IsFile()) {
+      basename = fs::internal::GetAbstractPathParent(ref.stats().path()).second;
+      basename += "." + format->type_name();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(basename, partitioning->Format(*partition, depths[ref.i]));
+    }
+    new_files[ref.i].set_type(ref.stats().type());
+    new_files[ref.i].set_path(fs::internal::ConcatAbstractPath(parent_path, basename));
+
+    // simplify filter by partition information
+    auto filter = options[ref.i]->filter->Assume(partition);
+    options[ref.i]->filter = filter;
+
+    if (filter->IsNull() || filter->Equals(false)) {
+      // directories (and descendants) which can't satisfy the filter are pruned
+      return fs::PathForest::Prune;
+    }
+
+    // if possible, drop an implicit partition column
+    if (auto name_value = GetKey(*partition)) {
+      auto index = options[ref.i]->schema()->GetFieldIndex(name_value->first);
+      if (index != -1) {
+        auto schema = options[ref.i]->schema();
+        RETURN_NOT_OK(schema->RemoveField(index, &schema));
+        options[ref.i] = options[ref.i]->ReplaceSchema(std::move(schema));
+      }
+    }
+
+    if (ref.stats().IsFile()) {
+      // generate a fragment for this file
+      FileSource src(ref.stats().path(), filesystem_.get());
+      ARROW_ASSIGN_OR_RAISE(auto fragment,
+                            format_->MakeFragment(std::move(src), options[ref.i]));
+
+      FileSource dest(new_files[ref.i].path(), filesystem.get());
+      ARROW_ASSIGN_OR_RAISE(auto write_task,
+                            format->WriteFragment(std::move(dest), std::move(fragment)));
+
+      task_group->Append([write_task] { return write_task->Execute().status(); });
+    } else {
+      auto new_path = &new_files[ref.i].path();
+      task_group->Append([&, new_path] { return filesystem->CreateDir(*new_path); });
+    }
+
+    return fs::PathForest::Continue;
+  };
+
+  RETURN_NOT_OK(forest_.Visit(collect_fragments));
+
+  RETURN_NOT_OK(task_group->Finish());
+
+  ARROW_ASSIGN_OR_RAISE(auto forest,
+                        fs::PathForest::MakeFromPreSorted(std::move(new_files)));
+
+  return Make(schema_, partition_expression_, std::move(format), std::move(filesystem),
+              std::move(forest), partitions_);
+}
+
 }  // namespace dataset
 }  // namespace arrow
