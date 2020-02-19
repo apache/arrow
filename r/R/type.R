@@ -35,8 +35,7 @@ DataType <- R6Class("DataType",
       DataType__ToString(self)
     },
     Equals = function(other, ...) {
-      assert_is(other, "DataType")
-      DataType__Equals(self, other)
+      inherits(other, "DataType") && DataType__Equals(self, other)
     },
     num_children = function() {
       DataType__num_children(self)

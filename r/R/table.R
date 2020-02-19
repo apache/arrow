@@ -164,10 +164,7 @@ Table <- R6Class("Table", inherit = Object,
     },
 
     Equals = function(other, check_metadata = TRUE, ...) {
-      if (!inherits(other, "Table")) {
-        return(FALSE)
-      }
-      Table__Equals(self, other, isTRUE(check_metadata))
+      inherits(other, "Table") && Table__Equals(self, other, isTRUE(check_metadata))
     }
   ),
 

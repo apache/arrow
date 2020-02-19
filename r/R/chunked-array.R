@@ -117,7 +117,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
       out
     },
     Equals = function(other, ...) {
-      ChunkedArray__Equals(self, other)
+      inherits(other, "ChunkedArray") && ChunkedArray__Equals(self, other)
     }
   ),
   active = list(

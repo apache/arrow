@@ -79,8 +79,7 @@ Schema <- R6Class("Schema",
       shared_ptr(Schema, Schema__WithMetadata(self, metadata))
     },
     Equals = function(other, check_metadata = TRUE, ...) {
-      # TODO: return FALSE if !inherits(other, "Schema")
-      Schema__Equals(self, other, isTRUE(check_metadata))
+      inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
     }
   ),
   active = list(
