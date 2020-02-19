@@ -83,7 +83,8 @@ RecordBatch <- R6Class("RecordBatch", inherit = Object,
     },
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
-    Equals = function(other) {
+    Equals = function(other, ...) {
+      # Does RecordBatch->Equals have a check_metadata arg?
       assert_is(other, "RecordBatch")
       RecordBatch__Equals(self, other)
     },

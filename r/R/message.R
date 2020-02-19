@@ -31,7 +31,7 @@
 #' @name Message
 Message <- R6Class("Message", inherit = Object,
   public = list(
-    Equals = function(other){
+    Equals = function(other, ...) {
       assert_is(other, "Message")
       ipc___Message__Equals(self, other)
     },

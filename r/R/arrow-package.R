@@ -96,8 +96,8 @@ Object <- R6Class("Object",
 }
 
 #' @export
-all.equal.Object <- function(target, current, ...) {
-  target$Equals(current)
+all.equal.Object <- function(target, current, ..., check.attributes = TRUE) {
+  target$Equals(current, check_metadata = check.attributes)
 }
 
 shared_ptr <- function(class, xp) {

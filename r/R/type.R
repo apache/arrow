@@ -34,7 +34,7 @@ DataType <- R6Class("DataType",
     ToString = function() {
       DataType__ToString(self)
     },
-    Equals = function(other) {
+    Equals = function(other, ...) {
       assert_is(other, "DataType")
       DataType__Equals(self, other)
     },

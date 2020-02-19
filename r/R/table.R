@@ -163,7 +163,7 @@ Table <- R6Class("Table", inherit = Object,
       shared_ptr(Table, Table__Filter(self, i))
     },
 
-    Equals = function(other, check_metadata = TRUE) {
+    Equals = function(other, check_metadata = TRUE, ...) {
       if (!inherits(other, "Table")) {
         return(FALSE)
       }

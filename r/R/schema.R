@@ -38,7 +38,7 @@
 #' - `$GetFieldByName(x)`: returns the field with name `x`
 #' - `$WithMetadata(metadata)`: returns a new `Schema` with the key-value
 #'    `metadata` set. Note that all list elements in `metadata` will be coerced
-#'    to `character`. 
+#'    to `character`.
 #'
 #' @section Active bindings:
 #'
@@ -78,7 +78,7 @@ Schema <- R6Class("Schema",
       metadata <- map_chr(metadata, as.character)
       shared_ptr(Schema, Schema__WithMetadata(self, metadata))
     },
-    Equals = function(other, check_metadata = TRUE) {
+    Equals = function(other, check_metadata = TRUE, ...) {
       # TODO: return FALSE if !inherits(other, "Schema")
       Schema__Equals(self, other, isTRUE(check_metadata))
     }

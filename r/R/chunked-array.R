@@ -116,7 +116,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
       }
       out
     },
-    Equals = function(other) {
+    Equals = function(other, ...) {
       ChunkedArray__Equals(self, other)
     }
   ),
