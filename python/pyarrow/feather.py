@@ -167,13 +167,14 @@ class FeatherDataset:
 
 def write_feather(df, dest):
     """
-    Write a pandas.DataFrame to Feather format
+    Write a pandas.DataFrame to Feather format.
 
     Parameters
     ----------
     df : pandas.DataFrame
+        Dataframe to write out as feather format.
     dest : string
-        Local file path
+        Local destination path.
     """
     writer = FeatherWriter(dest)
     try:
@@ -193,16 +194,17 @@ def write_feather(df, dest):
 
 def read_feather(source, columns=None, use_threads=True):
     """
-    Read a pandas.DataFrame from Feather format
+    Read a pandas.DataFrame from Feather format.
 
     Parameters
     ----------
     source : string file path, or file-like object
+
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
-        read
+        read.
     use_threads: bool, default True
-        Whether to parallelize reading using multiple threads
+        Whether to parallelize reading using multiple threads.
 
     Returns
     -------
@@ -221,7 +223,7 @@ def read_table(source, columns=None):
     source : string file path, or file-like object
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
-        read
+        read.
 
     Returns
     -------

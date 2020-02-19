@@ -1411,10 +1411,14 @@ def field(name, type, bint nullable=True, metadata=None):
     Parameters
     ----------
     name : string or bytes
+        Name of the field.
     type : pyarrow.DataType
+        Arrow datatype of the field.
     nullable : boolean, default True
+        Whether the field's values are nullable.
     metadata : dict, default None
-        Keys and values must be coercible to bytes.
+        Optional field metadata, the keys and values must be coercible to
+        bytes.
 
     Returns
     -------
@@ -2033,26 +2037,31 @@ def struct(fields):
     """
     Create StructType instance from fields.
 
+    A struct is a nested type parameterized by an ordered sequence of types
+    (which can all be distinct), called its fields.
+
     Parameters
     ----------
     fields : iterable of Fields or tuples, or mapping of strings to DataTypes
+        Each field must have a UTF8-encoded name, and these field names are
+        part of the type metadata.
 
     Examples
     --------
-    ::
-
-        import pyarrow as pa
-        fields = [
-            ('f1', pa.int32()),
-            ('f2', pa.string()),
-        ]
-        struct_type = pa.struct(fields)
-
-        fields = [
-            pa.field('f1', pa.int32()),
-            pa.field('f2', pa.string(), nullable=false),
-        ]
-        struct_type = pa.struct(fields)
+    >>> import pyarrow as pa
+    >>> fields = [
+    ...     ('f1', pa.int32()),
+    ...     ('f2', pa.string()),
+    ... ]
+    >>> struct_type = pa.struct(fields)
+    >>> struct_type
+    StructType(struct<f1: int32, f2: string>)
+    >>> fields = [
+    ...     pa.field('f1', pa.int32()),
+    ...     pa.field('f2', pa.string(), nullable=False),
+    ... ]
+    >>> pa.struct(fields)
+    StructType(struct<f1: int32, f2: string not null>)
 
     Returns
     -------
@@ -2081,11 +2090,16 @@ def union(children_fields, mode, type_codes=None):
     """
     Create UnionType from children fields.
 
+    A union is defined by an ordered sequence of types; each slot in the union
+    can have a value chosen from these types.
+
     Parameters
     ----------
     fields : sequence of Field values
+        Each field must have a UTF8-encoded name, and these field names are
+        part of the type metadata.
     mode : str
-        'dense' or 'sparse'
+        Either 'dense' or 'sparse'.
     type_codes : list of integers, default None
 
     Returns
@@ -2230,14 +2244,19 @@ def schema(fields, metadata=None):
 
     Examples
     --------
-    ::
-
-        import pyarrow as pa
-        fields = [
-            ('some_int', pa.int32()),
-            ('some_string', pa.string()),
-        ]
-        schema = pa.schema(fields)
+    >>> import pyarrow as pa
+    >>> pa.schema([
+    ...     ('some_int', pa.int32()),
+    ...     ('some_string', pa.string())
+    ... ])
+    some_int: int32
+    some_string: string
+    >>> pa.schema([
+    ...     pa.field('some_int', pa.int32()),
+    ...     pa.field('some_string', pa.string())
+    ... ])
+    some_int: int32
+    some_string: string
 
     Returns
     -------
