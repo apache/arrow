@@ -44,7 +44,15 @@ def _tokenize_signature(s):
 
 def _convert_typehint(tokens):
     names = []
+    opening_bracket_reached = False
     for token in tokens:
+        # omit the tokens before the opening bracket
+        if not opening_bracket_reached:
+            if token.string == '(':
+                opening_bracket_reached = True
+            else:
+                continue
+
         if token.type == 1:  # type 1 means NAME token
             names.append(token)
         else:
@@ -81,7 +89,7 @@ def inspect_signature(obj):
     cython_signature = obj.__doc__.splitlines()[0]
     cython_tokens = _tokenize_signature(cython_signature)
     python_tokens = _convert_typehint(cython_tokens)
-    python_signature = tokenize.untokenize(python_tokens).decode()
+    python_signature = tokenize.untokenize(python_tokens)
     return inspect._signature_fromstr(inspect.Signature, obj, python_signature)
 
 
