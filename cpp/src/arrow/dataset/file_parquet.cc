@@ -383,11 +383,5 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
                                        std::move(arrow_properties));
 }
 
-Result<std::shared_ptr<Fragment>> ParquetFileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options) {
-  return std::make_shared<ParquetFragment>(std::move(source), shared_from_this(),
-                                           std::move(options));
-}
-
 }  // namespace dataset
 }  // namespace arrow

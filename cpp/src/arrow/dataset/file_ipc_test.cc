@@ -97,6 +97,7 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
   }
 
  protected:
+  std::shared_ptr<FileFormat> format_ = std::make_shared<IpcFileFormat>();
   std::shared_ptr<ScanOptions> opts_;
   std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
   std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
@@ -107,7 +108,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
-  auto fragment = std::make_shared<IpcFragment>(*source, opts_);
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
 
   int64_t row_count = 0;
 
@@ -120,17 +121,15 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
 }
 
 TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
-  auto format = IpcFileFormat();
-
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  auto result = format.Inspect(FileSource(buf));
+  auto result = format_->Inspect(FileSource(buf));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("<Buffer>"),
                                   result.status());
 
   constexpr auto file_name = "herp/derp";
   ASSERT_OK_AND_ASSIGN(
       auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
-  result = format.Inspect({file_name, fs.get()});
+  result = format_->Inspect({file_name, fs.get()});
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(file_name),
                                   result.status());
 }
@@ -149,7 +148,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
 
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
-  auto fragment = std::make_shared<IpcFragment>(*source, opts_);
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
 
   int64_t row_count = 0;
 
@@ -182,7 +181,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
   auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
   for (auto reader : readers) {
     auto source = GetFileSource(reader);
-    auto fragment = std::make_shared<IpcFragment>(*source, opts_);
+    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
 
     // NB: projector is applied by the scanner; Fragment does not evaluate it.
     // We will not drop "i32" even though it is not in the projector's schema.
@@ -214,28 +213,26 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
 TEST_F(TestIpcFileFormat, Inspect) {
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
-  auto format = IpcFileFormat();
 
-  ASSERT_OK_AND_ASSIGN(auto actual, format.Inspect(*source.get()));
+  ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
   EXPECT_EQ(*actual, *schema_);
 }
 
 TEST_F(TestIpcFileFormat, IsSupported) {
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
-  auto format = IpcFileFormat();
 
   bool supported = false;
 
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  ASSERT_OK_AND_ASSIGN(supported, format.IsSupported(FileSource(buf)));
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
   ASSERT_EQ(supported, false);
 
   buf = std::make_shared<Buffer>(util::string_view("corrupted"));
-  ASSERT_OK_AND_ASSIGN(supported, format.IsSupported(FileSource(buf)));
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
   ASSERT_EQ(supported, false);
 
-  ASSERT_OK_AND_ASSIGN(supported, format.IsSupported(*source));
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
   EXPECT_EQ(supported, true);
 }
 

@@ -176,7 +176,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
-  auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
 
   int64_t row_count = 0;
 
@@ -245,7 +245,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
 
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
-  auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
 
   int64_t row_count = 0;
 
@@ -278,7 +278,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
   auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
   for (auto reader : readers) {
     auto source = GetFileSource(reader);
-    auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
+    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
 
     // NB: projector is applied by the scanner; ParquetFragment does not evaluate it.
     // We will not drop "i32" even though it is not in the projector's schema.
@@ -326,6 +326,7 @@ TEST_F(TestParquetFileFormat, InspectDictEncoded) {
 
   Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});
   AssertSchemaEqual(*actual, expected_schema, /* check_metadata = */ false);
+  EXPECT_EQ(*actual, *schema_);
 }
 
 TEST_F(TestParquetFileFormat, IsSupported) {
@@ -366,7 +367,7 @@ TEST_F(TestParquetFileFormat, PredicatePushdown) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
-  auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
 
   opts_->filter = scalar(true);
   CountRowsAndBatchesInScan(fragment.get(), kTotalNumRows, kNumRowGroups);

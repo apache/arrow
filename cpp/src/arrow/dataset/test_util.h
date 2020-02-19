@@ -207,25 +207,9 @@ class DummyFileFormat : public FileFormat {
     return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
   }
 
-  inline Result<std::shared_ptr<Fragment>> MakeFragment(
-      FileSource source, std::shared_ptr<ScanOptions> options) override;
-
  protected:
   std::shared_ptr<Schema> schema_;
 };
-
-class DummyFragment : public FileFragment {
- public:
-  DummyFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
-      : FileFragment(source, std::make_shared<DummyFileFormat>(), options) {}
-
-  bool splittable() const override { return false; }
-};
-
-Result<std::shared_ptr<Fragment>> DummyFileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options) {
-  return std::make_shared<DummyFragment>(source, options);
-}
 
 class JSONRecordBatchFileFormat : public FileFormat {
  public:
@@ -262,27 +246,9 @@ class JSONRecordBatchFileFormat : public FileFormat {
                                            std::move(context));
   }
 
-  inline Result<std::shared_ptr<Fragment>> MakeFragment(
-      FileSource source, std::shared_ptr<ScanOptions> options) override;
-
  protected:
   SchemaResolver resolver_;
 };
-
-class JSONRecordBatchFragment : public FileFragment {
- public:
-  JSONRecordBatchFragment(const FileSource& source, std::shared_ptr<Schema> schema,
-                          std::shared_ptr<ScanOptions> options)
-      : FileFragment(source, std::make_shared<JSONRecordBatchFileFormat>(schema),
-                     options) {}
-
-  bool splittable() const override { return false; }
-};
-
-Result<std::shared_ptr<Fragment>> JSONRecordBatchFileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options) {
-  return std::make_shared<JSONRecordBatchFragment>(source, resolver_(source), options);
-}
 
 class TestFileSystemDataset : public ::testing::Test {
  public:
@@ -329,8 +295,8 @@ void AssertFragmentsAreFromPath(FragmentIterator it, std::vector<std::string> ex
 
   auto v = [&actual](std::shared_ptr<Fragment> fragment) -> Status {
     EXPECT_NE(fragment, nullptr);
-    auto dummy = std::static_pointer_cast<DummyFragment>(fragment);
-    actual.push_back(dummy->source().path());
+    const auto& file_fragment = internal::checked_cast<const FileFragment&>(*fragment);
+    actual.push_back(file_fragment.source().path());
     return Status::OK();
   };
 

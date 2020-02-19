@@ -42,6 +42,13 @@ InMemoryFragment::InMemoryFragment(
     std::shared_ptr<ScanOptions> scan_options)
     : Fragment(std::move(scan_options)), record_batches_(std::move(record_batches)) {}
 
+InMemoryFragment::InMemoryFragment(
+    std::vector<std::shared_ptr<RecordBatch>> record_batches,
+    std::shared_ptr<ScanOptions> scan_options,
+    std::shared_ptr<Expression> partition_expression)
+    : Fragment(std::move(scan_options), std::move(partition_expression)),
+      record_batches_(std::move(record_batches)) {}
+
 Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanContext> context) {
   // Make an explicit copy of record_batches_ to ensure Scan can be called
   // multiple times.
