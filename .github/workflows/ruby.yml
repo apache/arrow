@@ -80,6 +80,7 @@ jobs:
       fail-fast: false
     env:
       ARROW_BUILD_TESTS: ON
+      ARROW_GANDIVA: ON
       ARROW_GLIB_DEVELOPMENT_MODE: true
       ARROW_GLIB_GTK_DOC: true
       ARROW_HOME: /usr/local
