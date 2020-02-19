@@ -17,6 +17,8 @@
 
 import importlib
 import inspect
+import tokenize
+import itertools
 from contextlib import contextmanager
 
 try:
@@ -207,3 +209,19 @@ class NumpyDoc:
                     self.traverse(callback, obj, from_package=from_package)
 
         return results
+
+
+# import pyarrow as pa
+
+# print(inspect_signature(pa.array))
+
+# n = NumpyDoc()
+# with n._apply_patches():
+#     print(pa.array.__doc__)
+
+#     s = pa.array.__doc__.splitlines()[0]
+
+#     print(repr(inspect.signature(pa.array)))
+
+# import sys
+# sys.exit(0)
