@@ -67,7 +67,7 @@ GARROW_AVAILABLE_IN_1_0
 gboolean
 garrow_table_equal_metadata(GArrowTable *table,
                             GArrowTable *other_table,
-                            gboolean metadata);
+                            gboolean check_metadata);
 
 GArrowSchema   *garrow_table_get_schema    (GArrowTable *table);
 GARROW_AVAILABLE_IN_1_0
