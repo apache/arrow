@@ -170,17 +170,24 @@ def python_numpydoc(whitelist=None, blacklist=None):
             klass = instance.__class__.__name__
         else:
             klass = ''
-        if doc:
-            signature = doc.splitlines()[0]
-        else:
-            signature = ''
+
+        try:
+            cython_signature = doc.splitlines()[0]
+        except Exception:
+            cython_signature = ''
 
         desc = '.'.join(filter(None, [module, klass, qualname or name]))
 
         click.echo()
         click.echo(click.style(desc, bold=True, fg='yellow'))
-        if signature:
-            click.echo(click.style('-> {}'.format(signature), fg='yellow'))
+        if cython_signature:
+            qualname_with_signature = '.'.join([module, cython_signature])
+            click.echo(
+                click.style(
+                    '-> {}'.format(qualname_with_signature),
+                    fg='yellow'
+                )
+            )
 
         for error in errors:
             number_of_violations += 1
