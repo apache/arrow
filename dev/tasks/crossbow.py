@@ -535,6 +535,31 @@ class Repo:
         else:
             return {a.name: a for a in release.assets()}
 
+    def github_upload_asset(self, release, path, max_retries=None,
+                            retry_backoff=None):
+        if max_retries is None:
+            max_retries = int(os.environ.get('CROSSBOW_MAX_RETRIES', 5))
+        if retry_backoff is None:
+            retry_backoff = int(os.environ.get('CROSSBOW_RETRY_BACKOFF', 5))
+
+        name = os.path.basename(path)
+        mime = mimetypes.guess_type(name)[0] or 'application/octet-stream'
+
+        click.echo('Uploading asset `{}`...'.format(name))
+        with open(path, 'rb') as fp:
+            for i in range(max_retries):
+                try:
+                    result = release.upload_asset(name=name, asset=fp,
+                                                  content_type=mime)
+                    click.echo('Attempt {} has finished.'.format(i + 1))
+                    return result
+                except github3.exceptions.ServerError as e:
+                    click.echo('Attempt {} has failed.'.format(i + 1))
+                    if i >= (max_retries - 1):
+                        raise e
+                    else:
+                        time.sleep(retry_backoff)
+
     def github_overwrite_release_assets(self, tag_name, target_commitish,
                                         patterns):
         repo = self.as_github_repo()
@@ -552,18 +577,9 @@ class Repo:
             release.delete()
 
         release = repo.create_release(tag_name, target_commitish)
-        default_mime = 'application/octet-stream'
-
         for pattern in patterns:
             for path in glob.glob(pattern, recursive=True):
-                name = os.path.basename(path)
-                mime = mimetypes.guess_type(name)[0] or default_mime
-
-                # TODO(kszucs): use logging
-                click.echo('Uploading asset `{}`...'.format(name))
-                with open(path, 'rb') as fp:
-                    release.upload_asset(name=name, asset=fp,
-                                         content_type=mime)
+                self.github_upload_asset(release, path)
 
 
 CombinedStatus = namedtuple('CombinedStatus', ('state', 'total_count'))
