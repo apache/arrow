@@ -390,7 +390,7 @@ garrow_map_data_type_get_key_type(GArrowMapDataType *map_data_type)
   auto data_type = GARROW_DATA_TYPE(map_data_type);
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
   auto arrow_map_data_type =
-    static_cast<arrow::MapType *>(arrow_data_type.get());
+    std::static_pointer_cast<arrow::MapType>(arrow_data_type);
   auto arrow_key_type = arrow_map_data_type->key_type();
   return garrow_data_type_new_raw(&arrow_key_type);
 }
@@ -409,7 +409,7 @@ garrow_map_data_type_get_item_type(GArrowMapDataType *map_data_type)
   auto data_type = GARROW_DATA_TYPE(map_data_type);
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
   auto arrow_map_data_type =
-    static_cast<arrow::MapType *>(arrow_data_type.get());
+    std::static_pointer_cast<arrow::MapType>(arrow_data_type);
   auto arrow_item_type = arrow_map_data_type->item_type();
   return garrow_data_type_new_raw(&arrow_item_type);
 }
