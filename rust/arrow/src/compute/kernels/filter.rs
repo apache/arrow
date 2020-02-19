@@ -168,7 +168,7 @@ mod tests {
                 assert_eq!(1, d.value(0));
                 assert_eq!(3, d.value(1));
             }
-        }
+        };
     }
 
     def_temporal_test!(test_filter_date32, Date32Array);
