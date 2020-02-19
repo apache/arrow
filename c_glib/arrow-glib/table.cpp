@@ -333,7 +333,7 @@ garrow_table_new_record_batches(GArrowSchema *schema,
  * @other_table: A #GArrowTable to be compared.
  *
  * Returns: %TRUE if both of them have the same data, %FALSE
- *   otherwise. Note that this function doesn't compare metadata.
+ *   otherwise.
  *
  * Since: 0.4.0
  */
@@ -342,7 +342,7 @@ garrow_table_equal(GArrowTable *table, GArrowTable *other_table)
 {
   const auto arrow_table = garrow_table_get_raw(table);
   const auto arrow_other_table = garrow_table_get_raw(other_table);
-  return arrow_table->Equals(*arrow_other_table, false);
+  return arrow_table->Equals(*arrow_other_table);
 }
 
 /**
