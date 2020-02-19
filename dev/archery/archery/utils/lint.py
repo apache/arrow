@@ -126,13 +126,19 @@ def python_numpydoc(whitelist=None, blacklist=None):
     logger.info("Running python docstring linters")
     packages = {
         'pyarrow',
+        'pyarrow.compute',
+        'pyarrow.csv',
         'pyarrow.dataset',
+        'pyarrow.feather',
         'pyarrow.flight',
         'pyarrow.fs',
         'pyarrow.gandiva',
+        'pyarrow.ipc',
+        'pyarrow.json',
         'pyarrow.orc',
         'pyarrow.parquet',
         'pyarrow.plasma',
+        'pyarrow.types',
     }
     try:
         numpydoc = NumpyDoc(packages)

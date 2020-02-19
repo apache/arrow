@@ -223,8 +223,7 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
               show_default=True,
               help="Lint python files with flake8.")
 @click.option("--with-numpydoc", default=False, type=BOOL,
-              show_default=False,
-              help="Lint python files with numpydoc.")
+              show_default=True, help="Lint python files with numpydoc.")
 @click.option("--with-cmake-format", default=True, type=BOOL,
               show_default=True,
               help="Lint CMakeFiles.txt files with cmake-format.py.")

@@ -80,6 +80,12 @@ class NumpyDoc:
 
     @contextmanager
     def _patch_numpydoc(self):
+        """
+        Patch Docstring class to bypass loading already loaded python objects.
+
+        By default it expects a qualname and import the object, but we have
+        already loaded object after the API traversal.
+        """
         original = Docstring._load_obj
         try:
             Docstring._load_obj = staticmethod(lambda obj: obj)
