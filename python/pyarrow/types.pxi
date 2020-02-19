@@ -1594,16 +1594,17 @@ def tzinfo_to_string(tz):
 
 def string_to_tzinfo(name):
     """
-    Converts a string indicating the name of a time zone into a time zone
-    object, one of:
+    Converts a time zone name into a time zone object.
+
+    Supported formats:
     * As used in the Olson time zone database (the "tz database" or
       "tzdata"), such as "America/New_York"
     * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
 
     Parameters
     ----------
-      name: string
-        Time zone name
+      name: str
+        Time zone name.
 
     Returns
     -------
@@ -1634,10 +1635,13 @@ def timestamp(unit, tz=None):
 
     Examples
     --------
-    ::
-
-        t1 = pa.timestamp('us')
-        t2 = pa.timestamp('s', tz='America/New_York')
+    >>> import pyarrow as pa
+    >>> pa.timestamp('us')
+    TimestampType(timestamp[us])
+    >>> pa.timestamp('s', tz='America/New_York')
+    TimestampType(timestamp[s, tz=America/New_York])
+    >>> pa.timestamp('s', tz='+07:30')
+    TimestampType(timestamp[s, tz=+07:30])
 
     Returns
     -------
@@ -1684,12 +1688,17 @@ def time32(unit):
     unit : str
         one of 's' [second], or 'ms' [millisecond]
 
+    Returns
+    -------
+    type : pyarrow.Time32Type
+
     Examples
     --------
-    ::
-
-        t1 = pa.time32('s')
-        t2 = pa.time32('ms')
+    >>> import pyarrow as pa
+    >>> pa.time32('s')
+    Time32Type(time32[s])
+    >>> pa.time32('ms')
+    Time32Type(time32[ms])
     """
     cdef:
         TimeUnit unit_code
@@ -1720,14 +1729,19 @@ def time64(unit):
     Parameters
     ----------
     unit : str
-        one of 'us' [microsecond], or 'ns' [nanosecond]
+        One of 'us' [microsecond], or 'ns' [nanosecond].
+
+    Returns
+    -------
+    type : pyarrow.Time64Type
 
     Examples
     --------
-    ::
-
-        t1 = pa.time64('us')
-        t2 = pa.time64('ns')
+    >>> import pyarrow as pa
+    >>> pa.time64('us')
+    Time64Type(time64[us])
+    >>> pa.time64('ns')
+    Time64Type(time64[ns])
     """
     cdef:
         TimeUnit unit_code
@@ -1758,15 +1772,20 @@ def duration(unit):
     Parameters
     ----------
     unit : str
-        one of 's' [second], 'ms' [millisecond], 'us' [microsecond], or 'ns'
-        [nanosecond]
+        One of 's' [second], 'ms' [millisecond], 'us' [microsecond], or
+        'ns' [nanosecond].
+
+    Returns
+    -------
+    type : pyarrow.DurationType
 
     Examples
     --------
-    ::
-
-        t1 = pa.duration('us')
-        t2 = pa.duration('s')
+    >>> import pyarrow as pa
+    >>> pa.duration('us')
+    DurationType(duration[us])
+    >>> pa.duration('s')
+    DurationType(duration[s])
     """
     cdef:
         TimeUnit unit_code
