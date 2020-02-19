@@ -316,13 +316,13 @@ class PARQUET_EXPORT GroupNode : public Node {
     return PrimitiveNode::Make(name, repetition, Type::TYPE);                          \
   }
 
-PRIMITIVE_FACTORY(Boolean, BOOLEAN);
-PRIMITIVE_FACTORY(Int32, INT32);
-PRIMITIVE_FACTORY(Int64, INT64);
-PRIMITIVE_FACTORY(Int96, INT96);
-PRIMITIVE_FACTORY(Float, FLOAT);
-PRIMITIVE_FACTORY(Double, DOUBLE);
-PRIMITIVE_FACTORY(ByteArray, BYTE_ARRAY);
+PRIMITIVE_FACTORY(Boolean, BOOLEAN)
+PRIMITIVE_FACTORY(Int32, INT32)
+PRIMITIVE_FACTORY(Int64, INT64)
+PRIMITIVE_FACTORY(Int96, INT96)
+PRIMITIVE_FACTORY(Float, FLOAT)
+PRIMITIVE_FACTORY(Double, DOUBLE)
+PRIMITIVE_FACTORY(ByteArray, BYTE_ARRAY)
 
 void PARQUET_EXPORT PrintSchema(const schema::Node* schema, std::ostream& stream,
                                 int indent_width = 2);
