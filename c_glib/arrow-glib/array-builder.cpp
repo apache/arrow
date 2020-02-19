@@ -4566,7 +4566,11 @@ garrow_map_array_builder_new(GArrowMapDataType *data_type,
   auto builder = garrow_array_builder_new(arrow_data_type,
                                           error,
                                           "[map-array-builder][new]");
-  return GARROW_MAP_ARRAY_BUILDER(builder);
+  if (builder) {
+    return GARROW_MAP_ARRAY_BUILDER(builder);
+  } else {
+    return NULL;
+  }
 }
 
 /**
