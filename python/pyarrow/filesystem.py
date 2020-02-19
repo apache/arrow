@@ -67,7 +67,7 @@ class FileSystem:
         ----------
         path : str
             Path to delete.
-        recursive : boolean, default False
+        recursive : bool, default False
             If True, also delete child paths for directories.
         """
         raise NotImplementedError
@@ -200,17 +200,17 @@ class FileSystem:
         path : str
             Single file path or directory
         columns : List[str], optional
-            Subset of columns to read
+            Subset of columns to read.
         metadata : pyarrow.parquet.FileMetaData
-            Known metadata to validate files against
+            Known metadata to validate files against.
         schema : pyarrow.parquet.Schema
             Known schema to validate files against. Alternative to metadata
-            argument
-        use_threads : boolean, default True
-            Perform multi-threaded column reads
-        use_pandas_metadata : boolean, default False
+            argument.
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+        use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
-            index columns are also loaded
+            index columns are also loaded.
 
         Returns
         -------

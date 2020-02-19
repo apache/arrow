@@ -172,7 +172,7 @@ cdef class DataType:
 
         Returns
         -------
-        is_equal : boolean
+        is_equal : bool
         """
         cdef DataType other_type
 
@@ -840,7 +840,7 @@ cdef class Field:
 
         Returns
         -------
-        is_equal : boolean
+        is_equal : bool
         """
         return self.field.Equals(deref(other.field), check_metadata)
 
@@ -1057,7 +1057,7 @@ cdef class Schema:
 
         Returns
         -------
-        is_equal : boolean
+        is_equal : bool
         """
         return self.sp_schema.get().Equals(deref(other.schema),
                                            check_metadata)
@@ -1410,11 +1410,11 @@ def field(name, type, bint nullable=True, metadata=None):
 
     Parameters
     ----------
-    name : string or bytes
+    name : str or bytes
         Name of the field.
     type : pyarrow.DataType
         Arrow datatype of the field.
-    nullable : boolean, default True
+    nullable : bool, default True
         Whether the field's values are nullable.
     metadata : dict, default None
         Optional field metadata, the keys and values must be coercible to
@@ -1561,7 +1561,7 @@ def tzinfo_to_string(tz):
 
     Returns
     -------
-      name : string
+      name : str
         Time zone name
     """
     import pytz
@@ -1626,10 +1626,10 @@ def timestamp(unit, tz=None):
 
     Parameters
     ----------
-    unit : string
+    unit : str
         one of 's' [second], 'ms' [millisecond], 'us' [microsecond], or 'ns'
         [nanosecond]
-    tz : string, default None
+    tz : str, default None
         Time zone name. None indicates time zone naive
 
     Examples
@@ -1681,7 +1681,7 @@ def time32(unit):
 
     Parameters
     ----------
-    unit : string
+    unit : str
         one of 's' [second], or 'ms' [millisecond]
 
     Examples
@@ -1719,7 +1719,7 @@ def time64(unit):
 
     Parameters
     ----------
-    unit : string
+    unit : str
         one of 'us' [microsecond], or 'ns' [nanosecond]
 
     Examples
@@ -1757,7 +1757,7 @@ def duration(unit):
 
     Parameters
     ----------
-    unit : string
+    unit : str
         one of 's' [second], 'ms' [millisecond], 'us' [microsecond], or 'ns'
         [nanosecond]
 
@@ -1986,7 +1986,7 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
     ----------
     key_type : DataType
     item_type : DataType
-    keys_sorted : boolean
+    keys_sorted : bool
 
     Returns
     -------
@@ -2012,7 +2012,7 @@ cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
     ----------
     index_type : DataType
     value_type : DataType
-    ordered : boolean
+    ordered : bool
 
     Returns
     -------

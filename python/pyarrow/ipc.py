@@ -69,7 +69,7 @@ sink : str, pyarrow.NativeFile, or file-like Python object
     Either a file path, or a writable file object.
 schema : pyarrow.Schema
     The Arrow schema for data to be written to the file.
-use_legacy_format : boolean, default None
+use_legacy_format : bool, default None
     If None, False will be used unless this default is overridden by
     setting the environment variable ARROW_PRE_0_15_IPC_FORMAT=1"""
 
@@ -166,7 +166,7 @@ def serialize_pandas(df, nthreads=None, preserve_index=None):
     df : pandas.DataFrame
     nthreads : int, default None
         Number of threads to use for conversion to Arrow, default all CPUs.
-    preserve_index : boolean, default None
+    preserve_index : bool, default None
         The default of None will store the index as a column, except for
         RangeIndex which is stored as metadata only. If True, always
         preserve the pandas index data as a column. If False, no index
@@ -192,7 +192,7 @@ def deserialize_pandas(buf, use_threads=True):
     ----------
     buf : buffer
         An object compatible with the buffer protocol.
-    use_threads: boolean, default True
+    use_threads: bool, default True
         Whether to parallelize the conversion using multiple threads.
 
     Returns

@@ -120,7 +120,7 @@ class ParquetFile:
     common_metadata : FileMetaData, default None
         Will be used in reads for pandas schema metadata if not found in the
         main file's metadata, no other uses at the moment
-    memory_map : boolean, default False
+    memory_map : bool, default False
         If the source is a file path, use a memory map to read file, which can
         improve performance in some environments
     buffer_size : int, default 0
@@ -189,9 +189,9 @@ class ParquetFile:
             If not None, only these columns will be read from the row group. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'
-        use_threads : boolean, default True
+        use_threads : bool, default True
             Perform multi-threaded column reads
-        use_pandas_metadata : boolean, default False
+        use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded
 
@@ -218,9 +218,9 @@ class ParquetFile:
             If not None, only these columns will be read from the row group. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'
-        use_threads : boolean, default True
+        use_threads : bool, default True
             Perform multi-threaded column reads
-        use_pandas_metadata : boolean, default False
+        use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded
 
@@ -245,9 +245,9 @@ class ParquetFile:
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'
-        use_threads : boolean, default True
+        use_threads : bool, default True
             Perform multi-threaded column reads
-        use_pandas_metadata : boolean, default False
+        use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded
 
@@ -358,17 +358,17 @@ _parquet_writer_arg_docs = """version : {"1.0", "2.0"}, default "1.0"
 use_dictionary : bool or list
     Specify if we should use dictionary encoding in general or only for
     some columns.
-use_deprecated_int96_timestamps : boolean, default None
+use_deprecated_int96_timestamps : bool, default None
     Write timestamps to INT96 Parquet format. Defaults to False unless enabled
     by flavor argument. This take priority over the coerce_timestamps option.
-coerce_timestamps : string, default None
+coerce_timestamps : str, default None
     Cast timestamps a particular resolution.
     Valid values: {None, 'ms', 'us'}
 data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data
     pages within a column chunk (in bytes). If None, use the default data page
     size of 1MByte.
-allow_truncated_timestamps : boolean, default False
+allow_truncated_timestamps : bool, default False
     Allow loss of data when coercing timestamps to a particular
     resolution. E.g. if microsecond or nanosecond data is lost when coercing to
     'ms', do not raise an exception
@@ -591,7 +591,7 @@ class ParquetDatasetPiece:
         Parameters
         ----------
         columns : list of column names, default None
-        use_threads : boolean, default True
+        use_threads : bool, default True
             Perform multi-threaded column reads
         partitions : ParquetPartitions, default None
         file : file-like object
@@ -744,9 +744,9 @@ class ParquetPartitions:
         ----------
         level : int
             The nesting level of the partition we are observing
-        name : string
+        name : str
             The partition name
-        key : string or int
+        key : str or int
             The partition value
         """
         if level == len(self.levels):
@@ -960,7 +960,7 @@ read_dictionary : list, default None
     nested types, you must pass the full column "path", which could be
     something like level1.level2.list.item. Refer to the Parquet
     file's schema to obtain the paths.
-memory_map : boolean, default False
+memory_map : bool, default False
     If the source is a file path, use a memory map to read file, which can
     improve performance in some environments
 buffer_size : int, default 0
@@ -986,9 +986,9 @@ metadata : pyarrow.parquet.FileMetaData
 schema : pyarrow.parquet.Schema
     Use schema obtained elsewhere to validate file schemas. Alternative to
     metadata parameter
-split_row_groups : boolean, default False
+split_row_groups : bool, default False
     Divide files into pieces for each row group in the file
-validate_schema : boolean, default True
+validate_schema : bool, default True
     Check that individual file schemas are all the same / compatible
 filters : List[Tuple] or List[List[Tuple]] or None (default)
     List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
@@ -1125,7 +1125,7 @@ metadata_nthreads: int, default 1
         ----------
         columns : List[str]
             Names of columns to read from the file
-        use_threads : boolean, default True
+        use_threads : bool, default True
             Perform multi-threaded column reads
         use_pandas_metadata : bool, default False
             Passed through to each dataset piece
@@ -1251,7 +1251,7 @@ columns: list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
     'a.c', and 'a.d.e'
-use_threads : boolean, default True
+use_threads : bool, default True
     Perform multi-threaded column reads
 metadata : FileMetaData
     If separately computed
@@ -1289,7 +1289,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
 read_table.__doc__ = _read_table_docstring.format(
     'Read a Table from Parquet format',
     "\n".join((_read_docstring_common,
-               """use_pandas_metadata : boolean, default False
+               """use_pandas_metadata : bool, default False
     If True and file has custom pandas schema metadata, ensure that
     index columns are also loaded""")),
     """pyarrow.Table
@@ -1402,7 +1402,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     Parameters
     ----------
     table : pyarrow.Table
-    root_path : string,
+    root_path : str,
         The root directory of the dataset
     filesystem : FileSystem, default None
         If nothing passed, paths assumed to be found in the local on-disk
@@ -1479,9 +1479,9 @@ def write_metadata(schema, where, version='1.0',
     where: string or pyarrow.NativeFile
     version : {"1.0", "2.0"}, default "1.0"
         The Parquet format version, defaults to 1.0
-    use_deprecated_int96_timestamps : boolean, default False
+    use_deprecated_int96_timestamps : bool, default False
         Write nanosecond resolution timestamps to INT96 Parquet format
-    coerce_timestamps : string, default None
+    coerce_timestamps : str, default None
         Cast timestamps a particular resolution.
         Valid values: {None, 'ms', 'us'}
     filesystem : FileSystem, default None
@@ -1501,8 +1501,8 @@ def read_metadata(where, memory_map=False):
 
     Parameters
     ----------
-    where : string (filepath) or file-like object
-    memory_map : boolean, default False
+    where : str (filepath) or file-like object
+    memory_map : bool, default False
         Create memory map when the source is a file path
 
     Returns
@@ -1518,8 +1518,8 @@ def read_schema(where, memory_map=False):
 
     Parameters
     ----------
-    where : string (filepath) or file-like object
-    memory_map : boolean, default False
+    where : str (filepath) or file-like object
+    memory_map : bool, default False
         Create memory map when the source is a file path
 
     Returns

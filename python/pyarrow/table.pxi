@@ -167,7 +167,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Returns
         -------
-        are_equal : boolean
+        are_equal : bool
         """
         cdef:
             CChunkedArray* this_arr = self.chunked_array
@@ -223,7 +223,7 @@ cdef class ChunkedArray(_PandasConvertible):
         ----------
         target_type : DataType
             Type to cast to
-        safe : boolean, default True
+        safe : bool, default True
             Check for overflows or other unsafe conversions
 
         Returns
@@ -1142,7 +1142,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        are_equal : boolean
+        are_equal : bool
         """
         cdef:
             CTable* this_table = self.table
@@ -1165,7 +1165,7 @@ cdef class Table(_PandasConvertible):
         ----------
         target_schema : Schema
             Schema to cast to, the names and order of fields must match
-        safe : boolean, default True
+        safe : bool, default True
             Check for overflows or other unsafe conversions
 
         Returns
@@ -1228,7 +1228,7 @@ cdef class Table(_PandasConvertible):
             indicated number of threads
         columns : list, optional
            List of column to be converted. If None, use all columns.
-        safe : boolean, default True
+        safe : bool, default True
            Check for overflows or other unsafe conversions
 
         Returns
@@ -1908,6 +1908,7 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
     Parameters
     ----------
     tables : iterable of pyarrow.Table objects
+        Pyarrow tables to concatenate into a single Table.
     promote: bool, default False
         If True, concatenate tables with null-filling and null type promotion.
     memory_pool : MemoryPool, default None

@@ -105,7 +105,7 @@ class FeatherDataset:
     ----------
     path_or_paths : List[str]
         A list of file names
-    validate_schema : boolean, default True
+    validate_schema : bool, default True
         Check that individual file schemas are all the same / compatible
     """
     def __init__(self, path_or_paths, validate_schema=True):
@@ -153,7 +153,7 @@ class FeatherDataset:
         ----------
         columns : List[str]
             Names of columns to read from the file
-        use_threads : boolean, default True
+        use_threads : bool, default True
             Use multiple threads when converting to pandas
 
         Returns
@@ -173,7 +173,7 @@ def write_feather(df, dest):
     ----------
     df : pandas.DataFrame
         Dataframe to write out as feather format.
-    dest : string
+    dest : str
         Local destination path.
     """
     writer = FeatherWriter(dest)
@@ -198,7 +198,7 @@ def read_feather(source, columns=None, use_threads=True):
 
     Parameters
     ----------
-    source : string file path, or file-like object
+    source : str file path, or file-like object
 
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
@@ -220,7 +220,7 @@ def read_table(source, columns=None):
 
     Parameters
     ----------
-    source : string file path, or file-like object
+    source : str file path, or file-like object
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read.

@@ -1077,7 +1077,7 @@ cdef class ResizableBuffer(Buffer):
         ----------
         new_size : int
             New size of buffer (padding may be added internally).
-        shrink_to_fit : boolean, default False
+        shrink_to_fit : bool, default False
             If this is true, the buffer is shrunk when new_size is less
             than the current size.
             If this is false, the buffer is never shrunk.
@@ -1107,7 +1107,7 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
     memory_pool : MemoryPool, optional
         The pool to allocate memory from.
         If not given, the default memory pool is used.
-    resizable : boolean, default False
+    resizable : bool, default False
         If true, the returned buffer is resizable.
 
     Returns
@@ -1675,7 +1675,7 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
     codec : str, default 'lz4'
         Compression codec.
         Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
-    asbytes : boolean, default False
+    asbytes : bool, default False
         Return result as Python bytes object, otherwise Buffer.
     memory_pool : MemoryPool, default None
         Memory pool to use for buffer allocations, if any.
@@ -1775,7 +1775,7 @@ def output_stream(source, compression='detect', buffer_size=None):
 
     Parameters
     ----------
-    source: str, Path, buffer, file-like object, ...
+    source: str, pathlib.Path, buffer, file-like object, ...
         The source to open for writing.
     compression: str optional, default 'detect'
         The compression algorithm to use for on-the-fly compression.

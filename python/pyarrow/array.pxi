@@ -132,14 +132,14 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         will be treated as a "max size", but will involve an initial allocation
         of size followed by a resize to the actual size (so if you know the
         exact size specifying it correctly will give you better performance).
-    from_pandas : boolean, default None
+    from_pandas : bool, default None
         Use pandas's semantics for inferring nulls from values in
         ndarray-like data. If passed, the mask tasks precendence, but
         if a value is unmasked (not-null), but still null according to
         pandas semantics, then it is null. Defaults to False if not
         passed explicitly by user, or True if a pandas object is
         passed in.
-    safe : boolean, default True
+    safe : bool, default True
         Check for overflows or other unsafe conversions.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the currently-set default
@@ -307,7 +307,7 @@ def infer_type(values, mask=None, from_pandas=False):
         Sequence to infer type from.
     mask : ndarray (bool type), optional
         Optional exclusion mask where True marks null, False non-null.
-    from_pandas : boolean, default False
+    from_pandas : bool, default False
         Use pandas's NA/null sentinel values for type inference.
 
     Returns
@@ -504,27 +504,27 @@ cdef class _PandasConvertible:
         memory_pool : MemoryPool, default None
             Arrow MemoryPool to use for allocations. Uses the default memory
             pool is not passed.
-        strings_to_categorical : boolean, default False
+        strings_to_categorical : bool, default False
             Encode string (UTF8) and binary types to pandas.Categorical.
         categories: list, default empty
             List of fields that should be returned as pandas.Categorical. Only
             applies to table-like data structures.
-        zero_copy_only : boolean, default False
+        zero_copy_only : bool, default False
             Raise an ArrowException if this function call would require copying
             the underlying data.
-        integer_object_nulls : boolean, default False
+        integer_object_nulls : bool, default False
             Cast integers with nulls to objects
-        date_as_object : boolean, default True
+        date_as_object : bool, default True
             Cast dates to objects. If False, convert to datetime64[ns] dtype.
-        use_threads: boolean, default True
+        use_threads: bool, default True
             Whether to parallelize the conversion using multiple threads.
-        deduplicate_objects : boolean, default False
+        deduplicate_objects : bool, default False
             Do not create multiple copies Python objects when created, to save
             on memory use. Conversion will be slower.
-        ignore_metadata : boolean, default False
+        ignore_metadata : bool, default False
             If True, do not use the 'pandas' metadata to reconstruct the
             DataFrame index, if present
-        safe : boolean default True
+        safe : bool, default True
             For certain data types, a cast is needed in order to store the
             data in a pandas DataFrame or Series (e.g. timestamps are always
             stored as nanoseconds in pandas). This option controls whether it
@@ -534,7 +534,7 @@ cdef class _PandasConvertible:
             creating a pandas.DataFrame from a RecordBatch or Table. While this
             can temporarily reduce memory note that various pandas operations
             can trigger "consolidation" which may balloon memory use.
-        self_destruct : boolean, default False
+        self_destruct : bool, default False
             EXPERIMENTAL: If True, attempt to deallocate the originating Arrow
             memory while converting the Arrow object to pandas. If you use the
             object after calling to_pandas with this option it will crash your
@@ -659,7 +659,7 @@ cdef class Array(_PandasConvertible):
         ----------
         target_type : DataType
             Type to cast to
-        safe : boolean, default True
+        safe : bool, default True
             Check for overflows or other unsafe conversions
 
         Returns
@@ -765,7 +765,7 @@ cdef class Array(_PandasConvertible):
         type : pyarrow.DataType
             Explicit type to attempt to coerce to, otherwise will be inferred
             from the data.
-        safe : boolean, default True
+        safe : bool, default True
             Check for overflows or other unsafe conversions.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the currently-set default
@@ -1856,12 +1856,12 @@ cdef class DictionaryArray(Array):
             A closed set of values referenced by the indices.
         mask : ndarray or pandas.Series, bool type
             True values indicate that indices are actually null.
-        from_pandas : boolean, default False
+        from_pandas : bool, default False
             If True, the indices should be treated as though they originated in
             a pandas.Categorical (null encoded as -1).
-        ordered : boolean, default False
+        ordered : bool, default False
             Set to True if the category values are ordered.
-        safe : boolean, default True
+        safe : bool, default True
             If True, check that the dictionary indices are in range.
         memory_pool : MemoryPool, default None
             For memory allocations, if required, otherwise uses default pool.

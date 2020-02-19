@@ -90,9 +90,10 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
         Parameters
         ----------
-        path : HDFS path
-        detail : boolean, default False
-            If False, only return list of paths
+        path : str
+            HDFS path to retrieve contents of.
+        detail : bool, default False
+            If False, only return list of paths.
 
         Returns
         -------
@@ -102,12 +103,12 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
     def walk(self, top_path):
         """
-        Directory tree generator for HDFS, like os.walk
+        Directory tree generator for HDFS, like os.walk.
 
         Parameters
         ----------
-        top_path : string
-            Root directory for tree traversal
+        top_path : str
+            Root directory for tree traversal.
 
         Returns
         -------

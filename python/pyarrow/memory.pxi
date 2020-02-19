@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+
 
 cdef class MemoryPool:
     """
@@ -131,7 +135,7 @@ def log_memory_allocations(enable=True):
 
     Parameters
     ----------
-    enable : boolean, default True
+    enable : bool, default True
         Pass False to disable logging
     """
     if enable:

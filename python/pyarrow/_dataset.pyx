@@ -1040,7 +1040,7 @@ cdef class Scanner:
         partition information or internal metadata found in the data
         source, e.g. Parquet statistics. Otherwise filters the loaded
         RecordBatches before yielding them.
-    use_threads : boolean, default True
+    use_threads : bool, default True
         If enabled, then maximum paralellism will be used determined by
         the number of available CPU cores.
     batch_size : int, default 32K
