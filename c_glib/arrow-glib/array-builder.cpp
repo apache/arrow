@@ -4535,9 +4535,7 @@ garrow_map_array_builder_init(GArrowMapArrayBuilder *builder)
 static void
 garrow_map_array_builder_class_init(GArrowMapArrayBuilderClass *klass)
 {
-  GObjectClass *gobject_class;
-
-  gobject_class = G_OBJECT_CLASS(klass);
+  auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose = garrow_map_array_builder_dispose;
 }
