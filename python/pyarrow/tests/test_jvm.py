@@ -194,6 +194,9 @@ def test_jvm_array(root_allocator, pa_type, py_data, jvm_type):
     jvm_vector = jpype.JClass(cls)("vector", root_allocator)
     jvm_vector.allocateNew(len(py_data))
     for i, val in enumerate(py_data):
+        # char and int are ambiguous overloads for these two setSafe calls
+        if jvm_type in {'UInt1Vector', 'UInt2Vector'}:
+            val = jpype.JInt(val)
         jvm_vector.setSafe(i, val)
     jvm_vector.setValueCount(len(py_data))
 
@@ -320,6 +323,8 @@ def test_jvm_record_batch(root_allocator, pa_type, py_data, jvm_type,
     jvm_vector = jpype.JClass(cls)("vector", root_allocator)
     jvm_vector.allocateNew(len(py_data))
     for i, val in enumerate(py_data):
+        if jvm_type in {'UInt1Vector', 'UInt2Vector'}:
+            val = jpype.JInt(val)
         jvm_vector.setSafe(i, val)
     jvm_vector.setValueCount(len(py_data))
 

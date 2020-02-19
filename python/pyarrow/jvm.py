@@ -60,23 +60,25 @@ def _from_jvm_int_type(jvm_type):
     -------
     typ: pyarrow.DataType
     """
-    if jvm_type.isSigned:
-        if jvm_type.bitWidth == 8:
+
+    bit_width = jvm_type.getBitWidth()
+    if jvm_type.getIsSigned():
+        if bit_width == 8:
             return pa.int8()
-        elif jvm_type.bitWidth == 16:
+        elif bit_width == 16:
             return pa.int16()
-        elif jvm_type.bitWidth == 32:
+        elif bit_width == 32:
             return pa.int32()
-        elif jvm_type.bitWidth == 64:
+        elif bit_width == 64:
             return pa.int64()
     else:
-        if jvm_type.bitWidth == 8:
+        if bit_width == 8:
             return pa.uint8()
-        elif jvm_type.bitWidth == 16:
+        elif bit_width == 16:
             return pa.uint16()
-        elif jvm_type.bitWidth == 32:
+        elif bit_width == 32:
             return pa.uint32()
-        elif jvm_type.bitWidth == 64:
+        elif bit_width == 64:
             return pa.uint64()
 
 
@@ -115,16 +117,16 @@ def _from_jvm_time_type(jvm_type):
     """
     time_unit = jvm_type.getUnit().toString()
     if time_unit == 'SECOND':
-        assert jvm_type.bitWidth == 32
+        assert jvm_type.getBitWidth() == 32
         return pa.time32('s')
     elif time_unit == 'MILLISECOND':
-        assert jvm_type.bitWidth == 32
+        assert jvm_type.getBitWidth() == 32
         return pa.time32('ms')
     elif time_unit == 'MICROSECOND':
-        assert jvm_type.bitWidth == 64
+        assert jvm_type.getBitWidth() == 64
         return pa.time64('us')
     elif time_unit == 'NANOSECOND':
-        assert jvm_type.bitWidth == 64
+        assert jvm_type.getBitWidth() == 64
         return pa.time64('ns')
 
 
