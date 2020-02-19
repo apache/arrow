@@ -85,3 +85,11 @@ test_that("Input validation when creating a table with a schema", {
     "schema must be an arrow::Schema or NULL"
   )
 })
+
+test_that("Schema$Equals", {
+  a <- schema(b = double(), c = bool())
+  b <- a$WithMetadata(list(some="metadata"))
+  expect_failure(expect_equal(a, b))
+  expect_equivalent(a, b)
+  expect_false(a$Equals(42))
+})

@@ -68,11 +68,12 @@ vector or Arrow boolean-type \verb{(Chunked)Array} \code{i} is \code{TRUE}.
 the schema of the record batch.
 }
 
-There are also some active bindings
+There are also some active bindings:
 \itemize{
 \item \verb{$num_columns}
 \item \verb{$num_rows}
 \item \verb{$schema}
+\item \verb{$metadata}: Returns the key-value metadata of the \code{Schema}
 \item \verb{$columns}: Returns a list of \code{ChunkedArray}s
 }
 }

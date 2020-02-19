@@ -601,3 +601,12 @@ test_that("Dictionary array: translate to R when dict isn't string", {
     "Coercing dictionary values from type double to R character factor levels"
   )
 })
+
+test_that("Array$Equals", {
+  vec <- 11:20
+  a <- Array$create(vec)
+  b <- Array$create(vec)
+  expect_equal(a, b)
+  expect_true(a$Equals(b))
+  expect_false(a$Equals(vec))
+})

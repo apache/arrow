@@ -74,8 +74,10 @@ std::string Schema__metadata(const std::shared_ptr<arrow::Schema>& schema) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> Schema__WithMetadata(const std::shared_ptr<arrow::Schema>& schema, Rcpp::CharacterVector metadata) {
-  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(new arrow::KeyValueMetadata(metadata.names(), Rcpp::as<std::vector<std::string>>(metadata)));
+std::shared_ptr<arrow::Schema> Schema__WithMetadata(
+    const std::shared_ptr<arrow::Schema>& schema, Rcpp::CharacterVector metadata) {
+  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(new arrow::KeyValueMetadata(
+      metadata.names(), Rcpp::as<std::vector<std::string>>(metadata)));
   return schema->WithMetadata(kv);
 }
 

@@ -286,3 +286,12 @@ test_that("record_batch() handles null type (ARROW-7064)", {
   batch <- record_batch(a = 1:10, n = vctrs::unspecified(10))
   expect_equal(batch$schema,  schema(a = int32(), n = null()))
 })
+
+test_that("RecordBatch$Equals", {
+  df <- tibble::tibble(x = 1:10, y = letters[1:10])
+  a <- record_batch(df)
+  b <- record_batch(df)
+  expect_equal(a, b)
+  expect_true(a$Equals(b))
+  expect_false(a$Equals(df))
+})
