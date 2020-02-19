@@ -76,10 +76,11 @@
 #' - `$cast(target_schema, safe = TRUE, options = cast_options(safe))`: Alter
 #'    the schema of the record batch.
 #'
-#' There are also some active bindings
+#' There are also some active bindings:
 #' - `$num_columns`
 #' - `$num_rows`
 #' - `$schema`
+#' - `$metadata`: Returns the key-value metadata of the `Schema`
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table
 #' @name Table
@@ -163,6 +164,9 @@ Table <- R6Class("Table", inherit = Object,
     },
 
     Equals = function(other, check_metadata = TRUE) {
+      if (!inherits(other, "Table")) {
+        return(FALSE)
+      }
       Table__Equals(self, other, isTRUE(check_metadata))
     }
   ),
@@ -171,6 +175,7 @@ Table <- R6Class("Table", inherit = Object,
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
     schema = function() shared_ptr(Schema, Table__schema(self)),
+    metadata = function() self$schema$metadata,
     columns = function() map(Table__columns(self), shared_ptr, class = ChunkedArray)
   )
 )

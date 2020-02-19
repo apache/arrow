@@ -1384,6 +1384,10 @@ Schema__metadata <- function(schema){
     .Call(`_arrow_Schema__metadata` , schema)
 }
 
+Schema__WithMetadata <- function(schema, metadata){
+    .Call(`_arrow_Schema__WithMetadata` , schema, metadata)
+}
+
 Schema__serialize <- function(schema){
     .Call(`_arrow_Schema__serialize` , schema)
 }
