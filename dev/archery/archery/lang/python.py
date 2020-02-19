@@ -17,6 +17,8 @@
 
 import importlib
 import inspect
+import tokenize
+import itertools
 from contextlib import contextmanager
 
 try:
@@ -32,6 +34,48 @@ from ..utils.command import Command, default_bin
 class Flake8(Command):
     def __init__(self, flake8_bin=None):
         self.bin = default_bin(flake8_bin, "flake8")
+
+
+def _tokenize_signature(s):
+    lines = s.encode('ascii').splitlines()
+    generator = iter(lines).__next__
+    return tokenize.tokenize(generator)
+
+
+def _convert_typehint(tokens):
+    names = []
+    for token in tokens:
+        if token.type == 1:  # type 1 means NAME token
+            names.append(token)
+        else:
+            if len(names) == 1:
+                yield (names[0].type, names[0].string)
+            elif len(names) == 2:
+                # two "NAME" tokens follow each other which means a cython
+                # typehint like `bool argument`, so remove the typehint
+                # note that we could convert it to python typehints, but hints
+                # are not supported by _signature_fromstr
+                yield (names[1].type, names[1].string)
+            elif len(names) > 2:
+                print(names)
+                raise ValueError('More than two NAME tokens follow each other')
+            names = []
+            yield (token.type, token.string)
+
+
+def inspect_signature(obj):
+    """
+    Custom signature inspection primarly for cython generated callables.
+
+    Cython puts the signatures to the first line of the docstrings, which we
+    can reuse to parse the python signature from, but some gymnastics are
+    required, like removing the cython typehints.
+    """
+    cython_signature = obj.__doc__.splitlines()[0]
+    cython_tokens = _tokenize_signature(cython_signature)
+    python_tokens = _convert_typehint(cython_tokens)
+    python_signature = tokenize.untokenize(python_tokens).decode()
+    return inspect._signature_fromstr(inspect.Signature, obj, python_signature)
 
 
 class NumpyDoc:
@@ -106,10 +150,7 @@ class NumpyDoc:
                 return orig_signature(obj)
             except Exception as orig_error:
                 try:
-                    cython_signature = obj.__doc__.splitlines()[0]
-                    return inspect._signature_fromstr(
-                        inspect.Signature, obj, cython_signature
-                    )
+                    return inspect_signature(obj)
                 except Exception:
                     raise orig_error
 
@@ -150,3 +191,19 @@ class NumpyDoc:
                     self.traverse(callback, module, module_name)
 
         return results
+
+
+# import pyarrow as pa
+
+# print(inspect_signature(pa.array))
+
+# n = NumpyDoc()
+# with n._apply_patches():
+#     print(pa.array.__doc__)
+
+#     s = pa.array.__doc__.splitlines()[0]
+
+#     print(repr(inspect.signature(pa.array)))
+
+# import sys
+# sys.exit(0)
