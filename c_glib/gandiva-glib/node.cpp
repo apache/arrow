@@ -1683,7 +1683,7 @@ ggandiva_boolean_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                                    "node", gandiva_node,
                                    NULL);
   auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(boolean_node);
-  priv->children = g_list_copy_deep(priv->children,
+  priv->children = g_list_copy_deep(children,
                                     reinterpret_cast<GCopyFunc>(g_object_ref),
                                     NULL);
   return GGANDIVA_BOOLEAN_NODE(boolean_node);
