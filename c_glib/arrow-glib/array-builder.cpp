@@ -4545,7 +4545,8 @@ garrow_map_array_builder_class_init(GArrowMapArrayBuilderClass *klass)
  * @data_type: #GArrowMapDataType for the map.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GArrowMapArrayBuilder.
+ * Returns: A newly created #GArrowMapArrayBuilder on success,
+ *   %NULL on error.
  *
  * Since: 1.0.0
  */
