@@ -16,6 +16,7 @@
 # under the License.
 
 import importlib
+import inspect
 from contextlib import contextmanager
 
 try:
