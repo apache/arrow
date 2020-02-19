@@ -76,7 +76,7 @@ Result<std::shared_ptr<Buffer>> MemoryManager::CopyBuffer(
 
 Result<std::shared_ptr<Buffer>> MemoryManager::ViewBuffer(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
-  if (buf->is_cpu() && to->is_cpu()) {
+  if (buf->memory_manager() == to) {
     return buf;
   }
   const auto& from = buf->memory_manager();

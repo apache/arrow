@@ -18,6 +18,31 @@
 Memory (management)
 ===================
 
+Devices
+-------
+
+.. doxygenclass:: arrow::Device
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::CPUDevice
+   :project: arrow_cpp
+   :members:
+
+.. doxygenfunction:: arrow::default_cpu_memory_manager
+   :project: arrow_cpp
+
+Memory Managers
+---------------
+
+.. doxygenclass:: arrow::MemoryManager
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::CPUMemoryManager
+   :project: arrow_cpp
+   :members:
+
 Buffers
 -------
 

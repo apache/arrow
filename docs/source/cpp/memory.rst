@@ -125,3 +125,40 @@ you can do so using the :class:`arrow::stl::allocator` wrapper.
 Conversely, you can also use a STL allocator to allocate Arrow memory,
 using the :class:`arrow::stl::STLMemoryPool` class.  However, this may be less
 performant, as STL allocators don't provide a resizing operation.
+
+Devices
+=======
+
+Many Arrow applications only access host (CPU) memory.  However, in some cases
+it is desirable to handle on-device memory (such as on-board memory on a GPU)
+add-on card) as well as regular CPU memory.
+
+Arrow represents the CPU and other devices using the
+:class:`arrow::Device` abstraction.  The associated class :class:`arrow::MemoryManager`
+specifies how to allocate on a given device.  Each device has a default memory manager, but
+additional instances may be constructed (for example, wrapping a custom
+:class:`arrow::MemoryPool` the CPU).
+:class:`arrow::MemoryManager` instances which specifiy how to allocate
+memory on a given device (for example, using a particular
+:class:`arrow::MemoryPool` on the CPU).
+
+Device-Agnostic Programming
+---------------------------
+
+If you receive a Buffer from third-party code, you can query whether it is
+CPU-readable by calling its :func:`~arrow::Buffer::is_cpu` method.
+
+You can also make sure the Buffer can be viewed on a given device, in a
+generic way, by calling :func:`arrow::Buffer::View` or
+:func:`arrow::Buffer::ViewOrCopy`.
+
+Similarly, if you want to do I/O on the buffer without assuming a CPU-readable
+buffer, you can call :func:`arrow::Buffer::GetReader` and
+:func:`arrow::Buffer::GetWriter`.
+
+For example, to get an on-CPU view or copy of an arbitrary buffer, you can
+simply do::
+
+   std::shared_ptr<arrow::Buffer> arbitrary_buffer = ... ;
+   std::shared_ptr<arrow::Buffer> cpu_buffer = arrow::Buffer::ViewOrCopy(
+      arbitrary_buffer, arrow::default_cpu_memory_manager());
