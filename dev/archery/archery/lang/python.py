@@ -18,7 +18,6 @@
 import importlib
 import inspect
 import tokenize
-import itertools
 from contextlib import contextmanager
 
 try:
