@@ -553,7 +553,7 @@ class Repo:
                                                   content_type=mime)
                     click.echo('Attempt {} has finished.'.format(i + 1))
                     return result
-                except github3.exceptions.ServerError as e:
+                except github3.exceptions.ResponseError as e:
                     click.echo('Attempt {} has failed.'.format(i + 1))
                     if i >= (max_retries - 1):
                         raise e
