@@ -355,6 +355,11 @@ FileSystemSourceFactory$create <- function(filesystem,
 #'   Currently supported options are "parquet", "arrow", and "ipc" (an alias for
 #'   the Arrow file format)
 #' * `...`: Additional format-specific options
+#'   format="parquet":
+#'   * `use_buffered_stream`: Read files through buffered input streams rather than
+#'                            loading entire chunks at a time.
+#'   * `buffer_size`: Size of buffered stream, if enabled.
+#'   * `dict_columns`: Names of columns which should be read as dictionaries.
 #'
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
 #' @rdname FileFormat
