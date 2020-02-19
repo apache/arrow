@@ -16,6 +16,7 @@
 # under the License.
 
 import importlib
+import inspect
 from contextlib import contextmanager
 
 try:
@@ -79,19 +80,46 @@ class NumpyDoc:
                 todo.append(member)
 
     @contextmanager
-    def _patch_numpydoc(self):
+    def _apply_patches(self):
         """
         Patch Docstring class to bypass loading already loaded python objects.
-
-        By default it expects a qualname and import the object, but we have
-        already loaded object after the API traversal.
         """
-        original = Docstring._load_obj
+        orig_load_obj = Docstring._load_obj
+        orig_signature = inspect.signature
+
+        @staticmethod
+        def _load_obj(obj):
+            # By default it expects a qualname and import the object, but we
+            # have already loaded object after the API traversal.
+            return obj
+
+        def signature(obj):
+            # inspect.signature tries to parse __text_signature__ if other
+            # properties like __signature__ doesn't exists, but cython
+            # doesn't set that property despite that embedsignature cython
+            # directive is set. The only way to inspect a cython compiled
+            # callable's signature to parse it from __doc__ while
+            # embedsignature directive is set during the build phase.
+            # So path inspect.signature function to attempt to parse the first
+            # line of callable.__doc__ as a signature.
+            try:
+                return orig_signature(obj)
+            except Exception as orig_error:
+                try:
+                    cython_signature = obj.__doc__.splitlines()[0]
+                    return inspect._signature_fromstr(
+                        inspect.Signature, obj, cython_signature
+                    )
+                except Exception:
+                    raise orig_error
+
         try:
-            Docstring._load_obj = staticmethod(lambda obj: obj)
+            Docstring._load_obj = _load_obj
+            inspect.signature = signature
             yield
         finally:
-            Docstring._load_obj = original
+            Docstring._load_obj = orig_load_obj
+            inspect.signature = orig_signature
 
     def validate(self, rules_blacklist=None, rules_whitelist=None):
         results = []
@@ -111,7 +139,7 @@ class NumpyDoc:
                 result['errors'] = errors
                 results.append((obj, result))
 
-        with self._patch_numpydoc():
+        with self._apply_patches():
             for module_name in self.modules:
                 try:
                     module = importlib.import_module(module_name)
