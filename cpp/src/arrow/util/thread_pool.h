@@ -24,7 +24,6 @@
 
 #include <cstdlib>
 #include <functional>
-#include <future>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -32,8 +31,14 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/future.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+
+#if defined(_MSC_VER)
+// Disable harmless warning for decorated name length limit
+#pragma warning(disable : 4503)
+#endif
 
 namespace arrow {
 
@@ -58,17 +63,16 @@ namespace internal {
 
 namespace detail {
 
-// Needed because std::packaged_task is not copyable and hence not convertible
-// to std::function.
-template <typename R, typename... Args>
-struct packaged_task_wrapper {
-  using PackagedTask = std::packaged_task<R(Args...)>;
+// Make sure that both functions returning T and Result<T> can be called
+// through Submit(), and that a Future<T> is returned for both.
+template <typename T>
+struct ThreadPoolResultTraits {
+  using ValueType = T;
+};
 
-  explicit packaged_task_wrapper(PackagedTask&& task)
-      : task_(std::make_shared<PackagedTask>(std::forward<PackagedTask>(task))) {}
-
-  void operator()(Args&&... args) { return (*task_)(std::forward<Args>(args)...); }
-  std::shared_ptr<PackagedTask> task_;
+template <typename T>
+struct ThreadPoolResultTraits<Result<T>> {
+  using ValueType = T;
 };
 
 }  // namespace detail
@@ -111,19 +115,25 @@ class ARROW_EXPORT ThreadPool {
   // Submit a callable and arguments for execution.  Return a future that
   // will return the callable's result value once.
   // The callable's arguments are copied before execution.
-  template <typename Function, typename... Args,
-            typename RetType = typename std::result_of<Function && (Args && ...)>::type>
-  Result<std::future<RetType>> Submit(Function&& func, Args&&... args) {
-    // Trying to templatize std::packaged_task with Function doesn't seem
-    // to work, so go through std::bind to simplify the packaged signature
-    using PackagedTask = std::packaged_task<RetType()>;
-    auto task = PackagedTask(
-        std::bind(std::forward<Function>(func), std::forward<Args>(args)...));
-    auto fut = task.get_future();
+  template <
+      typename Function, typename... Args,
+      typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
+      typename RT = typename detail::ThreadPoolResultTraits<FunctionRetType>,
+      typename ValueType = typename RT::ValueType>
+  Result<Future<ValueType>> Submit(Function&& func, Args&&... args) {
+    auto bound_func =
+        std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
+    using BoundFuncType = decltype(bound_func);
 
-    ARROW_RETURN_NOT_OK(
-        SpawnReal(detail::packaged_task_wrapper<RetType>(std::move(task))));
-    return std::move(fut);
+    struct Task {
+      BoundFuncType bound_func;
+      Future<ValueType> future;
+
+      void operator()() { future.ExecuteAndMarkFinished(std::move(bound_func)); }
+    };
+    auto future = Future<ValueType>::Make();
+    ARROW_RETURN_NOT_OK(SpawnReal(Task{std::move(bound_func), future}));
+    return future;
   }
 
   struct State;

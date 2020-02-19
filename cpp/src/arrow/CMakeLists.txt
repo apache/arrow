@@ -167,6 +167,7 @@ set(ARROW_SRCS
     util/decimal.cc
     util/delimiting.cc
     util/formatting.cc
+    util/future.cc
     util/int_util.cc
     util/io_util.cc
     util/iterator.cc

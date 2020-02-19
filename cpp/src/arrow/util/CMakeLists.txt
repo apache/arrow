@@ -50,7 +50,11 @@ add_arrow_test(utility-test
                uri_test.cc
                utf8_util_test.cc)
 
-add_arrow_test(threading-utility-test SOURCES task_group_test thread_pool_test)
+add_arrow_test(threading-utility-test
+               SOURCES
+               future_test
+               task_group_test
+               thread_pool_test)
 
 add_arrow_benchmark(bit_util_benchmark)
 add_arrow_benchmark(compression_benchmark)
