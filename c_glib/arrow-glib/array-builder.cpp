@@ -4588,9 +4588,9 @@ garrow_map_array_builder_append_value(GArrowMapArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append();
-  return garrow_error_check(error,
-                            status,
-                            "[map-array-builder][append-value]");
+  return garrow::check(error,
+                       status,
+                       "[map-array-builder][append-value]");
 }
 
 /**

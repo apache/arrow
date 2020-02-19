@@ -418,7 +418,7 @@ garrow_map_array_new(GArrowArray *offsets,
                                             arrow_items,
                                             arrow_memory_pool,
                                             &arrow_array);
-  if (garrow_error_check(error, status, "[map-array][new]")) {
+  if (garrow::check(error, status, "[map-array][new]")) {
     return GARROW_MAP_ARRAY(garrow_array_new_raw(&arrow_array));
   } else {
     return NULL;
