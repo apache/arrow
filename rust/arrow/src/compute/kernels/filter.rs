@@ -20,7 +20,7 @@
 use std::sync::Arc;
 
 use crate::array::*;
-use crate::datatypes::{ArrowNumericType, DataType};
+use crate::datatypes::{ArrowNumericType, DataType, TimeUnit};
 use crate::error::{ArrowError, Result};
 
 /// Helper function to perform boolean lambda function on values from two arrays.
@@ -87,7 +87,21 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
         DataType::Float32 => filter_array!(array, filter, Float32Array),
         DataType::Float64 => filter_array!(array, filter, Float64Array),
         DataType::Boolean => filter_array!(array, filter, BooleanArray),
-        DataType::Binary => {
+        DataType::Date32(_) => filter_array!(array, filter, Date32Array),
+        DataType::Date64(_) => filter_array!(array, filter, Date64Array),
+        DataType::Time32(TimeUnit::Second) => filter_array!(array, filter, Time32SecondArray),
+        DataType::Time32(TimeUnit::Millisecond) => filter_array!(array, filter, Time32MillisecondArray),
+        DataType::Time64(TimeUnit::Microsecond) => filter_array!(array, filter, Time64MicrosecondArray),
+        DataType::Time64(TimeUnit::Nanosecond) => filter_array!(array, filter, Time64NanosecondArray),
+        DataType::Duration(TimeUnit::Second) => filter_array!(array, filter, DurationSecondArray),
+        DataType::Duration(TimeUnit::Millisecond) => filter_array!(array, filter, DurationMillisecondArray),
+        DataType::Duration(TimeUnit::Microsecond) => filter_array!(array, filter, DurationMicrosecondArray),
+        DataType::Duration(TimeUnit::Nanosecond) => filter_array!(array, filter, DurationNanosecondArray),
+        DataType::Timestamp(TimeUnit::Second, _) => filter_array!(array, filter, TimestampSecondArray),
+        DataType::Timestamp(TimeUnit::Millisecond, _) => filter_array!(array, filter, TimestampMillisecondArray),
+        DataType::Timestamp(TimeUnit::Microsecond, _) => filter_array!(array, filter, TimestampMicrosecondArray),
+        DataType::Timestamp(TimeUnit::Nanosecond, _) => filter_array!(array, filter, TimestampNanosecondArray),
+        DataType::Binary => { 
             let b = array.as_any().downcast_ref::<BinaryArray>().unwrap();
             let mut values: Vec<&[u8]> = Vec::with_capacity(b.len());
             for i in 0..b.len() {
