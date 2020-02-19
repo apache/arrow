@@ -20,11 +20,11 @@ class TestMapArrayBuilder < Test::Unit::TestCase
 
   def setup
     offsets = build_int32_array([0, 2, 5])
-    @keys = build_string_array(["a", "b", "c", "d", "e"])
-    @items = build_int16_array([0, 1, 2, 3, 4])
+    keys = build_string_array(["a", "b", "c", "d", "e"])
+    items = build_int16_array([0, 1, 2, 3, 4])
     @map_array = Arrow::MapArray.new(offsets,
-                                     @keys,
-                                     @items)
+                                     keys,
+                                     items)
     key_type = Arrow::StringDataType.new
     item_type = Arrow::Int16DataType.new
     data_type = Arrow::MapDataType.new(key_type, item_type)
