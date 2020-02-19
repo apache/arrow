@@ -457,8 +457,8 @@ garrow_map_array_get_items(GArrowMapArray *array)
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_map_array =
     std::static_pointer_cast<arrow::MapArray>(arrow_array);
-  auto arrow_keys = arrow_map_array->items();
-  return garrow_array_new_raw(&arrow_keys);
+  auto arrow_items = arrow_map_array->items();
+  return garrow_array_new_raw(&arrow_items);
 }
 
 
