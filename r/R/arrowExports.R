@@ -360,12 +360,12 @@ dataset___FileFormat__type_name <- function(format){
     .Call(`_arrow_dataset___FileFormat__type_name` , format)
 }
 
-dataset___ParquetFileFormat__Make <- function(options){
-    .Call(`_arrow_dataset___ParquetFileFormat__Make` , options)
+dataset___ParquetFileFormat__Make <- function(use_buffered_stream, buffer_size, dict_columns){
+    .Call(`_arrow_dataset___ParquetFileFormat__Make` , use_buffered_stream, buffer_size, dict_columns)
 }
 
-dataset___IpcFileFormat__Make <- function(options){
-    .Call(`_arrow_dataset___IpcFileFormat__Make` , options)
+dataset___IpcFileFormat__Make <- function(){
+    .Call(`_arrow_dataset___IpcFileFormat__Make` )
 }
 
 dataset___SFactory__Finish1 <- function(factory){

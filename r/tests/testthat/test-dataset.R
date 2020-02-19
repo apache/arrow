@@ -98,34 +98,9 @@ test_that("Simple interface for datasets", {
 })
 
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
-  reader_options = list(dict_indices = 0, use_buffered_stream = TRUE)
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
-                     format = FileFormat$create("parquet",
-                                                reader_options=reader_options))
-  expect_is(ds, "Dataset")
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
-  )
-
-  expect_equivalent(
-    ds %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 1) %>% # 6 not 6L to test autocasting
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
+                     format = FileFormat$create("parquet", dict_columns = c("chr")))
+  expect_equivalent(ds$schema$GetFieldByName("chr")$type, dictionary())
 })
 
 test_that("Hive partitioning", {

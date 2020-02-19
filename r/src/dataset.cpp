@@ -19,7 +19,7 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
-using Rcpp::List_;
+using Rcpp::CharacterVector;
 using Rcpp::String;
 
 // [[arrow::export]]
@@ -67,28 +67,23 @@ std::string dataset___FileFormat__type_name(
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(List_ options) {
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
+    bool use_buffered_stream, int64_t buffer_size, CharacterVector dict_columns) {
   auto fmt = ds::ParquetFileFormat::Make();
-  if (options.containsElementNamed("reader_options")) {
-    List_ reader_options = options["reader_options"];
-    if (reader_options.containsElementNamed("use_buffered_stream")) {
-      fmt->reader_options.use_buffered_stream = reader_options["use_buffered_stream"];
-    }
-    if (reader_options.containsElementNamed("buffer_size")) {
-      fmt->reader_options.buffer_size = reader_options["buffer_size"];
-    }
-    if (reader_options.containsElementNamed("dict_columns")) {
-      List_ dict_columns = reader_options["dict_columns"];
-      for (String name : dict_columns) {
-        fmt->reader_options.dict_columns.insert(name);
-      }
-    }
-  }
+
+  fmt->reader_options.use_buffered_stream = use_buffered_stream;
+  fmt->reader_options.buffer_size = buffer_size;
+
+  auto dict_columns_vector = Rcpp::as<std::vector<std::string>>(dict_columns);
+  auto& d = fmt->reader_options.dict_columns;
+  std::move(dict_columns_vector.begin(), dict_columns_vector.end(),
+            std::inserter(d, d.end()));
+
   return fmt;
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make(List_ options) {
+std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make() {
   return std::make_shared<ds::IpcFileFormat>();
 }
 

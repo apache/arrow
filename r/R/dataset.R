@@ -381,9 +381,9 @@ FileFormat <- R6Class("FileFormat", inherit = Object,
 )
 FileFormat$create <- function(format, ...) {
   if (format == "parquet") {
-    shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make(list(...)))
+    ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow")) { # These are aliases for the same thing
-    shared_ptr(IpcFileFormat, dataset___IpcFileFormat__Make(list(...)))
+    shared_ptr(IpcFileFormat, dataset___IpcFileFormat__Make())
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)
   }
@@ -394,6 +394,12 @@ FileFormat$create <- function(format, ...) {
 #' @rdname FileFormat
 #' @export
 ParquetFileFormat <- R6Class("ParquetFileFormat", inherit = FileFormat)
+ParquetFileFormat$create <- function(use_buffered_stream = FALSE,
+                                     buffer_size = 1024,
+                                     dict_columns = character(0)) {
+  shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make(
+    use_buffered_stream, buffer_size, dict_columns))
+}
 
 #' @usage NULL
 #' @format NULL
@@ -418,7 +424,8 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' The method's default input is `TRUE`, but you must call the method to enable
 #' multithreading because the scanner default is `FALSE`.
 #' - `$BatchSize(batch_size)`: integer: Maximum row count of scanned record
-#' batches. Default is 64*2**10 rows.
+#' batches, default is 64K. If scanned record batches are overflowing memory
+#' then this method can be called to reduce their size.
 #' - `$schema`: Active binding, returns the [Schema] of the Dataset
 #' - `$Finish()`: Returns a `Scanner`
 #'
