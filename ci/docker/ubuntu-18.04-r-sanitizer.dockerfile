@@ -76,6 +76,7 @@ RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> /usr/lo
 ENV ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=OFF \
+    ARROW_HOME=/usr/local \
     ARROW_HDFS=OFF \
     ARROW_INSTALL_NAME_RPATH=OFF \
     ARROW_NO_DEPRECATED_API=ON \
