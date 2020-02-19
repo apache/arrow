@@ -44,3 +44,6 @@ ggandiva_if_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                          GGandivaNode *then_node,
                          GGandivaNode *else_node,
                          GArrowDataType *return_type);
+GGandivaBooleanNode *
+ggandiva_boolean_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
+                              GList *children);
