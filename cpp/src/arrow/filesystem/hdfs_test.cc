@@ -91,9 +91,6 @@ class TestHadoopFileSystem : public ::testing::Test {
     ss << "hdfs://" << options_.connection_config.host << ":"
        << options_.connection_config.port << "/"
        << "?replication=0&user=" << options_.connection_config.user;
-    if (use_hdfs3_) {
-      ss << "&use_hdfs3=1";
-    }
 
     std::shared_ptr<FileSystem> uri_fs;
     std::string path;
@@ -174,7 +171,6 @@ class TestHadoopFileSystem : public ::testing::Test {
 
  protected:
   std::shared_ptr<FileSystem> fs_;
-  bool use_hdfs3_;
   HdfsOptions options_;
   bool loaded_driver_ = false;
 };
