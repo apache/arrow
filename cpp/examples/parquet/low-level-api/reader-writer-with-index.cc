@@ -23,6 +23,15 @@
 #include <reader_writer.h>
 #include <iomanip>
 
+#include "parquet/column_reader.h"
+#include "parquet/column_scanner.h"
+#include "parquet/deprecated_io.h"
+#include "parquet/exception.h"
+#include "parquet/metadata.h"
+#include "parquet/platform.h"
+#include "parquet/properties.h"
+#include "parquet/schema.h"
+#include "parquet/types.h"
 
 /*
  * This example describes writing and reading Parquet Files in C++ and serves as a
@@ -95,9 +104,10 @@ int main(int argc, char** argv) {
       sscanf(argv[1], "%" SCNd64 "%c", &predicate, &c);
       
       // Get the Column Reader for the Int64 column
-      column_reader = row_group_reader->ColumnWithIndex(col_id,predicate,page_index);
-      parquet::Int64Reader* int64_reader =
-          static_cast<parquet::Int64Reader*>(column_reader.get());
+      int64_t row_index = -1;
+      column_reader = row_group_reader->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index);
+      auto int64_reader =
+          parquet::Scanner::Make(column_reader);
       // Read all the rows in the column
       std::cout << "page index:" << page_index << std::endl;
      
@@ -109,23 +119,24 @@ int main(int argc, char** argv) {
 
       int row_counter = 0, ind = 0;
       while (int64_reader->HasNext()) {
-        int64_t value;
         ind++;
         
         // Read one value at a time. The number of rows read is returned. values_read
         // contains the number of non-null rows
-        rows_read = int64_reader->ReadBatch(1, &definition_level, &repetition_level,
-                                            &value, &values_read);
+//        rows_read = int64_reader->ReadBatch(1, &definition_level, &repetition_level,
+//                                           &value, &values_read);
+
+        int64_reader->PrintNext(std::cout,30);
         // Ensure only one value is read
-        assert(rows_read == 1);
+//        assert(rows_read == 1);
         // There are no NULL values in the rows written
-        assert(values_read == 1);
+//        assert(values_read == 1);
         // Verify the value written
-        if ( value == predicate ) {
-               row_counter = ind;
-               std::cout << "row number: " << row_counter << " " << value << "\n";
-        }
-        int64_t expected_value = col_row_counts[col_id];
+//        if ( value == predicate ) {
+//               row_counter = ind;
+//               std::cout << "row number: " << row_counter << " " << value << "\n";
+ //       }
+//        int64_t expected_value = col_row_counts[col_id];
 //        assert(value == expected_value);
         col_row_counts[col_id]++; 
        

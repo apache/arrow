@@ -81,30 +81,27 @@ std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
 }
 
 
-std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReaderWithIndex(int i,int64_t predicate, int64_t& min_index) {
+std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReaderWithIndex(int i,int64_t predicate, int64_t& min_index, int predicate_col, int64_t& row_index) {
   DCHECK(i < metadata()->num_columns())
       << "The RowGroup only has " << metadata()->num_columns()
       << "columns, requested column: " << i;
-  return contents_->GetColumnPageReaderWithIndex(i,predicate, min_index);
+  return contents_->GetColumnPageReaderWithIndex(i,predicate, min_index, predicate_col, row_index);
 }
 
-std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithIndex(int i,int64_t predicate, int64_t& min_index) {
+std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithIndex(int i,int64_t predicate, int64_t& min_index, int predicate_col, int64_t& row_index) {
   DCHECK(i < metadata()->num_columns())
       << "The RowGroup only has " << metadata()->num_columns()
       << "columns, requested column: " << i;
   const ColumnDescriptor* descr = metadata()->schema()->Column(i);
 
-  std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReaderWithIndex(i,predicate, min_index);
+  std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReaderWithIndex(i,predicate, min_index, predicate_col, row_index);
   return ColumnReader::Make(
       descr, std::move(page_reader),
       const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
 }
 
-
 // Returns the rowgroup metadata
 const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->metadata(); }
-
-uint64_t page_offset,num_values,next_page_offset;
 
 // RowGroupReader::Contents implementation for the Parquet file specification
 class SerializedRowGroup : public RowGroupReader::Contents {
@@ -120,18 +117,6 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   const ReaderProperties* properties() const override { return &properties_; }
 
-
-  void GetRowRangeForPage(uint64_t& row_group_index, parquet::format::OffsetIndex offset_index, uint64_t page_idx, uint64_t& row_range_start, uint64_t& row_range_end) {
-    const auto& page_locations = offset_index.page_locations;
-    DCHECK(page_idx <  page_locations.size()) << "The page start index " << page_idx << " is greater than last page" << page_locations.size();
-    row_range_start = page_locations[page_idx].first_row_index;
-    if (page_idx == page_locations.size() - 1) {
-      row_range_end = row_range_end - row_range_start - 1;
-    } else {
-      row_range_end = page_locations[page_idx + 1].first_row_index - 1;
-    }
-  }
-
   void GetPageIndex(int64_t v, int64_t& min_index, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index) const {
       
       for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
@@ -145,8 +130,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       }
   }
 
-  void GoToPagewoIndex(int64_t v) const {
+
+  void GetPageWithRowIndex(int64_t& page_index, parquet::format::OffsetIndex offset_index, int64_t& row_index) const {
+      
+      for (uint64_t page_index = 0;page_index < offset_index.page_locations.size() && 
+              offset_index.page_locations[page_index].first_row_index!=row_index;page_index++) {
+          
+      }
   }
+
 
 
 /// ---- Page filtering ----
@@ -221,7 +213,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   }
 
 
-  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, int64_t predicate, int64_t& min_index) {
+  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, int64_t predicate, int64_t& min_index, int predicate_col, int64_t& row_index) {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(column_index);
 
@@ -240,8 +232,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         parquet::format::OffsetIndex offset_index;
         DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
         DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
-        page_offset = 0, next_page_offset =0, num_values = 0;
-        GetPageIndex(predicate, min_index, col_index,offset_index);
+        if ( predicate_col == column_index )
+            GetPageIndex(predicate, min_index, col_index,offset_index);
+        else 
+           GetPageWithRowIndex(min_index, offset_index, row_index);
     }
     
     // PARQUET-816 workaround for old files created by older parquet-mr

@@ -43,7 +43,7 @@ class PARQUET_EXPORT RowGroupReader {
   struct Contents {
     virtual ~Contents() {}
     virtual std::unique_ptr<PageReader> GetColumnPageReader(int i) = 0;
-    virtual std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int i,int64_t predicate, int64_t& min_index) = 0;
+    virtual std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int i,int64_t predicate, int64_t& min_index, int predicate_Col, int64_t& row_index) = 0;
     virtual const RowGroupMetaData* metadata() const = 0;
     virtual const ReaderProperties* properties() const = 0;
   };
@@ -57,11 +57,11 @@ class PARQUET_EXPORT RowGroupReader {
   // column. Ownership is shared with the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(int i);
 
-  std::shared_ptr<ColumnReader> ColumnWithIndex(int i,int64_t predicate, int64_t& min_index);
+  std::shared_ptr<ColumnReader> ColumnWithIndex(int i,int64_t predicate, int64_t& min_index, int predicate_col, int64_t& row_index);
 
   std::unique_ptr<PageReader> GetColumnPageReader(int i);
 
-  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, int64_t predicate, int64_t& min_index);
+  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, int64_t predicate, int64_t& min_index , int predicate_col, int64_t& row_index);
 
  private:
   // Holds a pointer to an instance of Contents implementation
