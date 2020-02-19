@@ -159,6 +159,8 @@ bool starts_with_utf8_utf8(const char* data, gdv_int32 data_len, const char* pre
                            gdv_int32 prefix_len);
 bool ends_with_utf8_utf8(const char* data, gdv_int32 data_len, const char* suffix,
                          gdv_int32 suffix_len);
+bool is_substr_utf8_utf8(const char* data, gdv_int32 data_len, const char* substr,
+                         gdv_int32 substr_len);
 
 gdv_int32 utf8_length(gdv_int64 context, const char* data, gdv_int32 data_len);
 

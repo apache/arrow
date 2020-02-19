@@ -54,6 +54,7 @@ class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
 
   static RE2 starts_with_regex_;  // pre-compiled pattern for matching starts_with
   static RE2 ends_with_regex_;    // pre-compiled pattern for matching ends_with
+  static RE2 is_substr_regex_;    // pre-compiled pattern for matching is_substr
 };
 
 }  // namespace gandiva
