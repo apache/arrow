@@ -4727,8 +4727,10 @@ garrow_map_array_builder_get_item_builder(GArrowMapArrayBuilder *builder)
  * garrow_map_array_builder_get_value_builder:
  * @builder: A #GArrowMapArrayBuilder.
  *
- * Returns: (transfer none): The #GArrowArrayBuilder for struct values.
- *   This is used instead of garrow_map_array_builder_get_key_builder() and garrow_map_array_builder_get_item_builder().
+ * Returns: (transfer none): The #GArrowArrayBuilder to add map entries as struct values.
+ *   This can be used instead of garrow_map_array_builder_get_key_builder() and
+ *   garrow_map_array_builder_get_item_builder(). You can build map entries as a list of
+ *   struct values with this builder.
  *
  * Since: 1.0.0
  */
