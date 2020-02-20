@@ -104,6 +104,31 @@ GARROW_AVAILABLE_IN_0_10
 GList *garrow_struct_array_flatten(GArrowStructArray *array, GError **error);
 
 
+#define GARROW_TYPE_MAP_ARRAY (garrow_map_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMapArray,
+                         garrow_map_array,
+                         GARROW,
+                         MAP_ARRAY,
+                         GArrowListArray)
+struct _GArrowMapArrayClass
+{
+  GArrowListArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_1_0
+GArrowMapArray *
+garrow_map_array_new(GArrowArray *offsets,
+                     GArrowArray *keys,
+                     GArrowArray *items,
+                     GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowArray *
+garrow_map_array_get_keys(GArrowMapArray *array);
+GARROW_AVAILABLE_IN_1_0
+GArrowArray *
+garrow_map_array_get_items(GArrowMapArray *array);
+
+
 #define GARROW_TYPE_UNION_ARRAY (garrow_union_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowUnionArray,
                          garrow_union_array,

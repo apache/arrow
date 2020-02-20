@@ -310,6 +310,9 @@ G_BEGIN_DECLS
  * #GArrowStructArrayBuilder is the class to create a new
  * #GArrowStructArray.
  *
+ * #GArrowMapArrayBuilder is the class to create a new
+ * #GArrowMapArray.
+ *
  * #GArrowDecimal128ArrayBuilder is the class to create a new
  * #GArrowDecimal128Array.
  */
@@ -4486,6 +4489,267 @@ garrow_struct_array_builder_get_field_builders(GArrowStructArrayBuilder *builder
 }
 
 
+typedef struct GArrowMapArrayBuilderPrivate_ {
+  GArrowArrayBuilder *key_builder;
+  GArrowArrayBuilder *item_builder;
+  GArrowArrayBuilder *value_builder;
+} GArrowMapArrayBuilderPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowMapArrayBuilder,
+                           garrow_map_array_builder,
+                           GARROW_TYPE_ARRAY_BUILDER)
+
+#define GARROW_MAP_ARRAY_BUILDER_GET_PRIVATE(object)      \
+  static_cast<GArrowMapArrayBuilderPrivate *>(            \
+     garrow_map_array_builder_get_instance_private(       \
+       GARROW_MAP_ARRAY_BUILDER(object)))
+
+static void
+garrow_map_array_builder_dispose(GObject *object)
+{
+  auto priv = GARROW_MAP_ARRAY_BUILDER_GET_PRIVATE(object);
+
+  if (priv->key_builder) {
+    g_object_unref(priv->key_builder);
+    priv->key_builder = NULL;
+  }
+
+  if (priv->item_builder) {
+    g_object_unref(priv->item_builder);
+    priv->item_builder = NULL;
+  }
+
+  if (priv->value_builder) {
+    g_object_unref(priv->value_builder);
+    priv->value_builder = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_map_array_builder_parent_class)->dispose(object);
+}
+
+static void
+garrow_map_array_builder_init(GArrowMapArrayBuilder *builder)
+{
+}
+
+static void
+garrow_map_array_builder_class_init(GArrowMapArrayBuilderClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_map_array_builder_dispose;
+}
+
+/**
+ * garrow_map_array_builder_new:
+ * @data_type: #GArrowMapDataType for the map.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowMapArrayBuilder on success,
+ *   %NULL on error.
+ *
+ * Since: 1.0.0
+ */
+GArrowMapArrayBuilder *
+garrow_map_array_builder_new(GArrowMapDataType *data_type,
+                             GError **error)
+{
+  if (!GARROW_IS_MAP_DATA_TYPE(data_type)) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "[map-array-builder][new] data type must be map data type");
+    return NULL;
+  }
+
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder = garrow_array_builder_new(arrow_data_type,
+                                          error,
+                                          "[map-array-builder][new]");
+  if (builder) {
+    return GARROW_MAP_ARRAY_BUILDER(builder);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_map_array_builder_append_value:
+ * @builder: A #GArrowMapArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 1.0.0
+ */
+gboolean
+garrow_map_array_builder_append_value(GArrowMapArrayBuilder *builder,
+                                      GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::MapBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  auto status = arrow_builder->Append();
+  return garrow::check(error,
+                       status,
+                       "[map-array-builder][append-value]");
+}
+
+/**
+ * garrow_map_array_builder_append_values:
+ * @builder: A #GArrowMapArrayBuilder.
+ * @offsets: (array length=offsets_length): The array of signed int.
+ * @offsets_length: The length of `offsets`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   boolean that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple values at once. It's more efficient than multiple
+ * `append()` and `append_null()` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 1.0.0
+ */
+gboolean
+garrow_map_array_builder_append_values(GArrowMapArrayBuilder *builder,
+                                       const gint32 *offsets,
+                                       gint64 offsets_length,
+                                       const gboolean *is_valids,
+                                       gint64 is_valids_length,
+                                       GError **error)
+{
+  return garrow_array_builder_append_values<arrow::MapBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     reinterpret_cast<const int32_t *>(offsets),
+     offsets_length,
+     is_valids,
+     is_valids_length,
+     error,
+     "[map-array-builder][append-values]");
+}
+
+/**
+ * garrow_map_array_builder_append_null:
+ * @builder: A #GArrowMapArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 1.0.0
+ */
+gboolean
+garrow_map_array_builder_append_null(GArrowMapArrayBuilder *builder,
+                                     GError **error)
+{
+  return garrow_array_builder_append_null<arrow::MapBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[map-array-builder][append-null]");
+}
+
+/**
+ * garrow_map_array_builder_append_nulls:
+ * @builder: A #GArrowMapArrayBuilder.
+ * @n: The number of null values to be appended.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple nulls at once. It's more efficient than multiple
+ * `append_null()` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 1.0.0
+ */
+gboolean
+garrow_map_array_builder_append_nulls(GArrowMapArrayBuilder *builder,
+                                      gint64 n,
+                                      GError **error)
+{
+  return garrow_array_builder_append_nulls<arrow::MapBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     n,
+     error,
+     "[map-array-builder][append-nulls]");
+}
+
+/**
+ * garrow_map_array_builder_get_key_builder:
+ * @builder: A #GArrowMapArrayBuilder.
+ *
+ * Returns: (transfer none): The #GArrowArrayBuilder for key values.
+ *
+ * Since: 1.0.0
+ */
+GArrowArrayBuilder *
+garrow_map_array_builder_get_key_builder(GArrowMapArrayBuilder *builder)
+{
+  auto priv = GARROW_MAP_ARRAY_BUILDER_GET_PRIVATE(builder);
+  if (!priv->key_builder) {
+    auto arrow_builder =
+      static_cast<arrow::MapBuilder *>(
+        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    auto arrow_key_builder = arrow_builder->key_builder();
+    priv->key_builder = garrow_array_builder_new_raw(arrow_key_builder);
+    garrow_array_builder_release_ownership(priv->key_builder);
+  }
+  return priv->key_builder;
+}
+
+/**
+ * garrow_map_array_builder_get_item_builder:
+ * @builder: A #GArrowMapArrayBuilder.
+ *
+ * Returns: (transfer none): The #GArrowArrayBuilder for item values.
+ *
+ * Since: 1.0.0
+ */
+GArrowArrayBuilder *
+garrow_map_array_builder_get_item_builder(GArrowMapArrayBuilder *builder)
+{
+  auto priv = GARROW_MAP_ARRAY_BUILDER_GET_PRIVATE(builder);
+  if (!priv->item_builder) {
+    auto arrow_builder =
+      static_cast<arrow::MapBuilder *>(
+        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    auto arrow_item_builder = arrow_builder->item_builder();
+    priv->item_builder = garrow_array_builder_new_raw(arrow_item_builder);
+    garrow_array_builder_release_ownership(priv->item_builder);
+  }
+  return priv->item_builder;
+}
+
+/**
+ * garrow_map_array_builder_get_value_builder:
+ * @builder: A #GArrowMapArrayBuilder.
+ *
+ * Returns: (transfer none): The #GArrowArrayBuilder to add map entries as struct values.
+ *   This can be used instead of garrow_map_array_builder_get_key_builder() and
+ *   garrow_map_array_builder_get_item_builder(). You can build map entries as a list of
+ *   struct values with this builder.
+ *
+ * Since: 1.0.0
+ */
+GArrowArrayBuilder *
+garrow_map_array_builder_get_value_builder(GArrowMapArrayBuilder *builder)
+{
+  auto priv = GARROW_MAP_ARRAY_BUILDER_GET_PRIVATE(builder);
+  if (!priv->value_builder) {
+    auto arrow_builder =
+      static_cast<arrow::MapBuilder *>(
+        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    auto arrow_value_builder = arrow_builder->value_builder();
+    priv->value_builder = garrow_array_builder_new_raw(arrow_value_builder);
+    garrow_array_builder_release_ownership(priv->value_builder);
+  }
+  return priv->value_builder;
+}
+
+
 G_DEFINE_TYPE(GArrowDecimal128ArrayBuilder,
               garrow_decimal128_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
@@ -4662,6 +4926,9 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::STRUCT:
       type = GARROW_TYPE_STRUCT_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::MAP:
+      type = GARROW_TYPE_MAP_ARRAY_BUILDER;
       break;
     case arrow::Type::type::DECIMAL:
       type = GARROW_TYPE_DECIMAL128_ARRAY_BUILDER;
