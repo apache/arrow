@@ -115,7 +115,7 @@ services:
       core: ${ULIMIT_CORE}
     environment:
       <<: *ccache
-      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_WITH_TIMING_TESTS:  # inherit
       ARROW_USE_LD_GOLD: "ON"
       ARROW_USE_PRECOMPILED_HEADERS: "ON"
     volumes: &conda-volumes
@@ -144,7 +144,7 @@ services:
     environment:
       <<: *ccache
       ARROW_CXXFLAGS: "-Og"  # Shrink test runtime by enabling minimal optimizations
-      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_WITH_TIMING_TESTS:  # inherit
       ARROW_FLIGHT: "OFF"
       ARROW_GANDIVA: "OFF"
       ARROW_JEMALLOC: "OFF"
@@ -174,7 +174,7 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
-      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_WITH_TIMING_TESTS:  # inherit
     volumes: &cuda-volumes
       - .:/arrow:delegated
       - ${ARCH}-cuda-${CUDA}-cache:/build:delegated
@@ -202,7 +202,7 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
-      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_WITH_TIMING_TESTS:  # inherit
     volumes: &debian-volumes
       - .:/arrow:delegated
       - ${ARCH}-debian-${DEBIAN}-cache:/build:delegated
@@ -227,7 +227,7 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
-      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_WITH_TIMING_TESTS:  # inherit
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
       - ${ARCH}-ubuntu-${UBUNTU}-cache:/build:delegated
@@ -257,7 +257,7 @@ services:
       <<: *ccache
       CC: clang-7
       CXX: clang++-7
-      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_WITH_TIMING_TESTS:  # inherit
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
       ARROW_ORC: "OFF"
@@ -284,7 +284,7 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
-      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_WITH_TIMING_TESTS:  # inherit
     volumes: &fedora-volumes
       - .:/arrow:delegated
       - ${ARCH}-fedora-${FEDORA}-cache:/build:delegated

@@ -202,7 +202,7 @@ enable to exercise your changes, using the following ``cmake`` options.
   implementations.
 * ``-DARROW_BUILD_UTILITIES=ON``: Build executable utilities.
 * ``-DARROW_BUILD_TESTS=ON``: Build executable unit tests.
-* ``-DARROW_ENABLE_TIMING_TESTS=ON``: If building unit tests, enable those
+* ``-DARROW_WITH_TIMING_TESTS=ON``: If building unit tests, enable those
   unit tests that rely on wall-clock timing (this flag is disabled on CI
   because it can make test results flaky).
 * ``-DARROW_FUZZING=ON``: Build fuzz targets and related executables.

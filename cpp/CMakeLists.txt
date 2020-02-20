@@ -135,6 +135,7 @@ endif()
 # ----------------------------------------------------------------------
 # cmake options
 include(DefineOptions)
+add_definitions_for_options()
 
 # Needed for linting targets, etc.
 if(${CMAKE_VERSION} VERSION_LESS "3.12.0")
@@ -343,19 +344,12 @@ else()
   add_dependencies(unittest all-tests)
 endif()
 
-if(ARROW_ENABLE_TIMING_TESTS)
-  add_definitions(-DARROW_WITH_TIMING_TESTS)
-endif()
-
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
 else()
   add_custom_target(all-benchmarks)
   add_custom_target(benchmark ctest -L benchmark)
   add_dependencies(benchmark all-benchmarks)
-  if(ARROW_BUILD_BENCHMARKS_REFERENCE)
-    add_definitions(-DARROW_WITH_BENCHMARKS_REFERENCE)
-  endif()
 endif()
 
 if(NOT ARROW_BUILD_EXAMPLES)
@@ -366,25 +360,19 @@ if(NOT ARROW_FUZZING)
   set(NO_FUZZING 1)
 endif()
 
-if(ARROW_LARGE_MEMORY_TESTS)
-  add_definitions(-DARROW_LARGE_MEMORY_TESTS)
-endif()
-
-if(ARROW_TEST_MEMCHECK)
-  add_definitions(-DARROW_VALGRIND)
+if(MSVC
+   AND ARROW_USE_CLCACHE
+   AND (("${CMAKE_GENERATOR}" STREQUAL "NMake Makefiles")
+        OR ("${CMAKE_GENERATOR}" STREQUAL "Ninja")))
+  find_program(CLCACHE_FOUND clcache)
+  if(CLCACHE_FOUND)
+    set(CMAKE_CXX_COMPILER ${CLCACHE_FOUND})
+  endif(CLCACHE_FOUND)
 endif()
 
 #
 # Compiler flags
 #
-
-if(ARROW_NO_DEPRECATED_API)
-  add_definitions(-DARROW_NO_DEPRECATED_API)
-endif()
-
-if(ARROW_EXTRA_ERROR_CONTEXT)
-  add_definitions(-DARROW_EXTRA_ERROR_CONTEXT)
-endif()
 
 include(SetupCxxFlags)
 
@@ -676,7 +664,6 @@ if(ARROW_USE_GLOG)
   list(APPEND ARROW_LINK_LIBS glog::glog)
   list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
-  add_definitions("-DARROW_USE_GLOG")
 endif()
 
 if(ARROW_S3)
@@ -772,13 +759,11 @@ endif()
 set(ARROW_SYSTEM_LINK_LIBS)
 
 if(ARROW_JEMALLOC)
-  add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
   list(APPEND ARROW_SYSTEM_LINK_LIBS jemalloc::jemalloc)
 endif()
 
 if(ARROW_MIMALLOC)
-  add_definitions(-DARROW_MIMALLOC)
   list(APPEND ARROW_SYSTEM_LINK_LIBS mimalloc::mimalloc)
 endif()
 

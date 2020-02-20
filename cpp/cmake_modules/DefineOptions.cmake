@@ -116,7 +116,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_BUILD_TESTS "Build the Arrow googletest unit tests" OFF)
 
-  define_option(ARROW_ENABLE_TIMING_TESTS "Enable timing-sensitive tests" ON)
+  define_option(ARROW_WITH_TIMING_TESTS "Enable timing-sensitive tests" ON)
 
   define_option(ARROW_BUILD_INTEGRATION "Build the Arrow integration test executables"
                 OFF)
@@ -125,7 +125,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   # Reference benchmarks are used to compare to naive implementation, or
   # discover various hardware limits.
-  define_option(ARROW_BUILD_BENCHMARKS_REFERENCE
+  define_option(ARROW_WITH_BENCHMARKS_REFERENCE
                 "Build the Arrow micro reference benchmarks" OFF)
 
   define_option_string(ARROW_TEST_LINKAGE
@@ -435,6 +435,25 @@ macro(config_summary_cmake_setters path)
         file(APPEND ${path} "\n### ${description_line}")
       endforeach()
       file(APPEND ${path} "\nset(${name} \"${${name}}\")")
+    endforeach()
+  endforeach()
+
+endmacro()
+
+macro(add_definitions_for_options)
+  foreach(category ${ARROW_OPTION_CATEGORIES})
+    foreach(name ${ARROW_${category}_OPTION_NAMES})
+
+      if("${${name}_OPTION_TYPE}" STREQUAL "bool")
+        message(STATUS "${name} was ${${name}}")
+        if(${${name}})
+          add_definitions("-D${name}")
+        endif()
+      endif()
+
+      if("${${name}_OPTION_TYPE}" STREQUAL "string")
+        add_definitions("-D${name}=\"${${name}}\"")
+      endif()
     endforeach()
   endforeach()
 
