@@ -182,6 +182,7 @@ def test_filesystem_dataset(mockfs):
         paths_or_selector=paths,
         partitions=partitions
     )
+    assert isinstance(source.format, ds.ParquetFileFormat)
 
     root_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
