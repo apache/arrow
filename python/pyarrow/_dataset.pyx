@@ -83,7 +83,8 @@ cdef class ParquetFileFormatReaderOptions:
     @property
     def use_buffered_stream(self):
         """Read files through buffered input streams rather than
-        loading entire chunks at a time."""
+        loading entire row groups at once. This may be enabled to
+        reduce memory overhead. Disabled by default."""
         return self.options.use_buffered_stream
 
     @use_buffered_stream.setter
@@ -92,7 +93,7 @@ cdef class ParquetFileFormatReaderOptions:
 
     @property
     def buffer_size(self):
-        """Size of buffered stream, if enabled."""
+        """Size of buffered stream, if enabled. Default is 1024 bytes."""
         return self.options.buffer_size
 
     @buffer_size.setter

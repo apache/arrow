@@ -357,8 +357,9 @@ FileSystemSourceFactory$create <- function(filesystem,
 #' * `...`: Additional format-specific options
 #'   format="parquet":
 #'   * `use_buffered_stream`: Read files through buffered input streams rather than
-#'                            loading entire chunks at a time. Disabled by default.
-#'   * `buffer_size`: Size of buffered stream, if enabled. Default is 1K.
+#'                            loading entire row groups at once. This may be enabled
+#'                            to reduce memory overhead. Disabled by default.
+#'   * `buffer_size`: Size of buffered stream, if enabled. Default is 1024 bytes.
 #'   * `dict_columns`: Names of columns which should be read as dictionaries.
 #'
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
