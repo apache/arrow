@@ -175,9 +175,9 @@ class TestSparseCOOTensorBase : public TestSparseTensorBase<ValueType> {
     //      0 15  0 16
     //   ]
     // ]
-    std::vector<c_value_type> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                              0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-    auto dense_data = Buffer::Wrap(dense_values);
+    dense_values_ = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                     0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+    auto dense_data = Buffer::Wrap(dense_values_);
     NumericTensor<ValueType> dense_tensor(dense_data, shape_, {}, dim_names_);
     ASSERT_OK_AND_ASSIGN(sparse_tensor_from_dense_,
                          SparseCOOTensor::Make(
@@ -187,6 +187,7 @@ class TestSparseCOOTensorBase : public TestSparseTensorBase<ValueType> {
  protected:
   using TestSparseTensorBase<ValueType>::shape_;
   using TestSparseTensorBase<ValueType>::dim_names_;
+  std::vector<c_value_type> dense_values_;
   std::shared_ptr<SparseCOOTensor> sparse_tensor_from_dense_;
 };
 
@@ -238,10 +239,8 @@ TEST_F(TestSparseCOOTensor, CreationFromNumericTensor) {
 }
 
 TEST_F(TestSparseCOOTensor, CreationFromNumericTensor1D) {
-  std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                       0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-  auto dense_data = Buffer::Wrap(dense_values);
-  std::vector<int64_t> dense_shape({static_cast<int64_t>(dense_values.size())});
+  auto dense_data = Buffer::Wrap(this->dense_values_);
+  std::vector<int64_t> dense_shape({static_cast<int64_t>(this->dense_values_.size())});
   NumericTensor<Int64Type> dense_vector(dense_data, dense_shape);
 
   std::shared_ptr<SparseCOOTensor> st;
@@ -265,9 +264,7 @@ TEST_F(TestSparseCOOTensor, CreationFromNumericTensor1D) {
 }
 
 TEST_F(TestSparseCOOTensor, CreationFromTensor) {
-  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
   Tensor tensor(int64(), buffer, this->shape_, {}, this->dim_names_);
 
   std::shared_ptr<SparseCOOTensor> st;
@@ -420,11 +417,33 @@ INSTANTIATE_TYPED_TEST_CASE_P(TestDouble, TestFloatingSparseCOOTensorEquality,
 template <typename IndexValueType>
 class TestSparseCOOTensorForIndexValueType
     : public TestSparseCOOTensorBase<IndexValueType> {
+ public:
+  using c_index_value_type = typename IndexValueType::c_type;
+
+  void SetUp() override {
+    TestSparseCOOTensorBase<IndexValueType>::SetUp();
+
+    // Sparse representation:
+    // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
+    // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
+    // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
+    // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
+
+    coords_values_row_major_ = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3, 0, 2, 0, 0, 2, 2,
+                                1, 0, 1, 1, 0, 3, 1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
+
+    coords_values_col_major_ = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 2, 2,
+                                0, 0, 1, 1, 2, 2, 0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
+  }
+
  protected:
+  std::vector<c_index_value_type> coords_values_row_major_;
+  std::vector<c_index_value_type> coords_values_col_major_;
+
   std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
       const std::vector<int64_t>& coords_shape,
       const std::vector<int64_t>& coords_strides,
-      std::vector<typename IndexValueType::c_type>& coords_values) const {
+      std::vector<c_index_value_type>& coords_values) const {
     auto coords_data = Buffer::Wrap(coords_values);
     auto coords = std::make_shared<NumericTensor<IndexValueType>>(
         coords_data, coords_shape, coords_strides);
@@ -448,17 +467,10 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, Make) {
   using IndexValueType = TypeParam;
   using c_index_value_type = typename IndexValueType::c_type;
 
-  // Sparse representation:
-  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
-  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
-  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
-  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
-  std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3,
-                                                   0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
-                                                   1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
   constexpr int sizeof_index_value = sizeof(c_index_value_type);
-  auto si = this->MakeSparseCOOIndex(
-      {12, 3}, {sizeof_index_value * 3, sizeof_index_value}, coords_values);
+  auto si =
+      this->MakeSparseCOOIndex({12, 3}, {sizeof_index_value * 3, sizeof_index_value},
+                               this->coords_values_row_major_);
 
   std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
   auto sparse_data = Buffer::Wrap(sparse_values);
@@ -507,17 +519,10 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, CreationWithRowMajorIndex) {
   using IndexValueType = TypeParam;
   using c_index_value_type = typename IndexValueType::c_type;
 
-  // Sparse representation:
-  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
-  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
-  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
-  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
-  std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3,
-                                                   0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
-                                                   1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
   constexpr int sizeof_index_value = sizeof(c_index_value_type);
-  auto si = this->MakeSparseCOOIndex(
-      {12, 3}, {sizeof_index_value * 3, sizeof_index_value}, coords_values);
+  auto si =
+      this->MakeSparseCOOIndex({12, 3}, {sizeof_index_value * 3, sizeof_index_value},
+                               this->coords_values_row_major_);
 
   std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
   auto st = this->MakeSparseTensor(si, sparse_values);
@@ -534,17 +539,10 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, CreationWithColumnMajorIndex)
   using IndexValueType = TypeParam;
   using c_index_value_type = typename IndexValueType::c_type;
 
-  // Sparse representation:
-  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
-  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
-  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
-  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
-  std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
-                                                   0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
-                                                   0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
   constexpr int sizeof_index_value = sizeof(c_index_value_type);
-  auto si = this->MakeSparseCOOIndex(
-      {12, 3}, {sizeof_index_value, sizeof_index_value * 12}, coords_values);
+  auto si =
+      this->MakeSparseCOOIndex({12, 3}, {sizeof_index_value, sizeof_index_value * 12},
+                               this->coords_values_col_major_);
 
   std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
   auto st = this->MakeSparseTensor(si, sparse_values);
@@ -562,29 +560,17 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType,
   using IndexValueType = TypeParam;
   using c_index_value_type = typename IndexValueType::c_type;
 
-  // Sparse representation:
-  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
-  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
-  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
-  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
-
   // Row-major COO index
   const std::vector<int64_t> coords_shape = {12, 3};
   constexpr int sizeof_index_value = sizeof(c_index_value_type);
-  std::vector<c_index_value_type> coords_values_row_major = {
-      0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3, 0, 2, 0, 0, 2, 2,
-      1, 0, 1, 1, 0, 3, 1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
   auto si_row_major =
       this->MakeSparseCOOIndex(coords_shape, {sizeof_index_value * 3, sizeof_index_value},
-                               coords_values_row_major);
+                               this->coords_values_row_major_);
 
   // Column-major COO index
-  std::vector<c_index_value_type> coords_values_col_major = {
-      0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 2, 2,
-      0, 0, 1, 1, 2, 2, 0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
   auto si_col_major = this->MakeSparseCOOIndex(
       coords_shape, {sizeof_index_value, sizeof_index_value * 12},
-      coords_values_col_major);
+      this->coords_values_col_major_);
 
   std::vector<int64_t> sparse_values_1 = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
   auto st1 = this->MakeSparseTensor(si_row_major, sparse_values_1);
@@ -627,9 +613,9 @@ class TestSparseCSRMatrixBase : public TestSparseTensorBase<Int64Type> {
     //   13  0 14  0
     //    0 15  0 16
     // ]
-    std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                         0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-    auto dense_data = Buffer::Wrap(dense_values);
+    dense_values_ = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                     0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+    auto dense_data = Buffer::Wrap(dense_values_);
     NumericTensor<Int64Type> dense_tensor(dense_data, shape_, {}, dim_names_);
     ASSERT_OK_AND_ASSIGN(sparse_tensor_from_dense_,
                          SparseCSRMatrix::Make(
@@ -637,15 +623,14 @@ class TestSparseCSRMatrixBase : public TestSparseTensorBase<Int64Type> {
   }
 
  protected:
+  std::vector<int64_t> dense_values_;
   std::shared_ptr<SparseCSRMatrix> sparse_tensor_from_dense_;
 };
 
 class TestSparseCSRMatrix : public TestSparseCSRMatrixBase<Int64Type> {};
 
 TEST_F(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
-  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
   NumericTensor<Int64Type> tensor(buffer, this->shape_);
 
   std::shared_ptr<SparseCSRMatrix> st1;
@@ -920,7 +905,7 @@ INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestSparseCSRMatrixForIndexValueType,
                               UInt64Type);
 
 template <typename IndexValueType>
-class TestSparseCSCMatrixBase : public ::testing::Test {
+class TestSparseCSCMatrixBase : public TestSparseTensorBase<Int64Type> {
  public:
   void SetUp() {
     shape_ = {6, 4};
@@ -935,9 +920,9 @@ class TestSparseCSCMatrixBase : public ::testing::Test {
     //   13  0 14  0
     //    0 15  0 16
     // ]
-    std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                         0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-    auto dense_data = Buffer::Wrap(dense_values);
+    dense_values_ = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                     0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+    auto dense_data = Buffer::Wrap(dense_values_);
     NumericTensor<Int64Type> dense_tensor(dense_data, shape_, {}, dim_names_);
     ASSERT_OK_AND_ASSIGN(sparse_tensor_from_dense_,
                          SparseCSCMatrix::Make(
@@ -945,17 +930,14 @@ class TestSparseCSCMatrixBase : public ::testing::Test {
   }
 
  protected:
-  std::vector<int64_t> shape_;
-  std::vector<std::string> dim_names_;
+  std::vector<int64_t> dense_values_;
   std::shared_ptr<SparseCSCMatrix> sparse_tensor_from_dense_;
 };
 
 class TestSparseCSCMatrix : public TestSparseCSCMatrixBase<Int64Type> {};
 
 TEST_F(TestSparseCSCMatrix, CreationFromNumericTensor2D) {
-  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
   NumericTensor<Int64Type> tensor(buffer, this->shape_);
 
   std::shared_ptr<SparseCSCMatrix> st1;
@@ -1280,23 +1262,22 @@ INSTANTIATE_TYPED_TEST_CASE_P(TestDouble, TestFloatingSparseCSFTensorEquality,
                               DoubleType);
 
 template <typename IndexValueType>
-class TestSparseCSFTensorBase : public ::testing::Test {
+class TestSparseCSFTensorBase : public TestSparseTensorBase<Int16Type> {
  public:
   void SetUp() {
     dim_names_ = {"a", "b", "c", "d"};
     shape_ = {2, 3, 4, 5};
-    int16_t dense_values[2][3][4][5] = {};  // zero-initialized
 
-    dense_values[0][0][0][1] = 1;
-    dense_values[0][0][0][2] = 2;
-    dense_values[0][1][0][0] = 3;
-    dense_values[0][1][0][2] = 4;
-    dense_values[0][1][1][0] = 5;
-    dense_values[1][1][1][0] = 6;
-    dense_values[1][1][1][1] = 7;
-    dense_values[1][1][1][2] = 8;
+    dense_values_[0][0][0][1] = 1;
+    dense_values_[0][0][0][2] = 2;
+    dense_values_[0][1][0][0] = 3;
+    dense_values_[0][1][0][2] = 4;
+    dense_values_[0][1][1][0] = 5;
+    dense_values_[1][1][1][0] = 6;
+    dense_values_[1][1][1][1] = 7;
+    dense_values_[1][1][1][2] = 8;
 
-    auto dense_buffer = Buffer::Wrap(dense_values, sizeof(dense_values));
+    auto dense_buffer = Buffer::Wrap(dense_values_, sizeof(dense_values_));
     Tensor dense_tensor_(int16(), dense_buffer, shape_, {}, dim_names_);
     ASSERT_OK_AND_ASSIGN(
         sparse_tensor_from_dense_,
@@ -1307,6 +1288,7 @@ class TestSparseCSFTensorBase : public ::testing::Test {
  protected:
   std::vector<int64_t> shape_;
   std::vector<std::string> dim_names_;
+  int16_t dense_values_[2][3][4][5] = {};
   std::shared_ptr<SparseCSFTensor> sparse_tensor_from_dense_;
 };
 
@@ -1377,16 +1359,7 @@ TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestTensorToSparseTensor) {
 
 TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestSparseTensorToTensor) {
   std::vector<int64_t> shape = {2, 3, 4, 5};
-  int16_t dense_values[2][3][4][5] = {};  // zero-initialized
-  dense_values[0][0][0][1] = 1;
-  dense_values[0][0][0][2] = 2;
-  dense_values[0][1][0][0] = 3;
-  dense_values[0][1][0][2] = 4;
-  dense_values[0][1][1][0] = 5;
-  dense_values[1][1][1][0] = 6;
-  dense_values[1][1][1][1] = 7;
-  dense_values[1][1][1][2] = 8;
-  auto dense_buffer = Buffer::Wrap(dense_values, sizeof(dense_values));
+  auto dense_buffer = Buffer::Wrap(this->dense_values_, sizeof(this->dense_values_));
   Tensor dense_tensor(int16(), dense_buffer, shape, {}, this->dim_names_);
 
   std::shared_ptr<Tensor> dt;
