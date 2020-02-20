@@ -23,6 +23,7 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/make_unique.h"
 
@@ -125,20 +126,29 @@ InMemorySource::InMemorySource(std::shared_ptr<Table> table)
 
 FragmentIterator InMemorySource::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> scan_options) {
-  auto create_batch =
-      [scan_options](std::shared_ptr<RecordBatch> batch) -> std::shared_ptr<Fragment> {
+  auto schema = this->schema();
+
+  auto create_fragment =
+      [scan_options,
+       schema](std::shared_ptr<RecordBatch> batch) -> Result<std::shared_ptr<Fragment>> {
+    if (!batch->schema()->Equals(schema)) {
+      return Status::TypeError("yielded batch had schema ", *batch->schema(),
+                               " which did not match InMemorySource's: ", *schema);
+    }
+
     std::vector<std::shared_ptr<RecordBatch>> batches;
 
-    while (batch->num_rows() > scan_options->batch_size) {
-      batches.push_back(batch->Slice(0, scan_options->batch_size));
-      batch = batch->Slice(scan_options->batch_size);
+    auto batch_size = scan_options->batch_size;
+    auto n_batches = BitUtil::CeilDiv(batch->num_rows(), batch_size);
+
+    for (int i = 0; i < n_batches; i++) {
+      batches.push_back(batch->Slice(batch_size * i, batch_size));
     }
-    batches.push_back(std::move(batch));
 
     return std::make_shared<InMemoryFragment>(std::move(batches), scan_options);
   };
 
-  return MakeMapIterator(std::move(create_batch), get_batches_());
+  return MakeMaybeMapIterator(std::move(create_fragment), get_batches_());
 }
 
 FragmentIterator TreeSource::GetFragmentsImpl(std::shared_ptr<ScanOptions> options) {

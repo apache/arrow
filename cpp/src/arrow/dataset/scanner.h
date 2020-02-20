@@ -75,7 +75,7 @@ class ARROW_DS_EXPORT ScanOptions {
   RecordBatchProjector projector;
 
   // Maximum row count for scanned batches.
-  int64_t batch_size = 64 << 10;
+  int64_t batch_size = 1 << 15;
 
   // Return a vector of fields that requires materialization.
   //
@@ -215,7 +215,12 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///        ThreadPool found in ScanContext;
   Status UseThreads(bool use_threads = true);
 
-  /// \brief Set the maximum row count for scanned batches
+  /// \brief Set the maximum number of rows per RecordBatch.
+  ///
+  /// \param[in] batch_size the maximum number of rows.
+  /// \returns An error if the number for batch is not greater than 0.
+  ///
+  /// This option provides a control limiting the memory owned by any RecordBatch.
   Status BatchSize(int64_t batch_size);
 
   /// \brief Return the constructed now-immutable Scanner object

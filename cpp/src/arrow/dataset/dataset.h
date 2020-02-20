@@ -128,7 +128,9 @@ class ARROW_DS_EXPORT Source {
   std::shared_ptr<Expression> partition_expression_;
 };
 
-/// \brief A Source consisting of a flat sequence of Fragments
+/// \brief A Source which yields fragments wrapping a stream of record batches.
+///
+/// The record batches must match the schema provided to the source at construction.
 class ARROW_DS_EXPORT InMemorySource : public Source {
  public:
   using RecordBatchGenerator = std::function<RecordBatchIterator()>;

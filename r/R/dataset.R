@@ -359,7 +359,7 @@ FileSystemSourceFactory$create <- function(filesystem,
 #'   * `use_buffered_stream`: Read files through buffered input streams rather than
 #'                            loading entire row groups at once. This may be enabled
 #'                            to reduce memory overhead. Disabled by default.
-#'   * `buffer_size`: Size of buffered stream, if enabled. Default is 1024 bytes.
+#'   * `buffer_size`: Size of buffered stream, if enabled. Default is 8KB.
 #'   * `dict_columns`: Names of columns which should be read as dictionaries.
 #'
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
@@ -401,7 +401,7 @@ FileFormat$create <- function(format, ...) {
 #' @export
 ParquetFileFormat <- R6Class("ParquetFileFormat", inherit = FileFormat)
 ParquetFileFormat$create <- function(use_buffered_stream = FALSE,
-                                     buffer_size = 1024,
+                                     buffer_size = 8196,
                                      dict_columns = character(0)) {
   shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make(
     use_buffered_stream, buffer_size, dict_columns))
@@ -430,7 +430,7 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' The method's default input is `TRUE`, but you must call the method to enable
 #' multithreading because the scanner default is `FALSE`.
 #' - `$BatchSize(batch_size)`: integer: Maximum row count of scanned record
-#' batches, default is 64K. If scanned record batches are overflowing memory
+#' batches, default is 32K. If scanned record batches are overflowing memory
 #' then this method can be called to reduce their size.
 #' - `$schema`: Active binding, returns the [Schema] of the Dataset
 #' - `$Finish()`: Returns a `Scanner`

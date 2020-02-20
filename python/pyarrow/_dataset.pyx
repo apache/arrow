@@ -93,7 +93,7 @@ cdef class ParquetFileFormatReaderOptions:
 
     @property
     def buffer_size(self):
-        """Size of buffered stream, if enabled. Default is 1024 bytes."""
+        """Size of buffered stream, if enabled. Default is 8KB."""
         return self.options.buffer_size
 
     @buffer_size.setter
@@ -890,7 +890,7 @@ cdef class Dataset:
         return scanner.scan()
 
     def to_batches(self, columns=None, filter=None,
-                   batch_size=64*2**10, MemoryPool memory_pool=None):
+                   batch_size=32*2**10, MemoryPool memory_pool=None):
         """Read the dataset as materialized record batches.
 
         Builds a scan operation against the dataset and sequentially executes
@@ -912,8 +912,10 @@ cdef class Dataset:
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 64*2**10
-            The maximum row count for scanned record batches.
+        batch_size : int, default 32K
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -929,7 +931,7 @@ cdef class Dataset:
                 yield batch
 
     def to_table(self, columns=None, filter=None, use_threads=True,
-                 batch_size=64*2**10, MemoryPool memory_pool=None):
+                 batch_size=32*2**10, MemoryPool memory_pool=None):
         """Read the dataset to an arrow table.
 
         Note that this method reads all the selected data from the dataset
@@ -954,8 +956,10 @@ cdef class Dataset:
         use_threads : boolean, default True
             If enabled, then maximum paralellism will be used determined by
             the number of available CPU cores.
-        batch_size : int, default 64*2**10
-            The maximum row count for scanned record batches.
+        batch_size : int, default 32K
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -1060,8 +1064,10 @@ cdef class Scanner:
     use_threads : boolean, default True
         If enabled, then maximum paralellism will be used determined by
         the number of available CPU cores.
-    batch_size : int, default 64*2**10
-        The maximum row count for scanned record batches.
+    batch_size : int, default 32K
+        The maximum row count for scanned record batches. If scanned
+        record batches are overflowing memory then this method can be
+        called to reduce their size.
     memory_pool : MemoryPool, default None
         For memory allocations, if required. If not specified, uses the
         default pool.
@@ -1073,7 +1079,7 @@ cdef class Scanner:
 
     def __init__(self, Dataset dataset, list columns=None,
                  Expression filter=None, bint use_threads=True,
-                 int batch_size=64*2**10, MemoryPool memory_pool=None):
+                 int batch_size=32*2**10, MemoryPool memory_pool=None):
         cdef:
             shared_ptr[CScanContext] context
             shared_ptr[CScannerBuilder] builder

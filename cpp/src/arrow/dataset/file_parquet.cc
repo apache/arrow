@@ -31,6 +31,7 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/file_reader.h"
+#include "parquet/properties.h"
 #include "parquet/statistics.h"
 
 namespace arrow {

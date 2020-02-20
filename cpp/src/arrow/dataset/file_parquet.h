@@ -25,12 +25,14 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
-#include "parquet/properties.h"
 
 namespace parquet {
 class ParquetFileReader;
 class RowGroupMetaData;
 class FileMetaData;
+class FileDecryptionProperties;
+class ReaderProperties;
+class ArrowReaderProperties;
 }  // namespace parquet
 
 namespace arrow {
@@ -49,14 +51,22 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     /// \defgroup parquet-file-format-reader-properties properties which correspond to
     /// members of parquet::ReaderProperties.
     ///
+    /// We don't embed parquet::ReaderProperties directly because we get memory_pool from
+    /// ScanContext at scan time and provide differing defaults.
+    ///
     /// @{
-    bool use_buffered_stream = parquet::DEFAULT_USE_BUFFERED_STREAM;
-    int64_t buffer_size = parquet::DEFAULT_BUFFER_SIZE;
+    bool use_buffered_stream = false;
+    int64_t buffer_size = 1 << 13;
     std::shared_ptr<parquet::FileDecryptionProperties> file_decryption_properties;
     /// @}
 
     /// \defgroup parquet-file-format-arrow-reader-properties properties which correspond
     /// to members of parquet::ArrowReaderProperties.
+    ///
+    /// We don't embed parquet::ReaderProperties directly because we get batch_size from
+    /// ScanOptions at scan time, and we will never pass use_threads == true (since we
+    /// defer parallelization of the scan). Additionally column names (rather than
+    /// indices) are used to indicate dictionary columns.
     ///
     /// @{
     std::unordered_set<std::string> dict_columns;

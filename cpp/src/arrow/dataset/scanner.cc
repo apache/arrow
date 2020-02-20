@@ -134,6 +134,9 @@ Status ScannerBuilder::UseThreads(bool use_threads) {
 }
 
 Status ScannerBuilder::BatchSize(int64_t batch_size) {
+  if (batch_size <= 0) {
+    return Status::Invalid("BatchSize must be greater than 0, got ", batch_size);
+  }
   options_->batch_size = batch_size;
   return Status::OK();
 }
