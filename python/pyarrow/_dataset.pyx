@@ -1144,6 +1144,11 @@ cdef class Expression:
     def __str__(self):
         return frombytes(self.expr.ToString())
 
+    def __repr__(self):
+        return "<pyarrow.dataset.{0} {1}>".format(
+            self.__class__.__name__, str(self)
+        )
+
     def validate(self, Schema schema not None):
         """Validate this expression for execution against a schema.
 
