@@ -51,8 +51,8 @@ cdef class ReadOptions:
         This will determine multi-threading granularity as well as
         the size of individual chunks in the Table.
     skip_rows: int, optional (default 0)
-        The number of rows to skip at the start of the CSV data (the row
-        of column names (if any) does not need to be included in this count).
+        The number of rows to skip before the column names (if any)
+        and the CSV data.
     column_names: list, optional
         The column names of the target table.  If empty, fall back on
         `autogenerate_column_names`.
@@ -109,8 +109,8 @@ cdef class ReadOptions:
     @property
     def skip_rows(self):
         """
-        The number of rows to skip at the start of the CSV data (the row
-        of column names (if any) does not need to be included in this count).
+        The number of rows to skip before the column names (if any)
+        and the CSV data.
         """
         return self.options.skip_rows
 
