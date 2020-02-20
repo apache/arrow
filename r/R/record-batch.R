@@ -83,9 +83,10 @@ RecordBatch <- R6Class("RecordBatch", inherit = Object,
     },
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
-    Equals = function(other) {
-      assert_is(other, "RecordBatch")
-      RecordBatch__Equals(self, other)
+    Equals = function(other, ...) {
+      # RecordBatch->Equals should have a check_metadata arg
+      # https://issues.apache.org/jira/browse/ARROW-7891
+      inherits(other, "RecordBatch") && RecordBatch__Equals(self, other)
     },
     GetColumnByName = function(name) {
       assert_is(name, "character")

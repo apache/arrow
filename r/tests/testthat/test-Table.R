@@ -250,9 +250,28 @@ test_that("==.Table", {
   expect_equal(tab1, tab2)
 })
 
+test_that("Table$Equals(check_metadata)", {
+  tab1 <- Table$create(x = 1:2, y = c("a", "b"))
+  tab2 <- Table$create(x = 1:2, y = c("a", "b"),
+    schema = tab1$schema$WithMetadata(list(some="metadata")))
+
+  expect_is(tab1, "Table")
+  expect_is(tab2, "Table")
+  expect_false(tab1$schema$HasMetadata)
+  expect_true(tab2$schema$HasMetadata)
+  expect_match(tab2$schema$metadata, "some: metadata", fixed = TRUE)
+
+  expect_false(tab1 == tab2)
+  expect_false(tab1$Equals(tab2))
+  expect_true(tab1$Equals(tab2, check_metadata = FALSE))
+
+  expect_failure(expect_equal(tab1, tab2)) # expect_equal does check_metadata
+  expect_equivalent(tab1, tab2)            # expect_equivalent does not
+
+  expect_false(tab1$Equals(24)) # Not a Table
+})
+
 test_that("Table handles null type (ARROW-7064)", {
   tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
   expect_equal(tab$schema,  schema(a = int32(), n = null()))
 })
-
-

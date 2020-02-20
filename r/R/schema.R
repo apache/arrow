@@ -36,6 +36,9 @@
 #' - `$ToString()`: convert to a string
 #' - `$field(i)`: returns the field at index `i` (0-based)
 #' - `$GetFieldByName(x)`: returns the field with name `x`
+#' - `$WithMetadata(metadata)`: returns a new `Schema` with the key-value
+#'    `metadata` set. Note that all list elements in `metadata` will be coerced
+#'    to `character`.
 #'
 #' @section Active bindings:
 #'
@@ -70,8 +73,13 @@ Schema <- R6Class("Schema",
     field = function(i) shared_ptr(Field, Schema__field(self, i)),
     GetFieldByName = function(x) shared_ptr(Field, Schema__GetFieldByName(self, x)),
     serialize = function() Schema__serialize(self),
-    Equals = function(other, check_metadata = TRUE) {
-      Schema__Equals(self, other, isTRUE(check_metadata))
+    WithMetadata = function(metadata = list()) {
+      # metadata must be a named character vector
+      metadata <- map_chr(metadata, as.character)
+      shared_ptr(Schema, Schema__WithMetadata(self, metadata))
+    },
+    Equals = function(other, check_metadata = TRUE, ...) {
+      inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
     }
   ),
   active = list(

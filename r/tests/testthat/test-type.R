@@ -55,3 +55,15 @@ test_that("type() can infer struct types from data frames", {
   df <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
   expect_equal(type(df), struct(x = int32(), y = float64(), z = utf8()))
 })
+
+test_that("DataType$Equals", {
+  a <- int32()
+  b <- int32()
+  z <- float64()
+  expect_true(a == b)
+  expect_true(a$Equals(b))
+  expect_false(a == z)
+  expect_equal(a, b)
+  expect_failure(expect_equal(a, z))
+  expect_false(a$Equals(32L))
+})

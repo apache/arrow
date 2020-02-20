@@ -5408,6 +5408,22 @@ RcppExport SEXP _arrow_Schema__metadata(SEXP schema_sexp){
 
 // schema.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> Schema__WithMetadata(const std::shared_ptr<arrow::Schema>& schema, Rcpp::CharacterVector metadata);
+RcppExport SEXP _arrow_Schema__WithMetadata(SEXP schema_sexp, SEXP metadata_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	Rcpp::traits::input_parameter<Rcpp::CharacterVector>::type metadata(metadata_sexp);
+	return Rcpp::wrap(Schema__WithMetadata(schema, metadata));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__WithMetadata(SEXP schema_sexp, SEXP metadata_sexp){
+	Rf_error("Cannot call Schema__WithMetadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
 Rcpp::RawVector Schema__serialize(const std::shared_ptr<arrow::Schema>& schema);
 RcppExport SEXP _arrow_Schema__serialize(SEXP schema_sexp){
 BEGIN_RCPP
@@ -6047,6 +6063,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Schema__field_names", (DL_FUNC) &_arrow_Schema__field_names, 1}, 
 		{ "_arrow_Schema__HasMetadata", (DL_FUNC) &_arrow_Schema__HasMetadata, 1}, 
 		{ "_arrow_Schema__metadata", (DL_FUNC) &_arrow_Schema__metadata, 1}, 
+		{ "_arrow_Schema__WithMetadata", (DL_FUNC) &_arrow_Schema__WithMetadata, 2}, 
 		{ "_arrow_Schema__serialize", (DL_FUNC) &_arrow_Schema__serialize, 1}, 
 		{ "_arrow_Schema__Equals", (DL_FUNC) &_arrow_Schema__Equals, 3}, 
 		{ "_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1}, 

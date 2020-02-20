@@ -28,6 +28,9 @@ Many Arrow objects, including \link{Table} and \link{Dataset}, have a \verb{$sch
 \item \verb{$ToString()}: convert to a string
 \item \verb{$field(i)}: returns the field at index \code{i} (0-based)
 \item \verb{$GetFieldByName(x)}: returns the field with name \code{x}
+\item \verb{$WithMetadata(metadata)}: returns a new \code{Schema} with the key-value
+\code{metadata} set. Note that all list elements in \code{metadata} will be coerced
+to \code{character}.
 }
 }
 
