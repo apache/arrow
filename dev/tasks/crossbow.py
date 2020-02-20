@@ -560,20 +560,23 @@ class Repo:
         mime = mimetypes.guess_type(name)[0] or 'application/zip'
 
         click.echo('Uploading asset `{}`...'.format(name))
-        with open(path, 'rb') as fp:
-            for i in range(max_retries):
-                try:
+        for i in range(max_retries):
+            try:
+                with open(path, 'rb') as fp:
                     result = release.upload_asset(name=name, asset=fp,
                                                   content_type=mime)
-                    click.echo('Attempt {} has finished.'.format(i + 1))
-                    return result
-                except github3.exceptions.ResponseError as e:
-                    click.echo('Attempt {} has failed with message: {}.'
-                               .format(i + 1, str(e)))
-                    if i >= (max_retries - 1):
-                        raise e
-                    else:
-                        time.sleep(retry_backoff)
+                click.echo('Attempt {} has finished.'.format(i + 1))
+                return result
+            except (
+                github3.exceptions.ResponseError,
+                github3.exceptions.ConnectionError
+            ) as e:
+                click.echo('Attempt {} has failed with message: {}.'
+                           .format(i + 1, str(e)))
+                if i >= (max_retries - 1):
+                    raise e
+                else:
+                    time.sleep(retry_backoff)
 
     def github_overwrite_release_assets(self, tag_name, target_commitish,
                                         patterns):
