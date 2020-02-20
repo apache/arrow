@@ -1176,8 +1176,8 @@ class TestSparseCSFTensorEquality : public TestSparseTensorBase<ValueType> {
 
  protected:
   using TestSparseTensorBase<ValueType>::shape_;
-  typename ValueType::c_type values1_[2][3][4][5];
-  typename ValueType::c_type values2_[2][3][4][5];
+  typename ValueType::c_type values1_[2][3][4][5] = {};
+  typename ValueType::c_type values2_[2][3][4][5] = {};
   int64_t length_;
   std::shared_ptr<NumericTensor<ValueType>> tensor1_;
   std::shared_ptr<NumericTensor<ValueType>> tensor2_;
