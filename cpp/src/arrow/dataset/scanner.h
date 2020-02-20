@@ -150,9 +150,9 @@ ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
 ///          yield scan_task
 class ARROW_DS_EXPORT Scanner {
  public:
-  Scanner(SourceVector sources, std::shared_ptr<ScanOptions> options,
+  Scanner(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> options,
           std::shared_ptr<ScanContext> context)
-      : sources_(std::move(sources)),
+      : dataset_(std::move(dataset)),
         options_(std::move(options)),
         context_(std::move(context)) {}
 
@@ -173,7 +173,7 @@ class ARROW_DS_EXPORT Scanner {
   /// \brief Return a TaskGroup according to ScanContext thread rules.
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
 
-  SourceVector sources_;
+  std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<ScanOptions> options_;
   std::shared_ptr<ScanContext> context_;
 };

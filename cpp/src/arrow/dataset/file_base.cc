@@ -43,13 +43,13 @@ Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanContext> context
   return format_->ScanFile(source_, scan_options_, std::move(context));
 }
 
-FileSystemSource::FileSystemSource(std::shared_ptr<Schema> schema,
-                                   std::shared_ptr<Expression> root_partition,
-                                   std::shared_ptr<FileFormat> format,
-                                   std::shared_ptr<fs::FileSystem> filesystem,
-                                   fs::PathForest forest,
-                                   ExpressionVector file_partitions)
-    : Source(std::move(schema), std::move(root_partition)),
+FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
+                                     std::shared_ptr<Expression> root_partition,
+                                     std::shared_ptr<FileFormat> format,
+                                     std::shared_ptr<fs::FileSystem> filesystem,
+                                     fs::PathForest forest,
+                                     ExpressionVector file_partitions)
+    : Dataset(std::move(schema), std::move(root_partition)),
       format_(std::move(format)),
       filesystem_(std::move(filesystem)),
       forest_(std::move(forest)),
@@ -57,7 +57,7 @@ FileSystemSource::FileSystemSource(std::shared_ptr<Schema> schema,
   DCHECK_EQ(static_cast<size_t>(forest_.size()), partitions_.size());
 }
 
-Result<std::shared_ptr<Source>> FileSystemSource::Make(
+Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     fs::FileStatsVector stats) {
@@ -66,7 +66,7 @@ Result<std::shared_ptr<Source>> FileSystemSource::Make(
               std::move(filesystem), std::move(stats), std::move(partitions));
 }
 
-Result<std::shared_ptr<Source>> FileSystemSource::Make(
+Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     fs::FileStatsVector stats, ExpressionVector partitions) {
@@ -75,16 +75,16 @@ Result<std::shared_ptr<Source>> FileSystemSource::Make(
               std::move(filesystem), std::move(forest), std::move(partitions));
 }
 
-Result<std::shared_ptr<Source>> FileSystemSource::Make(
+Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     fs::PathForest forest, ExpressionVector partitions) {
-  return std::shared_ptr<Source>(new FileSystemSource(
+  return std::shared_ptr<Dataset>(new FileSystemDataset(
       std::move(schema), std::move(root_partition), std::move(format),
       std::move(filesystem), std::move(forest), std::move(partitions)));
 }
 
-std::vector<std::string> FileSystemSource::files() const {
+std::vector<std::string> FileSystemDataset::files() const {
   std::vector<std::string> files;
 
   DCHECK_OK(forest_.Visit([&](fs::PathForest::Ref ref) {
@@ -97,8 +97,8 @@ std::vector<std::string> FileSystemSource::files() const {
   return files;
 }
 
-std::string FileSystemSource::ToString() const {
-  std::string repr = "FileSystemSource:";
+std::string FileSystemDataset::ToString() const {
+  std::string repr = "FileSystemDataset:";
 
   if (forest_.size() == 0) {
     return repr + " []";
@@ -143,7 +143,7 @@ util::optional<std::pair<std::string, std::shared_ptr<Scalar>>> GetKey(
       internal::checked_cast<const ScalarExpression&>(*cmp.right_operand()).value());
 }
 
-FragmentIterator FileSystemSource::GetFragmentsImpl(
+FragmentIterator FileSystemDataset::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> root_options) {
   FragmentVector fragments;
   std::vector<std::shared_ptr<ScanOptions>> options(forest_.size());

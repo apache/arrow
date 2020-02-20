@@ -82,10 +82,10 @@ static ScanTaskIterator GetScanTaskIterator(FragmentIterator fragments,
 }
 
 Result<ScanTaskIterator> Scanner::Scan() {
-  // First, transforms Sources in a flat Iterator<Fragment>. This
-  // iterator is lazily constructed, i.e. Source::GetFragments is never
+  // First, transforms Datasets in a flat Iterator<Fragment>. This
+  // iterator is lazily constructed, i.e. Dataset::GetFragments is never
   // invoked.
-  auto fragments_it = GetFragmentsFromSources(sources_, options_);
+  auto fragments_it = GetFragmentsFromDatasets({dataset_}, options_);
   // Second, transforms Iterator<Fragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
@@ -153,7 +153,7 @@ Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() const {
     options->evaluator = std::make_shared<TreeEvaluator>();
   }
 
-  return std::make_shared<Scanner>(dataset_->sources(), std::move(options), context_);
+  return std::make_shared<Scanner>(dataset_, std::move(options), context_);
 }
 
 using arrow::internal::TaskGroup;

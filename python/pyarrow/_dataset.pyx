@@ -340,13 +340,13 @@ cdef class FileSystemFactoryOptions:
         For the purposes of applying the partitioning, paths will be
         stripped of the partition_base_dir. Files not matching the
         partition_base_dir prefix will be skipped for partitioning discovery.
-        The ignored files will still be part of the Source, but will not
+        The ignored files will still be part of the Dataset, but will not
         have partition information.
     exclude_invalid_files : bool, optional (default True)
         If True, invalid files will be excluded (file format specific check).
         This will incur IO for each files in a serial and single threaded
         fashion. Disabling this feature will skip the IO, but unsupported
-        files may be present in the Source (resulting in an error at scan
+        files may be present in the Dataset (resulting in an error at scan
         time).
     ignore_prefixes : list, optional
         Files matching one of those prefixes will be ignored by the
@@ -435,31 +435,31 @@ cdef class FileSystemFactoryOptions:
         self.options.ignore_prefixes = [tobytes(v) for v in values]
 
 
-cdef class SourceFactory:
+cdef class DatasetFactory:
     """
-    SourceFactory is used to create a Source, inspect the Schema
+    DatasetFactory is used to create a Dataset, inspect the Schema
     of the fragments contained in it, and declare a partitioning.
     """
 
     cdef:
-        shared_ptr[CSourceFactory] wrapped
-        CSourceFactory* factory
+        shared_ptr[CDatasetFactory] wrapped
+        CDatasetFactory* factory
 
-    def __init__(self):
+    def __init__(self, list children):
         _forbid_instantiation(self.__class__)
 
-    cdef init(self, shared_ptr[CSourceFactory]& sp):
+    cdef init(self, shared_ptr[CDatasetFactory]& sp):
         self.wrapped = sp
         self.factory = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CSourceFactory]& sp):
-        cdef SourceFactory self = \
-            SourceFactory.__new__(SourceFactory)
+    cdef wrap(shared_ptr[CDatasetFactory]& sp):
+        cdef DatasetFactory self = \
+            DatasetFactory.__new__(DatasetFactory)
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CSourceFactory] unwrap(self) nogil:
+    cdef inline shared_ptr[CDatasetFactory] unwrap(self) nogil:
         return self.wrapped
 
     @property
@@ -499,7 +499,7 @@ cdef class SourceFactory:
 
     def finish(self, Schema schema=None):
         """
-        Create a Source using the inspected schema or an explicit schema
+        Create a Dataset using the inspected schema or an explicit schema
         (if given).
 
         Parameters
@@ -510,24 +510,24 @@ cdef class SourceFactory:
 
         Returns
         -------
-        Source
+        Dataset
         """
         cdef:
             shared_ptr[CSchema] sp_schema
-            CResult[shared_ptr[CSource]] result
+            CResult[shared_ptr[CDataset]] result
         if schema is not None:
             sp_schema = pyarrow_unwrap_schema(schema)
             with nogil:
-                result = self.factory.Finish(sp_schema)
+                result = self.factory.FinishWithSchema(sp_schema)
         else:
             with nogil:
                 result = self.factory.Finish()
-        return Source.wrap(GetResultValue(result))
+        return Dataset.wrap(GetResultValue(result))
 
 
-cdef class FileSystemSourceFactory(SourceFactory):
+cdef class FileSystemDatasetFactory(DatasetFactory):
     """
-    Create a SourceFactory from a list of paths with schema inspection.
+    Create a DatasetFactory from a list of paths with schema inspection.
 
     Parameters
     ----------
@@ -542,7 +542,7 @@ cdef class FileSystemSourceFactory(SourceFactory):
     """
 
     cdef:
-        CFileSystemSourceFactory* filesystem_factory
+        CFileSystemDatasetFactory* filesystem_factory
 
     def __init__(self, FileSystem filesystem not None, paths_or_selector,
                  FileFormat format not None,
@@ -550,7 +550,7 @@ cdef class FileSystemSourceFactory(SourceFactory):
         cdef:
             vector[c_string] paths
             CFileSelector selector
-            CResult[shared_ptr[CSourceFactory]] result
+            CResult[shared_ptr[CDatasetFactory]] result
             shared_ptr[CFileSystem] c_filesystem
             shared_ptr[CFileFormat] c_format
             CFileSystemFactoryOptions c_options
@@ -564,7 +564,7 @@ cdef class FileSystemSourceFactory(SourceFactory):
         if isinstance(paths_or_selector, FileSelector):
             with nogil:
                 selector = (<FileSelector>paths_or_selector).selector
-                result = CFileSystemSourceFactory.MakeFromSelector(
+                result = CFileSystemDatasetFactory.MakeFromSelector(
                     c_filesystem,
                     selector,
                     c_format,
@@ -573,7 +573,7 @@ cdef class FileSystemSourceFactory(SourceFactory):
         elif isinstance(paths_or_selector, (list, tuple)):
             paths = [tobytes(s) for s in paths_or_selector]
             with nogil:
-                result = CFileSystemSourceFactory.MakeFromPaths(
+                result = CFileSystemDatasetFactory.MakeFromPaths(
                     c_filesystem,
                     paths,
                     c_format,
@@ -584,106 +584,53 @@ cdef class FileSystemSourceFactory(SourceFactory):
 
         self.init(GetResultValue(result))
 
-    cdef init(self, shared_ptr[CSourceFactory]& sp):
-        SourceFactory.init(self, sp)
-        self.filesystem_factory = <CFileSystemSourceFactory*> sp.get()
+    cdef init(self, shared_ptr[CDatasetFactory]& sp):
+        DatasetFactory.init(self, sp)
+        self.filesystem_factory = <CFileSystemDatasetFactory*> sp.get()
 
 
-cdef class Source:
-    """Basic component of a Dataset which yields zero or more fragments.  """
-
-    cdef:
-        shared_ptr[CSource] wrapped
-        CSource* source
-
-    def __init__(self):
-        _forbid_instantiation(self.__class__)
-
-    cdef void init(self, const shared_ptr[CSource]& sp):
-        self.wrapped = sp
-        self.source = sp.get()
-
-    @staticmethod
-    cdef wrap(shared_ptr[CSource]& sp):
-        cdef Source self
-
-        typ = frombytes(sp.get().type_name())
-        if typ == 'tree':
-            self = TreeSource.__new__(TreeSource)
-        elif typ == 'filesystem':
-            self = FileSystemSource.__new__(FileSystemSource)
-        else:
-            raise TypeError(typ)
-
-        self.init(sp)
-        return self
-
-    cdef shared_ptr[CSource] unwrap(self) nogil:
-        return self.wrapped
-
-    @property
-    def schema(self):
-        """
-        Schema of all RecordBatches contained in this DataSource.
-        """
-        return pyarrow_wrap_schema(self.source.schema())
-
-    @property
-    def partition_expression(self):
-        """
-        An Expression which evaluates to true for all data viewed by this
-        Source.
-        """
-        cdef shared_ptr[CExpression] expr
-        expr = self.source.partition_expression()
-        if expr.get() == nullptr:
-            return None
-        else:
-            return Expression.wrap(expr)
-
-
-cdef class TreeSource(Source):
-    """A Source created from other source objects"""
+cdef class TreeDataset(Dataset):
+    """A Dataset wrapping child datasets."""
 
     cdef:
-        CTreeSource* tree_source
+        CTreeDataset* tree_source
 
-    def __init__(self, schema, sources):
+    def __init__(self, schema, child_datasets):
         cdef:
-            Source child
-            CSourceVector children
-            shared_ptr[CTreeSource] tree_source
+            Dataset child
+            CDatasetVector children
+            shared_ptr[CTreeDataset] tree_source
 
-        for child in sources:
+        for child in child_datasets:
             children.push_back(child.wrapped)
 
-        tree_source = make_shared[CTreeSource](
+        tree_source = make_shared[CTreeDataset](
             pyarrow_unwrap_schema(schema), children)
-        self.init(<shared_ptr[CSource]> tree_source)
+        self.init(<shared_ptr[CDataset]> tree_source)
 
-    cdef void init(self, const shared_ptr[CSource]& sp):
-        Source.init(self, sp)
-        self.tree_source = <CTreeSource*> sp.get()
+    cdef void init(self, const shared_ptr[CDataset]& sp):
+        Dataset.init(self, sp)
+        self.tree_source = <CTreeDataset*> sp.get()
 
 
-cdef class FileSystemSource(Source):
-    """A Source created from a set of files on a particular filesystem"""
+cdef class FileSystemDataset(Dataset):
+    """A Dataset created from a set of files on a particular filesystem"""
 
     cdef:
-        CFileSystemSource* filesystem_source
+        CFileSystemDataset* filesystem_source
 
     def __init__(self, Schema schema not None, Expression root_partition,
                  FileFormat file_format not None,
                  FileSystem filesystem not None,
                  paths_or_selector, partitions):
-        """Create a FileSystemSource
+        """Create a FileSystemDataset
 
         Parameters
         ----------
         schema : Schema
-            The top-level schema of the DataSource.
+            The top-level schema of the DataDataset.
         root_partition : Expression
-            The top-level partition of the DataSource.
+            The top-level partition of the DataDataset.
         file_format : FileFormat
             File format to create fragments from, currently only
             ParquetFileFormat and IpcFileFormat are supported.
@@ -699,7 +646,7 @@ cdef class FileSystemSource(Source):
             Expression expr
             vector[CFileStats] c_file_stats
             vector[shared_ptr[CExpression]] c_partitions
-            CResult[shared_ptr[CSource]] result
+            CResult[shared_ptr[CDataset]] result
 
         for stats in filesystem.get_target_stats(paths_or_selector):
             c_file_stats.push_back(stats.unwrap())
@@ -716,7 +663,7 @@ cdef class FileSystemSource(Source):
         if root_partition is None:
             root_partition = ScalarExpression(True)
 
-        result = CFileSystemSource.Make(
+        result = CFileSystemDataset.Make(
             pyarrow_unwrap_schema(schema),
             root_partition.unwrap(),
             file_format.unwrap(),
@@ -726,9 +673,9 @@ cdef class FileSystemSource(Source):
         )
         self.init(GetResultValue(result))
 
-    cdef void init(self, const shared_ptr[CSource]& sp):
-        Source.init(self, sp)
-        self.filesystem_source = <CFileSystemSource*> sp.get()
+    cdef void init(self, const shared_ptr[CDataset]& sp):
+        Dataset.init(self, sp)
+        self.filesystem_source = <CFileSystemDataset*> sp.get()
 
     @property
     def files(self):
@@ -737,14 +684,14 @@ cdef class FileSystemSource(Source):
         return [frombytes(f) for f in files]
 
 
-cdef class DatasetFactory:
+cdef class TreeDatasetFactory:
     """
     Provides a way to inspect/discover a Dataset's expected schema before
-    materializing the Dataset and underlying Sources.
+    materialization.
 
     Parameters
     ----------
-    factories : list of SourceFactory
+    factories : list of DatasetFactory
     """
 
     cdef:
@@ -753,11 +700,11 @@ cdef class DatasetFactory:
 
     def __init__(self, list factories):
         cdef:
-            SourceFactory factory
-            vector[shared_ptr[CSourceFactory]] c_factories
+            DatasetFactory factory
+            vector[shared_ptr[CDatasetFactory]] c_factories
         for factory in factories:
             c_factories.push_back(factory.unwrap())
-        self.init(GetResultValue(CDatasetFactory.Make(c_factories)))
+        self.init(GetResultValue(CTreeDatasetFactory.Make(c_factories)))
 
     cdef void init(self, const shared_ptr[CDatasetFactory]& sp):
         self.wrapped = sp
@@ -771,14 +718,6 @@ cdef class DatasetFactory:
 
     cdef inline shared_ptr[CDatasetFactory] unwrap(self) nogil:
         return self.wrapped
-
-    @property
-    def sources(self):
-        cdef:
-            shared_ptr[CSourceFactory] source
-            vector[shared_ptr[CSourceFactory]] sources
-        sources = self.factory.factories()
-        return [SourceFactory.wrap(source) for source in sources]
 
     def inspect_schemas(self):
         cdef vector[shared_ptr[CSchema]] schemas
@@ -803,7 +742,7 @@ cdef class DatasetFactory:
 
 cdef class Dataset:
     """
-    Collection of data fragments coming from possibly multiple sources.
+    Collection of data fragments and potentially child datasets.
 
     Arrow Datasets allow you to query against data that has been split across
     multiple files. This sharding of data may indicate partitioning, which
@@ -814,30 +753,27 @@ cdef class Dataset:
         shared_ptr[CDataset] wrapped
         CDataset* dataset
 
-    def __init__(self, sources, Schema schema not None):
+    def __init__(self, children, Schema schema not None):
         """Create a dataset
 
-        A schema must be passed because most of the sources' schema is
-        unknown before executing possibly expensive scanning operation, but
-        projecting, filtering, predicate pushdown requires a well defined
-        schema to work on.
+        Children's schemas must agree with the provided schema.
 
         Parameters
         ----------
-        sources : list of Source
-            One or more input sources
+        children : list of Dataset
+            One or more input children
         schema : Schema
             A known schema to conform to.
         """
         cdef:
-            Source source
-            CSourceVector c_sources
+            Dataset child
+            CDatasetVector c_children
             CResult[shared_ptr[CDataset]] result
 
-        for source in sources:
-            c_sources.push_back(source.unwrap())
+        for child in children:
+            c_children.push_back(child.unwrap())
 
-        result = CDataset.Make(c_sources, pyarrow_unwrap_schema(schema))
+        result = CDataset.Make(c_children, pyarrow_unwrap_schema(schema))
         self.init(GetResultValue(result))
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
@@ -846,12 +782,34 @@ cdef class Dataset:
 
     @staticmethod
     cdef wrap(shared_ptr[CDataset]& sp):
-        cdef Dataset self = Dataset.__new__(Dataset)
+        cdef Dataset self
+
+        typ = frombytes(sp.get().type_name())
+        if typ == 'tree':
+            self = TreeDataset.__new__(TreeDataset)
+        elif typ == 'filesystem':
+            self = FileSystemDataset.__new__(FileSystemDataset)
+        else:
+            raise TypeError(typ)
+
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CDataset] unwrap(self) nogil:
+    cdef shared_ptr[CDataset] unwrap(self) nogil:
         return self.wrapped
+
+    @property
+    def partition_expression(self):
+        """
+        An Expression which evaluates to true for all data viewed by this
+        Dataset.
+        """
+        cdef shared_ptr[CExpression] expr
+        expr = self.dataset.partition_expression()
+        if expr.get() == nullptr:
+            return None
+        else:
+            return Expression.wrap(expr)
 
     def scan(self, columns=None, filter=None, MemoryPool memory_pool=None):
         """Builds a scan operation against the dataset.
@@ -865,7 +823,7 @@ cdef class Dataset:
         ----------
         columns : list of str, default None
             List of columns to project. Order and duplicates will be preserved.
-            The columns will be passed down to Sources and corresponding data
+            The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
             By default all of the available columns are projected. Raises
@@ -874,8 +832,8 @@ cdef class Dataset:
         filter : Expression, default None
             Scan will return only the rows matching the filter.
             If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in the data
-            source, e.g. Parquet statistics. Otherwise filters the loaded
+            partition information or internal metadata found in fragments,
+            e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
@@ -900,7 +858,7 @@ cdef class Dataset:
         ----------
         columns : list of str, default None
             List of columns to project. Order and duplicates will be preserved.
-            The columns will be passed down to Sources and corresponding data
+            The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
             By default all of the available columns are projected. Raises
@@ -909,8 +867,8 @@ cdef class Dataset:
         filter : Expression, default None
             Scan will return only the rows matching the filter.
             If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in the data
-            source, e.g. Parquet statistics. Otherwise filters the loaded
+            partition information or internal metadata found in the fragments,
+            e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
         batch_size : int, default 32K
             The maximum row count for scanned record batches. If scanned
@@ -941,7 +899,7 @@ cdef class Dataset:
         ----------
         columns : list of str, default None
             List of columns to project. Order and duplicates will be preserved.
-            The columns will be passed down to Sources and corresponding data
+            The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
             By default all of the available columns are projected. Raises
@@ -950,8 +908,8 @@ cdef class Dataset:
         filter : Expression, default None
             Scan will return only the rows matching the filter.
             If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in the data
-            source, e.g. Parquet statistics. Otherwise filters the loaded
+            partition information or internal metadata found in the fragments,
+            e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
         use_threads : boolean, default True
             If enabled, then maximum paralellism will be used determined by
@@ -972,12 +930,6 @@ cdef class Dataset:
                           use_threads=use_threads, batch_size=batch_size,
                           memory_pool=memory_pool)
         return scanner.to_table()
-
-    @property
-    def sources(self):
-        """List of the data sources"""
-        cdef vector[shared_ptr[CSource]] sources = self.dataset.sources()
-        return [Source.wrap(source) for source in sources]
 
     @property
     def schema(self):
@@ -1049,7 +1001,7 @@ cdef class Scanner:
         Dataset to scan.
     columns : list of str, default None
         List of columns to project. Order and duplicates will be preserved.
-        The columns will be passed down to Sources and corresponding data
+        The columns will be passed down to Datasets and corresponding data
         fragments to avoid loading, copying, and deserializing columns
         that will not be required further down the compute chain.
         By default all of the available columns are projected. Raises

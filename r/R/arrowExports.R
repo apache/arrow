@@ -344,16 +344,16 @@ csv___TableReader__Read <- function(table_reader){
     .Call(`_arrow_csv___TableReader__Read` , table_reader)
 }
 
-dataset___FSSFactory__Make2 <- function(fs, selector, format, partitioning){
-    .Call(`_arrow_dataset___FSSFactory__Make2` , fs, selector, format, partitioning)
+dataset___FileSystemDatasetFactory__Make2 <- function(fs, selector, format, partitioning){
+    .Call(`_arrow_dataset___FileSystemDatasetFactory__Make2` , fs, selector, format, partitioning)
 }
 
-dataset___FSSFactory__Make1 <- function(fs, selector, format){
-    .Call(`_arrow_dataset___FSSFactory__Make1` , fs, selector, format)
+dataset___FileSystemDatasetFactory__Make1 <- function(fs, selector, format){
+    .Call(`_arrow_dataset___FileSystemDatasetFactory__Make1` , fs, selector, format)
 }
 
-dataset___FSSFactory__Make3 <- function(fs, selector, format, factory){
-    .Call(`_arrow_dataset___FSSFactory__Make3` , fs, selector, format, factory)
+dataset___FileSystemDatasetFactory__Make3 <- function(fs, selector, format, factory){
+    .Call(`_arrow_dataset___FileSystemDatasetFactory__Make3` , fs, selector, format, factory)
 }
 
 dataset___FileFormat__type_name <- function(format){
@@ -368,48 +368,28 @@ dataset___IpcFileFormat__Make <- function(){
     .Call(`_arrow_dataset___IpcFileFormat__Make` )
 }
 
-dataset___SFactory__Finish1 <- function(factory){
-    .Call(`_arrow_dataset___SFactory__Finish1` , factory)
+dataset___FileSystemDataset__format <- function(dataset){
+    .Call(`_arrow_dataset___FileSystemDataset__format` , dataset)
 }
 
-dataset___SFactory__Finish2 <- function(factory, schema){
-    .Call(`_arrow_dataset___SFactory__Finish2` , factory, schema)
+dataset___FileSystemDataset__files <- function(dataset){
+    .Call(`_arrow_dataset___FileSystemDataset__files` , dataset)
 }
 
-dataset___SFactory__Inspect <- function(factory){
-    .Call(`_arrow_dataset___SFactory__Inspect` , factory)
+dataset___DatasetFactory__Finish1 <- function(factory){
+    .Call(`_arrow_dataset___DatasetFactory__Finish1` , factory)
 }
 
-dataset___Source__schema <- function(source){
-    .Call(`_arrow_dataset___Source__schema` , source)
+dataset___DatasetFactory__Finish2 <- function(factory, schema){
+    .Call(`_arrow_dataset___DatasetFactory__Finish2` , factory, schema)
 }
 
-dataset___Source__type_name <- function(source){
-    .Call(`_arrow_dataset___Source__type_name` , source)
+dataset___DatasetFactory__Inspect <- function(factory){
+    .Call(`_arrow_dataset___DatasetFactory__Inspect` , factory)
 }
 
-dataset___FSSource__format <- function(source){
-    .Call(`_arrow_dataset___FSSource__format` , source)
-}
-
-dataset___FSSource__files <- function(source){
-    .Call(`_arrow_dataset___FSSource__files` , source)
-}
-
-dataset___DFactory__Make <- function(sources){
-    .Call(`_arrow_dataset___DFactory__Make` , sources)
-}
-
-dataset___DFactory__Inspect <- function(factory){
-    .Call(`_arrow_dataset___DFactory__Inspect` , factory)
-}
-
-dataset___DFactory__Finish1 <- function(factory){
-    .Call(`_arrow_dataset___DFactory__Finish1` , factory)
-}
-
-dataset___DFactory__Finish2 <- function(factory, schema){
-    .Call(`_arrow_dataset___DFactory__Finish2` , factory, schema)
+dataset___TreeDatasetFactory__Make <- function(children){
+    .Call(`_arrow_dataset___TreeDatasetFactory__Make` , children)
 }
 
 dataset___DirectoryPartitioning <- function(schm){
@@ -428,20 +408,24 @@ dataset___HivePartitioning__MakeFactory <- function(){
     .Call(`_arrow_dataset___HivePartitioning__MakeFactory` )
 }
 
-dataset___Dataset__create <- function(sources, schm){
-    .Call(`_arrow_dataset___Dataset__create` , sources, schm)
+dataset___TreeDataset__create <- function(datasets, schm){
+    .Call(`_arrow_dataset___TreeDataset__create` , datasets, schm)
 }
 
-dataset___Dataset__schema <- function(ds){
-    .Call(`_arrow_dataset___Dataset__schema` , ds)
-}
-
-dataset___Dataset__sources <- function(ds){
-    .Call(`_arrow_dataset___Dataset__sources` , ds)
+dataset___TreeDataset__children <- function(ds){
+    .Call(`_arrow_dataset___TreeDataset__children` , ds)
 }
 
 dataset___Dataset__NewScan <- function(ds){
     .Call(`_arrow_dataset___Dataset__NewScan` , ds)
+}
+
+dataset___Dataset__schema <- function(dataset){
+    .Call(`_arrow_dataset___Dataset__schema` , dataset)
+}
+
+dataset___Dataset__type_name <- function(dataset){
+    .Call(`_arrow_dataset___Dataset__type_name` , dataset)
 }
 
 dataset___ScannerBuilder__Project <- function(sb, cols){
