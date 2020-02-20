@@ -93,6 +93,10 @@ impl ExecutionContext {
                     self.register_csv(name, location, schema, *header_row);
                     Ok(vec![])
                 }
+                FileType::Parquet => {
+                    self.register_parquet(name, location)?;
+                    Ok(vec![])
+                }
                 _ => Err(ExecutionError::ExecutionError(format!(
                     "Unsupported file type {:?}.",
                     file_type
