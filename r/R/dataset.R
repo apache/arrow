@@ -356,10 +356,9 @@ FileSystemSourceFactory$create <- function(filesystem,
 #'   the Arrow file format)
 #' * `...`: Additional format-specific options
 #'   format="parquet":
-#'   * `buffer_size`: During a threaded scan, files must be read through buffered input
-#'                    streams to guard against collisions. By default their buffer size
-#'                    is 1024 bytes. A larger buffer size may yield more rapid threaded
-#'                    scans at the cost of greater memory overhead.
+#'   * `use_buffered_stream`: Read files through buffered input streams rather than
+#'                            loading entire chunks at a time. Disabled by default.
+#'   * `buffer_size`: Size of buffered stream, if enabled. Default is 1K.
 #'   * `dict_columns`: Names of columns which should be read as dictionaries.
 #'
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
@@ -400,9 +399,11 @@ FileFormat$create <- function(format, ...) {
 #' @rdname FileFormat
 #' @export
 ParquetFileFormat <- R6Class("ParquetFileFormat", inherit = FileFormat)
-ParquetFileFormat$create <- function(buffer_size = 1024,
+ParquetFileFormat$create <- function(use_buffered_stream = FALSE,
+                                     buffer_size = 1024,
                                      dict_columns = character(0)) {
-  shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make(buffer_size, dict_columns))
+  shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make(
+    use_buffered_stream, buffer_size, dict_columns))
 }
 
 #' @usage NULL
