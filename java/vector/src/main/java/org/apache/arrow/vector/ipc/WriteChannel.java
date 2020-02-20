@@ -37,13 +37,17 @@ import io.netty.buffer.ArrowBuf;
  * <p>All write methods in this class follow full write semantics, i.e., write calls
  * only return after requested data has been fully written. Note this is different
  * from java WritableByteChannel interface where partial write is allowed
+ * </p>
+ * <p>
+ *   Please note that objects of this class are not thread-safe.
+ * </p>
  */
 public class WriteChannel implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(WriteChannel.class);
 
-  private static byte[] zeroBytes = new byte[8];
+  private static final byte[] ZERO_BYTES = new byte[8];
 
-  private byte[] intBuf = new byte[4];
+  private final byte[] intBuf = new byte[4];
 
   private long currentPosition = 0;
 
@@ -77,11 +81,11 @@ public class WriteChannel implements AutoCloseable {
     long bytesWritten = 0;
     long wholeWordsEnd = zeroCount - 8;
     while (bytesWritten <= wholeWordsEnd) {
-      bytesWritten += write(zeroBytes);
+      bytesWritten += write(ZERO_BYTES);
     }
 
     if (bytesWritten < zeroCount) {
-      bytesWritten += write(zeroBytes, 0, (int) (zeroCount - bytesWritten));
+      bytesWritten += write(ZERO_BYTES, 0, (int) (zeroCount - bytesWritten));
     }
     return bytesWritten;
   }
