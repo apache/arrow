@@ -22,8 +22,8 @@
 #define ARROW_UTIL_RLE_ENCODING_H
 
 #include <algorithm>
-#include <array>
 #include <cmath>
+#include <vector>
 
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
@@ -402,7 +402,7 @@ inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
   return values_read;
 }
 
-static inline bool idx_in_range(int32_t idx, int32_t dictionary_length) {
+static inline bool IndexInRange(int32_t idx, int32_t dictionary_length) {
   return idx >= 0 && idx < dictionary_length;
 }
 
@@ -419,7 +419,7 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
 
     if (repeat_count_ > 0) {
       auto idx = static_cast<int32_t>(current_value_);
-      if (ARROW_PREDICT_FALSE(!idx_in_range(idx, dictionary_length))) {
+      if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
         return values_read;
       }
       T val = dictionary[idx];
@@ -432,20 +432,20 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
       values_read += repeat_batch;
       out += repeat_batch;
     } else if (literal_count_ > 0) {
-      constexpr int buffer_size = 1024;
-      std::array<int, buffer_size> indices;
+      constexpr int kBufferSize = 1024;
+      int indices[kBufferSize];
 
       int literal_batch = std::min(remaining, static_cast<int>(literal_count_));
-      literal_batch = std::min(literal_batch, buffer_size);
+      literal_batch = std::min(literal_batch, kBufferSize);
 
-      int actual_read = bit_reader_.GetBatch(bit_width_, indices.data(), literal_batch);
+      int actual_read = bit_reader_.GetBatch(bit_width_, indices, literal_batch);
       if (ARROW_PREDICT_FALSE(actual_read != literal_batch)) {
         return values_read;
       }
 
       for (int i = 0; i < literal_batch; ++i) {
         int index = indices[i];
-        if (ARROW_PREDICT_FALSE(!idx_in_range(index, dictionary_length))) {
+        if (ARROW_PREDICT_FALSE(!IndexInRange(index, dictionary_length))) {
           return values_read;
         }
         out[i] = dictionary[index];
@@ -486,7 +486,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
       }
       if (repeat_count_ > 0) {
         auto idx = static_cast<int32_t>(current_value_);
-        if (ARROW_PREDICT_FALSE(!idx_in_range(idx, dictionary_length))) {
+        if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
           return values_read;
         }
         T value = dictionary[idx];
@@ -522,7 +522,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
         int literals_read = 1;
 
         int first_idx = indices[0];
-        if (ARROW_PREDICT_FALSE(!idx_in_range(first_idx, dictionary_length))) {
+        if (ARROW_PREDICT_FALSE(!IndexInRange(first_idx, dictionary_length))) {
           return values_read;
         }
         *out++ = dictionary[first_idx];
@@ -531,7 +531,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
         while (literals_read < literal_batch) {
           if (bit_reader.IsSet()) {
             int idx = indices[literals_read];
-            if (ARROW_PREDICT_FALSE(!idx_in_range(idx, dictionary_length))) {
+            if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
               return values_read;
             }
             *out = dictionary[idx];
