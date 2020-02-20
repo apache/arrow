@@ -490,6 +490,13 @@ class ColumnWriterImpl {
 
   std::vector<CompressedDataPage> data_pages_;
 
+
+  // OffsetIndex stores the locations of the pages.
+  parquet::format::OffsetIndex offset_index_;
+
+  // ColumnIndex stores the statistics of the pages.
+  parquet::format::ColumnIndex column_index_;
+
  private:
   void InitSinks() {
     definition_levels_sink_.Rewind(0);

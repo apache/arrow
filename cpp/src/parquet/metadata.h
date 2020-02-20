@@ -159,10 +159,11 @@ class PARQUET_EXPORT RowGroupMetaData {
   int num_columns() const;
   int64_t num_rows() const;
   int64_t total_byte_size() const;
+
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) const;
-  std::vector<parquet::format::SortingColumn> sorting_columns;
+  std::vector<parquet::format::SortingColumn> sorting_columns() const;
 
  private:
   explicit RowGroupMetaData(const void* metadata, const SchemaDescriptor* schema,

@@ -327,6 +327,8 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
 
   inline int64_t total_byte_size() const { return row_group_->total_byte_size; }
 
+  inline std::vector<parquet::format::SortingColumn> sorting_columns() { return row_group_->sorting_columns; }
+
   inline const SchemaDescriptor* schema() const { return schema_; }
 
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) {
@@ -365,6 +367,8 @@ int RowGroupMetaData::num_columns() const { return impl_->num_columns(); }
 int64_t RowGroupMetaData::num_rows() const { return impl_->num_rows(); }
 
 int64_t RowGroupMetaData::total_byte_size() const { return impl_->total_byte_size(); }
+
+std::vector<parquet::format::SortingColumn> RowGroupMetaData::sorting_columns() const { return impl_->sorting_columns(); }
 
 const SchemaDescriptor* RowGroupMetaData::schema() const { return impl_->schema(); }
 
