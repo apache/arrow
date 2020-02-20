@@ -89,9 +89,9 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
     int targetDataSize = targetVector.getOffsetBuffer().getInt(
-            targetVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
+            (long) targetVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
     int deltaDataSize = deltaVector.getOffsetBuffer().getInt(
-            deltaVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
+            (long) deltaVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
     int newValueCapacity = targetDataSize + deltaDataSize;
 
     // make sure there is enough capacity
@@ -120,10 +120,10 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // increase each offset from the second buffer
     for (int i = 0; i < deltaVector.getValueCount(); i++) {
-      int oldOffset = targetVector.getOffsetBuffer().getInt((targetVector.getValueCount() + 1 + i) *
+      int oldOffset = targetVector.getOffsetBuffer().getInt((long) (targetVector.getValueCount() + 1 + i) *
               BaseVariableWidthVector.OFFSET_WIDTH);
       targetVector.getOffsetBuffer().setInt(
-              (targetVector.getValueCount() + 1 + i) *
+              (long) (targetVector.getValueCount() + 1 + i) *
                       BaseVariableWidthVector.OFFSET_WIDTH, oldOffset + targetDataSize);
     }
     ((BaseVariableWidthVector) targetVector).setLastSet(newValueCount - 1);
@@ -139,9 +139,9 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
     int targetListSize = targetVector.getOffsetBuffer().getInt(
-            targetVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
+            (long) targetVector.getValueCount() * ListVector.OFFSET_WIDTH);
     int deltaListSize = deltaVector.getOffsetBuffer().getInt(
-            deltaVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
+            (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
 
     ListVector targetListVector = (ListVector) targetVector;
 
@@ -163,13 +163,13 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     PlatformDependent.copyMemory(deltaVector.getOffsetBuffer().memoryAddress() + ListVector.OFFSET_WIDTH,
             targetVector.getOffsetBuffer().memoryAddress() + (targetVector.getValueCount() + 1) *
                     ListVector.OFFSET_WIDTH,
-            deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
+            (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
 
     // increase each offset from the second buffer
     for (int i = 0; i < deltaVector.getValueCount(); i++) {
-      int oldOffset =
-              targetVector.getOffsetBuffer().getInt((targetVector.getValueCount() + 1 + i) * ListVector.OFFSET_WIDTH);
-      targetVector.getOffsetBuffer().setInt((targetVector.getValueCount() + 1 + i) * ListVector.OFFSET_WIDTH,
+      int oldOffset = targetVector.getOffsetBuffer().getInt(
+          (long) (targetVector.getValueCount() + 1 + i) * ListVector.OFFSET_WIDTH);
+      targetVector.getOffsetBuffer().setInt((long) (targetVector.getValueCount() + 1 + i) * ListVector.OFFSET_WIDTH,
               oldOffset + targetListSize);
     }
     targetListVector.setLastSet(newValueCount - 1);
@@ -313,8 +313,78 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
   }
 
   @Override
-  public ValueVector visit(DenseUnionVector left, Void value) {
-    throw new UnsupportedOperationException();
+  public ValueVector visit(DenseUnionVector deltaVector, Void value) {
+    // we only make sure that both vectors are union vectors.
+    Preconditions.checkArgument(targetVector.getMinorType() == deltaVector.getMinorType(),
+        "The vector to append must have the same type as the targetVector being appended");
+
+    DenseUnionVector targetDenseUnionVector = (DenseUnionVector) targetVector;
+    int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
+
+    // make sure there is enough capacity
+    while (targetDenseUnionVector.getValueCapacity() < newValueCount) {
+      targetDenseUnionVector.reAlloc();
+    }
+
+    // append validity buffers
+    BitVectorHelper.concatBits(
+        targetVector.getValidityBuffer(), targetVector.getValueCount(),
+        deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
+
+    // append type buffers
+    PlatformDependent.copyMemory(deltaVector.getTypeBuffer().memoryAddress(),
+        targetDenseUnionVector.getTypeBuffer() .memoryAddress() + targetVector.getValueCount(),
+        deltaVector.getValueCount());
+
+    // append offset buffers
+    for (int i = 0; i < deltaVector.getValueCount(); i++) {
+      byte typeId = deltaVector.getTypeId(i);
+      ValueVector targetChildVector = targetDenseUnionVector.getVectorByType(typeId);
+      int offsetBase = targetChildVector == null ? 0 : targetChildVector.getValueCount();
+      int deltaOffset = deltaVector.getOffset(i);
+      long index = (long) (targetVector.getValueCount() + i) * DenseUnionVector.OFFSET_WIDTH;
+
+      targetVector.getOffsetBuffer().setInt(index, offsetBase + deltaOffset);
+    }
+
+    // append child vectors
+    for (int i = 0; i <= Byte.MAX_VALUE; i++) {
+      ValueVector targetChildVector = targetDenseUnionVector.getVectorByType((byte) i);
+      ValueVector deltaChildVector = deltaVector.getVectorByType((byte) i);
+
+      if (targetChildVector == null && deltaChildVector == null) {
+        // the type id is not registered in either vector, we are done.
+        continue;
+      } else if (targetChildVector == null && deltaChildVector != null) {
+        // first register a new child in the target vector
+        targetDenseUnionVector.registerNewTypeId(deltaChildVector.getField());
+        targetChildVector = targetDenseUnionVector.addVector(
+            (byte) i, deltaChildVector.getField().createVector(targetDenseUnionVector.getAllocator()));
+
+        // now we have both child vecors not null, we can append them.
+        VectorAppender childAppender = new VectorAppender(targetChildVector);
+        deltaChildVector.accept(childAppender, null);
+      } else if (targetChildVector != null && deltaChildVector == null) {
+        // the value only exists in the target vector, so we are done
+        continue;
+      } else {
+        // both child vectors are non-null
+
+        // first check vector types
+        TypeEqualsVisitor childTypeVisitor =
+            new TypeEqualsVisitor(targetChildVector, /* check name */ false, /* check meta data*/ false);
+        if (!childTypeVisitor.equals(deltaChildVector)) {
+          throw new IllegalArgumentException("dense union vectors have different child vector types with type id " + i);
+        }
+
+        // append child vectors
+        VectorAppender childAppender = new VectorAppender(targetChildVector);
+        deltaChildVector.accept(childAppender, null);
+      }
+    }
+
+    targetVector.setValueCount(newValueCount);
+    return targetVector;
   }
 
   @Override

@@ -34,13 +34,18 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.compare.TypeEqualsVisitor;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.holders.NullableBigIntHolder;
+import org.apache.arrow.vector.holders.NullableFloat4Holder;
+import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
@@ -319,6 +324,154 @@ public class TestVectorAppender {
     }
   }
 
+  private DenseUnionVector getTargetVector() {
+    // create a vector, and populate it with values {1, 2, null, 10L}
+
+    final NullableIntHolder intHolder = new NullableIntHolder();
+    intHolder.isSet = 1;
+    final NullableBigIntHolder longHolder = new NullableBigIntHolder();
+    longHolder.isSet = 1;
+    final NullableFloat4Holder floatHolder = new NullableFloat4Holder();
+    floatHolder.isSet = 1;
+    DenseUnionVector targetVector = new DenseUnionVector("target vector", allocator, null, null);
+
+    targetVector.allocateNew();
+
+    while (targetVector.getValueCapacity() < 4) {
+      targetVector.reAlloc();
+    }
+
+    byte intTypeId = targetVector.registerNewTypeId(Field.nullable("", Types.MinorType.INT.getType()));
+    targetVector.setTypeId(0, intTypeId);
+    intHolder.value = 1;
+    targetVector.setSafe(0, intHolder);
+    targetVector.setTypeId(1, intTypeId);
+    intHolder.value = 2;
+    targetVector.setSafe(1, intHolder);
+    byte longTypeId = targetVector.registerNewTypeId(Field.nullable("", Types.MinorType.BIGINT.getType()));
+    targetVector.setTypeId(3, longTypeId);
+    longHolder.value = 10L;
+    targetVector.setSafe(3, longHolder);
+    targetVector.setValueCount(4);
+
+    assertVectorValuesEqual(targetVector, new Object[]{1, 2, null, 10L});
+    return targetVector;
+  }
+
+  private DenseUnionVector getDeltaVector() {
+    // create a vector, and populate it with values {7, null, 8L, 9.0f}
+
+    final NullableIntHolder intHolder = new NullableIntHolder();
+    intHolder.isSet = 1;
+    final NullableBigIntHolder longHolder = new NullableBigIntHolder();
+    longHolder.isSet = 1;
+    final NullableFloat4Holder floatHolder = new NullableFloat4Holder();
+    floatHolder.isSet = 1;
+
+    DenseUnionVector deltaVector = new DenseUnionVector("target vector", allocator, null, null);
+
+    while (deltaVector.getValueCapacity() < 4) {
+      deltaVector.reAlloc();
+    }
+    byte intTypeId = deltaVector.registerNewTypeId(Field.nullable("", Types.MinorType.INT.getType()));
+    deltaVector.setTypeId(0, intTypeId);
+    intHolder.value = 7;
+    deltaVector.setSafe(0, intHolder);
+    byte longTypeId = deltaVector.registerNewTypeId(Field.nullable("", Types.MinorType.BIGINT.getType()));
+    deltaVector.setTypeId(2, longTypeId);
+    longHolder.value = 8L;
+    deltaVector.setSafe(2, longHolder);
+    byte floatTypeId = deltaVector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT4.getType()));
+    deltaVector.setTypeId(3, floatTypeId);
+    floatHolder.value = 9.0f;
+    deltaVector.setSafe(3, floatHolder);
+
+    deltaVector.setValueCount(4);
+
+    assertVectorValuesEqual(deltaVector, new Object[]{7, null, 8L, 9.0f});
+    return deltaVector;
+  }
+
+  @Test
+  public void testAppendDenseUnionVector() {
+    try (DenseUnionVector targetVector = getTargetVector();
+         DenseUnionVector deltaVector = getDeltaVector()) {
+
+      // append
+      VectorAppender appender = new VectorAppender(targetVector);
+      deltaVector.accept(appender, null);
+      assertVectorValuesEqual(targetVector, new Object[] {1, 2, null, 10L, 7, null, 8L, 9.0f});
+    }
+
+    // test reverse append
+    try (DenseUnionVector targetVector = getTargetVector();
+         DenseUnionVector deltaVector = getDeltaVector()) {
+
+      // append
+      VectorAppender appender = new VectorAppender(deltaVector);
+      targetVector.accept(appender, null);
+      assertVectorValuesEqual(deltaVector, new Object[] {7, null, 8L, 9.0f, 1, 2, null, 10L});
+    }
+  }
+
+  /**
+   * Test appending dense union vectors where the child vectors do not match.
+   */
+  @Test
+  public void testAppendDenseUnionVectorMismatch() {
+    final NullableIntHolder intHolder = new NullableIntHolder();
+    intHolder.isSet = 1;
+
+    final NullableBigIntHolder longHolder = new NullableBigIntHolder();
+    longHolder.isSet = 1;
+
+    final NullableFloat4Holder floatHolder = new NullableFloat4Holder();
+    floatHolder.isSet = 1;
+
+    try (DenseUnionVector targetVector = new DenseUnionVector("target vector" , allocator, null, null);
+         DenseUnionVector deltaVector = new DenseUnionVector("target vector" , allocator, null, null)) {
+      targetVector.allocateNew();
+      deltaVector.allocateNew();
+
+      // populate the target vector with values {1, 2L}
+      while (targetVector.getValueCapacity() < 2) {
+        targetVector.reAlloc();
+      }
+      byte intTypeId = targetVector.registerNewTypeId(Field.nullable("", Types.MinorType.INT.getType()));
+      targetVector.setTypeId(0, intTypeId);
+      intHolder.value = 1;
+      targetVector.setSafe(0, intHolder);
+      byte longTypeId = targetVector.registerNewTypeId(Field.nullable("", Types.MinorType.BIGINT.getType()));
+      targetVector.setTypeId(1, longTypeId);
+      longHolder.value = 2L;
+      targetVector.setSafe(1, longHolder);
+      targetVector.setValueCount(2);
+
+      assertVectorValuesEqual(targetVector, new Object[] {1, 2L});
+
+      // populate the delta vector with values {3, 5.0f}
+      while (deltaVector.getValueCapacity() < 2) {
+        deltaVector.reAlloc();
+      }
+      intTypeId = deltaVector.registerNewTypeId(Field.nullable("", Types.MinorType.INT.getType()));
+      deltaVector.setTypeId(0, intTypeId);
+      intHolder.value = 3;
+      deltaVector.setSafe(0, intHolder);
+      byte floatTypeId = deltaVector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT4.getType()));
+      deltaVector.setTypeId(1, floatTypeId);
+      floatHolder.value = 5.0f;
+      deltaVector.setSafe(1, floatHolder);
+      deltaVector.setValueCount(2);
+
+      assertVectorValuesEqual(deltaVector, new Object[] {3, 5.0f});
+
+      // append
+      VectorAppender appender = new VectorAppender(targetVector);
+      assertThrows(IllegalArgumentException.class,
+          () -> deltaVector.accept(appender, null));
+    }
+  }
+
   @Test
   public void testAppendVectorNegative() {
     final int vectorLength = 10;
@@ -332,6 +485,13 @@ public class TestVectorAppender {
 
       assertThrows(IllegalArgumentException.class,
           () -> delta.accept(appender, null));
+    }
+  }
+
+  private void assertVectorValuesEqual(ValueVector vector, Object[] values) {
+    assertEquals(vector.getValueCount(), values.length);
+    for (int i = 0; i < values.length; i++) {
+      assertEquals(vector.getObject(i), values[i]);
     }
   }
 
