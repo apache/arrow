@@ -65,6 +65,18 @@ macro_rules! compare_op {
     }};
 }
 
+pub fn no_simd_compare_op<T, F>(
+    left: &PrimitiveArray<T>,
+    right: &PrimitiveArray<T>,
+    op: F,
+) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+    F: Fn(T::Native, T::Native) -> bool,
+{
+    compare_op!(left, right, op)
+}
+
 struct RegexCache<'a> {
     map: HashMap<&'a str, Regex>,
 }
