@@ -1245,7 +1245,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     while (index >= getValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
-    final int startOffset = getStartOffset(index);
+    final int startOffset = lastSet < 0 ? 0 : getStartOffset(lastSet + 1);
     while (valueBuffer.capacity() < (startOffset + dataLength)) {
       reallocDataBuffer();
     }
