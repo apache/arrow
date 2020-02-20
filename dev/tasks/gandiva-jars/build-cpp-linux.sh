@@ -22,8 +22,8 @@ source /multibuild/manylinux_utils.sh
 # Quit on failure
 set -e
 
-PYTHON_VERSION=2.7
-CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} 16)"
+PYTHON_VERSION=3.6
+CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION})"
 PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
 
@@ -69,4 +69,3 @@ popd
 
 # copy the library to distribution
 cp -L  /arrow-dist/lib/libgandiva_jni.so /io/dist
-

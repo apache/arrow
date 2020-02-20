@@ -97,7 +97,6 @@ groups:
     - test-ubuntu-c-glib
     - test-debian-ruby
     - test-ubuntu-ruby
-    - test-conda-python-2.7
     - test-conda-python-3.6
     - test-conda-python-3.7
     - test-conda-python-3.8
@@ -115,8 +114,6 @@ groups:
     - test-ubuntu-18.04-r-sanitizer
     - test-debian-10-go-1.12
     - test-ubuntu-18.04-docs
-    - test-conda-python-2.7-pandas-latest
-    - test-conda-python-2.7-pandas-master
     - test-conda-python-3.7-pandas-latest
     - test-conda-python-3.7-pandas-master
     - test-conda-python-3.8-pandas-latest
@@ -141,7 +138,6 @@ groups:
     - test-ubuntu-c-glib
     - test-debian-ruby
     - test-ubuntu-ruby
-    - test-conda-python-2.7
     - test-conda-python-3.6
     - test-conda-python-3.7
     - test-conda-python-3.8
@@ -175,7 +171,6 @@ groups:
     - test-ubuntu-c-glib
 
   python:
-    - test-conda-python-2.7
     - test-conda-python-3.6
     - test-conda-python-3.7
     - test-conda-python-3.8
@@ -199,8 +194,6 @@ groups:
     - test-ubuntu-ruby
 
   integration:
-    - test-conda-python-2.7-pandas-latest
-    - test-conda-python-2.7-pandas-master
     - test-conda-python-3.7-pandas-latest
     - test-conda-python-3.7-pandas-master
     - test-conda-python-3.8-pandas-latest
@@ -269,7 +262,6 @@ groups:
     - test-ubuntu-c-glib
     - test-debian-ruby
     - test-ubuntu-ruby
-    - test-conda-python-2.7
     - test-conda-python-3.6
     - test-conda-python-3.7
     - test-debian-10-python-3
@@ -285,7 +277,6 @@ groups:
     - test-ubuntu-18.04-r-sanitizer
     - test-debian-10-go-1.12
     - test-ubuntu-18.04-docs
-    - test-conda-python-2.7-pandas-latest
     - test-conda-python-3.7-pandas-latest
     - test-conda-python-3.7-pandas-master
     - test-conda-python-3.8-pandas-latest
@@ -1756,19 +1747,6 @@ tasks:
         - docker-compose build ubuntu-ruby
         - docker-compose run ubuntu-ruby
 
-  test-conda-python-2.7:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
-    params:
-      commands:
-        - export PYTHON=2.7
-        - docker-compose pull --ignore-pull-failures conda-cpp
-        - docker-compose pull --ignore-pull-failures conda-python
-        - docker-compose build conda-cpp
-        - docker-compose build conda-python
-        - docker-compose run conda-python
-
   test-conda-python-3.6:
     ci: circle
     platform: linux
@@ -1964,20 +1942,6 @@ tasks:
         - docker-compose run ubuntu-docs
 
   ############################## Integration tests ############################
-
-  test-conda-python-2.7-pandas-latest:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
-    params:
-      commands:
-        - export PYTHON=2.7 PANDAS=latest
-        - docker-compose pull --ignore-pull-failures conda-cpp
-        - docker-compose pull --ignore-pull-failures conda-python
-        - docker-compose build conda-cpp
-        - docker-compose build conda-python
-        - docker-compose build --no-cache conda-python-pandas
-        - docker-compose run conda-python-pandas
 
   test-conda-python-3.7-pandas-latest:
     ci: circle

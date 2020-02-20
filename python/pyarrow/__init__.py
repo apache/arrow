@@ -212,6 +212,7 @@ def _has_pkg_config(pkgname):
                                 '--exists', pkgname]) == 0
     except OSError:
         # TODO: replace with FileNotFoundError once we ditch 2.7
+        # Update: we have ditched 2.7
         return False
 
 
