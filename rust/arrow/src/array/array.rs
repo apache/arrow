@@ -645,26 +645,6 @@ def_numeric_from_vec!(
     i64,
     DataType::Duration(TimeUnit::Nanosecond)
 );
-def_numeric_from_vec!(
-    TimestampSecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Second, None)
-);
-def_numeric_from_vec!(
-    TimestampMillisecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Millisecond, None)
-);
-def_numeric_from_vec!(
-    TimestampMicrosecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Microsecond, None)
-);
-def_numeric_from_vec!(
-    TimestampNanosecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Nanosecond, None)
-);
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
     /// Construct a timestamp array from a vec of i64 values and an optional timezone
@@ -1834,37 +1814,33 @@ mod tests {
 
     #[test]
     fn test_timestamp_array_from_vec() {
-        let arr = TimestampSecondArray::from(vec![Some(1), None, Some(-5)]);
-        assert_eq!(3, arr.len());
+        let arr = TimestampSecondArray::from_vec(vec![1, -5], None);
+        assert_eq!(2, arr.len());
         assert_eq!(0, arr.offset());
-        assert_eq!(1, arr.null_count());
+        assert_eq!(0, arr.null_count());
         assert_eq!(1, arr.value(0));
-        assert!(arr.is_null(1));
-        assert_eq!(-5, arr.value(2));
+        assert_eq!(-5, arr.value(1));
 
-        let arr = TimestampMillisecondArray::from(vec![Some(1), None, Some(-5)]);
-        assert_eq!(3, arr.len());
+        let arr = TimestampMillisecondArray::from_vec(vec![1, -5], None);
+        assert_eq!(2, arr.len());
         assert_eq!(0, arr.offset());
-        assert_eq!(1, arr.null_count());
+        assert_eq!(0, arr.null_count());
         assert_eq!(1, arr.value(0));
-        assert!(arr.is_null(1));
-        assert_eq!(-5, arr.value(2));
+        assert_eq!(-5, arr.value(1));
 
-        let arr = TimestampMicrosecondArray::from(vec![Some(1), None, Some(-5)]);
-        assert_eq!(3, arr.len());
+        let arr = TimestampMicrosecondArray::from_vec(vec![1, -5], None);
+        assert_eq!(2, arr.len());
         assert_eq!(0, arr.offset());
-        assert_eq!(1, arr.null_count());
+        assert_eq!(0, arr.null_count());
         assert_eq!(1, arr.value(0));
-        assert!(arr.is_null(1));
-        assert_eq!(-5, arr.value(2));
+        assert_eq!(-5, arr.value(1));
 
-        let arr = TimestampNanosecondArray::from(vec![Some(1), None, Some(-5)]);
-        assert_eq!(3, arr.len());
+        let arr = TimestampNanosecondArray::from_vec(vec![1, -5], None);
+        assert_eq!(2, arr.len());
         assert_eq!(0, arr.offset());
-        assert_eq!(1, arr.null_count());
+        assert_eq!(0, arr.null_count());
         assert_eq!(1, arr.value(0));
-        assert!(arr.is_null(1));
-        assert_eq!(-5, arr.value(2));
+        assert_eq!(-5, arr.value(1));
     }
 
     #[test]

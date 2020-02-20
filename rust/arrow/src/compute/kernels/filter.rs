@@ -157,10 +157,10 @@ mod tests {
     use super::*;
 
     macro_rules! def_temporal_test {
-        ($test:ident, $array_type: ident) => {
+        ($test:ident, $array_type: ident, $data: expr) => {
             #[test]
             fn $test() {
-                let a = $array_type::from(vec![1, 2, 3, 4]);
+                let a = $data;
                 let b = BooleanArray::from(vec![true, false, true, false]);
                 let c = filter(&a, &b).unwrap();
                 let d = c.as_ref().as_any().downcast_ref::<$array_type>().unwrap();
@@ -171,20 +171,76 @@ mod tests {
         };
     }
 
-    def_temporal_test!(test_filter_date32, Date32Array);
-    def_temporal_test!(test_filter_date64, Date64Array);
-    def_temporal_test!(test_filter_time32_second, Time32SecondArray);
-    def_temporal_test!(test_filter_time32_millisecond, Time32MillisecondArray);
-    def_temporal_test!(test_filter_time64_microsecond, Time64MicrosecondArray);
-    def_temporal_test!(test_filter_time64_nanosecond, Time64NanosecondArray);
-    def_temporal_test!(test_filter_duration_second, DurationSecondArray);
-    def_temporal_test!(test_filter_duration_millisecond, DurationMillisecondArray);
-    def_temporal_test!(test_filter_duration_microsecond, DurationMicrosecondArray);
-    def_temporal_test!(test_filter_duration_nanosecond, DurationNanosecondArray);
-    def_temporal_test!(test_filter_timestamp_second, TimestampSecondArray);
-    def_temporal_test!(test_filter_timestamp_millisecond, TimestampMillisecondArray);
-    def_temporal_test!(test_filter_timestamp_microsecond, TimestampMicrosecondArray);
-    def_temporal_test!(test_filter_timestamp_nanosecond, TimestampNanosecondArray);
+    def_temporal_test!(
+        test_filter_date32,
+        Date32Array,
+        Date32Array::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_date64,
+        Date64Array,
+        Date64Array::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_time32_second,
+        Time32SecondArray,
+        Time32SecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_time32_millisecond,
+        Time32MillisecondArray,
+        Time32MillisecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_time64_microsecond,
+        Time64MicrosecondArray,
+        Time64MicrosecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_time64_nanosecond,
+        Time64NanosecondArray,
+        Time64NanosecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_duration_second,
+        DurationSecondArray,
+        DurationSecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_duration_millisecond,
+        DurationMillisecondArray,
+        DurationMillisecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_duration_microsecond,
+        DurationMicrosecondArray,
+        DurationMicrosecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_duration_nanosecond,
+        DurationNanosecondArray,
+        DurationNanosecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_timestamp_second,
+        TimestampSecondArray,
+        TimestampSecondArray::from_vec(vec![1, 2, 3, 4], None)
+    );
+    def_temporal_test!(
+        test_filter_timestamp_millisecond,
+        TimestampMillisecondArray,
+        TimestampMillisecondArray::from_vec(vec![1, 2, 3, 4], None)
+    );
+    def_temporal_test!(
+        test_filter_timestamp_microsecond,
+        TimestampMicrosecondArray,
+        TimestampMicrosecondArray::from_vec(vec![1, 2, 3, 4], None)
+    );
+    def_temporal_test!(
+        test_filter_timestamp_nanosecond,
+        TimestampNanosecondArray,
+        TimestampNanosecondArray::from_vec(vec![1, 2, 3, 4], None)
+    );
 
     #[test]
     fn test_filter_array() {
