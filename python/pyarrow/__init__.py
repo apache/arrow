@@ -210,9 +210,7 @@ def _has_pkg_config(pkgname):
     try:
         return subprocess.call([_get_pkg_config_executable(),
                                 '--exists', pkgname]) == 0
-    except OSError:
-        # TODO: replace with FileNotFoundError once we ditch 2.7
-        # Update: we have ditched 2.7
+    except FileNotFoundError:
         return False
 
 
