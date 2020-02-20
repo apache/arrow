@@ -21,8 +21,11 @@ import os
 import re
 import glob
 import time
+import logging
 import mimetypes
 import textwrap
+import requests
+import http.client as http_client
 import concurrent.futures
 from io import StringIO
 from pathlib import Path
@@ -49,6 +52,17 @@ except ImportError:
     PygitRemoteCallbacks = object
 else:
     PygitRemoteCallbacks = pygit2.RemoteCallbacks
+
+
+# initialize logging
+logging.basicConfig()
+logging.getLogger().setLevel(logging.DEBUG)
+
+# enable verbose logging for requests
+http_client.HTTPConnection.debuglevel = 1
+requests_log = logging.getLogger("requests.packages.urllib3")
+requests_log.setLevel(logging.DEBUG)
+requests_log.propagate = True
 
 
 CWD = Path(__file__).parent.absolute()
@@ -554,7 +568,8 @@ class Repo:
                     click.echo('Attempt {} has finished.'.format(i + 1))
                     return result
                 except github3.exceptions.ResponseError as e:
-                    click.echo('Attempt {} has failed.'.format(i + 1))
+                    click.echo('Attempt {} has failed with message: {}.'
+                               .format(i + 1, str(e)))
                     if i >= (max_retries - 1):
                         raise e
                     else:
