@@ -197,7 +197,7 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
   }
 
   Result<int64_t> GetSize() final {
-    auto guard = lock_.exclusive_guard();
+    auto guard = lock_.shared_guard();
     return derived()->DoGetSize();
   }
 
