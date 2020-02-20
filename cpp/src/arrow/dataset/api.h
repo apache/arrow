@@ -21,6 +21,8 @@
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
+#ifdef ARROW_PARQUET
 #include "arrow/dataset/file_parquet.h"
+#endif  // ARROW_PARQUET
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"

@@ -808,6 +808,7 @@ endif()
 add_subdirectory(src/arrow)
 
 if(ARROW_PARQUET)
+  add_definitions(-DARROW_PARQUET)
   add_subdirectory(src/parquet)
   add_subdirectory(tools/parquet)
   if(PARQUET_BUILD_EXAMPLES)
