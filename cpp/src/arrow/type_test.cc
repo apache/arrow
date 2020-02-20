@@ -50,11 +50,15 @@ TEST(TestField, ToString) {
   auto metadata = key_value_metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto f0 = field("f0", int32(), false, metadata);
 
-  std::string result = f0->ToString();
+  std::string result = f0->ToString(/*print_metadata=*/true);
   std::string expected = R"(f0: int32 not null
 -- metadata --
 foo: bizz
 bar: buzz)";
+  ASSERT_EQ(expected, result);
+
+  result = f0->ToString();
+  expected = "f0: int32 not null";
   ASSERT_EQ(expected, result);
 }
 
@@ -340,13 +344,24 @@ TEST_F(TestSchema, ToString) {
   auto f2 = field("f2", utf8());
   auto f3 = field("f3", list(int16()));
 
-  auto schema = ::arrow::schema({f0, f1, f2, f3});
+  auto metadata = key_value_metadata({"foo"}, {"bar"});
+  auto schema = ::arrow::schema({f0, f1, f2, f3}, metadata);
 
   std::string result = schema->ToString();
   std::string expected = R"(f0: int32
 f1: uint8 not null
 f2: string
 f3: list<item: int16>)";
+
+  ASSERT_EQ(expected, result);
+
+  result = schema->ToString(/*print_metadata=*/true);
+  expected = R"(f0: int32
+f1: uint8 not null
+f2: string
+f3: list<item: int16>
+-- metadata --
+foo: bar)";
 
   ASSERT_EQ(expected, result);
 }

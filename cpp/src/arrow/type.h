@@ -430,7 +430,7 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   bool IsCompatibleWith(const std::shared_ptr<Field>& other) const;
 
   /// \brief Return a string representation ot the field
-  std::string ToString() const;
+  std::string ToString(bool print_metadata = false) const;
 
   /// \brief Return the field name
   const std::string& name() const { return name_; }
@@ -1452,7 +1452,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   std::shared_ptr<const KeyValueMetadata> metadata() const;
 
   /// \brief Render a string representation of the schema suitable for debugging
-  std::string ToString() const;
+  std::string ToString(bool print_metadata = false) const;
 
   Status AddField(int i, const std::shared_ptr<Field>& field,
                   std::shared_ptr<Schema>* out) const;

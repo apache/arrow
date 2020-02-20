@@ -20,5 +20,5 @@ expect_parquet_roundtrip <- function(tab, ...) {
   on.exit(unlink(tf))
 
   write_parquet(tab, tf, ...)
-  expect_equal(read_parquet(tf, as_data_frame = FALSE), tab)
+  expect_equivalent(read_parquet(tf, as_data_frame = FALSE), tab)
 }
