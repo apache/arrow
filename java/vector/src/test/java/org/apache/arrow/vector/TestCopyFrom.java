@@ -23,6 +23,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.time.Period;
 
@@ -1069,4 +1070,27 @@ public class TestCopyFrom {
       }
     }
   }
+
+  @Test //https://issues.apache.org/jira/browse/ARROW-7837
+  public void testCopySafeArrow7837() {
+    try (VarCharVector vc1 = new VarCharVector("vc1", allocator);
+         VarCharVector vc2 = new VarCharVector("vc2", allocator);
+    ) {
+      vc2.setInitialCapacity(20, 0.5);
+
+      vc1.setSafe(0, "1234567890".getBytes(Charset.forName("utf-8")));
+      assertFalse(vc1.isNull(0));
+      assertEquals(vc1.getObject(0).toString(), "1234567890");
+
+      vc2.copyFromSafe(0, 0, vc1);
+      assertFalse(vc2.isNull(0));
+      assertEquals(vc2.getObject(0).toString(), "1234567890");
+
+      vc2.copyFromSafe(0, 5, vc1);
+      assertFalse(vc2.isNull(5));
+      assertEquals(vc2.getObject(5).toString(), "1234567890");
+    }
+  }
+
+
 }
