@@ -269,7 +269,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CParquetFileFormatReaderOptions \
             "arrow::dataset::ParquetFileFormat::ReaderOptions":
-        c_bool use_buffered_stream
         int64_t buffer_size
         unordered_set[c_string] dict_columns
 

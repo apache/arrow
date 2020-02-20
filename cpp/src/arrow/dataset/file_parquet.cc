@@ -90,15 +90,18 @@ static Result<std::unique_ptr<parquet::ParquetFileReader>> OpenReader(
 }
 
 static parquet::ReaderProperties MakeReaderProperties(
-    const ParquetFileFormat& format, MemoryPool* pool = default_memory_pool()) {
+    const ParquetFileFormat& format, bool use_threads = false,
+    MemoryPool* pool = default_memory_pool()) {
   parquet::ReaderProperties properties(pool);
-  if (format.reader_options.use_buffered_stream) {
-    properties.enable_buffered_stream();
-  } else {
-    properties.disable_buffered_stream();
-  }
-  properties.set_buffer_size(format.reader_options.buffer_size);
+
   properties.file_decryption_properties(format.reader_options.file_decryption_properties);
+  properties.set_buffer_size(format.reader_options.buffer_size);
+  if (use_threads) {
+    // When using a single reader from multiple threads, a buffered stream must be used to
+    // avoid clobbering the cursor of the underlying file.
+    properties.enable_buffered_stream();
+  }
+
   return properties;
 }
 
@@ -367,7 +370,7 @@ Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
 Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
     const FileSource& source, std::shared_ptr<ScanOptions> options,
     std::shared_ptr<ScanContext> context) const {
-  auto properties = MakeReaderProperties(*this, context->pool);
+  auto properties = MakeReaderProperties(*this, options->use_threads, context->pool);
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source, std::move(properties)));
 
   auto arrow_properties = MakeArrowReaderProperties(*this, options->batch_size, *reader);

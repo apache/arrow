@@ -1425,17 +1425,16 @@ RcppExport SEXP _arrow_dataset___FileFormat__type_name(SEXP format_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(bool use_buffered_stream, int64_t buffer_size, CharacterVector dict_columns);
-RcppExport SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(int64_t buffer_size, CharacterVector dict_columns);
+RcppExport SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP buffer_size_sexp, SEXP dict_columns_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<bool>::type use_buffered_stream(use_buffered_stream_sexp);
 	Rcpp::traits::input_parameter<int64_t>::type buffer_size(buffer_size_sexp);
 	Rcpp::traits::input_parameter<CharacterVector>::type dict_columns(dict_columns_sexp);
-	return Rcpp::wrap(dataset___ParquetFileFormat__Make(use_buffered_stream, buffer_size, dict_columns));
+	return Rcpp::wrap(dataset___ParquetFileFormat__Make(buffer_size, dict_columns));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
+RcppExport SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP buffer_size_sexp, SEXP dict_columns_sexp){
 	Rf_error("Cannot call dataset___ParquetFileFormat__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -5902,7 +5901,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___FSSFactory__Make1", (DL_FUNC) &_arrow_dataset___FSSFactory__Make1, 3}, 
 		{ "_arrow_dataset___FSSFactory__Make3", (DL_FUNC) &_arrow_dataset___FSSFactory__Make3, 4}, 
 		{ "_arrow_dataset___FileFormat__type_name", (DL_FUNC) &_arrow_dataset___FileFormat__type_name, 1}, 
-		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 3}, 
+		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 2}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___SFactory__Finish1", (DL_FUNC) &_arrow_dataset___SFactory__Finish1, 1}, 
 		{ "_arrow_dataset___SFactory__Finish2", (DL_FUNC) &_arrow_dataset___SFactory__Finish2, 2}, 

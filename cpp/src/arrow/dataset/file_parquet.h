@@ -50,7 +50,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     /// members of parquet::ReaderProperties.
     ///
     /// @{
-    bool use_buffered_stream = parquet::DEFAULT_USE_BUFFERED_STREAM;
     int64_t buffer_size = parquet::DEFAULT_BUFFER_SIZE;
     std::shared_ptr<parquet::FileDecryptionProperties> file_decryption_properties;
     /// @}

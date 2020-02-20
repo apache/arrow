@@ -81,18 +81,11 @@ cdef class ParquetFileFormatReaderOptions:
         self.options = &fmt.parquet_format.reader_options
 
     @property
-    def use_buffered_stream(self):
-        """Read files through buffered input streams rather than
-        loading entire chunks at a time."""
-        return self.options.use_buffered_stream
-
-    @use_buffered_stream.setter
-    def use_buffered_stream(self, bint value):
-        self.options.use_buffered_stream = value
-
-    @property
     def buffer_size(self):
-        """Size of buffered stream, if enabled."""
+        """During a threaded scan, files must be read through buffered input
+        streams to guard against collisions. By default their buffer size is
+        1024 bytes. A larger buffer size may yield more rapid threaded scans
+        at the cost of greater memory overhead."""
         return self.options.buffer_size
 
     @buffer_size.setter

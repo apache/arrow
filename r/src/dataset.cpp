@@ -68,16 +68,14 @@ std::string dataset___FileFormat__type_name(
 
 // [[arrow::export]]
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
-    bool use_buffered_stream, int64_t buffer_size, CharacterVector dict_columns) {
+    int64_t buffer_size, CharacterVector dict_columns) {
   auto fmt = ds::ParquetFileFormat::Make();
 
-  fmt->reader_options.use_buffered_stream = use_buffered_stream;
   fmt->reader_options.buffer_size = buffer_size;
 
-  auto dict_columns_vector = Rcpp::as<std::vector<std::string>>(dict_columns);
-  auto& d = fmt->reader_options.dict_columns;
-  std::move(dict_columns_vector.begin(), dict_columns_vector.end(),
-            std::inserter(d, d.end()));
+  for (auto& name : Rcpp::as<std::vector<std::string>>(dict_columns)) {
+    fmt->reader_options.dict_columns.insert(std::move(name));
+  }
 
   return fmt;
 }
