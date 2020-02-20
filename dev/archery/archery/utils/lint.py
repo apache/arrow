@@ -118,13 +118,14 @@ def python_linter(src):
                                      check=False))
 
 
-def python_numpydoc(whitelist=None, blacklist=None):
+def python_numpydoc(packages=None, whitelist=None, blacklist=None):
     """Run numpydoc linter on python.
 
     Pyarrow must be available for import.
     """
     logger.info("Running python docstring linters")
-    packages = {
+    # by default try to run on all pyarrow package
+    packages = packages or {
         'pyarrow',
         'pyarrow.compute',
         'pyarrow.csv',

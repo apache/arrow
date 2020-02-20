@@ -250,15 +250,25 @@ def lint(ctx, src, **kwargs):
 
 
 @archery.command(short_help="Lint python docstring with NumpyDoc")
+@click.argument('packages', nargs=-1)
 @click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 @click.option("--whitelist", "-w", help="Allow only these rules")
 @click.option("--blacklist", "-b", help="Disallow these rules")
-def numpydoc(src, whitelist, blacklist):
+def numpydoc(src, packages, whitelist, blacklist):
+    """
+    Pass list of packages as arguments to restrict the validation.
+
+    Examples
+    --------
+    archery numpydoc pyarrow.dataset
+    archery numpydoc pyarrow.csv pyarrow.json pyarrow.parquet
+    """
     blacklist = blacklist or {'GL01', 'SA01', 'EX01', 'ES01'}
     try:
-        results = python_numpydoc(whitelist=whitelist, blacklist=blacklist)
+        results = python_numpydoc(packages=set(packages), whitelist=whitelist,
+                                  blacklist=blacklist)
         for result in results:
             result.ok()
     except LintValidationException:
