@@ -159,7 +159,7 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
 
 class TestParquetFileFormat : public ParquetBufferFixtureMixin {
  protected:
-  std::shared_ptr<ParquetFileFormat> format_ = ParquetFileFormat::Make();
+  std::shared_ptr<ParquetFileFormat> format_ = std::make_shared<ParquetFileFormat>();
   std::shared_ptr<ScanOptions> opts_;
   std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 };

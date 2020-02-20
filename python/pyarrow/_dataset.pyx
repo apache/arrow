@@ -118,7 +118,7 @@ cdef class ParquetFileFormat(FileFormat):
         CParquetFileFormat* parquet_format
 
     def __init__(self, dict reader_options=dict()):
-        self.init(<shared_ptr[CFileFormat]> CParquetFileFormat.Make())
+        self.init(<shared_ptr[CFileFormat]> make_shared[CParquetFileFormat]())
         self.parquet_format = <CParquetFileFormat*> self.wrapped.get()
         for name, value in reader_options.items():
             setattr(self.reader_options, name, value)

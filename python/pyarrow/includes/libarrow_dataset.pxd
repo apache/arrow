@@ -275,8 +275,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CParquetFileFormat "arrow::dataset::ParquetFileFormat"(
             CFileFormat):
-        @staticmethod
-        shared_ptr[CParquetFileFormat] Make()
         CParquetFileFormatReaderOptions reader_options
 
     cdef cppclass CParquetFragment "arrow::dataset::ParquetFragment"(

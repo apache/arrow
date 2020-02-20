@@ -118,6 +118,8 @@ std::shared_ptr<Table> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner)
 }
 
 int main(int argc, char** argv) {
+  auto format = std::make_shared<ds::ParquetFileFormat>();
+
   if (argc != 2) {
     // Fake success for CI purposes.
     return EXIT_SUCCESS;
@@ -126,7 +128,7 @@ int main(int argc, char** argv) {
   std::string path;
   auto fs = GetFileSystemFromUri(argv[1], &path);
 
-  auto dataset = GetDatasetFromPath(fs, ds::ParquetFileFormat::Make(), path);
+  auto dataset = GetDatasetFromPath(fs, format, path);
 
   auto scanner = GetScannerFromDataset(dataset, conf.projected_columns, conf.filter,
                                        conf.use_threads);

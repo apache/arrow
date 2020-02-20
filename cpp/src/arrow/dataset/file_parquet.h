@@ -39,13 +39,15 @@ namespace arrow {
 namespace dataset {
 
 /// \brief A FileFormat implementation that reads from Parquet files
-class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
+class ARROW_DS_EXPORT ParquetFileFormat
+    : public FileFormat,
+      public std::enable_shared_from_this<ParquetFileFormat> {
  public:
-  static std::shared_ptr<ParquetFileFormat> Make() {
-    std::shared_ptr<ParquetFileFormat> out{new ParquetFileFormat};
-    out->weak_this_ = out;
-    return out;
-  }
+  ParquetFileFormat() = default;
+
+  /// Convenience constructor which copies properties from a parquet::ReaderProperties.
+  /// memory_pool will be ignored.
+  explicit ParquetFileFormat(const parquet::ReaderProperties& reader_properties);
 
   struct ReaderOptions {
     /// \defgroup parquet-file-format-reader-properties properties which correspond to
@@ -87,11 +89,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   Result<std::shared_ptr<Fragment>> MakeFragment(
       FileSource source, std::shared_ptr<ScanOptions> options) override;
-
- private:
-  ParquetFileFormat() = default;
-
-  std::weak_ptr<ParquetFileFormat> weak_this_;
 };
 
 class ARROW_DS_EXPORT ParquetFragment : public FileFragment {

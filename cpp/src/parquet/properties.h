@@ -68,8 +68,8 @@ class PARQUET_EXPORT ReaderProperties {
     file_decryption_properties_ = std::move(decryption);
   }
 
-  FileDecryptionProperties* file_decryption_properties() {
-    return file_decryption_properties_.get();
+  const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties() const {
+    return file_decryption_properties_;
   }
 
  private:

@@ -329,6 +329,13 @@ class ParquetScanTaskIterator {
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
 
+ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties) {
+  reader_options.use_buffered_stream = reader_properties.is_buffered_stream_enabled();
+  reader_options.buffer_size = reader_properties.buffer_size();
+  reader_options.file_decryption_properties =
+      reader_properties.file_decryption_properties();
+}
+
 Result<bool> ParquetFileFormat::IsSupported(const FileSource& source) const {
   try {
     ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
@@ -378,8 +385,8 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
 
 Result<std::shared_ptr<Fragment>> ParquetFileFormat::MakeFragment(
     FileSource source, std::shared_ptr<ScanOptions> options) {
-  auto format = weak_this_.lock();
-  return std::make_shared<ParquetFragment>(std::move(source), format, std::move(options));
+  return std::make_shared<ParquetFragment>(std::move(source), shared_from_this(),
+                                           std::move(options));
 }
 
 }  // namespace dataset
