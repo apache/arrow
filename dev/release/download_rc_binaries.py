@@ -18,7 +18,6 @@
 #
 
 import re
-import sys
 
 import argparse
 import concurrent.futures as cf
