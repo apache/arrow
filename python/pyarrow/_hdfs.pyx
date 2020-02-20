@@ -32,10 +32,6 @@ cdef class HdfsOptions:
     ----------
     endpoint : tuple of (host, port) pair
         For example ('localhost', 8020).
-    driver : {'libhdfs', 'libhdfs3'}, default 'libhdfs'
-        Connect using libhdfs (JNI-based) or libhdfs3 (3rd-party C++ library
-        from Apache HAWQ (incubating)). Prefer libhdfs because libhdfs3 project
-        is not maintained anymore.
     replication : int, default 3
         Number of copies each block will have.
     buffer_size : int, default 0
@@ -51,12 +47,10 @@ cdef class HdfsOptions:
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, endpoint=None, driver=None, replication=None,
+    def __init__(self, endpoint=None, replication=None,
                  user=None, buffer_size=None, default_block_size=None):
         if endpoint is not None:
             self.endpoint = endpoint
-        if driver is not None:
-            self.driver = driver
         if replication is not None:
             self.replication = replication
         if user is not None:
@@ -94,22 +88,6 @@ cdef class HdfsOptions:
             raise TypeError('Endpoint must be a tuple of host port pair')
         self.options.connection_config.host = tobytes(value[0])
         self.options.connection_config.port = int(value[1])
-
-    @property
-    def driver(self):
-        if self.options.connection_config.driver == HdfsDriver_LIBHDFS3:
-            return 'libhdfs3'
-        else:
-            return 'libhdfs'
-
-    @driver.setter
-    def driver(self, value):
-        if value == 'libhdfs3':
-            self.options.connection_config.driver = HdfsDriver_LIBHDFS3
-        elif value == 'libhdfs':
-            self.options.connection_config.driver = HdfsDriver_LIBHDFS
-        else:
-            raise ValueError('Choose either libhdfs of libhdfs3')
 
     @property
     def user(self):

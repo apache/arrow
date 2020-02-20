@@ -559,12 +559,6 @@ def test_hdfs_options(hdfs_server):
     with pytest.raises(TypeError):
         options.endpoint = 'localhost:8000'
 
-    assert options.driver == 'libhdfs'
-    options.driver = 'libhdfs3'
-    assert options.driver == 'libhdfs3'
-    with pytest.raises(ValueError):
-        options.driver = 'unknown'
-
     assert options.replication == 3
     options.replication = 2
     assert options.replication == 2

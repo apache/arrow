@@ -334,11 +334,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
   HadoopFileSystemImpl() : driver_(NULLPTR), port_(0), fs_(NULLPTR) {}
 
   Status Connect(const HdfsConnectionConfig* config) {
-    if (config->driver == HdfsDriver::LIBHDFS3) {
-      RETURN_NOT_OK(ConnectLibHdfs3(&driver_));
-    } else {
-      RETURN_NOT_OK(ConnectLibHdfs(&driver_));
-    }
+    RETURN_NOT_OK(ConnectLibHdfs(&driver_));
 
     // connect to HDFS with the builder object
     hdfsBuilder* builder = driver_->NewBuilder();
@@ -672,11 +668,6 @@ Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
 Status HaveLibHdfs() {
   internal::LibHdfsShim* driver;
   return internal::ConnectLibHdfs(&driver);
-}
-
-Status HaveLibHdfs3() {
-  internal::LibHdfsShim* driver;
-  return internal::ConnectLibHdfs3(&driver);
 }
 
 }  // namespace io

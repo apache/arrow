@@ -96,7 +96,6 @@ LibraryHandle libjvm_handle = nullptr;
 // Helper functions for dlopens
 Result<std::vector<PlatformFilename>> get_potential_libjvm_paths();
 Result<std::vector<PlatformFilename>> get_potential_libhdfs_paths();
-Result<std::vector<PlatformFilename>> get_potential_libhdfs3_paths();
 Result<LibraryHandle> try_dlopen(const std::vector<PlatformFilename>& potential_paths,
                                  const char* name);
 
@@ -159,34 +158,6 @@ Result<std::vector<PlatformFilename>> get_potential_libhdfs_paths() {
 
   // All paths with file name
   for (const auto& path : search_paths) {
-    ARROW_ASSIGN_OR_RAISE(auto full_path, path.Join(file_name));
-    potential_paths.push_back(std::move(full_path));
-  }
-
-  return potential_paths;
-}
-
-Result<std::vector<PlatformFilename>> get_potential_libhdfs3_paths() {
-  std::vector<PlatformFilename> potential_paths;
-  std::string file_name;
-
-// OS-specific file name
-#ifdef _WIN32
-  file_name = "hdfs3.dll";
-#elif __APPLE__
-  file_name = "libhdfs3.dylib";
-#else
-  file_name = "libhdfs3.so";
-#endif
-
-  // Common paths
-  ARROW_ASSIGN_OR_RAISE(auto search_paths, MakeFilenameVector({"", "."}));
-
-  // Path from environment variable
-  AppendEnvVarFilename("ARROW_LIBHDFS3_DIR", &search_paths);
-
-  // All paths with file name
-  for (auto& path : search_paths) {
     ARROW_ASSIGN_OR_RAISE(auto full_path, path.Join(file_name));
     potential_paths.push_back(std::move(full_path));
   }
@@ -304,7 +275,6 @@ Result<LibraryHandle> try_dlopen(const std::vector<PlatformFilename>& potential_
 #endif  // _WIN32
 
 LibHdfsShim libhdfs_shim;
-LibHdfsShim libhdfs3_shim;
 
 }  // namespace
 
@@ -360,28 +330,6 @@ Status ConnectLibHdfs(LibHdfsShim** driver) {
     ARROW_ASSIGN_OR_RAISE(shim->handle, try_dlopen(libhdfs_potential_paths, "libhdfs"));
   } else if (shim->handle == nullptr) {
     return Status::IOError("Prior attempt to load libhdfs failed");
-  }
-
-  *driver = shim;
-  return shim->GetRequiredSymbols();
-}
-
-Status ConnectLibHdfs3(LibHdfsShim** driver) {
-  static std::mutex lock;
-  std::lock_guard<std::mutex> guard(lock);
-
-  LibHdfsShim* shim = &libhdfs3_shim;
-
-  static bool shim_attempted = false;
-  if (!shim_attempted) {
-    shim_attempted = true;
-
-    shim->Initialize();
-
-    ARROW_ASSIGN_OR_RAISE(auto libhdfs3_potential_paths, get_potential_libhdfs3_paths());
-    ARROW_ASSIGN_OR_RAISE(shim->handle, try_dlopen(libhdfs3_potential_paths, "libhdfs3"));
-  } else if (shim->handle == nullptr) {
-    return Status::IOError("Prior attempt to load libhdfs3 failed");
   }
 
   *driver = shim;

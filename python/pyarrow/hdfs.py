@@ -36,12 +36,11 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         if driver == 'libhdfs':
             _maybe_set_hadoop_classpath()
 
-        self._connect(host, port, user, kerb_ticket, driver, extra_conf)
+        self._connect(host, port, user, kerb_ticket, extra_conf)
 
     def __reduce__(self):
         return (HadoopFileSystem, (self.host, self.port, self.user,
-                                   self.kerb_ticket, self.driver,
-                                   self.extra_conf))
+                                   self.kerb_ticket, self.extra_conf))
 
     def _isfilestore(self):
         """
@@ -177,7 +176,7 @@ def _libhdfs_walk_files_dirs(top_path, contents):
 
 
 def connect(host="default", port=0, user=None, kerb_ticket=None,
-            driver='libhdfs', extra_conf=None):
+            extra_conf=None):
     """
     Connect to an HDFS cluster. All parameters are optional and should
     only be set if the defaults need to be overridden.
@@ -192,9 +191,6 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     port : NameNode's port. Set to 0 for default or logical (HA) nodes.
     user : Username when connecting to HDFS; None implies login user.
     kerb_ticket : Path to Kerberos ticket cache.
-    driver : {'libhdfs', 'libhdfs3'}, default 'libhdfs'
-      Connect using libhdfs (JNI-based) or libhdfs3 (3rd-party C++
-      library from Apache HAWQ (incubating) )
     extra_conf : dict, default None
       extra Key/Value pairs for config; Will override any
       hdfs-site.xml properties
@@ -209,6 +205,6 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     filesystem : HadoopFileSystem
     """
     fs = HadoopFileSystem(host=host, port=port, user=user,
-                          kerb_ticket=kerb_ticket, driver=driver,
+                          kerb_ticket=kerb_ticket,
                           extra_conf=extra_conf)
     return fs

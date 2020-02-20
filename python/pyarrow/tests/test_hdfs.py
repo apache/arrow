@@ -37,7 +37,7 @@ from pyarrow.tests import util
 # HDFS tests
 
 
-def hdfs_test_client(driver='libhdfs'):
+def hdfs_test_client():
     host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
     user = os.environ.get('ARROW_HDFS_TEST_USER', None)
     try:
@@ -46,7 +46,7 @@ def hdfs_test_client(driver='libhdfs'):
         raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
                          'an integer')
 
-    return pa.hdfs.connect(host, port, user, driver=driver)
+    return pa.hdfs.connect(host, port, user)
 
 
 @pytest.mark.hdfs
@@ -66,7 +66,7 @@ class HdfsTestCases:
     @classmethod
     def setUpClass(cls):
         cls.check_driver()
-        cls.hdfs = hdfs_test_client(cls.DRIVER)
+        cls.hdfs = hdfs_test_client()
         cls.tmp_path = '/tmp/pyarrow-test-{}'.format(random.randint(0, 1000))
         cls.hdfs.mkdir(cls.tmp_path)
 
@@ -74,10 +74,6 @@ class HdfsTestCases:
     def tearDownClass(cls):
         cls.hdfs.delete(cls.tmp_path, recursive=True)
         cls.hdfs.close()
-
-    def test_unknown_driver(self):
-        with pytest.raises(ValueError):
-            hdfs_test_client(driver="not_a_driver_name")
 
     def test_pickle(self):
         s = pickle.dumps(self.hdfs)
@@ -87,7 +83,6 @@ class HdfsTestCases:
         assert h2.port == self.hdfs.port
         assert h2.user == self.hdfs.user
         assert h2.kerb_ticket == self.hdfs.kerb_ticket
-        assert h2.driver == self.hdfs.driver
         # smoketest unpickled client works
         h2.ls(self.tmp_path)
 
@@ -379,12 +374,14 @@ class HdfsTestCases:
 
 class TestLibHdfs(HdfsTestCases, unittest.TestCase):
 
-    DRIVER = 'libhdfs'
-
     @classmethod
     def check_driver(cls):
         if not pa.have_libhdfs():
-            pytest.skip('No libhdfs available on system')
+            message = 'No libhdfs available on system'
+            if os.environ.get('PYARROW_HDFS_TEST_LIBHDFS_REQUIRE'):
+                pytest.fail(message)
+            else:
+                pytest.skip(message)
 
     def test_orphaned_file(self):
         hdfs = hdfs_test_client()
@@ -394,16 +391,6 @@ class TestLibHdfs(HdfsTestCases, unittest.TestCase):
         f = hdfs.open(file_path)
         hdfs = None
         f = None  # noqa
-
-
-class TestLibHdfs3(HdfsTestCases, unittest.TestCase):
-
-    DRIVER = 'libhdfs3'
-
-    @classmethod
-    def check_driver(cls):
-        if not pa.have_libhdfs3():
-            pytest.skip('No libhdfs3 available on system')
 
 
 def _get_hdfs_uri(path):
@@ -422,8 +409,7 @@ def _get_hdfs_uri(path):
 @pytest.mark.pandas
 @pytest.mark.parquet
 @pytest.mark.fastparquet
-@pytest.mark.parametrize('client', ['libhdfs', 'libhdfs3'])
-def test_fastparquet_read_with_hdfs(client):
+def test_fastparquet_read_with_hdfs():
     from pandas.testing import assert_frame_equal
 
     try:
@@ -434,7 +420,7 @@ def test_fastparquet_read_with_hdfs(client):
     import pyarrow.parquet as pq
     fastparquet = pytest.importorskip('fastparquet')
 
-    fs = hdfs_test_client(client)
+    fs = hdfs_test_client()
 
     df = util.make_dataframe()
 
