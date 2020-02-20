@@ -37,7 +37,6 @@ fi
 
 # Test import and optional dependencies
 python -c "
-import sys
 import pyarrow
 import pyarrow.parquet
 import pyarrow.plasma

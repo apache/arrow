@@ -211,7 +211,6 @@ function run_unit_tests {
 function run_import_tests {
     # Test optional dependencies
     python -c "
-import sys
 import pyarrow
 import pyarrow.parquet
 import pyarrow.plasma
