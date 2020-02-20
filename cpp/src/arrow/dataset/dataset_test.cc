@@ -62,10 +62,10 @@ TEST_F(TestInMemoryDataset, GetFragments) {
 
   // It is safe to copy fragment multiple time since Scan() does not consume
   // the internal array.
-  auto dataset = InMemoryDataset(
+  auto dataset = std::make_shared<InMemoryDataset>(
       schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
 
-  AssertDatasetEquals(reader.get(), &dataset);
+  AssertDatasetEquals(reader.get(), dataset.get());
 }
 
 class TestTreeDataset : public DatasetFixtureMixin {};
