@@ -311,6 +311,10 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
     ... ])
 
     """
+    if type(paths_or_factories) is str:
+        return factory(paths_or_factories, filesystem=filesystem,
+                       partitioning=partitioning, format=format).finish()
+
     if not isinstance(paths_or_factories, list):
         paths_or_factories = [paths_or_factories]
 
