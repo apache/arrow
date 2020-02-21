@@ -23,6 +23,7 @@
 #include <memory>
 #include <utility>
 #include <vector>
+#include <sstream>
 
 #include "arrow/array.h"
 #include "arrow/buffer-builder.h"
@@ -418,6 +419,50 @@ class ColumnWriterImpl {
     total_bytes_written_ += pager_->WriteDataPage(page);
   }
 
+  ::arrow::Status AddMemoryConsumptionForPageIndex(int64_t new_memory_allocation) {
+      page_index_memory_consumption_ += new_memory_allocation;
+      return ::arrow::Status::OK();
+  }
+
+  void ReserveOffsetIndex(int64_t capacity) {
+    PARQUET_THROW_NOT_OK(AddMemoryConsumptionForPageIndex(capacity * sizeof(parquet::format::PageLocation)));
+    offset_index_.page_locations.reserve(capacity);
+  }
+
+  void AddLocationToOffsetIndex(const parquet::format::PageLocation location){
+    offset_index_.page_locations.push_back(location);
+  }
+   
+  void TruncateDown ( std::string min, int32_t max_length, std::string* result ){
+    *result = min.substr(0, std::min(static_cast<int32_t>(min.length()), max_length));
+  }
+
+  void TruncateUp ( std::string max, int32_t max_length, std::string* result){
+     if (max.length() <= (uint32_t) max_length) {
+       *result = max;
+     }
+
+      *result = max.substr(0, max_length);
+      int i = max_length - 1;
+      while (i > 0 && static_cast<int32_t>((*result)[i]) == -1) {
+        (*result)[i] += 1;
+        --i;
+      }
+      // We convert it to unsigned because signed overflow results in undefined behavior.
+      unsigned char uch = static_cast<unsigned char>((*result)[i]);
+      uch += 1;
+      (*result)[i] = uch;
+      if (i == 0 && (*result)[i] == 0) {
+         //PARQUET_THROW_NOT_OK();
+         return;
+      }
+      result->resize(i + 1);
+  }
+  
+  void AddPageStatsToColumnIndex() {
+    
+  }
+
   // Write multiple definition levels
   void WriteDefinitionLevels(int64_t num_levels, const int16_t* levels) {
     DCHECK(!closed_);
@@ -496,6 +541,16 @@ class ColumnWriterImpl {
 
   // ColumnIndex stores the statistics of the pages.
   parquet::format::ColumnIndex column_index_;
+
+  // Memory consumption of the min/max values in the page index.
+  int64_t page_index_memory_consumption_ = 0;
+
+
+  /// In parquet::ColumnIndex we store the min and max values for each page.
+  /// However, we don't want to store very long strings, so we truncate them.
+  /// The value of it must not be too small, since we don't want to truncate
+  /// non-string values.
+  static const int PAGE_INDEX_MAX_STRING_LENGTH = 64;
 
  private:
   void InitSinks() {
