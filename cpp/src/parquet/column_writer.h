@@ -95,6 +95,8 @@ class PARQUET_EXPORT PageWriter {
 
   virtual int64_t WriteDataPage(const CompressedDataPage& page) = 0;
 
+  virtual void WriteDataPagesWithIndex(const std::vector<CompressedDataPage> data_pages,int64_t& total_bytes_written) = 0;
+
   virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
 
   virtual bool has_compressor() = 0;

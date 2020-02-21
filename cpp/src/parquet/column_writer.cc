@@ -258,6 +258,10 @@ class SerializedPageWriter : public PageWriter {
     return current_pos - start_pos;
   }
 
+  void WriteDataPagesWithIndex(const std::vector<CompressedDataPage> data_pages,int64_t& total_bytes_written_) override {
+
+  }
+
   bool has_compressor() override { return (compressor_ != nullptr); }
 
   int64_t num_values() { return num_values_; }
@@ -322,6 +326,10 @@ class BufferedPageWriter : public PageWriter {
 
   int64_t WriteDataPage(const CompressedDataPage& page) override {
     return pager_->WriteDataPage(page);
+  }
+
+  void WriteDataPagesWithIndex(const std::vector<CompressedDataPage> data_pages,int64_t& total_bytes_written_) override {
+      pager_->WriteDataPagesWithIndex(data_pages,total_bytes_written_);
   }
 
   void Compress(const Buffer& src_buffer, ResizableBuffer* dest_buffer) override {
@@ -414,9 +422,17 @@ class ColumnWriterImpl {
   // Serializes the Data Pages in other encoding modes
   void AddDataPage();
 
+  // Adds Data Pages to an in memory buffer in dictionary encoding mode
+  // Serializes the Data Pages in other encoding modes
+  void AddDataPageWithIndex();
+
   // Serializes Data Pages
   void WriteDataPage(const CompressedDataPage& page) {
     total_bytes_written_ += pager_->WriteDataPage(page);
+  }
+
+  void WriteDataPageWithIndex(std::vector<CompressedDataPage> data_pages_) {
+     pager_->WriteDataPagesWithIndex(data_pages_,total_bytes_written_);
   }
 
   ::arrow::Status AddMemoryConsumptionForPageIndex(int64_t new_memory_allocation) {
@@ -483,6 +499,9 @@ class ColumnWriterImpl {
 
   // Serialize the buffered Data Pages
   void FlushBufferedDataPages();
+
+  // Serialize the buffered Data Pages
+  void FlushBufferedDataPagesWithIndex();
 
   ColumnChunkMetaDataBuilder* metadata_;
   const ColumnDescriptor* descr_;
@@ -653,6 +672,10 @@ void ColumnWriterImpl::AddDataPage() {
   num_buffered_encoded_values_ = 0;
 }
 
+void ColumnWriterImpl::AddDataPageWithIndex() {
+ 
+}
+
 int64_t ColumnWriterImpl::Close() {
   if (!closed_) {
     closed_ = true;
@@ -685,6 +708,20 @@ void ColumnWriterImpl::FlushBufferedDataPages() {
   for (size_t i = 0; i < data_pages_.size(); i++) {
     WriteDataPage(data_pages_[i]);
   }
+  data_pages_.clear();
+  total_compressed_bytes_ = 0;
+}
+
+void ColumnWriterImpl::FlushBufferedDataPagesWithIndex() {
+  // Write all outstanding data to a new page
+  if (num_buffered_values_ > 0) {
+    AddDataPageWithIndex();
+  }
+
+  ReserveOffsetIndex(data_pages_.size());
+
+  WriteDataPageWithIndex(data_pages_);
+  
   data_pages_.clear();
   total_compressed_bytes_ = 0;
 }
