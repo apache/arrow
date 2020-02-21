@@ -371,6 +371,11 @@ expect_scan_result <- function(ds, schm) {
   )
 }
 
+files <- c(
+  file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
+  file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
+)
+
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(dataset_dir, recursive = TRUE)
@@ -383,9 +388,7 @@ test_that("Assembling a Dataset manually and getting a Table", {
   schm <- factory$Inspect()
   expect_is(schm, "Schema")
 
-  file1 <- file.path(dataset_dir, 1, "file1.parquet")
-  file2 <- file.path(dataset_dir, 2, "file2.parquet")
-  phys_schm <- ParquetFileReader$create(file1)$GetSchema()
+  phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
   expect_equal(names(phys_schm), names(df1))
   expect_equal(names(schm), c(names(phys_schm), "part"))
 
@@ -394,9 +397,7 @@ test_that("Assembling a Dataset manually and getting a Table", {
   expect_is(src$schema, "Schema")
   expect_is(src$format, "ParquetFileFormat")
   expect_equal(names(schm), names(src$schema))
-
-
-  expect_equivalent(src$files, c(file1, file2))
+  expect_equivalent(src$files, files)
 
   ds <- Dataset$create(list(src), schm)
   expect_is(ds, "Dataset")
@@ -406,10 +407,10 @@ test_that("Assembling a Dataset manually and getting a Table", {
 })
 
 test_that("Assembling multiple SourceFactories with DatasetFactory", {
-  dir1 <- file.path(dataset_dir, 1)
+  dir1 <- file.path(dataset_dir, 1, fsep = "/")
   src1 <- open_source(dir1, format = "parquet")
   expect_is(src1, "FileSystemSourceFactory")
-  dir2 <- file.path(dataset_dir, 2)
+  dir2 <- file.path(dataset_dir, 2, fsep = "/")
   src2 <- open_source(dir2, format = "parquet")
   expect_is(src2, "FileSystemSourceFactory")
 
@@ -419,17 +420,14 @@ test_that("Assembling multiple SourceFactories with DatasetFactory", {
   schm <- factory$Inspect()
   expect_is(schm, "Schema")
 
-  phys_schm <- ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
+  phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
   expect_equal(names(phys_schm), names(df1))
 
   ds <- factory$Finish(schm)
   expect_is(ds, "Dataset")
   expect_is(ds$schema, "Schema")
   expect_equal(names(schm), names(ds$schema))
-
-  sources <- ds$sources
-  expect_equivalent(c(map(sources, function(x) x$files)),
-                    c(file.path(dir1, "file1.parquet"), file.path(dir2, "file2.parquet")))
+  expect_equivalent(map(ds$sources, ~.$files), files)
 
   expect_scan_result(ds, schm)
 })
