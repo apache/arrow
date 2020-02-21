@@ -259,7 +259,105 @@ class SerializedPageWriter : public PageWriter {
   }
 
   void WriteDataPagesWithIndex(const std::vector<CompressedDataPage> data_pages,int64_t& total_bytes_written_) override {
+      // int64_t *first_data_page = *file_pos;
+      int64_t current_page_row_set_index = 0;
+      
+      PARQUET_THROW_NOT_OK(ReserveOffsetIndex(data_pages.size()));
+      
+      for(CompressedDataPage page: data_pages) {
+         int64_t uncompressed_size = page.uncompressed_size();
 
+         std::shared_ptr<Buffer> compressed_data = page.buffer();
+
+         format::DataPageHeader data_page_header;
+        data_page_header.__set_num_values(page.num_values());
+        data_page_header.__set_encoding(ToThrift(page.encoding()));
+        data_page_header.__set_definition_level_encoding(
+         ToThrift(page.definition_level_encoding()));
+        data_page_header.__set_repetition_level_encoding(
+          ToThrift(page.repetition_level_encoding()));
+        data_page_header.__set_statistics(ToThrift(page.statistics()));
+
+        format::PageHeader page_header;
+        page_header.__set_type(format::PageType::DATA_PAGE);
+        page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
+        page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
+        page_header.__set_data_page_header(data_page_header);
+
+        int64_t start_pos = -1;
+        PARQUET_THROW_NOT_OK(sink_->Tell(&start_pos));
+        if (data_page_offset_ == 0) {
+           data_page_offset_ = start_pos;
+        }
+
+        parquet::format::PageLocation ploc;
+
+        ploc.offset = start_pos;
+        ploc.first_row_index = current_page_row_set_index;
+
+        int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_.get());
+        PARQUET_THROW_NOT_OK(sink_->Write(compressed_data->data(), compressed_data->size()));
+
+        total_uncompressed_size_ += uncompressed_size + header_size;
+        total_compressed_size_ += compressed_data->size() + header_size;
+        num_values_ += page.num_values();
+
+        int64_t current_pos = -1;
+        PARQUET_THROW_NOT_OK(sink_->Tell(&current_pos));
+        total_bytes_written_ += current_pos - start_pos;
+
+        ploc.compressed_page_size = page_header.compressed_page_size + total_bytes_written_;
+        AddLocationToOffsetIndex(ploc);
+
+        current_page_row_set_index += page_header.data_page_header.num_values;
+      }
+  }
+
+  
+  ::arrow::Status AddMemoryConsumptionForPageIndex(int64_t new_memory_allocation) {
+      page_index_memory_consumption_ += new_memory_allocation;
+      return ::arrow::Status::OK();
+  }
+
+  ::arrow::Status ReserveOffsetIndex(int64_t capacity) {
+    PARQUET_THROW_NOT_OK(AddMemoryConsumptionForPageIndex(capacity * sizeof(parquet::format::PageLocation)));
+    offset_index_.page_locations.reserve(capacity);
+    return ::arrow::Status::OK();
+  }
+
+  void AddLocationToOffsetIndex(const parquet::format::PageLocation location){
+    offset_index_.page_locations.push_back(location);
+  }
+   
+  void TruncateDown ( std::string min, int32_t max_length, std::string* result ){
+    *result = min.substr(0, std::min(static_cast<int32_t>(min.length()), max_length));
+  }
+
+  void TruncateUp ( std::string max, int32_t max_length, std::string* result){
+     if (max.length() <= (uint32_t) max_length) {
+       *result = max;
+     }
+
+      *result = max.substr(0, max_length);
+      int i = max_length - 1;
+      while (i > 0 && static_cast<int32_t>((*result)[i]) == -1) {
+        (*result)[i] += 1;
+        --i;
+      }
+      // We convert it to unsigned because signed overflow results in undefined behavior.
+      unsigned char uch = static_cast<unsigned char>((*result)[i]);
+      uch += 1;
+      (*result)[i] = uch;
+      if (i == 0 && (*result)[i] == 0) {
+         //PARQUET_THROW_NOT_OK();
+         return;
+      }
+      result->resize(i + 1);
+  }
+  
+  void AddPageStatsToColumnIndex() {
+    parquet::format::Statistics page_stats;
+    
   }
 
   bool has_compressor() override { return (compressor_ != nullptr); }
@@ -288,6 +386,23 @@ class SerializedPageWriter : public PageWriter {
 
   // Compression codec to use.
   std::unique_ptr<::arrow::util::Codec> compressor_;
+
+
+  // OffsetIndex stores the locations of the pages.
+  parquet::format::OffsetIndex offset_index_;
+
+  // ColumnIndex stores the statistics of the pages.
+  parquet::format::ColumnIndex column_index_;
+
+  // Memory consumption of the min/max values in the page index.
+  int64_t page_index_memory_consumption_ = 0;
+
+
+  /// In parquet::ColumnIndex we store the min and max values for each page.
+  /// However, we don't want to store very long strings, so we truncate them.
+  /// The value of it must not be too small, since we don't want to truncate
+  /// non-string values.
+  static const int PAGE_INDEX_MAX_STRING_LENGTH = 64;
 };
 
 // This implementation of the PageWriter writes to the final sink on Close .
@@ -432,51 +547,8 @@ class ColumnWriterImpl {
   }
 
   void WriteDataPageWithIndex(std::vector<CompressedDataPage> data_pages_) {
+     total_bytes_written_ = 0;
      pager_->WriteDataPagesWithIndex(data_pages_,total_bytes_written_);
-  }
-
-  ::arrow::Status AddMemoryConsumptionForPageIndex(int64_t new_memory_allocation) {
-      page_index_memory_consumption_ += new_memory_allocation;
-      return ::arrow::Status::OK();
-  }
-
-  void ReserveOffsetIndex(int64_t capacity) {
-    PARQUET_THROW_NOT_OK(AddMemoryConsumptionForPageIndex(capacity * sizeof(parquet::format::PageLocation)));
-    offset_index_.page_locations.reserve(capacity);
-  }
-
-  void AddLocationToOffsetIndex(const parquet::format::PageLocation location){
-    offset_index_.page_locations.push_back(location);
-  }
-   
-  void TruncateDown ( std::string min, int32_t max_length, std::string* result ){
-    *result = min.substr(0, std::min(static_cast<int32_t>(min.length()), max_length));
-  }
-
-  void TruncateUp ( std::string max, int32_t max_length, std::string* result){
-     if (max.length() <= (uint32_t) max_length) {
-       *result = max;
-     }
-
-      *result = max.substr(0, max_length);
-      int i = max_length - 1;
-      while (i > 0 && static_cast<int32_t>((*result)[i]) == -1) {
-        (*result)[i] += 1;
-        --i;
-      }
-      // We convert it to unsigned because signed overflow results in undefined behavior.
-      unsigned char uch = static_cast<unsigned char>((*result)[i]);
-      uch += 1;
-      (*result)[i] = uch;
-      if (i == 0 && (*result)[i] == 0) {
-         //PARQUET_THROW_NOT_OK();
-         return;
-      }
-      result->resize(i + 1);
-  }
-  
-  void AddPageStatsToColumnIndex() {
-    
   }
 
   // Write multiple definition levels
@@ -553,23 +625,6 @@ class ColumnWriterImpl {
   std::shared_ptr<ResizableBuffer> compressed_data_;
 
   std::vector<CompressedDataPage> data_pages_;
-
-
-  // OffsetIndex stores the locations of the pages.
-  parquet::format::OffsetIndex offset_index_;
-
-  // ColumnIndex stores the statistics of the pages.
-  parquet::format::ColumnIndex column_index_;
-
-  // Memory consumption of the min/max values in the page index.
-  int64_t page_index_memory_consumption_ = 0;
-
-
-  /// In parquet::ColumnIndex we store the min and max values for each page.
-  /// However, we don't want to store very long strings, so we truncate them.
-  /// The value of it must not be too small, since we don't want to truncate
-  /// non-string values.
-  static const int PAGE_INDEX_MAX_STRING_LENGTH = 64;
 
  private:
   void InitSinks() {
@@ -718,10 +773,8 @@ void ColumnWriterImpl::FlushBufferedDataPagesWithIndex() {
     AddDataPageWithIndex();
   }
 
-  ReserveOffsetIndex(data_pages_.size());
-
   WriteDataPageWithIndex(data_pages_);
-  
+
   data_pages_.clear();
   total_compressed_bytes_ = 0;
 }
