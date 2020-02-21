@@ -19,13 +19,13 @@ context("Datasets")
 
 library(dplyr)
 
-dataset_dir <- tempfile()
+dataset_dir <- normalizePath(tempfile(), winslash = "/")
 dir.create(dataset_dir)
 
-hive_dir <- tempfile()
+hive_dir <- normalizePath(tempfile(), winslash = "/")
 dir.create(hive_dir)
 
-ipc_dir <- tempfile()
+ipc_dir <- normalizePath(tempfile(), winslash = "/")
 dir.create(ipc_dir)
 
 first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
