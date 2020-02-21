@@ -37,7 +37,6 @@ from unittest import mock
 
 import pyarrow
 
-from unittest import mock
 
 sys.path.extend([
     os.path.join(os.path.dirname(__file__),
