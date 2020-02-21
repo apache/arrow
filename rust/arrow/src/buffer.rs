@@ -53,11 +53,17 @@ struct BufferData {
     /// The raw pointer into the buffer bytes
     ptr: *const u8,
 
-    /// The length (num of bytes) of the buffer
+    /// The length (num of bytes) of the buffer. The region `[0, len)` of the buffer
+    /// is occupied with meaningful data, while the rest `[len, capacity)` is the
+    /// unoccupied region.
     len: usize,
 
     /// Whether this piece of memory is owned by this object
     owned: bool,
+
+    /// The capacity (num of bytes) of the buffer
+    /// Invariant: len <= capacity
+    capacity: usize,
 }
 
 impl PartialEq for BufferData {
@@ -65,6 +71,10 @@ impl PartialEq for BufferData {
         if self.len != other.len {
             return false;
         }
+        if self.capacity != other.capacity {
+            return false;
+        }
+
         unsafe { memory::memcmp(self.ptr, other.ptr, self.len) == 0 }
     }
 }
@@ -73,7 +83,7 @@ impl PartialEq for BufferData {
 impl Drop for BufferData {
     fn drop(&mut self) {
         if !self.ptr.is_null() && self.owned {
-            memory::free_aligned(self.ptr as *mut u8, self.len);
+            memory::free_aligned(self.ptr as *mut u8, self.capacity);
         }
     }
 }
@@ -82,8 +92,8 @@ impl Debug for BufferData {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
-            "BufferData {{ ptr: {:?}, len: {}, data: ",
-            self.ptr, self.len
+            "BufferData {{ ptr: {:?}, len: {}, capacity: {}, data: ",
+            self.ptr, self.len, self.capacity
         )?;
 
         unsafe {
@@ -104,13 +114,14 @@ impl Buffer {
     ///
     /// * `ptr` - Pointer to raw parts
     /// * `len` - Length of raw parts in **bytes**
+    /// * `capacity` - Total allocated memory for the pointer `ptr`, in **bytes**
     ///
     /// # Safety
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes.
-    pub unsafe fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
-        Buffer::build_with_arguments(ptr, len, true)
+    pub unsafe fn from_raw_parts(ptr: *const u8, len: usize, capacity: usize) -> Self {
+        Buffer::build_with_arguments(ptr, len, capacity, true)
     }
 
     /// Creates a buffer from an existing memory region (must already be byte-aligned), this
@@ -120,13 +131,14 @@ impl Buffer {
     ///
     /// * `ptr` - Pointer to raw parts
     /// * `len` - Length of raw parts in **bytes**
+    /// * `capacity` - Total allocated memory for the pointer `ptr`, in **bytes**
     ///
     /// # Safety
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes.
-    pub unsafe fn from_unowned(ptr: *const u8, len: usize) -> Self {
-        Buffer::build_with_arguments(ptr, len, false)
+    pub unsafe fn from_unowned(ptr: *const u8, len: usize, capacity: usize) -> Self {
+        Buffer::build_with_arguments(ptr, len, capacity, false)
     }
 
     /// Creates a buffer from an existing memory region (must already be byte-aligned).
@@ -135,6 +147,7 @@ impl Buffer {
     ///
     /// * `ptr` - Pointer to raw parts
     /// * `len` - Length of raw parts in bytes
+    /// * `capacity` - Total allocated memory for the pointer `ptr`, in **bytes**
     /// * `owned` - Whether the raw parts is owned by this `Buffer`. If true, this `Buffer` will
     /// free this memory when dropped, otherwise it will skip freeing the raw parts.
     ///
@@ -142,12 +155,22 @@ impl Buffer {
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes.
-    unsafe fn build_with_arguments(ptr: *const u8, len: usize, owned: bool) -> Self {
+    unsafe fn build_with_arguments(
+        ptr: *const u8,
+        len: usize,
+        capacity: usize,
+        owned: bool,
+    ) -> Self {
         assert!(
             memory::is_aligned(ptr, memory::ALIGNMENT),
             "memory not aligned"
         );
-        let buf_data = BufferData { ptr, len, owned };
+        let buf_data = BufferData {
+            ptr,
+            len,
+            capacity,
+            owned,
+        };
         Buffer {
             data: Arc::new(buf_data),
             offset: 0,
@@ -157,6 +180,11 @@ impl Buffer {
     /// Returns the number of bytes in the buffer
     pub fn len(&self) -> usize {
         self.data.len - self.offset
+    }
+
+    /// Returns the capacity of this buffer
+    pub fn capacity(&self) -> usize {
+        self.data.capacity
     }
 
     /// Returns whether the buffer is empty.
@@ -210,7 +238,7 @@ impl Buffer {
 
     /// Returns an empty buffer.
     pub fn empty() -> Self {
-        unsafe { Self::from_raw_parts(::std::ptr::null(), 0) }
+        unsafe { Self::from_raw_parts(::std::ptr::null(), 0, 0) }
     }
 }
 
@@ -234,7 +262,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         let buffer = memory::allocate_aligned(capacity);
         unsafe {
             memory::memcpy(buffer, slice.as_ptr(), len);
-            Buffer::from_raw_parts(buffer, len)
+            Buffer::from_raw_parts(buffer, len, capacity)
         }
     }
 }
@@ -504,6 +532,7 @@ impl MutableBuffer {
         let buffer_data = BufferData {
             ptr: self.data,
             len: self.len,
+            capacity: self.capacity,
             owned: true,
         };
         std::mem::forget(self);
@@ -525,6 +554,9 @@ impl Drop for MutableBuffer {
 impl PartialEq for MutableBuffer {
     fn eq(&self, other: &MutableBuffer) -> bool {
         if self.len != other.len {
+            return false;
+        }
+        if self.capacity != other.capacity {
             return false;
         }
         unsafe { memory::memcmp(self.data, other.data, self.len) == 0 }
@@ -584,15 +616,16 @@ mod tests {
 
     #[test]
     fn test_from_raw_parts() {
-        let buf = unsafe { Buffer::from_raw_parts(null_mut(), 0) };
+        let buf = unsafe { Buffer::from_raw_parts(null_mut(), 0, 0) };
         assert_eq!(0, buf.len());
         assert_eq!(0, buf.data().len());
+        assert_eq!(0, buf.capacity());
         assert!(buf.raw_data().is_null());
 
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(5, buf.len());
         assert!(!buf.raw_data().is_null());
-        assert_eq!(&[0, 1, 2, 3, 4], buf.data());
+        assert_eq!([0, 1, 2, 3, 4], buf.data());
     }
 
     #[test]
@@ -600,7 +633,7 @@ mod tests {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(5, buf.len());
         assert!(!buf.raw_data().is_null());
-        assert_eq!(&[0, 1, 2, 3, 4], buf.data());
+        assert_eq!([0, 1, 2, 3, 4], buf.data());
     }
 
     #[test]
@@ -608,8 +641,9 @@ mod tests {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         let buf2 = buf.clone();
         assert_eq!(5, buf2.len());
+        assert_eq!(64, buf2.capacity());
         assert!(!buf2.raw_data().is_null());
-        assert_eq!(&[0, 1, 2, 3, 4], buf2.data());
+        assert_eq!([0, 1, 2, 3, 4], buf2.data());
     }
 
     #[test]
@@ -617,12 +651,12 @@ mod tests {
         let buf = Buffer::from(&[2, 4, 6, 8, 10]);
         let buf2 = buf.slice(2);
 
-        assert_eq!(&[6, 8, 10], buf2.data());
+        assert_eq!([6, 8, 10], buf2.data());
         assert_eq!(3, buf2.len());
         assert_eq!(unsafe { buf.raw_data().offset(2) }, buf2.raw_data());
 
         let buf3 = buf2.slice(1);
-        assert_eq!(&[8, 10], buf3.data());
+        assert_eq!([8, 10], buf3.data());
         assert_eq!(2, buf3.len());
         assert_eq!(unsafe { buf.raw_data().offset(3) }, buf3.raw_data());
 
@@ -778,18 +812,38 @@ mod tests {
         buf.write("aaaa bbbb cccc dddd".as_bytes())
             .expect("write should be OK");
         assert_eq!(19, buf.len());
+        assert_eq!(64, buf.capacity());
         assert_eq!("aaaa bbbb cccc dddd".as_bytes(), buf.data());
 
         let immutable_buf = buf.freeze();
         assert_eq!(19, immutable_buf.len());
+        assert_eq!(64, immutable_buf.capacity());
         assert_eq!("aaaa bbbb cccc dddd".as_bytes(), immutable_buf.data());
+    }
+
+    #[test]
+    fn test_mutable_equal() -> Result<()> {
+        let mut buf = MutableBuffer::new(1);
+        let mut buf2 = MutableBuffer::new(1);
+
+        buf.write(&[0xaa])?;
+        buf2.write(&[0xaa, 0xbb])?;
+        assert!(buf != buf2);
+
+        buf.write(&[0xbb])?;
+        assert_eq!(buf, buf2);
+
+        buf2.reserve(65)?;
+        assert!(buf != buf2);
+
+        Ok(())
     }
 
     #[test]
     fn test_access_concurrently() {
         let buffer = Buffer::from(vec![1, 2, 3, 4, 5]);
         let buffer2 = buffer.clone();
-        assert_eq!(&[1, 2, 3, 4, 5], buffer.data());
+        assert_eq!([1, 2, 3, 4, 5], buffer.data());
 
         let buffer_copy = thread::spawn(move || {
             // access buffer in another thread.
