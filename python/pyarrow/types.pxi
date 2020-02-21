@@ -1304,26 +1304,39 @@ cdef class Schema:
             new_schema = self.schema.RemoveMetadata()
         return pyarrow_wrap_schema(new_schema)
 
-    def __str__(self):
+    def to_string(self, bint show_metadata=False):
+        """
+        Return human-readable representation of Schema
+
+        Parameters
+        ----------
+        show_metadata : boolean, default False
+            If True, and there is non-empty metadata, it will be printed after
+            the column names and types
+
+        Returns
+        -------
+        str : the formatted output
+        """
         cdef:
             c_string result
+            PrettyPrintOptions options
 
         with nogil:
+            options.indent = 0
+            options.show_metadata = show_metadata
             check_status(
                 PrettyPrint(
                     deref(self.schema),
-                    PrettyPrintOptions(0),
+                    options,
                     &result
                 )
             )
 
-        printed = frombytes(result)
-        if self.metadata is not None:
-            import pprint
-            metadata_formatted = pprint.pformat(self.metadata)
-            printed += '\nmetadata\n--------\n' + metadata_formatted
+        return frombytes(result)
 
-        return printed
+    def __str__(self):
+        return self.to_string(show_metadata=False)
 
     def __repr__(self):
         return self.__str__()

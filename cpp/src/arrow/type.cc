@@ -177,13 +177,13 @@ bool Field::IsCompatibleWith(const std::shared_ptr<Field>& other) const {
   return IsCompatibleWith(*other);
 }
 
-std::string Field::ToString(bool print_metadata) const {
+std::string Field::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << name_ << ": " << type_->ToString();
   if (!nullable_) {
     ss << " not null";
   }
-  if (print_metadata && metadata_) {
+  if (show_metadata && metadata_) {
     ss << metadata_->ToString();
   }
   return ss.str();
@@ -798,7 +798,7 @@ Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
   return Status::OK();
 }
 
-std::string Schema::ToString(bool print_metadata) const {
+std::string Schema::ToString(bool show_metadata) const {
   std::stringstream buffer;
 
   int i = 0;
@@ -810,7 +810,7 @@ std::string Schema::ToString(bool print_metadata) const {
     ++i;
   }
 
-  if (print_metadata && HasMetadata()) {
+  if (show_metadata && HasMetadata()) {
     buffer << impl_->metadata_->ToString();
   }
 

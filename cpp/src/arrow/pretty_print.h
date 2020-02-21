@@ -33,13 +33,15 @@ class Status;
 class Table;
 
 struct PrettyPrintOptions {
-  PrettyPrintOptions(int indent_arg, int window_arg = 10, int indent_size_arg = 2,
-                     std::string null_rep_arg = "null", bool skip_new_lines_arg = false)
+  PrettyPrintOptions(int indent_arg = 0, int window_arg = 10, int indent_size_arg = 2,
+                     std::string null_rep_arg = "null", bool skip_new_lines_arg = false,
+                     bool show_metadata = false)
       : indent(indent_arg),
         indent_size(indent_size_arg),
         window(window_arg),
         null_rep(null_rep_arg),
-        skip_new_lines(skip_new_lines_arg) {}
+        skip_new_lines(skip_new_lines_arg),
+        show_metadata(show_metadata) {}
 
   /// Number of spaces to shift entire formatted object to the right
   int indent;
@@ -55,6 +57,9 @@ struct PrettyPrintOptions {
 
   /// Skip new lines between elements, defaults to false
   bool skip_new_lines;
+
+  /// Show Schema and Field-level KeyValueMetadata
+  bool show_metadata;
 };
 
 /// \brief Print human-readable representation of RecordBatch
