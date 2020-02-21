@@ -51,8 +51,8 @@ cdef class ReadOptions:
         This will determine multi-threading granularity as well as
         the size of individual chunks in the Table.
     skip_rows: int, optional (default 0)
-        The number of rows to skip at the start of the CSV data, not
-        including the row of column names (if any).
+        The number of rows to skip before the column names (if any)
+        and the CSV data.
     column_names: list, optional
         The column names of the target table.  If empty, fall back on
         `autogenerate_column_names`.
@@ -109,8 +109,8 @@ cdef class ReadOptions:
     @property
     def skip_rows(self):
         """
-        The number of rows to skip at the start of the CSV data, not
-        including the row of column names (if any).
+        The number of rows to skip before the column names (if any)
+        and the CSV data.
         """
         return self.options.skip_rows
 
@@ -296,7 +296,9 @@ cdef class ConvertOptions:
         (disabling type inference on those columns).
     null_values: list, optional
         A sequence of strings that denote nulls in the data
-        (defaults are appropriate in most cases).
+        (defaults are appropriate in most cases). Note that by default,
+        string columns are not checked for null values. To enable
+        null checking for those, specify ``strings_can_be_null=True``.
     true_values: list, optional
         A sequence of strings that denote true booleans in the data
         (defaults are appropriate in most cases).
