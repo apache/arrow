@@ -234,6 +234,20 @@ baz: list<item: int8>
         pa.schema([None])
 
 
+def test_schema_to_string_with_metadata():
+    # ARROW-7063
+    my_schema = pa.schema([pa.field("foo", "int32", False,
+                                    metadata={"key1": "value1"})],
+                          metadata={"key2": "value2"})
+
+    assert my_schema.to_string(show_metadata=True) == """\
+foo: int32 not null
+  -- metadata --
+  key1: value1
+-- metadata --
+key2: value2"""
+
+
 def test_schema_from_tuples():
     fields = [
         ('foo', pa.int32()),

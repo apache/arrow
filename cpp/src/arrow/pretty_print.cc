@@ -34,6 +34,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/string.h"
 #include "arrow/vendored/datetime.h"
 #include "arrow/visitor_inline.h"
@@ -44,12 +45,11 @@ using internal::checked_cast;
 
 class PrettyPrinter {
  public:
-  PrettyPrinter(int indent, int indent_size, int window, bool skip_new_lines,
-                std::ostream* sink)
-      : indent_(indent),
-        indent_size_(indent_size),
-        window_(window),
-        skip_new_lines_(skip_new_lines),
+  PrettyPrinter(const PrettyPrintOptions& options, std::ostream* sink)
+      : indent_(options.indent),
+        indent_size_(options.indent_size),
+        window_(options.window),
+        skip_new_lines_(options.skip_new_lines),
         sink_(sink) {}
 
   void Write(const char* data);
@@ -117,10 +117,8 @@ void PrettyPrinter::Indent() {
 
 class ArrayPrinter : public PrettyPrinter {
  public:
-  ArrayPrinter(int indent, int indent_size, int window, const std::string& null_rep,
-               bool skip_new_lines, std::ostream* sink)
-      : PrettyPrinter(indent, indent_size, window, skip_new_lines, sink),
-        null_rep_(null_rep) {}
+  ArrayPrinter(const PrettyPrintOptions& options, std::ostream* sink)
+      : PrettyPrinter(options, sink), null_rep_(options.null_rep) {}
 
   template <typename FormatFunction>
   void WriteValues(const Array& array, FormatFunction&& func) {
@@ -441,14 +439,15 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
 }
 
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
-  ArrayPrinter printer(indent, 2, 10, "null", false, sink);
+  PrettyPrintOptions options;
+  options.indent = indent;
+  ArrayPrinter printer(options, sink);
   return printer.Print(arr);
 }
 
 Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
                    std::ostream* sink) {
-  ArrayPrinter printer(options.indent, options.indent_size, options.window,
-                       options.null_rep, options.skip_new_lines, sink);
+  ArrayPrinter printer(options, sink);
   return printer.Print(arr);
 }
 
@@ -485,8 +484,9 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
       i = num_chunks - window - 1;
       skip_comma = true;
     } else {
-      ArrayPrinter printer(indent + options.indent_size, options.indent_size, window,
-                           options.null_rep, options.skip_new_lines, sink);
+      PrettyPrintOptions chunk_options = options;
+      chunk_options.indent += options.indent_size;
+      ArrayPrinter printer(chunk_options, sink);
       RETURN_NOT_OK(printer.Print(*chunked_arr.chunk(i)));
     }
   }
@@ -560,13 +560,25 @@ Status DebugPrint(const Array& arr, int indent) {
 
 class SchemaPrinter : public PrettyPrinter {
  public:
-  SchemaPrinter(const Schema& schema, int indent, int indent_size, int window,
-                bool skip_new_lines, std::ostream* sink)
-      : PrettyPrinter(indent, indent_size, window, skip_new_lines, sink),
-        schema_(schema) {}
+  SchemaPrinter(const Schema& schema, const PrettyPrintOptions& options,
+                std::ostream* sink)
+      : PrettyPrinter(options, sink),
+        schema_(schema),
+        show_metadata_(options.show_metadata) {}
 
   Status PrintType(const DataType& type, bool nullable);
   Status PrintField(const Field& field);
+
+  void PrintMetadata(const KeyValueMetadata& metadata) {
+    if (metadata.size() > 0) {
+      Newline();
+      Write("-- metadata --");
+      for (int64_t i = 0; i < metadata.size(); ++i) {
+        Newline();
+        Write(metadata.key(i) + ": " + metadata.value(i));
+      }
+    }
+  }
 
   Status Print() {
     for (int i = 0; i < schema_.num_fields(); ++i) {
@@ -577,12 +589,17 @@ class SchemaPrinter : public PrettyPrinter {
       }
       RETURN_NOT_OK(PrintField(*schema_.field(i)));
     }
+
+    if (show_metadata_ && schema_.metadata()) {
+      PrintMetadata(*schema_.metadata());
+    }
     Flush();
     return Status::OK();
   }
 
  private:
   const Schema& schema_;
+  bool show_metadata_;
 };
 
 Status SchemaPrinter::PrintType(const DataType& type, bool nullable) {
@@ -607,13 +624,19 @@ Status SchemaPrinter::PrintType(const DataType& type, bool nullable) {
 Status SchemaPrinter::PrintField(const Field& field) {
   Write(field.name());
   Write(": ");
-  return PrintType(*field.type(), field.nullable());
+  RETURN_NOT_OK(PrintType(*field.type(), field.nullable()));
+
+  if (show_metadata_ && field.metadata()) {
+    indent_ += indent_size_;
+    PrintMetadata(*field.metadata());
+    indent_ -= indent_size_;
+  }
+  return Status::OK();
 }
 
 Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
                    std::ostream* sink) {
-  SchemaPrinter printer(schema, options.indent, options.indent_size, options.window,
-                        options.skip_new_lines, sink);
+  SchemaPrinter printer(schema, options, sink);
   return printer.Print();
 }
 

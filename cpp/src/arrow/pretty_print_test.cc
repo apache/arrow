@@ -30,6 +30,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 
@@ -623,8 +624,7 @@ four: struct<one: int32, two: dictionary<values=string, indices=int16, ordered=0
   child 0, one: int32
   child 1, two: dictionary<values=string, indices=int16, ordered=0>)expected";
 
-  PrettyPrintOptions options{0};
-
+  PrettyPrintOptions options;
   Check(*sch, options, expected);
 }
 
@@ -646,9 +646,30 @@ four: list<item: int32> not null
 five: list<item: int32 not null>
   child 0, item: int32 not null)expected";
 
-  PrettyPrintOptions options{0};
-
+  PrettyPrintOptions options;
   Check(*sch, options, expected);
+}
+
+TEST_F(TestPrettyPrint, SchemaWithMetadata) {
+  // ARROW-7063
+  auto metadata1 = key_value_metadata({"foo"}, {"bar1"});
+  auto metadata2 = key_value_metadata({"foo"}, {"bar2"});
+  auto metadata3 = key_value_metadata({"foo"}, {"bar3"});
+  auto my_schema = schema(
+      {field("one", int32(), true, metadata1), field("two", utf8(), false, metadata2)},
+      metadata3);
+
+  static const char* expected = R"expected(one: int32
+  -- metadata --
+  foo: bar1
+two: string not null
+  -- metadata --
+  foo: bar2
+-- metadata --
+foo: bar3)expected";
+  PrettyPrintOptions options;
+  options.show_metadata = true;
+  Check(*my_schema, options, expected);
 }
 
 TEST_F(TestPrettyPrint, SchemaIndentation) {
@@ -660,7 +681,7 @@ TEST_F(TestPrettyPrint, SchemaIndentation) {
   static const char* expected = R"expected(    one: int32
     two: int32 not null)expected";
 
-  PrettyPrintOptions options{/*indent=*/4};
+  PrettyPrintOptions options(/*indent=*/4);
   Check(*sch, options, expected);
 }
 
