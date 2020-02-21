@@ -214,13 +214,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     for (auto encoding : column_metadata_->encodings) {
       encodings_.push_back(FromThrift(encoding));
     }
-    auto fromthrift = [](format::PageEncodingStats page_encoding_stats) {
-      return parquet::PageEncodingStats(FromThrift(page_encoding_stats.page_type),
-                                        FromThrift(page_encoding_stats.encoding),
-                                        page_encoding_stats.count);
-    };
     for (auto encoding_stats : column_metadata_->encoding_stats) {
-      encoding_stats_.push_back(fromthrift(encoding_stats));
+      encoding_stats_.push_back({FromThrift(encoding_stats.page_type),
+                                 FromThrift(encoding_stats.encoding),
+                                 encoding_stats.count});
     }
     possible_stats_ = nullptr;
   }
