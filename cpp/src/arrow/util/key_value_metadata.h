@@ -34,8 +34,7 @@ namespace arrow {
 class ARROW_EXPORT KeyValueMetadata {
  public:
   KeyValueMetadata();
-  KeyValueMetadata(const std::vector<std::string>& keys,
-                   const std::vector<std::string>& values);
+  KeyValueMetadata(std::vector<std::string> keys, std::vector<std::string> values);
   explicit KeyValueMetadata(const std::unordered_map<std::string, std::string>& map);
   virtual ~KeyValueMetadata() = default;
 
@@ -54,6 +53,11 @@ class ARROW_EXPORT KeyValueMetadata {
   int FindKey(const std::string& key) const;
 
   std::shared_ptr<KeyValueMetadata> Copy() const;
+
+  /// \brief Return a new KeyValueMetadata by combining the passed metadata
+  /// with this KeyValueMetadata. Colliding keys will be overridden by the
+  /// passed metadata. Assumes keys in both containers are unique
+  std::shared_ptr<KeyValueMetadata> Merge(const KeyValueMetadata& other) const;
 
   bool Equals(const KeyValueMetadata& other) const;
   std::string ToString() const;

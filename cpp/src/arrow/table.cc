@@ -73,45 +73,22 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
     return false;
   }
   if (length_ == 0) {
-    return type_->Equals(other.type_);
+    // We cannot toggle check_metadata here yet, so we don't check it
+    return type_->Equals(*other.type_, /*check_metadata=*/false);
   }
 
   // Check contents of the underlying arrays. This checks for equality of
   // the underlying data independently of the chunk size.
-  int this_chunk_idx = 0;
-  int64_t this_start_idx = 0;
-  int other_chunk_idx = 0;
-  int64_t other_start_idx = 0;
-
-  int64_t elements_compared = 0;
-  while (elements_compared < length_) {
-    const std::shared_ptr<Array> this_array = chunks_[this_chunk_idx];
-    const std::shared_ptr<Array> other_array = other.chunk(other_chunk_idx);
-    int64_t common_length = std::min(this_array->length() - this_start_idx,
-                                     other_array->length() - other_start_idx);
-    if (!this_array->RangeEquals(this_start_idx, this_start_idx + common_length,
-                                 other_start_idx, other_array)) {
-      return false;
-    }
-
-    elements_compared += common_length;
-
-    // If we have exhausted the current chunk, proceed to the next one individually.
-    if (this_start_idx + common_length == this_array->length()) {
-      this_chunk_idx++;
-      this_start_idx = 0;
-    } else {
-      this_start_idx += common_length;
-    }
-
-    if (other_start_idx + common_length == other_array->length()) {
-      other_chunk_idx++;
-      other_start_idx = 0;
-    } else {
-      other_start_idx += common_length;
-    }
-  }
-  return true;
+  return internal::ApplyBinaryChunked(
+             *this, other,
+             [](const Array& left_piece, const Array& right_piece,
+                int64_t ARROW_ARG_UNUSED(position)) {
+               if (!left_piece.Equals(right_piece)) {
+                 return Status::Invalid("Unequal piece");
+               }
+               return Status::OK();
+             })
+      .ok();
 }
 
 bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
@@ -221,6 +198,44 @@ Status ChunkedArray::ValidateFull() const {
   }
   return Status::OK();
 }
+
+namespace internal {
+
+bool MultipleChunkIterator::Next(std::shared_ptr<Array>* next_left,
+                                 std::shared_ptr<Array>* next_right) {
+  if (pos_ == length_) return false;
+
+  // Find non-empty chunk
+  std::shared_ptr<Array> chunk_left, chunk_right;
+  while (true) {
+    chunk_left = left_.chunk(chunk_idx_left_);
+    chunk_right = right_.chunk(chunk_idx_right_);
+    if (chunk_pos_left_ == chunk_left->length()) {
+      chunk_pos_left_ = 0;
+      ++chunk_idx_left_;
+      continue;
+    }
+    if (chunk_pos_right_ == chunk_right->length()) {
+      chunk_pos_right_ = 0;
+      ++chunk_idx_right_;
+      continue;
+    }
+    break;
+  }
+  // Determine how big of a section to return
+  int64_t iteration_size = std::min(chunk_left->length() - chunk_pos_left_,
+                                    chunk_right->length() - chunk_pos_right_);
+
+  *next_left = chunk_left->Slice(chunk_pos_left_, iteration_size);
+  *next_right = chunk_right->Slice(chunk_pos_right_, iteration_size);
+
+  pos_ += iteration_size;
+  chunk_pos_left_ += iteration_size;
+  chunk_pos_right_ += iteration_size;
+  return true;
+}
+
+}  // namespace internal
 
 // ----------------------------------------------------------------------
 // Table methods

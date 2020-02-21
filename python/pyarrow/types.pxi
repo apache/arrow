@@ -248,6 +248,10 @@ cdef class ListType(DataType):
         return list_, (self.value_type,)
 
     @property
+    def value_field(self):
+        return pyarrow_wrap_field(self.list_type.value_field())
+
+    @property
     def value_type(self):
         """
         The data type of list values.

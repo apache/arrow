@@ -360,6 +360,12 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   std::shared_ptr<Field> WithMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
 
+  /// \brief EXPERIMENTAL: Return a copy of this field with the given metadata
+  /// merged with existing metadata (any colliding keys will be overridden by
+  /// the passed metadata)
+  std::shared_ptr<Field> WithMergedMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
   ARROW_DEPRECATED("Use WithMetadata")
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
@@ -395,7 +401,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   ///   - have the same name
   ///   - have the same type, or of compatible types according to `options`.
   ///
-  ///
   /// The metadata of the current field is preserved; the metadata of the other
   /// field is discarded.
   Result<std::shared_ptr<Field>> MergeWith(
@@ -425,7 +430,7 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   bool IsCompatibleWith(const std::shared_ptr<Field>& other) const;
 
   /// \brief Return a string representation ot the field
-  std::string ToString() const;
+  std::string ToString(bool print_metadata = false) const;
 
   /// \brief Return the field name
   const std::string& name() const { return name_; }
@@ -1447,7 +1452,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   std::shared_ptr<const KeyValueMetadata> metadata() const;
 
   /// \brief Render a string representation of the schema suitable for debugging
-  std::string ToString() const;
+  std::string ToString(bool print_metadata = false) const;
 
   Status AddField(int i, const std::shared_ptr<Field>& field,
                   std::shared_ptr<Schema>* out) const;

@@ -71,6 +71,17 @@ std::shared_ptr<Field> Field::WithMetadata(
   return std::make_shared<Field>(name_, type_, nullable_, metadata);
 }
 
+std::shared_ptr<Field> Field::WithMergedMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+  std::shared_ptr<const KeyValueMetadata> merged_metadata;
+  if (metadata_) {
+    merged_metadata = metadata_->Merge(*metadata);
+  } else {
+    merged_metadata = metadata;
+  }
+  return std::make_shared<Field>(name_, type_, nullable_, merged_metadata);
+}
+
 std::shared_ptr<Field> Field::RemoveMetadata() const {
   return std::make_shared<Field>(name_, type_, nullable_);
 }
@@ -166,11 +177,14 @@ bool Field::IsCompatibleWith(const std::shared_ptr<Field>& other) const {
   return IsCompatibleWith(*other);
 }
 
-std::string Field::ToString() const {
+std::string Field::ToString(bool print_metadata) const {
   std::stringstream ss;
-  ss << this->name_ << ": " << this->type_->ToString();
-  if (!this->nullable_) {
+  ss << name_ << ": " << type_->ToString();
+  if (!nullable_) {
     ss << " not null";
+  }
+  if (print_metadata && metadata_) {
+    ss << metadata_->ToString();
   }
   return ss.str();
 }
@@ -784,7 +798,7 @@ Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
   return Status::OK();
 }
 
-std::string Schema::ToString() const {
+std::string Schema::ToString(bool print_metadata) const {
   std::stringstream buffer;
 
   int i = 0;
@@ -796,7 +810,7 @@ std::string Schema::ToString() const {
     ++i;
   }
 
-  if (HasMetadata()) {
+  if (print_metadata && HasMetadata()) {
     buffer << impl_->metadata_->ToString();
   }
 

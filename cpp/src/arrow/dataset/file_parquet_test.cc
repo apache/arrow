@@ -226,7 +226,8 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
     for (auto maybe_batch : rb_it) {
       ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
       row_count += batch->num_rows();
-      ASSERT_EQ(*batch->schema(), *expected_schema);
+      AssertSchemaEqual(*batch->schema(), *expected_schema,
+                        /*check_metadata=*/false);
     }
   }
 
@@ -279,7 +280,7 @@ TEST_F(TestParquetFileFormat, Inspect) {
   auto format = ParquetFileFormat();
 
   ASSERT_OK_AND_ASSIGN(auto actual, format.Inspect(*source.get()));
-  EXPECT_EQ(*actual, *schema_);
+  AssertSchemaEqual(*actual, *schema_, /*check_metadata=*/false);
 }
 
 TEST_F(TestParquetFileFormat, IsSupported) {

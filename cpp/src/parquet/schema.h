@@ -18,8 +18,7 @@
 // This module contains the logical parquet-cpp types (independent of Thrift
 // structures), schema nodes, and related type tools
 
-#ifndef PARQUET_SCHEMA_TYPES_H
-#define PARQUET_SCHEMA_TYPES_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -99,24 +98,6 @@ class PARQUET_EXPORT Node {
  public:
   enum type { PRIMITIVE, GROUP };
 
-  Node(Node::type type, const std::string& name, Repetition::type repetition,
-       ConvertedType::type converted_type = ConvertedType::NONE, int id = -1)
-      : type_(type),
-        name_(name),
-        repetition_(repetition),
-        converted_type_(converted_type),
-        id_(id),
-        parent_(NULLPTR) {}
-
-  Node(Node::type type, const std::string& name, Repetition::type repetition,
-       std::shared_ptr<const LogicalType> logical_type, int id = -1)
-      : type_(type),
-        name_(name),
-        repetition_(repetition),
-        logical_type_(std::move(logical_type)),
-        id_(id),
-        parent_(NULLPTR) {}
-
   virtual ~Node() {}
 
   bool is_primitive() const { return type_ == Node::PRIMITIVE; }
@@ -141,7 +122,13 @@ class PARQUET_EXPORT Node {
 
   const std::shared_ptr<const LogicalType>& logical_type() const { return logical_type_; }
 
-  int id() const { return id_; }
+  /// \brief The field_id value for the serialized SchemaElement. If the
+  /// field_id is less than 0 (e.g. -1), it will not be set when serialized to
+  /// Thrift.
+  int field_id() const { return field_id_; }
+
+  PARQUET_DEPRECATED("id() is deprecated. Use field_id() instead")
+  int id() const { return field_id_; }
 
   const Node* parent() const { return parent_; }
 
@@ -169,12 +156,30 @@ class PARQUET_EXPORT Node {
  protected:
   friend class GroupNode;
 
+  Node(Node::type type, const std::string& name, Repetition::type repetition,
+       ConvertedType::type converted_type = ConvertedType::NONE, int field_id = -1)
+      : type_(type),
+        name_(name),
+        repetition_(repetition),
+        converted_type_(converted_type),
+        field_id_(field_id),
+        parent_(NULLPTR) {}
+
+  Node(Node::type type, const std::string& name, Repetition::type repetition,
+       std::shared_ptr<const LogicalType> logical_type, int field_id = -1)
+      : type_(type),
+        name_(name),
+        repetition_(repetition),
+        logical_type_(std::move(logical_type)),
+        field_id_(field_id),
+        parent_(NULLPTR) {}
+
   Node::type type_;
   std::string name_;
   Repetition::type repetition_;
   ConvertedType::type converted_type_;
   std::shared_ptr<const LogicalType> logical_type_;
-  int id_;
+  int field_id_;
   // Nodes should not be shared, they have a single parent.
   const Node* parent_;
 
@@ -195,21 +200,27 @@ typedef std::vector<NodePtr> NodeVector;
 // parameters)
 class PARQUET_EXPORT PrimitiveNode : public Node {
  public:
-  static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id);
+  // The field_id here is the default to use if it is not set in the SchemaElement
+  static std::unique_ptr<Node> FromParquet(const void* opaque_element, int field_id = -1);
 
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              Type::type type,
                              ConvertedType::type converted_type = ConvertedType::NONE,
-                             int length = -1, int precision = -1, int scale = -1) {
+                             int length = -1, int precision = -1, int scale = -1,
+                             int field_id = -1) {
     return NodePtr(new PrimitiveNode(name, repetition, type, converted_type, length,
-                                     precision, scale));
+                                     precision, scale, field_id));
   }
 
+  // If no logical type, pass LogicalType::None() or nullptr
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              std::shared_ptr<const LogicalType> logical_type,
-                             Type::type primitive_type, int primitive_length = -1) {
+                             Type::type primitive_type, int primitive_length = -1,
+                             int field_id = -1) {
     return NodePtr(new PrimitiveNode(name, repetition, logical_type, primitive_type,
-                                     primitive_length));
+                                     primitive_length, field_id));
   }
 
   bool Equals(const Node* other) const override;
@@ -231,11 +242,11 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
  private:
   PrimitiveNode(const std::string& name, Repetition::type repetition, Type::type type,
                 ConvertedType::type converted_type = ConvertedType::NONE, int length = -1,
-                int precision = -1, int scale = -1, int id = -1);
+                int precision = -1, int scale = -1, int field_id = -1);
 
   PrimitiveNode(const std::string& name, Repetition::type repetition,
                 std::shared_ptr<const LogicalType> logical_type,
-                Type::type primitive_type, int primitive_length = -1, int id = -1);
+                Type::type primitive_type, int primitive_length = -1, int field_id = -1);
 
   Type::type physical_type_;
   int32_t type_length_;
@@ -255,19 +266,25 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
 class PARQUET_EXPORT GroupNode : public Node {
  public:
-  static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id,
-                                           const NodeVector& fields);
+  // The field_id here is the default to use if it is not set in the SchemaElement
+  static std::unique_ptr<Node> FromParquet(const void* opaque_element,
+                                           NodeVector fields = {}, int field_id = -1);
 
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              const NodeVector& fields,
-                             ConvertedType::type converted_type = ConvertedType::NONE) {
-    return NodePtr(new GroupNode(name, repetition, fields, converted_type));
+                             ConvertedType::type converted_type = ConvertedType::NONE,
+                             int field_id = -1) {
+    return NodePtr(new GroupNode(name, repetition, fields, converted_type, field_id));
   }
 
+  // If no logical type, pass nullptr
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              const NodeVector& fields,
-                             std::shared_ptr<const LogicalType> logical_type) {
-    return NodePtr(new GroupNode(name, repetition, fields, logical_type));
+                             std::shared_ptr<const LogicalType> logical_type,
+                             int field_id = -1) {
+    return NodePtr(new GroupNode(name, repetition, fields, logical_type, field_id));
   }
 
   bool Equals(const Node* other) const override;
@@ -289,11 +306,11 @@ class PARQUET_EXPORT GroupNode : public Node {
  private:
   GroupNode(const std::string& name, Repetition::type repetition,
             const NodeVector& fields,
-            ConvertedType::type converted_type = ConvertedType::NONE, int id = -1);
+            ConvertedType::type converted_type = ConvertedType::NONE, int field_id = -1);
 
   GroupNode(const std::string& name, Repetition::type repetition,
             const NodeVector& fields, std::shared_ptr<const LogicalType> logical_type,
-            int id = -1);
+            int field_id = -1);
 
   NodeVector fields_;
   bool EqualsInternal(const GroupNode* other) const;
@@ -310,10 +327,12 @@ class PARQUET_EXPORT GroupNode : public Node {
 // ----------------------------------------------------------------------
 // Convenience primitive type factory functions
 
-#define PRIMITIVE_FACTORY(FuncName, TYPE)                                              \
-  static inline NodePtr FuncName(const std::string& name,                              \
-                                 Repetition::type repetition = Repetition::OPTIONAL) { \
-    return PrimitiveNode::Make(name, repetition, Type::TYPE);                          \
+#define PRIMITIVE_FACTORY(FuncName, TYPE)                                                \
+  static inline NodePtr FuncName(const std::string& name,                                \
+                                 Repetition::type repetition = Repetition::OPTIONAL,     \
+                                 int field_id = -1) {                                    \
+    return PrimitiveNode::Make(name, repetition, Type::TYPE, ConvertedType::NONE,        \
+                               /*length=*/-1, /*precision=*/-1, /*scale=*/-1, field_id); \
   }
 
 PRIMITIVE_FACTORY(Boolean, BOOLEAN)
@@ -467,5 +486,3 @@ class PARQUET_EXPORT SchemaDescriptor {
 };
 
 }  // namespace parquet
-
-#endif  // PARQUET_SCHEMA_TYPES_H

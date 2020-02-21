@@ -34,7 +34,7 @@ test_that("simple int column roundtrip", {
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
-  expect_identical(df, df_read)
+  expect_equivalent(df, df_read)
 })
 
 test_that("read_parquet() supports col_select", {
@@ -118,7 +118,7 @@ test_that("Factors are preserved when writing/reading from Parquet", {
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
-  expect_identical(df, df_read)
+  expect_equivalent(df, df_read)
 })
 
 test_that("Lists are preserved when writing/reading from Parquet", {
@@ -151,5 +151,5 @@ test_that("write_parquet() returns its input", {
   tf <- tempfile()
   on.exit(unlink(tf))
   df_out <- write_parquet(df, tf)
-  expect_identical(df, df_out)
+  expect_equivalent(df, df_out)
 })

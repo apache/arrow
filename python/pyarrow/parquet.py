@@ -161,7 +161,18 @@ class ParquetFile:
 
     @property
     def schema(self):
+        """
+        Return the Parquet schema, unconverted to Arrow types
+        """
         return self.metadata.schema
+
+    @property
+    def schema_arrow(self):
+        """
+        Return the inferred Arrow schema, converted from the whole Parquet
+        file's schema
+        """
+        return self.reader.schema_arrow
 
     @property
     def num_row_groups(self):

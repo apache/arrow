@@ -380,6 +380,10 @@ bool HasStructListName(const GroupNode& node) {
   return node.name() == "array" || boost::algorithm::ends_with(node.name(), "_tuple");
 }
 
+std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
+  return ::arrow::key_value_metadata({"PARQUET:field_id"}, {std::to_string(field_id)});
+}
+
 Status GroupToStruct(const GroupNode& node, int16_t max_def_level, int16_t max_rep_level,
                      SchemaTreeContext* ctx, const SchemaField* parent,
                      SchemaField* out) {
@@ -391,7 +395,8 @@ Status GroupToStruct(const GroupNode& node, int16_t max_def_level, int16_t max_r
     arrow_fields.push_back(out->children[i].field);
   }
   auto struct_type = ::arrow::struct_(arrow_fields);
-  out->field = ::arrow::field(node.name(), struct_type, node.is_optional());
+  out->field = ::arrow::field(node.name(), struct_type, node.is_optional(),
+                              FieldIdMetadata(node.field_id()));
   out->max_definition_level = max_def_level;
   out->max_repetition_level = max_rep_level;
   return Status::OK();
@@ -465,12 +470,13 @@ Status ListToSchemaField(const GroupNode& group, int16_t max_def_level,
     int column_index = ctx->schema->GetColumnIndex(primitive_node);
     std::shared_ptr<DataType> type;
     RETURN_NOT_OK(GetTypeForNode(column_index, primitive_node, ctx, &type));
-    auto item_field = ::arrow::field(list_node.name(), type, /*nullable=*/false);
+    auto item_field = ::arrow::field(list_node.name(), type, /*nullable=*/false,
+                                     FieldIdMetadata(list_node.field_id()));
     RETURN_NOT_OK(PopulateLeaf(column_index, item_field, max_def_level, max_rep_level,
                                ctx, out, child_field));
   }
   out->field = ::arrow::field(group.name(), ::arrow::list(child_field->field),
-                              group.is_optional());
+                              group.is_optional(), FieldIdMetadata(group.field_id()));
   out->max_definition_level = max_def_level;
   out->max_repetition_level = max_rep_level;
   return Status::OK();
@@ -494,7 +500,7 @@ Status GroupToSchemaField(const GroupNode& node, int16_t max_def_level,
     RETURN_NOT_OK(
         GroupToStruct(node, max_def_level, max_rep_level, ctx, out, &out->children[0]));
     out->field = ::arrow::field(node.name(), ::arrow::list(out->children[0].field),
-                                node.is_optional());
+                                node.is_optional(), FieldIdMetadata(node.field_id()));
     out->max_definition_level = max_def_level;
     out->max_repetition_level = max_rep_level;
     return Status::OK();
@@ -547,7 +553,7 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
                                  ctx, out, &out->children[0]));
 
       out->field = ::arrow::field(node.name(), ::arrow::list(child_field),
-                                  /*nullable=*/false);
+                                  /*nullable=*/false, FieldIdMetadata(node.field_id()));
       // Is this right?
       out->max_definition_level = max_def_level;
       out->max_repetition_level = max_rep_level;
@@ -555,7 +561,8 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
     } else {
       // A normal (required/optional) primitive node
       return PopulateLeaf(column_index,
-                          ::arrow::field(node.name(), type, node.is_optional()),
+                          ::arrow::field(node.name(), type, node.is_optional(),
+                                         FieldIdMetadata(node.field_id())),
                           max_def_level, max_rep_level, ctx, parent, out);
     }
   }
@@ -630,6 +637,10 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
   // restore field metadata
   std::shared_ptr<const KeyValueMetadata> field_metadata = origin_field.metadata();
   if (field_metadata != nullptr) {
+    if (field->metadata()) {
+      // Prefer the metadata keys (like field_id) from the current metadata
+      field_metadata = field_metadata->Merge(*field->metadata());
+    }
     field = field->WithMetadata(field_metadata);
 
     // extension type
@@ -1341,6 +1352,7 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
   // Walk downwards to extract nullability
   std::vector<std::string> item_names;
   std::vector<bool> nullable;
+  std::vector<std::shared_ptr<const ::arrow::KeyValueMetadata>> field_metadata;
   std::vector<std::shared_ptr<::arrow::Int32Builder>> offset_builders;
   std::vector<std::shared_ptr<::arrow::BooleanBuilder>> valid_bits_builders;
   nullable.push_back(field->nullable());
@@ -1359,6 +1371,7 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
     valid_bits_builders.emplace_back(
         std::make_shared<::arrow::BooleanBuilder>(::arrow::boolean(), pool));
     nullable.push_back(field->nullable());
+    field_metadata.push_back(field->metadata());
   }
 
   int64_t list_depth = offset_builders.size();
@@ -1436,8 +1449,8 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
 
   // TODO(wesm): Use passed-in field
   for (int64_t j = list_depth - 1; j >= 0; j--) {
-    auto list_type =
-        ::arrow::list(::arrow::field(item_names[j], (*out)->type(), nullable[j + 1]));
+    auto list_type = ::arrow::list(::arrow::field(item_names[j], (*out)->type(),
+                                                  nullable[j + 1], field_metadata[j]));
     *out = std::make_shared<::arrow::ListArray>(list_type, list_lengths[j], offsets[j],
                                                 *out, valid_bits[j], null_counts[j]);
   }

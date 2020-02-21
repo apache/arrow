@@ -71,6 +71,13 @@ def _read_table(*args, **kwargs):
     return pq.read_table(*args, **kwargs)
 
 
+def assert_tables_equal(left, right):
+    # This is a helper method particular to this testing module because the
+    # round trip to Parquet adds extra Field-level metadata for the Parquet
+    # field_ids
+    assert left.equals(right, check_metadata=False)
+
+
 def _roundtrip_table(table, read_table_kwargs=None,
                      write_table_kwargs=None):
     read_table_kwargs = read_table_kwargs or {}
@@ -92,10 +99,10 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
     # intentionally check twice
     result = _roundtrip_table(table, read_table_kwargs=read_table_kwargs,
                               write_table_kwargs=write_table_kwargs)
-    assert result.equals(expected)
+    assert_tables_equal(result, expected)
     result = _roundtrip_table(result, read_table_kwargs=read_table_kwargs,
                               write_table_kwargs=write_table_kwargs)
-    assert result.equals(expected)
+    assert_tables_equal(result, expected)
 
 
 def _roundtrip_pandas_dataframe(df, write_kwargs):
@@ -218,7 +225,7 @@ def test_memory_map(tempdir):
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
     table_read = pq.read_pandas(filename, memory_map=True)
-    assert table_read.equals(table)
+    assert_tables_equal(table_read, table)
 
 
 @pytest.mark.pandas
@@ -233,7 +240,7 @@ def test_enable_buffered_stream(tempdir):
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
     table_read = pq.read_pandas(filename, buffer_size=4096)
-    assert table_read.equals(table)
+    assert_tables_equal(table_read, table)
 
 
 def test_special_chars_filename(tempdir):
@@ -244,7 +251,7 @@ def test_special_chars_filename(tempdir):
     _write_table(table, str(path))
     assert path.exists()
     table_read = _read_table(str(path))
-    assert table_read.equals(table)
+    assert_tables_equal(table_read, table)
 
 
 @pytest.mark.pandas
@@ -1129,7 +1136,7 @@ def test_date_time_types(tempdir):
     for i in range(3):
         assert parquet_schema.column(i).physical_type == 'INT64'
     read_table = _read_table(filename)
-    assert read_table.equals(expected)
+    assert_tables_equal(read_table, expected)
 
     t0_ns = pa.timestamp('ns')
     data0_ns = np.array(data0 * 1000000, dtype='int64')
@@ -1150,7 +1157,7 @@ def test_date_time_types(tempdir):
     for i in range(3):
         assert parquet_schema.column(i).physical_type == 'INT96'
     read_table = _read_table(filename)
-    assert read_table.equals(expected)
+    assert_tables_equal(read_table, expected)
 
     # int96 nanosecond timestamps implied by flavor 'spark'
     filename = tempdir / 'spark_int96_timestamps.parquet'
@@ -1160,7 +1167,7 @@ def test_date_time_types(tempdir):
     for i in range(3):
         assert parquet_schema.column(i).physical_type == 'INT96'
     read_table = _read_table(filename)
-    assert read_table.equals(expected)
+    assert_tables_equal(read_table, expected)
 
 
 def test_timestamp_restore_timezone():
@@ -1301,7 +1308,7 @@ def test_multithreaded_read():
     buf.seek(0)
     table2 = _read_table(buf, use_threads=False)
 
-    assert table1.equals(table2)
+    assert_tables_equal(table1, table2)
 
 
 @pytest.mark.pandas
@@ -1315,7 +1322,7 @@ def test_min_chunksize():
     buf.seek(0)
     result = _read_table(buf)
 
-    assert result.equals(table)
+    assert_tables_equal(result, table)
 
     with pytest.raises(ValueError):
         _write_table(table, buf, chunk_size=0)
@@ -1461,7 +1468,7 @@ def test_parquet_piece_read(tempdir):
     piece1 = pq.ParquetDatasetPiece(path)
 
     result = piece1.read()
-    assert result.equals(table)
+    assert_tables_equal(result, table)
 
 
 @pytest.mark.pandas
@@ -1478,7 +1485,7 @@ def test_parquet_piece_open_and_get_metadata(tempdir):
     meta1 = piece.get_metadata()
     assert isinstance(meta1, pq.FileMetaData)
 
-    assert table == table1
+    assert_tables_equal(table, table1)
 
 
 def test_parquet_piece_basics():
@@ -2097,16 +2104,16 @@ def test_read_multiple_files(tempdir):
     result = read_multiple_files(paths)
     expected = pa.concat_tables(test_data)
 
-    assert result.equals(expected)
+    assert_tables_equal(result, expected)
 
     # Read with provided metadata
     metadata = pq.read_metadata(paths[0])
 
     result2 = read_multiple_files(paths, metadata=metadata)
-    assert result2.equals(expected)
+    assert_tables_equal(result2, expected)
 
     result3 = pa.localfs.read_parquet(dirpath, schema=metadata.schema)
-    assert result3.equals(expected)
+    assert_tables_equal(result3, expected)
 
     # Read column subset
     to_read = [0, 2, 6, result.num_columns - 1]
@@ -2116,7 +2123,7 @@ def test_read_multiple_files(tempdir):
     expected = pa.Table.from_arrays([result.column(i) for i in to_read],
                                     names=col_names,
                                     metadata=result.schema.metadata)
-    assert out.equals(expected)
+    assert_tables_equal(out, expected)
 
     # Read with multiple threads
     pa.localfs.read_parquet(dirpath, use_threads=True)
@@ -2189,7 +2196,7 @@ def test_dataset_memory_map(tempdir):
     _write_table(table, path, version='2.0')
 
     dataset = pq.ParquetDataset(dirpath, memory_map=True)
-    assert dataset.pieces[0].read().equals(table)
+    assert_tables_equal(dataset.pieces[0].read(), table)
 
 
 @pytest.mark.pandas
@@ -2207,7 +2214,7 @@ def test_dataset_enable_buffered_stream(tempdir):
 
     for buffer_size in [128, 1024]:
         dataset = pq.ParquetDataset(dirpath, buffer_size=buffer_size)
-        assert dataset.pieces[0].read().equals(table)
+        assert_tables_equal(dataset.pieces[0].read(), table)
 
 
 @pytest.mark.pandas
@@ -2334,7 +2341,7 @@ def test_multiindex_duplicate_values(tempdir):
 
     _write_table(table, filename)
     result_table = _read_table(filename)
-    assert table.equals(result_table)
+    assert_tables_equal(table, result_table)
 
     result_df = result_table.to_pandas()
     tm.assert_frame_equal(result_df, df)
@@ -2382,7 +2389,7 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     assert filename.exists()
 
     recovered_table = pq.read_table(filename)
-    assert tb.equals(recovered_table)
+    assert_tables_equal(tb, recovered_table)
 
     # Loss of data thru coercion (without explicit override) still an error
     filename = tempdir / 'not_written.parquet'
@@ -2580,7 +2587,7 @@ def test_byte_array_exactly_2gb():
         values = pa.chunked_array([base, pa.array(case)])
         t = pa.table([values], names=['f0'])
         result = _simple_table_roundtrip(t, use_dictionary=False)
-        assert t.equals(result)
+        assert_tables_equal(t, result)
 
 
 @pytest.mark.pandas
@@ -2603,7 +2610,7 @@ def test_binary_array_overflow_to_chunked():
     # Split up into 2GB chunks
     assert col0_data.num_chunks == 2
 
-    assert tbl.equals(read_tbl)
+    assert_tables_equal(tbl, read_tbl)
 
 
 @pytest.mark.pandas
@@ -2622,7 +2629,7 @@ def test_list_of_binary_large_cell():
     arr = pa.array(data)
     table = pa.Table.from_arrays([arr], ['chunky_cells'])
     read_table = _simple_table_roundtrip(table)
-    assert table.equals(read_table)
+    assert_tables_equal(table, read_table)
 
 
 @pytest.mark.pandas
@@ -2970,7 +2977,7 @@ def test_empty_row_groups(tempdir):
     assert reader.metadata.num_row_groups == num_groups
 
     for i in range(num_groups):
-        assert reader.read_row_group(i).equals(table)
+        assert_tables_equal(reader.read_row_group(i), table)
 
 
 @pytest.mark.pandas
@@ -3099,7 +3106,7 @@ def test_direct_read_dictionary():
 
     # Compute dictionary-encoded subfield
     expected = pa.table([table[0].dictionary_encode()], names=['f0'])
-    assert result.equals(expected)
+    assert_tables_equal(result, expected)
 
 
 @pytest.mark.pandas
@@ -3152,7 +3159,7 @@ def test_direct_read_dictionary_subfield():
     expected_arr = pa.ListArray.from_arrays(offsets, new_values)
     expected = pa.table([expected_arr], names=['f0'])
 
-    assert result.equals(expected)
+    assert_tables_equal(result, expected)
     assert result[0].num_chunks == 1
 
 
@@ -3234,6 +3241,13 @@ def test_categorical_order_survives_roundtrip():
     tm.assert_frame_equal(result, df)
 
 
+def _simple_table_write_read(table):
+    bio = pa.BufferOutputStream()
+    pq.write_table(table, bio)
+    contents = bio.getvalue()
+    return pq.read_table(pa.BufferReader(contents))
+
+
 def test_dictionary_array_automatically_read():
     # ARROW-3246
 
@@ -3252,16 +3266,50 @@ def test_dictionary_array_automatically_read():
                                                      dict_values))
 
     table = pa.table([pa.chunked_array(chunks)], names=['f0'])
+    result = _simple_table_write_read(table)
+
+    assert_tables_equal(result, table)
+
+    # The only key in the metadata was the Arrow schema key
+    assert result.schema.metadata is None
+
+
+def test_field_id_metadata():
+    # ARROW-7080
+    table = pa.table([pa.array([1], type='int32'),
+                      pa.array([[]], type=pa.list_(pa.int32())),
+                      pa.array([b'boo'], type='binary')],
+                     ['f0', 'f1', 'f2'])
 
     bio = pa.BufferOutputStream()
     pq.write_table(table, bio)
     contents = bio.getvalue()
-    result = pq.read_table(pa.BufferReader(contents))
 
-    assert result.equals(table)
+    pf = pq.ParquetFile(pa.BufferReader(contents))
+    schema = pf.schema_arrow
 
-    # The only key in the metadata was the Arrow schema key
-    assert result.schema.metadata is None
+    # Expected Parquet schema for reference
+    #
+    # required group field_id=0 schema {
+    #   optional int32 field_id=1 f0;
+    #   optional group field_id=2 f1 (List) {
+    #     repeated group field_id=3 list {
+    #       optional int32 field_id=4 item;
+    #     }
+    #   }
+    #   optional binary field_id=5 f2;
+    # }
+
+    field_name = b'PARQUET:field_id'
+    assert schema[0].metadata[field_name] == b'1'
+
+    list_field = schema[1]
+    assert list_field.metadata[field_name] == b'2'
+
+    list_item_field = list_field.type.value_field
+    assert list_item_field.metadata[field_name] == b'4'
+
+    assert schema[2].metadata[field_name] == b'5'
 
 
 @pytest.mark.pandas

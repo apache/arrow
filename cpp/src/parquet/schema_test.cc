@@ -43,24 +43,56 @@ namespace schema {
 
 static inline SchemaElement NewPrimitive(const std::string& name,
                                          FieldRepetitionType::type repetition,
-                                         Type::type type, int id = 0) {
+                                         Type::type type, int field_id = -1) {
   SchemaElement result;
   result.__set_name(name);
   result.__set_repetition_type(repetition);
   result.__set_type(static_cast<format::Type::type>(type));
-
+  if (field_id >= 0) {
+    result.__set_field_id(field_id);
+  }
   return result;
 }
 
 static inline SchemaElement NewGroup(const std::string& name,
                                      FieldRepetitionType::type repetition,
-                                     int num_children, int id = 0) {
+                                     int num_children, int field_id = -1) {
   SchemaElement result;
   result.__set_name(name);
   result.__set_repetition_type(repetition);
   result.__set_num_children(num_children);
 
+  if (field_id >= 0) {
+    result.__set_field_id(field_id);
+  }
+
   return result;
+}
+
+template <typename NodeType>
+static void CheckNodeRoundtrip(const Node& node) {
+  format::SchemaElement serialized;
+  node.ToParquet(&serialized);
+  std::unique_ptr<Node> recovered = NodeType::FromParquet(&serialized);
+  ASSERT_TRUE(node.Equals(recovered.get()))
+      << "Recovered node not equivalent to original node constructed "
+      << "with logical type " << node.logical_type()->ToString() << " got "
+      << recovered->logical_type()->ToString();
+}
+
+static void ConfirmPrimitiveNodeRoundtrip(
+    const std::shared_ptr<const LogicalType>& logical_type, Type::type physical_type,
+    int physical_length, int field_id = -1) {
+  auto node = PrimitiveNode::Make("something", Repetition::REQUIRED, logical_type,
+                                  physical_type, physical_length, field_id);
+  CheckNodeRoundtrip<PrimitiveNode>(*node);
+}
+
+static void ConfirmGroupNodeRoundtrip(
+    std::string name, const std::shared_ptr<const LogicalType>& logical_type,
+    int field_id = -1) {
+  auto node = GroupNode::Make(name, Repetition::REQUIRED, {}, logical_type, field_id);
+  CheckNodeRoundtrip<GroupNode>(*node);
 }
 
 // ----------------------------------------------------------------------
@@ -85,11 +117,11 @@ class TestPrimitiveNode : public ::testing::Test {
  public:
   void SetUp() {
     name_ = "name";
-    id_ = 5;
+    field_id_ = 5;
   }
 
   void Convert(const format::SchemaElement* element) {
-    node_ = PrimitiveNode::FromParquet(element, id_);
+    node_ = PrimitiveNode::FromParquet(element, field_id_);
     ASSERT_TRUE(node_->is_primitive());
     prim_node_ = static_cast<const PrimitiveNode*>(node_.get());
   }
@@ -98,7 +130,7 @@ class TestPrimitiveNode : public ::testing::Test {
   std::string name_;
   const PrimitiveNode* prim_node_;
 
-  int id_;
+  int field_id_;
   std::unique_ptr<Node> node_;
 };
 
@@ -139,16 +171,17 @@ TEST_F(TestPrimitiveNode, Attrs) {
 }
 
 TEST_F(TestPrimitiveNode, FromParquet) {
-  SchemaElement elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::INT32, 0);
+  SchemaElement elt =
+      NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::INT32, field_id_);
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(name_, prim_node_->name());
-  ASSERT_EQ(id_, prim_node_->id());
+  ASSERT_EQ(field_id_, prim_node_->field_id());
   ASSERT_EQ(Repetition::OPTIONAL, prim_node_->repetition());
   ASSERT_EQ(Type::INT32, prim_node_->physical_type());
   ASSERT_EQ(ConvertedType::NONE, prim_node_->converted_type());
 
   // Test a logical type
-  elt = NewPrimitive(name_, FieldRepetitionType::REQUIRED, Type::BYTE_ARRAY, 0);
+  elt = NewPrimitive(name_, FieldRepetitionType::REQUIRED, Type::BYTE_ARRAY, field_id_);
   elt.__set_converted_type(format::ConvertedType::UTF8);
 
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
@@ -157,18 +190,20 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   ASSERT_EQ(ConvertedType::UTF8, prim_node_->converted_type());
 
   // FIXED_LEN_BYTE_ARRAY
-  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY, 0);
+  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
+                     field_id_);
   elt.__set_type_length(16);
 
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(name_, prim_node_->name());
-  ASSERT_EQ(id_, prim_node_->id());
+  ASSERT_EQ(field_id_, prim_node_->field_id());
   ASSERT_EQ(Repetition::OPTIONAL, prim_node_->repetition());
   ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, prim_node_->physical_type());
   ASSERT_EQ(16, prim_node_->type_length());
 
   // format::ConvertedType::Decimal
-  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY, 0);
+  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
+                     field_id_);
   elt.__set_converted_type(format::ConvertedType::DECIMAL);
   elt.__set_type_length(6);
   elt.__set_scale(2);
@@ -383,8 +418,7 @@ class TestSchemaConverter : public ::testing::Test {
   void setUp() { name_ = "parquet_schema"; }
 
   void Convert(const parquet::format::SchemaElement* elements, int length) {
-    FlatSchemaConverter converter(elements, length);
-    node_ = converter.Convert();
+    node_ = Unflatten(elements, length);
     ASSERT_TRUE(node_->is_group());
     group_ = static_cast<const GroupNode*>(node_.get());
   }
@@ -415,7 +449,8 @@ bool check_for_parent_consistency(const GroupNode* node) {
 TEST_F(TestSchemaConverter, NestedExample) {
   SchemaElement elt;
   std::vector<SchemaElement> elements;
-  elements.push_back(NewGroup(name_, FieldRepetitionType::REPEATED, 2, 0));
+  elements.push_back(NewGroup(name_, FieldRepetitionType::REPEATED, /*num_children=*/2,
+                              /*field_id=*/0));
 
   // A primitive one
   elements.push_back(NewPrimitive("a", FieldRepetitionType::REQUIRED, Type::INT32, 1));
@@ -433,15 +468,18 @@ TEST_F(TestSchemaConverter, NestedExample) {
 
   // Construct the expected schema
   NodeVector fields;
-  fields.push_back(Int32("a", Repetition::REQUIRED));
+  fields.push_back(Int32("a", Repetition::REQUIRED, 1));
 
   // 3-level list encoding
-  NodePtr item = Int64("item");
-  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
-  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
+  NodePtr item = Int64("item", Repetition::OPTIONAL, 4);
+  NodePtr list(
+      GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST, 3));
+  NodePtr bag(
+      GroupNode::Make("bag", Repetition::OPTIONAL, {list}, /*logical_type=*/nullptr, 2));
   fields.push_back(bag);
 
-  NodePtr schema = GroupNode::Make(name_, Repetition::REPEATED, fields);
+  NodePtr schema = GroupNode::Make(name_, Repetition::REPEATED, fields,
+                                   /*logical_type=*/nullptr, 0);
 
   ASSERT_TRUE(schema->Equals(group_));
 
@@ -556,15 +594,18 @@ TEST_F(TestSchemaFlatten, NestedExample) {
 
   // Construct the schema
   NodeVector fields;
-  fields.push_back(Int32("a", Repetition::REQUIRED));
+  fields.push_back(Int32("a", Repetition::REQUIRED, 1));
 
   // 3-level list encoding
-  NodePtr item = Int64("item");
-  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
-  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
+  NodePtr item = Int64("item", Repetition::OPTIONAL, 4);
+  NodePtr list(
+      GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST, 3));
+  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list},
+                              /*logical_type=*/nullptr, 2));
   fields.push_back(bag);
 
-  NodePtr schema = GroupNode::Make(name_, Repetition::REPEATED, fields);
+  NodePtr schema = GroupNode::Make(name_, Repetition::REPEATED, fields,
+                                   /*logical_type=*/nullptr, 0);
 
   Flatten(static_cast<GroupNode*>(schema.get()));
   ASSERT_EQ(elements_.size(), elements.size());
@@ -767,35 +808,39 @@ static std::string Print(const NodePtr& node) {
 TEST(TestSchemaPrinter, Examples) {
   // Test schema 1
   NodeVector fields;
-  fields.push_back(Int32("a", Repetition::REQUIRED));
+  fields.push_back(Int32("a", Repetition::REQUIRED, 1));
 
   // 3-level list encoding
-  NodePtr item1 = Int64("item1");
-  NodePtr item2 = Boolean("item2", Repetition::REQUIRED);
+  NodePtr item1 = Int64("item1", Repetition::OPTIONAL, 4);
+  NodePtr item2 = Boolean("item2", Repetition::REQUIRED, 5);
   NodePtr list(
-      GroupNode::Make("b", Repetition::REPEATED, {item1, item2}, ConvertedType::LIST));
-  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
+      GroupNode::Make("b", Repetition::REPEATED, {item1, item2}, ConvertedType::LIST, 3));
+  NodePtr bag(
+      GroupNode::Make("bag", Repetition::OPTIONAL, {list}, /*logical_type=*/nullptr, 2));
   fields.push_back(bag);
 
   fields.push_back(PrimitiveNode::Make("c", Repetition::REQUIRED, Type::INT32,
-                                       ConvertedType::DECIMAL, -1, 3, 2));
+                                       ConvertedType::DECIMAL, -1, 3, 2, 6));
 
   fields.push_back(PrimitiveNode::Make("d", Repetition::REQUIRED,
-                                       DecimalLogicalType::Make(10, 5), Type::INT64, -1));
+                                       DecimalLogicalType::Make(10, 5), Type::INT64,
+                                       /*length=*/-1, 7));
 
-  NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
+  NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, fields,
+                                   /*logical_type=*/nullptr, 0);
 
   std::string result = Print(schema);
-  std::string expected = R"(message schema {
-  required int32 a;
-  optional group bag {
-    repeated group b (List) {
-      optional int64 item1;
-      required boolean item2;
+
+  std::string expected = R"(repeated group field_id=0 schema {
+  required int32 field_id=1 a;
+  optional group field_id=2 bag {
+    repeated group field_id=3 b (List) {
+      optional int64 field_id=4 item1;
+      required boolean field_id=5 item2;
     }
   }
-  required int32 c (Decimal(precision=3, scale=2));
-  required int64 d (Decimal(precision=10, scale=5));
+  required int32 field_id=6 c (Decimal(precision=3, scale=2));
+  required int64 field_id=7 d (Decimal(precision=10, scale=5));
 }
 )";
   ASSERT_EQ(expected, result);
@@ -2086,37 +2131,6 @@ TEST(TestLogicalTypeSerialization, SchemaElementNestedCases) {
   ASSERT_TRUE(map_elements[0].__isset.logicalType);
   ASSERT_EQ(map_elements[0].converted_type, ToThrift(ConvertedType::MAP));
   ASSERT_TRUE(map_elements[0].logicalType.__isset.MAP);
-}
-
-static void ConfirmPrimitiveNodeRoundtrip(
-    const std::shared_ptr<const LogicalType>& logical_type, Type::type physical_type,
-    int physical_length) {
-  std::shared_ptr<Node> original = PrimitiveNode::Make(
-      "something", Repetition::REQUIRED, logical_type, physical_type, physical_length);
-  format::SchemaElement intermediary;
-  original->ToParquet(&intermediary);
-  std::unique_ptr<Node> recovered = PrimitiveNode::FromParquet(&intermediary, 1);
-  ASSERT_TRUE(original->Equals(recovered.get()))
-      << "Recovered primitive node unexpectedly not equivalent to original primitive "
-         "node constructed with logical type "
-      << logical_type->ToString();
-  return;
-}
-
-static void ConfirmGroupNodeRoundtrip(
-    std::string name, const std::shared_ptr<const LogicalType>& logical_type) {
-  NodeVector node_vector;
-  std::shared_ptr<Node> original =
-      GroupNode::Make(name, Repetition::REQUIRED, node_vector, logical_type);
-  std::vector<format::SchemaElement> elements;
-  ToParquet(reinterpret_cast<GroupNode*>(original.get()), &elements);
-  std::unique_ptr<Node> recovered =
-      GroupNode::FromParquet(&(elements[0]), 1, node_vector);
-  ASSERT_TRUE(original->Equals(recovered.get()))
-      << "Recovered group node unexpectedly not equivalent to original group node "
-         "constructed with logical type "
-      << logical_type->ToString();
-  return;
 }
 
 TEST(TestLogicalTypeSerialization, Roundtrips) {

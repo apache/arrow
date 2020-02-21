@@ -751,8 +751,9 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
       *out = nullptr;
       return Status::OK();
     }
-    auto filtered_field = ::arrow::field(
-        field.field->name(), ::arrow::struct_(child_fields), field.field->nullable());
+    auto filtered_field =
+        ::arrow::field(field.field->name(), ::arrow::struct_(child_fields),
+                       field.field->nullable(), field.field->metadata());
     out->reset(new StructReader(ctx, field, filtered_field, std::move(child_readers)));
   } else {
     return Status::Invalid("Unsupported nested type: ", field.field->ToString());

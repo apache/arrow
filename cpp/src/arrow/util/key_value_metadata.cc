@@ -22,6 +22,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -61,9 +62,9 @@ KeyValueMetadata::KeyValueMetadata(
   ARROW_CHECK_EQ(keys_.size(), values_.size());
 }
 
-KeyValueMetadata::KeyValueMetadata(const std::vector<std::string>& keys,
-                                   const std::vector<std::string>& values)
-    : keys_(keys), values_(values) {
+KeyValueMetadata::KeyValueMetadata(std::vector<std::string> keys,
+                                   std::vector<std::string> values)
+    : keys_(std::move(keys)), values_(std::move(values)) {
   ARROW_CHECK_EQ(keys.size(), values.size());
 }
 
@@ -128,6 +129,37 @@ int KeyValueMetadata::FindKey(const std::string& key) const {
 
 std::shared_ptr<KeyValueMetadata> KeyValueMetadata::Copy() const {
   return std::make_shared<KeyValueMetadata>(keys_, values_);
+}
+
+std::shared_ptr<KeyValueMetadata> KeyValueMetadata::Merge(
+    const KeyValueMetadata& other) const {
+  std::unordered_set<std::string> observed_keys;
+  std::vector<std::string> result_keys;
+  std::vector<std::string> result_values;
+
+  result_keys.reserve(keys_.size());
+  result_values.reserve(keys_.size());
+
+  for (int64_t i = 0; i < other.size(); ++i) {
+    const auto& key = other.key(i);
+    auto it = observed_keys.find(key);
+    if (it == observed_keys.end()) {
+      result_keys.push_back(key);
+      result_values.push_back(other.value(i));
+      observed_keys.insert(key);
+    }
+  }
+  for (size_t i = 0; i < keys_.size(); ++i) {
+    auto it = observed_keys.find(keys_[i]);
+    if (it == observed_keys.end()) {
+      result_keys.push_back(keys_[i]);
+      result_values.push_back(values_[i]);
+      observed_keys.insert(keys_[i]);
+    }
+  }
+
+  return std::make_shared<KeyValueMetadata>(std::move(result_keys),
+                                            std::move(result_values));
 }
 
 bool KeyValueMetadata::Equals(const KeyValueMetadata& other) const {

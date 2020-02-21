@@ -63,6 +63,11 @@ garrow_table_new_record_batches(GArrowSchema *schema,
 
 gboolean        garrow_table_equal         (GArrowTable *table,
                                             GArrowTable *other_table);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_table_equal_metadata(GArrowTable *table,
+                            GArrowTable *other_table,
+                            gboolean check_metadata);
 
 GArrowSchema   *garrow_table_get_schema    (GArrowTable *table);
 GARROW_AVAILABLE_IN_1_0

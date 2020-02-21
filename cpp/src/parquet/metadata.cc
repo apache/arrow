@@ -631,9 +631,8 @@ class FileMetaData::FileMetaDataImpl {
   uint32_t metadata_len_;
   std::unique_ptr<format::FileMetaData> metadata_;
   void InitSchema() {
-    schema::FlatSchemaConverter converter(&metadata_->schema[0],
-                                          static_cast<int>(metadata_->schema.size()));
-    schema_.Init(converter.Convert());
+    schema_.Init(schema::Unflatten(&metadata_->schema[0],
+                                   static_cast<int>(metadata_->schema.size())));
   }
   void InitColumnOrders() {
     // update ColumnOrder
@@ -1341,10 +1340,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       }
     }
 
-    parquet::schema::SchemaFlattener flattener(
-        static_cast<parquet::schema::GroupNode*>(schema_->schema_root().get()),
-        &metadata_->schema);
-    flattener.Flatten();
+    ToParquet(static_cast<parquet::schema::GroupNode*>(schema_->schema_root().get()),
+              &metadata_->schema);
     auto file_meta_data = std::unique_ptr<FileMetaData>(new FileMetaData());
     file_meta_data->impl_->metadata_ = std::move(metadata_);
     file_meta_data->impl_->InitSchema();
