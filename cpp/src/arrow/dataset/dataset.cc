@@ -118,11 +118,22 @@ InMemorySource::InMemorySource(std::shared_ptr<Schema> schema,
     : Source(std::move(schema)),
       get_batches_(VectorRecordBatchGenerator(std::move(batches))) {}
 
+struct TableRecordBatchGenerator {
+  explicit TableRecordBatchGenerator(std::shared_ptr<Table> table)
+      : table_(std::move(table)) {}
+
+  RecordBatchIterator operator()() const {
+    auto reader = std::make_shared<TableBatchReader>(*table_);
+    auto table = table_;
+    return MakeFunctionIterator([reader, table] { return reader->Next(); });
+  }
+
+  std::shared_ptr<Table> table_;
+};
+
 InMemorySource::InMemorySource(std::shared_ptr<Table> table)
-    : Source(table->schema()), get_batches_([table] {
-        auto reader = std::make_shared<TableBatchReader>(*table);
-        return MakeFunctionIterator([reader, table] { return reader->Next(); });
-      }) {}
+    : Source(table->schema()),
+      get_batches_(TableRecordBatchGenerator(std::move(table))) {}
 
 FragmentIterator InMemorySource::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> scan_options) {
