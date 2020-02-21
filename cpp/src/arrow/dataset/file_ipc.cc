@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/file_ipc.h"
 
+#include <algorithm>
 #include <memory>
 #include <unordered_set>
 #include <utility>
@@ -57,7 +58,17 @@ class IpcScanTask : public ScanTask {
       : ScanTask(std::move(options), std::move(context)), source_(std::move(source)) {}
 
   Result<RecordBatchIterator> Execute() override {
-    struct {
+    struct Impl {
+      static Result<Impl> Make(const FileSource& source,
+                               const std::vector<std::string>& materialized_fields,
+                               MemoryPool* pool) {
+        ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
+        auto materialized_schema =
+            SchemaFromColumnNames(reader->schema(), materialized_fields);
+        return Impl{std::move(reader),
+                    RecordBatchProjector(std::move(materialized_schema)), pool, 0};
+      }
+
       Result<std::shared_ptr<RecordBatch>> Next() {
         if (i_ == reader_->num_record_batches()) {
           return nullptr;
@@ -65,14 +76,22 @@ class IpcScanTask : public ScanTask {
 
         std::shared_ptr<RecordBatch> batch;
         RETURN_NOT_OK(reader_->ReadRecordBatch(i_++, &batch));
-        return batch;
+        return projector_.Project(*batch, pool_);
       }
 
       std::shared_ptr<ipc::RecordBatchFileReader> reader_;
-      int i_ = 0;
-    } batch_it;
+      RecordBatchProjector projector_;
+      MemoryPool* pool_;
+      int i_;
+    };
 
-    ARROW_ASSIGN_OR_RAISE(batch_it.reader_, OpenReader(source_));
+    // get names of fields explicitly projected or referenced by filter
+    auto fields = options_->MaterializedFields();
+    std::sort(fields.begin(), fields.end());
+    auto unique_end = std::unique(fields.begin(), fields.end());
+    fields.erase(unique_end, fields.end());
+
+    ARROW_ASSIGN_OR_RAISE(auto batch_it, Impl::Make(source_, fields, context_->pool));
 
     return RecordBatchIterator(std::move(batch_it));
   }

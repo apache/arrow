@@ -38,16 +38,21 @@ class ARROW_DS_EXPORT Fragment {
  public:
   /// \brief Scan returns an iterator of ScanTasks, each of which yields
   /// RecordBatches from this Fragment.
+  ///
+  /// Note that batches yielded using this method will not be filtered and may not align
+  /// with the Fragment's schema. In particular, note that columns referenced by the
+  /// filter may be present in yielded batches even if they are not projected (so that
+  /// they are available when a filter is applied). Additionally, explicitly projected
+  /// columns may be absent if they were not present in this fragment.
+  ///
+  /// To receive a record batch stream which is fully filtered and projected, use Scanner.
   virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) = 0;
 
-  /// \brief Return true if the fragment can benefit from parallel
-  /// scanning
+  /// \brief Return true if the fragment can benefit from parallel scanning.
   virtual bool splittable() const = 0;
 
   /// \brief Filtering, schema reconciliation, and partition options to use when
-  /// scanning this fragment. May be nullptr, which indicates that no filtering
-  /// or schema reconciliation will be performed and all partitions will be
-  /// scanned.
+  /// scanning this fragment.
   const std::shared_ptr<ScanOptions>& scan_options() const { return scan_options_; }
 
   const std::shared_ptr<Schema>& schema() const;
@@ -55,7 +60,7 @@ class ARROW_DS_EXPORT Fragment {
   virtual ~Fragment() = default;
 
   /// \brief An expression which evaluates to true for all data viewed by this
-  /// Fragment. May be null, which indicates no information is available.
+  /// Fragment.
   const std::shared_ptr<Expression>& partition_expression() const {
     return partition_expression_;
   }
