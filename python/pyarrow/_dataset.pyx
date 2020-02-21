@@ -41,6 +41,283 @@ def _forbid_instantiation(klass, subclasses_instead=True):
     raise TypeError(msg)
 
 
+cdef class Dataset:
+    """
+    Collection of data fragments and potentially child datasets.
+
+    Arrow Datasets allow you to query against data that has been split across
+    multiple files. This sharding of data may indicate partitioning, which
+    can accelerate queries that only touch some partitions (files).
+    """
+
+    cdef:
+        shared_ptr[CDataset] wrapped
+        CDataset* dataset
+
+    def __init__(self, children, Schema schema not None):
+        """Create a dataset
+
+        Children's schemas must agree with the provided schema.
+
+        Parameters
+        ----------
+        children : list of Dataset
+            One or more input children
+        schema : Schema
+            A known schema to conform to.
+        """
+        cdef:
+            Dataset child
+            CDatasetVector c_children
+            CResult[shared_ptr[CDataset]] result
+
+        for child in children:
+            c_children.push_back(child.unwrap())
+
+        result = CDataset.Make(c_children, pyarrow_unwrap_schema(schema))
+        self.init(GetResultValue(result))
+
+    cdef void init(self, const shared_ptr[CDataset]& sp):
+        self.wrapped = sp
+        self.dataset = sp.get()
+
+    @staticmethod
+    cdef wrap(shared_ptr[CDataset]& sp):
+        cdef Dataset self
+
+        typ = frombytes(sp.get().type_name())
+        if typ == 'tree':
+            self = TreeDataset.__new__(TreeDataset)
+        elif typ == 'filesystem':
+            self = FileSystemDataset.__new__(FileSystemDataset)
+        else:
+            raise TypeError(typ)
+
+        self.init(sp)
+        return self
+
+    cdef shared_ptr[CDataset] unwrap(self) nogil:
+        return self.wrapped
+
+    @property
+    def partition_expression(self):
+        """
+        An Expression which evaluates to true for all data viewed by this
+        Dataset.
+        """
+        cdef shared_ptr[CExpression] expr
+        expr = self.dataset.partition_expression()
+        if expr.get() == nullptr:
+            return None
+        else:
+            return Expression.wrap(expr)
+
+    def scan(self, columns=None, filter=None, MemoryPool memory_pool=None):
+        """Builds a scan operation against the dataset.
+
+        It poduces a stream of ScanTasks which is meant to be a unit of work to
+        be dispatched. The tasks are not executed automatically, the user is
+        responsible to execute and dispatch the individual tasks, so custom
+        local task scheduling can be implemented.
+
+        Parameters
+        ----------
+        columns : list of str, default None
+            List of columns to project. Order and duplicates will be preserved.
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in fragments,
+            e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+
+        Returns
+        -------
+        scan_tasks : iterator of ScanTask
+        """
+        scanner = Scanner(self, columns=columns, filter=filter,
+                          memory_pool=memory_pool)
+        return scanner.scan()
+
+    def to_batches(self, columns=None, filter=None,
+                   MemoryPool memory_pool=None):
+        """Read the dataset as materialized record batches.
+
+        Builds a scan operation against the dataset and sequentially executes
+        the ScanTasks as the returned generator gets consumed.
+
+        Parameters
+        ----------
+        columns : list of str, default None
+            List of columns to project. Order and duplicates will be preserved.
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the fragments,
+            e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+
+        Returns
+        -------
+        record_batches : iterator of RecordBatch
+        """
+        scanner = Scanner(self, columns=columns, filter=filter,
+                          memory_pool=memory_pool)
+        for task in scanner.scan():
+            for batch in task.execute():
+                yield batch
+
+    def to_table(self, columns=None, filter=None, use_threads=True,
+                 MemoryPool memory_pool=None):
+        """Read the dataset to an arrow table.
+
+        Note that this method reads all the selected data from the dataset
+        into memory.
+
+        Parameters
+        ----------
+        columns : list of str, default None
+            List of columns to project. Order and duplicates will be preserved.
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the fragments,
+            e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        use_threads : boolean, default True
+            If enabled, then maximum paralellism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+
+        Returns
+        -------
+        table : Table instance
+        """
+        scanner = Scanner(self, columns=columns, filter=filter,
+                          use_threads=use_threads, memory_pool=memory_pool)
+        return scanner.to_table()
+
+    @property
+    def schema(self):
+        """The common schema of the full Dataset"""
+        return pyarrow_wrap_schema(self.dataset.schema())
+
+
+cdef class TreeDataset(Dataset):
+    """A Dataset wrapping child datasets."""
+
+    cdef:
+        CTreeDataset* tree_source
+
+    def __init__(self, schema, child_datasets):
+        cdef:
+            Dataset child
+            CDatasetVector children
+            shared_ptr[CTreeDataset] tree_source
+
+        for child in child_datasets:
+            children.push_back(child.wrapped)
+
+        tree_source = make_shared[CTreeDataset](
+            pyarrow_unwrap_schema(schema), children)
+        self.init(<shared_ptr[CDataset]> tree_source)
+
+    cdef void init(self, const shared_ptr[CDataset]& sp):
+        Dataset.init(self, sp)
+        self.tree_source = <CTreeDataset*> sp.get()
+
+
+cdef class FileSystemDataset(Dataset):
+    """A Dataset created from a set of files on a particular filesystem"""
+
+    cdef:
+        CFileSystemDataset* filesystem_source
+
+    def __init__(self, Schema schema not None, Expression root_partition,
+                 FileFormat file_format not None,
+                 FileSystem filesystem not None,
+                 paths_or_selector, partitions):
+        """Create a FileSystemDataset
+
+        Parameters
+        ----------
+        schema : Schema
+            The top-level schema of the DataDataset.
+        root_partition : Expression
+            The top-level partition of the DataDataset.
+        file_format : FileFormat
+            File format to create fragments from, currently only
+            ParquetFileFormat and IpcFileFormat are supported.
+        filesystem : FileSystem
+            The filesystem which files are from.
+        paths_or_selector : Union[FileSelector, List[FileStats]]
+            List of files/directories to consume.
+        partitions : List[Expression]
+            Attach aditional partition information for the file paths.
+        """
+        cdef:
+            FileStats stats
+            Expression expr
+            vector[CFileStats] c_file_stats
+            vector[shared_ptr[CExpression]] c_partitions
+            CResult[shared_ptr[CDataset]] result
+
+        for stats in filesystem.get_target_stats(paths_or_selector):
+            c_file_stats.push_back(stats.unwrap())
+
+        for expr in partitions:
+            c_partitions.push_back(expr.unwrap())
+
+        if c_file_stats.size() != c_partitions.size():
+            raise ValueError(
+                'The number of files resulting from paths_or_selector must be '
+                'equal to the number of partitions.'
+            )
+
+        if root_partition is None:
+            root_partition = ScalarExpression(True)
+
+        result = CFileSystemDataset.Make(
+            pyarrow_unwrap_schema(schema),
+            root_partition.unwrap(),
+            file_format.unwrap(),
+            filesystem.unwrap(),
+            c_file_stats,
+            c_partitions
+        )
+        self.init(GetResultValue(result))
+
+    cdef void init(self, const shared_ptr[CDataset]& sp):
+        Dataset.init(self, sp)
+        self.filesystem_source = <CFileSystemDataset*> sp.get()
+
+
 cdef class FileFormat:
 
     cdef:
@@ -330,6 +607,96 @@ cdef class HivePartitioning(Partitioning):
         return factory
 
 
+cdef class DatasetFactory:
+    """
+    DatasetFactory is used to create a Dataset, inspect the Schema
+    of the fragments contained in it, and declare a partitioning.
+    """
+
+    cdef:
+        shared_ptr[CDatasetFactory] wrapped
+        CDatasetFactory* factory
+
+    def __init__(self, list children):
+        _forbid_instantiation(self.__class__)
+
+    cdef init(self, shared_ptr[CDatasetFactory]& sp):
+        self.wrapped = sp
+        self.factory = sp.get()
+
+    @staticmethod
+    cdef wrap(shared_ptr[CDatasetFactory]& sp):
+        cdef DatasetFactory self = \
+            DatasetFactory.__new__(DatasetFactory)
+        self.init(sp)
+        return self
+
+    cdef inline shared_ptr[CDatasetFactory] unwrap(self) nogil:
+        return self.wrapped
+
+    @property
+    def root_partition(self):
+        cdef shared_ptr[CExpression] expr = self.factory.root_partition()
+        if expr.get() == nullptr:
+            return None
+        else:
+            return Expression.wrap(expr)
+
+    @root_partition.setter
+    def root_partition(self, Expression expr):
+        check_status(self.factory.SetRootPartition(expr.unwrap()))
+
+    def inspect_schemas(self):
+        cdef CResult[vector[shared_ptr[CSchema]]] result
+        with nogil:
+            result = self.factory.InspectSchemas()
+
+        schemas = []
+        for s in GetResultValue(result):
+            schemas.append(pyarrow_wrap_schema(s))
+        return schemas
+
+    def inspect(self):
+        """
+        Inspect all data fragments and return a common Schema.
+
+        Returns
+        -------
+        Schema
+        """
+        cdef CResult[shared_ptr[CSchema]] result
+        with nogil:
+            result = self.factory.Inspect()
+        return pyarrow_wrap_schema(GetResultValue(result))
+
+    def finish(self, Schema schema=None):
+        """
+        Create a Dataset using the inspected schema or an explicit schema
+        (if given).
+
+        Parameters
+        ----------
+        schema: Schema, default None
+            The schema to conform the source to.  If None, the inspected
+            schema is used.
+
+        Returns
+        -------
+        Dataset
+        """
+        cdef:
+            shared_ptr[CSchema] sp_schema
+            CResult[shared_ptr[CDataset]] result
+        if schema is not None:
+            sp_schema = pyarrow_unwrap_schema(schema)
+            with nogil:
+                result = self.factory.FinishWithSchema(sp_schema)
+        else:
+            with nogil:
+                result = self.factory.Finish()
+        return Dataset.wrap(GetResultValue(result))
+
+
 cdef class FileSystemFactoryOptions:
     """
     Influences the discovery of filesystem paths.
@@ -435,96 +802,6 @@ cdef class FileSystemFactoryOptions:
         self.options.ignore_prefixes = [tobytes(v) for v in values]
 
 
-cdef class DatasetFactory:
-    """
-    DatasetFactory is used to create a Dataset, inspect the Schema
-    of the fragments contained in it, and declare a partitioning.
-    """
-
-    cdef:
-        shared_ptr[CDatasetFactory] wrapped
-        CDatasetFactory* factory
-
-    def __init__(self, list children):
-        _forbid_instantiation(self.__class__)
-
-    cdef init(self, shared_ptr[CDatasetFactory]& sp):
-        self.wrapped = sp
-        self.factory = sp.get()
-
-    @staticmethod
-    cdef wrap(shared_ptr[CDatasetFactory]& sp):
-        cdef DatasetFactory self = \
-            DatasetFactory.__new__(DatasetFactory)
-        self.init(sp)
-        return self
-
-    cdef inline shared_ptr[CDatasetFactory] unwrap(self) nogil:
-        return self.wrapped
-
-    @property
-    def root_partition(self):
-        cdef shared_ptr[CExpression] expr = self.factory.root_partition()
-        if expr.get() == nullptr:
-            return None
-        else:
-            return Expression.wrap(expr)
-
-    @root_partition.setter
-    def root_partition(self, Expression expr):
-        check_status(self.factory.SetRootPartition(expr.unwrap()))
-
-    def inspect_schemas(self):
-        cdef CResult[vector[shared_ptr[CSchema]]] result
-        with nogil:
-            result = self.factory.InspectSchemas()
-
-        schemas = []
-        for s in GetResultValue(result):
-            schemas.append(pyarrow_wrap_schema(s))
-        return schemas
-
-    def inspect(self):
-        """
-        Inspect all data fragments and return a common Schema.
-
-        Returns
-        -------
-        Schema
-        """
-        cdef CResult[shared_ptr[CSchema]] result
-        with nogil:
-            result = self.factory.Inspect()
-        return pyarrow_wrap_schema(GetResultValue(result))
-
-    def finish(self, Schema schema=None):
-        """
-        Create a Dataset using the inspected schema or an explicit schema
-        (if given).
-
-        Parameters
-        ----------
-        schema: Schema, default None
-            The schema to conform the source to.  If None, the inspected
-            schema is used.
-
-        Returns
-        -------
-        Dataset
-        """
-        cdef:
-            shared_ptr[CSchema] sp_schema
-            CResult[shared_ptr[CDataset]] result
-        if schema is not None:
-            sp_schema = pyarrow_unwrap_schema(schema)
-            with nogil:
-                result = self.factory.FinishWithSchema(sp_schema)
-        else:
-            with nogil:
-                result = self.factory.Finish()
-        return Dataset.wrap(GetResultValue(result))
-
-
 cdef class FileSystemDatasetFactory(DatasetFactory):
     """
     Create a DatasetFactory from a list of paths with schema inspection.
@@ -588,95 +865,6 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
         DatasetFactory.init(self, sp)
         self.filesystem_factory = <CFileSystemDatasetFactory*> sp.get()
 
-
-cdef class TreeDataset(Dataset):
-    """A Dataset wrapping child datasets."""
-
-    cdef:
-        CTreeDataset* tree_source
-
-    def __init__(self, schema, child_datasets):
-        cdef:
-            Dataset child
-            CDatasetVector children
-            shared_ptr[CTreeDataset] tree_source
-
-        for child in child_datasets:
-            children.push_back(child.wrapped)
-
-        tree_source = make_shared[CTreeDataset](
-            pyarrow_unwrap_schema(schema), children)
-        self.init(<shared_ptr[CDataset]> tree_source)
-
-    cdef void init(self, const shared_ptr[CDataset]& sp):
-        Dataset.init(self, sp)
-        self.tree_source = <CTreeDataset*> sp.get()
-
-
-cdef class FileSystemDataset(Dataset):
-    """A Dataset created from a set of files on a particular filesystem"""
-
-    cdef:
-        CFileSystemDataset* filesystem_source
-
-    def __init__(self, Schema schema not None, Expression root_partition,
-                 FileFormat file_format not None,
-                 FileSystem filesystem not None,
-                 paths_or_selector, partitions):
-        """Create a FileSystemDataset
-
-        Parameters
-        ----------
-        schema : Schema
-            The top-level schema of the DataDataset.
-        root_partition : Expression
-            The top-level partition of the DataDataset.
-        file_format : FileFormat
-            File format to create fragments from, currently only
-            ParquetFileFormat and IpcFileFormat are supported.
-        filesystem : FileSystem
-            The filesystem which files are from.
-        paths_or_selector : Union[FileSelector, List[FileStats]]
-            List of files/directories to consume.
-        partitions : List[Expression]
-            Attach aditional partition information for the file paths.
-        """
-        cdef:
-            FileStats stats
-            Expression expr
-            vector[CFileStats] c_file_stats
-            vector[shared_ptr[CExpression]] c_partitions
-            CResult[shared_ptr[CDataset]] result
-
-        for stats in filesystem.get_target_stats(paths_or_selector):
-            c_file_stats.push_back(stats.unwrap())
-
-        for expr in partitions:
-            c_partitions.push_back(expr.unwrap())
-
-        if c_file_stats.size() != c_partitions.size():
-            raise ValueError(
-                'The number of files resulting from paths_or_selector must be '
-                'equal to the number of partitions.'
-            )
-
-        if root_partition is None:
-            root_partition = ScalarExpression(True)
-
-        result = CFileSystemDataset.Make(
-            pyarrow_unwrap_schema(schema),
-            root_partition.unwrap(),
-            file_format.unwrap(),
-            filesystem.unwrap(),
-            c_file_stats,
-            c_partitions
-        )
-        self.init(GetResultValue(result))
-
-    cdef void init(self, const shared_ptr[CDataset]& sp):
-        Dataset.init(self, sp)
-        self.filesystem_source = <CFileSystemDataset*> sp.get()
-
     @property
     def files(self):
         """List of the files"""
@@ -738,203 +926,6 @@ cdef class TreeDatasetFactory:
             )
 
         return Dataset.wrap(GetResultValue(result))
-
-
-cdef class Dataset:
-    """
-    Collection of data fragments and potentially child datasets.
-
-    Arrow Datasets allow you to query against data that has been split across
-    multiple files. This sharding of data may indicate partitioning, which
-    can accelerate queries that only touch some partitions (files).
-    """
-
-    cdef:
-        shared_ptr[CDataset] wrapped
-        CDataset* dataset
-
-    def __init__(self, children, Schema schema not None):
-        """Create a dataset
-
-        Children's schemas must agree with the provided schema.
-
-        Parameters
-        ----------
-        children : list of Dataset
-            One or more input children
-        schema : Schema
-            A known schema to conform to.
-        """
-        cdef:
-            Dataset child
-            CDatasetVector c_children
-            CResult[shared_ptr[CDataset]] result
-
-        for child in children:
-            c_children.push_back(child.unwrap())
-
-        result = CDataset.Make(c_children, pyarrow_unwrap_schema(schema))
-        self.init(GetResultValue(result))
-
-    cdef void init(self, const shared_ptr[CDataset]& sp):
-        self.wrapped = sp
-        self.dataset = sp.get()
-
-    @staticmethod
-    cdef wrap(shared_ptr[CDataset]& sp):
-        cdef Dataset self
-
-        typ = frombytes(sp.get().type_name())
-        if typ == 'tree':
-            self = TreeDataset.__new__(TreeDataset)
-        elif typ == 'filesystem':
-            self = FileSystemDataset.__new__(FileSystemDataset)
-        else:
-            raise TypeError(typ)
-
-        self.init(sp)
-        return self
-
-    cdef shared_ptr[CDataset] unwrap(self) nogil:
-        return self.wrapped
-
-    @property
-    def partition_expression(self):
-        """
-        An Expression which evaluates to true for all data viewed by this
-        Dataset.
-        """
-        cdef shared_ptr[CExpression] expr
-        expr = self.dataset.partition_expression()
-        if expr.get() == nullptr:
-            return None
-        else:
-            return Expression.wrap(expr)
-
-    def scan(self, columns=None, filter=None, MemoryPool memory_pool=None):
-        """Builds a scan operation against the dataset.
-
-        It poduces a stream of ScanTasks which is meant to be a unit of work to
-        be dispatched. The tasks are not executed automatically, the user is
-        responsible to execute and dispatch the individual tasks, so custom
-        local task scheduling can be implemented.
-
-        Parameters
-        ----------
-        columns : list of str, default None
-            List of columns to project. Order and duplicates will be preserved.
-            The columns will be passed down to Datasets and corresponding data
-            fragments to avoid loading, copying, and deserializing columns
-            that will not be required further down the compute chain.
-            By default all of the available columns are projected. Raises
-            an exception if any of the referenced column names does not exist
-            in the dataset's Schema.
-        filter : Expression, default None
-            Scan will return only the rows matching the filter.
-            If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in fragments,
-            e.g. Parquet statistics. Otherwise filters the loaded
-            RecordBatches before yielding them.
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required. If not specified, uses the
-            default pool.
-
-        Returns
-        -------
-        scan_tasks : iterator of ScanTask
-        """
-        scanner = Scanner(self, columns=columns, filter=filter,
-                          memory_pool=memory_pool)
-        return scanner.scan()
-
-    def to_batches(self, columns=None, filter=None,
-                   batch_size=32*2**10, MemoryPool memory_pool=None):
-        """Read the dataset as materialized record batches.
-
-        Builds a scan operation against the dataset and sequentially executes
-        the ScanTasks as the returned generator gets consumed.
-
-        Parameters
-        ----------
-        columns : list of str, default None
-            List of columns to project. Order and duplicates will be preserved.
-            The columns will be passed down to Datasets and corresponding data
-            fragments to avoid loading, copying, and deserializing columns
-            that will not be required further down the compute chain.
-            By default all of the available columns are projected. Raises
-            an exception if any of the referenced column names does not exist
-            in the dataset's Schema.
-        filter : Expression, default None
-            Scan will return only the rows matching the filter.
-            If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in the fragments,
-            e.g. Parquet statistics. Otherwise filters the loaded
-            RecordBatches before yielding them.
-        batch_size : int, default 32K
-            The maximum row count for scanned record batches. If scanned
-            record batches are overflowing memory then this method can be
-            called to reduce their size.
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required. If not specified, uses the
-            default pool.
-
-        Returns
-        -------
-        record_batches : iterator of RecordBatch
-        """
-        scanner = Scanner(self, columns=columns, filter=filter,
-                          batch_size=batch_size, memory_pool=memory_pool)
-        for task in scanner.scan():
-            for batch in task.execute():
-                yield batch
-
-    def to_table(self, columns=None, filter=None, use_threads=True,
-                 batch_size=32*2**10, MemoryPool memory_pool=None):
-        """Read the dataset to an arrow table.
-
-        Note that this method reads all the selected data from the dataset
-        into memory.
-
-        Parameters
-        ----------
-        columns : list of str, default None
-            List of columns to project. Order and duplicates will be preserved.
-            The columns will be passed down to Datasets and corresponding data
-            fragments to avoid loading, copying, and deserializing columns
-            that will not be required further down the compute chain.
-            By default all of the available columns are projected. Raises
-            an exception if any of the referenced column names does not exist
-            in the dataset's Schema.
-        filter : Expression, default None
-            Scan will return only the rows matching the filter.
-            If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in the fragments,
-            e.g. Parquet statistics. Otherwise filters the loaded
-            RecordBatches before yielding them.
-        use_threads : boolean, default True
-            If enabled, then maximum paralellism will be used determined by
-            the number of available CPU cores.
-        batch_size : int, default 32K
-            The maximum row count for scanned record batches. If scanned
-            record batches are overflowing memory then this method can be
-            called to reduce their size.
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required. If not specified, uses the
-            default pool.
-
-        Returns
-        -------
-        table : Table instance
-        """
-        scanner = Scanner(self, columns=columns, filter=filter,
-                          use_threads=use_threads, batch_size=batch_size,
-                          memory_pool=memory_pool)
-        return scanner.to_table()
-
-    @property
-    def schema(self):
-        """The common schema of the full Dataset"""
-        return pyarrow_wrap_schema(self.dataset.schema())
 
 
 cdef class ScanTask:
