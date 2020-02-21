@@ -82,6 +82,10 @@ static inline Encoding::type FromThrift(format::Encoding::type type) {
   return static_cast<Encoding::type>(type);
 }
 
+static inline PageType::type FromThrift(format::PageType::type type) {
+  return static_cast<PageType::type>(type);
+}
+
 static inline AadMetadata FromThrift(format::AesGcmV1 aesGcmV1) {
   return AadMetadata{aesGcmV1.aad_prefix, aesGcmV1.aad_file_unique,
                      aesGcmV1.supply_aad_prefix};

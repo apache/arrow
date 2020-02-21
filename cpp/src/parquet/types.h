@@ -502,6 +502,37 @@ class ColumnOrder {
   ColumnOrder::type column_order_;
 };
 
+// parquet::PageEncodingStats
+class PARQUET_EXPORT PageEncodingStats {
+ public:
+  PageEncodingStats(const PageEncodingStats&);
+  PageEncodingStats(PageEncodingStats&&) = default;
+  PageEncodingStats& operator=(const PageEncodingStats&);
+  PageEncodingStats& operator=(PageEncodingStats&&) = default;
+  PageEncodingStats()
+      : page_type((PageType::type)0), encoding((Encoding::type)0), count(0) {}
+  PageEncodingStats(PageType::type page_type_, Encoding::type encoding_, int32_t count_)
+      : page_type((page_type_)), encoding(encoding_), count(count_) {}
+
+  PageType::type page_type;
+  Encoding::type encoding;
+  int32_t count;
+
+  void set_page_type(const PageType::type val);
+
+  void set_encoding(const Encoding::type val);
+
+  void set_count(const int32_t val);
+
+  bool operator==(const PageEncodingStats& rhs) const {
+    if (!(page_type == rhs.page_type)) return false;
+    if (!(encoding == rhs.encoding)) return false;
+    if (!(count == rhs.count)) return false;
+    return true;
+  }
+  bool operator!=(const PageEncodingStats& rhs) const { return !(*this == rhs); }
+};
+
 // ----------------------------------------------------------------------
 
 struct ByteArray {

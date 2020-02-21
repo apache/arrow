@@ -214,6 +214,14 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     for (auto encoding : column_metadata_->encodings) {
       encodings_.push_back(FromThrift(encoding));
     }
+    auto fromthrift = [](format::PageEncodingStats page_encoding_stats) {
+      return parquet::PageEncodingStats(FromThrift(page_encoding_stats.page_type),
+                                        FromThrift(page_encoding_stats.encoding),
+                                        page_encoding_stats.count);
+    };
+    for (auto encoding_stats : column_metadata_->encoding_stats) {
+      encoding_stats_.push_back(fromthrift(encoding_stats));
+    }
     possible_stats_ = nullptr;
   }
   // column chunk
@@ -257,6 +265,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   const std::vector<Encoding::type>& encodings() const { return encodings_; }
 
+  const std::vector<PageEncodingStats>& encoding_stats() const { return encoding_stats_; }
+
   inline bool has_dictionary_page() const {
     return column_metadata_->__isset.dictionary_page_offset;
   }
@@ -293,6 +303,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
  private:
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
+  std::vector<PageEncodingStats> encoding_stats_;
   const format::ColumnChunk* column_;
   const format::ColumnMetaData* column_metadata_;
   format::ColumnMetaData decrypted_metadata_;
@@ -365,6 +376,10 @@ bool ColumnChunkMetaData::can_decompress() const {
 
 const std::vector<Encoding::type>& ColumnChunkMetaData::encodings() const {
   return impl_->encodings();
+}
+
+const std::vector<PageEncodingStats>& ColumnChunkMetaData::encoding_stats() const {
+  return impl_->encoding_stats();
 }
 
 int64_t ColumnChunkMetaData::total_uncompressed_size() const {
@@ -966,7 +981,9 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
-              bool dictionary_fallback, const std::shared_ptr<Encryptor>& encryptor) {
+              bool dictionary_fallback, int32_t num_dict_pages,
+              std::map<Encoding::type, int32_t>& num_data_pages,
+              const std::shared_ptr<Encryptor>& encryptor) {
     if (dictionary_page_offset > 0) {
       column_chunk_->meta_data.__set_dictionary_page_offset(dictionary_page_offset);
       column_chunk_->__set_file_offset(dictionary_page_offset + compressed_size);
@@ -983,23 +1000,62 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_total_compressed_size(compressed_size);
 
     std::vector<format::Encoding::type> thrift_encodings;
+    std::vector<format::PageEncodingStats> thrift_encoding_stats;
     if (has_dictionary) {
       thrift_encodings.push_back(ToThrift(properties_->dictionary_index_encoding()));
+      format::PageEncodingStats dict_page_stats;
+      dict_page_stats.__set_page_type(format::PageType::DICTIONARY_PAGE);
+      dict_page_stats.__set_encoding(ToThrift(properties_->dictionary_index_encoding()));
+      dict_page_stats.__set_count(num_dict_pages);
+      thrift_encoding_stats.push_back(dict_page_stats);
+      // Add DataPage stats
+      format::PageEncodingStats data_page_stats;
       if (properties_->version() == ParquetVersion::PARQUET_1_0) {
         thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
+        data_page_stats.__set_page_type(format::PageType::DATA_PAGE);
+        data_page_stats.__set_encoding(ToThrift(Encoding::PLAIN));
+        data_page_stats.__set_count(num_data_pages[Encoding::PLAIN]);
       } else {
         thrift_encodings.push_back(ToThrift(properties_->dictionary_page_encoding()));
+        data_page_stats.__set_page_type(format::PageType::DATA_PAGE);
+        data_page_stats.__set_encoding(ToThrift(properties_->dictionary_page_encoding()));
+        data_page_stats.__set_count(
+            num_data_pages[properties_->dictionary_page_encoding()]);
       }
+      thrift_encoding_stats.push_back(data_page_stats);
     } else {  // Dictionary not enabled
       thrift_encodings.push_back(ToThrift(properties_->encoding(column_->path())));
+      // Add DataPage stats
+      format::PageEncodingStats data_page_stats;
+      data_page_stats.__set_page_type(format::PageType::DATA_PAGE);
+      if (column_->physical_type() == Type::BOOLEAN) {
+        data_page_stats.__set_encoding(ToThrift(Encoding::PLAIN));
+        data_page_stats.__set_count(num_data_pages[Encoding::PLAIN]);
+      } else {
+        data_page_stats.__set_encoding(ToThrift(properties_->encoding(column_->path())));
+        data_page_stats.__set_count(
+            num_data_pages[properties_->encoding(column_->path())]);
+      }
+      thrift_encoding_stats.push_back(data_page_stats);
     }
     thrift_encodings.push_back(ToThrift(Encoding::RLE));
+    format::PageEncodingStats data_page_stats;
+    data_page_stats.__set_page_type(format::PageType::DATA_PAGE);
+    data_page_stats.__set_encoding(ToThrift(Encoding::RLE));
+    data_page_stats.__set_count(num_data_pages[Encoding::RLE]);
+    thrift_encoding_stats.push_back(data_page_stats);
     // Only PLAIN encoding is supported for fallback in V1
     // TODO(majetideepak): Use user specified encoding for V2
     if (dictionary_fallback) {
       thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
+      format::PageEncodingStats fallback_page_stats;
+      fallback_page_stats.__set_page_type(format::PageType::DATA_PAGE);
+      fallback_page_stats.__set_encoding(ToThrift(Encoding::PLAIN));
+      fallback_page_stats.__set_count(num_data_pages[Encoding::PLAIN]);
+      thrift_encoding_stats.push_back(fallback_page_stats);
     }
     column_chunk_->meta_data.__set_encodings(thrift_encodings);
+    column_chunk_->meta_data.__set_encoding_stats(thrift_encoding_stats);
 
     const auto& encrypt_md =
         properties_->column_encryption_properties(column_->path()->ToDotString());
@@ -1122,11 +1178,12 @@ void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
                                         int64_t index_page_offset,
                                         int64_t data_page_offset, int64_t compressed_size,
                                         int64_t uncompressed_size, bool has_dictionary,
-                                        bool dictionary_fallback,
+                                        bool dictionary_fallback, int32_t num_dict_pages,
+                                        std::map<Encoding::type, int32_t> num_data_pages,
                                         const std::shared_ptr<Encryptor>& encryptor) {
   impl_->Finish(num_values, dictionary_page_offset, index_page_offset, data_page_offset,
                 compressed_size, uncompressed_size, has_dictionary, dictionary_fallback,
-                encryptor);
+                num_dict_pages, num_data_pages, encryptor);
 }
 
 void ColumnChunkMetaDataBuilder::WriteTo(::arrow::io::OutputStream* sink) {

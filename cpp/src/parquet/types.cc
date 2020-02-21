@@ -335,6 +335,24 @@ SortOrder::type GetSortOrder(const std::shared_ptr<const LogicalType>& logical_t
 ColumnOrder ColumnOrder::undefined_ = ColumnOrder(ColumnOrder::UNDEFINED);
 ColumnOrder ColumnOrder::type_defined_ = ColumnOrder(ColumnOrder::TYPE_DEFINED_ORDER);
 
+void PageEncodingStats::set_page_type(const PageType::type val) { this->page_type = val; }
+
+void PageEncodingStats::set_encoding(const Encoding::type val) { this->encoding = val; }
+
+void PageEncodingStats::set_count(const int32_t val) { this->count = val; }
+
+PageEncodingStats::PageEncodingStats(const PageEncodingStats& obj) {
+  page_type = obj.page_type;
+  encoding = obj.encoding;
+  count = obj.count;
+}
+PageEncodingStats& PageEncodingStats::operator=(const PageEncodingStats& obj) {
+  page_type = obj.page_type;
+  encoding = obj.encoding;
+  count = obj.count;
+  return *this;
+}
+
 // Static methods for LogicalType class
 
 std::shared_ptr<const LogicalType> LogicalType::FromConvertedType(

@@ -21,6 +21,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/util/key_value_metadata.h"
@@ -150,6 +151,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   bool can_decompress() const;
 
   const std::vector<Encoding::type>& encodings() const;
+  const std::vector<PageEncodingStats>& encoding_stats() const;
   bool has_dictionary_page() const;
   int64_t dictionary_page_offset() const;
   int64_t data_page_offset() const;
@@ -319,7 +321,8 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
-              bool dictionary_fallback,
+              bool dictionary_fallback, int32_t num_dict_pages,
+              std::map<Encoding::type, int32_t>,
               const std::shared_ptr<Encryptor>& encryptor = NULLPTR);
 
   // The metadata contents, suitable for passing to ColumnChunkMetaData::Make
