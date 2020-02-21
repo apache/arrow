@@ -104,14 +104,8 @@ function build_wheel {
 
     pip install $(pip_opts) -r python/requirements-wheel.txt cython
 
-    if [ ${MB_PYTHON_VERSION} != "2.7" ]; then
-      # Gandiva is not supported on Python 2.7
-      export PYARROW_WITH_GANDIVA=1
-      export BUILD_ARROW_GANDIVA=ON
-    else
-      export PYARROW_WITH_GANDIVA=0
-      export BUILD_ARROW_GANDIVA=OFF
-    fi
+    export PYARROW_WITH_GANDIVA=1
+    export BUILD_ARROW_GANDIVA=ON
 
     git submodule update --init
     export ARROW_TEST_DATA=`pwd`/testing/data
@@ -217,16 +211,13 @@ function run_unit_tests {
 function run_import_tests {
     # Test optional dependencies
     python -c "
-import sys
 import pyarrow
 import pyarrow.parquet
 import pyarrow.plasma
 import pyarrow.fs
 import pyarrow._hdfs
-
-if sys.version_info.major > 2:
-    import pyarrow.dataset
-    import pyarrow.flight
-    import pyarrow.gandiva
+import pyarrow.dataset
+import pyarrow.flight
+import pyarrow.gandiva
 "
 }
