@@ -177,11 +177,11 @@ def test_filesystem_source(mockfs):
     partitions = [ds.ScalarExpression(True), ds.ScalarExpression(True)]
 
     source = ds.FileSystemDataset(schema,
-                                 root_partition=None,
-                                 file_format=file_format,
-                                 filesystem=mockfs,
-                                 paths_or_selector=paths,
-                                 partitions=partitions)
+                                  root_partition=None,
+                                  file_format=file_format,
+                                  filesystem=mockfs,
+                                  paths_or_selector=paths,
+                                  partitions=partitions)
 
     root_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
@@ -201,9 +201,9 @@ def test_filesystem_source(mockfs):
         )
     ]
     source = ds.FileSystemDataset(paths_or_selector=paths, schema=schema,
-                                 root_partition=root_partition,
-                                 filesystem=mockfs, partitions=partitions,
-                                 file_format=file_format)
+                                  root_partition=root_partition,
+                                  filesystem=mockfs, partitions=partitions,
+                                  file_format=file_format)
     assert source.partition_expression.equals(root_partition)
     assert set(source.files) == set(paths)
 
@@ -685,7 +685,8 @@ def test_open_dataset_unsupported_format(tempdir):
 def test_open_dataset_validate_sources(tempdir):
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
-    with pytest.raises(TypeError, match="Dataset objects are currently not supported"):
+    with pytest.raises(TypeError,
+                       match="Dataset objects are currently not supported"):
         ds.dataset([dataset])
 
 
@@ -708,9 +709,8 @@ def test_dataset_factory(multisourcefs):
     child = ds.factory('/plain', filesystem=multisourcefs, format='parquet')
     factory = ds.TreeDatasetFactory([child])
 
-    #assert len(factory.sources) == 1
+    # TODO(bkietz) reintroduce factory.children property
     assert len(factory.inspect_schemas()) == 1
-    #assert all(isinstance(s, ds.DatasetFactory) for s in factory.sources)
     assert all(isinstance(s, pa.Schema) for s in factory.inspect_schemas())
     assert factory.inspect_schemas()[0].equals(child.inspect())
     assert factory.inspect().equals(child.inspect())
@@ -722,9 +722,9 @@ def test_dataset_factory(multisourcefs):
 def test_multiple_factories(multisourcefs):
     src1 = ds.factory('/plain', filesystem=multisourcefs, format='parquet')
     src2 = ds.factory('/schema', filesystem=multisourcefs, format='parquet',
-                     partitioning=['week', 'color'])
+                      partitioning=['week', 'color'])
     src3 = ds.factory('/hive', filesystem=multisourcefs, format='parquet',
-                     partitioning='hive')
+                      partitioning='hive')
 
     assembled = ds.dataset([src1, src2, src3])
     assert isinstance(assembled, ds.Dataset)

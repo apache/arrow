@@ -61,10 +61,9 @@ reference:
 - title: Multi-file datasets
   contents:
   - open_dataset
-  - open_source
+  - open_dataset_factory
   - hive_partition
   - Dataset
-  - Source
   - Partitioning
   - Expression
   - Scanner

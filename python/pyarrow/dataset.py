@@ -282,8 +282,8 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
     paths_or_factories : path or list of paths or factory or list of factories
         Path to a file or to a directory containing the data files, or a list
         of paths for a multi-directory dataset. To have more control, a list of
-        factories can be passed, created with the ``factory()`` function (in this
-        case, the additional keywords will be ignored).
+        factories can be passed, created with the ``factory()`` function (in
+        this case, the additional keywords will be ignored).
     filesystem : FileSystem, default None
         By default will be inferred from the path.
     partitioning : Partitioning, PartitioningFactory, str, list of str
@@ -316,7 +316,7 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
 
     factories = [
         _ensure_factory(src, filesystem=filesystem, partitioning=partitioning,
-                       format=format)
+                        format=format)
         for src in paths_or_factories
     ]
     return TreeDatasetFactory(factories).finish()
