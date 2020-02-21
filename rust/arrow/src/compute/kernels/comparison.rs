@@ -37,7 +37,8 @@ macro_rules! compare_op {
     ($left: expr, $right:expr, $op:expr) => {{
         if $left.len() != $right.len() {
             return Err(ArrowError::ComputeError(
-                "Cannot perform math operation on arrays of different length".to_string(),
+                "Cannot perform comparison operation on arrays of different length"
+                    .to_string(),
             ));
         }
 
@@ -77,37 +78,12 @@ where
     compare_op!(left, right, op)
 }
 
-struct RegexCache<'a> {
-    map: HashMap<&'a str, Regex>,
-}
-
-impl<'a> RegexCache<'a> {
-    fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
-    }
-
-    fn match_str(&'a mut self, a: &str, pat: &'a str) -> bool {
-        let re = if let Some(ref regex) = self.map.get(pat) {
-            regex
-        } else {
-            let re_pattern = pat.replace("%", ".*").replace("_", ".");
-            let re = Regex::new(&re_pattern).unwrap();
-            self.map.insert(pat, re);
-
-            self.map.get(pat).unwrap()
-        };
-
-        re.is_match(a)
-    }
-}
-
 pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
     let mut map = HashMap::new();
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on arrays of different length".to_string(),
+            "Cannot perform comparison operation on arrays of different length"
+                .to_string(),
         ));
     }
 
@@ -125,7 +101,12 @@ pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray
             regex
         } else {
             let re_pattern = pat.replace("%", ".*").replace("_", ".");
-            let re = Regex::new(&re_pattern).unwrap();
+            let re = Regex::new(&re_pattern).map_err(|e| {
+                ArrowError::ComputeError(format!(
+                    "Unable to build regex from LIKE pattern: {}",
+                    e
+                ))
+            })?;
             map.insert(pat, re);
             map.get(pat).unwrap()
         };
@@ -149,7 +130,8 @@ pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArra
     let mut map = HashMap::new();
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on arrays of different length".to_string(),
+            "Cannot perform comparison operation on arrays of different length"
+                .to_string(),
         ));
     }
 
@@ -167,7 +149,12 @@ pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArra
             regex
         } else {
             let re_pattern = pat.replace("%", ".*").replace("_", ".");
-            let re = Regex::new(&re_pattern).unwrap();
+            let re = Regex::new(&re_pattern).map_err(|e| {
+                ArrowError::ComputeError(format!(
+                    "Unable to build regex from LIKE pattern: {}",
+                    e
+                ))
+            })?;
             map.insert(pat, re);
             map.get(pat).unwrap()
         };
@@ -225,7 +212,8 @@ where
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on arrays of different length".to_string(),
+            "Cannot perform comparison operation on arrays of different length"
+                .to_string(),
         ));
     }
 
