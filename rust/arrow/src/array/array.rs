@@ -1813,6 +1813,37 @@ mod tests {
     }
 
     #[test]
+    fn test_timestamp_array_from_vec() {
+        let arr = TimestampSecondArray::from_vec(vec![1, -5], None);
+        assert_eq!(2, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        assert_eq!(1, arr.value(0));
+        assert_eq!(-5, arr.value(1));
+
+        let arr = TimestampMillisecondArray::from_vec(vec![1, -5], None);
+        assert_eq!(2, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        assert_eq!(1, arr.value(0));
+        assert_eq!(-5, arr.value(1));
+
+        let arr = TimestampMicrosecondArray::from_vec(vec![1, -5], None);
+        assert_eq!(2, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        assert_eq!(1, arr.value(0));
+        assert_eq!(-5, arr.value(1));
+
+        let arr = TimestampNanosecondArray::from_vec(vec![1, -5], None);
+        assert_eq!(2, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        assert_eq!(1, arr.value(0));
+        assert_eq!(-5, arr.value(1));
+    }
+
+    #[test]
     fn test_primitive_array_slice() {
         let arr = Int32Array::from(vec![
             Some(0),
