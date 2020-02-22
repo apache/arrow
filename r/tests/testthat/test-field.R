@@ -26,7 +26,7 @@ test_that("field() factory", {
 })
 
 test_that("Field validation", {
-  expect_error(schema(b = 32), "b must be arrow::DataType, not numeric")
+  expect_error(schema(b = 32), "b must be a DataType, not numeric")
 })
 
 test_that("Print method for field", {

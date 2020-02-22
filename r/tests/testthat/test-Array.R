@@ -365,6 +365,11 @@ test_that("cast to half float works", {
   expect_equal(a_16$type, float16())
 })
 
+test_that("cast input validation", {
+  a <- Array$create(1:4)
+  expect_error(a$cast("not a type"), "type must be a DataType, not character")
+})
+
 test_that("Array$create() supports the type= argument. conversion from INTSXP and int64 to all int types", {
   num_int32 <- 12L
   num_int64 <- bit64::as.integer64(10)
@@ -372,12 +377,19 @@ test_that("Array$create() supports the type= argument. conversion from INTSXP an
   types <- list(
     int8(), int16(), int32(), int64(),
     uint8(), uint16(), uint32(), uint64(),
-    float32(), float64()
+    float32(), float64(),
+    double() # not actually a type, a base R function but should be alias for float64
   )
-  for(type in types) {
-    expect_equal(Array$create(num_int32, type = type)$type, type)
-    expect_equal(Array$create(num_int64, type = type)$type, type)
+  for (type in types) {
+    expect_equal(Array$create(num_int32, type = type)$type, as_type(type))
+    expect_equal(Array$create(num_int64, type = type)$type, as_type(type))
   }
+
+  # Input validation
+  expect_error(
+    Array$create(5, type = "not a type"),
+    "type must be a DataType, not character"
+  )
 })
 
 test_that("Array$create() aborts on overflow", {
@@ -525,6 +537,9 @@ test_that("Array$View() (ARROW-6542)", {
   b <- a$View(float32())
   expect_equal(b$type, float32())
   expect_equal(length(b), 3L)
+
+  # Input validation
+  expect_error(a$View("not a type"), "type must be a DataType, not character")
 })
 
 test_that("Array$Validate()", {
