@@ -30,7 +30,7 @@ const (
 	stringArrayMaximumCapacity = math.MaxInt32
 )
 
-// String is a type which represents an immutable sequence of variable-length UTF-8 strings.
+// String represents an immutable sequence of variable-length UTF-8 strings.
 type String struct {
 	array
 	offsets []int32

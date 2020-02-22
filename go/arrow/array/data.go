@@ -24,7 +24,7 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
-// Data is a type which represents the memory and metadata for an Arrow array.
+// Data represents the memory and metadata of an Arrow array.
 type Data struct {
 	refCount  int64
 	dtype     arrow.DataType
