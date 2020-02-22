@@ -320,10 +320,10 @@ make_valid_time_unit <- function(unit, valid_units) {
     # Allow non-integer input for convenience
     unit <- as.integer(unit)
   } else {
-    stop('"unit" should be one of ', oxford_paste(names(valid_units), "or"), call.=FALSE)
+    stop('"unit" should be one of ', oxford_paste(names(valid_units), "or"), call. = FALSE)
   }
   if (!(unit %in% valid_units)) {
-    stop('"unit" should be one of ', oxford_paste(valid_units, "or"), call.=FALSE)
+    stop('"unit" should be one of ', oxford_paste(valid_units, "or"), call. = FALSE)
   }
   unit
 }
@@ -360,5 +360,26 @@ timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone) {
 #' @rdname data-type
 #' @export
 decimal <- function(precision, scale) {
+  if (is.numeric(precision)) {
+    precision <- as.integer(precision)
+  } else {
+    stop('"precision" must be an integer', call. = FALSE)
+  }
+  if (is.numeric(scale)) {
+    scale <- as.integer(scale)
+  } else {
+    stop('"scale" must be an integer', call. = FALSE)
+  }
   shared_ptr(Decimal128Type, Decimal128Type__initialize(precision, scale))
+}
+
+as_type <- function(type, name = "type") {
+  if (identical(type, double())) {
+    # Magic so that we don't have to mask this base function
+    type <- float64()
+  }
+  if (!inherits(type, "DataType")) {
+    stop(name, " must be a DataType, not ", class(type), call. = FALSE)
+  }
+  type
 }

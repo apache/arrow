@@ -380,3 +380,11 @@ test_that("DictionaryType validation", {
     "Dictionary index type should be signed integer, got string"
   )
 })
+
+test_that("decimal type and validation", {
+  expect_error(decimal(), 'argument "precision" is missing, with no default')
+  expect_error(decimal("four"), '"precision" must be an integer')
+  expect_error(decimal(4), 'argument "scale" is missing, with no default')
+  expect_error(decimal(4, "two"), '"scale" must be an integer')
+  expect_is(decimal(4, 2), "Decimal128Type")
+})

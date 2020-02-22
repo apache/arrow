@@ -131,11 +131,12 @@ Array <- R6Class("Array",
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
-      assert_is(target_type, "DataType")
+      target_type <- as_type(target_type)
       assert_is(options, "CastOptions")
       Array$create(Array__cast(self, target_type, options))
     },
     View = function(type) {
+      type <- as_type(type)
       Array$create(Array__View(self, type))
     },
     Validate = function() {
@@ -150,6 +151,9 @@ Array <- R6Class("Array",
 )
 Array$create <- function(x, type = NULL) {
   if (!inherits(x, "externalptr")) {
+    if (!is.null(type)) {
+      type <- as_type(type)
+    }
     x <- Array__from_vector(x, type)
   }
   a <- shared_ptr(Array, x)

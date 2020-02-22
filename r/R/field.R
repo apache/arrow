@@ -55,14 +55,7 @@ Field <- R6Class("Field", inherit = Object,
 )
 Field$create <- function(name, type, metadata) {
   assert_that(inherits(name, "character"), length(name) == 1L)
-  if (!inherits(type, "DataType")) {
-    if (identical(type, double())) {
-      # Magic so that we don't have to mask this base function
-      type <- float64()
-    } else {
-      stop(name, " must be arrow::DataType, not ", class(type), call. = FALSE)
-    }
-  }
+  type <- as_type(type, name)
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
   shared_ptr(Field, Field__initialize(name, type, TRUE))
 }
