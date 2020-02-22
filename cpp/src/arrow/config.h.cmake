@@ -34,6 +34,7 @@
 #cmakedefine ARROW_VALGRIND
 #cmakedefine ARROW_NO_DEPRECATED_API
 #cmakedefine ARROW_EXTRA_ERROR_CONTEXT
+#cmakedefine ARROW_WITH_BACKTRACE
 #cmakedefine ARROW_USE_GLOG
 #cmakedefine ARROW_JEMALLOC
 #cmakedefine ARROW_MIMALLOC

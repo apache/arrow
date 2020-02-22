@@ -138,7 +138,7 @@ include(DefineOptions)
 
 # Needed for linting targets, etc.
 if(${CMAKE_VERSION} VERSION_LESS "3.12.0")
-  find_package(PythonInterp)
+  find_package(PythonInterp REQUIRED)
 else()
   # Use the first Python installation on PATH, not the newest one
   set(Python3_FIND_STRATEGY "LOCATION")

@@ -34,6 +34,7 @@
 /* #undef ARROW_VALGRIND */
 /* #undef ARROW_NO_DEPRECATED_API */
 /* #undef ARROW_EXTRA_ERROR_CONTEXT */
+#define ARROW_WITH_BACKTRACE
 /* #undef ARROW_USE_GLOG */
 #define ARROW_JEMALLOC
 /* #undef ARROW_MIMALLOC */
