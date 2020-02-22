@@ -104,11 +104,11 @@ FragmentIterator Source::GetFragments(std::shared_ptr<ScanOptions> scan_options)
   return GetFragmentsImpl(std::move(simplified_scan_options));
 }
 
-struct VectorRecordBatchGenerator {
+struct VectorRecordBatchGenerator : InMemorySource::RecordBatchGenerator {
   explicit VectorRecordBatchGenerator(std::vector<std::shared_ptr<RecordBatch>> batches)
       : batches_(std::move(batches)) {}
 
-  RecordBatchIterator operator()() const { return MakeVectorIterator(batches_); }
+  RecordBatchIterator Get() const final { return MakeVectorIterator(batches_); }
 
   std::vector<std::shared_ptr<RecordBatch>> batches_;
 };
@@ -116,13 +116,13 @@ struct VectorRecordBatchGenerator {
 InMemorySource::InMemorySource(std::shared_ptr<Schema> schema,
                                std::vector<std::shared_ptr<RecordBatch>> batches)
     : Source(std::move(schema)),
-      get_batches_(VectorRecordBatchGenerator(std::move(batches))) {}
+      get_batches_(new VectorRecordBatchGenerator(std::move(batches))) {}
 
-struct TableRecordBatchGenerator {
+struct TableRecordBatchGenerator : InMemorySource::RecordBatchGenerator {
   explicit TableRecordBatchGenerator(std::shared_ptr<Table> table)
       : table_(std::move(table)) {}
 
-  RecordBatchIterator operator()() const {
+  RecordBatchIterator Get() const final {
     auto reader = std::make_shared<TableBatchReader>(*table_);
     auto table = table_;
     return MakeFunctionIterator([reader, table] { return reader->Next(); });
@@ -133,7 +133,7 @@ struct TableRecordBatchGenerator {
 
 InMemorySource::InMemorySource(std::shared_ptr<Table> table)
     : Source(table->schema()),
-      get_batches_(TableRecordBatchGenerator(std::move(table))) {}
+      get_batches_(new TableRecordBatchGenerator(std::move(table))) {}
 
 FragmentIterator InMemorySource::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> scan_options) {
@@ -159,7 +159,7 @@ FragmentIterator InMemorySource::GetFragmentsImpl(
     return std::make_shared<InMemoryFragment>(std::move(batches), scan_options);
   };
 
-  return MakeMaybeMapIterator(std::move(create_fragment), get_batches_());
+  return MakeMaybeMapIterator(std::move(create_fragment), get_batches_->Get());
 }
 
 FragmentIterator TreeSource::GetFragmentsImpl(std::shared_ptr<ScanOptions> options) {

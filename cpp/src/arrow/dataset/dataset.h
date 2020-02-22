@@ -133,9 +133,14 @@ class ARROW_DS_EXPORT Source {
 /// The record batches must match the schema provided to the source at construction.
 class ARROW_DS_EXPORT InMemorySource : public Source {
  public:
-  using RecordBatchGenerator = std::function<RecordBatchIterator()>;
+  class RecordBatchGenerator {
+   public:
+    virtual ~RecordBatchGenerator() = default;
+    virtual RecordBatchIterator Get() const = 0;
+  };
 
-  InMemorySource(std::shared_ptr<Schema> schema, RecordBatchGenerator get_batches)
+  InMemorySource(std::shared_ptr<Schema> schema,
+                 std::unique_ptr<RecordBatchGenerator> get_batches)
       : Source(std::move(schema)), get_batches_(std::move(get_batches)) {}
 
   // Convenience constructor taking a fixed list of batches
@@ -149,7 +154,7 @@ class ARROW_DS_EXPORT InMemorySource : public Source {
   std::string type_name() const override { return "in-memory"; }
 
  private:
-  RecordBatchGenerator get_batches_;
+  std::unique_ptr<RecordBatchGenerator> get_batches_;
 };
 
 /// \brief A recursive Source with child Sources.
