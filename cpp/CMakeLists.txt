@@ -758,7 +758,6 @@ endif()
 set(ARROW_SYSTEM_LINK_LIBS)
 
 if(ARROW_JEMALLOC)
-  add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
   list(APPEND ARROW_SYSTEM_LINK_LIBS jemalloc::jemalloc)
 endif()
 

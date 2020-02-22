@@ -223,9 +223,6 @@ set_source_files_properties(vendored/datetime/tz.cpp
                             SKIP_UNITY_BUILD_INCLUSION
                             ON)
 
-# Disable DLL exports in vendored uriparser library
-add_definitions(-DURI_STATIC_BUILD)
-
 if(ARROW_WITH_BROTLI)
   list(APPEND ARROW_SRCS util/compression_brotli.cc)
 endif()

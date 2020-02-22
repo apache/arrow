@@ -26,6 +26,7 @@
 #include <cassert>
 #include <cstdint>
 
+#include "arrow/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/neon_util.h"

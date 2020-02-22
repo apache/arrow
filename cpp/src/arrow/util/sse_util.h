@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "arrow/config.h"
 #include "arrow/util/macros.h"
 
 #ifdef ARROW_USE_SIMD

@@ -30,6 +30,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/config.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"

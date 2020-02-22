@@ -35,7 +35,6 @@
 #include <array>
 #include <bitset>
 #include "arrow/util/windows_compatibility.h"
-
 #endif
 
 #include <algorithm>
@@ -46,6 +45,7 @@
 #include <mutex>
 #include <string>
 
+#include "arrow/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 

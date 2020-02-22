@@ -20,6 +20,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/config.h"
 #include "arrow/io/buffered.h"
 #include "arrow/testing/gtest_util.h"
 

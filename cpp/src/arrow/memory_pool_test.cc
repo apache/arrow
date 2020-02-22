@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/config.h"
 #include "arrow/memory_pool.h"
 #include "arrow/memory_pool_test.h"
 #include "arrow/status.h"

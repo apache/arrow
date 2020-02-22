@@ -26,6 +26,8 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/config.h"
+
 namespace arrow {
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE

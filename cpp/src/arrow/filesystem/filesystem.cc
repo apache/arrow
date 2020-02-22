@@ -18,6 +18,7 @@
 #include <sstream>
 #include <utility>
 
+#include "arrow/config.h"
 #include "arrow/filesystem/filesystem.h"
 #ifdef ARROW_HDFS
 #include "arrow/filesystem/hdfs.h"

@@ -22,6 +22,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/config.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
 #include "arrow/util/utf8.h"

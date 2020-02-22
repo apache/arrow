@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "arrow/buffer.h"            // IWYU pragma: export
+#include "arrow/config.h"            // IWYU pragma: export
 #include "arrow/io/interfaces.h"     // IWYU pragma: export
 #include "arrow/io/memory.h"         // IWYU pragma: export
 #include "arrow/memory_pool.h"       // IWYU pragma: export

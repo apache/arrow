@@ -24,6 +24,7 @@
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/sum.h"
+#include "arrow/config.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -31,11 +32,6 @@
 
 namespace arrow {
 namespace compute {
-
-#include <cassert>
-#include <cmath>
-#include <iostream>
-#include <random>
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
@@ -305,6 +301,7 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapNaive<int64_t>)->Apply(BenchmarkSetArg
 BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapReader<int64_t>)->Apply(BenchmarkSetArgs);
 BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
     ->Apply(BenchmarkSetArgs);
+
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 static void SumKernel(benchmark::State& state) {

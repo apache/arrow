@@ -21,6 +21,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/config.h"
 #include "arrow/util/logging.h"
 
 // This code is adapted from

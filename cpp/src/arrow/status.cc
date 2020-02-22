@@ -17,6 +17,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "arrow/config.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

@@ -17,6 +17,8 @@
 
 #include "arrow/util/logging.h"
 
+#include "arrow/config.h"
+
 #ifdef ARROW_WITH_BACKTRACE
 #include <execinfo.h>
 #endif

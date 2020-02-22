@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/config.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/trie.h"

@@ -22,6 +22,8 @@
 #include <string>
 #include <utility>
 
+#include "arrow/config.h"
+
 #ifdef ARROW_WITH_BROTLI
 #include "arrow/util/compression_brotli.h"
 #endif

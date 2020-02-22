@@ -20,6 +20,7 @@
 #include <string>
 #include <utility>
 
+#include "arrow/config.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_builder.h"

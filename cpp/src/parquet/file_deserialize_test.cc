@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 
+#include "arrow/config.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"

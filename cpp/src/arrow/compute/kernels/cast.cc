@@ -29,6 +29,10 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/compute/context.h"
+#include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/util_internal.h"
+#include "arrow/config.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
@@ -40,10 +44,6 @@
 #include "arrow/util/time.h"
 #include "arrow/util/utf8.h"
 #include "arrow/visitor_inline.h"
-
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/util_internal.h"
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 

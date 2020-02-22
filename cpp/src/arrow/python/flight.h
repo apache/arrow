@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/config.h"
 #include "arrow/flight/api.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/python/common.h"

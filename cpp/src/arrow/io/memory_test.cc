@@ -27,6 +27,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
+#include "arrow/config.h"
 #include "arrow/io/caching.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
