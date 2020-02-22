@@ -1528,10 +1528,13 @@ def download_artifacts(obj, job_name, target_dir):
               help='File pattern to upload as assets')
 @click.pass_obj
 def upload_artifacts(obj, tag, sha, patterns):
-    queue = obj['queue']
-    queue.github_overwrite_release_assets(
-        tag_name=tag, target_commitish=sha, patterns=patterns
-    )
+    # queue = obj['queue']
+    # queue.github_overwrite_release_assets(
+    #     tag_name=tag, target_commitish=sha, patterns=patterns
+    # )
+    # HACK: turn off artifact uploading globally until we resolve the github
+    # API related issues in https://github.com/apache/arrow/pull/6458
+    return
 
 
 if __name__ == '__main__':
