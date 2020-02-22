@@ -24,6 +24,7 @@
 #include <limits>
 #include <memory>
 
+#include "arrow/config.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
 

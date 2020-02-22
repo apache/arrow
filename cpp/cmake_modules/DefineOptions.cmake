@@ -439,22 +439,3 @@ macro(config_summary_cmake_setters path)
   endforeach()
 
 endmacro()
-
-macro(add_definitions_for_options)
-  foreach(category ${ARROW_OPTION_CATEGORIES})
-    foreach(name ${ARROW_${category}_OPTION_NAMES})
-
-      if("${${name}_OPTION_TYPE}" STREQUAL "bool")
-        message(STATUS "${name} was ${${name}}")
-        if(${${name}})
-          add_definitions("-D${name}")
-        endif()
-      endif()
-
-      if("${${name}_OPTION_TYPE}" STREQUAL "string")
-        add_definitions("-D${name}=\"${${name}}\"")
-      endif()
-    endforeach()
-  endforeach()
-
-endmacro()

@@ -28,5 +28,5 @@
 
 #endif  // _MSC_VER
 
-#include "arrow/util/config.h"                 // IWYU pragma: keep
+#include "arrow/config.h"                      // IWYU pragma: keep
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep

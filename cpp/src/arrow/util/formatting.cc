@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/util/formatting.h"
-#include "arrow/util/config.h"
+#include "arrow/config.h"
 #include "arrow/util/double_conversion.h"
 #include "arrow/util/logging.h"
 

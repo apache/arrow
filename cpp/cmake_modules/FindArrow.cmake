@@ -356,7 +356,7 @@ arrow_find_package(ARROW
 
 if(ARROW_HOME)
   if(ARROW_INCLUDE_DIR)
-    file(READ "${ARROW_INCLUDE_DIR}/arrow/util/config.h" ARROW_CONFIG_H_CONTENT)
+    file(READ "${ARROW_INCLUDE_DIR}/arrow/config.h" ARROW_CONFIG_H_CONTENT)
     arrow_extract_macro_value(ARROW_VERSION_MAJOR "ARROW_VERSION_MAJOR"
                               "${ARROW_CONFIG_H_CONTENT}")
     arrow_extract_macro_value(ARROW_VERSION_MINOR "ARROW_VERSION_MINOR"

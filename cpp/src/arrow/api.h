@@ -25,6 +25,7 @@
 #include "arrow/buffer.h"                   // IYWU pragma: export
 #include "arrow/builder.h"                  // IYWU pragma: export
 #include "arrow/compare.h"                  // IYWU pragma: export
+#include "arrow/config.h"                   // IYWU pragma: export
 #include "arrow/extension_type.h"           // IYWU pragma: export
 #include "arrow/memory_pool.h"              // IYWU pragma: export
 #include "arrow/pretty_print.h"             // IYWU pragma: export
@@ -35,7 +36,6 @@
 #include "arrow/table_builder.h"            // IYWU pragma: export
 #include "arrow/tensor.h"                   // IYWU pragma: export
 #include "arrow/type.h"                     // IYWU pragma: export
-#include "arrow/util/config.h"              // IYWU pragma: export
 #include "arrow/util/key_value_metadata.h"  // IWYU pragma: export
 #include "arrow/visitor.h"                  // IYWU pragma: export
 

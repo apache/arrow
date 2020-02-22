@@ -20,8 +20,8 @@
 #include <limits>
 #include <memory>
 
+#include "arrow/config.h"
 #include "arrow/flight/platform.h"
-#include "arrow/util/config.h"
 
 // Silence protobuf warnings
 #ifdef _MSC_VER

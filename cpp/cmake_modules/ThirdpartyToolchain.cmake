@@ -2407,9 +2407,3 @@ if(ARROW_S3)
                                      "-pthread;pthread;-framework CoreFoundation")
   endif()
 endif()
-
-# Write out the package configurations.
-
-configure_file("src/arrow/util/config.h.cmake" "src/arrow/util/config.h")
-install(FILES "${ARROW_BINARY_DIR}/src/arrow/util/config.h"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")

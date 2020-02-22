@@ -27,10 +27,10 @@
 #include <string>
 #include <type_traits>
 
+#include "arrow/config.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/config.h"
 #include "arrow/vendored/datetime.h"
 
 namespace arrow {
