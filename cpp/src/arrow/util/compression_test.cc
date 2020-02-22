@@ -517,7 +517,7 @@ INSTANTIATE_TEST_CASE_P(TestLZ4, CodecTest, ::testing::Values(Compression::LZ4))
 INSTANTIATE_TEST_CASE_P(TestBrotli, CodecTest, ::testing::Values(Compression::BROTLI));
 #endif
 
-#if ARROW_WITH_BZ2
+#ifdef ARROW_WITH_BZ2
 INSTANTIATE_TEST_CASE_P(TestBZ2, CodecTest, ::testing::Values(Compression::BZ2));
 #endif
 
