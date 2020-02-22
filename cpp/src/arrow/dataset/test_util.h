@@ -305,6 +305,12 @@ class TestFileSystemSource : public ::testing::Test {
   std::shared_ptr<ScanOptions> options_ = ScanOptions::Make(schema({}));
 };
 
+void AssertFilesAre(const std::shared_ptr<Source>& source,
+                    std::vector<std::string> expected) {
+  auto fs_source = internal::checked_cast<FileSystemSource*>(source.get());
+  EXPECT_THAT(fs_source->files(), testing::UnorderedElementsAreArray(expected));
+}
+
 void AssertFragmentsAreFromPath(FragmentIterator it, std::vector<std::string> expected) {
   std::vector<std::string> actual;
 

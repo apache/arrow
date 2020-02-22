@@ -1410,6 +1410,21 @@ RcppExport SEXP _arrow_dataset___FSSFactory__Make3(SEXP fs_sexp, SEXP selector_s
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::string dataset___FileFormat__type_name(const std::shared_ptr<ds::FileFormat>& format);
+RcppExport SEXP _arrow_dataset___FileFormat__type_name(SEXP format_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
+	return Rcpp::wrap(dataset___FileFormat__type_name(format));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___FileFormat__type_name(SEXP format_sexp){
+	Rf_error("Cannot call dataset___FileFormat__type_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make();
 RcppExport SEXP _arrow_dataset___ParquetFileFormat__Make(){
 BEGIN_RCPP
@@ -1469,6 +1484,21 @@ RcppExport SEXP _arrow_dataset___SFactory__Finish2(SEXP factory_sexp, SEXP schem
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> dataset___SFactory__Inspect(const std::shared_ptr<ds::SourceFactory>& factory);
+RcppExport SEXP _arrow_dataset___SFactory__Inspect(SEXP factory_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::SourceFactory>&>::type factory(factory_sexp);
+	return Rcpp::wrap(dataset___SFactory__Inspect(factory));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___SFactory__Inspect(SEXP factory_sexp){
+	Rf_error("Cannot call dataset___SFactory__Inspect(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> dataset___Source__schema(const std::shared_ptr<ds::Source>& source);
 RcppExport SEXP _arrow_dataset___Source__schema(SEXP source_sexp){
 BEGIN_RCPP
@@ -1484,16 +1514,46 @@ RcppExport SEXP _arrow_dataset___Source__schema(SEXP source_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> dataset___SFactory__Inspect(const std::shared_ptr<ds::SourceFactory>& factory);
-RcppExport SEXP _arrow_dataset___SFactory__Inspect(SEXP factory_sexp){
+std::string dataset___Source__type_name(const std::shared_ptr<ds::Source>& source);
+RcppExport SEXP _arrow_dataset___Source__type_name(SEXP source_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<ds::SourceFactory>&>::type factory(factory_sexp);
-	return Rcpp::wrap(dataset___SFactory__Inspect(factory));
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Source>&>::type source(source_sexp);
+	return Rcpp::wrap(dataset___Source__type_name(source));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___SFactory__Inspect(SEXP factory_sexp){
-	Rf_error("Cannot call dataset___SFactory__Inspect(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_dataset___Source__type_name(SEXP source_sexp){
+	Rf_error("Cannot call dataset___Source__type_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::FileFormat> dataset___FSSource__format(const std::shared_ptr<ds::FileSystemSource>& source);
+RcppExport SEXP _arrow_dataset___FSSource__format(SEXP source_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::FileSystemSource>&>::type source(source_sexp);
+	return Rcpp::wrap(dataset___FSSource__format(source));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___FSSource__format(SEXP source_sexp){
+	Rf_error("Cannot call dataset___FSSource__format(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::string> dataset___FSSource__files(const std::shared_ptr<ds::FileSystemSource>& source);
+RcppExport SEXP _arrow_dataset___FSSource__files(SEXP source_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::FileSystemSource>&>::type source(source_sexp);
+	return Rcpp::wrap(dataset___FSSource__files(source));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___FSSource__files(SEXP source_sexp){
+	Rf_error("Cannot call dataset___FSSource__files(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1645,6 +1705,21 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_dataset___Dataset__schema(SEXP ds_sexp){
 	Rf_error("Cannot call dataset___Dataset__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::shared_ptr<ds::Source>> dataset___Dataset__sources(const std::shared_ptr<ds::Dataset>& ds);
+RcppExport SEXP _arrow_dataset___Dataset__sources(SEXP ds_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
+	return Rcpp::wrap(dataset___Dataset__sources(ds));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___Dataset__sources(SEXP ds_sexp){
+	Rf_error("Cannot call dataset___Dataset__sources(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5806,12 +5881,16 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___FSSFactory__Make2", (DL_FUNC) &_arrow_dataset___FSSFactory__Make2, 4}, 
 		{ "_arrow_dataset___FSSFactory__Make1", (DL_FUNC) &_arrow_dataset___FSSFactory__Make1, 3}, 
 		{ "_arrow_dataset___FSSFactory__Make3", (DL_FUNC) &_arrow_dataset___FSSFactory__Make3, 4}, 
+		{ "_arrow_dataset___FileFormat__type_name", (DL_FUNC) &_arrow_dataset___FileFormat__type_name, 1}, 
 		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 0}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___SFactory__Finish1", (DL_FUNC) &_arrow_dataset___SFactory__Finish1, 1}, 
 		{ "_arrow_dataset___SFactory__Finish2", (DL_FUNC) &_arrow_dataset___SFactory__Finish2, 2}, 
-		{ "_arrow_dataset___Source__schema", (DL_FUNC) &_arrow_dataset___Source__schema, 1}, 
 		{ "_arrow_dataset___SFactory__Inspect", (DL_FUNC) &_arrow_dataset___SFactory__Inspect, 1}, 
+		{ "_arrow_dataset___Source__schema", (DL_FUNC) &_arrow_dataset___Source__schema, 1}, 
+		{ "_arrow_dataset___Source__type_name", (DL_FUNC) &_arrow_dataset___Source__type_name, 1}, 
+		{ "_arrow_dataset___FSSource__format", (DL_FUNC) &_arrow_dataset___FSSource__format, 1}, 
+		{ "_arrow_dataset___FSSource__files", (DL_FUNC) &_arrow_dataset___FSSource__files, 1}, 
 		{ "_arrow_dataset___DFactory__Make", (DL_FUNC) &_arrow_dataset___DFactory__Make, 1}, 
 		{ "_arrow_dataset___DFactory__Inspect", (DL_FUNC) &_arrow_dataset___DFactory__Inspect, 1}, 
 		{ "_arrow_dataset___DFactory__Finish1", (DL_FUNC) &_arrow_dataset___DFactory__Finish1, 1}, 
@@ -5822,6 +5901,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___HivePartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___HivePartitioning__MakeFactory, 0}, 
 		{ "_arrow_dataset___Dataset__create", (DL_FUNC) &_arrow_dataset___Dataset__create, 2}, 
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
+		{ "_arrow_dataset___Dataset__sources", (DL_FUNC) &_arrow_dataset___Dataset__sources, 1}, 
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
 		{ "_arrow_dataset___ScannerBuilder__Project", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Project, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__Filter", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Filter, 2}, 

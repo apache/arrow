@@ -84,10 +84,12 @@ TEST_F(TestFileSystemSource, Basic) {
 
   MakeSource({fs::File("a"), fs::File("b"), fs::File("c")});
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b", "c"});
+  AssertFilesAre(source_, {"a", "b", "c"});
 
   // Should not create fragment from directories.
   MakeSource({fs::Dir("A"), fs::Dir("A/B"), fs::File("A/a"), fs::File("A/B/b")});
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"A/a", "A/B/b"});
+  AssertFilesAre(source_, {"A/a", "A/B/b"});
 }
 
 TEST_F(TestFileSystemSource, RootPartitionPruning) {

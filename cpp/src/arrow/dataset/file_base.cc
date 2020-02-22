@@ -84,6 +84,19 @@ Result<std::shared_ptr<Source>> FileSystemSource::Make(
       std::move(filesystem), std::move(forest), std::move(partitions)));
 }
 
+std::vector<std::string> FileSystemSource::files() const {
+  std::vector<std::string> files;
+
+  DCHECK_OK(forest_.Visit([&](fs::PathForest::Ref ref) {
+    if (ref.stats().IsFile()) {
+      files.push_back(ref.stats().path());
+    }
+    return Status::OK();
+  }));
+
+  return files;
+}
+
 std::string FileSystemSource::ToString() const {
   std::string repr = "FileSystemSource:";
 

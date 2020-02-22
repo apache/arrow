@@ -681,6 +681,12 @@ cdef class FileSystemSource(Source):
         Source.init(self, sp)
         self.filesystem_source = <CFileSystemSource*> sp.get()
 
+    @property
+    def files(self):
+        """List of the files"""
+        cdef vector[c_string] files = self.filesystem_source.files()
+        return [frombytes(f) for f in files]
+
 
 cdef class DatasetFactory:
     """

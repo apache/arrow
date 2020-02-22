@@ -271,6 +271,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileStatsVector stats,
             CExpressionVector partitions)
         c_string type()
+        vector[c_string] files()
         shared_ptr[CFragmentIterator] GetFragments(
             shared_ptr[CScanOptions] options)
 

@@ -203,6 +203,7 @@ def test_filesystem_source(mockfs):
                                  filesystem=mockfs, partitions=partitions,
                                  file_format=file_format)
     assert source.partition_expression.equals(root_partition)
+    assert set(source.files) == set(paths)
 
 
 def test_dataset(dataset):
@@ -455,7 +456,7 @@ def test_file_system_factory(mockfs, paths_or_selector):
     assert factory.root_partition.equals(ds.ScalarExpression(True))
 
     source = factory.finish()
-    assert isinstance(source, ds.Source)
+    assert isinstance(source, ds.FileSystemSource)
 
     dataset = ds.Dataset([source], inspected_schema)
     assert len(list(dataset.scan())) == 2
