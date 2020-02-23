@@ -243,7 +243,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     ParseUnencryptedFileMetadata(footer_buffer, footer_read_size, &metadata_buffer,
                                  &metadata_len, &read_metadata_len);
 
-    auto file_decryption_properties = properties_.file_decryption_properties();
+    auto file_decryption_properties = properties_.file_decryption_properties().get();
     if (!file_metadata_->is_encryption_algorithm_set()) {  // Non encrypted file.
       if (file_decryption_properties != nullptr) {
         if (!file_decryption_properties->plaintext_files_allowed()) {
@@ -341,7 +341,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
                              std::to_string(crypto_metadata_buffer->size()) + " bytes)");
     }
   }
-  auto file_decryption_properties = properties_.file_decryption_properties();
+  auto file_decryption_properties = properties_.file_decryption_properties().get();
   if (file_decryption_properties == nullptr) {
     throw ParquetException(
         "Could not read encrypted metadata, no decryption found in reader's properties");

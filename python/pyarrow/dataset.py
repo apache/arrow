@@ -293,7 +293,7 @@ def dataset(sources, filesystem=None, partitioning=None, format=None):
         case, the additional keywords will be ignored).
     filesystem : FileSystem, default None
         By default will be inferred from the path.
-    partitioning : Partitioning(Factory), str, list of str
+    partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
         field names a DirectionaryPartitioning will be inferred.

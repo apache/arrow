@@ -23,6 +23,7 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/make_unique.h"
 
@@ -31,6 +32,10 @@ namespace dataset {
 
 Fragment::Fragment(std::shared_ptr<ScanOptions> scan_options)
     : scan_options_(std::move(scan_options)), partition_expression_(scalar(true)) {}
+
+const std::shared_ptr<Schema>& Fragment::schema() const {
+  return scan_options_->schema();
+}
 
 InMemoryFragment::InMemoryFragment(
     std::vector<std::shared_ptr<RecordBatch>> record_batches,
@@ -99,9 +104,62 @@ FragmentIterator Source::GetFragments(std::shared_ptr<ScanOptions> scan_options)
   return GetFragmentsImpl(std::move(simplified_scan_options));
 }
 
+struct VectorRecordBatchGenerator : InMemorySource::RecordBatchGenerator {
+  explicit VectorRecordBatchGenerator(std::vector<std::shared_ptr<RecordBatch>> batches)
+      : batches_(std::move(batches)) {}
+
+  RecordBatchIterator Get() const final { return MakeVectorIterator(batches_); }
+
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+};
+
+InMemorySource::InMemorySource(std::shared_ptr<Schema> schema,
+                               std::vector<std::shared_ptr<RecordBatch>> batches)
+    : Source(std::move(schema)),
+      get_batches_(new VectorRecordBatchGenerator(std::move(batches))) {}
+
+struct TableRecordBatchGenerator : InMemorySource::RecordBatchGenerator {
+  explicit TableRecordBatchGenerator(std::shared_ptr<Table> table)
+      : table_(std::move(table)) {}
+
+  RecordBatchIterator Get() const final {
+    auto reader = std::make_shared<TableBatchReader>(*table_);
+    auto table = table_;
+    return MakeFunctionIterator([reader, table] { return reader->Next(); });
+  }
+
+  std::shared_ptr<Table> table_;
+};
+
+InMemorySource::InMemorySource(std::shared_ptr<Table> table)
+    : Source(table->schema()),
+      get_batches_(new TableRecordBatchGenerator(std::move(table))) {}
+
 FragmentIterator InMemorySource::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> scan_options) {
-  return MakeVectorIterator(fragments_);
+  auto schema = this->schema();
+
+  auto create_fragment =
+      [scan_options,
+       schema](std::shared_ptr<RecordBatch> batch) -> Result<std::shared_ptr<Fragment>> {
+    if (!batch->schema()->Equals(schema)) {
+      return Status::TypeError("yielded batch had schema ", *batch->schema(),
+                               " which did not match InMemorySource's: ", *schema);
+    }
+
+    std::vector<std::shared_ptr<RecordBatch>> batches;
+
+    auto batch_size = scan_options->batch_size;
+    auto n_batches = BitUtil::CeilDiv(batch->num_rows(), batch_size);
+
+    for (int i = 0; i < n_batches; i++) {
+      batches.push_back(batch->Slice(batch_size * i, batch_size));
+    }
+
+    return std::make_shared<InMemoryFragment>(std::move(batches), scan_options);
+  };
+
+  return MakeMaybeMapIterator(std::move(create_fragment), get_batches_->Get());
 }
 
 FragmentIterator TreeSource::GetFragmentsImpl(std::shared_ptr<ScanOptions> options) {

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPE_H
-#define ARROW_TYPE_H
+#pragma once
 
 #include <atomic>
 #include <climits>
@@ -1790,5 +1789,3 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
     Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
 
 }  // namespace arrow
-
-#endif  // ARROW_TYPE_H

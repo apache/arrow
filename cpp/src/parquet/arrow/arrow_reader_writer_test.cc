@@ -2689,9 +2689,9 @@ void TryReadDataFile(const std::string& path,
     s = arrow_reader->ReadTable(&table);
   }
 
-  ASSERT_TRUE(s.code() == expected_code)
-      << "Expected reading file to return "
-      << arrow::Status(expected_code, "").CodeAsString() << ", but got " << s.ToString();
+  ASSERT_EQ(s.code(), expected_code)
+      << "Expected reading file to return " << arrow::Status::CodeAsString(expected_code)
+      << ", but got " << s.ToString();
 }
 
 TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {

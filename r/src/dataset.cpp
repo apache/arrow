@@ -19,6 +19,9 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+using Rcpp::CharacterVector;
+using Rcpp::String;
+
 // [[arrow::export]]
 std::shared_ptr<ds::SourceFactory> dataset___FSSFactory__Make2(
     const std::shared_ptr<fs::FileSystem>& fs,
@@ -64,8 +67,19 @@ std::string dataset___FileFormat__type_name(
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make() {
-  return std::make_shared<ds::ParquetFileFormat>();
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
+    bool use_buffered_stream, int64_t buffer_size, CharacterVector dict_columns) {
+  auto fmt = std::make_shared<ds::ParquetFileFormat>();
+
+  fmt->reader_options.use_buffered_stream = use_buffered_stream;
+  fmt->reader_options.buffer_size = buffer_size;
+
+  auto dict_columns_vector = Rcpp::as<std::vector<std::string>>(dict_columns);
+  auto& d = fmt->reader_options.dict_columns;
+  std::move(dict_columns_vector.begin(), dict_columns_vector.end(),
+            std::inserter(d, d.end()));
+
+  return fmt;
 }
 
 // [[arrow::export]]
@@ -208,6 +222,12 @@ void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>&
 void dataset___ScannerBuilder__UseThreads(const std::shared_ptr<ds::ScannerBuilder>& sb,
                                           bool threads) {
   STOP_IF_NOT_OK(sb->UseThreads(threads));
+}
+
+// [[arrow::export]]
+void dataset___ScannerBuilder__BatchSize(const std::shared_ptr<ds::ScannerBuilder>& sb,
+                                         int64_t batch_size) {
+  STOP_IF_NOT_OK(sb->BatchSize(batch_size));
 }
 
 // [[arrow::export]]

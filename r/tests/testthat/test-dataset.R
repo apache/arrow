@@ -97,6 +97,12 @@ test_that("Simple interface for datasets", {
   )
 })
 
+test_that("Simple interface for datasets (custom ParquetFileFormat)", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
+                     format = FileFormat$create("parquet", dict_columns = c("chr")))
+  expect_equivalent(ds$schema$GetFieldByName("chr")$type, dictionary())
+})
+
 test_that("Hive partitioning", {
   ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
   expect_is(ds, "Dataset")

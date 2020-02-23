@@ -196,7 +196,7 @@ class DummyFileFormat : public FileFormat {
   }
 
   inline Result<std::shared_ptr<Fragment>> MakeFragment(
-      const FileSource& location, std::shared_ptr<ScanOptions> options) override;
+      FileSource source, std::shared_ptr<ScanOptions> options) override;
 
  protected:
   std::shared_ptr<Schema> schema_;
@@ -211,7 +211,7 @@ class DummyFragment : public FileFragment {
 };
 
 Result<std::shared_ptr<Fragment>> DummyFileFormat::MakeFragment(
-    const FileSource& source, std::shared_ptr<ScanOptions> options) {
+    FileSource source, std::shared_ptr<ScanOptions> options) {
   return std::make_shared<DummyFragment>(source, options);
 }
 
@@ -251,7 +251,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
   }
 
   inline Result<std::shared_ptr<Fragment>> MakeFragment(
-      const FileSource& location, std::shared_ptr<ScanOptions> options) override;
+      FileSource source, std::shared_ptr<ScanOptions> options) override;
 
  protected:
   SchemaResolver resolver_;
@@ -268,7 +268,7 @@ class JSONRecordBatchFragment : public FileFragment {
 };
 
 Result<std::shared_ptr<Fragment>> JSONRecordBatchFileFormat::MakeFragment(
-    const FileSource& source, std::shared_ptr<ScanOptions> options) {
+    FileSource source, std::shared_ptr<ScanOptions> options) {
   return std::make_shared<JSONRecordBatchFragment>(source, resolver_(source), options);
 }
 

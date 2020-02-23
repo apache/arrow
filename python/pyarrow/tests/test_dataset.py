@@ -75,11 +75,13 @@ def mockfs():
 
     data = [
         list(range(5)),
-        list(map(float, range(5)))
+        list(map(float, range(5))),
+        list(map(str, range(5)))
     ]
     schema = pa.schema([
         pa.field('i64', pa.int64()),
-        pa.field('f64', pa.float64())
+        pa.field('f64', pa.float64()),
+        pa.field('str', pa.string())
     ])
     batch = pa.record_batch(data, schema=schema)
     table = pa.Table.from_batches([batch])
@@ -431,7 +433,7 @@ def test_expression_ergonomics():
     ]
 ])
 def test_file_system_factory(mockfs, paths_or_selector):
-    format = ds.ParquetFileFormat()
+    format = ds.ParquetFileFormat(reader_options=dict(dict_columns={"str"}))
 
     options = ds.FileSystemFactoryOptions('subdir')
     options.partitioning = ds.DirectoryPartitioning(
@@ -464,23 +466,27 @@ def test_file_system_factory(mockfs, paths_or_selector):
     scanner = ds.Scanner(dataset)
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
+    expected_str = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 2, 3, 4], type=pa.int32()),
+        pa.array("0 1 2 3 4".split(), type=pa.string()))
     for task, group, key in zip(scanner.scan(), [1, 2], ['xxx', 'yyy']):
         expected_group_column = pa.array([group] * 5, type=pa.int32())
         expected_key_column = pa.array([key] * 5, type=pa.string())
         for batch in task.execute():
-            assert batch.num_columns == 4
+            assert batch.num_columns == 5
             assert batch[0].equals(expected_i64)
             assert batch[1].equals(expected_f64)
-            assert batch[2].equals(expected_group_column)
-            assert batch[3].equals(expected_key_column)
+            assert batch[2].equals(expected_str)
+            assert batch[3].equals(expected_group_column)
+            assert batch[4].equals(expected_key_column)
 
     table = dataset.to_table()
     assert isinstance(table, pa.Table)
     assert len(table) == 10
-    assert table.num_columns == 4
+    assert table.num_columns == 5
 
 
-def test_paritioning_factory(mockfs):
+def test_partitioning_factory(mockfs):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
 
@@ -497,6 +503,7 @@ def test_paritioning_factory(mockfs):
     expected_schema = pa.schema([
         ("i64", pa.int64()),
         ("f64", pa.float64()),
+        ("str", pa.string()),
         ("group", pa.int32()),
         ("key", pa.string()),
     ])

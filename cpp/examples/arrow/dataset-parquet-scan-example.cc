@@ -65,7 +65,8 @@ struct Configuration {
   std::shared_ptr<ds::Expression> filter = ("total_amount"_ > 1000.0f).Copy();
 } conf;
 
-std::shared_ptr<fs::FileSystem> GetFileSystemFromUri(const std::string& uri, std::string* path) {
+std::shared_ptr<fs::FileSystem> GetFileSystemFromUri(const std::string& uri,
+                                                     std::string* path) {
   return fs::FileSystemFromUri(uri, path).ValueOrDie();
 }
 

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_FILE_READER_H
-#define PARQUET_FILE_READER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -137,5 +136,3 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
                          ParquetFileReader* reader);
 
 }  // namespace parquet
-
-#endif  // PARQUET_FILE_READER_H

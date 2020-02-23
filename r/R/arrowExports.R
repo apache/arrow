@@ -360,8 +360,8 @@ dataset___FileFormat__type_name <- function(format){
     .Call(`_arrow_dataset___FileFormat__type_name` , format)
 }
 
-dataset___ParquetFileFormat__Make <- function(){
-    .Call(`_arrow_dataset___ParquetFileFormat__Make` )
+dataset___ParquetFileFormat__Make <- function(use_buffered_stream, buffer_size, dict_columns){
+    .Call(`_arrow_dataset___ParquetFileFormat__Make` , use_buffered_stream, buffer_size, dict_columns)
 }
 
 dataset___IpcFileFormat__Make <- function(){
@@ -454,6 +454,10 @@ dataset___ScannerBuilder__Filter <- function(sb, expr){
 
 dataset___ScannerBuilder__UseThreads <- function(sb, threads){
     invisible(.Call(`_arrow_dataset___ScannerBuilder__UseThreads` , sb, threads))
+}
+
+dataset___ScannerBuilder__BatchSize <- function(sb, batch_size){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__BatchSize` , sb, batch_size))
 }
 
 dataset___ScannerBuilder__schema <- function(sb){

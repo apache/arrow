@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_COLUMN_PROPERTIES_H
-#define PARQUET_COLUMN_PROPERTIES_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -69,8 +68,8 @@ class PARQUET_EXPORT ReaderProperties {
     file_decryption_properties_ = std::move(decryption);
   }
 
-  FileDecryptionProperties* file_decryption_properties() {
-    return file_decryption_properties_.get();
+  const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties() const {
+    return file_decryption_properties_;
   }
 
  private:
@@ -721,5 +720,3 @@ PARQUET_EXPORT
 std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties();
 
 }  // namespace parquet
-
-#endif  // PARQUET_COLUMN_PROPERTIES_H

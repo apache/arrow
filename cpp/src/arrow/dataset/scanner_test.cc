@@ -31,7 +31,6 @@ namespace dataset {
 class TestScanner : public DatasetFixtureMixin {
  protected:
   static constexpr int64_t kNumberSources = 2;
-  static constexpr int64_t kNumberFragments = 4;
   static constexpr int64_t kNumberBatches = 16;
   static constexpr int64_t kBatchSize = 1024;
 
@@ -39,18 +38,16 @@ class TestScanner : public DatasetFixtureMixin {
     std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
                                                       batch};
 
-    FragmentVector fragments{static_cast<size_t>(kNumberFragments),
-                             std::make_shared<InMemoryFragment>(batches, options_)};
-
     SourceVector sources{static_cast<size_t>(kNumberSources),
-                         std::make_shared<InMemorySource>(batch->schema(), fragments)};
+                         std::make_shared<InMemorySource>(batch->schema(), batches)};
 
     return Scanner{sources, options_, ctx_};
   }
 
   void AssertScannerEqualsRepetitionsOf(Scanner scanner,
-                                        std::shared_ptr<RecordBatch> batch) {
-    const int64_t total_batches = kNumberSources * kNumberBatches * kNumberFragments;
+                                        std::shared_ptr<RecordBatch> batch,
+                                        const int64_t total_batches = kNumberSources *
+                                                                      kNumberBatches) {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
 
     // Verifies that the unified BatchReader is equivalent to flattening all the
@@ -60,7 +57,6 @@ class TestScanner : public DatasetFixtureMixin {
 };
 
 constexpr int64_t TestScanner::kNumberSources;
-constexpr int64_t TestScanner::kNumberFragments;
 constexpr int64_t TestScanner::kNumberBatches;
 constexpr int64_t TestScanner::kBatchSize;
 
@@ -68,6 +64,15 @@ TEST_F(TestScanner, Scan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   AssertScannerEqualsRepetitionsOf(MakeScanner(batch), batch);
+}
+
+TEST_F(TestScanner, ScanWithCappedBatchSize) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  options_->batch_size = kBatchSize / 2;
+  auto expected = batch->Slice(kBatchSize / 2);
+  AssertScannerEqualsRepetitionsOf(MakeScanner(batch), expected,
+                                   kNumberSources * kNumberBatches * 2);
 }
 
 TEST_F(TestScanner, FilteredScan) {
@@ -122,8 +127,8 @@ TEST_F(TestScanner, MaterializeMissingColumn) {
 TEST_F(TestScanner, ToTable) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-  std::vector<std::shared_ptr<RecordBatch>> batches{
-      kNumberBatches * kNumberFragments * kNumberSources, batch};
+  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches * kNumberSources,
+                                                    batch};
 
   std::shared_ptr<Table> expected;
   ASSERT_OK(Table::FromRecordBatches(batches, &expected));

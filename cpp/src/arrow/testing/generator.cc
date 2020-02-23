@@ -36,9 +36,9 @@ namespace arrow {
 
 template <typename ArrowType, typename CType = typename TypeTraits<ArrowType>::CType,
           typename BuilderType = typename TypeTraits<ArrowType>::BuilderType>
-static inline std::shared_ptr<Array> ConstantArray(int64_t size, CType value = 0) {
+static inline std::shared_ptr<Array> ConstantArray(int64_t size, CType value) {
   auto type = TypeTraits<ArrowType>::type_singleton();
-  auto builder_fn = [](BuilderType* builder) { builder->UnsafeAppend(CType(0)); };
+  auto builder_fn = [&](BuilderType* builder) { builder->UnsafeAppend(value); };
   return ArrayFromBuilderVisitor(type, size, builder_fn).ValueOrDie();
 }
 
@@ -88,6 +88,11 @@ std::shared_ptr<arrow::Array> ConstantArrayGenerator::Float32(int64_t size, floa
 std::shared_ptr<arrow::Array> ConstantArrayGenerator::Float64(int64_t size,
                                                               double value) {
   return ConstantArray<DoubleType>(size, value);
+}
+
+std::shared_ptr<arrow::Array> ConstantArrayGenerator::String(int64_t size,
+                                                             std::string value) {
+  return ConstantArray<StringType>(size, value);
 }
 
 }  // namespace arrow

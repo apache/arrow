@@ -73,10 +73,59 @@ cdef class FileFormat:
         return self.wrapped
 
 
+cdef class ParquetFileFormatReaderOptions:
+    cdef:
+        CParquetFileFormatReaderOptions* options
+
+    def __init__(self, ParquetFileFormat fmt):
+        self.options = &fmt.parquet_format.reader_options
+
+    @property
+    def use_buffered_stream(self):
+        """Read files through buffered input streams rather than
+        loading entire row groups at once. This may be enabled to
+        reduce memory overhead. Disabled by default."""
+        return self.options.use_buffered_stream
+
+    @use_buffered_stream.setter
+    def use_buffered_stream(self, bint value):
+        self.options.use_buffered_stream = value
+
+    @property
+    def buffer_size(self):
+        """Size of buffered stream, if enabled. Default is 8KB."""
+        return self.options.buffer_size
+
+    @buffer_size.setter
+    def buffer_size(self, int value):
+        self.options.buffer_size = value
+
+    @property
+    def dict_columns(self):
+        """Names of columns which should be read as dictionaries."""
+        return self.options.dict_columns
+
+    @dict_columns.setter
+    def dict_columns(self, values):
+        self.options.dict_columns.clear()
+        for value in set(values):
+            self.options.dict_columns.insert(tobytes(value))
+
+
 cdef class ParquetFileFormat(FileFormat):
 
-    def __init__(self):
-        self.init(shared_ptr[CFileFormat](new CParquetFileFormat()))
+    cdef:
+        CParquetFileFormat* parquet_format
+
+    def __init__(self, dict reader_options=dict()):
+        self.init(<shared_ptr[CFileFormat]> make_shared[CParquetFileFormat]())
+        self.parquet_format = <CParquetFileFormat*> self.wrapped.get()
+        for name, value in reader_options.items():
+            setattr(self.reader_options, name, value)
+
+    @property
+    def reader_options(self):
+        return ParquetFileFormatReaderOptions(self)
 
 
 cdef class IpcFileFormat(FileFormat):
@@ -841,7 +890,7 @@ cdef class Dataset:
         return scanner.scan()
 
     def to_batches(self, columns=None, filter=None,
-                   MemoryPool memory_pool=None):
+                   batch_size=32*2**10, MemoryPool memory_pool=None):
         """Read the dataset as materialized record batches.
 
         Builds a scan operation against the dataset and sequentially executes
@@ -863,6 +912,10 @@ cdef class Dataset:
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
+        batch_size : int, default 32K
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -872,13 +925,13 @@ cdef class Dataset:
         record_batches : iterator of RecordBatch
         """
         scanner = Scanner(self, columns=columns, filter=filter,
-                          memory_pool=memory_pool)
+                          batch_size=batch_size, memory_pool=memory_pool)
         for task in scanner.scan():
             for batch in task.execute():
                 yield batch
 
     def to_table(self, columns=None, filter=None, use_threads=True,
-                 MemoryPool memory_pool=None):
+                 batch_size=32*2**10, MemoryPool memory_pool=None):
         """Read the dataset to an arrow table.
 
         Note that this method reads all the selected data from the dataset
@@ -903,6 +956,10 @@ cdef class Dataset:
         use_threads : boolean, default True
             If enabled, then maximum paralellism will be used determined by
             the number of available CPU cores.
+        batch_size : int, default 32K
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -912,7 +969,8 @@ cdef class Dataset:
         table : Table instance
         """
         scanner = Scanner(self, columns=columns, filter=filter,
-                          use_threads=use_threads, memory_pool=memory_pool)
+                          use_threads=use_threads, batch_size=batch_size,
+                          memory_pool=memory_pool)
         return scanner.to_table()
 
     @property
@@ -1006,6 +1064,10 @@ cdef class Scanner:
     use_threads : boolean, default True
         If enabled, then maximum paralellism will be used determined by
         the number of available CPU cores.
+    batch_size : int, default 32K
+        The maximum row count for scanned record batches. If scanned
+        record batches are overflowing memory then this method can be
+        called to reduce their size.
     memory_pool : MemoryPool, default None
         For memory allocations, if required. If not specified, uses the
         default pool.
@@ -1017,7 +1079,7 @@ cdef class Scanner:
 
     def __init__(self, Dataset dataset, list columns=None,
                  Expression filter=None, bint use_threads=True,
-                 MemoryPool memory_pool=None):
+                 int batch_size=32*2**10, MemoryPool memory_pool=None):
         cdef:
             shared_ptr[CScanContext] context
             shared_ptr[CScannerBuilder] builder
@@ -1047,6 +1109,8 @@ cdef class Scanner:
             check_status(builder.get().Filter(filter_expression))
         if use_threads is not None:
             check_status(builder.get().UseThreads(use_threads))
+
+        check_status(builder.get().BatchSize(batch_size))
 
         # instantiate the scanner object
         scanner = GetResultValue(builder.get().Finish())

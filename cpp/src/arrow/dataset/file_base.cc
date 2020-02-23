@@ -40,7 +40,7 @@ Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
 }
 
 Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanContext> context) {
-  return format_->ScanFile(source_, scan_options_, context);
+  return format_->ScanFile(source_, scan_options_, std::move(context));
 }
 
 FileSystemSource::FileSystemSource(std::shared_ptr<Schema> schema,
