@@ -31,7 +31,7 @@ use arrow::array::{
     Int16BufferBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
-use arrow::datatypes::{DataType as ArrowType, Field};
+use arrow::datatypes::{DataType as ArrowType, Field, IntervalUnit};
 
 use crate::arrow::converter::{
     BinaryConverter, BoolConverter, Converter, Float32Converter, Float64Converter,
@@ -215,6 +215,54 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                 Float64Converter::convert(transmute::<
                     &mut RecordReader<T>,
                     &mut RecordReader<DoubleType>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Timestamp(_, _), PhysicalType::INT64) => unsafe {
+                UInt64Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int64Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Date32(_), PhysicalType::INT32) => unsafe {
+                UInt32Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int32Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Date64(_), PhysicalType::INT64) => unsafe {
+                UInt64Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int64Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Time32(_), PhysicalType::INT32) => unsafe {
+                UInt32Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int32Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Time64(_), PhysicalType::INT64) => unsafe {
+                UInt64Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int64Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Interval(IntervalUnit::YearMonth), PhysicalType::INT32) => unsafe {
+                UInt32Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int32Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Interval(IntervalUnit::DayTime), PhysicalType::INT64) => unsafe {
+                UInt64Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int64Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Duration(_), PhysicalType::INT64) => unsafe {
+                UInt64Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int64Type>,
                 >(&mut self.record_reader))
             },
             (arrow_type, physical_type) => Err(general_err!(
