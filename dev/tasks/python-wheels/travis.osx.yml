@@ -39,6 +39,7 @@ before_install:
   - git -C arrow checkout FETCH_HEAD
 
   - brew update
+  - brew unlink python@2
   - brew bundle --file=arrow/cpp/Brewfile
   # Install tools to build bundled Thrift
   - brew install
