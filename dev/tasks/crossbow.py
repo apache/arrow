@@ -559,7 +559,9 @@ class Repo:
         name = os.path.basename(path)
         mime = mimetypes.guess_type(name)[0] or 'application/zip'
 
-        click.echo('Uploading asset `{}`...'.format(name))
+        click.echo(
+            'Uploading asset `{}` with mimetype {}...'.format(name, mime)
+        )
         for i in range(max_retries):
             try:
                 with open(path, 'rb') as fp:
@@ -1564,13 +1566,10 @@ def download_artifacts(obj, job_name, target_dir):
               help='File pattern to upload as assets')
 @click.pass_obj
 def upload_artifacts(obj, tag, sha, patterns):
-    # queue = obj['queue']
-    # queue.github_overwrite_release_assets(
-    #     tag_name=tag, target_commitish=sha, patterns=patterns
-    # )
-    # HACK: turn off artifact uploading globally until we resolve the github
-    # API related issues in https://github.com/apache/arrow/pull/6458
-    return
+    queue = obj['queue']
+    queue.github_overwrite_release_assets(
+        tag_name=tag, target_commitish=sha, patterns=patterns
+    )
 
 
 if __name__ == '__main__':
