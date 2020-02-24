@@ -131,7 +131,7 @@ Devices
 
 Many Arrow applications only access host (CPU) memory.  However, in some cases
 it is desirable to handle on-device memory (such as on-board memory on a GPU)
-add-on card) as well as regular CPU memory.
+as well as host memory.
 
 Arrow represents the CPU and other devices using the
 :class:`arrow::Device` abstraction.  The associated class :class:`arrow::MemoryManager`
