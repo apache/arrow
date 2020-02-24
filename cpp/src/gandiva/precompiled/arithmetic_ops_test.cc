@@ -104,7 +104,7 @@ TEST(TestArithmeticOps, TestDiv) {
 TEST(TestArithmeticOps, TestCastINT) {
   gandiva::ExecutionContext ctx;
 
-  int64 ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   EXPECT_EQ(castINT_utf8(ctx_ptr, "-45", 3), -45);
   EXPECT_EQ(castINT_utf8(ctx_ptr, "0", 1), 0);
@@ -147,7 +147,7 @@ TEST(TestArithmeticOps, TestCastINT) {
 TEST(TestArithmeticOps, TestCastBIGINT) {
   gandiva::ExecutionContext ctx;
 
-  int64 ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "-45", 3), -45);
   EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "0", 1), 0);
@@ -192,7 +192,7 @@ TEST(TestArithmeticOps, TestCastBIGINT) {
 TEST(TestArithmeticOps, TestCastFloat4) {
   gandiva::ExecutionContext ctx;
 
-  int64 ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "-45.34", 6), -45.34f);
   EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "0", 1), 0.0f);
@@ -212,7 +212,7 @@ TEST(TestArithmeticOps, TestCastFloat4) {
 TEST(TestParseStringHolder, TestCastFloat8) {
   gandiva::ExecutionContext ctx;
 
-  int64 ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "-45.34", 6), -45.34);
   EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "0", 1), 0.0);
