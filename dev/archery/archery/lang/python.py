@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import importlib
 import inspect
 import tokenize
 from contextlib import contextmanager

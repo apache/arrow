@@ -124,7 +124,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     type : pyarrow.DataType
         Explicit type to attempt to coerce to, otherwise will be inferred from
         the data.
-    mask : array (boolean), optional
+    mask : array[bool], optional
         Indicate which values are null (True) or not null (False).
     size : int64, optional
         Size of the elements. If the imput is larger than size bail at this
@@ -144,6 +144,14 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the currently-set default
         memory pool.
+
+    Returns
+    -------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+        A ChunkedArray instead of an Array is returned if:
+        - the object data overflowed binary storage.
+        - the object's ``__arrow_array__`` protocol method returned a chunked
+          array.
 
     Notes
     -----
@@ -170,15 +178,6 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
       1,
       null
     ]
-
-    Returns
-    -------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-        A ChunkedArray instead of an Array is returned if:
-
-        - the object data overflowed binary storage.
-        - the object's ``__arrow_array__`` protocol method returned a chunked
-          array.
     """
     cdef:
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -529,7 +528,7 @@ cdef class _PandasConvertible:
             data in a pandas DataFrame or Series (e.g. timestamps are always
             stored as nanoseconds in pandas). This option controls whether it
             is a safe cast or not.
-        split_blocks : boolean, default False
+        split_blocks : bool, default False
             If True, generate one internal "block" for each column when
             creating a pandas.DataFrame from a RecordBatch or Table. While this
             can temporarily reduce memory note that various pandas operations
