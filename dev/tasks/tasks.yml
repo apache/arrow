@@ -123,6 +123,7 @@ groups:
     - test-conda-python-3.7-turbodbc-master
     - test-conda-python-3.7-hdfs-2.9.2
     - test-conda-python-3.7-spark-master
+    - test-conda-python-3.8-jpype
     # - test-conda-cpp-hiveserver2
 
   test:
@@ -203,6 +204,7 @@ groups:
     - test-conda-python-3.7-turbodbc-master
     - test-conda-python-3.7-hdfs-2.9.2
     - test-conda-python-3.7-spark-master
+    - test-conda-python-3.8-jpype
     # - test-conda-cpp-hiveserver2
 
   ######################## Tasks to run regularly #############################
@@ -286,6 +288,7 @@ groups:
     - test-conda-python-3.7-turbodbc-master
     - test-conda-python-3.7-hdfs-2.9.2
     - test-conda-python-3.7-spark-master
+    - test-conda-python-3.8-jpype
 
 tasks:
   # arbitrary_task_name:
@@ -2012,6 +2015,20 @@ tasks:
         - docker-compose build conda-python
         - docker-compose build --no-cache conda-python-dask
         - docker-compose run conda-python-dask
+
+  test-conda-python-3.8-jpype:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - export PYTHON=3.8
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-jpype
+        - docker-compose run conda-python-jpype
 
   test-conda-python-3.7-turbodbc-latest:
     ci: circle
