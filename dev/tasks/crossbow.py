@@ -24,8 +24,6 @@ import time
 import logging
 import mimetypes
 import textwrap
-import requests
-import http.client as http_client
 import concurrent.futures
 from io import StringIO
 from pathlib import Path
