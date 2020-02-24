@@ -16,6 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import gc
+
 import pyarrow as pa
 try:
     from pyarrow.cffi import ffi
@@ -40,6 +42,7 @@ def test_export_import_type():
     c_schema = ffi.new("struct ArrowSchema*")
     ptr_schema = int(ffi.cast("uintptr_t", c_schema))
 
+    gc.collect()  # Make sure no Arrow data dangles in a ref cycle
     old_allocated = pa.total_allocated_bytes()
 
     typ = pa.list_(pa.int32())
@@ -74,6 +77,7 @@ def test_export_import_array():
     c_array = ffi.new("struct ArrowArray*")
     ptr_array = int(ffi.cast("uintptr_t", c_array))
 
+    gc.collect()  # Make sure no Arrow data dangles in a ref cycle
     old_allocated = pa.total_allocated_bytes()
 
     # Type is known up front
@@ -120,6 +124,7 @@ def test_export_import_schema():
         return pa.schema([('ints', pa.list_(pa.int32()))],
                          metadata={b'key1': b'value1'})
 
+    gc.collect()  # Make sure no Arrow data dangles in a ref cycle
     old_allocated = pa.total_allocated_bytes()
 
     make_schema()._export_to_c(ptr_schema)
@@ -158,6 +163,7 @@ def test_export_import_batch():
     def make_batch():
         return pa.record_batch([[[1], [2, 42]]], make_schema())
 
+    gc.collect()  # Make sure no Arrow data dangles in a ref cycle
     old_allocated = pa.total_allocated_bytes()
 
     # Schema is known up front
