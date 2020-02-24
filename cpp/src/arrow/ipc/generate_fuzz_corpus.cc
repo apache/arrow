@@ -27,6 +27,7 @@
 
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/json_simple.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
@@ -40,6 +41,7 @@ namespace ipc {
 
 using ::arrow::internal::CreateDir;
 using ::arrow::internal::PlatformFilename;
+using internal::json::ArrayFromJSON;
 
 Result<std::shared_ptr<RecordBatch>> MakeExtensionBatch() {
   auto array = ExampleUUID();
@@ -48,9 +50,26 @@ Result<std::shared_ptr<RecordBatch>> MakeExtensionBatch() {
   return RecordBatch::Make(schema, array->length(), {array});
 }
 
+Result<std::shared_ptr<RecordBatch>> MakeMapBatch() {
+  std::shared_ptr<Array> array;
+  const char* json_input = R"(
+[
+    [[0, 1], [1, 1], [2, 2], [3, 3], [4, 5], [5, 8]],
+    null,
+    [[0, null], [1, null], [2, 0], [3, 1], [4, null], [5, 2]],
+    []
+  ]
+)";
+  RETURN_NOT_OK(ArrayFromJSON(map(int16(), int32()), json_input, &array));
+  auto schema = ::arrow::schema({field("f0", array->type())});
+  return RecordBatch::Make(schema, array->length(), {array});
+}
+
 Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
   std::vector<std::shared_ptr<RecordBatch>> batches;
   std::shared_ptr<RecordBatch> batch;
+  std::shared_ptr<Array> array;
+
   RETURN_NOT_OK(test::MakeNullRecordBatch(&batch));
   batches.push_back(batch);
   RETURN_NOT_OK(test::MakeListRecordBatch(&batch));
@@ -69,6 +88,9 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
   batches.push_back(batch);
   ARROW_ASSIGN_OR_RAISE(batch, MakeExtensionBatch());
   batches.push_back(batch);
+  ARROW_ASSIGN_OR_RAISE(batch, MakeMapBatch());
+  batches.push_back(batch);
+
   return batches;
 }
 
