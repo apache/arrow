@@ -144,6 +144,8 @@ def _from_jvm_timestamp_type(jvm_type):
     """
     time_unit = jvm_type.getUnit().toString()
     timezone = jvm_type.getTimezone()
+    if timezone is not None:
+        timezone = str(timezone)
     if time_unit == 'SECOND':
         return pa.timestamp('s', tz=timezone)
     elif time_unit == 'MILLISECOND':
@@ -186,7 +188,7 @@ def field(jvm_field):
     -------
     pyarrow.Field
     """
-    name = jvm_field.getName()
+    name = str(jvm_field.getName())
     jvm_type = jvm_field.getType()
 
     typ = None
@@ -224,10 +226,12 @@ def field(jvm_field):
             "JVM field conversion only implemented for primitive types.")
 
     nullable = jvm_field.isNullable()
-    if jvm_field.getMetadata().isEmpty():
+    jvm_metadata = jvm_field.getMetadata()
+    if jvm_metadata.isEmpty():
         metadata = None
     else:
-        metadata = dict(jvm_field.getMetadata())
+        metadata = {str(entry.getKey()): str(entry.getValue())
+                    for entry in jvm_metadata.entrySet()}
     return pa.field(name, typ, nullable, metadata)
 
 
@@ -246,12 +250,13 @@ def schema(jvm_schema):
     """
     fields = jvm_schema.getFields()
     fields = [field(f) for f in fields]
-    metadata = jvm_schema.getCustomMetadata()
-    if metadata.isEmpty():
-        meta = None
+    jvm_metadata = jvm_schema.getCustomMetadata()
+    if jvm_metadata.isEmpty():
+        metadata = None
     else:
-        meta = {k: metadata[k] for k in metadata.keySet()}
-    return pa.schema(fields, meta)
+        metadata = {str(entry.getKey()): str(entry.getValue())
+                    for entry in jvm_metadata.entrySet()}
+    return pa.schema(fields, metadata)
 
 
 def array(jvm_array):
