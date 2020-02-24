@@ -74,4 +74,4 @@ jobs:
             --sha {{ task.branch }} \
             --tag {{ task.tag }}
         env:
-          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
+          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
