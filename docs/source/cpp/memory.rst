@@ -148,11 +148,15 @@ Device-Agnostic Programming
 If you receive a Buffer from third-party code, you can query whether it is
 CPU-readable by calling its :func:`~arrow::Buffer::is_cpu` method.
 
-You can also make sure the Buffer can be viewed on a given device, in a
-generic way, by calling :func:`arrow::Buffer::View` or
-:func:`arrow::Buffer::ViewOrCopy`.
+You can also view the Buffer on a given device, in a generic way, by calling
+:func:`arrow::Buffer::View` or :func:`arrow::Buffer::ViewOrCopy`.  This will
+be a no-operation if the source and destination devices are identical.
+Otherwise, a device-dependent mechanism will attempt to construct a memory
+address for the destination device that gives access to the buffer contents.
+Actual device-to-device transfer may happen lazily, when reading the buffer
+contents.
 
-Similarly, if you want to do I/O on the buffer without assuming a CPU-readable
+Similarly, if you want to do I/O on a buffer without assuming a CPU-readable
 buffer, you can call :func:`arrow::Buffer::GetReader` and
 :func:`arrow::Buffer::GetWriter`.
 

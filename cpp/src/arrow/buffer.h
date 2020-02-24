@@ -284,9 +284,11 @@ class ARROW_EXPORT Buffer {
 
   /// \brief View buffer
   ///
-  /// Return a Buffer that reflects this buffer, seen potentially from another device,
-  /// without explicitly copying its contents.  How this is implemented depends
-  /// on the concrete device and buffer kind.
+  /// Return a Buffer that reflects this buffer, seen potentially from another
+  /// device, without making an explicit copy of the contents.  The underlying
+  /// mechanism is typically implemented by the kernel or device driver, and may
+  /// involve lazy caching of parts of the buffer contents on the destination
+  /// device's memory.
   ///
   /// This function may fail, since not all buffers support being viewed on
   /// another device.
@@ -295,8 +297,8 @@ class ARROW_EXPORT Buffer {
 
   /// \brief View or copy buffer
   ///
-  /// Try to view buffer contents on the given MemoryManager's device, fall back
-  /// to copying if a no-copy view isn't supported.
+  /// Try to view buffer contents on the given MemoryManager's device, but
+  /// fall back to copying if a no-copy view isn't supported.
   static Result<std::shared_ptr<Buffer>> ViewOrCopy(
       std::shared_ptr<Buffer> source, const std::shared_ptr<MemoryManager>& to);
 
