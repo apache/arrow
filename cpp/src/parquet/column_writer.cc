@@ -834,22 +834,22 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   // TODO: The following assumes that num_values == num_rows
   int32_t num_values = static_cast<int32_t>(num_buffered_values_);
   int32_t null_count = static_cast<int32_t>(page_stats.null_count);
+  int32_t def_levels_byte_length = static_cast<int32_t>(definition_levels_rle_size);
+  int32_t rep_levels_byte_length = static_cast<int32_t>(repetition_levels_rle_size);
 
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
   if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
     std::shared_ptr<Buffer> data_copy;
     PARQUET_THROW_NOT_OK(combined->Copy(0, combined->size(), allocator_, &data_copy));
-    std::unique_ptr<DataPage> page_ptr(
-        new DataPageV2(combined, num_values, null_count, num_values, encoding_,
-                       definition_levels_rle_size, repetition_levels_rle_size,
-                       uncompressed_size, pager_->has_compressor()));
+    std::unique_ptr<DataPage> page_ptr(new DataPageV2(
+        combined, num_values, null_count, num_values, encoding_, def_levels_byte_length,
+        rep_levels_byte_length, uncompressed_size, pager_->has_compressor()));
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
     data_page_ptrs_.push_back(std::move(page_ptr));
   } else {
     DataPageV2 page(combined, num_values, null_count, num_values, encoding_,
-                    definition_levels_rle_size, repetition_levels_rle_size,
-                    uncompressed_size);
+                    def_levels_byte_length, rep_levels_byte_length, uncompressed_size);
     WriteDataPage(page);
   }
 }
