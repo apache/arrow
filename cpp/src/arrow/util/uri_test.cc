@@ -221,6 +221,12 @@ TEST(Uri, ParseError) {
   ASSERT_RAISES(Invalid, uri.Parse("http://localhost:z"));
   ASSERT_RAISES(Invalid, uri.Parse("http://localhost:-1"));
   ASSERT_RAISES(Invalid, uri.Parse("http://localhost:99999"));
+
+  // Scheme-less URIs (forbidden by RFC 3986, and ambiguous to parse)
+  ASSERT_RAISES(Invalid, uri.Parse("localhost"));
+  ASSERT_RAISES(Invalid, uri.Parse("/foo/bar"));
+  ASSERT_RAISES(Invalid, uri.Parse("foo/bar"));
+  ASSERT_RAISES(Invalid, uri.Parse(""));
 }
 
 }  // namespace internal

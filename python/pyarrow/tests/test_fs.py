@@ -596,14 +596,22 @@ def test_hdfs_options(hdfs_server):
     ('file:foo/bar', LocalFileSystem, 'foo/bar'),
     ('file:/foo/bar', LocalFileSystem, '/foo/bar'),
     ('file:///foo/bar', LocalFileSystem, '/foo/bar'),
-    ('', LocalFileSystem, ''),
-    ('foo/bar', LocalFileSystem, 'foo/bar'),
+    ('/', LocalFileSystem, '/'),
     ('/foo/bar', LocalFileSystem, '/foo/bar'),
 ])
 def test_filesystem_from_uri(uri, expected_klass, expected_path):
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, expected_klass)
     assert path == expected_path
+
+
+@pytest.mark.parametrize('path',
+                         ['', '/', 'foo/bar', '/foo/bar', __file__])
+def test_filesystem_from_path_object(path):
+    p = pathlib.Path(path)
+    fs, path = FileSystem.from_uri(p)
+    assert isinstance(fs, LocalFileSystem)
+    assert path == p.resolve().absolute().as_posix()
 
 
 @pytest.mark.s3

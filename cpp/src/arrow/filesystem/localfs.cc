@@ -46,6 +46,37 @@ using ::arrow::internal::IOErrorFromWinError;
 using ::arrow::internal::NativePathString;
 using ::arrow::internal::PlatformFilename;
 
+namespace internal {
+
+#ifdef _WIN32
+static bool IsDriveLetter(char c) {
+  // Can't use locale-dependent functions from the C/C++ stdlib
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+#endif
+
+bool DetectAbsolutePath(const std::string& s) {
+  // Is it a /-prefixed local path?
+  if (s.length() >= 1 && s[0] == '/') {
+    return true;
+  }
+#ifdef _WIN32
+  // Is it a \-prefixed local path?
+  if (s.length() >= 1 && s[0] == '\\') {
+    return true;
+  }
+  // Does it start with a drive letter in addition to being /- or \-prefixed,
+  // e.g. "C:\..."?
+  if (s.length() >= 3 && s[1] == ':' && (s[2] == '/' || s[2] == '\\') &&
+      IsDriveLetter(s[0])) {
+    return true;
+  }
+#endif
+  return false;
+}
+
+}  // namespace internal
+
 namespace {
 
 #ifdef _WIN32
