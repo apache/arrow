@@ -1120,6 +1120,7 @@ impl StringArray {
                 self.value_data.get().offset(pos as isize),
                 (self.value_offset_at(offset + 1) - pos) as usize,
             );
+
             std::str::from_utf8_unchecked(slice)
         }
     }

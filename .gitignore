@@ -64,6 +64,8 @@ docker_cache
 .gdb_history
 .DS_Store
 *.orig
+.*.swp
+.*.swo
 
 site/
 

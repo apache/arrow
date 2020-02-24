@@ -39,37 +39,37 @@ fn create_array(size: usize) -> Float32Array {
 pub fn eq_no_simd(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
-    criterion::black_box(compare_op(&arr_a, &arr_b, |a, b| a == b).unwrap());
+    criterion::black_box(no_simd_compare_op(&arr_a, &arr_b, |a, b| a == b).unwrap());
 }
 
 pub fn neq_no_simd(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
-    criterion::black_box(compare_op(&arr_a, &arr_b, |a, b| a != b).unwrap());
+    criterion::black_box(no_simd_compare_op(&arr_a, &arr_b, |a, b| a != b).unwrap());
 }
 
 pub fn lt_no_simd(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
-    criterion::black_box(compare_op(&arr_a, &arr_b, |a, b| a < b).unwrap());
+    criterion::black_box(no_simd_compare_op(&arr_a, &arr_b, |a, b| a < b).unwrap());
 }
 
 fn lt_eq_no_simd(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
-    criterion::black_box(compare_op(&arr_a, &arr_b, |a, b| a <= b).unwrap());
+    criterion::black_box(no_simd_compare_op(&arr_a, &arr_b, |a, b| a <= b).unwrap());
 }
 
 pub fn gt_no_simd(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
-    criterion::black_box(compare_op(&arr_a, &arr_b, |a, b| a > b).unwrap());
+    criterion::black_box(no_simd_compare_op(&arr_a, &arr_b, |a, b| a > b).unwrap());
 }
 
 fn gt_eq_no_simd(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
-    criterion::black_box(compare_op(&arr_a, &arr_b, |a, b| a >= b).unwrap());
+    criterion::black_box(no_simd_compare_op(&arr_a, &arr_b, |a, b| a >= b).unwrap());
 }
 
 fn eq_simd(size: usize) {

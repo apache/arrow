@@ -52,6 +52,7 @@ clap = "2.33.0"
 prettytable-rs = "0.8.0"
 rustyline = {version = "4.1.0", optional = true}
 crossbeam = "0.7.1"
+paste = "0.1.6"
 
 [dev-dependencies]
 criterion = "0.2.0"
