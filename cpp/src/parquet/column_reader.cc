@@ -617,17 +617,17 @@ class ColumnReaderImplBase {
     int64_t levels_byte_size = 0;
 
     if (max_rep_level_ > 0) {
-      repetition_level_decoder_.SetDataV2(page.repetition_levels_byte_length(),
-                                          max_rep_level_, num_buffered_values_,
-                                          page.data());
+      repetition_level_decoder_.SetDataV2(
+          page.repetition_levels_byte_length(), max_rep_level_,
+          static_cast<int>(num_buffered_values_), page.data());
 
       levels_byte_size += page.repetition_levels_byte_length();
     }
 
     if (max_def_level_ > 0) {
-      definition_level_decoder_.SetDataV2(page.definition_levels_byte_length(),
-                                          max_def_level_, num_buffered_values_,
-                                          page.data());
+      definition_level_decoder_.SetDataV2(
+          page.definition_levels_byte_length(), max_def_level_,
+          static_cast<int>(num_buffered_values_), page.data());
 
       levels_byte_size += page.definition_levels_byte_length();
     }
