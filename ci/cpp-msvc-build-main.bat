@@ -129,6 +129,8 @@ set PARQUET_HOME=%CONDA_PREFIX%\Library
 
 python setup.py develop -q || exit /B
 
+set PYTHONDEVMODE=1
+
 py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
 
 @rem
