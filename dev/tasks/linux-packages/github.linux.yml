@@ -15,7 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Linux
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
 
 on:
   push:
