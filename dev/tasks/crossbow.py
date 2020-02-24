@@ -473,8 +473,13 @@ class Repo:
                 raise ImportError('Must install github3.py')
             github_token = github_token or self.github_token
             username, reponame = self._parse_github_user_repo()
-            gh = github3.login(token=github_token)
-            self._github_repo = gh.repository(username, reponame)
+            session = github3.session.GitHubSession(
+                default_connect_timeout=10,
+                default_read_timeout=30
+            )
+            github = github3.GitHub(session=session)
+            github.login(token=github_token)
+            self._github_repo = github.repository(username, reponame)
         return self._github_repo
 
     def github_commit_status(self, commit):
