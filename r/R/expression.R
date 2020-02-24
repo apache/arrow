@@ -31,13 +31,10 @@ Ops.ChunkedArray <- Ops.Array
 Ops.array_expression <- Ops.Array
 
 #' @export
-is.na.Array <- function(x) array_expression("is.na", x)
+is.na.ChunkedArray <- function(x) array_expression("is.na", x)
 
 #' @export
-is.na.ChunkedArray <- is.na.Array
-
-#' @export
-is.na.array_expression <- is.na.Array
+is.na.array_expression <- function(x) array_expression("is.na", x)
 
 #' @export
 as.vector.array_expression <- function(x, ...) {
