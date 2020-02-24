@@ -162,7 +162,8 @@ def dataset(mockfs):
             pa.field('key', pa.string())
         ])
     )
-    return ds.FileSystemDatasetFactory(mockfs, selector, format, options).finish()
+    factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
+    return factory.finish()
 
 
 def test_filesystem_dataset(mockfs):
