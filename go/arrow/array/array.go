@@ -119,11 +119,13 @@ func (a *array) IsValid(i int) bool {
 }
 
 func (a *array) setData(data *Data) {
+	// Retain before releasing in case a.data is the same as data.
+	data.Retain()
+
 	if a.data != nil {
 		a.data.Release()
 	}
 
-	data.Retain()
 	if len(data.buffers) > 0 && data.buffers[0] != nil {
 		a.nullBitmapBytes = data.buffers[0].Bytes()
 	}
