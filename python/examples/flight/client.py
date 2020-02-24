@@ -24,6 +24,7 @@ import pyarrow
 import pyarrow.flight
 import pyarrow.csv as csv
 
+
 def list_flights(args, client):
     print('Flights\n=======')
     for flight in client.list_flights():
@@ -69,6 +70,7 @@ def do_action(args, client):
     except pyarrow.lib.ArrowIOError as e:
         print("Error calling action:", e)
 
+
 def push_data(args, client):
     print('File Name:', args.file)
     my_table = csv.read_csv(args.file)
@@ -79,6 +81,7 @@ def push_data(args, client):
         pyarrow.flight.FlightDescriptor.for_path(args.file), my_table.schema)    
     writer.write_table(my_table)
     writer.close()
+
 
 def get_flight(args, client):
     if args.path:
@@ -124,7 +127,7 @@ def main():
     cmd_put.set_defaults(action='put')
     _add_common_arguments(cmd_put)
     cmd_put.add_argument('file', type=str,
-                        help="csv file to upload.")
+                        help="CSV file to upload.")
                         
     cmd_get = subcommands.add_parser('get')
     cmd_get.set_defaults(action='get')

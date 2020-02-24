@@ -46,7 +46,8 @@ class FlightServer(pyarrow.flight.FlightServerBase):
                 descriptor = pyarrow.flight.FlightDescriptor.for_path(*key[2])
 
             endpoints = [
-                pyarrow.flight.FlightEndpoint(repr(key),
+                pyarrow.flight.FlightEndpoint(
+                    repr(key),
                     [pyarrow.flight.Location.for_grpc_tcp(self.host, self.port)]),
             ]
 
@@ -104,7 +105,7 @@ class FlightServer(pyarrow.flight.FlightServerBase):
             # request
             threading.Thread(target=self._shutdown).start()
         else:
-            raise KeyError("Unknown action")
+            raise KeyError("Unknown action {!r}".format(action.type))
 
     def _shutdown(self):
         """Shut down after a delay."""
