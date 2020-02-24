@@ -99,9 +99,20 @@ class CompareSorter {
 template <typename ArrowType>
 class CountSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using c_type = typename ArrowType::c_type;
 
  public:
-  explicit CountSorter(int min, int max) : min_(min), max_(max) {}
+  CountSorter() = default;
+
+  explicit CountSorter(c_type min, c_type max) {
+    SetMinMax(min, max);
+  }
+
+  // Assume: max >= min && (max - min) < 4Gi
+  void SetMinMax(c_type min, c_type max) {
+    min_ = min;
+    value_range_ = static_cast<uint32_t>(max - min) + 1;
+  }
 
   void Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) {
     // 32bit counter performs much better than 64bit one
@@ -113,12 +124,13 @@ class CountSorter {
   }
 
  private:
-  const int min_, max_;
+  c_type min_ { 0 };
+  uint32_t value_range_ { 0 };
 
   template <typename CounterType>
   void SortInternal(int64_t* indices_begin, int64_t* indices_end,
                     const ArrayType& values) {
-    const size_t value_range = max_ - min_ + 1;
+    const uint32_t value_range = value_range_;
 
     // first slot reserved for prefix sum, last slot for null value
     std::vector<CounterType> count(1 + value_range + 1);
@@ -128,7 +140,7 @@ class CountSorter {
       ++count[v + 1];
     }
 
-    for (size_t i = 1; i <= value_range; ++i) {
+    for (uint32_t i = 1; i <= value_range; ++i) {
       count[i] += count[i - 1];
     }
 
@@ -137,6 +149,52 @@ class CountSorter {
       indices_begin[count[v]++] = i;
     }
   }
+};
+
+template <typename ArrowType, typename Comparator>
+class CountCompareSorter {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using c_type = typename ArrowType::c_type;
+
+ public:
+  explicit CountCompareSorter(Comparator compare) : compare_sorter_(compare) {}
+
+  void Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) {
+    if (values.length() >= countsort_min_len_) {
+      auto min = std::numeric_limits<c_type>::max();
+      auto max = std::numeric_limits<c_type>::min();
+
+      for (int64_t i = 0; i < values.length(); ++i) {
+        min = values.IsNull(i) ? min : std::min(min, values.Value(i));
+        max = values.IsNull(i) ? max : std::max(max, values.Value(i));
+      }
+
+      // Must be unsigned compare as (max - min) may be negative for signed data.
+      if (static_cast<uint64_t>(max - min) <= countsort_max_range_) {
+        count_sorter_.SetMinMax(min, max);
+        count_sorter_.Sort(indices_begin, indices_end, values);
+        return;
+      }
+    }
+
+    compare_sorter_.Sort(indices_begin, indices_end, values);
+  }
+
+ private:
+  CompareSorter<ArrowType, Comparator> compare_sorter_;
+  CountSorter<ArrowType> count_sorter_;
+
+  // Cross point to prefer counting sort than stl::stable_sort(merge sort)
+  // - array to be sorted is longer than "count_min_len_"
+  // - value range (max-min) is within "count_max_range_"
+  //
+  // The optimal setting depends heavily on running CPU. Below setting is
+  // conservative to adapt to various hardware and keep code simple.
+  // It's possibel to decrease array-len and/or increase value-range to cover
+  // more cases, or setup a table for best array-len/value-range combinations.
+  // See https://issues.apache.org/jira/browse/ARROW-1571 for detailed analysis.
+  static const uint32_t countsort_min_len_ = 1024;
+  static const uint32_t countsort_max_range_ = 4096;
 };
 
 template <typename ArrowType, typename Sorter>
@@ -184,14 +242,20 @@ class SortToIndicesKernelImpl : public SortToIndicesKernel {
 
 template <typename ArrowType, typename Comparator,
           typename Sorter = CompareSorter<ArrowType, Comparator>>
-SortToIndicesKernelImpl<ArrowType, Sorter>* MakeSortToIndicesWithComparator(
-    Comparator comparator) {
+SortToIndicesKernelImpl<ArrowType, Sorter>* MakeCompareKernel(Comparator comparator) {
   return new SortToIndicesKernelImpl<ArrowType, Sorter>(Sorter(comparator));
 }
 
 template <typename ArrowType, typename Sorter = CountSorter<ArrowType>>
-SortToIndicesKernelImpl<ArrowType, Sorter>* MakeSortToIndicesCounting(int min, int max) {
+SortToIndicesKernelImpl<ArrowType, Sorter>* MakeCountKernel(int min, int max) {
   return new SortToIndicesKernelImpl<ArrowType, Sorter>(Sorter(min, max));
+}
+
+template <typename ArrowType, typename Comparator,
+          typename Sorter = CountCompareSorter<ArrowType, Comparator>>
+SortToIndicesKernelImpl<ArrowType, Sorter>* MakeCountCompareKernel(
+    Comparator comparator) {
+  return new SortToIndicesKernelImpl<ArrowType, Sorter>(Sorter(comparator));
 }
 
 Status SortToIndicesKernel::Make(const std::shared_ptr<DataType>& value_type,
@@ -199,40 +263,40 @@ Status SortToIndicesKernel::Make(const std::shared_ptr<DataType>& value_type,
   SortToIndicesKernel* kernel;
   switch (value_type->id()) {
     case Type::UINT8:
-      kernel = MakeSortToIndicesCounting<UInt8Type>(0, 255);
+      kernel = MakeCountKernel<UInt8Type>(0, 255);
       break;
     case Type::INT8:
-      kernel = MakeSortToIndicesCounting<Int8Type>(-128, 127);
+      kernel = MakeCountKernel<Int8Type>(-128, 127);
       break;
     case Type::UINT16:
-      kernel = MakeSortToIndicesWithComparator<UInt16Type>(CompareValues<UInt16Array>);
+      kernel = MakeCountCompareKernel<UInt16Type>(CompareValues<UInt16Array>);
       break;
     case Type::INT16:
-      kernel = MakeSortToIndicesWithComparator<Int16Type>(CompareValues<Int16Array>);
+      kernel = MakeCountCompareKernel<Int16Type>(CompareValues<Int16Array>);
       break;
     case Type::UINT32:
-      kernel = MakeSortToIndicesWithComparator<UInt32Type>(CompareValues<UInt32Array>);
+      kernel = MakeCountCompareKernel<UInt32Type>(CompareValues<UInt32Array>);
       break;
     case Type::INT32:
-      kernel = MakeSortToIndicesWithComparator<Int32Type>(CompareValues<Int32Array>);
+      kernel = MakeCountCompareKernel<Int32Type>(CompareValues<Int32Array>);
       break;
     case Type::UINT64:
-      kernel = MakeSortToIndicesWithComparator<UInt64Type>(CompareValues<UInt64Array>);
+      kernel = MakeCountCompareKernel<UInt64Type>(CompareValues<UInt64Array>);
       break;
     case Type::INT64:
-      kernel = MakeSortToIndicesWithComparator<Int64Type>(CompareValues<Int64Array>);
+      kernel = MakeCountCompareKernel<Int64Type>(CompareValues<Int64Array>);
       break;
     case Type::FLOAT:
-      kernel = MakeSortToIndicesWithComparator<FloatType>(CompareValues<FloatArray>);
+      kernel = MakeCompareKernel<FloatType>(CompareValues<FloatArray>);
       break;
     case Type::DOUBLE:
-      kernel = MakeSortToIndicesWithComparator<DoubleType>(CompareValues<DoubleArray>);
+      kernel = MakeCompareKernel<DoubleType>(CompareValues<DoubleArray>);
       break;
     case Type::BINARY:
-      kernel = MakeSortToIndicesWithComparator<BinaryType>(CompareViews<BinaryArray>);
+      kernel = MakeCompareKernel<BinaryType>(CompareViews<BinaryArray>);
       break;
     case Type::STRING:
-      kernel = MakeSortToIndicesWithComparator<StringType>(CompareViews<StringArray>);
+      kernel = MakeCompareKernel<StringType>(CompareViews<StringArray>);
       break;
     default:
       return Status::NotImplemented("Sorting of ", *value_type, " arrays");
