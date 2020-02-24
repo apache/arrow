@@ -1345,8 +1345,9 @@ def foreign_buffer(address, size, base=None):
     Construct an Arrow buffer with the given *address* and *size*.
 
     The buffer will be optionally backed by the Python *base* object, if given.
-    The *base* object will be kept alive as long as this buffer is alive, including across
-    language boundaries (for example if the buffer is referenced by C++ code).
+    The *base* object will be kept alive as long as this buffer is alive,
+    including across language boundaries (for example if the buffer is
+    referenced by C++ code).
     """
     cdef:
         intptr_t c_addr = address
@@ -1775,7 +1776,7 @@ def output_stream(source, compression='detect', buffer_size=None):
 
     Parameters
     ----------
-    source: str, pathlib.Path, buffer, file-like object, ...
+    source: str, Path, buffer, file-like object, ...
         The source to open for writing.
     compression: str optional, default 'detect'
         The compression algorithm to use for on-the-fly compression.

@@ -22,8 +22,8 @@ cdef class ChunkedArray(_PandasConvertible):
     """
     An array-like composed from a (possibly empty) collection of pyarrow.Arrays
 
-    Warns
-    -----
+    Warnings
+    --------
     Do not call this class's constructor directly.
     """
 
@@ -159,11 +159,12 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def equals(self, ChunkedArray other):
         """
-        Return whether the contents of two chunked arrays are equal
+        Return whether the contents of two chunked arrays are equal.
 
         Parameters
         ----------
         other : pyarrow.ChunkedArray
+            Chunked array to compare against.
 
         Returns
         -------
@@ -511,8 +512,8 @@ cdef class RecordBatch(_PandasConvertible):
     """
     Batch of rows of columns of equal length
 
-    Warns
-    -----
+    Warnings
+    --------
     Do not call this class's constructor directly, use one of the
     ``RecordBatch.from_*`` functions instead.
     """
@@ -1132,11 +1133,12 @@ cdef class Table(_PandasConvertible):
 
     def equals(self, Table other, bint check_metadata=False):
         """
-        Check if contents of two tables are equal
+        Check if contents of two tables are equal.
 
         Parameters
         ----------
         other : pyarrow.Table
+            Table to compare against.
         check_metadata : bool, default False
             Whether schema metadata equality should be checked as well.
 
@@ -1610,9 +1612,9 @@ cdef class Table(_PandasConvertible):
     def add_column(self, int i, field_, column):
         """
         Add column to Table at position.
-        
-        A new table is returned with the column added, the original
-        table object is left unchanged.
+
+        A new table is returned with the column added, the original table
+        object is left unchanged.
 
         Parameters
         ----------
@@ -1626,8 +1628,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table :
-            New table with the passed column added.
+        pyarrow.Table : New table with the passed column added.
         """
         cdef:
             shared_ptr[CTable] c_table
