@@ -1065,7 +1065,7 @@ impl Field {
                             Some(t) => DataType::from(t)?,
                             _ => {
                                 return Err(ArrowError::ParseError(
-                                    "Field missing 'type' attribute".to_string(),
+                                    "Field missing 'indexType' attribute".to_string(),
                                 ));
                             }
                         };
@@ -1081,7 +1081,7 @@ impl Field {
                             Some(&Value::Bool(n)) => n,
                             _ => {
                                 return Err(ArrowError::ParseError(
-                                    "Field missing 'id' attribute".to_string(),
+                                    "Field missing 'isOrdered' attribute".to_string(),
                                 ));
                             }
                         };
