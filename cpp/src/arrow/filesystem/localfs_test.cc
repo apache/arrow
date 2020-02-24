@@ -87,20 +87,18 @@ TEST(DetectAbsolutePath, Basics) {
 #else
   constexpr bool is_win32 = false;
 #endif
-  ASSERT_EQ(is_win32, DetectAbsolutePath("A:"));
-  ASSERT_EQ(is_win32, DetectAbsolutePath("Z:/"));
-  ASSERT_EQ(is_win32, DetectAbsolutePath("a:foo"));
+  ASSERT_EQ(is_win32, DetectAbsolutePath("A:/"));
   ASSERT_EQ(is_win32, DetectAbsolutePath("z:/foo"));
 
   ASSERT_EQ(is_win32, DetectAbsolutePath("\\"));
   ASSERT_EQ(is_win32, DetectAbsolutePath("\\foo"));
   ASSERT_EQ(is_win32, DetectAbsolutePath("\\foo\\bar"));
   ASSERT_EQ(is_win32, DetectAbsolutePath("\\\\foo\\bar\\baz"));
-  ASSERT_EQ(is_win32, DetectAbsolutePath("A:"));
   ASSERT_EQ(is_win32, DetectAbsolutePath("Z:\\"));
-  ASSERT_EQ(is_win32, DetectAbsolutePath("a:foo"));
   ASSERT_EQ(is_win32, DetectAbsolutePath("z:\\foo"));
 
+  ASSERT_FALSE(DetectAbsolutePath("A:"));
+  ASSERT_FALSE(DetectAbsolutePath("z:foo"));
   ASSERT_FALSE(DetectAbsolutePath(""));
   ASSERT_FALSE(DetectAbsolutePath("AB:"));
   ASSERT_FALSE(DetectAbsolutePath(":"));
@@ -271,8 +269,15 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriNoScheme) {
   this->TestInvalidUri(this->local_path_);  // Not actually an URI
 
   // Variations
-  this->TestLocalUriOrPath("/foo/bar", "/foo/bar");
-  this->TestInvalidUriOrPath("foo/bar");  // Relative
+  this->TestLocalUriOrPath(this->path_formatter_("/foo/bar"), "/foo/bar");
+
+#ifdef _WIN32
+  this->TestLocalUriOrPath(this->path_formatter_("C:/foo/bar/"), "C:/foo/bar/");
+#endif
+
+  // Relative paths
+  this->TestInvalidUriOrPath("C:foo/bar");
+  this->TestInvalidUriOrPath("foo/bar");
 }
 
 TYPED_TEST(TestLocalFS, FileSystemFromUriFileBackslashes) {
@@ -295,13 +300,14 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriNoSchemeBackslashes) {
   this->TestFileSystemFromUriOrPath(uri_string);
 
   // Variations
-  this->TestLocalUriOrPath(this->path_formatter_("C:foo\\bar"), "C:foo/bar");
   this->TestLocalUriOrPath(this->path_formatter_("C:\\foo\\bar"), "C:/foo/bar");
-  this->TestLocalUriOrPath(this->path_formatter_("C:bar\\"), "C:bar/");
-  this->TestInvalidUriOrPath(this->path_formatter_("foo\\bar"));  // Relative
 #else
   this->TestInvalidUri(uri_string);
 #endif
+
+  // Relative paths
+  this->TestInvalidUriOrPath("C:foo\\bar");
+  this->TestInvalidUriOrPath("foo\\bar");
 }
 
 TYPED_TEST(TestLocalFS, DirectoryMTime) {

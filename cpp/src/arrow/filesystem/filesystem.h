@@ -346,11 +346,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 /// \brief Create a new FileSystem by URI
 ///
 /// Same as FileSystemFromUri, but in addition also recognize non-URIs
-/// and treat them as local filesystem paths.  The following kinds of
-/// local filesystem paths are recognized:
-/// - absolute paths starting with a slash
-/// - on Windows, absolute paths starting with a backslash
-/// - on Windows, paths starting with a local drive specification (such as "C:...")
+/// and treat them as local filesystem paths.  Only absolute local filesystem
+/// paths are allowed.
 ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
     const std::string& uri, std::string* out_path = NULLPTR);

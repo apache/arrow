@@ -65,8 +65,10 @@ bool DetectAbsolutePath(const std::string& s) {
   if (s.length() >= 1 && s[0] == '\\') {
     return true;
   }
-  // Does it start with a drive letter, e.g. "C:..."?
-  if (s.length() >= 2 && s[1] == ':' && IsDriveLetter(s[0])) {
+  // Does it start with a drive letter in addition to being /- or \-prefixed,
+  // e.g. "C:\..."?
+  if (s.length() >= 3 && s[1] == ':' && (s[2] == '/' || s[2] == '\\') &&
+      IsDriveLetter(s[0])) {
     return true;
   }
 #endif
