@@ -613,25 +613,23 @@ class ColumnReaderImplBase {
 
     // Have not decoded any values from the data page yet
     num_decoded_values_ = 0;
-
-    int64_t levels_byte_size = 0;
+    const uint8_t* buffer = page.data();
 
     if (max_rep_level_ > 0) {
-      repetition_level_decoder_.SetDataV2(
-          page.repetition_levels_byte_length(), max_rep_level_,
-          static_cast<int>(num_buffered_values_), page.data());
-
-      levels_byte_size += page.repetition_levels_byte_length();
+      repetition_level_decoder_.SetDataV2(page.repetition_levels_byte_length(),
+                                          max_rep_level_,
+                                          static_cast<int>(num_buffered_values_), buffer);
+      buffer += page.repetition_levels_byte_length();
     }
 
     if (max_def_level_ > 0) {
-      definition_level_decoder_.SetDataV2(
-          page.definition_levels_byte_length(), max_def_level_,
-          static_cast<int>(num_buffered_values_), page.data());
-
-      levels_byte_size += page.definition_levels_byte_length();
+      definition_level_decoder_.SetDataV2(page.definition_levels_byte_length(),
+                                          max_def_level_,
+                                          static_cast<int>(num_buffered_values_), buffer);
     }
 
+    int64_t levels_byte_size =
+        page.repetition_levels_byte_length() + page.definition_levels_byte_length();
     return levels_byte_size;
   }
 
