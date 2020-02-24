@@ -1073,7 +1073,8 @@ public class TestCopyFrom {
 
   @Test //https://issues.apache.org/jira/browse/ARROW-7837
   public void testCopySafeArrow7837() {
-    // this test exposes a bug in `handleSafe` where it read a stale index and as a result missed a requires resize of the value vector.
+    // this test exposes a bug in `handleSafe` where
+    // it read a stale index and as a result missed a requires resize of the value vector.
     try (VarCharVector vc1 = new VarCharVector("vc1", allocator);
          VarCharVector vc2 = new VarCharVector("vc2", allocator);
     ) {
