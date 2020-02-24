@@ -568,18 +568,23 @@ class Repo:
                 with open(path, 'rb') as fp:
                     result = release.upload_asset(name=name, asset=fp,
                                                   content_type=mime)
-                click.echo('Attempt {} has finished.'.format(i + 1))
-                return result
-            except (
-                github3.exceptions.ResponseError,
-                github3.exceptions.ConnectionError
-            ) as e:
+            except github3.exceptions.ResponseError as e:
                 click.echo('Attempt {} has failed with message: {}.'
                            .format(i + 1, str(e)))
-                if i >= (max_retries - 1):
-                    raise e
-                else:
-                    time.sleep(retry_backoff)
+                click.echo('Error message {}'.format(e.msg))
+                click.echo('List of errors provided by Github:')
+                for err in e.errors:
+                    click.echo(' - {}'.format(err))
+            except github3.exceptions.ConnectionError as e:
+                click.echo('Attempt {} has failed with message: {}.'
+                           .format(i + 1, str(e)))
+            else:
+                click.echo('Attempt {} has finished.'.format(i + 1))
+                return result
+
+            time.sleep(retry_backoff)
+
+        raise RuntimeError('Github asset uploading has failed!')
 
     def github_overwrite_release_assets(self, tag_name, target_commitish,
                                         patterns):
