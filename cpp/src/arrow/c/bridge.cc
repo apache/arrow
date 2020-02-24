@@ -1408,33 +1408,6 @@ struct ArrayImporter {
     return Status::OK();
   }
 
-#if 0
-  Status ProcessMap() {
-    RETURN_NOT_OK(f_parser_.CheckAtEnd());
-    RETURN_NOT_OK(CheckNumChildren(1));
-    ARROW_ASSIGN_OR_RAISE(auto field, MakeChildField(0));
-    const auto& value_type = field->type();
-    if (value_type->id() != Type::STRUCT) {
-      return Status::Invalid("Imported map array has unexpected child field type: ",
-                             field->ToString());
-    }
-    if (value_type->num_children() != 2) {
-      return Status::Invalid("Imported map array has unexpected child field type: ",
-                             field->ToString());
-    }
-
-    bool keys_sorted = (c_struct_->flags & ARROW_FLAG_MAP_KEYS_SORTED);
-    auto type =
-        map(value_type->child(0)->type(), value_type->child(1)->type(), keys_sorted);
-    // Process buffers as for ListType
-    RETURN_NOT_OK(CheckNumBuffers(type, 2));
-    RETURN_NOT_OK(AllocateArrayData(type));
-    RETURN_NOT_OK(ImportNullBitmap());
-    RETURN_NOT_OK(ImportOffsetsBuffer<typename MapType::offset_type>(1));
-    return Status::OK();
-  }
-#endif
-
   Status ImportFixedSizePrimitive() {
     const auto& fw_type = checked_cast<const FixedWidthType&>(*type_);
     RETURN_NOT_OK(CheckNoChildren());
