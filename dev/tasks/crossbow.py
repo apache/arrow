@@ -606,6 +606,7 @@ class Repo:
         for pattern in patterns:
             for path in glob.glob(pattern, recursive=True):
                 self.github_upload_asset(release, path)
+                time.sleep(2)  # Hack: be more gently with the github API
 
 
 CombinedStatus = namedtuple('CombinedStatus', ('state', 'total_count'))
