@@ -177,7 +177,7 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
 
   std::string type_name() const override { return "union"; }
 
- private:
+ protected:
   explicit UnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
       : Dataset(std::move(schema)), children_(std::move(children)) {}
 

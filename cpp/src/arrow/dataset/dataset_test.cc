@@ -477,7 +477,15 @@ class TestSchemaUnification : public TestDataset {
     schema_ = SchemaFromNames({"phy_1", "phy_2", "phy_3", "phy_4", "part_ds", "part_df"});
     ASSERT_OK_AND_ASSIGN(auto ds1, get_source("/dataset/alpha", {ds1_df1, ds1_df2}));
     ASSERT_OK_AND_ASSIGN(auto ds2, get_source("/dataset/beta", {ds2_df1, ds2_df2}));
-    ASSERT_OK_AND_ASSIGN(dataset_, UnionDataset::Make(schema_, {ds1, ds2}));
+
+    // FIXME(bkietz) this is a hack: allow differing schemas for the purposes of this test
+    class DisparateSchemasUnionDataset : public UnionDataset {
+     public:
+      DisparateSchemasUnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
+          : UnionDataset(std::move(schema), std::move(children)) {}
+    };
+    dataset_ =
+        std::make_shared<DisparateSchemasUnionDataset>(schema_, DatasetVector{ds1, ds2});
   }
 
   std::shared_ptr<Schema> SchemaFromNames(const std::vector<std::string> names) {
@@ -516,7 +524,7 @@ class TestSchemaUnification : public TestDataset {
   std::shared_ptr<Dataset> dataset_;
 };
 
-using nonstd::nullopt;
+using util::nullopt;
 
 TEST_F(TestSchemaUnification, SelectStar) {
   // This is a `SELECT * FROM dataset` where it ensures:
