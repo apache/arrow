@@ -557,11 +557,12 @@ class Repo:
             retry_backoff = int(os.environ.get('CROSSBOW_RETRY_BACKOFF', 5))
 
         name = os.path.basename(path)
+        size = os.path.getsize(path)
         mime = mimetypes.guess_type(name)[0] or 'application/zip'
 
-        click.echo(
-            'Uploading asset `{}` with mimetype {}...'.format(name, mime)
-        )
+        click.echo('Uploading asset `{}` with mimetype {} and size {}...'
+                   .format(name, mime, size))
+
         for i in range(max_retries):
             try:
                 with open(path, 'rb') as fp:
