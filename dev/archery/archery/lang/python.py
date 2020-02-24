@@ -94,14 +94,14 @@ def inspect_signature(obj):
 
 class NumpyDoc:
 
-    def __init__(self, modules=None):
+    def __init__(self, symbols=None):
         if not have_numpydoc:
             raise RuntimeError(
                 'Numpydoc is not available, install the development version '
                 'with command: pip install '
                 'git+https://github.com/numpy/numpydoc'
             )
-        self.modules = set(modules or {'pyarrow'})
+        self.symbols = set(symbols or {'pyarrow'})
 
     def traverse(self, fn, obj, from_package):
         """Apply a function on publicly exposed API components.
@@ -150,7 +150,10 @@ class NumpyDoc:
         def _load_obj(obj):
             # By default it expects a qualname and import the object, but we
             # have already loaded object after the API traversal.
-            return obj
+            if isinstance(obj, str):
+                return orig_load_obj(obj)
+            else:
+                return obj
 
         def signature(obj):
             # inspect.signature tries to parse __text_signature__ if other
@@ -177,7 +180,8 @@ class NumpyDoc:
             Docstring._load_obj = orig_load_obj
             inspect.signature = orig_signature
 
-    def validate(self, rules_blacklist=None, rules_whitelist=None):
+    def validate(self, from_package='', rules_blacklist=None,
+                 rules_whitelist=None):
         results = []
 
         def callback(obj):
@@ -196,13 +200,12 @@ class NumpyDoc:
                 results.append((obj, result))
 
         with self._apply_patches():
-            for module_name in self.modules:
+            for symbol in self.symbols:
                 try:
-                    module = importlib.import_module(module_name)
-                except ImportError:
-                    print('{} is not available for import'.format(module_name))
-                    continue
+                    obj = Docstring._load_obj(symbol)
+                except (ImportError, AttributeError):
+                    print('{} is not available for import'.format(symbol))
                 else:
-                    self.traverse(callback, module, module_name)
+                    self.traverse(callback, obj, from_package=from_package)
 
         return results

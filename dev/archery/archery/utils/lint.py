@@ -118,14 +118,14 @@ def python_linter(src):
                                      check=False))
 
 
-def python_numpydoc(packages=None, whitelist=None, blacklist=None):
+def python_numpydoc(symbols=None, whitelist=None, blacklist=None):
     """Run numpydoc linter on python.
 
     Pyarrow must be available for import.
     """
     logger.info("Running python docstring linters")
     # by default try to run on all pyarrow package
-    packages = packages or {
+    symbols = symbols or {
         'pyarrow',
         'pyarrow.compute',
         'pyarrow.csv',
@@ -142,12 +142,14 @@ def python_numpydoc(packages=None, whitelist=None, blacklist=None):
         'pyarrow.types',
     }
     try:
-        numpydoc = NumpyDoc(packages)
+        numpydoc = NumpyDoc(symbols)
     except RuntimeError:
         logger.error('Numpydoc is not available')
         return
 
     results = numpydoc.validate(
+        # limit the validation scope to the pyarrow package
+        from_package='pyarrow',
         rules_whitelist=whitelist,
         rules_blacklist=blacklist
     )
