@@ -575,6 +575,18 @@ class Repo:
                 click.echo('List of errors provided by Github:')
                 for err in e.errors:
                     click.echo(' - {}'.format(err))
+
+                if e.code == 422:
+                    # 422 Validation Failed, probably raised because
+                    # ReleaseAsset already exists, so try to remove it before
+                    # reattempting the asset upload
+                    for asset in release.assets():
+                        if asset.name == name:
+                            click.echo('Release asset {} already exists, '
+                                       'removing it...'.format(name))
+                            asset.delete()
+                            click.echo('Asset {} removed.'.format(name))
+                            break
             except github3.exceptions.ConnectionError as e:
                 click.echo('Attempt {} has failed with message: {}.'
                            .format(i + 1, str(e)))
