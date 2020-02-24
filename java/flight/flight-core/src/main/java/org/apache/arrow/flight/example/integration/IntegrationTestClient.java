@@ -177,9 +177,10 @@ class IntegrationTestClient {
               }
             }
 
-            // Verify no more batches in JSON
-            if (reader.read(jsonRoot)) {
-              throw new RuntimeException("JSON has more batches than Flight stream");
+            // Verify no more batches with data in JSON
+            // NOTE: Currently the C++ Flight server skips empty batches at end of the stream
+            if (reader.read(jsonRoot) && jsonRoot.getRowCount() > 0) {
+              throw new RuntimeException("JSON has more batches with than Flight stream");
             }
           }
         } catch (Exception e) {
