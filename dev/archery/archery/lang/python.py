@@ -98,7 +98,8 @@ class NumpyDoc:
         if not have_numpydoc:
             raise RuntimeError(
                 'Numpydoc is not available, install the development version '
-                'of it via pip ...'
+                'with command: pip install '
+                'git+https://github.com/numpy/numpydoc'
             )
         self.modules = set(modules or {'pyarrow'})
 
