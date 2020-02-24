@@ -654,9 +654,9 @@ tasks:
   ############################## Linux PKGS ####################################
 
   debian-stretch:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.yml
+    template: linux-packages/github.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-stretch
       upload_extensions:
@@ -724,9 +724,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   debian-stretch-arm64:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.arm64.yml
+    template: linux-packages/github.linux.arm64.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-stretch-arm64
       upload_extensions:
@@ -777,9 +777,9 @@ tasks:
       - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
 
   debian-buster:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.yml
+    template: linux-packages/github.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-buster
       upload_extensions:
@@ -847,9 +847,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   debian-buster-arm64:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.arm64.yml
+    template: linux-packages/github.linux.arm64.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-buster-arm64
       upload_extensions:
@@ -900,9 +900,9 @@ tasks:
       - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-xenial:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.yml
+    template: linux-packages/github.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-xenial
       upload_extensions:
@@ -956,9 +956,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-xenial-arm64:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.arm64.yml
+    template: linux-packages/github.linux.arm64.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-xenial-arm64
       upload_extensions:
@@ -1006,9 +1006,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-bionic:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.yml
+    template: linux-packages/github.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-bionic
       upload_extensions:
@@ -1065,9 +1065,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-bionic-arm64:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.arm64.yml
+    template: linux-packages/github.linux.arm64.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-bionic-arm64
       upload_extensions:
@@ -1124,9 +1124,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-disco:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.yml
+    template: linux-packages/github.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-disco
       upload_extensions:
@@ -1183,9 +1183,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-disco-arm64:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.arm64.yml
+    template: linux-packages/github.linux.arm64.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-disco-arm64
       upload_extensions:
@@ -1242,9 +1242,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-eoan:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.yml
+    template: linux-packages/github.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-eoan
       upload_extensions:
@@ -1301,9 +1301,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-eoan-arm64:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.arm64.yml
+    template: linux-packages/github.linux.arm64.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-eoan-arm64
       upload_extensions:
@@ -1360,9 +1360,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   centos-6:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.yml
+    template: linux-packages/github.linux.yml
     params:
       build_command: rake yum:build YUM_TARGETS=centos-6
       upload_extensions:
@@ -1382,9 +1382,9 @@ tasks:
       - plasma-libs-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
 
   centos-7:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.yml
+    template: linux-packages/github.linux.yml
     params:
       build_command: rake yum:build YUM_TARGETS=centos-7
       upload_extensions:
@@ -1416,9 +1416,9 @@ tasks:
       - plasma-store-server-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
 
   centos-7-aarch64:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.arm64.yml
+    template: linux-packages/github.linux.arm64.yml
     params:
       build_command: rake yum:build YUM_TARGETS=centos-7-aarch64
       upload_extensions:
@@ -1448,9 +1448,9 @@ tasks:
       - plasma-store-server-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
 
   centos-8:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.yml
+    template: linux-packages/github.linux.yml
     params:
       build_command: rake yum:build YUM_TARGETS=centos-8
       upload_extensions:
@@ -1505,9 +1505,9 @@ tasks:
       - plasma-store-server-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
 
   centos-8-aarch64:
-    ci: azure
+    ci: github
     platform: linux
-    template: linux-packages/azure.linux.arm64.yml
+    template: linux-packages/github.linux.arm64.yml
     params:
       build_command: rake yum:build YUM_TARGETS=centos-8-aarch64
       upload_extensions:
