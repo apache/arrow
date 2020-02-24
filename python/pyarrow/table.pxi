@@ -1520,7 +1520,7 @@ cdef class Table(_PandasConvertible):
         Parameters
         ----------
         i : int
-            The index of the columns to retrieve.
+            The index of the column to retrieve.
 
         Returns
         -------
@@ -1609,7 +1609,10 @@ cdef class Table(_PandasConvertible):
 
     def add_column(self, int i, field_, column):
         """
-        Add column to Table at position. Returns new table.
+        Add column to Table at position.
+        
+        A new table is returned with the column added, the original
+        table object is left unchanged.
 
         Parameters
         ----------

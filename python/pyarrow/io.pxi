@@ -1344,8 +1344,8 @@ def foreign_buffer(address, size, base=None):
     """
     Construct an Arrow buffer with the given *address* and *size*.
 
-    Optionally backed by the Python *base* object. The *base* object, if given,
-    will be kept alive as long as this buffer is alive, including across
+    The buffer will be optionally backed by the Python *base* object, if given.
+    The *base* object will be kept alive as long as this buffer is alive, including across
     language boundaries (for example if the buffer is referenced by C++ code).
     """
     cdef:

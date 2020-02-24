@@ -263,7 +263,7 @@ class ParquetFile:
 
     def scan_contents(self, columns=None, batch_size=65536):
         """
-        Read contents of file and return the number of rows read.
+        Read contents of file for the given columns and batch size.
 
         Notes
         -----
@@ -527,7 +527,7 @@ class ParquetDatasetPiece:
     open_file_func : callable
         Function to use for obtaining file handle to dataset piece.
     partition_keys : list of tuples
-        In the following structure: [(column name, ordinal index)].
+        Two-element tuples of ``(column name, ordinal index)``.
     row_group : int, default None
         Row group to load. By default, reads all row groups.
     """
@@ -569,7 +569,7 @@ class ParquetDatasetPiece:
 
     def get_metadata(self):
         """
-        Returns the file's metadata.
+        Return the file's metadata.
 
         Returns
         -------
@@ -580,7 +580,7 @@ class ParquetDatasetPiece:
 
     def open(self):
         """
-        Returns instance of ParquetFile.
+        Return instance of ParquetFile.
         """
         reader = self.open_file_func(self.path)
         if not isinstance(reader, ParquetFile):

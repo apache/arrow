@@ -1594,9 +1594,9 @@ def tzinfo_to_string(tz):
 
 def string_to_tzinfo(name):
     """
-    Converts a time zone name into a time zone object.
+    Convert a time zone name into a time zone object.
 
-    Supported formats:
+    Supported input strings are:
     * As used in the Olson time zone database (the "tz database" or
       "tzdata"), such as "America/New_York"
     * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30

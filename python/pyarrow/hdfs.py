@@ -45,7 +45,7 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
     def _isfilestore(self):
         """
-        Returns True if this is a unix-style file store with directories.
+        Return True if this is a Unix-style file store with directories.
         """
         return True
 

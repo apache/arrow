@@ -138,7 +138,7 @@ class FileSystem:
 
     def mkdir(self, path, create_parents=True):
         """
-        Creates a directory.
+        Create a directory.
 
         Parameters
         ----------

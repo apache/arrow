@@ -752,7 +752,7 @@ cdef class Array(_PandasConvertible):
         """
         Convert pandas.Series to an Arrow Array.
 
-        The method is using pandas's semantics about what values indicate
+        This method uses Pandas semantics about what values indicate
         nulls. See pyarrow.array for more general conversion from arrays or
         sequences to Arrow arrays.
 
@@ -1844,7 +1844,7 @@ cdef class DictionaryArray(Array):
                     bint from_pandas=False, bint safe=True,
                     MemoryPool memory_pool=None):
         """
-        Construct a DictionaryArray from indices and the referencable values.
+        Construct a DictionaryArray from indices and values.
 
         Parameters
         ----------
@@ -1852,7 +1852,7 @@ cdef class DictionaryArray(Array):
             Non-negative integers referencing the dictionary values by zero
             based index.
         dictionary : pyarrow.Array, ndarray or pandas.Series
-            A closed set of values referenced by the indices.
+            The array of values referenced by the indices.
         mask : ndarray or pandas.Series, bool type
             True values indicate that indices are actually null.
         from_pandas : bool, default False
@@ -2088,7 +2088,7 @@ cdef class ExtensionArray(Array):
 
     def to_numpy(self, **kwargs):
         """
-        Converts extension array to a numpy ndarray.
+        Convert extension array to a numpy ndarray.
 
         See Also
         --------
@@ -2150,18 +2150,18 @@ cdef object get_values(object obj, bint* is_series):
 
 def concat_arrays(arrays, MemoryPool memory_pool=None):
     """
-    Returns a concatenation of the given arrays.
+    Concatenate the given arrays.
 
-    The contents of those arrays are copied into the returned array.
+    The contents of the input arrays are copied into the returned array.
 
     Raises
     ------
-    ArrowInvalid : if any of the arrays is not of the same type.
+    ArrowInvalid : if not all of the arrays have the same type.
 
     Parameters
     ----------
     arrays : iterable of pyarrow.Array
-        Arrays to concatenate, the arrays must be identically typed.
+        Arrays to concatenate, must be identically typed.
     memory_pool : MemoryPool, default None
         For memory allocations. If None, the default pool is used.
     """
