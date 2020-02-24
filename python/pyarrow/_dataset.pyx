@@ -55,27 +55,7 @@ cdef class Dataset:
         CDataset* dataset
 
     def __init__(self, children, Schema schema not None):
-        """Create a dataset
-
-        Children's schemas must agree with the provided schema.
-
-        Parameters
-        ----------
-        children : list of Dataset
-            One or more input children
-        schema : Schema
-            A known schema to conform to.
-        """
-        cdef:
-            Dataset child
-            CDatasetVector c_children
-            CResult[shared_ptr[CDataset]] result
-
-        for child in children:
-            c_children.push_back(child.unwrap())
-
-        result = CDataset.Make(c_children, pyarrow_unwrap_schema(schema))
-        self.init(GetResultValue(result))
+        _forbid_instantiation(self.__class__)
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
         self.wrapped = sp
@@ -86,8 +66,8 @@ cdef class Dataset:
         cdef Dataset self
 
         typ = frombytes(sp.get().type_name())
-        if typ == 'tree':
-            self = TreeDataset.__new__(TreeDataset)
+        if typ == 'union':
+            self = UnionDataset.__new__(UnionDataset)
         elif typ == 'filesystem':
             self = FileSystemDataset.__new__(FileSystemDataset)
         else:
@@ -229,35 +209,46 @@ cdef class Dataset:
         return pyarrow_wrap_schema(self.dataset.schema())
 
 
-cdef class TreeDataset(Dataset):
+cdef class UnionDataset(Dataset):
     """A Dataset wrapping child datasets."""
 
     cdef:
-        CTreeDataset* tree_source
+        CUnionDataset* union_dataset
 
-    def __init__(self, schema, child_datasets):
+    def __init__(self, Schema schema not None, children):
+        """Create a dataset
+
+        Children's schemas must agree with the provided schema.
+
+        Parameters
+        ----------
+        children : list of Dataset
+            One or more input children
+        schema : Schema
+            A known schema to conform to.
+        """
         cdef:
             Dataset child
-            CDatasetVector children
-            shared_ptr[CTreeDataset] tree_source
+            CDatasetVector c_children
+            shared_ptr[CUnionDataset] union_dataset
 
-        for child in child_datasets:
-            children.push_back(child.wrapped)
+        for child in children:
+            c_children.push_back(child.wrapped)
 
-        tree_source = make_shared[CTreeDataset](
-            pyarrow_unwrap_schema(schema), children)
-        self.init(<shared_ptr[CDataset]> tree_source)
+        union_dataset = GetResultValue(CUnionDataset.Make(
+            pyarrow_unwrap_schema(schema), move(c_children)))
+        self.init(<shared_ptr[CDataset]> union_dataset)
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
-        self.tree_source = <CTreeDataset*> sp.get()
+        self.union_dataset = <CUnionDataset*> sp.get()
 
 
 cdef class FileSystemDataset(Dataset):
     """A Dataset created from a set of files on a particular filesystem"""
 
     cdef:
-        CFileSystemDataset* filesystem_source
+        CFileSystemDataset* filesystem_dataset
 
     def __init__(self, Schema schema not None, Expression root_partition,
                  FileFormat file_format not None,
@@ -315,7 +306,13 @@ cdef class FileSystemDataset(Dataset):
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
-        self.filesystem_source = <CFileSystemDataset*> sp.get()
+        self.filesystem_dataset = <CFileSystemDataset*> sp.get()
+
+    @property
+    def files(self):
+        """List of the files"""
+        cdef vector[c_string] files = self.filesystem_dataset.files()
+        return [frombytes(f) for f in files]
 
 
 cdef class FileFormat:
@@ -865,14 +862,8 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
         DatasetFactory.init(self, sp)
         self.filesystem_factory = <CFileSystemDatasetFactory*> sp.get()
 
-    @property
-    def files(self):
-        """List of the files"""
-        cdef vector[c_string] files = self.filesystem_source.files()
-        return [frombytes(f) for f in files]
 
-
-cdef class TreeDatasetFactory:
+cdef class UnionDatasetFactory:
     """
     Provides a way to inspect/discover a Dataset's expected schema before
     materialization.
@@ -892,7 +883,7 @@ cdef class TreeDatasetFactory:
             vector[shared_ptr[CDatasetFactory]] c_factories
         for factory in factories:
             c_factories.push_back(factory.unwrap())
-        self.init(GetResultValue(CTreeDatasetFactory.Make(c_factories)))
+        self.init(GetResultValue(CUnionDatasetFactory.Make(c_factories)))
 
     cdef void init(self, const shared_ptr[CDatasetFactory]& sp):
         self.wrapped = sp

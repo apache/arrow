@@ -162,13 +162,10 @@ def dataset(mockfs):
             pa.field('key', pa.string())
         ])
     )
-    factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
-    schema = factory.inspect()
-    source = factory.finish()
-    return ds.Dataset([source], schema)
+    return ds.FileSystemDatasetFactory(mockfs, selector, format, options).finish()
 
 
-def test_filesystem_source(mockfs):
+def test_filesystem_dataset(mockfs):
     schema = pa.schema([])
 
     file_format = ds.ParquetFileFormat()
@@ -456,10 +453,8 @@ def test_file_system_factory(mockfs, paths_or_selector):
                       ds.FileSystemDataset)
     assert factory.root_partition.equals(ds.ScalarExpression(True))
 
-    source = factory.finish()
-    assert isinstance(source, ds.FileSystemDataset)
-
-    dataset = ds.Dataset([source], inspected_schema)
+    dataset = factory.finish()
+    assert isinstance(dataset, ds.FileSystemDataset)
     assert len(list(dataset.scan())) == 2
 
     scanner = ds.Scanner(dataset)
@@ -707,7 +702,7 @@ def test_filter_implicit_cast(tempdir):
 @pytest.mark.pandas
 def test_dataset_factory(multisourcefs):
     child = ds.factory('/plain', filesystem=multisourcefs, format='parquet')
-    factory = ds.TreeDatasetFactory([child])
+    factory = ds.UnionDatasetFactory([child])
 
     # TODO(bkietz) reintroduce factory.children property
     assert len(factory.inspect_schemas()) == 1

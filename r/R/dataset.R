@@ -64,11 +64,6 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #'
 #' A `Dataset` contains one or more `Fragments`, such as files, of potentially
 #' differing type and partitioning.
-#' `DatasetFactory` is used to create a `Dataset`, inspect the [Schema] of the
-#' fragments contained in it, and declare a partitioning.
-#' `FileSystemDatasetFactory` is a subclass of `DatasetFactory` for
-#' discovering files in the local file system, the only currently supported
-#' file system.
 #'
 #' The `Dataset$create()` method instantiates a `Dataset` which wraps child Datasets.
 #' It takes the following arguments:
@@ -78,6 +73,12 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #' `DatasetFactory` is used to provide finer control over the creation of `Dataset`s.
 #'
 #' @section Factory:
+#' `DatasetFactory` is used to create a `Dataset`, inspect the [Schema] of the
+#' fragments contained in it, and declare a partitioning.
+#' `FileSystemDatasetFactory` is a subclass of `DatasetFactory` for
+#' discovering files in the local file system, the only currently supported
+#' file system.
+#'
 #' For the `DatasetFactory$create()` factory method, see [open_dataset_factory()], an
 #' alias for it. A `DatasetFactory` has:
 #'
@@ -92,6 +93,11 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #'   Currently supported options are "parquet", "arrow", and "ipc" (an alias for
 #'   the Arrow file format)
 #'
+#' `UnionDatasetFactory$create()` can be used to unify child `DatasetFactory`s into
+#' a single `DatasetFactory`. Use it when (for example) your data is in multiple
+#' file systems or formats.
+#' * `children`: child `DatasetFactory`s to be unified
+#'
 #' @section Methods:
 #'
 #' A `Dataset` has the following methods:
@@ -102,14 +108,17 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #' - `$files`: Active binding, returns the files of the `FileSystemDataset`
 #' - `$format`: Active binding, returns the [FileFormat] of the `FileSystemDataset`
 #'
+#' `UnionDataset` has the following methods:
+#' - `$children`: Active binding, returns all child `Dataset`s.
+#'
 #' @export
 #' @seealso [open_dataset()] for a simple interface to creating a `Dataset`
 Dataset <- R6Class("Dataset", inherit = Object,
   public = list(
     ..dispatch = function() {
       type <- self$type
-      if (type == "tree") {
-        shared_ptr(TreeDataset, self$pointer())
+      if (type == "union") {
+        shared_ptr(UnionDataset, self$pointer())
       } else if (type == "filesystem") {
         shared_ptr(FileSystemDataset, self$pointer())
       } else {
@@ -136,8 +145,11 @@ Dataset$create <- function(children, schema) {
   # TODO: consider deleting Dataset$create since we have DatasetFactory$create
   assert_is_list_of(children, "Dataset")
   assert_is(schema, "Schema")
-  shared_ptr(Dataset, dataset___TreeDataset__create(children, schema))
+  shared_ptr(Dataset, dataset___UnionDataset__create(children, schema))
 }
+
+#' @export
+names.Dataset <- function(x) names(x$schema)
 
 #' @name FileSystemDataset
 #' @rdname Dataset
@@ -155,8 +167,18 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
   )
 )
 
+#' @name UnionDataset
+#' @rdname Dataset
 #' @export
-names.Dataset <- function(x) names(x$schema)
+UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
+  active = list(
+    #' @description
+    #' Return the UnionDataset's child `Dataset`s
+    children = function() {
+      map(dataset___UnionDataset__children(self), ~shared_ptr(Dataset, .)$..dispatch())
+    }
+  )
+)
 
 #' @usage NULL
 #' @format NULL
@@ -184,7 +206,7 @@ DatasetFactory$create <- function(path,
                                   recursive = TRUE,
                                   ...) {
   if (!is.null(children)) {
-    return(shared_ptr(DatasetFactory, dataset___TreeDatasetFactory__Make(children)))
+    return(shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(children)))
   }
 
   if (!inherits(filesystem, "FileSystem")) {
@@ -221,29 +243,6 @@ DatasetFactory$create <- function(path,
   FileSystemDatasetFactory$create(filesystem, selector, format, partitioning)
 }
 
-#' @name TreeDataset
-#' @rdname Dataset
-#' @export
-TreeDataset <- R6Class("TreeDataset", inherit = Dataset,
-  active = list(
-    #' @description
-    #' Return the TreeDataset's child `Dataset`s
-    children = function() {
-      map(dataset___TreeDataset__children(self), ~shared_ptr(Dataset, .)$..dispatch())
-    }
-  )
-)
-
-#' @usage NULL
-#' @format NULL
-#' @rdname Dataset
-#' @export
-TreeDatasetFactory <- R6Class("TreeDatasetFactory", inherit = DatasetFactory)
-TreeDatasetFactory$create <- function(children) {
-  assert_is_list_of(children, "DatasetFactory")
-  shared_ptr(DatasetFactory, dataset___TreeDatasetFactory__Make(children))
-}
-
 
 #' Create a DatasetFactory
 #'
@@ -258,7 +257,8 @@ TreeDatasetFactory$create <- function(children) {
 #'
 #' @param path A string file path containing data files
 #' @param children A list of `DatasetFactory` objects whose datasets should be
-#' unified. If this argument is specified other arguments will be ignored.
+#' unified. If this argument is specified it will be used to construct a
+#' `UnionDatasetFactory` and other arguments will be ignored.
 #' @param filesystem A string identifier for the filesystem corresponding to
 #' `path`. Currently only "local" is supported.
 #' @param format A string identifier of the format of the files in `path`.
@@ -286,6 +286,16 @@ TreeDatasetFactory$create <- function(children) {
 #' a `Dataset`.
 #' @export
 open_dataset_factory <- DatasetFactory$create
+
+#' @usage NULL
+#' @format NULL
+#' @rdname Dataset
+#' @export
+UnionDatasetFactory <- R6Class("UnionDatasetFactory", inherit = DatasetFactory)
+UnionDatasetFactory$create <- function(children) {
+  assert_is_list_of(children, "DatasetFactory")
+  shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(children))
+}
 
 #' @usage NULL
 #' @format NULL

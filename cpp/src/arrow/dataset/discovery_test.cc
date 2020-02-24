@@ -269,7 +269,7 @@ std::shared_ptr<DatasetFactory> DatasetFactoryFromSchemas(
   return std::make_shared<MockDatasetFactory>(schemas);
 }
 
-TEST(TreeDatasetFactoryTest, Basic) {
+TEST(UnionDatasetFactoryTest, Basic) {
   auto f64 = field("f64", float64());
   auto i32 = field("i32", int32());
   auto i32_req = field("i32", int32(), /*nullable*/ false);
@@ -284,7 +284,7 @@ TEST(TreeDatasetFactoryTest, Basic) {
   auto source_3 = DatasetFactoryFromSchemas({schema_3});
 
   ASSERT_OK_AND_ASSIGN(auto factory,
-                       TreeDatasetFactory::Make({source_1, source_2, source_3}));
+                       UnionDatasetFactory::Make({source_1, source_2, source_3}));
 
   ASSERT_OK_AND_ASSIGN(auto schemas, factory->InspectSchemas());
   AssertSchemasAre(schemas, {schema_2, schema_2, schema_3});
@@ -301,7 +301,7 @@ TEST(TreeDatasetFactoryTest, Basic) {
   EXPECT_EQ(*dataset->schema(), *f64_schema);
 }
 
-TEST(TreeDatasetFactoryTest, ConflictingSchemas) {
+TEST(UnionDatasetFactoryTest, ConflictingSchemas) {
   auto f64 = field("f64", float64());
   auto i32 = field("i32", int32());
   auto i32_req = field("i32", int32(), /*nullable*/ false);
@@ -318,7 +318,7 @@ TEST(TreeDatasetFactoryTest, ConflictingSchemas) {
 
   ASSERT_OK_AND_ASSIGN(
       auto factory,
-      TreeDatasetFactory::Make({source_factory_1, source_factory_2, source_factory_3}));
+      UnionDatasetFactory::Make({source_factory_1, source_factory_2, source_factory_3}));
 
   // schema_3 conflicts with other, Inspect/Finish should not work
   ASSERT_RAISES(Invalid, factory->Inspect());

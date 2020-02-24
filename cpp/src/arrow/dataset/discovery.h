@@ -71,7 +71,7 @@ class ARROW_DS_EXPORT DatasetFactory {
 
 /// \brief DatasetFactory provides a way to inspect/discover a Dataset's
 /// expected schema before materialization.
-class ARROW_DS_EXPORT TreeDatasetFactory : public DatasetFactory {
+class ARROW_DS_EXPORT UnionDatasetFactory : public DatasetFactory {
  public:
   static Result<std::shared_ptr<DatasetFactory>> Make(
       std::vector<std::shared_ptr<DatasetFactory>> factories);
@@ -94,7 +94,7 @@ class ARROW_DS_EXPORT TreeDatasetFactory : public DatasetFactory {
   Result<std::shared_ptr<Dataset>> Finish() override;
 
  protected:
-  explicit TreeDatasetFactory(std::vector<std::shared_ptr<DatasetFactory>> factories);
+  explicit UnionDatasetFactory(std::vector<std::shared_ptr<DatasetFactory>> factories);
 
   std::vector<std::shared_ptr<DatasetFactory>> factories_;
 };

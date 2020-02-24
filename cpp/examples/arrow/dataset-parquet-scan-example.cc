@@ -89,7 +89,7 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(std::shared_ptr<fs::FileSystem> 
   auto child = factory->Finish().ValueOrDie();
 
   ds::DatasetVector children{conf.repeat, child};
-  auto dataset = ds::Dataset::Make(std::move(children), schema);
+  auto dataset = ds::UnionDataset::Make(std::move(schema), std::move(children));
 
   return dataset.ValueOrDie();
 }

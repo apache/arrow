@@ -41,7 +41,7 @@ class TestScanner : public DatasetFixtureMixin {
     DatasetVector children{static_cast<size_t>(kNumberChildDatasets),
                            std::make_shared<InMemoryDataset>(batch->schema(), batches)};
 
-    EXPECT_OK_AND_ASSIGN(auto dataset, Dataset::Make(children, batch->schema()));
+    EXPECT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(batch->schema(), children));
 
     return Scanner{dataset, options_, ctx_};
   }
@@ -160,7 +160,7 @@ class TestScannerBuilder : public ::testing::Test {
         field("i64", int64()),
     });
 
-    ASSERT_OK_AND_ASSIGN(dataset_, Dataset::Make(sources, schema_));
+    ASSERT_OK_AND_ASSIGN(dataset_, UnionDataset::Make(schema_, sources));
   }
 
  protected:

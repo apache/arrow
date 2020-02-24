@@ -3,7 +3,7 @@
 \name{Dataset}
 \alias{Dataset}
 \alias{DatasetFactory}
-\alias{TreeDatasetFactory}
+\alias{UnionDatasetFactory}
 \alias{FileSystemDatasetFactory}
 \title{Multi-file datasets}
 \value{

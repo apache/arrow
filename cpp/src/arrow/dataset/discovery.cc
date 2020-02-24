@@ -46,11 +46,11 @@ Result<std::shared_ptr<Schema>> DatasetFactory::Inspect() {
   return UnifySchemas(schemas);
 }
 
-TreeDatasetFactory::TreeDatasetFactory(
+UnionDatasetFactory::UnionDatasetFactory(
     std::vector<std::shared_ptr<DatasetFactory>> factories)
     : factories_(std::move(factories)) {}
 
-Result<std::shared_ptr<DatasetFactory>> TreeDatasetFactory::Make(
+Result<std::shared_ptr<DatasetFactory>> UnionDatasetFactory::Make(
     std::vector<std::shared_ptr<DatasetFactory>> factories) {
   for (const auto& factory : factories) {
     if (factory == nullptr) {
@@ -58,23 +58,22 @@ Result<std::shared_ptr<DatasetFactory>> TreeDatasetFactory::Make(
     }
   }
 
-  // TreeDatasetFactory constructor is protected, can't use make_shared.
-  return std::shared_ptr<TreeDatasetFactory>{
-      new TreeDatasetFactory(std::move(factories))};
+  return std::shared_ptr<UnionDatasetFactory>{
+      new UnionDatasetFactory(std::move(factories))};
 }
 
-Result<std::vector<std::shared_ptr<Schema>>> TreeDatasetFactory::InspectSchemas() {
+Result<std::vector<std::shared_ptr<Schema>>> UnionDatasetFactory::InspectSchemas() {
   std::vector<std::shared_ptr<Schema>> schemas;
 
-  for (const auto& source_factory : factories_) {
-    ARROW_ASSIGN_OR_RAISE(auto schema, source_factory->Inspect());
+  for (const auto& child_factory : factories_) {
+    ARROW_ASSIGN_OR_RAISE(auto schema, child_factory->Inspect());
     schemas.emplace_back(schema);
   }
 
   return schemas;
 }
 
-Result<std::shared_ptr<Schema>> TreeDatasetFactory::Inspect() {
+Result<std::shared_ptr<Schema>> UnionDatasetFactory::Inspect() {
   ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
 
   if (schemas.empty()) {
@@ -84,19 +83,19 @@ Result<std::shared_ptr<Schema>> TreeDatasetFactory::Inspect() {
   return UnifySchemas(schemas);
 }
 
-Result<std::shared_ptr<Dataset>> TreeDatasetFactory::Finish(
+Result<std::shared_ptr<Dataset>> UnionDatasetFactory::Finish(
     const std::shared_ptr<Schema>& schema) {
-  std::vector<std::shared_ptr<Dataset>> sources;
+  std::vector<std::shared_ptr<Dataset>> children;
 
-  for (const auto& source_factory : factories_) {
-    ARROW_ASSIGN_OR_RAISE(auto source, source_factory->Finish(schema));
-    sources.emplace_back(source);
+  for (const auto& child_factory : factories_) {
+    ARROW_ASSIGN_OR_RAISE(auto child, child_factory->Finish(schema));
+    children.emplace_back(child);
   }
 
-  return Dataset::Make(sources, schema);
+  return std::shared_ptr<Dataset>(new UnionDataset(schema, std::move(children)));
 }
 
-Result<std::shared_ptr<Dataset>> TreeDatasetFactory::Finish() {
+Result<std::shared_ptr<Dataset>> UnionDatasetFactory::Finish() {
   ARROW_ASSIGN_OR_RAISE(auto schema, Inspect());
   return Finish(schema);
 }

@@ -68,9 +68,9 @@ TEST_F(TestInMemoryDataset, GetFragments) {
   AssertDatasetEquals(reader.get(), dataset.get());
 }
 
-class TestTreeDataset : public DatasetFixtureMixin {};
+class TestUnionDataset : public DatasetFixtureMixin {};
 
-TEST_F(TestTreeDataset, GetFragments) {
+TEST_F(TestUnionDataset, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kChildPerNode = 2;
   constexpr int64_t kCompleteBinaryTreeDepth = 4;
@@ -87,14 +87,20 @@ TEST_F(TestTreeDataset, GetFragments) {
   auto l1_leaf_dataset = std::make_shared<InMemoryDataset>(
       schema_, RecordBatchVector{static_cast<size_t>(kChildPerNode), batch});
 
-  auto l2_leaf_tree_dataset = std::make_shared<TreeDataset>(
-      schema_, DatasetVector{static_cast<size_t>(kChildPerNode), l1_leaf_dataset});
+  ASSERT_OK_AND_ASSIGN(
+      auto l2_leaf_tree_dataset,
+      UnionDataset::Make(
+          schema_, DatasetVector{static_cast<size_t>(kChildPerNode), l1_leaf_dataset}));
 
-  auto l3_middle_tree_dataset = std::make_shared<TreeDataset>(
-      schema_, DatasetVector{static_cast<size_t>(kChildPerNode), l2_leaf_tree_dataset});
+  ASSERT_OK_AND_ASSIGN(
+      auto l3_middle_tree_dataset,
+      UnionDataset::Make(schema_, DatasetVector{static_cast<size_t>(kChildPerNode),
+                                                l2_leaf_tree_dataset}));
 
-  auto root_dataset = std::make_shared<TreeDataset>(
-      schema_, DatasetVector{static_cast<size_t>(kChildPerNode), l3_middle_tree_dataset});
+  ASSERT_OK_AND_ASSIGN(
+      auto root_dataset,
+      UnionDataset::Make(schema_, DatasetVector{static_cast<size_t>(kChildPerNode),
+                                                l3_middle_tree_dataset}));
 
   AssertDatasetEquals(reader.get(), root_dataset.get());
 }
@@ -119,7 +125,7 @@ TEST_F(TestDataset, TrivialScan) {
   const int64_t total_batches = children.size() * kNumberBatches;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
 
-  ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make(children, schema_));
+  ASSERT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(schema_, children));
   AssertDatasetEquals(reader.get(), dataset.get());
 }
 
@@ -344,7 +350,7 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   ASSERT_OK_AND_ASSIGN(auto source, factory->Finish(inspected_schema));
 
   // Create the Dataset from our single Dataset.
-  ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make({source}, inspected_schema));
+  ASSERT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(inspected_schema, {source}));
 
   // Querying.
   //
@@ -471,7 +477,7 @@ class TestSchemaUnification : public TestDataset {
     schema_ = SchemaFromNames({"phy_1", "phy_2", "phy_3", "phy_4", "part_ds", "part_df"});
     ASSERT_OK_AND_ASSIGN(auto ds1, get_source("/dataset/alpha", {ds1_df1, ds1_df2}));
     ASSERT_OK_AND_ASSIGN(auto ds2, get_source("/dataset/beta", {ds2_df1, ds2_df2}));
-    ASSERT_OK_AND_ASSIGN(dataset_, Dataset::Make({ds1, ds2}, schema_));
+    ASSERT_OK_AND_ASSIGN(dataset_, UnionDataset::Make(schema_, {ds1, ds2}));
   }
 
   std::shared_ptr<Schema> SchemaFromNames(const std::vector<std::string> names) {

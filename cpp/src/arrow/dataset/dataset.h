@@ -91,13 +91,6 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
 /// of Fragments and partitions, e.g. files deeply nested in a directory.
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
-  /// \brief Build a Dataset wrapping child Datasets.
-  //
-  /// \param[in] children one or more child Datasets
-  /// \param[in] schema a known schema to conform to
-  static Result<std::shared_ptr<Dataset>> Make(DatasetVector children,
-                                               std::shared_ptr<Schema> schema);
-
   /// \brief Begin to build a new Scan operation against this Dataset
   Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
@@ -167,20 +160,30 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
   std::unique_ptr<RecordBatchGenerator> get_batches_;
 };
 
-/// \brief A recursive Dataset with child Datasets.
-class ARROW_DS_EXPORT TreeDataset : public Dataset {
+/// \brief A Dataset wrapping child Datasets.
+class ARROW_DS_EXPORT UnionDataset : public Dataset {
  public:
-  explicit TreeDataset(std::shared_ptr<Schema> schema, DatasetVector children)
-      : Dataset(std::move(schema)), children_(std::move(children)) {}
+  /// \brief Construct a UnionDataset wrapping child Datasets.
+  ///
+  /// \param[in] schema the schema of the resulting dataset.
+  /// \param[in] children one or more child Datasets. Their schemas must be identical to
+  /// schema.
+  static Result<std::shared_ptr<UnionDataset>> Make(std::shared_ptr<Schema> schema,
+                                                    DatasetVector children);
 
   FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
   const DatasetVector& children() const { return children_; }
 
-  std::string type_name() const override { return "tree"; }
+  std::string type_name() const override { return "union"; }
 
  private:
+  explicit UnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
+      : Dataset(std::move(schema)), children_(std::move(children)) {}
+
   DatasetVector children_;
+
+  friend class UnionDatasetFactory;
 };
 
 }  // namespace dataset

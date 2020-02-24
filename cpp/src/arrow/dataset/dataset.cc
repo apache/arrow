@@ -58,12 +58,6 @@ Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanContext> con
   return MakeMapIterator(fn, std::move(batches_it));
 }
 
-Result<std::shared_ptr<Dataset>> Dataset::Make(DatasetVector children,
-                                               std::shared_ptr<Schema> schema) {
-  return std::shared_ptr<Dataset>(
-      new TreeDataset(std::move(schema), std::move(children)));
-}
-
 Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan(
     std::shared_ptr<ScanContext> context) {
   return std::make_shared<ScannerBuilder>(this->shared_from_this(), context);
@@ -163,7 +157,20 @@ FragmentIterator InMemoryDataset::GetFragmentsImpl(
   return MakeMaybeMapIterator(std::move(create_fragment), get_batches_->Get());
 }
 
-FragmentIterator TreeDataset::GetFragmentsImpl(std::shared_ptr<ScanOptions> options) {
+Result<std::shared_ptr<UnionDataset>> UnionDataset::Make(std::shared_ptr<Schema> schema,
+                                                         DatasetVector children) {
+  for (const auto& child : children) {
+    if (!child->schema()->Equals(*schema)) {
+      return Status::TypeError("child Dataset had schema ", *child->schema(),
+                               " but the union schema was ", *schema);
+    }
+  }
+
+  return std::shared_ptr<UnionDataset>(
+      new UnionDataset(std::move(schema), std::move(children)));
+}
+
+FragmentIterator UnionDataset::GetFragmentsImpl(std::shared_ptr<ScanOptions> options) {
   return GetFragmentsFromDatasets(children_, options);
 }
 

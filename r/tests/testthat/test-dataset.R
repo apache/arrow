@@ -426,7 +426,7 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   expect_equal(names(phys_schm), names(df1))
 
   ds <- factory$Finish(schm)
-  expect_is(ds, "TreeDataset")
+  expect_is(ds, "UnionDataset")
   expect_is(ds$schema, "Schema")
   expect_equal(names(schm), names(ds$schema))
   expect_equivalent(map(ds$children, ~.$files), files)

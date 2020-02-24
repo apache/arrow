@@ -46,8 +46,8 @@ from pyarrow._dataset import (  # noqa
     ScalarExpression,
     Scanner,
     ScanTask,
-    TreeDataset,
-    TreeDatasetFactory
+    UnionDataset,
+    UnionDatasetFactory
 )
 
 
@@ -323,7 +323,7 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
                         format=format)
         for src in paths_or_factories
     ]
-    return TreeDatasetFactory(factories).finish()
+    return UnionDatasetFactory(factories).finish()
 
 
 def field(name):

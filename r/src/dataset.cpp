@@ -22,6 +22,76 @@
 using Rcpp::CharacterVector;
 using Rcpp::String;
 
+// Dataset, UnionDataset, FileSystemDataset
+
+// [[arrow::export]]
+std::shared_ptr<ds::ScannerBuilder> dataset___Dataset__NewScan(
+    const std::shared_ptr<ds::Dataset>& ds) {
+  return VALUE_OR_STOP(ds->NewScan());
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> dataset___Dataset__schema(
+    const std::shared_ptr<ds::Dataset>& dataset) {
+  return dataset->schema();
+}
+
+// [[arrow::export]]
+std::string dataset___Dataset__type_name(const std::shared_ptr<ds::Dataset>& dataset) {
+  return dataset->type_name();
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::UnionDataset> dataset___UnionDataset__create(
+    const ds::DatasetVector& datasets, const std::shared_ptr<arrow::Schema>& schm) {
+  return VALUE_OR_STOP(ds::UnionDataset::Make(schm, datasets));
+}
+
+// [[arrow::export]]
+ds::DatasetVector dataset___UnionDataset__children(
+    const std::shared_ptr<ds::UnionDataset>& ds) {
+  return ds->children();
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::FileFormat> dataset___FileSystemDataset__format(
+    const std::shared_ptr<ds::FileSystemDataset>& dataset) {
+  return dataset->format();
+}
+
+// [[arrow::export]]
+std::vector<std::string> dataset___FileSystemDataset__files(
+    const std::shared_ptr<ds::FileSystemDataset>& dataset) {
+  return dataset->files();
+}
+
+// DatasetFactory, UnionDatasetFactory, FileSystemDatasetFactory
+
+// [[arrow::export]]
+std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish1(
+    const std::shared_ptr<ds::DatasetFactory>& factory) {
+  return VALUE_OR_STOP(factory->Finish());
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish2(
+    const std::shared_ptr<ds::DatasetFactory>& factory,
+    const std::shared_ptr<arrow::Schema>& schema) {
+  return VALUE_OR_STOP(factory->Finish(schema));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> dataset___DatasetFactory__Inspect(
+    const std::shared_ptr<ds::DatasetFactory>& factory) {
+  return VALUE_OR_STOP(factory->Inspect());
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::DatasetFactory> dataset___UnionDatasetFactory__Make(
+    const std::vector<std::shared_ptr<ds::DatasetFactory>>& children) {
+  return VALUE_OR_STOP(ds::UnionDatasetFactory::Make(children));
+}
+
 // [[arrow::export]]
 std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make2(
     const std::shared_ptr<fs::FileSystem>& fs,
@@ -62,6 +132,8 @@ std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make3(
       ds::FileSystemDatasetFactory::Make(fs, *selector, format, options));
 }
 
+// FileFormat, ParquetFileFormat, IpcFileFormat
+
 // [[arrow::export]]
 std::string dataset___FileFormat__type_name(
     const std::shared_ptr<ds::FileFormat>& format) {
@@ -89,44 +161,7 @@ std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make() {
   return std::make_shared<ds::IpcFileFormat>();
 }
 
-// [[arrow::export]]
-std::shared_ptr<ds::FileFormat> dataset___FileSystemDataset__format(
-    const std::shared_ptr<ds::FileSystemDataset>& dataset) {
-  return dataset->format();
-}
-
-// [[arrow::export]]
-std::vector<std::string> dataset___FileSystemDataset__files(
-    const std::shared_ptr<ds::FileSystemDataset>& dataset) {
-  return dataset->files();
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish1(
-    const std::shared_ptr<ds::DatasetFactory>& factory) {
-  return VALUE_OR_STOP(factory->Finish());
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish2(
-    const std::shared_ptr<ds::DatasetFactory>& factory,
-    const std::shared_ptr<arrow::Schema>& schema) {
-  return VALUE_OR_STOP(factory->Finish(schema));
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Schema> dataset___DatasetFactory__Inspect(
-    const std::shared_ptr<ds::DatasetFactory>& factory) {
-  return VALUE_OR_STOP(factory->Inspect());
-}
-
-// DatasetFactory
-
-// [[arrow::export]]
-std::shared_ptr<ds::DatasetFactory> dataset___TreeDatasetFactory__Make(
-    const std::vector<std::shared_ptr<ds::DatasetFactory>>& children) {
-  return VALUE_OR_STOP(ds::TreeDatasetFactory::Make(children));
-}
+// DirectoryPartitioning, HivePartitioning
 
 // [[arrow::export]]
 std::shared_ptr<ds::Partitioning> dataset___DirectoryPartitioning(
@@ -151,34 +186,7 @@ std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory
   return ds::HivePartitioning::MakeFactory();
 }
 
-// [[arrow::export]]
-std::shared_ptr<ds::TreeDataset> dataset___TreeDataset__create(
-    const ds::DatasetVector& datasets, const std::shared_ptr<arrow::Schema>& schm) {
-  return std::make_shared<ds::TreeDataset>(schm, datasets);
-}
-
-// [[arrow::export]]
-ds::DatasetVector dataset___TreeDataset__children(
-    const std::shared_ptr<ds::TreeDataset>& ds) {
-  return ds->children();
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::ScannerBuilder> dataset___Dataset__NewScan(
-    const std::shared_ptr<ds::Dataset>& ds) {
-  return VALUE_OR_STOP(ds->NewScan());
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Schema> dataset___Dataset__schema(
-    const std::shared_ptr<ds::Dataset>& dataset) {
-  return dataset->schema();
-}
-
-// [[arrow::export]]
-std::string dataset___Dataset__type_name(const std::shared_ptr<ds::Dataset>& dataset) {
-  return dataset->type_name();
-}
+// ScannerBuilder, Scanner
 
 // [[arrow::export]]
 void dataset___ScannerBuilder__Project(const std::shared_ptr<ds::ScannerBuilder>& sb,

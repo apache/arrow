@@ -192,16 +192,15 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CExpression] & partition_expression()
         c_string type_name()
 
-        @staticmethod
-        CResult[shared_ptr[CDataset]] Make(CDatasetVector children,
-                                           shared_ptr[CSchema] schema)
         CResult[shared_ptr[CScannerBuilder]] NewScanWithContext "NewScan"(
             shared_ptr[CScanContext] context)
         CResult[shared_ptr[CScannerBuilder]] NewScan()
 
-    cdef cppclass CTreeDataset "arrow::dataset::TreeDataset"(
+    cdef cppclass CUnionDataset "arrow::dataset::UnionDataset"(
             CDataset):
-        CTreeDataset(CDatasetVector children)
+        @staticmethod
+        CResult[shared_ptr[CUnionDataset]] Make(shared_ptr[CSchema] schema,
+                                                CDatasetVector children)
 
     cdef cppclass CDatasetFactory "arrow::dataset::DatasetFactory":
         CResult[vector[shared_ptr[CSchema]]] InspectSchemas()
@@ -212,7 +211,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CExpression]& root_partition()
         CStatus SetRootPartition(shared_ptr[CExpression] partition)
 
-    cdef cppclass CTreeDatasetFactory "arrow::dataset::TreeDatasetFactory":
+    cdef cppclass CUnionDatasetFactory "arrow::dataset::UnionDatasetFactory":
         @staticmethod
         CResult[shared_ptr[CDatasetFactory]] Make(
             vector[shared_ptr[CDatasetFactory]] factories)
