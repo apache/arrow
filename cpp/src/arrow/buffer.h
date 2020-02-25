@@ -290,8 +290,9 @@ class ARROW_EXPORT Buffer {
   /// involve lazy caching of parts of the buffer contents on the destination
   /// device's memory.
   ///
-  /// This function may fail, since not all buffers support being viewed on
-  /// another device.
+  /// If a non-copy view is unsupported for the buffer on the given device,
+  /// nullptr is returned.  An error can be returned if some low-level
+  /// operation fails (such as an out-of-memory condition).
   static Result<std::shared_ptr<Buffer>> View(std::shared_ptr<Buffer> source,
                                               const std::shared_ptr<MemoryManager>& to);
 
