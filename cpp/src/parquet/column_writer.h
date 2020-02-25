@@ -155,6 +155,11 @@ class TypedColumnWriter : public ColumnWriter {
   // column.
   virtual void WriteBatch(int64_t num_values, const int16_t* def_levels,
                           const int16_t* rep_levels, const T* values) = 0;
+  
+  // Write a batch of repetition levels, definition levels, and values to the
+  // column.
+  virtual void WriteBatchWithIndex(int64_t num_values, const int16_t* def_levels,
+                          const int16_t* rep_levels, const T* values) = 0;
 
   /// Write a batch of repetition levels, definition levels, and values to the
   /// column.

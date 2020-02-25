@@ -728,7 +728,70 @@ void ColumnWriterImpl::AddDataPage() {
 }
 
 void ColumnWriterImpl::AddDataPageWithIndex() {
- 
+      int64_t definition_levels_rle_size = 0;
+  int64_t repetition_levels_rle_size = 0;
+
+  std::shared_ptr<Buffer> values = GetValuesBuffer();
+
+  if (descr_->max_definition_level() > 0) {
+    definition_levels_rle_size =
+        RleEncodeLevels(definition_levels_sink_.data(), definition_levels_rle_.get(),
+                        descr_->max_definition_level());
+  }
+
+  if (descr_->max_repetition_level() > 0) {
+    repetition_levels_rle_size =
+        RleEncodeLevels(repetition_levels_sink_.data(), repetition_levels_rle_.get(),
+                        descr_->max_repetition_level());
+  }
+
+  int64_t uncompressed_size =
+      definition_levels_rle_size + repetition_levels_rle_size + values->size();
+
+  // Use Arrow::Buffer::shrink_to_fit = false
+  // underlying buffer only keeps growing. Resize to a smaller size does not reallocate.
+  PARQUET_THROW_NOT_OK(uncompressed_data_->Resize(uncompressed_size, false));
+
+  // Concatenate data into a single buffer
+  uint8_t* uncompressed_ptr = uncompressed_data_->mutable_data();
+  memcpy(uncompressed_ptr, repetition_levels_rle_->data(), repetition_levels_rle_size);
+  uncompressed_ptr += repetition_levels_rle_size;
+  memcpy(uncompressed_ptr, definition_levels_rle_->data(), definition_levels_rle_size);
+  uncompressed_ptr += definition_levels_rle_size;
+  memcpy(uncompressed_ptr, values->data(), values->size());
+
+  EncodedStatistics page_stats = GetPageStatistics();
+  page_stats.ApplyStatSizeLimits(properties_->max_statistics_size(descr_->path()));
+  page_stats.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
+  ResetPageStatistics();
+
+  std::shared_ptr<Buffer> compressed_data;
+  if (pager_->has_compressor()) {
+    pager_->Compress(*(uncompressed_data_.get()), compressed_data_.get());
+    compressed_data = compressed_data_;
+  } else {
+    compressed_data = uncompressed_data_;
+  }
+
+  // Write the page to OutputStream eagerly if there is no dictionary or
+  // if dictionary encoding has fallen back to PLAIN
+  if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
+    std::shared_ptr<Buffer> compressed_data_copy;
+    PARQUET_THROW_NOT_OK(compressed_data->Copy(0, compressed_data->size(), allocator_,
+                                               &compressed_data_copy));
+    CompressedDataPage page(compressed_data_copy,
+                            static_cast<int32_t>(num_buffered_values_), encoding_,
+                            Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats);
+    total_compressed_bytes_ += page.size() + sizeof(format::PageHeader);
+    data_pages_.push_back(std::move(page));
+  }
+  int64_t total_bytes_written_ = 0;
+  WriteDataPageWithIndex(data_pages_);
+
+  // Re-initialize the sinks for next Page.
+  InitSinks();
+  num_buffered_values_ = 0;
+  num_buffered_encoded_values_ = 0;
 }
 
 int64_t ColumnWriterImpl::Close() {
@@ -807,6 +870,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   void WriteBatch(int64_t num_values, const int16_t* def_levels,
                   const int16_t* rep_levels, const T* values) override;
 
+  void WriteBatchWithIndex(int64_t num_values, const int16_t* def_levels,
+                  const int16_t* rep_levels, const T* values) override;
+
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
                         const int16_t* rep_levels, const uint8_t* valid_bits,
                         int64_t valid_bits_offset, const T* values) override;
@@ -842,6 +908,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   // If the limit is reached, the Dictionary and Data Pages are serialized
   // The encoding is switched to PLAIN
   void CheckDictionarySizeLimit();
+
+  void CheckDictionarySizeLimitWithIndex();
 
   EncodedStatistics GetPageStatistics() override {
     EncodedStatistics result;
@@ -884,6 +952,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   inline int64_t WriteMiniBatch(int64_t num_values, const int16_t* def_levels,
                                 const int16_t* rep_levels, const T* values);
 
+  inline int64_t WriteMiniBatchWithIndex(int64_t num_values, const int16_t* def_levels,
+                                const int16_t* rep_levels, const T* values);
+
   inline int64_t WriteMiniBatchSpaced(int64_t num_values, const int16_t* def_levels,
                                       const int16_t* rep_levels,
                                       const uint8_t* valid_bits,
@@ -920,6 +991,23 @@ void TypedColumnWriterImpl<DType>::CheckDictionarySizeLimit() {
                                    properties_->memory_pool());
     encoding_ = Encoding::PLAIN;
   }
+}
+
+template <typename DType>
+void TypedColumnWriterImpl<DType>::CheckDictionarySizeLimitWithIndex() {
+  // We have to dynamic cast here because TypedEncoder<Type> as some compilers
+  // don't want to cast through virtual inheritance
+  auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
+  //if (dict_encoder->dict_encoded_size() >= properties_->dictionary_pagesize_limit()) {
+    WriteDictionaryPage();
+    // Serialize the buffered Dictionary Indicies
+    FlushBufferedDataPagesWithIndex();
+    fallback_ = true;
+    // Only PLAIN encoding is supported for fallback in V1
+    current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
+                                   properties_->memory_pool());
+    encoding_ = Encoding::PLAIN;
+  //}
 }
 
 // ----------------------------------------------------------------------
@@ -980,6 +1068,67 @@ int64_t TypedColumnWriterImpl<DType>::WriteMiniBatch(int64_t num_values,
   }
   if (has_dictionary_ && !fallback_) {
     CheckDictionarySizeLimit();
+  }
+
+  return values_to_write;
+}
+
+
+template <typename DType>
+int64_t TypedColumnWriterImpl<DType>::WriteMiniBatchWithIndex(int64_t num_values,
+                                                     const int16_t* def_levels,
+                                                     const int16_t* rep_levels,
+                                                     const T* values) {
+  int64_t values_to_write = 0;
+  // If the field is required and non-repeated, there are no definition levels
+  if (descr_->max_definition_level() > 0) {
+    for (int64_t i = 0; i < num_values; ++i) {
+      if (def_levels[i] == descr_->max_definition_level()) {
+        ++values_to_write;
+      }
+    }
+
+    WriteDefinitionLevels(num_values, def_levels);
+  } else {
+    // Required field, write all values
+    values_to_write = num_values;
+  }
+
+  // Not present for non-repeated fields
+  if (descr_->max_repetition_level() > 0) {
+    // A row could include more than one value
+    // Count the occasions where we start a new row
+    for (int64_t i = 0; i < num_values; ++i) {
+      if (rep_levels[i] == 0) {
+        rows_written_++;
+      }
+    }
+
+    WriteRepetitionLevels(num_values, rep_levels);
+  } else {
+    // Each value is exactly one row
+    rows_written_ += static_cast<int>(num_values);
+  }
+
+  // PARQUET-780
+  if (values_to_write > 0) {
+    DCHECK(nullptr != values) << "Values ptr cannot be NULL";
+  }
+
+  WriteValues(values_to_write, values);
+
+  if (page_statistics_ != nullptr) {
+    page_statistics_->Update(values, values_to_write, num_values - values_to_write);
+  }
+
+  num_buffered_values_ += num_values;
+  num_buffered_encoded_values_ += values_to_write;
+
+  //if (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
+    AddDataPageWithIndex();
+ //}
+  if (has_dictionary_ && !fallback_) {
+    CheckDictionarySizeLimitWithIndex();
   }
 
   return values_to_write;
@@ -1054,6 +1203,32 @@ int64_t TypedColumnWriterImpl<DType>::WriteMiniBatchSpaced(
   }
 
   return values_to_write;
+}
+
+template <typename DType>
+void TypedColumnWriterImpl<DType>::WriteBatchWithIndex(int64_t num_values,
+                                              const int16_t* def_levels,
+                                              const int16_t* rep_levels,
+                                              const T* values) {
+  // We check for DataPage limits only after we have inserted the values. If a user
+  // writes a large number of values, the DataPage size can be much above the limit.
+  // The purpose of this chunking is to bound this. Even if a user writes large number
+  // of values, the chunking will ensure the AddDataPage() is called at a reasonable
+  // pagesize limit
+  int64_t write_batch_size = properties_->write_batch_size();
+  int num_batches = static_cast<int>(num_values / write_batch_size);
+  int64_t num_remaining = num_values % write_batch_size;
+  int64_t value_offset = 0;
+  for (int round = 0; round < num_batches; round++) {
+    int64_t offset = round * write_batch_size;
+    int64_t num_values = WriteMiniBatchWithIndex(write_batch_size, &def_levels[offset],
+                                        &rep_levels[offset], &values[value_offset]);
+    value_offset += num_values;
+  }
+  // Write the remaining values
+  int64_t offset = num_batches * write_batch_size;
+  WriteMiniBatchWithIndex(num_remaining, &def_levels[offset], &rep_levels[offset],
+                 &values[value_offset]);
 }
 
 template <typename DType>
