@@ -19,7 +19,6 @@ package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
@@ -36,6 +35,8 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import io.netty.buffer.ArrowBuf;
+
 /**
  * Benchmarks for {@link BaseVariableWidthVector}.
  */
@@ -49,7 +50,7 @@ public class VariableWidthVectorBenchmarks {
   private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
 
   private static byte[] bytes = VariableWidthVectorBenchmarks.class.getName().getBytes();
-  private ArrowBuf  arrowBuff;
+  private ArrowBuf arrowBuff;
 
   private BufferAllocator allocator;
 
@@ -92,7 +93,7 @@ public class VariableWidthVectorBenchmarks {
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MILLISECONDS)
   public int setSafeFromArray() {
-    for(int i =0; i < 500; ++i){
+    for (int i = 0; i < 500; ++i) {
       vector.setSafe(i * 40, bytes);
     }
     return vector.getBufferSize();
@@ -106,7 +107,7 @@ public class VariableWidthVectorBenchmarks {
     nvch.buffer = arrowBuff;
     nvch.start = 0;
     nvch.end = bytes.length;
-    for(int i =0; i < 50; ++i) {
+    for (int i = 0; i < 50; ++i) {
       nvch.isSet = 0;
       for (int j = 0; j < 9; ++j) {
         int idx = 10 * i + j;
