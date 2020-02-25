@@ -130,7 +130,8 @@ cdef object pyarrow_wrap_metadata(
     return result
 
 
-cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta):
+cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta) \
+        except *:
     cdef vector[c_string] keys, values
 
     if isinstance(meta, dict):

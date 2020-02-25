@@ -550,7 +550,10 @@ cdef get_writer(object source, shared_ptr[COutputStream]* writer)
 # Default is allow_none=False
 cdef DataType ensure_type(object type, c_bool allow_none=*)
 
-cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta)
+# Exceptions may be raised when converting dict values, so need to
+# check exception state on return
+cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta) \
+    except *
 cdef object pyarrow_wrap_metadata(
     const shared_ptr[const CKeyValueMetadata]& meta)
 

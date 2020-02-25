@@ -45,7 +45,12 @@ def root_allocator():
         arrow_dir, 'java', 'tools', 'target',
         'arrow-tools-{}-jar-with-dependencies.jar'.format(version))
     jar_path = os.getenv("ARROW_TOOLS_JAR", jar_path)
-    jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path)
+    kwargs = {}
+    if jpype.__version_info__ >= (0, 7):
+        # This will be the default behaviour in jpype 0.8+
+        kwargs['convertStrings'] = False
+    jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path,
+                   **kwargs)
     return jpype.JPackage("org").apache.arrow.memory.RootAllocator(sys.maxsize)
 
 
@@ -163,6 +168,14 @@ def test_jvm_types(root_allocator, pa_type, jvm_spec, nullable):
     result = pa_jvm.schema(jvm_schema)
     assert result == pa.schema([expected_field], {'meta': 'data'})
 
+    # Schema with custom field metadata
+    spec['metadata'] = {'field meta': 'field data'}
+    jvm_schema = _jvm_schema(json.dumps(spec))
+    result = pa_jvm.schema(jvm_schema)
+    expected_field = expected_field.with_metadata(
+        {'field meta': 'field data'})
+    assert result == pa.schema([expected_field])
+
 
 # These test parameters mostly use an integer range as an input as this is
 # often the only type that is understood by both Python and Java
@@ -194,6 +207,9 @@ def test_jvm_array(root_allocator, pa_type, py_data, jvm_type):
     jvm_vector = jpype.JClass(cls)("vector", root_allocator)
     jvm_vector.allocateNew(len(py_data))
     for i, val in enumerate(py_data):
+        # char and int are ambiguous overloads for these two setSafe calls
+        if jvm_type in {'UInt1Vector', 'UInt2Vector'}:
+            val = jpype.JInt(val)
         jvm_vector.setSafe(i, val)
     jvm_vector.setValueCount(len(py_data))
 
@@ -320,6 +336,8 @@ def test_jvm_record_batch(root_allocator, pa_type, py_data, jvm_type,
     jvm_vector = jpype.JClass(cls)("vector", root_allocator)
     jvm_vector.allocateNew(len(py_data))
     for i, val in enumerate(py_data):
+        if jvm_type in {'UInt1Vector', 'UInt2Vector'}:
+            val = jpype.JInt(val)
         jvm_vector.setSafe(i, val)
     jvm_vector.setValueCount(len(py_data))
 
