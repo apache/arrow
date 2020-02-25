@@ -145,17 +145,33 @@ test_that("array supports Date (ARROW-3340)", {
   d[5] <- NA
   expect_array_roundtrip(d, date32())
 
-  d2 <- d + .5
-  skip("Mean relative difference: 2.729026e-05")
+  # Test code path where Date is numeric underneath, not integer
+  d2 <- structure(as.numeric(d), class = "Date")
   expect_array_roundtrip(d2, date32())
+  # PSA: IngestDoubleRange(Date32Builder) truncates decimals, so this only
+  # works where the dates are integer-ish
 })
 
 test_that("array supports POSIXct (ARROW-3340)", {
   times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
-  expect_array_roundtrip(times, timestamp("us", "GMT"))
+  expect_array_roundtrip(times, timestamp("us", "UTC"))
 
   times[5] <- NA
-  expect_array_roundtrip(times, timestamp("us", "GMT"))
+  expect_array_roundtrip(times, timestamp("us", "UTC"))
+
+  times2 <- lubridate::ymd_hms("2018-10-07 19:04:05", tz = "US/Eastern") + 1:10
+  expect_array_roundtrip(times2, timestamp("us", "US/Eastern"))
+})
+
+test_that("array supports POSIXlt and without timezone", {
+  times <- strptime("2019-02-03 12:34:56", format="%Y-%m-%d %H:%M:%S") + 1:10
+  expect_array_roundtrip(times, timestamp("us", ""))
+
+  # Also test the INTSXP code path
+  skip("Ingest_POSIXct only implemented for REALSXP")
+  times_int <- as.integer(times)
+  attributes(times_int) <- attributes(times)
+  expect_array_roundtrip(times_int, timestamp("us", ""))
 })
 
 test_that("array supports integer64", {
@@ -215,7 +231,7 @@ test_that("float types casts (ARROW-3741)", {
 })
 
 test_that("cast to half float works", {
-  skip("until https://issues.apache.org/jira/browse/ARROW-3802")
+  skip("Need halffloat support: https://issues.apache.org/jira/browse/ARROW-3802")
   a <- Array$create(1:4)
   a_f16 <- a$cast(float16())
   expect_equal(a_16$type, float16())
@@ -252,7 +268,7 @@ test_that("Array$create() aborts on overflow", {
   msg <- "Invalid.*Value is too large"
   expect_error(Array$create(128L, type = int8()), msg)
   expect_error(Array$create(-129L, type = int8()), msg)
-  
+
   expect_error(Array$create(256L, type = uint8()), msg)
   expect_error(Array$create(-1L, type = uint8()), msg)
 

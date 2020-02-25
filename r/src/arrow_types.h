@@ -29,6 +29,7 @@ namespace arrow {
 namespace r {
 struct symbols {
   static SEXP units;
+  static SEXP tzone;
   static SEXP xp;
   static SEXP dot_Internal;
   static SEXP inspect;

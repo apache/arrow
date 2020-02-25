@@ -953,7 +953,14 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<INTSXP>(SEXP x) {
   } else if (Rf_inherits(x, "Date")) {
     return date32();
   } else if (Rf_inherits(x, "POSIXct")) {
-    return timestamp(TimeUnit::MICRO, "GMT");
+    std::string tzone;
+    auto tzone_sexp = Rf_getAttrib(x, symbols::tzone);
+    if (Rf_isNull(tzone_sexp)) {
+      tzone = "";
+    } else {
+      tzone = CHAR(STRING_ELT(tzone_sexp, 0));
+    }
+    return timestamp(TimeUnit::MICRO, tzone);
   }
   return int32();
 }
@@ -964,7 +971,14 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
     return date32();
   }
   if (Rf_inherits(x, "POSIXct")) {
-    return timestamp(TimeUnit::MICRO, "GMT");
+    std::string tzone;
+    auto tzone_sexp = Rf_getAttrib(x, symbols::tzone);
+    if (Rf_isNull(tzone_sexp)) {
+      tzone = "";
+    } else {
+      tzone = CHAR(STRING_ELT(tzone_sexp, 0));
+    }
+    return timestamp(TimeUnit::MICRO, tzone);
   }
   if (Rf_inherits(x, "integer64")) {
     return int64();
