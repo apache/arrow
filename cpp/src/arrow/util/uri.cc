@@ -52,6 +52,7 @@ bool IsTextRangeSet(const UriTextRangeStructA& range) { return range.first != nu
 
 std::string UriEscape(const std::string& s) {
   if (s.empty()) {
+    // Avoid passing null pointer to uriEscapeExA
     return s;
   }
   std::string escaped;
