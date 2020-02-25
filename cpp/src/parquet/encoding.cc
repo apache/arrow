@@ -1429,8 +1429,15 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
         std::min<int64_t>(len_, helper.chunk_space_remaining)));
     for (int i = 0; i < num_values; ++i) {
       if (bit_reader.IsSet()) {
-        auto value_len = static_cast<int32_t>(arrow::util::SafeLoadAs<uint32_t>(data_));
-        int increment = static_cast<int>(sizeof(uint32_t) + value_len);
+        // For compiler warnings on unsigned/signed arithmetic.
+        auto int32_s = static_cast<int32_t>(sizeof(int32_t));
+
+        auto value_len = arrow::util::SafeLoadAs<int32_t>(data_);
+        if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - int32_s)) {
+          return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
+        }
+
+        auto increment = int32_s + value_len;
         if (ARROW_PREDICT_FALSE(len_ < increment)) ParquetException::EofException();
         if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
           // This element would exceed the capacity of a chunk
@@ -1562,15 +1569,17 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     num_values_ = num_values;
     if (len == 0) return;
     uint8_t bit_width = *data;
-    ++data;
-    --len;
-    idx_decoder_ = arrow::util::RleDecoder(data, len, bit_width);
+    if (ARROW_PREDICT_FALSE(bit_width >= 64)) {
+      throw ParquetException("Invalid or corrupted bit_width");
+    }
+    idx_decoder_ = arrow::util::RleDecoder(++data, --len, bit_width);
   }
 
   int Decode(T* buffer, int num_values) override {
     num_values = std::min(num_values, num_values_);
-    int decoded_values = idx_decoder_.GetBatchWithDict(
-        reinterpret_cast<const T*>(dictionary_->data()), buffer, num_values);
+    int decoded_values =
+        idx_decoder_.GetBatchWithDict(reinterpret_cast<const T*>(dictionary_->data()),
+                                      dictionary_length_, buffer, num_values);
     if (decoded_values != num_values) {
       ParquetException::EofException();
     }
@@ -1582,8 +1591,9 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
                    int64_t valid_bits_offset) override {
     num_values = std::min(num_values, num_values_);
     if (num_values != idx_decoder_.GetBatchWithDictSpaced(
-                          reinterpret_cast<const T*>(dictionary_->data()), buffer,
-                          num_values, null_count, valid_bits, valid_bits_offset)) {
+                          reinterpret_cast<const T*>(dictionary_->data()),
+                          dictionary_length_, buffer, num_values, null_count, valid_bits,
+                          valid_bits_offset)) {
       ParquetException::EofException();
     }
     num_values_ -= num_values;
@@ -1955,12 +1965,19 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
   }
 
  private:
+  Status IndexInBounds(int32_t index) {
+    if (ARROW_PREDICT_TRUE(0 <= index && index < dictionary_length_)) {
+      return Status::OK();
+    }
+    return Status::Invalid("Index not in dictionary bounds");
+  }
+
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
-    constexpr int32_t buffer_size = 1024;
-    int32_t indices_buffer[buffer_size];
+    constexpr int32_t kBufferSize = 1024;
+    int32_t indices[kBufferSize];
 
     ArrowBinaryHelper helper(out);
 
@@ -1975,14 +1992,20 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 
       if (is_valid) {
         int32_t batch_size =
-            std::min<int32_t>(buffer_size, num_values - num_appended - null_count);
-        int num_indices = idx_decoder_.GetBatch(indices_buffer, batch_size);
+            std::min<int32_t>(kBufferSize, num_values - num_appended - null_count);
+        int num_indices = idx_decoder_.GetBatch(indices, batch_size);
+
+        if (ARROW_PREDICT_FALSE(num_indices < 1)) {
+          return Status::Invalid("Invalid number of indices '", num_indices, "'");
+        }
 
         int i = 0;
         while (true) {
           // Consume all indices
           if (is_valid) {
-            const auto& val = dict_values[indices_buffer[i]];
+            auto idx = indices[i];
+            RETURN_NOT_OK(IndexInBounds(idx));
+            const auto& val = dict_values[idx];
             if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
               RETURN_NOT_OK(helper.PushChunk());
             }
@@ -2015,19 +2038,21 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
   Status DecodeArrowDenseNonNull(int num_values,
                                  typename EncodingTraits<ByteArrayType>::Accumulator* out,
                                  int* out_num_values) {
-    constexpr int32_t buffer_size = 2048;
-    int32_t indices_buffer[buffer_size];
+    constexpr int32_t kBufferSize = 2048;
+    int32_t indices[kBufferSize];
     int values_decoded = 0;
 
     ArrowBinaryHelper helper(out);
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
     while (values_decoded < num_values) {
-      int32_t batch_size = std::min<int32_t>(buffer_size, num_values - values_decoded);
-      int num_indices = idx_decoder_.GetBatch(indices_buffer, batch_size);
+      int32_t batch_size = std::min<int32_t>(kBufferSize, num_values - values_decoded);
+      int num_indices = idx_decoder_.GetBatch(indices, batch_size);
       if (num_indices == 0) ParquetException::EofException();
       for (int i = 0; i < num_indices; ++i) {
-        const auto& val = dict_values[indices_buffer[i]];
+        auto idx = indices[i];
+        RETURN_NOT_OK(IndexInBounds(idx));
+        const auto& val = dict_values[idx];
         if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
           RETURN_NOT_OK(helper.PushChunk());
         }
@@ -2043,8 +2068,8 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
   Status DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                      int64_t valid_bits_offset, BuilderType* builder,
                      int* out_num_values) {
-    constexpr int32_t buffer_size = 1024;
-    int32_t indices_buffer[buffer_size];
+    constexpr int32_t kBufferSize = 1024;
+    int32_t indices[kBufferSize];
 
     RETURN_NOT_OK(builder->Reserve(num_values));
     arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
@@ -2059,14 +2084,16 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 
       if (is_valid) {
         int32_t batch_size =
-            std::min<int32_t>(buffer_size, num_values - num_appended - null_count);
-        int num_indices = idx_decoder_.GetBatch(indices_buffer, batch_size);
+            std::min<int32_t>(kBufferSize, num_values - num_appended - null_count);
+        int num_indices = idx_decoder_.GetBatch(indices, batch_size);
 
         int i = 0;
         while (true) {
           // Consume all indices
           if (is_valid) {
-            const auto& val = dict_values[indices_buffer[i]];
+            auto idx = indices[i];
+            RETURN_NOT_OK(IndexInBounds(idx));
+            const auto& val = dict_values[idx];
             RETURN_NOT_OK(builder->Append(val.ptr, val.len));
             ++i;
             ++values_decoded;
@@ -2095,19 +2122,22 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 
   template <typename BuilderType>
   Status DecodeArrowNonNull(int num_values, BuilderType* builder, int* out_num_values) {
-    constexpr int32_t buffer_size = 2048;
-    int32_t indices_buffer[buffer_size];
-    int values_decoded = 0;
+    constexpr int32_t kBufferSize = 2048;
+    int32_t indices[kBufferSize];
+
     RETURN_NOT_OK(builder->Reserve(num_values));
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
+    int values_decoded = 0;
     while (values_decoded < num_values) {
-      int32_t batch_size = std::min<int32_t>(buffer_size, num_values - values_decoded);
-      int num_indices = idx_decoder_.GetBatch(indices_buffer, batch_size);
+      int32_t batch_size = std::min<int32_t>(kBufferSize, num_values - values_decoded);
+      int num_indices = idx_decoder_.GetBatch(indices, batch_size);
       if (num_indices == 0) ParquetException::EofException();
       for (int i = 0; i < num_indices; ++i) {
-        const auto& val = dict_values[indices_buffer[i]];
+        auto idx = indices[i];
+        RETURN_NOT_OK(IndexInBounds(idx));
+        const auto& val = dict_values[idx];
         RETURN_NOT_OK(builder->Append(val.ptr, val.len));
       }
       values_decoded += num_indices;
@@ -2173,7 +2203,8 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
  private:
   void InitBlock() {
-    int32_t block_size;
+    // The number of values per block.
+    uint32_t block_size;
     if (!decoder_.GetVlqInt(&block_size)) ParquetException::EofException();
     if (!decoder_.GetVlqInt(&num_mini_blocks_)) ParquetException::EofException();
     if (!decoder_.GetVlqInt(&values_current_block_)) {
@@ -2185,7 +2216,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
 
     if (!decoder_.GetZigZagVlqInt(&min_delta_)) ParquetException::EofException();
-    for (int i = 0; i < num_mini_blocks_; ++i) {
+    for (uint32_t i = 0; i < num_mini_blocks_; ++i) {
       if (!decoder_.GetAligned<uint8_t>(1, bit_width_data + i)) {
         ParquetException::EofException();
       }
@@ -2227,8 +2258,8 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
   MemoryPool* pool_;
   arrow::BitUtil::BitReader decoder_;
-  int32_t values_current_block_;
-  int32_t num_mini_blocks_;
+  uint32_t values_current_block_;
+  uint32_t num_mini_blocks_;
   uint64_t values_per_mini_block_;
   uint64_t values_current_mini_block_;
 

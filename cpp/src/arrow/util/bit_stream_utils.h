@@ -146,7 +146,7 @@ class BitReader {
   /// Reads a vlq encoded int from the stream.  The encoded int must start at
   /// the beginning of a byte. Return false if there were not enough bytes in
   /// the buffer.
-  bool GetVlqInt(int32_t* v);
+  bool GetVlqInt(uint32_t* v);
 
   // Reads a zigzag encoded int `into` v.
   bool GetZigZagVlqInt(int32_t* v);
@@ -159,7 +159,7 @@ class BitReader {
   }
 
   /// Maximum byte length of a vlq encoded int
-  static const int MAX_VLQ_BYTE_LEN = 5;
+  static constexpr int kMaxVlqByteLength = 5;
 
  private:
   const uint8_t* buffer_;
@@ -223,16 +223,6 @@ inline bool BitWriter::PutAligned(T val, int num_bytes) {
   if (ptr == NULL) return false;
   memcpy(ptr, &val, num_bytes);
   return true;
-}
-
-inline bool BitWriter::PutVlqInt(uint32_t v) {
-  bool result = true;
-  while ((v & 0xFFFFFF80) != 0L) {
-    result &= PutAligned<uint8_t>(static_cast<uint8_t>((v & 0x7F) | 0x80), 1);
-    v >>= 7;
-  }
-  result &= PutAligned<uint8_t>(static_cast<uint8_t>(v & 0x7F), 1);
-  return result;
 }
 
 namespace detail {
@@ -361,10 +351,14 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 
 template <typename T>
 inline bool BitReader::GetAligned(int num_bytes, T* v) {
-  DCHECK_LE(num_bytes, static_cast<int>(sizeof(T)));
-  int bytes_read = static_cast<int>(BitUtil::BytesForBits(bit_offset_));
-  if (ARROW_PREDICT_FALSE(byte_offset_ + bytes_read + num_bytes > max_bytes_))
+  if (ARROW_PREDICT_FALSE(num_bytes > static_cast<int>(sizeof(T)))) {
     return false;
+  }
+
+  int bytes_read = static_cast<int>(BitUtil::BytesForBits(bit_offset_));
+  if (ARROW_PREDICT_FALSE(byte_offset_ + bytes_read + num_bytes > max_bytes_)) {
+    return false;
+  }
 
   // Advance byte_offset to next unread byte and read num_bytes
   byte_offset_ += bytes_read;
@@ -382,31 +376,44 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
   return true;
 }
 
-inline bool BitReader::GetVlqInt(int32_t* v) {
-  *v = 0;
-  int shift = 0;
-  int num_bytes = 0;
-  uint8_t byte = 0;
-  do {
-    if (!GetAligned<uint8_t>(1, &byte)) return false;
-    *v |= (byte & 0x7F) << shift;
-    shift += 7;
-    DCHECK_LE(++num_bytes, MAX_VLQ_BYTE_LEN);
-  } while ((byte & 0x80) != 0);
-  return true;
+inline bool BitWriter::PutVlqInt(uint32_t v) {
+  bool result = true;
+  while ((v & 0xFFFFFF80UL) != 0UL) {
+    result &= PutAligned<uint8_t>(static_cast<uint8_t>((v & 0x7F) | 0x80), 1);
+    v >>= 7;
+  }
+  result &= PutAligned<uint8_t>(static_cast<uint8_t>(v & 0x7F), 1);
+  return result;
+}
+
+inline bool BitReader::GetVlqInt(uint32_t* v) {
+  uint32_t tmp = 0;
+
+  for (int i = 0; i < kMaxVlqByteLength; i++) {
+    uint8_t byte = 0;
+    if (ARROW_PREDICT_FALSE(!GetAligned<uint8_t>(1, &byte))) {
+      return false;
+    }
+    tmp |= static_cast<uint32_t>(byte & 0x7F) << (7 * i);
+
+    if ((byte & 0x80) == 0) {
+      *v = tmp;
+      return true;
+    }
+  }
+
+  return false;
 }
 
 inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
-  // Note negative left shift is undefined
-  uint32_t u = (static_cast<uint32_t>(v) << 1) ^ (v >> 31);
-  return PutVlqInt(u);
+  auto u_v = ::arrow::util::SafeCopy<uint32_t>(v);
+  return PutVlqInt((u_v << 1) ^ (u_v >> 31));
 }
 
 inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
-  int32_t u_signed;
-  if (!GetVlqInt(&u_signed)) return false;
-  uint32_t u = static_cast<uint32_t>(u_signed);
-  *reinterpret_cast<uint32_t*>(v) = (u >> 1) ^ -(static_cast<int32_t>(u & 1));
+  uint32_t u;
+  if (!GetVlqInt(&u)) return false;
+  *v = ::arrow::util::SafeCopy<int32_t>((u >> 1) ^ (u << 31));
   return true;
 }
 
