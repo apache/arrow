@@ -174,6 +174,22 @@ test_that("array supports POSIXlt and without timezone", {
   expect_array_roundtrip(times_int, timestamp("us", ""))
 })
 
+test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
+  # Write a feather file as that's what the initial bug report used
+  df <- tibble::tibble(
+    no_tz = lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10,
+    yes_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Asia/Pyongyang") + 1:10
+  )
+  if (!identical(Sys.timezone(), "Asia/Pyongyang")) {
+    # Confirming that the columns are in fact different
+    expect_false(any(df$no_tz == df$yes_tz))
+  }
+  feather_file <- tempfile()
+  on.exit(unlink(feather_file))
+  write_feather(df, feather_file)
+  expect_identical(read_feather(feather_file), df)
+})
+
 test_that("array supports integer64", {
   x <- bit64::as.integer64(1:10)
   expect_array_roundtrip(x, int64())
