@@ -95,7 +95,7 @@ impl<T: DataType> PrimitiveArrayReader<T> {
         column_desc: ColumnDescPtr,
     ) -> Result<Self> {
         let data_type = parquet_to_arrow_field(column_desc.as_ref())?
-            .data_type() //TO DO: this is type ArrowType NOT DataType --> is this a deeper bug? HOW DOES THIS COMPILE?
+            .data_type()
             .clone();
 
         let mut record_reader = RecordReader::<T>::new(column_desc.clone());
@@ -1106,7 +1106,7 @@ mod tests {
             let message_type = format!(
                 "
             message test_schema {{
-              REQUIRED {:?} leaf {};
+              REQUIRED {:?} leaf ({});
           }}
             ",
                 $physical_type, $logical_type_str
@@ -1170,35 +1170,35 @@ mod tests {
         test_primitive_array_reader_one_type!(
             Int32Type,
             PhysicalType::INT32,
-            "(DATE)",
+            "DATE",
             ArrowUInt32,
             u32
         );
         test_primitive_array_reader_one_type!(
             Int32Type,
             PhysicalType::INT32,
-            "(TIME_MILLIS)",
+            "TIME_MILLIS",
             ArrowUInt32,
             u32
         );
         test_primitive_array_reader_one_type!(
             Int64Type,
             PhysicalType::INT64,
-            "(TIME_MICROS)",
+            "TIME_MICROS",
             ArrowUInt64,
             u64
         );
         test_primitive_array_reader_one_type!(
             Int64Type,
             PhysicalType::INT64,
-            "(TIMESTAMP_MILLIS)",
+            "TIMESTAMP_MILLIS",
             ArrowUInt64,
             u64
         );
         test_primitive_array_reader_one_type!(
             Int64Type,
             PhysicalType::INT64,
-            "(TIMESTAMP_MICROS)",
+            "TIMESTAMP_MICROS",
             ArrowUInt64,
             u64
         );
@@ -1293,7 +1293,6 @@ mod tests {
     }
 
     /// Array reader for test.
-    #[derive(Clone)]
     struct InMemoryArrayReader {
         data_type: ArrowType,
         array: ArrayRef,
