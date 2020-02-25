@@ -960,7 +960,10 @@ mod tests {
     use crate::util::test_common::page_util::InMemoryPageIterator;
     use crate::util::test_common::{get_test_file, make_pages};
     use arrow::array::{Array, ArrayRef, PrimitiveArray, StructArray};
-    use arrow::datatypes::{DataType as ArrowType, Field, Int32Type as ArrowInt32, UInt32Type as ArrowUInt32, UInt64Type as ArrowUInt64};
+    use arrow::datatypes::{
+        DataType as ArrowType, Field, Int32Type as ArrowInt32, UInt32Type as ArrowUInt32,
+        UInt64Type as ArrowUInt64,
+    };
     use rand::distributions::range::SampleRange;
     use std::any::Any;
     use std::collections::VecDeque;
@@ -1100,11 +1103,14 @@ mod tests {
 
     macro_rules! test_primitive_array_reader_one_type {
         ($arrow_parquet_type:ty, $physical_type:expr, $logical_type_str:expr, $result_arrow_type:ty, $result_primitive_type:ty) => {{
-            let message_type = format!("
+            let message_type = format!(
+                "
             message test_schema {{
               REQUIRED {:?} leaf {};
           }}
-            ", $physical_type, $logical_type_str);
+            ",
+                $physical_type, $logical_type_str
+            );
             let schema = parse_message_type(&message_type)
                 .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
                 .unwrap();
@@ -1148,7 +1154,10 @@ mod tests {
 
                 assert_eq!(
                     &PrimitiveArray::<$result_arrow_type>::from(
-                        data[0..50].iter().map(|x| *x as $result_primitive_type).collect::<Vec<$result_primitive_type>>()
+                        data[0..50]
+                            .iter()
+                            .map(|x| *x as $result_primitive_type)
+                            .collect::<Vec<$result_primitive_type>>()
                     ),
                     array
                 );
@@ -1158,11 +1167,41 @@ mod tests {
 
     #[test]
     fn test_primitive_array_reader_temporal_types() {
-        test_primitive_array_reader_one_type!(Int32Type, PhysicalType::INT32, "(DATE)", ArrowUInt32, u32);
-        test_primitive_array_reader_one_type!(Int32Type, PhysicalType::INT32, "(TIME_MILLIS)", ArrowUInt32, u32);
-        test_primitive_array_reader_one_type!(Int64Type, PhysicalType::INT64, "(TIME_MICROS)", ArrowUInt64, u64);
-        test_primitive_array_reader_one_type!(Int64Type, PhysicalType::INT64, "(TIMESTAMP_MILLIS)", ArrowUInt64, u64);
-        test_primitive_array_reader_one_type!(Int64Type, PhysicalType::INT64, "(TIMESTAMP_MICROS)", ArrowUInt64, u64);
+        test_primitive_array_reader_one_type!(
+            Int32Type,
+            PhysicalType::INT32,
+            "(DATE)",
+            ArrowUInt32,
+            u32
+        );
+        test_primitive_array_reader_one_type!(
+            Int32Type,
+            PhysicalType::INT32,
+            "(TIME_MILLIS)",
+            ArrowUInt32,
+            u32
+        );
+        test_primitive_array_reader_one_type!(
+            Int64Type,
+            PhysicalType::INT64,
+            "(TIME_MICROS)",
+            ArrowUInt64,
+            u64
+        );
+        test_primitive_array_reader_one_type!(
+            Int64Type,
+            PhysicalType::INT64,
+            "(TIMESTAMP_MILLIS)",
+            ArrowUInt64,
+            u64
+        );
+        test_primitive_array_reader_one_type!(
+            Int64Type,
+            PhysicalType::INT64,
+            "(TIMESTAMP_MICROS)",
+            ArrowUInt64,
+            u64
+        );
     }
 
     #[test]
