@@ -61,7 +61,7 @@ reference:
 - title: Multi-file datasets
   contents:
   - open_dataset
-  - open_dataset_factory
+  - dataset_factory
   - hive_partition
   - Dataset
   - Partitioning
