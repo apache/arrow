@@ -608,6 +608,34 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_dask.sh"]
 
+  conda-python-jpype:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-jpype
+    #   docker-compose run --rm conda-python-jpype
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-jpype
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-jpype.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-jpype
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      ARROW_FLIGHT: "OFF"
+      ARROW_GANDIVA: "OFF"
+    volumes: *conda-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_test.sh /arrow"]
+
   conda-python-turbodbc:
     # Possible $DASK parameters:
     #  - `latest`: latest release

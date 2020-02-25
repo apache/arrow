@@ -30,9 +30,11 @@ jpype = pytest.importorskip("jpype")
 @pytest.fixture(scope="session")
 def root_allocator():
     # This test requires Arrow Java to be built in the same source tree
-    pom_path = os.path.join(
-        os.path.dirname(__file__), '..', '..', '..',
-        'java', 'pom.xml')
+    try:
+        arrow_dir = os.environ["ARROW_SOURCE_DIR"]
+    except KeyError:
+        arrow_dir = os.path.join(os.path.dirname(__file__), '..', '..', '..')
+    pom_path = os.path.join(arrow_dir, 'java', 'pom.xml')
     tree = ET.parse(pom_path)
     version = tree.getroot().find(
         'POM:version',
@@ -40,8 +42,7 @@ def root_allocator():
             'POM': 'http://maven.apache.org/POM/4.0.0'
         }).text
     jar_path = os.path.join(
-        os.path.dirname(__file__), '..', '..', '..',
-        'java', 'tools', 'target',
+        arrow_dir, 'java', 'tools', 'target',
         'arrow-tools-{}-jar-with-dependencies.jar'.format(version))
     jar_path = os.getenv("ARROW_TOOLS_JAR", jar_path)
     jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path)

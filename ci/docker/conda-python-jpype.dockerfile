@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,16 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+ARG repo
+ARG arch=amd64
+ARG python=3.6
+FROM ${repo}:${arch}-conda-python-${python}
 
-arrow_dir=${1}
-
-export ARROW_SOURCE_DIR=${arrow_dir}
-export ARROW_TEST_DATA=${arrow_dir}/testing/data
-export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-
-# Enable some checks inside Python itself
-export PYTHONDEVMODE=1
-
-pytest -r s --pyargs pyarrow
+ARG jdk=11
+ARG maven=3.6
+RUN conda install -q \
+        maven=${maven} \
+        openjdk=${jdk} \
+        jpype1 && \
+    conda clean --all
