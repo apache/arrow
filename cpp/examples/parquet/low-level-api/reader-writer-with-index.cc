@@ -62,6 +62,8 @@ int parquet_writer(int argc, char** argv);
 
 void returnReaderwithType(std::shared_ptr<parquet::ColumnReader> cr, parquet::ColumnReader*& cr1);
 
+void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader*& int64_reader,int ind);
+
 int parquet_reader(int argc, char** argv);
 
 int main(int argc, char** argv) {
@@ -107,10 +109,8 @@ int parquet_reader(int argc,char** argv) {
 
       //      assert(row_group_reader->metadata()->total_byte_size() < ROW_GROUP_SIZE);
 
-      int64_t values_read = 0;
-      int64_t rows_read = 0;
-      int16_t definition_level;
-      int16_t repetition_level;
+      // int16_t definition_level;
+      // int16_t repetition_level;
       std::shared_ptr<parquet::ColumnReader> column_reader;
       int col_id = 0;
 
@@ -143,26 +143,13 @@ int parquet_reader(int argc,char** argv) {
         }
 
         int row_counter = 0, ind = 0;
-        while (int64_reader->HasNext()) {
-         int64_t value;
-         ind++;
+        while (int64_reader->HasNext()) { 
+          ind++;
       
-         // Read one value at a time. The number of rows read is returned. values_read
-         // contains the number of non-null rows
-         rows_read = int64_reader->callReadBatch(1,&value,&values_read);
-
-        // Ensure only one value is read
-        assert(rows_read == 1);
-        // There are no NULL values in the rows written
-       //        assert(values_read == 1);
-        // Verify the value written
-        if ( value == predicate ) {
-           row_counter = ind;
-           std::cout << "row number: " << row_counter << " " << value << "\n";
-        }
+          printVal(column_reader,int64_reader,ind);
 //        int64_t expected_value = col_row_counts[col_id];
 //        assert(value == expected_value);
-        col_row_counts[col_id]++; 
+          col_row_counts[col_id]++; 
      
         }
         col_id++;
@@ -356,7 +343,101 @@ void returnReaderwithType(std::shared_ptr<parquet::ColumnReader>column_reader, p
             break;
         case Type::FIXED_LEN_BYTE_ARRAY:
             int64_reader = static_cast<parquet::FixedLenByteArrayReader*>(column_reader.get());
+            break;
         default:
            parquet::ParquetException::NYI("type reader not implemented");
       }
+}
+
+
+void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader*& int64_reader,int ind) {
+
+      int64_t values_read = 0;
+      int64_t rows_read = 0;
+      int row_counter;
+       switch (column_reader->type()) {
+       case Type::BOOLEAN:
+          {
+           bool test;
+           rows_read = int64_reader->callReadBatch(1,&test,&values_read);
+           row_counter = ind;
+           std::cout << "row number: " << row_counter << " " << test << "\n";
+           break;
+          }
+        case Type::INT32:
+          {
+            int32_t val;
+           rows_read = int64_reader->callReadBatch(1,&val,&values_read);
+           row_counter = ind;
+           std::cout << "row number: " << row_counter << " " << val << "\n";
+          break;
+          }
+        case Type::INT64:
+         {
+          int64_t value;
+         // Read one value at a time. The number of rows read is returned. values_read
+         // contains the number of non-null rows
+          rows_read = int64_reader->callReadBatch(1,&value,&values_read);
+
+        // Ensure only one value is read
+          assert(rows_read == 1);
+        // There are no NULL values in the rows written
+       //        assert(values_read == 1);
+        // Verify the value written
+       //   if ( value == predicate ) {
+           row_counter = ind;
+           std::cout << "row number: " << row_counter << " " << value << "\n";
+       //   }
+          break;
+         }
+        case Type::INT96:
+           {
+              uint32_t val;
+           rows_read = int64_reader->callReadBatch(1,&val,&values_read);
+           row_counter = ind;
+           std::cout << "row number: " << row_counter << " " << val << "\n";
+           break;
+           }
+        case Type::FLOAT:
+           {
+              float val;
+           rows_read = int64_reader->callReadBatch(1,&val,&values_read);
+           row_counter = ind;
+           std::cout << "row number: " << row_counter << " " << val << "\n";
+           break;
+           }
+        case Type::DOUBLE:
+           {
+              double val;
+           rows_read = int64_reader->callReadBatch(1,&val,&values_read);
+           row_counter = ind;
+           std::cout << "row number: " << row_counter << " " << val << "\n";
+           break;
+           }
+        case Type::BYTE_ARRAY:
+          {
+            parquet::ByteArray str;
+
+            rows_read = int64_reader->callReadBatch(1,&str,&values_read);
+            std::string result = parquet::ByteArrayToString(str);
+
+            row_counter = ind;
+            std::cout << "row number: " << row_counter << " " << result << "\n";
+            break;
+          }
+        case Type::FIXED_LEN_BYTE_ARRAY:
+          {
+            parquet::FLBA str;
+
+            rows_read = int64_reader->callReadBatch(1,&str,&values_read);
+            std::string result = parquet::FixedLenByteArrayToString(str,sizeof(str));
+
+            row_counter = ind;
+            std::cout << "row number: " << row_counter << " " << result << "\n";
+          break;
+          }
+        default:
+           parquet::ParquetException::NYI("type reader not implemented");
+      }
+        
 }
