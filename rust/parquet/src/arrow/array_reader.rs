@@ -130,6 +130,8 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
 
     /// Reads at most `batch_size` records into array.
     fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
+        println!("READING NEXT BATCH");
+        println!("self.data_type: {:?}, physical type: {:?}", &self.data_type, T::get_physical_type());
         let mut records_read = 0usize;
         while records_read < batch_size {
             let records_to_read = batch_size - records_read;
@@ -959,8 +961,8 @@ mod tests {
     use crate::schema::types::{ColumnDescPtr, SchemaDescriptor};
     use crate::util::test_common::page_util::InMemoryPageIterator;
     use crate::util::test_common::{get_test_file, make_pages};
-    use arrow::array::{Array, ArrayRef, PrimitiveArray, StructArray};
-    use arrow::datatypes::{DataType as ArrowType, Field, Int32Type as ArrowInt32};
+    use arrow::array::{Array, ArrayRef, PrimitiveArray, StructArray, TimestampSecondArray, IntervalYearMonthArray, IntervalDayTimeArray, DurationSecondArray};
+    use arrow::datatypes::{DataType as ArrowType, Field, Int32Type as ArrowInt32, TimeUnit, DateUnit, IntervalUnit, Date32Type, Date64Type, Time32SecondType, Time64MicrosecondType};
     use rand::distributions::range::SampleRange;
     use std::any::Any;
     use std::collections::VecDeque;
@@ -1052,16 +1054,29 @@ mod tests {
                 column_desc.clone(),
             )
             .unwrap();
-
+            println!("here");
+            // // Read first 50 values, which are all from the first column chunck
+            // let array = array_reader.next_batch(50).unwrap();
+            // let array = array
+            //     .as_any()
+            //     .downcast_ref::<PrimitiveArray<ArrowInt32>>()
+            //     .unwrap();
+            //
+            // assert_eq!(
+            //     &PrimitiveArray::<ArrowInt32>::from(
+            //         data[0..50].iter().cloned().collect::<Vec<i32>>()
+            //     ),
+            //     array
+            // );
             // Read first 50 values, which are all from the first column chunck
             let array = array_reader.next_batch(50).unwrap();
             let array = array
                 .as_any()
-                .downcast_ref::<PrimitiveArray<ArrowInt32>>()
+                .downcast_ref::<PrimitiveArray<Date32Type>>()
                 .unwrap();
 
             assert_eq!(
-                &PrimitiveArray::<ArrowInt32>::from(
+                &PrimitiveArray::<Date32Type>::from(
                     data[0..50].iter().cloned().collect::<Vec<i32>>()
                 ),
                 array
@@ -1187,6 +1202,7 @@ mod tests {
     }
 
     /// Array reader for test.
+    #[derive(Clone)]
     struct InMemoryArrayReader {
         data_type: ArrowType,
         array: ArrayRef,
@@ -1232,32 +1248,85 @@ mod tests {
         }
     }
 
+    macro_rules! get_test_array_reader {
+        ($ARROWTYPE:expr, $array:expr) => {{
+            InMemoryArrayReader::new(
+                $ARROWTYPE,
+                $array.clone(),
+                Some(vec![0, 1, 2, 3, 1]),
+                Some(vec![1, 1, 1, 1, 1]),
+            )
+        }};
+    }
+
     #[test]
     fn test_struct_array_reader() {
-        let array_1 = Arc::new(PrimitiveArray::<ArrowInt32>::from(vec![1, 2, 3, 4, 5]));
-        let array_reader_1 = InMemoryArrayReader::new(
+        let array_types = vec![
             ArrowType::Int32,
-            array_1.clone(),
-            Some(vec![0, 1, 2, 3, 1]),
-            Some(vec![1, 1, 1, 1, 1]),
-        );
+            ArrowType::Timestamp(TimeUnit::Second, None),
+            ArrowType::Date32(DateUnit::Day),
+            ArrowType::Date64(DateUnit::Millisecond),
+            ArrowType::Time32(TimeUnit::Second),
+            ArrowType::Time64(TimeUnit::Microsecond),
+            ArrowType::Interval(IntervalUnit::YearMonth),
+            ArrowType::Interval(IntervalUnit::DayTime),
+            ArrowType::Duration(TimeUnit::Second),
+            ArrowType::Int32
+        ];
 
-        let array_2 = Arc::new(PrimitiveArray::<ArrowInt32>::from(vec![5, 4, 3, 2, 1]));
-        let array_reader_2 = InMemoryArrayReader::new(
+        let mut array_readers = vec![
+            get_test_array_reader!(
+                ArrowType::Int32,
+                Arc::new(PrimitiveArray::<ArrowInt32>::from(vec![1, 2, 3, 4, 5]))
+            ),
+            get_test_array_reader!(
+                ArrowType::Timestamp(TimeUnit::Second, None),
+                Arc::new(TimestampSecondArray::from_vec(vec![1, 2, 3, 4, 5], None))
+            ),
+            get_test_array_reader!(
+                ArrowType::Date32(DateUnit::Day),
+                Arc::<PrimitiveArray<Date32Type>>::new(vec![1, 2, 3, 4, 5].into())
+            ),
+            get_test_array_reader!(
+                ArrowType::Date64(DateUnit::Millisecond),
+                Arc::<PrimitiveArray<Date64Type>>::new(vec![1, 2, 3, 4, 5].into())
+            ),
+            get_test_array_reader!(
+                ArrowType::Time32(TimeUnit::Second),
+                Arc::<PrimitiveArray<Time32SecondType>>::new(vec![1, 2, 3, 4, 5].into())
+            ),
+            get_test_array_reader!(
+                ArrowType::Time64(TimeUnit::Microsecond),
+                Arc::<PrimitiveArray<Time64MicrosecondType>>::new(vec![1, 2, 3, 4, 5].into())
+            ),
+            get_test_array_reader!(
+                ArrowType::Interval(IntervalUnit::YearMonth),
+                Arc::new(IntervalYearMonthArray::from(vec![1, 2, 3, 4, 5]))
+            ),
+            get_test_array_reader!(
+                ArrowType::Interval(IntervalUnit::DayTime),
+                Arc::new(IntervalDayTimeArray::from(vec![1, 2, 3, 4, 5]))
+            ),
+            get_test_array_reader!(
+                ArrowType::Duration(TimeUnit::Second),
+                Arc::new(DurationSecondArray::from(vec![1, 2, 3, 4, 5]))
+            )
+        ];
+
+        array_readers.push(InMemoryArrayReader::new(
             ArrowType::Int32,
-            array_2.clone(),
+            Arc::new(PrimitiveArray::<ArrowInt32>::from(vec![5, 4, 3, 2, 1])),
             Some(vec![0, 1, 3, 1, 2]),
             Some(vec![1, 1, 1, 1, 1]),
-        );
+        ));
 
-        let struct_type = ArrowType::Struct(vec![
-            Field::new("f1", array_1.data_type().clone(), true),
-            Field::new("f2", array_2.data_type().clone(), true),
-        ]);
+        let struct_type = ArrowType::Struct(array_types.iter().enumerate().map(|(idx, ty)| {
+            Field::new(&idx.to_string(), ty.clone(), true)
+        }).collect());
 
         let mut struct_array_reader = StructArrayReader::new(
             struct_type,
-            vec![Box::new(array_reader_1), Box::new(array_reader_2)],
+            array_readers.iter().map(|ar| Box::new(ar.clone()) as Box<ArrayReader>).collect(),
             1,
             1,
         );
