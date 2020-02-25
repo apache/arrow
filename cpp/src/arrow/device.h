@@ -107,6 +107,8 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   /// \brief Create a OutputStream to write to a particular buffer.
   ///
   /// The given buffer must be mutable and tied to this MemoryManager.
+  /// The returned stream object writes into the buffer's underlying memory
+  /// (but it won't resize it).
   ///
   /// See also the Buffer::GetWriter shorthand.
   virtual Result<std::shared_ptr<io::OutputStream>> GetBufferWriter(

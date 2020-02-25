@@ -19,8 +19,8 @@
 CUDA support
 ============
 
-CUDA Contexts
-=============
+Contexts
+========
 
 .. doxygenclass:: arrow::cuda::CudaDeviceManager
    :project: arrow_cpp
@@ -30,22 +30,30 @@ CUDA Contexts
    :project: arrow_cpp
    :members:
 
-Device and Host Buffers
-=======================
+Devices
+=======
+
+.. doxygenclass:: arrow::cuda::CudaDevice
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::cuda::CudaMemoryManager
+   :project: arrow_cpp
+   :members:
+
+Buffers
+=======
 
 .. doxygenclass:: arrow::cuda::CudaBuffer
    :project: arrow_cpp
    :members:
 
-.. doxygenfunction:: arrow::cuda::AllocateCudaHostBuffer
-   :project: arrow_cpp
-
 .. doxygenclass:: arrow::cuda::CudaHostBuffer
    :project: arrow_cpp
    :members:
 
-Device Memory Input / Output
-============================
+Memory Input / Output
+=====================
 
 .. doxygenclass:: arrow::cuda::CudaBufferReader
    :project: arrow_cpp
@@ -55,15 +63,12 @@ Device Memory Input / Output
    :project: arrow_cpp
    :members:
 
-CUDA IPC
-========
+IPC
+===
 
 .. doxygenclass:: arrow::cuda::CudaIpcMemHandle
    :project: arrow_cpp
    :members:
 
-.. doxygenfunction:: arrow::cuda::SerializeRecordBatch
-   :project: arrow_cpp
-
-.. doxygenfunction:: arrow::cuda::ReadRecordBatch
-   :project: arrow_cpp
+.. doxygengroup:: cuda-ipc-functions
+   :content-only:

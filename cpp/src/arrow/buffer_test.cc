@@ -29,6 +29,7 @@
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/device.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
@@ -510,6 +511,29 @@ TEST(TestBuffer, SliceMutableBuffer) {
 
   Buffer expected(data + 5, 10);
   ASSERT_TRUE(slice->Equals(expected));
+}
+
+TEST(TestBuffer, GetReader) {
+  const std::string data_str = "some data to read";
+  auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
+
+  auto buf = std::make_shared<Buffer>(data, data_str.size());
+  ASSERT_OK_AND_ASSIGN(auto reader, Buffer::GetReader(buf));
+  ASSERT_OK_AND_EQ(static_cast<int64_t>(data_str.size()), reader->GetSize());
+  ASSERT_OK_AND_ASSIGN(auto read_buf, reader->ReadAt(5, 4));
+  AssertBufferEqual(*read_buf, "data");
+}
+
+TEST(TestBuffer, GetWriter) {
+  std::shared_ptr<Buffer> buf;
+  ASSERT_OK(AllocateBuffer(9, &buf));
+  ASSERT_OK_AND_ASSIGN(auto writer, Buffer::GetWriter(buf));
+  ASSERT_OK(writer->Write(reinterpret_cast<const uint8_t*>("some data"), 9));
+  AssertBufferEqual(*buf, "some data");
+
+  // Non-mutable buffer
+  buf = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>("xxx"), 3);
+  ASSERT_RAISES(Invalid, Buffer::GetWriter(buf));
 }
 
 template <typename AllocateFunction>

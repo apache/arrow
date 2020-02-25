@@ -58,7 +58,7 @@ class MemoryPoolStats {
 
 }  // namespace internal
 
-/// Base class for memory allocation.
+/// Base class for memory allocation on the CPU.
 ///
 /// Besides tracking the number of allocated bytes, the allocator also should
 /// take care of the required 64-byte alignment.

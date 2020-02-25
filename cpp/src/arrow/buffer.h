@@ -110,8 +110,6 @@ class ARROW_EXPORT Buffer {
 
   uint8_t operator[](std::size_t i) const { return data_[i]; }
 
-  bool is_mutable() const { return is_mutable_; }
-
   /// \brief Construct a new std::string with a hexadecimal representation of the buffer.
   /// \return std::string
   std::string ToHexString();
@@ -254,20 +252,54 @@ class ARROW_EXPORT Buffer {
   /// `data()` pointer.  Otherwise, you'll have to `View()` or `Copy()` it.
   bool is_cpu() const { return is_cpu_; }
 
+  /// \brief Whether the buffer is mutable
+  ///
+  /// If this function returns true, you are allowed to modify buffer contents
+  /// using the pointer returned by `mutable_data()` or `mutable_address()`.
+  bool is_mutable() const { return is_mutable_; }
+
   const std::shared_ptr<Device>& device() const { return memory_manager_->device(); }
 
   const std::shared_ptr<MemoryManager>& memory_manager() const { return memory_manager_; }
 
   std::shared_ptr<Buffer> parent() const { return parent_; }
 
-  // Convenience functions
+  /// \brief Get a RandomAccessFile for reading a buffer
+  ///
+  /// The returned file object reads from this buffer's underlying memory.
   static Result<std::shared_ptr<io::RandomAccessFile>> GetReader(std::shared_ptr<Buffer>);
+
+  /// \brief Get a OutputStream for writing to a buffer
+  ///
+  /// The buffer must be mutable.  The returned stream object writes into the buffer's
+  /// underlying memory (but it won't resize it).
   static Result<std::shared_ptr<io::OutputStream>> GetWriter(std::shared_ptr<Buffer>);
 
+  /// \brief Copy buffer
+  ///
+  /// The buffer contents will be copied into a new buffer allocated by the
+  /// given MemoryManager.  This function supports cross-device copies.
   static Result<std::shared_ptr<Buffer>> Copy(std::shared_ptr<Buffer> source,
                                               const std::shared_ptr<MemoryManager>& to);
+
+  /// \brief View buffer
+  ///
+  /// Return a Buffer that reflects this buffer, seen potentially from another
+  /// device, without making an explicit copy of the contents.  The underlying
+  /// mechanism is typically implemented by the kernel or device driver, and may
+  /// involve lazy caching of parts of the buffer contents on the destination
+  /// device's memory.
+  ///
+  /// If a non-copy view is unsupported for the buffer on the given device,
+  /// nullptr is returned.  An error can be returned if some low-level
+  /// operation fails (such as an out-of-memory condition).
   static Result<std::shared_ptr<Buffer>> View(std::shared_ptr<Buffer> source,
                                               const std::shared_ptr<MemoryManager>& to);
+
+  /// \brief View or copy buffer
+  ///
+  /// Try to view buffer contents on the given MemoryManager's device, but
+  /// fall back to copying if a no-copy view isn't supported.
   static Result<std::shared_ptr<Buffer>> ViewOrCopy(
       std::shared_ptr<Buffer> source, const std::shared_ptr<MemoryManager>& to);
 

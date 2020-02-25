@@ -93,6 +93,9 @@ Result<std::shared_ptr<io::RandomAccessFile>> Buffer::GetReader(
 }
 
 Result<std::shared_ptr<io::OutputStream>> Buffer::GetWriter(std::shared_ptr<Buffer> buf) {
+  if (!buf->is_mutable()) {
+    return Status::Invalid("Expected mutable buffer");
+  }
   return buf->memory_manager_->GetBufferWriter(buf);
 }
 
