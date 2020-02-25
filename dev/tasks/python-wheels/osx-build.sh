@@ -49,9 +49,9 @@ function build_wheel {
     # arrow_boost_dist="$PWD/arrow_boost_dist"
     # mkdir "$arrow_boost" "$arrow_boost_dist"
 
-    # # Arrow is 64-bit-only at the moment
-    # export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//"-arch i386"/}"
-    # export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//"-arch i386"} -std=c++11"
+    # Arrow is 64-bit-only at the moment
+    export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//"-arch i386"/}"
+    export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//"-arch i386"} -std=c++11"
 
     # # Build Boost's bcp tool to create a custom namespaced boost build.
     # # Using this build, we can dynamically link our own boost build and
