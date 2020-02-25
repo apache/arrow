@@ -27,9 +27,10 @@ import pyarrow.flight
 
 
 class FlightServer(pyarrow.flight.FlightServerBase):
-    def __init__(self):
-        super(FlightServer, self).__init__()
+    def __init__(self, host="localhost", location=None, **kwargs):
+        super(FlightServer, self).__init__(location, **kwargs)
         self.flights = {}
+        self.host = host
 
     @classmethod
     def descriptor_to_key(self, descriptor):
@@ -45,27 +46,36 @@ class FlightServer(pyarrow.flight.FlightServerBase):
                 descriptor = pyarrow.flight.FlightDescriptor.for_path(*key[2])
 
             endpoints = [
-                pyarrow.flight.FlightEndpoint(repr(key),
-                                              [('localhost', 5005)]),
+                pyarrow.flight.FlightEndpoint(
+                    repr(key),
+                    [pyarrow.flight.Location.for_grpc_tcp(self.host, self.port)]),
             ]
+
+            mock_sink = pyarrow.MockOutputStream()
+            stream_writer = pyarrow.RecordBatchStreamWriter(mock_sink, table.schema)
+            stream_writer.write_table(table)
+            stream_writer.close()
+            data_size = mock_sink.size()
+
             yield pyarrow.flight.FlightInfo(table.schema,
                                             descriptor, endpoints,
-                                            table.num_rows, 0)
+                                            table.num_rows, data_size)
 
     def get_flight_info(self, context, descriptor):
         key = FlightServer.descriptor_to_key(descriptor)
         if key in self.flights:
             table = self.flights[key]
+            print(table.schema)
             endpoints = [
                 pyarrow.flight.FlightEndpoint(repr(key),
-                                              [('localhost', 5005)]),
+                    [pyarrow.flight.Location.for_grpc_tcp(self.host, self.port)]),
             ]
             return pyarrow.flight.FlightInfo(table.schema,
                                              descriptor, endpoints,
                                              table.num_rows, 0)
         raise KeyError('Flight not found.')
 
-    def do_put(self, context, descriptor, reader):
+    def do_put(self, context, descriptor, reader, writer):
         key = FlightServer.descriptor_to_key(descriptor)
         print(key)
         self.flights[key] = reader.read_all()
@@ -95,7 +105,7 @@ class FlightServer(pyarrow.flight.FlightServerBase):
             # request
             threading.Thread(target=self._shutdown).start()
         else:
-            raise KeyError(f"Unknown action {action.type!r}")
+            raise KeyError("Unknown action {!r}".format(action.type))
 
     def _shutdown(self):
         """Shut down after a delay."""
@@ -106,12 +116,11 @@ class FlightServer(pyarrow.flight.FlightServerBase):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--host", type=str, default="localhost")
     parser.add_argument("--port", type=int, default=5005)
     parser.add_argument("--tls", nargs=2, default=None)
 
     args = parser.parse_args()
-
-    server = FlightServer()
     kwargs = {}
     scheme = "grpc+tcp"
     if args.tls:
@@ -120,12 +129,12 @@ def main():
             kwargs["tls_cert_chain"] = cert_file.read()
         with open(args.tls[1], "rb") as key_file:
             kwargs["tls_private_key"] = key_file.read()
-
-    location = "{}://0.0.0.0:{}".format(scheme, args.port)
-    server.init(location, **kwargs)
+            
+    location = "{}://{}:{}".format(scheme, args.host, args.port)
+    server = FlightServer(args.host, location, **kwargs)
     print("Serving on", location)
-    server.run()
-
+    server.serve()
 
 if __name__ == '__main__':
     main()
+
