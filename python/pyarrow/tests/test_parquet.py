@@ -21,7 +21,6 @@ import decimal
 import io
 import json
 import os
-import pickle
 import pytest
 
 import numpy as np
@@ -31,6 +30,7 @@ from pyarrow.compat import guid
 from pyarrow.pandas_compat import _pandas_api
 from pyarrow.tests import util
 from pyarrow.filesystem import LocalFileSystem, FileSystem
+
 
 try:
     import pyarrow.parquet as pq
@@ -2797,16 +2797,9 @@ def _make_dataset_for_pickling(tempdir, N=100):
     return dataset
 
 
-@pytest.mark.pandas
-@pytest.mark.parametrize('pickler', [
-    pytest.param(pickle, id='builtin'),
-    pytest.param(pytest.importorskip('cloudpickle'), id='cloudpickle')
-])
-def test_pickle_dataset(tempdir, datadir, pickler):
+def _assert_dataset_is_picklable(dataset, pickler):
     def is_pickleable(obj):
         return obj == pickler.loads(pickler.dumps(obj))
-
-    dataset = _make_dataset_for_pickling(tempdir)
 
     assert is_pickleable(dataset)
     assert is_pickleable(dataset.metadata)
@@ -2821,6 +2814,18 @@ def test_pickle_dataset(tempdir, datadir, pickler):
         assert metadata.num_row_groups
         for i in range(metadata.num_row_groups):
             assert is_pickleable(metadata.row_group(i))
+
+
+def test_builtin_pickle_dataset(tempdir, datadir):
+    import pickle
+    dataset = _make_dataset_for_pickling(tempdir)
+    _assert_dataset_is_picklable(dataset, pickler=pickle)
+
+
+def test_cloudpickle_dataset(tempdir, datadir):
+    cp = pytest.importorskip('cloudpickle')
+    dataset = _make_dataset_for_pickling(tempdir)
+    _assert_dataset_is_picklable(dataset, pickler=cp)
 
 
 @pytest.mark.pandas
