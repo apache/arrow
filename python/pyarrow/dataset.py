@@ -262,6 +262,12 @@ def _ensure_factory(src, **kwargs):
     elif isinstance(src, DatasetFactory):
         return src
     elif isinstance(src, Dataset):
+        if any(v is not None for v in kwargs.values()):
+            # when passing a SourceFactory, the arguments cannot be specified
+            raise ValueError(
+                "When passing a DatasetFactory, you cannot pass any "
+                "additional arguments"
+            )
         raise TypeError(
             "Dataset objects are currently not supported, only DatasetFactory "
             "instances. Use the factory() function to create such objects."
@@ -311,18 +317,17 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
     ... ])
 
     """
+    # bundle the keyword arguments
+    kwargs = dict(filesystem=filesystem, partitioning=partitioning,
+                  format=format)
+
     if type(paths_or_factories) is str:
-        return factory(paths_or_factories, filesystem=filesystem,
-                       partitioning=partitioning, format=format).finish()
+        return factory(paths_or_factories, **kwargs).finish()
 
     if not isinstance(paths_or_factories, list):
         paths_or_factories = [paths_or_factories]
 
-    factories = [
-        _ensure_factory(src, filesystem=filesystem, partitioning=partitioning,
-                        format=format)
-        for src in paths_or_factories
-    ]
+    factories = [_ensure_factory(f, **kwargs) for f in paths_or_factories]
     return UnionDatasetFactory(factories).finish()
 
 

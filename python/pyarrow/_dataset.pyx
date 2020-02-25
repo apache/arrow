@@ -210,23 +210,22 @@ cdef class Dataset:
 
 
 cdef class UnionDataset(Dataset):
-    """A Dataset wrapping child datasets."""
+    """A Dataset wrapping child datasets.
+
+    Children's schemas must agree with the provided schema.
+
+    Parameters
+    ----------
+    schema : Schema
+        A known schema to conform to.
+    children : list of Dataset
+        One or more input children
+    """
 
     cdef:
         CUnionDataset* union_dataset
 
     def __init__(self, Schema schema not None, children):
-        """Create a dataset
-
-        Children's schemas must agree with the provided schema.
-
-        Parameters
-        ----------
-        children : list of Dataset
-            One or more input children
-        schema : Schema
-            A known schema to conform to.
-        """
         cdef:
             Dataset child
             CDatasetVector c_children
@@ -245,7 +244,24 @@ cdef class UnionDataset(Dataset):
 
 
 cdef class FileSystemDataset(Dataset):
-    """A Dataset created from a set of files on a particular filesystem"""
+    """A Dataset created from a set of files on a particular filesystem.
+
+    Parameters
+    ----------
+    schema : Schema
+        The top-level schema of the DataDataset.
+    root_partition : Expression
+        The top-level partition of the DataDataset.
+    file_format : FileFormat
+        File format to create fragments from, currently only
+        ParquetFileFormat and IpcFileFormat are supported.
+    filesystem : FileSystem
+        The filesystem which files are from.
+    paths_or_selector : Union[FileSelector, List[FileStats]]
+        List of files/directories to consume.
+    partitions : List[Expression]
+        Attach aditional partition information for the file paths.
+    """
 
     cdef:
         CFileSystemDataset* filesystem_dataset
@@ -254,24 +270,6 @@ cdef class FileSystemDataset(Dataset):
                  FileFormat file_format not None,
                  FileSystem filesystem not None,
                  paths_or_selector, partitions):
-        """Create a FileSystemDataset
-
-        Parameters
-        ----------
-        schema : Schema
-            The top-level schema of the DataDataset.
-        root_partition : Expression
-            The top-level partition of the DataDataset.
-        file_format : FileFormat
-            File format to create fragments from, currently only
-            ParquetFileFormat and IpcFileFormat are supported.
-        filesystem : FileSystem
-            The filesystem which files are from.
-        paths_or_selector : Union[FileSelector, List[FileStats]]
-            List of files/directories to consume.
-        partitions : List[Expression]
-            Attach aditional partition information for the file paths.
-        """
         cdef:
             FileStats stats
             Expression expr
@@ -335,7 +333,7 @@ cdef class FileFormat:
         typ = frombytes(sp.get().type_name())
         if typ == 'parquet':
             self = ParquetFileFormat.__new__(ParquetFileFormat)
-        if typ == 'ipc':
+        elif typ == 'ipc':
             self = IpcFileFormat.__new__(IpcFileFormat)
         else:
             raise TypeError(typ)
@@ -863,7 +861,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
         self.filesystem_factory = <CFileSystemDatasetFactory*> sp.get()
 
 
-cdef class UnionDatasetFactory:
+cdef class UnionDatasetFactory(DatasetFactory):
     """
     Provides a way to inspect/discover a Dataset's expected schema before
     materialization.
@@ -874,8 +872,7 @@ cdef class UnionDatasetFactory:
     """
 
     cdef:
-        shared_ptr[CDatasetFactory] wrapped
-        CDatasetFactory* factory
+        CDatasetFactory* union_factory
 
     def __init__(self, list factories):
         cdef:
@@ -884,39 +881,6 @@ cdef class UnionDatasetFactory:
         for factory in factories:
             c_factories.push_back(factory.unwrap())
         self.init(GetResultValue(CUnionDatasetFactory.Make(c_factories)))
-
-    cdef void init(self, const shared_ptr[CDatasetFactory]& sp):
-        self.wrapped = sp
-        self.factory = sp.get()
-
-    @staticmethod
-    cdef wrap(shared_ptr[CDatasetFactory]& sp):
-        cdef DatasetFactory self = DatasetFactory.__new__(DatasetFactory)
-        self.init(sp)
-        return self
-
-    cdef inline shared_ptr[CDatasetFactory] unwrap(self) nogil:
-        return self.wrapped
-
-    def inspect_schemas(self):
-        cdef vector[shared_ptr[CSchema]] schemas
-        schemas = GetResultValue(self.factory.InspectSchemas())
-        return [pyarrow_wrap_schema(schema) for schema in schemas]
-
-    def inspect(self):
-        return pyarrow_wrap_schema(GetResultValue(self.factory.Inspect()))
-
-    def finish(self, Schema schema=None):
-        cdef CResult[shared_ptr[CDataset]] result
-
-        if schema is None:
-            result = self.factory.Finish()
-        else:
-            result = self.factory.FinishWithSchema(
-                pyarrow_unwrap_schema(schema)
-            )
-
-        return Dataset.wrap(GetResultValue(result))
 
 
 cdef class ScanTask:

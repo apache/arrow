@@ -174,12 +174,14 @@ def test_filesystem_dataset(mockfs):
     paths = ['subdir/1/xxx/file0.parquet', 'subdir/2/yyy/file1.parquet']
     partitions = [ds.ScalarExpression(True), ds.ScalarExpression(True)]
 
-    source = ds.FileSystemDataset(schema,
-                                  root_partition=None,
-                                  file_format=file_format,
-                                  filesystem=mockfs,
-                                  paths_or_selector=paths,
-                                  partitions=partitions)
+    source = ds.FileSystemDataset(
+        schema,
+        root_partition=None,
+        file_format=file_format,
+        filesystem=mockfs,
+        paths_or_selector=paths,
+        partitions=partitions
+    )
 
     root_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
@@ -198,10 +200,14 @@ def test_filesystem_dataset(mockfs):
             ds.ScalarExpression(2)
         )
     ]
-    source = ds.FileSystemDataset(paths_or_selector=paths, schema=schema,
-                                  root_partition=root_partition,
-                                  filesystem=mockfs, partitions=partitions,
-                                  file_format=file_format)
+    source = ds.FileSystemDataset(
+        paths_or_selector=paths,
+        schema=schema,
+        root_partition=root_partition,
+        filesystem=mockfs,
+        partitions=partitions,
+        file_format=file_format
+    )
     assert source.partition_expression.equals(root_partition)
     assert set(source.files) == set(paths)
 
@@ -606,9 +612,11 @@ def test_open_dataset_list_of_files(tempdir):
 
     # list of exact files needs to be passed to source() function
     # (dataset() will interpret it as separate sources)
-    for dataset in [
-            ds.dataset(ds.factory([path1, path2])),
-            ds.dataset(ds.factory([str(path1), str(path2)]))]:
+    datasets = [
+        ds.dataset(ds.factory([path1, path2])),
+        ds.dataset(ds.factory([str(path1), str(path2)]))
+    ]
+    for dataset in datasets:
         assert dataset.schema.equals(table.schema, check_metadata=False)
         result = dataset.to_table(use_threads=False)  # deterministic row order
         assert result.equals(table, check_metadata=False)
@@ -654,7 +662,7 @@ def test_open_dataset_partitioned_directory(tempdir):
 
 @pytest.mark.parquet
 def test_open_dataset_filesystem(tempdir):
-    # # single file
+    # single file
     table, path = _create_single_file(tempdir)
 
     # filesystem inferred from path
