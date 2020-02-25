@@ -39,7 +39,7 @@ test_that("type() infers from R type", {
   )
   expect_equal(
     type(lubridate::ymd_hms("2019-02-14 13:55:05")),
-    timestamp(TimeUnit$MICRO, "GMT")
+    timestamp(TimeUnit$MICRO, "UTC")
   )
   expect_equal(
     type(hms::hms(56, 34, 12)),
