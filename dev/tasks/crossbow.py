@@ -555,7 +555,7 @@ class Repo:
     def github_upload_asset(self, release, path, max_retries=None,
                             retry_backoff=None):
         if max_retries is None:
-            max_retries = int(os.environ.get('CROSSBOW_MAX_RETRIES', 5))
+            max_retries = int(os.environ.get('CROSSBOW_MAX_RETRIES', 8))
         if retry_backoff is None:
             retry_backoff = int(os.environ.get('CROSSBOW_RETRY_BACKOFF', 5))
 
