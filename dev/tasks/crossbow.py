@@ -21,6 +21,7 @@ import os
 import re
 import glob
 import time
+import logging
 import mimetypes
 import textwrap
 import concurrent.futures
@@ -49,6 +50,17 @@ except ImportError:
     PygitRemoteCallbacks = object
 else:
     PygitRemoteCallbacks = pygit2.RemoteCallbacks
+
+
+# initialize logging
+logging.basicConfig()
+logging.getLogger().setLevel(logging.DEBUG)
+
+# enable verbose logging for requests
+# http_client.HTTPConnection.debuglevel = 1
+requests_log = logging.getLogger("requests.packages.urllib3")
+requests_log.setLevel(logging.DEBUG)
+requests_log.propagate = True
 
 
 CWD = Path(__file__).parent.absolute()
@@ -459,8 +471,13 @@ class Repo:
                 raise ImportError('Must install github3.py')
             github_token = github_token or self.github_token
             username, reponame = self._parse_github_user_repo()
-            gh = github3.login(token=github_token)
-            self._github_repo = gh.repository(username, reponame)
+            session = github3.session.GitHubSession(
+                default_connect_timeout=10,
+                default_read_timeout=30
+            )
+            github = github3.GitHub(session=session)
+            github.login(token=github_token)
+            self._github_repo = github.repository(username, reponame)
         return self._github_repo
 
     def github_commit_status(self, commit):
@@ -535,6 +552,55 @@ class Repo:
         else:
             return {a.name: a for a in release.assets()}
 
+    def github_upload_asset(self, release, path, max_retries=None,
+                            retry_backoff=None):
+        if max_retries is None:
+            max_retries = int(os.environ.get('CROSSBOW_MAX_RETRIES', 8))
+        if retry_backoff is None:
+            retry_backoff = int(os.environ.get('CROSSBOW_RETRY_BACKOFF', 5))
+
+        name = os.path.basename(path)
+        size = os.path.getsize(path)
+        mime = mimetypes.guess_type(name)[0] or 'application/zip'
+
+        click.echo('Uploading asset `{}` with mimetype {} and size {}...'
+                   .format(name, mime, size))
+
+        for i in range(max_retries):
+            try:
+                with open(path, 'rb') as fp:
+                    result = release.upload_asset(name=name, asset=fp,
+                                                  content_type=mime)
+            except github3.exceptions.ResponseError as e:
+                click.echo('Attempt {} has failed with message: {}.'
+                           .format(i + 1, str(e)))
+                click.echo('Error message {}'.format(e.msg))
+                click.echo('List of errors provided by Github:')
+                for err in e.errors:
+                    click.echo(' - {}'.format(err))
+
+                if e.code == 422:
+                    # 422 Validation Failed, probably raised because
+                    # ReleaseAsset already exists, so try to remove it before
+                    # reattempting the asset upload
+                    for asset in release.assets():
+                        if asset.name == name:
+                            click.echo('Release asset {} already exists, '
+                                       'removing it...'.format(name))
+                            asset.delete()
+                            click.echo('Asset {} removed.'.format(name))
+                            break
+            except github3.exceptions.ConnectionError as e:
+                click.echo('Attempt {} has failed with message: {}.'
+                           .format(i + 1, str(e)))
+            else:
+                click.echo('Attempt {} has finished.'.format(i + 1))
+                return result
+
+            time.sleep(retry_backoff)
+
+        raise RuntimeError('Github asset uploading has failed!')
+
     def github_overwrite_release_assets(self, tag_name, target_commitish,
                                         patterns):
         repo = self.as_github_repo()
@@ -552,18 +618,10 @@ class Repo:
             release.delete()
 
         release = repo.create_release(tag_name, target_commitish)
-        default_mime = 'application/octet-stream'
-
         for pattern in patterns:
             for path in glob.glob(pattern, recursive=True):
-                name = os.path.basename(path)
-                mime = mimetypes.guess_type(name)[0] or default_mime
-
-                # TODO(kszucs): use logging
-                click.echo('Uploading asset `{}`...'.format(name))
-                with open(path, 'rb') as fp:
-                    release.upload_asset(name=name, asset=fp,
-                                         content_type=mime)
+                self.github_upload_asset(release, path)
+                time.sleep(2)  # Hack: be more gently with the github API
 
 
 CombinedStatus = namedtuple('CombinedStatus', ('state', 'total_count'))
@@ -1530,13 +1588,10 @@ def download_artifacts(obj, job_name, target_dir):
               help='File pattern to upload as assets')
 @click.pass_obj
 def upload_artifacts(obj, tag, sha, patterns):
-    # queue = obj['queue']
-    # queue.github_overwrite_release_assets(
-    #     tag_name=tag, target_commitish=sha, patterns=patterns
-    # )
-    # HACK: turn off artifact uploading globally until we resolve the github
-    # API related issues in https://github.com/apache/arrow/pull/6458
-    return
+    queue = obj['queue']
+    queue.github_overwrite_release_assets(
+        tag_name=tag, target_commitish=sha, patterns=patterns
+    )
 
 
 if __name__ == '__main__':
