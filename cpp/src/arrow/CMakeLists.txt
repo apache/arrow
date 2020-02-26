@@ -339,7 +339,10 @@ if(ARROW_COMPUTE)
               compute/kernels/match.cc
               compute/kernels/util_internal.cc
               compute/operations/cast.cc
-              compute/operations/literal.cc)
+              compute/operations/literal.cc
+              engine/catalog.cc
+              engine/expression.cc
+              engine/logical_plan.cc)
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -576,6 +579,7 @@ endif()
 
 if(ARROW_COMPUTE)
   add_subdirectory(compute)
+  add_subdirectory(engine)
 endif()
 
 if(ARROW_CUDA)

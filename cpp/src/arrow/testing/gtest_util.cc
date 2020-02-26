@@ -321,6 +321,61 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right,
   }
 }
 
+namespace detail {
+
+class MockTable : public Table {
+ public:
+  explicit MockTable(std::shared_ptr<Schema> schema, int num_rows = 0) {
+    schema_ = std::move(schema);
+    num_rows_ = num_rows;
+  }
+
+  static std::shared_ptr<Table> Make(std::shared_ptr<Schema> schema) {
+    return std::make_shared<MockTable>(std::move(schema));
+  }
+
+  std::shared_ptr<ChunkedArray> column(int i) const override {
+    return std::make_shared<ChunkedArray>(ArrayVector{}, schema_->field(i)->type());
+  }
+  std::shared_ptr<Table> Slice(int64_t offset, int64_t length) const override {
+    return nullptr;
+  }
+
+  Status RemoveColumn(int i, std::shared_ptr<Table>* out) const override {
+    return Status::NotImplemented("MockTable does not implement ", __FUNCTION__);
+  }
+
+  Status AddColumn(int i, std::shared_ptr<Field> field_arg,
+                   std::shared_ptr<ChunkedArray> column,
+                   std::shared_ptr<Table>* out) const override {
+    return Status::NotImplemented("MockTable does not implement ", __FUNCTION__);
+  }
+
+  Status SetColumn(int i, std::shared_ptr<Field> field_arg,
+                   std::shared_ptr<ChunkedArray> column,
+                   std::shared_ptr<Table>* out) const override {
+    return Status::NotImplemented("MockTable does not implement ", __FUNCTION__);
+  }
+
+  std::shared_ptr<Table> ReplaceSchemaMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const override {
+    return nullptr;
+  }
+
+  Status Flatten(MemoryPool* pool, std::shared_ptr<Table>* out) const override {
+    return Status::NotImplemented("MockTable does not implement ", __FUNCTION__);
+  }
+
+  Status Validate() const override { return Status::OK(); }
+  Status ValidateFull() const override { return Status::OK(); }
+};
+
+}  // namespace detail
+
+std::shared_ptr<Table> MockTable(std::shared_ptr<Schema> schema) {
+  return detail::MockTable::Make(schema);
+}
+
 class LocaleGuard::Impl {
  public:
   explicit Impl(const char* new_locale) : global_locale_(std::locale()) {
