@@ -37,65 +37,10 @@ function build_wheel {
 
     pushd $1
 
-    boost_version="1.66.0"
-    boost_directory_name="boost_${boost_version//\./_}"
-    boost_tarball_name="${boost_directory_name}.tar.gz"
-    wget -nv --no-check-certificate \
-        https://downloads.sourceforge.net/project/boost/boost/"${boost_version}"/"${boost_tarball_name}" \
-        -O "${boost_tarball_name}"
-    tar xf "${boost_tarball_name}"
-
-    arrow_boost="$PWD/arrow_boost"
-    arrow_boost_dist="$PWD/arrow_boost_dist"
-    mkdir "$arrow_boost" "$arrow_boost_dist"
-
     # Arrow is 64-bit-only at the moment
     export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//"-arch i386"/}"
     export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//"-arch i386"} -std=c++11"
 
-    # Build Boost's bcp tool to create a custom namespaced boost build.
-    # Using this build, we can dynamically link our own boost build and
-    # don't need to fear any clashes with system / thirdparty provided versions
-    # of Boost.
-    pushd "${boost_directory_name}"
-    ./bootstrap.sh
-    ./b2 tools/bcp > /dev/null 2>&1
-    ./dist/bin/bcp --namespace=arrow_boost --namespace-alias \
-        filesystem date_time system regex build algorithm locale format \
-        multiprecision/cpp_int "$arrow_boost" > /dev/null 2>&1
-    popd
-
-    # Now build our custom namespaced Boost version.
-    pushd "$arrow_boost"
-    ./bootstrap.sh
-    ./bjam cxxflags="${CXXFLAGS}" \
-        linkflags="-std=c++11" \
-        cflags="${CFLAGS}" \
-        variant=release \
-        link=shared \
-        --prefix="$arrow_boost_dist" \
-        --with-filesystem --with-date_time --with-system --with-regex \
-        install > /dev/null 2>&1
-    popd
-
-    # The boost libraries don't set an explicit install name and we have not
-    # yet found the correct option on `bjam` to set the install name to the
-    # one we desire.
-    #
-    # Set it to @rpath/<binary_name> so that they are search in the same
-    # directory as the library that loaded them.
-    pushd "${arrow_boost_dist}"/lib
-      for dylib in *.dylib; do
-        install_name_tool -id @rpath/${dylib} ${dylib}
-      done
-      # Manually adjust libarrow_boost_filesystem.dylib which also references
-      # libarrow_boost_system.dylib. It's reference should be to the
-      # libarrow_boost_system.dylib with an @rpath prefix so that it also
-      # searches for it in the local folder.
-      install_name_tool -change libarrow_boost_system.dylib @rpath/libarrow_boost_system.dylib libarrow_boost_filesystem.dylib
-    popd
-
-    # Now we can start with the actual build of Arrow and Parquet.
     # We pin NumPy to an old version here as the NumPy version one builds
     # with is the oldest supported one. Thanks to NumPy's guarantees our Arrow
     # build will also work with newer NumPy versions.
@@ -113,8 +58,8 @@ function build_wheel {
     pushd cpp
     mkdir build
     pushd build
-    cmake -DARROW_BOOST_USE_SHARED=ON \
-          -DARROW_BUILD_SHARED=ON \
+
+    cmake -DARROW_BUILD_SHARED=ON \
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_DATASET=ON \
           -DARROW_DEPENDENCY_SOURCE=BUNDLED \
@@ -135,10 +80,6 @@ function build_wheel {
           -DARROW_WITH_SNAPPY=ON \
           -DARROW_WITH_ZLIB=ON \
           -DARROW_WITH_ZSTD=ON \
-          -DBoost_NAMESPACE=arrow_boost \
-          -DBoost_NO_BOOST_CMAKE=ON \
-          -DBOOST_ROOT="$arrow_boost_dist" \
-          -DBOOST_SOURCE=SYSTEM \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
           -DgRPC_SOURCE=SYSTEM \
@@ -167,14 +108,8 @@ function build_wheel {
     export PYARROW_WITH_ORC=0
     export PYARROW_WITH_JEMALLOC=1
     export PYARROW_WITH_PLASMA=1
-    export PYARROW_BUNDLE_BOOST=1
     export PYARROW_BUNDLE_ARROW_CPP=1
     export PYARROW_BUILD_TYPE='release'
-    export PYARROW_BOOST_NAMESPACE='arrow_boost'
-    PYARROW_CMAKE_OPTIONS=""
-    PYARROW_CMAKE_OPTIONS="${PYARROW_CMAKE_OPTIONS} -DBOOST_ROOT=$arrow_boost_dist"
-    PYARROW_CMAKE_OPTIONS="${PYARROW_CMAKE_OPTIONS} -DBoost_NO_BOOST_CMAKE=ON"
-    export PYARROW_CMAKE_OPTIONS
     export SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
     pushd python
     python setup.py build_ext bdist_wheel
