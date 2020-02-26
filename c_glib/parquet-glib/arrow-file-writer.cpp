@@ -33,6 +33,7 @@ G_BEGIN_DECLS
  * @include: parquet-glib/parquet-glib.h
  *
  * #GParquetWriterProperties is a class for the writer properties.
+ *
  * #GParquetArrowFileWriter is a class for writer Apache Arrow data to
  * file as Apache Parquet format.
  */
