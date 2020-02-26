@@ -442,7 +442,8 @@ class ARROW_EXPORT SparseTensor {
   }
 
   /// \brief Return whether sparse tensors are equal
-  bool Equals(const SparseTensor& other) const;
+  bool Equals(const SparseTensor& other,
+              const EqualOptions& = EqualOptions::Defaults()) const;
 
   /// \brief Return dense representation of sparse tensor as tensor
   ///
