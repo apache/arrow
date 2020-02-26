@@ -48,19 +48,13 @@ class ARROW_DS_EXPORT FileSource {
   enum DatasetType { PATH, BUFFER };
 
   FileSource(std::string path, fs::FileSystem* filesystem,
-             Compression::type compression = Compression::UNCOMPRESSED,
-             bool writable = true)
+             Compression::type compression = Compression::UNCOMPRESSED)
       : impl_(PathAndFileSystem{std::move(path), filesystem}),
-        compression_(compression),
-        writable_(writable) {}
+        compression_(compression) {}
 
   explicit FileSource(std::shared_ptr<Buffer> buffer,
                       Compression::type compression = Compression::UNCOMPRESSED)
       : impl_(std::move(buffer)), compression_(compression) {}
-
-  explicit FileSource(std::shared_ptr<ResizableBuffer> buffer,
-                      Compression::type compression = Compression::UNCOMPRESSED)
-      : impl_(std::move(buffer)), compression_(compression), writable_(true) {}
 
   bool operator==(const FileSource& other) const {
     if (type() != other.type()) {
@@ -80,9 +74,6 @@ class ARROW_DS_EXPORT FileSource {
 
   /// \brief Return the type of raw compression on the file, if any
   Compression::type compression() const { return compression_; }
-
-  /// \brief Whether the this source may be opened writable
-  bool writable() const { return writable_; }
 
   /// \brief Return the file path, if any. Only valid when file source
   /// type is PATH
@@ -107,8 +98,12 @@ class ARROW_DS_EXPORT FileSource {
   /// \brief Get a RandomAccessFile which views this file source
   Result<std::shared_ptr<arrow::io::RandomAccessFile>> Open() const;
 
-  /// \brief Get an OutputStream which wraps this file source
-  Result<std::shared_ptr<arrow::io::OutputStream>> OpenWritable() const;
+  /// \brief Get an OutputStream which overwrites this file source.
+  ///
+  /// \param[in] pool A memory pool from which a buffer OutputStream will be allocated, if
+  ///                 type() == BUFFER
+  Result<std::shared_ptr<arrow::io::OutputStream>> OpenWritable(
+      MemoryPool* pool = default_memory_pool()) &&;
 
  private:
   struct PathAndFileSystem {
@@ -118,7 +113,6 @@ class ARROW_DS_EXPORT FileSource {
 
   util::variant<PathAndFileSystem, std::shared_ptr<Buffer>> impl_;
   Compression::type compression_;
-  bool writable_ = false;
 };
 
 /// \brief Base class for file format implementation
@@ -144,12 +138,12 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
       std::shared_ptr<ScanContext> context) const = 0;
 
   /// \brief Open a fragment
-  virtual Result<std::shared_ptr<Fragment>> MakeFragment(
+  virtual Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<ScanOptions> options,
       std::shared_ptr<Expression> partition_expression);
 
-  Result<std::shared_ptr<Fragment>> MakeFragment(FileSource source,
-                                                 std::shared_ptr<ScanOptions> options);
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, std::shared_ptr<ScanOptions> options);
 
   /// \brief Write a fragment
   virtual Result<std::shared_ptr<WriteTask>> WriteFragment(
@@ -201,11 +195,10 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
-  static Result<std::shared_ptr<Dataset>> Make(std::shared_ptr<Schema> schema,
-                                               std::shared_ptr<Expression> root_partition,
-                                               std::shared_ptr<FileFormat> format,
-                                               std::shared_ptr<fs::FileSystem> filesystem,
-                                               std::vector<fs::FileInfo> infos);
+  static Result<std::shared_ptr<FileSystemDataset>> Make(
+      std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
+      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+      std::vector<fs::FileInfo> infos);
 
   /// \brief Create a FileSystemDataset with file-level partitions.
   ///
@@ -219,12 +212,10 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
-  static Result<std::shared_ptr<Dataset>> Make(std::shared_ptr<Schema> schema,
-                                               std::shared_ptr<Expression> root_partition,
-                                               std::shared_ptr<FileFormat> format,
-                                               std::shared_ptr<fs::FileSystem> filesystem,
-                                               std::vector<fs::FileInfo> infos,
-                                               ExpressionVector partitions);
+  static Result<std::shared_ptr<FileSystemDataset>> Make(
+      std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
+      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
+      std::vector<fs::FileInfo> infos, ExpressionVector partitions);
 
   /// \brief Create a FileSystemDataset with file-level partitions.
   ///

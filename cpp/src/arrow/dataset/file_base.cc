@@ -37,31 +37,33 @@ Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
     return filesystem()->OpenInputFile(path());
   }
 
-  return std::make_shared<::arrow::io::BufferReader>(buffer());
+  return Buffer::GetReader(buffer());
 }
 
-Result<std::shared_ptr<Fragment>> FileFormat::MakeFragment(
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<ScanOptions> options) {
   return MakeFragment(std::move(source), std::move(options), scalar(true));
 }
 
-Result<std::shared_ptr<Fragment>> FileFormat::MakeFragment(
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<ScanOptions> options,
     std::shared_ptr<Expression> partition_expression) {
   return std::make_shared<FileFragment>(std::move(source), shared_from_this(), options,
                                         std::move(partition_expression));
 }
-Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable() const {
-  if (!writable_) {
-    return Status::Invalid("file source '", path(), "' is not writable");
-  }
 
+Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable(
+    MemoryPool* pool) && {
   if (type() == PATH) {
     return filesystem()->OpenOutputStream(path());
   }
 
-  auto b = internal::checked_pointer_cast<ResizableBuffer>(buffer());
-  return std::make_shared<::arrow::io::BufferOutputStream>(b);
+  std::shared_ptr<ResizableBuffer> buffer;
+  RETURN_NOT_OK(AllocateResizableBuffer(pool, 4096, &buffer));
+
+  auto out = std::make_shared<::arrow::io::BufferOutputStream>(buffer);
+  impl_ = std::move(buffer);
+  return out;
 }
 
 Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(

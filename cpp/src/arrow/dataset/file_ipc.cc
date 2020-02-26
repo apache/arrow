@@ -155,7 +155,7 @@ Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
         : destination_(std::move(destination)), fragment_(std::move(fragment)) {}
 
     Result<std::shared_ptr<FileFragment>> Execute() override {
-      ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.OpenWritable());
+      ARROW_ASSIGN_OR_RAISE(auto out_stream, std::move(destination_).OpenWritable());
 
       ARROW_ASSIGN_OR_RAISE(auto writer, ipc::RecordBatchFileWriter::Open(
                                              out_stream.get(), fragment_->schema()));
