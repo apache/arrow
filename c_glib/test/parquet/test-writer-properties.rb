@@ -23,14 +23,20 @@ class TestParquetWriterProperties < Test::Unit::TestCase
 
   def test_compression
     @properties.set_compression(:gzip)
-    assert_equal(Arrow::CompressionType.new("gzip"),
+    assert_equal(Arrow::CompressionType::GZIP,
                  @properties.get_compression_dot_string("not-specified"))
   end
 
   def test_compression_with_path
-    @properties.set_compression(:gzip, "column1")
-    assert_equal(Arrow::CompressionType.new("gzip"),
-                 @properties.get_compression_dot_string("column1"))
+    @properties.set_compression(:gzip, "column")
+    assert_equal([
+                   Arrow::CompressionType::GZIP,
+                   Arrow::CompressionType::UNCOMPRESSED,
+                 ],
+                 [
+                   @properties.get_compression_dot_string("column"),
+                   @properties.get_compression_dot_string("not-specified"),
+                 ])
   end
 
   def test_enable_dictionary
@@ -39,10 +45,36 @@ class TestParquetWriterProperties < Test::Unit::TestCase
                  @properties.dictionary_enabled?("not-specified"))
   end
 
+  def test_enable_dictionary_with_path
+    @properties.disable_dictionary
+    @properties.enable_dictionary("column")
+    assert_equal([
+                   true,
+                   false,
+                 ],
+                 [
+                   @properties.dictionary_enabled?("column"),
+                   @properties.dictionary_enabled?("not-specified"),
+                 ])
+  end
+
   def test_disable_dictionary
     @properties.disable_dictionary
     assert_equal(false,
                  @properties.dictionary_enabled?("not-specified"))
+  end
+
+  def test_disable_dictionary_with_path
+    @properties.enable_dictionary
+    @properties.disable_dictionary("column")
+    assert_equal([
+                   false,
+                   true,
+                 ],
+                 [
+                   @properties.dictionary_enabled?("column"),
+                   @properties.dictionary_enabled?("not-specified"),
+                 ])
   end
 
   def test_dictionary_page_size_limit

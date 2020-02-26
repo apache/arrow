@@ -99,7 +99,7 @@ gparquet_writer_properties_new(void)
  * gparquet_writer_properties_set_compression:
  * @properties: A #GParquetWriterProperties.
  * @compression_type: A #GArrowCompressionType.
- * @path: (nullable): The column path.
+ * @path: (nullable): The column path as dot string.
  *
  * Since: 1.0.0
  */
@@ -140,28 +140,40 @@ gparquet_writer_properties_get_compression_dot_string(GParquetWriterProperties *
 /**
  * gparquet_writer_properties_enable_dictionary:
  * @properties: A #GParquetWriterProperties.
+ * @path: (nullable): The column path as dot string.
  *
  * Since: 1.0.0
  */
 void
-gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *properties)
+gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *properties,
+                                             const gchar *path)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
-  priv->builder->enable_dictionary();
+  if (path) {
+    priv->builder->enable_dictionary(path);
+  } else {
+    priv->builder->enable_dictionary();
+  }
   priv->changed = TRUE;
 }
 
 /**
  * gparquet_writer_properties_disable_dictionary:
  * @properties: A #GParquetWriterProperties.
+ * @path: (nullable): The column path as dot string.
  *
  * Since: 1.0.0
  */
 void
-gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properties)
+gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properties,
+                                              const gchar *path)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
-  priv->builder->disable_dictionary();
+  if (path) {
+    priv->builder->disable_dictionary(path);
+  } else {
+    priv->builder->disable_dictionary();
+  }
   priv->changed = TRUE;
 }
 
