@@ -910,17 +910,17 @@ macro(build_glog)
   add_dependencies(toolchain glog_ep)
   file(MAKE_DIRECTORY "${GLOG_INCLUDE_DIR}")
 
-  add_library(GLOG::glog STATIC IMPORTED)
-  set_target_properties(GLOG::glog
+  add_library(glog::glog STATIC IMPORTED)
+  set_target_properties(glog::glog
                         PROPERTIES IMPORTED_LOCATION "${GLOG_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GLOG_INCLUDE_DIR}")
-  add_dependencies(GLOG::glog glog_ep)
+  add_dependencies(glog::glog glog_ep)
 endmacro()
 
 if(ARROW_USE_GLOG)
   resolve_dependency(GLOG)
   # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(GLOG_INCLUDE_DIR GLOG::glog INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(GLOG_INCLUDE_DIR glog::glog INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${GLOG_INCLUDE_DIR})
 endif()
 
@@ -1142,14 +1142,14 @@ macro(build_thrift)
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
                       DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
 
-  add_library(Thrift::thrift STATIC IMPORTED)
+  add_library(thrift::thrift STATIC IMPORTED)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
-  set_target_properties(Thrift::thrift
+  set_target_properties(thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   add_dependencies(toolchain thrift_ep)
-  add_dependencies(Thrift::thrift thrift_ep)
+  add_dependencies(thrift::thrift thrift_ep)
   set(THRIFT_VERSION ${ARROW_THRIFT_BUILD_VERSION})
 endmacro()
 
@@ -1504,24 +1504,24 @@ macro(build_gtest)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::GTest SHARED IMPORTED)
-  set_target_properties(GTest::GTest
+  add_library(GTest::gtest SHARED IMPORTED)
+  set_target_properties(GTest::gtest
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::Main SHARED IMPORTED)
-  set_target_properties(GTest::Main
+  add_library(GTest::gtest_main SHARED IMPORTED)
+  set_target_properties(GTest::gtest_main
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::GMock SHARED IMPORTED)
-  set_target_properties(GTest::GMock
+  add_library(GTest::gmock SHARED IMPORTED)
+  set_target_properties(GTest::gmock
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
   add_dependencies(toolchain-tests googletest_ep)
-  add_dependencies(GTest::GTest googletest_ep)
-  add_dependencies(GTest::Main googletest_ep)
-  add_dependencies(GTest::GMock googletest_ep)
+  add_dependencies(GTest::gtest googletest_ep)
+  add_dependencies(GTest::gtest_main googletest_ep)
+  add_dependencies(GTest::gmock googletest_ep)
 endmacro()
 
 if(ARROW_BUILD_TESTS
@@ -1559,7 +1559,7 @@ if(ARROW_BUILD_TESTS
     #     set(CMAKE_REQUIRED_LIBRARIES)
   endif()
 
-  get_target_property(GTEST_INCLUDE_DIR GTest::GTest INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(GTEST_INCLUDE_DIR GTest::gtest INTERFACE_INCLUDE_DIRECTORIES)
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
 endif()

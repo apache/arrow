@@ -44,8 +44,8 @@ endif()
 find_package_handle_standard_args(GLOG REQUIRED_VARS GLOG_INCLUDE_DIR GLOG_LIB)
 
 if(GLOG_FOUND)
-  add_library(GLOG::glog UNKNOWN IMPORTED)
-  set_target_properties(GLOG::glog
+  add_library(glog::glog UNKNOWN IMPORTED)
+  set_target_properties(glog::glog
                         PROPERTIES IMPORTED_LOCATION "${GLOG_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GLOG_INCLUDE_DIR}")
 endif()

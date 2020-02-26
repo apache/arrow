@@ -26,8 +26,8 @@ install(FILES adapter.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/adapters/
 arrow_add_pkg_config("arrow-orc")
 
 set(ORC_MIN_TEST_LIBS
-    GTest::Main
-    GTest::GTest
+    GTest::gtest_main
+    GTest::gtest
     Snappy::snappy
     LZ4::lz4
     ZLIB::ZLIB)

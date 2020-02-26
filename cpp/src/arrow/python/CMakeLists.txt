@@ -150,7 +150,7 @@ arrow_install_all_headers("arrow/python")
 if(ARROW_BUILD_TESTS)
   add_library(arrow_python_test_main STATIC util/test_main.cc)
 
-  target_link_libraries(arrow_python_test_main GTest::GTest)
+  target_link_libraries(arrow_python_test_main GTest::gtest)
   target_include_directories(arrow_python_test_main SYSTEM
                              PUBLIC ${ARROW_PYTHON_INCLUDES})
 

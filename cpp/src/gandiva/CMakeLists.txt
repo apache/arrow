@@ -28,7 +28,10 @@ add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   set(LLVM_ROOT $ENV{CONDA_PREFIX})
 endif()
-find_package(LLVM)
+# The semantics of the upstream configuration file are different from what is
+# provided in our FindLLVM module, so the module is explicitly requested here to
+# avoid a configuration error if CMAKE_FIND_PACKAGE_PREFER_CONFIG is enabled.
+find_package(LLVM MODULE)
 
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")

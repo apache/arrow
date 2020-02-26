@@ -31,7 +31,7 @@ if(ARROW_S3)
   if(ARROW_BUILD_TESTS)
     add_executable(arrow-s3fs-narrative-test s3fs_narrative_test.cc)
     target_link_libraries(arrow-s3fs-narrative-test ${ARROW_TEST_LINK_LIBS}
-                          ${GFLAGS_LIBRARIES} GTest::GTest)
+                          ${GFLAGS_LIBRARIES} GTest::gtest)
     add_dependencies(arrow-tests arrow-s3fs-narrative-test)
   endif()
 endif()
