@@ -85,9 +85,13 @@ class IpcScanTask : public ScanTask {
       int i_;
     };
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto batch_it,
-        Impl::Make(source_, options_->MaterializedFields(), context_->pool));
+    // get names of fields explicitly projected or referenced by filter
+    auto fields = options_->MaterializedFields();
+    std::sort(fields.begin(), fields.end());
+    auto unique_end = std::unique(fields.begin(), fields.end());
+    fields.erase(unique_end, fields.end());
+
+    ARROW_ASSIGN_OR_RAISE(auto batch_it, Impl::Make(source_, fields, context_->pool));
 
     return RecordBatchIterator(std::move(batch_it));
   }
