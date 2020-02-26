@@ -1049,7 +1049,9 @@ services:
       <<: *ccache
     volumes: *ubuntu-volumes
     command: >
-      /bin/bash -c "pip install -e /arrow/dev/archery && archery lint"
+      /bin/bash -c "
+        pip install -e /arrow/dev/archery &&
+        archery lint --all --no-clang-tidy --no-numpydoc"
 
   ######################### Integration Tests #################################
 

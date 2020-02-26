@@ -143,8 +143,9 @@ def python_numpydoc(symbols=None, whitelist=None, blacklist=None):
     }
     try:
         numpydoc = NumpyDoc(symbols)
-    except RuntimeError:
-        logger.error('Numpydoc is not available')
+    except RuntimeError as e:
+        logger.error(str(e))
+        yield LintResult(success=False)
         return
 
     results = numpydoc.validate(
@@ -282,12 +283,9 @@ def docker_linter(src):
                                                    cwd=src.path))
 
 
-def linter(src, with_clang_format=True, with_cpplint=True,
-           with_clang_tidy=False, with_iwyu=False,
-           with_flake8=True, with_numpydoc=False, with_cmake_format=True,
-           with_rat=True, with_r=True, with_rust=True,
-           with_docker=True,
-           fix=False):
+def linter(src, fix=False, *, clang_format=False, cpplint=False,
+           clang_tidy=False, iwyu=False, flake8=False, numpydoc=False,
+           cmake_format=False, rat=False, r=False, rust=False, docker=False):
     """Run all linters."""
     with tmpdir(prefix="arrow-lint-") as root:
         build_dir = os.path.join(root, "cpp-build")
@@ -297,33 +295,33 @@ def linter(src, with_clang_format=True, with_cpplint=True,
         # errors to the user.
         results = []
 
-        if with_clang_format or with_cpplint or with_clang_tidy or with_iwyu:
+        if clang_format or cpplint or clang_tidy or iwyu:
             results.extend(cpp_linter(src, build_dir,
-                                      clang_format=with_clang_format,
-                                      cpplint=with_cpplint,
-                                      clang_tidy=with_clang_tidy,
-                                      iwyu=with_iwyu,
+                                      clang_format=clang_format,
+                                      cpplint=cpplint,
+                                      clang_tidy=clang_tidy,
+                                      iwyu=iwyu,
                                       fix=fix))
 
-        if with_flake8:
+        if flake8:
             results.extend(python_linter(src))
 
-        if with_numpydoc:
+        if numpydoc:
             results.extend(python_numpydoc())
 
-        if with_cmake_format:
+        if cmake_format:
             results.extend(cmake_linter(src, fix=fix))
 
-        if with_rat:
+        if rat:
             results.extend(rat_linter(src, root))
 
-        if with_r:
+        if r:
             results.extend(r_linter(src))
 
-        if with_rust:
+        if rust:
             results.extend(rust_linter(src))
 
-        if with_docker:
+        if docker:
             results.extend(docker_linter(src))
 
         # Raise error if one linter failed, ensuring calling code can exit with
