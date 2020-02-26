@@ -1147,6 +1147,9 @@ struct SparseTensorEqualsImpl {
 bool IntegerSparseTensorDataEquals(const uint8_t* left_data,
                                    const uint8_t* right_data, const int byte_width,
                                    const int64_t length) {
+  if (left_data == right_data) {
+    return true;
+  }
   return memcmp(left_data, right_data, static_cast<size_t>(byte_width * length)) == 0;
 }
 
@@ -1159,6 +1162,10 @@ bool FloatSparseTensorDataEquals(const typename DataType::c_type* left_data,
   static_assert(std::is_floating_point<c_type>::value,
                 "DataType must be a floating point type");
   if (opts.nans_equal()) {
+    if (left_data == right_data) {
+      return true;
+    }
+
     for (int64_t i = 0; i < length; ++i) {
       const auto left = left_data[i];
       const auto right = right_data[i];
@@ -1261,9 +1268,7 @@ inline bool SparseTensorEqualsImplDispatch(const SparseTensorImpl<SparseIndexTyp
 
 bool SparseTensorEquals(const SparseTensor& left, const SparseTensor& right,
                         const EqualOptions& opts) {
-  if (is_integer(left.type()->id()) && &left == &right) {
-    return true;
-  } else if (left.type()->id() != right.type()->id()) {
+  if (left.type()->id() != right.type()->id()) {
     return false;
   } else if (left.size() == 0 && right.size() == 0) {
     return true;
