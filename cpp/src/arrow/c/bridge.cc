@@ -650,35 +650,31 @@ class FormatStringParser {
     return Status::OK();
   }
 
-  template <typename IntType>
-  Status ParseInt(util::string_view v, IntType* out) {
+  template <typename IntType = int32_t>
+  Result<IntType> ParseInt(util::string_view v) {
     using ArrowIntType = typename CTypeTraits<IntType>::ArrowType;
     internal::StringConverter<ArrowIntType> converter;
-    if (!converter(v.data(), v.size(), out)) {
+    IntType value;
+    if (!converter(v.data(), v.size(), &value)) {
       return Invalid();
     }
-    return Status::OK();
+    return value;
   }
 
-  Status ParseTimeUnit(TimeUnit::type* out) {
+  Result<TimeUnit::type> ParseTimeUnit() {
     RETURN_NOT_OK(CheckHasNext());
     switch (Next()) {
       case 's':
-        *out = TimeUnit::SECOND;
-        break;
+        return TimeUnit::SECOND;
       case 'm':
-        *out = TimeUnit::MILLI;
-        break;
+        return TimeUnit::MILLI;
       case 'u':
-        *out = TimeUnit::MICRO;
-        break;
+        return TimeUnit::MICRO;
       case 'n':
-        *out = TimeUnit::NANO;
-        break;
+        return TimeUnit::NANO;
       default:
         return Invalid();
     }
-    return Status::OK();
   }
 
   std::vector<util::string_view> Split(util::string_view v, char delim = ',') {
@@ -695,18 +691,16 @@ class FormatStringParser {
     return parts;
   }
 
-  template <typename IntType>
-  Status ParseInts(util::string_view v, std::vector<IntType>* out) {
+  template <typename IntType = int32_t>
+  Result<std::vector<IntType>> ParseInts(util::string_view v) {
     auto parts = Split(v);
     std::vector<IntType> result;
     result.reserve(parts.size());
     for (const auto& p : parts) {
-      IntType i;
-      RETURN_NOT_OK(ParseInt(p, &i));
+      ARROW_ASSIGN_OR_RAISE(auto i, ParseInt<IntType>(p));
       result.push_back(i);
     }
-    *out = std::move(result);
-    return Status::OK();
+    return result;
   }
 
   Status Invalid() { return InvalidFormatString(view_); }
@@ -947,8 +941,7 @@ struct SchemaImporter {
   }
 
   Status ProcessTime() {
-    TimeUnit::type unit;
-    RETURN_NOT_OK(f_parser_.ParseTimeUnit(&unit));
+    ARROW_ASSIGN_OR_RAISE(auto unit, f_parser_.ParseTimeUnit());
     if (unit == TimeUnit::SECOND || unit == TimeUnit::MILLI) {
       return ProcessPrimitive(time32(unit));
     } else {
@@ -957,14 +950,12 @@ struct SchemaImporter {
   }
 
   Status ProcessDuration() {
-    TimeUnit::type unit;
-    RETURN_NOT_OK(f_parser_.ParseTimeUnit(&unit));
+    ARROW_ASSIGN_OR_RAISE(auto unit, f_parser_.ParseTimeUnit());
     return ProcessPrimitive(duration(unit));
   }
 
   Status ProcessTimestamp() {
-    TimeUnit::type unit;
-    RETURN_NOT_OK(f_parser_.ParseTimeUnit(&unit));
+    ARROW_ASSIGN_OR_RAISE(auto unit, f_parser_.ParseTimeUnit());
     RETURN_NOT_OK(f_parser_.CheckNext(':'));
     type_ = timestamp(unit, std::string(f_parser_.Rest()));
     return Status::OK();
@@ -972,8 +963,7 @@ struct SchemaImporter {
 
   Status ProcessFixedSizeBinary() {
     RETURN_NOT_OK(f_parser_.CheckNext(':'));
-    int32_t byte_width = -1;
-    RETURN_NOT_OK(f_parser_.ParseInt(f_parser_.Rest(), &byte_width));
+    ARROW_ASSIGN_OR_RAISE(auto byte_width, f_parser_.ParseInt(f_parser_.Rest()));
     if (byte_width < 0) {
       return f_parser_.Invalid();
     }
@@ -983,8 +973,7 @@ struct SchemaImporter {
 
   Status ProcessDecimal() {
     RETURN_NOT_OK(f_parser_.CheckNext(':'));
-    std::vector<int32_t> prec_scale;
-    RETURN_NOT_OK(f_parser_.ParseInts(f_parser_.Rest(), &prec_scale));
+    ARROW_ASSIGN_OR_RAISE(auto prec_scale, f_parser_.ParseInts(f_parser_.Rest()));
     if (prec_scale.size() != 2) {
       return f_parser_.Invalid();
     }
@@ -1031,8 +1020,7 @@ struct SchemaImporter {
 
   Status ProcessFixedSizeList() {
     RETURN_NOT_OK(f_parser_.CheckNext(':'));
-    int32_t list_size = -1;
-    RETURN_NOT_OK(f_parser_.ParseInt(f_parser_.Rest(), &list_size));
+    ARROW_ASSIGN_OR_RAISE(auto list_size, f_parser_.ParseInt(f_parser_.Rest()));
     if (list_size < 0) {
       return f_parser_.Invalid();
     }
@@ -1063,8 +1051,7 @@ struct SchemaImporter {
         return f_parser_.Invalid();
     }
     RETURN_NOT_OK(f_parser_.CheckNext(':'));
-    std::vector<int8_t> type_codes;
-    RETURN_NOT_OK(f_parser_.ParseInts(f_parser_.Rest(), &type_codes));
+    ARROW_ASSIGN_OR_RAISE(auto type_codes, f_parser_.ParseInts<int8_t>(f_parser_.Rest()));
     ARROW_ASSIGN_OR_RAISE(auto fields, MakeChildFields());
     if (fields.size() != type_codes.size()) {
       return Status::Invalid(
