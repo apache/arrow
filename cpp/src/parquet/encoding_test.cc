@@ -16,13 +16,13 @@
 // under the License.
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <utility>
 #include <vector>
-#include <algorithm>
 
 #include "arrow/array.h"
 #include "arrow/compute/api.h"
