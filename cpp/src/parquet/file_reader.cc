@@ -137,6 +137,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                min_index = itemindex;
               }
             }
+            break;
          }
          case Type::INT96:
          {

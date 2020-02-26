@@ -58,13 +58,28 @@ constexpr int64_t ROW_GROUP_SIZE = 215;//16 * 1024 * 1024;  // 16 MB
 //char PARQUET_FILENAME[] = "";
 //const char PARQUET_FILENAME[] = "/home/abalajiee/parquet_data/testing_write.parquet";
 
+struct return_multiple{
+   std::shared_ptr<parquet::ColumnReader> column_reader;
+   bool b;
+   int32_t p;
+   int64_t r;
+   uint32_t e;
+   double d;
+   float i;
+   char *c,*a,*t;
+};
+
+typedef return_multiple return_multiple;
+
 int parquet_writer(int argc, char** argv);
 
 void returnReaderwithType(std::shared_ptr<parquet::ColumnReader> cr, parquet::ColumnReader*& cr1);
 
-void getPredicate(std::shared_ptr<parquet::ColumnReader> cr,void*& p);
+return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shared_ptr<parquet::RowGroupReader> rg,char* predicate,
+                             int& col_id,int64_t& page_index,int& PREDICATE_COL,int64_t& row_index);
 
-void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader*& int64_reader,int ind,void* predicate,int64_t& row_counter);
+void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,int ind,return_multiple vals,int64_t& row_counter,
+               bool checkpredicate);
 
 int parquet_reader(int argc, char** argv);
 
@@ -79,7 +94,6 @@ int main(int argc, char** argv) {
 
   return 0;
 }
-
 
 int parquet_reader(int argc,char** argv) {
 
@@ -127,55 +141,58 @@ int parquet_reader(int argc,char** argv) {
       // int PREDICATE_COL;
       // sscanf(argv[2], "%d" "%c", &PREDICATE_COL, &c);
     
-      
+      char *col_num = strtok(argv[2],",");
+      char *predicate_val  = strtok(argv[3],",");
+
+      std::stringstream ss(col_num);
        /**************FIRST PASS*****************/
-      while(col_id < num_columns) {
+      while(col_num!=NULL && predicate_val!=NULL) {
           // Get the Column Reader for the Int64 column
         int64_t row_index = -1;
+        ss >> col_id;
         std::shared_ptr<parquet::ColumnReader> predicate_column_reader = row_group_reader->Column(col_id);
         
         
-        std::cout << "Column Type: " << predicate_column_reader->type() << " Enter the predicate for the query: ";
-        void* predicate;
-        getPredicate(predicate_column_reader,predicate);
+        std::cout << "Column Type: " << predicate_column_reader->type() << std::endl;
+        
+        
         
         // std::cout << "given predicate: " << predicate << " type of predicate: " << typeid(predicate).name() << std::endl;
         
         std::shared_ptr<parquet::ColumnReader> column_reader_with_index;
         
         parquet::ColumnReader* generic_reader;
+    
+        int PREDICATE_COL  = col_id;
+        return_multiple vals = getPredicate(predicate_column_reader,row_group_reader,predicate_val,col_id,page_index,PREDICATE_COL,row_index);
+        column_reader_with_index = vals.column_reader;
+        // row_group_reader->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,predicate_column_reader->type());
+        returnReaderwithType(column_reader_with_index,generic_reader);
+        // Read all the rows in the column
+        std::cout << "column id:" << col_id << " page index:" << page_index << std::endl;
 
-        if(strlen((char*)predicate)==0){
-              //NOTHING TO DO
+        int counter = 0;
+
+        while ( counter < page_index && generic_reader->HasNext() ) {
+            counter++;
         }
-        else {
-            int PREDICATE_COL  = col_id;
-            column_reader_with_index = 
-            row_group_reader->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,predicate_column_reader->type());
-            returnReaderwithType(column_reader_with_index,generic_reader);
-            // Read all the rows in the column
-            std::cout << "column id:" << col_id << " page index:" << page_index << std::endl;
+
+        int ind = 0;
+        int64_t row_counter = -1;
+
+        while (generic_reader->HasNext() && row_counter == -1) { 
+              ind++;
   
-            int counter = 0;
-   
-            while ( counter < page_index && generic_reader->HasNext() ) {
-	             counter++;
-            }
-
-            int ind = 0;
-            int64_t row_counter = -1;
-
-            while (generic_reader->HasNext() && row_counter == -1) { 
-                 ind++;
-      
-                printVal(column_reader_with_index,generic_reader,ind,predicate,row_counter);
-              //        int64_t expected_value = col_row_counts[col_id];  
-              //        assert(value == expected_value);
-              col_row_counts[col_id]++; 
-     
-            }
+            printVal(column_reader_with_index,generic_reader,ind,vals,row_counter,true);
+          //        int64_t expected_value = col_row_counts[col_id];  
+          //        assert(value == expected_value);
+          col_row_counts[col_id]++; 
+  
+          
         }
-        col_id++;
+        col_num = strtok(NULL,",");
+        predicate_val = strtok(NULL,",");
+        //col_id++;
       }
       /***********FIRST PASS END **********/
 
@@ -194,59 +211,90 @@ int parquet_reader(int argc,char** argv) {
 }
 
 
-void getPredicate(std::shared_ptr<parquet::ColumnReader> cr,void*& predicate){
+return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shared_ptr<parquet::RowGroupReader> rg,char* predicate_val,
+                             int& col_id,int64_t& page_index,int& PREDICATE_COL,int64_t& row_index){
+    const int CHAR_LEN = 10000000;
+    
+    return_multiple vals;
+    std::stringstream ss(predicate_val);
     switch(cr->type()){
           case Type::BOOLEAN:{
             bool b;
-            std::cin >> b;
-            predicate = static_cast<void*>(&b);
-            break;
+            
+            ss >> std::boolalpha >> b;
+            void * predicate = static_cast<void*>(&b);
+            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.b = b;
+            return vals;
           }
           case Type::INT32:{
             int32_t val;
-            std::cin >> val;
-            predicate = static_cast<void*>(&val);
-            break;
+            
+            ss >> val;
+            void * predicate = static_cast<void*>(&val);
+            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.p = val;
+            return vals;
           }
           case Type::INT64:{
             int64_t val;
-            std::cin >> val;
-            predicate = static_cast<void*>(&val);
-            break;
+            
+            ss >> val;
+            void * predicate = static_cast<void*>(&val);
+            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.r = val;
+            return vals;
           }
           case Type::INT96:{
             uint32_t val;
-            std::cin >> val;
-            predicate = static_cast<void*>(&val);
-            break;
+            
+            ss >> val;
+            void * predicate = static_cast<void*>(&val);
+            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.e = val;
+            return vals;
           }
           case Type::FLOAT:{
             float val;
-            std::cin >> val;
-            predicate = static_cast<void*>(&val);
-            break;
+            
+            ss >> val;
+            void * predicate = static_cast<void*>(&val);
+            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.d = val;
+            return vals;
           }
           case Type::DOUBLE:{
             double val;
-            std::cin >> val;
-            predicate = static_cast<void*>(&val);
-            break;
+            
+            ss >> val;
+            void * predicate = static_cast<void*>(&val);
+            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.i = val;
+            return vals;
           }
           case Type::BYTE_ARRAY:{
-            char val;
-            std::cin >> val;
-            predicate = static_cast<void*>(&val);
-            break;
+            char* val = predicate_val;
+            
+            void * predicate = static_cast<void*>(val);
+            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.c = val;
+            return vals;
           }
           case Type::FIXED_LEN_BYTE_ARRAY:{
-            char val;
-            std::cin >> val;
-            predicate = static_cast<void*>(&val);
-            break;
+            char* val = predicate_val;
+            
+            void * predicate = static_cast<void*>(val);
+            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.a = val;
+            return vals;
           }
           default:{
-            std::cin >> (*(int64_t *)predicate);
-            break;
+            std::cout<< "type not supported" << std::endl;
+            vals.a = NULL;
+            vals.b = NULL;
+            vals.c = NULL;
+            vals.t = NULL;
+            return vals;
           }
     }
 }
@@ -435,7 +483,8 @@ void returnReaderwithType(std::shared_ptr<parquet::ColumnReader>column_reader, p
       }
 }
 
-void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader*& int64_reader,int ind,void* predicate,int64_t& row_counter) {
+void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,int ind,return_multiple vals,int64_t& row_counter,
+              bool checkpredicate = false) {
 
       int64_t values_read = 0;
       int64_t rows_read = 0;
@@ -443,24 +492,41 @@ void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
        case Type::BOOLEAN:
           {
            bool test;
+           bool predicate = vals.b;
            rows_read = int64_reader->callReadBatch(1,&test,&values_read);
            row_counter = ind;
+           
+           if ( checkpredicate && test == predicate) {
+           row_counter = ind;
+           std::cout << "with predicate row number: " << row_counter << " " << test << "\n" ;
+           //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
+          }else{
+            row_counter = ind;
            std::cout << "row number: " << row_counter << " " << test << "\n";
-           std::cout << "predicate: " << *((bool*)predicate) << std::endl;
+          }
            break;
           }
         case Type::INT32:
           {
             int32_t val;
+            int32_t predicate = vals.p;
            rows_read = int64_reader->callReadBatch(1,&val,&values_read);
            row_counter = ind;
+           
+           if ( checkpredicate && val == predicate) {
+           row_counter = ind;
+           std::cout << "with predicate row number: " << row_counter << " " << val << "\n";
+           //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
+          }else{
+            row_counter = ind;
            std::cout << "row number: " << row_counter << " " << val << "\n";
-           std::cout << "predicate: " << *((int32_t*)predicate) << std::endl;
+          }
           break;
           }
         case Type::INT64:
          {
           int64_t value;
+          int64_t predicate = vals.r;
          // Read one value at a time. The number of rows read is returned. values_read
          // contains the number of non-null rows
           rows_read = int64_reader->callReadBatch(1,&value,&values_read);
@@ -470,62 +536,100 @@ void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
         // There are no NULL values in the rows written
        //        assert(values_read == 1);
         // Verify the value written
-          if ( value == *((int64_t*)predicate) ) {
+          if ( checkpredicate && value == predicate) {
            row_counter = ind;
-           std::cout << "row number: " << row_counter << " " << value << "\n";
+           std::cout << "with predicate row number: " << row_counter << " " << value << "\n";
            //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
+          }else{
+            row_counter = ind;
+           std::cout << "row number: " << row_counter << " " << value << "\n";
           }
           break;
          }
         case Type::INT96:
            {
               uint32_t val;
+              uint32_t predicate = vals.e;
            rows_read = int64_reader->callReadBatch(1,&val,&values_read);
            row_counter = ind;
+           
+           if ( checkpredicate && val == predicate) {
+           row_counter = ind;
+           std::cout << "with predicate row number: " << row_counter << " " << val << "\n";
+           //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
+          }else{
+            row_counter = ind;
            std::cout << "row number: " << row_counter << " " << val << "\n";
-           std::cout << "predicate: " << *((uint32_t*)predicate) << std::endl;
+          }
            break;
            }
         case Type::FLOAT:
            {
               float val;
+              float predicate = vals.d;
            rows_read = int64_reader->callReadBatch(1,&val,&values_read);
+           if ( checkpredicate && val == predicate) {
            row_counter = ind;
+           std::cout << "with predicate row number: " << row_counter << " " << val << "\n";
+           //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
+          }else{
+            row_counter = ind;
            std::cout << "row number: " << row_counter << " " << val << "\n";
-           std::cout << "predicate: " << *((float*)predicate) << std::endl;
+          }
            break;
            }
         case Type::DOUBLE:
            {
               double val;
+              double predicate = vals.i;
            rows_read = int64_reader->callReadBatch(1,&val,&values_read);
+           
+           if ( checkpredicate && val == predicate) {
            row_counter = ind;
+           std::cout << "with predicate row number: " << row_counter << " " << val << "\n";
+           //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
+          }else{
+            row_counter = ind;
            std::cout << "row number: " << row_counter << " " << val << "\n";
-           std::cout << "predicate: " << *((double*)predicate) << std::endl;
+          }
            break;
            }
         case Type::BYTE_ARRAY:
           {
             parquet::ByteArray str;
-
+            char* predicate = vals.c;
             rows_read = int64_reader->callReadBatch(1,&str,&values_read);
             std::string result = parquet::ByteArrayToString(str);
 
             row_counter = ind;
-            std::cout << "row number: " << row_counter << " " << result << "\n";
-            //std::cout << "predicate: " << << std::endl;
+            // std::cout << "row number: " << row_counter << " " << result << "\n";
+            if ( checkpredicate && strcmp(result.c_str(),predicate) == 0) {
+           row_counter = ind;
+           std::cout << "with predicate row number: " << row_counter << " " << result << "\n";
+           //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
+          }else{
+            row_counter = ind;
+           std::cout << "row number: " << row_counter << " " << result << "\n";
+          }
             break;
           }
         case Type::FIXED_LEN_BYTE_ARRAY:
           {
             parquet::FLBA str;
-
+            char* predicate = vals.a;
             rows_read = int64_reader->callReadBatch(1,&str,&values_read);
             std::string result = parquet::FixedLenByteArrayToString(str,sizeof(str));
 
             row_counter = ind;
-            std::cout << "row number: " << row_counter << " " << result << "\n";
-            std::cout << "predicate: " << parquet::FixedLenByteArrayToString(*((parquet::FixedLenByteArray*)predicate),sizeof(predicate)) << std::endl;
+            // std::cout << "row number: " << row_counter << " " << result << "\n";
+            if ( checkpredicate && strcmp(result.c_str(),predicate)) {
+           row_counter = ind;
+           std::cout << "with predicate row number: " << row_counter << " " << result << "\n";
+           //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
+          }else{
+            row_counter = ind;
+           std::cout << "row number: " << row_counter << " " << result << "\n";
+          }
           break;
           }
         default:
