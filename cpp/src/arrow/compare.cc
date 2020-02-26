@@ -1103,7 +1103,7 @@ bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
 
 template <typename DataType>
 bool FloatTensorEquals(const Tensor& left, const Tensor& right,
-                          const EqualOptions& opts) {
+                       const EqualOptions& opts) {
   return StridedFloatTensorContentEquals<DataType>(0, 0, 0, left, right, opts);
 }
 
@@ -1144,9 +1144,8 @@ struct SparseTensorEqualsImpl {
   }
 };
 
-bool IntegerSparseTensorDataEquals(const uint8_t* left_data,
-                                   const uint8_t* right_data, const int byte_width,
-                                   const int64_t length) {
+bool IntegerSparseTensorDataEquals(const uint8_t* left_data, const uint8_t* right_data,
+                                   const int byte_width, const int64_t length) {
   if (left_data == right_data) {
     return true;
   }
@@ -1156,8 +1155,7 @@ bool IntegerSparseTensorDataEquals(const uint8_t* left_data,
 template <typename DataType>
 bool FloatSparseTensorDataEquals(const typename DataType::c_type* left_data,
                                  const typename DataType::c_type* right_data,
-                                 const int64_t length,
-                                 const EqualOptions& opts) {
+                                 const int64_t length, const EqualOptions& opts) {
   using c_type = typename DataType::c_type;
   static_assert(std::is_floating_point<c_type>::value,
                 "DataType must be a floating point type");
