@@ -25,7 +25,6 @@
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
-#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -51,54 +50,54 @@ using parquet::arrow::WriteTable;
 
 using testing::Pointee;
 
-Status WriteRecordBatch(const RecordBatch& batch, FileWriter* writer) {
-  auto schema = batch.schema();
-  auto size = batch.num_rows();
-
-  if (!schema->Equals(*writer->schema(), false)) {
-    return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
-                           schema->ToString(), "' this:'", writer->schema()->ToString(),
-                           "'");
-  }
-
-  RETURN_NOT_OK(writer->NewRowGroup(size));
-  for (int i = 0; i < batch.num_columns(); i++) {
-    RETURN_NOT_OK(writer->WriteColumnChunk(*batch.column(i)));
-  }
-
-  return Status::OK();
-}
-
-Status WriteRecordBatchReader(RecordBatchReader* reader, FileWriter* writer) {
-  auto schema = reader->schema();
-
-  if (!schema->Equals(*writer->schema(), false)) {
-    return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
-                           schema->ToString(), "' this:'", writer->schema()->ToString(),
-                           "'");
-  }
-
-  return MakeFunctionIterator([reader] { return reader->Next(); })
-      .Visit([&](std::shared_ptr<RecordBatch> batch) {
-        return WriteRecordBatch(*batch, writer);
-      });
-}
-
-Status WriteRecordBatchReader(
-    RecordBatchReader* reader, MemoryPool* pool,
-    const std::shared_ptr<io::OutputStream>& sink,
-    const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
-    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-        default_arrow_writer_properties()) {
-  std::unique_ptr<FileWriter> writer;
-  RETURN_NOT_OK(FileWriter::Open(*reader->schema(), pool, sink, properties,
-                                 arrow_properties, &writer));
-  RETURN_NOT_OK(WriteRecordBatchReader(reader, writer.get()));
-  return writer->Close();
-}
-
 class ArrowParquetWriterMixin : public ::testing::Test {
  public:
+  Status WriteRecordBatch(const RecordBatch& batch, FileWriter* writer) {
+    auto schema = batch.schema();
+    auto size = batch.num_rows();
+
+    if (!schema->Equals(*writer->schema(), false)) {
+      return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
+                             schema->ToString(), "' this:'", writer->schema()->ToString(),
+                             "'");
+    }
+
+    RETURN_NOT_OK(writer->NewRowGroup(size));
+    for (int i = 0; i < batch.num_columns(); i++) {
+      RETURN_NOT_OK(writer->WriteColumnChunk(*batch.column(i)));
+    }
+
+    return Status::OK();
+  }
+
+  Status WriteRecordBatchReader(RecordBatchReader* reader, FileWriter* writer) {
+    auto schema = reader->schema();
+
+    if (!schema->Equals(*writer->schema(), false)) {
+      return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
+                             schema->ToString(), "' this:'", writer->schema()->ToString(),
+                             "'");
+    }
+
+    return MakeFunctionIterator([reader] { return reader->Next(); })
+        .Visit([&](std::shared_ptr<RecordBatch> batch) {
+          return WriteRecordBatch(*batch, writer);
+        });
+  }
+
+  Status WriteRecordBatchReader(
+      RecordBatchReader* reader, MemoryPool* pool,
+      const std::shared_ptr<io::OutputStream>& sink,
+      const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
+      const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+          default_arrow_writer_properties()) {
+    std::unique_ptr<FileWriter> writer;
+    RETURN_NOT_OK(FileWriter::Open(*reader->schema(), pool, sink, properties,
+                                   arrow_properties, &writer));
+    RETURN_NOT_OK(WriteRecordBatchReader(reader, writer.get()));
+    return writer->Close();
+  }
+
   std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
     auto pool = ::arrow::default_memory_pool();
 
@@ -126,32 +125,18 @@ class ArrowParquetWriterMixin : public ::testing::Test {
   }
 };
 
-class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
+class TestParquetFileFormat : public ArrowParquetWriterMixin {
  public:
   std::unique_ptr<FileSource> GetFileSource(RecordBatchReader* reader) {
     auto buffer = Write(reader);
     return internal::make_unique<FileSource>(std::move(buffer));
   }
 
-  std::unique_ptr<RecordBatchReader> GetRecordBatchReader() {
-    auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-    int64_t i = 0;
-    return MakeGeneratedRecordBatch(
-        batch->schema(), [batch, i](std::shared_ptr<RecordBatch>* out) mutable {
-          *out = i++ < kBatchRepetitions ? batch : nullptr;
-          return Status::OK();
-        });
+  std::unique_ptr<RecordBatchReader> GetRecordBatchReader(
+      std::shared_ptr<Schema> schema = nullptr) {
+    return MakeGeneratedRecordBatch(schema ? schema : schema_, kBatchSize,
+                                    kBatchRepetitions);
   }
-
- protected:
-  std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
-};
-
-class TestParquetFileFormat : public ParquetBufferFixtureMixin {
- protected:
-  std::shared_ptr<ParquetFileFormat> format_ = std::make_shared<ParquetFileFormat>();
-  std::shared_ptr<ScanOptions> opts_;
-  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
     return MakeFlattenIterator(MakeMaybeMapIterator(
@@ -178,6 +163,12 @@ class TestParquetFileFormat : public ParquetBufferFixtureMixin {
     EXPECT_EQ(actual_rows, expected_rows);
     EXPECT_EQ(actual_batches, expected_batches);
   }
+
+ protected:
+  std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
+  std::shared_ptr<ParquetFileFormat> format_ = std::make_shared<ParquetFileFormat>();
+  std::shared_ptr<ScanOptions> opts_;
+  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 };
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
@@ -269,18 +260,17 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
 }
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
-  schema_ =
-      schema({field("f64", float64()), field("i64", int64()), field("f32", float32())});
-  auto reader_without_i32 = GetRecordBatchReader();
+  auto reader_without_i32 = GetRecordBatchReader(
+      schema({field("f64", float64()), field("i64", int64()), field("f32", float32())}));
 
-  schema_ =
-      schema({field("i64", int64()), field("f32", float32()), field("i32", int32())});
-  auto reader_without_f64 = GetRecordBatchReader();
+  auto reader_without_f64 = GetRecordBatchReader(
+      schema({field("i64", int64()), field("f32", float32()), field("i32", int32())}));
 
-  schema_ = schema({field("f64", float64()), field("i64", int64()),
-                    field("f32", float32()), field("i32", int32())});
-  auto reader = GetRecordBatchReader();
+  auto reader =
+      GetRecordBatchReader(schema({field("f64", float64()), field("i64", int64()),
+                                   field("f32", float32()), field("i32", int32())}));
 
+  schema_ = reader->schema();
   opts_ = ScanOptions::Make(schema_);
   opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
   opts_->filter = equal(field_ref("i32"), scalar(0));
@@ -289,24 +279,25 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
     auto source = GetFileSource(reader);
     auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
 
+    // NB: projector is applied by the scanner; ParquetFragment does not evaluate it.
+    // We will not drop "i32" even though it is not in the projector's schema.
+    //
+    // in the case where a file doesn't contain a referenced field, we won't
+    // materialize it (the filter/projector will populate it with nulls later)
+    std::shared_ptr<Schema> expected_schema;
+    if (reader == reader_without_i32.get()) {
+      expected_schema = schema({field("f64", float64())});
+    } else if (reader == reader_without_f64.get()) {
+      expected_schema = schema({field("i32", int32())});
+    } else {
+      expected_schema = schema({field("f64", float64()), field("i32", int32())});
+    }
+
     int64_t row_count = 0;
 
     for (auto maybe_batch : Batches(fragment.get())) {
       ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
       row_count += batch->num_rows();
-      // NB: projector is applied by the scanner; ParquetFragment does not evaluate it.
-      // We will not drop "i32" even though it is not in the projector's schema.
-      //
-      // in the case where a file doesn't contain a referenced field, we won't
-      // materialize it (the filter/projector will populate it with nulls later)
-      std::shared_ptr<Schema> expected_schema;
-      if (reader == reader_without_i32.get()) {
-        expected_schema = schema({field("f64", float64())});
-      } else if (reader == reader_without_f64.get()) {
-        expected_schema = schema({field("i32", int32())});
-      } else {
-        expected_schema = schema({field("f64", float64()), field("i32", int32())});
-      }
       AssertSchemaEqual(*batch->schema(), *expected_schema,
                         /*check_metadata=*/false);
     }

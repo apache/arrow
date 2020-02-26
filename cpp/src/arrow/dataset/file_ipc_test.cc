@@ -27,7 +27,6 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
-#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
@@ -73,29 +72,19 @@ class ArrowIpcWriterMixin : public ::testing::Test {
   }
 };
 
-class IpcBufferFixtureMixin : public ArrowIpcWriterMixin {
+class TestIpcFileFormat : public ArrowIpcWriterMixin {
  public:
   std::unique_ptr<FileSource> GetFileSource(RecordBatchReader* reader) {
     auto buffer = Write(reader);
     return internal::make_unique<FileSource>(std::move(buffer));
   }
 
-  std::unique_ptr<RecordBatchReader> GetRecordBatchReader() {
-    auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-    int64_t i = 0;
-    return MakeGeneratedRecordBatch(
-        batch->schema(), [batch, i](std::shared_ptr<RecordBatch>* out) mutable {
-          *out = i++ < kBatchRepetitions ? batch : nullptr;
-          return Status::OK();
-        });
+  std::unique_ptr<RecordBatchReader> GetRecordBatchReader(
+      std::shared_ptr<Schema> schema = nullptr) {
+    return MakeGeneratedRecordBatch(schema ? schema : schema_, kBatchSize,
+                                    kBatchRepetitions);
   }
 
- protected:
-  std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
-};
-
-class TestIpcFileFormat : public IpcBufferFixtureMixin {
- public:
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
     return MakeFlattenIterator(MakeMaybeMapIterator(
         [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
@@ -110,6 +99,7 @@ class TestIpcFileFormat : public IpcBufferFixtureMixin {
  protected:
   std::shared_ptr<ScanOptions> opts_;
   std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
+  std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
 };
 
 TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
@@ -174,18 +164,17 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
 }
 
 TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
-  schema_ =
-      schema({field("f64", float64()), field("i64", int64()), field("f32", float32())});
-  auto reader_without_i32 = GetRecordBatchReader();
+  auto reader_without_i32 = GetRecordBatchReader(
+      schema({field("f64", float64()), field("i64", int64()), field("f32", float32())}));
 
-  schema_ =
-      schema({field("i64", int64()), field("f32", float32()), field("i32", int32())});
-  auto reader_without_f64 = GetRecordBatchReader();
+  auto reader_without_f64 = GetRecordBatchReader(
+      schema({field("i64", int64()), field("f32", float32()), field("i32", int32())}));
 
-  schema_ = schema({field("f64", float64()), field("i64", int64()),
-                    field("f32", float32()), field("i32", int32())});
-  auto reader = GetRecordBatchReader();
+  auto reader =
+      GetRecordBatchReader(schema({field("f64", float64()), field("i64", int64()),
+                                   field("f32", float32()), field("i32", int32())}));
 
+  schema_ = reader->schema();
   opts_ = ScanOptions::Make(schema_);
   opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
   opts_->filter = equal(field_ref("i32"), scalar(0));
@@ -194,24 +183,25 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
     auto source = GetFileSource(reader);
     auto fragment = std::make_shared<IpcFragment>(*source, opts_);
 
+    // NB: projector is applied by the scanner; Fragment does not evaluate it.
+    // We will not drop "i32" even though it is not in the projector's schema.
+    //
+    // in the case where a file doesn't contain a referenced field, we won't
+    // materialize it (the filter/projector will populate it with nulls later)
+    std::shared_ptr<Schema> expected_schema;
+    if (reader == reader_without_i32.get()) {
+      expected_schema = schema({field("f64", float64())});
+    } else if (reader == reader_without_f64.get()) {
+      expected_schema = schema({field("i32", int32())});
+    } else {
+      expected_schema = schema({field("f64", float64()), field("i32", int32())});
+    }
+
     int64_t row_count = 0;
 
     for (auto maybe_batch : Batches(fragment.get())) {
       ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
       row_count += batch->num_rows();
-      // NB: projector is applied by the scanner; ParquetFragment does not evaluate it.
-      // We will not drop "i32" even though it is not in the projector's schema.
-      //
-      // in the case where a file doesn't contain a referenced field, we won't
-      // materialize it (the filter/projector will populate it with nulls later)
-      std::shared_ptr<Schema> expected_schema;
-      if (reader == reader_without_i32.get()) {
-        expected_schema = schema({field("f64", float64())});
-      } else if (reader == reader_without_f64.get()) {
-        expected_schema = schema({field("i32", int32())});
-      } else {
-        expected_schema = schema({field("f64", float64()), field("i32", int32())});
-      }
       AssertSchemaEqual(*batch->schema(), *expected_schema,
                         /*check_metadata=*/false);
     }
