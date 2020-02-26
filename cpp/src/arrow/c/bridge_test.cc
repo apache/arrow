@@ -18,6 +18,7 @@
 #include <deque>
 #include <functional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -81,7 +82,8 @@ class ReleaseCallback {
     ASSERT_FALSE(called_) << "ReleaseCallback called twice";
     called_ = true;
     ASSERT_FALSE(Traits::IsReleasedFunc(c_struct))
-        << "ReleaseCallback called with released ArrowSchema";
+        << "ReleaseCallback called with released Arrow"
+        << (std::is_same<CType, ArrowSchema>::value ? "Schema" : "Array");
     // Call original release callback
     c_struct->release = orig_release_;
     c_struct->private_data = orig_private_data_;

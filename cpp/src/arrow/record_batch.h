@@ -43,17 +43,9 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] num_rows length of fields in the record batch. Each array
   /// should have the same length as num_rows
   /// \param[in] columns the record batch fields as vector of arrays
-  static std::shared_ptr<RecordBatch> Make(
-      std::shared_ptr<Schema> schema, int64_t num_rows,
-      const std::vector<std::shared_ptr<Array>>& columns);
-
-  /// \param[in] schema The record batch schema
-  /// \param[in] num_rows length of fields in the record batch. Each array
-  /// should have the same length as num_rows
-  /// \param[in] columns the record batch fields as vector of arrays
   static std::shared_ptr<RecordBatch> Make(std::shared_ptr<Schema> schema,
                                            int64_t num_rows,
-                                           std::vector<std::shared_ptr<Array>>&& columns);
+                                           std::vector<std::shared_ptr<Array>> columns);
 
   /// \brief Construct record batch from vector of internal data structures
   /// \since 0.5.0

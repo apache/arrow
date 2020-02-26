@@ -103,7 +103,7 @@ popd
 
 pushd python
 
-pip install -r requirements.txt pickle5
+pip install -r requirements.txt
 
 set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%

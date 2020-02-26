@@ -26,14 +26,20 @@
 extern "C" {
 #endif
 
+/// Query whether the C schema is released
 inline int ArrowSchemaIsReleased(const struct ArrowSchema* schema) {
   return schema->release == NULL;
 }
 
+/// Mark the C schema released (for use in release callbacks)
 inline void ArrowSchemaMarkReleased(struct ArrowSchema* schema) {
   schema->release = NULL;
 }
 
+/// Move the C schema from `src` to `dest`
+///
+/// Note `dest` must *not* point to a valid schema already, otherwise there
+/// will be a memory leak.
 inline void ArrowSchemaMove(struct ArrowSchema* src, struct ArrowSchema* dest) {
   assert(dest != src);
   assert(!ArrowSchemaIsReleased(src));
@@ -41,6 +47,7 @@ inline void ArrowSchemaMove(struct ArrowSchema* src, struct ArrowSchema* dest) {
   ArrowSchemaMarkReleased(src);
 }
 
+/// Release the C schema, if necessary, by calling its release callback
 inline void ArrowSchemaRelease(struct ArrowSchema* schema) {
   if (!ArrowSchemaIsReleased(schema)) {
     schema->release(schema);
@@ -48,12 +55,18 @@ inline void ArrowSchemaRelease(struct ArrowSchema* schema) {
   }
 }
 
+/// Query whether the C array is released
 inline int ArrowArrayIsReleased(const struct ArrowArray* array) {
   return array->release == NULL;
 }
 
+/// Mark the C array released (for use in release callbacks)
 inline void ArrowArrayMarkReleased(struct ArrowArray* array) { array->release = NULL; }
 
+/// Move the C array from `src` to `dest`
+///
+/// Note `dest` must *not* point to a valid array already, otherwise there
+/// will be a memory leak.
 inline void ArrowArrayMove(struct ArrowArray* src, struct ArrowArray* dest) {
   assert(dest != src);
   assert(!ArrowArrayIsReleased(src));
@@ -61,6 +74,7 @@ inline void ArrowArrayMove(struct ArrowArray* src, struct ArrowArray* dest) {
   ArrowArrayMarkReleased(src);
 }
 
+/// Release the C array, if necessary, by calling its release callback
 inline void ArrowArrayRelease(struct ArrowArray* array) {
   if (!ArrowArrayIsReleased(array)) {
     array->release(array);

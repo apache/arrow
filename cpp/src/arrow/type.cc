@@ -613,25 +613,19 @@ std::string NullType::ToString() const { return name(); }
 
 class Schema::Impl {
  public:
-  Impl(const std::vector<std::shared_ptr<Field>>& fields,
-       const std::shared_ptr<const KeyValueMetadata>& metadata)
-      : fields_(fields),
-        name_to_index_(CreateNameToIndexMap(fields_)),
-        metadata_(metadata) {}
-
-  Impl(std::vector<std::shared_ptr<Field>>&& fields,
-       const std::shared_ptr<const KeyValueMetadata>& metadata)
+  Impl(std::vector<std::shared_ptr<Field>> fields,
+       std::shared_ptr<const KeyValueMetadata> metadata)
       : fields_(std::move(fields)),
         name_to_index_(CreateNameToIndexMap(fields_)),
-        metadata_(metadata) {}
+        metadata_(std::move(metadata)) {}
 
   std::vector<std::shared_ptr<Field>> fields_;
   std::unordered_multimap<std::string, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
-Schema::Schema(const std::vector<std::shared_ptr<Field>> fields,
-               const std::shared_ptr<const KeyValueMetadata> metadata)
+Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
+               std::shared_ptr<const KeyValueMetadata> metadata)
     : detail::Fingerprintable(),
       impl_(new Impl(std::move(fields), std::move(metadata))) {}
 

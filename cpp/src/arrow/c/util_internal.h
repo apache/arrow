@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "arrow/c/helpers.h"
+
 namespace arrow {
 namespace internal {
 
@@ -40,7 +42,15 @@ class ExportGuard {
 
   explicit ExportGuard(CType* c_export) : c_export_(c_export) {}
 
-  ARROW_DEFAULT_MOVE_AND_ASSIGN(ExportGuard);
+  ExportGuard(ExportGuard&& other) : c_export_(other.c_export_) {
+    other.c_export_ = nullptr;
+  }
+
+  ExportGuard& operator=(ExportGuard&& other) {
+    Release();
+    c_export_ = other.c_export_;
+    other.c_export_ = nullptr;
+  }
 
   ~ExportGuard() { Release(); }
 

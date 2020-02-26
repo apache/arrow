@@ -264,115 +264,61 @@ struct SchemaExporter {
     return Status::OK();
   }
 
+  Status SetFormat(std::string s) {
+    export_.format_ = std::move(s);
+    return Status::OK();
+  }
+
   // Type-specific visitors
 
   Status Visit(const DataType& type) { return ExportingNotImplemented(type); }
 
-  Status Visit(const NullType& type) {
-    export_.format_ = "n";
-    return Status::OK();
-  }
+  Status Visit(const NullType& type) { return SetFormat("n"); }
 
-  Status Visit(const BooleanType& type) {
-    export_.format_ = "b";
-    return Status::OK();
-  }
+  Status Visit(const BooleanType& type) { return SetFormat("b"); }
 
-  Status Visit(const Int8Type& type) {
-    export_.format_ = "c";
-    return Status::OK();
-  }
+  Status Visit(const Int8Type& type) { return SetFormat("c"); }
 
-  Status Visit(const UInt8Type& type) {
-    export_.format_ = "C";
-    return Status::OK();
-  }
+  Status Visit(const UInt8Type& type) { return SetFormat("C"); }
 
-  Status Visit(const Int16Type& type) {
-    export_.format_ = "s";
-    return Status::OK();
-  }
+  Status Visit(const Int16Type& type) { return SetFormat("s"); }
 
-  Status Visit(const UInt16Type& type) {
-    export_.format_ = "S";
-    return Status::OK();
-  }
+  Status Visit(const UInt16Type& type) { return SetFormat("S"); }
 
-  Status Visit(const Int32Type& type) {
-    export_.format_ = "i";
-    return Status::OK();
-  }
+  Status Visit(const Int32Type& type) { return SetFormat("i"); }
 
-  Status Visit(const UInt32Type& type) {
-    export_.format_ = "I";
-    return Status::OK();
-  }
+  Status Visit(const UInt32Type& type) { return SetFormat("I"); }
 
-  Status Visit(const Int64Type& type) {
-    export_.format_ = "l";
-    return Status::OK();
-  }
+  Status Visit(const Int64Type& type) { return SetFormat("l"); }
 
-  Status Visit(const UInt64Type& type) {
-    export_.format_ = "L";
-    return Status::OK();
-  }
+  Status Visit(const UInt64Type& type) { return SetFormat("L"); }
 
-  Status Visit(const HalfFloatType& type) {
-    export_.format_ = "e";
-    return Status::OK();
-  }
+  Status Visit(const HalfFloatType& type) { return SetFormat("e"); }
 
-  Status Visit(const FloatType& type) {
-    export_.format_ = "f";
-    return Status::OK();
-  }
+  Status Visit(const FloatType& type) { return SetFormat("f"); }
 
-  Status Visit(const DoubleType& type) {
-    export_.format_ = "g";
-    return Status::OK();
-  }
+  Status Visit(const DoubleType& type) { return SetFormat("g"); }
 
   Status Visit(const FixedSizeBinaryType& type) {
-    export_.format_ = "w:" + std::to_string(type.byte_width());
-    return Status::OK();
+    return SetFormat("w:" + std::to_string(type.byte_width()));
   }
 
   Status Visit(const Decimal128Type& type) {
-    export_.format_ =
-        "d:" + std::to_string(type.precision()) + "," + std::to_string(type.scale());
-    return Status::OK();
+    return SetFormat("d:" + std::to_string(type.precision()) + "," +
+                     std::to_string(type.scale()));
   }
 
-  Status Visit(const BinaryType& type) {
-    export_.format_ = "z";
-    return Status::OK();
-  }
+  Status Visit(const BinaryType& type) { return SetFormat("z"); }
 
-  Status Visit(const LargeBinaryType& type) {
-    export_.format_ = "Z";
-    return Status::OK();
-  }
+  Status Visit(const LargeBinaryType& type) { return SetFormat("Z"); }
 
-  Status Visit(const StringType& type) {
-    export_.format_ = "u";
-    return Status::OK();
-  }
+  Status Visit(const StringType& type) { return SetFormat("u"); }
 
-  Status Visit(const LargeStringType& type) {
-    export_.format_ = "U";
-    return Status::OK();
-  }
+  Status Visit(const LargeStringType& type) { return SetFormat("U"); }
 
-  Status Visit(const Date32Type& type) {
-    export_.format_ = "tdD";
-    return Status::OK();
-  }
+  Status Visit(const Date32Type& type) { return SetFormat("tdD"); }
 
-  Status Visit(const Date64Type& type) {
-    export_.format_ = "tdm";
-    return Status::OK();
-  }
+  Status Visit(const Date64Type& type) { return SetFormat("tdm"); }
 
   Status Visit(const Time32Type& type) {
     switch (type.unit()) {
@@ -443,35 +389,19 @@ struct SchemaExporter {
     return Status::OK();
   }
 
-  Status Visit(const MonthIntervalType& type) {
-    export_.format_ = "tiM";
-    return Status::OK();
-  }
+  Status Visit(const MonthIntervalType& type) { return SetFormat("tiM"); }
 
-  Status Visit(const DayTimeIntervalType& type) {
-    export_.format_ = "tiD";
-    return Status::OK();
-  }
+  Status Visit(const DayTimeIntervalType& type) { return SetFormat("tiD"); }
 
-  Status Visit(const ListType& type) {
-    export_.format_ = "+l";
-    return Status::OK();
-  }
+  Status Visit(const ListType& type) { return SetFormat("+l"); }
 
-  Status Visit(const LargeListType& type) {
-    export_.format_ = "+L";
-    return Status::OK();
-  }
+  Status Visit(const LargeListType& type) { return SetFormat("+L"); }
 
   Status Visit(const FixedSizeListType& type) {
-    export_.format_ = "+w:" + std::to_string(type.list_size());
-    return Status::OK();
+    return SetFormat("+w:" + std::to_string(type.list_size()));
   }
 
-  Status Visit(const StructType& type) {
-    export_.format_ = "+s";
-    return Status::OK();
-  }
+  Status Visit(const StructType& type) { return SetFormat("+s"); }
 
   Status Visit(const MapType& type) {
     export_.format_ = "+m";
@@ -617,7 +547,8 @@ struct ArrayExporter {
     }
     pdata->child_pointers_.resize(data.child_data.size(), nullptr);
     for (size_t i = 0; i < data.child_data.size(); ++i) {
-      auto ptr = pdata->child_pointers_[i] = &pdata->children_[i];
+      auto ptr = &pdata->children_[i];
+      pdata->child_pointers_[i] = ptr;
       child_exporters_[i].Finish(ptr);
     }
 
@@ -842,7 +773,7 @@ struct SchemaImporter {
     ARROW_ASSIGN_OR_RAISE(auto metadata, DecodeMetadata(c_struct_->metadata));
     const char* name = c_struct_->name ? c_struct_->name : "";
     bool nullable = (c_struct_->flags & ARROW_FLAG_NULLABLE) != 0;
-    return field(name, type_, nullable, metadata);
+    return field(name, type_, nullable, std::move(metadata));
   }
 
   Result<std::shared_ptr<Schema>> MakeSchema() const {
@@ -1137,8 +1068,9 @@ struct SchemaImporter {
     ARROW_ASSIGN_OR_RAISE(auto fields, MakeChildFields());
     if (fields.size() != type_codes.size()) {
       return Status::Invalid(
-          "ArrowArray struct number of children incompatible with format string '",
-          c_struct_->format, "'");
+          "ArrowArray struct number of children incompatible with format string "
+          "(mismatching number of union type codes) ",
+          "'", c_struct_->format, "'");
     }
     for (const auto code : type_codes) {
       if (code < 0) {
@@ -1473,7 +1405,7 @@ struct ArrayImporter {
     DCHECK_EQ(child_importers_.size(), data_->child_data.size());
     std::transform(child_importers_.begin(), child_importers_.end(),
                    data_->child_data.begin(),
-                   [](ArrayImporter& child) { return child.data_; });
+                   [](const ArrayImporter& child) { return child.data_; });
     return Status::OK();
   }
 
@@ -1489,8 +1421,7 @@ struct ArrayImporter {
 
   Status ImportBitsBuffer(int32_t buffer_id) {
     // Compute visible size of buffer
-    int64_t buffer_size =
-        BitUtil::RoundUpToMultipleOf8(c_struct_->length + c_struct_->offset) / 8;
+    int64_t buffer_size = BitUtil::BytesForBits(c_struct_->length + c_struct_->offset);
     return ImportBuffer(buffer_id, buffer_size);
   }
 

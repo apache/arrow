@@ -77,7 +77,8 @@ COPY python/requirements.txt \
 
 RUN pip install \
     -r arrow/python/requirements.txt \
-    cython setuptools
+    cython \
+    setuptools
 
 ENV \
     ARROW_BUILD_STATIC=OFF \
