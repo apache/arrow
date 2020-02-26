@@ -908,7 +908,7 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
   typedef typename Type::c_type T;
   static constexpr int TYPE = Type::type_num;
 
-  virtual void CheckRoundtrip() {
+  void CheckRoundtrip() override {
     auto encoder =
         MakeTypedEncoder<Type>(Encoding::BYTE_STREAM_SPLIT, false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::BYTE_STREAM_SPLIT, descr_.get());
@@ -931,18 +931,14 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
       int remaining = num_values_;
       for (int i = 0; i < num_values_; i += step) {
         int num_decoded = decoder->Decode(decode_buf_, step);
-        if (remaining >= step) {
-          ASSERT_EQ(step, num_decoded);
-        } else {
-          ASSERT_EQ(num_decoded, remaining);
-        }
+        ASSERT_EQ(num_decoded, std::min(step, remaining));
         ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, &draws_[i], num_decoded));
         remaining -= num_decoded;
       }
     }
 
     {
-      std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
+      std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values_), 255);
       ASSERT_NO_THROW(encoder->PutSpaced(draws_, num_values_, valid_bits.data(), 0));
       encode_buffer_ = encoder->FlushValues();
 
@@ -954,19 +950,93 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     }
   }
 
+  void CheckDecode();
+  void CheckEncode();
+
  protected:
   USING_BASE_MEMBERS();
+
+  void CheckDecode(const uint8_t* encoded_data,
+                   const int64_t encoded_data_size,
+                   const T* expected_decoded_data,
+                   const int num_elements) {
+    std::unique_ptr<TypedDecoder<Type>> decoder =
+        MakeTypedDecoder<Type>(Encoding::BYTE_STREAM_SPLIT);
+    decoder->SetData(num_elements, encoded_data, static_cast<int>(encoded_data_size));
+    std::vector<T> decoded_data(num_elements);
+    int num_decoded_elements = decoder->Decode(decoded_data.data(), num_elements);
+    ASSERT_EQ(num_elements, num_decoded_elements);
+    for (size_t i = 0U; i < decoded_data.size(); ++i) {
+      ASSERT_EQ(expected_decoded_data[i], decoded_data[i]);
+    }
+    ASSERT_EQ(0, decoder->values_left());
+  }
+
+  void CheckEncode(const T* data,
+                   const int num_elements,
+                   const uint8_t* expected_encoded_data,
+                   const int64_t encoded_data_size) {
+    std::unique_ptr<TypedEncoder<Type>> encoder =
+        MakeTypedEncoder<Type>(Encoding::BYTE_STREAM_SPLIT);
+    encoder->Put(data, num_elements);
+    auto encoded_data = encoder->FlushValues();
+    ASSERT_EQ(encoded_data_size, encoded_data->size());
+    const uint8_t *encoded_data_raw = encoded_data->data();
+    for (int64_t i = 0; i < encoded_data->size(); ++i) {
+      ASSERT_EQ(expected_encoded_data[i], encoded_data_raw[i]);
+    }
+  }
 };
+
+template <>
+void TestByteStreamSplitEncoding<FloatType>::CheckDecode() {
+    const uint8_t data[] = {0x11, 0x22, 0x33, 0x44,
+                            0x55, 0x66, 0x77, 0x88,
+                            0x99, 0xAA, 0xBB, 0xCC};
+    const uint32_t expected_output[3] = {0xAA774411, 0xBB885522, 0xCC996633};
+    CheckDecode(reinterpret_cast<const uint8_t*>(data), static_cast<int64_t>(sizeof(data)), reinterpret_cast<const float*>(expected_output), static_cast<int>(sizeof(data) / sizeof(float)));
+}
+
+template <>
+void TestByteStreamSplitEncoding<DoubleType>::CheckDecode() {
+  const uint8_t data[] = {0xDE, 0xC0, 0x37, 0x13, 0x11, 0x22, 0x33, 0x44,
+                          0xAA, 0xBB, 0xCC, 0xDD, 0x55, 0x66, 0x77, 0x88};
+  const uint64_t expected_output[2] = {0x7755CCAA331137DE, 0x8866DDBB442213C0};
+  CheckDecode(reinterpret_cast<const uint8_t*>(data), static_cast<int64_t>(sizeof(data)), reinterpret_cast<const double*>(expected_output), static_cast<int>(sizeof(data) / sizeof(double)));
+}
+
+template <>
+void TestByteStreamSplitEncoding<DoubleType>::CheckEncode() {
+  const uint64_t data[] = {0x4142434445464748U, 0x0102030405060708U, 0xb1b2b3b4b5b6b7b8U};
+  const uint8_t expected_output[24] = {
+      0x48, 0x08, 0xb8, 0x47, 0x07, 0xb7, 0x46, 0x06, 0xb6, 0x45, 0x05, 0xb5,
+      0x44, 0x04, 0xb4, 0x43, 0x03, 0xb3, 0x42, 0x02, 0xb2, 0x41, 0x01, 0xb1,
+  };
+  CheckEncode(reinterpret_cast<const double*>(expected_output), static_cast<int>(sizeof(data) / sizeof(double)), reinterpret_cast<const uint8_t*>(data), static_cast<int64_t>(sizeof(data)));
+}
+
+template <>
+void TestByteStreamSplitEncoding<FloatType>::CheckEncode() {
+  const uint32_t data[] = {0xaabbccdd, 0x11223344};
+  const uint8_t expected_output[8] = {
+      0xdd, 0x44, 0xcc, 0x33, 0xbb, 0x22, 0xaa, 0x11
+  };
+  CheckEncode(reinterpret_cast<const float*>(expected_output), static_cast<int>(sizeof(data) / sizeof(float)), reinterpret_cast<const uint8_t*>(data), static_cast<int64_t>(sizeof(data)));
+}
 
 typedef ::testing::Types<FloatType, DoubleType> ByteStreamSplitTypes;
 TYPED_TEST_CASE(TestByteStreamSplitEncoding, ByteStreamSplitTypes);
 
 TYPED_TEST(TestByteStreamSplitEncoding, BasicRoundTrip) {
-  ASSERT_NO_FATAL_FAILURE(this->Execute(10000, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1000, 1));
 }
 
 TYPED_TEST(TestByteStreamSplitEncoding, RoundTripSingleElement) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(1, 1));
+}
+
+TYPED_TEST(TestByteStreamSplitEncoding, CheckOnlyDecode) {
+  ASSERT_NO_FATAL_FAILURE(this->CheckDecode());
 }
 
 TEST(ByteStreamSplitEncodeDecode, InvalidDataTypes) {
