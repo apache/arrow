@@ -1144,17 +1144,17 @@ struct SparseTensorEqualsImpl {
   }
 };
 
-inline bool IntegerSparseTensorDataEquals(const uint8_t* left_data,
-                                          const uint8_t* right_data, const int byte_width,
-                                          const int64_t length) {
+bool IntegerSparseTensorDataEquals(const uint8_t* left_data,
+                                   const uint8_t* right_data, const int byte_width,
+                                   const int64_t length) {
   return memcmp(left_data, right_data, static_cast<size_t>(byte_width * length)) == 0;
 }
 
 template <typename DataType>
-inline bool FloatSparseTensorDataEquals(const typename DataType::c_type* left_data,
-                                        const typename DataType::c_type* right_data,
-                                        const int64_t length,
-                                        const EqualOptions& opts) {
+bool FloatSparseTensorDataEquals(const typename DataType::c_type* left_data,
+                                 const typename DataType::c_type* right_data,
+                                 const int64_t length,
+                                 const EqualOptions& opts) {
   using c_type = typename DataType::c_type;
   static_assert(std::is_floating_point<c_type>::value,
                 "DataType must be a floating point type");
