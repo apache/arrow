@@ -699,7 +699,6 @@ class PathBuilder {
 
   Status Visit(const ::arrow::StructArray& array) {
     MaybeAddNullable(array);
-    // TODO: wide structs might make this strategy too costly.
     PathInfo info_backup = info_;
     for (int x = 0; x < array.num_fields(); x++) {
       last_nullable_ = array.type()->child(x)->nullable();
@@ -711,11 +710,13 @@ class PathBuilder {
 
   Status Visit(const ::arrow::FixedSizeListArray& array) {
     MaybeAddNullable(array);
-    // Assuming no fixed size 0 length arrays, so no dep level increase.
+    int32_t list_size = array.list_type()->list_size();
+    if (list_size == 0) {
+      info_.max_def_level++;
+    }
     info_.max_rep_level++;
-    info_.path.push_back(
-        FixedSizeListNode(FixedSizedRangeSelector{array.list_type()->list_size()},
-                          info_.max_rep_level, info_.max_def_level));
+    info_.path.push_back(FixedSizeListNode(FixedSizedRangeSelector{list_size},
+                                           info_.max_rep_level, info_.max_def_level));
     last_nullable_ = array.list_type()->value_field()->nullable();
     return VisitInline(*array.values());
   }
