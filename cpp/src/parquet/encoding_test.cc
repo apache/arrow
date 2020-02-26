@@ -30,6 +30,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 
 #include "parquet/encoding.h"
@@ -1001,13 +1002,27 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
   }
 };
 
+template <typename T>
+static std::vector<T> ToLittleEndian(const std::vector<T>& input) {
+  std::vector<T> data(input.size());
+  std::transform(input.begin(), input.end(), data.begin(),
+                 [](const T& value) { return ::arrow::BitUtil::ToLittleEndian(value); });
+  return data;
+}
+
+static_assert(sizeof(float) == sizeof(uint32_t),
+              "BYTE_STREAM_SPLIT encoding tests assume float / uint32_t type sizes");
+static_assert(sizeof(double) == sizeof(uint64_t),
+              "BYTE_STREAM_SPLIT encoding tests assume double / uint64_t type sizes");
+
 template <>
 void TestByteStreamSplitEncoding<FloatType>::CheckDecode() {
   const uint8_t data[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
                           0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC};
-  const uint32_t expected_output[3] = {0xAA774411, 0xBB885522, 0xCC996633};
-  CheckDecode(reinterpret_cast<const uint8_t*>(data), static_cast<int64_t>(sizeof(data)),
-              reinterpret_cast<const float*>(expected_output),
+  const auto expected_output =
+      ToLittleEndian<uint32_t>({0xAA774411U, 0xBB885522U, 0xCC996633U});
+  CheckDecode(data, static_cast<int64_t>(sizeof(data)),
+              reinterpret_cast<const float*>(expected_output.data()),
               static_cast<int>(sizeof(data) / sizeof(float)));
 }
 
@@ -1015,31 +1030,31 @@ template <>
 void TestByteStreamSplitEncoding<DoubleType>::CheckDecode() {
   const uint8_t data[] = {0xDE, 0xC0, 0x37, 0x13, 0x11, 0x22, 0x33, 0x44,
                           0xAA, 0xBB, 0xCC, 0xDD, 0x55, 0x66, 0x77, 0x88};
-  const uint64_t expected_output[2] = {0x7755CCAA331137DE, 0x8866DDBB442213C0};
-  CheckDecode(reinterpret_cast<const uint8_t*>(data), static_cast<int64_t>(sizeof(data)),
-              reinterpret_cast<const double*>(expected_output),
+  const auto expected_output =
+      ToLittleEndian<uint64_t>({0x7755CCAA331137DEULL, 0x8866DDBB442213C0ULL});
+  CheckDecode(data, static_cast<int64_t>(sizeof(data)),
+              reinterpret_cast<const double*>(expected_output.data()),
               static_cast<int>(sizeof(data) / sizeof(double)));
 }
 
 template <>
 void TestByteStreamSplitEncoding<DoubleType>::CheckEncode() {
-  const uint64_t data[] = {0x4142434445464748U, 0x0102030405060708U, 0xb1b2b3b4b5b6b7b8U};
+  const auto data = ToLittleEndian<uint64_t>(
+      {0x4142434445464748ULL, 0x0102030405060708ULL, 0xb1b2b3b4b5b6b7b8ULL});
   const uint8_t expected_output[24] = {
       0x48, 0x08, 0xb8, 0x47, 0x07, 0xb7, 0x46, 0x06, 0xb6, 0x45, 0x05, 0xb5,
       0x44, 0x04, 0xb4, 0x43, 0x03, 0xb3, 0x42, 0x02, 0xb2, 0x41, 0x01, 0xb1,
   };
-  CheckEncode(reinterpret_cast<const double*>(expected_output),
-              static_cast<int>(sizeof(data) / sizeof(double)),
-              reinterpret_cast<const uint8_t*>(data), static_cast<int64_t>(sizeof(data)));
+  CheckEncode(reinterpret_cast<const double*>(data.data()), static_cast<int>(data.size()),
+              expected_output, sizeof(expected_output));
 }
 
 template <>
 void TestByteStreamSplitEncoding<FloatType>::CheckEncode() {
-  const uint32_t data[] = {0xaabbccdd, 0x11223344};
+  const auto data = ToLittleEndian<uint32_t>({0xaabbccdd, 0x11223344});
   const uint8_t expected_output[8] = {0xdd, 0x44, 0xcc, 0x33, 0xbb, 0x22, 0xaa, 0x11};
-  CheckEncode(reinterpret_cast<const float*>(expected_output),
-              static_cast<int>(sizeof(data) / sizeof(float)),
-              reinterpret_cast<const uint8_t*>(data), static_cast<int64_t>(sizeof(data)));
+  CheckEncode(reinterpret_cast<const float*>(data.data()), static_cast<int>(data.size()),
+              expected_output, sizeof(expected_output));
 }
 
 typedef ::testing::Types<FloatType, DoubleType> ByteStreamSplitTypes;
@@ -1055,6 +1070,10 @@ TYPED_TEST(TestByteStreamSplitEncoding, RoundTripSingleElement) {
 
 TYPED_TEST(TestByteStreamSplitEncoding, CheckOnlyDecode) {
   ASSERT_NO_FATAL_FAILURE(this->CheckDecode());
+}
+
+TYPED_TEST(TestByteStreamSplitEncoding, CheckOnlyEncode) {
+  ASSERT_NO_FATAL_FAILURE(this->CheckEncode());
 }
 
 TEST(ByteStreamSplitEncodeDecode, InvalidDataTypes) {
