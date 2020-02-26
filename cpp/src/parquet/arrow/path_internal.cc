@@ -421,12 +421,12 @@ class NullableNode {
       // cause discontinuties.
       valid_bits_reader_ = MakeReader(*range);
     }
-    int64_t start = range->start;
+    next_range->start = range->start;
     while (!range->Empty() && !valid_bits_reader_.IsSet()) {
       ++range->start;
       valid_bits_reader_.Next();
     }
-    int64_t null_count = range->start - start;
+    int64_t null_count = range->start - next_range->start;
     if (null_count > 0) {
       RETURN_IF_ERROR(FillRepLevels(null_count, rep_level_if_null_, context));
       RETURN_IF_ERROR(context->AppendDefLevels(null_count, def_level_if_null_));
