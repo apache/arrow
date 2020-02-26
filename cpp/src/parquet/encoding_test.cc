@@ -938,15 +938,29 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     }
 
     {
-      std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values_), 255);
+      std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values_), 0);
+      std::vector<T> expected_filtered_output;
+      const int every_nth = 5;
+      expected_filtered_output.reserve((num_values_ + every_nth - 1) / every_nth);
+      arrow::internal::BitmapWriter writer { valid_bits.data(), 0, num_values_ };
+      // Set every fifth bit.
+      for (int i = 0; i < num_values_; ++i) {
+        if (i % every_nth == 0) {
+            writer.Set();
+            expected_filtered_output.push_back(draws_[i]);
+        }
+        writer.Next();
+      }
+      writer.Finish();
+      const int expected_size = static_cast<int>(expected_filtered_output.size());
       ASSERT_NO_THROW(encoder->PutSpaced(draws_, num_values_, valid_bits.data(), 0));
       encode_buffer_ = encoder->FlushValues();
 
-      decoder->SetData(num_values_, encode_buffer_->data(),
+      decoder->SetData(expected_size, encode_buffer_->data(),
                        static_cast<int>(encode_buffer_->size()));
       int values_decoded = decoder->Decode(decode_buf_, num_values_);
-      ASSERT_EQ(num_values_, values_decoded);
-      ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
+      ASSERT_EQ(expected_size, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, expected_filtered_output.data(), expected_size));
     }
   }
 
