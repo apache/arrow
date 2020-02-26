@@ -1162,11 +1162,15 @@ bool FloatSparseTensorDataEquals(const typename DataType::c_type* left_data,
     for (int64_t i = 0; i < length; ++i) {
       const auto left = left_data[i];
       const auto right = right_data[i];
-      if (left != right && !(std::isnan(left) && std::isnan(right))) return false;
+      if (left != right && !(std::isnan(left) && std::isnan(right))) {
+        return false;
+      }
     }
   } else {
     for (int64_t i = 0; i < length; ++i) {
-      if (left_data[i] != right_data[i]) return false;
+      if (left_data[i] != right_data[i]) {
+        return false;
+      }
     }
   }
   return true;
