@@ -44,7 +44,7 @@ impl From<&RecordBatch> for FlightData {
 impl From<&Schema> for SchemaResult {
     fn from(schema: &Schema) -> Self {
         Self {
-            schema: writer::schema_to_bytes(schema)
+            schema: writer::schema_to_bytes(schema),
         }
     }
 }

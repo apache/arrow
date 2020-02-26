@@ -23,9 +23,9 @@ use tonic::{Request, Response, Status, Streaming};
 
 use arrow::datatypes::Schema;
 
-use datafusion::execution::context::ExecutionContext;
-use datafusion::datasource::TableProvider;
 use datafusion::datasource::parquet::ParquetTable;
+use datafusion::datasource::TableProvider;
+use datafusion::execution::context::ExecutionContext;
 
 use flight::{
     flight_service_server::FlightService, flight_service_server::FlightServiceServer,
@@ -61,7 +61,6 @@ impl FlightService for FlightServiceImpl {
         &self,
         request: Request<FlightDescriptor>,
     ) -> Result<Response<SchemaResult>, Status> {
-
         let request = request.into_inner();
 
         let table = ParquetTable::try_new(&request.path[0]).unwrap();

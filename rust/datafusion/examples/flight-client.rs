@@ -21,15 +21,14 @@ use std::sync::Arc;
 use arrow::array::Int32Array;
 use arrow::datatypes::Schema;
 use arrow::flight::flight_data_to_batch;
+use flight::flight_descriptor;
 use flight::flight_service_client::FlightServiceClient;
 use flight::{FlightDescriptor, Ticket};
-use flight::flight_descriptor;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
-    let testdata = std::env::var("PARQUET_TEST_DATA")
-        .expect("PARQUET_TEST_DATA not defined");
+    let testdata =
+        std::env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
 
     let mut client = FlightServiceClient::connect("http://localhost:50051").await?;
 
