@@ -50,17 +50,16 @@ class ARROW_EXPORT BufferBuilder {
         capacity_(0),
         size_(0) {}
 
-  /// \brief Constructs new Builder that will reset and start using
-  /// the provided buffer until Finish/Reset are call.
+  /// \brief Constructs new Builder that will start using
+  /// the provided buffer until Finish/Reset are called.
+  /// The buffer is not resized.
   explicit BufferBuilder(std::shared_ptr<ResizableBuffer> buffer,
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : buffer_(std::move(buffer)),
         pool_(pool),
         data_(buffer_->mutable_data()),
         capacity_(buffer_->capacity()),
-        size_(0) {
-    buffer_->Resize(/*new_size=*/0, /*shrink_to_fit*/ false);
-  }
+        size_(buffer_->size()) {}
 
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///

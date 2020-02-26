@@ -492,6 +492,8 @@ Status WritePath(ElementRange start_range, PathInfo* path_info,
     return writer(builder_result);
   }
   stack[0] = start_range;
+  RETURN_NOT_OK(
+      arrow_context->def_levels_buffer->Resize(/*new_size=*/0, /*shrink_to_fit*/ false));
   PathWriteContext context(arrow_context->memory_pool, arrow_context->def_levels_buffer);
 
   auto stack_base = &stack[0];

@@ -368,7 +368,7 @@ add_parquet_test(arrow-test
                  SOURCES
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_schema_test.cc
-		 arrow/path_internal_test.cc
+                 arrow/path_internal_test.cc
                  test_util.cc)
 
 if(PARQUET_REQUIRE_ENCRYPTION)
