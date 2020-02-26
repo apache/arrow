@@ -641,6 +641,28 @@ def make_sample_file(table_or_df):
     return pq.ParquetFile(buf)
 
 
+def test_byte_stream_split():
+    # This is only a smoke test.
+    arr = pa.array(list(map(float, range(100))))
+    data = [arr, arr]
+    table = pa.Table.from_arrays(data, names=['a', 'b'])
+
+    # Check with byte_stream_split for both columns.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     use_dictionary=False, use_byte_stream_split=True)
+
+    # Check with byte_stream_split for column 'b' and dictionary
+    # for column 'a'.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     use_dictionary=['a'],
+                     use_byte_stream_split=['b'])
+
+    # Check with a collision for both columns.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     use_dictionary=['a', 'b'],
+                     use_byte_stream_split=['a', 'b'])
+
+
 def test_compression_level():
     arr = pa.array(list(map(int, range(1000))))
     data = [arr, arr]

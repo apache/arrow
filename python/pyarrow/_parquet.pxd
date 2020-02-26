@@ -118,6 +118,8 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
             " parquet::Encoding::DELTA_LENGTH_BYTE_ARRAY"
         ParquetEncoding_DELTA_BYTE_ARRAY" parquet::Encoding::DELTA_BYTE_ARRAY"
         ParquetEncoding_RLE_DICTIONARY" parquet::Encoding::RLE_DICTIONARY"
+        ParquetEncoding_BYTE_STREAM_SPLIT \
+            " parquet::Encoding::BYTE_STREAM_SPLIT"
 
     enum ParquetCompression" parquet::Compression::type":
         ParquetCompression_UNCOMPRESSED" parquet::Compression::UNCOMPRESSED"
@@ -359,6 +361,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_statistics()
             Builder* enable_statistics(const c_string& path)
             Builder* data_pagesize(int64_t size)
+            Builder* encoding(ParquetEncoding encoding)
+            Builder* encoding(const c_string& path,
+                              ParquetEncoding encoding)
             Builder* write_batch_size(int64_t batch_size)
             shared_ptr[WriterProperties] build()
 
