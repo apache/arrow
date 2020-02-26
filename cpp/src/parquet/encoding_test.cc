@@ -22,6 +22,7 @@
 #include <limits>
 #include <utility>
 #include <vector>
+#include <algorithm>
 
 #include "arrow/array.h"
 #include "arrow/compute/api.h"
