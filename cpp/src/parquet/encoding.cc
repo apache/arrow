@@ -2436,7 +2436,37 @@ template <typename DType>
 int ByteStreamSplitDecoder<DType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<DType>::Accumulator* builder) {
-  ParquetException::NYI("DecodeArrow for ByteStreamSplitDecoder");
+  constexpr size_t num_streams = sizeof(T);
+  constexpr int value_size = static_cast<int>(num_streams);
+  int values_decoded = num_values - null_count;
+  if (ARROW_PREDICT_FALSE(len_ < value_size * values_decoded)) {
+    ParquetException::EofException();
+  }
+
+  PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+
+  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+  const int num_decoded_previously = num_values_in_buffer - num_values_;
+  int offset = 0;
+  for (int i = 0; i < num_values; ++i) {
+    if (bit_reader.IsSet()) {
+      uint8_t gathered_byte_data[num_streams];
+      for (size_t b = 0; b < num_streams; ++b) {
+        const size_t byte_index =
+            b * num_values_in_buffer + num_decoded_previously + offset;
+        gathered_byte_data[b] = data_[byte_index];
+      }
+      builder->UnsafeAppend(arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]));
+      ++offset;
+    } else {
+      builder->UnsafeAppendNull();
+    }
+    bit_reader.Next();
+  }
+
+  num_values_ -= values_decoded;
+  len_ -= sizeof(num_streams) * values_decoded;
+  return values_decoded;
 }
 
 template <typename DType>

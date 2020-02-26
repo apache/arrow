@@ -2816,12 +2816,14 @@ def _assert_dataset_is_picklable(dataset, pickler):
             assert is_pickleable(metadata.row_group(i))
 
 
+@pytest.mark.pandas
 def test_builtin_pickle_dataset(tempdir, datadir):
     import pickle
     dataset = _make_dataset_for_pickling(tempdir)
     _assert_dataset_is_picklable(dataset, pickler=pickle)
 
 
+@pytest.mark.pandas
 def test_cloudpickle_dataset(tempdir, datadir):
     cp = pytest.importorskip('cloudpickle')
     dataset = _make_dataset_for_pickling(tempdir)
