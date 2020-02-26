@@ -62,9 +62,9 @@ int parquet_writer(int argc, char** argv);
 
 void returnReaderwithType(std::shared_ptr<parquet::ColumnReader> cr, parquet::ColumnReader*& cr1);
 
-void callprintVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader*& int64_reader,int ind,Type::type type_num);
+void getPredicate(std::shared_ptr<parquet::ColumnReader> cr,void*& p);
 
-void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader*& int64_reader,int ind,void* predicate);
+void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader*& int64_reader,int ind,void* predicate,int64_t& row_counter);
 
 int parquet_reader(int argc, char** argv);
 
@@ -121,45 +121,68 @@ int parquet_reader(int argc,char** argv) {
       int64_t page_index = -1;
 
       char c;
-      int64_t predicate;
-      sscanf(argv[2], "%" SCNd64 "%c", &predicate, &c);
+      // int64_t predicate;
+      // sscanf(argv[2], "%" SCNd64 "%c", &predicate, &c);
 
-      int PREDICATE_COL;
-      sscanf(argv[3], "%d" "%c", &PREDICATE_COL, &c);
+      // int PREDICATE_COL;
+      // sscanf(argv[2], "%d" "%c", &PREDICATE_COL, &c);
     
+      
+       /**************FIRST PASS*****************/
       while(col_id < num_columns) {
           // Get the Column Reader for the Int64 column
         int64_t row_index = -1;
-        column_reader = row_group_reader->Column(col_id);
+        std::shared_ptr<parquet::ColumnReader> predicate_column_reader = row_group_reader->Column(col_id);
+        
+        
+        std::cout << "Column Type: " << predicate_column_reader->type() << " Enter the predicate for the query: ";
+        void* predicate;
+        getPredicate(predicate_column_reader,predicate);
+        
+        // std::cout << "given predicate: " << predicate << " type of predicate: " << typeid(predicate).name() << std::endl;
+        
+        std::shared_ptr<parquet::ColumnReader> column_reader_with_index;
+        
+        parquet::ColumnReader* generic_reader;
 
-        std::shared_ptr<parquet::ColumnReader> column_reader_with_index = 
-        row_group_reader->ColumnWithIndex(col_id,&predicate,page_index,PREDICATE_COL,row_index,column_reader->type());
-
-        parquet::ColumnReader* int64_reader;
-
-        returnReaderwithType(column_reader_with_index,int64_reader);
-
-      // Read all the rows in the column
-        std::cout << "column index:" << col_id << " page index:" << page_index << std::endl;
-   
-        int counter = 0;
-   
-        while ( counter < page_index && int64_reader->HasNext() ) {
-	          counter++;
+        if(strlen((char*)predicate)==0){
+              //NOTHING TO DO
         }
+        else {
+            int PREDICATE_COL  = col_id;
+            column_reader_with_index = 
+            row_group_reader->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,predicate_column_reader->type());
+            returnReaderwithType(column_reader_with_index,generic_reader);
+            // Read all the rows in the column
+            std::cout << "column id:" << col_id << " page index:" << page_index << std::endl;
+  
+            int counter = 0;
+   
+            while ( counter < page_index && generic_reader->HasNext() ) {
+	             counter++;
+            }
 
-        int row_counter = 0, ind = 0;
-        while (int64_reader->HasNext()) { 
-          ind++;
+            int ind = 0;
+            int64_t row_counter = -1;
+
+            while (generic_reader->HasNext() && row_counter == -1) { 
+                 ind++;
       
-          printVal(column_reader_with_index,int64_reader,ind,&predicate);
-//        int64_t expected_value = col_row_counts[col_id];
-//        assert(value == expected_value);
-          col_row_counts[col_id]++; 
+                printVal(column_reader_with_index,generic_reader,ind,predicate,row_counter);
+              //        int64_t expected_value = col_row_counts[col_id];  
+              //        assert(value == expected_value);
+              col_row_counts[col_id]++; 
      
+            }
         }
         col_id++;
       }
+      /***********FIRST PASS END **********/
+
+      /***********Second PASS *************/
+                //  TODO //
+
+      /***********************************/
       
      }
      return 0;
@@ -170,6 +193,63 @@ int parquet_reader(int argc,char** argv) {
 
 }
 
+
+void getPredicate(std::shared_ptr<parquet::ColumnReader> cr,void*& predicate){
+    switch(cr->type()){
+          case Type::BOOLEAN:{
+            bool b;
+            std::cin >> b;
+            predicate = static_cast<void*>(&b);
+            break;
+          }
+          case Type::INT32:{
+            int32_t val;
+            std::cin >> val;
+            predicate = static_cast<void*>(&val);
+            break;
+          }
+          case Type::INT64:{
+            int64_t val;
+            std::cin >> val;
+            predicate = static_cast<void*>(&val);
+            break;
+          }
+          case Type::INT96:{
+            uint32_t val;
+            std::cin >> val;
+            predicate = static_cast<void*>(&val);
+            break;
+          }
+          case Type::FLOAT:{
+            float val;
+            std::cin >> val;
+            predicate = static_cast<void*>(&val);
+            break;
+          }
+          case Type::DOUBLE:{
+            double val;
+            std::cin >> val;
+            predicate = static_cast<void*>(&val);
+            break;
+          }
+          case Type::BYTE_ARRAY:{
+            char val;
+            std::cin >> val;
+            predicate = static_cast<void*>(&val);
+            break;
+          }
+          case Type::FIXED_LEN_BYTE_ARRAY:{
+            char val;
+            std::cin >> val;
+            predicate = static_cast<void*>(&val);
+            break;
+          }
+          default:{
+            std::cin >> (*(int64_t *)predicate);
+            break;
+          }
+    }
+}
 
 int parquet_writer(int argc, char** argv) {
 
@@ -355,11 +435,10 @@ void returnReaderwithType(std::shared_ptr<parquet::ColumnReader>column_reader, p
       }
 }
 
-void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader*& int64_reader,int ind,void* predicate) {
+void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader*& int64_reader,int ind,void* predicate,int64_t& row_counter) {
 
       int64_t values_read = 0;
       int64_t rows_read = 0;
-      int row_counter;
        switch (column_reader->type()) {
        case Type::BOOLEAN:
           {
@@ -391,11 +470,11 @@ void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
         // There are no NULL values in the rows written
        //        assert(values_read == 1);
         // Verify the value written
-       //   if ( value == predicate ) {
+          if ( value == *((int64_t*)predicate) ) {
            row_counter = ind;
            std::cout << "row number: " << row_counter << " " << value << "\n";
-           std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
-       //   }
+           //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
+          }
           break;
          }
         case Type::INT96:
@@ -434,7 +513,7 @@ void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
 
             row_counter = ind;
             std::cout << "row number: " << row_counter << " " << result << "\n";
-            std::cout << "predicate: " << parquet::ByteArrayToString(*((parquet::ByteArray*)predicate)) << std::endl;
+            //std::cout << "predicate: " << << std::endl;
             break;
           }
         case Type::FIXED_LEN_BYTE_ARRAY:
