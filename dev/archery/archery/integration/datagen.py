@@ -1097,10 +1097,10 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
         generate_null_case([10, 0])
-        .skip_category('JS')
-        .skip_category('Go'),
+        .skip_category('JS')   # TODO(ARROW-7900)
+        .skip_category('Go'),  # TODO(ARROW-7901)
 
-        # TODO(ARROW-3676): Go tests
+        # TODO(ARROW-7948): Decimal + Go
         generate_decimal_case().skip_category('Go'),
 
         generate_datetime_case(),
@@ -1108,14 +1108,15 @@ def get_generated_json_files(tempdir=None, flight=False):
         # TODO(ARROW-5239): Intervals + JS
         generate_interval_case().skip_category('JS'),
 
-        # TODO(ARROW-3679): Map + Go
+        # TODO(ARROW-5620): Map + Go
         generate_map_case().skip_category('Go'),
 
         generate_nested_case(),
 
-        # TODO(ARROW-3039): Dictionaries in GO
+        # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
         generate_dictionary_case().skip_category('Go'),
 
+        # TODO(ARROW-7902)
         generate_nested_dictionary_case().skip_category(SKIP_ARROW)
                                          .skip_category(SKIP_FLIGHT),
     ]
