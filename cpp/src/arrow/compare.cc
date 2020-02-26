@@ -1053,9 +1053,9 @@ bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
 }
 
 template <typename DataType>
-bool StridedFloatingTensorContentEquals(const int dim_index, int64_t left_offset,
-                                        int64_t right_offset, const Tensor& left,
-                                        const Tensor& right, const EqualOptions& opts) {
+bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
+                                     int64_t right_offset, const Tensor& left,
+                                     const Tensor& right, const EqualOptions& opts) {
   using c_type = typename DataType::c_type;
   static_assert(std::is_floating_point<c_type>::value,
                 "DataType must be a floating point type");
@@ -1091,8 +1091,8 @@ bool StridedFloatingTensorContentEquals(const int dim_index, int64_t left_offset
     return true;
   }
   for (int64_t i = 0; i < n; ++i) {
-    if (!StridedFloatingTensorContentEquals<DataType>(dim_index + 1, left_offset,
-                                                      right_offset, left, right, opts)) {
+    if (!StridedFloatTensorContentEquals<DataType>(dim_index + 1, left_offset,
+                                                   right_offset, left, right, opts)) {
       return false;
     }
     left_offset += left_stride;
@@ -1102,9 +1102,9 @@ bool StridedFloatingTensorContentEquals(const int dim_index, int64_t left_offset
 }
 
 template <typename DataType>
-bool FloatingTensorEquals(const Tensor& left, const Tensor& right,
+bool FloatTensorEquals(const Tensor& left, const Tensor& right,
                           const EqualOptions& opts) {
-  return StridedFloatingTensorContentEquals<DataType>(0, 0, 0, left, right, opts);
+  return StridedFloatTensorContentEquals<DataType>(0, 0, 0, left, right, opts);
 }
 
 }  // namespace
@@ -1122,10 +1122,10 @@ bool TensorEquals(const Tensor& left, const Tensor& right, const EqualOptions& o
     // TODO: Support half-float tensors
     // case Type::HALF_FLOAT:
     case Type::FLOAT:
-      return FloatingTensorEquals<FloatType>(left, right, opts);
+      return FloatTensorEquals<FloatType>(left, right, opts);
 
     case Type::DOUBLE:
-      return FloatingTensorEquals<DoubleType>(left, right, opts);
+      return FloatTensorEquals<DoubleType>(left, right, opts);
 
     default:
       return IntegerTensorEquals(left, right);
@@ -1151,10 +1151,10 @@ inline bool IntegerSparseTensorDataEquals(const uint8_t* left_data,
 }
 
 template <typename DataType>
-inline bool FloatingSparseTensorDataEquals(const typename DataType::c_type* left_data,
-                                           const typename DataType::c_type* right_data,
-                                           const int64_t length,
-                                           const EqualOptions& opts) {
+inline bool FloatSparseTensorDataEquals(const typename DataType::c_type* left_data,
+                                        const typename DataType::c_type* right_data,
+                                        const int64_t length,
+                                        const EqualOptions& opts) {
   using c_type = typename DataType::c_type;
   static_assert(std::is_floating_point<c_type>::value,
                 "DataType must be a floating point type");
@@ -1200,12 +1200,12 @@ struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
       // TODO: Support half-float tensors
       // case Type::HALF_FLOAT:
       case Type::FLOAT:
-        return FloatingSparseTensorDataEquals<FloatType>(
+        return FloatSparseTensorDataEquals<FloatType>(
             reinterpret_cast<const float*>(left_data),
             reinterpret_cast<const float*>(right_data), length, opts);
 
       case Type::DOUBLE:
-        return FloatingSparseTensorDataEquals<DoubleType>(
+        return FloatSparseTensorDataEquals<DoubleType>(
             reinterpret_cast<const double*>(left_data),
             reinterpret_cast<const double*>(right_data), length, opts);
 
