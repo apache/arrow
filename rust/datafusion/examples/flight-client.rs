@@ -22,11 +22,26 @@ use arrow::array::Int32Array;
 use arrow::datatypes::Schema;
 use arrow::flight::flight_data_to_batch;
 use flight::flight_service_client::FlightServiceClient;
-use flight::Ticket;
+use flight::{FlightDescriptor, Ticket};
+use flight::flight_descriptor;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+    let testdata = std::env::var("PARQUET_TEST_DATA")
+        .expect("PARQUET_TEST_DATA not defined");
+
     let mut client = FlightServiceClient::connect("http://localhost:50051").await?;
+
+    let request = tonic::Request::new(FlightDescriptor {
+        r#type: 1, //flight_descriptor::DescriptorType.Path,
+        cmd: vec![],
+        path: vec![format!("{}/alltypes_plain.parquet", testdata)],
+    });
+
+    let schema_result = client.get_schema(request).await?.into_inner();
+    let schema = Schema::try_from(&schema_result)?;
+    println!("Schema: {:?}", schema);
 
     let request = tonic::Request::new(Ticket {
         ticket: "SELECT id FROM alltypes_plain".into(),
