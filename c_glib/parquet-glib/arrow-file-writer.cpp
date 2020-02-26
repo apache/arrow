@@ -119,20 +119,20 @@ gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
 }
 
 /**
- * gparquet_writer_properties_get_compression_dot_string:
+ * gparquet_writer_properties_get_compression_path:
  * @properties: A #GParquetWriterProperties.
- * @dot_string: The dot string path.
+ * @path: The path as dot string.
  *
  * Returns: The compression type of #GParquetWriterProperties.
  *
  * Since: 1.0.0
  */
 GArrowCompressionType
-gparquet_writer_properties_get_compression_dot_string(GParquetWriterProperties *properties,
-                                                      const gchar *dot_string)
+gparquet_writer_properties_get_compression_path(GParquetWriterProperties *properties,
+                                                const gchar *path)
 {
   auto parquet_properties = gparquet_writer_properties_get_raw(properties);
-  auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(dot_string);
+  auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(path);
   auto arrow_compression = parquet_properties->compression(parquet_column_path);
   return garrow_compression_type_from_raw(arrow_compression);
 }
@@ -180,7 +180,7 @@ gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properti
 /**
  * gparquet_writer_properties_is_dictionary_enabled:
  * @properties: A #GParquetWriterProperties.
- * @dot_string: The dot string path.
+ * @path: The path as dot string.
  *
  * Returns: %TRUE on dictionary enabled, %FALSE on dictionary disabled.
  *
@@ -188,10 +188,10 @@ gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properti
  */
 gboolean
 gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *properties,
-                                                 const gchar *dot_string)
+                                                 const gchar *path)
 {
   auto parquet_properties = gparquet_writer_properties_get_raw(properties);
-  auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(dot_string);
+  auto parquet_column_path = parquet::schema::ColumnPath::FromDotString(path);
   return parquet_properties->dictionary_enabled(parquet_column_path);
 }
 

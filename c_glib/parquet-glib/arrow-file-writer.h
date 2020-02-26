@@ -46,8 +46,8 @@ gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
                                            const gchar *path);
 GPARQUET_AVAILABLE_IN_1_0
 GArrowCompressionType
-gparquet_writer_properties_get_compression_dot_string(GParquetWriterProperties *properties,
-                                                      const gchar *dot_string);
+gparquet_writer_properties_get_compression_path(GParquetWriterProperties *properties,
+                                                const gchar *path);
 GPARQUET_AVAILABLE_IN_1_0
 void
 gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *properties,
@@ -59,7 +59,7 @@ gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properti
 GPARQUET_AVAILABLE_IN_1_0
 gboolean
 gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *properties,
-                                                 const gchar *dot_string);
+                                                 const gchar *path);
 GPARQUET_AVAILABLE_IN_1_0
 void
 gparquet_writer_properties_set_dictionary_page_size_limit(GParquetWriterProperties *properties,

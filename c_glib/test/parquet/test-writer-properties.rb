@@ -24,7 +24,7 @@ class TestParquetWriterProperties < Test::Unit::TestCase
   def test_compression
     @properties.set_compression(:gzip)
     assert_equal(Arrow::CompressionType::GZIP,
-                 @properties.get_compression_dot_string("not-specified"))
+                 @properties.get_compression_path("not-specified"))
   end
 
   def test_compression_with_path
@@ -34,8 +34,8 @@ class TestParquetWriterProperties < Test::Unit::TestCase
                    Arrow::CompressionType::UNCOMPRESSED,
                  ],
                  [
-                   @properties.get_compression_dot_string("column"),
-                   @properties.get_compression_dot_string("not-specified"),
+                   @properties.get_compression_path("column"),
+                   @properties.get_compression_path("not-specified"),
                  ])
   end
 
