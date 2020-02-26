@@ -67,8 +67,8 @@ def _table_from_pandas(df):
 
 
 @pytest.fixture
-@pytest.mark.parquet
-def mockfs():
+def mockfs(request):
+    request.config.pyarrow.requires('parquet')
     import pyarrow.parquet as pq
 
     mockfs = fs._MockFileSystem()
@@ -101,9 +101,9 @@ def mockfs():
 
 
 @pytest.fixture(scope='module')
-@pytest.mark.pandas
-@pytest.mark.parquet
-def multisourcefs():
+def multisourcefs(request):
+    request.config.pyarrow.requires('pandas')
+    request.config.pyarrow.requires('parquet')
     import pyarrow.parquet as pq
 
     df = _generate_data(1000)
@@ -694,7 +694,6 @@ def test_open_dataset_validate_sources(tempdir):
         ds.dataset([dataset])
 
 
-@pytest.mark.parquet
 def test_open_dataset_from_source_additional_kwargs(multisourcefs):
     child = ds.FileSystemDatasetFactory(
         multisourcefs, fs.FileSelector('/plain'),
@@ -717,8 +716,6 @@ def test_filter_implicit_cast(tempdir):
     assert len(result) == 3
 
 
-@pytest.mark.parquet
-@pytest.mark.pandas
 def test_dataset_factory(multisourcefs):
     child = ds.factory('/plain', filesystem=multisourcefs, format='parquet')
     factory = ds.UnionDatasetFactory([child])
@@ -731,8 +728,6 @@ def test_dataset_factory(multisourcefs):
     assert isinstance(factory.finish(), ds.Dataset)
 
 
-@pytest.mark.parquet
-@pytest.mark.pandas
 def test_multiple_factories(multisourcefs):
     src1 = ds.factory('/plain', filesystem=multisourcefs, format='parquet')
     src2 = ds.factory('/schema', filesystem=multisourcefs, format='parquet',
@@ -755,8 +750,6 @@ def test_multiple_factories(multisourcefs):
     assert assembled.schema.equals(expected_schema, check_metadata=False)
 
 
-@pytest.mark.parquet
-@pytest.mark.pandas
 def test_multiple_factories_with_selectors(multisourcefs):
     # without partitioning
     dataset = ds.dataset(['/plain', '/schema', '/hive'],
