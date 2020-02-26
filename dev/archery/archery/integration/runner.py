@@ -51,7 +51,7 @@ class IntegrationRunner(object):
 
     def __init__(self, json_files, testers, tempdir=None, debug=False,
                  stop_on_error=True, gold_dirs=None, serial=False,
-                 **unused_kwargs):
+                 match=None, **unused_kwargs):
         self.json_files = json_files
         self.testers = testers
         self.temp_dir = tempdir or tempfile.mkdtemp()
@@ -60,6 +60,13 @@ class IntegrationRunner(object):
         self.serial = serial
         self.gold_dirs = gold_dirs
         self.failures = []
+        self.match = match
+
+        if self.match is not None:
+            print("-- Only running tests with {} in their name"
+                  .format(self.match))
+            self.json_files = [json_file for json_file in self.json_files
+                               if self.match in json_file.name]
 
     def run(self):
         """

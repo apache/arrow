@@ -1434,17 +1434,24 @@ class ArrayReader {
     return Status::OK();
   }
 
-  Status Parse(std::shared_ptr<Array>* out) {
-    RETURN_NOT_OK(GetObjectInt(obj_, "count", &length_));
-
+  Status ParseValidityBitmap() {
     const auto& json_valid_iter = obj_.FindMember("VALIDITY");
     RETURN_NOT_ARRAY("VALIDITY", json_valid_iter, obj_);
-
     const auto& json_validity = json_valid_iter->value.GetArray();
     DCHECK_EQ(static_cast<int>(json_validity.Size()), length_);
     for (const rj::Value& val : json_validity) {
       DCHECK(val.IsInt());
       is_valid_.push_back(val.GetInt() != 0);
+    }
+    return Status::OK();
+  }
+
+  Status Parse(std::shared_ptr<Array>* out) {
+    RETURN_NOT_OK(GetObjectInt(obj_, "count", &length_));
+
+    if (type_->id() != Type::NA) {
+      // Null type is the only type without any buffers
+      RETURN_NOT_OK(ParseValidityBitmap());
     }
 
     RETURN_NOT_OK(VisitTypeInline(*type_, this));

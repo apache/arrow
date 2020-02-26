@@ -102,6 +102,23 @@ class PrimitiveColumn(Column):
         ]
 
 
+class NullColumn(Column):
+    # This subclass is for readability only
+    pass
+
+
+class NullType(PrimitiveType):
+
+    def __init__(self, name):
+        super(NullType, self).__init__(name, nullable=True)
+
+    def _get_type(self):
+        return OrderedDict([('name', 'null')])
+
+    def generate_column(self, size, name=None):
+        return NullColumn(name or self.name, size)
+
+
 TEST_INT_MAX = 2 ** 31 - 1
 TEST_INT_MIN = ~TEST_INT_MAX
 
@@ -928,6 +945,19 @@ def generate_primitive_case(batch_sizes, name='primitive'):
     return _generate_file(name, fields, batch_sizes)
 
 
+def generate_null_case(batch_sizes):
+    # Interleave null with non-null types to ensure the appropriate number of
+    # buffers (0) is read and written
+    fields = [
+        NullType(name='f0'),
+        get_field('f1', 'int32'),
+        NullType(name='f2'),
+        get_field('f3', 'float64'),
+        NullType(name='f4')
+    ]
+    return _generate_file('null', fields, batch_sizes)
+
+
 def generate_decimal_case():
     fields = [
         DecimalType(name='f{}'.format(i), precision=precision, scale=2)
@@ -936,10 +966,7 @@ def generate_decimal_case():
 
     possible_batch_sizes = 7, 10
     batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
-
-    skip = set()
-    skip.add('Go')  # TODO(ARROW-3676)
-    return _generate_file('decimal', fields, batch_sizes, skip=skip)
+    return _generate_file('decimal', fields, batch_sizes)
 
 
 def generate_datetime_case():
@@ -976,9 +1003,7 @@ def generate_interval_case():
     ]
 
     batch_sizes = [7, 10]
-    skip = set()
-    skip.add('JS')  # TODO(ARROW-5239)
-    return _generate_file("interval", fields, batch_sizes, skip=skip)
+    return _generate_file("interval", fields, batch_sizes)
 
 
 def generate_map_case():
@@ -990,9 +1015,7 @@ def generate_map_case():
     ]
 
     batch_sizes = [7, 10]
-    skip = set()
-    skip.add('Go')  # TODO(ARROW-3679)
-    return _generate_file("map", fields, batch_sizes, skip=skip)
+    return _generate_file("map", fields, batch_sizes)
 
 
 def generate_nested_case():
@@ -1028,12 +1051,9 @@ def generate_dictionary_case():
         DictionaryType('dict1', get_field('', 'int32'), dict1),
         DictionaryType('dict2', get_field('', 'int16'), dict2)
     ]
-    skip = set()
-    skip.add('Go')  # TODO(ARROW-3039)
     batch_sizes = [7, 10]
     return _generate_file("dictionary", fields, batch_sizes,
-                          dictionaries=[dict0, dict1, dict2],
-                          skip=skip)
+                          dictionaries=[dict0, dict1, dict2])
 
 
 def generate_nested_dictionary_case():
@@ -1075,12 +1095,28 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_primitive_case([], name='primitive_no_batches'),
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
-        generate_decimal_case(),
+
+        generate_null_case([10, 0])
+        .skip_category('JS')   # TODO(ARROW-7900)
+        .skip_category('Go'),  # TODO(ARROW-7901)
+
+        # TODO(ARROW-7948): Decimal + Go
+        generate_decimal_case().skip_category('Go'),
+
         generate_datetime_case(),
-        generate_interval_case(),
-        generate_map_case(),
+
+        # TODO(ARROW-5239): Intervals + JS
+        generate_interval_case().skip_category('JS'),
+
+        # TODO(ARROW-5620): Map + Go
+        generate_map_case().skip_category('Go'),
+
         generate_nested_case(),
-        generate_dictionary_case(),
+
+        # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
+        generate_dictionary_case().skip_category('Go'),
+
+        # TODO(ARROW-7902)
         generate_nested_dictionary_case().skip_category(SKIP_ARROW)
                                          .skip_category(SKIP_FLIGHT),
     ]
