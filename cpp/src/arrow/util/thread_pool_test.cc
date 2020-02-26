@@ -43,15 +43,10 @@
 namespace arrow {
 namespace internal {
 
-static void sleep_for(double seconds) {
-  std::this_thread::sleep_for(
-      std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
-}
-
 static void busy_wait(double seconds, std::function<bool()> predicate) {
   const double period = 0.001;
   for (int i = 0; !predicate() && i * period < seconds; ++i) {
-    sleep_for(period);
+    SleepFor(period);
   }
 }
 
@@ -62,7 +57,7 @@ static void task_add(T x, T y, T* out) {
 
 template <typename T>
 static void task_slow_add(double seconds, T x, T y, T* out) {
-  sleep_for(seconds);
+  SleepFor(seconds);
   *out = x + y;
 }
 
@@ -75,7 +70,7 @@ static T add(T x, T y) {
 
 template <typename T>
 static T slow_add(double seconds, T x, T y) {
-  sleep_for(seconds);
+  SleepFor(seconds);
   return x + y;
 }
 
@@ -253,7 +248,7 @@ TEST_F(TestThreadPool, SetCapacity) {
 
   // Downsize while tasks are pending
   for (int i = 0; i < 10; ++i) {
-    ASSERT_OK(pool->Spawn(std::bind(sleep_for, 0.01 /* seconds */)));
+    ASSERT_OK(pool->Spawn(std::bind(SleepFor, 0.01 /* seconds */)));
   }
   ASSERT_OK(pool->SetCapacity(2));
   ASSERT_EQ(pool->GetCapacity(), 2);
@@ -290,7 +285,7 @@ TEST_F(TestThreadPool, Submit) {
   }
   {
     // `void` return type
-    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(sleep_for, 0.001));
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(SleepFor, 0.001));
     fut.get();
   }
 }

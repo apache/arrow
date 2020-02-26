@@ -15,62 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_TEST_COMMON_H
-#define ARROW_CSV_TEST_COMMON_H
+#pragma once
 
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "arrow/csv/parser.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace csv {
 
-std::string MakeCSVData(std::vector<std::string> lines) {
-  std::string s;
-  for (const auto& line : lines) {
-    s += line;
-  }
-  return s;
-}
+ARROW_EXPORT
+std::string MakeCSVData(std::vector<std::string> lines);
 
 // Make a BlockParser from a vector of lines representing a CSV file
+ARROW_EXPORT
 void MakeCSVParser(std::vector<std::string> lines, ParseOptions options, int32_t num_cols,
-                   std::shared_ptr<BlockParser>* out) {
-  auto csv = MakeCSVData(lines);
-  auto parser = std::make_shared<BlockParser>(options, num_cols);
-  uint32_t out_size;
-  ASSERT_OK(parser->Parse(util::string_view(csv), &out_size));
-  ASSERT_EQ(out_size, csv.size()) << "trailing CSV data not parsed";
-  *out = parser;
-}
+                   std::shared_ptr<BlockParser>* out);
 
+ARROW_EXPORT
 void MakeCSVParser(std::vector<std::string> lines, ParseOptions options,
-                   std::shared_ptr<BlockParser>* out) {
-  return MakeCSVParser(lines, options, -1, out);
-}
+                   std::shared_ptr<BlockParser>* out);
 
-void MakeCSVParser(std::vector<std::string> lines, std::shared_ptr<BlockParser>* out) {
-  MakeCSVParser(lines, ParseOptions::Defaults(), out);
-}
+ARROW_EXPORT
+void MakeCSVParser(std::vector<std::string> lines, std::shared_ptr<BlockParser>* out);
 
 // Make a BlockParser from a vector of strings representing a single CSV column
-void MakeColumnParser(std::vector<std::string> items, std::shared_ptr<BlockParser>* out) {
-  auto options = ParseOptions::Defaults();
-  // Need this to test for null (empty) values
-  options.ignore_empty_lines = false;
-  std::vector<std::string> lines;
-  for (const auto& item : items) {
-    lines.push_back(item + '\n');
-  }
-  MakeCSVParser(lines, options, 1, out);
-  ASSERT_EQ((*out)->num_cols(), 1) << "Should have seen only 1 CSV column";
-  ASSERT_EQ((*out)->num_rows(), items.size());
-}
+ARROW_EXPORT
+void MakeColumnParser(std::vector<std::string> items, std::shared_ptr<BlockParser>* out);
 
 }  // namespace csv
 }  // namespace arrow
-
-#endif  // ARROW_CSV_TEST_COMMON_H
