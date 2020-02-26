@@ -45,7 +45,7 @@ class Filter;
 /// be read like a file
 class ARROW_DS_EXPORT FileSource {
  public:
-  // NOTE(kszucs): it'd be better to separate the BufferDataset from FileSource
+  // NOTE(kszucs): it'd be better to separate the BufferSource from FileSource
   enum DatasetType { PATH, BUFFER };
 
   FileSource(std::string path, fs::FileSystem* filesystem,

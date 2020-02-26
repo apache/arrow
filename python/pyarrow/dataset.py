@@ -260,14 +260,14 @@ def _ensure_factory(src, **kwargs):
     if _is_path_like(src):
         return factory(src, **kwargs)
     elif isinstance(src, DatasetFactory):
-        return src
-    elif isinstance(src, Dataset):
         if any(v is not None for v in kwargs.values()):
             # when passing a SourceFactory, the arguments cannot be specified
             raise ValueError(
                 "When passing a DatasetFactory, you cannot pass any "
                 "additional arguments"
             )
+        return src
+    elif isinstance(src, Dataset):
         raise TypeError(
             "Dataset objects are currently not supported, only DatasetFactory "
             "instances. Use the factory() function to create such objects."
@@ -321,7 +321,7 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
     kwargs = dict(filesystem=filesystem, partitioning=partitioning,
                   format=format)
 
-    if type(paths_or_factories) is str:
+    if isinstance(paths_or_factories, str):
         return factory(paths_or_factories, **kwargs).finish()
 
     if not isinstance(paths_or_factories, list):

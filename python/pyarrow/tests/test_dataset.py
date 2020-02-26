@@ -695,6 +695,16 @@ def test_open_dataset_validate_sources(tempdir):
 
 
 @pytest.mark.parquet
+def test_open_dataset_from_source_additional_kwargs(multisourcefs):
+    child = ds.FileSystemDatasetFactory(
+        multisourcefs, fs.FileSelector('/plain'),
+        format=ds.ParquetFileFormat()
+    )
+    with pytest.raises(ValueError, match="cannot pass any additional"):
+        ds.dataset(child, format="parquet")
+
+
+@pytest.mark.parquet
 def test_filter_implicit_cast(tempdir):
     # ARROW-7652
     table = pa.table({'a': pa.array([0, 1, 2, 3, 4, 5], type=pa.int8())})
