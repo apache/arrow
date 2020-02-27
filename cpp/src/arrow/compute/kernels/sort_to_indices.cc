@@ -159,7 +159,7 @@ class CountCompareSorter {
   explicit CountCompareSorter(Comparator compare) : compare_sorter_(compare) {}
 
   void Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) {
-    if (values.length() >= countsort_min_len_) {
+    if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
       auto min = std::numeric_limits<c_type>::max();
       auto max = std::numeric_limits<c_type>::min();
 
@@ -168,8 +168,10 @@ class CountCompareSorter {
         max = values.IsNull(i) ? max : std::max(max, values.Value(i));
       }
 
-      // Must be unsigned compare as (max - min) may be negative for signed data.
-      if (static_cast<uint64_t>(max - min) <= countsort_max_range_) {
+      // For signed int32/64, (max - min) may overflow and trigger UBSAN.
+      // Cast to largest unsigned type(uint64_t) before substraction.
+      const uint64_t range = static_cast<uint64_t>(max) - static_cast<uint64_t>(min);
+      if (range <= countsort_max_range_) {
         count_sorter_.SetMinMax(min, max);
         count_sorter_.Sort(indices_begin, indices_end, values);
         return;
