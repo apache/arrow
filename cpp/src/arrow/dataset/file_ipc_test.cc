@@ -177,23 +177,21 @@ TEST_F(TestIpcFileFormat, WriteFileSystemSource) {
   auto schema = arrow::schema({field("i32", int32()), field("str", utf8())});
   opts_ = ScanOptions::Make(schema);
 
-  ASSERT_OK_AND_ASSIGN(
-      auto boxed_source,
-      FileSystemSource::Make(schema, ("root"_ == true).Copy(),
-                             std::make_shared<DummyFileFormat>(), fs, stats, partitions));
-  auto source = checked_pointer_cast<FileSystemSource>(boxed_source);
+  ASSERT_OK_AND_ASSIGN(auto dataset,
+                       FileSystemDataset::Make(schema, ("root"_ == true).Copy(),
+                                               std::make_shared<DummyFileFormat>(), fs,
+                                               stats, partitions));
 
   auto partitioning = std::make_shared<HivePartitioning>(schema);
-  ASSERT_OK_AND_ASSIGN(auto written_boxed_source,
-                       source->Write(format_, fs, "new_root", partitioning, opts_));
-  auto written_source = checked_pointer_cast<FileSystemSource>(written_boxed_source);
+  ASSERT_OK_AND_ASSIGN(auto written,
+                       dataset->Write(format_, fs, "new_root", partitioning, opts_));
 
   using E = TestExpression;
   for (size_t i = 0; i < partitions.size(); ++i) {
-    ASSERT_EQ(E{partitions[i]}, E{written_source->partitions()[i]});
+    ASSERT_EQ(E{partitions[i]}, E{written->partitions()[i]});
   }
 
-  AssertFragmentsAreFromPath(written_source->GetFragments(opts_),
+  AssertFragmentsAreFromPath(written->GetFragments(opts_),
                              {
                                  "new_root/i32=0/str=aaa/dat.ipc",
                                  "new_root/i32=0/str=bbb/dat.ipc",

@@ -243,7 +243,7 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
 using arrow::internal::GetCpuThreadPool;
 using arrow::internal::TaskGroup;
 
-Result<std::shared_ptr<Source>> FileSystemSource::Write(
+Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     std::string base_dir, std::shared_ptr<Partitioning> partitioning,
     std::shared_ptr<ScanOptions> scan_options) {
