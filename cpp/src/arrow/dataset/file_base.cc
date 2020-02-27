@@ -37,7 +37,7 @@ Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
     return filesystem()->OpenInputFile(path());
   }
 
-  return Buffer::GetReader(buffer());
+  return std::make_shared<::arrow::io::BufferReader>(buffer());
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
@@ -52,18 +52,17 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
                                         std::move(partition_expression));
 }
 
-Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable(
-    MemoryPool* pool) && {
+Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable() const {
+  if (!writable_) {
+    return Status::Invalid("file source '", path(), "' is not writable");
+  }
+
   if (type() == PATH) {
     return filesystem()->OpenOutputStream(path());
   }
 
-  std::shared_ptr<ResizableBuffer> buffer;
-  RETURN_NOT_OK(AllocateResizableBuffer(pool, 4096, &buffer));
-
-  auto out = std::make_shared<::arrow::io::BufferOutputStream>(buffer);
-  impl_ = std::move(buffer);
-  return out;
+  auto b = internal::checked_pointer_cast<ResizableBuffer>(buffer());
+  return std::make_shared<::arrow::io::BufferOutputStream>(b);
 }
 
 Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(

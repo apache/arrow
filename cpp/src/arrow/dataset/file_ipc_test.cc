@@ -136,7 +136,7 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
   opts_ = ScanOptions::Make(reader->schema());
   auto fragment = std::make_shared<IpcFragment>(*source, opts_);
 
-  auto sink = FileSource(nullptr);
+  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
   EXPECT_OK_AND_ASSIGN(auto write_task, format_->WriteFragment(sink, fragment));
 
