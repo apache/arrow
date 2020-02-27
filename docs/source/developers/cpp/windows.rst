@@ -139,9 +139,26 @@ do an out of source build by generating Ninja files:
    cd cpp
    mkdir build
    cd build
-   cmake -G "Ninja" -DARROW_BUILD_TESTS=ON ^
+   cmake -G "Ninja" ^
+         -DCMAKE_C_COMPILER=clcache ^
+         -DCMAKE_CXX_COMPILER=clcache ^
+         -DARROW_BUILD_TESTS=ON ^
          -DGTest_SOURCE=BUNDLED ..
    cmake --build . --config Release
+
+Setting ``CMAKE_C_COMPILER`` and ``CMAKE_CXX_COMPILER`` in the command line 
+of ``cmake`` is the preferred method of using ``clcache``. Alternatively, you 
+can set ``CC`` and ``CXX`` environment variables before calling ``cmake``:
+
+.. code-block:: shell
+
+   ...
+   set CC=clcache
+   set CXX=clcache
+   cmake -G "Ninja" ^
+   ...
+
+
 
 Building with NMake
 ===================
