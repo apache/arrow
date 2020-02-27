@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import namedtuple
 import click
 import errno
 import json
@@ -203,48 +204,56 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
         build.run(target)
 
 
-@archery.command(short_help="Lint Arrow source directory")
+LintCheck = namedtuple('LintCheck', ('option_name', 'help'))
+
+lint_checks = [
+    LintCheck('clang-format', "Format C++ files with clang-format."),
+    LintCheck('clang-tidy', "Lint C++ files with clang-tidy."),
+    LintCheck('cpplint', "Lint C++ files with cpplint."),
+    LintCheck('iwyu', "Lint C++ files with Include-What-You-Use."),
+    LintCheck('flake8', "Lint Python files with flake8."),
+    LintCheck('numpydoc', "Lint Python files with numpydoc."),
+    LintCheck('cmake-format', "Format CMake files with cmake-format.py."),
+    LintCheck('rat',
+              "Check all sources files for license texts via Apache RAT."),
+    LintCheck('r', "Lint R files."),
+    LintCheck('rust', "Lint Rust files."),
+    LintCheck('docker', "Lint Dockerfiles with hadolint."),
+]
+
+
+def decorate_lint_command(cmd):
+    """
+    Decorate the lint() command function to add individual per-check options.
+    """
+    for check in lint_checks:
+        option = click.option("--{0}/--no-{0}".format(check.option_name),
+                              default=None, help=check.help)
+        cmd = option(cmd)
+    return cmd
+
+
+@archery.command(short_help="Check Arrow source tree for errors")
 @click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
-@click.option("--with-clang-format", default=True, type=BOOL,
-              show_default=True,
-              help="Ensure formatting of C++ files.")
-@click.option("--with-cpplint", default=True, type=BOOL,
-              show_default=True,
-              help="Ensure linting of C++ files with cpplint.")
-@click.option("--with-clang-tidy", default=False, type=BOOL,
-              show_default=True,
-              help="Lint C++ with clang-tidy.")
-@click.option("--with-iwyu", default=False, type=BOOL,
-              show_default=True,
-              help="Lint C++ with Include-What-You-Use (iwyu).")
-@click.option("--with-flake8", default=True, type=BOOL,
-              show_default=True,
-              help="Lint python files with flake8.")
-@click.option("--with-numpydoc", default=False, type=BOOL,
-              show_default=True, help="Lint python files with numpydoc.")
-@click.option("--with-cmake-format", default=True, type=BOOL,
-              show_default=True,
-              help="Lint CMakeFiles.txt files with cmake-format.py.")
-@click.option("--with-rat", default=True, type=BOOL,
-              show_default=True,
-              help="Lint files for license violation via apache-rat.")
-@click.option("--with-r", default=True, type=BOOL,
-              show_default=True,
-              help="Lint r files.")
-@click.option("--with-rust", default=True, type=BOOL,
-              show_default=True,
-              help="Lint rust files.")
-@click.option("--with-docker", default=True, type=BOOL,
-              show_default=True,
-              help="Lint docker images with hadolint.")
 @click.option("--fix", is_flag=True, type=BOOL, default=False,
               help="Toggle fixing the lint errors if the linter supports it.")
+@click.option("-a", "--all", is_flag=True, default=False,
+              help="Enable all checks.")
+@decorate_lint_command
 @click.pass_context
-def lint(ctx, src, **kwargs):
+def lint(ctx, src, fix, **checks):
+    if checks.pop('all'):
+        # "--all" is given => enable all non-selected checks
+        for k, v in checks.items():
+            if v is None:
+                checks[k] = True
+    if not any(checks.values()):
+        raise click.UsageError(
+            "Need to enable at least one lint check (try --help)")
     try:
-        linter(src, **kwargs)
+        linter(src, fix, **checks)
     except LintValidationException:
         sys.exit(1)
 
