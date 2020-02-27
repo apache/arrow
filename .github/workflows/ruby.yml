@@ -86,6 +86,7 @@ jobs:
       ARROW_HOME: /usr/local
       ARROW_JEMALLOC: OFF
       ARROW_ORC: OFF
+      ARROW_PARQUET: ON
       ARROW_WITH_BROTLI: ON
       ARROW_WITH_LZ4: ON
       ARROW_WITH_SNAPPY: ON
