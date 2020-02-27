@@ -75,7 +75,7 @@ Object <- R6Class("Object",
           call. = FALSE
         )
       }
-      self$`.:xp:.` <- xp
+      assign(".:xp:.", xp, envir = self)
     },
     print = function(...){
       cat(class(self)[[1]], "\n", sep = "")
