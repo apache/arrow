@@ -411,9 +411,8 @@ TEST_F(MultipathLevelBuilderTest, TestPrimitiveNonNullable) {
 
   ASSERT_OK(
       MultipathLevelBuilder::Write(*array, /*nullable=*/false, &context_, callback_));
+ 
   ASSERT_THAT(results_, SizeIs(1));
-  // keys -  Keys are always non-null so only null maps and null empty maps
-  // count towards rep levels.
   EXPECT_TRUE(results_[0].null_rep_levels_);
   EXPECT_TRUE(results_[0].null_def_levels_);
 
