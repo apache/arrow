@@ -1429,13 +1429,6 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     return result;
   }
 
-  int DecodeArrowNonNull(int num_values,
-                         arrow::BinaryDictionary32Builder* builder) override {
-    int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
-    return result;
-  }
-
   // ----------------------------------------------------------------------
   // Optimized dense binary read paths
 
@@ -1449,13 +1442,6 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
       PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
                                             valid_bits_offset, out, &result));
     }
-    return result;
-  }
-
-  int DecodeArrowNonNull(
-      int num_values, typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
-    int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull(num_values, out, &result));
     return result;
   }
 
@@ -2019,13 +2005,6 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     return result;
   }
 
-  int DecodeArrowNonNull(int num_values,
-                         arrow::BinaryDictionary32Builder* builder) override {
-    int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
-    return result;
-  }
-
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
@@ -2036,13 +2015,6 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
       PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
                                             valid_bits_offset, out, &result));
     }
-    return result;
-  }
-
-  int DecodeArrowNonNull(
-      int num_values, typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
-    int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull(num_values, out, &result));
     return result;
   }
 
