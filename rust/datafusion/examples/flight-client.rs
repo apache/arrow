@@ -21,7 +21,6 @@ use std::sync::Arc;
 use arrow::array::Int32Array;
 use arrow::datatypes::Schema;
 use arrow::flight::flight_data_to_batch;
-use flight::flight_descriptor;
 use flight::flight_service_client::FlightServiceClient;
 use flight::{FlightDescriptor, Ticket};
 

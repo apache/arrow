@@ -21,8 +21,6 @@ use futures::Stream;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
 
-use arrow::datatypes::Schema;
-
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::TableProvider;
 use datafusion::execution::context::ExecutionContext;
