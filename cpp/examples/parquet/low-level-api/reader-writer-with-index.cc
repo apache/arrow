@@ -205,13 +205,13 @@ void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_
       int ind = 0;
       int64_t row_counter = -1;
 
-      while (generic_reader->HasNext() && row_counter == -1) { 
+      while (generic_reader->HasNext()) { 
             ind++;
 
           printVal(column_reader_with_index,generic_reader,ind,vals,row_counter,true);
-        //        int64_t expected_value = col_row_counts[col_id];  
-        //        assert(value == expected_value);
-        col_row_counts[col_id]++; 
+          //        int64_t expected_value = col_row_counts[col_id];  
+          //        assert(value == expected_value);
+         col_row_counts[col_id]++; 
 
         
       }
