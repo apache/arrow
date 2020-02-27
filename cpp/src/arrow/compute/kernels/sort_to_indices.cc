@@ -18,6 +18,7 @@
 #include "arrow/compute/kernels/sort_to_indices.h"
 
 #include <algorithm>
+#include <limits>
 #include <numeric>
 #include <vector>
 
@@ -104,9 +105,7 @@ class CountSorter {
  public:
   CountSorter() = default;
 
-  explicit CountSorter(c_type min, c_type max) {
-    SetMinMax(min, max);
-  }
+  explicit CountSorter(c_type min, c_type max) { SetMinMax(min, max); }
 
   // Assume: max >= min && (max - min) < 4Gi
   void SetMinMax(c_type min, c_type max) {
@@ -124,8 +123,8 @@ class CountSorter {
   }
 
  private:
-  c_type min_ { 0 };
-  uint32_t value_range_ { 0 };
+  c_type min_{0};
+  uint32_t value_range_{0};
 
   template <typename CounterType>
   void SortInternal(int64_t* indices_begin, int64_t* indices_end,

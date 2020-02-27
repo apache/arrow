@@ -211,7 +211,7 @@ class RandomRange : public RandomImpl {
     CType min = std::numeric_limits<CType>::min();
     CType max = min + range;
     if (sizeof(CType) < 4 && (range + min) > std::numeric_limits<CType>::max()) {
-        max = std::numeric_limits<CType>::max();
+      max = std::numeric_limits<CType>::max();
     }
     return generator.Numeric<ArrowType>(count, min, max, null_prob);
   }
