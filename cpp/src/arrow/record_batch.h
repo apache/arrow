@@ -99,10 +99,13 @@ class ARROW_EXPORT RecordBatch {
   /// \return an Array or null if no field was found
   std::shared_ptr<Array> GetColumnByName(const std::string& name) const;
 
-  /// \brief Retrieve an array's internaldata from the record batch
+  /// \brief Retrieve an array's internal data from the record batch
   /// \param[in] i field index, does not boundscheck
   /// \return an internal ArrayData object
   virtual std::shared_ptr<ArrayData> column_data(int i) const = 0;
+
+  /// \brief Retrieve all arrays' internal data from the record batch.
+  virtual ArrayDataVector column_data() const = 0;
 
   /// \brief Add column to the record batch, producing a new RecordBatch
   ///

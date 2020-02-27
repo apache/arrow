@@ -29,6 +29,7 @@
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
 
@@ -243,7 +244,7 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
 
-  std::shared_ptr<Field> child(int i) const { return children_[i]; }
+  const std::shared_ptr<Field>& child(int i) const { return children_[i]; }
 
   const std::vector<std::shared_ptr<Field>>& children() const { return children_; }
 
@@ -1399,6 +1400,103 @@ class ARROW_EXPORT DictionaryUnifier {
 };
 
 // ----------------------------------------------------------------------
+// FieldRef
+
+/// \class FieldRef
+/// \brief Descriptor of a (potentially nested) field within a schema.
+class ARROW_EXPORT FieldRef {
+ public:
+  /// Represents a path to a nested field using indices of child fields.
+  /// For example, given indices {5, 9, 3} the field would be retrieved with
+  /// schema->field(5)->type()->child(9)->type()->child(3)
+  ///
+  /// std::basic_string is used to take advantage
+  /// of the short string approximation: up to four indices can be stored without memory
+  /// allocation.
+  using Indices = std::basic_string<int>;
+
+  /// Construct a FieldRef using a string of indices. The reference will be retrieved as:
+  /// schema.fields[self.indices[0]].type.fields[self.indices[1]] ...
+  FieldRef(Indices indices) : impl_(std::move(indices)) {}  // NOLINT runtime/explicit
+
+  /// Construct a by-name FieldRef. Multiple fields may match a by-name FieldRef:
+  /// [f for f in schema.fields where f.name == self.name]
+  FieldRef(std::string name) : impl_(std::move(name)) {}  // NOLINT runtime/explicit
+
+  /// Equivalent to a single index string of indices.
+  FieldRef(int index) : impl_(Indices({index})) {}  // NOLINT runtime/explicit
+
+  /// Construct a nested FieldRef.
+  explicit FieldRef(std::vector<FieldRef> children);
+
+  /// Convenience constructor for nested FieldRefs: each argument will be used to
+  /// construct a FieldRef
+  template <typename A0, typename A1, typename... A>
+  FieldRef(A0&& a0, A1&& a1, A&&... a)
+      : FieldRef(std::vector<FieldRef>{FieldRef(std::forward<A0>(a0)),
+                                       FieldRef(std::forward<A1>(a1)),
+                                       FieldRef(std::forward<A>(a))...}) {}
+
+  /// Parse a dot path into a FieldRef.
+  ///
+  /// dot_path = '.' name
+  ///          | '[' digit+ ']'
+  ///          | dot_path+
+  ///
+  /// Examples:
+  ///   ".alpha" => FieldRef("alpha")
+  ///   "[2]" => FieldRef(2)
+  ///   ".beta[3]" => FieldRef("beta", 3)
+  ///   "[5].gamma.delta[7]" => FieldRef(5, "gamma", "delta", 7)
+  ///   ".hello world" => FieldRef("hello world")
+  ///   R"(.\[y\]\\tho\.\)" => FieldRef(R"([y]\tho.\)")
+  static Result<FieldRef> FromDotPath(const std::string& dot_path);
+
+  bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
+  bool operator==(const FieldRef& other) const { return Equals(other); }
+
+  std::string ToString() const;
+
+  size_t hash() const;
+
+  bool IsIndices() const { return util::holds_alternative<Indices>(impl_); }
+  bool IsName() const { return util::holds_alternative<std::string>(impl_); }
+  bool IsNested() const { return util::holds_alternative<std::vector<FieldRef>>(impl_); }
+
+  /// \brief Retrieve the referenced child Field from a Schema, Field, or DataType
+  static Result<std::shared_ptr<Field>> Get(const Indices& indices, const Schema& schema);
+  static Result<std::shared_ptr<Field>> Get(const Indices& indices, const Field& field);
+  static Result<std::shared_ptr<Field>> Get(const Indices& indices, const DataType& type);
+  static Result<std::shared_ptr<Field>> Get(const Indices& indices,
+                                            const FieldVector& fields);
+
+  /// \brief Retrieve the referenced column from a RecordBatch or Table
+  static Result<std::shared_ptr<Array>> Get(const Indices& indices,
+                                            const RecordBatch& batch);
+  static Result<std::shared_ptr<ChunkedArray>> Get(const Indices& indices,
+                                                   const Table& table);
+
+  /// \brief Retrieve the referenced child Array from an Array or ChunkedArray
+  static Result<std::shared_ptr<Array>> Get(const Indices& indices, const Array& array);
+  static Result<std::shared_ptr<ChunkedArray>> Get(const Indices& indices,
+                                                   const ChunkedArray& array);
+
+  /// \brief Retrieve Indices of child fields matching this FieldRef.
+  ///
+  /// TODO(bkietz) this will usually be a zero or one element vector. Vendor a
+  /// small_vector or hack one with variant<vector<T>, T>
+  std::vector<Indices> FindAll(const Schema& schema) const;
+  std::vector<Indices> FindAll(const Field& field) const;
+  std::vector<Indices> FindAll(const DataType& type) const;
+  std::vector<Indices> FindAll(const FieldVector& fields) const;
+
+ private:
+  util::variant<Indices, std::string, std::vector<FieldRef>> impl_;
+
+  friend void PrintTo(const FieldRef& ref, std::ostream* os);
+};
+
+// ----------------------------------------------------------------------
 // Schema
 
 /// \class Schema
@@ -1423,7 +1521,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   int num_fields() const;
 
   /// Return the ith schema element. Does not boundscheck
-  std::shared_ptr<Field> field(int i) const;
+  const std::shared_ptr<Field>& field(int i) const;
 
   const std::vector<std::shared_ptr<Field>>& fields() const;
 

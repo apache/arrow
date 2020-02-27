@@ -54,8 +54,6 @@ namespace flight {
     }                                                  \
   } while (0)
 
-using ArrayVector = std::vector<std::shared_ptr<Array>>;
-
 // Create record batches with a unique "a" column so we can verify on the
 // client side that the results are correct
 class PerfDataStream : public FlightDataStream {

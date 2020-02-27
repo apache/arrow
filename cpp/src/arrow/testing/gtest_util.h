@@ -164,8 +164,6 @@ struct Datum;
 
 using Datum = compute::Datum;
 
-using ArrayVector = std::vector<std::shared_ptr<Array>>;
-
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
 #define ASSERT_TABLES_EQUAL(lhs, rhs) AssertTablesEqual((lhs), (rhs))

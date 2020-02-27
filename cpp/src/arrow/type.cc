@@ -30,9 +30,12 @@
 
 #include "arrow/array.h"
 #include "arrow/compare.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
@@ -608,6 +611,384 @@ std::string DictionaryType::ToString() const {
 
 std::string NullType::ToString() const { return name(); }
 
+FieldRef::FieldRef(std::vector<FieldRef> children) {
+  // flatten children
+  struct Visitor {
+    void operator()(std::string&& name) { *out++ = FieldRef(std::move(name)); }
+
+    void operator()(Indices&& indices) { *out++ = FieldRef(std::move(indices)); }
+
+    void operator()(std::vector<FieldRef>&& children) {
+      for (auto& child : children) {
+        util::visit(*this, std::move(child.impl_));
+      }
+    }
+
+    std::back_insert_iterator<std::vector<FieldRef>> out;
+  };
+
+  std::vector<FieldRef> out;
+  Visitor{std::back_inserter(out)}(std::move(children));
+
+  DCHECK(!out.empty());
+  DCHECK(std::none_of(out.begin(), out.end(),
+                      [](const FieldRef& ref) { return ref.IsNested(); }));
+
+  if (out.size() == 1) {
+    impl_ = std::move(out[0].impl_);
+  } else {
+    impl_ = std::move(out);
+  }
+}
+
+Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
+  if (dot_path_arg.empty()) {
+    return Status::Invalid("Dot path was empty");
+  }
+
+  std::vector<FieldRef> children;
+
+  util::string_view dot_path = dot_path_arg;
+
+  auto parse_name = [&] {
+    std::string name;
+    for (;;) {
+      auto segment_end = dot_path.find_first_of("\\[.");
+      if (segment_end == util::string_view::npos) {
+        // dot_path doesn't contain any other special characters; consume all
+        name.append(dot_path.begin(), dot_path.end());
+        dot_path = "";
+        break;
+      }
+
+      if (dot_path[segment_end] != '\\') {
+        // segment_end points to a subscipt for a new FieldRef
+        name.append(dot_path.begin(), segment_end);
+        dot_path = dot_path.substr(segment_end);
+        break;
+      }
+
+      if (dot_path.size() == segment_end + 1) {
+        // dot_path ends with backslash; consume it all
+        name.append(dot_path.begin(), dot_path.end());
+        dot_path = "";
+        break;
+      }
+
+      // append all characters before backslash, then the character which follows it
+      name.append(dot_path.begin(), segment_end);
+      name.push_back(dot_path[segment_end + 1]);
+      dot_path = dot_path.substr(segment_end + 2);
+    }
+    return name;
+  };
+
+  while (!dot_path.empty()) {
+    auto subscipt = dot_path[0];
+    dot_path = dot_path.substr(1);
+    switch (subscipt) {
+      case '.': {
+        // next element is a name
+        children.push_back(parse_name());
+        continue;
+      }
+      case '[': {
+        auto subscipt_end = dot_path.find_first_not_of("0123456789");
+        if (subscipt_end == util::string_view::npos || dot_path[subscipt_end] != ']') {
+          return Status::Invalid("Dot path '", dot_path_arg,
+                                 "' contained an unterminated index");
+        }
+        children.emplace_back(std::atoi(dot_path.data()));
+        dot_path = dot_path.substr(subscipt_end + 1);
+        continue;
+      }
+      default:
+        return Status::Invalid("Dot path must begin with '[' or '.', got '", dot_path_arg,
+                               "'");
+    }
+  }
+
+  return FieldRef(std::move(children));
+}
+
+size_t FieldRef::hash() const {
+  struct Visitor : std::hash<std::string> {
+    using std::hash<std::string>::operator();
+
+    size_t operator()(const Indices& indices) {
+      return internal::ComputeStringHash(indices.data(), indices.length() * sizeof(int));
+    }
+
+    size_t operator()(const std::vector<FieldRef>& children) {
+      size_t hash = 0;
+
+      for (const FieldRef& child : children) {
+        hash ^= child.hash();
+      }
+
+      return hash;
+    }
+  };
+
+  return util::visit(Visitor{}, impl_);
+}
+
+std::string FieldRef::ToString() const {
+  struct Visitor {
+    std::string operator()(const Indices& indices) {
+      std::string repr = "Indices(";
+      for (auto index : indices) {
+        repr += std::to_string(index) + " ";
+      }
+      repr.resize(repr.size() - 1);
+      repr += ")";
+      return repr;
+    }
+
+    std::string operator()(const std::string& name) { return "Name(" + name + ")"; }
+
+    std::string operator()(const std::vector<FieldRef>& children) {
+      std::string repr = "Nested(";
+      for (const auto& child : children) {
+        repr += child.ToString() + " ";
+      }
+      repr.resize(repr.size() - 1);
+      repr += ")";
+      return repr;
+    }
+  };
+
+  return util::visit(Visitor{}, impl_);
+}
+
+struct FieldRefGetImpl {
+  static std::string Summarize(const Field& field) { return field.ToString(); }
+
+  static std::string Summarize(const ArrayData& data) { return data.type->ToString(); }
+
+  static std::string Summarize(const ChunkedArray& array) {
+    return array.type()->ToString();
+  }
+
+  template <typename T>
+  static Status IndexError(const FieldRef::Indices& indices, int out_of_range_depth,
+                           const std::vector<T>& children) {
+    std::stringstream ss;
+    ss << "index out of range. ";
+
+    ss << "indices=[ ";
+    int depth = 0;
+    for (int i : indices) {
+      if (depth != out_of_range_depth) {
+        ss << i << " ";
+        continue;
+      }
+      ss << ">" << i << "< ";
+      ++depth;
+    }
+    ss << "] ";
+
+    ss << "child ";
+    if (std::is_same<T, std::shared_ptr<Field>>::value) {
+      ss << "fields were: { ";
+      for (const auto& field : children) {
+        ss << Summarize(*field) << ", ";
+      }
+      ss << "}";
+    } else {
+      ss << "columns had types: { ";
+      for (const auto& column : children) {
+        ss << Summarize(*column) << ", ";
+      }
+      ss << "}";
+    }
+
+    return Status::IndexError(ss.str());
+  }
+
+  template <typename T, typename GetChildren>
+  static Result<T> Get(const FieldRef::Indices& indices, const std::vector<T>* children,
+                       GetChildren&& get_children, bool verbose_error = true) {
+    if (indices.empty()) {
+      return Status::Invalid("empty indices cannot be traversed");
+    }
+
+    int depth = 0;
+    const T* out;
+    for (int index : indices) {
+      if (index < 0 || static_cast<size_t>(index) >= children->size()) {
+        // verbose_error is a hack to allow this function to be used for cheap validation
+        // in FieldRef::FindAll
+        if (verbose_error) {
+          return IndexError(indices, depth, *children);
+        }
+        return Status::IndexError("index out of range");
+      }
+
+      out = &children->at(index);
+      children = get_children(*out);
+      ++depth;
+    }
+
+    return *out;
+  }
+
+  static Result<std::shared_ptr<Field>> Get(const FieldRef::Indices& indices,
+                                            const FieldVector& fields,
+                                            bool verbose_error = true) {
+    return FieldRefGetImpl::Get(
+        indices, &fields,
+        [](const std::shared_ptr<Field>& field) { return &field->type()->children(); },
+        verbose_error);
+  }
+
+  static Result<std::shared_ptr<ArrayData>> Get(const FieldRef::Indices& indices,
+                                                const ArrayDataVector& child_data) {
+    return FieldRefGetImpl::Get(
+        indices, &child_data,
+        [](const std::shared_ptr<ArrayData>& data) { return &data->child_data; });
+  }
+
+  static Result<std::shared_ptr<ChunkedArray>> Get(
+      const FieldRef::Indices& indices, const ChunkedArrayVector& columns_arg) {
+    ChunkedArrayVector columns = columns_arg;
+
+    return FieldRefGetImpl::Get(
+        indices, &columns, [&](const std::shared_ptr<ChunkedArray>& a) {
+          columns.clear();
+
+          for (int i = 0; i < a->type()->num_children(); ++i) {
+            ArrayVector child_chunks;
+
+            for (const auto& chunk : a->chunks()) {
+              auto child_chunk = MakeArray(chunk->data()->child_data[i]);
+              child_chunks.push_back(std::move(child_chunk));
+            }
+
+            auto child_column = std::make_shared<ChunkedArray>(
+                std::move(child_chunks), a->type()->child(i)->type());
+
+            columns.emplace_back(std::move(child_column));
+          }
+
+          return &columns;
+        });
+  }
+};
+
+Result<std::shared_ptr<Field>> FieldRef::Get(const Indices& indices,
+                                             const Schema& schema) {
+  return FieldRefGetImpl::Get(indices, schema.fields());
+}
+
+Result<std::shared_ptr<Field>> FieldRef::Get(const Indices& indices, const Field& field) {
+  return FieldRefGetImpl::Get(indices, field.type()->children());
+}
+
+Result<std::shared_ptr<Field>> FieldRef::Get(const Indices& indices,
+                                             const DataType& type) {
+  return FieldRefGetImpl::Get(indices, type.children());
+}
+
+Result<std::shared_ptr<Field>> FieldRef::Get(const Indices& indices,
+                                             const FieldVector& fields) {
+  return FieldRefGetImpl::Get(indices, fields);
+}
+
+Result<std::shared_ptr<Array>> FieldRef::Get(const Indices& indices,
+                                             const RecordBatch& batch) {
+  ARROW_ASSIGN_OR_RAISE(auto data, FieldRefGetImpl::Get(indices, batch.column_data()));
+  return MakeArray(data);
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldRef::Get(const Indices& indices,
+                                                    const Table& table) {
+  return FieldRefGetImpl::Get(indices, table.columns());
+}
+
+std::vector<FieldRef::Indices> FieldRef::FindAll(const Schema& schema) const {
+  return FindAll(schema.fields());
+}
+
+std::vector<FieldRef::Indices> FieldRef::FindAll(const DataType& type) const {
+  return FindAll(type.children());
+}
+
+std::vector<FieldRef::Indices> FieldRef::FindAll(const Field& field) const {
+  return FindAll(field.type()->children());
+}
+
+std::vector<FieldRef::Indices> FieldRef::FindAll(const FieldVector& fields) const {
+  struct Visitor {
+    std::vector<FieldRef::Indices> operator()(const FieldRef::Indices& indices) {
+      if (FieldRefGetImpl::Get(indices, fields_, /* verbose_error = */ false).ok()) {
+        return {indices};
+      }
+      return {};
+    }
+
+    std::vector<FieldRef::Indices> operator()(const std::string& name) {
+      std::vector<FieldRef::Indices> out;
+
+      for (int i = 0; i < static_cast<int>(fields_.size()); ++i) {
+        if (fields_[i]->name() == name) {
+          out.push_back({i});
+        }
+      }
+
+      return out;
+    }
+
+    struct Matches {
+      // referents[i] is referenced by prefixes[i]
+      std::vector<FieldRef::Indices> prefixes;
+      FieldVector referents;
+
+      Matches(std::vector<FieldRef::Indices> indices, const FieldVector& fields) {
+        for (auto& indices : indices) {
+          Add({}, std::move(indices), fields);
+        }
+      }
+
+      Matches() = default;
+
+      size_t size() const { return referents.size(); }
+
+      void Add(FieldRef::Indices prefix, FieldRef::Indices indices,
+               const FieldVector& fields) {
+        auto maybe_field = FieldRef::Get(indices, fields);
+        DCHECK_OK(maybe_field.status());
+        referents.push_back(std::move(maybe_field).ValueOrDie());
+        prefixes.push_back(prefix + indices);
+      }
+    };
+
+    std::vector<FieldRef::Indices> operator()(const std::vector<FieldRef>& refs) {
+      Matches matches(refs.front().FindAll(fields_), fields_);
+
+      for (auto ref_it = refs.begin() + 1; ref_it != refs.end(); ++ref_it) {
+        Matches next_matches;
+        for (size_t i = 0; i < matches.size(); ++i) {
+          const auto& referent = *matches.referents[i];
+
+          for (const Indices& indices : ref_it->FindAll(referent)) {
+            next_matches.Add(matches.prefixes[i], indices, referent.type()->children());
+          }
+        }
+        matches = std::move(next_matches);
+      }
+
+      return matches.prefixes;
+    }
+
+    const FieldVector& fields_;
+  };
+
+  return util::visit(Visitor{fields}, impl_);
+}
+
+void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }
+
 // ----------------------------------------------------------------------
 // Schema implementation
 
@@ -636,7 +1017,7 @@ Schema::~Schema() {}
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
 
-std::shared_ptr<Field> Schema::field(int i) const {
+const std::shared_ptr<Field>& Schema::field(int i) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(i, num_fields());
   return impl_->fields_[i];
