@@ -54,8 +54,8 @@
  * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md
  **/
 
-constexpr int NUM_ROWS = 20;
-constexpr int64_t ROW_GROUP_SIZE = 215;//16 * 1024 * 1024;  // 16 MB
+constexpr int NUM_ROWS = 2500000;//20;
+constexpr int64_t ROW_GROUP_SIZE = 16 * 1024 * 1024;  // 16 MB
 //char PARQUET_FILENAME[] = "";
 //const char PARQUET_FILENAME[] = "/home/abalajiee/parquet_data/testing_write.parquet";
 
@@ -89,10 +89,9 @@ int parquet_reader(int argc, char** argv);
 
 
 int main(int argc, char** argv) {
-  if(false){
-     parquet_writer(argc, argv);
-  }
-
+  
+  parquet_writer(argc, argv);
+  
   parquet_reader(argc,argv);
 
   std::cout << "Parquet Writing and Reading Complete" << std::endl;
@@ -313,6 +312,8 @@ int parquet_writer(int argc, char** argv) {
   // parquet::REQUIRED fields do not need definition and repetition level values
   // parquet::OPTIONAL fields require only definition level values
   // parquet::REPEATED fields require both definition and repetition level values
+
+  //argv[2] and argv[3] already taken for reader with index for predicate column number and predicate search value
   char* PARQUET_FILENAME = argv[1];
   try {
     // Create a local file output stream instance.
