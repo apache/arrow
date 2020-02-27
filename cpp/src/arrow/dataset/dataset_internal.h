@@ -55,13 +55,12 @@ inline std::shared_ptr<Schema> SchemaFromColumnNames(
     const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
   std::vector<std::shared_ptr<Field>> columns;
   for (const auto& name : column_names) {
-    auto field = input->GetFieldByName(name);
-    if (field != nullptr) {
+    if (auto field = input->GetFieldByName(name)) {
       columns.push_back(std::move(field));
     }
   }
 
-  return std::make_shared<Schema>(columns);
+  return schema(std::move(columns));
 }
 
 }  // namespace dataset

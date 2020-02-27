@@ -36,6 +36,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
@@ -73,6 +74,17 @@ template <typename Gen>
 std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, Gen&& gen) {
   return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
+}
+
+std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
+    std::shared_ptr<Schema> schema, int64_t batch_size, int64_t batch_repetitions) {
+  auto batch = ConstantArrayGenerator::Zeroes(batch_size, schema);
+  int64_t i = 0;
+  return MakeGeneratedRecordBatch(
+      schema, [batch, i, batch_repetitions](std::shared_ptr<RecordBatch>* out) mutable {
+        *out = i++ < batch_repetitions ? batch : nullptr;
+        return Status::OK();
+      });
 }
 
 void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {

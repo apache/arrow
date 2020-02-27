@@ -25,7 +25,6 @@
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
-#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -51,71 +50,66 @@ using parquet::arrow::WriteTable;
 
 using testing::Pointee;
 
-Status WriteRecordBatch(const RecordBatch& batch, FileWriter* writer) {
-  auto schema = batch.schema();
-  auto size = batch.num_rows();
-
-  if (!schema->Equals(*writer->schema(), false)) {
-    return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
-                           schema->ToString(), "' this:'", writer->schema()->ToString(),
-                           "'");
-  }
-
-  RETURN_NOT_OK(writer->NewRowGroup(size));
-  for (int i = 0; i < batch.num_columns(); i++) {
-    RETURN_NOT_OK(writer->WriteColumnChunk(*batch.column(i)));
-  }
-
-  return Status::OK();
-}
-
-Status WriteRecordBatchReader(RecordBatchReader* reader, FileWriter* writer) {
-  auto schema = reader->schema();
-
-  if (!schema->Equals(*writer->schema(), false)) {
-    return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
-                           schema->ToString(), "' this:'", writer->schema()->ToString(),
-                           "'");
-  }
-
-  return MakeFunctionIterator([reader] { return reader->Next(); })
-      .Visit([&](std::shared_ptr<RecordBatch> batch) {
-        return WriteRecordBatch(*batch, writer);
-      });
-}
-
-Status WriteRecordBatchReader(
-    RecordBatchReader* reader, MemoryPool* pool,
-    const std::shared_ptr<io::OutputStream>& sink,
-    const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
-    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-        default_arrow_writer_properties()) {
-  std::unique_ptr<FileWriter> writer;
-  RETURN_NOT_OK(FileWriter::Open(*reader->schema(), pool, sink, properties,
-                                 arrow_properties, &writer));
-  RETURN_NOT_OK(WriteRecordBatchReader(reader, writer.get()));
-  return writer->Close();
-}
-
 class ArrowParquetWriterMixin : public ::testing::Test {
  public:
-  std::shared_ptr<Buffer> Write(std::vector<RecordBatchReader*> readers) {
+  Status WriteRecordBatch(const RecordBatch& batch, FileWriter* writer) {
+    auto schema = batch.schema();
+    auto size = batch.num_rows();
+
+    if (!schema->Equals(*writer->schema(), false)) {
+      return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
+                             schema->ToString(), "' this:'", writer->schema()->ToString(),
+                             "'");
+    }
+
+    RETURN_NOT_OK(writer->NewRowGroup(size));
+    for (int i = 0; i < batch.num_columns(); i++) {
+      RETURN_NOT_OK(writer->WriteColumnChunk(*batch.column(i)));
+    }
+
+    return Status::OK();
+  }
+
+  Status WriteRecordBatchReader(RecordBatchReader* reader, FileWriter* writer) {
+    auto schema = reader->schema();
+
+    if (!schema->Equals(*writer->schema(), false)) {
+      return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
+                             schema->ToString(), "' this:'", writer->schema()->ToString(),
+                             "'");
+    }
+
+    return MakeFunctionIterator([reader] { return reader->Next(); })
+        .Visit([&](std::shared_ptr<RecordBatch> batch) {
+          return WriteRecordBatch(*batch, writer);
+        });
+  }
+
+  Status WriteRecordBatchReader(
+      RecordBatchReader* reader, MemoryPool* pool,
+      const std::shared_ptr<io::OutputStream>& sink,
+      const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
+      const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+          default_arrow_writer_properties()) {
+    std::unique_ptr<FileWriter> writer;
+    RETURN_NOT_OK(FileWriter::Open(*reader->schema(), pool, sink, properties,
+                                   arrow_properties, &writer));
+    RETURN_NOT_OK(WriteRecordBatchReader(reader, writer.get()));
+    return writer->Close();
+  }
+
+  std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
     auto pool = ::arrow::default_memory_pool();
 
     std::shared_ptr<Buffer> out;
 
-    for (auto reader : readers) {
-      auto sink = CreateOutputStream(pool);
+    auto sink = CreateOutputStream(pool);
 
-      ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
-      // XXX the rest of the test may crash if this fails, since out will be nullptr
-      EXPECT_OK_AND_ASSIGN(out, sink->Finish());
-    }
+    ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
+    // XXX the rest of the test may crash if this fails, since out will be nullptr
+    EXPECT_OK_AND_ASSIGN(out, sink->Finish());
+
     return out;
-  }
-
-  std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
-    return Write(std::vector<RecordBatchReader*>{reader});
   }
 
   std::shared_ptr<Buffer> Write(const Table& table) {
@@ -131,34 +125,47 @@ class ArrowParquetWriterMixin : public ::testing::Test {
   }
 };
 
-class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
+class TestParquetFileFormat : public ArrowParquetWriterMixin {
  public:
   std::unique_ptr<FileSource> GetFileSource(RecordBatchReader* reader) {
     auto buffer = Write(reader);
     return internal::make_unique<FileSource>(std::move(buffer));
   }
 
-  std::unique_ptr<FileSource> GetFileSource(std::vector<RecordBatchReader*> readers) {
-    auto buffer = Write(std::move(readers));
-    return internal::make_unique<FileSource>(std::move(buffer));
+  std::unique_ptr<RecordBatchReader> GetRecordBatchReader(
+      std::shared_ptr<Schema> schema = nullptr) {
+    return MakeGeneratedRecordBatch(schema ? schema : schema_, kBatchSize,
+                                    kBatchRepetitions);
   }
 
-  std::unique_ptr<RecordBatchReader> GetRecordBatchReader() {
-    auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-    int64_t i = 0;
-    return MakeGeneratedRecordBatch(
-        batch->schema(), [batch, i](std::shared_ptr<RecordBatch>* out) mutable {
-          *out = i++ < kBatchRepetitions ? batch : nullptr;
-          return Status::OK();
-        });
+  RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
+    return MakeFlattenIterator(MakeMaybeMapIterator(
+        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
+        std::move(scan_task_it)));
+  }
+
+  RecordBatchIterator Batches(Fragment* fragment) {
+    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
+    return Batches(std::move(scan_task_it));
+  }
+
+  void CountRowsAndBatchesInScan(Fragment* fragment, int64_t expected_rows,
+                                 int64_t expected_batches) {
+    int64_t actual_rows = 0;
+    int64_t actual_batches = 0;
+
+    for (auto maybe_batch : Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      actual_rows += batch->num_rows();
+      ++actual_batches;
+    }
+
+    EXPECT_EQ(actual_rows, expected_rows);
+    EXPECT_EQ(actual_batches, expected_batches);
   }
 
  protected:
   std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
-};
-
-class TestParquetFileFormat : public ParquetBufferFixtureMixin {
- protected:
   std::shared_ptr<ParquetFileFormat> format_ = std::make_shared<ParquetFileFormat>();
   std::shared_ptr<ScanOptions> opts_;
   std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
@@ -171,16 +178,11 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   opts_ = ScanOptions::Make(reader->schema());
   auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
 
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
   int64_t row_count = 0;
 
-  for (auto maybe_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
-    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
-    for (auto maybe_batch : rb_it) {
-      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
-      row_count += batch->num_rows();
-    }
+  for (auto maybe_batch : Batches(fragment.get())) {
+    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    row_count += batch->num_rows();
   }
 
   ASSERT_EQ(row_count, kNumRows);
@@ -245,61 +247,63 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
   auto source = GetFileSource(reader.get());
   auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
 
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
   int64_t row_count = 0;
 
-  for (auto maybe_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
-    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
-    for (auto maybe_batch : rb_it) {
-      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
-      row_count += batch->num_rows();
-      AssertSchemaEqual(*batch->schema(), *expected_schema,
-                        /*check_metadata=*/false);
-    }
+  for (auto maybe_batch : Batches(fragment.get())) {
+    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    row_count += batch->num_rows();
+    AssertSchemaEqual(*batch->schema(), *expected_schema,
+                      /*check_metadata=*/false);
   }
 
   ASSERT_EQ(row_count, kNumRows);
 }
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
-  schema_ =
-      schema({field("f64", float64()), field("i64", int64()), field("f32", float32())});
-  auto reader_without_i32 = GetRecordBatchReader();
+  auto reader_without_i32 = GetRecordBatchReader(
+      schema({field("f64", float64()), field("i64", int64()), field("f32", float32())}));
 
-  schema_ =
-      schema({field("i64", int64()), field("f32", float32()), field("i32", int32())});
-  auto reader_without_f64 = GetRecordBatchReader();
+  auto reader_without_f64 = GetRecordBatchReader(
+      schema({field("i64", int64()), field("f32", float32()), field("i32", int32())}));
 
-  schema_ = schema({field("f64", float64()), field("i64", int64()),
-                    field("f32", float32()), field("i32", int32())});
-  auto reader = GetRecordBatchReader();
+  auto reader =
+      GetRecordBatchReader(schema({field("f64", float64()), field("i64", int64()),
+                                   field("f32", float32()), field("i32", int32())}));
 
+  schema_ = reader->schema();
   opts_ = ScanOptions::Make(schema_);
   opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
   opts_->filter = equal(field_ref("i32"), scalar(0));
 
-  // NB: projector is applied by the scanner; ParquetFragment does not evaluate it so
-  // we will not drop "i32" even though it is not in the projector's schema
-  auto expected_schema = schema({field("f64", float64()), field("i32", int32())});
+  for (auto reader : {reader.get(), reader_without_i32.get(), reader_without_f64.get()}) {
+    auto source = GetFileSource(reader);
+    auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
 
-  auto source =
-      GetFileSource({reader.get(), reader_without_i32.get(), reader_without_f64.get()});
-  auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
+    // NB: projector is applied by the scanner; ParquetFragment does not evaluate it.
+    // We will not drop "i32" even though it is not in the projector's schema.
+    //
+    // in the case where a file doesn't contain a referenced field, we won't
+    // materialize it (the filter/projector will populate it with nulls later)
+    std::shared_ptr<Schema> expected_schema;
+    if (reader == reader_without_i32.get()) {
+      expected_schema = schema({field("f64", float64())});
+    } else if (reader == reader_without_f64.get()) {
+      expected_schema = schema({field("i32", int32())});
+    } else {
+      expected_schema = schema({field("f64", float64()), field("i32", int32())});
+    }
 
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
-  int64_t row_count = 0;
+    int64_t row_count = 0;
 
-  for (auto maybe_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
-    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
-    for (auto maybe_batch : rb_it) {
+    for (auto maybe_batch : Batches(fragment.get())) {
       ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
       row_count += batch->num_rows();
+      AssertSchemaEqual(*batch->schema(), *expected_schema,
+                        /*check_metadata=*/false);
     }
-  }
 
-  ASSERT_EQ(row_count, kNumRows);
+    ASSERT_EQ(row_count, kNumRows);
+  }
 }
 
 TEST_F(TestParquetFileFormat, Inspect) {
@@ -341,49 +345,7 @@ TEST_F(TestParquetFileFormat, IsSupported) {
   EXPECT_EQ(supported, true);
 }
 
-void CountRowsInScan(ScanTaskIterator& it, int64_t expected_rows,
-                     int64_t expected_batches) {
-  int64_t actual_rows = 0;
-  int64_t actual_batches = 0;
-
-  for (auto maybe_scan_task : it) {
-    ASSERT_OK_AND_ASSIGN(auto scan_task, std::move(maybe_scan_task));
-    ASSERT_OK_AND_ASSIGN(auto rb_it, scan_task->Execute());
-    for (auto maybe_record_batch : rb_it) {
-      ASSERT_OK_AND_ASSIGN(auto record_batch, std::move(maybe_record_batch));
-      actual_rows += record_batch->num_rows();
-      actual_batches++;
-    }
-  }
-
-  EXPECT_EQ(actual_rows, expected_rows);
-  EXPECT_EQ(actual_batches, expected_batches);
-}
-
-class TestParquetFileFormatPushDown : public TestParquetFileFormat {
- public:
-  void CountRowsAndBatchesInScan(const std::shared_ptr<Fragment>& fragment,
-                                 int64_t expected_rows, int64_t expected_batches) {
-    int64_t actual_rows = 0;
-    int64_t actual_batches = 0;
-
-    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(ctx_));
-    for (auto maybe_scan_task : it) {
-      ASSERT_OK_AND_ASSIGN(auto scan_task, std::move(maybe_scan_task));
-      ASSERT_OK_AND_ASSIGN(auto rb_it, scan_task->Execute());
-      for (auto maybe_record_batch : rb_it) {
-        ASSERT_OK_AND_ASSIGN(auto record_batch, std::move(maybe_record_batch));
-        actual_rows += record_batch->num_rows();
-        actual_batches++;
-      }
-    }
-
-    EXPECT_EQ(actual_rows, expected_rows);
-    EXPECT_EQ(actual_batches, expected_batches);
-  }
-};
-
-TEST_F(TestParquetFileFormatPushDown, Basic) {
+TEST_F(TestParquetFileFormat, PredicatePushdown) {
   // Given a number `n`, the arithmetic dataset creates n RecordBatches where
   // each RecordBatch is keyed by a unique integer in [1, n]. Let `rb_i` denote
   // the record batch keyed by `i`. `rb_i` is composed of `i` rows where all
@@ -406,32 +368,32 @@ TEST_F(TestParquetFileFormatPushDown, Basic) {
   auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
 
   opts_->filter = scalar(true);
-  CountRowsAndBatchesInScan(fragment, kTotalNumRows, kNumRowGroups);
+  CountRowsAndBatchesInScan(fragment.get(), kTotalNumRows, kNumRowGroups);
 
   for (int64_t i = 1; i <= kNumRowGroups; i++) {
     opts_->filter = ("i64"_ == int64_t(i)).Copy();
-    CountRowsAndBatchesInScan(fragment, i, 1);
+    CountRowsAndBatchesInScan(fragment.get(), i, 1);
   }
 
   /* Out of bound filters should skip all RowGroups. */
   opts_->filter = scalar(false);
-  CountRowsAndBatchesInScan(fragment, 0, 0);
+  CountRowsAndBatchesInScan(fragment.get(), 0, 0);
   opts_->filter = ("i64"_ == int64_t(kNumRowGroups + 1)).Copy();
-  CountRowsAndBatchesInScan(fragment, 0, 0);
+  CountRowsAndBatchesInScan(fragment.get(), 0, 0);
   opts_->filter = ("i64"_ == int64_t(-1)).Copy();
-  CountRowsAndBatchesInScan(fragment, 0, 0);
+  CountRowsAndBatchesInScan(fragment.get(), 0, 0);
   // No rows match 1 and 2.
   opts_->filter = ("i64"_ == int64_t(1) and "u8"_ == uint8_t(2)).Copy();
-  CountRowsAndBatchesInScan(fragment, 0, 0);
+  CountRowsAndBatchesInScan(fragment.get(), 0, 0);
 
   opts_->filter = ("i64"_ == int64_t(2) or "i64"_ == int64_t(4)).Copy();
-  CountRowsAndBatchesInScan(fragment, 2 + 4, 2);
+  CountRowsAndBatchesInScan(fragment.get(), 2 + 4, 2);
 
   opts_->filter = ("i64"_ < int64_t(6)).Copy();
-  CountRowsAndBatchesInScan(fragment, 5 * (5 + 1) / 2, 5);
+  CountRowsAndBatchesInScan(fragment.get(), 5 * (5 + 1) / 2, 5);
 
   opts_->filter = ("i64"_ >= int64_t(6)).Copy();
-  CountRowsAndBatchesInScan(fragment, kTotalNumRows - (5 * (5 + 1) / 2),
+  CountRowsAndBatchesInScan(fragment.get(), kTotalNumRows - (5 * (5 + 1) / 2),
                             kNumRowGroups - 5);
 }
 
