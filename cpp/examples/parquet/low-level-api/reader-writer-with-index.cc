@@ -34,8 +34,9 @@
 #include "parquet/types.h"
 
 /*
- * This example describes writing and reading Parquet Files in C++ and serves as a
- * reference to the API.
+ * This example illustrates PARQUET-1404 for page level skipping in  
+ * writing and reading Parquet Files in C++ and serves as a
+ * reference to the API for reader and writer enhanced with Column Index and Offset Index
  * The file contains all the physical data types supported by Parquet.
  * This example uses the RowGroupWriter API that supports writing RowGroups based on a
  *certain size
@@ -81,7 +82,11 @@ return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shar
 void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,int ind,return_multiple vals,int64_t& row_counter,
                bool checkpredicate);
 
+void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> rg,int predicate_column_number,int num_columns, char* predicate);
+
 int parquet_reader(int argc, char** argv);
+/**************Declaration END*********************************/
+
 
 int main(int argc, char** argv) {
   if(false){
@@ -95,11 +100,11 @@ int main(int argc, char** argv) {
   return 0;
 }
 
+/*********************************************************************************
+                   PARQUET READER WITH PAGE SKIPPING EXAMPLE
+**********************************************************************************/
 int parquet_reader(int argc,char** argv) {
 
-            /*********************************************************************************
-                       PARQUET READER EXAMPLE
-           **********************************************************************************/
    std::string PARQUET_FILENAME = argv[1];
    try {
      // Create a ParquetReader instance
@@ -115,85 +120,19 @@ int parquet_reader(int argc,char** argv) {
      int num_columns = file_metadata->num_columns();
      //      assert(num_columns == NUM_COLS);
 
-     std::vector<int> col_row_counts(num_columns, 0);
-
     // Iterate over all the RowGroups in the file
     for (int r = 0; r < num_row_groups; ++r) {
-      // Get the RowGroup Reader
-       std::shared_ptr<parquet::RowGroupReader> row_group_reader =
-       parquet_reader->RowGroup(r);
-
-      //      assert(row_group_reader->metadata()->total_byte_size() < ROW_GROUP_SIZE);
-
-      // int16_t definition_level;
-      // int16_t repetition_level;
-      std::shared_ptr<parquet::ColumnReader> column_reader;
-      int col_id = 0;
-
-      std::cout<< "test arg v" <<argv[1] << std::endl;
     
-      int64_t page_index = -1;
-
-      char c;
-      // int64_t predicate;
-      // sscanf(argv[2], "%" SCNd64 "%c", &predicate, &c);
-
-      // int PREDICATE_COL;
-      // sscanf(argv[2], "%d" "%c", &PREDICATE_COL, &c);
-    
-      char *col_num = strtok(argv[2],",");
-      char *predicate_val  = strtok(argv[3],",");
+      char *col_num = argv[2];
+      char *predicate_val  = argv[3];
 
       std::stringstream ss(col_num);
-       /**************FIRST PASS*****************/
-      while(col_num!=NULL && predicate_val!=NULL) {
-          // Get the Column Reader for the Int64 column
-        int64_t row_index = -1;
+      int col_id = 0;
         ss >> col_id;
-        std::shared_ptr<parquet::ColumnReader> predicate_column_reader = row_group_reader->Column(col_id);
-        
-        
-        std::cout << "Column Type: " << predicate_column_reader->type() << std::endl;
-        
-        
-        
-        // std::cout << "given predicate: " << predicate << " type of predicate: " << typeid(predicate).name() << std::endl;
-        
-        std::shared_ptr<parquet::ColumnReader> column_reader_with_index;
-        
-        parquet::ColumnReader* generic_reader;
-    
-        int PREDICATE_COL  = col_id;
-        return_multiple vals = getPredicate(predicate_column_reader,row_group_reader,predicate_val,col_id,page_index,PREDICATE_COL,row_index);
-        column_reader_with_index = vals.column_reader;
-        // row_group_reader->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,predicate_column_reader->type());
-        returnReaderwithType(column_reader_with_index,generic_reader);
-        // Read all the rows in the column
-        std::cout << "column id:" << col_id << " page index:" << page_index << std::endl;
-
-        int counter = 0;
-
-        while ( counter < page_index && generic_reader->HasNext() ) {
-            counter++;
-        }
-
-        int ind = 0;
-        int64_t row_counter = -1;
-
-        while (generic_reader->HasNext() && row_counter == -1) { 
-              ind++;
-  
-            printVal(column_reader_with_index,generic_reader,ind,vals,row_counter,true);
-          //        int64_t expected_value = col_row_counts[col_id];  
-          //        assert(value == expected_value);
-          col_row_counts[col_id]++; 
-  
-          
-        }
-        col_num = strtok(NULL,",");
-        predicate_val = strtok(NULL,",");
-        //col_id++;
-      }
+        // Get the RowGroup Reader
+       std::shared_ptr<parquet::RowGroupReader> row_group_reader = parquet_reader->RowGroup(r);
+       /**************FIRST PASS*****************/
+        first_pass_for_predicate_only(row_group_reader,col_id,num_columns,predicate_val);
       /***********FIRST PASS END **********/
 
       /***********Second PASS *************/
@@ -210,6 +149,73 @@ int parquet_reader(int argc,char** argv) {
 
 }
 
+
+void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_group_reader,int col_id, int num_columns, char* predicate_val) {
+
+    int64_t row_index = -1;
+
+    std::vector<int> col_row_counts(num_columns, 0);
+
+    //      assert(row_group_reader->metadata()->total_byte_size() < ROW_GROUP_SIZE);
+
+    // int16_t definition_level;
+    // int16_t repetition_level;
+    std::shared_ptr<parquet::ColumnReader> column_reader;
+    
+
+    // std::cout<< "test arg v" <<argv[1] << std::endl;
+  
+    int64_t page_index = -1;
+
+    char c;
+    // int64_t predicate;
+    // sscanf(argv[2], "%" SCNd64 "%c", &predicate, &c);
+
+    // int PREDICATE_COL;
+    // sscanf(argv[2], "%d" "%c", &PREDICATE_COL, &c);
+    // Get the Column Reader for the Int64 column
+      std::shared_ptr<parquet::ColumnReader> predicate_column_reader = row_group_reader->Column(col_id);
+      
+      
+      std::cout << "Column Type: " << predicate_column_reader->type() << std::endl;
+      
+      // std::cout << "given predicate: " << predicate << " type of predicate: " << typeid(predicate).name() << std::endl;
+      
+      std::shared_ptr<parquet::ColumnReader> column_reader_with_index;
+      
+      parquet::ColumnReader* generic_reader;
+  
+      int PREDICATE_COL  = col_id;
+      return_multiple vals = getPredicate(predicate_column_reader,row_group_reader,predicate_val,col_id,page_index,PREDICATE_COL,row_index);
+      column_reader_with_index = vals.column_reader;
+      
+      //SAMPLE row group reader call in the comment below
+      // row_group_reader->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,predicate_column_reader->type());
+
+      returnReaderwithType(column_reader_with_index,generic_reader);
+      // Read all the rows in the column
+      std::cout << "column id:" << col_id << " page index:" << page_index << std::endl;
+
+      int counter = 0;
+
+      while ( counter < page_index && generic_reader->HasNext() ) {
+          counter++;
+      }
+
+      int ind = 0;
+      int64_t row_counter = -1;
+
+      while (generic_reader->HasNext() && row_counter == -1) { 
+            ind++;
+
+          printVal(column_reader_with_index,generic_reader,ind,vals,row_counter,true);
+        //        int64_t expected_value = col_row_counts[col_id];  
+        //        assert(value == expected_value);
+        col_row_counts[col_id]++; 
+
+        
+      }
+}
 
 return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shared_ptr<parquet::RowGroupReader> rg,char* predicate_val,
                              int& col_id,int64_t& page_index,int& PREDICATE_COL,int64_t& row_index){

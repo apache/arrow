@@ -120,9 +120,20 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   void GetPageIndex(void* predicate, int64_t& min_index, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index,Type::type type_num) const {
       switch(type_num) {
          case Type::BOOLEAN:{
+           // doesn't make sense for bool
            break;
          }
          case Type::INT32:{
+             int32_t v = *((int32_t*) predicate);
+             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+             int32_t* page_min = (int32_t*)(void *)col_index.min_values[itemindex].c_str();
+             int32_t* page_max = (int32_t*)(void *)col_index.max_values[itemindex].c_str();
+             int32_t max_diff = *page_max - *page_min;
+           
+              if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
+               min_index = itemindex;
+              }
+            }
            break;
          }
          case Type::INT64:
@@ -141,22 +152,70 @@ class SerializedRowGroup : public RowGroupReader::Contents {
          }
          case Type::INT96:
          {
+             uint32_t v = *((uint32_t*) predicate);
+             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+             uint32_t* page_min = (uint32_t*)(void *)col_index.min_values[itemindex].c_str();
+             uint32_t* page_max = (uint32_t*)(void *)col_index.max_values[itemindex].c_str();
+             uint32_t max_diff = *page_max - *page_min;
+           
+              if ( *page_min <= v && max_diff >= (uint32_t)(abs(v - *page_min)) ) {
+               min_index = itemindex;
+              }
+            }
            break;
          }
          case Type::FLOAT:
          {
+             float v = *((float*) predicate);
+             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+             float* page_min = (float*)(void *)col_index.min_values[itemindex].c_str();
+             float* page_max = (float*)(void *)col_index.max_values[itemindex].c_str();
+             float max_diff = *page_max - *page_min;
+           
+              if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
+               min_index = itemindex;
+              }
+            }
            break;
          }
          case Type::DOUBLE:
          {
+             double v = *((double*) predicate);
+             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+             double* page_min = (double*)(void *)col_index.min_values[itemindex].c_str();
+             double* page_max = (double*)(void *)col_index.max_values[itemindex].c_str();
+             double max_diff = *page_max - *page_min;
+           
+              if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
+               min_index = itemindex;
+              }
+            }
            break;
          }
          case Type::BYTE_ARRAY:
          {
+             char* v = (char*) predicate;
+             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+             char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
+             char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
+           
+              if ( *page_min <= *v &&  (*page_max - *page_min) >= abs(*v - *page_min)) {
+               min_index = itemindex;
+              }
+            }
            break;
          }
          case Type::FIXED_LEN_BYTE_ARRAY:
          {
+             char* v = (char*) predicate;
+             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+             char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
+             char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
+           
+              if ( *page_min <= *v && (*page_max - *page_min) >= abs(*v - *page_min)) {
+               min_index = itemindex;
+              }
+            }
            break;
          }
          default:
