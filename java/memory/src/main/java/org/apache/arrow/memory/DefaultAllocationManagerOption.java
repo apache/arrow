@@ -90,7 +90,7 @@ public class DefaultAllocationManagerOption {
         return UnsafeAllocationManager.FACTORY;
       case Unknown:
         logger.warn("allocation manager type not specified, using netty as the default type");
-        return NettyAllocationManager.FACTORY;
+        return UnsafeAllocationManager.FACTORY;
       default:
         throw new IllegalStateException("Unknown allocation manager type: " + type);
     }
