@@ -47,6 +47,7 @@ patterns = [
     'cpp/cmake_modules/FindLz4.cmake',
     'cpp/cmake_modules/FindParquet.cmake',
     'cpp/cmake_modules/FindPlasma.cmake',
+    'cpp/cmake_modules/FindPython3Alt.cmake',
     'cpp/cmake_modules/FindRE2.cmake',
     'cpp/cmake_modules/FindRapidJSONAlt.cmake',
     'cpp/cmake_modules/FindSnappyAlt.cmake',
