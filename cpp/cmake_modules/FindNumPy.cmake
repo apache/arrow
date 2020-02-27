@@ -38,7 +38,7 @@
 #
 #============================================================================
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.14.0")
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.15.0")
     # FindPython3Alt.cmake also looks for NumPy, use it.
     if(NumPy_FIND_REQUIRED)
         find_package(Python3Alt REQUIRED)
@@ -50,7 +50,7 @@ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.14.0")
     return()
 endif()
 
-# Legacy code below (CMake < 3.14.0)
+# Legacy code below (CMake < 3.15.0)
 
 # Finding NumPy involves calling the Python interpreter
 if(NumPy_FIND_REQUIRED)

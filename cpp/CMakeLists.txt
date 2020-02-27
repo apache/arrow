@@ -140,6 +140,11 @@ include(DefineOptions)
 if(${CMAKE_VERSION} VERSION_LESS "3.12.0")
   find_package(PythonInterp)
 else()
+  # Use the first Python installation on PATH, not the newest one
+  set(Python3_FIND_STRATEGY "LOCATION")
+  # On Windows, use registry last, not first
+  set(Python3_FIND_REGISTRY "LAST")
+
   find_package(Python3)
   set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 endif()

@@ -22,7 +22,8 @@
 # - PYTHON_LIBRARIES
 # - PYTHON_OTHER_LIBS
 
-if(${CMAKE_VERSION} VERSION_LESS "3.14.0")
+# Need CMake 3.15 or later for Python3_FIND_STRATEGY
+if(${CMAKE_VERSION} VERSION_LESS "3.15.0")
   # Use deprecated FindPythonInterp package
   if(Python3Alt_FIND_REQUIRED)
     find_package(PythonLibsNew REQUIRED)

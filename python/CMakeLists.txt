@@ -18,7 +18,7 @@
 # Includes code assembled from BSD/MIT/Apache-licensed code from some 3rd-party
 # projects, including Kudu, Impala, and libdynd. See python/LICENSE.txt
 
-cmake_minimum_required(VERSION 2.7)
+cmake_minimum_required(VERSION 3.2)
 project(pyarrow)
 
 # Running from a Python sdist tarball
@@ -40,6 +40,11 @@ if(POLICY CMP0054)
   # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
   cmake_policy(SET CMP0054 NEW)
 endif()
+
+# Use the first Python installation on PATH, not the newest one
+set(Python3_FIND_STRATEGY "LOCATION")
+# On Windows, use registry last, not first
+set(Python3_FIND_REGISTRY "LAST")
 
 # Allow "make install" to not depend on all targets.
 #
