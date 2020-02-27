@@ -54,8 +54,10 @@
  * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md
  **/
 
-constexpr int NUM_ROWS = 2500000;//20;
-constexpr int64_t ROW_GROUP_SIZE = 16 * 1024 * 1024;  // 16 MB
+constexpr int NUM_ROWS = 20;//2500000;
+constexpr int64_t ROW_GROUP_SIZE = (sizeof(uint32_t)+sizeof(int32_t)+sizeof(int64_t)+sizeof(float)+sizeof(double)
+
+                                    +sizeof(parquet::ByteArray)+sizeof(parquet::FixedLenByteArray))*NUM_ROWS;//16 * 1024 * 1024;  // 16 MB
 //char PARQUET_FILENAME[] = "";
 //const char PARQUET_FILENAME[] = "/home/abalajiee/parquet_data/testing_write.parquet";
 
@@ -326,7 +328,7 @@ int parquet_writer(int argc, char** argv) {
 
     // Add writer properties
     parquet::WriterProperties::Builder builder;
-    builder.compression(parquet::Compression::SNAPPY);
+    builder.compression(parquet::Compression::UNCOMPRESSED);
     std::shared_ptr<parquet::WriterProperties> props = builder.build();
 
     // Create a ParquetFileWriter instance
