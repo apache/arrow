@@ -74,7 +74,7 @@
 #' - `$columns`: Returns a list of `Array`s
 #' @rdname RecordBatch
 #' @name RecordBatch
-RecordBatch <- R6Class("RecordBatch", inherit = Object,
+RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
   public = list(
     column = function(i) {
       assert_is(i, c("numeric", "integer"))

@@ -56,7 +56,7 @@
 #' @name ChunkedArray
 #' @seealso [Array]
 #' @export
-ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
+ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
   public = list(
     length = function() ChunkedArray__length(self),
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),

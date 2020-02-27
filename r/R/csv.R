@@ -204,7 +204,7 @@ read_tsv_arrow <- function(file,
 #'
 #' @include arrow-package.R
 #' @export
-CsvTableReader <- R6Class("CsvTableReader", inherit = Object,
+CsvTableReader <- R6Class("CsvTableReader", inherit = ArrowObject,
   public = list(
     Read = function() shared_ptr(Table, csv___TableReader__Read(self))
   )
@@ -283,7 +283,7 @@ CsvTableReader$create <- function(file,
 #' options.
 #'
 #' @export
-CsvReadOptions <- R6Class("CsvReadOptions", inherit = Object)
+CsvReadOptions <- R6Class("CsvReadOptions", inherit = ArrowObject)
 CsvReadOptions$create <- function(use_threads = option_use_threads(),
                                   block_size = 1048576L,
                                   skip_rows = 0L,
@@ -317,7 +317,7 @@ readr_to_csv_read_options <- function(skip, col_names) {
 #' @format NULL
 #' @docType class
 #' @export
-CsvParseOptions <- R6Class("CsvParseOptions", inherit = Object)
+CsvParseOptions <- R6Class("CsvParseOptions", inherit = ArrowObject)
 CsvParseOptions$create <- function(delimiter = ",",
                                    quoting = TRUE,
                                    quote_char = '"',
@@ -365,7 +365,7 @@ readr_to_csv_parse_options <- function(delim = ",",
 #' @format NULL
 #' @docType class
 #' @export
-CsvConvertOptions <- R6Class("CsvConvertOptions", inherit = Object)
+CsvConvertOptions <- R6Class("CsvConvertOptions", inherit = ArrowObject)
 CsvConvertOptions$create <- function(check_utf8 = TRUE,
                                      null_values = c("", "NA"),
                                      strings_can_be_null = FALSE) {

@@ -79,7 +79,7 @@ write_feather <- function(x, sink) {
 #'
 #' @export
 #' @include arrow-package.R
-FeatherTableWriter <- R6Class("FeatherTableWriter", inherit = Object,
+FeatherTableWriter <- R6Class("FeatherTableWriter", inherit = ArrowObject,
   public = list(
     SetDescription = function(description) ipc___feather___TableWriter__SetDescription(self, description),
     SetNumRows = function(num_rows) ipc___feather___TableWriter__SetNumRows(self, num_rows),
@@ -163,7 +163,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #'
 #' @export
 #' @include arrow-package.R
-FeatherTableReader <- R6Class("FeatherTableReader", inherit = Object,
+FeatherTableReader <- R6Class("FeatherTableReader", inherit = ArrowObject,
   public = list(
     GetDescription = function() ipc___feather___TableReader__GetDescription(self),
     HasDescription = function() ipc__feather___TableReader__HasDescription(self),

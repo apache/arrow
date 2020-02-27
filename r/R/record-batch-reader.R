@@ -45,7 +45,7 @@
 #' @rdname RecordBatchReader
 #' @name RecordBatchReader
 #' @include arrow-package.R
-RecordBatchReader <- R6Class("RecordBatchReader", inherit = Object,
+RecordBatchReader <- R6Class("RecordBatchReader", inherit = ArrowObject,
   public = list(
     read_next_batch = function() {
       shared_ptr(RecordBatch, RecordBatchReader__ReadNext(self))
@@ -78,7 +78,7 @@ RecordBatchStreamReader$create <- function(stream){
 #' @usage NULL
 #' @format NULL
 #' @export
-RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = Object,
+RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = ArrowObject,
   # Why doesn't this inherit from RecordBatchReader?
   public = list(
     get_batch = function(i) shared_ptr(RecordBatch, ipc___RecordBatchFileReader__ReadRecordBatch(self, i)),

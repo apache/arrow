@@ -52,7 +52,7 @@
 #' @rdname RecordBatchWriter
 #' @name RecordBatchWriter
 #' @include arrow-package.R
-RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = Object,
+RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = ArrowObject,
   public = list(
     write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
     write_table = function(table) ipc___RecordBatchWriter__WriteTable(self, table),

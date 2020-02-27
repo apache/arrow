@@ -61,7 +61,7 @@
 #' }
 #' @export
 Schema <- R6Class("Schema",
-  inherit = Object,
+  inherit = ArrowObject,
   public = list(
     ToString = function() {
       fields <- print_schema_fields(self)

@@ -37,7 +37,7 @@
 #' @rdname FileStats
 #' @export
 FileStats <- R6Class("FileStats",
-  inherit = Object,
+  inherit = ArrowObject,
   public = list(
     base_name = function() fs___FileStats__base_name(self),
     extension = function() fs___FileStats__extension(self)
@@ -99,7 +99,7 @@ FileStats <- R6Class("FileStats",
 #' @rdname FileSelector
 #' @export
 FileSelector <- R6Class("FileSelector",
-  inherit = Object,
+  inherit = ArrowObject,
   active = list(
     base_dir = function() fs___FileSelector__base_dir(self),
     allow_non_existent = function() fs___FileSelector__allow_non_existent(self),
@@ -164,7 +164,7 @@ FileSelector$create <- function(base_dir, allow_non_existent = FALSE, recursive 
 #' @rdname FileSystem
 #' @name FileSystem
 #' @export
-FileSystem <- R6Class("FileSystem", inherit = Object,
+FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
   public = list(
     GetTargetStats = function(x) {
       if (inherits(x, "FileSelector")) {

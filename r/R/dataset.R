@@ -103,7 +103,7 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #'
 #' @export
 #' @seealso [open_dataset()] for a simple interface to creating a `Dataset`
-Dataset <- R6Class("Dataset", inherit = Object,
+Dataset <- R6Class("Dataset", inherit = ArrowObject,
   public = list(
     ..dispatch = function() {
       type <- self$type
@@ -174,7 +174,7 @@ UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
 #' @format NULL
 #' @rdname Dataset
 #' @export
-DatasetFactory <- R6Class("DatasetFactory", inherit = Object,
+DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
   public = list(
     Finish = function(schema = NULL) {
       if (is.null(schema)) {
@@ -331,7 +331,7 @@ FileSystemDatasetFactory$create <- function(filesystem,
 #' @rdname FileFormat
 #' @name FileFormat
 #' @export
-FileFormat <- R6Class("FileFormat", inherit = Object,
+FileFormat <- R6Class("FileFormat", inherit = ArrowObject,
   public = list(
     ..dispatch = function() {
       type <- self$type
@@ -405,7 +405,7 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname Scanner
 #' @name Scanner
 #' @export
-Scanner <- R6Class("Scanner", inherit = Object,
+Scanner <- R6Class("Scanner", inherit = ArrowObject,
   public = list(
     ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self))
   )
@@ -415,7 +415,7 @@ Scanner <- R6Class("Scanner", inherit = Object,
 #' @format NULL
 #' @rdname Scanner
 #' @export
-ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
+ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
   public = list(
     Project = function(cols) {
       assert_is(cols, "character")
@@ -479,7 +479,7 @@ names.ScannerBuilder <- function(x) names(x$schema)
 #' @name Partitioning
 #' @rdname Partitioning
 #' @export
-Partitioning <- R6Class("Partitioning", inherit = Object)
+Partitioning <- R6Class("Partitioning", inherit = ArrowObject)
 #' @usage NULL
 #' @format NULL
 #' @rdname Partitioning
@@ -522,7 +522,7 @@ hive_partition <- function(...) {
   }
 }
 
-PartitioningFactory <- R6Class("PartitioningFactory", inherit = Object)
+PartitioningFactory <- R6Class("PartitioningFactory", inherit = ArrowObject)
 
 #' @usage NULL
 #' @format NULL

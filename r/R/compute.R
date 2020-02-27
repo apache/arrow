@@ -17,7 +17,7 @@
 
 #' @include array.R
 
-CastOptions <- R6Class("CastOptions", inherit = Object)
+CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
 
 #' Cast options
 #'

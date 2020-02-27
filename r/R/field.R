@@ -31,7 +31,7 @@
 #' @rdname Field
 #' @name Field
 #' @export
-Field <- R6Class("Field", inherit = Object,
+Field <- R6Class("Field", inherit = ArrowObject,
   public = list(
     ToString = function() {
       prettier_dictionary_type(Field__ToString(self))
