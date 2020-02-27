@@ -150,13 +150,16 @@ class CountSorter {
   }
 };
 
+// Sort integers with counting sort or comparison based sorting algorithm
+// - Use O(n) counting sort if values are in a small range
+// - Use O(nlogn) std::stable_sort otherwise
 template <typename ArrowType, typename Comparator>
-class CountCompareSorter {
+class CountOrCompareSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using c_type = typename ArrowType::c_type;
 
  public:
-  explicit CountCompareSorter(Comparator compare) : compare_sorter_(compare) {}
+  explicit CountOrCompareSorter(Comparator compare) : compare_sorter_(compare) {}
 
   void Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) {
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
@@ -191,7 +194,7 @@ class CountCompareSorter {
   //
   // The optimal setting depends heavily on running CPU. Below setting is
   // conservative to adapt to various hardware and keep code simple.
-  // It's possibel to decrease array-len and/or increase value-range to cover
+  // It's possible to decrease array-len and/or increase value-range to cover
   // more cases, or setup a table for best array-len/value-range combinations.
   // See https://issues.apache.org/jira/browse/ARROW-1571 for detailed analysis.
   static const uint32_t countsort_min_len_ = 1024;
@@ -253,8 +256,8 @@ SortToIndicesKernelImpl<ArrowType, Sorter>* MakeCountKernel(int min, int max) {
 }
 
 template <typename ArrowType, typename Comparator,
-          typename Sorter = CountCompareSorter<ArrowType, Comparator>>
-SortToIndicesKernelImpl<ArrowType, Sorter>* MakeCountCompareKernel(
+          typename Sorter = CountOrCompareSorter<ArrowType, Comparator>>
+SortToIndicesKernelImpl<ArrowType, Sorter>* MakeCountOrCompareKernel(
     Comparator comparator) {
   return new SortToIndicesKernelImpl<ArrowType, Sorter>(Sorter(comparator));
 }
@@ -270,22 +273,22 @@ Status SortToIndicesKernel::Make(const std::shared_ptr<DataType>& value_type,
       kernel = MakeCountKernel<Int8Type>(-128, 127);
       break;
     case Type::UINT16:
-      kernel = MakeCountCompareKernel<UInt16Type>(CompareValues<UInt16Array>);
+      kernel = MakeCountOrCompareKernel<UInt16Type>(CompareValues<UInt16Array>);
       break;
     case Type::INT16:
-      kernel = MakeCountCompareKernel<Int16Type>(CompareValues<Int16Array>);
+      kernel = MakeCountOrCompareKernel<Int16Type>(CompareValues<Int16Array>);
       break;
     case Type::UINT32:
-      kernel = MakeCountCompareKernel<UInt32Type>(CompareValues<UInt32Array>);
+      kernel = MakeCountOrCompareKernel<UInt32Type>(CompareValues<UInt32Array>);
       break;
     case Type::INT32:
-      kernel = MakeCountCompareKernel<Int32Type>(CompareValues<Int32Array>);
+      kernel = MakeCountOrCompareKernel<Int32Type>(CompareValues<Int32Array>);
       break;
     case Type::UINT64:
-      kernel = MakeCountCompareKernel<UInt64Type>(CompareValues<UInt64Array>);
+      kernel = MakeCountOrCompareKernel<UInt64Type>(CompareValues<UInt64Array>);
       break;
     case Type::INT64:
-      kernel = MakeCountCompareKernel<Int64Type>(CompareValues<Int64Array>);
+      kernel = MakeCountOrCompareKernel<Int64Type>(CompareValues<Int64Array>);
       break;
     case Type::FLOAT:
       kernel = MakeCompareKernel<FloatType>(CompareValues<FloatArray>);
