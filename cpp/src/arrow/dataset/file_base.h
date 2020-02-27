@@ -46,7 +46,7 @@ class Filter;
 class ARROW_DS_EXPORT FileSource {
  public:
   // NOTE(kszucs): it'd be better to separate the BufferSource from FileSource
-  enum SourceType { PATH, BUFFER };
+  enum DatasetType { PATH, BUFFER };
 
   FileSource(std::string path, fs::FileSystem* filesystem,
              Compression::type compression = Compression::UNCOMPRESSED)
@@ -71,7 +71,7 @@ class ARROW_DS_EXPORT FileSource {
 
   /// \brief The kind of file, whether stored in a filesystem, memory
   /// resident, or other
-  SourceType type() const { return static_cast<SourceType>(impl_.index()); }
+  DatasetType type() const { return static_cast<DatasetType>(impl_.index()); }
 
   /// \brief Return the type of raw compression on the file, if any
   Compression::type compression() const { return compression_; }
@@ -152,13 +152,13 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
   std::shared_ptr<FileFormat> format_;
 };
 
-/// \brief A Source of FileFragments.
-class ARROW_DS_EXPORT FileSystemSource : public Source {
+/// \brief A Dataset of FileFragments.
+class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
  public:
-  /// \brief Create a FileSystemSource.
+  /// \brief Create a FileSystemDataset.
   ///
-  /// \param[in] schema the top-level schema of the DataSource
-  /// \param[in] root_partition the top-level partition of the DataSource
+  /// \param[in] schema the top-level schema of the DataDataset
+  /// \param[in] root_partition the top-level partition of the DataDataset
   /// \param[in] format file format to create fragments from.
   /// \param[in] filesystem the filesystem which files are from.
   /// \param[in] stats a list of files/directories to consume.
@@ -166,16 +166,16 @@ class ARROW_DS_EXPORT FileSystemSource : public Source {
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
-  static Result<std::shared_ptr<Source>> Make(std::shared_ptr<Schema> schema,
-                                              std::shared_ptr<Expression> root_partition,
-                                              std::shared_ptr<FileFormat> format,
-                                              std::shared_ptr<fs::FileSystem> filesystem,
-                                              fs::FileStatsVector stats);
+  static Result<std::shared_ptr<Dataset>> Make(std::shared_ptr<Schema> schema,
+                                               std::shared_ptr<Expression> root_partition,
+                                               std::shared_ptr<FileFormat> format,
+                                               std::shared_ptr<fs::FileSystem> filesystem,
+                                               fs::FileStatsVector stats);
 
-  /// \brief Create a FileSystemSource with file-level partitions.
+  /// \brief Create a FileSystemDataset with file-level partitions.
   ///
-  /// \param[in] schema the top-level schema of the DataSource
-  /// \param[in] root_partition the top-level partition of the DataSource
+  /// \param[in] schema the top-level schema of the DataDataset
+  /// \param[in] root_partition the top-level partition of the DataDataset
   /// \param[in] format file format to create fragments from.
   /// \param[in] filesystem the filesystem which files are from.
   /// \param[in] stats a list of files/directories to consume.
@@ -184,17 +184,17 @@ class ARROW_DS_EXPORT FileSystemSource : public Source {
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
-  static Result<std::shared_ptr<Source>> Make(std::shared_ptr<Schema> schema,
-                                              std::shared_ptr<Expression> root_partition,
-                                              std::shared_ptr<FileFormat> format,
-                                              std::shared_ptr<fs::FileSystem> filesystem,
-                                              fs::FileStatsVector stats,
-                                              ExpressionVector partitions);
+  static Result<std::shared_ptr<Dataset>> Make(std::shared_ptr<Schema> schema,
+                                               std::shared_ptr<Expression> root_partition,
+                                               std::shared_ptr<FileFormat> format,
+                                               std::shared_ptr<fs::FileSystem> filesystem,
+                                               fs::FileStatsVector stats,
+                                               ExpressionVector partitions);
 
-  /// \brief Create a FileSystemSource with file-level partitions.
+  /// \brief Create a FileSystemDataset with file-level partitions.
   ///
-  /// \param[in] schema the top-level schema of the DataSource
-  /// \param[in] root_partition the top-level partition of the DataSource
+  /// \param[in] schema the top-level schema of the DataDataset
+  /// \param[in] root_partition the top-level partition of the DataDataset
   /// \param[in] format file format to create fragments from.
   /// \param[in] filesystem the filesystem which files are from.
   /// \param[in] forest a PathForest of files/directories to consume.
@@ -203,12 +203,12 @@ class ARROW_DS_EXPORT FileSystemSource : public Source {
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
-  static Result<std::shared_ptr<Source>> Make(std::shared_ptr<Schema> schema,
-                                              std::shared_ptr<Expression> root_partition,
-                                              std::shared_ptr<FileFormat> format,
-                                              std::shared_ptr<fs::FileSystem> filesystem,
-                                              fs::PathForest forest,
-                                              ExpressionVector partitions);
+  static Result<std::shared_ptr<Dataset>> Make(std::shared_ptr<Schema> schema,
+                                               std::shared_ptr<Expression> root_partition,
+                                               std::shared_ptr<FileFormat> format,
+                                               std::shared_ptr<fs::FileSystem> filesystem,
+                                               fs::PathForest forest,
+                                               ExpressionVector partitions);
 
   std::string type_name() const override { return "filesystem"; }
 
@@ -221,11 +221,11 @@ class ARROW_DS_EXPORT FileSystemSource : public Source {
  protected:
   FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
-  FileSystemSource(std::shared_ptr<Schema> schema,
-                   std::shared_ptr<Expression> root_partition,
-                   std::shared_ptr<FileFormat> format,
-                   std::shared_ptr<fs::FileSystem> filesystem, fs::PathForest forest,
-                   ExpressionVector file_partitions);
+  FileSystemDataset(std::shared_ptr<Schema> schema,
+                    std::shared_ptr<Expression> root_partition,
+                    std::shared_ptr<FileFormat> format,
+                    std::shared_ptr<fs::FileSystem> filesystem, fs::PathForest forest,
+                    ExpressionVector file_partitions);
 
   std::shared_ptr<FileFormat> format_;
   std::shared_ptr<fs::FileSystem> filesystem_;

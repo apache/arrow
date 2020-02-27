@@ -24,7 +24,7 @@
 #' `Dataset`, then use `dplyr` methods to query it.
 #'
 #' @param sources Either a string path to a directory containing data files,
-#' or a list of `SourceFactory` objects as created by [open_source()].
+#' or a list of `DatasetFactory` objects as created by [open_dataset_factory()].
 #' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
 #' will be inferred from the data sources.
 #' @param partitioning When `sources` is a file path, one of
@@ -39,8 +39,8 @@
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
-#' @param ... additional arguments passed to `open_source()` when `sources` is
-#' a file path, otherwise ignored.
+#' @param ... additional arguments passed to `open_dataset_factory()` when
+#' `sources` is a file path, otherwise ignored.
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
@@ -48,9 +48,11 @@
 #' @include arrow-package.R
 open_dataset <- function(sources, schema = NULL, partitioning = hive_partition(), ...) {
   if (is.character(sources)) {
-    sources <- list(open_source(sources, partitioning = partitioning, ...))
+    factory <- open_dataset_factory(sources, partitioning = partitioning, ...)
+  } else {
+    factory <- open_dataset_factory(children = sources)
   }
-  DatasetFactory$create(sources)$Finish(schema)
+  factory$Finish(schema)
 }
 
 #' Multi-file datasets
@@ -60,29 +62,69 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #' multiple files. This sharding of data may indicate partitioning, which
 #' can accelerate queries that only touch some partitions (files).
 #'
-#' `DatasetFactory` is used to help in the creation of `Dataset`s.
-#' @section Factory:
-#' The `Dataset$create()` method instantiates a `Dataset` and
-#' takes the following arguments:
-#' * `sources`: a list of [Source] objects
+#' A `Dataset` contains one or more `Fragments`, such as files, of potentially
+#' differing type and partitioning.
+#'
+#' The `Dataset$create()` method instantiates a `Dataset` which wraps child Datasets.
+#' It takes the following arguments:
+#' * `children`: a list of [Dataset] objects
 #' * `schema`: a [Schema]
 #'
-#' The `DatasetFactory$create()` takes the following arguments:
-#' * `sources`: a list of [SourceFactory] objects
+#' `DatasetFactory` is used to provide finer control over the creation of `Dataset`s.
+#'
+#' @section Factory:
+#' `DatasetFactory` is used to create a `Dataset`, inspect the [Schema] of the
+#' fragments contained in it, and declare a partitioning.
+#' `FileSystemDatasetFactory` is a subclass of `DatasetFactory` for
+#' discovering files in the local file system, the only currently supported
+#' file system.
+#'
+#' For the `DatasetFactory$create()` factory method, see [open_dataset_factory()], an
+#' alias for it. A `DatasetFactory` has:
+#'
+#' - `$Inspect()`: Returns a common [Schema] for all data discovered by the factory.
+#' - `$Finish(schema)`: Returns a `Dataset`
+#'
+#' `FileSystemDatasetFactory$create()` is a lower-level factory method and
+#' takes the following arguments:
+#' * `filesystem`: A [FileSystem]
+#' * `selector`: A [FileSelector]
+#' * `format`: A string identifier of the format of the files in `path`.
+#'   Currently supported options are "parquet", "arrow", and "ipc" (an alias for
+#'   the Arrow file format)
+#'
+#' `UnionDatasetFactory$create()` can be used to unify child `DatasetFactory`s into
+#' a single `DatasetFactory`. Use it when (for example) your data is in multiple
+#' file systems or formats.
+#' * `children`: child `DatasetFactory`s to be unified
+#'
 #' @section Methods:
 #'
 #' A `Dataset` has the following methods:
 #' - `$NewScan()`: Returns a [ScannerBuilder] for building a query
 #' - `$schema`: Active binding, returns the [Schema] of the Dataset
 #'
-#' A `DatasetFactory` has:
+#' `FileSystemDataset` has the following methods:
+#' - `$files`: Active binding, returns the files of the `FileSystemDataset`
+#' - `$format`: Active binding, returns the [FileFormat] of the `FileSystemDataset`
 #'
-#' - `$Inspect()`: Returns a common [Schema] for the `Sources` in the factory.
-#' - `$Finish(schema)`: Returns a `Dataset`
+#' `UnionDataset` has the following methods:
+#' - `$children`: Active binding, returns all child `Dataset`s.
+#'
 #' @export
 #' @seealso [open_dataset()] for a simple interface to creating a `Dataset`
 Dataset <- R6Class("Dataset", inherit = Object,
   public = list(
+    ..dispatch = function() {
+      type <- self$type
+      if (type == "union") {
+        shared_ptr(UnionDataset, self$pointer())
+      } else if (type == "filesystem") {
+        shared_ptr(FileSystemDataset, self$pointer())
+      } else {
+        self
+      }
+    },
     #' @description
     #' Start a new scan of the data
     #' @return A [ScannerBuilder]
@@ -95,21 +137,48 @@ Dataset <- R6Class("Dataset", inherit = Object,
     schema = function() shared_ptr(Schema, dataset___Dataset__schema(self)),
     metadata = function() self$schema$metadata,
     #' @description
-    #' Return the Dataset's `Source`s
-    sources = function() {
-      map(dataset___Dataset__sources(self), ~shared_ptr(Source, .)$..dispatch())
-    }
+    #' Return the Dataset's type.
+    type = function() dataset___Dataset__type_name(self)
   )
 )
-Dataset$create <- function(sources, schema) {
+Dataset$create <- function(children, schema) {
   # TODO: consider deleting Dataset$create since we have DatasetFactory$create
-  assert_is_list_of(sources, "Source")
+  assert_is_list_of(children, "Dataset")
   assert_is(schema, "Schema")
-  shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
+  shared_ptr(Dataset, dataset___UnionDataset__create(children, schema))
 }
 
 #' @export
 names.Dataset <- function(x) names(x$schema)
+
+#' @name FileSystemDataset
+#' @rdname Dataset
+#' @export
+FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
+  active = list(
+    #' @description
+    #' Return the files contained in this `FileSystemDataset`
+    files = function() dataset___FileSystemDataset__files(self),
+    #' @description
+    #' Return the format of files in this `Dataset`
+    format = function() {
+      shared_ptr(FileFormat, dataset___FileSystemDataset__format(self))$..dispatch()
+    }
+  )
+)
+
+#' @name UnionDataset
+#' @rdname Dataset
+#' @export
+UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
+  active = list(
+    #' @description
+    #' Return the UnionDataset's child `Dataset`s
+    children = function() {
+      map(dataset___UnionDataset__children(self), ~shared_ptr(Dataset, .)$..dispatch())
+    }
+  )
+)
 
 #' @usage NULL
 #' @format NULL
@@ -119,124 +188,27 @@ DatasetFactory <- R6Class("DatasetFactory", inherit = Object,
   public = list(
     Finish = function(schema = NULL) {
       if (is.null(schema)) {
-        shared_ptr(Dataset, dataset___DFactory__Finish1(self))
+        ptr <- dataset___DatasetFactory__Finish1(self)
       } else {
-        assert_is(schema, "Schema")
-        shared_ptr(Dataset, dataset___DFactory__Finish2(self, schema))
+        ptr <- dataset___DatasetFactory__Finish2(self, schema)
       }
+      shared_ptr(Dataset, ptr)$..dispatch()
     },
-    Inspect = function() shared_ptr(Schema, dataset___DFactory__Inspect(self))
+    Inspect = function() shared_ptr(Schema, dataset___DatasetFactory__Inspect(self))
   )
 )
-DatasetFactory$create <- function(sources) {
-  assert_is_list_of(sources, "SourceFactory")
-  shared_ptr(DatasetFactory, dataset___DFactory__Make(sources))
-}
+DatasetFactory$create <- function(path,
+                                  children = NULL,
+                                  filesystem = c("auto", "local"),
+                                  format = c("parquet", "arrow", "ipc"),
+                                  partitioning = NULL,
+                                  allow_non_existent = FALSE,
+                                  recursive = TRUE,
+                                  ...) {
+  if (!is.null(children)) {
+    return(shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(children)))
+  }
 
-
-#' Sources for a Dataset
-#'
-#' @description
-#' A [Dataset] can have one or more `Source`s. A `Source` contains one or more
-#' `Fragments`, such as files, of a common type and partitioning.
-#' `SourceFactory` is used to create a `Source`, inspect the [Schema] of the
-#' fragments contained in it, and declare a partitioning.
-#' `FileSystemSourceFactory` is a subclass of `SourceFactory` for
-#' discovering files in the local file system, the only currently supported
-#' file system, it constructs an instance of `FileSystemSource`.
-#'
-#' In general, you'll deal with `SourceFactory` rather than `Source` itself.
-#' @section Factory:
-#' For the `SourceFactory$create()` factory method, see [open_source()], an
-#' alias for it.
-#'
-#' `FileSystemSourceFactory$create()` is a lower-level factory method and
-#' takes the following arguments:
-#' * `filesystem`: A [FileSystem]
-#' * `selector`: A [FileSelector]
-#' * `format`: A string identifier of the format of the files in `path`.
-#'   Currently supported options are "parquet", "arrow", and "ipc" (an alias for
-#'   the Arrow file format)
-#' @section Methods:
-#' `Source` and its subclasses have the following method:
-#'
-#' - `$schema`: Active binding, returns the [Schema] of the `Source`
-#'
-#' `FileSystemSource` has the following methods:
-#'
-#' - `$files`: Active binding, returns the files of the `FileSystemSource`
-#' - `$format`: Active binding, returns the [FileFormat] of the `FileSystemSource`
-#'
-#' `SourceFactory` and its subclasses have the following methods:
-#'
-#' - `$Inspect()`: Walks the files in the directory and returns a common [Schema]
-#' - `$Finish(schema)`: Returns a `Source`
-#' @rdname Source
-#' @name Source
-#' @seealso [Dataset] for what to do with a `Source`
-#' @export
-Source <- R6Class("Source", inherit = Object,
-  public = list(
-    ..dispatch = function() {
-      if (self$type == "filesystem") {
-        shared_ptr(FileSystemSource, self$pointer())
-      } else {
-        self
-      }
-    }
-  ),
-  active = list(
-    #' @description
-    #' Return the Source's `Schema`
-    schema = function() {
-      shared_ptr(Schema, dataset___Source__schema(self))
-    },
-    #' @description
-    #' Return the Source's type.
-    type = function() dataset___Source__type_name(self)
-  )
-)
-
-#' @name FileSystemSource
-#' @rdname Source
-#' @export
-FileSystemSource <- R6Class("FileSystemSource", inherit = Source,
-  active = list(
-    #' @description
-    #' Return the files contained in this `Source`
-    files = function() dataset___FSSource__files(self),
-    #' @description
-    #' Return the format of files in this `Source`
-    format = function() {
-      shared_ptr(FileFormat, dataset___FSSource__format(self))$..dispatch()
-    }
-  )
-)
-
-#' @usage NULL
-#' @format NULL
-#' @rdname Source
-#' @export
-SourceFactory <- R6Class("SourceFactory", inherit = Object,
-  public = list(
-    Finish = function(schema = NULL) {
-      if (is.null(schema)) {
-        ptr <- dataset___SFactory__Finish1(self)
-      } else {
-        ptr <- dataset___SFactory__Finish2(self, schema)
-      }
-      shared_ptr(Source, ptr)$..dispatch()
-    },
-    Inspect = function() shared_ptr(Schema, dataset___SFactory__Inspect(self))
-  )
-)
-SourceFactory$create <- function(path,
-                                 filesystem = c("auto", "local"),
-                                 format = c("parquet", "arrow", "ipc"),
-                                 partitioning = NULL,
-                                 allow_non_existent = FALSE,
-                                 recursive = TRUE,
-                                 ...) {
   if (!inherits(filesystem, "FileSystem")) {
     filesystem <- match.arg(filesystem)
     if (filesystem == "auto") {
@@ -268,21 +240,25 @@ SourceFactory$create <- function(path,
       partitioning <- DirectoryPartitioningFactory$create(partitioning)
     }
   }
-  FileSystemSourceFactory$create(filesystem, selector, format, partitioning)
+  FileSystemDatasetFactory$create(filesystem, selector, format, partitioning)
 }
 
-#' Create a Source for a Dataset
+
+#' Create a DatasetFactory
 #'
-#' A [Dataset] can have one or more [Source]s. A `Source` contains one or more
-#' `Fragments`, such as files, of a common storage location, format, and
-#' partitioning. This function helps you construct a `Source` that you can
-#' pass to [open_dataset()].
+#' A [Dataset] can constructed using one or more [DatasetFactory]s.
+#' This function helps you construct a `DatasetFactory` that you can pass to
+#' [open_dataset()].
 #'
-#' If you only have a single `Source`, such as a directory containing Parquet
-#' files, you can call `open_dataset()` directly. Use `open_source()` when you
+#' If you would only have a single `DatasetFactory` (for example, you have a
+#' single directory containing Parquet files), you can call `open_dataset()`
+#' directly. Use `open_dataset_factory()` when you
 #' want to combine different directories, file systems, or file formats.
 #'
 #' @param path A string file path containing data files
+#' @param children A list of `DatasetFactory` objects whose datasets should be
+#' unified. If this argument is specified it will be used to construct a
+#' `UnionDatasetFactory` and other arguments will be ignored.
 #' @param filesystem A string identifier for the filesystem corresponding to
 #' `path`. Currently only "local" is supported.
 #' @param format A string identifier of the format of the files in `path`.
@@ -305,20 +281,30 @@ SourceFactory$create <- function(path,
 #' @param recursive logical: should files be discovered in subdirectories of
 #' `path`? Default `TRUE`.
 #' @param ... Additional arguments passed to the [FileSystem] `$create()` method
-#' @return A `SourceFactory` object. Pass this to [open_dataset()],
-#' in a list potentially with other `SourceFactory` objects, to create
+#' @return A `DatasetFactory` object. Pass this to [open_dataset()],
+#' in a list potentially with other `DatasetFactory` objects, to create
 #' a `Dataset`.
 #' @export
-open_source <- SourceFactory$create
+open_dataset_factory <- DatasetFactory$create
 
 #' @usage NULL
 #' @format NULL
-#' @rdname Source
+#' @rdname Dataset
 #' @export
-FileSystemSourceFactory <- R6Class("FileSystemSourceFactory",
-  inherit = SourceFactory
+UnionDatasetFactory <- R6Class("UnionDatasetFactory", inherit = DatasetFactory)
+UnionDatasetFactory$create <- function(children) {
+  assert_is_list_of(children, "DatasetFactory")
+  shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(children))
+}
+
+#' @usage NULL
+#' @format NULL
+#' @rdname Dataset
+#' @export
+FileSystemDatasetFactory <- R6Class("FileSystemDatasetFactory",
+  inherit = DatasetFactory
 )
-FileSystemSourceFactory$create <- function(filesystem,
+FileSystemDatasetFactory$create <- function(filesystem,
                                            selector,
                                            format,
                                            partitioning = NULL) {
@@ -327,11 +313,11 @@ FileSystemSourceFactory$create <- function(filesystem,
   assert_is(format, "FileFormat")
 
   if (is.null(partitioning)) {
-    ptr <- dataset___FSSFactory__Make1(filesystem, selector, format)
+    ptr <- dataset___FileSystemDatasetFactory__Make1(filesystem, selector, format)
   } else if (inherits(partitioning, "PartitioningFactory")) {
-    ptr <- dataset___FSSFactory__Make3(filesystem, selector, format, partitioning)
+    ptr <- dataset___FileSystemDatasetFactory__Make3(filesystem, selector, format, partitioning)
   } else if (inherits(partitioning, "Partitioning")) {
-    ptr <- dataset___FSSFactory__Make2(filesystem, selector, format, partitioning)
+    ptr <- dataset___FileSystemDatasetFactory__Make2(filesystem, selector, format, partitioning)
   } else {
     stop(
       "Expected 'partitioning' to be NULL, PartitioningFactory or Partitioning",
@@ -339,14 +325,14 @@ FileSystemSourceFactory$create <- function(filesystem,
     )
   }
 
-  shared_ptr(FileSystemSourceFactory, ptr)
+  shared_ptr(FileSystemDatasetFactory, ptr)
 }
 
 #' Dataset file formats
 #'
 #' @description
 #' A `FileFormat` holds information about how to read and parse the files
-#' included in a `Source`. There are subclasses corresponding to the supported
+#' included in a `Dataset`. There are subclasses corresponding to the supported
 #' file formats (`ParquetFileFormat` and `IpcFileFormat`).
 #'
 #' @section Factory:
@@ -480,10 +466,10 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
 #' @export
 names.ScannerBuilder <- function(x) names(x$schema)
 
-#' Define Partitioning for a Source
+#' Define Partitioning for a Dataset
 #'
 #' @description
-#' Pass a `Partitioning` object to a [FileSystemSourceFactory]'s `$create()`
+#' Pass a `Partitioning` object to a [FileSystemDatasetFactory]'s `$create()`
 #' method to indicate how the file's paths should be interpreted to define
 #' partitioning.
 #'
@@ -497,7 +483,7 @@ names.ScannerBuilder <- function(x) names(x$schema)
 #' "/year=2019/month=2/data.parquet". Because fields are named in the path
 #' segments, order does not matter.
 #'
-#' `PartitioningFactory` subclasses instruct the `SourceFactory` to detect
+#' `PartitioningFactory` subclasses instruct the `DatasetFactory` to detect
 #' partition features from the file paths.
 #' @section Factory:
 #' Both `DirectoryPartitioning$create()` and `HivePartitioning$create()`
@@ -507,7 +493,7 @@ names.ScannerBuilder <- function(x) names(x$schema)
 #'
 #' With `DirectoryPartitioningFactory$create()`, you can provide just the
 #' names of the path segments (in our example, `c("year", "month")`), and
-#' the `SourceFactory` will infer the data types for those partition variables.
+#' the `DatasetFactory` will infer the data types for those partition variables.
 #' `HivePartitioningFactory$create()` takes no arguments: both variable names
 #' and their types can be inferred from the file paths. `hive_partition()` with
 #' no arguments returns a `HivePartitioningFactory`.

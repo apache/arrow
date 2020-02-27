@@ -3,6 +3,8 @@
 \name{Dataset}
 \alias{Dataset}
 \alias{DatasetFactory}
+\alias{UnionDatasetFactory}
+\alias{FileSystemDatasetFactory}
 \title{Multi-file datasets}
 \value{
 A \link{ScannerBuilder}
@@ -12,7 +14,22 @@ Arrow Datasets allow you to query against data that has been split across
 multiple files. This sharding of data may indicate partitioning, which
 can accelerate queries that only touch some partitions (files).
 
-\code{DatasetFactory} is used to help in the creation of \code{Dataset}s.
+A \code{Dataset} contains one or more \code{Fragments}, such as files, of potentially
+differing type and partitioning.
+\code{DatasetFactory} is used to create a \code{Dataset}, inspect the \link{Schema} of the
+fragments contained in it, and declare a partitioning.
+\code{FileSystemDatasetFactory} is a subclass of \code{DatasetFactory} for
+discovering files in the local file system, the only currently supported
+file system.
+
+The \code{Dataset$create()} method instantiates a \code{Dataset} which wraps child Datasets.
+It takes the following arguments:
+\itemize{
+\item \code{children}: a list of \link{Dataset} objects
+\item \code{schema}: a \link{Schema}
+}
+
+\code{DatasetFactory} is used to provide finer control over the creation of \code{Dataset}s.
 
 Start a new scan of the data
 
@@ -20,16 +37,17 @@ Return the Dataset's \code{Schema}
 }
 \section{Factory}{
 
-The \code{Dataset$create()} method instantiates a \code{Dataset} and
+For the \code{DatasetFactory$create()} factory method, see \code{\link[=open_dataset_factory]{open_dataset_factory()}}, an
+alias for it.
+
+\code{FileSystemDatasetFactory$create()} is a lower-level factory method and
 takes the following arguments:
 \itemize{
-\item \code{sources}: a list of \link{Source} objects
-\item \code{schema}: a \link{Schema}
-}
-
-The \code{DatasetFactory$create()} takes the following arguments:
-\itemize{
-\item \code{sources}: a list of \link{SourceFactory} objects
+\item \code{filesystem}: A \link{FileSystem}
+\item \code{selector}: A \link{FileSelector}
+\item \code{format}: A string identifier of the format of the files in \code{path}.
+Currently supported options are "parquet", "arrow", and "ipc" (an alias for
+the Arrow file format)
 }
 }
 
@@ -44,7 +62,7 @@ A \code{Dataset} has the following methods:
 
 A \code{DatasetFactory} has:
 \itemize{
-\item \verb{$Inspect()}: Returns a common \link{Schema} for the \code{Sources} in the factory.
+\item \verb{$Inspect()}: Returns a common \link{Schema} for all data discovered by the factory.
 \item \verb{$Finish(schema)}: Returns a \code{Dataset}
 }
 }

@@ -50,9 +50,9 @@ TEST_F(TestInMemoryFragment, Scan) {
   AssertFragmentEquals(reader.get(), &fragment);
 }
 
-class TestInMemorySource : public DatasetFixtureMixin {};
+class TestInMemoryDataset : public DatasetFixtureMixin {};
 
-TEST_F(TestInMemorySource, GetFragments) {
+TEST_F(TestInMemoryDataset, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
 
@@ -60,18 +60,17 @@ TEST_F(TestInMemorySource, GetFragments) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  RecordBatchVector batches{static_cast<size_t>(kNumberBatches), batch};
-  auto fragment = std::make_shared<InMemoryFragment>(batches, options_);
   // It is safe to copy fragment multiple time since Scan() does not consume
   // the internal array.
-  auto source = InMemorySource(schema_, {static_cast<size_t>(kNumberBatches), batch});
+  auto dataset = std::make_shared<InMemoryDataset>(
+      schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
 
-  AssertSourceEquals(reader.get(), &source);
+  AssertDatasetEquals(reader.get(), dataset.get());
 }
 
-class TestTreeSource : public DatasetFixtureMixin {};
+class TestUnionDataset : public DatasetFixtureMixin {};
 
-TEST_F(TestTreeSource, GetFragments) {
+TEST_F(TestUnionDataset, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kChildPerNode = 2;
   constexpr int64_t kCompleteBinaryTreeDepth = 4;
@@ -83,21 +82,27 @@ TEST_F(TestTreeSource, GetFragments) {
   auto reader = ConstantArrayGenerator::Repeat(n_leaves, batch);
 
   // Creates a complete binary tree of depth kCompleteBinaryTreeDepth where the
-  // leaves are InMemorySource containing kChildPerNode fragments.
+  // leaves are InMemoryDataset containing kChildPerNode fragments.
 
-  auto l1_leaf_source = std::make_shared<InMemorySource>(
+  auto l1_leaf_dataset = std::make_shared<InMemoryDataset>(
       schema_, RecordBatchVector{static_cast<size_t>(kChildPerNode), batch});
 
-  auto l2_leaf_tree_source = std::make_shared<TreeSource>(
-      schema_, SourceVector{static_cast<size_t>(kChildPerNode), l1_leaf_source});
+  ASSERT_OK_AND_ASSIGN(
+      auto l2_leaf_tree_dataset,
+      UnionDataset::Make(
+          schema_, DatasetVector{static_cast<size_t>(kChildPerNode), l1_leaf_dataset}));
 
-  auto l3_middle_tree_source = std::make_shared<TreeSource>(
-      schema_, SourceVector{static_cast<size_t>(kChildPerNode), l2_leaf_tree_source});
+  ASSERT_OK_AND_ASSIGN(
+      auto l3_middle_tree_dataset,
+      UnionDataset::Make(schema_, DatasetVector{static_cast<size_t>(kChildPerNode),
+                                                l2_leaf_tree_dataset}));
 
-  auto root_source = std::make_shared<TreeSource>(
-      schema_, SourceVector{static_cast<size_t>(kChildPerNode), l3_middle_tree_source});
+  ASSERT_OK_AND_ASSIGN(
+      auto root_dataset,
+      UnionDataset::Make(schema_, DatasetVector{static_cast<size_t>(kChildPerNode),
+                                                l3_middle_tree_dataset}));
 
-  AssertSourceEquals(reader.get(), root_source.get());
+  AssertDatasetEquals(reader.get(), root_dataset.get());
 }
 
 class TestDataset : public DatasetFixtureMixin {};
@@ -112,15 +117,15 @@ TEST_F(TestDataset, TrivialScan) {
   std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
                                                     batch};
 
-  SourceVector sources = {
-      std::make_shared<InMemorySource>(schema_, batches),
-      std::make_shared<InMemorySource>(schema_, batches),
+  DatasetVector children = {
+      std::make_shared<InMemoryDataset>(schema_, batches),
+      std::make_shared<InMemoryDataset>(schema_, batches),
   };
 
-  const int64_t total_batches = sources.size() * kNumberBatches;
+  const int64_t total_batches = children.size() * kNumberBatches;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
 
-  ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make(sources, schema_));
+  ASSERT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(schema_, children));
   AssertDatasetEquals(reader.get(), dataset.get());
 }
 
@@ -279,7 +284,7 @@ class TestEndToEnd : public TestDataset {
   std::shared_ptr<fs::FileSystem> fs_;
 };
 
-TEST_F(TestEndToEnd, EndToEndSingleSource) {
+TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   // The dataset API is divided in 3 parts:
   //  - Creation
   //  - Querying
@@ -287,23 +292,23 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
 
   // Creation.
   //
-  // A Dataset is the union of one or more Sources with the same schema.
-  // Example of Source, FileSystemSource, OdbcSource,
-  // FlightSource.
+  // A Dataset is the union of one or more Datasets with the same schema.
+  // Example of Dataset, FileSystemDataset, OdbcDataset,
+  // FlightDataset.
 
-  // A Source is composed of Fragments. Each Fragment can yield
-  // multiple RecordBatches. Sources can be created manually or "discovered"
-  // via the SourceFactory interface.
-  std::shared_ptr<SourceFactory> factory;
+  // A Dataset is composed of Fragments. Each Fragment can yield
+  // multiple RecordBatches. Datasets can be created manually or "discovered"
+  // via the DatasetFactory interface.
+  std::shared_ptr<DatasetFactory> factory;
 
   // The user must specify which FileFormat is used to create FileFragments.
-  // This option is specific to FileSystemSource (and the builder).
+  // This option is specific to FileSystemDataset (and the builder).
   auto format_schema = SchemaFromColumnNames(schema_, {"region", "model", "sales"});
   auto format = std::make_shared<JSONRecordBatchFileFormat>(format_schema);
 
   // A selector is used to crawl files and directories of a
   // filesystem. If the options in FileSelector are not enough, the
-  // FileSystemSourceFactory class also supports an explicit list of
+  // FileSystemDatasetFactory class also supports an explicit list of
   // fs::FileStats instead of the selector.
   fs::FileSelector s;
   s.base_dir = "/dataset";
@@ -315,7 +320,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   FileSystemFactoryOptions options;
   options.ignore_prefixes = {"."};
 
-  // Partitions expressions can be discovered for Source and Fragments.
+  // Partitions expressions can be discovered for Dataset and Fragments.
   // This metadata is then used in conjuction with the query filter to apply
   // the pushdown predicate optimization.
   //
@@ -332,7 +337,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // - "/2019/01/CA/a_file.json -> {"year": 2019, "month": 1, "country": "CA"}
   options.partitioning = DirectoryPartitioning::MakeFactory({"year", "month", "country"});
 
-  ASSERT_OK_AND_ASSIGN(factory, FileSystemSourceFactory::Make(fs_, s, format, options));
+  ASSERT_OK_AND_ASSIGN(factory, FileSystemDatasetFactory::Make(fs_, s, format, options));
 
   // Fragments might have compatible but slightly different schemas, e.g.
   // schema evolved by adding/renaming columns. In this case, the schema is
@@ -341,11 +346,11 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   ASSERT_OK_AND_ASSIGN(auto inspected_schema, factory->Inspect());
   EXPECT_EQ(*schema_, *inspected_schema);
 
-  // Build the Source where partitions are attached to fragments (files).
+  // Build the Dataset where partitions are attached to fragments (files).
   ASSERT_OK_AND_ASSIGN(auto source, factory->Finish(inspected_schema));
 
-  // Create the Dataset from our single Source.
-  ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make({source}, inspected_schema));
+  // Create the Dataset from our single Dataset.
+  ASSERT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(inspected_schema, {source}));
 
   // Querying.
   //
@@ -360,7 +365,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // be materialized if the Fragment supports it. This is the major benefit
   // of using a column-major format versus a row-major format.
   //
-  // This API decouples the Source/Fragment implementation and column
+  // This API decouples the Dataset/Fragment implementation and column
   // projection from the query part.
   //
   // For example, a ParquetFileFragment may read the necessary byte ranges
@@ -375,7 +380,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // yielded. Predicate pushdown optimizations are applied using partition information if
   // available.
   //
-  // This API decouples predicate pushdown from the Source implementation
+  // This API decouples predicate pushdown from the Dataset implementation
   // and partition discovery.
   //
   // The following filter tests both predicate pushdown and post filtering
@@ -421,10 +426,10 @@ class TestSchemaUnification : public TestDataset {
     static constexpr auto ds2_df1 = "/dataset/beta/part_ds=2/part_df=1/data.json";
     static constexpr auto ds2_df2 = "/dataset/beta/part_ds=2/part_df=2/data.json";
     auto files = PathAndContent{
-        // First Source
+        // First Dataset
         {ds1_df1, R"([{"phy_1": 111, "phy_2": 211}])"},
         {ds1_df2, R"([{"phy_2": 212, "phy_3": 312}])"},
-        // Second Source
+        // Second Dataset
         {ds2_df1, R"([{"phy_3": 321, "phy_4": 421}])"},
         {ds2_df2, R"([{"phy_4": 422, "phy_2": 222}])"},
     };
@@ -437,7 +442,7 @@ class TestSchemaUnification : public TestDataset {
 
     auto get_source =
         [this](std::string base,
-               std::vector<std::string> paths) -> Result<std::shared_ptr<Source>> {
+               std::vector<std::string> paths) -> Result<std::shared_ptr<Dataset>> {
       auto resolver = [this](const FileSource& source) -> std::shared_ptr<Schema> {
         auto path = source.path();
         // A different schema for each data fragment.
@@ -462,7 +467,7 @@ class TestSchemaUnification : public TestDataset {
           std::make_shared<HivePartitioning>(SchemaFromNames({"part_ds", "part_df"}));
 
       ARROW_ASSIGN_OR_RAISE(auto factory,
-                            FileSystemSourceFactory::Make(fs_, paths, format, options));
+                            FileSystemDatasetFactory::Make(fs_, paths, format, options));
 
       ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect());
 
@@ -472,7 +477,15 @@ class TestSchemaUnification : public TestDataset {
     schema_ = SchemaFromNames({"phy_1", "phy_2", "phy_3", "phy_4", "part_ds", "part_df"});
     ASSERT_OK_AND_ASSIGN(auto ds1, get_source("/dataset/alpha", {ds1_df1, ds1_df2}));
     ASSERT_OK_AND_ASSIGN(auto ds2, get_source("/dataset/beta", {ds2_df1, ds2_df2}));
-    ASSERT_OK_AND_ASSIGN(dataset_, Dataset::Make({ds1, ds2}, schema_));
+
+    // FIXME(bkietz) this is a hack: allow differing schemas for the purposes of this test
+    class DisparateSchemasUnionDataset : public UnionDataset {
+     public:
+      DisparateSchemasUnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
+          : UnionDataset(std::move(schema), std::move(children)) {}
+    };
+    dataset_ =
+        std::make_shared<DisparateSchemasUnionDataset>(schema_, DatasetVector{ds1, ds2});
   }
 
   std::shared_ptr<Schema> SchemaFromNames(const std::vector<std::string> names) {
@@ -511,7 +524,7 @@ class TestSchemaUnification : public TestDataset {
   std::shared_ptr<Dataset> dataset_;
 };
 
-using nonstd::nullopt;
+using util::nullopt;
 
 TEST_F(TestSchemaUnification, SelectStar) {
   // This is a `SELECT * FROM dataset` where it ensures:

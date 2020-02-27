@@ -31,8 +31,8 @@ from pyarrow._dataset import (  # noqa
     Expression,
     FieldExpression,
     FileFormat,
-    FileSystemSource,
-    FileSystemSourceFactory,
+    FileSystemDataset,
+    FileSystemDatasetFactory,
     FileSystemFactoryOptions,
     HivePartitioning,
     InExpression,
@@ -46,9 +46,8 @@ from pyarrow._dataset import (  # noqa
     ScalarExpression,
     Scanner,
     ScanTask,
-    Source,
-    TreeSource,
-    SourceFactory
+    UnionDataset,
+    UnionDatasetFactory
 )
 
 
@@ -217,10 +216,10 @@ def _ensure_format(obj):
         raise ValueError("format '{}' is not supported".format(obj))
 
 
-def source(path_or_paths, filesystem=None, partitioning=None,
-           format=None):
+def factory(path_or_paths, filesystem=None, partitioning=None,
+            format=None):
     """
-    Open a (multi-file) data source.
+    Create a factory which can be used to build a Dataset.
 
     Parameters
     ----------
@@ -229,7 +228,7 @@ def source(path_or_paths, filesystem=None, partitioning=None,
         a list of paths.
     filesystem : FileSystem, default None
         By default will be inferred from the path.
-    partitioning : Partitioning(Factory), str or list of str
+    partitioning : Partitioning or PartitioningFactory or str or list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
         field names a DirectionaryPartitioning will be inferred.
@@ -238,8 +237,7 @@ def source(path_or_paths, filesystem=None, partitioning=None,
 
     Returns
     -------
-    DataSource of DataSourceDiscovery
-
+    FileSystemDatasetFactory
     """
     fs, paths_or_selector = _ensure_fs_and_paths(path_or_paths, filesystem)
     partitioning = _ensure_partitioning(partitioning)
@@ -252,45 +250,46 @@ def source(path_or_paths, filesystem=None, partitioning=None,
     elif isinstance(partitioning, Partitioning):
         options.partitioning = partitioning
 
-    return FileSystemSourceFactory(fs, paths_or_selector, format, options)
+    return FileSystemDatasetFactory(fs, paths_or_selector, format, options)
 
 
-def _ensure_source(src, **kwargs):
-    # Need to return SourceFactory since `dataset` might need to finish the
+def _ensure_factory(src, **kwargs):
+    # Need to return DatasetFactory since `dataset` might need to finish the
     # factory with a unified schema.
-    # TODO: return Source if a specific schema was passed?
+    # TODO: return Dataset if a specific schema was passed?
     if _is_path_like(src):
-        return source(src, **kwargs)
-    elif isinstance(src, SourceFactory):
+        return factory(src, **kwargs)
+    elif isinstance(src, DatasetFactory):
         if any(v is not None for v in kwargs.values()):
             # when passing a SourceFactory, the arguments cannot be specified
             raise ValueError(
-                "When passing a Source(Factory), you cannot pass any "
+                "When passing a DatasetFactory, you cannot pass any "
                 "additional arguments"
             )
         return src
-    elif isinstance(src, Source):
+    elif isinstance(src, Dataset):
         raise TypeError(
-            "Source objects are currently not supported, only SourceFactory "
-            "instances. Use the source() function to create such objects."
+            "Dataset objects are currently not supported, only DatasetFactory "
+            "instances. Use the factory() function to create such objects."
         )
     else:
         raise TypeError(
-            "Expected a path-like or Source, got {}".format(type(src))
+            "Expected a path-like or DatasetFactory, got {}".format(type(src))
         )
 
 
-def dataset(sources, filesystem=None, partitioning=None, format=None):
+def dataset(paths_or_factories, filesystem=None, partitioning=None,
+            format=None):
     """
-    Open a (multi-source) dataset.
+    Open a dataset.
 
     Parameters
     ----------
-    sources : path or list of paths or source or list of sources
+    paths_or_factories : path or list of paths or factory or list of factories
         Path to a file or to a directory containing the data files, or a list
-        of paths for a multi-source dataset. To have more control, a list of
-        sources can be passed, created with the ``source()`` function (in this
-        case, the additional keywords will be ignored).
+        of paths for a multi-directory dataset. To have more control, a list of
+        factories can be passed, created with the ``factory()`` function (in
+        this case, the additional keywords will be ignored).
     filesystem : FileSystem, default None
         By default will be inferred from the path.
     partitioning : Partitioning, PartitioningFactory, str, list of str
@@ -310,23 +309,26 @@ def dataset(sources, filesystem=None, partitioning=None, format=None):
 
     >>> dataset("path/to/nyc-taxi/", format="parquet")
 
-    Combining different sources:
+    Construction from multiple factories:
 
     >>> dataset([
-    ...     source("s3://old-taxi-data", format="parquet"),
-    ...     source("local/path/to/new/data", format="csv")
+    ...     factory("s3://old-taxi-data", format="parquet"),
+    ...     factory("local/path/to/new/data", format="csv")
     ... ])
 
     """
-    if not isinstance(sources, list):
-        sources = [sources]
+    # bundle the keyword arguments
+    kwargs = dict(filesystem=filesystem, partitioning=partitioning,
+                  format=format)
 
-    sources = [
-        _ensure_source(src, filesystem=filesystem, partitioning=partitioning,
-                       format=format)
-        for src in sources
-    ]
-    return DatasetFactory(sources).finish()
+    if isinstance(paths_or_factories, str):
+        return factory(paths_or_factories, **kwargs).finish()
+
+    if not isinstance(paths_or_factories, list):
+        paths_or_factories = [paths_or_factories]
+
+    factories = [_ensure_factory(f, **kwargs) for f in paths_or_factories]
+    return UnionDatasetFactory(factories).finish()
 
 
 def field(name):

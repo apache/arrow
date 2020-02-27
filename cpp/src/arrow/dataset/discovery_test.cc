@@ -40,7 +40,7 @@ void AssertSchemasAre(std::vector<std::shared_ptr<Schema>> actual,
   }
 }
 
-class SourceFactoryTest : public TestFileSystemSource {
+class DatasetFactoryTest : public TestFileSystemDataset {
  public:
   void AssertInspect(const std::vector<std::shared_ptr<Field>>& expected_fields) {
     ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect());
@@ -53,21 +53,22 @@ class SourceFactoryTest : public TestFileSystemSource {
   }
 
  protected:
-  std::shared_ptr<SourceFactory> factory_;
+  std::shared_ptr<DatasetFactory> factory_;
 };
 
-class MockSourceFactory : public SourceFactory {
+class MockDatasetFactory : public DatasetFactory {
  public:
-  explicit MockSourceFactory(std::vector<std::shared_ptr<Schema>> schemas)
+  explicit MockDatasetFactory(std::vector<std::shared_ptr<Schema>> schemas)
       : schemas_(std::move(schemas)) {}
 
   Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override {
     return schemas_;
   }
 
-  Result<std::shared_ptr<Source>> Finish(const std::shared_ptr<Schema>& schema) override {
-    return std::make_shared<InMemorySource>(schema,
-                                            std::vector<std::shared_ptr<RecordBatch>>{});
+  Result<std::shared_ptr<Dataset>> Finish(
+      const std::shared_ptr<Schema>& schema) override {
+    return std::make_shared<InMemoryDataset>(schema,
+                                             std::vector<std::shared_ptr<RecordBatch>>{});
   }
 
  protected:
@@ -87,10 +88,10 @@ class MockPartitioning : public Partitioning {
   std::string type_name() const override { return "mock_partitioning"; }
 };
 
-class MockSourceFactoryTest : public SourceFactoryTest {
+class MockDatasetFactoryTest : public DatasetFactoryTest {
  public:
   void MakeFactory(std::vector<std::shared_ptr<Schema>> schemas) {
-    factory_ = std::make_shared<MockSourceFactory>(schemas);
+    factory_ = std::make_shared<MockDatasetFactory>(schemas);
   }
 
  protected:
@@ -104,7 +105,7 @@ class MockSourceFactoryTest : public SourceFactoryTest {
   std::shared_ptr<Field> i32_fake = field("i32", boolean());
 };
 
-TEST_F(MockSourceFactoryTest, UnifySchemas) {
+TEST_F(MockDatasetFactoryTest, UnifySchemas) {
   MakeFactory({});
   AssertInspect({});
 
@@ -130,12 +131,12 @@ TEST_F(MockSourceFactoryTest, UnifySchemas) {
   AssertInspectSchemas({schema({i32, f64}), schema({f64, i32_fake})});
 }
 
-class FileSystemSourceFactoryTest : public SourceFactoryTest {
+class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
  public:
   void MakeFactory(const std::vector<fs::FileStats>& files) {
     MakeFileSystem(files);
-    ASSERT_OK_AND_ASSIGN(factory_, FileSystemSourceFactory::Make(fs_, selector_, format_,
-                                                                 factory_options_));
+    ASSERT_OK_AND_ASSIGN(factory_, FileSystemDatasetFactory::Make(fs_, selector_, format_,
+                                                                  factory_options_));
   }
 
   void AssertFinishWithPaths(std::vector<std::string> paths,
@@ -154,13 +155,13 @@ class FileSystemSourceFactoryTest : public SourceFactoryTest {
   std::shared_ptr<FileFormat> format_ = std::make_shared<DummyFileFormat>(schema({}));
 };
 
-TEST_F(FileSystemSourceFactoryTest, Basic) {
+TEST_F(FileSystemDatasetFactoryTest, Basic) {
   MakeFactory({fs::File("a"), fs::File("b")});
   AssertFinishWithPaths({"a", "b"});
   MakeFactory({fs::Dir("a"), fs::Dir("a/b"), fs::File("a/b/c")});
 }
 
-TEST_F(FileSystemSourceFactoryTest, Selector) {
+TEST_F(FileSystemDatasetFactoryTest, Selector) {
   selector_.base_dir = "A";
   selector_.recursive = true;
 
@@ -175,7 +176,7 @@ TEST_F(FileSystemSourceFactoryTest, Selector) {
   AssertFinishWithPaths({"A/a", "A/A/a"});
 }
 
-TEST_F(FileSystemSourceFactoryTest, ExplicitPartition) {
+TEST_F(FileSystemDatasetFactoryTest, ExplicitPartition) {
   selector_.base_dir = "a=ignored/base";
   factory_options_.partitioning =
       std::make_shared<HivePartitioning>(schema({field("a", float64())}));
@@ -187,7 +188,7 @@ TEST_F(FileSystemSourceFactoryTest, ExplicitPartition) {
   AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
 }
 
-TEST_F(FileSystemSourceFactoryTest, DiscoveredPartition) {
+TEST_F(FileSystemDatasetFactoryTest, DiscoveredPartition) {
   selector_.base_dir = "a=ignored/base";
   factory_options_.partitioning = HivePartitioning::MakeFactory();
   MakeFactory(
@@ -197,7 +198,7 @@ TEST_F(FileSystemSourceFactoryTest, DiscoveredPartition) {
   AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
 }
 
-TEST_F(FileSystemSourceFactoryTest, MissingDirectories) {
+TEST_F(FileSystemDatasetFactoryTest, MissingDirectories) {
   MakeFileSystem({fs::File("base_dir/a=3/b=3/dat"), fs::File("unpartitioned/ignored=3")});
 
   factory_options_.partition_base_dir = "base_dir";
@@ -205,7 +206,7 @@ TEST_F(FileSystemSourceFactoryTest, MissingDirectories) {
       schema({field("a", int32()), field("b", int32())}));
 
   ASSERT_OK_AND_ASSIGN(
-      factory_, FileSystemSourceFactory::Make(
+      factory_, FileSystemDatasetFactory::Make(
                     fs_, {"base_dir/a=3/b=3/dat", "unpartitioned/ignored=3"}, format_,
                     factory_options_));
 
@@ -213,7 +214,7 @@ TEST_F(FileSystemSourceFactoryTest, MissingDirectories) {
   AssertFinishWithPaths({"base_dir/a=3/b=3/dat", "unpartitioned/ignored=3"});
 }
 
-TEST_F(FileSystemSourceFactoryTest, OptionsIgnoredDefaultPrefixes) {
+TEST_F(FileSystemDatasetFactoryTest, OptionsIgnoredDefaultPrefixes) {
   MakeFactory({
       fs::File("."),
       fs::File("_"),
@@ -225,7 +226,7 @@ TEST_F(FileSystemSourceFactoryTest, OptionsIgnoredDefaultPrefixes) {
   AssertFinishWithPaths({"not_ignored_by_default"});
 }
 
-TEST_F(FileSystemSourceFactoryTest, OptionsIgnoredCustomPrefixes) {
+TEST_F(FileSystemDatasetFactoryTest, OptionsIgnoredCustomPrefixes) {
   factory_options_.ignore_prefixes = {"not_ignored"};
   MakeFactory({
       fs::File("."),
@@ -238,7 +239,7 @@ TEST_F(FileSystemSourceFactoryTest, OptionsIgnoredCustomPrefixes) {
   AssertFinishWithPaths({".", "_", "_$folder$", "_SUCCESS"});
 }
 
-TEST_F(FileSystemSourceFactoryTest, Inspect) {
+TEST_F(FileSystemDatasetFactoryTest, Inspect) {
   auto s = schema({field("f64", float64())});
   format_ = std::make_shared<DummyFileFormat>(s);
 
@@ -250,7 +251,7 @@ TEST_F(FileSystemSourceFactoryTest, Inspect) {
   AssertInspect(s->fields());
 }
 
-TEST_F(FileSystemSourceFactoryTest, FinishWithIncompatibleSchemaShouldFail) {
+TEST_F(FileSystemDatasetFactoryTest, FinishWithIncompatibleSchemaShouldFail) {
   auto s = schema({field("f64", float64())});
   format_ = std::make_shared<DummyFileFormat>(s);
 
@@ -263,12 +264,12 @@ TEST_F(FileSystemSourceFactoryTest, FinishWithIncompatibleSchemaShouldFail) {
   ASSERT_RAISES(Invalid, factory_->Finish(broken_s));
 }
 
-std::shared_ptr<SourceFactory> SourceFactoryFromSchemas(
+std::shared_ptr<DatasetFactory> DatasetFactoryFromSchemas(
     std::vector<std::shared_ptr<Schema>> schemas) {
-  return std::make_shared<MockSourceFactory>(schemas);
+  return std::make_shared<MockDatasetFactory>(schemas);
 }
 
-TEST(DatasetFactoryTest, Basic) {
+TEST(UnionDatasetFactoryTest, Basic) {
   auto f64 = field("f64", float64());
   auto i32 = field("i32", int32());
   auto i32_req = field("i32", int32(), /*nullable*/ false);
@@ -278,12 +279,12 @@ TEST(DatasetFactoryTest, Basic) {
   auto schema_2 = schema({f64, i32});
   auto schema_3 = schema({str, i32});
 
-  auto source_1 = SourceFactoryFromSchemas({schema_1, schema_2});
-  auto source_2 = SourceFactoryFromSchemas({schema_2});
-  auto source_3 = SourceFactoryFromSchemas({schema_3});
+  auto source_1 = DatasetFactoryFromSchemas({schema_1, schema_2});
+  auto source_2 = DatasetFactoryFromSchemas({schema_2});
+  auto source_3 = DatasetFactoryFromSchemas({schema_3});
 
   ASSERT_OK_AND_ASSIGN(auto factory,
-                       DatasetFactory::Make({source_1, source_2, source_3}));
+                       UnionDatasetFactory::Make({source_1, source_2, source_3}));
 
   ASSERT_OK_AND_ASSIGN(auto schemas, factory->InspectSchemas());
   AssertSchemasAre(schemas, {schema_2, schema_2, schema_3});
@@ -300,7 +301,7 @@ TEST(DatasetFactoryTest, Basic) {
   EXPECT_EQ(*dataset->schema(), *f64_schema);
 }
 
-TEST(DatasetFactoryTest, ConflictingSchemas) {
+TEST(UnionDatasetFactoryTest, ConflictingSchemas) {
   auto f64 = field("f64", float64());
   auto i32 = field("i32", int32());
   auto i32_req = field("i32", int32(), /*nullable*/ false);
@@ -311,13 +312,13 @@ TEST(DatasetFactoryTest, ConflictingSchemas) {
   // Incompatible with schema_1
   auto schema_3 = schema({bad_f64, i32});
 
-  auto source_factory_1 = SourceFactoryFromSchemas({schema_1, schema_2});
-  auto source_factory_2 = SourceFactoryFromSchemas({schema_2});
-  auto source_factory_3 = SourceFactoryFromSchemas({schema_3});
+  auto source_factory_1 = DatasetFactoryFromSchemas({schema_1, schema_2});
+  auto source_factory_2 = DatasetFactoryFromSchemas({schema_2});
+  auto source_factory_3 = DatasetFactoryFromSchemas({schema_3});
 
   ASSERT_OK_AND_ASSIGN(
       auto factory,
-      DatasetFactory::Make({source_factory_1, source_factory_2, source_factory_3}));
+      UnionDatasetFactory::Make({source_factory_1, source_factory_2, source_factory_3}));
 
   // schema_3 conflicts with other, Inspect/Finish should not work
   ASSERT_RAISES(Invalid, factory->Inspect());

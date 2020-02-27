@@ -6,9 +6,9 @@
 \alias{HivePartitioning}
 \alias{DirectoryPartitioningFactory}
 \alias{HivePartitioningFactory}
-\title{Define Partitioning for a Source}
+\title{Define Partitioning for a Dataset}
 \description{
-Pass a \code{Partitioning} object to a \link{FileSystemSourceFactory}'s \verb{$create()}
+Pass a \code{Partitioning} object to a \link{FileSystemDatasetFactory}'s \verb{$create()}
 method to indicate how the file's paths should be interpreted to define
 partitioning.
 
@@ -22,7 +22,7 @@ names and values in path segments, such as
 "/year=2019/month=2/data.parquet". Because fields are named in the path
 segments, order does not matter.
 
-\code{PartitioningFactory} subclasses instruct the \code{SourceFactory} to detect
+\code{PartitioningFactory} subclasses instruct the \code{DatasetFactory} to detect
 partition features from the file paths.
 }
 \section{Factory}{
@@ -34,7 +34,7 @@ function \code{\link[=hive_partition]{hive_partition(...)}} is shorthand for
 
 With \code{DirectoryPartitioningFactory$create()}, you can provide just the
 names of the path segments (in our example, \code{c("year", "month")}), and
-the \code{SourceFactory} will infer the data types for those partition variables.
+the \code{DatasetFactory} will infer the data types for those partition variables.
 \code{HivePartitioningFactory$create()} takes no arguments: both variable names
 and their types can be inferred from the file paths. \code{hive_partition()} with
 no arguments returns a \code{HivePartitioningFactory}.

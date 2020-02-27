@@ -7,7 +7,7 @@
 \title{Dataset file formats}
 \description{
 A \code{FileFormat} holds information about how to read and parse the files
-included in a \code{Source}. There are subclasses corresponding to the supported
+included in a \code{Dataset}. There are subclasses corresponding to the supported
 file formats (\code{ParquetFileFormat} and \code{IpcFileFormat}).
 }
 \section{Factory}{

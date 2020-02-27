@@ -78,23 +78,23 @@ TEST(FileSource, BufferBased) {
   ASSERT_EQ(Compression::LZ4, source2.compression());
 }
 
-TEST_F(TestFileSystemSource, Basic) {
-  MakeSource({});
+TEST_F(TestFileSystemDataset, Basic) {
+  MakeDataset({});
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {});
 
-  MakeSource({fs::File("a"), fs::File("b"), fs::File("c")});
+  MakeDataset({fs::File("a"), fs::File("b"), fs::File("c")});
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b", "c"});
   AssertFilesAre(source_, {"a", "b", "c"});
 
   // Should not create fragment from directories.
-  MakeSource({fs::Dir("A"), fs::Dir("A/B"), fs::File("A/a"), fs::File("A/B/b")});
+  MakeDataset({fs::Dir("A"), fs::Dir("A/B"), fs::File("A/a"), fs::File("A/B/b")});
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"A/a", "A/B/b"});
   AssertFilesAre(source_, {"A/a", "A/B/b"});
 }
 
-TEST_F(TestFileSystemSource, RootPartitionPruning) {
+TEST_F(TestFileSystemDataset, RootPartitionPruning) {
   auto source_partition = ("a"_ == 5).Copy();
-  MakeSource({fs::File("a"), fs::File("b")}, source_partition);
+  MakeDataset({fs::File("a"), fs::File("b")}, source_partition);
 
   // Default filter should always return all data.
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
@@ -115,12 +115,12 @@ TEST_F(TestFileSystemSource, RootPartitionPruning) {
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
 
   // No partition should match
-  MakeSource({fs::File("a"), fs::File("b")});
+  MakeDataset({fs::File("a"), fs::File("b")});
   options_->filter = ("b"_ == 6).Copy();
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
 }
 
-TEST_F(TestFileSystemSource, TreePartitionPruning) {
+TEST_F(TestFileSystemDataset, TreePartitionPruning) {
   auto source_partition = ("country"_ == "US").Copy();
   std::vector<fs::FileStats> regions = {
       fs::Dir("NY"), fs::File("NY/New York"),      fs::File("NY/Franklin"),
@@ -133,7 +133,7 @@ TEST_F(TestFileSystemSource, TreePartitionPruning) {
       ("city"_ == "San Francisco").Copy(), ("city"_ == "Franklin").Copy(),
   };
 
-  MakeSource(regions, source_partition, partitions);
+  MakeDataset(regions, source_partition, partitions);
 
   std::vector<std::string> all_cities = {"CA/San Francisco", "CA/Franklin", "NY/New York",
                                          "NY/Franklin"};
@@ -143,7 +143,7 @@ TEST_F(TestFileSystemSource, TreePartitionPruning) {
   // Default filter should always return all data.
   AssertFragmentsAreFromPath(source_->GetFragments(options_), all_cities);
 
-  // Source's partitions are respected
+  // Dataset's partitions are respected
   options_->filter = ("country"_ == "US").Copy();
   AssertFragmentsAreFromPath(source_->GetFragments(options_), all_cities);
   options_->filter = ("country"_ == "FR").Copy();

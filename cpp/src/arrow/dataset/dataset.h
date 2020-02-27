@@ -87,39 +87,42 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
 };
 
-/// \brief A basic component of a Dataset which yields zero or more
-/// Fragments. A Source acts as a discovery mechanism of Fragments
-/// and partitions, e.g. files deeply nested in a directory.
-class ARROW_DS_EXPORT Source {
+/// \brief A container of zero or more Fragments. A Dataset acts as a discovery mechanism
+/// of Fragments and partitions, e.g. files deeply nested in a directory.
+class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
+  /// \brief Begin to build a new Scan operation against this Dataset
+  Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
+  Result<std::shared_ptr<ScannerBuilder>> NewScan();
+
   /// \brief GetFragments returns an iterator of Fragments. The ScanOptions
   /// controls filtering and schema inference.
   FragmentIterator GetFragments(std::shared_ptr<ScanOptions> options);
 
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
-  /// \brief An expression which evaluates to true for all data viewed by this Source.
+  /// \brief An expression which evaluates to true for all data viewed by this Dataset.
   /// May be null, which indicates no information is available.
   const std::shared_ptr<Expression>& partition_expression() const {
     return partition_expression_;
   }
 
-  /// \brief The name identifying the kind of source
+  /// \brief The name identifying the kind of Dataset
   virtual std::string type_name() const = 0;
 
-  virtual ~Source() = default;
+  virtual ~Dataset() = default;
 
  protected:
-  explicit Source(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
+  explicit Dataset(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
 
-  Source(std::shared_ptr<Schema> schema, std::shared_ptr<Expression> e)
+  Dataset(std::shared_ptr<Schema> schema, std::shared_ptr<Expression> e)
       : schema_(std::move(schema)), partition_expression_(std::move(e)) {}
-  Source() = default;
+  Dataset() = default;
 
   virtual FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) = 0;
 
   /// Mutates a ScanOptions by assuming partition_expression_ holds for all yielded
-  /// fragments. Returns false if the selector is not satisfiable in this Source.
+  /// fragments. Returns false if the selector is not satisfiable in this Dataset.
   virtual bool AssumePartitionExpression(
       const std::shared_ptr<ScanOptions>& scan_options,
       std::shared_ptr<ScanOptions>* simplified_scan_options) const;
@@ -131,7 +134,7 @@ class ARROW_DS_EXPORT Source {
 /// \brief A Source which yields fragments wrapping a stream of record batches.
 ///
 /// The record batches must match the schema provided to the source at construction.
-class ARROW_DS_EXPORT InMemorySource : public Source {
+class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
  public:
   class RecordBatchGenerator {
    public:
@@ -139,15 +142,15 @@ class ARROW_DS_EXPORT InMemorySource : public Source {
     virtual RecordBatchIterator Get() const = 0;
   };
 
-  InMemorySource(std::shared_ptr<Schema> schema,
-                 std::unique_ptr<RecordBatchGenerator> get_batches)
-      : Source(std::move(schema)), get_batches_(std::move(get_batches)) {}
+  InMemoryDataset(std::shared_ptr<Schema> schema,
+                  std::unique_ptr<RecordBatchGenerator> get_batches)
+      : Dataset(std::move(schema)), get_batches_(std::move(get_batches)) {}
 
   // Convenience constructor taking a fixed list of batches
-  InMemorySource(std::shared_ptr<Schema> schema,
-                 std::vector<std::shared_ptr<RecordBatch>> batches);
+  InMemoryDataset(std::shared_ptr<Schema> schema,
+                  std::vector<std::shared_ptr<RecordBatch>> batches);
 
-  explicit InMemorySource(std::shared_ptr<Table> table);
+  explicit InMemoryDataset(std::shared_ptr<Table> table);
 
   FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
@@ -157,48 +160,30 @@ class ARROW_DS_EXPORT InMemorySource : public Source {
   std::unique_ptr<RecordBatchGenerator> get_batches_;
 };
 
-/// \brief A recursive Source with child Sources.
-class ARROW_DS_EXPORT TreeSource : public Source {
+/// \brief A Dataset wrapping child Datasets.
+class ARROW_DS_EXPORT UnionDataset : public Dataset {
  public:
-  explicit TreeSource(std::shared_ptr<Schema> schema, SourceVector children)
-      : Source(std::move(schema)), children_(std::move(children)) {}
+  /// \brief Construct a UnionDataset wrapping child Datasets.
+  ///
+  /// \param[in] schema the schema of the resulting dataset.
+  /// \param[in] children one or more child Datasets. Their schemas must be identical to
+  /// schema.
+  static Result<std::shared_ptr<UnionDataset>> Make(std::shared_ptr<Schema> schema,
+                                                    DatasetVector children);
 
   FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
 
-  std::string type_name() const override { return "tree"; }
+  const DatasetVector& children() const { return children_; }
 
- private:
-  SourceVector children_;
-};
-
-/// \brief Top-level interface for a Dataset with fragments coming
-/// from possibly multiple sources.
-class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
- public:
-  /// \brief Build a Dataset from uniform sources.
-  //
-  /// \param[in] sources one or more input sources
-  /// \param[in] schema a known schema to conform to
-  static Result<std::shared_ptr<Dataset>> Make(SourceVector sources,
-                                               std::shared_ptr<Schema> schema);
-
-  /// \brief Begin to build a new Scan operation against this Dataset
-  Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
-  Result<std::shared_ptr<ScannerBuilder>> NewScan();
-
-  const SourceVector& sources() const { return sources_; }
-
-  std::shared_ptr<Schema> schema() const { return schema_; }
+  std::string type_name() const override { return "union"; }
 
  protected:
-  explicit Dataset(SourceVector sources, std::shared_ptr<Schema> schema)
-      : schema_(std::move(schema)), sources_(std::move(sources)) {}
+  explicit UnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
+      : Dataset(std::move(schema)), children_(std::move(children)) {}
 
-  // The sources must conform their output to this schema (with
-  // projections and filters taken into account)
-  std::shared_ptr<Schema> schema_;
+  DatasetVector children_;
 
-  SourceVector sources_;
+  friend class UnionDatasetFactory;
 };
 
 }  // namespace dataset

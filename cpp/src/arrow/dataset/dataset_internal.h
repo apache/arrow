@@ -32,20 +32,20 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief GetFragmentsFromSources transforms a vector<Source> into a
+/// \brief GetFragmentsFromDatasets transforms a vector<Dataset> into a
 /// flattened FragmentIterator.
-static inline FragmentIterator GetFragmentsFromSources(
-    const SourceVector& sources, std::shared_ptr<ScanOptions> options) {
-  // Iterator<Source>
-  auto sources_it = MakeVectorIterator(sources);
+static inline FragmentIterator GetFragmentsFromDatasets(
+    const DatasetVector& datasets, std::shared_ptr<ScanOptions> options) {
+  // Iterator<Dataset>
+  auto datasets_it = MakeVectorIterator(datasets);
 
-  // Source -> Iterator<Fragment>
-  auto fn = [options](std::shared_ptr<Source> source) -> FragmentIterator {
-    return source->GetFragments(options);
+  // Dataset -> Iterator<Fragment>
+  auto fn = [options](std::shared_ptr<Dataset> dataset) -> FragmentIterator {
+    return dataset->GetFragments(options);
   };
 
   // Iterator<Iterator<Fragment>>
-  auto fragments_it = MakeMapIterator(fn, std::move(sources_it));
+  auto fragments_it = MakeMapIterator(fn, std::move(datasets_it));
 
   // Iterator<Fragment>
   return MakeFlattenIterator(std::move(fragments_it));
