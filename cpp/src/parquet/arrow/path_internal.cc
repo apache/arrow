@@ -217,7 +217,6 @@ class AllNullsTerminalNode {
   IterationResult Run(const ElementRange& range, PathWriteContext* context) {
     int64_t size = range.Size();
     RETURN_IF_ERROR(FillRepLevels(size, rep_level_, context));
-    // pass through an empty range to force not setting the rep-level values.
     return context->AppendDefLevels(size, def_level_);
   }
 
@@ -281,12 +280,6 @@ struct NullableTerminalNode {
 //    process.
 //       this varies depending on the type of list (int32_t* offsets, int64_t* offsets of
 //       fixed.
-//    |PositionType| - For non-empty lists a strategy to fill in rep_levels.  The strategy
-//       varies dependong if the node is the last list node for the column. This used for
-//       CRTP.
-//
-// TODO(micahk): This logic currently doesn't detect lists with a null value that has
-// non-zero size but depends on this relationship for correctness.
 template <typename RangeSelector>
 class ListPathNode {
  public:
