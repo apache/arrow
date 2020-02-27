@@ -51,34 +51,57 @@ class LogicalPlan : public util::EqualityComparable<LogicalPlan> {
   std::shared_ptr<Expr> root_;
 };
 
+struct LogicalPlanBuilderOptions {
+  std::shared_ptr<Catalog> catalog;
+};
+
 class LogicalPlanBuilder {
  public:
-  explicit LogicalPlanBuilder(std::shared_ptr<Catalog> catalog);
+  using ResultExpr = Result<std::shared_ptr<Expr>>;
+
+  explicit LogicalPlanBuilder(LogicalPlanBuilderOptions options = {});
 
   /// \defgroup leaf-nodes Leaf nodes in the logical plan
   /// @{
 
-  // Anonymous values literal.
-  Status Scalar(const std::shared_ptr<Scalar>& array);
-  Status Array(const std::shared_ptr<Array>& array);
-  Status Table(const std::shared_ptr<Table>& table);
+  /// \brief Construct a Scalar literal.
+  ResultExpr Scalar(const std::shared_ptr<Scalar>& scalar);
 
-  // Named values
-  Status Scan(const std::string& table_name);
+  /// \brief References a field by name.
+  ResultExpr Field(const std::shared_ptr<Expr>& input, const std::string& field_name);
+
+  /// \brief Scan a Table/Dataset from the Catalog.
+  ResultExpr Scan(const std::string& table_name);
 
   /// @}
 
-  Status Filter(std::shared_ptr<Expr> predicate);
+  /// \defgroup rel-nodes Relational operator nodes in the logical plan
 
-  Result<std::shared_ptr<LogicalPlan>> Finish();
+  ResultExpr Filter(const std::shared_ptr<Expr>& input,
+                    const std::shared_ptr<Expr>& predicate);
+
+  /*
+  /// \brief Project (mutate) columns with given expressions.
+  ResultExpr Project(const std::vector<std::shared_ptr<Expr>>& expressions);
+  ResultExpr Mutate(const std::vector<std::shared_ptr<Expr>>& expressions);
+
+  /// \brief Project (select) columns by names.
+  ///
+  /// This is a simplified version of Project where columns are selected by
+  /// names. Duplicate and ordering are preserved.
+  ResultExpr Project(const std::vector<std::string>& column_names);
+
+  /// \brief Project (select) columns by indices.
+  ///
+  /// This is a simplified version of Project where columns are selected by
+  /// indices. Duplicate and ordering are preserved.
+  ResultExpr Project(const std::vector<int>& column_indices);
+  */
+
+  /// @}
 
  private:
-  Status Push(std::shared_ptr<Expr>);
-  Result<std::shared_ptr<Expr>> Pop();
-  Result<std::shared_ptr<Expr>> Peek();
-
   std::shared_ptr<Catalog> catalog_;
-  std::stack<std::shared_ptr<Expr>> stack_;
 };
 
 }  // namespace engine

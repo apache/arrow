@@ -21,9 +21,10 @@
 #include "arrow/engine/logical_plan.h"
 #include "arrow/testing/gtest_common.h"
 
+using testing::HasSubstr;
+
 namespace arrow {
 namespace engine {
-
 
 class LogicalPlanBuilderTest : public testing::Test {
  protected:
@@ -37,26 +38,30 @@ class LogicalPlanBuilderTest : public testing::Test {
   std::shared_ptr<Catalog> catalog;
 };
 
+TEST_F(LogicalPlanBuilderTest, Scalar) {
+  LogicalPlanBuilder builder{{catalog}};
+  auto forthy_two = MakeScalar(42);
+  EXPECT_OK_AND_ASSIGN(auto scalar, builder.Scalar(forthy_two));
+}
+
 TEST_F(LogicalPlanBuilderTest, BasicScan) {
-  LogicalPlanBuilder builder(catalog);
+  LogicalPlanBuilder builder{{catalog}};
   ASSERT_OK(builder.Scan(table_1));
-  ASSERT_OK_AND_ASSIGN(auto plan, builder.Finish());
 }
 
-using testing::HasSubstr;
+TEST_F(LogicalPlanBuilderTest, FieldReferenceByName) {
+  LogicalPlanBuilder builder{{catalog}};
 
-TEST_F(LogicalPlanBuilderTest, ErrorEmptyFinish) {
-  LogicalPlanBuilder builder(catalog);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("LogicalPlan is empty"),
-                                  builder.Finish());
-}
+  // Input must be non-null.
+  ASSERT_RAISES(Invalid, builder.Field(nullptr, "i32"));
 
-TEST_F(LogicalPlanBuilderTest, ErrorOperatorsLeftOnStack) {
-  LogicalPlanBuilder builder(catalog);
-  ASSERT_OK(builder.Scan(table_1));
-  ASSERT_OK(builder.Scan(table_1));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("LogicalPlan is ignoring operators"),
-                                  builder.Finish());
+  // The input must have a Table shape.
+  auto forthy_two = MakeScalar(42);
+  EXPECT_OK_AND_ASSIGN(auto scalar, builder.Scalar(forthy_two));
+  ASSERT_RAISES(Invalid, builder.Field(scalar, "not_found"));
+
+  EXPECT_OK_AND_ASSIGN(auto table_scan, builder.Scan(table_1));
+  EXPECT_OK_AND_ASSIGN(auto field_ref, builder.Field(table_scan, "i32"));
 }
 
 }  // namespace engine

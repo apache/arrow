@@ -17,6 +17,7 @@
 
 #include "arrow/engine/expression.h"
 #include "arrow/scalar.h"
+#include "arrow/type.h"
 
 namespace arrow {
 namespace engine {
@@ -88,21 +89,22 @@ bool ExprType::Equals(const ExprType& type) const {
 
 bool ExprType::operator==(const ExprType& rhs) const { return Equals(rhs); }
 
-//
-// Expr
-//
+#define PRECONDITION(cond, ...)            \
+  do {                                     \
+    if (ARROW_PREDICT_FALSE(!(cond))) {    \
+      return Status::Invalid(__VA_ARGS__); \
+    }                                      \
+  } while (false)
 
 //
 // ScalarExpr
 //
 
 ScalarExpr::ScalarExpr(std::shared_ptr<Scalar> scalar)
-    : Expr(SCALAR), scalar_(std::move(scalar)) {}
+    : Expr(SCALAR_LITERAL), scalar_(std::move(scalar)) {}
 
 Result<std::shared_ptr<ScalarExpr>> ScalarExpr::Make(std::shared_ptr<Scalar> scalar) {
-  if (scalar == nullptr) {
-    return Status::Invalid("ScalarExpr's scalar must be non-null");
-  }
+  PRECONDITION(scalar != nullptr, "ScalarExpr's scalar must be non-null");
 
   return std::shared_ptr<ScalarExpr>(new ScalarExpr(std::move(scalar)));
 }
@@ -114,17 +116,42 @@ ExprType ScalarExpr::type() const { return ExprType::Scalar(scalar_->type); }
 //
 
 FieldRefExpr::FieldRefExpr(std::shared_ptr<Field> field)
-    : Expr(FIELD_REF), field_(std::move(field)) {}
+    : Expr(FIELD_REFERENCE), field_(std::move(field)) {}
 
 Result<std::shared_ptr<FieldRefExpr>> FieldRefExpr::Make(std::shared_ptr<Field> field) {
-  if (field == nullptr) {
-    return Status::Invalid("FieldRefExpr's field must be non-null");
-  }
+  PRECONDITION(field != nullptr, "FieldRefExpr's field must be non-null");
 
   return std::shared_ptr<FieldRefExpr>(new FieldRefExpr(std::move(field)));
 }
 
 ExprType FieldRefExpr::type() const { return ExprType::Scalar(field_->type()); }
+
+//
+// Comparisons
+//
+
+Status ValidateCompareOpInputs(std::shared_ptr<Expr> left, std::shared_ptr<Expr> right) {
+  PRECONDITION(left != nullptr, "EqualCmpExpr's left operand must be non-null");
+  PRECONDITION(right != nullptr, "EqualCmpExpr's right operand must be non-null");
+  // TODO(fsaintjacques): Add support for broadcast.
+  return Status::OK();
+}
+
+#define COMPARE_MAKE_IMPL(ExprClass)                                                     \
+  Result<std::shared_ptr<ExprClass>> ExprClass::Make(std::shared_ptr<Expr> left,         \
+                                                     std::shared_ptr<Expr> right) {      \
+    RETURN_NOT_OK(ValidateCompareOpInputs(left, right));                                 \
+    return std::shared_ptr<ExprClass>(new ExprClass(std::move(left), std::move(right))); \
+  }
+
+COMPARE_MAKE_IMPL(EqualCmpExpr)
+COMPARE_MAKE_IMPL(NotEqualCmpExpr)
+COMPARE_MAKE_IMPL(GreaterThanCmpExpr)
+COMPARE_MAKE_IMPL(GreaterEqualThanCmpExpr)
+COMPARE_MAKE_IMPL(LowerThanCmpExpr)
+COMPARE_MAKE_IMPL(LowerEqualThanCmpExpr)
+
+#undef COMPARE_MAKE_IMPL
 
 //
 // ScanRelExpr
@@ -133,7 +160,7 @@ ExprType FieldRefExpr::type() const { return ExprType::Scalar(field_->type()); }
 ScanRelExpr::ScanRelExpr(Catalog::Entry input)
     : Expr(SCAN_REL), input_(std::move(input)) {}
 
-Result<std::shared_ptr<Expr>> ScanRelExpr::Make(Catalog::Entry input) {
+Result<std::shared_ptr<ScanRelExpr>> ScanRelExpr::Make(Catalog::Entry input) {
   return std::shared_ptr<ScanRelExpr>(new ScanRelExpr(std::move(input)));
 }
 
@@ -143,31 +170,27 @@ ExprType ScanRelExpr::type() const { return ExprType::Table(input_.schema()); }
 // FilterRelExpr
 //
 
-Result<std::shared_ptr<Expr>> FilterRelExpr::Make(std::shared_ptr<Expr> input,
-                                                  std::shared_ptr<Expr> predicate) {
-  if (input == nullptr) {
-    return Status::Invalid("FilterRelExpr's input must be non-null.");
-  }
+Result<std::shared_ptr<FilterRelExpr>> FilterRelExpr::Make(
+    std::shared_ptr<Expr> input, std::shared_ptr<Expr> predicate) {
+  PRECONDITION(input != nullptr, "FilterRelExpr's input must be non-null.");
+  PRECONDITION(input->type().IsTable(), "FilterRelExpr's input must be a table.");
+  PRECONDITION(predicate != nullptr, "FilterRelExpr's predicate must be non-null.");
+  PRECONDITION(predicate->type().IsPredicate(),
+               "FilterRelExpr's predicate must be a predicate");
 
-  if (predicate == nullptr) {
-    return Status::Invalid("FilterRelExpr's predicate must be non-null.");
-  }
-
-  if (!predicate->type().Equals(ExprType::Scalar(boolean()))) {
-    return Status::Invalid("Filter's predicate expression must be a boolean scalar");
-  }
+  // TODO(fsaintjacques): check fields referenced in predicate are found in
+  // input.
 
   return std::shared_ptr<FilterRelExpr>(
       new FilterRelExpr(std::move(input), std::move(predicate)));
 }
 
 FilterRelExpr::FilterRelExpr(std::shared_ptr<Expr> input, std::shared_ptr<Expr> predicate)
-    : Expr(FILTER_REL), input_(std::move(input)), predicate_(std::move(predicate)) {
-  DCHECK_NE(input_, nullptr);
-  DCHECK_NE(predicate_, nullptr);
-}
+    : Expr(FILTER_REL), input_(std::move(input)), predicate_(std::move(predicate)) {}
 
 ExprType FilterRelExpr::type() const { return ExprType::Table(input_->type().schema()); }
+
+#undef PRECONDITION
 
 }  // namespace engine
 }  // namespace arrow
