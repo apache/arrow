@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
     env:
-      UBUNTU: 18.04
+      UBUNTU: [16.04, 18.04]
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1

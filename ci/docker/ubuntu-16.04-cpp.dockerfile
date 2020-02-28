@@ -44,7 +44,6 @@ RUN apt-get update -y -q && \
         libgoogle-glog-dev \
         liblz4-dev \
         libre2-dev \
-        libsnappy-dev \
         libssl-dev \
         llvm-7-dev \
         make \
@@ -65,8 +64,8 @@ RUN apt-get update -y -q && \
 #   unit tests, so doing vendored build by default
 ENV ARROW_BUILD_BENCHMARKS=OFF \
     ARROW_BUILD_TESTS=ON \
-    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
+    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_GANDIVA_JAVA=OFF \
     ARROW_GANDIVA=ON \
     ARROW_HOME=/usr/local \
@@ -85,9 +84,10 @@ ENV ARROW_BUILD_BENCHMARKS=OFF \
     gRPC_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
-    PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_BUILD_EXAMPLES=ON \
+    PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
     Protobuf_SOURCE=BUNDLED \
     RapidJSON_SOURCE=BUNDLED \
+    Snappy_SOURCE=BUNDLED \
     Thrift_SOURCE=BUNDLED

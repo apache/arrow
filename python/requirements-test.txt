@@ -1,6 +1,8 @@
 cython
-hypothesis
-pandas
+hypothesis==5.0; python_version <= "3.5.2"
+hypothesis; python_version > "3.5.2"
+pandas==0.24; python_version <= "3.5.2"
+pandas; python_version > "3.5.2"
 pickle5; python_version == "3.6" or python_version == "3.7"
 pytest
 pytest-lazy-fixture

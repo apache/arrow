@@ -620,6 +620,9 @@ def test_pandas_parquet_configuration_options(tempdir):
         tm.assert_frame_equal(df, df_read)
 
     for compression in ['NONE', 'SNAPPY', 'GZIP', 'LZ4', 'ZSTD']:
+        if (compression != 'NONE' and
+                not pa.lib.Codec.is_available(compression)):
+            continue
         _write_table(arrow_table, filename, version='2.0',
                      compression=compression)
         table_read = _read_table(filename)
