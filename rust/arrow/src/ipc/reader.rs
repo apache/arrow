@@ -20,13 +20,14 @@
 //! The `FileReader` and `StreamReader` have similar interfaces,
 //! however the `FileReader` expects a reader that supports `Seek`ing
 
+use std::collections::HashMap;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
 use crate::array::*;
 use crate::buffer::Buffer;
 use crate::compute::cast;
-use crate::datatypes::{DataType, IntervalUnit, Schema, SchemaRef};
+use crate::datatypes::{DataType, Field, IntervalUnit, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
@@ -54,6 +55,7 @@ fn create_array(
     data_type: &DataType,
     data: &Vec<u8>,
     buffers: &[ipc::Buffer],
+    dictionaries: &Vec<Option<ArrayRef>>,
     mut node_index: usize,
     mut buffer_index: usize,
 ) -> (ArrayRef, usize, usize) {
@@ -98,6 +100,7 @@ fn create_array(
                 list_data_type,
                 data,
                 buffers,
+                dictionaries,
                 node_index,
                 buffer_index,
             );
@@ -119,6 +122,7 @@ fn create_array(
                 list_data_type,
                 data,
                 buffers,
+                dictionaries,
                 node_index,
                 buffer_index,
             );
@@ -143,6 +147,7 @@ fn create_array(
                     struct_field.data_type(),
                     data,
                     buffers,
+                    dictionaries,
                     node_index,
                     buffer_index,
                 );
@@ -162,6 +167,24 @@ fn create_array(
                 StructArray::from(struct_arrays)
             };
             Arc::new(struct_array)
+        }
+        // Create dictionary array from RecordBatch
+        Dictionary(_, _) => {
+            let index_node = &nodes[node_index];
+            let index_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 2]
+                .iter()
+                .map(|buf| read_buffer(buf, data))
+                .collect();
+            let value_array = dictionaries[node_index].clone().unwrap();
+            node_index = node_index + 1;
+            buffer_index = buffer_index + 2;
+
+            create_dictionary_array(
+                index_node,
+                data_type,
+                &index_buffers[..],
+                value_array,
+            )
         }
         _ => {
             let array = create_primitive_array(
@@ -347,11 +370,38 @@ fn create_list_array(
     }
 }
 
+/// Reads the correct number of buffers based on list type and null_count, and creates a
+/// list array ref
+fn create_dictionary_array(
+    field_node: &ipc::FieldNode,
+    data_type: &DataType,
+    buffers: &[Buffer],
+    value_array: ArrayRef,
+) -> ArrayRef {
+    if let &DataType::Dictionary(_, _) = data_type {
+        let null_count = field_node.null_count() as usize;
+        let mut builder = ArrayData::builder(data_type.clone())
+            .len(field_node.length() as usize)
+            .buffers(buffers[1..2].to_vec())
+            .offset(0)
+            .child_data(vec![value_array.data()]);
+        if null_count > 0 {
+            builder = builder
+                .null_count(null_count)
+                .null_bit_buffer(buffers[0].clone())
+        }
+        make_array(builder.build())
+    } else {
+        unreachable!("Cannot create dictionary array from {:?}", data_type)
+    }
+}
+
 /// Creates a record batch from binary data using the `ipc::RecordBatch` indexes and the `Schema`
 pub(crate) fn read_record_batch(
     buf: &Vec<u8>,
     batch: ipc::RecordBatch,
     schema: Arc<Schema>,
+    dictionaries: &Vec<Option<ArrayRef>>,
 ) -> Result<Option<RecordBatch>> {
     let buffers = batch.buffers().ok_or(ArrowError::IoError(
         "Unable to get buffers from IPC RecordBatch".to_string(),
@@ -371,6 +421,7 @@ pub(crate) fn read_record_batch(
             field.data_type(),
             &buf,
             buffers,
+            dictionaries,
             node_index,
             buffer_index,
         );
@@ -382,20 +433,43 @@ pub(crate) fn read_record_batch(
     RecordBatch::try_new(schema.clone(), arrays).map(|batch| Some(batch))
 }
 
+// Linear search for the first dictionary field with a dictionary id.
+fn find_dictionary_field(ipc_schema: &ipc::Schema, id: i64) -> Option<usize> {
+    let fields = ipc_schema.fields().unwrap();
+    for i in 0..fields.len() {
+        let field: ipc::Field = fields.get(i);
+        if let Some(dictionary) = field.dictionary() {
+            if dictionary.id() == id {
+                return Some(i);
+            }
+        }
+    }
+    None
+}
+
 /// Arrow File reader
 pub struct FileReader<R: Read + Seek> {
     /// Buffered file reader that supports reading and seeking
     reader: BufReader<R>,
+
     /// The schema that is read from the file header
     schema: Arc<Schema>,
+
     /// The blocks in the file
     ///
     /// A block indicates the regions in the file to read to get data
     blocks: Vec<ipc::Block>,
+
     /// A counter to keep track of the current block that should be read
     current_block: usize,
+
     /// The total number of blocks, which may contain record batches and other types
     total_blocks: usize,
+
+    /// Optional dictionaries for each schema field.
+    ///
+    /// Dictionaries may be appended to in the streaming format.
+    dictionaries_by_field: Vec<Option<ArrayRef>>,
 }
 
 impl<R: Read + Seek> FileReader<R> {
@@ -420,24 +494,6 @@ impl<R: Read + Seek> FileReader<R> {
                 "Arrow file does not contain correct footer".to_string(),
             ));
         }
-        reader.seek(SeekFrom::Start(8))?;
-        // determine metadata length
-        let mut meta_size: [u8; 4] = [0; 4];
-        reader.read_exact(&mut meta_size)?;
-        let meta_len = u32::from_le_bytes(meta_size);
-
-        let mut meta_buffer = vec![0; meta_len as usize];
-        reader.seek(SeekFrom::Start(12))?;
-        reader.read_exact(&mut meta_buffer)?;
-
-        let vecs = &meta_buffer.to_vec();
-        let message = ipc::get_root_as_message(vecs);
-        // message header is a Schema, so read it
-        let ipc_schema: ipc::Schema =
-            message.header_as_schema().ok_or(ArrowError::IoError(
-                "Unable to Unable to read IPC message as schema".to_string(),
-            ))?;
-        let schema = ipc::convert::fb_to_schema(ipc_schema);
 
         // what does the footer contain?
         let mut footer_size: [u8; 4] = [0; 4];
@@ -457,12 +513,97 @@ impl<R: Read + Seek> FileReader<R> {
 
         let total_blocks = blocks.len();
 
+        let ipc_schema = footer.schema().unwrap();
+        let schema = ipc::convert::fb_to_schema(ipc_schema);
+
+        // Create an array of optional dictionary value arrays, one per field.
+        let mut dictionaries_by_field = vec![None; schema.fields().len()];
+        for block in footer.dictionaries().unwrap() {
+            // read length from end of offset
+            let meta_len = block.metaDataLength() - 4;
+
+            let mut block_data = vec![0; meta_len as usize];
+            reader.seek(SeekFrom::Start(block.offset() as u64 + 4))?;
+            reader.read_exact(&mut block_data)?;
+
+            let message = ipc::get_root_as_message(&block_data[..]);
+
+            match message.header_type() {
+                ipc::MessageHeader::DictionaryBatch => {
+                    let batch = message.header_as_dictionary_batch().unwrap();
+
+                    // read the block that makes up the dictionary batch into a buffer
+                    let mut buf = vec![0; block.bodyLength() as usize];
+                    reader.seek(SeekFrom::Start(
+                        block.offset() as u64 + block.metaDataLength() as u64,
+                    ))?;
+                    reader.read_exact(&mut buf)?;
+
+                    if batch.isDelta() {
+                        panic!("delta dictionary batches not supported");
+                    }
+
+                    let id = batch.id();
+
+                    // As the dictionary batch does not contain the type of the
+                    // values array, we need to retieve this from the schema.
+                    let first_field = find_dictionary_field(&ipc_schema, id)
+                        .expect("dictionary id not found in shchema");
+
+                    // Get an array representing this dictionary's values.
+                    let dictionary_values: ArrayRef =
+                        match schema.field(first_field).data_type() {
+                            DataType::Dictionary(_, ref value_type) => {
+                                // Make a fake schema for the dictionary batch.
+                                let schema = Schema {
+                                    fields: vec![Field::new(
+                                        "",
+                                        value_type.as_ref().clone(),
+                                        false,
+                                    )],
+                                    metadata: HashMap::new(),
+                                };
+                                // Read a single column
+                                let record_batch = read_record_batch(
+                                    &buf,
+                                    batch.data().unwrap(),
+                                    Arc::new(schema),
+                                    &dictionaries_by_field,
+                                )?
+                                .unwrap();
+                                Some(record_batch.column(0).clone())
+                            }
+                            _ => None,
+                        }
+                        .expect("dictionary id not found in schema");
+
+                    // for all fields with this dictionary id, update the dictionaries vector
+                    // in the reader. Note that a dictionary batch may be shared between many fields.
+                    // We don't currently record the isOrdered field. This could be general
+                    // attributes of arrays.
+                    let fields = ipc_schema.fields().unwrap();
+                    for i in 0..fields.len() {
+                        let field: ipc::Field = fields.get(i);
+                        if let Some(dictionary) = field.dictionary() {
+                            if dictionary.id() == id {
+                                // Add (possibly multiple) array refs to the dictionaries array.
+                                dictionaries_by_field[i] =
+                                    Some(dictionary_values.clone());
+                            }
+                        }
+                    }
+                }
+                _ => panic!("Expecting DictionaryBatch in dictionary blocks."),
+            };
+        }
+
         Ok(Self {
             reader,
             schema: Arc::new(schema),
             blocks: blocks.to_vec(),
             current_block: 0,
             total_blocks,
+            dictionaries_by_field,
         })
     }
 
@@ -511,7 +652,12 @@ impl<R: Read + Seek> FileReader<R> {
                     ))?;
                     self.reader.read_exact(&mut buf)?;
 
-                    read_record_batch(&buf, batch, self.schema())
+                    read_record_batch(
+                        &buf,
+                        batch,
+                        self.schema(),
+                        &self.dictionaries_by_field,
+                    )
                 }
                 _ => {
                     return Err(ArrowError::IoError(
@@ -561,6 +707,11 @@ pub struct StreamReader<R: Read> {
     ///
     /// This value is set to `true` the first time the reader's `next()` returns `None`.
     finished: bool,
+
+    /// Optional dictionaries for each schema field.
+    ///
+    /// Dictionaries may be appended to in the streaming format.
+    dictionaries_by_field: Vec<Option<ArrayRef>>,
 }
 
 impl<R: Read> StreamReader<R> {
@@ -587,10 +738,14 @@ impl<R: Read> StreamReader<R> {
         )?;
         let schema = ipc::convert::fb_to_schema(ipc_schema);
 
+        // Create an array of optional dictionary value arrays, one per field.
+        let dictionaries_by_field = vec![None; schema.fields().len()];
+
         Ok(Self {
             reader,
             schema: Arc::new(schema),
             finished: false,
+            dictionaries_by_field,
         })
     }
 
@@ -636,7 +791,7 @@ impl<R: Read> StreamReader<R> {
                 let mut buf = vec![0; message.bodyLength() as usize];
                 self.reader.read_exact(&mut buf)?;
 
-                read_record_batch(&buf, batch, self.schema())
+                read_record_batch(&buf, batch, self.schema(), &self.dictionaries_by_field)
             }
             _ => {
                 return Err(ArrowError::IoError(
@@ -680,6 +835,7 @@ mod tests {
         let paths = vec![
             "generated_interval",
             "generated_datetime",
+            "generated_dictionary",
             "generated_nested",
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
@@ -707,6 +863,7 @@ mod tests {
         let paths = vec![
             "generated_interval",
             "generated_datetime",
+            // "generated_dictionary",
             "generated_nested",
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",

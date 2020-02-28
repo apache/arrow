@@ -119,11 +119,21 @@ pub(crate) fn schema_to_fb_offset<'a: 'b, 'b>(
 /// Convert an IPC Field to Arrow Field
 impl<'a> From<ipc::Field<'a>> for Field {
     fn from(field: ipc::Field) -> Field {
-        Field::new(
-            field.name().unwrap(),
-            get_data_type(field),
-            field.nullable(),
-        )
+        if let Some(dictionary) = field.dictionary() {
+            Field::new_dict(
+                field.name().unwrap(),
+                get_data_type(field, true),
+                field.nullable(),
+                dictionary.id(),
+                dictionary.isOrdered(),
+            )
+        } else {
+            Field::new(
+                field.name().unwrap(),
+                get_data_type(field, true),
+                field.nullable(),
+            )
+        }
     }
 }
 
@@ -159,7 +169,28 @@ pub(crate) fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
 }
 
 /// Get the Arrow data type from the flatbuffer Field table
-pub(crate) fn get_data_type(field: ipc::Field) -> DataType {
+pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataType {
+    if let Some(dictionary) = field.dictionary() {
+        if may_be_dictionary {
+            let int = dictionary.indexType().unwrap();
+            let index_type = match (int.bitWidth(), int.is_signed()) {
+                (8, true) => DataType::Int8,
+                (8, false) => DataType::UInt8,
+                (16, true) => DataType::Int16,
+                (16, false) => DataType::UInt16,
+                (32, true) => DataType::Int32,
+                (32, false) => DataType::UInt32,
+                (64, true) => DataType::Int64,
+                (64, false) => DataType::UInt64,
+                _ => panic!("Unexpected bitwidth and signed"),
+            };
+            return DataType::Dictionary(
+                Box::new(index_type),
+                Box::new(get_data_type(field, false)),
+            );
+        }
+    }
+
     match field.type_type() {
         ipc::Type::Bool => DataType::Boolean,
         ipc::Type::Int => {
@@ -256,7 +287,7 @@ pub(crate) fn get_data_type(field: ipc::Field) -> DataType {
             }
             let child_field = children.get(0);
             // returning int16 for now, to test, not sure how to get data type
-            DataType::List(Box::new(get_data_type(child_field)))
+            DataType::List(Box::new(get_data_type(child_field, false)))
         }
         ipc::Type::FixedSizeList => {
             let children = field.children().unwrap();
@@ -265,7 +296,10 @@ pub(crate) fn get_data_type(field: ipc::Field) -> DataType {
             }
             let child_field = children.get(0);
             let fsl = field.type_as_fixed_size_list().unwrap();
-            DataType::FixedSizeList(Box::new(get_data_type(child_field)), fsl.listSize())
+            DataType::FixedSizeList(
+                Box::new(get_data_type(child_field, false)),
+                fsl.listSize(),
+            )
         }
         ipc::Type::Struct_ => {
             let mut fields = vec![];
@@ -545,6 +579,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
                 Some(children),
             )
         }
+        t @ _ => unimplemented!("Type {:?} not supported", t),
     }
 }
 

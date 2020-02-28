@@ -19,6 +19,7 @@
 //! internal buffer in an `ArrayData` object.
 
 use std::any::Any;
+use std::collections::HashMap;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
@@ -325,6 +326,27 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         }
         let data = builder.build();
         PrimitiveArray::<T>::from(data)
+    }
+
+    /// Builds the `DictionaryArray` and reset this builder.
+    pub fn finish_dict(&mut self, values: ArrayRef) -> DictionaryArray<T> {
+        let len = self.len();
+        let null_bit_buffer = self.bitmap_builder.finish();
+        let null_count = len - bit_util::count_set_bits(null_bit_buffer.data());
+        let data_type = DataType::Dictionary(
+            Box::new(T::get_data_type()),
+            Box::new(values.data_type().clone()),
+        );
+        let mut builder = ArrayData::builder(data_type)
+            .len(len)
+            .add_buffer(self.values_builder.finish());
+        if null_count > 0 {
+            builder = builder
+                .null_count(null_count)
+                .null_bit_buffer(null_bit_buffer);
+        }
+        builder = builder.add_child_data(values.data());
+        DictionaryArray::<T>::from(builder.build())
     }
 }
 
@@ -970,6 +992,195 @@ impl Drop for StructBuilder {
         // To avoid double drop on the field array builders.
         let builders = std::mem::replace(&mut self.field_builders, Vec::new());
         std::mem::forget(builders);
+    }
+}
+
+/// Array builder for `DictionaryArray`. For example to map a set of byte indices
+/// to f32 values. Note that the use of a `HashMap` here will not scale to very large
+/// arrays or result in an ordered dictionary.
+pub struct PrimitiveDictionaryBuilder<K, V>
+where
+    K: ArrowPrimitiveType,
+    V: ArrowPrimitiveType,
+{
+    keys_builder: PrimitiveBuilder<K>,
+    values_builder: PrimitiveBuilder<V>,
+    map: HashMap<Box<[u8]>, K::Native>,
+}
+
+impl<K, V> PrimitiveDictionaryBuilder<K, V>
+where
+    K: ArrowPrimitiveType,
+    V: ArrowPrimitiveType,
+{
+    /// Creates a new `PrimitiveDictionaryBuilder` from a keys builder and a value builder.
+    pub fn new(
+        keys_builder: PrimitiveBuilder<K>,
+        values_builder: PrimitiveBuilder<V>,
+    ) -> Self {
+        Self {
+            keys_builder: keys_builder,
+            values_builder: values_builder,
+            map: HashMap::new(),
+        }
+    }
+}
+
+impl<K, V> ArrayBuilder for PrimitiveDictionaryBuilder<K, V>
+where
+    K: ArrowPrimitiveType,
+    V: ArrowPrimitiveType,
+{
+    /// Returns the builder as an non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as an mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.keys_builder.len()
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
+impl<K, V> PrimitiveDictionaryBuilder<K, V>
+where
+    K: ArrowPrimitiveType,
+    V: ArrowPrimitiveType,
+{
+    /// Append a primitive value to the array. Return an existing index
+    /// if already present in the values array or a new index if the
+    /// value is appended to the values array.
+    pub fn append(&mut self, value: V::Native) -> Result<K::Native> {
+        if let Some(&key) = self.map.get(value.to_byte_slice()) {
+            // Append existing value.
+            self.keys_builder.append_value(key)?;
+            Ok(key)
+        } else {
+            // Append new value.
+            let key = K::Native::from_usize(self.values_builder.len())
+                .ok_or(ArrowError::DictionaryKeyOverflowError)?;
+            self.values_builder.append_value(value)?;
+            self.keys_builder.append_value(key as K::Native)?;
+            self.map.insert(value.to_byte_slice().into(), key);
+            Ok(key)
+        }
+    }
+
+    pub fn append_null(&mut self) -> Result<()> {
+        self.keys_builder.append_null()
+    }
+
+    /// Builds the `DictionaryArray` and reset this builder.
+    pub fn finish(&mut self) -> DictionaryArray<K> {
+        self.map.clear();
+        let value_ref: ArrayRef = Arc::new(self.values_builder.finish());
+        self.keys_builder.finish_dict(value_ref)
+    }
+}
+
+/// Array builder for `DictionaryArray`. For example to map a set of byte indices
+/// to f32 values. Note that the use of a `HashMap` here will not scale to very large
+/// arrays or result in an ordered dictionary.
+pub struct StringDictionaryBuilder<K>
+where
+    K: ArrowDictionaryKeyType,
+{
+    keys_builder: PrimitiveBuilder<K>,
+    values_builder: StringBuilder,
+    map: HashMap<Box<[u8]>, K::Native>,
+}
+
+impl<K> StringDictionaryBuilder<K>
+where
+    K: ArrowDictionaryKeyType,
+{
+    /// Creates a new `StringDictionaryBuilder` from a keys builder and a value builder.
+    pub fn new(keys_builder: PrimitiveBuilder<K>, values_builder: StringBuilder) -> Self {
+        Self {
+            keys_builder,
+            values_builder,
+            map: HashMap::new(),
+        }
+    }
+}
+
+impl<K> ArrayBuilder for StringDictionaryBuilder<K>
+where
+    K: ArrowDictionaryKeyType,
+{
+    /// Returns the builder as an non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as an mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.keys_builder.len()
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
+impl<K> StringDictionaryBuilder<K>
+where
+    K: ArrowDictionaryKeyType,
+{
+    /// Append a primitive value to the array. Return an existing index
+    /// if already present in the values array or a new index if the
+    /// value is appended to the values array.
+    pub fn append(&mut self, value: &str) -> Result<K::Native> {
+        if let Some(&key) = self.map.get(value.as_bytes()) {
+            // Append existing value.
+            self.keys_builder.append_value(key)?;
+            Ok(key)
+        } else {
+            // Append new value.
+            let key = K::Native::from_usize(self.values_builder.len())
+                .ok_or(ArrowError::DictionaryKeyOverflowError)?;
+            self.values_builder.append_value(value)?;
+            self.keys_builder.append_value(key as K::Native)?;
+            self.map.insert(value.as_bytes().into(), key);
+            Ok(key)
+        }
+    }
+
+    pub fn append_null(&mut self) -> Result<()> {
+        self.keys_builder.append_null()
+    }
+
+    /// Builds the `DictionaryArray` and reset this builder.
+    pub fn finish(&mut self) -> DictionaryArray<K> {
+        self.map.clear();
+        let value_ref: ArrayRef = Arc::new(self.values_builder.finish());
+        self.keys_builder.finish_dict(value_ref)
     }
 }
 
@@ -1807,5 +2018,71 @@ mod tests {
 
         let mut builder = StructBuilder::new(fields, field_builders);
         assert!(builder.field_builder::<BinaryBuilder>(0).is_none());
+    }
+
+    #[test]
+    fn test_primitive_dictionary_builder() {
+        let key_builder = PrimitiveBuilder::<UInt8Type>::new(3);
+        let value_builder = PrimitiveBuilder::<UInt32Type>::new(2);
+        let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
+        builder.append(12345678).unwrap();
+        builder.append_null().unwrap();
+        builder.append(22345678).unwrap();
+        let array = builder.finish();
+
+        // Keys are strongly typed.
+        let aks: Vec<_> = array.keys().collect();
+
+        // Values are polymorphic and so require a downcast.
+        let av = array.values();
+        let ava: &UInt32Array = av.as_any().downcast_ref::<UInt32Array>().unwrap();
+        let avs: &[u32] = ava.value_slice(0, array.values().len());
+
+        assert_eq!(array.is_null(0), false);
+        assert_eq!(array.is_null(1), true);
+        assert_eq!(array.is_null(2), false);
+
+        assert_eq!(aks, vec![Some(0), None, Some(1)]);
+        assert_eq!(avs, &[12345678, 22345678]);
+    }
+
+    #[test]
+    fn test_string_dictionary_builder() {
+        let key_builder = PrimitiveBuilder::<Int8Type>::new(5);
+        let value_builder = StringBuilder::new(2);
+        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
+        builder.append("abc").unwrap();
+        builder.append_null().unwrap();
+        builder.append("def").unwrap();
+        builder.append("def").unwrap();
+        builder.append("abc").unwrap();
+        let array = builder.finish();
+
+        // Keys are strongly typed.
+        let aks: Vec<_> = array.keys().collect();
+
+        // Values are polymorphic and so require a downcast.
+        let av = array.values();
+        let ava: &StringArray = av.as_any().downcast_ref::<StringArray>().unwrap();
+
+        assert_eq!(aks, vec![Some(0), None, Some(1), Some(1), Some(0)]);
+        assert_eq!(ava.value(0), "abc");
+        assert_eq!(ava.value(1), "def");
+    }
+
+    #[test]
+    fn test_primitive_dictionary_overflow() {
+        let key_builder = PrimitiveBuilder::<UInt8Type>::new(257);
+        let value_builder = PrimitiveBuilder::<UInt32Type>::new(257);
+        let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
+        // 256 unique keys.
+        for i in 0..256 {
+            builder.append(i + 1000).unwrap();
+        }
+        // Special error if the key overflows (256th entry)
+        assert_eq!(
+            builder.append(1257),
+            Err(ArrowError::DictionaryKeyOverflowError)
+        );
     }
 }
