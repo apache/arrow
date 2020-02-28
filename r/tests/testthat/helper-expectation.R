@@ -35,3 +35,8 @@ expect_equivalent <- function(object, expected, ...) {
   }
   testthat::expect_equivalent(object, expected, ...)
 }
+
+# expect_equal but for DataTypes, so the error prints better
+expect_type_equal <- function(object, expected, ...) {
+  expect_equal(object, expected, ..., label = object$ToString(), expected.label = expected$ToString())
+}

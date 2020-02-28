@@ -19,7 +19,7 @@ context("Array")
 
 expect_array_roundtrip <- function(x, type) {
   a <- Array$create(x)
-  expect_equal(a$type, type)
+  expect_type_equal(a$type, type)
   expect_identical(length(a), length(x))
   if (!inherits(type, "ListType")) {
     # TODO: revisit how missingness works with ListArrays
@@ -32,7 +32,7 @@ expect_array_roundtrip <- function(x, type) {
   if (length(x)) {
     a_sliced <- a$Slice(1)
     x_sliced <- x[-1]
-    expect_equal(a_sliced$type, type)
+    expect_type_equal(a_sliced$type, type)
     expect_identical(length(a_sliced), length(x_sliced))
     if (!inherits(type, "ListType")) {
       expect_identical(is.na(a_sliced), is.na(x_sliced))
