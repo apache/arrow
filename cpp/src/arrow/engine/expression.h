@@ -23,6 +23,7 @@
 
 #include "arrow/engine/catalog.h"
 #include "arrow/engine/type_fwd.h"
+#include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
@@ -66,9 +67,11 @@ class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
   Shape shape() const { return shape_; }
 
   /// \brief DataType of the expression if a scalar or an array.
-  std::shared_ptr<DataType> data_type() const;
+  /// WARNING: You must ensure the proper shape before calling this accessor.
+  const std::shared_ptr<DataType>& data_type() const { return data_type_; }
   /// \brief Schema of the expression if of table shape.
-  std::shared_ptr<Schema> schema() const;
+  /// WARNING: You must ensure the proper shape before calling this accessor.
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   /// \brief Indicate if the type is a Scalar.
   bool IsScalar() const { return shape_ == SCALAR; }
@@ -78,17 +81,45 @@ class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
   bool IsTable() const { return shape_ == TABLE; }
 
   template <Type::type TYPE_ID>
-  bool HasType() const {
-    return (shape_ == SCALAR || shape_ == ARRAY) &&
-           util::get<std::shared_ptr<DataType>>(type_)->id() == TYPE_ID;
+  bool IsTypedLike() const {
+    return (IsScalar() || IsArray()) && data_type_->id() == TYPE_ID;
   }
 
   /// \brief Indicate if the type is a predicate, i.e. a boolean scalar.
-  bool IsPredicate() const { return IsScalar() && HasType<Type::BOOL>(); }
+  bool IsPredicate() const { return IsTypedLike<Type::BOOL>(); }
+
+  /// \brief Cast to DataType/Schema if the shape allows it.
+  Result<ExprType> CastTo(const std::shared_ptr<DataType>& data_type) const;
+  Result<ExprType> CastTo(const std::shared_ptr<Schema>& schema) const;
+
+  /// \brief Broadcasting align two types to the largest shape.
+  ///
+  /// \param[in] lhs, first type to broadcast
+  /// \param[in] rhs, second type to broadcast
+  /// \return broadcasted type or an error why it can't be broadcasted.
+  ///
+  /// Broadcasting promotes the shape of the smallest type to the bigger one if
+  /// they share the same DataType. In functional pattern matching it would look
+  /// like:
+  ///
+  /// ```
+  /// Broadcast(rhs, lhs) = match(lhs, rhs) {
+  ///   case: ScalarType(t1), ScalarType(t2) if t1 == t2 => ScalarType(t)
+  ///   case: ScalarType(t1), ArrayType(t2)  if t1 == t2 => ArrayType(t)
+  ///   case: ArrayType(t1),  ScalarType(t2) if t1 == t2 => ArrayType(t)
+  ///   case: ArrayType(t1),  ArrayType(t2)  if t1 == t2 => ArrayType(t)
+  ///   case: _ => Error("Types not compatible for broadcasting")
+  /// }
+  /// ```
+  static Result<ExprType> Broadcast(const ExprType& lhs, const ExprType& rhs);
 
   bool Equals(const ExprType& type) const;
 
   std::string ToString() const;
+
+  ExprType(const ExprType& copy);
+  ExprType(ExprType&& copy);
+  ~ExprType();
 
  private:
   /// Table constructor
@@ -96,7 +127,11 @@ class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
   /// Scalar or Array constructor
   ExprType(std::shared_ptr<DataType> type, Shape shape);
 
-  util::variant<std::shared_ptr<DataType>, std::shared_ptr<Schema>> type_;
+  union {
+    // Zero initialize the pointer or Copy/Assign constructors will fail.
+    std::shared_ptr<DataType> data_type_{};
+    std::shared_ptr<Schema> schema_;
+  };
   Shape shape_;
 };
 
@@ -104,7 +139,7 @@ class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
 class ARROW_EXPORT Expr : public util::EqualityComparable<Expr> {
  public:
   // Tag identifier for the expression type.
-  enum Kind {
+  enum Kind : uint8_t {
     // A Scalar literal, i.e. a constant.
     SCALAR_LITERAL,
     // A Field reference in a schema.
@@ -137,7 +172,7 @@ class ARROW_EXPORT Expr : public util::EqualityComparable<Expr> {
   std::string kind_name() const;
 
   /// \brief Return the type and shape of the resulting expression.
-  virtual ExprType type() const = 0;
+  const ExprType& type() const { return type_; }
 
   /// \brief Indicate if the expressions
   bool Equals(const Expr& other) const;
@@ -149,8 +184,9 @@ class ARROW_EXPORT Expr : public util::EqualityComparable<Expr> {
   virtual ~Expr() = default;
 
  protected:
-  explicit Expr(Kind kind) : kind_(kind) {}
+  explicit Expr(Kind kind, ExprType type) : type_(std::move(type)), kind_(kind) {}
 
+  ExprType type_;
   Kind kind_;
 };
 
@@ -226,8 +262,6 @@ class ARROW_EXPORT ScalarExpr : public Expr {
 
   const std::shared_ptr<Scalar>& scalar() const { return scalar_; }
 
-  ExprType type() const override;
-
  private:
   explicit ScalarExpr(std::shared_ptr<Scalar> scalar);
 
@@ -240,8 +274,6 @@ class ARROW_EXPORT FieldRefExpr : public Expr {
   static Result<std::shared_ptr<FieldRefExpr>> Make(std::shared_ptr<Field> field);
 
   const std::shared_ptr<Field>& field() const { return field_; }
-
-  ExprType type() const override;
 
  private:
   explicit FieldRefExpr(std::shared_ptr<Field> field);
@@ -280,24 +312,29 @@ class ARROW_EXPORT BinaryOpExpr {
 // Comparison expressions
 //
 
-Status ValidateCompareOpInputs(const std::shared_ptr<Expr>& left,
-                               const std::shared_ptr<Expr>& right);
-
 template <typename Self>
 class ARROW_EXPORT CmpOpExpr : public BinaryOpExpr, public Expr {
  public:
-  ExprType type() const override { return ExprType::Scalar(boolean()); };
-
   static Result<std::shared_ptr<Self>> Make(std::shared_ptr<Expr> left,
                                             std::shared_ptr<Expr> right) {
-    ARROW_RETURN_NOT_OK(ValidateCompareOpInputs(left, right));
-    return std::shared_ptr<Self>(new Self(std::move(left), std::move(right)));
+    if (left == NULLPTR || right == NULLPTR) {
+      return Status::Invalid("Compare operands must be non-nulls");
+    }
+
+    // Broadcast ensures that types are compatible in shape and type.
+    auto broadcast = ExprType::Broadcast(left->type(), right->type());
+    // The type of comparison is always a boolean predicate.
+    auto cast = [](const ExprType& t) { return t.CastTo(boolean()); };
+    ARROW_ASSIGN_OR_RAISE(auto type, broadcast.Map(cast));
+
+    return std::shared_ptr<Self>(
+        new Self(std::move(type), std::move(left), std::move(right)));
   }
 
  protected:
-  CmpOpExpr(std::shared_ptr<Expr> left, std::shared_ptr<Expr> right)
+  CmpOpExpr(ExprType type, std::shared_ptr<Expr> left, std::shared_ptr<Expr> right)
       : BinaryOpExpr(std::move(left), std::move(right)),
-        Expr(expr_traits<Self>::kind_id) {}
+        Expr(expr_traits<Self>::kind_id, std::move(type)) {}
 };
 
 class ARROW_EXPORT EqualCmpExpr : public CmpOpExpr<EqualCmpExpr> {
@@ -337,13 +374,12 @@ class ARROW_EXPORT LessEqualThanCmpExpr : public CmpOpExpr<LessEqualThanCmpExpr>
 template <typename Self>
 class ARROW_EXPORT RelExpr : public Expr {
  public:
-  ExprType type() const override { return ExprType::Table(schema_); }
-
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
  protected:
   explicit RelExpr(std::shared_ptr<Schema> schema)
-      : Expr(expr_traits<Self>::kind_id), schema_(std::move(schema)) {}
+      : Expr(expr_traits<Self>::kind_id, ExprType::Table(schema)),
+        schema_(std::move(schema)) {}
 
   std::shared_ptr<Schema> schema_;
 };

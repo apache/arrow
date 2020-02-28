@@ -37,7 +37,6 @@ TEST_F(ExprTypeTest, Basic) {
   auto scalar = ExprType::Scalar(i32);
   EXPECT_EQ(scalar.shape(), ExprType::Shape::SCALAR);
   EXPECT_TRUE(scalar.data_type()->Equals(i32));
-  EXPECT_EQ(scalar.schema(), nullptr);
   EXPECT_TRUE(scalar.IsScalar());
   EXPECT_FALSE(scalar.IsArray());
   EXPECT_FALSE(scalar.IsTable());
@@ -45,14 +44,12 @@ TEST_F(ExprTypeTest, Basic) {
   auto array = ExprType::Array(i32);
   EXPECT_EQ(array.shape(), ExprType::Shape::ARRAY);
   EXPECT_TRUE(array.data_type()->Equals(i32));
-  EXPECT_EQ(array.schema(), nullptr);
   EXPECT_FALSE(array.IsScalar());
   EXPECT_TRUE(array.IsArray());
   EXPECT_FALSE(array.IsTable());
 
   auto table = ExprType::Table(s);
   EXPECT_EQ(table.shape(), ExprType::Shape::TABLE);
-  EXPECT_EQ(table.data_type(), nullptr);
   EXPECT_TRUE(table.schema()->Equals(s));
   EXPECT_FALSE(table.IsScalar());
   EXPECT_FALSE(table.IsArray());
@@ -64,13 +61,50 @@ TEST_F(ExprTypeTest, IsPredicate) {
   EXPECT_TRUE(bool_scalar.IsPredicate());
 
   auto bool_array = ExprType::Array(boolean());
-  EXPECT_FALSE(bool_array.IsPredicate());
+  EXPECT_TRUE(bool_array.IsPredicate());
 
   auto bool_table = ExprType::Table(schema({field("b", boolean())}));
   EXPECT_FALSE(bool_table.IsPredicate());
 
   auto i32_scalar = ExprType::Scalar(int32());
   EXPECT_FALSE(i32_scalar.IsPredicate());
+}
+
+TEST_F(ExprTypeTest, Broadcast) {
+  auto bool_scalar = ExprType::Scalar(boolean());
+  auto bool_array = ExprType::Array(boolean());
+  auto bool_table = ExprType::Table(schema({field("b", boolean())}));
+  auto i32_scalar = ExprType::Scalar(int32());
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("operands must be of same type"),
+                                  ExprType::Broadcast(bool_scalar, i32_scalar));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("operands must not be tables"),
+                                  ExprType::Broadcast(bool_scalar, bool_table));
+
+  EXPECT_THAT(ExprType::Broadcast(bool_scalar, bool_scalar), OkAndEq(bool_scalar));
+  EXPECT_THAT(ExprType::Broadcast(bool_scalar, bool_array), OkAndEq(bool_array));
+  EXPECT_THAT(ExprType::Broadcast(bool_array, bool_scalar), OkAndEq(bool_array));
+  EXPECT_THAT(ExprType::Broadcast(bool_array, bool_array), OkAndEq(bool_array));
+}
+
+TEST_F(ExprTypeTest, CastTo) {
+  auto bool_scalar = ExprType::Scalar(boolean());
+  auto bool_array = ExprType::Array(boolean());
+  auto bool_table = ExprType::Table(schema({field("b", boolean())}));
+
+  auto i32 = int32();
+  auto other = schema({field("a", i32)});
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("Cannot cast a ScalarType with"),
+                                  bool_scalar.CastTo(other));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("Cannot cast an ArrayType with"),
+                                  bool_array.CastTo(other));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("Cannot cast a TableType with"),
+                                  bool_table.CastTo(i32));
+
+  EXPECT_EQ(bool_scalar.CastTo(i32), ExprType::Scalar(i32));
+  EXPECT_EQ(bool_array.CastTo(i32), ExprType::Array(i32));
+  EXPECT_EQ(bool_table.CastTo(other), ExprType::Table(other));
 }
 
 class ExprTest : public testing::Test {};
@@ -94,8 +128,8 @@ TEST_F(ExprTest, FieldRefExpr) {
 
   ASSERT_OK_AND_ASSIGN(auto expr, FieldRefExpr::Make(f_i32));
   EXPECT_EQ(expr->kind(), Expr::FIELD_REFERENCE);
-  EXPECT_EQ(expr->type(), ExprType::Scalar(i32));
-  EXPECT_THAT(expr->field(), IsPtrEqual(f_i32));
+  EXPECT_EQ(expr->type(), ExprType::Array(i32));
+  EXPECT_THAT(expr->field(), PtrEquals(f_i32));
 }
 
 template <typename CmpClass>
@@ -134,18 +168,19 @@ TYPED_TEST(CmpExprTest, BasicCompareExpr) {
 
   ASSERT_OK_AND_ASSIGN(auto expr, this->Make(f_expr, s_expr));
   EXPECT_EQ(expr->kind(), this->kind());
-  EXPECT_EQ(expr->type(), ExprType::Scalar(boolean()));
+  // Ensure type is broadcasted
+  EXPECT_EQ(expr->type(), ExprType::Array(boolean()));
   EXPECT_TRUE(expr->type().IsPredicate());
-  EXPECT_THAT(expr, IsPtrEqual(expr));
-  EXPECT_THAT(expr->left_operand(), IsPtrEqual(f_expr));
-  EXPECT_THAT(expr->right_operand(), IsPtrEqual(s_expr));
+  EXPECT_THAT(expr, PtrEquals(expr));
+  EXPECT_THAT(expr->left_operand(), PtrEquals(f_expr));
+  EXPECT_THAT(expr->right_operand(), PtrEquals(s_expr));
 
   ASSERT_OK_AND_ASSIGN(auto other, this->Make(f_expr, s_expr));
-  EXPECT_THAT(expr, IsPtrEqual(other));
+  EXPECT_THAT(expr, PtrEquals(other));
   // Compare operators supports commutativity
   // TODO(fsaintjacques): what about floating point types?
   ASSERT_OK_AND_ASSIGN(auto swapped, this->Make(s_expr, f_expr));
-  EXPECT_THAT(expr, IsPtrEqual(swapped));
+  EXPECT_THAT(expr, PtrEquals(swapped));
 }
 
 class RelExprTest : public ExprTest {
@@ -167,23 +202,23 @@ TEST_F(RelExprTest, EmptyRelExpr) {
 
   ASSERT_OK_AND_ASSIGN(auto empty, EmptyRelExpr::Make(schema_1));
   EXPECT_THAT(empty->type(), ExprType::Table(schema_1));
-  EXPECT_THAT(empty->schema(), IsPtrEqual(schema_1));
-  EXPECT_THAT(empty, IsPtrEqual(empty));
+  EXPECT_THAT(empty->schema(), PtrEquals(schema_1));
+  EXPECT_THAT(empty, PtrEquals(empty));
 
   ASSERT_OK_AND_ASSIGN(auto other, EmptyRelExpr::Make(schema_1));
-  EXPECT_THAT(other, IsPtrEqual(empty));
+  EXPECT_THAT(other, PtrEquals(empty));
 }
 
 TEST_F(RelExprTest, ScanRelExpr) {
   ASSERT_OK_AND_ASSIGN(auto table, catalog->Get(table_1));
 
   ASSERT_OK_AND_ASSIGN(auto scan, ScanRelExpr::Make(table));
-  EXPECT_THAT(scan, IsPtrEqual(scan));
+  EXPECT_THAT(scan, PtrEquals(scan));
   EXPECT_THAT(scan->type(), ExprType::Table(schema_1));
-  EXPECT_THAT(scan->schema(), IsPtrEqual(schema_1));
+  EXPECT_THAT(scan->schema(), PtrEquals(schema_1));
 
   ASSERT_OK_AND_ASSIGN(auto other, ScanRelExpr::Make(table));
-  EXPECT_THAT(other, IsPtrEqual(scan));
+  EXPECT_THAT(other, PtrEquals(scan));
 }
 
 TEST_F(RelExprTest, FilterRelExpr) {
@@ -200,11 +235,11 @@ TEST_F(RelExprTest, FilterRelExpr) {
                                   FilterRelExpr::Make(empty, empty));
 
   ASSERT_OK_AND_ASSIGN(auto filter, FilterRelExpr::Make(empty, pred));
-  EXPECT_THAT(filter, IsPtrEqual(filter));
+  EXPECT_THAT(filter, PtrEquals(filter));
   EXPECT_THAT(filter->type(), ExprType::Table(schema_1));
-  EXPECT_THAT(filter->schema(), IsPtrEqual(schema_1));
-  EXPECT_THAT(filter->operand(), IsPtrEqual(empty));
-  EXPECT_THAT(filter->predicate(), IsPtrEqual(pred));
+  EXPECT_THAT(filter->schema(), PtrEquals(schema_1));
+  EXPECT_THAT(filter->operand(), PtrEquals(empty));
+  EXPECT_THAT(filter->predicate(), PtrEquals(pred));
 }
 
 }  // namespace engine

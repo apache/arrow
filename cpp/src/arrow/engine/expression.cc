@@ -41,29 +41,46 @@ ExprType ExprType::Table(std::shared_ptr<Schema> schema) {
 }
 
 ExprType::ExprType(std::shared_ptr<Schema> schema, Shape shape)
-    : type_(std::move(schema)), shape_(shape) {
+    : schema_(std::move(schema)), shape_(shape) {
   DCHECK_EQ(shape, Shape::TABLE);
 }
 
 ExprType::ExprType(std::shared_ptr<DataType> type, Shape shape)
-    : type_(std::move(type)), shape_(shape) {
+    : data_type_(std::move(type)), shape_(shape) {
   DCHECK_NE(shape, Shape::TABLE);
 }
 
-std::shared_ptr<Schema> ExprType::schema() const {
-  if (shape_ == TABLE) {
-    return util::get<std::shared_ptr<Schema>>(type_);
+ExprType::ExprType(const ExprType& other) : shape_(other.shape()) {
+  switch (other.shape()) {
+    case SCALAR:
+    case ARRAY:
+      data_type_ = other.data_type();
+      break;
+    case TABLE:
+      schema_ = other.schema();
   }
-
-  return nullptr;
 }
 
-std::shared_ptr<DataType> ExprType::data_type() const {
-  if (shape_ != TABLE) {
-    return util::get<std::shared_ptr<DataType>>(type_);
+ExprType::ExprType(ExprType&& other) : shape_(other.shape()) {
+  switch (other.shape()) {
+    case SCALAR:
+    case ARRAY:
+      data_type_ = std::move(other.data_type());
+      break;
+    case TABLE:
+      schema_ = std::move(other.schema());
   }
+}
 
-  return nullptr;
+ExprType::~ExprType() {
+  switch (shape()) {
+    case SCALAR:
+    case ARRAY:
+      data_type_.reset();
+      break;
+    case TABLE:
+      schema_.reset();
+  }
 }
 
 bool ExprType::Equals(const ExprType& type) const {
@@ -87,6 +104,51 @@ bool ExprType::Equals(const ExprType& type) const {
   }
 
   return false;
+}
+
+Result<ExprType> ExprType::CastTo(const std::shared_ptr<DataType>& data_type) const {
+  switch (shape()) {
+    case SCALAR:
+      return ExprType::Scalar(data_type);
+    case ARRAY:
+      return ExprType::Array(data_type);
+    case TABLE:
+      return Status::Invalid("Cannot cast a TableType with a DataType");
+  }
+
+  return Status::UnknownError("unreachable");
+}
+Result<ExprType> ExprType::CastTo(const std::shared_ptr<Schema>& schema) const {
+  switch (shape()) {
+    case SCALAR:
+      return Status::Invalid("Cannot cast a ScalarType with a schema");
+    case ARRAY:
+      return Status::Invalid("Cannot cast an ArrayType with a schema");
+    case TABLE:
+      return ExprType::Table(schema);
+  }
+
+  return Status::UnknownError("unreachable");
+}
+
+Result<ExprType> ExprType::Broadcast(const ExprType& lhs, const ExprType& rhs) {
+  if (lhs.IsTable() || rhs.IsTable()) {
+    return Status::Invalid("Broadcast operands must not be tables");
+  }
+
+  if (!lhs.data_type()->Equals(rhs.data_type())) {
+    return Status::Invalid("Broadcast operands must be of same type");
+  }
+
+  if (lhs.IsArray()) {
+    return lhs;
+  }
+
+  if (rhs.IsArray()) {
+    return rhs;
+  }
+
+  return lhs;
 }
 
 #define ERROR_IF(cond, ...)                \
@@ -183,50 +245,30 @@ bool Expr::Equals(const Expr& other) const {
   return ExprEqualityVisitor::Visit(*this, other);
 }
 
+std::string Expr::ToString() const { return ""; }
+
 //
 // ScalarExpr
 //
 
 ScalarExpr::ScalarExpr(std::shared_ptr<Scalar> scalar)
-    : Expr(SCALAR_LITERAL), scalar_(std::move(scalar)) {}
+    : Expr(SCALAR_LITERAL, ExprType::Scalar(scalar->type)), scalar_(std::move(scalar)) {}
 
 Result<std::shared_ptr<ScalarExpr>> ScalarExpr::Make(std::shared_ptr<Scalar> scalar) {
   ERROR_IF(scalar == nullptr, "ScalarExpr's scalar must be non-null");
-
   return std::shared_ptr<ScalarExpr>(new ScalarExpr(std::move(scalar)));
 }
-
-ExprType ScalarExpr::type() const { return ExprType::Scalar(scalar_->type); }
 
 //
 // FieldRefExpr
 //
 
-FieldRefExpr::FieldRefExpr(std::shared_ptr<Field> field)
-    : Expr(FIELD_REFERENCE), field_(std::move(field)) {}
+FieldRefExpr::FieldRefExpr(std::shared_ptr<Field> f)
+    : Expr(FIELD_REFERENCE, ExprType::Array(f->type())), field_(std::move(f)) {}
 
 Result<std::shared_ptr<FieldRefExpr>> FieldRefExpr::Make(std::shared_ptr<Field> field) {
   ERROR_IF(field == nullptr, "FieldRefExpr's field must be non-null");
-
   return std::shared_ptr<FieldRefExpr>(new FieldRefExpr(std::move(field)));
-}
-
-ExprType FieldRefExpr::type() const { return ExprType::Scalar(field_->type()); }
-
-//
-// Comparisons
-//
-
-Status ValidateCompareOpInputs(const std::shared_ptr<Expr>& left,
-                               const std::shared_ptr<Expr>& right) {
-  ERROR_IF(left == nullptr, "EqualCmpExpr's left operand must be non-null");
-  ERROR_IF(right == nullptr, "EqualCmpExpr's right operand must be non-null");
-
-  // TODO(fsaintjacques): Add support for broadcast.
-  ERROR_IF(left->type() != right->type(),
-           "Compare operator operands must be of same type.");
-
-  return Status::OK();
 }
 
 //
@@ -260,9 +302,6 @@ Result<std::shared_ptr<FilterRelExpr>> FilterRelExpr::Make(
   ERROR_IF(predicate == nullptr, "FilterRelExpr's predicate must be non-null.");
   ERROR_IF(!predicate->type().IsPredicate(),
            "FilterRelExpr's predicate must be a predicate");
-
-  // TODO(fsaintjacques): check fields referenced in predicate are found in
-  // input.
 
   return std::shared_ptr<FilterRelExpr>(
       new FilterRelExpr(std::move(input), std::move(predicate)));

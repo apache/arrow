@@ -21,8 +21,11 @@
 
 namespace arrow {
 
-MATCHER_P(IsEqual, other, "") { return arg.Equals(other); }
+using testing::Eq;
+using testing::HasSubstr;
 
-MATCHER_P(IsPtrEqual, other, "") { return arg->Equals(*other); }
+MATCHER_P(Equals, other, "") { return arg.Equals(other); }
+MATCHER_P(PtrEquals, other, "") { return arg->Equals(*other); }
+MATCHER_P(OkAndEq, other, "") { return arg.ok() && arg.ValueOrDie() == other; }
 
 }  // namespace arrow
