@@ -18,9 +18,7 @@
 #pragma once
 
 #include <memory>
-#include <stack>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "arrow/type_fwd.h"
@@ -37,12 +35,14 @@ namespace engine {
 
 class Catalog;
 class Expr;
+class ExprType;
 
 class LogicalPlan : public util::EqualityComparable<LogicalPlan> {
  public:
   explicit LogicalPlan(std::shared_ptr<Expr> root);
 
   const std::shared_ptr<Expr>& root() const { return root_; }
+  const ExprType& type() const;
 
   bool Equals(const LogicalPlan& other) const;
   std::string ToString() const;
@@ -52,6 +52,7 @@ class LogicalPlan : public util::EqualityComparable<LogicalPlan> {
 };
 
 struct LogicalPlanBuilderOptions {
+  /// Catalog containing named tables.
   std::shared_ptr<Catalog> catalog;
 };
 
@@ -69,34 +70,61 @@ class LogicalPlanBuilder {
 
   /// \brief References a field by name.
   ResultExpr Field(const std::shared_ptr<Expr>& input, const std::string& field_name);
+  /// \brief References a field by index.
+  ResultExpr Field(const std::shared_ptr<Expr>& input, int field_index);
 
   /// \brief Scan a Table/Dataset from the Catalog.
   ResultExpr Scan(const std::string& table_name);
 
   /// @}
 
+  /// \defgroup comparator-nodes Comparison operators
+  /// @{
+
+  /*
+  TODO(fsaintjacques): This.
+  ResultExpr Equal(const std::shared_ptr<Expr>& lhs, const std::shared_ptr<Expr>& rhs);
+  ResultExpr NotEqual(const std::shared_ptr<Expr>& lhs, const std::shared_ptr<Expr>& rhs);
+  ResultExpr GreaterThan(const std::shared_ptr<Expr>& lhs,
+                         const std::shared_ptr<Expr>& rhs);
+  ResultExpr GreaterEqualThan(const std::shared_ptr<Expr>& lhs,
+                              const std::shared_ptr<Expr>& rhs);
+  ResultExpr LessThan(const std::shared_ptr<Expr>& lhs, const std::shared_ptr<Expr>& rhs);
+  ResultExpr LessEqualThan(const std::shared_ptr<Expr>& lhs,
+                           const std::shared_ptr<Expr>& rhs);
+  */
+
+  /// @}
+
   /// \defgroup rel-nodes Relational operator nodes in the logical plan
 
+  /// \brief Filter rows of a relation with the given predicate.
   ResultExpr Filter(const std::shared_ptr<Expr>& input,
                     const std::shared_ptr<Expr>& predicate);
 
-  /*
   /// \brief Project (mutate) columns with given expressions.
-  ResultExpr Project(const std::vector<std::shared_ptr<Expr>>& expressions);
-  ResultExpr Mutate(const std::vector<std::shared_ptr<Expr>>& expressions);
+  ResultExpr Project(const std::shared_ptr<Expr>& input,
+                     const std::vector<std::shared_ptr<Expr>>& expressions);
+  ResultExpr Mutate(const std::shared_ptr<Expr>& input,
+                    const std::vector<std::shared_ptr<Expr>>& expressions);
 
   /// \brief Project (select) columns by names.
   ///
   /// This is a simplified version of Project where columns are selected by
   /// names. Duplicate and ordering are preserved.
-  ResultExpr Project(const std::vector<std::string>& column_names);
+  ResultExpr Project(const std::shared_ptr<Expr>& input,
+                     const std::vector<std::string>& column_names);
+  ResultExpr Select(const std::shared_ptr<Expr>& input,
+                    const std::vector<std::string>& column_names);
 
   /// \brief Project (select) columns by indices.
   ///
   /// This is a simplified version of Project where columns are selected by
   /// indices. Duplicate and ordering are preserved.
-  ResultExpr Project(const std::vector<int>& column_indices);
-  */
+  ResultExpr Project(const std::shared_ptr<Expr>& input,
+                     const std::vector<int>& column_indices);
+  ResultExpr Select(const std::shared_ptr<Expr>& input,
+                    const std::vector<int>& column_indices);
 
   /// @}
 

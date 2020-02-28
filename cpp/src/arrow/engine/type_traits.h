@@ -30,7 +30,7 @@ template <typename E, typename Ret = void>
 using enable_if_compare_expr = enable_if_t<is_compare_expr<E>::value, Ret>;
 
 template <typename E>
-using is_relational_expr = std::is_base_of<CmpOpExpr<E>, E>;
+using is_relational_expr = std::is_base_of<RelExpr<E>, E>;
 
 template <typename E, typename Ret = void>
 using enable_if_relational_expr = enable_if_t<is_relational_expr<E>::value, Ret>;

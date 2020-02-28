@@ -33,6 +33,7 @@ class LessThanCmpExpr;
 class LessEqualThanCmpExpr;
 class EmptyRelExpr;
 class ScanRelExpr;
+class ProjectionRelExpr;
 class FilterRelExpr;
 
 }  // namespace engine

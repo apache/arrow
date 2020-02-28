@@ -186,6 +186,8 @@ std::string Expr::kind_name() const {
       return "empty_rel";
     case Expr::SCAN_REL:
       return "scan_rel";
+    case Expr::PROJECTION_REL:
+      return "projection_rel";
     case Expr::FILTER_REL:
       return "filter_rel";
   }
@@ -222,6 +224,24 @@ struct ExprEqualityVisitor {
     auto lhs_scan = internal::checked_cast<const ScanRelExpr&>(lhs);
     // Performs a pointer equality on Table/Dataset
     return lhs_scan.input() == rhs.input();
+  }
+
+  bool operator()(const ProjectionRelExpr& rhs) const {
+    auto lhs_proj = internal::checked_cast<const ProjectionRelExpr&>(lhs);
+
+    const auto& lhs_exprs = lhs_proj.expressions();
+    const auto& rhs_exprs = rhs.expressions();
+    if (lhs_exprs.size() != rhs_exprs.size()) {
+      return false;
+    }
+
+    for (size_t i = 0; i < lhs_exprs.size(); i++) {
+      if (!lhs_exprs[i]->Equals(rhs_exprs[i])) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   bool operator()(const Expr&) const { return false; }
@@ -289,6 +309,38 @@ ScanRelExpr::ScanRelExpr(Catalog::Entry input)
 
 Result<std::shared_ptr<ScanRelExpr>> ScanRelExpr::Make(Catalog::Entry input) {
   return std::shared_ptr<ScanRelExpr>(new ScanRelExpr(std::move(input)));
+}
+
+//
+// ProjectionRelExpr
+//
+
+ProjectionRelExpr::ProjectionRelExpr(std::shared_ptr<Expr> input,
+                                     std::shared_ptr<Schema> schema,
+                                     std::vector<std::shared_ptr<Expr>> expressions)
+    : UnaryOpExpr(std::move(input)),
+      RelExpr(std::move(schema)),
+      expressions_(std::move(expressions)) {}
+
+Result<std::shared_ptr<ProjectionRelExpr>> ProjectionRelExpr::Make(
+    std::shared_ptr<Expr> input, std::vector<std::shared_ptr<Expr>> expressions) {
+  ERROR_IF(input == nullptr, "ProjectionRelExpr's input must be non-null.");
+  ERROR_IF(expressions.empty(), "Must project at least one column.");
+
+  auto n_fields = expressions.size();
+  std::vector<std::shared_ptr<Field>> fields;
+
+  for (size_t i = 0; i < n_fields; i++) {
+    const auto& expr = expressions[i];
+    const auto& type = expr->type();
+    ERROR_IF(!type.IsArray(), "Expression at position ", i, " not of Array type");
+    // TODO(fsaintjacques): better name handling. Callers should be able to
+    // pass a vector of names.
+    fields.push_back(field("expr", type.data_type()));
+  }
+
+  return std::shared_ptr<ProjectionRelExpr>(new ProjectionRelExpr(
+      std::move(input), arrow::schema(std::move(fields)), std::move(expressions)));
 }
 
 //

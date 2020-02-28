@@ -162,6 +162,8 @@ class ARROW_EXPORT Expr : public util::EqualityComparable<Expr> {
     EMPTY_REL,
     // Scan relational operator
     SCAN_REL,
+    // Projection relational operator
+    PROJECTION_REL,
     // Filter relational operator
     FILTER_REL,
   };
@@ -247,6 +249,11 @@ struct expr_traits<ScanRelExpr> {
 };
 
 template <>
+struct expr_traits<ProjectionRelExpr> {
+  static constexpr Expr::Kind kind_id = Expr::PROJECTION_REL;
+};
+
+template <>
 struct expr_traits<FilterRelExpr> {
   static constexpr Expr::Kind kind_id = Expr::FILTER_REL;
 };
@@ -306,6 +313,17 @@ class ARROW_EXPORT BinaryOpExpr {
 
   std::shared_ptr<Expr> left_operand_;
   std::shared_ptr<Expr> right_operand_;
+};
+
+class ARROW_EXPORT MultiAryOpExpr {
+ public:
+  const std::vector<std::shared_ptr<Expr>>& operands() const { return operands_; }
+
+ protected:
+  explicit MultiAryOpExpr(std::vector<std::shared_ptr<Expr>> operands)
+      : operands_(std::move(operands)) {}
+
+  std::vector<std::shared_ptr<Expr>> operands_;
 };
 
 //
@@ -404,6 +422,21 @@ class ARROW_EXPORT ScanRelExpr : public RelExpr<ScanRelExpr> {
   Catalog::Entry input_;
 };
 
+class ARROW_EXPORT ProjectionRelExpr : public UnaryOpExpr,
+                                       public RelExpr<ProjectionRelExpr> {
+ public:
+  static Result<std::shared_ptr<ProjectionRelExpr>> Make(
+      std::shared_ptr<Expr> input, std::vector<std::shared_ptr<Expr>> expressions);
+
+  const std::vector<std::shared_ptr<Expr>> expressions() const { return expressions_; }
+
+ private:
+  ProjectionRelExpr(std::shared_ptr<Expr> input, std::shared_ptr<Schema> schema,
+                    std::vector<std::shared_ptr<Expr>> expressions);
+
+  std::vector<std::shared_ptr<Expr>> expressions_;
+};
+
 class ARROW_EXPORT FilterRelExpr : public UnaryOpExpr, public RelExpr<FilterRelExpr> {
  public:
   static Result<std::shared_ptr<FilterRelExpr>> Make(std::shared_ptr<Expr> input,
@@ -442,6 +475,8 @@ auto VisitExpr(const Expr& expr, Visitor&& visitor) -> decltype(visitor(expr)) {
       return visitor(internal::checked_cast<const EmptyRelExpr&>(expr));
     case Expr::SCAN_REL:
       return visitor(internal::checked_cast<const ScanRelExpr&>(expr));
+    case Expr::PROJECTION_REL:
+      return visitor(internal::checked_cast<const ProjectionRelExpr&>(expr));
     case Expr::FILTER_REL:
       // LEAVE LAST or update the outer return cast by moving it here. This is
       // required for older compiler support.

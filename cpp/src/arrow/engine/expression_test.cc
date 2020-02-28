@@ -221,6 +221,10 @@ TEST_F(RelExprTest, ScanRelExpr) {
   EXPECT_THAT(other, PtrEquals(scan));
 }
 
+TEST_F(RelExprTest, ProjectionRelExpr) {
+  // TODO(fsaintjacques): FILLME
+}
+
 TEST_F(RelExprTest, FilterRelExpr) {
   ASSERT_OK_AND_ASSIGN(auto empty, EmptyRelExpr::Make(schema_1));
   ASSERT_OK_AND_ASSIGN(auto pred, ScalarExpr::Make(MakeScalar(true)));
