@@ -86,6 +86,8 @@ std::shared_ptr<dataset::Dataset> Entry::dataset() const {
   return nullptr;
 }
 
+bool Entry::operator==(const Entry& other) const { return entry_ == other.entry_; }
+
 std::shared_ptr<Schema> Entry::schema() const {
   switch (kind()) {
     case TABLE:

@@ -42,7 +42,7 @@ class LogicalPlan : public util::EqualityComparable<LogicalPlan> {
  public:
   explicit LogicalPlan(std::shared_ptr<Expr> root);
 
-  std::shared_ptr<Expr> root() const { return root_; }
+  const std::shared_ptr<Expr>& root() const { return root_; }
 
   bool Equals(const LogicalPlan& other) const;
   std::string ToString() const;

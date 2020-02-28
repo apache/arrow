@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "arrow/type_fwd.h"
@@ -63,6 +64,8 @@ class Catalog {
     std::shared_ptr<dataset::Dataset> dataset() const;
 
     std::shared_ptr<Schema> schema() const;
+
+    bool operator==(const Entry& other) const;
 
    private:
     util::variant<std::shared_ptr<Table>, std::shared_ptr<dataset::Dataset>> entry_;

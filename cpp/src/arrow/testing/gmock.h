@@ -17,23 +17,12 @@
 
 #pragma once
 
-#include "arrow/engine/expression.h"
-#include "arrow/type_traits.h"
+#include <gmock/gmock.h>
 
 namespace arrow {
-namespace engine {
 
-template <typename E>
-using is_compare_expr = std::is_base_of<CmpOpExpr<E>, E>;
+MATCHER_P(IsEqual, other, "") { return arg.Equals(other); }
 
-template <typename E, typename Ret = void>
-using enable_if_compare_expr = enable_if_t<is_compare_expr<E>::value, Ret>;
+MATCHER_P(IsPtrEqual, other, "") { return arg->Equals(*other); }
 
-template <typename E>
-using is_relational_expr = std::is_base_of<CmpOpExpr<E>, E>;
-
-template <typename E, typename Ret = void>
-using enable_if_relational_expr = enable_if_t<is_relational_expr<E>::value, Ret>;
-
-}  // namespace engine
 }  // namespace arrow

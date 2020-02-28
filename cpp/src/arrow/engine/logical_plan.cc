@@ -17,6 +17,8 @@
 
 #include "arrow/engine/logical_plan.h"
 
+#include <utility>
+
 #include "arrow/engine/expression.h"
 #include "arrow/result.h"
 #include "arrow/util/logging.h"

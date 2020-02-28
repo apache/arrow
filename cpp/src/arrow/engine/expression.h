@@ -19,12 +19,13 @@
 
 #include <memory>
 #include <string>
-#include <unordered_map>
-#include <vector>
+#include <utility>
 
 #include "arrow/engine/catalog.h"
+#include "arrow/engine/type_fwd.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/compare.h"
 #include "arrow/util/variant.h"
 
 namespace arrow {
@@ -43,9 +44,9 @@ namespace engine {
 ///   ArrayType(DataType),
 ///   TableType(Schema),
 /// }
-class ARROW_EXPORT ExprType {
+class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
  public:
-  enum Shape {
+  enum Shape : uint8_t {
     // The expression yields a Scalar, e.g. "1".
     SCALAR,
     // The expression yields an Array, e.g. "[1, 2, 3]".
@@ -86,7 +87,7 @@ class ARROW_EXPORT ExprType {
   bool IsPredicate() const { return IsScalar() && HasType<Type::BOOL>(); }
 
   bool Equals(const ExprType& type) const;
-  bool operator==(const ExprType& rhs) const;
+
   std::string ToString() const;
 
  private:
@@ -100,7 +101,7 @@ class ARROW_EXPORT ExprType {
 };
 
 /// Represents an expression tree
-class ARROW_EXPORT Expr {
+class ARROW_EXPORT Expr : public util::EqualityComparable<Expr> {
  public:
   // Tag identifier for the expression type.
   enum Kind {
@@ -117,29 +118,32 @@ class ARROW_EXPORT Expr {
     GT_CMP_OP,
     // Greater-Equal-Than compare operator
     GE_CMP_OP,
-    // Lower-Than compare operator
+    // Less-Than compare operator
     LT_CMP_OP,
-    // Lower-Equal-Than compare operator
+    // Less-Equal-Than compare operator
     LE_CMP_OP,
 
+    // Empty relation with a known schema.
+    EMPTY_REL,
     // Scan relational operator
     SCAN_REL,
     // Filter relational operator
     FILTER_REL,
   };
 
-  // Return the type and shape of the resulting expression.
+  /// \brief Return the kind of the expression.
+  Kind kind() const { return kind_; }
+  /// \brief Return a string representation of the kind.
+  std::string kind_name() const;
+
+  /// \brief Return the type and shape of the resulting expression.
   virtual ExprType type() const = 0;
 
-  Kind kind() const { return kind_; }
-
-  /// Returns true iff the expressions are identical; does not check for equivalence.
-  /// For example, (A and B) is not equal to (B and A) nor is (A and not A) equal to
-  /// (false).
+  /// \brief Indicate if the expressions
   bool Equals(const Expr& other) const;
-  bool Equals(const std::shared_ptr<Expr>& other) const;
+  using util::EqualityComparable<Expr>::Equals;
 
-  /// Return a string representing the expression
+  /// \brief Return a string representing the expression
   std::string ToString() const;
 
   virtual ~Expr() = default;
@@ -147,8 +151,68 @@ class ARROW_EXPORT Expr {
  protected:
   explicit Expr(Kind kind) : kind_(kind) {}
 
- private:
   Kind kind_;
+};
+
+// The following traits are used to break cycle between CRTP base classes and
+// their derived counterparts to extract the Expr::Kind and other static
+// properties from the forward declared class.
+template <typename T>
+struct expr_traits;
+
+template <>
+struct expr_traits<ScalarExpr> {
+  static constexpr Expr::Kind kind_id = Expr::SCALAR_LITERAL;
+};
+
+template <>
+struct expr_traits<FieldRefExpr> {
+  static constexpr Expr::Kind kind_id = Expr::FIELD_REFERENCE;
+};
+
+template <>
+struct expr_traits<EqualCmpExpr> {
+  static constexpr Expr::Kind kind_id = Expr::EQ_CMP_OP;
+};
+
+template <>
+struct expr_traits<NotEqualCmpExpr> {
+  static constexpr Expr::Kind kind_id = Expr::NE_CMP_OP;
+};
+
+template <>
+struct expr_traits<GreaterThanCmpExpr> {
+  static constexpr Expr::Kind kind_id = Expr::GT_CMP_OP;
+};
+
+template <>
+struct expr_traits<GreaterEqualThanCmpExpr> {
+  static constexpr Expr::Kind kind_id = Expr::GE_CMP_OP;
+};
+
+template <>
+struct expr_traits<LessThanCmpExpr> {
+  static constexpr Expr::Kind kind_id = Expr::LT_CMP_OP;
+};
+
+template <>
+struct expr_traits<LessEqualThanCmpExpr> {
+  static constexpr Expr::Kind kind_id = Expr::LE_CMP_OP;
+};
+
+template <>
+struct expr_traits<EmptyRelExpr> {
+  static constexpr Expr::Kind kind_id = Expr::EMPTY_REL;
+};
+
+template <>
+struct expr_traits<ScanRelExpr> {
+  static constexpr Expr::Kind kind_id = Expr::SCAN_REL;
+};
+
+template <>
+struct expr_traits<FilterRelExpr> {
+  static constexpr Expr::Kind kind_id = Expr::FILTER_REL;
 };
 
 //
@@ -156,7 +220,7 @@ class ARROW_EXPORT Expr {
 //
 
 // An unnamed scalar literal expression.
-class ScalarExpr : public Expr {
+class ARROW_EXPORT ScalarExpr : public Expr {
  public:
   static Result<std::shared_ptr<ScalarExpr>> Make(std::shared_ptr<Scalar> scalar);
 
@@ -171,7 +235,7 @@ class ScalarExpr : public Expr {
 };
 
 // References a column in a table/dataset
-class FieldRefExpr : public Expr {
+class ARROW_EXPORT FieldRefExpr : public Expr {
  public:
   static Result<std::shared_ptr<FieldRefExpr>> Make(std::shared_ptr<Field> field);
 
@@ -189,104 +253,114 @@ class FieldRefExpr : public Expr {
 // Operator expressions
 //
 
-using ExprVector = std::vector<std::shared_ptr<Expr>>;
-
-class OpExpr {
+class ARROW_EXPORT UnaryOpExpr {
  public:
-  const ExprVector& inputs() const { return inputs_; }
+  const std::shared_ptr<Expr>& operand() const { return operand_; }
 
  protected:
-  explicit OpExpr(ExprVector inputs) : inputs_(std::move(inputs)) {}
-  ExprVector inputs_;
+  explicit UnaryOpExpr(std::shared_ptr<Expr> operand) : operand_(std::move(operand)) {}
+
+  std::shared_ptr<Expr> operand_;
 };
 
-template <Expr::Kind KIND>
-class BinaryOpExpr : public Expr, private OpExpr {
+class ARROW_EXPORT BinaryOpExpr {
  public:
-  const std::shared_ptr<Expr>& left_operand() const { return inputs_[0]; }
-  const std::shared_ptr<Expr>& right_operand() const { return inputs_[1]; }
+  const std::shared_ptr<Expr>& left_operand() const { return left_operand_; }
+  const std::shared_ptr<Expr>& right_operand() const { return right_operand_; }
 
  protected:
   BinaryOpExpr(std::shared_ptr<Expr> left, std::shared_ptr<Expr> right)
-      : Expr(KIND), OpExpr({std::move(left), std::move(right)}) {}
+      : left_operand_(std::move(left)), right_operand_(std::move(right)) {}
+
+  std::shared_ptr<Expr> left_operand_;
+  std::shared_ptr<Expr> right_operand_;
 };
 
 //
 // Comparison expressions
 //
 
-template <Expr::Kind KIND>
-class CmpOpExpr : public BinaryOpExpr<KIND> {
+Status ValidateCompareOpInputs(const std::shared_ptr<Expr>& left,
+                               const std::shared_ptr<Expr>& right);
+
+template <typename Self>
+class ARROW_EXPORT CmpOpExpr : public BinaryOpExpr, public Expr {
  public:
   ExprType type() const override { return ExprType::Scalar(boolean()); };
 
+  static Result<std::shared_ptr<Self>> Make(std::shared_ptr<Expr> left,
+                                            std::shared_ptr<Expr> right) {
+    ARROW_RETURN_NOT_OK(ValidateCompareOpInputs(left, right));
+    return std::shared_ptr<Self>(new Self(std::move(left), std::move(right)));
+  }
+
  protected:
-  using BinaryOpExpr<KIND>::BinaryOpExpr;
+  CmpOpExpr(std::shared_ptr<Expr> left, std::shared_ptr<Expr> right)
+      : BinaryOpExpr(std::move(left), std::move(right)),
+        Expr(expr_traits<Self>::kind_id) {}
 };
 
-class EqualCmpExpr : public CmpOpExpr<Expr::EQ_CMP_OP> {
- public:
-  static Result<std::shared_ptr<EqualCmpExpr>> Make(std::shared_ptr<Expr> left,
-                                                    std::shared_ptr<Expr> right);
-
+class ARROW_EXPORT EqualCmpExpr : public CmpOpExpr<EqualCmpExpr> {
  protected:
-  using CmpOpExpr::CmpOpExpr;
+  using CmpOpExpr<EqualCmpExpr>::CmpOpExpr;
 };
 
-class NotEqualCmpExpr : public CmpOpExpr<Expr::NE_CMP_OP> {
- public:
-  static Result<std::shared_ptr<NotEqualCmpExpr>> Make(std::shared_ptr<Expr> left,
-                                                       std::shared_ptr<Expr> right);
-
+class ARROW_EXPORT NotEqualCmpExpr : public CmpOpExpr<NotEqualCmpExpr> {
  protected:
-  using CmpOpExpr::CmpOpExpr;
+  using CmpOpExpr<NotEqualCmpExpr>::CmpOpExpr;
 };
 
-class GreaterThanCmpExpr : public CmpOpExpr<Expr::GT_CMP_OP> {
- public:
-  static Result<std::shared_ptr<GreaterThanCmpExpr>> Make(std::shared_ptr<Expr> left,
-                                                          std::shared_ptr<Expr> right);
-
+class ARROW_EXPORT GreaterThanCmpExpr : public CmpOpExpr<GreaterThanCmpExpr> {
  protected:
-  using CmpOpExpr::CmpOpExpr;
+  using CmpOpExpr<GreaterThanCmpExpr>::CmpOpExpr;
 };
 
-class GreaterEqualThanCmpExpr : public CmpOpExpr<Expr::GE_CMP_OP> {
- public:
-  static Result<std::shared_ptr<GreaterEqualThanCmpExpr>> Make(
-      std::shared_ptr<Expr> left, std::shared_ptr<Expr> right);
-
+class ARROW_EXPORT GreaterEqualThanCmpExpr : public CmpOpExpr<GreaterEqualThanCmpExpr> {
  protected:
-  using CmpOpExpr::CmpOpExpr;
+  using CmpOpExpr<GreaterEqualThanCmpExpr>::CmpOpExpr;
 };
 
-class LowerThanCmpExpr : public CmpOpExpr<Expr::LT_CMP_OP> {
- public:
-  static Result<std::shared_ptr<LowerThanCmpExpr>> Make(std::shared_ptr<Expr> left,
-                                                        std::shared_ptr<Expr> right);
-
+class ARROW_EXPORT LessThanCmpExpr : public CmpOpExpr<LessThanCmpExpr> {
  protected:
-  using CmpOpExpr::CmpOpExpr;
+  using CmpOpExpr<LessThanCmpExpr>::CmpOpExpr;
 };
 
-class LowerEqualThanCmpExpr : public CmpOpExpr<Expr::LE_CMP_OP> {
- public:
-  static Result<std::shared_ptr<LowerEqualThanCmpExpr>> Make(std::shared_ptr<Expr> left,
-                                                             std::shared_ptr<Expr> right);
-
+class ARROW_EXPORT LessEqualThanCmpExpr : public CmpOpExpr<LessEqualThanCmpExpr> {
  protected:
-  using CmpOpExpr::CmpOpExpr;
+  using CmpOpExpr<LessEqualThanCmpExpr>::CmpOpExpr;
 };
 
 //
 // Relational Expressions
 //
 
-class ScanRelExpr : public Expr {
+template <typename Self>
+class ARROW_EXPORT RelExpr : public Expr {
+ public:
+  ExprType type() const override { return ExprType::Table(schema_); }
+
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
+
+ protected:
+  explicit RelExpr(std::shared_ptr<Schema> schema)
+      : Expr(expr_traits<Self>::kind_id), schema_(std::move(schema)) {}
+
+  std::shared_ptr<Schema> schema_;
+};
+
+class ARROW_EXPORT EmptyRelExpr : public RelExpr<EmptyRelExpr> {
+ public:
+  static Result<std::shared_ptr<EmptyRelExpr>> Make(std::shared_ptr<Schema> schema);
+
+ protected:
+  using RelExpr<EmptyRelExpr>::RelExpr;
+};
+
+class ARROW_EXPORT ScanRelExpr : public RelExpr<ScanRelExpr> {
  public:
   static Result<std::shared_ptr<ScanRelExpr>> Make(Catalog::Entry input);
 
-  ExprType type() const override;
+  const Catalog::Entry& input() const { return input_; }
 
  private:
   explicit ScanRelExpr(Catalog::Entry input);
@@ -294,19 +368,52 @@ class ScanRelExpr : public Expr {
   Catalog::Entry input_;
 };
 
-class FilterRelExpr : public Expr {
+class ARROW_EXPORT FilterRelExpr : public UnaryOpExpr, public RelExpr<FilterRelExpr> {
  public:
   static Result<std::shared_ptr<FilterRelExpr>> Make(std::shared_ptr<Expr> input,
                                                      std::shared_ptr<Expr> predicate);
 
-  ExprType type() const override;
+  const std::shared_ptr<Expr>& predicate() const { return predicate_; }
 
  private:
   FilterRelExpr(std::shared_ptr<Expr> input, std::shared_ptr<Expr> predicate);
 
-  std::shared_ptr<Expr> input_;
   std::shared_ptr<Expr> predicate_;
 };
+
+template <typename Visitor>
+auto VisitExpr(const Expr& expr, Visitor&& visitor) -> decltype(visitor(expr)) {
+  switch (expr.kind()) {
+    case Expr::SCALAR_LITERAL:
+      return visitor(internal::checked_cast<const ScalarExpr&>(expr));
+    case Expr::FIELD_REFERENCE:
+      return visitor(internal::checked_cast<const FieldRefExpr&>(expr));
+
+    case Expr::EQ_CMP_OP:
+      return visitor(internal::checked_cast<const EqualCmpExpr&>(expr));
+    case Expr::NE_CMP_OP:
+      return visitor(internal::checked_cast<const NotEqualCmpExpr&>(expr));
+    case Expr::GT_CMP_OP:
+      return visitor(internal::checked_cast<const GreaterThanCmpExpr&>(expr));
+    case Expr::GE_CMP_OP:
+      return visitor(internal::checked_cast<const GreaterEqualThanCmpExpr&>(expr));
+    case Expr::LT_CMP_OP:
+      return visitor(internal::checked_cast<const LessThanCmpExpr&>(expr));
+    case Expr::LE_CMP_OP:
+      return visitor(internal::checked_cast<const LessEqualThanCmpExpr&>(expr));
+
+    case Expr::EMPTY_REL:
+      return visitor(internal::checked_cast<const EmptyRelExpr&>(expr));
+    case Expr::SCAN_REL:
+      return visitor(internal::checked_cast<const ScanRelExpr&>(expr));
+    case Expr::FILTER_REL:
+      // LEAVE LAST or update the outer return cast by moving it here. This is
+      // required for older compiler support.
+      break;
+  }
+
+  return visitor(internal::checked_cast<const FilterRelExpr&>(expr));
+}
 
 }  // namespace engine
 }  // namespace arrow

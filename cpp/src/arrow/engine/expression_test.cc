@@ -21,6 +21,8 @@
 #include "arrow/testing/gtest_common.h"
 #include "arrow/type.h"
 
+using testing::HasSubstr;
+using testing::Not;
 using testing::Pointee;
 
 namespace arrow {
@@ -82,7 +84,6 @@ TEST_F(ExprTest, ScalarExpr) {
   EXPECT_EQ(expr->kind(), Expr::SCALAR_LITERAL);
   EXPECT_EQ(expr->type(), ExprType::Scalar(i32));
   EXPECT_EQ(*expr->scalar(), *value);
-
 }
 
 TEST_F(ExprTest, FieldRefExpr) {
@@ -97,7 +98,21 @@ TEST_F(ExprTest, FieldRefExpr) {
   EXPECT_THAT(expr->field(), IsPtrEqual(f_i32));
 }
 
-TEST_F(ExprTest, EqualCmpExpr) {
+template <typename CmpClass>
+class CmpExprTest : public ExprTest {
+ public:
+  Expr::Kind kind() { return expr_traits<CmpClass>::kind_id; }
+
+  Result<std::shared_ptr<CmpClass>> Make(std::shared_ptr<Expr> left,
+                                         std::shared_ptr<Expr> right) {
+    return CmpClass::Make(std::move(left), std::move(right));
+  }
+};
+
+using CompareExprs = ::testing::Types<EqualCmpExpr, NotEqualCmpExpr>;
+
+TYPED_TEST_CASE(CmpExprTest, CompareExprs);
+TYPED_TEST(CmpExprTest, BasicCompareExpr) {
   auto i32 = int32();
 
   auto f_i32 = field("i32", i32);
@@ -106,18 +121,90 @@ TEST_F(ExprTest, EqualCmpExpr) {
   ASSERT_OK_AND_ASSIGN(auto s_i32, MakeScalar(i32, 42));
   ASSERT_OK_AND_ASSIGN(auto s_expr, ScalarExpr::Make(s_i32));
 
-  ASSERT_RAISES(Invalid, EqualCmpExpr::Make(nullptr, nullptr));
-  ASSERT_RAISES(Invalid, EqualCmpExpr::Make(s_expr, nullptr));
-  ASSERT_RAISES(Invalid, EqualCmpExpr::Make(nullptr, f_expr));
+  // Required fields
+  ASSERT_RAISES(Invalid, this->Make(nullptr, nullptr));
+  ASSERT_RAISES(Invalid, this->Make(s_expr, nullptr));
+  ASSERT_RAISES(Invalid, this->Make(nullptr, f_expr));
 
-  ASSERT_OK_AND_ASSIGN(auto expr, EqualCmpExpr::Make(f_expr, s_expr));
+  // Not type compatible
+  ASSERT_OK_AND_ASSIGN(auto s_i64, MakeScalar(int64(), 42L));
+  ASSERT_OK_AND_ASSIGN(auto s_expr_i64, ScalarExpr::Make(s_i64));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("operands must be of same type"),
+                                  this->Make(s_expr_i64, f_expr));
 
-  EXPECT_EQ(expr->kind(), Expr::EQ_CMP_OP);
+  ASSERT_OK_AND_ASSIGN(auto expr, this->Make(f_expr, s_expr));
+  EXPECT_EQ(expr->kind(), this->kind());
   EXPECT_EQ(expr->type(), ExprType::Scalar(boolean()));
-  /*
+  EXPECT_TRUE(expr->type().IsPredicate());
+  EXPECT_THAT(expr, IsPtrEqual(expr));
   EXPECT_THAT(expr->left_operand(), IsPtrEqual(f_expr));
-  EXPECT_THAT(expr->right_operand(), Pointee(s_expr));
-  */
+  EXPECT_THAT(expr->right_operand(), IsPtrEqual(s_expr));
+
+  ASSERT_OK_AND_ASSIGN(auto other, this->Make(f_expr, s_expr));
+  EXPECT_THAT(expr, IsPtrEqual(other));
+  // Compare operators supports commutativity
+  // TODO(fsaintjacques): what about floating point types?
+  ASSERT_OK_AND_ASSIGN(auto swapped, this->Make(s_expr, f_expr));
+  EXPECT_THAT(expr, IsPtrEqual(swapped));
+}
+
+class RelExprTest : public ExprTest {
+ protected:
+  void SetUp() override {
+    CatalogBuilder builder;
+    ASSERT_OK(builder.Add(table_1, MockTable(schema_1)));
+    ASSERT_OK_AND_ASSIGN(catalog, builder.Finish());
+  }
+
+  std::string table_1 = "table_1";
+  std::shared_ptr<Schema> schema_1 = schema({field("i32", int32())});
+
+  std::shared_ptr<Catalog> catalog;
+};
+
+TEST_F(RelExprTest, EmptyRelExpr) {
+  ASSERT_RAISES(Invalid, EmptyRelExpr::Make(nullptr));
+
+  ASSERT_OK_AND_ASSIGN(auto empty, EmptyRelExpr::Make(schema_1));
+  EXPECT_THAT(empty->type(), ExprType::Table(schema_1));
+  EXPECT_THAT(empty->schema(), IsPtrEqual(schema_1));
+  EXPECT_THAT(empty, IsPtrEqual(empty));
+
+  ASSERT_OK_AND_ASSIGN(auto other, EmptyRelExpr::Make(schema_1));
+  EXPECT_THAT(other, IsPtrEqual(empty));
+}
+
+TEST_F(RelExprTest, ScanRelExpr) {
+  ASSERT_OK_AND_ASSIGN(auto table, catalog->Get(table_1));
+
+  ASSERT_OK_AND_ASSIGN(auto scan, ScanRelExpr::Make(table));
+  EXPECT_THAT(scan, IsPtrEqual(scan));
+  EXPECT_THAT(scan->type(), ExprType::Table(schema_1));
+  EXPECT_THAT(scan->schema(), IsPtrEqual(schema_1));
+
+  ASSERT_OK_AND_ASSIGN(auto other, ScanRelExpr::Make(table));
+  EXPECT_THAT(other, IsPtrEqual(scan));
+}
+
+TEST_F(RelExprTest, FilterRelExpr) {
+  ASSERT_OK_AND_ASSIGN(auto empty, EmptyRelExpr::Make(schema_1));
+  ASSERT_OK_AND_ASSIGN(auto pred, ScalarExpr::Make(MakeScalar(true)));
+
+  ASSERT_RAISES(Invalid, FilterRelExpr::Make(nullptr, nullptr));
+  ASSERT_RAISES(Invalid, FilterRelExpr::Make(empty, nullptr));
+  ASSERT_RAISES(Invalid, FilterRelExpr::Make(nullptr, pred));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("input must be a table"),
+                                  FilterRelExpr::Make(pred, pred));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("predicate must be a predicate"),
+                                  FilterRelExpr::Make(empty, empty));
+
+  ASSERT_OK_AND_ASSIGN(auto filter, FilterRelExpr::Make(empty, pred));
+  EXPECT_THAT(filter, IsPtrEqual(filter));
+  EXPECT_THAT(filter->type(), ExprType::Table(schema_1));
+  EXPECT_THAT(filter->schema(), IsPtrEqual(schema_1));
+  EXPECT_THAT(filter->operand(), IsPtrEqual(empty));
+  EXPECT_THAT(filter->predicate(), IsPtrEqual(pred));
 }
 
 }  // namespace engine

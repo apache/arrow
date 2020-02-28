@@ -17,23 +17,23 @@
 
 #pragma once
 
-#include "arrow/engine/expression.h"
-#include "arrow/type_traits.h"
-
 namespace arrow {
 namespace engine {
 
-template <typename E>
-using is_compare_expr = std::is_base_of<CmpOpExpr<E>, E>;
+class ExprType;
 
-template <typename E, typename Ret = void>
-using enable_if_compare_expr = enable_if_t<is_compare_expr<E>::value, Ret>;
-
-template <typename E>
-using is_relational_expr = std::is_base_of<CmpOpExpr<E>, E>;
-
-template <typename E, typename Ret = void>
-using enable_if_relational_expr = enable_if_t<is_relational_expr<E>::value, Ret>;
+class Expr;
+class ScalarExpr;
+class FieldRefExpr;
+class EqualCmpExpr;
+class NotEqualCmpExpr;
+class GreaterThanCmpExpr;
+class GreaterEqualThanCmpExpr;
+class LessThanCmpExpr;
+class LessEqualThanCmpExpr;
+class EmptyRelExpr;
+class ScanRelExpr;
+class FilterRelExpr;
 
 }  // namespace engine
 }  // namespace arrow
