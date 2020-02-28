@@ -19,8 +19,8 @@ module Arrow
   module GenericTakeable
     class << self
       def included(base)
-        base.alias_method :take_raw, :take
-        base.alias_method :take, :take_generic
+        base.__send__(:alias_method, :take_raw, :take)
+        base.__send__(:alias_method, :take, :take_generic)
       end
     end
 
