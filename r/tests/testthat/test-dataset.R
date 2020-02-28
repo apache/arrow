@@ -19,15 +19,15 @@ context("Datasets")
 
 library(dplyr)
 
-tempdir <- function() {
+make_temp_dir <- function() {
   path <- tempfile()
   dir.create(path)
   normalizePath(path, winslash = "/")
 }
 
-dataset_dir <- tempdir()
-hive_dir <- tempdir()
-ipc_dir <- tempdir()
+dataset_dir <- make_temp_dir()
+hive_dir <- make_temp_dir()
+ipc_dir <- make_temp_dir()
 
 first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
 df1 <- tibble(
@@ -165,9 +165,9 @@ test_that("IPC/Arrow format data", {
 
 test_that("Dataset with multiple file formats", {
   skip("https://issues.apache.org/jira/browse/ARROW-7653")
-  ds <- open_dataset(children=list(
-    open_dataset_factory(dataset_dir, format = "parquet", partitioning = "part"),
-    open_dataset_factory(ipc_dir, format = "arrow", partitioning = "part")
+  ds <- open_dataset(list(
+    dataset_factory(dataset_dir, format = "parquet", partitioning = "part"),
+    dataset_factory(ipc_dir, format = "arrow", partitioning = "part")
   ))
   expect_identical(names(ds), c(names(df1), "part"))
   expect_equivalent(
@@ -411,12 +411,12 @@ test_that("Assembling a Dataset manually and getting a Table", {
 })
 
 test_that("Assembling multiple DatasetFactories with DatasetFactory", {
-  factory1 <- open_dataset_factory(file.path(dataset_dir, 1), format = "parquet")
+  factory1 <- dataset_factory(file.path(dataset_dir, 1), format = "parquet")
   expect_is(factory1, "FileSystemDatasetFactory")
-  factory2 <- open_dataset_factory(file.path(dataset_dir, 2), format = "parquet")
+  factory2 <- dataset_factory(file.path(dataset_dir, 2), format = "parquet")
   expect_is(factory2, "FileSystemDatasetFactory")
 
-  factory <- DatasetFactory$create(children=list(factory1, factory2))
+  factory <- DatasetFactory$create(list(factory1, factory2))
   expect_is(factory, "DatasetFactory")
 
   schm <- factory$Inspect()

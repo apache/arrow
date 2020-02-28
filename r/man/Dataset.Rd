@@ -2,8 +2,9 @@
 % Please edit documentation in R/dataset.R
 \name{Dataset}
 \alias{Dataset}
+\alias{FileSystemDataset}
+\alias{UnionDataset}
 \alias{DatasetFactory}
-\alias{UnionDatasetFactory}
 \alias{FileSystemDatasetFactory}
 \title{Multi-file datasets}
 \value{
@@ -16,11 +17,6 @@ can accelerate queries that only touch some partitions (files).
 
 A \code{Dataset} contains one or more \code{Fragments}, such as files, of potentially
 differing type and partitioning.
-\code{DatasetFactory} is used to create a \code{Dataset}, inspect the \link{Schema} of the
-fragments contained in it, and declare a partitioning.
-\code{FileSystemDatasetFactory} is a subclass of \code{DatasetFactory} for
-discovering files in the local file system, the only currently supported
-file system.
 
 The \code{Dataset$create()} method instantiates a \code{Dataset} which wraps child Datasets.
 It takes the following arguments:
@@ -34,11 +30,29 @@ It takes the following arguments:
 Start a new scan of the data
 
 Return the Dataset's \code{Schema}
+
+Return the Dataset's type.
+
+Return the files contained in this \code{FileSystemDataset}
+
+Return the format of files in this \code{Dataset}
+
+Return the UnionDataset's child \code{Dataset}s
 }
 \section{Factory}{
 
-For the \code{DatasetFactory$create()} factory method, see \code{\link[=open_dataset_factory]{open_dataset_factory()}}, an
-alias for it.
+\code{DatasetFactory} is used to create a \code{Dataset}, inspect the \link{Schema} of the
+fragments contained in it, and declare a partitioning.
+\code{FileSystemDatasetFactory} is a subclass of \code{DatasetFactory} for
+discovering files in the local file system, the only currently supported
+file system.
+
+For the \code{DatasetFactory$create()} factory method, see \code{\link[=dataset_factory]{dataset_factory()}}, an
+alias for it. A \code{DatasetFactory} has:
+\itemize{
+\item \verb{$Inspect()}: Returns a common \link{Schema} for all data discovered by the factory.
+\item \verb{$Finish(schema)}: Returns a \code{Dataset}
+}
 
 \code{FileSystemDatasetFactory$create()} is a lower-level factory method and
 takes the following arguments:
@@ -60,10 +74,15 @@ A \code{Dataset} has the following methods:
 \item \verb{$schema}: Active binding, returns the \link{Schema} of the Dataset
 }
 
-A \code{DatasetFactory} has:
+\code{FileSystemDataset} has the following methods:
 \itemize{
-\item \verb{$Inspect()}: Returns a common \link{Schema} for all data discovered by the factory.
-\item \verb{$Finish(schema)}: Returns a \code{Dataset}
+\item \verb{$files}: Active binding, returns the files of the \code{FileSystemDataset}
+\item \verb{$format}: Active binding, returns the \link{FileFormat} of the \code{FileSystemDataset}
+}
+
+\code{UnionDataset} has the following methods:
+\itemize{
+\item \verb{$children}: Active binding, returns all child \code{Dataset}s.
 }
 }
 
