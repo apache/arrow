@@ -17,114 +17,31 @@
 
 # flake8: noqa
 
-from __future__ import absolute_import
-
-import itertools
+import sys
+import socket
+import unittest
 
 import numpy as np
 
-import sys
-import six
-from six import BytesIO, StringIO, string_types as py_string
-import socket
+try:
+    import pickle5 as builtin_pickle
+except ImportError:
+    import pickle as builtin_pickle
 
+from collections.abc import Iterable, Mapping, Sequence
 
-PY26 = sys.version_info[:2] == (2, 6)
-PY2 = sys.version_info[0] == 2
+def guid():
+    from uuid import uuid4
+    return uuid4().hex
 
-
-if PY26:
-    import unittest2 as unittest
-else:
-    import unittest
-
-
-if PY2:
-    import cPickle as builtin_pickle
-
-    try:
-        from cdecimal import Decimal
-    except ImportError:
-        from decimal import Decimal
-
-    from collections import Iterable, Mapping, Sequence
-
-    unicode_type = unicode
-    file_type = file
-    lzip = zip
-    zip = itertools.izip
-    zip_longest = itertools.izip_longest
-
-    def dict_values(x):
-        return x.values()
-
-    range = xrange
-    long = long
-
-    def guid():
-        from uuid import uuid4
-        return uuid4().get_hex()
-
-    def u(s):
-        return unicode(s, "unicode_escape")
-
-    def tobytes(o):
-        if isinstance(o, unicode):
-            return o.encode('utf8')
-        else:
-            return o
-
-    def u_utf8(s):
-        return s.decode('utf-8')
-
-    def frombytes(o):
+def tobytes(o):
+    if isinstance(o, str):
+        return o.encode('utf8')
+    else:
         return o
 
-    def unichar(s):
-        return unichr(s)
-else:
-    try:
-        import pickle5 as builtin_pickle
-    except ImportError:
-        import pickle as builtin_pickle
-
-    from collections.abc import Iterable, Mapping, Sequence
-
-    unicode_type = str
-    file_type = None
-    def lzip(*x):
-        return list(zip(*x))
-    long = int
-    zip = zip
-    zip_longest = itertools.zip_longest
-    def dict_values(x):
-        return list(x.values())
-    from decimal import Decimal
-    range = range
-
-    def guid():
-        from uuid import uuid4
-        return uuid4().hex
-
-    def u(s):
-        return s
-
-    def tobytes(o):
-        if isinstance(o, str):
-            return o.encode('utf8')
-        else:
-            return o
-
-    def u_utf8(s):
-        if isinstance(s, bytes):
-            return frombytes(s)
-        return s
-
-    def frombytes(o):
-        return o.decode('utf8')
-
-    def unichar(s):
-        return chr(s)
+def frombytes(o):
+    return o.decode('utf8')
 
 
 if sys.version_info >= (3, 7):
@@ -141,8 +58,7 @@ except ImportError:
     pickle = builtin_pickle
 
 def encode_file_path(path):
-    import os
-    if isinstance(path, unicode_type):
+    if isinstance(path, str):
         # POSIX systems can handle utf-8. UTF8 is converted to utf16-le in
         # libarrow
         encoded_path = path.encode('utf-8')
@@ -154,15 +70,11 @@ def encode_file_path(path):
     return encoded_path
 
 
-integer_types = six.integer_types + (np.integer,)
+integer_types = (int, np.integer,)
 
 
 def get_socket_from_fd(fileno, family, type):
-    if PY2:
-        socket_obj = socket.fromfd(fileno, family, type)
-        return socket.socket(family, type, _sock=socket_obj)
-    else:
-        return socket.socket(fileno=fileno, family=family, type=type)
+    return socket.socket(fileno=fileno, family=family, type=type)
 
 
 try:

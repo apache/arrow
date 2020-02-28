@@ -74,6 +74,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   SelectionVector::Mode selection_vector_mode() { return selection_vector_mode_; }
   LLVMTypes* types() { return engine_->types(); }
   llvm::Module* module() { return engine_->module(); }
+  std::string DumpIR() { return engine_->DumpIR(); }
 
  private:
   LLVMGenerator();
@@ -243,8 +244,6 @@ class GANDIVA_EXPORT LLVMGenerator {
   SelectionVector::Mode selection_vector_mode_;
 
   // used for debug
-  bool dump_ir_;
-  bool optimise_ir_;
   bool enable_ir_traces_;
   std::vector<std::string> trace_strings_;
 };

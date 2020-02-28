@@ -26,7 +26,7 @@
 #include <arrow/dataset/file_parquet.h>
 #include <arrow/dataset/filter.h>
 #include <arrow/dataset/scanner.h>
-#include <arrow/filesystem/localfs.h>
+#include <arrow/filesystem/filesystem.h>
 
 using arrow::field;
 using arrow::int16;
@@ -49,7 +49,7 @@ using ds::string_literals::operator"" _;
   } while (0);
 
 struct Configuration {
-  // Increase the ds::DataSet by repeating `repeat` times the ds::Source.
+  // Increase the ds::DataSet by repeating `repeat` times the ds::Dataset.
   size_t repeat = 1;
 
   // Indicates if the Scanner::ToTable should consume in parallel.
@@ -65,6 +65,11 @@ struct Configuration {
   std::shared_ptr<ds::Expression> filter = ("total_amount"_ > 1000.0f).Copy();
 } conf;
 
+std::shared_ptr<fs::FileSystem> GetFileSystemFromUri(const std::string& uri,
+                                                     std::string* path) {
+  return fs::FileSystemFromUri(uri, path).ValueOrDie();
+}
+
 std::shared_ptr<ds::Dataset> GetDatasetFromPath(std::shared_ptr<fs::FileSystem> fs,
                                                 std::shared_ptr<ds::FileFormat> format,
                                                 std::string path) {
@@ -74,17 +79,17 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(std::shared_ptr<fs::FileSystem> 
   s.recursive = true;
 
   ds::FileSystemFactoryOptions options;
-  // The factory will try to build a source.
-  auto factory = ds::FileSystemSourceFactory::Make(fs, s, format, options).ValueOrDie();
+  // The factory will try to build a child dataset.
+  auto factory = ds::FileSystemDatasetFactory::Make(fs, s, format, options).ValueOrDie();
 
   // Try to infer a common schema for all files.
   auto schema = factory->Inspect().ValueOrDie();
   // Caller can optionally decide another schema as long as it is compatible
   // with the previous one, e.g. `factory->Finish(compatible_schema)`.
-  auto source = factory->Finish().ValueOrDie();
+  auto child = factory->Finish().ValueOrDie();
 
-  ds::SourceVector sources{conf.repeat, source};
-  auto dataset = ds::Dataset::Make(std::move(sources), schema);
+  ds::DatasetVector children{conf.repeat, child};
+  auto dataset = ds::UnionDataset::Make(std::move(schema), std::move(children));
 
   return dataset.ValueOrDie();
 }
@@ -113,7 +118,6 @@ std::shared_ptr<Table> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner)
 }
 
 int main(int argc, char** argv) {
-  auto fs = std::make_shared<fs::LocalFileSystem>();
   auto format = std::make_shared<ds::ParquetFileFormat>();
 
   if (argc != 2) {
@@ -121,7 +125,10 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  auto dataset = GetDatasetFromPath(fs, format, argv[1]);
+  std::string path;
+  auto fs = GetFileSystemFromUri(argv[1], &path);
+
+  auto dataset = GetDatasetFromPath(fs, format, path);
 
   auto scanner = GetScannerFromDataset(dataset, conf.projected_columns, conf.filter,
                                        conf.use_threads);

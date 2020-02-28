@@ -16,13 +16,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
+
 set -e
 set -u
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARROW_DIR="${SOURCE_DIR}/../.."
-ARROW_SITE_DIR="${SOURCE_DIR}/../../../arrow-site"
+ARROW_SITE_DIR="${ARROW_DIR}/../arrow-site"
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <previous-version> <version>"
@@ -258,9 +258,7 @@ github_url=$(git remote get-url origin | \
                  -e 's,\.git$,,')
 
 echo "Success!"
-echo "1. Open a JIRA issue:"
-echo "  https://issues.apache.org/jira/projects/ARROW/issues/"
-echo "2. Create a pull request:"
+echo "Create a pull request:"
 echo "  ${github_url}/pull/new/${branch_name}"
 
 popd

@@ -31,6 +31,8 @@ RUN \
     gpg \
     openssh-server \
     rpm \
+    ruby \
+    rake \
     sudo && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
@@ -46,11 +48,18 @@ RUN \
   useradd --uid ${ARROW_UID} --gid ${ARROW_UID} --create-home ${ARROW_USER} && \
   mkdir -p /home/arrow/.gnupg /home/arrow/.ssh && \
   chown -R arrow: /home/arrow/.gnupg /home/arrow/.ssh && \
-  chmod -R og-rwx /home/arrow/.gnupg /home/arrow/.ssh
+  chmod -R og-rwx /home/arrow/.gnupg /home/arrow/.ssh && \
+  echo "${ARROW_USER} ALL=(ALL:ALL) NOPASSWD:ALL" | \
+    EDITOR=tee visudo -f /etc/sudoers.d/arrow
 
 COPY id_rsa.pub /home/arrow/.ssh/authorized_keys
 RUN \
   chown -R arrow: /home/arrow/.ssh && \
   chmod -R og-rwx /home/arrow/.ssh
+
+COPY runner.sh /home/arrow/runner.sh
+RUN \
+  chown -R arrow: /home/arrow/runner.sh && \
+  chmod +x /home/arrow/runner.sh
 
 EXPOSE 22

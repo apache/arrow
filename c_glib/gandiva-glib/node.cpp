@@ -97,6 +97,12 @@ G_BEGIN_DECLS
  *
  * #GGandivaIfNode is a class for a node in the expression tree, representing an if-else.
  *
+ * #GGandivaBooleanNode is a class for a node in the expression tree, representing a boolean.
+ *
+ * #GGandivaAndNode is a class for a node in the expression tree, representing an AND.
+ *
+ * #GGandivaOrNode is a class for a node in the expression tree, representing an OR.
+ *
  * Since: 0.12.0
  */
 
@@ -1387,6 +1393,136 @@ ggandiva_if_node_new(GGandivaNode *condition_node,
                                   return_type);
 }
 
+
+typedef struct GGandivaBooleanNodePrivate_ {
+  GList *children;
+} GGandivaBooleanNodePrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GGandivaBooleanNode,
+                           ggandiva_boolean_node,
+                           GGANDIVA_TYPE_NODE)
+
+#define GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(object)      \
+  static_cast<GGandivaBooleanNodePrivate *>(           \
+    ggandiva_boolean_node_get_instance_private(        \
+      GGANDIVA_BOOLEAN_NODE(object)))                  \
+
+static void
+ggandiva_boolean_node_dispose(GObject *object)
+{
+  auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(object);
+
+  if (priv->children) {
+    g_list_free_full(priv->children, g_object_unref);
+    priv->children = nullptr;
+  }
+
+  G_OBJECT_CLASS(ggandiva_boolean_node_parent_class)->dispose(object);
+}
+
+static void
+ggandiva_boolean_node_init(GGandivaBooleanNode *boolean_node)
+{
+  auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(boolean_node);
+  priv->children = nullptr;
+}
+
+static void
+ggandiva_boolean_node_class_init(GGandivaBooleanNodeClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = ggandiva_boolean_node_dispose;
+}
+
+/**
+ * ggandiva_boolean_node_get_children:
+ * @node: A #GGandivaBooleanNode.
+ *
+ * Returns: (transfer none) (element-type GGandivaNode):
+ *   The children of the boolean node.
+ *
+ * Since: 1.0.0
+ */
+GList *
+ggandiva_boolean_node_get_children(GGandivaBooleanNode *node)
+{
+  auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(node);
+  return priv->children;
+}
+
+
+G_DEFINE_TYPE(GGandivaAndNode,
+              ggandiva_and_node,
+              GGANDIVA_TYPE_BOOLEAN_NODE)
+
+static void
+ggandiva_and_node_init(GGandivaAndNode *and_node)
+{
+}
+
+static void
+ggandiva_and_node_class_init(GGandivaAndNodeClass *klass)
+{
+}
+
+/**
+ * ggandiva_and_node_new:
+ * @children: (element-type GGandivaNode): The children of the AND node.
+ *
+ * Returns: A newly created #GGandivaAndNode for the AND expression.
+ *
+ * Since: 1.0.0
+ */
+GGandivaAndNode *
+ggandiva_and_node_new(GList *children)
+{
+  std::vector<std::shared_ptr<gandiva::Node>> gandiva_nodes;
+  for (auto node = children; node; node = g_list_next(node)) {
+    auto gandiva_node = ggandiva_node_get_raw(GGANDIVA_NODE(node->data));
+    gandiva_nodes.push_back(gandiva_node);
+  }
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeAnd(gandiva_nodes);
+  return GGANDIVA_AND_NODE(ggandiva_boolean_node_new_raw(&gandiva_node,
+                                                         children));
+}
+
+
+G_DEFINE_TYPE(GGandivaOrNode,
+              ggandiva_or_node,
+              GGANDIVA_TYPE_BOOLEAN_NODE)
+
+static void
+ggandiva_or_node_init(GGandivaOrNode *or_node)
+{
+}
+
+static void
+ggandiva_or_node_class_init(GGandivaOrNodeClass *klass)
+{
+}
+
+/**
+ * ggandiva_or_node_new:
+ * @children: (element-type GGandivaNode): The children of the OR node.
+ *
+ * Returns: A newly created #GGandivaOrNode for the OR expression.
+ *
+ * Since: 1.0.0
+ */
+GGandivaOrNode *
+ggandiva_or_node_new(GList *children)
+{
+  std::vector<std::shared_ptr<gandiva::Node>> gandiva_nodes;
+  for (auto node = children; node; node = g_list_next(node)) {
+    auto gandiva_node = ggandiva_node_get_raw(GGANDIVA_NODE(node->data));
+    gandiva_nodes.push_back(gandiva_node);
+  }
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeOr(gandiva_nodes);
+  return GGANDIVA_OR_NODE(ggandiva_boolean_node_new_raw(&gandiva_node,
+                                                        children));
+}
+
 G_END_DECLS
 
 std::shared_ptr<gandiva::Node>
@@ -1528,4 +1664,27 @@ ggandiva_if_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                               "return-type", return_type,
                               NULL);
   return GGANDIVA_IF_NODE(if_node);
+}
+
+GGandivaBooleanNode *
+ggandiva_boolean_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
+                              GList *children)
+{
+  auto gandiva_boolean_node =
+    std::static_pointer_cast<gandiva::BooleanNode>(*gandiva_node);
+
+  GType type;
+  if (gandiva_boolean_node->expr_type() == gandiva::BooleanNode::AND) {
+    type = GGANDIVA_TYPE_AND_NODE;
+  } else {
+    type = GGANDIVA_TYPE_OR_NODE;
+  }
+  auto boolean_node = g_object_new(type,
+                                   "node", gandiva_node,
+                                   NULL);
+  auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(boolean_node);
+  priv->children = g_list_copy_deep(children,
+                                    reinterpret_cast<GCopyFunc>(g_object_ref),
+                                    NULL);
+  return GGANDIVA_BOOLEAN_NODE(boolean_node);
 }

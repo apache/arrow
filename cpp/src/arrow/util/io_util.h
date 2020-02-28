@@ -34,12 +34,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-
-// The Windows API defines DeleteFile as a macro resolving to either
-// DeleteFileA or DeleteFileW.  Need to undo it.
-#if defined(_WIN32) && defined(DeleteFile)
-#undef DeleteFile
-#endif
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 

@@ -286,11 +286,7 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type::Timestamp: {
       auto ts_type = static_cast<const flatbuf::Timestamp*>(type_data);
       TimeUnit::type unit = FromFlatbufferUnit(ts_type->unit());
-      if (ts_type->timezone() != 0 && ts_type->timezone()->Length() > 0) {
-        *out = timestamp(unit, ts_type->timezone()->str());
-      } else {
-        *out = timestamp(unit);
-      }
+      *out = timestamp(unit, StringFromFlatbuffers(ts_type->timezone()));
       return Status::OK();
     }
     case flatbuf::Type::Duration: {
@@ -369,10 +365,7 @@ static Status TypeFromFlatbuffer(const flatbuf::Field* field,
                                  const KeyValueMetadata* field_metadata,
                                  std::shared_ptr<DataType>* out) {
   auto type_data = field->type();
-  if (type_data == nullptr) {
-    return Status::IOError(
-        "Type-pointer in custom metadata of flatbuffer-encoded Field is null.");
-  }
+  CHECK_FLATBUFFERS_NOT_NULL(type_data, "Field.type");
   RETURN_NOT_OK(ConcreteTypeFromFlatbuffer(field->type_type(), type_data, children, out));
 
   // Look for extension metadata in custom_metadata field
@@ -474,14 +467,8 @@ Status KeyValueMetadataFromFlatbuffer(const KVVector* fb_metadata,
 
   metadata->reserve(fb_metadata->size());
   for (const auto& pair : *fb_metadata) {
-    if (pair->key() == nullptr) {
-      return Status::IOError(
-          "Key-pointer in custom metadata of flatbuffer-encoded Schema is null.");
-    }
-    if (pair->value() == nullptr) {
-      return Status::IOError(
-          "Value-pointer in custom metadata of flatbuffer-encoded Schema is null.");
-    }
+    CHECK_FLATBUFFERS_NOT_NULL(pair->key(), "custom_metadata.key");
+    CHECK_FLATBUFFERS_NOT_NULL(pair->value(), "custom_metadata.value");
     metadata->Append(pair->key()->str(), pair->value()->str());
   }
 
@@ -776,15 +763,15 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
 
   // Reconstruct the data type
   auto children = field->children();
-  if (children == nullptr) {
-    return Status::IOError("Children-pointer of flatbuffer-encoded Field is null.");
-  }
+  CHECK_FLATBUFFERS_NOT_NULL(children, "Field.children");
   std::vector<std::shared_ptr<Field>> child_fields(children->size());
   for (int i = 0; i < static_cast<int>(children->size()); ++i) {
     RETURN_NOT_OK(
         FieldFromFlatbuffer(children->Get(i), dictionary_memo, &child_fields[i]));
   }
   RETURN_NOT_OK(TypeFromFlatbuffer(field, child_fields, metadata.get(), &type));
+
+  auto field_name = StringFromFlatbuffers(field->name());
 
   const flatbuf::DictionaryEncoding* encoding = field->dictionary();
 
@@ -794,22 +781,14 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
     // dictionary_memo
     std::shared_ptr<DataType> index_type;
     auto int_data = encoding->indexType();
-    if (int_data == nullptr) {
-      return Status::IOError(
-          "indexType-pointer in custom metadata of flatbuffer-encoded DictionaryEncoding "
-          "is null.");
-    }
+    CHECK_FLATBUFFERS_NOT_NULL(int_data, "DictionaryEncoding.indexType");
     RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
     ARROW_ASSIGN_OR_RAISE(type,
                           DictionaryType::Make(index_type, type, encoding->isOrdered()));
-    *out = ::arrow::field(field->name()->str(), type, field->nullable(), metadata);
+    *out = ::arrow::field(field_name, type, field->nullable(), metadata);
     RETURN_NOT_OK(dictionary_memo->AddField(encoding->id(), *out));
   } else {
-    auto name = field->name();
-    if (name == nullptr) {
-      return Status::IOError("Name-pointer of flatbuffer-encoded Field is null.");
-    }
-    *out = ::arrow::field(name->str(), type, field->nullable(), metadata);
+    *out = ::arrow::field(field_name, type, field->nullable(), metadata);
   }
   return Status::OK();
 }
@@ -1183,17 +1162,15 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
 Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
                  std::shared_ptr<Schema>* out) {
   auto schema = static_cast<const flatbuf::Schema*>(opaque_schema);
-  if (schema->fields() == nullptr) {
-    return Status::IOError("Fields-pointer of flatbuffer-encoded Schema is null.");
-  }
+  CHECK_FLATBUFFERS_NOT_NULL(schema, "schema");
+  CHECK_FLATBUFFERS_NOT_NULL(schema->fields(), "Schema.fields");
   int num_fields = static_cast<int>(schema->fields()->size());
 
   std::vector<std::shared_ptr<Field>> fields(num_fields);
   for (int i = 0; i < num_fields; ++i) {
     const flatbuf::Field* field = schema->fields()->Get(i);
-    if (field == nullptr) {
-      return Status::IOError("Field-pointer of flatbuffer-encoded Schema is null.");
-    }
+    // XXX I don't think this check is necessary (AP)
+    CHECK_FLATBUFFERS_NOT_NULL(field, "DictionaryEncoding.indexType");
     RETURN_NOT_OK(FieldFromFlatbuffer(field, dictionary_memo, &fields[i]));
   }
 
@@ -1225,12 +1202,7 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
     auto dim = tensor->shape()->Get(i);
 
     shape->push_back(dim->size());
-    auto fb_name = dim->name();
-    if (fb_name == 0) {
-      dim_names->push_back("");
-    } else {
-      dim_names->push_back(fb_name->str());
-    }
+    dim_names->push_back(StringFromFlatbuffers(dim->name()));
   }
 
   if (tensor->strides() && tensor->strides()->size() > 0) {
@@ -1239,11 +1211,7 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
     }
   }
 
-  auto type_data = tensor->type();
-  if (type_data == nullptr) {
-    return Status::IOError(
-        "Type-pointer in custom metadata of flatbuffer-encoded Tensor is null.");
-  }
+  auto type_data = tensor->type();  // Required
   return ConcreteTypeFromFlatbuffer(tensor->type_type(), type_data, {}, type);
 }
 
@@ -1283,12 +1251,7 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
       }
 
       if (dim_names) {
-        auto fb_name = dim->name();
-        if (fb_name == 0) {
-          dim_names->push_back("");
-        } else {
-          dim_names->push_back(fb_name->str());
-        }
+        dim_names->push_back(StringFromFlatbuffers(dim->name()));
       }
     }
   }
@@ -1324,11 +1287,7 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
     }
   }
 
-  auto type_data = sparse_tensor->type();
-  if (type_data == nullptr) {
-    return Status::IOError(
-        "Type-pointer in custom metadata of flatbuffer-encoded SparseTensor is null.");
-  }
+  auto type_data = sparse_tensor->type();  // Required
   if (type) {
     return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), type_data, {}, type);
   } else {

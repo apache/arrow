@@ -57,17 +57,12 @@ struct HdfsPathInfo {
   int16_t permissions;
 };
 
-enum class HdfsDriver : char { LIBHDFS, LIBHDFS3 };
-
 struct HdfsConnectionConfig {
   std::string host;
   int port;
   std::string user;
   std::string kerb_ticket;
   std::unordered_map<std::string, std::string> extra_conf;
-  HdfsDriver driver;
-
-  HdfsConnectionConfig() : driver(HdfsDriver::LIBHDFS) {}
 };
 
 class ARROW_EXPORT HadoopFileSystem : public FileSystem {
@@ -258,7 +253,6 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
 };
 
 Status ARROW_EXPORT HaveLibHdfs();
-Status ARROW_EXPORT HaveLibHdfs3();
 
 }  // namespace io
 }  // namespace arrow

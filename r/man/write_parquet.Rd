@@ -66,7 +66,7 @@ You should not specify any of these arguments if you also provide a \code{proper
 argument, as they will be ignored.}
 }
 \value{
-\code{NULL}, invisibly
+the input \code{x} invisibly.
 }
 \description{
 \href{https://parquet.apache.org/}{Parquet} is a columnar storage file format.

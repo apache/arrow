@@ -20,6 +20,8 @@
 #' @param x `data.frame` or RecordBatch
 #' @param sink A file path or an OutputStream
 #'
+#' @return the input `x` invisibly.
+#'
 #' @export
 #' @examples
 #' \donttest{
@@ -29,6 +31,8 @@
 #' }
 #' @include arrow-package.R
 write_feather <- function(x, sink) {
+  x_out <- x
+
   if (is.data.frame(x)) {
     x <- record_batch(x)
   }
@@ -42,6 +46,8 @@ write_feather <- function(x, sink) {
 
   writer <- FeatherTableWriter$create(sink)
   ipc___TableWriter__RecordBatch__WriteFeather(writer, x)
+
+  invisible(x_out)
 }
 
 #' @title FeatherTableWriter class

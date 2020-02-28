@@ -136,6 +136,18 @@ impl<'a> TryClone for Cursor<&'a [u8]> {
     }
 }
 
+impl Length for Cursor<Vec<u8>> {
+    fn len(&self) -> u64 {
+        self.get_ref().len() as u64
+    }
+}
+
+impl TryClone for Cursor<Vec<u8>> {
+    fn try_clone(&self) -> Result<Self> {
+        Ok(self.clone())
+    }
+}
+
 /// ParquetReader is the interface which needs to be fulfilled to be able to parse a
 /// parquet source.
 pub trait ParquetReader: Read + Seek + Length + TryClone {}
@@ -660,22 +672,23 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_cursor_and_file_has_the_same_behaviour() {
-    //     let path = get_test_path("alltypes_plain.parquet");
-    //     let buffer = include_bytes!(path);
-    //     let cursor = Cursor::new(buffer.as_ref());
+    #[test]
+    fn test_cursor_and_file_has_the_same_behaviour() {
+        let mut buf: Vec<u8> = Vec::new();
+        get_test_file("alltypes_plain.parquet")
+            .read_to_end(&mut buf)
+            .unwrap();
+        let cursor = Cursor::new(buf);
+        let read_from_cursor = SerializedFileReader::new(cursor).unwrap();
 
-    //     let read_from_file =
-    //         SerializedFileReader::new(File::open("testdata/alltypes_plain.parquet").
-    // unwrap())             .unwrap();
-    //     let read_from_cursor = SerializedFileReader::new(cursor).unwrap();
+        let test_file = get_test_file("alltypes_plain.parquet");
+        let read_from_file = SerializedFileReader::new(test_file).unwrap();
 
-    //     let file_iter = read_from_file.get_row_iter(None).unwrap();
-    //     let cursor_iter = read_from_cursor.get_row_iter(None).unwrap();
+        let file_iter = read_from_file.get_row_iter(None).unwrap();
+        let cursor_iter = read_from_cursor.get_row_iter(None).unwrap();
 
-    //     assert!(file_iter.eq(cursor_iter));
-    // }
+        assert!(file_iter.eq(cursor_iter));
+    }
 
     #[test]
     fn test_file_reader_metadata_corrupt_footer() {

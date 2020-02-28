@@ -36,6 +36,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
@@ -73,6 +74,17 @@ template <typename Gen>
 std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, Gen&& gen) {
   return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
+}
+
+std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
+    std::shared_ptr<Schema> schema, int64_t batch_size, int64_t batch_repetitions) {
+  auto batch = ConstantArrayGenerator::Zeroes(batch_size, schema);
+  int64_t i = 0;
+  return MakeGeneratedRecordBatch(
+      schema, [batch, i, batch_repetitions](std::shared_ptr<RecordBatch>* out) mutable {
+        *out = i++ < batch_repetitions ? batch : nullptr;
+        return Status::OK();
+      });
 }
 
 void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
@@ -119,9 +131,9 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   /// \brief Ensure that record batches found in reader are equals to the
-  /// record batches yielded by the data fragments of a source.
-  void AssertSourceEquals(RecordBatchReader* expected, Source* source,
-                          bool ensure_drained = true) {
+  /// record batches yielded by the data fragments of a dataset.
+  void AssertDatasetFragmentsEqual(RecordBatchReader* expected, Dataset* source,
+                                   bool ensure_drained = true) {
     auto it = source->GetFragments(options_);
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<Fragment> fragment) -> Status {
@@ -196,7 +208,7 @@ class DummyFileFormat : public FileFormat {
   }
 
   inline Result<std::shared_ptr<Fragment>> MakeFragment(
-      const FileSource& location, std::shared_ptr<ScanOptions> options) override;
+      FileSource source, std::shared_ptr<ScanOptions> options) override;
 
  protected:
   std::shared_ptr<Schema> schema_;
@@ -211,7 +223,7 @@ class DummyFragment : public FileFragment {
 };
 
 Result<std::shared_ptr<Fragment>> DummyFileFormat::MakeFragment(
-    const FileSource& source, std::shared_ptr<ScanOptions> options) {
+    FileSource source, std::shared_ptr<ScanOptions> options) {
   return std::make_shared<DummyFragment>(source, options);
 }
 
@@ -251,7 +263,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
   }
 
   inline Result<std::shared_ptr<Fragment>> MakeFragment(
-      const FileSource& location, std::shared_ptr<ScanOptions> options) override;
+      FileSource source, std::shared_ptr<ScanOptions> options) override;
 
  protected:
   SchemaResolver resolver_;
@@ -268,11 +280,11 @@ class JSONRecordBatchFragment : public FileFragment {
 };
 
 Result<std::shared_ptr<Fragment>> JSONRecordBatchFileFormat::MakeFragment(
-    const FileSource& source, std::shared_ptr<ScanOptions> options) {
+    FileSource source, std::shared_ptr<ScanOptions> options) {
   return std::make_shared<JSONRecordBatchFragment>(source, resolver_(source), options);
 }
 
-class TestFileSystemSource : public ::testing::Test {
+class TestFileSystemDataset : public ::testing::Test {
  public:
   void MakeFileSystem(const std::vector<fs::FileStats>& stats) {
     ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
@@ -286,24 +298,31 @@ class TestFileSystemSource : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
   }
 
-  void MakeSource(const std::vector<fs::FileStats>& stats,
-                  std::shared_ptr<Expression> source_partition = scalar(true),
-                  ExpressionVector partitions = {}) {
+  void MakeDataset(const std::vector<fs::FileStats>& stats,
+                   std::shared_ptr<Expression> source_partition = scalar(true),
+                   ExpressionVector partitions = {}) {
     if (partitions.empty()) {
       partitions.resize(stats.size(), scalar(true));
     }
 
     MakeFileSystem(stats);
     auto format = std::make_shared<DummyFileFormat>();
-    ASSERT_OK_AND_ASSIGN(source_, FileSystemSource::Make(schema({}), source_partition,
-                                                         format, fs_, stats, partitions));
+    ASSERT_OK_AND_ASSIGN(
+        source_, FileSystemDataset::Make(schema({}), source_partition, format, fs_, stats,
+                                         partitions));
   }
 
  protected:
   std::shared_ptr<fs::FileSystem> fs_;
-  std::shared_ptr<Source> source_;
+  std::shared_ptr<Dataset> source_;
   std::shared_ptr<ScanOptions> options_ = ScanOptions::Make(schema({}));
 };
+
+void AssertFilesAre(const std::shared_ptr<Dataset>& source,
+                    std::vector<std::string> expected) {
+  auto fs_source = internal::checked_cast<FileSystemDataset*>(source.get());
+  EXPECT_THAT(fs_source->files(), testing::UnorderedElementsAreArray(expected));
+}
 
 void AssertFragmentsAreFromPath(FragmentIterator it, std::vector<std::string> expected) {
   std::vector<std::string> actual;

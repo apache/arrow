@@ -22,6 +22,7 @@ import sys
 
 import pyarrow
 import pyarrow.flight
+import pyarrow.csv as csv
 
 
 def list_flights(args, client):
@@ -48,10 +49,8 @@ def list_flights(args, client):
             print("Unknown")
 
         print("Number of endpoints:", len(flight.endpoints))
-
-        if args.list:
-            print(flight.schema)
-
+        print("Schema:")
+        print(flight.schema)
         print('---')
 
     print('\nActions\n=======')
@@ -72,6 +71,18 @@ def do_action(args, client):
         print("Error calling action:", e)
 
 
+def push_data(args, client):
+    print('File Name:', args.file)
+    my_table = csv.read_csv(args.file)
+    print ('Table rows=', str(len(my_table)))
+    df = my_table.to_pandas()
+    print(df.head())
+    writer, _ = client.do_put(
+        pyarrow.flight.FlightDescriptor.for_path(args.file), my_table.schema)    
+    writer.write_table(my_table)
+    writer.close()
+
+
 def get_flight(args, client):
     if args.path:
         descriptor = pyarrow.flight.FlightDescriptor.for_path(*args.path)
@@ -83,7 +94,7 @@ def get_flight(args, client):
         print('Ticket:', endpoint.ticket)
         for location in endpoint.locations:
             print(location)
-            get_client = pyarrow.flight.FlightClient.connect(location)
+            get_client = pyarrow.flight.FlightClient(location)
             reader = get_client.do_get(endpoint.ticket)
             df = reader.read_pandas()
             print(df)
@@ -112,6 +123,12 @@ def main():
     cmd_do.add_argument('action_type', type=str,
                         help="The action type to run.")
 
+    cmd_put = subcommands.add_parser('put')
+    cmd_put.set_defaults(action='put')
+    _add_common_arguments(cmd_put)
+    cmd_put.add_argument('file', type=str,
+                        help="CSV file to upload.")
+                        
     cmd_get = subcommands.add_parser('get')
     cmd_get.set_defaults(action='get')
     _add_common_arguments(cmd_get)
@@ -130,6 +147,7 @@ def main():
         'list': list_flights,
         'do': do_action,
         'get': get_flight,
+        'put': push_data,
     }
     host, port = args.host.split(':')
     port = int(port)
@@ -140,7 +158,7 @@ def main():
         if args.tls_roots:
             with open(args.tls_roots, "rb") as root_certs:
                 connection_args["tls_root_certs"] = root_certs.read()
-    client = pyarrow.flight.FlightClient.connect(f"{scheme}://{host}:{port}",
+    client = pyarrow.flight.FlightClient(f"{scheme}://{host}:{port}",
                                                  **connection_args)
     while True:
         try:

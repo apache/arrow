@@ -213,6 +213,11 @@ Status ToProto(const Result& result, pb::Result* pb_result) {
 // Criteria
 
 Status FromProto(const pb::Criteria& pb_criteria, Criteria* criteria) {
+  criteria->expression = pb_criteria.expression();
+  return Status::OK();
+}
+Status ToProto(const Criteria& criteria, pb::Criteria* pb_criteria) {
+  pb_criteria->set_expression(criteria.expression);
   return Status::OK();
 }
 

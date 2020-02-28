@@ -44,6 +44,7 @@
 
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentials.h>
+#include <aws/core/auth/AWSCredentialsProvider.h>
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/s3/S3Client.h>
@@ -68,6 +69,7 @@ namespace fs {
 
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::TemporaryDir;
+using ::arrow::internal::UriEscape;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
 using ::arrow::fs::internal::ErrorToStatus;
@@ -235,6 +237,54 @@ void AssertObjectContents(Aws::S3::S3Client* client, const std::string& bucket,
   req.SetKey(ToAwsString(key));
   ARROW_AWS_ASSIGN_OR_FAIL(auto result, client->GetObject(req));
   AssertGetObject(result, expected);
+}
+
+////////////////////////////////////////////////////////////////////////////
+// S3Options tests
+
+TEST(S3Options, FromUri) {
+  std::string path;
+  S3Options options;
+
+  ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://", &path));
+  ASSERT_EQ(options.region, kS3DefaultRegion);
+  ASSERT_EQ(options.scheme, "https");
+  ASSERT_EQ(options.endpoint_override, "");
+  ASSERT_EQ(path, "");
+
+  ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3:", &path));
+  ASSERT_EQ(path, "");
+
+  ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://access:secret@mybucket", &path));
+  ASSERT_EQ(path, "mybucket");
+  const auto creds = options.credentials_provider->GetAWSCredentials();
+  ASSERT_EQ(creds.GetAWSAccessKeyId(), "access");
+  ASSERT_EQ(creds.GetAWSSecretKey(), "secret");
+
+  ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
+  ASSERT_EQ(options.region, kS3DefaultRegion);
+  ASSERT_EQ(options.scheme, "https");
+  ASSERT_EQ(options.endpoint_override, "");
+  ASSERT_EQ(path, "mybucket");
+
+  ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/foo/bar/", &path));
+  ASSERT_EQ(options.region, kS3DefaultRegion);
+  ASSERT_EQ(options.scheme, "https");
+  ASSERT_EQ(options.endpoint_override, "");
+  ASSERT_EQ(path, "mybucket/foo/bar");
+
+  ASSERT_OK_AND_ASSIGN(
+      options,
+      S3Options::FromUri(
+          "s3://mybucket/foo/bar/?region=utopia&endpoint_override=localhost&scheme=http",
+          &path));
+  ASSERT_EQ(options.region, "utopia");
+  ASSERT_EQ(options.scheme, "http");
+  ASSERT_EQ(options.endpoint_override, "localhost");
+  ASSERT_EQ(path, "mybucket/foo/bar");
+
+  // Missing bucket name
+  ASSERT_RAISES(Invalid, S3Options::FromUri("s3:///foo/bar/", &path));
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -756,6 +806,20 @@ TEST_F(TestS3FS, OpenOutputStreamDestructorSyncWrite) {
   options_.background_writes = false;
   MakeFileSystem();
   TestOpenOutputStreamDestructor();
+}
+
+TEST_F(TestS3FS, FileSystemFromUri) {
+  std::stringstream ss;
+  ss << "s3://" << minio_.access_key() << ":" << minio_.secret_key()
+     << "@bucket/somedir/subdir/subfile"
+     << "?scheme=http&endpoint_override=" << UriEscape(minio_.connect_string());
+
+  std::string path;
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(ss.str(), &path));
+  ASSERT_EQ(path, "bucket/somedir/subdir/subfile");
+
+  // Check the filesystem has the right connection parameters
+  AssertFileStats(fs.get(), path, FileType::File, 8);
 }
 
 ////////////////////////////////////////////////////////////////////////////

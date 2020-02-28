@@ -46,6 +46,13 @@ set(ARROW_PYTHON_SRCS
     pyarrow.cc
     serialize.cc)
 
+set_source_files_properties(init.cc
+                            PROPERTIES
+                            SKIP_PRECOMPILE_HEADERS
+                            ON
+                            SKIP_UNITY_BUILD_INCLUSION
+                            ON)
+
 set(ARROW_PYTHON_DEPENDENCIES arrow_dependencies)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -66,6 +73,8 @@ add_arrow_lib(arrow_python
               arrow-python
               SOURCES
               ${ARROW_PYTHON_SRCS}
+              PRECOMPILED_HEADERS
+              "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>"
               OUTPUTS
               ARROW_PYTHON_LIBRARIES
               DEPENDENCIES
@@ -141,7 +150,7 @@ arrow_install_all_headers("arrow/python")
 if(ARROW_BUILD_TESTS)
   add_library(arrow_python_test_main STATIC util/test_main.cc)
 
-  target_link_libraries(arrow_python_test_main GTest::GTest)
+  target_link_libraries(arrow_python_test_main GTest::gtest)
   target_include_directories(arrow_python_test_main SYSTEM
                              PUBLIC ${ARROW_PYTHON_INCLUDES})
 

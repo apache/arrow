@@ -125,6 +125,9 @@ impl<'a> Footer<'a> {
         args: &'args FooterArgs<'args>,
     ) -> flatbuffers::WIPOffset<Footer<'bldr>> {
         let mut builder = FooterBuilder::new(_fbb);
+        if let Some(x) = args.custom_metadata {
+            builder.add_custom_metadata(x);
+        }
         if let Some(x) = args.recordBatches {
             builder.add_recordBatches(x);
         }
@@ -142,6 +145,7 @@ impl<'a> Footer<'a> {
     pub const VT_SCHEMA: flatbuffers::VOffsetT = 6;
     pub const VT_DICTIONARIES: flatbuffers::VOffsetT = 8;
     pub const VT_RECORDBATCHES: flatbuffers::VOffsetT = 10;
+    pub const VT_CUSTOM_METADATA: flatbuffers::VOffsetT = 12;
 
     #[inline]
     pub fn version(&self) -> MetadataVersion {
@@ -172,6 +176,15 @@ impl<'a> Footer<'a> {
             )
             .map(|v| v.safe_slice())
     }
+    /// User-defined metadata
+    #[inline]
+    pub fn custom_metadata(
+        &self,
+    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
+        self._tab.get::<flatbuffers::ForwardsUOffset<
+            flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
+        >>(Footer::VT_CUSTOM_METADATA, None)
+    }
 }
 
 pub struct FooterArgs<'a> {
@@ -179,6 +192,11 @@ pub struct FooterArgs<'a> {
     pub schema: Option<flatbuffers::WIPOffset<Schema<'a>>>,
     pub dictionaries: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, Block>>>,
     pub recordBatches: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, Block>>>,
+    pub custom_metadata: Option<
+        flatbuffers::WIPOffset<
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
+        >,
+    >,
 }
 impl<'a> Default for FooterArgs<'a> {
     #[inline]
@@ -188,6 +206,7 @@ impl<'a> Default for FooterArgs<'a> {
             schema: None,
             dictionaries: None,
             recordBatches: None,
+            custom_metadata: None,
         }
     }
 }
@@ -230,6 +249,18 @@ impl<'a: 'b, 'b> FooterBuilder<'a, 'b> {
         self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
             Footer::VT_RECORDBATCHES,
             recordBatches,
+        );
+    }
+    #[inline]
+    pub fn add_custom_metadata(
+        &mut self,
+        custom_metadata: flatbuffers::WIPOffset<
+            flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<KeyValue<'b>>>,
+        >,
+    ) {
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+            Footer::VT_CUSTOM_METADATA,
+            custom_metadata,
         );
     }
     #[inline]

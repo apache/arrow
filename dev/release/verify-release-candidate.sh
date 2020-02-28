@@ -28,6 +28,10 @@
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
+#
+# To reuse build artifacts between runs set TMPDIR environment variable to
+# a directory where the temporary files should be placed to, note that this
+# directory is not cleaned up automatically.
 
 case $# in
   3) ARTIFACT="$1"
@@ -123,16 +127,37 @@ test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
 
-  python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
+  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
   verify_dir_artifact_signatures ${download_dir}
 }
 
 test_apt() {
   for target in "debian:stretch" \
+                "arm64v8/debian:stretch" \
                 "debian:buster" \
+                "arm64v8/debian:buster" \
                 "ubuntu:xenial" \
+                "arm64v8/ubuntu:xenial" \
                 "ubuntu:bionic" \
-                "ubuntu:disco"; do
+                "arm64v8/ubuntu:bionic" \
+                "ubuntu:disco" \
+                "arm64v8/ubuntu:disco" \
+                "ubuntu:eoan" \
+                "arm64v8/ubuntu:eoan"; do \
+    # We can't build some arm64 binaries by Crossbow for now.
+    if [ "${target}" = "arm64v8/debian:stretch" ]; then continue; fi
+    if [ "${target}" = "arm64v8/debian:buster" ]; then continue; fi
+    if [ "${target}" = "arm64v8/ubuntu:disco" ]; then continue; fi
+    if [ "${target}" = "arm64v8/ubuntu:eoan" ]; then continue; fi
+    case "${target}" in
+      arm64v8/*)
+        if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
+          : # OK
+        else
+          continue
+        fi
+        ;;
+    esac
     if ! docker run -v "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
@@ -147,7 +172,21 @@ test_apt() {
 
 test_yum() {
   for target in "centos:6" \
-                "centos:7"; do
+                "centos:7" \
+                "arm64v8/centos:7" \
+                "centos:8" \
+                "arm64v8/centos:8"; do
+    # We can't build some arm64 binaries by Crossbow for now.
+    if [ "${target}" = "arm64v8/centos:8" ]; then continue; fi
+    case "${target}" in
+      arm64v8/*)
+        if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
+          : # OK
+        else
+          continue
+        fi
+        ;;
+    esac
     if ! docker run -v "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
@@ -169,8 +208,15 @@ setup_tempdir() {
       echo "Failed to verify release candidate. See ${TMPDIR} for details."
     fi
   }
-  trap cleanup EXIT
-  TMPDIR=$(mktemp -d -t "$1.XXXXX")
+
+  if [ -z "${TMPDIR}" ]; then
+    # clean up automatically if TMPDIR is not defined
+    TMPDIR=$(mktemp -d -t "$1.XXXXX")
+    trap cleanup EXIT
+  else
+    # don't clean up automatically
+    mkdir -p "${TMPDIR}"
+  fi
 }
 
 
@@ -184,11 +230,22 @@ setup_miniconda() {
 
   MINICONDA=$PWD/test-miniconda
 
-  wget -O miniconda.sh $MINICONDA_URL
-  bash miniconda.sh -b -p $MINICONDA
-  rm -f miniconda.sh
+  if [ ! -d "${MINICONDA}" ]; then
+    # Setup miniconda only if the directory doesn't exist yet
+    wget -O miniconda.sh $MINICONDA_URL
+    bash miniconda.sh -b -p $MINICONDA
+    rm -f miniconda.sh
+  fi
 
   . $MINICONDA/etc/profile.d/conda.sh
+
+  conda create -n arrow-test -y -q -c conda-forge \
+        python=3.6 \
+        nomkl \
+        numpy \
+        pandas \
+        cython
+  conda activate arrow-test
 }
 
 # Build and test Java (Requires newer Maven -- I used 3.3.9)
@@ -205,16 +262,7 @@ test_package_java() {
 # Build and test C++
 
 test_and_install_cpp() {
-  conda create -n arrow-test -y -q -c conda-forge \
-        python=3.6 \
-        nomkl \
-        numpy \
-        pandas \
-        six \
-        cython
-  conda activate arrow-test
-
-  mkdir cpp/build
+  mkdir -p cpp/build
   pushd cpp/build
 
   ARROW_CMAKE_OPTIONS="
@@ -227,6 +275,7 @@ ${ARROW_CMAKE_OPTIONS:-}
 -DARROW_PYTHON=ON
 -DARROW_GANDIVA=ON
 -DARROW_PARQUET=ON
+-DARROW_DATASET=ON
 -DPARQUET_REQUIRE_ENCRYPTION=ON
 -DARROW_WITH_BZ2=ON
 -DARROW_WITH_ZLIB=ON
@@ -281,7 +330,7 @@ test_csharp() {
     esac
     local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
     local dotnet_download_url=$( \
-      curl ${dotnet_download_thank_you_url} | \
+      curl --location ${dotnet_download_thank_you_url} | \
         grep 'window\.open' | \
         grep -E -o '[^"]+' | \
         sed -n 2p)
@@ -316,6 +365,7 @@ test_python() {
 
   pip install -r requirements.txt -r requirements-test.txt
 
+  export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_GANDIVA=1
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
@@ -457,7 +507,7 @@ test_integration() {
   export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
   export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
 
-  pip3 install -e dev/archery
+  pip install -e dev/archery
 
   INTEGRATION_TEST_ARGS=""
 
@@ -476,6 +526,18 @@ test_integration() {
               $INTEGRATION_TEST_ARGS
 }
 
+clone_testing_repositories() {
+  # Clone testing repositories if not cloned already
+  if [ ! -d "arrow-testing" ]; then
+    git clone https://github.com/apache/arrow-testing.git
+  fi
+  if [ ! -d "parquet-testing" ]; then
+    git clone https://github.com/apache/parquet-testing.git
+  fi
+  export ARROW_TEST_DATA=$PWD/arrow-testing/data
+  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
+}
+
 test_source_distribution() {
   export ARROW_HOME=$TMPDIR/install
   export PARQUET_HOME=$TMPDIR/install
@@ -488,17 +550,12 @@ test_source_distribution() {
     NPROC=$(nproc)
   fi
 
-  git clone https://github.com/apache/arrow-testing.git
-  export ARROW_TEST_DATA=$PWD/arrow-testing/data
-
-  git clone https://github.com/apache/parquet-testing.git
-  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
+  clone_testing_repositories
 
   if [ ${TEST_JAVA} -gt 0 ]; then
     test_package_java
   fi
   if [ ${TEST_CPP} -gt 0 ]; then
-    setup_miniconda
     test_and_install_cpp
   fi
   if [ ${TEST_CSHARP} -gt 0 ]; then
@@ -549,14 +606,15 @@ check_python_imports() {
   python -c "import pyarrow.fs"
 
   if [[ "$py_arch" =~ ^3 ]]; then
-    # Flight and Gandiva are only available for py3
+    # Flight, Gandiva and Dataset are only available for py3
+    python -c "import pyarrow.dataset"
     python -c "import pyarrow.flight"
     python -c "import pyarrow.gandiva"
   fi
 }
 
 test_linux_wheels() {
-  local py_arches="2.7mu 3.5m 3.6m 3.7m 3.8"
+  local py_arches="3.5m 3.6m 3.7m 3.8"
   local manylinuxes="1 2010 2014"
 
   for py_arch in ${py_arches}; do
@@ -564,18 +622,15 @@ test_linux_wheels() {
     conda create -yq -n ${env} python=${py_arch//[mu]/}
     conda activate ${env}
 
-    for ml_spec in manylinuxes; do
-      if [[ "$py_arch" = "2.7mu" && "$ml_spec" = "2014" ]]; then
-        # manylinux2014 does not support py2.7, so skip that one
-        continue
-      fi
-
+    for ml_spec in ${manylinuxes}; do
       # check the mandatory and optional imports
       pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
       check_python_imports py_arch
 
+      # install test requirements
+      pip install -r ${ARROW_DIR}/python/requirements-test.txt
+
       # execute the python unit tests
-      conda install -y --file ${ARROW_DIR}/ci/conda_env_python.yml pandas
       pytest --pyargs pyarrow
     done
 
@@ -584,7 +639,7 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
-  local py_arches="2.7m 3.5m 3.6m 3.7m 3.8"
+  local py_arches="3.5m 3.6m 3.7m 3.8"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
@@ -594,7 +649,7 @@ test_macos_wheels() {
     macos_suffix=macosx
     case "${py_arch}" in
     *m)
-      macos_suffix="${macos_suffix}_10_6_intel"
+      macos_suffix="${macos_suffix}_10_9_intel"
       ;;
     *)
       macos_suffix="${macos_suffix}_10_9_x86_64"
@@ -605,8 +660,10 @@ test_macos_wheels() {
     pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-${macos_suffix}.whl
     check_python_imports py_arch
 
+    # install test requirements
+    pip install -r ${ARROW_DIR}/python/requirements-test.txt
+
     # execute the python unit tests
-    conda install -y --file ${ARROW_DIR}/ci/conda_env_python.yml pandas
     pytest --pyargs pyarrow
 
     conda deactivate
@@ -614,6 +671,8 @@ test_macos_wheels() {
 }
 
 test_wheels() {
+  clone_testing_repositories
+
   local download_dir=binaries
   mkdir -p ${download_dir}
 
@@ -626,9 +685,9 @@ test_wheels() {
   conda create -yq -n py3-base python=3.7
   conda activate py3-base
 
-  python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-          --regex=${filter_regex} \
-          --dest=${download_dir}
+  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+         --regex=${filter_regex} \
+         --dest=${download_dir}
 
   verify_dir_artifact_signatures ${download_dir}
 
@@ -691,6 +750,9 @@ setup_tempdir "arrow-${VERSION}"
 echo "Working in sandbox ${TMPDIR}"
 cd ${TMPDIR}
 
+setup_miniconda
+echo "Using miniconda environment ${MINICONDA}"
+
 if [ "${ARTIFACT}" == "source" ]; then
   dist_name="apache-arrow-${VERSION}"
   if [ ${TEST_SOURCE} -gt 0 ]; then
@@ -699,6 +761,10 @@ if [ "${ARTIFACT}" == "source" ]; then
     tar xf ${dist_name}.tar.gz
   else
     mkdir -p ${dist_name}
+    if [ ! -f ${TEST_ARCHIVE} ]; then
+      echo "${TEST_ARCHIVE} not found, did you mean to pass TEST_SOURCE=1?"
+      exit 1
+    fi
     tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
   fi
   pushd ${dist_name}
@@ -706,7 +772,6 @@ if [ "${ARTIFACT}" == "source" ]; then
   popd
 elif [ "${ARTIFACT}" == "wheels" ]; then
   import_gpg_keys
-  setup_miniconda
   test_wheels
 else
   import_gpg_keys

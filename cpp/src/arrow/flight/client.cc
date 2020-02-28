@@ -586,8 +586,8 @@ class FlightClient::FlightClientImpl {
 
   Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
                      std::unique_ptr<FlightListing>* listing) {
-    // TODO(wesm): populate criteria
     pb::Criteria pb_criteria;
+    RETURN_NOT_OK(internal::ToProto(criteria, &pb_criteria));
 
     ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));

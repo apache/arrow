@@ -16,16 +16,15 @@
 # under the License.
 
 from datetime import datetime
-try:
-    import pathlib
-except ImportError:
-    import pathlib2 as pathlib  # py2 compat
+import gzip
+import pathlib
+
+import urllib.parse
 
 import pytest
 
 import pyarrow as pa
-from pyarrow.tests.test_io import (gzip_compress, gzip_decompress,
-                                   assert_file_not_found)
+from pyarrow.tests.test_io import assert_file_not_found
 from pyarrow.fs import (FileType, FileSelector, FileSystem, LocalFileSystem,
                         LocalFileSystemOptions, SubTreeFileSystem,
                         _MockFileSystem)
@@ -387,8 +386,8 @@ def identity(v):
     [
         (None, None, identity),
         (None, 64, identity),
-        ('gzip', None, gzip_compress),
-        ('gzip', 256, gzip_compress),
+        ('gzip', None, gzip.compress),
+        ('gzip', 256, gzip.compress),
     ]
 )
 def test_open_input_stream(fs, pathfn, compression, buffer_size, compressor):
@@ -424,8 +423,8 @@ def test_open_input_file(fs, pathfn):
     [
         (None, None, identity),
         (None, 64, identity),
-        ('gzip', None, gzip_decompress),
-        ('gzip', 256, gzip_decompress),
+        ('gzip', None, gzip.decompress),
+        ('gzip', 256, gzip.decompress),
     ]
 )
 def test_open_output_stream(fs, pathfn, compression, buffer_size,
@@ -445,8 +444,8 @@ def test_open_output_stream(fs, pathfn, compression, buffer_size,
     [
         (None, None, identity, identity),
         (None, 64, identity, identity),
-        ('gzip', None, gzip_compress, gzip_decompress),
-        ('gzip', 256, gzip_compress, gzip_decompress),
+        ('gzip', None, gzip.compress, gzip.decompress),
+        ('gzip', 256, gzip.compress, gzip.decompress),
     ]
 )
 def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
@@ -560,12 +559,6 @@ def test_hdfs_options(hdfs_server):
     with pytest.raises(TypeError):
         options.endpoint = 'localhost:8000'
 
-    assert options.driver == 'libhdfs'
-    options.driver = 'libhdfs3'
-    assert options.driver == 'libhdfs3'
-    with pytest.raises(ValueError):
-        options.driver = 'unknown'
-
     assert options.replication == 3
     options.replication = 2
     assert options.replication == 2
@@ -603,11 +596,37 @@ def test_hdfs_options(hdfs_server):
     ('file:foo/bar', LocalFileSystem, 'foo/bar'),
     ('file:/foo/bar', LocalFileSystem, '/foo/bar'),
     ('file:///foo/bar', LocalFileSystem, '/foo/bar'),
-    ('', LocalFileSystem, ''),
-    ('foo/bar', LocalFileSystem, 'foo/bar'),
+    ('/', LocalFileSystem, '/'),
     ('/foo/bar', LocalFileSystem, '/foo/bar'),
 ])
 def test_filesystem_from_uri(uri, expected_klass, expected_path):
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, expected_klass)
     assert path == expected_path
+
+
+@pytest.mark.parametrize('path',
+                         ['', '/', 'foo/bar', '/foo/bar', __file__])
+def test_filesystem_from_path_object(path):
+    p = pathlib.Path(path)
+    fs, path = FileSystem.from_uri(p)
+    assert isinstance(fs, LocalFileSystem)
+    assert path == p.resolve().absolute().as_posix()
+
+
+@pytest.mark.s3
+def test_filesystem_from_uri_s3(minio_server):
+    from pyarrow.fs import S3FileSystem
+
+    address, access_key, secret_key = minio_server
+    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}" \
+        .format(access_key, secret_key, urllib.parse.quote(address))
+
+    fs, path = FileSystem.from_uri(uri)
+    assert isinstance(fs, S3FileSystem)
+    assert path == "mybucket/foo/bar"
+
+    fs.create_dir(path)
+    [st] = fs.get_target_stats([path])
+    assert st.path == path
+    assert st.type == FileType.Directory

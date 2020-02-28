@@ -115,4 +115,9 @@ public final class SyncPutListener implements FlightClient.PutListener, AutoClos
       }
     });
   }
+
+  @Override
+  public boolean isCancelled() {
+    return completed.isDone();
+  }
 }

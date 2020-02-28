@@ -105,6 +105,8 @@ using string_view = ::arrow::util::string_view;
 
 constexpr int64_t kDefaultOutputStreamSize = 1024;
 
+constexpr int16_t kNonPageOrdinal = static_cast<int16_t>(-1);
+
 PARQUET_EXPORT
 std::shared_ptr<::arrow::io::BufferOutputStream> CreateOutputStream(
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());

@@ -141,10 +141,7 @@ fn generate_schema(spec: HashMap<String, HashSet<DataType>>) -> Result<Arc<Schem
         .iter()
         .map(|(k, hs)| {
             let v: Vec<&DataType> = hs.iter().collect();
-            match coerce_data_type(v) {
-                Ok(t) => Ok(Field::new(k, t, true)),
-                Err(e) => Err(e),
-            }
+            coerce_data_type(v).map(|t| Field::new(k, t, true))
         })
         .collect();
     match fields {
@@ -508,13 +505,9 @@ impl<R: Read> Reader<R> {
 
         let projected_schema = Arc::new(Schema::new(projected_fields));
 
-        match arrays {
-            Ok(arr) => match RecordBatch::try_new(projected_schema, arr) {
-                Ok(batch) => Ok(Some(batch)),
-                Err(e) => Err(e),
-            },
-            Err(e) => Err(e),
-        }
+        arrays.and_then(|arr| {
+            RecordBatch::try_new(projected_schema, arr).map(|batch| Some(batch))
+        })
     }
 
     fn build_boolean_array(&self, rows: &[Value], col_name: &str) -> Result<ArrayRef> {

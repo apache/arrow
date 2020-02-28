@@ -23,10 +23,6 @@
 #include "arrow/python/numpy_interop.h"
 #include "arrow/python/visibility.h"
 
-#if PY_MAJOR_VERSION >= 3
-#define PyString_Check PyUnicode_Check
-#endif
-
 namespace arrow {
 namespace py {
 

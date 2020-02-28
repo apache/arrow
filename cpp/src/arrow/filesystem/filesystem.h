@@ -29,17 +29,7 @@
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-
-// The Windows API defines macros from *File resolving to either
-// *FileA or *FileW.  Need to undo them.
-#ifdef _WIN32
-#ifdef DeleteFile
-#undef DeleteFile
-#endif
-#ifdef CopyFile
-#undef CopyFile
-#endif
-#endif
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 
@@ -344,8 +334,7 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
 /// \brief Create a new FileSystem by URI
 ///
-/// A scheme-less URI is considered a local filesystem path.
-/// Recognized schemes are "file", "mock" and "hdfs".
+/// Recognized schemes are "file", "mock", "hdfs" and "s3fs".
 ///
 /// \param[in] uri a URI-based path, ex: file:///some/local/path
 /// \param[out] out_path (optional) Path inside the filesystem.
@@ -354,12 +343,20 @@ ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
                                                       std::string* out_path = NULLPTR);
 
+/// \brief Create a new FileSystem by URI
+///
+/// Same as FileSystemFromUri, but in addition also recognize non-URIs
+/// and treat them as local filesystem paths.  Only absolute local filesystem
+/// paths are allowed.
+ARROW_EXPORT
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
+    const std::string& uri, std::string* out_path = NULLPTR);
+
 /// @}
 
 /// \brief Create a new FileSystem by URI
 ///
-/// A scheme-less URI is considered a local filesystem path.
-/// Recognized schemes are "file", "mock" and "hdfs".
+/// Recognized schemes are "file", "mock", "hdfs" and "s3fs".
 ///
 /// \param[in] uri a URI-based path, ex: file:///some/local/path
 /// \param[out] out_fs FileSystem instance.

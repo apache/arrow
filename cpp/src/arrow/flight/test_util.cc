@@ -159,6 +159,10 @@ class FlightTestServer : public FlightServerBase {
   Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
                      std::unique_ptr<FlightListing>* listings) override {
     std::vector<FlightInfo> flights = ExampleFlightInfo();
+    if (criteria && criteria->expression != "") {
+      // For test purposes, if we get criteria, return no results
+      flights.clear();
+    }
     *listings = std::unique_ptr<FlightListing>(new SimpleFlightListing(flights));
     return Status::OK();
   }
@@ -454,7 +458,8 @@ Status TestClientBasicAuthHandler::GetToken(std::string* token) {
 Status GetTestResourceRoot(std::string* out) {
   const char* c_root = std::getenv("ARROW_TEST_DATA");
   if (!c_root) {
-    return Status::IOError("Test resources not found, set ARROW_TEST_DATA");
+    return Status::IOError(
+        "Test resources not found, set ARROW_TEST_DATA to <repo root>/testing/data");
   }
   *out = std::string(c_root);
   return Status::OK();

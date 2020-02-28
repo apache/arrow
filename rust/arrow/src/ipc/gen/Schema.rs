@@ -486,6 +486,63 @@ pub fn enum_name_type(e: Type) -> &'static str {
 
 pub struct TypeUnionTableOffset {}
 /// ----------------------------------------------------------------------
+/// Dictionary encoding metadata
+/// Maintained for forwards compatibility, in the future
+/// Dictionaries might be explicit maps between integers and values
+/// allowing for non-contiguous index values
+#[allow(non_camel_case_types)]
+#[repr(i16)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum DictionaryKind {
+    DenseArray = 0,
+}
+
+const ENUM_MIN_DICTIONARY_KIND: i16 = 0;
+const ENUM_MAX_DICTIONARY_KIND: i16 = 0;
+
+impl<'a> flatbuffers::Follow<'a> for DictionaryKind {
+    type Inner = Self;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::read_scalar_at::<Self>(buf, loc)
+    }
+}
+
+impl flatbuffers::EndianScalar for DictionaryKind {
+    #[inline]
+    fn to_little_endian(self) -> Self {
+        let n = i16::to_le(self as i16);
+        let p = &n as *const i16 as *const DictionaryKind;
+        unsafe { *p }
+    }
+    #[inline]
+    fn from_little_endian(self) -> Self {
+        let n = i16::from_le(self as i16);
+        let p = &n as *const i16 as *const DictionaryKind;
+        unsafe { *p }
+    }
+}
+
+impl flatbuffers::Push for DictionaryKind {
+    type Output = DictionaryKind;
+    #[inline]
+    fn push(&self, dst: &mut [u8], _rest: &[u8]) {
+        flatbuffers::emplace_scalar::<DictionaryKind>(dst, *self);
+    }
+}
+
+#[allow(non_camel_case_types)]
+const ENUM_VALUES_DICTIONARY_KIND: [DictionaryKind; 1] = [DictionaryKind::DenseArray];
+
+#[allow(non_camel_case_types)]
+const ENUM_NAMES_DICTIONARY_KIND: [&'static str; 1] = ["DenseArray"];
+
+pub fn enum_name_dictionary_kind(e: DictionaryKind) -> &'static str {
+    let index = e as i16;
+    ENUM_NAMES_DICTIONARY_KIND[index as usize]
+}
+
+/// ----------------------------------------------------------------------
 /// Endianness of the platform producing the data
 #[allow(non_camel_case_types)]
 #[repr(i16)]
@@ -2358,8 +2415,6 @@ impl<'a: 'b, 'b> KeyValueBuilder<'a, 'b> {
 pub enum DictionaryEncodingOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
-/// ----------------------------------------------------------------------
-/// Dictionary encoding metadata
 pub struct DictionaryEncoding<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -2389,6 +2444,7 @@ impl<'a> DictionaryEncoding<'a> {
         if let Some(x) = args.indexType {
             builder.add_indexType(x);
         }
+        builder.add_dictionaryKind(args.dictionaryKind);
         builder.add_isOrdered(args.isOrdered);
         builder.finish()
     }
@@ -2396,6 +2452,7 @@ impl<'a> DictionaryEncoding<'a> {
     pub const VT_ID: flatbuffers::VOffsetT = 4;
     pub const VT_INDEXTYPE: flatbuffers::VOffsetT = 6;
     pub const VT_ISORDERED: flatbuffers::VOffsetT = 8;
+    pub const VT_DICTIONARYKIND: flatbuffers::VOffsetT = 10;
 
     /// The known dictionary id in the application where this data is used. In
     /// the file or streaming formats, the dictionary ids are found in the
@@ -2425,12 +2482,22 @@ impl<'a> DictionaryEncoding<'a> {
             .get::<bool>(DictionaryEncoding::VT_ISORDERED, Some(false))
             .unwrap()
     }
+    #[inline]
+    pub fn dictionaryKind(&self) -> DictionaryKind {
+        self._tab
+            .get::<DictionaryKind>(
+                DictionaryEncoding::VT_DICTIONARYKIND,
+                Some(DictionaryKind::DenseArray),
+            )
+            .unwrap()
+    }
 }
 
 pub struct DictionaryEncodingArgs<'a> {
     pub id: i64,
     pub indexType: Option<flatbuffers::WIPOffset<Int<'a>>>,
     pub isOrdered: bool,
+    pub dictionaryKind: DictionaryKind,
 }
 impl<'a> Default for DictionaryEncodingArgs<'a> {
     #[inline]
@@ -2439,6 +2506,7 @@ impl<'a> Default for DictionaryEncodingArgs<'a> {
             id: 0,
             indexType: None,
             isOrdered: false,
+            dictionaryKind: DictionaryKind::DenseArray,
         }
     }
 }
@@ -2462,6 +2530,14 @@ impl<'a: 'b, 'b> DictionaryEncodingBuilder<'a, 'b> {
     pub fn add_isOrdered(&mut self, isOrdered: bool) {
         self.fbb_
             .push_slot::<bool>(DictionaryEncoding::VT_ISORDERED, isOrdered, false);
+    }
+    #[inline]
+    pub fn add_dictionaryKind(&mut self, dictionaryKind: DictionaryKind) {
+        self.fbb_.push_slot::<DictionaryKind>(
+            DictionaryEncoding::VT_DICTIONARYKIND,
+            dictionaryKind,
+            DictionaryKind::DenseArray,
+        );
     }
     #[inline]
     pub fn new(

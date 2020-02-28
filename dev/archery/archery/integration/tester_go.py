@@ -18,7 +18,7 @@
 import os
 
 from .tester import Tester
-from .util import run_cmd
+from .util import run_cmd, log
 
 
 class GoTester(Tester):
@@ -47,7 +47,7 @@ class GoTester(Tester):
         cmd.extend(['-mode', command])
 
         if self.debug:
-            print(' '.join(cmd))
+            log(' '.join(cmd))
 
         run_cmd(cmd)
 
@@ -58,7 +58,7 @@ class GoTester(Tester):
         return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = ['cat', stream_path, '|', self.STREAM_TO_FILE, '>', file_path]
+        cmd = [self.STREAM_TO_FILE, '<', stream_path, '>', file_path]
         self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):

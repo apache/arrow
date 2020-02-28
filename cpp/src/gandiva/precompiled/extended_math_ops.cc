@@ -35,40 +35,40 @@ extern "C" {
   INNER(float64, OUT_TYPE)
 
 // Cubic root
-#define CBRT(IN_TYPE, OUT_TYPE)                                       \
-  FORCE_INLINE                                                        \
-  OUT_TYPE cbrt_##IN_TYPE(IN_TYPE in) {                               \
-    return static_cast<float64>(cbrtl(static_cast<long double>(in))); \
+#define CBRT(IN_TYPE, OUT_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_##OUT_TYPE cbrt_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(cbrtl(static_cast<long double>(in))); \
   }
 
 ENUMERIC_TYPES_UNARY(CBRT, float64)
 
 // Exponent
-#define EXP(IN_TYPE, OUT_TYPE)                                       \
-  FORCE_INLINE                                                       \
-  OUT_TYPE exp_##IN_TYPE(IN_TYPE in) {                               \
-    return static_cast<float64>(expl(static_cast<long double>(in))); \
+#define EXP(IN_TYPE, OUT_TYPE)                                           \
+  FORCE_INLINE                                                           \
+  gdv_##OUT_TYPE exp_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(expl(static_cast<long double>(in))); \
   }
 
 ENUMERIC_TYPES_UNARY(EXP, float64)
 
 // log
-#define LOG(IN_TYPE, OUT_TYPE)                                       \
-  FORCE_INLINE                                                       \
-  OUT_TYPE log_##IN_TYPE(IN_TYPE in) {                               \
-    return static_cast<float64>(logl(static_cast<long double>(in))); \
+#define LOG(IN_TYPE, OUT_TYPE)                                           \
+  FORCE_INLINE                                                           \
+  gdv_##OUT_TYPE log_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(logl(static_cast<long double>(in))); \
   }
 
 ENUMERIC_TYPES_UNARY(LOG, float64)
 
 // log base 10
-#define LOG10(IN_TYPE, OUT_TYPE)                                       \
-  FORCE_INLINE                                                         \
-  OUT_TYPE log10_##IN_TYPE(IN_TYPE in) {                               \
-    return static_cast<float64>(log10l(static_cast<long double>(in))); \
+#define LOG10(IN_TYPE, OUT_TYPE)                                           \
+  FORCE_INLINE                                                             \
+  gdv_##OUT_TYPE log10_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(log10l(static_cast<long double>(in))); \
   }
 
-#define LOGL(VALUE) static_cast<float64>(logl(static_cast<long double>(VALUE)))
+#define LOGL(VALUE) static_cast<gdv_float64>(logl(static_cast<long double>(VALUE)))
 
 ENUMERIC_TYPES_UNARY(LOG10, float64)
 
@@ -83,15 +83,16 @@ void set_error_for_logbase(int64_t execution_context, double base) {
 }
 
 // log with base
-#define LOG_WITH_BASE(IN_TYPE1, IN_TYPE2, OUT_TYPE)                                    \
-  FORCE_INLINE                                                                         \
-  OUT_TYPE log_##IN_TYPE1##_##IN_TYPE2(int64 context, IN_TYPE1 base, IN_TYPE2 value) { \
-    OUT_TYPE log_of_base = LOGL(base);                                                 \
-    if (log_of_base == 0) {                                                            \
-      set_error_for_logbase(context, static_cast<float64>(base));                      \
-      return 0;                                                                        \
-    }                                                                                  \
-    return LOGL(value) / LOGL(base);                                                   \
+#define LOG_WITH_BASE(IN_TYPE1, IN_TYPE2, OUT_TYPE)                                  \
+  FORCE_INLINE                                                                       \
+  gdv_##OUT_TYPE log_##IN_TYPE1##_##IN_TYPE2(gdv_int64 context, gdv_##IN_TYPE1 base, \
+                                             gdv_##IN_TYPE2 value) {                 \
+    gdv_##OUT_TYPE log_of_base = LOGL(base);                                         \
+    if (log_of_base == 0) {                                                          \
+      set_error_for_logbase(context, static_cast<gdv_float64>(base));                \
+      return 0;                                                                      \
+    }                                                                                \
+    return LOGL(value) / LOGL(base);                                                 \
   }
 
 LOG_WITH_BASE(int32, int32, float64)
@@ -102,16 +103,16 @@ LOG_WITH_BASE(float32, float32, float64)
 LOG_WITH_BASE(float64, float64, float64)
 
 // power
-#define POWER(IN_TYPE1, IN_TYPE2, OUT_TYPE)                            \
-  FORCE_INLINE                                                         \
-  OUT_TYPE power_##IN_TYPE1##_##IN_TYPE2(IN_TYPE1 in1, IN_TYPE2 in2) { \
-    return static_cast<float64>(powl(in1, in2));                       \
+#define POWER(IN_TYPE1, IN_TYPE2, OUT_TYPE)                                              \
+  FORCE_INLINE                                                                           \
+  gdv_##OUT_TYPE power_##IN_TYPE1##_##IN_TYPE2(gdv_##IN_TYPE1 in1, gdv_##IN_TYPE2 in2) { \
+    return static_cast<gdv_float64>(powl(in1, in2));                                     \
   }
 
 POWER(float64, float64, float64)
 
 FORCE_INLINE
-int64 truncate_int64_int32(int64 in, int32 out_scale) {
+gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale) {
   bool overflow = false;
   arrow::BasicDecimal128 decimal = gandiva::decimalops::FromInt64(in, 38, 0, &overflow);
   arrow::BasicDecimal128 decimal_with_outscale = gandiva::decimalops::Truncate(

@@ -82,10 +82,7 @@ pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
 /// null.
 pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
     let data = left.data();
-    let null_bit_buffer = match *data.null_bitmap() {
-        None => None,
-        Some(ref b) => Some(b.bits.clone()),
-    };
+    let null_bit_buffer = data.null_bitmap().as_ref().map(|b| b.bits.clone());
 
     let values = !&data.buffers()[0];
     let data = ArrayData::new(

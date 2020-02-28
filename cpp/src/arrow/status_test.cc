@@ -114,4 +114,17 @@ TEST(StatusTest, TestEquality) {
   ASSERT_NE(Status::Invalid("error"), Status::Invalid("other error"));
 }
 
+TEST(StatusTest, TestDetailEquality) {
+  const auto status_with_detail =
+      arrow::Status(StatusCode::IOError, "", std::make_shared<TestStatusDetail>());
+  const auto status_with_detail2 =
+      arrow::Status(StatusCode::IOError, "", std::make_shared<TestStatusDetail>());
+  const auto status_without_detail = arrow::Status::IOError("");
+
+  ASSERT_EQ(*status_with_detail.detail(), *status_with_detail2.detail());
+  ASSERT_EQ(status_with_detail, status_with_detail2);
+  ASSERT_NE(status_with_detail, status_without_detail);
+  ASSERT_NE(status_without_detail, status_with_detail);
+}
+
 }  // namespace arrow

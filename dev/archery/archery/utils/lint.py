@@ -18,12 +18,15 @@
 import gzip
 import os
 
+import click
+
 from .command import Bash, Command, default_bin
 from .cmake import CMake
 from .git import git
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
 from ..lang.rust import Cargo
+from ..lang.python import Flake8, NumpyDoc
 from .rat import Rat, exclusion_from_globs
 from .tmpdir import tmpdir
 
@@ -98,13 +101,8 @@ def cmake_linter(src, fix=False):
     yield LintResult.from_cmd(cmake_format("--check"))
 
 
-class Flake8(Command):
-    def __init__(self, flake8_bin=None):
-        self.bin = default_bin(flake8_bin, "flake8")
-
-
 def python_linter(src):
-    """ Run flake8 linter on python/pyarrow, and dev/. """
+    """Run flake8 linter on python/pyarrow, and dev/. """
     logger.info("Running python linters")
     flake8 = Flake8()
 
@@ -120,8 +118,96 @@ def python_linter(src):
                                      check=False))
 
 
+def python_numpydoc(symbols=None, whitelist=None, blacklist=None):
+    """Run numpydoc linter on python.
+
+    Pyarrow must be available for import.
+    """
+    logger.info("Running python docstring linters")
+    # by default try to run on all pyarrow package
+    symbols = symbols or {
+        'pyarrow',
+        'pyarrow.compute',
+        'pyarrow.csv',
+        'pyarrow.dataset',
+        'pyarrow.feather',
+        'pyarrow.flight',
+        'pyarrow.fs',
+        'pyarrow.gandiva',
+        'pyarrow.ipc',
+        'pyarrow.json',
+        'pyarrow.orc',
+        'pyarrow.parquet',
+        'pyarrow.plasma',
+        'pyarrow.types',
+    }
+    try:
+        numpydoc = NumpyDoc(symbols)
+    except RuntimeError as e:
+        logger.error(str(e))
+        yield LintResult(success=False)
+        return
+
+    results = numpydoc.validate(
+        # limit the validation scope to the pyarrow package
+        from_package='pyarrow',
+        rules_whitelist=whitelist,
+        rules_blacklist=blacklist
+    )
+
+    if len(results) == 0:
+        yield LintResult(success=True)
+        return
+
+    number_of_violations = 0
+    for obj, result in results:
+        errors = result['errors']
+
+        # inspect doesn't play nice with cython generated source code,
+        # to use a hacky way to represent a proper __qualname__
+        doc = getattr(obj, '__doc__', '')
+        name = getattr(obj, '__name__', '')
+        qualname = getattr(obj, '__qualname__', '')
+        module = getattr(obj, '__module__', '')
+        instance = getattr(obj, '__self__', '')
+        if instance:
+            klass = instance.__class__.__name__
+        else:
+            klass = ''
+
+        try:
+            cython_signature = doc.splitlines()[0]
+        except Exception:
+            cython_signature = ''
+
+        desc = '.'.join(filter(None, [module, klass, qualname or name]))
+
+        click.echo()
+        click.echo(click.style(desc, bold=True, fg='yellow'))
+        if cython_signature:
+            qualname_with_signature = '.'.join([module, cython_signature])
+            click.echo(
+                click.style(
+                    '-> {}'.format(qualname_with_signature),
+                    fg='yellow'
+                )
+            )
+
+        for error in errors:
+            number_of_violations += 1
+            click.echo('{}: {}'.format(*error))
+
+    msg = 'Total number of docstring violations: {}'.format(
+        number_of_violations
+    )
+    click.echo()
+    click.echo(click.style(msg, fg='red'))
+
+    yield LintResult(success=False)
+
+
 def rat_linter(src, root):
-    """ Run apache-rat license linter. """
+    """Run apache-rat license linter."""
     logger.info("Running apache-rat linter")
 
     if src.git_dirty:
@@ -145,14 +231,14 @@ def rat_linter(src, root):
 
 
 def r_linter(src):
-    """ Run R linter. """
+    """Run R linter."""
     logger.info("Running r linter")
     r_lint_sh = os.path.join(src.r, "lint.sh")
     yield LintResult.from_cmd(Bash().run(r_lint_sh, check=False))
 
 
 def rust_linter(src):
-    """ Run Rust linter. """
+    """Run Rust linter."""
     logger.info("Running rust linter")
     cargo = Cargo()
 
@@ -181,7 +267,7 @@ def is_docker_image(path):
 
 
 def docker_linter(src):
-    """ Run Hadolint docker linter. """
+    """Run Hadolint docker linter."""
     logger.info("Running docker linter")
 
     hadolint = Hadolint()
@@ -197,13 +283,10 @@ def docker_linter(src):
                                                    cwd=src.path))
 
 
-def linter(src, with_clang_format=True, with_cpplint=True,
-           with_clang_tidy=False, with_iwyu=False,
-           with_flake8=True, with_cmake_format=True,
-           with_rat=True, with_r=True, with_rust=True,
-           with_docker=True,
-           fix=False):
-    """ Run all linters. """
+def linter(src, fix=False, *, clang_format=False, cpplint=False,
+           clang_tidy=False, iwyu=False, flake8=False, numpydoc=False,
+           cmake_format=False, rat=False, r=False, rust=False, docker=False):
+    """Run all linters."""
     with tmpdir(prefix="arrow-lint-") as root:
         build_dir = os.path.join(root, "cpp-build")
 
@@ -212,30 +295,33 @@ def linter(src, with_clang_format=True, with_cpplint=True,
         # errors to the user.
         results = []
 
-        if with_clang_format or with_cpplint or with_clang_tidy or with_iwyu:
+        if clang_format or cpplint or clang_tidy or iwyu:
             results.extend(cpp_linter(src, build_dir,
-                                      clang_format=with_clang_format,
-                                      cpplint=with_cpplint,
-                                      clang_tidy=with_clang_tidy,
-                                      iwyu=with_iwyu,
+                                      clang_format=clang_format,
+                                      cpplint=cpplint,
+                                      clang_tidy=clang_tidy,
+                                      iwyu=iwyu,
                                       fix=fix))
 
-        if with_flake8:
+        if flake8:
             results.extend(python_linter(src))
 
-        if with_cmake_format:
+        if numpydoc:
+            results.extend(python_numpydoc())
+
+        if cmake_format:
             results.extend(cmake_linter(src, fix=fix))
 
-        if with_rat:
+        if rat:
             results.extend(rat_linter(src, root))
 
-        if with_r:
+        if r:
             results.extend(r_linter(src))
 
-        if with_rust:
+        if rust:
             results.extend(rust_linter(src))
 
-        if with_docker:
+        if docker:
             results.extend(docker_linter(src))
 
         # Raise error if one linter failed, ensuring calling code can exit with

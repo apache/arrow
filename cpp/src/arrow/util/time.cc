@@ -19,13 +19,16 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace util {
 
 Result<int64_t> ConvertTimestampValue(const std::shared_ptr<DataType>& in,
                                       const std::shared_ptr<DataType>& out,
                                       int64_t value) {
-  auto from = internal::checked_pointer_cast<TimestampType>(in)->unit();
-  auto to = internal::checked_pointer_cast<TimestampType>(out)->unit();
+  auto from = checked_pointer_cast<TimestampType>(in)->unit();
+  auto to = checked_pointer_cast<TimestampType>(out)->unit();
 
   auto op_factor =
       util::kTimestampConversionTable[static_cast<int>(from)][static_cast<int>(to)];

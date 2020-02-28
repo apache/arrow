@@ -81,10 +81,12 @@ const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->met
 // RowGroupReader::Contents implementation for the Parquet file specification
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
-  SerializedRowGroup(std::shared_ptr<ArrowInputFile> source, FileMetaData* file_metadata,
-                     int row_group_number, const ReaderProperties& props,
+  SerializedRowGroup(std::shared_ptr<ArrowInputFile> source, int64_t source_size,
+                     FileMetaData* file_metadata, int row_group_number,
+                     const ReaderProperties& props,
                      std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
       : source_(std::move(source)),
+        source_size_(source_size),
         file_metadata_(file_metadata),
         properties_(props),
         row_group_ordinal_(row_group_number),
@@ -114,8 +116,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
       // dictionary page header size in total_compressed_size and total_uncompressed_size
       // (see IMPALA-694). We add padding to compensate.
-      PARQUET_ASSIGN_OR_THROW(int64_t size, source_->GetSize());
-      int64_t bytes_remaining = size - (col_start + col_length);
+      int64_t bytes_remaining = source_size_ - (col_start + col_length);
       int64_t padding = std::min<int64_t>(kMaxDictHeaderSize, bytes_remaining);
       col_length += padding;
     }
@@ -129,6 +130,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     if (!crypto_metadata) {
       return PageReader::Open(stream, col->num_values(), col->compression(),
                               properties_.memory_pool());
+    }
+
+    if (file_decryptor_ == nullptr) {
+      throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
     }
 
     // The column is encrypted
@@ -161,6 +166,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
  private:
   std::shared_ptr<ArrowInputFile> source_;
+  int64_t source_size_;
   FileMetaData* file_metadata_;
   std::unique_ptr<RowGroupMetaData> row_group_metadata_;
   ReaderProperties properties_;
@@ -178,7 +184,9 @@ class SerializedFile : public ParquetFileReader::Contents {
  public:
   SerializedFile(std::shared_ptr<ArrowInputFile> source,
                  const ReaderProperties& props = default_reader_properties())
-      : source_(std::move(source)), properties_(props) {}
+      : source_(std::move(source)), properties_(props) {
+    PARQUET_ASSIGN_OR_THROW(source_size_, source_->GetSize());
+  }
 
   ~SerializedFile() override {
     try {
@@ -193,8 +201,8 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::unique_ptr<SerializedRowGroup> contents(
-        new SerializedRowGroup(source_, file_metadata_.get(), static_cast<int16_t>(i),
-                               properties_, file_decryptor_));
+        new SerializedRowGroup(source_, source_size_, file_metadata_.get(),
+                               static_cast<int16_t>(i), properties_, file_decryptor_));
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
@@ -205,20 +213,18 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
   void ParseMetaData() {
-    PARQUET_ASSIGN_OR_THROW(int64_t file_size, source_->GetSize());
-
-    if (file_size == 0) {
+    if (source_size_ == 0) {
       throw ParquetInvalidOrCorruptedFileException("Parquet file size is 0 bytes");
-    } else if (file_size < kFooterSize) {
+    } else if (source_size_ < kFooterSize) {
       throw ParquetInvalidOrCorruptedFileException(
-          "Parquet file size is ", file_size,
+          "Parquet file size is ", source_size_,
           " bytes, smaller than the minimum file footer (", kFooterSize, " bytes)");
     }
 
-    int64_t footer_read_size = std::min(file_size, kDefaultFooterReadSize);
+    int64_t footer_read_size = std::min(source_size_, kDefaultFooterReadSize);
     PARQUET_ASSIGN_OR_THROW(
         auto footer_buffer,
-        source_->ReadAt(file_size - footer_read_size, footer_read_size));
+        source_->ReadAt(source_size_ - footer_read_size, footer_read_size));
 
     // Check if all bytes are read. Check if last 4 bytes read have the magic bits
     if (footer_buffer->size() != footer_read_size ||
@@ -231,18 +237,17 @@ class SerializedFile : public ParquetFileReader::Contents {
 
     if (memcmp(footer_buffer->data() + footer_read_size - 4, kParquetEMagic, 4) == 0) {
       // Encrypted file with Encrypted footer.
-      ParseMetaDataOfEncryptedFileWithEncryptedFooter(footer_buffer, footer_read_size,
-                                                      file_size);
+      ParseMetaDataOfEncryptedFileWithEncryptedFooter(footer_buffer, footer_read_size);
       return;
     }
 
     // No encryption or encryption with plaintext footer mode.
     std::shared_ptr<Buffer> metadata_buffer;
     uint32_t metadata_len, read_metadata_len;
-    ParseUnencryptedFileMetadata(footer_buffer, footer_read_size, file_size,
-                                 &metadata_buffer, &metadata_len, &read_metadata_len);
+    ParseUnencryptedFileMetadata(footer_buffer, footer_read_size, &metadata_buffer,
+                                 &metadata_len, &read_metadata_len);
 
-    auto file_decryption_properties = properties_.file_decryption_properties();
+    auto file_decryption_properties = properties_.file_decryption_properties().get();
     if (!file_metadata_->is_encryption_algorithm_set()) {  // Non encrypted file.
       if (file_decryption_properties != nullptr) {
         if (!file_decryption_properties->plaintext_files_allowed()) {
@@ -258,13 +263,14 @@ class SerializedFile : public ParquetFileReader::Contents {
 
  private:
   std::shared_ptr<ArrowInputFile> source_;
+  int64_t source_size_;
   std::shared_ptr<FileMetaData> file_metadata_;
   ReaderProperties properties_;
 
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 
   void ParseUnencryptedFileMetadata(const std::shared_ptr<Buffer>& footer_buffer,
-                                    int64_t footer_read_size, int64_t file_size,
+                                    int64_t footer_read_size,
                                     std::shared_ptr<Buffer>* metadata_buffer,
                                     uint32_t* metadata_len, uint32_t* read_metadata_len);
 
@@ -277,21 +283,20 @@ class SerializedFile : public ParquetFileReader::Contents {
       uint32_t read_metadata_len);
 
   void ParseMetaDataOfEncryptedFileWithEncryptedFooter(
-      const std::shared_ptr<Buffer>& footer_buffer, int64_t footer_read_size,
-      int64_t file_size);
+      const std::shared_ptr<Buffer>& footer_buffer, int64_t footer_read_size);
 };
 
 void SerializedFile::ParseUnencryptedFileMetadata(
     const std::shared_ptr<Buffer>& footer_buffer, int64_t footer_read_size,
-    int64_t file_size, std::shared_ptr<Buffer>* metadata_buffer, uint32_t* metadata_len,
+    std::shared_ptr<Buffer>* metadata_buffer, uint32_t* metadata_len,
     uint32_t* read_metadata_len) {
   *metadata_len = arrow::util::SafeLoadAs<uint32_t>(
       reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
       kFooterSize);
-  int64_t metadata_start = file_size - kFooterSize - *metadata_len;
-  if (kFooterSize + *metadata_len > file_size) {
+  int64_t metadata_start = source_size_ - kFooterSize - *metadata_len;
+  if (*metadata_len > source_size_ - kFooterSize) {
     throw ParquetInvalidOrCorruptedFileException(
-        "Parquet file size is ", file_size,
+        "Parquet file size is ", source_size_,
         " bytes, smaller than the size reported by metadata (", metadata_len, "bytes)");
   }
 
@@ -314,17 +319,16 @@ void SerializedFile::ParseUnencryptedFileMetadata(
 }
 
 void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
-    const std::shared_ptr<Buffer>& footer_buffer, int64_t footer_read_size,
-    int64_t file_size) {
+    const std::shared_ptr<Buffer>& footer_buffer, int64_t footer_read_size) {
   // encryption with encrypted footer
   // both metadata & crypto metadata length
   uint32_t footer_len = arrow::util::SafeLoadAs<uint32_t>(
       reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
       kFooterSize);
-  int64_t crypto_metadata_start = file_size - kFooterSize - footer_len;
-  if (kFooterSize + footer_len > file_size) {
+  int64_t crypto_metadata_start = source_size_ - kFooterSize - footer_len;
+  if (kFooterSize + footer_len > source_size_) {
     throw ParquetInvalidOrCorruptedFileException(
-        "Parquet file size is ", file_size,
+        "Parquet file size is ", source_size_,
         " bytes, smaller than the size reported by footer's (", footer_len, "bytes)");
   }
   std::shared_ptr<Buffer> crypto_metadata_buffer;
@@ -341,7 +345,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
                              std::to_string(crypto_metadata_buffer->size()) + " bytes)");
     }
   }
-  auto file_decryption_properties = properties_.file_decryption_properties();
+  auto file_decryption_properties = properties_.file_decryption_properties().get();
   if (file_decryption_properties == nullptr) {
     throw ParquetException(
         "Could not read encrypted metadata, no decryption found in reader's properties");
@@ -356,7 +360,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
       file_decryption_properties, file_aad, algo.algorithm,
       file_crypto_metadata->key_metadata(), properties_.memory_pool());
 
-  int64_t metadata_offset = file_size - kFooterSize - footer_len + crypto_metadata_len;
+  int64_t metadata_offset = source_size_ - kFooterSize - footer_len + crypto_metadata_len;
   uint32_t metadata_len = footer_len - crypto_metadata_len;
   PARQUET_ASSIGN_OR_THROW(auto metadata_buffer,
                           source_->ReadAt(metadata_offset, metadata_len));

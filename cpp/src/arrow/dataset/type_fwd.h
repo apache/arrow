@@ -43,17 +43,14 @@ using FileStatsVector = std::vector<FileStats>;
 namespace dataset {
 
 class Dataset;
+using DatasetVector = std::vector<std::shared_ptr<Dataset>>;
 
 class Fragment;
 using FragmentIterator = Iterator<std::shared_ptr<Fragment>>;
 using FragmentVector = std::vector<std::shared_ptr<Fragment>>;
 
-class Source;
-using SourceVector = std::vector<std::shared_ptr<Source>>;
-
-class SourceFactory;
-
 class FileFormat;
+class FileFragment;
 
 class Expression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;

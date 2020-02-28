@@ -32,7 +32,7 @@ import java.util.Map;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
@@ -173,14 +173,14 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertDateVectorValues(DateMilliVector dateMilliVector, int rowCount, Long[] values) {
-    assertEquals(rowCount, dateMilliVector.getValueCount());
+  public static void assertDateVectorValues(DateDayVector dateDayVector, int rowCount, Integer[] values) {
+    assertEquals(rowCount, dateDayVector.getValueCount());
 
-    for (int j = 0; j < dateMilliVector.getValueCount(); j++) {
+    for (int j = 0; j < dateDayVector.getValueCount(); j++) {
       if (values[j] == null) {
-        assertTrue(dateMilliVector.isNull(j));
+        assertTrue(dateDayVector.isNull(j));
       } else {
-        assertEquals(values[j].longValue(), dateMilliVector.get(j));
+        assertEquals(values[j].longValue(), dateDayVector.get(j));
       }
     }
   }

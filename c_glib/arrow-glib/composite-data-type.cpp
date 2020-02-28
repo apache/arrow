@@ -42,6 +42,8 @@ G_BEGIN_DECLS
  *
  * #GArrowStructDataType is a class for struct data type.
  *
+ * #GArrowMapDataType is a class for map data type.
+ *
  * #GArrowUnionDataType is a base class for union data types.
  *
  * #GArrowSparseUnionDataType is a class for sparse union data type.
@@ -334,6 +336,82 @@ garrow_struct_data_type_get_field_index(GArrowStructDataType *struct_data_type,
     std::static_pointer_cast<arrow::StructType>(arrow_data_type);
 
   return arrow_struct_data_type->GetFieldIndex(name);
+}
+
+
+G_DEFINE_TYPE(GArrowMapDataType,
+              garrow_map_data_type,
+              GARROW_TYPE_LIST_DATA_TYPE)
+
+static void
+garrow_map_data_type_init(GArrowMapDataType *object)
+{
+}
+
+static void
+garrow_map_data_type_class_init(GArrowMapDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_map_data_type_new:
+ * @key_type: The key type of the map.
+ * @item_type: The item type of the map.
+ *
+ * Returns: The newly created map data type.
+ *
+ * Since: 1.0.0
+ */
+GArrowMapDataType *
+garrow_map_data_type_new(GArrowDataType *key_type,
+                         GArrowDataType *item_type)
+{
+  auto arrow_key_type = garrow_data_type_get_raw(key_type);
+  auto arrow_item_type = garrow_data_type_get_raw(item_type);
+  auto arrow_data_type = std::make_shared<arrow::MapType>(arrow_key_type,
+                                                          arrow_item_type);
+  auto data_type = g_object_new(GARROW_TYPE_MAP_DATA_TYPE,
+                                "data-type", &arrow_data_type,
+                                NULL);
+  return GARROW_MAP_DATA_TYPE(data_type);
+}
+
+/**
+ * garrow_map_data_type_get_key_type:
+ * @map_data_type: A #GArrowMapDataType.
+ *
+ * Return: (transfer full): The key type of the map.
+ *
+ * Since: 1.0.0
+ */
+GArrowDataType *
+garrow_map_data_type_get_key_type(GArrowMapDataType *map_data_type)
+{
+  auto data_type = GARROW_DATA_TYPE(map_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_map_data_type =
+    std::static_pointer_cast<arrow::MapType>(arrow_data_type);
+  auto arrow_key_type = arrow_map_data_type->key_type();
+  return garrow_data_type_new_raw(&arrow_key_type);
+}
+
+/**
+ * garrow_map_data_type_get_item_type:
+ * @map_data_type: A #GArrowMapDataType.
+ *
+ * Return: (transfer full): The item type of the map.
+ *
+ * Since: 1.0.0
+ */
+GArrowDataType *
+garrow_map_data_type_get_item_type(GArrowMapDataType *map_data_type)
+{
+  auto data_type = GARROW_DATA_TYPE(map_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_map_data_type =
+    std::static_pointer_cast<arrow::MapType>(arrow_data_type);
+  auto arrow_item_type = arrow_map_data_type->item_type();
+  return garrow_data_type_new_raw(&arrow_item_type);
 }
 
 

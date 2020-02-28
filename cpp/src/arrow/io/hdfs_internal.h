@@ -217,7 +217,6 @@ struct LibHdfsShim {
 
 // TODO(wesm): Remove these exports when we are linking statically
 Status ARROW_EXPORT ConnectLibHdfs(LibHdfsShim** driver);
-Status ARROW_EXPORT ConnectLibHdfs3(LibHdfsShim** driver);
 
 }  // namespace internal
 }  // namespace io

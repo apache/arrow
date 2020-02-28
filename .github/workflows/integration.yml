@@ -22,7 +22,9 @@ on:
     paths:
       - '.github/workflows/integration.yml'
       - 'ci/**'
+      - 'dev/archery/**'
       - 'go/**'
+      - 'integration/**'
       - 'js/**'
       - 'cpp/**'
       - 'java/**'
@@ -31,7 +33,9 @@ on:
     paths:
       - '.github/workflows/integration.yml'
       - 'ci/**'
+      - 'dev/archery/**'
       - 'go/**'
+      - 'integration/**'
       - 'js/**'
       - 'cpp/**'
       - 'java/**'

@@ -292,6 +292,7 @@ class ARROW_EXPORT Status : public util::EqualityComparable<Status>,
   }
 
   bool IsExecutionError() const { return code() == StatusCode::ExecutionError; }
+  bool IsAlreadyExists() const { return code() == StatusCode::AlreadyExists; }
 
   /// \brief Return a string representation of this status suitable for printing.
   ///
@@ -301,6 +302,7 @@ class ARROW_EXPORT Status : public util::EqualityComparable<Status>,
   /// \brief Return a string representation of the status code, without the message
   /// text or POSIX code information.
   std::string CodeAsString() const;
+  static std::string CodeAsString(StatusCode);
 
   /// \brief Return the StatusCode value attached to this status.
   StatusCode code() const { return ok() ? StatusCode::OK : state_->code; }
@@ -385,8 +387,11 @@ bool Status::Equals(const Status& s) const {
     return false;
   }
 
-  if (detail() != s.detail() && !(*detail() == *s.detail())) {
-    return false;
+  if (detail() != s.detail()) {
+    if ((detail() && !s.detail()) || (!detail() && s.detail())) {
+      return false;
+    }
+    return *detail() == *s.detail();
   }
 
   return code() == s.code() && message() == s.message();

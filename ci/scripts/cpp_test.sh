@@ -28,8 +28,6 @@ export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_PATH}
 
-pushd ${build_dir}
-
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
@@ -41,6 +39,9 @@ case "$(uname)" in
     n_jobs=1
     ;;
 esac
+
+pushd ${build_dir}
+
 ctest --output-on-failure -j${n_jobs}
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
@@ -48,6 +49,9 @@ if [ "${ARROW_FUZZING}" == "ON" ]; then
     ${binary_output_dir}/arrow-ipc-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-stream/crash-*
     ${binary_output_dir}/arrow-ipc-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-stream/*-testcase-*
     ${binary_output_dir}/arrow-ipc-file-fuzz ${ARROW_TEST_DATA}/arrow-ipc-file/*-testcase-*
+    if [ "${ARROW_PARQUET}" == "ON" ]; then
+      ${binary_output_dir}/parquet-arrow-fuzz ${ARROW_TEST_DATA}/parquet/fuzzing/*-testcase-*
+    fi
 fi
 
 popd

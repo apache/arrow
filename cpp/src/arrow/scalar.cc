@@ -219,6 +219,65 @@ Status CastImpl(const TimestampScalar& from, TimestampScalar* to) {
   return util::ConvertTimestampValue(from.type, to->type, from.value).Value(&to->value);
 }
 
+template <typename TypeWithTimeUnit>
+std::shared_ptr<DataType> AsTimestampType(const std::shared_ptr<DataType>& type) {
+  return timestamp(checked_cast<const TypeWithTimeUnit&>(*type).unit());
+}
+
+// duration to duration
+Status CastImpl(const DurationScalar& from, DurationScalar* to) {
+  return util::ConvertTimestampValue(AsTimestampType<DurationType>(from.type),
+                                     AsTimestampType<DurationType>(to->type), from.value)
+      .Value(&to->value);
+}
+
+// time to time
+template <typename F, typename ToScalar, typename T = typename ToScalar::TypeClass>
+enable_if_time<T, Status> CastImpl(const TimeScalar<F>& from, ToScalar* to) {
+  return util::ConvertTimestampValue(AsTimestampType<F>(from.type),
+                                     AsTimestampType<T>(to->type), from.value)
+      .Value(&to->value);
+}
+
+constexpr int64_t kMillisecondsInDay = 86400000;
+
+// date to date
+Status CastImpl(const Date32Scalar& from, Date64Scalar* to) {
+  to->value = from.value * kMillisecondsInDay;
+  return Status::OK();
+}
+Status CastImpl(const Date64Scalar& from, Date32Scalar* to) {
+  to->value = static_cast<int32_t>(from.value / kMillisecondsInDay);
+  return Status::OK();
+}
+
+// timestamp to date
+Status CastImpl(const TimestampScalar& from, Date64Scalar* to) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto millis,
+      util::ConvertTimestampValue(from.type, timestamp(TimeUnit::MILLI), from.value));
+  to->value = millis - millis % kMillisecondsInDay;
+  return Status::OK();
+}
+Status CastImpl(const TimestampScalar& from, Date32Scalar* to) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto millis,
+      util::ConvertTimestampValue(from.type, timestamp(TimeUnit::MILLI), from.value));
+  to->value = static_cast<int32_t>(millis / kMillisecondsInDay);
+  return Status::OK();
+}
+
+// date to timestamp
+template <typename D>
+Status CastImpl(const DateScalar<D>& from, TimestampScalar* to) {
+  int64_t millis = from.value;
+  if (std::is_same<D, Date32Type>::value) {
+    millis *= kMillisecondsInDay;
+  }
+  return util::ConvertTimestampValue(timestamp(TimeUnit::MILLI), to->type, millis)
+      .Value(&to->value);
+}
+
 Status CastImpl(const TimestampScalar& from, StringScalar* to) {
   to->value = Buffer::FromString(std::to_string(from.value));
   return Status::OK();

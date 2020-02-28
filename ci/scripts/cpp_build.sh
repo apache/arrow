@@ -83,9 +83,12 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_PYTHON=${ARROW_PYTHON:-OFF} \
       -DARROW_S3=${ARROW_S3:-OFF} \
       -DARROW_TEST_LINKAGE=${ARROW_TEST_LINKAGE:-shared} \
+      -DARROW_TEST_MEMCHECK=${ARROW_TEST_MEMCHECK:-OFF} \
       -DARROW_USE_ASAN=${ARROW_USE_ASAN:-OFF} \
       -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
       -DARROW_USE_GLOG=${ARROW_USE_GLOG:-ON} \
+      -DARROW_USE_LD_GOLD=${ARROW_USE_LD_GOLD:-OFF} \
+      -DARROW_USE_PRECOMPILED_HEADERS=${ARROW_USE_PRECOMPILED_HEADERS:-OFF} \
       -DARROW_USE_STATIC_CRT=${ARROW_USE_STATIC_CRT:-OFF} \
       -DARROW_USE_UBSAN=${ARROW_USE_UBSAN:-OFF} \
       -DARROW_VERBOSE_THIRDPARTY_BUILD=${ARROW_VERBOSE_THIRDPARTY_BUILD:-OFF} \
@@ -98,13 +101,14 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -Dbenchmark_SOURCE=${benchmark_SOURCE:-AUTO} \
       -DBOOST_SOURCE=${BOOST_SOURCE:-AUTO} \
       -DBrotli_SOURCE=${Brotli_SOURCE:-AUTO} \
-      -DBUILD_WARNING_LEVEL=${DARROW_BUILD_WARNING_LEVEL:-CHECKIN} \
+      -DBUILD_WARNING_LEVEL=${BUILD_WARNING_LEVEL:-CHECKIN} \
       -Dc-ares_SOURCE=${cares_SOURCE:-AUTO} \
       -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-debug} \
       -DCMAKE_C_FLAGS=${CFLAGS:-} \
       -DCMAKE_CXX_FLAGS=${CXXFLAGS:-} \
       -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR:-lib} \
       -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
+      -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
       -Dgflags_SOURCE=${gflags_SOURCE:-AUTO} \
       -DgRPC_SOURCE=${gRPC_SOURCE:-AUTO} \
       -DGTest_SOURCE=${GTest_SOURCE:-AUTO} \
@@ -121,9 +125,13 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       ${CMAKE_ARGS} \
       ${source_dir}
 
-cmake --build . --target install
+time cmake --build . --target install
 
 popd
+
+if [ -x "$(command -v ldconfig)" ]; then
+  ldconfig
+fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     echo -e "===\n=== ccache statistics after build\n==="

@@ -23,6 +23,7 @@ import static org.junit.Assert.assertTrue;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -51,16 +52,7 @@ public class TestIndexSorter {
       vec.setValueCount(10);
 
       // fill data to sort
-      vec.set(0, 11);
-      vec.set(1, 8);
-      vec.set(2, 33);
-      vec.set(3, 10);
-      vec.set(4, 12);
-      vec.set(5, 17);
-      vec.setNull(6);
-      vec.set(7, 23);
-      vec.set(8, 35);
-      vec.set(9, 2);
+      ValueVectorDataPopulator.setVector(vec, 11, 8, 33, 10, 12, 17, null, 23, 35, 2);
 
       // sort the index
       IndexSorter<IntVector> indexSorter = new IndexSorter<>();
@@ -111,6 +103,103 @@ public class TestIndexSorter {
           assertEquals(i, indices.get(i));
         }
       }
+    }
+  }
+
+  @Test
+  public void testChoosePivot() {
+    final int vectorLength = 100;
+    try (IntVector vec = new IntVector("vector", allocator);
+         IntVector indices = new IntVector("indices", allocator)) {
+      vec.allocateNew(vectorLength);
+      indices.allocateNew(vectorLength);
+
+      // the vector is sorted, so the pivot should be in the middle
+      for (int i = 0; i < vectorLength; i++) {
+        vec.set(i, i * 100);
+        indices.set(i, i);
+      }
+      vec.setValueCount(vectorLength);
+      indices.setValueCount(vectorLength);
+
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+
+      // setup internal data structures
+      comparator.attachVector(vec);
+
+      int low = 5;
+      int high = 6;
+      assertTrue(high - low + 1 < FixedWidthInPlaceVectorSorter.STOP_CHOOSING_PIVOT_THRESHOLD);
+
+      // the range is small enough, so the pivot is simply selected as the low value
+      int pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);
+      assertEquals(pivotIndex, low);
+      assertEquals(pivotIndex, indices.get(low));
+
+      low = 30;
+      high = 80;
+      assertTrue(high - low + 1 >= FixedWidthInPlaceVectorSorter.STOP_CHOOSING_PIVOT_THRESHOLD);
+
+      // the range is large enough, so the median is selected as the pivot
+      pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);
+      assertEquals(pivotIndex, (low + high) / 2);
+      assertEquals(pivotIndex, indices.get(low));
+    }
+  }
+
+  /**
+   * Evaluates choosing pivot for all possible permutations of 3 numbers.
+   */
+  @Test
+  public void testChoosePivotAllPermutes() {
+    try (IntVector vec = new IntVector("vector", allocator);
+         IntVector indices = new IntVector("indices", allocator)) {
+      vec.allocateNew();
+      indices.allocateNew();
+
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+
+      // setup internal data structures
+      comparator.attachVector(vec);
+      int low = 0;
+      int high = 2;
+
+      // test all the 6 permutations of 3 numbers
+      ValueVectorDataPopulator.setVector(indices, 0, 1, 2);
+      ValueVectorDataPopulator.setVector(vec, 11, 22, 33);
+      int pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);
+      assertEquals(1, pivotIndex);
+      assertEquals(1, indices.get(low));
+
+      ValueVectorDataPopulator.setVector(indices, 0, 1, 2);
+      ValueVectorDataPopulator.setVector(vec, 11, 33, 22);
+      pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);
+      assertEquals(2, pivotIndex);
+      assertEquals(2, indices.get(low));
+
+      ValueVectorDataPopulator.setVector(indices, 0, 1, 2);
+      ValueVectorDataPopulator.setVector(vec, 22, 11, 33);
+      pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);
+      assertEquals(0, pivotIndex);
+      assertEquals(0, indices.get(low));
+
+      ValueVectorDataPopulator.setVector(indices, 0, 1, 2);
+      ValueVectorDataPopulator.setVector(vec, 22, 33, 11);
+      pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);
+      assertEquals(0, pivotIndex);
+      assertEquals(0, indices.get(low));
+
+      ValueVectorDataPopulator.setVector(indices, 0, 1, 2);
+      ValueVectorDataPopulator.setVector(vec, 33, 11, 22);
+      pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);
+      assertEquals(2, pivotIndex);
+      assertEquals(2, indices.get(low));
+
+      ValueVectorDataPopulator.setVector(indices, 0, 1, 2);
+      ValueVectorDataPopulator.setVector(vec, 33, 22, 11);
+      pivotIndex = IndexSorter.choosePivot(low, high, indices, comparator);
+      assertEquals(1, pivotIndex);
+      assertEquals(1, indices.get(low));
     }
   }
 }

@@ -17,42 +17,18 @@
 
 context("install_arrow()")
 
-i_have_arrow_msg <- "It appears you already have Arrow installed successfully: are you trying to install a different version of the library?
-
-Refer to the R package README <https://github.com/apache/arrow/blob/master/r/README.md> and `vignette('install', package = 'arrow')` for further details.
-
-If you have other trouble, or if you think this message could be improved, please report an issue here: <https://issues.apache.org/jira/projects/ARROW/issues>"
-
 r_only({
-  test_that("install_arrow() prints a message", {
-    expect_message(install_arrow())
-  })
-
-  test_that("Messages get the standard postscript appended", {
-    expect_identical(
-      install_arrow_msg(has_arrow = TRUE, "0.13.0"),
-      i_have_arrow_msg
-    )
-  })
-
-  test_that("Solaris and Linux dev version get pointed to C++ guide", {
-    expect_match(
-      install_arrow_msg(FALSE, "0.13.0", os="sunos"),
-      "See the Arrow developer guide",
-      fixed = TRUE
-    )
-    expect_match(
-      install_arrow_msg(FALSE, "0.13.0.9000", os="linux"),
-      "See the Arrow developer guide",
-      fixed = TRUE
-    )
-  })
-
-  test_that("Linux on release version gets pointed to PPA first, then C++", {
-    expect_match(
-      install_arrow_msg(FALSE, "0.13.0", os="linux"),
-      "dependency. Or, see the Arrow developer guide",
-      fixed = TRUE
-    )
+  test_that("arrow_repos", {
+    old <- options(repos=c(CRAN = "@CRAN@")) # Restore default
+    on.exit(options(old))
+    cran <- "https://cloud.r-project.org/"
+    bt <- "https://dl.bintray.com/ursalabs/arrow-r"
+    other <- "https://cran.fiocruz.br/"
+    expect_identical(arrow_repos(), cran)
+    expect_identical(arrow_repos(c(cran, bt)), cran)
+    expect_identical(arrow_repos(c(bt, other)), other)
+    expect_identical(arrow_repos(nightly = TRUE), c(bt, cran))
+    expect_identical(arrow_repos(c(cran, bt), nightly = TRUE), c(bt, cran))
+    expect_identical(arrow_repos(c(bt, other), nightly = TRUE), c(bt, other))
   })
 })

@@ -21,8 +21,12 @@ set -ex
 
 arrow_dir=${1}
 
+export ARROW_SOURCE_DIR=${arrow_dir}
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
+
+# Enable some checks inside Python itself
+export PYTHONDEVMODE=1
 
 pytest -r s --pyargs pyarrow

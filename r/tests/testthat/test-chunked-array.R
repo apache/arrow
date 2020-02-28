@@ -392,3 +392,12 @@ test_that("[ ChunkedArray", {
     c(2, 5, 6, 8, 9, 35, 36, 38, 39, 55)
   )
 })
+
+test_that("ChunkedArray$Equals", {
+  vec <- 11:20
+  a <- ChunkedArray$create(vec[1:5], vec[6:10])
+  b <- ChunkedArray$create(vec[1:5], vec[6:10])
+  expect_equal(a, b)
+  expect_true(a$Equals(b))
+  expect_false(a$Equals(vec))
+})

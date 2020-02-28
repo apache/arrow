@@ -39,6 +39,7 @@ ENV GOROOT=/opt/go \
 RUN wget -nv -O - https://dl.google.com/go/go${go}.linux-${arch}.tar.gz | tar -xzf - -C /opt
 
 ENV ARROW_BUILD_INTEGRATION=ON \
+    ARROW_BUILD_TESTS=OFF \
     ARROW_FLIGHT=ON \
     ARROW_ORC=OFF \
     ARROW_DATASET=OFF \

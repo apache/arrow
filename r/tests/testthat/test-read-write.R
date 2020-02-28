@@ -112,3 +112,12 @@ test_that("table round trip handles NA in integer and numeric", {
   expect_true(is.na(res$dbl[10]))
   unlink(tf)
 })
+
+
+test_that("write_arrow() returns its input", {
+  df <- tibble::tibble(x = 1:5)
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  df_out <- write_arrow(df, tf)
+  expect_identical(df, df_out)
+})

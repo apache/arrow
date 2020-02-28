@@ -24,3 +24,6 @@ add_arrow_benchmark(converter_benchmark PREFIX "arrow-csv")
 add_arrow_benchmark(parser_benchmark PREFIX "arrow-csv")
 
 arrow_install_all_headers("arrow/csv")
+
+# pkg-config support
+arrow_add_pkg_config("arrow-csv")

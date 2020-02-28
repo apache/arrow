@@ -38,6 +38,8 @@ before_install:
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout FETCH_HEAD
 
+  - brew update
+  - brew unlink python@2
   - travis_wait 30 brew bundle --file=arrow/cpp/Brewfile
   # Install tools to build bundled Thrift
   - brew install

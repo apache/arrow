@@ -305,6 +305,19 @@ TEST(TestTimestampScalars, Cast) {
 
   EXPECT_EQ(convert(TimeUnit::NANO, TimeUnit::MICRO, 1234), 1);
   EXPECT_EQ(convert(TimeUnit::MICRO, TimeUnit::MILLI, 4567), 4);
+
+  ASSERT_OK_AND_ASSIGN(auto str,
+                       TimestampScalar(1024, timestamp(TimeUnit::MILLI)).CastTo(utf8()));
+  EXPECT_EQ(*str, StringScalar("1024"));
+  ASSERT_OK_AND_ASSIGN(auto i64,
+                       TimestampScalar(1024, timestamp(TimeUnit::MILLI)).CastTo(int64()));
+  EXPECT_EQ(*i64, Int64Scalar(1024));
+
+  constexpr int64_t kMillisecondsInDay = 86400000;
+  ASSERT_OK_AND_ASSIGN(
+      auto d64, TimestampScalar(1024 * kMillisecondsInDay + 3, timestamp(TimeUnit::MILLI))
+                    .CastTo(date64()));
+  EXPECT_EQ(*d64, Date64Scalar(1024 * kMillisecondsInDay));
 }
 
 TEST(TestDurationScalars, Basics) {

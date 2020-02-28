@@ -970,6 +970,53 @@ GArrowArrayBuilder *garrow_struct_array_builder_get_field_builder(GArrowStructAr
 GList *garrow_struct_array_builder_get_field_builders(GArrowStructArrayBuilder *builder);
 
 
+#define GARROW_TYPE_MAP_ARRAY_BUILDER        \
+  (garrow_map_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMapArrayBuilder,
+                         garrow_map_array_builder,
+                         GARROW,
+                         MAP_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowMapArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_1_0
+GArrowMapArrayBuilder *garrow_map_array_builder_new(GArrowMapDataType *data_type,
+                                                    GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_map_array_builder_append_value(GArrowMapArrayBuilder *builder,
+                                      GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_map_array_builder_append_values(GArrowMapArrayBuilder *builder,
+                                       const gint32 *offsets,
+                                       gint64 offsets_length,
+                                       const gboolean *is_valids,
+                                       gint64 is_valids_length,
+                                       GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_map_array_builder_append_null(GArrowMapArrayBuilder *builder,
+                                     GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_map_array_builder_append_nulls(GArrowMapArrayBuilder *builder,
+                                      gint64 n,
+                                      GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowArrayBuilder *
+garrow_map_array_builder_get_key_builder(GArrowMapArrayBuilder *builder);
+GARROW_AVAILABLE_IN_1_0
+GArrowArrayBuilder *
+garrow_map_array_builder_get_item_builder(GArrowMapArrayBuilder *builder);
+GARROW_AVAILABLE_IN_1_0
+GArrowArrayBuilder *
+garrow_map_array_builder_get_value_builder(GArrowMapArrayBuilder *builder);
+
+
 #define GARROW_TYPE_DECIMAL128_ARRAY_BUILDER (garrow_decimal128_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal128ArrayBuilder,
                          garrow_decimal128_array_builder,

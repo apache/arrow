@@ -19,6 +19,8 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
+#include <utility>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
@@ -28,14 +30,51 @@ namespace parquet {
 class ParquetFileReader;
 class RowGroupMetaData;
 class FileMetaData;
+class FileDecryptionProperties;
+class ReaderProperties;
+class ArrowReaderProperties;
 }  // namespace parquet
 
 namespace arrow {
 namespace dataset {
 
 /// \brief A FileFormat implementation that reads from Parquet files
-class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
+class ARROW_DS_EXPORT ParquetFileFormat
+    : public FileFormat,
+      public std::enable_shared_from_this<ParquetFileFormat> {
  public:
+  ParquetFileFormat() = default;
+
+  /// Convenience constructor which copies properties from a parquet::ReaderProperties.
+  /// memory_pool will be ignored.
+  explicit ParquetFileFormat(const parquet::ReaderProperties& reader_properties);
+
+  struct ReaderOptions {
+    /// \defgroup parquet-file-format-reader-properties properties which correspond to
+    /// members of parquet::ReaderProperties.
+    ///
+    /// We don't embed parquet::ReaderProperties directly because we get memory_pool from
+    /// ScanContext at scan time and provide differing defaults.
+    ///
+    /// @{
+    bool use_buffered_stream = false;
+    int64_t buffer_size = 1 << 13;
+    std::shared_ptr<parquet::FileDecryptionProperties> file_decryption_properties;
+    /// @}
+
+    /// \defgroup parquet-file-format-arrow-reader-properties properties which correspond
+    /// to members of parquet::ArrowReaderProperties.
+    ///
+    /// We don't embed parquet::ReaderProperties directly because we get batch_size from
+    /// ScanOptions at scan time, and we will never pass use_threads == true (since we
+    /// defer parallelization of the scan). Additionally column names (rather than
+    /// indices) are used to indicate dictionary columns.
+    ///
+    /// @{
+    std::unordered_set<std::string> dict_columns;
+    /// @}
+  } reader_options;
+
   std::string type_name() const override { return "parquet"; }
 
   Result<bool> IsSupported(const FileSource& source) const override;
@@ -49,23 +88,17 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
                                     std::shared_ptr<ScanContext> context) const override;
 
   Result<std::shared_ptr<Fragment>> MakeFragment(
-      const FileSource& source, std::shared_ptr<ScanOptions> options) override;
-
- private:
-  Result<std::unique_ptr<::parquet::ParquetFileReader>> OpenReader(
-      const FileSource& source, MemoryPool* pool) const;
+      FileSource source, std::shared_ptr<ScanOptions> options) override;
 };
 
 class ARROW_DS_EXPORT ParquetFragment : public FileFragment {
  public:
-  ParquetFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
-      : FileFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
+  ParquetFragment(FileSource source, std::shared_ptr<ParquetFileFormat> format,
+                  std::shared_ptr<ScanOptions> options)
+      : FileFragment(std::move(source), std::move(format), std::move(options)) {}
 
   bool splittable() const override { return true; }
 };
-
-Result<std::shared_ptr<Expression>> RowGroupStatisticsAsExpression(
-    const parquet::RowGroupMetaData& metadata);
 
 }  // namespace dataset
 }  // namespace arrow

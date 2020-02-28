@@ -22,17 +22,51 @@
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
+use regex::Regex;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::array::*;
-use crate::buffer::Buffer;
 use crate::compute::util::apply_bin_op_to_option_bitmap;
-use crate::datatypes::{ArrowNumericType, BooleanType, DataType, ToByteSlice};
+use crate::datatypes::{ArrowNumericType, BooleanType, DataType};
 use crate::error::{ArrowError, Result};
 
 /// Helper function to perform boolean lambda function on values from two arrays, this
 /// version does not attempt to use SIMD.
-pub fn compare_op<T, F>(
+macro_rules! compare_op {
+    ($left: expr, $right:expr, $op:expr) => {{
+        if $left.len() != $right.len() {
+            return Err(ArrowError::ComputeError(
+                "Cannot perform comparison operation on arrays of different length"
+                    .to_string(),
+            ));
+        }
+
+        let null_bit_buffer = apply_bin_op_to_option_bitmap(
+            $left.data().null_bitmap(),
+            $right.data().null_bitmap(),
+            |a, b| a & b,
+        )?;
+
+        let mut result = BooleanBufferBuilder::new($left.len());
+        for i in 0..$left.len() {
+            result.append($op($left.value(i), $right.value(i)))?;
+        }
+
+        let data = ArrayData::new(
+            DataType::Boolean,
+            $left.len(),
+            None,
+            null_bit_buffer,
+            $left.offset(),
+            vec![result.finish()],
+            vec![],
+        );
+        Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    }};
+}
+
+pub fn no_simd_compare_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
     op: F,
@@ -41,9 +75,15 @@ where
     T: ArrowNumericType,
     F: Fn(T::Native, T::Native) -> bool,
 {
+    compare_op!(left, right, op)
+}
+
+pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+    let mut map = HashMap::new();
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on arrays of different length".to_string(),
+            "Cannot perform comparison operation on arrays of different length"
+                .to_string(),
         ));
     }
 
@@ -53,9 +93,25 @@ where
         |a, b| a & b,
     )?;
 
-    let mut values = Vec::with_capacity(left.len());
+    let mut result = BooleanBufferBuilder::new(left.len());
     for i in 0..left.len() {
-        values.push(op(left.value(i), right.value(i)));
+        let haystack = left.value(i);
+        let pat = right.value(i);
+        let re = if let Some(ref regex) = map.get(pat) {
+            regex
+        } else {
+            let re_pattern = pat.replace("%", ".*").replace("_", ".");
+            let re = Regex::new(&re_pattern).map_err(|e| {
+                ArrowError::ComputeError(format!(
+                    "Unable to build regex from LIKE pattern: {}",
+                    e
+                ))
+            })?;
+            map.insert(pat, re);
+            map.get(pat).unwrap()
+        };
+
+        result.append(re.is_match(haystack))?;
     }
 
     let data = ArrayData::new(
@@ -64,10 +120,82 @@ where
         None,
         null_bit_buffer,
         left.offset(),
-        vec![Buffer::from(values.to_byte_slice())],
+        vec![result.finish()],
         vec![],
     );
     Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+}
+
+pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+    let mut map = HashMap::new();
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform comparison operation on arrays of different length"
+                .to_string(),
+        ));
+    }
+
+    let null_bit_buffer = apply_bin_op_to_option_bitmap(
+        left.data().null_bitmap(),
+        right.data().null_bitmap(),
+        |a, b| a & b,
+    )?;
+
+    let mut result = BooleanBufferBuilder::new(left.len());
+    for i in 0..left.len() {
+        let haystack = left.value(i);
+        let pat = right.value(i);
+        let re = if let Some(ref regex) = map.get(pat) {
+            regex
+        } else {
+            let re_pattern = pat.replace("%", ".*").replace("_", ".");
+            let re = Regex::new(&re_pattern).map_err(|e| {
+                ArrowError::ComputeError(format!(
+                    "Unable to build regex from LIKE pattern: {}",
+                    e
+                ))
+            })?;
+            map.insert(pat, re);
+            map.get(pat).unwrap()
+        };
+
+        result.append(!re.is_match(haystack))?;
+    }
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        null_bit_buffer,
+        left.offset(),
+        vec![result.finish()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+}
+
+pub fn eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+    compare_op!(left, right, |a, b| a == b)
+}
+
+pub fn neq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+    compare_op!(left, right, |a, b| a != b)
+}
+
+pub fn lt_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+    compare_op!(left, right, |a, b| a < b)
+}
+
+pub fn lt_eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+    compare_op!(left, right, |a, b| a <= b)
+}
+
+pub fn gt_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+    compare_op!(left, right, |a, b| a > b)
+}
+
+pub fn gt_eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+    compare_op!(left, right, |a, b| a >= b)
 }
 
 /// Helper function to perform boolean lambda function on values from two arrays using
@@ -84,7 +212,8 @@ where
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on arrays of different length".to_string(),
+            "Cannot perform comparison operation on arrays of different length"
+                .to_string(),
         ));
     }
 
@@ -126,8 +255,11 @@ where
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
     return simd_compare_op(left, right, |a, b| T::eq(a, b));
 
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| a == b)
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op!(left, right, |a, b| a == b)
 }
 
 /// Perform `left != right` operation on two arrays.
@@ -138,8 +270,11 @@ where
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
     return simd_compare_op(left, right, |a, b| T::ne(a, b));
 
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| a != b)
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op!(left, right, |a, b| a != b)
 }
 
 /// Perform `left < right` operation on two arrays. Null values are less than non-null
@@ -151,8 +286,11 @@ where
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
     return simd_compare_op(left, right, |a, b| T::lt(a, b));
 
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| a < b)
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op!(left, right, |a, b| a < b)
 }
 
 /// Perform `left <= right` operation on two arrays. Null values are less than non-null
@@ -167,8 +305,11 @@ where
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
     return simd_compare_op(left, right, |a, b| T::le(a, b));
 
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| a <= b)
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op!(left, right, |a, b| a <= b)
 }
 
 /// Perform `left > right` operation on two arrays. Non-null values are greater than null
@@ -180,8 +321,11 @@ where
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
     return simd_compare_op(left, right, |a, b| T::gt(a, b));
 
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| a > b)
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op!(left, right, |a, b| a > b)
 }
 
 /// Perform `left >= right` operation on two arrays. Non-null values are greater than null
@@ -196,8 +340,11 @@ where
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
     return simd_compare_op(left, right, |a, b| T::ge(a, b));
 
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| a >= b)
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op!(left, right, |a, b| a >= b)
 }
 
 #[cfg(test)]
@@ -316,4 +463,78 @@ mod tests {
         assert_eq!(false, c.value(1));
         assert_eq!(true, c.value(2));
     }
+
+    macro_rules! test_utf8 {
+        ($test_name:ident, $left:expr, $right:expr, $op:expr, $expected:expr) => {
+            #[test]
+            fn $test_name() {
+                let left = StringArray::from($left);
+                let right = StringArray::from($right);
+                let res = $op(&left, &right).unwrap();
+                let expected = $expected;
+                assert_eq!(expected.len(), res.len());
+                for i in 0..res.len() {
+                    let v = res.value(i);
+                    assert_eq!(v, expected[i]);
+                }
+            }
+        };
+    }
+
+    test_utf8!(
+        test_utf8_array_like,
+        vec!["arrow", "arrow", "arrow", "arrow"],
+        vec!["arrow", "ar%", "%ro%", "foo"],
+        like_utf8,
+        vec![true, true, true, false]
+    );
+    test_utf8!(
+        test_utf8_array_nlike,
+        vec!["arrow", "arrow", "arrow", "arrow"],
+        vec!["arrow", "ar%", "%ro%", "foo"],
+        nlike_utf8,
+        vec![false, false, false, true]
+    );
+    test_utf8!(
+        test_utf8_array_eq,
+        vec!["arrow", "arrow", "arrow", "arrow"],
+        vec!["arrow", "parquet", "datafusion", "flight"],
+        eq_utf8,
+        vec![true, false, false, false]
+    );
+    test_utf8!(
+        test_utf8_array_new,
+        vec!["arrow", "arrow", "arrow", "arrow"],
+        vec!["arrow", "parquet", "datafusion", "flight"],
+        neq_utf8,
+        vec![false, true, true, true]
+    );
+    test_utf8!(
+        test_utf8_array_lt,
+        vec!["arrow", "datafusion", "flight", "parquet"],
+        vec!["flight", "flight", "flight", "flight"],
+        lt_utf8,
+        vec![true, true, false, false]
+    );
+    test_utf8!(
+        test_utf8_array_lt_eq,
+        vec!["arrow", "datafusion", "flight", "parquet"],
+        vec!["flight", "flight", "flight", "flight"],
+        lt_eq_utf8,
+        vec![true, true, true, false]
+    );
+    test_utf8!(
+        test_utf8_array_gt,
+        vec!["arrow", "datafusion", "flight", "parquet"],
+        vec!["flight", "flight", "flight", "flight"],
+        gt_utf8,
+        vec![false, false, false, true]
+    );
+    test_utf8!(
+        test_utf8_array_gt_eq,
+        vec!["arrow", "datafusion", "flight", "parquet"],
+        vec!["flight", "flight", "flight", "flight"],
+        gt_eq_utf8,
+        vec![false, false, true, true]
+    );
 }

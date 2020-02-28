@@ -32,7 +32,6 @@ class Array;
 class ArrayBuilder;
 class BinaryArray;
 class BinaryBuilder;
-class BinaryDictionary32Builder;
 class BooleanBuilder;
 class Int32Type;
 class Int64Type;
@@ -147,7 +146,7 @@ struct EncodingTraits<ByteArrayType> {
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
   using ArrowType = ::arrow::BinaryType;
-  using DictAccumulator = ::arrow::BinaryDictionary32Builder;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::BinaryType>;
 };
 
 template <>

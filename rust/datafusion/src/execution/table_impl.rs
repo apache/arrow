@@ -20,7 +20,9 @@
 use std::sync::Arc;
 
 use crate::arrow::datatypes::{DataType, Field, Schema};
+use crate::arrow::record_batch::RecordBatch;
 use crate::error::{ExecutionError, Result};
+use crate::execution::context::ExecutionContext;
 use crate::logicalplan::Expr::Literal;
 use crate::logicalplan::ScalarValue;
 use crate::logicalplan::{Expr, LogicalPlan};
@@ -153,6 +155,14 @@ impl Table for TableImpl {
     /// Convert to logical plan
     fn to_logical_plan(&self) -> Arc<LogicalPlan> {
         self.plan.clone()
+    }
+
+    fn collect(
+        &self,
+        ctx: &mut ExecutionContext,
+        batch_size: usize,
+    ) -> Result<Vec<RecordBatch>> {
+        ctx.collect_plan(&self.plan.clone(), batch_size)
     }
 }
 

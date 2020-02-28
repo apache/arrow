@@ -18,6 +18,7 @@
 package org.apache.arrow.flight.auth;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -40,6 +41,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
@@ -48,7 +50,7 @@ public class TestBasicAuth {
 
   private static final String USERNAME = "flight";
   private static final String PASSWORD = "woohoo";
-  private static final byte[] VALID_TOKEN = "my_token".getBytes();
+  private static final byte[] VALID_TOKEN = "my_token".getBytes(StandardCharsets.UTF_8);
 
   private FlightClient client;
   private FlightServer server;
@@ -60,15 +62,16 @@ public class TestBasicAuth {
     Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
   }
 
+  // ARROW-7722: this test occasionally leaks memory
+  @Ignore
   @Test
-  public void asyncCall() {
+  public void asyncCall() throws Exception {
     client.authenticateBasic(USERNAME, PASSWORD);
     client.listFlights(Criteria.ALL);
-    FlightStream s = client.getStream(new Ticket(new byte[1]));
-
-    while (s.next()) {
-      Assert.assertEquals(4095, s.getRoot().getRowCount());
-      s.getRoot().clear();
+    try (final FlightStream s = client.getStream(new Ticket(new byte[1]))) {
+      while (s.next()) {
+        Assert.assertEquals(4095, s.getRoot().getRowCount());
+      }
     }
   }
 
@@ -135,13 +138,13 @@ public class TestBasicAuth {
             }
             final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a",
                     Types.MinorType.BIGINT.getType())));
-            VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator);
-            listener.start(root);
-            root.allocateNew();
-            root.setRowCount(4095);
-            listener.putNext();
-            root.clear();
-            listener.completed();
+            try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator)) {
+              listener.start(root);
+              root.allocateNew();
+              root.setRowCount(4095);
+              listener.putNext();
+              listener.completed();
+            }
           }
         }).authHandler(new BasicServerAuthHandler(validator)).build());
     client = FlightClient.builder(allocator, server.getLocation()).build();

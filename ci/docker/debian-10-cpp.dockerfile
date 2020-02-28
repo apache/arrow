@@ -29,6 +29,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         cmake \
         g++ \
         gcc \
+        gdb \
         git \
         libbenchmark-dev \
         libboost-all-dev \

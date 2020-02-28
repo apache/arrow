@@ -15,16 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cstdint>
+#include <exception>
 #include <random>
 #include <string>
 #include <vector>
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
@@ -161,10 +166,274 @@ static void SchemaEqualsWithMetadata(
   state.SetItemsProcessed(state.iterations() * 2);
 }
 
+// ------------------------------------------------------------------------
+// Micro-benchmark various error reporting schemes
+
+#if (defined(__GNUC__) || defined(__APPLE__))
+#define ARROW_NO_INLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+#define ARROW_NO_INLINE __declspec(noinline)
+#else
+#define ARROW_NO_INLINE
+#warning Missing "noinline" attribute, no-inline benchmarks may be bogus
+#endif
+
+inline int64_t Accumulate(int64_t partial, int32_t value) {
+  // Something non-trivial to avoid vectorization
+  return partial + value + (partial >> 5) * value;
+}
+
+std::vector<int32_t> RandomIntegers() {
+  std::default_random_engine gen(42);
+  // Make 42 extremely unlikely (to make error Status allocation negligible)
+  std::uniform_int_distribution<int32_t> dist(0, 100000);
+
+  std::vector<int32_t> integers(6000);
+  std::generate(integers.begin(), integers.end(), [&]() { return dist(gen); });
+  return integers;
+}
+
+inline int32_t NoError(int32_t v) { return v + 1; }
+
+ARROW_NO_INLINE int32_t NoErrorNoInline(int32_t v) { return v + 1; }
+
+inline std::pair<bool, int32_t> ErrorAsBool(int32_t v) {
+  return {ARROW_PREDICT_FALSE(v == 42), v + 1};
+}
+
+ARROW_NO_INLINE std::pair<bool, int32_t> ErrorAsBoolNoInline(int32_t v) {
+  return {ARROW_PREDICT_FALSE(v == 42), v + 1};
+}
+
+inline Status ErrorAsStatus(int32_t v, int32_t* out) {
+  if (ARROW_PREDICT_FALSE(v == 42)) {
+    return Status::Invalid("42");
+  }
+  *out = v + 1;
+  return Status::OK();
+}
+
+ARROW_NO_INLINE Status ErrorAsStatusNoInline(int32_t v, int32_t* out) {
+  if (ARROW_PREDICT_FALSE(v == 42)) {
+    return Status::Invalid("42");
+  }
+  *out = v + 1;
+  return Status::OK();
+}
+
+inline Result<int32_t> ErrorAsResult(int32_t v) {
+  if (ARROW_PREDICT_FALSE(v == 42)) {
+    return Status::Invalid("42");
+  }
+  return v + 1;
+}
+
+ARROW_NO_INLINE Result<int32_t> ErrorAsResultNoInline(int32_t v) {
+  if (ARROW_PREDICT_FALSE(v == 42)) {
+    return Status::Invalid("42");
+  }
+  return v + 1;
+}
+
+inline int32_t ErrorAsException(int32_t v) {
+  if (ARROW_PREDICT_FALSE(v == 42)) {
+    throw std::invalid_argument("42");
+  }
+  return v + 1;
+}
+
+ARROW_NO_INLINE int32_t ErrorAsExceptionNoInline(int32_t v) {
+  if (ARROW_PREDICT_FALSE(v == 42)) {
+    throw std::invalid_argument("42");
+  }
+  return v + 1;
+}
+
+static void ErrorSchemeNoError(benchmark::State& state) {  // NOLINT non-const reference
+  auto integers = RandomIntegers();
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto v : integers) {
+      total = Accumulate(total, NoError(v));
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * integers.size());
+}
+
+static void ErrorSchemeNoErrorNoInline(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto integers = RandomIntegers();
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto v : integers) {
+      total = Accumulate(total, NoErrorNoInline(v));
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * integers.size());
+}
+
+static void ErrorSchemeBool(benchmark::State& state) {  // NOLINT non-const reference
+  auto integers = RandomIntegers();
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto v : integers) {
+      auto pair = ErrorAsBool(v);
+      if (!ARROW_PREDICT_FALSE(pair.first)) {
+        total = Accumulate(total, pair.second);
+      }
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * integers.size());
+}
+
+static void ErrorSchemeBoolNoInline(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto integers = RandomIntegers();
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto v : integers) {
+      auto pair = ErrorAsBoolNoInline(v);
+      if (!ARROW_PREDICT_FALSE(pair.first)) {
+        total = Accumulate(total, pair.second);
+      }
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * integers.size());
+}
+
+static void ErrorSchemeStatus(benchmark::State& state) {  // NOLINT non-const reference
+  auto integers = RandomIntegers();
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto v : integers) {
+      int32_t value;
+      if (ARROW_PREDICT_TRUE(ErrorAsStatus(v, &value).ok())) {
+        total = Accumulate(total, value);
+      }
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * integers.size());
+}
+
+static void ErrorSchemeStatusNoInline(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto integers = RandomIntegers();
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto v : integers) {
+      int32_t value;
+      if (ARROW_PREDICT_TRUE(ErrorAsStatusNoInline(v, &value).ok())) {
+        total = Accumulate(total, value);
+      }
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * integers.size());
+}
+
+static void ErrorSchemeResult(benchmark::State& state) {  // NOLINT non-const reference
+  auto integers = RandomIntegers();
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto v : integers) {
+      auto maybe_value = ErrorAsResult(v);
+      if (ARROW_PREDICT_TRUE(maybe_value.ok())) {
+        total = Accumulate(total, *std::move(maybe_value));
+      }
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * integers.size());
+}
+
+static void ErrorSchemeResultNoInline(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto integers = RandomIntegers();
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto v : integers) {
+      auto maybe_value = ErrorAsResultNoInline(v);
+      if (ARROW_PREDICT_TRUE(maybe_value.ok())) {
+        total = Accumulate(total, *std::move(maybe_value));
+      }
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * integers.size());
+}
+
+static void ErrorSchemeException(benchmark::State& state) {  // NOLINT non-const reference
+  auto integers = RandomIntegers();
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto v : integers) {
+      try {
+        total = Accumulate(total, ErrorAsException(v));
+      } catch (const std::exception&) {
+      }
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * integers.size());
+}
+
+static void ErrorSchemeExceptionNoInline(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto integers = RandomIntegers();
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto v : integers) {
+      try {
+        total = Accumulate(total, ErrorAsExceptionNoInline(v));
+      } catch (const std::exception&) {
+      }
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * integers.size());
+}
+
 BENCHMARK(TypeEqualsSimple);
 BENCHMARK(TypeEqualsComplex);
 BENCHMARK(TypeEqualsWithMetadata);
 BENCHMARK(SchemaEquals);
 BENCHMARK(SchemaEqualsWithMetadata);
+
+BENCHMARK(ErrorSchemeNoError);
+BENCHMARK(ErrorSchemeBool);
+BENCHMARK(ErrorSchemeStatus);
+BENCHMARK(ErrorSchemeResult);
+BENCHMARK(ErrorSchemeException);
+
+BENCHMARK(ErrorSchemeNoErrorNoInline);
+BENCHMARK(ErrorSchemeBoolNoInline);
+BENCHMARK(ErrorSchemeStatusNoInline);
+BENCHMARK(ErrorSchemeResultNoInline);
+BENCHMARK(ErrorSchemeExceptionNoInline);
 
 }  // namespace arrow

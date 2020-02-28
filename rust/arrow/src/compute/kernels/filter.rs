@@ -20,7 +20,7 @@
 use std::sync::Arc;
 
 use crate::array::*;
-use crate::datatypes::{ArrowNumericType, DataType};
+use crate::datatypes::{ArrowNumericType, DataType, TimeUnit};
 use crate::error::{ArrowError, Result};
 
 /// Helper function to perform boolean lambda function on values from two arrays.
@@ -87,6 +87,44 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
         DataType::Float32 => filter_array!(array, filter, Float32Array),
         DataType::Float64 => filter_array!(array, filter, Float64Array),
         DataType::Boolean => filter_array!(array, filter, BooleanArray),
+        DataType::Date32(_) => filter_array!(array, filter, Date32Array),
+        DataType::Date64(_) => filter_array!(array, filter, Date64Array),
+        DataType::Time32(TimeUnit::Second) => {
+            filter_array!(array, filter, Time32SecondArray)
+        }
+        DataType::Time32(TimeUnit::Millisecond) => {
+            filter_array!(array, filter, Time32MillisecondArray)
+        }
+        DataType::Time64(TimeUnit::Microsecond) => {
+            filter_array!(array, filter, Time64MicrosecondArray)
+        }
+        DataType::Time64(TimeUnit::Nanosecond) => {
+            filter_array!(array, filter, Time64NanosecondArray)
+        }
+        DataType::Duration(TimeUnit::Second) => {
+            filter_array!(array, filter, DurationSecondArray)
+        }
+        DataType::Duration(TimeUnit::Millisecond) => {
+            filter_array!(array, filter, DurationMillisecondArray)
+        }
+        DataType::Duration(TimeUnit::Microsecond) => {
+            filter_array!(array, filter, DurationMicrosecondArray)
+        }
+        DataType::Duration(TimeUnit::Nanosecond) => {
+            filter_array!(array, filter, DurationNanosecondArray)
+        }
+        DataType::Timestamp(TimeUnit::Second, _) => {
+            filter_array!(array, filter, TimestampSecondArray)
+        }
+        DataType::Timestamp(TimeUnit::Millisecond, _) => {
+            filter_array!(array, filter, TimestampMillisecondArray)
+        }
+        DataType::Timestamp(TimeUnit::Microsecond, _) => {
+            filter_array!(array, filter, TimestampMicrosecondArray)
+        }
+        DataType::Timestamp(TimeUnit::Nanosecond, _) => {
+            filter_array!(array, filter, TimestampNanosecondArray)
+        }
         DataType::Binary => {
             let b = array.as_any().downcast_ref::<BinaryArray>().unwrap();
             let mut values: Vec<&[u8]> = Vec::with_capacity(b.len());
@@ -117,6 +155,92 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    macro_rules! def_temporal_test {
+        ($test:ident, $array_type: ident, $data: expr) => {
+            #[test]
+            fn $test() {
+                let a = $data;
+                let b = BooleanArray::from(vec![true, false, true, false]);
+                let c = filter(&a, &b).unwrap();
+                let d = c.as_ref().as_any().downcast_ref::<$array_type>().unwrap();
+                assert_eq!(2, d.len());
+                assert_eq!(1, d.value(0));
+                assert_eq!(3, d.value(1));
+            }
+        };
+    }
+
+    def_temporal_test!(
+        test_filter_date32,
+        Date32Array,
+        Date32Array::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_date64,
+        Date64Array,
+        Date64Array::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_time32_second,
+        Time32SecondArray,
+        Time32SecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_time32_millisecond,
+        Time32MillisecondArray,
+        Time32MillisecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_time64_microsecond,
+        Time64MicrosecondArray,
+        Time64MicrosecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_time64_nanosecond,
+        Time64NanosecondArray,
+        Time64NanosecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_duration_second,
+        DurationSecondArray,
+        DurationSecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_duration_millisecond,
+        DurationMillisecondArray,
+        DurationMillisecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_duration_microsecond,
+        DurationMicrosecondArray,
+        DurationMicrosecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_duration_nanosecond,
+        DurationNanosecondArray,
+        DurationNanosecondArray::from(vec![1, 2, 3, 4])
+    );
+    def_temporal_test!(
+        test_filter_timestamp_second,
+        TimestampSecondArray,
+        TimestampSecondArray::from_vec(vec![1, 2, 3, 4], None)
+    );
+    def_temporal_test!(
+        test_filter_timestamp_millisecond,
+        TimestampMillisecondArray,
+        TimestampMillisecondArray::from_vec(vec![1, 2, 3, 4], None)
+    );
+    def_temporal_test!(
+        test_filter_timestamp_microsecond,
+        TimestampMicrosecondArray,
+        TimestampMicrosecondArray::from_vec(vec![1, 2, 3, 4], None)
+    );
+    def_temporal_test!(
+        test_filter_timestamp_nanosecond,
+        TimestampNanosecondArray,
+        TimestampNanosecondArray::from_vec(vec![1, 2, 3, 4], None)
+    );
 
     #[test]
     fn test_filter_array() {

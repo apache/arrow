@@ -32,7 +32,7 @@ if(ARROW_BUILD_TESTS)
 elseif(ARROW_BUILD_INTEGRATION)
   add_executable(arrow-json-integration-test json_integration_test.cc)
   target_link_libraries(arrow-json-integration-test ${ARROW_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::GTest)
+                        ${GFLAGS_LIBRARIES} GTest::gtest)
 
   add_dependencies(arrow-json-integration-test arrow arrow_testing)
   add_dependencies(arrow-integration arrow-json-integration-test)
@@ -67,5 +67,5 @@ if(ARROW_FUZZING)
                         ${ARROW_TEST_LINK_LIBS})
 endif()
 
-add_arrow_fuzzing(file_fuzz PREFIX "arrow-ipc")
-add_arrow_fuzzing(stream_fuzz PREFIX "arrow-ipc")
+add_arrow_fuzz_target(file_fuzz PREFIX "arrow-ipc")
+add_arrow_fuzz_target(stream_fuzz PREFIX "arrow-ipc")

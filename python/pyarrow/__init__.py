@@ -17,7 +17,6 @@
 
 # flake8: noqa
 
-from __future__ import absolute_import
 
 import os as _os
 import sys as _sys
@@ -121,7 +120,7 @@ from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          FixedSizeBufferWriter,
                          BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
-                         create_memory_map, have_libhdfs, have_libhdfs3,
+                         create_memory_map, have_libhdfs,
                          MockOutputStream, input_stream, output_stream)
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table,
@@ -211,8 +210,7 @@ def _has_pkg_config(pkgname):
     try:
         return subprocess.call([_get_pkg_config_executable(),
                                 '--exists', pkgname]) == 0
-    except OSError:
-        # TODO: replace with FileNotFoundError once we ditch 2.7
+    except FileNotFoundError:
         return False
 
 
@@ -261,7 +259,7 @@ def get_library_dirs():
                 if not library_dir.startswith("-L"):
                     raise ValueError(
                         "pkg-config --libs-only-L returned unexpected "
-                        "value {0!r}".format(library_dir))
+                        "value {!r}".format(library_dir))
                 append_library_dir(library_dir[2:])
 
     if _sys.platform == 'win32':

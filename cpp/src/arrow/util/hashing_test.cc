@@ -146,39 +146,61 @@ TEST(HashingBounds, Strings) {
   }
 }
 
+template <typename MemoTable, typename Value>
+void AssertGet(MemoTable& table, const Value& v, int32_t expected) {
+  ASSERT_EQ(table.Get(v), expected);
+}
+
+template <typename MemoTable, typename Value>
+void AssertGetOrInsert(MemoTable& table, const Value& v, int32_t expected) {
+  int32_t memo_index;
+  ASSERT_OK(table.GetOrInsert(v, &memo_index));
+  ASSERT_EQ(memo_index, expected);
+}
+
+template <typename MemoTable>
+void AssertGetNull(MemoTable& table, int32_t expected) {
+  ASSERT_EQ(table.GetNull(), expected);
+}
+
+template <typename MemoTable>
+void AssertGetOrInsertNull(MemoTable& table, int32_t expected) {
+  ASSERT_EQ(table.GetOrInsertNull(), expected);
+}
+
 TEST(ScalarMemoTable, Int64) {
   const int64_t A = 1234, B = 0, C = -98765321, D = 12345678901234LL, E = -1, F = 1,
                 G = 9223372036854775807LL, H = -9223372036854775807LL - 1;
 
   ScalarMemoTable<int64_t> table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(A), kKeyNotFound);
-  ASSERT_EQ(table.GetNull(), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.Get(B), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(B), 1);
-  ASSERT_EQ(table.GetOrInsert(C), 2);
-  ASSERT_EQ(table.GetOrInsert(D), 3);
-  ASSERT_EQ(table.GetOrInsert(E), 4);
-  ASSERT_EQ(table.GetOrInsertNull(), 5);
+  AssertGet(table, A, kKeyNotFound);
+  AssertGetNull(table, kKeyNotFound);
+  AssertGetOrInsert(table, A, 0);
+  AssertGet(table, B, kKeyNotFound);
+  AssertGetOrInsert(table, B, 1);
+  AssertGetOrInsert(table, C, 2);
+  AssertGetOrInsert(table, D, 3);
+  AssertGetOrInsert(table, E, 4);
+  AssertGetOrInsertNull(table, 5);
 
-  ASSERT_EQ(table.Get(A), 0);
-  ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.Get(E), 4);
-  ASSERT_EQ(table.GetOrInsert(E), 4);
+  AssertGet(table, A, 0);
+  AssertGetOrInsert(table, A, 0);
+  AssertGet(table, E, 4);
+  AssertGetOrInsert(table, E, 4);
 
-  ASSERT_EQ(table.GetOrInsert(F), 6);
-  ASSERT_EQ(table.GetOrInsert(G), 7);
-  ASSERT_EQ(table.GetOrInsert(H), 8);
+  AssertGetOrInsert(table, F, 6);
+  AssertGetOrInsert(table, G, 7);
+  AssertGetOrInsert(table, H, 8);
 
-  ASSERT_EQ(table.GetOrInsert(G), 7);
-  ASSERT_EQ(table.GetOrInsert(F), 6);
-  ASSERT_EQ(table.GetOrInsertNull(), 5);
-  ASSERT_EQ(table.GetOrInsert(E), 4);
-  ASSERT_EQ(table.GetOrInsert(D), 3);
-  ASSERT_EQ(table.GetOrInsert(C), 2);
-  ASSERT_EQ(table.GetOrInsert(B), 1);
-  ASSERT_EQ(table.GetOrInsert(A), 0);
+  AssertGetOrInsert(table, G, 7);
+  AssertGetOrInsert(table, F, 6);
+  AssertGetOrInsertNull(table, 5);
+  AssertGetOrInsert(table, E, 4);
+  AssertGetOrInsert(table, D, 3);
+  AssertGetOrInsert(table, C, 2);
+  AssertGetOrInsert(table, B, 1);
+  AssertGetOrInsert(table, A, 0);
 
   const int64_t size = 9;
   ASSERT_EQ(table.size(), size);
@@ -200,13 +222,13 @@ TEST(ScalarMemoTable, UInt16) {
 
   ScalarMemoTable<uint16_t> table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(A), kKeyNotFound);
-  ASSERT_EQ(table.GetNull(), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.Get(B), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(B), 1);
-  ASSERT_EQ(table.GetOrInsert(C), 2);
-  ASSERT_EQ(table.GetOrInsert(D), 3);
+  AssertGet(table, A, kKeyNotFound);
+  AssertGetNull(table, kKeyNotFound);
+  AssertGetOrInsert(table, A, 0);
+  AssertGet(table, B, kKeyNotFound);
+  AssertGetOrInsert(table, B, 1);
+  AssertGetOrInsert(table, C, 2);
+  AssertGetOrInsert(table, D, 3);
 
   {
     EXPECT_EQ(table.size(), 4);
@@ -215,18 +237,17 @@ TEST(ScalarMemoTable, UInt16) {
     EXPECT_THAT(values, testing::ElementsAre(A, B, C, D));
   }
 
-  ASSERT_EQ(table.GetOrInsertNull(), 4);
-  ASSERT_EQ(table.GetOrInsert(E), 5);
+  AssertGetOrInsertNull(table, 4);
+  AssertGetOrInsert(table, E, 5);
 
-  ASSERT_EQ(table.Get(A), 0);
-  ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.GetOrInsert(B), 1);
-  ASSERT_EQ(table.GetOrInsert(C), 2);
-  ASSERT_EQ(table.GetOrInsert(D), 3);
-  ASSERT_EQ(table.GetNull(), 4);
-  ASSERT_EQ(table.GetOrInsertNull(), 4);
-  ASSERT_EQ(table.Get(E), 5);
-  ASSERT_EQ(table.GetOrInsert(E), 5);
+  AssertGet(table, A, 0);
+  AssertGetOrInsert(table, A, 0);
+  AssertGetOrInsert(table, B, 1);
+  AssertGetOrInsert(table, C, 2);
+  AssertGetOrInsert(table, D, 3);
+  AssertGetNull(table, 4);
+  AssertGet(table, E, 5);
+  AssertGetOrInsert(table, E, 5);
 
   ASSERT_EQ(table.size(), 6);
   std::vector<uint16_t> values(table.size());
@@ -238,26 +259,25 @@ TEST(SmallScalarMemoTable, Int8) {
   const int8_t A = 1, B = 0, C = -1, D = -128, E = 127;
 
   SmallScalarMemoTable<int8_t> table(default_memory_pool(), 0);
-  ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(A), kKeyNotFound);
-  ASSERT_EQ(table.GetNull(), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.Get(B), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(B), 1);
-  ASSERT_EQ(table.GetOrInsert(C), 2);
-  ASSERT_EQ(table.GetOrInsert(D), 3);
-  ASSERT_EQ(table.GetOrInsert(E), 4);
-  ASSERT_EQ(table.GetOrInsertNull(), 5);
+  AssertGet(table, A, kKeyNotFound);
+  AssertGetNull(table, kKeyNotFound);
+  AssertGetOrInsert(table, A, 0);
+  AssertGet(table, B, kKeyNotFound);
+  AssertGetOrInsert(table, B, 1);
+  AssertGetOrInsert(table, C, 2);
+  AssertGetOrInsert(table, D, 3);
+  AssertGetOrInsert(table, E, 4);
+  AssertGetOrInsertNull(table, 5);
 
-  ASSERT_EQ(table.Get(A), 0);
-  ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.GetOrInsert(B), 1);
-  ASSERT_EQ(table.GetOrInsert(C), 2);
-  ASSERT_EQ(table.GetOrInsert(D), 3);
-  ASSERT_EQ(table.Get(E), 4);
-  ASSERT_EQ(table.GetOrInsert(E), 4);
-  ASSERT_EQ(table.GetNull(), 5);
-  ASSERT_EQ(table.GetOrInsertNull(), 5);
+  AssertGet(table, A, 0);
+  AssertGetOrInsert(table, A, 0);
+  AssertGetOrInsert(table, B, 1);
+  AssertGetOrInsert(table, C, 2);
+  AssertGetOrInsert(table, D, 3);
+  AssertGet(table, E, 4);
+  AssertGetOrInsert(table, E, 4);
+  AssertGetNull(table, 5);
+  AssertGetOrInsertNull(table, 5);
 
   ASSERT_EQ(table.size(), 6);
   std::vector<int8_t> values(table.size());
@@ -268,18 +288,17 @@ TEST(SmallScalarMemoTable, Int8) {
 TEST(SmallScalarMemoTable, Bool) {
   SmallScalarMemoTable<bool> table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(true), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(true), 0);
-  ASSERT_EQ(table.GetOrInsertNull(), 1);
-  ASSERT_EQ(table.Get(false), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(false), 2);
+  AssertGet(table, true, kKeyNotFound);
+  AssertGetOrInsert(table, true, 0);
+  AssertGetOrInsertNull(table, 1);
+  AssertGetOrInsert(table, false, 2);
 
-  ASSERT_EQ(table.Get(true), 0);
-  ASSERT_EQ(table.GetOrInsert(true), 0);
-  ASSERT_EQ(table.GetNull(), 1);
-  ASSERT_EQ(table.GetOrInsertNull(), 1);
-  ASSERT_EQ(table.Get(false), 2);
-  ASSERT_EQ(table.GetOrInsert(false), 2);
+  AssertGet(table, true, 0);
+  AssertGetOrInsert(table, true, 0);
+  AssertGetNull(table, 1);
+  AssertGetOrInsertNull(table, 1);
+  AssertGet(table, false, 2);
+  AssertGetOrInsert(table, false, 2);
 
   ASSERT_EQ(table.size(), 3);
   EXPECT_THAT(table.values(), testing::ElementsAre(true, 0, false));
@@ -292,24 +311,25 @@ TEST(ScalarMemoTable, Float64) {
 
   ScalarMemoTable<double> table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(A), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.Get(B), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(B), 1);
-  ASSERT_EQ(table.GetOrInsert(C), 2);
-  ASSERT_EQ(table.GetOrInsert(D), 3);
-  ASSERT_EQ(table.GetOrInsert(E), 4);
-  ASSERT_EQ(table.GetOrInsert(F), 5);
+  AssertGet(table, A, kKeyNotFound);
+  AssertGetNull(table, kKeyNotFound);
+  AssertGetOrInsert(table, A, 0);
+  AssertGet(table, B, kKeyNotFound);
+  AssertGetOrInsert(table, B, 1);
+  AssertGetOrInsert(table, C, 2);
+  AssertGetOrInsert(table, D, 3);
+  AssertGetOrInsert(table, E, 4);
+  AssertGetOrInsert(table, F, 5);
 
-  ASSERT_EQ(table.Get(A), 0);
-  ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.GetOrInsert(B), 1);
-  ASSERT_EQ(table.GetOrInsert(C), 2);
-  ASSERT_EQ(table.GetOrInsert(D), 3);
-  ASSERT_EQ(table.Get(E), 4);
-  ASSERT_EQ(table.GetOrInsert(E), 4);
-  ASSERT_EQ(table.Get(F), 5);
-  ASSERT_EQ(table.GetOrInsert(F), 5);
+  AssertGet(table, A, 0);
+  AssertGetOrInsert(table, A, 0);
+  AssertGetOrInsert(table, B, 1);
+  AssertGetOrInsert(table, C, 2);
+  AssertGetOrInsert(table, D, 3);
+  AssertGet(table, E, 4);
+  AssertGetOrInsert(table, E, 4);
+  AssertGet(table, F, 5);
+  AssertGetOrInsert(table, F, 5);
 
   ASSERT_EQ(table.size(), 6);
   std::vector<double> expected({A, B, C, D, E, F});
@@ -340,7 +360,7 @@ TEST(ScalarMemoTable, StressInt64) {
 
   for (int32_t i = 0; i < n_repeats; ++i) {
     int64_t value = value_dist(gen);
-    int32_t expected;
+    int32_t expected, actual;
     auto it = map.find(value);
     if (it == map.end()) {
       expected = static_cast<int32_t>(map.size());
@@ -348,7 +368,8 @@ TEST(ScalarMemoTable, StressInt64) {
     } else {
       expected = it->second;
     }
-    ASSERT_EQ(table.GetOrInsert(value), expected);
+    ASSERT_OK(table.GetOrInsert(value, &actual));
+    ASSERT_EQ(actual, expected);
   }
   ASSERT_EQ(table.size(), map.size());
 }
@@ -361,24 +382,28 @@ TEST(BinaryMemoTable, Basics) {
 
   BinaryMemoTable table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(A), kKeyNotFound);
-  ASSERT_EQ(table.GetNull(), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.Get(B), kKeyNotFound);
-  ASSERT_EQ(table.GetOrInsert(B), 1);
-  ASSERT_EQ(table.GetOrInsert(C), 2);
-  ASSERT_EQ(table.GetOrInsert(D), 3);
-  ASSERT_EQ(table.GetOrInsert(E), 4);
-  ASSERT_EQ(table.GetOrInsert(F), 5);
-  ASSERT_EQ(table.GetOrInsertNull(), 6);
+  AssertGet(table, A, kKeyNotFound);
+  AssertGetNull(table, kKeyNotFound);
+  AssertGetOrInsert(table, A, 0);
+  AssertGet(table, B, kKeyNotFound);
+  AssertGetOrInsert(table, B, 1);
+  AssertGetOrInsert(table, C, 2);
+  AssertGetOrInsert(table, D, 3);
+  AssertGetOrInsert(table, E, 4);
+  AssertGetOrInsert(table, F, 5);
+  AssertGetOrInsertNull(table, 6);
 
-  ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.GetOrInsert(B), 1);
-  ASSERT_EQ(table.GetOrInsert(C), 2);
-  ASSERT_EQ(table.GetOrInsert(D), 3);
-  ASSERT_EQ(table.GetOrInsert(E), 4);
-  ASSERT_EQ(table.GetOrInsert(F), 5);
-  ASSERT_EQ(table.GetOrInsertNull(), 6);
+  AssertGet(table, A, 0);
+  AssertGetOrInsert(table, A, 0);
+  AssertGet(table, B, 1);
+  AssertGetOrInsert(table, B, 1);
+  AssertGetOrInsert(table, C, 2);
+  AssertGetOrInsert(table, D, 3);
+  AssertGetOrInsert(table, E, 4);
+  AssertGet(table, F, 5);
+  AssertGetOrInsert(table, F, 5);
+  AssertGetNull(table, 6);
+  AssertGetOrInsertNull(table, 6);
 
   ASSERT_EQ(table.size(), 7);
   ASSERT_EQ(table.values_size(), 17);
@@ -438,7 +463,7 @@ TEST(BinaryMemoTable, Stress) {
 
   for (int32_t i = 0; i < n_repeats; ++i) {
     for (const auto& value : values) {
-      int32_t expected;
+      int32_t expected, actual;
       auto it = map.find(value);
       if (it == map.end()) {
         expected = static_cast<int32_t>(map.size());
@@ -446,7 +471,8 @@ TEST(BinaryMemoTable, Stress) {
       } else {
         expected = it->second;
       }
-      ASSERT_EQ(table.GetOrInsert(value), expected);
+      ASSERT_OK(table.GetOrInsert(value, &actual));
+      ASSERT_EQ(actual, expected);
     }
   }
   ASSERT_EQ(table.size(), map.size());

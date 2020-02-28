@@ -26,7 +26,7 @@ pub const ALIGNMENT: usize = 64;
 pub fn allocate_aligned(size: usize) -> *mut u8 {
     unsafe {
         let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
-        std::alloc::alloc(layout)
+        std::alloc::alloc_zeroed(layout)
     }
 }
 
@@ -38,11 +38,15 @@ pub fn free_aligned(p: *mut u8, size: usize) {
 
 pub fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut u8 {
     unsafe {
-        std::alloc::realloc(
+        let new_ptr = std::alloc::realloc(
             ptr,
             Layout::from_size_align_unchecked(old_size, ALIGNMENT),
             new_size,
-        )
+        );
+        if !new_ptr.is_null() && new_size > old_size {
+            new_ptr.add(old_size).write_bytes(0, new_size - old_size);
+        }
+        new_ptr
     }
 }
 

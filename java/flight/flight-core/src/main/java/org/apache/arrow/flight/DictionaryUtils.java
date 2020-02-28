@@ -47,13 +47,17 @@ final class DictionaryUtils {
 
   /**
    * Generate all the necessary Flight messages to send a schema and associated dictionaries.
+   *
+   * @throws Exception if there was an error closing {@link ArrowMessage} objects. This is not generally expected.
    */
   static Schema generateSchemaMessages(final Schema originalSchema, final FlightDescriptor descriptor,
-      final DictionaryProvider provider, final Consumer<ArrowMessage> messageCallback) {
+      final DictionaryProvider provider, final Consumer<ArrowMessage> messageCallback) throws Exception {
     final Set<Long> dictionaryIds = new HashSet<>();
     final Schema schema = generateSchema(originalSchema, provider, dictionaryIds);
     // Send the schema message
-    messageCallback.accept(new ArrowMessage(descriptor == null ? null : descriptor.toProtocol(), schema));
+    try (final ArrowMessage message = new ArrowMessage(descriptor == null ? null : descriptor.toProtocol(), schema)) {
+      messageCallback.accept(message);
+    }
     // Create and write dictionary batches
     for (Long id : dictionaryIds) {
       final Dictionary dictionary = provider.lookup(id);
@@ -66,8 +70,9 @@ final class DictionaryUtils {
           count);
       final VectorUnloader unloader = new VectorUnloader(dictRoot);
       try (final ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(
-          id, unloader.getRecordBatch())) {
-        messageCallback.accept(new ArrowMessage(dictionaryBatch));
+          id, unloader.getRecordBatch());
+          final ArrowMessage message = new ArrowMessage(dictionaryBatch)) {
+        messageCallback.accept(message);
       }
     }
     return schema;

@@ -859,6 +859,14 @@ TEST_F(TestFlightClient, ListFlights) {
   ASSERT_TRUE(info == nullptr);
 }
 
+TEST_F(TestFlightClient, ListFlightsWithCriteria) {
+  std::unique_ptr<FlightListing> listing;
+  ASSERT_OK(client_->ListFlights(FlightCallOptions(), {"foo"}, &listing));
+  std::unique_ptr<FlightInfo> info;
+  ASSERT_OK(listing->Next(&info));
+  ASSERT_TRUE(info == nullptr);
+}
+
 TEST_F(TestFlightClient, GetFlightInfo) {
   auto descr = FlightDescriptor::Path({"examples", "ints"});
   std::unique_ptr<FlightInfo> info;
@@ -1247,7 +1255,13 @@ TEST_F(TestBasicAuthHandler, CheckPeerIdentity) {
   ASSERT_EQ(result->body->ToString(), "user");
 }
 
+#ifdef __APPLE__
+// ARROW-7701: this test is flaky on MacOS and segfaults (due to gRPC
+// bug?)
+TEST_F(TestTls, DISABLED_DoAction) {
+#else
 TEST_F(TestTls, DoAction) {
+#endif
   FlightCallOptions options;
   options.timeout = TimeoutDuration{5.0};
   Action action;

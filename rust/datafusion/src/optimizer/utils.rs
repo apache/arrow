@@ -38,6 +38,7 @@ pub fn expr_to_column_indices(expr: &Expr, accum: &mut HashSet<usize>) {
             accum.insert(*i);
         }
         Expr::Literal(_) => { /* not needed */ }
+        Expr::Not(e) => expr_to_column_indices(e, accum),
         Expr::IsNull(e) => expr_to_column_indices(e, accum),
         Expr::IsNotNull(e) => expr_to_column_indices(e, accum),
         Expr::BinaryExpr { left, right, .. } => {
@@ -100,13 +101,12 @@ pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Result<Vec
 pub fn get_supertype(l: &DataType, r: &DataType) -> Result<DataType> {
     match _get_supertype(l, r) {
         Some(dt) => Ok(dt),
-        None => match _get_supertype(r, l) {
-            Some(dt) => Ok(dt),
-            None => Err(ExecutionError::InternalError(format!(
+        None => _get_supertype(r, l).ok_or_else(|| {
+            ExecutionError::InternalError(format!(
                 "Failed to determine supertype of {:?} and {:?}",
                 l, r
-            ))),
-        },
+            ))
+        }),
     }
 }
 

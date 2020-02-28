@@ -36,14 +36,16 @@
 
 namespace arrow {
 
-using internal::checked_cast;
-
 // ----------------------------------------------------------------------
 // DictionaryBuilder
 
-class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
+namespace internal {
+
+class DictionaryMemoTable::DictionaryMemoTableImpl {
+  // Type-dependent visitor for memo table initialization
   struct MemoTableInitializer {
     std::shared_ptr<DataType> value_type_;
+    MemoryPool* pool_;
     std::unique_ptr<MemoTable>* memo_table_;
 
     template <typename T>
@@ -54,13 +56,13 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
 
     template <typename T>
     enable_if_memoize<T, Status> Visit(const T&) {
-      using MemoTable = typename internal::DictionaryTraits<T>::MemoTableType;
-      // TODO(fsaintjacques): Propagate memory pool
-      memo_table_->reset(new MemoTable(default_memory_pool(), 0));
+      using MemoTable = typename DictionaryTraits<T>::MemoTableType;
+      memo_table_->reset(new MemoTable(pool_, 0));
       return Status::OK();
     }
   };
 
+  // Type-dependent visitor for memo table insertion
   struct ArrayValuesInserter {
     DictionaryMemoTableImpl* impl_;
     const Array& values_;
@@ -85,12 +87,14 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
         return Status::Invalid("Cannot insert dictionary values containing nulls");
       }
       for (int64_t i = 0; i < array.length(); ++i) {
-        ARROW_IGNORE_EXPR(impl_->GetOrInsert(array.GetView(i)));
+        int32_t unused_memo_index;
+        RETURN_NOT_OK(impl_->GetOrInsert(array.GetView(i), &unused_memo_index));
       }
       return Status::OK();
     }
   };
 
+  // Type-dependent visitor for building ArrayData from memo table
   struct ArrayDataGetter {
     std::shared_ptr<DataType> value_type_;
     MemoTable* memo_table_;
@@ -106,18 +110,18 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
 
     template <typename T>
     enable_if_memoize<T, Status> Visit(const T&) {
-      using ConcreteMemoTable = typename internal::DictionaryTraits<T>::MemoTableType;
-      auto memo_table = static_cast<ConcreteMemoTable*>(memo_table_);
-      return internal::DictionaryTraits<T>::GetDictionaryArrayData(
-          pool_, value_type_, *memo_table, start_offset_, out_);
+      using ConcreteMemoTable = typename DictionaryTraits<T>::MemoTableType;
+      auto memo_table = checked_cast<ConcreteMemoTable*>(memo_table_);
+      return DictionaryTraits<T>::GetDictionaryArrayData(pool_, value_type_, *memo_table,
+                                                         start_offset_, out_);
     }
   };
 
  public:
-  explicit DictionaryMemoTableImpl(const std::shared_ptr<DataType>& type)
-      : type_(type), memo_table_(nullptr) {
-    MemoTableInitializer visitor{type_, &memo_table_};
-    ARROW_IGNORE_EXPR(VisitTypeInline(*type_, &visitor));
+  DictionaryMemoTableImpl(MemoryPool* pool, const std::shared_ptr<DataType>& type)
+      : pool_(pool), type_(type), memo_table_(nullptr) {
+    MemoTableInitializer visitor{type_, pool_, &memo_table_};
+    ARROW_CHECK_OK(VisitTypeInline(*type_, &visitor));
   }
 
   Status InsertValues(const Array& array) {
@@ -130,97 +134,66 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
   }
 
   template <typename T>
-  int32_t GetOrInsert(const T& value) {
-    using ConcreteMemoTable = typename internal::DictionaryTraits<
-        typename CTypeTraits<T>::ArrowType>::MemoTableType;
-    return static_cast<ConcreteMemoTable*>(memo_table_.get())->GetOrInsert(value);
+  Status GetOrInsert(const T& value, int32_t* out) {
+    using ConcreteMemoTable = typename DictionaryCTraits<T>::MemoTableType;
+    return checked_cast<ConcreteMemoTable*>(memo_table_.get())->GetOrInsert(value, out);
   }
 
-  int32_t GetOrInsert(const util::string_view& value) {
-    return static_cast<BinaryMemoTable*>(memo_table_.get())->GetOrInsert(value);
-  }
-
-  Status GetArrayData(MemoryPool* pool, int64_t start_offset,
-                      std::shared_ptr<ArrayData>* out) {
-    ArrayDataGetter visitor{type_, memo_table_.get(), pool, start_offset, out};
+  Status GetArrayData(int64_t start_offset, std::shared_ptr<ArrayData>* out) {
+    ArrayDataGetter visitor{type_, memo_table_.get(), pool_, start_offset, out};
     return VisitTypeInline(*type_, &visitor);
   }
 
   int32_t size() const { return memo_table_->size(); }
 
  private:
+  MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
   std::unique_ptr<MemoTable> memo_table_;
 };
 
-internal::DictionaryMemoTable::DictionaryMemoTable(const std::shared_ptr<DataType>& type)
-    : impl_(new DictionaryMemoTableImpl(type)) {}
+DictionaryMemoTable::DictionaryMemoTable(MemoryPool* pool,
+                                         const std::shared_ptr<DataType>& type)
+    : impl_(new DictionaryMemoTableImpl(pool, type)) {}
 
-internal::DictionaryMemoTable::DictionaryMemoTable(
-    const std::shared_ptr<Array>& dictionary)
-    : impl_(new DictionaryMemoTableImpl(dictionary->type())) {
-  ARROW_IGNORE_EXPR(impl_->InsertValues(*dictionary));
+DictionaryMemoTable::DictionaryMemoTable(MemoryPool* pool,
+                                         const std::shared_ptr<Array>& dictionary)
+    : impl_(new DictionaryMemoTableImpl(pool, dictionary->type())) {
+  ARROW_CHECK_OK(impl_->InsertValues(*dictionary));
 }
 
-internal::DictionaryMemoTable::~DictionaryMemoTable() = default;
+DictionaryMemoTable::~DictionaryMemoTable() = default;
 
-int32_t internal::DictionaryMemoTable::GetOrInsert(const bool& value) {
-  return impl_->GetOrInsert(value);
+#define GET_OR_INSERT(C_TYPE)                                           \
+  Status DictionaryMemoTable::GetOrInsert(C_TYPE value, int32_t* out) { \
+    return impl_->GetOrInsert(value, out);                              \
+  }
+
+GET_OR_INSERT(bool)
+GET_OR_INSERT(int8_t)
+GET_OR_INSERT(int16_t)
+GET_OR_INSERT(int32_t)
+GET_OR_INSERT(int64_t)
+GET_OR_INSERT(uint8_t)
+GET_OR_INSERT(uint16_t)
+GET_OR_INSERT(uint32_t)
+GET_OR_INSERT(uint64_t)
+GET_OR_INSERT(float)
+GET_OR_INSERT(double)
+GET_OR_INSERT(util::string_view)
+
+#undef GET_OR_INSERT
+
+Status DictionaryMemoTable::GetArrayData(int64_t start_offset,
+                                         std::shared_ptr<ArrayData>* out) {
+  return impl_->GetArrayData(start_offset, out);
 }
 
-int32_t internal::DictionaryMemoTable::GetOrInsert(const int8_t& value) {
-  return impl_->GetOrInsert(value);
-}
-
-int32_t internal::DictionaryMemoTable::GetOrInsert(const int16_t& value) {
-  return impl_->GetOrInsert(value);
-}
-
-int32_t internal::DictionaryMemoTable::GetOrInsert(const int32_t& value) {
-  return impl_->GetOrInsert(value);
-}
-
-int32_t internal::DictionaryMemoTable::GetOrInsert(const int64_t& value) {
-  return impl_->GetOrInsert(value);
-}
-
-int32_t internal::DictionaryMemoTable::GetOrInsert(const uint8_t& value) {
-  return impl_->GetOrInsert(value);
-}
-
-int32_t internal::DictionaryMemoTable::GetOrInsert(const uint16_t& value) {
-  return impl_->GetOrInsert(value);
-}
-
-int32_t internal::DictionaryMemoTable::GetOrInsert(const uint32_t& value) {
-  return impl_->GetOrInsert(value);
-}
-
-int32_t internal::DictionaryMemoTable::GetOrInsert(const uint64_t& value) {
-  return impl_->GetOrInsert(value);
-}
-
-int32_t internal::DictionaryMemoTable::GetOrInsert(const float& value) {
-  return impl_->GetOrInsert(value);
-}
-
-int32_t internal::DictionaryMemoTable::GetOrInsert(const double& value) {
-  return impl_->GetOrInsert(value);
-}
-
-int32_t internal::DictionaryMemoTable::GetOrInsert(const util::string_view& value) {
-  return impl_->GetOrInsert(value);
-}
-
-Status internal::DictionaryMemoTable::GetArrayData(MemoryPool* pool, int64_t start_offset,
-                                                   std::shared_ptr<ArrayData>* out) {
-  return impl_->GetArrayData(pool, start_offset, out);
-}
-
-Status internal::DictionaryMemoTable::InsertValues(const Array& array) {
+Status DictionaryMemoTable::InsertValues(const Array& array) {
   return impl_->InsertValues(array);
 }
 
-int32_t internal::DictionaryMemoTable::size() const { return impl_->size(); }
+int32_t DictionaryMemoTable::size() const { return impl_->size(); }
 
+}  // namespace internal
 }  // namespace arrow

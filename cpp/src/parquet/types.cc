@@ -157,6 +157,8 @@ std::string EncodingToString(Encoding::type t) {
       return "DELTA_BYTE_ARRAY";
     case Encoding::RLE_DICTIONARY:
       return "RLE_DICTIONARY";
+    case Encoding::BYTE_STREAM_SPLIT:
+      return "BYTE_STREAM_SPLIT";
     default:
       return "UNKNOWN";
   }

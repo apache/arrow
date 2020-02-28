@@ -106,6 +106,10 @@ struct ValidateArrayVisitor {
     if (array.length() > 0 && !array.values()) {
       return Status::Invalid("values is null");
     }
+    if (array.value_length() < 0) {
+      return Status::Invalid("FixedSizeListArray has negative value length ",
+                             array.value_length());
+    }
     if (array.values()->length() != array.length() * array.value_length()) {
       return Status::Invalid(
           "Values Length (", array.values()->length(), ") is not equal to the length (",
@@ -119,6 +123,15 @@ struct ValidateArrayVisitor {
     const auto& struct_type = checked_cast<const StructType&>(*array.type());
     // Validate fields
     for (int i = 0; i < array.num_fields(); ++i) {
+      // array.field() may crash due to an assertion in ArrayData::Slice(),
+      // so check invariants before
+      const auto& field_data = *array.data()->child_data[i];
+      if (field_data.length < array.offset()) {
+        return Status::Invalid("Struct child array #", i,
+                               " has length smaller than struct array offset (",
+                               field_data.length, " < ", array.offset(), ")");
+      }
+
       auto it = array.field(i);
       if (it->length() != array.length()) {
         return Status::Invalid("Struct child array #", i,
@@ -146,6 +159,17 @@ struct ValidateArrayVisitor {
     const auto& union_type = *array.union_type();
     // Validate fields
     for (int i = 0; i < array.num_fields(); ++i) {
+      if (union_type.mode() == UnionMode::SPARSE) {
+        // array.child() may crash due to an assertion in ArrayData::Slice(),
+        // so check invariants before
+        const auto& child_data = *array.data()->child_data[i];
+        if (child_data.length < array.offset()) {
+          return Status::Invalid("Sparse union child array #", i,
+                                 " has length smaller than union array offset (",
+                                 child_data.length, " < ", array.offset(), ")");
+        }
+      }
+
       auto it = array.child(i);
       if (union_type.mode() == UnionMode::SPARSE && it->length() != array.length()) {
         return Status::Invalid("Sparse union child array #", i,
@@ -213,6 +237,10 @@ struct ValidateArrayVisitor {
     if (array.length() > 0) {
       const auto first_offset = array.value_offset(0);
       const auto last_offset = array.value_offset(array.length());
+      // This early test avoids undefined behaviour when computing `data_extent`
+      if (first_offset < 0 || last_offset < 0) {
+        return Status::Invalid("Negative offsets in list array");
+      }
       const auto data_extent = last_offset - first_offset;
       if (data_extent > 0 && !array.values()) {
         return Status::Invalid("values is null");
@@ -269,25 +297,42 @@ Status ValidateArray(const Array& array) {
     return Status::Invalid("Array length is negative");
   }
 
-  if (data.buffers.size() != layout.bit_widths.size()) {
-    return Status::Invalid("Expected ", layout.bit_widths.size(),
+  if (data.buffers.size() != layout.buffers.size()) {
+    return Status::Invalid("Expected ", layout.buffers.size(),
                            " buffers in array "
                            "of type ",
                            type.ToString(), ", got ", data.buffers.size());
   }
+  // This check is required to avoid addition overflow below
+  if (HasAdditionOverflow(array.length(), array.offset())) {
+    return Status::Invalid("Array of type ", type.ToString(),
+                           " has impossibly large length and offset");
+  }
   for (int i = 0; i < static_cast<int>(data.buffers.size()); ++i) {
     const auto& buffer = data.buffers[i];
-    const auto bit_width = layout.bit_widths[i];
-    if (buffer == nullptr || bit_width <= 0) {
+    const auto& spec = layout.buffers[i];
+
+    if (buffer == nullptr) {
       continue;
     }
-    if (internal::HasAdditionOverflow(array.length(), array.offset()) ||
-        internal::HasMultiplyOverflow(array.length() + array.offset(), bit_width)) {
-      return Status::Invalid("Array of type ", type.ToString(),
-                             " has impossibly large length and offset");
+    int64_t min_buffer_size = -1;
+    switch (spec.kind) {
+      case DataTypeLayout::BITMAP:
+        min_buffer_size = BitUtil::BytesForBits(array.length() + array.offset());
+        break;
+      case DataTypeLayout::FIXED_WIDTH:
+        if (HasMultiplyOverflow(array.length() + array.offset(), spec.byte_width)) {
+          return Status::Invalid("Array of type ", type.ToString(),
+                                 " has impossibly large length and offset");
+        }
+        min_buffer_size = spec.byte_width * (array.length() + array.offset());
+        break;
+      case DataTypeLayout::ALWAYS_NULL:
+        // XXX Should we raise on non-null buffer?
+        continue;
+      default:
+        continue;
     }
-    const auto min_buffer_size =
-        BitUtil::BytesForBits(bit_width * (array.length() + array.offset()));
     if (buffer->size() < min_buffer_size) {
       return Status::Invalid("Buffer #", i, " too small in array of type ",
                              type.ToString(), " and length ", array.length(),

@@ -39,6 +39,7 @@ class ARROW_EXPORT CpuInfo {
   static constexpr int64_t SSE4_1 = (1 << 2);
   static constexpr int64_t SSE4_2 = (1 << 3);
   static constexpr int64_t POPCNT = (1 << 4);
+  static constexpr int64_t ASIMD = (1 << 5);
 
   /// Cache enums for L1 (data), L2 and L3
   enum CacheLevel {

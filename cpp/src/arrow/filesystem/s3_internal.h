@@ -146,7 +146,7 @@ inline Aws::String ToURLEncodedAwsString(const std::string& s) {
   return Aws::Utils::StringUtils::URLEncode(s.data());
 }
 
-inline TimePoint ToTimePoint(const Aws::Utils::DateTime& dt) {
+inline TimePoint FromAwsDatetime(const Aws::Utils::DateTime& dt) {
   return std::chrono::time_point_cast<std::chrono::nanoseconds>(dt.UnderlyingTimestamp());
 }
 

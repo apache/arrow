@@ -31,19 +31,15 @@
 #include "arrow/buffer.h"
 #include "arrow/ipc/dictionary.h"  // IYWU pragma: keep
 #include "arrow/ipc/message.h"
-#include "arrow/memory_pool.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 
 #include "generated/Message_generated.h"
 #include "generated/Schema_generated.h"
 
 namespace arrow {
-
-class DataType;
-class Schema;
-class Tensor;
-class SparseTensor;
 
 namespace flatbuf = org::apache::arrow::flatbuf;
 
@@ -91,6 +87,23 @@ struct FileBlock {
   int32_t metadata_length;
   int64_t body_length;
 };
+
+// Low-level utilities to help with reading Flatbuffers data.
+
+#define CHECK_FLATBUFFERS_NOT_NULL(fb_value, name)             \
+  if ((fb_value) == NULLPTR) {                                 \
+    return Status::IOError("Unexpected null field ", name,     \
+                           " in flatbuffer-encoded metadata"); \
+  }
+
+template <typename T>
+inline uint32_t FlatBuffersVectorSize(const flatbuffers::Vector<T>* vec) {
+  return (vec == NULLPTR) ? 0 : vec->size();
+}
+
+inline std::string StringFromFlatbuffers(const flatbuffers::String* s) {
+  return (s == NULLPTR) ? "" : s->str();
+}
 
 // Read interface classes. We do not fully deserialize the flatbuffers so that
 // individual fields metadata can be retrieved from very large schema without

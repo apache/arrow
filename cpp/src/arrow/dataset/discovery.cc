@@ -34,9 +34,9 @@
 namespace arrow {
 namespace dataset {
 
-SourceFactory::SourceFactory() : root_partition_(scalar(true)) {}
+DatasetFactory::DatasetFactory() : root_partition_(scalar(true)) {}
 
-Result<std::shared_ptr<Schema>> SourceFactory::Inspect() {
+Result<std::shared_ptr<Schema>> DatasetFactory::Inspect() {
   ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
 
   if (schemas.empty()) {
@@ -46,33 +46,34 @@ Result<std::shared_ptr<Schema>> SourceFactory::Inspect() {
   return UnifySchemas(schemas);
 }
 
-DatasetFactory::DatasetFactory(std::vector<std::shared_ptr<SourceFactory>> factories)
+UnionDatasetFactory::UnionDatasetFactory(
+    std::vector<std::shared_ptr<DatasetFactory>> factories)
     : factories_(std::move(factories)) {}
 
-Result<std::shared_ptr<DatasetFactory>> DatasetFactory::Make(
-    std::vector<std::shared_ptr<SourceFactory>> factories) {
+Result<std::shared_ptr<DatasetFactory>> UnionDatasetFactory::Make(
+    std::vector<std::shared_ptr<DatasetFactory>> factories) {
   for (const auto& factory : factories) {
     if (factory == nullptr) {
-      return Status::Invalid("Can't accept nullptr SourceFactory");
+      return Status::Invalid("Can't accept nullptr DatasetFactory");
     }
   }
 
-  // DatasetFactory constructor is protected, can't use make_shared.
-  return std::shared_ptr<DatasetFactory>{new DatasetFactory(std::move(factories))};
+  return std::shared_ptr<UnionDatasetFactory>{
+      new UnionDatasetFactory(std::move(factories))};
 }
 
-Result<std::vector<std::shared_ptr<Schema>>> DatasetFactory::InspectSchemas() {
+Result<std::vector<std::shared_ptr<Schema>>> UnionDatasetFactory::InspectSchemas() {
   std::vector<std::shared_ptr<Schema>> schemas;
 
-  for (const auto& source_factory : factories_) {
-    ARROW_ASSIGN_OR_RAISE(auto schema, source_factory->Inspect());
+  for (const auto& child_factory : factories_) {
+    ARROW_ASSIGN_OR_RAISE(auto schema, child_factory->Inspect());
     schemas.emplace_back(schema);
   }
 
   return schemas;
 }
 
-Result<std::shared_ptr<Schema>> DatasetFactory::Inspect() {
+Result<std::shared_ptr<Schema>> UnionDatasetFactory::Inspect() {
   ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
 
   if (schemas.empty()) {
@@ -82,24 +83,24 @@ Result<std::shared_ptr<Schema>> DatasetFactory::Inspect() {
   return UnifySchemas(schemas);
 }
 
-Result<std::shared_ptr<Dataset>> DatasetFactory::Finish(
+Result<std::shared_ptr<Dataset>> UnionDatasetFactory::Finish(
     const std::shared_ptr<Schema>& schema) {
-  std::vector<std::shared_ptr<Source>> sources;
+  std::vector<std::shared_ptr<Dataset>> children;
 
-  for (const auto& source_factory : factories_) {
-    ARROW_ASSIGN_OR_RAISE(auto source, source_factory->Finish(schema));
-    sources.emplace_back(source);
+  for (const auto& child_factory : factories_) {
+    ARROW_ASSIGN_OR_RAISE(auto child, child_factory->Finish(schema));
+    children.emplace_back(child);
   }
 
-  return Dataset::Make(sources, schema);
+  return std::shared_ptr<Dataset>(new UnionDataset(schema, std::move(children)));
 }
 
-Result<std::shared_ptr<Dataset>> DatasetFactory::Finish() {
+Result<std::shared_ptr<Dataset>> UnionDatasetFactory::Finish() {
   ARROW_ASSIGN_OR_RAISE(auto schema, Inspect());
   return Finish(schema);
 }
 
-FileSystemSourceFactory::FileSystemSourceFactory(
+FileSystemDatasetFactory::FileSystemDatasetFactory(
     std::shared_ptr<fs::FileSystem> filesystem, fs::PathForest forest,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options)
     : fs_(std::move(filesystem)),
@@ -122,7 +123,7 @@ bool StartsWithAnyOf(const std::vector<std::string>& prefixes, const std::string
   return std::any_of(prefixes.cbegin(), prefixes.cend(), matches_prefix);
 }
 
-Result<fs::PathForest> FileSystemSourceFactory::Filter(
+Result<fs::PathForest> FileSystemDatasetFactory::Filter(
     const std::shared_ptr<fs::FileSystem>& filesystem,
     const std::shared_ptr<FileFormat>& format, const FileSystemFactoryOptions& options,
     fs::PathForest forest) {
@@ -151,7 +152,7 @@ Result<fs::PathForest> FileSystemSourceFactory::Filter(
   return fs::PathForest::MakeFromPreSorted(std::move(out));
 }
 
-Result<std::shared_ptr<SourceFactory>> FileSystemSourceFactory::Make(
+Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::shared_ptr<fs::FileSystem> filesystem, const std::vector<std::string>& paths,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
   ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(paths));
@@ -179,11 +180,11 @@ Result<std::shared_ptr<SourceFactory>> FileSystemSourceFactory::Make(
 
   ARROW_ASSIGN_OR_RAISE(forest, Filter(filesystem, format, options, std::move(forest)));
 
-  return std::shared_ptr<SourceFactory>(new FileSystemSourceFactory(
+  return std::shared_ptr<DatasetFactory>(new FileSystemDatasetFactory(
       std::move(filesystem), std::move(forest), std::move(format), std::move(options)));
 }
 
-Result<std::shared_ptr<SourceFactory>> FileSystemSourceFactory::Make(
+Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::shared_ptr<fs::FileSystem> filesystem, fs::FileSelector selector,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
   ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(selector));
@@ -199,11 +200,11 @@ Result<std::shared_ptr<SourceFactory>> FileSystemSourceFactory::Make(
     options.partition_base_dir = selector.base_dir;
   }
 
-  return std::shared_ptr<SourceFactory>(new FileSystemSourceFactory(
+  return std::shared_ptr<DatasetFactory>(new FileSystemDatasetFactory(
       filesystem, std::move(forest), std::move(format), std::move(options)));
 }
 
-Result<std::shared_ptr<Schema>> FileSystemSourceFactory::PartitionSchema() {
+Result<std::shared_ptr<Schema>> FileSystemDatasetFactory::PartitionSchema() {
   if (auto partitioning = options_.partitioning.partitioning()) {
     return partitioning->schema();
   }
@@ -219,7 +220,7 @@ Result<std::shared_ptr<Schema>> FileSystemSourceFactory::PartitionSchema() {
   return options_.partitioning.factory()->Inspect(paths);
 }
 
-Result<std::vector<std::shared_ptr<Schema>>> FileSystemSourceFactory::InspectSchemas() {
+Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSchemas() {
   std::vector<std::shared_ptr<Schema>> schemas;
 
   for (const auto& f : forest_.stats()) {
@@ -235,12 +236,12 @@ Result<std::vector<std::shared_ptr<Schema>>> FileSystemSourceFactory::InspectSch
   return schemas;
 }
 
-Result<std::shared_ptr<Source>> SourceFactory::Finish() {
+Result<std::shared_ptr<Dataset>> DatasetFactory::Finish() {
   ARROW_ASSIGN_OR_RAISE(auto schema, Inspect());
   return Finish(schema);
 }
 
-Result<std::shared_ptr<Source>> FileSystemSourceFactory::Finish(
+Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(
     const std::shared_ptr<Schema>& schema) {
   // This validation can be costly, but better safe than sorry.
   ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
@@ -273,8 +274,8 @@ Result<std::shared_ptr<Source>> FileSystemSourceFactory::Finish(
 
   RETURN_NOT_OK(forest_.Visit(apply_partitioning));
 
-  return FileSystemSource::Make(schema, root_partition_, format_, fs_, forest_,
-                                std::move(partitions));
+  return FileSystemDataset::Make(schema, root_partition_, format_, fs_, forest_,
+                                 std::move(partitions));
 }
 
 }  // namespace dataset

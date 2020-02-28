@@ -112,9 +112,22 @@ public class TestBasicOperation {
   @Test
   public void getDescriptors() throws Exception {
     test(c -> {
+      int count = 0;
       for (FlightInfo i : c.listFlights(Criteria.ALL)) {
-        System.out.println(i.getDescriptor());
+        count += 1;
       }
+      Assert.assertEquals(1, count);
+    });
+  }
+
+  @Test
+  public void getDescriptorsWithCriteria() throws Exception {
+    test(c -> {
+      int count = 0;
+      for (FlightInfo i : c.listFlights(new Criteria(new byte[]{1}))) {
+        count += 1;
+      }
+      Assert.assertEquals(0, count);
     });
   }
 
@@ -172,33 +185,34 @@ public class TestBasicOperation {
 
       IntVector iv = new IntVector("c1", a);
 
-      VectorSchemaRoot root = VectorSchemaRoot.of(iv);
-      ClientStreamListener listener = c
-          .startPut(FlightDescriptor.path("hello"), root, new AsyncPutListener());
+      try (VectorSchemaRoot root = VectorSchemaRoot.of(iv)) {
+        ClientStreamListener listener = c
+            .startPut(FlightDescriptor.path("hello"), root, new AsyncPutListener());
 
-      //batch 1
-      root.allocateNew();
-      for (int i = 0; i < size; i++) {
-        iv.set(i, i);
+        //batch 1
+        root.allocateNew();
+        for (int i = 0; i < size; i++) {
+          iv.set(i, i);
+        }
+        iv.setValueCount(size);
+        root.setRowCount(size);
+        listener.putNext();
+
+        // batch 2
+
+        root.allocateNew();
+        for (int i = 0; i < size; i++) {
+          iv.set(i, i + size);
+        }
+        iv.setValueCount(size);
+        root.setRowCount(size);
+        listener.putNext();
+        root.clear();
+        listener.completed();
+
+        // wait for ack to avoid memory leaks.
+        listener.getResult();
       }
-      iv.setValueCount(size);
-      root.setRowCount(size);
-      listener.putNext();
-
-      // batch 2
-
-      root.allocateNew();
-      for (int i = 0; i < size; i++) {
-        iv.set(i, i + size);
-      }
-      iv.setValueCount(size);
-      root.setRowCount(size);
-      listener.putNext();
-      root.clear();
-      listener.completed();
-
-      // wait for ack to avoid memory leaks.
-      listener.getResult();
     });
   }
 
@@ -267,6 +281,11 @@ public class TestBasicOperation {
     @Override
     public void listFlights(CallContext context, Criteria criteria,
         StreamListener<FlightInfo> listener) {
+      if (criteria.getExpression().length > 0) {
+        // Don't send anything if criteria are set
+        listener.onCompleted();
+      }
+
       Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
           .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
               .setType(DescriptorType.CMD)
@@ -284,10 +303,8 @@ public class TestBasicOperation {
     @Override
     public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
-        try (VectorSchemaRoot root = flightStream.getRoot()) {
-          while (flightStream.next()) {
-
-          }
+        while (flightStream.next()) {
+          // Drain the stream
         }
       };
     }

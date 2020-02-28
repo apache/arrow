@@ -59,7 +59,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -210,7 +210,7 @@ public class JdbcToArrowUtils {
    *   <li>BINARY --> ArrowType.Binary</li>
    *   <li>VARBINARY --> ArrowType.Binary</li>
    *   <li>LONGVARBINARY --> ArrowType.Binary</li>
-   *   <li>DATE --> ArrowType.Date(DateUnit.MILLISECOND)</li>
+   *   <li>DATE --> ArrowType.Date(DateUnit.DAY)</li>
    *   <li>TIME --> ArrowType.Time(TimeUnit.MILLISECOND, 32)</li>
    *   <li>TIMESTAMP --> ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar timezone)</li>
    *   <li>CLOB --> ArrowType.Utf8</li>
@@ -265,7 +265,7 @@ public class JdbcToArrowUtils {
       case Types.CLOB:
         return new ArrowType.Utf8();
       case Types.DATE:
-        return new ArrowType.Date(DateUnit.MILLISECOND);
+        return new ArrowType.Date(DateUnit.DAY);
       case Types.TIME:
         return new ArrowType.Time(TimeUnit.MILLISECOND, 32);
       case Types.TIMESTAMP:
@@ -402,7 +402,7 @@ public class JdbcToArrowUtils {
       case Types.LONGNVARCHAR:
         return VarCharConsumer.createConsumer((VarCharVector) vector, columnIndex, nullable);
       case Types.DATE:
-        return DateConsumer.createConsumer((DateMilliVector) vector, columnIndex, nullable, calendar);
+        return DateConsumer.createConsumer((DateDayVector) vector, columnIndex, nullable, calendar);
       case Types.TIME:
         return TimeConsumer.createConsumer((TimeMilliVector) vector, columnIndex, nullable, calendar);
       case Types.TIMESTAMP:

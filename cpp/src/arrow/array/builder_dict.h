@@ -55,25 +55,24 @@ struct DictionaryScalar<FixedSizeBinaryType> {
 
 class ARROW_EXPORT DictionaryMemoTable {
  public:
-  explicit DictionaryMemoTable(const std::shared_ptr<DataType>& type);
-  explicit DictionaryMemoTable(const std::shared_ptr<Array>& dictionary);
+  DictionaryMemoTable(MemoryPool* pool, const std::shared_ptr<DataType>& type);
+  DictionaryMemoTable(MemoryPool* pool, const std::shared_ptr<Array>& dictionary);
   ~DictionaryMemoTable();
 
-  int32_t GetOrInsert(const bool& value);
-  int32_t GetOrInsert(const int8_t& value);
-  int32_t GetOrInsert(const int16_t& value);
-  int32_t GetOrInsert(const int32_t& value);
-  int32_t GetOrInsert(const int64_t& value);
-  int32_t GetOrInsert(const uint8_t& value);
-  int32_t GetOrInsert(const uint16_t& value);
-  int32_t GetOrInsert(const uint32_t& value);
-  int32_t GetOrInsert(const uint64_t& value);
-  int32_t GetOrInsert(const float& value);
-  int32_t GetOrInsert(const double& value);
-  int32_t GetOrInsert(const util::string_view& value);
+  Status GetOrInsert(bool value, int32_t* out);
+  Status GetOrInsert(int8_t value, int32_t* out);
+  Status GetOrInsert(int16_t value, int32_t* out);
+  Status GetOrInsert(int32_t value, int32_t* out);
+  Status GetOrInsert(int64_t value, int32_t* out);
+  Status GetOrInsert(uint8_t value, int32_t* out);
+  Status GetOrInsert(uint16_t value, int32_t* out);
+  Status GetOrInsert(uint32_t value, int32_t* out);
+  Status GetOrInsert(uint64_t value, int32_t* out);
+  Status GetOrInsert(float value, int32_t* out);
+  Status GetOrInsert(double value, int32_t* out);
+  Status GetOrInsert(util::string_view value, int32_t* out);
 
-  Status GetArrayData(MemoryPool* pool, int64_t start_offset,
-                      std::shared_ptr<ArrayData>* out);
+  Status GetArrayData(int64_t start_offset, std::shared_ptr<ArrayData>* out);
 
   /// \brief Insert new memo values
   Status InsertValues(const Array& values);
@@ -103,7 +102,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
                             value_type,
                         MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool),
-        memo_table_(new internal::DictionaryMemoTable(value_type)),
+        memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(pool),
@@ -114,7 +113,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
       enable_if_fixed_size_binary<T1, const std::shared_ptr<DataType>&> value_type,
       MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool),
-        memo_table_(new internal::DictionaryMemoTable(value_type)),
+        memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
         indices_builder_(pool),
@@ -125,10 +124,11 @@ class DictionaryBuilderBase : public ArrayBuilder {
       enable_if_parameter_free<T1, MemoryPool*> pool = default_memory_pool())
       : DictionaryBuilderBase<BuilderType, T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
+  // This constructor doesn't check for errors. Use InsertMemoValues instead.
   DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
                         MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool),
-        memo_table_(new internal::DictionaryMemoTable(dictionary)),
+        memo_table_(new internal::DictionaryMemoTable(pool, dictionary)),
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(pool),
@@ -143,7 +143,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
   Status Append(const Scalar& value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
 
-    auto memo_index = memo_table_->GetOrInsert(value);
+    int32_t memo_index;
+    ARROW_RETURN_NOT_OK(memo_table_->GetOrInsert(value, &memo_index));
     ARROW_RETURN_NOT_OK(indices_builder_.Append(memo_index));
     length_ += 1;
 
@@ -160,6 +161,18 @@ class DictionaryBuilderBase : public ArrayBuilder {
   template <typename T1 = T>
   enable_if_fixed_size_binary<T1, Status> Append(const char* value) {
     return Append(util::string_view(value, byte_width_));
+  }
+
+  /// \brief Append a string (only for binary types)
+  template <typename T1 = T>
+  enable_if_binary_like<T1, Status> Append(const uint8_t* value, int32_t length) {
+    return Append(reinterpret_cast<const char*>(value), length);
+  }
+
+  /// \brief Append a string (only for binary types)
+  template <typename T1 = T>
+  enable_if_binary_like<T1, Status> Append(const char* value, int32_t length) {
+    return Append(util::string_view(value, length));
   }
 
   /// \brief Append a scalar null value
@@ -231,7 +244,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   /// \brief Reset and also clear accumulated dictionary values in memo table
   void ResetFull() {
     Reset();
-    memo_table_.reset(new internal::DictionaryMemoTable(value_type_));
+    memo_table_.reset(new internal::DictionaryMemoTable(pool_, value_type_));
   }
 
   Status Resize(int64_t capacity) override {
@@ -282,7 +295,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
     // Generate dictionary array from hash table contents
     std::shared_ptr<ArrayData> dictionary_data;
-    ARROW_RETURN_NOT_OK(memo_table_->GetArrayData(pool_, dict_offset, &dictionary_data));
+    ARROW_RETURN_NOT_OK(memo_table_->GetArrayData(dict_offset, &dictionary_data));
 
     *out_dictionary = MakeArray(dictionary_data);
     delta_offset_ = memo_table_->size();
@@ -421,71 +434,13 @@ class Dictionary32Builder : public internal::DictionaryBuilderBase<Int32Builder,
 };
 
 // ----------------------------------------------------------------------
-// Binary / Unicode builders with slightly expanded APIs
+// Binary / Unicode builders
+// (compatibility aliases; those used to be derived classes with additional
+//  Append() overloads, but they have been folded into DictionaryBuilderBase)
 
-namespace internal {
-
-template <typename T>
-class BinaryDictionaryBuilderImpl : public DictionaryBuilder<T> {
- public:
-  using BASE = DictionaryBuilder<T>;
-  using BASE::Append;
-  using BASE::AppendIndices;
-  using BASE::BASE;
-
-  BinaryDictionaryBuilderImpl() : BinaryDictionaryBuilderImpl(default_memory_pool()) {}
-
-  Status Append(const uint8_t* value, int32_t length) {
-    return Append(reinterpret_cast<const char*>(value), length);
-  }
-
-  Status Append(const char* value, int32_t length) {
-    return Append(util::string_view(value, length));
-  }
-};
-
-template <typename T>
-class BinaryDictionary32BuilderImpl : public Dictionary32Builder<T> {
- public:
-  using BASE = Dictionary32Builder<T>;
-  using BASE::Append;
-  using BASE::AppendIndices;
-  using BASE::BASE;
-
-  BinaryDictionary32BuilderImpl()
-      : BinaryDictionary32BuilderImpl(default_memory_pool()) {}
-
-  Status Append(const uint8_t* value, int32_t length) {
-    return Append(reinterpret_cast<const char*>(value), length);
-  }
-
-  Status Append(const char* value, int32_t length) {
-    return Append(util::string_view(value, length));
-  }
-};
-
-}  // namespace internal
-
-class BinaryDictionaryBuilder : public internal::BinaryDictionaryBuilderImpl<BinaryType> {
-  using BASE = internal::BinaryDictionaryBuilderImpl<BinaryType>;
-  using BASE::BASE;
-};
-
-class StringDictionaryBuilder : public internal::BinaryDictionaryBuilderImpl<StringType> {
-  using BASE = BinaryDictionaryBuilderImpl<StringType>;
-  using BASE::BASE;
-};
-
-class BinaryDictionary32Builder
-    : public internal::BinaryDictionary32BuilderImpl<BinaryType> {
-  using BASE = internal::BinaryDictionary32BuilderImpl<BinaryType>;
-  using BASE::BASE;
-};
-
-class StringDictionary32Builder
-    : public internal::BinaryDictionary32BuilderImpl<StringType> {
-  using BASE = internal::BinaryDictionary32BuilderImpl<StringType>;
-  using BASE::BASE;
-};
+using BinaryDictionaryBuilder = DictionaryBuilder<BinaryType>;
+using StringDictionaryBuilder = DictionaryBuilder<StringType>;
+using BinaryDictionary32Builder = Dictionary32Builder<BinaryType>;
+using StringDictionary32Builder = Dictionary32Builder<StringType>;
 
 }  // namespace arrow

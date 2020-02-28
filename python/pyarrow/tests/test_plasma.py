@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import multiprocessing
 import os
@@ -107,7 +104,7 @@ def assert_get_object_equal(unit_test, client1, client2, object_id,
 
 
 @pytest.mark.plasma
-class TestPlasmaClient(object):
+class TestPlasmaClient:
 
     def setup_method(self, test_method):
         import pyarrow.plasma as plasma
@@ -131,10 +128,7 @@ class TestPlasmaClient(object):
             if USE_VALGRIND:
                 time.sleep(1.0)
             self.p.send_signal(signal.SIGTERM)
-            if sys.version_info >= (3, 3):
-                self.p.wait(timeout=5)
-            else:
-                self.p.wait()
+            self.p.wait(timeout=5)
             assert self.p.returncode == 0
         finally:
             self.plasma_store_ctx.__exit__(None, None, None)
@@ -367,7 +361,7 @@ class TestPlasmaClient(object):
 
     def test_put_and_get_serialization_context(self):
 
-        class CustomType(object):
+        class CustomType:
             def __init__(self, val):
                 self.val = val
 
@@ -925,7 +919,7 @@ class TestPlasmaClient(object):
 
 
 @pytest.mark.plasma
-class TestEvictionToExternalStore(object):
+class TestEvictionToExternalStore:
 
     def setup_method(self, test_method):
         import pyarrow.plasma as plasma
@@ -943,10 +937,7 @@ class TestEvictionToExternalStore(object):
             # Check that the Plasma store is still alive.
             assert self.p.poll() is None
             self.p.send_signal(signal.SIGTERM)
-            if sys.version_info >= (3, 3):
-                self.p.wait(timeout=5)
-            else:
-                self.p.wait()
+            self.p.wait(timeout=5)
         finally:
             self.plasma_store_ctx.__exit__(None, None, None)
 

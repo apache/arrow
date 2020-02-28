@@ -71,7 +71,7 @@ values:
  - 'DECIMAL_FIELD6=null,17345667789.23,null,17345667789.23,null'
  - 'DOUBLE_FIELD7=null,56478356785.345,null,56478356785.345,null'
  - 'TIME_FIELD9=null,45935000,null,45935000,null'
- - 'DATE_FIELD10=null,1518393600000,null,1518393600000,null'
+ - 'DATE_FIELD10=null,17574,null,17574,null'
  - 'TIMESTAMP_FIELD11=null,1518439535000,null,1518439535000,null'
  - 'CHAR_FIELD16=null,some char text,null,some char text,null'
  - 'VARCHAR_FIELD13=null,some text that needs to be converted to varchar,null,

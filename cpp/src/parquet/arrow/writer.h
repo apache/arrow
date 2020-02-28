@@ -28,8 +28,6 @@ namespace arrow {
 
 class Array;
 class ChunkedArray;
-class RecordBatch;
-class RecordBatchReader;
 class Schema;
 class Table;
 

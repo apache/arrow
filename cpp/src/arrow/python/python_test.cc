@@ -85,9 +85,6 @@ TEST(OwnedRefNoGIL, TestMoves) {
 std::string FormatPythonException(const std::string& exc_class_name) {
   std::stringstream ss;
   ss << "Python exception: ";
-#if PY_MAJOR_VERSION < 3
-  ss << "exceptions.";
-#endif
   ss << exc_class_name;
   return ss.str();
 }

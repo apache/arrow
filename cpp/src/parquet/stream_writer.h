@@ -230,10 +230,10 @@ class PARQUET_EXPORT StreamWriter {
 };
 
 struct PARQUET_EXPORT EndRowType {};
-constexpr EndRowType EndRow;
+constexpr EndRowType EndRow = {};
 
 struct PARQUET_EXPORT EndRowGroupType {};
-constexpr EndRowGroupType EndRowGroup;
+constexpr EndRowGroupType EndRowGroup = {};
 
 PARQUET_EXPORT
 StreamWriter& operator<<(StreamWriter&, EndRowType);

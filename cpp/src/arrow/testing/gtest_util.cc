@@ -48,16 +48,6 @@
 
 namespace arrow {
 
-static void PrintChunkedArray(const ChunkedArray& carr, std::stringstream* ss) {
-  for (int i = 0; i < carr.num_chunks(); ++i) {
-    auto c1 = carr.chunk(i);
-    *ss << "Chunk " << i << std::endl;
-    ::arrow::PrettyPrintOptions options(/*indent=*/2);
-    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, options, ss));
-    *ss << std::endl;
-  }
-}
-
 template <typename T>
 void AssertTsEqual(const T& expected, const T& actual) {
   if (!expected.Equals(actual)) {
@@ -280,15 +270,29 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
     }
   } else {
     std::stringstream ss;
-    if (!actual.Equals(expected)) {
-      for (int i = 0; i < expected.num_columns(); ++i) {
-        ss << "Actual column " << i << std::endl;
-        PrintChunkedArray(*actual.column(i), &ss);
+    for (int i = 0; i < actual.num_columns(); ++i) {
+      auto actual_col = actual.column(i);
+      auto expected_col = expected.column(i);
 
-        ss << "Expected column " << i << std::endl;
-        PrintChunkedArray(*expected.column(i), &ss);
+      PrettyPrintOptions options(/*indent=*/2);
+      options.window = 50;
+
+      if (!actual_col->Equals(*expected_col)) {
+        ASSERT_OK(internal::ApplyBinaryChunked(
+            *actual_col, *expected_col,
+            [&](const Array& left_piece, const Array& right_piece, int64_t position) {
+              std::stringstream diff;
+              if (!left_piece.Equals(right_piece, EqualOptions().diff_sink(&diff))) {
+                ss << "Unequal at absolute position " << position << "\n" << diff.str();
+                ss << "Expected:\n";
+                ARROW_EXPECT_OK(PrettyPrint(right_piece, options, &ss));
+                ss << "\nActual:\n";
+                ARROW_EXPECT_OK(PrettyPrint(left_piece, options, &ss));
+              }
+              return Status::OK();
+            }));
+        FAIL() << ss.str();
       }
-      FAIL() << ss.str();
     }
   }
 }

@@ -88,8 +88,8 @@ std::shared_ptr<arrow::Table> Table__Slice2(const std::shared_ptr<arrow::Table>&
 
 // [[arrow::export]]
 bool Table__Equals(const std::shared_ptr<arrow::Table>& lhs,
-                   const std::shared_ptr<arrow::Table>& rhs) {
-  return lhs->Equals(*rhs.get());
+                   const std::shared_ptr<arrow::Table>& rhs, bool check_metadata) {
+  return lhs->Equals(*rhs.get(), check_metadata);
 }
 
 // [[arrow::export]]

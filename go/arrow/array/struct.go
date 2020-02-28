@@ -199,20 +199,27 @@ func (b *StructBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 
 func (b *StructBuilder) init(capacity int) {
 	b.builder.init(capacity)
-	for _, f := range b.fields {
-		f.init(capacity)
-	}
 }
 
 // Reserve ensures there is enough space for appending n elements
 // by checking the capacity and calling Resize if necessary.
 func (b *StructBuilder) Reserve(n int) {
-	b.builder.reserve(n, b.Resize)
+	b.builder.reserve(n, b.resizeHelper)
+	for _, f := range b.fields {
+		f.Reserve(n)
+	}
 }
 
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *StructBuilder) Resize(n int) {
+	b.resizeHelper(n)
+	for _, f := range b.fields {
+		f.Resize(n)
+	}
+}
+
+func (b *StructBuilder) resizeHelper(n int) {
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -221,9 +228,6 @@ func (b *StructBuilder) Resize(n int) {
 		b.init(n)
 	} else {
 		b.builder.resize(n, b.builder.init)
-		for _, f := range b.fields {
-			f.resize(n, f.init)
-		}
 	}
 }
 

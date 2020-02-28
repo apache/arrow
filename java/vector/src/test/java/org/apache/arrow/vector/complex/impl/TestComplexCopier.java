@@ -20,11 +20,8 @@ package org.apache.arrow.vector.complex.impl;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.function.BiFunction;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -43,9 +40,6 @@ public class TestComplexCopier {
 
   private static final int COUNT = 100;
 
-  private static final BiFunction<ValueVector, ValueVector, Boolean> TYPE_COMPARATOR =
-      (v1, v2) -> v1.getField().getType().equals(v2.getField().getType());
-
   @Before
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
@@ -58,8 +52,8 @@ public class TestComplexCopier {
 
   @Test
   public void testCopyFixedSizeListVector() {
-    try (FixedSizeListVector from = FixedSizeListVector.empty("from", 3, allocator);
-         FixedSizeListVector to = FixedSizeListVector.empty("to", 3, allocator)) {
+    try (FixedSizeListVector from = FixedSizeListVector.empty("v", 3, allocator);
+         FixedSizeListVector to = FixedSizeListVector.empty("v", 3, allocator)) {
 
       from.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
       to.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
@@ -86,15 +80,15 @@ public class TestComplexCopier {
       }
 
       // validate equals
-      assertTrue(VectorEqualsVisitor.vectorEquals(from, to, TYPE_COMPARATOR));
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
 
     }
   }
 
   @Test
   public void testInvalidCopyFixedSizeListVector() {
-    try (FixedSizeListVector from = FixedSizeListVector.empty("from", 3, allocator);
-         FixedSizeListVector to = FixedSizeListVector.empty("to", 2, allocator)) {
+    try (FixedSizeListVector from = FixedSizeListVector.empty("v", 3, allocator);
+         FixedSizeListVector to = FixedSizeListVector.empty("v", 2, allocator)) {
 
       from.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
       to.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
@@ -122,8 +116,8 @@ public class TestComplexCopier {
 
   @Test
   public void testCopyMapVector() {
-    try (final MapVector from = MapVector.empty("from", allocator, false);
-         final MapVector to = MapVector.empty("to", allocator, false)) {
+    try (final MapVector from = MapVector.empty("v", allocator, false);
+         final MapVector to = MapVector.empty("v", allocator, false)) {
 
       from.allocateNew();
 
@@ -155,15 +149,14 @@ public class TestComplexCopier {
       to.setValueCount(COUNT);
 
       // validate equals
-      assertTrue(VectorEqualsVisitor.vectorEquals(from, to, TYPE_COMPARATOR));
-
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
     }
   }
 
   @Test
   public void testCopyListVector() {
-    try (ListVector from = ListVector.empty("from", allocator);
-         ListVector to = ListVector.empty("to", allocator)) {
+    try (ListVector from = ListVector.empty("v", allocator);
+         ListVector to = ListVector.empty("v", allocator)) {
 
       UnionListWriter listWriter = from.getWriter();
       listWriter.allocate();
@@ -202,7 +195,7 @@ public class TestComplexCopier {
       to.setValueCount(COUNT);
 
       // validate equals
-      assertTrue(VectorEqualsVisitor.vectorEquals(from, to, TYPE_COMPARATOR));
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
 
     }
   }

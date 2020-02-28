@@ -1,0 +1,5 @@
+apache-arrow-archive-keyring (0.16.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Krisztián Szűcs <szucs.krisztian@gmail.com>  Thu, 30 Jan 2020 20:21:44 -0000

@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <gandiva-glib/version.h>
+
 #include <gandiva-glib/expression.h>
 #include <gandiva-glib/function-registry.h>
 #include <gandiva-glib/function-signature.h>

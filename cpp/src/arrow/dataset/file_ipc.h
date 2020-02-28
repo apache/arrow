@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
@@ -43,13 +44,13 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
                                     std::shared_ptr<ScanContext> context) const override;
 
   Result<std::shared_ptr<Fragment>> MakeFragment(
-      const FileSource& source, std::shared_ptr<ScanOptions> options) override;
+      FileSource source, std::shared_ptr<ScanOptions> options) override;
 };
 
 class ARROW_DS_EXPORT IpcFragment : public FileFragment {
  public:
-  IpcFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
-      : FileFragment(source, std::make_shared<IpcFileFormat>(), options) {}
+  IpcFragment(FileSource source, std::shared_ptr<ScanOptions> options)
+      : FileFragment(std::move(source), std::make_shared<IpcFileFormat>(), options) {}
 
   bool splittable() const override { return true; }
 };

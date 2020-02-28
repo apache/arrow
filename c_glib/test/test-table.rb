@@ -99,30 +99,28 @@ class TestTable < Test::Unit::TestCase
 
   sub_test_case("instance methods") do
     def setup
-      fields = [
+      @fields = [
         Arrow::Field.new("visible", Arrow::BooleanDataType.new),
         Arrow::Field.new("valid", Arrow::BooleanDataType.new),
       ]
-      schema = Arrow::Schema.new(fields)
-      columns = [
+      @schema = Arrow::Schema.new(@fields)
+      @columns = [
         build_boolean_array([true]),
         build_boolean_array([false]),
       ]
-      @table = Arrow::Table.new(schema, columns)
+      @table = Arrow::Table.new(@schema, @columns)
     end
 
     def test_equal
-      fields = [
-        Arrow::Field.new("visible", Arrow::BooleanDataType.new),
-        Arrow::Field.new("valid", Arrow::BooleanDataType.new),
-      ]
-      schema = Arrow::Schema.new(fields)
-      columns = [
-        build_boolean_array([true]),
-        build_boolean_array([false]),
-      ]
-      other_table = Arrow::Table.new(schema, columns)
+      other_table = Arrow::Table.new(@schema, @columns)
       assert_equal(@table, other_table)
+    end
+
+    def test_equal_metadata
+      other_table = Arrow::Table.new(@schema, @columns)
+      assert do
+        @table.equal_metadata(other_table, true)
+      end
     end
 
     def test_schema

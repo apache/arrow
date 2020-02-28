@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,33 +17,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base
-FROM ${base}
+set -u
 
-RUN apt-get update && \
-    apt-get install -y -q \
-        clang-7 \
-        libclang-7-dev \
-        clang-format-7 \
-        clang-tidy-7 \
-        clang-tools-7 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+export LANG=C
 
-RUN wget -O /usr/local/bin/fuzzit https://github.com/fuzzitdev/fuzzit/releases/latest/download/fuzzit_Linux_x86_64 && \
-    chmod a+x /usr/local/bin/fuzzit
+target_dir=/host/binary/tmp
+original_owner=$(stat --format=%u ${target_dir})
+original_group=$(stat --format=%g ${target_dir})
 
-ENV ARROW_FUZZING="ON" \
-    ARROW_USE_ASAN="ON" \
-    CC="clang-7" \
-    CXX="clang++-7" \
-    ARROW_BUILD_TYPE="RelWithDebInfo" \
-    ARROW_FLIGHT="OFF" \
-    ARROW_GANDIVA="OFF" \
-    ARROW_ORC="OFF" \
-    ARROW_PARQUET="OFF" \
-    ARROW_PLASMA="OFF" \
-    ARROW_WITH_BZ2="OFF" \
-    ARROW_WITH_ZSTD="OFF" \
-    ARROW_BUILD_BENCHMARKS="OFF" \
-    ARROW_BUILD_UTILITIES="OFF"
+sudo -H chown -R ${USER}: ${target_dir}
+restore_owner() {
+  sudo -H chown -R ${original_owner}:${original_group} ${target_dir}
+}
+trap restore_owner EXIT
+
+cd /host
+
+"$@"

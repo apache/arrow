@@ -19,10 +19,8 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from __future__ import absolute_import
-
 import io
-import six
+from textwrap import indent
 import warnings
 
 import numpy as np
@@ -46,7 +44,6 @@ from pyarrow.lib import (ArrowException, NativeFile, _stringify_path,
                          _datetime_conversion_functions,
                          _box_time_milli,
                          _box_time_micro)
-from pyarrow.util import indent
 
 cimport cpython as cp
 
@@ -721,19 +718,8 @@ cdef class ParquetSchema:
         self.schema = container._metadata.schema()
 
     def __repr__(self):
-        cdef const ColumnDescriptor* descr
-        elements = []
-        for i in range(self.schema.num_columns()):
-            col = self.column(i)
-            logical_type = col.logical_type
-            formatted = '{0}: {1}'.format(col.path, col.physical_type)
-            if logical_type.type != 'NONE':
-                formatted += ' {0}'.format(str(logical_type))
-            elements.append(formatted)
-
         return """{0}
-{1}
- """.format(object.__repr__(self), '\n'.join(elements))
+{1}""".format(object.__repr__(self), frombytes(self.schema.ToString()))
 
     def __reduce__(self):
         return ParquetSchema, (self.parent,)
@@ -1077,6 +1063,13 @@ cdef class ParquetReader:
         return self._metadata
 
     @property
+    def schema_arrow(self):
+        cdef shared_ptr[CSchema] out
+        with nogil:
+            check_status(self.reader.get().GetSchema(&out))
+        return pyarrow_wrap_schema(out)
+
+    @property
     def num_row_groups(self):
         return self.reader.get().num_row_groups()
 
@@ -1304,14 +1297,15 @@ cdef class ParquetWriter:
         else:
             props.disallow_truncated_timestamps()
 
-    cdef void _set_version(self, WriterProperties.Builder* props):
+    cdef int _set_version(self, WriterProperties.Builder* props) except -1:
         if self.version is not None:
             if self.version == "1.0":
                 props.version(ParquetVersion_V1)
             elif self.version == "2.0":
                 props.version(ParquetVersion_V2)
             else:
-                raise ArrowException("Unsupported Parquet format version")
+                raise ValueError("Unsupported Parquet format version: {0}"
+                                 .format(self.version))
 
     cdef void _set_compression_props(self, WriterProperties.Builder* props):
         if isinstance(self.compression, basestring):

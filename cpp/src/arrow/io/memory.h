@@ -46,7 +46,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   /// \param[in,out] pool a MemoryPool to use for allocations
   /// \return the created stream
   static Result<std::shared_ptr<BufferOutputStream>> Create(
-      int64_t initial_capacity, MemoryPool* pool = default_memory_pool());
+      int64_t initial_capacity = 4096, MemoryPool* pool = default_memory_pool());
 
   ARROW_DEPRECATED("Use Result-returning overload")
   static Status Create(int64_t initial_capacity, MemoryPool* pool,
@@ -168,20 +168,24 @@ class ARROW_EXPORT BufferReader
  protected:
   friend RandomAccessFileConcurrencyWrapper<BufferReader>;
 
-  // These methods are virtual for CudaBuffer...
-  virtual Status DoClose();
+  Status DoClose();
 
-  virtual Result<int64_t> DoRead(int64_t nbytes, void* buffer);
-  virtual Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
-  virtual Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
-  virtual Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
+  Result<int64_t> DoRead(int64_t nbytes, void* buffer);
+  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
+  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
+  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
   Result<util::string_view> DoPeek(int64_t nbytes) override;
 
   Result<int64_t> DoTell() const;
   Status DoSeek(int64_t position);
   Result<int64_t> DoGetSize();
 
-  inline Status CheckClosed() const;
+  Status CheckClosed() const {
+    if (!is_open_) {
+      return Status::Invalid("Operation forbidden on closed BufferReader");
+    }
+    return Status::OK();
+  }
 
   std::shared_ptr<Buffer> buffer_;
   const uint8_t* data_;

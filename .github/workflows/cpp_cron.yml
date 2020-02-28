@@ -56,7 +56,10 @@ jobs:
         run: docker-compose build debian-cpp
       - name: Docker Run
         shell: bash
-        run: docker-compose run debian-cpp
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          docker-compose run debian-cpp
       - name: Docker Push
         if: success() && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -88,7 +91,10 @@ jobs:
         run: docker-compose build fedora-cpp
       - name: Docker Run
         shell: bash
-        run: docker-compose run fedora-cpp
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          docker-compose run fedora-cpp
       - name: Docker Push
         if: success() && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -120,7 +126,10 @@ jobs:
         run: docker-compose build ubuntu-cpp
       - name: Docker Run
         shell: bash
-        run: docker-compose run ubuntu-cpp
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          docker-compose run ubuntu-cpp
       # No push step, it's the same image as ubuntu-cpp-sanitizer
 
   ubuntu-cmake32:
@@ -150,7 +159,10 @@ jobs:
           docker-compose build ubuntu-cpp-cmake32
       - name: Docker Run
         shell: bash
-        run: docker-compose run ubuntu-cpp-cmake32
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          docker-compose run ubuntu-cpp-cmake32
       - name: Docker Push
         if: success() && github.repository == 'apache/arrow'
         continue-on-error: true

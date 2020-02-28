@@ -39,6 +39,7 @@ RUN apt-get update -y -q && \
       flex \
       g++ \
       gcc \
+      gdb \
       git \
       libboost-filesystem-dev \
       libboost-regex-dev \

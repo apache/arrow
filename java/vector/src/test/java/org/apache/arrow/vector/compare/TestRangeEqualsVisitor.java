@@ -282,6 +282,57 @@ public class TestRangeEqualsVisitor {
     }
   }
 
+  /**
+   * Test comparing two union vectors.
+   * The two vectors are different in total, but have a range with equal values.
+   */
+  @Test
+  public void testUnionVectorSubRangeEquals() {
+    try (final UnionVector vector1 = new UnionVector("union", allocator, null, null);
+         final UnionVector vector2 = new UnionVector("union", allocator, null, null);) {
+
+      final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
+      uInt4Holder.value = 10;
+      uInt4Holder.isSet = 1;
+
+      final NullableIntHolder intHolder = new NullableIntHolder();
+      intHolder.value = 20;
+      intHolder.isSet = 1;
+
+      vector1.setType(0, Types.MinorType.UINT4);
+      vector1.setSafe(0, uInt4Holder);
+
+      vector1.setType(1, Types.MinorType.INT);
+      vector1.setSafe(1, intHolder);
+
+      vector1.setType(2, Types.MinorType.INT);
+      vector1.setSafe(2, intHolder);
+
+      vector1.setType(3, Types.MinorType.INT);
+      vector1.setSafe(3, intHolder);
+
+      vector1.setValueCount(4);
+
+      vector2.setType(0, Types.MinorType.UINT4);
+      vector2.setSafe(0, uInt4Holder);
+
+      vector2.setType(1, Types.MinorType.INT);
+      vector2.setSafe(1, intHolder);
+
+      vector2.setType(2, Types.MinorType.INT);
+      vector2.setSafe(2, intHolder);
+
+      vector2.setType(3, Types.MinorType.UINT4);
+      vector2.setSafe(3, uInt4Holder);
+
+      vector2.setValueCount(4);
+
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertFalse(visitor.rangeEquals(new Range(0, 0, 4)));
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 2)));
+    }
+  }
+
   @Ignore
   @Test
   public void testEqualsWithOutTypeCheck() {

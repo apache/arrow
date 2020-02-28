@@ -469,11 +469,14 @@ endif()
 # argument.
 set(EP_COMMON_CMAKE_ARGS
     ${EP_COMMON_TOOLCHAIN}
+    ${EP_COMMON_CMAKE_ARGS}
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     -DCMAKE_C_FLAGS=${EP_C_FLAGS}
     -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
     -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
-    -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS})
+    -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}
+    -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=${CMAKE_EXPORT_NO_PACKAGE_REGISTRY}
+    -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY})
 
 if(NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
   set(EP_LOG_OPTIONS
@@ -639,11 +642,10 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0"
     "1.60")
 
-if(ARROW_BUILD_INTEGRATION
-   OR ARROW_BUILD_TESTS
-   OR ARROW_HDFS
-   OR ARROW_GANDIVA
-   OR ARROW_PARQUET)
+# - Parquet requires boost only with gcc 4.8 (because of missing std::regex).
+# - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
+# - Tests needs Boost at runtime.
+if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS OR ARROW_GANDIVA OR ARROW_PARQUET)
   set(ARROW_BOOST_REQUIRED TRUE)
 else()
   set(ARROW_BOOST_REQUIRED FALSE)
@@ -908,17 +910,17 @@ macro(build_glog)
   add_dependencies(toolchain glog_ep)
   file(MAKE_DIRECTORY "${GLOG_INCLUDE_DIR}")
 
-  add_library(GLOG::glog STATIC IMPORTED)
-  set_target_properties(GLOG::glog
+  add_library(glog::glog STATIC IMPORTED)
+  set_target_properties(glog::glog
                         PROPERTIES IMPORTED_LOCATION "${GLOG_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GLOG_INCLUDE_DIR}")
-  add_dependencies(GLOG::glog glog_ep)
+  add_dependencies(glog::glog glog_ep)
 endmacro()
 
 if(ARROW_USE_GLOG)
   resolve_dependency(GLOG)
   # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(GLOG_INCLUDE_DIR GLOG::glog INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(GLOG_INCLUDE_DIR glog::glog INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${GLOG_INCLUDE_DIR})
 endif()
 
@@ -1140,14 +1142,14 @@ macro(build_thrift)
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
                       DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
 
-  add_library(Thrift::thrift STATIC IMPORTED)
+  add_library(thrift::thrift STATIC IMPORTED)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
-  set_target_properties(Thrift::thrift
+  set_target_properties(thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   add_dependencies(toolchain thrift_ep)
-  add_dependencies(Thrift::thrift thrift_ep)
+  add_dependencies(thrift::thrift thrift_ep)
   set(THRIFT_VERSION ${ARROW_THRIFT_BUILD_VERSION})
 endmacro()
 
@@ -1502,24 +1504,24 @@ macro(build_gtest)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::GTest SHARED IMPORTED)
-  set_target_properties(GTest::GTest
+  add_library(GTest::gtest SHARED IMPORTED)
+  set_target_properties(GTest::gtest
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::Main SHARED IMPORTED)
-  set_target_properties(GTest::Main
+  add_library(GTest::gtest_main SHARED IMPORTED)
+  set_target_properties(GTest::gtest_main
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::GMock SHARED IMPORTED)
-  set_target_properties(GTest::GMock
+  add_library(GTest::gmock SHARED IMPORTED)
+  set_target_properties(GTest::gmock
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
   add_dependencies(toolchain-tests googletest_ep)
-  add_dependencies(GTest::GTest googletest_ep)
-  add_dependencies(GTest::Main googletest_ep)
-  add_dependencies(GTest::GMock googletest_ep)
+  add_dependencies(GTest::gtest googletest_ep)
+  add_dependencies(GTest::gtest_main googletest_ep)
+  add_dependencies(GTest::gmock googletest_ep)
 endmacro()
 
 if(ARROW_BUILD_TESTS
@@ -1557,7 +1559,7 @@ if(ARROW_BUILD_TESTS
     #     set(CMAKE_REQUIRED_LIBRARIES)
   endif()
 
-  get_target_property(GTEST_INCLUDE_DIR GTest::GTest INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(GTEST_INCLUDE_DIR GTest::gtest INTERFACE_INCLUDE_DIRECTORIES)
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
 endif()
@@ -1639,9 +1641,12 @@ macro(build_rapidjson)
   message(STATUS "Building rapidjson from source")
   set(RAPIDJSON_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/rapidjson_ep/src/rapidjson_ep-install")
-  set(RAPIDJSON_CMAKE_ARGS -DRAPIDJSON_BUILD_DOC=OFF -DRAPIDJSON_BUILD_EXAMPLES=OFF
-                           -DRAPIDJSON_BUILD_TESTS=OFF
-                           "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
+  set(RAPIDJSON_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DRAPIDJSON_BUILD_DOC=OFF
+      -DRAPIDJSON_BUILD_EXAMPLES=OFF
+      -DRAPIDJSON_BUILD_TESTS=OFF
+      "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
 
   externalproject_add(rapidjson_ep
                       ${EP_LOG_OPTIONS}

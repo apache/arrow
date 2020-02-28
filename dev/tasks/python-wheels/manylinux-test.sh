@@ -37,15 +37,12 @@ fi
 
 # Test import and optional dependencies
 python -c "
-import sys
 import pyarrow
 import pyarrow.parquet
 import pyarrow.plasma
 import pyarrow.fs
 import pyarrow._hdfs
-
-if sys.version_info.major > 2:
-    import pyarrow.dataset
-    import pyarrow.flight
-    import pyarrow.gandiva
+import pyarrow.dataset
+import pyarrow.flight
+import pyarrow.gandiva
 "

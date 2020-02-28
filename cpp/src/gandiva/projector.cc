@@ -267,4 +267,6 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
   return Status::OK();
 }
 
+std::string Projector::DumpIR() { return llvm_generator_->DumpIR(); }
+
 }  // namespace gandiva

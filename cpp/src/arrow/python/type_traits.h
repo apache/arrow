@@ -17,6 +17,8 @@
 
 // Internal header
 
+#pragma once
+
 #include "arrow/python/platform.h"
 
 #include <cstdint>

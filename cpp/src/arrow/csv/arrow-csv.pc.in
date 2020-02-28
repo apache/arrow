@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,31 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -euxo pipefail
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
 
-export TARGET_ID=apache-arrow/arrow-ipc-fuzzing
-
-source_dir=${1}/cpp
-build_dir=${2}/cpp
-
-pushd ${build_dir}/relwithdebinfo
-
-mkdir -p out
-
-cp arrow-ipc-fuzzing-test out/fuzzer
-ldd arrow-ipc-fuzzing-test | grep "=> /" | awk '{print $3}' | xargs -I '{}' cp -v '{}' out/
-
-pushd out
-tar -czvf fuzzer.tar.gz *
-stat fuzzer.tar.gz
-popd
-
-fuzzit create job \
-    --type $FUZZIT_JOB_TYPE \
-    --host $FUZZIT_HOST \
-    --revision $CI_ARROW_SHA \
-    --branch $CI_ARROW_BRANCH \
-    $TARGET_ID \
-    out/fuzzer.tar.gz
-
-popd
+Name: Apache Arrow CSV
+Description: CSV reader module for Apache Arrow
+Version: @ARROW_VERSION@
+Requires: arrow

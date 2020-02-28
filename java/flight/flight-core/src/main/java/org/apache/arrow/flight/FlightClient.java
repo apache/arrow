@@ -215,6 +215,11 @@ public class FlightClient implements AutoCloseable {
           observer, metadataListener);
     } catch (StatusRuntimeException sre) {
       throw StatusUtils.fromGrpcRuntimeException(sre);
+    } catch (Exception e) {
+      // Only happens if DictionaryUtils#generateSchemaMessages fails. This should only happen if closing buffers fails,
+      // which means the application is in an unknown state, so propagate the exception.
+      throw CallStatus.INTERNAL.withDescription("Could not send all schema messages: " + e.toString()).withCause(e)
+          .toRuntimeException();
     }
   }
 
@@ -337,14 +342,18 @@ public class FlightClient implements AutoCloseable {
     @Override
     public void putNext(ArrowBuf appMetadata) {
       ArrowRecordBatch batch = unloader.getRecordBatch();
-      while (!observer.isReady()) {
+      // Check isCancelled as well to avoid inadvertently blocking forever
+      // (so long as PutListener properly implements it)
+      while (!observer.isReady() && !listener.isCancelled()) {
         /* busy wait */
       }
-      try {
-        // Takes ownership of appMetadata
-        observer.onNext(new ArrowMessage(batch, appMetadata));
-      } catch (StatusRuntimeException sre) {
-        throw StatusUtils.fromGrpcRuntimeException(sre);
+      // ArrowMessage takes ownership of appMetadata and batch
+      // gRPC should take ownership of ArrowMessage, but in some cases it doesn't, so guard against it
+      // ArrowMessage#close is a no-op if gRPC did its job
+      try (final ArrowMessage message = new ArrowMessage(batch, appMetadata)) {
+        observer.onNext(message);
+      } catch (Exception e) {
+        throw StatusUtils.fromThrowable(e);
       }
     }
 
@@ -417,6 +426,16 @@ public class FlightClient implements AutoCloseable {
      */
     @Override
     void onNext(PutResult val);
+
+    /**
+     * Check if the call has been cancelled.
+     *
+     * <p>By default, this always returns false. Implementations should provide an appropriate implementation, as
+     * otherwise, a DoPut operation may inadvertently block forever.
+     */
+    default boolean isCancelled() {
+      return false;
+    }
   }
 
   /**

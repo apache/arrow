@@ -58,7 +58,7 @@ import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
@@ -206,8 +206,8 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
     assertBooleanVectorValues((BitVector) root.getVector(BOOL), table.getRowCount(),
         getBooleanValues(table.getValues(), BOOL));
 
-    assertDateVectorValues((DateMilliVector) root.getVector(DATE), table.getRowCount(),
-        getLongValues(table.getValues(), DATE));
+    assertDateVectorValues((DateDayVector) root.getVector(DATE), table.getRowCount(),
+        getIntValues(table.getValues(), DATE));
 
     assertTimeVectorValues((TimeMilliVector) root.getVector(TIME), table.getRowCount(),
         getLongValues(table.getValues(), TIME));
@@ -242,7 +242,7 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
     assertNullValues((Float8Vector) root.getVector(vectors[6]), rowCount);
     assertNullValues((Float4Vector) root.getVector(vectors[7]), rowCount);
     assertNullValues((TimeMilliVector) root.getVector(vectors[8]), rowCount);
-    assertNullValues((DateMilliVector) root.getVector(vectors[9]), rowCount);
+    assertNullValues((DateDayVector) root.getVector(vectors[9]), rowCount);
     assertNullValues((TimeStampVector) root.getVector(vectors[10]), rowCount);
     assertNullValues((VarBinaryVector) root.getVector(vectors[11]), rowCount);
     assertNullValues((VarCharVector) root.getVector(vectors[12]), rowCount);
@@ -265,7 +265,7 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
     assertNullValues((Float8Vector) root.getVector(vectors[2]), rowCount);
     assertNullValues((Float4Vector) root.getVector(vectors[3]), rowCount);
     assertNullValues((TimeMilliVector) root.getVector(vectors[4]), rowCount);
-    assertNullValues((DateMilliVector) root.getVector(vectors[5]), rowCount);
+    assertNullValues((DateDayVector) root.getVector(vectors[5]), rowCount);
     assertNullValues((TimeStampVector) root.getVector(vectors[6]), rowCount);
     assertNullValues((VarBinaryVector) root.getVector(vectors[7]), rowCount);
     assertNullValues((VarCharVector) root.getVector(vectors[8]), rowCount);

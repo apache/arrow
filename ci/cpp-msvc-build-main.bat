@@ -62,6 +62,7 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DCMAKE_VERBOSE_MAKEFILE=OFF ^
+      -DCMAKE_UNITY_BUILD=ON ^
       -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DARROW_BUILD_STATIC=OFF ^
@@ -127,6 +128,8 @@ set PYARROW_PARALLEL=2
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 
 python setup.py develop -q || exit /B
+
+set PYTHONDEVMODE=1
 
 py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
 

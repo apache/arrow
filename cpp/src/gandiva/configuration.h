@@ -38,6 +38,12 @@ class GANDIVA_EXPORT Configuration {
   std::size_t Hash() const;
   bool operator==(const Configuration& other) const;
   bool operator!=(const Configuration& other) const;
+
+  bool optimize() const { return optimize_; }
+  void set_optimize(bool optimize) { optimize_ = optimize; }
+
+ private:
+  bool optimize_ = true;
 };
 
 /// \brief configuration builder for gandiva

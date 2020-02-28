@@ -22,6 +22,9 @@
 #ifdef ARROW_HDFS
 #include "arrow/filesystem/hdfs.h"
 #endif
+#ifdef ARROW_S3
+#include "arrow/filesystem/s3fs.h"
+#endif
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -32,6 +35,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 
@@ -45,6 +49,7 @@ using internal::GetAbstractPathParent;
 using internal::kSep;
 using internal::RemoveLeadingSlash;
 using internal::RemoveTrailingSlash;
+using internal::ToSlashes;
 
 std::string ToString(FileType ftype) {
   switch (ftype) {
@@ -355,20 +360,34 @@ struct FileSystemUri {
 
 Result<FileSystemUri> ParseFileSystemUri(const std::string& uri_string) {
   FileSystemUri fsuri;
-  RETURN_NOT_OK(fsuri.uri.Parse(uri_string));
+  auto status = fsuri.uri.Parse(uri_string);
+  if (!status.ok()) {
+#ifdef _WIN32
+    // Could be a "file:..." URI with backslashes instead of regular slashes.
+    RETURN_NOT_OK(fsuri.uri.Parse(ToSlashes(uri_string)));
+    if (fsuri.uri.scheme() != "file") {
+      return status;
+    }
+#else
+    return status;
+#endif
+  }
   fsuri.scheme = fsuri.uri.scheme();
   fsuri.path = fsuri.uri.path();
-#ifdef _WIN32
-  if (fsuri.scheme.size() == 1) {
-    // Assuming a plain local path starting with a drive letter, e.g "C:/..."
-    fsuri.is_local = true;
-    fsuri.path = fsuri.scheme + ':' + fsuri.path;
-  }
-#endif
-  if (fsuri.scheme == "" || fsuri.scheme == "file") {
+  if (fsuri.scheme == "file") {
     fsuri.is_local = true;
   }
   return std::move(fsuri);
+}
+
+Result<FileSystemUri> ParseFileSystemUriOrPath(const std::string& uri_string) {
+  if (internal::DetectAbsolutePath(uri_string)) {
+    FileSystemUri fsuri;
+    fsuri.path = uri_string;
+    fsuri.is_local = true;
+    return std::move(fsuri);
+  }
+  return ParseFileSystemUri(uri_string);
 }
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const FileSystemUri& fsuri,
@@ -378,6 +397,10 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const FileSystemUri& f
     *out_path = fsuri.path;
   }
   if (fsuri.is_local) {
+    // Normalize path separators
+    if (out_path != nullptr) {
+      *out_path = ToSlashes(*out_path);
+    }
     return std::make_shared<LocalFileSystem>();
   }
   if (fsuri.scheme == "hdfs" || fsuri.scheme == "viewfs") {
@@ -386,7 +409,17 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const FileSystemUri& f
     ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options));
     return hdfs;
 #else
-    return Status::NotImplemented("Arrow compiled without HDFS support");
+    return Status::NotImplemented("Got HDFS URI but Arrow compiled without HDFS support");
+#endif
+  }
+  if (fsuri.scheme == "s3") {
+#ifdef ARROW_S3
+    RETURN_NOT_OK(EnsureS3Initialized());
+    ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(fsuri.uri, out_path));
+    ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options));
+    return s3fs;
+#else
+    return Status::NotImplemented("Got S3 URI but Arrow compiled without S3 support");
 #endif
   }
 
@@ -400,7 +433,6 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const FileSystemUri& f
     return std::make_shared<internal::MockFileSystem>(internal::CurrentTimePoint());
   }
 
-  // TODO add support for S3 URIs
   return Status::Invalid("Unrecognized filesystem type in URI: ", uri_string);
 }
 
@@ -408,30 +440,18 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const FileSystemUri& f
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
                                                       std::string* out_path) {
-  Status st;
-  FileSystemUri fsuri;
-  auto maybe_fsuri = ParseFileSystemUri(uri_string);
-  if (maybe_fsuri.ok()) {
-    fsuri = *std::move(maybe_fsuri);
-  } else {
-    st = maybe_fsuri.status();
-#ifdef _WIN32
-    // The user may be passing a local path with backslashes, which fails
-    // URI parsing.  Try again with forward slashes, but make sure the
-    // resulting URI points to a local path.
-    maybe_fsuri = ParseFileSystemUri(internal::ToSlashes(uri_string));
-    if (!maybe_fsuri.ok()) {
-      return st;
-    }
-    fsuri = *std::move(maybe_fsuri);
-    if (!fsuri.is_local) {
-      return st;
-    }
-#else
-    return st;
-#endif
-  }
+  ARROW_ASSIGN_OR_RAISE(auto fsuri, ParseFileSystemUri(uri_string));
   return FileSystemFromUriReal(fsuri, uri_string, out_path);
+}
+
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(const std::string& uri_string,
+                                                            std::string* out_path) {
+  ARROW_ASSIGN_OR_RAISE(auto fsuri, ParseFileSystemUriOrPath(uri_string));
+  auto maybe_fs = FileSystemFromUriReal(fsuri, uri_string, out_path);
+  if (maybe_fs.ok()) {
+    return maybe_fs;
+  }
+  return Status::Invalid("Expected URI or absolute local path, got '", uri_string, "'");
 }
 
 Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,

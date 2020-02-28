@@ -172,11 +172,6 @@ cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
         "gandiva::TreeExprBuilder::MakeInExpressionBinary"(
             shared_ptr[CNode] node, const c_unordered_set[c_string]& values)
 
-    cdef CStatus Projector_Make \
-        "gandiva::Projector::Make"(
-            shared_ptr[CSchema] schema, const CExpressionVector& children,
-            shared_ptr[CProjector]* projector)
-
 cdef extern from "gandiva/projector.h" namespace "gandiva" nogil:
 
     cdef cppclass CProjector" gandiva::Projector":
@@ -185,6 +180,13 @@ cdef extern from "gandiva/projector.h" namespace "gandiva" nogil:
             const CRecordBatch& batch, CMemoryPool* pool,
             const CArrayVector* output)
 
+        c_string DumpIR()
+
+    cdef CStatus Projector_Make \
+        "gandiva::Projector::Make"(
+            shared_ptr[CSchema] schema, const CExpressionVector& children,
+            shared_ptr[CProjector]* projector)
+
 cdef extern from "gandiva/filter.h" namespace "gandiva" nogil:
 
     cdef cppclass CFilter" gandiva::Filter":
@@ -192,6 +194,8 @@ cdef extern from "gandiva/filter.h" namespace "gandiva" nogil:
         CStatus Evaluate(
             const CRecordBatch& batch,
             shared_ptr[CSelectionVector] out_selection)
+
+        c_string DumpIR()
 
     cdef CStatus Filter_Make \
         "gandiva::Filter::Make"(

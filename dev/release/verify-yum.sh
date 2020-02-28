@@ -16,7 +16,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
 
 set -exu
 
@@ -38,52 +37,81 @@ if [ "${IS_RC}" = "yes" ]; then
   bintray_base_url="${bintray_base_url}-rc"
 fi
 
-distribution=$(cut -d " " -f 1 /etc/redhat-release | tr "A-Z" "a-z")
-if grep -q Linux /etc/redhat-release; then
-  distribution_version=$(cut -d " " -f 4 /etc/redhat-release)
+if [ -f /etc/os-release ]; then
+  distribution=$(. /etc/os-release && echo "${ID}")
+  distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
 else
-  distribution_version=$(cut -d " " -f 3 /etc/redhat-release)
+  distribution=centos
+  distribution_version=6
 fi
-distribution_version=$(echo ${distribution_version} | sed -e 's/\..*$//g')
 
+have_flight=yes
+have_gandiva=yes
 have_glib=yes
 have_parquet=yes
-case "${distribution}-${distribution_version}" in
-  centos-6)
+install_command="dnf install -y --enablerepo=PowerTools"
+case "${distribution}-${distribution_version}-$(arch)" in
+  centos-6-*)
+    have_flight=no
+    have_gandiva=no
     have_glib=no
     have_parquet=no
+    install_command="yum install -y"
+    ;;
+  centos-7-*)
+    have_flight=no
+    have_gandiva=no
+    install_command="yum install -y"
     ;;
 esac
 
-cat <<REPO > /etc/yum.repos.d/Apache-Arrow.repo
-[apache-arrow]
-name=Apache Arrow
-baseurl=${bintray_base_url}/\$releasever/\$basearch/
-gpgcheck=1
-enabled=1
-gpgkey=${bintray_base_url}/RPM-GPG-KEY-apache-arrow
-REPO
-
-yum install -y epel-release
-
-if [ "${have_glib}" = "yes" ]; then
-  yum install -y --enablerepo=epel arrow-glib-devel-${VERSION}
-  yum install -y --enablerepo=epel arrow-glib-doc-${VERSION}
-fi
-yum install -y --enablerepo=epel arrow-python-devel-${VERSION}
-
-if [ "${have_glib}" = "yes" ]; then
-  yum install -y --enablerepo=epel plasma-glib-devel-${VERSION}
-  yum install -y --enablerepo=epel plasma-glib-doc-${VERSION}
+${install_command} \
+  ${bintray_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
+if [ "${BINTRAY_REPOSITORY}" = "apache/arrow" ]; then
+  if [ "${IS_RC}" = "yes" ]; then
+    sed \
+      -i"" \
+      -e "s,/centos/,/centos-rc/,g" \
+      /etc/yum.repos.d/Apache-Arrow.repo
+  fi
 else
-  yum install -y --enablerepo=epel plasma-devel-${VERSION}
+  sed \
+    -i"" \
+    -e "s,baseurl=https://apache.bintray.com/arrow/centos,baseurl=${bintray_base_url},g" \
+    /etc/yum.repos.d/Apache-Arrow.repo
+fi
+
+if [ "${have_glib}" = "yes" ]; then
+  ${install_command} --enablerepo=epel arrow-glib-devel-${VERSION}
+  ${install_command} --enablerepo=epel arrow-glib-doc-${VERSION}
+fi
+${install_command} --enablerepo=epel arrow-python-devel-${VERSION}
+
+if [ "${have_glib}" = "yes" ]; then
+  ${install_command} --enablerepo=epel plasma-glib-devel-${VERSION}
+  ${install_command} --enablerepo=epel plasma-glib-doc-${VERSION}
+else
+  ${install_command} --enablerepo=epel plasma-devel-${VERSION}
+fi
+
+if [ "${have_flight}" = "yes" ]; then
+  ${install_command} --enablerepo=epel arrow-flight-devel-${VERSION}
+fi
+
+if [ "${have_gandiva}" = "yes" ]; then
+  if [ "${have_glib}" = "yes" ]; then
+    ${install_command} --enablerepo=epel gandiva-glib-devel-${VERSION}
+    ${install_command} --enablerepo=epel gandiva-glib-doc-${VERSION}
+  else
+    ${install_command} --enablerepo=epel gandiva-devel-${VERSION}
+  fi
 fi
 
 if [ "${have_parquet}" = "yes" ]; then
   if [ "${have_glib}" = "yes" ]; then
-    yum install -y --enablerepo=epel parquet-glib-devel-${VERSION}
-    yum install -y --enablerepo=epel parquet-glib-doc-${VERSION}
+    ${install_command} --enablerepo=epel parquet-glib-devel-${VERSION}
+    ${install_command} --enablerepo=epel parquet-glib-doc-${VERSION}
   else
-    yum install -y --enablerepo=epel parquet-devel-${VERSION}
+    ${install_command} --enablerepo=epel parquet-devel-${VERSION}
   fi
 fi

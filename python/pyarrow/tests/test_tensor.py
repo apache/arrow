@@ -184,8 +184,6 @@ def test_read_tensor(tmpdir):
     np.testing.assert_equal(data, array)
 
 
-@pytest.mark.skipif(sys.version_info < (3,),
-                    reason="requires Python 3+")
 def test_tensor_memoryview():
     # Tensors support the PEP 3118 buffer protocol
     for dtype, expected_format in [(np.int8, '=b'),

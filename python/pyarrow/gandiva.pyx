@@ -20,8 +20,6 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from __future__ import absolute_import
-
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
@@ -149,6 +147,10 @@ cdef class Projector:
         self.pool = pool
         return self
 
+    @property
+    def llvm_ir(self):
+        return self.projector.get().DumpIR().decode()
+
     def evaluate(self, RecordBatch batch):
         cdef vector[shared_ptr[CArray]] results
         check_status(self.projector.get().Evaluate(
@@ -173,6 +175,10 @@ cdef class Filter:
         cdef Filter self = Filter.__new__(Filter)
         self.filter = filter
         return self
+
+    @property
+    def llvm_ir(self):
+        return self.filter.get().DumpIR().decode()
 
     def evaluate(self, RecordBatch batch, MemoryPool pool, dtype='int32'):
         cdef:

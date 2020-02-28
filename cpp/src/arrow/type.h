@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPE_H
-#define ARROW_TYPE_H
+#pragma once
 
 #include <atomic>
 #include <climits>
@@ -24,6 +23,7 @@
 #include <iosfwd>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/type_fwd.h"  // IWYU pragma: export
@@ -191,16 +191,33 @@ class ARROW_EXPORT Fingerprintable {
 
 }  // namespace detail
 
+/// EXPERIMENTAL: Layout specification for a data type
 struct ARROW_EXPORT DataTypeLayout {
-  // The bit width for each buffer in this DataType's representation
-  // (kVariableSizeBuffer if the item size for a given buffer is unknown or variable,
-  //  kAlwaysNullBuffer if the buffer is always null).
-  // Child types are not included, they should be inspected separately.
-  std::vector<int64_t> bit_widths;
-  bool has_dictionary;
+  enum BufferKind { FIXED_WIDTH, VARIABLE_WIDTH, BITMAP, ALWAYS_NULL };
 
-  static constexpr int64_t kAlwaysNullBuffer = 0;
-  static constexpr int64_t kVariableSizeBuffer = -1;
+  /// Layout specification for a single data type buffer
+  struct BufferSpec {
+    BufferKind kind;
+    int64_t byte_width;  // For FIXED_WIDTH
+
+    bool operator==(const BufferSpec& other) const {
+      return kind == other.kind &&
+             (kind != FIXED_WIDTH || byte_width == other.byte_width);
+    }
+    bool operator!=(const BufferSpec& other) const { return !(*this == other); }
+  };
+
+  static BufferSpec FixedWidth(int64_t w) { return BufferSpec{FIXED_WIDTH, w}; }
+  static BufferSpec VariableWidth() { return BufferSpec{VARIABLE_WIDTH, -1}; }
+  static BufferSpec Bitmap() { return BufferSpec{BITMAP, -1}; }
+  static BufferSpec AlwaysNull() { return BufferSpec{ALWAYS_NULL, -1}; }
+
+  /// A vector of buffer layout specifications, one for each expected buffer
+  std::vector<BufferSpec> buffers;
+  /// Whether this type expects an associated dictionary array.
+  bool has_dictionary = false;
+
+  explicit DataTypeLayout(std::vector<BufferSpec> v) : buffers(std::move(v)) {}
 };
 
 /// \brief Base class for all data types
@@ -342,6 +359,12 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   std::shared_ptr<Field> WithMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
 
+  /// \brief EXPERIMENTAL: Return a copy of this field with the given metadata
+  /// merged with existing metadata (any colliding keys will be overridden by
+  /// the passed metadata)
+  std::shared_ptr<Field> WithMergedMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
   ARROW_DEPRECATED("Use WithMetadata")
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
@@ -377,7 +400,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   ///   - have the same name
   ///   - have the same type, or of compatible types according to `options`.
   ///
-  ///
   /// The metadata of the current field is preserved; the metadata of the other
   /// field is discarded.
   Result<std::shared_ptr<Field>> MergeWith(
@@ -407,7 +429,9 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   bool IsCompatibleWith(const std::shared_ptr<Field>& other) const;
 
   /// \brief Return a string representation ot the field
-  std::string ToString() const;
+  /// \param[in] show_metadata when true, if KeyValueMetadata is non-empty,
+  /// print keys and values in the output
+  std::string ToString(bool show_metadata = false) const;
 
   /// \brief Return the field name
   const std::string& name() const { return name_; }
@@ -449,7 +473,10 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
-  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
+  DataTypeLayout layout() const override {
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(C_TYPE))});
+  }
 
   std::string name() const override { return DERIVED::type_name(); }
 
@@ -475,7 +502,7 @@ class ARROW_EXPORT NullType : public DataType {
   std::string ToString() const override;
 
   DataTypeLayout layout() const override {
-    return {{DataTypeLayout::kAlwaysNullBuffer}, false};
+    return DataTypeLayout({DataTypeLayout::AlwaysNull()});
   }
 
   std::string name() const override { return "null"; }
@@ -492,6 +519,10 @@ class ARROW_EXPORT BooleanType
 
   // BooleanType within arrow use a single bit instead of the C 8-bits layout.
   int bit_width() const final { return 1; }
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap(), DataTypeLayout::Bitmap()});
+  }
 
  protected:
   std::string ComputeFingerprint() const override;
@@ -615,6 +646,9 @@ class ARROW_EXPORT DoubleType
 class ARROW_EXPORT BaseListType : public NestedType {
  public:
   using NestedType::NestedType;
+  std::shared_ptr<Field> value_field() const { return children_[0]; }
+
+  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 };
 
 /// \brief Concrete type class for list data
@@ -637,12 +671,9 @@ class ARROW_EXPORT ListType : public BaseListType {
     children_ = {value_field};
   }
 
-  std::shared_ptr<Field> value_field() const { return children_[0]; }
-
-  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
-
   DataTypeLayout layout() const override {
-    return {{1, CHAR_BIT * sizeof(offset_type)}, false};
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(offset_type))});
   }
 
   std::string ToString() const override;
@@ -672,12 +703,9 @@ class ARROW_EXPORT LargeListType : public BaseListType {
     children_ = {value_field};
   }
 
-  std::shared_ptr<Field> value_field() const { return children_[0]; }
-
-  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
-
   DataTypeLayout layout() const override {
-    return {{1, CHAR_BIT * sizeof(offset_type)}, false};
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(offset_type))});
   }
 
   std::string ToString() const override;
@@ -702,9 +730,14 @@ class ARROW_EXPORT MapType : public ListType {
   MapType(const std::shared_ptr<DataType>& key_type,
           const std::shared_ptr<DataType>& item_type, bool keys_sorted = false);
 
-  std::shared_ptr<DataType> key_type() const { return value_type()->child(0)->type(); }
+  MapType(const std::shared_ptr<DataType>& key_type,
+          const std::shared_ptr<Field>& item_field, bool keys_sorted = false);
 
-  std::shared_ptr<DataType> item_type() const { return value_type()->child(1)->type(); }
+  std::shared_ptr<Field> key_field() const { return value_type()->child(0); }
+  std::shared_ptr<DataType> key_type() const { return key_field()->type(); }
+
+  std::shared_ptr<Field> item_field() const { return value_type()->child(1); }
+  std::shared_ptr<DataType> item_type() const { return item_field()->type(); }
 
   std::string ToString() const override;
 
@@ -719,7 +752,7 @@ class ARROW_EXPORT MapType : public ListType {
 };
 
 /// \brief Concrete type class for fixed size list data
-class ARROW_EXPORT FixedSizeListType : public NestedType {
+class ARROW_EXPORT FixedSizeListType : public BaseListType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
   using offset_type = int32_t;
@@ -731,15 +764,13 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
       : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
 
   FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
-      : NestedType(type_id), list_size_(list_size) {
+      : BaseListType(type_id), list_size_(list_size) {
     children_ = {value_field};
   }
 
-  std::shared_ptr<Field> value_field() const { return children_[0]; }
-
-  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
-
-  DataTypeLayout layout() const override { return {{1}, false}; }
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap()});
+  }
 
   std::string ToString() const override;
 
@@ -769,8 +800,9 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
   BinaryType() : BinaryType(Type::BINARY) {}
 
   DataTypeLayout layout() const override {
-    return {{1, CHAR_BIT * sizeof(offset_type), DataTypeLayout::kVariableSizeBuffer},
-            false};
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(offset_type)),
+                           DataTypeLayout::VariableWidth()});
   }
 
   std::string ToString() const override;
@@ -795,8 +827,9 @@ class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
   LargeBinaryType() : LargeBinaryType(Type::LARGE_BINARY) {}
 
   DataTypeLayout layout() const override {
-    return {{1, CHAR_BIT * sizeof(offset_type), DataTypeLayout::kVariableSizeBuffer},
-            false};
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(offset_type)),
+                           DataTypeLayout::VariableWidth()});
   }
 
   std::string ToString() const override;
@@ -861,7 +894,10 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   std::string ToString() const override;
   std::string name() const override { return "fixed_size_binary"; }
 
-  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
+  DataTypeLayout layout() const override {
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(byte_width())});
+  }
 
   int32_t byte_width() const { return byte_width_; }
   int bit_width() const override;
@@ -883,7 +919,9 @@ class ARROW_EXPORT StructType : public NestedType {
 
   ~StructType() override;
 
-  DataTypeLayout layout() const override { return {{1}, false}; }
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap()});
+  }
 
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
@@ -1015,7 +1053,10 @@ class ARROW_EXPORT TemporalType : public FixedWidthType {
  public:
   using FixedWidthType::FixedWidthType;
 
-  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
+  DataTypeLayout layout() const override {
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(bit_width() / 8)});
+  }
 };
 
 /// \brief Base type class for date data
@@ -1403,13 +1444,18 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// Return the indices of all fields having this name
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
 
+  /// Indicate if fields named `names` can be found unambiguously in the schema.
+  Status CanReferenceFieldsByNames(const std::vector<std::string>& names) const;
+
   /// \brief The custom key-value metadata, if any
   ///
   /// \return metadata may be null
   std::shared_ptr<const KeyValueMetadata> metadata() const;
 
   /// \brief Render a string representation of the schema suitable for debugging
-  std::string ToString() const;
+  /// \param[in] show_metadata when true, if KeyValueMetadata is non-empty,
+  /// print keys and values in the output
+  std::string ToString(bool show_metadata = false) const;
 
   Status AddField(int i, const std::shared_ptr<Field>& field,
                   std::shared_ptr<Schema>* out) const;
@@ -1482,7 +1528,15 @@ std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type
 /// \brief Create a MapType instance from its key and value DataTypes
 ARROW_EXPORT
 std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<DataType>& value_type,
+                              const std::shared_ptr<DataType>& item_type,
+                              bool keys_sorted = false);
+
+/// \brief Create a MapType instance from its key DataType and value field.
+///
+/// The field override is provided to communicate nullability of the value.
+ARROW_EXPORT
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<Field>& item_field,
                               bool keys_sorted = false);
 
 /// \brief Create a FixedSizeListType instance from its child Field type
@@ -1735,5 +1789,3 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
     Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
 
 }  // namespace arrow
-
-#endif  // ARROW_TYPE_H

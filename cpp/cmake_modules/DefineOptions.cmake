@@ -92,6 +92,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
 
+  define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
+                OFF)
+
   # Disable this option to exercise non-SIMD fallbacks
   define_option(ARROW_USE_SIMD "Build with SIMD optimizations" ON)
 

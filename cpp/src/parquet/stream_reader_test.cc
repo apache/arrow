@@ -827,5 +827,90 @@ TEST_F(TestOptionalFields, ReadOptionalFieldAsRequiredField) {
   }
 }
 
+class TestReadingDataFiles : public ::testing::Test {
+ protected:
+  std::string GetDataFile(const std::string& filename) const {
+    return std::string(get_data_dir()) + "/" + filename;
+  }
+};
+
+TEST_F(TestReadingDataFiles, AllTypesPlain) {
+  PARQUET_ASSIGN_OR_THROW(
+      auto infile, arrow::io::ReadableFile::Open(GetDataFile("alltypes_plain.parquet")));
+
+  auto file_reader = ParquetFileReader::Open(infile);
+  auto reader = StreamReader{std::move(file_reader)};
+
+  int32_t c0;
+  bool c1;
+  int32_t c2;
+  int32_t c3;
+  int32_t c4;
+  int64_t c5;
+  float c6;
+  double c7;
+  std::string c8;
+  std::string c9;
+
+  const char* expected_date_str[] = {"03/01/09", "03/01/09", "04/01/09", "04/01/09",
+                                     "02/01/09", "02/01/09", "01/01/09", "01/01/09"};
+  int i;
+
+  for (i = 0; !reader.eof(); ++i) {
+    reader >> c0 >> c1 >> c2 >> c3 >> c4 >> c5;
+    reader >> c6 >> c7;
+    reader >> c8 >> c9;
+    reader.SkipColumns(1);  // Skip column with unsupported 96-bit type
+    reader >> EndRow;
+
+    EXPECT_EQ(c1, (i & 1) == 0);
+    EXPECT_EQ(c2, i & 1);
+    EXPECT_EQ(c3, i & 1);
+    EXPECT_EQ(c4, i & 1);
+    EXPECT_EQ(c5, i & 1 ? 10 : 0);
+    EXPECT_FLOAT_EQ(c6, i & 1 ? 1.1f : 0.f);
+    EXPECT_DOUBLE_EQ(c7, i & 1 ? 10.1 : 0.);
+    ASSERT_LT(static_cast<std::size_t>(i),
+              sizeof(expected_date_str) / sizeof(expected_date_str[0]));
+    EXPECT_EQ(c8, expected_date_str[i]);
+    EXPECT_EQ(c9, i & 1 ? "1" : "0");
+  }
+  EXPECT_EQ(i, sizeof(expected_date_str) / sizeof(expected_date_str[0]));
+}
+
+TEST_F(TestReadingDataFiles, Int32Decimal) {
+  PARQUET_ASSIGN_OR_THROW(
+      auto infile, arrow::io::ReadableFile::Open(GetDataFile("int32_decimal.parquet")));
+
+  auto file_reader = ParquetFileReader::Open(infile);
+  auto reader = StreamReader{std::move(file_reader)};
+
+  int32_t x;
+  int i;
+
+  for (i = 1; !reader.eof(); ++i) {
+    reader >> x >> EndRow;
+    EXPECT_EQ(x, i * 100);
+  }
+  EXPECT_EQ(i, 25);
+}
+
+TEST_F(TestReadingDataFiles, Int64Decimal) {
+  PARQUET_ASSIGN_OR_THROW(
+      auto infile, arrow::io::ReadableFile::Open(GetDataFile("int64_decimal.parquet")));
+
+  auto file_reader = ParquetFileReader::Open(infile);
+  auto reader = StreamReader{std::move(file_reader)};
+
+  int64_t x;
+  int i;
+
+  for (i = 1; !reader.eof(); ++i) {
+    reader >> x >> EndRow;
+    EXPECT_EQ(x, i * 100);
+  }
+  EXPECT_EQ(i, 25);
+}
+
 }  // namespace test
 }  // namespace parquet

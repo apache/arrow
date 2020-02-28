@@ -396,7 +396,7 @@ struct is_simple_scalar<
                               std::shared_ptr<DataType>>::value>::type> : std::true_type {
 };
 
-};  // namespace internal
+}  // namespace internal
 
 template <typename ValueRef>
 struct MakeScalarImpl {

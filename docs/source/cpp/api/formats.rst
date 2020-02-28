@@ -69,6 +69,9 @@ Parquet reader
 .. doxygengroup:: parquet-arrow-reader-factories
    :content-only:
 
+.. doxygenclass:: parquet::StreamReader
+   :members:
+
 Parquet writer
 ==============
 
@@ -82,5 +85,8 @@ Parquet writer
    :members:
 
 .. doxygenfunction:: parquet::arrow::WriteTable
+
+.. doxygenclass:: parquet::StreamWriter
+   :members:
 
 .. TODO ORC

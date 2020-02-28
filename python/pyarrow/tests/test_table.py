@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -202,6 +201,26 @@ def test_chunked_array_to_pandas():
     assert series.shape == (5,)
     assert series[0] == -10
     assert series.name == 'a'
+
+
+@pytest.mark.pandas
+def test_chunked_array_to_pandas_preserve_name():
+    # https://issues.apache.org/jira/browse/ARROW-7709
+    import pandas as pd
+    import pandas.testing as tm
+
+    for data in [
+            pa.array([1, 2, 3]),
+            pa.array(pd.Categorical(["a", "b", "a"])),
+            pa.array(pd.date_range("2012", periods=3)),
+            pa.array(pd.date_range("2012", periods=3, tz="Europe/Brussels")),
+            pa.array([1, 2, 3], pa.timestamp("ms")),
+            pa.array([1, 2, 3], pa.timestamp("ms", "Europe/Brussels"))]:
+        table = pa.table({"name": data})
+        result = table.column("name").to_pandas()
+        assert result.name == "name"
+        expected = pd.Series(data.to_pandas(), name="name")
+        tm.assert_series_equal(result, expected)
 
 
 @pytest.mark.pandas
@@ -459,6 +478,10 @@ def test_table_equals():
     assert table.equals(table)
     # ARROW-4822
     assert not table.equals(None)
+
+    other = pa.Table.from_arrays([], names=[], metadata={'key': 'value'})
+    assert not table.equals(other)
+    assert table.equals(other, check_metadata=False)
 
 
 def test_table_from_batches_and_schema():
@@ -978,9 +1001,9 @@ def test_invalid_table_construct():
 
 
 @pytest.mark.parametrize('data, klass', [
-    (([u'', u'foo', u'bar'], [4.5, 5, None]), list),
-    (([u'', u'foo', u'bar'], [4.5, 5, None]), pa.array),
-    (([[u''], [u'foo', u'bar']], [[4.5], [5., None]]), pa.chunked_array),
+    ((['', 'foo', 'bar'], [4.5, 5, None]), list),
+    ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
+    (([[''], ['foo', 'bar']], [[4.5], [5., None]]), pa.chunked_array),
 ])
 def test_from_arrays_schema(data, klass):
     data = [klass(data[0]), klass(data[1])]
@@ -1027,7 +1050,7 @@ def test_table_from_pydict():
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
 
     # With lists as values
-    data = OrderedDict([('strs', [u'', u'foo', u'bar']),
+    data = OrderedDict([('strs', ['', 'foo', 'bar']),
                         ('floats', [4.5, 5, None])])
     table = pa.Table.from_pydict(data)
     assert table.num_columns == 2
@@ -1075,8 +1098,8 @@ def test_table_from_pydict():
 
 
 @pytest.mark.parametrize('data, klass', [
-    (([u'', u'foo', u'bar'], [4.5, 5, None]), pa.array),
-    (([[u''], [u'foo', u'bar']], [[4.5], [5., None]]), pa.chunked_array),
+    ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
+    (([[''], ['foo', 'bar']], [[4.5], [5., None]]), pa.chunked_array),
 ])
 def test_table_from_pydict_arrow_arrays(data, klass):
     data = OrderedDict([('strs', klass(data[0])), ('floats', klass(data[1]))])
@@ -1109,9 +1132,9 @@ def test_table_from_pydict_arrow_arrays(data, klass):
 
 
 @pytest.mark.parametrize('data, klass', [
-    (([u'', u'foo', u'bar'], [4.5, 5, None]), list),
-    (([u'', u'foo', u'bar'], [4.5, 5, None]), pa.array),
-    (([[u''], [u'foo', u'bar']], [[4.5], [5., None]]), pa.chunked_array),
+    ((['', 'foo', 'bar'], [4.5, 5, None]), list),
+    ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
+    (([[''], ['foo', 'bar']], [[4.5], [5., None]]), pa.chunked_array),
 ])
 def test_table_from_pydict_schema(data, klass):
     # passed schema is source of truth for the columns
@@ -1137,7 +1160,7 @@ def test_table_from_pandas_schema():
     # passed schema is source of truth for the columns
     import pandas as pd
 
-    df = pd.DataFrame(OrderedDict([('strs', [u'', u'foo', u'bar']),
+    df = pd.DataFrame(OrderedDict([('strs', ['', 'foo', 'bar']),
                                    ('floats', [4.5, 5, None])]))
 
     # with different but compatible schema

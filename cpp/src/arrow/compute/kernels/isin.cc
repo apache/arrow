@@ -78,8 +78,8 @@ struct MemoTableRight {
   Status VisitNull() { return Status::OK(); }
 
   Status VisitValue(const Scalar& value) {
-    memo_table_->GetOrInsert(value);
-    return Status::OK();
+    int32_t unused_memo_index;
+    return memo_table_->GetOrInsert(value, &unused_memo_index);
   }
 
   Status Reset(MemoryPool* pool) {

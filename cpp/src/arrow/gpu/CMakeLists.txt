@@ -34,7 +34,7 @@ include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
 
 message(STATUS "CUDA Libraries: ${CUDA_LIBRARIES}")
 
-set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_memory.cc)
+set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_internal.cc cuda_memory.cc)
 
 set(ARROW_CUDA_SHARED_LINK_LIBS ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY})
 
@@ -77,7 +77,7 @@ endif()
 
 if(ARROW_BUILD_BENCHMARKS)
   cuda_add_executable(arrow-cuda-benchmark cuda_benchmark.cc)
-  target_link_libraries(arrow-cuda-benchmark arrow_cuda_shared GTest::GTest
+  target_link_libraries(arrow-cuda-benchmark arrow_cuda_shared GTest::gtest
                         ${ARROW_BENCHMARK_LINK_LIBS})
   add_dependencies(arrow_cuda-benchmarks arrow-cuda-benchmark)
 endif()

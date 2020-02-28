@@ -24,6 +24,7 @@ fuzz testing on several parts of the Arrow C++ feature set, currently:
 
 * the IPC stream format
 * the IPC file format
+* the Parquet file format
 
 We welcome any contribution to expand the scope of fuzz testing and cover
 areas ingesting potentially invalid or malicious data.

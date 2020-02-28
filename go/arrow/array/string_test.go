@@ -158,3 +158,26 @@ func TestStringBuilder_Empty(t *testing.T) {
 	assert.Equal(t, want, stringValues(a))
 	a.Release()
 }
+
+// TestStringReset tests the Reset() method on the String type by creating two different Strings and then
+// reseting the contents of string2 with the values from string1.
+func TestStringReset(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	sb1 := array.NewStringBuilder(mem)
+	sb2 := array.NewStringBuilder(mem)
+	defer sb1.Release()
+	defer sb2.Release()
+
+	sb1.Append("string1")
+	sb1.AppendNull()
+
+	var (
+		string1 = sb1.NewStringArray()
+		string2 = sb2.NewStringArray()
+
+		string1Data = string1.Data()
+	)
+	string2.Reset(string1Data)
+
+	assert.Equal(t, "string1", string2.Value(0))
+}

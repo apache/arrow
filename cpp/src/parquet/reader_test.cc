@@ -412,7 +412,7 @@ TEST(TestFileReader, BufferedReads) {
   std::shared_ptr<WriterProperties> writer_props =
       WriterProperties::Builder().write_batch_size(64)->data_pagesize(128)->build();
 
-  ASSERT_OK_AND_ASSIGN(auto out_file, arrow::io::BufferOutputStream::Create(1024));
+  ASSERT_OK_AND_ASSIGN(auto out_file, arrow::io::BufferOutputStream::Create());
   std::shared_ptr<ParquetFileWriter> file_writer =
       ParquetFileWriter::Open(out_file, schema, writer_props);
 

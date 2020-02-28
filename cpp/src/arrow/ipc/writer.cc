@@ -51,6 +51,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::CopyBitmap;
 using internal::make_unique;
 
@@ -1269,6 +1270,27 @@ Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
 
 // ----------------------------------------------------------------------
 // Serialization public APIs
+
+Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
+                                                     std::shared_ptr<MemoryManager> mm) {
+  int64_t size = 0;
+  RETURN_NOT_OK(GetRecordBatchSize(batch, &size));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, mm->AllocateBuffer(size));
+  ARROW_ASSIGN_OR_RAISE(auto writer, Buffer::GetWriter(buffer));
+
+  MemoryPool* pool;
+  // XXX Should we have a helper function for getting a MemoryPool
+  // for any MemoryManager (not only CPU)?
+  if (mm->is_cpu()) {
+    pool = checked_pointer_cast<CPUMemoryManager>(mm)->pool();
+  } else {
+    // Allocations will be ephemeral anyway
+    pool = default_memory_pool();
+  }
+  RETURN_NOT_OK(SerializeRecordBatch(batch, pool, writer.get()));
+  RETURN_NOT_OK(writer->Close());
+  return buffer;
+}
 
 Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                             std::shared_ptr<Buffer>* out) {

@@ -82,10 +82,10 @@ static ScanTaskIterator GetScanTaskIterator(FragmentIterator fragments,
 }
 
 Result<ScanTaskIterator> Scanner::Scan() {
-  // First, transforms Sources in a flat Iterator<Fragment>. This
-  // iterator is lazily constructed, i.e. Source::GetFragments is never
+  // First, transforms Datasets in a flat Iterator<Fragment>. This
+  // iterator is lazily constructed, i.e. Dataset::GetFragments is never
   // invoked.
-  auto fragments_it = GetFragmentsFromSources(sources_, options_);
+  auto fragments_it = GetFragmentsFromDatasets({dataset_}, options_);
   // Second, transforms Iterator<Fragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
@@ -112,27 +112,15 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
       options_(ScanOptions::Make(dataset_->schema())),
       context_(std::move(context)) {}
 
-Status EnsureColumnsInSchema(const std::shared_ptr<Schema>& schema,
-                             const std::vector<std::string>& columns) {
-  for (const auto& column : columns) {
-    if (schema->GetFieldByName(column) == nullptr) {
-      return Status::Invalid("Requested column ", column,
-                             " not found in dataset's schema.");
-    }
-  }
-
-  return Status::OK();
-}
-
 Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
-  RETURN_NOT_OK(EnsureColumnsInSchema(schema(), columns));
+  RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(columns));
   has_projection_ = true;
   project_columns_ = columns;
   return Status::OK();
 }
 
 Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
-  RETURN_NOT_OK(EnsureColumnsInSchema(schema(), FieldsInExpression(*filter)));
+  RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(FieldsInExpression(*filter)));
   RETURN_NOT_OK(filter->Validate(*schema()).status());
   options_->filter = std::move(filter);
   return Status::OK();
@@ -142,6 +130,14 @@ Status ScannerBuilder::Filter(const Expression& filter) { return Filter(filter.C
 
 Status ScannerBuilder::UseThreads(bool use_threads) {
   options_->use_threads = use_threads;
+  return Status::OK();
+}
+
+Status ScannerBuilder::BatchSize(int64_t batch_size) {
+  if (batch_size <= 0) {
+    return Status::Invalid("BatchSize must be greater than 0, got ", batch_size);
+  }
+  options_->batch_size = batch_size;
   return Status::OK();
 }
 
@@ -157,7 +153,7 @@ Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() const {
     options->evaluator = std::make_shared<TreeEvaluator>();
   }
 
-  return std::make_shared<Scanner>(dataset_->sources(), std::move(options), context_);
+  return std::make_shared<Scanner>(dataset_, std::move(options), context_);
 }
 
 using arrow::internal::TaskGroup;

@@ -372,14 +372,6 @@ class build_ext(_build_ext):
                 if not self.with_static_boost and self.bundle_boost:
                     move_shared_libs(
                         build_prefix, build_lib,
-                        "{}_filesystem".format(self.boost_namespace),
-                        implib_required=False)
-                    move_shared_libs(
-                        build_prefix, build_lib,
-                        "{}_system".format(self.boost_namespace),
-                        implib_required=False)
-                    move_shared_libs(
-                        build_prefix, build_lib,
                         "{}_regex".format(self.boost_namespace),
                         implib_required=False)
                 if sys.platform == 'win32':
@@ -520,7 +512,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '0.16.0-SNAPSHOT'
+default_version = '1.0.0-SNAPSHOT'
 if (not os.path.exists('../.git')
         and not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     if os.path.exists('PKG-INFO'):
@@ -558,9 +550,6 @@ class BinaryDistribution(Distribution):
 
 install_requires = (
     'numpy >= 1.14',
-    'six >= 1.0.0',
-    'futures; python_version < "3.2"',
-    'enum34 >= 1.1.6; python_version < "3.4"',
 )
 
 
@@ -597,14 +586,13 @@ setup(
     },
     setup_requires=['setuptools_scm', 'cython >= 0.29'] + setup_requires,
     install_requires=install_requires,
-    tests_require=['pytest', 'pandas', 'hypothesis',
-                   'pathlib2; python_version < "3.4"'],
+    tests_require=['pytest', 'pandas', 'hypothesis'],
+    python_requires='>=3.5',
     description='Python library for Apache Arrow',
     long_description=long_description,
     long_description_content_type='text/markdown',
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',

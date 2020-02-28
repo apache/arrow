@@ -103,11 +103,6 @@ class SequenceBuilder {
     return AppendPrimitive(&bools_, data, PythonType::BOOL);
   }
 
-  // Appending a python 2 int64_t to the sequence
-  Status AppendPy2Int64(const int64_t data) {
-    return AppendPrimitive(&py2_ints_, data, PythonType::PY2INT);
-  }
-
   // Appending an int64_t to the sequence
   Status AppendInt64(const int64_t data) {
     return AppendPrimitive(&ints_, data, PythonType::INT);
@@ -252,7 +247,6 @@ class SequenceBuilder {
 
   std::shared_ptr<BooleanBuilder> bools_;
   std::shared_ptr<Int64Builder> ints_;
-  std::shared_ptr<Int64Builder> py2_ints_;
   std::shared_ptr<BinaryBuilder> bytes_;
   std::shared_ptr<StringBuilder> strings_;
   std::shared_ptr<HalfFloatBuilder> half_floats_;
@@ -458,10 +452,6 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
       RETURN_NOT_OK(
           builder->AppendDict(context, serialized_object, recursion_depth, blobs_out));
     }
-#if PY_MAJOR_VERSION < 3
-  } else if (PyInt_Check(elem)) {
-    RETURN_NOT_OK(builder->AppendPy2Int64(static_cast<int64_t>(PyInt_AS_LONG(elem))));
-#endif
   } else if (PyBytes_Check(elem)) {
     auto data = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(elem));
     int32_t size = -1;
@@ -654,6 +644,7 @@ Status CountSparseTensors(
   OwnedRef num_sparse_tensors(PyDict_New());
   size_t num_coo = 0;
   size_t num_csr = 0;
+  size_t num_csf = 0;
 
   for (const auto& sparse_tensor : sparse_tensors) {
     switch (sparse_tensor->format_id()) {
@@ -663,6 +654,9 @@ Status CountSparseTensors(
       case SparseTensorFormat::CSR:
         ++num_csr;
         break;
+      case SparseTensorFormat::CSF:
+        ++num_csf;
+        break;
       case SparseTensorFormat::CSC:
         // TODO(mrkn): support csc
         break;
@@ -671,6 +665,7 @@ Status CountSparseTensors(
 
   PyDict_SetItemString(num_sparse_tensors.obj(), "coo", PyLong_FromSize_t(num_coo));
   PyDict_SetItemString(num_sparse_tensors.obj(), "csr", PyLong_FromSize_t(num_csr));
+  PyDict_SetItemString(num_sparse_tensors.obj(), "csf", PyLong_FromSize_t(num_csf));
   RETURN_IF_PYERROR();
 
   *out = num_sparse_tensors.detach();

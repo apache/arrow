@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 namespace fs {

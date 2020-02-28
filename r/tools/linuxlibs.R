@@ -21,7 +21,7 @@ dst_dir <- paste0("libarrow/arrow-", VERSION)
 
 arrow_repo <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/"
 apache_src_url <- paste0(
-  "https://www.apache.org/dyn/closer.cgi/arrow/arrow-", VERSION,
+  "https://archive.apache.org/dist/arrow/arrow-", VERSION,
   "/apache-arrow-", VERSION, ".tar.gz"
 )
 
@@ -29,20 +29,11 @@ options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
 
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
-
-# This condition identifies when you're installing locally, either by presence
-# of NOT_CRAN or by absence of a `check` env var. So even if you don't have
-# NOT_CRAN set in your dev environment, this will still pass outside R CMD check
-locally_installing <- env_is("NOT_CRAN", "true") || env_is("_R_CHECK_SIZE_OF_TARBALL_", "")
-# Combine with explicit vars to turn off downloading and building. I.e. only
-# downloads/builds when local, but can turn off either with these env vars.
 # * no download, build_ok: Only build with local git checkout
 # * download_ok, no build: Only use prebuilt binary, if found
 # * neither: Get the arrow-without-arrow package
-download_ok <- locally_installing && !env_is("LIBARROW_DOWNLOAD", "false")
-build_ok <- locally_installing && !env_is("LIBARROW_BUILD", "false")
-# TODO: allow LIBARROW_DOWNLOAD=true to override locally_installing? or just set NOT_CRAN?
-
+download_ok <- env_is("LIBARROW_DOWNLOAD", "true") || !(tolower(Sys.getenv("LIBARROW_BINARY")) %in% c("", "false"))
+build_ok <- !env_is("LIBARROW_BUILD", "false")
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
@@ -66,22 +57,20 @@ download_binary <- function(os = identify_os()) {
   libfile
 }
 
-# Function to figure out which flavor of binary we should download.
-# By default, it will try to discover from the OS what distro-version we're on
-# but you can override this by setting the env var LIBARROW_BINARY_DISTRO to:
-# * `FALSE` (not case-sensitive), which tells the script not to download a binary,
+# Function to figure out which flavor of binary we should download, if at all.
+# By default (unset or "FALSE"), it will not download a precompiled library,
+# but you can override this by setting the env var LIBARROW_BINARY to:
+# * `TRUE` (not case-sensitive), to try to discover your current OS, or
 # * some other string, presumably a related "distro-version" that has binaries
 #   built that work for your OS
-identify_os <- function(os = Sys.getenv("LIBARROW_BINARY_DISTRO")) {
-  if (nzchar(os)) {
-    if (identical(tolower(os), "false")) {
-      # Env var says not to download a binary
-      return(NULL)
-    } else {
-      # Env var provided an os-version to use--maybe you're on Ubuntu 18.10 but
-      # we only build for 18.04 and that's fine--so use what the user set
-      return(os)
-    }
+identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_DOWNLOAD"))) {
+  if (tolower(os) %in% c("", "false")) {
+    # Env var says not to download a binary
+    return(NULL)
+  } else if (!identical(tolower(os), "true")) {
+    # Env var provided an os-version to use--maybe you're on Ubuntu 18.10 but
+    # we only build for 18.04 and that's fine--so use what the user set
+    return(os)
   }
 
   if (nzchar(Sys.which("lsb_release"))) {
@@ -162,11 +151,11 @@ download_source <- function() {
   src_dir
 }
 
-find_local_source <- function() {
-  if (file.exists("../cpp/src/arrow/api.h")) {
+find_local_source <- function(arrow_home = Sys.getenv("ARROW_HOME", "..")) {
+  if (file.exists(paste0(arrow_home, "/cpp/src/arrow/api.h"))) {
     # We're in a git checkout of arrow, so we can build it
     cat("*** Found local C++ source\n")
-    return("../cpp")
+    return(paste0(arrow_home, "/cpp"))
   } else {
     return(NULL)
   }
@@ -192,32 +181,40 @@ build_libarrow <- function(src_dir, dst_dir) {
   m4 <- ensure_m4()
   flex <- ensure_flex(m4)
   bison <- ensure_bison(m4)
+
+  build_dir <- tempfile()
+  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
   env_vars <- sprintf(
-    "SOURCE_DIR=%s BUILD_DIR=libarrow/build DEST_DIR=%s CMAKE=%s",
-    src_dir,                                dst_dir,    cmake
+    "SOURCE_DIR=%s BUILD_DIR=%s DEST_DIR=%s CMAKE=%s",
+    src_dir,       build_dir,   dst_dir,    cmake
   )
   if (!is.null(flex)) {
-    system(paste0(flex, "/flex --version"))
+    if (!quietly) {
+      system(paste0(flex, "/flex --version"))
+    }
     env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
   }
   if (!is.null(bison)) {
-    system(paste0(bison, "/bison --version"))
+    if (!quietly) {
+      system(paste0(bison, "/bison --version"))
+    }
     env_vars <- sprintf(
       "PATH=%s:$PATH %s BISON_PKGDATADIR=%s/../share/bison",
             bison,   env_vars,           bison
     )
   }
-  if (!quietly) {
-    cat("*** Building with ", env_vars, "\n")
-  }
-  system(paste(env_vars, "inst/build_arrow_static.sh"))
+  cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
+  system(
+    paste(env_vars, "inst/build_arrow_static.sh"),
+    ignore.stdout = quietly, ignore.stderr = quietly
+  )
 }
 
 ensure_cmake <- function() {
   cmake <- Sys.which("cmake")
   if (!nzchar(cmake)) {
     # If not found, download it
-    cat("*** Downloading cmake\n")
+    cat("**** cmake\n")
     CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.16.2")
     cmake_binary_url <- paste0(
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
@@ -249,7 +246,7 @@ ensure_flex <- function(m4 = ensure_m4()) {
     return(NULL)
   }
   # If not found, download it
-  cat("*** Downloading and building flex\n")
+  cat("**** flex\n")
   # Flex 2.6.4 (latest release) causes segfaults on some platforms (ubuntu bionic, debian e.g.)
   # See https://github.com/westes/flex/issues/219
   # Allegedly it has been fixed in master but there hasn't been a release since May 2017
@@ -276,8 +273,10 @@ ensure_flex <- function(m4 = ensure_m4()) {
   }
   # Now, build flex
   flex_dir <- paste0(flex_dir, "/flex-", FLEX_VERSION)
-  cmd <- sprintf("cd %s && ./configure && make", shQuote(flex_dir))
-  system(paste0(path, cmd))
+  base_cmd <- paste0(path, "cd ", shQuote(flex_dir), " &&")
+  for (cmd in c("./configure", "make")) {
+    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
+  }
   # The built flex should be in ./src. Return that so we can set as FLEX_ROOT
   paste0(flex_dir, "/src")
 }
@@ -289,7 +288,7 @@ ensure_bison <- function(m4 = ensure_m4()) {
     return(NULL)
   }
   # If not found, download it
-  cat("*** Downloading and building bison\n")
+  cat("**** bison\n")
   BISON_VERSION <- Sys.getenv("BISON_VERSION", "3.5")
   source_url <- paste0("https://ftp.gnu.org/gnu/bison/bison-", BISON_VERSION, ".tar.gz")
   tar_file <- tempfile()
@@ -313,11 +312,10 @@ ensure_bison <- function(m4 = ensure_m4()) {
   }
   # Now, build bison
   build_dir <- paste0(build_dir, "/bison-", BISON_VERSION)
-  cmd <- sprintf(
-    "cd %s && ./configure --prefix=%s && make && make install",
-        shQuote(build_dir),          install_dir
-  )
-  system(paste0(path, cmd))
+  base_cmd <- paste0(path, "cd ", shQuote(build_dir), " &&")
+  for (cmd in c(paste0("./configure --prefix=", install_dir), "make", "make install")) {
+    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
+  }
   # Return the path to the bison binaries
   paste0(install_dir, "/bin")
 }
@@ -328,7 +326,7 @@ ensure_m4 <- function() {
     return(NULL)
   }
   # If not found, download it
-  cat("*** Downloading and building m4\n")
+  cat("**** m4\n")
   M4_VERSION <- Sys.getenv("M4_VERSION", "1.4.18")
   source_url <- paste0("https://ftp.gnu.org/gnu/m4/m4-", M4_VERSION, ".tar.gz")
   tar_file <- tempfile()
@@ -345,7 +343,10 @@ ensure_m4 <- function() {
 
   # Now, build it
   dst_dir <- paste0(dst_dir, "/m4-", M4_VERSION)
-  system(sprintf("cd %s && ./configure && make", shQuote(dst_dir)))
+  base_cmd <- paste("cd", shQuote(dst_dir), "&&")
+  for (cmd in c("./configure", "make")) {
+    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
+  }
   # The built m4 should be in ./src. Return that so we can put that on the PATH
   paste0(dst_dir, "/src")
 }

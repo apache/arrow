@@ -18,21 +18,15 @@
 #
 
 import re
-import sys
 
-try:
-    import argparse
-    import concurrent.futures as cf
-    import functools
-    import hashlib
-    import json
-    import os
-    import subprocess
-    import urllib.request
-except ImportError:
-    if sys.version_info.major < 3:
-        raise Exception("Please use Python 3 to run this script")
-    raise
+import argparse
+import concurrent.futures as cf
+import functools
+import hashlib
+import json
+import os
+import subprocess
+import urllib.request
 
 
 BINTRAY_API_ROOT = "https://bintray.com/api/v1"
@@ -112,7 +106,7 @@ class Bintray:
         bintray_abspath = os.path.join(BINTRAY_DL_ROOT, self.repo, relpath)
 
         cmd = [
-            'curl', '--fail', '--location',
+            'curl', '--fail', '--location', '--retry', '5',
             '--output', dest_path, bintray_abspath
         ]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,

@@ -55,7 +55,7 @@ class EpochTimePoint {
   int TmMin() const { return static_cast<int>(TimeOfDay().minutes().count()); }
 
   int TmSec() const {
-    // TODO(wesm): UNIX y2k issue on int=int32 platforms
+    // TODO(wesm): UNIX y2k issue on int=gdv_int32 platforms
     return static_cast<int>(TimeOfDay().seconds().count());
   }
 

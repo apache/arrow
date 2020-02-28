@@ -37,7 +37,7 @@ class Table;
 
 namespace internal {
 class TaskGroup;
-};
+}
 
 namespace dataset {
 
@@ -73,6 +73,9 @@ class ARROW_DS_EXPORT ScanOptions {
 
   // Projector for reconciling the final RecordBatch to the requested schema.
   RecordBatchProjector projector;
+
+  // Maximum row count for scanned batches.
+  int64_t batch_size = 1 << 15;
 
   // Return a vector of fields that requires materialization.
   //
@@ -147,9 +150,9 @@ ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
 ///          yield scan_task
 class ARROW_DS_EXPORT Scanner {
  public:
-  Scanner(SourceVector sources, std::shared_ptr<ScanOptions> options,
+  Scanner(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> options,
           std::shared_ptr<ScanContext> context)
-      : sources_(std::move(sources)),
+      : dataset_(std::move(dataset)),
         options_(std::move(options)),
         context_(std::move(context)) {}
 
@@ -170,7 +173,7 @@ class ARROW_DS_EXPORT Scanner {
   /// \brief Return a TaskGroup according to ScanContext thread rules.
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
 
-  SourceVector sources_;
+  std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<ScanOptions> options_;
   std::shared_ptr<ScanContext> context_;
 };
@@ -211,6 +214,14 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanContext;
   Status UseThreads(bool use_threads = true);
+
+  /// \brief Set the maximum number of rows per RecordBatch.
+  ///
+  /// \param[in] batch_size the maximum number of rows.
+  /// \returns An error if the number for batch is not greater than 0.
+  ///
+  /// This option provides a control limiting the memory owned by any RecordBatch.
+  Status BatchSize(int64_t batch_size);
 
   /// \brief Return the constructed now-immutable Scanner object
   Result<std::shared_ptr<Scanner>> Finish() const;

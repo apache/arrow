@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.2)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-set(ARROW_VERSION "0.16.0-SNAPSHOT")
+set(ARROW_VERSION "1.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -149,6 +149,11 @@ if(ARROW_USE_CCACHE)
     # meaningful to the compiler
     set(ENV{CCACHE_COMMENTS} "1")
   endif(CCACHE_FOUND)
+endif()
+
+if(ARROW_USE_PRECOMPILED_HEADERS AND ${CMAKE_VERSION} VERSION_LESS "3.16.0")
+  message(WARNING "Precompiled headers need CMake 3.16.0 or later, disabling")
+  set(ARROW_USE_PRECOMPILED_HEADERS OFF)
 endif()
 
 if(ARROW_OPTIONAL_INSTALL)
@@ -350,6 +355,10 @@ endif()
 
 if(ARROW_LARGE_MEMORY_TESTS)
   add_definitions(-DARROW_LARGE_MEMORY_TESTS)
+endif()
+
+if(ARROW_TEST_MEMCHECK)
+  add_definitions(-DARROW_VALGRIND)
 endif()
 
 if(MSVC
@@ -661,9 +670,9 @@ if(ARROW_ORC)
 endif()
 
 if(ARROW_USE_GLOG)
-  list(APPEND ARROW_LINK_LIBS GLOG::glog)
-  list(APPEND ARROW_STATIC_LINK_LIBS GLOG::glog)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS GLOG::glog)
+  list(APPEND ARROW_LINK_LIBS glog::glog)
+  list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
   add_definitions("-DARROW_USE_GLOG")
 endif()
 
@@ -689,14 +698,7 @@ set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
 # boost::filesystem is needed for S3 and Flight tests as a boost::process dependency.
 if(((ARROW_FLIGHT OR ARROW_S3) AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)))
-  set(ARROW_WITH_BOOST_FILESYSTEM ON)
-
-  list(APPEND ARROW_SHARED_PRIVATE_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY}
-              ${BOOST_SYSTEM_LIBRARY})
-
-  list(APPEND ARROW_STATIC_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
-
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS boost_filesystem boost_system)
+  list(APPEND ARROW_TEST_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
 endif()
 
 if(NOT MSVC)
@@ -705,9 +707,9 @@ if(NOT MSVC)
 endif()
 
 set(ARROW_TEST_LINK_TOOLCHAIN
-    GTest::Main
-    GTest::GTest
-    GTest::GMock
+    GTest::gtest_main
+    GTest::gtest
+    GTest::gmock
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_SYSTEM_LIBRARY})
 

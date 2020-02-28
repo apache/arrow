@@ -42,8 +42,6 @@ struct ARROW_EXPORT HdfsOptions {
   int64_t default_block_size = 0;
 
   void ConfigureEndPoint(const std::string& host, int port);
-  /// Be cautious that libhdfs3 is a unmaintained project
-  void ConfigureHdfsDriver(bool use_hdfs3);
   void ConfigureHdfsReplication(int16_t replication);
   void ConfigureHdfsUser(const std::string& user_name);
   void ConfigureHdfsBufferSize(int32_t buffer_size);

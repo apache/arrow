@@ -106,6 +106,20 @@ TEST_F(TestChunkedArray, EqualsDifferingLengths) {
   ASSERT_TRUE(one_->Equals(*another_.get()));
 }
 
+TEST_F(TestChunkedArray, EqualsDifferingMetadata) {
+  auto left_ty = list(field("item", int32()));
+
+  auto metadata = key_value_metadata({"foo"}, {"bar"});
+  auto right_ty = list(field("item", int32(), true, metadata));
+
+  std::vector<std::shared_ptr<Array>> left_chunks = {ArrayFromJSON(left_ty, "[[]]")};
+  std::vector<std::shared_ptr<Array>> right_chunks = {ArrayFromJSON(right_ty, "[[]]")};
+
+  ChunkedArray left(left_chunks);
+  ChunkedArray right(right_chunks);
+  ASSERT_TRUE(left.Equals(right));
+}
+
 TEST_F(TestChunkedArray, SliceEquals) {
   arrays_one_.push_back(MakeRandomArray<Int32Array>(100));
   arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
@@ -319,6 +333,12 @@ TEST_F(TestTable, Equals) {
 
   other = Table::Make(schema_, other_columns);
   ASSERT_FALSE(table_->Equals(*other));
+
+  // Differring schema metadata
+  other_schema = schema_->WithMetadata(::arrow::key_value_metadata({"key"}, {"value"}));
+  other = Table::Make(other_schema, columns_);
+  ASSERT_FALSE(table_->Equals(*other));
+  ASSERT_TRUE(table_->Equals(*other, /*check_metadata=*/false));
 }
 
 TEST_F(TestTable, FromRecordBatches) {

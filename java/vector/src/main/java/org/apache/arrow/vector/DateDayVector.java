@@ -37,6 +37,7 @@ import io.netty.buffer.ArrowBuf;
  * maintained to track which elements in the vector are null.
  */
 public final class DateDayVector extends BaseFixedWidthVector {
+
   private static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 

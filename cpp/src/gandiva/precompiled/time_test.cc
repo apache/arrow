@@ -136,7 +136,7 @@ TEST(TestTime, TestCastTimestampErrors) {
 
 TEST(TestTime, TestExtractTime) {
   // 10:20:33
-  int32 time_as_millis_in_day = 37233000;
+  gdv_int32 time_as_millis_in_day = 37233000;
 
   EXPECT_EQ(extractHour_time32(time_as_millis_in_day), 10);
   EXPECT_EQ(extractMinute_time32(time_as_millis_in_day), 20);
@@ -144,7 +144,7 @@ TEST(TestTime, TestExtractTime) {
 }
 
 TEST(TestTime, TestExtractTimestamp) {
-  timestamp ts = StringToTimestamp("1970-05-02 10:20:33");
+  gdv_timestamp ts = StringToTimestamp("1970-05-02 10:20:33");
 
   EXPECT_EQ(extractMillennium_timestamp(ts), 2);
   EXPECT_EQ(extractCentury_timestamp(ts), 20);
@@ -600,8 +600,8 @@ TEST(TestTime, TestExtractWeek) {
   data.push_back("1");
 
   for (uint32_t i = 0; i < data.size(); i += 2) {
-    timestamp ts = StringToTimestamp(data.at(i).c_str());
-    int64 exp = atol(data.at(i + 1).c_str());
+    gdv_timestamp ts = StringToTimestamp(data.at(i).c_str());
+    gdv_int64 exp = atol(data.at(i + 1).c_str());
     EXPECT_EQ(extractWeek_timestamp(ts), exp);
   }
 }
@@ -621,8 +621,8 @@ TEST(TestTime, TestMonthsBetween) {
       "1995-02-02 10:00:00", "1995-01-01 11:00:00", "1.03091397"};
 
   for (uint32_t i = 0; i < testStrings.size();) {
-    timestamp endTs = StringToTimestamp(testStrings[i++].c_str());
-    timestamp startTs = StringToTimestamp(testStrings[i++].c_str());
+    gdv_timestamp endTs = StringToTimestamp(testStrings[i++].c_str());
+    gdv_timestamp startTs = StringToTimestamp(testStrings[i++].c_str());
 
     double expectedResult = atof(testStrings[i++].c_str());
     double actualResult = months_between_timestamp_timestamp(endTs, startTs);
@@ -639,8 +639,8 @@ TEST(TestTime, TestMonthsBetween) {
 TEST(TestTime, castVarcharTimestamp) {
   ExecutionContext context;
   int64_t context_ptr = reinterpret_cast<int64_t>(&context);
-  int32 out_len;
-  timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
+  gdv_int32 out_len;
+  gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
   const char* out = castVARCHAR_timestamp_int64(context_ptr, ts, 30L, &out_len);
   EXPECT_EQ(std::string(out, out_len), "2000-05-01 10:20:34.000");
 

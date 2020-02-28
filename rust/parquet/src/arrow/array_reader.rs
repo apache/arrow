@@ -232,11 +232,15 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
     }
 
     fn get_def_levels(&self) -> Option<&[i16]> {
-        self.def_levels_buffer.as_ref().map(|buf| buf.typed_data())
+        self.def_levels_buffer
+            .as_ref()
+            .map(|buf| unsafe { buf.typed_data() })
     }
 
     fn get_rep_levels(&self) -> Option<&[i16]> {
-        self.rep_levels_buffer.as_ref().map(|buf| buf.typed_data())
+        self.rep_levels_buffer
+            .as_ref()
+            .map(|buf| unsafe { buf.typed_data() })
     }
 }
 
@@ -579,11 +583,15 @@ impl ArrayReader for StructArrayReader {
     }
 
     fn get_def_levels(&self) -> Option<&[i16]> {
-        self.def_level_buffer.as_ref().map(|buf| buf.typed_data())
+        self.def_level_buffer
+            .as_ref()
+            .map(|buf| unsafe { buf.typed_data() })
     }
 
     fn get_rep_levels(&self) -> Option<&[i16]> {
-        self.rep_level_buffer.as_ref().map(|buf| buf.typed_data())
+        self.rep_level_buffer
+            .as_ref()
+            .map(|buf| unsafe { buf.typed_data() })
     }
 }
 

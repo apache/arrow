@@ -17,11 +17,15 @@
 
 package org.apache.arrow.adapter.jdbc.consumer;
 
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 
 /**
@@ -30,11 +34,23 @@ import org.apache.arrow.vector.DateMilliVector;
  */
 public class DateConsumer {
 
+  public static final int MAX_DAY;
+
+  static {
+    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+    try {
+      java.util.Date date = dateFormat.parse("9999-12-31");
+      MAX_DAY = (int) TimeUnit.MILLISECONDS.toDays(date.getTime());
+    } catch (ParseException e) {
+      throw new IllegalArgumentException("Failed to parse max day", e);
+    }
+  }
+
   /**
    * Creates a consumer for {@link DateMilliVector}.
    */
-  public static JdbcConsumer<DateMilliVector> createConsumer(
-          DateMilliVector vector, int index, boolean nullable, Calendar calendar) {
+  public static JdbcConsumer<DateDayVector> createConsumer(
+      DateDayVector vector, int index, boolean nullable, Calendar calendar) {
     if (nullable) {
       return new NullableDateConsumer(vector, index, calendar);
     } else {
@@ -45,21 +61,21 @@ public class DateConsumer {
   /**
    * Nullable consumer for date.
    */
-  static class NullableDateConsumer extends BaseConsumer<DateMilliVector> {
+  static class NullableDateConsumer extends BaseConsumer<DateDayVector> {
 
     protected final Calendar calendar;
 
     /**
      * Instantiate a DateConsumer.
      */
-    public NullableDateConsumer(DateMilliVector vector, int index) {
+    public NullableDateConsumer(DateDayVector vector, int index) {
       this(vector, index, /* calendar */null);
     }
 
     /**
      * Instantiate a DateConsumer.
      */
-    public NullableDateConsumer(DateMilliVector vector, int index, Calendar calendar) {
+    public NullableDateConsumer(DateDayVector vector, int index, Calendar calendar) {
       super(vector, index);
       this.calendar = calendar;
     }
@@ -69,7 +85,11 @@ public class DateConsumer {
       Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
           resultSet.getDate(columnIndexInResultSet, calendar);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, date.getTime());
+        int day = (int) TimeUnit.MILLISECONDS.toDays(date.getTime());
+        if (day < 0 || day > MAX_DAY) {
+          throw new IllegalArgumentException("Day overflow: " + day);
+        }
+        vector.setSafe(currentIndex, day);
       }
       currentIndex++;
     }
@@ -78,21 +98,21 @@ public class DateConsumer {
   /**
    * Non-nullable consumer for date.
    */
-  static class NonNullableDateConsumer extends BaseConsumer<DateMilliVector> {
+  static class NonNullableDateConsumer extends BaseConsumer<DateDayVector> {
 
     protected final Calendar calendar;
 
     /**
      * Instantiate a DateConsumer.
      */
-    public NonNullableDateConsumer(DateMilliVector vector, int index) {
+    public NonNullableDateConsumer(DateDayVector vector, int index) {
       this(vector, index, /* calendar */null);
     }
 
     /**
      * Instantiate a DateConsumer.
      */
-    public NonNullableDateConsumer(DateMilliVector vector, int index, Calendar calendar) {
+    public NonNullableDateConsumer(DateDayVector vector, int index, Calendar calendar) {
       super(vector, index);
       this.calendar = calendar;
     }
@@ -101,7 +121,11 @@ public class DateConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
           resultSet.getDate(columnIndexInResultSet, calendar);
-      vector.setSafe(currentIndex, date.getTime());
+      int day = (int) TimeUnit.MILLISECONDS.toDays(date.getTime());
+      if (day < 0 || day > MAX_DAY) {
+        throw new IllegalArgumentException("Day overflow: " + day);
+      }
+      vector.setSafe(currentIndex, day);
       currentIndex++;
     }
   }

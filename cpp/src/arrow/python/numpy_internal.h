@@ -161,11 +161,6 @@ inline bool PyFloatScalar_Check(PyObject* obj) {
 }
 
 inline bool PyIntScalar_Check(PyObject* obj) {
-#if PY_MAJOR_VERSION < 3
-  if (PyInt_Check(obj)) {
-    return true;
-  }
-#endif
   return PyLong_Check(obj) || PyArray_IsScalar(obj, Integer);
 }
 

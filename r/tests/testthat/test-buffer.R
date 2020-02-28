@@ -88,3 +88,12 @@ test_that("can read remaining bytes of a RandomAccessFile", {
   expect_equal(z, c(x, y))
   expect_equal(a, y)
 })
+
+test_that("Buffer$Equals", {
+  vec <- integer(17)
+  buf1 <- buffer(vec)
+  buf2 <- buffer(vec)
+  expect_equal(buf1, buf2)
+  expect_true(buf1$Equals(buf2))
+  expect_false(buf1$Equals(vec))
+})

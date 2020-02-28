@@ -70,6 +70,7 @@ pub use self::data::ArrayDataBuilder;
 pub use self::data::ArrayDataRef;
 
 pub use self::array::BinaryArray;
+pub use self::array::DictionaryArray;
 pub use self::array::FixedSizeBinaryArray;
 pub use self::array::FixedSizeListArray;
 pub use self::array::ListArray;
@@ -90,6 +91,15 @@ pub type UInt32Array = PrimitiveArray<UInt32Type>;
 pub type UInt64Array = PrimitiveArray<UInt64Type>;
 pub type Float32Array = PrimitiveArray<Float32Type>;
 pub type Float64Array = PrimitiveArray<Float64Type>;
+
+pub type Int8DictionaryArray = DictionaryArray<Int8Type>;
+pub type Int16DictionaryArray = DictionaryArray<Int16Type>;
+pub type Int32DictionaryArray = DictionaryArray<Int32Type>;
+pub type Int64DictionaryArray = DictionaryArray<Int64Type>;
+pub type UInt8DictionaryArray = DictionaryArray<UInt8Type>;
+pub type UInt16DictionaryArray = DictionaryArray<UInt16Type>;
+pub type UInt32DictionaryArray = DictionaryArray<UInt32Type>;
+pub type UInt64DictionaryArray = DictionaryArray<UInt64Type>;
 
 pub type TimestampSecondArray = PrimitiveArray<TimestampSecondType>;
 pub type TimestampMillisecondArray = PrimitiveArray<TimestampMillisecondType>;
@@ -151,6 +161,7 @@ pub use self::builder::FixedSizeBinaryBuilder;
 pub use self::builder::FixedSizeListBuilder;
 pub use self::builder::ListBuilder;
 pub use self::builder::PrimitiveBuilder;
+pub use self::builder::PrimitiveDictionaryBuilder;
 pub use self::builder::StringBuilder;
 pub use self::builder::StructBuilder;
 

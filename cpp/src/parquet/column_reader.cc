@@ -62,7 +62,10 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
   bit_width_ = BitUtil::Log2(max_level + 1);
   switch (encoding) {
     case Encoding::RLE: {
-      num_bytes = arrow::util::SafeLoadAs<int32_t>(data);
+      num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
+      if (num_bytes < 0) {
+        throw ParquetException("Received invalid number of bytes");
+      }
       const uint8_t* decoder_data = data + sizeof(int32_t);
       if (!rle_decoder_) {
         rle_decoder_.reset(
@@ -109,8 +112,6 @@ ReaderProperties default_reader_properties() {
 // ----------------------------------------------------------------------
 // SerializedPageReader deserializes Thrift metadata and pages that have been
 // assembled in a serialized stream for storing in a Parquet files
-
-static constexpr int16_t kNonPageOrdinal = static_cast<int16_t>(-1);
 
 // This subclass delimits pages appearing in a serialized stream, each preceded
 // by a serialized Thrift format::PageHeader indicating the type of each page
@@ -573,6 +574,12 @@ class ColumnReaderImplBase {
       switch (encoding) {
         case Encoding::PLAIN: {
           auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
+          current_decoder_ = decoder.get();
+          decoders_[static_cast<int>(encoding)] = std::move(decoder);
+          break;
+        }
+        case Encoding::BYTE_STREAM_SPLIT: {
+          auto decoder = MakeTypedDecoder<DType>(Encoding::BYTE_STREAM_SPLIT, descr_);
           current_decoder_ = decoder.get();
           decoders_[static_cast<int>(encoding)] = std::move(decoder);
           break;
@@ -1429,7 +1436,7 @@ template <>
 void TypedRecordReader<FLBAType>::DebugPrintState() {}
 
 std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* descr,
-                                                        arrow::MemoryPool* pool,
+                                                        ::arrow::MemoryPool* pool,
                                                         bool read_dictionary) {
   if (read_dictionary) {
     return std::make_shared<ByteArrayDictionaryRecordReader>(descr, pool);

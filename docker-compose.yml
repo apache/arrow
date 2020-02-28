@@ -15,17 +15,46 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# The environment variables referenced from this docker-compose can be set by
-# defining them before running docker-compose, the defaults are set in .env
-# file.
+# Usage
+# -----
+#
+# The docker compose file is parametrized using environment variables, the
+# defaults are set in .env file.
 #
 # Example:
 # $ ARCH=arm64v8 docker-compose build ubuntu-bionic-cpp
 # $ ARCH=arm64v8 docker-compose run ubuntu-bionic-cpp
+#
+#
+# Coredumps
+# ---------
+#
+# In order to enable coredumps for the C++ tests run by CTest either with
+# command `make unittest` or `ctest --output-on-failure` the correct coredump
+# patterns must be set.
+# The kernel settings are coming from the host, so while it can be enabled from
+# a running container using --priviled option the change will affect all other
+# containers, so prefer setting it explicitly, directly on the host.
+# WARNING: setting this will affect the host machine.
+#
+# Linux host:
+#   $ sudo sysctl -w kernel.core_pattern=core.%e.%p
+#
+# macOS host running Docker for Mac (won't persist between restarts):
+#   $ screen ~/Library/Containers/com.docker.docker/Data/vms/0/tty
+#   # echo "core.%e.%p" > /proc/sys/kernel/core_pattern
+#
+# The setup attempts to generate coredumps by default, but the correct paths
+# above must be set. In order to disable the coredump generation set
+# ULIMIT_CORE environment variable to 0 before running docker-compose
+# (or by setting it in .env file):
+#
+# ULIMIT_CORE=0 docker-compose run --rm conda-cpp
+#
+# See more in cpp/build-support/run-test.sh::print_coredumps
 
 version: '3.5'
 
-# TODO(kszucs): add .ccache to the mounts
 volumes:
   # Named volumes must be predefined, so in order to use other architecture,
   # like ARM64v8 with debian 10, then the appropriate parametrized volume name
@@ -82,15 +111,49 @@ services:
         arch: ${ARCH}
         prefix: /opt/conda
     shm_size: &shm-size 2G
+    ulimits: &ulimits
+      core: ${ULIMIT_CORE}
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_USE_LD_GOLD: "ON"
+      ARROW_USE_PRECOMPILED_HEADERS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${ARCH}-conda-cache:/build:delegated
     command: &cpp-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
+
+  conda-cpp-valgrind:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose run --rm conda-cpp-valgrind
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-conda-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/conda-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-cpp
+      args:
+        arch: ${ARCH}
+        prefix: /opt/conda
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      ARROW_CXXFLAGS: "-Og"  # Shrink test runtime by enabling minimal optimizations
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_FLIGHT: "OFF"
+      ARROW_GANDIVA: "OFF"
+      ARROW_JEMALLOC: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_TEST_MEMCHECK: "ON"
+      ARROW_USE_LD_GOLD: "ON"
+      BUILD_WARNING_LEVEL: "PRODUCTION"
+    volumes: *conda-volumes
+    command: *cpp-conda-command
 
   cuda-cpp:
     # Usage:
@@ -108,6 +171,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-cuda-${CUDA}-cpp
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -135,6 +199,7 @@ services:
       args:
         arch: ${ARCH}
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -159,6 +224,7 @@ services:
       args:
         arch: ${ARCH}
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -215,6 +281,7 @@ services:
       args:
         arch: ${ARCH}
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -241,11 +308,11 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
       args:
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
-    environment:
-      ARROW_GLIB_GTK_DOC: "true"
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
+      ARROW_GLIB_GTK_DOC: "true"
     volumes: *debian-volumes
     command: &c-glib-command >
       /bin/bash -c "
@@ -269,6 +336,8 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_GLIB_GTK_DOC: "true"
@@ -342,7 +411,7 @@ services:
     #   docker-compose run --rm conda-python
     # Parameters:
     #   ARCH: amd64, arm32v7
-    #   PYTHON: 2.7, 3.6, 3.7, 3.8
+    #   PYTHON: 3.6, 3.7, 3.8
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}
     build:
       context: .
@@ -470,6 +539,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
         cmake: 3.2.3
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_ORC: "OFF"
@@ -537,6 +607,34 @@ services:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_dask.sh"]
+
+  conda-python-jpype:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-jpype
+    #   docker-compose run --rm conda-python-jpype
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-jpype
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-jpype.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-jpype
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      ARROW_FLIGHT: "OFF"
+      ARROW_GANDIVA: "OFF"
+    volumes: *conda-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-turbodbc:
     # Possible $DASK parameters:
@@ -663,6 +761,8 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      ARROW_R_CXXFLAGS: '-Werror'
+      LIBARROW_BUILD: 'false'
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
@@ -686,17 +786,15 @@ services:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
     shm_size: *shm-size
     environment:
-      TEST_R_WITH_ARROW: "true"
       NOT_CRAN: "true"
       LIBARROW_DOWNLOAD: "false"
+      ARROW_HOME: "/arrow"
+      ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated
     command: >
       /bin/bash -c "
-        cd /arrow/r &&
-        R CMD INSTALL . &&
-        cd tests &&
-        R --no-save --no-restore -e 'library(testthat); library(arrow); library(tibble); test_check(\"arrow\", reporter = \"summary\", stop_on_warning = TRUE)'"
+        /arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
     # Only 18.04 and amd64 supported
@@ -714,6 +812,7 @@ services:
         - ${REPO}:amd64-ubuntu-18.04-r-sanitizer
     environment:
       <<: *ccache
+      LIBARROW_BUILD: 'false'
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
@@ -927,6 +1026,7 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/java_build.sh /arrow /build true &&
         /arrow/ci/scripts/js_build.sh /arrow true &&
+        /arrow/ci/scripts/r_build.sh /arrow true &&
         /arrow/ci/scripts/docs_build.sh /arrow /build"
 
   ################################# Tools #####################################
@@ -949,31 +1049,9 @@ services:
       <<: *ccache
     volumes: *ubuntu-volumes
     command: >
-      /bin/bash -c "pip install -e /arrow/dev/archery && archery lint"
-
-  ubuntu-fuzzit:
-    # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-fuzzit
-    #   docker-compose run ubuntu-fuzzit
-    build:
-      context: .
-      dockerfile: ci/docker/linux-apt-fuzzit.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-fuzzit
-      args:
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-    environment:
-      <<: *ccache
-      FUZZIT_API_KEY: c0b760d37db6012fcaafd8ca5f412ba7bcd297ac969650502994b51aa11798153824442f999a067e1ef67821989ed664
-      FUZZIT_HOST: bionic-llvm7
-      CI_ARROW_SHA: ${CI_ARROW_SHA:-UNSET}
-      CI_ARROW_BRANCH: ${CI_ARROW_BRANCH:-UNSET}
-    volumes: *debian-volumes
-    command: >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/fuzzit_build.sh /arrow /build"
+        pip install -e /arrow/dev/archery &&
+        archery lint --all --no-clang-tidy --no-numpydoc"
 
   ######################### Integration Tests #################################
 

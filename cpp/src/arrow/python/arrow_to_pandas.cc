@@ -577,7 +577,8 @@ inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArra
   int32_t memo_size = 0;
 
   auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
-    int32_t memo_index = memo_table.GetOrInsert(value);
+    int32_t memo_index;
+    RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
     if (memo_index == memo_size) {
       // New entry
       RETURN_NOT_OK(wrap_func(value, out_values));
@@ -619,13 +620,25 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
   auto array_type = arr->type();
   std::vector<OwnedRef> fields_data(num_fields);
   OwnedRef dict_item;
+
+  // XXX(wesm): In ARROW-7723, we found as a result of ARROW-3789 that second
+  // through microsecond resolution tz-aware timestamps were being promoted to
+  // use the DATETIME_NANO_TZ conversion path, yielding a datetime64[ns] NumPy
+  // array in this function. PyArray_GETITEM returns datetime.datetime for
+  // units second through microsecond but PyLong for nanosecond (because
+  // datetime.datetime does not support nanoseconds). We inserted this hack to
+  // preserve the <= 0.15.1 behavior until a better solution can be devised
+  PandasOptions modified_options = options;
+  modified_options.ignore_timezone = true;
+  modified_options.coerce_temporal_nanoseconds = false;
+
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = checked_cast<const StructArray*>(data.chunk(c).get());
     // Convert the struct arrays first
     for (int32_t i = 0; i < num_fields; i++) {
       PyObject* numpy_array;
-      RETURN_NOT_OK(ConvertArrayToPandas(options, arr->field(static_cast<int>(i)),
-                                         nullptr, &numpy_array));
+      RETURN_NOT_OK(ConvertArrayToPandas(
+          modified_options, arr->field(static_cast<int>(i)), nullptr, &numpy_array));
       fields_data[i].reset(numpy_array);
     }
 
@@ -1190,6 +1203,15 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
   Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
     Type::type type = data->type()->id();
     int64_t* out_values = this->GetBlockColumnStart(rel_placement);
+    compute::FunctionContext ctx(options_.pool);
+    compute::CastOptions options;
+    if (options_.safe_cast) {
+      options = compute::CastOptions::Safe();
+    } else {
+      options = compute::CastOptions::Unsafe();
+    }
+    compute::Datum out;
+    auto target_type = timestamp(TimeUnit::NANO);
 
     if (type == Type::DATE32) {
       // Convert from days since epoch to datetime64[ns]
@@ -1203,12 +1225,12 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
 
       if (ts_type.unit() == TimeUnit::NANO) {
         ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_values);
-      } else if (ts_type.unit() == TimeUnit::MICRO) {
-        ConvertDatetimeLikeNanos<int64_t, 1000L>(*data, out_values);
-      } else if (ts_type.unit() == TimeUnit::MILLI) {
-        ConvertDatetimeLikeNanos<int64_t, 1000000L>(*data, out_values);
-      } else if (ts_type.unit() == TimeUnit::SECOND) {
-        ConvertDatetimeLikeNanos<int64_t, 1000000000L>(*data, out_values);
+      } else if (ts_type.unit() == TimeUnit::MICRO || ts_type.unit() == TimeUnit::MILLI ||
+                 ts_type.unit() == TimeUnit::SECOND) {
+        RETURN_NOT_OK(
+            arrow::compute::Cast(&ctx, compute::Datum(data), target_type, options, &out));
+        ConvertNumericNullable<int64_t>(*out.chunked_array(), kPandasTimestampNull,
+                                        out_values);
       } else {
         return Status::NotImplemented("Unsupported time unit");
       }
@@ -1678,7 +1700,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       break;
     case Type::TIMESTAMP: {
       const auto& ts_type = checked_cast<const TimestampType&>(*data.type());
-      if (ts_type.timezone() != "") {
+      // XXX: Hack here for ARROW-7723
+      if (ts_type.timezone() != "" && !options.ignore_timezone) {
         *output_type = PandasWriter::DATETIME_NANO_TZ;
       } else if (options.coerce_temporal_nanoseconds) {
         *output_type = PandasWriter::DATETIME_NANO;

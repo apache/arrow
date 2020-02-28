@@ -490,6 +490,7 @@ cdef class _PandasConvertible:
             bint use_threads=True,
             bint deduplicate_objects=True,
             bint ignore_metadata=False,
+            bint safe=True,
             bint split_blocks=False,
             bint self_destruct=False,
             types_mapper=None
@@ -512,8 +513,8 @@ cdef class _PandasConvertible:
             the underlying data
         integer_object_nulls : boolean, default False
             Cast integers with nulls to objects
-        date_as_object : boolean, default False
-            Cast dates to objects
+        date_as_object : boolean, default True
+            Cast dates to objects. If False, convert to datetime64[ns] dtype.
         use_threads: boolean, default True
             Whether to parallelize the conversion using multiple threads
         deduplicate_objects : boolean, default False
@@ -522,6 +523,11 @@ cdef class _PandasConvertible:
         ignore_metadata : boolean, default False
             If True, do not use the 'pandas' metadata to reconstruct the
             DataFrame index, if present
+        safe : boolean default True
+            For certain data types, a cast is needed in order to store the
+            data in a pandas DataFrame or Series (e.g. timestamps are always
+            stored as nanoseconds in pandas). This option controls whether it
+            is a safe cast or not.
         split_blocks : boolean, default False
             If True, generate one internal "block" for each column when
             creating a pandas.DataFrame from a RecordBatch or Table. While this
@@ -553,6 +559,7 @@ cdef class _PandasConvertible:
             date_as_object=date_as_object,
             use_threads=use_threads,
             deduplicate_objects=deduplicate_objects,
+            safe=safe,
             split_blocks=split_blocks,
             self_destruct=self_destruct
         )
@@ -570,6 +577,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.date_as_object = options['date_as_object']
     result.use_threads = options['use_threads']
     result.deduplicate_objects = options['deduplicate_objects']
+    result.safe_cast = options['safe']
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
     return result
@@ -1120,15 +1128,10 @@ cdef _array_like_to_pandas(obj, options):
         PandasOptions c_options = _convert_pandas_options(options)
 
     original_type = obj.type
+    name = obj._name
 
-    if obj.type.id == _Type_TIMESTAMP and obj.type.unit != 'ns':
-        # pandas only stores ns data - casting here is faster
-        obj = obj.cast(timestamp('ns'))
-
-    # ARROW-3789(wesm): when converting to DataFrame we coerce
-    # date/timestamp types to nanoseconds. Not consistent but we should
-    # make it so in the future
-    c_options.coerce_temporal_nanoseconds = False
+    # ARROW-3789(wesm): Convert date/timestamp types to datetime64[ns]
+    c_options.coerce_temporal_nanoseconds = True
 
     if isinstance(obj, Array):
         with nogil:
@@ -1142,7 +1145,7 @@ cdef _array_like_to_pandas(obj, options):
                 (<ChunkedArray> obj).sp_chunked_array,
                 obj, &out))
 
-    result = pandas_api.series(wrap_array_output(out), name=obj._name)
+    result = pandas_api.series(wrap_array_output(out), name=name)
 
     if (isinstance(original_type, TimestampType) and
             original_type.tz is not None):
@@ -1847,11 +1850,11 @@ cdef class StructArray(Array):
             CStructArray* arr = <CStructArray*> self.ap
             shared_ptr[CArray] child
 
-        if isinstance(index, six.string_types):
+        if isinstance(index, (bytes, str)):
             child = arr.GetFieldByName(tobytes(index))
             if child == nullptr:
                 raise KeyError(index)
-        elif isinstance(index, six.integer_types):
+        elif isinstance(index, int):
             child = arr.field(
                 <int>_normalize_index(index, self.ap.num_fields()))
         else:

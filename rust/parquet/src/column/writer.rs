@@ -17,7 +17,7 @@
 
 //! Contains column writer API.
 
-use std::{cmp, collections::VecDeque, mem, rc::Rc};
+use std::{cmp, collections::VecDeque, rc::Rc};
 
 use crate::basic::{Compression, Encoding, PageType, Type};
 use crate::column::page::{CompressedPage, Page, PageWriteSpec, PageWriter};
@@ -98,57 +98,40 @@ pub fn get_column_writer(
 /// Gets a typed column writer for the specific type `T`, by "up-casting" `col_writer` of
 /// non-generic type to a generic column writer type `ColumnWriterImpl`.
 ///
-/// NOTE: the caller MUST guarantee that the actual enum value for `col_writer` matches
-/// the type `T`. Otherwise, disastrous consequence could happen.
+/// Panics if actual enum value for `col_writer` does not match the type `T`.
 pub fn get_typed_column_writer<T: DataType>(
     col_writer: ColumnWriter,
 ) -> ColumnWriterImpl<T> {
-    match col_writer {
-        ColumnWriter::BoolColumnWriter(r) => unsafe { mem::transmute(r) },
-        ColumnWriter::Int32ColumnWriter(r) => unsafe { mem::transmute(r) },
-        ColumnWriter::Int64ColumnWriter(r) => unsafe { mem::transmute(r) },
-        ColumnWriter::Int96ColumnWriter(r) => unsafe { mem::transmute(r) },
-        ColumnWriter::FloatColumnWriter(r) => unsafe { mem::transmute(r) },
-        ColumnWriter::DoubleColumnWriter(r) => unsafe { mem::transmute(r) },
-        ColumnWriter::ByteArrayColumnWriter(r) => unsafe { mem::transmute(r) },
-        ColumnWriter::FixedLenByteArrayColumnWriter(r) => unsafe { mem::transmute(r) },
-    }
+    T::get_column_writer(col_writer).unwrap_or_else(|| {
+        panic!(
+            "Failed to convert column writer into a typed column writer for `{}` type",
+            T::get_physical_type()
+        )
+    })
 }
 
 /// Similar to `get_typed_column_writer` but returns a reference.
 pub fn get_typed_column_writer_ref<T: DataType>(
     col_writer: &ColumnWriter,
 ) -> &ColumnWriterImpl<T> {
-    match col_writer {
-        ColumnWriter::BoolColumnWriter(ref r) => unsafe { mem::transmute(r) },
-        ColumnWriter::Int32ColumnWriter(ref r) => unsafe { mem::transmute(r) },
-        ColumnWriter::Int64ColumnWriter(ref r) => unsafe { mem::transmute(r) },
-        ColumnWriter::Int96ColumnWriter(ref r) => unsafe { mem::transmute(r) },
-        ColumnWriter::FloatColumnWriter(ref r) => unsafe { mem::transmute(r) },
-        ColumnWriter::DoubleColumnWriter(ref r) => unsafe { mem::transmute(r) },
-        ColumnWriter::ByteArrayColumnWriter(ref r) => unsafe { mem::transmute(r) },
-        ColumnWriter::FixedLenByteArrayColumnWriter(ref r) => unsafe {
-            mem::transmute(r)
-        },
-    }
+    T::get_column_writer_ref(col_writer).unwrap_or_else(|| {
+        panic!(
+            "Failed to convert column writer into a typed column writer for `{}` type",
+            T::get_physical_type()
+        )
+    })
 }
 
 /// Similar to `get_typed_column_writer` but returns a reference.
 pub fn get_typed_column_writer_mut<T: DataType>(
     col_writer: &mut ColumnWriter,
 ) -> &mut ColumnWriterImpl<T> {
-    match col_writer {
-        ColumnWriter::BoolColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
-        ColumnWriter::Int32ColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
-        ColumnWriter::Int64ColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
-        ColumnWriter::Int96ColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
-        ColumnWriter::FloatColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
-        ColumnWriter::DoubleColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
-        ColumnWriter::ByteArrayColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
-        ColumnWriter::FixedLenByteArrayColumnWriter(ref mut r) => unsafe {
-            mem::transmute(r)
-        },
-    }
+    T::get_column_writer_mut(col_writer).unwrap_or_else(|| {
+        panic!(
+            "Failed to convert column writer into a typed column writer for `{}` type",
+            T::get_physical_type()
+        )
+    })
 }
 
 /// Typed column writer for a primitive column.
@@ -1568,14 +1551,8 @@ mod tests {
             get_test_column_reader::<T>(page_reader, max_def_level, max_rep_level);
 
         let mut actual_values = vec![T::T::default(); max_batch_size];
-        let mut actual_def_levels = match def_levels {
-            Some(_) => Some(vec![0i16; max_batch_size]),
-            None => None,
-        };
-        let mut actual_rep_levels = match rep_levels {
-            Some(_) => Some(vec![0i16; max_batch_size]),
-            None => None,
-        };
+        let mut actual_def_levels = def_levels.map(|_| vec![0i16; max_batch_size]);
+        let mut actual_rep_levels = rep_levels.map(|_| vec![0i16; max_batch_size]);
 
         let (values_read, levels_read) = read_fully(
             reader,
@@ -1656,14 +1633,8 @@ mod tests {
         mut rep_levels: Option<&mut Vec<i16>>,
         values: &mut [T::T],
     ) -> (usize, usize) {
-        let actual_def_levels = match &mut def_levels {
-            Some(ref mut vec) => Some(&mut vec[..]),
-            None => None,
-        };
-        let actual_rep_levels = match rep_levels {
-            Some(ref mut vec) => Some(&mut vec[..]),
-            None => None,
-        };
+        let actual_def_levels = def_levels.as_mut().map(|vec| &mut vec[..]);
+        let actual_rep_levels = rep_levels.as_mut().map(|vec| &mut vec[..]);
         reader
             .read_batch(batch_size, actual_def_levels, actual_rep_levels, values)
             .unwrap()

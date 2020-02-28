@@ -281,7 +281,7 @@ void CheckBatches(const RecordBatch& expected, const RecordBatch& result) {
 class TestTableReader : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_OK_AND_ASSIGN(stream_, io::BufferOutputStream::Create(1024));
+    ASSERT_OK_AND_ASSIGN(stream_, io::BufferOutputStream::Create());
     ASSERT_OK(TableWriter::Open(stream_, &writer_));
   }
 
@@ -356,7 +356,7 @@ TEST_F(TestTableReader, ReadNames) {
 class TestTableWriter : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_OK_AND_ASSIGN(stream_, io::BufferOutputStream::Create(1024));
+    ASSERT_OK_AND_ASSIGN(stream_, io::BufferOutputStream::Create());
     ASSERT_OK(TableWriter::Open(stream_, &writer_));
   }
 

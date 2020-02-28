@@ -72,8 +72,6 @@ popd
 
 set PYARROW_BUILD_TYPE=Release
 set PYARROW_PARALLEL=8
-@rem Flight, Gandiva and Dataset are not supported on Python 2.7,
-@rem but we don't build 2.7 wheels for Windows.
 set PYARROW_WITH_DATASET=1
 set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_GANDIVA=1

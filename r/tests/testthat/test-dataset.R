@@ -19,14 +19,15 @@ context("Datasets")
 
 library(dplyr)
 
-dataset_dir <- tempfile()
-dir.create(dataset_dir)
+tempdir <- function() {
+  path <- tempfile()
+  dir.create(path)
+  normalizePath(path, winslash = "/")
+}
 
-hive_dir <- tempfile()
-dir.create(hive_dir)
-
-ipc_dir <- tempfile()
-dir.create(ipc_dir)
+dataset_dir <- tempdir()
+hive_dir <- tempdir()
+ipc_dir <- tempdir()
 
 first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
 df1 <- tibble(
@@ -97,6 +98,12 @@ test_that("Simple interface for datasets", {
   )
 })
 
+test_that("Simple interface for datasets (custom ParquetFileFormat)", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
+                     format = FileFormat$create("parquet", dict_columns = c("chr")))
+  expect_equivalent(ds$schema$GetFieldByName("chr")$type, dictionary())
+})
+
 test_that("Hive partitioning", {
   ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
   expect_is(ds, "Dataset")
@@ -156,11 +163,11 @@ test_that("IPC/Arrow format data", {
   )
 })
 
-test_that("Dataset with multiple sources", {
+test_that("Dataset with multiple file formats", {
   skip("https://issues.apache.org/jira/browse/ARROW-7653")
-  ds <- open_dataset(list(
-    open_source(dataset_dir, format = "parquet", partitioning = "part"),
-    open_source(ipc_dir, format = "arrow", partitioning = "part")
+  ds <- open_dataset(children=list(
+    open_dataset_factory(dataset_dir, format = "parquet", partitioning = "part"),
+    open_dataset_factory(ipc_dir, format = "arrow", partitioning = "part")
   ))
   expect_identical(names(ds), c(names(df1), "part"))
   expect_equivalent(
@@ -211,6 +218,59 @@ test_that("filter() on timestamp columns", {
       select(ts) %>%
       collect(),
     df1[5:10, c("ts")],
+  )
+
+  # Now with Date
+  expect_equivalent(
+    ds %>%
+      filter(ts >= as.Date("2015-05-04")) %>%
+      filter(part == 1) %>%
+      select(ts) %>%
+      collect(),
+    df1[5:10, c("ts")],
+  )
+
+  # Now with bare string date
+  expect_equivalent(
+    ds %>%
+      filter(ts >= "2015-05-04") %>%
+      filter(part == 1) %>%
+      select(ts) %>%
+      collect(),
+    df1[5:10, c("ts")],
+  )
+})
+
+test_that("filter() on date32 columns", {
+  tmp <- tempfile()
+  dir.create(tmp)
+  df <- data.frame(date = as.Date(c("2020-02-02", "2020-02-03")))
+  write_parquet(df, file.path(tmp, "file.parquet"))
+
+  expect_equal(
+    open_dataset(tmp) %>%
+      filter(date > as.Date("2020-02-02")) %>%
+      collect() %>%
+      nrow(),
+    1L
+  )
+
+  # Also with timestamp scalar
+  expect_equal(
+    open_dataset(tmp) %>%
+      filter(date > lubridate::ymd_hms("2020-02-02 00:00:00")) %>%
+      collect() %>%
+      nrow(),
+    1L
+  )
+})
+
+test_that("filter scalar validation doesn't crash (ARROW-7772)", {
+  expect_error(
+    ds %>%
+      filter(int == "fff", part == 1) %>%
+      collect(),
+    "error parsing 'fff' as scalar of type int32"
   )
 })
 
@@ -318,53 +378,58 @@ expect_scan_result <- function(ds, schm) {
   )
 }
 
+files <- c(
+  file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
+  file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
+)
+
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(dataset_dir, recursive = TRUE)
   partitioning <- DirectoryPartitioning$create(schema(part = double()))
 
   fmt <- FileFormat$create("parquet")
-  factory <- FileSystemSourceFactory$create(fs, selector, fmt, partitioning = partitioning)
-  expect_is(factory, "FileSystemSourceFactory")
+  factory <- FileSystemDatasetFactory$create(fs, selector, fmt, partitioning = partitioning)
+  expect_is(factory, "FileSystemDatasetFactory")
 
   schm <- factory$Inspect()
   expect_is(schm, "Schema")
 
-  phys_schm <- ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
+  phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
   expect_equal(names(phys_schm), names(df1))
   expect_equal(names(schm), c(names(phys_schm), "part"))
 
-  src <- factory$Finish(schm)
-  expect_is(src, "Source")
-  expect_is(src$schema, "Schema")
-  expect_equal(names(schm), names(src$schema))
+  child <- factory$Finish(schm)
+  expect_is(child, "FileSystemDataset")
+  expect_is(child$schema, "Schema")
+  expect_is(child$format, "ParquetFileFormat")
+  expect_equal(names(schm), names(child$schema))
+  expect_equivalent(child$files, files)
 
-  ds <- Dataset$create(list(src), schm)
-  expect_is(ds, "Dataset")
-  expect_equal(names(ds), names(schm))
-
+  ds <- Dataset$create(list(child), schm)
   expect_scan_result(ds, schm)
 })
 
-test_that("Assembling multiple SourceFactories with DatasetFactory", {
-  src1 <- open_source(file.path(dataset_dir, 1), format = "parquet")
-  expect_is(src1, "FileSystemSourceFactory")
-  src2 <- open_source(file.path(dataset_dir, 2), format = "parquet")
-  expect_is(src2, "FileSystemSourceFactory")
+test_that("Assembling multiple DatasetFactories with DatasetFactory", {
+  factory1 <- open_dataset_factory(file.path(dataset_dir, 1), format = "parquet")
+  expect_is(factory1, "FileSystemDatasetFactory")
+  factory2 <- open_dataset_factory(file.path(dataset_dir, 2), format = "parquet")
+  expect_is(factory2, "FileSystemDatasetFactory")
 
-  factory <- DatasetFactory$create(c(src1, src2))
+  factory <- DatasetFactory$create(children=list(factory1, factory2))
   expect_is(factory, "DatasetFactory")
 
   schm <- factory$Inspect()
   expect_is(schm, "Schema")
 
-  phys_schm <- ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
+  phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
   expect_equal(names(phys_schm), names(df1))
 
   ds <- factory$Finish(schm)
-  expect_is(ds, "Dataset")
+  expect_is(ds, "UnionDataset")
   expect_is(ds$schema, "Schema")
   expect_equal(names(schm), names(ds$schema))
+  expect_equivalent(map(ds$children, ~.$files), files)
 
   expect_scan_result(ds, schm)
 })

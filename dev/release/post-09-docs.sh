@@ -1,4 +1,5 @@
 #!/bin/bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,25 +17,40 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -e
+set -u
 
-# TODO(kszucs): GitHub actions doesn't use this file yet, but we should enable
-# automatic backtrace generation for at least the C++ based builds.
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARROW_DIR="${SOURCE_DIR}/../.."
+ARROW_SITE_DIR="${ARROW_DIR}/../arrow-site"
 
-# Enable core files
-ulimit -c unlimited -S
-
-if [[ "${TRAVIS_OS_NAME}" = "osx" ]]; then
-  COREFILE=$(find /cores -maxdepth 1 -type f -name "core.*" | head -n 1)
-  if [[ -f "$COREFILE" ]]; then
-    lldb -c "$COREFILE" --batch --one-line "thread backtrace all -e true"
-  fi
-  ls -la ~/Library/Logs/DiagnosticReports/
-  cat ~/Library/Logs/DiagnosticReports/*.crash
-else
-  ls -fd1 /tmp/core.*
-  COREFILE=$(ls -fd1 /tmp/core.* | head -n 1)
-  if [[ -f "$COREFILE" ]]; then
-    gdb -c "$COREFILE" $TRAVIS_BUILD_DIR/current-exe -ex "thread apply all bt" -ex "set pagination 0" -batch
-  fi
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <version>"
+  exit 1
 fi
+
+version=$1
+branch_name=release-docs-${version}
+
+pushd "${ARROW_SITE_DIR}"
+git checkout asf-site
+git checkout -b ${branch_name}
+rm -rf docs/*
+popd
+
+pushd "${ARROW_DIR}"
+docker-compose build ubuntu-cpp
+docker-compose build ubuntu-python
+docker-compose build ubuntu-docs
+docker-compose run --rm -v "${ARROW_SITE_DIR}/docs:/build/docs" ubuntu-docs
+popd
+
+pushd "${ARROW_SITE_DIR}"
+git add docs
+git commit -m "[Website] Update documentations for ${version}"
+git push -u origin ${branch_name}
+popd
+
+echo "Success!"
+echo "Create a pull request:"
+echo "  ${github_url}/pull/new/${branch_name}"

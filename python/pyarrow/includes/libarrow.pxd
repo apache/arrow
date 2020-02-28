@@ -91,8 +91,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         TimeUnit_MICRO" arrow::TimeUnit::MICRO"
         TimeUnit_NANO" arrow::TimeUnit::NANO"
 
+    cdef cppclass CBufferSpec" arrow::DataTypeLayout::BufferSpec":
+        pass
+
     cdef cppclass CDataTypeLayout" arrow::DataTypeLayout":
-        vector[int64_t] bit_widths
+        vector[CBufferSpec] buffers
         c_bool has_dictionary
 
     cdef cppclass CDataType" arrow::DataType":
@@ -247,8 +250,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CBuffer(const uint8_t* data, int64_t size)
         const uint8_t* data()
         uint8_t* mutable_data()
+        uintptr_t address()
+        uintptr_t mutable_address()
         int64_t size()
         shared_ptr[CBuffer] parent()
+        c_bool is_cpu() const
         c_bool is_mutable() const
         c_string ToHexString()
         c_bool Equals(const CBuffer& other)
@@ -395,10 +401,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CSchema] RemoveMetadata()
 
     cdef cppclass PrettyPrintOptions:
+        PrettyPrintOptions()
         PrettyPrintOptions(int indent_arg)
         PrettyPrintOptions(int indent_arg, int window_arg)
         int indent
+        int indent_size
         int window
+        c_string null_rep
+        c_bool skip_new_lines
+        c_bool show_metadata
 
     CStatus PrettyPrint(const CArray& schema,
                         const PrettyPrintOptions& options,
@@ -676,7 +687,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_columns()
         int64_t num_rows()
 
-        c_bool Equals(const CTable& other)
+        c_bool Equals(const CTable& other, c_bool check_metadata)
 
         shared_ptr[CSchema] schema()
         shared_ptr[CChunkedArray] column(int i)
@@ -1219,7 +1230,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         CStatus ReadRecordBatch(int i, shared_ptr[CRecordBatch]* batch)
 
-    CStatus ReadMessage(CInputStream* stream, unique_ptr[CMessage]* message)
+    CResult[unique_ptr[CMessage]] ReadMessage(CInputStream* stream,
+                                              CMemoryPool* pool)
 
     CStatus GetRecordBatchSize(const CRecordBatch& batch, int64_t* size)
     CStatus GetTensorSize(const CTensor& tensor, int64_t* size)
@@ -1570,6 +1582,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool use_threads
         c_bool coerce_temporal_nanoseconds
         c_bool deduplicate_objects
+        c_bool safe_cast
         c_bool split_blocks
         c_bool self_destruct
         unordered_set[c_string] categorical_columns

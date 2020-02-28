@@ -49,7 +49,10 @@ class ApacheArrowReleasePackageTask < PackageTask
 
     if rpm_archive_name != @archive_name
       file rpm_archive_name => @archive_name do
-        cp(@archive_name, rpm_archive_name)
+        sh("tar", "xf", @archive_name)
+        rpm_archive_base_name = File.basename(rpm_archive_name, ".tar.gz")
+        mv(@archive_base_name, rpm_archive_base_name)
+        sh("tar", "czf", rpm_archive_name, rpm_archive_base_name)
       end
     end
   end

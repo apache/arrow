@@ -493,7 +493,10 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
      */
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      Preconditions.checkArgument(startIndex + length <= valueCount);
+      Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
+          "Invalid startIndex: %s", startIndex);
+      Preconditions.checkArgument(startIndex + length <= valueCount,
+          "Invalid length: %s", length);
       final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
       final int sliceLength = offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();
@@ -716,12 +719,28 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   /**
    * Check if element at given index is null.
    *
-   * @param index  position of element
+   * @param index position of element
    * @return true if element at given index is null, false otherwise
    */
   @Override
   public boolean isNull(int index) {
     return (isSet(index) == 0);
+  }
+
+  /**
+   * Check if element at given index is empty list.
+   * @param index position of element
+   * @return true if element at given index is empty list or NULL, false otherwise
+   */
+  @Override
+  public boolean isEmpty(int index) {
+    if (isNull(index)) {
+      return true;
+    } else {
+      final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
+      final int end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
+      return start == end;
+    }
   }
 
   /**

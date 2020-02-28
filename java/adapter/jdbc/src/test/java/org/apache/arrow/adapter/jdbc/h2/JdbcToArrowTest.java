@@ -79,7 +79,7 @@ import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
@@ -202,8 +202,8 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
     assertBooleanVectorValues((BitVector) root.getVector(BOOL), table.getRowCount(),
         getBooleanValues(table.getValues(), BOOL));
 
-    assertDateVectorValues((DateMilliVector) root.getVector(DATE), table.getRowCount(),
-        getLongValues(table.getValues(), DATE));
+    assertDateVectorValues((DateDayVector) root.getVector(DATE), table.getRowCount(),
+        getIntValues(table.getValues(), DATE));
 
     assertTimeVectorValues((TimeMilliVector) root.getVector(TIME), table.getRowCount(),
         getLongValues(table.getValues(), TIME));

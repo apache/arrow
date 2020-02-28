@@ -36,11 +36,11 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
     reader.use_threads = true
     assert_equal([
                    enabled_values.length / chunk_size,
-                   table,
+                   true,
                  ],
                  [
                    reader.n_row_groups,
-                   reader.read_table,
+                   table.equal_metadata(reader.read_table, false),
                  ])
   end
 end

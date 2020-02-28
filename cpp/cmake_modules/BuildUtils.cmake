@@ -122,12 +122,20 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
   endif()
 endfunction()
 
+function(REUSE_PRECOMPILED_HEADER_LIB TARGET_NAME LIB_NAME)
+  if(ARROW_USE_PRECOMPILED_HEADERS)
+    target_precompile_headers(${TARGET_NAME} REUSE_FROM ${LIB_NAME})
+  endif()
+endfunction()
+
 # \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
   set(options BUILD_SHARED BUILD_STATIC)
-  set(one_value_args CMAKE_PACKAGE_NAME PKG_CONFIG_NAME SHARED_LINK_FLAGS)
+  set(one_value_args CMAKE_PACKAGE_NAME PKG_CONFIG_NAME SHARED_LINK_FLAGS
+                     PRECOMPILED_HEADER_LIB)
   set(multi_value_args
       SOURCES
+      PRECOMPILED_HEADERS
       OUTPUTS
       STATIC_LINK_LIBS
       SHARED_LINK_LIBS
@@ -173,20 +181,25 @@ function(ADD_ARROW_LIB LIB_NAME)
     # because of dllexport declarations on Windows.
     # The Xcode generator doesn't reliably work with Xcode as target names are not
     # guessed correctly.
-    set(LIB_DEPS ${ARG_SOURCES})
-    set(EXTRA_DEPS ${ARG_DEPENDENCIES})
-
-    if(ARG_EXTRA_INCLUDES)
-      set(LIB_INCLUDES ${ARG_EXTRA_INCLUDES})
-    endif()
+    set(USE_OBJLIB OFF)
   else()
-    # Otherwise, generate a single "objlib" from all C++ modules and link
+    set(USE_OBJLIB ON)
+  endif()
+
+  if(USE_OBJLIB)
+    # Generate a single "objlib" from all C++ modules and link
     # that "objlib" into each library kind, to avoid compiling twice
     add_library(${LIB_NAME}_objlib OBJECT ${ARG_SOURCES})
     # Necessary to make static linking into other shared libraries work properly
     set_property(TARGET ${LIB_NAME}_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
     if(ARG_DEPENDENCIES)
       add_dependencies(${LIB_NAME}_objlib ${ARG_DEPENDENCIES})
+    endif()
+    if(ARG_PRECOMPILED_HEADER_LIB)
+      reuse_precompiled_header_lib(${LIB_NAME}_objlib ${ARG_PRECOMPILED_HEADER_LIB})
+    endif()
+    if(ARG_PRECOMPILED_HEADERS AND ARROW_USE_PRECOMPILED_HEADERS)
+      target_precompile_headers(${LIB_NAME}_objlib PRIVATE ${ARG_PRECOMPILED_HEADERS})
     endif()
     set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
     set(LIB_INCLUDES)
@@ -202,6 +215,15 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_PRIVATE_INCLUDES)
       target_include_directories(${LIB_NAME}_objlib PRIVATE ${ARG_PRIVATE_INCLUDES})
     endif()
+  else()
+    # Prepare arguments for separate compilation of static and shared libs below
+    # TODO: add PCH directives
+    set(LIB_DEPS ${ARG_SOURCES})
+    set(EXTRA_DEPS ${ARG_DEPENDENCIES})
+
+    if(ARG_EXTRA_INCLUDES)
+      set(LIB_INCLUDES ${ARG_EXTRA_INCLUDES})
+    endif()
   endif()
 
   set(RUNTIME_INSTALL_DIR bin)
@@ -210,6 +232,10 @@ function(ADD_ARROW_LIB LIB_NAME)
     add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
+    endif()
+
+    if(ARG_PRECOMPILED_HEADER_LIB)
+      reuse_precompiled_header_lib(${LIB_NAME}_shared ${ARG_PRECOMPILED_HEADER_LIB})
     endif()
 
     if(ARG_OUTPUTS)
@@ -291,6 +317,10 @@ function(ADD_ARROW_LIB LIB_NAME)
     add_library(${LIB_NAME}_static STATIC ${LIB_DEPS})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
+    endif()
+
+    if(ARG_PRECOMPILED_HEADER_LIB)
+      reuse_precompiled_header_lib(${LIB_NAME}_static ${ARG_PRECOMPILED_HEADER_LIB})
     endif()
 
     if(ARG_OUTPUTS)
@@ -516,9 +546,10 @@ endfunction()
 # names must exist
 function(ADD_TEST_CASE REL_TEST_NAME)
   set(options NO_VALGRIND ENABLED)
-  set(one_value_args)
+  set(one_value_args PRECOMPILED_HEADER_LIB)
   set(multi_value_args
       SOURCES
+      PRECOMPILED_HEADERS
       STATIC_LINK_LIBS
       EXTRA_LINK_LIBS
       EXTRA_INCLUDES
@@ -577,6 +608,14 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS})
   endif()
 
+  if(ARG_PRECOMPILED_HEADER_LIB)
+    reuse_precompiled_header_lib(${TEST_NAME} ${ARG_PRECOMPILED_HEADER_LIB})
+  endif()
+
+  if(ARG_PRECOMPILED_HEADERS AND ARROW_USE_PRECOMPILED_HEADERS)
+    target_precompile_headers(${TEST_NAME} PRIVATE ${ARG_PRECOMPILED_HEADERS})
+  endif()
+
   if(ARG_EXTRA_LINK_LIBS)
     target_link_libraries(${TEST_NAME} PRIVATE ${ARG_EXTRA_LINK_LIBS})
   endif()
@@ -590,9 +629,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
   endif()
 
   if(ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
-    set_property(TARGET ${TEST_NAME}
-                 APPEND_STRING
-                 PROPERTY COMPILE_FLAGS " -DARROW_VALGRIND")
     add_test(
       ${TEST_NAME} bash -c
       "cd '${CMAKE_SOURCE_DIR}'; \
@@ -690,17 +726,17 @@ endfunction()
 #
 # Fuzzing
 #
-# Add new fuzzing test executable.
+# Add new fuzz target executable.
 #
 # The single source file must define a function:
 #   extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #
 # No main function must be present within the source file!
 #
-function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
+function(ADD_FUZZ_TARGET REL_FUZZING_NAME)
   set(options)
-  set(one_value_args)
-  set(multi_value_args PREFIX)
+  set(one_value_args PREFIX)
+  set(multi_value_args LINK_LIBS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -723,12 +759,6 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
     set(FUZZING_NAME "${ARG_PREFIX}-${FUZZING_NAME}")
   endif()
 
-  if(ARROW_BUILD_STATIC)
-    set(FUZZ_LINK_LIBS arrow_static)
-  else()
-    set(FUZZ_LINK_LIBS arrow_shared)
-  endif()
-
   # For OSS-Fuzz
   # (https://google.github.io/oss-fuzz/advanced-topics/ideal-integration/)
   if(DEFINED ENV{LIB_FUZZING_ENGINE})
@@ -738,7 +768,7 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
   endif()
 
   add_executable(${FUZZING_NAME} "${REL_FUZZING_NAME}.cc")
-  target_link_libraries(${FUZZING_NAME} ${FUZZ_LINK_LIBS})
+  target_link_libraries(${FUZZING_NAME} ${LINK_LIBS})
   target_compile_options(${FUZZING_NAME} PRIVATE ${FUZZ_LDFLAGS})
   set_target_properties(${FUZZING_NAME}
                         PROPERTIES LINK_FLAGS ${FUZZ_LDFLAGS} LABELS "fuzzing")

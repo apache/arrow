@@ -102,10 +102,7 @@ class IpcComponentSource {
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
     auto buffers = metadata_->buffers();
-    if (buffers == nullptr) {
-      return Status::IOError(
-          "Buffers-pointer of flatbuffer-encoded RecordBatch is null.");
-    }
+    CHECK_FLATBUFFERS_NOT_NULL(buffers, "RecordBatch.buffers");
     if (buffer_index >= static_cast<int>(buffers->size())) {
       return Status::IOError("buffer_index out of range.");
     }
@@ -127,9 +124,7 @@ class IpcComponentSource {
 
   Status GetFieldMetadata(int field_index, ArrayData* out) {
     auto nodes = metadata_->nodes();
-    if (nodes == nullptr) {
-      return Status::IOError("Nodes-pointer of flatbuffer-encoded Table is null.");
-    }
+    CHECK_FLATBUFFERS_NOT_NULL(nodes, "Table.nodes");
     // pop off a field
     if (field_index >= static_cast<int>(nodes->size())) {
       return Status::Invalid("Ran out of field metadata, likely malformed");
@@ -283,7 +278,7 @@ class ArrayLoader {
   }
 
   template <typename T>
-  enable_if_base_list<T, Status> Visit(const T& type) {
+  enable_if_var_size_list<T, Status> Visit(const T& type) {
     return LoadList(type);
   }
 
@@ -362,9 +357,9 @@ Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& sc
   CHECK_MESSAGE_TYPE(Message::RECORD_BATCH, message.type());
   CHECK_HAS_BODY(message);
   auto options = IpcOptions::Defaults();
-  io::BufferReader reader(message.body());
-  return ReadRecordBatch(*message.metadata(), schema, dictionary_memo, options, &reader,
-                         out);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
+  return ReadRecordBatch(*message.metadata(), schema, dictionary_memo, options,
+                         reader.get(), out);
 }
 
 // ----------------------------------------------------------------------
@@ -441,6 +436,7 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   // The dictionary is embedded in a record batch with a single column
   std::shared_ptr<RecordBatch> batch;
   auto batch_meta = dictionary_batch->data();
+  CHECK_FLATBUFFERS_NOT_NULL(batch_meta, "DictionaryBatch.data");
   RETURN_NOT_OK(ReadRecordBatch(batch_meta, ::arrow::schema({value_field}),
                                 dictionary_memo, options, file, &batch));
   if (batch->num_columns() != 1) {
@@ -475,9 +471,6 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     }
     CHECK_MESSAGE_TYPE(Message::SCHEMA, message->type());
     CHECK_HAS_NO_BODY(*message);
-    if (message->header() == nullptr) {
-      return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
-    }
     return internal::GetSchema(message->header(), &dictionary_memo_, &schema_);
   }
 
@@ -485,8 +478,8 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     // Only invoke this method if we already know we have a dictionary message
     DCHECK_EQ(message.type(), Message::DICTIONARY_BATCH);
     CHECK_HAS_BODY(message);
-    io::BufferReader reader(message.body());
-    return ReadDictionary(*message.metadata(), &dictionary_memo_, &reader);
+    ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
+    return ReadDictionary(*message.metadata(), &dictionary_memo_, reader.get());
   }
 
   Status ReadInitialDictionaries() {
@@ -552,9 +545,9 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
       return Status::NotImplemented("Delta dictionaries not yet implemented");
     } else {
       CHECK_HAS_BODY(*message);
-      io::BufferReader reader(message->body());
-      return ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_, &reader,
-                             batch);
+      ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+      return ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_,
+                             reader.get(), batch);
     }
   }
 
@@ -663,9 +656,13 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     return Status::OK();
   }
 
-  int num_dictionaries() const { return footer_->dictionaries()->size(); }
+  int num_dictionaries() const {
+    return static_cast<int>(internal::FlatBuffersVectorSize(footer_->dictionaries()));
+  }
 
-  int num_record_batches() const { return footer_->recordBatches()->size(); }
+  int num_record_batches() const {
+    return static_cast<int>(internal::FlatBuffersVectorSize(footer_->recordBatches()));
+  }
 
   MetadataVersion version() const {
     return internal::GetMetadataVersion(footer_->version());
@@ -700,8 +697,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
       RETURN_NOT_OK(ReadMessageFromBlock(GetDictionaryBlock(i), &message));
 
       CHECK_HAS_BODY(*message);
-      io::BufferReader reader(message->body());
-      RETURN_NOT_OK(ReadDictionary(*message->metadata(), &dictionary_memo_, &reader));
+      ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+      RETURN_NOT_OK(
+          ReadDictionary(*message->metadata(), &dictionary_memo_, reader.get()));
     }
     return Status::OK();
   }
@@ -719,9 +717,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     RETURN_NOT_OK(ReadMessageFromBlock(GetRecordBatchBlock(i), &message));
 
     CHECK_HAS_BODY(*message);
-    io::BufferReader reader(message->body());
+    ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
     return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_,
-                                         &reader, batch);
+                                         reader.get(), batch);
   }
 
   Status ReadSchema() {
@@ -841,9 +839,9 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   CHECK_HAS_BODY(*message);
-  io::BufferReader buffer_reader(message->body());
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
   return ReadRecordBatch(*message->metadata(), schema, dictionary_memo, options,
-                         &buffer_reader, out);
+                         reader.get(), out);
 }
 
 Result<std::shared_ptr<Tensor>> ReadTensor(io::InputStream* file) {
@@ -1151,8 +1149,8 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Buffer& metadata,
 
 Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Message& message) {
   CHECK_HAS_BODY(message);
-  io::BufferReader buffer_reader(message.body());
-  return ReadSparseTensor(*message.metadata(), &buffer_reader);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
+  return ReadSparseTensor(*message.metadata(), reader.get());
 }
 
 Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file) {
@@ -1160,8 +1158,8 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file) {
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   CHECK_MESSAGE_TYPE(Message::SPARSE_TENSOR, message->type());
   CHECK_HAS_BODY(*message);
-  io::BufferReader buffer_reader(message->body());
-  return ReadSparseTensor(*message->metadata(), &buffer_reader);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+  return ReadSparseTensor(*message->metadata(), reader.get());
 }
 
 ///////////////////////////////////////////////////////////////////////////

@@ -19,7 +19,7 @@ VERSION=$(shell grep ^Version DESCRIPTION | sed s/Version:\ //)
 ARROW_R_DEV="TRUE"
 
 doc:
-	R --slave -e 'rmarkdown::render("README.Rmd"); roxygen2::roxygenize()'
+	R --slave -e 'roxygen2::roxygenize()'
 	-git add --all man/*.Rd
 
 test:
@@ -35,6 +35,10 @@ build: doc
 
 check: build
 	-export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE && export ARROW_R_DEV=$(ARROW_R_DEV) && export _R_CHECK_TESTS_NLINES_=0 && R CMD check --as-cran --run-donttest arrow_$(VERSION).tar.gz
+	rm -rf arrow.Rcheck/
+
+release: build
+	-export _R_CHECK_TESTS_NLINES_=0 && R CMD check --as-cran --run-donttest arrow_$(VERSION).tar.gz
 	rm -rf arrow.Rcheck/
 
 clean:

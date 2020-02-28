@@ -1367,7 +1367,14 @@ std::vector<NativePathString> GetPlatformTemporaryDirs() {
 
 std::string MakeRandomName(int num_chars) {
   static const std::string chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+#ifdef ARROW_VALGRIND
+  // Valgrind can crash, hang or enter an infinite loop on std::random_device,
+  // use a PRNG instead.
+  static std::random_device::result_type seed = 42;
+  std::default_random_engine gen(seed++);
+#else
   std::random_device gen;
+#endif
   std::uniform_int_distribution<int> dist(0, static_cast<int>(chars.length() - 1));
 
   std::string s;

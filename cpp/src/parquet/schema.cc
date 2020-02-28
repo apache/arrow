@@ -98,6 +98,7 @@ const std::shared_ptr<ColumnPath> Node::path() const {
 bool Node::EqualsInternal(const Node* other) const {
   return type_ == other->type_ && name_ == other->name_ &&
          repetition_ == other->repetition_ && converted_type_ == other->converted_type_ &&
+         field_id_ == other->field_id() &&
          logical_type_->Equals(*(other->logical_type()));
 }
 
@@ -386,23 +387,27 @@ void GroupNode::VisitConst(Node::ConstVisitor* visitor) const { visitor->Visit(t
 // ----------------------------------------------------------------------
 // Node construction from Parquet metadata
 
-std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element, int node_id,
-                                             const NodeVector& fields) {
+std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element,
+                                             NodeVector fields, int field_id) {
   const format::SchemaElement* element =
       static_cast<const format::SchemaElement*>(opaque_element);
+
+  if (element->__isset.field_id) {
+    field_id = element->field_id;
+  }
 
   std::unique_ptr<GroupNode> group_node;
   if (element->__isset.logicalType) {
     // updated writer with logical type present
     group_node = std::unique_ptr<GroupNode>(
         new GroupNode(element->name, FromThrift(element->repetition_type), fields,
-                      LogicalType::FromThrift(element->logicalType), node_id));
+                      LogicalType::FromThrift(element->logicalType), field_id));
   } else {
     group_node = std::unique_ptr<GroupNode>(new GroupNode(
         element->name, FromThrift(element->repetition_type), fields,
         (element->__isset.converted_type ? FromThrift(element->converted_type)
                                          : ConvertedType::NONE),
-        node_id));
+        field_id));
   }
 
   return std::unique_ptr<Node>(group_node.release());
@@ -461,9 +466,13 @@ struct SafeLoader {
 }  // namespace
 
 std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
-                                                 int node_id) {
+                                                 int field_id) {
   const format::SchemaElement* element =
       static_cast<const format::SchemaElement*>(opaque_element);
+
+  if (element->__isset.field_id) {
+    field_id = element->field_id;
+  }
 
   std::unique_ptr<PrimitiveNode> primitive_node;
   if (element->__isset.logicalType) {
@@ -471,20 +480,20 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
         element->name, SafeLoader<Repetition>::Load(&(element->repetition_type)),
         LogicalType::FromThrift(element->logicalType),
-        SafeLoader<Type>::Load(&(element->type)), element->type_length, node_id));
+        SafeLoader<Type>::Load(&(element->type)), element->type_length, field_id));
   } else if (element->__isset.converted_type) {
     // legacy writer with logical type present
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
         element->name, SafeLoader<Repetition>::Load(&(element->repetition_type)),
         SafeLoader<Type>::Load(&(element->type)),
         SafeLoader<ConvertedType>::Load(&(element->converted_type)), element->type_length,
-        element->precision, element->scale, node_id));
+        element->precision, element->scale, field_id));
   } else {
     // logical type not present
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
         element->name, SafeLoader<Repetition>::Load(&(element->repetition_type)),
         NoLogicalType::Make(), SafeLoader<Type>::Load(&(element->type)),
-        element->type_length, node_id));
+        element->type_length, field_id));
   }
 
   // Return as unique_ptr to the base type
@@ -499,6 +508,9 @@ void GroupNode::ToParquet(void* opaque_element) const {
   if (converted_type_ != ConvertedType::NONE) {
     element->__set_converted_type(ToThrift(converted_type_));
   }
+  if (field_id_ >= 0) {
+    element->__set_field_id(field_id_);
+  }
   if (logical_type_ && logical_type_->is_serialized()) {
     element->__set_logicalType(logical_type_->ToThrift());
   }
@@ -511,6 +523,9 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
   element->__set_repetition_type(ToThrift(repetition_));
   if (converted_type_ != ConvertedType::NONE) {
     element->__set_converted_type(ToThrift(converted_type_));
+  }
+  if (field_id_ >= 0) {
+    element->__set_field_id(field_id_);
   }
   if (logical_type_ && logical_type_->is_serialized() &&
       // TODO(tpboudreau): remove the following conjunct to enable serialization
@@ -532,68 +547,52 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
 // ----------------------------------------------------------------------
 // Schema converters
 
-std::unique_ptr<Node> FlatSchemaConverter::Convert() {
-  const SchemaElement& root = elements_[0];
-
-  if (root.num_children == 0) {
-    if (length_ == 1) {
+std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int length) {
+  if (elements[0].num_children == 0) {
+    if (length == 1) {
       // Degenerate case of Parquet file with no columns
-      return GroupNode::FromParquet(static_cast<const void*>(&root), next_id(), {});
+      return GroupNode::FromParquet(elements, {}, /*field_id=*/0);
     } else {
       throw ParquetException(
           "Parquet schema had multiple nodes but root had no children");
     }
   }
 
-  // Relaxing this restriction as some implementations don't set this
-  // if (root.repetition_type != FieldRepetitionType::REPEATED) {
-  //   throw ParquetException("Root node was not FieldRepetitionType::REPEATED");
-  // }
+  // We don't check that the root node is repeated since this is not
+  // consistently set by implementations
 
+  int pos = 0;
+  int current_id = 0;
+
+  std::function<std::unique_ptr<Node>()> NextNode = [&]() {
+    if (pos == length) {
+      throw ParquetException("Malformed schema: not enough elements");
+    }
+    const SchemaElement& element = elements[pos++];
+    int field_id = current_id++;
+    const void* opaque_element = static_cast<const void*>(&element);
+
+    if (element.num_children == 0) {
+      // Leaf (primitive) node
+      return PrimitiveNode::FromParquet(opaque_element, field_id);
+    } else {
+      // Group
+      NodeVector fields;
+      for (int i = 0; i < element.num_children; ++i) {
+        std::unique_ptr<Node> field = NextNode();
+        fields.push_back(NodePtr(field.release()));
+      }
+      return GroupNode::FromParquet(opaque_element, std::move(fields), field_id);
+    }
+  };
   return NextNode();
 }
 
-std::unique_ptr<Node> FlatSchemaConverter::NextNode() {
-  const SchemaElement& element = Next();
-
-  int node_id = next_id();
-
-  const void* opaque_element = static_cast<const void*>(&element);
-
-  if (element.num_children == 0) {
-    // Leaf (primitive) node
-    return PrimitiveNode::FromParquet(opaque_element, node_id);
-  } else {
-    // Group
-    NodeVector fields;
-    for (int i = 0; i < element.num_children; ++i) {
-      std::unique_ptr<Node> field = NextNode();
-      fields.push_back(NodePtr(field.release()));
-    }
-    return GroupNode::FromParquet(opaque_element, node_id, fields);
-  }
-}
-
-const format::SchemaElement& FlatSchemaConverter::Next() {
-  if (pos_ == length_) {
-    throw ParquetException("Malformed schema: not enough SchemaElement values");
-  }
-  return elements_[pos_++];
-}
-
 std::shared_ptr<SchemaDescriptor> FromParquet(const std::vector<SchemaElement>& schema) {
-  FlatSchemaConverter converter(&schema[0], static_cast<int>(schema.size()));
-  std::unique_ptr<Node> root = converter.Convert();
-
+  std::unique_ptr<Node> root = Unflatten(&schema[0], static_cast<int>(schema.size()));
   std::shared_ptr<SchemaDescriptor> descr = std::make_shared<SchemaDescriptor>();
   descr->Init(std::shared_ptr<GroupNode>(static_cast<GroupNode*>(root.release())));
-
   return descr;
-}
-
-void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out) {
-  SchemaFlattener flattener(schema, out);
-  flattener.Flatten();
 }
 
 class SchemaVisitor : public Node::ConstVisitor {
@@ -618,36 +617,13 @@ class SchemaVisitor : public Node::ConstVisitor {
   std::vector<format::SchemaElement>* elements_;
 };
 
-SchemaFlattener::SchemaFlattener(const GroupNode* schema,
-                                 std::vector<format::SchemaElement>* out)
-    : root_(schema), elements_(out) {}
-
-void SchemaFlattener::Flatten() {
-  SchemaVisitor visitor(elements_);
-  root_->VisitConst(&visitor);
+void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out) {
+  SchemaVisitor visitor(out);
+  schema->VisitConst(&visitor);
 }
 
 // ----------------------------------------------------------------------
 // Schema printing
-
-class SchemaPrinter : public Node::ConstVisitor {
- public:
-  explicit SchemaPrinter(std::ostream& stream, int indent_width)
-      : stream_(stream), indent_(0), indent_width_(2) {}
-
-  void Visit(const Node* node) override;
-
- private:
-  void Visit(const PrimitiveNode* node);
-  void Visit(const GroupNode* node);
-
-  void Indent();
-
-  std::ostream& stream_;
-
-  int indent_;
-  int indent_width_;
-};
 
 static void PrintRepLevel(Repetition::type repetition, std::ostream& stream) {
   switch (repetition) {
@@ -710,21 +686,40 @@ static void PrintConvertedType(const PrimitiveNode* node, std::ostream& stream) 
   }
 }
 
-void SchemaPrinter::Visit(const PrimitiveNode* node) {
-  PrintRepLevel(node->repetition(), stream_);
-  stream_ << " ";
-  PrintType(node, stream_);
-  stream_ << " " << node->name();
-  PrintConvertedType(node, stream_);
-  stream_ << ";" << std::endl;
-}
+struct SchemaPrinter : public Node::ConstVisitor {
+  explicit SchemaPrinter(std::ostream& stream, int indent_width)
+      : stream_(stream), indent_(0), indent_width_(2) {}
 
-void SchemaPrinter::Visit(const GroupNode* node) {
-  if (!node->parent()) {
-    stream_ << "message " << node->name() << " {" << std::endl;
-  } else {
+  void Indent() {
+    if (indent_ > 0) {
+      std::string spaces(indent_, ' ');
+      stream_ << spaces;
+    }
+  }
+
+  void Visit(const Node* node) {
+    Indent();
+    if (node->is_group()) {
+      Visit(static_cast<const GroupNode*>(node));
+    } else {
+      // Primitive
+      Visit(static_cast<const PrimitiveNode*>(node));
+    }
+  }
+
+  void Visit(const PrimitiveNode* node) {
     PrintRepLevel(node->repetition(), stream_);
-    stream_ << " group " << node->name();
+    stream_ << " ";
+    PrintType(node, stream_);
+    stream_ << " field_id=" << node->field_id() << " " << node->name();
+    PrintConvertedType(node, stream_);
+    stream_ << ";" << std::endl;
+  }
+
+  void Visit(const GroupNode* node) {
+    PrintRepLevel(node->repetition(), stream_);
+    stream_ << " group "
+            << "field_id=" << node->field_id() << " " << node->name();
     auto lt = node->converted_type();
     auto la = node->logical_type();
     if (la && la->is_valid() && !la->is_none()) {
@@ -733,33 +728,20 @@ void SchemaPrinter::Visit(const GroupNode* node) {
       stream_ << " (" << ConvertedTypeToString(lt) << ")";
     }
     stream_ << " {" << std::endl;
+
+    indent_ += indent_width_;
+    for (int i = 0; i < node->field_count(); ++i) {
+      node->field(i)->VisitConst(this);
+    }
+    indent_ -= indent_width_;
+    Indent();
+    stream_ << "}" << std::endl;
   }
 
-  indent_ += indent_width_;
-  for (int i = 0; i < node->field_count(); ++i) {
-    node->field(i)->VisitConst(this);
-  }
-  indent_ -= indent_width_;
-  Indent();
-  stream_ << "}" << std::endl;
-}
-
-void SchemaPrinter::Indent() {
-  if (indent_ > 0) {
-    std::string spaces(indent_, ' ');
-    stream_ << spaces;
-  }
-}
-
-void SchemaPrinter::Visit(const Node* node) {
-  Indent();
-  if (node->is_group()) {
-    Visit(static_cast<const GroupNode*>(node));
-  } else {
-    // Primitive
-    Visit(static_cast<const PrimitiveNode*>(node));
-  }
-}
+  std::ostream& stream_;
+  int indent_;
+  int indent_width_;
+};
 
 void PrintSchema(const Node* schema, std::ostream& stream, int indent_width) {
   SchemaPrinter printer(stream, indent_width);

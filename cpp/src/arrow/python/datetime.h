@@ -121,24 +121,15 @@ inline TimePoint PyDateTime_to_TimePoint(PyDateTime_DateTime* pydatetime) {
 ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_s(PyDateTime_Delta* pytimedelta) {
   int64_t total_seconds = 0;
-#if PY_VERSION_HEX >= 0x03000000
   total_seconds += PyDateTime_DELTA_GET_SECONDS(pytimedelta);
   total_seconds += PyDateTime_DELTA_GET_DAYS(pytimedelta) * 24 * 3600;
-#else
-  total_seconds += pytimedelta->seconds;
-  total_seconds += pytimedelta->days * 24 * 3600;
-#endif
   return total_seconds;
 }
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_ms(PyDateTime_Delta* pytimedelta) {
   int64_t total_ms = PyDelta_to_s(pytimedelta) * 1000;
-#if PY_VERSION_HEX >= 0x03000000
   total_ms += PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta) / 1000;
-#else
-  total_ms += pytimedelta->microseconds / 1000;
-#endif
   return total_ms;
 }
 
@@ -146,11 +137,7 @@ ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_us(PyDateTime_Delta* pytimedelta) {
   int64_t total_us = 0;
   total_us += PyDelta_to_s(pytimedelta) * 1000 * 1000;
-#if PY_VERSION_HEX >= 0x03000000
   total_us += PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta);
-#else
-  total_us += pytimedelta->microseconds;
-#endif
   return total_us;
 }
 

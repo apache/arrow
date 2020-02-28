@@ -123,12 +123,6 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
       return Status::OK();
     case PythonType::PY2INT:
     case PythonType::INT: {
-#if PY_MAJOR_VERSION < 3
-      if (type == PythonType::PY2INT) {
-        *result = PyInt_FromSsize_t(checked_cast<const Int64Array&>(arr).Value(index));
-        return Status::OK();
-      }
-#endif
       *result = PyLong_FromSsize_t(checked_cast<const Int64Array&>(arr).Value(index));
       return Status::OK();
     }

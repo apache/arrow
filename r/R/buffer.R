@@ -39,7 +39,9 @@ Buffer <- R6Class("Buffer", inherit = Object,
   public = list(
     ZeroPadding = function() Buffer__ZeroPadding(self),
     data = function() Buffer__data(self),
-    Equals = function(other) Buffer__Equals(self, other)
+    Equals = function(other, ...) {
+      inherits(other, "Buffer") && Buffer__Equals(self, other)
+    }
   ),
 
   active = list(

@@ -31,6 +31,7 @@ RUN apt-get update -y -q && \
         flex \
         g++ \
         gcc \
+        gdb \
         git \
         libbz2-dev \
         libgoogle-glog-dev \

@@ -42,6 +42,10 @@ TEST(KeyValueMetadataTest, StringVectorConstruction) {
   ASSERT_EQ("bizz", metadata.value(0));
   ASSERT_EQ("buzz", metadata.value(1));
   ASSERT_EQ(2, metadata.size());
+
+  std::shared_ptr<KeyValueMetadata> metadata2 =
+      key_value_metadata({"foo", "bar"}, {"bizz", "buzz"});
+  ASSERT_TRUE(metadata.Equals(*metadata2));
 }
 
 TEST(KeyValueMetadataTest, StringMapConstruction) {
@@ -83,6 +87,23 @@ TEST(KeyValueMetadataTest, Copy) {
   KeyValueMetadata metadata(keys, values);
   auto metadata2 = metadata.Copy();
   ASSERT_TRUE(metadata.Equals(*metadata2));
+}
+
+TEST(KeyValueMetadataTest, Merge) {
+  std::vector<std::string> keys1 = {"foo", "bar"};
+  std::vector<std::string> values1 = {"bizz", "buzz"};
+  KeyValueMetadata metadata(keys1, values1);
+
+  std::vector<std::string> keys2 = {"bar", "baz"};
+  std::vector<std::string> values2 = {"bozz", "bezz"};
+  KeyValueMetadata metadata2(keys2, values2);
+
+  std::vector<std::string> keys3 = {"foo", "bar", "baz"};
+  std::vector<std::string> values3 = {"bizz", "bozz", "bezz"};
+  KeyValueMetadata expected(keys3, values3);
+
+  auto result = metadata.Merge(metadata2);
+  ASSERT_TRUE(result->Equals(expected));
 }
 
 TEST(KeyValueMetadataTest, FindKey) {

@@ -39,64 +39,64 @@ namespace dataset {
 
 /// \brief SourceFactory provides a way to inspect/discover a Source's expected
 /// schema before materializing said Source.
-class ARROW_DS_EXPORT SourceFactory {
+class ARROW_DS_EXPORT DatasetFactory {
  public:
   /// \brief Get the schemas of the Fragments and Partitioning.
   virtual Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() = 0;
 
-  /// \brief Get unified schema for the resulting Source.
+  /// \brief Get unified schema for the resulting Dataset.
   virtual Result<std::shared_ptr<Schema>> Inspect();
 
-  /// \brief Create a Source with the given schema.
-  virtual Result<std::shared_ptr<Source>> Finish(
+  /// \brief Create a Dataset with the given schema.
+  virtual Result<std::shared_ptr<Dataset>> Finish(
       const std::shared_ptr<Schema>& schema) = 0;
 
-  /// \brief Create a Source using the inspected schema.
-  virtual Result<std::shared_ptr<Source>> Finish();
+  /// \brief Create a Dataset using the inspected schema.
+  virtual Result<std::shared_ptr<Dataset>> Finish();
 
-  /// \brief Optional root partition for the resulting Source.
+  /// \brief Optional root partition for the resulting Dataset.
   const std::shared_ptr<Expression>& root_partition() const { return root_partition_; }
   Status SetRootPartition(std::shared_ptr<Expression> partition) {
     root_partition_ = partition;
     return Status::OK();
   }
 
-  virtual ~SourceFactory() = default;
+  virtual ~DatasetFactory() = default;
 
  protected:
-  SourceFactory();
+  DatasetFactory();
 
   std::shared_ptr<Expression> root_partition_;
 };
 
 /// \brief DatasetFactory provides a way to inspect/discover a Dataset's
-/// expected schema before materializing the Dataset and underlying Sources.
-class ARROW_DS_EXPORT DatasetFactory {
+/// expected schema before materialization.
+class ARROW_DS_EXPORT UnionDatasetFactory : public DatasetFactory {
  public:
   static Result<std::shared_ptr<DatasetFactory>> Make(
-      std::vector<std::shared_ptr<SourceFactory>> factories);
+      std::vector<std::shared_ptr<DatasetFactory>> factories);
 
-  /// \brief Return the list of SourceFactory
-  const std::vector<std::shared_ptr<SourceFactory>>& factories() const {
+  /// \brief Return the list of child DatasetFactory
+  const std::vector<std::shared_ptr<DatasetFactory>>& factories() const {
     return factories_;
   }
 
-  /// \brief Get the schemas of the Sources.
-  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas();
+  /// \brief Get the schemas of the Datasets.
+  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override;
 
   /// \brief Get unified schema for the resulting Dataset.
-  Result<std::shared_ptr<Schema>> Inspect();
+  Result<std::shared_ptr<Schema>> Inspect() override;
 
   /// \brief Create a Dataset with the given schema.
-  Result<std::shared_ptr<Dataset>> Finish(const std::shared_ptr<Schema>& schema);
+  Result<std::shared_ptr<Dataset>> Finish(const std::shared_ptr<Schema>& schema) override;
 
   /// \brief Create a Dataset using the inspected schema.
-  Result<std::shared_ptr<Dataset>> Finish();
+  Result<std::shared_ptr<Dataset>> Finish() override;
 
  protected:
-  explicit DatasetFactory(std::vector<std::shared_ptr<SourceFactory>> factories);
+  explicit UnionDatasetFactory(std::vector<std::shared_ptr<DatasetFactory>> factories);
 
-  std::vector<std::shared_ptr<SourceFactory>> factories_;
+  std::vector<std::shared_ptr<DatasetFactory>> factories_;
 };
 
 struct FileSystemFactoryOptions {
@@ -107,13 +107,13 @@ struct FileSystemFactoryOptions {
   // is a Partitioning which will yield no partition information.
   //
   // The (explicit or discovered) partitioning will be applied to discovered files
-  // and the resulting partition information embedded in the Source.
+  // and the resulting partition information embedded in the Dataset.
   PartitioningOrFactory partitioning{Partitioning::Default()};
 
   // For the purposes of applying the partitioning, paths will be stripped
   // of the partition_base_dir. Files not matching the partition_base_dir
   // prefix will be skipped for partition discovery. The ignored files will still
-  // be part of the Source, but will not have partition information.
+  // be part of the Dataset, but will not have partition information.
   //
   // Example:
   // partition_base_dir = "/dataset";
@@ -129,7 +129,7 @@ struct FileSystemFactoryOptions {
   // Invalid files (via selector or explicitly) will be excluded by checking
   // with the FileFormat::IsSupported method.  This will incur IO for each files
   // in a serial and single threaded fashion. Disabling this feature will skip the
-  // IO, but unsupported files may be present in the Source
+  // IO, but unsupported files may be present in the Dataset
   // (resulting in an error at scan time).
   bool exclude_invalid_files = true;
 
@@ -148,46 +148,46 @@ struct FileSystemFactoryOptions {
   };
 };
 
-/// \brief FileSystemSourceFactory creates a Source from a vector of
+/// \brief FileSystemDatasetFactory creates a Dataset from a vector of
 /// fs::FileStats or a fs::FileSelector.
-class ARROW_DS_EXPORT FileSystemSourceFactory : public SourceFactory {
+class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
  public:
-  /// \brief Build a FileSystemSourceFactory from an explicit list of
+  /// \brief Build a FileSystemDatasetFactory from an explicit list of
   /// paths.
   ///
-  /// \param[in] filesystem passed to FileSystemSource
-  /// \param[in] paths passed to FileSystemSource
-  /// \param[in] format passed to FileSystemSource
+  /// \param[in] filesystem passed to FileSystemDataset
+  /// \param[in] paths passed to FileSystemDataset
+  /// \param[in] format passed to FileSystemDataset
   /// \param[in] options see FileSystemFactoryOptions for more information.
-  static Result<std::shared_ptr<SourceFactory>> Make(
+  static Result<std::shared_ptr<DatasetFactory>> Make(
       std::shared_ptr<fs::FileSystem> filesystem, const std::vector<std::string>& paths,
       std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options);
 
-  /// \brief Build a FileSystemSourceFactory from a fs::FileSelector.
+  /// \brief Build a FileSystemDatasetFactory from a fs::FileSelector.
   ///
   /// The selector will expand to a vector of FileStats. The expansion/crawling
-  /// is performed in this function call. Thus, the finalized Source is
+  /// is performed in this function call. Thus, the finalized Dataset is
   /// working with a snapshot of the filesystem.
   //
   /// If options.partition_base_dir is not provided, it will be overwritten
   /// with selector.base_dir.
   ///
-  /// \param[in] filesystem passed to FileSystemSource
+  /// \param[in] filesystem passed to FileSystemDataset
   /// \param[in] selector used to crawl and search files
-  /// \param[in] format passed to FileSystemSource
+  /// \param[in] format passed to FileSystemDataset
   /// \param[in] options see FileSystemFactoryOptions for more information.
-  static Result<std::shared_ptr<SourceFactory>> Make(
+  static Result<std::shared_ptr<DatasetFactory>> Make(
       std::shared_ptr<fs::FileSystem> filesystem, fs::FileSelector selector,
       std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options);
 
   Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override;
 
-  Result<std::shared_ptr<Source>> Finish(const std::shared_ptr<Schema>& schema) override;
+  Result<std::shared_ptr<Dataset>> Finish(const std::shared_ptr<Schema>& schema) override;
 
  protected:
-  FileSystemSourceFactory(std::shared_ptr<fs::FileSystem> filesystem,
-                          fs::PathForest forest, std::shared_ptr<FileFormat> format,
-                          FileSystemFactoryOptions options);
+  FileSystemDatasetFactory(std::shared_ptr<fs::FileSystem> filesystem,
+                           fs::PathForest forest, std::shared_ptr<FileFormat> format,
+                           FileSystemFactoryOptions options);
 
   static Result<fs::PathForest> Filter(const std::shared_ptr<fs::FileSystem>& filesystem,
                                        const std::shared_ptr<FileFormat>& format,

@@ -50,6 +50,20 @@ bool IsTextRangeSet(const UriTextRangeStructA& range) { return range.first != nu
 
 }  // namespace
 
+std::string UriEscape(const std::string& s) {
+  if (s.empty()) {
+    // Avoid passing null pointer to uriEscapeExA
+    return s;
+  }
+  std::string escaped;
+  escaped.resize(3 * s.length());
+
+  auto end = uriEscapeExA(s.data(), s.data() + s.length(), &escaped[0],
+                          /*spaceToPlus=*/URI_FALSE, /*normalizeBreaks=*/URI_FALSE);
+  escaped.resize(end - &escaped[0]);
+  return escaped;
+}
+
 struct Uri::Impl {
   Impl() : string_rep_(""), port_(-1) { memset(&uri_, 0, sizeof(uri_)); }
 
@@ -94,6 +108,26 @@ bool Uri::has_host() const { return IsTextRangeSet(impl_->uri_.hostText); }
 std::string Uri::port_text() const { return TextRangeToString(impl_->uri_.portText); }
 
 int32_t Uri::port() const { return impl_->port_; }
+
+std::string Uri::username() const {
+  auto userpass = TextRangeToView(impl_->uri_.userInfo);
+  auto sep_pos = userpass.find_first_of(':');
+  if (sep_pos == util::string_view::npos) {
+    return std::string(userpass);
+  } else {
+    return std::string(userpass.substr(0, sep_pos));
+  }
+}
+
+std::string Uri::password() const {
+  auto userpass = TextRangeToView(impl_->uri_.userInfo);
+  auto sep_pos = userpass.find_first_of(':');
+  if (sep_pos == util::string_view::npos) {
+    return std::string();
+  } else {
+    return std::string(userpass.substr(sep_pos + 1));
+  }
+}
 
 std::string Uri::path() const {
   // Gather path segments
@@ -168,6 +202,11 @@ Status Uri::Parse(const std::string& uri_string) {
       URI_SUCCESS) {
     return Status::Invalid("Cannot parse URI: '", uri_string, "'");
   }
+
+  if (scheme().empty()) {
+    return Status::Invalid("URI has empty scheme: '", uri_string, "'");
+  }
+
   // Parse port number
   auto port_text = TextRangeToView(impl_->uri_.portText);
   if (port_text.size()) {

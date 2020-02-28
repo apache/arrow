@@ -2391,6 +2391,9 @@ garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array)
   case arrow::Type::type::STRUCT:
     type = GARROW_TYPE_STRUCT_ARRAY;
     break;
+  case arrow::Type::type::MAP:
+    type = GARROW_TYPE_MAP_ARRAY;
+    break;
   case arrow::Type::type::UNION:
     {
       auto arrow_union_array =

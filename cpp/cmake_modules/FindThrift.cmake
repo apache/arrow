@@ -103,14 +103,14 @@ find_package_handle_standard_args(Thrift
 
 if(Thrift_FOUND OR THRIFT_FOUND)
   set(Thrift_FOUND TRUE)
-  add_library(Thrift::thrift STATIC IMPORTED)
-  set_target_properties(Thrift::thrift
+  add_library(thrift::thrift STATIC IMPORTED)
+  set_target_properties(thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   if(WIN32 AND NOT MSVC)
     # We don't need this for Visual C++ because Thrift uses
     # "#pragma comment(lib, "Ws2_32.lib")" in
     # thrift/windows/config.h for Visual C++.
-    set_target_properties(Thrift::thrift PROPERTIES INTERFACE_LINK_LIBRARIES "ws2_32")
+    set_target_properties(thrift::thrift PROPERTIES INTERFACE_LINK_LIBRARIES "ws2_32")
   endif()
 endif()

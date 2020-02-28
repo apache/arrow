@@ -16,3 +16,6 @@
 # under the License.
 
 arrow_install_all_headers("arrow/adapters/tensorflow")
+
+# pkg-config support
+arrow_add_pkg_config("arrow-tensorflow")

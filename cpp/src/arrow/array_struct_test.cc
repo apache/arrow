@@ -170,6 +170,31 @@ TEST(StructArray, FromFields) {
   ASSERT_RAISES(Invalid, res);
 }
 
+TEST(StructArray, Validate) {
+  auto a = ArrayFromJSON(int32(), "[4, 5]");
+  auto type = struct_({field("a", int32())});
+  auto children = std::vector<std::shared_ptr<Array>>{a};
+
+  auto arr = std::make_shared<StructArray>(type, 2, children);
+  ASSERT_OK(arr->ValidateFull());
+  arr = std::make_shared<StructArray>(type, 1, children, nullptr, 0, /*offset=*/1);
+  ASSERT_OK(arr->ValidateFull());
+  arr = std::make_shared<StructArray>(type, 0, children, nullptr, 0, /*offset=*/2);
+  ASSERT_OK(arr->ValidateFull());
+
+  // Length + offset < child length, but it's ok
+  arr = std::make_shared<StructArray>(type, 1, children, nullptr, 0, /*offset=*/0);
+  ASSERT_OK(arr->ValidateFull());
+
+  // Length + offset > child length
+  arr = std::make_shared<StructArray>(type, 1, children, nullptr, 0, /*offset=*/2);
+  ASSERT_RAISES(Invalid, arr->ValidateFull());
+
+  // Offset > child length
+  arr = std::make_shared<StructArray>(type, 0, children, nullptr, 0, /*offset=*/3);
+  ASSERT_RAISES(Invalid, arr->ValidateFull());
+}
+
 // ----------------------------------------------------------------------------------
 // Struct test
 class TestStructBuilder : public TestBuilder {

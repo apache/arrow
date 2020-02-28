@@ -19,13 +19,14 @@
 
 import subprocess
 
+from .util import log
+
 
 class Tester(object):
     PRODUCER = False
     CONSUMER = False
     FLIGHT_SERVER = False
     FLIGHT_CLIENT = False
-    FLIGHT_PORT = 31337
 
     def __init__(self, debug=False, **args):
         self.args = args
@@ -34,7 +35,7 @@ class Tester(object):
     def run_shell_command(self, cmd):
         cmd = ' '.join(cmd)
         if self.debug:
-            print(cmd)
+            log(cmd)
         subprocess.check_call(cmd, shell=True)
 
     def json_to_file(self, json_path, arrow_path):
@@ -49,7 +50,7 @@ class Tester(object):
     def validate(self, json_path, arrow_path):
         raise NotImplementedError
 
-    def flight_server(self):
+    def flight_server(self, port):
         raise NotImplementedError
 
     def flight_request(self, port, json_path):

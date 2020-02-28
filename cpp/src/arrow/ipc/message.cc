@@ -22,6 +22,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include <flatbuffers/flatbuffers.h>
 
@@ -316,15 +317,13 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
 
 namespace {
 
-Status ReadMessage(io::InputStream* file, MemoryPool* pool, bool copy_metadata,
-                   std::unique_ptr<Message>* message) {
+Result<std::unique_ptr<Message>> DoReadMessage(io::InputStream* file, MemoryPool* pool) {
   int32_t continuation = 0;
   ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, file->Read(sizeof(int32_t), &continuation));
 
   if (bytes_read == 0) {
     // EOS without indication
-    *message = nullptr;
-    return Status::OK();
+    return nullptr;
   } else if (bytes_read != sizeof(int32_t)) {
     return Status::Invalid("Corrupted message, only ", bytes_read, " bytes available");
   }
@@ -341,37 +340,32 @@ Status ReadMessage(io::InputStream* file, MemoryPool* pool, bool copy_metadata,
 
   if (flatbuffer_length == 0) {
     // EOS
-    *message = nullptr;
-    return Status::OK();
+    return nullptr;
   }
 
-  std::shared_ptr<Buffer> metadata;
-  if (copy_metadata) {
-    DCHECK_NE(pool, nullptr);
-    RETURN_NOT_OK(AllocateBuffer(pool, flatbuffer_length, &metadata));
-    ARROW_ASSIGN_OR_RAISE(bytes_read,
-                          file->Read(flatbuffer_length, metadata->mutable_data()));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(metadata, file->Read(flatbuffer_length));
-    bytes_read = metadata->size();
-  }
+  ARROW_ASSIGN_OR_RAISE(auto metadata, file->Read(flatbuffer_length));
+  bytes_read = metadata->size();
   if (bytes_read != flatbuffer_length) {
     return Status::Invalid("Expected to read ", flatbuffer_length,
                            " metadata bytes, but ", "only read ", bytes_read);
   }
+  // The buffer could be a non-CPU buffer (e.g. CUDA)
+  ARROW_ASSIGN_OR_RAISE(metadata,
+                        Buffer::ViewOrCopy(metadata, CPUDevice::memory_manager(pool)));
 
-  return Message::ReadFrom(metadata, file, message);
+  std::unique_ptr<Message> message;
+  RETURN_NOT_OK(Message::ReadFrom(metadata, file, &message));
+  return std::move(message);
 }
 
 }  // namespace
 
 Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* out) {
-  return ReadMessage(file, default_memory_pool(), /*copy_metadata=*/false, out);
+  return DoReadMessage(file, default_memory_pool()).Value(out);
 }
 
-Status ReadMessageCopy(io::InputStream* file, MemoryPool* pool,
-                       std::unique_ptr<Message>* out) {
-  return ReadMessage(file, pool, /*copy_metadata=*/true, out);
+Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* pool) {
+  return DoReadMessage(file, pool);
 }
 
 Status WriteMessage(const Buffer& message, const IpcOptions& options,

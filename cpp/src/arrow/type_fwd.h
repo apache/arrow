@@ -32,12 +32,21 @@ class Result;
 
 class Status;
 
+class Buffer;
+class Device;
+class MemoryManager;
+class MemoryPool;
+class MutableBuffer;
+class ResizableBuffer;
+
 class DataType;
+class Field;
 class KeyValueMetadata;
+class Schema;
+
 class Array;
 struct ArrayData;
 class ArrayBuilder;
-class Field;
 class Tensor;
 struct Scalar;
 
@@ -46,11 +55,6 @@ class RecordBatch;
 class Table;
 
 using RecordBatchIterator = Iterator<std::shared_ptr<RecordBatch>>;
-
-class Buffer;
-class MemoryPool;
-class ResizableBuffer;
-class Schema;
 
 class DictionaryType;
 class DictionaryArray;

@@ -508,10 +508,20 @@ template <typename T, typename R = void>
 using enable_if_nested = enable_if_t<is_nested_type<T>::value, R>;
 
 template <typename T>
-using is_base_list_type = std::is_base_of<BaseListType, T>;
+using is_var_length_list_type =
+    std::integral_constant<bool, std::is_base_of<LargeListType, T>::value ||
+                                     std::is_base_of<ListType, T>::value>;
 
 template <typename T, typename R = void>
-using enable_if_base_list = enable_if_t<is_base_list_type<T>::value, R>;
+using enable_if_var_size_list = enable_if_t<is_var_length_list_type<T>::value, R>;
+
+// DEPRECATED use is_var_length_list_type.
+template <typename T>
+using is_base_list_type = is_var_length_list_type<T>;
+
+// DEPRECATED use enable_if_var_size_list
+template <typename T, typename R = void>
+using enable_if_base_list = enable_if_var_size_list<T, R>;
 
 template <typename T>
 using is_fixed_size_list_type = std::is_same<FixedSizeListType, T>;

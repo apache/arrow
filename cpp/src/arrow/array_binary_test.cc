@@ -664,7 +664,7 @@ TEST(TestChunkedStringBuilder, BasicOperation) {
 // ----------------------------------------------------------------------
 // ArrayDataVisitor<binary-like> tests
 
-struct Appender {
+struct BinaryAppender {
   Status VisitNull() {
     data.emplace_back("(null)");
     return Status::OK();
@@ -687,7 +687,7 @@ class TestBinaryDataVisitor : public ::testing::Test {
 
   void TestBasics() {
     auto array = ArrayFromJSON(type_, R"(["foo", null, "bar"])");
-    Appender appender;
+    BinaryAppender appender;
     ArrayDataVisitor<TypeClass> visitor;
     ASSERT_OK(visitor.Visit(*array->data(), &appender));
     ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"foo", "(null)", "bar"}));
@@ -696,7 +696,7 @@ class TestBinaryDataVisitor : public ::testing::Test {
 
   void TestSliced() {
     auto array = ArrayFromJSON(type_, R"(["ab", null, "cd", "ef"])")->Slice(1, 2);
-    Appender appender;
+    BinaryAppender appender;
     ArrayDataVisitor<TypeClass> visitor;
     ASSERT_OK(visitor.Visit(*array->data(), &appender));
     ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"(null)", "cd"}));

@@ -46,6 +46,9 @@ def test_tree_exp_builder():
     projector = gandiva.make_projector(
         schema, [expr], pa.default_memory_pool())
 
+    # Gandiva generates compute kernel function named `@expr_X`
+    assert projector.llvm_ir.find("@expr_") != -1
+
     a = pa.array([10, 12, -20, 5], type=pa.int32())
     b = pa.array([5, 15, 15, 17], type=pa.int32())
     e = pa.array([10, 15, 15, 17], type=pa.int32())
@@ -96,6 +99,9 @@ def test_filter():
     condition = builder.make_condition(cond)
 
     filter = gandiva.make_filter(table.schema, condition)
+    # Gandiva generates compute kernel function named `@expr_X`
+    assert filter.llvm_ir.find("@expr_") != -1
+
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
     assert result.to_array().equals(pa.array(range(1000), type=pa.uint32()))
 
@@ -104,13 +110,13 @@ def test_filter():
 def test_in_expr():
     import pyarrow.gandiva as gandiva
 
-    arr = pa.array([u"ga", u"an", u"nd", u"di", u"iv", u"va"])
+    arr = pa.array(["ga", "an", "nd", "di", "iv", "va"])
     table = pa.Table.from_arrays([arr], ["a"])
 
     # string
     builder = gandiva.TreeExprBuilder()
     node_a = builder.make_field(table.schema.field("a"))
-    cond = builder.make_in_expression(node_a, [u"an", u"nd"], pa.string())
+    cond = builder.make_in_expression(node_a, ["an", "nd"], pa.string())
     condition = builder.make_condition(cond)
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())

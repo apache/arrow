@@ -589,14 +589,12 @@ where
     FROM::Native: num::NumCast,
     TO::Native: num::NumCast,
 {
-    match numeric_cast::<FROM, TO>(
+    numeric_cast::<FROM, TO>(
         from.as_any()
             .downcast_ref::<PrimitiveArray<FROM>>()
             .unwrap(),
-    ) {
-        Ok(to) => Ok(Arc::new(to) as ArrayRef),
-        Err(e) => Err(e),
-    }
+    )
+    .map(|to| Arc::new(to) as ArrayRef)
 }
 
 /// Natural cast between numeric types
@@ -630,15 +628,13 @@ where
     FROM: ArrowNumericType,
     FROM::Native: std::string::ToString,
 {
-    match numeric_to_string_cast::<FROM>(
+    numeric_to_string_cast::<FROM>(
         array
             .as_any()
             .downcast_ref::<PrimitiveArray<FROM>>()
             .unwrap(),
-    ) {
-        Ok(to) => Ok(Arc::new(to) as ArrayRef),
-        Err(e) => Err(e),
-    }
+    )
+    .map(|to| Arc::new(to) as ArrayRef)
 }
 
 fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> Result<StringArray>
@@ -664,12 +660,8 @@ fn cast_string_to_numeric<TO>(from: &ArrayRef) -> Result<ArrayRef>
 where
     TO: ArrowNumericType,
 {
-    match string_to_numeric_cast::<TO>(
-        from.as_any().downcast_ref::<StringArray>().unwrap(),
-    ) {
-        Ok(to) => Ok(Arc::new(to) as ArrayRef),
-        Err(e) => Err(e),
-    }
+    string_to_numeric_cast::<TO>(from.as_any().downcast_ref::<StringArray>().unwrap())
+        .map(|to| Arc::new(to) as ArrayRef)
 }
 
 fn string_to_numeric_cast<T>(from: &StringArray) -> Result<PrimitiveArray<T>>
@@ -699,14 +691,12 @@ fn cast_numeric_to_bool<FROM>(from: &ArrayRef) -> Result<ArrayRef>
 where
     FROM: ArrowNumericType,
 {
-    match numeric_to_bool_cast::<FROM>(
+    numeric_to_bool_cast::<FROM>(
         from.as_any()
             .downcast_ref::<PrimitiveArray<FROM>>()
             .unwrap(),
-    ) {
-        Ok(to) => Ok(Arc::new(to) as ArrayRef),
-        Err(e) => Err(e),
-    }
+    )
+    .map(|to| Arc::new(to) as ArrayRef)
 }
 
 fn numeric_to_bool_cast<T>(from: &PrimitiveArray<T>) -> Result<BooleanArray>
@@ -738,12 +728,8 @@ where
     TO: ArrowNumericType,
     TO::Native: num::cast::NumCast,
 {
-    match bool_to_numeric_cast::<TO>(
-        from.as_any().downcast_ref::<BooleanArray>().unwrap(),
-    ) {
-        Ok(to) => Ok(Arc::new(to) as ArrayRef),
-        Err(e) => Err(e),
-    }
+    bool_to_numeric_cast::<TO>(from.as_any().downcast_ref::<BooleanArray>().unwrap())
+        .map(|to| Arc::new(to) as ArrayRef)
 }
 
 fn bool_to_numeric_cast<T>(from: &BooleanArray) -> Result<PrimitiveArray<T>>

@@ -30,8 +30,7 @@ namespace dataset {
 
 class TestScanner : public DatasetFixtureMixin {
  protected:
-  static constexpr int64_t kNumberSources = 2;
-  static constexpr int64_t kNumberFragments = 4;
+  static constexpr int64_t kNumberChildDatasets = 2;
   static constexpr int64_t kNumberBatches = 16;
   static constexpr int64_t kBatchSize = 1024;
 
@@ -39,28 +38,26 @@ class TestScanner : public DatasetFixtureMixin {
     std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
                                                       batch};
 
-    FragmentVector fragments{static_cast<size_t>(kNumberFragments),
-                             std::make_shared<InMemoryFragment>(batches, options_)};
+    DatasetVector children{static_cast<size_t>(kNumberChildDatasets),
+                           std::make_shared<InMemoryDataset>(batch->schema(), batches)};
 
-    SourceVector sources{static_cast<size_t>(kNumberSources),
-                         std::make_shared<InMemorySource>(batch->schema(), fragments)};
+    EXPECT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(batch->schema(), children));
 
-    return Scanner{sources, options_, ctx_};
+    return Scanner{dataset, options_, ctx_};
   }
 
-  void AssertScannerEqualsRepetitionsOf(Scanner scanner,
-                                        std::shared_ptr<RecordBatch> batch) {
-    const int64_t total_batches = kNumberSources * kNumberBatches * kNumberFragments;
+  void AssertScannerEqualsRepetitionsOf(
+      Scanner scanner, std::shared_ptr<RecordBatch> batch,
+      const int64_t total_batches = kNumberChildDatasets * kNumberBatches) {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
 
     // Verifies that the unified BatchReader is equivalent to flattening all the
-    // structures of the scanner, i.e. Scanner[Source[ScanTask[RecordBatch]]]
+    // structures of the scanner, i.e. Scanner[Dataset[ScanTask[RecordBatch]]]
     AssertScannerEquals(expected.get(), &scanner);
   }
-};
+};  // namespace dataset
 
-constexpr int64_t TestScanner::kNumberSources;
-constexpr int64_t TestScanner::kNumberFragments;
+constexpr int64_t TestScanner::kNumberChildDatasets;
 constexpr int64_t TestScanner::kNumberBatches;
 constexpr int64_t TestScanner::kBatchSize;
 
@@ -68,6 +65,15 @@ TEST_F(TestScanner, Scan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   AssertScannerEqualsRepetitionsOf(MakeScanner(batch), batch);
+}
+
+TEST_F(TestScanner, ScanWithCappedBatchSize) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  options_->batch_size = kBatchSize / 2;
+  auto expected = batch->Slice(kBatchSize / 2);
+  AssertScannerEqualsRepetitionsOf(MakeScanner(batch), expected,
+                                   kNumberChildDatasets * kNumberBatches * 2);
 }
 
 TEST_F(TestScanner, FilteredScan) {
@@ -122,8 +128,8 @@ TEST_F(TestScanner, MaterializeMissingColumn) {
 TEST_F(TestScanner, ToTable) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-  std::vector<std::shared_ptr<RecordBatch>> batches{
-      kNumberBatches * kNumberFragments * kNumberSources, batch};
+  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches * kNumberChildDatasets,
+                                                    batch};
 
   std::shared_ptr<Table> expected;
   ASSERT_OK(Table::FromRecordBatches(batches, &expected));
@@ -144,7 +150,7 @@ TEST_F(TestScanner, ToTable) {
 
 class TestScannerBuilder : public ::testing::Test {
   void SetUp() {
-    SourceVector sources;
+    DatasetVector sources;
 
     schema_ = schema({
         field("b", boolean()),
@@ -154,7 +160,7 @@ class TestScannerBuilder : public ::testing::Test {
         field("i64", int64()),
     });
 
-    ASSERT_OK_AND_ASSIGN(dataset_, Dataset::Make(sources, schema_));
+    ASSERT_OK_AND_ASSIGN(dataset_, UnionDataset::Make(schema_, sources));
   }
 
  protected:

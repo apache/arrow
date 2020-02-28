@@ -568,7 +568,7 @@ class ArrayWriter {
   }
 
   template <typename ArrayType>
-  enable_if_base_list<typename ArrayType::TypeClass, Status> Visit(
+  enable_if_var_size_list<typename ArrayType::TypeClass, Status> Visit(
       const ArrayType& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
@@ -1281,7 +1281,7 @@ class ArrayReader {
   }
 
   template <typename T>
-  enable_if_base_list<T, Status> Visit(const T& type) {
+  enable_if_var_size_list<T, Status> Visit(const T& type) {
     return CreateList<T>(type_, &result_);
   }
 
@@ -1434,17 +1434,24 @@ class ArrayReader {
     return Status::OK();
   }
 
-  Status Parse(std::shared_ptr<Array>* out) {
-    RETURN_NOT_OK(GetObjectInt(obj_, "count", &length_));
-
+  Status ParseValidityBitmap() {
     const auto& json_valid_iter = obj_.FindMember("VALIDITY");
     RETURN_NOT_ARRAY("VALIDITY", json_valid_iter, obj_);
-
     const auto& json_validity = json_valid_iter->value.GetArray();
     DCHECK_EQ(static_cast<int>(json_validity.Size()), length_);
     for (const rj::Value& val : json_validity) {
       DCHECK(val.IsInt());
       is_valid_.push_back(val.GetInt() != 0);
+    }
+    return Status::OK();
+  }
+
+  Status Parse(std::shared_ptr<Array>* out) {
+    RETURN_NOT_OK(GetObjectInt(obj_, "count", &length_));
+
+    if (type_->id() != Type::NA) {
+      // Null type is the only type without any buffers
+      RETURN_NOT_OK(ParseValidityBitmap());
     }
 
     RETURN_NOT_OK(VisitTypeInline(*type_, this));

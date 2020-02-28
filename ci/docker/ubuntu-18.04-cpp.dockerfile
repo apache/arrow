@@ -61,6 +61,7 @@ RUN apt-get update -y -q && \
         flex \
         g++ \
         gcc \
+        gdb \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \

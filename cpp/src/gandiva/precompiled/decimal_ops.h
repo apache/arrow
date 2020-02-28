@@ -62,10 +62,10 @@ BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale, bool* ov
 /// Convert from decimal to double.
 double ToDouble(const BasicDecimalScalar128& in, bool* overflow);
 
-/// Convert to decimal from int64.
+/// Convert to decimal from gdv_int64.
 BasicDecimal128 FromInt64(int64_t in, int32_t precision, int32_t scale, bool* overflow);
 
-/// Convert from decimal to int64
+/// Convert from decimal to gdv_int64
 int64_t ToInt64(const BasicDecimalScalar128& in, bool* overflow);
 
 /// Convert from one decimal scale/precision to another.

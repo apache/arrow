@@ -80,5 +80,13 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
   LocalFileSystemOptions options_;
 };
 
+namespace internal {
+
+// Return whether the string is detected as a local absolute path.
+ARROW_EXPORT
+bool DetectAbsolutePath(const std::string& s);
+
+}  // namespace internal
+
 }  // namespace fs
 }  // namespace arrow

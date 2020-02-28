@@ -49,6 +49,9 @@ G_BEGIN_DECLS
  * have Arrow format data, you need to use #GArrowStructArrayBuilder
  * to create a new array.
  *
+ * #GArrowMapArray is a class for map array. It can store
+ * data with keys and items.
+ *
  * #GArrowUnionArray is a base class for union array. It can store
  * zero or more unions. One union has one or more fields but one union
  * can store only one field value.
@@ -370,6 +373,92 @@ garrow_struct_array_flatten(GArrowStructArray *array, GError **error)
   }
 
   return g_list_reverse(arrays);
+}
+
+
+G_DEFINE_TYPE(GArrowMapArray,
+              garrow_map_array,
+              GARROW_TYPE_LIST_ARRAY)
+
+static void
+garrow_map_array_init(GArrowMapArray *object)
+{
+}
+
+static void
+garrow_map_array_class_init(GArrowMapArrayClass *klass)
+{
+}
+
+/**
+ * garrow_map_array_new:
+ * @offsets: The offsets Array containing n + 1 offsets encoding length and size.
+ * @keys: The Array containing key values.
+ * @items: The items Array containing item values.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowMapArray
+ *   or %NULL on error.
+ *
+ * Since: 1.0.0
+ */
+GArrowMapArray *
+garrow_map_array_new(GArrowArray *offsets,
+                     GArrowArray *keys,
+                     GArrowArray *items,
+                     GError **error)
+{
+  const auto arrow_offsets = garrow_array_get_raw(offsets);
+  const auto arrow_keys = garrow_array_get_raw(keys);
+  const auto arrow_items = garrow_array_get_raw(items);
+  std::shared_ptr<arrow::Array> arrow_array;
+  auto arrow_memory_pool = arrow::default_memory_pool();
+  auto status = arrow::MapArray::FromArrays(arrow_offsets,
+                                            arrow_keys,
+                                            arrow_items,
+                                            arrow_memory_pool,
+                                            &arrow_array);
+  if (garrow::check(error, status, "[map-array][new]")) {
+    return GARROW_MAP_ARRAY(garrow_array_new_raw(&arrow_array));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_map_array_get_keys:
+ * @array: A #GArrowMapArray.
+ *
+ * Returns: (transfer full): The Array containing key values.
+ *
+ * Since: 1.0.0
+ */
+GArrowArray *
+garrow_map_array_get_keys(GArrowMapArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_map_array =
+    std::static_pointer_cast<arrow::MapArray>(arrow_array);
+  auto arrow_keys = arrow_map_array->keys();
+  return garrow_array_new_raw(&arrow_keys);
+}
+
+/**
+ * garrow_map_array_get_items:
+ * @array: A #GArrowMapArray.
+ *
+ * Returns: (transfer full): The items Array containing item values.
+ *
+ * Since: 1.0.0
+ */
+GArrowArray *
+garrow_map_array_get_items(GArrowMapArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_map_array =
+    std::static_pointer_cast<arrow::MapArray>(arrow_array);
+  auto arrow_items = arrow_map_array->items();
+  return garrow_array_new_raw(&arrow_items);
 }
 
 

@@ -34,7 +34,7 @@ test_that("simple int column roundtrip", {
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
-  expect_identical(df, df_read)
+  expect_equivalent(df, df_read)
 })
 
 test_that("read_parquet() supports col_select", {
@@ -118,5 +118,38 @@ test_that("Factors are preserved when writing/reading from Parquet", {
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
-  expect_identical(df, df_read)
+  expect_equivalent(df, df_read)
+})
+
+test_that("Lists are preserved when writing/reading from Parquet", {
+  bool <- list(logical(0), NA, c(TRUE, FALSE))
+  int <- list(integer(0), NA_integer_, 1:4)
+  num <- list(numeric(0), NA_real_, c(1, 2))
+  char <- list(character(0), NA_character_, c("itsy", "bitsy"))
+  df <- tibble::tibble(bool = bool, int = int, num = num, char = char)
+
+  pq_tmp_file <- tempfile()
+  on.exit(unlink(pq_tmp_file))
+
+  write_parquet(df, pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file)
+  expect_equivalent(df, df_read)
+})
+
+test_that("write_parquet() to stream", {
+  df <- tibble::tibble(x = 1:5)
+  tf <- tempfile()
+  con <- FileOutputStream$create(tf)
+  on.exit(unlink(tf))
+  write_parquet(df, con)
+  con$close()
+  expect_equal(read_parquet(tf), df)
+})
+
+test_that("write_parquet() returns its input", {
+  df <- tibble::tibble(x = 1:5)
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  df_out <- write_parquet(df, tf)
+  expect_equivalent(df, df_out)
 })

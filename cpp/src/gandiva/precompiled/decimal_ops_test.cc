@@ -451,24 +451,24 @@ TEST_F(TestDecimalSql, DivideByZero) {
   context.Reset();
   result_precision = 38;
   result_scale = 19;
-  decimalops::Divide(reinterpret_cast<int64>(&context), DecimalScalar128{"201", 20, 3},
-                     DecimalScalar128{"0", 20, 2}, result_precision, result_scale,
-                     &overflow);
+  decimalops::Divide(reinterpret_cast<gdv_int64>(&context),
+                     DecimalScalar128{"201", 20, 3}, DecimalScalar128{"0", 20, 2},
+                     result_precision, result_scale, &overflow);
   EXPECT_TRUE(context.has_error());
   EXPECT_EQ(context.get_error(), "divide by zero error");
 
   // divide-by-nonzero should not cause an error.
   context.Reset();
-  decimalops::Divide(reinterpret_cast<int64>(&context), DecimalScalar128{"201", 20, 3},
-                     DecimalScalar128{"1", 20, 2}, result_precision, result_scale,
-                     &overflow);
+  decimalops::Divide(reinterpret_cast<gdv_int64>(&context),
+                     DecimalScalar128{"201", 20, 3}, DecimalScalar128{"1", 20, 2},
+                     result_precision, result_scale, &overflow);
   EXPECT_FALSE(context.has_error());
 
   // mod-by-zero should cause an error.
   context.Reset();
   result_precision = 20;
   result_scale = 3;
-  decimalops::Mod(reinterpret_cast<int64>(&context), DecimalScalar128{"201", 20, 3},
+  decimalops::Mod(reinterpret_cast<gdv_int64>(&context), DecimalScalar128{"201", 20, 3},
                   DecimalScalar128{"0", 20, 2}, result_precision, result_scale,
                   &overflow);
   EXPECT_TRUE(context.has_error());
@@ -476,7 +476,7 @@ TEST_F(TestDecimalSql, DivideByZero) {
 
   // mod-by-nonzero should not cause an error.
   context.Reset();
-  decimalops::Mod(reinterpret_cast<int64>(&context), DecimalScalar128{"201", 20, 3},
+  decimalops::Mod(reinterpret_cast<gdv_int64>(&context), DecimalScalar128{"201", 20, 3},
                   DecimalScalar128{"1", 20, 2}, result_precision, result_scale,
                   &overflow);
   EXPECT_FALSE(context.has_error());

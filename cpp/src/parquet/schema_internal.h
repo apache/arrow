@@ -15,16 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// This module contains the logical parquet-cpp types (independent of Thrift
-// structures), schema nodes, and related type tools
+// Non-public Thrift schema serialization utilities
 
-#ifndef PARQUET_SCHEMA_INTERNAL_H
-#define PARQUET_SCHEMA_INTERNAL_H
+#pragma once
 
-#include <cstdint>
 #include <memory>
-#include <string>
-#include <unordered_set>
 #include <vector>
 
 #include "parquet/platform.h"
@@ -46,25 +41,8 @@ PARQUET_EXPORT
 std::shared_ptr<SchemaDescriptor> FromParquet(
     const std::vector<format::SchemaElement>& schema);
 
-class PARQUET_EXPORT FlatSchemaConverter {
- public:
-  FlatSchemaConverter(const format::SchemaElement* elements, int length)
-      : elements_(elements), length_(length), pos_(0), current_id_(0) {}
-
-  std::unique_ptr<Node> Convert();
-
- private:
-  const format::SchemaElement* elements_;
-  int length_;
-  int pos_;
-  int current_id_;
-
-  int next_id() { return current_id_++; }
-
-  const format::SchemaElement& Next();
-
-  std::unique_ptr<Node> NextNode();
-};
+PARQUET_EXPORT
+std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int length);
 
 // ----------------------------------------------------------------------
 // Conversion to Parquet Thrift metadata
@@ -72,19 +50,5 @@ class PARQUET_EXPORT FlatSchemaConverter {
 PARQUET_EXPORT
 void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out);
 
-// Converts nested parquet schema back to a flat vector of Thrift structs
-class PARQUET_EXPORT SchemaFlattener {
- public:
-  SchemaFlattener(const GroupNode* schema, std::vector<format::SchemaElement>* out);
-
-  void Flatten();
-
- private:
-  const GroupNode* root_;
-  std::vector<format::SchemaElement>* elements_;
-};
-
 }  // namespace schema
 }  // namespace parquet
-
-#endif  // PARQUET_SCHEMA_INTERNAL_H

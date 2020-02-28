@@ -88,4 +88,8 @@ module VersionDetectable
     major, minor, _patch = version.split(".")
     Integer(major, 10) * 100 + Integer(minor, 10)
   end
+
+  def on_release_branch?
+    @snapshot_version == @release_version
+  end
 end

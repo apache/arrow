@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from __future__ import absolute_import
 
 import os
 import posixpath
@@ -37,12 +36,11 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         if driver == 'libhdfs':
             _maybe_set_hadoop_classpath()
 
-        self._connect(host, port, user, kerb_ticket, driver, extra_conf)
+        self._connect(host, port, user, kerb_ticket, extra_conf)
 
     def __reduce__(self):
         return (HadoopFileSystem, (self.host, self.port, self.user,
-                                   self.kerb_ticket, self.driver,
-                                   self.extra_conf))
+                                   self.kerb_ticket, self.extra_conf))
 
     def _isfilestore(self):
         """
@@ -53,15 +51,15 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
     @implements(FileSystem.isdir)
     def isdir(self, path):
-        return super(HadoopFileSystem, self).isdir(path)
+        return super().isdir(path)
 
     @implements(FileSystem.isfile)
     def isfile(self, path):
-        return super(HadoopFileSystem, self).isfile(path)
+        return super().isfile(path)
 
     @implements(FileSystem.delete)
     def delete(self, path, recursive=False):
-        return super(HadoopFileSystem, self).delete(path, recursive)
+        return super().delete(path, recursive)
 
     def mkdir(self, path, **kwargs):
         """
@@ -76,15 +74,15 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         -----
         libhdfs does not support create_parents=False, so we ignore this here
         """
-        return super(HadoopFileSystem, self).mkdir(path)
+        return super().mkdir(path)
 
     @implements(FileSystem.rename)
     def rename(self, path, new_path):
-        return super(HadoopFileSystem, self).rename(path, new_path)
+        return super().rename(path, new_path)
 
     @implements(FileSystem.exists)
     def exists(self, path):
-        return super(HadoopFileSystem, self).exists(path)
+        return super().exists(path)
 
     def ls(self, path, detail=False):
         """
@@ -100,7 +98,7 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         -------
         result : list of dicts (detail=True) or strings (detail=False)
         """
-        return super(HadoopFileSystem, self).ls(path, detail)
+        return super().ls(path, detail)
 
     def walk(self, top_path):
         """
@@ -120,8 +118,7 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         directories, files = _libhdfs_walk_files_dirs(top_path, contents)
         yield top_path, directories, files
         for dirname in directories:
-            for tup in self.walk(self._path_join(top_path, dirname)):
-                yield tup
+            yield from self.walk(self._path_join(top_path, dirname))
 
 
 def _maybe_set_hadoop_classpath():
@@ -134,7 +131,7 @@ def _maybe_set_hadoop_classpath():
         if sys.platform != 'win32':
             classpath = _derive_hadoop_classpath()
         else:
-            hadoop_bin = '{0}/bin/hadoop'.format(os.environ['HADOOP_HOME'])
+            hadoop_bin = '{}/bin/hadoop'.format(os.environ['HADOOP_HOME'])
             classpath = _hadoop_classpath_glob(hadoop_bin)
     else:
         classpath = _hadoop_classpath_glob('hadoop')
@@ -179,7 +176,7 @@ def _libhdfs_walk_files_dirs(top_path, contents):
 
 
 def connect(host="default", port=0, user=None, kerb_ticket=None,
-            driver='libhdfs', extra_conf=None):
+            extra_conf=None):
     """
     Connect to an HDFS cluster. All parameters are optional and should
     only be set if the defaults need to be overridden.
@@ -194,9 +191,6 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     port : NameNode's port. Set to 0 for default or logical (HA) nodes.
     user : Username when connecting to HDFS; None implies login user.
     kerb_ticket : Path to Kerberos ticket cache.
-    driver : {'libhdfs', 'libhdfs3'}, default 'libhdfs'
-      Connect using libhdfs (JNI-based) or libhdfs3 (3rd-party C++
-      library from Apache HAWQ (incubating) )
     extra_conf : dict, default None
       extra Key/Value pairs for config; Will override any
       hdfs-site.xml properties
@@ -211,6 +205,6 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     filesystem : HadoopFileSystem
     """
     fs = HadoopFileSystem(host=host, port=port, user=user,
-                          kerb_ticket=kerb_ticket, driver=driver,
+                          kerb_ticket=kerb_ticket,
                           extra_conf=extra_conf)
     return fs

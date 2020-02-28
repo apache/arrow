@@ -1,4 +1,3 @@
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -51,7 +50,10 @@ jobs:
         run: docker-compose build conda-cpp
       - name: Docker Run
         shell: bash
-        run: docker-compose run conda-cpp
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          docker-compose run conda-cpp
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -138,7 +140,11 @@ jobs:
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+        run: |
+          sudo sysctl -w kern.coredump=1
+          sudo sysctl -w kern.corefile=core.%N.%P
+          ulimit -c unlimited  # must enable within the same shell
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
     name: AMD64 ${{ matrix.name }} C++
@@ -153,21 +159,22 @@ jobs:
             name: Windows 2019
             generator: Visual Studio 16 2019
     env:
-      CMAKE_ARGS: '-A x64'
+      CMAKE_ARGS: '-A x64 -DOPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64'
       CMAKE_GENERATOR: ${{ matrix.generator }}
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
+      CMAKE_UNITY_BUILD: ON
       ARROW_HOME: /usr
       ARROW_DATASET: ON
       ARROW_JEMALLOC: OFF
       ARROW_FLIGHT: OFF
       ARROW_HDFS: ON
-      ARROW_PARQUET: OFF
-      ARROW_WITH_ZLIB: OFF
+      ARROW_PARQUET: ON
+      ARROW_WITH_ZLIB: ON
       ARROW_WITH_LZ4: OFF
       ARROW_WITH_BZ2: OFF
-      ARROW_WITH_ZSTD: OFF
-      ARROW_WITH_SNAPPY: OFF
+      ARROW_WITH_ZSTD: ON
+      ARROW_WITH_SNAPPY: ON
       ARROW_WITH_BROTLI: OFF
       ARROW_USE_GLOG: OFF
       ARROW_BUILD_TESTS: ON
@@ -175,10 +182,15 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
-      BOOST_SOURCE: BUNDLED
+      BOOST_ROOT: C:\local\boost_1_67_0
+      BOOST_LIBRARYDIR: C:\local\boost_1_67_0\lib64-msvc-14.1\
     steps:
       - name: Disable Crash Dialogs
         run: reg add "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" /v DontShowUI /t REG_DWORD /d 1 /f
+      - name: Installed Packages
+        run: choco list -l
+      - name: Install Dependencies
+        run: choco install -y --no-progress openssl boost-msvc-14.1
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:

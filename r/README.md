@@ -1,6 +1,3 @@
-
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-
 # arrow
 
 [![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
@@ -33,16 +30,12 @@ Install the latest release of `arrow` from CRAN with
 install.packages("arrow")
 ```
 
-Conda users on Linux and macOS can install `arrow` from conda-forge with
-
-    conda install -c conda-forge r-arrow
-
 Installing a released version of the `arrow` package should require no
 additional system dependencies. For macOS and Windows, CRAN hosts binary
 packages that contain the Arrow C++ library. On Linux, source package
-installation will download necessary C++ dependencies automatically on
-most common Linux distributions. See `vignette("install", package =
-"arrow")` for details.
+installation will download necessary C++ dependencies if you set the
+environment variable `LIBARROW_DOWNLOAD=true`.
+See `vignette("install", package = "arrow")` for details.
 
 If you install the `arrow` package from source and the C++ library is
 not found, the R package functions will notify you that Arrow is not
@@ -52,56 +45,19 @@ available. Call
 arrow::install_arrow()
 ```
 
-for version- and platform-specific guidance on installing the Arrow C++
-library.
+to retry installation with dependencies.
 
-## Example
+Note that `install_arrow()` is available as a standalone script, so you can
+access it for convenience without first installing the package:
 
-``` r
-library(arrow, warn.conflicts = FALSE)
-set.seed(24)
-
-tab <- Table$create(
-  x = 1:10,
-  y = rnorm(10),
-  z = as.factor(rep(c("b", "c"), 5))
-)
-tab
-#> Table
-#> 10 rows x 3 columns
-#> $x <int32>
-#> $y <double>
-#> $z <dictionary<values=string, indices=int8>>
-tab$x
-#> ChunkedArray
-#> <int32>
-#> [
-#>   1,
-#>   2,
-#>   3,
-#>   4,
-#>   5,
-#>   6,
-#>   7,
-#>   8,
-#>   9,
-#>   10
-#> ]
-as.data.frame(tab)
-#> # A tibble: 10 x 3
-#>        x        y z    
-#>    <int>    <dbl> <fct>
-#>  1     1 -0.546   b    
-#>  2     2  0.537   c    
-#>  3     3  0.420   b    
-#>  4     4 -0.584   c    
-#>  5     5  0.847   b    
-#>  6     6  0.266   c    
-#>  7     7  0.445   b    
-#>  8     8 -0.466   c    
-#>  9     9 -0.848   b    
-#> 10    10  0.00231 c
+```r
+source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")
+install_arrow()
 ```
+
+Conda users on Linux and macOS can install `arrow` from conda-forge with
+
+    conda install -c conda-forge r-arrow
 
 ## Installing a development version
 
@@ -110,6 +66,12 @@ Binary R packages for macOS and Windows are built daily and hosted at
 
 ``` r
 install.packages("arrow", repos = "https://dl.bintray.com/ursalabs/arrow-r")
+```
+
+Or
+
+```r
+install_arrow(nightly = TRUE)
 ```
 
 These daily package builds are not official Apache releases and are not
@@ -146,7 +108,7 @@ or if you can’t get a binary version of the latest C++ library
 elsewhere, you’ll need to build it from source too.
 
 First, install the C++ library. See the [developer
-guide](https://arrow.apache.org/docs/developers/index.html) for details.
+guide](https://arrow.apache.org/docs/developers/cpp/building.html) for details.
 
 Note that after any change to the C++ library, you must reinstall it and
 run `make clean` or `git clean -fdx .` to remove any cached object code
@@ -191,7 +153,7 @@ libraries and want to upgrade the R package, you’ll need to update the
 Arrow C++ library first.
 
 For any other build/configuration challenges, see the [C++ developer
-guide](https://arrow.apache.org/docs/developers/cpp.html#building) and
+guide](https://arrow.apache.org/docs/developers/cpp/building.html) and
 `vignette("install", package = "arrow")`.
 
 ### Editing Rcpp code
@@ -232,7 +194,6 @@ Within an R session, these can help with package development:
 devtools::load_all() # Load the dev package
 devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
 devtools::document() # Update roxygen documentation
-rmarkdown::render("README.Rmd") # To rebuild README.md
 pkgdown::build_site() # To preview the documentation website
 devtools::check() # All package checks; see also below
 covr::package_coverage() # See test coverage statistics

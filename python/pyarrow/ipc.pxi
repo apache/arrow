@@ -553,7 +553,8 @@ def read_message(source):
     c_stream = nf.get_input_stream().get()
 
     with nogil:
-        check_status(ReadMessage(c_stream, &result.message))
+        result.message = move(
+            GetResultValue(ReadMessage(c_stream, c_default_memory_pool())))
 
     if result.message == nullptr:
         raise EOFError("End of Arrow stream")
