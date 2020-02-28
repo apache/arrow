@@ -47,8 +47,10 @@ module GenericFileSystemTestMethods
     stream = @fs.open_input_stream(path)
     size = @fs.get_target_stats_path(path).size
     buffer = stream.read(size)
+    data = buffer.data.to_s.dup
+    buffer.unref
     stream.close
-    buffer.data.to_s
+    data
   end
 
   private def file?(path)
