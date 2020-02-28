@@ -30,22 +30,25 @@ namespace engine {
 // Catalog
 //
 
-Catalog::Catalog(std::unordered_map<Key, Value> tables) : tables_(std::move(tables)) {}
+using Entry = Catalog::Entry;
 
-Result<Catalog::Value> Catalog::Get(const Key& key) const {
+Catalog::Catalog(std::unordered_map<std::string, Entry> tables)
+    : tables_(std::move(tables)) {}
+
+Result<Entry> Catalog::Get(const std::string& key) const {
   auto value = tables_.find(key);
   if (value != tables_.end()) return value->second;
   return Status::KeyError("Table '", key, "' not found in catalog.");
 }
 
-Result<std::shared_ptr<Schema>> Catalog::GetSchema(const Key& key) const {
-  auto as_schema = [](const Value& v) -> Result<std::shared_ptr<Schema>> {
-    return v.schema();
+Result<std::shared_ptr<Schema>> Catalog::GetSchema(const std::string& key) const {
+  auto as_schema = [](const Entry& entry) -> Result<std::shared_ptr<Schema>> {
+    return entry.schema();
   };
   return Get(key).Map(as_schema);
 }
 
-Result<std::shared_ptr<Catalog>> Catalog::Make(const std::vector<KeyValue>& tables) {
+Result<std::shared_ptr<Catalog>> Catalog::Make(const std::vector<Entry>& tables) {
   CatalogBuilder builder;
 
   for (const auto& key_val : tables) {
@@ -59,10 +62,11 @@ Result<std::shared_ptr<Catalog>> Catalog::Make(const std::vector<KeyValue>& tabl
 // Catalog::Entry
 //
 
-using Entry = Catalog::Entry;
+Entry::Entry(std::shared_ptr<Table> table, std::string name)
+    : entry_(std::move(table)), name_(std::move(name)) {}
 
-Entry::Entry(std::shared_ptr<Table> table) : entry_(std::move(table)) {}
-Entry::Entry(std::shared_ptr<dataset::Dataset> dataset) : entry_(std::move(dataset)) {}
+Entry::Entry(std::shared_ptr<dataset::Dataset> dataset, std::string name)
+    : entry_(std::move(dataset)), name_(std::move(name)) {}
 
 Entry::Kind Entry::kind() const {
   if (util::holds_alternative<std::shared_ptr<Table>>(entry_)) {
@@ -86,7 +90,11 @@ std::shared_ptr<dataset::Dataset> Entry::dataset() const {
   return nullptr;
 }
 
-bool Entry::operator==(const Entry& other) const { return entry_ == other.entry_; }
+bool Entry::operator==(const Entry& other) const {
+  // Entries are unique by name in a catalog, but we can still protect with
+  // pointer equality.
+  return name_ == other.name_ && entry_ == other.entry_;
+}
 
 std::shared_ptr<Schema> Entry::schema() const {
   switch (kind()) {
@@ -105,20 +113,21 @@ std::shared_ptr<Schema> Entry::schema() const {
 // CatalogBuilder
 //
 
-Status CatalogBuilder::Add(const Key& key, const Value& value) {
-  if (key.empty()) {
+Status CatalogBuilder::Add(Entry entry) {
+  const auto& name = entry.name();
+  if (name.empty()) {
     return Status::Invalid("Key in catalog can't be empty");
   }
 
-  switch (value.kind()) {
+  switch (entry.kind()) {
     case Entry::TABLE: {
-      if (value.table() == nullptr) {
+      if (entry.table() == nullptr) {
         return Status::Invalid("Table entry can't be null.");
       }
       break;
     }
     case Entry::DATASET: {
-      if (value.dataset() == nullptr) {
+      if (entry.dataset() == nullptr) {
         return Status::Invalid("Table entry can't be null.");
       }
       break;
@@ -127,24 +136,20 @@ Status CatalogBuilder::Add(const Key& key, const Value& value) {
       return Status::NotImplemented("Unknown entry kind");
   }
 
-  auto inserted = tables_.insert({key, value});
+  auto inserted = tables_.emplace(name, std::move(entry));
   if (!inserted.second) {
-    return Status::KeyError("Table '", key, "' already in catalog.");
+    return Status::KeyError("Table '", name, "' already in catalog.");
   }
 
   return Status::OK();
 }
 
-Status CatalogBuilder::Add(const Key& key, std::shared_ptr<Table> table) {
-  return Add(key, Entry(std::move(table)));
+Status CatalogBuilder::Add(std::string name, std::shared_ptr<Table> table) {
+  return Add(Entry(std::move(table), std::move(name)));
 }
 
-Status CatalogBuilder::Add(const Key& key, std::shared_ptr<dataset::Dataset> dataset) {
-  return Add(key, Entry(std::move(dataset)));
-}
-
-Status CatalogBuilder::Add(const KeyValue& key_value) {
-  return Add(key_value.first, key_value.second);
+Status CatalogBuilder::Add(std::string name, std::shared_ptr<dataset::Dataset> dataset) {
+  return Add(Entry(std::move(dataset), std::move(name)));
 }
 
 Result<std::shared_ptr<Catalog>> CatalogBuilder::Finish() {

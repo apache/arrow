@@ -230,7 +230,7 @@ Status ValidateCompareOpInputs(const std::shared_ptr<Expr>& left,
 }
 
 //
-//
+// EmptyRelExpr
 //
 
 Result<std::shared_ptr<EmptyRelExpr>> EmptyRelExpr::Make(std::shared_ptr<Schema> schema) {

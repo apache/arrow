@@ -38,7 +38,7 @@ class TestCatalog : public testing::Test {
   std::shared_ptr<Table> table() const { return table(schema_); }
 };
 
-void AssertCatalogKeyIs(const std::shared_ptr<Catalog>& catalog, const Catalog::Key& key,
+void AssertCatalogKeyIs(const std::shared_ptr<Catalog>& catalog, const std::string& key,
                         const std::shared_ptr<Table>& expected) {
   ASSERT_OK_AND_ASSIGN(auto t, catalog->Get(key));
   ASSERT_EQ(t.kind(), Catalog::Entry::Kind::TABLE);
@@ -62,8 +62,8 @@ TEST_F(TestCatalog, Make) {
   auto key_3 = "c";
   auto table_3 = table(schema({field(key_3, int32())}));
 
-  std::vector<Catalog::KeyValue> tables{
-      {key_1, Entry(table_1)}, {key_2, Entry(table_2)}, {key_3, Entry(table_3)}};
+  std::vector<Catalog::Entry> tables{Entry(table_1, key_1), Entry(table_2, key_2),
+                                     Entry(table_3, key_3)};
 
   ASSERT_OK_AND_ASSIGN(auto catalog, Catalog::Make(std::move(tables)));
   AssertCatalogKeyIs(catalog, key_1, table_1);

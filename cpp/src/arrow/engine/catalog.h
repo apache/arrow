@@ -39,14 +39,10 @@ class Catalog {
  public:
   class Entry;
 
-  using Key = std::string;
-  using Value = Entry;
-  using KeyValue = std::pair<Key, Value>;
+  static Result<std::shared_ptr<Catalog>> Make(const std::vector<Entry>& tables);
 
-  static Result<std::shared_ptr<Catalog>> Make(const std::vector<KeyValue>& tables);
-
-  Result<Value> Get(const Key& name) const;
-  Result<std::shared_ptr<Schema>> GetSchema(const Key& name) const;
+  Result<Entry> Get(const std::string& name) const;
+  Result<std::shared_ptr<Schema>> GetSchema(const std::string& name) const;
 
   class Entry {
    public:
@@ -56,10 +52,13 @@ class Catalog {
       UNKNOWN,
     };
 
-    explicit Entry(std::shared_ptr<Table> table);
-    explicit Entry(std::shared_ptr<dataset::Dataset> dataset);
+    Entry(std::shared_ptr<Table> table, std::string name);
+    Entry(std::shared_ptr<dataset::Dataset> dataset, std::string name);
 
     Kind kind() const;
+
+    const std::string& name() const { return name_; }
+
     std::shared_ptr<Table> table() const;
     std::shared_ptr<dataset::Dataset> dataset() const;
 
@@ -69,30 +68,26 @@ class Catalog {
 
    private:
     util::variant<std::shared_ptr<Table>, std::shared_ptr<dataset::Dataset>> entry_;
+    std::string name_;
   };
 
  private:
   friend class CatalogBuilder;
-  explicit Catalog(std::unordered_map<Key, Value> tables);
+  explicit Catalog(std::unordered_map<std::string, Entry> tables);
 
-  std::unordered_map<Key, Value> tables_;
+  std::unordered_map<std::string, Entry> tables_;
 };
 
 class CatalogBuilder {
  public:
-  using Key = Catalog::Key;
-  using Value = Catalog::Value;
-  using KeyValue = Catalog::KeyValue;
-
-  Status Add(const Key& key, const Value& value);
-  Status Add(const Key& key, std::shared_ptr<Table>);
-  Status Add(const Key& key, std::shared_ptr<dataset::Dataset>);
-  Status Add(const KeyValue& key_value);
+  Status Add(Catalog::Entry entry);
+  Status Add(std::string name, std::shared_ptr<Table>);
+  Status Add(std::string name, std::shared_ptr<dataset::Dataset>);
 
   Result<std::shared_ptr<Catalog>> Finish();
 
  private:
-  std::unordered_map<Key, Value> tables_;
+  std::unordered_map<std::string, Catalog::Entry> tables_;
 };
 
 }  // namespace engine
