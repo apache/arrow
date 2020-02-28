@@ -2080,32 +2080,17 @@ RcppExport SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::DataType> Timestamp__initialize1(arrow::TimeUnit::type unit);
-RcppExport SEXP _arrow_Timestamp__initialize1(SEXP unit_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);
-	return Rcpp::wrap(Timestamp__initialize1(unit));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Timestamp__initialize1(SEXP unit_sexp){
-	Rf_error("Cannot call Timestamp__initialize1(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// datatype.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::DataType> Timestamp__initialize2(arrow::TimeUnit::type unit, const std::string& timezone);
-RcppExport SEXP _arrow_Timestamp__initialize2(SEXP unit_sexp, SEXP timezone_sexp){
+std::shared_ptr<arrow::DataType> Timestamp__initialize(arrow::TimeUnit::type unit, const std::string& timezone);
+RcppExport SEXP _arrow_Timestamp__initialize(SEXP unit_sexp, SEXP timezone_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type timezone(timezone_sexp);
-	return Rcpp::wrap(Timestamp__initialize2(unit, timezone));
+	return Rcpp::wrap(Timestamp__initialize(unit, timezone));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_Timestamp__initialize2(SEXP unit_sexp, SEXP timezone_sexp){
-	Rf_error("Cannot call Timestamp__initialize2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_Timestamp__initialize(SEXP unit_sexp, SEXP timezone_sexp){
+	Rf_error("Cannot call Timestamp__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5885,8 +5870,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Null__initialize", (DL_FUNC) &_arrow_Null__initialize, 0}, 
 		{ "_arrow_Decimal128Type__initialize", (DL_FUNC) &_arrow_Decimal128Type__initialize, 2}, 
 		{ "_arrow_FixedSizeBinary__initialize", (DL_FUNC) &_arrow_FixedSizeBinary__initialize, 1}, 
-		{ "_arrow_Timestamp__initialize1", (DL_FUNC) &_arrow_Timestamp__initialize1, 1}, 
-		{ "_arrow_Timestamp__initialize2", (DL_FUNC) &_arrow_Timestamp__initialize2, 2}, 
+		{ "_arrow_Timestamp__initialize", (DL_FUNC) &_arrow_Timestamp__initialize, 2}, 
 		{ "_arrow_Time32__initialize", (DL_FUNC) &_arrow_Time32__initialize, 1}, 
 		{ "_arrow_Time64__initialize", (DL_FUNC) &_arrow_Time64__initialize, 1}, 
 		{ "_arrow_list__", (DL_FUNC) &_arrow_list__, 1}, 

@@ -166,6 +166,10 @@ test_that("array supports POSIXct (ARROW-3340)", {
 })
 
 test_that("array supports POSIXlt and without timezone", {
+  # Make sure timezone is not set
+  tz <- Sys.getenv("TZ")
+  Sys.setenv(TZ = "")
+  on.exit(Sys.setenv(TZ = tz))
   times <- strptime("2019-02-03 12:34:56", format="%Y-%m-%d %H:%M:%S") + 1:10
   expect_array_roundtrip(times, timestamp("us", ""))
 
