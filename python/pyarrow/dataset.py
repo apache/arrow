@@ -232,10 +232,10 @@ def _ensure_format(obj):
         raise ValueError("format '{}' is not supported".format(obj))
 
 
-def factory(path_or_paths, filesystem=None, partitioning=None,
-            format=None):
+def _filesystem_factory(path_or_paths, filesystem=None, partitioning=None,
+                        format=None):
     """
-    Create a factory which can be used to build a Dataset.
+    Create a FileSystemDatasetFactory which can be used to build a Dataset.
 
     Parameters
     ----------
@@ -285,22 +285,33 @@ def factory(path_or_paths, filesystem=None, partitioning=None,
 def _ensure_factory(src, **kwargs):
     # Need to return DatasetFactory since `dataset` might need to finish the
     # factory with a unified schema.
-    # TODO: return Dataset if a specific schema was passed?
     if _is_path_like(src):
-        return factory(src, **kwargs)
+        return _filesystem_factory(src, **kwargs)
     elif isinstance(src, DatasetFactory):
+        if any(v is not None for v in kwargs.values()):
+            # when passing a SourceFactory, the arguments cannot be specified
+            raise ValueError(
+                "When passing a Source(Factory), you cannot pass any "
+                "additional arguments"
+            )
+        return src
+    elif isinstance(src, Dataset):
         if any(v is not None for v in kwargs.values()):
             # when passing a SourceFactory, the arguments cannot be specified
             raise ValueError(
                 "When passing a DatasetFactory, you cannot pass any "
                 "additional arguments"
             )
-        return src
-    elif isinstance(src, Dataset):
-        raise TypeError(
-            "Dataset objects are currently not supported, only DatasetFactory "
-            "instances. Use the factory() function to create such objects."
-        )
+        if src.factory is not None:
+            # the dataset object holds a reference for the constructing factory
+            # so reuse it
+            return src.factory
+        else:
+            raise TypeError(
+                "Dataset objects are only supported if they are constructed "
+                "using the dataset() function or by directly instantiating a "
+                "DatasetFactory subclass."
+            )
     else:
         raise TypeError(
             "Expected a path-like or DatasetFactory, got {}".format(type(src))
@@ -314,7 +325,7 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
 
     Parameters
     ----------
-    paths_or_factories : path or list of paths or factory or list of factories
+    sources : path, list of paths, dataset or list of datasets
         Path to a file or to a directory containing the data files, or a list
         of paths for a multi-directory dataset. To have more control, a list of
         factories can be passed, created with the ``factory()`` function (in
@@ -345,12 +356,12 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
     Construction from multiple factories:
 
     >>> dataset([
-    ...     factory("s3://old-taxi-data", format="parquet"),
-    ...     factory("local/path/to/new/data", format="csv")
+    ...     dataset("s3://old-taxi-data", format="parquet"),
+    ...     dataset("local/path/to/new/data", format="csv")
     ... ])
 
     """
-    # bundle the keyword arguments
+    # reuse the keyword arguments for later use
     kwargs = dict(filesystem=filesystem, partitioning=partitioning,
                   format=format)
 

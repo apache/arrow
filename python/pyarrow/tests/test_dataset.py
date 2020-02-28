@@ -79,8 +79,8 @@ def _table_from_pandas(df):
 
 
 @pytest.fixture
-def mockfs(request):
-    request.config.pyarrow.requires('parquet')
+@pytest.mark.parquet
+def mockfs():
     import pyarrow.parquet as pq
 
     mockfs = fs._MockFileSystem()
@@ -115,9 +115,9 @@ def mockfs(request):
 
 
 @pytest.fixture(scope='module')
-def multisourcefs(request):
-    request.config.pyarrow.requires('pandas')
-    request.config.pyarrow.requires('parquet')
+@pytest.mark.pandas
+@pytest.mark.parquet
+def multisourcefs():
     import pyarrow.parquet as pq
 
     df = _generate_data(1000)
@@ -955,8 +955,8 @@ def test_open_dataset_list_of_files(tempdir):
     # list of exact files needs to be passed to source() function
     # (dataset() will interpret it as separate sources)
     datasets = [
-        ds.dataset(ds.factory([path1, path2])),
-        ds.dataset(ds.factory([str(path1), str(path2)]))
+        ds.dataset([path1, path2]),
+        ds.dataset([str(path1), str(path2)])
     ]
     for dataset in datasets:
         assert dataset.schema.equals(table.schema)
@@ -1046,8 +1046,24 @@ def test_open_dataset_unsupported_format(tempdir):
 def test_open_dataset_validate_sources(tempdir):
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
-    with pytest.raises(TypeError,
-                       match="Dataset objects are currently not supported"):
+    # reuse the dataset factory for construction a union dataset later
+    assert dataset.factory is not None
+
+    union_dataset = ds.dataset([dataset, dataset])
+    assert isinstance(union_dataset, ds.UnionDataset)
+
+    # if the dataset is constructed directly then the factory object is not
+    # vailable for later reuse, so raise
+    dataset = ds.FileSystemDataset(
+        schema=pa.schema([]),
+        root_partition=None,
+        file_format=ds.ParquetFileFormat(),
+        filesystem=fs._MockFileSystem(),
+        paths_or_selector=[],
+        partitions=[]
+    )
+    expected_msg = "Dataset objects are only supported if they are constructed"
+    with pytest.raises(TypeError, match=expected_msg):
         ds.dataset([dataset])
 
 
@@ -1109,8 +1125,11 @@ def test_filter_implicit_cast(tempdir):
     assert len(result) == 3
 
 
-def test_dataset_factory(multisourcefs):
-    child = ds.factory('/plain', filesystem=multisourcefs, format='parquet')
+def test_dataset_union(multisourcefs):
+    child = ds.FileSystemDatasetFactory(
+        multisourcefs, fs.FileSelector('/plain'),
+        format=ds.ParquetFileFormat()
+    )
     factory = ds.UnionDatasetFactory([child])
 
     # TODO(bkietz) reintroduce factory.children property
@@ -1122,14 +1141,14 @@ def test_dataset_factory(multisourcefs):
 
 
 def test_multiple_factories(multisourcefs):
-    src1 = ds.factory('/plain', filesystem=multisourcefs, format='parquet')
-    src2 = ds.factory('/schema', filesystem=multisourcefs, format='parquet',
-                      partitioning=['week', 'color'])
-    src3 = ds.factory('/hive', filesystem=multisourcefs, format='parquet',
-                      partitioning='hive')
+    child1 = ds.dataset('/plain', filesystem=multisourcefs, format='parquet')
+    child2 = ds.dataset('/schema', filesystem=multisourcefs, format='parquet',
+                        partitioning=['week', 'color'])
+    child3 = ds.dataset('/hive', filesystem=multisourcefs, format='parquet',
+                        partitioning='hive')
 
-    assembled = ds.dataset([src1, src2, src3])
-    assert isinstance(assembled, ds.Dataset)
+    assembled = ds.dataset([child1, child2, child3])
+    assert isinstance(assembled, ds.UnionDataset)
 
     expected_schema = pa.schema([
         ('date', pa.date32()),
