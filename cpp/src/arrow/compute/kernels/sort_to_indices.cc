@@ -163,12 +163,19 @@ class CountOrCompareSorter {
 
   void Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) {
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
+      const ArrayData arr = *values.data();
+      const c_type* data = arr.GetValues<c_type>(1);
+      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
+
       auto min = std::numeric_limits<c_type>::max();
       auto max = std::numeric_limits<c_type>::min();
 
       for (int64_t i = 0; i < values.length(); ++i) {
-        min = values.IsNull(i) ? min : std::min(min, values.Value(i));
-        max = values.IsNull(i) ? max : std::max(max, values.Value(i));
+        if (valid_reader.IsSet()) {
+          min = std::min(min, data[i]);
+          max = std::max(max, data[i]);
+        }
+        valid_reader.Next();
       }
 
       // For signed int32/64, (max - min) may overflow and trigger UBSAN.
