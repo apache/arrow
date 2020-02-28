@@ -329,6 +329,7 @@ if(ARROW_COMPUTE)
               compute/kernels/mean.cc
               compute/kernels/minmax.cc
               compute/kernels/sort_to_indices.cc
+              compute/kernels/nth_to_indices.cc
               compute/kernels/sum.cc
               compute/kernels/add.cc
               compute/kernels/take.cc
