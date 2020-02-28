@@ -94,13 +94,8 @@ std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(int32_t byte_width)
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Timestamp__initialize1(arrow::TimeUnit::type unit) {
-  return arrow::timestamp(unit);
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::DataType> Timestamp__initialize2(arrow::TimeUnit::type unit,
-                                                        const std::string& timezone) {
+std::shared_ptr<arrow::DataType> Timestamp__initialize(arrow::TimeUnit::type unit,
+                                                       const std::string& timezone) {
   return arrow::timestamp(unit, timezone);
 }
 

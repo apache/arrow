@@ -536,12 +536,8 @@ FixedSizeBinary__initialize <- function(byte_width){
     .Call(`_arrow_FixedSizeBinary__initialize` , byte_width)
 }
 
-Timestamp__initialize1 <- function(unit){
-    .Call(`_arrow_Timestamp__initialize1` , unit)
-}
-
-Timestamp__initialize2 <- function(unit, timezone){
-    .Call(`_arrow_Timestamp__initialize2` , unit, timezone)
+Timestamp__initialize <- function(unit, timezone){
+    .Call(`_arrow_Timestamp__initialize` , unit, timezone)
 }
 
 Time32__initialize <- function(unit){

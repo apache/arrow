@@ -17,11 +17,34 @@
 
 context("Array")
 
-test_that("Array", {
-  x <- Array$create(c(1:10, 1:10, 1:5))
-  expect_equal(x$type, int32())
-  expect_equal(length(x), 25L)
-  expect_equal(x$as_vector(), c(1:10, 1:10, 1:5))
+expect_array_roundtrip <- function(x, type) {
+  a <- Array$create(x)
+  expect_type_equal(a$type, type)
+  expect_identical(length(a), length(x))
+  if (!inherits(type, "ListType")) {
+    # TODO: revisit how missingness works with ListArrays
+    # R list objects don't handle missingness the same way as other vectors.
+    # Is there some vctrs thing we should do on the roundtrip back to R?
+    expect_identical(is.na(a), is.na(x))
+  }
+  expect_equal(as.vector(a), x)
+
+  if (length(x)) {
+    a_sliced <- a$Slice(1)
+    x_sliced <- x[-1]
+    expect_type_equal(a_sliced$type, type)
+    expect_identical(length(a_sliced), length(x_sliced))
+    if (!inherits(type, "ListType")) {
+      expect_identical(is.na(a_sliced), is.na(x_sliced))
+    }
+    expect_equal(as.vector(a_sliced), x_sliced)
+  }
+  invisible(a)
+}
+
+test_that("Integer Array", {
+  ints <- c(1:10, 1:10, 1:5)
+  x <- expect_array_roundtrip(ints, int32())
 
   y <- x$Slice(10)
   expect_equal(y$type, int32())
@@ -34,22 +57,11 @@ test_that("Array", {
   expect_equal(z$length(), 5L)
   expect_vector(z, c(1:5))
   expect_true(x$RangeEquals(z, 10, 15, 0))
+})
 
-  x_dbl <- Array$create(c(1,2,3,4,5,6))
-  expect_equal(x_dbl$type, float64())
-  expect_equal(x_dbl$length(), 6L)
-  expect_equal(x_dbl$as_vector(), as.numeric(1:6))
-
-  y_dbl <- x_dbl$Slice(3)
-  expect_equal(y_dbl$type, float64())
-  expect_equal(y_dbl$length(), 3L)
-  expect_equal(y_dbl$offset, 3L)
-  expect_equal(y_dbl$as_vector(), as.numeric(4:6))
-
-  z_dbl <- x_dbl$Slice(3, 2)
-  expect_equal(z_dbl$type, float64())
-  expect_equal(z_dbl$length(), 2L)
-  expect_equal(z_dbl$as_vector(), as.numeric(4:5))
+test_that("Double Array", {
+  dbls <- c(1, 2, 3, 4, 5, 6)
+  x_dbl <- expect_array_roundtrip(dbls, float64())
 })
 
 test_that("Array print method includes type", {
@@ -65,230 +77,140 @@ test_that("Array supports NA", {
   expect_true(x_int$IsNull(10L))
   expect_true(x_dbl$IsNull(10L))
 
-  # this is not part of Array api
-  expect_equal(Array__Mask(x_int), c(rep(TRUE, 10), FALSE))
-  expect_equal(Array__Mask(x_dbl), c(rep(TRUE, 10), FALSE))
+  expect_equal(is.na(x_int), c(rep(FALSE, 10), TRUE))
+  expect_equal(is.na(x_dbl), c(rep(FALSE, 10), TRUE))
 })
 
 test_that("Array support null type (ARROW-7064)", {
-  a <- Array$create(vctrs::unspecified(10))
-  expect_equal(a$type, null())
-
-  v <- a$as_vector()
-  expect_equal(v, vctrs::unspecified(10))
+  expect_array_roundtrip(vctrs::unspecified(10), null())
 })
 
 test_that("Array supports logical vectors (ARROW-3341)", {
   # with NA
   x <- sample(c(TRUE, FALSE, NA), 1000, replace = TRUE)
-  arr_lgl <- Array$create(x)
-  expect_identical(x, arr_lgl$as_vector())
+  expect_array_roundtrip(x, bool())
 
   # without NA
   x <- sample(c(TRUE, FALSE), 1000, replace = TRUE)
-  arr_lgl <- Array$create(x)
-  expect_identical(x, arr_lgl$as_vector())
+  expect_array_roundtrip(x, bool())
 })
 
 test_that("Array supports character vectors (ARROW-3339)", {
-  # with NA
-  x <- c("itsy", NA, "spider")
-  arr_chr <- Array$create(x)
-  expect_equal(arr_chr$length(), 3L)
-  expect_identical(arr_chr$as_vector(), x)
-  expect_true(arr_chr$IsValid(0))
-  expect_true(arr_chr$IsNull(1))
-  expect_true(arr_chr$IsValid(2))
-
-  sl <- arr_chr$Slice(1)
-  expect_equal(sl$as_vector(), x[2:3])
-
   # without NA
-  x <- c("itsy", "bitsy", "spider")
-  arr_chr <- Array$create(x)
-  expect_equal(arr_chr$length(), 3L)
-  expect_identical(arr_chr$as_vector(), x)
+  expect_array_roundtrip(c("itsy", "bitsy", "spider"), utf8())
+  # with NA
+  expect_array_roundtrip(c("itsy", NA, "spider"), utf8())
 })
 
 test_that("empty arrays are supported", {
-  x <- character()
-  expect_equal(Array$create(x)$as_vector(), x)
-
-  x <- integer()
-  expect_equal(Array$create(x)$as_vector(), x)
-
-  x <- numeric()
-  expect_equal(Array$create(x)$as_vector(), x)
-
-  x <- factor(character())
-  expect_equal(Array$create(x)$as_vector(), x)
-
-  x <- logical()
-  expect_equal(Array$create(x)$as_vector(), x)
+  expect_array_roundtrip(character(), utf8())
+  expect_array_roundtrip(integer(), int32())
+  expect_array_roundtrip(numeric(), float64())
+  expect_array_roundtrip(factor(character()), dictionary(int8(), utf8()))
+  expect_array_roundtrip(logical(), bool())
 })
 
 test_that("array with all nulls are supported", {
   nas <- c(NA, NA)
-
-  x <- as.logical(nas)
-  expect_equal(Array$create(x)$as_vector(), x)
-
-  x <- as.integer(nas)
-  expect_equal(Array$create(x)$as_vector(), x)
-
-  x <- as.numeric(nas)
-  expect_equal(Array$create(x)$as_vector(), x)
-
-  x <- as.character(nas)
-  expect_equal(Array$create(x)$as_vector(), x)
-
-  x <- as.factor(nas)
-  expect_equal(Array$create(x)$as_vector(), x)
+  expect_array_roundtrip(as.character(nas), utf8())
+  expect_array_roundtrip(as.integer(nas), int32())
+  expect_array_roundtrip(as.numeric(nas), float64())
+  expect_array_roundtrip(as.factor(nas), dictionary(int8(), utf8()))
+  expect_array_roundtrip(as.logical(nas), bool())
 })
 
 test_that("Array supports unordered factors (ARROW-3355)", {
   # without NA
   f <- factor(c("itsy", "bitsy", "spider", "spider"))
-  arr_fac <- Array$create(f)
-  expect_equal(arr_fac$length(), 4L)
-  expect_equal(arr_fac$type$index_type, int8())
-  expect_identical(arr_fac$as_vector(), f)
-  expect_true(arr_fac$IsValid(0))
-  expect_true(arr_fac$IsValid(1))
-  expect_true(arr_fac$IsValid(2))
-  expect_true(arr_fac$IsValid(3))
-
-  sl <- arr_fac$Slice(1)
-  expect_equal(sl$length(), 3L)
-  expect_equal(arr_fac$type$index_type, int8())
-  expect_equal(sl$as_vector(), f[2:4])
+  expect_array_roundtrip(f, dictionary(int8(), utf8()))
 
   # with NA
   f <- factor(c("itsy", "bitsy", NA, "spider", "spider"))
-  arr_fac <- Array$create(f)
-  expect_equal(arr_fac$length(), 5L)
-  expect_equal(arr_fac$type$index_type, int8())
-  expect_identical(arr_fac$as_vector(), f)
-  expect_true(arr_fac$IsValid(0))
-  expect_true(arr_fac$IsValid(1))
-  expect_true(arr_fac$IsNull(2))
-  expect_true(arr_fac$IsValid(3))
-  expect_true(arr_fac$IsValid(4))
-
-  sl <- arr_fac$Slice(1)
-  expect_equal(sl$length(), 4L)
-  expect_equal(arr_fac$type$index_type, int8())
-  expect_equal(sl$as_vector(), f[2:5])
+  expect_array_roundtrip(f, dictionary(int8(), utf8()))
 })
 
 test_that("Array supports ordered factors (ARROW-3355)", {
   # without NA
   f <- ordered(c("itsy", "bitsy", "spider", "spider"))
-  arr_fac <- Array$create(f)
-  expect_equal(arr_fac$length(), 4L)
-  expect_equal(arr_fac$type$index_type, int8())
-  expect_identical(arr_fac$as_vector(), f)
-  expect_true(arr_fac$IsValid(0))
-  expect_true(arr_fac$IsValid(1))
-  expect_true(arr_fac$IsValid(2))
-  expect_true(arr_fac$IsValid(3))
-
-  sl <- arr_fac$Slice(1)
-  expect_equal(sl$length(), 3L)
-  expect_equal(arr_fac$type$index_type, int8())
-  expect_equal(sl$as_vector(), f[2:4])
+  arr_fac <- expect_array_roundtrip(f, dictionary(int8(), utf8(), ordered = TRUE))
+  expect_true(arr_fac$ordered)
 
   # with NA
   f <- ordered(c("itsy", "bitsy", NA, "spider", "spider"))
-  arr_fac <- Array$create(f)
-  expect_equal(arr_fac$length(), 5L)
-  expect_equal(arr_fac$type$index_type, int8())
-  expect_identical(arr_fac$as_vector(), f)
-  expect_true(arr_fac$IsValid(0))
-  expect_true(arr_fac$IsValid(1))
-  expect_true(arr_fac$IsNull(2))
-  expect_true(arr_fac$IsValid(3))
-  expect_true(arr_fac$IsValid(4))
-
-  sl <- arr_fac$Slice(1)
-  expect_equal(sl$length(), 4L)
-  expect_equal(arr_fac$type$index_type, int8())
-  expect_equal(sl$as_vector(), f[2:5])
+  expect_array_roundtrip(f, dictionary(int8(), utf8(), ordered = TRUE))
 })
 
 test_that("array supports Date (ARROW-3340)", {
   d <- Sys.Date() + 1:10
-  a <- Array$create(d)
-  expect_equal(a$type, date32())
-  expect_equal(a$length(), 10L)
-  expect_equal(a$as_vector(), d)
+  expect_array_roundtrip(d, date32())
 
   d[5] <- NA
-  a <- Array$create(d)
-  expect_equal(a$type, date32())
-  expect_equal(a$length(), 10L)
-  expect_equal(a$as_vector(), d)
-  expect_true(a$IsNull(4))
+  expect_array_roundtrip(d, date32())
 
-  d2 <- d + .5
-  a <- Array$create(d2)
-  expect_equal(a$type, date32())
-  expect_equal(a$length(), 10L)
-  expect_equal(a$as_vector(), d)
-  expect_true(a$IsNull(4))
+  # Test code path where Date is numeric underneath, not integer
+  d2 <- structure(as.numeric(d), class = "Date")
+  expect_array_roundtrip(d2, date32())
+  # PSA: IngestDoubleRange(Date32Builder) truncates decimals, so this only
+  # works where the dates are integer-ish
 })
 
 test_that("array supports POSIXct (ARROW-3340)", {
   times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
-  a <- Array$create(times)
-  expect_equal(a$type$name, "timestamp")
-  expect_equal(a$type$unit(), unclass(TimeUnit$MICRO))
-  expect_equal(a$length(), 10L)
-  expect_equal(as.numeric(a$as_vector()), as.numeric(times))
+  expect_array_roundtrip(times, timestamp("us", "UTC"))
 
   times[5] <- NA
-  a <- Array$create(times)
-  expect_equal(a$type$name, "timestamp")
-  expect_equal(a$type$unit(), unclass(TimeUnit$MICRO))
-  expect_equal(a$length(), 10L)
-  expect_equal(as.numeric(a$as_vector()), as.numeric(times))
-  expect_true(a$IsNull(4))
+  expect_array_roundtrip(times, timestamp("us", "UTC"))
+
+  times2 <- lubridate::ymd_hms("2018-10-07 19:04:05", tz = "US/Eastern") + 1:10
+  expect_array_roundtrip(times2, timestamp("us", "US/Eastern"))
+})
+
+test_that("array supports POSIXlt and without timezone", {
+  # Make sure timezone is not set
+  tz <- Sys.getenv("TZ")
+  Sys.setenv(TZ = "")
+  on.exit(Sys.setenv(TZ = tz))
+  times <- strptime("2019-02-03 12:34:56", format="%Y-%m-%d %H:%M:%S") + 1:10
+  expect_array_roundtrip(times, timestamp("us", ""))
+
+  # Also test the INTSXP code path
+  skip("Ingest_POSIXct only implemented for REALSXP")
+  times_int <- as.integer(times)
+  attributes(times_int) <- attributes(times)
+  expect_array_roundtrip(times_int, timestamp("us", ""))
+})
+
+test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
+  # Write a feather file as that's what the initial bug report used
+  df <- tibble::tibble(
+    no_tz = lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10,
+    yes_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Asia/Pyongyang") + 1:10
+  )
+  if (!identical(Sys.timezone(), "Asia/Pyongyang")) {
+    # Confirming that the columns are in fact different
+    expect_false(any(df$no_tz == df$yes_tz))
+  }
+  feather_file <- tempfile()
+  on.exit(unlink(feather_file))
+  write_feather(df, feather_file)
+  expect_identical(read_feather(feather_file), df)
 })
 
 test_that("array supports integer64", {
   x <- bit64::as.integer64(1:10)
-  a <- Array$create(x)
-  expect_equal(a$type, int64())
-  expect_equal(a$length(), 10L)
-  expect_equal(a$as_vector(), x)
+  expect_array_roundtrip(x, int64())
 
   x[4] <- NA
-  a <- Array$create(x)
-  expect_equal(a$type, int64())
-  expect_equal(a$length(), 10L)
-  expect_equal(a$as_vector(), x)
-  expect_true(a$IsNull(3L))
-})
+  expect_array_roundtrip(x, int64())
 
-test_that("array$as_vector() correctly handles all NA int64 (ARROW-3795)", {
-  x <- bit64::as.integer64(NA)
-  a <- Array$create(x)
-  expect_true(is.na(a$as_vector()))
+  # all NA int64 (ARROW-3795)
+  expect_array_roundtrip(bit64::as.integer64(NA), int64())
 })
 
 test_that("array supports difftime", {
   time <- hms::hms(56, 34, 12)
-  a <- Array$create(c(time, time))
-  expect_equal(a$type, time32(unit = TimeUnit$SECOND))
-  expect_equal(a$length(), 2L)
-  expect_equal(a$as_vector(), c(time, time))
-
-  a <- Array$create(vctrs::vec_c(NA, time))
-  expect_equal(a$type, time32(unit = TimeUnit$SECOND))
-  expect_equal(a$length(), 2L)
-  expect_true(a$IsNull(0))
-  expect_equal(a$as_vector()[2], time)
-  expect_true(is.na(a$as_vector()[1]))
+  expect_array_roundtrip(c(time, time), time32("s"))
+  expect_array_roundtrip(vctrs::vec_c(NA, time), time32("s"))
 })
 
 test_that("support for NaN (ARROW-3615)", {
@@ -298,68 +220,40 @@ test_that("support for NaN (ARROW-3615)", {
   expect_equal(y$null_count, 1L)
 })
 
+int_types <- c(int8(), int16(), int32(), int64())
+uint_types <- c(uint8(), uint16(), uint32(), uint64())
+float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
+
 test_that("integer types casts (ARROW-3741)", {
   a <- Array$create(c(1:10, NA))
-  a_int8 <- a$cast(int8())
-  a_int16 <- a$cast(int16())
-  a_int32 <- a$cast(int32())
-  a_int64 <- a$cast(int64())
-
-  expect_equal(a_int8$type, int8())
-  expect_equal(a_int16$type, int16())
-  expect_equal(a_int32$type, int32())
-  expect_equal(a_int64$type, int64())
-  expect_true(a_int8$IsNull(10L))
-  expect_true(a_int16$IsNull(10L))
-  expect_true(a_int32$IsNull(10L))
-  expect_true(a_int64$IsNull(10L))
-
-  a_uint8 <- a$cast(uint8())
-  a_uint16 <- a$cast(uint16())
-  a_uint32 <- a$cast(uint32())
-  a_uint64 <- a$cast(uint64())
-
-  expect_equal(a_uint8$type, uint8())
-  expect_equal(a_uint16$type, uint16())
-  expect_equal(a_uint32$type, uint32())
-  expect_equal(a_uint64$type, uint64())
-  expect_true(a_uint8$IsNull(10L))
-  expect_true(a_uint16$IsNull(10L))
-  expect_true(a_uint32$IsNull(10L))
-  expect_true(a_uint64$IsNull(10L))
+  for (type in c(int_types, uint_types)) {
+    casted <- a$cast(type)
+    expect_equal(casted$type, type)
+    expect_identical(is.na(casted), c(rep(FALSE, 10), TRUE))
+  }
 })
 
 test_that("integer types cast safety (ARROW-3741, ARROW-5541)", {
   a <- Array$create(-(1:10))
-  expect_error(a$cast(uint8()), regexp = "Integer value out of bounds")
-  expect_error(a$cast(uint16()), regexp = "Integer value out of bounds")
-  expect_error(a$cast(uint32()), regexp = "Integer value out of bounds")
-  expect_error(a$cast(uint64()), regexp = "Integer value out of bounds")
-
-  expect_error(a$cast(uint8(), safe = FALSE), NA)
-  expect_error(a$cast(uint16(), safe = FALSE), NA)
-  expect_error(a$cast(uint32(), safe = FALSE), NA)
-  expect_error(a$cast(uint64(), safe = FALSE), NA)
+  for (type in uint_types) {
+    expect_error(a$cast(type), regexp = "Integer value out of bounds")
+    expect_error(a$cast(type, safe = FALSE), NA)
+  }
 })
 
 test_that("float types casts (ARROW-3741)", {
   x <- c(1, 2, 3, NA)
   a <- Array$create(x)
-  a_f32 <- a$cast(float32())
-  a_f64 <- a$cast(float64())
-
-  expect_equal(a_f32$type, float32())
-  expect_equal(a_f64$type, float64())
-
-  expect_true(a_f32$IsNull(3L))
-  expect_true(a_f64$IsNull(3L))
-
-  expect_equal(a_f32$as_vector(), x)
-  expect_equal(a_f64$as_vector(), x)
+  for (type in float_types) {
+    casted <- a$cast(type)
+    expect_equal(casted$type, type)
+    expect_identical(is.na(casted), c(rep(FALSE, 3), TRUE))
+    expect_identical(as.vector(casted), x)
+  }
 })
 
 test_that("cast to half float works", {
-  skip("until https://issues.apache.org/jira/browse/ARROW-3802")
+  skip("Need halffloat support: https://issues.apache.org/jira/browse/ARROW-3802")
   a <- Array$create(1:4)
   a_f16 <- a$cast(float16())
   expect_equal(a_16$type, float16())
@@ -374,10 +268,10 @@ test_that("Array$create() supports the type= argument. conversion from INTSXP an
   num_int32 <- 12L
   num_int64 <- bit64::as.integer64(10)
 
-  types <- list(
-    int8(), int16(), int32(), int64(),
-    uint8(), uint16(), uint32(), uint64(),
-    float32(), float64(),
+  types <- c(
+    int_types,
+    uint_types,
+    float_types,
     double() # not actually a type, a base R function but should be alias for float64
   )
   for (type in types) {
@@ -393,31 +287,28 @@ test_that("Array$create() supports the type= argument. conversion from INTSXP an
 })
 
 test_that("Array$create() aborts on overflow", {
-  expect_error(Array$create(128L, type = int8())$type, "Invalid.*Value is too large")
-  expect_error(Array$create(-129L, type = int8())$type, "Invalid.*Value is too large")
+  msg <- "Invalid.*Value is too large"
+  expect_error(Array$create(128L, type = int8()), msg)
+  expect_error(Array$create(-129L, type = int8()), msg)
 
-  expect_error(Array$create(256L, type = uint8())$type, "Invalid.*Value is too large")
-  expect_error(Array$create(-1L, type = uint8())$type, "Invalid.*Value is too large")
+  expect_error(Array$create(256L, type = uint8()), msg)
+  expect_error(Array$create(-1L, type = uint8()), msg)
 
-  expect_error(Array$create(32768L, type = int16())$type, "Invalid.*Value is too large")
-  expect_error(Array$create(-32769L, type = int16())$type, "Invalid.*Value is too large")
+  expect_error(Array$create(32768L, type = int16()), msg)
+  expect_error(Array$create(-32769L, type = int16()), msg)
 
-  expect_error(Array$create(65536L, type = uint16())$type, "Invalid.*Value is too large")
-  expect_error(Array$create(-1L, type = uint16())$type, "Invalid.*Value is too large")
+  expect_error(Array$create(65536L, type = uint16()), msg)
+  expect_error(Array$create(-1L, type = uint16()), msg)
 
-  expect_error(Array$create(65536L, type = uint16())$type, "Invalid.*Value is too large")
-  expect_error(Array$create(-1L, type = uint16())$type, "Invalid.*Value is too large")
+  expect_error(Array$create(65536L, type = uint16()), msg)
+  expect_error(Array$create(-1L, type = uint16()), msg)
 
-  expect_error(Array$create(bit64::as.integer64(2^31), type = int32()), "Invalid.*Value is too large")
-  expect_error(Array$create(bit64::as.integer64(2^32), type = uint32()), "Invalid.*Value is too large")
+  expect_error(Array$create(bit64::as.integer64(2^31), type = int32()), msg)
+  expect_error(Array$create(bit64::as.integer64(2^32), type = uint32()), msg)
 })
 
 test_that("Array$create() does not convert doubles to integer", {
-  types <- list(
-    int8(), int16(), int32(), int64(),
-    uint8(), uint16(), uint32(), uint64()
-  )
-  for(type in types) {
+  for (type in c(int_types, uint_types)) {
     a <- Array$create(10, type = type)
     expect_equal(a$type, type)
 
@@ -472,38 +363,32 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
 })
 
 test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
-  expect_list_array <- function(v, type) {
-    a <- Array$create(v)
-    expect_equal(a$type, list_of(type))
-    expect_equivalent(a$as_vector(), v)
-  }
-
   # Should be able to create an empty list with a type hint.
-  Array$create(list(), list_of(bool()))
+  expect_is(Array$create(list(), list_of(bool())), "ListArray")
 
   # logical
-  expect_list_array(list(NA), bool())
-  expect_list_array(list(logical(0)), bool())
-  expect_list_array(list(c(TRUE), c(FALSE), c(FALSE, TRUE)), bool())
-  expect_list_array(list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)), bool())
+  expect_array_roundtrip(list(NA), list_of(bool()))
+  expect_array_roundtrip(list(logical(0)), list_of(bool()))
+  expect_array_roundtrip(list(c(TRUE), c(FALSE), c(FALSE, TRUE)), list_of(bool()))
+  expect_array_roundtrip(list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)), list_of(bool()))
 
   # integer
-  expect_list_array(list(NA_integer_), int32())
-  expect_list_array(list(integer(0)), int32())
-  expect_list_array(list(1:2, 3:4, 12:18), int32())
-  expect_list_array(list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)), int32())
+  expect_array_roundtrip(list(NA_integer_), list_of(int32()))
+  expect_array_roundtrip(list(integer(0)), list_of(int32()))
+  expect_array_roundtrip(list(1:2, 3:4, 12:18), list_of(int32()))
+  expect_array_roundtrip(list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)), list_of(int32()))
 
   # numeric
-  expect_list_array(list(NA_real_), float64())
-  expect_list_array(list(numeric(0)), float64())
-  expect_list_array(list(1, c(2, 3), 4), float64())
-  expect_list_array(list(1, numeric(0), c(2, 3, NA_real_), 4), float64())
+  expect_array_roundtrip(list(NA_real_), list_of(float64()))
+  expect_array_roundtrip(list(numeric(0)), list_of(float64()))
+  expect_array_roundtrip(list(1, c(2, 3), 4), list_of(float64()))
+  expect_array_roundtrip(list(1, numeric(0), c(2, 3, NA_real_), 4), list_of(float64()))
 
   # character
-  expect_list_array(list(NA_character_), utf8())
-  expect_list_array(list(character(0)), utf8())
-  expect_list_array(list("itsy", c("bitsy", "spider"), c("is")), utf8())
-  expect_list_array(list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")), utf8())
+  expect_array_roundtrip(list(NA_character_), list_of(utf8()))
+  expect_array_roundtrip(list(character(0)), list_of(utf8()))
+  expect_array_roundtrip(list("itsy", c("bitsy", "spider"), c("is")), list_of(utf8()))
+  expect_array_roundtrip(list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")), list_of(utf8()))
 })
 
 test_that("Array$create() should have helpful error on lists with type hint", {
@@ -521,15 +406,22 @@ test_that("Array$create() should refuse heterogeneous lists", {
   num <- numeric(0)
   char <- character(0)
 
-  expect_error(Array$create(list()),
-               regexp = "Requires at least one element to infer the values'")
-
-  expect_error(Array$create(list(lgl, lgl, int)),
-               regexp = "List vector expecting elements vector of type")
-  expect_error(Array$create(list(char, num, char)),
-               regexp = "List vector expecting elements vector of type")
-  expect_error(Array$create(list(int, int, num)),
-               regexp = "List vector expecting elements vector of type")
+  expect_error(
+    Array$create(list()),
+    regexp = "Requires at least one element to infer the values'"
+  )
+  expect_error(
+    Array$create(list(lgl, lgl, int)),
+    regexp = "List vector expecting elements vector of type"
+  )
+  expect_error(
+    Array$create(list(char, num, char)),
+    regexp = "List vector expecting elements vector of type"
+  )
+  expect_error(
+    Array$create(list(int, int, num)),
+    regexp = "List vector expecting elements vector of type"
+  )
 })
 
 test_that("Array$View() (ARROW-6542)", {

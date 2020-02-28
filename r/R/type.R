@@ -344,17 +344,13 @@ null <- function() shared_ptr(Null, Null__initialize())
 
 #' @rdname data-type
 #' @export
-timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone) {
+timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone = "") {
   if (is.character(unit)) {
     unit <- match.arg(unit)
   }
   unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
-  if (missing(timezone)) {
-    shared_ptr(Timestamp, Timestamp__initialize1(unit))
-  } else {
-    assert_that(is.character(timezone), length(timezone) == 1)
-    shared_ptr(Timestamp, Timestamp__initialize2(unit, timezone))
-  }
+  assert_that(is.character(timezone), length(timezone) == 1)
+  shared_ptr(Timestamp, Timestamp__initialize(unit, timezone))
 }
 
 #' @rdname data-type

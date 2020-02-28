@@ -175,6 +175,9 @@ DictionaryArray <- R6Class("DictionaryArray", inherit = Array,
   public = list(
     indices = function() Array$create(DictionaryArray__indices(self)),
     dictionary = function() Array$create(DictionaryArray__dictionary(self))
+  ),
+  active = list(
+    ordered = function() self$type$ordered
   )
 )
 DictionaryArray$create <- function(x, dict = NULL) {
@@ -225,6 +228,15 @@ ListArray <- R6Class("ListArray", inherit = Array,
 
 #' @export
 length.Array <- function(x) x$length()
+
+#' @export
+is.na.Array <- function(x) {
+  if (x$type == null()) {
+    rep(TRUE, length(x))
+  } else {
+    !Array__Mask(x)
+  }
+}
 
 #' @export
 as.vector.Array <- function(x, mode) x$as_vector()
