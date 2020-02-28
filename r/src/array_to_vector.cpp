@@ -516,8 +516,8 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::NumericVector data(no_init(n));
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
-    auto array = static_cast<TimestampArray*>(Converter::arrays_[0].get());
-    auto array_type = static_cast<const TimestampType*>(array->type().get());
+    auto array = internal::checked_cast<TimestampArray*>(Converter::arrays_[0].get());
+    auto array_type = internal::checked_cast<const TimestampType*>(array->type().get());
     data.attr("tzone") = array_type->timezone();
     return data;
   }

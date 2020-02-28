@@ -22,7 +22,9 @@ expect_array_roundtrip <- function(x, type) {
   expect_equal(a$type, type)
   expect_identical(length(a), length(x))
   if (!inherits(type, "ListType")) {
-    # TODO: is this a bug that these aren't equal?
+    # TODO: revisit how missingness works with ListArrays
+    # R list objects don't handle missingness the same way as other vectors.
+    # Is there some vctrs thing we should do on the roundtrip back to R?
     expect_identical(is.na(a), is.na(x))
   }
   expect_equal(as.vector(a), x)
