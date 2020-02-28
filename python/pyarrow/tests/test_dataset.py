@@ -115,9 +115,9 @@ def mockfs():
 
 
 @pytest.fixture(scope='module')
-@pytest.mark.pandas
-@pytest.mark.parquet
-def multisourcefs():
+def multisourcefs(request):
+    request.config.pyarrow.requires('pandas')
+    request.config.pyarrow.requires('parquet')
     import pyarrow.parquet as pq
 
     df = _generate_data(1000)
