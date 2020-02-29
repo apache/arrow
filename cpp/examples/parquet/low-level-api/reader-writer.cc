@@ -20,7 +20,7 @@
 #include <iostream>
 #include <memory>
 
-#include <reader_writer.h>
+#include <reader_writer_forindex.h>
 
 /*
  * This example describes writing and reading Parquet Files in C++ and serves as a
@@ -89,17 +89,17 @@ int main(int argc, char** argv) {
       int32_writer->WriteBatch(1, nullptr, nullptr, &value);
     }
 
-    // Write the Int64 column. Each row has repeats twice.
+    // Write the Int64 column. Each row has not[repeats twice].
     parquet::Int64Writer* int64_writer =
         static_cast<parquet::Int64Writer*>(rg_writer->NextColumn());
-    for (int i = 0; i < 2 * NUM_ROWS_PER_ROW_GROUP; i++) {
+    for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
       int64_t value = i * 1000 * 1000;
       value *= 1000 * 1000;
       int16_t definition_level = 1;
       int16_t repetition_level = 0;
-      if ((i % 2) == 0) {
-        repetition_level = 1;  // start of a new record
-      }
+      //if ((i % 2) == 0) {
+      //  repetition_level = 1;  // start of a new record
+     // }
       int64_writer->WriteBatch(1, &definition_level, &repetition_level, &value);
     }
 
@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
     }
 
     // Write the FixedLengthByteArray column
-    parquet::FixedLenByteArrayWriter* flba_writer =
+    /*parquet::FixedLenByteArrayWriter* flba_writer =
         static_cast<parquet::FixedLenByteArrayWriter*>(rg_writer->NextColumn());
     for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
       parquet::FixedLenByteArray value;
@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
       value.ptr = reinterpret_cast<const uint8_t*>(&flba[0]);
 
       flba_writer->WriteBatch(1, nullptr, nullptr, &value);
-    }
+    }*/
 
     // Close the ParquetFileWriter
     file_writer->Close();
@@ -190,7 +190,7 @@ int main(int argc, char** argv) {
 
     // Get the number of Columns
     int num_columns = file_metadata->num_columns();
-    assert(num_columns == 8);
+    assert(num_columns == 7);
 
     // Iterate over all the RowGroups in the file
     for (int r = 0; r < num_row_groups; ++r) {
@@ -267,11 +267,11 @@ int main(int argc, char** argv) {
         int64_t expected_value = i * 1000 * 1000;
         expected_value *= 1000 * 1000;
         assert(value == expected_value);
-        if ((i % 2) == 0) {
+        /*if ((i % 2) == 0) {
           assert(repetition_level == 1);
         } else {
           assert(repetition_level == 0);
-        }
+        }*/
         i++;
       }
 
@@ -377,7 +377,7 @@ int main(int argc, char** argv) {
       }
 
       // Get the Column Reader for the FixedLengthByteArray column
-      column_reader = row_group_reader->Column(7);
+ /*     column_reader = row_group_reader->Column(7);
       parquet::FixedLenByteArrayReader* flba_reader =
           static_cast<parquet::FixedLenByteArrayReader*>(column_reader.get());
       // Read all the rows in the column
@@ -396,7 +396,7 @@ int main(int argc, char** argv) {
         char expected_value[FIXED_LENGTH] = {v, v, v, v, v, v, v, v, v, v};
         assert(memcmp(value.ptr, &expected_value[0], FIXED_LENGTH) == 0);
         i++;
-      }
+      }*/
     }
   } catch (const std::exception& e) {
     std::cerr << "Parquet read error: " << e.what() << std::endl;
