@@ -56,7 +56,7 @@ enum {
   PROP_FILE_STATS_TYPE = 1,
   PROP_FILE_STATS_PATH,
   PROP_FILE_STATS_BASE_NAME,
-  PROP_FILE_STATS_DIRECTORY_NAME,
+  PROP_FILE_STATS_DIR_NAME,
   PROP_FILE_STATS_EXTENSION,
   PROP_FILE_STATS_SIZE,
   PROP_FILE_STATS_MTIME,
@@ -127,7 +127,7 @@ garrow_file_stats_get_property(GObject *object,
   case PROP_FILE_STATS_BASE_NAME:
     g_value_set_string(value, arrow_file_stats.base_name().c_str());
     break;
-  case PROP_FILE_STATS_DIRECTORY_NAME:
+  case PROP_FILE_STATS_DIR_NAME:
     g_value_set_string(value, arrow_file_stats.dir_name().c_str());
     break;
   case PROP_FILE_STATS_EXTENSION:
@@ -220,22 +220,24 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
                              "The file base name",
                              stats.base_name().c_str(),
                              static_cast<GParamFlags>(G_PARAM_READABLE));
-  g_object_class_install_property(gobject_class, PROP_FILE_STATS_BASE_NAME, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_FILE_STATS_BASE_NAME,
+                                  spec);
 
   /**
-   * GArrowFileStats:directory-name:
+   * GArrowFileStats:dir-name:
    *
    * The directory base name (component before the file base name).
    *
    * Since: 1.0.0
    */
-  spec = g_param_spec_string("directory-name",
+  spec = g_param_spec_string("dir-name",
                              "Directory name",
                              "The directory base name",
                              stats.dir_name().c_str(),
                              static_cast<GParamFlags>(G_PARAM_READABLE));
   g_object_class_install_property(gobject_class,
-                                  PROP_FILE_STATS_DIRECTORY_NAME,
+                                  PROP_FILE_STATS_DIR_NAME,
                                   spec);
 
   /**
@@ -250,7 +252,9 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
                              "The file extension",
                              stats.extension().c_str(),
                              static_cast<GParamFlags>(G_PARAM_READABLE));
-  g_object_class_install_property(gobject_class, PROP_FILE_STATS_EXTENSION, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_FILE_STATS_EXTENSION,
+                                  spec);
 
   /**
    * GArrowFileStats:size:
@@ -334,7 +338,7 @@ garrow_file_stats_is_file(GArrowFileStats *file_stats)
 }
 
 /**
- * garrow_file_stats_is_directory:
+ * garrow_file_stats_is_dir
  * @file_stats: A #GArrowFileStats.
  *
  * Returns: %TRUE if the entry is a directory, %FALSE otherwise.
@@ -342,7 +346,7 @@ garrow_file_stats_is_file(GArrowFileStats *file_stats)
  * Since: 1.0.0
  */
 gboolean
-garrow_file_stats_is_directory(GArrowFileStats *file_stats)
+garrow_file_stats_is_dir(GArrowFileStats *file_stats)
 {
   const auto &arrow_file_stats = garrow_file_stats_get_raw(file_stats);
   return arrow_file_stats.IsDirectory();

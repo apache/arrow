@@ -37,7 +37,7 @@ typedef gint64 GArrowTimePoint;
  * @GARROW_FILE_TYPE_NONEXISTENT: Entry does not exist
  * @GARROW_FILE_TYPE_UNKNOWN: Entry exists but its type is unknown
  * @GARROW_FILE_TYPE_FILE: Entry is a regular file
- * @GARROW_FILE_TYPE_DIRECTORY: Entry is a directory
+ * @GARROW_FILE_TYPE_DIR: Entry is a directory
  *
  * They are corresponding to `arrow::fs::FileType` values.
  *
@@ -47,7 +47,7 @@ typedef enum {
   GARROW_FILE_TYPE_NONEXISTENT,
   GARROW_FILE_TYPE_UNKNOWN,
   GARROW_FILE_TYPE_FILE,
-  GARROW_FILE_TYPE_DIRECTORY
+  GARROW_FILE_TYPE_DIR
 } GArrowFileType;
 
 
@@ -74,7 +74,7 @@ gboolean garrow_file_stats_equal(GArrowFileStats *file_stats,
 GARROW_AVAILABLE_IN_1_0
 gboolean garrow_file_stats_is_file(GArrowFileStats *file_stats);
 GARROW_AVAILABLE_IN_1_0
-gboolean garrow_file_stats_is_directory(GArrowFileStats *file_stats);
+gboolean garrow_file_stats_is_dir(GArrowFileStats *file_stats);
 GARROW_AVAILABLE_IN_1_0
 gchar *garrow_file_stats_to_string(GArrowFileStats *file_stats);
 

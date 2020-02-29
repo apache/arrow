@@ -28,8 +28,8 @@ class TestFileStats < Test::Unit::TestCase
   end
 
   test("#type=") do
-    @file_stats.type = :directory
-    assert_equal(Arrow::FileType::DIRECTORY,
+    @file_stats.type = :dir
+    assert_equal(Arrow::FileType::DIR,
                  @file_stats.type)
   end
 
@@ -56,14 +56,14 @@ class TestFileStats < Test::Unit::TestCase
     end
   end
 
-  sub_test_case("#directory_name") do
+  sub_test_case("#dir_name") do
     test("default") do
-      assert_equal("", @file_stats.directory_name)
+      assert_equal("", @file_stats.dir_name)
     end
 
     test("with directory") do
       @file_stats.path = "/a/b/c.d"
-      assert_equal("/a/b", @file_stats.directory_name)
+      assert_equal("/a/b", @file_stats.dir_name)
     end
   end
 
@@ -140,25 +140,25 @@ class TestFileStats < Test::Unit::TestCase
     end
 
     test("false") do
-      @file_stats.type = :directory
+      @file_stats.type = :dir
       assert do
         not @file_stats.file?
       end
     end
   end
 
-  sub_test_case("#directory?") do
+  sub_test_case("#dir?") do
     test("true") do
-      @file_stats.type = :directory
+      @file_stats.type = :dir
       assert do
-        @file_stats.directory?
+        @file_stats.dir?
       end
     end
 
     test("false") do
       @file_stats.type = :file
       assert do
-        not @file_stats.directory?
+        not @file_stats.dir?
       end
     end
   end

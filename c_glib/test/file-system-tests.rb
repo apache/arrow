@@ -21,16 +21,7 @@ module FileSystemTests
     selector.base_dir = ""
     selector.recursive = true
     stats = @fs.get_target_stats_selector(selector)
-    stats.map {|stat|
-      case stat.type
-      when Arrow::FileType::DIRECTORY
-        [stat.path, :directory]
-      when Arrow::FileType::FILE
-        [stat.path, :file]
-      else
-        nil
-      end
-    }.compact.to_h
+    stats.map {|stat| [stat.path, stat.type.nick.to_sym]}.to_h
   end
 
   private def mkpath(path)
@@ -53,14 +44,14 @@ module FileSystemTests
 
   private def file?(path)
     st = @fs.get_target_stats_path(path)
-    st.type == Arrow::FileType::FILE
+    st.file?
   rescue Arrow::Error::Io
     false
   end
 
   private def directory?(path)
     st = @fs.get_target_stats_path(path)
-    st.type == Arrow::FileType::DIRECTORY
+    st.dir?
   rescue Arrow::Error::Io
     false
   end
@@ -73,10 +64,10 @@ module FileSystemTests
     @fs.create_dir("AB/CD/EF", true) # recursive
     @fs.create_dir("AB/GH", false) # non-recursive
     assert_equal({
-                   "AB" => :directory,
-                   "AB/CD" => :directory,
-                   "AB/CD/EF" => :directory,
-                   "AB/GH" => :directory
+                   "AB" => :dir,
+                   "AB/CD" => :dir,
+                   "AB/CD/EF" => :dir,
+                   "AB/GH" => :dir
                  },
                  all_entries)
   end
@@ -109,8 +100,8 @@ module FileSystemTests
     @fs.delete_dir("AB/GH/IJ")
 
     assert_equal({
-                   "AB" => :directory,
-                   "AB/GH" => :directory,
+                   "AB" => :dir,
+                   "AB/GH" => :dir,
                    "AB/abc" => :file
                  },
                  all_entries)
@@ -127,10 +118,10 @@ module FileSystemTests
     @fs.delete_dir_contents("AB/GH/IJ")
 
     assert_equal({
-                   "AB" => :directory,
-                   "AB/CD" => :directory,
-                   "AB/GH" => :directory,
-                   "AB/GH/IJ" => :directory,
+                   "AB" => :dir,
+                   "AB/CD" => :dir,
+                   "AB/GH" => :dir,
+                   "AB/GH/IJ" => :dir,
                    "AB/abc" => :file
                  },
                  all_entries)
@@ -158,7 +149,7 @@ module FileSystemTests
     end
 
     assert_equal({
-                   "AB" => :directory,
+                   "AB" => :dir,
                    "AB/def" => :file,
                    "AB/ghi" => :file,
                    "AB/jkl" => :file,
@@ -169,7 +160,7 @@ module FileSystemTests
 
     @fs.delete_files(["abc", "AB/def"])
     assert_equal({
-                   "AB" => :directory,
+                   "AB" => :dir,
                    "AB/ghi" => :file,
                    "AB/jkl" => :file,
                    "AB/mno" => :file
@@ -182,18 +173,18 @@ module FileSystemTests
     mkpath("EF")
     create_file("abc")
     assert_equal({
-                   "AB" => :directory,
-                   "AB/CD" => :directory,
-                   "EF" => :directory,
+                   "AB" => :dir,
+                   "AB/CD" => :dir,
+                   "EF" => :dir,
                    "abc" => :file
                  },
                  all_entries)
 
     @fs.move("abc", "AB/CD/ghi")
     assert_equal({
-                   "AB" => :directory,
-                   "AB/CD" => :directory,
-                   "EF" => :directory,
+                   "AB" => :dir,
+                   "AB/CD" => :dir,
+                   "EF" => :dir,
                    "AB/CD/ghi" => :file
                  },
                  all_entries)
@@ -205,17 +196,17 @@ module FileSystemTests
     mkpath("AB/CD")
     mkpath("EF")
     assert_equal({
-                   "AB" => :directory,
-                   "AB/CD" => :directory,
-                   "EF" => :directory
+                   "AB" => :dir,
+                   "AB/CD" => :dir,
+                   "EF" => :dir
                  },
                  all_entries)
 
     @fs.move("AB", "GH")
     assert_equal({
-                   "EF" => :directory,
-                   "GH" => :directory,
-                   "GH/CD" => :directory
+                   "EF" => :dir,
+                   "GH" => :dir,
+                   "GH/CD" => :dir
                  },
                  all_entries)
   end
@@ -225,18 +216,18 @@ module FileSystemTests
     mkpath("EF")
     create_file("AB/abc", "data")
     assert_equal({
-                   "AB" => :directory,
-                   "AB/CD" => :directory,
-                   "EF" => :directory,
+                   "AB" => :dir,
+                   "AB/CD" => :dir,
+                   "EF" => :dir,
                    "AB/abc" => :file
                  },
                  all_entries)
 
     @fs.copy_file("AB/abc", "def")
     assert_equal({
-                   "AB" => :directory,
-                   "AB/CD" => :directory,
-                   "EF" => :directory,
+                   "AB" => :dir,
+                   "AB/CD" => :dir,
+                   "EF" => :dir,
                    "AB/abc" => :file,
                    "def" => :file
                  },
@@ -250,7 +241,7 @@ module FileSystemTests
     create_file("AB/CD/ghi", "some data")
 
     st = @fs.get_target_stats_path("AB")
-    assert_equal(Arrow::FileType::DIRECTORY,
+    assert_equal(Arrow::FileType::DIR,
                  st.type)
     assert_equal("AB",
                  st.base_name)
