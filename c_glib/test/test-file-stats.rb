@@ -162,4 +162,9 @@ class TestFileStats < Test::Unit::TestCase
       end
     end
   end
+
+  test("#to_s") do
+    assert_equal("FileStats(FileType::Unknown, )",
+                 @file_stats.to_s)
+  end
 end

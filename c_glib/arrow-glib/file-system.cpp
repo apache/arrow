@@ -348,6 +348,24 @@ garrow_file_stats_is_directory(GArrowFileStats *file_stats)
   return arrow_file_stats.IsDirectory();
 }
 
+/**
+ * garrow_file_stats_to_string:
+ * @file_stats: A #GArrowFileStats.
+ *
+ * Returns: The string representation of the file statistics.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 1.0.0
+ */
+gchar *
+garrow_file_stats_to_string(GArrowFileStats *file_stats)
+{
+  const auto &arrow_file_stats = garrow_file_stats_get_raw(file_stats);
+  auto string = arrow_file_stats.ToString();
+  return g_strndup(string.data(), string.size());
+}
+
 /* arrow::fs::FileSelector */
 
 typedef struct GArrowFileSelectorPrivate_ {

@@ -75,6 +75,8 @@ GARROW_AVAILABLE_IN_1_0
 gboolean garrow_file_stats_is_file(GArrowFileStats *file_stats);
 GARROW_AVAILABLE_IN_1_0
 gboolean garrow_file_stats_is_directory(GArrowFileStats *file_stats);
+GARROW_AVAILABLE_IN_1_0
+gchar *garrow_file_stats_to_string(GArrowFileStats *file_stats);
 
 /* arrow::fs::FileSelector */
 
