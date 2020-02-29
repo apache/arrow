@@ -375,8 +375,10 @@ module GenericFileSystemTestMethods
     create_file("AB/abc", "some data")
 
     stream = @fs.open_input_stream("AB/abc")
+    buffer = stream.read(4)
     assert_equal("some",
-                 stream.read(4).data.to_s)
+                 buffer.data.to_s)
+    buffer.unref
     stream.close
   end
 
