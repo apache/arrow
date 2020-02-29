@@ -22,92 +22,71 @@ class TestFileStats < Test::Unit::TestCase
 
   sub_test_case("#type") do
     test("default") do
-      assert do
-        Arrow::FileType::UNKNOWN == @file_stats.type
-      end
+      assert_equal(Arrow::FileType::UNKNOWN,
+                   @file_stats.type)
     end
   end
 
   test("#type=") do
-    assert do
-      @file_stats.type = Arrow::FileType::DIRECTORY
-      Arrow::FileType::DIRECTORY == @file_stats.type
-    end
+    @file_stats.type = Arrow::FileType::DIRECTORY
+    assert_equal(Arrow::FileType::DIRECTORY,
+                 @file_stats.type)
   end
 
   sub_test_case("#path") do
     test("default") do
-      assert do
-        "" == @file_stats.path
-      end
+      assert_equal("", @file_stats.path)
     end
   end
 
   test("#path=") do
     @file_stats.path = "/a/b/c.d"
-    assert do
-      "/a/b/c.d" == @file_stats.path
-    end
+    assert_equal("/a/b/c.d",
+                 @file_stats.path)
   end
 
   sub_test_case("#base_name") do
     test("default") do
-      assert do
-        "" == @file_stats.base_name
-      end
+      assert_equal("", @file_stats.base_name)
     end
 
-    test("path is /a/b/c.d") do
+    test("with directory") do
       @file_stats.path = "/a/b/c.d"
-      assert do
-        "c.d" == @file_stats.base_name
-      end
+      assert_equal("c.d", @file_stats.base_name)
     end
   end
 
-  sub_test_case("#dir_name") do
+  sub_test_case("#directory_name") do
     test("default") do
-      assert do
-        "" == @file_stats.dir_name
-      end
+      assert_equal("", @file_stats.directory_name)
     end
 
-    test("path is /a/b/c.d") do
+    test("with directory") do
       @file_stats.path = "/a/b/c.d"
-      assert do
-        "/a/b" == @file_stats.dir_name
-      end
+      assert_equal("/a/b", @file_stats.directory_name)
     end
   end
 
   sub_test_case("#extension") do
     test("default") do
-      assert do
-        "" == @file_stats.extension
-      end
+      assert_equal("", @file_stats.extension)
     end
 
-    test("path is /a/b/c.d") do
+    test("exist") do
       @file_stats.path = "/a/b/c.d"
-      assert do
-        "d" == @file_stats.extension
-      end
+      assert_equal("d", @file_stats.extension)
     end
   end
 
   sub_test_case("#size") do
     test("default") do
-      assert do
-        -1 == @file_stats.size
-      end
+      assert_equal(-1, @file_stats.size)
     end
   end
 
   sub_test_case("#mtime") do
     test("default") do
-      assert do
-        -1 == @file_stats.mtime
-      end
+      assert_equal(-1, @file_stats.mtime)
     end
   end
 

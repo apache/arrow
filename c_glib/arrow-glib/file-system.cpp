@@ -56,7 +56,7 @@ enum {
   PROP_FILE_STATS_TYPE = 1,
   PROP_FILE_STATS_PATH,
   PROP_FILE_STATS_BASE_NAME,
-  PROP_FILE_STATS_DIR_NAME,
+  PROP_FILE_STATS_DIRECTORY_NAME,
   PROP_FILE_STATS_EXTENSION,
   PROP_FILE_STATS_SIZE,
   PROP_FILE_STATS_MTIME,
@@ -127,7 +127,7 @@ garrow_file_stats_get_property(GObject *object,
   case PROP_FILE_STATS_BASE_NAME:
     g_value_set_string(value, arrow_file_stats.base_name().c_str());
     break;
-  case PROP_FILE_STATS_DIR_NAME:
+  case PROP_FILE_STATS_DIRECTORY_NAME:
     g_value_set_string(value, arrow_file_stats.dir_name().c_str());
     break;
   case PROP_FILE_STATS_EXTENSION:
@@ -223,18 +223,20 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   g_object_class_install_property(gobject_class, PROP_FILE_STATS_BASE_NAME, spec);
 
   /**
-   * GArrowFileStats:dir-name:
+   * GArrowFileStats:directory-name:
    *
    * The directory base name (component before the file base name).
    *
    * Since: 1.0.0
    */
-  spec = g_param_spec_string("dir-name",
+  spec = g_param_spec_string("directory-name",
                              "Directory name",
                              "The directory base name",
                              stats.dir_name().c_str(),
                              static_cast<GParamFlags>(G_PARAM_READABLE));
-  g_object_class_install_property(gobject_class, PROP_FILE_STATS_DIR_NAME, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_FILE_STATS_DIRECTORY_NAME,
+                                  spec);
 
   /**
    * GArrowFileStats:extension:
@@ -294,8 +296,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
 GArrowFileStats *
 garrow_file_stats_new(void)
 {
-  auto file_stats = GARROW_FILE_STATS(g_object_new(GARROW_TYPE_FILE_STATS, NULL));
-  return file_stats;
+  return GARROW_FILE_STATS(g_object_new(GARROW_TYPE_FILE_STATS, NULL));
 }
 
 /**
