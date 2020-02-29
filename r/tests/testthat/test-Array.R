@@ -220,11 +220,12 @@ test_that("support for NaN (ARROW-3615)", {
   expect_equal(y$null_count, 1L)
 })
 
-int_types <- c(int8(), int16(), int32(), int64())
-uint_types <- c(uint8(), uint16(), uint32(), uint64())
-float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
-
 test_that("integer types casts (ARROW-3741)", {
+  # Defining some type groups for use here and in the following tests
+  int_types <- c(int8(), int16(), int32(), int64())
+  uint_types <- c(uint8(), uint16(), uint32(), uint64())
+  float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
+
   a <- Array$create(c(1:10, NA))
   for (type in c(int_types, uint_types)) {
     casted <- a$cast(type)
