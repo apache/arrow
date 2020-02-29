@@ -606,12 +606,14 @@ class Repo:
             '--data-binary', '@{}'.format(path),
             upload_url
         ]
-        result = subprocess.run(command, shell=False, check=True,
-                                capture_output=True)
-        click.echo(result.stdout)
+        return subprocess.run(command, shell=False, check=True)
 
     def github_overwrite_release_assets(self, tag_name, target_commitish,
                                         patterns, method='requests'):
+        # Since github has changed something the asset uploading via requests
+        # got instable, so prefer the cURL alternative.
+        # Potential cause:
+        #    sigmavirus24/github3.py/issues/779#issuecomment-379470626
         repo = self.as_github_repo()
         if not tag_name:
             raise ValueError('Empty tag name')
