@@ -106,9 +106,10 @@ GARROW_AVAILABLE_IN_1_0
 gchar *garrow_file_system_get_type_name(GArrowFileSystem *file_system);
 
 GARROW_AVAILABLE_IN_1_0
-GArrowFileStats *garrow_file_system_get_target_stats_path(GArrowFileSystem *file_system,
-                                                          const gchar *path,
-                                                          GError **error);
+GArrowFileStats *
+garrow_file_system_get_target_stats_path(GArrowFileSystem *file_system,
+                                         const gchar *path,
+                                         GError **error);
 
 GARROW_AVAILABLE_IN_1_0
 GList *garrow_file_system_get_target_stats_paths(GArrowFileSystem *file_system,
@@ -117,9 +118,10 @@ GList *garrow_file_system_get_target_stats_paths(GArrowFileSystem *file_system,
                                                  GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-GList *garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
-                                                    GArrowFileSelector *file_selector,
-                                                    GError **error);
+GList *
+garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
+                                             GArrowFileSelector *file_selector,
+                                             GError **error);
 
 GARROW_AVAILABLE_IN_1_0
 gboolean garrow_file_system_create_dir(GArrowFileSystem *file_system,
