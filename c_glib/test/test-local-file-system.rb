@@ -30,11 +30,11 @@ class TestLocalFileSystem < Test::Unit::TestCase
     Arrow::LocalFileSystemOptions.defaults
   end
 
-  sub_test_case("do not use mmap") do
+  sub_test_case("default") do
     include GenericFileSystemTestMethods
   end
 
-  sub_test_case("use mmap") do
+  sub_test_case("mmap") do
     include GenericFileSystemTestMethods
 
     def build_options
