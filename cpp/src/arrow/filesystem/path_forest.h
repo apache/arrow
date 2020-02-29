@@ -35,36 +35,36 @@
 namespace arrow {
 namespace fs {
 
-/// \brief A PathForest is a utility to transform a vector of FileStats into a
+/// \brief A PathForest is a utility to transform a vector of FileInfo into a
 /// forest representation for tree traversal purposes. Note: there is no guarantee of a
-/// shared root. Each node in the graph wraps a FileStats. Files are expected to be found
+/// shared root. Each node in the graph wraps a FileInfo. Files are expected to be found
 /// only at leaves of the tree.
 class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
  public:
-  /// \brief Transforms a FileStats vector into a forest. The caller should ensure that
-  /// stats does not contain duplicates.
+  /// \brief Transforms a FileInfo vector into a forest. The caller should ensure that
+  /// infos does not contain duplicates.
   ///
-  /// Vector(s) of associated objects (IE associated[i] is associated with stats[i]) may
+  /// Vector(s) of associated objects (IE associated[i] is associated with infos[i]) may
   /// be passed for reordering. (After construction, associated[i] is associated with
   /// forest[i]).
   template <typename... Associated>
-  static Result<PathForest> Make(std::vector<FileStats> stats,
+  static Result<PathForest> Make(std::vector<FileInfo> infos,
                                  std::vector<Associated>*... associated) {
     if (sizeof...(associated) == 0) {
-      std::sort(stats.begin(), stats.end(), FileStats::ByPath{});
+      std::sort(infos.begin(), infos.end(), FileInfo::ByPath{});
     } else {
-      auto indices = arrow::internal::ArgSort(stats, FileStats::ByPath{});
-      size_t _[] = {arrow::internal::Permute(indices, &stats),
+      auto indices = arrow::internal::ArgSort(infos, FileInfo::ByPath{});
+      size_t _[] = {arrow::internal::Permute(indices, &infos),
                     arrow::internal::Permute(indices, associated)...};
       static_cast<void>(_);
     }
 
-    return MakeFromPreSorted(std::move(stats));
+    return MakeFromPreSorted(std::move(infos));
   }
 
-  /// Make a PathForest from FileStats which are already sorted in a
+  /// Make a PathForest from a FileInfo vector which is already sorted in a
   /// depth first visitation order.
-  static Result<PathForest> MakeFromPreSorted(std::vector<FileStats> sorted_stats);
+  static Result<PathForest> MakeFromPreSorted(std::vector<FileInfo> sorted_infos);
 
   /// \brief Returns the number of nodes in this forest.
   int size() const { return size_; }
@@ -75,7 +75,7 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
 
   /// Reference to a node in the forest
   struct ARROW_EXPORT Ref {
-    const FileStats& stats() const;
+    const FileInfo& info() const;
 
     int num_descendants() const;
 
@@ -95,15 +95,15 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
 
   std::vector<Ref> roots() const;
 
-  std::vector<FileStats>& stats() & { return *stats_; }
-  const std::vector<FileStats>& stats() const& { return *stats_; }
-  std::vector<FileStats> stats() && { return std::move(*stats_); }
+  std::vector<FileInfo>& infos() & { return *infos_; }
+  const std::vector<FileInfo>& infos() const& { return *infos_; }
+  std::vector<FileInfo> infos() && { return std::move(*infos_); }
 
   enum { Continue, Prune };
   using MaybePrune = Result<decltype(Prune)>;
 
   /// Visitors may return MaybePrune to enable eager pruning. Visitors will be called with
-  /// the FileStats of the currently visited node and the index of that node in depth
+  /// the FileInfo of the currently visited node and the index of that node in depth
   /// first visitation order (useful for accessing parallel vectors of associated data).
   template <typename Visitor>
   Status Visit(Visitor&& v) const {
@@ -112,12 +112,12 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
   }
 
  protected:
-  PathForest(int offset, int size, std::shared_ptr<std::vector<FileStats>> stats,
+  PathForest(int offset, int size, std::shared_ptr<std::vector<FileInfo>> infos,
              std::shared_ptr<std::vector<int>> descendant_counts,
              std::shared_ptr<std::vector<int>> parents)
       : offset_(offset),
         size_(size),
-        stats_(std::move(stats)),
+        infos_(std::move(infos)),
         descendant_counts_(std::move(descendant_counts)),
         parents_(std::move(parents)) {}
 
@@ -146,7 +146,7 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
   }
 
   int offset_, size_;
-  std::shared_ptr<std::vector<FileStats>> stats_;
+  std::shared_ptr<std::vector<FileInfo>> infos_;
   std::shared_ptr<std::vector<int>> descendant_counts_, parents_;
 };
 

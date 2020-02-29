@@ -31,11 +31,6 @@
 
 namespace arrow {
 
-namespace fs {
-struct FileStats;
-struct FileSelector;
-}  // namespace fs
-
 namespace dataset {
 
 // ----------------------------------------------------------------------

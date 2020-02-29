@@ -122,7 +122,7 @@ TEST_F(TestFileSystemDataset, RootPartitionPruning) {
 
 TEST_F(TestFileSystemDataset, TreePartitionPruning) {
   auto source_partition = ("country"_ == "US").Copy();
-  std::vector<fs::FileStats> regions = {
+  std::vector<fs::FileInfo> regions = {
       fs::Dir("NY"), fs::File("NY/New York"),      fs::File("NY/Franklin"),
       fs::Dir("CA"), fs::File("CA/San Francisco"), fs::File("CA/Franklin"),
   };

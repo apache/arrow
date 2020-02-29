@@ -174,11 +174,11 @@ def _ensure_fs_and_paths(path_or_paths, filesystem=None):
     else:
         path = _stringify_path(path_or_paths)
         filesystem = _ensure_fs(filesystem, path)
-        stats = filesystem.get_target_stats([path])[0]
-        if stats.type == FileType.Directory:
+        infos = filesystem.get_target_infos([path])[0]
+        if infos.type == FileType.Directory:
             # for directory, pass a selector
             paths_or_selector = FileSelector(path, recursive=True)
-        elif stats.type == FileType.File:
+        elif infos.type == FileType.File:
             # for a single file path, pass it as a list
             paths_or_selector = [path]
         else:

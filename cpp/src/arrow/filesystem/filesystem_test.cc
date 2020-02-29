@@ -43,13 +43,13 @@ void AssertPairEqual(const std::pair<std::string, std::string>& pair,
   ASSERT_EQ(pair, expected);
 }
 
-TEST(FileStats, BaseName) {
-  auto st = FileStats();
-  ASSERT_EQ(st.base_name(), "");
-  st.set_path("foo");
-  ASSERT_EQ(st.base_name(), "foo");
-  st.set_path("foo/bar/baz.qux");
-  ASSERT_EQ(st.base_name(), "baz.qux");
+TEST(FileInfo, BaseName) {
+  auto info = FileInfo();
+  ASSERT_EQ(info.base_name(), "");
+  info.set_path("foo");
+  ASSERT_EQ(info.base_name(), "foo");
+  info.set_path("foo/bar/baz.qux");
+  ASSERT_EQ(info.base_name(), "baz.qux");
 }
 
 TEST(PathUtil, SplitAbstractPath) {
@@ -272,18 +272,20 @@ class TestMockFS : public ::testing::Test {
     return stream->Write(s.data(), static_cast<int64_t>(s.length()));
   }
 
-  std::vector<DirInfo> AllDirs() {
+  std::vector<MockDirInfo> AllDirs() {
     return arrow::internal::checked_pointer_cast<MockFileSystem>(fs_)->AllDirs();
   }
 
-  std::vector<FileInfo> AllFiles() {
+  std::vector<MockFileInfo> AllFiles() {
     return arrow::internal::checked_pointer_cast<MockFileSystem>(fs_)->AllFiles();
   }
 
-  void CheckDirs(const std::vector<DirInfo>& expected) { ASSERT_EQ(AllDirs(), expected); }
+  void CheckDirs(const std::vector<MockDirInfo>& expected) {
+    ASSERT_EQ(AllDirs(), expected);
+  }
 
   void CheckDirPaths(const std::vector<std::string>& expected) {
-    std::vector<DirInfo> infos;
+    std::vector<MockDirInfo> infos;
     infos.reserve(expected.size());
     for (const auto& s : expected) {
       infos.push_back({s, time_});
@@ -291,7 +293,7 @@ class TestMockFS : public ::testing::Test {
     ASSERT_EQ(AllDirs(), infos);
   }
 
-  void CheckFiles(const std::vector<FileInfo>& expected) {
+  void CheckFiles(const std::vector<MockFileInfo>& expected) {
     ASSERT_EQ(AllFiles(), expected);
   }
 
@@ -360,63 +362,63 @@ TEST_F(TestMockFS, DeleteFile) {
   CheckFiles({});
 }
 
-TEST_F(TestMockFS, GetTargetStatsSingle) {
+TEST_F(TestMockFS, GetTargetInfo) {
   ASSERT_OK(fs_->CreateDir("AB/CD"));
   CreateFile("AB/CD/ef", "some data");
 
-  FileStats st;
-  ASSERT_OK_AND_ASSIGN(st, fs_->GetTargetStats("AB"));
-  AssertFileStats(st, "AB", FileType::Directory, time_);
-  ASSERT_EQ(st.base_name(), "AB");
-  ASSERT_OK_AND_ASSIGN(st, fs_->GetTargetStats("AB/CD/ef"));
-  AssertFileStats(st, "AB/CD/ef", FileType::File, time_, 9);
-  ASSERT_EQ(st.base_name(), "ef");
+  FileInfo info;
+  ASSERT_OK_AND_ASSIGN(info, fs_->GetTargetInfo("AB"));
+  AssertFileInfo(info, "AB", FileType::Directory, time_);
+  ASSERT_EQ(info.base_name(), "AB");
+  ASSERT_OK_AND_ASSIGN(info, fs_->GetTargetInfo("AB/CD/ef"));
+  AssertFileInfo(info, "AB/CD/ef", FileType::File, time_, 9);
+  ASSERT_EQ(info.base_name(), "ef");
 
   // Invalid path
-  ASSERT_RAISES(Invalid, fs_->GetTargetStats("//foo//bar//baz//"));
+  ASSERT_RAISES(Invalid, fs_->GetTargetInfo("//foo//bar//baz//"));
 }
 
-TEST_F(TestMockFS, GetTargetStatsVector) {
+TEST_F(TestMockFS, GetTargetInfosVector) {
   ASSERT_OK(fs_->CreateDir("AB/CD"));
   CreateFile("AB/CD/ef", "some data");
 
-  std::vector<FileStats> stats;
+  std::vector<FileInfo> infos;
   ASSERT_OK_AND_ASSIGN(
-      stats, fs_->GetTargetStats({"AB", "AB/CD", "AB/zz", "zz", "XX/zz", "AB/CD/ef"}));
-  ASSERT_EQ(stats.size(), 6);
-  AssertFileStats(stats[0], "AB", FileType::Directory, time_);
-  AssertFileStats(stats[1], "AB/CD", FileType::Directory, time_);
-  AssertFileStats(stats[2], "AB/zz", FileType::NonExistent);
-  AssertFileStats(stats[3], "zz", FileType::NonExistent);
-  AssertFileStats(stats[4], "XX/zz", FileType::NonExistent);
-  AssertFileStats(stats[5], "AB/CD/ef", FileType::File, time_, 9);
+      infos, fs_->GetTargetInfos({"AB", "AB/CD", "AB/zz", "zz", "XX/zz", "AB/CD/ef"}));
+  ASSERT_EQ(infos.size(), 6);
+  AssertFileInfo(infos[0], "AB", FileType::Directory, time_);
+  AssertFileInfo(infos[1], "AB/CD", FileType::Directory, time_);
+  AssertFileInfo(infos[2], "AB/zz", FileType::NonExistent);
+  AssertFileInfo(infos[3], "zz", FileType::NonExistent);
+  AssertFileInfo(infos[4], "XX/zz", FileType::NonExistent);
+  AssertFileInfo(infos[5], "AB/CD/ef", FileType::File, time_, 9);
 
   // Invalid path
-  ASSERT_RAISES(Invalid, fs_->GetTargetStats({"AB", "AB/CD", "//foo//bar//baz//"}));
+  ASSERT_RAISES(Invalid, fs_->GetTargetInfos({"AB", "AB/CD", "//foo//bar//baz//"}));
 }
 
-TEST_F(TestMockFS, GetTargetStatsSelector) {
+TEST_F(TestMockFS, GetTargetInfosSelector) {
   ASSERT_OK(fs_->CreateDir("AB/CD"));
   CreateFile("ab", "data");
 
   FileSelector s;
   s.base_dir = "";
-  std::vector<FileStats> stats;
-  ASSERT_OK_AND_ASSIGN(stats, fs_->GetTargetStats(s));
-  ASSERT_EQ(stats.size(), 2);
-  AssertFileStats(stats[0], "AB", FileType::Directory, time_);
-  AssertFileStats(stats[1], "ab", FileType::File, time_, 4);
+  std::vector<FileInfo> infos;
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(s));
+  ASSERT_EQ(infos.size(), 2);
+  AssertFileInfo(infos[0], "AB", FileType::Directory, time_);
+  AssertFileInfo(infos[1], "ab", FileType::File, time_, 4);
 
   s.recursive = true;
-  ASSERT_OK_AND_ASSIGN(stats, fs_->GetTargetStats(s));
-  ASSERT_EQ(stats.size(), 3);
-  AssertFileStats(stats[0], "AB", FileType::Directory, time_);
-  AssertFileStats(stats[1], "AB/CD", FileType::Directory, time_);
-  AssertFileStats(stats[2], "ab", FileType::File, time_, 4);
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(s));
+  ASSERT_EQ(infos.size(), 3);
+  AssertFileInfo(infos[0], "AB", FileType::Directory, time_);
+  AssertFileInfo(infos[1], "AB/CD", FileType::Directory, time_);
+  AssertFileInfo(infos[2], "ab", FileType::File, time_, 4);
 
   // Invalid path
   s.base_dir = "//foo//bar//baz//";
-  ASSERT_RAISES(Invalid, fs_->GetTargetStats(s));
+  ASSERT_RAISES(Invalid, fs_->GetTargetInfos(s));
 }
 
 TEST_F(TestMockFS, OpenOutputStream) {
@@ -653,36 +655,36 @@ TEST_F(TestSubTreeFileSystem, OpenAppendStream) {
   CheckFiles({{"sub/tree/ab", time_, "some data"}});
 }
 
-TEST_F(TestSubTreeFileSystem, GetTargetStatsSingle) {
+TEST_F(TestSubTreeFileSystem, GetTargetInfo) {
   ASSERT_OK(subfs_->CreateDir("AB/CD"));
 
-  AssertFileStats(subfs_.get(), "AB", FileType::Directory, time_);
-  AssertFileStats(subfs_.get(), "AB/CD", FileType::Directory, time_);
+  AssertFileInfo(subfs_.get(), "AB", FileType::Directory, time_);
+  AssertFileInfo(subfs_.get(), "AB/CD", FileType::Directory, time_);
 
   CreateFile("ab", "data");
-  AssertFileStats(subfs_.get(), "ab", FileType::File, time_, 4);
+  AssertFileInfo(subfs_.get(), "ab", FileType::File, time_, 4);
 
-  AssertFileStats(subfs_.get(), "non-existent", FileType::NonExistent);
+  AssertFileInfo(subfs_.get(), "non-existent", FileType::NonExistent);
 }
 
-TEST_F(TestSubTreeFileSystem, GetTargetStatsVector) {
-  std::vector<FileStats> stats;
+TEST_F(TestSubTreeFileSystem, GetTargetInfosVector) {
+  std::vector<FileInfo> infos;
 
   ASSERT_OK(subfs_->CreateDir("AB/CD"));
   CreateFile("ab", "data");
   CreateFile("AB/cd", "other data");
 
-  ASSERT_OK_AND_ASSIGN(stats,
-                       subfs_->GetTargetStats({"ab", "AB", "AB/cd", "non-existent"}));
-  ASSERT_EQ(stats.size(), 4);
-  AssertFileStats(stats[0], "ab", FileType::File, time_, 4);
-  AssertFileStats(stats[1], "AB", FileType::Directory, time_);
-  AssertFileStats(stats[2], "AB/cd", FileType::File, time_, 10);
-  AssertFileStats(stats[3], "non-existent", FileType::NonExistent);
+  ASSERT_OK_AND_ASSIGN(infos,
+                       subfs_->GetTargetInfos({"ab", "AB", "AB/cd", "non-existent"}));
+  ASSERT_EQ(infos.size(), 4);
+  AssertFileInfo(infos[0], "ab", FileType::File, time_, 4);
+  AssertFileInfo(infos[1], "AB", FileType::Directory, time_);
+  AssertFileInfo(infos[2], "AB/cd", FileType::File, time_, 10);
+  AssertFileInfo(infos[3], "non-existent", FileType::NonExistent);
 }
 
-TEST_F(TestSubTreeFileSystem, GetTargetStatsSelector) {
-  std::vector<FileStats> stats;
+TEST_F(TestSubTreeFileSystem, GetTargetInfosSelector) {
+  std::vector<FileInfo> infos;
   FileSelector selector;
 
   ASSERT_OK(subfs_->CreateDir("AB/CD"));
@@ -692,39 +694,39 @@ TEST_F(TestSubTreeFileSystem, GetTargetStatsSelector) {
 
   selector.base_dir = "AB";
   selector.recursive = false;
-  ASSERT_OK_AND_ASSIGN(stats, subfs_->GetTargetStats(selector));
-  ASSERT_EQ(stats.size(), 2);
-  AssertFileStats(stats[0], "AB/CD", FileType::Directory, time_);
-  AssertFileStats(stats[1], "AB/cd", FileType::File, time_, 5);
+  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetTargetInfos(selector));
+  ASSERT_EQ(infos.size(), 2);
+  AssertFileInfo(infos[0], "AB/CD", FileType::Directory, time_);
+  AssertFileInfo(infos[1], "AB/cd", FileType::File, time_, 5);
 
   selector.recursive = true;
-  ASSERT_OK_AND_ASSIGN(stats, subfs_->GetTargetStats(selector));
-  ASSERT_EQ(stats.size(), 3);
-  AssertFileStats(stats[0], "AB/CD", FileType::Directory, time_);
-  AssertFileStats(stats[1], "AB/CD/ef", FileType::File, time_, 6);
-  AssertFileStats(stats[2], "AB/cd", FileType::File, time_, 5);
+  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetTargetInfos(selector));
+  ASSERT_EQ(infos.size(), 3);
+  AssertFileInfo(infos[0], "AB/CD", FileType::Directory, time_);
+  AssertFileInfo(infos[1], "AB/CD/ef", FileType::File, time_, 6);
+  AssertFileInfo(infos[2], "AB/cd", FileType::File, time_, 5);
 
   selector.base_dir = "";
   selector.recursive = false;
-  ASSERT_OK_AND_ASSIGN(stats, subfs_->GetTargetStats(selector));
-  ASSERT_EQ(stats.size(), 2);
-  AssertFileStats(stats[0], "AB", FileType::Directory, time_);
-  AssertFileStats(stats[1], "ab", FileType::File, time_, 4);
+  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetTargetInfos(selector));
+  ASSERT_EQ(infos.size(), 2);
+  AssertFileInfo(infos[0], "AB", FileType::Directory, time_);
+  AssertFileInfo(infos[1], "ab", FileType::File, time_, 4);
 
   selector.recursive = true;
-  ASSERT_OK_AND_ASSIGN(stats, subfs_->GetTargetStats(selector));
-  ASSERT_EQ(stats.size(), 5);
-  AssertFileStats(stats[0], "AB", FileType::Directory, time_);
-  AssertFileStats(stats[1], "AB/CD", FileType::Directory, time_);
-  AssertFileStats(stats[2], "AB/CD/ef", FileType::File, time_, 6);
-  AssertFileStats(stats[3], "AB/cd", FileType::File, time_, 5);
-  AssertFileStats(stats[4], "ab", FileType::File, time_, 4);
+  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetTargetInfos(selector));
+  ASSERT_EQ(infos.size(), 5);
+  AssertFileInfo(infos[0], "AB", FileType::Directory, time_);
+  AssertFileInfo(infos[1], "AB/CD", FileType::Directory, time_);
+  AssertFileInfo(infos[2], "AB/CD/ef", FileType::File, time_, 6);
+  AssertFileInfo(infos[3], "AB/cd", FileType::File, time_, 5);
+  AssertFileInfo(infos[4], "ab", FileType::File, time_, 4);
 
   selector.base_dir = "non-existent";
-  ASSERT_RAISES(IOError, subfs_->GetTargetStats(selector));
+  ASSERT_RAISES(IOError, subfs_->GetTargetInfos(selector));
   selector.allow_non_existent = true;
-  ASSERT_OK_AND_ASSIGN(stats, subfs_->GetTargetStats(selector));
-  ASSERT_EQ(stats.size(), 0);
+  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetTargetInfos(selector));
+  ASSERT_EQ(infos.size(), 0);
 }
 
 ////////////////////////////////////////////////////////////////////////////

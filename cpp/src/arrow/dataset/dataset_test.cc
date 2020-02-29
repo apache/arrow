@@ -309,7 +309,7 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   // A selector is used to crawl files and directories of a
   // filesystem. If the options in FileSelector are not enough, the
   // FileSystemDatasetFactory class also supports an explicit list of
-  // fs::FileStats instead of the selector.
+  // fs::FileInfo instead of the selector.
   fs::FileSelector s;
   s.base_dir = "/dataset";
   s.recursive = true;

@@ -39,17 +39,17 @@ bool operator==(const std::vector<PathForest::Ref>& roots,
                 const std::vector<TestPathTree>& test_trees);
 
 struct TestPathTree {
-  FileStats stats;
+  FileInfo info;
   std::vector<TestPathTree> subtrees;
 
-  explicit TestPathTree(std::string file_path) : stats(File(std::move(file_path))) {}
+  explicit TestPathTree(std::string file_path) : info(File(std::move(file_path))) {}
 
   TestPathTree(std::string dir_path, std::vector<TestPathTree> subtrees)
-      : stats(Dir(std::move(dir_path))), subtrees(std::move(subtrees)) {}
+      : info(Dir(std::move(dir_path))), subtrees(std::move(subtrees)) {}
 
   template <typename Visitor>
   void Visit(const Visitor& visitor) const {
-    visitor(stats);
+    visitor(info);
     for (const auto& tree : subtrees) {
       tree.Visit(visitor);
     }
@@ -58,9 +58,9 @@ struct TestPathTree {
   friend std::ostream& operator<<(std::ostream& os, const TestPathTree& tree) {
     os << "TestPathTree:";
 
-    auto visitor = [&](const fs::FileStats& stats) {
-      auto segments = fs::internal::SplitAbstractPath(stats.path());
-      os << "\n" << stats.path();
+    auto visitor = [&](const fs::FileInfo& info) {
+      auto segments = fs::internal::SplitAbstractPath(info.path());
+      os << "\n" << info.path();
     };
 
     tree.Visit(visitor);
@@ -68,7 +68,7 @@ struct TestPathTree {
   }
 
   friend bool operator==(PathForest::Ref actual, const TestPathTree& expected) {
-    if (actual.stats() != expected.stats) {
+    if (actual.info() != expected.info) {
       return false;
     }
 
@@ -84,8 +84,8 @@ bool operator==(const std::vector<PathForest::Ref>& roots,
 
 using PT = TestPathTree;
 
-void AssertMakePathTree(std::vector<FileStats> stats, std::vector<PT> expected) {
-  ASSERT_OK_AND_ASSIGN(auto forest, PathForest::Make(stats));
+void AssertMakePathTree(std::vector<FileInfo> infos, std::vector<PT> expected) {
+  ASSERT_OK_AND_ASSIGN(auto forest, PathForest::Make(infos));
   EXPECT_EQ(forest.roots(), expected);
   ASSERT_OK(forest.Visit([](PathForest::Ref ref) {
     auto p = ref.parent();
@@ -124,15 +124,15 @@ TEST(TestPathForest, Basic) {
 }
 
 TEST(TestPathForest, AssociatedObjects) {
-  std::vector<FileStats> stats = {File("aa/1"), File("bb/2"), File("aa/3"), File("bb/4")};
+  std::vector<FileInfo> infos = {File("aa/1"), File("bb/2"), File("aa/3"), File("bb/4")};
   std::vector<std::string> dirnames = {"aa", "bb", "aa", "bb"};
   std::vector<std::string> basenames = {"1", "2", "3", "4"};
 
-  ASSERT_OK_AND_ASSIGN(auto forest, PathForest::Make(stats, &dirnames, &basenames));
+  ASSERT_OK_AND_ASSIGN(auto forest, PathForest::Make(infos, &dirnames, &basenames));
 
   ASSERT_OK(forest.Visit([&](PathForest::Ref ref) {
-    EXPECT_THAT(ref.stats().path(), ::testing::StartsWith(dirnames[ref.i]));
-    EXPECT_THAT(ref.stats().path(), ::testing::EndsWith(basenames[ref.i]));
+    EXPECT_THAT(ref.info().path(), ::testing::StartsWith(dirnames[ref.i]));
+    EXPECT_THAT(ref.info().path(), ::testing::EndsWith(basenames[ref.i]));
     return Status::OK();
   }));
 }
@@ -160,37 +160,37 @@ TEST(TestPathForest, HourlyETL) {
     return internal::JoinAbstractPath(path);
   };
 
-  std::vector<FileStats> stats;
+  std::vector<FileInfo> infos;
 
   std::vector<PT> forest;
   for (int64_t year = 0; year < kYears; year++) {
     auto year_str = std::to_string(year + 2000);
     auto year_dir = Dir(year_str);
-    stats.push_back(year_dir);
+    infos.push_back(year_dir);
 
     std::vector<PT> months;
     for (int64_t month = 0; month < kMonthsPerYear; month++) {
       auto month_str = join({year_str, numbers[month + 1]});
       auto month_dir = Dir(month_str);
-      stats.push_back(month_dir);
+      infos.push_back(month_dir);
 
       std::vector<PT> days;
       for (int64_t day = 0; day < kDaysPerMonth; day++) {
         auto day_str = join({month_str, numbers[day + 1]});
         auto day_dir = Dir(day_str);
-        stats.push_back(day_dir);
+        infos.push_back(day_dir);
 
         std::vector<PT> hours;
         for (int64_t hour = 0; hour < kHoursPerDay; hour++) {
           auto hour_str = join({day_str, numbers[hour]});
           auto hour_dir = Dir(hour_str);
-          stats.push_back(hour_dir);
+          infos.push_back(hour_dir);
 
           std::vector<PT> files;
           for (int64_t file = 0; file < kFilesPerHour; file++) {
             auto file_str = join({hour_str, numbers[file] + ".parquet"});
             auto file_fd = File(file_str);
-            stats.push_back(file_fd);
+            infos.push_back(file_fd);
             files.push_back(PT(file_str));
           }
 
@@ -210,7 +210,7 @@ TEST(TestPathForest, HourlyETL) {
     forest.push_back(year_pt);
   }
 
-  AssertMakePathTree(stats, forest);
+  AssertMakePathTree(infos, forest);
 }
 
 TEST(TestPathForest, Visit) {
@@ -222,27 +222,27 @@ TEST(TestPathForest, Visit) {
   auto visit_fail = [](PathForest::Ref) { return Status::Invalid(""); };
   ASSERT_RAISES(Invalid, forest.Visit(visit_fail));
 
-  std::vector<FileStats> collection;
+  std::vector<FileInfo> collection;
   auto visit_collect = [&collection](PathForest::Ref ref) {
-    collection.push_back(ref.stats());
+    collection.push_back(ref.info());
     return Status::OK();
   };
   ASSERT_OK(forest.Visit(visit_collect));
 
   // Ensure basic visit of all nodes
-  EXPECT_THAT(collection, ContainerEq(std::vector<FileStats>{Dir("A"), File("A/a")}));
+  EXPECT_THAT(collection, ContainerEq(std::vector<FileInfo>{Dir("A"), File("A/a")}));
 
   collection = {};
   auto visit_collect_directories =
       [&collection](PathForest::Ref ref) -> PathForest::MaybePrune {
-    if (!ref.stats().IsDirectory()) {
+    if (!ref.info().IsDirectory()) {
       return PathForest::Prune;
     }
-    collection.push_back(ref.stats());
+    collection.push_back(ref.info());
     return PathForest::Continue;
   };
   ASSERT_OK(forest.Visit(visit_collect_directories));
-  EXPECT_THAT(collection, ContainerEq(std::vector<FileStats>{Dir("A")}));
+  EXPECT_THAT(collection, ContainerEq(std::vector<FileInfo>{Dir("A")}));
 }
 
 }  // namespace fs

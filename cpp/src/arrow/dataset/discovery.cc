@@ -127,17 +127,17 @@ Result<fs::PathForest> FileSystemDatasetFactory::Filter(
     const std::shared_ptr<fs::FileSystem>& filesystem,
     const std::shared_ptr<FileFormat>& format, const FileSystemFactoryOptions& options,
     fs::PathForest forest) {
-  fs::FileStatsVector out;
+  std::vector<fs::FileInfo> out;
 
-  auto& stats = forest.stats();
+  auto& infos = forest.infos();
   RETURN_NOT_OK(forest.Visit([&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
-    const auto& path = ref.stats().path();
+    const auto& path = ref.info().path();
 
     if (StartsWithAnyOf(options.ignore_prefixes, path)) {
       return fs::PathForest::Prune;
     }
 
-    if (ref.stats().IsFile() && options.exclude_invalid_files) {
+    if (ref.info().IsFile() && options.exclude_invalid_files) {
       ARROW_ASSIGN_OR_RAISE(auto supported,
                             format->IsSupported(FileSource(path, filesystem.get())));
       if (!supported) {
@@ -145,7 +145,7 @@ Result<fs::PathForest> FileSystemDatasetFactory::Filter(
       }
     }
 
-    out.push_back(std::move(stats[ref.i]));
+    out.push_back(std::move(infos[ref.i]));
     return fs::PathForest::Continue;
   }));
 
@@ -155,25 +155,25 @@ Result<fs::PathForest> FileSystemDatasetFactory::Filter(
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::shared_ptr<fs::FileSystem> filesystem, const std::vector<std::string>& paths,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
-  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(paths));
+  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetInfos(paths));
   ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
 
-  std::unordered_set<fs::FileStats, fs::FileStats::ByPath> missing;
+  std::unordered_set<fs::FileInfo, fs::FileInfo::ByPath> missing;
   DCHECK_OK(forest.Visit([&](fs::PathForest::Ref ref) {
     util::string_view parent_path = options.partition_base_dir;
     if (auto parent = ref.parent()) {
-      parent_path = parent.stats().path();
+      parent_path = parent.info().path();
     }
 
     for (auto&& path :
-         fs::internal::AncestorsFromBasePath(parent_path, ref.stats().path())) {
-      ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetTargetStats(std::move(path)));
+         fs::internal::AncestorsFromBasePath(parent_path, ref.info().path())) {
+      ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetTargetInfo(std::move(path)));
       missing.insert(std::move(file));
     }
     return Status::OK();
   }));
 
-  files = std::move(forest).stats();
+  files = std::move(forest).infos();
   std::move(missing.begin(), missing.end(), std::back_inserter(files));
 
   ARROW_ASSIGN_OR_RAISE(forest, fs::PathForest::Make(std::move(files)));
@@ -187,7 +187,7 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::shared_ptr<fs::FileSystem> filesystem, fs::FileSelector selector,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
-  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(selector));
+  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetInfos(selector));
 
   ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
 
@@ -210,9 +210,9 @@ Result<std::shared_ptr<Schema>> FileSystemDatasetFactory::PartitionSchema() {
   }
 
   std::vector<util::string_view> paths;
-  for (const auto& stats : forest_.stats()) {
+  for (const auto& info : forest_.infos()) {
     if (auto relative =
-            fs::internal::RemoveAncestor(options_.partition_base_dir, stats.path())) {
+            fs::internal::RemoveAncestor(options_.partition_base_dir, info.path())) {
       paths.push_back(*relative);
     }
   }
@@ -223,7 +223,7 @@ Result<std::shared_ptr<Schema>> FileSystemDatasetFactory::PartitionSchema() {
 Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSchemas() {
   std::vector<std::shared_ptr<Schema>> schemas;
 
-  for (const auto& f : forest_.stats()) {
+  for (const auto& f : forest_.infos()) {
     if (!f.IsFile()) continue;
     FileSource src(f.path(), fs_.get());
     ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect(src));
@@ -259,7 +259,7 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(
   // apply partitioning to forest to derive partitions
   auto apply_partitioning = [&](fs::PathForest::Ref ref) {
     if (auto relative = fs::internal::RemoveAncestor(options_.partition_base_dir,
-                                                     ref.stats().path())) {
+                                                     ref.info().path())) {
       auto segments = fs::internal::SplitAbstractPath(relative->to_string());
 
       if (segments.size() > 0) {

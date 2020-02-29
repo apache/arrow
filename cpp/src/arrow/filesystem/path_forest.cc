@@ -33,18 +33,18 @@
 namespace arrow {
 namespace fs {
 
-Result<PathForest> PathForest::MakeFromPreSorted(std::vector<FileStats> stats) {
-  int size = static_cast<int>(stats.size());
+Result<PathForest> PathForest::MakeFromPreSorted(std::vector<FileInfo> infos) {
+  int size = static_cast<int>(infos.size());
   std::vector<int> descendant_counts(size, 0), parents(size, -1);
 
   std::stack<int> parent_stack;
   auto is_child_of_stack_top = [&](int i) {
-    return internal::IsAncestorOf(stats[parent_stack.top()].path(), stats[i].path());
+    return internal::IsAncestorOf(infos[parent_stack.top()].path(), infos[i].path());
   };
 
   for (int i = 0; i < size; ++i) {
     while (parent_stack.size() != 0 && !is_child_of_stack_top(i)) {
-      // stats[parent_stack.top()] has no more descendants; finalize count
+      // infos[parent_stack.top()] has no more descendants; finalize count
       descendant_counts[parent_stack.top()] = i - 1 - parent_stack.top();
       parent_stack.pop();
     }
@@ -62,13 +62,13 @@ Result<PathForest> PathForest::MakeFromPreSorted(std::vector<FileStats> stats) {
     parent_stack.pop();
   }
 
-  return PathForest(0, size, std::make_shared<std::vector<FileStats>>(std::move(stats)),
+  return PathForest(0, size, std::make_shared<std::vector<FileInfo>>(std::move(infos)),
                     std::make_shared<std::vector<int>>(std::move(descendant_counts)),
                     std::make_shared<std::vector<int>>(std::move(parents)));
 }
 
 bool PathForest::Equals(const PathForest& other) const {
-  return size() == other.size() && *stats_ == *other.stats_;
+  return size() == other.size() && *infos_ == *other.infos_;
 }
 
 std::string PathForest::ToString() const {
@@ -78,8 +78,8 @@ std::string PathForest::ToString() const {
   }
 
   DCHECK_OK(Visit([&](Ref ref) {
-    repr += "\n" + ref.stats().path();
-    if (ref.stats().IsDirectory() && repr.back() != '/') {
+    repr += "\n" + ref.info().path();
+    if (ref.info().IsDirectory() && repr.back() != '/') {
       repr += "/";
     }
     return Status::OK();
@@ -87,8 +87,8 @@ std::string PathForest::ToString() const {
   return repr;
 }
 
-const FileStats& PathForest::Ref::stats() const {
-  return forest->stats_->at(forest->offset_ + i);
+const FileInfo& PathForest::Ref::info() const {
+  return forest->infos_->at(forest->offset_ + i);
 }
 
 int PathForest::Ref::num_descendants() const {
@@ -96,7 +96,7 @@ int PathForest::Ref::num_descendants() const {
 }
 
 PathForest PathForest::Ref::descendants() const {
-  return PathForest(forest->offset_ + i + 1, num_descendants(), forest->stats_,
+  return PathForest(forest->offset_ + i + 1, num_descendants(), forest->infos_,
                     forest->descendant_counts_, forest->parents_);
 }
 

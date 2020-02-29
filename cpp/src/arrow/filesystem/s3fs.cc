@@ -786,17 +786,17 @@ class ObjectOutputStream : public io::OutputStream {
   std::shared_ptr<UploadState> upload_state_;
 };
 
-// This function assumes st->path() is already set
-void FileObjectToStats(const S3Model::HeadObjectResult& obj, FileStats* st) {
-  st->set_type(FileType::File);
-  st->set_size(static_cast<int64_t>(obj.GetContentLength()));
-  st->set_mtime(FromAwsDatetime(obj.GetLastModified()));
+// This function assumes info->path() is already set
+void FileObjectToInfo(const S3Model::HeadObjectResult& obj, FileInfo* info) {
+  info->set_type(FileType::File);
+  info->set_size(static_cast<int64_t>(obj.GetContentLength()));
+  info->set_mtime(FromAwsDatetime(obj.GetLastModified()));
 }
 
-void FileObjectToStats(const S3Model::Object& obj, FileStats* st) {
-  st->set_type(FileType::File);
-  st->set_size(static_cast<int64_t>(obj.GetSize()));
-  st->set_mtime(FromAwsDatetime(obj.GetLastModified()));
+void FileObjectToInfo(const S3Model::Object& obj, FileInfo* info) {
+  info->set_type(FileType::File);
+  info->set_size(static_cast<int64_t>(obj.GetSize()));
+  info->set_mtime(FromAwsDatetime(obj.GetLastModified()));
 }
 
 }  // namespace
@@ -971,14 +971,13 @@ class S3FileSystem::Impl {
 
   // Recursive workhorse for GetTargetStats(FileSelector...)
   Status Walk(const FileSelector& select, const std::string& bucket,
-              const std::string& key, std::vector<FileStats>* out) {
+              const std::string& key, std::vector<FileInfo>* out) {
     int32_t nesting_depth = 0;
     return Walk(select, bucket, key, nesting_depth, out);
   }
 
   Status Walk(const FileSelector& select, const std::string& bucket,
-              const std::string& key, int32_t nesting_depth,
-              std::vector<FileStats>* out) {
+              const std::string& key, int32_t nesting_depth, std::vector<FileInfo>* out) {
     if (nesting_depth >= kMaxNestingDepth) {
       return Status::IOError("S3 filesystem tree exceeds maximum nesting depth (",
                              kMaxNestingDepth, ")");
@@ -991,7 +990,7 @@ class S3FileSystem::Impl {
       // Walk "files"
       for (const auto& obj : result.GetContents()) {
         is_empty = false;
-        FileStats st;
+        FileInfo info;
         const auto child_key = internal::RemoveTrailingSlash(FromAwsString(obj.GetKey()));
         if (child_key == util::string_view(key)) {
           // Amazon can return the "directory" key itself as part of the results, skip
@@ -999,9 +998,9 @@ class S3FileSystem::Impl {
         }
         std::stringstream child_path;
         child_path << bucket << kSep << child_key;
-        st.set_path(child_path.str());
-        FileObjectToStats(obj, &st);
-        out->push_back(std::move(st));
+        info.set_path(child_path.str());
+        FileObjectToInfo(obj, &info);
+        out->push_back(std::move(info));
       }
       // Walk "directories"
       for (const auto& prefix : result.GetCommonPrefixes()) {
@@ -1010,10 +1009,10 @@ class S3FileSystem::Impl {
             internal::RemoveTrailingSlash(FromAwsString(prefix.GetPrefix()));
         std::stringstream ss;
         ss << bucket << kSep << child_key;
-        FileStats st;
-        st.set_path(ss.str());
-        st.set_type(FileType::Directory);
-        out->push_back(std::move(st));
+        FileInfo info;
+        info.set_path(ss.str());
+        info.set_type(FileType::Directory);
+        out->push_back(std::move(info));
         if (select.recursive) {
           child_keys.emplace_back(child_key);
         }
@@ -1189,16 +1188,16 @@ Result<std::shared_ptr<S3FileSystem>> S3FileSystem::Make(const S3Options& option
   return ptr;
 }
 
-Result<FileStats> S3FileSystem::GetTargetStats(const std::string& s) {
+Result<FileInfo> S3FileSystem::GetTargetInfo(const std::string& s) {
   S3Path path;
   RETURN_NOT_OK(S3Path::FromString(s, &path));
-  FileStats st;
-  st.set_path(s);
+  FileInfo info;
+  info.set_path(s);
 
   if (path.empty()) {
     // It's the root path ""
-    st.set_type(FileType::Directory);
-    return st;
+    info.set_type(FileType::Directory);
+    return info;
   } else if (path.key.empty()) {
     // It's a bucket
     S3Model::HeadBucketRequest req;
@@ -1212,13 +1211,13 @@ Result<FileStats> S3FileSystem::GetTargetStats(const std::string& s) {
                                   "': "),
             outcome.GetError());
       }
-      st.set_type(FileType::NonExistent);
-      return st;
+      info.set_type(FileType::NonExistent);
+      return info;
     }
     // NOTE: S3 doesn't have a bucket modification time.  Only a creation
     // time is available, and you have to list all buckets to get it.
-    st.set_type(FileType::Directory);
-    return st;
+    info.set_type(FileType::Directory);
+    return info;
   } else {
     // It's an object
     S3Model::HeadObjectRequest req;
@@ -1228,8 +1227,8 @@ Result<FileStats> S3FileSystem::GetTargetStats(const std::string& s) {
     auto outcome = impl_->client_->HeadObject(req);
     if (outcome.IsSuccess()) {
       // "File" object found
-      FileObjectToStats(outcome.GetResult(), &st);
-      return st;
+      FileObjectToInfo(outcome.GetResult(), &info);
+      return info;
     }
     if (!IsNotFound(outcome.GetError())) {
       return ErrorToStatus(
@@ -1241,35 +1240,35 @@ Result<FileStats> S3FileSystem::GetTargetStats(const std::string& s) {
     bool is_dir = false;
     RETURN_NOT_OK(impl_->IsEmptyDirectory(path, &is_dir));
     if (is_dir) {
-      st.set_type(FileType::Directory);
-      return st;
+      info.set_type(FileType::Directory);
+      return info;
     }
     // Not found => perhaps it's a non-empty "directory"
     RETURN_NOT_OK(impl_->IsNonEmptyDirectory(path, &is_dir));
     if (is_dir) {
-      st.set_type(FileType::Directory);
+      info.set_type(FileType::Directory);
     } else {
-      st.set_type(FileType::NonExistent);
+      info.set_type(FileType::NonExistent);
     }
-    return st;
+    return info;
   }
 }
 
-Result<std::vector<FileStats>> S3FileSystem::GetTargetStats(const FileSelector& select) {
+Result<std::vector<FileInfo>> S3FileSystem::GetTargetInfos(const FileSelector& select) {
   S3Path base_path;
   RETURN_NOT_OK(S3Path::FromString(select.base_dir, &base_path));
 
-  std::vector<FileStats> results;
+  std::vector<FileInfo> results;
 
   if (base_path.empty()) {
     // List all buckets
     std::vector<std::string> buckets;
     RETURN_NOT_OK(impl_->ListBuckets(&buckets));
     for (const auto& bucket : buckets) {
-      FileStats st;
-      st.set_path(bucket);
-      st.set_type(FileType::Directory);
-      results.push_back(std::move(st));
+      FileInfo info;
+      info.set_path(bucket);
+      info.set_type(FileType::Directory);
+      results.push_back(std::move(info));
       if (select.recursive) {
         RETURN_NOT_OK(impl_->Walk(select, bucket, "", &results));
       }

@@ -161,8 +161,8 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \param[in] root_partition the top-level partition of the DataDataset
   /// \param[in] format file format to create fragments from.
   /// \param[in] filesystem the filesystem which files are from.
-  /// \param[in] stats a list of files/directories to consume.
-  /// attach additional partition expressions to FileStats found in `stats`.
+  /// \param[in] infos a list of files/directories to consume.
+  /// attach additional partition expressions to FileInfo found in `infos`.
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
@@ -170,7 +170,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
                                                std::shared_ptr<Expression> root_partition,
                                                std::shared_ptr<FileFormat> format,
                                                std::shared_ptr<fs::FileSystem> filesystem,
-                                               fs::FileStatsVector stats);
+                                               std::vector<fs::FileInfo> infos);
 
   /// \brief Create a FileSystemDataset with file-level partitions.
   ///
@@ -178,9 +178,9 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \param[in] root_partition the top-level partition of the DataDataset
   /// \param[in] format file format to create fragments from.
   /// \param[in] filesystem the filesystem which files are from.
-  /// \param[in] stats a list of files/directories to consume.
-  /// \param[in] partitions partition information associated with `stats`.
-  /// attach additional partition expressions to FileStats found in `stats`.
+  /// \param[in] infos a list of files/directories to consume.
+  /// \param[in] partitions partition information associated with `infos`.
+  /// attach additional partition expressions to FileInfo found in `infos`.
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
@@ -188,7 +188,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
                                                std::shared_ptr<Expression> root_partition,
                                                std::shared_ptr<FileFormat> format,
                                                std::shared_ptr<fs::FileSystem> filesystem,
-                                               fs::FileStatsVector stats,
+                                               std::vector<fs::FileInfo> infos,
                                                ExpressionVector partitions);
 
   /// \brief Create a FileSystemDataset with file-level partitions.
@@ -199,7 +199,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \param[in] filesystem the filesystem which files are from.
   /// \param[in] forest a PathForest of files/directories to consume.
   /// \param[in] partitions partition information associated with `forest`.
-  /// attach additional partition expressions to FileStats found in `forest`.
+  /// attach additional partition expressions to FileInfo found in `forest`.
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.

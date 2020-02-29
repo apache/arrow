@@ -19,13 +19,16 @@
 from pyarrow._fs import (  # noqa
     FileSelector,
     FileType,
-    FileStats,
+    FileInfo,
     FileSystem,
     LocalFileSystem,
     LocalFileSystemOptions,
     SubTreeFileSystem,
     _MockFileSystem
 )
+
+# For backward compatibility.
+FileStats = FileInfo
 
 try:
     from pyarrow._hdfs import HdfsOptions, HadoopFileSystem  # noqa

@@ -286,29 +286,29 @@ Result<std::shared_ptr<Fragment>> JSONRecordBatchFileFormat::MakeFragment(
 
 class TestFileSystemDataset : public ::testing::Test {
  public:
-  void MakeFileSystem(const std::vector<fs::FileStats>& stats) {
-    ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
+  void MakeFileSystem(const std::vector<fs::FileInfo>& infos) {
+    ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, infos));
   }
 
   void MakeFileSystem(const std::vector<std::string>& paths) {
-    std::vector<fs::FileStats> stats{paths.size()};
-    std::transform(paths.cbegin(), paths.cend(), stats.begin(),
+    std::vector<fs::FileInfo> infos{paths.size()};
+    std::transform(paths.cbegin(), paths.cend(), infos.begin(),
                    [](const std::string& p) { return fs::File(p); });
 
-    ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
+    ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, infos));
   }
 
-  void MakeDataset(const std::vector<fs::FileStats>& stats,
+  void MakeDataset(const std::vector<fs::FileInfo>& infos,
                    std::shared_ptr<Expression> source_partition = scalar(true),
                    ExpressionVector partitions = {}) {
     if (partitions.empty()) {
-      partitions.resize(stats.size(), scalar(true));
+      partitions.resize(infos.size(), scalar(true));
     }
 
-    MakeFileSystem(stats);
+    MakeFileSystem(infos);
     auto format = std::make_shared<DummyFileFormat>();
     ASSERT_OK_AND_ASSIGN(
-        source_, FileSystemDataset::Make(schema({}), source_partition, format, fs_, stats,
+        source_, FileSystemDataset::Make(schema({}), source_partition, format, fs_, infos,
                                          partitions));
   }
 

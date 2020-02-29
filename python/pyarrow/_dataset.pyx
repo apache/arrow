@@ -26,7 +26,7 @@ import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
-from pyarrow._fs cimport FileSystem, FileStats, FileSelector
+from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -257,7 +257,7 @@ cdef class FileSystemDataset(Dataset):
         ParquetFileFormat and IpcFileFormat are supported.
     filesystem : FileSystem
         The filesystem which files are from.
-    paths_or_selector : Union[FileSelector, List[FileStats]]
+    paths_or_selector : Union[FileSelector, List[FileInfo]]
         List of files/directories to consume.
     partitions : List[Expression]
         Attach aditional partition information for the file paths.
@@ -271,19 +271,19 @@ cdef class FileSystemDataset(Dataset):
                  FileSystem filesystem not None,
                  paths_or_selector, partitions):
         cdef:
-            FileStats stats
+            FileInfo info
             Expression expr
-            vector[CFileStats] c_file_stats
+            vector[CFileInfo] c_file_infos
             vector[shared_ptr[CExpression]] c_partitions
             CResult[shared_ptr[CDataset]] result
 
-        for stats in filesystem.get_target_stats(paths_or_selector):
-            c_file_stats.push_back(stats.unwrap())
+        for info in filesystem.get_target_infos(paths_or_selector):
+            c_file_infos.push_back(info.unwrap())
 
         for expr in partitions:
             c_partitions.push_back(expr.unwrap())
 
-        if c_file_stats.size() != c_partitions.size():
+        if c_file_infos.size() != c_partitions.size():
             raise ValueError(
                 'The number of files resulting from paths_or_selector must be '
                 'equal to the number of partitions.'
@@ -297,7 +297,7 @@ cdef class FileSystemDataset(Dataset):
             root_partition.unwrap(),
             file_format.unwrap(),
             filesystem.unwrap(),
-            c_file_stats,
+            c_file_infos,
             c_partitions
         )
         self.init(GetResultValue(result))

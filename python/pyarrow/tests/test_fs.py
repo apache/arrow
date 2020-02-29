@@ -206,7 +206,7 @@ def test_non_path_like_input_raises(fs):
             fs.create_dir(path)
 
 
-def test_get_target_stats(fs, pathfn):
+def test_get_target_infos(fs, pathfn):
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
     c = pathfn('c.txt')
@@ -218,40 +218,40 @@ def test_get_target_stats(fs, pathfn):
     with fs.open_output_stream(c) as fp:
         fp.write(b'test')
 
-    aaa_stat, bb_stat, c_stat, zzz_stat = \
-        fs.get_target_stats([aaa, bb, c, zzz])
+    aaa_info, bb_info, c_info, zzz_info = \
+        fs.get_target_infos([aaa, bb, c, zzz])
 
-    assert aaa_stat.path == aaa
-    assert 'aaa' in repr(aaa_stat)
-    assert aaa_stat.extension == ''
-    assert 'FileType.Directory' in repr(aaa_stat)
-    assert isinstance(aaa_stat.mtime, datetime)
+    assert aaa_info.path == aaa
+    assert 'aaa' in repr(aaa_info)
+    assert aaa_info.extension == ''
+    assert 'FileType.Directory' in repr(aaa_info)
+    assert isinstance(aaa_info.mtime, datetime)
 
-    assert bb_stat.path == str(bb)
-    assert bb_stat.base_name == 'bb'
-    assert bb_stat.extension == ''
-    assert bb_stat.type == FileType.File
-    assert 'FileType.File' in repr(bb_stat)
-    assert bb_stat.size == 0
-    assert isinstance(bb_stat.mtime, datetime)
+    assert bb_info.path == str(bb)
+    assert bb_info.base_name == 'bb'
+    assert bb_info.extension == ''
+    assert bb_info.type == FileType.File
+    assert 'FileType.File' in repr(bb_info)
+    assert bb_info.size == 0
+    assert isinstance(bb_info.mtime, datetime)
 
-    assert c_stat.path == str(c)
-    assert c_stat.base_name == 'c.txt'
-    assert c_stat.extension == 'txt'
-    assert c_stat.type == FileType.File
-    assert 'FileType.File' in repr(c_stat)
-    assert c_stat.size == 4
-    assert isinstance(c_stat.mtime, datetime)
+    assert c_info.path == str(c)
+    assert c_info.base_name == 'c.txt'
+    assert c_info.extension == 'txt'
+    assert c_info.type == FileType.File
+    assert 'FileType.File' in repr(c_info)
+    assert c_info.size == 4
+    assert isinstance(c_info.mtime, datetime)
 
-    assert zzz_stat.path == str(zzz)
-    assert zzz_stat.base_name == 'zzz'
-    assert zzz_stat.extension == ''
-    assert zzz_stat.type == FileType.NonExistent
-    assert 'FileType.NonExistent' in repr(zzz_stat)
-    assert isinstance(c_stat.mtime, datetime)
+    assert zzz_info.path == str(zzz)
+    assert zzz_info.base_name == 'zzz'
+    assert zzz_info.extension == ''
+    assert zzz_info.type == FileType.NonExistent
+    assert 'FileType.NonExistent' in repr(zzz_info)
+    assert isinstance(c_info.mtime, datetime)
 
 
-def test_get_target_stats_with_selector(fs, pathfn):
+def test_get_target_infos_with_selector(fs, pathfn):
     base_dir = pathfn('selector-dir/')
     file_a = pathfn('selector-dir/test_file_a')
     file_b = pathfn('selector-dir/test_file_b')
@@ -269,18 +269,18 @@ def test_get_target_stats_with_selector(fs, pathfn):
                                 recursive=True)
         assert selector.base_dir == base_dir
 
-        stats = fs.get_target_stats(selector)
-        assert len(stats) == 3
+        infos = fs.get_target_infos(selector)
+        assert len(infos) == 3
 
-        for st in stats:
-            if st.path.endswith(file_a):
-                assert st.type == FileType.File
-            elif st.path.endswith(file_b):
-                assert st.type == FileType.File
-            elif st.path.endswith(dir_a):
-                assert st.type == FileType.Directory
+        for info in infos:
+            if info.path.endswith(file_a):
+                assert info.type == FileType.File
+            elif info.path.endswith(file_b):
+                assert info.type == FileType.File
+            elif info.path.endswith(dir_a):
+                assert info.type == FileType.Directory
             else:
-                raise ValueError('unexpected path {}'.format(st.path))
+                raise ValueError('unexpected path {}'.format(info.path))
     finally:
         fs.delete_file(file_a)
         fs.delete_file(file_b)
@@ -582,7 +582,7 @@ def test_hdfs_options(hdfs_server):
     host, port, user = hdfs_server
     uri = "hdfs://{}:{}/?user={}".format(host, port, user)
     fs = HadoopFileSystem(uri)
-    assert fs.get_target_stats(FileSelector('/'))
+    assert fs.get_target_infos(FileSelector('/'))
 
 
 @pytest.mark.parametrize(('uri', 'expected_klass', 'expected_path'), [
@@ -633,6 +633,6 @@ def test_filesystem_from_uri_s3(minio_server):
     assert path == "mybucket/foo/bar"
 
     fs.create_dir(path)
-    [st] = fs.get_target_stats([path])
-    assert st.path == path
-    assert st.type == FileType.Directory
+    [info] = fs.get_target_infos([path])
+    assert info.path == path
+    assert info.type == FileType.Directory
