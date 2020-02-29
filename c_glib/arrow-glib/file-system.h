@@ -103,7 +103,7 @@ struct _GArrowFileSystemClass
 };
 
 GARROW_AVAILABLE_IN_1_0
-const gchar *garrow_file_system_get_type_name(GArrowFileSystem *file_system);
+gchar *garrow_file_system_get_type_name(GArrowFileSystem *file_system);
 
 GARROW_AVAILABLE_IN_1_0
 GArrowFileStats *garrow_file_system_get_target_stats_path(GArrowFileSystem *file_system,

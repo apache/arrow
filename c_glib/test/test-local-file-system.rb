@@ -32,6 +32,17 @@ class TestLocalFileSystem < Test::Unit::TestCase
 
   sub_test_case("default") do
     include FileSystemTests
+
+    def test_type_name
+      assert_equal([
+                     "local",
+                     "subtree",
+                   ],
+                   [
+                     @fs.base_file_system.type_name,
+                     @fs.type_name,
+                   ])
+    end
   end
 
   sub_test_case("mmap") do

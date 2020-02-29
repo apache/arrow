@@ -573,9 +573,11 @@ garrow_file_system_class_init(GArrowFileSystemClass *klass)
  *
  * Returns: The name of file system type.
  *
+ *   It should be freed with g_free() when no longer needed.
+ *
  * Since: 1.0.0
  */
-const gchar *
+gchar *
 garrow_file_system_get_type_name(GArrowFileSystem *file_system)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
@@ -1208,7 +1210,7 @@ garrow_slow_file_system_new_average_latency_and_seed(GArrowFileSystem *base_file
 G_END_DECLS
 
 GArrowFileStats *
-garrow_file_stats_new_raw(const arrow::fs::FileStats& arrow_file_stats)
+garrow_file_stats_new_raw(const arrow::fs::FileStats &arrow_file_stats)
 {
   auto file_stats = garrow_file_stats_new();
   GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats = arrow_file_stats;

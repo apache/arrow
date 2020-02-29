@@ -29,4 +29,15 @@ class TestSlowFileSystem < Test::Unit::TestCase
   end
 
   include FileSystemTests
+
+  def test_type_name
+    assert_equal([
+                   "slow",
+                   "subtree",
+                 ],
+                 [
+                   @fs.type_name,
+                   @fs.base_file_system.type_name,
+                 ])
+  end
 end
