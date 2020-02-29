@@ -697,6 +697,7 @@ garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
  * garrow_file_system_create_dir:
  * @file_system: A #GArrowFileSystem.
  * @path: The paths of the directory.
+ * @recursive: Whether creating directory recursively or not.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Create a directory and subdirectories.
