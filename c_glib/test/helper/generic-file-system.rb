@@ -46,11 +46,9 @@ module GenericFileSystemTestMethods
   private def read_file(path)
     stream = @fs.open_input_stream(path)
     size = @fs.get_target_stats_path(path).size
-    buffer = stream.read(size)
-    data = buffer.data.to_s.dup
-    buffer.unref
+    bytes = stream.read_bytes(size)
     stream.close
-    data
+    bytes.to_s
   end
 
   private def file?(path)
@@ -375,10 +373,9 @@ module GenericFileSystemTestMethods
     create_file("AB/abc", "some data")
 
     stream = @fs.open_input_stream("AB/abc")
-    buffer = stream.read(4)
+    bytes = stream.read_bytes(4)
     assert_equal("some",
-                 buffer.data.to_s)
-    buffer.unref
+                 bytes.to_s)
     stream.close
   end
 
