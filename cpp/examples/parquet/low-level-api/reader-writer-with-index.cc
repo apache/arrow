@@ -157,6 +157,7 @@ int parquet_reader(int argc,char** argv) {
         std::cout << std::setprecision(3) <<  "\n avg time for predicate one pass without index: " <<  avg_time << " sec for " << num_runs << " runs" << std::endl;
 
        /**************FIRST PASS WITH INDEX*****************/
+       total_time = 0.0;
         for(int t  =0 ; t< num_runs; t++){
             gettimeofday(&start_time,NULL);
           first_pass_for_predicate_only(row_group_reader,col_id,num_columns,predicate_val,true);
