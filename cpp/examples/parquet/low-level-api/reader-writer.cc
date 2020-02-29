@@ -42,8 +42,8 @@
  * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md
  **/
 
-constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
-const char PARQUET_FILENAME[] = "parquet_cpp_example.parquet";
+constexpr int NUM_ROWS_PER_ROW_GROUP = 10000000;//500;
+const char PARQUET_FILENAME[] = "parquet_cpp_example_10M.parquet";
 
 int main(int argc, char** argv) {
   /**********************************************************************************

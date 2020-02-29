@@ -80,12 +80,12 @@ int parquet_writer(int argc, char** argv);
 void returnReaderwithType(std::shared_ptr<parquet::ColumnReader> cr, parquet::ColumnReader*& cr1);
 
 return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shared_ptr<parquet::RowGroupReader> rg,char* predicate,
-                             int& col_id,int64_t& page_index,int& PREDICATE_COL,int64_t& row_index);
+                             int& col_id,int64_t& page_index,int& PREDICATE_COL,int64_t& row_index,bool with_index);
 
 void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,int ind,return_multiple vals,int64_t& row_counter,
                bool checkpredicate);
 
-void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> rg,int predicate_column_number,int num_columns, char* predicate);
+void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> rg,int predicate_column_number,int num_columns, char* predicate,bool with_index);
 
 int parquet_reader(int argc, char** argv);
 /**************Declaration END*********************************/
@@ -137,10 +137,29 @@ int parquet_reader(int argc,char** argv) {
         struct timeval start_time,end_time;
         float total_time= 0.0;
         int num_runs = 100;
-       /**************FIRST PASS*****************/
+         
+        
+        /********FIRST PASS WITHOUT INDEX***************/
+        total_time = 0.0;
         for(int t  =0 ; t< num_runs; t++){
             gettimeofday(&start_time,NULL);
-          first_pass_for_predicate_only(row_group_reader,col_id,num_columns,predicate_val);
+          first_pass_for_predicate_only(row_group_reader,col_id,num_columns,predicate_val,false);
+          gettimeofday(&end_time,NULL);
+          
+            float time_elapsed = ((float)(end_time.tv_sec-start_time.tv_sec) + abs((float)(end_time.tv_usec - start_time.tv_usec))/1000000.0);
+
+            std::cout << std::setprecision(3) << "\n time for predicate one pass without index: " << time_elapsed << std::endl;
+
+            total_time += time_elapsed;
+        }
+        std::cout << std::setprecision(3)  << "total time " << total_time << std::endl;
+        float avg_time = (float)total_time/(float)num_runs;
+        std::cout << std::setprecision(3) <<  "\n avg time for predicate one pass without index: " <<  avg_time << " sec for " << num_runs << " runs" << std::endl;
+
+       /**************FIRST PASS WITH INDEX*****************/
+        for(int t  =0 ; t< num_runs; t++){
+            gettimeofday(&start_time,NULL);
+          first_pass_for_predicate_only(row_group_reader,col_id,num_columns,predicate_val,true);
           gettimeofday(&end_time,NULL);
           
             float time_elapsed = ((float)(end_time.tv_sec-start_time.tv_sec) + abs((float)(end_time.tv_usec - start_time.tv_usec))/1000000.0);
@@ -150,8 +169,9 @@ int parquet_reader(int argc,char** argv) {
             total_time += time_elapsed;
         }
         std::cout << std::setprecision(3)  << "total time " << total_time << std::endl;
-        float avg_time = (float)total_time/(float)num_runs;
+        avg_time = (float)total_time/(float)num_runs;
         std::cout << std::setprecision(3) <<  "\n avg time for predicate one pass: " <<  avg_time << " sec for " << num_runs << " runs" << std::endl;
+
       /***********FIRST PASS END **********/
 
       /***********Second PASS *************/
@@ -169,7 +189,7 @@ int parquet_reader(int argc,char** argv) {
 }
 
 
-void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_group_reader,int col_id, int num_columns, char* predicate_val) {
+void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_group_reader,int col_id, int num_columns, char* predicate_val,bool with_index) {
 
     int64_t row_index = -1;
 
@@ -205,7 +225,7 @@ void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_
       parquet::ColumnReader* generic_reader;
   
       int PREDICATE_COL  = col_id;
-      return_multiple vals = getPredicate(predicate_column_reader,row_group_reader,predicate_val,col_id,page_index,PREDICATE_COL,row_index);
+      return_multiple vals = getPredicate(predicate_column_reader,row_group_reader,predicate_val,col_id,page_index,PREDICATE_COL,row_index,with_index);
       column_reader_with_index = vals.column_reader;
       
       //SAMPLE row group reader call in the comment below
@@ -237,7 +257,7 @@ void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_
 }
 
 return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shared_ptr<parquet::RowGroupReader> rg,char* predicate_val,
-                             int& col_id,int64_t& page_index,int& PREDICATE_COL,int64_t& row_index){
+                             int& col_id,int64_t& page_index,int& PREDICATE_COL,int64_t& row_index, bool with_index){
     const int CHAR_LEN = 10000000;
     
     return_multiple vals;
@@ -249,7 +269,9 @@ return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shar
             ss >> std::boolalpha >> b;
             void * predicate = static_cast<void*>(&b);
 
-            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.column_reader = (with_index)?
+                      rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type()):
+                      rg->Column(col_id);
             vals.b = b;
             return vals;
           }
@@ -258,7 +280,9 @@ return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shar
             
             ss >> val;
             void * predicate = static_cast<void*>(&val);
-            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.column_reader = (with_index)?
+                      rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type()):
+                      rg->Column(col_id);
             vals.p = val;
             return vals;
           }
@@ -267,7 +291,9 @@ return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shar
             
             ss >> val;
             void * predicate = static_cast<void*>(&val);
-            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.column_reader = (with_index)?
+                      rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type()):
+                      rg->Column(col_id);
             vals.r = val;
             return vals;
           }
@@ -276,7 +302,9 @@ return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shar
             
             ss >> val;
             void * predicate = static_cast<void*>(&val);
-            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.column_reader = (with_index)?
+                      rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type()):
+                      rg->Column(col_id);
             vals.e = val;
             return vals;
           }
@@ -285,7 +313,9 @@ return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shar
             
             ss >> val;
             void * predicate = static_cast<void*>(&val);
-            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.column_reader = (with_index)?
+                      rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type()):
+                      rg->Column(col_id);
             vals.d = val;
             return vals;
           }
@@ -294,7 +324,9 @@ return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shar
             
             ss >> val;
             void * predicate = static_cast<void*>(&val);
-            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.column_reader = (with_index)?
+                      rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type()):
+                      rg->Column(col_id);
             vals.i = val;
             return vals;
           }
@@ -302,7 +334,9 @@ return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shar
             char* val = predicate_val;
             
             void * predicate = static_cast<void*>(val);
-            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.column_reader = (with_index)?
+                      rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type()):
+                      rg->Column(col_id);
             vals.c = val;
             return vals;
           }
@@ -310,7 +344,9 @@ return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shar
             char* val = predicate_val;
             
             void * predicate = static_cast<void*>(val);
-            vals.column_reader = rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type());
+            vals.column_reader = (with_index)?
+                      rg->ColumnWithIndex(col_id,predicate,page_index,PREDICATE_COL,row_index,cr->type()):
+                      rg->Column(col_id);
             vals.a = val;
             return vals;
           }
@@ -611,8 +647,10 @@ void printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
               double val;
               double predicate = vals.i;
            rows_read = int64_reader->callReadBatch(1,&val,&values_read);
-           
-           if ( checkpredicate && val == predicate) {
+           double error_factor=2.0;
+
+           if ( checkpredicate && (val == predicate || std::abs(val-predicate) < 
+                     std::abs(std::min(predicate,val))*std::numeric_limits<double>::epsilon()*error_factor)) {
            row_counter = ind;
            std::cout << "with predicate row number: " << row_counter << " " << val << "\n";
            //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
