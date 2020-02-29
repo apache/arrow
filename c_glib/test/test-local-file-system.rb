@@ -20,8 +20,8 @@ require_relative "file-system-tests"
 class TestLocalFileSystem < Test::Unit::TestCase
   def setup
     Dir.mktmpdir do |tmpdir|
-      @local_fs = Arrow::LocalFileSystem.new(build_options)
-      @fs = Arrow::SubTreeFileSystem.new(tmpdir, @local_fs)
+      local_fs = Arrow::LocalFileSystem.new(build_options)
+      @fs = Arrow::SubTreeFileSystem.new(tmpdir, local_fs)
       yield
     end
   end

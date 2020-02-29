@@ -18,7 +18,7 @@
  */
 
 #include <arrow-glib/file-system.hpp>
-#include <arrow-glib/local-file-system.h>
+#include <arrow-glib/local-file-system.hpp>
 
 G_BEGIN_DECLS
 
@@ -183,8 +183,7 @@ garrow_local_file_system_new()
 {
   auto arrow_local_file_system = std::make_shared<arrow::fs::LocalFileSystem>();
   std::shared_ptr<arrow::fs::FileSystem> arrow_file_system = arrow_local_file_system;
-  auto file_system = garrow_file_system_new_raw(&arrow_file_system, GARROW_TYPE_LOCAL_FILE_SYSTEM);
-  return GARROW_LOCAL_FILE_SYSTEM(file_system);
+  return garrow_local_file_system_new_raw(&arrow_file_system);
 }
 
 /**
@@ -202,8 +201,17 @@ garrow_local_file_system_new_with_options(GArrowLocalFileSystemOptions *options)
     GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(options)->local_file_system_options;
   auto arrow_local_file_system = std::make_shared<arrow::fs::LocalFileSystem>(arrow_options);
   std::shared_ptr<arrow::fs::FileSystem> arrow_file_system = arrow_local_file_system;
-  auto file_system = garrow_file_system_new_raw(&arrow_file_system, GARROW_TYPE_LOCAL_FILE_SYSTEM);
-  return GARROW_LOCAL_FILE_SYSTEM(file_system);
+  return garrow_local_file_system_new_raw(&arrow_file_system);
 }
 
 G_END_DECLS
+
+GArrowLocalFileSystem *
+garrow_local_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system)
+{
+  return GARROW_LOCAL_FILE_SYSTEM(
+    g_object_new(GARROW_TYPE_LOCAL_FILE_SYSTEM,
+                 "file-system", arrow_file_system,
+                 NULL));
+}
+

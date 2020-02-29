@@ -188,7 +188,8 @@ libarrow_glib_la_cpp_headers +=			\
 	compute.hpp
 
 libarrow_glib_la_cpp_headers +=			\
-	file-system.hpp
+	file-system.hpp				\
+	local-system.hpp
 
 if HAVE_ARROW_ORC
 libarrow_glib_la_cpp_headers +=			\

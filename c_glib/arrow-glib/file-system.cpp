@@ -957,9 +957,71 @@ garrow_file_system_open_append_stream(GArrowFileSystem *file_system,
 
 /* arrow::fs::SubTreeFileSystem */
 
-G_DEFINE_TYPE(GArrowSubTreeFileSystem,
-              garrow_sub_tree_file_system,
-              GARROW_TYPE_FILE_SYSTEM)
+typedef struct GArrowSubTreeFileSystemPrivate_ {
+  GArrowFileSystem *base_file_system;
+} GArrowSubTreeFileSystemPrivate;
+
+enum {
+  PROP_BASE_FILE_SYSTEM = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowSubTreeFileSystem,
+                           garrow_sub_tree_file_system,
+                           GARROW_TYPE_FILE_SYSTEM)
+
+#define GARROW_SUB_TREE_FILE_SYSTEM_GET_PRIVATE(object) \
+  static_cast<GArrowSubTreeFileSystemPrivate *>(        \
+    garrow_sub_tree_file_system_get_instance_private(   \
+      GARROW_SUB_TREE_FILE_SYSTEM(object)))
+
+static void
+garrow_sub_tree_file_system_dispose(GObject *object)
+{
+  auto priv = GARROW_SUB_TREE_FILE_SYSTEM_GET_PRIVATE(object);
+
+  if (priv->base_file_system) {
+    g_object_unref(priv->base_file_system);
+    priv->base_file_system = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_sub_tree_file_system_parent_class)->dispose(object);
+}
+
+static void
+garrow_sub_tree_file_system_set_property(GObject *object,
+                                         guint prop_id,
+                                         const GValue *value,
+                                         GParamSpec *pspec)
+{
+  auto priv = GARROW_SUB_TREE_FILE_SYSTEM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_BASE_FILE_SYSTEM:
+    priv->base_file_system = GARROW_FILE_SYSTEM(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_sub_tree_file_system_get_property(GObject *object,
+                                         guint prop_id,
+                                         GValue *value,
+                                         GParamSpec *pspec)
+{
+  auto priv = GARROW_SUB_TREE_FILE_SYSTEM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_BASE_FILE_SYSTEM:
+    g_value_set_object(value, priv->base_file_system);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 garrow_sub_tree_file_system_init(GArrowSubTreeFileSystem *file_system)
@@ -969,6 +1031,19 @@ garrow_sub_tree_file_system_init(GArrowSubTreeFileSystem *file_system)
 static void
 garrow_sub_tree_file_system_class_init(GArrowSubTreeFileSystemClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->dispose      = garrow_sub_tree_file_system_dispose;
+  gobject_class->set_property = garrow_sub_tree_file_system_set_property;
+  gobject_class->get_property = garrow_sub_tree_file_system_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_object("base-file-system",
+                             "Base file system",
+                             "The base GArrowFileSystem",
+                             GARROW_TYPE_FILE_SYSTEM,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_BASE_FILE_SYSTEM, spec);
 }
 
 /**
@@ -988,16 +1063,73 @@ garrow_sub_tree_file_system_new(const gchar *base_path,
   auto arrow_sub_tree_file_system =
     std::make_shared<arrow::fs::SubTreeFileSystem>(base_path, arrow_base_file_system);
   std::shared_ptr<arrow::fs::FileSystem> arrow_file_system = arrow_sub_tree_file_system;
-  auto file_system = garrow_file_system_new_raw(&arrow_file_system,
-                                                GARROW_TYPE_SUB_TREE_FILE_SYSTEM);
-  return GARROW_SUB_TREE_FILE_SYSTEM(file_system);
+  return garrow_sub_tree_file_system_new_raw(&arrow_file_system,
+                                             base_file_system);
 }
 
 /* arrow::fs::SlowFileSystem */
 
-G_DEFINE_TYPE(GArrowSlowFileSystem,
-              garrow_slow_file_system,
-              GARROW_TYPE_FILE_SYSTEM)
+typedef struct GArrowSlowFileSystemPrivate_ {
+  GArrowFileSystem *base_file_system;
+} GArrowSlowFileSystemPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowSlowFileSystem,
+                           garrow_slow_file_system,
+                           GARROW_TYPE_FILE_SYSTEM)
+
+#define GARROW_SLOW_FILE_SYSTEM_GET_PRIVATE(object)     \
+  static_cast<GArrowSlowFileSystemPrivate *>(           \
+    garrow_slow_file_system_get_instance_private(       \
+      GARROW_SLOW_FILE_SYSTEM(object)))
+
+static void
+garrow_slow_file_system_dispose(GObject *object)
+{
+  auto priv = GARROW_SLOW_FILE_SYSTEM_GET_PRIVATE(object);
+
+  if (priv->base_file_system) {
+    g_object_unref(priv->base_file_system);
+    priv->base_file_system = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_slow_file_system_parent_class)->dispose(object);
+}
+
+static void
+garrow_slow_file_system_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GARROW_SLOW_FILE_SYSTEM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_BASE_FILE_SYSTEM:
+    priv->base_file_system = GARROW_FILE_SYSTEM(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_slow_file_system_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GARROW_SLOW_FILE_SYSTEM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_BASE_FILE_SYSTEM:
+    g_value_set_object(value, priv->base_file_system);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 garrow_slow_file_system_init(GArrowSlowFileSystem *file_system)
@@ -1007,6 +1139,19 @@ garrow_slow_file_system_init(GArrowSlowFileSystem *file_system)
 static void
 garrow_slow_file_system_class_init(GArrowSlowFileSystemClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->dispose      = garrow_slow_file_system_dispose;
+  gobject_class->set_property = garrow_slow_file_system_set_property;
+  gobject_class->get_property = garrow_slow_file_system_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_object("base-file-system",
+                             "Base file system",
+                             "The base GArrowFileSystem",
+                             GARROW_TYPE_FILE_SYSTEM,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_BASE_FILE_SYSTEM, spec);
 }
 
 /**
@@ -1031,9 +1176,7 @@ garrow_slow_file_system_new_average_latency(GArrowFileSystem *base_file_system,
   auto arrow_slow_file_system =
     std::make_shared<arrow::fs::SlowFileSystem>(arrow_base_file_system, average_latency);
   std::shared_ptr<arrow::fs::FileSystem> arrow_file_system = arrow_slow_file_system;
-  auto file_system = garrow_file_system_new_raw(&arrow_file_system,
-                                                GARROW_TYPE_SLOW_FILE_SYSTEM);
-  return GARROW_SLOW_FILE_SYSTEM(file_system);
+  return garrow_slow_file_system_new_raw(&arrow_file_system, base_file_system);
 }
 
 /**
@@ -1058,9 +1201,8 @@ garrow_slow_file_system_new_average_latency_and_seed(GArrowFileSystem *base_file
   auto arrow_slow_file_system =
     std::make_shared<arrow::fs::SlowFileSystem>(arrow_base_file_system, average_latency, seed);
   std::shared_ptr<arrow::fs::FileSystem> arrow_file_system = arrow_slow_file_system;
-  auto file_system = garrow_file_system_new_raw(&arrow_file_system,
-                                                GARROW_TYPE_SLOW_FILE_SYSTEM);
-  return GARROW_SLOW_FILE_SYSTEM(file_system);
+  return garrow_slow_file_system_new_raw(&arrow_file_system,
+                                         base_file_system);
 }
 
 G_END_DECLS
@@ -1079,16 +1221,6 @@ garrow_file_stats_get_raw(GArrowFileStats *file_stats)
   return GARROW_FILE_STATS_GET_PRIVATE(file_stats)->file_stats;
 }
 
-GArrowFileSystem *
-garrow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
-                           GType type)
-{
-  auto file_system = GARROW_FILE_SYSTEM(g_object_new(type,
-                                                     "file-system", arrow_file_system,
-                                                     NULL));
-  return file_system;
-}
-
 std::shared_ptr<arrow::fs::FileSystem>
 garrow_file_system_get_raw(GArrowFileSystem *file_system)
 {
@@ -1097,4 +1229,26 @@ garrow_file_system_get_raw(GArrowFileSystem *file_system)
 
   auto priv = GARROW_FILE_SYSTEM_GET_PRIVATE(file_system);
   return priv->file_system;
+}
+
+GArrowSubTreeFileSystem *
+garrow_sub_tree_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
+                                    GArrowFileSystem *base_file_system)
+{
+  return GARROW_SUB_TREE_FILE_SYSTEM(
+    g_object_new(GARROW_TYPE_SUB_TREE_FILE_SYSTEM,
+                 "file-system", arrow_file_system,
+                 "base-file-system", base_file_system,
+                 NULL));
+}
+
+GArrowSlowFileSystem *
+garrow_slow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
+                                GArrowFileSystem *base_file_system)
+{
+  return GARROW_SLOW_FILE_SYSTEM(
+    g_object_new(GARROW_TYPE_SLOW_FILE_SYSTEM,
+                 "file-system", arrow_file_system,
+                 "base-file-system", base_file_system,
+                 NULL));
 }

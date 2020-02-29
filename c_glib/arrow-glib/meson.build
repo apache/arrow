@@ -168,6 +168,7 @@ cpp_headers += files(
 
 cpp_headers += files(
   'file-system.hpp',
+  'local-file-system.hpp',
 )
 
 if have_arrow_orc
