@@ -28,7 +28,7 @@ class TestFileStats < Test::Unit::TestCase
   end
 
   test("#type=") do
-    @file_stats.type = Arrow::FileType::DIRECTORY
+    @file_stats.type = :directory
     assert_equal(Arrow::FileType::DIRECTORY,
                  @file_stats.type)
   end
@@ -127,6 +127,38 @@ class TestFileStats < Test::Unit::TestCase
       @other_file_stats.mtime = Time.now.to_i
       assert do
         @file_stats != @other_file_stats
+      end
+    end
+  end
+
+  sub_test_case("#file?") do
+    test("true") do
+      @file_stats.type = :file
+      assert do
+        @file_stats.file?
+      end
+    end
+
+    test("false") do
+      @file_stats.type = :directory
+      assert do
+        not @file_stats.file?
+      end
+    end
+  end
+
+  sub_test_case("#directory?") do
+    test("true") do
+      @file_stats.type = :directory
+      assert do
+        @file_stats.directory?
+      end
+    end
+
+    test("false") do
+      @file_stats.type = :file
+      assert do
+        not @file_stats.directory?
       end
     end
   end

@@ -318,6 +318,14 @@ garrow_file_stats_equal(GArrowFileStats *file_stats,
   return arrow_file_stats.Equals(arrow_other_file_stats);
 }
 
+/**
+ * garrow_file_stats_is_file:
+ * @file_stats: A #GArrowFileStats.
+ *
+ * Returns: %TRUE if the entry is a file, %FALSE otherwise.
+ *
+ * Since: 1.0.0
+ */
 gboolean
 garrow_file_stats_is_file(GArrowFileStats *file_stats)
 {
@@ -325,6 +333,14 @@ garrow_file_stats_is_file(GArrowFileStats *file_stats)
   return arrow_file_stats.IsFile();
 }
 
+/**
+ * garrow_file_stats_is_directory:
+ * @file_stats: A #GArrowFileStats.
+ *
+ * Returns: %TRUE if the entry is a directory, %FALSE otherwise.
+ *
+ * Since: 1.0.0
+ */
 gboolean
 garrow_file_stats_is_directory(GArrowFileStats *file_stats)
 {
