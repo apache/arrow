@@ -374,7 +374,7 @@ typedef struct GArrowFileSelectorPrivate_ {
 
 enum {
   PROP_FILE_SELECTOR_BASE_DIR = 1,
-  PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT,
+  PROP_FILE_SELECTOR_ALLOW_NONEXISTENT,
   PROP_FILE_SELECTOR_RECURSIVE,
   PROP_FILE_SELECTOR_MAX_RECURSION
 };
@@ -398,7 +398,7 @@ garrow_file_selector_set_property(GObject *object,
   case PROP_FILE_SELECTOR_BASE_DIR:
     priv->file_selector.base_dir = g_value_get_string(value);
     break;
-  case PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT:
+  case PROP_FILE_SELECTOR_ALLOW_NONEXISTENT:
     priv->file_selector.allow_non_existent = g_value_get_boolean(value);
     break;
   case PROP_FILE_SELECTOR_RECURSIVE:
@@ -425,7 +425,7 @@ garrow_file_selector_get_property(GObject *object,
   case PROP_FILE_SELECTOR_BASE_DIR:
     g_value_set_string(value, priv->file_selector.base_dir.c_str());
     break;
-  case PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT:
+  case PROP_FILE_SELECTOR_ALLOW_NONEXISTENT:
     g_value_set_boolean(value, priv->file_selector.allow_non_existent);
     break;
   case PROP_FILE_SELECTOR_RECURSIVE:
@@ -486,19 +486,19 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
   g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_BASE_DIR, spec);
 
   /**
-   * GArrowFileSelector:allow-non-existent:
+   * GArrowFileSelector:allow-nonexistent:
    *
    * The behavior if `base_dir` doesn't exist in the file system.
    * If false, an error is returned.  If true, an empty selection is returned.
    *
    * Since: 1.0.0
    */
-  spec = g_param_spec_boolean("allow-non-existent",
-                              "Allow non existent",
+  spec = g_param_spec_boolean("allow-nonexistent",
+                              "Allow nonexistent",
                               "The behavior if `base_dir` doesn't exist in the file system",
                               file_selector.allow_non_existent,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_ALLOW_NON_EXISTENT, spec);
+  g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_ALLOW_NONEXISTENT, spec);
 
   /**
    * GArrowFileSelector:recursive:
@@ -632,7 +632,7 @@ garrow_file_system_get_type_name(GArrowFileSystem *file_system)
  *
  * Any symlink is automatically dereferenced, recursively.
  * A non-existing or unreachable file returns an OK status and has
- * a #GArrowFileType of value %GARROW_FILE_TYPE_NON_EXISTENT.
+ * a #GArrowFileType of value %GARROW_FILE_TYPE_NONEXISTENT.
  * An error status indicates a truly exceptional condition
  * (low-level I/O error, etc.).
  *
