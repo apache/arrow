@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "helper/generic-file-system"
+require_relative "file-system-tests"
 
 class TestSlowFileSystem < Test::Unit::TestCase
   def setup
@@ -28,5 +28,5 @@ class TestSlowFileSystem < Test::Unit::TestCase
     end
   end
 
-  include GenericFileSystemTestMethods
+  include FileSystemTests
 end

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module GenericFileSystemTestMethods
+module FileSystemTests
   private def all_entries
     selector = Arrow::FileSelector.new
     selector.base_dir = ""

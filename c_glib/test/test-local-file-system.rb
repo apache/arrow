@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "helper/generic-file-system"
+require_relative "file-system-tests"
 
 class TestLocalFileSystem < Test::Unit::TestCase
   def setup
@@ -31,11 +31,11 @@ class TestLocalFileSystem < Test::Unit::TestCase
   end
 
   sub_test_case("default") do
-    include GenericFileSystemTestMethods
+    include FileSystemTests
   end
 
   sub_test_case("mmap") do
-    include GenericFileSystemTestMethods
+    include FileSystemTests
 
     def build_options
       options = Arrow::LocalFileSystemOptions.defaults
