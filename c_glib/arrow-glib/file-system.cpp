@@ -32,7 +32,7 @@ G_BEGIN_DECLS
  * @title: File system classes
  * @include: arrow-glib/arrow-glib.h
  *
- * #GArrowFileStats is a class for a stats of file system entry.
+ * #GArrowFileStats is a class for a statistics of file system entry.
  *
  * #GArrowFileSelector is a class for a selector for file system APIs.
  *
@@ -80,7 +80,8 @@ garrow_file_stats_set_property(GObject *object,
   switch (prop_id) {
   case PROP_FILE_STATS_TYPE:
     {
-      auto arrow_file_type = static_cast<arrow::fs::FileType>(g_value_get_enum(value));
+      auto arrow_file_type =
+        static_cast<arrow::fs::FileType>(g_value_get_enum(value));
       arrow_file_stats.set_type(arrow_file_type);
     }
     break;
@@ -109,7 +110,8 @@ garrow_file_stats_get_property(GObject *object,
                                GValue *value,
                                GParamSpec *pspec)
 {
-  const auto &arrow_file_stats = garrow_file_stats_get_raw(GARROW_FILE_STATS(object));
+  const auto &arrow_file_stats =
+    garrow_file_stats_get_raw(GARROW_FILE_STATS(object));
 
   switch (prop_id) {
   case PROP_FILE_STATS_TYPE:
@@ -180,13 +182,13 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   /**
    * GArrowFileStats:type:
    *
-   * The file type.
+   * The type of the entry.
    *
    * Since: 1.0.0
    */
   spec = g_param_spec_enum("type",
                            "Type",
-                           "The file type",
+                           "The type of the entry",
                            GARROW_TYPE_FILE_TYPE,
                            GARROW_FILE_TYPE_UNKNOWN,
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
@@ -259,7 +261,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   spec = g_param_spec_int64("size",
                             "Size",
                             "The size in bytes",
-                            -1,
+                            arrow::fs::kNoSize,
                             INT64_MAX,
                             stats.size(),
                             static_cast<GParamFlags>(G_PARAM_READWRITE));
@@ -275,7 +277,7 @@ garrow_file_stats_class_init(GArrowFileStatsClass *klass)
   spec = g_param_spec_int64("mtime",
                             "Last modified time",
                             "The time of last modification",
-                            -1,
+                            arrow::fs::kNoTime.time_since_epoch().count(),
                             INT64_MAX,
                             stats.mtime().time_since_epoch().count(),
                             static_cast<GParamFlags>(G_PARAM_READWRITE));
