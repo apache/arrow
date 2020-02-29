@@ -785,9 +785,10 @@ garrow_file_system_delete_dir(GArrowFileSystem *file_system,
  * @path: The paths of the directory.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Delete a directory's cooontents, recursively.
- * Like garrow_file_system_delete_dir, but doesn't delete the directory itself.
- * Passing an empty path ("") will wipe the entire file system tree.
+ * Delete a directory's contents, recursively. Like
+ * garrow_file_system_delete_dir(), but doesn't delete the directory
+ * itself. Passing an empty path (`""`) will wipe the entire file
+ * system tree.
  *
  * Since: 1.0.0
  */
