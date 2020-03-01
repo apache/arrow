@@ -62,19 +62,13 @@ fn main() {
         let path = Path::new(&filename);
         let file = File::open(&path).unwrap();
         let parquet_reader = SerializedFileReader::new(file).unwrap();
+        let row_group_metadata = parquet_reader.metadata().row_groups();
+        let mut total_num_rows = 0;
 
-        // Use full schema as projected schema
-        let mut iter = parquet_reader.get_row_iter(None).unwrap();
-        let mut end_of_file: bool = false;
-        let mut counted_rows: u32 = 0;
-
-        while !end_of_file {
-            match iter.next() {
-                Some(_) => counted_rows += 1,
-                None => end_of_file = true,
-            }
+        for x in row_group_metadata {
+            total_num_rows += x.num_rows();
         }
 
-        eprintln!("File {}: rowcount={}", filename, counted_rows);
+        eprintln!("File {}: rowcount={}", filename, total_num_rows);
     }
 }
