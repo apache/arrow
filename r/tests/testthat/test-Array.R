@@ -45,18 +45,47 @@ expect_array_roundtrip <- function(x, type) {
 test_that("Integer Array", {
   ints <- c(1:10, 1:10, 1:5)
   x <- expect_array_roundtrip(ints, int32())
+})
+
+test_that("Slice() and RangeEquals()", {
+  ints <- c(1:10, 101:110, 201:205)
+  x <- Array$create(ints)
 
   y <- x$Slice(10)
   expect_equal(y$type, int32())
   expect_equal(length(y), 15L)
-  expect_vector(y, c(1:10, 1:5))
-  expect_true(x$RangeEquals(y, 10, 24, 0))
+  expect_vector(y, c(101:110, 201:205))
+  expect_true(x$RangeEquals(y, 10, 24))
+  expect_false(x$RangeEquals(y, 9, 23))
+  expect_false(x$RangeEquals(y, 11, 24))
 
   z <- x$Slice(10, 5)
-  expect_equal(z$type, int32())
-  expect_equal(z$length(), 5L)
-  expect_vector(z, c(1:5))
+  expect_vector(z, c(101:105))
   expect_true(x$RangeEquals(z, 10, 15, 0))
+
+  # Input validation
+  expect_error(x$Slice("ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(NA_integer_), "'offset' cannot be NA")
+  expect_error(x$Slice(NA), "'offset' cannot be NA")
+  expect_error(x$Slice(10, "ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(10, NA_integer_), "'length' cannot be NA")
+  expect_error(x$Slice(NA_integer_, NA_integer_), "'offset' cannot be NA")
+  expect_error(x$Slice(c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
+  # expect_error(x$Slice(1000)) # abort trap with debug build
+  # cpp/src/arrow/array.cc:97:  Check failed: (off) <= (length) Slice offset greater than array length
+  # expect_error(z$Slice(10, 10)) # abort trap with debug build
+  # expect_error(x$Slice(10, 1000)) # does not error
+  # expect_error(z$Slice(2, 10)) # does not error
+
+  expect_error(x$RangeEquals(10, 24, 0), 'other must be a "Array"')
+  expect_error(x$RangeEquals(y, NA, 24), "'start_idx' cannot be NA")
+  expect_error(x$RangeEquals(y, 10, NA), "'end_idx' cannot be NA")
+  expect_error(x$RangeEquals(y, 10, 24, NA), "'other_start_idx' cannot be NA")
+  expect_error(x$RangeEquals(y, "ten", 24), class = "Rcpp::not_compatible")
+  # expect_error(x$RangeEquals(y, 10, 2400, 0)) # does not error
+  # expect_error(x$RangeEquals(y, 1000, 24, 0)) # does not error
+  # expect_error(x$RangeEquals(y, 10, 24, 1000)) # does not error
 })
 
 test_that("Double Array", {
@@ -72,13 +101,21 @@ test_that("Array print method includes type", {
 test_that("Array supports NA", {
   x_int <- Array$create(as.integer(c(1:10, NA)))
   x_dbl <- Array$create(as.numeric(c(1:10, NA)))
-  expect_true(x_int$IsValid(0L))
+  expect_true(x_int$IsValid(0))
   expect_true(x_dbl$IsValid(0L))
   expect_true(x_int$IsNull(10L))
-  expect_true(x_dbl$IsNull(10L))
+  expect_true(x_dbl$IsNull(10))
 
   expect_equal(is.na(x_int), c(rep(FALSE, 10), TRUE))
   expect_equal(is.na(x_dbl), c(rep(FALSE, 10), TRUE))
+
+  # Input validation
+  expect_error(x_int$IsValid("ten"), class = "Rcpp::not_compatible")
+  expect_error(x_int$IsNull("ten"), class = "Rcpp::not_compatible")
+  expect_error(x_int$IsValid(c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x_int$IsNull(c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x_int$IsValid(NA), "'i' cannot be NA")
+  expect_error(x_int$IsNull(NA), "'i' cannot be NA")
 })
 
 test_that("Array support null type (ARROW-7064)", {
@@ -514,7 +551,18 @@ test_that("Array$Equals", {
   vec <- 11:20
   a <- Array$create(vec)
   b <- Array$create(vec)
+  d <- Array$create(3:4)
   expect_equal(a, b)
   expect_true(a$Equals(b))
   expect_false(a$Equals(vec))
+  expect_false(a$Equals(d))
+})
+
+test_that("Array$ApproxEquals", {
+  vec <- c(1.0000000000001, 2.400000000000001)
+  a <- Array$create(vec)
+  b <- Array$create(round(vec, 1))
+  expect_false(a$Equals(b))
+  expect_true(a$ApproxEquals(b))
+  expect_false(a$ApproxEquals(vec))
 })

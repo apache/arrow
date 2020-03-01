@@ -25,20 +25,37 @@ using Rcpp::no_init;
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
                                             int offset) {
+  if (offset == NA_INTEGER) {
+    Rcpp::stop("'offset' cannot be NA");
+  }
   return array->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array,
                                             int offset, int length) {
+  if (offset == NA_INTEGER) {
+    Rcpp::stop("'offset' cannot be NA");
+  }
+  if (length == NA_INTEGER) {
+    Rcpp::stop("'length' cannot be NA");
+  }
   return array->Slice(offset, length);
 }
 
 // [[arrow::export]]
-bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i) { return x->IsNull(i); }
+bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i) {
+  if (i == NA_INTEGER) {
+    Rcpp::stop("'i' cannot be NA");
+  }
+  return x->IsNull(i);
+}
 
 // [[arrow::export]]
 bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i) {
+  if (i == NA_INTEGER) {
+    Rcpp::stop("'i' cannot be NA");
+  }
   return x->IsValid(i);
 }
 
@@ -88,6 +105,15 @@ std::shared_ptr<arrow::ArrayData> Array__data(
 bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
                         const std::shared_ptr<arrow::Array>& other, int start_idx,
                         int end_idx, int other_start_idx) {
+  if (start_idx == NA_INTEGER) {
+    Rcpp::stop("'start_idx' cannot be NA");
+  }
+  if (end_idx == NA_INTEGER) {
+    Rcpp::stop("'end_idx' cannot be NA");
+  }
+  if (other_start_idx == NA_INTEGER) {
+    Rcpp::stop("'other_start_idx' cannot be NA");
+  }
   return self->RangeEquals(*other, start_idx, end_idx, other_start_idx);
 }
 
