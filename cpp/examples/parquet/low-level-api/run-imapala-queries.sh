@@ -63,6 +63,7 @@ $IMPALA_HOME/bin/impala-shell.sh -q "select count(*) from export_all_types_table
 
 $HADOOP_HOME/bin/hdfs dfs -ls -R /panos/export_dir/UNCOMPRESSED
 
+mkdir -p ~/parquet_data/testing/exports/UNCOMPRESSED/
 
 hadoop fs -get /panos/export_dir/UNCOMPRESSED/*   ~/parquet_data/testing/exports/UNCOMPRESSED/
 
