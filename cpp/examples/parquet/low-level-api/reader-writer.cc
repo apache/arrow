@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
 
     // Add writer properties
     parquet::WriterProperties::Builder builder;
-    builder.compression(parquet::Compression::SNAPPY);
+    builder.compression(parquet::Compression::UNCOMPRESSED);
     std::shared_ptr<parquet::WriterProperties> props = builder.build();
 
     // Create a ParquetFileWriter instance

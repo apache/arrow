@@ -171,8 +171,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              float* page_min = (float*)(void *)col_index.min_values[itemindex].c_str();
              float* page_max = (float*)(void *)col_index.max_values[itemindex].c_str();
              float max_diff = *page_max - *page_min;
+             auto epsilon = std::numeric_limits<double>::epsilon();
+             float error_factor = 2.0;
            
-              if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
+              if ( fabs(v-*page_min) <= error_factor*epsilon && fabs(max_diff-fabs(v - *page_min)) <= error_factor*epsilon ) {
                min_index = itemindex;
               }
             }
@@ -186,7 +188,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              double* page_max = (double*)(void *)col_index.max_values[itemindex].c_str();
              double max_diff = *page_max - *page_min;
            
-              if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
+              if ( *page_min <= v && max_diff >= fabs(v - *page_min) ) {
                min_index = itemindex;
               }
             }
