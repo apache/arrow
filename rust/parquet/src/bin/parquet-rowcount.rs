@@ -52,7 +52,7 @@ use parquet::file::reader::{FileReader, SerializedFileReader};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() < 2  {
+    if args.len() < 2 {
         println!("Usage: parquet-rowcount <file-path> ...");
         process::exit(1);
     }
