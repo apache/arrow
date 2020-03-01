@@ -20,7 +20,7 @@
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-use flight::FlightData;
+use flight::{FlightData, SchemaResult};
 
 use crate::datatypes::Schema;
 use crate::error::{ArrowError, Result};
@@ -36,6 +36,15 @@ impl From<&RecordBatch> for FlightData {
             app_metadata: vec![],
             data_header: header,
             data_body: body,
+        }
+    }
+}
+
+/// Convert a `Schema` to `SchemaResult` by converting to an IPC message
+impl From<&Schema> for SchemaResult {
+    fn from(schema: &Schema) -> Self {
+        Self {
+            schema: writer::schema_to_bytes(schema),
         }
     }
 }
@@ -61,6 +70,18 @@ impl TryFrom<&FlightData> for Schema {
     fn try_from(data: &FlightData) -> Result<Self> {
         convert::schema_from_bytes(&data.data_header[..]).ok_or(ArrowError::ParseError(
             "Unable to convert flight data to Arrow schema".to_string(),
+        ))
+    }
+}
+
+/// Try convert `SchemaResult` into an Arrow Schema
+///
+/// Returns an error if the `FlightData` header is not a valid IPC schema
+impl TryFrom<&SchemaResult> for Schema {
+    type Error = ArrowError;
+    fn try_from(data: &SchemaResult) -> Result<Self> {
+        convert::schema_from_bytes(&data.schema[..]).ok_or(ArrowError::ParseError(
+            "Unable to convert schema result to Arrow schema".to_string(),
         ))
     }
 }
