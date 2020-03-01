@@ -48,6 +48,10 @@ bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i) {
   if (i == NA_INTEGER) {
     Rcpp::stop("'i' cannot be NA");
   }
+  if (i < 0 || i >= x->length()) {
+    // Should this validation be in the C++ library?
+    Rcpp::stop("subscript out of bounds");
+  }
   return x->IsNull(i);
 }
 
@@ -55,6 +59,10 @@ bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i) {
 bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i) {
   if (i == NA_INTEGER) {
     Rcpp::stop("'i' cannot be NA");
+  }
+  if (i < 0 || i >= x->length()) {
+    // Should this validation be in the C++ library?
+    Rcpp::stop("subscript out of bounds");
   }
   return x->IsValid(i);
 }

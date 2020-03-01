@@ -40,6 +40,13 @@ int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> ChunkedArray__chunk(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i) {
+  if (i == NA_INTEGER) {
+    Rcpp::stop("'i' cannot be NA");
+  }
+  if (i < 0 || i >= chunked_array->num_chunks()) {
+    // Should this validation be in the C++ library?
+    Rcpp::stop("subscript out of bounds");
+  }
   return chunked_array->chunk(i);
 }
 
@@ -57,12 +64,21 @@ std::shared_ptr<arrow::DataType> ChunkedArray__type(
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice1(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset) {
+  if (offset == NA_INTEGER) {
+    Rcpp::stop("'offset' cannot be NA");
+  }
   return chunked_array->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice2(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset, int length) {
+  if (offset == NA_INTEGER) {
+    Rcpp::stop("'offset' cannot be NA");
+  }
+  if (length == NA_INTEGER) {
+    Rcpp::stop("'length' cannot be NA");
+  }
   return chunked_array->Slice(offset, length);
 }
 

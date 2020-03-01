@@ -75,8 +75,8 @@ test_that("Slice() and RangeEquals()", {
   # expect_error(x$Slice(1000)) # abort trap with debug build
   # cpp/src/arrow/array.cc:97:  Check failed: (off) <= (length) Slice offset greater than array length
   # expect_error(z$Slice(10, 10)) # abort trap with debug build
-  # expect_error(x$Slice(10, 1000)) # does not error
-  # expect_error(z$Slice(2, 10)) # does not error
+  # expect_error(x$Slice(10, 1000)) # does not error, should it?
+  # expect_error(z$Slice(2, 10)) # does not error, should it?
 
   expect_error(x$RangeEquals(10, 24, 0), 'other must be a "Array"')
   expect_error(x$RangeEquals(y, NA, 24), "'start_idx' cannot be NA")
@@ -116,6 +116,10 @@ test_that("Array supports NA", {
   expect_error(x_int$IsNull(c(10, 10)), class = "Rcpp::not_compatible")
   expect_error(x_int$IsValid(NA), "'i' cannot be NA")
   expect_error(x_int$IsNull(NA), "'i' cannot be NA")
+  expect_error(x_int$IsValid(1000), "subscript out of bounds")
+  expect_error(x_int$IsValid(-1), "subscript out of bounds")
+  expect_error(x_int$IsNull(1000), "subscript out of bounds")
+  expect_error(x_int$IsNull(-1), "subscript out of bounds")
 })
 
 test_that("Array support null type (ARROW-7064)", {
@@ -294,7 +298,7 @@ test_that("cast to half float works", {
   skip("Need halffloat support: https://issues.apache.org/jira/browse/ARROW-3802")
   a <- Array$create(1:4)
   a_f16 <- a$cast(float16())
-  expect_equal(a_16$type, float16())
+  expect_type_equal(a_16$type, float16())
 })
 
 test_that("cast input validation", {
@@ -313,8 +317,8 @@ test_that("Array$create() supports the type= argument. conversion from INTSXP an
     double() # not actually a type, a base R function but should be alias for float64
   )
   for (type in types) {
-    expect_equal(Array$create(num_int32, type = type)$type, as_type(type))
-    expect_equal(Array$create(num_int64, type = type)$type, as_type(type))
+    expect_type_equal(Array$create(num_int32, type = type)$type, as_type(type))
+    expect_type_equal(Array$create(num_int64, type = type)$type, as_type(type))
   }
 
   # Input validation
@@ -348,18 +352,18 @@ test_that("Array$create() aborts on overflow", {
 test_that("Array$create() does not convert doubles to integer", {
   for (type in c(int_types, uint_types)) {
     a <- Array$create(10, type = type)
-    expect_equal(a$type, type)
+    expect_type_equal(a$type, type)
 
     # exception for now because we cannot handle
     # unsigned 64 bit integers yet
     if (type != uint64()) {
-      expect_true(a$as_vector() == 10L)
+      expect_true(as.vector(a) == 10L)
     }
   }
 })
 
 test_that("Array$create() converts raw vectors to uint8 arrays (ARROW-3794)", {
-  expect_equal(Array$create(as.raw(1:10))$type, uint8())
+  expect_type_equal(Array$create(as.raw(1:10))$type, uint8())
 })
 
 test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
@@ -380,15 +384,15 @@ test_that("Array$create() recognise arrow::Array (ARROW-3815)", {
 test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
   a <- Array$create(df)
-  expect_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
-  expect_equivalent(a$as_vector(), df)
+  expect_type_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
+  expect_equivalent(as.vector(a), df)
 })
 
 test_that("Array$create() can handle data frame with custom struct type (not inferred)", {
   df <- tibble::tibble(x = 1:10, y = 1:10)
   type <- struct(x = float64(), y = int16())
   a <- Array$create(df, type = type)
-  expect_equal(a$type, type)
+  expect_type_equal(a$type, type)
 
   type <- struct(x = float64(), y = int16(), z = int32())
   expect_error(Array$create(df, type = type), regexp = "Number of fields in struct.* incompatible with number of columns in the data frame")
