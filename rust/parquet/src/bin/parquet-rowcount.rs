@@ -65,8 +65,8 @@ fn main() {
         let row_group_metadata = parquet_reader.metadata().row_groups();
         let mut total_num_rows = 0;
 
-        for x in row_group_metadata {
-            total_num_rows += x.num_rows();
+        for group_metadata in row_group_metadata {
+            total_num_rows += group_metadata.num_rows();
         }
 
         eprintln!("File {}: rowcount={}", filename, total_num_rows);
