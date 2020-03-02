@@ -75,5 +75,6 @@ BENCHMARK(SortToIndicesInt64Compare)
     ->Args({1 << 23, 1})
     ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
+
 }  // namespace compute
 }  // namespace arrow
