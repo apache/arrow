@@ -1051,7 +1051,7 @@ services:
     command: >
       /bin/bash -c "
         pip install -e /arrow/dev/archery &&
-        archery lint --all --no-clang-tidy --no-numpydoc"
+        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc"
 
   ######################### Integration Tests #################################
 
