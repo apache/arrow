@@ -19,6 +19,7 @@
 set -ex
 
 : ${R_BIN:=R}
+: ${ARROW_R_DEV:=TRUE}
 
 source_dir=${1}/r
 
@@ -28,11 +29,10 @@ if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
   export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
   export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
 fi
-if [ "$ARROW_R_CXXFLAGS" != "" ]; then
+if [ "$ARROW_R_CXXFLAGS" != "" ] || [ "$ARROW_R_DEV" != "TRUE" ]; then
   export _R_CHECK_COMPILATION_FLAGS_=FALSE
 fi
 export TEST_R_WITH_ARROW=TRUE
-export ARROW_R_DEV=TRUE # For log verbosity
 export _R_CHECK_TESTS_NLINES_=0
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE

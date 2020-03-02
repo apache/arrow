@@ -791,6 +791,7 @@ services:
       LIBARROW_DOWNLOAD: "false"
       ARROW_HOME: "/arrow"
       ARROW_USE_PKG_CONFIG: "false"
+      ARROW_R_DEV: ${ARROW_R_DEV}
     volumes:
       - .:/arrow:delegated
     command: >

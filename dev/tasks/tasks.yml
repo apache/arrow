@@ -1854,6 +1854,8 @@ tasks:
       r_org: rstudio
       r_image: r-base
       r_tag: 3.6-bionic
+      # Turn off verbosity on some tests in order to check compiler flags
+      verbose: FALSE
 
   test-r-rstudio-r-base-3.6-centos6:
     ci: azure
@@ -1863,6 +1865,7 @@ tasks:
       r_org: rstudio
       r_image: r-base
       r_tag: 3.6-centos6
+      verbose: FALSE
 
   test-r-rstudio-r-base-3.6-opensuse15:
     ci: azure

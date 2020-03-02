@@ -46,6 +46,7 @@ jobs:
         R_ORG={{ r_org }}
         R_IMAGE={{ r_image }}
         R_TAG={{ r_tag }}
+        ARROW_R_DEV={{ verbose }}
         docker-compose run r
       displayName: Docker run
 
