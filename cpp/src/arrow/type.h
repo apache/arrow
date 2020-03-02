@@ -338,14 +338,13 @@ class ARROW_EXPORT NestedType : public DataType, public ParametricType {
 /// which holds arbitrary key-value pairs.
 class ARROW_EXPORT Field : public detail::Fingerprintable {
  public:
-  Field(const std::string& name, const std::shared_ptr<DataType>& type,
-        bool nullable = true,
-        const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR)
+  Field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
+        std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR)
       : detail::Fingerprintable(),
-        name_(name),
-        type_(type),
+        name_(std::move(name)),
+        type_(std::move(type)),
         nullable_(nullable),
-        metadata_(metadata) {}
+        metadata_(std::move(metadata)) {}
 
   ~Field() override;
 
@@ -436,7 +435,7 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   /// \brief Return the field name
   const std::string& name() const { return name_; }
   /// \brief Return the field data type
-  std::shared_ptr<DataType> type() const { return type_; }
+  const std::shared_ptr<DataType>& type() const { return type_; }
   /// \brief Return whether the field is nullable
   bool nullable() const { return nullable_; }
 
@@ -779,6 +778,8 @@ class ARROW_EXPORT FixedSizeListType : public BaseListType {
   int32_t list_size() const { return list_size_; }
 
  protected:
+  std::string ComputeFingerprint() const override;
+
   int32_t list_size_;
 };
 
@@ -1231,7 +1232,7 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
   std::string timezone_;
 };
 
-// Base class for the different kinds of intervals.
+// Base class for the different kinds of calendar intervals.
 class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
   enum type { MONTHS, DAY_TIME };
@@ -1243,10 +1244,10 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
   std::string ComputeFingerprint() const override;
 };
 
-/// \brief Represents a some number of months.
+/// \brief Represents a number of months.
 ///
 /// Type representing a number of months.  Corresponds to YearMonth type
-/// in Schema.fbs (Years are defined as 12 months).
+/// in Schema.fbs (years are defined as 12 months).
 class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
   static constexpr Type::type type_id = Type::INTERVAL;
@@ -1295,8 +1296,7 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   std::string name() const override { return "day_time_interval"; }
 };
 
-// \brief Represents an amount of elapsed time without any relation to a calendar
-// artifact.
+/// \brief Represents an elapsed time without any relation to a calendar artifact.
 class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;
@@ -1350,8 +1350,8 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   DataTypeLayout layout() const override;
 
-  std::shared_ptr<DataType> index_type() const { return index_type_; }
-  std::shared_ptr<DataType> value_type() const { return value_type_; }
+  const std::shared_ptr<DataType>& index_type() const { return index_type_; }
+  const std::shared_ptr<DataType>& value_type() const { return value_type_; }
 
   bool ordered() const { return ordered_; }
 
@@ -1408,11 +1408,8 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
                             public util::EqualityComparable<Schema>,
                             public util::ToStringOstreamable<Schema> {
  public:
-  explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
-                  const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
-
-  explicit Schema(std::vector<std::shared_ptr<Field>>&& fields,
-                  const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
+  explicit Schema(std::vector<std::shared_ptr<Field>> fields,
+                  std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
   Schema(const Schema&);
 
@@ -1638,9 +1635,9 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
 /// \param type the field value type
 /// \param nullable whether the values are nullable, default true
 /// \param metadata any custom key-value metadata, default null
-std::shared_ptr<Field> ARROW_EXPORT field(
-    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true,
-    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
+std::shared_ptr<Field> ARROW_EXPORT
+field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
+      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// \brief Create a Schema instance
 ///
@@ -1649,18 +1646,8 @@ std::shared_ptr<Field> ARROW_EXPORT field(
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
-    const std::vector<std::shared_ptr<Field>>& fields,
-    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
-
-/// \brief Create a Schema instance
-///
-/// \param fields the schema's fields (rvalue reference)
-/// \param metadata any custom key-value metadata, default null
-/// \return schema shared_ptr to Schema
-ARROW_EXPORT
-std::shared_ptr<Schema> schema(
-    std::vector<std::shared_ptr<Field>>&& fields,
-    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
+    std::vector<std::shared_ptr<Field>> fields,
+    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// @}
 

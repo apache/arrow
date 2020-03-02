@@ -39,6 +39,7 @@ namespace internal {
 namespace json {
 
 using ::arrow::internal::checked_cast;
+using ::arrow::internal::checked_pointer_cast;
 
 static constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
 
@@ -155,6 +156,7 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
 // Convert single signed integer value (also {Date,Time}{32,64} and Timestamp)
 template <typename T>
 enable_if_physical_signed_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
+                                                           const DataType& type,
                                                            typename T::c_type* out) {
   if (json_obj.IsInt64()) {
     int64_t v64 = json_obj.GetInt64();
@@ -162,8 +164,7 @@ enable_if_physical_signed_integer<T, Status> ConvertNumber(const rj::Value& json
     if (*out == v64) {
       return Status::OK();
     } else {
-      return Status::Invalid("Value ", v64, " out of bounds for ",
-                             TypeTraits<T>::type_singleton());
+      return Status::Invalid("Value ", v64, " out of bounds for ", type);
     }
   } else {
     *out = static_cast<typename T::c_type>(0);
@@ -174,6 +175,7 @@ enable_if_physical_signed_integer<T, Status> ConvertNumber(const rj::Value& json
 // Convert single unsigned integer value
 template <typename T>
 enable_if_physical_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
+                                                             const DataType& type,
                                                              typename T::c_type* out) {
   if (json_obj.IsUint64()) {
     uint64_t v64 = json_obj.GetUint64();
@@ -181,8 +183,7 @@ enable_if_physical_unsigned_integer<T, Status> ConvertNumber(const rj::Value& js
     if (*out == v64) {
       return Status::OK();
     } else {
-      return Status::Invalid("Value ", v64, " out of bounds for ",
-                             TypeTraits<T>::type_singleton());
+      return Status::Invalid("Value ", v64, " out of bounds for ", type);
     }
   } else {
     *out = static_cast<typename T::c_type>(0);
@@ -193,6 +194,7 @@ enable_if_physical_unsigned_integer<T, Status> ConvertNumber(const rj::Value& js
 // Convert single floating point value
 template <typename T>
 enable_if_physical_floating_point<T, Status> ConvertNumber(const rj::Value& json_obj,
+                                                           const DataType& type,
                                                            typename T::c_type* out) {
   if (json_obj.IsNumber()) {
     *out = static_cast<typename T::c_type>(json_obj.GetDouble());
@@ -212,9 +214,13 @@ class IntegerConverter final : public ConcreteConverter<IntegerConverter<Type>> 
   static constexpr auto is_signed = std::is_signed<c_type>::value;
 
  public:
-  explicit IntegerConverter(const std::shared_ptr<DataType>& type) {
-    this->type_ = type;
-    builder_ = std::make_shared<NumericBuilder<Type>>();
+  explicit IntegerConverter(const std::shared_ptr<DataType>& type) { this->type_ = type; }
+
+  Status Init() override {
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), this->type_, &builder));
+    builder_ = checked_pointer_cast<NumericBuilder<Type>>(std::move(builder));
+    return Status::OK();
   }
 
   Status AppendNull() override { return builder_->AppendNull(); }
@@ -224,7 +230,7 @@ class IntegerConverter final : public ConcreteConverter<IntegerConverter<Type>> 
       return AppendNull();
     }
     c_type value;
-    RETURN_NOT_OK(ConvertNumber<Type>(json_obj, &value));
+    RETURN_NOT_OK(ConvertNumber<Type>(json_obj, *this->type_, &value));
     return builder_->Append(value);
   }
 
@@ -254,7 +260,7 @@ class FloatConverter final : public ConcreteConverter<FloatConverter<Type>> {
       return AppendNull();
     }
     c_type value;
-    RETURN_NOT_OK(ConvertNumber<Type>(json_obj, &value));
+    RETURN_NOT_OK(ConvertNumber<Type>(json_obj, *this->type_, &value));
     return builder_->Append(value);
   }
 
@@ -321,7 +327,7 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
     }
     int64_t value;
     if (json_obj.IsNumber()) {
-      RETURN_NOT_OK(ConvertNumber<Int64Type>(json_obj, &value));
+      RETURN_NOT_OK(ConvertNumber<Int64Type>(json_obj, *this->type_, &value));
     } else if (json_obj.IsString()) {
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
       if (!from_string_(view.data(), view.size(), &value)) {
@@ -338,6 +344,43 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
  private:
   ::arrow::internal::StringConverter<TimestampType> from_string_;
   std::shared_ptr<TimestampBuilder> builder_;
+};
+
+// ------------------------------------------------------------------------
+// Converter for day-time interval arrays
+
+class DayTimeIntervalConverter final
+    : public ConcreteConverter<DayTimeIntervalConverter> {
+ public:
+  explicit DayTimeIntervalConverter(const std::shared_ptr<DataType>& type) {
+    this->type_ = type;
+    builder_ = std::make_shared<DayTimeIntervalBuilder>(default_memory_pool());
+  }
+
+  Status AppendNull() override { return builder_->AppendNull(); }
+
+  Status AppendValue(const rj::Value& json_obj) override {
+    if (json_obj.IsNull()) {
+      return AppendNull();
+    }
+    DayTimeIntervalType::DayMilliseconds value;
+    if (!json_obj.IsArray()) {
+      return JSONTypeError("array", json_obj.GetType());
+    }
+    if (json_obj.Size() != 2) {
+      return Status::Invalid(
+          "day time interval pair must have exactly two elements, had ", json_obj.Size());
+    }
+    RETURN_NOT_OK(ConvertNumber<Int32Type>(json_obj[0], *this->type_, &value.days));
+    RETURN_NOT_OK(
+        ConvertNumber<Int32Type>(json_obj[1], *this->type_, &value.milliseconds));
+    return builder_->Append(value);
+  }
+
+  std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
+
+ private:
+  std::shared_ptr<DayTimeIntervalBuilder> builder_;
 };
 
 // ------------------------------------------------------------------------
@@ -713,6 +756,11 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
                     std::shared_ptr<Converter>* out) {
   std::shared_ptr<Converter> res;
 
+  auto not_implemented = [&]() -> Status {
+    return Status::NotImplemented("JSON conversion to ", type->ToString(),
+                                  " not implemented");
+  };
+
 #define SIMPLE_CONVERTER_CASE(ID, CLASS) \
   case ID:                               \
     res = std::make_shared<CLASS>(type); \
@@ -722,16 +770,17 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::INT8, IntegerConverter<Int8Type>)
     SIMPLE_CONVERTER_CASE(Type::INT16, IntegerConverter<Int16Type>)
     SIMPLE_CONVERTER_CASE(Type::INT32, IntegerConverter<Int32Type>)
-    SIMPLE_CONVERTER_CASE(Type::TIME32, IntegerConverter<Int32Type>)
-    SIMPLE_CONVERTER_CASE(Type::DATE32, IntegerConverter<Date32Type>)
     SIMPLE_CONVERTER_CASE(Type::INT64, IntegerConverter<Int64Type>)
-    SIMPLE_CONVERTER_CASE(Type::TIME64, IntegerConverter<Int64Type>)
-    SIMPLE_CONVERTER_CASE(Type::TIMESTAMP, TimestampConverter)
-    SIMPLE_CONVERTER_CASE(Type::DATE64, IntegerConverter<Date64Type>)
     SIMPLE_CONVERTER_CASE(Type::UINT8, IntegerConverter<UInt8Type>)
     SIMPLE_CONVERTER_CASE(Type::UINT16, IntegerConverter<UInt16Type>)
     SIMPLE_CONVERTER_CASE(Type::UINT32, IntegerConverter<UInt32Type>)
     SIMPLE_CONVERTER_CASE(Type::UINT64, IntegerConverter<UInt64Type>)
+    SIMPLE_CONVERTER_CASE(Type::TIMESTAMP, TimestampConverter)
+    SIMPLE_CONVERTER_CASE(Type::DATE32, IntegerConverter<Date32Type>)
+    SIMPLE_CONVERTER_CASE(Type::DATE64, IntegerConverter<Date64Type>)
+    SIMPLE_CONVERTER_CASE(Type::TIME32, IntegerConverter<Time32Type>)
+    SIMPLE_CONVERTER_CASE(Type::TIME64, IntegerConverter<Time64Type>)
+    SIMPLE_CONVERTER_CASE(Type::DURATION, IntegerConverter<DurationType>)
     SIMPLE_CONVERTER_CASE(Type::NA, NullConverter)
     SIMPLE_CONVERTER_CASE(Type::BOOL, BooleanConverter)
     SIMPLE_CONVERTER_CASE(Type::HALF_FLOAT, IntegerConverter<HalfFloatType>)
@@ -749,10 +798,21 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
     SIMPLE_CONVERTER_CASE(Type::UNION, UnionConverter)
-    default: {
-      return Status::NotImplemented("JSON conversion to ", type->ToString(),
-                                    " not implemented");
+    case Type::INTERVAL: {
+      switch (checked_cast<const IntervalType&>(*type).interval_type()) {
+        case IntervalType::MONTHS:
+          res = std::make_shared<IntegerConverter<MonthIntervalType>>(type);
+          break;
+        case IntervalType::DAY_TIME:
+          res = std::make_shared<DayTimeIntervalConverter>(type);
+          break;
+        default:
+          return not_implemented();
+      }
+      break;
     }
+    default:
+      return not_implemented();
   }
 
 #undef SIMPLE_CONVERTER_CASE

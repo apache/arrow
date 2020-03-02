@@ -1220,6 +1220,46 @@ parquet___arrow___FileReader__GetSchema <- function(reader){
     .Call(`_arrow_parquet___arrow___FileReader__GetSchema` , reader)
 }
 
+ImportArray <- function(array, schema){
+    .Call(`_arrow_ImportArray` , array, schema)
+}
+
+ImportRecordBatch <- function(array, schema){
+    .Call(`_arrow_ImportRecordBatch` , array, schema)
+}
+
+allocate_arrow_schema <- function(){
+    .Call(`_arrow_allocate_arrow_schema` )
+}
+
+delete_arrow_schema <- function(ptr){
+    invisible(.Call(`_arrow_delete_arrow_schema` , ptr))
+}
+
+allocate_arrow_array <- function(){
+    .Call(`_arrow_allocate_arrow_array` )
+}
+
+delete_arrow_array <- function(ptr){
+    invisible(.Call(`_arrow_delete_arrow_array` , ptr))
+}
+
+ExportType <- function(type, ptr){
+    invisible(.Call(`_arrow_ExportType` , type, ptr))
+}
+
+ExportSchema <- function(schema, ptr){
+    invisible(.Call(`_arrow_ExportSchema` , schema, ptr))
+}
+
+ExportArray <- function(array, ptr, schema_ptr){
+    invisible(.Call(`_arrow_ExportArray` , array, ptr, schema_ptr))
+}
+
+ExportRecordBatch <- function(batch, ptr, schema_ptr){
+    invisible(.Call(`_arrow_ExportRecordBatch` , batch, ptr, schema_ptr))
+}
+
 RecordBatch__num_columns <- function(x){
     .Call(`_arrow_RecordBatch__num_columns` , x)
 }

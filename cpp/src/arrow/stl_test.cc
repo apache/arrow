@@ -29,6 +29,7 @@
 
 #include "arrow/memory_pool.h"
 #include "arrow/stl.h"
+#include "arrow/stl_allocator.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"

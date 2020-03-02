@@ -154,7 +154,7 @@ class TestArray < Test::Unit::TestCase
     def test_different_type
       array = build_string_array(["Start", "Shutdown", "Reboot"])
       other_array = build_int8_array([2, 3, 6, 10])
-      assert_equal("# Array types differed: string vs int8",
+      assert_equal("# Array types differed: string vs int8\n",
                    array.diff_unified(other_array))
     end
   end

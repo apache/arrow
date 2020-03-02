@@ -4772,6 +4772,168 @@ RcppExport SEXP _arrow_parquet___arrow___FileReader__GetSchema(SEXP reader_sexp)
 }
 #endif
 
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> ImportArray(uintptr_t array, uintptr_t schema);
+RcppExport SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<uintptr_t>::type array(array_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type schema(schema_sexp);
+	return Rcpp::wrap(ImportArray(array, schema));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
+	Rf_error("Cannot call ImportArray(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(uintptr_t array, uintptr_t schema);
+RcppExport SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<uintptr_t>::type array(array_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type schema(schema_sexp);
+	return Rcpp::wrap(ImportRecordBatch(array, schema));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
+	Rf_error("Cannot call ImportRecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+uintptr_t allocate_arrow_schema();
+RcppExport SEXP _arrow_allocate_arrow_schema(){
+BEGIN_RCPP
+	return Rcpp::wrap(allocate_arrow_schema());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_allocate_arrow_schema(){
+	Rf_error("Cannot call allocate_arrow_schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void delete_arrow_schema(uintptr_t ptr);
+RcppExport SEXP _arrow_delete_arrow_schema(SEXP ptr_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<uintptr_t>::type ptr(ptr_sexp);
+	delete_arrow_schema(ptr);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_delete_arrow_schema(SEXP ptr_sexp){
+	Rf_error("Cannot call delete_arrow_schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+uintptr_t allocate_arrow_array();
+RcppExport SEXP _arrow_allocate_arrow_array(){
+BEGIN_RCPP
+	return Rcpp::wrap(allocate_arrow_array());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_allocate_arrow_array(){
+	Rf_error("Cannot call allocate_arrow_array(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void delete_arrow_array(uintptr_t ptr);
+RcppExport SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<uintptr_t>::type ptr(ptr_sexp);
+	delete_arrow_array(ptr);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
+	Rf_error("Cannot call delete_arrow_array(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExportType(const std::shared_ptr<arrow::DataType>& type, uintptr_t ptr);
+RcppExport SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type ptr(ptr_sexp);
+	ExportType(type, ptr);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
+	Rf_error("Cannot call ExportType(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExportSchema(const std::shared_ptr<arrow::Schema>& schema, uintptr_t ptr);
+RcppExport SEXP _arrow_ExportSchema(SEXP schema_sexp, SEXP ptr_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type ptr(ptr_sexp);
+	ExportSchema(schema, ptr);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ExportSchema(SEXP schema_sexp, SEXP ptr_sexp){
+	Rf_error("Cannot call ExportSchema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExportArray(const std::shared_ptr<arrow::Array>& array, uintptr_t ptr, uintptr_t schema_ptr);
+RcppExport SEXP _arrow_ExportArray(SEXP array_sexp, SEXP ptr_sexp, SEXP schema_ptr_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type ptr(ptr_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type schema_ptr(schema_ptr_sexp);
+	ExportArray(array, ptr, schema_ptr);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ExportArray(SEXP array_sexp, SEXP ptr_sexp, SEXP schema_ptr_sexp){
+	Rf_error("Cannot call ExportArray(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch, uintptr_t ptr, uintptr_t schema_ptr);
+RcppExport SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP ptr_sexp, SEXP schema_ptr_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type ptr(ptr_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type schema_ptr(schema_ptr_sexp);
+	ExportRecordBatch(batch, ptr, schema_ptr);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP ptr_sexp, SEXP schema_ptr_sexp){
+	Rf_error("Cannot call ExportRecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
@@ -6041,6 +6203,16 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileWriter__Close", (DL_FUNC) &_arrow_parquet___arrow___FileWriter__Close, 1}, 
 		{ "_arrow_parquet___arrow___WriteTable", (DL_FUNC) &_arrow_parquet___arrow___WriteTable, 4}, 
 		{ "_arrow_parquet___arrow___FileReader__GetSchema", (DL_FUNC) &_arrow_parquet___arrow___FileReader__GetSchema, 1}, 
+		{ "_arrow_ImportArray", (DL_FUNC) &_arrow_ImportArray, 2}, 
+		{ "_arrow_ImportRecordBatch", (DL_FUNC) &_arrow_ImportRecordBatch, 2}, 
+		{ "_arrow_allocate_arrow_schema", (DL_FUNC) &_arrow_allocate_arrow_schema, 0}, 
+		{ "_arrow_delete_arrow_schema", (DL_FUNC) &_arrow_delete_arrow_schema, 1}, 
+		{ "_arrow_allocate_arrow_array", (DL_FUNC) &_arrow_allocate_arrow_array, 0}, 
+		{ "_arrow_delete_arrow_array", (DL_FUNC) &_arrow_delete_arrow_array, 1}, 
+		{ "_arrow_ExportType", (DL_FUNC) &_arrow_ExportType, 2}, 
+		{ "_arrow_ExportSchema", (DL_FUNC) &_arrow_ExportSchema, 2}, 
+		{ "_arrow_ExportArray", (DL_FUNC) &_arrow_ExportArray, 3}, 
+		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 3}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 
 		{ "_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1}, 

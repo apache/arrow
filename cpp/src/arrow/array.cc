@@ -738,6 +738,12 @@ Result<std::shared_ptr<StructArray>> StructArray::Make(
   if (offset > length) {
     return Status::IndexError("Offset greater than length of child arrays");
   }
+  if (null_bitmap == nullptr) {
+    if (null_count > 0) {
+      return Status::Invalid("null_count = ", null_count, " but no null bitmap given");
+    }
+    null_count = 0;
+  }
   return std::make_shared<StructArray>(struct_(fields), length - offset, children,
                                        null_bitmap, null_count, offset);
 }

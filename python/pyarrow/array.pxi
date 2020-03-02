@@ -1121,6 +1121,61 @@ cdef class Array(_PandasConvertible):
         _append_array_buffers(self.sp_array.get().data().get(), res)
         return res
 
+    def _export_to_c(self, uintptr_t out_ptr, uintptr_t out_schema_ptr=0):
+        """
+        Export to a C ArrowArray struct, given its pointer.
+
+        If a C ArrowSchema struct pointer is also given, the array type
+        is exported to it at the same time.
+
+        Parameters
+        ----------
+        out_ptr: int
+            The raw pointer to a C ArrowArray struct.
+        out_schema_ptr: int (optional)
+            The raw pointer to a C ArrowSchema struct.
+
+        Be careful: if you don't pass the ArrowArray struct to a consumer,
+        array memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        with nogil:
+            check_status(ExportArray(deref(self.sp_array),
+                                     <ArrowArray*> out_ptr,
+                                     <ArrowSchema*> out_schema_ptr))
+
+    @staticmethod
+    def _import_from_c(uintptr_t in_ptr, type):
+        """
+        Import Array from a C ArrowArray struct, given its pointer
+        and the imported array type.
+
+        Parameters
+        ----------
+        in_ptr: int
+            The raw pointer to a C ArrowArray struct.
+        type: DataType or int
+            Either a DataType object, or the raw pointer to a C ArrowSchema
+            struct.
+
+        This is a low-level function intended for expert users.
+        """
+        cdef:
+            shared_ptr[CArray] c_array
+
+        c_type = pyarrow_unwrap_data_type(type)
+        if c_type == nullptr:
+            # Not a DataType object, perhaps a raw ArrowSchema pointer
+            type_ptr = <uintptr_t> type
+            with nogil:
+                c_array = GetResultValue(ImportArray(<ArrowArray*> in_ptr,
+                                                     <ArrowSchema*> type_ptr))
+        else:
+            with nogil:
+                c_array = GetResultValue(ImportArray(<ArrowArray*> in_ptr,
+                                                     c_type))
+        return pyarrow_wrap_array(c_array)
+
 
 cdef _array_like_to_pandas(obj, options):
     cdef:

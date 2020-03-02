@@ -27,7 +27,7 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/stl.h"
+#include "arrow/stl_allocator.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
