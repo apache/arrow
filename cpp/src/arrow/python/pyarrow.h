@@ -85,6 +85,12 @@ unwrap_sparse_csr_matrix(PyObject* sparse_tensor, std::shared_ptr<SparseCSRMatri
 ARROW_PYTHON_EXPORT PyObject* wrap_sparse_csr_matrix(
     const std::shared_ptr<SparseCSRMatrix>& sparse_tensor);
 
+ARROW_PYTHON_EXPORT bool is_sparse_csc_matrix(PyObject* sparse_tensor);
+ARROW_PYTHON_EXPORT Status
+unwrap_sparse_csc_matrix(PyObject* sparse_tensor, std::shared_ptr<SparseCSCMatrix>* out);
+ARROW_PYTHON_EXPORT PyObject* wrap_sparse_csc_matrix(
+    const std::shared_ptr<SparseCSCMatrix>& sparse_tensor);
+
 ARROW_PYTHON_EXPORT bool is_table(PyObject* table);
 ARROW_PYTHON_EXPORT Status unwrap_table(PyObject* table, std::shared_ptr<Table>* out);
 ARROW_PYTHON_EXPORT PyObject* wrap_table(const std::shared_ptr<Table>& table);

@@ -777,6 +777,23 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type type_id()
         c_bool Equals(const CSparseCSRMatrix& other)
 
+    cdef cppclass CSparseCSCMatrix" arrow::SparseCSCMatrix":
+        shared_ptr[CDataType] type()
+        shared_ptr[CBuffer] data()
+        CStatus ToTensor(shared_ptr[CTensor]*)
+
+        const vector[int64_t]& shape()
+        int64_t size()
+        int64_t non_zero_length()
+
+        int ndim()
+        const vector[c_string]& dim_names()
+        const c_string& dim_name(int i)
+
+        c_bool is_mutable()
+        Type type_id()
+        c_bool Equals(const CSparseCSCMatrix& other)
+
     cdef cppclass CScalar" arrow::Scalar":
         shared_ptr[CDataType] type
         c_bool is_valid
@@ -1522,6 +1539,10 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         const shared_ptr[CSparseCSRMatrix]& sparse_tensor, object base,
         PyObject** out_data, PyObject** out_indptr, PyObject** out_indices)
 
+    CStatus SparseCSCMatrixToNdarray(
+        const shared_ptr[CSparseCSCMatrix]& sparse_tensor, object base,
+        PyObject** out_data, PyObject** out_indptr, PyObject** out_indices)
+
     CStatus NdarraysToSparseCOOTensor(CMemoryPool* pool, object data_ao,
                                       object coords_ao,
                                       const vector[int64_t]& shape,
@@ -1534,11 +1555,20 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                       const vector[c_string]& dim_names,
                                       shared_ptr[CSparseCSRMatrix]* out)
 
+    CStatus NdarraysToSparseCSCMatrix(CMemoryPool* pool, object data_ao,
+                                      object indptr_ao, object indices_ao,
+                                      const vector[int64_t]& shape,
+                                      const vector[c_string]& dim_names,
+                                      shared_ptr[CSparseCSCMatrix]* out)
+
     CStatus TensorToSparseCOOTensor(shared_ptr[CTensor],
                                     shared_ptr[CSparseCOOTensor]* out)
 
     CStatus TensorToSparseCSRMatrix(shared_ptr[CTensor],
                                     shared_ptr[CSparseCSRMatrix]* out)
+
+    CStatus TensorToSparseCSCMatrix(shared_ptr[CTensor],
+                                    shared_ptr[CSparseCSCMatrix]* out)
 
     CStatus ConvertArrayToPandas(const PandasOptions& options,
                                  shared_ptr[CArray] arr,
@@ -1609,6 +1639,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         SparseTensorCounts()
         int coo
         int csr
+        int csc
         int num_total_tensors() const
         int num_total_buffers() const
 

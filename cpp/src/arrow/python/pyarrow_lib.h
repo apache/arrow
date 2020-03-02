@@ -51,6 +51,7 @@ __PYX_EXTERN_C PyObject *__pyx_f_7pyarrow_3lib_pyarrow_wrap_table(std::shared_pt
 __PYX_EXTERN_C PyObject *__pyx_f_7pyarrow_3lib_pyarrow_wrap_tensor(std::shared_ptr< arrow::Tensor>  const &);
 __PYX_EXTERN_C PyObject *__pyx_f_7pyarrow_3lib_pyarrow_wrap_sparse_coo_tensor(std::shared_ptr< arrow::SparseCOOTensor>  const &);
 __PYX_EXTERN_C PyObject *__pyx_f_7pyarrow_3lib_pyarrow_wrap_sparse_csr_matrix(std::shared_ptr< arrow::SparseCSRMatrix>  const &);
+__PYX_EXTERN_C PyObject *__pyx_f_7pyarrow_3lib_pyarrow_wrap_sparse_csc_matrix(std::shared_ptr< arrow::SparseCSCMatrix>  const &);
 __PYX_EXTERN_C std::shared_ptr< arrow::Scalar>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_scalar(PyObject *);
 __PYX_EXTERN_C std::shared_ptr< arrow::Array>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_array(PyObject *);
 __PYX_EXTERN_C std::shared_ptr< arrow::RecordBatch>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_batch(PyObject *);
@@ -62,6 +63,7 @@ __PYX_EXTERN_C std::shared_ptr< arrow::Table>  __pyx_f_7pyarrow_3lib_pyarrow_unw
 __PYX_EXTERN_C std::shared_ptr< arrow::Tensor>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_tensor(PyObject *);
 __PYX_EXTERN_C std::shared_ptr< arrow::SparseCOOTensor>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_sparse_coo_tensor(PyObject *);
 __PYX_EXTERN_C std::shared_ptr< arrow::SparseCSRMatrix>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_sparse_csr_matrix(PyObject *);
+__PYX_EXTERN_C std::shared_ptr< arrow::SparseCSCMatrix>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_sparse_csc_matrix(PyObject *);
 
 #endif /* !__PYX_HAVE_API__pyarrow__lib */
 
