@@ -543,6 +543,31 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   CheckArray(a1);
 }
 
+TEST_F(TestWriteRecordBatch, RoundtripPreservesBufferSizes) {
+  // ARROW-7975
+  random::RandomArrayGenerator rg(/*seed=*/0);
+
+  int64_t length = 15;
+  auto arr = rg.String(length, 0, 10, 0.1);
+  auto batch = RecordBatch::Make(::arrow::schema({field("f0", utf8())}), length, {arr});
+
+  std::stringstream ss;
+  ss << "test-roundtrip-buffer-sizes";
+  ASSERT_OK_AND_ASSIGN(
+      mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
+  DictionaryMemo dictionary_memo;
+  std::shared_ptr<RecordBatch> result;
+  ASSERT_OK(DoStandardRoundTrip(*batch, &dictionary_memo, &result));
+
+  // Make sure that the validity bitmap is size 2 as expected
+  ASSERT_EQ(2, arr->data()->buffers[0]->size());
+
+  for (size_t i = 0; i < arr->data()->buffers.size(); ++i) {
+    ASSERT_EQ(arr->data()->buffers[i]->size(),
+              result->column(0)->data()->buffers[i]->size());
+  }
+}
+
 void TestGetRecordBatchSize(const IpcOptions& options,
                             std::shared_ptr<RecordBatch> batch) {
   io::MockOutputStream mock;
