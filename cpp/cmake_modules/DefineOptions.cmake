@@ -286,8 +286,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                   "Pass verbose linking options when linking libraries and executables"
                   OFF)
 
-    define_option(ARROW_USE_CLCACHE "Use clcache if available" ON)
-
     define_option_string(BROTLI_MSVC_STATIC_LIB_SUFFIX
                          "Brotli static lib suffix used on Windows with MSVC" "-static")
 
