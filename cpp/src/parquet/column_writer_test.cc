@@ -191,31 +191,23 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     if (this->type_num() == Type::BOOLEAN) {
       ASSERT_EQ(encoding_stats[0].encoding, Encoding::PLAIN);
       ASSERT_EQ(encoding_stats[0].page_type, PageType::DATA_PAGE);
-      ASSERT_EQ(encoding_stats[1].encoding, Encoding::RLE);
-      ASSERT_EQ(encoding_stats[1].page_type, PageType::DATA_PAGE);
     } else if (version == ParquetVersion::PARQUET_1_0) {
       std::vector<Encoding::type> expected(
-          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
-      for (size_t i = 0; i < encoding_stats.size(); i++) {
-        if (i == 0) {
-          ASSERT_EQ(encoding_stats[i].encoding, expected[i]);
-          ASSERT_EQ(encoding_stats[i].page_type, PageType::DICTIONARY_PAGE);
-        } else {
-          ASSERT_EQ(encoding_stats[i].encoding, expected[i]);
-          ASSERT_EQ(encoding_stats[i].page_type, PageType::DATA_PAGE);
-        }
+          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::PLAIN_DICTIONARY});
+      ASSERT_EQ(encoding_stats[0].encoding, expected[0]);
+      ASSERT_EQ(encoding_stats[0].page_type, PageType::DICTIONARY_PAGE);
+      for (size_t i = 1; i < encoding_stats.size(); i++) {
+        ASSERT_EQ(encoding_stats[i].encoding, expected[i]);
+        ASSERT_EQ(encoding_stats[i].page_type, PageType::DATA_PAGE);
       }
     } else {
       std::vector<Encoding::type> expected(
-          {Encoding::RLE_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
-      for (size_t i = 0; i < encoding_stats.size(); i++) {
-        if (i == 0) {
-          ASSERT_EQ(encoding_stats[i].encoding, expected[i]);
-          ASSERT_EQ(encoding_stats[i].page_type, PageType::DICTIONARY_PAGE);
-        } else {
-          ASSERT_EQ(encoding_stats[i].encoding, expected[i]);
-          ASSERT_EQ(encoding_stats[i].page_type, PageType::DATA_PAGE);
-        }
+          {Encoding::PLAIN, Encoding::PLAIN, Encoding::RLE_DICTIONARY});
+      ASSERT_EQ(encoding_stats[0].encoding, expected[0]);
+      ASSERT_EQ(encoding_stats[0].page_type, PageType::DICTIONARY_PAGE);
+      for (size_t i = 1; i < encoding_stats.size(); i++) {
+        ASSERT_EQ(encoding_stats[i].encoding, expected[i]);
+        ASSERT_EQ(encoding_stats[i].page_type, PageType::DATA_PAGE);
       }
     }
   }

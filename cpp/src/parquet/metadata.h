@@ -321,8 +321,9 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
-              bool dictionary_fallback, int32_t num_dict_pages,
-              std::map<Encoding::type, int32_t>,
+              bool dictionary_fallback,
+              const std::map<Encoding::type, int32_t>& dict_encoding_stats_,
+              const std::map<Encoding::type, int32_t>& data_encoding_stats_,
               const std::shared_ptr<Encryptor>& encryptor = NULLPTR);
 
   // The metadata contents, suitable for passing to ColumnChunkMetaData::Make

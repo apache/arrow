@@ -168,8 +168,7 @@ class SerializedPageWriter : public PageWriter {
         column_ordinal_(column_chunk_ordinal),
         meta_encryptor_(std::move(meta_encryptor)),
         data_encryptor_(std::move(data_encryptor)),
-        encryption_buffer_(AllocateBuffer(pool, 0)),
-        num_dict_pages_(0) {
+        encryption_buffer_(AllocateBuffer(pool, 0)) {
     if (data_encryptor_ != nullptr || meta_encryptor_ != nullptr) {
       InitEncryption();
     }
@@ -228,7 +227,7 @@ class SerializedPageWriter : public PageWriter {
 
     total_uncompressed_size_ += uncompressed_size + header_size;
     total_compressed_size_ += output_data_len + header_size;
-    num_dict_pages_++;
+    ++dict_encoding_stats_[page.encoding()];
 
     PARQUET_ASSIGN_OR_THROW(int64_t final_pos, sink_->Tell());
     return final_pos - start_pos;
@@ -241,7 +240,8 @@ class SerializedPageWriter : public PageWriter {
     // index_page_offset = -1 since they are not supported
     metadata_->Finish(num_values_, dictionary_page_offset_, -1, data_page_offset_,
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
-                      fallback, num_dict_pages_, num_data_pages_, meta_encryptor_);
+                      fallback, dict_encoding_stats_, data_encoding_stats_,
+                      meta_encryptor_);
     // Write metadata at end of column chunk
     metadata_->WriteTo(sink_.get());
   }
@@ -313,11 +313,7 @@ class SerializedPageWriter : public PageWriter {
     total_uncompressed_size_ += uncompressed_size + header_size;
     total_compressed_size_ += output_data_len + header_size;
     num_values_ += page.num_values();
-    if (num_data_pages_.find(page.encoding()) != num_data_pages_.end()) {
-      num_data_pages_[page.encoding()]++;
-    } else {
-      num_data_pages_[page.encoding()] = 1;
-    }
+    ++data_encoding_stats_[page.encoding()];
     ++page_ordinal_;
     PARQUET_ASSIGN_OR_THROW(int64_t current_pos, sink_->Tell());
     return current_pos - start_pos;
@@ -413,8 +409,8 @@ class SerializedPageWriter : public PageWriter {
 
   std::shared_ptr<ResizableBuffer> encryption_buffer_;
 
-  int32_t num_dict_pages_;
-  std::map<Encoding::type, int32_t> num_data_pages_;
+  std::map<Encoding::type, int32_t> dict_encoding_stats_;
+  std::map<Encoding::type, int32_t> data_encoding_stats_;
 };
 
 // This implementation of the PageWriter writes to the final sink on Close .
@@ -451,8 +447,8 @@ class BufferedPageWriter : public PageWriter {
     metadata_->Finish(pager_->num_values(), dictionary_page_offset, -1,
                       pager_->data_page_offset() + final_position,
                       pager_->total_compressed_size(), pager_->total_uncompressed_size(),
-                      has_dictionary, fallback, pager_->num_dict_pages_,
-                      pager_->num_data_pages_, pager_->meta_encryptor_);
+                      has_dictionary, fallback, pager_->dict_encoding_stats_,
+                      pager_->data_encoding_stats_, pager_->meta_encryptor_);
 
     // Write metadata at end of column chunk
     metadata_->WriteTo(in_memory_sink_.get());
