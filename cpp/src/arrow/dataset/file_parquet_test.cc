@@ -275,7 +275,8 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
   opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
   opts_->filter = equal(field_ref("i32"), scalar(0));
 
-  for (auto reader : {reader.get(), reader_without_i32.get(), reader_without_f64.get()}) {
+  auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
+  for (auto reader : readers) {
     auto source = GetFileSource(reader);
     auto fragment = std::make_shared<ParquetFragment>(*source, format_, opts_);
 
