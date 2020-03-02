@@ -190,9 +190,8 @@ if(PYARROW_USE_TENSORFLOW)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
-# Python and libraries
-find_package(PythonLibsNew REQUIRED)
-find_package(NumPy REQUIRED)
+# Python and Numpy libraries
+find_package(Python3Alt REQUIRED)
 include(UseCython)
 
 include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} src)
@@ -577,7 +576,7 @@ foreach(module ${CYTHON_EXTENSIONS})
                                      "CYTHON_TRACE=1;CYTHON_TRACE_NOGIL=1")
   endif()
 
-  target_link_libraries(${module_name} ${LINK_LIBS})
+  target_link_libraries(${module_name} PRIVATE ${LINK_LIBS})
 
   # Generated files will be moved to the right directory by setup.py.
 endforeach(module)
@@ -585,25 +584,25 @@ endforeach(module)
 # Additional link libraries
 
 if(PYARROW_BUILD_CUDA)
-  target_link_libraries(_cuda ${CUDA_LINK_LIBS})
+  target_link_libraries(_cuda PRIVATE ${CUDA_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_FLIGHT)
-  target_link_libraries(_flight ${FLIGHT_LINK_LIBS})
+  target_link_libraries(_flight PRIVATE ${FLIGHT_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_DATASET)
-  target_link_libraries(_dataset ${DATASET_LINK_LIBS})
+  target_link_libraries(_dataset PRIVATE ${DATASET_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_GANDIVA)
-  target_link_libraries(gandiva ${GANDIVA_LINK_LIBS})
+  target_link_libraries(gandiva PRIVATE ${GANDIVA_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_PARQUET)
-  target_link_libraries(_parquet ${PARQUET_LINK_LIBS})
+  target_link_libraries(_parquet PRIVATE ${PARQUET_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_PLASMA)
-  target_link_libraries(_plasma ${PLASMA_LINK_LIBS})
+  target_link_libraries(_plasma PRIVATE ${PLASMA_LINK_LIBS})
 endif()

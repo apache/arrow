@@ -15,21 +15,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# This module finds the libraries corresponding to the Python 3 interpeter,
-# and sets the following variables:
+# This module finds the libraries corresponding to the Python 3 interpreter
+# and the NumPy package, and sets the following variables:
 # - PYTHON_EXECUTABLE
 # - PYTHON_INCLUDE_DIRS
 # - PYTHON_LIBRARIES
 # - PYTHON_OTHER_LIBS
+# - NUMPY_INCLUDE_DIRS
 
 # Need CMake 3.15 or later for Python3_FIND_STRATEGY
 if(${CMAKE_VERSION} VERSION_LESS "3.15.0")
-  # Use deprecated FindPythonInterp package
+  # Use deprecated Python- and NumPy-finding code
   if(Python3Alt_FIND_REQUIRED)
     find_package(PythonLibsNew REQUIRED)
+    find_package(NumPy REQUIRED)
   else()
     find_package(PythonLibsNew)
+    find_package(NumPy)
   endif()
+  find_package_handle_standard_args(Python3Alt
+                                    REQUIRED_VARS
+                                    PYTHON_EXECUTABLE
+                                    PYTHON_LIBRARIES
+                                    PYTHON_INCLUDE_DIRS
+                                    NUMPY_INCLUDE_DIRS)
   return()
 endif()
 
@@ -48,8 +57,33 @@ set(PYTHON_INCLUDE_DIRS ${Python3_INCLUDE_DIRS})
 set(PYTHON_LIBRARIES ${Python3_LIBRARIES})
 set(PYTHON_OTHER_LIBS)
 
-message(STATUS "Found Python 3 libraries: ${PYTHON_LIBRARIES}")
+get_target_property(NUMPY_INCLUDE_DIRS Python3::NumPy INTERFACE_INCLUDE_DIRECTORIES)
 
-function(PYTHON_ADD_MODULE _NAME)
-  python3_add_library(${_NAME} ${ARGN})
+# CMake's python3_add_library() doesn't apply the required extension suffix,
+# detect it ourselves.
+# (https://gitlab.kitware.com/cmake/cmake/issues/20408)
+execute_process(COMMAND "${PYTHON_EXECUTABLE}" "-c"
+                        "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
+                RESULT_VARIABLE _PYTHON_RESULT
+                OUTPUT_VARIABLE _PYTHON_STDOUT
+                ERROR_VARIABLE _PYTHON_STDERR)
+
+if(NOT _PYTHON_RESULT MATCHES 0)
+  if(Python3Alt_FIND_REQUIRED)
+    message(FATAL_ERROR "Python 3 config failure:\n${_PYTHON_STDERR}")
+  endif()
+endif()
+
+string(STRIP ${_PYTHON_STDOUT} _EXT_SUFFIX)
+
+function(PYTHON_ADD_MODULE name)
+  python3_add_library(${name} MODULE ${ARGN})
+  set_target_properties(${name} PROPERTIES SUFFIX ${_EXT_SUFFIX})
 endfunction()
+
+find_package_handle_standard_args(Python3Alt
+                                  REQUIRED_VARS
+                                  PYTHON_EXECUTABLE
+                                  PYTHON_LIBRARIES
+                                  PYTHON_INCLUDE_DIRS
+                                  NUMPY_INCLUDE_DIRS)

@@ -38,26 +38,8 @@
 #
 #============================================================================
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.15.0")
-    # FindPython3Alt.cmake also looks for NumPy, use it.
-    if(NumPy_FIND_REQUIRED)
-        find_package(Python3Alt REQUIRED)
-    else()
-        find_package(Python3Alt)
-    endif()
-    get_target_property(NUMPY_INCLUDE_DIRS Python3::NumPy INTERFACE_INCLUDE_DIRECTORIES)
-    message(STATUS "Found NumPy: ${NUMPY_INCLUDE_DIRS}")
-    return()
-endif()
-
-# Legacy code below (CMake < 3.15.0)
-
-# Finding NumPy involves calling the Python interpreter
-if(NumPy_FIND_REQUIRED)
-    find_package(PythonInterp REQUIRED)
-else()
-    find_package(PythonInterp)
-endif()
+# Legacy code for CMake < 3.15.0.  The primary point of entry should be
+# FindPython3Alt.cmake.
 
 if(NOT PYTHONINTERP_FOUND)
     set(NUMPY_FOUND FALSE)

@@ -20,7 +20,6 @@
 #
 
 find_package(Python3Alt REQUIRED)
-find_package(NumPy REQUIRED)
 
 add_custom_target(arrow_python-all)
 add_custom_target(arrow_python)
