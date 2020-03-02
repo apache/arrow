@@ -76,6 +76,8 @@ class ARROW_EXPORT PlasmaClient {
   /// be passed in when the object is created.
   ///
   /// \param object_id The ID to use for the newly created object.
+  /// \param evict_if_full Whether to evict other objects to make space for
+  ///        this object.
   /// \param data_size The size in bytes of the space to be allocated for this
   /// object's
   ///        data (this does not include space used for metadata).
@@ -94,28 +96,33 @@ class ARROW_EXPORT PlasmaClient {
   ///
   /// The returned object must be released once it is done with.  It must also
   /// be either sealed or aborted.
-  Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
-                int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
+  Status Create(const ObjectID& object_id, bool evict_if_full, int64_t data_size,
+                const uint8_t* metadata, int64_t metadata_size,
+                std::shared_ptr<Buffer>* data, int device_num = 0);
 
   /// Create and seal an object in the object store. This is an optimization
   /// which allows small objects to be created quickly with fewer messages to
   /// the store.
   ///
   /// \param object_id The ID of the object to create.
+  /// \param evict_if_full Whether to evict other objects to make space for
+  ///        this object.
   /// \param data The data for the object to create.
   /// \param metadata The metadata for the object to create.
   /// \return The return status.
-  Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
-                       const std::string& metadata);
+  Status CreateAndSeal(const ObjectID& object_id, bool evict_if_full,
+                       const std::string& data, const std::string& metadata);
 
   /// Create and seal multiple objects in the object store. This is an optimization
   /// of CreateAndSeal to eliminate the cost of IPC per object.
   ///
   /// \param object_ids The vector of IDs of the objects to create.
+  /// \param evict_if_full Whether to evict other objects to make space for
+  ///        these objects.
   /// \param data The vector of data for the objects to create.
   /// \param metadata The vector of metadata for the objects to create.
   /// \return The return status.
-  Status CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
+  Status CreateAndSealBatch(const std::vector<ObjectID>& object_ids, bool evict_if_full,
                             const std::vector<std::string>& data,
                             const std::vector<std::string>& metadata);
 
