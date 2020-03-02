@@ -50,10 +50,10 @@ $IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;create table exp
 $IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;create table export_all_types_table_u_1M LIKE all_types_table_u_1M STORED AS PARQUET LOCATION '/panos/export_dir/UNCOMPRESSED/1M';"
 $IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;create table export_all_types_table_u_10M LIKE all_types_table_u_10M STORED AS PARQUET LOCATION '/panos/export_dir/UNCOMPRESSED/10M';"
 
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_10k SELECT * FROM all_types_table_u_10k;"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_100k SELECT * FROM all_types_table_u_100k;"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_1M SELECT * FROM all_types_table_u_1M;"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_10M SELECT * FROM all_types_table_u_10M;"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_10k (SELECT * FROM all_types_table_u_10k ORDER BY boolean_field,int32_field,int64_field,int96_field,float_field,double_field,ba_field);"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_100k (SELECT * FROM all_types_table_u_100k ORDER BY boolean_field,int32_field,int64_field,int96_field,float_field,double_field,ba_field);"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_1M (SELECT * FROM all_types_table_u_1M ORDER BY boolean_field,int32_field,int64_field,int96_field,float_field,double_field,ba_field);"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_10M (SELECT * FROM all_types_table_u_10M ORDER BY boolean_field,int32_field,int64_field,int96_field,float_field,double_field,ba_field);"
 
 $IMPALA_HOME/bin/impala-shell.sh -q "select count(*) from export_all_types_table_u_10k;"
 $IMPALA_HOME/bin/impala-shell.sh -q "select count(*) from export_all_types_table_u_100k;"

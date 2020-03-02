@@ -136,7 +136,7 @@ int parquet_reader(int argc,char** argv) {
 
         struct timeval start_time,end_time;
         float total_time= 0.0;
-        int num_runs = 100;
+        int num_runs = 5;
          
         
         /********FIRST PASS WITHOUT INDEX***************/
@@ -237,25 +237,31 @@ void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_
       std::cout << "column id:" << col_id << " page index:" << page_index << std::endl;
 
       int counter = 0;
-
-      while ( counter < page_index && generic_reader->HasNext() ) {
-          counter++;
-      }
-
       int ind = 0;
       int64_t row_counter = -1;
 
-      while (generic_reader->HasNext()) { 
+      if(with_index && page_index!=-1){
+        ind = row_index;
+        row_counter = -1;
+        generic_reader->Skip(row_index);
+        do{ ind++;
+         if((printVal(column_reader_with_index,generic_reader,ind,vals,row_counter,true)))
+             break;
+        }while((generic_reader->Skip(1)));
+      }
+      else{
+        while (generic_reader->HasNext()) { 
             ind++;
 
           if(printVal(column_reader_with_index,generic_reader,ind,vals,row_counter,true))
              break;
           //        int64_t expected_value = col_row_counts[col_id];  
           //        assert(value == expected_value);
-         col_row_counts[col_id]++; 
-
-        
+         col_row_counts[col_id]++;
+        } 
       }
+        
+      
 }
 
 return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shared_ptr<parquet::RowGroupReader> rg,char* predicate_val,
@@ -553,13 +559,13 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
               bool checkpredicate = false) {
 
       int64_t values_read = 0;
-      int64_t rows_read = 0;
+      //int64_t 0;
        switch (column_reader->type()) {
        case Type::BOOLEAN:
           {
            bool test;
            bool predicate = vals.b;
-           rows_read = int64_reader->callReadBatch(1,&test,&values_read);
+           int64_reader->callReadBatch(1,&test,&values_read);
            row_counter = ind;
            
            if ( checkpredicate && test == predicate) {
@@ -578,7 +584,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
           {
             int32_t val;
             int32_t predicate = vals.p;
-           rows_read = int64_reader->callReadBatch(1,&val,&values_read);
+            int64_reader->callReadBatch(1,&val,&values_read);
            row_counter = ind;
            
            if ( checkpredicate && val == predicate) {
@@ -599,10 +605,10 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
           int64_t predicate = vals.r;
          // Read one value at a time. The number of rows read is returned. values_read
          // contains the number of non-null rows
-          rows_read = int64_reader->callReadBatch(1,&value,&values_read);
+          int64_reader->callReadBatch(1,&value,&values_read);
 
         // Ensure only one value is read
-          assert(rows_read == 1);
+          //assert(rows_read == 1);
         // There are no NULL values in the rows written
        //        assert(values_read == 1);
         // Verify the value written
@@ -613,7 +619,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
            return true;
           }else{
             row_counter = ind;
-           //std::cout << "row number: " << row_counter << " " << value << "\n";
+           std::cout << "row number: " << row_counter << " " << value << "\n";
            return false;
           }
           break;
@@ -622,7 +628,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
            {
               uint32_t val;
               uint32_t predicate = vals.e;
-           rows_read = int64_reader->callReadBatch(1,&val,&values_read);
+           int64_reader->callReadBatch(1,&val,&values_read);
            row_counter = ind;
            
            if ( checkpredicate && val == predicate) {
@@ -642,7 +648,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
               float val;
               float predicate = vals.d;
               float error_factor = 2.0;
-           rows_read = int64_reader->callReadBatch(1,&val,&values_read);
+           int64_reader->callReadBatch(1,&val,&values_read);
            if ( checkpredicate && fabs(val-predicate)<=std::numeric_limits<double>::epsilon()*error_factor) {
            row_counter = ind;
            std::cout << "with predicate row number: " << row_counter << " " << val << "\n";
@@ -659,7 +665,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
            {
               double val;
               double predicate = vals.i;
-           rows_read = int64_reader->callReadBatch(1,&val,&values_read);
+           int64_reader->callReadBatch(1,&val,&values_read);
            double error_factor=2.0;
 
            if ( checkpredicate && (val == predicate || std::abs(val-predicate) < 
@@ -679,7 +685,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
           {
             parquet::ByteArray str;
             char* predicate = vals.c;
-            rows_read = int64_reader->callReadBatch(1,&str,&values_read);
+            int64_reader->callReadBatch(1,&str,&values_read);
             std::string result = parquet::ByteArrayToString(str);
 
             row_counter = ind;
@@ -700,7 +706,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
           {
             parquet::FLBA str;
             char* predicate = vals.a;
-            rows_read = int64_reader->callReadBatch(1,&str,&values_read);
+            int64_reader->callReadBatch(1,&str,&values_read);
             std::string result = parquet::FixedLenByteArrayToString(str,sizeof(str));
 
             row_counter = ind;

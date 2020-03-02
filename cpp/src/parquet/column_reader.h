@@ -105,6 +105,10 @@ class PARQUET_EXPORT ColumnReader {
 
   virtual const ColumnDescriptor* descr() const = 0;
 
+  // Skip reading levels
+  // Returns the number of levels skipped
+  virtual int64_t Skip(int64_t num_rows_to_skip) = 0;
+
   virtual int64_t callReadBatch(int64_t batch_size,void* values,int64_t* values_read) = 0;
 };
 
@@ -175,7 +179,7 @@ class TypedColumnReader : public ColumnReader {
 
   // Skip reading levels
   // Returns the number of levels skipped
-  virtual int64_t Skip(int64_t num_rows_to_skip) = 0;
+  // virtual int64_t Skip(int64_t num_rows_to_skip) = 0;
 
   int64_t callReadBatch(int64_t batch_size,void* value,int64_t* values_read){
 

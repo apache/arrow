@@ -117,7 +117,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   const ReaderProperties* properties() const override { return &properties_; }
 
-  void GetPageIndex(void* predicate, int64_t& min_index, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index,Type::type type_num) const {
+  void GetPageIndex(void* predicate, int64_t& min_index,int64_t& row_index, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index,Type::type type_num) const {
+      int64_t min_diff = std::numeric_limits<int64_t>::max();
       switch(type_num) {
          case Type::BOOLEAN:{
            // doesn't make sense for bool
@@ -128,10 +129,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
              int32_t* page_min = (int32_t*)(void *)col_index.min_values[itemindex].c_str();
              int32_t* page_max = (int32_t*)(void *)col_index.max_values[itemindex].c_str();
-             int32_t max_diff = *page_max - *page_min;
-           
-              if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
+             int32_t diff = *page_max - v;
+
+              if ( *page_min <= v && v <= *page_max && min_diff >= abs(v - *page_min) ) {
                min_index = itemindex;
+               min_diff = diff;
               }
             }
            break;
@@ -139,13 +141,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
          case Type::INT64:
          {
              int64_t v = *((int64_t*) predicate);
+             
              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
              int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
              int64_t* page_max = (int64_t*)(void *)col_index.max_values[itemindex].c_str();
-             int64_t max_diff = *page_max - *page_min;
+             int64_t diff = *page_max - v;
            
-              if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
+              if ( *page_min <= v && v <= *page_max && min_diff >= diff ) {
                min_index = itemindex;
+               min_diff = diff;
               }
             }
             break;
@@ -156,10 +160,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
              uint32_t* page_min = (uint32_t*)(void *)col_index.min_values[itemindex].c_str();
              uint32_t* page_max = (uint32_t*)(void *)col_index.max_values[itemindex].c_str();
-             uint32_t max_diff = *page_max - *page_min;
-           
-              if ( *page_min <= v && max_diff >= (uint32_t)(abs(v - *page_min)) ) {
+             uint32_t diff = (uint32_t)(*page_max - v);
+            
+              if ( *page_min <= v && v <= *page_max && min_diff >= diff ) {
                min_index = itemindex;
+               min_diff = diff;
               }
             }
            break;
@@ -170,12 +175,18 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
              float* page_min = (float*)(void *)col_index.min_values[itemindex].c_str();
              float* page_max = (float*)(void *)col_index.max_values[itemindex].c_str();
-             float max_diff = *page_max - *page_min;
+             
              auto epsilon = std::numeric_limits<double>::epsilon();
              float error_factor = 2.0;
-           
-              if ( fabs(v-*page_min) <= error_factor*epsilon && fabs(max_diff-fabs(v - *page_min)) <= error_factor*epsilon ) {
+             float diff = *page_max - v;
+
+              if ( fabs(v-*page_min) <= error_factor*epsilon &&
+                fabs(*page_max-v) <= error_factor*epsilon
+               && fabs(min_diff-fabs(diff)) <= error_factor*epsilon ) {
+
                min_index = itemindex;
+               min_diff = diff;
+
               }
             }
            break;
@@ -186,10 +197,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
              double* page_min = (double*)(void *)col_index.min_values[itemindex].c_str();
              double* page_max = (double*)(void *)col_index.max_values[itemindex].c_str();
-             double max_diff = *page_max - *page_min;
+             double diff = *page_max - *page_min;
            
-              if ( *page_min <= v && max_diff >= fabs(v - *page_min) ) {
+              if ( *page_min <= v && 
+                v <= *page_max
+               && min_diff >= fabs(diff) ) {
+
                min_index = itemindex;
+               min_diff = diff;
+               
               }
             }
            break;
@@ -201,8 +217,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
              char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
            
-              if ( *page_min <= *v &&  (*page_max - *page_min) >= abs(*v - *page_min)) {
+              if ( *page_min <= *v &&  *v <= *page_max && min_diff >= abs(*v - *page_min)) {
                min_index = itemindex;
+               min_diff = abs(*v - *page_min);
               }
             }
            break;
@@ -214,8 +231,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
              char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
            
-              if ( *page_min <= *v && (*page_max - *page_min) >= abs(*v - *page_min)) {
+              if ( *page_min <= *v && *v <= *page_max && min_diff >= abs(*v - *page_min)) {
                min_index = itemindex;
+               min_diff = abs(*v - *page_min);
               }
             }
            break;
@@ -225,6 +243,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
            parquet::ParquetException::NYI("type reader not implemented");
          }
       }
+      row_index = offset_index.page_locations[min_index].first_row_index;
   }
 
 
@@ -331,7 +350,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
         DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
         if ( predicate_col == column_index )
-            GetPageIndex(predicate, min_index, col_index,offset_index,type_num);
+            GetPageIndex(predicate, min_index,row_index, col_index,offset_index,type_num);
         else 
            GetPageWithRowIndex(min_index, offset_index, row_index);
     }
