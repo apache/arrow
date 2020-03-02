@@ -29,8 +29,10 @@ if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
   export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
   export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
 fi
-if [ "$ARROW_R_CXXFLAGS" != "" ] || [ "$ARROW_R_DEV" = "TRUE" ]; then
-  export _R_CHECK_COMPILATION_FLAGS_=FALSE
+export _R_CHECK_COMPILATION_FLAGS_KNOWN_=${ARROW_R_CXXFLAGS}
+if [ "$ARROW_R_DEV" = "TRUE" ]; then
+  # These are used in the Arrow C++ build and are not a problem
+  export _R_CHECK_COMPILATION_FLAGS_KNOWN_="${_R_CHECK_COMPILATION_FLAGS_KNOWN_} -Wno-attributes -msse4.2"
 fi
 export TEST_R_WITH_ARROW=TRUE
 export _R_CHECK_TESTS_NLINES_=0
