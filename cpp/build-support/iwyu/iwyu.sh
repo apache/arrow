@@ -42,6 +42,10 @@ affected_files() {
   popd > /dev/null
 }
 
+# Show the IWYU version. Also causes the script to fail if iwyu is not in your
+# PATH
+include-what-you-use --version
+
 if [[ "${1:-}" == "all" ]]; then
     python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p ${IWYU_COMPILATION_DATABASE_PATH:-.} \
         -- $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk
