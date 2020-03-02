@@ -38,7 +38,7 @@ static void SortToIndicesBenchmark(benchmark::State& state,
   }
 }
 
-static void SortToIndicesInt64(benchmark::State& state) {
+static void SortToIndicesInt64Count(benchmark::State& state) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(int64_t);
@@ -49,32 +49,32 @@ static void SortToIndicesInt64(benchmark::State& state) {
   SortToIndicesBenchmark(state, values);
 }
 
-static void SortToIndicesInt8(benchmark::State& state) {
+static void SortToIndicesInt64Compare(benchmark::State& state) {
   RegressionArgs args(state);
 
-  const int64_t array_size = args.size / sizeof(int8_t);
+  const int64_t array_size = args.size / sizeof(int64_t);
   auto rand = random::RandomArrayGenerator(kSeed);
 
-  auto values = rand.Int8(array_size, -100, 100, args.null_proportion);
+  auto min = std::numeric_limits<int64_t>::min();
+  auto max = std::numeric_limits<int64_t>::max();
+  auto values = rand.Int64(array_size, min, max, args.null_proportion);
 
   SortToIndicesBenchmark(state, values);
 }
 
-BENCHMARK(SortToIndicesInt64)
+BENCHMARK(SortToIndicesInt64Count)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 1})
     ->Args({1 << 23, 1})
     ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
-BENCHMARK(SortToIndicesInt8)
+BENCHMARK(SortToIndicesInt64Compare)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 1})
     ->Args({1 << 23, 1})
-    ->Args({1 << 23, 50})
-    ->Args({1 << 23, 80})
-    ->Args({1 << 23, 99})
     ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
+
 }  // namespace compute
 }  // namespace arrow
