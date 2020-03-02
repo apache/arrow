@@ -18,8 +18,8 @@
 from datetime import datetime
 import gzip
 import pathlib
-
 import urllib.parse
+import sys
 
 import pytest
 
@@ -605,8 +605,14 @@ def test_filesystem_from_uri(uri, expected_klass, expected_path):
     assert path == expected_path
 
 
-@pytest.mark.parametrize('path',
-                         ['', '/', 'foo/bar', '/foo/bar', __file__])
+@pytest.mark.skipif(
+    sys.version_info < (3, 6),
+    reason="python 3.5 Path.resolve() checks that the path exists"
+)
+@pytest.mark.parametrize(
+    'path',
+    ['', '/', 'foo/bar', '/foo/bar', __file__]
+)
 def test_filesystem_from_path_object(path):
     p = pathlib.Path(path)
     fs, path = FileSystem.from_uri(p)

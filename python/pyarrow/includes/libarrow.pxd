@@ -1694,27 +1694,29 @@ cdef extern from 'arrow/python/benchmark.h' namespace 'arrow::py::benchmark':
 
 
 cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
-    enum CompressionType" arrow::Compression::type":
-        CompressionType_UNCOMPRESSED" arrow::Compression::UNCOMPRESSED"
-        CompressionType_SNAPPY" arrow::Compression::SNAPPY"
-        CompressionType_GZIP" arrow::Compression::GZIP"
-        CompressionType_BROTLI" arrow::Compression::BROTLI"
-        CompressionType_ZSTD" arrow::Compression::ZSTD"
-        CompressionType_LZ4" arrow::Compression::LZ4"
-        CompressionType_BZ2" arrow::Compression::BZ2"
+    enum CCompressionType" arrow::Compression::type":
+        CCompressionType_UNCOMPRESSED" arrow::Compression::UNCOMPRESSED"
+        CCompressionType_SNAPPY" arrow::Compression::SNAPPY"
+        CCompressionType_GZIP" arrow::Compression::GZIP"
+        CCompressionType_BROTLI" arrow::Compression::BROTLI"
+        CCompressionType_ZSTD" arrow::Compression::ZSTD"
+        CCompressionType_LZ4" arrow::Compression::LZ4"
+        CCompressionType_BZ2" arrow::Compression::BZ2"
 
     cdef cppclass CCodec" arrow::util::Codec":
         @staticmethod
-        CResult[unique_ptr[CCodec]] Create(CompressionType codec)
+        CResult[unique_ptr[CCodec]] Create(CCompressionType codec)
+
+        @staticmethod
+        c_bool IsAvailable(CCompressionType codec)
 
         CResult[int64_t] Decompress(int64_t input_len, const uint8_t* input,
                                     int64_t output_len,
                                     uint8_t* output_buffer)
-
         CResult[int64_t] Compress(int64_t input_len, const uint8_t* input,
                                   int64_t output_buffer_len,
                                   uint8_t* output_buffer)
-
+        const char* name() const
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
 
 

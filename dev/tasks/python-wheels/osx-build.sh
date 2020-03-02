@@ -58,7 +58,6 @@ function build_wheel {
     pushd cpp
     mkdir build
     pushd build
-
     cmake -DARROW_BUILD_SHARED=ON \
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_DATASET=ON \
