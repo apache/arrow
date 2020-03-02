@@ -34,7 +34,7 @@ on:
 jobs:
 
   ubuntu:
-    name: AMD64 Ubuntu 18.04 Python 3
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} Python 3
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
     strategy:

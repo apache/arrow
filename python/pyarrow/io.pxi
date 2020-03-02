@@ -27,7 +27,7 @@ import time
 import warnings
 from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 
-from pyarrow.util import _stringify_path
+from pyarrow.util import _is_path_like, _stringify_path
 from pyarrow.compat import (
     builtin_pickle, frombytes, tobytes, encode_file_path)
 
@@ -1482,6 +1482,20 @@ cdef CCompressionType _ensure_compression(str name) except *:
 
 
 cdef class Codec:
+    """
+    Compression codec.
+
+    Parameters
+    ----------
+    compression : str
+        Type of compression codec to initialize, valid values are: gzip, bz2,
+        brotli, lz4, zstd and snappy.
+
+    Raises
+    ------
+    ValueError
+        If invalid compression value is passed.
+    """
 
     def __init__(self, str compression not None):
         cdef CCompressionType typ = _ensure_compression(compression)
@@ -1492,14 +1506,65 @@ cdef class Codec:
 
     @staticmethod
     def detect(path):
-        return Codec(_detect_compression(path))
+        """
+        Detect and instantiate compression codec based on file extension.
+
+        Parameters
+        ----------
+        path : str, path-like
+            File-path to detect compression from.
+
+        Raises
+        ------
+        TypeError
+            If the passed value is not path-like.
+        ValueError
+            If the compression can't be detected from the path.
+
+        Returns
+        -------
+        Codec
+        """
+        return Codec(_detect_compression(_stringify_path(path)))
 
     @staticmethod
     def is_available(str compression not None):
+        """
+        Returns whether the compression support has been built and enabled.
+
+        Parameters
+        ----------
+        compression: str
+             Type of compression codec, valid values are: gzip, bz2, brotli,
+             lz4, zstd and snappy.
+
+        Returns
+        -------
+        bool
+        """
         cdef CCompressionType typ = _ensure_compression(compression)
         return CCodec.IsAvailable(typ)
 
+    @property
+    def name(self):
+        return frombytes(self.unwrap().name())
+
     def compress(self, object buf, asbytes=False, memory_pool=None):
+        """
+        Compress data from buffer-like object.
+
+        Parameters
+        ----------
+        buf : pyarrow.Buffer, bytes, or other object supporting buffer protocol
+        asbytes : bool, default False
+            Return result as Python bytes object, otherwise Buffer
+        memory_pool : MemoryPool, default None
+            Memory pool to use for buffer allocations, if any
+
+        Returns
+        -------
+        compressed : pyarrow.Buffer or bytes (if asbytes=True)
+        """
         cdef:
             shared_ptr[CBuffer] owned_buf
             CBuffer* c_buf
@@ -1544,6 +1609,24 @@ cdef class Codec:
 
     def decompress(self, object buf, decompressed_size=None, asbytes=False,
                    memory_pool=None):
+        """
+        Decompress data from buffer-like object.
+
+        Parameters
+        ----------
+        buf : pyarrow.Buffer, bytes, or memoryview-compatible object
+        decompressed_size : int64_t, default None
+            If not specified, will be computed if the codec is able to
+            determine the uncompressed buffer size.
+        asbytes : boolean, default False
+            Return result as Python bytes object, otherwise Buffer
+        memory_pool : MemoryPool, default None
+            Memory pool to use for buffer allocations, if any.
+
+        Returns
+        -------
+        uncompressed : pyarrow.Buffer or bytes (if asbytes=True)
+        """
         cdef:
             shared_ptr[CBuffer] owned_buf
             CBuffer* c_buf
@@ -1592,9 +1675,9 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
         Compression codec.
         Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
     asbytes : boolean, default False
-        Return result as Python bytes object, otherwise Buffer
+        Return result as Python bytes object, otherwise Buffer.
     memory_pool : MemoryPool, default None
-        Memory pool to use for buffer allocations, if any
+        Memory pool to use for buffer allocations, if any.
 
     Returns
     -------

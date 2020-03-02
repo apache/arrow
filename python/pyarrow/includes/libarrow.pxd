@@ -1713,11 +1713,10 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
         CResult[int64_t] Decompress(int64_t input_len, const uint8_t* input,
                                     int64_t output_len,
                                     uint8_t* output_buffer)
-
         CResult[int64_t] Compress(int64_t input_len, const uint8_t* input,
                                   int64_t output_buffer_len,
                                   uint8_t* output_buffer)
-
+        const char* name() const
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
 
 

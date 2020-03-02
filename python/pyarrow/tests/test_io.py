@@ -31,7 +31,7 @@ import weakref
 import numpy as np
 
 from pyarrow.compat import guid
-from pyarrow.lib import Codec
+from pyarrow import Codec
 import pyarrow as pa
 
 
@@ -1212,6 +1212,31 @@ def test_compressed_output_bz2(tmpdir):
     with bz2.BZ2File(fn, "r") as f:
         got = f.read()
         assert got == data
+
+
+@pytest.mark.parametrize(("path", "expected_compression"), [
+    ("file.bz2", "bz2"),
+    ("file.lz4", "lz4"),
+    (pathlib.Path("file.gz"), "gzip"),
+    (pathlib.Path("path/to/file.zst"), "zstd"),
+])
+def test_compression_detection(path, expected_compression):
+    if not Codec.is_available(expected_compression):
+        with pytest.raises(pa.lib.ArrowNotImplementedError):
+            Codec.detect(path)
+    else:
+        codec = Codec.detect(path)
+        assert isinstance(codec, Codec)
+        assert codec.name == expected_compression
+
+
+def test_unknown_compression_raises():
+    with pytest.raises(ValueError):
+        Codec.is_available('unknown')
+    with pytest.raises(TypeError):
+        Codec(None)
+    with pytest.raises(ValueError):
+        Codec('unknown')
 
 
 @pytest.mark.parametrize("compression", [
