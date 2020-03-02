@@ -38,7 +38,7 @@
 #' @rdname Codec
 #' @name Codec
 #' @export
-Codec <- R6Class("Codec", inherit = Object,
+Codec <- R6Class("Codec", inherit = ArrowObject,
   active = list(
     name = function() util___Codec__name(self),
     level = function() abort("Codec$level() not yet implemented")

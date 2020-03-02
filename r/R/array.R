@@ -83,7 +83,7 @@
 #' @name array
 #' @export
 Array <- R6Class("Array",
-  inherit = Object,
+  inherit = ArrowObject,
   public = list(
     IsNull = function(i) Array__IsNull(self, i),
     IsValid = function(i) Array__IsValid(self, i),

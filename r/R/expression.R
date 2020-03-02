@@ -73,7 +73,7 @@ print.array_expression <- function(x, ...) print(as.vector(x))
 #' @name Expression
 #' @rdname Expression
 #' @export
-Expression <- R6Class("Expression", inherit = Object,
+Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
     ToString = function() dataset___expr__ToString(self)
   )

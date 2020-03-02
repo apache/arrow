@@ -29,7 +29,7 @@
 #' @rdname DataType
 #' @name DataType
 DataType <- R6Class("DataType",
-  inherit = Object,
+  inherit = ArrowObject,
   public = list(
     ToString = function() {
       DataType__ToString(self)
