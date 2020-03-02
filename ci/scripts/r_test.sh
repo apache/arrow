@@ -29,7 +29,7 @@ if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
   export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
   export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
 fi
-if [ "$ARROW_R_CXXFLAGS" != "" ] || [ "$ARROW_R_DEV" != "TRUE" ]; then
+if [ "$ARROW_R_CXXFLAGS" != "" ] || [ "$ARROW_R_DEV" = "TRUE" ]; then
   export _R_CHECK_COMPILATION_FLAGS_=FALSE
 fi
 export TEST_R_WITH_ARROW=TRUE
