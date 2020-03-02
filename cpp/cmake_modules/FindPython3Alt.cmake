@@ -62,11 +62,12 @@ get_target_property(NUMPY_INCLUDE_DIRS Python3::NumPy INTERFACE_INCLUDE_DIRECTOR
 # CMake's python3_add_library() doesn't apply the required extension suffix,
 # detect it ourselves.
 # (https://gitlab.kitware.com/cmake/cmake/issues/20408)
-execute_process(COMMAND "${PYTHON_EXECUTABLE}" "-c"
-                        "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
-                RESULT_VARIABLE _PYTHON_RESULT
-                OUTPUT_VARIABLE _PYTHON_STDOUT
-                ERROR_VARIABLE _PYTHON_STDERR)
+execute_process(
+  COMMAND "${PYTHON_EXECUTABLE}" "-c"
+          "from distutils import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
+  RESULT_VARIABLE _PYTHON_RESULT
+  OUTPUT_VARIABLE _PYTHON_STDOUT
+  ERROR_VARIABLE _PYTHON_STDERR)
 
 if(NOT _PYTHON_RESULT MATCHES 0)
   if(Python3Alt_FIND_REQUIRED)
