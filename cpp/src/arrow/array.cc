@@ -495,15 +495,33 @@ Status MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
   return Status::OK();
 }
 
-void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  this->ListArray::SetData(data, Type::MAP);
-  auto pair_data = data->child_data[0];
-  ARROW_CHECK_EQ(pair_data->type->id(), Type::STRUCT);
-  ARROW_CHECK_EQ(pair_data->null_count, 0);
-  ARROW_CHECK_EQ(pair_data->child_data.size(), 2);
-  ARROW_CHECK_EQ(pair_data->child_data[0]->null_count, 0);
+Status MapArray::ValidateChildData(
+    const std::vector<std::shared_ptr<ArrayData>>& child_data) {
+  if (child_data.size() != 1) {
+    return Status::Invalid("Expected one child array for map array");
+  }
+  const auto& pair_data = child_data[0];
+  if (pair_data->type->id() != Type::STRUCT) {
+    return Status::Invalid("Map array child array should have struct type");
+  }
+  if (pair_data->null_count != 0) {
+    return Status::Invalid("Map array child array should have no nulls");
+  }
+  if (pair_data->child_data.size() != 2) {
+    return Status::Invalid("Map array child array should have two fields");
+  }
+  if (pair_data->child_data[0]->null_count != 0) {
+    return Status::Invalid("Map array keys array should have no nulls");
+  }
+  return Status::OK();
+}
 
+void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  ARROW_CHECK_OK(ValidateChildData(data->child_data));
+
+  this->ListArray::SetData(data, Type::MAP);
   map_type_ = checked_cast<const MapType*>(data->type.get());
+  const auto& pair_data = data->child_data[0];
   keys_ = MakeArray(pair_data->child_data[0]);
   items_ = MakeArray(pair_data->child_data[1]);
 }

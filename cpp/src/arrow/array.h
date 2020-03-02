@@ -734,6 +734,10 @@ class ARROW_EXPORT MapArray : public ListArray {
   /// \brief Return array object containing all mapped items
   std::shared_ptr<Array> items() const { return items_; }
 
+  /// Validate child data before constructing the actual MapArray.
+  static Status ValidateChildData(
+      const std::vector<std::shared_ptr<ArrayData>>& child_data);
+
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
 
