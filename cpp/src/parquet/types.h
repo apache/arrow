@@ -502,13 +502,6 @@ class ColumnOrder {
   ColumnOrder::type column_order_;
 };
 
-// parquet::PageEncodingStats
-struct PageEncodingStats {
-  PageType::type page_type;
-  Encoding::type encoding;
-  int32_t count;
-};
-
 // ----------------------------------------------------------------------
 
 struct ByteArray {

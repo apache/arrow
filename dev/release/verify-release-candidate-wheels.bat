@@ -37,7 +37,6 @@ CALL :verify_wheel 3.6 %1 %2 m
 if errorlevel 1 GOTO error
 
 CALL :verify_wheel 3.7 %1 %2 m
-
 if errorlevel 1 GOTO error
 
 CALL :verify_wheel 3.8 %1 %2

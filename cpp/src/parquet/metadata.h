@@ -120,6 +120,13 @@ class PARQUET_EXPORT ColumnCryptoMetaData {
   std::unique_ptr<ColumnCryptoMetaDataImpl> impl_;
 };
 
+/// \brief Public struct for Thrift PageEncodingStats in ColumnChunkMetaData
+struct PageEncodingStats {
+  PageType::type page_type;
+  Encoding::type encoding;
+  int32_t count;
+};
+
 class PARQUET_EXPORT ColumnChunkMetaData {
  public:
   // API convenience to get a MetaData accessor
