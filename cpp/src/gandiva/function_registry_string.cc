@@ -44,6 +44,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(starts_with, {}),
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(ends_with, {}),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(is_substr, {}),
 
       BINARY_UNSAFE_NULL_IF_NULL(locate, {"position"}, utf8, int32),
 
