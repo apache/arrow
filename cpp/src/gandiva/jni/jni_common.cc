@@ -226,10 +226,9 @@ DataTypePtr ProtoTypeToDataType(const types::ExtGandivaType& ext_type) {
       return ProtoTypeToTime64(ext_type);
     case types::TIMESTAMP:
       return ProtoTypeToTimestamp(ext_type);
-
-    case types::FIXED_SIZE_BINARY:
     case types::INTERVAL:
       return ProtoTypeToInterval(ext_type);
+    case types::FIXED_SIZE_BINARY:
     case types::LIST:
     case types::STRUCT:
     case types::UNION:

@@ -749,6 +749,7 @@ gdv_int64 extractMillis_daytimeinterval(gdv_day_time_interval in) {
   return (in & 0xFFFFFFFF00000000) >> 32;
 }
 
+FORCE_INLINE
 gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
   return extractMillis_daytimeinterval(in) +
          extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
