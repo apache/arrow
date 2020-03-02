@@ -577,11 +577,13 @@ flatbuffers::Offset<PlasmaGetDebugStringReply> CreatePlasmaGetDebugStringReply(f
 struct PlasmaCreateRequestT : public flatbuffers::NativeTable {
   typedef PlasmaCreateRequest TableType;
   std::string object_id;
+  bool evict_if_full;
   uint64_t data_size;
   uint64_t metadata_size;
   int32_t device_num;
   PlasmaCreateRequestT()
-      : data_size(0),
+      : evict_if_full(false),
+        data_size(0),
         metadata_size(0),
         device_num(0) {
   }
@@ -591,12 +593,16 @@ struct PlasmaCreateRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
   typedef PlasmaCreateRequestT NativeTableType;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
-    VT_DATA_SIZE = 6,
-    VT_METADATA_SIZE = 8,
-    VT_DEVICE_NUM = 10
+    VT_EVICT_IF_FULL = 6,
+    VT_DATA_SIZE = 8,
+    VT_METADATA_SIZE = 10,
+    VT_DEVICE_NUM = 12
   };
   const flatbuffers::String *object_id() const {
     return GetPointer<const flatbuffers::String *>(VT_OBJECT_ID);
+  }
+  bool evict_if_full() const {
+    return GetField<uint8_t>(VT_EVICT_IF_FULL, 0) != 0;
   }
   uint64_t data_size() const {
     return GetField<uint64_t>(VT_DATA_SIZE, 0);
@@ -611,6 +617,7 @@ struct PlasmaCreateRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_OBJECT_ID) &&
            verifier.VerifyString(object_id()) &&
+           VerifyField<uint8_t>(verifier, VT_EVICT_IF_FULL) &&
            VerifyField<uint64_t>(verifier, VT_DATA_SIZE) &&
            VerifyField<uint64_t>(verifier, VT_METADATA_SIZE) &&
            VerifyField<int32_t>(verifier, VT_DEVICE_NUM) &&
@@ -626,6 +633,9 @@ struct PlasmaCreateRequestBuilder {
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
     fbb_.AddOffset(PlasmaCreateRequest::VT_OBJECT_ID, object_id);
+  }
+  void add_evict_if_full(bool evict_if_full) {
+    fbb_.AddElement<uint8_t>(PlasmaCreateRequest::VT_EVICT_IF_FULL, static_cast<uint8_t>(evict_if_full), 0);
   }
   void add_data_size(uint64_t data_size) {
     fbb_.AddElement<uint64_t>(PlasmaCreateRequest::VT_DATA_SIZE, data_size, 0);
@@ -651,6 +661,7 @@ struct PlasmaCreateRequestBuilder {
 inline flatbuffers::Offset<PlasmaCreateRequest> CreatePlasmaCreateRequest(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> object_id = 0,
+    bool evict_if_full = false,
     uint64_t data_size = 0,
     uint64_t metadata_size = 0,
     int32_t device_num = 0) {
@@ -659,12 +670,14 @@ inline flatbuffers::Offset<PlasmaCreateRequest> CreatePlasmaCreateRequest(
   builder_.add_data_size(data_size);
   builder_.add_device_num(device_num);
   builder_.add_object_id(object_id);
+  builder_.add_evict_if_full(evict_if_full);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<PlasmaCreateRequest> CreatePlasmaCreateRequestDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *object_id = nullptr,
+    bool evict_if_full = false,
     uint64_t data_size = 0,
     uint64_t metadata_size = 0,
     int32_t device_num = 0) {
@@ -672,6 +685,7 @@ inline flatbuffers::Offset<PlasmaCreateRequest> CreatePlasmaCreateRequestDirect(
   return plasma::flatbuf::CreatePlasmaCreateRequest(
       _fbb,
       object_id__,
+      evict_if_full,
       data_size,
       metadata_size,
       device_num);
@@ -877,10 +891,12 @@ flatbuffers::Offset<PlasmaCreateReply> CreatePlasmaCreateReply(flatbuffers::Flat
 struct PlasmaCreateAndSealRequestT : public flatbuffers::NativeTable {
   typedef PlasmaCreateAndSealRequest TableType;
   std::string object_id;
+  bool evict_if_full;
   std::string data;
   std::string metadata;
   std::string digest;
-  PlasmaCreateAndSealRequestT() {
+  PlasmaCreateAndSealRequestT()
+      : evict_if_full(false) {
   }
 };
 
@@ -888,12 +904,16 @@ struct PlasmaCreateAndSealRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers:
   typedef PlasmaCreateAndSealRequestT NativeTableType;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
-    VT_DATA = 6,
-    VT_METADATA = 8,
-    VT_DIGEST = 10
+    VT_EVICT_IF_FULL = 6,
+    VT_DATA = 8,
+    VT_METADATA = 10,
+    VT_DIGEST = 12
   };
   const flatbuffers::String *object_id() const {
     return GetPointer<const flatbuffers::String *>(VT_OBJECT_ID);
+  }
+  bool evict_if_full() const {
+    return GetField<uint8_t>(VT_EVICT_IF_FULL, 0) != 0;
   }
   const flatbuffers::String *data() const {
     return GetPointer<const flatbuffers::String *>(VT_DATA);
@@ -908,6 +928,7 @@ struct PlasmaCreateAndSealRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers:
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_OBJECT_ID) &&
            verifier.VerifyString(object_id()) &&
+           VerifyField<uint8_t>(verifier, VT_EVICT_IF_FULL) &&
            VerifyOffset(verifier, VT_DATA) &&
            verifier.VerifyString(data()) &&
            VerifyOffset(verifier, VT_METADATA) &&
@@ -926,6 +947,9 @@ struct PlasmaCreateAndSealRequestBuilder {
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
     fbb_.AddOffset(PlasmaCreateAndSealRequest::VT_OBJECT_ID, object_id);
+  }
+  void add_evict_if_full(bool evict_if_full) {
+    fbb_.AddElement<uint8_t>(PlasmaCreateAndSealRequest::VT_EVICT_IF_FULL, static_cast<uint8_t>(evict_if_full), 0);
   }
   void add_data(flatbuffers::Offset<flatbuffers::String> data) {
     fbb_.AddOffset(PlasmaCreateAndSealRequest::VT_DATA, data);
@@ -951,6 +975,7 @@ struct PlasmaCreateAndSealRequestBuilder {
 inline flatbuffers::Offset<PlasmaCreateAndSealRequest> CreatePlasmaCreateAndSealRequest(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> object_id = 0,
+    bool evict_if_full = false,
     flatbuffers::Offset<flatbuffers::String> data = 0,
     flatbuffers::Offset<flatbuffers::String> metadata = 0,
     flatbuffers::Offset<flatbuffers::String> digest = 0) {
@@ -959,12 +984,14 @@ inline flatbuffers::Offset<PlasmaCreateAndSealRequest> CreatePlasmaCreateAndSeal
   builder_.add_metadata(metadata);
   builder_.add_data(data);
   builder_.add_object_id(object_id);
+  builder_.add_evict_if_full(evict_if_full);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<PlasmaCreateAndSealRequest> CreatePlasmaCreateAndSealRequestDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *object_id = nullptr,
+    bool evict_if_full = false,
     const char *data = nullptr,
     const char *metadata = nullptr,
     const char *digest = nullptr) {
@@ -975,6 +1002,7 @@ inline flatbuffers::Offset<PlasmaCreateAndSealRequest> CreatePlasmaCreateAndSeal
   return plasma::flatbuf::CreatePlasmaCreateAndSealRequest(
       _fbb,
       object_id__,
+      evict_if_full,
       data__,
       metadata__,
       digest__);
@@ -1039,10 +1067,12 @@ flatbuffers::Offset<PlasmaCreateAndSealReply> CreatePlasmaCreateAndSealReply(fla
 struct PlasmaCreateAndSealBatchRequestT : public flatbuffers::NativeTable {
   typedef PlasmaCreateAndSealBatchRequest TableType;
   std::vector<std::string> object_ids;
+  bool evict_if_full;
   std::vector<std::string> data;
   std::vector<std::string> metadata;
   std::vector<std::string> digest;
-  PlasmaCreateAndSealBatchRequestT() {
+  PlasmaCreateAndSealBatchRequestT()
+      : evict_if_full(false) {
   }
 };
 
@@ -1050,12 +1080,16 @@ struct PlasmaCreateAndSealBatchRequest FLATBUFFERS_FINAL_CLASS : private flatbuf
   typedef PlasmaCreateAndSealBatchRequestT NativeTableType;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_IDS = 4,
-    VT_DATA = 6,
-    VT_METADATA = 8,
-    VT_DIGEST = 10
+    VT_EVICT_IF_FULL = 6,
+    VT_DATA = 8,
+    VT_METADATA = 10,
+    VT_DIGEST = 12
   };
   const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *object_ids() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_OBJECT_IDS);
+  }
+  bool evict_if_full() const {
+    return GetField<uint8_t>(VT_EVICT_IF_FULL, 0) != 0;
   }
   const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *data() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_DATA);
@@ -1071,6 +1105,7 @@ struct PlasmaCreateAndSealBatchRequest FLATBUFFERS_FINAL_CLASS : private flatbuf
            VerifyOffset(verifier, VT_OBJECT_IDS) &&
            verifier.VerifyVector(object_ids()) &&
            verifier.VerifyVectorOfStrings(object_ids()) &&
+           VerifyField<uint8_t>(verifier, VT_EVICT_IF_FULL) &&
            VerifyOffset(verifier, VT_DATA) &&
            verifier.VerifyVector(data()) &&
            verifier.VerifyVectorOfStrings(data()) &&
@@ -1092,6 +1127,9 @@ struct PlasmaCreateAndSealBatchRequestBuilder {
   flatbuffers::uoffset_t start_;
   void add_object_ids(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> object_ids) {
     fbb_.AddOffset(PlasmaCreateAndSealBatchRequest::VT_OBJECT_IDS, object_ids);
+  }
+  void add_evict_if_full(bool evict_if_full) {
+    fbb_.AddElement<uint8_t>(PlasmaCreateAndSealBatchRequest::VT_EVICT_IF_FULL, static_cast<uint8_t>(evict_if_full), 0);
   }
   void add_data(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> data) {
     fbb_.AddOffset(PlasmaCreateAndSealBatchRequest::VT_DATA, data);
@@ -1117,6 +1155,7 @@ struct PlasmaCreateAndSealBatchRequestBuilder {
 inline flatbuffers::Offset<PlasmaCreateAndSealBatchRequest> CreatePlasmaCreateAndSealBatchRequest(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> object_ids = 0,
+    bool evict_if_full = false,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> data = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> metadata = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> digest = 0) {
@@ -1125,12 +1164,14 @@ inline flatbuffers::Offset<PlasmaCreateAndSealBatchRequest> CreatePlasmaCreateAn
   builder_.add_metadata(metadata);
   builder_.add_data(data);
   builder_.add_object_ids(object_ids);
+  builder_.add_evict_if_full(evict_if_full);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<PlasmaCreateAndSealBatchRequest> CreatePlasmaCreateAndSealBatchRequestDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<flatbuffers::Offset<flatbuffers::String>> *object_ids = nullptr,
+    bool evict_if_full = false,
     const std::vector<flatbuffers::Offset<flatbuffers::String>> *data = nullptr,
     const std::vector<flatbuffers::Offset<flatbuffers::String>> *metadata = nullptr,
     const std::vector<flatbuffers::Offset<flatbuffers::String>> *digest = nullptr) {
@@ -1141,6 +1182,7 @@ inline flatbuffers::Offset<PlasmaCreateAndSealBatchRequest> CreatePlasmaCreateAn
   return plasma::flatbuf::CreatePlasmaCreateAndSealBatchRequest(
       _fbb,
       object_ids__,
+      evict_if_full,
       data__,
       metadata__,
       digest__);
@@ -2948,6 +2990,7 @@ inline void PlasmaCreateRequest::UnPackTo(PlasmaCreateRequestT *_o, const flatbu
   (void)_o;
   (void)_resolver;
   { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
+  { auto _e = evict_if_full(); _o->evict_if_full = _e; };
   { auto _e = data_size(); _o->data_size = _e; };
   { auto _e = metadata_size(); _o->metadata_size = _e; };
   { auto _e = device_num(); _o->device_num = _e; };
@@ -2962,12 +3005,14 @@ inline flatbuffers::Offset<PlasmaCreateRequest> CreatePlasmaCreateRequest(flatbu
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PlasmaCreateRequestT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _object_id = _o->object_id.empty() ? 0 : _fbb.CreateString(_o->object_id);
+  auto _evict_if_full = _o->evict_if_full;
   auto _data_size = _o->data_size;
   auto _metadata_size = _o->metadata_size;
   auto _device_num = _o->device_num;
   return plasma::flatbuf::CreatePlasmaCreateRequest(
       _fbb,
       _object_id,
+      _evict_if_full,
       _data_size,
       _metadata_size,
       _device_num);
@@ -3050,6 +3095,7 @@ inline void PlasmaCreateAndSealRequest::UnPackTo(PlasmaCreateAndSealRequestT *_o
   (void)_o;
   (void)_resolver;
   { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
+  { auto _e = evict_if_full(); _o->evict_if_full = _e; };
   { auto _e = data(); if (_e) _o->data = _e->str(); };
   { auto _e = metadata(); if (_e) _o->metadata = _e->str(); };
   { auto _e = digest(); if (_e) _o->digest = _e->str(); };
@@ -3064,12 +3110,14 @@ inline flatbuffers::Offset<PlasmaCreateAndSealRequest> CreatePlasmaCreateAndSeal
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PlasmaCreateAndSealRequestT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _object_id = _o->object_id.empty() ? 0 : _fbb.CreateString(_o->object_id);
+  auto _evict_if_full = _o->evict_if_full;
   auto _data = _o->data.empty() ? 0 : _fbb.CreateString(_o->data);
   auto _metadata = _o->metadata.empty() ? 0 : _fbb.CreateString(_o->metadata);
   auto _digest = _o->digest.empty() ? 0 : _fbb.CreateString(_o->digest);
   return plasma::flatbuf::CreatePlasmaCreateAndSealRequest(
       _fbb,
       _object_id,
+      _evict_if_full,
       _data,
       _metadata,
       _digest);
@@ -3111,6 +3159,7 @@ inline void PlasmaCreateAndSealBatchRequest::UnPackTo(PlasmaCreateAndSealBatchRe
   (void)_o;
   (void)_resolver;
   { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } };
+  { auto _e = evict_if_full(); _o->evict_if_full = _e; };
   { auto _e = data(); if (_e) { _o->data.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->data[_i] = _e->Get(_i)->str(); } } };
   { auto _e = metadata(); if (_e) { _o->metadata.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->metadata[_i] = _e->Get(_i)->str(); } } };
   { auto _e = digest(); if (_e) { _o->digest.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->digest[_i] = _e->Get(_i)->str(); } } };
@@ -3125,12 +3174,14 @@ inline flatbuffers::Offset<PlasmaCreateAndSealBatchRequest> CreatePlasmaCreateAn
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PlasmaCreateAndSealBatchRequestT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _object_ids = _o->object_ids.size() ? _fbb.CreateVectorOfStrings(_o->object_ids) : 0;
+  auto _evict_if_full = _o->evict_if_full;
   auto _data = _o->data.size() ? _fbb.CreateVectorOfStrings(_o->data) : 0;
   auto _metadata = _o->metadata.size() ? _fbb.CreateVectorOfStrings(_o->metadata) : 0;
   auto _digest = _o->digest.size() ? _fbb.CreateVectorOfStrings(_o->digest) : 0;
   return plasma::flatbuf::CreatePlasmaCreateAndSealBatchRequest(
       _fbb,
       _object_ids,
+      _evict_if_full,
       _data,
       _metadata,
       _digest);
