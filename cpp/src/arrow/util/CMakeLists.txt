@@ -29,29 +29,28 @@ arrow_install_all_headers("arrow/util")
 add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
+               bit_util_test.cc
                checked_cast_test.cc
+               compression_test.cc
+               decimal_test.cc
                formatting_util_test.cc
                key_value_metadata_test.cc
                hashing_test.cc
                int_util_test.cc
                io_util_test.cc
                iterator_test.cc
+               logging_test.cc
                parsing_util_test.cc
                range_test.cc
+               rle_encoding_test.cc
                stl_util_test.cc
                string_test.cc
                time_test.cc
                trie_test.cc
+               uri_test.cc
                utf8_util_test.cc)
 
-add_arrow_test(bit_util_test)
-add_arrow_test(compression_test)
-add_arrow_test(decimal_test)
-add_arrow_test(logging_test)
-add_arrow_test(rle_encoding_test)
-add_arrow_test(task_group_test)
-add_arrow_test(thread_pool_test)
-add_arrow_test(uri_test)
+add_arrow_test(threading-utility-test SOURCES task_group_test thread_pool_test)
 
 add_arrow_benchmark(bit_util_benchmark)
 add_arrow_benchmark(compression_benchmark)

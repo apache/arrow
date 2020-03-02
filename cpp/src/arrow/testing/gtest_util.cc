@@ -25,6 +25,7 @@
 #endif
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -34,6 +35,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "arrow/array.h"
@@ -369,6 +371,11 @@ void TestInitialized(const Array& array) {
       throw_away = total;
     }
   }
+}
+
+void SleepFor(double seconds) {
+  std::this_thread::sleep_for(
+      std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
 }
 
 ///////////////////////////////////////////////////////////////////////////
