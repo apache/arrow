@@ -32,6 +32,7 @@ if [ "$ARROW_R_CXXFLAGS" != "" ]; then
   export _R_CHECK_COMPILATION_FLAGS_=FALSE
 fi
 export TEST_R_WITH_ARROW=TRUE
+export ARROW_R_DEV=TRUE # For log verbosity
 export _R_CHECK_TESTS_NLINES_=0
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE

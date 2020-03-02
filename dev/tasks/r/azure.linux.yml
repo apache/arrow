@@ -48,3 +48,9 @@ jobs:
         R_TAG={{ r_tag }}
         docker-compose run r
       displayName: Docker run
+
+    - script: |
+        set -ex
+        cat arrow/r/check/arrow.Rcheck/00install.out
+      displayName: Dump install logs on failure
+      condition: failed()
