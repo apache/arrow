@@ -361,16 +361,6 @@ if(ARROW_TEST_MEMCHECK)
   add_definitions(-DARROW_VALGRIND)
 endif()
 
-if(MSVC
-   AND ARROW_USE_CLCACHE
-   AND (("${CMAKE_GENERATOR}" STREQUAL "NMake Makefiles")
-        OR ("${CMAKE_GENERATOR}" STREQUAL "Ninja")))
-  find_program(CLCACHE_FOUND clcache)
-  if(CLCACHE_FOUND)
-    set(CMAKE_CXX_COMPILER ${CLCACHE_FOUND})
-  endif(CLCACHE_FOUND)
-endif()
-
 #
 # Compiler flags
 #
