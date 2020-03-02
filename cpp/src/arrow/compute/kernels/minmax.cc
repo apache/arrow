@@ -84,19 +84,24 @@ class MinMaxAggregateFunction final
   Status Consume(const Array& array, StateType* state) const override {
     StateType local;
 
-    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                                  array.length());
     const auto values =
         checked_cast<const typename TypeTraits<ArrowType>::ArrayType&>(array)
             .raw_values();
-    for (int64_t i = 0; i < array.length(); i++) {
-      if (reader.IsSet()) {
+    if (array.null_count() != 0) {
+      internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
+                                    array.length());
+      for (int64_t i = 0; i < array.length(); i++) {
+        if (reader.IsSet()) {
+          local.MergeOne(values[i]);
+        }
+        reader.Next();
+      }
+    } else {
+      for (int64_t i = 0; i < array.length(); i++) {
         local.MergeOne(values[i]);
       }
-      reader.Next();
     }
     *state = local;
-
     return Status::OK();
   }
 

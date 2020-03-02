@@ -286,7 +286,7 @@ def test_chunked_array_flatten():
 def test_recordbatch_basics():
     data = [
         pa.array(range(5), type='int16'),
-        pa.array([-10, -5, 0, 5, 10], type='int32')
+        pa.array([-10, -5, 0, None, 10], type='int32')
     ]
 
     batch = pa.record_batch(data, ['c0', 'c1'])
@@ -295,12 +295,13 @@ def test_recordbatch_basics():
     assert len(batch) == 5
     assert batch.num_rows == 5
     assert batch.num_columns == len(data)
-    assert batch.nbytes == 5 * 2 + 1 + 5 * 4 + 1
+    # (only the second array has a null bitmap)
+    assert batch.nbytes == (5 * 2) + (5 * 4 + 1)
     assert sys.getsizeof(batch) >= object.__sizeof__(batch) + batch.nbytes
     pydict = batch.to_pydict()
     assert pydict == OrderedDict([
         ('c0', [0, 1, 2, 3, 4]),
-        ('c1', [-10, -5, 0, 5, 10])
+        ('c1', [-10, -5, 0, None, 10])
     ])
     if sys.version_info >= (3, 7):
         assert type(pydict) == dict
@@ -548,7 +549,7 @@ def test_table_basics():
     assert table.num_rows == 5
     assert table.num_columns == 2
     assert table.shape == (5, 2)
-    assert table.nbytes == 2 * (5 * 8 + 1)
+    assert table.nbytes == 2 * (5 * 8)
     assert sys.getsizeof(table) >= object.__sizeof__(table) + table.nbytes
     pydict = table.to_pydict()
     assert pydict == OrderedDict([

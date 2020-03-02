@@ -92,50 +92,38 @@ struct ARROW_EXPORT ArrayData {
       : type(type), length(length), null_count(null_count), offset(offset) {}
 
   ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
-            const std::vector<std::shared_ptr<Buffer>>& buffers,
-            int64_t null_count = kUnknownNullCount, int64_t offset = 0)
-      : ArrayData(type, length, null_count, offset) {
-    this->buffers = buffers;
-  }
-
-  ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
-            const std::vector<std::shared_ptr<Buffer>>& buffers,
-            const std::vector<std::shared_ptr<ArrayData>>& child_data,
-            int64_t null_count = kUnknownNullCount, int64_t offset = 0)
-      : ArrayData(type, length, null_count, offset) {
-    this->buffers = buffers;
-    this->child_data = child_data;
-  }
-
-  ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
-            std::vector<std::shared_ptr<Buffer>>&& buffers,
+            std::vector<std::shared_ptr<Buffer>> buffers,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
       : ArrayData(type, length, null_count, offset) {
     this->buffers = std::move(buffers);
   }
 
+  ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
+            std::vector<std::shared_ptr<Buffer>> buffers,
+            std::vector<std::shared_ptr<ArrayData>> child_data,
+            int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : ArrayData(type, length, null_count, offset) {
+    this->buffers = std::move(buffers);
+    this->child_data = std::move(child_data);
+  }
+
   static std::shared_ptr<ArrayData> Make(const std::shared_ptr<DataType>& type,
                                          int64_t length,
-                                         std::vector<std::shared_ptr<Buffer>>&& buffers,
+                                         std::vector<std::shared_ptr<Buffer>> buffers,
                                          int64_t null_count = kUnknownNullCount,
                                          int64_t offset = 0);
 
   static std::shared_ptr<ArrayData> Make(
       const std::shared_ptr<DataType>& type, int64_t length,
-      const std::vector<std::shared_ptr<Buffer>>& buffers,
+      std::vector<std::shared_ptr<Buffer>> buffers,
+      std::vector<std::shared_ptr<ArrayData>> child_data,
       int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   static std::shared_ptr<ArrayData> Make(
       const std::shared_ptr<DataType>& type, int64_t length,
-      const std::vector<std::shared_ptr<Buffer>>& buffers,
-      const std::vector<std::shared_ptr<ArrayData>>& child_data,
-      int64_t null_count = kUnknownNullCount, int64_t offset = 0);
-
-  static std::shared_ptr<ArrayData> Make(
-      const std::shared_ptr<DataType>& type, int64_t length,
-      const std::vector<std::shared_ptr<Buffer>>& buffers,
-      const std::vector<std::shared_ptr<ArrayData>>& child_data,
-      const std::shared_ptr<Array>& dictionary, int64_t null_count = kUnknownNullCount,
+      std::vector<std::shared_ptr<Buffer>> buffers,
+      std::vector<std::shared_ptr<ArrayData>> child_data,
+      std::shared_ptr<Array> dictionary, int64_t null_count = kUnknownNullCount,
       int64_t offset = 0);
 
   static std::shared_ptr<ArrayData> Make(const std::shared_ptr<DataType>& type,

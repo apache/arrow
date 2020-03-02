@@ -54,36 +54,40 @@ using internal::CountSetBits;
 
 std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
                                            int64_t length,
-                                           std::vector<std::shared_ptr<Buffer>>&& buffers,
+                                           std::vector<std::shared_ptr<Buffer>> buffers,
                                            int64_t null_count, int64_t offset) {
+  // In case there are no nulls, don't keep an allocated null bitmap around
+  if (buffers.size() > 0 && null_count == 0) {
+    buffers[0] = nullptr;
+  }
   return std::make_shared<ArrayData>(type, length, std::move(buffers), null_count,
                                      offset);
 }
 
 std::shared_ptr<ArrayData> ArrayData::Make(
     const std::shared_ptr<DataType>& type, int64_t length,
-    const std::vector<std::shared_ptr<Buffer>>& buffers, int64_t null_count,
+    std::vector<std::shared_ptr<Buffer>> buffers,
+    std::vector<std::shared_ptr<ArrayData>> child_data, int64_t null_count,
     int64_t offset) {
-  return std::make_shared<ArrayData>(type, length, buffers, null_count, offset);
+  // In case there are no nulls, don't keep an allocated null bitmap around
+  if (buffers.size() > 0 && null_count == 0) {
+    buffers[0] = nullptr;
+  }
+  return std::make_shared<ArrayData>(type, length, std::move(buffers),
+                                     std::move(child_data), null_count, offset);
 }
 
 std::shared_ptr<ArrayData> ArrayData::Make(
     const std::shared_ptr<DataType>& type, int64_t length,
-    const std::vector<std::shared_ptr<Buffer>>& buffers,
-    const std::vector<std::shared_ptr<ArrayData>>& child_data, int64_t null_count,
-    int64_t offset) {
-  return std::make_shared<ArrayData>(type, length, buffers, child_data, null_count,
-                                     offset);
-}
-
-std::shared_ptr<ArrayData> ArrayData::Make(
-    const std::shared_ptr<DataType>& type, int64_t length,
-    const std::vector<std::shared_ptr<Buffer>>& buffers,
-    const std::vector<std::shared_ptr<ArrayData>>& child_data,
-    const std::shared_ptr<Array>& dictionary, int64_t null_count, int64_t offset) {
-  auto data =
-      std::make_shared<ArrayData>(type, length, buffers, child_data, null_count, offset);
-  data->dictionary = dictionary;
+    std::vector<std::shared_ptr<Buffer>> buffers,
+    std::vector<std::shared_ptr<ArrayData>> child_data, std::shared_ptr<Array> dictionary,
+    int64_t null_count, int64_t offset) {
+  if (buffers.size() > 0 && null_count == 0) {
+    buffers[0] = nullptr;
+  }
+  auto data = std::make_shared<ArrayData>(type, length, std::move(buffers),
+                                          std::move(child_data), null_count, offset);
+  data->dictionary = std::move(dictionary);
   return data;
 }
 

@@ -355,7 +355,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
     num_values_ = static_cast<int>(expected_dense_->length());
     null_count_ = static_cast<int>(expected_dense_->null_count());
-    valid_bits_ = expected_dense_->null_bitmap()->data();
+    valid_bits_ = expected_dense_->null_bitmap_data();
 
     auto builder = CreateDictBuilder();
     ASSERT_OK(builder->AppendArray(*expected_dense_));
@@ -461,7 +461,12 @@ class PlainEncoding : public TestArrowBuilderDecoding {
     encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
     plain_decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
     decoder_ = plain_decoder_.get();
-    ASSERT_NO_THROW(encoder_->PutSpaced(input_data_.data(), num_values_, valid_bits_, 0));
+    if (valid_bits_ != nullptr) {
+      ASSERT_NO_THROW(
+          encoder_->PutSpaced(input_data_.data(), num_values_, valid_bits_, 0));
+    } else {
+      ASSERT_NO_THROW(encoder_->Put(input_data_.data(), num_values_));
+    }
     buffer_ = encoder_->FlushValues();
     decoder_->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
   }
@@ -840,7 +845,12 @@ class DictEncoding : public TestArrowBuilderDecoding {
     descr_ = std::unique_ptr<ColumnDescriptor>(new ColumnDescriptor(node, 0, 0));
     encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true,
                                                descr_.get());
-    ASSERT_NO_THROW(encoder_->PutSpaced(input_data_.data(), num_values_, valid_bits_, 0));
+    if (null_count_ == 0) {
+      ASSERT_NO_THROW(encoder_->Put(input_data_.data(), num_values_));
+    } else {
+      ASSERT_NO_THROW(
+          encoder_->PutSpaced(input_data_.data(), num_values_, valid_bits_, 0));
+    }
     buffer_ = encoder_->FlushValues();
 
     auto dict_encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder_.get());
@@ -887,8 +897,13 @@ TEST_F(DictEncoding, CheckDecodeIndicesSpaced) {
     InitTestCase(np);
     auto builder = CreateDictBuilder();
     dict_decoder_->InsertDictionary(builder.get());
-    auto actual_num_values = dict_decoder_->DecodeIndicesSpaced(
-        num_values_, null_count_, valid_bits_, 0, builder.get());
+    int actual_num_values;
+    if (null_count_ == 0) {
+      actual_num_values = dict_decoder_->DecodeIndices(num_values_, builder.get());
+    } else {
+      actual_num_values = dict_decoder_->DecodeIndicesSpaced(
+          num_values_, null_count_, valid_bits_, 0, builder.get());
+    }
     CheckDict(actual_num_values, *builder);
   }
 }

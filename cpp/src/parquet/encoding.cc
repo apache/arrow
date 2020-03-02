@@ -1058,15 +1058,22 @@ int PlainDecoder<DType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
-  for (int i = 0; i < num_values; ++i) {
-    if (bit_reader.IsSet()) {
+  if (null_count != 0) {
+    arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+    for (int i = 0; i < num_values; ++i) {
+      if (bit_reader.IsSet()) {
+        builder->UnsafeAppend(arrow::util::SafeLoadAs<value_type>(data_));
+        data_ += sizeof(value_type);
+      } else {
+        builder->UnsafeAppendNull();
+      }
+      bit_reader.Next();
+    }
+  } else {
+    for (int i = 0; i < num_values; ++i) {
       builder->UnsafeAppend(arrow::util::SafeLoadAs<value_type>(data_));
       data_ += sizeof(value_type);
-    } else {
-      builder->UnsafeAppendNull();
     }
-    bit_reader.Next();
   }
 
   num_values_ -= values_decoded;
@@ -1088,15 +1095,22 @@ int PlainDecoder<DType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
-  for (int i = 0; i < num_values; ++i) {
-    if (bit_reader.IsSet()) {
+  if (null_count != 0) {
+    arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+    for (int i = 0; i < num_values; ++i) {
+      if (bit_reader.IsSet()) {
+        PARQUET_THROW_NOT_OK(builder->Append(arrow::util::SafeLoadAs<value_type>(data_)));
+        data_ += sizeof(value_type);
+      } else {
+        PARQUET_THROW_NOT_OK(builder->AppendNull());
+      }
+      bit_reader.Next();
+    }
+  } else {
+    for (int i = 0; i < num_values; ++i) {
       PARQUET_THROW_NOT_OK(builder->Append(arrow::util::SafeLoadAs<value_type>(data_)));
       data_ += sizeof(value_type);
-    } else {
-      PARQUET_THROW_NOT_OK(builder->AppendNull());
     }
-    bit_reader.Next();
   }
 
   num_values_ -= values_decoded;
@@ -1216,16 +1230,24 @@ int PlainBooleanDecoder::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  arrow::internal::BitmapReader valid_reader(valid_bits, valid_bits_offset, num_values);
-  for (int i = 0; i < num_values; ++i) {
-    if (valid_reader.IsSet()) {
+  if (null_count != 0) {
+    arrow::internal::BitmapReader valid_reader(valid_bits, valid_bits_offset, num_values);
+    for (int i = 0; i < num_values; ++i) {
+      if (valid_reader.IsSet()) {
+        bool value;
+        ARROW_IGNORE_EXPR(bit_reader_->GetValue(1, &value));
+        builder->UnsafeAppend(value);
+      } else {
+        builder->UnsafeAppendNull();
+      }
+      valid_reader.Next();
+    }
+  } else {
+    for (int i = 0; i < num_values; ++i) {
       bool value;
       ARROW_IGNORE_EXPR(bit_reader_->GetValue(1, &value));
       builder->UnsafeAppend(value);
-    } else {
-      builder->UnsafeAppendNull();
     }
-    valid_reader.Next();
   }
 
   num_values_ -= values_decoded;
@@ -1327,15 +1349,22 @@ inline int PlainDecoder<FLBAType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
-  for (int i = 0; i < num_values; ++i) {
-    if (bit_reader.IsSet()) {
+  if (null_count != 0) {
+    arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+    for (int i = 0; i < num_values; ++i) {
+      if (bit_reader.IsSet()) {
+        builder->UnsafeAppend(data_);
+        data_ += descr_->type_length();
+      } else {
+        builder->UnsafeAppendNull();
+      }
+      bit_reader.Next();
+    }
+  } else {
+    for (int i = 0; i < num_values; ++i) {
       builder->UnsafeAppend(data_);
       data_ += descr_->type_length();
-    } else {
-      builder->UnsafeAppendNull();
     }
-    bit_reader.Next();
   }
 
   num_values_ -= values_decoded;
@@ -1354,15 +1383,22 @@ inline int PlainDecoder<FLBAType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
-  for (int i = 0; i < num_values; ++i) {
-    if (bit_reader.IsSet()) {
+  if (null_count != 0) {
+    arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+    for (int i = 0; i < num_values; ++i) {
+      if (bit_reader.IsSet()) {
+        PARQUET_THROW_NOT_OK(builder->Append(data_));
+        data_ += descr_->type_length();
+      } else {
+        PARQUET_THROW_NOT_OK(builder->AppendNull());
+      }
+      bit_reader.Next();
+    }
+  } else {
+    for (int i = 0; i < num_values; ++i) {
       PARQUET_THROW_NOT_OK(builder->Append(data_));
       data_ += descr_->type_length();
-    } else {
-      PARQUET_THROW_NOT_OK(builder->AppendNull());
     }
-    bit_reader.Next();
   }
 
   num_values_ -= values_decoded;
@@ -1384,15 +1420,12 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
                   int64_t valid_bits_offset,
                   arrow::BinaryDictionary32Builder* builder) override {
     int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
-                                     valid_bits_offset, builder, &result));
-    return result;
-  }
-
-  int DecodeArrowNonNull(int num_values,
-                         arrow::BinaryDictionary32Builder* builder) override {
-    int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
+    if (null_count == 0) {
+      PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
+    } else {
+      PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
+                                       valid_bits_offset, builder, &result));
+    }
     return result;
   }
 
@@ -1403,15 +1436,12 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
     int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
-                                          valid_bits_offset, out, &result));
-    return result;
-  }
-
-  int DecodeArrowNonNull(
-      int num_values, typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
-    int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull(num_values, out, &result));
+    if (null_count == 0) {
+      PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull(num_values, out, &result));
+    } else {
+      PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
+                                            valid_bits_offset, out, &result));
+    }
     return result;
   }
 
@@ -1831,17 +1861,27 @@ inline int DictDecoderImpl<FLBAType>::DecodeArrow(
 
   auto dict_values = reinterpret_cast<const FLBA*>(dictionary_->data());
 
-  for (int i = 0; i < num_values; ++i) {
-    bool is_valid = bit_reader.IsSet();
-    bit_reader.Next();
-    if (is_valid) {
+  if (null_count != 0) {
+    for (int i = 0; i < num_values; ++i) {
+      bool is_valid = bit_reader.IsSet();
+      bit_reader.Next();
+      if (is_valid) {
+        int32_t index;
+        if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+          throw ParquetException("");
+        }
+        builder->UnsafeAppend(dict_values[index].ptr);
+      } else {
+        builder->UnsafeAppendNull();
+      }
+    }
+  } else {
+    for (int i = 0; i < num_values; ++i) {
       int32_t index;
       if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
         throw ParquetException("");
       }
       builder->UnsafeAppend(dict_values[index].ptr);
-    } else {
-      builder->UnsafeAppendNull();
     }
   }
 
@@ -1867,17 +1907,27 @@ int DictDecoderImpl<FLBAType>::DecodeArrow(
 
   auto dict_values = reinterpret_cast<const FLBA*>(dictionary_->data());
 
-  for (int i = 0; i < num_values; ++i) {
-    bool is_valid = bit_reader.IsSet();
-    bit_reader.Next();
-    if (is_valid) {
+  if (null_count != 0) {
+    for (int i = 0; i < num_values; ++i) {
+      bool is_valid = bit_reader.IsSet();
+      bit_reader.Next();
+      if (is_valid) {
+        int32_t index;
+        if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+          throw ParquetException("");
+        }
+        PARQUET_THROW_NOT_OK(builder->Append(dict_values[index].ptr));
+      } else {
+        PARQUET_THROW_NOT_OK(builder->AppendNull());
+      }
+    }
+  } else {
+    for (int i = 0; i < num_values; ++i) {
       int32_t index;
       if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
         throw ParquetException("");
       }
       PARQUET_THROW_NOT_OK(builder->Append(dict_values[index].ptr));
-    } else {
-      PARQUET_THROW_NOT_OK(builder->AppendNull());
     }
   }
 
@@ -1894,17 +1944,27 @@ int DictDecoderImpl<Type>::DecodeArrow(
   using value_type = typename Type::c_type;
   auto dict_values = reinterpret_cast<const value_type*>(dictionary_->data());
 
-  for (int i = 0; i < num_values; ++i) {
-    bool is_valid = bit_reader.IsSet();
-    bit_reader.Next();
-    if (is_valid) {
+  if (null_count != 0) {
+    for (int i = 0; i < num_values; ++i) {
+      bool is_valid = bit_reader.IsSet();
+      bit_reader.Next();
+      if (is_valid) {
+        int32_t index;
+        if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+          throw ParquetException("");
+        }
+        builder->UnsafeAppend(dict_values[index]);
+      } else {
+        builder->UnsafeAppendNull();
+      }
+    }
+  } else {
+    for (int i = 0; i < num_values; ++i) {
       int32_t index;
       if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
         throw ParquetException("");
       }
       builder->UnsafeAppend(dict_values[index]);
-    } else {
-      builder->UnsafeAppendNull();
     }
   }
 
@@ -1936,15 +1996,12 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
                   int64_t valid_bits_offset,
                   arrow::BinaryDictionary32Builder* builder) override {
     int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
-                                     valid_bits_offset, builder, &result));
-    return result;
-  }
-
-  int DecodeArrowNonNull(int num_values,
-                         arrow::BinaryDictionary32Builder* builder) override {
-    int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
+    if (null_count == 0) {
+      PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
+    } else {
+      PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
+                                       valid_bits_offset, builder, &result));
+    }
     return result;
   }
 
@@ -1952,15 +2009,12 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
     int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
-                                          valid_bits_offset, out, &result));
-    return result;
-  }
-
-  int DecodeArrowNonNull(
-      int num_values, typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
-    int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull(num_values, out, &result));
+    if (null_count == 0) {
+      PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull(num_values, out, &result));
+    } else {
+      PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
+                                            valid_bits_offset, out, &result));
+    }
     return result;
   }
 
