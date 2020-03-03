@@ -19,8 +19,7 @@
 # arrow_python
 #
 
-find_package(PythonLibsNew REQUIRED)
-find_package(NumPy REQUIRED)
+find_package(Python3Alt REQUIRED)
 
 add_custom_target(arrow_python-all)
 add_custom_target(arrow_python)
