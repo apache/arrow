@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <future>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -46,6 +45,7 @@ using arrow::BooleanArray;
 using arrow::ChunkedArray;
 using arrow::DataType;
 using arrow::Field;
+using arrow::Future;
 using arrow::Int32Array;
 using arrow::ListArray;
 using arrow::MemoryPool;
@@ -811,14 +811,14 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
   };
 
   if (reader_properties_.use_threads()) {
-    std::vector<std::future<Status>> futures(num_fields);
+    std::vector<Future<Status>> futures(num_fields);
     auto pool = ::arrow::internal::GetCpuThreadPool();
     for (int i = 0; i < num_fields; i++) {
       ARROW_ASSIGN_OR_RAISE(futures[i], pool->Submit(ReadColumnFunc, i));
     }
     Status final_status = Status::OK();
     for (auto& fut : futures) {
-      Status st = fut.get();
+      Status st = fut.status();
       if (!st.ok()) {
         final_status = std::move(st);
       }
