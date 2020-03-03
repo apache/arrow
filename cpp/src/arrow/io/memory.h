@@ -165,6 +165,8 @@ class ARROW_EXPORT BufferReader
 
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
 
+  // TODO implement ReadAsync override
+
  protected:
   friend RandomAccessFileConcurrencyWrapper<BufferReader>;
 

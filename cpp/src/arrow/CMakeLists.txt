@@ -152,6 +152,7 @@ set(ARROW_SRCS
     visitor.cc
     c/bridge.cc
     io/buffered.cc
+    io/caching.cc
     io/compressed.cc
     io/file.cc
     io/hdfs.cc

@@ -41,6 +41,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 
 namespace arrow {
@@ -362,6 +363,18 @@ TEST_F(TestReadableFile, ReadAt) {
 
   ASSERT_OK(file_->Close());
   ASSERT_RAISES(Invalid, file_->ReadAt(0, 1));
+}
+
+TEST_F(TestReadableFile, ReadAsync) {
+  MakeTestFile();
+  OpenFile();
+
+  ASSERT_OK_AND_ASSIGN(auto fut1, file_->ReadAsync(1, 10));
+  ASSERT_OK_AND_ASSIGN(auto fut2, file_->ReadAsync(0, 4));
+  ASSERT_OK_AND_ASSIGN(auto buf1, fut1.result());
+  ASSERT_OK_AND_ASSIGN(auto buf2, fut2.result());
+  AssertBufferEqual(*buf1, "estdata");
+  AssertBufferEqual(*buf2, "test");
 }
 
 TEST_F(TestReadableFile, SeekingRequired) {
