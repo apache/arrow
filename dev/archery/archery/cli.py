@@ -210,7 +210,7 @@ lint_checks = [
     LintCheck('clang-format', "Format C++ files with clang-format."),
     LintCheck('clang-tidy', "Lint C++ files with clang-tidy."),
     LintCheck('cpplint', "Lint C++ files with cpplint."),
-    LintCheck('iwyu', "Lint C++ files with Include-What-You-Use."),
+    LintCheck('iwyu', "Lint changed C++ files with Include-What-You-Use."),
     LintCheck('flake8', "Lint Python files with flake8."),
     LintCheck('numpydoc', "Lint Python files with numpydoc."),
     LintCheck('cmake-format', "Format CMake files with cmake-format.py."),
