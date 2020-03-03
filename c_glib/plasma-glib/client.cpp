@@ -461,6 +461,7 @@ gplasma_client_create(GPlasmaClient *client,
   }
   std::shared_ptr<arrow::Buffer> plasma_data;
   auto status = plasma_client->Create(plasma_id,
+                                      /*evict_if_full=*/true,
                                       data_size,
                                       raw_metadata,
                                       raw_metadata_size,
