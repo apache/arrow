@@ -235,34 +235,49 @@ class Future {
  public:
   static constexpr double kInfinity = FutureImpl::kInfinity;
 
+  // Default constructor creates an invalid Future.  Use Future::Make()
+  // for a valid Future.  This constructor is mostly for the convenience
+  // of being able to presize a vector of Futures.
+  Future() : impl_(NULLPTR) {}
+
   // Consumer API
 
-  FutureState state() const { return impl_->state(); }
+  bool is_valid() const { return storage_ != NULLPTR; }
+
+  FutureState state() const {
+    CheckValid();
+    return impl_->state();
+  }
 
   template <typename U = T>
   const Result<T>& result(EnableResult<U>* = NULLPTR) const& {
+    CheckValid();
     Wait();
     return storage_->result_;
   }
 
   template <typename U = T>
   Result<T> result(EnableResult<U>* = NULLPTR) && {
+    CheckValid();
     Wait();
     return std::move(storage_->result_);
   }
 
   Status status() const {
+    CheckValid();
     Wait();
     return storage_->status();
   }
 
   void Wait() const {
+    CheckValid();
     if (!IsFutureFinished(impl_->state())) {
       impl_->Wait();
     }
   }
 
   bool Wait(double seconds) const {
+    CheckValid();
     if (IsFutureFinished(impl_->state())) {
       return true;
     }
@@ -289,7 +304,13 @@ class Future {
   }
 
  protected:
-  Future() {}
+  void CheckValid() const {
+#ifndef NDEBUG
+    if (!is_valid()) {
+      Status::Invalid("Invalid Future (default-initialized?)").Abort();
+    }
+#endif
+  }
 
   std::shared_ptr<FutureStorage<T>> storage_;
   FutureImpl* impl_;
