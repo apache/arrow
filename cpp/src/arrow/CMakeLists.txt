@@ -377,8 +377,7 @@ endif()
 if(ARROW_IPC)
   list(APPEND ARROW_SRCS
               ipc/dictionary.cc
-              ipc/feather_v1.cc
-              ipc/feather_v2.cc
+              ipc/feather.cc
               ipc/message.cc
               ipc/metadata_internal.cc
               ipc/options.cc

@@ -611,7 +611,8 @@ TEST_F(TestWriteRecordBatch, RoundtripPreservesBufferSizes) {
       mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
   DictionaryMemo dictionary_memo;
   std::shared_ptr<RecordBatch> result;
-  ASSERT_OK(DoStandardRoundTrip(*batch, &dictionary_memo, &result));
+  ASSERT_OK(
+      DoStandardRoundTrip(*batch, IpcOptions::Defaults(), &dictionary_memo, &result));
 
   // Make sure that the validity bitmap is size 2 as expected
   ASSERT_EQ(2, arr->data()->buffers[0]->size());
