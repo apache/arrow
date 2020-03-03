@@ -643,9 +643,9 @@ def make_sample_file(table_or_df):
 
 def test_byte_stream_split():
     # This is only a smoke test.
-    arr = pa.array(list(map(float, range(100))))
-    data = [arr, arr]
-    table = pa.Table.from_arrays(data, names=['a', 'b'])
+    arr_float = pa.array(list(map(float, range(100))))
+    data_float = [arr_float, arr_float]
+    table = pa.Table.from_arrays(data_float, names=['a', 'b'])
 
     # Check with byte_stream_split for both columns.
     _check_roundtrip(table, expected=table, compression="gzip",
@@ -661,6 +661,14 @@ def test_byte_stream_split():
     _check_roundtrip(table, expected=table, compression="gzip",
                      use_dictionary=['a', 'b'],
                      use_byte_stream_split=['a', 'b'])
+
+    # Try to use the wrong data type with the byte_stream_split encoding.
+    # This should throw an exception.
+    arr_int = pa.array(list(map(int, range(10))))
+    table = pa.Table.from_arrays([arr_int], names=['tmp'])
+    with pytest.raises(IOError):
+        _check_roundtrip(table, expected=table, use_byte_stream_split=True,
+                         use_dictionary=False)
 
 
 def test_compression_level():
