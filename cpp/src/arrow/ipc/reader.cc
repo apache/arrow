@@ -62,15 +62,16 @@ namespace ipc {
 using internal::FileBlock;
 using internal::kArrowMagicBytes;
 
-#define INVALID_MESSAGE(expected, actual)                                       \
-  Status::IOError("Expected IPC message of type ", FormatMessageType(expected), \
-                  " but got ", FormatMessageType(actual));
+Status InvalidMessageType(Message::Type expected, Message::Type actual) {
+  return Status::IOError("Expected IPC message of type ", FormatMessageType(expected),
+                         " but got ", FormatMessageType(actual));
+}
 
-#define CHECK_MESSAGE_TYPE(expected, actual)        \
-  do {                                              \
-    if ((actual) != (expected)) {                   \
-      return INVALID_MESSAGE((expected), (actual)); \
-    }                                               \
+#define CHECK_MESSAGE_TYPE(expected, actual)           \
+  do {                                                 \
+    if ((actual) != (expected)) {                      \
+      return InvalidMessageType((expected), (actual)); \
+    }                                                  \
   } while (0)
 
 #define CHECK_HAS_BODY(message)                                       \

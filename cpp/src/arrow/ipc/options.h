@@ -18,6 +18,9 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
+#include <unordered_set>
+#include <vector>
 
 #include "arrow/memory_pool.h"
 #include "arrow/util/compression.h"
@@ -62,6 +65,10 @@ struct ARROW_EXPORT IpcOptions {
   /// \brief The memory pool to use for allocations made during IPC read or
   /// write
   MemoryPool* memory_pool = default_memory_pool();
+
+  /// \brief Schema fields to include when deserializing RecordBatch. Null
+  /// means to return all deserialized fields
+  std::shared_ptr<std::unordered_set<int>> included_fields;
 
   static IpcOptions Defaults();
 };
