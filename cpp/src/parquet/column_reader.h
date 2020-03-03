@@ -184,7 +184,7 @@ class TypedColumnReader : public ColumnReader {
   int64_t callReadBatch(int64_t batch_size,void* value,int64_t* values_read){
 
       
-      int16_t definition_level;
+      int16_t definition_level = 1;
       int16_t repetition_level;
       
       int64_t r = ReadBatch(batch_size, &definition_level, &repetition_level,(T*)value,values_read);

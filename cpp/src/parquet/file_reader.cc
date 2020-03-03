@@ -129,11 +129,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
              int32_t* page_min = (int32_t*)(void *)col_index.min_values[itemindex].c_str();
              int32_t* page_max = (int32_t*)(void *)col_index.max_values[itemindex].c_str();
-             int32_t diff = *page_max - v;
+             int32_t max_diff = *page_max - *page_min;
 
-              if ( *page_min <= v && v <= *page_max && min_diff >= abs(v - *page_min) ) {
+              if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
                min_index = itemindex;
-               min_diff = diff;
               }
             }
            break;
@@ -145,11 +144,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
              int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
              int64_t* page_max = (int64_t*)(void *)col_index.max_values[itemindex].c_str();
-             int64_t diff = *page_max - v;
+             int64_t max_diff = *page_max - *page_min;
            
-              if ( *page_min <= v && v <= *page_max && min_diff >= diff ) {
+              if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
                min_index = itemindex;
-               min_diff = diff;
               }
             }
             break;
@@ -160,11 +158,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
              uint32_t* page_min = (uint32_t*)(void *)col_index.min_values[itemindex].c_str();
              uint32_t* page_max = (uint32_t*)(void *)col_index.max_values[itemindex].c_str();
-             uint32_t diff = (uint32_t)(*page_max - v);
+             uint32_t max_diff = (*page_max - *page_min);
             
-              if ( *page_min <= v && v <= *page_max && min_diff >= diff ) {
+              if ( *page_min <= v && max_diff >= (uint32_t) abs(v - *page_min) ) {
                min_index = itemindex;
-               min_diff = diff;
               }
             }
            break;
@@ -176,8 +173,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              float* page_min = (float*)(void *)col_index.min_values[itemindex].c_str();
              float* page_max = (float*)(void *)col_index.max_values[itemindex].c_str();
              
-             auto epsilon = std::numeric_limits<double>::epsilon();
-             float error_factor = 2.0;
+             auto epsilon = std::numeric_limits<float>::epsilon();
+             float error_factor = 10.0;
              float diff = *page_max - v;
 
               if ( fabs(v-*page_min) <= error_factor*epsilon &&
@@ -188,7 +185,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                min_diff = diff;
 
               }
-            }
+             }
            break;
          }
          case Type::DOUBLE:
@@ -198,10 +195,13 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              double* page_min = (double*)(void *)col_index.min_values[itemindex].c_str();
              double* page_max = (double*)(void *)col_index.max_values[itemindex].c_str();
              double diff = *page_max - *page_min;
-           
+
+             auto epsilon = std::numeric_limits<double>::epsilon();
+             double error_factor = 10.0;
+
               if ( *page_min <= v && 
-                v <= *page_max
-               && min_diff >= fabs(diff) ) {
+                fabs(*page_max-v) <= error_factor*epsilon
+               && fabs(min_diff-fabs(diff)) <= error_factor*epsilon  ) {
 
                min_index = itemindex;
                min_diff = diff;
@@ -216,10 +216,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
              char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
              char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
-           
-              if ( *page_min <= *v &&  *v <= *page_max && min_diff >= abs(*v - *page_min)) {
+             
+              if ( *page_min <= *v &&  *v <= *page_max ) {
                min_index = itemindex;
-               min_diff = abs(*v - *page_min);
               }
             }
            break;
@@ -230,10 +229,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
              char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
              char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
-           
-              if ( *page_min <= *v && *v <= *page_max && min_diff >= abs(*v - *page_min)) {
+             int32_t max_diff = (int32_t)(*page_max-*page_min);
+
+              if ( *page_min <= *v && *v <= *page_max ) {
                min_index = itemindex;
-               min_diff = abs(*v - *page_min);
               }
             }
            break;

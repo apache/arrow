@@ -247,7 +247,7 @@ void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_
         do{ ind++;
          if((printVal(column_reader_with_index,generic_reader,ind,vals,row_counter,true)))
              break;
-        }while((generic_reader->Skip(1)));
+        }while((generic_reader->HasNext()));
       }
       else{
         while (generic_reader->HasNext()) { 
@@ -619,7 +619,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
            return true;
           }else{
             row_counter = ind;
-           std::cout << "row number: " << row_counter << " " << value << "\n";
+           //std::cout << "row number: " << row_counter << " " << value << "\n";
            return false;
           }
           break;
