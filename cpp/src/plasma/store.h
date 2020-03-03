@@ -72,6 +72,10 @@ class PlasmaStore {
   /// the store when it is done with the object.
   ///
   /// @param object_id Object ID of the object to be created.
+  /// @param evict_if_full If this is true, then when the object store is full,
+  ///        try to evict objects that are not currently referenced before
+  ///        creating the object. Else, do not evict any objects and
+  ///        immediately return an PlasmaError::OutOfMemory.
   /// @param data_size Size in bytes of the object to be created.
   /// @param metadata_size Size in bytes of the object metadata.
   /// @param device_num The number of the device where the object is being
