@@ -70,6 +70,16 @@ def test_type_to_pandas_dtype():
         assert arrow_type.to_pandas_dtype() == numpy_type
 
 
+@pytest.mark.pandas
+def test_type_to_pandas_dtype2():
+    # the types where to_pandas_dtype returns a non-numpy dtype
+    cases = [
+        (pa.timestamp('ns', tz='UTC'), "datetime64[ns, UTC]"),
+    ]
+    for arrow_type, pandas_type in cases:
+        assert str(arrow_type.to_pandas_dtype()) == pandas_type
+
+
 def test_type_list():
     value_type = pa.int32()
     list_type = pa.list_(value_type)

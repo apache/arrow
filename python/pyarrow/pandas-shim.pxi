@@ -159,6 +159,7 @@ cdef class _PandasAPIShim(object):
 
     @property
     def datetimetz_type(self):
+        self._check_import()
         return self._datetimetz_type
 
     @property
