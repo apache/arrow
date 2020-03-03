@@ -544,6 +544,20 @@ test_that("[ accepts Expressions", {
   expect_vector(a[b > 4], vec[5:10])
 })
 
+test_that("Array head/tail", {
+  vec <- 11:20
+  a <- Array$create(vec)
+  expect_vector(head(a), head(vec))
+  expect_vector(head(a, 4), head(vec, 4))
+  expect_vector(head(a, 40), head(vec, 40))
+  expect_vector(head(a, -4), head(vec, -4))
+  expect_vector(head(a, -40), head(vec, -40))
+  expect_vector(tail(a), tail(vec))
+  expect_vector(tail(a, 4), tail(vec, 4))
+  expect_vector(tail(a, 40), tail(vec, 40))
+  expect_vector(tail(a, -40), tail(vec, -40))
+})
+
 test_that("Dictionary array: create from arrays, not factor", {
   a <- DictionaryArray$create(c(2L, 1L, 1L, 2L, 0L), c(4.5, 3.2, 1.1))
   expect_equal(a$type, dictionary(int32(), float64()))

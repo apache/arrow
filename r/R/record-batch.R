@@ -236,29 +236,11 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, use
 
 #' @importFrom utils head
 #' @export
-head.RecordBatch <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
-  if (n < 0) {
-    # head(x, negative) means all but the last n rows
-    n <- nrow(x) + n
-  }
-  x$Slice(0, n)
-}
+head.RecordBatch <- head.Array
 
 #' @importFrom utils tail
 #' @export
-tail.RecordBatch <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
-  if (n < 0) {
-    # tail(x, negative) means all but the first n rows
-    n <- -n
-  } else {
-    n <- nrow(x) - n
-  }
-  x$Slice(n)
-}
+tail.RecordBatch <- tail.Array
 
 ToString_tabular <- function(x, ...) {
   # Generic to work with both RecordBatch and Table

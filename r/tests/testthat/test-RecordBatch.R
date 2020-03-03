@@ -118,10 +118,14 @@ test_that("[[ and $ on RecordBatch", {
 test_that("head and tail on RecordBatch", {
   expect_identical(as.data.frame(head(batch)), head(tbl))
   expect_identical(as.data.frame(head(batch, 4)), head(tbl, 4))
+  expect_identical(as.data.frame(head(batch, 40)), head(tbl, 40))
   expect_identical(as.data.frame(head(batch, -4)), head(tbl, -4))
+  expect_identical(as.data.frame(head(batch, -40)), head(tbl, -40))
   expect_identical(as.data.frame(tail(batch)), tail(tbl))
   expect_identical(as.data.frame(tail(batch, 4)), tail(tbl, 4))
+  expect_identical(as.data.frame(tail(batch, 40)), tail(tbl, 40))
   expect_identical(as.data.frame(tail(batch, -4)), tail(tbl, -4))
+  expect_identical(as.data.frame(tail(batch, -40)), tail(tbl, -40))
 })
 
 test_that("RecordBatch print method", {

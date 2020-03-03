@@ -288,6 +288,34 @@ filter_rows <- function(x, i, ...) {
 #' @export
 `[.Array` <- filter_rows
 
+#' @importFrom utils head
+#' @export
+head.Array <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
+  if (n < 0) {
+    # head(x, negative) means all but the last n rows
+    n <- max(NROW(x) + n, 0)
+  } else {
+    n <- min(NROW(x), n)
+  }
+  x$Slice(0, n)
+}
+
+#' @importFrom utils tail
+#' @export
+tail.Array <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
+  if (n < 0) {
+    # tail(x, negative) means all but the first n rows
+    n <- min(-n, NROW(x))
+  } else {
+    n <- max(NROW(x) - n, 0)
+  }
+  x$Slice(n)
+}
+
 is.sliceable <- function(i) {
   # Determine whether `i` can be expressed as a $Slice() command
   is.numeric(i) &&
