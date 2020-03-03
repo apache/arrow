@@ -26,10 +26,9 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/writer.h"
 #include "arrow/ipc/reader.h"
-#include "arrow/table.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/range.h"
 
 namespace arrow {
 namespace dataset {
@@ -149,19 +148,24 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(
 }
 
 Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
-    FileSource destination, std::shared_ptr<Fragment> fragment) {
+    FileSource destination, std::shared_ptr<Fragment> fragment,
+    std::shared_ptr<ScanContext> scan_context) {
   struct Task : WriteTask {
-    Task(FileSource destination, std::shared_ptr<Fragment> fragment)
-        : destination_(std::move(destination)), fragment_(std::move(fragment)) {}
+    Task(FileSource destination, std::shared_ptr<FileFormat> format,
+         std::shared_ptr<Fragment> fragment, std::shared_ptr<ScanContext> scan_context)
+        : WriteTask(std::move(destination), std::move(format)),
+          fragment_(std::move(fragment)),
+          scan_context_(std::move(scan_context)) {}
 
     Result<std::shared_ptr<FileFragment>> Execute() override {
+      RETURN_NOT_OK(CreateDestinationParentDir());
+
       ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.OpenWritable());
 
       ARROW_ASSIGN_OR_RAISE(auto writer, ipc::RecordBatchFileWriter::Open(
                                              out_stream.get(), fragment_->schema()));
 
-      auto context = std::make_shared<ScanContext>();
-      ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment_->Scan(context));
+      ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment_->Scan(scan_context_));
 
       for (auto maybe_scan_task : scan_task_it) {
         ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
@@ -176,19 +180,17 @@ Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
 
       RETURN_NOT_OK(writer->Close());
 
-      // TODO(bkietz) this needs to be the invoking format as a data member
-      auto format = std::make_shared<IpcFileFormat>();
-
-      // empty any existing projector
+      // clear out any projector/filter
       auto scan_options = fragment_->scan_options()->ReplaceSchema(fragment_->schema());
-      return format->MakeFragment(std::move(destination_), std::move(scan_options));
+      return format_->MakeFragment(std::move(destination_), std::move(scan_options));
     }
 
-    FileSource destination_;
     std::shared_ptr<Fragment> fragment_;
+    std::shared_ptr<ScanContext> scan_context_;
   };
 
-  return std::make_shared<Task>(std::move(destination), std::move(fragment));
+  return std::make_shared<Task>(std::move(destination), shared_from_this(),
+                                std::move(fragment), std::move(scan_context));
 }
 
 }  // namespace dataset

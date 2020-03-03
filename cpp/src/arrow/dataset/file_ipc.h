@@ -28,7 +28,7 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief A FileFormat implementation that reads from Ipc files
+/// \brief A FileFormat implementation that reads from and writes to Ipc files
 class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
  public:
   std::string type_name() const override { return "ipc"; }
@@ -46,7 +46,8 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
                                     std::shared_ptr<ScanContext> context) const override;
 
   Result<std::shared_ptr<WriteTask>> WriteFragment(
-      FileSource destination, std::shared_ptr<Fragment> fragment) override;
+      FileSource destination, std::shared_ptr<Fragment> fragment,
+      std::shared_ptr<ScanContext> context) override;
 };
 
 }  // namespace dataset

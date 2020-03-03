@@ -46,6 +46,7 @@ namespace arrow {
 namespace dataset {
 
 using fs::internal::GetAbstractPathExtension;
+using internal::checked_cast;
 using internal::TemporaryDir;
 
 class FileSourceFixtureMixin : public ::testing::Test {

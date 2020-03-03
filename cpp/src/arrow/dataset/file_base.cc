@@ -22,7 +22,10 @@
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
+#include "arrow/dataset/scanner.h"
+#include "arrow/dataset/writer.h"
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
@@ -65,8 +68,22 @@ Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable() cons
   return std::make_shared<::arrow::io::BufferOutputStream>(b);
 }
 
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
+    FileSource source, std::shared_ptr<ScanOptions> scan_options,
+    std::shared_ptr<Expression> partition_expression) {
+  return std::shared_ptr<FileFragment>(
+      new FileFragment(std::move(source), shared_from_this(), std::move(scan_options),
+                       std::move(partition_expression)));
+}
+
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
+    FileSource source, std::shared_ptr<ScanOptions> scan_options) {
+  return MakeFragment(std::move(source), std::move(scan_options), scalar(true));
+}
+
 Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
-    FileSource destination, std::shared_ptr<Fragment> fragment) {
+    FileSource destination, std::shared_ptr<Fragment> fragment,
+    std::shared_ptr<ScanContext> scan_context) {
   return Status::NotImplemented("writing fragment of format ", type_name());
 }
 

@@ -57,6 +57,7 @@ struct Scalar;
 
 using ArrayDataVector = std::vector<std::shared_ptr<ArrayData>>;
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
+using ScalarVector = std::vector<std::shared_ptr<Scalar>>;
 
 class ChunkedArray;
 class RecordBatch;

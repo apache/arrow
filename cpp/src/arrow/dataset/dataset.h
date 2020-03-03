@@ -83,10 +83,10 @@ class ARROW_DS_EXPORT Fragment {
 /// RecordBatch.
 class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
  public:
-  InMemoryFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
+  InMemoryFragment(RecordBatchVector record_batches,
                    std::shared_ptr<ScanOptions> scan_options);
 
-  InMemoryFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
+  InMemoryFragment(RecordBatchVector record_batches,
                    std::shared_ptr<ScanOptions> scan_options,
                    std::shared_ptr<Expression> partition_expression);
 
@@ -97,7 +97,7 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   std::string type_name() const override { return "in-memory"; }
 
  protected:
-  std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+  RecordBatchVector record_batches_;
 };
 
 /// \brief A container of zero or more Fragments. A Dataset acts as a discovery mechanism
@@ -159,8 +159,7 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
       : Dataset(std::move(schema)), get_batches_(std::move(get_batches)) {}
 
   // Convenience constructor taking a fixed list of batches
-  InMemoryDataset(std::shared_ptr<Schema> schema,
-                  std::vector<std::shared_ptr<RecordBatch>> batches);
+  InMemoryDataset(std::shared_ptr<Schema> schema, RecordBatchVector batches);
 
   explicit InMemoryDataset(std::shared_ptr<Table> table);
 

@@ -713,7 +713,7 @@ bool FieldExpression::Equals(const Expression& other) const {
 }
 
 bool Expression::Equals(const std::shared_ptr<Expression>& other) const {
-  if (other == NULLPTR) {
+  if (other == nullptr) {
     return false;
   }
   return Equals(*other);

@@ -151,15 +151,26 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<ScanOptions> options);
 
-  /// \brief Write a fragment
+  /// \brief Write a fragment. If the parent directory of destination does not exist, it
+  /// will be created.
   virtual Result<std::shared_ptr<WriteTask>> WriteFragment(
-      FileSource destination,
-      std::shared_ptr<Fragment> fragment);  // FIXME(bkietz) make this pure virtual
+      FileSource destination, std::shared_ptr<Fragment> fragment,
+      std::shared_ptr<ScanContext> scan_context);  // FIXME(bkietz) make this pure virtual
 };
 
 /// \brief A Fragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
+
+  // XXX should this include format_->type_name?
+  std::string type_name() const override { return "file"; }
+  bool splittable() const override { return format_->splittable(); }
+
+  const FileSource& source() const { return source_; }
+  const std::shared_ptr<FileFormat>& format() const { return format_; }
+
+ protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                std::shared_ptr<ScanOptions> scan_options)
       : Fragment(std::move(scan_options)),
@@ -173,18 +184,10 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
         source_(std::move(source)),
         format_(std::move(format)) {}
 
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
-
-  const FileSource& source() const { return source_; }
-  const std::shared_ptr<FileFormat>& format() const { return format_; }
-
-  // XXX should this include format_->type_name?
-  std::string type_name() const override { return "file"; }
-  bool splittable() const override { return format_->splittable(); }
-
- protected:
   FileSource source_;
   std::shared_ptr<FileFormat> format_;
+
+  friend class FileFormat;
 };
 
 /// \brief A Dataset of FileFragments.

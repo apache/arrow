@@ -239,7 +239,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
   opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
   opts_->filter = equal(field_ref("i32"), scalar(0));
 
-  // NB: projector is applied by the scanner; ParquetFragment does not evaluate it so
+  // NB: projector is applied by the scanner; FileFragment does not evaluate it so
   // we will not drop "i32" even though it is not in the projector's schema
   auto expected_schema = schema({field("f64", float64()), field("i32", int32())});
 
