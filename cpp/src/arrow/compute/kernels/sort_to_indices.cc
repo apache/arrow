@@ -210,9 +210,9 @@ class CountOrCompareSorter {
         c_type max{std::numeric_limits<c_type>::min()};
       };
 
-      ArrayDataVisitor<ArrowType> visitor;
       MinMaxScanner minmax_scanner;
-      ARROW_CHECK_OK(visitor.Visit(*values.data(), &minmax_scanner));
+      ARROW_CHECK_OK(
+          ArrayDataVisitor<ArrowType>().Visit(*values.data(), &minmax_scanner));
 
       // For signed int32/64, (max - min) may overflow and trigger UBSAN.
       // Cast to largest unsigned type(uint64_t) before substraction.
