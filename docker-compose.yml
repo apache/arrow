@@ -791,11 +791,11 @@ services:
       LIBARROW_DOWNLOAD: "false"
       ARROW_HOME: "/arrow"
       ARROW_USE_PKG_CONFIG: "false"
-      ARROW_R_DEV: ${ARROW_R_DEV}
     volumes:
       - .:/arrow:delegated
     command: >
       /bin/bash -c "
+        export ARROW_R_DEV=${ARROW_R_DEV} &&
         /arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
