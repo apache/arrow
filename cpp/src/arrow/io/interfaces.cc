@@ -329,9 +329,9 @@ void SharedExclusiveChecker::UnlockExclusive() {}
 #endif
 
 static std::shared_ptr<ThreadPool> MakeIOThreadPool() {
-  auto maybe_pool = ThreadPool::Make(/*threads=*/8);
+  auto maybe_pool = ThreadPool::MakeEternal(/*threads=*/8);
   if (!maybe_pool.ok()) {
-    maybe_pool.status().Abort("Failed creating IO thread pool");
+    maybe_pool.status().Abort("Failed to create global IO thread pool");
   }
   return *std::move(maybe_pool);
 }
@@ -341,7 +341,7 @@ ThreadPool* GetIOThreadPool() {
   return pool.get();
 }
 
-//////////////////////////////////////////////////////////////////////////
+// -----------------------------------------------------------------------
 // CoalesceReadRanges
 
 namespace {

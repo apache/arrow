@@ -82,6 +82,10 @@ class ARROW_EXPORT ThreadPool {
   // Construct a thread pool with the given number of worker threads
   static Result<std::shared_ptr<ThreadPool>> Make(int threads);
 
+  // Like Make(), but takes care that the returned ThreadPool is compatible
+  // with destruction late at process exit.
+  static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
+
   // Destroy thread pool; the pool will first be shut down
   ~ThreadPool();
 
