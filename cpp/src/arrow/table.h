@@ -61,7 +61,6 @@ class ARROW_EXPORT ChunkedArray {
   int num_chunks() const { return static_cast<int>(chunks_.size()); }
 
   /// \return chunk a particular chunk from the chunked array
-  // Should this validate i?
   std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
 
   const ArrayVector& chunks() const { return chunks_; }

@@ -70,18 +70,26 @@ test_that("ChunkedArray", {
   expect_error(x$chunk(-1), "subscript out of bounds")
 
   expect_error(x$Slice("ten"), class = "Rcpp::not_compatible")
-  expect_error(x$Slice(NA_integer_), "'offset' cannot be NA")
-  expect_error(x$Slice(NA), "'offset' cannot be NA")
+  expect_error(x$Slice(NA_integer_), "Slice 'offset' cannot be NA")
+  expect_error(x$Slice(NA), "Slice 'offset' cannot be NA")
   expect_error(x$Slice(10, "ten"), class = "Rcpp::not_compatible")
-  expect_error(x$Slice(10, NA_integer_), "'length' cannot be NA")
-  expect_error(x$Slice(NA_integer_, NA_integer_), "'offset' cannot be NA")
+  expect_error(x$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
+  expect_error(x$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
   expect_error(x$Slice(c(10, 10)), class = "Rcpp::not_compatible")
   expect_error(x$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
-  # expect_error(x$Slice(1000)) # abort trap with debug build
-  # cpp/src/arrow/table.cc:105:  Check failed: (offset) <= (length_) Slice offset greater than array length
-  # expect_error(z$Slice(10, 10)) # abort trap with debug build
-  # expect_error(x$Slice(10, 1000)) # does not error, should it?
-  # expect_error(z$Slice(2, 10)) # does not error, should it?
+  expect_error(x$Slice(1000), "Slice 'offset' greater than array length")
+  expect_error(x$Slice(-1), "Slice 'offset' cannot be negative")
+  expect_error(z$Slice(10, 10), "Slice 'offset' greater than array length")
+  expect_error(x$Slice(10, -1), "Slice 'length' cannot be negative")
+  expect_error(x$Slice(-1, 10), "Slice 'offset' cannot be negative")
+
+  expect_warning(x$Slice(10, 15), NA)
+  expect_warning(
+    overslice <- x$Slice(10, 16),
+    "Slice 'length' greater than available length"
+  )
+  expect_equal(length(overslice), 15)
+  expect_warning(z$Slice(2, 10), "Slice 'length' greater than available length")
 })
 
 test_that("print ChunkedArray", {

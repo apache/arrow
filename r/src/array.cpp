@@ -22,48 +22,59 @@ using Rcpp::no_init;
 
 #if defined(ARROW_R_WITH_ARROW)
 
+void arrow::r::validate_offset(int offset, int len) {
+  if (offset == NA_INTEGER) {
+    Rcpp::stop("Slice 'offset' cannot be NA");
+  }
+  if (offset < 0) {
+    Rcpp::stop("Slice 'offset' cannot be negative");
+  }
+  if (offset > len) {
+    Rcpp::stop("Slice 'offset' greater than array length");
+  }
+}
+
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
                                             int offset) {
-  if (offset == NA_INTEGER) {
-    Rcpp::stop("'offset' cannot be NA");
-  }
+  arrow::r::validate_offset(offset, array->length());
   return array->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array,
                                             int offset, int length) {
-  if (offset == NA_INTEGER) {
-    Rcpp::stop("'offset' cannot be NA");
-  }
+  arrow::r::validate_offset(offset, array->length());
   if (length == NA_INTEGER) {
-    Rcpp::stop("'length' cannot be NA");
+    Rcpp::stop("Slice 'length' cannot be NA");
+  }
+  if (length < 0) {
+    Rcpp::stop("Slice 'length' cannot be negative");
+  }
+  if (offset + length > array->length()) {
+    Rcpp::warning("Slice 'length' greater than available length");
   }
   return array->Slice(offset, length);
 }
 
-// [[arrow::export]]
-bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i) {
+void arrow::r::validate_index(int i, int len) {
   if (i == NA_INTEGER) {
     Rcpp::stop("'i' cannot be NA");
   }
-  if (i < 0 || i >= x->length()) {
-    // Should this validation be in the C++ library?
+  if (i < 0 || i >= len) {
     Rcpp::stop("subscript out of bounds");
   }
+}
+
+// [[arrow::export]]
+bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i) {
+  arrow::r::validate_index(i, x->length());
   return x->IsNull(i);
 }
 
 // [[arrow::export]]
 bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i) {
-  if (i == NA_INTEGER) {
-    Rcpp::stop("'i' cannot be NA");
-  }
-  if (i < 0 || i >= x->length()) {
-    // Should this validation be in the C++ library?
-    Rcpp::stop("subscript out of bounds");
-  }
+  arrow::r::validate_index(i, x->length());
   return x->IsValid(i);
 }
 

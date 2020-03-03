@@ -65,24 +65,33 @@ test_that("Slice() and RangeEquals()", {
 
   # Input validation
   expect_error(x$Slice("ten"), class = "Rcpp::not_compatible")
-  expect_error(x$Slice(NA_integer_), "'offset' cannot be NA")
-  expect_error(x$Slice(NA), "'offset' cannot be NA")
+  expect_error(x$Slice(NA_integer_), "Slice 'offset' cannot be NA")
+  expect_error(x$Slice(NA), "Slice 'offset' cannot be NA")
   expect_error(x$Slice(10, "ten"), class = "Rcpp::not_compatible")
-  expect_error(x$Slice(10, NA_integer_), "'length' cannot be NA")
-  expect_error(x$Slice(NA_integer_, NA_integer_), "'offset' cannot be NA")
+  expect_error(x$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
+  expect_error(x$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
   expect_error(x$Slice(c(10, 10)), class = "Rcpp::not_compatible")
   expect_error(x$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
-  # expect_error(x$Slice(1000)) # abort trap with debug build
-  # cpp/src/arrow/array.cc:97:  Check failed: (off) <= (length) Slice offset greater than array length
-  # expect_error(z$Slice(10, 10)) # abort trap with debug build
-  # expect_error(x$Slice(10, 1000)) # does not error, should it?
-  # expect_error(z$Slice(2, 10)) # does not error, should it?
+  expect_error(x$Slice(1000), "Slice 'offset' greater than array length")
+  expect_error(x$Slice(-1), "Slice 'offset' cannot be negative")
+  expect_error(z$Slice(10, 10), "Slice 'offset' greater than array length")
+  expect_error(x$Slice(10, -1), "Slice 'length' cannot be negative")
+  expect_error(x$Slice(-1, 10), "Slice 'offset' cannot be negative")
+
+  expect_warning(x$Slice(10, 15), NA)
+  expect_warning(
+    overslice <- x$Slice(10, 16),
+    "Slice 'length' greater than available length"
+  )
+  expect_equal(length(overslice), 15)
+  expect_warning(z$Slice(2, 10), "Slice 'length' greater than available length")
 
   expect_error(x$RangeEquals(10, 24, 0), 'other must be a "Array"')
   expect_error(x$RangeEquals(y, NA, 24), "'start_idx' cannot be NA")
   expect_error(x$RangeEquals(y, 10, NA), "'end_idx' cannot be NA")
   expect_error(x$RangeEquals(y, 10, 24, NA), "'other_start_idx' cannot be NA")
   expect_error(x$RangeEquals(y, "ten", 24), class = "Rcpp::not_compatible")
+  # TODO (if anyone uses RangeEquals)
   # expect_error(x$RangeEquals(y, 10, 2400, 0)) # does not error
   # expect_error(x$RangeEquals(y, 1000, 24, 0)) # does not error
   # expect_error(x$RangeEquals(y, 10, 24, 1000)) # does not error
