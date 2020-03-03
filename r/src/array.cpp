@@ -22,7 +22,7 @@ using Rcpp::no_init;
 
 #if defined(ARROW_R_WITH_ARROW)
 
-void arrow::r::validate_offset(int offset, int len) {
+void arrow::r::validate_slice_offset(int offset, int len) {
   if (offset == NA_INTEGER) {
     Rcpp::stop("Slice 'offset' cannot be NA");
   }
@@ -34,26 +34,30 @@ void arrow::r::validate_offset(int offset, int len) {
   }
 }
 
-// [[arrow::export]]
-std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
-                                            int offset) {
-  arrow::r::validate_offset(offset, array->length());
-  return array->Slice(offset);
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array,
-                                            int offset, int length) {
-  arrow::r::validate_offset(offset, array->length());
+void arrow::r::validate_slice_length(int length, int available) {
   if (length == NA_INTEGER) {
     Rcpp::stop("Slice 'length' cannot be NA");
   }
   if (length < 0) {
     Rcpp::stop("Slice 'length' cannot be negative");
   }
-  if (offset + length > array->length()) {
+  if (length > available) {
     Rcpp::warning("Slice 'length' greater than available length");
   }
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
+                                            int offset) {
+  arrow::r::validate_slice_offset(offset, array->length());
+  return array->Slice(offset);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array,
+                                            int offset, int length) {
+  arrow::r::validate_slice_offset(offset, array->length());
+  arrow::r::validate_slice_length(length, array->length() - offset);
   return array->Slice(offset, length);
 }
 

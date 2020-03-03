@@ -58,23 +58,15 @@ std::shared_ptr<arrow::DataType> ChunkedArray__type(
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice1(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset) {
-  arrow::r::validate_offset(offset, chunked_array->length());
+  arrow::r::validate_slice_offset(offset, chunked_array->length());
   return chunked_array->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice2(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset, int length) {
-  arrow::r::validate_offset(offset, chunked_array->length());
-  if (length == NA_INTEGER) {
-    Rcpp::stop("Slice 'length' cannot be NA");
-  }
-  if (length < 0) {
-    Rcpp::stop("Slice 'length' cannot be negative");
-  }
-  if (offset + length > chunked_array->length()) {
-    Rcpp::warning("Slice 'length' greater than available length");
-  }
+  arrow::r::validate_slice_offset(offset, chunked_array->length());
+  arrow::r::validate_slice_length(length, chunked_array->length() - offset);
   return chunked_array->Slice(offset, length);
 }
 
