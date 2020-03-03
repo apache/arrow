@@ -1345,7 +1345,7 @@ cdef class ParquetWriter:
             if self.use_byte_stream_split:
                 props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
         elif self.use_byte_stream_split is not None:
-            for column in self.use_dictionary:
+            for column in self.use_byte_stream_split:
                 props.encoding(column, ParquetEncoding_BYTE_STREAM_SPLIT)
 
     cdef void _set_statistics_props(self, WriterProperties.Builder* props):
