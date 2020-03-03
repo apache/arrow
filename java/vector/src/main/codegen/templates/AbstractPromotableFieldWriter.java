@@ -75,6 +75,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
     <#assign fields = minor.fields!type.fields />
+  <#if minor.class != "Decimal">
   @Override
   public void write(${name}Holder holder) {
     getWriter(MinorType.${name?upper_case}).write(holder);
@@ -84,9 +85,19 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
     getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
 
-  <#if minor.class == "Decimal">
-  public void writeBigEndianBytesToDecimal(byte[] value) {
-    getWriter(MinorType.DECIMAL).writeBigEndianBytesToDecimal(value);
+  <#else>
+  @Override
+  public void write(DecimalHolder holder) {
+    getWriter(MinorType.DECIMAL).write(holder);
+  }
+
+  public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
+    // write Decimal if scales don't match
+    getWriter(MinorType.DECIMAL).writeDecimal(start, buffer, arrowType);
+  }
+
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL).writeBigEndianBytesToDecimal(value, arrowType);
   }
   </#if>
 

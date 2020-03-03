@@ -20,6 +20,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
@@ -188,6 +189,10 @@ public class UnionVector implements FieldVector {
     return internalStruct.addOrGet(fieldName(minorType), fieldType(minorType), c);
   }
 
+  private <T extends FieldVector> T addOrGet(MinorType minorType, ArrowType arrowType, Class<T> c) {
+    return internalStruct.addOrGet(fieldName(minorType), FieldType.nullable(arrowType), c);
+  }
+
   @Override
   public long getValidityBufferAddress() {
     return typeBuffer.memoryAddress();
@@ -231,14 +236,14 @@ public class UnionVector implements FieldVector {
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
       <#assign lowerCaseName = name?lower_case/>
-      <#if !minor.typeParams?? >
+      <#if !minor.typeParams?? || minor.class == "Decimal" >
 
   private ${name}Vector ${uncappedName}Vector;
 
-  public ${name}Vector get${name}Vector() {
+  public ${name}Vector get${name}Vector(<#if minor.class == "Decimal">ArrowType arrowType</#if>) {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalStruct.size();
-      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}, ${name}Vector.class);
+      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case},<#if minor.class == "Decimal"> arrowType,</#if> ${name}Vector.class);
       if (internalStruct.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
         if (callBack != null) {
@@ -248,6 +253,14 @@ public class UnionVector implements FieldVector {
     }
     return ${uncappedName}Vector;
   }
+  <#if minor.class == "Decimal">
+  public ${name}Vector get${name}Vector() {
+    if (${uncappedName}Vector == null) {
+      throw new IllegalArgumentException("No Decimal Vector present. Provide ArrowType argument to create a new vector");
+    }
+    return ${uncappedName}Vector;
+  }
+  </#if>
       </#if>
     </#list>
   </#list>
@@ -554,11 +567,19 @@ public class UnionVector implements FieldVector {
   }
 
   public ValueVector getVector(int index) {
-    int type = typeBuffer.getByte(index * TYPE_WIDTH);
-    return getVectorByType(type);
+    return getVector(index, null);
   }
 
-    public ValueVector getVectorByType(int typeId) {
+  public ValueVector getVector(int index, ArrowType arrowType) {
+    int type = typeBuffer.getByte(index * TYPE_WIDTH);
+    return getVectorByType(type, arrowType);
+  }
+
+  public ValueVector getVectorByType(int typeId) {
+    return getVectorByType(typeId, null);
+  }
+
+    public ValueVector getVectorByType(int typeId, ArrowType arrowType) {
       switch (MinorType.values()[typeId]) {
         case NULL:
           return null;
@@ -567,9 +588,9 @@ public class UnionVector implements FieldVector {
           <#assign name = minor.class?cap_first />
           <#assign fields = minor.fields!type.fields />
           <#assign uncappedName = name?uncap_first/>
-          <#if !minor.typeParams?? >
+          <#if !minor.typeParams?? || minor.class == "Decimal" >
         case ${name?upper_case}:
-        return get${name}Vector();
+        return get${name}Vector(<#if minor.class == "Decimal">arrowType</#if>);
           </#if>
         </#list>
       </#list>
@@ -641,6 +662,10 @@ public class UnionVector implements FieldVector {
     }
 
     public void setSafe(int index, UnionHolder holder) {
+      setSafe(index, holder, null);
+    }
+
+    public void setSafe(int index, UnionHolder holder, ArrowType arrowType) {
       FieldReader reader = holder.reader;
       if (writer == null) {
         writer = new UnionWriter(UnionVector.this);
@@ -653,11 +678,11 @@ public class UnionVector implements FieldVector {
           <#assign name = minor.class?cap_first />
           <#assign fields = minor.fields!type.fields />
           <#assign uncappedName = name?uncap_first/>
-          <#if !minor.typeParams?? >
+          <#if !minor.typeParams?? || minor.class == "Decimal" >
       case ${name?upper_case}:
         Nullable${name}Holder ${uncappedName}Holder = new Nullable${name}Holder();
         reader.read(${uncappedName}Holder);
-        setSafe(index, ${uncappedName}Holder);
+        setSafe(index, ${uncappedName}Holder<#if minor.class == "Decimal">, arrowType</#if>);
         break;
           </#if>
         </#list>
@@ -679,10 +704,10 @@ public class UnionVector implements FieldVector {
         <#assign name = minor.class?cap_first />
         <#assign fields = minor.fields!type.fields />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? >
-    public void setSafe(int index, Nullable${name}Holder holder) {
+        <#if !minor.typeParams?? || minor.class == "Decimal" >
+    public void setSafe(int index, Nullable${name}Holder holder<#if minor.class == "Decimal">, ArrowType arrowType</#if>) {
       setType(index, MinorType.${name?upper_case});
-      get${name}Vector().setSafe(index, holder);
+      get${name}Vector(<#if minor.class == "Decimal">arrowType</#if>).setSafe(index, holder);
     }
 
         </#if>

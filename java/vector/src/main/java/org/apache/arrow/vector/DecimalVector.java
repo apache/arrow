@@ -163,6 +163,13 @@ public final class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Return precision for the decimal value.
+   */
+  public int getPrecision() {
+    return precision;
+  }
+
+  /**
    * Return scale for the decimal value.
    */
   public int getScale() {

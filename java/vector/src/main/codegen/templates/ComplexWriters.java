@@ -99,6 +99,7 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
 
   <#else>
 
+  <#if minor.class != "Decimal">
   public void write(${minor.class}Holder h) {
     vector.setSafe(idx(), h);
     vector.setValueCount(idx()+1);
@@ -113,9 +114,9 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     vector.setSafe(idx(), 1<#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
     vector.setValueCount(idx()+1);
   }
+  </#if>
 
-  <#if minor.class == "Decimal" ||
-       minor.class == "VarChar">
+  <#if minor.class == "VarChar">
   public void write${minor.class}(${friendlyType} value) {
     vector.setSafe(idx(), value);
     vector.setValueCount(idx()+1);
@@ -123,10 +124,74 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
   </#if>
 
   <#if minor.class == "Decimal">
-  public void writeBigEndianBytesToDecimal(byte[] value) {
-    vector.setBigEndianSafe(idx(), value);
+
+  public void write(DecimalHolder h) {
+    if (h.scale != vector.getScale()) {
+      throw new UnsupportedOperationException("Decimal scale must equal that in the Arrow vector: " +
+          h.scale + " != " + vector.getScale());
+    }
+    if (h.precision > vector.getPrecision()) {
+      throw new UnsupportedOperationException("Decimal precision can not be greater than that in the Arrow vector: " +
+          h.precision + " > " + vector.getPrecision());
+    }
+    vector.setSafe(idx(), h);
     vector.setValueCount(idx()+1);
   }
+
+  public void write(NullableDecimalHolder h) {
+    if (h.isSet == 1) {
+      if (h.scale != vector.getScale()) {
+        throw new UnsupportedOperationException("Decimal scale must equal that in the Arrow vector: " +
+            h.scale + " != " + vector.getScale());
+      }
+      if (h.precision > vector.getPrecision()) {
+        throw new UnsupportedOperationException("Decimal precision can not be greater than that in the Arrow vector: " +
+            h.precision + " > " + vector.getPrecision());
+      }
+    }
+    vector.setSafe(idx(), h);
+    vector.setValueCount(idx()+1);
+    }
+
+  public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
+    if (((ArrowType.Decimal) arrowType).getScale() != vector.getScale()) {
+      throw new UnsupportedOperationException("Decimal scale must equal that in the Arrow vector: " +
+         ((ArrowType.Decimal) arrowType).getScale() + " != " + vector.getScale());
+    }
+    if (((ArrowType.Decimal) arrowType).getPrecision() > vector.getPrecision()) {
+      throw new UnsupportedOperationException("Decimal precision can not be greater than that in the Arrow vector: " +
+          ((ArrowType.Decimal) arrowType).getPrecision() + " > " + vector.getPrecision());
+    }
+    vector.setSafe(idx(), 1, start, buffer);
+    vector.setValueCount(idx()+1);
+    }
+
+  public void writeDecimal(BigDecimal value) {
+    if (value.scale() != vector.getScale()) {
+      throw new UnsupportedOperationException("Decimal scale must equal that in the Arrow vector: " +
+          value.scale() + " != " + vector.getScale());
+    }
+    if (value.precision() > vector.getPrecision()) {
+      throw new UnsupportedOperationException("Decimal precision can not be greater than that in the Arrow vector: " +
+          value.precision() + " > " + vector.getPrecision());
+    }
+    vector.setSafe(idx(), value);
+    vector.setValueCount(idx()+1);
+    }
+
+
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType) {
+    if (((ArrowType.Decimal) arrowType).getScale() != vector.getScale()) {
+      throw new UnsupportedOperationException("Decimal scale must equal that in the Arrow vector: " +
+          ((ArrowType.Decimal) arrowType).getScale() + " != " + vector.getScale());
+    }
+    if (((ArrowType.Decimal) arrowType).getPrecision() > vector.getPrecision()) {
+      throw new UnsupportedOperationException("Decimal precision can not be greater than that in the Arrow vector: " +
+          ((ArrowType.Decimal) arrowType).getPrecision() + " > " + vector.getPrecision());
+    }
+    vector.setBigEndianSafe(idx(), value);
+    vector.setValueCount(idx()+1);
+    }
   </#if>
 
   public void writeNull() {
@@ -149,12 +214,12 @@ package org.apache.arrow.vector.complex.writer;
 public interface ${eName}Writer extends BaseWriter {
   public void write(${minor.class}Holder h);
 
-  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>);
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list><#if minor.class == "Decimal">, ArrowType arrowType</#if>);
 <#if minor.class == "Decimal">
 
   public void write${minor.class}(${friendlyType} value);
 
-  public void writeBigEndianBytesToDecimal(byte[] value);
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType);
 </#if>
 }
 
