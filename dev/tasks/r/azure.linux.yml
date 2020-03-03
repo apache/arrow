@@ -46,6 +46,8 @@ jobs:
         R_ORG={{ r_org }}
         R_IMAGE={{ r_image }}
         R_TAG={{ r_tag }}
+        # we have to export this (right?) because we need it in the build env
+        export ARROW_R_DEV={{ verbose }}
         docker-compose run r
       displayName: Docker run
 

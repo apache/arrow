@@ -795,6 +795,7 @@ services:
       - .:/arrow:delegated
     command: >
       /bin/bash -c "
+        export ARROW_R_DEV=${ARROW_R_DEV} &&
         /arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
