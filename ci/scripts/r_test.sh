@@ -19,7 +19,6 @@
 set -ex
 
 : ${R_BIN:=R}
-: ${ARROW_R_DEV:=TRUE}
 
 source_dir=${1}/r
 
