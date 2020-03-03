@@ -101,12 +101,12 @@ cdef extern from "plasma/client.h" nogil:
                         const c_string& manager_socket_name,
                         int release_delay, int num_retries)
 
-        CStatus Create(const CUniqueID& object_id, int64_t data_size,
-                       const uint8_t* metadata, int64_t metadata_size,
-                       const shared_ptr[CBuffer]* data)
+        CStatus Create(const CUniqueID& object_id, c_bool evict_if_full,
+                       int64_t data_size, const uint8_t* metadata, int64_t
+                       metadata_size, const shared_ptr[CBuffer]* data)
 
-        CStatus CreateAndSeal(const CUniqueID& object_id, const c_string& data,
-                              const c_string& metadata)
+        CStatus CreateAndSeal(const CUniqueID& object_id, c_bool evict_if_full,
+                              const c_string& data, const c_string& metadata)
 
         CStatus Get(const c_vector[CUniqueID] object_ids, int64_t timeout_ms,
                     c_vector[CObjectBuffer]* object_buffers)
@@ -360,7 +360,7 @@ cdef class PlasmaClient:
         cdef shared_ptr[CBuffer] data
         with nogil:
             plasma_check_status(
-                self.client.get().Create(object_id.data, data_size,
+                self.client.get().Create(object_id.data, True, data_size,
                                          <uint8_t*>(metadata.data()),
                                          metadata.size(), &data))
         return self._make_mutable_plasma_buffer(object_id,
@@ -394,7 +394,7 @@ cdef class PlasmaClient:
         """
         with nogil:
             plasma_check_status(
-                self.client.get().CreateAndSeal(object_id.data, data,
+                self.client.get().CreateAndSeal(object_id.data, True, data,
                                                 metadata))
 
     def get_buffers(self, object_ids, timeout_ms=-1, with_meta=False):
