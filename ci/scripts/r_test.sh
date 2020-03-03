@@ -45,7 +45,7 @@ BEFORE=$(ls -alh ~/)
 
 # Conditionally run --as-cran because crossbow jobs aren't using _R_CHECK_COMPILATION_FLAGS_KNOWN_
 # (maybe an R version thing, needs 3.6.2?)
-${R_BIN} -e "rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', if (identical(Sys.getenv('ARROW_R_DEV'), 'TRUE')) '--as-cran', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')"
+${R_BIN} -e "rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', if (!identical(Sys.getenv('ARROW_R_DEV'), 'TRUE')) '--as-cran', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')"
 
 AFTER=$(ls -alh ~/)
 if [ "$BEFORE" != "$AFTER" ]; then
