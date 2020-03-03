@@ -29,6 +29,8 @@
 
 namespace arrow {
 
+/// An iterator that takes a set of futures, and yields their results as
+/// they are completed, in any order.
 template <typename T>
 class AsCompletedIterator {
  public:
@@ -42,6 +44,11 @@ class AsCompletedIterator {
   ARROW_DEFAULT_MOVE_AND_ASSIGN(AsCompletedIterator);
   ARROW_DISALLOW_COPY_AND_ASSIGN(AsCompletedIterator);
 
+  /// Return the results of the first completed, not-yet-returned Future.
+  ///
+  /// The result can be successful or not, depending on the Future's underlying
+  /// task's result.  Even if a Future returns a failed Result, you can still
+  /// call Next() to get further results.
   Result<T> Next() {
     if (n_fetched_ == futures_.size()) {
       return IterationTraits<T>::End();

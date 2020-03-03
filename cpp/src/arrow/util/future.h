@@ -31,6 +31,7 @@
 
 namespace arrow {
 
+/// A Future's execution or completion status
 enum class FutureState : int8_t { PENDING, SUCCESS, FAILURE };
 
 inline bool IsFutureFinished(FutureState state) { return state != FutureState::PENDING; }
@@ -226,6 +227,17 @@ class FutureStorage<Status> : public FutureStorageBase {
 // ---------------------------------------------------------------------
 // Public API
 
+/// \brief EXPERIMENTAL A std::future-like class with more functionality.
+///
+/// A Future represents the results of a past or future computation.
+/// The Future API has two sides: a producer side and a consumer side.
+///
+/// The producer API allows creating a Future and setting its result or
+/// status, possibly after running a computation function.
+///
+/// The consumer API allows querying a Future's current state, wait for it
+/// to complete, or wait on multiple Futures at once (using WaitForAll,
+/// WaitForAny or AsCompletedIterator).
 template <typename T>
 class Future {
   static constexpr bool HasValue = FutureStorage<T>::HasValue;
@@ -235,7 +247,7 @@ class Future {
  public:
   static constexpr double kInfinity = FutureImpl::kInfinity;
 
-  // Default constructor creates an invalid Future.  Use Future::Make()
+  // The default constructor creates an invalid Future.  Use Future::Make()
   // for a valid Future.  This constructor is mostly for the convenience
   // of being able to presize a vector of Futures.
   Future() : impl_(NULLPTR) {}
@@ -244,11 +256,19 @@ class Future {
 
   bool is_valid() const { return storage_ != NULLPTR; }
 
+  /// \brief Return the Future's current state
+  ///
+  /// A return value of PENDING is only indicative, as the Future can complete
+  /// concurrently.  A return value of FAILURE or SUCCESS is definitive, though.
   FutureState state() const {
     CheckValid();
     return impl_->state();
   }
 
+  /// \brief Wait for the Future to complete and return its Result
+  ///
+  /// This function is not available on Future<void> and Future<Status>.
+  /// For these specializations, please call status() instead.
   template <typename U = T>
   const Result<T>& result(EnableResult<U>* = NULLPTR) const& {
     CheckValid();
@@ -263,12 +283,14 @@ class Future {
     return std::move(storage_->result_);
   }
 
+  /// \brief Wait for the Future to complete and return its Status
   Status status() const {
     CheckValid();
     Wait();
     return storage_->status();
   }
 
+  /// \brief Wait for the Future to complete
   void Wait() const {
     CheckValid();
     if (!IsFutureFinished(impl_->state())) {
@@ -276,6 +298,11 @@ class Future {
     }
   }
 
+  /// \brief Wait for the Future to complete, or for the timeout to expire
+  ///
+  /// `true` is returned if the Future completed, `false` if the timeout expired.
+  /// Note a `false` value is only indicative, as the Future can complete
+  /// concurrently.
   bool Wait(double seconds) const {
     CheckValid();
     if (IsFutureFinished(impl_->state())) {
@@ -286,16 +313,33 @@ class Future {
 
   // Producer API
 
+  /// \brief Producer API: execute function and mark Future finished
+  ///
+  /// The function's return value is used to set the Future's result.
+  /// The function can have the following return types:
+  /// - `T`
+  /// - `Result<T>`, if T is neither `void` nor `Status`
   template <typename Func>
   void ExecuteAndMarkFinished(Func&& func) {
     storage_->ExecuteAndMarkFinished(std::forward<Func>(func));
   }
 
+  /// \brief Producer API: mark Future finished
+  ///
+  /// The arguments are used to set the Future's result.
+  /// This function accepts the following signatures:
+  /// - `(T val)`, if T is neither `void` nor `Status`
+  /// - `(Result<T> val)`, if T is neither `void` nor `Status`
+  /// - `(Status st)`, if T is `void` or `Status`
+  /// - `()`, if T is `void`
   template <typename... Args>
   void MarkFinished(Args&&... args) {
     storage_->MarkFinished(std::forward<Args>(args)...);
   }
 
+  /// \brief Producer API: instantiate a valid Future
+  ///
+  /// The Future's state is initialized with PENDING.
   static Future Make() {
     Future fut;
     fut.storage_ = std::make_shared<FutureStorage<T>>();
@@ -318,6 +362,10 @@ class Future {
   friend class FutureWaiter;
 };
 
+/// \brief Wait for all the futures to end, or for the given timeout to expire.
+///
+/// `true` is returned if all the futures completed before the timeout was reached,
+/// `false` otherwise.
 template <typename T>
 inline bool WaitForAll(const std::vector<Future<T>>& futures,
                        double seconds = FutureWaiter::kInfinity) {
@@ -325,6 +373,10 @@ inline bool WaitForAll(const std::vector<Future<T>>& futures,
   return waiter->Wait(seconds);
 }
 
+/// \brief Wait for all the futures to end, or for the given timeout to expire.
+///
+/// `true` is returned if all the futures completed before the timeout was reached,
+/// `false` otherwise.
 template <typename T>
 inline bool WaitForAll(const std::vector<Future<T>*>& futures,
                        double seconds = FutureWaiter::kInfinity) {
@@ -332,6 +384,10 @@ inline bool WaitForAll(const std::vector<Future<T>*>& futures,
   return waiter->Wait(seconds);
 }
 
+/// \brief Wait for one of the futures to end, or for the given timeout to expire.
+///
+/// The indices of all completed futures are returned.  Note that some futures
+/// may not be in the returned set, but still complete concurrently.
 template <typename T>
 inline std::vector<int> WaitForAny(const std::vector<Future<T>>& futures,
                                    double seconds = FutureWaiter::kInfinity) {
@@ -340,6 +396,10 @@ inline std::vector<int> WaitForAny(const std::vector<Future<T>>& futures,
   return waiter->MoveFinishedFutures();
 }
 
+/// \brief Wait for one of the futures to end, or for the given timeout to expire.
+///
+/// The indices of all completed futures are returned.  Note that some futures
+/// may not be in the returned set, but still complete concurrently.
 template <typename T>
 inline std::vector<int> WaitForAny(const std::vector<Future<T>*>& futures,
                                    double seconds = FutureWaiter::kInfinity) {
