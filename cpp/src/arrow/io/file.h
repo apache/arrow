@@ -221,6 +221,8 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   // zero copy method
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override;
 
+  // TODO implement ReadAsync override
+
   bool supports_zero_copy() const override;
 
   /// Write data at the current position in the file. Thread-safe

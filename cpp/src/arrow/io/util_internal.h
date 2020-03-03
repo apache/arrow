@@ -17,14 +17,26 @@
 
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+namespace internal {
+
+class ThreadPool;
+
+}  // namespace internal
+
 namespace io {
 namespace internal {
 
 ARROW_EXPORT void CloseFromDestructor(FileInterface* file);
+
+// TODO ReadRegion -> ReadRange?
 
 // Validate a (offset, size) region (as given to ReadAt) against
 // the file size.  Return the actual read size.
@@ -37,6 +49,13 @@ ARROW_EXPORT Status ValidateWriteRegion(int64_t offset, int64_t size, int64_t fi
 // Validate a (offset, size) region (as given to ReadAt or WriteAt), without
 // knowing the file size.
 ARROW_EXPORT Status ValidateRegion(int64_t offset, int64_t size);
+
+std::vector<ReadRange> CoalesceReadRanges(std::vector<ReadRange> ranges,
+                                          int64_t hole_size_limit,
+                                          int64_t range_size_limit);
+
+ARROW_EXPORT
+::arrow::internal::ThreadPool* GetIOThreadPool();
 
 }  // namespace internal
 }  // namespace io

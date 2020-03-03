@@ -29,6 +29,10 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+template <typename T>
+class Future;
+
 namespace io {
 
 /// DEPRECATED.  Use the FileSystem API in arrow::fs instead.
@@ -58,6 +62,22 @@ class ARROW_EXPORT FileSystem {
   virtual Status Rename(const std::string& src, const std::string& dst) = 0;
 
   virtual Status Stat(const std::string& path, FileStatistics* stat) = 0;
+};
+
+struct ReadRange {
+  int64_t offset;
+  int64_t length;
+
+  friend bool operator==(const ReadRange& left, const ReadRange& right) {
+    return (left.offset == right.offset && left.length == right.length);
+  }
+  friend bool operator!=(const ReadRange& left, const ReadRange& right) {
+    return !(left == right);
+  }
+
+  bool Contains(const ReadRange& other) const {
+    return (offset <= other.offset && offset + length >= other.offset + other.length);
+  }
 };
 
 class ARROW_EXPORT FileInterface {
@@ -247,6 +267,12 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// \param[in] nbytes The number of bytes to read
   /// \return A buffer containing the bytes read, or an error
   virtual Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes);
+
+  // EXPERIMENTAL
+  // The caller has to ensure the RandomAccessFile object stays alive
+  // until the future is completed.
+  virtual Result<Future<std::shared_ptr<Buffer>>> ReadAsync(int64_t position,
+                                                            int64_t nbytes);
 
   // Deprecated APIs
 
