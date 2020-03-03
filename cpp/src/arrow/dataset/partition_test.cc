@@ -24,9 +24,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arrow/dataset/api.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
+#include "arrow/dataset/writer.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
@@ -296,6 +296,163 @@ TEST_F(TestPartitioning, Range) {
   AssertParse("/x=[-1.5 0.0)/y=[0.0 1.5)/z=(1.5 3.0]",
               ("x"_ >= -1.5 and "x"_ < 0.0) and ("y"_ >= 0.0 and "y"_ < 1.5) and
                   ("z"_ > 1.5 and "z"_ <= 3.0));
+}
+
+class TestPartitioningWritePlan : public ::testing::Test {
+ protected:
+  FragmentIterator MakeFragments(const ExpressionVector& partition_expressions) {
+    fragments_.clear();
+    for (const auto& expr : partition_expressions) {
+      fragments_.emplace_back(
+          new InMemoryFragment(RecordBatchVector{}, scan_options_, expr));
+    }
+    return MakeVectorIterator(fragments_);
+  }
+
+  template <typename... E>
+  FragmentIterator MakeFragments(const E&... partition_expressions) {
+    return MakeFragments(ExpressionVector{partition_expressions.Copy()...});
+  }
+
+  template <typename... E>
+  void MakeWritePlan(const E&... partition_expressions) {
+    auto fragments = MakeFragments(partition_expressions...);
+    EXPECT_OK_AND_ASSIGN(plan_, factory_->MakeWritePlan(std::move(fragments)));
+  }
+
+  template <typename... E>
+  Status MakeWritePlanError(const E&... partition_expressions) {
+    auto fragments = MakeFragments(partition_expressions...);
+    return factory_->MakeWritePlan(std::move(fragments)).status();
+  }
+
+  template <typename... E>
+  void MakeWritePlanWithSchema(const std::shared_ptr<Schema>& schema,
+                               const E&... partition_expressions) {
+    auto fragments = MakeFragments(partition_expressions...);
+    EXPECT_OK_AND_ASSIGN(plan_, factory_->MakeWritePlan(std::move(fragments), schema));
+  }
+
+  template <typename... E>
+  Status MakeWritePlanWithSchemaError(const std::shared_ptr<Schema>& schema,
+                                      const E&... partition_expressions) {
+    auto fragments = MakeFragments(partition_expressions...);
+    return factory_->MakeWritePlan(std::move(fragments), schema).status();
+  }
+
+  struct ExpectedWritePlan {
+    ExpectedWritePlan() = default;
+
+    ExpectedWritePlan(const WritePlan& actual_plan, const FragmentVector& fragments) {
+      struct {
+        int i;
+        ExpectedWritePlan* this_;
+        const FragmentVector& fragments;
+        const WritePlan& actual_plan;
+
+        void operator()(const std::shared_ptr<Fragment>& fragment) {
+          auto fragment_index =
+              static_cast<int>(std::find(fragments.begin(), fragments.end(), fragment) -
+                               fragments.begin());
+          auto path = fs::internal::GetAbstractPathParent(actual_plan.paths[i]).first;
+          this_->dirs_[path + "/"].fragments.push_back(fragment_index);
+        }
+
+        void operator()(const std::shared_ptr<Expression>& partition_expression) {
+          this_->dirs_[actual_plan.paths[i]].partition_expression = partition_expression;
+        }
+      } actual = {0, this, fragments, actual_plan};
+
+      for (const auto& op : actual_plan.fragment_or_partition_expressions) {
+        util::visit(actual, op);
+        ++actual.i;
+      }
+    }
+
+    ExpectedWritePlan Dir(const std::string& path, const Expression& expr,
+                          const std::vector<int>& fragments) && {
+      dirs_.emplace(path, DirectoryWriteOp{expr.Copy(), fragments});
+      return std::move(*this);
+    }
+
+    struct DirectoryWriteOp {
+      std::shared_ptr<Expression> partition_expression;
+      std::vector<int> fragments;
+
+      bool operator==(const DirectoryWriteOp& other) const {
+        return partition_expression->Equals(other.partition_expression) &&
+               fragments == other.fragments;
+      }
+
+      friend void PrintTo(const DirectoryWriteOp& op, std::ostream* os) {
+        if (op.partition_expression == nullptr) {
+          *os << "(((partition_expression was nullptr)))";
+        } else {
+          *os << op.partition_expression->ToString();
+        }
+
+        *os << " { ";
+        for (const auto& fragment : op.fragments) {
+          *os << fragment << " ";
+        }
+        *os << "}\n";
+      }
+    };
+    std::map<std::string, DirectoryWriteOp> dirs_;
+  };
+
+  struct AssertPlanIs : ExpectedWritePlan {};
+
+  void AssertPlanIs(ExpectedWritePlan expected_plan) {
+    ExpectedWritePlan actual_plan(plan_, fragments_);
+    EXPECT_THAT(actual_plan.dirs_, testing::ContainerEq(expected_plan.dirs_));
+  }
+
+  FragmentVector fragments_;
+  std::shared_ptr<ScanOptions> scan_options_ = ScanOptions::Make(schema({}));
+  std::shared_ptr<PartitioningFactory> factory_;
+  WritePlan plan_;
+};
+
+TEST_F(TestPartitioningWritePlan, Empty) {
+  factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
+
+  // no expressions from which to infer the types of fields a, b
+  MakeWritePlan();
+  AssertPlanIs({});
+
+  MakeWritePlanWithSchema(schema({field("a", int32()), field("b", utf8())}));
+  AssertPlanIs({});
+
+  factory_ = HivePartitioning::MakeFactory();
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, testing::HasSubstr("MakeWritePlan"),
+                                  MakeWritePlanError());
+}
+
+TEST_F(TestPartitioningWritePlan, SingleDirectory) {
+  factory_ = DirectoryPartitioning::MakeFactory({"a"});
+
+  MakeWritePlan("a"_ == 42, "a"_ == 99, "a"_ == 99, "a"_ == 101);
+
+  AssertPlanIs(ExpectedWritePlan()
+                   .Dir("42/", "a"_ == 42, {0})
+                   .Dir("99/", "a"_ == 99, {1, 2})
+                   .Dir("101/", "a"_ == 101, {3}));
+}
+
+TEST_F(TestPartitioningWritePlan, NestedDirectories) {
+  factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
+
+  MakeWritePlan("a"_ == 42 and "b"_ == "hello", "a"_ == 42 and "b"_ == "world",
+                "a"_ == 99 and "b"_ == "hello", "a"_ == 99 and "b"_ == "world");
+
+  AssertPlanIs(ExpectedWritePlan()
+                   .Dir("42/", "a"_ == 42, {})
+                   .Dir("42/hello/", "b"_ == "hello", {0})
+                   .Dir("42/world/", "b"_ == "world", {1})
+                   .Dir("99/", "a"_ == 99, {})
+                   .Dir("99/hello/", "b"_ == "hello", {2})
+                   .Dir("99/world/", "b"_ == "world", {3}));
 }
 
 }  // namespace dataset

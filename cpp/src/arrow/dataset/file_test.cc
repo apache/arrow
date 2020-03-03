@@ -93,14 +93,14 @@ TEST_F(TestFileSystemDataset, Basic) {
 }
 
 TEST_F(TestFileSystemDataset, RootPartitionPruning) {
-  auto dataset_partition = ("a"_ == 5).Copy();
-  MakeDataset({fs::File("a"), fs::File("b")}, dataset_partition);
+  auto root_partition = ("a"_ == 5).Copy();
+  MakeDataset({fs::File("a"), fs::File("b")}, root_partition);
 
   // Default filter should always return all data.
   AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {"a", "b"});
 
   // filter == partition
-  options_->filter = dataset_partition;
+  options_->filter = root_partition;
   AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {"a", "b"});
 
   // Same partition key, but non matching filter
@@ -121,7 +121,7 @@ TEST_F(TestFileSystemDataset, RootPartitionPruning) {
 }
 
 TEST_F(TestFileSystemDataset, TreePartitionPruning) {
-  auto dataset_partition = ("country"_ == "US").Copy();
+  auto root_partition = ("country"_ == "US").Copy();
   std::vector<fs::FileInfo> regions = {
       fs::Dir("NY"), fs::File("NY/New York"),      fs::File("NY/Franklin"),
       fs::Dir("CA"), fs::File("CA/San Francisco"), fs::File("CA/Franklin"),
@@ -133,7 +133,7 @@ TEST_F(TestFileSystemDataset, TreePartitionPruning) {
       ("city"_ == "San Francisco").Copy(), ("city"_ == "Franklin").Copy(),
   };
 
-  MakeDataset(regions, dataset_partition, partitions);
+  MakeDataset(regions, root_partition, partitions);
 
   std::vector<std::string> all_cities = {"CA/San Francisco", "CA/Franklin", "NY/New York",
                                          "NY/Franklin"};
@@ -159,7 +159,7 @@ TEST_F(TestFileSystemDataset, TreePartitionPruning) {
 }
 
 TEST_F(TestFileSystemDataset, FragmentPartitions) {
-  auto dataset_partition = ("country"_ == "US").Copy();
+  auto root_partition = ("country"_ == "US").Copy();
   std::vector<fs::FileInfo> regions = {
       fs::Dir("NY"), fs::File("NY/New York"),      fs::File("NY/Franklin"),
       fs::Dir("CA"), fs::File("CA/San Francisco"), fs::File("CA/Franklin"),
@@ -171,10 +171,10 @@ TEST_F(TestFileSystemDataset, FragmentPartitions) {
       ("city"_ == "San Francisco").Copy(), ("city"_ == "Franklin").Copy(),
   };
 
-  MakeDataset(regions, dataset_partition, partitions);
+  MakeDataset(regions, root_partition, partitions);
 
   auto with_root = [&](const Expression& state, const Expression& city) {
-    return and_(and_(dataset_partition, state.Copy()), city.Copy());
+    return and_(and_(root_partition, state.Copy()), city.Copy());
   };
 
   AssertFragmentsHavePartitionExpressions(

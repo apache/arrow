@@ -29,7 +29,6 @@
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
-#include "arrow/dataset/writer.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_forest.h"
 #include "arrow/io/file.h"
@@ -245,20 +244,10 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
 
   /// \brief Write to a new format and filesystem location, preserving partitioning.
   ///
-  /// \param[in] format the FileFormat to use when writing.
-  /// \param[in] filesystem the FileSystem in which to write.
-  /// \param[in] base_dir the directory in which to write.
-  /// \param[in] partitioning a Partitioning will be used to generate file paths.
-  /// \param[in] scan_options options for scanning the source prior to writing.
-  ///
-  /// This function makes some assumptions about this source:
-  /// - no partition information is attached to files
-  /// - every directory has a unique partition expression
-  /// - every directory's partition expression can be formatted by the given partitioning
-  Result<std::shared_ptr<FileSystemDataset>> Write(
-      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-      std::string base_dir, std::shared_ptr<Partitioning> partitioning,
-      std::shared_ptr<ScanOptions> scan_options);
+  /// \param[in] plan the WritePlan to execute.
+  /// \param[in] scan_context context in which to scan fragments before writing.
+  static Result<std::shared_ptr<FileSystemDataset>> Write(
+      const WritePlan& plan, std::shared_ptr<ScanContext> scan_context);
 
   std::string type_name() const override { return "filesystem"; }
 

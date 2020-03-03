@@ -147,63 +147,83 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
   AssertBufferEqual(*sink.buffer(), *source->buffer());
 }
 
-/*
-TEST_F(TestIpcFileFormat, WriteFileSystemSource) {
-  fs::FileStatsVector stats{
-      fs::Dir("old_root_0"),
+class TestIpcFileSystemDataset : public TestIpcFileFormat,
+                                 public MakeFileSystemDatasetMixin {};
 
-      fs::Dir("old_root_0/aaa"), fs::File("old_root_0/aaa/dat"),
-      fs::Dir("old_root_0/bbb"), fs::File("old_root_0/bbb/dat"),
-      fs::Dir("old_root_0/ccc"), fs::File("old_root_0/ccc/dat"),
+TEST_F(TestIpcFileSystemDataset, Write) {
+  MakeDatasetFromPathlist(R"(
+    old_root/i32=0/
+    old_root/i32=0/str=aaa/
+    old_root/i32=0/str=aaa/dat
+    old_root/i32=0/str=bbb/
+    old_root/i32=0/str=bbb/dat
+    old_root/i32=0/str=ccc/
+    old_root/i32=0/str=ccc/dat
 
-      fs::Dir("old_root_1"),
-
-      fs::Dir("old_root_1/aaa"), fs::File("old_root_1/aaa/dat"),
-      fs::Dir("old_root_1/bbb"), fs::File("old_root_1/bbb/dat"),
-      fs::Dir("old_root_1/ccc"), fs::File("old_root_1/ccc/dat"),
-  };
-  ASSERT_OK_AND_ASSIGN(auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
-
-  ExpressionVector partitions = {
-      ("i32"_ == 0).Copy(),
-
-      ("str"_ == "aaa").Copy(), scalar(true), ("str"_ == "bbb").Copy(), scalar(true),
-      ("str"_ == "ccc").Copy(), scalar(true),
-
-      ("i32"_ == 1).Copy(),
-
-      ("str"_ == "aaa").Copy(), scalar(true), ("str"_ == "bbb").Copy(), scalar(true),
-      ("str"_ == "ccc").Copy(), scalar(true),
-  };
+    old_root/i32=1/
+    old_root/i32=1/str=aaa/
+    old_root/i32=1/str=aaa/dat
+    old_root/i32=1/str=bbb/
+    old_root/i32=1/str=bbb/dat
+    old_root/i32=1/str=ccc/
+    old_root/i32=1/str=ccc/dat
+    )",
+                          scalar(true),
+                          {
+                              ("i32"_ == 0).Copy(),
+                              ("str"_ == "aaa").Copy(),
+                              scalar(true),
+                              ("str"_ == "bbb").Copy(),
+                              scalar(true),
+                              ("str"_ == "ccc").Copy(),
+                              scalar(true),
+                              ("i32"_ == 1).Copy(),
+                              ("str"_ == "aaa").Copy(),
+                              scalar(true),
+                              ("str"_ == "bbb").Copy(),
+                              scalar(true),
+                              ("str"_ == "ccc").Copy(),
+                              scalar(true),
+                          });
 
   auto schema = arrow::schema({field("i32", int32()), field("str", utf8())});
   opts_ = ScanOptions::Make(schema);
 
-  ASSERT_OK_AND_ASSIGN(auto dataset,
-                       FileSystemDataset::Make(schema, ("root"_ == true).Copy(),
-                                               std::make_shared<DummyFileFormat>(), fs,
-                                               stats, partitions));
+  auto partitioning_factory = DirectoryPartitioning::MakeFactory({"str", "i32"});
+  ASSERT_OK_AND_ASSIGN(
+      auto plan, partitioning_factory->MakeWritePlan(dataset_->GetFragments(options_)));
 
-  auto partitioning = std::make_shared<HivePartitioning>(schema);
-  ASSERT_OK_AND_ASSIGN(auto written,
-                       dataset->Write(format_, fs, "new_root", partitioning, opts_));
+  plan.format = format_;
+  plan.filesystem = fs_;
+  plan.partition_base_dir = "new_root/";
+
+  ASSERT_OK_AND_ASSIGN(auto written, FileSystemDataset::Write(plan, ctx_));
 
   using E = TestExpression;
-  for (size_t i = 0; i < partitions.size(); ++i) {
-    ASSERT_EQ(E{partitions[i]}, E{written->partitions()[i]});
+  std::vector<E> actual_partitions;
+  for (const auto& partition : written->partitions()) {
+    actual_partitions.emplace_back(partition);
+  }
+  EXPECT_THAT(actual_partitions,
+              testing::ElementsAre(E{"str"_ == "aaa"}, E{"i32"_ == 0}, E{scalar(true)},
+                                   E{"i32"_ == 1}, E{scalar(true)},
+
+                                   E{"str"_ == "bbb"}, E{"i32"_ == 0}, E{scalar(true)},
+                                   E{"i32"_ == 1}, E{scalar(true)},
+
+                                   E{"str"_ == "ccc"}, E{"i32"_ == 0}, E{scalar(true)},
+                                   E{"i32"_ == 1}, E{scalar(true)}));
+
+  auto parent_directories = written->files();
+  for (auto& path : parent_directories) {
+    EXPECT_EQ(fs::internal::GetAbstractPathExtension(path), "ipc");
+    path = fs::internal::GetAbstractPathParent(path).first;
   }
 
-  AssertFragmentsAreFromPath(written->GetFragments(opts_),
-                             {
-                                 "new_root/i32=0/str=aaa/dat.ipc",
-                                 "new_root/i32=0/str=bbb/dat.ipc",
-                                 "new_root/i32=0/str=ccc/dat.ipc",
-                                 "new_root/i32=1/str=aaa/dat.ipc",
-                                 "new_root/i32=1/str=bbb/dat.ipc",
-                                 "new_root/i32=1/str=ccc/dat.ipc",
-                             });
+  EXPECT_THAT(parent_directories,
+              testing::ElementsAre("new_root/aaa/0", "new_root/aaa/1", "new_root/bbb/0",
+                                   "new_root/bbb/1", "new_root/ccc/0", "new_root/ccc/1"));
 }
-*/
 
 TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));

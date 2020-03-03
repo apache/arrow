@@ -18,24 +18,31 @@
 #include "arrow/dataset/partition.h"
 
 #include <algorithm>
+#include <chrono>
 #include <map>
 #include <memory>
+#include <stack>
 #include <utility>
 #include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/writer.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/scalar.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/range.h"
+#include "arrow/util/sort.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace dataset {
 
 using util::string_view;
+
+using internal::checked_cast;
 
 Result<std::shared_ptr<Expression>> Partitioning::Parse(const std::string& path) const {
   ExpressionVector expressions;
@@ -57,6 +64,15 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
   return std::make_shared<DefaultPartitioning>();
 }
 
+Result<WritePlan> PartitioningFactory::MakeWritePlan(FragmentIterator fragment_it) {
+  return Status::NotImplemented("MakeWritePlan from this PartitioningFactory");
+}
+
+Result<WritePlan> PartitioningFactory::MakeWritePlan(
+    FragmentIterator fragment_it, const std::shared_ptr<Schema>& schema) {
+  return Status::NotImplemented("MakeWritePlan from this PartitioningFactory");
+}
+
 Result<std::shared_ptr<Expression>> SegmentDictionaryPartitioning::Parse(
     const std::string& segment, int i) const {
   if (static_cast<size_t>(i) < dictionaries_.size()) {
@@ -67,6 +83,38 @@ Result<std::shared_ptr<Expression>> SegmentDictionaryPartitioning::Parse(
   }
 
   return scalar(true);
+}
+
+Status KeyValuePartitioning::VisitKeys(
+    const Expression& expr,
+    const std::function<Status(const std::string& name,
+                               const std::shared_ptr<Scalar>& value)>& visitor) {
+  if (expr.type() == ExpressionType::AND) {
+    const auto& and_ = checked_cast<const AndExpression&>(expr);
+    RETURN_NOT_OK(VisitKeys(*and_.left_operand(), visitor));
+    RETURN_NOT_OK(VisitKeys(*and_.right_operand(), visitor));
+    return Status::OK();
+  }
+
+  if (expr.type() != ExpressionType::COMPARISON) {
+    return Status::OK();
+  }
+
+  const auto& cmp = checked_cast<const ComparisonExpression&>(expr);
+  if (cmp.op() != compute::CompareOperator::EQUAL) {
+    return Status::OK();
+  }
+
+  auto lhs = cmp.left_operand().get();
+  auto rhs = cmp.right_operand().get();
+  if (lhs->type() != ExpressionType::FIELD) std::swap(lhs, rhs);
+
+  if (lhs->type() != ExpressionType::FIELD || rhs->type() != ExpressionType::SCALAR) {
+    return Status::OK();
+  }
+
+  return visitor(checked_cast<const FieldExpression*>(lhs)->name(),
+                 checked_cast<const ScalarExpression*>(rhs)->value());
 }
 
 Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
@@ -94,7 +142,7 @@ Result<std::string> KeyValuePartitioning::Format(const Expression& expr, int i) 
     return Status::Invalid(expr.ToString(), " is not a comparison expression");
   }
 
-  const auto& cmp = internal::checked_cast<const ComparisonExpression&>(expr);
+  const auto& cmp = checked_cast<const ComparisonExpression&>(expr);
   if (cmp.op() != compute::CompareOperator::EQUAL) {
     return Status::Invalid(expr.ToString(), " is not an equality comparison expression");
   }
@@ -102,12 +150,12 @@ Result<std::string> KeyValuePartitioning::Format(const Expression& expr, int i) 
   if (cmp.left_operand()->type() != ExpressionType::FIELD) {
     return Status::Invalid(expr.ToString(), " LHS is not a field");
   }
-  const auto& lhs = internal::checked_cast<const FieldExpression&>(*cmp.left_operand());
+  const auto& lhs = checked_cast<const FieldExpression&>(*cmp.left_operand());
 
   if (cmp.right_operand()->type() != ExpressionType::SCALAR) {
     return Status::Invalid(expr.ToString(), " RHS is not a scalar");
   }
-  const auto& rhs = internal::checked_cast<const ScalarExpression&>(*cmp.right_operand());
+  const auto& rhs = checked_cast<const ScalarExpression&>(*cmp.right_operand());
 
   auto expected_type = schema_->GetFieldByName(lhs.name())->type();
   if (!rhs.value()->type->Equals(expected_type)) {
@@ -220,6 +268,7 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
   Result<std::shared_ptr<Partitioning>> Finish(
       const std::shared_ptr<Schema>& schema) const override {
     for (FieldRef ref : field_names_) {
+      // ensure all of field_names_ are present in schema
       RETURN_NOT_OK(ref.FindOne(*schema).status());
     }
 
@@ -229,9 +278,240 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
     return std::make_shared<DirectoryPartitioning>(std::move(out_schema));
   }
 
+  struct MakeWritePlanImpl;
+
+  Result<WritePlan> MakeWritePlan(FragmentIterator fragments) override;
+
+  Result<WritePlan> MakeWritePlan(FragmentIterator fragments,
+                                  const std::shared_ptr<Schema>& schema) override;
+
  private:
   std::vector<std::string> field_names_;
 };
+
+struct DirectoryPartitioningFactory::MakeWritePlanImpl {
+  using Indices = std::basic_string<int>;
+
+  MakeWritePlanImpl(DirectoryPartitioningFactory* factory, FieldVector fields,
+                    FragmentVector source_fragments)
+      : this_(factory),
+        fields_(std::move(fields)),
+        num_fields_(static_cast<int>(fields_.size())),
+        source_fragments_(std::move(source_fragments)),
+        right_hand_sides_(source_fragments_.size(),
+                          Indices(this_->field_names_.size(), -1)) {}
+
+  Status GetRightHandSides() {
+    if (source_fragments_.empty()) {
+      for (auto& field : fields_) {
+        if (field->type() == nullptr) {
+          field = field->WithType(null());
+        }
+      }
+      fragment_schema_ = schema({});
+      return Status::OK();
+    }
+    fragment_schema_ = source_fragments_.front()->schema();
+
+    for (size_t fragment_i = 0; fragment_i < source_fragments_.size(); ++fragment_i) {
+      const auto& fragment = source_fragments_[fragment_i];
+
+      auto accumulate = [&](const std::string& name,
+                            const std::shared_ptr<Scalar>& value) {
+        auto it = std::find(this_->field_names_.begin(), this_->field_names_.end(), name);
+        if (it == this_->field_names_.end()) {
+          return Status::OK();
+        }
+
+        auto field_i = it - this_->field_names_.begin();
+        auto& field = fields_.at(field_i);
+
+        ARROW_ASSIGN_OR_RAISE(field, field->MergeWith(Field(name, value->type)))
+
+        int code = scalar_dict_.GetOrInsert(value);
+        right_hand_sides_[fragment_i][field_i] = code;
+
+        return Status::OK();
+      };
+
+      RETURN_NOT_OK(
+          KeyValuePartitioning::VisitKeys(*fragment->partition_expression(), accumulate));
+
+      RETURN_NOT_OK(
+          KeyValuePartitioning::VisitKeys(*fragment->scan_options()->filter, accumulate));
+
+      auto it = std::find(right_hand_sides_[fragment_i].begin(),
+                          right_hand_sides_[fragment_i].end(), -1);
+      if (it != right_hand_sides_[fragment_i].end()) {
+        return Status::Invalid(
+            "fragment ", fragment_i, " had no partition expression for field '",
+            fields_.at(it - right_hand_sides_[fragment_i].begin())->name(), "'");
+      }
+    }
+
+    for (const auto& field : fields_) {
+      if (field->type()->id() == Type::NA) {
+        return Status::TypeError("no partition expressions provided for field '",
+                                 field->name(), "'");
+      }
+    }
+
+    return Status::OK();
+  }
+
+  std::shared_ptr<Expression> PartitionExpression(size_t fragment_i, int field_i) {
+    auto left_hand_side = field_ref(this_->field_names_[field_i]);
+    auto right_hand_side =
+        scalar(scalar_dict_.code_to_scalar[right_hand_sides_[fragment_i][field_i]]);
+    return equal(std::move(left_hand_side), std::move(right_hand_side));
+  }
+
+  std::string Guid() {
+    using std::chrono::duration_cast;
+    using std::chrono::milliseconds;
+    using std::chrono::steady_clock;
+    auto milliseconds_since_epoch =
+        duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+    return std::to_string(milliseconds_since_epoch);
+  }
+
+  Status DropPartitionFields(const std::shared_ptr<Partitioning>& partitioning,
+                             Fragment* fragment) {
+    // since these fields will be implicit in the partitioning, they need not be written
+    auto schema = fragment->schema();
+    for (const auto& field : partitioning->schema()->fields()) {
+      int field_i = schema->GetFieldIndex(field->name());
+      if (field_i != -1) {
+        RETURN_NOT_OK(schema->RemoveField(field_i, &schema));
+      }
+    }
+
+    fragment->scan_options()->projector = RecordBatchProjector(std::move(schema));
+    return Status::OK();
+  }
+
+  Result<WritePlan> Finish() && {
+    WritePlan out;
+
+    RETURN_NOT_OK(GetRightHandSides());
+    ARROW_ASSIGN_OR_RAISE(out.partitioning, this_->Finish(schema(std::move(fields_))));
+    ARROW_ASSIGN_OR_RAISE(out.schema,
+                          UnifySchemas({out.partitioning->schema(), fragment_schema_}));
+
+    auto permutation = internal::ArgSort(right_hand_sides_);
+    internal::Permute(permutation, &source_fragments_);
+    internal::Permute(permutation, &right_hand_sides_);
+
+    std::vector<int> parents;
+    std::vector<std::string> segments;
+
+    auto guid = Guid() + "_";
+
+    Indices current_parents(num_fields_ + 1, -1);
+    Indices current_right_hand_sides(this_->field_names_.size(), -1);
+
+    for (size_t fragment_i = 0; fragment_i < source_fragments_.size(); ++fragment_i) {
+      RETURN_NOT_OK(
+          DropPartitionFields(out.partitioning, source_fragments_[fragment_i].get()));
+
+      int field_i = 0;
+      for (; field_i < num_fields_; ++field_i) {
+        if (right_hand_sides_[fragment_i][field_i] != current_right_hand_sides[field_i]) {
+          break;
+        }
+      }
+
+      for (; field_i < num_fields_; ++field_i) {
+        // push a new directory
+        current_parents[field_i + 1] = static_cast<int>(parents.size());
+
+        auto partition_expression = PartitionExpression(fragment_i, field_i);
+        ARROW_ASSIGN_OR_RAISE(auto segment,
+                              out.partitioning->Format(*partition_expression, field_i));
+        segment.push_back(fs::internal::kSep);
+        segments.push_back(std::move(segment));
+        out.fragment_or_partition_expressions.emplace_back(
+            std::move(partition_expression));
+        parents.push_back(current_parents[field_i]);
+
+        current_right_hand_sides[field_i] = right_hand_sides_[fragment_i][field_i];
+      }
+
+      // push a fragment
+      segments.emplace_back(guid + std::to_string(fragment_i));
+      out.fragment_or_partition_expressions.emplace_back(
+          std::move(source_fragments_[fragment_i]));
+      parents.push_back(current_parents[field_i]);
+    }
+
+    // render paths
+    for (size_t i = 0; i < segments.size(); ++i) {
+      if (parents[i] == -1) {
+        out.paths.push_back(segments[i]);
+        continue;
+      }
+
+      out.paths.push_back(out.paths[parents[i]] + segments[i]);
+    }
+
+    return out;
+  }
+
+  DirectoryPartitioningFactory* this_;
+  FieldVector fields_;
+  int num_fields_;
+  FragmentVector source_fragments_;
+  std::shared_ptr<Schema> fragment_schema_;
+
+  struct {
+    std::unordered_map<std::shared_ptr<Scalar>, int, Scalar::Hash, Scalar::PtrsEqual>
+        scalar_to_code;
+
+    ScalarVector code_to_scalar;
+
+    int GetOrInsert(const std::shared_ptr<Scalar>& scalar) {
+      int new_code = static_cast<int>(code_to_scalar.size());
+
+      auto it_inserted = scalar_to_code.emplace(scalar, new_code);
+      if (!it_inserted.second) {
+        return it_inserted.first->second;
+      }
+
+      code_to_scalar.push_back(scalar);
+      return new_code;
+    }
+  } scalar_dict_;
+  std::vector<Indices> right_hand_sides_;
+};
+
+template <typename T>
+Result<std::vector<T>> IteratorToVector(Iterator<T> it) {
+  std::vector<T> vector;
+  for (auto maybe_element : it) {
+    ARROW_ASSIGN_OR_RAISE(auto element, std::move(maybe_element));
+    vector.push_back(std::move(element));
+  }
+  return vector;
+}
+
+Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
+    FragmentIterator fragment_it, const std::shared_ptr<Schema>& schema) {
+  ARROW_ASSIGN_OR_RAISE(auto fragments, IteratorToVector(std::move(fragment_it)));
+
+  return MakeWritePlanImpl(this, schema->fields(), std::move(fragments)).Finish();
+}
+
+Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
+    FragmentIterator fragment_it) {
+  ARROW_ASSIGN_OR_RAISE(auto fragments, IteratorToVector(std::move(fragment_it)));
+
+  FieldVector fields;
+  for (const auto& name : field_names_) {
+    fields.push_back(field(name, null()));
+  }
+
+  return MakeWritePlanImpl(this, std::move(fields), std::move(fragments)).Finish();
+}
 
 std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
     std::vector<std::string> field_names) {
