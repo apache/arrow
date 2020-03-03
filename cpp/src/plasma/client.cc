@@ -859,6 +859,11 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
   RETURN_NOT_OK(Hash(object_id, &digest[0]));
   RETURN_NOT_OK(
       SendSealRequest(store_conn_, object_id, std::string(digest.begin(), digest.end())));
+  std::vector<uint8_t> buffer;
+  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaSealReply, &buffer));
+  ObjectID sealed_id;
+  RETURN_NOT_OK(ReadSealReply(buffer.data(), buffer.size(), &sealed_id));
+  ARROW_CHECK(sealed_id == object_id);
   // We call PlasmaClient::Release to decrement the number of instances of this
   // object
   // that are currently being used by this client. The corresponding increment
