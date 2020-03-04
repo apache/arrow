@@ -45,20 +45,27 @@ using internal::SchemaExportTraits;
 template <typename T>
 struct ExportTraits {};
 
+template <typename T>
+using Exporter = std::function<Status(const T&, struct ArrowSchema*)>;
+
 template <>
 struct ExportTraits<DataType> {
-  static constexpr auto ExportFunc = ExportType;
+  static Exporter<DataType> ExportFunc;
 };
 
 template <>
 struct ExportTraits<Field> {
-  static constexpr auto ExportFunc = ExportField;
+  static Exporter<Field> ExportFunc;
 };
 
 template <>
 struct ExportTraits<Schema> {
-  static constexpr auto ExportFunc = ExportSchema;
+  static Exporter<Schema> ExportFunc;
 };
+
+Exporter<DataType> ExportTraits<DataType>::ExportFunc = ExportType;
+Exporter<Field> ExportTraits<Field>::ExportFunc = ExportField;
+Exporter<Schema> ExportTraits<Schema>::ExportFunc = ExportSchema;
 
 // An interceptor that checks whether a release callback was called.
 // (for import tests)
