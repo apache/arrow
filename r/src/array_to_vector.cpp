@@ -851,6 +851,7 @@ Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
   std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
 
   for (int64_t i = 0; i < nc; i++) {
+    // This crashes if num_chunks == 0
     converters[i] = arrow::r::Converter::Make(table->column(i)->chunks());
     names[i] = table->field(i)->name();
   }

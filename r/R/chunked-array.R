@@ -60,14 +60,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
   public = list(
     length = function() ChunkedArray__length(self),
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),
-    as_vector = function() {
-      if (self$num_chunks == 0) {
-        # ChunkedArray__as_vector crashes if there are 0 chunks
-        as.vector(Array$create(integer(0), type = self$type))
-      } else {
-        ChunkedArray__as_vector(self)
-      }
-    },
+    as_vector = function() ChunkedArray__as_vector(self),
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
         shared_ptr(ChunkedArray, ChunkedArray__Slice1(self, offset))

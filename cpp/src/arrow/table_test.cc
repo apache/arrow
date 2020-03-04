@@ -137,18 +137,18 @@ TEST_F(TestChunkedArray, SliceEquals) {
   // Making empty slices of a ChunkedArray
   std::shared_ptr<ChunkedArray> slice3 = one_->Slice(one_->length(), 99);
   ASSERT_EQ(slice3->length(), 0);
-  ASSERT_EQ(slice3->num_chunks(), 0);
+  ASSERT_EQ(slice3->num_chunks(), 1);
   ASSERT_TRUE(slice3->type()->Equals(one_->type()));
 
   std::shared_ptr<ChunkedArray> slice4 = one_->Slice(10, 0);
   ASSERT_EQ(slice4->length(), 0);
-  ASSERT_EQ(slice4->num_chunks(), 0);
+  ASSERT_EQ(slice4->num_chunks(), 1);
   ASSERT_TRUE(slice4->type()->Equals(one_->type()));
 
   // Slicing an empty ChunkedArray
   std::shared_ptr<ChunkedArray> slice5 = slice4->Slice(0, 10);
   ASSERT_EQ(slice5->length(), 0);
-  ASSERT_EQ(slice5->num_chunks(), 0);
+  ASSERT_EQ(slice5->num_chunks(), 1);
   ASSERT_TRUE(slice5->type()->Equals(one_->type()));
 }
 

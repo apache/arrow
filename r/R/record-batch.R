@@ -76,9 +76,7 @@
 #' @name RecordBatch
 RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
   public = list(
-    column = function(i) {
-      shared_ptr(Array, RecordBatch__column(self, i))
-    },
+    column = function(i) shared_ptr(Array, RecordBatch__column(self, i)),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
     Equals = function(other, ...) {
