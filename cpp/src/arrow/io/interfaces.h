@@ -220,7 +220,10 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Re
   InputStream() = default;
 };
 
-class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
+class ARROW_EXPORT RandomAccessFile
+    : public std::enable_shared_from_this<RandomAccessFile>,
+      public InputStream,
+      public Seekable {
  public:
   /// Necessary because we hold a std::unique_ptr
   ~RandomAccessFile() override;

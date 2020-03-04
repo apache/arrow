@@ -144,8 +144,9 @@ Status RandomAccessFile::GetSize(int64_t* size) { return GetSize().Value(size); 
 Result<Future<std::shared_ptr<Buffer>>> RandomAccessFile::ReadAsync(int64_t position,
                                                                     int64_t nbytes) {
   auto pool = internal::GetIOThreadPool();
-  // XXX `this` is not owned by the lambda
-  return pool->Submit([=] { return this->ReadAt(position, nbytes); });
+  auto self = shared_from_this();
+  return pool->Submit(
+      [self, position, nbytes] { return self->ReadAt(position, nbytes); });
 }
 
 Status Writable::Write(const std::string& data) {

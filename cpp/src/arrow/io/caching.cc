@@ -67,15 +67,7 @@ ReadRangeCache::ReadRangeCache(std::shared_ptr<RandomAccessFile> file,
   impl_->range_size_limit = range_size_limit;
 }
 
-ReadRangeCache::~ReadRangeCache() {
-  // XXX Need to wait for all the futures to complete, as they need the underlying file
-  // not to disappear
-  if (impl_) {
-    for (auto& entry : impl_->entries) {
-      entry.future.Wait();
-    }
-  }
-}
+ReadRangeCache::~ReadRangeCache() {}
 
 Status ReadRangeCache::Cache(std::vector<ReadRange> ranges) {
   ranges = internal::CoalesceReadRanges(std::move(ranges), impl_->hole_size_limit,
