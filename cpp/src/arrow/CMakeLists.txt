@@ -144,6 +144,7 @@ set(ARROW_SRCS
     result.cc
     scalar.cc
     sparse_tensor.cc
+    sparse_tensor/converter.cc
     status.cc
     table.cc
     table_builder.cc
