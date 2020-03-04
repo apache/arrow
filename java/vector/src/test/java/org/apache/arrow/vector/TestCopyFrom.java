@@ -1078,7 +1078,8 @@ public class TestCopyFrom {
     try (VarCharVector vc1 = new VarCharVector("vc1", allocator);
          VarCharVector vc2 = new VarCharVector("vc2", allocator);
     ) {
-      //initial size is carefully set in order to force the second 'copyFromSafe' operation t trigger a reallocation of the vector.
+      //initial size is carefully set in order to force the second 'copyFromSafe' operation
+      // to trigger a reallocation of the vector.
       vc2.setInitialCapacity(/*valueCount*/20, /*density*/0.5);
 
       vc1.setSafe(0, "1234567890".getBytes(Charset.forName("utf-8")));
