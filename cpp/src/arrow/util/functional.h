@@ -73,6 +73,10 @@ struct call_traits {
 
   template <typename F>
   using return_type = decltype(return_type_impl(&std::decay<F>::type::operator()));
+
+  template <typename F, typename T, typename RT = T>
+  using enable_if_return =
+      typename std::enable_if<std::is_same<return_type<F>, T>::value, RT>;
 };
 
 }  // namespace internal

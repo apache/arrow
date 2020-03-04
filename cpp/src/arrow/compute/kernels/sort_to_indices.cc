@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <limits>
 #include <numeric>
+#include <utility>
 #include <vector>
 
 #include "arrow/builder.h"
@@ -135,52 +136,28 @@ class CountSorter {
     // first slot reserved for prefix sum, last slot for null value
     std::vector<CounterType> counts(1 + value_range + 1);
 
-    struct UpdateCounts {
-      Status VisitNull() {
-        ++counts[value_range];
-        return Status::OK();
+    auto update_counts = [&](util::optional<c_type> v) {
+      if (v.has_value()) {
+        ++counts[*v - min_ + 1];
+      } else {
+        ++counts[value_range + 1];
       }
-
-      Status VisitValue(c_type v) {
-        ++counts[v - min];
-        return Status::OK();
-      }
-
-      CounterType* counts;
-      const uint32_t value_range;
-      c_type min;
     };
-    {
-      UpdateCounts update_counts{&counts[1], value_range, min_};
-      ARROW_CHECK_OK(ArrayDataVisitor<ArrowType>().Visit(*values.data(), &update_counts));
-    }
+    VisitArrayDataInline<ArrowType>(*values.data(), std::move(update_counts));
 
     for (uint32_t i = 1; i <= value_range; ++i) {
       counts[i] += counts[i - 1];
     }
 
-    struct OutputIndices {
-      Status VisitNull() {
-        out_indices[counts[value_range]++] = index++;
-        return Status::OK();
+    int64_t index = 0;
+    auto write_index = [&](util::optional<c_type> v) {
+      if (v.has_value()) {
+        indices_begin[counts[*v - min_]++] = index++;
+      } else {
+        indices_begin[counts[value_range]++] = index++;
       }
-
-      Status VisitValue(c_type v) {
-        out_indices[counts[v - min]++] = index++;
-        return Status::OK();
-      }
-
-      CounterType* counts;
-      const uint32_t value_range;
-      c_type min;
-      int64_t* out_indices;
-      int64_t index;
     };
-    {
-      OutputIndices output_indices{&counts[0], value_range, min_, indices_begin, 0};
-      ARROW_CHECK_OK(
-          ArrayDataVisitor<ArrowType>().Visit(*values.data(), &output_indices));
-    }
+    VisitArrayDataInline<ArrowType>(*values.data(), std::move(write_index));
   }
 };
 
@@ -197,29 +174,21 @@ class CountOrCompareSorter {
 
   void Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) {
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
-      struct MinMaxScanner {
-        Status VisitNull() { return Status::OK(); }
+      c_type min{std::numeric_limits<c_type>::max()};
+      c_type max{std::numeric_limits<c_type>::min()};
 
-        Status VisitValue(c_type v) {
-          min = std::min(min, v);
-          max = std::max(max, v);
-          return Status::OK();
+      auto update_minmax = [&min, &max](util::optional<c_type> v) {
+        if (v.has_value()) {
+          min = std::min(min, *v);
+          max = std::max(max, *v);
         }
-
-        c_type min{std::numeric_limits<c_type>::max()};
-        c_type max{std::numeric_limits<c_type>::min()};
       };
-
-      MinMaxScanner minmax_scanner;
-      ARROW_CHECK_OK(
-          ArrayDataVisitor<ArrowType>().Visit(*values.data(), &minmax_scanner));
-
+      VisitArrayDataInline<ArrowType>(*values.data(), std::move(update_minmax));
       // For signed int32/64, (max - min) may overflow and trigger UBSAN.
       // Cast to largest unsigned type(uint64_t) before substraction.
-      const uint64_t min = static_cast<uint64_t>(minmax_scanner.min);
-      const uint64_t max = static_cast<uint64_t>(minmax_scanner.max);
-      if ((max - min) <= countsort_max_range_) {
-        count_sorter_.SetMinMax(minmax_scanner.min, minmax_scanner.max);
+      if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <=
+          countsort_max_range_) {
+        count_sorter_.SetMinMax(min, max);
         count_sorter_.Sort(indices_begin, indices_end, values);
         return;
       }

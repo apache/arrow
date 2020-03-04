@@ -81,7 +81,7 @@ class FutureWaiterImpl : public FutureWaiter {
 
   // Is the ending condition satisfied?
   bool ShouldSignal() {
-    bool do_signal;
+    bool do_signal = false;
     switch (kind_) {
       case ANY:
         do_signal = (finished_futures_.size() > 0);
