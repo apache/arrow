@@ -152,6 +152,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::STRING:
     case Type::DATE32:
     case Type::DATE64:
+    case Type::STRUCT:
     case Type::TIME32:
     case Type::TIME64:
     case Type::TIMESTAMP:
