@@ -453,6 +453,8 @@ struct Encoding {
     DELTA_BYTE_ARRAY = 7,
     RLE_DICTIONARY = 8,
     BYTE_STREAM_SPLIT = 9,
+    // Should always be last element (except UNKNOWN)
+    UNDEFINED = 10,
     UNKNOWN = 999
   };
 };
@@ -484,7 +486,14 @@ struct EncryptionAlgorithm {
 
 // parquet::PageType
 struct PageType {
-  enum type { DATA_PAGE, INDEX_PAGE, DICTIONARY_PAGE, DATA_PAGE_V2 };
+  enum type {
+    DATA_PAGE,
+    INDEX_PAGE,
+    DICTIONARY_PAGE,
+    DATA_PAGE_V2,
+    // Should always be last element
+    UNDEFINED
+  };
 };
 
 class ColumnOrder {

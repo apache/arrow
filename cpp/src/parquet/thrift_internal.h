@@ -63,28 +63,163 @@ using ::std::shared_ptr;
 #endif
 
 // ----------------------------------------------------------------------
-// Convert Thrift enums to / from parquet enums
+// Convert Thrift enums to Parquet enums
 
-static inline Type::type FromThrift(format::Type::type type) {
+// Unsafe enum converters (input is not checked for validity)
+
+static inline Type::type FromThriftUnsafe(format::Type::type type) {
   return static_cast<Type::type>(type);
 }
 
-static inline ConvertedType::type FromThrift(format::ConvertedType::type type) {
+static inline ConvertedType::type FromThriftUnsafe(format::ConvertedType::type type) {
   // item 0 is NONE
   return static_cast<ConvertedType::type>(static_cast<int>(type) + 1);
 }
 
-static inline Repetition::type FromThrift(format::FieldRepetitionType::type type) {
+static inline Repetition::type FromThriftUnsafe(format::FieldRepetitionType::type type) {
   return static_cast<Repetition::type>(type);
 }
 
-static inline Encoding::type FromThrift(format::Encoding::type type) {
+static inline Encoding::type FromThriftUnsafe(format::Encoding::type type) {
   return static_cast<Encoding::type>(type);
 }
 
-static inline PageType::type FromThrift(format::PageType::type type) {
+static inline PageType::type FromThriftUnsafe(format::PageType::type type) {
   return static_cast<PageType::type>(type);
 }
+
+static inline Compression::type FromThriftUnsafe(format::CompressionCodec::type type) {
+  switch (type) {
+    case format::CompressionCodec::UNCOMPRESSED:
+      return Compression::UNCOMPRESSED;
+    case format::CompressionCodec::SNAPPY:
+      return Compression::SNAPPY;
+    case format::CompressionCodec::GZIP:
+      return Compression::GZIP;
+    case format::CompressionCodec::LZO:
+      return Compression::LZO;
+    case format::CompressionCodec::BROTLI:
+      return Compression::BROTLI;
+    case format::CompressionCodec::LZ4:
+      return Compression::LZ4;
+    case format::CompressionCodec::ZSTD:
+      return Compression::ZSTD;
+    default:
+      DCHECK(false) << "Cannot reach here";
+      return Compression::UNCOMPRESSED;
+  }
+}
+
+namespace internal {
+
+template <typename T>
+struct ThriftEnumTypeTraits {};
+
+template <>
+struct ThriftEnumTypeTraits<::parquet::format::Type::type> {
+  using ParquetEnum = Type;
+};
+
+template <>
+struct ThriftEnumTypeTraits<::parquet::format::ConvertedType::type> {
+  using ParquetEnum = ConvertedType;
+};
+
+template <>
+struct ThriftEnumTypeTraits<::parquet::format::FieldRepetitionType::type> {
+  using ParquetEnum = Repetition;
+};
+
+template <>
+struct ThriftEnumTypeTraits<::parquet::format::Encoding::type> {
+  using ParquetEnum = Encoding;
+};
+
+template <>
+struct ThriftEnumTypeTraits<::parquet::format::PageType::type> {
+  using ParquetEnum = PageType;
+};
+
+// If the parquet file is corrupted it is possible the enum value decoded
+// will not be in the range of defined values, which is undefined behaviour.
+// This facility prevents this by loading the value as the underlying type
+// and checking to make sure it is in range.
+
+template <typename EnumType,
+          typename EnumTypeRaw = typename std::underlying_type<EnumType>::type>
+inline static EnumTypeRaw LoadEnumRaw(const EnumType* in) {
+  EnumTypeRaw raw_value;
+  // Use memcpy(), as a regular cast would be undefined behaviour on invalid values
+  memcpy(&raw_value, in, sizeof(EnumType));
+  return raw_value;
+}
+
+template <typename ApiType>
+struct SafeLoader {
+  using ApiTypeEnum = typename ApiType::type;
+  using ApiTypeRawEnum = typename std::underlying_type<ApiTypeEnum>::type;
+
+  template <typename ThriftType>
+  inline static ApiTypeRawEnum LoadRaw(const ThriftType* in) {
+    static_assert(sizeof(ApiTypeEnum) == sizeof(ThriftType),
+                  "parquet type should always be the same size as thrift type");
+    return static_cast<ApiTypeRawEnum>(LoadEnumRaw(in));
+  }
+
+  template <typename ThriftType, bool IsUnsigned = true>
+  inline static ApiTypeEnum LoadChecked(
+      const typename std::enable_if<IsUnsigned, ThriftType>::type* in) {
+    auto raw_value = LoadRaw(in);
+    if (ARROW_PREDICT_FALSE(raw_value >=
+                            static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED))) {
+      return ApiType::UNDEFINED;
+    }
+    return FromThriftUnsafe(static_cast<ThriftType>(raw_value));
+  }
+
+  template <typename ThriftType, bool IsUnsigned = false>
+  inline static ApiTypeEnum LoadChecked(
+      const typename std::enable_if<!IsUnsigned, ThriftType>::type* in) {
+    auto raw_value = LoadRaw(in);
+    if (ARROW_PREDICT_FALSE(raw_value >=
+                                static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED) ||
+                            raw_value < 0)) {
+      return ApiType::UNDEFINED;
+    }
+    return FromThriftUnsafe(static_cast<ThriftType>(raw_value));
+  }
+
+  template <typename ThriftType>
+  inline static ApiTypeEnum Load(const ThriftType* in) {
+    return LoadChecked<ThriftType, std::is_unsigned<ApiTypeRawEnum>::value>(in);
+  }
+};
+
+}  // namespace internal
+
+// Safe enum loader: will check for invalid enum value before converting
+
+template <typename ThriftType,
+          typename ParquetEnum =
+              typename internal::ThriftEnumTypeTraits<ThriftType>::ParquetEnum>
+inline typename ParquetEnum::type LoadEnumSafe(const ThriftType* in) {
+  return internal::SafeLoader<ParquetEnum>::Load(in);
+}
+
+inline typename Compression::type LoadEnumSafe(const format::CompressionCodec::type* in) {
+  const auto raw_value = internal::LoadEnumRaw(in);
+  // Check bounds manually, as Compression::type doesn't have the same values
+  // as format::CompressionCodec.
+  const auto min_value =
+      static_cast<decltype(raw_value)>(format::CompressionCodec::UNCOMPRESSED);
+  const auto max_value = static_cast<decltype(raw_value)>(format::CompressionCodec::ZSTD);
+  if (raw_value < min_value || raw_value > max_value) {
+    return Compression::UNCOMPRESSED;
+  }
+  return FromThriftUnsafe(*in);
+}
+
+// Safe non-enum converters
 
 static inline AadMetadata FromThrift(format::AesGcmV1 aesGcmV1) {
   return AadMetadata{aesGcmV1.aad_prefix, aesGcmV1.aad_file_unique,
@@ -111,6 +246,9 @@ static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encrypt
   return encryption_algorithm;
 }
 
+// ----------------------------------------------------------------------
+// Convert Thrift enums from Parquet enums
+
 static inline format::Type::type ToThrift(Type::type type) {
   return static_cast<format::Type::type>(type);
 }
@@ -127,28 +265,6 @@ static inline format::FieldRepetitionType::type ToThrift(Repetition::type type) 
 
 static inline format::Encoding::type ToThrift(Encoding::type type) {
   return static_cast<format::Encoding::type>(type);
-}
-
-static inline Compression::type FromThrift(format::CompressionCodec::type type) {
-  switch (type) {
-    case format::CompressionCodec::UNCOMPRESSED:
-      return Compression::UNCOMPRESSED;
-    case format::CompressionCodec::SNAPPY:
-      return Compression::SNAPPY;
-    case format::CompressionCodec::GZIP:
-      return Compression::GZIP;
-    case format::CompressionCodec::LZO:
-      return Compression::LZO;
-    case format::CompressionCodec::BROTLI:
-      return Compression::BROTLI;
-    case format::CompressionCodec::LZ4:
-      return Compression::LZ4;
-    case format::CompressionCodec::ZSTD:
-      return Compression::ZSTD;
-    default:
-      DCHECK(false) << "Cannot reach here";
-      return Compression::UNCOMPRESSED;
-  }
 }
 
 static inline format::CompressionCodec::type ToThrift(Compression::type type) {
