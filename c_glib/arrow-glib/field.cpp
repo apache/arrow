@@ -83,9 +83,7 @@ garrow_field_set_property(GObject *object,
                           const GValue *value,
                           GParamSpec *pspec)
 {
-  GArrowFieldPrivate *priv;
-
-  priv = GARROW_FIELD_GET_PRIVATE(object);
+  auto priv = GARROW_FIELD_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_FIELD:
@@ -262,8 +260,6 @@ garrow_field_new_raw(std::shared_ptr<arrow::Field> *arrow_field,
 std::shared_ptr<arrow::Field>
 garrow_field_get_raw(GArrowField *field)
 {
-  GArrowFieldPrivate *priv;
-
-  priv = GARROW_FIELD_GET_PRIVATE(field);
+  auto priv = GARROW_FIELD_GET_PRIVATE(field);
   return priv->field;
 }

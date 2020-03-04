@@ -64,9 +64,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatch,
 static void
 garrow_record_batch_finalize(GObject *object)
 {
-  GArrowRecordBatchPrivate *priv;
-
-  priv = GARROW_RECORD_BATCH_GET_PRIVATE(object);
+  auto priv = GARROW_RECORD_BATCH_GET_PRIVATE(object);
 
   priv->record_batch = nullptr;
 
@@ -79,9 +77,7 @@ garrow_record_batch_set_property(GObject *object,
                           const GValue *value,
                           GParamSpec *pspec)
 {
-  GArrowRecordBatchPrivate *priv;
-
-  priv = GARROW_RECORD_BATCH_GET_PRIVATE(object);
+  auto priv = GARROW_RECORD_BATCH_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_RECORD_BATCH:
@@ -398,8 +394,6 @@ garrow_record_batch_new_raw(std::shared_ptr<arrow::RecordBatch> *arrow_record_ba
 std::shared_ptr<arrow::RecordBatch>
 garrow_record_batch_get_raw(GArrowRecordBatch *record_batch)
 {
-  GArrowRecordBatchPrivate *priv;
-
-  priv = GARROW_RECORD_BATCH_GET_PRIVATE(record_batch);
+  auto priv = GARROW_RECORD_BATCH_GET_PRIVATE(record_batch);
   return priv->record_batch;
 }

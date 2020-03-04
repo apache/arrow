@@ -60,9 +60,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowChunkedArray,
 static void
 garrow_chunked_array_finalize(GObject *object)
 {
-  GArrowChunkedArrayPrivate *priv;
-
-  priv = GARROW_CHUNKED_ARRAY_GET_PRIVATE(object);
+  auto priv = GARROW_CHUNKED_ARRAY_GET_PRIVATE(object);
 
   priv->chunked_array = nullptr;
 
@@ -75,9 +73,7 @@ garrow_chunked_array_set_property(GObject *object,
                                   const GValue *value,
                                   GParamSpec *pspec)
 {
-  GArrowChunkedArrayPrivate *priv;
-
-  priv = GARROW_CHUNKED_ARRAY_GET_PRIVATE(object);
+  auto priv = GARROW_CHUNKED_ARRAY_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_CHUNKED_ARRAY:
@@ -354,8 +350,6 @@ garrow_chunked_array_new_raw(std::shared_ptr<arrow::ChunkedArray> *arrow_chunked
 std::shared_ptr<arrow::ChunkedArray>
 garrow_chunked_array_get_raw(GArrowChunkedArray *chunked_array)
 {
-  GArrowChunkedArrayPrivate *priv;
-
-  priv = GARROW_CHUNKED_ARRAY_GET_PRIVATE(chunked_array);
+  auto priv = GARROW_CHUNKED_ARRAY_GET_PRIVATE(chunked_array);
   return priv->chunked_array;
 }
