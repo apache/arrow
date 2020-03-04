@@ -293,11 +293,15 @@ filter_rows <- function(x, i, ...) {
 head.Array <- function(x, n = 6L, ...) {
   assert_is(n, c("numeric", "integer"))
   assert_that(length(n) == 1)
+  len <- NROW(x)
   if (n < 0) {
     # head(x, negative) means all but the last n rows
-    n <- max(NROW(x) + n, 0)
+    n <- max(len + n, 0)
   } else {
-    n <- min(NROW(x), n)
+    n <- min(len, n)
+  }
+  if (n == len) {
+    return(x)
   }
   x$Slice(0, n)
 }
@@ -307,11 +311,15 @@ head.Array <- function(x, n = 6L, ...) {
 tail.Array <- function(x, n = 6L, ...) {
   assert_is(n, c("numeric", "integer"))
   assert_that(length(n) == 1)
+  len <- NROW(x)
   if (n < 0) {
     # tail(x, negative) means all but the first n rows
-    n <- min(-n, NROW(x))
+    n <- min(-n, len)
   } else {
-    n <- max(NROW(x) - n, 0)
+    n <- max(len - n, 0)
+  }
+  if (n == 0) {
+    return(x)
   }
   x$Slice(n)
 }

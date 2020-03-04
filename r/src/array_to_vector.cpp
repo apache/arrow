@@ -815,6 +815,7 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
 
 // [[arrow::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  // NB: this segfaults if there are 0 chunks (presumably something tries chunks[0])
   return arrow::r::ArrayVector__as_vector(chunked_array->length(),
                                           chunked_array->chunks());
 }

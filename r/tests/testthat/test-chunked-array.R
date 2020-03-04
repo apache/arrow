@@ -370,6 +370,20 @@ test_that("[ ChunkedArray", {
   )
 })
 
+test_that("Array head/tail", {
+  vec <- 11:20
+  a <- ChunkedArray$create(11:15, 16:20)
+  expect_vector(head(a), head(vec))
+  expect_vector(head(a, 4), head(vec, 4))
+  expect_vector(head(a, 40), head(vec, 40))
+  expect_vector(head(a, -4), head(vec, -4))
+  expect_vector(head(a, -40), head(vec, -40))
+  expect_vector(tail(a), tail(vec))
+  expect_vector(tail(a, 4), tail(vec, 4))
+  expect_vector(tail(a, 40), tail(vec, 40))
+  expect_vector(tail(a, -40), tail(vec, -40))
+})
+
 test_that("ChunkedArray$Equals", {
   vec <- 11:20
   a <- ChunkedArray$create(vec[1:5], vec[6:10])

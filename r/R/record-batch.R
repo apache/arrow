@@ -234,11 +234,9 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, use
   RecordBatch__to_dataframe(x, use_threads = option_use_threads())
 }
 
-#' @importFrom utils head
 #' @export
 head.RecordBatch <- head.Array
 
-#' @importFrom utils tail
 #' @export
 tail.RecordBatch <- tail.Array
 
