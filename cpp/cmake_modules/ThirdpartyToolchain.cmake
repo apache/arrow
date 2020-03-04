@@ -1906,13 +1906,15 @@ macro(build_bzip2)
     BZIP2_STATIC_LIB
     "${BZIP2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}bz2${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
+  set(BZIP2_EXTRA_ARGS "CC=${CMAKE_C_COMPILER}" "CFLAGS=${EP_C_FLAGS}")
+
   externalproject_add(bzip2_ep
                       ${EP_LOG_OPTIONS}
                       CONFIGURE_COMMAND ""
                       BUILD_IN_SOURCE 1
-                      BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS} CFLAGS=${EP_C_FLAGS}
+                      BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS} ${BZIP2_EXTRA_ARGS}
                       INSTALL_COMMAND ${MAKE} install PREFIX=${BZIP2_PREFIX}
-                                      CFLAGS=${EP_C_FLAGS}
+                                      ${BZIP2_EXTRA_ARGS}
                       INSTALL_DIR ${BZIP2_PREFIX}
                       URL ${BZIP2_SOURCE_URL}
                       BUILD_BYPRODUCTS "${BZIP2_STATIC_LIB}")
