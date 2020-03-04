@@ -883,7 +883,7 @@ void ColumnWriterImpl::FlushBufferedDataPages() {
   if (num_buffered_values_ > 0) {
     AddDataPage();
   }
-  for (auto& page_ptr : data_page_ptrs_) {
+  for (const auto& page_ptr : data_page_ptrs_) {
     WriteDataPage(*page_ptr);
   }
   data_page_ptrs_.clear();

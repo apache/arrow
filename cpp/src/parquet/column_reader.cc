@@ -133,7 +133,7 @@ ReaderProperties default_reader_properties() {
 
 // Extracts encoded statistics from V1 and V2 data page headers
 template <typename H>
-EncodedStatistics ExtractStatsFromHeader(H header) {
+EncodedStatistics ExtractStatsFromHeader(const H& header) {
   EncodedStatistics page_statistics;
   if (!header.__isset.statistics) {
     return page_statistics;
@@ -191,8 +191,8 @@ class SerializedPageReader : public PageReader {
 
   void InitDecryption();
 
-  void DecompressPage(int compressed_len, int uncompressed_len,
-                      std::shared_ptr<Buffer>& page_buffer);
+  std::shared_ptr<Buffer> DecompressPage(int compressed_len, int uncompressed_len,
+                                         const uint8_t* page_buffer);
 
   std::shared_ptr<ArrowInputStream> stream_;
 
@@ -332,7 +332,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     }
     // Uncompress it if we need to
     if (decompressor_ != nullptr) {
-      DecompressPage(compressed_len, uncompressed_len, page_buffer);
+      page_buffer = DecompressPage(compressed_len, uncompressed_len, page_buffer->data());
     }
 
     const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
@@ -378,8 +378,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   return std::shared_ptr<Page>(nullptr);
 }
 
-void SerializedPageReader::DecompressPage(int compressed_len, int uncompressed_len,
-                                          std::shared_ptr<Buffer>& page_buffer) {
+std::shared_ptr<Buffer> SerializedPageReader::DecompressPage(int compressed_len,
+                                                             int uncompressed_len,
+                                                             const uint8_t* page_buffer) {
   // Grow the uncompressed buffer if we need to.
   if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
     PARQUET_THROW_NOT_OK(decompression_buffer_->Resize(uncompressed_len, false));
@@ -387,7 +388,7 @@ void SerializedPageReader::DecompressPage(int compressed_len, int uncompressed_l
 
   if (current_page_header_.type != format::PageType::DATA_PAGE_V2) {
     PARQUET_THROW_NOT_OK(
-        decompressor_->Decompress(compressed_len, page_buffer->data(), uncompressed_len,
+        decompressor_->Decompress(compressed_len, page_buffer, uncompressed_len,
                                   decompression_buffer_->mutable_data()));
   } else {
     // The levels are not compressed in V2 format
@@ -395,16 +396,17 @@ void SerializedPageReader::DecompressPage(int compressed_len, int uncompressed_l
     int32_t levels_length =
         header.repetition_levels_byte_length + header.definition_levels_byte_length;
     uint8_t* decompressed = decompression_buffer_->mutable_data();
-    memcpy(decompressed, page_buffer->data(), levels_length);
+    memcpy(decompressed, page_buffer, levels_length);
     decompressed += levels_length;
-    const uint8_t* compressed_values = page_buffer->data() + levels_length;
+    const uint8_t* compressed_values = page_buffer + levels_length;
 
     // Decompress the values
     PARQUET_THROW_NOT_OK(
         decompressor_->Decompress(compressed_len - levels_length, compressed_values,
                                   uncompressed_len - levels_length, decompressed));
   }
-  page_buffer = decompression_buffer_;
+
+  return decompression_buffer_;
 }
 
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
