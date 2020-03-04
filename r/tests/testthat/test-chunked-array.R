@@ -370,7 +370,7 @@ test_that("[ ChunkedArray", {
   )
 })
 
-test_that("Array head/tail", {
+test_that("ChunkedArray head/tail", {
   vec <- 11:20
   a <- ChunkedArray$create(11:15, 16:20)
   expect_vector(head(a), head(vec))

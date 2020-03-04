@@ -77,8 +77,6 @@
 RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
   public = list(
     column = function(i) {
-      assert_is(i, c("numeric", "integer"))
-      assert_that(length(i) == 1)
       shared_ptr(Array, RecordBatch__column(self, i))
     },
     column_name = function(i) RecordBatch__column_name(self, i),
