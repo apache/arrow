@@ -29,6 +29,7 @@
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/small_vector.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
@@ -1482,13 +1483,10 @@ class ARROW_EXPORT FieldRef {
                                                    const ChunkedArray& array);
 
   /// \brief Retrieve Indices of child fields matching this FieldRef.
-  ///
-  /// TODO(bkietz) this will usually be a zero or one element vector. Vendor a
-  /// small_vector or hack one with variant<vector<T>, T>
-  std::vector<Indices> FindAll(const Schema& schema) const;
-  std::vector<Indices> FindAll(const Field& field) const;
-  std::vector<Indices> FindAll(const DataType& type) const;
-  std::vector<Indices> FindAll(const FieldVector& fields) const;
+  util::small_vector<Indices> FindAll(const Schema& schema) const;
+  util::small_vector<Indices> FindAll(const Field& field) const;
+  util::small_vector<Indices> FindAll(const DataType& type) const;
+  util::small_vector<Indices> FindAll(const FieldVector& fields) const;
 
  private:
   util::variant<Indices, std::string, std::vector<FieldRef>> impl_;
