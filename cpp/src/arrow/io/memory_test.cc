@@ -36,6 +36,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
@@ -205,6 +206,21 @@ TEST(TestBufferReader, Peek) {
   ASSERT_EQ(data, view.to_string());
 }
 
+TEST(TestBufferReader, ReadAsync) {
+  std::string data = "data123456";
+
+  BufferReader reader(std::make_shared<Buffer>(data));
+
+  ASSERT_OK_AND_ASSIGN(auto fut1, reader.ReadAsync(2, 6));
+  ASSERT_OK_AND_ASSIGN(auto fut2, reader.ReadAsync(1, 4));
+  ASSERT_EQ(fut1.state(), FutureState::SUCCESS);
+  ASSERT_EQ(fut2.state(), FutureState::SUCCESS);
+  ASSERT_OK_AND_ASSIGN(auto buf, fut1.result());
+  AssertBufferEqual(*buf, "ta1234");
+  ASSERT_OK_AND_ASSIGN(buf, fut2.result());
+  AssertBufferEqual(*buf, "ata1");
+}
+
 TEST(TestBufferReader, InvalidReads) {
   std::string data = "data123456";
   BufferReader reader(std::make_shared<Buffer>(data));
@@ -214,6 +230,9 @@ TEST(TestBufferReader, InvalidReads) {
   ASSERT_RAISES(Invalid, reader.ReadAt(1, -1));
   ASSERT_RAISES(Invalid, reader.ReadAt(-1, 1, buffer));
   ASSERT_RAISES(Invalid, reader.ReadAt(1, -1, buffer));
+
+  ASSERT_RAISES(Invalid, reader.ReadAsync(-1, 1));
+  ASSERT_RAISES(Invalid, reader.ReadAsync(1, -1));
 }
 
 TEST(TestBufferReader, RetainParentReference) {

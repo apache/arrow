@@ -39,6 +39,7 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <utility>
 
 // ----------------------------------------------------------------------
 // Other Arrow includes
@@ -50,6 +51,7 @@
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
@@ -725,6 +727,12 @@ Result<std::shared_ptr<Buffer>> MemoryMappedFile::Read(int64_t nbytes) {
   ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(memory_map_->position(), nbytes));
   memory_map_->advance(buffer->size());
   return buffer;
+}
+
+Result<Future<std::shared_ptr<Buffer>>> MemoryMappedFile::ReadAsync(int64_t position,
+                                                                    int64_t nbytes) {
+  ARROW_ASSIGN_OR_RAISE(auto buf, ReadAt(position, nbytes));
+  return Future<std::shared_ptr<Buffer>>::MakeFinished(std::move(buf));
 }
 
 bool MemoryMappedFile::supports_zero_copy() const { return true; }

@@ -347,6 +347,17 @@ class Future {
     return fut;
   }
 
+  /// \brief Producer API: instantiate a finished Future
+  ///
+  /// The given arguments are passed to MarkFinished().
+  template <typename... Args>
+  static Future MakeFinished(Args&&... args) {
+    // TODO we can optimize this by directly creating a finished FutureImpl
+    auto fut = Make();
+    fut.MarkFinished(std::forward<Args>(args)...);
+    return fut;
+  }
+
  protected:
   void CheckValid() const {
 #ifndef NDEBUG

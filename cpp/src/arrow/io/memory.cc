@@ -27,6 +27,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
@@ -306,6 +307,12 @@ Result<util::string_view> BufferReader::DoPeek(int64_t nbytes) {
 }
 
 bool BufferReader::supports_zero_copy() const { return true; }
+
+Result<Future<std::shared_ptr<Buffer>>> BufferReader::ReadAsync(int64_t position,
+                                                                int64_t nbytes) {
+  ARROW_ASSIGN_OR_RAISE(auto buf, DoReadAt(position, nbytes));
+  return Future<std::shared_ptr<Buffer>>::MakeFinished(std::move(buf));
+}
 
 Result<int64_t> BufferReader::DoReadAt(int64_t position, int64_t nbytes, void* buffer) {
   RETURN_NOT_OK(CheckClosed());
