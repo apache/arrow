@@ -324,7 +324,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         releaseBytes(actualRequestSize);
       }
     }
-
   }
 
   /**
