@@ -40,8 +40,9 @@ public class VectorSchemaRootAppender {
     }
 
     // create type checkers, if necessary
-    TypeEqualsVisitor[] typeCheckers = new TypeEqualsVisitor[targetRoot.getFieldVectors().size()];
+    TypeEqualsVisitor[] typeCheckers = null;
     if (checkSchema) {
+      typeCheckers = new TypeEqualsVisitor[targetRoot.getFieldVectors().size()];
       for (int i = 0; i < typeCheckers.length; i++) {
         typeCheckers[i] = new TypeEqualsVisitor(targetRoot.getVector(i),
             /* check name */ false, /* check meta data */ false);
