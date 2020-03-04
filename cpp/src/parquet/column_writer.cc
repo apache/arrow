@@ -831,7 +831,6 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   page_stats.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
   ResetPageStatistics();
 
-  // TODO: The following assumes that num_values == num_rows
   int32_t num_values = static_cast<int32_t>(num_buffered_values_);
   int32_t null_count = static_cast<int32_t>(page_stats.null_count);
   int32_t def_levels_byte_length = static_cast<int32_t>(definition_levels_rle_size);
