@@ -65,6 +65,10 @@ ARROW_PYTHON_EXPORT Status
 SparseCOOTensorToNdarray(const std::shared_ptr<SparseCOOTensor>& sparse_tensor,
                          PyObject* base, PyObject** out_data, PyObject** out_coords);
 
+Status SparseCSXMatrixToNdarray(
+    const std::shared_ptr<SparseTensor>& sparse_tensor, PyObject* base,
+    PyObject** out_data, PyObject** out_indptr, PyObject** out_indices);
+
 ARROW_PYTHON_EXPORT Status SparseCSRMatrixToNdarray(
     const std::shared_ptr<SparseCSRMatrix>& sparse_tensor, PyObject* base,
     PyObject** out_data, PyObject** out_indptr, PyObject** out_indices);
