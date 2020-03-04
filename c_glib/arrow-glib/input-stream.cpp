@@ -208,6 +208,8 @@ garrow_input_stream_close(GInputStream *stream,
 static void
 garrow_input_stream_init(GArrowInputStream *object)
 {
+  auto priv = GARROW_INPUT_STREAM_GET_PRIVATE(object);
+  new(&priv->input_stream) std::shared_ptr<arrow::io::InputStream>;
 }
 
 static void

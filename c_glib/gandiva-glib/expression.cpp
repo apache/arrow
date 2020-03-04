@@ -137,6 +137,8 @@ ggandiva_expression_get_property(GObject *object,
 static void
 ggandiva_expression_init(GGandivaExpression *object)
 {
+  auto priv = GGANDIVA_EXPRESSION_GET_PRIVATE(object);
+  new(&priv->expression) std::shared_ptr<gandiva::Expression>;
 }
 
 static void

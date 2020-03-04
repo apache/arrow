@@ -92,6 +92,8 @@ ggandiva_projector_set_property(GObject *object,
 static void
 ggandiva_projector_init(GGandivaProjector *object)
 {
+  auto priv = GGANDIVA_PROJECTOR_GET_PRIVATE(object);
+  new(&priv->projector) std::shared_ptr<gandiva::Projector>;
 }
 
 static void

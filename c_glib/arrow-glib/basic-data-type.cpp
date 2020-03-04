@@ -160,6 +160,8 @@ garrow_data_type_get_property(GObject *object,
 static void
 garrow_data_type_init(GArrowDataType *object)
 {
+  auto priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
+  new(&priv->data_type) std::shared_ptr<arrow::DataType>;
 }
 
 static void

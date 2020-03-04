@@ -86,6 +86,8 @@ garrow_decimal128_set_property(GObject *object,
 static void
 garrow_decimal128_init(GArrowDecimal128 *object)
 {
+  auto priv = GARROW_DECIMAL128_GET_PRIVATE(object);
+  new(&priv->decimal128) std::shared_ptr<arrow::Decimal128>;
 }
 
 static void

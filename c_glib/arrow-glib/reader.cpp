@@ -124,6 +124,8 @@ garrow_record_batch_reader_get_property(GObject *object,
 static void
 garrow_record_batch_reader_init(GArrowRecordBatchReader *object)
 {
+  auto priv = GARROW_RECORD_BATCH_READER_GET_PRIVATE(object);
+  new(&priv->record_batch_reader) std::shared_ptr<arrow::ipc::RecordBatchReader>;
 }
 
 static void

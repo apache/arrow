@@ -277,6 +277,9 @@ gplasma_object_get_property(GObject *object,
 static void
 gplasma_object_init(GPlasmaObject *object)
 {
+  auto priv = GPLASMA_OBJECT_GET_PRIVATE(object);
+  new(&priv->raw_data) std::shared_ptr<arrow::Buffer>;
+  new(&priv->raw_metadata) std::shared_ptr<arrow::Buffer>;
 }
 
 static void

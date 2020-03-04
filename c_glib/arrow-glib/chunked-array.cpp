@@ -102,6 +102,8 @@ garrow_chunked_array_get_property(GObject *object,
 static void
 garrow_chunked_array_init(GArrowChunkedArray *object)
 {
+  auto priv = GARROW_CHUNKED_ARRAY_GET_PRIVATE(object);
+  new(&priv->chunked_array) std::shared_ptr<arrow::ChunkedArray>;
 }
 
 static void

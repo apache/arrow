@@ -99,6 +99,8 @@ garrow_schema_get_property(GObject *object,
 static void
 garrow_schema_init(GArrowSchema *object)
 {
+  auto priv = GARROW_SCHEMA_GET_PRIVATE(object);
+  new(&priv->schema) std::shared_ptr<arrow::Schema>;
 }
 
 static void

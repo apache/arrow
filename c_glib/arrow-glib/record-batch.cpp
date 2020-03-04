@@ -106,6 +106,8 @@ garrow_record_batch_get_property(GObject *object,
 static void
 garrow_record_batch_init(GArrowRecordBatch *object)
 {
+  auto priv = GARROW_RECORD_BATCH_GET_PRIVATE(object);
+  new(&priv->record_batch) std::shared_ptr<arrow::RecordBatch>;
 }
 
 static void

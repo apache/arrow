@@ -191,6 +191,8 @@ ggandiva_node_get_property(GObject *object,
 static void
 ggandiva_node_init(GGandivaNode *object)
 {
+  auto priv = GGANDIVA_NODE_GET_PRIVATE(object);
+  new(&priv->node) std::shared_ptr<gandiva::Node>;
 }
 
 static void

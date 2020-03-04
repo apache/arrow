@@ -102,6 +102,8 @@ garrow_field_set_property(GObject *object,
 static void
 garrow_field_init(GArrowField *object)
 {
+  auto priv = GARROW_FIELD_GET_PRIVATE(object);
+  new(&priv->field) std::shared_ptr<arrow::Field>;
 }
 
 static void

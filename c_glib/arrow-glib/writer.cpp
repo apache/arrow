@@ -115,6 +115,8 @@ garrow_record_batch_writer_get_property(GObject *object,
 static void
 garrow_record_batch_writer_init(GArrowRecordBatchWriter *object)
 {
+  auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
+  new(&priv->record_batch_writer) std::shared_ptr<arrow::ipc::RecordBatchWriter>;
 }
 
 static void

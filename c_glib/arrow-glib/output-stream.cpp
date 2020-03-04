@@ -153,6 +153,8 @@ garrow_output_stream_get_property(GObject *object,
 static void
 garrow_output_stream_init(GArrowOutputStream *object)
 {
+  auto priv = GARROW_OUTPUT_STREAM_GET_PRIVATE(object);
+  new(&priv->output_stream) std::shared_ptr<arrow::io::OutputStream>;
 }
 
 static void

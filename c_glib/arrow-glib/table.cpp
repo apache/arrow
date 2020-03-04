@@ -105,6 +105,8 @@ garrow_table_get_property(GObject *object,
 static void
 garrow_table_init(GArrowTable *object)
 {
+  auto priv = GARROW_TABLE_GET_PRIVATE(object);
+  new(&priv->table) std::shared_ptr<arrow::Table>;
 }
 
 static void

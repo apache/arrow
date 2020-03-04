@@ -68,6 +68,7 @@ static void
 gparquet_writer_properties_init(GParquetWriterProperties *object)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(object);
+  new(&priv->properties) std::shared_ptr<parquet::WriterProperties>;
   priv->builder = new parquet::WriterProperties::Builder();
   priv->changed = TRUE;
 }
