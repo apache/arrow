@@ -150,6 +150,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::DECIMAL:
     case Type::BINARY:
     case Type::LARGE_BINARY:
+    case Type::STRING:
     case Type::LARGE_STRING:
     case Type::DATE32:
     case Type::DATE64:
