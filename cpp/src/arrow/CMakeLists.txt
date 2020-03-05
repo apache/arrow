@@ -45,8 +45,6 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
 
   if(ARG_LABELS)
     set(LABELS ${ARG_LABELS})
-  else()
-    set(LABELS "arrow-tests")
   endif()
 
   # Because of https://gitlab.kitware.com/cmake/cmake/issues/20289,
