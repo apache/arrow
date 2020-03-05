@@ -42,11 +42,11 @@ class FunctionContext;
 /// Output is not guaranteed to be stable.
 ///
 /// \param[in] ctx the FunctionContext
-/// \param[in] values array to sort
-/// \param[in] n n-th element to partition the array
-/// \param[out] offsets indices that would sort an array
+/// \param[in] values array to be partitioned
+/// \param[in] n pivot array around sorted n-th element
+/// \param[out] offsets indices that would partition an array
 ARROW_EXPORT
-Status NthToIndices(FunctionContext* ctx, const Array& values, uint64_t n,
+Status NthToIndices(FunctionContext* ctx, const Array& values, int64_t n,
                     std::shared_ptr<Array>* offsets);
 
 }  // namespace compute

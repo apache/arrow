@@ -30,6 +30,9 @@
 #include "arrow/type_traits.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace compute {
 
 template <typename ArrayType>
@@ -83,8 +86,8 @@ class TestNthToIndicesKernel : public ComputeFixture, public TestBase {
     std::shared_ptr<Array> offsets;
     ASSERT_OK(arrow::compute::NthToIndices(&this->ctx_, *values, n, &offsets));
     ASSERT_OK(offsets->ValidateFull());
-    ValidateNth<ArrayType>(*std::static_pointer_cast<ArrayType>(values), n,
-                           *std::static_pointer_cast<UInt64Array>(offsets));
+    ValidateNth<ArrayType>(*checked_pointer_cast<ArrayType>(values), n,
+                           *checked_pointer_cast<UInt64Array>(offsets));
   }
 
   void AssertNthToIndicesJson(const std::string& values, int n) {
@@ -110,7 +113,6 @@ TYPED_TEST(TestNthToIndicesKernelForReal, NthReal) {
   this->AssertNthToIndicesJson("[null, 1, 3.3, null, 2, 5.3]", 2);
   this->AssertNthToIndicesJson("[null, 1, 3.3, null, 2, 5.3]", 5);
   this->AssertNthToIndicesJson("[null, 1, 3.3, null, 2, 5.3]", 6);
-  this->AssertNthToIndicesJson("[null, 1, 3.3, null, 2, 5.3]", 99);
 }
 
 TYPED_TEST(TestNthToIndicesKernelForIntegral, NthIntegral) {
@@ -118,7 +120,6 @@ TYPED_TEST(TestNthToIndicesKernelForIntegral, NthIntegral) {
   this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 2);
   this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 5);
   this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 6);
-  this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 99);
 }
 
 TYPED_TEST(TestNthToIndicesKernelForStrings, NthStrings) {
@@ -126,7 +127,6 @@ TYPED_TEST(TestNthToIndicesKernelForStrings, NthStrings) {
   this->AssertNthToIndicesJson(R"(["testing", null, "nth", "for", null, "strings"])", 2);
   this->AssertNthToIndicesJson(R"(["testing", null, "nth", "for", null, "strings"])", 5);
   this->AssertNthToIndicesJson(R"(["testing", null, "nth", "for", null, "strings"])", 6);
-  this->AssertNthToIndicesJson(R"(["testing", null, "nth", "for", null, "strings"])", 99);
 }
 
 template <typename ArrowType>
@@ -174,7 +174,7 @@ TYPED_TEST(TestNthToIndicesKernelRandom, NthRandomValues) {
   int length = 100;
   for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
     // Try n from 0 to out of bound
-    for (int n = 0; n <= length + 1; ++n) {
+    for (int n = 0; n <= length; ++n) {
       auto array = rand.Generate(length, null_probability);
       this->AssertNthToIndicesArray(array, n);
     }
