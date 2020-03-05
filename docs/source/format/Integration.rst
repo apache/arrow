@@ -150,49 +150,6 @@ corresponds to the dictionary values, and the Field includes an additional
 
 For primitive types, "children" is an empty array.
 
-**RecordBatch**::
-
-    {
-      "count": /* integer number of rows in the batch */,
-      "columns": [ /* FieldData */ ]
-    }
-
-**FieldData**::
-
-    {
-      "name": "field_name",
-      "count" "field_length",
-      "$BUFFER_TYPE": /* BufferData */
-      ...
-      "$BUFFER_TYPE": /* BufferData */
-      "children": [ /* FieldData */ ]
-    }
-
-The "name" member of a ``Field`` in the ``Schema`` corresponds to the "name"
-of a ``FieldData`` contained in the "columns" of a ``RecordBatch``.
-
-Here ``$BUFFER_TYPE`` is one of ``VALIDITY``, ``OFFSET`` (for
-variable-length types, such as strings), ``TYPE`` (for unions), or ``DATA``.
-
-``BufferData`` is encoded based on the type of buffer:
-
-* ``VALIDITY``: a JSON array of 1 (valid) and 0 (null)
-* ``OFFSET``: a JSON array of integers for 32-bit offsets or
-  string-formatted integers for 64-bit offsets
-* ``TYPE``: a JSON array of integers
-* ``DATA``: a JSON array of encoded values
-
-The value encoding for ``DATA`` is different depending on the logical
-type:
-
-* For boolean type: an array of 1 (true) and 0 (false)
-* For integer-based types (including timestamps): an array of integers
-* For 64-bit integers: an array of integers formatted as JSON strings
-  to avoid loss of precision
-* For floating point types: as is
-* For Binary types, a hex-string is produced to encode a variable- or
-  fixed-size binary value
-
 **Type**: ::
 
     {
@@ -235,10 +192,12 @@ Timestamp: ::
     {
       "name" : "timestamp",
       "unit" : "$TIME_UNIT"
-      "timezone": "$timezone" [optional]
+      "timezone": "$timezone"
     }
 
 ``$TIME_UNIT`` is one of ``"SECOND|MILLISECOND|MICROSECOND|NANOSECOND"``
+
+"timezone" is an optional string.
 
 Duration: ::
 
@@ -266,7 +225,7 @@ Interval: ::
 
     {
       "name" : "interval",
-      "unit" : "YEAR_MONTH"
+      "unit" : "YEAR_MONTH|DAY_TIME"
     }
 
 Union: ::
@@ -280,3 +239,130 @@ Union: ::
 The ``typeIds`` field in the Union are the codes used to denote each type, which
 may be different from the index of the child array. This is so that the union
 type ids do not have to be enumerated from 0.
+
+List: ::
+
+    {
+      "name": "list"
+    }
+
+The type that the list is a "list of" will be included in the ``Field``'s
+"children" member, as a single ``Field`` there. For example, for a list of
+``int32``, ::
+
+    {
+      "name": "list_nullable",
+      "type": {
+        "name": "list"
+      },
+      "nullable": true,
+      "children": [
+        {
+          "name": "item",
+          "type": {
+            "name": "int",
+            "isSigned": true,
+            "bitWidth": 32
+          },
+          "nullable": true,
+          "children": []
+        }
+      ]
+    }
+
+FixedSizeList: ::
+
+    {
+      "name": "fixedsizelist",
+      "listSize": /* integer */
+    }
+
+This type likewise comes with a length-1 "children" array.
+
+Struct: ::
+
+    {
+      "name": "struct"
+    }
+
+The ``Field``'s "children" contains an array of ``Fields`` with meaningful
+names and types.
+
+Map: ::
+
+    {
+      "name": "map",
+      "keysSorted": /* boolean */
+    }
+
+The ``Field``'s "children" contains a single ``struct`` field, which itself
+contains 2 children, named "key" and "value".
+
+**RecordBatch**::
+
+    {
+      "count": /* integer number of rows */,
+      "columns": [ /* FieldData */ ]
+    }
+
+**DictionaryBatch**::
+
+    {
+      "id": /* integer */,
+      "data": [ /* RecordBatch */ ]
+    }
+
+**FieldData**::
+
+    {
+      "name": "field_name",
+      "count" "field_length",
+      "$BUFFER_TYPE": /* BufferData */
+      ...
+      "$BUFFER_TYPE": /* BufferData */
+      "children": [ /* FieldData */ ]
+    }
+
+The "name" member of a ``Field`` in the ``Schema`` corresponds to the "name"
+of a ``FieldData`` contained in the "columns" of a ``RecordBatch``.
+For nested types (list, struct, etc.), ``Field``'s "children" each have a
+"name" that corresponds to the "name" of a ``FieldData`` inside the
+"children" of that ``FieldData``.
+For ``FieldData`` inside of a ``DictionaryBatch``, the "name" field does not
+correspond to anything.
+
+Here ``$BUFFER_TYPE`` is one of ``VALIDITY``, ``OFFSET`` (for
+variable-length types, such as strings and lists), ``TYPE`` (for unions),
+or ``DATA``.
+
+``BufferData`` is encoded based on the type of buffer:
+
+* ``VALIDITY``: a JSON array of 1 (valid) and 0 (null). Data for  non-nullable
+  ``Field`` still has a ``VALIDITY`` array, even though all values are 1.
+* ``OFFSET``: a JSON array of integers for 32-bit offsets or
+  string-formatted integers for 64-bit offsets
+* ``TYPE``: a JSON array of integers
+* ``DATA``: a JSON array of encoded values
+
+The value encoding for ``DATA`` is different depending on the logical
+type:
+
+* For boolean type: an array of 1 (true) and 0 (false)
+* For integer-based types (including timestamps): an array of integers
+* For 64-bit integers: an array of integers formatted as JSON strings
+  to avoid loss of precision
+* For floating point types: as is. Values are limited to 3 decimal places to
+  avoid loss of precision
+* For Binary types, a hex-string is produced to encode a variable- or
+  fixed-size binary value
+
+For "list" type, ``BufferData`` has ``VALIDITY`` and ``OFFSET``, and the
+rest of the data is inside "children". These child ``FieldData`` contain all
+of the same attributes as non-child data, so in the example of a list of
+``int32``, the child data has ``VALIDITY`` and ``DATA``.
+For "fixedsizelist", there is no ``OFFSET`` member because the offsets are
+implied by the field's "listSize".
+Note that the "count" for these child data may not match the parent "count".
+For example, if a ``RecordBatch`` has 7 rows and contains a ``FixedSizeList``
+of ``listSize`` 4, then the data inside the "children" of that ``FieldData``
+will have count 28.
