@@ -144,6 +144,8 @@ else()
   set(Python3_FIND_STRATEGY "LOCATION")
   # On Windows, use registry last, not first
   set(Python3_FIND_REGISTRY "LAST")
+  # On macOS, use framework last, not first
+  set(Python3_FIND_FRAMEWORK "LAST")
 
   find_package(Python3)
   set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
