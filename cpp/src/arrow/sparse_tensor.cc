@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/sparse_tensor.h"
+#include "arrow/sparse_tensor/converter.h"
 
 #include <algorithm>
 #include <functional>
@@ -49,7 +50,27 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
                                   const std::shared_ptr<DataType>& index_value_type,
                                   MemoryPool* pool,
                                   std::shared_ptr<SparseIndex>* out_sparse_index,
-                                  std::shared_ptr<Buffer>* out_data);
+                                  std::shared_ptr<Buffer>* out_data) {
+  switch (sparse_format_id) {
+    case SparseTensorFormat::COO:
+      return MakeSparseCOOTensorFromTensor(tensor, index_value_type, pool,
+                                           out_sparse_index, out_data);
+    case SparseTensorFormat::CSR:
+      return MakeSparseCSRMatrixFromTensor(tensor, index_value_type, pool,
+                                           out_sparse_index, out_data);
+    case SparseTensorFormat::CSC:
+      return MakeSparseCSCMatrixFromTensor(tensor, index_value_type, pool,
+                                           out_sparse_index, out_data);
+    case SparseTensorFormat::CSF:
+      return MakeSparseCSFTensorFromTensor(tensor, index_value_type, pool,
+                                           out_sparse_index, out_data);
+
+    // LCOV_EXCL_START: ignore program failure
+    default:
+      return Status::Invalid("Invalid sparse tensor format");
+      // LCOV_EXCL_STOP
+  }
+}
 
 namespace {
 
