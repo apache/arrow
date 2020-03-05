@@ -211,12 +211,12 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
         }
       }
     }
-    for (auto encoding : column_metadata_->encodings) {
-      encodings_.push_back(FromThrift(encoding));
+    for (const auto& encoding : column_metadata_->encodings) {
+      encodings_.push_back(LoadEnumSafe(&encoding));
     }
     for (auto encoding_stats : column_metadata_->encoding_stats) {
-      encoding_stats_.push_back({FromThrift(encoding_stats.page_type),
-                                 FromThrift(encoding_stats.encoding),
+      encoding_stats_.push_back({LoadEnumSafe(&encoding_stats.page_type),
+                                 LoadEnumSafe(&encoding_stats.encoding),
                                  encoding_stats.count});
     }
     possible_stats_ = nullptr;
@@ -225,7 +225,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   inline int64_t file_offset() const { return column_->file_offset; }
   inline const std::string& file_path() const { return column_->file_path; }
 
-  inline Type::type type() const { return FromThrift(column_metadata_->type); }
+  inline Type::type type() const { return LoadEnumSafe(&column_metadata_->type); }
 
   inline int64_t num_values() const { return column_metadata_->num_values; }
 
@@ -257,7 +257,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   inline Compression::type compression() const {
-    return FromThrift(column_metadata_->codec);
+    return LoadEnumSafe(&column_metadata_->codec);
   }
 
   const std::vector<Encoding::type>& encodings() const { return encodings_; }
