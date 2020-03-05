@@ -75,7 +75,7 @@ Status ReadRangeCache::Cache(std::vector<ReadRange> ranges) {
   std::vector<RangeCacheEntry> entries;
   entries.reserve(ranges.size());
   for (const auto& range : ranges) {
-    ARROW_ASSIGN_OR_RAISE(auto fut, impl_->file->ReadAsync(range.offset, range.length));
+    auto fut = impl_->file->ReadAsync(range.offset, range.length);
     entries.push_back({range, std::move(fut)});
   }
 

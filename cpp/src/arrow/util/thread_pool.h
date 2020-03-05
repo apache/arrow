@@ -140,6 +140,19 @@ class ARROW_EXPORT ThreadPool {
     return future;
   }
 
+  // Like Submit(), but also returns a (failed) Future when submission fails
+  template <
+      typename Function, typename... Args,
+      typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
+      typename RT = typename detail::ThreadPoolResultTraits<FunctionRetType>,
+      typename ValueType = typename RT::ValueType>
+  Future<ValueType> SubmitAsFuture(Function&& func, Args&&... args) {
+    ARROW_ASSIGN_OR_RETURN_FUTURE(
+        auto future, ValueType,
+        Submit(std::forward<Function>(func), std::forward<Args>(args)...));
+    return future;
+  }
+
   struct State;
 
  protected:

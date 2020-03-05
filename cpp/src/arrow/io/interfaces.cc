@@ -141,12 +141,16 @@ Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
 Status RandomAccessFile::GetSize(int64_t* size) { return GetSize().Value(size); }
 
 // Default ReadAsync() implementation: simply issue the read on one of the IO threads
-Result<Future<std::shared_ptr<Buffer>>> RandomAccessFile::ReadAsync(int64_t position,
-                                                                    int64_t nbytes) {
+Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
+                                                            int64_t nbytes) {
   auto pool = internal::GetIOThreadPool();
   auto self = shared_from_this();
-  return pool->Submit(
-      [self, position, nbytes] { return self->ReadAt(position, nbytes); });
+  auto maybe_fut =
+      pool->Submit([self, position, nbytes] { return self->ReadAt(position, nbytes); });
+  if (!maybe_fut.ok()) {
+    return Future<std::shared_ptr<Buffer>>::MakeFinished(maybe_fut.status());
+  }
+  return *std::move(maybe_fut);
 }
 
 Status Writable::Write(const std::string& data) {
@@ -243,7 +247,7 @@ void CloseFromDestructor(FileInterface* file) {
   }
 }
 
-Result<int64_t> ValidateReadRegion(int64_t offset, int64_t size, int64_t file_size) {
+Result<int64_t> ValidateReadRange(int64_t offset, int64_t size, int64_t file_size) {
   if (offset < 0 || size < 0) {
     return Status::Invalid("Invalid read (offset = ", offset, ", size = ", size, ")");
   }
@@ -254,7 +258,7 @@ Result<int64_t> ValidateReadRegion(int64_t offset, int64_t size, int64_t file_si
   return std::min(size, file_size - offset);
 }
 
-Status ValidateWriteRegion(int64_t offset, int64_t size, int64_t file_size) {
+Status ValidateWriteRange(int64_t offset, int64_t size, int64_t file_size) {
   if (offset < 0 || size < 0) {
     return Status::Invalid("Invalid write (offset = ", offset, ", size = ", size, ")");
   }
@@ -265,7 +269,7 @@ Status ValidateWriteRegion(int64_t offset, int64_t size, int64_t file_size) {
   return Status::OK();
 }
 
-Status ValidateRegion(int64_t offset, int64_t size) {
+Status ValidateRange(int64_t offset, int64_t size) {
   if (offset < 0 || size < 0) {
     return Status::Invalid("Invalid IO (offset = ", offset, ", size = ", size, ")");
   }

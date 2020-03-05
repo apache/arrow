@@ -272,10 +272,7 @@ class ARROW_EXPORT RandomAccessFile
   virtual Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes);
 
   // EXPERIMENTAL
-  // The caller has to ensure the RandomAccessFile object stays alive
-  // until the future is completed.
-  virtual Result<Future<std::shared_ptr<Buffer>>> ReadAsync(int64_t position,
-                                                            int64_t nbytes);
+  virtual Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes);
 
   // Deprecated APIs
 

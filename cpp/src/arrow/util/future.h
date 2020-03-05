@@ -419,4 +419,15 @@ inline std::vector<int> WaitForAny(const std::vector<Future<T>*>& futures,
   return waiter->MoveFinishedFutures();
 }
 
+#define ARROW_ASSIGN_OR_RETURN_FUTURE_IMPL(result_name, lhs, T, rexpr) \
+  auto result_name = (rexpr);                                          \
+  if (ARROW_PREDICT_FALSE(!(result_name).ok())) {                      \
+    return Future<T>::MakeFinished(std::move(result_name).status());   \
+  }                                                                    \
+  lhs = std::move(result_name).MoveValueUnsafe();
+
+#define ARROW_ASSIGN_OR_RETURN_FUTURE(lhs, T, rexpr) \
+  ARROW_ASSIGN_OR_RETURN_FUTURE_IMPL(                \
+      ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), lhs, T, rexpr);
+
 }  // namespace arrow
