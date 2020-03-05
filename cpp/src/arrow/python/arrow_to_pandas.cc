@@ -149,7 +149,8 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::DOUBLE:
     case Type::DECIMAL:
     case Type::BINARY:
-    case Type::STRING:
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
     case Type::DATE32:
     case Type::DATE64:
     case Type::TIME32:
@@ -695,15 +696,17 @@ Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& den
   return Status::OK();
 }
 
+template <typename ListArrayT>
 Status ConvertListsLike(const PandasOptions& options, const ChunkedArray& data,
                         PyObject** out_values) {
   // Get column of underlying value arrays
   std::vector<std::shared_ptr<Array>> value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = checked_cast<const ListArray&>(*data.chunk(c));
+    const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
     value_arrays.emplace_back(arr.values());
   }
-  const auto& list_type = checked_cast<const ListType&>(*data.type());
+  using ListArrayType = typename ListArrayT::TypeClass;
+  const auto& list_type = checked_cast<const ListArrayType&>(*data.type());
   auto value_type = list_type.value_type();
 
   if (value_type->id() == Type::DICTIONARY) {
@@ -734,7 +737,7 @@ Status ConvertListsLike(const PandasOptions& options, const ChunkedArray& data,
 
   int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); c++) {
-    auto arr = std::static_pointer_cast<ListArray>(data.chunk(c));
+    auto arr = std::static_pointer_cast<ListArrayT>(data.chunk(c));
 
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr->length(); ++i) {
@@ -957,7 +960,16 @@ struct ObjectWriterVisitor {
           "Not implemented type for conversion from List to Pandas: ",
           type.value_type()->ToString());
     }
-    return ConvertListsLike(options, data, out_values);
+    return ConvertListsLike<ListArray>(options, data, out_values);
+  }
+
+  Status Visit(const LargeListType& type) {
+    if (!ListTypeSupported(*type.value_type())) {
+      return Status::NotImplemented(
+          "Not implemented type for conversion from List to Pandas: ",
+          type.value_type()->ToString());
+    }
+    return ConvertListsLike<LargeListArray>(options, data, out_values);
   }
 
   Status Visit(const StructType& type) {
@@ -971,7 +983,6 @@ struct ObjectWriterVisitor {
                   std::is_same<ExtensionType, Type>::value ||
                   std::is_same<FixedSizeListType, Type>::value ||
                   std::is_base_of<IntervalType, Type>::value ||
-                  std::is_same<LargeListType, Type>::value ||
                   std::is_same<TimestampType, Type>::value ||
                   std::is_same<UnionType, Type>::value,
               Status>
@@ -1745,6 +1756,14 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     } break;
     case Type::LIST: {
       auto list_type = std::static_pointer_cast<ListType>(data.type());
+      if (!ListTypeSupported(*list_type->value_type())) {
+        return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
+                                      list_type->value_type()->ToString());
+      }
+      *output_type = PandasWriter::OBJECT;
+    } break;
+    case Type::LARGE_LIST: {
+      auto list_type = std::static_pointer_cast<LargeListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
         return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
                                       list_type->value_type()->ToString());
