@@ -176,7 +176,6 @@ class SparseCSFTensorConverter {
   inline Status CheckMaximumValue(const uint64_t) const { return Status::OK(); }
 };
 
-
 // ----------------------------------------------------------------------
 // Instantiate templates
 
@@ -211,7 +210,7 @@ Status MakeSparseCSFTensorFromTensor(const Tensor& tensor,
 
 }  // namespace
 
-#define MAKE_SPARSE_CSF_TENSOR_FROM_TENSOR(TYPE_CLASS)          \
+#define MAKE_SPARSE_CSF_TENSOR_FROM_TENSOR(TYPE_CLASS)      \
   case TYPE_CLASS##Type::type_id:                           \
     return MakeSparseCSFTensorFromTensor<TYPE_CLASS##Type>( \
         tensor, index_value_type, pool, out_sparse_index, out_data);

@@ -19,6 +19,8 @@
 
 #include "arrow/sparse_tensor.h"
 
+#include <memory>
+
 namespace arrow {
 namespace internal {
 
@@ -45,7 +47,6 @@ Status MakeSparseCSFTensorFromTensor(const Tensor& tensor,
                                      MemoryPool* pool,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data);
-
 
 }  // namespace internal
 }  // namespace arrow

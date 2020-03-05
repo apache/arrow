@@ -176,7 +176,7 @@ Status MakeSparseCSCMatrixFromTensor(const Tensor& tensor,
 
 }  // namespace
 
-#define MAKE_SPARSE_CSC_MATRIX_FROM_TENSOR(TYPE_CLASS)          \
+#define MAKE_SPARSE_CSC_MATRIX_FROM_TENSOR(TYPE_CLASS)      \
   case TYPE_CLASS##Type::type_id:                           \
     return MakeSparseCSCMatrixFromTensor<TYPE_CLASS##Type>( \
         tensor, index_value_type, pool, out_sparse_index, out_data);
