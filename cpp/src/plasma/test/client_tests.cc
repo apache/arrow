@@ -89,8 +89,8 @@ class TestPlasmaStore : public ::testing::Test {
                     const std::vector<uint8_t>& metadata,
                     const std::vector<uint8_t>& data, bool release = true) {
     std::shared_ptr<Buffer> data_buffer;
-    ARROW_CHECK_OK(client.Create(object_id, /*evict_if_full=*/true, data.size(),
-                                 metadata.data(), metadata.size(), &data_buffer));
+    ARROW_CHECK_OK(client.Create(object_id, data.size(), metadata.data(), metadata.size(),
+                                 &data_buffer));
     for (size_t i = 0; i < data.size(); i++) {
       data_buffer->mutable_data()[i] = data[i];
     }
@@ -121,8 +121,8 @@ TEST_F(TestPlasmaStore, NewSubscriberTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(local_client.Create(object_id, /*evict_if_full=*/true, data_size,
-                                     metadata, metadata_size, &data));
+  ARROW_CHECK_OK(
+      local_client.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(local_client.Seal(object_id));
 
   // Test that new subscriber client2 can receive notifications about existing objects.
@@ -230,14 +230,10 @@ TEST_F(TestPlasmaStore, SetQuotaBasicTest) {
 
   // Too big to fit in quota at all
   std::shared_ptr<Buffer> data_buffer;
-  ASSERT_FALSE(client_
-                   .Create(random_object_id(), /*evict_if_full=*/true, 7 * 1024 * 1024,
-                           {}, 0, &data_buffer)
-                   .ok());
-  ASSERT_TRUE(client_
-                  .Create(random_object_id(), /*evict_if_full=*/true, 4 * 1024 * 1024, {},
-                          0, &data_buffer)
-                  .ok());
+  ASSERT_FALSE(
+      client_.Create(random_object_id(), 7 * 1024 * 1024, {}, 0, &data_buffer).ok());
+  ASSERT_TRUE(
+      client_.Create(random_object_id(), 4 * 1024 * 1024, {}, 0, &data_buffer).ok());
 }
 
 TEST_F(TestPlasmaStore, SetQuotaProvidesIsolationFromOtherClients) {
@@ -518,8 +514,7 @@ TEST_F(TestPlasmaStore, DeleteTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client_.Create(object_id, /*evict_if_full=*/true, data_size, metadata,
-                                metadata_size, &data));
+  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client_.Seal(object_id));
 
   result = client_.Delete(object_id);
@@ -548,11 +543,9 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client_.Create(object_id1, /*evict_if_full=*/true, data_size, metadata,
-                                metadata_size, &data));
+  ARROW_CHECK_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client_.Seal(object_id1));
-  ARROW_CHECK_OK(client_.Create(object_id2, /*evict_if_full=*/true, data_size, metadata,
-                                metadata_size, &data));
+  ARROW_CHECK_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client_.Seal(object_id2));
   // Release the ref count of Create function.
   ARROW_CHECK_OK(client_.Release(object_id1));
@@ -670,13 +663,11 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client_.Create(object_id1, /*evict_if_full=*/true, data_size, metadata,
-                                metadata_size, &data));
+  ARROW_CHECK_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data));
   data->mutable_data()[0] = 1;
   ARROW_CHECK_OK(client_.Seal(object_id1));
 
-  ARROW_CHECK_OK(client_.Create(object_id2, /*evict_if_full=*/true, data_size, metadata,
-                                metadata_size, &data));
+  ARROW_CHECK_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data));
   data->mutable_data()[0] = 2;
   ARROW_CHECK_OK(client_.Seal(object_id2));
 
@@ -725,8 +716,7 @@ TEST_F(TestPlasmaStore, AbortTest) {
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
   uint8_t* data_ptr;
-  ARROW_CHECK_OK(client_.Create(object_id, /*evict_if_full=*/true, data_size, metadata,
-                                metadata_size, &data));
+  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
   data_ptr = data->mutable_data();
   // Write some data.
   for (int64_t i = 0; i < data_size / 2; i++) {
@@ -771,8 +761,7 @@ TEST_F(TestPlasmaStore, OneIdCreateRepeatedlyTest) {
   // Test the sequence: create -> release -> abort -> ...
   for (int64_t i = 0; i < loop_times; i++) {
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, /*evict_if_full=*/true, data_size, metadata,
-                                  metadata_size, &data));
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
     ARROW_CHECK_OK(client_.Release(object_id));
     ARROW_CHECK_OK(client_.Abort(object_id));
   }
@@ -780,8 +769,7 @@ TEST_F(TestPlasmaStore, OneIdCreateRepeatedlyTest) {
   // Test the sequence: create -> seal -> release -> delete -> ...
   for (int64_t i = 0; i < loop_times; i++) {
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, /*evict_if_full=*/true, data_size, metadata,
-                                  metadata_size, &data));
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
     ARROW_CHECK_OK(client_.Seal(object_id));
     ARROW_CHECK_OK(client_.Release(object_id));
     ARROW_CHECK_OK(client_.Delete(object_id));
@@ -803,8 +791,7 @@ TEST_F(TestPlasmaStore, MultipleClientTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client2_.Create(object_id, /*evict_if_full=*/true, data_size, metadata,
-                                 metadata_size, &data));
+  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client2_.Seal(object_id));
   // Test that the first client can get the object.
   ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
@@ -815,8 +802,7 @@ TEST_F(TestPlasmaStore, MultipleClientTest) {
   // Test that one client disconnecting does not interfere with the other.
   // First create object on the second client.
   object_id = random_object_id();
-  ARROW_CHECK_OK(client2_.Create(object_id, /*evict_if_full=*/true, data_size, metadata,
-                                 metadata_size, &data));
+  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
   // Disconnect the first client.
   ARROW_CHECK_OK(client_.Disconnect());
   // Test that the second client can seal and get the created object.
@@ -846,8 +832,7 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
     uint8_t metadata[] = {5};
     int64_t metadata_size = sizeof(metadata);
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, /*evict_if_full=*/true, data_size, metadata,
-                                  metadata_size, &data));
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
 
     if (i % 3 == 0) {
       // Seal one third of the objects.
@@ -927,8 +912,8 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data_buffer;
   std::shared_ptr<CudaBuffer> gpu_buffer;
-  ARROW_CHECK_OK(client_.Create(object_id, /*evict_if_full=*/true, data_size, metadata,
-                                metadata_size, &data_buffer, kGpuDeviceNumber));
+  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size,
+                                &data_buffer, kGpuDeviceNumber));
   ASSERT_OK_AND_ASSIGN(gpu_buffer, CudaBuffer::FromBuffer(data_buffer));
   CudaBufferWriter writer(gpu_buffer);
   ARROW_CHECK_OK(writer.Write(data, data_size));
@@ -957,11 +942,11 @@ TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client_.Create(object_id1, /*evict_if_full=*/true, data_size, metadata,
-                                metadata_size, &data, kGpuDeviceNumber));
+  ARROW_CHECK_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data,
+                                kGpuDeviceNumber));
   ARROW_CHECK_OK(client_.Seal(object_id1));
-  ARROW_CHECK_OK(client_.Create(object_id2, /*evict_if_full=*/true, data_size, metadata,
-                                metadata_size, &data, kGpuDeviceNumber));
+  ARROW_CHECK_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data,
+                                kGpuDeviceNumber));
   ARROW_CHECK_OK(client_.Seal(object_id2));
   // Release the ref count of Create function.
   ARROW_CHECK_OK(client_.Release(object_id1));
@@ -1003,8 +988,7 @@ TEST_F(TestPlasmaStore, RepeatlyCreateGPUTest) {
     ObjectID& object_id = object_ids[i];
 
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, /*evict_if_full=*/true, data_size, 0, 0,
-                                  &data, kGpuDeviceNumber));
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, kGpuDeviceNumber));
     ARROW_CHECK_OK(client_.Seal(object_id));
     ARROW_CHECK_OK(client_.Release(object_id));
   }
@@ -1016,8 +1000,7 @@ TEST_F(TestPlasmaStore, RepeatlyCreateGPUTest) {
     ARROW_CHECK_OK(client_.Delete(object_id));
 
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, /*evict_if_full=*/true, data_size, 0, 0,
-                                  &data, kGpuDeviceNumber));
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, kGpuDeviceNumber));
     ARROW_CHECK_OK(client_.Seal(object_id));
     ARROW_CHECK_OK(client_.Release(object_id));
   }
@@ -1032,8 +1015,8 @@ TEST_F(TestPlasmaStore, GPUBufferLifetime) {
   const int64_t data_size = 40;
 
   std::shared_ptr<Buffer> create_buff;
-  ARROW_CHECK_OK(client_.Create(object_id, /*evict_if_full=*/true, data_size, nullptr, 0,
-                                &create_buff, kGpuDeviceNumber));
+  ARROW_CHECK_OK(
+      client_.Create(object_id, data_size, nullptr, 0, &create_buff, kGpuDeviceNumber));
   ARROW_CHECK_OK(client_.Seal(object_id));
   ARROW_CHECK_OK(client_.Release(object_id));
 
@@ -1066,8 +1049,8 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client2_.Create(object_id, /*evict_if_full=*/true, data_size, metadata,
-                                 metadata_size, &data, kGpuDeviceNumber));
+  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data,
+                                 kGpuDeviceNumber));
   ARROW_CHECK_OK(client2_.Seal(object_id));
   // Test that the first client can get the object.
   ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
@@ -1077,8 +1060,8 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   // Test that one client disconnecting does not interfere with the other.
   // First create object on the second client.
   object_id = random_object_id();
-  ARROW_CHECK_OK(client2_.Create(object_id, /*evict_if_full=*/true, data_size, metadata,
-                                 metadata_size, &data, kGpuDeviceNumber));
+  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data,
+                                 kGpuDeviceNumber));
   // Disconnect the first client.
   ARROW_CHECK_OK(client_.Disconnect());
   // Test that the second client can seal and get the created object.

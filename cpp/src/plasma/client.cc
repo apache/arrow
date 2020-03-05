@@ -224,16 +224,17 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status SetClientOptions(const std::string& client_name, int64_t output_memory_quota);
 
-  Status Create(const ObjectID& object_id, bool evict_if_full, int64_t data_size,
-                const uint8_t* metadata, int64_t metadata_size,
-                std::shared_ptr<Buffer>* data, int device_num = 0);
+  Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
+                int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0,
+                bool evict_if_full = true);
 
-  Status CreateAndSeal(const ObjectID& object_id, bool evict_if_full,
-                       const std::string& data, const std::string& metadata);
+  Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
+                       const std::string& metadata, bool evict_if_full = true);
 
-  Status CreateAndSealBatch(const std::vector<ObjectID>& object_ids, bool evict_if_full,
+  Status CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
                             const std::vector<std::string>& data,
-                            const std::vector<std::string>& metadata);
+                            const std::vector<std::string>& metadata,
+                            bool evict_if_full = true);
 
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
@@ -415,10 +416,10 @@ void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
   object_entry->count += 1;
 }
 
-Status PlasmaClient::Impl::Create(const ObjectID& object_id, bool evict_if_full,
-                                  int64_t data_size, const uint8_t* metadata,
-                                  int64_t metadata_size, std::shared_ptr<Buffer>* data,
-                                  int device_num) {
+Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
+                                  const uint8_t* metadata, int64_t metadata_size,
+                                  std::shared_ptr<Buffer>* data, int device_num,
+                                  bool evict_if_full) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
   ARROW_LOG(DEBUG) << "called plasma_create on conn " << store_conn_ << " with size "
@@ -485,9 +486,10 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, bool evict_if_full,
   return Status::OK();
 }
 
-Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id, bool evict_if_full,
+Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
                                          const std::string& data,
-                                         const std::string& metadata) {
+                                         const std::string& metadata,
+                                         bool evict_if_full) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
   ARROW_LOG(DEBUG) << "called CreateAndSeal on conn " << store_conn_;
@@ -508,9 +510,9 @@ Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id, bool evict_i
 }
 
 Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
-                                              bool evict_if_full,
                                               const std::vector<std::string>& data,
-                                              const std::vector<std::string>& metadata) {
+                                              const std::vector<std::string>& metadata,
+                                              bool evict_if_full) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
   ARROW_LOG(DEBUG) << "called CreateAndSealBatch on conn " << store_conn_;
@@ -1128,24 +1130,24 @@ Status PlasmaClient::SetClientOptions(const std::string& client_name,
   return impl_->SetClientOptions(client_name, output_memory_quota);
 }
 
-Status PlasmaClient::Create(const ObjectID& object_id, bool evict_if_full,
-                            int64_t data_size, const uint8_t* metadata,
-                            int64_t metadata_size, std::shared_ptr<Buffer>* data,
-                            int device_num) {
-  return impl_->Create(object_id, evict_if_full, data_size, metadata, metadata_size, data,
-                       device_num);
+Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
+                            const uint8_t* metadata, int64_t metadata_size,
+                            std::shared_ptr<Buffer>* data, int device_num,
+                            bool evict_if_full) {
+  return impl_->Create(object_id, data_size, metadata, metadata_size, data, device_num,
+                       evict_if_full);
 }
 
-Status PlasmaClient::CreateAndSeal(const ObjectID& object_id, bool evict_if_full,
-                                   const std::string& data, const std::string& metadata) {
-  return impl_->CreateAndSeal(object_id, evict_if_full, data, metadata);
+Status PlasmaClient::CreateAndSeal(const ObjectID& object_id, const std::string& data,
+                                   const std::string& metadata, bool evict_if_full) {
+  return impl_->CreateAndSeal(object_id, data, metadata, evict_if_full);
 }
 
 Status PlasmaClient::CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
-                                        bool evict_if_full,
                                         const std::vector<std::string>& data,
-                                        const std::vector<std::string>& metadata) {
-  return impl_->CreateAndSealBatch(object_ids, evict_if_full, data, metadata);
+                                        const std::vector<std::string>& metadata,
+                                        bool evict_if_full) {
+  return impl_->CreateAndSealBatch(object_ids, data, metadata, evict_if_full);
 }
 
 Status PlasmaClient::Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,

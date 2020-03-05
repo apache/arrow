@@ -105,8 +105,7 @@ TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
 
     // Test for the object being in local Plasma store.
     // Create and seal the object.
-    ARROW_CHECK_OK(
-        client_.CreateAndSeal(object_id, /*evict_if_full=*/true, data, metadata));
+    ARROW_CHECK_OK(client_.CreateAndSeal(object_id, data, metadata));
     // Test that the client can get the object.
     ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
     ASSERT_TRUE(has_object);

@@ -110,7 +110,7 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_create(
   }
 
   std::shared_ptr<Buffer> data;
-  Status s = client->Create(oid, /*evict_if_full=*/true, size, md, md_size, &data);
+  Status s = client->Create(oid, size, md, md_size, &data);
   if (plasma::IsPlasmaObjectExists(s)) {
     jclass exceptionClass =
         env->FindClass("org/apache/arrow/plasma/exceptions/DuplicateObjectException");
