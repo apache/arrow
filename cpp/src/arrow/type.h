@@ -1559,7 +1559,7 @@ class ARROW_EXPORT FieldRef {
  private:
   util::variant<Indices, std::string, std::vector<FieldRef>> impl_;
 
-  friend void PrintTo(const FieldRef& ref, std::ostream* os);
+  ARROW_EXPORT friend void PrintTo(const FieldRef& ref, std::ostream* os);
 };
 
 // ----------------------------------------------------------------------
