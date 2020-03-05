@@ -1437,9 +1437,11 @@ class ARROW_EXPORT FieldRef {
   /// construct a FieldRef
   template <typename A0, typename A1, typename... A>
   FieldRef(A0&& a0, A1&& a1, A&&... a)
-      : FieldRef(std::vector<FieldRef>{FieldRef(std::forward<A0>(a0)),
-                                       FieldRef(std::forward<A1>(a1)),
-                                       FieldRef(std::forward<A>(a))...}) {}
+      : FieldRef(std::vector<FieldRef>{
+            // cpplint things the following are constructor decls
+            FieldRef(std::forward<A0>(a0)),       // NOLINT runtime/explicit
+            FieldRef(std::forward<A1>(a1)),       // NOLINT runtime/explicit
+            FieldRef(std::forward<A>(a))...}) {}  // NOLINT runtime/explicit
 
   /// Parse a dot path into a FieldRef.
   ///
@@ -1518,8 +1520,8 @@ class ARROW_EXPORT FieldRef {
   template <typename T>
   Result<Indices> FindOne(const T& root) const {
     auto matches = FindAll(root);
-    RETURN_NOT_OK(CheckNonEmpty(matches, root));
-    RETURN_NOT_OK(CheckNonMultiple(matches, root));
+    ARROW_RETURN_NOT_OK(CheckNonEmpty(matches, root));
+    ARROW_RETURN_NOT_OK(CheckNonMultiple(matches, root));
     return std::move(matches[0]);
   }
 
@@ -1550,7 +1552,7 @@ class ARROW_EXPORT FieldRef {
   Result<GetType<T>> GetOneOrNone(const T& root) const {
     auto matches = FindAll(root);
     if (matches.empty()) return NULLPTR;
-    RETURN_NOT_OK(CheckNonMultiple(matches, root));
+    ARROW_RETURN_NOT_OK(CheckNonMultiple(matches, root));
     return Get(matches[0], root);
   }
 

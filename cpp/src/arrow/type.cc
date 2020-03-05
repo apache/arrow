@@ -635,7 +635,8 @@ FieldRef::FieldRef(std::vector<FieldRef> children) {
   };
 
   std::vector<FieldRef> out;
-  Visitor{std::back_inserter(out)}(std::move(children));
+  Visitor visitor{std::back_inserter(out)};
+  visitor(std::move(children));
 
   DCHECK(!out.empty());
   DCHECK(std::none_of(out.begin(), out.end(),
