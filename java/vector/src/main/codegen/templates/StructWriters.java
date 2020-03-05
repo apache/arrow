@@ -265,7 +265,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
-        ((PromotableWriter)writer).getWriter(MinorType.${upperName});
+        ((PromotableWriter)writer).getWriter(MinorType.${upperName}<#if minor.class == "Decimal">, new ${minor.arrowType}(precision, scale)</#if>);
       }
     }
     return writer;

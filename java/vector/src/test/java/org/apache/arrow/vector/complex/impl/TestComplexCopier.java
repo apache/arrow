@@ -28,6 +28,7 @@ import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.DecimalHolder;
@@ -135,8 +136,8 @@ public class TestComplexCopier {
         mapWriter.value().integer().writeInt(i);
         mapWriter.endEntry();
         mapWriter.startEntry();
-        mapWriter.key().integer().writeInt(i * 2);
-        mapWriter.value().integer().writeInt(i * 2);
+        mapWriter.key().decimal().writeDecimal(BigDecimal.valueOf(i * 2));
+        mapWriter.value().decimal().writeDecimal(BigDecimal.valueOf(i * 2));
         mapWriter.endEntry();
         mapWriter.endMap();
       }
@@ -180,9 +181,8 @@ public class TestComplexCopier {
         listWriter.list().endList();
 
         listWriter.list().startList();
-        listWriter.list().bigInt().writeBigInt(i * 4);
-        listWriter.list().bigInt().writeBigInt(i * 5);
-        listWriter.list().bigInt().writeBigInt(i * 6);
+        listWriter.list().decimal().writeDecimal(BigDecimal.valueOf(i * 4));
+        listWriter.list().decimal().writeDecimal(BigDecimal.valueOf(i * 5));
         listWriter.list().endList();
         listWriter.endList();
       }
@@ -283,6 +283,39 @@ public class TestComplexCopier {
       // validate equals
       assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
 
+    }
+  }
+
+  @Test
+  public void testCopyStructVector() {
+    try (final StructVector from = StructVector.empty("v", allocator);
+         final StructVector to = StructVector.empty("v", allocator)) {
+
+      from.allocateNewSafe();
+
+      NullableStructWriter structWriter = from.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        structWriter.setPosition(i);
+        structWriter.start();
+        structWriter.integer("int").writeInt(i);
+        structWriter.decimal("dec", 0, 38).writeDecimal(BigDecimal.valueOf(i * 2));
+        structWriter.end();
+      }
+
+      from.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
     }
   }
 }
