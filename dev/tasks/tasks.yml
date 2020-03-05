@@ -1836,6 +1836,7 @@ tasks:
       r_org: rhub
       r_image: debian-gcc-devel
       r_tag: latest
+      verbose: "TRUE"
 
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
@@ -1845,6 +1846,7 @@ tasks:
       r_org: rhub
       r_image: ubuntu-gcc-release
       r_tag: latest
+      verbose: "TRUE"
 
   test-r-rstudio-r-base-3.6-bionic:
     ci: azure
@@ -1854,6 +1856,8 @@ tasks:
       r_org: rstudio
       r_image: r-base
       r_tag: 3.6-bionic
+      # Turn off verbosity on some tests in order to check compiler flags
+      verbose: "FALSE"
 
   test-r-rstudio-r-base-3.6-centos6:
     ci: azure
@@ -1863,6 +1867,7 @@ tasks:
       r_org: rstudio
       r_image: r-base
       r_tag: 3.6-centos6
+      verbose: "FALSE"
 
   test-r-rstudio-r-base-3.6-opensuse15:
     ci: azure
@@ -1872,6 +1877,7 @@ tasks:
       r_org: rstudio
       r_image: r-base
       r_tag: 3.6-opensuse15
+      verbose: "TRUE"
 
   test-r-rstudio-r-base-3.6-opensuse42:
     ci: azure
@@ -1881,6 +1887,7 @@ tasks:
       r_org: rstudio
       r_image: r-base
       r_tag: 3.6-opensuse24
+      verbose: "TRUE"
 
   test-ubuntu-18.04-r-3.6:
     ci: circle

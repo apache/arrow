@@ -798,7 +798,7 @@ bool PlasmaClient::Impl::ComputeObjectHashParallel(XXH64_state_t* hash_state,
   // | num_threads * chunk_size | suffix |, where chunk_size = k * block_size.
   // Each thread gets a "chunk" of k blocks, except the suffix thread.
 
-  std::vector<std::future<void>> futures;
+  std::vector<arrow::Future<void>> futures;
   for (int i = 0; i < num_threads; i++) {
     futures.push_back(*pool->Submit(
         ComputeBlockHash, reinterpret_cast<uint8_t*>(data_address) + i * chunk_size,
@@ -808,7 +808,7 @@ bool PlasmaClient::Impl::ComputeObjectHashParallel(XXH64_state_t* hash_state,
                    &threadhash[num_threads]);
 
   for (auto& fut : futures) {
-    fut.get();
+    ARROW_CHECK_OK(fut.status());
   }
 
   XXH64_update(hash_state, reinterpret_cast<unsigned char*>(threadhash),
@@ -865,6 +865,11 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
   RETURN_NOT_OK(Hash(object_id, &digest[0]));
   RETURN_NOT_OK(
       SendSealRequest(store_conn_, object_id, std::string(digest.begin(), digest.end())));
+  std::vector<uint8_t> buffer;
+  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaSealReply, &buffer));
+  ObjectID sealed_id;
+  RETURN_NOT_OK(ReadSealReply(buffer.data(), buffer.size(), &sealed_id));
+  ARROW_CHECK(sealed_id == object_id);
   // We call PlasmaClient::Release to decrement the number of instances of this
   // object
   // that are currently being used by this client. The corresponding increment

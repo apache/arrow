@@ -51,7 +51,10 @@ void AssertUnconvertedArraysEqual(const Array& expected, const Array& actual) {
     }
     case Type::LIST: {
       ASSERT_EQ(expected.type_id(), Type::LIST);
-      AssertBufferEqual(*expected.null_bitmap(), *actual.null_bitmap());
+      ASSERT_EQ(expected.null_count(), actual.null_count());
+      if (expected.null_count() != 0) {
+        AssertBufferEqual(*expected.null_bitmap(), *actual.null_bitmap());
+      }
       const auto& expected_offsets = expected.data()->buffers[1];
       const auto& actual_offsets = actual.data()->buffers[1];
       AssertBufferEqual(*expected_offsets, *actual_offsets);

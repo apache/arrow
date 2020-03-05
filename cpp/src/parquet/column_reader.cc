@@ -294,7 +294,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       page_buffer = decompression_buffer_;
     }
 
-    if (current_page_header_.type == format::PageType::DICTIONARY_PAGE) {
+    const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
+
+    if (page_type == PageType::DICTIONARY_PAGE) {
       crypto_ctx_.start_decrypt_with_dictionary_page = false;
       const format::DictionaryPageHeader& dict_header =
           current_page_header_.dictionary_page_header;
@@ -302,9 +304,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       bool is_sorted = dict_header.__isset.is_sorted ? dict_header.is_sorted : false;
 
       return std::make_shared<DictionaryPage>(page_buffer, dict_header.num_values,
-                                              FromThrift(dict_header.encoding),
+                                              LoadEnumSafe(&dict_header.encoding),
                                               is_sorted);
-    } else if (current_page_header_.type == format::PageType::DATA_PAGE) {
+    } else if (page_type == PageType::DATA_PAGE) {
       ++page_ordinal_;
       const format::DataPageHeader& header = current_page_header_.data_page_header;
 
@@ -328,10 +330,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       seen_num_rows_ += header.num_values;
 
       return std::make_shared<DataPageV1>(
-          page_buffer, header.num_values, FromThrift(header.encoding),
-          FromThrift(header.definition_level_encoding),
-          FromThrift(header.repetition_level_encoding), page_statistics);
-    } else if (current_page_header_.type == format::PageType::DATA_PAGE_V2) {
+          page_buffer, header.num_values, LoadEnumSafe(&header.encoding),
+          LoadEnumSafe(&header.definition_level_encoding),
+          LoadEnumSafe(&header.repetition_level_encoding), page_statistics);
+    } else if (page_type == PageType::DATA_PAGE_V2) {
       ++page_ordinal_;
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
       bool is_compressed = header.__isset.is_compressed ? header.is_compressed : false;
@@ -340,7 +342,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       return std::make_shared<DataPageV2>(
           page_buffer, header.num_values, header.num_nulls, header.num_rows,
-          FromThrift(header.encoding), header.definition_levels_byte_length,
+          LoadEnumSafe(&header.encoding), header.definition_levels_byte_length,
           header.repetition_levels_byte_length, is_compressed);
     } else {
       // We don't know what this page type is. We're allowed to skip non-data

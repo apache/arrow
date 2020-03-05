@@ -107,26 +107,27 @@ TEST(DefaultMemoryPoolDeathTest, MaxMemory) {
 #endif  // ARROW_VALGRIND
 
 TEST(LoggingMemoryPool, Logging) {
-  MemoryPool* pool = default_memory_pool();
+  auto pool = MemoryPool::CreateDefault();
 
-  LoggingMemoryPool lp(pool);
+  LoggingMemoryPool lp(pool.get());
 
   uint8_t* data;
-  ASSERT_OK(pool->Allocate(100, &data));
+  ASSERT_OK(lp.Allocate(100, &data));
 
   uint8_t* data2;
-  ASSERT_OK(pool->Allocate(100, &data2));
+  ASSERT_OK(lp.Allocate(100, &data2));
 
-  pool->Free(data, 100);
-  pool->Free(data2, 100);
+  lp.Free(data, 100);
+  lp.Free(data2, 100);
 
+  ASSERT_EQ(200, lp.max_memory());
   ASSERT_EQ(200, pool->max_memory());
 }
 
 TEST(ProxyMemoryPool, Logging) {
-  MemoryPool* pool = default_memory_pool();
+  auto pool = MemoryPool::CreateDefault();
 
-  ProxyMemoryPool pp(pool);
+  ProxyMemoryPool pp(pool.get());
 
   uint8_t* data;
   ASSERT_OK(pool->Allocate(100, &data));

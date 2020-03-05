@@ -34,12 +34,12 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
     cdef cppclass CTimePoint "arrow::fs::TimePoint":
         pass
 
-    cdef cppclass CFileStats "arrow::fs::FileStats":
-        CFileStats()
-        CFileStats(CFileStats&&)
-        CFileStats& operator=(CFileStats&&)
-        CFileStats(const CFileStats&)
-        CFileStats& operator=(const CFileStats&)
+    cdef cppclass CFileInfo "arrow::fs::FileInfo":
+        CFileInfo()
+        CFileInfo(CFileInfo&&)
+        CFileInfo& operator=(CFileInfo&&)
+        CFileInfo(const CFileInfo&)
+        CFileInfo& operator=(const CFileInfo&)
 
         CFileType type()
         void set_type(CFileType type)
@@ -60,10 +60,10 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef cppclass CFileSystem "arrow::fs::FileSystem":
         c_string type_name() const
-        CResult[CFileStats] GetTargetStats(const c_string& path)
-        CResult[vector[CFileStats]] GetTargetStats(
+        CResult[CFileInfo] GetTargetInfo(const c_string& path)
+        CResult[vector[CFileInfo]] GetTargetInfos(
             const vector[c_string]& paths)
-        CResult[vector[CFileStats]] GetTargetStats(const CFileSelector& select)
+        CResult[vector[CFileInfo]] GetTargetInfos(const CFileSelector& select)
         CStatus CreateDir(const c_string& path, c_bool recursive)
         CStatus DeleteDir(const c_string& path)
         CStatus DeleteFile(const c_string& path)

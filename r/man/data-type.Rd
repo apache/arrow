@@ -74,7 +74,7 @@ time64(unit = c("ns", "us"))
 
 null()
 
-timestamp(unit = c("s", "ms", "us", "ns"), timezone)
+timestamp(unit = c("s", "ms", "us", "ns"), timezone = "")
 
 decimal(precision, scale)
 

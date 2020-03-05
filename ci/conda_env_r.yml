@@ -32,6 +32,7 @@ r-covr
 r-hms
 r-lubridate
 r-rcmdcheck
+r-reticulate
 r-rmarkdown
 r-testthat
 r-tibble

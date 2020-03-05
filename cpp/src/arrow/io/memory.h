@@ -165,6 +165,9 @@ class ARROW_EXPORT BufferReader
 
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
 
+  // Synchronous ReadAsync override
+  Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes) override;
+
  protected:
   friend RandomAccessFileConcurrencyWrapper<BufferReader>;
 

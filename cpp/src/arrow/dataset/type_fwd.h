@@ -35,8 +35,7 @@ namespace fs {
 
 class FileSystem;
 
-struct FileStats;
-using FileStatsVector = std::vector<FileStats>;
+struct FileInfo;
 
 }  // namespace fs
 

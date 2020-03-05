@@ -339,9 +339,7 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowArrayBuilder,
 static void
 garrow_array_builder_finalize(GObject *object)
 {
-  GArrowArrayBuilderPrivate *priv;
-
-  priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(object);
+  auto priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(object);
 
   if (priv->have_ownership) {
     delete priv->array_builder;
@@ -356,9 +354,7 @@ garrow_array_builder_set_property(GObject *object,
                                   const GValue *value,
                                   GParamSpec *pspec)
 {
-  GArrowArrayBuilderPrivate *priv;
-
-  priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(object);
+  auto priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_ARRAY_BUILDER:
@@ -387,9 +383,7 @@ garrow_array_builder_get_property(GObject *object,
 static void
 garrow_array_builder_init(GArrowArrayBuilder *builder)
 {
-  GArrowArrayBuilderPrivate *priv;
-
-  priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(builder);
+  auto priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(builder);
   priv->have_ownership = TRUE;
 }
 
@@ -438,9 +432,7 @@ garrow_array_builder_new(const std::shared_ptr<arrow::DataType> &type,
 void
 garrow_array_builder_release_ownership(GArrowArrayBuilder *builder)
 {
-  GArrowArrayBuilderPrivate *priv;
-
-  priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(builder);
+  auto priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(builder);
   priv->have_ownership = FALSE;
 }
 
@@ -3938,9 +3930,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowListArrayBuilder,
 static void
 garrow_list_array_builder_dispose(GObject *object)
 {
-  GArrowListArrayBuilderPrivate *priv;
-
-  priv = GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(object);
+  auto priv = GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(object);
 
   if (priv->value_builder) {
     g_object_unref(priv->value_builder);
@@ -4130,9 +4120,7 @@ garrow_list_array_builder_append_null(GArrowListArrayBuilder *builder,
 GArrowArrayBuilder *
 garrow_list_array_builder_get_value_builder(GArrowListArrayBuilder *builder)
 {
-  GArrowListArrayBuilderPrivate *priv;
-
-  priv = GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(builder);
+  auto priv = GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(builder);
   if (!priv->value_builder) {
     auto arrow_builder =
       static_cast<arrow::ListBuilder *>(
@@ -4301,12 +4289,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowStructArrayBuilder,
 static void
 garrow_struct_array_builder_dispose(GObject *object)
 {
-  GArrowStructArrayBuilderPrivate *priv;
-  GList *node;
+  auto priv = GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(object);
 
-  priv = GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(object);
-
-  for (node = priv->field_builders; node; node = g_list_next(node)) {
+  for (auto node = priv->field_builders; node; node = g_list_next(node)) {
     auto field_builder = static_cast<GArrowArrayBuilder *>(node->data);
     GArrowArrayBuilderPrivate *field_builder_priv;
 
@@ -4468,9 +4453,7 @@ garrow_struct_array_builder_get_field_builder(GArrowStructArrayBuilder *builder,
 GList *
 garrow_struct_array_builder_get_field_builders(GArrowStructArrayBuilder *builder)
 {
-  GArrowStructArrayBuilderPrivate *priv;
-
-  priv = GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(builder);
+  auto priv = GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(builder);
   if (!priv->field_builders) {
     auto arrow_struct_builder =
       static_cast<arrow::StructBuilder *>(
@@ -4949,8 +4932,6 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
 arrow::ArrayBuilder *
 garrow_array_builder_get_raw(GArrowArrayBuilder *builder)
 {
-  GArrowArrayBuilderPrivate *priv;
-
-  priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(builder);
+  auto priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(builder);
   return priv->array_builder;
 }

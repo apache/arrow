@@ -170,7 +170,7 @@ write_parquet <- function(x,
 }
 
 
-ParquetArrowWriterPropertiesBuilder <- R6Class("ParquetArrowWriterPropertiesBuilder", inherit = Object,
+ParquetArrowWriterPropertiesBuilder <- R6Class("ParquetArrowWriterPropertiesBuilder", inherit = ArrowObject,
   public = list(
     store_schema = function() {
       parquet___ArrowWriterProperties___Builder__store_schema(self)
@@ -205,7 +205,7 @@ ParquetArrowWriterPropertiesBuilder <- R6Class("ParquetArrowWriterPropertiesBuil
 
   )
 )
-ParquetArrowWriterProperties <- R6Class("ParquetArrowWriterProperties", inherit = Object)
+ParquetArrowWriterProperties <- R6Class("ParquetArrowWriterProperties", inherit = ArrowObject)
 
 ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps = FALSE, coerce_timestamps = NULL, allow_truncated_timestamps = FALSE) {
   builder <- shared_ptr(ParquetArrowWriterPropertiesBuilder, parquet___ArrowWriterProperties___Builder__create())
@@ -274,8 +274,8 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
 #' @seealso [write_parquet]
 #'
 #' @export
-ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = Object)
-ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = Object,
+ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = ArrowObject)
+ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = ArrowObject,
   public = list(
     set_version = function(version) {
       parquet___ArrowWriterProperties___Builder__version(self, make_valid_version(version))
@@ -381,7 +381,7 @@ ParquetWriterProperties$create <- function(table, version = NULL, compression = 
 #' - `arrow_properties` An instance of `ParquetArrowWriterProperties`
 #' @export
 #' @include arrow-package.R
-ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = Object,
+ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = ArrowObject,
   public = list(
     WriteTable = function(table, chunk_size) {
       parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
@@ -442,7 +442,7 @@ ParquetFileWriter$create <- function(
 #' }
 #' @include arrow-package.R
 ParquetFileReader <- R6Class("ParquetFileReader",
-  inherit = Object,
+  inherit = ArrowObject,
   public = list(
     ReadTable = function(col_select = NULL) {
       col_select <- enquo(col_select)
@@ -494,7 +494,7 @@ ParquetFileReader$create <- function(file,
 #'
 #' @export
 ParquetReaderProperties <- R6Class("ParquetReaderProperties",
-  inherit = Object,
+  inherit = ArrowObject,
   public = list(
     read_dictionary = function(column_index) {
       parquet___arrow___ArrowReaderProperties__get_read_dictionary(self, column_index)

@@ -24,7 +24,7 @@
 #' `Dataset`, then use `dplyr` methods to query it.
 #'
 #' @param sources Either a string path to a directory containing data files,
-#' or a list of `DatasetFactory` objects as created by [open_dataset_factory()].
+#' or a list of `DatasetFactory` objects as created by [dataset_factory()].
 #' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
 #' will be inferred from the data sources.
 #' @param partitioning When `sources` is a file path, one of
@@ -39,7 +39,7 @@
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
-#' @param ... additional arguments passed to `open_dataset_factory()` when
+#' @param ... additional arguments passed to `dataset_factory()` when
 #' `sources` is a file path, otherwise ignored.
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
@@ -47,11 +47,7 @@
 #' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
 open_dataset <- function(sources, schema = NULL, partitioning = hive_partition(), ...) {
-  if (is.character(sources)) {
-    factory <- open_dataset_factory(sources, partitioning = partitioning, ...)
-  } else {
-    factory <- open_dataset_factory(children = sources)
-  }
+  factory <- DatasetFactory$create(sources, partitioning = partitioning, ...)
   factory$Finish(schema)
 }
 
@@ -79,7 +75,7 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #' discovering files in the local file system, the only currently supported
 #' file system.
 #'
-#' For the `DatasetFactory$create()` factory method, see [open_dataset_factory()], an
+#' For the `DatasetFactory$create()` factory method, see [dataset_factory()], an
 #' alias for it. A `DatasetFactory` has:
 #'
 #' - `$Inspect()`: Returns a common [Schema] for all data discovered by the factory.
@@ -92,12 +88,6 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #' * `format`: A string identifier of the format of the files in `path`.
 #'   Currently supported options are "parquet", "arrow", and "ipc" (an alias for
 #'   the Arrow file format)
-#'
-#' `UnionDatasetFactory$create()` can be used to unify child `DatasetFactory`s into
-#' a single `DatasetFactory`. Use it when (for example) your data is in multiple
-#' file systems or formats.
-#' * `children`: child `DatasetFactory`s to be unified
-#'
 #' @section Methods:
 #'
 #' A `Dataset` has the following methods:
@@ -113,7 +103,7 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #'
 #' @export
 #' @seealso [open_dataset()] for a simple interface to creating a `Dataset`
-Dataset <- R6Class("Dataset", inherit = Object,
+Dataset <- R6Class("Dataset", inherit = ArrowObject,
   public = list(
     ..dispatch = function() {
       type <- self$type
@@ -184,7 +174,7 @@ UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
 #' @format NULL
 #' @rdname Dataset
 #' @export
-DatasetFactory <- R6Class("DatasetFactory", inherit = Object,
+DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
   public = list(
     Finish = function(schema = NULL) {
       if (is.null(schema)) {
@@ -197,22 +187,21 @@ DatasetFactory <- R6Class("DatasetFactory", inherit = Object,
     Inspect = function() shared_ptr(Schema, dataset___DatasetFactory__Inspect(self))
   )
 )
-DatasetFactory$create <- function(path,
-                                  children = NULL,
+DatasetFactory$create <- function(x,
                                   filesystem = c("auto", "local"),
                                   format = c("parquet", "arrow", "ipc"),
                                   partitioning = NULL,
                                   allow_non_existent = FALSE,
                                   recursive = TRUE,
                                   ...) {
-  if (!is.null(children)) {
-    return(shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(children)))
+  if (is.list(x) && all(map_lgl(x, ~inherits(., "DatasetFactory")))) {
+    return(shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(x)))
   }
 
   if (!inherits(filesystem, "FileSystem")) {
     filesystem <- match.arg(filesystem)
     if (filesystem == "auto") {
-      # When there are other FileSystems supported, detect e.g. S3 from path
+      # When there are other FileSystems supported, detect e.g. S3 from x
       filesystem <- "local"
     }
     filesystem <- list(
@@ -221,7 +210,7 @@ DatasetFactory$create <- function(path,
     )[[filesystem]]$create(...)
   }
   selector <- FileSelector$create(
-    path,
+    x,
     allow_non_existent = allow_non_existent,
     recursive = recursive
   )
@@ -252,16 +241,16 @@ DatasetFactory$create <- function(path,
 #'
 #' If you would only have a single `DatasetFactory` (for example, you have a
 #' single directory containing Parquet files), you can call `open_dataset()`
-#' directly. Use `open_dataset_factory()` when you
+#' directly. Use `dataset_factory()` when you
 #' want to combine different directories, file systems, or file formats.
 #'
-#' @param path A string file path containing data files
-#' @param children A list of `DatasetFactory` objects whose datasets should be
-#' unified. If this argument is specified it will be used to construct a
+#' @param x A string file x containing data files, or
+#' a list of `DatasetFactory` objects whose datasets should be
+#' grouped. If this argument is specified it will be used to construct a
 #' `UnionDatasetFactory` and other arguments will be ignored.
 #' @param filesystem A string identifier for the filesystem corresponding to
-#' `path`. Currently only "local" is supported.
-#' @param format A string identifier of the format of the files in `path`.
+#' `x`. Currently only "local" is supported.
+#' @param format A string identifier of the format of the files in `x`.
 #' Currently supported options are "parquet", "arrow", and "ipc" (an alias for
 #' the Arrow file format)
 #' @param partitioning One of
@@ -276,26 +265,16 @@ DatasetFactory$create <- function(path,
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
-#' @param allow_non_existent logical: is `path` allowed to not exist? Default
+#' @param allow_non_existent logical: is `x` allowed to not exist? Default
 #' `FALSE`. See [FileSelector].
 #' @param recursive logical: should files be discovered in subdirectories of
-#' `path`? Default `TRUE`.
+#' `x`? Default `TRUE`.
 #' @param ... Additional arguments passed to the [FileSystem] `$create()` method
 #' @return A `DatasetFactory` object. Pass this to [open_dataset()],
 #' in a list potentially with other `DatasetFactory` objects, to create
 #' a `Dataset`.
 #' @export
-open_dataset_factory <- DatasetFactory$create
-
-#' @usage NULL
-#' @format NULL
-#' @rdname Dataset
-#' @export
-UnionDatasetFactory <- R6Class("UnionDatasetFactory", inherit = DatasetFactory)
-UnionDatasetFactory$create <- function(children) {
-  assert_is_list_of(children, "DatasetFactory")
-  shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(children))
-}
+dataset_factory <- DatasetFactory$create
 
 #' @usage NULL
 #' @format NULL
@@ -305,9 +284,9 @@ FileSystemDatasetFactory <- R6Class("FileSystemDatasetFactory",
   inherit = DatasetFactory
 )
 FileSystemDatasetFactory$create <- function(filesystem,
-                                           selector,
-                                           format,
-                                           partitioning = NULL) {
+                                            selector,
+                                            format,
+                                            partitioning = NULL) {
   assert_is(filesystem, "FileSystem")
   assert_is(selector, "FileSelector")
   assert_is(format, "FileFormat")
@@ -352,7 +331,7 @@ FileSystemDatasetFactory$create <- function(filesystem,
 #' @rdname FileFormat
 #' @name FileFormat
 #' @export
-FileFormat <- R6Class("FileFormat", inherit = Object,
+FileFormat <- R6Class("FileFormat", inherit = ArrowObject,
   public = list(
     ..dispatch = function() {
       type <- self$type
@@ -426,7 +405,7 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname Scanner
 #' @name Scanner
 #' @export
-Scanner <- R6Class("Scanner", inherit = Object,
+Scanner <- R6Class("Scanner", inherit = ArrowObject,
   public = list(
     ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self))
   )
@@ -436,7 +415,7 @@ Scanner <- R6Class("Scanner", inherit = Object,
 #' @format NULL
 #' @rdname Scanner
 #' @export
-ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
+ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
   public = list(
     Project = function(cols) {
       assert_is(cols, "character")
@@ -500,7 +479,7 @@ names.ScannerBuilder <- function(x) names(x$schema)
 #' @name Partitioning
 #' @rdname Partitioning
 #' @export
-Partitioning <- R6Class("Partitioning", inherit = Object)
+Partitioning <- R6Class("Partitioning", inherit = ArrowObject)
 #' @usage NULL
 #' @format NULL
 #' @rdname Partitioning
@@ -543,7 +522,7 @@ hive_partition <- function(...) {
   }
 }
 
-PartitioningFactory <- R6Class("PartitioningFactory", inherit = Object)
+PartitioningFactory <- R6Class("PartitioningFactory", inherit = ArrowObject)
 
 #' @usage NULL
 #' @format NULL

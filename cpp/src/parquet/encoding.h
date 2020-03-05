@@ -312,6 +312,12 @@ class TypedDecoder : virtual public Decoder {
 
   /// \brief Decode into an ArrayBuilder or other accumulator
   ///
+  /// This function assumes the definition levels were already decoded
+  /// as a validity bitmap in the given `valid_bits`.  `null_count`
+  /// is the number of 0s in `valid_bits`.
+  /// As a space optimization, it is allowed for `valid_bits` to be null
+  /// if `null_count` is zero.
+  ///
   /// \return number of values decoded
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
@@ -320,13 +326,18 @@ class TypedDecoder : virtual public Decoder {
   /// \brief Decode into an ArrayBuilder or other accumulator ignoring nulls
   ///
   /// \return number of values decoded
-  virtual int DecodeArrowNonNull(int num_values,
-                                 typename EncodingTraits<DType>::Accumulator* out) {
-    const uint8_t valid_bits = 0;
-    return DecodeArrow(num_values, 0, &valid_bits, 0, out);
+  int DecodeArrowNonNull(int num_values,
+                         typename EncodingTraits<DType>::Accumulator* out) {
+    return DecodeArrow(num_values, 0, /*valid_bits=*/NULLPTR, 0, out);
   }
 
   /// \brief Decode into a DictionaryBuilder
+  ///
+  /// This function assumes the definition levels were already decoded
+  /// as a validity bitmap in the given `valid_bits`.  `null_count`
+  /// is the number of 0s in `valid_bits`.
+  /// As a space optimization, it is allowed for `valid_bits` to be null
+  /// if `null_count` is zero.
   ///
   /// \return number of values decoded
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
@@ -336,10 +347,9 @@ class TypedDecoder : virtual public Decoder {
   /// \brief Decode into a DictionaryBuilder ignoring nulls
   ///
   /// \return number of values decoded
-  virtual int DecodeArrowNonNull(
-      int num_values, typename EncodingTraits<DType>::DictAccumulator* builder) {
-    const uint8_t valid_bits = 0;
-    return DecodeArrow(num_values, 0, &valid_bits, 0, builder);
+  int DecodeArrowNonNull(int num_values,
+                         typename EncodingTraits<DType>::DictAccumulator* builder) {
+    return DecodeArrow(num_values, 0, /*valid_bits=*/NULLPTR, 0, builder);
   }
 };
 

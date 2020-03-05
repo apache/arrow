@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -226,6 +227,7 @@ class SerializedPageWriter : public PageWriter {
 
     total_uncompressed_size_ += uncompressed_size + header_size;
     total_compressed_size_ += output_data_len + header_size;
+    ++dict_encoding_stats_[page.encoding()];
 
     PARQUET_ASSIGN_OR_THROW(int64_t final_pos, sink_->Tell());
     return final_pos - start_pos;
@@ -238,7 +240,8 @@ class SerializedPageWriter : public PageWriter {
     // index_page_offset = -1 since they are not supported
     metadata_->Finish(num_values_, dictionary_page_offset_, -1, data_page_offset_,
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
-                      fallback, meta_encryptor_);
+                      fallback, dict_encoding_stats_, data_encoding_stats_,
+                      meta_encryptor_);
     // Write metadata at end of column chunk
     metadata_->WriteTo(sink_.get());
   }
@@ -310,7 +313,7 @@ class SerializedPageWriter : public PageWriter {
     total_uncompressed_size_ += uncompressed_size + header_size;
     total_compressed_size_ += output_data_len + header_size;
     num_values_ += page.num_values();
-
+    ++data_encoding_stats_[page.encoding()];
     ++page_ordinal_;
     PARQUET_ASSIGN_OR_THROW(int64_t current_pos, sink_->Tell());
     return current_pos - start_pos;
@@ -405,6 +408,9 @@ class SerializedPageWriter : public PageWriter {
   std::shared_ptr<Encryptor> data_encryptor_;
 
   std::shared_ptr<ResizableBuffer> encryption_buffer_;
+
+  std::map<Encoding::type, int32_t> dict_encoding_stats_;
+  std::map<Encoding::type, int32_t> data_encoding_stats_;
 };
 
 // This implementation of the PageWriter writes to the final sink on Close .
@@ -441,7 +447,8 @@ class BufferedPageWriter : public PageWriter {
     metadata_->Finish(pager_->num_values(), dictionary_page_offset, -1,
                       pager_->data_page_offset() + final_position,
                       pager_->total_compressed_size(), pager_->total_uncompressed_size(),
-                      has_dictionary, fallback, pager_->meta_encryptor_);
+                      has_dictionary, fallback, pager_->dict_encoding_stats_,
+                      pager_->data_encoding_stats_, pager_->meta_encryptor_);
 
     // Write metadata at end of column chunk
     metadata_->WriteTo(in_memory_sink_.get());

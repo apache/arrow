@@ -31,6 +31,7 @@ use crate::record_batch::{RecordBatch, RecordBatchReader};
 pub(crate) struct ArrowJson {
     schema: ArrowJsonSchema,
     batches: Vec<ArrowJsonBatch>,
+    dictionaries: Option<Vec<ArrowJsonDictionaryBatch>>,
 }
 
 /// A struct that partially reads the Arrow JSON schema.
@@ -46,6 +47,14 @@ struct ArrowJsonSchema {
 struct ArrowJsonBatch {
     count: usize,
     columns: Vec<ArrowJsonColumn>,
+}
+
+/// A struct that partially reads the Arrow JSON dictionary batch
+#[derive(Deserialize)]
+#[allow(non_snake_case)]
+struct ArrowJsonDictionaryBatch {
+    id: i64,
+    data: ArrowJsonBatch,
 }
 
 /// A struct that partially reads the Arrow JSON column/array
@@ -227,6 +236,81 @@ impl ArrowJsonBatch {
                         let arr = arr.as_any().downcast_ref::<StructArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
+                    DataType::Dictionary(ref key_type, _) => match key_type.as_ref() {
+                        DataType::Int8 => {
+                            let arr = arr
+                                .as_any()
+                                .downcast_ref::<Int8DictionaryArray>()
+                                .unwrap();
+                            arr.equals_json(
+                                &json_array.iter().collect::<Vec<&Value>>()[..],
+                            )
+                        }
+                        DataType::Int16 => {
+                            let arr = arr
+                                .as_any()
+                                .downcast_ref::<Int16DictionaryArray>()
+                                .unwrap();
+                            arr.equals_json(
+                                &json_array.iter().collect::<Vec<&Value>>()[..],
+                            )
+                        }
+                        DataType::Int32 => {
+                            let arr = arr
+                                .as_any()
+                                .downcast_ref::<Int32DictionaryArray>()
+                                .unwrap();
+                            arr.equals_json(
+                                &json_array.iter().collect::<Vec<&Value>>()[..],
+                            )
+                        }
+                        DataType::Int64 => {
+                            let arr = arr
+                                .as_any()
+                                .downcast_ref::<Int64DictionaryArray>()
+                                .unwrap();
+                            arr.equals_json(
+                                &json_array.iter().collect::<Vec<&Value>>()[..],
+                            )
+                        }
+                        DataType::UInt8 => {
+                            let arr = arr
+                                .as_any()
+                                .downcast_ref::<UInt8DictionaryArray>()
+                                .unwrap();
+                            arr.equals_json(
+                                &json_array.iter().collect::<Vec<&Value>>()[..],
+                            )
+                        }
+                        DataType::UInt16 => {
+                            let arr = arr
+                                .as_any()
+                                .downcast_ref::<UInt16DictionaryArray>()
+                                .unwrap();
+                            arr.equals_json(
+                                &json_array.iter().collect::<Vec<&Value>>()[..],
+                            )
+                        }
+                        DataType::UInt32 => {
+                            let arr = arr
+                                .as_any()
+                                .downcast_ref::<UInt32DictionaryArray>()
+                                .unwrap();
+                            arr.equals_json(
+                                &json_array.iter().collect::<Vec<&Value>>()[..],
+                            )
+                        }
+                        DataType::UInt64 => {
+                            let arr = arr
+                                .as_any()
+                                .downcast_ref::<UInt64DictionaryArray>()
+                                .unwrap();
+                            arr.equals_json(
+                                &json_array.iter().collect::<Vec<&Value>>()[..],
+                            )
+                        }
+                        t @ _ => panic!("Unsupported dictionary comparison for {:?}", t),
+                    },
                     t @ _ => panic!("Unsupported comparison for {:?}", t),
                 }
             })

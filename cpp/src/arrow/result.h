@@ -455,6 +455,11 @@ inline Status GenericToStatus(const Result<T>& res) {
   return res.status();
 }
 
+template <typename T>
+inline Status GenericToStatus(Result<T>&& res) {
+  return std::move(res).status();
+}
+
 }  // namespace internal
 
 }  // namespace arrow

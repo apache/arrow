@@ -58,7 +58,7 @@ gparquet_writer_properties_finalize(GObject *object)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(object);
 
-  priv->properties = nullptr;
+  priv->properties.~shared_ptr();
   delete priv->builder;
 
   G_OBJECT_CLASS(gparquet_writer_properties_parent_class)->finalize(object);
@@ -68,6 +68,7 @@ static void
 gparquet_writer_properties_init(GParquetWriterProperties *object)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(object);
+  new(&priv->properties) std::shared_ptr<parquet::WriterProperties>;
   priv->builder = new parquet::WriterProperties::Builder();
   priv->changed = TRUE;
 }

@@ -23,6 +23,7 @@ import glob
 import time
 import logging
 import mimetypes
+import subprocess
 import textwrap
 import concurrent.futures
 from io import StringIO
@@ -552,19 +553,12 @@ class Repo:
         else:
             return {a.name: a for a in release.assets()}
 
-    def github_upload_asset(self, release, path, max_retries=None,
-                            retry_backoff=None):
+    def github_upload_asset_requests(self, release, path, name, mime,
+                                     max_retries=None, retry_backoff=None):
         if max_retries is None:
             max_retries = int(os.environ.get('CROSSBOW_MAX_RETRIES', 8))
         if retry_backoff is None:
             retry_backoff = int(os.environ.get('CROSSBOW_RETRY_BACKOFF', 5))
-
-        name = os.path.basename(path)
-        size = os.path.getsize(path)
-        mime = mimetypes.guess_type(name)[0] or 'application/zip'
-
-        click.echo('Uploading asset `{}` with mimetype {} and size {}...'
-                   .format(name, mime, size))
 
         for i in range(max_retries):
             try:
@@ -601,8 +595,25 @@ class Repo:
 
         raise RuntimeError('Github asset uploading has failed!')
 
+    def github_upload_asset_curl(self, release, path, name, mime):
+        upload_url, _ = release.upload_url.split('{?')
+        upload_url += '?name={}'.format(name)
+
+        command = [
+            'curl',
+            '-H', "Authorization: token {}".format(self.github_token),
+            '-H', "Content-Type: {}".format(mime),
+            '--data-binary', '@{}'.format(path),
+            upload_url
+        ]
+        return subprocess.run(command, shell=False, check=True)
+
     def github_overwrite_release_assets(self, tag_name, target_commitish,
-                                        patterns):
+                                        patterns, method='requests'):
+        # Since github has changed something the asset uploading via requests
+        # got instable, so prefer the cURL alternative.
+        # Potential cause:
+        #    sigmavirus24/github3.py/issues/779#issuecomment-379470626
         repo = self.as_github_repo()
         if not tag_name:
             raise ValueError('Empty tag name')
@@ -620,8 +631,25 @@ class Repo:
         release = repo.create_release(tag_name, target_commitish)
         for pattern in patterns:
             for path in glob.glob(pattern, recursive=True):
-                self.github_upload_asset(release, path)
-                time.sleep(2)  # Hack: be more gently with the github API
+                name = os.path.basename(path)
+                size = os.path.getsize(path)
+                mime = mimetypes.guess_type(name)[0] or 'application/zip'
+
+                click.echo(
+                    'Uploading asset `{}` with mimetype {} and size {}...'
+                    .format(name, mime, size)
+                )
+
+                if method == 'requests':
+                    self.github_upload_asset_requests(release, path, name=name,
+                                                      mime=mime)
+                elif method == 'curl':
+                    self.github_upload_asset_curl(release, path, name=name,
+                                                  mime=mime)
+                else:
+                    raise ValueError(
+                        'Unsupported upload method {}'.format(method)
+                    )
 
 
 CombinedStatus = namedtuple('CombinedStatus', ('state', 'total_count'))
@@ -1584,13 +1612,14 @@ def download_artifacts(obj, job_name, target_dir):
 @crossbow.command()
 @click.option('--sha', required=True, help='Target committish')
 @click.option('--tag', required=True, help='Target tag')
+@click.option('--method', default='curl', help='Use cURL to upload')
 @click.option('--pattern', '-p', 'patterns', required=True, multiple=True,
               help='File pattern to upload as assets')
 @click.pass_obj
-def upload_artifacts(obj, tag, sha, patterns):
+def upload_artifacts(obj, tag, sha, patterns, method):
     queue = obj['queue']
     queue.github_overwrite_release_assets(
-        tag_name=tag, target_commitish=sha, patterns=patterns
+        tag_name=tag, target_commitish=sha, method=method, patterns=patterns
     )
 
 

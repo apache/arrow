@@ -18,6 +18,7 @@
 #include "arrow/array/validate.h"
 
 #include "arrow/array.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
@@ -41,11 +42,13 @@ struct ValidateArrayVisitor {
     ARROW_RETURN_IF(array.data()->buffers.size() != 2,
                     Status::Invalid("number of buffers is != 2"));
 
-    if (array.length() > 0 && array.data()->buffers[1] == nullptr) {
-      return Status::Invalid("values buffer is null");
-    }
-    if (array.length() > 0 && array.values() == nullptr) {
-      return Status::Invalid("values is null");
+    if (array.length() > 0) {
+      if (array.data()->buffers[1] == nullptr) {
+        return Status::Invalid("values buffer is null");
+      }
+      if (array.values() == nullptr) {
+        return Status::Invalid("values is null");
+      }
     }
     return Status::OK();
   }
@@ -76,44 +79,23 @@ struct ValidateArrayVisitor {
     if (!array.keys()) {
       return Status::Invalid("keys is null");
     }
-    const Status key_valid = ValidateArray(*array.keys());
-    if (!key_valid.ok()) {
-      return Status::Invalid("key array invalid: ", key_valid.ToString());
-    }
-
-    if (array.length() > 0 && !array.values()) {
-      return Status::Invalid("values is null");
-    }
-    const Status values_valid = ValidateArray(*array.values());
-    if (!values_valid.ok()) {
-      return Status::Invalid("values array invalid: ", values_valid.ToString());
-    }
-
-    const int32_t last_offset = array.value_offset(array.length());
-    if (array.values()->length() != last_offset) {
-      return Status::Invalid("Final offset invariant not equal to values length: ",
-                             last_offset, "!=", array.values()->length());
-    }
-    if (array.keys()->length() != last_offset) {
-      return Status::Invalid("Final offset invariant not equal to keys length: ",
-                             last_offset, "!=", array.keys()->length());
-    }
-
-    return ValidateOffsets(array);
+    return ValidateListArray(array);
   }
 
   Status Visit(const FixedSizeListArray& array) {
-    if (array.length() > 0 && !array.values()) {
+    const int64_t len = array.length();
+    const int64_t value_size = array.value_length();
+    if (len > 0 && !array.values()) {
       return Status::Invalid("values is null");
     }
-    if (array.value_length() < 0) {
-      return Status::Invalid("FixedSizeListArray has negative value length ",
-                             array.value_length());
+    if (value_size < 0) {
+      return Status::Invalid("FixedSizeListArray has negative value size ", value_size);
     }
-    if (array.values()->length() != array.length() * array.value_length()) {
-      return Status::Invalid(
-          "Values Length (", array.values()->length(), ") is not equal to the length (",
-          array.length(), ") multiplied by the list size (", array.value_length(), ")");
+    if (HasMultiplyOverflow(len, value_size) ||
+        array.values()->length() != len * value_size) {
+      return Status::Invalid("Values Length (", array.values()->length(),
+                             ") is not equal to the length (", len,
+                             ") multiplied by the value size (", value_size, ")");
     }
 
     return Status::OK();
@@ -265,7 +247,8 @@ struct ValidateArrayVisitor {
 
     auto value_offsets = array.value_offsets();
     if (value_offsets == nullptr) {
-      if (array.length() != 0) {
+      // For length 0, an empty offsets array seems accepted as a special case (ARROW-544)
+      if (array.length() > 0) {
         return Status::Invalid("non-empty array but value_offsets_ is null");
       }
       return Status::OK();

@@ -436,6 +436,7 @@ namespace internal {
 // Extract Status from Status or Result<T>
 // Useful for the status check macros such as RETURN_NOT_OK.
 inline Status GenericToStatus(const Status& st) { return st; }
+inline Status GenericToStatus(Status&& st) { return std::move(st); }
 
 }  // namespace internal
 

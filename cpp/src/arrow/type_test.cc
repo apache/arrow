@@ -1012,6 +1012,23 @@ TEST(TestFixedSizeListType, Basics) {
   ASSERT_EQ("fixed_size_list<item: fixed_size_list<item: string>[3]>[7]", lt2.ToString());
 }
 
+TEST(TestFixedSizeListType, Equals) {
+  auto t1 = fixed_size_list(int8(), 3);
+  auto t2 = fixed_size_list(int8(), 3);
+  auto t3 = fixed_size_list(int8(), 4);
+  auto t4 = fixed_size_list(int16(), 4);
+  auto t5 = fixed_size_list(list(int16()), 4);
+  auto t6 = fixed_size_list(list(int16()), 4);
+  auto t7 = fixed_size_list(list(int32()), 4);
+
+  AssertTypeEqual(t1, t2);
+  AssertTypeNotEqual(t2, t3);
+  AssertTypeNotEqual(t3, t4);
+  AssertTypeNotEqual(t4, t5);
+  AssertTypeEqual(t5, t6);
+  AssertTypeNotEqual(t6, t7);
+}
+
 TEST(TestDateTypes, Attrs) {
   auto t1 = date32();
   auto t2 = date64();

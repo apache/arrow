@@ -105,14 +105,16 @@ TEST_F(TestLikeHolder, TestOptimise) {
   EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
   EXPECT_EQ(fnode.ToString(), "bool ends_with((string) in, (const string) xyz)");
 
+  // optimise for 'is_substr'
+  fnode = LikeHolder::TryOptimize(BuildLike("%abc%"));
+  EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
+  EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) abc)");
+
   // no optimisation for others.
   fnode = LikeHolder::TryOptimize(BuildLike("xyz_"));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
 
   fnode = LikeHolder::TryOptimize(BuildLike("_xyz"));
-  EXPECT_EQ(fnode.descriptor()->name(), "like");
-
-  fnode = LikeHolder::TryOptimize(BuildLike("%xyz%"));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
 
   fnode = LikeHolder::TryOptimize(BuildLike("_xyz_"));

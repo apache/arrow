@@ -196,9 +196,9 @@ std::shared_ptr<KeyValueMetadata> key_value_metadata(
   return std::make_shared<KeyValueMetadata>(pairs);
 }
 
-std::shared_ptr<KeyValueMetadata> key_value_metadata(
-    const std::vector<std::string>& keys, const std::vector<std::string>& values) {
-  return std::make_shared<KeyValueMetadata>(keys, values);
+std::shared_ptr<KeyValueMetadata> key_value_metadata(std::vector<std::string> keys,
+                                                     std::vector<std::string> values) {
+  return std::make_shared<KeyValueMetadata>(std::move(keys), std::move(values));
 }
 
 }  // namespace arrow

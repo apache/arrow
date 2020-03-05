@@ -291,7 +291,7 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
     ::arrow::random::RandomArrayGenerator rag(0);
     input_array_ = rag.StringWithRepeats(num_values_, num_values_ / repeat_factor,
                                          min_length, max_length, /*null_probability=*/0);
-    valid_bits_ = input_array_->null_bitmap()->data();
+    valid_bits_ = input_array_->null_bitmap_data();
     total_size_ = input_array_->data()->buffers[2]->size();
 
     values_.reserve(num_values_);

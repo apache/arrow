@@ -9,6 +9,8 @@
 A \code{FileFormat} holds information about how to read and parse the files
 included in a \code{Dataset}. There are subclasses corresponding to the supported
 file formats (\code{ParquetFileFormat} and \code{IpcFileFormat}).
+
+Return the \code{FileFormat}'s type
 }
 \section{Factory}{
 
@@ -18,6 +20,14 @@ file formats (\code{ParquetFileFormat} and \code{IpcFileFormat}).
 Currently supported options are "parquet", "arrow", and "ipc" (an alias for
 the Arrow file format)
 \item \code{...}: Additional format-specific options
+format="parquet":
+\itemize{
+\item \code{use_buffered_stream}: Read files through buffered input streams rather than
+loading entire row groups at once. This may be enabled
+to reduce memory overhead. Disabled by default.
+\item \code{buffer_size}: Size of buffered stream, if enabled. Default is 8KB.
+\item \code{dict_columns}: Names of columns which should be read as dictionaries.
+}
 }
 
 It returns the appropriate subclass of \code{FileFormat} (e.g. \code{ParquetFileFormat})

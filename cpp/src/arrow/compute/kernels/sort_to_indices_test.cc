@@ -121,9 +121,19 @@ TYPED_TEST(TestSortToIndicesKernelForInt8, SortInt8) {
 template <typename ArrowType>
 class TestSortToIndicesKernelRandom : public ComputeFixture, public TestBase {};
 
+template <typename ArrowType>
+class TestSortToIndicesKernelRandomCount : public ComputeFixture, public TestBase {};
+
+template <typename ArrowType>
+class TestSortToIndicesKernelRandomCompare : public ComputeFixture, public TestBase {};
+
 using SortToIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, StringType>;
+
+using SortToIndicesIntegerTypes =
+    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                     Int32Type, Int64Type>;
 
 template <typename ArrayType>
 class Comparator {
@@ -190,6 +200,23 @@ class Random<StringType> : public RandomImpl {
   }
 };
 
+template <typename ArrowType>
+class RandomRange : public RandomImpl {
+  using CType = typename TypeTraits<ArrowType>::CType;
+
+ public:
+  explicit RandomRange(random::SeedType seed) : RandomImpl(seed) {}
+
+  std::shared_ptr<Array> Generate(uint64_t count, int range, double null_prob) {
+    CType min = std::numeric_limits<CType>::min();
+    CType max = min + range;
+    if (sizeof(CType) < 4 && (range + min) > std::numeric_limits<CType>::max()) {
+      max = std::numeric_limits<CType>::max();
+    }
+    return generator.Numeric<ArrowType>(count, min, max, null_prob);
+  }
+};
+
 TYPED_TEST_CASE(TestSortToIndicesKernelRandom, SortToIndicesableTypes);
 
 TYPED_TEST(TestSortToIndicesKernelRandom, SortRandomValues) {
@@ -198,6 +225,49 @@ TYPED_TEST(TestSortToIndicesKernelRandom, SortRandomValues) {
   Random<TypeParam> rand(0x5487655);
   int times = 5;
   int length = 1000;
+  for (int test = 0; test < times; test++) {
+    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+      auto array = rand.Generate(length, null_probability);
+      std::shared_ptr<Array> offsets;
+      ASSERT_OK(arrow::compute::SortToIndices(&this->ctx_, *array, &offsets));
+      ValidateSorted<ArrayType>(*std::static_pointer_cast<ArrayType>(array),
+                                *std::static_pointer_cast<UInt64Array>(offsets));
+    }
+  }
+}
+
+// Long array with small value range: counting sort
+// - length >= 1024(CountCompareSorter::countsort_min_len_)
+// - range  <= 4096(CountCompareSorter::countsort_max_range_)
+TYPED_TEST_CASE(TestSortToIndicesKernelRandomCount, SortToIndicesIntegerTypes);
+
+TYPED_TEST(TestSortToIndicesKernelRandomCount, SortRandomValuesCount) {
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+
+  RandomRange<TypeParam> rand(0x5487656);
+  int times = 5;
+  int length = 4000;
+  int range = 2000;
+  for (int test = 0; test < times; test++) {
+    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+      auto array = rand.Generate(length, range, null_probability);
+      std::shared_ptr<Array> offsets;
+      ASSERT_OK(arrow::compute::SortToIndices(&this->ctx_, *array, &offsets));
+      ValidateSorted<ArrayType>(*std::static_pointer_cast<ArrayType>(array),
+                                *std::static_pointer_cast<UInt64Array>(offsets));
+    }
+  }
+}
+
+// Long array with big value range: std::stable_sort
+TYPED_TEST_CASE(TestSortToIndicesKernelRandomCompare, SortToIndicesIntegerTypes);
+
+TYPED_TEST(TestSortToIndicesKernelRandomCompare, SortRandomValuesCompare) {
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+
+  Random<TypeParam> rand(0x5487657);
+  int times = 5;
+  int length = 4000;
   for (int test = 0; test < times; test++) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
       auto array = rand.Generate(length, null_probability);

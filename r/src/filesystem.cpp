@@ -18,52 +18,49 @@
 #include "./arrow_types.h"
 #if defined(ARROW_R_WITH_ARROW)
 
-// FileStype
+// FileInfo
 
 // [[arrow::export]]
-fs::FileType fs___FileStats__type(const std::shared_ptr<fs::FileStats>& x) {
+fs::FileType fs___FileInfo__type(const std::shared_ptr<fs::FileInfo>& x) {
   return x->type();
 }
 
 // [[arrow::export]]
-void fs___FileStats__set_type(const std::shared_ptr<fs::FileStats>& x,
-                              fs::FileType type) {
+void fs___FileInfo__set_type(const std::shared_ptr<fs::FileInfo>& x, fs::FileType type) {
   x->set_type(type);
 }
 
 // [[arrow::export]]
-std::string fs___FileStats__path(const std::shared_ptr<fs::FileStats>& x) {
+std::string fs___FileInfo__path(const std::shared_ptr<fs::FileInfo>& x) {
   return x->path();
 }
 
 // [[arrow::export]]
-void fs___FileStats__set_path(const std::shared_ptr<fs::FileStats>& x,
-                              const std::string& path) {
+void fs___FileInfo__set_path(const std::shared_ptr<fs::FileInfo>& x,
+                             const std::string& path) {
   x->set_path(path);
 }
 
 // [[arrow::export]]
-int64_t fs___FileStats__size(const std::shared_ptr<fs::FileStats>& x) {
-  return x->size();
-}
+int64_t fs___FileInfo__size(const std::shared_ptr<fs::FileInfo>& x) { return x->size(); }
 
 // [[arrow::export]]
-void fs___FileStats__set_size(const std::shared_ptr<fs::FileStats>& x, int64_t size) {
+void fs___FileInfo__set_size(const std::shared_ptr<fs::FileInfo>& x, int64_t size) {
   x->set_size(size);
 }
 
 // [[arrow::export]]
-std::string fs___FileStats__base_name(const std::shared_ptr<fs::FileStats>& x) {
+std::string fs___FileInfo__base_name(const std::shared_ptr<fs::FileInfo>& x) {
   return x->base_name();
 }
 
 // [[arrow::export]]
-std::string fs___FileStats__extension(const std::shared_ptr<fs::FileStats>& x) {
+std::string fs___FileInfo__extension(const std::shared_ptr<fs::FileInfo>& x) {
   return x->extension();
 }
 
 // [[arrow::export]]
-SEXP fs___FileStats__mtime(const std::shared_ptr<fs::FileStats>& x) {
+SEXP fs___FileInfo__mtime(const std::shared_ptr<fs::FileInfo>& x) {
   SEXP res = PROTECT(Rf_allocVector(REALSXP, 1));
   // .mtime() gets us nanoseconds since epoch, POSIXct is seconds since epoch as a double
   REAL(res)[0] = static_cast<double>(x->mtime().time_since_epoch().count()) / 1000000000;
@@ -73,7 +70,7 @@ SEXP fs___FileStats__mtime(const std::shared_ptr<fs::FileStats>& x) {
 }
 
 // [[arrow::export]]
-void fs___FileStats__set_mtime(const std::shared_ptr<fs::FileStats>& x, SEXP time) {
+void fs___FileInfo__set_mtime(const std::shared_ptr<fs::FileInfo>& x, SEXP time) {
   auto nanosecs =
       std::chrono::nanoseconds(static_cast<int64_t>(REAL(time)[0] * 1000000000));
   x->set_mtime(fs::TimePoint(nanosecs));
@@ -113,26 +110,25 @@ std::shared_ptr<fs::FileSelector> fs___FileSelector__create(const std::string& b
 
 template <typename T>
 std::vector<std::shared_ptr<T>> shared_ptr_vector(const std::vector<T>& vec) {
-  std::vector<std::shared_ptr<fs::FileStats>> res(vec.size());
-  std::transform(vec.begin(), vec.end(), res.begin(), [](const fs::FileStats& x) {
-    return std::make_shared<fs::FileStats>(x);
-  });
+  std::vector<std::shared_ptr<fs::FileInfo>> res(vec.size());
+  std::transform(vec.begin(), vec.end(), res.begin(),
+                 [](const fs::FileInfo& x) { return std::make_shared<fs::FileInfo>(x); });
   return res;
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_Paths(
+std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::vector<std::string>& paths) {
-  auto results = VALUE_OR_STOP(file_system->GetTargetStats(paths));
+  auto results = VALUE_OR_STOP(file_system->GetTargetInfos(paths));
   return shared_ptr_vector(results);
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_FileSelector(
+std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_FileSelector(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::shared_ptr<fs::FileSelector>& selector) {
-  auto results = VALUE_OR_STOP(file_system->GetTargetStats(*selector));
+  auto results = VALUE_OR_STOP(file_system->GetTargetInfos(*selector));
   return shared_ptr_vector(results);
 }
 

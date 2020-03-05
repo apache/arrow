@@ -31,20 +31,6 @@
 
 namespace arrow {
 
-template <typename T>
-std::vector<T> IteratorToVector(Iterator<T> iterator) {
-  std::vector<T> out;
-
-  auto fn = [&out](T value) -> Status {
-    out.emplace_back(std::move(value));
-    return Status::OK();
-  };
-
-  ARROW_EXPECT_OK(iterator.Visit(fn));
-
-  return out;
-}
-
 struct TestInt {
   TestInt() : value(-999) {}
   TestInt(int i) : value(i) {}  // NOLINT runtime/explicit

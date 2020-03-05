@@ -55,6 +55,15 @@ TEST(TestStringOps, TestBeginsEnds) {
   EXPECT_FALSE(ends_with_utf8_utf8("hello", 5, "sir", 3));
 }
 
+TEST(TestStringOps, TestIsSubstr) {
+  EXPECT_TRUE(is_substr_utf8_utf8("hello world", 11, "world", 5));
+  EXPECT_TRUE(is_substr_utf8_utf8("hello world", 11, "lo wo", 5));
+  EXPECT_FALSE(is_substr_utf8_utf8("hello world", 11, "adsed", 5));
+  EXPECT_FALSE(is_substr_utf8_utf8("hel", 3, "hello", 5));
+  EXPECT_TRUE(is_substr_utf8_utf8("hello", 5, "hello", 5));
+  EXPECT_TRUE(is_substr_utf8_utf8("hello world", 11, "", 0));
+}
+
 TEST(TestStringOps, TestCharLength) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

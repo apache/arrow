@@ -620,6 +620,9 @@ def test_pandas_parquet_configuration_options(tempdir):
         tm.assert_frame_equal(df, df_read)
 
     for compression in ['NONE', 'SNAPPY', 'GZIP', 'LZ4', 'ZSTD']:
+        if (compression != 'NONE' and
+                not pa.lib.Codec.is_available(compression)):
+            continue
         _write_table(arrow_table, filename, version='2.0',
                      compression=compression)
         table_read = _read_table(filename)
@@ -891,7 +894,11 @@ def test_statistics_convert_logical_types(tempdir):
 
 def test_parquet_write_disable_statistics(tempdir):
     table = pa.Table.from_pydict(
-        {'a': pa.array([1, 2, 3]), 'b': pa.array(['a', 'b', 'c'])})
+        OrderedDict([
+            ('a', pa.array([1, 2, 3])),
+            ('b', pa.array(['a', 'b', 'c']))
+        ])
+    )
     _write_table(table, tempdir / 'data.parquet')
     meta = pq.read_metadata(tempdir / 'data.parquet')
     for col in [0, 1]:
@@ -909,10 +916,10 @@ def test_parquet_write_disable_statistics(tempdir):
     _write_table(table, tempdir / 'data3.parquet', write_statistics=['a'])
     meta = pq.read_metadata(tempdir / 'data3.parquet')
     cc_a = meta.row_group(0).column(0)
-    assert cc_a.is_stats_set is True
-    assert cc_a.statistics is not None
     cc_b = meta.row_group(0).column(1)
+    assert cc_a.is_stats_set is True
     assert cc_b.is_stats_set is False
+    assert cc_a.statistics is not None
     assert cc_b.statistics is None
 
 

@@ -150,7 +150,9 @@ set(ARROW_SRCS
     tensor.cc
     type.cc
     visitor.cc
+    c/bridge.cc
     io/buffered.cc
+    io/caching.cc
     io/compressed.cc
     io/file.cc
     io/hdfs.cc
@@ -166,6 +168,7 @@ set(ARROW_SRCS
     util/decimal.cc
     util/delimiting.cc
     util/formatting.cc
+    util/future.cc
     util/int_util.cc
     util/io_util.cc
     util/iterator.cc
@@ -304,6 +307,8 @@ if(ARROW_CSV)
               csv/options.cc
               csv/parser.cc
               csv/reader.cc)
+
+  list(APPEND ARROW_TESTING_SRCS csv/test_common.cc)
 endif()
 
 if(ARROW_COMPUTE)
@@ -514,8 +519,13 @@ if(ARROW_IPC)
   add_arrow_test(extension_type_test)
 endif()
 
-add_arrow_test(memory_pool_test)
-add_arrow_test(pretty_print_test)
+add_arrow_test(misc_test
+               SOURCES
+               memory_pool_test.cc
+               result_test.cc
+               pretty_print_test.cc
+               status_test.cc)
+
 add_arrow_test(public_api_test)
 
 set_source_files_properties(public_api_test.cc
@@ -525,12 +535,11 @@ set_source_files_properties(public_api_test.cc
                             SKIP_UNITY_BUILD_INCLUSION
                             ON)
 
-add_arrow_test(result_test)
 add_arrow_test(scalar_test)
-add_arrow_test(status_test)
 add_arrow_test(type_test)
-add_arrow_test(table_test)
-add_arrow_test(table_builder_test)
+
+add_arrow_test(table_test SOURCES table_test.cc table_builder_test.cc)
+
 add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)
 
@@ -550,6 +559,7 @@ add_arrow_benchmark(type_benchmark)
 add_subdirectory(testing)
 
 add_subdirectory(array)
+add_subdirectory(c)
 add_subdirectory(io)
 add_subdirectory(util)
 add_subdirectory(vendored)

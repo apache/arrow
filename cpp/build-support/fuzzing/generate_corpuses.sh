@@ -27,7 +27,7 @@ fi
 set -ex
 
 CORPUS_DIR=/tmp/corpus
-ARROW=$(cd $(dirname $BASH_SOURCE)/../..; pwd)
+ARROW_CPP=$(cd $(dirname $BASH_SOURCE)/../..; pwd)
 OUT=$1
 
 # NOTE: name of seed corpus output file should be "<FUZZ TARGET>-seed_corpus.zip"
@@ -36,12 +36,13 @@ OUT=$1
 
 rm -rf ${CORPUS_DIR}
 ${OUT}/arrow-ipc-generate-fuzz-corpus -stream ${CORPUS_DIR}
-${ARROW}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/arrow-ipc-stream-fuzz_seed_corpus.zip
+${ARROW_CPP}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/arrow-ipc-stream-fuzz_seed_corpus.zip
 
 rm -rf ${CORPUS_DIR}
 ${OUT}/arrow-ipc-generate-fuzz-corpus -file ${CORPUS_DIR}
-${ARROW}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/arrow-ipc-file-fuzz_seed_corpus.zip
+${ARROW_CPP}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/arrow-ipc-file-fuzz_seed_corpus.zip
 
 rm -rf ${CORPUS_DIR}
 ${OUT}/parquet-arrow-generate-fuzz-corpus ${CORPUS_DIR}
-${ARROW}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/parquet-arrow-fuzz_seed_corpus.zip
+cp ${ARROW_CPP}/submodules/parquet-testing/data/*.parquet ${CORPUS_DIR}
+${ARROW_CPP}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/parquet-arrow-fuzz_seed_corpus.zip

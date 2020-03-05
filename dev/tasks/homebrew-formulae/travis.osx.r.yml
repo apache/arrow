@@ -16,7 +16,8 @@
 
 os: osx
 # CRAN builds on macOS 10.11, so make sure that's what we're testing
-osx_image: xcode7.3
+# See https://issues.apache.org/jira/browse/ARROW-7923; this is currently disabled
+# osx_image: xcode8
 language: r
 cache: packages
 r: {{ r_version }}

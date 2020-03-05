@@ -19,7 +19,7 @@ module Arrow
   class NullArrayBuilder
     class << self
       def buildable?(args)
-        super and args.collect(&:class) != [Integer]
+        super and not (args.size == 1 and args[0].is_a?(Integer))
       end
     end
   end

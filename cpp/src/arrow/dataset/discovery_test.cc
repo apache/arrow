@@ -133,7 +133,7 @@ TEST_F(MockDatasetFactoryTest, UnifySchemas) {
 
 class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
  public:
-  void MakeFactory(const std::vector<fs::FileStats>& files) {
+  void MakeFactory(const std::vector<fs::FileInfo>& files) {
     MakeFileSystem(files);
     ASSERT_OK_AND_ASSIGN(factory_, FileSystemDatasetFactory::Make(fs_, selector_, format_,
                                                                   factory_options_));

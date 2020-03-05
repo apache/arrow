@@ -58,7 +58,6 @@ function build_wheel {
     pushd cpp
     mkdir build
     pushd build
-
     cmake -DARROW_BUILD_SHARED=ON \
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_DATASET=ON \
@@ -80,6 +79,7 @@ function build_wheel {
           -DARROW_WITH_SNAPPY=ON \
           -DARROW_WITH_ZLIB=ON \
           -DARROW_WITH_ZSTD=ON \
+          -DBOOST_SOURCE=SYSTEM \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
           -DgRPC_SOURCE=SYSTEM \

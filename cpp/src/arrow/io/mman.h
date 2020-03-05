@@ -5,8 +5,7 @@
 //
 // https://opensource.org/licenses/MIT
 
-#ifndef _MMAN_WIN32_H
-#define _MMAN_WIN32_H
+#pragma once
 
 #include "arrow/util/windows_compatibility.h"
 
@@ -168,5 +167,3 @@ static inline int munlock(const void* addr, size_t len) {
 
   return -1;
 }
-
-#endif

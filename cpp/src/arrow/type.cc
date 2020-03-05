@@ -613,30 +613,21 @@ std::string NullType::ToString() const { return name(); }
 
 class Schema::Impl {
  public:
-  Impl(const std::vector<std::shared_ptr<Field>>& fields,
-       const std::shared_ptr<const KeyValueMetadata>& metadata)
-      : fields_(fields),
-        name_to_index_(CreateNameToIndexMap(fields_)),
-        metadata_(metadata) {}
-
-  Impl(std::vector<std::shared_ptr<Field>>&& fields,
-       const std::shared_ptr<const KeyValueMetadata>& metadata)
+  Impl(std::vector<std::shared_ptr<Field>> fields,
+       std::shared_ptr<const KeyValueMetadata> metadata)
       : fields_(std::move(fields)),
         name_to_index_(CreateNameToIndexMap(fields_)),
-        metadata_(metadata) {}
+        metadata_(std::move(metadata)) {}
 
   std::vector<std::shared_ptr<Field>> fields_;
   std::unordered_multimap<std::string, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
-Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields,
-               const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : detail::Fingerprintable(), impl_(new Impl(fields, metadata)) {}
-
-Schema::Schema(std::vector<std::shared_ptr<Field>>&& fields,
-               const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : detail::Fingerprintable(), impl_(new Impl(std::move(fields), metadata)) {}
+Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
+               std::shared_ptr<const KeyValueMetadata> metadata)
+    : detail::Fingerprintable(),
+      impl_(new Impl(std::move(fields), std::move(metadata))) {}
 
 Schema::Schema(const Schema& schema)
     : detail::Fingerprintable(), impl_(new Impl(*schema.impl_)) {}
@@ -984,14 +975,9 @@ Status SchemaBuilder::AreCompatible(const std::vector<std::shared_ptr<Schema>>& 
   return Merge(schemas, policy).status();
 }
 
-std::shared_ptr<Schema> schema(const std::vector<std::shared_ptr<Field>>& fields,
-                               const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  return std::make_shared<Schema>(fields, metadata);
-}
-
-std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
-                               const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  return std::make_shared<Schema>(std::move(fields), metadata);
+std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
+                               std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::make_shared<Schema>(std::move(fields), std::move(metadata));
 }
 
 Result<std::shared_ptr<Schema>> UnifySchemas(
@@ -1257,6 +1243,17 @@ std::string MapType::ComputeFingerprint() const {
   return "";
 }
 
+std::string FixedSizeListType::ComputeFingerprint() const {
+  const auto& child_fingerprint = children_[0]->fingerprint();
+  if (!child_fingerprint.empty()) {
+    std::stringstream ss;
+    ss << TypeIdFingerprint(*this) << "[" << list_size_ << "]"
+       << "{" << child_fingerprint << "}";
+    return ss.str();
+  }
+  return "";
+}
+
 std::string FixedSizeBinaryType::ComputeFingerprint() const {
   std::stringstream ss;
   ss << TypeIdFingerprint(*this) << "[" << byte_width_ << "]";
@@ -1492,10 +1489,11 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
   return std::make_shared<DictionaryType>(index_type, dict_type, ordered);
 }
 
-std::shared_ptr<Field> field(const std::string& name,
-                             const std::shared_ptr<DataType>& type, bool nullable,
-                             const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  return std::make_shared<Field>(name, type, nullable, metadata);
+std::shared_ptr<Field> field(std::string name, std::shared_ptr<DataType> type,
+                             bool nullable,
+                             std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::make_shared<Field>(std::move(name), std::move(type), nullable,
+                                 std::move(metadata));
 }
 
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {

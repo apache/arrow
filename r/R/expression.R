@@ -31,13 +31,10 @@ Ops.ChunkedArray <- Ops.Array
 Ops.array_expression <- Ops.Array
 
 #' @export
-is.na.Array <- function(x) array_expression("is.na", x)
+is.na.ChunkedArray <- function(x) array_expression("is.na", x)
 
 #' @export
-is.na.ChunkedArray <- is.na.Array
-
-#' @export
-is.na.array_expression <- is.na.Array
+is.na.array_expression <- function(x) array_expression("is.na", x)
 
 #' @export
 as.vector.array_expression <- function(x, ...) {
@@ -76,7 +73,7 @@ print.array_expression <- function(x, ...) print(as.vector(x))
 #' @name Expression
 #' @rdname Expression
 #' @export
-Expression <- R6Class("Expression", inherit = Object,
+Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
     ToString = function() dataset___expr__ToString(self)
   )

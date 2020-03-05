@@ -73,11 +73,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchWriter,
 static void
 garrow_record_batch_writer_finalize(GObject *object)
 {
-  GArrowRecordBatchWriterPrivate *priv;
+  auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
 
-  priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
-
-  priv->record_batch_writer = nullptr;
+  priv->record_batch_writer.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_record_batch_writer_parent_class)->finalize(object);
 }
@@ -88,9 +86,7 @@ garrow_record_batch_writer_set_property(GObject *object,
                                         const GValue *value,
                                         GParamSpec *pspec)
 {
-  GArrowRecordBatchWriterPrivate *priv;
-
-  priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
+  auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_RECORD_BATCH_WRITER:
@@ -119,6 +115,8 @@ garrow_record_batch_writer_get_property(GObject *object,
 static void
 garrow_record_batch_writer_init(GArrowRecordBatchWriter *object)
 {
+  auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
+  new(&priv->record_batch_writer) std::shared_ptr<arrow::ipc::RecordBatchWriter>;
 }
 
 static void
@@ -325,9 +323,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowFeatherFileWriter,
 static void
 garrow_feather_file_writer_finalize(GObject *object)
 {
-  GArrowFeatherFileWriterPrivate *priv;
-
-  priv = GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(object);
+  auto priv = GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(object);
 
   delete priv->feather_table_writer;
 
@@ -340,9 +336,7 @@ garrow_feather_file_writer_set_property(GObject *object,
                                         const GValue *value,
                                         GParamSpec *pspec)
 {
-  GArrowFeatherFileWriterPrivate *priv;
-
-  priv = GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(object);
+  auto priv = GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_FEATHER_TABLE_WRITER:
@@ -530,9 +524,7 @@ garrow_record_batch_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter
 std::shared_ptr<arrow::ipc::RecordBatchWriter>
 garrow_record_batch_writer_get_raw(GArrowRecordBatchWriter *writer)
 {
-  GArrowRecordBatchWriterPrivate *priv;
-
-  priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(writer);
+  auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(writer);
   return priv->record_batch_writer;
 }
 
@@ -572,8 +564,6 @@ garrow_feather_file_writer_new_raw(arrow::ipc::feather::TableWriter *arrow_write
 arrow::ipc::feather::TableWriter *
 garrow_feather_file_writer_get_raw(GArrowFeatherFileWriter *writer)
 {
-  GArrowFeatherFileWriterPrivate *priv;
-
-  priv = GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(writer);
+  auto priv = GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(writer);
   return priv->feather_table_writer;
 }

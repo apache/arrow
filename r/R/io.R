@@ -21,7 +21,7 @@
 
 # OutputStream ------------------------------------------------------------
 
-Writable <- R6Class("Writable", inherit = Object,
+Writable <- R6Class("Writable", inherit = ArrowObject,
   public = list(
     write = function(x) io___Writable__write(self, buffer(x))
   )
@@ -120,7 +120,7 @@ FixedSizeBufferWriter$create <- function(x) {
 # InputStream -------------------------------------------------------------
 
 
-Readable <- R6Class("Readable", inherit = Object,
+Readable <- R6Class("Readable", inherit = ArrowObject,
   public = list(
     Read = function(nbytes) shared_ptr(Buffer, io___Readable__Read(self, nbytes))
   )

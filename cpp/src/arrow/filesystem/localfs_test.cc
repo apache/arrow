@@ -315,21 +315,21 @@ TYPED_TEST(TestLocalFS, DirectoryMTime) {
   ASSERT_OK(this->fs_->CreateDir("AB/CD/EF"));
   TimePoint t2 = CurrentTimePoint();
 
-  std::vector<FileStats> stats;
-  ASSERT_OK_AND_ASSIGN(stats, this->fs_->GetTargetStats({"AB", "AB/CD/EF", "xxx"}));
-  ASSERT_EQ(stats.size(), 3);
-  AssertFileStats(stats[0], "AB", FileType::Directory);
-  AssertFileStats(stats[1], "AB/CD/EF", FileType::Directory);
-  AssertFileStats(stats[2], "xxx", FileType::NonExistent);
+  std::vector<FileInfo> infos;
+  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetTargetInfos({"AB", "AB/CD/EF", "xxx"}));
+  ASSERT_EQ(infos.size(), 3);
+  AssertFileInfo(infos[0], "AB", FileType::Directory);
+  AssertFileInfo(infos[1], "AB/CD/EF", FileType::Directory);
+  AssertFileInfo(infos[2], "xxx", FileType::NonExistent);
 
   // NOTE: creating AB/CD updates AB's modification time, but creating
   // AB/CD/EF doesn't.  So AB/CD/EF's modification time should always be
   // the same as or after AB's modification time.
-  AssertDurationBetween(stats[1].mtime() - stats[0].mtime(), 0, kTimeSlack);
+  AssertDurationBetween(infos[1].mtime() - infos[0].mtime(), 0, kTimeSlack);
   // Depending on filesystem time granularity, the recorded time could be
   // before the system time when doing the modification.
-  AssertDurationBetween(stats[0].mtime() - t1, -kTimeSlack, kTimeSlack);
-  AssertDurationBetween(t2 - stats[1].mtime(), -kTimeSlack, kTimeSlack);
+  AssertDurationBetween(infos[0].mtime() - t1, -kTimeSlack, kTimeSlack);
+  AssertDurationBetween(t2 - infos[1].mtime(), -kTimeSlack, kTimeSlack);
 }
 
 TYPED_TEST(TestLocalFS, FileMTime) {
@@ -338,16 +338,16 @@ TYPED_TEST(TestLocalFS, FileMTime) {
   CreateFile(this->fs_.get(), "AB/CD/ab", "data");
   TimePoint t2 = CurrentTimePoint();
 
-  std::vector<FileStats> stats;
-  ASSERT_OK_AND_ASSIGN(stats, this->fs_->GetTargetStats({"AB", "AB/CD/ab", "xxx"}));
-  ASSERT_EQ(stats.size(), 3);
-  AssertFileStats(stats[0], "AB", FileType::Directory);
-  AssertFileStats(stats[1], "AB/CD/ab", FileType::File, 4);
-  AssertFileStats(stats[2], "xxx", FileType::NonExistent);
+  std::vector<FileInfo> infos;
+  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetTargetInfos({"AB", "AB/CD/ab", "xxx"}));
+  ASSERT_EQ(infos.size(), 3);
+  AssertFileInfo(infos[0], "AB", FileType::Directory);
+  AssertFileInfo(infos[1], "AB/CD/ab", FileType::File, 4);
+  AssertFileInfo(infos[2], "xxx", FileType::NonExistent);
 
-  AssertDurationBetween(stats[1].mtime() - stats[0].mtime(), 0, kTimeSlack);
-  AssertDurationBetween(stats[0].mtime() - t1, -kTimeSlack, kTimeSlack);
-  AssertDurationBetween(t2 - stats[1].mtime(), -kTimeSlack, kTimeSlack);
+  AssertDurationBetween(infos[1].mtime() - infos[0].mtime(), 0, kTimeSlack);
+  AssertDurationBetween(infos[0].mtime() - t1, -kTimeSlack, kTimeSlack);
+  AssertDurationBetween(t2 - infos[1].mtime(), -kTimeSlack, kTimeSlack);
 }
 
 // TODO Should we test backslash paths on Windows?

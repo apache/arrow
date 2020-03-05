@@ -47,7 +47,11 @@ RUN apt-get update -y && \
         # R CMD CHECK --as-cran needs pdflatex to build the package manual
         texlive-latex-base \
         # Need locales so we can set UTF-8
-        locales && \
+        locales \
+        # Need Python to check py-to-r bridge
+        python3 \
+        python3-pip \
+        python3-dev && \
     locale-gen en_US.UTF-8 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -63,6 +67,19 @@ COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow
 
+# Set up Python 3 and its dependencies
+RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
+    ln -s /usr/bin/pip3 /usr/local/bin/pip
+
+COPY python/requirements.txt \
+     python/requirements-test.txt \
+     /arrow/python/
+
+RUN pip install \
+    -r arrow/python/requirements.txt \
+    cython \
+    setuptools
+
 ENV \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
@@ -74,5 +91,7 @@ ENV \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=OFF \
+    ARROW_PYTHON=ON \
+    ARROW_USE_CCACHE=ON \
     ARROW_USE_GLOG=OFF \
     LC_ALL=en_US.UTF-8

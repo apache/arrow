@@ -529,6 +529,13 @@ cdef class _CRecordBatchReader:
         shared_ptr[CRecordBatchReader] reader
 
 
+cdef class Codec:
+    cdef:
+        unique_ptr[CCodec] wrapped
+
+    cdef inline CCodec* unwrap(self) nogil
+
+
 cdef class CastOptions:
     cdef:
         CCastOptions options
@@ -538,8 +545,6 @@ cdef class CastOptions:
 
     cdef inline CCastOptions unwrap(self) nogil
 
-
-cdef CompressionType _get_compression_type(object name) except *
 
 cdef get_input_stream(object source, c_bool use_memory_map,
                       shared_ptr[CInputStream]* reader)

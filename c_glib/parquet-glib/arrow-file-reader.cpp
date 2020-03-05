@@ -117,7 +117,7 @@ gparquet_arrow_file_reader_class_init(GParquetArrowFileReaderClass *klass)
 
   spec = g_param_spec_pointer("arrow-file-reader",
                               "ArrowFileReader",
-                              "The raw std::shared<parquet::arrow::FileReader> *",
+                              "The raw parquet::arrow::FileReader *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ARROW_FILE_READER, spec);

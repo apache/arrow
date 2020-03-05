@@ -42,21 +42,21 @@ cdef inline c_string _path_as_bytes(path) except *:
     return tobytes(path)
 
 
-cdef class FileStats:
-    """FileSystem entry stats"""
+cdef class FileInfo:
+    """FileSystem entry info"""
 
     def __init__(self):
-        raise TypeError("FileStats cannot be instantiated directly, use "
-                        "FileSystem.get_target_stats method instead.")
+        raise TypeError("FileInfo cannot be instantiated directly, use "
+                        "FileSystem.get_target_infos method instead.")
 
     @staticmethod
-    cdef wrap(CFileStats stats):
-        cdef FileStats self = FileStats.__new__(FileStats)
-        self.stats = stats
+    cdef wrap(CFileInfo info):
+        cdef FileInfo self = FileInfo.__new__(FileInfo)
+        self.info = info
         return self
 
-    cdef inline CFileStats unwrap(self) nogil:
-        return self.stats
+    cdef inline CFileInfo unwrap(self) nogil:
+        return self.info
 
     def __repr__(self):
         def getvalue(attr):
@@ -65,7 +65,7 @@ cdef class FileStats:
             except ValueError:
                 return ''
 
-        s = '<FileStats for {!r}: type={}'.format(self.path, str(self.type))
+        s = '<FileInfo for {!r}: type={}'.format(self.path, str(self.type))
         if self.type == FileType.File:
             s += ', size={}'.format(self.size)
         s += '>'
@@ -88,12 +88,12 @@ cdef class FileStats:
         -------
         type : FileType
         """
-        return FileType(<int8_t> self.stats.type())
+        return FileType(<int8_t> self.info.type())
 
     @property
     def path(self):
         """The full file path in the filesystem."""
-        return frombytes(self.stats.path())
+        return frombytes(self.info.path())
 
     @property
     def base_name(self):
@@ -101,7 +101,7 @@ cdef class FileStats:
 
         Component after the last directory separator.
         """
-        return frombytes(self.stats.base_name())
+        return frombytes(self.info.base_name())
 
     @property
     def size(self):
@@ -109,14 +109,14 @@ cdef class FileStats:
 
         Only regular files are guaranteed to have a size.
         """
-        if self.stats.type() != CFileType_File:
+        if self.info.type() != CFileType_File:
             return None
-        return self.stats.size()
+        return self.info.size()
 
     @property
     def extension(self):
         """The file extension"""
-        return frombytes(self.stats.extension())
+        return frombytes(self.info.extension())
 
     @property
     def mtime(self):
@@ -127,7 +127,7 @@ cdef class FileStats:
         mtime : datetime.datetime
         """
         cdef PyObject *out
-        check_status(PyDateTime_from_TimePoint(self.stats.mtime(), &out))
+        check_status(PyDateTime_from_TimePoint(self.info.mtime(), &out))
         return PyObject_to_object(out)
 
 
@@ -251,11 +251,11 @@ cdef class FileSystem:
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil:
         return self.wrapped
 
-    def get_target_stats(self, paths_or_selector):
-        """Get statistics for the given target.
+    def get_target_infos(self, paths_or_selector):
+        """Get infos for the given target.
 
         Any symlink is automatically dereferenced, recursively. A non-existing
-        or unreachable file returns a FileStats object and has a FileType of
+        or unreachable file returns a FileStat object and has a FileType of
         value NonExistent. An exception indicates a truly exceptional condition
         (low-level I/O error, etc.).
 
@@ -268,25 +268,25 @@ cdef class FileSystem:
 
         Returns
         -------
-        file_stats : list of FileStats
+        file_infos : list of FileInfo
         """
         cdef:
-            vector[CFileStats] stats
+            vector[CFileInfo] infos
             vector[c_string] paths
             CFileSelector selector
 
         if isinstance(paths_or_selector, FileSelector):
             with nogil:
                 selector = (<FileSelector>paths_or_selector).selector
-                stats = GetResultValue(self.fs.GetTargetStats(selector))
+                infos = GetResultValue(self.fs.GetTargetInfos(selector))
         elif isinstance(paths_or_selector, (list, tuple)):
             paths = [_path_as_bytes(s) for s in paths_or_selector]
             with nogil:
-                stats = GetResultValue(self.fs.GetTargetStats(paths))
+                infos = GetResultValue(self.fs.GetTargetInfos(paths))
         else:
             raise TypeError('Must pass either paths or a FileSelector')
 
-        return [FileStats.wrap(stat) for stat in stats]
+        return [FileInfo.wrap(info) for info in infos]
 
     def create_dir(self, path, *, bint recursive=True):
         """Create a directory and subdirectories.

@@ -536,12 +536,8 @@ FixedSizeBinary__initialize <- function(byte_width){
     .Call(`_arrow_FixedSizeBinary__initialize` , byte_width)
 }
 
-Timestamp__initialize1 <- function(unit){
-    .Call(`_arrow_Timestamp__initialize1` , unit)
-}
-
-Timestamp__initialize2 <- function(unit, timezone){
-    .Call(`_arrow_Timestamp__initialize2` , unit, timezone)
+Timestamp__initialize <- function(unit, timezone){
+    .Call(`_arrow_Timestamp__initialize` , unit, timezone)
 }
 
 Time32__initialize <- function(unit){
@@ -796,44 +792,44 @@ Field__type <- function(field){
     .Call(`_arrow_Field__type` , field)
 }
 
-fs___FileStats__type <- function(x){
-    .Call(`_arrow_fs___FileStats__type` , x)
+fs___FileInfo__type <- function(x){
+    .Call(`_arrow_fs___FileInfo__type` , x)
 }
 
-fs___FileStats__set_type <- function(x, type){
-    invisible(.Call(`_arrow_fs___FileStats__set_type` , x, type))
+fs___FileInfo__set_type <- function(x, type){
+    invisible(.Call(`_arrow_fs___FileInfo__set_type` , x, type))
 }
 
-fs___FileStats__path <- function(x){
-    .Call(`_arrow_fs___FileStats__path` , x)
+fs___FileInfo__path <- function(x){
+    .Call(`_arrow_fs___FileInfo__path` , x)
 }
 
-fs___FileStats__set_path <- function(x, path){
-    invisible(.Call(`_arrow_fs___FileStats__set_path` , x, path))
+fs___FileInfo__set_path <- function(x, path){
+    invisible(.Call(`_arrow_fs___FileInfo__set_path` , x, path))
 }
 
-fs___FileStats__size <- function(x){
-    .Call(`_arrow_fs___FileStats__size` , x)
+fs___FileInfo__size <- function(x){
+    .Call(`_arrow_fs___FileInfo__size` , x)
 }
 
-fs___FileStats__set_size <- function(x, size){
-    invisible(.Call(`_arrow_fs___FileStats__set_size` , x, size))
+fs___FileInfo__set_size <- function(x, size){
+    invisible(.Call(`_arrow_fs___FileInfo__set_size` , x, size))
 }
 
-fs___FileStats__base_name <- function(x){
-    .Call(`_arrow_fs___FileStats__base_name` , x)
+fs___FileInfo__base_name <- function(x){
+    .Call(`_arrow_fs___FileInfo__base_name` , x)
 }
 
-fs___FileStats__extension <- function(x){
-    .Call(`_arrow_fs___FileStats__extension` , x)
+fs___FileInfo__extension <- function(x){
+    .Call(`_arrow_fs___FileInfo__extension` , x)
 }
 
-fs___FileStats__mtime <- function(x){
-    .Call(`_arrow_fs___FileStats__mtime` , x)
+fs___FileInfo__mtime <- function(x){
+    .Call(`_arrow_fs___FileInfo__mtime` , x)
 }
 
-fs___FileStats__set_mtime <- function(x, time){
-    invisible(.Call(`_arrow_fs___FileStats__set_mtime` , x, time))
+fs___FileInfo__set_mtime <- function(x, time){
+    invisible(.Call(`_arrow_fs___FileInfo__set_mtime` , x, time))
 }
 
 fs___FileSelector__base_dir <- function(selector){
@@ -852,12 +848,12 @@ fs___FileSelector__create <- function(base_dir, allow_non_existent, recursive){
     .Call(`_arrow_fs___FileSelector__create` , base_dir, allow_non_existent, recursive)
 }
 
-fs___FileSystem__GetTargetStats_Paths <- function(file_system, paths){
-    .Call(`_arrow_fs___FileSystem__GetTargetStats_Paths` , file_system, paths)
+fs___FileSystem__GetTargetInfos_Paths <- function(file_system, paths){
+    .Call(`_arrow_fs___FileSystem__GetTargetInfos_Paths` , file_system, paths)
 }
 
-fs___FileSystem__GetTargetStats_FileSelector <- function(file_system, selector){
-    .Call(`_arrow_fs___FileSystem__GetTargetStats_FileSelector` , file_system, selector)
+fs___FileSystem__GetTargetInfos_FileSelector <- function(file_system, selector){
+    .Call(`_arrow_fs___FileSystem__GetTargetInfos_FileSelector` , file_system, selector)
 }
 
 fs___FileSystem__CreateDir <- function(file_system, path, recursive){
@@ -1222,6 +1218,46 @@ parquet___arrow___WriteTable <- function(table, sink, properties, arrow_properti
 
 parquet___arrow___FileReader__GetSchema <- function(reader){
     .Call(`_arrow_parquet___arrow___FileReader__GetSchema` , reader)
+}
+
+ImportArray <- function(array, schema){
+    .Call(`_arrow_ImportArray` , array, schema)
+}
+
+ImportRecordBatch <- function(array, schema){
+    .Call(`_arrow_ImportRecordBatch` , array, schema)
+}
+
+allocate_arrow_schema <- function(){
+    .Call(`_arrow_allocate_arrow_schema` )
+}
+
+delete_arrow_schema <- function(ptr){
+    invisible(.Call(`_arrow_delete_arrow_schema` , ptr))
+}
+
+allocate_arrow_array <- function(){
+    .Call(`_arrow_allocate_arrow_array` )
+}
+
+delete_arrow_array <- function(ptr){
+    invisible(.Call(`_arrow_delete_arrow_array` , ptr))
+}
+
+ExportType <- function(type, ptr){
+    invisible(.Call(`_arrow_ExportType` , type, ptr))
+}
+
+ExportSchema <- function(schema, ptr){
+    invisible(.Call(`_arrow_ExportSchema` , schema, ptr))
+}
+
+ExportArray <- function(array, ptr, schema_ptr){
+    invisible(.Call(`_arrow_ExportArray` , array, ptr, schema_ptr))
+}
+
+ExportRecordBatch <- function(batch, ptr, schema_ptr){
+    invisible(.Call(`_arrow_ExportRecordBatch` , batch, ptr, schema_ptr))
 }
 
 RecordBatch__num_columns <- function(x){

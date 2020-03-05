@@ -50,7 +50,7 @@ read_json_arrow <- function(file, col_select = NULL, as_data_frame = TRUE, ...) 
 #' @format NULL
 #' @docType class
 #' @export
-JsonTableReader <- R6Class("JsonTableReader", inherit = Object,
+JsonTableReader <- R6Class("JsonTableReader", inherit = ArrowObject,
   public = list(
     Read = function() shared_ptr(Table, json___TableReader__Read(self))
   )
@@ -72,7 +72,7 @@ JsonTableReader$create <- function(file,
 #' @format NULL
 #' @docType class
 #' @export
-JsonReadOptions <- R6Class("JsonReadOptions", inherit = Object)
+JsonReadOptions <- R6Class("JsonReadOptions", inherit = ArrowObject)
 JsonReadOptions$create <- function(use_threads = TRUE, block_size = 1048576L) {
   shared_ptr(JsonReadOptions, json___ReadOptions__initialize(
     list(
@@ -87,7 +87,7 @@ JsonReadOptions$create <- function(use_threads = TRUE, block_size = 1048576L) {
 #' @format NULL
 #' @docType class
 #' @export
-JsonParseOptions <- R6Class("JsonParseOptions", inherit = Object)
+JsonParseOptions <- R6Class("JsonParseOptions", inherit = ArrowObject)
 JsonParseOptions$create <- function(newlines_in_values = FALSE) {
   shared_ptr(JsonParseOptions, json___ParseOptions__initialize(
     list(

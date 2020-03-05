@@ -924,7 +924,8 @@ Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
   }
 
   if (!left.type()->Equals(right.type())) {
-    *os << "# Array types differed: " << *left.type() << " vs " << *right.type();
+    *os << "# Array types differed: " << *left.type() << " vs " << *right.type()
+        << std::endl;
     return Status::OK();
   }
 

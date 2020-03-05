@@ -232,7 +232,7 @@ garrow_array_finalize(GObject *object)
 {
   auto priv = GARROW_ARRAY_GET_PRIVATE(object);
 
-  priv->array = nullptr;
+  priv->array.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_array_parent_class)->finalize(object);
 }
@@ -272,6 +272,8 @@ garrow_array_get_property(GObject *object,
 static void
 garrow_array_init(GArrowArray *object)
 {
+  auto priv = GARROW_ARRAY_GET_PRIVATE(object);
+  new(&priv->array) std::shared_ptr<arrow::Array>;
 }
 
 static void

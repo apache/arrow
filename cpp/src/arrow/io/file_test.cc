@@ -41,6 +41,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 
 namespace arrow {
@@ -364,6 +365,18 @@ TEST_F(TestReadableFile, ReadAt) {
   ASSERT_RAISES(Invalid, file_->ReadAt(0, 1));
 }
 
+TEST_F(TestReadableFile, ReadAsync) {
+  MakeTestFile();
+  OpenFile();
+
+  auto fut1 = file_->ReadAsync(1, 10);
+  auto fut2 = file_->ReadAsync(0, 4);
+  ASSERT_OK_AND_ASSIGN(auto buf1, fut1.result());
+  ASSERT_OK_AND_ASSIGN(auto buf2, fut2.result());
+  AssertBufferEqual(*buf1, "estdata");
+  AssertBufferEqual(*buf2, "test");
+}
+
 TEST_F(TestReadableFile, SeekingRequired) {
   MakeTestFile();
   OpenFile();
@@ -594,7 +607,6 @@ TEST_F(TestMemoryMappedFile, MapPartFile) {
 TEST_F(TestMemoryMappedFile, WriteRead) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
-
   random_bytes(1024, 0, buffer.data());
 
   const int reps = 5;
@@ -611,6 +623,26 @@ TEST_F(TestMemoryMappedFile, WriteRead) {
 
     position += buffer_size;
   }
+}
+
+TEST_F(TestMemoryMappedFile, ReadAsync) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  random_bytes(1024, 0, buffer.data());
+
+  std::string path = "io-memory-map-read-async-test";
+  ASSERT_OK_AND_ASSIGN(auto mmap, InitMemoryMap(buffer_size, path));
+  ASSERT_OK(mmap->Write(buffer.data(), buffer_size));
+
+  auto fut1 = mmap->ReadAsync(1, 1000);
+  auto fut2 = mmap->ReadAsync(3, 4);
+  ASSERT_EQ(fut1.state(), FutureState::SUCCESS);
+  ASSERT_EQ(fut2.state(), FutureState::SUCCESS);
+  ASSERT_OK_AND_ASSIGN(auto buf1, fut1.result());
+  ASSERT_OK_AND_ASSIGN(auto buf2, fut2.result());
+
+  AssertBufferEqual(*buf1, Buffer(buffer.data() + 1, 1000));
+  AssertBufferEqual(*buf2, Buffer(buffer.data() + 3, 4));
 }
 
 TEST_F(TestMemoryMappedFile, InvalidReads) {
