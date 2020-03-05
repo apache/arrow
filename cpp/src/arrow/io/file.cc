@@ -39,6 +39,7 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <utility>
 
 // ----------------------------------------------------------------------
 // Other Arrow includes
@@ -50,6 +51,7 @@
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
@@ -145,7 +147,7 @@ class OSFile {
 
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) {
     RETURN_NOT_OK(CheckClosed());
-    RETURN_NOT_OK(internal::ValidateRegion(position, nbytes));
+    RETURN_NOT_OK(internal::ValidateRange(position, nbytes));
     // ReadAt() leaves the file position undefined, so require that we seek
     // before calling Read() or Write().
     need_seeking_.store(true);
@@ -696,7 +698,7 @@ Result<std::shared_ptr<Buffer>> MemoryMappedFile::ReadAt(int64_t position,
                           : std::unique_lock<std::mutex>();
 
   ARROW_ASSIGN_OR_RAISE(
-      nbytes, internal::ValidateReadRegion(position, nbytes, memory_map_->size()));
+      nbytes, internal::ValidateReadRange(position, nbytes, memory_map_->size()));
   return memory_map_->Slice(position, nbytes);
 }
 
@@ -706,7 +708,7 @@ Result<int64_t> MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, void*
                           ? std::unique_lock<std::mutex>(memory_map_->resize_lock())
                           : std::unique_lock<std::mutex>();
   ARROW_ASSIGN_OR_RAISE(
-      nbytes, internal::ValidateReadRegion(position, nbytes, memory_map_->size()));
+      nbytes, internal::ValidateReadRange(position, nbytes, memory_map_->size()));
   if (nbytes > 0) {
     memcpy(out, memory_map_->data() + position, static_cast<size_t>(nbytes));
   }
@@ -727,6 +729,11 @@ Result<std::shared_ptr<Buffer>> MemoryMappedFile::Read(int64_t nbytes) {
   return buffer;
 }
 
+Future<std::shared_ptr<Buffer>> MemoryMappedFile::ReadAsync(int64_t position,
+                                                            int64_t nbytes) {
+  return Future<std::shared_ptr<Buffer>>::MakeFinished(ReadAt(position, nbytes));
+}
+
 bool MemoryMappedFile::supports_zero_copy() const { return true; }
 
 Status MemoryMappedFile::WriteAt(int64_t position, const void* data, int64_t nbytes) {
@@ -736,7 +743,7 @@ Status MemoryMappedFile::WriteAt(int64_t position, const void* data, int64_t nby
   if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");
   }
-  RETURN_NOT_OK(internal::ValidateWriteRegion(position, nbytes, memory_map_->size()));
+  RETURN_NOT_OK(internal::ValidateWriteRange(position, nbytes, memory_map_->size()));
 
   RETURN_NOT_OK(memory_map_->Seek(position));
   return WriteInternal(data, nbytes);
@@ -749,8 +756,8 @@ Status MemoryMappedFile::Write(const void* data, int64_t nbytes) {
   if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");
   }
-  RETURN_NOT_OK(internal::ValidateWriteRegion(memory_map_->position(), nbytes,
-                                              memory_map_->size()));
+  RETURN_NOT_OK(
+      internal::ValidateWriteRange(memory_map_->position(), nbytes, memory_map_->size()));
 
   return WriteInternal(data, nbytes);
 }

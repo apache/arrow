@@ -82,6 +82,10 @@ class ARROW_EXPORT ThreadPool {
   // Construct a thread pool with the given number of worker threads
   static Result<std::shared_ptr<ThreadPool>> Make(int threads);
 
+  // Like Make(), but takes care that the returned ThreadPool is compatible
+  // with destruction late at process exit.
+  static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
+
   // Destroy thread pool; the pool will first be shut down
   ~ThreadPool();
 
@@ -133,6 +137,19 @@ class ARROW_EXPORT ThreadPool {
     };
     auto future = Future<ValueType>::Make();
     ARROW_RETURN_NOT_OK(SpawnReal(Task{std::move(bound_func), future}));
+    return future;
+  }
+
+  // Like Submit(), but also returns a (failed) Future when submission fails
+  template <
+      typename Function, typename... Args,
+      typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
+      typename RT = typename detail::ThreadPoolResultTraits<FunctionRetType>,
+      typename ValueType = typename RT::ValueType>
+  Future<ValueType> SubmitAsFuture(Function&& func, Args&&... args) {
+    ARROW_ASSIGN_OR_RETURN_FUTURE(
+        auto future, ValueType,
+        Submit(std::forward<Function>(func), std::forward<Args>(args)...));
     return future;
   }
 
