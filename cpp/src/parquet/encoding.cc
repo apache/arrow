@@ -436,12 +436,12 @@ struct DictEncoderTraits {
 
 template <>
 struct DictEncoderTraits<ByteArrayType> {
-  using MemoTableType = arrow::internal::BinaryMemoTable;
+  using MemoTableType = arrow::internal::BinaryMemoTable<arrow::BinaryBuilder>;
 };
 
 template <>
 struct DictEncoderTraits<FLBAType> {
-  using MemoTableType = arrow::internal::BinaryMemoTable;
+  using MemoTableType = arrow::internal::BinaryMemoTable<arrow::BinaryBuilder>;
 };
 
 // Initially 1024 elements
