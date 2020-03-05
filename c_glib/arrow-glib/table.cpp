@@ -63,11 +63,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowTable,
 static void
 garrow_table_dispose(GObject *object)
 {
-  GArrowTablePrivate *priv;
+  auto priv = GARROW_TABLE_GET_PRIVATE(object);
 
-  priv = GARROW_TABLE_GET_PRIVATE(object);
-
-  priv->table = nullptr;
+  priv->table.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_table_parent_class)->dispose(object);
 }
@@ -78,9 +76,7 @@ garrow_table_set_property(GObject *object,
                           const GValue *value,
                           GParamSpec *pspec)
 {
-  GArrowTablePrivate *priv;
-
-  priv = GARROW_TABLE_GET_PRIVATE(object);
+  auto priv = GARROW_TABLE_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_TABLE:
@@ -109,6 +105,8 @@ garrow_table_get_property(GObject *object,
 static void
 garrow_table_init(GArrowTable *object)
 {
+  auto priv = GARROW_TABLE_GET_PRIVATE(object);
+  new(&priv->table) std::shared_ptr<arrow::Table>;
 }
 
 static void
@@ -648,8 +646,6 @@ garrow_table_new_raw(std::shared_ptr<arrow::Table> *arrow_table)
 std::shared_ptr<arrow::Table>
 garrow_table_get_raw(GArrowTable *table)
 {
-  GArrowTablePrivate *priv;
-
-  priv = GARROW_TABLE_GET_PRIVATE(table);
+  auto priv = GARROW_TABLE_GET_PRIVATE(table);
   return priv->table;
 }

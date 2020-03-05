@@ -174,7 +174,7 @@ garrow_cuda_context_finalize(GObject *object)
 {
   auto priv = GARROW_CUDA_CONTEXT_GET_PRIVATE(object);
 
-  priv->context = nullptr;
+  priv->context.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_cuda_context_parent_class)->finalize(object);
 }
@@ -214,6 +214,8 @@ garrow_cuda_context_get_property(GObject *object,
 static void
 garrow_cuda_context_init(GArrowCUDAContext *object)
 {
+  auto priv = GARROW_CUDA_CONTEXT_GET_PRIVATE(object);
+  new(&priv->context) std::shared_ptr<arrow::cuda::CudaContext>;
 }
 
 static void

@@ -118,11 +118,9 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowDataType,
 static void
 garrow_data_type_finalize(GObject *object)
 {
-  GArrowDataTypePrivate *priv;
+  auto priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
 
-  priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
-
-  priv->data_type = nullptr;
+  priv->data_type.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_data_type_parent_class)->finalize(object);
 }
@@ -133,9 +131,7 @@ garrow_data_type_set_property(GObject *object,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-  GArrowDataTypePrivate *priv;
-
-  priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
+  auto priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_DATA_TYPE:
@@ -164,6 +160,8 @@ garrow_data_type_get_property(GObject *object,
 static void
 garrow_data_type_init(GArrowDataType *object)
 {
+  auto priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
+  new(&priv->data_type) std::shared_ptr<arrow::DataType>;
 }
 
 static void
@@ -1408,8 +1406,6 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
 std::shared_ptr<arrow::DataType>
 garrow_data_type_get_raw(GArrowDataType *data_type)
 {
-  GArrowDataTypePrivate *priv;
-
-  priv = GARROW_DATA_TYPE_GET_PRIVATE(data_type);
+  auto priv = GARROW_DATA_TYPE_GET_PRIVATE(data_type);
   return priv->data_type;
 }

@@ -82,11 +82,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchReader,
 static void
 garrow_record_batch_reader_finalize(GObject *object)
 {
-  GArrowRecordBatchReaderPrivate *priv;
+  auto priv = GARROW_RECORD_BATCH_READER_GET_PRIVATE(object);
 
-  priv = GARROW_RECORD_BATCH_READER_GET_PRIVATE(object);
-
-  priv->record_batch_reader = nullptr;
+  priv->record_batch_reader.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_record_batch_reader_parent_class)->finalize(object);
 }
@@ -97,9 +95,7 @@ garrow_record_batch_reader_set_property(GObject *object,
                                         const GValue *value,
                                         GParamSpec *pspec)
 {
-  GArrowRecordBatchReaderPrivate *priv;
-
-  priv = GARROW_RECORD_BATCH_READER_GET_PRIVATE(object);
+  auto priv = GARROW_RECORD_BATCH_READER_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_RECORD_BATCH_READER:
@@ -128,6 +124,8 @@ garrow_record_batch_reader_get_property(GObject *object,
 static void
 garrow_record_batch_reader_init(GArrowRecordBatchReader *object)
 {
+  auto priv = GARROW_RECORD_BATCH_READER_GET_PRIVATE(object);
+  new(&priv->record_batch_reader) std::shared_ptr<arrow::ipc::RecordBatchReader>;
 }
 
 static void
@@ -334,9 +332,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchFileReader,
 static void
 garrow_record_batch_file_reader_finalize(GObject *object)
 {
-  GArrowRecordBatchFileReaderPrivate *priv;
-
-  priv = GARROW_RECORD_BATCH_FILE_READER_GET_PRIVATE(object);
+  auto priv = GARROW_RECORD_BATCH_FILE_READER_GET_PRIVATE(object);
 
   priv->record_batch_file_reader = nullptr;
 
@@ -349,9 +345,7 @@ garrow_record_batch_file_reader_set_property(GObject *object,
                                              const GValue *value,
                                              GParamSpec *pspec)
 {
-  GArrowRecordBatchFileReaderPrivate *priv;
-
-  priv = GARROW_RECORD_BATCH_FILE_READER_GET_PRIVATE(object);
+  auto priv = GARROW_RECORD_BATCH_FILE_READER_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_RECORD_BATCH_FILE_READER:
@@ -550,9 +544,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowFeatherFileReader,
 static void
 garrow_feather_file_reader_finalize(GObject *object)
 {
-  GArrowFeatherFileReaderPrivate *priv;
-
-  priv = GARROW_FEATHER_FILE_READER_GET_PRIVATE(object);
+  auto priv = GARROW_FEATHER_FILE_READER_GET_PRIVATE(object);
 
   delete priv->feather_table_reader;
 
@@ -565,9 +557,7 @@ garrow_feather_file_reader_set_property(GObject *object,
                                         const GValue *value,
                                         GParamSpec *pspec)
 {
-  GArrowFeatherFileReaderPrivate *priv;
-
-  priv = GARROW_FEATHER_FILE_READER_GET_PRIVATE(object);
+  auto priv = GARROW_FEATHER_FILE_READER_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_FEATHER_TABLE_READER:

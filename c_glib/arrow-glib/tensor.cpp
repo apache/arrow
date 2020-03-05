@@ -74,7 +74,7 @@ garrow_tensor_finalize(GObject *object)
 {
   auto priv = GARROW_TENSOR_GET_PRIVATE(object);
 
-  priv->tensor = nullptr;
+  priv->tensor.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_tensor_parent_class)->finalize(object);
 }
@@ -122,6 +122,8 @@ garrow_tensor_get_property(GObject *object,
 static void
 garrow_tensor_init(GArrowTensor *object)
 {
+  auto priv = GARROW_TENSOR_GET_PRIVATE(object);
+  new(&priv->tensor) std::shared_ptr<arrow::Tensor>;
 }
 
 static void

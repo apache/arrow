@@ -57,11 +57,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowSchema,
 static void
 garrow_schema_finalize(GObject *object)
 {
-  GArrowSchemaPrivate *priv;
+  auto priv = GARROW_SCHEMA_GET_PRIVATE(object);
 
-  priv = GARROW_SCHEMA_GET_PRIVATE(object);
-
-  priv->schema = nullptr;
+  priv->schema.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_schema_parent_class)->finalize(object);
 }
@@ -72,9 +70,7 @@ garrow_schema_set_property(GObject *object,
                            const GValue *value,
                            GParamSpec *pspec)
 {
-  GArrowSchemaPrivate *priv;
-
-  priv = GARROW_SCHEMA_GET_PRIVATE(object);
+  auto priv = GARROW_SCHEMA_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_SCHEMA:
@@ -103,6 +99,8 @@ garrow_schema_get_property(GObject *object,
 static void
 garrow_schema_init(GArrowSchema *object)
 {
+  auto priv = GARROW_SCHEMA_GET_PRIVATE(object);
+  new(&priv->schema) std::shared_ptr<arrow::Schema>;
 }
 
 static void
@@ -360,8 +358,6 @@ garrow_schema_new_raw(std::shared_ptr<arrow::Schema> *arrow_schema)
 std::shared_ptr<arrow::Schema>
 garrow_schema_get_raw(GArrowSchema *schema)
 {
-  GArrowSchemaPrivate *priv;
-
-  priv = GARROW_SCHEMA_GET_PRIVATE(schema);
+  auto priv = GARROW_SCHEMA_GET_PRIVATE(schema);
   return priv->schema;
 }
