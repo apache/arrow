@@ -904,7 +904,21 @@ TEST_F(DictEncoding, CheckDecodeIndicesSpaced) {
       actual_num_values = dict_decoder_->DecodeIndicesSpaced(
           num_values_, null_count_, valid_bits_, 0, builder.get());
     }
-    CheckDict(actual_num_values, *builder);
+    ASSERT_EQ(actual_num_values, num_values_ - null_count_);
+    std::shared_ptr<arrow::Array> actual;
+    ASSERT_OK(builder->Finish(&actual));
+    ASSERT_ARRAYS_EQUAL(*actual, *expected_dict_);
+
+    // Check that null indices are zero-initialized
+    const auto& dict_actual = checked_cast<const arrow::DictionaryArray&>(*actual);
+    const auto& indices = checked_cast<const arrow::Int32Array&>(*dict_actual.indices());
+
+    auto raw_values = indices.raw_values();
+    for (int64_t i = 0; i < indices.length(); ++i) {
+      if (indices.IsNull(i) && raw_values[i] != 0) {
+        FAIL() << "Null slot not zero-initialized";
+      }
+    }
   }
 }
 
