@@ -38,3 +38,12 @@ jobs:
       - name: Checkout Arrow
         shell: bash
         run: echo "Triggered"
+      - name: Event Name
+        shell: bash
+        run: echo "${{ github.event_name }} "
+      - name: Event Path
+        shell: bash
+        run: echo "${{ github.event_path }} "
+      - name: Event Payload
+        shell: bash
+        run: echo "${{ github.event }} "
