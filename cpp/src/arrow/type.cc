@@ -611,6 +611,13 @@ std::string DictionaryType::ToString() const {
 
 std::string NullType::ToString() const { return name(); }
 
+// ----------------------------------------------------------------------
+// FieldRef
+
+FieldRef::FieldRef(Indices indices) : impl_(std::move(indices)) {
+  DCHECK_GT(util::get<Indices>(impl_).size(), 0);
+}
+
 FieldRef::FieldRef(std::vector<FieldRef> children) {
   // flatten children
   struct Visitor {
@@ -716,7 +723,8 @@ size_t FieldRef::hash() const {
     using std::hash<std::string>::operator();
 
     size_t operator()(const Indices& indices) {
-      return internal::ComputeStringHash(indices.data(), indices.length() * sizeof(int));
+      return internal::ComputeStringHash<0>(indices.data(),
+                                            indices.length() * sizeof(int));
     }
 
     size_t operator()(const std::vector<FieldRef>& children) {
@@ -762,12 +770,25 @@ std::string FieldRef::ToString() const {
 }
 
 struct FieldRefGetImpl {
-  static std::string Summarize(const Field& field) { return field.ToString(); }
+  static const DataType& GetType(const ArrayData& data) { return *data.type; }
 
-  static std::string Summarize(const ArrayData& data) { return data.type->ToString(); }
+  static const DataType& GetType(const ChunkedArray& array) { return *array.type(); }
 
-  static std::string Summarize(const ChunkedArray& array) {
-    return array.type()->ToString();
+  static void Summarize(const FieldVector& fields, std::stringstream* ss) {
+    *ss << "{ ";
+    for (const auto& field : fields) {
+      *ss << field->ToString() << ", ";
+    }
+    *ss << "}";
+  }
+
+  template <typename T>
+  static void Summarize(const std::vector<T>& columns, std::stringstream* ss) {
+    *ss << "{ ";
+    for (const auto& column : columns) {
+      *ss << GetType(*column) << ", ";
+    }
+    *ss << "}";
   }
 
   template <typename T>
@@ -788,27 +809,19 @@ struct FieldRefGetImpl {
     }
     ss << "] ";
 
-    ss << "child ";
     if (std::is_same<T, std::shared_ptr<Field>>::value) {
-      ss << "fields were: { ";
-      for (const auto& field : children) {
-        ss << Summarize(*field) << ", ";
-      }
-      ss << "}";
+      ss << "fields were: ";
     } else {
-      ss << "columns had types: { ";
-      for (const auto& column : children) {
-        ss << Summarize(*column) << ", ";
-      }
-      ss << "}";
+      ss << "columns had types: ";
     }
+    Summarize(children, &ss);
 
     return Status::IndexError(ss.str());
   }
 
   template <typename T, typename GetChildren>
   static Result<T> Get(const FieldRef::Indices& indices, const std::vector<T>* children,
-                       GetChildren&& get_children, bool verbose_error = true) {
+                       GetChildren&& get_children, int* out_of_range_depth) {
     if (indices.empty()) {
       return Status::Invalid("empty indices cannot be traversed");
     }
@@ -817,12 +830,8 @@ struct FieldRefGetImpl {
     const T* out;
     for (int index : indices) {
       if (index < 0 || static_cast<size_t>(index) >= children->size()) {
-        // verbose_error is a hack to allow this function to be used for cheap validation
-        // in FieldRef::FindAll
-        if (verbose_error) {
-          return IndexError(indices, depth, *children);
-        }
-        return Status::IndexError("index out of range");
+        *out_of_range_depth = depth;
+        return nullptr;
       }
 
       out = &children->at(index);
@@ -833,13 +842,24 @@ struct FieldRefGetImpl {
     return *out;
   }
 
+  template <typename T, typename GetChildren>
+  static Result<T> Get(const FieldRef::Indices& indices, const std::vector<T>* children,
+                       GetChildren&& get_children) {
+    int out_of_range_depth;
+    ARROW_ASSIGN_OR_RAISE(auto child,
+                          Get(indices, children, std::forward<GetChildren>(get_children),
+                              &out_of_range_depth));
+    if (child != nullptr) {
+      return std::move(child);
+    }
+    return IndexError(indices, out_of_range_depth, *children);
+  }
+
   static Result<std::shared_ptr<Field>> Get(const FieldRef::Indices& indices,
-                                            const FieldVector& fields,
-                                            bool verbose_error = true) {
+                                            const FieldVector& fields) {
     return FieldRefGetImpl::Get(
         indices, &fields,
-        [](const std::shared_ptr<Field>& field) { return &field->type()->children(); },
-        verbose_error);
+        [](const std::shared_ptr<Field>& field) { return &field->type()->children(); });
   }
 
   static Result<std::shared_ptr<ArrayData>> Get(const FieldRef::Indices& indices,
@@ -910,18 +930,26 @@ util::small_vector<FieldRef::Indices> FieldRef::FindAll(const Schema& schema) co
   return FindAll(schema.fields());
 }
 
-util::small_vector<FieldRef::Indices> FieldRef::FindAll(const DataType& type) const {
-  return FindAll(type.children());
-}
-
 util::small_vector<FieldRef::Indices> FieldRef::FindAll(const Field& field) const {
   return FindAll(field.type()->children());
+}
+
+util::small_vector<FieldRef::Indices> FieldRef::FindAll(const DataType& type) const {
+  return FindAll(type.children());
 }
 
 util::small_vector<FieldRef::Indices> FieldRef::FindAll(const FieldVector& fields) const {
   struct Visitor {
     util::small_vector<FieldRef::Indices> operator()(const FieldRef::Indices& indices) {
-      if (FieldRefGetImpl::Get(indices, fields_, /* verbose_error = */ false).ok()) {
+      int out_of_range_depth;
+      auto maybe_field = FieldRefGetImpl::Get(
+          indices, &fields_,
+          [](const std::shared_ptr<Field>& field) { return &field->type()->children(); },
+          &out_of_range_depth);
+
+      DCHECK_OK(maybe_field.status());
+
+      if (maybe_field.ValueOrDie() != nullptr) {
         return {indices};
       }
       return {};
@@ -954,16 +982,18 @@ util::small_vector<FieldRef::Indices> FieldRef::FindAll(const FieldVector& field
 
       size_t size() const { return referents.size(); }
 
-      void Add(FieldRef::Indices prefix, FieldRef::Indices indices,
+      void Add(FieldRef::Indices prefix, FieldRef::Indices match,
                const FieldVector& fields) {
-        auto maybe_field = FieldRef::Get(indices, fields);
+        auto maybe_field = FieldRef::Get(match, fields);
         DCHECK_OK(maybe_field.status());
+
+        prefixes.push_back(prefix + match);
         referents.push_back(std::move(maybe_field).ValueOrDie());
-        prefixes.push_back(prefix + indices);
       }
     };
 
     util::small_vector<FieldRef::Indices> operator()(const std::vector<FieldRef>& refs) {
+      DCHECK_GE(refs.size(), 1);
       Matches matches(refs.front().FindAll(fields_), fields_);
 
       for (auto ref_it = refs.begin() + 1; ref_it != refs.end(); ++ref_it) {
@@ -971,8 +1001,8 @@ util::small_vector<FieldRef::Indices> FieldRef::FindAll(const FieldVector& field
         for (size_t i = 0; i < matches.size(); ++i) {
           const auto& referent = *matches.referents[i];
 
-          for (const Indices& indices : ref_it->FindAll(referent)) {
-            next_matches.Add(matches.prefixes[i], indices, referent.type()->children());
+          for (const Indices& match : ref_it->FindAll(referent)) {
+            next_matches.Add(matches.prefixes[i], match, referent.type()->children());
           }
         }
         matches = std::move(next_matches);

@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
@@ -1418,7 +1419,9 @@ class ARROW_EXPORT FieldRef {
 
   /// Construct a FieldRef using a string of indices. The reference will be retrieved as:
   /// schema.fields[self.indices[0]].type.fields[self.indices[1]] ...
-  FieldRef(Indices indices) : impl_(std::move(indices)) {}  // NOLINT runtime/explicit
+  ///
+  /// Empty indices are not valid.
+  FieldRef(Indices indices);  // NOLINT runtime/explicit
 
   /// Construct a by-name FieldRef. Multiple fields may match a by-name FieldRef:
   /// [f for f in schema.fields where f.name == self.name]
@@ -1462,7 +1465,11 @@ class ARROW_EXPORT FieldRef {
 
   bool IsIndices() const { return util::holds_alternative<Indices>(impl_); }
   bool IsName() const { return util::holds_alternative<std::string>(impl_); }
-  bool IsNested() const { return util::holds_alternative<std::vector<FieldRef>>(impl_); }
+  bool IsNested() const {
+    if (IsName()) return false;
+    if (IsIndices()) return util::get<Indices>(impl_).size() > 1;
+    return true;
+  }
 
   /// \brief Retrieve the referenced child Field from a Schema, Field, or DataType
   static Result<std::shared_ptr<Field>> Get(const Indices& indices, const Schema& schema);
@@ -1482,11 +1489,70 @@ class ARROW_EXPORT FieldRef {
   static Result<std::shared_ptr<ChunkedArray>> Get(const Indices& indices,
                                                    const ChunkedArray& array);
 
-  /// \brief Retrieve Indices of child fields matching this FieldRef.
+  /// \brief Retrieve Indices of every child field which matches this FieldRef.
   util::small_vector<Indices> FindAll(const Schema& schema) const;
   util::small_vector<Indices> FindAll(const Field& field) const;
   util::small_vector<Indices> FindAll(const DataType& type) const;
   util::small_vector<Indices> FindAll(const FieldVector& fields) const;
+
+  template <typename T>
+  Status CheckNonEmpty(const util::small_vector<Indices>& matches, const T& root) const {
+    if (matches.empty()) {
+      return Status::Invalid("No match for ", ToString(), " in ", root.ToString());
+    }
+    return Status::OK();
+  }
+
+  template <typename T>
+  Status CheckNonMultiple(const util::small_vector<Indices>& matches,
+                          const T& root) const {
+    if (matches.size() > 1) {
+      return Status::Invalid("Multiple matches for ", ToString(), " in ",
+                             root.ToString());
+    }
+    return Status::OK();
+  }
+
+  /// \brief Retrieve Indices of a single child field which matches this
+  /// FieldRef. Emit an error if none or multiple match.
+  template <typename T>
+  Result<Indices> FindOne(const T& root) const {
+    auto matches = FindAll(root);
+    RETURN_NOT_OK(CheckNonEmpty(matches, root));
+    RETURN_NOT_OK(CheckNonMultiple(matches, root));
+    return std::move(matches[0]);
+  }
+
+  template <typename T>
+  using GetType = decltype(Get(Indices{}, std::declval<T>()).ValueOrDie());
+
+  /// \brief Get all children matching this FieldRef.
+  template <typename T>
+  util::small_vector<GetType<T>> GetAll(const T& root) const {
+    util::small_vector<GetType<T>> out;
+    for (const auto& match : FindAll(root)) {
+      out.push_back(Get(match, root).ValueOrDie());
+    }
+    return out;
+  }
+
+  /// \brief Get the single child matching this FieldRef.
+  /// Emit an error if none or multiple match.
+  template <typename T>
+  Result<GetType<T>> GetOne(const T& root) const {
+    ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
+    return Get(match, root);
+  }
+
+  /// \brief Get the single child matching this FieldRef.
+  /// Return nullptr if none match, emit an error if multiple match.
+  template <typename T>
+  Result<GetType<T>> GetOneOrNone(const T& root) const {
+    auto matches = FindAll(root);
+    if (matches.empty()) return NULLPTR;
+    RETURN_NOT_OK(CheckNonMultiple(matches, root));
+    return Get(matches[0], root);
+  }
 
  private:
   util::variant<Indices, std::string, std::vector<FieldRef>> impl_;

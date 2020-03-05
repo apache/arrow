@@ -43,6 +43,7 @@ using BufferVector = std::vector<std::shared_ptr<Buffer>>;
 
 class DataType;
 class Field;
+class FieldRef;
 class KeyValueMetadata;
 class Schema;
 
