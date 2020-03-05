@@ -194,6 +194,14 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
       *result = wrap_sparse_csr_matrix(sparse_csr_matrix);
       return Status::OK();
     }
+    case PythonType::SPARSECSCMATRIX: {
+      int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
+      const std::shared_ptr<SparseCSCMatrix>& sparse_csc_matrix =
+          arrow::internal::checked_pointer_cast<SparseCSCMatrix>(
+              blobs.sparse_tensors[ref]);
+      *result = wrap_sparse_csc_matrix(sparse_csc_matrix);
+      return Status::OK();
+    }
     case PythonType::NDARRAY: {
       int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
       return DeserializeArray(ref, base, blobs, result);

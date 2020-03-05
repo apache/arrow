@@ -1029,6 +1029,9 @@ Result<size_t> GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id
     case SparseTensorFormat::CSR:
       return 3;
 
+    case SparseTensorFormat::CSC:
+      return 3;
+
     default:
       return Status::Invalid("Unrecognized sparse tensor format");
   }
@@ -1099,7 +1102,19 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
                                                 non_zero_length, payload.body_buffers[2]);
     }
     case SparseTensorFormat::CSC: {
-      return Status::NotImplemented("TODO: CSC support");
+      std::shared_ptr<SparseCSCIndex> sparse_index;
+      std::shared_ptr<DataType> indptr_type;
+      std::shared_ptr<DataType> indices_type;
+      RETURN_NOT_OK(internal::GetSparseCSXIndexMetadata(
+          sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX(), &indptr_type,
+          &indices_type));
+      ARROW_CHECK_EQ(indptr_type, indices_type);
+      ARROW_ASSIGN_OR_RAISE(
+          sparse_index,
+          SparseCSCIndex::Make(indices_type, shape, non_zero_length,
+                               payload.body_buffers[0], payload.body_buffers[1]));
+      return MakeSparseTensorWithSparseCSCIndex(type, shape, dim_names, sparse_index,
+                                                non_zero_length, payload.body_buffers[2]);
     }
     default:
       return Status::Invalid("Unsupported sparse index format");

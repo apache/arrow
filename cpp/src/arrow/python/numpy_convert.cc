@@ -345,14 +345,14 @@ Status SparseCSXMatrixToNdarray(const std::shared_ptr<SparseTensor>& sparse_tens
   switch (sparse_tensor->format_id()) {
     case SparseTensorFormat::CSR: {
       const auto& sparse_index = arrow::internal::checked_cast<const SparseCSRIndex&>(
-              *sparse_tensor->sparse_index());
+          *sparse_tensor->sparse_index());
       RETURN_NOT_OK(TensorToNdarray(sparse_index.indptr(), base, result_indptr.ref()));
       RETURN_NOT_OK(TensorToNdarray(sparse_index.indices(), base, result_indices.ref()));
       break;
     }
     case SparseTensorFormat::CSC: {
-      const auto& sparse_index = arrow::internal::checked_cast<const SparseCSRIndex&>(
-              *sparse_tensor->sparse_index());
+      const auto& sparse_index = arrow::internal::checked_cast<const SparseCSCIndex&>(
+          *sparse_tensor->sparse_index());
       RETURN_NOT_OK(TensorToNdarray(sparse_index.indptr(), base, result_indptr.ref()));
       RETURN_NOT_OK(TensorToNdarray(sparse_index.indices(), base, result_indices.ref()));
       break;

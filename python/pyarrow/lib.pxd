@@ -292,17 +292,6 @@ cdef class Tensor:
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor)
 
 
-cdef class SparseCOOTensor:
-    cdef:
-        shared_ptr[CSparseCOOTensor] sp_sparse_tensor
-        CSparseCOOTensor* stp
-
-    cdef readonly:
-        DataType type
-
-    cdef void init(self, const shared_ptr[CSparseCOOTensor]& sp_sparse_tensor)
-
-
 cdef class SparseCSRMatrix:
     cdef:
         shared_ptr[CSparseCSRMatrix] sp_sparse_tensor
@@ -323,6 +312,17 @@ cdef class SparseCSCMatrix:
         DataType type
 
     cdef void init(self, const shared_ptr[CSparseCSCMatrix]& sp_sparse_tensor)
+
+
+cdef class SparseCOOTensor:
+    cdef:
+        shared_ptr[CSparseCOOTensor] sp_sparse_tensor
+        CSparseCOOTensor* stp
+
+    cdef readonly:
+        DataType type
+
+    cdef void init(self, const shared_ptr[CSparseCOOTensor]& sp_sparse_tensor)
 
 
 cdef class NullArray(Array):

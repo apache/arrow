@@ -304,6 +304,7 @@ cdef class SerializedPyObject:
 
         num_sparse_tensors.coo = components['num_sparse_tensors']['coo']
         num_sparse_tensors.csr = components['num_sparse_tensors']['csr']
+        num_sparse_tensors.csc = components['num_sparse_tensors']['csc']
 
         with nogil:
             check_status(GetSerializedFromComponents(num_tensors,
