@@ -67,6 +67,11 @@ PIP="${CPYTHON_PATH}/bin/pip"
 # Put our Python first to avoid picking up an antiquated Python from CMake
 PATH="${CPYTHON_PATH}/bin:${PATH}"
 
+# XXX The Docker image doesn't include Python libs, this confuses CMake
+# (https://github.com/pypa/manylinux/issues/484)
+py_libname=$(${PYTHON_INTERPRETER} -c "import sysconfig; print(sysconfig.get_config_var('LDLIBRARY'))")
+touch ${CPYTHON_PATH}/lib/${py_libname}
+
 echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
 $PIP install -r requirements-wheel.txt
 

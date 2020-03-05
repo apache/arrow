@@ -66,6 +66,11 @@ PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
 PATH="${PATH}:${CPYTHON_PATH}"
 
+# XXX The Docker image doesn't include Python libs, this confuses CMake
+# (https://github.com/pypa/manylinux/issues/484)
+py_libname=$(${PYTHON_INTERPRETER} -c "import sysconfig; print(sysconfig.get_config_var('LDLIBRARY'))")
+touch ${CPYTHON_PATH}/lib/${py_libname}
+
 echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
 $PIP install -r requirements-wheel.txt
 
@@ -131,10 +136,10 @@ rm -rf repaired_wheels/
 find -name "*.so" -delete
 
 echo "=== (${PYTHON_VERSION}) Building wheel ==="
-PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace
-PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
+PATH="${CPYTHON_PATH}/bin:$PATH" $PYTHON_INTERPRETER setup.py build_ext --inplace
+PATH="${CPYTHON_PATH}/bin:$PATH" $PYTHON_INTERPRETER setup.py bdist_wheel
 # Source distribution is used for debian pyarrow packages.
-PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
+PATH="${CPYTHON_PATH}/bin:$PATH" $PYTHON_INTERPRETER setup.py sdist
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux201x ==="
 mkdir -p repaired_wheels/
