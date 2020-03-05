@@ -4291,7 +4291,7 @@ garrow_struct_array_builder_dispose(GObject *object)
 {
   auto priv = GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(object);
 
-  for (GList *node = priv->field_builders; node; node = g_list_next(node)) {
+  for (auto node = priv->field_builders; node; node = g_list_next(node)) {
     auto field_builder = static_cast<GArrowArrayBuilder *>(node->data);
     GArrowArrayBuilderPrivate *field_builder_priv;
 
