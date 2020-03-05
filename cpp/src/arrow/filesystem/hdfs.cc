@@ -63,48 +63,48 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Result<FileStats> GetTargetStats(const std::string& path) {
-    FileStats st;
-    io::HdfsPathInfo info;
-    auto status = client_->GetPathInfo(path, &info);
-    st.set_path(path);
+  Result<FileInfo> GetTargetInfo(const std::string& path) {
+    FileInfo info;
+    io::HdfsPathInfo path_info;
+    auto status = client_->GetPathInfo(path, &path_info);
+    info.set_path(path);
     if (status.IsIOError()) {
-      st.set_type(FileType::NonExistent);
-      return st;
+      info.set_type(FileType::NonExistent);
+      return info;
     }
 
-    PathInfoToFileStats(info, &st);
-    return st;
+    PathInfoToFileInfo(path_info, &info);
+    return info;
   }
 
   Status StatSelector(const std::string& wd, const std::string& path,
                       const FileSelector& select, int nesting_depth,
-                      std::vector<FileStats>* out) {
+                      std::vector<FileInfo>* out) {
     std::vector<io::HdfsPathInfo> children;
     Status st = client_->ListDirectory(path, &children);
     if (!st.ok()) {
       if (select.allow_non_existent) {
-        ARROW_ASSIGN_OR_RAISE(auto stat, GetTargetStats(path));
-        if (stat.type() == FileType::NonExistent) {
+        ARROW_ASSIGN_OR_RAISE(auto info, GetTargetInfo(path));
+        if (info.type() == FileType::NonExistent) {
           return Status::OK();
         }
       }
       return st;
     }
-    for (const auto& child_info : children) {
+    for (const auto& child_path_info : children) {
       // HDFS returns an absolute URI here, need to extract path relative to wd
       Uri uri;
-      RETURN_NOT_OK(uri.Parse(child_info.name));
+      RETURN_NOT_OK(uri.Parse(child_path_info.name));
       std::string child_path = uri.path();
       if (!wd.empty()) {
         ARROW_ASSIGN_OR_RAISE(child_path, MakeAbstractPathRelative(wd, child_path));
       }
 
-      FileStats stat;
-      stat.set_path(child_path);
-      PathInfoToFileStats(child_info, &stat);
-      const bool is_dir = stat.type() == FileType::Directory;
-      out->push_back(std::move(stat));
+      FileInfo info;
+      info.set_path(child_path);
+      PathInfoToFileInfo(child_path_info, &info);
+      const bool is_dir = info.type() == FileType::Directory;
+      out->push_back(std::move(info));
       if (is_dir && select.recursive && nesting_depth < select.max_recursion) {
         RETURN_NOT_OK(StatSelector(wd, child_path, select, nesting_depth + 1, out));
       }
@@ -112,8 +112,8 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) {
-    std::vector<FileStats> results;
+  Result<std::vector<FileInfo>> GetTargetInfos(const FileSelector& select) {
+    std::vector<FileInfo> results;
 
     std::string wd;
     if (select.base_dir.empty() || select.base_dir.front() != '/') {
@@ -125,10 +125,10 @@ class HadoopFileSystem::Impl {
       wd = wd_uri.path();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto stat, GetTargetStats(select.base_dir));
-    if (stat.type() == FileType::File) {
+    ARROW_ASSIGN_OR_RAISE(auto info, GetTargetInfo(select.base_dir));
+    if (info.type() == FileType::File) {
       return Status::Invalid(
-          "GetTargetStates expects base_dir of selector to be a directory, while '",
+          "GetTargetInfos expects base_dir of selector to be a directory, while '",
           select.base_dir, "' is a file");
     }
     RETURN_NOT_OK(StatSelector(wd, select.base_dir, select, 0, &results));
@@ -211,7 +211,7 @@ class HadoopFileSystem::Impl {
   HdfsOptions options_;
   std::shared_ptr<::arrow::io::HadoopFileSystem> client_;
 
-  void PathInfoToFileStats(const io::HdfsPathInfo& info, FileStats* out) {
+  void PathInfoToFileInfo(const io::HdfsPathInfo& info, FileInfo* out) {
     if (info.kind == io::ObjectType::DIRECTORY) {
       out->set_type(FileType::Directory);
       out->set_size(kNoSize);
@@ -326,13 +326,13 @@ Result<std::shared_ptr<HadoopFileSystem>> HadoopFileSystem::Make(
   return ptr;
 }
 
-Result<FileStats> HadoopFileSystem::GetTargetStats(const std::string& path) {
-  return impl_->GetTargetStats(path);
+Result<FileInfo> HadoopFileSystem::GetTargetInfo(const std::string& path) {
+  return impl_->GetTargetInfo(path);
 }
 
-Result<std::vector<FileStats>> HadoopFileSystem::GetTargetStats(
+Result<std::vector<FileInfo>> HadoopFileSystem::GetTargetInfos(
     const FileSelector& select) {
-  return impl_->GetTargetStats(select);
+  return impl_->GetTargetInfos(select);
 }
 
 Status HadoopFileSystem::CreateDir(const std::string& path, bool recursive) {

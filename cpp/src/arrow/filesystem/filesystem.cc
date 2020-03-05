@@ -87,26 +87,26 @@ ARROW_EXPORT std::ostream& operator<<(std::ostream& os, FileType ftype) {
   return os;
 }
 
-std::string FileStats::base_name() const {
+std::string FileInfo::base_name() const {
   return internal::GetAbstractPathParent(path_).second;
 }
 
-std::string FileStats::dir_name() const {
+std::string FileInfo::dir_name() const {
   return internal::GetAbstractPathParent(path_).first;
 }
 
 // Debug helper
-std::string FileStats::ToString() const {
+std::string FileInfo::ToString() const {
   std::stringstream os;
   os << *this;
   return os.str();
 }
 
-std::ostream& operator<<(std::ostream& os, const FileStats& stats) {
-  return os << "FileStats(" << stats.type() << ", " << stats.path() << ")";
+std::ostream& operator<<(std::ostream& os, const FileInfo& info) {
+  return os << "FileInfo(" << info.type() << ", " << info.path() << ")";
 }
 
-std::string FileStats::extension() const {
+std::string FileInfo::extension() const {
   return internal::GetAbstractPathExtension(path_);
 }
 
@@ -115,13 +115,13 @@ std::string FileStats::extension() const {
 
 FileSystem::~FileSystem() {}
 
-Result<std::vector<FileStats>> FileSystem::GetTargetStats(
+Result<std::vector<FileInfo>> FileSystem::GetTargetInfos(
     const std::vector<std::string>& paths) {
-  std::vector<FileStats> res;
+  std::vector<FileInfo> res;
   res.reserve(paths.size());
   for (const auto& path : paths) {
-    ARROW_ASSIGN_OR_RAISE(FileStats st, GetTargetStats(path));
-    res.push_back(std::move(st));
+    ARROW_ASSIGN_OR_RAISE(FileInfo info, GetTargetInfo(path));
+    res.push_back(std::move(info));
   }
   return res;
 }
@@ -175,28 +175,28 @@ Status SubTreeFileSystem::StripBase(const std::string& s, std::string* out) cons
   }
 }
 
-Status SubTreeFileSystem::FixStats(FileStats* st) const {
+Status SubTreeFileSystem::FixInfo(FileInfo* info) const {
   std::string fixed_path;
-  RETURN_NOT_OK(StripBase(st->path(), &fixed_path));
-  st->set_path(fixed_path);
+  RETURN_NOT_OK(StripBase(info->path(), &fixed_path));
+  info->set_path(fixed_path);
   return Status::OK();
 }
 
-Result<FileStats> SubTreeFileSystem::GetTargetStats(const std::string& path) {
-  ARROW_ASSIGN_OR_RAISE(FileStats st, base_fs_->GetTargetStats(PrependBase(path)));
-  RETURN_NOT_OK(FixStats(&st));
-  return st;
+Result<FileInfo> SubTreeFileSystem::GetTargetInfo(const std::string& path) {
+  ARROW_ASSIGN_OR_RAISE(FileInfo info, base_fs_->GetTargetInfo(PrependBase(path)));
+  RETURN_NOT_OK(FixInfo(&info));
+  return info;
 }
 
-Result<std::vector<FileStats>> SubTreeFileSystem::GetTargetStats(
+Result<std::vector<FileInfo>> SubTreeFileSystem::GetTargetInfos(
     const FileSelector& select) {
   auto selector = select;
   selector.base_dir = PrependBase(selector.base_dir);
-  ARROW_ASSIGN_OR_RAISE(auto stats, base_fs_->GetTargetStats(selector));
-  for (auto& st : stats) {
-    RETURN_NOT_OK(FixStats(&st));
+  ARROW_ASSIGN_OR_RAISE(auto infos, base_fs_->GetTargetInfos(selector));
+  for (auto& info : infos) {
+    RETURN_NOT_OK(FixInfo(&info));
   }
-  return stats;
+  return infos;
 }
 
 Status SubTreeFileSystem::CreateDir(const std::string& path, bool recursive) {
@@ -281,15 +281,15 @@ SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency, int32_t seed)
     : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
 
-Result<FileStats> SlowFileSystem::GetTargetStats(const std::string& path) {
+Result<FileInfo> SlowFileSystem::GetTargetInfo(const std::string& path) {
   latencies_->Sleep();
-  return base_fs_->GetTargetStats(path);
+  return base_fs_->GetTargetInfo(path);
 }
 
-Result<std::vector<FileStats>> SlowFileSystem::GetTargetStats(
+Result<std::vector<FileInfo>> SlowFileSystem::GetTargetInfos(
     const FileSelector& selector) {
   latencies_->Sleep();
-  return base_fs_->GetTargetStats(selector);
+  return base_fs_->GetTargetInfos(selector);
 }
 
 Status SlowFileSystem::CreateDir(const std::string& path, bool recursive) {

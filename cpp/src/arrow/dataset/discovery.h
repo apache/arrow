@@ -149,7 +149,7 @@ struct FileSystemFactoryOptions {
 };
 
 /// \brief FileSystemDatasetFactory creates a Dataset from a vector of
-/// fs::FileStats or a fs::FileSelector.
+/// fs::FileInfo or a fs::FileSelector.
 class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
  public:
   /// \brief Build a FileSystemDatasetFactory from an explicit list of
@@ -165,7 +165,7 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
 
   /// \brief Build a FileSystemDatasetFactory from a fs::FileSelector.
   ///
-  /// The selector will expand to a vector of FileStats. The expansion/crawling
+  /// The selector will expand to a vector of FileInfo. The expansion/crawling
   /// is performed in this function call. Thus, the finalized Dataset is
   /// working with a snapshot of the filesystem.
   //

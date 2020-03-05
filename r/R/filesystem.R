@@ -16,7 +16,7 @@
 # under the License.
 
 #' @include arrow-package.R
-#' @title FileSystem entry stats
+#' @title FileSystem entry info
 #' @usage NULL
 #' @format NULL
 #'
@@ -34,50 +34,59 @@
 #'    guaranteed to have a size.
 #' - `$mtime`: The time of last modification, if available.
 #'
-#' @rdname FileStats
+#' @rdname FileInfo
 #' @export
-FileStats <- R6Class("FileStats",
+FileInfo <- R6Class("FileInfo",
   inherit = ArrowObject,
   public = list(
-    base_name = function() fs___FileStats__base_name(self),
-    extension = function() fs___FileStats__extension(self)
+    base_name = function() fs___FileInfo__base_name(self),
+    extension = function() fs___FileInfo__extension(self)
   ),
   active = list(
     type = function(type) {
       if (missing(type)) {
-        fs___FileStats__type(self)
+        fs___FileInfo__type(self)
       } else {
-        fs___FileStats__set_type(self, type)
+        fs___FileInfo__set_type(self, type)
       }
     },
     path = function(path) {
       if (missing(path)) {
-        fs___FileStats__path(self)
+        fs___FileInfo__path(self)
       } else {
-        invisible(fs___FileStats__set_path(self))
+        invisible(fs___FileInfo__set_path(self))
       }
     },
 
     size = function(size) {
       if (missing(size)) {
-        fs___FileStats__size(self)
+        fs___FileInfo__size(self)
       } else {
-        invisible(fs___FileStats__set_size(self, size))
+        invisible(fs___FileInfo__set_size(self, size))
       }
     },
 
     mtime = function(time) {
       if (missing(time)) {
-        fs___FileStats__mtime(self)
+        fs___FileInfo__mtime(self)
       } else {
         if (!inherits(time, "POSIXct") && length(time) == 1L) {
           abort("invalid time")
         }
-        invisible(fs___FileStats__set_mtime(self, time))
+        invisible(fs___FileInfo__set_mtime(self, time))
       }
     }
   )
 )
+
+#' @include arrow-package.R
+#' @title FileSystem entry info (Deprecated. Use FileInfo instead.)
+#' @usage NULL
+#' @format NULL
+#'
+#' @rdname FileStats
+#' @export
+FileStats <- FileInfo
 
 #' @title file selector
 #' @format NULL
@@ -130,8 +139,8 @@ FileSelector$create <- function(base_dir, allow_non_existent = FALSE, recursive 
 #'
 #' @section Methods:
 #'
-#' - `$GetTargetStats(x)`: `x` may be a [FileSelector][FileSelector] or a character
-#'    vector of paths. Returns a list of [FileStats][FileStats]
+#' - `$GetTargetInfos(x)`: `x` may be a [FileSelector][FileSelector] or a character
+#'    vector of paths. Returns a list of [FileInfo][FileInfo]
 #' - `$CreateDir(path, recursive = TRUE)`: Create a directory and subdirectories.
 #' - `$DeleteDir(path)`: Delete a directory and its contents, recursively.
 #' - `$DeleteDirContents(path)`: Delete a directory's contents, recursively.
@@ -166,21 +175,21 @@ FileSelector$create <- function(base_dir, allow_non_existent = FALSE, recursive 
 #' @export
 FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
   public = list(
-    GetTargetStats = function(x) {
+    GetTargetInfos = function(x) {
       if (inherits(x, "FileSelector")) {
         map(
-          fs___FileSystem__GetTargetStats_FileSelector(self, x),
+          fs___FileSystem__GetTargetInfos_FileSelector(self, x),
           shared_ptr,
-          class = FileStats
+          class = FileInfo
         )
       } else if (is.character(x)){
         map(
-          fs___FileSystem__GetTargetStats_Paths(self, clean_path_rel(x)),
+          fs___FileSystem__GetTargetInfos_Paths(self, clean_path_rel(x)),
           shared_ptr,
-          class = FileStats
+          class = FileInfo
         )
       } else {
-        abort("incompatible type for FileSystem$GetTargetStats()")
+        abort("incompatible type for FileSystem$GetTargetInfos()")
       }
     },
 

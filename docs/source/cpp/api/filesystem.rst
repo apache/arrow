@@ -24,7 +24,7 @@ Interface
 
 .. doxygenenum:: arrow::fs::FileType
 
-.. doxygenstruct:: arrow::fs::FileStats
+.. doxygenstruct:: arrow::fs::FileInfo
    :members:
 
 .. doxygenstruct:: arrow::fs::FileSelector

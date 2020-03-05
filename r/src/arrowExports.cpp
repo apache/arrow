@@ -3071,159 +3071,159 @@ RcppExport SEXP _arrow_Field__type(SEXP field_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-fs::FileType fs___FileStats__type(const std::shared_ptr<fs::FileStats>& x);
-RcppExport SEXP _arrow_fs___FileStats__type(SEXP x_sexp){
+fs::FileType fs___FileInfo__type(const std::shared_ptr<fs::FileInfo>& x);
+RcppExport SEXP _arrow_fs___FileInfo__type(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
-	return Rcpp::wrap(fs___FileStats__type(x));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	return Rcpp::wrap(fs___FileInfo__type(x));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileStats__type(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileStats__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileInfo__type(SEXP x_sexp){
+	Rf_error("Cannot call fs___FileInfo__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileStats__set_type(const std::shared_ptr<fs::FileStats>& x, fs::FileType type);
-RcppExport SEXP _arrow_fs___FileStats__set_type(SEXP x_sexp, SEXP type_sexp){
+void fs___FileInfo__set_type(const std::shared_ptr<fs::FileInfo>& x, fs::FileType type);
+RcppExport SEXP _arrow_fs___FileInfo__set_type(SEXP x_sexp, SEXP type_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
 	Rcpp::traits::input_parameter<fs::FileType>::type type(type_sexp);
-	fs___FileStats__set_type(x, type);
+	fs___FileInfo__set_type(x, type);
 	return R_NilValue;
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileStats__set_type(SEXP x_sexp, SEXP type_sexp){
-	Rf_error("Cannot call fs___FileStats__set_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileInfo__set_type(SEXP x_sexp, SEXP type_sexp){
+	Rf_error("Cannot call fs___FileInfo__set_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string fs___FileStats__path(const std::shared_ptr<fs::FileStats>& x);
-RcppExport SEXP _arrow_fs___FileStats__path(SEXP x_sexp){
+std::string fs___FileInfo__path(const std::shared_ptr<fs::FileInfo>& x);
+RcppExport SEXP _arrow_fs___FileInfo__path(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
-	return Rcpp::wrap(fs___FileStats__path(x));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	return Rcpp::wrap(fs___FileInfo__path(x));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileStats__path(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileStats__path(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileInfo__path(SEXP x_sexp){
+	Rf_error("Cannot call fs___FileInfo__path(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileStats__set_path(const std::shared_ptr<fs::FileStats>& x, const std::string& path);
-RcppExport SEXP _arrow_fs___FileStats__set_path(SEXP x_sexp, SEXP path_sexp){
+void fs___FileInfo__set_path(const std::shared_ptr<fs::FileInfo>& x, const std::string& path);
+RcppExport SEXP _arrow_fs___FileInfo__set_path(SEXP x_sexp, SEXP path_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
-	fs___FileStats__set_path(x, path);
+	fs___FileInfo__set_path(x, path);
 	return R_NilValue;
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileStats__set_path(SEXP x_sexp, SEXP path_sexp){
-	Rf_error("Cannot call fs___FileStats__set_path(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileInfo__set_path(SEXP x_sexp, SEXP path_sexp){
+	Rf_error("Cannot call fs___FileInfo__set_path(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-int64_t fs___FileStats__size(const std::shared_ptr<fs::FileStats>& x);
-RcppExport SEXP _arrow_fs___FileStats__size(SEXP x_sexp){
+int64_t fs___FileInfo__size(const std::shared_ptr<fs::FileInfo>& x);
+RcppExport SEXP _arrow_fs___FileInfo__size(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
-	return Rcpp::wrap(fs___FileStats__size(x));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	return Rcpp::wrap(fs___FileInfo__size(x));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileStats__size(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileStats__size(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileInfo__size(SEXP x_sexp){
+	Rf_error("Cannot call fs___FileInfo__size(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileStats__set_size(const std::shared_ptr<fs::FileStats>& x, int64_t size);
-RcppExport SEXP _arrow_fs___FileStats__set_size(SEXP x_sexp, SEXP size_sexp){
+void fs___FileInfo__set_size(const std::shared_ptr<fs::FileInfo>& x, int64_t size);
+RcppExport SEXP _arrow_fs___FileInfo__set_size(SEXP x_sexp, SEXP size_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
 	Rcpp::traits::input_parameter<int64_t>::type size(size_sexp);
-	fs___FileStats__set_size(x, size);
+	fs___FileInfo__set_size(x, size);
 	return R_NilValue;
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileStats__set_size(SEXP x_sexp, SEXP size_sexp){
-	Rf_error("Cannot call fs___FileStats__set_size(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileInfo__set_size(SEXP x_sexp, SEXP size_sexp){
+	Rf_error("Cannot call fs___FileInfo__set_size(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string fs___FileStats__base_name(const std::shared_ptr<fs::FileStats>& x);
-RcppExport SEXP _arrow_fs___FileStats__base_name(SEXP x_sexp){
+std::string fs___FileInfo__base_name(const std::shared_ptr<fs::FileInfo>& x);
+RcppExport SEXP _arrow_fs___FileInfo__base_name(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
-	return Rcpp::wrap(fs___FileStats__base_name(x));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	return Rcpp::wrap(fs___FileInfo__base_name(x));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileStats__base_name(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileStats__base_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileInfo__base_name(SEXP x_sexp){
+	Rf_error("Cannot call fs___FileInfo__base_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string fs___FileStats__extension(const std::shared_ptr<fs::FileStats>& x);
-RcppExport SEXP _arrow_fs___FileStats__extension(SEXP x_sexp){
+std::string fs___FileInfo__extension(const std::shared_ptr<fs::FileInfo>& x);
+RcppExport SEXP _arrow_fs___FileInfo__extension(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
-	return Rcpp::wrap(fs___FileStats__extension(x));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	return Rcpp::wrap(fs___FileInfo__extension(x));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileStats__extension(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileStats__extension(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileInfo__extension(SEXP x_sexp){
+	Rf_error("Cannot call fs___FileInfo__extension(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP fs___FileStats__mtime(const std::shared_ptr<fs::FileStats>& x);
-RcppExport SEXP _arrow_fs___FileStats__mtime(SEXP x_sexp){
+SEXP fs___FileInfo__mtime(const std::shared_ptr<fs::FileInfo>& x);
+RcppExport SEXP _arrow_fs___FileInfo__mtime(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
-	return Rcpp::wrap(fs___FileStats__mtime(x));
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	return Rcpp::wrap(fs___FileInfo__mtime(x));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileStats__mtime(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileStats__mtime(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileInfo__mtime(SEXP x_sexp){
+	Rf_error("Cannot call fs___FileInfo__mtime(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileStats__set_mtime(const std::shared_ptr<fs::FileStats>& x, SEXP time);
-RcppExport SEXP _arrow_fs___FileStats__set_mtime(SEXP x_sexp, SEXP time_sexp){
+void fs___FileInfo__set_mtime(const std::shared_ptr<fs::FileInfo>& x, SEXP time);
+RcppExport SEXP _arrow_fs___FileInfo__set_mtime(SEXP x_sexp, SEXP time_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
 	Rcpp::traits::input_parameter<SEXP>::type time(time_sexp);
-	fs___FileStats__set_mtime(x, time);
+	fs___FileInfo__set_mtime(x, time);
 	return R_NilValue;
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileStats__set_mtime(SEXP x_sexp, SEXP time_sexp){
-	Rf_error("Cannot call fs___FileStats__set_mtime(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileInfo__set_mtime(SEXP x_sexp, SEXP time_sexp){
+	Rf_error("Cannot call fs___FileInfo__set_mtime(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3291,33 +3291,33 @@ RcppExport SEXP _arrow_fs___FileSelector__create(SEXP base_dir_sexp, SEXP allow_
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_Paths(const std::shared_ptr<fs::FileSystem>& file_system, const std::vector<std::string>& paths);
-RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Paths(SEXP file_system_sexp, SEXP paths_sexp){
+std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths(const std::shared_ptr<fs::FileSystem>& file_system, const std::vector<std::string>& paths);
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetInfos_Paths(SEXP file_system_sexp, SEXP paths_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
-	return Rcpp::wrap(fs___FileSystem__GetTargetStats_Paths(file_system, paths));
+	return Rcpp::wrap(fs___FileSystem__GetTargetInfos_Paths(file_system, paths));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Paths(SEXP file_system_sexp, SEXP paths_sexp){
-	Rf_error("Cannot call fs___FileSystem__GetTargetStats_Paths(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetInfos_Paths(SEXP file_system_sexp, SEXP paths_sexp){
+	Rf_error("Cannot call fs___FileSystem__GetTargetInfos_Paths(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_FileSelector(const std::shared_ptr<fs::FileSystem>& file_system, const std::shared_ptr<fs::FileSelector>& selector);
-RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_FileSelector(SEXP file_system_sexp, SEXP selector_sexp){
+std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_FileSelector(const std::shared_ptr<fs::FileSystem>& file_system, const std::shared_ptr<fs::FileSelector>& selector);
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetInfos_FileSelector(SEXP file_system_sexp, SEXP selector_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
-	return Rcpp::wrap(fs___FileSystem__GetTargetStats_FileSelector(file_system, selector));
+	return Rcpp::wrap(fs___FileSystem__GetTargetInfos_FileSelector(file_system, selector));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_FileSelector(SEXP file_system_sexp, SEXP selector_sexp){
-	Rf_error("Cannot call fs___FileSystem__GetTargetStats_FileSelector(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetInfos_FileSelector(SEXP file_system_sexp, SEXP selector_sexp){
+	Rf_error("Cannot call fs___FileSystem__GetTargetInfos_FileSelector(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6096,22 +6096,22 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Field__Equals", (DL_FUNC) &_arrow_Field__Equals, 2}, 
 		{ "_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1}, 
 		{ "_arrow_Field__type", (DL_FUNC) &_arrow_Field__type, 1}, 
-		{ "_arrow_fs___FileStats__type", (DL_FUNC) &_arrow_fs___FileStats__type, 1}, 
-		{ "_arrow_fs___FileStats__set_type", (DL_FUNC) &_arrow_fs___FileStats__set_type, 2}, 
-		{ "_arrow_fs___FileStats__path", (DL_FUNC) &_arrow_fs___FileStats__path, 1}, 
-		{ "_arrow_fs___FileStats__set_path", (DL_FUNC) &_arrow_fs___FileStats__set_path, 2}, 
-		{ "_arrow_fs___FileStats__size", (DL_FUNC) &_arrow_fs___FileStats__size, 1}, 
-		{ "_arrow_fs___FileStats__set_size", (DL_FUNC) &_arrow_fs___FileStats__set_size, 2}, 
-		{ "_arrow_fs___FileStats__base_name", (DL_FUNC) &_arrow_fs___FileStats__base_name, 1}, 
-		{ "_arrow_fs___FileStats__extension", (DL_FUNC) &_arrow_fs___FileStats__extension, 1}, 
-		{ "_arrow_fs___FileStats__mtime", (DL_FUNC) &_arrow_fs___FileStats__mtime, 1}, 
-		{ "_arrow_fs___FileStats__set_mtime", (DL_FUNC) &_arrow_fs___FileStats__set_mtime, 2}, 
+		{ "_arrow_fs___FileInfo__type", (DL_FUNC) &_arrow_fs___FileInfo__type, 1}, 
+		{ "_arrow_fs___FileInfo__set_type", (DL_FUNC) &_arrow_fs___FileInfo__set_type, 2}, 
+		{ "_arrow_fs___FileInfo__path", (DL_FUNC) &_arrow_fs___FileInfo__path, 1}, 
+		{ "_arrow_fs___FileInfo__set_path", (DL_FUNC) &_arrow_fs___FileInfo__set_path, 2}, 
+		{ "_arrow_fs___FileInfo__size", (DL_FUNC) &_arrow_fs___FileInfo__size, 1}, 
+		{ "_arrow_fs___FileInfo__set_size", (DL_FUNC) &_arrow_fs___FileInfo__set_size, 2}, 
+		{ "_arrow_fs___FileInfo__base_name", (DL_FUNC) &_arrow_fs___FileInfo__base_name, 1}, 
+		{ "_arrow_fs___FileInfo__extension", (DL_FUNC) &_arrow_fs___FileInfo__extension, 1}, 
+		{ "_arrow_fs___FileInfo__mtime", (DL_FUNC) &_arrow_fs___FileInfo__mtime, 1}, 
+		{ "_arrow_fs___FileInfo__set_mtime", (DL_FUNC) &_arrow_fs___FileInfo__set_mtime, 2}, 
 		{ "_arrow_fs___FileSelector__base_dir", (DL_FUNC) &_arrow_fs___FileSelector__base_dir, 1}, 
 		{ "_arrow_fs___FileSelector__allow_non_existent", (DL_FUNC) &_arrow_fs___FileSelector__allow_non_existent, 1}, 
 		{ "_arrow_fs___FileSelector__recursive", (DL_FUNC) &_arrow_fs___FileSelector__recursive, 1}, 
 		{ "_arrow_fs___FileSelector__create", (DL_FUNC) &_arrow_fs___FileSelector__create, 3}, 
-		{ "_arrow_fs___FileSystem__GetTargetStats_Paths", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_Paths, 2}, 
-		{ "_arrow_fs___FileSystem__GetTargetStats_FileSelector", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_FileSelector, 2}, 
+		{ "_arrow_fs___FileSystem__GetTargetInfos_Paths", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetInfos_Paths, 2}, 
+		{ "_arrow_fs___FileSystem__GetTargetInfos_FileSelector", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetInfos_FileSelector, 2}, 
 		{ "_arrow_fs___FileSystem__CreateDir", (DL_FUNC) &_arrow_fs___FileSystem__CreateDir, 3}, 
 		{ "_arrow_fs___FileSystem__DeleteDir", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDir, 2}, 
 		{ "_arrow_fs___FileSystem__DeleteDirContents", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDirContents, 2}, 

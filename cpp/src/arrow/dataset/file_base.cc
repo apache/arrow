@@ -60,17 +60,17 @@ FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
 Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-    fs::FileStatsVector stats) {
-  ExpressionVector partitions(stats.size(), scalar(true));
+    std::vector<fs::FileInfo> infos) {
+  ExpressionVector partitions(infos.size(), scalar(true));
   return Make(std::move(schema), std::move(root_partition), std::move(format),
-              std::move(filesystem), std::move(stats), std::move(partitions));
+              std::move(filesystem), std::move(infos), std::move(partitions));
 }
 
 Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-    fs::FileStatsVector stats, ExpressionVector partitions) {
-  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(stats), &partitions));
+    std::vector<fs::FileInfo> infos, ExpressionVector partitions) {
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(infos), &partitions));
   return Make(std::move(schema), std::move(root_partition), std::move(format),
               std::move(filesystem), std::move(forest), std::move(partitions));
 }
@@ -88,8 +88,8 @@ std::vector<std::string> FileSystemDataset::files() const {
   std::vector<std::string> files;
 
   DCHECK_OK(forest_.Visit([&](fs::PathForest::Ref ref) {
-    if (ref.stats().IsFile()) {
-      files.push_back(ref.stats().path());
+    if (ref.info().IsFile()) {
+      files.push_back(ref.info().path());
     }
     return Status::OK();
   }));
@@ -105,7 +105,7 @@ std::string FileSystemDataset::ToString() const {
   }
 
   DCHECK_OK(forest_.Visit([&](fs::PathForest::Ref ref) {
-    repr += "\n" + ref.stats().path();
+    repr += "\n" + ref.info().path();
 
     if (!partitions_[ref.i]->Equals(true)) {
       repr += ": " + partitions_[ref.i]->ToString();
@@ -177,9 +177,9 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
       }
     }
 
-    if (ref.stats().IsFile()) {
+    if (ref.info().IsFile()) {
       // generate a fragment for this file
-      FileSource src(ref.stats().path(), filesystem_.get());
+      FileSource src(ref.info().path(), filesystem_.get());
       ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment(src, options[ref.i]));
       fragments.push_back(std::move(fragment));
     }

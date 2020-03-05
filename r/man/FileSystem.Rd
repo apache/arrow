@@ -26,8 +26,8 @@ take the following arguments, depending on the subclass:
 \section{Methods}{
 
 \itemize{
-\item \verb{$GetTargetStats(x)}: \code{x} may be a \link{FileSelector} or a character
-vector of paths. Returns a list of \link{FileStats}
+\item \verb{$GetTargetInfos(x)}: \code{x} may be a \link{FileSelector} or a character
+vector of paths. Returns a list of \link{FileInfo}
 \item \verb{$CreateDir(path, recursive = TRUE)}: Create a directory and subdirectories.
 \item \verb{$DeleteDir(path)}: Delete a directory and its contents, recursively.
 \item \verb{$DeleteDirContents(path)}: Delete a directory's contents, recursively.

@@ -37,35 +37,35 @@ namespace fs {
 
 namespace {
 
-std::vector<FileStats> GetAllWithType(FileSystem* fs, FileType type) {
+std::vector<FileInfo> GetAllWithType(FileSystem* fs, FileType type) {
   FileSelector selector;
   selector.base_dir = "";
   selector.recursive = true;
-  std::vector<FileStats> stats = std::move(fs->GetTargetStats(selector)).ValueOrDie();
-  std::vector<FileStats> result;
-  for (const auto& st : stats) {
-    if (st.type() == type) {
-      result.push_back(st);
+  std::vector<FileInfo> infos = std::move(fs->GetTargetInfos(selector)).ValueOrDie();
+  std::vector<FileInfo> result;
+  for (const auto& info : infos) {
+    if (info.type() == type) {
+      result.push_back(info);
     }
   }
   return result;
 }
 
-std::vector<FileStats> GetAllDirs(FileSystem* fs) {
+std::vector<FileInfo> GetAllDirs(FileSystem* fs) {
   return GetAllWithType(fs, FileType::Directory);
 }
 
-std::vector<FileStats> GetAllFiles(FileSystem* fs) {
+std::vector<FileInfo> GetAllFiles(FileSystem* fs) {
   return GetAllWithType(fs, FileType::File);
 }
 
-void AssertPaths(const std::vector<FileStats>& stats,
+void AssertPaths(const std::vector<FileInfo>& infos,
                  const std::vector<std::string>& expected_paths) {
-  auto sorted_stats = stats;
-  SortStats(&sorted_stats);
-  std::vector<std::string> paths(sorted_stats.size());
-  std::transform(sorted_stats.begin(), sorted_stats.end(), paths.begin(),
-                 [&](const FileStats& st) { return st.path(); });
+  auto sorted_infos = infos;
+  SortInfos(&sorted_infos);
+  std::vector<std::string> paths(sorted_infos.size());
+  std::transform(sorted_infos.begin(), sorted_infos.end(), paths.begin(),
+                 [&](const FileInfo& info) { return info.path(); });
 
   ASSERT_EQ(paths, expected_paths);
 }
@@ -84,13 +84,13 @@ void ValidateTimePoint(TimePoint tp) { ASSERT_GE(tp.time_since_epoch().count(), 
 
 void AssertFileContents(FileSystem* fs, const std::string& path,
                         const std::string& expected_data) {
-  ASSERT_OK_AND_ASSIGN(FileStats st, fs->GetTargetStats(path));
-  ASSERT_EQ(st.type(), FileType::File) << "For path '" << path << "'";
-  ASSERT_EQ(st.size(), static_cast<int64_t>(expected_data.length()))
+  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetTargetInfo(path));
+  ASSERT_EQ(info.type(), FileType::File) << "For path '" << path << "'";
+  ASSERT_EQ(info.size(), static_cast<int64_t>(expected_data.length()))
       << "For path '" << path << "'";
 
   ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenInputStream(path));
-  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(st.size()));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(info.size()));
   AssertBufferEqual(*buffer, expected_data);
   // No data left in stream
   ASSERT_OK_AND_ASSIGN(auto leftover, stream->Read(1));
@@ -105,57 +105,57 @@ void CreateFile(FileSystem* fs, const std::string& path, const std::string& data
   ASSERT_OK(stream->Close());
 }
 
-void SortStats(std::vector<FileStats>* stats) {
-  std::sort(stats->begin(), stats->end(),
-            [](const FileStats& left, const FileStats& right) -> bool {
+void SortInfos(std::vector<FileInfo>* infos) {
+  std::sort(infos->begin(), infos->end(),
+            [](const FileInfo& left, const FileInfo& right) -> bool {
               return left.path() < right.path();
             });
 }
 
-void AssertFileStats(const FileStats& st, const std::string& path, FileType type) {
-  ASSERT_EQ(st.path(), path);
-  ASSERT_EQ(st.type(), type) << "For path '" << st.path() << "'";
+void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type) {
+  ASSERT_EQ(info.path(), path);
+  ASSERT_EQ(info.type(), type) << "For path '" << info.path() << "'";
 }
 
-void AssertFileStats(const FileStats& st, const std::string& path, FileType type,
-                     TimePoint mtime) {
-  AssertFileStats(st, path, type);
-  ASSERT_EQ(st.mtime(), mtime) << "For path '" << st.path() << "'";
+void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type,
+                    TimePoint mtime) {
+  AssertFileInfo(info, path, type);
+  ASSERT_EQ(info.mtime(), mtime) << "For path '" << info.path() << "'";
 }
 
-void AssertFileStats(const FileStats& st, const std::string& path, FileType type,
-                     TimePoint mtime, int64_t size) {
-  AssertFileStats(st, path, type, mtime);
-  ASSERT_EQ(st.size(), size) << "For path '" << st.path() << "'";
+void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type,
+                    TimePoint mtime, int64_t size) {
+  AssertFileInfo(info, path, type, mtime);
+  ASSERT_EQ(info.size(), size) << "For path '" << info.path() << "'";
 }
 
-void AssertFileStats(const FileStats& st, const std::string& path, FileType type,
-                     int64_t size) {
-  AssertFileStats(st, path, type);
-  ASSERT_EQ(st.size(), size) << "For path '" << st.path() << "'";
+void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type,
+                    int64_t size) {
+  AssertFileInfo(info, path, type);
+  ASSERT_EQ(info.size(), size) << "For path '" << info.path() << "'";
 }
 
-void AssertFileStats(FileSystem* fs, const std::string& path, FileType type) {
-  ASSERT_OK_AND_ASSIGN(FileStats st, fs->GetTargetStats(path));
-  AssertFileStats(st, path, type);
+void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type) {
+  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetTargetInfo(path));
+  AssertFileInfo(info, path, type);
 }
 
-void AssertFileStats(FileSystem* fs, const std::string& path, FileType type,
-                     TimePoint mtime) {
-  ASSERT_OK_AND_ASSIGN(FileStats st, fs->GetTargetStats(path));
-  AssertFileStats(st, path, type, mtime);
+void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type,
+                    TimePoint mtime) {
+  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetTargetInfo(path));
+  AssertFileInfo(info, path, type, mtime);
 }
 
-void AssertFileStats(FileSystem* fs, const std::string& path, FileType type,
-                     TimePoint mtime, int64_t size) {
-  ASSERT_OK_AND_ASSIGN(FileStats st, fs->GetTargetStats(path));
-  AssertFileStats(st, path, type, mtime, size);
+void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type,
+                    TimePoint mtime, int64_t size) {
+  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetTargetInfo(path));
+  AssertFileInfo(info, path, type, mtime, size);
 }
 
-void AssertFileStats(FileSystem* fs, const std::string& path, FileType type,
-                     int64_t size) {
-  ASSERT_OK_AND_ASSIGN(FileStats st, fs->GetTargetStats(path));
-  AssertFileStats(st, path, type, size);
+void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type,
+                    int64_t size) {
+  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetTargetInfo(path));
+  AssertFileInfo(info, path, type, size);
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -310,31 +310,30 @@ void GenericFileSystemTest::TestMoveFile(FileSystem* fs) {
   AssertAllFiles(fs, {"abc"});
 
   // Move inside root dir
-  FileStats st;
   ASSERT_OK(fs->Move("abc", "def"));
   AssertAllDirs(fs, all_dirs);
   AssertAllFiles(fs, {"def"});
-  AssertFileStats(fs, "def", FileType::File, 4);
+  AssertFileInfo(fs, "def", FileType::File, 4);
   AssertFileContents(fs, "def", "data");
 
   // Move out of root dir
   ASSERT_OK(fs->Move("def", "AB/CD/ghi"));
   AssertAllDirs(fs, all_dirs);
   AssertAllFiles(fs, {"AB/CD/ghi"});
-  AssertFileStats(fs, "AB/CD/ghi", FileType::File, 4);
+  AssertFileInfo(fs, "AB/CD/ghi", FileType::File, 4);
   AssertFileContents(fs, "AB/CD/ghi", "data");
 
   ASSERT_OK(fs->Move("AB/CD/ghi", "EF/jkl"));
   AssertAllDirs(fs, all_dirs);
   AssertAllFiles(fs, {"EF/jkl"});
-  AssertFileStats(fs, "EF/jkl", FileType::File, 4);
+  AssertFileInfo(fs, "EF/jkl", FileType::File, 4);
   AssertFileContents(fs, "EF/jkl", "data");
 
   // Move back into root dir
   ASSERT_OK(fs->Move("EF/jkl", "mno"));
   AssertAllDirs(fs, all_dirs);
   AssertAllFiles(fs, {"mno"});
-  AssertFileStats(fs, "mno", FileType::File, 4);
+  AssertFileInfo(fs, "mno", FileType::File, 4);
   AssertFileContents(fs, "mno", "data");
 
   // Destination is a file => clobber
@@ -342,7 +341,7 @@ void GenericFileSystemTest::TestMoveFile(FileSystem* fs) {
   AssertAllFiles(fs, {"AB/pqr", "mno"});
   ASSERT_OK(fs->Move("mno", "AB/pqr"));
   AssertAllFiles(fs, {"AB/pqr"});
-  AssertFileStats(fs, "AB/pqr", FileType::File, 4);
+  AssertFileInfo(fs, "AB/pqr", FileType::File, 4);
   AssertFileContents(fs, "AB/pqr", "data");
 
   // Identical source and destination: allowed to succeed or raise IOError,
@@ -352,7 +351,7 @@ void GenericFileSystemTest::TestMoveFile(FileSystem* fs) {
     ASSERT_RAISES(IOError, err);
   }
   AssertAllFiles(fs, {"AB/pqr"});
-  AssertFileStats(fs, "AB/pqr", FileType::File, 4);
+  AssertFileInfo(fs, "AB/pqr", FileType::File, 4);
   AssertFileContents(fs, "AB/pqr", "data");
 
   // Source doesn't exist
@@ -482,76 +481,76 @@ void GenericFileSystemTest::TestCopyFile(FileSystem* fs) {
   AssertAllFiles(fs, {"AB/abc", "EF/ghi", "def"});
 }
 
-void GenericFileSystemTest::TestGetTargetStatsSingle(FileSystem* fs) {
+void GenericFileSystemTest::TestGetTargetInfo(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   CreateFile(fs, "AB/CD/ghi", "some data");
   CreateFile(fs, "AB/CD/jkl", "some other data");
 
-  FileStats st;
+  FileInfo info;
   TimePoint first_dir_time, first_file_time;
 
-  ASSERT_OK_AND_ASSIGN(st, fs->GetTargetStats("AB"));
-  AssertFileStats(st, "AB", FileType::Directory);
-  ASSERT_EQ(st.base_name(), "AB");
-  ASSERT_EQ(st.size(), kNoSize);
-  first_dir_time = st.mtime();
+  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB"));
+  AssertFileInfo(info, "AB", FileType::Directory);
+  ASSERT_EQ(info.base_name(), "AB");
+  ASSERT_EQ(info.size(), kNoSize);
+  first_dir_time = info.mtime();
   if (have_directory_mtimes()) {
     ValidateTimePoint(first_dir_time);
   }
 
-  ASSERT_OK_AND_ASSIGN(st, fs->GetTargetStats("AB/CD/EF"));
-  AssertFileStats(st, "AB/CD/EF", FileType::Directory);
-  ASSERT_EQ(st.base_name(), "EF");
-  ASSERT_EQ(st.size(), kNoSize);
+  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB/CD/EF"));
+  AssertFileInfo(info, "AB/CD/EF", FileType::Directory);
+  ASSERT_EQ(info.base_name(), "EF");
+  ASSERT_EQ(info.size(), kNoSize);
   // AB/CD's creation can impact AB's modification time, however, AB/CD/EF's
   // creation doesn't, so AB/CD/EF's mtime should be after AB's.
   if (have_directory_mtimes()) {
-    AssertDurationBetween(st.mtime() - first_dir_time, 0.0, kTimeSlack);
+    AssertDurationBetween(info.mtime() - first_dir_time, 0.0, kTimeSlack);
   }
 
-  ASSERT_OK_AND_ASSIGN(st, fs->GetTargetStats("AB/CD/ghi"));
-  AssertFileStats(st, "AB/CD/ghi", FileType::File, 9);
-  ASSERT_EQ(st.base_name(), "ghi");
-  first_file_time = st.mtime();
+  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB/CD/ghi"));
+  AssertFileInfo(info, "AB/CD/ghi", FileType::File, 9);
+  ASSERT_EQ(info.base_name(), "ghi");
+  first_file_time = info.mtime();
   // AB/CD/ghi's creation doesn't impact AB's modification time,
   // so AB/CD/ghi's mtime should be after AB's.
   if (have_directory_mtimes()) {
     AssertDurationBetween(first_file_time - first_dir_time, 0.0, kTimeSlack);
   }
-  ASSERT_OK_AND_ASSIGN(st, fs->GetTargetStats("AB/CD/jkl"));
-  AssertFileStats(st, "AB/CD/jkl", FileType::File, 15);
+  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB/CD/jkl"));
+  AssertFileInfo(info, "AB/CD/jkl", FileType::File, 15);
   // This file was created after the one above
-  AssertDurationBetween(st.mtime() - first_file_time, 0.0, kTimeSlack);
+  AssertDurationBetween(info.mtime() - first_file_time, 0.0, kTimeSlack);
 
-  ASSERT_OK_AND_ASSIGN(st, fs->GetTargetStats("zz"));
-  AssertFileStats(st, "zz", FileType::NonExistent);
-  ASSERT_EQ(st.base_name(), "zz");
-  ASSERT_EQ(st.size(), kNoSize);
-  ASSERT_EQ(st.mtime(), kNoTime);
+  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("zz"));
+  AssertFileInfo(info, "zz", FileType::NonExistent);
+  ASSERT_EQ(info.base_name(), "zz");
+  ASSERT_EQ(info.size(), kNoSize);
+  ASSERT_EQ(info.mtime(), kNoTime);
 }
 
-void GenericFileSystemTest::TestGetTargetStatsVector(FileSystem* fs) {
+void GenericFileSystemTest::TestGetTargetInfosVector(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "AB/CD/ghi", "some data");
 
-  std::vector<FileStats> stats;
+  std::vector<FileInfo> infos;
   TimePoint dir_time, file_time;
   ASSERT_OK_AND_ASSIGN(
-      stats, fs->GetTargetStats({"AB", "AB/CD", "AB/zz", "zz", "XX/zz", "AB/CD/ghi"}));
-  ASSERT_EQ(stats.size(), 6);
-  AssertFileStats(stats[0], "AB", FileType::Directory);
-  dir_time = stats[0].mtime();
+      infos, fs->GetTargetInfos({"AB", "AB/CD", "AB/zz", "zz", "XX/zz", "AB/CD/ghi"}));
+  ASSERT_EQ(infos.size(), 6);
+  AssertFileInfo(infos[0], "AB", FileType::Directory);
+  dir_time = infos[0].mtime();
   if (have_directory_mtimes()) {
     ValidateTimePoint(dir_time);
   }
-  AssertFileStats(stats[1], "AB/CD", FileType::Directory);
-  AssertFileStats(stats[2], "AB/zz", FileType::NonExistent);
-  AssertFileStats(stats[3], "zz", FileType::NonExistent);
-  AssertFileStats(stats[4], "XX/zz", FileType::NonExistent);
-  ASSERT_EQ(stats[4].size(), kNoSize);
-  ASSERT_EQ(stats[4].mtime(), kNoTime);
-  AssertFileStats(stats[5], "AB/CD/ghi", FileType::File, 9);
-  file_time = stats[5].mtime();
+  AssertFileInfo(infos[1], "AB/CD", FileType::Directory);
+  AssertFileInfo(infos[2], "AB/zz", FileType::NonExistent);
+  AssertFileInfo(infos[3], "zz", FileType::NonExistent);
+  AssertFileInfo(infos[4], "XX/zz", FileType::NonExistent);
+  ASSERT_EQ(infos[4].size(), kNoSize);
+  ASSERT_EQ(infos[4].mtime(), kNoTime);
+  AssertFileInfo(infos[5], "AB/CD/ghi", FileType::File, 9);
+  file_time = infos[5].mtime();
   if (have_directory_mtimes()) {
     AssertDurationBetween(file_time - dir_time, 0.0, kTimeSlack);
   } else {
@@ -559,18 +558,18 @@ void GenericFileSystemTest::TestGetTargetStatsVector(FileSystem* fs) {
   }
 
   // Check the mtime is the same from one call to the other
-  FileStats st;
+  FileInfo info;
   if (have_directory_mtimes()) {
-    ASSERT_OK_AND_ASSIGN(st, fs->GetTargetStats("AB"));
-    AssertFileStats(st, "AB", FileType::Directory);
-    ASSERT_EQ(st.mtime(), dir_time);
+    ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB"));
+    AssertFileInfo(info, "AB", FileType::Directory);
+    ASSERT_EQ(info.mtime(), dir_time);
   }
-  ASSERT_OK_AND_ASSIGN(st, fs->GetTargetStats("AB/CD/ghi"));
-  AssertFileStats(st, "AB/CD/ghi", FileType::File, 9);
-  ASSERT_EQ(st.mtime(), file_time);
+  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB/CD/ghi"));
+  AssertFileInfo(info, "AB/CD/ghi", FileType::File, 9);
+  ASSERT_EQ(info.mtime(), file_time);
 }
 
-void GenericFileSystemTest::TestGetTargetStatsSelector(FileSystem* fs) {
+void GenericFileSystemTest::TestGetTargetInfosSelector(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "abc", "data");
   CreateFile(fs, "AB/def", "some data");
@@ -580,79 +579,79 @@ void GenericFileSystemTest::TestGetTargetStatsSelector(FileSystem* fs) {
   TimePoint first_dir_time, first_file_time;
   FileSelector s;
   s.base_dir = "";
-  std::vector<FileStats> stats;
-  ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(s));
+  std::vector<FileInfo> infos;
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
   // Need to sort results to make testing deterministic
-  SortStats(&stats);
-  ASSERT_EQ(stats.size(), 2);
-  AssertFileStats(stats[0], "AB", FileType::Directory);
-  first_dir_time = stats[0].mtime();
+  SortInfos(&infos);
+  ASSERT_EQ(infos.size(), 2);
+  AssertFileInfo(infos[0], "AB", FileType::Directory);
+  first_dir_time = infos[0].mtime();
   if (have_directory_mtimes()) {
     ValidateTimePoint(first_dir_time);
   }
-  AssertFileStats(stats[1], "abc", FileType::File, 4);
+  AssertFileInfo(infos[1], "abc", FileType::File, 4);
 
   s.base_dir = "AB";
-  ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(s));
-  SortStats(&stats);
-  ASSERT_EQ(stats.size(), 2);
-  AssertFileStats(stats[0], "AB/CD", FileType::Directory);
-  AssertFileStats(stats[1], "AB/def", FileType::File, 9);
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
+  SortInfos(&infos);
+  ASSERT_EQ(infos.size(), 2);
+  AssertFileInfo(infos[0], "AB/CD", FileType::Directory);
+  AssertFileInfo(infos[1], "AB/def", FileType::File, 9);
 
   s.base_dir = "AB/CD";
-  ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(s));
-  SortStats(&stats);
-  ASSERT_EQ(stats.size(), 2);
-  AssertFileStats(stats[0], "AB/CD/ghi", FileType::File, 15);
-  AssertFileStats(stats[1], "AB/CD/jkl", FileType::File, 14);
-  first_file_time = stats[0].mtime();
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
+  SortInfos(&infos);
+  ASSERT_EQ(infos.size(), 2);
+  AssertFileInfo(infos[0], "AB/CD/ghi", FileType::File, 15);
+  AssertFileInfo(infos[1], "AB/CD/jkl", FileType::File, 14);
+  first_file_time = infos[0].mtime();
   if (have_directory_mtimes()) {
     AssertDurationBetween(first_file_time - first_dir_time, 0.0, kTimeSlack);
   }
-  AssertDurationBetween(stats[1].mtime() - first_file_time, 0.0, kTimeSlack);
+  AssertDurationBetween(infos[1].mtime() - first_file_time, 0.0, kTimeSlack);
 
   // Recursive
   s.base_dir = "AB";
   s.recursive = true;
-  ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(s));
-  SortStats(&stats);
-  ASSERT_EQ(stats.size(), 4);
-  AssertFileStats(stats[0], "AB/CD", FileType::Directory);
-  AssertFileStats(stats[1], "AB/CD/ghi", FileType::File, first_file_time, 15);
-  AssertFileStats(stats[2], "AB/CD/jkl", FileType::File, 14);
-  AssertFileStats(stats[3], "AB/def", FileType::File, 9);
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
+  SortInfos(&infos);
+  ASSERT_EQ(infos.size(), 4);
+  AssertFileInfo(infos[0], "AB/CD", FileType::Directory);
+  AssertFileInfo(infos[1], "AB/CD/ghi", FileType::File, first_file_time, 15);
+  AssertFileInfo(infos[2], "AB/CD/jkl", FileType::File, 14);
+  AssertFileInfo(infos[3], "AB/def", FileType::File, 9);
 
   // Check the mtime is the same from one call to the other
-  FileStats st;
-  ASSERT_OK_AND_ASSIGN(st, fs->GetTargetStats("AB"));
-  AssertFileStats(st, "AB", FileType::Directory, first_dir_time);
-  ASSERT_OK_AND_ASSIGN(st, fs->GetTargetStats("AB/CD/ghi"));
-  AssertFileStats(st, "AB/CD/ghi", FileType::File, first_file_time, 15);
+  FileInfo info;
+  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB"));
+  AssertFileInfo(info, "AB", FileType::Directory, first_dir_time);
+  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB/CD/ghi"));
+  AssertFileInfo(info, "AB/CD/ghi", FileType::File, first_file_time, 15);
 
   // Doesn't exist
   s.base_dir = "XX";
-  ASSERT_RAISES(IOError, fs->GetTargetStats(s));
+  ASSERT_RAISES(IOError, fs->GetTargetInfos(s));
   s.allow_non_existent = true;
-  ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(s));
-  ASSERT_EQ(stats.size(), 0);
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
+  ASSERT_EQ(infos.size(), 0);
   s.allow_non_existent = false;
 
   // Not a dir
   s.base_dir = "abc";
-  ASSERT_RAISES(IOError, fs->GetTargetStats(s));
+  ASSERT_RAISES(IOError, fs->GetTargetInfos(s));
 }
 
-void GetSortedStats(FileSystem* fs, FileSelector s, std::vector<FileStats>& stats) {
-  ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(s));
+void GetSortedInfos(FileSystem* fs, FileSelector s, std::vector<FileInfo>& infos) {
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
   // Clear mtime & size for easier testing.
-  for_each(stats.begin(), stats.end(), [](FileStats& s) {
-    s.set_mtime(kNoTime);
-    s.set_size(kNoSize);
+  for_each(infos.begin(), infos.end(), [](FileInfo& info) {
+    info.set_mtime(kNoTime);
+    info.set_size(kNoSize);
   });
-  SortStats(&stats);
+  SortInfos(&infos);
 }
 
-void GenericFileSystemTest::TestGetTargetStatsSelectorWithRecursion(FileSystem* fs) {
+void GenericFileSystemTest::TestGetTargetInfosSelectorWithRecursion(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("01/02/03/04"));
   ASSERT_OK(fs->CreateDir("AA"));
   CreateFile(fs, "00.file", "00");
@@ -662,57 +661,57 @@ void GenericFileSystemTest::TestGetTargetStatsSelectorWithRecursion(FileSystem* 
   CreateFile(fs, "01/02/03/03.file", "03");
   CreateFile(fs, "01/02/03/04/04.file", "04");
 
-  std::vector<FileStats> stats;
+  std::vector<FileInfo> infos;
   FileSelector s;
 
   s.base_dir = "";
   s.recursive = false;
-  GetSortedStats(fs, s, stats);
-  EXPECT_THAT(stats, ElementsAre(File("00.file"), Dir("01"), Dir("AA")));
+  GetSortedInfos(fs, s, infos);
+  EXPECT_THAT(infos, ElementsAre(File("00.file"), Dir("01"), Dir("AA")));
 
   // recursive should prevail on max_recursion
   s.max_recursion = 9000;
-  GetSortedStats(fs, s, stats);
-  EXPECT_THAT(stats, ElementsAre(File("00.file"), Dir("01"), Dir("AA")));
+  GetSortedInfos(fs, s, infos);
+  EXPECT_THAT(infos, ElementsAre(File("00.file"), Dir("01"), Dir("AA")));
 
   // recursive but no traversal
   s.recursive = true;
   s.max_recursion = 0;
-  GetSortedStats(fs, s, stats);
-  EXPECT_THAT(stats, ElementsAre(File("00.file"), Dir("01"), Dir("AA")));
+  GetSortedInfos(fs, s, infos);
+  EXPECT_THAT(infos, ElementsAre(File("00.file"), Dir("01"), Dir("AA")));
 
   s.recursive = true;
   s.max_recursion = 1;
-  GetSortedStats(fs, s, stats);
-  EXPECT_THAT(stats, ElementsAre(File("00.file"), Dir("01"), File("01/01.file"),
+  GetSortedInfos(fs, s, infos);
+  EXPECT_THAT(infos, ElementsAre(File("00.file"), Dir("01"), File("01/01.file"),
                                  Dir("01/02"), Dir("AA"), File("AA/AA.file")));
 
   s.recursive = true;
   s.max_recursion = 2;
-  GetSortedStats(fs, s, stats);
-  EXPECT_THAT(stats, ElementsAre(File("00.file"), Dir("01"), File("01/01.file"),
+  GetSortedInfos(fs, s, infos);
+  EXPECT_THAT(infos, ElementsAre(File("00.file"), Dir("01"), File("01/01.file"),
                                  Dir("01/02"), File("01/02/02.file"), Dir("01/02/03"),
                                  Dir("AA"), File("AA/AA.file")));
 
   s.base_dir = "01";
   s.recursive = false;
-  GetSortedStats(fs, s, stats);
-  EXPECT_THAT(stats, ElementsAre(File("01/01.file"), Dir("01/02")));
+  GetSortedInfos(fs, s, infos);
+  EXPECT_THAT(infos, ElementsAre(File("01/01.file"), Dir("01/02")));
 
   s.base_dir = "01";
   s.recursive = true;
   s.max_recursion = 1;
-  GetSortedStats(fs, s, stats);
-  EXPECT_THAT(stats, ElementsAre(File("01/01.file"), Dir("01/02"), File("01/02/02.file"),
+  GetSortedInfos(fs, s, infos);
+  EXPECT_THAT(infos, ElementsAre(File("01/01.file"), Dir("01/02"), File("01/02/02.file"),
                                  Dir("01/02/03")));
 
   // All-in
   s.base_dir = "";
   s.recursive = true;
   s.max_recursion = INT32_MAX;
-  GetSortedStats(fs, s, stats);
+  GetSortedInfos(fs, s, infos);
   EXPECT_THAT(
-      stats, ElementsAre(File("00.file"), Dir("01"), File("01/01.file"), Dir("01/02"),
+      infos, ElementsAre(File("00.file"), Dir("01"), File("01/01.file"), Dir("01/02"),
                          File("01/02/02.file"), Dir("01/02/03"), File("01/02/03/03.file"),
                          Dir("01/02/03/04"), File("01/02/03/04/04.file"), Dir("AA"),
                          File("AA/AA.file")));
@@ -850,10 +849,10 @@ GENERIC_FS_TEST_DEFINE(TestDeleteFiles)
 GENERIC_FS_TEST_DEFINE(TestMoveFile)
 GENERIC_FS_TEST_DEFINE(TestMoveDir)
 GENERIC_FS_TEST_DEFINE(TestCopyFile)
-GENERIC_FS_TEST_DEFINE(TestGetTargetStatsSingle)
-GENERIC_FS_TEST_DEFINE(TestGetTargetStatsVector)
-GENERIC_FS_TEST_DEFINE(TestGetTargetStatsSelector)
-GENERIC_FS_TEST_DEFINE(TestGetTargetStatsSelectorWithRecursion)
+GENERIC_FS_TEST_DEFINE(TestGetTargetInfo)
+GENERIC_FS_TEST_DEFINE(TestGetTargetInfosVector)
+GENERIC_FS_TEST_DEFINE(TestGetTargetInfosSelector)
+GENERIC_FS_TEST_DEFINE(TestGetTargetInfosSelectorWithRecursion)
 GENERIC_FS_TEST_DEFINE(TestOpenOutputStream)
 GENERIC_FS_TEST_DEFINE(TestOpenAppendStream)
 GENERIC_FS_TEST_DEFINE(TestOpenInputStream)
