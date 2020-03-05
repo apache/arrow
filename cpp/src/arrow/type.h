@@ -1438,7 +1438,7 @@ class ARROW_EXPORT FieldRef {
   template <typename A0, typename A1, typename... A>
   FieldRef(A0&& a0, A1&& a1, A&&... a)
       : FieldRef(std::vector<FieldRef>{
-            // cpplint things the following are constructor decls
+            // cpplint thinks the following are constructor decls
             FieldRef(std::forward<A0>(a0)),       // NOLINT runtime/explicit
             FieldRef(std::forward<A1>(a1)),       // NOLINT runtime/explicit
             FieldRef(std::forward<A>(a))...}) {}  // NOLINT runtime/explicit
@@ -1456,6 +1456,10 @@ class ARROW_EXPORT FieldRef {
   ///   "[5].gamma.delta[7]" => FieldRef(5, "gamma", "delta", 7)
   ///   ".hello world" => FieldRef("hello world")
   ///   R"(.\[y\]\\tho\.\)" => FieldRef(R"([y]\tho.\)")
+  ///
+  /// Note: When parsing a name, a '\' preceding any other character will be dropped from
+  /// the resulting name. Therefore if a name must contain the characters '.', '\', or '['
+  /// those must be escaped with a preceding '\'.
   static Result<FieldRef> FromDotPath(const std::string& dot_path);
 
   bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }

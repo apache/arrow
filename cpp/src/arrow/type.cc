@@ -670,7 +670,7 @@ Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
       }
 
       if (dot_path[segment_end] != '\\') {
-        // segment_end points to a subscipt for a new FieldRef
+        // segment_end points to a subscript for a new FieldRef
         name.append(dot_path.begin(), segment_end);
         dot_path = dot_path.substr(segment_end);
         break;
@@ -692,22 +692,22 @@ Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
   };
 
   while (!dot_path.empty()) {
-    auto subscipt = dot_path[0];
+    auto subscript = dot_path[0];
     dot_path = dot_path.substr(1);
-    switch (subscipt) {
+    switch (subscript) {
       case '.': {
         // next element is a name
         children.push_back(parse_name());
         continue;
       }
       case '[': {
-        auto subscipt_end = dot_path.find_first_not_of("0123456789");
-        if (subscipt_end == util::string_view::npos || dot_path[subscipt_end] != ']') {
+        auto subscript_end = dot_path.find_first_not_of("0123456789");
+        if (subscript_end == util::string_view::npos || dot_path[subscript_end] != ']') {
           return Status::Invalid("Dot path '", dot_path_arg,
                                  "' contained an unterminated index");
         }
         children.emplace_back(std::atoi(dot_path.data()));
-        dot_path = dot_path.substr(subscipt_end + 1);
+        dot_path = dot_path.substr(subscript_end + 1);
         continue;
       }
       default:

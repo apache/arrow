@@ -334,7 +334,6 @@ TEST(TestFieldRef, Basics) {
   // lookup by name returns the Indices of both matching fields
   EXPECT_THAT(FieldRef("alpha").FindAll(s), ElementsAre(I{0}, I{2}));
   EXPECT_THAT(FieldRef("beta").FindAll(s), ElementsAre(I{1}, I{3}));
-  EXPECT_THAT(FieldRef("beta").FindAll(s), ElementsAre(I{1}, I{3}));
 
   // retrieving a field with single-element Indices is equivalent to Schema::field
   for (int index = 0; index < s.num_fields(); ++index) {
