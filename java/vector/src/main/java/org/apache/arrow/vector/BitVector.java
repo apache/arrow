@@ -22,6 +22,7 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.BitReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -41,6 +42,11 @@ import io.netty.buffer.ArrowBuf;
  * to a single bit in the underlying data stream backing the vector.
  */
 public final class BitVector extends BaseFixedWidthVector {
+
+  private static final int HASH_CODE_FOR_ZERO = 17;
+
+  private static final int HASH_CODE_FOR_ONE = 19;
+
   private final FieldReader reader;
 
   /**
@@ -471,6 +477,24 @@ public final class BitVector extends BaseFixedWidthVector {
   @Override
   public ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int hashCode(int index) {
+    if (isNull(index)) {
+      return ArrowBufPointer.NULL_HASH_CODE;
+    } else {
+      if (get(index) == 0) {
+        return HASH_CODE_FOR_ZERO;
+      } else {
+        return HASH_CODE_FOR_ONE;
+      }
+    }
+  }
+
+  @Override
+  public int hashCode(int index, ArrowBufHasher hasher) {
+    return hashCode(index);
   }
 
   /**
