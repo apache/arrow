@@ -30,6 +30,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.DecimalHolder;
 import org.apache.arrow.vector.types.Types;
@@ -299,6 +300,11 @@ public class TestComplexCopier {
         structWriter.start();
         structWriter.integer("int").writeInt(i);
         structWriter.decimal("dec", 0, 38).writeDecimal(BigDecimal.valueOf(i * 2));
+        StructWriter innerStructWriter = structWriter.struct("struc");
+        innerStructWriter.start();
+        innerStructWriter.integer("innerint").writeInt(i * 3);
+        innerStructWriter.decimal("innerdec", 0, 38).writeDecimal(BigDecimal.valueOf(i * 4));
+        innerStructWriter.end();
         structWriter.end();
       }
 
@@ -316,6 +322,33 @@ public class TestComplexCopier {
 
       // validate equals
       assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+    }
+  }
+
+  @Test
+  public void testCopyDecimalVectorWrongScale() {
+    try (FixedSizeListVector from = FixedSizeListVector.empty("v", 3, allocator);
+         FixedSizeListVector to = FixedSizeListVector.empty("v", 3, allocator)) {
+      from.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 2)));
+      to.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 1)));
+
+      // populate from vector
+      UnionFixedSizeListWriter writer = from.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        writer.startList();
+        writer.decimal().writeDecimal(BigDecimal.valueOf(1.23));
+        writer.decimal().writeDecimal(BigDecimal.valueOf(2.45));
+        writer.endList();
+      }
+      from.setValueCount(COUNT);
+      to.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      UnsupportedOperationException e = assertThrows(UnsupportedOperationException.class,
+          () -> ComplexCopier.copy(in, out));
+      assertTrue(e.getMessage().contains("BigDecimal scale must equal that in the Arrow vector: 2 != 1"));
     }
   }
 }
