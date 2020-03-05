@@ -56,7 +56,7 @@ The Docker configuration is in `Dockerfile-x86_64_base_2010` and `Dockerfile-x86
 and it calls into scripts stored under the `scripts` directory.
 
 ```bash
-docker-compose build python-manylinux2010
+docker-compose build centos-python-manylinux2010
 ```
 
 For each dependency, a bash script in the `scripts/` directory downloads the
