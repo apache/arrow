@@ -170,8 +170,7 @@ TEST_F(TestPlasmaStore, BatchNotificationTest) {
 
   std::vector<std::string> data = {"hello", "world!"};
   std::vector<std::string> metadata = {"1", "23"};
-  ARROW_CHECK_OK(local_client.CreateAndSealBatch(object_ids, /*evict_if_full=*/true, data,
-                                                 metadata));
+  ARROW_CHECK_OK(local_client.CreateAndSealBatch(object_ids, data, metadata));
 
   ObjectID object_id = random_object_id();
   int64_t data_size = 0;
@@ -684,8 +683,7 @@ TEST_F(TestPlasmaStore, BatchCreateTest) {
   std::vector<std::string> data = {"hello", "world"};
   std::vector<std::string> metadata = {"1", "2"};
 
-  ARROW_CHECK_OK(
-      client_.CreateAndSealBatch(object_ids, /*evict_if_full=*/true, data, metadata));
+  ARROW_CHECK_OK(client_.CreateAndSealBatch(object_ids, data, metadata));
 
   std::vector<ObjectBuffer> object_buffers;
 
