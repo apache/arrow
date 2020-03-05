@@ -959,8 +959,6 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       int device_num = 0;
       PlasmaError error_code = CreateObject(object_id, data.size(), metadata.size(),
                                             device_num, client, &object);
-      // Reply to the client.
-      HANDLE_SIGPIPE(SendCreateAndSealReply(client->fd, error_code), client->fd);
 
       // If the object was successfully created, fill out the object data and seal it.
       if (error_code == PlasmaError::OK) {
@@ -976,6 +974,9 @@ Status PlasmaStore::ProcessMessage(Client* client) {
         // Release call that happens in the client's Seal method.
         ARROW_CHECK(RemoveFromClientObjectIds(object_id, entry, client) == 1);
       }
+
+      // Reply to the client.
+      HANDLE_SIGPIPE(SendCreateAndSealReply(client->fd, error_code), client->fd);
     } break;
     case fb::MessageType::PlasmaCreateAndSealBatchRequest: {
       std::vector<ObjectID> object_ids;
@@ -998,8 +999,6 @@ Status PlasmaStore::ProcessMessage(Client* client) {
           break;
         }
       }
-
-      HANDLE_SIGPIPE(SendCreateAndSealBatchReply(client->fd, error_code), client->fd);
 
       // if OK, seal all the objects,
       // if error, abort the previous i objects immediately
@@ -1027,6 +1026,8 @@ Status PlasmaStore::ProcessMessage(Client* client) {
           AbortObject(object_ids[j], client);
         }
       }
+
+      HANDLE_SIGPIPE(SendCreateAndSealBatchReply(client->fd, error_code), client->fd);
     } break;
     case fb::MessageType::PlasmaAbortRequest: {
       RETURN_NOT_OK(ReadAbortRequest(input, input_size, &object_id));
@@ -1071,6 +1072,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       std::string digest;
       RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest));
       SealObjects({object_id}, {digest});
+      HANDLE_SIGPIPE(SendSealReply(client->fd, object_id, PlasmaError::OK), client->fd);
     } break;
     case fb::MessageType::PlasmaEvictRequest: {
       // This code path should only be used for testing.
