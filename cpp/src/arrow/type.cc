@@ -973,9 +973,9 @@ util::small_vector<FieldRef::Indices> FieldRef::FindAll(const FieldVector& field
       util::small_vector<FieldRef::Indices> prefixes;
       FieldVector referents;
 
-      Matches(util::small_vector<FieldRef::Indices> indices, const FieldVector& fields) {
-        for (auto& indices : indices) {
-          Add({}, std::move(indices), fields);
+      Matches(util::small_vector<FieldRef::Indices> matches, const FieldVector& fields) {
+        for (auto& match : matches) {
+          Add({}, std::move(match), fields);
         }
       }
 
