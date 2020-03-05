@@ -132,15 +132,28 @@ present if there are dictionary type fields in the schema.
 
     {
       "name" : "name_of_the_field",
-      "nullable" : false,
+      "nullable" : /* boolean */,
       "type" : /* Type */,
       "children" : [ /* Field */ ],
     }
 
+If the Field corresponds to a dictionary type, the "type" attribute
+corresponds to the dictionary values, and the Field includes an additional
+"dictionary" member, the "id" of which maps onto a column in the
+``DictionaryBatch`` : ::
+
+    "dictionary": {
+      "id": /* integer */,
+      "indexType": /* Type */,
+      "isOrdered": /* boolean */
+    }
+
+For primitive types, "children" is an empty array.
+
 **RecordBatch**::
 
     {
-      "count": /*length of batch*/,
+      "count": /* integer number of rows in the batch */,
       "columns": [ /* FieldData */ ]
     }
 
@@ -149,17 +162,17 @@ present if there are dictionary type fields in the schema.
     {
       "name": "field_name",
       "count" "field_length",
-      "BUFFER_TYPE": /* BufferData */
+      "$BUFFER_TYPE": /* BufferData */
       ...
-      "BUFFER_TYPE": /* BufferData */
+      "$BUFFER_TYPE": /* BufferData */
       "children": [ /* FieldData */ ]
     }
 
 The "name" member of a ``Field`` in the ``Schema`` corresponds to the "name"
 of a ``FieldData`` contained in the "columns" of a ``RecordBatch``.
 
-Here ``BUFFER_TYPE`` is one of ``VALIDITY``, ``OFFSET`` (for
-variable-length types), ``TYPE`` (for unions), or ``DATA``.
+Here ``$BUFFER_TYPE`` is one of ``VALIDITY``, ``OFFSET`` (for
+variable-length types, such as strings), ``TYPE`` (for unions), or ``DATA``.
 
 ``BufferData`` is encoded based on the type of buffer:
 
@@ -186,18 +199,6 @@ type:
       "name" : "null|struct|list|largelist|fixedsizelist|union|int|floatingpoint|utf8|largeutf8|binary|largebinary|fixedsizebinary|bool|decimal|date|time|timestamp|interval|duration|map"
       // fields as defined in the Flatbuffer depending on the type name
     }
-
-Union: ::
-
-    {
-      "name" : "union",
-      "mode" : "Sparse|Dense",
-      "typeIds" : [ /* integer */ ]
-    }
-
-The ``typeIds`` field in the Union are the codes used to denote each type, which
-may be different from the index of the child array. This is so that the union
-type ids do not have to be enumerated from 0.
 
 Int: ::
 
@@ -267,3 +268,15 @@ Interval: ::
       "name" : "interval",
       "unit" : "YEAR_MONTH"
     }
+
+Union: ::
+
+    {
+      "name" : "union",
+      "mode" : "Sparse|Dense",
+      "typeIds" : [ /* integer */ ]
+    }
+
+The ``typeIds`` field in the Union are the codes used to denote each type, which
+may be different from the index of the child array. This is so that the union
+type ids do not have to be enumerated from 0.
