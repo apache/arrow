@@ -1083,12 +1083,13 @@ def test_value_counts_simple():
          pa.array([2, 1, 1], type=pa.int64())),
     ]
     for arr, expected_values, expected_counts in cases:
-      for arr_in in (arr, pa.chunked_array([arr])):
-        result = arr_in.value_counts()
-        assert result.type.equals(
-            pa.struct([pa.field("values", arr.type), pa.field("counts", pa.int64())]))
-        assert result.field("values").equals(expected_values)
-        assert result.field("counts").equals(expected_counts)
+        for arr_in in (arr, pa.chunked_array([arr])):
+            result = arr_in.value_counts()
+            assert result.type.equals(
+                pa.struct([pa.field("values", arr.type),
+                           pa.field("counts", pa.int64())]))
+            assert result.field("values").equals(expected_values)
+            assert result.field("counts").equals(expected_counts)
 
 
 def test_dictionary_encode_simple():
@@ -1127,7 +1128,8 @@ def test_dictionary_encode_sliced():
          pa.DictionaryArray.from_arrays(
              pa.array([0, 1, 0], type='int32'),
              ['foo', 'bar'])),
-        (pa.array([None, 'foo', 'bar', 'foo', 'xyzzy'], type=pa.large_string())[1:-1],
+        (pa.array([None, 'foo', 'bar', 'foo', 'xyzzy'],
+                  type=pa.large_string())[1:-1],
          pa.DictionaryArray.from_arrays(
              pa.array([0, 1, 0], type='int32'),
              pa.array(['foo', 'bar'], type=pa.large_string()))),
