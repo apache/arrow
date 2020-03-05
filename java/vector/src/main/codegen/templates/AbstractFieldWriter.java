@@ -72,12 +72,20 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
     fail("${name}");
   }
 
-  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list><#if minor.class == "Decimal">, ArrowType arrowType</#if>) {
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     fail("${name}");
   }
 
   <#if minor.class == "Decimal">
   public void write${minor.class}(${friendlyType} value) {
+    fail("${name}");
+  }
+
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list><#if minor.class == "Decimal">, ArrowType arrowType</#if>) {
+    fail("${name}");
+  }
+
+  public void writeBigEndianBytesToDecimal(byte[] value) {
     fail("${name}");
   }
 

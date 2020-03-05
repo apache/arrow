@@ -285,6 +285,12 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   @Override
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL, new ArrowType.Decimal(MAX_DECIMAL_PRECISION,
+        ((ArrowType.Decimal) arrowType).getScale())).writeBigEndianBytesToDecimal(value, arrowType);
+  }
+
+  @Override
   public void allocate() {
     getWriter().allocate();
   }

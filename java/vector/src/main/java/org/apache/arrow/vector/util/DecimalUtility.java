@@ -96,6 +96,24 @@ public class DecimalUtility {
   }
 
   /**
+   * Check that the decimal scale equals the vectorScale and that the decimal precision is
+   * less than or equal to the vectorPrecision. If not, then an UnsupportedOperationException is
+   * thrown, otherwise returns true.
+   */
+  public static boolean checkPrecisionAndScale(int decimalPrecision, int decimalScale, int vectorPrecision,
+                                               int vectorScale) {
+    if (decimalScale != vectorScale) {
+      throw new UnsupportedOperationException("BigDecimal scale must equal that in the Arrow vector: " +
+          decimalScale + " != " + vectorScale);
+    }
+    if (decimalPrecision > vectorPrecision) {
+      throw new UnsupportedOperationException("BigDecimal precision can not be greater than that in the Arrow " +
+          "vector: " + decimalPrecision + " > " + vectorPrecision);
+    }
+    return true;
+  }
+
+  /**
    * Write the given BigDecimal to the ArrowBuf at the given value index. Will throw an
    * UnsupportedOperationException if the decimal size is greater than the Decimal vector byte
    * width.

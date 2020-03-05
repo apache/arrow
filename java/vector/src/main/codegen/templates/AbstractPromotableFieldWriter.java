@@ -92,12 +92,19 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
-    // write Decimal if scales don't match
     getWriter(MinorType.DECIMAL).writeDecimal(start, buffer, arrowType);
+  }
+
+  public void writeDecimal(int start, ArrowBuf buffer) {
+    getWriter(MinorType.DECIMAL).writeDecimal(start, buffer);
   }
 
   public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType) {
     getWriter(MinorType.DECIMAL).writeBigEndianBytesToDecimal(value, arrowType);
+  }
+
+  public void writeBigEndianBytesToDecimal(byte[] value) {
+    getWriter(MinorType.DECIMAL).writeBigEndianBytesToDecimal(value);
   }
   </#if>
 
