@@ -42,9 +42,26 @@ affected_files() {
   popd > /dev/null
 }
 
+# Show the IWYU version. Also causes the script to fail if iwyu is not in your
+# PATH
+include-what-you-use --version
+
 if [[ "${1:-}" == "all" ]]; then
     python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p ${IWYU_COMPILATION_DATABASE_PATH:-.} \
         -- $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk
+elif [[ "${1:-}" == "match" ]]; then
+  ALL_FILES=
+  IWYU_FILE_LIST=
+  for path in $(find $ROOT/cpp/src -type f | awk '/\.(c|cc|h)$/'); do
+    if [[ $path =~ $2 ]]; then
+      IWYU_FILE_LIST="$IWYU_FILE_LIST $path"
+    fi
+  done
+
+  echo "Running IWYU on $IWYU_FILE_LIST"
+  python $ROOT/cpp/build-support/iwyu/iwyu_tool.py \
+      -p ${IWYU_COMPILATION_DATABASE_PATH:-.} $IWYU_FILE_LIST  -- \
+       $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk
 else
   # Build the list of updated files which are of IWYU interest.
   file_list_tmp=$(affected_files)
