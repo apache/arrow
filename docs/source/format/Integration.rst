@@ -154,7 +154,10 @@ For primitive types, "children" is an empty array.
 
     {
       "name" : "null|struct|list|largelist|fixedsizelist|union|int|floatingpoint|utf8|largeutf8|binary|largebinary|fixedsizebinary|bool|decimal|date|time|timestamp|interval|duration|map"
-      // fields as defined in the Flatbuffer depending on the type name
+    }
+
+A ``Type`` will have other fields as defined in `Schema.fbs <https://github.com/apache/arrow/tree/master/format/Schema.fbs>`_
+depending on its name.
     }
 
 Int: ::
@@ -236,9 +239,9 @@ Union: ::
       "typeIds" : [ /* integer */ ]
     }
 
-The ``typeIds`` field in the Union are the codes used to denote each type, which
-may be different from the index of the child array. This is so that the union
-type ids do not have to be enumerated from 0.
+The ``typeIds`` field in ``Union`` are the codes used to denote which member of
+the union is active in each array slot. Note that in general these discriminants are not identical
+to the index of the corresponding child array.
 
 List: ::
 
