@@ -65,7 +65,7 @@ ggandiva_projector_finalize(GObject *object)
 {
   auto priv = GGANDIVA_PROJECTOR_GET_PRIVATE(object);
 
-  priv->projector = nullptr;
+  priv->projector.~shared_ptr();
 
   G_OBJECT_CLASS(ggandiva_projector_parent_class)->finalize(object);
 }

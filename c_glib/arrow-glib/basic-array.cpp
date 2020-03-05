@@ -232,7 +232,7 @@ garrow_array_finalize(GObject *object)
 {
   auto priv = GARROW_ARRAY_GET_PRIVATE(object);
 
-  priv->array = nullptr;
+  priv->array.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_array_parent_class)->finalize(object);
 }

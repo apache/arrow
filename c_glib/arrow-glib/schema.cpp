@@ -59,7 +59,7 @@ garrow_schema_finalize(GObject *object)
 {
   auto priv = GARROW_SCHEMA_GET_PRIVATE(object);
 
-  priv->schema = nullptr;
+  priv->schema.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_schema_parent_class)->finalize(object);
 }

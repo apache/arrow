@@ -62,7 +62,7 @@ garrow_chunked_array_finalize(GObject *object)
 {
   auto priv = GARROW_CHUNKED_ARRAY_GET_PRIVATE(object);
 
-  priv->chunked_array = nullptr;
+  priv->chunked_array.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_chunked_array_parent_class)->finalize(object);
 }

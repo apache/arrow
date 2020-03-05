@@ -117,7 +117,7 @@ garrow_input_stream_finalize(GObject *object)
 {
   auto priv = GARROW_INPUT_STREAM_GET_PRIVATE(object);
 
-  priv->input_stream = nullptr;
+  priv->input_stream.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_input_stream_parent_class)->finalize(object);
 }

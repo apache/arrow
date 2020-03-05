@@ -84,7 +84,7 @@ garrow_buffer_finalize(GObject *object)
 {
   auto priv = GARROW_BUFFER_GET_PRIVATE(object);
 
-  priv->buffer = nullptr;
+  priv->buffer.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_buffer_parent_class)->finalize(object);
 }

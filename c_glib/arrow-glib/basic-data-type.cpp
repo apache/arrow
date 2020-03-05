@@ -120,7 +120,7 @@ garrow_data_type_finalize(GObject *object)
 {
   auto priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
 
-  priv->data_type = nullptr;
+  priv->data_type.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_data_type_parent_class)->finalize(object);
 }

@@ -174,7 +174,7 @@ garrow_cuda_context_finalize(GObject *object)
 {
   auto priv = GARROW_CUDA_CONTEXT_GET_PRIVATE(object);
 
-  priv->context = nullptr;
+  priv->context.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_cuda_context_parent_class)->finalize(object);
 }

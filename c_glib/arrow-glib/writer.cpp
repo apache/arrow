@@ -75,7 +75,7 @@ garrow_record_batch_writer_finalize(GObject *object)
 {
   auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
 
-  priv->record_batch_writer = nullptr;
+  priv->record_batch_writer.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_record_batch_writer_parent_class)->finalize(object);
 }

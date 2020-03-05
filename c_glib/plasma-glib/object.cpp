@@ -193,8 +193,8 @@ gplasma_object_finalize(GObject *object)
 {
   auto priv = GPLASMA_OBJECT_GET_PRIVATE(object);
 
-  priv->raw_data = nullptr;
-  priv->raw_metadata = nullptr;
+  priv->raw_data.~shared_ptr();
+  priv->raw_metadata.~shared_ptr();
 
   G_OBJECT_CLASS(gplasma_object_parent_class)->finalize(object);
 }

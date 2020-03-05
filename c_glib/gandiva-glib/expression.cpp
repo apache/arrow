@@ -83,7 +83,7 @@ ggandiva_expression_finalize(GObject *object)
 {
   auto priv = GGANDIVA_EXPRESSION_GET_PRIVATE(object);
 
-  priv->expression = nullptr;
+  priv->expression.~shared_ptr();
 
   G_OBJECT_CLASS(ggandiva_expression_parent_class)->finalize(object);
 }

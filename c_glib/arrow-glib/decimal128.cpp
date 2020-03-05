@@ -59,7 +59,7 @@ garrow_decimal128_finalize(GObject *object)
 {
   auto priv = GARROW_DECIMAL128_GET_PRIVATE(object);
 
-  priv->decimal128 = nullptr;
+  priv->decimal128.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_decimal128_parent_class)->finalize(object);
 }

@@ -65,7 +65,7 @@ garrow_table_dispose(GObject *object)
 {
   auto priv = GARROW_TABLE_GET_PRIVATE(object);
 
-  priv->table = nullptr;
+  priv->table.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_table_parent_class)->dispose(object);
 }

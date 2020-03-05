@@ -143,7 +143,7 @@ ggandiva_node_finalize(GObject *object)
 {
   auto priv = GGANDIVA_NODE_GET_PRIVATE(object);
 
-  priv->node = nullptr;
+  priv->node.~shared_ptr();
 
   G_OBJECT_CLASS(ggandiva_node_parent_class)->finalize(object);
 }

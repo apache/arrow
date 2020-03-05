@@ -72,7 +72,7 @@ garrow_field_finalize(GObject *object)
 {
   auto priv = GARROW_FIELD_GET_PRIVATE(object);
 
-  priv->field = nullptr;
+  priv->field.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_field_parent_class)->finalize(object);
 }

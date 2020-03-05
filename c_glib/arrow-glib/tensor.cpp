@@ -74,7 +74,7 @@ garrow_tensor_finalize(GObject *object)
 {
   auto priv = GARROW_TENSOR_GET_PRIVATE(object);
 
-  priv->tensor = nullptr;
+  priv->tensor.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_tensor_parent_class)->finalize(object);
 }
