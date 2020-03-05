@@ -2000,6 +2000,14 @@ class TestConvertListTypes:
             assert result.type == field.type  # == list<scalar>
             assert result.equals(expected)
 
+    def test_nested_large_list(self):
+        s = (pa.array([[[1, 2, 3], [4]], None],
+                      type=pa.large_list(pa.large_list(pa.int64())))
+             .to_pandas())
+        tm.assert_series_equal(
+            s, pd.Series([[[1, 2, 3], [4]], None]),
+            check_names=False)
+
     def test_large_binary_list(self):
         for list_type_factory in (pa.list_, pa.large_list):
             s = (pa.array([["aa", "bb"], None, ["cc"], []],

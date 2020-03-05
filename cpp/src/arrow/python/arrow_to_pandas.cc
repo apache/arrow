@@ -163,7 +163,11 @@ static inline bool ListTypeSupported(const DataType& type) {
       // The above types are all supported.
       return true;
     case Type::LIST: {
-      const ListType& list_type = checked_cast<const ListType&>(type);
+      const auto& list_type = checked_cast<const ListType&>(type);
+      return ListTypeSupported(*list_type.value_type());
+    }
+    case Type::LARGE_LIST: {
+      const auto& list_type = checked_cast<const LargeListType&>(type);
       return ListTypeSupported(*list_type.value_type());
     }
     default:
