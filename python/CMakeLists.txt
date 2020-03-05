@@ -45,6 +45,8 @@ endif()
 set(Python3_FIND_STRATEGY "LOCATION")
 # On Windows, use registry last, not first
 set(Python3_FIND_REGISTRY "LAST")
+# On macOS, use framework last, not first
+set(Python3_FIND_FRAMEWORK "LAST")
 
 # Allow "make install" to not depend on all targets.
 #
