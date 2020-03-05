@@ -124,8 +124,12 @@ public class ComplexCopier {
     </#if>
     <#if minor.class == "Decimal">
     case ${name?upper_case}:
-      ArrowType.Decimal type = (ArrowType.Decimal) reader.getField().getType();
-      return (FieldWriter) writer.${uncappedName}(name, type.getScale(), type.getPrecision());
+      if (reader.getField().getType() instanceof ArrowType.Decimal) {
+        ArrowType.Decimal type = (ArrowType.Decimal) reader.getField().getType();
+        return (FieldWriter) writer.${uncappedName}(name, type.getScale(), type.getPrecision());
+      } else {
+        return (FieldWriter) writer.${uncappedName}(name);
+      }
     </#if>
     </#list></#list>
     case STRUCT:
