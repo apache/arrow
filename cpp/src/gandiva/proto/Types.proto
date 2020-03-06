@@ -66,8 +66,8 @@ enum TimeUnit {
 }
 
 enum IntervalType {
-	YEAR_MONTH = 0;
-	DAY_TIME = 1;
+  YEAR_MONTH = 0;
+  DAY_TIME = 1;
 }
 
 enum SelectionVectorType {
