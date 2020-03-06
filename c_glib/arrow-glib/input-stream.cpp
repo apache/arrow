@@ -1036,8 +1036,19 @@ garrow_input_stream_get_raw(GArrowInputStream *input_stream)
   return priv->input_stream;
 }
 
+GArrowSeekableInputStream *
+garrow_seekable_input_stream_new_raw(
+  std::shared_ptr<arrow::io::RandomAccessFile> *arrow_random_access_file)
+{
+  auto object = g_object_new(GARROW_TYPE_SEEKABLE_INPUT_STREAM,
+                             "input-stream", arrow_random_access_file,
+                             NULL);
+  return GARROW_SEEKABLE_INPUT_STREAM(object);
+}
+
 std::shared_ptr<arrow::io::RandomAccessFile>
-garrow_seekable_input_stream_get_raw(GArrowSeekableInputStream *seekable_input_stream)
+garrow_seekable_input_stream_get_raw(
+  GArrowSeekableInputStream *seekable_input_stream)
 {
   auto arrow_input_stream =
     garrow_input_stream_get_raw(GARROW_INPUT_STREAM(seekable_input_stream));
