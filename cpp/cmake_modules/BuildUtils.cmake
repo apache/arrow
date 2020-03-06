@@ -659,7 +659,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
 
   foreach(LABEL ${ARG_LABELS})
     # ensure there is a cmake target which exercises tests with this LABEL
-    set(LABEL_TEST_NAME "test-label-${LABEL}")
+    set(LABEL_TEST_NAME "test-${LABEL}")
     if(NOT TARGET ${LABEL_TEST_NAME})
       add_custom_target(${LABEL_TEST_NAME}
                         ctest
