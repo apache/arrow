@@ -156,14 +156,15 @@ def memory_leak_check(f, metric='rss', threshold=1 << 17, iterations=10,
     def _leak_check():
         current_use = _get_use()
         if current_use - baseline_use > threshold:
-            raise Exception("Memory leak detected. Baseline use {}, "
-                            "current use after {} iterations is {}"
-                            .format(baseline_use, i, current_use))
+            raise Exception("Memory leak detected. "
+                            "Departure from baseline {} after {} iterations"
+                            .format(current_use - baseline_use, i))
 
     for i in range(iterations):
         f()
         if i % check_interval != 0:
             continue
+        _leak_check()
 
 
 def get_modified_env_with_pythonpath():
