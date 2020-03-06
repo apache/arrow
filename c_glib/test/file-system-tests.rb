@@ -190,8 +190,12 @@ module FileSystemTests
                  all_entries)
   end
 
+  def move_dir_is_supported?
+    true
+  end
+
   def test_move_dir
-    omit("move_dir is not allowed") if @do_not_allow_move_dir
+    omit("move_dir is not allowed") unless move_dir_is_supported?
 
     mkpath("AB/CD")
     mkpath("EF")
