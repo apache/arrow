@@ -170,13 +170,11 @@ garrow_file_system_open_input_stream(GArrowFileSystem *file_system,
                                      const gchar *path,
                                      GError **error);
 
-/* TODO:
 GARROW_AVAILABLE_IN_1_0
-GArrowRandomAccessFile *
+GArrowSeekableInputStream *
 garrow_file_system_open_input_file(GArrowFileSystem *file_system,
                                    const gchar *path,
                                    GError **error);
-*/
 
 GARROW_AVAILABLE_IN_1_0
 GArrowOutputStream *

@@ -908,8 +908,8 @@ garrow_file_system_copy_file(GArrowFileSystem *file_system,
  *
  * Open an input stream for sequential reading.
  *
- * Returns: (nullable) (transfer full): A newly created #GArrowInputStream
- *   for appending.
+ * Returns: (nullable) (transfer full): A newly created
+ *   #GArrowInputStream.
  *
  * Since: 1.0.0
  */
@@ -927,21 +927,34 @@ garrow_file_system_open_input_stream(GArrowFileSystem *file_system,
   }
 }
 
-/* TODO: Need to implement the wrapper of arrow::io::RandomAccessFile
-GArrowRandomAccessFile *
+/**
+ * garrow_file_system_open_input_file:
+ * @file_system: A #GArrowFileSystem.
+ * @path: The path of the input file.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Open an input file for random access reading.
+ *
+ * Returns: (nullable) (transfer full): A newly created
+ *   #GArrowSeekableInputStream.
+ *
+ * Since: 1.0.0
+ */
+GArrowSeekableInputStream *
 garrow_file_system_open_input_file(GArrowFileSystem *file_system,
                                    const gchar *path,
                                    GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_random_access_file = arrow_file_system->OpenInputFile(path);
-  if (garrow::check(error, arrow_random_access_file, "[file-system][open-input-file]")) {
-    return garrow_random_access_file_new_raw(&(arrow_random_access_file.ValueOrDie()));
+  if (garrow::check(error,
+                    arrow_random_access_file,
+                    "[file-system][open-input-file]")) {
+    return garrow_seekable_input_stream_new_raw(&(*arrow_random_access_file));
   } else {
     return NULL;
   }
 }
-*/
 
 /**
  * garrow_file_system_open_output_stream:
@@ -952,8 +965,8 @@ garrow_file_system_open_input_file(GArrowFileSystem *file_system,
  * Open an output stream for sequential writing.
  * If the target already exists, the existing data is truncated.
  *
- * Returns: (nullable) (transfer full): A newly created #GArrowOutputStream
- *   for appending.
+ * Returns: (nullable) (transfer full): A newly created
+ *   #GArrowOutputStream.
  *
  * Since: 1.0.0
  */

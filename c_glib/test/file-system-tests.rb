@@ -368,6 +368,12 @@ module FileSystemTests
   end
 
   def test_open_input_file
-    omit("TODO: Not implemented")
+    create_file("ab", "some data")
+
+    stream = @fs.open_input_file("ab")
+    bytes = stream.read_at_bytes(5, 4)
+    assert_equal("data",
+                 bytes.to_s)
+    stream.close
   end
 end
