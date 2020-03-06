@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <regex>
 #include <string>

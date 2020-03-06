@@ -60,7 +60,7 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
   using util::EqualityComparable<Scalar>::Equals;
   bool Equals(const Scalar& other) const;
 
-  struct Hash {
+  struct ARROW_EXPORT Hash {
     size_t operator()(const Scalar& scalar) const { return hash(scalar); }
 
     size_t operator()(const std::shared_ptr<Scalar>& scalar) const {
