@@ -158,29 +158,6 @@ if(NOT MSVC)
                               -Wno-unused-variable)
 endif()
 
-# List of thrift output targets
-set(THRIFT_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
-set(THRIFT_OUTPUT_FILES "${THRIFT_OUTPUT_DIR}/parquet_types.cpp")
-set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES} "${THRIFT_OUTPUT_DIR}/parquet_types.h")
-set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES}
-                        "${THRIFT_OUTPUT_DIR}/parquet_constants.cpp")
-set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES} "${THRIFT_OUTPUT_DIR}/parquet_constants.h")
-
-set_source_files_properties(${THRIFT_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
-
-get_filename_component(ABS_PARQUET_THRIFT parquet.thrift ABSOLUTE)
-
-add_custom_command(OUTPUT ${THRIFT_OUTPUT_FILES}
-                   COMMAND ${THRIFT_COMPILER}
-                           --gen
-                           cpp
-                           -out
-                           ${THRIFT_OUTPUT_DIR}
-                           ${CMAKE_CURRENT_SOURCE_DIR}/parquet.thrift
-                   DEPENDS ${ABS_PARQUET_THRIFT} thrift::thrift
-                   COMMENT "Running thrift compiler on parquet.thrift"
-                   VERBATIM)
-
 #
 # Library config
 
@@ -219,11 +196,6 @@ if(PARQUET_REQUIRE_ENCRYPTION)
 else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
 endif()
-
-# Ensure that thrift compilation is done before using its generated headers
-# in parquet code.
-add_custom_target(parquet-thrift-deps ALL DEPENDS ${THRIFT_OUTPUT_FILES})
-set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} parquet-thrift-deps)
 
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
   set(PARQUET_SHARED_LINK_LIBS arrow_shared)
