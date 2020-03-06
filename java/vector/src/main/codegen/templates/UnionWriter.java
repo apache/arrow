@@ -235,6 +235,14 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     return getListWriter().${lowerName}();
   }
   </#if>
+  <#if minor.class == "Decimal">
+  @Override
+  public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+    data.setType(idx(), MinorType.STRUCT);
+    getStructWriter().setPosition(idx());
+    return getStructWriter().${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
+  }
+  </#if>
   </#list></#list>
 
   @Override

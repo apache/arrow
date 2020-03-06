@@ -208,7 +208,7 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
-  <#if !minor.typeParams?? >
+  <#if !minor.typeParams?? || minor.class == "Decimal" >
   @Override
   public ${capName}Writer ${lowerName}(String name) {
     byte typeId = data.getTypeId(idx());
@@ -223,6 +223,14 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
     data.setTypeId(idx(), typeId);
     getListWriter(typeId).setPosition(data.getOffset(idx()));
     return getListWriter(typeId).${lowerName}();
+  }
+  </#if>
+  <#if minor.class == "Decimal">
+  public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+    byte typeId = data.getTypeId(idx());
+    data.setTypeId(idx(), typeId);
+    getStructWriter(typeId).setPosition(data.getOffset(idx()));
+    return getStructWriter(typeId).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
   </#if>
   </#list></#list>
