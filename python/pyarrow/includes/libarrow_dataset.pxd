@@ -228,6 +228,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         vector[c_string] files()
         shared_ptr[CFragmentIterator] GetFragments(
             shared_ptr[CScanOptions] options)
+        const shared_ptr[CFileFormat] format()
 
     cdef cppclass CParquetFileFormatReaderOptions \
             "arrow::dataset::ParquetFileFormat::ReaderOptions":

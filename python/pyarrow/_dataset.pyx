@@ -312,6 +312,11 @@ cdef class FileSystemDataset(Dataset):
         cdef vector[c_string] files = self.filesystem_dataset.files()
         return [frombytes(f) for f in files]
 
+    @property
+    def format(self):
+        """The FileFormat of this source."""
+        return FileFormat.wrap(self.filesystem_dataset.format())
+
 
 cdef class FileFormat:
 
@@ -327,7 +332,7 @@ cdef class FileFormat:
         self.format = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CFileFormat]& sp):
+    cdef wrap(const shared_ptr[CFileFormat]& sp):
         cdef FileFormat self
 
         typ = frombytes(sp.get().type_name())
@@ -1138,6 +1143,11 @@ cdef class Expression:
 
     def __str__(self):
         return frombytes(self.expr.ToString())
+
+    def __repr__(self):
+        return "<pyarrow.dataset.{0} {1}>".format(
+            self.__class__.__name__, str(self)
+        )
 
     def validate(self, Schema schema not None):
         """Validate this expression for execution against a schema.
