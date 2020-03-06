@@ -17,7 +17,7 @@
 
 // Overview.
 //
-// The strategy used for this code for repeition/defition
+// The strategy used for this code for repetition/definition
 // is to dissect the top level array into a list of paths
 // from the top level array to the final primitive (possibly
 // dictionary encoded array). It then evaluates each one of
