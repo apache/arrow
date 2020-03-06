@@ -34,16 +34,6 @@ such topics as:
 
 .. _toc.columnar:
 
-.. Deprecated documents for Google searches
-
-.. toctree::
-   :hidden:
-
-   format/Guidelines
-   format/Layout
-   format/IPC
-   format/Metadata
-
 .. toctree::
    :maxdepth: 2
    :caption: Arrow Specifications and Protocols
@@ -63,7 +53,10 @@ such topics as:
 
    cpp/index
    python/index
-   java/index
+   `Java <https://arrow.apache.org/docs/java/>`_
+   `C GLib <https://arrow.apache.org/docs/c_glib/>`_
+   `JavaScript <https://arrow.apache.org/docs/js/>`_
+   `R <https://arrow.apache.org/docs/r/>`_
 
 .. _toc.development:
 
