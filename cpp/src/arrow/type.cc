@@ -927,21 +927,21 @@ Result<std::shared_ptr<ChunkedArray>> FieldRef::Get(const Indices& indices,
   return FieldRefGetImpl::Get(indices, table.columns());
 }
 
-util::small_vector<FieldRef::Indices> FieldRef::FindAll(const Schema& schema) const {
+std::vector<FieldRef::Indices> FieldRef::FindAll(const Schema& schema) const {
   return FindAll(schema.fields());
 }
 
-util::small_vector<FieldRef::Indices> FieldRef::FindAll(const Field& field) const {
+std::vector<FieldRef::Indices> FieldRef::FindAll(const Field& field) const {
   return FindAll(field.type()->children());
 }
 
-util::small_vector<FieldRef::Indices> FieldRef::FindAll(const DataType& type) const {
+std::vector<FieldRef::Indices> FieldRef::FindAll(const DataType& type) const {
   return FindAll(type.children());
 }
 
-util::small_vector<FieldRef::Indices> FieldRef::FindAll(const FieldVector& fields) const {
+std::vector<FieldRef::Indices> FieldRef::FindAll(const FieldVector& fields) const {
   struct Visitor {
-    util::small_vector<FieldRef::Indices> operator()(const FieldRef::Indices& indices) {
+    std::vector<FieldRef::Indices> operator()(const FieldRef::Indices& indices) {
       int out_of_range_depth;
       auto maybe_field = FieldRefGetImpl::Get(
           indices, &fields_,
@@ -956,8 +956,8 @@ util::small_vector<FieldRef::Indices> FieldRef::FindAll(const FieldVector& field
       return {};
     }
 
-    util::small_vector<FieldRef::Indices> operator()(const std::string& name) {
-      util::small_vector<FieldRef::Indices> out;
+    std::vector<FieldRef::Indices> operator()(const std::string& name) {
+      std::vector<FieldRef::Indices> out;
 
       for (int i = 0; i < static_cast<int>(fields_.size()); ++i) {
         if (fields_[i]->name() == name) {
@@ -970,10 +970,10 @@ util::small_vector<FieldRef::Indices> FieldRef::FindAll(const FieldVector& field
 
     struct Matches {
       // referents[i] is referenced by prefixes[i]
-      util::small_vector<FieldRef::Indices> prefixes;
+      std::vector<FieldRef::Indices> prefixes;
       FieldVector referents;
 
-      Matches(util::small_vector<FieldRef::Indices> matches, const FieldVector& fields) {
+      Matches(std::vector<FieldRef::Indices> matches, const FieldVector& fields) {
         for (auto& match : matches) {
           Add({}, std::move(match), fields);
         }
@@ -993,7 +993,7 @@ util::small_vector<FieldRef::Indices> FieldRef::FindAll(const FieldVector& field
       }
     };
 
-    util::small_vector<FieldRef::Indices> operator()(const std::vector<FieldRef>& refs) {
+    std::vector<FieldRef::Indices> operator()(const std::vector<FieldRef>& refs) {
       DCHECK_GE(refs.size(), 1);
       Matches matches(refs.front().FindAll(fields_), fields_);
 

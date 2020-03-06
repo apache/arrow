@@ -30,7 +30,6 @@
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/small_vector.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
@@ -1496,13 +1495,13 @@ class ARROW_EXPORT FieldRef {
                                                    const ChunkedArray& array);
 
   /// \brief Retrieve Indices of every child field which matches this FieldRef.
-  util::small_vector<Indices> FindAll(const Schema& schema) const;
-  util::small_vector<Indices> FindAll(const Field& field) const;
-  util::small_vector<Indices> FindAll(const DataType& type) const;
-  util::small_vector<Indices> FindAll(const FieldVector& fields) const;
+  std::vector<Indices> FindAll(const Schema& schema) const;
+  std::vector<Indices> FindAll(const Field& field) const;
+  std::vector<Indices> FindAll(const DataType& type) const;
+  std::vector<Indices> FindAll(const FieldVector& fields) const;
 
   template <typename T>
-  Status CheckNonEmpty(const util::small_vector<Indices>& matches, const T& root) const {
+  Status CheckNonEmpty(const std::vector<Indices>& matches, const T& root) const {
     if (matches.empty()) {
       return Status::Invalid("No match for ", ToString(), " in ", root.ToString());
     }
@@ -1510,8 +1509,7 @@ class ARROW_EXPORT FieldRef {
   }
 
   template <typename T>
-  Status CheckNonMultiple(const util::small_vector<Indices>& matches,
-                          const T& root) const {
+  Status CheckNonMultiple(const std::vector<Indices>& matches, const T& root) const {
     if (matches.size() > 1) {
       return Status::Invalid("Multiple matches for ", ToString(), " in ",
                              root.ToString());
@@ -1534,8 +1532,8 @@ class ARROW_EXPORT FieldRef {
 
   /// \brief Get all children matching this FieldRef.
   template <typename T>
-  util::small_vector<GetType<T>> GetAll(const T& root) const {
-    util::small_vector<GetType<T>> out;
+  std::vector<GetType<T>> GetAll(const T& root) const {
+    std::vector<GetType<T>> out;
     for (const auto& match : FindAll(root)) {
       out.push_back(Get(match, root).ValueOrDie());
     }
