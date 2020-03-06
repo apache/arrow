@@ -15,156 +15,156 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestFileStats < Test::Unit::TestCase
+class TestFileInfo < Test::Unit::TestCase
   def setup
-    @file_stats = Arrow::FileStats.new
+    @file_info = Arrow::FileInfo.new
   end
 
   sub_test_case("#type") do
     test("default") do
       assert_equal(Arrow::FileType::UNKNOWN,
-                   @file_stats.type)
+                   @file_info.type)
     end
   end
 
   test("#type=") do
-    @file_stats.type = :dir
+    @file_info.type = :dir
     assert_equal(Arrow::FileType::DIR,
-                 @file_stats.type)
+                 @file_info.type)
   end
 
   sub_test_case("#path") do
     test("default") do
-      assert_equal("", @file_stats.path)
+      assert_equal("", @file_info.path)
     end
   end
 
   test("#path=") do
-    @file_stats.path = "/a/b/c.d"
+    @file_info.path = "/a/b/c.d"
     assert_equal("/a/b/c.d",
-                 @file_stats.path)
+                 @file_info.path)
   end
 
   sub_test_case("#base_name") do
     test("default") do
-      assert_equal("", @file_stats.base_name)
+      assert_equal("", @file_info.base_name)
     end
 
     test("with directory") do
-      @file_stats.path = "/a/b/c.d"
-      assert_equal("c.d", @file_stats.base_name)
+      @file_info.path = "/a/b/c.d"
+      assert_equal("c.d", @file_info.base_name)
     end
   end
 
   sub_test_case("#dir_name") do
     test("default") do
-      assert_equal("", @file_stats.dir_name)
+      assert_equal("", @file_info.dir_name)
     end
 
     test("with directory") do
-      @file_stats.path = "/a/b/c.d"
-      assert_equal("/a/b", @file_stats.dir_name)
+      @file_info.path = "/a/b/c.d"
+      assert_equal("/a/b", @file_info.dir_name)
     end
   end
 
   sub_test_case("#extension") do
     test("default") do
-      assert_equal("", @file_stats.extension)
+      assert_equal("", @file_info.extension)
     end
 
     test("exist") do
-      @file_stats.path = "/a/b/c.d"
-      assert_equal("d", @file_stats.extension)
+      @file_info.path = "/a/b/c.d"
+      assert_equal("d", @file_info.extension)
     end
   end
 
   sub_test_case("#size") do
     test("default") do
-      assert_equal(-1, @file_stats.size)
+      assert_equal(-1, @file_info.size)
     end
   end
 
   sub_test_case("#mtime") do
     test("default") do
-      assert_equal(-1, @file_stats.mtime)
+      assert_equal(-1, @file_info.mtime)
     end
   end
 
   sub_test_case("#==") do
     def setup
       super
-      @other_file_stats = Arrow::FileStats.new
+      @other_file_info = Arrow::FileInfo.new
     end
 
     test("all the properties are the same") do
       assert do
-        @file_stats == @other_file_stats
+        @file_info == @other_file_info
       end
     end
 
     test("the different type") do
-      @other_file_stats.type = Arrow::FileType::FILE
+      @other_file_info.type = Arrow::FileType::FILE
       assert do
-        @file_stats != @other_file_stats
+        @file_info != @other_file_info
       end
     end
 
     test("the different path") do
-      @other_file_stats.path = "/a/b/c"
+      @other_file_info.path = "/a/b/c"
       assert do
-        @file_stats != @other_file_stats
+        @file_info != @other_file_info
       end
     end
 
     test("the different size") do
-      @other_file_stats.size = 42
+      @other_file_info.size = 42
       assert do
-        @file_stats != @other_file_stats
+        @file_info != @other_file_info
       end
     end
 
     test("the different mtime") do
-      @other_file_stats.mtime = Time.now.to_i
+      @other_file_info.mtime = Time.now.to_i
       assert do
-        @file_stats != @other_file_stats
+        @file_info != @other_file_info
       end
     end
   end
 
   sub_test_case("#file?") do
     test("true") do
-      @file_stats.type = :file
+      @file_info.type = :file
       assert do
-        @file_stats.file?
+        @file_info.file?
       end
     end
 
     test("false") do
-      @file_stats.type = :dir
+      @file_info.type = :dir
       assert do
-        not @file_stats.file?
+        not @file_info.file?
       end
     end
   end
 
   sub_test_case("#dir?") do
     test("true") do
-      @file_stats.type = :dir
+      @file_info.type = :dir
       assert do
-        @file_stats.dir?
+        @file_info.dir?
       end
     end
 
     test("false") do
-      @file_stats.type = :file
+      @file_info.type = :file
       assert do
-        not @file_stats.dir?
+        not @file_info.dir?
       end
     end
   end
 
   test("#to_s") do
-    assert_equal("FileStats(FileType::Unknown, )",
-                 @file_stats.to_s)
+    assert_equal("FileInfo(FileType::Unknown, )",
+                 @file_info.to_s)
   end
 end

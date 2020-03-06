@@ -23,11 +23,11 @@
 
 #include <arrow-glib/file-system.h>
 
-GArrowFileStats *
-garrow_file_stats_new_raw(const arrow::fs::FileStats &arrow_file_stats);
+GArrowFileInfo *
+garrow_file_info_new_raw(const arrow::fs::FileInfo &arrow_file_info);
 
-arrow::fs::FileStats &
-garrow_file_stats_get_raw(GArrowFileStats *file_stats);
+arrow::fs::FileInfo &
+garrow_file_info_get_raw(GArrowFileInfo *file_info);
 
 std::shared_ptr<arrow::fs::FileSystem>
 garrow_file_system_get_raw(GArrowFileSystem *file_system);

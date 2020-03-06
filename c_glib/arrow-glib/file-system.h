@@ -51,32 +51,32 @@ typedef enum {
 } GArrowFileType;
 
 
-/* arrow::fs::FileStats */
+/* arrow::fs::FileInfo */
 
-#define GARROW_TYPE_FILE_STATS (garrow_file_stats_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowFileStats,
-                         garrow_file_stats,
+#define GARROW_TYPE_FILE_INFO (garrow_file_info_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFileInfo,
+                         garrow_file_info,
                          GARROW,
-                         FILE_STATS,
+                         FILE_INFO,
                          GObject)
-struct _GArrowFileStatsClass
+struct _GArrowFileInfoClass
 {
   GObjectClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_1_0
-GArrowFileStats *garrow_file_stats_new(void);
+GArrowFileInfo *garrow_file_info_new(void);
 
 GARROW_AVAILABLE_IN_1_0
-gboolean garrow_file_stats_equal(GArrowFileStats *file_stats,
-                                 GArrowFileStats *other_file_stats);
+gboolean garrow_file_info_equal(GArrowFileInfo *file_info,
+                                GArrowFileInfo *other_file_info);
 
 GARROW_AVAILABLE_IN_1_0
-gboolean garrow_file_stats_is_file(GArrowFileStats *file_stats);
+gboolean garrow_file_info_is_file(GArrowFileInfo *file_info);
 GARROW_AVAILABLE_IN_1_0
-gboolean garrow_file_stats_is_dir(GArrowFileStats *file_stats);
+gboolean garrow_file_info_is_dir(GArrowFileInfo *file_info);
 GARROW_AVAILABLE_IN_1_0
-gchar *garrow_file_stats_to_string(GArrowFileStats *file_stats);
+gchar *garrow_file_info_to_string(GArrowFileInfo *file_info);
 
 /* arrow::fs::FileSelector */
 
@@ -108,20 +108,20 @@ GARROW_AVAILABLE_IN_1_0
 gchar *garrow_file_system_get_type_name(GArrowFileSystem *file_system);
 
 GARROW_AVAILABLE_IN_1_0
-GArrowFileStats *
-garrow_file_system_get_target_stats_path(GArrowFileSystem *file_system,
-                                         const gchar *path,
-                                         GError **error);
+GArrowFileInfo *
+garrow_file_system_get_target_info(GArrowFileSystem *file_system,
+                                   const gchar *path,
+                                   GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-GList *garrow_file_system_get_target_stats_paths(GArrowFileSystem *file_system,
+GList *garrow_file_system_get_target_infos_paths(GArrowFileSystem *file_system,
                                                  const gchar **paths,
                                                  gsize n_paths,
                                                  GError **error);
 
 GARROW_AVAILABLE_IN_1_0
 GList *
-garrow_file_system_get_target_stats_selector(GArrowFileSystem *file_system,
+garrow_file_system_get_target_infos_selector(GArrowFileSystem *file_system,
                                              GArrowFileSelector *file_selector,
                                              GError **error);
 
