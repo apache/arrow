@@ -103,7 +103,7 @@ bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
 
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
   ARROW_CHECK_LE(offset, length_) << "Slice offset greater than array length";
-
+  bool offset_equals_length = offset == length_;
   int curr_chunk = 0;
   while (curr_chunk < num_chunks() && offset >= chunk(curr_chunk)->length()) {
     offset -= chunk(curr_chunk)->length();
@@ -111,11 +111,17 @@ std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length
   }
 
   ArrayVector new_chunks;
-  while (curr_chunk < num_chunks() && length > 0) {
-    new_chunks.push_back(chunk(curr_chunk)->Slice(offset, length));
-    length -= chunk(curr_chunk)->length() - offset;
-    offset = 0;
-    curr_chunk++;
+  if (offset_equals_length || (length == 0 && num_chunks() > 0)) {
+    // Special case the zero-length slice to make sure there is at least 1 Array
+    // in the result
+    new_chunks.push_back(chunk(std::min(curr_chunk, num_chunks() - 1))->Slice(0, 0));
+  } else {
+    while (curr_chunk < num_chunks() && length > 0) {
+      new_chunks.push_back(chunk(curr_chunk)->Slice(offset, length));
+      length -= chunk(curr_chunk)->length() - offset;
+      offset = 0;
+      curr_chunk++;
+    }
   }
 
   return std::make_shared<ChunkedArray>(new_chunks, type_);

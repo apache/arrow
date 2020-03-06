@@ -291,6 +291,12 @@ class RBuffer : public MutableBuffer {
 
 std::shared_ptr<arrow::DataType> InferArrowTypeFromFactor(SEXP);
 
+void validate_slice_offset(int offset, int len);
+
+void validate_slice_length(int length, int available);
+
+void validate_index(int i, int len);
+
 }  // namespace r
 }  // namespace arrow
 

@@ -82,6 +82,25 @@ test_that("Table dim() and nrow() (ARROW-3816)", {
   expect_equal(nrow(tab), 10L)
 })
 
+test_that("Table $column and $field", {
+  tab <- Table$create(x = 1:10, y  = 1:10)
+
+  expect_equal(tab$field(0), field("x", int32()))
+
+  # input validation
+  expect_error(tab$column(NA), "'i' cannot be NA")
+  expect_error(tab$column(-1), "subscript out of bounds")
+  expect_error(tab$column(1000), "subscript out of bounds")
+  expect_error(tab$column(1:2), class = "Rcpp::not_compatible")
+  expect_error(tab$column("one"), class = "Rcpp::not_compatible")
+
+  expect_error(tab$field(NA), "'i' cannot be NA")
+  expect_error(tab$field(-1), "subscript out of bounds")
+  expect_error(tab$field(1000), "subscript out of bounds")
+  expect_error(tab$field(1:2), class = "Rcpp::not_compatible")
+  expect_error(tab$field("one"), class = "Rcpp::not_compatible")
+})
+
 test_that("[, [[, $ for Table", {
   tbl <- tibble::tibble(
     int = 1:10,
@@ -120,10 +139,33 @@ test_that("[, [[, $ for Table", {
   expect_vector(tab[[4]], tbl$chr)
   expect_null(tab$qwerty)
   expect_null(tab[["asdf"]])
-  expect_error(tab[[c(4, 3)]], 'length(i) not equal to 1', fixed = TRUE)
+  expect_error(tab[[c(4, 3)]], class = "Rcpp::not_compatible")
   expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
   expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
   expect_error(tab[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
+})
+
+test_that("Table$Slice", {
+  tab2 <- tab$Slice(5)
+  expect_data_frame(tab2, tbl[6:10,])
+
+  tab3 <- tab$Slice(5, 2)
+  expect_data_frame(tab3, tbl[6:7,])
+
+  # Input validation
+  expect_error(tab$Slice("ten"), class = "Rcpp::not_compatible")
+  expect_error(tab$Slice(NA_integer_), "Slice 'offset' cannot be NA")
+  expect_error(tab$Slice(NA), "Slice 'offset' cannot be NA")
+  expect_error(tab$Slice(10, "ten"), class = "Rcpp::not_compatible")
+  expect_error(tab$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
+  expect_error(tab$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
+  expect_error(tab$Slice(c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(tab$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(tab$Slice(1000), "Slice 'offset' greater than array length")
+  expect_error(tab$Slice(-1), "Slice 'offset' cannot be negative")
+  expect_error(tab3$Slice(10, 10), "Slice 'offset' greater than array length")
+  expect_error(tab$Slice(10, -1), "Slice 'length' cannot be negative")
+  expect_error(tab$Slice(-1, 10), "Slice 'offset' cannot be negative")
 })
 
 test_that("head and tail on Table", {
@@ -136,12 +178,16 @@ test_that("head and tail on Table", {
   )
   tab <- Table$create(tbl)
 
-  expect_identical(as.data.frame(head(tab)), head(tbl))
-  expect_identical(as.data.frame(head(tab, 4)), head(tbl, 4))
-  expect_identical(as.data.frame(head(tab, -4)), head(tbl, -4))
-  expect_identical(as.data.frame(tail(tab)), tail(tbl))
-  expect_identical(as.data.frame(tail(tab, 4)), tail(tbl, 4))
-  expect_identical(as.data.frame(tail(tab, -4)), tail(tbl, -4))
+  expect_data_frame(head(tab), head(tbl))
+  expect_data_frame(head(tab, 4), head(tbl, 4))
+  expect_data_frame(head(tab, 40), head(tbl, 40))
+  expect_data_frame(head(tab, -4), head(tbl, -4))
+  expect_data_frame(head(tab, -40), head(tbl, -40))
+  expect_data_frame(tail(tab), tail(tbl))
+  expect_data_frame(tail(tab, 4), tail(tbl, 4))
+  expect_data_frame(tail(tab, 40), tail(tbl, 40))
+  expect_data_frame(tail(tab, -4), tail(tbl, -4))
+  expect_data_frame(tail(tab, -40), tail(tbl, -40))
 })
 
 test_that("Table print method", {

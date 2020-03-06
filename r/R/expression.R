@@ -31,9 +31,6 @@ Ops.ChunkedArray <- Ops.Array
 Ops.array_expression <- Ops.Array
 
 #' @export
-is.na.ChunkedArray <- function(x) array_expression("is.na", x)
-
-#' @export
 is.na.array_expression <- function(x) array_expression("is.na", x)
 
 #' @export

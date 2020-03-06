@@ -92,12 +92,11 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
       shared_ptr(ChunkedArray, ChunkedArray__Filter(self, i))
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
-      assert_is(target_type, "DataType")
       assert_is(options, "CastOptions")
-      shared_ptr(ChunkedArray, ChunkedArray__cast(self, target_type, options))
+      shared_ptr(ChunkedArray, ChunkedArray__cast(self, as_type(target_type), options))
     },
     View = function(type) {
-      shared_ptr(ChunkedArray, ChunkedArray__View(self, type))
+      shared_ptr(ChunkedArray, ChunkedArray__View(self, as_type(type)))
     },
     Validate = function() {
       ChunkedArray__Validate(self)
@@ -129,6 +128,9 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
 )
 
 ChunkedArray$create <- function(..., type = NULL) {
+  if (!is.null(type)) {
+    type <- as_type(type)
+  }
   shared_ptr(ChunkedArray, ChunkedArray__from_list(list2(...), type))
 }
 
@@ -145,4 +147,13 @@ length.ChunkedArray <- function(x) x$length()
 as.vector.ChunkedArray <- function(x, mode) x$as_vector()
 
 #' @export
+is.na.ChunkedArray <- function(x) unlist(lapply(x$chunks, is.na))
+
+#' @export
 `[.ChunkedArray` <- filter_rows
+
+#' @export
+head.ChunkedArray <- head.Array
+
+#' @export
+tail.ChunkedArray <- tail.Array
