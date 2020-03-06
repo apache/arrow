@@ -23,6 +23,27 @@ class TestBufferInputStream < Test::Unit::TestCase
     assert_equal("Hello", read_buffer.data.to_s)
   end
 
+  def test_read_bytes
+    buffer = Arrow::Buffer.new("Hello World")
+    buffer_input_stream = Arrow::BufferInputStream.new(buffer)
+    read_bytes = buffer_input_stream.read_bytes(5)
+    assert_equal("Hello", read_bytes.to_s)
+  end
+
+  def test_read_at
+    buffer = Arrow::Buffer.new("Hello World")
+    buffer_input_stream = Arrow::BufferInputStream.new(buffer)
+    read_buffer = buffer_input_stream.read_at(6, 3)
+    assert_equal("Wor", read_buffer.data.to_s)
+  end
+
+  def test_read_at_bytes
+    buffer = Arrow::Buffer.new("Hello World")
+    buffer_input_stream = Arrow::BufferInputStream.new(buffer)
+    read_bytes = buffer_input_stream.read_at_bytes(6, 3)
+    assert_equal("Wor", read_bytes.to_s)
+  end
+
   def test_advance
     buffer = Arrow::Buffer.new("Hello World")
     buffer_input_stream = Arrow::BufferInputStream.new(buffer)
