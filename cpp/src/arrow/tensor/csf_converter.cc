@@ -190,23 +190,6 @@ class SparseCSFTensorConverter {
   inline Status CheckMaximumValue(const uint64_t) const { return Status::OK(); }
 };
 
-// ----------------------------------------------------------------------
-// Instantiate templates
-
-template class SparseCSFTensorConverter<UInt8Type>;
-template class SparseCSFTensorConverter<UInt16Type>;
-template class SparseCSFTensorConverter<UInt32Type>;
-template class SparseCSFTensorConverter<UInt64Type>;
-template class SparseCSFTensorConverter<Int8Type>;
-template class SparseCSFTensorConverter<Int16Type>;
-template class SparseCSFTensorConverter<Int32Type>;
-template class SparseCSFTensorConverter<Int64Type>;
-template class SparseCSFTensorConverter<HalfFloatType>;
-template class SparseCSFTensorConverter<FloatType>;
-template class SparseCSFTensorConverter<DoubleType>;
-
-// ----------------------------------------------------------------------
-
 template <typename TYPE>
 Status MakeSparseCSFTensorFromTensor(const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,

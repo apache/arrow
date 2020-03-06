@@ -154,23 +154,6 @@ class SparseCSCMatrixConverter {
   inline Status CheckMaximumValue(const uint64_t) const { return Status::OK(); }
 };
 
-// ----------------------------------------------------------------------
-// Instantiate templates
-
-template class SparseCSCMatrixConverter<UInt8Type>;
-template class SparseCSCMatrixConverter<UInt16Type>;
-template class SparseCSCMatrixConverter<UInt32Type>;
-template class SparseCSCMatrixConverter<UInt64Type>;
-template class SparseCSCMatrixConverter<Int8Type>;
-template class SparseCSCMatrixConverter<Int16Type>;
-template class SparseCSCMatrixConverter<Int32Type>;
-template class SparseCSCMatrixConverter<Int64Type>;
-template class SparseCSCMatrixConverter<HalfFloatType>;
-template class SparseCSCMatrixConverter<FloatType>;
-template class SparseCSCMatrixConverter<DoubleType>;
-
-// ----------------------------------------------------------------------
-
 template <typename TYPE>
 Status MakeSparseCSCMatrixFromTensor(const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,

@@ -143,23 +143,6 @@ class SparseCOOTensorConverter {
   MemoryPool* pool_;
 };
 
-// ----------------------------------------------------------------------
-// Instantiate templates
-
-template class SparseCOOTensorConverter<UInt8Type>;
-template class SparseCOOTensorConverter<UInt16Type>;
-template class SparseCOOTensorConverter<UInt32Type>;
-template class SparseCOOTensorConverter<UInt64Type>;
-template class SparseCOOTensorConverter<Int8Type>;
-template class SparseCOOTensorConverter<Int16Type>;
-template class SparseCOOTensorConverter<Int32Type>;
-template class SparseCOOTensorConverter<Int64Type>;
-template class SparseCOOTensorConverter<HalfFloatType>;
-template class SparseCOOTensorConverter<FloatType>;
-template class SparseCOOTensorConverter<DoubleType>;
-
-// ----------------------------------------------------------------------
-
 template <typename TYPE>
 Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,
