@@ -70,6 +70,16 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowFileInfo, garrow_file_info, G_TYPE_OBJECT)
        GARROW_FILE_INFO(obj)))
 
 static void
+garrow_file_info_finalize(GObject *object)
+{
+  auto priv = GARROW_FILE_INFO_GET_PRIVATE(object);
+
+  priv->file_info.~FileInfo();
+
+  G_OBJECT_CLASS(garrow_file_info_parent_class)->finalize(object);
+}
+
+static void
 garrow_file_info_set_property(GObject *object,
                               guint prop_id,
                               const GValue *value,
@@ -147,16 +157,6 @@ garrow_file_info_get_property(GObject *object,
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
   }
-}
-
-static void
-garrow_file_info_finalize(GObject *object)
-{
-  auto priv = GARROW_FILE_INFO_GET_PRIVATE(object);
-
-  priv->file_info.~FileInfo();
-
-  G_OBJECT_CLASS(garrow_file_info_parent_class)->finalize(object);
 }
 
 static void
@@ -391,6 +391,16 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowFileSelector, garrow_file_selector, G_TYPE_OBJE
        GARROW_FILE_SELECTOR(obj)))
 
 static void
+garrow_file_selector_finalize(GObject *object)
+{
+  auto priv = GARROW_FILE_SELECTOR_GET_PRIVATE(object);
+
+  priv->file_selector.~FileSelector();
+
+  G_OBJECT_CLASS(garrow_file_selector_parent_class)->finalize(object);
+}
+
+static void
 garrow_file_selector_set_property(GObject *object,
                                   guint prop_id,
                                   const GValue *value,
@@ -452,16 +462,6 @@ garrow_file_selector_init(GArrowFileSelector *object)
 }
 
 static void
-garrow_file_selector_finalize(GObject *object)
-{
-  auto priv = GARROW_FILE_SELECTOR_GET_PRIVATE(object);
-
-  priv->file_selector.~FileSelector();
-
-  G_OBJECT_CLASS(garrow_file_selector_parent_class)->finalize(object);
-}
-
-static void
 garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
 {
   GParamSpec *spec;
@@ -478,7 +478,8 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
    * GArrowFileSelector:base-dir:
    *
    * The directory in which to select files.
-   * If the path exists but doesn't point to a directory, this should be an error.
+   * If the path exists but doesn't point to a directory, this should
+   * be an error.
    *
    * Since: 1.0.0
    */
@@ -487,7 +488,9 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
                              "The directory in which to select files",
                              file_selector.base_dir.c_str(),
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_BASE_DIR, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_FILE_SELECTOR_BASE_DIR,
+                                  spec);
 
   /**
    * GArrowFileSelector:allow-nonexistent:
@@ -502,7 +505,9 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
                               "The behavior if `base_dir` doesn't exist in the file system",
                               file_selector.allow_non_existent,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_ALLOW_NONEXISTENT, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_FILE_SELECTOR_ALLOW_NONEXISTENT,
+                                  spec);
 
   /**
    * GArrowFileSelector:recursive:
@@ -516,7 +521,9 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
                               "Whether to recurse into subdirectories",
                               file_selector.recursive,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_RECURSIVE, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_FILE_SELECTOR_RECURSIVE,
+                                  spec);
 
   /**
    * GArrowFileSelector:max-recursion:
@@ -532,7 +539,9 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
                           INT32_MAX,
                           file_selector.max_recursion,
                           static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_FILE_SELECTOR_MAX_RECURSION, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_FILE_SELECTOR_MAX_RECURSION,
+                                  spec);
 }
 
 /* arrow::fs::FileSystem */
@@ -559,7 +568,7 @@ garrow_file_system_finalize(GObject *object)
 {
   auto priv = GARROW_FILE_SYSTEM_GET_PRIVATE(object);
 
-  priv->file_system = nullptr;
+  priv->file_system.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_file_system_parent_class)->finalize(object);
 }
@@ -622,7 +631,7 @@ gchar *
 garrow_file_system_get_type_name(GArrowFileSystem *file_system)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
-  auto type_name = arrow_file_system->type_name();
+  const auto &type_name = arrow_file_system->type_name();
   return g_strndup(type_name.data(), type_name.size());
 }
 
@@ -640,7 +649,7 @@ garrow_file_system_get_type_name(GArrowFileSystem *file_system)
  * An error status indicates a truly exceptional condition
  * (low-level I/O error, etc.).
  *
- * Returns: (nullable) (transfer full): A #GArrowFileInfo
+ * Returns: (nullable) (transfer full): A #GArrowFileInfo.
  *
  * Since: 1.0.0
  */
@@ -688,7 +697,7 @@ garrow_file_infos_new(arrow::Result<std::vector<arrow::fs::FileInfo>>&& arrow_re
  * for the given many targets at once.
  *
  * Returns: (element-type GArrowFileInfo) (transfer full):
- *   A list of #GArrowFileInfo
+ *   A list of #GArrowFileInfo.
  *
  * Since: 1.0.0
  */
@@ -704,7 +713,8 @@ garrow_file_system_get_target_infos_paths(GArrowFileSystem *file_system,
     arrow_paths.push_back(paths[i]);
   }
   return garrow_file_infos_new(arrow_file_system->GetTargetInfos(arrow_paths),
-                               error, "[file-system][get-target-infos][paths]");
+                               error,
+                               "[file-system][get-target-infos][paths]");
 }
 
 /**
@@ -720,7 +730,7 @@ garrow_file_system_get_target_infos_paths(GArrowFileSystem *file_system,
  * even if it exists.
  *
  * Returns: (element-type GArrowFileInfo) (transfer full):
- *   A list of #GArrowFileInfo
+ *   A list of #GArrowFileInfo.
  *
  * Since: 1.0.0
  */
@@ -733,7 +743,8 @@ garrow_file_system_get_target_infos_selector(GArrowFileSystem *file_system,
   const auto &arrow_file_selector =
     GARROW_FILE_SELECTOR_GET_PRIVATE(file_selector)->file_selector;
   return garrow_file_infos_new(arrow_file_system->GetTargetInfos(arrow_file_selector),
-                               error, "[file-system][get-target-infos][selector]");
+                               error,
+                               "[file-system][get-target-infos][selector]");
 }
 
 /**
@@ -745,6 +756,8 @@ garrow_file_system_get_target_infos_selector(GArrowFileSystem *file_system,
  *
  * Create a directory and subdirectories.
  * This function succeeds if the directory already exists.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 1.0.0
  */
@@ -766,6 +779,8 @@ garrow_file_system_create_dir(GArrowFileSystem *file_system,
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Delete a directory and its contents, recursively.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 1.0.0
  */
@@ -790,6 +805,8 @@ garrow_file_system_delete_dir(GArrowFileSystem *file_system,
  * itself. Passing an empty path (`""`) will wipe the entire file
  * system tree.
  *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
  * Since: 1.0.0
  */
 gboolean
@@ -809,6 +826,8 @@ garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Delete a file.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 1.0.0
  */
@@ -831,6 +850,8 @@ garrow_file_system_delete_file(GArrowFileSystem *file_system,
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Delete many files.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 1.0.0
  */
@@ -863,6 +884,8 @@ garrow_file_system_delete_files(GArrowFileSystem *file_system,
  * - otherwise, if it has the same type as the source, it is replaced
  * - otherwise, behavior is unspecified (implementation-dependent).
  *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
  * Since: 1.0.0
  */
 gboolean
@@ -886,6 +909,8 @@ garrow_file_system_move(GArrowFileSystem *file_system,
  * Copy a file.
  * If the destination exists and is a directory, an error is returned.
  * Otherwise, it is replaced.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 1.0.0
  */
@@ -920,8 +945,10 @@ garrow_file_system_open_input_stream(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_input_stream = arrow_file_system->OpenInputStream(path);
-  if (garrow::check(error, arrow_input_stream, "[file-system][open-input-stream]")) {
-    return garrow_input_stream_new_raw(&(arrow_input_stream.ValueOrDie()));
+  if (garrow::check(error,
+                    arrow_input_stream,
+                    "[file-system][open-input-stream]")) {
+    return garrow_input_stream_new_raw(&(*arrow_input_stream));
   } else {
     return NULL;
   }
@@ -977,8 +1004,10 @@ garrow_file_system_open_output_stream(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_output_stream = arrow_file_system->OpenOutputStream(path);
-  if (garrow::check(error, arrow_output_stream, "[file-system][open-output-stream]")) {
-    return garrow_output_stream_new_raw(&(arrow_output_stream.ValueOrDie()));
+  if (garrow::check(error,
+                    arrow_output_stream,
+                    "[file-system][open-output-stream]")) {
+    return garrow_output_stream_new_raw(&(*arrow_output_stream));
   } else {
     return NULL;
   }
@@ -1005,8 +1034,10 @@ garrow_file_system_open_append_stream(GArrowFileSystem *file_system,
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_output_stream = arrow_file_system->OpenAppendStream(path);
-  if (garrow::check(error, arrow_output_stream, "[file-system][open-append-stream]")) {
-    return garrow_output_stream_new_raw(&(arrow_output_stream.ValueOrDie()));
+  if (garrow::check(error,
+                    arrow_output_stream,
+                    "[file-system][open-append-stream]")) {
+    return garrow_output_stream_new_raw(&(*arrow_output_stream));
   } else {
     return NULL;
   }
@@ -1118,9 +1149,10 @@ garrow_sub_tree_file_system_new(const gchar *base_path,
 {
   auto arrow_base_file_system = garrow_file_system_get_raw(base_file_system);
   auto arrow_sub_tree_file_system =
-    std::make_shared<arrow::fs::SubTreeFileSystem>(base_path, arrow_base_file_system);
-  std::shared_ptr<arrow::fs::FileSystem> arrow_file_system = arrow_sub_tree_file_system;
-  return garrow_sub_tree_file_system_new_raw(&arrow_file_system,
+    std::static_pointer_cast<arrow::fs::FileSystem>(
+      std::make_shared<arrow::fs::SubTreeFileSystem>(base_path,
+                                                     arrow_base_file_system));
+  return garrow_sub_tree_file_system_new_raw(&arrow_sub_tree_file_system,
                                              base_file_system);
 }
 
@@ -1231,9 +1263,11 @@ garrow_slow_file_system_new_average_latency(GArrowFileSystem *base_file_system,
 {
   auto arrow_base_file_system = garrow_file_system_get_raw(base_file_system);
   auto arrow_slow_file_system =
-    std::make_shared<arrow::fs::SlowFileSystem>(arrow_base_file_system, average_latency);
-  std::shared_ptr<arrow::fs::FileSystem> arrow_file_system = arrow_slow_file_system;
-  return garrow_slow_file_system_new_raw(&arrow_file_system, base_file_system);
+    std::static_pointer_cast<arrow::fs::FileSystem>(
+      std::make_shared<arrow::fs::SlowFileSystem>(arrow_base_file_system,
+                                                  average_latency));
+  return garrow_slow_file_system_new_raw(&arrow_slow_file_system,
+                                         base_file_system);
 }
 
 /**
@@ -1256,9 +1290,11 @@ garrow_slow_file_system_new_average_latency_and_seed(GArrowFileSystem *base_file
 {
   auto arrow_base_file_system = garrow_file_system_get_raw(base_file_system);
   auto arrow_slow_file_system =
-    std::make_shared<arrow::fs::SlowFileSystem>(arrow_base_file_system, average_latency, seed);
-  std::shared_ptr<arrow::fs::FileSystem> arrow_file_system = arrow_slow_file_system;
-  return garrow_slow_file_system_new_raw(&arrow_file_system,
+    std::static_pointer_cast<arrow::fs::FileSystem>(
+      std::make_shared<arrow::fs::SlowFileSystem>(arrow_base_file_system,
+                                                  average_latency,
+                                                  seed));
+  return garrow_slow_file_system_new_raw(&arrow_slow_file_system,
                                          base_file_system);
 }
 
@@ -1281,16 +1317,14 @@ garrow_file_info_get_raw(GArrowFileInfo *file_info)
 std::shared_ptr<arrow::fs::FileSystem>
 garrow_file_system_get_raw(GArrowFileSystem *file_system)
 {
-  if (!file_system)
-    return nullptr;
-
   auto priv = GARROW_FILE_SYSTEM_GET_PRIVATE(file_system);
   return priv->file_system;
 }
 
 GArrowSubTreeFileSystem *
-garrow_sub_tree_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
-                                    GArrowFileSystem *base_file_system)
+garrow_sub_tree_file_system_new_raw(
+  std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
+  GArrowFileSystem *base_file_system)
 {
   return GARROW_SUB_TREE_FILE_SYSTEM(
     g_object_new(GARROW_TYPE_SUB_TREE_FILE_SYSTEM,
@@ -1300,8 +1334,9 @@ garrow_sub_tree_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arro
 }
 
 GArrowSlowFileSystem *
-garrow_slow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
-                                GArrowFileSystem *base_file_system)
+garrow_slow_file_system_new_raw(
+  std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
+  GArrowFileSystem *base_file_system)
 {
   return GARROW_SLOW_FILE_SYSTEM(
     g_object_new(GARROW_TYPE_SLOW_FILE_SYSTEM,
