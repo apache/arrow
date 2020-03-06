@@ -38,7 +38,7 @@ struct _GArrowLocalFileSystemOptionsClass
 
 GARROW_AVAILABLE_IN_1_0
 GArrowLocalFileSystemOptions *
-garrow_local_file_system_options_defaults(void);
+garrow_local_file_system_options_new(void);
 
 /* arrow::fs::LocalFileSystem */
 
@@ -55,10 +55,6 @@ struct _GArrowLocalFileSystemClass
 
 GARROW_AVAILABLE_IN_1_0
 GArrowLocalFileSystem *
-garrow_local_file_system_new();
-
-GARROW_AVAILABLE_IN_1_0
-GArrowLocalFileSystem *
-garrow_local_file_system_new_with_options(GArrowLocalFileSystemOptions *options);
+garrow_local_file_system_new(GArrowLocalFileSystemOptions *options);
 
 G_END_DECLS

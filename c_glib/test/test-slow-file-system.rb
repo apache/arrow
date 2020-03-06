@@ -20,7 +20,7 @@ require_relative "file-system-tests"
 class TestSlowFileSystem < Test::Unit::TestCase
   def setup
     Dir.mktmpdir do |tmpdir|
-      options = Arrow::LocalFileSystemOptions.defaults
+      options = Arrow::LocalFileSystemOptions.new
       local_fs = Arrow::LocalFileSystem.new(options)
       subtree_fs = Arrow::SubTreeFileSystem.new(tmpdir, local_fs)
       @fs = Arrow::SlowFileSystem.new(subtree_fs, 0.001)

@@ -27,7 +27,7 @@ class TestLocalFileSystem < Test::Unit::TestCase
   end
 
   def build_options
-    Arrow::LocalFileSystemOptions.defaults
+    Arrow::LocalFileSystemOptions.new
   end
 
   sub_test_case("default") do
@@ -49,7 +49,7 @@ class TestLocalFileSystem < Test::Unit::TestCase
     include FileSystemTests
 
     def build_options
-      options = Arrow::LocalFileSystemOptions.defaults
+      options = Arrow::LocalFileSystemOptions.new
       options.use_mmap = true
       options
     end
