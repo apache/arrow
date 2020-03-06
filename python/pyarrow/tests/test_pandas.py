@@ -2016,6 +2016,29 @@ class TestConvertListTypes:
             assert result.type == field.type  # == list<scalar>
             assert result.equals(expected)
 
+    def test_nested_large_list(self):
+        s = (pa.array([[[1, 2, 3], [4]], None],
+                      type=pa.large_list(pa.large_list(pa.int64())))
+             .to_pandas())
+        tm.assert_series_equal(
+            s, pd.Series([[[1, 2, 3], [4]], None]),
+            check_names=False)
+
+    def test_large_binary_list(self):
+        for list_type_factory in (pa.list_, pa.large_list):
+            s = (pa.array([["aa", "bb"], None, ["cc"], []],
+                          type=list_type_factory(pa.large_binary()))
+                 .to_pandas())
+            tm.assert_series_equal(
+                s, pd.Series([[b"aa", b"bb"], None, [b"cc"], []]),
+                check_names=False)
+            s = (pa.array([["aa", "bb"], None, ["cc"], []],
+                          type=list_type_factory(pa.large_string()))
+                 .to_pandas())
+            tm.assert_series_equal(
+                s, pd.Series([["aa", "bb"], None, ["cc"], []]),
+                check_names=False)
+
 
 class TestConvertStructTypes:
     """
