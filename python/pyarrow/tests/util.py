@@ -162,9 +162,8 @@ def memory_leak_check(f, metric='rss', threshold=1 << 17, iterations=10,
 
     for i in range(iterations):
         f()
-        if i % check_interval != 0:
-            continue
-        _leak_check()
+        if i % check_interval == 0:
+            _leak_check()
 
 
 def get_modified_env_with_pythonpath():
