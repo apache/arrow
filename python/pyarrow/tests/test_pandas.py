@@ -1953,6 +1953,22 @@ class TestConvertListTypes:
 
         _check_pandas_roundtrip(df, expected_schema=expected_schema)
 
+    def test_to_list_of_structs_pandas(self):
+        ints = pa.array([1, 2, 3], pa.int32())
+        strings = pa.array([['a', 'b'], ['c', 'd'], ['e', 'f']],
+                           pa.list_(pa.string()))
+        structs = pa.StructArray.from_arrays([ints, strings], ['f1', 'f2'])
+        data = pa.ListArray.from_arrays([0, 1, 3], structs)
+
+        expected = pd.Series([
+            [{'f1': 1, 'f2': ['a', 'b']}],
+            [{'f1': 2, 'f2': ['c', 'd']},
+             {'f1': 3, 'f2': ['e', 'f']}]
+        ])
+
+        series = pd.Series(data.to_pandas())
+        tm.assert_series_equal(series, expected)
+
     @pytest.mark.parametrize('t,data,expected', [
         (
             pa.int64,
