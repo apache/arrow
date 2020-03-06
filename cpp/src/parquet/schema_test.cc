@@ -808,11 +808,10 @@ TEST_F(TestSchemaDescriptor, ComplexTypeCheck) {
   fields.push_back(Int64("b", Repetition::OPTIONAL));
   fields.push_back(ByteArray("c", Repetition::REPEATED));
 
-
   schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
   descr_.Init(schema);
-  ASSERT_EQ(false, descr_.hasArrayType());
-  ASSERT_EQ(false, descr_.hasMapType());
+  ASSERT_EQ(false, descr_.HasRepeatedFields());
+  ASSERT_EQ(false, descr_.HasRepeatedFields());
 
   // 3-level list encoding
   NodePtr item1 = Int64("item1", Repetition::REQUIRED);
@@ -825,22 +824,21 @@ TEST_F(TestSchemaDescriptor, ComplexTypeCheck) {
 
   schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
   descr_.Init(schema);
-  ASSERT_EQ(true, descr_.hasArrayType());
-  ASSERT_EQ(false, descr_.hasMapType());
+  ASSERT_EQ(true, descr_.HasRepeatedFields());
+  ASSERT_EQ(false, descr_.HasRepeatedFields());
 
   // 3-level list encoding
   NodePtr item_key = Int64("key", Repetition::REQUIRED);
   NodePtr item_value = Boolean("value", Repetition::OPTIONAL);
   NodePtr map(GroupNode::Make("map", Repetition::REPEATED, {item_key, item_value},
-                               ConvertedType::MAP));
+                              ConvertedType::MAP));
   NodePtr myMap(GroupNode::Make("myMap", Repetition::OPTIONAL, {map}));
   fields.push_back(myMap);
 
   schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
   descr_.Init(schema);
-  ASSERT_EQ(true, descr_.hasArrayType());
-  ASSERT_EQ(true, descr_.hasMapType());
- 
+  ASSERT_EQ(true, descr_.HasRepeatedFields());
+  ASSERT_EQ(true, descr_.HasRepeatedFields());
 }
 
 static std::string Print(const NodePtr& node) {
