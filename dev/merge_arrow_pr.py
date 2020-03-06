@@ -518,7 +518,7 @@ def get_credentials(cmd):
 
 def connect_jira(cmd):
     try:
-        return jira.client.JIRA({'server': JIRA_API_BASE},
+        return jira.client.JIRA(options={'server': JIRA_API_BASE},
                                 basic_auth=get_credentials(cmd))
     except jira.exceptions.JIRAError as e:
         if "CAPTCHA_CHALLENGE" in e.text:
