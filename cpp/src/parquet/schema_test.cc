@@ -799,7 +799,7 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   ASSERT_EQ(nleaves, descr_.num_columns());
 }
 
-TEST_F(TestSchemaDescriptor, ComplexTypeCheck) {
+TEST_F(TestSchemaDescriptor, HasRepeatedFields) {
   NodeVector fields;
   NodePtr schema;
 
@@ -810,8 +810,7 @@ TEST_F(TestSchemaDescriptor, ComplexTypeCheck) {
 
   schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
   descr_.Init(schema);
-  ASSERT_EQ(false, descr_.HasRepeatedFields());
-  ASSERT_EQ(false, descr_.HasRepeatedFields());
+  ASSERT_EQ(true, descr_.HasRepeatedFields());
 
   // 3-level list encoding
   NodePtr item1 = Int64("item1", Repetition::REQUIRED);
@@ -825,15 +824,14 @@ TEST_F(TestSchemaDescriptor, ComplexTypeCheck) {
   schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
   descr_.Init(schema);
   ASSERT_EQ(true, descr_.HasRepeatedFields());
-  ASSERT_EQ(false, descr_.HasRepeatedFields());
 
   // 3-level list encoding
   NodePtr item_key = Int64("key", Repetition::REQUIRED);
   NodePtr item_value = Boolean("value", Repetition::OPTIONAL);
   NodePtr map(GroupNode::Make("map", Repetition::REPEATED, {item_key, item_value},
                               ConvertedType::MAP));
-  NodePtr myMap(GroupNode::Make("myMap", Repetition::OPTIONAL, {map}));
-  fields.push_back(myMap);
+  NodePtr my_map(GroupNode::Make("my_map", Repetition::OPTIONAL, {map}));
+  fields.push_back(my_map);
 
   schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
   descr_.Init(schema);
