@@ -19,12 +19,17 @@ import pytest
 
 import numpy as np
 import pyarrow as pa
-import pandas as pd
 
 import pyarrow.tests.util as test_util
 
+try:
+    import pandas as pd
+except ImportError:
+    pass
+
 
 @pytest.mark.memory_leak
+@pytest.mark.pandas
 def test_deserialize_pandas_arrow_7956():
     df = pd.DataFrame({'a': np.arange(10000),
                        'b': [pd.util.testing.rands(5) for _ in range(10000)]})
