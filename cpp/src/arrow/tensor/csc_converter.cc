@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/sparse_tensor/converter.h"
+#include "arrow/tensor/converter.h"
 
 #include "arrow/visitor_inline.h"
 
@@ -24,15 +24,15 @@ namespace internal {
 namespace {
 
 // ----------------------------------------------------------------------
-// SparseTensorConverter for SparseCSRIndex
+// SparseTensorConverter for SparseCSCIndex
 
 template <typename TYPE>
-class SparseCSRMatrixConverter {
+class SparseCSCMatrixConverter {
  public:
   using NumericTensorType = NumericTensor<TYPE>;
   using value_type = typename NumericTensorType::value_type;
 
-  SparseCSRMatrixConverter(const NumericTensorType& tensor,
+  SparseCSCMatrixConverter(const NumericTensorType& tensor,
                            const std::shared_ptr<DataType>& index_value_type,
                            MemoryPool* pool)
       : tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
@@ -66,7 +66,7 @@ class SparseCSRMatrixConverter {
     if (ndim <= 1) {
       return Status::NotImplemented("TODO for ndim <= 1");
     } else {
-      RETURN_NOT_OK(AllocateBuffer(pool_, indices_elsize * (nr + 1), &indptr_buffer));
+      RETURN_NOT_OK(AllocateBuffer(pool_, indices_elsize * (nc + 1), &indptr_buffer));
       auto* indptr = reinterpret_cast<c_index_value_type*>(indptr_buffer->mutable_data());
 
       RETURN_NOT_OK(
@@ -76,12 +76,12 @@ class SparseCSRMatrixConverter {
 
       c_index_value_type k = 0;
       *indptr++ = 0;
-      for (int64_t i = 0; i < nr; ++i) {
-        for (int64_t j = 0; j < nc; ++j) {
+      for (int64_t j = 0; j < nc; ++j) {
+        for (int64_t i = 0; i < nr; ++i) {
           const value_type x = tensor_.Value({i, j});
           if (x != 0) {
             *values++ = x;
-            *indices++ = static_cast<c_index_value_type>(j);
+            *indices++ = static_cast<c_index_value_type>(i);
             k++;
           }
         }
@@ -89,7 +89,7 @@ class SparseCSRMatrixConverter {
       }
     }
 
-    std::vector<int64_t> indptr_shape({nr + 1});
+    std::vector<int64_t> indptr_shape({nc + 1});
     std::shared_ptr<Tensor> indptr_tensor =
         std::make_shared<Tensor>(index_value_type_, indptr_buffer, indptr_shape);
 
@@ -97,7 +97,7 @@ class SparseCSRMatrixConverter {
     std::shared_ptr<Tensor> indices_tensor =
         std::make_shared<Tensor>(index_value_type_, indices_buffer, indices_shape);
 
-    sparse_index = std::make_shared<SparseCSRIndex>(indptr_tensor, indices_tensor);
+    sparse_index = std::make_shared<SparseCSCIndex>(indptr_tensor, indices_tensor);
     data = values_buffer;
 
     return Status::OK();
@@ -119,7 +119,7 @@ class SparseCSRMatrixConverter {
 
 #undef CALL_TYPE_SPECIFIC_CONVERT
 
-  std::shared_ptr<SparseCSRIndex> sparse_index;
+  std::shared_ptr<SparseCSCIndex> sparse_index;
   std::shared_ptr<Buffer> data;
 
  private:
@@ -145,28 +145,28 @@ class SparseCSRMatrixConverter {
 // ----------------------------------------------------------------------
 // Instantiate templates
 
-template class SparseCSRMatrixConverter<UInt8Type>;
-template class SparseCSRMatrixConverter<UInt16Type>;
-template class SparseCSRMatrixConverter<UInt32Type>;
-template class SparseCSRMatrixConverter<UInt64Type>;
-template class SparseCSRMatrixConverter<Int8Type>;
-template class SparseCSRMatrixConverter<Int16Type>;
-template class SparseCSRMatrixConverter<Int32Type>;
-template class SparseCSRMatrixConverter<Int64Type>;
-template class SparseCSRMatrixConverter<HalfFloatType>;
-template class SparseCSRMatrixConverter<FloatType>;
-template class SparseCSRMatrixConverter<DoubleType>;
+template class SparseCSCMatrixConverter<UInt8Type>;
+template class SparseCSCMatrixConverter<UInt16Type>;
+template class SparseCSCMatrixConverter<UInt32Type>;
+template class SparseCSCMatrixConverter<UInt64Type>;
+template class SparseCSCMatrixConverter<Int8Type>;
+template class SparseCSCMatrixConverter<Int16Type>;
+template class SparseCSCMatrixConverter<Int32Type>;
+template class SparseCSCMatrixConverter<Int64Type>;
+template class SparseCSCMatrixConverter<HalfFloatType>;
+template class SparseCSCMatrixConverter<FloatType>;
+template class SparseCSCMatrixConverter<DoubleType>;
 
 // ----------------------------------------------------------------------
 
 template <typename TYPE>
-Status MakeSparseCSRMatrixFromTensor(const Tensor& tensor,
+Status MakeSparseCSCMatrixFromTensor(const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,
                                      MemoryPool* pool,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data) {
   NumericTensor<TYPE> numeric_tensor(tensor.data(), tensor.shape(), tensor.strides());
-  SparseCSRMatrixConverter<TYPE> converter(numeric_tensor, index_value_type, pool);
+  SparseCSCMatrixConverter<TYPE> converter(numeric_tensor, index_value_type, pool);
   RETURN_NOT_OK(converter.Convert());
 
   *out_sparse_index = checked_pointer_cast<SparseIndex>(converter.sparse_index);
@@ -176,18 +176,18 @@ Status MakeSparseCSRMatrixFromTensor(const Tensor& tensor,
 
 }  // namespace
 
-#define MAKE_SPARSE_CSR_MATRIX_FROM_TENSOR(TYPE_CLASS)      \
+#define MAKE_SPARSE_CSC_MATRIX_FROM_TENSOR(TYPE_CLASS)      \
   case TYPE_CLASS##Type::type_id:                           \
-    return MakeSparseCSRMatrixFromTensor<TYPE_CLASS##Type>( \
+    return MakeSparseCSCMatrixFromTensor<TYPE_CLASS##Type>( \
         tensor, index_value_type, pool, out_sparse_index, out_data);
 
-Status MakeSparseCSRMatrixFromTensor(const Tensor& tensor,
+Status MakeSparseCSCMatrixFromTensor(const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,
                                      MemoryPool* pool,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data) {
   switch (tensor.type()->id()) {
-    ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(MAKE_SPARSE_CSR_MATRIX_FROM_TENSOR);
+    ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(MAKE_SPARSE_CSC_MATRIX_FROM_TENSOR);
       // LCOV_EXCL_START: ignore program failure
     default:
       return Status::TypeError("Unsupported Tensor value type");
@@ -195,7 +195,7 @@ Status MakeSparseCSRMatrixFromTensor(const Tensor& tensor,
   }
 }
 
-#undef MAKE_SPARSE_CSR_MATRIX_FROM_TENSOR
+#undef MAKE_SPARSE_CSC_MATRIX_FROM_TENSOR
 
 }  // namespace internal
 }  // namespace arrow

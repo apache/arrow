@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/sparse_tensor.h"
-#include "arrow/sparse_tensor/converter.h"
+#include "arrow/tensor/converter.h"
 
 #include <algorithm>
 #include <functional>
