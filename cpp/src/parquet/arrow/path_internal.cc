@@ -40,34 +40,34 @@
 //
 // As mentioned above this code dissects arrays into constiutent parts:
 // nullability data, and list offset data. It tries to optimize for
-// some special cases, were is known ahead of time that a step
+// some special cases, where it is known ahead of time that a step
 // can be skipped (e.g. a nullable array happens to have all of its
 // values) or batch filled (a nullable array has all null values).
 // One futher optimization that is not implemented but could be done
 // in the future is special handling for nested list arrays that
-// have a intermediate data that indicates the final array contains all
+// have some intermediate data which indicates the final array contains only
 // nulls.
 //
 // In general, the algorithm attempts to batch work at each node as much
 // as possible.  For nullability nodes this means finding runs of null
-// values and batch filling those before finding runs fo non-null values
+// values and batch filling those interspersed with finding runs of non-null values
 // to process in batch at the next column.
 //
-// Similarly for lists runs, of empty lists are all processed in one batch
+// Similarly, for lists runs of empty lists are all processed in one batch
 // followed by either:
 //    - A single list entry to non-terminal lists (i.e. the upper part of a nested list)
-//    - Runs of non-mepty lists for the terminal list (i.e. the lowest nested list).
+//    - Runs of non-empty lists for the terminal list (i.e. the lowest part of a nested list).
 //
 // This makes use of the following observations.
 // 1.  Null values at any node on the path are terminal (repetition and definition
-//     level can be set directly at that point).
-// 2.  Empty lists share the same property as Null values.
-// 3.  In order to keep repetition/defition level populated the algorithm is lazy
+//     level can be set directly when a Null value is encountered).
+// 2.  Empty lists share this eager termination property with Null values.
+// 3.  In order to keep repetition/definition level populated the algorithm is lazy
 //     in assigning repetition levels. The algorithm tracks whether it is currently
 //     in the middle of a list by comparing the lengths of repetition/definition levels.
 //     If it is currently in the middle of a list the the number of repetition levels
-//     populated will be greater then definition levels (list starts require adding
-//     the first element). If there are equal number of definition and repetition levels
+//     populated will be greater than definition levels (the start of a List requires adding
+//     the first element). If there are equal numbers of definition and repetition levels
 //     populated this indicates a list is waiting to be started and the next list
 //     encountered will have its repetition level signify the beginning of the list.
 //
@@ -297,7 +297,7 @@ class ListPathNode {
       return kDone;
     }
 
-    // Find runs of empty lists.
+    // Find the first non-empty list (skipping a run of empties).
     int64_t start = range->start;
     *next_range = selector_.GetRange(range->start);
     while (next_range->Empty() && !range->Empty()) {
@@ -336,8 +336,8 @@ class ListPathNode {
     // 1.  There are no more repeated path nodes to deal with.
     // 2.  All elements in |range| represent contiguous elements in the
     //     child array (Null values would have shortened the range to ensure
-    //     all list elements are in present (but possibly empty)).
-    // 3.  All elements of range do not span parent lists (intermediate
+    //     all remaining list elements are present (though they may be empty lists)).
+    // 3.  No element of range spans a parent list (intermediate
     //     list nodes only handle one list entry at a time).
     //
     // Given these preconditions it should be safe to fill runs on non-empty
@@ -387,7 +387,7 @@ struct FixedSizedRangeSelector {
   int list_size;
 };
 
-// An intermediate node that nhandles null values.
+// An intermediate node that handles null values.
 class NullableNode {
  public:
   NullableNode(const uint8_t* null_bitmap, int64_t entry_offset,
