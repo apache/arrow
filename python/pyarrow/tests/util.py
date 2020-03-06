@@ -25,6 +25,8 @@ import numpy as np
 import os
 import random
 import string
+import subprocess
+import sys
 
 import pyarrow as pa
 
@@ -136,3 +138,15 @@ def get_modified_env_with_pythonpath():
         new_pythonpath = module_path
     env['PYTHONPATH'] = new_pythonpath
     return env
+
+
+def invoke_script(script_name, *args):
+    subprocess_env = get_modified_env_with_pythonpath()
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    python_file = os.path.join(dir_path, script_name)
+
+    cmd = [sys.executable, python_file]
+    cmd.extend(args)
+
+    subprocess.check_call(cmd, env=subprocess_env)
