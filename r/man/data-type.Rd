@@ -86,6 +86,10 @@ list_of(type)
 struct(...)
 }
 \arguments{
+\item{byte_width}{For \code{binary()}, an optional integer width to create a
+\code{FixedWidthBinary} type. The default \code{NULL} results in a \code{BinaryType} with
+variable width.}
+
 \item{unit}{For time/timestamp types, the time unit. \code{time32()} can take
 either "s" or "ms", while \code{time64()} can be "us" or "ns". \code{timestamp()} can
 take any of those four values.}

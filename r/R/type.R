@@ -204,6 +204,9 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' either "s" or "ms", while `time64()` can be "us" or "ns". `timestamp()` can
 #' take any of those four values.
 #' @param timezone For `timestamp()`, an optional time zone string.
+#' @param byte_width For `binary()`, an optional integer width to create a
+#' `FixedWidthBinary` type. The default `NULL` results in a `BinaryType` with
+#' variable width.
 #' @param precision For `decimal()`, precision
 #' @param scale For `decimal()`, scale
 #' @param type For `list_of()`, a data type to make a list-of-type
