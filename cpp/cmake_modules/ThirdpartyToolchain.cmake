@@ -1023,6 +1023,7 @@ macro(build_thrift)
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}"
       "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
+      -DBUILD_COMPILER=OFF
       -DBUILD_SHARED_LIBS=OFF
       -DBUILD_TESTING=OFF
       -DBUILD_EXAMPLES=OFF
@@ -1044,11 +1045,6 @@ macro(build_thrift)
   endif()
   if(DEFINED Boost_NAMESPACE)
     list(APPEND THRIFT_CMAKE_ARGS "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
-  endif()
-
-  if(DEFINED FLEX_ROOT)
-    # thrift hasn't set the cmake policy that lets us use _ROOT, so work around
-    list(APPEND THRIFT_CMAKE_ARGS "-DFLEX_EXECUTABLE=${FLEX_ROOT}/flex")
   endif()
 
   set(THRIFT_STATIC_LIB_NAME "${CMAKE_STATIC_LIBRARY_PREFIX}thrift")
@@ -1079,50 +1075,11 @@ macro(build_thrift)
   endif()
 
   if(MSVC)
-    set(WINFLEXBISON_VERSION 2.4.9)
-    set(WINFLEXBISON_PREFIX
-        "${CMAKE_CURRENT_BINARY_DIR}/winflexbison_ep/src/winflexbison_ep-install")
-    externalproject_add(
-      winflexbison_ep
-      URL
-        https://github.com/lexxmark/winflexbison/releases/download/v.${WINFLEXBISON_VERSION}/win_flex_bison-${WINFLEXBISON_VERSION}.zip
-      URL_HASH MD5=a2e979ea9928fbf8567e995e9c0df765
-      SOURCE_DIR ${WINFLEXBISON_PREFIX}
-      CONFIGURE_COMMAND ""
-      BUILD_COMMAND ""
-      INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
-    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} winflexbison_ep)
-
     set(THRIFT_CMAKE_ARGS
-        "-DFLEX_EXECUTABLE=${WINFLEXBISON_PREFIX}/win_flex.exe"
-        "-DBISON_EXECUTABLE=${WINFLEXBISON_PREFIX}/win_bison.exe"
         "-DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIR}"
         "-DWITH_SHARED_LIB=OFF"
         "-DWITH_PLUGIN=OFF"
         ${THRIFT_CMAKE_ARGS})
-  elseif(APPLE)
-    # Some other process always resets BISON_EXECUTABLE to the system default,
-    # thus we use our own variable here.
-    if(NOT DEFINED THRIFT_BISON_EXECUTABLE)
-      find_package(BISON 2.5.1)
-
-      # In the case where we cannot find a system-wide installation, look for
-      # homebrew and ask for its bison installation.
-      if(NOT BISON_FOUND)
-        if(BREW_BIN)
-          execute_process(COMMAND ${BREW_BIN} --prefix bison
-                          OUTPUT_VARIABLE BISON_PREFIX
-                          OUTPUT_STRIP_TRAILING_WHITESPACE)
-          set(BISON_EXECUTABLE "${BISON_PREFIX}/bin/bison")
-          find_package(BISON 2.5.1)
-          set(THRIFT_BISON_EXECUTABLE "${BISON_EXECUTABLE}")
-        endif()
-      else()
-        set(THRIFT_BISON_EXECUTABLE "${BISON_EXECUTABLE}")
-      endif()
-    endif()
-    set(THRIFT_CMAKE_ARGS "-DBISON_EXECUTABLE=${THRIFT_BISON_EXECUTABLE}"
-                          ${THRIFT_CMAKE_ARGS})
   endif()
 
   if("${THRIFT_SOURCE_URL}" STREQUAL "FROM-APACHE-MIRROR")
