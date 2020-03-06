@@ -15,25 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_SPARSE_TENSOR_H
-#define ARROW_SPARSE_TENSOR_H
+#pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include <stddef.h>                   // for size_t
-#include <cstdint>                    // for int64_t, uint8_t
-
-#include "arrow/buffer.h"             // for Buffer
-#include "arrow/compare.h"            // for EqualOptions
-#include "arrow/result.h"             // for Result
-#include "arrow/status.h"             // for Status, ARROW_RETURN_NOT_OK
-#include "arrow/tensor.h"             // IWYU pragma: export
-#include "arrow/type.h"               // for default_memory_pool, int64, Dat...
-#include "arrow/util/checked_cast.h"  // for checked_pointer_cast
-#include "arrow/util/macros.h"        // for ARROW_DEPRECATED, NULLPTR, ARRO...
-#include "arrow/util/visibility.h"    // for ARROW_EXPORT
+#include "arrow/buffer.h"
+#include "arrow/compare.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/tensor.h"  // IWYU pragma: export
+#include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -607,5 +606,3 @@ using SparseCSCMatrix = SparseTensorImpl<SparseCSCIndex>;
 using SparseCSFTensor = SparseTensorImpl<SparseCSFIndex>;
 
 }  // namespace arrow
-
-#endif  // ARROW_SPARSE_TENSOR_H

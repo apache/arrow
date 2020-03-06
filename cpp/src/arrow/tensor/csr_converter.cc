@@ -17,14 +17,15 @@
 
 #include "arrow/tensor/converter.h"
 
-#include <cstdint>                    // for int64_t, uint64_t
-#include <limits>                     // for numeric_limits
-#include <memory>                     // for shared_ptr, __shared_ptr_access
-#include <vector>                     // for vector
-#include "arrow/buffer.h"             // for AllocateBuffer, Buffer
-#include "arrow/status.h"             // for Status, RETURN_NOT_OK
-#include "arrow/type.h"               // for CTypeImpl<>::type_id, Int16Type
-#include "arrow/util/checked_cast.h"  // for checked_pointer_cast
+#include <cstdint>
+#include <limits>
+#include <memory>
+#include <vector>
+
+#include "arrow/buffer.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
