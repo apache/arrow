@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/sparse_tensor.h"
+#include "arrow/sparse_tensor.h"  // IWYU pragma: export
 
 #include <memory>
 

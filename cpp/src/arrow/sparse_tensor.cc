@@ -20,17 +20,18 @@
 
 #include <algorithm>
 #include <functional>
-#include <limits>
 #include <memory>
 #include <numeric>
 
 #include "arrow/compare.h"
+#include "arrow/type_traits.h"        // for is_integer
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/sort.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+class MemoryPool;
 
 // ----------------------------------------------------------------------
 // SparseIndex

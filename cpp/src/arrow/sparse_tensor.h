@@ -20,13 +20,24 @@
 
 #include <memory>
 #include <string>
-#include <type_traits>
-#include <utility>
 #include <vector>
 
-#include "arrow/tensor.h"
+#include <stddef.h>                   // for size_t
+#include <cstdint>                    // for int64_t, uint8_t
+
+#include "arrow/buffer.h"             // for Buffer
+#include "arrow/compare.h"            // for EqualOptions
+#include "arrow/result.h"             // for Result
+#include "arrow/status.h"             // for Status, ARROW_RETURN_NOT_OK
+#include "arrow/tensor.h"             // IWYU pragma: export
+#include "arrow/type.h"               // for default_memory_pool, int64, Dat...
+#include "arrow/util/checked_cast.h"  // for checked_pointer_cast
+#include "arrow/util/macros.h"        // for ARROW_DEPRECATED, NULLPTR, ARRO...
+#include "arrow/util/visibility.h"    // for ARROW_EXPORT
 
 namespace arrow {
+
+class MemoryPool;
 
 // ----------------------------------------------------------------------
 // SparseIndex class
