@@ -38,6 +38,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "arrow/visitor_inline.h"
@@ -105,8 +106,23 @@ class SchemaWriter {
       RETURN_NOT_OK(VisitField(field));
     }
     writer_->EndArray();
+    WriteKeyValueMetadata(schema_.metadata());
     writer_->EndObject();
     return Status::OK();
+  }
+
+  void WriteKeyValueMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata) {
+    if (metadata == nullptr) {
+      return;
+    }
+    writer_->Key("metadata");
+
+    writer_->StartObject();
+    for (int64_t i = 0; i < metadata->size(); ++i) {
+      writer_->Key(metadata->key(i).c_str());
+      writer_->String(metadata->value(i).c_str());
+    }
+    writer_->EndObject();
   }
 
   Status WriteDictionaryMetadata(int64_t id, const DictionaryType& type) {
@@ -156,6 +172,7 @@ class SchemaWriter {
       RETURN_NOT_OK(WriteChildren(type.children()));
     }
 
+    WriteKeyValueMetadata(field->metadata());
     writer_->EndObject();
 
     return Status::OK();
@@ -987,6 +1004,33 @@ static Status ParseDictionary(const RjObject& obj, int64_t* id, bool* is_ordered
   return GetInteger(json_index_type, index_type);
 }
 
+template <typename FieldOrStruct>
+static Status GetKeyValueMetadata(const FieldOrStruct& field_or_struct,
+                                  std::shared_ptr<KeyValueMetadata>* out) {
+  out->reset(new KeyValueMetadata);
+  auto it = field_or_struct.FindMember("metadata");
+  if (it == field_or_struct.MemberEnd()) {
+    return Status::OK();
+  }
+
+  const auto& json_metadata = it->value;
+  if (json_metadata.IsNull()) {
+    return Status::OK();
+  }
+
+  if (!json_metadata.IsObject()) {
+    return Status::Invalid("Metadata was not a JSON object");
+  }
+
+  for (auto it = json_metadata.MemberBegin(); it != json_metadata.MemberEnd(); ++it) {
+    if (!it->value.IsString()) {
+      return Status::Invalid("Metadata mapped value was not a string");
+    }
+    (*out)->Append(it->name.GetString(), it->value.GetString());
+  }
+  return Status::OK();
+}
+
 static Status GetField(const rj::Value& obj, DictionaryMemo* dictionary_memo,
                        std::shared_ptr<Field>* field) {
   if (!obj.IsObject()) {
@@ -1010,6 +1054,9 @@ static Status GetField(const rj::Value& obj, DictionaryMemo* dictionary_memo,
   RETURN_NOT_OK(GetFieldsFromArray(it_children->value, dictionary_memo, &children));
   RETURN_NOT_OK(GetType(it_type->value.GetObject(), children, &type));
 
+  std::shared_ptr<KeyValueMetadata> metadata;
+  RETURN_NOT_OK(GetKeyValueMetadata(json_field, &metadata));
+
   const auto& it_dictionary = json_field.FindMember("dictionary");
   if (dictionary_memo != nullptr && it_dictionary != json_field.MemberEnd()) {
     // Parse dictionary id in JSON and add dictionary field to the
@@ -1022,10 +1069,10 @@ static Status GetField(const rj::Value& obj, DictionaryMemo* dictionary_memo,
                                   &is_ordered, &index_type));
 
     type = ::arrow::dictionary(index_type, type, is_ordered);
-    *field = ::arrow::field(name, type, nullable);
+    *field = ::arrow::field(name, type, nullable, metadata);
     RETURN_NOT_OK(dictionary_memo->AddField(dictionary_id, *field));
   } else {
-    *field = ::arrow::field(name, type, nullable);
+    *field = ::arrow::field(name, type, nullable, metadata);
   }
 
   return Status::OK();
@@ -1532,13 +1579,16 @@ Status ReadSchema(const rj::Value& json_schema, MemoryPool* pool,
   const auto& it_fields = obj_schema.FindMember("fields");
   RETURN_NOT_ARRAY("fields", it_fields, obj_schema);
 
+  std::shared_ptr<KeyValueMetadata> metadata;
+  RETURN_NOT_OK(GetKeyValueMetadata(obj_schema, &metadata));
+
   std::vector<std::shared_ptr<Field>> fields;
   RETURN_NOT_OK(GetFieldsFromArray(it_fields->value, dictionary_memo, &fields));
 
   // Read the dictionaries (if any) and cache in the memo
   RETURN_NOT_OK(ReadDictionaries(json_schema, pool, dictionary_memo));
 
-  *schema = ::arrow::schema(fields);
+  *schema = ::arrow::schema(fields, metadata);
   return Status::OK();
 }
 
