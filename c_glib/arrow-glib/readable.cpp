@@ -65,7 +65,7 @@ garrow_readable_read(GArrowReadable *readable,
   const auto arrow_readable = garrow_readable_get_raw(readable);
 
   auto arrow_buffer = arrow_readable->Read(n_bytes);
-  if (garrow::check(error, arrow_buffer, "[io][readable][read]")) {
+  if (garrow::check(error, arrow_buffer, "[readable][read]")) {
     auto *iface = GARROW_READABLE_GET_IFACE(readable);
     return iface->buffer_new_raw(&(arrow_buffer.ValueOrDie()));
   } else {
@@ -92,7 +92,7 @@ garrow_readable_read_bytes(GArrowReadable *readable,
   const auto arrow_readable = garrow_readable_get_raw(readable);
 
   auto arrow_buffer_result = arrow_readable->Read(n_bytes);
-  if (!garrow::check(error, arrow_buffer_result, "[io][readable][read-bytes]")) {
+  if (!garrow::check(error, arrow_buffer_result, "[readable][read-bytes]")) {
     return NULL;
   }
   auto arrow_cpu_buffer_result =
@@ -100,7 +100,7 @@ garrow_readable_read_bytes(GArrowReadable *readable,
                               arrow::default_cpu_memory_manager());
   if (!garrow::check(error,
                      arrow_cpu_buffer_result,
-                     "[io][readable][read-bytes][view-or-copy]")) {
+                     "[readable][read-bytes][view-or-copy]")) {
     return NULL;
   }
   auto arrow_cpu_buffer = *arrow_cpu_buffer_result;
