@@ -23,7 +23,7 @@ Integration Testing
 Our strategy for integration testing between Arrow implementations is:
 
 * Test datasets are specified in a custom human-readable, JSON-based format
-  designed for Arrow
+  designed exclusively for Arrow's integration tests
 * Each implementation provides a testing executable capable of converting
   between the JSON and the binary Arrow file representation
 * The test executable is also capable of validating the contents of a binary
@@ -93,6 +93,9 @@ Note that we run these tests in continuous integration, and the CI job uses
 docker-compose. You may also run the docker-compose job locally, or at least
 refer to it if you have questions about how to build other languages or enable
 certain tests.
+
+See :ref:`integration` for more information about the project's
+``docker-compose`` configuration.
 
 JSON test data format
 ---------------------
@@ -301,6 +304,12 @@ Map: ::
 The ``Field``'s "children" contains a single ``struct`` field, which itself
 contains 2 children, named "key" and "value".
 
+Null: ::
+
+    {
+      "name": "null"
+    }
+
 **RecordBatch**::
 
     {
@@ -369,3 +378,5 @@ Note that the "count" for these child data may not match the parent "count".
 For example, if a ``RecordBatch`` has 7 rows and contains a ``FixedSizeList``
 of ``listSize`` 4, then the data inside the "children" of that ``FieldData``
 will have count 28.
+
+For "null" type, ``BufferData`` does not contain any buffers.
