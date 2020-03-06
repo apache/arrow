@@ -379,6 +379,8 @@ test_that("DictionaryType validation", {
     dictionary(utf8(), int32()),
     "Dictionary index type should be signed integer, got string"
   )
+  expect_error(dictionary(4, utf8()), 'index_type must be a "DataType"')
+  expect_error(dictionary(int8(), "strings"), 'value_type must be a "DataType"')
 })
 
 test_that("decimal type and validation", {
@@ -386,5 +388,27 @@ test_that("decimal type and validation", {
   expect_error(decimal("four"), '"precision" must be an integer')
   expect_error(decimal(4), 'argument "scale" is missing, with no default')
   expect_error(decimal(4, "two"), '"scale" must be an integer')
+  expect_error(decimal(NA, 2), '"precision" must be an integer')
+  expect_error(decimal(0, 2), "Invalid: Decimal precision out of range: 0")
+  expect_error(decimal(100, 2), "Invalid: Decimal precision out of range: 100")
+  expect_error(decimal(4, NA), '"scale" must be an integer')
+
   expect_is(decimal(4, 2), "Decimal128Type")
+
+})
+
+test_that("Binary", {
+  expect_is(binary(), "Binary")
+  expect_equal(binary()$ToString(), "binary")
+})
+
+test_that("FixedSizeBinary", {
+  expect_is(binary(4), "FixedSizeBinary")
+  expect_equal(binary(4)$ToString(), "fixed_size_binary[4]")
+
+  # input validation
+  expect_error(binary(NA), "'byte_width' cannot be NA")
+  expect_error(binary(-1), "'byte_width' must be > 0")
+  expect_error(binary("four"), class = "Rcpp::not_compatible")
+  expect_error(binary(c(2, 4)), class = "Rcpp::not_compatible")
 })

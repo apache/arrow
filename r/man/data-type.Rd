@@ -18,6 +18,7 @@
 \alias{boolean}
 \alias{bool}
 \alias{utf8}
+\alias{binary}
 \alias{string}
 \alias{date32}
 \alias{date64}
@@ -61,6 +62,8 @@ boolean()
 bool()
 
 utf8()
+
+binary(byte_width = NULL)
 
 string()
 
