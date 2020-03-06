@@ -65,12 +65,14 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 }
 
 Result<WritePlan> PartitioningFactory::MakeWritePlan(FragmentIterator fragment_it) {
-  return Status::NotImplemented("MakeWritePlan from this PartitioningFactory");
+  return Status::NotImplemented("MakeWritePlan from PartitioningFactory of type ",
+                                type_name());
 }
 
 Result<WritePlan> PartitioningFactory::MakeWritePlan(
     FragmentIterator fragment_it, const std::shared_ptr<Schema>& schema) {
-  return Status::NotImplemented("MakeWritePlan from this PartitioningFactory");
+  return Status::NotImplemented("MakeWritePlan from PartitioningFactory of type ",
+                                type_name());
 }
 
 Result<std::shared_ptr<Expression>> SegmentDictionaryPartitioning::Parse(
@@ -245,6 +247,8 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
   explicit DirectoryPartitioningFactory(std::vector<std::string> field_names)
       : field_names_(std::move(field_names)) {}
 
+  std::string type_name() const override { return "schema"; }
+
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<string_view>& paths) const override {
     KeyValuePartitioningInspectImpl impl;
@@ -351,8 +355,9 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
 
     for (const auto& field : fields_) {
       if (field->type()->id() == Type::NA) {
-        return Status::TypeError("no partition expressions provided for field '",
-                                 field->name(), "'");
+        return Status::TypeError(
+            "no partition expressions provided for field '", field->name(),
+            "' and no schema was provided, so its type could not be inferred");
       }
     }
 
@@ -484,26 +489,16 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
   std::vector<Indices> right_hand_sides_;
 };
 
-template <typename T>
-Result<std::vector<T>> IteratorToVector(Iterator<T> it) {
-  std::vector<T> vector;
-  for (auto maybe_element : it) {
-    ARROW_ASSIGN_OR_RAISE(auto element, std::move(maybe_element));
-    vector.push_back(std::move(element));
-  }
-  return vector;
-}
-
 Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
     FragmentIterator fragment_it, const std::shared_ptr<Schema>& schema) {
-  ARROW_ASSIGN_OR_RAISE(auto fragments, IteratorToVector(std::move(fragment_it)));
+  ARROW_ASSIGN_OR_RAISE(auto fragments, fragment_it.ToVector());
 
   return MakeWritePlanImpl(this, schema->fields(), std::move(fragments)).Finish();
 }
 
 Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
     FragmentIterator fragment_it) {
-  ARROW_ASSIGN_OR_RAISE(auto fragments, IteratorToVector(std::move(fragment_it)));
+  ARROW_ASSIGN_OR_RAISE(auto fragments, fragment_it.ToVector());
 
   FieldVector fields;
   for (const auto& name : field_names_) {
@@ -535,6 +530,8 @@ Result<std::string> HivePartitioning::FormatKey(const Key& key, int i) const {
 
 class HivePartitioningFactory : public PartitioningFactory {
  public:
+  std::string type_name() const override { return "hive"; }
+
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<string_view>& paths) const override {
     KeyValuePartitioningInspectImpl impl;

@@ -90,6 +90,9 @@ class ARROW_DS_EXPORT PartitioningFactory {
  public:
   virtual ~PartitioningFactory() = default;
 
+  /// \brief The name identifying the kind of partitioning
+  virtual std::string type_name() const = 0;
+
   /// Get the schema for the resulting Partitioning.
   virtual Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<util::string_view>& paths) const = 0;

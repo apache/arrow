@@ -77,10 +77,6 @@ class ARROW_DS_EXPORT WritePlan {
   /// expression will be created at paths[i] instead.
   std::vector<FragmentOrPartitionExpression> fragment_or_partition_expressions;
   std::vector<std::string> paths;
-
-  /// An optional directory into which Fragments with non representable partition
-  /// expressions will be written.
-  util::optional<std::string> unpartitioned_base_dir;
 };
 
 }  // namespace dataset

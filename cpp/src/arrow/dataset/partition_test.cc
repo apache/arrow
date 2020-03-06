@@ -310,9 +310,12 @@ class TestPartitioningWritePlan : public ::testing::Test {
     return MakeVectorIterator(fragments_);
   }
 
+  std::shared_ptr<Expression> ExpressionPtr(const Expression& e) { return e.Copy(); }
+  std::shared_ptr<Expression> ExpressionPtr(std::shared_ptr<Expression> e) { return e; }
+
   template <typename... E>
   FragmentIterator MakeFragments(const E&... partition_expressions) {
-    return MakeFragments(ExpressionVector{partition_expressions.Copy()...});
+    return MakeFragments(ExpressionVector{ExpressionPtr(partition_expressions)...});
   }
 
   template <typename... E>
@@ -426,18 +429,23 @@ TEST_F(TestPartitioningWritePlan, Empty) {
   AssertPlanIs({});
 
   factory_ = HivePartitioning::MakeFactory();
-  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, testing::HasSubstr("MakeWritePlan"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, testing::HasSubstr("hive"),
                                   MakeWritePlanError());
 }
 
 TEST_F(TestPartitioningWritePlan, SingleDirectory) {
   factory_ = DirectoryPartitioning::MakeFactory({"a"});
 
-  MakeWritePlan("a"_ == 42, "a"_ == 99, "a"_ == 99, "a"_ == 101);
-
+  MakeWritePlan("a"_ == 42, "a"_ == 99, "a"_ == 101);
   AssertPlanIs(ExpectedWritePlan()
                    .Dir("42/", "a"_ == 42, {0})
-                   .Dir("99/", "a"_ == 99, {1, 2})
+                   .Dir("99/", "a"_ == 99, {1})
+                   .Dir("101/", "a"_ == 101, {2}));
+
+  MakeWritePlan("a"_ == 42, "a"_ == 99, "a"_ == 99, "a"_ == 101, "a"_ == 99);
+  AssertPlanIs(ExpectedWritePlan()
+                   .Dir("42/", "a"_ == 42, {0})
+                   .Dir("99/", "a"_ == 99, {1, 2, 4})
                    .Dir("101/", "a"_ == 101, {3}));
 }
 
@@ -454,6 +462,23 @@ TEST_F(TestPartitioningWritePlan, NestedDirectories) {
                    .Dir("99/", "a"_ == 99, {})
                    .Dir("99/hello/", "b"_ == "hello", {2})
                    .Dir("99/world/", "b"_ == "world", {3}));
+}
+
+TEST_F(TestPartitioningWritePlan, Errors) {
+  factory_ = DirectoryPartitioning::MakeFactory({"a"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("no partition expression for field 'a'"),
+      MakeWritePlanError("a"_ == 42, scalar(true), "a"_ == 101));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Unable to merge: Field a has incompatible types"),
+      MakeWritePlanError("a"_ == 42, "a"_ == "hello"));
+
+  factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("no partition expression for field 'a'"),
+      MakeWritePlanError("a"_ == 42 and "b"_ == "hello", "a"_ == 99 and "b"_ == "world",
+                         "b"_ == "forever alone"));
 }
 
 }  // namespace dataset
