@@ -526,7 +526,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   /**
    * Returns the underlying {@link UnsafeDirectLittleEndian} instance used by this BufferLedger.
    *
-   * @deprecated Use #unwrap(UnsafeDirectLittleEndian.class) instead.
+   * @deprecated This method may be removed in a future release.
    */
   @Deprecated
   public UnsafeDirectLittleEndian getUnderlying() {
@@ -554,6 +554,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
       return clazz.cast(allocationManager);
     }
 
+    // TODO: remove this in a future release.
     if (clazz == UnsafeDirectLittleEndian.class) {
       Preconditions.checkState(allocationManager instanceof NettyAllocationManager,
           "Underlying memory was not allocated by Netty");
