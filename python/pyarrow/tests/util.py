@@ -127,7 +127,7 @@ def memory_leak_check(f, metric='rss', threshold=1 << 17, iterations=10,
                       check_interval=1):
     """
     Execute the function and try to detect a clear memory leak either internal
-    to Arrow or cause by a reference counting problem in the Python binding
+    to Arrow or caused by a reference counting problem in the Python binding
     implementation. Raises exception if a leak detected
 
     Parameters
