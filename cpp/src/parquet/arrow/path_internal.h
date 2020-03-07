@@ -24,6 +24,8 @@
 
 #include "arrow/status.h"
 
+#include "parquet/platform.h"
+
 namespace arrow {
 
 class Array;
@@ -92,7 +94,7 @@ struct MultipathLevelBuilderResult {
 
 /// \brief Logic for being able to write out nesting (rep/def level) data that is
 /// needed for writing to parquet.
-class MultipathLevelBuilder {
+class PARQUET_EXPORT MultipathLevelBuilder {
  public:
   /// \brief A callback function that will receive results from the call to
   /// Write(...) below.  The MultipathLevelBuilderResult passed in will
