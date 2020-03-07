@@ -19,25 +19,14 @@
 
 #pragma once
 
-#include <arrow-glib/buffer.h>
-#include <arrow-glib/gobject-type.h>
-#include <arrow-glib/version.h>
+#include <arrow/filesystem/api.h>
 
-G_BEGIN_DECLS
+#include <arrow-glib/local-file-system.h>
 
-#define GARROW_TYPE_READABLE (garrow_readable_get_type())
-G_DECLARE_INTERFACE(GArrowReadable,
-                    garrow_readable,
-                    GARROW,
-                    READABLE,
-                    GObject)
+arrow::fs::LocalFileSystemOptions &
+garrow_local_file_system_options_get_raw(GArrowLocalFileSystemOptions *options);
 
-GArrowBuffer *garrow_readable_read(GArrowReadable *readable,
-                                   gint64 n_bytes,
-                                   GError **error);
-GARROW_AVAILABLE_IN_1_0
-GBytes *garrow_readable_read_bytes(GArrowReadable *readable,
-                                   gint64 n_bytes,
-                                   GError **error);
+GArrowLocalFileSystem *
+garrow_local_file_system_new_raw(
+  std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system);
 
-G_END_DECLS

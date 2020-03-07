@@ -86,6 +86,10 @@ libarrow_glib_la_headers +=			\
 libarrow_glib_la_headers +=			\
 	compute.h
 
+libarrow_glib_la_headers +=			\
+	file-system.h				\
+	local-file-system.h
+
 if HAVE_ARROW_ORC
 libarrow_glib_la_headers +=			\
 	orc-file-reader.h
@@ -137,6 +141,10 @@ libarrow_glib_la_sources +=			\
 libarrow_glib_la_sources +=			\
 	compute.cpp
 
+libarrow_glib_la_sources +=			\
+	file-system.cpp				\
+	local-file-system.cpp
+
 if HAVE_ARROW_ORC
 libarrow_glib_la_sources +=			\
 	orc-file-reader.cpp
@@ -178,6 +186,10 @@ libarrow_glib_la_cpp_headers +=			\
 
 libarrow_glib_la_cpp_headers +=			\
 	compute.hpp
+
+libarrow_glib_la_cpp_headers +=			\
+	file-system.hpp				\
+	local-system.hpp
 
 if HAVE_ARROW_ORC
 libarrow_glib_la_cpp_headers +=			\
