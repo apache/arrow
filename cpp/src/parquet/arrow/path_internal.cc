@@ -323,7 +323,7 @@ class ListPathNode {
     }
     // Loops post-condition:
     //   * range is either empty (we are done processing at this node)
-    //     or start corresponds a non-mepty list.
+    //     or start corresponds a non-empty list.
     //   * If range is non-empty child_range contains
     //     the bounds of non-empty list.
 
