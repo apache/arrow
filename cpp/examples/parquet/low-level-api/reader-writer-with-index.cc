@@ -192,7 +192,7 @@ int parquet_reader(int argc,char** argv) {
 
 void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_group_reader,int col_id, int num_columns, char* predicate_val,bool with_index) {
 
-    int64_t row_index = -1;
+    int64_t row_index = 0;
 
     std::vector<int> col_row_counts(num_columns, 0);
 
@@ -240,7 +240,7 @@ void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_
       int ind = 0;
       int64_t row_counter = -1;
 
-      if(with_index && page_index!=-1){
+      if(with_index){
         ind = row_index;
         row_counter = -1;
         generic_reader->Skip(row_index);
@@ -647,7 +647,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
            {
               float val;
               float predicate = vals.d;
-              float error_factor = 2.0;
+              float error_factor = 100000000000.0;
            int64_reader->callReadBatch(1,&val,&values_read);
            if ( checkpredicate && fabs(val-predicate)<=std::numeric_limits<double>::epsilon()*error_factor) {
            row_counter = ind;
@@ -666,10 +666,9 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
               double val;
               double predicate = vals.i;
            int64_reader->callReadBatch(1,&val,&values_read);
-           double error_factor=2.0;
+           double error_factor = 1000000000000.0;
 
-           if ( checkpredicate && (val == predicate || std::abs(val-predicate) < 
-                     std::abs(std::min(predicate,val))*std::numeric_limits<double>::epsilon()*error_factor)) {
+           if ( checkpredicate && fabs(val-predicate)<=std::numeric_limits<double>::epsilon()*error_factor) {
            row_counter = ind;
            std::cout << "with predicate row number: " << row_counter << " " << val << "\n";
            //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
