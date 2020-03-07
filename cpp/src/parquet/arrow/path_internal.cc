@@ -23,10 +23,10 @@
 // dictionary encoded array). It then evaluates each one of
 // those paths to produce results for the callback iteratively.
 //
-// This approach was taken to reduce the aggregate memory required
-// if we were to build all def/rep levels in parallel as apart of
-// a tree traversal.  It also allows for straighforward parallelization
-// at the path level if that is desired in the future.
+// This approach was taken to reduce the aggregate memory required if we were
+// to build all def/rep levels in parallel as apart of a tree traversal.  It
+// also allows for straightforward parallelization at the path level if that is
+// desired in the future.
 //
 // The main downside to this approach is it duplicates effort for nodes
 // that share common ancestors. This can be mitigated to some degree
@@ -84,6 +84,10 @@
 
 #include "parquet/arrow/path_internal.h"
 
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/memory_pool.h"
@@ -114,7 +118,6 @@ enum IterationResult {
   kNext = 1,
   /// An error occurred while processing.
   kError = 2
-
 };
 
 #define RETURN_IF_ERROR(iteration_result)                  \
@@ -152,9 +155,7 @@ struct PathWriteContext {
     return kError;
   }
 
-  void UnsafeAppendDefLevel(int16_t def_level) {
-    def_levels.UnsafeAppend(def_level);
-  }
+  void UnsafeAppendDefLevel(int16_t def_level) { def_levels.UnsafeAppend(def_level); }
 
   IterationResult AppendRepLevel(int16_t rep_level) {
     last_status = rep_levels.Append(rep_level);
@@ -177,7 +178,7 @@ struct PathWriteContext {
     return rep_levels.length() == def_levels.length();
   }
 
-  // Incorporates |range| into visited elements. If the |range| is continguous
+  // Incorporates |range| into visited elements. If the |range| is contiguous
   // with the last range, extend the last range, otherwise add |range| separately
   // tot he list.
   void RecordPostListVisit(const ElementRange& range) {
@@ -203,7 +204,7 @@ IterationResult FillRepLevels(int64_t count, int16_t rep_level,
   // This condition occurs (rep and dep levels equals), in one of
   // in a few cases:
   // 1.  Before any list is encountered.
-  // 2.  After rep-lvel has been filled in due to null/empty
+  // 2.  After rep-level has been filled in due to null/empty
   //     values above it.
   // 3.  After finishing a list.
   if (!context->EqualRepDefLevelsLengths()) {
@@ -236,7 +237,7 @@ class AllNullsTerminalNode {
 // Handles the case where all remaining arrays until the leaf have no nulls
 // (and are not interrupted by lists). Unlike AllNullsTerminalNode this is
 // always the last node in a path. We don't need an analogue to the AllNullsTerminalNode
-// because if all values are present at an itermediate array no node is added for it
+// because if all values are present at an intermediate array no node is added for it
 // (the def-level for the next nullable node is incremented).
 struct AllPresentTerminalNode {
   IterationResult Run(const ElementRange& range, PathWriteContext* context) {
@@ -315,7 +316,7 @@ class ListPathNode {
     int64_t start = range->start;
     // Retrieves the range of elements that this list contains.
     // Uses the strategy pattern to distinguish between the different
-    // lists that are suppored in Arrow (fixed size, nomral and "large").
+    // lists that are supported in Arrow (fixed size, normal and "large").
     *child_range = selector_.GetRange(range->start);
     while (child_range->Empty() && !range->Empty()) {
       ++range->start;
@@ -335,7 +336,7 @@ class ListPathNode {
     }
     // Start of a new list. Note that for nested lists adding the element
     // here effectively suppresses this code until we either encounter null
-    // elements or empty lists between here and the innter most list (since
+    // elements or empty lists between here and the innermost list (since
     // we make the rep levels repetition and definition levels unequal).
     // Similarly when we are backtracking up the stack the repetition and
     // definition levels are again equal so if we encounter an intermediate list
@@ -386,7 +387,7 @@ class ListPathNode {
       }
       // This is the start of a new list. We can be sure it only applies
       // to the previous list (and doesn't jump to the start of any list
-      // further up in nesting due to the contraints mentioned at the start
+      // further up in nesting due to the constraints mentioned at the start
       // of the function).
       RETURN_IF_ERROR(context->AppendRepLevel(prev_rep_level_));
       RETURN_IF_ERROR(context->AppendRepLevels(size_check.Size() - 1, rep_level_));
@@ -413,7 +414,7 @@ template <typename OffsetType>
 struct VarRangeSelector {
   ElementRange GetRange(int64_t index) const {
     return ElementRange{offsets[index], offsets[index + 1]};
-  };
+  }
 
   // Either int32_t* or int64_t*.
   const OffsetType* offsets;
@@ -451,7 +452,7 @@ class NullableNode {
     if (new_range_) {
       // Reset the reader each time we are starting fresh on a range.
       // We can't rely on continuity because nulls above can
-      // cause discontinuties.
+      // cause discontinuities.
       valid_bits_reader_ = MakeReader(*range);
     }
     child_range->start = range->start;
@@ -478,7 +479,7 @@ class NullableNode {
     range->start += child_range->Size();
     new_range_ = false;
     return kNext;
-  };
+  }
 
   const uint8_t* null_bitmap_;
   int64_t entry_offset_;

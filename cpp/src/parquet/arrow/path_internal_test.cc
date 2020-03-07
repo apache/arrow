@@ -18,6 +18,7 @@
 #include "parquet/arrow/path_internal.h"
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "gmock/gmock.h"
@@ -114,10 +115,10 @@ class MultipathLevelBuilderTest : public testing::Test {
 TEST_F(MultipathLevelBuilderTest, NonNullableSingleListNonNullableEntries) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
   auto list_type = large_list(entries);
-  // Translates to parquest schema:
+  // Translates to parquet schema:
   // optional group bag {
   //   repeated group [unseen] (List) {
-  //       optional int64 Entries;
+  //       required int64 Entries;
   //   }
   // }
   // So:
@@ -144,10 +145,10 @@ TEST_F(MultipathLevelBuilderTest, NonNullableSingleListNonNullableEntries) {
 TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullsLists) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
   auto list_type = list(entries);
-  // Translates to parquest schema:
+  // Translates to parquet schema:
   // optional group bag {
   //   repeated group [unseen] (List) {
-  //       optional int64 Entries;
+  //       required int64 Entries;
   //   }
   // }
   // So:
@@ -167,20 +168,22 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullsLists) {
                      /*rep_levels=*/std::vector<int16_t>(4, 0));
 }
 
+// This Parquet schema used for the next several tests
+//
+// optional group bag {
+//   repeated group [unseen] (List) {
+//       optional int64 Entries;
+//   }
+// }
+// So:
+// def level 0: a null list
+// def level 1: an empty list
+// def level 2: a null entry
+// def level 3: a non-null entry
+
 TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullEntries) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_type = list(entries);
-  // Translates to parquest schema:
-  // optional group bag {
-  //   repeated group [unseen] (List) {
-  //       optional int64 Entries;
-  //   }
-  // }
-  // So:
-  // def level 0: a null list
-  // def level 1: an empty list
-  // def level 2: a null entry
-  // def level 3: a non-null entry
 
   auto array = ::arrow::ArrayFromJSON(list_type, R"([[null], [null], [null], [null]])");
 
@@ -199,17 +202,6 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullEntries) {
 TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllPresentEntries) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_type = list(entries);
-  // Translates to parquest schema:
-  // optional group bag {
-  //   repeated group [unseen] (List) {
-  //       optional int64 Entries;
-  //   }
-  // }
-  // So:
-  // def level 0: a null list
-  // def level 1: an empty list
-  // def level 2: a null entry
-  // def level 3: a non-null entry
 
   auto array = ::arrow::ArrayFromJSON(list_type, R"([[], [], [1], [], [2, 3]])");
 
@@ -229,17 +221,6 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllPresentEntries) {
 TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyEntries) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_type = list(entries);
-  // Translates to parquest schema:
-  // optional group bag {
-  //   repeated group [unseen] (List) {
-  //       optional int64 Entries;
-  //   }
-  // }
-  // So:
-  // def level 0: a null list
-  // def level 1: an empty list
-  // def level 2: a null entry
-  // def level 3: a non-null entry
 
   auto array = ::arrow::ArrayFromJSON(list_type, R"([[], [], [], [], []])");
 
@@ -255,17 +236,6 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyEntries) {
 TEST_F(MultipathLevelBuilderTest, NullableSingleListWithSomeNullEntriesAndSomeNullLists) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_type = list(entries);
-  // Translates to parquest schema:
-  // optional group bag {
-  //   repeated group [unseen] (List) {
-  //       optional int64 Entries;
-  //   }
-  // }
-  // So:
-  // def level 0: a null list
-  // def level 1: an empty list
-  // def level 2: a null entry
-  // def level 3: a non-null entry
 
   auto array = ::arrow::ArrayFromJSON(
       list_type, R"([null, [1 , 2, 3], [], [], null,  null, [4, 5], [null]])");
@@ -281,27 +251,29 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithSomeNullEntriesAndSomeNu
       /*rep_levels=*/std::vector<int16_t>{0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0});
 }
 
+// This Parquet schema used for the following tests
+//
+// optional group bag {
+//   repeated group outer_list (List) {
+//     option group nullable {
+//       repeated group inner_list (List) {
+//         optional int64 Entries;
+//       }
+//     }
+//   }
+// }
+// So:
+// def level 0: a outer list
+// def level 1: an empty outer list
+// def level 2: a null inner list
+// def level 3: an empty inner list
+// def level 4: a null entry
+// def level 5: a non-null entry
+
 TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeEntries) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_field = field("list", list(entries), /*nullable=*/true);
   auto nested_list_type = list(list_field);
-  // Translates to parquest schema:
-  // optional group bag {
-  //   repeated group outer_list (List) {
-  //     option group nullable {
-  //       repeated group inner_list (List) {
-  //         optional int64 Entries;
-  //       }
-  //     }
-  //   }
-  // }
-  // So:
-  // def level 0: a outer list
-  // def level 1: an empty outer list
-  // def level 2: a null inner list
-  // def level 3: an empty inner list
-  // def level 4: a null entry
-  // def level 5: a non-null entry
   auto array = ::arrow::ArrayFromJSON(
       nested_list_type, R"([null, [[1 , 2, 3], [4, 5]], [[], [], []], []])");
 
@@ -315,23 +287,6 @@ TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeEntries) {
 }
 
 TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeNulls) {
-  // Translates to parquest schema:
-  // optional group bag {
-  //   repeated group outer_list (List) {
-  //     option group nullable {
-  //       repeated group inner_list (List) {
-  //         optional int64 Entries;
-  //       }
-  //     }
-  //   }
-  // }
-  // So:
-  // def level 0: a outer list
-  // def level 1: an empty outer list
-  // def level 2: a null inner list
-  // def level 3: an empty inner list
-  // def level 4: a null entry
-  // def level 5: a non-null entry
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_field = field("list", list(entries), /*nullable=*/true);
   auto nested_list_type = list(list_field);
@@ -352,23 +307,6 @@ TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeNullsSomeEmptys) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_field = field("list", list(entries), /*nullable=*/true);
   auto nested_list_type = list(list_field);
-  // Translates to parquest schema:
-  // optional group bag {
-  //   repeated group outer_list (List) {
-  //     option group nullable {
-  //       repeated group inner_list (List) {
-  //         optional int64 Entries;
-  //       }
-  //     }
-  //   }
-  // }
-  // So:
-  // def level 0: a outer list
-  // def level 1: an empty outer list
-  // def level 2: a null inner list
-  // def level 3: an empty inner list
-  // def level 4: a null entry
-  // def level 5: a non-null entry
   auto array = ::arrow::ArrayFromJSON(nested_list_type,
                                       R"([null, [[1 , null, 3], [], []], [[4, 5]]])");
 
@@ -381,35 +319,36 @@ TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeNullsSomeEmptys) {
                      /*rep_levels=*/std::vector<int16_t>{0, 0, 2, 2, 1, 1, 0, 2});
 }
 
+// TripleNested schema
+//
+// optional group bag {
+//   repeated group outer_list (List) {
+//     option group nullable {
+//       repeated group middle_list (List) {
+//         option group nullable {
+//           repeated group inner_list (List) {
+//              optional int64 Entries;
+//           }
+//         }
+//       }
+//     }
+//   }
+// }
+// So:
+// def level 0: a outer list
+// def level 1: an empty outer list
+// def level 2: a null middle list
+// def level 3: an empty middle list
+// def level 4: an null inner list
+// def level 5: an empty inner list
+// def level 6: a null entry
+// def level 7: a non-null entry
+
 TEST_F(MultipathLevelBuilderTest, TripleNestedListsAllPresent) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_field = field("list", list(entries), /*nullable=*/true);
   auto nested_list_type = list(list_field);
   auto double_nested_list_type = list(nested_list_type);
-
-  // Translates to parquest schema:
-  // optional group bag {
-  //   repeated group outer_list (List) {
-  //     option group nullable {
-  //       repeated group middle_list (List) {
-  //         option group nullable {
-  //           repeated group inner_list (List) {
-  //              optional int64 Entries;
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
-  // So:
-  // def level 0: a outer list
-  // def level 1: an empty outer list
-  // def level 2: a null middle list
-  // def level 3: an empty middle list
-  // def level 4: an null inner list
-  // def level 5: an empty inner list
-  // def level 6: a null entry
-  // def level 7: a non-null entry
 
   auto array = ::arrow::ArrayFromJSON(double_nested_list_type,
                                       R"([ [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9]]] ])");
@@ -425,63 +364,16 @@ TEST_F(MultipathLevelBuilderTest, TripleNestedListsAllPresent) {
                      });
 }
 
-TEST_F(MultipathLevelBuilderTest, QuadNestedListsAllPresent) {
-  auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
-  auto list_field = field("list", list(entries), /*nullable=*/true);
-  auto nested_list_type = list(list_field);
-  auto double_nested_list_type = list(nested_list_type);
-  auto triple_nested_list_type = list(double_nested_list_type);
-
-  auto array = ::arrow::ArrayFromJSON(triple_nested_list_type,
-                                      R"([ [[[[1, 2], [3, 4]], [[5]]], [[[6, 7, 8]]]], 
-					   [[[[1, 2], [3, 4]], [[5]]], [[[6, 7, 8]]]] ])");
-
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
-
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
-  result.CheckLevels(/*def_levels=*/std::vector<int16_t>(16, 9),
-                     /*rep_levels=*/std::vector<int16_t>{
-                         0, 4, 3, 4, 2, 1, 4, 4,  //
-                         0, 4, 3, 4, 2, 1, 4, 4   //
-                     });
-}
-
 TEST_F(MultipathLevelBuilderTest, TripleNestedListsWithSomeNullsSomeEmptys) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_field = field("list", list(entries), /*nullable=*/true);
   auto nested_list_type = list(list_field);
   auto double_nested_list_type = list(nested_list_type);
-
-  // Translates to parquest schema:
-  // optional group bag {
-  //   repeated group outer_list (List) {
-  //     option group nullable {
-  //       repeated group middle_list (List) {
-  //         option group nullable {
-  //           repeated group inner_list (List) {
-  //              optional int64 Entries;
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
-  // So:
-  // def level 0: a outer list
-  // def level 1: an empty outer list
-  // def level 2: a null middle list
-  // def level 3: an empty middle list
-  // def level 4: an null inner list
-  // def level 5: an empty inner list
-  // def level 6: a null entry
-  // def level 7: a non-null entry
   auto array = ::arrow::ArrayFromJSON(double_nested_list_type,
                                       R"([
-                                           [null, [[1 , null, 3], []], []], 
+                                           [null, [[1 , null, 3], []], []],
                                            [[[]], [[], [1, 2]], null, [[3]]],
-					   null, 
+					   null,
  					   []
                                          ])");
 
@@ -499,13 +391,36 @@ TEST_F(MultipathLevelBuilderTest, TripleNestedListsWithSomeNullsSomeEmptys) {
                                                          0, 0});
 }
 
+TEST_F(MultipathLevelBuilderTest, QuadNestedListsAllPresent) {
+  auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
+  auto list_field = field("list", list(entries), /*nullable=*/true);
+  auto nested_list_type = list(list_field);
+  auto double_nested_list_type = list(nested_list_type);
+  auto triple_nested_list_type = list(double_nested_list_type);
+
+  auto array = ::arrow::ArrayFromJSON(triple_nested_list_type,
+                                      R"([ [[[[1, 2], [3, 4]], [[5]]], [[[6, 7, 8]]]],
+					   [[[[1, 2], [3, 4]], [[5]]], [[[6, 7, 8]]]] ])");
+
+  ASSERT_OK(
+      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+
+  ASSERT_THAT(results_, SizeIs(1));
+  const CapturedResult& result = results_[0];
+  result.CheckLevels(/*def_levels=*/std::vector<int16_t>(16, 9),
+                     /*rep_levels=*/std::vector<int16_t>{
+                         0, 4, 3, 4, 2, 1, 4, 4,  //
+                         0, 4, 3, 4, 2, 1, 4, 4   //
+                     });
+}
+
 TEST_F(MultipathLevelBuilderTest, TestStruct) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_field = field("list", list(entries), /*nullable=*/true);
   auto struct_type = ::arrow::struct_({list_field, entries});
 
   auto array = ::arrow::ArrayFromJSON(struct_type,
-                                      R"([{"Entries" : 1, "list": [2, 3]}, 
+                                      R"([{"Entries" : 1, "list": [2, 3]},
                                           {"Entries" : 4, "list": [5, 6]},
                                           null])");
 
@@ -563,7 +478,7 @@ TEST_F(MultipathLevelBuilderTest, TestMap) {
   auto map_type = ::arrow::map(::arrow::int64(), ::arrow::utf8());
 
   auto array = ::arrow::ArrayFromJSON(map_type,
-                                      R"([[[1, "a"], [2, "b"]], 
+                                      R"([[[1, "a"], [2, "b"]],
                                           [[3, "c"], [4, null]],
                                           [],
                                           null])");

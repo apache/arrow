@@ -17,6 +17,8 @@
 #pragma once
 
 #include <functional>
+#include <memory>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/status.h"
@@ -86,7 +88,7 @@ class MultipathLevelBuilder {
   /// \brief A callback function that will receive results from the call to
   /// Write(...) below.  The MultipathLevelBuilderResult passed in will
   /// only remain valid for the function call (i.e. storing it and relying
-  /// for its data to be consistent afterwards willr result in undefined
+  /// for its data to be consistent afterwards will result in undefined
   /// behavior.
   using CallbackFunction =
       std::function<::arrow::Status(const MultipathLevelBuilderResult&)>;
