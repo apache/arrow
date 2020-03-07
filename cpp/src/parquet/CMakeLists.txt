@@ -185,7 +185,7 @@ add_custom_command(OUTPUT ${THRIFT_OUTPUT_FILES}
 # Library config
 
 set(PARQUET_SRCS
-    arrow/path_internal.cc 
+    arrow/path_internal.cc
     arrow/reader.cc
     arrow/reader_internal.cc
     arrow/schema.cc

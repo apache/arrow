@@ -39,9 +39,9 @@ struct ElementRange {
   /// Upper bound of range (exclusive)
   int64_t end;
 
-  inline bool Empty() const { return start == end; }
+  bool Empty() const { return start == end; }
 
-  inline int64_t Size() const { return end - start; }
+  int64_t Size() const { return end - start; }
 };
 
 /// \brief Result for a single leaf array when running the builder on the
@@ -66,13 +66,16 @@ struct MultipathLevelBuilderResult {
   /// \brief Contains element ranges of the required visiting on the
   /// descendants of the final list ancestor for any leaf node.
   ///
-  /// The algorithm will atempt to consolidate visited ranges into
+  /// The algorithm will attempt to consolidate visited ranges into
   /// the smallest number possible.
   ///
   /// This data is necessary to pass along because after producing
   /// def-rep levels for each leaf array it is impossible to determine
-  /// which values have to be sent to capacitor when a null list value
+  /// which values have to be sent to parquet when a null list value
   /// in a nullable ListArray is non-empty.
+  ///
+  /// This allows for the parquet writing to determine which values ultimately
+  /// needs to be written.
   std::vector<ElementRange> post_list_visited_elements;
 };
 
@@ -80,7 +83,7 @@ struct MultipathLevelBuilderResult {
 /// needed for writing to parquet.
 class MultipathLevelBuilder {
  public:
-  /// \brief A callback function that willr receive results from the call to
+  /// \brief A callback function that will receive results from the call to
   /// Write(...) below.  The MultipathLevelBuilderResult passed in will
   /// only remain valid for the function call (i.e. storing it and relying
   /// for its data to be consistent afterwards willr result in undefined

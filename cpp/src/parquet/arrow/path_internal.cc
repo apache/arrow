@@ -25,25 +25,25 @@
 //
 // This approach was taken to reduce the aggregate memory required
 // if we were to build all def/rep levels in parallel as apart of
-// a tree traversal.  It also allows for straighforward parellization
+// a tree traversal.  It also allows for straighforward parallelization
 // at the path level if that is desired in the future.
 //
 // The main downside to this approach is it duplicates effort for nodes
 // that share common ancestors. This can be mitigated to some degree
 // by adding in optimizations that detect leaf arrays that share
-// the same common list ancestor and reuse the repeteition levels
+// the same common list ancestor and reuse the repetition levels
 // from the first leaf encountered (only definition levels greater
 // the list ancestor need to be re-evaluated. This is left for future
 // work.
 //
 // Algorithm.
 //
-// As mentioned above this code dissects arrays into constiutent parts:
+// As mentioned above this code dissects arrays into constituent parts:
 // nullability data, and list offset data. It tries to optimize for
 // some special cases, where it is known ahead of time that a step
 // can be skipped (e.g. a nullable array happens to have all of its
 // values) or batch filled (a nullable array has all null values).
-// One futher optimization that is not implemented but could be done
+// One further optimization that is not implemented but could be done
 // in the future is special handling for nested list arrays that
 // have some intermediate data which indicates the final array contains only
 // nulls.
@@ -53,10 +53,11 @@
 // values and batch filling those interspersed with finding runs of non-null values
 // to process in batch at the next column.
 //
-// Similarly, for lists runs of empty lists are all processed in one batch
+// Similarly, list runs of empty lists are all processed in one batch
 // followed by either:
-//    - A single list entry to non-terminal lists (i.e. the upper part of a nested list)
-//    - Runs of non-empty lists for the terminal list (i.e. the lowest part of a nested list).
+//    - A single list entry for non-terminal lists (i.e. the upper part of a nested list)
+//    - Runs of non-empty lists for the terminal list (i.e. the lowest part of a nested
+//    list).
 //
 // This makes use of the following observations.
 // 1.  Null values at any node on the path are terminal (repetition and definition
@@ -66,9 +67,9 @@
 //     in assigning repetition levels. The algorithm tracks whether it is currently
 //     in the middle of a list by comparing the lengths of repetition/definition levels.
 //     If it is currently in the middle of a list the the number of repetition levels
-//     populated will be greater than definition levels (the start of a List requires adding
-//     the first element). If there are equal numbers of definition and repetition levels
-//     populated this indicates a list is waiting to be started and the next list
+//     populated will be greater than definition levels (the start of a List requires
+//     adding the first element). If there are equal numbers of definition and repetition
+//     levels populated this indicates a list is waiting to be started and the next list
 //     encountered will have its repetition level signify the beginning of the list.
 //
 //     Other implementation notes.
@@ -83,9 +84,12 @@
 
 #include "parquet/arrow/path_internal.h"
 
+#include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/memory_pool.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 #include "arrow/visitor_inline.h"
 
@@ -96,6 +100,7 @@ namespace {
 
 using ::arrow::Array;
 using ::arrow::Status;
+using ::arrow::TypedBufferBuilder;
 using ::arrow::util::holds_alternative;
 
 constexpr static int16_t kLevelNotSet = -1;
@@ -133,7 +138,6 @@ struct PathWriteContext {
 
   IterationResult AppendDefLevel(int16_t def_level) {
     last_status = def_levels.Append(def_level);
-    last_appended_def_level = def_level;
     if (ARROW_PREDICT_TRUE(last_status.ok())) {
       return kDone;
     }
@@ -141,9 +145,6 @@ struct PathWriteContext {
   }
 
   IterationResult AppendDefLevels(int64_t count, int16_t def_level) {
-    if (count > 0) {
-      last_appended_def_level = def_level;
-    }
     last_status = def_levels.Append(count, def_level);
     if (ARROW_PREDICT_TRUE(last_status.ok())) {
       return kDone;
@@ -152,14 +153,12 @@ struct PathWriteContext {
   }
 
   void UnsafeAppendDefLevel(int16_t def_level) {
-    last_appended_def_level = def_level;
     def_levels.UnsafeAppend(def_level);
   }
 
   IterationResult AppendRepLevel(int16_t rep_level) {
     last_status = rep_levels.Append(rep_level);
 
-    last_appended_rep_level = rep_level;
     if (ARROW_PREDICT_TRUE(last_status.ok())) {
       return kDone;
     }
@@ -167,9 +166,6 @@ struct PathWriteContext {
   }
 
   IterationResult AppendRepLevels(int64_t count, int16_t rep_level) {
-    if (count > 0) {
-      last_appended_rep_level = rep_level;
-    }
     last_status = rep_levels.Append(count, rep_level);
     if (ARROW_PREDICT_TRUE(last_status.ok())) {
       return kDone;
@@ -181,6 +177,9 @@ struct PathWriteContext {
     return rep_levels.length() == def_levels.length();
   }
 
+  // Incorporates |range| into visited elements. If the |range| is continguous
+  // with the last range, extend the last range, otherwise add |range| separately
+  // tot he list.
   void RecordPostListVisit(const ElementRange& range) {
     if (!visited_elements.empty() && range.start == visited_elements.back().end) {
       visited_elements.back().end = range.end;
@@ -190,10 +189,8 @@ struct PathWriteContext {
   }
 
   Status last_status;
-  ::arrow::TypedBufferBuilder<int16_t> rep_levels;
-  ::arrow::TypedBufferBuilder<int16_t> def_levels;
-  int16_t last_appended_rep_level = 0;
-  int16_t last_appended_def_level = 0;
+  TypedBufferBuilder<int16_t> rep_levels;
+  TypedBufferBuilder<int16_t> def_levels;
   std::vector<ElementRange> visited_elements;
 };
 
@@ -203,12 +200,23 @@ IterationResult FillRepLevels(int64_t count, int16_t rep_level,
     return kDone;
   }
   int64_t fill_count = count;
+  // This condition occurs (rep and dep levels equals), in one of
+  // in a few cases:
+  // 1.  Before any list is encountered.
+  // 2.  After rep-lvel has been filled in due to null/empty
+  //     values above it.
+  // 3.  After finishing a list.
   if (!context->EqualRepDefLevelsLengths()) {
     fill_count--;
   }
   return context->AppendRepLevels(fill_count, rep_level);
 }
 
+// A node for handling an array that is discovered to have all
+// null elements. It is referred to as a TerminalNode because
+// traversal of nodes will not continue it when generating
+// rep/def levels. However, there could be many nested children
+// elements beyond it in the Array that is being processed.
 class AllNullsTerminalNode {
  public:
   explicit AllNullsTerminalNode(int16_t def_level, int16_t rep_level = kLevelNotSet)
@@ -225,6 +233,11 @@ class AllNullsTerminalNode {
   int16_t rep_level_;
 };
 
+// Handles the case where all remaining arrays until the leaf have no nulls
+// (and are not interrupted by lists). Unlike AllNullsTerminalNode this is
+// always the last node in a path. We don't need an analgogue to the AllNullsTerminalNode
+// because if all values are present at an itermediate array no node is added for it
+// (the def-level for the next nullable node is incremented).
 struct AllPresentTerminalNode {
   IterationResult Run(const ElementRange& range, PathWriteContext* context) {
     return context->AppendDefLevels(range.end - range.start, def_level);
@@ -235,6 +248,8 @@ struct AllPresentTerminalNode {
   int16_t def_level;
 };
 
+/// Node for handling the case when the leaf-array is nullable
+/// and contains null elements.
 struct NullableTerminalNode {
   NullableTerminalNode();
   NullableTerminalNode(const uint8_t* bitmap, int64_t element_offset,
@@ -269,9 +284,8 @@ struct NullableTerminalNode {
   int16_t def_level_if_null_;
 };
 
-// List nodes handle populating rep_level for Arrow Lists and dep-level for empty lists.
-// Nullability (both list and children) is handled by other Nodes. This class should not
-// be used directly instead one of its CRTP extensions should be used below. By
+// List nodes handle populating rep_level for Arrow Lists and def-level for empty lists.
+// Nullability (both list and children) is handled by other Nodes. By
 // construction all list nodes will be intermediate nodes (they will always be followed by
 // at least one other node).
 //
@@ -291,7 +305,7 @@ class ListPathNode {
 
   int16_t rep_level() const { return rep_level_; }
 
-  IterationResult Run(ElementRange* range, ElementRange* next_range,
+  IterationResult Run(ElementRange* range, ElementRange* child_range,
                       PathWriteContext* context) {
     if (range->Empty()) {
       return kDone;
@@ -299,17 +313,33 @@ class ListPathNode {
 
     // Find the first non-empty list (skipping a run of empties).
     int64_t start = range->start;
-    *next_range = selector_.GetRange(range->start);
-    while (next_range->Empty() && !range->Empty()) {
+    // Retrieves the range of elements that this list contains.
+    // Uses the strategy pattern to distinguish between the different
+    // lists that are suppored in Arrow (fixed size, nomral and "large").
+    *child_range = selector_.GetRange(range->start);
+    while (child_range->Empty() && !range->Empty()) {
       ++range->start;
-      *next_range = selector_.GetRange(range->start);
+      *child_range = selector_.GetRange(range->start);
     }
+    // Loops post-condition:
+    //   * range is either empty (we are done processing at this node)
+    //     or start corresponds a non-mepty list.
+    //   * If range is non-empty child_range contains
+    //     the bounds of non-empty list.
 
+    // Handle any skipped over empty lists.
     int64_t empty_elements = range->start - start;
     if (empty_elements > 0) {
       RETURN_IF_ERROR(FillRepLevels(empty_elements, prev_rep_level_, context));
       RETURN_IF_ERROR(context->AppendDefLevels(empty_elements, def_level_if_empty_));
     }
+    // Start of a new list. Note that for nested lists adding the element
+    // here effectively suppresses this code until we either encounter null
+    // elements or empty lists between here and the innter most list (since
+    // we make the rep levels repetition and definition levels unequal).
+    // Similarly when we are backtracking up the stack the repetition and
+    // definition levels are again equal so if we encounter an intermediate list
+    // with more elements this will detect it as a new list.
     if (context->EqualRepDefLevelsLengths() && !range->Empty()) {
       RETURN_IF_ERROR(context->AppendRepLevel(prev_rep_level_));
     }
@@ -320,7 +350,10 @@ class ListPathNode {
 
     ++range->start;
     if (is_last_) {
-      return FillForLast(range, next_range, context);
+      // If this is the last repeated node, we can extend try
+      // to extend the child range as wide as possible before
+      // continuing to the next node.
+      return FillForLast(range, child_range, context);
     }
     return kNext;
   }
@@ -328,10 +361,10 @@ class ListPathNode {
   void SetLast() { is_last_ = true; }
 
  private:
-  IterationResult FillForLast(ElementRange* range, ElementRange* next_range,
+  IterationResult FillForLast(ElementRange* range, ElementRange* child_range,
                               PathWriteContext* context) {
     // First fill int the remainder of the list.
-    RETURN_IF_ERROR(FillRepLevels(next_range->Size(), rep_level_, context));
+    RETURN_IF_ERROR(FillRepLevels(child_range->Size(), rep_level_, context));
     // Once we've reached this point the following preconditions should hold:
     // 1.  There are no more repeated path nodes to deal with.
     // 2.  All elements in |range| represent contiguous elements in the
@@ -351,14 +384,21 @@ class ListPathNode {
         // def_levels entered first.
         break;
       }
+      // This is the start of a new list. We can be sure it only applies
+      // to the previous list (and doesn't jump to the start of any list
+      // further up in nesting due to the contraints mentioned at the start
+      // of the function).
       RETURN_IF_ERROR(context->AppendRepLevel(prev_rep_level_));
       RETURN_IF_ERROR(context->AppendRepLevels(size_check.Size() - 1, rep_level_));
-      DCHECK_EQ(size_check.start, next_range->end);
-      next_range->end = size_check.end;
+      DCHECK_EQ(size_check.start, child_range->end);
+      child_range->end = size_check.end;
       ++range->start;
     }
 
-    context->RecordPostListVisit(*next_range);
+    // Do book-keeping to track the elements of the arrays that are actually visited
+    // beyond this point.  This is necessary to identify "gaps" in values that should
+    // not be processed (written out to parquet).
+    context->RecordPostListVisit(*child_range);
     return kNext;
   }
 
@@ -406,7 +446,7 @@ class NullableNode {
                                            range.Size());
   }
 
-  IterationResult Run(ElementRange* range, ElementRange* next_range,
+  IterationResult Run(ElementRange* range, ElementRange* child_range,
                       PathWriteContext* context) {
     if (new_range_) {
       // Reset the reader each time we are starting fresh on a range.
@@ -414,12 +454,12 @@ class NullableNode {
       // cause discontinuties.
       valid_bits_reader_ = MakeReader(*range);
     }
-    next_range->start = range->start;
+    child_range->start = range->start;
     while (!range->Empty() && !valid_bits_reader_.IsSet()) {
       ++range->start;
       valid_bits_reader_.Next();
     }
-    int64_t null_count = range->start - next_range->start;
+    int64_t null_count = range->start - child_range->start;
     if (null_count > 0) {
       RETURN_IF_ERROR(FillRepLevels(null_count, rep_level_if_null_, context));
       RETURN_IF_ERROR(context->AppendDefLevels(null_count, def_level_if_null_));
@@ -428,14 +468,14 @@ class NullableNode {
       new_range_ = true;
       return kDone;
     }
-    next_range->end = next_range->start = range->start;
+    child_range->end = child_range->start = range->start;
 
-    while (next_range->end != range->end && valid_bits_reader_.IsSet()) {
-      ++next_range->end;
+    while (child_range->end != range->end && valid_bits_reader_.IsSet()) {
+      ++child_range->end;
       valid_bits_reader_.Next();
     }
-    DCHECK(!next_range->Empty());
-    range->start += next_range->Size();
+    DCHECK(!child_range->Empty());
+    range->start += child_range->Size();
     new_range_ = false;
     return kNext;
   };
@@ -469,9 +509,14 @@ struct PathInfo {
   bool has_dictionary;
 };
 
-/// \brief Contains logic for writing a single leaf node to parquet.
+/// Contains logic for writing a single leaf node to parquet.
 /// This tracks the path from root to leaf.
-Status WritePath(ElementRange start_range, PathInfo* path_info,
+///
+/// |writer| will be called after all of the definition/repetition
+/// values have been calculated for root_range with the calculated
+/// values. It is intended to abstract the complexity of writing
+/// the levels and values to parquet.
+Status WritePath(ElementRange root_range, PathInfo* path_info,
                  ArrowWriteContext* arrow_context,
                  MultipathLevelBuilder::CallbackFunction writer) {
   std::vector<ElementRange> stack(path_info->path.size());
@@ -479,46 +524,66 @@ Status WritePath(ElementRange start_range, PathInfo* path_info,
   builder_result.leaf_array = path_info->primitive_array;
 
   if (path_info->max_def_level == 0) {
+    // This case only occurs when there are no nullable or repeated
+    // columns in the path from the root to leaf.
     int64_t leaf_length = builder_result.leaf_array->length();
     builder_result.def_rep_level_count = leaf_length;
     builder_result.post_list_visited_elements.push_back({0, leaf_length});
     return writer(builder_result);
   }
-  stack[0] = start_range;
+  stack[0] = root_range;
   RETURN_NOT_OK(
       arrow_context->def_levels_buffer->Resize(/*new_size=*/0, /*shrink_to_fit*/ false));
   PathWriteContext context(arrow_context->memory_pool, arrow_context->def_levels_buffer);
+  // We should need at least this many entries so reserve the space ahead of time.
+  RETURN_NOT_OK(context.def_levels.Reserve(root_range.Size()));
+  if (path_info->max_rep_level > 0) {
+    RETURN_NOT_OK(context.rep_levels.Reserve(root_range.Size()));
+  }
 
   auto stack_base = &stack[0];
   auto stack_position = stack_base;
-  IterationResult result;
+  // This is the main loop for calculated rep/def levels. The nodes
+  // in the path implement a chain-of-responsibility like pattern
+  // where each node can add some number of repetition/definition
+  // levels to PathWriteContext and also delegate to the next node
+  // in the path to add values. The values are added through each Run(...)
+  // call and the choice to delegate to the next node (or return to the
+  // previous node) is communicated by the return value of Run(...).
+  // The loop terminates after the first node indicates all values in
+  // |root_range| are processed.
   while (stack_position >= stack_base) {
     PathInfo::Node& node = path_info->path[stack_position - stack_base];
-    // Blocks ordered roughly in likely path usage.
-    if (holds_alternative<NullableNode>(node)) {
-      result = ::arrow::util::get<NullableNode>(node).Run(stack_position,
-                                                          stack_position + 1, &context);
-    } else if (holds_alternative<ListNode>(node)) {
-      result = ::arrow::util::get<ListNode>(node).Run(stack_position, stack_position + 1,
-                                                      &context);
-    } else if (holds_alternative<NullableTerminalNode>(node)) {
-      result =
-          ::arrow::util::get<NullableTerminalNode>(node).Run(*stack_position, &context);
-    } else if (holds_alternative<FixedSizeListNode>(node)) {
-      result = ::arrow::util::get<FixedSizeListNode>(node).Run(
-          stack_position, stack_position + 1, &context);
-    } else if (holds_alternative<AllPresentTerminalNode>(node)) {
-      result =
-          ::arrow::util::get<AllPresentTerminalNode>(node).Run(*stack_position, &context);
-    } else if (holds_alternative<AllNullsTerminalNode>(node)) {
-      result =
-          ::arrow::util::get<AllNullsTerminalNode>(node).Run(*stack_position, &context);
-    } else if (holds_alternative<LargeListNode>(node)) {
-      result = ::arrow::util::get<LargeListNode>(node).Run(stack_position,
-                                                           stack_position + 1, &context);
-    } else {
-      return Status::UnknownError("should never get here.", node.index());
-    }
+    IterationResult result = kError;
+    struct {
+      void operator()(NullableNode& node) {  // NOLINT google-runtime-references
+        *result = node.Run(stack_position, stack_position + 1, context);
+      }
+      void operator()(ListNode& node) {  // NOLINT google-runtime-references
+        *result = node.Run(stack_position, stack_position + 1, context);
+      }
+      void operator()(NullableTerminalNode& node) {  // NOLINT google-runtime-references
+        *result = node.Run(*stack_position, context);
+      }
+      void operator()(FixedSizeListNode& node) {  // NOLINT google-runtime-references
+        *result = node.Run(stack_position, stack_position + 1, context);
+      }
+      void operator()(AllPresentTerminalNode& node) {  // NOLINT google-runtime-references
+        *result = node.Run(*stack_position, context);
+      }
+      void operator()(AllNullsTerminalNode& node) {  // NOLINT google-runtime-references
+        *result = node.Run(*stack_position, context);
+      }
+      void operator()(LargeListNode& node) {  // NOLINT google-runtime-references
+        *result = node.Run(stack_position, stack_position + 1, context);
+      }
+      ElementRange* stack_position;
+      PathWriteContext* context;
+      IterationResult* result;
+    } visitor = {stack_position, &context, &result};
+
+    ::arrow::util::visit(visitor, node);
+
     if (ARROW_PREDICT_FALSE(result == kError)) {
       DCHECK(!context.last_status.ok());
       return context.last_status;
@@ -529,8 +594,13 @@ Status WritePath(ElementRange start_range, PathInfo* path_info,
   builder_result.def_rep_level_count = context.def_levels.length();
 
   if (context.rep_levels.length() > 0) {
+    // This case only occurs when there was a repeated element that needs to be
+    // processed.
     builder_result.rep_levels = context.rep_levels.data();
     std::swap(builder_result.post_list_visited_elements, context.visited_elements);
+    // If it is possible when processing lists that all lists where empty. In this
+    // case no elements would have been added to post_list_visited_elements. By
+    // added an empty element we avoid special casing in downstream consumers.
     if (builder_result.post_list_visited_elements.empty()) {
       builder_result.post_list_visited_elements.push_back({0, 0});
     }
@@ -546,43 +616,50 @@ Status WritePath(ElementRange start_range, PathInfo* path_info,
 
 struct FixupVisitor {
   int max_rep_level = -1;
-  std::vector<PathInfo::Node> cleaned_up_nodes;
   int16_t rep_level_if_null = kLevelNotSet;
 
   template <typename T>
-  void HandleListNode(T& arg) {
-    if (arg.rep_level() == max_rep_level) {
-      arg.SetLast();
+  void HandleListNode(T* arg) {
+    if (arg->rep_level() == max_rep_level) {
+      arg->SetLast();
       // after the last list node we don't need to fill
       // rep levels on null.
       rep_level_if_null = kLevelNotSet;
     } else {
-      rep_level_if_null = arg.rep_level();
+      rep_level_if_null = arg->rep_level();
     }
   }
-  void operator()(ListNode& node) { HandleListNode(node); }
-  void operator()(LargeListNode& node) { HandleListNode(node); }
-  void operator()(FixedSizeListNode& node) { HandleListNode(node); }
+  void operator()(ListNode& node) {  // NOLINT google-runtime-references
+    HandleListNode(&node);
+  }
+  void operator()(LargeListNode& node) {  // NOLINT google-runtime-references
+    HandleListNode(&node);
+  }
+  void operator()(FixedSizeListNode& node) {  // NOLINT google-runtime-references
+    HandleListNode(&node);
+  }
 
   // For non-list intermediate nodes.
   template <typename T>
-  void HandleIntermediateNode(T& arg) {
+  void HandleIntermediateNode(T* arg) {
     if (rep_level_if_null != kLevelNotSet) {
-      arg.SetRepLevelIfNull(rep_level_if_null);
+      arg->SetRepLevelIfNull(rep_level_if_null);
     }
   }
 
-  void operator()(NullableNode& arg) { HandleIntermediateNode(arg); }
+  void operator()(NullableNode& arg) {  // NOLINT google-runtime-references
+    HandleIntermediateNode(&arg);
+  }
 
-  void operator()(AllNullsTerminalNode& arg) {
+  void operator()(AllNullsTerminalNode& arg) {  // NOLINT google-runtime-references
     // Even though no processing happens past this point we
     // still need to adjust it if a list occurred after an
     // all null array.
-    HandleIntermediateNode(arg);
+    HandleIntermediateNode(&arg);
   }
 
-  void operator()(NullableTerminalNode& arg) {}
-  void operator()(AllPresentTerminalNode& arg) {}
+  void operator()(NullableTerminalNode& arg) {}    // NOLINT google-runtime-references
+  void operator()(AllPresentTerminalNode& arg) {}  // NOLINT google-runtime-references
 };
 
 PathInfo Fixup(PathInfo info) {
@@ -596,7 +673,6 @@ PathInfo Fixup(PathInfo info) {
   if (visitor.max_rep_level > 0) {
     visitor.rep_level_if_null = 0;
   }
-  visitor.cleaned_up_nodes.reserve(info.path.size());
   for (size_t x = 0; x < info.path.size(); x++) {
     ::arrow::util::visit(visitor, info.path[x]);
   }
@@ -605,15 +681,20 @@ PathInfo Fixup(PathInfo info) {
 
 class PathBuilder {
  public:
-  explicit PathBuilder(bool start_nullable) : last_nullable_(start_nullable) {}
+  explicit PathBuilder(bool start_nullable) : nullable_in_parent_(start_nullable) {}
   template <typename T>
   void AddTerminalInfo(const T& array) {
-    if (last_nullable_) {
+    if (nullable_in_parent_) {
       info_.max_def_level++;
     }
-    if (array.null_count() == 0) {
+    // We don't use null_count() because if the null_count isn't known
+    // and the array does in fact contain nulls, we will end up
+    // traversing the null bitmap twice (once here and once when calculating
+    // rep/def levels).
+    int64_t null_count = array.data()->null_count.load();
+    if (null_count == 0) {
       info_.path.push_back(AllPresentTerminalNode{info_.max_def_level});
-    } else if (array.null_count() == array.length()) {
+    } else if (null_count == array.length()) {
       info_.path.push_back(AllNullsTerminalNode(info_.max_def_level - 1));
     } else {
       info_.path.push_back(NullableTerminalNode(array.null_bitmap_data(), array.offset(),
@@ -644,7 +725,7 @@ class PathBuilder {
                                                   array.data()->offset},
         info_.max_rep_level, info_.max_def_level - 1);
     info_.path.push_back(node);
-    last_nullable_ = array.list_type()->value_field()->nullable();
+    nullable_in_parent_ = array.list_type()->value_field()->nullable();
     return VisitInline(*array.values());
   }
 
@@ -666,17 +747,24 @@ class PathBuilder {
   }
 
   void MaybeAddNullable(const Array& array) {
-    if (!last_nullable_) {
+    if (!nullable_in_parent_) {
       return;
     }
     info_.max_def_level++;
-    if (array.null_count() == 0) {
+    // We don't use null_count() because if the null_count isn't known
+    // and the array does in fact contain nulls, we will end up
+    // traversing the null bitmap twice (once here and once when calculating
+    // rep/def levels). Because this isn't terminal this might not be
+    // the right decision for structs that share the same nullable
+    // parents.
+    int64_t null_count = array.data()->null_count.load();
+    if (null_count == 0) {
       // Don't add anything because there won't be any point checking
       // null values for the array.  There will always be at least
       // one more array to handle nullability.
       return;
     }
-    if (array.null_count() == array.length()) {
+    if (null_count == array.length()) {
       info_.path.push_back(AllNullsTerminalNode(info_.max_def_level - 1));
       return;
     }
@@ -694,7 +782,7 @@ class PathBuilder {
     MaybeAddNullable(array);
     PathInfo info_backup = info_;
     for (int x = 0; x < array.num_fields(); x++) {
-      last_nullable_ = array.type()->child(x)->nullable();
+      nullable_in_parent_ = array.type()->child(x)->nullable();
       RETURN_NOT_OK(VisitInline(*array.field(x)));
       info_ = info_backup;
     }
@@ -710,7 +798,7 @@ class PathBuilder {
     info_.max_rep_level++;
     info_.path.push_back(FixedSizeListNode(FixedSizedRangeSelector{list_size},
                                            info_.max_rep_level, info_.max_def_level));
-    last_nullable_ = array.list_type()->value_field()->nullable();
+    nullable_in_parent_ = array.list_type()->value_field()->nullable();
     return VisitInline(*array.values());
   }
 
@@ -733,7 +821,7 @@ class PathBuilder {
  private:
   PathInfo info_;
   std::vector<PathInfo> paths_;
-  bool last_nullable_;
+  bool nullable_in_parent_;
 };
 
 Status PathBuilder::VisitInline(const Array& array) {
@@ -748,9 +836,9 @@ Status MultipathLevelBuilder::Write(const Array& array, bool array_nullable,
                                     MultipathLevelBuilder::CallbackFunction callback) {
   PathBuilder constructor(array_nullable);
   RETURN_NOT_OK(VisitArrayInline(array, &constructor));
-  ElementRange start_range{0, array.length()};
+  ElementRange root_range{0, array.length()};
   for (auto& write_path_info : constructor.paths()) {
-    RETURN_NOT_OK(WritePath(start_range, &write_path_info, context, callback));
+    RETURN_NOT_OK(WritePath(root_range, &write_path_info, context, callback));
   }
   return Status::OK();
 }
