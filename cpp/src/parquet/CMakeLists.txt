@@ -152,16 +152,13 @@ set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static thrift
 
 #
 # Generated Thrift sources
-
-# List of thrift output targets
-set(THRIFT_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
-set(THRIFT_OUTPUT_FILES "${THRIFT_OUTPUT_DIR}/parquet_types.cpp")
-set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES} "${THRIFT_OUTPUT_DIR}/parquet_types.h")
-set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES}
-                        "${THRIFT_OUTPUT_DIR}/parquet_constants.cpp")
-set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES} "${THRIFT_OUTPUT_DIR}/parquet_constants.h")
-
-set_source_files_properties(${THRIFT_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
+set_source_files_properties(parquet_types.cpp
+                            parquet_types.h
+                            parquet_constants.cpp
+                            parquet_constants.h
+                            PROPERTIES
+                            GENERATED
+                            TRUE)
 
 if(NOT MSVC)
   set_source_files_properties(src/parquet/parquet_types.cpp PROPERTIES COMPILE_FLAGS
