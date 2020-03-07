@@ -1018,7 +1018,6 @@ macro(build_thrift)
   message("Building Apache Thrift from source")
   set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep/src/thrift_ep-install")
   set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
-  set(THRIFT_COMPILER "${THRIFT_PREFIX}/bin/thrift")
   set(THRIFT_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}"

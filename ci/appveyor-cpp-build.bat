@@ -34,7 +34,7 @@ if "%JOB%" == "Static_Crt_Build" (
   pushd cpp\build-debug
 
   cmake -G "%GENERATOR%" ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
+        -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
@@ -55,7 +55,7 @@ if "%JOB%" == "Static_Crt_Build" (
   pushd cpp\build-release
 
   cmake -G "%GENERATOR%" ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
+        -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
@@ -86,7 +86,7 @@ if "%JOB%" == "Build_Debug" (
 
   cmake -G "%GENERATOR%" ^
         -DARROW_USE_PRECOMPILED_HEADERS=OFF ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
+        -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_TESTS=ON ^
         -DARROW_BUILD_EXAMPLES=ON ^
