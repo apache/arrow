@@ -31,11 +31,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         pass
 
 
-cdef extern from "arrow/dataset/api.h" namespace "arrow::fs" nogil:
-
-    ctypedef vector[CFileStats] CFileStatsVector "arrow::fs::FileStatsVector"
-
-
 cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef enum CExpressionType "arrow::dataset::ExpressionType::type":
@@ -227,12 +222,13 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CExpression] source_partition,
             shared_ptr[CFileFormat] format,
             shared_ptr[CFileSystem] filesystem,
-            CFileStatsVector stats,
+            vector[CFileInfo] infos,
             CExpressionVector partitions)
         c_string type()
         vector[c_string] files()
         shared_ptr[CFragmentIterator] GetFragments(
             shared_ptr[CScanOptions] options)
+        const shared_ptr[CFileFormat] format()
 
     cdef cppclass CParquetFileFormatReaderOptions \
             "arrow::dataset::ParquetFileFormat::ReaderOptions":

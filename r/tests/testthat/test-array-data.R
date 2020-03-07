@@ -24,7 +24,7 @@ test_that("string vectors with only empty strings and nulls don't allocate a dat
   buffers <- a$data()$buffers
 
   # No nulls
-  expect_equal(buffers[[1]]$size, 1)
+  expect_equal(buffers[[1]], NULL)
 
   # Offsets has 2 elements
   expect_equal(buffers[[2]]$size, 8L)

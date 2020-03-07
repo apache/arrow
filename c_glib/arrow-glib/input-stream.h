@@ -62,10 +62,17 @@ struct _GArrowSeekableInputStreamClass
 guint64 garrow_seekable_input_stream_get_size(GArrowSeekableInputStream *input_stream,
                                               GError **error);
 gboolean garrow_seekable_input_stream_get_support_zero_copy(GArrowSeekableInputStream *input_stream);
-GArrowBuffer *garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
-                                                   gint64 position,
-                                                   gint64 n_bytes,
-                                                   GError **error);
+GArrowBuffer *
+garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
+                                     gint64 position,
+                                     gint64 n_bytes,
+                                     GError **error);
+GARROW_AVAILABLE_IN_1_0
+GBytes *
+garrow_seekable_input_stream_read_at_bytes(GArrowSeekableInputStream *input_stream,
+                                           gint64 position,
+                                           gint64 n_bytes,
+                                           GError **error);
 GARROW_AVAILABLE_IN_0_12
 GBytes *garrow_seekable_input_stream_peek(GArrowSeekableInputStream *input_stream,
                                           gint64 n_bytes,

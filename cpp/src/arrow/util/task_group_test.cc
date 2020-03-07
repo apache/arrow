@@ -34,11 +34,6 @@
 namespace arrow {
 namespace internal {
 
-static void sleep_for(double seconds) {
-  std::this_thread::sleep_for(
-      std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
-}
-
 // Generate random sleep durations
 static std::vector<double> RandomSleepDurations(int nsleeps, double min_seconds,
                                                 double max_seconds) {
@@ -60,7 +55,7 @@ void TestTaskGroupSuccess(std::shared_ptr<TaskGroup> task_group) {
   std::atomic<int> count(0);
   for (int i = 0; i < NTASKS; ++i) {
     task_group->Append([&, i]() {
-      sleep_for(sleeps[i]);
+      SleepFor(sleeps[i]);
       count += i;
       return Status::OK();
     });
@@ -90,7 +85,7 @@ void TestTaskGroupErrors(std::shared_ptr<TaskGroup> task_group) {
   ASSERT_TRUE(task_group->ok());
   for (int i = 0; i < NERRORS; ++i) {
     task_group->Append([&]() {
-      sleep_for(1e-2);
+      SleepFor(1e-2);
       count++;
       return Status::Invalid("some message");
     });
@@ -128,7 +123,7 @@ void TestTaskSubGroupsSuccess(std::shared_ptr<TaskGroup> task_group) {
   std::atomic<int> count(0);
   for (int i = 0; i < NTASKS; ++i) {
     groups[i % NGROUPS]->Append([&, i]() {
-      sleep_for(sleeps[i]);
+      SleepFor(sleeps[i]);
       count += i;
       return Status::OK();
     });
@@ -160,7 +155,7 @@ void TestTaskSubGroupsErrors(std::shared_ptr<TaskGroup> task_group) {
   // Add NTASKS sleeps amongst all groups
   for (int i = 0; i < NTASKS; ++i) {
     groups[i % NGROUPS]->Append([&, i]() {
-      sleep_for(1e-3);
+      SleepFor(1e-3);
       // As NGROUPS > NTASKS / FAIL_EVERY, some subgroups are successful
       if (i % FAIL_EVERY == 0) {
         return Status::Invalid("some message");
@@ -199,7 +194,7 @@ void TestTasksSpawnTasks(std::shared_ptr<TaskGroup> task_group) {
         // Exercise parallelism by spawning two tasks at once and then sleeping
         task_group->Append(make_task(i - 1));
         task_group->Append(make_task(i - 1));
-        sleep_for(1e-3);
+        SleepFor(1e-3);
       }
       return Status::OK();
     };
@@ -221,7 +216,7 @@ struct BarrierTask {
 
   Status operator()() {
     if (!barrier_->load()) {
-      sleep_for(1e-5);
+      SleepFor(1e-5);
       // Note the TaskGroup should be kept alive by the fact this task
       // is still running...
       weak_group_ptr_.lock()->Append(*this);
@@ -251,7 +246,7 @@ void StressTaskGroupLifetime(std::function<std::shared_ptr<TaskGroup>()> factory
 
   // Wait for finish
   while (!weak_group_ptr.expired()) {
-    sleep_for(1e-5);
+    SleepFor(1e-5);
   }
 }
 
@@ -277,7 +272,7 @@ void StressFailingTaskGroupLifetime(std::function<std::shared_ptr<TaskGroup>()> 
 
   // Wait for finish
   while (!weak_group_ptr.expired()) {
-    sleep_for(1e-5);
+    SleepFor(1e-5);
   }
 }
 

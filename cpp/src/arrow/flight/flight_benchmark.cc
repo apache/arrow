@@ -228,7 +228,7 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
   // }
 
   ARROW_ASSIGN_OR_RAISE(auto pool, ThreadPool::Make(FLAGS_num_threads));
-  std::vector<std::future<Status>> tasks;
+  std::vector<Future<Status>> tasks;
   for (const auto& endpoint : plan->endpoints()) {
     ARROW_ASSIGN_OR_RAISE(auto task, pool->Submit(ConsumeStream, endpoint));
     tasks.push_back(std::move(task));
@@ -236,7 +236,7 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
 
   // Wait for tasks to finish
   for (auto&& task : tasks) {
-    RETURN_NOT_OK(task.get());
+    RETURN_NOT_OK(task.status());
   }
 
   // Elapsed time in seconds

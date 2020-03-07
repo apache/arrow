@@ -27,6 +27,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
@@ -193,7 +194,7 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
   Result<int64_t> Tell() { return position_; }
 
   Status Write(const void* data, int64_t nbytes) {
-    RETURN_NOT_OK(internal::ValidateWriteRegion(position_, nbytes, size_));
+    RETURN_NOT_OK(internal::ValidateWriteRange(position_, nbytes, size_));
     if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
       ::arrow::internal::parallel_memcopy(mutable_data_ + position_,
                                           reinterpret_cast<const uint8_t*>(data), nbytes,
@@ -207,7 +208,7 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
 
   Status WriteAt(int64_t position, const void* data, int64_t nbytes) {
     std::lock_guard<std::mutex> guard(lock_);
-    RETURN_NOT_OK(internal::ValidateWriteRegion(position, nbytes, size_));
+    RETURN_NOT_OK(internal::ValidateWriteRange(position, nbytes, size_));
     RETURN_NOT_OK(Seek(position));
     return Write(data, nbytes);
   }
@@ -307,10 +308,15 @@ Result<util::string_view> BufferReader::DoPeek(int64_t nbytes) {
 
 bool BufferReader::supports_zero_copy() const { return true; }
 
+Future<std::shared_ptr<Buffer>> BufferReader::ReadAsync(int64_t position,
+                                                        int64_t nbytes) {
+  return Future<std::shared_ptr<Buffer>>::MakeFinished(DoReadAt(position, nbytes));
+}
+
 Result<int64_t> BufferReader::DoReadAt(int64_t position, int64_t nbytes, void* buffer) {
   RETURN_NOT_OK(CheckClosed());
 
-  ARROW_ASSIGN_OR_RAISE(nbytes, internal::ValidateReadRegion(position, nbytes, size_));
+  ARROW_ASSIGN_OR_RAISE(nbytes, internal::ValidateReadRange(position, nbytes, size_));
   DCHECK_GE(nbytes, 0);
   if (nbytes) {
     memcpy(buffer, data_ + position, nbytes);
@@ -321,7 +327,7 @@ Result<int64_t> BufferReader::DoReadAt(int64_t position, int64_t nbytes, void* b
 Result<std::shared_ptr<Buffer>> BufferReader::DoReadAt(int64_t position, int64_t nbytes) {
   RETURN_NOT_OK(CheckClosed());
 
-  ARROW_ASSIGN_OR_RAISE(nbytes, internal::ValidateReadRegion(position, nbytes, size_));
+  ARROW_ASSIGN_OR_RAISE(nbytes, internal::ValidateReadRange(position, nbytes, size_));
   DCHECK_GE(nbytes, 0);
   if (nbytes > 0 && buffer_ != nullptr) {
     return SliceBuffer(buffer_, position, nbytes);

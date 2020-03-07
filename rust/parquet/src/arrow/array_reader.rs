@@ -31,7 +31,7 @@ use arrow::array::{
     Int16BufferBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
-use arrow::datatypes::{DataType as ArrowType, Field};
+use arrow::datatypes::{DataType as ArrowType, Field, IntervalUnit};
 
 use crate::arrow::converter::{
     BinaryConverter, BoolConverter, Converter, Float32Converter, Float64Converter,
@@ -215,6 +215,54 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                 Float64Converter::convert(transmute::<
                     &mut RecordReader<T>,
                     &mut RecordReader<DoubleType>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Timestamp(_, _), PhysicalType::INT64) => unsafe {
+                UInt64Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int64Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Date32(_), PhysicalType::INT32) => unsafe {
+                UInt32Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int32Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Date64(_), PhysicalType::INT64) => unsafe {
+                UInt64Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int64Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Time32(_), PhysicalType::INT32) => unsafe {
+                UInt32Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int32Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Time64(_), PhysicalType::INT64) => unsafe {
+                UInt64Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int64Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Interval(IntervalUnit::YearMonth), PhysicalType::INT32) => unsafe {
+                UInt32Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int32Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Interval(IntervalUnit::DayTime), PhysicalType::INT64) => unsafe {
+                UInt64Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int64Type>,
+                >(&mut self.record_reader))
+            },
+            (ArrowType::Duration(_), PhysicalType::INT64) => unsafe {
+                UInt64Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int64Type>,
                 >(&mut self.record_reader))
             },
             (arrow_type, physical_type) => Err(general_err!(
@@ -902,9 +950,9 @@ mod tests {
     use crate::arrow::array_reader::{
         build_array_reader, ArrayReader, PrimitiveArrayReader, StructArrayReader,
     };
-    use crate::basic::Encoding;
+    use crate::basic::{Encoding, Type as PhysicalType};
     use crate::column::page::Page;
-    use crate::data_type::{DataType, Int32Type};
+    use crate::data_type::{DataType, Int32Type, Int64Type};
     use crate::errors::Result;
     use crate::file::reader::{FileReader, SerializedFileReader};
     use crate::schema::parser::parse_message_type;
@@ -912,7 +960,10 @@ mod tests {
     use crate::util::test_common::page_util::InMemoryPageIterator;
     use crate::util::test_common::{get_test_file, make_pages};
     use arrow::array::{Array, ArrayRef, PrimitiveArray, StructArray};
-    use arrow::datatypes::{DataType as ArrowType, Field, Int32Type as ArrowInt32};
+    use arrow::datatypes::{
+        DataType as ArrowType, Field, Int32Type as ArrowInt32, UInt32Type as ArrowUInt32,
+        UInt64Type as ArrowUInt64,
+    };
     use rand::distributions::range::SampleRange;
     use std::any::Any;
     use std::collections::VecDeque;
@@ -1048,6 +1099,109 @@ mod tests {
                 array
             );
         }
+    }
+
+    macro_rules! test_primitive_array_reader_one_type {
+        ($arrow_parquet_type:ty, $physical_type:expr, $logical_type_str:expr, $result_arrow_type:ty, $result_primitive_type:ty) => {{
+            let message_type = format!(
+                "
+            message test_schema {{
+              REQUIRED {:?} leaf ({});
+          }}
+            ",
+                $physical_type, $logical_type_str
+            );
+            let schema = parse_message_type(&message_type)
+                .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+                .unwrap();
+
+            let column_desc = schema.column(0);
+
+            // Construct page iterator
+            {
+                let mut data = Vec::new();
+                let mut page_lists = Vec::new();
+                make_column_chuncks::<$arrow_parquet_type>(
+                    column_desc.clone(),
+                    Encoding::PLAIN,
+                    100,
+                    1,
+                    200,
+                    &mut Vec::new(),
+                    &mut Vec::new(),
+                    &mut data,
+                    &mut page_lists,
+                    true,
+                    2,
+                );
+                let page_iterator = InMemoryPageIterator::new(
+                    schema.clone(),
+                    column_desc.clone(),
+                    page_lists,
+                );
+                let mut array_reader = PrimitiveArrayReader::<$arrow_parquet_type>::new(
+                    Box::new(page_iterator),
+                    column_desc.clone(),
+                )
+                .unwrap();
+
+                let array = array_reader.next_batch(50).unwrap();
+
+                let array = array
+                    .as_any()
+                    .downcast_ref::<PrimitiveArray<$result_arrow_type>>()
+                    .unwrap();
+
+                assert_eq!(
+                    &PrimitiveArray::<$result_arrow_type>::from(
+                        data[0..50]
+                            .iter()
+                            .map(|x| *x as $result_primitive_type)
+                            .collect::<Vec<$result_primitive_type>>()
+                    ),
+                    array
+                );
+            }
+        }};
+    }
+
+    #[test]
+    fn test_primitive_array_reader_temporal_types() {
+        test_primitive_array_reader_one_type!(
+            Int32Type,
+            PhysicalType::INT32,
+            "DATE",
+            ArrowUInt32,
+            u32
+        );
+        test_primitive_array_reader_one_type!(
+            Int32Type,
+            PhysicalType::INT32,
+            "TIME_MILLIS",
+            ArrowUInt32,
+            u32
+        );
+        test_primitive_array_reader_one_type!(
+            Int64Type,
+            PhysicalType::INT64,
+            "TIME_MICROS",
+            ArrowUInt64,
+            u64
+        );
+        test_primitive_array_reader_one_type!(
+            Int64Type,
+            PhysicalType::INT64,
+            "TIMESTAMP_MILLIS",
+            ArrowUInt64,
+            u64
+        );
+        test_primitive_array_reader_one_type!(
+            Int64Type,
+            PhysicalType::INT64,
+            "TIMESTAMP_MICROS",
+            ArrowUInt64,
+            u64
+        );
     }
 
     #[test]

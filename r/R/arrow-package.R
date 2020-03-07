@@ -39,6 +39,10 @@
       s3_register(m, cl)
     }
   }
+  s3_register("reticulate::py_to_r", "pyarrow.lib.Array")
+  s3_register("reticulate::py_to_r", "pyarrow.lib.RecordBatch")
+  s3_register("reticulate::r_to_py", "Array")
+  s3_register("reticulate::r_to_py", "RecordBatch")
   invisible()
 }
 
@@ -61,7 +65,7 @@ option_use_threads <- function() {
 }
 
 #' @include enums.R
-Object <- R6Class("Object",
+ArrowObject <- R6Class("ArrowObject",
   public = list(
     initialize = function(xp) self$set_pointer(xp),
 
@@ -75,7 +79,7 @@ Object <- R6Class("Object",
           call. = FALSE
         )
       }
-      self$`.:xp:.` <- xp
+      assign(".:xp:.", xp, envir = self)
     },
     print = function(...){
       cat(class(self)[[1]], "\n", sep = "")
@@ -88,15 +92,15 @@ Object <- R6Class("Object",
 )
 
 #' @export
-`!=.Object` <- function(lhs, rhs) !(lhs == rhs)
+`!=.ArrowObject` <- function(lhs, rhs) !(lhs == rhs)
 
 #' @export
-`==.Object` <- function(x, y) {
+`==.ArrowObject` <- function(x, y) {
   x$Equals(y)
 }
 
 #' @export
-all.equal.Object <- function(target, current, ..., check.attributes = TRUE) {
+all.equal.ArrowObject <- function(target, current, ..., check.attributes = TRUE) {
   target$Equals(current, check_metadata = check.attributes)
 }
 

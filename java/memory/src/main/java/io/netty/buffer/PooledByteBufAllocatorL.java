@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
 
+import io.netty.util.internal.OutOfDirectMemoryError;
 import io.netty.util.internal.StringUtil;
 
 /**
@@ -56,9 +57,17 @@ public class PooledByteBufAllocatorL {
     try {
       return allocator.directBuffer(LargeMemoryUtil.checkedCastToInt(size), Integer.MAX_VALUE);
     } catch (OutOfMemoryError e) {
-      throw new OutOfMemoryException("Failure allocating buffer.", e);
+      /*
+       * OutOfDirectMemoryError is thrown by Netty when we exceed the direct memory limit defined by
+       * -XX:MaxDirectMemorySize. OutOfMemoryError with "Direct buffer memory" message is thrown by
+       * java.nio.Bits when we exceed the direct memory limit. This should never be hit in practice
+       * as Netty is expected to throw an OutOfDirectMemoryError first.
+       */
+      if (e instanceof OutOfDirectMemoryError || "Direct buffer memory".equals(e.getMessage())) {
+        throw new OutOfMemoryException("Failure allocating buffer.", e);
+      }
+      throw e;
     }
-
   }
 
   public int getChunkSize() {

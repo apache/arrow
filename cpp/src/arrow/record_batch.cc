@@ -54,38 +54,19 @@ int RecordBatch::num_columns() const { return schema_->num_fields(); }
 /// \brief A basic, non-lazy in-memory record batch
 class SimpleRecordBatch : public RecordBatch {
  public:
-  SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-                    const std::vector<std::shared_ptr<Array>>& columns)
-      : RecordBatch(schema, num_rows) {
-    columns_.resize(columns.size());
-    boxed_columns_.resize(schema->num_fields());
-    for (size_t i = 0; i < columns.size(); ++i) {
-      columns_[i] = columns[i]->data();
+  SimpleRecordBatch(std::shared_ptr<Schema> schema, int64_t num_rows,
+                    std::vector<std::shared_ptr<Array>> columns)
+      : RecordBatch(std::move(schema), num_rows), boxed_columns_(std::move(columns)) {
+    columns_.resize(boxed_columns_.size());
+    for (size_t i = 0; i < columns_.size(); ++i) {
+      columns_[i] = boxed_columns_[i]->data();
     }
   }
 
   SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-                    std::vector<std::shared_ptr<Array>>&& columns)
-      : RecordBatch(schema, num_rows) {
-    columns_.resize(columns.size());
-    boxed_columns_.resize(schema->num_fields());
-    for (size_t i = 0; i < columns.size(); ++i) {
-      columns_[i] = columns[i]->data();
-    }
-  }
-
-  SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-                    std::vector<std::shared_ptr<ArrayData>>&& columns)
-      : RecordBatch(schema, num_rows) {
-    columns_ = std::move(columns);
-    boxed_columns_.resize(schema->num_fields());
-  }
-
-  SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-                    const std::vector<std::shared_ptr<ArrayData>>& columns)
-      : RecordBatch(schema, num_rows) {
-    columns_ = columns;
-    boxed_columns_.resize(schema->num_fields());
+                    std::vector<std::shared_ptr<ArrayData>> columns)
+      : RecordBatch(std::move(schema), num_rows), columns_(std::move(columns)) {
+    boxed_columns_.resize(schema_->num_fields());
   }
 
   std::shared_ptr<Array> column(int i) const override {
@@ -173,35 +154,23 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
     : schema_(schema), num_rows_(num_rows) {}
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
-    const std::shared_ptr<Schema>& schema, int64_t num_rows,
-    const std::vector<std::shared_ptr<Array>>& columns) {
+    std::shared_ptr<Schema> schema, int64_t num_rows,
+    std::vector<std::shared_ptr<Array>> columns) {
   DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
-  return std::make_shared<SimpleRecordBatch>(schema, num_rows, columns);
+  return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows, columns);
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
-    const std::shared_ptr<Schema>& schema, int64_t num_rows,
-    std::vector<std::shared_ptr<Array>>&& columns) {
+    std::shared_ptr<Schema> schema, int64_t num_rows,
+    std::vector<std::shared_ptr<ArrayData>> columns) {
   DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
-  return std::make_shared<SimpleRecordBatch>(schema, num_rows, std::move(columns));
-}
-
-std::shared_ptr<RecordBatch> RecordBatch::Make(
-    const std::shared_ptr<Schema>& schema, int64_t num_rows,
-    std::vector<std::shared_ptr<ArrayData>>&& columns) {
-  DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
-  return std::make_shared<SimpleRecordBatch>(schema, num_rows, std::move(columns));
-}
-
-std::shared_ptr<RecordBatch> RecordBatch::Make(
-    const std::shared_ptr<Schema>& schema, int64_t num_rows,
-    const std::vector<std::shared_ptr<ArrayData>>& columns) {
-  DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
-  return std::make_shared<SimpleRecordBatch>(schema, num_rows, columns);
+  return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows,
+                                             std::move(columns));
 }
 
 Status RecordBatch::FromStructArray(const std::shared_ptr<Array>& array,
                                     std::shared_ptr<RecordBatch>* out) {
+  // TODO fail if null_count != 0?
   if (array->type_id() != Type::STRUCT) {
     return Status::Invalid("Cannot construct record batch from array of type ",
                            *array->type());
@@ -209,6 +178,19 @@ Status RecordBatch::FromStructArray(const std::shared_ptr<Array>& array,
   *out = Make(arrow::schema(array->type()->children()), array->length(),
               array->data()->child_data);
   return Status::OK();
+}
+
+Status RecordBatch::ToStructArray(std::shared_ptr<Array>* out) const {
+  ARROW_ASSIGN_OR_RAISE(*out, StructArray::Make(columns(), schema()->fields()));
+  return Status::OK();
+}
+
+std::vector<std::shared_ptr<Array>> RecordBatch::columns() const {
+  std::vector<std::shared_ptr<Array>> children(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    children[i] = column(i);
+  }
+  return children;
 }
 
 const std::string& RecordBatch::column_name(int i) const {

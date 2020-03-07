@@ -29,6 +29,10 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+template <typename T>
+class Future;
+
 namespace io {
 
 /// DEPRECATED.  Use the FileSystem API in arrow::fs instead.
@@ -58,6 +62,22 @@ class ARROW_EXPORT FileSystem {
   virtual Status Rename(const std::string& src, const std::string& dst) = 0;
 
   virtual Status Stat(const std::string& path, FileStatistics* stat) = 0;
+};
+
+struct ReadRange {
+  int64_t offset;
+  int64_t length;
+
+  friend bool operator==(const ReadRange& left, const ReadRange& right) {
+    return (left.offset == right.offset && left.length == right.length);
+  }
+  friend bool operator!=(const ReadRange& left, const ReadRange& right) {
+    return !(left == right);
+  }
+
+  bool Contains(const ReadRange& other) const {
+    return (offset <= other.offset && offset + length >= other.offset + other.length);
+  }
 };
 
 class ARROW_EXPORT FileInterface {
@@ -200,7 +220,10 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Re
   InputStream() = default;
 };
 
-class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
+class ARROW_EXPORT RandomAccessFile
+    : public std::enable_shared_from_this<RandomAccessFile>,
+      public InputStream,
+      public Seekable {
  public:
   /// Necessary because we hold a std::unique_ptr
   ~RandomAccessFile() override;
@@ -247,6 +270,9 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// \param[in] nbytes The number of bytes to read
   /// \return A buffer containing the bytes read, or an error
   virtual Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes);
+
+  // EXPERIMENTAL
+  virtual Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes);
 
   // Deprecated APIs
 

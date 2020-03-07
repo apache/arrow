@@ -31,6 +31,7 @@ import weakref
 import numpy as np
 
 from pyarrow.compat import guid
+from pyarrow import Codec
 import pyarrow as pa
 
 
@@ -546,32 +547,44 @@ def test_allocate_buffer_resizable():
     assert buf.size == 200
 
 
-def test_compress_decompress():
+@pytest.mark.parametrize("compression", [
+    pytest.param(
+        "bz2", marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
+    ),
+    "brotli",
+    "gzip",
+    "lz4",
+    "zstd",
+    "snappy"
+])
+def test_compress_decompress(compression):
+    if not Codec.is_available(compression):
+        pytest.skip("{} support is not built".format(compression))
+
     INPUT_SIZE = 10000
     test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
                  .astype(np.uint8)
                  .tostring())
     test_buf = pa.py_buffer(test_data)
 
-    codecs = ['lz4', 'snappy', 'gzip', 'zstd', 'brotli']
-    for codec in codecs:
-        compressed_buf = pa.compress(test_buf, codec=codec)
-        compressed_bytes = pa.compress(test_data, codec=codec, asbytes=True)
+    compressed_buf = pa.compress(test_buf, codec=compression)
+    compressed_bytes = pa.compress(test_data, codec=compression,
+                                   asbytes=True)
 
-        assert isinstance(compressed_bytes, bytes)
+    assert isinstance(compressed_bytes, bytes)
 
-        decompressed_buf = pa.decompress(compressed_buf, INPUT_SIZE,
-                                         codec=codec)
-        decompressed_bytes = pa.decompress(compressed_bytes, INPUT_SIZE,
-                                           codec=codec, asbytes=True)
+    decompressed_buf = pa.decompress(compressed_buf, INPUT_SIZE,
+                                     codec=compression)
+    decompressed_bytes = pa.decompress(compressed_bytes, INPUT_SIZE,
+                                       codec=compression, asbytes=True)
 
-        assert isinstance(decompressed_bytes, bytes)
+    assert isinstance(decompressed_bytes, bytes)
 
-        assert decompressed_buf.equals(test_buf)
-        assert decompressed_bytes == test_data
+    assert decompressed_buf.equals(test_buf)
+    assert decompressed_bytes == test_data
 
-        with pytest.raises(ValueError):
-            pa.decompress(compressed_bytes, codec=codec)
+    with pytest.raises(ValueError):
+        pa.decompress(compressed_bytes, codec=compression)
 
 
 def test_buffer_memoryview_is_immutable():
@@ -1158,7 +1171,7 @@ def test_compressed_input_invalid():
     raw = pa.BufferReader(data)
     with pytest.raises(ValueError):
         pa.CompressedInputStream(raw, "unknown_compression")
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         pa.CompressedInputStream(raw, None)
 
     with pa.CompressedInputStream(raw, "gzip") as compressed:
@@ -1201,19 +1214,51 @@ def test_compressed_output_bz2(tmpdir):
         assert got == data
 
 
-@pytest.mark.parametrize("compression",
-                         ["bz2", "brotli", "gzip", "lz4", "zstd"])
+@pytest.mark.parametrize(("path", "expected_compression"), [
+    ("file.bz2", "bz2"),
+    ("file.lz4", "lz4"),
+    (pathlib.Path("file.gz"), "gzip"),
+    (pathlib.Path("path/to/file.zst"), "zstd"),
+])
+def test_compression_detection(path, expected_compression):
+    if not Codec.is_available(expected_compression):
+        with pytest.raises(pa.lib.ArrowNotImplementedError):
+            Codec.detect(path)
+    else:
+        codec = Codec.detect(path)
+        assert isinstance(codec, Codec)
+        assert codec.name == expected_compression
+
+
+def test_unknown_compression_raises():
+    with pytest.raises(ValueError):
+        Codec.is_available('unknown')
+    with pytest.raises(TypeError):
+        Codec(None)
+    with pytest.raises(ValueError):
+        Codec('unknown')
+
+
+@pytest.mark.parametrize("compression", [
+    "bz2",
+    "brotli",
+    "gzip",
+    "lz4",
+    "zstd",
+    pytest.param(
+        "snappy",
+        marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
+    )
+])
 def test_compressed_roundtrip(compression):
+    if not Codec.is_available(compression):
+        pytest.skip("{} support is not built".format(compression))
+
     data = b"some test data\n" * 10 + b"eof\n"
     raw = pa.BufferOutputStream()
-    try:
-        with pa.CompressedOutputStream(raw, compression) as compressed:
-            compressed.write(data)
-    except NotImplementedError as e:
-        if compression == "bz2":
-            pytest.skip(str(e))
-        else:
-            raise
+    with pa.CompressedOutputStream(raw, compression) as compressed:
+        compressed.write(data)
+
     cdata = raw.getvalue()
     assert len(cdata) < len(data)
     raw = pa.BufferReader(cdata)
@@ -1222,19 +1267,18 @@ def test_compressed_roundtrip(compression):
         assert got == data
 
 
-@pytest.mark.parametrize("compression",
-                         ["bz2", "brotli", "gzip", "lz4", "zstd"])
+@pytest.mark.parametrize(
+    "compression",
+    ["bz2", "brotli", "gzip", "lz4", "zstd"]
+)
 def test_compressed_recordbatch_stream(compression):
+    if not Codec.is_available(compression):
+        pytest.skip("{} support is not built".format(compression))
+
     # ARROW-4836: roundtrip a RecordBatch through a compressed stream
     table = pa.Table.from_arrays([pa.array([1, 2, 3, 4, 5])], ['a'])
     raw = pa.BufferOutputStream()
-    try:
-        stream = pa.CompressedOutputStream(raw, compression)
-    except NotImplementedError as e:
-        if compression == "bz2":
-            pytest.skip(str(e))
-        else:
-            raise
+    stream = pa.CompressedOutputStream(raw, compression)
     writer = pa.RecordBatchStreamWriter(stream, table.schema)
     writer.write_table(table, max_chunksize=3)
     writer.close()
@@ -1474,7 +1518,7 @@ def test_output_stream_file_path_compressed(tmpdir):
         check_data(file_path, data, compression='gzip')) == data
     assert check_data(file_path, data, compression=None) == data
 
-    with pytest.raises(ValueError, match='Unrecognized compression type'):
+    with pytest.raises(ValueError, match='Invalid value for compression'):
         assert check_data(file_path, data, compression='rabbit') == data
 
 

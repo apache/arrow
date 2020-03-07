@@ -952,12 +952,7 @@ def test_deserialize_buffer_in_different_process():
     f.write(b.to_pybytes())
     f.close()
 
-    subprocess_env = test_util.get_modified_env_with_pythonpath()
-
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    python_file = os.path.join(dir_path, 'deserialize_buffer.py')
-    subprocess.check_call([sys.executable, python_file, f.name],
-                          env=subprocess_env)
+    test_util.invoke_script('deserialize_buffer.py', f.name)
 
 
 def test_set_pickle():

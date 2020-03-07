@@ -2,27 +2,7 @@
 % Please edit documentation in R/filesystem.R
 \name{FileStats}
 \alias{FileStats}
-\title{FileSystem entry stats}
+\title{FileSystem entry info (Deprecated. Use FileInfo instead.)}
 \description{
-FileSystem entry stats
+FileSystem entry info (Deprecated. Use FileInfo instead.)
 }
-\section{Methods}{
-
-\itemize{
-\item \code{base_name()} : The file base name (component after the last directory
-separator).
-\item \code{extension()} : The file extension
-}
-}
-
-\section{Active bindings}{
-
-\itemize{
-\item \verb{$type}: The file type
-\item \verb{$path}: The full file path in the filesystem
-\item \verb{$size}: The size in bytes, if available.  Only regular files are
-guaranteed to have a size.
-\item \verb{$mtime}: The time of last modification, if available.
-}
-}
-

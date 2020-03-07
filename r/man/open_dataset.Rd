@@ -8,7 +8,7 @@ open_dataset(sources, schema = NULL, partitioning = hive_partition(), ...)
 }
 \arguments{
 \item{sources}{Either a string path to a directory containing data files,
-or a list of \code{DatasetFactory} objects as created by \code{\link[=open_dataset_factory]{open_dataset_factory()}}.}
+or a list of \code{DatasetFactory} objects as created by \code{\link[=dataset_factory]{dataset_factory()}}.}
 
 \item{schema}{\link{Schema} for the dataset. If \code{NULL} (the default), the schema
 will be inferred from the data sources.}
@@ -28,7 +28,7 @@ Hive-style path segments
 \item \code{NULL} for no partitioning
 }}
 
-\item{...}{additional arguments passed to \code{open_dataset_factory()} when
+\item{...}{additional arguments passed to \code{dataset_factory()} when
 \code{sources} is a file path, otherwise ignored.}
 }
 \value{

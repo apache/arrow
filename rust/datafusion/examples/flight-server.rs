@@ -21,6 +21,8 @@ use futures::Stream;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
 
+use datafusion::datasource::parquet::ParquetTable;
+use datafusion::datasource::TableProvider;
 use datafusion::execution::context::ExecutionContext;
 
 use flight::{
@@ -32,6 +34,10 @@ use flight::{
 #[derive(Clone)]
 pub struct FlightServiceImpl {}
 
+/**
+ * Example Flight Server wrapping DataFusion that supports looking up schema information for
+ * Parquet files and executing SQL queries against Parquet files.
+ */
 #[tonic::async_trait]
 impl FlightService for FlightServiceImpl {
     type HandshakeStream = Pin<
@@ -48,6 +54,17 @@ impl FlightService for FlightServiceImpl {
     >;
     type ListActionsStream =
         Pin<Box<dyn Stream<Item = Result<ActionType, Status>> + Send + Sync + 'static>>;
+
+    async fn get_schema(
+        &self,
+        request: Request<FlightDescriptor>,
+    ) -> Result<Response<SchemaResult>, Status> {
+        let request = request.into_inner();
+
+        let table = ParquetTable::try_new(&request.path[0]).unwrap();
+
+        Ok(Response::new(SchemaResult::from(table.schema().as_ref())))
+    }
 
     async fn do_get(
         &self,
@@ -123,13 +140,6 @@ impl FlightService for FlightServiceImpl {
         &self,
         _request: Request<FlightDescriptor>,
     ) -> Result<Response<FlightInfo>, Status> {
-        Err(Status::unimplemented("Not yet implemented"))
-    }
-
-    async fn get_schema(
-        &self,
-        _request: Request<FlightDescriptor>,
-    ) -> Result<Response<SchemaResult>, Status> {
         Err(Status::unimplemented("Not yet implemented"))
     }
 

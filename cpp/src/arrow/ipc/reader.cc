@@ -282,6 +282,11 @@ class ArrayLoader {
     return LoadList(type);
   }
 
+  Status Visit(const MapType& type) {
+    RETURN_NOT_OK(LoadList(type));
+    return MapArray::ValidateChildData(out_->child_data);
+  }
+
   Status Visit(const FixedSizeListType& type) {
     out_->buffers.resize(1);
 

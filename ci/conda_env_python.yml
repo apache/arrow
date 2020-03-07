@@ -16,6 +16,7 @@
 # under the License.
 
 # don't add pandas here, because it is not a mandatory test dependency
+cffi
 cython
 cloudpickle
 hypothesis

@@ -20,18 +20,23 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <ostream>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
+#include "arrow/io/caching.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/slow.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
@@ -39,6 +44,10 @@ namespace arrow {
 using internal::checked_cast;
 
 namespace io {
+
+std::ostream& operator<<(std::ostream& os, const ReadRange& range) {
+  return os << "<offset=" << range.offset << ", length=" << range.length << ">";
+}
 
 class TestBufferOutputStream : public ::testing::Test {
  public:
@@ -197,6 +206,21 @@ TEST(TestBufferReader, Peek) {
   ASSERT_EQ(data, view.to_string());
 }
 
+TEST(TestBufferReader, ReadAsync) {
+  std::string data = "data123456";
+
+  BufferReader reader(std::make_shared<Buffer>(data));
+
+  auto fut1 = reader.ReadAsync(2, 6);
+  auto fut2 = reader.ReadAsync(1, 4);
+  ASSERT_EQ(fut1.state(), FutureState::SUCCESS);
+  ASSERT_EQ(fut2.state(), FutureState::SUCCESS);
+  ASSERT_OK_AND_ASSIGN(auto buf, fut1.result());
+  AssertBufferEqual(*buf, "ta1234");
+  ASSERT_OK_AND_ASSIGN(buf, fut2.result());
+  AssertBufferEqual(*buf, "ata1");
+}
+
 TEST(TestBufferReader, InvalidReads) {
   std::string data = "data123456";
   BufferReader reader(std::make_shared<Buffer>(data));
@@ -206,6 +230,9 @@ TEST(TestBufferReader, InvalidReads) {
   ASSERT_RAISES(Invalid, reader.ReadAt(1, -1));
   ASSERT_RAISES(Invalid, reader.ReadAt(-1, 1, buffer));
   ASSERT_RAISES(Invalid, reader.ReadAt(1, -1, buffer));
+
+  ASSERT_RAISES(Invalid, reader.ReadAsync(-1, 1).result());
+  ASSERT_RAISES(Invalid, reader.ReadAsync(1, -1).result());
 }
 
 TEST(TestBufferReader, RetainParentReference) {
@@ -348,6 +375,9 @@ TEST(TestSlowInputStream, Basics) { TestSlowInputStream<SlowInputStream>(); }
 
 TEST(TestSlowRandomAccessFile, Basics) { TestSlowInputStream<SlowRandomAccessFile>(); }
 
+// -----------------------------------------------------------------------
+// Test various utilities
+
 TEST(TestInputStreamIterator, Basics) {
   auto reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
   ASSERT_OK_AND_ASSIGN(auto it, MakeInputStreamIterator(reader, /*block_size=*/3));
@@ -378,6 +408,78 @@ TEST(TestInputStreamIterator, Closed) {
   // Close stream and read from iterator
   ASSERT_OK(reader->Close());
   ASSERT_RAISES(Invalid, it.Next().status());
+}
+
+TEST(CoalesceReadRanges, Basics) {
+  auto check = [](std::vector<ReadRange> ranges,
+                  std::vector<ReadRange> expected) -> void {
+    const int64_t hole_size_limit = 9;
+    const int64_t range_size_limit = 99;
+    auto coalesced =
+        internal::CoalesceReadRanges(ranges, hole_size_limit, range_size_limit);
+    ASSERT_EQ(coalesced, expected);
+  };
+
+  check({}, {});
+  // No holes
+  check({{110, 10}, {120, 10}, {130, 10}}, {{110, 30}});
+  // Small holes only
+  check({{110, 11}, {130, 11}, {150, 11}}, {{110, 51}});
+  // Large holes
+  check({{110, 10}, {130, 10}}, {{110, 10}, {130, 10}});
+  check({{110, 11}, {130, 11}, {150, 10}, {170, 11}, {190, 11}}, {{110, 50}, {170, 31}});
+
+  // With zero-sized ranges
+  check({{110, 11}, {130, 0}, {130, 11}, {145, 0}, {150, 11}, {200, 0}}, {{110, 51}});
+
+  // No holes but large ranges
+  check({{110, 100}, {210, 100}}, {{110, 100}, {210, 100}});
+  // Small holes and large range in the middle (*)
+  check({{110, 10}, {120, 11}, {140, 100}, {240, 11}, {260, 11}},
+        {{110, 21}, {140, 100}, {240, 31}});
+  // Mid-size ranges that would turn large after coalescing
+  check({{100, 50}, {150, 50}}, {{100, 50}, {150, 50}});
+  check({{100, 30}, {130, 30}, {160, 30}, {190, 30}, {220, 30}}, {{100, 90}, {190, 60}});
+
+  // Same as (*) but unsorted
+  check({{140, 100}, {120, 11}, {240, 11}, {110, 10}, {260, 11}},
+        {{110, 21}, {140, 100}, {240, 31}});
+}
+
+TEST(RangeReadCache, Basics) {
+  std::string data = "abcdefghijklmnopqrstuvwxyz";
+
+  auto file = std::make_shared<BufferReader>(Buffer(data));
+  const int64_t hole_size_limit = 2;
+  const int64_t range_size_limit = 10;
+  internal::ReadRangeCache cache(file, hole_size_limit, range_size_limit);
+
+  ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
+  ASSERT_OK(cache.Cache({{10, 4}, {14, 0}, {15, 4}}));
+
+  ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({20, 2}));
+  AssertBufferEqual(*buf, "uv");
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 2}));
+  AssertBufferEqual(*buf, "bc");
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({3, 2}));
+  AssertBufferEqual(*buf, "de");
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({8, 2}));
+  AssertBufferEqual(*buf, "ij");
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));
+  AssertBufferEqual(*buf, "klmn");
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({15, 4}));
+  AssertBufferEqual(*buf, "pqrs");
+  // Zero-sized
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({14, 0}));
+  AssertBufferEqual(*buf, "");
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({25, 0}));
+  AssertBufferEqual(*buf, "");
+
+  // Non-cached ranges
+  ASSERT_RAISES(Invalid, cache.Read({20, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({19, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({0, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({25, 2}));
 }
 
 }  // namespace io

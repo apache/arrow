@@ -56,7 +56,10 @@ public interface BufferAllocator extends AutoCloseable {
    * Returns the allocator this allocator falls back to when it needs more memory.
    *
    * @return the underlying allocator used by this allocator
+   *
+   * @deprecated This method may be removed in a future release.
    */
+  @Deprecated
   ByteBufAllocator getAsByteBufAllocator();
 
   /**

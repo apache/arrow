@@ -210,7 +210,7 @@ lint_checks = [
     LintCheck('clang-format', "Format C++ files with clang-format."),
     LintCheck('clang-tidy', "Lint C++ files with clang-tidy."),
     LintCheck('cpplint', "Lint C++ files with cpplint."),
-    LintCheck('iwyu', "Lint C++ files with Include-What-You-Use."),
+    LintCheck('iwyu', "Lint changed C++ files with Include-What-You-Use."),
     LintCheck('flake8', "Lint Python files with flake8."),
     LintCheck('numpydoc', "Lint Python files with numpydoc."),
     LintCheck('cmake-format', "Format CMake files with cmake-format.py."),
@@ -239,11 +239,13 @@ def decorate_lint_command(cmd):
               help="Specify Arrow source directory")
 @click.option("--fix", is_flag=True, type=BOOL, default=False,
               help="Toggle fixing the lint errors if the linter supports it.")
+@click.option("--iwyu_all", is_flag=True, type=BOOL, default=False,
+              help="Run IWYU on all C++ files if enabled")
 @click.option("-a", "--all", is_flag=True, default=False,
               help="Enable all checks.")
 @decorate_lint_command
 @click.pass_context
-def lint(ctx, src, fix, **checks):
+def lint(ctx, src, fix, iwyu_all, **checks):
     if checks.pop('all'):
         # "--all" is given => enable all non-selected checks
         for k, v in checks.items():
@@ -253,7 +255,7 @@ def lint(ctx, src, fix, **checks):
         raise click.UsageError(
             "Need to enable at least one lint check (try --help)")
     try:
-        linter(src, fix, **checks)
+        linter(src, fix, iwyu_all=iwyu_all, **checks)
     except LintValidationException:
         sys.exit(1)
 

@@ -105,7 +105,7 @@ from pyarrow.lib import (null, bool_,
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
-                         compress, decompress, allocate_buffer)
+                         Codec, compress, decompress, allocate_buffer)
 
 from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
                          total_allocated_bytes, set_memory_pool,

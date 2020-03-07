@@ -352,6 +352,59 @@ TEST(TestTimestamp, Basics) {
       {0, 951782400000000000LL, -2203977600000000000LL});
 }
 
+TEST(TestDate, Basics) {
+  auto type = date32();
+  AssertJSONArray<Date32Type>(type, R"([5, null, 42])", {true, false, true}, {5, 0, 42});
+  type = date64();
+  AssertJSONArray<Date64Type>(type, R"([1, null, 9999999999999])", {true, false, true},
+                              {1, 0, 9999999999999LL});
+}
+
+TEST(TestTime, Basics) {
+  auto type = time32(TimeUnit::SECOND);
+  AssertJSONArray<Time32Type>(type, R"([5, null, 42])", {true, false, true}, {5, 0, 42});
+  type = time32(TimeUnit::MILLI);
+  AssertJSONArray<Time32Type>(type, R"([5, null, 42])", {true, false, true}, {5, 0, 42});
+
+  type = time64(TimeUnit::MICRO);
+  AssertJSONArray<Time64Type>(type, R"([1, null, 9999999999999])", {true, false, true},
+                              {1, 0, 9999999999999LL});
+  type = time64(TimeUnit::NANO);
+  AssertJSONArray<Time64Type>(type, R"([1, null, 9999999999999])", {true, false, true},
+                              {1, 0, 9999999999999LL});
+}
+
+TEST(TestDuration, Basics) {
+  auto type = duration(TimeUnit::SECOND);
+  AssertJSONArray<DurationType>(type, R"([null, -7777777777777, 9999999999999])",
+                                {false, true, true},
+                                {0, -7777777777777LL, 9999999999999LL});
+  type = duration(TimeUnit::MILLI);
+  AssertJSONArray<DurationType>(type, R"([null, -7777777777777, 9999999999999])",
+                                {false, true, true},
+                                {0, -7777777777777LL, 9999999999999LL});
+  type = duration(TimeUnit::MICRO);
+  AssertJSONArray<DurationType>(type, R"([null, -7777777777777, 9999999999999])",
+                                {false, true, true},
+                                {0, -7777777777777LL, 9999999999999LL});
+  type = duration(TimeUnit::NANO);
+  AssertJSONArray<DurationType>(type, R"([null, -7777777777777, 9999999999999])",
+                                {false, true, true},
+                                {0, -7777777777777LL, 9999999999999LL});
+}
+
+TEST(TestMonthInterval, Basics) {
+  auto type = month_interval();
+  AssertJSONArray<MonthIntervalType>(type, R"([123, -456, null])", {true, true, false},
+                                     {123, -456, 0});
+}
+
+TEST(TestDayTimeInterval, Basics) {
+  auto type = day_time_interval();
+  AssertJSONArray<DayTimeIntervalType>(type, R"([[1, -600], null])", {true, false},
+                                       {{1, -600}, {}});
+}
+
 TEST(TestString, Errors) {
   std::shared_ptr<DataType> type = utf8();
   std::shared_ptr<Array> array;

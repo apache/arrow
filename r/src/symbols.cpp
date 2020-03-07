@@ -20,6 +20,7 @@
 namespace arrow {
 namespace r {
 SEXP symbols::units = Rf_install("units");
+SEXP symbols::tzone = Rf_install("tzone");
 SEXP symbols::xp = Rf_install(".:xp:.");
 SEXP symbols::dot_Internal = Rf_install(".Internal");
 SEXP symbols::inspect = Rf_install("inspect");

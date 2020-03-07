@@ -120,6 +120,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DProtobuf_SOURCE=${Protobuf_SOURCE:-AUTO} \
       -DRapidJSON_SOURCE=${RapidJSON_SOURCE:-AUTO} \
       -DRE2_SOURCE=${RE2_SOURCE:-AUTO} \
+      -DSnappy_SOURCE=${Snappy_SOURCE:-AUTO} \
       -DThrift_SOURCE=${Thrift_SOURCE:-AUTO} \
       -DZSTD_SOURCE=${ZSTD_SOURCE:-AUTO} \
       ${CMAKE_ARGS} \

@@ -326,10 +326,10 @@ def test_array_diff():
 +"bar"
 +null
 '''
-    assert arr1.diff(arr3) == '# Array types differed: string vs int64'
-    assert arr1.diff(arr3) == '# Array types differed: string vs int64'
-    assert arr1.diff(arr4) == ('# Array types differed: string vs '
-                               'list<item: int64>')
+    assert arr1.diff(arr3).strip() == '# Array types differed: string vs int64'
+    assert arr1.diff(arr3).strip() == '# Array types differed: string vs int64'
+    assert arr1.diff(arr4).strip() == ('# Array types differed: string vs '
+                                       'list<item: int64>')
 
 
 def test_array_iter():

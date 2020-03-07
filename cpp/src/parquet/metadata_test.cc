@@ -35,18 +35,22 @@ std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
     EncodedStatistics stats_int, EncodedStatistics stats_float) {
   auto f_builder = FileMetaDataBuilder::Make(&schema, props);
   auto rg1_builder = f_builder->AppendRowGroup();
-
   // Write the metadata
   // rowgroup1 metadata
   auto col1_builder = rg1_builder->NextColumnChunk();
   auto col2_builder = rg1_builder->NextColumnChunk();
   // column metadata
+  std::map<Encoding::type, int32_t> dict_encoding_stats({{Encoding::RLE_DICTIONARY, 1}});
+  std::map<Encoding::type, int32_t> data_encoding_stats(
+      {{Encoding::PLAIN, 1}, {Encoding::RLE, 1}});
   stats_int.set_is_signed(true);
   col1_builder->SetStatistics(stats_int);
   stats_float.set_is_signed(true);
   col2_builder->SetStatistics(stats_float);
-  col1_builder->Finish(nrows / 2, 4, 0, 10, 512, 600, true, false);
-  col2_builder->Finish(nrows / 2, 24, 0, 30, 512, 600, true, false);
+  col1_builder->Finish(nrows / 2, 4, 0, 10, 512, 600, true, false, dict_encoding_stats,
+                       data_encoding_stats);
+  col2_builder->Finish(nrows / 2, 24, 0, 30, 512, 600, true, false, dict_encoding_stats,
+                       data_encoding_stats);
 
   rg1_builder->set_num_rows(nrows / 2);
   rg1_builder->Finish(1024);
@@ -58,8 +62,10 @@ std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
   // column metadata
   col1_builder->SetStatistics(stats_int);
   col2_builder->SetStatistics(stats_float);
-  col1_builder->Finish(nrows / 2, 6, 0, 10, 512, 600, true, false);
-  col2_builder->Finish(nrows / 2, 16, 0, 26, 512, 600, true, false);
+  col1_builder->Finish(nrows / 2, 6, 0, 10, 512, 600, true, false, dict_encoding_stats,
+                       data_encoding_stats);
+  col2_builder->Finish(nrows / 2, 16, 0, 26, 512, 600, true, false, dict_encoding_stats,
+                       data_encoding_stats);
 
   rg2_builder->set_num_rows(nrows / 2);
   rg2_builder->Finish(1024);
@@ -155,6 +161,8 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(24, rg1_column2->dictionary_page_offset());
     ASSERT_EQ(10, rg1_column1->data_page_offset());
     ASSERT_EQ(30, rg1_column2->data_page_offset());
+    ASSERT_EQ(3, rg1_column1->encoding_stats().size());
+    ASSERT_EQ(3, rg1_column2->encoding_stats().size());
 
     auto rg2_accessor = f_accessors[loop_index]->RowGroup(1);
     ASSERT_EQ(2, rg2_accessor->num_columns());
@@ -187,6 +195,8 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(16, rg2_column2->dictionary_page_offset());
     ASSERT_EQ(10, rg2_column1->data_page_offset());
     ASSERT_EQ(26, rg2_column2->data_page_offset());
+    ASSERT_EQ(3, rg2_column1->encoding_stats().size());
+    ASSERT_EQ(3, rg2_column2->encoding_stats().size());
 
     // Test FileMetaData::set_file_path
     ASSERT_TRUE(rg2_column1->file_path().empty());

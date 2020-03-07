@@ -97,6 +97,17 @@ bool ends_with_utf8_utf8(const char* data, gdv_int32 data_len, const char* suffi
 }
 
 FORCE_INLINE
+bool is_substr_utf8_utf8(const char* data, int32_t data_len, const char* substr,
+                         int32_t substr_len) {
+  for (int32_t i = 0; i <= data_len - substr_len; ++i) {
+    if (memcmp(data + i, substr, substr_len) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+FORCE_INLINE
 gdv_int32 utf8_char_length(char c) {
   if ((signed char)c >= 0) {  // 1-byte char (0x00 ~ 0x7F)
     return 1;

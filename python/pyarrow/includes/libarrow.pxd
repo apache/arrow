@@ -1694,27 +1694,29 @@ cdef extern from 'arrow/python/benchmark.h' namespace 'arrow::py::benchmark':
 
 
 cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
-    enum CompressionType" arrow::Compression::type":
-        CompressionType_UNCOMPRESSED" arrow::Compression::UNCOMPRESSED"
-        CompressionType_SNAPPY" arrow::Compression::SNAPPY"
-        CompressionType_GZIP" arrow::Compression::GZIP"
-        CompressionType_BROTLI" arrow::Compression::BROTLI"
-        CompressionType_ZSTD" arrow::Compression::ZSTD"
-        CompressionType_LZ4" arrow::Compression::LZ4"
-        CompressionType_BZ2" arrow::Compression::BZ2"
+    enum CCompressionType" arrow::Compression::type":
+        CCompressionType_UNCOMPRESSED" arrow::Compression::UNCOMPRESSED"
+        CCompressionType_SNAPPY" arrow::Compression::SNAPPY"
+        CCompressionType_GZIP" arrow::Compression::GZIP"
+        CCompressionType_BROTLI" arrow::Compression::BROTLI"
+        CCompressionType_ZSTD" arrow::Compression::ZSTD"
+        CCompressionType_LZ4" arrow::Compression::LZ4"
+        CCompressionType_BZ2" arrow::Compression::BZ2"
 
     cdef cppclass CCodec" arrow::util::Codec":
         @staticmethod
-        CResult[unique_ptr[CCodec]] Create(CompressionType codec)
+        CResult[unique_ptr[CCodec]] Create(CCompressionType codec)
+
+        @staticmethod
+        c_bool IsAvailable(CCompressionType codec)
 
         CResult[int64_t] Decompress(int64_t input_len, const uint8_t* input,
                                     int64_t output_len,
                                     uint8_t* output_buffer)
-
         CResult[int64_t] Compress(int64_t input_len, const uint8_t* input,
                                   int64_t output_buffer_len,
                                   uint8_t* output_buffer)
-
+        const char* name() const
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
 
 
@@ -1734,3 +1736,31 @@ cdef extern from 'arrow/util/thread_pool.h' namespace 'arrow' nogil:
 cdef extern from 'arrow/array/concatenate.h' namespace 'arrow' nogil:
     CStatus Concatenate(const vector[shared_ptr[CArray]]& arrays,
                         CMemoryPool* pool, shared_ptr[CArray]* result)
+
+cdef extern from 'arrow/c/abi.h':
+    cdef struct ArrowSchema:
+        pass
+
+    cdef struct ArrowArray:
+        pass
+
+cdef extern from 'arrow/c/bridge.h' namespace 'arrow' nogil:
+    CStatus ExportType(CDataType&, ArrowSchema* out)
+    CResult[shared_ptr[CDataType]] ImportType(ArrowSchema*)
+
+    CStatus ExportSchema(CSchema&, ArrowSchema* out)
+    CResult[shared_ptr[CSchema]] ImportSchema(ArrowSchema*)
+
+    CStatus ExportArray(CArray&, ArrowArray* out)
+    CStatus ExportArray(CArray&, ArrowArray* out, ArrowSchema* out_schema)
+    CResult[shared_ptr[CArray]] ImportArray(ArrowArray*,
+                                            shared_ptr[CDataType])
+    CResult[shared_ptr[CArray]] ImportArray(ArrowArray*, ArrowSchema*)
+
+    CStatus ExportRecordBatch(CRecordBatch&, ArrowArray* out)
+    CStatus ExportRecordBatch(CRecordBatch&, ArrowArray* out,
+                              ArrowSchema* out_schema)
+    CResult[shared_ptr[CRecordBatch]] ImportRecordBatch(ArrowArray*,
+                                                        shared_ptr[CSchema])
+    CResult[shared_ptr[CRecordBatch]] ImportRecordBatch(ArrowArray*,
+                                                        ArrowSchema*)

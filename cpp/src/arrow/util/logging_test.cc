@@ -68,45 +68,6 @@ TEST(PrintLogTest, LogTestWithInit) {
   ArrowLog::ShutDownArrowLog();
 }
 
-#ifdef ARROW_WITH_TIMING_TESTS
-
-// This test will output large amount of logs to stderr, should be disabled in travis.
-TEST(LogPerfTest, PerfTest) {
-  ArrowLog::StartArrowLog("/fake/path/to/appdire/LogPerfTest", ArrowLogLevel::ARROW_ERROR,
-                          "/tmp/");
-  int rounds = 10000;
-
-  int64_t start_time = current_time_ms();
-  for (int i = 0; i < rounds; ++i) {
-    ARROW_LOG(DEBUG) << "This is the "
-                     << "ARROW_DEBUG message";
-  }
-  int64_t elapsed = current_time_ms() - start_time;
-  std::cout << "Testing DEBUG log for " << rounds << " rounds takes " << elapsed << " ms."
-            << std::endl;
-
-  start_time = current_time_ms();
-  for (int i = 0; i < rounds; ++i) {
-    ARROW_LOG(ERROR) << "This is the "
-                     << "RARROW_ERROR message";
-  }
-  elapsed = current_time_ms() - start_time;
-  std::cout << "Testing ARROW_ERROR log for " << rounds << " rounds takes " << elapsed
-            << " ms." << std::endl;
-
-  start_time = current_time_ms();
-  for (int i = 0; i < rounds; ++i) {
-    ARROW_CHECK(i >= 0) << "This is a ARROW_CHECK "
-                        << "message but it won't show up";
-  }
-  elapsed = current_time_ms() - start_time;
-  std::cout << "Testing ARROW_CHECK(true) for " << rounds << " rounds takes " << elapsed
-            << " ms." << std::endl;
-  ArrowLog::ShutDownArrowLog();
-}
-
-#endif
-
 }  // namespace util
 
 TEST(DcheckMacros, DoNotEvaluateReleaseMode) {

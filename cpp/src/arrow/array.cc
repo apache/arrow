@@ -54,36 +54,40 @@ using internal::CountSetBits;
 
 std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
                                            int64_t length,
-                                           std::vector<std::shared_ptr<Buffer>>&& buffers,
+                                           std::vector<std::shared_ptr<Buffer>> buffers,
                                            int64_t null_count, int64_t offset) {
+  // In case there are no nulls, don't keep an allocated null bitmap around
+  if (buffers.size() > 0 && null_count == 0) {
+    buffers[0] = nullptr;
+  }
   return std::make_shared<ArrayData>(type, length, std::move(buffers), null_count,
                                      offset);
 }
 
 std::shared_ptr<ArrayData> ArrayData::Make(
     const std::shared_ptr<DataType>& type, int64_t length,
-    const std::vector<std::shared_ptr<Buffer>>& buffers, int64_t null_count,
+    std::vector<std::shared_ptr<Buffer>> buffers,
+    std::vector<std::shared_ptr<ArrayData>> child_data, int64_t null_count,
     int64_t offset) {
-  return std::make_shared<ArrayData>(type, length, buffers, null_count, offset);
+  // In case there are no nulls, don't keep an allocated null bitmap around
+  if (buffers.size() > 0 && null_count == 0) {
+    buffers[0] = nullptr;
+  }
+  return std::make_shared<ArrayData>(type, length, std::move(buffers),
+                                     std::move(child_data), null_count, offset);
 }
 
 std::shared_ptr<ArrayData> ArrayData::Make(
     const std::shared_ptr<DataType>& type, int64_t length,
-    const std::vector<std::shared_ptr<Buffer>>& buffers,
-    const std::vector<std::shared_ptr<ArrayData>>& child_data, int64_t null_count,
-    int64_t offset) {
-  return std::make_shared<ArrayData>(type, length, buffers, child_data, null_count,
-                                     offset);
-}
-
-std::shared_ptr<ArrayData> ArrayData::Make(
-    const std::shared_ptr<DataType>& type, int64_t length,
-    const std::vector<std::shared_ptr<Buffer>>& buffers,
-    const std::vector<std::shared_ptr<ArrayData>>& child_data,
-    const std::shared_ptr<Array>& dictionary, int64_t null_count, int64_t offset) {
-  auto data =
-      std::make_shared<ArrayData>(type, length, buffers, child_data, null_count, offset);
-  data->dictionary = dictionary;
+    std::vector<std::shared_ptr<Buffer>> buffers,
+    std::vector<std::shared_ptr<ArrayData>> child_data, std::shared_ptr<Array> dictionary,
+    int64_t null_count, int64_t offset) {
+  if (buffers.size() > 0 && null_count == 0) {
+    buffers[0] = nullptr;
+  }
+  auto data = std::make_shared<ArrayData>(type, length, std::move(buffers),
+                                          std::move(child_data), null_count, offset);
+  data->dictionary = std::move(dictionary);
   return data;
 }
 
@@ -495,15 +499,33 @@ Status MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
   return Status::OK();
 }
 
-void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  this->ListArray::SetData(data, Type::MAP);
-  auto pair_data = data->child_data[0];
-  ARROW_CHECK_EQ(pair_data->type->id(), Type::STRUCT);
-  ARROW_CHECK_EQ(pair_data->null_count, 0);
-  ARROW_CHECK_EQ(pair_data->child_data.size(), 2);
-  ARROW_CHECK_EQ(pair_data->child_data[0]->null_count, 0);
+Status MapArray::ValidateChildData(
+    const std::vector<std::shared_ptr<ArrayData>>& child_data) {
+  if (child_data.size() != 1) {
+    return Status::Invalid("Expected one child array for map array");
+  }
+  const auto& pair_data = child_data[0];
+  if (pair_data->type->id() != Type::STRUCT) {
+    return Status::Invalid("Map array child array should have struct type");
+  }
+  if (pair_data->null_count != 0) {
+    return Status::Invalid("Map array child array should have no nulls");
+  }
+  if (pair_data->child_data.size() != 2) {
+    return Status::Invalid("Map array child array should have two fields");
+  }
+  if (pair_data->child_data[0]->null_count != 0) {
+    return Status::Invalid("Map array keys array should have no nulls");
+  }
+  return Status::OK();
+}
 
+void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  ARROW_CHECK_OK(ValidateChildData(data->child_data));
+
+  this->ListArray::SetData(data, Type::MAP);
   map_type_ = checked_cast<const MapType*>(data->type.get());
+  const auto& pair_data = data->child_data[0];
   keys_ = MakeArray(pair_data->child_data[0]);
   items_ = MakeArray(pair_data->child_data[1]);
 }
@@ -715,6 +737,12 @@ Result<std::shared_ptr<StructArray>> StructArray::Make(
   }
   if (offset > length) {
     return Status::IndexError("Offset greater than length of child arrays");
+  }
+  if (null_bitmap == nullptr) {
+    if (null_count > 0) {
+      return Status::Invalid("null_count = ", null_count, " but no null bitmap given");
+    }
+    null_count = 0;
   }
   return std::make_shared<StructArray>(struct_(fields), length - offset, children,
                                        null_bitmap, null_count, offset);

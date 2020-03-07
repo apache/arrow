@@ -97,6 +97,10 @@ and optional `verbose` is the boolean flag that allows to print full metadata or
 and `num-records` is the number of records to read from a file (when not specified all records will
 be printed).
 
+- **parquet-rowcount** for reporting the number of records in one or more Parquet files.
+`Usage: parquet-rowcount <file-path> ...`, where `file-path` is the path to a Parquet file, and `...`
+indicates any number of additional parquet files.
+
 If you see `Library not loaded` error, please make sure `LD_LIBRARY_PATH` is set properly:
 ```
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(rustc --print sysroot)/lib

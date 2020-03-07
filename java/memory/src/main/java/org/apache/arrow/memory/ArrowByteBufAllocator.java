@@ -30,7 +30,10 @@ import io.netty.buffer.ExpandableByteBuf;
  * the signature and the fact that this Allocator returns ExpandableByteBufs which enable
  * otherwise non-expandable
  * ArrowBufs to be expandable.
+ *
+ * @deprecated This class may be removed in a future release.
  */
+@Deprecated
 public class ArrowByteBufAllocator extends AbstractByteBufAllocator {
 
   private static final int DEFAULT_BUFFER_SIZE = 4096;

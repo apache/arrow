@@ -26,7 +26,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
-#include <future>
 #include <memory>
 #include <string>
 #include <thread>
@@ -43,15 +42,10 @@
 namespace arrow {
 namespace internal {
 
-static void sleep_for(double seconds) {
-  std::this_thread::sleep_for(
-      std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
-}
-
 static void busy_wait(double seconds, std::function<bool()> predicate) {
   const double period = 0.001;
   for (int i = 0; !predicate() && i * period < seconds; ++i) {
-    sleep_for(period);
+    SleepFor(period);
   }
 }
 
@@ -62,7 +56,7 @@ static void task_add(T x, T y, T* out) {
 
 template <typename T>
 static void task_slow_add(double seconds, T x, T y, T* out) {
-  sleep_for(seconds);
+  SleepFor(seconds);
   *out = x + y;
 }
 
@@ -75,7 +69,7 @@ static T add(T x, T y) {
 
 template <typename T>
 static T slow_add(double seconds, T x, T y) {
-  sleep_for(seconds);
+  SleepFor(seconds);
   return x + y;
 }
 
@@ -253,7 +247,7 @@ TEST_F(TestThreadPool, SetCapacity) {
 
   // Downsize while tasks are pending
   for (int i = 0; i < 10; ++i) {
-    ASSERT_OK(pool->Spawn(std::bind(sleep_for, 0.01 /* seconds */)));
+    ASSERT_OK(pool->Spawn(std::bind(SleepFor, 0.01 /* seconds */)));
   }
   ASSERT_OK(pool->SetCapacity(2));
   ASSERT_EQ(pool->GetCapacity(), 2);
@@ -269,29 +263,31 @@ TEST_F(TestThreadPool, SetCapacity) {
 TEST_F(TestThreadPool, Submit) {
   auto pool = this->MakeThreadPool(3);
   {
-    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
-    ASSERT_EQ(fut.get(), 9);
+    ASSERT_OK_AND_ASSIGN(Future<int> fut, pool->Submit(add<int>, 4, 5));
+    Result<int> res = fut.result();
+    ASSERT_OK_AND_EQ(9, res);
   }
   {
-    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<std::string>, "foo", "bar"));
-    ASSERT_EQ(fut.get(), "foobar");
+    ASSERT_OK_AND_ASSIGN(Future<std::string> fut,
+                         pool->Submit(add<std::string>, "foo", "bar"));
+    ASSERT_OK_AND_EQ("foobar", fut.result());
   }
   {
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(slow_add<int>, 0.01 /* seconds */, 4, 5));
-    ASSERT_EQ(fut.get(), 9);
+    ASSERT_OK_AND_EQ(9, fut.result());
   }
   {
     // Reference passing
     std::string s = "foo";
     ASSERT_OK_AND_ASSIGN(auto fut,
                          pool->Submit(inplace_add<std::string>, std::ref(s), "bar"));
-    ASSERT_EQ(fut.get(), "foobar");
+    ASSERT_OK_AND_EQ("foobar", fut.result());
     ASSERT_EQ(s, "foobar");
   }
   {
     // `void` return type
-    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(sleep_for, 0.001));
-    fut.get();
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(SleepFor, 0.001));
+    ASSERT_OK(fut.status());
   }
 }
 
@@ -307,13 +303,13 @@ TEST_F(TestThreadPool, ForkSafety) {
     // Fork after task submission
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
-    ASSERT_EQ(fut.get(), 9);
+    ASSERT_OK_AND_EQ(9, fut.result());
 
     child_pid = fork();
     if (child_pid == 0) {
       // Child: thread pool should be usable
       ASSERT_OK_AND_ASSIGN(fut, pool->Submit(add<int>, 3, 4));
-      if (fut.get() != 7) {
+      if (*fut.result() != 7) {
         std::exit(1);
       }
       // Shutting down shouldn't hang or fail

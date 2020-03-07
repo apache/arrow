@@ -1953,6 +1953,22 @@ class TestConvertListTypes:
 
         _check_pandas_roundtrip(df, expected_schema=expected_schema)
 
+    def test_to_list_of_structs_pandas(self):
+        ints = pa.array([1, 2, 3], pa.int32())
+        strings = pa.array([['a', 'b'], ['c', 'd'], ['e', 'f']],
+                           pa.list_(pa.string()))
+        structs = pa.StructArray.from_arrays([ints, strings], ['f1', 'f2'])
+        data = pa.ListArray.from_arrays([0, 1, 3], structs)
+
+        expected = pd.Series([
+            [{'f1': 1, 'f2': ['a', 'b']}],
+            [{'f1': 2, 'f2': ['c', 'd']},
+             {'f1': 3, 'f2': ['e', 'f']}]
+        ])
+
+        series = pd.Series(data.to_pandas())
+        tm.assert_series_equal(series, expected)
+
     @pytest.mark.parametrize('t,data,expected', [
         (
             pa.int64,
@@ -1999,6 +2015,29 @@ class TestConvertListTypes:
             result = pa.array(arr)
             assert result.type == field.type  # == list<scalar>
             assert result.equals(expected)
+
+    def test_nested_large_list(self):
+        s = (pa.array([[[1, 2, 3], [4]], None],
+                      type=pa.large_list(pa.large_list(pa.int64())))
+             .to_pandas())
+        tm.assert_series_equal(
+            s, pd.Series([[[1, 2, 3], [4]], None]),
+            check_names=False)
+
+    def test_large_binary_list(self):
+        for list_type_factory in (pa.list_, pa.large_list):
+            s = (pa.array([["aa", "bb"], None, ["cc"], []],
+                          type=list_type_factory(pa.large_binary()))
+                 .to_pandas())
+            tm.assert_series_equal(
+                s, pd.Series([[b"aa", b"bb"], None, [b"cc"], []]),
+                check_names=False)
+            s = (pa.array([["aa", "bb"], None, ["cc"], []],
+                          type=list_type_factory(pa.large_string()))
+                 .to_pandas())
+            tm.assert_series_equal(
+                s, pd.Series([["aa", "bb"], None, ["cc"], []]),
+                check_names=False)
 
 
 class TestConvertStructTypes:

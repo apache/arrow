@@ -32,14 +32,14 @@ cpdef enum FileType:
     Directory = <int8_t> CFileType_Directory
 
 
-cdef class FileStats:
+cdef class FileInfo:
     cdef:
-        CFileStats stats
+        CFileInfo info
 
     @staticmethod
-    cdef wrap(CFileStats stats)
+    cdef wrap(CFileInfo info)
 
-    cdef inline CFileStats unwrap(self) nogil
+    cdef inline CFileInfo unwrap(self) nogil
 
 
 cdef class FileSelector:

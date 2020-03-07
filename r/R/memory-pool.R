@@ -30,7 +30,7 @@
 #' @rdname MemoryPool
 #' @name MemoryPool
 MemoryPool <- R6Class("MemoryPool",
-  inherit = Object,
+  inherit = ArrowObject,
   public = list(
     # TODO: Allocate
     # TODO: Reallocate

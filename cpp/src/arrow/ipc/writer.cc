@@ -190,7 +190,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         padding = BitUtil::RoundUpToMultipleOf8(size) - size;
       }
 
-      buffer_meta_.push_back({offset, size + padding});
+      buffer_meta_.push_back({offset, size});
       offset += size + padding;
     }
 

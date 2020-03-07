@@ -84,7 +84,7 @@ garrow_buffer_finalize(GObject *object)
 {
   auto priv = GARROW_BUFFER_GET_PRIVATE(object);
 
-  priv->buffer = nullptr;
+  priv->buffer.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_buffer_parent_class)->finalize(object);
 }
@@ -126,6 +126,8 @@ garrow_buffer_get_property(GObject *object,
 static void
 garrow_buffer_init(GArrowBuffer *object)
 {
+  auto priv = GARROW_BUFFER_GET_PRIVATE(object);
+  new(&priv->buffer) std::shared_ptr<arrow::Buffer>;
 }
 
 static void

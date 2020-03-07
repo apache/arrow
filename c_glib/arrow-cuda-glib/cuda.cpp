@@ -174,7 +174,7 @@ garrow_cuda_context_finalize(GObject *object)
 {
   auto priv = GARROW_CUDA_CONTEXT_GET_PRIVATE(object);
 
-  priv->context = nullptr;
+  priv->context.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_cuda_context_parent_class)->finalize(object);
 }
@@ -214,6 +214,8 @@ garrow_cuda_context_get_property(GObject *object,
 static void
 garrow_cuda_context_init(GArrowCUDAContext *object)
 {
+  auto priv = GARROW_CUDA_CONTEXT_GET_PRIVATE(object);
+  new(&priv->context) std::shared_ptr<arrow::cuda::CudaContext>;
 }
 
 static void
@@ -651,12 +653,12 @@ garrow_cuda_ipc_memory_handle_serialize(GArrowCUDAIPCMemoryHandle *handle,
 }
 
 GArrowBuffer *
-garrow_cuda_buffer_input_stream_new_raw_readable_interface(std::shared_ptr<arrow::Buffer> *arrow_buffer)
+garrow_cuda_buffer_input_stream_buffer_new_raw_readable_interface(std::shared_ptr<arrow::Buffer> *arrow_buffer)
 {
-  auto buffer = GARROW_BUFFER(g_object_new(GARROW_CUDA_TYPE_BUFFER,
-                                           "buffer", arrow_buffer,
-                                           NULL));
-  return buffer;
+  auto arrow_cuda_buffer =
+    reinterpret_cast<std::shared_ptr<arrow::cuda::CudaBuffer> *>(arrow_buffer);
+  auto cuda_buffer = garrow_cuda_buffer_new_raw(arrow_cuda_buffer);
+  return GARROW_BUFFER(cuda_buffer);
 }
 
 static std::shared_ptr<arrow::io::Readable>
@@ -670,8 +672,8 @@ garrow_cuda_buffer_input_stream_get_raw_readable_interface(GArrowReadable *reada
 static void
 garrow_cuda_buffer_input_stream_readable_interface_init(GArrowReadableInterface *iface)
 {
-  iface->new_raw =
-    garrow_cuda_buffer_input_stream_new_raw_readable_interface;
+  iface->buffer_new_raw =
+    garrow_cuda_buffer_input_stream_buffer_new_raw_readable_interface;
   iface->get_raw =
     garrow_cuda_buffer_input_stream_get_raw_readable_interface;
 }

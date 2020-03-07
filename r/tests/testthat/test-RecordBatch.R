@@ -46,6 +46,13 @@ test_that("RecordBatch", {
   expect_equal(batch$column_name(4), "fct")
   expect_equal(names(batch), c("int", "dbl", "lgl", "chr", "fct"))
 
+  # input validation
+  expect_error(batch$column_name(NA), "'i' cannot be NA")
+  expect_error(batch$column_name(-1), "subscript out of bounds")
+  expect_error(batch$column_name(1000), "subscript out of bounds")
+  expect_error(batch$column_name(1:2), class = "Rcpp::not_compatible")
+  expect_error(batch$column_name("one"), class = "Rcpp::not_compatible")
+
   col_int <- batch$column(0)
   expect_true(inherits(col_int, 'Array'))
   expect_equal(col_int$as_vector(), tbl$int)
@@ -71,19 +78,50 @@ test_that("RecordBatch", {
   expect_equal(col_fct$as_vector(), tbl$fct)
   expect_equal(col_fct$type, dictionary(int8(), utf8()))
 
+  # input validation
+  expect_error(batch$column(NA), "'i' cannot be NA")
+  expect_error(batch$column(-1), "subscript out of bounds")
+  expect_error(batch$column(1000), "subscript out of bounds")
+  expect_error(batch$column(1:2), class = "Rcpp::not_compatible")
+  expect_error(batch$column("one"), class = "Rcpp::not_compatible")
+
   batch2 <- batch$RemoveColumn(0)
   expect_equal(
     batch2$schema,
     schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int8(), utf8()))
   )
   expect_equal(batch2$column(0), batch$column(1))
-  expect_identical(as.data.frame(batch2), tbl[,-1])
+  expect_data_frame(batch2, tbl[,-1])
 
+  # input validation
+  expect_error(batch$RemoveColumn(NA), "'i' cannot be NA")
+  expect_error(batch$RemoveColumn(-1), "subscript out of bounds")
+  expect_error(batch$RemoveColumn(1000), "subscript out of bounds")
+  expect_error(batch$RemoveColumn(1:2), class = "Rcpp::not_compatible")
+  expect_error(batch$RemoveColumn("one"), class = "Rcpp::not_compatible")
+})
+
+test_that("RecordBatch$Slice", {
   batch3 <- batch$Slice(5)
-  expect_identical(as.data.frame(batch3), tbl[6:10,])
+  expect_data_frame(batch3, tbl[6:10,])
 
   batch4 <- batch$Slice(5, 2)
-  expect_identical(as.data.frame(batch4), tbl[6:7,])
+  expect_data_frame(batch4, tbl[6:7,])
+
+  # Input validation
+  expect_error(batch$Slice("ten"), class = "Rcpp::not_compatible")
+  expect_error(batch$Slice(NA_integer_), "Slice 'offset' cannot be NA")
+  expect_error(batch$Slice(NA), "Slice 'offset' cannot be NA")
+  expect_error(batch$Slice(10, "ten"), class = "Rcpp::not_compatible")
+  expect_error(batch$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
+  expect_error(batch$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
+  expect_error(batch$Slice(c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(batch$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(batch$Slice(1000), "Slice 'offset' greater than array length")
+  expect_error(batch$Slice(-1), "Slice 'offset' cannot be negative")
+  expect_error(batch4$Slice(10, 10), "Slice 'offset' greater than array length")
+  expect_error(batch$Slice(10, -1), "Slice 'length' cannot be negative")
+  expect_error(batch$Slice(-1, 10), "Slice 'offset' cannot be negative")
 })
 
 test_that("[ on RecordBatch", {
@@ -104,24 +142,28 @@ test_that("[ on RecordBatch", {
 })
 
 test_that("[[ and $ on RecordBatch", {
-  expect_identical(as.vector(batch[["int"]]), tbl$int)
-  expect_identical(as.vector(batch$int), tbl$int)
-  expect_identical(as.vector(batch[[4]]), tbl$chr)
+  expect_vector(batch[["int"]], tbl$int)
+  expect_vector(batch$int, tbl$int)
+  expect_vector(batch[[4]], tbl$chr)
   expect_null(batch$qwerty)
   expect_null(batch[["asdf"]])
-  expect_error(batch[[c(4, 3)]], 'length(i) not equal to 1', fixed = TRUE)
+  expect_error(batch[[c(4, 3)]], class = "Rcpp::not_compatible")
   expect_error(batch[[NA]], "'i' must be character or numeric, not logical")
   expect_error(batch[[NULL]], "'i' must be character or numeric, not NULL")
   expect_error(batch[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
 })
 
 test_that("head and tail on RecordBatch", {
-  expect_identical(as.data.frame(head(batch)), head(tbl))
-  expect_identical(as.data.frame(head(batch, 4)), head(tbl, 4))
-  expect_identical(as.data.frame(head(batch, -4)), head(tbl, -4))
-  expect_identical(as.data.frame(tail(batch)), tail(tbl))
-  expect_identical(as.data.frame(tail(batch, 4)), tail(tbl, 4))
-  expect_identical(as.data.frame(tail(batch, -4)), tail(tbl, -4))
+  expect_data_frame(head(batch), head(tbl))
+  expect_data_frame(head(batch, 4), head(tbl, 4))
+  expect_data_frame(head(batch, 40), head(tbl, 40))
+  expect_data_frame(head(batch, -4), head(tbl, -4))
+  expect_data_frame(head(batch, -40), head(tbl, -40))
+  expect_data_frame(tail(batch), tail(tbl))
+  expect_data_frame(tail(batch, 4), tail(tbl, 4))
+  expect_data_frame(tail(batch, 40), tail(tbl, 40))
+  expect_data_frame(tail(batch, -4), tail(tbl, -4))
+  expect_data_frame(tail(batch, -40), tail(tbl, -40))
 })
 
 test_that("RecordBatch print method", {

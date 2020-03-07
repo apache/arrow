@@ -185,6 +185,31 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
           {Encoding::RLE_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
       ASSERT_EQ(encodings, expected);
     }
+
+    std::vector<parquet::PageEncodingStats> encoding_stats =
+        this->metadata_encoding_stats();
+    if (this->type_num() == Type::BOOLEAN) {
+      ASSERT_EQ(encoding_stats[0].encoding, Encoding::PLAIN);
+      ASSERT_EQ(encoding_stats[0].page_type, PageType::DATA_PAGE);
+    } else if (version == ParquetVersion::PARQUET_1_0) {
+      std::vector<Encoding::type> expected(
+          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::PLAIN_DICTIONARY});
+      ASSERT_EQ(encoding_stats[0].encoding, expected[0]);
+      ASSERT_EQ(encoding_stats[0].page_type, PageType::DICTIONARY_PAGE);
+      for (size_t i = 1; i < encoding_stats.size(); i++) {
+        ASSERT_EQ(encoding_stats[i].encoding, expected[i]);
+        ASSERT_EQ(encoding_stats[i].page_type, PageType::DATA_PAGE);
+      }
+    } else {
+      std::vector<Encoding::type> expected(
+          {Encoding::PLAIN, Encoding::PLAIN, Encoding::RLE_DICTIONARY});
+      ASSERT_EQ(encoding_stats[0].encoding, expected[0]);
+      ASSERT_EQ(encoding_stats[0].page_type, PageType::DICTIONARY_PAGE);
+      for (size_t i = 1; i < encoding_stats.size(); i++) {
+        ASSERT_EQ(encoding_stats[i].encoding, expected[i]);
+        ASSERT_EQ(encoding_stats[i].page_type, PageType::DATA_PAGE);
+      }
+    }
   }
 
   void WriteRequiredWithSettings(Encoding::type encoding, Compression::type compression,
@@ -271,6 +296,15 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     auto metadata_accessor =
         ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
     return metadata_accessor->encodings();
+  }
+
+  std::vector<parquet::PageEncodingStats> metadata_encoding_stats() {
+    // Metadata accessor must be created lazily.
+    // This is because the ColumnChunkMetaData semantics dictate the metadata object is
+    // complete (no changes to the metadata buffer can be made after instantiation)
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
+    return metadata_accessor->encoding_stats();
   }
 
  protected:

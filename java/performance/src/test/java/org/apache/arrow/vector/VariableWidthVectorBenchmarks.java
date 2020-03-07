@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -34,6 +35,8 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import io.netty.buffer.ArrowBuf;
+
 /**
  * Benchmarks for {@link BaseVariableWidthVector}.
  */
@@ -45,6 +48,9 @@ public class VariableWidthVectorBenchmarks {
   private static final int VECTOR_LENGTH = 1024;
 
   private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
+
+  private static byte[] bytes = VariableWidthVectorBenchmarks.class.getName().getBytes();
+  private ArrowBuf arrowBuff;
 
   private BufferAllocator allocator;
 
@@ -58,6 +64,8 @@ public class VariableWidthVectorBenchmarks {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
     vector = new VarCharVector("vector", allocator);
     vector.allocateNew(VECTOR_CAPACITY, VECTOR_LENGTH);
+    arrowBuff = allocator.buffer(VECTOR_LENGTH);
+    arrowBuff.setBytes(0, bytes, 0, bytes.length);
   }
 
   /**
@@ -65,6 +73,7 @@ public class VariableWidthVectorBenchmarks {
    */
   @TearDown
   public void tearDown() {
+    arrowBuff.close();
     vector.close();
     allocator.close();
   }
@@ -79,6 +88,37 @@ public class VariableWidthVectorBenchmarks {
   public int getValueCapacity() {
     return vector.getValueCapacity();
   }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MILLISECONDS)
+  public int setSafeFromArray() {
+    for (int i = 0; i < 500; ++i) {
+      vector.setSafe(i * 40, bytes);
+    }
+    return vector.getBufferSize();
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MILLISECONDS)
+  public int setSafeFromNullableVarcharHolder() {
+    NullableVarCharHolder nvch = new NullableVarCharHolder();
+    nvch.buffer = arrowBuff;
+    nvch.start = 0;
+    nvch.end = bytes.length;
+    for (int i = 0; i < 50; ++i) {
+      nvch.isSet = 0;
+      for (int j = 0; j < 9; ++j) {
+        int idx = 10 * i + j;
+        vector.setSafe(idx, nvch);
+      }
+      nvch.isSet = 1;
+      vector.setSafe(10 * (i + 1), nvch);
+    }
+    return vector.getBufferSize();
+  }
+
 
   public static void main(String [] args) throws RunnerException {
     Options opt = new OptionsBuilder()

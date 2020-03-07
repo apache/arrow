@@ -239,6 +239,10 @@ public class DenseUnionVector implements FieldVector {
     return internalStruct.addOrGet(fieldName(typeId, minorType), fieldType(minorType), c);
   }
 
+  private <T extends FieldVector> T addOrGet(byte typeId, MinorType minorType, ArrowType arrowType, Class<T> c) {
+    return internalStruct.addOrGet(fieldName(typeId, minorType), FieldType.nullable(arrowType), c);
+  }
+
   @Override
   public long getOffsetBufferAddress() {
     return offsetBuffer.memoryAddress();
@@ -285,13 +289,13 @@ public class DenseUnionVector implements FieldVector {
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
       <#assign lowerCaseName = name?lower_case/>
-      <#if !minor.typeParams?? >
+      <#if !minor.typeParams?? || minor.class == "Decimal">
 
-  public ${name}Vector get${name}Vector(byte typeId) {
+  public ${name}Vector get${name}Vector(byte typeId<#if minor.class == "Decimal">, ArrowType arrowType</#if>) {
     ValueVector vector = childVectors[typeId];
     if (vector == null) {
       int vectorCount = internalStruct.size();
-      vector = addOrGet(typeId, MinorType.${name?upper_case}, ${name}Vector.class);
+      vector = addOrGet(typeId, MinorType.${name?upper_case}<#if minor.class == "Decimal">, arrowType</#if>, ${name}Vector.class);
       childVectors[typeId] = vector;
       if (internalStruct.size() > vectorCount) {
         vector.allocateNew();
@@ -820,7 +824,7 @@ public class DenseUnionVector implements FieldVector {
           <#assign name = minor.class?cap_first />
           <#assign fields = minor.fields!type.fields />
           <#assign uncappedName = name?uncap_first/>
-          <#if !minor.typeParams?? >
+          <#if !minor.typeParams?? || minor.class == "Decimal">
       case ${name?upper_case}:
       Nullable${name}Holder ${uncappedName}Holder = new Nullable${name}Holder();
       reader.read(${uncappedName}Holder);
@@ -844,7 +848,7 @@ public class DenseUnionVector implements FieldVector {
         <#assign name = minor.class?cap_first />
         <#assign fields = minor.fields!type.fields />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? >
+        <#if !minor.typeParams?? || minor.class == "Decimal">
   public void setSafe(int index, Nullable${name}Holder holder) {
     while (index >= getOffsetBufferValueCapacity()) {
       reallocOffsetBuffer();
@@ -854,7 +858,7 @@ public class DenseUnionVector implements FieldVector {
     }
     BitVectorHelper.setBit(validityBuffer, index);
     byte typeId = getTypeId(index);
-    ${name}Vector vector = get${name}Vector(typeId);
+    ${name}Vector vector = get${name}Vector(typeId<#if minor.class == "Decimal">, new ArrowType.Decimal(holder.precision, holder.scale)</#if>);
     int offset = vector.getValueCount();
     vector.setValueCount(offset + 1);
     vector.setSafe(offset, holder);

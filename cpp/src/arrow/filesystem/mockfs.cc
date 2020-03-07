@@ -116,40 +116,40 @@ class Entry : public EntryBase {
 
   File& as_file() { return util::get<File>(*this); }
 
-  // Get stats for this entry.  Note the path() property isn't set.
-  FileStats GetStats() {
-    FileStats st;
+  // Get info for this entry.  Note the path() property isn't set.
+  FileInfo GetInfo() {
+    FileInfo info;
     if (is_dir()) {
       Directory& dir = as_dir();
-      st.set_type(FileType::Directory);
-      st.set_mtime(dir.mtime);
+      info.set_type(FileType::Directory);
+      info.set_mtime(dir.mtime);
     } else {
       DCHECK(is_file());
       File& file = as_file();
-      st.set_type(FileType::File);
-      st.set_mtime(file.mtime);
-      st.set_size(file.size());
+      info.set_type(FileType::File);
+      info.set_mtime(file.mtime);
+      info.set_size(file.size());
     }
-    return st;
+    return info;
   }
 
-  // Get stats for this entry, knowing the parent path.
-  FileStats GetStats(const std::string& base_path) {
-    FileStats st;
+  // Get info for this entry, knowing the parent path.
+  FileInfo GetInfo(const std::string& base_path) {
+    FileInfo info;
     if (is_dir()) {
       Directory& dir = as_dir();
-      st.set_type(FileType::Directory);
-      st.set_mtime(dir.mtime);
-      st.set_path(ConcatAbstractPath(base_path, dir.name));
+      info.set_type(FileType::Directory);
+      info.set_mtime(dir.mtime);
+      info.set_path(ConcatAbstractPath(base_path, dir.name));
     } else {
       DCHECK(is_file());
       File& file = as_file();
-      st.set_type(FileType::File);
-      st.set_mtime(file.mtime);
-      st.set_size(file.size());
-      st.set_path(ConcatAbstractPath(base_path, file.name));
+      info.set_type(FileType::File);
+      info.set_mtime(file.mtime);
+      info.set_size(file.size());
+      info.set_path(ConcatAbstractPath(base_path, file.name));
     }
-    return st;
+    return info;
   }
 
   // Set the entry name
@@ -217,12 +217,12 @@ class MockFSOutputStream : public io::OutputStream {
 
 }  // namespace
 
-std::ostream& operator<<(std::ostream& os, const DirInfo& di) {
+std::ostream& operator<<(std::ostream& os, const MockDirInfo& di) {
   return os << "'" << di.full_path << "' [mtime=" << di.mtime.time_since_epoch().count()
             << "]";
 }
 
-std::ostream& operator<<(std::ostream& os, const FileInfo& di) {
+std::ostream& operator<<(std::ostream& os, const MockFileInfo& di) {
   return os << "'" << di.full_path << "' [mtime=" << di.mtime.time_since_epoch().count()
             << ", size=" << di.data.length() << "]";
 }
@@ -288,21 +288,22 @@ class MockFileSystem::Impl {
     return (consumed == parts.size() - 1) ? entry : nullptr;
   }
 
-  void GatherStats(const FileSelector& select, const std::string& base_path,
+  void GatherInfos(const FileSelector& select, const std::string& base_path,
                    Directory& base_dir, int32_t nesting_depth,
-                   std::vector<FileStats>* stats) {
+                   std::vector<FileInfo>* infos) {
     for (const auto& pair : base_dir.entries) {
       Entry* child = pair.second.get();
-      stats->push_back(child->GetStats(base_path));
+      infos->push_back(child->GetInfo(base_path));
       if (select.recursive && nesting_depth < select.max_recursion && child->is_dir()) {
         Directory& child_dir = child->as_dir();
-        std::string child_path = stats->back().path();
-        GatherStats(select, std::move(child_path), child_dir, nesting_depth + 1, stats);
+        std::string child_path = infos->back().path();
+        GatherInfos(select, std::move(child_path), child_dir, nesting_depth + 1, infos);
       }
     }
   }
 
-  void DumpDirs(const std::string& prefix, Directory& dir, std::vector<DirInfo>* out) {
+  void DumpDirs(const std::string& prefix, Directory& dir,
+                std::vector<MockDirInfo>* out) {
     std::string path = prefix + dir.name;
     if (!path.empty()) {
       out->push_back({path, dir.mtime});
@@ -316,7 +317,8 @@ class MockFileSystem::Impl {
     }
   }
 
-  void DumpFiles(const std::string& prefix, Directory& dir, std::vector<FileInfo>* out) {
+  void DumpFiles(const std::string& prefix, Directory& dir,
+                 std::vector<MockFileInfo>* out) {
     std::string path = prefix + dir.name;
     if (!path.empty()) {
       path += "/";
@@ -471,27 +473,27 @@ Status MockFileSystem::DeleteFile(const std::string& path) {
   return Status::OK();
 }
 
-Result<FileStats> MockFileSystem::GetTargetStats(const std::string& path) {
+Result<FileInfo> MockFileSystem::GetTargetInfo(const std::string& path) {
   auto parts = SplitAbstractPath(path);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
-  FileStats st;
+  FileInfo info;
   Entry* entry = impl_->FindEntry(parts);
   if (entry == nullptr) {
-    st.set_type(FileType::NonExistent);
+    info.set_type(FileType::NonExistent);
   } else {
-    st = entry->GetStats();
+    info = entry->GetInfo();
   }
-  st.set_path(path);
-  return st;
+  info.set_path(path);
+  return info;
 }
 
-Result<std::vector<FileStats>> MockFileSystem::GetTargetStats(
+Result<std::vector<FileInfo>> MockFileSystem::GetTargetInfos(
     const FileSelector& selector) {
   auto parts = SplitAbstractPath(selector.base_dir);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
-  std::vector<FileStats> results;
+  std::vector<FileInfo> results;
 
   Entry* base_dir = impl_->FindEntry(parts);
   if (base_dir == nullptr) {
@@ -506,7 +508,7 @@ Result<std::vector<FileStats>> MockFileSystem::GetTargetStats(
     return NotADir(selector.base_dir);
   }
 
-  impl_->GatherStats(selector, selector.base_dir, base_dir->as_dir(), 0, &results);
+  impl_->GatherInfos(selector, selector.base_dir, base_dir->as_dir(), 0, &results);
   return results;
 }
 
@@ -633,14 +635,14 @@ Result<std::shared_ptr<io::OutputStream>> MockFileSystem::OpenAppendStream(
   return impl_->OpenOutputStream(path, true /* append */);
 }
 
-std::vector<DirInfo> MockFileSystem::AllDirs() {
-  std::vector<DirInfo> result;
+std::vector<MockDirInfo> MockFileSystem::AllDirs() {
+  std::vector<MockDirInfo> result;
   impl_->DumpDirs("", impl_->RootDir(), &result);
   return result;
 }
 
-std::vector<FileInfo> MockFileSystem::AllFiles() {
-  std::vector<FileInfo> result;
+std::vector<MockFileInfo> MockFileSystem::AllFiles() {
+  std::vector<MockFileInfo> result;
   impl_->DumpFiles("", impl_->RootDir(), &result);
   return result;
 }
@@ -658,15 +660,15 @@ Status MockFileSystem::CreateFile(const std::string& path, const std::string& co
 }
 
 Result<std::shared_ptr<FileSystem>> MockFileSystem::Make(
-    TimePoint current_time, const std::vector<FileStats>& stats) {
+    TimePoint current_time, const std::vector<FileInfo>& infos) {
   auto fs = std::make_shared<MockFileSystem>(current_time);
-  for (const auto& s : stats) {
-    switch (s.type()) {
+  for (const auto& info : infos) {
+    switch (info.type()) {
       case FileType::Directory:
-        RETURN_NOT_OK(fs->CreateDir(s.path(), /*recursive*/ true));
+        RETURN_NOT_OK(fs->CreateDir(info.path(), /*recursive*/ true));
         break;
       case FileType::File:
-        RETURN_NOT_OK(fs->CreateFile(s.path(), "", /*recursive*/ true));
+        RETURN_NOT_OK(fs->CreateFile(info.path(), "", /*recursive*/ true));
         break;
       default:
         break;

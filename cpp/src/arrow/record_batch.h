@@ -43,35 +43,35 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] num_rows length of fields in the record batch. Each array
   /// should have the same length as num_rows
   /// \param[in] columns the record batch fields as vector of arrays
-  static std::shared_ptr<RecordBatch> Make(
-      const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      const std::vector<std::shared_ptr<Array>>& columns);
-
-  /// \brief Move-based constructor for a vector of Array instances
-  static std::shared_ptr<RecordBatch> Make(const std::shared_ptr<Schema>& schema,
+  static std::shared_ptr<RecordBatch> Make(std::shared_ptr<Schema> schema,
                                            int64_t num_rows,
-                                           std::vector<std::shared_ptr<Array>>&& columns);
+                                           std::vector<std::shared_ptr<Array>> columns);
 
   /// \brief Construct record batch from vector of internal data structures
   /// \since 0.5.0
   ///
-  /// This class is only provided with an rvalue-reference for the input data,
-  /// and is intended for internal use, or advanced users.
+  /// This class is intended for internal use, or advanced users.
   ///
   /// \param schema the record batch schema
   /// \param num_rows the number of semantic rows in the record batch. This
   /// should be equal to the length of each field
   /// \param columns the data for the batch's columns
   static std::shared_ptr<RecordBatch> Make(
-      const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      std::vector<std::shared_ptr<ArrayData>>&& columns);
+      std::shared_ptr<Schema> schema, int64_t num_rows,
+      std::vector<std::shared_ptr<ArrayData>> columns);
 
-  /// \brief Construct record batch by copying vector of array data
-  /// \since 0.5.0
-  static std::shared_ptr<RecordBatch> Make(
-      const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      const std::vector<std::shared_ptr<ArrayData>>& columns);
+  /// \brief Convert record batch to struct array
+  ///
+  /// Create a struct array whose child arrays are the record batch's columns.
+  /// Note that the record batch's top-level field metadata cannot be reflected
+  /// in the resulting struct array.
+  Status ToStructArray(std::shared_ptr<Array>* out) const;
 
+  /// \brief Construct record batch from struct array
+  ///
+  /// This constructs a record batch using the child arrays of the given
+  /// array, which must be a struct array.  Note that the struct array's own
+  /// null bitmap is not reflected in the resulting record batch.
   static Status FromStructArray(const std::shared_ptr<Array>& array,
                                 std::shared_ptr<RecordBatch>* out);
 
@@ -85,6 +85,9 @@ class ARROW_EXPORT RecordBatch {
   // \return the table's schema
   /// \return true if batches are equal
   std::shared_ptr<Schema> schema() const { return schema_; }
+
+  /// \brief Retrieve all columns at once
+  std::vector<std::shared_ptr<Array>> columns() const;
 
   /// \brief Retrieve an array from the record batch
   /// \param[in] i field index, does not boundscheck

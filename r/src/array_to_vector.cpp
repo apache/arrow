@@ -516,6 +516,9 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::NumericVector data(no_init(n));
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
+    auto array = internal::checked_cast<TimestampArray*>(Converter::arrays_[0].get());
+    auto array_type = internal::checked_cast<const TimestampType*>(array->type().get());
+    data.attr("tzone") = array_type->timezone();
     return data;
   }
 };
@@ -812,6 +815,7 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
 
 // [[arrow::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  // NB: this segfaults if there are 0 chunks (presumably something tries chunks[0])
   return arrow::r::ArrayVector__as_vector(chunked_array->length(),
                                           chunked_array->chunks());
 }
@@ -847,6 +851,7 @@ Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
   std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
 
   for (int64_t i = 0; i < nc; i++) {
+    // This crashes if num_chunks == 0
     converters[i] = arrow::r::Converter::Make(table->column(i)->chunks());
     names[i] = table->field(i)->name();
   }

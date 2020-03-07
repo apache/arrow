@@ -27,7 +27,7 @@ import time
 import warnings
 from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 
-from pyarrow.util import _stringify_path
+from pyarrow.util import _is_path_like, _stringify_path
 from pyarrow.compat import (
     builtin_pickle, frombytes, tobytes, encode_file_path)
 
@@ -1192,21 +1192,16 @@ cdef class CompressedInputStream(NativeFile):
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd")
     """
-    def __init__(self, NativeFile stream, compression):
+    def __init__(self, NativeFile stream, str compression not None):
         cdef:
-            CompressionType compression_type
-            unique_ptr[CCodec] codec
+            Codec codec = Codec(compression)
             shared_ptr[CCompressedInputStream] compressed_stream
-
-        compression_type = _get_compression_type(compression)
-        if compression_type == CompressionType_UNCOMPRESSED:
-            raise ValueError('Invalid value for compression: {!r}'
-                             .format(compression))
-
-        codec = move(GetResultValue(CCodec.Create(compression_type)))
-        compressed_stream = GetResultValue(CCompressedInputStream.Make(
-            codec.get(), stream.get_input_stream()))
-
+        compressed_stream = GetResultValue(
+            CCompressedInputStream.Make(
+                codec.unwrap(),
+                stream.get_input_stream()
+            )
+        )
         self.set_input_stream(<shared_ptr[CInputStream]> compressed_stream)
         self.is_readable = True
 
@@ -1222,21 +1217,16 @@ cdef class CompressedOutputStream(NativeFile):
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd")
     """
 
-    def __init__(self, NativeFile stream, compression):
+    def __init__(self, NativeFile stream, str compression not None):
         cdef:
-            CompressionType compression_type
-            unique_ptr[CCodec] codec
+            Codec codec = Codec(compression)
             shared_ptr[CCompressedOutputStream] compressed_stream
-
-        compression_type = _get_compression_type(compression)
-        if compression_type == CompressionType_UNCOMPRESSED:
-            raise ValueError('Invalid value for compression: {!r}'
-                             .format(compression))
-
-        codec = move(GetResultValue(CCodec.Create(compression_type)))
-        compressed_stream = GetResultValue(CCompressedOutputStream.Make(
-            codec.get(), stream.get_output_stream()))
-
+        compressed_stream = GetResultValue(
+            CCompressedOutputStream.Make(
+                codec.unwrap(),
+                stream.get_output_stream()
+            )
+        )
         self.set_output_stream(<shared_ptr[COutputStream]> compressed_stream)
         self.is_writable = True
 
@@ -1418,25 +1408,22 @@ cdef get_input_stream(object source, c_bool use_memory_map,
     """
     cdef:
         NativeFile nf
-        unique_ptr[CCodec] codec
+        Codec codec
         shared_ptr[CInputStream] input_stream
-        CompressionType compression_type
 
     try:
-        source_path = _stringify_path(source)
+        codec = Codec.detect(source)
     except TypeError:
-        compression = None
-    else:
-        compression = _detect_compression(source_path)
+        codec = None
 
-    compression_type = _get_compression_type(compression)
     nf = _get_native_file(source, use_memory_map)
     input_stream = nf.get_input_stream()
 
-    if compression_type != CompressionType_UNCOMPRESSED:
-        codec = move(GetResultValue(CCodec.Create(compression_type)))
+    # codec is None if compression can't be detected
+    if codec is not None:
         input_stream = <shared_ptr[CInputStream]> GetResultValue(
-            CCompressedInputStream.Make(codec.get(), input_stream))
+            CCompressedInputStream.Make(codec.unwrap(), input_stream)
+        )
 
     out[0] = input_stream
 
@@ -1463,24 +1450,6 @@ cdef get_writer(object source, shared_ptr[COutputStream]* writer):
 
 # ---------------------------------------------------------------------
 
-cdef CompressionType _get_compression_type(object name) except *:
-    if name is None or name == 'uncompressed':
-        return CompressionType_UNCOMPRESSED
-    elif name == 'bz2':
-        return CompressionType_BZ2
-    elif name == 'brotli':
-        return CompressionType_BROTLI
-    elif name == 'gzip':
-        return CompressionType_GZIP
-    elif name == 'lz4':
-        return CompressionType_LZ4
-    elif name == 'snappy':
-        return CompressionType_SNAPPY
-    elif name == 'zstd':
-        return CompressionType_ZSTD
-    else:
-        raise ValueError('Unrecognized compression type: {}'.format(name))
-
 
 def _detect_compression(path):
     if isinstance(path, str):
@@ -1494,6 +1463,207 @@ def _detect_compression(path):
             return 'zstd'
 
 
+cdef CCompressionType _ensure_compression(str name) except *:
+    uppercase = name.upper()
+    if uppercase == 'GZIP':
+        return CCompressionType_GZIP
+    elif uppercase == 'BZ2':
+        return CCompressionType_BZ2
+    elif uppercase == 'BROTLI':
+        return CCompressionType_BROTLI
+    elif uppercase == 'LZ4':
+        return CCompressionType_LZ4
+    elif uppercase == 'ZSTD':
+        return CCompressionType_ZSTD
+    elif uppercase == 'SNAPPY':
+        return CCompressionType_SNAPPY
+    else:
+        raise ValueError('Invalid value for compression: {!r}'.format(name))
+
+
+cdef class Codec:
+    """
+    Compression codec.
+
+    Parameters
+    ----------
+    compression : str
+        Type of compression codec to initialize, valid values are: gzip, bz2,
+        brotli, lz4, zstd and snappy.
+
+    Raises
+    ------
+    ValueError
+        If invalid compression value is passed.
+    """
+
+    def __init__(self, str compression not None):
+        cdef CCompressionType typ = _ensure_compression(compression)
+        self.wrapped = move(GetResultValue(CCodec.Create(typ)))
+
+    cdef inline CCodec* unwrap(self) nogil:
+        return self.wrapped.get()
+
+    @staticmethod
+    def detect(path):
+        """
+        Detect and instantiate compression codec based on file extension.
+
+        Parameters
+        ----------
+        path : str, path-like
+            File-path to detect compression from.
+
+        Raises
+        ------
+        TypeError
+            If the passed value is not path-like.
+        ValueError
+            If the compression can't be detected from the path.
+
+        Returns
+        -------
+        Codec
+        """
+        return Codec(_detect_compression(_stringify_path(path)))
+
+    @staticmethod
+    def is_available(str compression not None):
+        """
+        Returns whether the compression support has been built and enabled.
+
+        Parameters
+        ----------
+        compression: str
+             Type of compression codec, valid values are: gzip, bz2, brotli,
+             lz4, zstd and snappy.
+
+        Returns
+        -------
+        bool
+        """
+        cdef CCompressionType typ = _ensure_compression(compression)
+        return CCodec.IsAvailable(typ)
+
+    @property
+    def name(self):
+        return frombytes(self.unwrap().name())
+
+    def compress(self, object buf, asbytes=False, memory_pool=None):
+        """
+        Compress data from buffer-like object.
+
+        Parameters
+        ----------
+        buf : pyarrow.Buffer, bytes, or other object supporting buffer protocol
+        asbytes : bool, default False
+            Return result as Python bytes object, otherwise Buffer
+        memory_pool : MemoryPool, default None
+            Memory pool to use for buffer allocations, if any
+
+        Returns
+        -------
+        compressed : pyarrow.Buffer or bytes (if asbytes=True)
+        """
+        cdef:
+            shared_ptr[CBuffer] owned_buf
+            CBuffer* c_buf
+            PyObject* pyobj
+            ResizableBuffer out_buf
+            int64_t max_output_size
+            int64_t output_length
+            uint8_t* output_buffer = NULL
+
+        owned_buf = as_c_buffer(buf)
+        c_buf = owned_buf.get()
+
+        max_output_size = self.wrapped.get().MaxCompressedLen(
+            c_buf.size(), c_buf.data()
+        )
+
+        if asbytes:
+            pyobj = PyBytes_FromStringAndSizeNative(NULL, max_output_size)
+            output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(<object> pyobj)
+        else:
+            out_buf = allocate_buffer(
+                max_output_size, memory_pool=memory_pool, resizable=True
+            )
+            output_buffer = out_buf.buffer.get().mutable_data()
+
+        with nogil:
+            output_length = GetResultValue(
+                self.unwrap().Compress(
+                    c_buf.size(),
+                    c_buf.data(),
+                    max_output_size,
+                    output_buffer
+                )
+            )
+
+        if asbytes:
+            cp._PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
+            return PyObject_to_object(pyobj)
+        else:
+            out_buf.resize(output_length)
+            return out_buf
+
+    def decompress(self, object buf, decompressed_size=None, asbytes=False,
+                   memory_pool=None):
+        """
+        Decompress data from buffer-like object.
+
+        Parameters
+        ----------
+        buf : pyarrow.Buffer, bytes, or memoryview-compatible object
+        decompressed_size : int64_t, default None
+            If not specified, will be computed if the codec is able to
+            determine the uncompressed buffer size.
+        asbytes : boolean, default False
+            Return result as Python bytes object, otherwise Buffer
+        memory_pool : MemoryPool, default None
+            Memory pool to use for buffer allocations, if any.
+
+        Returns
+        -------
+        uncompressed : pyarrow.Buffer or bytes (if asbytes=True)
+        """
+        cdef:
+            shared_ptr[CBuffer] owned_buf
+            CBuffer* c_buf
+            Buffer out_buf
+            int64_t output_size
+            uint8_t* output_buffer = NULL
+
+        owned_buf = as_c_buffer(buf)
+        c_buf = owned_buf.get()
+
+        if decompressed_size is None:
+            raise ValueError(
+                "Must pass decompressed_size for {} codec".format(self)
+            )
+
+        output_size = decompressed_size
+
+        if asbytes:
+            pybuf = cp.PyBytes_FromStringAndSize(NULL, output_size)
+            output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(pybuf)
+        else:
+            out_buf = allocate_buffer(output_size, memory_pool=memory_pool)
+            output_buffer = out_buf.buffer.get().mutable_data()
+
+        with nogil:
+            GetResultValue(
+                self.unwrap().Decompress(
+                    c_buf.size(),
+                    c_buf.data(),
+                    output_size,
+                    output_buffer
+                )
+            )
+
+        return pybuf if asbytes else out_buf
+
+
 def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
     """
     Compress data from buffer-like object.
@@ -1505,53 +1675,16 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
         Compression codec.
         Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
     asbytes : boolean, default False
-        Return result as Python bytes object, otherwise Buffer
+        Return result as Python bytes object, otherwise Buffer.
     memory_pool : MemoryPool, default None
-        Memory pool to use for buffer allocations, if any
+        Memory pool to use for buffer allocations, if any.
 
     Returns
     -------
     compressed : pyarrow.Buffer or bytes (if asbytes=True)
     """
-    cdef:
-        CompressionType compression_type = _get_compression_type(codec)
-        unique_ptr[CCodec] c_codec
-        cdef shared_ptr[CBuffer] owned_buf
-        CBuffer* c_buf
-        cdef PyObject* pyobj
-        cdef ResizableBuffer out_buf
-
-    c_codec = move(GetResultValue(CCodec.Create(compression_type)))
-
-    owned_buf = as_c_buffer(buf)
-    c_buf = owned_buf.get()
-
-    cdef int64_t max_output_size = (c_codec.get()
-                                    .MaxCompressedLen(c_buf.size(),
-                                                      c_buf.data()))
-    cdef uint8_t* output_buffer = NULL
-
-    if asbytes:
-        pyobj = PyBytes_FromStringAndSizeNative(NULL, max_output_size)
-        output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(<object> pyobj)
-    else:
-        out_buf = allocate_buffer(max_output_size, memory_pool=memory_pool,
-                                  resizable=True)
-        output_buffer = out_buf.buffer.get().mutable_data()
-
-    cdef int64_t output_length
-    with nogil:
-        output_length = GetResultValue(
-            c_codec.get()
-            .Compress(c_buf.size(), c_buf.data(),
-                      max_output_size, output_buffer))
-
-    if asbytes:
-        cp._PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
-        return PyObject_to_object(pyobj)
-    else:
-        out_buf.resize(output_length)
-        return out_buf
+    cdef Codec coder = Codec(codec)
+    return coder.compress(buf, asbytes=asbytes, memory_pool=memory_pool)
 
 
 def decompress(object buf, decompressed_size=None, codec='lz4',
@@ -1577,39 +1710,9 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
     -------
     uncompressed : pyarrow.Buffer or bytes (if asbytes=True)
     """
-    cdef:
-        CompressionType compression_type = _get_compression_type(codec)
-        unique_ptr[CCodec] c_codec
-        cdef shared_ptr[CBuffer] owned_buf
-        cdef CBuffer* c_buf
-        cdef Buffer out_buf
-
-    c_codec = move(GetResultValue(CCodec.Create(compression_type)))
-
-    owned_buf = as_c_buffer(buf)
-    c_buf = owned_buf.get()
-
-    if decompressed_size is None:
-        raise ValueError("Must pass decompressed_size for {0} codec"
-                         .format(codec))
-
-    cdef int64_t output_size = decompressed_size
-    cdef uint8_t* output_buffer = NULL
-
-    if asbytes:
-        pybuf = cp.PyBytes_FromStringAndSize(NULL, output_size)
-        output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(pybuf)
-    else:
-        out_buf = allocate_buffer(output_size, memory_pool=memory_pool)
-        output_buffer = out_buf.buffer.get().mutable_data()
-
-    with nogil:
-        check_status(c_codec.get()
-                     .Decompress(c_buf.size(), c_buf.data(),
-                                 output_size, output_buffer)
-                     .status())
-
-    return pybuf if asbytes else out_buf
+    cdef Codec decoder = Codec(codec)
+    return decoder.decompress(buf, asbytes=asbytes, memory_pool=memory_pool,
+                              decompressed_size=decompressed_size)
 
 
 def input_stream(source, compression='detect', buffer_size=None):

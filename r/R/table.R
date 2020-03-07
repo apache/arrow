@@ -95,11 +95,9 @@
 #' as.data.frame(tab[4:8, c("gear", "hp", "wt")])
 #' }
 #' @export
-Table <- R6Class("Table", inherit = Object,
+Table <- R6Class("Table", inherit = ArrowObject,
   public = list(
     column = function(i) {
-      assert_is(i, c("numeric", "integer"))
-      assert_that(length(i) == 1)
       shared_ptr(ChunkedArray, Table__column(self, i))
     },
     ColumnNames = function() Table__ColumnNames(self),

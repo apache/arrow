@@ -22,23 +22,63 @@ using Rcpp::no_init;
 
 #if defined(ARROW_R_WITH_ARROW)
 
+void arrow::r::validate_slice_offset(int offset, int len) {
+  if (offset == NA_INTEGER) {
+    Rcpp::stop("Slice 'offset' cannot be NA");
+  }
+  if (offset < 0) {
+    Rcpp::stop("Slice 'offset' cannot be negative");
+  }
+  if (offset > len) {
+    Rcpp::stop("Slice 'offset' greater than array length");
+  }
+}
+
+void arrow::r::validate_slice_length(int length, int available) {
+  if (length == NA_INTEGER) {
+    Rcpp::stop("Slice 'length' cannot be NA");
+  }
+  if (length < 0) {
+    Rcpp::stop("Slice 'length' cannot be negative");
+  }
+  if (length > available) {
+    Rcpp::warning("Slice 'length' greater than available length");
+  }
+}
+
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
                                             int offset) {
+  arrow::r::validate_slice_offset(offset, array->length());
   return array->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array,
                                             int offset, int length) {
+  arrow::r::validate_slice_offset(offset, array->length());
+  arrow::r::validate_slice_length(length, array->length() - offset);
   return array->Slice(offset, length);
 }
 
+void arrow::r::validate_index(int i, int len) {
+  if (i == NA_INTEGER) {
+    Rcpp::stop("'i' cannot be NA");
+  }
+  if (i < 0 || i >= len) {
+    Rcpp::stop("subscript out of bounds");
+  }
+}
+
 // [[arrow::export]]
-bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i) { return x->IsNull(i); }
+bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i) {
+  arrow::r::validate_index(i, x->length());
+  return x->IsNull(i);
+}
 
 // [[arrow::export]]
 bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i) {
+  arrow::r::validate_index(i, x->length());
   return x->IsValid(i);
 }
 
@@ -88,6 +128,15 @@ std::shared_ptr<arrow::ArrayData> Array__data(
 bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
                         const std::shared_ptr<arrow::Array>& other, int start_idx,
                         int end_idx, int other_start_idx) {
+  if (start_idx == NA_INTEGER) {
+    Rcpp::stop("'start_idx' cannot be NA");
+  }
+  if (end_idx == NA_INTEGER) {
+    Rcpp::stop("'end_idx' cannot be NA");
+  }
+  if (other_start_idx == NA_INTEGER) {
+    Rcpp::stop("'other_start_idx' cannot be NA");
+  }
   return self->RangeEquals(*other, start_idx, end_idx, other_start_idx);
 }
 
