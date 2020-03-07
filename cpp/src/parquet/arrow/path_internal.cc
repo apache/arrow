@@ -140,7 +140,7 @@ struct PathWriteContext {
   PathWriteContext(::arrow::MemoryPool* pool,
                    std::shared_ptr<::arrow::ResizableBuffer> def_levels_buffer)
       : rep_levels(pool), def_levels(std::move(def_levels_buffer), pool) {}
-  IterationResult ReserveDefLevels(int16_t elements) {
+  IterationResult ReserveDefLevels(int64_t elements) {
     last_status = def_levels.Reserve(elements);
     if (ARROW_PREDICT_TRUE(last_status.ok())) {
       return kDone;
