@@ -235,7 +235,7 @@ class AllNullsTerminalNode {
 
 // Handles the case where all remaining arrays until the leaf have no nulls
 // (and are not interrupted by lists). Unlike AllNullsTerminalNode this is
-// always the last node in a path. We don't need an analgogue to the AllNullsTerminalNode
+// always the last node in a path. We don't need an analogue to the AllNullsTerminalNode
 // because if all values are present at an itermediate array no node is added for it
 // (the def-level for the next nullable node is incremented).
 struct AllPresentTerminalNode {
