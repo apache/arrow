@@ -157,8 +157,10 @@ set_source_files_properties(parquet_types.cpp
                             parquet_constants.cpp
                             parquet_constants.h
                             PROPERTIES
-                            GENERATED
-                            TRUE)
+                            SKIP_PRECOMPILE_HEADERS
+                            ON
+                            SKIP_UNITY_BUILD_INCLUSION
+                            ON)
 
 if(NOT MSVC)
   set_source_files_properties(src/parquet/parquet_types.cpp PROPERTIES COMPILE_FLAGS
