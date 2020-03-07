@@ -152,10 +152,10 @@ set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static thrift
 
 #
 # Generated Thrift sources
-set_source_files_properties(parquet_types.cpp
-                            parquet_types.h
-                            parquet_constants.cpp
-                            parquet_constants.h
+set_source_files_properties(src/parquet/parquet_types.cpp
+                            src/parquet/parquet_types.h
+                            src/parquet/parquet_constants.cpp
+                            src/parquet/parquet_constants.h
                             PROPERTIES
                             SKIP_PRECOMPILE_HEADERS
                             ON
