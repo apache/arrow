@@ -976,15 +976,8 @@ def generate_custom_metadata_case():
                   metadata=meta('ARROW:extension:name '
                                 'ARROW:extension:metadata')),
 
-        # test custom metadata within children of nested data types
-        # FIXME(bkietz) currently does not fail if I manually modify the
-        #               json between JSON_TO_ARROW and VALIDATE
         ListField('list_with_odd_values',
                   get_field('item', 'int32', metadata=meta('odd_values'))),
-
-        StructField('struct_with_deduped_field_names', [
-            get_field('first', 'bool', metadata=meta('among_equals')),
-            TimestampField('first', 's', tz='UTC', metadata=meta('like'))]),
     ]
 
     batch_sizes = [1]
