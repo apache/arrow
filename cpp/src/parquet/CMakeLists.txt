@@ -279,7 +279,7 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(parquet_static PUBLIC ARROW_STATIC)
 endif()
 
-add_dependencies(parquet ${PARQUET_LIBRARIES})
+add_dependencies(parquet ${PARQUET_LIBRARIES} thrift::thrift)
 
 # Thrift requires these definitions for some types that we use
 foreach(LIB_TARGET ${PARQUET_LIBRARIES})
