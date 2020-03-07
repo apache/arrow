@@ -43,7 +43,7 @@ if [ "$CMAKE_GENERATOR" = "" ]; then
   fi
 fi
 
-if [ "$ARROW_R_DEV" = "TRUE" ]; then
+if [ "$ARROW_R_DEV" = "true" ]; then
   # Print more verbosity
   EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DARROW_VERBOSE_THIRDPARTY_BUILD=ON"
 fi
