@@ -15,14 +15,7 @@
 @rem specific language governing permissions and limitations
 @rem under the License.
 
-if "%JOB:~,5%" == "MinGW" (
-    if "%ARROW_CI_RUBY_AFFECTED%" == "0" (
-        echo ===
-        echo === No C++, GLib or Ruby changes, exiting job
-        echo ===
-        appveyor exit
-    )
-) else if "%JOB:~,2%" == "R " (
+if "%JOB:~,2%" == "R " (
     if "%ARROW_CI_R_AFFECTED%" == "0" (
         echo ===
         echo === No C++ or R changes, exiting job

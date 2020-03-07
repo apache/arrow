@@ -15,10 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# depends on a C Glib image
+# depends on a C GLib image
 ARG base
 FROM ${base}
 
-# TODO(kszucs): we should install the required dependencies here
-# COPY ruby/ /arrow/
-# RUN bundle install --gemfile /arrow/ruby/red-arrow/Gemfile
+COPY ruby/ /arrow/ruby/
+RUN bundle install --gemfile /arrow/ruby/Gemfile
+RUN \
+  for package in /arrow/ruby/*; do \
+    bundle install --gemfile ${package}/Gemfile; \
+  done

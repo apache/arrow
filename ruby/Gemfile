@@ -17,25 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "rubygems"
-require "bundler/gem_helper"
+source "https://rubygems.org/"
 
-base_dir = File.join(File.dirname(__FILE__))
-
-helper = Bundler::GemHelper.new(base_dir)
-helper.install
-
-release_task = Rake::Task["release"]
-release_task.prerequisites.replace(["build", "release:rubygem_push"])
-
-desc "Run tests"
-task :test do
-  cd(base_dir) do
-    cd("dependency-check") do
-      ruby("-S", "rake")
-    end
-    ruby("test/run-test.rb")
-  end
-end
-
-task default: :test
+gem "pkg-config"

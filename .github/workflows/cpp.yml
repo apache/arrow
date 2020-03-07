@@ -186,7 +186,13 @@ jobs:
       BOOST_LIBRARYDIR: C:\local\boost_1_67_0\lib64-msvc-14.1\
     steps:
       - name: Disable Crash Dialogs
-        run: reg add "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" /v DontShowUI /t REG_DWORD /d 1 /f
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
       - name: Installed Packages
         run: choco list -l
       - name: Install Dependencies
@@ -201,3 +207,83 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+
+  windows-mingw:
+    name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mingw-n-bits:
+          - 32
+          - 64
+    env:
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TYPE: release
+      ARROW_BUILD_TESTS: ON
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: ON
+      ARROW_HDFS: OFF
+      ARROW_HOME: /mingw{{ matrix.mingw-n-bits }}
+      ARROW_JEMALLOC: OFF
+      ARROW_PARQUET: ON
+      ARROW_PYTHON: ON
+      ARROW_USE_GLOG: OFF
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      ARROW_WITH_BROTLI: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
+      # Don't use preinstalled Boost by empty BOOST_ROOT and
+      # -DBoost_NO_BOOST_CMAKE=ON
+      BOOST_ROOT: ""
+      CMAKE_ARGS: >-
+        -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
+        -DBoost_NO_BOOST_CMAKE=ON
+      CMAKE_GENERATOR: MSYS Makefiles
+      CMAKE_UNITY_BUILD: ON
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+      - name: Checkout submodules
+        run: |
+          git submodule update --init --force --recursive --depth 1
+      - name: Bootstrap MSYS2
+        run: |
+          ci\scripts\msys2_bootstrap.ps1 ${{ matrix.mingw-n-bits }}
+      - name: Setup MSYS2
+        run: |
+          . ..\env.ps1
+          bash ci\scripts\msys2_system_upgrade.sh
+          bash ci\scripts\msys2_setup.sh cpp
+      - name: Build
+        run: |
+          . ..\env.ps1
+          $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS
+          $source_dir = "$(cygpath --unix "$(Get-Location)")"
+          $build_dir = "$(cygpath --unix "$(Get-Location)\build")"
+          $ErrorActionPreference = "Continue"
+          bash ci\scripts\cpp_build.sh "${source_dir}" "${build_dir}"
+      - name: Test
+        run: |
+          . ..\env.ps1
+          $python_version = $(python -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
+          $Env:PYTHONHOME = "${Env:MINGW_PREFIX_WINDOWS}\lib\python${python_version}"
+          $Env:PYTHONPATH = "${Env:PYTHONHOME}"
+          $Env:PYTHONPATH += ";${Env:PYTHONHOME}\lib-dynload"
+          $Env:PYTHONPATH += ";${Env:PYTHONHOME}\site-packages"
+          $source_dir = "$(cygpath --unix "$(Get-Location)")"
+          $build_dir = "$(cygpath --unix "$(Get-Location)\build")"
+          $ErrorActionPreference = "Continue"
+          bash ci\scripts\cpp_test.sh "${source_dir}" "${build_dir}"
