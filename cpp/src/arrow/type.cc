@@ -1098,8 +1098,6 @@ static void AppendMetadataFingerprint(const KeyValueMetadata& metadata,
   }
 }
 
-static void AppendEmptyMetadataFingerprint(std::stringstream* ss) {}
-
 std::string Field::ComputeFingerprint() const {
   const auto& type_fingerprint = type_->fingerprint();
   if (type_fingerprint.empty()) {
@@ -1122,8 +1120,10 @@ std::string Field::ComputeMetadataFingerprint() const {
   std::stringstream ss;
   if (metadata_) {
     AppendMetadataFingerprint(*metadata_, &ss);
-  } else {
-    AppendEmptyMetadataFingerprint(&ss);
+  }
+  const auto& type_fingerprint = type_->metadata_fingerprint();
+  if (!type_fingerprint.empty()) {
+    ss << "+{" << type_->metadata_fingerprint() << "}";
   }
   return ss.str();
 }
@@ -1146,8 +1146,6 @@ std::string Schema::ComputeMetadataFingerprint() const {
   std::stringstream ss;
   if (HasMetadata()) {
     AppendMetadataFingerprint(*metadata(), &ss);
-  } else {
-    AppendEmptyMetadataFingerprint(&ss);
   }
   ss << "S{";
   for (const auto& field : fields()) {
@@ -1170,7 +1168,7 @@ std::string DataType::ComputeMetadataFingerprint() const {
   // Whatever the data type, metadata can only be found on child fields
   std::string s;
   for (const auto& child : children_) {
-    s += child->metadata_fingerprint();
+    s += child->metadata_fingerprint() + ";";
   }
   return s;
 }
