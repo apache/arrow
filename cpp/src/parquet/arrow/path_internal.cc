@@ -84,18 +84,27 @@
 
 #include "parquet/arrow/path_internal.h"
 
+#include <atomic>
+#include <cstddef>
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/extension_type.h"
 #include "arrow/memory_pool.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 #include "arrow/visitor_inline.h"
+
+#include "parquet/properties.h"
 
 namespace parquet {
 namespace arrow {

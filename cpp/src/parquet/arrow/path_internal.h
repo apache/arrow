@@ -14,17 +14,26 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <vector>
 
-#include "arrow/array.h"
 #include "arrow/status.h"
-#include "parquet/properties.h"
+
+namespace arrow {
+
+class Array;
+
+}  // namespace arrow
 
 namespace parquet {
+
+struct ArrowWriteContext;
+
 namespace arrow {
 
 // This files contain internal implementation details and should not be considered

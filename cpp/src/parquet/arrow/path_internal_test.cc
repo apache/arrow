@@ -21,18 +21,11 @@
 #include <utility>
 #include <vector>
 
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
-#include "arrow/memory_pool.h"
-#include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/random.h"
-#include "arrow/testing/util.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/decimal.h"
-#include "arrow/util/logging.h"
-#include "arrow/util/range.h"
+#include "arrow/type.h"
 
 #include "parquet/properties.h"
 
