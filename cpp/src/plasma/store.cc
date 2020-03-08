@@ -785,8 +785,8 @@ void PlasmaStore::DisconnectClient(int client_fd) {
 /// invalidated, which is why we return a valid iterator to the next client to
 /// be used in PushNotification.
 ///
-/// @param it Iterator that points to the client to send the notification to.
-/// @return Iterator pointing to the next client.
+/// \param it Iterator that points to the client to send the notification to.
+/// \return Iterator pointing to the next client.
 PlasmaStore::NotificationMap::iterator PlasmaStore::SendNotifications(
     PlasmaStore::NotificationMap::iterator it) {
   int client_fd = it->first;

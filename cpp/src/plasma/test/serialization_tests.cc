@@ -40,10 +40,10 @@ using arrow::internal::TemporaryDir;
 /**
  * Seek to the beginning of a file and read a message from it.
  *
- * @param fd File descriptor of the file.
- * @param message_type Message type that we expect in the file.
+ * \param fd File descriptor of the file.
+ * \param message_type Message type that we expect in the file.
  *
- * @return Pointer to the content of the message. Needs to be freed by the
+ * \return Pointer to the content of the message. Needs to be freed by the
  * caller.
  */
 std::vector<uint8_t> read_message_from_file(int fd, MessageType message_type) {

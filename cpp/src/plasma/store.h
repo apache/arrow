@@ -71,17 +71,17 @@ class PlasmaStore {
   /// Create a new object. The client must do a call to release_object to tell
   /// the store when it is done with the object.
   ///
-  /// @param object_id Object ID of the object to be created.
-  /// @param data_size Size in bytes of the object to be created.
-  /// @param metadata_size Size in bytes of the object metadata.
-  /// @param device_num The number of the device where the object is being
+  /// \param object_id Object ID of the object to be created.
+  /// \param data_size Size in bytes of the object to be created.
+  /// \param metadata_size Size in bytes of the object metadata.
+  /// \param device_num The number of the device where the object is being
   ///        created.
   ///        device_num = 0 corresponds to the host,
   ///        device_num = 1 corresponds to GPU0,
   ///        device_num = 2 corresponds to GPU1, etc.
-  /// @param client The client that created the object.
-  /// @param result The object that has been created.
-  /// @return One of the following error codes:
+  /// \param client The client that created the object.
+  /// \param result The object that has been created.
+  /// \return One of the following error codes:
   ///  - PlasmaError::OK, if the object was created successfully.
   ///  - PlasmaError::ObjectExists, if an object with this ID is already
   ///    present in the store. In this case, the client should not call
@@ -96,16 +96,16 @@ class PlasmaStore {
   /// Abort a created but unsealed object. If the client is not the
   /// creator, then the abort will fail.
   ///
-  /// @param object_id Object ID of the object to be aborted.
-  /// @param client The client who created the object. If this does not
+  /// \param object_id Object ID of the object to be aborted.
+  /// \param client The client who created the object. If this does not
   ///   match the creator of the object, then the abort will fail.
-  /// @return 1 if the abort succeeds, else 0.
+  /// \return 1 if the abort succeeds, else 0.
   int AbortObject(const ObjectID& object_id, Client* client);
 
   /// Delete a specific object by object_id that have been created in the hash table.
   ///
-  /// @param object_id Object ID of the object to be deleted.
-  /// @return One of the following error codes:
+  /// \param object_id Object ID of the object to be deleted.
+  /// \return One of the following error codes:
   ///  - PlasmaError::OK, if the object was delete successfully.
   ///  - PlasmaError::ObjectNonexistent, if ths object isn't existed.
   ///  - PlasmaError::ObjectInUse, if the object is in use.
@@ -113,7 +113,7 @@ class PlasmaStore {
 
   /// Evict objects returned by the eviction policy.
   ///
-  /// @param object_ids Object IDs of the objects to be evicted.
+  /// \param object_ids Object IDs of the objects to be evicted.
   void EvictObjects(const std::vector<ObjectID>& object_ids);
 
   /// Process a get request from a client. This method assumes that we will
@@ -124,47 +124,47 @@ class PlasmaStore {
   /// For each object, the client must do a call to release_object to tell the
   /// store when it is done with the object.
   ///
-  /// @param client The client making this request.
-  /// @param object_ids Object IDs of the objects to be gotten.
-  /// @param timeout_ms The timeout for the get request in milliseconds.
+  /// \param client The client making this request.
+  /// \param object_ids Object IDs of the objects to be gotten.
+  /// \param timeout_ms The timeout for the get request in milliseconds.
   void ProcessGetRequest(Client* client, const std::vector<ObjectID>& object_ids,
                          int64_t timeout_ms);
 
   /// Seal a vector of objects. The objects are now immutable and can be accessed with
   /// get.
   ///
-  /// @param object_ids The vector of Object IDs of the objects to be sealed.
-  /// @param digests The vector of digests of the objects. This is used to tell if two
+  /// \param object_ids The vector of Object IDs of the objects to be sealed.
+  /// \param digests The vector of digests of the objects. This is used to tell if two
   /// objects with the same object ID are the same.
   void SealObjects(const std::vector<ObjectID>& object_ids,
                    const std::vector<std::string>& digests);
 
   /// Check if the plasma store contains an object:
   ///
-  /// @param object_id Object ID that will be checked.
-  /// @return OBJECT_FOUND if the object is in the store, OBJECT_NOT_FOUND if
+  /// \param object_id Object ID that will be checked.
+  /// \return OBJECT_FOUND if the object is in the store, OBJECT_NOT_FOUND if
   /// not
   ObjectStatus ContainsObject(const ObjectID& object_id);
 
   /// Record the fact that a particular client is no longer using an object.
   ///
-  /// @param object_id The object ID of the object that is being released.
-  /// @param client The client making this request.
+  /// \param object_id The object ID of the object that is being released.
+  /// \param client The client making this request.
   void ReleaseObject(const ObjectID& object_id, Client* client);
 
   /// Subscribe a file descriptor to updates about new sealed objects.
   ///
-  /// @param client The client making this request.
+  /// \param client The client making this request.
   void SubscribeToUpdates(Client* client);
 
   /// Connect a new client to the PlasmaStore.
   ///
-  /// @param listener_sock The socket that is listening to incoming connections.
+  /// \param listener_sock The socket that is listening to incoming connections.
   void ConnectClient(int listener_sock);
 
   /// Disconnect a client from the PlasmaStore.
   ///
-  /// @param client_fd The client file descriptor that is disconnected.
+  /// \param client_fd The client file descriptor that is disconnected.
   void DisconnectClient(int client_fd);
 
   NotificationMap::iterator SendNotifications(NotificationMap::iterator it);
@@ -183,12 +183,12 @@ class PlasmaStore {
 
   /// Remove a GetRequest and clean up the relevant data structures.
   ///
-  /// @param get_request The GetRequest to remove.
+  /// \param get_request The GetRequest to remove.
   void RemoveGetRequest(GetRequest* get_request);
 
   /// Remove all of the GetRequests for a given client.
   ///
-  /// @param client The client whose GetRequests should be removed.
+  /// \param client The client whose GetRequests should be removed.
   void RemoveGetRequestsForClient(Client* client);
 
   void ReturnFromGet(GetRequest* get_req);
