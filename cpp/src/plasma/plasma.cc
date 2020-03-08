@@ -54,8 +54,8 @@ int WarnIfSigpipe(int status, int client_sock) {
  * of this buffer are the length of the remaining message and the
  * remaining message is a serialized version of the object info.
  *
- * @param object_info The object info to be serialized
- * @return The object info buffer. It is the caller's responsibility to free
+ * \param object_info The object info to be serialized
+ * \return The object info buffer. It is the caller's responsibility to free
  *         this buffer with "delete" after it has been used.
  */
 std::unique_ptr<uint8_t[]> CreateObjectInfoBuffer(fb::ObjectInfoT* object_info) {
