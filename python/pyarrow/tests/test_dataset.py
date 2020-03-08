@@ -182,6 +182,7 @@ def test_filesystem_dataset(mockfs):
         paths_or_selector=paths,
         partitions=partitions
     )
+    assert isinstance(source.format, ds.ParquetFileFormat)
 
     root_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
@@ -360,6 +361,7 @@ def test_expression():
     assert condition.assume(i64_is_5).equals(ds.ScalarExpression(False))
     assert condition.assume(i64_is_7).equals(ds.ScalarExpression(True))
     assert str(condition) == "(i64 > 5:int64)"
+    assert "(i64 > 5:int64)" in repr(condition)
 
 
 def test_expression_ergonomics():

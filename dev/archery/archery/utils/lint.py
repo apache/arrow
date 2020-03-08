@@ -49,7 +49,8 @@ class LintResult:
 
 
 def cpp_linter(src, build_dir, clang_format=True, cpplint=True,
-               clang_tidy=False, iwyu=False, fix=False):
+               clang_tidy=False, iwyu=False, iwyu_all=False,
+               fix=False):
     """ Run clang-format, cpplint and clang-tidy on cpp/ codebase. """
     logger.info("Running C++ linters")
 
@@ -81,7 +82,11 @@ def cpp_linter(src, build_dir, clang_format=True, cpplint=True,
         yield LintResult.from_cmd(build.run("check-clang-tidy", check=False))
 
     if iwyu:
-        yield LintResult.from_cmd(build.run("iwyu", check=False))
+        if iwyu_all:
+            iwyu_cmd = "iwyu-all"
+        else:
+            iwyu_cmd = "iwyu"
+        yield LintResult.from_cmd(build.run(iwyu_cmd, check=False))
 
 
 class CMakeFormat(Command):
@@ -284,8 +289,9 @@ def docker_linter(src):
 
 
 def linter(src, fix=False, *, clang_format=False, cpplint=False,
-           clang_tidy=False, iwyu=False, flake8=False, numpydoc=False,
-           cmake_format=False, rat=False, r=False, rust=False, docker=False):
+           clang_tidy=False, iwyu=False, iwyu_all=False,
+           flake8=False, numpydoc=False, cmake_format=False, rat=False,
+           r=False, rust=False, docker=False):
     """Run all linters."""
     with tmpdir(prefix="arrow-lint-") as root:
         build_dir = os.path.join(root, "cpp-build")
@@ -301,6 +307,7 @@ def linter(src, fix=False, *, clang_format=False, cpplint=False,
                                       cpplint=cpplint,
                                       clang_tidy=clang_tidy,
                                       iwyu=iwyu,
+                                      iwyu_all=iwyu_all,
                                       fix=fix))
 
         if flake8:

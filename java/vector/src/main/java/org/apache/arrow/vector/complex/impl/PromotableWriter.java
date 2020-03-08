@@ -59,7 +59,6 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   private MinorType type;
-  private ArrowType arrowType;
   private ValueVector vector;
   private UnionVector unionVector;
   private State state;
@@ -170,14 +169,9 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   private void setWriter(ValueVector v) {
-    setWriter(v, null);
-  }
-
-  private void setWriter(ValueVector v, ArrowType arrowType) {
     state = State.SINGLE;
     vector = v;
     type = v.getMinorType();
-    this.arrowType = arrowType;
     switch (type) {
       case STRUCT:
         writer = nullableStructWriterFactory.build((StructVector) vector);
@@ -211,7 +205,11 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   protected FieldWriter getWriter(MinorType type, ArrowType arrowType) {
     if (state == State.UNION) {
-      ((UnionWriter) writer).getWriter(type);
+      if (type == MinorType.DECIMAL) {
+        ((UnionWriter) writer).getWriter(type, arrowType);
+      } else {
+        ((UnionWriter) writer).getWriter(type);
+      }
     } else if (state == State.UNTYPED) {
       if (type == null) {
         // ???
@@ -224,11 +222,15 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       ValueVector v = listVector != null ? listVector.addOrGetVector(fieldType).getVector() :
           fixedListVector.addOrGetVector(fieldType).getVector();
       v.allocateNew();
-      setWriter(v, arrowType);
+      setWriter(v);
       writer.setPosition(position);
     } else if (type != this.type) {
       promoteToUnion();
-      ((UnionWriter) writer).getWriter(type);
+      if (type == MinorType.DECIMAL) {
+        ((UnionWriter) writer).getWriter(type, arrowType);
+      } else {
+        ((UnionWriter) writer).getWriter(type);
+      }
     }
     return writer;
   }
@@ -268,32 +270,24 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   @Override
   public void write(DecimalHolder holder) {
-    // Infer decimal scale and precision
-    if (arrowType == null) {
-      arrowType = new ArrowType.Decimal(MAX_DECIMAL_PRECISION, holder.scale);
-    }
-
-    getWriter(MinorType.DECIMAL, arrowType).write(holder);
+    getWriter(MinorType.DECIMAL, new ArrowType.Decimal(MAX_DECIMAL_PRECISION, holder.scale)).write(holder);
   }
 
   @Override
-  public void writeDecimal(int start, ArrowBuf buffer) {
-    // Cannot infer decimal scale and precision
-    if (arrowType == null) {
-      throw new IllegalStateException("Cannot infer decimal scale and precision");
-    }
-
-    getWriter(MinorType.DECIMAL, arrowType).writeDecimal(start, buffer);
+  public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL, new ArrowType.Decimal(MAX_DECIMAL_PRECISION,
+        ((ArrowType.Decimal) arrowType).getScale())).writeDecimal(start, buffer, arrowType);
   }
 
   @Override
   public void writeDecimal(BigDecimal value) {
-    // Infer decimal scale and precision
-    if (arrowType == null) {
-      arrowType = new ArrowType.Decimal(MAX_DECIMAL_PRECISION, value.scale());
-    }
+    getWriter(MinorType.DECIMAL, new ArrowType.Decimal(MAX_DECIMAL_PRECISION, value.scale())).writeDecimal(value);
+  }
 
-    getWriter(MinorType.DECIMAL, arrowType).writeDecimal(value);
+  @Override
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL, new ArrowType.Decimal(MAX_DECIMAL_PRECISION,
+        ((ArrowType.Decimal) arrowType).getScale())).writeBigEndianBytesToDecimal(value, arrowType);
   }
 
   @Override

@@ -15,18 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_SPARSE_TENSOR_H
-#define ARROW_SPARSE_TENSOR_H
+#pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
-#include "arrow/tensor.h"
+#include "arrow/buffer.h"
+#include "arrow/compare.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/tensor.h"  // IWYU pragma: export
+#include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class MemoryPool;
 
 // ----------------------------------------------------------------------
 // SparseIndex class
@@ -596,5 +606,3 @@ using SparseCSCMatrix = SparseTensorImpl<SparseCSCIndex>;
 using SparseCSFTensor = SparseTensorImpl<SparseCSFIndex>;
 
 }  // namespace arrow
-
-#endif  // ARROW_SPARSE_TENSOR_H

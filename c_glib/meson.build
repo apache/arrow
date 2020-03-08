@@ -65,6 +65,12 @@ endif
 
 if arrow_cpp_build_lib_dir == ''
   arrow = dependency('arrow')
+  # They are just for checking required modules are enabled. They are built into
+  # libarrow.so. So we don't need additional build flags for them.
+  dependency('arrow-compute')
+  dependency('arrow-csv')
+  dependency('arrow-filesystem')
+
   have_arrow_orc = dependency('arrow-orc', required: false).found()
   arrow_cuda = dependency('arrow-cuda', required: false)
   gandiva = dependency('gandiva', required: false)

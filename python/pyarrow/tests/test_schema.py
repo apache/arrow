@@ -23,6 +23,8 @@ import pytest
 import numpy as np
 import pyarrow as pa
 
+import pyarrow.tests.util as test_util
+
 
 def test_schema_constructor_errors():
     msg = ("Do not call Schema's constructor directly, use `pyarrow.schema` "
@@ -68,6 +70,12 @@ def test_type_to_pandas_dtype():
     ]
     for arrow_type, numpy_type in cases:
         assert arrow_type.to_pandas_dtype() == numpy_type
+
+
+@pytest.mark.pandas
+def test_type_to_pandas_dtype_check_import():
+    # ARROW-7980
+    test_util.invoke_script('arrow_7980.py')
 
 
 def test_type_list():

@@ -123,7 +123,7 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
         <#assign name = minor.class?cap_first />
         <#assign fields = minor.fields!type.fields />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams??>
+        <#if !minor.typeParams?? || minor.class == "Decimal">
       case ${name?upper_case}:
       return get${name}Writer(typeId);
         </#if>
@@ -138,7 +138,7 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
       <#assign name = minor.class?cap_first />
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
-      <#if !minor.typeParams?? >
+      <#if !minor.typeParams?? || minor.class == "Decimal">
 
   private ${name}Writer get${name}Writer(byte typeId) {
     ${name}Writer writer = (${name}Writer) writers[typeId];
@@ -159,10 +159,10 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
     throw new UnsupportedOperationException();
   }
 
-  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>, byte typeId) {
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>, byte typeId<#if minor.class == "Decimal">, ArrowType arrowType</#if>) {
     data.setTypeId(idx(), typeId);
     get${name}Writer(typeId).setPosition(data.getOffset(idx()));
-    get${name}Writer(typeId).write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+    get${name}Writer(typeId).write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list><#if minor.class == "Decimal">, arrowType</#if>);
   }
       </#if>
     </#list>
@@ -208,7 +208,7 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
-  <#if !minor.typeParams?? >
+  <#if !minor.typeParams?? || minor.class == "Decimal" >
   @Override
   public ${capName}Writer ${lowerName}(String name) {
     byte typeId = data.getTypeId(idx());
@@ -223,6 +223,14 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
     data.setTypeId(idx(), typeId);
     getListWriter(typeId).setPosition(data.getOffset(idx()));
     return getListWriter(typeId).${lowerName}();
+  }
+  </#if>
+  <#if minor.class == "Decimal">
+  public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+    byte typeId = data.getTypeId(idx());
+    data.setTypeId(idx(), typeId);
+    getStructWriter(typeId).setPosition(data.getOffset(idx()));
+    return getStructWriter(typeId).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
   </#if>
   </#list></#list>

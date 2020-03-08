@@ -82,27 +82,6 @@ def create_object(client, data_size, metadata_size=0, seal=True):
     return object_id, memory_buffer, metadata
 
 
-def assert_get_object_equal(unit_test, client1, client2, object_id,
-                            memory_buffer=None, metadata=None):
-    import pyarrow.plasma as plasma
-    client1_buff = client1.get_buffers([object_id])[0]
-    client2_buff = client2.get_buffers([object_id])[0]
-    client1_metadata = client1.get_metadata([object_id])[0]
-    client2_metadata = client2.get_metadata([object_id])[0]
-    assert len(client1_buff) == len(client2_buff)
-    assert len(client1_metadata) == len(client2_metadata)
-    # Check that the buffers from the two clients are the same.
-    assert plasma.buffers_equal(client1_buff, client2_buff)
-    # Check that the metadata buffers from the two clients are the same.
-    assert plasma.buffers_equal(client1_metadata, client2_metadata)
-    # If a reference buffer was provided, check that it is the same as well.
-    if memory_buffer is not None:
-        assert plasma.buffers_equal(memory_buffer, client1_buff)
-    # If reference metadata was provided, check that it is the same as well.
-    if metadata is not None:
-        assert plasma.buffers_equal(metadata, client1_metadata)
-
-
 @pytest.mark.plasma
 class TestPlasmaClient:
 

@@ -69,6 +69,7 @@ BEGIN {
   # muted["relative/path/to/file"]
   muted["arrow/util/bit-util-test.cc"]
   muted["arrow/util/rle-encoding-test.cc"]
+  muted["arrow/vendored"]
   muted["include/hdfs.h"]
   muted["arrow/visitor.h"]
 }

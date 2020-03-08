@@ -49,3 +49,6 @@
 #include <arrow-glib/metadata-version.h>
 #include <arrow-glib/reader.h>
 #include <arrow-glib/writer.h>
+
+#include <arrow-glib/file-system.h>
+#include <arrow-glib/local-file-system.h>

@@ -91,6 +91,18 @@
     </chapter>
   </part>
 
+  <part id="file-system-api">
+    <title>File system API</title>
+    <chapter id="file-system">
+      <title>File system</title>
+      <xi:include href="xml/file-system.xml"/>
+    </chapter>
+    <chapter id="local-file-system">
+      <title>Local file system</title>
+      <xi:include href="xml/local-file-system.xml"/>
+    </chapter>
+  </part>
+
   <part id="io">
     <title>IO</title>
     <chapter id="mode">

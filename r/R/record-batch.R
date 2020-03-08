@@ -76,11 +76,7 @@
 #' @name RecordBatch
 RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
   public = list(
-    column = function(i) {
-      assert_is(i, c("numeric", "integer"))
-      assert_that(length(i) == 1)
-      shared_ptr(Array, RecordBatch__column(self, i))
-    },
+    column = function(i) shared_ptr(Array, RecordBatch__column(self, i)),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
     Equals = function(other, ...) {
@@ -234,31 +230,11 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, use
   RecordBatch__to_dataframe(x, use_threads = option_use_threads())
 }
 
-#' @importFrom utils head
 #' @export
-head.RecordBatch <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
-  if (n < 0) {
-    # head(x, negative) means all but the last n rows
-    n <- nrow(x) + n
-  }
-  x$Slice(0, n)
-}
+head.RecordBatch <- head.Array
 
-#' @importFrom utils tail
 #' @export
-tail.RecordBatch <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
-  if (n < 0) {
-    # tail(x, negative) means all but the first n rows
-    n <- -n
-  } else {
-    n <- nrow(x) - n
-  }
-  x$Slice(n)
-}
+tail.RecordBatch <- tail.Array
 
 ToString_tabular <- function(x, ...) {
   # Generic to work with both RecordBatch and Table

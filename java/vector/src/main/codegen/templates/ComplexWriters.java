@@ -99,6 +99,7 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
 
   <#else>
 
+  <#if minor.class != "Decimal">
   public void write(${minor.class}Holder h) {
     vector.setSafe(idx(), h);
     vector.setValueCount(idx()+1);
@@ -113,9 +114,9 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     vector.setSafe(idx(), 1<#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
     vector.setValueCount(idx()+1);
   }
+  </#if>
 
-  <#if minor.class == "Decimal" ||
-       minor.class == "VarChar">
+  <#if minor.class == "VarChar">
   public void write${minor.class}(${friendlyType} value) {
     vector.setSafe(idx(), value);
     vector.setValueCount(idx()+1);
@@ -123,9 +124,49 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
   </#if>
 
   <#if minor.class == "Decimal">
-  public void writeBigEndianBytesToDecimal(byte[] value) {
+
+  public void write(DecimalHolder h){
+    DecimalUtility.checkPrecisionAndScale(h.precision, h.scale, vector.getPrecision(), vector.getScale());
+    vector.setSafe(idx(), h);
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void write(NullableDecimalHolder h){
+    if (h.isSet == 1) {
+      DecimalUtility.checkPrecisionAndScale(h.precision, h.scale, vector.getPrecision(), vector.getScale());
+    }
+    vector.setSafe(idx(), h);
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void writeDecimal(int start, ArrowBuf buffer){
+    vector.setSafe(idx(), 1, start, buffer);
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType){
+    DecimalUtility.checkPrecisionAndScale(((ArrowType.Decimal) arrowType).getPrecision(),
+      ((ArrowType.Decimal) arrowType).getScale(), vector.getPrecision(), vector.getScale());
+    vector.setSafe(idx(), 1, start, buffer);
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void writeDecimal(BigDecimal value){
+    // vector.setSafe already does precision and scale checking
+    vector.setSafe(idx(), value);
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType){
+    DecimalUtility.checkPrecisionAndScale(((ArrowType.Decimal) arrowType).getPrecision(),
+        ((ArrowType.Decimal) arrowType).getScale(), vector.getPrecision(), vector.getScale());
     vector.setBigEndianSafe(idx(), value);
-    vector.setValueCount(idx()+1);
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void writeBigEndianBytesToDecimal(byte[] value){
+    vector.setBigEndianSafe(idx(), value);
+    vector.setValueCount(idx() + 1);
   }
   </#if>
 
@@ -149,11 +190,17 @@ package org.apache.arrow.vector.complex.writer;
 public interface ${eName}Writer extends BaseWriter {
   public void write(${minor.class}Holder h);
 
+  <#if minor.class == "Decimal">@Deprecated</#if>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>);
 <#if minor.class == "Decimal">
 
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>, ArrowType arrowType);
+
   public void write${minor.class}(${friendlyType} value);
 
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType);
+
+  @Deprecated
   public void writeBigEndianBytesToDecimal(byte[] value);
 </#if>
 }

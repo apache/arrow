@@ -49,12 +49,14 @@ std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> Table__column(
     const std::shared_ptr<arrow::Table>& table, int i) {
+  arrow::r::validate_index(i, table->num_columns());
   return table->column(i);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Field> Table__field(const std::shared_ptr<arrow::Table>& table,
                                            int i) {
+  arrow::r::validate_index(i, table->num_columns());
   return table->field(i);
 }
 
@@ -77,12 +79,15 @@ std::vector<std::string> Table__ColumnNames(const std::shared_ptr<arrow::Table>&
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__Slice1(const std::shared_ptr<arrow::Table>& table,
                                             int offset) {
+  arrow::r::validate_slice_offset(offset, table->num_rows());
   return table->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__Slice2(const std::shared_ptr<arrow::Table>& table,
                                             int offset, int length) {
+  arrow::r::validate_slice_offset(offset, table->num_rows());
+  arrow::r::validate_slice_length(length, table->num_rows() - offset);
   return table->Slice(offset, length);
 }
 

@@ -53,6 +53,7 @@ arrow::ArrayVector RecordBatch__columns(
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> RecordBatch__column(
     const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
+  arrow::r::validate_index(i, batch->num_columns());
   return batch->column(i);
 }
 
@@ -109,6 +110,7 @@ bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(
     const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
+  arrow::r::validate_index(i, batch->num_columns());
   std::shared_ptr<arrow::RecordBatch> res;
   STOP_IF_NOT_OK(batch->RemoveColumn(i, &res));
   return res;
@@ -117,6 +119,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(
 // [[arrow::export]]
 std::string RecordBatch__column_name(const std::shared_ptr<arrow::RecordBatch>& batch,
                                      int i) {
+  arrow::r::validate_index(i, batch->num_columns());
   return batch->column_name(i);
 }
 
@@ -134,12 +137,15 @@ Rcpp::CharacterVector RecordBatch__names(
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(
     const std::shared_ptr<arrow::RecordBatch>& self, int offset) {
+  arrow::r::validate_slice_offset(offset, self->num_rows());
   return self->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(
     const std::shared_ptr<arrow::RecordBatch>& self, int offset, int length) {
+  arrow::r::validate_slice_offset(offset, self->num_rows());
+  arrow::r::validate_slice_length(length, self->num_rows() - offset);
   return self->Slice(offset, length);
 }
 

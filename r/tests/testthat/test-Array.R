@@ -45,18 +45,56 @@ expect_array_roundtrip <- function(x, type) {
 test_that("Integer Array", {
   ints <- c(1:10, 1:10, 1:5)
   x <- expect_array_roundtrip(ints, int32())
+})
+
+test_that("Slice() and RangeEquals()", {
+  ints <- c(1:10, 101:110, 201:205)
+  x <- Array$create(ints)
 
   y <- x$Slice(10)
   expect_equal(y$type, int32())
   expect_equal(length(y), 15L)
-  expect_vector(y, c(1:10, 1:5))
-  expect_true(x$RangeEquals(y, 10, 24, 0))
+  expect_vector(y, c(101:110, 201:205))
+  expect_true(x$RangeEquals(y, 10, 24))
+  expect_false(x$RangeEquals(y, 9, 23))
+  expect_false(x$RangeEquals(y, 11, 24))
 
   z <- x$Slice(10, 5)
-  expect_equal(z$type, int32())
-  expect_equal(z$length(), 5L)
-  expect_vector(z, c(1:5))
+  expect_vector(z, c(101:105))
   expect_true(x$RangeEquals(z, 10, 15, 0))
+
+  # Input validation
+  expect_error(x$Slice("ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(NA_integer_), "Slice 'offset' cannot be NA")
+  expect_error(x$Slice(NA), "Slice 'offset' cannot be NA")
+  expect_error(x$Slice(10, "ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
+  expect_error(x$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
+  expect_error(x$Slice(c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(1000), "Slice 'offset' greater than array length")
+  expect_error(x$Slice(-1), "Slice 'offset' cannot be negative")
+  expect_error(z$Slice(10, 10), "Slice 'offset' greater than array length")
+  expect_error(x$Slice(10, -1), "Slice 'length' cannot be negative")
+  expect_error(x$Slice(-1, 10), "Slice 'offset' cannot be negative")
+
+  expect_warning(x$Slice(10, 15), NA)
+  expect_warning(
+    overslice <- x$Slice(10, 16),
+    "Slice 'length' greater than available length"
+  )
+  expect_equal(length(overslice), 15)
+  expect_warning(z$Slice(2, 10), "Slice 'length' greater than available length")
+
+  expect_error(x$RangeEquals(10, 24, 0), 'other must be a "Array"')
+  expect_error(x$RangeEquals(y, NA, 24), "'start_idx' cannot be NA")
+  expect_error(x$RangeEquals(y, 10, NA), "'end_idx' cannot be NA")
+  expect_error(x$RangeEquals(y, 10, 24, NA), "'other_start_idx' cannot be NA")
+  expect_error(x$RangeEquals(y, "ten", 24), class = "Rcpp::not_compatible")
+  # TODO (if anyone uses RangeEquals)
+  # expect_error(x$RangeEquals(y, 10, 2400, 0)) # does not error
+  # expect_error(x$RangeEquals(y, 1000, 24, 0)) # does not error
+  # expect_error(x$RangeEquals(y, 10, 24, 1000)) # does not error
 })
 
 test_that("Double Array", {
@@ -72,13 +110,25 @@ test_that("Array print method includes type", {
 test_that("Array supports NA", {
   x_int <- Array$create(as.integer(c(1:10, NA)))
   x_dbl <- Array$create(as.numeric(c(1:10, NA)))
-  expect_true(x_int$IsValid(0L))
+  expect_true(x_int$IsValid(0))
   expect_true(x_dbl$IsValid(0L))
   expect_true(x_int$IsNull(10L))
-  expect_true(x_dbl$IsNull(10L))
+  expect_true(x_dbl$IsNull(10))
 
   expect_equal(is.na(x_int), c(rep(FALSE, 10), TRUE))
   expect_equal(is.na(x_dbl), c(rep(FALSE, 10), TRUE))
+
+  # Input validation
+  expect_error(x_int$IsValid("ten"), class = "Rcpp::not_compatible")
+  expect_error(x_int$IsNull("ten"), class = "Rcpp::not_compatible")
+  expect_error(x_int$IsValid(c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x_int$IsNull(c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x_int$IsValid(NA), "'i' cannot be NA")
+  expect_error(x_int$IsNull(NA), "'i' cannot be NA")
+  expect_error(x_int$IsValid(1000), "subscript out of bounds")
+  expect_error(x_int$IsValid(-1), "subscript out of bounds")
+  expect_error(x_int$IsNull(1000), "subscript out of bounds")
+  expect_error(x_int$IsNull(-1), "subscript out of bounds")
 })
 
 test_that("Array support null type (ARROW-7064)", {
@@ -257,7 +307,7 @@ test_that("cast to half float works", {
   skip("Need halffloat support: https://issues.apache.org/jira/browse/ARROW-3802")
   a <- Array$create(1:4)
   a_f16 <- a$cast(float16())
-  expect_equal(a_16$type, float16())
+  expect_type_equal(a_16$type, float16())
 })
 
 test_that("cast input validation", {
@@ -276,8 +326,8 @@ test_that("Array$create() supports the type= argument. conversion from INTSXP an
     double() # not actually a type, a base R function but should be alias for float64
   )
   for (type in types) {
-    expect_equal(Array$create(num_int32, type = type)$type, as_type(type))
-    expect_equal(Array$create(num_int64, type = type)$type, as_type(type))
+    expect_type_equal(Array$create(num_int32, type = type)$type, as_type(type))
+    expect_type_equal(Array$create(num_int64, type = type)$type, as_type(type))
   }
 
   # Input validation
@@ -311,18 +361,18 @@ test_that("Array$create() aborts on overflow", {
 test_that("Array$create() does not convert doubles to integer", {
   for (type in c(int_types, uint_types)) {
     a <- Array$create(10, type = type)
-    expect_equal(a$type, type)
+    expect_type_equal(a$type, type)
 
     # exception for now because we cannot handle
     # unsigned 64 bit integers yet
     if (type != uint64()) {
-      expect_true(a$as_vector() == 10L)
+      expect_true(as.vector(a) == 10L)
     }
   }
 })
 
 test_that("Array$create() converts raw vectors to uint8 arrays (ARROW-3794)", {
-  expect_equal(Array$create(as.raw(1:10))$type, uint8())
+  expect_type_equal(Array$create(as.raw(1:10))$type, uint8())
 })
 
 test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
@@ -343,15 +393,15 @@ test_that("Array$create() recognise arrow::Array (ARROW-3815)", {
 test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
   a <- Array$create(df)
-  expect_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
-  expect_equivalent(a$as_vector(), df)
+  expect_type_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
+  expect_equivalent(as.vector(a), df)
 })
 
 test_that("Array$create() can handle data frame with custom struct type (not inferred)", {
   df <- tibble::tibble(x = 1:10, y = 1:10)
   type <- struct(x = float64(), y = int16())
   a <- Array$create(df, type = type)
-  expect_equal(a$type, type)
+  expect_type_equal(a$type, type)
 
   type <- struct(x = float64(), y = int16(), z = int32())
   expect_error(Array$create(df, type = type), regexp = "Number of fields in struct.* incompatible with number of columns in the data frame")
@@ -494,6 +544,20 @@ test_that("[ accepts Expressions", {
   expect_vector(a[b > 4], vec[5:10])
 })
 
+test_that("Array head/tail", {
+  vec <- 11:20
+  a <- Array$create(vec)
+  expect_vector(head(a), head(vec))
+  expect_vector(head(a, 4), head(vec, 4))
+  expect_vector(head(a, 40), head(vec, 40))
+  expect_vector(head(a, -4), head(vec, -4))
+  expect_vector(head(a, -40), head(vec, -40))
+  expect_vector(tail(a), tail(vec))
+  expect_vector(tail(a, 4), tail(vec, 4))
+  expect_vector(tail(a, 40), tail(vec, 40))
+  expect_vector(tail(a, -40), tail(vec, -40))
+})
+
 test_that("Dictionary array: create from arrays, not factor", {
   a <- DictionaryArray$create(c(2L, 1L, 1L, 2L, 0L), c(4.5, 3.2, 1.1))
   expect_equal(a$type, dictionary(int32(), float64()))
@@ -514,7 +578,18 @@ test_that("Array$Equals", {
   vec <- 11:20
   a <- Array$create(vec)
   b <- Array$create(vec)
+  d <- Array$create(3:4)
   expect_equal(a, b)
   expect_true(a$Equals(b))
   expect_false(a$Equals(vec))
+  expect_false(a$Equals(d))
+})
+
+test_that("Array$ApproxEquals", {
+  vec <- c(1.0000000000001, 2.400000000000001)
+  a <- Array$create(vec)
+  b <- Array$create(round(vec, 1))
+  expect_false(a$Equals(b))
+  expect_true(a$ApproxEquals(b))
+  expect_false(a$ApproxEquals(vec))
 })

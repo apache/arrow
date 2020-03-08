@@ -333,6 +333,7 @@ inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
   int remaining_nulls = null_count;
+  T zero = {};
 
   arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, batch_size);
 
@@ -383,6 +384,7 @@ inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
             *out = indices[literals_read];
             literals_read++;
           } else {
+            *out = zero;
             skipped++;
           }
           ++out;
@@ -393,6 +395,7 @@ inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
         remaining_nulls -= skipped;
       }
     } else {
+      *out = zero;
       ++out;
       values_read++;
       remaining_nulls--;
