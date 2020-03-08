@@ -22,6 +22,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 
 #include "parquet/platform.h"
@@ -115,16 +116,41 @@ class PARQUET_EXPORT MultipathLevelBuilder {
   ///   the elements in the top level array nullable.
   /// \param[in, out] context for use when allocating memory, etc.
   /// \param[out] write_leaf_callback Callback to receive results.
-  /// There will be one call to the write_leaf_callback for
+  /// There will be one call to the write_leaf_callback for each leaf node.
   static ::arrow::Status Write(const ::arrow::Array& array, bool array_nullable,
                                ArrowWriteContext* context,
                                CallbackFunction write_leaf_callback);
 
+  /// \brief Construct a new instance of the builder.
+  ///
+  /// \param[in] array The array to process.
+  /// \param[in] array_nullable Whether the algorithm should consider
+  ///   the elements in the top level array nullable.
+  static ::arrow::Result<std::unique_ptr<MultipathLevelBuilder>> Create(
+      const ::arrow::Array& array, bool array_nullable);
+
+  ~MultipathLevelBuilder();
+
+  /// \brief Returns the number of leaf columns that need to be written
+  /// to Parquet.
+  int GetLeafCount() const;
+
+  /// \brief Calls write_leaf_callback with the MultipathLevelBuilderResult corresponding
+  /// to |leaf_index|.
+
+  /// \param[in] The index of the leaf column to write.  Must be in the range [0,
+  /// GetLeafCount()]. \param[in, out] context for use when allocating memory, etc.
+  /// \param[out] write_leaf_callback Callback to receive the result.
+  ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
+                        CallbackFunction write_leaf_callback);
+
  private:
-  MultipathLevelBuilder();
+  class Impl;
+  MultipathLevelBuilder(Impl* impl);
   // Not copyable.
   MultipathLevelBuilder(const MultipathLevelBuilder&) = delete;
   MultipathLevelBuilder& operator=(const MultipathLevelBuilder&) = delete;
+  Impl* impl_;
 };
 
 }  // namespace arrow

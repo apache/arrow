@@ -402,6 +402,7 @@ Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
   array_data->child_data.push_back(child_data);
 
   *out_array = ::arrow::MakeArray(array_data);
+  (*out_array)->null_count();
   return Status::OK();
 }
 

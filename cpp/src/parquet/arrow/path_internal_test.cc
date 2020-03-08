@@ -161,6 +161,32 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullsLists) {
                      /*rep_levels=*/std::vector<int16_t>(4, 0));
 }
 
+TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyLists) {
+  auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
+  auto list_type = list(entries);
+  // Translates to parquet schema:
+  // optional group bag {
+  //   repeated group [unseen] (List) {
+  //       required int64 Entries;
+  //   }
+  // }
+  // So:
+  // def level 0: a null list
+  // def level 1: an empty list
+  // def level 2: a null entry
+  // def level 3: a non-null entry
+
+  auto array = ::arrow::ArrayFromJSON(list_type, R"([[], [], [], []])");
+
+  ASSERT_OK(
+      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+
+  ASSERT_THAT(results_, SizeIs(1));
+  const CapturedResult& result = results_[0];
+  result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/4, 1),
+                     /*rep_levels=*/std::vector<int16_t>(4, 0));
+}
+
 // This Parquet schema used for the next several tests
 //
 // optional group bag {
@@ -356,6 +382,8 @@ TEST_F(MultipathLevelBuilderTest, TripleNestedListsAllPresent) {
                          0, 3, 3, 2, 3, 3, 1, 3, 3  // first row
                      });
 }
+
+// TODO test empty.
 
 TEST_F(MultipathLevelBuilderTest, TripleNestedListsWithSomeNullsSomeEmptys) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);

@@ -577,6 +577,10 @@ ArrowReaderProperties default_arrow_reader_properties();
 
 class PARQUET_EXPORT ArrowWriterProperties {
  public:
+  enum EngineVersion {
+    V1,  // Supports only nested lists.
+    V2   // Full support for all nesting combinations
+  };
   class Builder {
    public:
     Builder()
@@ -586,8 +590,9 @@ class PARQUET_EXPORT ArrowWriterProperties {
           truncated_timestamps_allowed_(false),
           store_schema_(false),
           // TODO: At some point we should flip this.
-          compliant_nested_types_(false) {}
-    virtual ~Builder() {}
+          compliant_nested_types_(false),
+          engine_version_(V2) {}
+    virtual ~Builder() = default;
 
     Builder* disable_deprecated_int96_timestamps() {
       write_timestamps_as_int96_ = false;
@@ -633,10 +638,16 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
+    Builder* set_engine_version(EngineVersion version) {
+      engine_version_ = version;
+      return this;
+    }
+
     std::shared_ptr<ArrowWriterProperties> build() {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
-          truncated_timestamps_allowed_, store_schema_, compliant_nested_types_));
+          truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
+          engine_version_));
     }
 
    private:
@@ -648,6 +659,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
 
     bool store_schema_;
     bool compliant_nested_types_;
+    EngineVersion engine_version_;
   };
 
   bool support_deprecated_int96_timestamps() const { return write_timestamps_as_int96_; }
@@ -668,18 +680,26 @@ class PARQUET_EXPORT ArrowWriterProperties {
   /// "element".
   bool compliant_nested_types() const { return compliant_nested_types_; }
 
+  /// \brief The underlying engine version to use when writing Arrow data.
+  ///
+  /// V2 is currently the latest V1 is considered deprecated but left in
+  /// place in case there are bugs detected in V2.
+  EngineVersion engine_version() const { return engine_version_; }
+
  private:
   explicit ArrowWriterProperties(bool write_nanos_as_int96,
                                  bool coerce_timestamps_enabled,
                                  ::arrow::TimeUnit::type coerce_timestamps_unit,
                                  bool truncated_timestamps_allowed, bool store_schema,
-                                 bool compliant_nested_types)
+                                 bool compliant_nested_types,
+                                 EngineVersion engine_version)
       : write_timestamps_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
         coerce_timestamps_unit_(coerce_timestamps_unit),
         truncated_timestamps_allowed_(truncated_timestamps_allowed),
         store_schema_(store_schema),
-        compliant_nested_types_(compliant_nested_types) {}
+        compliant_nested_types_(compliant_nested_types),
+        engine_version_(engine_version) {}
 
   const bool write_timestamps_as_int96_;
   const bool coerce_timestamps_enabled_;
@@ -687,6 +707,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
   const bool truncated_timestamps_allowed_;
   const bool store_schema_;
   const bool compliant_nested_types_;
+  const EngineVersion engine_version_;
 };
 
 /// \brief State object used for writing Arrow data directly to a Parquet
