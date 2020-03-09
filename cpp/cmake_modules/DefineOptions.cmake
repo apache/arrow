@@ -102,7 +102,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
 
-  define_option(ARROW_RPATH_ORIGIN "Build Arrow libraries with RATH set to \$ORIGIN" OFF)
+  define_option(ARROW_RPATH_ORIGIN "Build Arrow libraries with RPATH set to \$ORIGIN" OFF)
 
   define_option(ARROW_INSTALL_NAME_RPATH
                 "Build Arrow libraries with install_name set to @rpath" ON)

@@ -282,10 +282,6 @@ if(CXX_SUPPORTS_ARMCRC)
   endif()
 endif()
 
-if(ARROW_USE_SIMD)
-  add_definitions(-DARROW_USE_SIMD)
-endif()
-
 # ----------------------------------------------------------------------
 # Setup Gold linker, if available. Code originally from Apache Kudu
 
