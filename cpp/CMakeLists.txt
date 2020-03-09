@@ -826,8 +826,8 @@ endif()
 
 # Write out arrow and third party package configurations.
 
-configure_file("src/arrow/config.h.cmake" "${CMAKE_CURRENT_BINARY_DIR}/src/arrow/config.h" @ONLY)
-
+configure_file("src/arrow/config.h.cmake" "${CMAKE_CURRENT_BINARY_DIR}/src/arrow/config.h"
+               @ONLY)
 
 install(FILES "${ARROW_BINARY_DIR}/src/arrow/config.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow")
