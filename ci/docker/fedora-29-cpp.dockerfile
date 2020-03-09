@@ -22,7 +22,6 @@ FROM ${arch}/fedora:29
 RUN dnf update -y && \
 	dnf install -y \
         autoconf \
-        bison \
         boost-devel \
         brotli-devel \
         bzip2-devel \
@@ -30,7 +29,6 @@ RUN dnf update -y && \
         clang-devel \
         cmake \
         flatbuffers-devel \
-        flex \
         java-openjdk-devel \
         java-openjdk-headless \
         gcc \

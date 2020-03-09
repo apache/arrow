@@ -54,11 +54,9 @@ RUN wget -q -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
-        bison \
         ca-certificates \
         ccache \
         cmake \
-        flex \
         g++ \
         gcc \
         gdb \
@@ -82,7 +80,6 @@ RUN apt-get update -y -q && \
         pkg-config \
         protobuf-compiler \
         rapidjson-dev \
-        thrift-compiler \
         tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*

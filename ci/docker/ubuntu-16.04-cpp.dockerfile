@@ -28,12 +28,10 @@ RUN apt-get update -y -q && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
-        bison \
         ca-certificates \
         ccache \
         clang-7 \
         cmake \
-        flex \
         g++ \
         gcc \
         gdb \

@@ -21,11 +21,9 @@ FROM wch1/r-debug:latest
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
       autoconf \
-      bison \
       ca-certificates \
       ccache \
       cmake \
-      flex \
       g++ \
       gcc \
       git \
@@ -47,7 +45,6 @@ RUN apt-get update -y -q && \
       ninja-build \
       pkg-config \
       rapidjson-dev \
-      thrift-compiler \
       tzdata && \
       locale-gen en_US.UTF-8 && \
       apt-get clean && rm -rf /var/lib/apt/lists*

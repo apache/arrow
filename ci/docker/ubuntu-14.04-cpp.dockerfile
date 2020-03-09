@@ -25,10 +25,8 @@ RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends wget software-properties-common && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
-        bison \
         ca-certificates \
         ccache \
-        flex \
         g++ \
         gcc \
         gdb \

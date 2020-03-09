@@ -52,7 +52,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         pkg-config \
         protobuf-compiler \
         rapidjson-dev \
-        thrift-compiler \
         tzdata \
         zlib1g-dev \
         wget && \
