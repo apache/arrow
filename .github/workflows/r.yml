@@ -110,3 +110,20 @@ jobs:
           docker login -u ${{ secrets.DOCKERHUB_USER }} \
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push r
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    env:
+      TEST_R_WITH_ARROW: "TRUE"
+      RWINLIB_LOCAL: '\libarrow.zip'
+      ARROW_R_CXXFLAGS: '-Werror'
+      _R_CHECK_TESTS_NLINES_: 0
+    steps:
+      - uses: actions/checkout@v2
+      - uses: r-lib/actions/setup-r@master
+      - name: Install R package dependencies
+        shell: bash
+        run: ci/scripts/r_deps.sh .
+      - name: Check
+        shell: bash
+        run: ci/scripts/r_deps.sh .
