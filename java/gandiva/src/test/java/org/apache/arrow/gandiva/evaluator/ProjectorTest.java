@@ -44,6 +44,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -1525,4 +1526,75 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseRecordBatch(batch);
     releaseValueVectors(output);
   }
+
+  @Test
+  public void testCastDayIntervalToBigInt() throws Exception {
+    ArrowType dayIntervalType = new ArrowType.Interval(IntervalUnit.DAY_TIME);
+
+    Field dayIntervalField = Field.nullable("dayInterval", dayIntervalType);
+
+    TreeNode intervalNode = TreeBuilder.makeField(dayIntervalField);
+
+    TreeNode intervalToBigint = TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(intervalNode), int64);
+
+    Field resultField = Field.nullable("result", int64);
+    List<ExpressionTree> exprs =
+        Lists.newArrayList(
+            TreeBuilder.makeExpression(intervalToBigint, resultField));
+
+    Schema schema = new Schema(Lists.newArrayList(dayIntervalField));
+    Projector eval = Projector.make(schema, exprs);
+
+    int numRows = 5;
+    byte[] validity = new byte[]{(byte) 255};
+    String[] values =
+        new String[]{
+            "1 0", // "days millis"
+            "2 0",
+            "1 1",
+            "10 5000",
+            "11 86400001",
+        };
+
+    Long[] expValues =
+        new Long[]{
+            86400000L,
+            2 * 86400000L,
+            86400000L + 1L,
+            10 * 86400000L + 5000L,
+            11 * 86400000L + 86400001L
+        };
+
+    ArrowBuf bufValidity = buf(validity);
+    ArrowBuf intervalsData = stringToDayInterval(values);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch =
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(fieldNode, fieldNode),
+            Lists.newArrayList(bufValidity, intervalsData));
+
+    List<ValueVector> output = new ArrayList<>();
+    for (int i = 0; i < exprs.size(); i++) {
+      BigIntVector bigIntVector = new BigIntVector(EMPTY_SCHEMA_PATH, allocator);
+      bigIntVector.allocateNew(numRows);
+      output.add(bigIntVector);
+    }
+    eval.evaluate(batch, output);
+    eval.close();
+
+    for (ValueVector valueVector : output) {
+      BigIntVector bigintVector = (BigIntVector) valueVector;
+
+      for (int j = 0; j < numRows; j++) {
+        assertFalse(bigintVector.isNull(j));
+        assertEquals(expValues[j], Long.valueOf(bigintVector.get(j)));
+      }
+    }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+  }
+
 }

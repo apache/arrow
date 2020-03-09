@@ -65,6 +65,11 @@ enum TimeUnit {
   NANOSEC = 3;
 }
 
+enum IntervalType {
+  YEAR_MONTH = 0;
+  DAY_TIME = 1;
+}
+
 enum SelectionVectorType {
   SV_NONE = 0;
   SV_INT16 = 1;
@@ -79,6 +84,7 @@ message ExtGandivaType {
   optional DateUnit dateUnit = 5;  // used by DATE32/DATE64
   optional TimeUnit timeUnit = 6;  // used by TIME32/TIME64
   optional string timeZone = 7; // used by TIMESTAMP
+  optional IntervalType intervalType = 8; // used by INTERVAL
 }
 
 message Field {
