@@ -46,48 +46,39 @@ class Catalog {
 
   class Entry {
    public:
-    enum Kind {
-      TABLE = 0,
-      DATASET,
-      UNKNOWN,
-    };
-
-    Entry(std::shared_ptr<Table> table, std::string name);
     Entry(std::shared_ptr<dataset::Dataset> dataset, std::string name);
-
-    Kind kind() const;
+    Entry(std::shared_ptr<Table> table, std::string name);
 
     const std::string& name() const { return name_; }
 
-    std::shared_ptr<Table> table() const;
-    std::shared_ptr<dataset::Dataset> dataset() const;
+    const std::shared_ptr<dataset::Dataset>& dataset() const;
 
-    std::shared_ptr<Schema> schema() const;
+    const std::shared_ptr<Schema>& schema() const;
 
     bool operator==(const Entry& other) const;
 
    private:
-    util::variant<std::shared_ptr<Table>, std::shared_ptr<dataset::Dataset>> entry_;
+    std::shared_ptr<dataset::Dataset> dataset_;
     std::string name_;
   };
 
  private:
   friend class CatalogBuilder;
-  explicit Catalog(std::unordered_map<std::string, Entry> tables);
+  explicit Catalog(std::unordered_map<std::string, Entry> datasets);
 
-  std::unordered_map<std::string, Entry> tables_;
+  std::unordered_map<std::string, Entry> datasets_;
 };
 
 class CatalogBuilder {
  public:
   Status Add(Catalog::Entry entry);
-  Status Add(std::string name, std::shared_ptr<Table>);
   Status Add(std::string name, std::shared_ptr<dataset::Dataset>);
+  Status Add(std::string name, std::shared_ptr<Table>);
 
   Result<std::shared_ptr<Catalog>> Finish();
 
  private:
-  std::unordered_map<std::string, Catalog::Entry> tables_;
+  std::unordered_map<std::string, Catalog::Entry> datasets_;
 };
 
 }  // namespace engine

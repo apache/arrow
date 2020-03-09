@@ -41,8 +41,7 @@ class TestCatalog : public testing::Test {
 void AssertCatalogKeyIs(const std::shared_ptr<Catalog>& catalog, const std::string& key,
                         const std::shared_ptr<Table>& expected) {
   ASSERT_OK_AND_ASSIGN(auto t, catalog->Get(key));
-  ASSERT_EQ(t.kind(), Catalog::Entry::Kind::TABLE);
-  AssertTablesEqual(*t.table(), *expected);
+  EXPECT_EQ(t.name(), key);
 
   ASSERT_OK_AND_ASSIGN(auto schema, catalog->GetSchema(key));
   AssertSchemaEqual(*schema, *expected->schema());
@@ -127,8 +126,7 @@ TEST_F(TestCatalogBuilder, DuplicateKeys) {
   ASSERT_OK_AND_ASSIGN(auto catalog, builder.Finish());
 
   ASSERT_OK_AND_ASSIGN(auto t, catalog->Get(key));
-  ASSERT_EQ(t.kind(), Catalog::Entry::Kind::TABLE);
-  AssertTablesEqual(*t.table(), *table());
+  EXPECT_EQ(t.name(), key);
 }
 
 }  // namespace engine
