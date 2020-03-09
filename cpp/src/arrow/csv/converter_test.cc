@@ -436,7 +436,7 @@ class TestDictConverter : public ::testing::Test {
 
 using DictConversionTypes = ::testing::Types<BinaryType, StringType>;
 
-TYPED_TEST_CASE(TestDictConverter, DictConversionTypes);
+TYPED_TEST_SUITE(TestDictConverter, DictConversionTypes);
 
 TYPED_TEST(TestDictConverter, Basics) {
   auto expected_dict = ArrayFromJSON(this->type(), R"(["ab", "cdé", ""])");

@@ -640,7 +640,7 @@ typedef ::testing::Types<
     DecimalWithPrecisionAndScale<34>, DecimalWithPrecisionAndScale<38>>
     TestTypes;
 
-TYPED_TEST_CASE(TestParquetIO, TestTypes);
+TYPED_TEST_SUITE(TestParquetIO, TestTypes);
 
 TYPED_TEST(TestParquetIO, SingleColumnRequiredWrite) {
   std::shared_ptr<Array> values;
@@ -1304,7 +1304,7 @@ typedef ::testing::Types<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8
                          ::arrow::FloatType, ::arrow::DoubleType>
     PrimitiveTestTypes;
 
-TYPED_TEST_CASE(TestPrimitiveParquetIO, PrimitiveTestTypes);
+TYPED_TEST_SUITE(TestPrimitiveParquetIO, PrimitiveTestTypes);
 
 TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredRead) {
   ASSERT_NO_FATAL_FAILURE(this->CheckSingleColumnRequiredRead(1));
@@ -2663,8 +2663,8 @@ TEST_P(TestNestedSchemaRead, DeepNestedSchemaRead) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(Repetition_type, TestNestedSchemaRead,
-                        ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL));
+INSTANTIATE_TEST_SUITE_P(Repetition_type, TestNestedSchemaRead,
+                         ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL));
 
 TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
   // June 20, 2017 16:32:56 and 123456789 nanoseconds
@@ -2809,7 +2809,7 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
   AssertArraysEqual(*expected_array, *chunk);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ReadDecimals, TestArrowReaderAdHocSparkAndHvr,
     ::testing::Values(
         std::make_tuple("int32_decimal.parquet", ::arrow::decimal(4, 2)),
@@ -2956,7 +2956,7 @@ TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {
   CheckReadWholeFile(*expected_dense_);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ReadDictionary, TestArrowReadDictionary,
     ::testing::ValuesIn(TestArrowReadDictionary::null_probabilities()));
 

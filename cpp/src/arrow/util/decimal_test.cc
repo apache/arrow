@@ -226,7 +226,7 @@ using Decimal128Types =
                      long long, unsigned long long                // NOLINT
                      >;
 
-TYPED_TEST_CASE(Decimal128Test, Decimal128Types);
+TYPED_TEST_SUITE(Decimal128Test, Decimal128Types);
 
 TYPED_TEST(Decimal128Test, ConstructibleFromAnyIntegerType) {
   Decimal128 value(this->value_);
@@ -292,15 +292,15 @@ TEST_P(Decimal128PrintingTest, Print) {
   ASSERT_EQ(expected_string, printed_value);
 }
 
-INSTANTIATE_TEST_CASE_P(Decimal128PrintingTest, Decimal128PrintingTest,
-                        ::testing::Values(std::make_tuple(123, 1, "12.3"),
-                                          std::make_tuple(123, 5, "0.00123"),
-                                          std::make_tuple(123, 10, "1.23E-8"),
-                                          std::make_tuple(123, -1, "1.23E+3"),
-                                          std::make_tuple(-123, -1, "-1.23E+3"),
-                                          std::make_tuple(123, -3, "1.23E+5"),
-                                          std::make_tuple(-123, -3, "-1.23E+5"),
-                                          std::make_tuple(12345, -3, "1.2345E+7")));
+INSTANTIATE_TEST_SUITE_P(Decimal128PrintingTest, Decimal128PrintingTest,
+                         ::testing::Values(std::make_tuple(123, 1, "12.3"),
+                                           std::make_tuple(123, 5, "0.00123"),
+                                           std::make_tuple(123, 10, "1.23E-8"),
+                                           std::make_tuple(123, -1, "1.23E+3"),
+                                           std::make_tuple(-123, -1, "-1.23E+3"),
+                                           std::make_tuple(123, -3, "1.23E+5"),
+                                           std::make_tuple(-123, -3, "-1.23E+5"),
+                                           std::make_tuple(12345, -3, "1.2345E+7")));
 
 class Decimal128ParsingTest
     : public ::testing::TestWithParam<std::tuple<std::string, uint64_t, int32_t>> {};
@@ -317,21 +317,21 @@ TEST_P(Decimal128ParsingTest, Parse) {
   ASSERT_EQ(expected_scale, scale);
 }
 
-INSTANTIATE_TEST_CASE_P(Decimal128ParsingTest, Decimal128ParsingTest,
-                        ::testing::Values(std::make_tuple("12.3", 123ULL, 1),
-                                          std::make_tuple("0.00123", 123ULL, 5),
-                                          std::make_tuple("1.23E-8", 123ULL, 10),
-                                          std::make_tuple("-1.23E-8", -123LL, 10),
-                                          std::make_tuple("1.23E+3", 1230ULL, 0),
-                                          std::make_tuple("-1.23E+3", -1230LL, 0),
-                                          std::make_tuple("1.23E+5", 123000ULL, 0),
-                                          std::make_tuple("1.2345E+7", 12345000ULL, 0),
-                                          std::make_tuple("1.23e-8", 123ULL, 10),
-                                          std::make_tuple("-1.23e-8", -123LL, 10),
-                                          std::make_tuple("1.23e+3", 1230ULL, 0),
-                                          std::make_tuple("-1.23e+3", -1230LL, 0),
-                                          std::make_tuple("1.23e+5", 123000ULL, 0),
-                                          std::make_tuple("1.2345e+7", 12345000ULL, 0)));
+INSTANTIATE_TEST_SUITE_P(Decimal128ParsingTest, Decimal128ParsingTest,
+                         ::testing::Values(std::make_tuple("12.3", 123ULL, 1),
+                                           std::make_tuple("0.00123", 123ULL, 5),
+                                           std::make_tuple("1.23E-8", 123ULL, 10),
+                                           std::make_tuple("-1.23E-8", -123LL, 10),
+                                           std::make_tuple("1.23E+3", 1230ULL, 0),
+                                           std::make_tuple("-1.23E+3", -1230LL, 0),
+                                           std::make_tuple("1.23E+5", 123000ULL, 0),
+                                           std::make_tuple("1.2345E+7", 12345000ULL, 0),
+                                           std::make_tuple("1.23e-8", 123ULL, 10),
+                                           std::make_tuple("-1.23e-8", -123LL, 10),
+                                           std::make_tuple("1.23e+3", 1230ULL, 0),
+                                           std::make_tuple("-1.23e+3", -1230LL, 0),
+                                           std::make_tuple("1.23e+5", 123000ULL, 0),
+                                           std::make_tuple("1.2345e+7", 12345000ULL, 0)));
 
 class Decimal128ParsingTestInvalid : public ::testing::TestWithParam<std::string> {};
 
@@ -340,9 +340,9 @@ TEST_P(Decimal128ParsingTestInvalid, Parse) {
   ASSERT_RAISES(Invalid, Decimal128::FromString(test_string));
 }
 
-INSTANTIATE_TEST_CASE_P(Decimal128ParsingTestInvalid, Decimal128ParsingTestInvalid,
-                        ::testing::Values("0.00123D/3", "1.23eA8", "1.23E+3A",
-                                          "-1.23E--5", "1.2345E+++07"));
+INSTANTIATE_TEST_SUITE_P(Decimal128ParsingTestInvalid, Decimal128ParsingTestInvalid,
+                         ::testing::Values("0.00123D/3", "1.23eA8", "1.23E+3A",
+                                           "-1.23E--5", "1.2345E+++07"));
 
 TEST(Decimal128ParseTest, WithExponentAndNullptrScale) {
   const Decimal128 expected_value(123);

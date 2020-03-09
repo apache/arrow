@@ -45,7 +45,7 @@ class TestNumericScalar : public ::testing::Test {
   TestNumericScalar() {}
 };
 
-TYPED_TEST_CASE(TestNumericScalar, NumericArrowTypes);
+TYPED_TEST_SUITE(TestNumericScalar, NumericArrowTypes);
 
 TYPED_TEST(TestNumericScalar, Basics) {
   using T = typename TypeParam::c_type;

@@ -633,7 +633,7 @@ class TypedTestBufferBuilder : public ::testing::Test {};
 
 using BufferBuilderElements = ::testing::Types<int16_t, uint32_t, double>;
 
-TYPED_TEST_CASE(TypedTestBufferBuilder, BufferBuilderElements);
+TYPED_TEST_SUITE(TypedTestBufferBuilder, BufferBuilderElements);
 
 TYPED_TEST(TypedTestBufferBuilder, BasicTypedBufferBuilderUsage) {
   TypedBufferBuilder<TypeParam> builder;
@@ -733,7 +733,7 @@ class TypedTestBuffer : public ::testing::Test {};
 using BufferPtrs =
     ::testing::Types<std::shared_ptr<ResizableBuffer>, std::unique_ptr<ResizableBuffer>>;
 
-TYPED_TEST_CASE(TypedTestBuffer, BufferPtrs);
+TYPED_TEST_SUITE(TypedTestBuffer, BufferPtrs);
 
 TYPED_TEST(TypedTestBuffer, IsMutableFlag) {
   Buffer buf(nullptr, 0);

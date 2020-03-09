@@ -442,7 +442,7 @@ class TestListArray : public TestBuilder {
   std::shared_ptr<ArrayType> result_;
 };
 
-TYPED_TEST_CASE(TestListArray, ListTypes);
+TYPED_TEST_SUITE(TestListArray, ListTypes);
 
 TYPED_TEST(TestListArray, Basics) { this->TestBasics(); }
 

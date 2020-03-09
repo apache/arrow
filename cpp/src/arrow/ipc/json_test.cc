@@ -448,7 +448,7 @@ TEST_P(TestJsonRoundTrip, RoundTrip) {
   CheckRoundtrip(*batch);
 }
 
-INSTANTIATE_TEST_CASE_P(TestJsonRoundTrip, TestJsonRoundTrip, BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(TestJsonRoundTrip, TestJsonRoundTrip, BATCH_CASES());
 
 }  // namespace json
 }  // namespace internal

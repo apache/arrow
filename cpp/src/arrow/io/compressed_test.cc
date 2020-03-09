@@ -263,24 +263,24 @@ TEST(TestSnappyOutputStream, NotImplemented) {
 #endif
 
 #ifdef ARROW_WITH_ZLIB
-INSTANTIATE_TEST_CASE_P(TestGZipInputStream, CompressedInputStreamTest,
-                        ::testing::Values(Compression::GZIP));
-INSTANTIATE_TEST_CASE_P(TestGZipOutputStream, CompressedOutputStreamTest,
-                        ::testing::Values(Compression::GZIP));
+INSTANTIATE_TEST_SUITE_P(TestGZipInputStream, CompressedInputStreamTest,
+                         ::testing::Values(Compression::GZIP));
+INSTANTIATE_TEST_SUITE_P(TestGZipOutputStream, CompressedOutputStreamTest,
+                         ::testing::Values(Compression::GZIP));
 #endif
 
 #ifdef ARROW_WITH_BROTLI
-INSTANTIATE_TEST_CASE_P(TestBrotliInputStream, CompressedInputStreamTest,
-                        ::testing::Values(Compression::BROTLI));
-INSTANTIATE_TEST_CASE_P(TestBrotliOutputStream, CompressedOutputStreamTest,
-                        ::testing::Values(Compression::BROTLI));
+INSTANTIATE_TEST_SUITE_P(TestBrotliInputStream, CompressedInputStreamTest,
+                         ::testing::Values(Compression::BROTLI));
+INSTANTIATE_TEST_SUITE_P(TestBrotliOutputStream, CompressedOutputStreamTest,
+                         ::testing::Values(Compression::BROTLI));
 #endif
 
 #ifdef ARROW_WITH_ZSTD
-INSTANTIATE_TEST_CASE_P(TestZSTDInputStream, CompressedInputStreamTest,
-                        ::testing::Values(Compression::ZSTD));
-INSTANTIATE_TEST_CASE_P(TestZSTDOutputStream, CompressedOutputStreamTest,
-                        ::testing::Values(Compression::ZSTD));
+INSTANTIATE_TEST_SUITE_P(TestZSTDInputStream, CompressedInputStreamTest,
+                         ::testing::Values(Compression::ZSTD));
+INSTANTIATE_TEST_SUITE_P(TestZSTDOutputStream, CompressedOutputStreamTest,
+                         ::testing::Values(Compression::ZSTD));
 #endif
 
 }  // namespace io

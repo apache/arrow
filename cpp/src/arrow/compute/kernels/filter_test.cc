@@ -134,7 +134,7 @@ class TestFilterKernelWithNumeric : public TestFilterKernel<ArrowType> {
   }
 };
 
-TYPED_TEST_CASE(TestFilterKernelWithNumeric, NumericArrowTypes);
+TYPED_TEST_SUITE(TestFilterKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
   this->AssertFilter("[]", "[]", "[]");
 
@@ -332,7 +332,7 @@ class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
   }
 };
 
-TYPED_TEST_CASE(TestFilterKernelWithString, StringTypes);
+TYPED_TEST_SUITE(TestFilterKernelWithString, StringTypes);
 
 TYPED_TEST(TestFilterKernelWithString, FilterString) {
   this->AssertFilter(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");

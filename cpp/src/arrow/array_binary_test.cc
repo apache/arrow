@@ -271,7 +271,7 @@ class TestStringArray : public ::testing::Test {
   std::shared_ptr<ArrayType> strings_;
 };
 
-TYPED_TEST_CASE(TestStringArray, StringTypes);
+TYPED_TEST_SUITE(TestStringArray, StringTypes);
 
 TYPED_TEST(TestStringArray, TestArrayBasics) { this->TestArrayBasics(); }
 
@@ -485,7 +485,7 @@ class TestStringBuilder : public TestBuilder {
   std::shared_ptr<ArrayType> result_;
 };
 
-TYPED_TEST_CASE(TestStringBuilder, StringTypes);
+TYPED_TEST_SUITE(TestStringBuilder, StringTypes);
 
 TYPED_TEST(TestStringBuilder, TestScalarAppend) { this->TestScalarAppend(); }
 
@@ -707,7 +707,7 @@ class TestBinaryDataVisitor : public ::testing::Test {
   std::shared_ptr<DataType> type_;
 };
 
-TYPED_TEST_CASE(TestBinaryDataVisitor, StringTypes);
+TYPED_TEST_SUITE(TestBinaryDataVisitor, StringTypes);
 
 TYPED_TEST(TestBinaryDataVisitor, Basics) { this->TestBasics(); }
 

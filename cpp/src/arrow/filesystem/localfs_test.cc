@@ -133,7 +133,7 @@ class TestLocalFSGeneric : public LocalFSTestMixin, public GenericFileSystemTest
   std::shared_ptr<FileSystem> fs_;
 };
 
-TYPED_TEST_CASE(TestLocalFSGeneric, PathFormatters);
+TYPED_TEST_SUITE(TestLocalFSGeneric, PathFormatters);
 
 GENERIC_FS_TYPED_TEST_FUNCTIONS(TestLocalFSGeneric);
 
@@ -236,7 +236,7 @@ class TestLocalFS : public LocalFSTestMixin {
   std::string local_path_;
 };
 
-TYPED_TEST_CASE(TestLocalFS, PathFormatters);
+TYPED_TEST_SUITE(TestLocalFS, PathFormatters);
 
 TYPED_TEST(TestLocalFS, CorrectPathExists) {
   // Test that the right location on disk is accessed

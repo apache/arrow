@@ -560,10 +560,10 @@ TEST_P(TestTableWriterSlice, SliceBooleanRoundTrip) {
   CheckSlice(batch);
 }
 
-INSTANTIATE_TEST_CASE_P(TestTableWriterSliceOffsets, TestTableWriterSlice,
-                        ::testing::Combine(::testing::Values(0, 1, 300, 301, 302, 303,
-                                                             304, 305, 306, 307),
-                                           ::testing::Values(0, 1, 7, 8, 30, 32, 100)));
+INSTANTIATE_TEST_SUITE_P(TestTableWriterSliceOffsets, TestTableWriterSlice,
+                         ::testing::Combine(::testing::Values(0, 1, 300, 301, 302, 303,
+                                                              304, 305, 306, 307),
+                                            ::testing::Values(0, 1, 7, 8, 30, 32, 100)));
 
 }  // namespace feather
 }  // namespace ipc

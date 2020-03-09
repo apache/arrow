@@ -163,7 +163,7 @@ class DiffTestWithNumeric : public DiffTest {
   }
 };
 
-TYPED_TEST_CASE(DiffTestWithNumeric, NumericArrowTypes);
+TYPED_TEST_SUITE(DiffTestWithNumeric, NumericArrowTypes);
 
 TYPED_TEST(DiffTestWithNumeric, Basics) {
   // insert one

@@ -1380,7 +1380,7 @@ typedef ::testing::Types<NullType, UInt8Type, Int8Type, UInt16Type, Int16Type, I
                          Date32Type, Date64Type, FixedSizeBinaryType, BinaryType>
     TestTypes;
 
-TYPED_TEST_CASE(TestNullCast, TestTypes);
+TYPED_TEST_SUITE(TestNullCast, TestTypes);
 
 TYPED_TEST(TestNullCast, FromNull) {
   // Null casts to everything
@@ -1412,7 +1412,7 @@ typedef ::testing::Types<NullType, UInt8Type, Int8Type, UInt16Type, Int16Type, I
                          Date32Type, Date64Type, FixedSizeBinaryType, BinaryType>
     TestTypes;
 
-TYPED_TEST_CASE(TestDictionaryCast, TestTypes);
+TYPED_TEST_SUITE(TestDictionaryCast, TestTypes);
 
 TYPED_TEST(TestDictionaryCast, Basic) {
   CastOptions options;

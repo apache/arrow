@@ -501,27 +501,27 @@ TEST_P(CodecTest, StreamingDecompressorReuse) {
 }
 
 #ifdef ARROW_WITH_ZLIB
-INSTANTIATE_TEST_CASE_P(TestGZip, CodecTest, ::testing::Values(Compression::GZIP));
+INSTANTIATE_TEST_SUITE_P(TestGZip, CodecTest, ::testing::Values(Compression::GZIP));
 #endif
 
 #ifdef ARROW_WITH_SNAPPY
-INSTANTIATE_TEST_CASE_P(TestSnappy, CodecTest, ::testing::Values(Compression::SNAPPY));
+INSTANTIATE_TEST_SUITE_P(TestSnappy, CodecTest, ::testing::Values(Compression::SNAPPY));
 #endif
 
 #ifdef ARROW_WITH_LZ4
-INSTANTIATE_TEST_CASE_P(TestLZ4, CodecTest, ::testing::Values(Compression::LZ4));
+INSTANTIATE_TEST_SUITE_P(TestLZ4, CodecTest, ::testing::Values(Compression::LZ4));
 #endif
 
 #ifdef ARROW_WITH_BROTLI
-INSTANTIATE_TEST_CASE_P(TestBrotli, CodecTest, ::testing::Values(Compression::BROTLI));
+INSTANTIATE_TEST_SUITE_P(TestBrotli, CodecTest, ::testing::Values(Compression::BROTLI));
 #endif
 
 #if ARROW_WITH_BZ2
-INSTANTIATE_TEST_CASE_P(TestBZ2, CodecTest, ::testing::Values(Compression::BZ2));
+INSTANTIATE_TEST_SUITE_P(TestBZ2, CodecTest, ::testing::Values(Compression::BZ2));
 #endif
 
 #ifdef ARROW_WITH_ZSTD
-INSTANTIATE_TEST_CASE_P(TestZSTD, CodecTest, ::testing::Values(Compression::ZSTD));
+INSTANTIATE_TEST_SUITE_P(TestZSTD, CodecTest, ::testing::Values(Compression::ZSTD));
 #endif
 
 }  // namespace util

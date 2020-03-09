@@ -247,7 +247,7 @@ void ValidateCompare(FunctionContext* ctx, CompareOptions options, const Datum& 
 template <typename ArrowType>
 class TestNumericCompareKernel : public ComputeFixture, public TestBase {};
 
-TYPED_TEST_CASE(TestNumericCompareKernel, NumericArrowTypes);
+TYPED_TEST_SUITE(TestNumericCompareKernel, NumericArrowTypes);
 TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
   using CType = typename TypeTraits<TypeParam>::CType;
@@ -373,7 +373,7 @@ TYPED_TEST(TestNumericCompareKernel, TestNullScalar) {
   ValidateCompare<TypeParam>(&this->ctx_, eq, null, "[1,2,3]", "[null, null, null]");
 }
 
-TYPED_TEST_CASE(TestNumericCompareKernel, NumericArrowTypes);
+TYPED_TEST_SUITE(TestNumericCompareKernel, NumericArrowTypes);
 TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayScalar) {
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
   using CType = typename TypeTraits<TypeParam>::CType;
