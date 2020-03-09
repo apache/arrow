@@ -1029,25 +1029,20 @@ struct CastFunctor<O, I,
     using BuilderType = typename TypeTraits<O>::BuilderType;
     using FormatterType = typename internal::StringFormatter<I>;
 
-    struct Visitor {
-      Visitor(FunctionContext* ctx, const ArrayData& input)
-          : formatter_(input.type), builder_(input.type, ctx->memory_pool()) {}
+    FormatterType formatter(input.type);
+    BuilderType builder(input.type, ctx->memory_pool());
 
-      Status VisitNull() { return builder_.AppendNull(); }
-
-      Status VisitValue(value_type value) {
-        return formatter_(value,
-                          [this](util::string_view v) { return builder_.Append(v); });
+    auto convert_value = [&](util::optional<value_type> v) {
+      if (v.has_value()) {
+        return formatter(*v, [&](util::string_view v) { return builder.Append(v); });
+      } else {
+        return builder.AppendNull();
       }
-
-      FormatterType formatter_;
-      BuilderType builder_;
     };
+    RETURN_NOT_OK(VisitArrayDataInline<I>(input, std::move(convert_value)));
 
-    Visitor visitor(ctx, input);
-    RETURN_NOT_OK(ArrayDataVisitor<I>::Visit(input, &visitor));
     std::shared_ptr<Array> output_array;
-    RETURN_NOT_OK(visitor.builder_.Finish(&output_array));
+    RETURN_NOT_OK(builder.Finish(&output_array));
     *output = std::move(*output_array->data());
     return Status::OK();
   }

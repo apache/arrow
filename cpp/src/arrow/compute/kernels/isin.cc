@@ -75,13 +75,6 @@ class IsInKernelImpl : public UnaryKernel {
 
 template <typename T, typename Scalar>
 struct MemoTableRight {
-  Status VisitNull() { return Status::OK(); }
-
-  Status VisitValue(const Scalar& value) {
-    int32_t unused_memo_index;
-    return memo_table_->GetOrInsert(value, &unused_memo_index);
-  }
-
   Status Reset(MemoryPool* pool) {
     memo_table_.reset(new MemoTable(pool, 0));
     return Status::OK();
@@ -90,7 +83,16 @@ struct MemoTableRight {
   Status Append(FunctionContext* ctx, const Datum& right) {
     const ArrayData& right_data = *right.array();
     right_null_count += right_data.GetNullCount();
-    return ArrayDataVisitor<T>::Visit(right_data, this);
+
+    auto insert_value = [&](util::optional<Scalar> v) {
+      if (v.has_value()) {
+        int32_t unused_memo_index;
+        return memo_table_->GetOrInsert(*v, &unused_memo_index);
+      } else {
+        return Status::OK();
+      }
+    };
+    return VisitArrayDataInline<T>(right_data, std::move(insert_value));
   }
 
   using MemoTable = typename HashTraits<T>::MemoTableType;
@@ -106,27 +108,6 @@ class IsInKernel : public IsInKernelImpl {
   IsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : type_(type), pool_(pool) {}
 
-  // \brief if left array has a null return true
-  Status VisitNull() {
-    writer->Set();
-    writer->Next();
-    return Status::OK();
-  }
-
-  // \brief Iterate over the left array using another visitor.
-  // In VisitValue, use the memo_table_ (for right array) and check if value
-  // in left array is in the memo_table_. Return true if condition satisfied,
-  // else false.
-  Status VisitValue(const Scalar& value) {
-    if (memo_table_->Get(value) != -1) {
-      writer->Set();
-    } else {
-      writer->Clear();
-    }
-    writer->Next();
-    return Status::OK();
-  }
-
   Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) override {
     const ArrayData& left_data = *left.array();
 
@@ -136,7 +117,16 @@ class IsInKernel : public IsInKernelImpl {
     writer = std::make_shared<internal::FirstTimeBitmapWriter>(
         output.get()->buffers[1]->mutable_data(), output.get()->offset, left_data.length);
 
-    RETURN_NOT_OK(ArrayDataVisitor<Type>::Visit(left_data, this));
+    auto lookup_value = [&](util::optional<Scalar> v) {
+      if (!v.has_value() || memo_table_->Get(*v) != -1) {
+        writer->Set();
+      } else {
+        writer->Clear();
+      }
+      writer->Next();
+    };
+    VisitArrayDataInline<Type>(left_data, std::move(lookup_value));
+
     writer->Finish();
 
     // if right null count is zero and left null count is not zero, propagate nulls
