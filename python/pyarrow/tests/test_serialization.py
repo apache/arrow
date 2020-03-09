@@ -554,6 +554,7 @@ def test_sparse_coo_tensor_serialization(index_type, tensor_type):
     serialized = pa.serialize(sparse_tensor, context=context).to_buffer()
     result = pa.deserialize(serialized)
     assert_equal(result, sparse_tensor)
+    assert result.type == sparse_tensor.type
 
     data_result, coords_result = result.to_numpy()
     assert np.array_equal(data_result, data)
@@ -627,6 +628,8 @@ def test_sparse_csr_matrix_serialization(index_type, tensor_type):
     context = pa.default_serialization_context()
     serialized = pa.serialize(sparse_tensor, context=context).to_buffer()
     result = pa.deserialize(serialized)
+    assert_equal(result, sparse_tensor)
+    assert result.type == sparse_tensor.type
 
     data_result, indptr_result, indices_result = result.to_numpy()
     assert np.array_equal(data_result, data)
@@ -671,7 +674,7 @@ def test_scipy_sparse_csr_matrix_serialization():
 def test_sparse_csc_matrix_serialization(index_type, tensor_type):
     tensor_dtype = np.dtype(tensor_type)
     index_dtype = np.dtype(index_type)
-    data = np.array([8, 2, 5, 3, 4, 6]).astype(tensor_dtype)
+    data = np.array([[8, 2, 5, 3, 4, 6]]).T.astype(tensor_dtype)
     indptr = np.array([0, 2, 3, 4, 6]).astype(index_dtype)
     indices = np.array([0, 2, 5, 0, 4, 5]).astype(index_dtype)
     shape = (6, 4)
@@ -683,9 +686,11 @@ def test_sparse_csc_matrix_serialization(index_type, tensor_type):
     context = pa.default_serialization_context()
     serialized = pa.serialize(sparse_tensor, context=context).to_buffer()
     result = pa.deserialize(serialized)
+    assert_equal(result, sparse_tensor)
+    assert result.type == sparse_tensor.type
 
     data_result, indptr_result, indices_result = result.to_numpy()
-    assert np.array_equal(data_result[:, 0], data)
+    assert np.array_equal(data_result, data)
     assert np.array_equal(indptr_result, indptr)
     assert np.array_equal(indices_result, indices)
     assert result.dim_names == dim_names

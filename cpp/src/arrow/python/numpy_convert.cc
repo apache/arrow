@@ -409,10 +409,11 @@ Status NdarraysToSparseCOOTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
   return Status::OK();
 }
 
-Status NdarraysToSparseCSRMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
+template <class IndexType>
+Status NdarraysToSparseCSXMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
                                  PyObject* indices_ao, const std::vector<int64_t>& shape,
                                  const std::vector<std::string>& dim_names,
-                                 std::shared_ptr<SparseCSRMatrix>* out) {
+                                 std::shared_ptr<SparseTensorImpl<IndexType>>* out) {
   if (!PyArray_Check(data_ao) || !PyArray_Check(indptr_ao) ||
       !PyArray_Check(indices_ao)) {
     return Status::TypeError("Did not pass ndarray object");
@@ -430,41 +431,37 @@ Status NdarraysToSparseCSRMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* 
   ARROW_CHECK_EQ(indptr->type_id(), Type::INT64);   // Should be ensured by caller
   ARROW_CHECK_EQ(indices->type_id(), Type::INT64);  // Should be ensured by caller
 
-  auto sparse_index = std::make_shared<SparseCSRIndex>(
+  auto sparse_index = std::make_shared<IndexType>(
       std::static_pointer_cast<NumericTensor<Int64Type>>(indptr),
       std::static_pointer_cast<NumericTensor<Int64Type>>(indices));
-  *out = std::make_shared<SparseTensorImpl<SparseCSRIndex>>(sparse_index, type_data, data,
-                                                            shape, dim_names);
+  *out = std::make_shared<SparseTensorImpl<IndexType>>(sparse_index, type_data, data,
+                                                       shape, dim_names);
   return Status::OK();
+}
+
+template Status NdarraysToSparseCSXMatrix<SparseCSCIndex>(
+    MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao, PyObject* indices_ao,
+    const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names,
+    std::shared_ptr<SparseCSCMatrix>* out);
+template Status NdarraysToSparseCSXMatrix<SparseCSRIndex>(
+    MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao, PyObject* indices_ao,
+    const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names,
+    std::shared_ptr<SparseCSRMatrix>* out);
+
+Status NdarraysToSparseCSRMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
+                                 PyObject* indices_ao, const std::vector<int64_t>& shape,
+                                 const std::vector<std::string>& dim_names,
+                                 std::shared_ptr<SparseCSRMatrix>* out) {
+  return NdarraysToSparseCSXMatrix<SparseCSRIndex>(pool, data_ao, indptr_ao, indices_ao,
+                                                   shape, dim_names, out);
 }
 
 Status NdarraysToSparseCSCMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
                                  PyObject* indices_ao, const std::vector<int64_t>& shape,
                                  const std::vector<std::string>& dim_names,
                                  std::shared_ptr<SparseCSCMatrix>* out) {
-  if (!PyArray_Check(data_ao) || !PyArray_Check(indptr_ao) ||
-      !PyArray_Check(indices_ao)) {
-    return Status::TypeError("Did not pass ndarray object");
-  }
-
-  PyArrayObject* ndarray_data = reinterpret_cast<PyArrayObject*>(data_ao);
-  std::shared_ptr<Buffer> data = std::make_shared<NumPyBuffer>(data_ao);
-  std::shared_ptr<DataType> type_data;
-  RETURN_NOT_OK(GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data)),
-                              &type_data));
-
-  std::shared_ptr<Tensor> indptr, indices;
-  RETURN_NOT_OK(NdarrayToTensor(pool, indptr_ao, {}, &indptr));
-  RETURN_NOT_OK(NdarrayToTensor(pool, indices_ao, {}, &indices));
-  ARROW_CHECK_EQ(indptr->type_id(), Type::INT64);   // Should be ensured by caller
-  ARROW_CHECK_EQ(indices->type_id(), Type::INT64);  // Should be ensured by caller
-
-  auto sparse_index = std::make_shared<SparseCSCIndex>(
-      std::static_pointer_cast<NumericTensor<Int64Type>>(indptr),
-      std::static_pointer_cast<NumericTensor<Int64Type>>(indices));
-  *out = std::make_shared<SparseTensorImpl<SparseCSCIndex>>(sparse_index, type_data, data,
-                                                            shape, dim_names);
-  return Status::OK();
+  return NdarraysToSparseCSXMatrix<SparseCSCIndex>(pool, data_ao, indptr_ao, indices_ao,
+                                                   shape, dim_names, out);
 }
 
 Status TensorToSparseCOOTensor(const std::shared_ptr<Tensor>& tensor,

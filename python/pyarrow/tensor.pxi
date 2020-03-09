@@ -523,7 +523,7 @@ shape: {0.shape}""".format(self)
 
 cdef class SparseCSCMatrix:
     """
-    A sparse CSC tensor.
+    A sparse CSC matrix.
     """
 
     def __init__(self):
@@ -658,7 +658,8 @@ shape: {0.shape}""".format(self)
         """
 
         cdef shared_ptr[CTensor] ctensor
-        check_status(self.stp.ToTensor(&ctensor))
+        with nogil:
+            check_status(self.stp.ToTensor(&ctensor))
 
         return pyarrow_wrap_tensor(ctensor)
 
