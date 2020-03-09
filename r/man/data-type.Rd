@@ -18,6 +18,7 @@
 \alias{boolean}
 \alias{bool}
 \alias{utf8}
+\alias{binary}
 \alias{string}
 \alias{date32}
 \alias{date64}
@@ -62,6 +63,8 @@ bool()
 
 utf8()
 
+binary(byte_width = NULL)
+
 string()
 
 date32()
@@ -83,6 +86,10 @@ list_of(type)
 struct(...)
 }
 \arguments{
+\item{byte_width}{For \code{binary()}, an optional integer width to create a
+\code{FixedSizeBinary} type. The default \code{NULL} results in a \code{BinaryType} with
+variable width.}
+
 \item{unit}{For time/timestamp types, the time unit. \code{time32()} can take
 either "s" or "ms", while \code{time64()} can be "us" or "ns". \code{timestamp()} can
 take any of those four values.}

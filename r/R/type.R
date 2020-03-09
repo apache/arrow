@@ -140,6 +140,8 @@ Float32 <- R6Class("Float32", inherit = FixedWidthType)
 Float64 <- R6Class("Float64", inherit = FixedWidthType)
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
 Utf8 <- R6Class("Utf8", inherit = DataType)
+Binary <- R6Class("Binary", inherit = DataType)
+FixedSizeBinary <- R6Class("FixedSizeBinary", inherit = FixedWidthType)
 
 DateType <- R6Class("DateType",
   inherit = FixedWidthType,
@@ -202,6 +204,9 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' either "s" or "ms", while `time64()` can be "us" or "ns". `timestamp()` can
 #' take any of those four values.
 #' @param timezone For `timestamp()`, an optional time zone string.
+#' @param byte_width For `binary()`, an optional integer width to create a
+#' `FixedSizeBinary` type. The default `NULL` results in a `BinaryType` with
+#' variable width.
 #' @param precision For `decimal()`, precision
 #' @param scale For `decimal()`, scale
 #' @param type For `list_of()`, a data type to make a list-of-type
@@ -279,6 +284,16 @@ bool <- boolean
 #' @rdname data-type
 #' @export
 utf8 <- function() shared_ptr(Utf8, Utf8__initialize())
+
+#' @rdname data-type
+#' @export
+binary <- function(byte_width = NULL) {
+  if (is.null(byte_width)) {
+    shared_ptr(Binary, Binary__initialize())
+  } else {
+    shared_ptr(FixedSizeBinary, FixedSizeBinary__initialize(byte_width))
+  }
+}
 
 #' @rdname data-type
 #' @export
