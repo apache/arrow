@@ -657,6 +657,21 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     set(ARG_LABELS unittest)
   endif()
 
+  foreach(LABEL ${ARG_LABELS})
+    # ensure there is a cmake target which exercises tests with this LABEL
+    set(LABEL_TEST_NAME "test-${LABEL}")
+    if(NOT TARGET ${LABEL_TEST_NAME})
+      add_custom_target(${LABEL_TEST_NAME}
+                        ctest
+                        -L
+                        "${LABEL}"
+                        --output-on-failure
+                        USES_TERMINAL)
+    endif()
+    # ensure the test is (re)built before the LABEL test runs
+    add_dependencies(${LABEL_TEST_NAME} ${TEST_NAME})
+  endforeach()
+
   set_property(TEST ${TEST_NAME} APPEND PROPERTY LABELS ${ARG_LABELS})
 endfunction()
 

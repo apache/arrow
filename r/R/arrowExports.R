@@ -516,6 +516,10 @@ Utf8__initialize <- function(){
     .Call(`_arrow_Utf8__initialize` )
 }
 
+Binary__initialize <- function(){
+    .Call(`_arrow_Binary__initialize` )
+}
+
 Date32__initialize <- function(){
     .Call(`_arrow_Date32__initialize` )
 }

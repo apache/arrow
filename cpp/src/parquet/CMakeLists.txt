@@ -152,10 +152,17 @@ set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static thrift
 
 #
 # Generated Thrift sources
+<<<<<<< HEAD
 set_source_files_properties(src/parquet/parquet_types.cpp
                             src/parquet/parquet_types.h
                             src/parquet/parquet_constants.cpp
                             src/parquet/parquet_constants.h
+=======
+set_source_files_properties(src/generated/parquet_types.cpp
+                            src/generated/parquet_types.h
+                            src/generated/parquet_constants.cpp
+                            src/generated/parquet_constants.h
+>>>>>>> 3107685917aa784bcd7b02f19529704a2ad46a8a
                             PROPERTIES
                             SKIP_PRECOMPILE_HEADERS
                             ON
@@ -189,8 +196,8 @@ set(PARQUET_SRCS
     internal_file_encryptor.cc
     metadata.cc
     murmur3.cc
-    parquet_constants.cpp
-    parquet_types.cpp
+    "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
+    "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp"
     platform.cc
     printer.cc
     properties.cc
@@ -206,8 +213,11 @@ else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
 endif()
 
+<<<<<<< HEAD
 set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} thrift::thrift)
 
+=======
+>>>>>>> 3107685917aa784bcd7b02f19529704a2ad46a8a
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
   set(PARQUET_SHARED_LINK_LIBS arrow_shared)
 
@@ -264,7 +274,10 @@ add_arrow_lib(parquet
               ${PARQUET_STATIC_LINK_LIBS})
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
-  add_library(parquet_test_support STATIC parquet_constants.cpp parquet_types.cpp)
+  add_library(parquet_test_support STATIC
+              "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
+              "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp")
+  add_dependencies(parquet_test_support thrift::thrift)
   set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_test_support)
   set(PARQUET_LIBRARIES ${PARQUET_LIBRARIES} parquet_test_support)
 endif()

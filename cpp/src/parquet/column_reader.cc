@@ -911,6 +911,12 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     return this->num_buffered_values_ - this->num_decoded_values_;
   }
 
+  // Compute the values capacity in bytes for the given number of elements
+  int64_t bytes_for_values(int64_t nitems) const {
+    int type_size = GetTypeByteSize(this->descr_->physical_type());
+    return nitems * type_size;
+  }
+
   int64_t ReadRecords(int64_t num_records) override {
     // Delimit records, then read values at the end
     int64_t records_read = 0;
@@ -987,6 +993,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
   std::shared_ptr<ResizableBuffer> ReleaseValues() override {
     if (uses_values_) {
       auto result = values_;
+      PARQUET_THROW_NOT_OK(result->Resize(bytes_for_values(values_written_), true));
       values_ = AllocateBuffer(this->pool_);
       return result;
     } else {
@@ -997,6 +1004,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
   std::shared_ptr<ResizableBuffer> ReleaseIsValid() override {
     if (nullable_values_) {
       auto result = valid_bits_;
+      PARQUET_THROW_NOT_OK(result->Resize(BitUtil::BytesForBits(values_written_), true));
       valid_bits_ = AllocateBuffer(this->pool_);
       return result;
     } else {
@@ -1078,12 +1086,11 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
         new_values_capacity = BitUtil::NextPower2(new_values_capacity + 1);
       }
 
-      int type_size = GetTypeByteSize(this->descr_->physical_type());
-
       // XXX(wesm): A hack to avoid memory allocation when reading directly
       // into builder classes
       if (uses_values_) {
-        PARQUET_THROW_NOT_OK(values_->Resize(new_values_capacity * type_size, false));
+        PARQUET_THROW_NOT_OK(
+            values_->Resize(bytes_for_values(new_values_capacity), false));
       }
 
       values_capacity_ = new_values_capacity;
