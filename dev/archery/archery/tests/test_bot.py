@@ -2,10 +2,12 @@ import json
 from pathlib import Path
 from unittest.mock import Mock
 
-import click
 import pytest
 import responses as rsps
-from archery.bot import CommentBot, CommandError, group
+import click
+from click.testing import CliRunner
+
+from archery.bot import CommentBot, CommandError, group, bot
 
 
 @pytest.fixture
@@ -187,3 +189,12 @@ def test_issue_comment_with_commands(responses, command, reaction):
 
     post = responses.calls[3]
     assert json.loads(post.request.body) == {'content': reaction}
+
+
+# TODO(kszucs): properly mock it
+# def test_crossbow_submit():
+#     runner = CliRunner()
+#     result = runner.invoke(
+#         bot, ['crossbow', 'submit', '-g', 'wheel', '--dry-run']
+#     )
+#     assert result.exit_code == 0

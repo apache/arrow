@@ -63,7 +63,6 @@ def _convert_typehint(tokens):
                 # are not supported by _signature_fromstr
                 yield (names[1].type, names[1].string)
             elif len(names) > 2:
-                print(names)
                 raise ValueError('More than two NAME tokens follow each other')
             names = []
             yield (token.type, token.string)
