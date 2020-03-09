@@ -20,6 +20,4 @@
 
 # Run this from cpp/ directory. thrift is expected to be in your path
 
-pushd src/parquet
-thrift --gen cpp -out . parquet.thrift
-popd
+thrift --gen cpp -out src/generated src/parquet/parquet.thrift
