@@ -111,8 +111,13 @@ jobs:
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push r
   windows:
-    name: Windows
+    name: Windows, RTools {{ matrix.rtools }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # TODO: test on rtools40
+        rtools: [35]
     env:
       TEST_R_WITH_ARROW: "TRUE"
       RWINLIB_LOCAL: '\libarrow.zip'
@@ -121,9 +126,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: r-lib/actions/setup-r@master
+        with:
+          rtools-version: {{ matrix.rtools }}
       - name: Install R package dependencies
         shell: bash
-        run: ci/scripts/r_deps.sh .
+        run: R_BIN=Rscript ci/scripts/r_deps.sh .
       - name: Check
         shell: bash
-        run: ci/scripts/r_deps.sh .
+        run: R_BIN=Rscript ci/scripts/r_deps.sh .
