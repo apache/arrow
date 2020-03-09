@@ -111,7 +111,7 @@ jobs:
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push r
   windows:
-    name: Windows, RTools {{ matrix.rtools }}
+    name: Windows, RTools ${{ matrix.rtools }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -127,7 +127,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: r-lib/actions/setup-r@master
         with:
-          rtools-version: {{ matrix.rtools }}
+          rtools-version: ${{ matrix.rtools }}
       - name: Install R package dependencies
         shell: bash
         run: R_BIN=Rscript ci/scripts/r_deps.sh .
