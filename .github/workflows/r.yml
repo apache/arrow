@@ -125,7 +125,7 @@ jobs:
       _R_CHECK_TESTS_NLINES_: 0
     steps:
       - uses: actions/checkout@v2
-      - uses: r-lib/actions/setup-r@master
+      - uses: r-lib/actions/setup-r@f44dbada5de6d99802c5467dc335815635d20861
         with:
           rtools-version: ${{ matrix.rtools }}
       - name: Install R package dependencies
@@ -133,4 +133,4 @@ jobs:
         run: R_BIN=Rscript ci/scripts/r_deps.sh .
       - name: Check
         shell: bash
-        run: R_BIN=Rscript ci/scripts/r_deps.sh .
+        run: R_BIN=Rscript ci/scripts/r_test.sh .
