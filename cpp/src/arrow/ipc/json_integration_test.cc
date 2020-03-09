@@ -326,9 +326,15 @@ static const char* JSON_EXAMPLE2 = R"example(
             {"type": "VALIDITY", "typeBitWidth": 1},
             {"type": "DATA", "typeBitWidth": 32}
           ]
+        },
+        "metadata": {
+          "converted_from_time32": "true"
         }
       }
-    ]
+    ],
+    "metadata": {
+      "schema_custom_0": "eh"
+    }
   },
   "batches": [
     {
