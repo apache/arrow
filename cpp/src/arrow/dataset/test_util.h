@@ -258,7 +258,7 @@ struct MakeFileSystemDatasetMixin {
     std::stringstream ss(pathlist);
     std::string line;
     while (std::getline(ss, line)) {
-      if (std::all_of(line.begin(), line.end(), [](char c) { return std::isspace(c); })) {
+      if (std::all_of(line.begin(), line.end(), [](char c) { return isspace(c); })) {
         continue;
       }
 
