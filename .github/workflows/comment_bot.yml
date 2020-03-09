@@ -35,9 +35,6 @@ jobs:
     name: Debug
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Arrow
-        shell: bash
-        run: echo "Triggered"
       - name: Event Name
         shell: bash
         run: echo "${{ github.event_name }} "
@@ -47,3 +44,23 @@ jobs:
       - name: Event Payload
         shell: bash
         run: cat ${{ github.event_path }}
+
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          path: arrow
+      - uses: s-weigand/setup-conda@v1
+        with:
+          update-conda: true
+          python-version: 3.7
+          conda-channels: conda-forge
+      - run: conda --version
+      - run: which python
+      - run: |
+          conda install -y --file arrow/ci/conda_env_crossbow.txt
+      - run: |
+          pip install -e arrow/dev/archery
+      - run: |
+          archery trigger-bot --evnt-name ${{ github.event_name }} --event-payload ${{ github.event_payload }}
+
+

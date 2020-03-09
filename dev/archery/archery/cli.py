@@ -32,6 +32,7 @@ from .utils.lint import linter, python_numpydoc, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources
 from .utils.tmpdir import tmpdir
+from .bot import CommentBot, ursabot
 
 # Set default logging to INFO in command line.
 logging.basicConfig(level=logging.INFO)
@@ -584,6 +585,19 @@ def integration(with_all=False, random_seed=12345, **args):
         if enabled_languages == 0:
             raise Exception("Must enable at least 1 language to test")
         run_all_tests(**args)
+
+
+@archery.command()
+@click.option('--event-name', '-n', required=True)
+@click.option('--event-payload', '-p', type=click.File('r', encoding='utf8'),
+              default='-', required=True)
+@click.option('--github-token', '-t', envvar='CROSSBOW_GITHUB_TOKEN',
+              help='OAuth token for GitHub authentication')
+def trigger_bot(event_name, event_payload, github_token):
+    event_payload = json.loads(event_payload.read())
+
+    bot = CommentBot(name='ursabot', handler='ursabot', token=github_token)
+    bot.handle(event_name, event_payload)
 
 
 if __name__ == "__main__":

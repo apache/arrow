@@ -147,12 +147,12 @@ group = partial(click.group, cls=Group)
 
 @group(name='@ursabot')
 @click.pass_context
-def bot(ctx):
+def ursabot(ctx):
     """Ursabot"""
     ctx.ensure_object(dict)
 
 
-@bot.group()
+@ursabot.group()
 @click.option('--arrow', '-a', default='apache/arrow',
               help='Arrow repository on github to use')
 @click.option('--crossbow', '-c', default='ursa-labs/crossbow',
@@ -160,7 +160,7 @@ def bot(ctx):
 @click.pass_obj
 def crossbow(obj, arrow, crossbow):
     """Trigger crossbow builds for this pull request"""
-    obj['arrow_repo'] = 'https://github.com/{}'.format(arrow)
+    # obj['arrow_repo'] = 'https://github.com/{}'.format(arrow)
     obj['crossbow_repo'] = 'https://github.com/{}'.format(crossbow)
 
 
@@ -185,6 +185,8 @@ def submit(obj, task, group, dry_run):
     git = Git()
     xbow = Crossbow('arrow/dev/tasks/crossbow.py')
 
+    # arrow is already cloned ideally but of course we should be able to choose
+    # a different fork
     # git.clone(obj['arrow_repo'], 'arrow')
-    # git.clone(obj['crossbow_repo'], 'crossbow')
+    git.clone(obj['crossbow_repo'], 'crossbow')
     xbow.run('submit', *args)
