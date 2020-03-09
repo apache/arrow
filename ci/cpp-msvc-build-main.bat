@@ -103,7 +103,9 @@ popd
 
 pushd python
 
-conda install -y --file=requirements.txt --file=requirements-test.txt
+conda install -y --file=requirements.txt ^
+      --file=requirements-test.txt ^
+      -c conda-forge
 
 set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
