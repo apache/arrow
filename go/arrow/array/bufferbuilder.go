@@ -110,6 +110,17 @@ func (b *bufferBuilder) Reset() {
 	b.capacity, b.length = 0, 0
 }
 
+// ResetRetain resets the buffer builder to an empty state, but retains the already allocated memory. It sets the
+// length and capacity to zero.
+func (b *bufferBuilder) ResetRetain() {
+	if b.buffer != nil {
+		fullBuf := b.buffer.Buf()
+		b.buffer = memory.NewBufferBytes(fullBuf)
+		b.bytes = b.buffer.Bytes()
+	}
+	b.length = 0
+}
+
 // Finish TODO(sgc)
 func (b *bufferBuilder) Finish() (buffer *memory.Buffer) {
 	if b.length > 0 {
