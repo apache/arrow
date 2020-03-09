@@ -3465,3 +3465,29 @@ def test_fastparquet_cross_compatibility(tempdir):
     # (no arrow schema in parquet metadata)
     df['f'] = df['f'].astype(object)
     tm.assert_frame_equal(table_fp.to_pandas(), df)
+
+
+@pytest.mark.parametrize('array_factory', [
+    lambda: pa.array([0, None] * 10),
+    lambda: pa.array([0, None] * 10).dictionary_encode(),
+    lambda: pa.array(["", None] * 10),
+    lambda: pa.array(["", None] * 10).dictionary_encode(),
+])
+@pytest.mark.parametrize('use_dictionary', [False, True])
+@pytest.mark.parametrize('read_dictionary', [False, True])
+def test_buffer_contents(array_factory, use_dictionary, read_dictionary):
+    # Test that null values are deterministically initialized to zero
+    # after a roundtrip through Parquet.
+    # See ARROW-8006 and ARROW-8011.
+    orig_table = pa.Table.from_pydict({"col": array_factory()})
+    bio = io.BytesIO()
+    pq.write_table(orig_table, bio, use_dictionary=True)
+    bio.seek(0)
+    read_dictionary = ['col'] if read_dictionary else None
+    table = pq.read_table(bio, use_threads=False,
+                          read_dictionary=read_dictionary)
+
+    for col in table.columns:
+        [chunk] = col.chunks
+        buf = chunk.buffers()[1]
+        assert buf.to_pybytes() == buf.size * b"\0"
