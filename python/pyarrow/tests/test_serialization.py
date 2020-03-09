@@ -554,7 +554,7 @@ def test_sparse_coo_tensor_serialization(index_type, tensor_type):
     serialized = pa.serialize(sparse_tensor, context=context).to_buffer()
     result = pa.deserialize(serialized)
     assert_equal(result, sparse_tensor)
-    assert result.type == sparse_tensor.type
+    assert isinstance(result, pa.SparseCOOTensor)
 
     data_result, coords_result = result.to_numpy()
     assert np.array_equal(data_result, data)
@@ -629,7 +629,7 @@ def test_sparse_csr_matrix_serialization(index_type, tensor_type):
     serialized = pa.serialize(sparse_tensor, context=context).to_buffer()
     result = pa.deserialize(serialized)
     assert_equal(result, sparse_tensor)
-    assert result.type == sparse_tensor.type
+    assert isinstance(result, pa.SparseCSRMatrix)
 
     data_result, indptr_result, indices_result = result.to_numpy()
     assert np.array_equal(data_result, data)
@@ -687,7 +687,7 @@ def test_sparse_csc_matrix_serialization(index_type, tensor_type):
     serialized = pa.serialize(sparse_tensor, context=context).to_buffer()
     result = pa.deserialize(serialized)
     assert_equal(result, sparse_tensor)
-    assert result.type == sparse_tensor.type
+    assert isinstance(result, pa.SparseCSCMatrix)
 
     data_result, indptr_result, indices_result = result.to_numpy()
     assert np.array_equal(data_result, data)

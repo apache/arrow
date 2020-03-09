@@ -439,15 +439,6 @@ Status NdarraysToSparseCSXMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* 
   return Status::OK();
 }
 
-template Status NdarraysToSparseCSXMatrix<SparseCSCIndex>(
-    MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao, PyObject* indices_ao,
-    const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names,
-    std::shared_ptr<SparseCSCMatrix>* out);
-template Status NdarraysToSparseCSXMatrix<SparseCSRIndex>(
-    MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao, PyObject* indices_ao,
-    const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names,
-    std::shared_ptr<SparseCSRMatrix>* out);
-
 Status NdarraysToSparseCSRMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
                                  PyObject* indices_ao, const std::vector<int64_t>& shape,
                                  const std::vector<std::string>& dim_names,
