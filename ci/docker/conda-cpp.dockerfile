@@ -62,7 +62,8 @@ SHELL [ "/bin/bash", "-c", "-l" ]
 # use login shell when running the container
 ENTRYPOINT [ "/bin/bash", "-c", "-l" ]
 
-ENV ARROW_BUILD_TESTS=ON \
+ENV CMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=CONDA \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \

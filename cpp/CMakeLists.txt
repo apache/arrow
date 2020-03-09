@@ -829,5 +829,7 @@ endif()
 configure_file("src/arrow/config.h.cmake" "${CMAKE_CURRENT_BINARY_DIR}/src/arrow/config.h"
                @ONLY)
 
+message(STATUS "wrote config.h to ${CMAKE_CURRENT_BINARY_DIR}/src/arrow/config.h")
+
 install(FILES "${ARROW_BINARY_DIR}/src/arrow/config.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow")
