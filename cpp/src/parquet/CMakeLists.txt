@@ -206,8 +206,6 @@ else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
 endif()
 
-set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} thrift::thrift)
-
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
   set(PARQUET_SHARED_LINK_LIBS arrow_shared)
 
@@ -265,6 +263,8 @@ add_arrow_lib(parquet
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC parquet_constants.cpp parquet_types.cpp)
+  add_dependencies(parquet_test_support thrift::thrift)
+
   set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_test_support)
   set(PARQUET_LIBRARIES ${PARQUET_LIBRARIES} parquet_test_support)
 endif()
