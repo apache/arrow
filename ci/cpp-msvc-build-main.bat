@@ -103,7 +103,7 @@ popd
 
 pushd python
 
-pip install -r requirements-build.txt
+conda install -y --file=requirements.txt --file=requirements-test.txt
 
 set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
