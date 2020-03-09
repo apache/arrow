@@ -135,7 +135,7 @@ struct DictionaryTraits<T, enable_if_base_binary<T>> {
       RETURN_NOT_OK(
           AllocateBuffer(pool, sizeof(offset_type) * (dict_length + 1), &dict_offsets));
       auto raw_offsets = reinterpret_cast<offset_type*>(dict_offsets->mutable_data());
-      memo_table.CopyOffsets(static_cast<offset_type>(start_offset), raw_offsets);
+      memo_table.CopyOffsets(static_cast<int32_t>(start_offset), raw_offsets);
     }
 
     // Create the data buffer
