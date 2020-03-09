@@ -183,19 +183,22 @@ Status ReadGetDebugStringReply(uint8_t* data, size_t size, std::string* debug_st
 
 // Create messages.
 
-Status SendCreateRequest(int sock, ObjectID object_id, int64_t data_size,
-                         int64_t metadata_size, int device_num) {
+Status SendCreateRequest(int sock, ObjectID object_id, bool evict_if_full,
+                         int64_t data_size, int64_t metadata_size, int device_num) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto message = fb::CreatePlasmaCreateRequest(fbb, fbb.CreateString(object_id.binary()),
-                                               data_size, metadata_size, device_num);
+  auto message =
+      fb::CreatePlasmaCreateRequest(fbb, fbb.CreateString(object_id.binary()),
+                                    evict_if_full, data_size, metadata_size, device_num);
   return PlasmaSend(sock, MessageType::PlasmaCreateRequest, &fbb, message);
 }
 
 Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
-                         int64_t* data_size, int64_t* metadata_size, int* device_num) {
+                         bool* evict_if_full, int64_t* data_size, int64_t* metadata_size,
+                         int* device_num) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaCreateRequest>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
+  *evict_if_full = message->evict_if_full();
   *data_size = message->data_size();
   *metadata_size = message->metadata_size();
   *object_id = ObjectID::from_binary(message->object_id()->str());
@@ -262,25 +265,26 @@ Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
   return PlasmaErrorStatus(message->error());
 }
 
-Status SendCreateAndSealRequest(int sock, const ObjectID& object_id,
+Status SendCreateAndSealRequest(int sock, const ObjectID& object_id, bool evict_if_full,
                                 const std::string& data, const std::string& metadata,
                                 unsigned char* digest) {
   flatbuffers::FlatBufferBuilder fbb;
   auto digest_string = fbb.CreateString(reinterpret_cast<char*>(digest), kDigestSize);
   auto message = fb::CreatePlasmaCreateAndSealRequest(
-      fbb, fbb.CreateString(object_id.binary()), fbb.CreateString(data),
+      fbb, fbb.CreateString(object_id.binary()), evict_if_full, fbb.CreateString(data),
       fbb.CreateString(metadata), digest_string);
   return PlasmaSend(sock, MessageType::PlasmaCreateAndSealRequest, &fbb, message);
 }
 
 Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
-                                std::string* object_data, std::string* metadata,
-                                std::string* digest) {
+                                bool* evict_if_full, std::string* object_data,
+                                std::string* metadata, std::string* digest) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealRequest>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
 
   *object_id = ObjectID::from_binary(message->object_id()->str());
+  *evict_if_full = message->evict_if_full();
   *object_data = message->data()->str();
   *metadata = message->metadata()->str();
   ARROW_CHECK(message->digest()->size() == kDigestSize);
@@ -289,13 +293,14 @@ Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
 }
 
 Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& object_ids,
+                                     bool evict_if_full,
                                      const std::vector<std::string>& data,
                                      const std::vector<std::string>& metadata,
                                      const std::vector<std::string>& digests) {
   flatbuffers::FlatBufferBuilder fbb;
 
   auto message = fb::CreatePlasmaCreateAndSealBatchRequest(
-      fbb, ToFlatbuffer(&fbb, object_ids.data(), object_ids.size()),
+      fbb, ToFlatbuffer(&fbb, object_ids.data(), object_ids.size()), evict_if_full,
       ToFlatbuffer(&fbb, data), ToFlatbuffer(&fbb, metadata),
       ToFlatbuffer(&fbb, digests));
 
@@ -304,6 +309,7 @@ Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& obje
 
 Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size,
                                      std::vector<ObjectID>* object_ids,
+                                     bool* evict_if_full,
                                      std::vector<std::string>* object_data,
                                      std::vector<std::string>* metadata,
                                      std::vector<std::string>* digests) {
@@ -311,6 +317,7 @@ Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size,
   auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealBatchRequest>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
 
+  *evict_if_full = message->evict_if_full();
   ConvertToVector(message->object_ids(), object_ids,
                   [](const flatbuffers::String& element) {
                     return ObjectID::from_binary(element.str());

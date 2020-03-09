@@ -152,16 +152,19 @@ void PlasmaStore::AddToClientObjectIds(const ObjectID& object_id, ObjectTableEnt
 }
 
 // Allocate memory
-uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
-                                     ptrdiff_t* offset, Client* client, bool is_create) {
+uint8_t* PlasmaStore::AllocateMemory(size_t size, bool evict_if_full, int* fd,
+                                     int64_t* map_size, ptrdiff_t* offset, Client* client,
+                                     bool is_create) {
   // First free up space from the client's LRU queue if quota enforcement is on.
-  std::vector<ObjectID> client_objects_to_evict;
-  bool quota_ok = eviction_policy_.EnforcePerClientQuota(client, size, is_create,
-                                                         &client_objects_to_evict);
-  if (!quota_ok) {
-    return nullptr;
+  if (evict_if_full) {
+    std::vector<ObjectID> client_objects_to_evict;
+    bool quota_ok = eviction_policy_.EnforcePerClientQuota(client, size, is_create,
+                                                           &client_objects_to_evict);
+    if (!quota_ok) {
+      return nullptr;
+    }
+    EvictObjects(client_objects_to_evict);
   }
-  EvictObjects(client_objects_to_evict);
 
   // Try to evict objects until there is enough space.
   uint8_t* pointer = nullptr;
@@ -174,7 +177,10 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
     // it is not guaranteed that the corresponding pointer in the client will be
     // 64-byte aligned, but in practice it often will be.
     pointer = reinterpret_cast<uint8_t*>(PlasmaAllocator::Memalign(kBlockSize, size));
-    if (pointer) {
+    if (pointer || !evict_if_full) {
+      // If we manage to allocate the memory, return the pointer. If we cannot
+      // allocate the space, but we are also not allowed to evict anything to
+      // make more space, return an error to the client.
       break;
     }
     // Tell the eviction policy how much space we need to create this object.
@@ -184,11 +190,14 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
     // Return an error to the client if not enough space could be freed to
     // create the object.
     if (!success) {
-      return nullptr;
+      break;
     }
   }
-  GetMallocMapinfo(pointer, fd, map_size, offset);
-  ARROW_CHECK(*fd != -1);
+
+  if (pointer != nullptr) {
+    GetMallocMapinfo(pointer, fd, map_size, offset);
+    ARROW_CHECK(*fd != -1);
+  }
   return pointer;
 }
 
@@ -212,9 +221,10 @@ Status PlasmaStore::FreeCudaMemory(int device_num, int64_t size, uint8_t* pointe
 #endif
 
 // Create a new object buffer in the hash table.
-PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_size,
-                                      int64_t metadata_size, int device_num,
-                                      Client* client, PlasmaObject* result) {
+PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, bool evict_if_full,
+                                      int64_t data_size, int64_t metadata_size,
+                                      int device_num, Client* client,
+                                      PlasmaObject* result) {
   ARROW_LOG(DEBUG) << "creating object " << object_id.hex();
 
   auto entry = GetObjectTableEntry(&store_info_, object_id);
@@ -231,7 +241,8 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   auto total_size = data_size + metadata_size;
 
   if (device_num == 0) {
-    pointer = AllocateMemory(total_size, &fd, &map_size, &offset, client, true);
+    pointer =
+        AllocateMemory(total_size, evict_if_full, &fd, &map_size, &offset, client, true);
     if (!pointer) {
       ARROW_LOG(ERROR) << "Not enough memory to create the object " << object_id.hex()
                        << ", data_size=" << data_size
@@ -454,8 +465,9 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       // Make sure the object pointer is not already allocated
       ARROW_CHECK(!entry->pointer);
 
-      entry->pointer = AllocateMemory(entry->data_size + entry->metadata_size, &entry->fd,
-                                      &entry->map_size, &entry->offset, client, false);
+      entry->pointer =
+          AllocateMemory(entry->data_size + entry->metadata_size, /*evict=*/true,
+                         &entry->fd, &entry->map_size, &entry->offset, client, false);
       if (entry->pointer) {
         entry->state = ObjectState::PLASMA_CREATED;
         entry->create_time = std::time(nullptr);
@@ -925,13 +937,14 @@ Status PlasmaStore::ProcessMessage(Client* client) {
   // Process the different types of requests.
   switch (type) {
     case fb::MessageType::PlasmaCreateRequest: {
+      bool evict_if_full;
       int64_t data_size;
       int64_t metadata_size;
       int device_num;
-      RETURN_NOT_OK(ReadCreateRequest(input, input_size, &object_id, &data_size,
-                                      &metadata_size, &device_num));
-      PlasmaError error_code =
-          CreateObject(object_id, data_size, metadata_size, device_num, client, &object);
+      RETURN_NOT_OK(ReadCreateRequest(input, input_size, &object_id, &evict_if_full,
+                                      &data_size, &metadata_size, &device_num));
+      PlasmaError error_code = CreateObject(object_id, evict_if_full, data_size,
+                                            metadata_size, device_num, client, &object);
       int64_t mmap_size = 0;
       if (error_code == PlasmaError::OK && device_num == 0) {
         mmap_size = GetMmapSize(object.store_fd);
@@ -948,17 +961,18 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       }
     } break;
     case fb::MessageType::PlasmaCreateAndSealRequest: {
+      bool evict_if_full;
       std::string data;
       std::string metadata;
       std::string digest;
       digest.reserve(kDigestSize);
-      RETURN_NOT_OK(ReadCreateAndSealRequest(input, input_size, &object_id, &data,
-                                             &metadata, &digest));
+      RETURN_NOT_OK(ReadCreateAndSealRequest(input, input_size, &object_id,
+                                             &evict_if_full, &data, &metadata, &digest));
       // CreateAndSeal currently only supports device_num = 0, which corresponds
       // to the host.
       int device_num = 0;
-      PlasmaError error_code = CreateObject(object_id, data.size(), metadata.size(),
-                                            device_num, client, &object);
+      PlasmaError error_code = CreateObject(object_id, evict_if_full, data.size(),
+                                            metadata.size(), device_num, client, &object);
 
       // If the object was successfully created, fill out the object data and seal it.
       if (error_code == PlasmaError::OK) {
@@ -979,13 +993,14 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       HANDLE_SIGPIPE(SendCreateAndSealReply(client->fd, error_code), client->fd);
     } break;
     case fb::MessageType::PlasmaCreateAndSealBatchRequest: {
+      bool evict_if_full;
       std::vector<ObjectID> object_ids;
       std::vector<std::string> data;
       std::vector<std::string> metadata;
       std::vector<std::string> digests;
 
-      RETURN_NOT_OK(ReadCreateAndSealBatchRequest(input, input_size, &object_ids, &data,
-                                                  &metadata, &digests));
+      RETURN_NOT_OK(ReadCreateAndSealBatchRequest(
+          input, input_size, &object_ids, &evict_if_full, &data, &metadata, &digests));
 
       // CreateAndSeal currently only supports device_num = 0, which corresponds
       // to the host.
@@ -993,8 +1008,8 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       size_t i = 0;
       PlasmaError error_code = PlasmaError::OK;
       for (i = 0; i < object_ids.size(); i++) {
-        error_code = CreateObject(object_ids[i], data[i].size(), metadata[i].size(),
-                                  device_num, client, &object);
+        error_code = CreateObject(object_ids[i], evict_if_full, data[i].size(),
+                                  metadata[i].size(), device_num, client, &object);
         if (error_code != PlasmaError::OK) {
           break;
         }

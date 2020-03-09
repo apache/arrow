@@ -72,6 +72,10 @@ class PlasmaStore {
   /// the store when it is done with the object.
   ///
   /// \param object_id Object ID of the object to be created.
+  /// \param evict_if_full If this is true, then when the object store is full,
+  ///        try to evict objects that are not currently referenced before
+  ///        creating the object. Else, do not evict any objects and
+  ///        immediately return an PlasmaError::OutOfMemory.
   /// \param data_size Size in bytes of the object to be created.
   /// \param metadata_size Size in bytes of the object metadata.
   /// \param device_num The number of the device where the object is being
@@ -89,9 +93,9 @@ class PlasmaStore {
   ///  - PlasmaError::OutOfMemory, if the store is out of memory and
   ///    cannot create the object. In this case, the client should not call
   ///    plasma_release.
-  PlasmaError CreateObject(const ObjectID& object_id, int64_t data_size,
-                           int64_t metadata_size, int device_num, Client* client,
-                           PlasmaObject* result);
+  PlasmaError CreateObject(const ObjectID& object_id, bool evict_if_full,
+                           int64_t data_size, int64_t metadata_size, int device_num,
+                           Client* client, PlasmaObject* result);
 
   /// Abort a created but unsealed object. If the client is not the
   /// creator, then the abort will fail.
@@ -200,8 +204,8 @@ class PlasmaStore {
 
   void EraseFromObjectTable(const ObjectID& object_id);
 
-  uint8_t* AllocateMemory(size_t size, int* fd, int64_t* map_size, ptrdiff_t* offset,
-                          Client* client, bool is_create);
+  uint8_t* AllocateMemory(size_t size, bool evict_if_full, int* fd, int64_t* map_size,
+                          ptrdiff_t* offset, Client* client, bool is_create);
 #ifdef PLASMA_CUDA
   Status AllocateCudaMemory(int device_num, int64_t size, uint8_t** out_pointer,
                             std::shared_ptr<CudaIpcMemHandle>* out_ipc_handle);
