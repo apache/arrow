@@ -125,7 +125,7 @@ jobs:
       _R_CHECK_TESTS_NLINES_: 0
     steps:
       - uses: actions/checkout@v2
-      - uses: r-lib/actions/setup-r@v1
+      - uses: r-lib/actions/setup-r@5d19b1c9ba8d72d8b3abc0d8be9d94ac2c0baa05
         with:
           rtools-version: ${{ matrix.rtools }}
       - name: Install R package dependencies
