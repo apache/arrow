@@ -174,6 +174,14 @@ func (b *BinaryBuilder) Resize(n int) {
 	b.builder.resize(n, b.init)
 }
 
+// Reset resets the BinaryBuilder for re-use, preserving the existing data structures so they don't have to
+// be reallocated.
+func (b *BinaryBuilder) Reset() {
+	b.builder.Reset()
+	b.offsets.ResetRetain()
+	b.values.ResetRetain()
+}
+
 // NewArray creates a Binary array from the memory buffers used by the builder and resets the BinaryBuilder
 // so it can be used to build a new array.
 func (b *BinaryBuilder) NewArray() Interface {
