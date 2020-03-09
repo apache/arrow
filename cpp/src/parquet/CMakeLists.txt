@@ -206,6 +206,8 @@ else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
 endif()
 
+set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} thrift::thrift)
+
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
   set(PARQUET_SHARED_LINK_LIBS arrow_shared)
 
