@@ -129,8 +129,8 @@ jobs:
         # with:
         #   rtools-version: ${{ matrix.rtools }}
       - name: Install R package dependencies
-        shell: bash
+        shell: cmd
         run: R_BIN=Rscript ci/scripts/r_deps.sh .
       - name: Check
-        shell: bash
+        shell: cmd
         run: R_BIN=Rscript ci/scripts/r_test.sh .
