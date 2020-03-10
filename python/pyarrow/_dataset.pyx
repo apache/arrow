@@ -94,6 +94,7 @@ cdef class Dataset:
 
     def GetFragments(self, columns=None, filter=None):
         """Returns an iterator over the fragments in this dataset.
+
         Parameters
         ----------
         columns : list of str, default None
