@@ -145,8 +145,8 @@ class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
       ASSERT_OK_AND_ASSIGN(schema, factory_->Inspect());
     }
     options_ = ScanOptions::Make(schema);
-    ASSERT_OK_AND_ASSIGN(source_, factory_->Finish(schema));
-    AssertFragmentsAreFromPath(source_->GetFragments(options_), paths);
+    ASSERT_OK_AND_ASSIGN(dataset_, factory_->Finish(schema));
+    AssertFragmentsAreFromPath(dataset_->GetFragments(options_), paths);
   }
 
  protected:
@@ -279,12 +279,12 @@ TEST(UnionDatasetFactoryTest, Basic) {
   auto schema_2 = schema({f64, i32});
   auto schema_3 = schema({str, i32});
 
-  auto source_1 = DatasetFactoryFromSchemas({schema_1, schema_2});
-  auto source_2 = DatasetFactoryFromSchemas({schema_2});
-  auto source_3 = DatasetFactoryFromSchemas({schema_3});
+  auto dataset_1 = DatasetFactoryFromSchemas({schema_1, schema_2});
+  auto dataset_2 = DatasetFactoryFromSchemas({schema_2});
+  auto dataset_3 = DatasetFactoryFromSchemas({schema_3});
 
   ASSERT_OK_AND_ASSIGN(auto factory,
-                       UnionDatasetFactory::Make({source_1, source_2, source_3}));
+                       UnionDatasetFactory::Make({dataset_1, dataset_2, dataset_3}));
 
   ASSERT_OK_AND_ASSIGN(auto schemas, factory->InspectSchemas());
   AssertSchemasAre(schemas, {schema_2, schema_2, schema_3});
@@ -312,13 +312,13 @@ TEST(UnionDatasetFactoryTest, ConflictingSchemas) {
   // Incompatible with schema_1
   auto schema_3 = schema({bad_f64, i32});
 
-  auto source_factory_1 = DatasetFactoryFromSchemas({schema_1, schema_2});
-  auto source_factory_2 = DatasetFactoryFromSchemas({schema_2});
-  auto source_factory_3 = DatasetFactoryFromSchemas({schema_3});
+  auto dataset_factory_1 = DatasetFactoryFromSchemas({schema_1, schema_2});
+  auto dataset_factory_2 = DatasetFactoryFromSchemas({schema_2});
+  auto dataset_factory_3 = DatasetFactoryFromSchemas({schema_3});
 
-  ASSERT_OK_AND_ASSIGN(
-      auto factory,
-      UnionDatasetFactory::Make({source_factory_1, source_factory_2, source_factory_3}));
+  ASSERT_OK_AND_ASSIGN(auto factory,
+                       UnionDatasetFactory::Make(
+                           {dataset_factory_1, dataset_factory_2, dataset_factory_3}));
 
   // schema_3 conflicts with other, Inspect/Finish should not work
   ASSERT_RAISES(Invalid, factory->Inspect());
