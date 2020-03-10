@@ -121,6 +121,8 @@ groups:
     - test-conda-python-3.8-dask-master
     - test-conda-python-3.7-turbodbc-latest
     - test-conda-python-3.7-turbodbc-master
+    - test-conda-python-3.7-kartothek-latest
+    - test-conda-python-3.7-kartothek-master
     - test-conda-python-3.7-hdfs-2.9.2
     - test-conda-python-3.7-spark-master
     - test-conda-python-3.8-jpype
@@ -202,6 +204,8 @@ groups:
     - test-conda-python-3.8-dask-master
     - test-conda-python-3.7-turbodbc-latest
     - test-conda-python-3.7-turbodbc-master
+    - test-conda-python-3.7-kartothek-latest
+    - test-conda-python-3.7-kartothek-master
     - test-conda-python-3.7-hdfs-2.9.2
     - test-conda-python-3.7-spark-master
     - test-conda-python-3.8-jpype
@@ -286,6 +290,8 @@ groups:
     - test-conda-python-3.8-dask-master
     - test-conda-python-3.7-turbodbc-latest
     - test-conda-python-3.7-turbodbc-master
+    - test-conda-python-3.7-kartothek-latest
+    - test-conda-python-3.7-kartothek-master
     - test-conda-python-3.7-hdfs-2.9.2
     - test-conda-python-3.7-spark-master
     - test-conda-python-3.8-jpype
@@ -2064,6 +2070,34 @@ tasks:
         - docker-compose build conda-python
         - docker-compose build --no-cache conda-python-turbodbc
         - docker-compose run conda-python-turbodbc
+
+  test-conda-python-3.7-kartothek-latest:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - export PYTHON=3.7 KARTOTHEK=latest
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-kartothek
+        - docker-compose run conda-python-kartothek
+
+  test-conda-python-3.7-kartothek-master:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - export PYTHON=3.7 TURBODBC=master
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-kartothek
+        - docker-compose run conda-python-kartothek
 
   test-conda-python-3.7-hdfs-2.9.2:
     ci: circle
