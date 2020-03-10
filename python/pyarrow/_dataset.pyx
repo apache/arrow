@@ -101,6 +101,7 @@ cdef class Dataset:
             List of columns to project.
         filter : Expression, default None
             Scan will return only the rows matching the filter.
+
         Returns
         -------
         fragments : iterator of Fragment
