@@ -367,9 +367,6 @@ class PullRequest(object):
             # If there is only one author, do not prompt for a lead author
             primary_author = distinct_authors[0]
 
-        commits = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
-                          '--pretty=format:%h <%an> %s']).split("\n\n")
-
         merge_message_flags = []
 
         merge_message_flags += ["-m", self.title]
@@ -400,12 +397,8 @@ class PullRequest(object):
         # close the PR
         merge_message_flags += [
             "-m",
-            "Closes #%s from %s and squashes the following commits:"
+            "Closes #%s from %s"
             % (self.number, self.description)]
-        for c in commits:
-            stripped_message = strip_ci_directives(c).strip()
-            merge_message_flags += ["-m", stripped_message]
-
         merge_message_flags += ["-m", authors]
 
         if DEBUG:
