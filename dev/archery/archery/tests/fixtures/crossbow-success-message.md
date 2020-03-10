@@ -1,5 +1,3 @@
-[Builder1 (#{build_id})]({build_url}) builder {status}
-
 Revision: {revision}
 
 Submitted crossbow builds: [{repo} @ {branch}](https://github.com/{repo}/branches/all?query={branch})

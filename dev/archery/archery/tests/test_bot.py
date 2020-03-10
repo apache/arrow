@@ -3,11 +3,15 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+import textwrap
 import responses as rsps
 import click
 from click.testing import CliRunner
+from ruamel.yaml import YAML
 
-from archery.bot import CommentBot, CommandError, group
+from archery.bot import (
+    CommentBot, CommandError, CrossbowCommentFormatter, group
+)
 
 
 @pytest.fixture
@@ -17,9 +21,15 @@ def responses():
 
 
 def load_fixture(name):
-    path = Path(__file__).parent / 'fixtures' / '{}.json'.format(name)
+    path = Path(__file__).parent / 'fixtures' / name
     with path.open('r') as fp:
-        return json.load(fp)
+        if name.endswith('.json'):
+            return json.load(fp)
+        elif name.endswith('.yaml'):
+            yaml = YAML()
+            return yaml.load(fp)
+        else:
+            return fp.read()
 
 
 def github_url(path):
@@ -60,13 +70,28 @@ def test_click_based_commands():
     assert custom_handler('extra', extra='data') == {'extra': 'data'}
 
 
+def test_crossbow_comment_formatter():
+    job = load_fixture('crossbow-job.yaml')
+    msg = load_fixture('crossbow-success-message.md')
+
+    formatter = CrossbowCommentFormatter(crossbow_repo='ursa-labs/crossbow')
+    response = formatter.render(job)
+    expected = msg.format(
+        repo='ursa-labs/crossbow',
+        branch='ursabot-1',
+        revision='f766a1d615dd1b7ee706d05102e579195951a61c',
+        status='has been succeeded.'
+    )
+    assert response == textwrap.dedent(expected).strip()
+
+
 @pytest.mark.parametrize('fixture_name', [
     # the bot is not mentiond, nothing to do
-    'event-issue-comment-not-mentioning-ursabot',
+    'event-issue-comment-not-mentioning-ursabot.json',
     # don't respond to itself, it prevents recursive comment storms!
-    'event-issue-comment-by-ursabot',
+    'event-issue-comment-by-ursabot.json',
     # non-authorized user sent the comment, do not respond
-    'event-issue-comment-by-non-authorized-user',
+    'event-issue-comment-by-non-authorized-user.json',
 ])
 def test_noop_events(fixture_name):
     payload = load_fixture(fixture_name)
@@ -82,7 +107,7 @@ def test_issue_comment_without_pull_request(responses):
     responses.add(
         responses.GET,
         github_url('/repositories/169101701/issues/19'),
-        json=load_fixture('issue-19'),
+        json=load_fixture('issue-19.json'),
         status=200
     )
     responses.add(
@@ -100,7 +125,7 @@ def test_issue_comment_without_pull_request(responses):
     def handler(command, **kwargs):
         pass
 
-    payload = load_fixture('event-issue-comment-without-pull-request')
+    payload = load_fixture('event-issue-comment-without-pull-request.json')
     bot = CommentBot(name='ursabot', token='', handler=handler)
     bot.handle('issue_comment', payload)
 
@@ -114,19 +139,19 @@ def test_respond_with_usage(responses):
     responses.add(
         responses.GET,
         github_url('/repositories/169101701/issues/26'),
-        json=load_fixture('issue-26'),
+        json=load_fixture('issue-26.json'),
         status=200
     )
     responses.add(
         responses.GET,
         github_url('/repos/ursa-labs/ursabot/pulls/26'),
-        json=load_fixture('pull-request-26'),
+        json=load_fixture('pull-request-26.json'),
         status=200
     )
     responses.add(
         responses.GET,
         github_url('/repos/ursa-labs/ursabot/issues/comments/480243811'),
-        json=load_fixture('issue-comment-480243811')
+        json=load_fixture('issue-comment-480243811.json')
     )
     responses.add(
         responses.POST,
@@ -137,7 +162,7 @@ def test_respond_with_usage(responses):
     def handler(command, **kwargs):
         raise CommandError('test-usage')
 
-    payload = load_fixture('event-issue-comment-with-empty-command')
+    payload = load_fixture('event-issue-comment-with-empty-command.json')
     bot = CommentBot(name='ursabot', token='', handler=handler)
     bot.handle('issue_comment', payload)
 
@@ -153,19 +178,19 @@ def test_issue_comment_with_commands(responses, command, reaction):
     responses.add(
         responses.GET,
         github_url('/repositories/169101701/issues/26'),
-        json=load_fixture('issue-26'),
+        json=load_fixture('issue-26.json'),
         status=200
     )
     responses.add(
         responses.GET,
         github_url('/repos/ursa-labs/ursabot/pulls/26'),
-        json=load_fixture('pull-request-26'),
+        json=load_fixture('pull-request-26.json'),
         status=200
     )
     responses.add(
         responses.GET,
         github_url('/repos/ursa-labs/ursabot/issues/comments/480248726'),
-        json=load_fixture('issue-comment-480248726')
+        json=load_fixture('issue-comment-480248726.json')
     )
     responses.add(
         responses.POST,
@@ -181,7 +206,7 @@ def test_issue_comment_with_commands(responses, command, reaction):
         else:
             raise ValueError('Only `build` command is supported.')
 
-    payload = load_fixture('event-issue-comment-build-command')
+    payload = load_fixture('event-issue-comment-build-command.json')
     payload["comment"]["body"] = command
 
     bot = CommentBot(name='ursabot', token='', handler=handler)

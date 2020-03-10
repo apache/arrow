@@ -130,7 +130,10 @@ class CrossbowCommentFormatter:
 
     def render(self, job):
         url = 'https://github.com/{repo}/branches/all?query={branch}'
-        msg = f'Submitted crossbow builds: [{{repo}} @ {{branch}}]({url})\n'
+        sha = job['target']['head']
+
+        msg = f'Revision: {sha}\n\n'
+        msg += f'Submitted crossbow builds: [{{repo}} @ {{branch}}]({url})\n'
         msg += '\n|Task|Status|\n|----|------|'
 
         tasks = sorted(job['tasks'].items(), key=operator.itemgetter(0))
@@ -233,15 +236,12 @@ def ursabot(ctx):
 
 
 @ursabot.group()
-@click.option('--arrow', '-a', default='apache/arrow',
-              help='Arrow repository on github to use')
 @click.option('--crossbow', '-c', default='ursa-labs/crossbow',
               help='Crossbow repository on github to use')
 @click.pass_obj
-def crossbow(obj, arrow, crossbow):
+def crossbow(obj, crossbow):
     """Trigger crossbow builds for this pull request"""
-    # obj['arrow_repo'] = 'https://github.com/{}'.format(arrow)
-    obj['crossbow_repo'] = 'https://github.com/{}'.format(crossbow)
+    obj['crossbow_repo'] = crossbow
 
 
 @crossbow.command()
@@ -256,7 +256,7 @@ def submit(obj, task, group, dry_run):
 
     See groups defined in arrow/dev/tasks/tests.yml
     """
-    args = ['--output-file', 'result.yaml']
+    args = []
     for g in group:
         args.extend(['-g', g])
     for t in task:
@@ -264,11 +264,11 @@ def submit(obj, task, group, dry_run):
 
     # clone crossbow
     git = Git()
-    git.clone(obj['crossbow_repo'], 'crossbow')
+    git.clone('https://github.com/{}'.format(obj['crossbow_repo']), 'crossbow')
 
     # submit the crossbow tasks
     xbow = Crossbow('arrow/dev/tasks/crossbow.py')
-    xbow.run('submit', *args)
+    xbow.run('--output-file', 'result.yaml', 'submit', *args)
 
     # parse the result yml describing the submitted job
     yaml = YAML()
@@ -281,5 +281,3 @@ def submit(obj, task, group, dry_run):
 
     # send the response
     obj['pull'].create_issue_comment(response)
-
-

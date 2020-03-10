@@ -44,10 +44,12 @@ jobs:
       - run: |
           pip install -e arrow/dev/archery
       - name: Handle GH event
+        env:
+          ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CROSSBOW_GITHUB_TOKEN: ${{ secrets.CROSSBOW_GITHUB_TOKEN }}
         run: |
           archery trigger-bot \
             --event-name ${{ github.event_name }} \
-            --event-payload ${{ github.event_path }} \
-            --arrow-token ${{ secrets.GITHUB_TOKEN }}
+            --event-payload ${{ github.event_path }}
 
 
