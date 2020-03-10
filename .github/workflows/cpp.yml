@@ -1,0 +1,203 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: C++
+
+on:
+  push:
+    paths:
+      - '.github/workflows/cpp.yml'
+      - 'ci/**'
+      - 'cpp/**'
+  pull_request:
+    paths:
+      - '.github/workflows/cpp.yml'
+      - 'ci/**'
+      - 'cpp/**'
+
+env:
+  ARROW_ENABLE_TIMING_TESTS: OFF
+
+jobs:
+
+  conda:
+    name: AMD64 Conda C++
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: docker-compose pull --ignore-pull-failures conda-cpp
+      - name: Docker Build
+        shell: bash
+        run: docker-compose build conda-cpp
+      - name: Docker Run
+        shell: bash
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          docker-compose run conda-cpp
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push conda-cpp
+
+  ubuntu-sanitizer:
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++ ASAN UBSAN
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: [18.04]
+    env:
+      UBUNTU: ${{ matrix.ubuntu }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: docker-compose pull --ignore-pull-failures ubuntu-cpp-sanitizer
+      - name: Docker Build
+        shell: bash
+        run: docker-compose build ubuntu-cpp-sanitizer
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run ubuntu-cpp-sanitizer
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push ubuntu-cpp-sanitizer
+
+  macos:
+    name: AMD64 MacOS 10.15 C++
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_HOME: /usr/local
+      ARROW_JEMALLOC: ON
+      # TODO(kszucs): link error in the tests
+      ARROW_DATASET: ON
+      ARROW_ORC: OFF
+      ARROW_FLIGHT: ON
+      ARROW_HDFS: ON
+      ARROW_PLASMA: ON
+      ARROW_GANDIVA: ON
+      ARROW_PARQUET: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_ZSTD: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_BROTLI: ON
+      ARROW_BUILD_TESTS: ON
+      # ARROW-7551: for now, build without Homebrew gRPC, as gRPC
+      # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662
+      gRPC_SOURCE: BUNDLED
+      Protobuf_SOURCE: BUNDLED
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Install Dependencies
+        shell: bash
+        run: brew bundle --file=cpp/Brewfile
+        # ARROW-7551: for now, build without Homebrew gRPC, as gRPC
+        # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662
+      - name: Uninstall Problematic Homebrew Dependencies
+        shell: bash
+        run: brew uninstall grpc protobuf
+      - name: Build
+        shell: bash
+        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Test
+        shell: bash
+        run: |
+          sudo sysctl -w kern.coredump=1
+          sudo sysctl -w kern.corefile=core.%N.%P
+          ulimit -c unlimited  # must enable within the same shell
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+
+  windows:
+    name: AMD64 ${{ matrix.name }} C++
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+        include:
+          - os: windows-latest
+            name: Windows 2019
+            generator: Visual Studio 16 2019
+    env:
+      CMAKE_ARGS: '-A x64 -DOPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64'
+      CMAKE_GENERATOR: ${{ matrix.generator }}
+      CMAKE_INSTALL_LIBDIR: bin
+      CMAKE_INSTALL_PREFIX: /usr
+      CMAKE_UNITY_BUILD: ON
+      ARROW_HOME: /usr
+      ARROW_DATASET: ON
+      ARROW_JEMALLOC: OFF
+      ARROW_FLIGHT: OFF
+      ARROW_HDFS: ON
+      ARROW_PARQUET: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_LZ4: OFF
+      ARROW_WITH_BZ2: OFF
+      ARROW_WITH_ZSTD: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_BROTLI: OFF
+      ARROW_USE_GLOG: OFF
+      ARROW_BUILD_TESTS: ON
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BOOST_USE_SHARED: OFF
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      BOOST_ROOT: C:\local\boost_1_67_0
+      BOOST_LIBRARYDIR: C:\local\boost_1_67_0\lib64-msvc-14.1\
+    steps:
+      - name: Disable Crash Dialogs
+        run: reg add "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" /v DontShowUI /t REG_DWORD /d 1 /f
+      - name: Installed Packages
+        run: choco list -l
+      - name: Install Dependencies
+        run: choco install -y --no-progress openssl boost-msvc-14.1
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Build
+        shell: bash
+        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Test
+        shell: bash
+        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
