@@ -133,8 +133,10 @@ class CommentBot:
         try:
             self.handler(command, issue=issue, pull=pull, comment=comment)
         except CommandError as e:
+            print(e)
             pull.create_issue_comment("```\n{}\n```".format(e.message))
-        except Exception:
+        except Exception as e:
+            print(e)
             comment.create_reaction('-1')
         else:
             comment.create_reaction('+1')
