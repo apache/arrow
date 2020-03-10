@@ -43,7 +43,7 @@ jobs:
           python-version: '3.7'
       - name: Install
         working-directory: dev/archery
-        run: pip install pytest responses -e .
+        run: pip install pytest responses ruamel.yaml -e .
       - name: Test
         working-directory: dev/archery
         run: pytest -v archery
