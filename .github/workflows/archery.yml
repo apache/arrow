@@ -41,7 +41,6 @@ jobs:
         uses: actions/setup-python@v1
         with:
           python-version: '3.7'
-        run:
       - name: Install
         working-directory: dev/archery
         run: pip install pytest -e .
