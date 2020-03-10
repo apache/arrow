@@ -36,10 +36,12 @@ pacman --noconfirm --needed -S mingw-w64-{i686,x86_64}-{crt,winpthreads,gcc,libt
 # Force static linking
 rm -f /mingw32/lib/*.dll.a
 rm -f /mingw64/lib/*.dll.a
-export PKG_CONFIG="/${MINGW_INSTALLS}/bin/pkg-config --static"
+export PKG_CONFIG="/${MINGW_PREFIX}/bin/pkg-config --static"
 
 cp ci/PKGBUILD .
 export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
+unset BOOST_ROOT
+unset BOOST_ROOT_1_72_0
 printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --rmdeps --cleanbuild
 
