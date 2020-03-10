@@ -15,11 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import operator
 import shlex
+from pathlib import Path
 from functools import partial
 
 import click
 import github
+from ruamel.yaml import YAML
 
 from .utils.crossbow import Crossbow
 from .utils.git import Git
@@ -72,6 +75,81 @@ class Group(_CommandMixin, click.Group):
         if not args and self.no_args_is_help and not ctx.resilient_parsing:
             raise click.UsageError(ctx.get_help())
         return super().parse_args(ctx, args)
+
+
+command = partial(click.command, cls=Command)
+group = partial(click.group, cls=Group)
+
+
+class CrossbowCommentFormatter:
+
+    _markdown_badge = '[![{title}]({badge})]({url})'
+
+    badges = {
+        'github': _markdown_badge.format(
+            title='Github Actions',
+            url='https://github.com/{repo}/actions?query=branch:{branch}',
+            badge=(
+                'https://github.com/{repo}/workflows/Crossbow/'
+                'badge.svg?branch={branch}'
+            ),
+        ),
+        'azure': _markdown_badge.format(
+            title='Azure',
+            url=(
+                'https://dev.azure.com/{repo}/_build/latest'
+                '?definitionId=1&branchName={branch}'
+            ),
+            badge=(
+                'https://dev.azure.com/{repo}/_apis/build/status/'
+                '{repo_dotted}?branchName={branch}'
+            )
+        ),
+        'travis': _markdown_badge.format(
+            title='TravisCI',
+            url='https://travis-ci.org/{repo}/branches',
+            badge='https://img.shields.io/travis/{repo}/{branch}.svg'
+        ),
+        'circle': _markdown_badge.format(
+            title='CircleCI',
+            url='https://circleci.com/gh/{repo}/tree/{branch}',
+            badge=(
+                'https://img.shields.io/circleci/build/github'
+                '/{repo}/{branch}.svg'
+            )
+        ),
+        'appveyor': _markdown_badge.format(
+            title='Appveyor',
+            url='https://ci.appveyor.com/project/{repo}/history',
+            badge='https://img.shields.io/appveyor/ci/{repo}/{branch}.svg'
+        )
+    }
+
+    def __init__(self, crossbow_repo):
+        self.crossbow_repo = crossbow_repo
+
+    def render(self, job):
+        url = 'https://github.com/{repo}/branches/all?query={branch}'
+        msg = f'Submitted crossbow builds: [{{repo}} @ {{branch}}]({url})\n'
+        msg += '\n|Task|Status|\n|----|------|'
+
+        tasks = sorted(job['tasks'].items(), key=operator.itemgetter(0))
+        for key, task in tasks:
+            branch = task['branch']
+
+            try:
+                template = self.badges[task['ci']]
+                badge = template.format(
+                    repo=self.crossbow_repo,
+                    repo_dotted=self.crossbow_repo.replace('/', '.'),
+                    branch=branch
+                )
+            except KeyError:
+                badge = 'unsupported CI service `{}`'.format(task['ci'])
+
+            msg += f'\n|{key}|{badge}|'
+
+        return msg.format(repo=self.crossbow_repo, branch=job['branch'])
 
 
 class CommentBot:
@@ -147,10 +225,6 @@ class CommentBot:
         raise NotImplementedError()
 
 
-command = partial(click.command, cls=Command)
-group = partial(click.group, cls=Group)
-
-
 @group(name='@ursabot')
 @click.pass_context
 def ursabot(ctx):
@@ -182,14 +256,30 @@ def submit(obj, task, group, dry_run):
 
     See groups defined in arrow/dev/tasks/tests.yml
     """
-    args = []
+    args = ['--output-file', 'result.yaml']
     for g in group:
         args.extend(['-g', g])
     for t in task:
         args.append(t)
 
+    # clone crossbow
     git = Git()
     git.clone(obj['crossbow_repo'], 'crossbow')
 
+    # submit the crossbow tasks
     xbow = Crossbow('arrow/dev/tasks/crossbow.py')
     xbow.run('submit', *args)
+
+    # parse the result yml describing the submitted job
+    yaml = YAML()
+    with Path('result.yml').open() as fp:
+        job = yaml.load(fp)
+
+    # render the response comment's content
+    formatter = CrossbowCommentFormatter(obj['crossbow_repo'])
+    response = formatter.render(job)
+
+    # send the response
+    obj['pull'].create_issue_comment(response)
+
+
