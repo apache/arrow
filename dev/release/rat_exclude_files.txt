@@ -24,6 +24,10 @@ cpp/cmake_modules/SnappyCMakeLists.txt
 cpp/cmake_modules/SnappyConfig.h
 cpp/examples/parquet/parquet-arrow/cmake_modules/FindArrow.cmake
 cpp/src/parquet/.parquetcppversion
+cpp/src/generated/parquet_constants.cpp
+cpp/src/generated/parquet_constants.h
+cpp/src/generated/parquet_types.cpp
+cpp/src/generated/parquet_types.h
 cpp/src/plasma/thirdparty/ae/ae.c
 cpp/src/plasma/thirdparty/ae/ae.h
 cpp/src/plasma/thirdparty/ae/ae_epoll.c

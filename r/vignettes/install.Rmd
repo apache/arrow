@@ -235,25 +235,6 @@ Regardless, if the C++ library fails to compile,
 please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
 so that we can attempt to improve the script.
 
-### Known C++ build issues
-
-(1) `m4` (build dependency for `flex` and `bison`, which are build dependencies for `thrift`)
-fails to build with a message like:
-
-```
-freadahead.c: In function 'freadahead':
-freadahead.c:92:3: error: #error "Please port gnulib freadahead.c to your platform! Look at the definition of fflush, fread, ungetc on your system, then report this to bug-gnulib."
-```
-
-This has been observed on CentOS 8 (Docker image `rstudio/r-base:3.6-centos8`)
-and Fedora (`rhub/fedora-clang-devel`).
-
-A solution is to install `m4` using your system package manager;
-if that's an option for you, you may as well just install `flex` and `bison`
-and avoid this build step entirely.
-
-<!-- TODO: try applying https://src.fedoraproject.org/rpms/m4/raw/master/f/m4-1.4.18-glibc-change-work-around.patch on centos and fedora? -->
-
 ## Summary of build environment variables
 
 By default, these are all unset. All boolean variables are case-insensitive.

@@ -43,14 +43,7 @@ if [ "$CMAKE_GENERATOR" = "" ]; then
   fi
 fi
 
-if [ "$FLEX_ROOT" != "" ]; then
-  EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DFLEX_ROOT=${FLEX_ROOT}"
-fi
-if [ "$BISON_ROOT" != "" ]; then
-  # Thrift can't find this as a cmake flag, so put it on the PATH
-  export PATH="${BISON_ROOT}:${PATH}"
-fi
-if [ "$ARROW_R_DEV" = "TRUE" ]; then
+if [ "$ARROW_R_DEV" = "true" ]; then
   # Print more verbosity
   EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DARROW_VERBOSE_THIRDPARTY_BUILD=ON"
 fi

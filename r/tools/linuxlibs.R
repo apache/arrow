@@ -175,12 +175,7 @@ build_libarrow <- function(src_dir, dst_dir) {
   }
   # Check for libarrow build dependencies:
   # * cmake
-  # * flex and bison (for building thrift)
-  # * m4 (for building flex and bison)
   cmake <- ensure_cmake()
-  m4 <- ensure_m4()
-  flex <- ensure_flex(m4)
-  bison <- ensure_bison(m4)
 
   build_dir <- tempfile()
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
@@ -188,21 +183,6 @@ build_libarrow <- function(src_dir, dst_dir) {
     "SOURCE_DIR=%s BUILD_DIR=%s DEST_DIR=%s CMAKE=%s",
     src_dir,       build_dir,   dst_dir,    cmake
   )
-  if (!is.null(flex)) {
-    if (!quietly) {
-      system(paste0(flex, "/flex --version"))
-    }
-    env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
-  }
-  if (!is.null(bison)) {
-    if (!quietly) {
-      system(paste0(bison, "/bison --version"))
-    }
-    env_vars <- sprintf(
-      "PATH=%s:$PATH %s BISON_PKGDATADIR=%s/../share/bison",
-            bison,   env_vars,           bison
-    )
-  }
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   system(
     paste(env_vars, "inst/build_arrow_static.sh"),
@@ -236,119 +216,6 @@ ensure_cmake <- function() {
     )
   }
   cmake
-}
-
-# TODO: move ensure_flex/bison/m4 to cmake: https://issues.apache.org/jira/browse/ARROW-7501
-ensure_flex <- function(m4 = ensure_m4()) {
-  if (nzchar(Sys.which("flex"))) {
-    # We already have flex.
-    # NULL will tell the caller not to append FLEX_ROOT to env vars bc it's not needed
-    return(NULL)
-  }
-  # If not found, download it
-  cat("**** flex\n")
-  # Flex 2.6.4 (latest release) causes segfaults on some platforms (ubuntu bionic, debian e.g.)
-  # See https://github.com/westes/flex/issues/219
-  # Allegedly it has been fixed in master but there hasn't been a release since May 2017
-  FLEX_VERSION <- Sys.getenv("FLEX_VERSION", "2.6.3")
-  flex_source_url <- paste0(
-    "https://github.com/westes/flex/releases/download/v", FLEX_VERSION,
-    "/flex-", FLEX_VERSION, ".tar.gz"
-  )
-  flex_tar <- tempfile()
-  flex_dir <- tempfile()
-  try(
-    download.file(flex_source_url, flex_tar, quiet = quietly),
-    silent = quietly
-  )
-  untar(flex_tar, exdir = flex_dir)
-  unlink(flex_tar)
-  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), flex_dir))
-  # flex also needs m4
-  if (!is.null(m4)) {
-    # If we just built it, put it on PATH for building bison
-    path <- sprintf('export PATH="%s:$PATH" && ', m4)
-  } else {
-    path <- ""
-  }
-  # Now, build flex
-  flex_dir <- paste0(flex_dir, "/flex-", FLEX_VERSION)
-  base_cmd <- paste0(path, "cd ", shQuote(flex_dir), " &&")
-  for (cmd in c("./configure", "make")) {
-    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
-  }
-  # The built flex should be in ./src. Return that so we can set as FLEX_ROOT
-  paste0(flex_dir, "/src")
-}
-
-ensure_bison <- function(m4 = ensure_m4()) {
-  if (nzchar(Sys.which("bison"))) {
-    # We already have bison.
-    # NULL will tell the caller not to append BISON_ROOT to env vars bc it's not needed
-    return(NULL)
-  }
-  # If not found, download it
-  cat("**** bison\n")
-  BISON_VERSION <- Sys.getenv("BISON_VERSION", "3.5")
-  source_url <- paste0("https://ftp.gnu.org/gnu/bison/bison-", BISON_VERSION, ".tar.gz")
-  tar_file <- tempfile()
-  build_dir <- tempfile()
-  install_dir <- tempfile()
-  try(
-    download.file(source_url, tar_file, quiet = quietly),
-    silent = quietly
-  )
-  untar(tar_file, exdir = build_dir)
-  unlink(tar_file)
-  on.exit(unlink(build_dir))
-  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), install_dir))
-  # bison also needs m4, so let's make sure we have that too
-  # (we probably don't if we're here)
-  if (!is.null(m4)) {
-    # If we just built it, put it on PATH for building bison
-    path <- sprintf('export PATH="%s:$PATH" && ', m4)
-  } else {
-    path <- ""
-  }
-  # Now, build bison
-  build_dir <- paste0(build_dir, "/bison-", BISON_VERSION)
-  base_cmd <- paste0(path, "cd ", shQuote(build_dir), " &&")
-  for (cmd in c(paste0("./configure --prefix=", install_dir), "make", "make install")) {
-    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
-  }
-  # Return the path to the bison binaries
-  paste0(install_dir, "/bin")
-}
-
-ensure_m4 <- function() {
-  if (nzchar(Sys.which("m4"))) {
-    # We already have m4.
-    return(NULL)
-  }
-  # If not found, download it
-  cat("**** m4\n")
-  M4_VERSION <- Sys.getenv("M4_VERSION", "1.4.18")
-  source_url <- paste0("https://ftp.gnu.org/gnu/m4/m4-", M4_VERSION, ".tar.gz")
-  tar_file <- tempfile()
-  dst_dir <- tempfile()
-  try(
-    download.file(source_url, tar_file, quiet = quietly),
-    silent = quietly
-  )
-  untar(tar_file, exdir = dst_dir)
-  unlink(tar_file)
-  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), dst_dir))
-  # bison also needs m4, so let's make sure we have that too
-  # (we probably don't if we're here)
-
-  # Now, build it
-  dst_dir <- paste0(dst_dir, "/m4-", M4_VERSION)
-  base_cmd <- paste("cd", shQuote(dst_dir), "&&")
-  for (cmd in c("./configure", "make")) {
-    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
-  }
-  # The built m4 should be in ./src. Return that so we can put that on the PATH
-  paste0(dst_dir, "/src")
 }
 
 #####

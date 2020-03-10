@@ -147,39 +147,25 @@ endif()
 set(PARQUET_SHARED_TEST_LINK_LIBS arrow_testing_shared ${PARQUET_MIN_TEST_LIBS}
                                   parquet_shared thrift::thrift)
 
-set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static
+set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static thrift::thrift
                                   ${ARROW_LIBRARIES_FOR_STATIC_TESTS})
 
 #
 # Generated Thrift sources
+set_source_files_properties(src/generated/parquet_types.cpp
+                            src/generated/parquet_types.h
+                            src/generated/parquet_constants.cpp
+                            src/generated/parquet_constants.h
+                            PROPERTIES
+                            SKIP_PRECOMPILE_HEADERS
+                            ON
+                            SKIP_UNITY_BUILD_INCLUSION
+                            ON)
 
 if(NOT MSVC)
   set_source_files_properties(src/parquet/parquet_types.cpp PROPERTIES COMPILE_FLAGS
                               -Wno-unused-variable)
 endif()
-
-# List of thrift output targets
-set(THRIFT_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
-set(THRIFT_OUTPUT_FILES "${THRIFT_OUTPUT_DIR}/parquet_types.cpp")
-set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES} "${THRIFT_OUTPUT_DIR}/parquet_types.h")
-set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES}
-                        "${THRIFT_OUTPUT_DIR}/parquet_constants.cpp")
-set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES} "${THRIFT_OUTPUT_DIR}/parquet_constants.h")
-
-set_source_files_properties(${THRIFT_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
-
-get_filename_component(ABS_PARQUET_THRIFT parquet.thrift ABSOLUTE)
-
-add_custom_command(OUTPUT ${THRIFT_OUTPUT_FILES}
-                   COMMAND ${THRIFT_COMPILER}
-                           --gen
-                           cpp
-                           -out
-                           ${THRIFT_OUTPUT_DIR}
-                           ${CMAKE_CURRENT_SOURCE_DIR}/parquet.thrift
-                   DEPENDS ${ABS_PARQUET_THRIFT} thrift::thrift
-                   COMMENT "Running thrift compiler on parquet.thrift"
-                   VERBATIM)
 
 #
 # Library config
@@ -203,8 +189,8 @@ set(PARQUET_SRCS
     internal_file_encryptor.cc
     metadata.cc
     murmur3.cc
-    parquet_constants.cpp
-    parquet_types.cpp
+    "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
+    "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp"
     platform.cc
     printer.cc
     properties.cc
@@ -219,11 +205,6 @@ if(PARQUET_REQUIRE_ENCRYPTION)
 else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
 endif()
-
-# Ensure that thrift compilation is done before using its generated headers
-# in parquet code.
-add_custom_target(parquet-thrift-deps ALL DEPENDS ${THRIFT_OUTPUT_FILES})
-set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} parquet-thrift-deps)
 
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
   set(PARQUET_SHARED_LINK_LIBS arrow_shared)
@@ -281,7 +262,10 @@ add_arrow_lib(parquet
               ${PARQUET_STATIC_LINK_LIBS})
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
-  add_library(parquet_test_support STATIC parquet_constants.cpp parquet_types.cpp)
+  add_library(parquet_test_support STATIC
+              "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
+              "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp")
+  add_dependencies(parquet_test_support thrift::thrift)
   set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_test_support)
   set(PARQUET_LIBRARIES ${PARQUET_LIBRARIES} parquet_test_support)
 endif()
@@ -298,7 +282,7 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(parquet_static PUBLIC ARROW_STATIC)
 endif()
 
-add_dependencies(parquet ${PARQUET_LIBRARIES})
+add_dependencies(parquet ${PARQUET_LIBRARIES} thrift::thrift)
 
 # Thrift requires these definitions for some types that we use
 foreach(LIB_TARGET ${PARQUET_LIBRARIES})
