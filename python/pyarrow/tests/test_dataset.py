@@ -213,8 +213,10 @@ def test_filesystem_dataset(mockfs):
     assert set(dataset.files) == set(paths)
 
     fragments = list(dataset.get_fragments())
-    assert fragments[0].partition_expression.equals(partitions[0])
-    assert fragments[1].partition_expression.equals(partitions[1])
+    assert fragments[0].partition_expression.equals(
+        ds.AndExpression(root_partition, partitions[0]))
+    assert fragments[1].partition_expression.equals(
+        ds.AndExpression(root_partition, partitions[1]))
     assert fragments[0].path == paths[0]
     assert fragments[1].path == paths[1]
 
