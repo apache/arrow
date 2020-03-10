@@ -189,10 +189,7 @@ def submit(obj, task, group, dry_run):
         args.append(t)
 
     git = Git()
-    xbow = Crossbow('arrow/dev/tasks/crossbow.py')
-
-    # arrow is already cloned ideally but of course we should be able to choose
-    # a different fork
-    # git.clone(obj['arrow_repo'], 'arrow')
     git.clone(obj['crossbow_repo'], 'crossbow')
+
+    xbow = Crossbow('arrow/dev/tasks/crossbow.py')
     xbow.run('submit', *args)
