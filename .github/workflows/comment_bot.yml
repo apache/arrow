@@ -57,7 +57,7 @@ jobs:
       - run: conda --version
       - run: which python
       - run: |
-          conda install -y --file arrow/ci/conda_env_crossbow.txt
+          conda install -y --file arrow/ci/conda_env_crossbow.txt pygithub
       - run: |
           pip install -e arrow/dev/archery
       - run: |
