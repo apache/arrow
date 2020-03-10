@@ -129,8 +129,12 @@ jobs:
         # with:
         #   rtools-version: ${{ matrix.rtools }}
       - name: Install R package dependencies
-        shell: cmd
-        run: R_BIN=Rscript ci/scripts/r_deps.sh .
+        shell: Rscript {0}
+        run: |
+          install.packages('remotes')
+          remotes::install_cran(c('glue', 'rcmdcheck'))
+          remotes::install_deps("r", dependencies = TRUE)
+          remotes::install_github('nealrichardson/decor')
       - name: Check
-        shell: cmd
-        run: R_BIN=Rscript ci/scripts/r_test.sh .
+        shell: Rscript {0}
+        run: rcmdcheck::rcmdcheck("r", build_args = '--no-build-vignettes', args = c('--no-manual', if (!identical(Sys.getenv('ARROW_R_DEV'), 'TRUE')) '--as-cran', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')
