@@ -591,12 +591,14 @@ def integration(with_all=False, random_seed=12345, **args):
 @click.option('--event-name', '-n', required=True)
 @click.option('--event-payload', '-p', type=click.File('r', encoding='utf8'),
               default='-', required=True)
-@click.option('--github-token', '-t', envvar='CROSSBOW_GITHUB_TOKEN',
-              help='OAuth token for GitHub authentication')
-def trigger_bot(event_name, event_payload, github_token):
+@click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
+              help='OAuth token for responding comment in the arrow repo')
+@click.option('--crossbow-token', '-ct', envvar='CROSSBOW_GITHUB_TOKEN',
+              help='OAuth token for pushing to the crossow repository')
+def trigger_bot(event_name, event_payload, arrow_token, crossbow_token):
     event_payload = json.loads(event_payload.read())
 
-    bot = CommentBot(name='ursabot', handler='ursabot', token=github_token)
+    bot = CommentBot(name='ursabot', handler='ursabot', token=arrow_token)
     bot.handle(event_name, event_payload)
 
 

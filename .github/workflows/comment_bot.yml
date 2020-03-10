@@ -60,7 +60,11 @@ jobs:
           conda install -y --file arrow/ci/conda_env_crossbow.txt pygithub
       - run: |
           pip install -e arrow/dev/archery
-      - run: |
-          archery trigger-bot --event-name ${{ github.event_name }} --event-payload ${{ github.event_path }}
+      - name: Handle GH event
+        run: |
+          archery trigger-bot \
+            --event-name ${{ github.event_name }} \
+            --event-payload ${{ github.event_path }} \
+            --arrow-token ${{ secrets.GITHUB_TOKEN }}
 
 
