@@ -49,7 +49,6 @@ source_dir="$GITHUB_WORKSPACE"
 # sha256sums=("SKIP")
 # source_dir="${APPVEYOR_BUILD_FOLDER}/${source_dir}"
 
-cmake_build_type=release
 cpp_build_dir=build-${CARCH}-cpp
 
 pkgver() {
@@ -76,8 +75,6 @@ build() {
     ${MINGW_PREFIX}/bin/cmake.exe \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
-    -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
-    -DCMAKE_BUILD_TYPE=${cmake_build_type} \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_BUILD_SHARED=OFF \
     -DARROW_COMPUTE=ON \
@@ -95,6 +92,10 @@ build() {
     -DARROW_WITH_ZSTD=ON \
     -DARROW_USE_GLOG=OFF \
     -DARROW_BUILD_UTILITIES=OFF \
+    -DBOOST_SOURCE="SYSTEM" \
+    -DBOOST_ROOT="${MINGW_PREFIX}" \
+    -DCMAKE_BUILD_TYPE="release" \
+    -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
     -DThrift_ROOT="${MINGW_PREFIX}"
 
   make
