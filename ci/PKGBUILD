@@ -36,7 +36,7 @@ options=("staticlibs" "strip" "!buildflags")
 
 # For installing from a local checkout, set source_dir to . and don't include
 # a "source" param below
-source_dir="$APPVEYOR_BUILD_FOLDER"
+source_dir="$GITHUB_WORKSPACE"
 # else
 # source_dir=apache-${_realname}-${pkgver}
 
