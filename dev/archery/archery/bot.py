@@ -261,7 +261,6 @@ def submit(obj, task, group, dry_run):
         args.extend(['-g', g])
     for t in task:
         args.append(t)
-    args.append('--dry-run')
 
     # clone crossbow
     git = Git()
