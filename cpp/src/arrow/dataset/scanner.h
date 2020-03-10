@@ -167,7 +167,14 @@ class ARROW_DS_EXPORT Scanner {
   /// Scan result in memory before creating the Table.
   Result<std::shared_ptr<Table>> ToTable();
 
-  std::shared_ptr<Schema> schema() const { return options_->schema(); }
+  /// \brief GetFragments returns an iterator over all Fragments in this scan.
+  FragmentIterator GetFragments();
+
+  const std::shared_ptr<Schema>& schema() const { return options_->schema(); }
+
+  const std::shared_ptr<ScanOptions>& options() const { return options_; }
+
+  const std::shared_ptr<ScanContext>& context() const { return context_; }
 
  protected:
   /// \brief Return a TaskGroup according to ScanContext thread rules.

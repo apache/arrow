@@ -174,7 +174,7 @@ def test_filesystem_dataset(mockfs):
     paths = ['subdir/1/xxx/file0.parquet', 'subdir/2/yyy/file1.parquet']
     partitions = [ds.ScalarExpression(True), ds.ScalarExpression(True)]
 
-    source = ds.FileSystemDataset(
+    dataset = ds.FileSystemDataset(
         schema,
         root_partition=None,
         file_format=file_format,
@@ -182,11 +182,11 @@ def test_filesystem_dataset(mockfs):
         paths_or_selector=paths,
         partitions=partitions
     )
-    assert isinstance(source.format, ds.ParquetFileFormat)
+    assert isinstance(dataset.format, ds.ParquetFileFormat)
 
     root_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
-        ds.FieldExpression('source'),
+        ds.FieldExpression('level'),
         ds.ScalarExpression(1337)
     )
     partitions = [
@@ -201,7 +201,7 @@ def test_filesystem_dataset(mockfs):
             ds.ScalarExpression(2)
         )
     ]
-    source = ds.FileSystemDataset(
+    dataset = ds.FileSystemDataset(
         paths_or_selector=paths,
         schema=schema,
         root_partition=root_partition,
@@ -209,8 +209,16 @@ def test_filesystem_dataset(mockfs):
         partitions=partitions,
         file_format=file_format
     )
-    assert source.partition_expression.equals(root_partition)
-    assert set(source.files) == set(paths)
+    assert dataset.partition_expression.equals(root_partition)
+    assert set(dataset.files) == set(paths)
+
+    fragments = list(dataset.get_fragments())
+    assert fragments[0].partition_expression.equals(
+        ds.AndExpression(root_partition, partitions[0]))
+    assert fragments[1].partition_expression.equals(
+        ds.AndExpression(root_partition, partitions[1]))
+    assert fragments[0].path == paths[0]
+    assert fragments[1].path == paths[1]
 
 
 def test_dataset(dataset):
@@ -437,7 +445,7 @@ def test_expression_ergonomics():
         'subdir/2/yyy/file1.parquet',
     ]
 ])
-def test_file_system_factory(mockfs, paths_or_selector):
+def test_filesystem_factory(mockfs, paths_or_selector):
     format = ds.ParquetFileFormat(reader_options=dict(dict_columns={"str"}))
 
     options = ds.FileSystemFactoryOptions('subdir')
@@ -456,7 +464,14 @@ def test_file_system_factory(mockfs, paths_or_selector):
     )
     inspected_schema = factory.inspect()
 
-    assert isinstance(factory.inspect(), pa.Schema)
+    assert factory.inspect().equals(pa.schema([
+        pa.field('i64', pa.int64()),
+        pa.field('f64', pa.float64()),
+        pa.field('str', pa.dictionary(pa.int32(), pa.string())),
+        pa.field('group', pa.int32()),
+        pa.field('key', pa.string()),
+    ]), check_metadata=False)
+
     assert isinstance(factory.inspect_schemas(), list)
     assert isinstance(factory.finish(inspected_schema),
                       ds.FileSystemDataset)

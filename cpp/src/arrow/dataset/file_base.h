@@ -110,12 +110,15 @@ class ARROW_DS_EXPORT FileSource {
 };
 
 /// \brief Base class for file format implementation
-class ARROW_DS_EXPORT FileFormat {
+class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileFormat> {
  public:
   virtual ~FileFormat() = default;
 
   /// \brief The name identifying the kind of file format
   virtual std::string type_name() const = 0;
+
+  /// \brief Return true if fragments of this format can benefit from parallel scanning.
+  virtual bool splittable() const { return false; }
 
   /// \brief Indicate if the FileSource is supported/readable by this format.
   virtual Result<bool> IsSupported(const FileSource& source) const = 0;
@@ -129,8 +132,12 @@ class ARROW_DS_EXPORT FileFormat {
       std::shared_ptr<ScanContext> context) const = 0;
 
   /// \brief Open a fragment
-  virtual Result<std::shared_ptr<Fragment>> MakeFragment(
-      FileSource location, std::shared_ptr<ScanOptions> options) = 0;
+  Result<std::shared_ptr<Fragment>> MakeFragment(
+      FileSource source, std::shared_ptr<ScanOptions> options,
+      std::shared_ptr<Expression> partition_expression);
+
+  Result<std::shared_ptr<Fragment>> MakeFragment(FileSource source,
+                                                 std::shared_ptr<ScanOptions> options);
 };
 
 /// \brief A Fragment that is stored in a file with a known format
@@ -142,10 +149,21 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
         source_(std::move(source)),
         format_(std::move(format)) {}
 
+  FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
+               std::shared_ptr<ScanOptions> scan_options,
+               std::shared_ptr<Expression> partition_expression)
+      : Fragment(std::move(scan_options), std::move(partition_expression)),
+        source_(std::move(source)),
+        format_(std::move(format)) {}
+
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
 
   const FileSource& source() const { return source_; }
   const std::shared_ptr<FileFormat>& format() const { return format_; }
+
+  // XXX should this include format_->type_name?
+  std::string type_name() const override { return "file"; }
+  bool splittable() const override { return format_->splittable(); }
 
  protected:
   FileSource source_;

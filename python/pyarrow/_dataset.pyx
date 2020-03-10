@@ -92,6 +92,22 @@ cdef class Dataset:
         else:
             return Expression.wrap(expr)
 
+    def get_fragments(self, columns=None, filter=None):
+        """Returns an iterator over the fragments in this dataset.
+
+        Parameters
+        ----------
+        columns : list of str, default None
+            List of columns to project.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+
+        Returns
+        -------
+        fragments : iterator of Fragment
+        """
+        return Scanner(self, columns=columns, filter=filter).get_fragments()
+
     def scan(self, columns=None, filter=None, MemoryPool memory_pool=None):
         """Builds a scan operation against the dataset.
 
@@ -348,6 +364,66 @@ cdef class FileFormat:
 
     cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
+
+
+cdef class Fragment:
+    """Fragment of data from a Dataset."""
+
+    cdef:
+        shared_ptr[CFragment] wrapped
+        CFragment* fragment
+
+    cdef void init(self, const shared_ptr[CFragment]& sp):
+        self.wrapped = sp
+        self.fragment = sp.get()
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CFragment]& sp):
+        # there's no discriminant in Fragment, so we can't downcast
+        # to FileFragment for the path property
+        cdef Fragment self = Fragment()
+
+        typ = frombytes(sp.get().type_name())
+        if typ == 'file':
+            self = FileFragment.__new__(FileFragment)
+        else:
+            self = Fragment()
+
+        self.init(sp)
+        return self
+
+    @property
+    def partition_expression(self):
+        """
+        An Expression which evaluates to true for all data viewed by this
+        Fragment.
+        """
+        return Expression.wrap(self.fragment.partition_expression())
+
+
+cdef class FileFragment(Fragment):
+    """A Fragment representing a data file."""
+
+    cdef:
+        CFileFragment* file_fragment
+
+    cdef void init(self, const shared_ptr[CFragment]& sp):
+        Fragment.init(self, sp)
+        self.file_fragment = <CFileFragment*> sp.get()
+
+    @property
+    def path(self):
+        """
+        The path of the data file viewed by this fragment.
+        """
+        return frombytes(self.file_fragment.source().path())
+
+    @property
+    def format(self):
+        """
+        The format of the data file viewed by this fragment.
+        """
+        return FileFormat.wrap(self.file_fragment.format())
 
 
 cdef class ParquetFileFormatReaderOptions:
@@ -1068,6 +1144,22 @@ cdef class Scanner:
             result = self.scanner.ToTable()
 
         return pyarrow_wrap_table(GetResultValue(result))
+
+    def get_fragments(self):
+        """Returns an iterator over the fragments in this scan.
+        """
+        cdef:
+            CFragmentIterator iterator
+            shared_ptr[CFragment] fragment
+
+        iterator = self.scanner.GetFragments()
+
+        while True:
+            fragment = GetResultValue(iterator.Next())
+            if fragment.get() == nullptr:
+                raise StopIteration()
+            else:
+                yield Fragment.wrap(fragment)
 
 
 def _binop(fn, left, right):

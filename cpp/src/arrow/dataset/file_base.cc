@@ -39,6 +39,18 @@ Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
   return std::make_shared<::arrow::io::BufferReader>(buffer());
 }
 
+Result<std::shared_ptr<Fragment>> FileFormat::MakeFragment(
+    FileSource source, std::shared_ptr<ScanOptions> options) {
+  return MakeFragment(std::move(source), std::move(options), scalar(true));
+}
+
+Result<std::shared_ptr<Fragment>> FileFormat::MakeFragment(
+    FileSource source, std::shared_ptr<ScanOptions> options,
+    std::shared_ptr<Expression> partition_expression) {
+  return std::make_shared<FileFragment>(std::move(source), shared_from_this(), options,
+                                        std::move(partition_expression));
+}
+
 Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanContext> context) {
   return format_->ScanFile(source_, scan_options_, std::move(context));
 }
@@ -143,10 +155,19 @@ util::optional<std::pair<std::string, std::shared_ptr<Scalar>>> GetKey(
       internal::checked_cast<const ScalarExpression&>(*cmp.right_operand()).value());
 }
 
+std::shared_ptr<Expression> FoldingAnd(const std::shared_ptr<Expression>& l,
+                                       const std::shared_ptr<Expression>& r) {
+  if (l->Equals(true)) return r;
+  if (r->Equals(true)) return l;
+  return and_(l, r);
+}
+
 FragmentIterator FileSystemDataset::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> root_options) {
   FragmentVector fragments;
   std::vector<std::shared_ptr<ScanOptions>> options(forest_.size());
+
+  ExpressionVector fragment_partitions(forest_.size());
 
   auto collect_fragments = [&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
     auto partition = partitions_[ref.i];
@@ -155,8 +176,11 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
     // (which are appropriately simplified and loaded with default values)
     if (auto parent = ref.parent()) {
       options[ref.i].reset(new ScanOptions(*options[parent.i]));
+      fragment_partitions[ref.i] =
+          FoldingAnd(fragment_partitions[parent.i], partitions_[ref.i]);
     } else {
       options[ref.i].reset(new ScanOptions(*root_options));
+      fragment_partitions[ref.i] = FoldingAnd(partition_expression_, partitions_[ref.i]);
     }
 
     // simplify filter by partition information
@@ -180,7 +204,9 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
     if (ref.info().IsFile()) {
       // generate a fragment for this file
       FileSource src(ref.info().path(), filesystem_.get());
-      ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment(src, options[ref.i]));
+      ARROW_ASSIGN_OR_RAISE(
+          auto fragment,
+          format_->MakeFragment(src, options[ref.i], fragment_partitions[ref.i]));
       fragments.push_back(std::move(fragment));
     }
 

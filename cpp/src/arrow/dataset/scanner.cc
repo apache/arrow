@@ -81,16 +81,20 @@ static ScanTaskIterator GetScanTaskIterator(FragmentIterator fragments,
   return MakeFlattenIterator(std::move(maybe_scantask_it));
 }
 
+FragmentIterator Scanner::GetFragments() {
+  // Transform Datasets in a flat Iterator<Fragment>. This
+  // iterator is lazily constructed, i.e. Dataset::GetFragments is
+  // not invoked until a Fragment is requested.
+  return GetFragmentsFromDatasets({dataset_}, options_);
+}
+
 Result<ScanTaskIterator> Scanner::Scan() {
-  // First, transforms Datasets in a flat Iterator<Fragment>. This
-  // iterator is lazily constructed, i.e. Dataset::GetFragments is never
-  // invoked.
-  auto fragments_it = GetFragmentsFromDatasets({dataset_}, options_);
-  // Second, transforms Iterator<Fragment> into a unified
+  // Transforms Iterator<Fragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
-  auto scan_task_it = GetScanTaskIterator(std::move(fragments_it), context_);
-  // Third, apply the filter and/or projection to incoming RecordBatches by
+  auto scan_task_it = GetScanTaskIterator(GetFragments(), context_);
+
+  // Apply the filter and/or projection to incoming RecordBatches by
   // wrapping the ScanTask with a FilterAndProjectScanTask
   auto wrap_scan_task = [](std::shared_ptr<ScanTask> task) -> std::shared_ptr<ScanTask> {
     return std::make_shared<FilterAndProjectScanTask>(std::move(task));

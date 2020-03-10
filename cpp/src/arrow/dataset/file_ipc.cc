@@ -148,10 +148,5 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(
   return IpcScanTaskIterator::Make(options, context, source);
 }
 
-Result<std::shared_ptr<Fragment>> IpcFileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options) {
-  return std::make_shared<IpcFragment>(std::move(source), std::move(options));
-}
-
 }  // namespace dataset
 }  // namespace arrow

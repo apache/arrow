@@ -33,6 +33,8 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
  public:
   std::string type_name() const override { return "ipc"; }
 
+  bool splittable() const override { return true; }
+
   Result<bool> IsSupported(const FileSource& source) const override;
 
   /// \brief Return the schema of the file if possible.
@@ -42,17 +44,6 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
   Result<ScanTaskIterator> ScanFile(const FileSource& source,
                                     std::shared_ptr<ScanOptions> options,
                                     std::shared_ptr<ScanContext> context) const override;
-
-  Result<std::shared_ptr<Fragment>> MakeFragment(
-      FileSource source, std::shared_ptr<ScanOptions> options) override;
-};
-
-class ARROW_DS_EXPORT IpcFragment : public FileFragment {
- public:
-  IpcFragment(FileSource source, std::shared_ptr<ScanOptions> options)
-      : FileFragment(std::move(source), std::make_shared<IpcFileFormat>(), options) {}
-
-  bool splittable() const override { return true; }
 };
 
 }  // namespace dataset

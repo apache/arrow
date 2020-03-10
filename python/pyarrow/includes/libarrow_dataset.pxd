@@ -126,18 +126,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         "arrow::dataset::InsertImplicitCasts"(
             const CExpression &, const CSchema&)
 
-    cdef cppclass CFilter "arrow::dataset::Filter":
-        pass
-
-    cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
-        shared_ptr[CExpression] filter
-        shared_ptr[CSchema] schema
-        c_bool use_threads
-        int64_t batch_size
-
-        @staticmethod
-        shared_ptr[CScanOptions] Defaults()
-
     cdef cppclass CScanContext "arrow::dataset::ScanContext":
         CMemoryPool * pool
 
@@ -147,9 +135,22 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     ctypedef CIterator[shared_ptr[CScanTask]] CScanTaskIterator \
         "arrow::dataset::ScanTaskIterator"
 
+    cdef cppclass CFragment "arrow::dataset::Fragment":
+        CResult[CScanTaskIterator] Scan(shared_ptr[CScanContext] context)
+        c_bool splittable()
+        c_string type_name()
+        const shared_ptr[CExpression]& partition_expression()
+
+    ctypedef vector[shared_ptr[CFragment]] CFragmentVector \
+        "arrow::dataset::FragmentVector"
+
+    ctypedef CIterator[shared_ptr[CFragment]] CFragmentIterator \
+        "arrow::dataset::FragmentIterator"
+
     cdef cppclass CScanner "arrow::dataset::Scanner":
         CResult[CScanTaskIterator] Scan()
         CResult[shared_ptr[CTable]] ToTable()
+        CFragmentIterator GetFragments()
 
     cdef cppclass CScannerBuilder "arrow::dataset::ScannerBuilder":
         CScannerBuilder(shared_ptr[CDataset],
@@ -162,27 +163,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CScanner]] Finish()
         shared_ptr[CSchema] schema() const
 
-    cdef cppclass CFragment "arrow::dataset::Fragment":
-        CResult[CScanTaskIterator] Scan(shared_ptr[CScanContext] context)
-        c_bool splittable()
-        shared_ptr[CScanOptions] scan_options()
-
-    ctypedef vector[shared_ptr[CFragment]] CFragmentVector \
-        "arrow::dataset::FragmentVector"
-
-    ctypedef CIterator[shared_ptr[CFragment]] CFragmentIterator \
-        "arrow::dataset::FragmentIterator"
-
-    cdef cppclass CInMemoryFragment "arrow::dataset::InMemoryFragment"(
-            CFragment):
-        CInMemoryFragment(vector[shared_ptr[CRecordBatch]] record_batches,
-                          shared_ptr[CScanOptions] scan_options)
-
     ctypedef vector[shared_ptr[CDataset]] CDatasetVector \
         "arrow::dataset::DatasetVector"
 
     cdef cppclass CDataset "arrow::dataset::Dataset":
-        CFragmentIterator GetFragments(shared_ptr[CScanOptions] options)
         const shared_ptr[CSchema] & schema()
         const shared_ptr[CExpression] & partition_expression()
         c_string type_name()
@@ -211,8 +195,16 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CDatasetFactory]] Make(
             vector[shared_ptr[CDatasetFactory]] factories)
 
+    cdef cppclass CFileSource "arrow::dataset::FileSource":
+        const c_string& path()
+
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         c_string type_name()
+
+    cdef cppclass CFileFragment "arrow::dataset::FileFragment"(
+            CFragment):
+        const CFileSource& source()
+        shared_ptr[CFileFormat] format()
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):
@@ -226,8 +218,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CExpressionVector partitions)
         c_string type()
         vector[c_string] files()
-        shared_ptr[CFragmentIterator] GetFragments(
-            shared_ptr[CScanOptions] options)
         const shared_ptr[CFileFormat] format()
 
     cdef cppclass CParquetFileFormatReaderOptions \
