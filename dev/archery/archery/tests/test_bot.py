@@ -7,7 +7,7 @@ import responses as rsps
 import click
 from click.testing import CliRunner
 
-from archery.bot import CommentBot, CommandError, group, bot
+from archery.bot import CommentBot, CommandError, group
 
 
 @pytest.fixture
