@@ -92,7 +92,7 @@ cdef class Dataset:
         else:
             return Expression.wrap(expr)
 
-    def GetFragments(self, columns=None, filter=None):
+    def get_fragments(self, columns=None, filter=None):
         """Returns an iterator over the fragments in this dataset.
 
         Parameters
@@ -106,7 +106,7 @@ cdef class Dataset:
         -------
         fragments : iterator of Fragment
         """
-        return Scanner(self, columns=columns, filter=filter).GetFragments()
+        return Scanner(self, columns=columns, filter=filter).get_fragments()
 
     def scan(self, columns=None, filter=None, MemoryPool memory_pool=None):
         """Builds a scan operation against the dataset.
@@ -1145,7 +1145,7 @@ cdef class Scanner:
 
         return pyarrow_wrap_table(GetResultValue(result))
 
-    def GetFragments(self):
+    def get_fragments(self):
         """Returns an iterator over the fragments in this scan.
         """
         cdef:
