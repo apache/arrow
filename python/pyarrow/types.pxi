@@ -1042,7 +1042,7 @@ cdef class Schema:
             metadata=self.metadata
         )
 
-    def equals(self, Schema other not None, bint check_metadata=True):
+    def equals(self, Schema other not None, bint check_metadata=False):
         """
         Test if this schema is equal to the other
 

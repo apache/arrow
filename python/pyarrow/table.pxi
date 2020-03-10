@@ -1113,15 +1113,15 @@ cdef class Table(_PandasConvertible):
         except TypeError:
             return NotImplemented
 
-    def equals(self, Table other, bint check_metadata=True):
+    def equals(self, Table other, bint check_metadata=False):
         """
         Check if contents of two tables are equal
 
         Parameters
         ----------
         other : pyarrow.Table
-        check_metadata : bool, default True
-            Whether metadata equality should be checked as well.
+        check_metadata : bool, default False
+            Whether schema metadata equality should be checked as well.
 
         Returns
         -------

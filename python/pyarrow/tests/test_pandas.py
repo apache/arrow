@@ -87,7 +87,7 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     if expected_schema:
         # all occurrences of _check_pandas_roundtrip passes expected_schema
         # without the pandas generated key-value metadata
-        assert table.schema.equals(expected_schema, check_metadata=False)
+        assert table.schema.equals(expected_schema)
 
     if expected is None:
         expected = df
@@ -458,7 +458,7 @@ class TestConvertMetadata:
         expected = (table.cast(table.schema.remove_metadata())
                     .to_pandas())
 
-        assert result.equals(expected)
+        tm.assert_frame_equal(result, expected)
 
     def test_list_metadata(self):
         df = pd.DataFrame({'data': [[1], [2, 3, 4], [5] * 7]})
@@ -2771,8 +2771,8 @@ def test_table_from_pandas_keeps_column_order_of_dataframe():
     table1 = pa.Table.from_pandas(df1, preserve_index=False)
     table2 = pa.Table.from_pandas(df2, preserve_index=False)
 
-    assert table1.schema.equals(schema1, check_metadata=False)
-    assert table2.schema.equals(schema2, check_metadata=False)
+    assert table1.schema.equals(schema1)
+    assert table2.schema.equals(schema2)
 
 
 def test_table_from_pandas_keeps_column_order_of_schema():
@@ -2795,8 +2795,8 @@ def test_table_from_pandas_keeps_column_order_of_schema():
     table1 = pa.Table.from_pandas(df1, schema=schema, preserve_index=False)
     table2 = pa.Table.from_pandas(df2, schema=schema, preserve_index=False)
 
-    assert table1.schema.equals(schema, check_metadata=False)
-    assert table1.schema.equals(table2.schema, check_metadata=False)
+    assert table1.schema.equals(schema)
+    assert table1.schema.equals(table2.schema)
 
 
 def test_table_from_pandas_columns_argument_only_does_filtering():
@@ -2822,8 +2822,8 @@ def test_table_from_pandas_columns_argument_only_does_filtering():
     table1 = pa.Table.from_pandas(df, columns=columns1, preserve_index=False)
     table2 = pa.Table.from_pandas(df, columns=columns2, preserve_index=False)
 
-    assert table1.schema.equals(schema1, check_metadata=False)
-    assert table2.schema.equals(schema2, check_metadata=False)
+    assert table1.schema.equals(schema1)
+    assert table2.schema.equals(schema2)
 
 
 def test_table_from_pandas_columns_and_schema_are_mutually_exclusive():

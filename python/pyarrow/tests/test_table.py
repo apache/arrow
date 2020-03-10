@@ -481,8 +481,8 @@ def test_table_equals():
     assert not table.equals(None)
 
     other = pa.Table.from_arrays([], names=[], metadata={'key': 'value'})
-    assert not table.equals(other)
-    assert table.equals(other, check_metadata=False)
+    assert not table.equals(other, check_metadata=True)
+    assert table.equals(other)
 
 
 def test_table_from_batches_and_schema():
@@ -857,12 +857,12 @@ def test_concat_tables_with_different_schema_metadata():
 
     table1 = pa.Table.from_pandas(df1, schema=schema, preserve_index=False)
     table2 = pa.Table.from_pandas(df2, schema=schema, preserve_index=False)
-    assert table1.schema.equals(table2.schema, check_metadata=False)
+    assert table1.schema.equals(table2.schema)
     assert not table1.schema.equals(table2.schema, check_metadata=True)
 
     table3 = pa.concat_tables([table1, table2])
     assert table1.schema.equals(table3.schema, check_metadata=True)
-    assert table2.schema.equals(table3.schema, check_metadata=False)
+    assert table2.schema.equals(table3.schema)
 
 
 def test_concat_tables_with_promotion():
