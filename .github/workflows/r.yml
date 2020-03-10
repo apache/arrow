@@ -124,13 +124,15 @@ jobs:
       ARROW_R_CXXFLAGS: '-Werror'
       _R_CHECK_TESTS_NLINES_: 0
     steps:
+      - uses: numworks/setup-msys2@v1
+        with:
+          update: true
       - uses: actions/checkout@v2
       - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: ${{ matrix.rtools }}
       - name: Build Arrow C++
-        shell: bash
-        run: ci/appveyor-build-r.sh
+        run: msys2do ci/appveyor-build-r.sh
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |
