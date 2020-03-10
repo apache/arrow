@@ -61,6 +61,6 @@ jobs:
       - run: |
           pip install -e arrow/dev/archery
       - run: |
-          archery trigger-bot --evnt-name ${{ github.event_name }} --event-payload ${{ github.event_payload }}
+          archery trigger-bot --event-name ${{ github.event_name }} --event-payload ${{ github.event_payload }}
 
 
