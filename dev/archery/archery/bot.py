@@ -216,9 +216,11 @@ class CommentBot:
         try:
             self.handler(command, issue=issue, pull=pull, comment=comment)
         except CommandError as e:
+            # TODO(kszucs): log
             print(e)
             pull.create_issue_comment("```\n{}\n```".format(e.message))
         except Exception as e:
+            # TODO(kszucs): log
             print(e)
             comment.create_reaction('-1')
         else:
@@ -228,14 +230,14 @@ class CommentBot:
         raise NotImplementedError()
 
 
-@group(name='@ursabot')
+@group(name='@github-actions')
 @click.pass_context
-def ursabot(ctx):
+def actions(ctx):
     """Ursabot"""
     ctx.ensure_object(dict)
 
 
-@ursabot.group()
+@actions.group()
 @click.option('--crossbow', '-c', default='ursa-labs/crossbow',
               help='Crossbow repository on github to use')
 @click.pass_obj
