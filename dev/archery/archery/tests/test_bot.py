@@ -6,7 +6,6 @@ import pytest
 import textwrap
 import responses as rsps
 import click
-from click.testing import CliRunner
 from ruamel.yaml import YAML
 
 from archery.bot import (
@@ -218,6 +217,7 @@ def test_issue_comment_with_commands(responses, command, reaction):
 
 # TODO(kszucs): properly mock it
 # def test_crossbow_submit():
+#     from click.testing import CliRunner
 #     runner = CliRunner()
 #     result = runner.invoke(
 #         bot, ['crossbow', 'submit', '-g', 'wheel', '--dry-run']

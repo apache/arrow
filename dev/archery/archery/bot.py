@@ -267,12 +267,13 @@ def submit(obj, task, group, dry_run):
     git.clone('https://github.com/{}'.format(obj['crossbow_repo']), 'crossbow')
 
     # submit the crossbow tasks
+    result = Path('result.yml').resolve()
     xbow = Crossbow('arrow/dev/tasks/crossbow.py')
-    xbow.run('--output-file', 'result.yaml', 'submit', *args)
+    xbow.run('--output-file', str(result), 'submit', *args)
 
     # parse the result yml describing the submitted job
     yaml = YAML()
-    with Path('result.yml').open() as fp:
+    with result.open() as fp:
         job = yaml.load(fp)
 
     # render the response comment's content

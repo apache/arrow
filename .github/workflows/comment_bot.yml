@@ -30,20 +30,23 @@ jobs:
     name: Debug
     runs-on: ubuntu-latest
     steps:
+      # shallow clones not suitable to generate version number so use v1
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v1
         with:
           path: arrow
-      - uses: s-weigand/setup-conda@v1
+      # because libgit2 is a dependency of crossbow so prefer conda
+      - name: Setup Conda
+        uses: s-weigand/setup-conda@v1
         with:
           update-conda: true
           python-version: 3.7
           conda-channels: conda-forge
-      - run: |
+      - name: Instal Archery and Crossbow dependencies
+        run: |
           conda install -y --file arrow/ci/conda_env_crossbow.txt pygithub
-      - run: |
           pip install -e arrow/dev/archery
-      - name: Handle GH event
+      - name: Handle Github comment event
         env:
           ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CROSSBOW_GITHUB_TOKEN: ${{ secrets.CROSSBOW_GITHUB_TOKEN }}
