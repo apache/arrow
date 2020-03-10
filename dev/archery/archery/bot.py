@@ -78,6 +78,8 @@ class CommentBot:
 
     def __init__(self, name, handler, token=None):
         # TODO(kszucs): validate
+        assert isinstance(name, str)
+        assert callable(self.handler)
         self.name = name
         self.handler = handler
         self.github = github.Github(token)

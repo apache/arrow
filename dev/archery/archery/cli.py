@@ -598,7 +598,7 @@ def integration(with_all=False, random_seed=12345, **args):
 def trigger_bot(event_name, event_payload, arrow_token, crossbow_token):
     event_payload = json.loads(event_payload.read())
 
-    bot = CommentBot(name='ursabot', handler='ursabot', token=arrow_token)
+    bot = CommentBot(name='ursabot', handler=ursabot, token=arrow_token)
     bot.handle(event_name, event_payload)
 
 
