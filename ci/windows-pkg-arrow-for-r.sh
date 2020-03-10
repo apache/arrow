@@ -45,8 +45,8 @@ mv mingw32/lib/*.a $DST_DIR/lib-4.9.3/i386
 mkdir deps35 && cd deps35
 wget https://dl.bintray.com/rtools/backports/mingw-w64-i686-boost-1.67.0-8000-any.pkg.tar.xz
 wget https://dl.bintray.com/rtools/backports/mingw-w64-x86_64-boost-1.67.0-8000-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/backports/mingw-w64-i686-thrift-0.12.0-8000-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/backports/mingw-w64-x86_64-thrift-0.12.0-8000-any.pkg.tar.xz
+wget https://dl.bintray.com/rtools/backports/mingw-w64-i686-thrift-0.13.0-8000-any.pkg.tar.xz
+wget https://dl.bintray.com/rtools/backports/mingw-w64-x86_64-thrift-0.13.0-8000-any.pkg.tar.xz
 wget https://dl.bintray.com/rtools/backports/mingw-w64-i686-snappy-1.1.7-2-any.pkg.tar.xz
 wget https://dl.bintray.com/rtools/backports/mingw-w64-x86_64-snappy-1.1.7-2-any.pkg.tar.xz
 
@@ -70,8 +70,8 @@ wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-lz4-1.8.2-1-any.pkg.ta
 # These are the other Rtools 4.0 packages, for future reference
 # wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-boost-1.67.0-9002-any.pkg.tar.xz
 # wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-boost-1.67.0-9002-any.pkg.tar.xz
-# wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-thrift-0.12.0-1-any.pkg.tar.xz
-# wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-thrift-0.12.0-1-any.pkg.tar.xz
+# wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-thrift-0.13.0-1-any.pkg.tar.xz
+# wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-thrift-0.13.0-1-any.pkg.tar.xz
 # wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-snappy-1.1.7-2-any.pkg.tar.xz
 # wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-snappy-1.1.7-2-any.pkg.tar.xz
 
