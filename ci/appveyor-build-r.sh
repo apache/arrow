@@ -38,7 +38,6 @@ rm -f /mingw32/lib/*.dll.a
 rm -f /mingw64/lib/*.dll.a
 export PKG_CONFIG="/${MINGW_INSTALLS}/bin/pkg-config --static"
 
-cd $APPVEYOR_BUILD_FOLDER
 cp ci/PKGBUILD .
 export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --rmdeps --cleanbuild
