@@ -105,7 +105,9 @@ class CommentBot:
     def handle(self, event, payload):
         try:
             command = self.parse_command(payload)
-        except EventError:
+        except EventError as e:
+            print(e)
+            # TODO(kszucs): log
             # see the possible reasons in the validate method
             return
 
