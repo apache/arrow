@@ -75,6 +75,8 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   std::string type_name() const override { return "parquet"; }
 
+  bool splittable() const override { return true; }
+
   Result<bool> IsSupported(const FileSource& source) const override;
 
   /// \brief Return the schema of the file if possible.
@@ -84,16 +86,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<ScanTaskIterator> ScanFile(const FileSource& source,
                                     std::shared_ptr<ScanOptions> options,
                                     std::shared_ptr<ScanContext> context) const override;
-};
-
-class ARROW_DS_EXPORT ParquetFragment : public FileFragment {
- public:
-  ParquetFragment(FileSource source, std::shared_ptr<ScanOptions> options,
-                  std::shared_ptr<Expression> partition_expression)
-      : FileFragment(std::move(source), std::make_shared<ParquetFileFormat>(),
-                     std::move(options), std::move(partition_expression)) {}
-
-  bool splittable() const override { return true; }
 };
 
 }  // namespace dataset

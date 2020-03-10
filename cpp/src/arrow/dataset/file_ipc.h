@@ -33,6 +33,8 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
  public:
   std::string type_name() const override { return "ipc"; }
 
+  bool splittable() const override { return true; }
+
   Result<bool> IsSupported(const FileSource& source) const override;
 
   /// \brief Return the schema of the file if possible.

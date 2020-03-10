@@ -326,7 +326,6 @@ TEST_F(TestParquetFileFormat, InspectDictEncoded) {
 
   Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});
   AssertSchemaEqual(*actual, expected_schema, /* check_metadata = */ false);
-  EXPECT_EQ(*actual, *schema_);
 }
 
 TEST_F(TestParquetFileFormat, IsSupported) {
