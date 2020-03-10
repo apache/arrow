@@ -15,13 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow"
+module Helper
+  module Omittable
+    def require_gi_bindings(major, minor, micro)
+      return if GLib.check_binding_version?(major, minor, micro)
+      message =
+        "Require gobject-introspection #{major}.#{minor}.#{micro} or later: " +
+        GLib::BINDING_VERSION.join(".")
+      omit(message)
+    end
 
-require "pathname"
-require "tempfile"
-require "zlib"
-
-require "test-unit"
-
-require_relative "helper/fixture"
-require_relative "helper/omittable"
+    def require_gi(major, minor, micro)
+      return if GObjectIntrospection::Version.or_later?(major, minor, micro)
+      message =
+        "Require GObject Introspection #{major}.#{minor}.#{micro} or later: " +
+        GObjectIntrospection::Version::STRING
+      omit(message)
+    end
+  end
+end
