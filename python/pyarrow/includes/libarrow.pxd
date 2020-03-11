@@ -335,7 +335,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool nullable()
 
         c_string ToString()
-        c_bool Equals(const CField& other)
+        c_bool Equals(const CField& other, c_bool check_metadata)
 
         shared_ptr[const CKeyValueMetadata] metadata()
 

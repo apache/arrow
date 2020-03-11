@@ -380,11 +380,11 @@ def test_schema_equals():
     sch3 = pa.schema(fields, metadata=metadata)
     sch4 = pa.schema(fields, metadata=metadata)
 
-    assert sch1.equals(sch2)
-    assert sch3.equals(sch4)
-    assert sch1.equals(sch3, check_metadata=False)
+    assert sch1.equals(sch2, check_metadata=True)
+    assert sch3.equals(sch4, check_metadata=True)
+    assert sch1.equals(sch3)
     assert not sch1.equals(sch3, check_metadata=True)
-    assert not sch1.equals(sch3)
+    assert not sch1.equals(sch3, check_metadata=True)
 
     del fields[-1]
     sch3 = pa.schema(fields)
@@ -401,8 +401,8 @@ def test_schema_equals_propagates_check_metadata():
         pa.field('foo', pa.int32()),
         pa.field('bar', pa.string(), metadata={'a': 'alpha'}),
     ])
-    assert not schema1.equals(schema2)
-    assert schema1.equals(schema2, check_metadata=False)
+    assert not schema1.equals(schema2, check_metadata=True)
+    assert schema1.equals(schema2)
 
 
 def test_schema_equals_invalid_type():
@@ -429,8 +429,12 @@ def test_schema_equality_operators():
 
     assert sch1 == sch2
     assert sch3 == sch4
-    assert sch1 != sch3
-    assert sch2 != sch4
+
+    # __eq__ and __ne__ do not check metadata
+    assert sch1 == sch3
+    assert not sch1 != sch3
+
+    assert sch2 == sch4
 
     # comparison with other types doesn't raise
     assert sch1 != []

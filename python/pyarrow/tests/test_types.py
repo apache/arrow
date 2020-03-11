@@ -599,9 +599,16 @@ def test_field_equals():
     assert not f1.equals(f3)
     assert not f1.equals(f4)
     assert not f3.equals(f4)
-    assert not f1.equals(f6)
     assert not f4.equals(f5)
-    assert not f7.equals(f8)
+
+    # No metadata in f1, but metadata in f6
+    assert f1.equals(f6)
+    assert not f1.equals(f6, check_metadata=True)
+
+    # Different metadata
+    assert f6.equals(f7)
+    assert f7.equals(f8)
+    assert not f7.equals(f8, check_metadata=True)
 
 
 def test_field_equality_operators():

@@ -827,19 +827,21 @@ cdef class Field:
         self.field = field.get()
         self.type = pyarrow_wrap_data_type(field.get().type())
 
-    def equals(self, Field other):
+    def equals(self, Field other, bint check_metadata=False):
         """
         Test if this field is equal to the other
 
         Parameters
         ----------
         other : pyarrow.Field
+        check_metadata : bool, default False
+            Whether Field metadata equality should be checked as well.
 
         Returns
         -------
         is_equal : boolean
         """
-        return self.field.Equals(deref(other.field))
+        return self.field.Equals(deref(other.field), check_metadata)
 
     def __eq__(self, other):
         try:
@@ -1042,7 +1044,7 @@ cdef class Schema:
             metadata=self.metadata
         )
 
-    def equals(self, Schema other not None, bint check_metadata=True):
+    def equals(self, Schema other not None, bint check_metadata=False):
         """
         Test if this schema is equal to the other
 

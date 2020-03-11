@@ -525,7 +525,7 @@ def test_partitioning_factory(mockfs):
         ("group", pa.int32()),
         ("key", pa.string()),
     ])
-    assert inspected_schema.equals(expected_schema, check_metadata=False)
+    assert inspected_schema.equals(expected_schema)
 
     hive_partitioning_factory = ds.HivePartitioning.discover()
     assert isinstance(hive_partitioning_factory, ds.PartitioningFactory)
@@ -592,21 +592,21 @@ def _check_dataset_from_path(path, table, **kwargs):
     # pathlib object
     assert isinstance(path, pathlib.Path)
     dataset = ds.dataset(ds.factory(path, **kwargs))
-    assert dataset.schema.equals(table.schema, check_metadata=False)
+    assert dataset.schema.equals(table.schema)
     result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table, check_metadata=False)
+    assert result.equals(table)
 
     # string path
     dataset = ds.dataset(ds.factory(str(path), **kwargs))
-    assert dataset.schema.equals(table.schema, check_metadata=False)
+    assert dataset.schema.equals(table.schema)
     result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table, check_metadata=False)
+    assert result.equals(table)
 
     # passing directly to dataset
     dataset = ds.dataset(str(path), **kwargs)
-    assert dataset.schema.equals(table.schema, check_metadata=False)
+    assert dataset.schema.equals(table.schema)
     result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table, check_metadata=False)
+    assert result.equals(table)
 
 
 @pytest.mark.parquet
@@ -634,9 +634,9 @@ def test_open_dataset_list_of_files(tempdir):
         ds.dataset(ds.factory([str(path1), str(path2)]))
     ]
     for dataset in datasets:
-        assert dataset.schema.equals(table.schema, check_metadata=False)
+        assert dataset.schema.equals(table.schema)
         result = dataset.to_table(use_threads=False)  # deterministic row order
-        assert result.equals(table, check_metadata=False)
+        assert result.equals(table)
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="fails on windows")
@@ -657,11 +657,11 @@ def test_open_dataset_partitioned_directory(tempdir):
     dataset = ds.dataset(
         str(tempdir), partitioning=ds.partitioning(flavor="hive"))
     expected_schema = table.schema.append(pa.field("part", pa.int32()))
-    assert dataset.schema.equals(expected_schema, check_metadata=False)
+    assert dataset.schema.equals(expected_schema)
 
     # specify partition scheme with string short-cut
     dataset = ds.dataset(str(tempdir), partitioning="hive")
-    assert dataset.schema.equals(expected_schema, check_metadata=False)
+    assert dataset.schema.equals(expected_schema)
 
     # specify partition scheme with explicit scheme
     dataset = ds.dataset(
@@ -669,12 +669,12 @@ def test_open_dataset_partitioned_directory(tempdir):
         partitioning=ds.partitioning(
             pa.schema([("part", pa.int8())]), flavor="hive"))
     expected_schema = table.schema.append(pa.field("part", pa.int8()))
-    assert dataset.schema.equals(expected_schema, check_metadata=False)
+    assert dataset.schema.equals(expected_schema)
 
     result = dataset.to_table(use_threads=False)
     expected = full_table.append_column(
         "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
-    assert result.equals(expected, check_metadata=False)
+    assert result.equals(expected)
 
 
 @pytest.mark.parquet
@@ -684,11 +684,11 @@ def test_open_dataset_filesystem(tempdir):
 
     # filesystem inferred from path
     dataset1 = ds.dataset(str(path))
-    assert dataset1.schema.equals(table.schema, check_metadata=False)
+    assert dataset1.schema.equals(table.schema)
 
     # filesystem specified
     dataset2 = ds.dataset(str(path), filesystem=fs.LocalFileSystem())
-    assert dataset2.schema.equals(table.schema, check_metadata=False)
+    assert dataset2.schema.equals(table.schema)
 
     # passing different filesystem
     with pytest.raises(FileNotFoundError):
@@ -764,7 +764,7 @@ def test_multiple_factories(multisourcefs):
         ('month', pa.int32()),
         ('year', pa.int32()),
     ])
-    assert assembled.schema.equals(expected_schema, check_metadata=False)
+    assert assembled.schema.equals(expected_schema)
 
 
 def test_multiple_factories_with_selectors(multisourcefs):
@@ -777,7 +777,7 @@ def test_multiple_factories_with_selectors(multisourcefs):
         ('value', pa.float64()),
         ('color', pa.string())
     ])
-    assert dataset.schema.equals(expected_schema, check_metadata=False)
+    assert dataset.schema.equals(expected_schema)
 
     # with hive partitioning for two hive sources
     dataset = ds.dataset(['/hive', '/hive_color'], filesystem=multisourcefs,
@@ -790,7 +790,7 @@ def test_multiple_factories_with_selectors(multisourcefs):
         ('month', pa.int32()),
         ('year', pa.int32())
     ])
-    assert dataset.schema.equals(expected_schema, check_metadata=False)
+    assert dataset.schema.equals(expected_schema)
 
 
 def test_ipc_format(tempdir):
