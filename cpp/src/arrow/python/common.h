@@ -265,20 +265,26 @@ struct PyBytesView {
     if (PyBytes_Check(obj)) {
       this->bytes = PyBytes_AS_STRING(obj);
       this->size = PyBytes_GET_SIZE(obj);
+      this->ref.reset();
+      return Status::OK();
     } else if (PyByteArray_Check(obj)) {
       this->bytes = PyByteArray_AS_STRING(obj);
       this->size = PyByteArray_GET_SIZE(obj);
+      this->ref.reset();
+      return Status::OK();
     } else if (PyMemoryView_Check(obj)) {
+      PyObject* contig_view = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
+      RETURN_IF_PYERROR();
+      this->ref.reset(contig_view);
       std::shared_ptr<Buffer> buffer;
-      ARROW_ASSIGN_OR_RAISE(buffer, PyBuffer::FromPyObject(obj));
+      ARROW_ASSIGN_OR_RAISE(buffer, PyBuffer::FromPyObject(contig_view));
       this->bytes = reinterpret_cast<const char*>(buffer->data());
       this->size = buffer->size();
+      return Status::OK();
     } else {
       return Status::TypeError("Expected ", expected_msg, ", got a '",
                                Py_TYPE(obj)->tp_name, "' object");
     }
-    this->ref.reset();
-    return Status::OK();
   }
 
   OwnedRef ref;
