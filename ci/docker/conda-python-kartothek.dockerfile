@@ -22,10 +22,11 @@ FROM ${repo}:${arch}-conda-python-${python}
 
 # install kartothek dependencies from conda-forge
 RUN conda install -c conda-forge -q \
-        decorator \
-        pytest-xdist \
         dask \
+        decorator \
         msgpack-python \
+        pytest-mock \
+        pytest-xdist \
         simplejson \
         simplekv \
         storefact \
