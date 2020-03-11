@@ -169,7 +169,6 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
   const FileSource& source() const { return source_; }
   const std::shared_ptr<FileFormat>& format() const { return format_; }
 
- protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                std::shared_ptr<ScanOptions> scan_options)
       : Fragment(std::move(scan_options)),
@@ -183,6 +182,7 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
         source_(std::move(source)),
         format_(std::move(format)) {}
 
+ protected:
   FileSource source_;
   std::shared_ptr<FileFormat> format_;
 

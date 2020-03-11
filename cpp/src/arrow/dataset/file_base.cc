@@ -43,18 +43,6 @@ Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
   return std::make_shared<::arrow::io::BufferReader>(buffer());
 }
 
-Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options) {
-  return MakeFragment(std::move(source), std::move(options), scalar(true));
-}
-
-Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options,
-    std::shared_ptr<Expression> partition_expression) {
-  return std::make_shared<FileFragment>(std::move(source), shared_from_this(), options,
-                                        std::move(partition_expression));
-}
-
 Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable() const {
   if (!writable_) {
     return Status::Invalid("file source '", path(), "' is not writable");
@@ -69,16 +57,15 @@ Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable() cons
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> scan_options,
-    std::shared_ptr<Expression> partition_expression) {
-  return std::shared_ptr<FileFragment>(
-      new FileFragment(std::move(source), shared_from_this(), std::move(scan_options),
-                       std::move(partition_expression)));
+    FileSource source, std::shared_ptr<ScanOptions> options) {
+  return MakeFragment(std::move(source), std::move(options), scalar(true));
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> scan_options) {
-  return MakeFragment(std::move(source), std::move(scan_options), scalar(true));
+    FileSource source, std::shared_ptr<ScanOptions> options,
+    std::shared_ptr<Expression> partition_expression) {
+  return std::make_shared<FileFragment>(std::move(source), shared_from_this(), options,
+                                        std::move(partition_expression));
 }
 
 Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
