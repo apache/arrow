@@ -27,8 +27,7 @@ set(ARROW_DATASET_SRCS
     filter.cc
     partition.cc
     projector.cc
-    scanner.cc
-    writer.cc)
+    scanner.cc)
 
 set(ARROW_DATASET_LINK_STATIC arrow_static)
 set(ARROW_DATASET_LINK_SHARED arrow_shared)

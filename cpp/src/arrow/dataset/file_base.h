@@ -274,5 +274,51 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   ExpressionVector partitions_;
 };
 
+/// \brief Write a fragment to a single OutputStream.
+class ARROW_DS_EXPORT WriteTask {
+ public:
+  virtual Status Execute() = 0;
+
+  virtual ~WriteTask() = default;
+
+  const FileSource& destination() const;
+  const std::shared_ptr<FileFormat>& format() const { return format_; }
+
+ protected:
+  WriteTask(FileSource destination, std::shared_ptr<FileFormat> format)
+      : destination_(std::move(destination)), format_(std::move(format)) {}
+
+  Status CreateDestinationParentDir() const;
+
+  FileSource destination_;
+  std::shared_ptr<FileFormat> format_;
+};
+
+/// \brief A declarative plan for writing fragments to a partitioned directory structure.
+class ARROW_DS_EXPORT WritePlan {
+ public:
+  /// The partitioning with which paths were generated
+  std::shared_ptr<Partitioning> partitioning;
+
+  /// The schema of the Dataset which will be written
+  std::shared_ptr<Schema> schema;
+
+  /// The format into which fragments will be written
+  std::shared_ptr<FileFormat> format;
+
+  /// The FileSystem and base directory for partitioned writing
+  std::shared_ptr<fs::FileSystem> filesystem;
+  std::string partition_base_dir;
+
+  using FragmentOrPartitionExpression =
+      util::variant<std::shared_ptr<Expression>, std::shared_ptr<Fragment>>;
+
+  /// If fragment_or_partition_expressions[i] is a Fragment, that Fragment will be
+  /// written to paths[i]. If it is an Expression, a directory representing that partition
+  /// expression will be created at paths[i] instead.
+  std::vector<FragmentOrPartitionExpression> fragment_or_partition_expressions;
+  std::vector<std::string> paths;
+};
+
 }  // namespace dataset
 }  // namespace arrow

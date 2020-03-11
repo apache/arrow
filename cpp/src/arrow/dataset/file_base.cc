@@ -23,7 +23,6 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
-#include "arrow/dataset/writer.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -265,7 +264,7 @@ Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
           auto write_task,
           plan.format->WriteFragment(std::move(dest), fragment, scan_context));
 
-      task_group->Append([write_task] { return write_task->Execute().status(); });
+      task_group->Append([write_task] { return write_task->Execute(); });
     }
   }
 
@@ -276,6 +275,15 @@ Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
   auto partition_expression = scalar(true);
   return Make(plan.schema, partition_expression, plan.format, std::move(filesystem),
               std::move(forest), std::move(partition_expressions));
+}
+
+Status WriteTask::CreateDestinationParentDir() const {
+  if (auto filesystem = destination_.filesystem()) {
+    auto parent = fs::internal::GetAbstractPathParent(destination_.path()).first;
+    return filesystem->CreateDir(parent, /* recursive = */ true);
+  }
+
+  return Status::OK();
 }
 
 }  // namespace dataset

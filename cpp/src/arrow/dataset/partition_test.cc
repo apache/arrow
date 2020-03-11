@@ -25,9 +25,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
-#include "arrow/dataset/writer.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"

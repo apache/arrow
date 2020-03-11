@@ -22,10 +22,10 @@
 #include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/file_base.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
-#include "arrow/dataset/writer.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
@@ -141,8 +141,7 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
 
   EXPECT_OK_AND_ASSIGN(auto write_task, format_->WriteFragment(sink, fragment, ctx_));
 
-  EXPECT_OK_AND_ASSIGN(auto written_fragment, write_task->Execute());
-  EXPECT_EQ(written_fragment->source(), sink);
+  ASSERT_OK(write_task->Execute());
 
   AssertBufferEqual(*sink.buffer(), *source->buffer());
 }

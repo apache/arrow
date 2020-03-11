@@ -24,9 +24,9 @@
 #include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/file_base.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
-#include "arrow/dataset/writer.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/util/iterator.h"
 
@@ -157,7 +157,7 @@ Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
           fragment_(std::move(fragment)),
           scan_context_(std::move(scan_context)) {}
 
-    Result<std::shared_ptr<FileFragment>> Execute() override {
+    Status Execute() override {
       RETURN_NOT_OK(CreateDestinationParentDir());
 
       ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.OpenWritable());
@@ -178,11 +178,7 @@ Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
         }
       }
 
-      RETURN_NOT_OK(writer->Close());
-
-      // clear out any projector/filter
-      auto scan_options = fragment_->scan_options()->ReplaceSchema(fragment_->schema());
-      return format_->MakeFragment(std::move(destination_), std::move(scan_options));
+      return writer->Close();
     }
 
     std::shared_ptr<Fragment> fragment_;

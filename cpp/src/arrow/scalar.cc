@@ -101,11 +101,10 @@ struct ScalarHashImpl {
 
   Status ArrayHash(const ArrayData& a) {
     RETURN_NOT_OK(StdHash(a.length) & StdHash(a.GetNullCount()));
-    for (const auto& buffer : a.buffers) {
-      if (buffer != nullptr) {
-        // FIXME(bkietz) this relies on values under nulls
-        RETURN_NOT_OK(BufferHash(*buffer));
-      }
+    if (a.buffers[0] != nullptr) {
+      // We can't visit values without unboxing the whole array, so only hash
+      // the null bitmap for now.
+      RETURN_NOT_OK(BufferHash(*a.buffers[0]));
     }
     for (const auto& child : a.child_data) {
       RETURN_NOT_OK(ArrayHash(*child));
