@@ -140,7 +140,7 @@ jobs:
         with:
           rtools-version: ${{ matrix.rtools }}
       - name: Build Arrow C++
-        run: msys2do ci/windows-build-cpp-for-r.sh
+        run: msys2do ci/scripts/r_windows_build.sh
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |
