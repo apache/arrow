@@ -189,21 +189,6 @@ class ARROW_PYTHON_EXPORT OwnedRefNoGIL : public OwnedRef {
   }
 };
 
-class ARROW_PYTHON_EXPORT PyBuffer : public Buffer {
- public:
-  /// While memoryview objects support multi-dimensional buffers, PyBuffer only supports
-  /// one-dimensional byte buffers.
-  ~PyBuffer();
-
-  static Result<std::shared_ptr<Buffer>> FromPyObject(PyObject* obj);
-
- private:
-  PyBuffer();
-  Status Init(PyObject*);
-
-  Py_buffer py_buf_;
-};
-
 // A temporary conversion of a Python object to a bytes area.
 struct PyBytesView {
   const char* bytes;
@@ -276,10 +261,9 @@ struct PyBytesView {
       PyObject* contig_view = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
       RETURN_IF_PYERROR();
       this->ref.reset(contig_view);
-      std::shared_ptr<Buffer> buffer;
-      ARROW_ASSIGN_OR_RAISE(buffer, PyBuffer::FromPyObject(contig_view));
-      this->bytes = reinterpret_cast<const char*>(buffer->data());
-      this->size = buffer->size();
+      Py_buffer* buf = PyMemoryView_GET_BUFFER(contig_view);
+      this->bytes = reinterpret_cast<const char*>(buf->buf);
+      this->size = buf->len;
       return Status::OK();
     } else {
       return Status::TypeError("Expected ", expected_msg, ", got a '",
@@ -288,6 +272,21 @@ struct PyBytesView {
   }
 
   OwnedRef ref;
+};
+
+class ARROW_PYTHON_EXPORT PyBuffer : public Buffer {
+ public:
+  /// While memoryview objects support multi-dimensional buffers, PyBuffer only supports
+  /// one-dimensional byte buffers.
+  ~PyBuffer();
+
+  static Result<std::shared_ptr<Buffer>> FromPyObject(PyObject* obj);
+
+ private:
+  PyBuffer();
+  Status Init(PyObject*);
+
+  Py_buffer py_buf_;
 };
 
 // Return the common PyArrow memory pool
