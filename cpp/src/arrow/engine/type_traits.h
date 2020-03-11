@@ -17,14 +17,87 @@
 
 #pragma once
 
-#include "arrow/engine/expression.h"
-#include "arrow/type_traits.h"
+#include <type_traits>
+
+#include "arrow/engine/type_fwd.h"
 
 namespace arrow {
 namespace engine {
 
+template <bool B, typename T = void>
+using enable_if_t = typename std::enable_if<B, T>::type;
+
+template <typename T>
+struct expr_traits;
+
+template <>
+struct expr_traits<ScalarExpr> {
+  static constexpr auto kind_id = ExprKind::SCALAR_LITERAL;
+};
+
+template <>
+struct expr_traits<FieldRefExpr> {
+  static constexpr auto kind_id = ExprKind::FIELD_REFERENCE;
+};
+
+template <>
+struct expr_traits<EqualExpr> {
+  static constexpr auto kind_id = ExprKind::COMPARE_OP;
+  static constexpr auto compare_kind_id = CompareKind::EQUAL;
+};
+
+template <>
+struct expr_traits<NotEqualExpr> {
+  static constexpr auto kind_id = ExprKind::COMPARE_OP;
+  static constexpr auto compare_kind_id = CompareKind::NOT_EQUAL;
+};
+
+template <>
+struct expr_traits<GreaterThanExpr> {
+  static constexpr auto kind_id = ExprKind::COMPARE_OP;
+  static constexpr auto compare_kind_id = CompareKind::GREATER_THAN;
+};
+
+template <>
+struct expr_traits<GreaterThanEqualExpr> {
+  static constexpr auto kind_id = ExprKind::COMPARE_OP;
+  static constexpr auto compare_kind_id = CompareKind::GREATER_THAN_EQUAL;
+};
+
+template <>
+struct expr_traits<LessThanExpr> {
+  static constexpr auto kind_id = ExprKind::COMPARE_OP;
+  static constexpr auto compare_kind_id = CompareKind::LESS_THAN;
+};
+
+template <>
+struct expr_traits<LessThanEqualExpr> {
+  static constexpr auto kind_id = ExprKind::COMPARE_OP;
+  static constexpr auto compare_kind_id = CompareKind::LESS_THAN_EQUAL;
+};
+
+template <>
+struct expr_traits<EmptyRelExpr> {
+  static constexpr auto kind_id = ExprKind::EMPTY_REL;
+};
+
+template <>
+struct expr_traits<ScanRelExpr> {
+  static constexpr auto kind_id = ExprKind::SCAN_REL;
+};
+
+template <>
+struct expr_traits<ProjectionRelExpr> {
+  static constexpr auto kind_id = ExprKind::PROJECTION_REL;
+};
+
+template <>
+struct expr_traits<FilterRelExpr> {
+  static constexpr auto kind_id = ExprKind::FILTER_REL;
+};
+
 template <typename E>
-using is_compare_expr = std::is_base_of<CmpOpExpr<E>, E>;
+using is_compare_expr = std::is_base_of<CompareOpExpr, E>;
 
 template <typename E, typename Ret = void>
 using enable_if_compare_expr = enable_if_t<is_compare_expr<E>::value, Ret>;

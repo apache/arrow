@@ -17,20 +17,58 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace arrow {
 namespace engine {
 
 class ExprType;
 
+/// Tag identifier for the expression type.
+enum ExprKind : uint8_t {
+  /// A Scalar literal, i.e. a constant.
+  SCALAR_LITERAL,
+  /// A Field reference in a schema.
+  FIELD_REFERENCE,
+
+  // Comparison operators,
+  COMPARE_OP,
+
+  /// Empty relation with a known schema.
+  EMPTY_REL,
+  /// Scan relational operator
+  SCAN_REL,
+  /// Projection relational operator
+  PROJECTION_REL,
+  /// Filter relational operator
+  FILTER_REL,
+};
+
 class Expr;
 class ScalarExpr;
 class FieldRefExpr;
-class EqualCmpExpr;
-class NotEqualCmpExpr;
-class GreaterThanCmpExpr;
-class GreaterEqualThanCmpExpr;
-class LessThanCmpExpr;
-class LessEqualThanCmpExpr;
+
+/// Tag identifier for comparison operators
+enum CompareKind : uint8_t {
+  EQUAL,
+  NOT_EQUAL,
+  GREATER_THAN,
+  GREATER_THAN_EQUAL,
+  LESS_THAN,
+  LESS_THAN_EQUAL,
+};
+
+class CompareOpExpr;
+class EqualExpr;
+class NotEqualExpr;
+class GreaterThanExpr;
+class GreaterThanEqualExpr;
+class LessThanExpr;
+class LessThanEqualExpr;
+
+template <typename Derived>
+class RelExpr;
+
 class EmptyRelExpr;
 class ScanRelExpr;
 class ProjectionRelExpr;

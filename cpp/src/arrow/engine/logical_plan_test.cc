@@ -100,7 +100,7 @@ TEST_F(LogicalPlanBuilderTest, Filter) {
 
   EXPECT_OK_AND_ASSIGN(auto field, field_expr("i32", table));
   EXPECT_OK_AND_ASSIGN(auto scalar, scalar_expr());
-  EXPECT_OK_AND_ASSIGN(auto predicate, EqualCmpExpr::Make(field, scalar));
+  EXPECT_OK_AND_ASSIGN(auto predicate, EqualExpr::Make(field, scalar));
 
   EXPECT_OK_AND_ASSIGN(auto filter, builder.Filter(table, predicate));
 }

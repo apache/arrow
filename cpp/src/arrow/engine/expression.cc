@@ -16,7 +16,6 @@
 // under the License.
 
 #include "arrow/engine/expression.h"
-#include "arrow/engine/type_traits.h"
 #include "arrow/scalar.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -122,6 +121,7 @@ Result<ExprType> ExprType::WithType(const std::shared_ptr<DataType>& data_type) 
 
   return Status::UnknownError("unreachable");
 }
+
 Result<ExprType> ExprType::WithSchema(const std::shared_ptr<Schema>& schema) const {
   switch (shape()) {
     case SCALAR:
@@ -168,31 +168,19 @@ Result<ExprType> ExprType::Broadcast(const ExprType& lhs, const ExprType& rhs) {
 
 std::string Expr::kind_name() const {
   switch (kind_) {
-    case Expr::SCALAR_LITERAL:
+    case ExprKind::SCALAR_LITERAL:
       return "scalar";
-    case Expr::FIELD_REFERENCE:
+    case ExprKind::FIELD_REFERENCE:
       return "field_ref";
-
-    case Expr::EQ_CMP_OP:
-      return "eq_cmp";
-    case Expr::NE_CMP_OP:
-      return "ne_cmp";
-    case Expr::GT_CMP_OP:
-      return "gt_cmp";
-    case Expr::GE_CMP_OP:
-      return "ge_cmp";
-    case Expr::LT_CMP_OP:
-      return "lt_cmp";
-    case Expr::LE_CMP_OP:
-      return "le_cmp";
-
-    case Expr::EMPTY_REL:
+    case ExprKind::COMPARE_OP:
+      return "compare_op";
+    case ExprKind::EMPTY_REL:
       return "empty_rel";
-    case Expr::SCAN_REL:
+    case ExprKind::SCAN_REL:
       return "scan_rel";
-    case Expr::PROJECTION_REL:
+    case ExprKind::PROJECTION_REL:
       return "projection_rel";
-    case Expr::FILTER_REL:
+    case ExprKind::FILTER_REL:
       return "filter_rel";
   }
 

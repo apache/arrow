@@ -115,7 +115,7 @@ TEST_F(ExprTest, ScalarExpr) {
   auto i32 = int32();
   ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(i32, 10));
   ASSERT_OK_AND_ASSIGN(auto expr, ScalarExpr::Make(value));
-  EXPECT_EQ(expr->kind(), Expr::SCALAR_LITERAL);
+  EXPECT_EQ(expr->kind(), ExprKind::SCALAR_LITERAL);
   EXPECT_EQ(expr->type(), ExprType::Scalar(i32));
   EXPECT_EQ(*expr->scalar(), *value);
 }
@@ -127,15 +127,16 @@ TEST_F(ExprTest, FieldRefExpr) {
   auto f_i32 = field("i32", i32);
 
   ASSERT_OK_AND_ASSIGN(auto expr, FieldRefExpr::Make(f_i32));
-  EXPECT_EQ(expr->kind(), Expr::FIELD_REFERENCE);
+  EXPECT_EQ(expr->kind(), ExprKind::FIELD_REFERENCE);
   EXPECT_EQ(expr->type(), ExprType::Array(i32));
   EXPECT_THAT(expr->field(), PtrEquals(f_i32));
 }
 
 template <typename CmpClass>
-class CmpExprTest : public ExprTest {
+class CompareExprTest : public ExprTest {
  public:
-  Expr::Kind kind() { return expr_traits<CmpClass>::kind_id; }
+  ExprKind kind() { return expr_traits<CmpClass>::kind_id; }
+  CompareKind compare_kind() { return expr_traits<CmpClass>::compare_kind_id; }
 
   Result<std::shared_ptr<CmpClass>> Make(std::shared_ptr<Expr> left,
                                          std::shared_ptr<Expr> right) {
@@ -143,10 +144,12 @@ class CmpExprTest : public ExprTest {
   }
 };
 
-using CompareExprs = ::testing::Types<EqualCmpExpr, NotEqualCmpExpr>;
+using CompareExprs =
+    ::testing::Types<EqualExpr, NotEqualExpr, GreaterThanExpr, GreaterThanEqualExpr,
+                     LessThanExpr, LessThanEqualExpr>;
 
-TYPED_TEST_CASE(CmpExprTest, CompareExprs);
-TYPED_TEST(CmpExprTest, BasicCompareExpr) {
+TYPED_TEST_CASE(CompareExprTest, CompareExprs);
+TYPED_TEST(CompareExprTest, BasicCompareExpr) {
   auto i32 = int32();
 
   auto f_i32 = field("i32", i32);
@@ -168,6 +171,7 @@ TYPED_TEST(CmpExprTest, BasicCompareExpr) {
 
   ASSERT_OK_AND_ASSIGN(auto expr, this->Make(f_expr, s_expr));
   EXPECT_EQ(expr->kind(), this->kind());
+  EXPECT_EQ(expr->compare_kind(), this->compare_kind());
   // Ensure type is broadcasted
   EXPECT_EQ(expr->type(), ExprType::Array(boolean()));
   EXPECT_TRUE(expr->type().IsPredicate());
