@@ -73,7 +73,8 @@ Status SendGetDebugStringRequest(int sock);
 
 Status SendGetDebugStringReply(int sock, const std::string& debug_string);
 
-Status ReadGetDebugStringReply(const uint8_t* data, size_t size, std::string* debug_string);
+Status ReadGetDebugStringReply(const uint8_t* data, size_t size,
+                               std::string* debug_string);
 
 /* Plasma Create message functions. */
 
@@ -169,12 +170,14 @@ Status ReadReleaseReply(const uint8_t* data, size_t size, ObjectID* object_id);
 
 Status SendDeleteRequest(int sock, const std::vector<ObjectID>& object_ids);
 
-Status ReadDeleteRequest(const uint8_t* data, size_t size, std::vector<ObjectID>* object_ids);
+Status ReadDeleteRequest(const uint8_t* data, size_t size,
+                         std::vector<ObjectID>* object_ids);
 
 Status SendDeleteReply(int sock, const std::vector<ObjectID>& object_ids,
                        const std::vector<PlasmaError>& errors);
 
-Status ReadDeleteReply(const uint8_t* data, size_t size, std::vector<ObjectID>* object_ids,
+Status ReadDeleteReply(const uint8_t* data, size_t size,
+                       std::vector<ObjectID>* object_ids,
                        std::vector<PlasmaError>* errors);
 
 /* Plasma Contains message functions. */
@@ -226,8 +229,8 @@ Status SendSubscribeRequest(int sock);
 
 Status SendDataRequest(int sock, ObjectID object_id, const char* address, int port);
 
-Status ReadDataRequest(const uint8_t* data, size_t size, ObjectID* object_id, char** address,
-                       int* port);
+Status ReadDataRequest(const uint8_t* data, size_t size, ObjectID* object_id,
+                       char** address, int* port);
 
 Status SendDataReply(int sock, ObjectID object_id, int64_t object_size,
                      int64_t metadata_size);

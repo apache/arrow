@@ -20,7 +20,6 @@
 #include <utility>
 
 #include "flatbuffers/flatbuffers.h"
-
 #include "plasma/common.h"
 #include "plasma/io.h"
 #include "plasma/plasma_generated.h"
@@ -173,7 +172,8 @@ Status SendGetDebugStringReply(int sock, const std::string& debug_string) {
   return PlasmaSend(sock, MessageType::PlasmaGetDebugStringReply, &fbb, message);
 }
 
-Status ReadGetDebugStringReply(const uint8_t* data, size_t size, std::string* debug_string) {
+Status ReadGetDebugStringReply(const uint8_t* data, size_t size,
+                               std::string* debug_string) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaGetDebugStringReply>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
@@ -467,7 +467,8 @@ Status SendDeleteRequest(int sock, const std::vector<ObjectID>& object_ids) {
   return PlasmaSend(sock, MessageType::PlasmaDeleteRequest, &fbb, message);
 }
 
-Status ReadDeleteRequest(const uint8_t* data, size_t size, std::vector<ObjectID>* object_ids) {
+Status ReadDeleteRequest(const uint8_t* data, size_t size,
+                         std::vector<ObjectID>* object_ids) {
   using fb::PlasmaDeleteRequest;
 
   DCHECK(data);
@@ -493,7 +494,8 @@ Status SendDeleteReply(int sock, const std::vector<ObjectID>& object_ids,
   return PlasmaSend(sock, MessageType::PlasmaDeleteReply, &fbb, message);
 }
 
-Status ReadDeleteReply(const uint8_t* data, size_t size, std::vector<ObjectID>* object_ids,
+Status ReadDeleteReply(const uint8_t* data, size_t size,
+                       std::vector<ObjectID>* object_ids,
                        std::vector<PlasmaError>* errors) {
   using fb::PlasmaDeleteReply;
 
@@ -757,8 +759,8 @@ Status SendDataRequest(int sock, ObjectID object_id, const char* address, int po
   return PlasmaSend(sock, MessageType::PlasmaDataRequest, &fbb, message);
 }
 
-Status ReadDataRequest(const uint8_t* data, size_t size, ObjectID* object_id, char** address,
-                       int* port) {
+Status ReadDataRequest(const uint8_t* data, size_t size, ObjectID* object_id,
+                       char** address, int* port) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaDataRequest>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
