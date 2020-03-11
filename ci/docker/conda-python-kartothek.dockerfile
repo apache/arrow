@@ -37,4 +37,3 @@ RUN conda install -c conda-forge -q \
 ARG kartothek=latest
 COPY ci/scripts/install_kartothek.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_kartothek.sh ${kartothek} /kartothek
-
