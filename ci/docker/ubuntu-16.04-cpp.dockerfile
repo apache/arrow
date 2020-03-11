@@ -22,9 +22,12 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends wget software-properties-common && \
+    apt-get install -y -q --no-install-recommends \
+        apt-transport-https \
+        software-properties-common \
+        wget && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    apt-add-repository -y "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" && \
+    apt-add-repository -y "deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
