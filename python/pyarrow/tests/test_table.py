@@ -31,6 +31,9 @@ def test_chunked_array_basics():
     assert data.to_pylist() == []
     data.validate()
 
+    data2 = pa.chunked_array([], type='binary')
+    assert data2.type == pa.binary()
+
     with pytest.raises(ValueError):
         pa.chunked_array([])
 

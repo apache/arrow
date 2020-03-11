@@ -20,7 +20,7 @@ import warnings
 
 cdef class ChunkedArray(_PandasConvertible):
     """
-    Array backed via one or more memory chunks.
+    An array-like composed from a (possibly empty) collection of pyarrow.Arrays
 
     Warning
     -------
@@ -408,12 +408,13 @@ def chunked_array(arrays, type=None):
         c_arrays.push_back(arr.sp_array)
 
     if type:
+        type = ensure_type(type)
         sp_data_type = pyarrow_unwrap_data_type(type)
         sp_chunked_array.reset(new CChunkedArray(c_arrays, sp_data_type))
     else:
         if c_arrays.size() == 0:
-            raise ValueError("Cannot construct a chunked array with neither "
-                             "arrays nor type")
+            raise ValueError("When passing an empty collection of arrays "
+                             "you must also pass the data type")
         sp_chunked_array.reset(new CChunkedArray(c_arrays))
 
     with nogil:
