@@ -19,6 +19,9 @@
 
 set -eu
 
+# This may vary by system/CI provider
+MSYS_LIB_DIR="D:/a/_temp/msys/msys64"
+
 VERSION=$(grep Version ../r/DESCRIPTION | cut -d " " -f 2)
 DST_DIR="arrow-$VERSION"
 
@@ -41,49 +44,17 @@ mv mingw64/lib/*.a $DST_DIR/lib-4.9.3/x64
 # Same for the 32-bit versions
 mv mingw32/lib/*.a $DST_DIR/lib-4.9.3/i386
 
-# Get dependencies from rtools-backports
-mkdir deps35 && cd deps35
-wget https://dl.bintray.com/rtools/backports/mingw-w64-i686-boost-1.67.0-8000-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/backports/mingw-w64-x86_64-boost-1.67.0-8000-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/backports/mingw-w64-i686-thrift-0.12.0-8000-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/backports/mingw-w64-x86_64-thrift-0.12.0-8000-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/backports/mingw-w64-i686-snappy-1.1.7-2-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/backports/mingw-w64-x86_64-snappy-1.1.7-2-any.pkg.tar.xz
+# These are from https://dl.bintray.com/rtools/backports/
+cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy,boost*}.a $DST_DIR/lib-4.9.3/x64
+cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy,boost*}.a $DST_DIR/lib-4.9.3/i386
 
-ls | xargs -n 1 tar -xJf
-mv mingw64/lib/*.a ../${DST_DIR}/lib-4.9.3/x64
-mv mingw32/lib/*.a ../${DST_DIR}/lib-4.9.3/i386
-
-cd ..
-
-mkdir deps40 && cd deps40
-
-wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-openssl-1.1.1.a-1-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-openssl-1.1.1.a-1-any.pkg.tar.xz
-
-wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-zstd-1.4.3-1-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-zstd-1.4.3-1-any.pkg.tar.xz
-
-wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-lz4-1.8.2-1-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-lz4-1.8.2-1-any.pkg.tar.xz
-
-# These are the other Rtools 4.0 packages, for future reference
-# wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-boost-1.67.0-9002-any.pkg.tar.xz
-# wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-boost-1.67.0-9002-any.pkg.tar.xz
-# wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-thrift-0.12.0-1-any.pkg.tar.xz
-# wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-thrift-0.12.0-1-any.pkg.tar.xz
-# wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-snappy-1.1.7-2-any.pkg.tar.xz
-# wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-snappy-1.1.7-2-any.pkg.tar.xz
-
-ls | xargs -n 1 tar -xJf
-mv mingw64/lib/*.a ../${DST_DIR}/lib/x64
-mv mingw32/lib/*.a ../${DST_DIR}/lib/i386
-
-cd ..
+# These are from https://dl.bintray.com/rtools/mingw{32,64}/
+cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto}.a $DST_DIR/lib/x64
+cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto}.a $DST_DIR/lib/i386
 
 # Create build artifact
 zip -r ${DST_DIR}.zip $DST_DIR
 
 # Copy that to a file name/path that does not vary by version number so we
-# can easily find it in the R package tests on Appveyor
+# can easily find it in the R package tests on CI
 cp ${DST_DIR}.zip ../libarrow.zip
