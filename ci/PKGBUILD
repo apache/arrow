@@ -98,7 +98,7 @@ build() {
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
     -DThrift_ROOT="${MINGW_PREFIX}"
 
-  make
+  make -j2
   popd
 }
 

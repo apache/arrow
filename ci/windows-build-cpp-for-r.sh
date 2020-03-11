@@ -41,9 +41,11 @@ export PKG_CONFIG="/${MINGW_PREFIX}/bin/pkg-config --static"
 cp ci/PKGBUILD .
 export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
 unset BOOST_ROOT
-unset BOOST_ROOT_1_72_0
 printenv
-makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --rmdeps --cleanbuild
+makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
+
+ls D:/a/_temp/msys/msys64/mingw64/lib/
+ls D:/a/_temp/msys/msys64/mingw32/lib/
 
 # Collect the build artifacts and make the shape of zip file that rwinlib expects
 ls
