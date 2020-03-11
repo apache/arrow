@@ -457,6 +457,17 @@ def test_table_slice_getitem():
     return _table_like_slice_tests(pa.table)
 
 
+@pytest.mark.pandas
+def test_slice_zero_length_table():
+    # ARROW-7907: a segfault on this code was fixed after 0.16.0
+    table = pa.table({'a': pa.array([], type=pa.timestamp('us'))})
+    table_slice = table.slice(0, 0)
+    table_slice.to_pandas()
+
+    table = pa.table({'a': pa.chunked_array([], type=pa.string())})
+    table.to_pandas()
+
+
 def test_recordbatchlist_schema_equals():
     a1 = np.array([1], dtype='uint32')
     a2 = np.array([4.0, 5.0], dtype='float64')
