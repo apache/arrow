@@ -21,13 +21,21 @@ on:
   push:
     paths:
       - '.github/workflows/r.yml'
-      - 'ci/**'
+      - 'ci/scripts/r_*.sh'
+      - 'ci/scripts/cpp_*.sh'
+      - 'ci/scripts/PKGBUILD'
+      - 'ci/etc/rprofile'
+      - 'ci/docker/**'
       - 'cpp/**'
       - 'r/**'
   pull_request:
     paths:
       - '.github/workflows/r.yml'
-      - 'ci/**'
+      - 'ci/scripts/r_*.sh'
+      - 'ci/scripts/cpp_*.sh'
+      - 'ci/scripts/PKGBUILD'
+      - 'ci/etc/rprofile'
+      - 'ci/docker/**'
       - 'cpp/**'
       - 'r/**'
 

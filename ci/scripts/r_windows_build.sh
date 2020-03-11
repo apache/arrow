@@ -36,7 +36,7 @@ rm -f /mingw32/lib/*.dll.a
 rm -f /mingw64/lib/*.dll.a
 export PKG_CONFIG="/${MINGW_PREFIX}/bin/pkg-config --static"
 
-cp ci/PKGBUILD .
+cp ci/scripts/PKGBUILD .
 export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
 unset BOOST_ROOT
 printenv
@@ -50,4 +50,4 @@ ls
 mkdir build
 cp mingw* build
 cd build
-source ../ci/windows-pkg-arrow-for-r.sh
+source ../ci/scripts/r_windows_pkg.sh
