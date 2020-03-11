@@ -564,12 +564,12 @@ class SchemaPrinter : public PrettyPrinter {
                 std::ostream* sink)
       : PrettyPrinter(options, sink),
         schema_(schema),
-        show_metadata_(options.show_metadata) {}
+        verbose_metadata_(options.verbose_metadata) {}
 
   Status PrintType(const DataType& type, bool nullable);
   Status PrintField(const Field& field);
 
-  void PrintMetadata(const KeyValueMetadata& metadata) {
+  void PrintVerboseMetadata(const KeyValueMetadata& metadata) {
     if (metadata.size() > 0) {
       Newline();
       Write("-- metadata --");
@@ -577,6 +577,21 @@ class SchemaPrinter : public PrettyPrinter {
         Newline();
         Write(metadata.key(i) + ": " + metadata.value(i));
       }
+    }
+  }
+
+  void PrintMetadataKeys(const KeyValueMetadata& metadata) {
+    if (metadata.size() > 0) {
+      Write("metadata.keys: [");
+      for (int64_t i = 0; i < metadata.size(); ++i) {
+        if (i > 0) {
+          Write(", ");
+        }
+        Write("'");
+        Write(metadata.key(i));
+        Write("'");
+      }
+      Write("]");
     }
   }
 
@@ -590,8 +605,14 @@ class SchemaPrinter : public PrettyPrinter {
       RETURN_NOT_OK(PrintField(*schema_.field(i)));
     }
 
-    if (show_metadata_ && schema_.metadata()) {
-      PrintMetadata(*schema_.metadata());
+    if (schema_.metadata()) {
+      if (verbose_metadata_) {
+        PrintVerboseMetadata(*schema_.metadata());
+      } else {
+        Newline();
+        Write("-- schema.");
+        PrintMetadataKeys(*schema_.metadata());
+      }
     }
     Flush();
     return Status::OK();
@@ -599,7 +620,7 @@ class SchemaPrinter : public PrettyPrinter {
 
  private:
   const Schema& schema_;
-  bool show_metadata_;
+  bool verbose_metadata_;
 };
 
 Status SchemaPrinter::PrintType(const DataType& type, bool nullable) {
@@ -626,10 +647,15 @@ Status SchemaPrinter::PrintField(const Field& field) {
   Write(": ");
   RETURN_NOT_OK(PrintType(*field.type(), field.nullable()));
 
-  if (show_metadata_ && field.metadata()) {
-    indent_ += indent_size_;
-    PrintMetadata(*field.metadata());
-    indent_ -= indent_size_;
+  if (field.metadata()) {
+    if (verbose_metadata_) {
+      indent_ += indent_size_;
+      PrintVerboseMetadata(*field.metadata());
+      indent_ -= indent_size_;
+    } else {
+      Write(", ");
+      PrintMetadataKeys(*field.metadata());
+    }
   }
   return Status::OK();
 }

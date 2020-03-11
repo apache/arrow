@@ -1390,15 +1390,14 @@ cdef class Schema:
             new_schema = self.schema.RemoveMetadata()
         return pyarrow_wrap_schema(new_schema)
 
-    def to_string(self, bint show_metadata=False):
+    def to_string(self, bint verbose_metadata=False):
         """
         Return human-readable representation of Schema
 
         Parameters
         ----------
-        show_metadata : boolean, default False
-            If True, and there is non-empty metadata, it will be printed after
-            the column names and types
+        verbose_metadata : boolean, default False
+            Print metadata keys and values instead of just the keys (if any)
 
         Returns
         -------
@@ -1410,7 +1409,7 @@ cdef class Schema:
 
         with nogil:
             options.indent = 0
-            options.show_metadata = show_metadata
+            options.verbose_metadata = verbose_metadata
             check_status(
                 PrettyPrint(
                     deref(self.schema),
@@ -1443,7 +1442,7 @@ cdef class Schema:
         return pyarrow_wrap_schema(result)
 
     def __str__(self):
-        return self.to_string(show_metadata=False)
+        return self.to_string()
 
     def __repr__(self):
         return self.__str__()

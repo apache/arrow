@@ -412,7 +412,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int window
         c_string null_rep
         c_bool skip_new_lines
-        c_bool show_metadata
+        c_bool verbose_metadata
 
     CStatus PrettyPrint(const CArray& schema,
                         const PrettyPrintOptions& options,

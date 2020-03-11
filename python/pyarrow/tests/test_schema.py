@@ -247,13 +247,23 @@ baz: list<item: int8>
 def test_schema_to_string_with_metadata():
     # ARROW-7063
     my_schema = pa.schema([pa.field("foo", "int32", False,
-                                    metadata={"key1": "value1"})],
+                                    metadata={"key1": "value1"}),
+                           pa.field("bar", "string", True,
+                                    metadata={"key3": "value3"})],
                           metadata={"key2": "value2"})
 
-    assert my_schema.to_string(show_metadata=True) == """\
+    assert my_schema.to_string() == """\
+foo: int32 not null, metadata.keys: ['key1']
+bar: string, metadata.keys: ['key3']
+-- schema.metadata.keys: ['key2']"""
+
+    assert my_schema.to_string(verbose_metadata=True) == """\
 foo: int32 not null
   -- metadata --
   key1: value1
+foo: string
+  -- metadata --
+  key3: value3
 -- metadata --
 key2: value2"""
 

@@ -652,24 +652,29 @@ five: list<item: int32 not null>
 
 TEST_F(TestPrettyPrint, SchemaWithMetadata) {
   // ARROW-7063
-  auto metadata1 = key_value_metadata({"foo"}, {"bar1"});
-  auto metadata2 = key_value_metadata({"foo"}, {"bar2"});
-  auto metadata3 = key_value_metadata({"foo"}, {"bar3"});
+  auto metadata1 = key_value_metadata({"foo1"}, {"bar1"});
+  auto metadata2 = key_value_metadata({"foo2"}, {"bar2"});
+  auto metadata3 = key_value_metadata({"foo3"}, {"bar3"});
   auto my_schema = schema(
       {field("one", int32(), true, metadata1), field("two", utf8(), false, metadata2)},
       metadata3);
 
-  static const char* expected = R"expected(one: int32
+  PrettyPrintOptions options;
+  static const char* expected = R"expected(one: int32, metadata.keys: ['foo1']
+two: string not null, metadata.keys: ['foo2']
+-- schema.metadata.keys: ['foo3'])expected";
+  Check(*my_schema, options, expected);
+
+  static const char* expected_verbose = R"expected(one: int32
   -- metadata --
-  foo: bar1
+  foo1: bar1
 two: string not null
   -- metadata --
-  foo: bar2
+  foo2: bar2
 -- metadata --
-foo: bar3)expected";
-  PrettyPrintOptions options;
-  options.show_metadata = true;
-  Check(*my_schema, options, expected);
+foo3: bar3)expected";
+  options.verbose_metadata = true;
+  Check(*my_schema, options, expected_verbose);
 }
 
 TEST_F(TestPrettyPrint, SchemaIndentation) {
