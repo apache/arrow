@@ -799,6 +799,46 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   ASSERT_EQ(nleaves, descr_.num_columns());
 }
 
+TEST_F(TestSchemaDescriptor, HasRepeatedFields) {
+  NodeVector fields;
+  NodePtr schema;
+
+  NodePtr inta = Int32("a", Repetition::REQUIRED);
+  fields.push_back(inta);
+  fields.push_back(Int64("b", Repetition::OPTIONAL));
+  fields.push_back(ByteArray("c", Repetition::REPEATED));
+
+  schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
+  descr_.Init(schema);
+  ASSERT_EQ(true, descr_.HasRepeatedFields());
+
+  // 3-level list encoding
+  NodePtr item1 = Int64("item1", Repetition::REQUIRED);
+  NodePtr item2 = Boolean("item2", Repetition::OPTIONAL);
+  NodePtr item3 = Int32("item3", Repetition::REPEATED);
+  NodePtr list(GroupNode::Make("records", Repetition::REPEATED, {item1, item2, item3},
+                               ConvertedType::LIST));
+  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
+  fields.push_back(bag);
+
+  schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
+  descr_.Init(schema);
+  ASSERT_EQ(true, descr_.HasRepeatedFields());
+
+  // 3-level list encoding
+  NodePtr item_key = Int64("key", Repetition::REQUIRED);
+  NodePtr item_value = Boolean("value", Repetition::OPTIONAL);
+  NodePtr map(GroupNode::Make("map", Repetition::REPEATED, {item_key, item_value},
+                              ConvertedType::MAP));
+  NodePtr my_map(GroupNode::Make("my_map", Repetition::OPTIONAL, {map}));
+  fields.push_back(my_map);
+
+  schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
+  descr_.Init(schema);
+  ASSERT_EQ(true, descr_.HasRepeatedFields());
+  ASSERT_EQ(true, descr_.HasRepeatedFields());
+}
+
 static std::string Print(const NodePtr& node) {
   std::stringstream ss;
   PrintSchema(node.get(), ss);

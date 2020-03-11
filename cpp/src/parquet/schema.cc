@@ -446,6 +446,20 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
   return std::unique_ptr<Node>(primitive_node.release());
 }
 
+bool GroupNode::HasRepeatedFields() const {
+  for (int i = 0; i < this->field_count(); ++i) {
+    auto field = this->field(i);
+    if (field->repetition() == Repetition::REPEATED) {
+      return true;
+    }
+    if (field->is_group()) {
+      const auto& group = static_cast<const GroupNode&>(*field);
+      return group.HasRepeatedFields();
+    }
+  }
+  return false;
+}
+
 void GroupNode::ToParquet(void* opaque_element) const {
   format::SchemaElement* element = static_cast<format::SchemaElement*>(opaque_element);
   element->__set_name(name_);
@@ -848,6 +862,10 @@ int SchemaDescriptor::ColumnIndex(const Node& node) const {
 const schema::Node* SchemaDescriptor::GetColumnRoot(int i) const {
   DCHECK(i >= 0 && i < static_cast<int>(leaves_.size()));
   return leaf_to_base_.find(i)->second.get();
+}
+
+bool SchemaDescriptor::HasRepeatedFields() const {
+  return group_node_->HasRepeatedFields();
 }
 
 std::string SchemaDescriptor::ToString() const {
