@@ -120,7 +120,6 @@ jobs:
         rtools: [35]
     env:
       TEST_R_WITH_ARROW: "TRUE"
-      RWINLIB_LOCAL: '%GITHUB_WORKSPACE%\libarrow.zip'
       ARROW_R_CXXFLAGS: '-Werror'
       _R_CHECK_TESTS_NLINES_: 0
     steps:
@@ -143,4 +142,4 @@ jobs:
           remotes::install_github('nealrichardson/decor')
       - name: Check
         shell: Rscript {0}
-        run: rcmdcheck::rcmdcheck("r", build_args = '--no-build-vignettes', args = c('--no-manual', if (!identical(Sys.getenv('ARROW_R_DEV'), 'TRUE')) '--as-cran', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')
+        run: Sys.setenv(RWINLIB_LOCAL=paste0(Sys.getenv("GITHUB_WORKSPACE"), "\libarrow.zip")); rcmdcheck::rcmdcheck("r", build_args = '--no-build-vignettes', args = c('--no-manual', if (!identical(Sys.getenv('ARROW_R_DEV'), 'TRUE')) '--as-cran', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')
