@@ -174,7 +174,7 @@ class EvictionPolicy {
   /// called, the eviction policy will assume that the objects chosen to be
   /// evicted will in fact be evicted from the Plasma store by the caller.
   ///
-  /// @note This method is not part of the API. It is exposed in the header file
+  /// \note This method is not part of the API. It is exposed in the header file
   /// only for testing.
   ///
   /// \param num_bytes_required The number of bytes of space to try to free up.
