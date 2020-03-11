@@ -40,6 +40,10 @@ ExprType ExprType::Table(std::shared_ptr<Schema> schema) {
   return ExprType(std::move(schema), Shape::TABLE);
 }
 
+ExprType ExprType::Table(std::vector<std::shared_ptr<Field>> fields) {
+  return ExprType(arrow::schema(std::move(fields)), Shape::TABLE);
+}
+
 ExprType::ExprType(std::shared_ptr<Schema> schema, Shape shape)
     : schema_(std::move(schema)), shape_(shape) {
   DCHECK_EQ(shape, Shape::TABLE);
@@ -54,7 +58,7 @@ ExprType::ExprType(const ExprType& other) : shape_(other.shape()) {
   switch (other.shape()) {
     case SCALAR:
     case ARRAY:
-      data_type_ = other.data_type();
+      data_type_ = other.type();
       break;
     case TABLE:
       schema_ = other.schema();
@@ -65,7 +69,7 @@ ExprType::ExprType(ExprType&& other) : shape_(other.shape()) {
   switch (other.shape()) {
     case SCALAR:
     case ARRAY:
-      data_type_ = std::move(other.data_type());
+      data_type_ = std::move(other.type());
       break;
     case TABLE:
       schema_ = std::move(other.schema());
@@ -83,22 +87,22 @@ ExprType::~ExprType() {
   }
 }
 
-bool ExprType::Equals(const ExprType& type) const {
-  if (this == &type) {
+bool ExprType::Equals(const ExprType& other) const {
+  if (this == &other) {
     return true;
   }
 
-  if (shape() != type.shape()) {
+  if (shape() != other.shape()) {
     return false;
   }
 
   switch (shape()) {
     case SCALAR:
-      return data_type()->Equals(type.data_type());
+      return type()->Equals(other.type());
     case ARRAY:
-      return data_type()->Equals(type.data_type());
+      return type()->Equals(other.type());
     case TABLE:
-      return schema()->Equals(type.schema());
+      return schema()->Equals(other.schema());
     default:
       break;
   }
@@ -106,7 +110,7 @@ bool ExprType::Equals(const ExprType& type) const {
   return false;
 }
 
-Result<ExprType> ExprType::CastTo(const std::shared_ptr<DataType>& data_type) const {
+Result<ExprType> ExprType::WithType(const std::shared_ptr<DataType>& data_type) const {
   switch (shape()) {
     case SCALAR:
       return ExprType::Scalar(data_type);
@@ -118,7 +122,7 @@ Result<ExprType> ExprType::CastTo(const std::shared_ptr<DataType>& data_type) co
 
   return Status::UnknownError("unreachable");
 }
-Result<ExprType> ExprType::CastTo(const std::shared_ptr<Schema>& schema) const {
+Result<ExprType> ExprType::WithSchema(const std::shared_ptr<Schema>& schema) const {
   switch (shape()) {
     case SCALAR:
       return Status::Invalid("Cannot cast a ScalarType with a schema");
@@ -136,7 +140,7 @@ Result<ExprType> ExprType::Broadcast(const ExprType& lhs, const ExprType& rhs) {
     return Status::Invalid("Broadcast operands must not be tables");
   }
 
-  if (!lhs.data_type()->Equals(rhs.data_type())) {
+  if (!lhs.type()->Equals(rhs.type())) {
     return Status::Invalid("Broadcast operands must be of same type");
   }
 
@@ -318,7 +322,7 @@ Result<std::shared_ptr<ScanRelExpr>> ScanRelExpr::Make(Catalog::Entry input) {
 ProjectionRelExpr::ProjectionRelExpr(std::shared_ptr<Expr> input,
                                      std::shared_ptr<Schema> schema,
                                      std::vector<std::shared_ptr<Expr>> expressions)
-    : UnaryOpExpr(std::move(input)),
+    : UnaryOpMixin(std::move(input)),
       RelExpr(std::move(schema)),
       expressions_(std::move(expressions)) {}
 
@@ -332,11 +336,12 @@ Result<std::shared_ptr<ProjectionRelExpr>> ProjectionRelExpr::Make(
 
   for (size_t i = 0; i < n_fields; i++) {
     const auto& expr = expressions[i];
-    const auto& type = expr->type();
-    ERROR_IF(!type.IsArray(), "Expression at position ", i, " not of Array type");
+    const auto& expr_type = expr->type();
+    ERROR_IF(!expr_type.HasType(), "Expression at position ", i,
+             " should not be have a table shape");
     // TODO(fsaintjacques): better name handling. Callers should be able to
     // pass a vector of names.
-    fields.push_back(field("expr", type.data_type()));
+    fields.push_back(field("expr", expr_type.type()));
   }
 
   return std::shared_ptr<ProjectionRelExpr>(new ProjectionRelExpr(
@@ -360,7 +365,7 @@ Result<std::shared_ptr<FilterRelExpr>> FilterRelExpr::Make(
 }
 
 FilterRelExpr::FilterRelExpr(std::shared_ptr<Expr> input, std::shared_ptr<Expr> predicate)
-    : UnaryOpExpr(std::move(input)),
+    : UnaryOpMixin(std::move(input)),
       RelExpr(operand()->type().schema()),
       predicate_(std::move(predicate)) {}
 

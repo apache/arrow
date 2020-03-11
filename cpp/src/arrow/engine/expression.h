@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "arrow/engine/catalog.h"
 #include "arrow/engine/type_fwd.h"
@@ -27,7 +28,6 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 namespace engine {
@@ -62,13 +62,14 @@ class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
   static ExprType Array(std::shared_ptr<DataType> type);
   /// Construct a Table type.
   static ExprType Table(std::shared_ptr<Schema> schema);
+  static ExprType Table(std::vector<std::shared_ptr<Field>> fields);
 
   /// \brief Shape of the expression.
   Shape shape() const { return shape_; }
 
   /// \brief DataType of the expression if a scalar or an array.
   /// WARNING: You must ensure the proper shape before calling this accessor.
-  const std::shared_ptr<DataType>& data_type() const { return data_type_; }
+  const std::shared_ptr<DataType>& type() const { return data_type_; }
   /// \brief Schema of the expression if of table shape.
   /// WARNING: You must ensure the proper shape before calling this accessor.
   const std::shared_ptr<Schema>& schema() const { return schema_; }
@@ -80,19 +81,27 @@ class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
   /// \brief Indicate if the type is a Table.
   bool IsTable() const { return shape_ == TABLE; }
 
+  bool HasType() const { return IsScalar() || IsArray(); }
+  bool HasSchema() const { return IsTable(); }
+
+  bool IsTypedLike(Type::type type_id) const {
+    return HasType() && data_type_->id() == type_id;
+  }
+
+  /// \brief Static version of IsTypedLike
   template <Type::type TYPE_ID>
   bool IsTypedLike() const {
-    return (IsScalar() || IsArray()) && data_type_->id() == TYPE_ID;
+    return HasType() && data_type_->id() == TYPE_ID;
   }
 
   /// \brief Indicate if the type is a predicate, i.e. a boolean scalar.
   bool IsPredicate() const { return IsTypedLike<Type::BOOL>(); }
 
-  /// \brief Cast to DataType/Schema if the shape allows it.
-  Result<ExprType> CastTo(const std::shared_ptr<DataType>& data_type) const;
-  Result<ExprType> CastTo(const std::shared_ptr<Schema>& schema) const;
+  /// \brief Cast the inner DataType/Schema while preserving the shape.
+  Result<ExprType> WithType(const std::shared_ptr<DataType>& data_type) const;
+  Result<ExprType> WithSchema(const std::shared_ptr<Schema>& schema) const;
 
-  /// \brief Broadcasting align two types to the largest shape.
+  /// \brief Expand the smallest shape to the bigger one if possible.
   ///
   /// \param[in] lhs, first type to broadcast
   /// \param[in] rhs, second type to broadcast
@@ -128,7 +137,7 @@ class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
   ExprType(std::shared_ptr<DataType> type, Shape shape);
 
   union {
-    // Zero initialize the pointer or Copy/Assign constructors will fail.
+    /// Zero initialize the pointer or Copy/Assign constructors will fail.
     std::shared_ptr<DataType> data_type_{};
     std::shared_ptr<Schema> schema_;
   };
@@ -138,33 +147,33 @@ class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
 /// Represents an expression tree
 class ARROW_EXPORT Expr : public util::EqualityComparable<Expr> {
  public:
-  // Tag identifier for the expression type.
+  /// Tag identifier for the expression type.
   enum Kind : uint8_t {
-    // A Scalar literal, i.e. a constant.
+    /// A Scalar literal, i.e. a constant.
     SCALAR_LITERAL,
-    // A Field reference in a schema.
+    /// A Field reference in a schema.
     FIELD_REFERENCE,
 
-    // Equal compare operator
+    /// Equal compare operator
     EQ_CMP_OP,
-    // Not-Equal compare operator
+    /// Not-Equal compare operator
     NE_CMP_OP,
-    // Greater-Than compare operator
+    /// Greater-Than compare operator
     GT_CMP_OP,
-    // Greater-Equal-Than compare operator
+    /// Greater-Equal-Than compare operator
     GE_CMP_OP,
-    // Less-Than compare operator
+    /// Less-Than compare operator
     LT_CMP_OP,
-    // Less-Equal-Than compare operator
+    /// Less-Equal-Than compare operator
     LE_CMP_OP,
 
-    // Empty relation with a known schema.
+    /// Empty relation with a known schema.
     EMPTY_REL,
-    // Scan relational operator
+    /// Scan relational operator
     SCAN_REL,
-    // Projection relational operator
+    /// Projection relational operator
     PROJECTION_REL,
-    // Filter relational operator
+    /// Filter relational operator
     FILTER_REL,
   };
 
@@ -176,7 +185,7 @@ class ARROW_EXPORT Expr : public util::EqualityComparable<Expr> {
   /// \brief Return the type and shape of the resulting expression.
   const ExprType& type() const { return type_; }
 
-  /// \brief Indicate if the expressions
+  /// \brief Indicate if the expressions are equal.
   bool Equals(const Expr& other) const;
   using util::EqualityComparable<Expr>::Equals;
 
@@ -192,9 +201,9 @@ class ARROW_EXPORT Expr : public util::EqualityComparable<Expr> {
   Kind kind_;
 };
 
-// The following traits are used to break cycle between CRTP base classes and
-// their derived counterparts to extract the Expr::Kind and other static
-// properties from the forward declared class.
+/// The following traits are used to break cycle between CRTP base classes and
+/// their derived counterparts to extract the Expr::Kind and other static
+/// properties from the forward declared class.
 template <typename T>
 struct expr_traits;
 
@@ -258,11 +267,49 @@ struct expr_traits<FilterRelExpr> {
   static constexpr Expr::Kind kind_id = Expr::FILTER_REL;
 };
 
-//
-// Value Expressions
-//
+///
+/// Operator expressions mixin.
+///
 
-// An unnamed scalar literal expression.
+class ARROW_EXPORT UnaryOpMixin {
+ public:
+  const std::shared_ptr<Expr>& operand() const { return operand_; }
+
+ protected:
+  explicit UnaryOpMixin(std::shared_ptr<Expr> operand) : operand_(std::move(operand)) {}
+
+  std::shared_ptr<Expr> operand_;
+};
+
+class ARROW_EXPORT BinaryOpMixin {
+ public:
+  const std::shared_ptr<Expr>& left_operand() const { return left_operand_; }
+  const std::shared_ptr<Expr>& right_operand() const { return right_operand_; }
+
+ protected:
+  BinaryOpMixin(std::shared_ptr<Expr> left, std::shared_ptr<Expr> right)
+      : left_operand_(std::move(left)), right_operand_(std::move(right)) {}
+
+  std::shared_ptr<Expr> left_operand_;
+  std::shared_ptr<Expr> right_operand_;
+};
+
+class ARROW_EXPORT MultiAryOpMixin {
+ public:
+  const std::vector<std::shared_ptr<Expr>>& operands() const { return operands_; }
+
+ protected:
+  explicit MultiAryOpMixin(std::vector<std::shared_ptr<Expr>> operands)
+      : operands_(std::move(operands)) {}
+
+  std::vector<std::shared_ptr<Expr>> operands_;
+};
+
+///
+/// Value Expressions
+///
+
+/// An unnamed scalar literal expression.
 class ARROW_EXPORT ScalarExpr : public Expr {
  public:
   static Result<std::shared_ptr<ScalarExpr>> Make(std::shared_ptr<Scalar> scalar);
@@ -275,7 +322,7 @@ class ARROW_EXPORT ScalarExpr : public Expr {
   std::shared_ptr<Scalar> scalar_;
 };
 
-// References a column in a table/dataset
+/// References a column in a table/dataset
 class ARROW_EXPORT FieldRefExpr : public Expr {
  public:
   static Result<std::shared_ptr<FieldRefExpr>> Make(std::shared_ptr<Field> field);
@@ -288,71 +335,33 @@ class ARROW_EXPORT FieldRefExpr : public Expr {
   std::shared_ptr<Field> field_;
 };
 
-//
-// Operator expressions
-//
+///
+/// Comparison expressions
+///
 
-class ARROW_EXPORT UnaryOpExpr {
+template <typename Derived>
+class ARROW_EXPORT CmpOpExpr : public BinaryOpMixin, public Expr {
  public:
-  const std::shared_ptr<Expr>& operand() const { return operand_; }
-
- protected:
-  explicit UnaryOpExpr(std::shared_ptr<Expr> operand) : operand_(std::move(operand)) {}
-
-  std::shared_ptr<Expr> operand_;
-};
-
-class ARROW_EXPORT BinaryOpExpr {
- public:
-  const std::shared_ptr<Expr>& left_operand() const { return left_operand_; }
-  const std::shared_ptr<Expr>& right_operand() const { return right_operand_; }
-
- protected:
-  BinaryOpExpr(std::shared_ptr<Expr> left, std::shared_ptr<Expr> right)
-      : left_operand_(std::move(left)), right_operand_(std::move(right)) {}
-
-  std::shared_ptr<Expr> left_operand_;
-  std::shared_ptr<Expr> right_operand_;
-};
-
-class ARROW_EXPORT MultiAryOpExpr {
- public:
-  const std::vector<std::shared_ptr<Expr>>& operands() const { return operands_; }
-
- protected:
-  explicit MultiAryOpExpr(std::vector<std::shared_ptr<Expr>> operands)
-      : operands_(std::move(operands)) {}
-
-  std::vector<std::shared_ptr<Expr>> operands_;
-};
-
-//
-// Comparison expressions
-//
-
-template <typename Self>
-class ARROW_EXPORT CmpOpExpr : public BinaryOpExpr, public Expr {
- public:
-  static Result<std::shared_ptr<Self>> Make(std::shared_ptr<Expr> left,
-                                            std::shared_ptr<Expr> right) {
+  static Result<std::shared_ptr<Derived>> Make(std::shared_ptr<Expr> left,
+                                               std::shared_ptr<Expr> right) {
     if (left == NULLPTR || right == NULLPTR) {
       return Status::Invalid("Compare operands must be non-nulls");
     }
 
-    // Broadcast ensures that types are compatible in shape and type.
-    auto broadcast = ExprType::Broadcast(left->type(), right->type());
-    // The type of comparison is always a boolean predicate.
-    auto cast = [](const ExprType& t) { return t.CastTo(boolean()); };
-    ARROW_ASSIGN_OR_RAISE(auto type, broadcast.Map(cast));
+    // Broadcast the comparison to the biggest shape.
+    ARROW_ASSIGN_OR_RAISE(auto broadcast,
+                          ExprType::Broadcast(left->type(), right->type()));
+    // And change this shape's type to boolean.
+    ARROW_ASSIGN_OR_RAISE(auto type, broadcast.WithType(boolean()));
 
-    return std::shared_ptr<Self>(
-        new Self(std::move(type), std::move(left), std::move(right)));
+    return std::shared_ptr<Derived>(
+        new Derived(std::move(type), std::move(left), std::move(right)));
   }
 
  protected:
   CmpOpExpr(ExprType type, std::shared_ptr<Expr> left, std::shared_ptr<Expr> right)
-      : BinaryOpExpr(std::move(left), std::move(right)),
-        Expr(expr_traits<Self>::kind_id, std::move(type)) {}
+      : BinaryOpMixin(std::move(left), std::move(right)),
+        Expr(expr_traits<Derived>::kind_id, std::move(type)) {}
 };
 
 class ARROW_EXPORT EqualCmpExpr : public CmpOpExpr<EqualCmpExpr> {
@@ -385,23 +394,34 @@ class ARROW_EXPORT LessEqualThanCmpExpr : public CmpOpExpr<LessEqualThanCmpExpr>
   using CmpOpExpr<LessEqualThanCmpExpr>::CmpOpExpr;
 };
 
-//
-// Relational Expressions
-//
+///
+/// Relational Expressions
+///
 
-template <typename Self>
+/// \brief Relational Expressions that acts on relations (arrow::Table).
+template <typename Derived>
 class ARROW_EXPORT RelExpr : public Expr {
  public:
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
  protected:
   explicit RelExpr(std::shared_ptr<Schema> schema)
-      : Expr(expr_traits<Self>::kind_id, ExprType::Table(schema)),
+      : Expr(expr_traits<Derived>::kind_id, ExprType::Table(schema)),
         schema_(std::move(schema)) {}
 
   std::shared_ptr<Schema> schema_;
 };
 
+/// \brief An empty relation that returns/contains no rows.
+///
+/// An EmptyRelExpr is usually not found in user constructed logical plan but
+/// can appear due to optimization passes, e.g. replacing a FilterRelExpr with
+/// an always false predicate. It is also subsequently used in constant
+/// propagation-like optimizations, e.g Filter(EmptyRel) => EmptyRel, or
+/// InnerJoin(_, EmptyRel) => EmptyRel.
+///
+/// \input schema, the schema of the empty relation
+/// \ouput relation with no rows of the given input schema
 class ARROW_EXPORT EmptyRelExpr : public RelExpr<EmptyRelExpr> {
  public:
   static Result<std::shared_ptr<EmptyRelExpr>> Make(std::shared_ptr<Schema> schema);
@@ -410,6 +430,19 @@ class ARROW_EXPORT EmptyRelExpr : public RelExpr<EmptyRelExpr> {
   using RelExpr<EmptyRelExpr>::RelExpr;
 };
 
+/// \brief Materialize a relation from a dataset.
+///
+/// The ScanRelExpr are found in the leaves of the Expr tree. A Scan materialize
+/// the relation from a datasets. In essence, it is a relational operator that
+/// has no relation input (except some auxiliary information like a catalog
+/// entry), and output a relation.
+///
+/// \input table, a catalog entry pointing to a dataset
+/// \ouput relation from the materialized dataset
+///
+/// ```
+/// SELECT * FROM table;
+/// ```
 class ARROW_EXPORT ScanRelExpr : public RelExpr<ScanRelExpr> {
  public:
   static Result<std::shared_ptr<ScanRelExpr>> Make(Catalog::Entry input);
@@ -422,7 +455,23 @@ class ARROW_EXPORT ScanRelExpr : public RelExpr<ScanRelExpr> {
   Catalog::Entry input_;
 };
 
-class ARROW_EXPORT ProjectionRelExpr : public UnaryOpExpr,
+/// \brief Project columns based on expressions.
+///
+/// A projection creates a relation with new columns based on expressions of
+/// the input's columns. It could be a simple permutation or selection of
+/// column via FieldRefExpr or more complex expressions like the sum of two
+/// columns. The projection operator will usually change the output schema of
+/// the input relation due to the expressions without changing the number of
+/// rows.
+///
+/// \input relation, the input relation to compute the expressions from
+/// \input expressions, the expressions to compute
+/// \output relation where the columns are the expressions computed
+///
+/// ```
+/// SELECT a, b, a + b, 1, mean(a) > b FROM relation;
+/// ```
+class ARROW_EXPORT ProjectionRelExpr : public UnaryOpMixin,
                                        public RelExpr<ProjectionRelExpr> {
  public:
   static Result<std::shared_ptr<ProjectionRelExpr>> Make(
@@ -437,7 +486,18 @@ class ARROW_EXPORT ProjectionRelExpr : public UnaryOpExpr,
   std::vector<std::shared_ptr<Expr>> expressions_;
 };
 
-class ARROW_EXPORT FilterRelExpr : public UnaryOpExpr, public RelExpr<FilterRelExpr> {
+/// \brief Filter the rows of a relation according to a predicate.
+///
+/// A filter removes rows that don't match a predicate or a mask column.
+///
+/// \input relation, the input relation to filter the rows from
+/// \input predicate, a predicate to evaluate for each filter
+/// \output relation where the rows are filtered according to the predicate
+///
+/// ```
+/// SELECT * FROM relation WHERE predicate
+/// ```
+class ARROW_EXPORT FilterRelExpr : public UnaryOpMixin, public RelExpr<FilterRelExpr> {
  public:
   static Result<std::shared_ptr<FilterRelExpr>> Make(std::shared_ptr<Expr> input,
                                                      std::shared_ptr<Expr> predicate);

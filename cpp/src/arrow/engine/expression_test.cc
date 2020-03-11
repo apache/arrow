@@ -36,14 +36,14 @@ TEST_F(ExprTypeTest, Basic) {
 
   auto scalar = ExprType::Scalar(i32);
   EXPECT_EQ(scalar.shape(), ExprType::Shape::SCALAR);
-  EXPECT_TRUE(scalar.data_type()->Equals(i32));
+  EXPECT_TRUE(scalar.type()->Equals(i32));
   EXPECT_TRUE(scalar.IsScalar());
   EXPECT_FALSE(scalar.IsArray());
   EXPECT_FALSE(scalar.IsTable());
 
   auto array = ExprType::Array(i32);
   EXPECT_EQ(array.shape(), ExprType::Shape::ARRAY);
-  EXPECT_TRUE(array.data_type()->Equals(i32));
+  EXPECT_TRUE(array.type()->Equals(i32));
   EXPECT_FALSE(array.IsScalar());
   EXPECT_TRUE(array.IsArray());
   EXPECT_FALSE(array.IsTable());
@@ -87,7 +87,7 @@ TEST_F(ExprTypeTest, Broadcast) {
   EXPECT_THAT(ExprType::Broadcast(bool_array, bool_array), OkAndEq(bool_array));
 }
 
-TEST_F(ExprTypeTest, CastTo) {
+TEST_F(ExprTypeTest, WithTypeOrSchema) {
   auto bool_scalar = ExprType::Scalar(boolean());
   auto bool_array = ExprType::Array(boolean());
   auto bool_table = ExprType::Table(schema({field("b", boolean())}));
@@ -96,15 +96,15 @@ TEST_F(ExprTypeTest, CastTo) {
   auto other = schema({field("a", i32)});
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("Cannot cast a ScalarType with"),
-                                  bool_scalar.CastTo(other));
+                                  bool_scalar.WithSchema(other));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("Cannot cast an ArrayType with"),
-                                  bool_array.CastTo(other));
+                                  bool_array.WithSchema(other));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("Cannot cast a TableType with"),
-                                  bool_table.CastTo(i32));
+                                  bool_table.WithType(i32));
 
-  EXPECT_EQ(bool_scalar.CastTo(i32), ExprType::Scalar(i32));
-  EXPECT_EQ(bool_array.CastTo(i32), ExprType::Array(i32));
-  EXPECT_EQ(bool_table.CastTo(other), ExprType::Table(other));
+  EXPECT_EQ(bool_scalar.WithType(i32), ExprType::Scalar(i32));
+  EXPECT_EQ(bool_array.WithType(i32), ExprType::Array(i32));
+  EXPECT_EQ(bool_table.WithSchema(other), ExprType::Table(other));
 }
 
 class ExprTest : public testing::Test {};
