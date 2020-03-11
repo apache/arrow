@@ -189,6 +189,21 @@ class ARROW_PYTHON_EXPORT OwnedRefNoGIL : public OwnedRef {
   }
 };
 
+class ARROW_PYTHON_EXPORT PyBuffer : public Buffer {
+ public:
+  /// While memoryview objects support multi-dimensional buffers, PyBuffer only supports
+  /// one-dimensional byte buffers.
+  ~PyBuffer();
+
+  static Result<std::shared_ptr<Buffer>> FromPyObject(PyObject* obj);
+
+ private:
+  PyBuffer();
+  Status Init(PyObject*);
+
+  Py_buffer py_buf_;
+};
+
 // A temporary conversion of a Python object to a bytes area.
 struct PyBytesView {
   const char* bytes;
@@ -250,17 +265,20 @@ struct PyBytesView {
     if (PyBytes_Check(obj)) {
       this->bytes = PyBytes_AS_STRING(obj);
       this->size = PyBytes_GET_SIZE(obj);
-      this->ref.reset();
-      return Status::OK();
     } else if (PyByteArray_Check(obj)) {
       this->bytes = PyByteArray_AS_STRING(obj);
       this->size = PyByteArray_GET_SIZE(obj);
-      this->ref.reset();
-      return Status::OK();
+    } else if (PyMemoryView_Check(obj)) {
+      std::shared_ptr<Buffer> buffer;
+      ARROW_ASSIGN_OR_RAISE(buffer, PyBuffer::FromPyObject(obj));
+      this->bytes = reinterpret_cast<const char*>(buffer->data());
+      this->size = buffer->size();
     } else {
       return Status::TypeError("Expected ", expected_msg, ", got a '",
                                Py_TYPE(obj)->tp_name, "' object");
     }
+    this->ref.reset();
+    return Status::OK();
   }
 
   OwnedRef ref;
@@ -269,21 +287,6 @@ struct PyBytesView {
 // Return the common PyArrow memory pool
 ARROW_PYTHON_EXPORT void set_default_memory_pool(MemoryPool* pool);
 ARROW_PYTHON_EXPORT MemoryPool* get_memory_pool();
-
-class ARROW_PYTHON_EXPORT PyBuffer : public Buffer {
- public:
-  /// While memoryview objects support multi-dimensional buffers, PyBuffer only supports
-  /// one-dimensional byte buffers.
-  ~PyBuffer();
-
-  static Result<std::shared_ptr<Buffer>> FromPyObject(PyObject* obj);
-
- private:
-  PyBuffer();
-  Status Init(PyObject*);
-
-  Py_buffer py_buf_;
-};
 
 // This is annoying: because C++11 does not allow implicit conversion of string
 // literals to non-const char*, we need to go through some gymnastics to use
