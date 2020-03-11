@@ -49,7 +49,10 @@ gint             garrow_schema_get_field_index  (GArrowSchema *schema,
 guint            garrow_schema_n_fields         (GArrowSchema *schema);
 GList           *garrow_schema_get_fields       (GArrowSchema *schema);
 
-gchar           *garrow_schema_to_string        (GArrowSchema *schema);
+gchar *garrow_schema_to_string(GArrowSchema *schema);
+GARROW_AVAILABLE_IN_0_17
+gchar *garrow_schema_to_string_metadata(GArrowSchema *schema,
+                                        gboolean show_metadata);
 
 GArrowSchema    *garrow_schema_add_field        (GArrowSchema *schema,
                                                  guint i,
@@ -62,5 +65,13 @@ GArrowSchema    *garrow_schema_replace_field    (GArrowSchema *schema,
                                                  guint i,
                                                  GArrowField *field,
                                                  GError **error);
+
+GARROW_AVAILABLE_IN_0_17
+GHashTable *
+garrow_schema_get_metadata(GArrowSchema *schema);
+GARROW_AVAILABLE_IN_0_17
+GArrowSchema *
+garrow_schema_with_metadata(GArrowSchema *schema,
+                            GHashTable *metadata);
 
 G_END_DECLS

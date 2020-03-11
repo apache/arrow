@@ -261,6 +261,24 @@ garrow_schema_to_string(GArrowSchema *schema)
 }
 
 /**
+ * garrow_schema_to_string_metadata:
+ * @schema: A #GArrowSchema.
+ * @show_metadata: Whether include metadata or not.
+ *
+ * Returns: The string representation of the schema.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 0.17.0
+ */
+gchar *
+garrow_schema_to_string_metadata(GArrowSchema *schema, gboolean show_metadata)
+{
+  const auto arrow_schema = garrow_schema_get_raw(schema);
+  return g_strdup(arrow_schema->ToString(show_metadata).c_str());
+}
+
+/**
  * garrow_schema_add_field:
  * @schema: A #GArrowSchema.
  * @i: The index of the new field.
@@ -343,6 +361,66 @@ garrow_schema_replace_field(GArrowSchema *schema,
     return NULL;
   }
 }
+
+/**
+ * garrow_schema_get_metadata:
+ * @schema: A #GArrowSchema.
+ *
+ * Returns: (element-type utf8 utf8) (nullable) (transfer full): The
+ *   metadata in the schema.
+ *
+ *   It should be freed with g_hash_table_unref() when no longer needed.
+ *
+ * Since: 0.17.0
+ */
+GHashTable *
+garrow_schema_get_metadata(GArrowSchema *schema)
+{
+  const auto arrow_schema = garrow_schema_get_raw(schema);
+  if (!arrow_schema->HasMetadata()) {
+    return NULL;
+  }
+
+  auto arrow_metadata = arrow_schema->metadata();
+  auto metadata = g_hash_table_new(g_str_hash, g_str_equal);
+  const auto n = arrow_metadata->size();
+  for (int64_t i = 0; i < n; ++i) {
+    g_hash_table_insert(metadata,
+                        const_cast<gchar *>(arrow_metadata->key(i).c_str()),
+                        const_cast<gchar *>(arrow_metadata->value(i).c_str()));
+  }
+  return metadata;
+}
+
+/**
+ * garrow_schema_with_metadata:
+ * @schema: A #GArrowSchema.
+ * @metadata: (element-type utf8 utf8): A new associated metadata.
+ *
+ * Returns: (transfer full): The new schema with the given metadata.
+ *
+ * Since: 0.17.0
+ */
+GArrowSchema *
+garrow_schema_with_metadata(GArrowSchema *schema,
+                            GHashTable *metadata)
+{
+  const auto arrow_schema = garrow_schema_get_raw(schema);
+  auto arrow_metadata = std::make_shared<arrow::KeyValueMetadata>();
+  g_hash_table_foreach(metadata,
+                       [](gpointer key,
+                          gpointer value,
+                          gpointer user_data) {
+                         auto arrow_metadata =
+                           static_cast<std::shared_ptr<arrow::KeyValueMetadata> *>(user_data);
+                         (*arrow_metadata)->Append(static_cast<gchar *>(key),
+                                                   static_cast<gchar *>(value));
+                       },
+                       &arrow_metadata);
+  auto arrow_new_schema = arrow_schema->WithMetadata(arrow_metadata);
+  return garrow_schema_new_raw(&arrow_new_schema);
+}
+
 
 G_END_DECLS
 
