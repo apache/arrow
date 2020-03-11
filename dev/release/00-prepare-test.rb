@@ -150,7 +150,7 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                     path: "ci/PKGBUILD",
+                     path: "ci/scripts/PKGBUILD",
                      hunks: [
                        ["-pkgver=#{@previous_version}.9000",
                         "+pkgver=#{@release_version}"],
@@ -333,7 +333,7 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                     path: "ci/PKGBUILD",
+                     path: "ci/scripts/PKGBUILD",
                      hunks: [
                        ["-pkgver=#{@release_version}",
                         "+pkgver=#{@release_version}.9000"],
