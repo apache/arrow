@@ -250,6 +250,8 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     if (!is.null(src_dir)) {
       cat("*** Building C++ libraries\n")
       build_libarrow(src_dir, dst_dir)
+    } else {
+      cat("*** Proceeding without C++ dependencies\n")
     }
   } else {
    cat("*** Proceeding without C++ dependencies\n")
