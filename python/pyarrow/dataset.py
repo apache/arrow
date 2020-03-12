@@ -153,38 +153,27 @@ def partitioning(schema=None, field_names=None, flavor=None):
 
 def _ensure_fs(filesystem, path):
     # Validate or infer the filesystem from the path
-    from pyarrow.fs import FileSystem, LocalFileSystem
+    from pyarrow.fs import FileSystem
 
-    if filesystem is None:
-        try:
-            filesystem, _ = FileSystem.from_uri(path)
-        except Exception:
-            # when path is not found, we fall back to local file system
-            filesystem = LocalFileSystem()
-    return filesystem
+    if filesystem is not None:
+        return filesystem, path
+    return FileSystem.from_uri(path)
 
 
-def _ensure_fs_and_paths(path_or_paths, filesystem=None):
-    # Validate and convert the path-likes and filesystem.
-    # Returns filesystem and list of string paths or FileSelector
+def _ensure_fs_and_paths(path, filesystem=None):
+    # Return filesystem and list of string paths or FileSelector
     from pyarrow.fs import FileType, FileSelector
 
-    if isinstance(path_or_paths, list):
-        paths_or_selector = [_stringify_path(path) for path in path_or_paths]
-        # infer from first path
-        filesystem = _ensure_fs(filesystem, paths_or_selector[0])
+    filesystem, path = _ensure_fs(filesystem, _stringify_path(path))
+    infos = filesystem.get_target_infos([path])[0]
+    if infos.type == FileType.Directory:
+        # for directory, pass a selector
+        paths_or_selector = FileSelector(path, recursive=True)
+    elif infos.type == FileType.File:
+        # for a single file path, pass it as a list
+        paths_or_selector = [path]
     else:
-        path = _stringify_path(path_or_paths)
-        filesystem = _ensure_fs(filesystem, path)
-        infos = filesystem.get_target_infos([path])[0]
-        if infos.type == FileType.Directory:
-            # for directory, pass a selector
-            paths_or_selector = FileSelector(path, recursive=True)
-        elif infos.type == FileType.File:
-            # for a single file path, pass it as a list
-            paths_or_selector = [path]
-        else:
-            raise FileNotFoundError(path)
+        raise FileNotFoundError(path)
 
     return filesystem, paths_or_selector
 
@@ -241,7 +230,9 @@ def factory(path_or_paths, filesystem=None, partitioning=None,
     -------
     FileSystemDatasetFactory
     """
-    fs, paths_or_selector = _ensure_fs_and_paths(path_or_paths, filesystem)
+    if not isinstance(path_or_paths, (list, tuple)):
+        path_or_paths = [path_or_paths]
+
     partitioning = _ensure_partitioning(partitioning)
     format = _ensure_format(format or "parquet")
 
@@ -252,7 +243,18 @@ def factory(path_or_paths, filesystem=None, partitioning=None,
     elif isinstance(partitioning, Partitioning):
         options.partitioning = partitioning
 
-    return FileSystemDatasetFactory(fs, paths_or_selector, format, options)
+    factories = []
+    for path in path_or_paths:
+        fs, paths_or_selector = _ensure_fs_and_paths(path, filesystem)
+        factories.append(FileSystemDatasetFactory(fs, paths_or_selector,
+                                                  format, options))
+
+    if len(factories) == 0:
+        raise ValueError("Need at least one path")
+    elif len(factories) == 1:
+        return factories[0]
+    else:
+        return UnionDatasetFactory(factories)
 
 
 def _ensure_factory(src, **kwargs):
