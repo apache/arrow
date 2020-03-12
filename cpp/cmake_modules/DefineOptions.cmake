@@ -98,7 +98,13 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   # Disable this option to exercise non-SIMD fallbacks
   define_option(ARROW_USE_SIMD "Build with SIMD optimizations" ON)
 
-  define_option(ARROW_SSE42 "Build with SSE4.2 if compiler has support" ON)
+  define_option_string(ARROW_SIMD_LEVEL
+                       "SIMD compiler optimization level"
+                       "SSE4_2" # default to SSE4.2
+                       "NONE"
+                       "SSE4_2"
+                       "AVX2"
+                       "AVX512")
 
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
 

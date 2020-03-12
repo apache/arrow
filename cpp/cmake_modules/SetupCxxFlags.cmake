@@ -20,6 +20,8 @@
 include(CheckCXXCompilerFlag)
 # x86/amd64 compiler flags
 check_cxx_compiler_flag("-msse4.2" CXX_SUPPORTS_SSE4_2)
+check_cxx_compiler_flag("-mavx2" CXX_SUPPORTS_AVX2)
+check_cxx_compiler_flag("-mavx512f" CXX_SUPPORTS_AVX512)
 # power compiler flags
 check_cxx_compiler_flag("-maltivec" CXX_SUPPORTS_ALTIVEC)
 # Arm64 compiler flags
@@ -266,7 +268,12 @@ if(BUILD_WARNING_FLAGS)
 endif(BUILD_WARNING_FLAGS)
 
 # Only enable additional instruction sets if they are supported
-if(CXX_SUPPORTS_SSE4_2 AND ARROW_SSE42)
+if(CXX_SUPPORTS_AVX512 AND ARROW_SIMD_LEVEL STREQUAL "AVX512")
+  # skylake-avx512 consist of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=skylake-avx512")
+elseif(CXX_SUPPORTS_AVX2 AND ARROW_SIMD_LEVEL STREQUAL "AVX2")
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -mavx2")
+elseif(CXX_SUPPORTS_SSE4_2 AND ARROW_SIMD_LEVEL STREQUAL "SSE4_2")
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse4.2")
 endif()
 
