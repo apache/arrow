@@ -141,6 +141,7 @@ jobs:
       DASK: latest
       TURBODBC: latest
       PANDAS: ${{ matrix.pandas || 'latest' }}
+      KARTOTHEK: master
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
