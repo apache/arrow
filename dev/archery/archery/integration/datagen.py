@@ -958,6 +958,14 @@ def generate_null_case(batch_sizes):
     return _generate_file('null', fields, batch_sizes)
 
 
+def generate_null_trivial_case(batch_sizes):
+    # Generate a case with no buffers
+    fields = [
+        NullType(name='f0'),
+    ]
+    return _generate_file('null_trivial', fields, batch_sizes)
+
+
 def generate_decimal_case():
     fields = [
         DecimalType(name='f{}'.format(i), precision=precision, scale=2)
@@ -1097,6 +1105,10 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
         generate_null_case([10, 0])
+        .skip_category('JS')   # TODO(ARROW-7900)
+        .skip_category('Go'),  # TODO(ARROW-7901)
+
+        generate_null_trivial_case([0, 0])
         .skip_category('JS')   # TODO(ARROW-7900)
         .skip_category('Go'),  # TODO(ARROW-7901)
 
