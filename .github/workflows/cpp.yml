@@ -208,6 +208,10 @@ jobs:
   #       shell: bash
   #       run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
+  # ARROW_USE_CLCACHE=ON
+  # CMAKE_CXX_COMPILER=clcache
+  # CMAKE_CXX_FLAGS_RELEASE="/MD /Od /UNDEBUG"
+  # CMAKE_VERBOSE_MAKEFILE=OFF
   windows-conda:
     name: AMD64 Windows 2019 Conda C++
     runs-on: windows-latest
@@ -215,24 +219,32 @@ jobs:
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
-      CMAKE_UNITY_BUILD: ON
-      ARROW_DEPENDENCY_SOURCE: CONDA
       ARROW_HOME: /usr
-      ARROW_DATASET: ON
-      ARROW_JEMALLOC: OFF
-      ARROW_FLIGHT: OFF
-      ARROW_HDFS: ON
-      ARROW_PARQUET: ON
-      ARROW_WITH_ZLIB: ON
-      ARROW_WITH_LZ4: ON
-      ARROW_WITH_BZ2: ON
-      ARROW_WITH_ZSTD: ON
-      ARROW_WITH_SNAPPY: ON
-      ARROW_WITH_BROTLI: OFF
-      ARROW_USE_GLOG: OFF
-      ARROW_BUILD_TESTS: ON
-      ARROW_BUILD_SHARED: ON
+      ARROW_BOOST_USE_SHARED: OFF
+      ARROW_BUILD_EXAMPLES: ON
       ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TESTS: ON
+      ARROW_CSV: ON
+      ARROW_CXXFLAGS: "/WX /MP"
+      ARROW_DATASET: ON
+      ARROW_DEPENDENCY_SOURCE: CONDA
+      ARROW_FLIGHT: ON
+      ARROW_GANDIVA: ON
+      ARROW_MIMALLOC: ON
+      ARROW_PARQUET: ON
+      ARROW_PYTHON: ON
+      ARROW_S3: ON
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      ARROW_WITH_BROTLI: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
+      CMAKE_BUILD_TYPE: Debug
+      CMAKE_UNITY_BUILD: ON
+      PARQUET_BUILD_EXECUTABLES: ON
+      PARQUET_REQUIRE_ENCRYPTION: ON
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
