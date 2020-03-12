@@ -212,7 +212,7 @@ jobs:
     name: AMD64 Windows 2019 Conda C++
     runs-on: windows-latest
     env:
-      CMAKE_GENERATOR: "Visual Studio 16 2019"
+      CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
@@ -238,10 +238,14 @@ jobs:
         uses: actions/checkout@v1
         with:
           submodules: true
-      - name: Disable Crash Dialogs
-        run: reg add "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" /v DontShowUI /t REG_DWORD /d 1 /f
       - name: Setup Conda
         uses: s-weigand/setup-conda@v1
+      - shell: bash
+        run: |
+          conda --version
+          which python
+          conda env list
+          env
       - name: Install Dependencies
         shell: bash
         run: |
