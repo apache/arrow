@@ -25,7 +25,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
+    apt-get --no-install-recommends install -y -q \
         wget \
         software-properties-common \
         gpg-agent && \
@@ -42,7 +42,7 @@ ARG llvm_apt_url="http://apt.llvm.org/bionic/"
 ARG llvm_apt_arch="llvm-toolchain-bionic-${llvm_version}"
 RUN wget -q -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
     apt-add-repository -y --update "deb ${llvm_apt_url} ${llvm_apt_arch} main" && \
-    apt-get install -y -q --no-install-recommends \
+    apt-get --no-install-recommends install -y -q \
         clang-${llvm_version} \
         clang-format-${llvm_version} \
         clang-tidy-${llvm_version} \
@@ -52,7 +52,7 @@ RUN wget -q -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
 
 # Installs C++ toolchain and dependencies
 RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
+    apt-get --no-install-recommends install -y -q \
         autoconf \
         ca-certificates \
         ccache \

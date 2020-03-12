@@ -29,7 +29,7 @@ ARG DEBUG
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get --no-install-recommends install -y -V ${quiet} \
     bison \
     build-essential \
     clang-7 \
@@ -64,7 +64,7 @@ RUN \
     tzdata \
     zlib1g-dev && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
-    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
+    apt-get --no-install-recommends install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
   apt clean && \
   pip3 install --upgrade meson && \

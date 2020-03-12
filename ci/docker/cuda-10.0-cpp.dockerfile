@@ -24,13 +24,13 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
+    apt-get --no-install-recommends install -y -q --no-install-recommends \
       wget software-properties-common gpg-agent && \
       apt-get clean && rm -rf /var/lib/apt/lists*
 
 # Installs C++ toolchain and dependencies
 RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
+    apt-get --no-install-recommends install -y -q --no-install-recommends \
       autoconf \
       ca-certificates \
       ccache \

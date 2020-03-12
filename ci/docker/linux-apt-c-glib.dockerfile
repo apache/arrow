@@ -19,7 +19,7 @@ ARG base
 FROM ${base}
 
 RUN apt-get update -y -q && \
-    apt-get install -y -q \
+    apt-get --no-install-recommends install -y -q \
         python3 \
         python3-pip \
         gtk-doc-tools \

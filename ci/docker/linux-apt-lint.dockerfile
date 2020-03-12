@@ -20,7 +20,7 @@ FROM hadolint/hadolint:v1.17.2 AS hadolint
 FROM ${base}
 
 RUN apt-get update && \
-    apt-get install -y -q \
+    apt-get --no-install-recommends install -y -q \
         clang-7 \
         clang-format-7 \
         clang-tidy-7 \

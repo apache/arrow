@@ -23,7 +23,7 @@ FROM ${base}
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
 ARG r=3.6
 RUN apt-get update -y && \
-    apt-get install -y \
+    apt-get --no-install-recommends install -y \
         dirmngr \
         apt-transport-https \
         software-properties-common && \
@@ -34,7 +34,7 @@ RUN apt-get update -y && \
     # R 3.2, 3.3, 3.4 are available without the suffix but only for trusty and xenial
     # TODO: make sure OS version and R version are valid together and conditionally set repo suffix
     add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran35/' && \
-    apt-get install -y \
+    apt-get --no-install-recommends install -y \
         r-base=${r}* \
         # system libs needed by core R packages
         libxml2-dev \

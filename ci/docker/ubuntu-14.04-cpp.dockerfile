@@ -22,8 +22,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends wget software-properties-common && \
-    apt-get install -y -q --no-install-recommends \
+    apt-get --no-install-recommends install -y -q wget software-properties-common && \
+    apt-get --no-install-recommends install -y -q \
         autoconf \
         ca-certificates \
         ccache \

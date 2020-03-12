@@ -34,14 +34,14 @@ RUN \
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get --no-install-recommends install -y -V ${quiet} \
     gnupg \
     wget && \
   wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
   echo "deb http://apt.llvm.org/stretch/ llvm-toolchain-stretch-7 main" > \
     /etc/apt/sources.list.d/llvm.list && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get --no-install-recommends install -y -V ${quiet} \
     bison \
     build-essential \
     clang-7 \
@@ -72,13 +72,13 @@ RUN \
     python3-pip \
     tzdata \
     zlib1g-dev && \
-  apt install -y -V -t stretch-backports ${quiet} \
+  apt-get --no-install-recommends install -y -V -t stretch-backports ${quiet} \
     debhelper \
     libgmock-dev \
     libgtest-dev \
     rapidjson-dev && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
-    apt install -y -V -t stretch-backports ${quiet} nvidia-cuda-toolkit; \
+    apt-get --no-install-recommends install -y -V -t stretch-backports ${quiet} nvidia-cuda-toolkit; \
   fi && \
   pip3 install --upgrade meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \

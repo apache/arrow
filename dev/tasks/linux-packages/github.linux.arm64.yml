@@ -42,7 +42,7 @@ jobs:
       # or Ubuntu 18.10 or later.
       - name: Prepare qemu-user-static
         run: |
-          sudo apt install -y qemu-user-static unar
+          sudo apt-get --no-install-recommends install -y qemu-user-static unar
           wget http://archive.ubuntu.com/ubuntu/pool/universe/q/qemu/qemu-user-static_3.1+dfsg-2ubuntu3.7_amd64.deb
           unar *.deb
           rm *.deb

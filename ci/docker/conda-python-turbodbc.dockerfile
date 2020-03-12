@@ -22,7 +22,7 @@ FROM ${repo}:${arch}-conda-python-${python}
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
+    apt-get --no-install-recommends install -y -q --no-install-recommends \
         odbc-postgresql \
         postgresql \
         sudo && \

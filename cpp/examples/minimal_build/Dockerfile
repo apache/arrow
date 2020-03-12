@@ -20,7 +20,7 @@ FROM ubuntu:bionic
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
+    apt-get --no-install-recommends install -y -q \
       build-essential \
       cmake && \
       apt-get clean && rm -rf /var/lib/apt/lists*

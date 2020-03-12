@@ -19,7 +19,7 @@ FROM wch1/r-debug:latest
 
 # Installs C++ toolchain and dependencies
 RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
+    apt-get --no-install-recommends install -y -q \
       autoconf \
       ca-certificates \
       ccache \

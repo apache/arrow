@@ -21,7 +21,7 @@ FROM ${arch}/debian:10
 # install build essentials
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
+    apt-get --no-install-recommends install -y -q --no-install-recommends \
         autoconf \
         ca-certificates \
         ccache \

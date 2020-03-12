@@ -29,7 +29,7 @@ ARG DEBUG
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get --no-install-recommends install -y -V ${quiet} \
     apt-transport-https \
     gnupg \
     wget && \
@@ -37,7 +37,7 @@ RUN \
   echo "deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" > \
     /etc/apt/sources.list.d/llvm.list && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get --no-install-recommends install -y -V ${quiet} \
     autoconf-archive \
     bison \
     build-essential \
@@ -69,10 +69,10 @@ RUN \
     python3-numpy \
     zlib1g-dev && \
   if apt list | grep '^clang-7/'; then \
-    apt install -y -V ${quiet} clang-7; \
+    apt-get --no-install-recommends install -y -V ${quiet} clang-7; \
   fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
-    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
+    apt-get --no-install-recommends install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*

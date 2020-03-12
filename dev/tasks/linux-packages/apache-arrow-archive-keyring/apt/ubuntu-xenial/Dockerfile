@@ -26,7 +26,7 @@ ARG DEBUG
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get --no-install-recommends install -y -V ${quiet} \
     debhelper \
     devscripts \
     gnupg && \

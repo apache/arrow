@@ -37,7 +37,7 @@ deb_version="${VERSION}-1"
 export DEBIAN_FRONTEND=noninteractive
 
 apt update
-apt install -y -V \
+apt-get --no-install-recommends install -y -V \
   curl \
   lsb-release
 
@@ -87,7 +87,7 @@ keyring_archive_base_name="apache-arrow-archive-keyring-latest-${code_name}.deb"
 curl \
   --output "${keyring_archive_base_name}" \
   "${bintray_base_url}/${keyring_archive_base_name}"
-apt install -y -V "./${keyring_archive_base_name}"
+apt-get --no-install-recommends install -y -V "./${keyring_archive_base_name}"
 if [ "${BINTRAY_REPOSITORY}" = "apache/arrow" ]; then
   if [ "${IS_RC}" = "yes" ]; then
     sed \
@@ -111,25 +111,25 @@ fi
 
 apt update
 
-apt install -y -V libarrow-glib-dev=${deb_version}
-apt install -y -V libarrow-glib-doc=${deb_version}
+apt-get --no-install-recommends install -y -V libarrow-glib-dev=${deb_version}
+apt-get --no-install-recommends install -y -V libarrow-glib-doc=${deb_version}
 
 if [ "${have_flight}" = "yes" ]; then
-  apt install -y -V libarrow-flight-dev=${deb_version}
+  apt-get --no-install-recommends install -y -V libarrow-flight-dev=${deb_version}
 fi
 
-apt install -y -V libarrow-python-dev=${deb_version}
+apt-get --no-install-recommends install -y -V libarrow-python-dev=${deb_version}
 
 if [ "${have_plasma}" = "yes" ]; then
-  apt install -y -V libplasma-glib-dev=${deb_version}
-  apt install -y -V libplasma-glib-doc=${deb_version}
-  apt install -y -V plasma-store-server=${deb_version}
+  apt-get --no-install-recommends install -y -V libplasma-glib-dev=${deb_version}
+  apt-get --no-install-recommends install -y -V libplasma-glib-doc=${deb_version}
+  apt-get --no-install-recommends install -y -V plasma-store-server=${deb_version}
 fi
 
 if [ "${have_gandiva}" = "yes" ]; then
-  apt install -y -V libgandiva-glib-dev=${deb_version}
-  apt install -y -V libgandiva-glib-doc=${deb_version}
+  apt-get --no-install-recommends install -y -V libgandiva-glib-dev=${deb_version}
+  apt-get --no-install-recommends install -y -V libgandiva-glib-doc=${deb_version}
 fi
 
-apt install -y -V libparquet-glib-dev=${deb_version}
-apt install -y -V libparquet-glib-doc=${deb_version}
+apt-get --no-install-recommends install -y -V libparquet-glib-dev=${deb_version}
+apt-get --no-install-recommends install -y -V libparquet-glib-doc=${deb_version}

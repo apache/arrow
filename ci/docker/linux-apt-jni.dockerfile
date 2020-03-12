@@ -21,7 +21,7 @@ FROM ${base}
 # install build essentials
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
+    apt-get --no-install-recommends install -y -q \
         ca-certificates \
         ccache \
         clang-7 \
