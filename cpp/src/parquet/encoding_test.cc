@@ -246,7 +246,7 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 };
 
-TYPED_TEST_CASE(TestPlainEncoding, ParquetTypes);
+TYPED_TEST_SUITE(TestPlainEncoding, ParquetTypes);
 
 TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(10000, 1));
@@ -318,7 +318,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
   std::shared_ptr<ResizableBuffer> dict_buffer_;
 };
 
-TYPED_TEST_CASE(TestDictionaryEncoding, DictEncodedTypes);
+TYPED_TEST_SUITE(TestDictionaryEncoding, DictEncodedTypes);
 
 TYPED_TEST(TestDictionaryEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(2500, 2));
@@ -746,7 +746,7 @@ std::shared_ptr<arrow::Array> EncodingAdHocTyped<FLBAType>::GetValues(int seed) 
 using EncodingAdHocTypedCases =
     ::testing::Types<BooleanType, Int32Type, Int64Type, FloatType, DoubleType, FLBAType>;
 
-TYPED_TEST_CASE(EncodingAdHocTyped, EncodingAdHocTypedCases);
+TYPED_TEST_SUITE(EncodingAdHocTyped, EncodingAdHocTypedCases);
 
 TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut) {
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
@@ -1087,7 +1087,7 @@ void TestByteStreamSplitEncoding<FloatType>::CheckEncode() {
 }
 
 typedef ::testing::Types<FloatType, DoubleType> ByteStreamSplitTypes;
-TYPED_TEST_CASE(TestByteStreamSplitEncoding, ByteStreamSplitTypes);
+TYPED_TEST_SUITE(TestByteStreamSplitEncoding, ByteStreamSplitTypes);
 
 TYPED_TEST(TestByteStreamSplitEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(1000, 1));

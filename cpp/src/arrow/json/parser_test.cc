@@ -173,10 +173,10 @@ TEST_P(BlockParserTypeError, FailOnDuplicateKeys) {
       testing::StartsWith("JSON parse error: Column(/a) was specified twice in row 0"));
 }
 
-INSTANTIATE_TEST_CASE_P(BlockParserTypeError, BlockParserTypeError,
-                        ::testing::Values(UnexpectedFieldBehavior::Ignore,
-                                          UnexpectedFieldBehavior::Error,
-                                          UnexpectedFieldBehavior::InferType));
+INSTANTIATE_TEST_SUITE_P(BlockParserTypeError, BlockParserTypeError,
+                         ::testing::Values(UnexpectedFieldBehavior::Ignore,
+                                           UnexpectedFieldBehavior::Error,
+                                           UnexpectedFieldBehavior::InferType));
 
 TEST(BlockParserWithSchema, Nested) {
   auto options = ParseOptions::Defaults();

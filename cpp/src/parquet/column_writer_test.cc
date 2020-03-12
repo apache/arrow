@@ -395,7 +395,7 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
                          BooleanType, ByteArrayType, FLBAType>
     TestTypes;
 
-TYPED_TEST_CASE(TestPrimitiveWriter, TestTypes);
+TYPED_TEST_SUITE(TestPrimitiveWriter, TestTypes);
 
 using TestNullValuesWriter = TestPrimitiveWriter<Int32Type>;
 

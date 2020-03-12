@@ -638,7 +638,7 @@ typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PIn
                          PInt32, PInt64, PFloat, PDouble>
     Primitives;
 
-TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
+TYPED_TEST_SUITE(TestPrimitiveBuilder, Primitives);
 
 TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   ASSERT_OK(this->builder_->Reserve(1000));
@@ -2099,7 +2099,7 @@ TEST_P(DecimalTest, WithNulls) {
   this->TestCreate(precision, draw, valid_bytes, 2);
 }
 
-INSTANTIATE_TEST_CASE_P(DecimalTest, DecimalTest, ::testing::Range(1, 38));
+INSTANTIATE_TEST_SUITE_P(DecimalTest, DecimalTest, ::testing::Range(1, 38));
 
 // ----------------------------------------------------------------------
 // Test rechunking

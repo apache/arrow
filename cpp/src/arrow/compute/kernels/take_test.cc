@@ -150,7 +150,7 @@ class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
   }
 };
 
-TYPED_TEST_CASE(TestTakeKernelWithNumeric, NumericArrowTypes);
+TYPED_TEST_SUITE(TestTakeKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
   this->AssertTake("[7, 8, 9]", "[]", "[]");
   this->AssertTake("[7, 8, 9]", "[0, 1, 0]", "[7, 8, 7]");
@@ -212,7 +212,7 @@ class TestTakeKernelWithString : public TestTakeKernel<TypeClass> {
   }
 };
 
-TYPED_TEST_CASE(TestTakeKernelWithString, StringTypes);
+TYPED_TEST_SUITE(TestTakeKernelWithString, StringTypes);
 
 TYPED_TEST(TestTakeKernelWithString, TakeString) {
   this->AssertTake(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");

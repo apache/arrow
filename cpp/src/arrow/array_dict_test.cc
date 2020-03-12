@@ -50,7 +50,7 @@ typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
                          UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>
     PrimitiveDictionaries;
 
-TYPED_TEST_CASE(TestDictionaryBuilder, PrimitiveDictionaries);
+TYPED_TEST_SUITE(TestDictionaryBuilder, PrimitiveDictionaries);
 
 TYPED_TEST(TestDictionaryBuilder, Basic) {
   using c_type = typename TypeParam::c_type;

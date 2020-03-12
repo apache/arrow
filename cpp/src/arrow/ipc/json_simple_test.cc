@@ -133,7 +133,7 @@ TEST(TestHelper, SafeSignedAdd) {
 template <typename T>
 class TestIntegers : public ::testing::Test {};
 
-TYPED_TEST_CASE_P(TestIntegers);
+TYPED_TEST_SUITE_P(TestIntegers);
 
 TYPED_TEST_P(TestIntegers, Basics) {
   using T = TypeParam;
@@ -198,17 +198,17 @@ TYPED_TEST_P(TestIntegers, OutOfBounds) {
   }
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestIntegers, Basics, Errors, OutOfBounds);
+REGISTER_TYPED_TEST_SUITE_P(TestIntegers, Basics, Errors, OutOfBounds);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestIntegers, Int8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestIntegers, Int16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestIntegers, Int32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestIntegers, Int64Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestIntegers, UInt8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestIntegers, UInt16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestIntegers, UInt32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestIntegers, UInt64Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestHalfFloat, TestIntegers, HalfFloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestIntegers, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestIntegers, Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestIntegers, Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestIntegers, Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestIntegers, UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestIntegers, UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestIntegers, UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestIntegers, UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestHalfFloat, TestIntegers, HalfFloatType);
 
 TEST(TestNull, Basics) {
   std::shared_ptr<DataType> type = null();

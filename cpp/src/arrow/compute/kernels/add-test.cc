@@ -60,11 +60,11 @@ class TestArithmeticKernel : public ComputeFixture, public TestBase {
 
 template <typename ArrowType>
 class TestArithmeticKernelForReal : public TestArithmeticKernel<ArrowType> {};
-TYPED_TEST_CASE(TestArithmeticKernelForReal, RealArrowTypes);
+TYPED_TEST_SUITE(TestArithmeticKernelForReal, RealArrowTypes);
 
 template <typename ArrowType>
 class TestArithmeticKernelForIntegral : public TestArithmeticKernel<ArrowType> {};
-TYPED_TEST_CASE(TestArithmeticKernelForIntegral, IntegralArrowTypes);
+TYPED_TEST_SUITE(TestArithmeticKernelForIntegral, IntegralArrowTypes);
 
 TYPED_TEST(TestArithmeticKernelForReal, SortReal) {
   this->AssertAdd("[]", "[]", "[]");

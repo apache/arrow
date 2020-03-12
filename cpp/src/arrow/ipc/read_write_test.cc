@@ -938,9 +938,9 @@ TEST_P(TestStreamFormat, RoundTrip) {
   TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
-INSTANTIATE_TEST_CASE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
-INSTANTIATE_TEST_CASE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
-INSTANTIATE_TEST_CASE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
 
 // This test uses uninitialized memory
 
@@ -1272,7 +1272,7 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   }
 };
 
-TYPED_TEST_CASE_P(TestSparseTensorRoundTrip);
+TYPED_TEST_SUITE_P(TestSparseTensorRoundTrip);
 
 TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
   using IndexValueType = TypeParam;
@@ -1412,18 +1412,18 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSCIndex) {
   this->CheckSparseCSXMatrixRoundTrip(*st);
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor,
-                           WithSparseCOOIndexColumnMajor, WithSparseCSRIndex,
-                           WithSparseCSCIndex);
+REGISTER_TYPED_TEST_SUITE_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor,
+                            WithSparseCOOIndexColumnMajor, WithSparseCSRIndex,
+                            WithSparseCSCIndex);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestSparseTensorRoundTrip, Int8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestSparseTensorRoundTrip, UInt8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestSparseTensorRoundTrip, Int16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestSparseTensorRoundTrip, UInt16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestSparseTensorRoundTrip, Int32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestSparseTensorRoundTrip, UInt32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestSparseTensorRoundTrip, Int64Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestSparseTensorRoundTrip, UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestSparseTensorRoundTrip, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestSparseTensorRoundTrip, UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestSparseTensorRoundTrip, Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestSparseTensorRoundTrip, UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestSparseTensorRoundTrip, Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseTensorRoundTrip, UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseTensorRoundTrip, Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseTensorRoundTrip, UInt64Type);
 
 TEST(TestRecordBatchStreamReader, MalformedInput) {
   const std::string empty_str = "";

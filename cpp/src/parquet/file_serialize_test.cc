@@ -17,6 +17,8 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_compat.h"
+
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
@@ -261,7 +263,7 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
                          BooleanType, ByteArrayType, FLBAType>
     TestTypes;
 
-TYPED_TEST_CASE(TestSerialize, TestTypes);
+TYPED_TEST_SUITE(TestSerialize, TestTypes);
 
 TYPED_TEST(TestSerialize, SmallFileUncompressed) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::UNCOMPRESSED));

@@ -54,15 +54,15 @@ class TestSortToIndicesKernel : public ComputeFixture, public TestBase {
 
 template <typename ArrowType>
 class TestSortToIndicesKernelForReal : public TestSortToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestSortToIndicesKernelForReal, RealArrowTypes);
+TYPED_TEST_SUITE(TestSortToIndicesKernelForReal, RealArrowTypes);
 
 template <typename ArrowType>
 class TestSortToIndicesKernelForIntegral : public TestSortToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestSortToIndicesKernelForIntegral, IntegralArrowTypes);
+TYPED_TEST_SUITE(TestSortToIndicesKernelForIntegral, IntegralArrowTypes);
 
 template <typename ArrowType>
 class TestSortToIndicesKernelForStrings : public TestSortToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestSortToIndicesKernelForStrings, testing::Types<StringType>);
+TYPED_TEST_SUITE(TestSortToIndicesKernelForStrings, testing::Types<StringType>);
 
 TYPED_TEST(TestSortToIndicesKernelForReal, SortReal) {
   this->AssertSortToIndices("[]", "[]");
@@ -104,11 +104,11 @@ TYPED_TEST(TestSortToIndicesKernelForStrings, SortStrings) {
 
 template <typename ArrowType>
 class TestSortToIndicesKernelForUInt8 : public TestSortToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestSortToIndicesKernelForUInt8, UInt8Type);
+TYPED_TEST_SUITE(TestSortToIndicesKernelForUInt8, UInt8Type);
 
 template <typename ArrowType>
 class TestSortToIndicesKernelForInt8 : public TestSortToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestSortToIndicesKernelForInt8, Int8Type);
+TYPED_TEST_SUITE(TestSortToIndicesKernelForInt8, Int8Type);
 
 TYPED_TEST(TestSortToIndicesKernelForUInt8, SortUInt8) {
   this->AssertSortToIndices("[255, null, 0, 255, 10, null, 128, 0]", "[2,7,4,6,0,3,1,5]");
@@ -217,7 +217,7 @@ class RandomRange : public RandomImpl {
   }
 };
 
-TYPED_TEST_CASE(TestSortToIndicesKernelRandom, SortToIndicesableTypes);
+TYPED_TEST_SUITE(TestSortToIndicesKernelRandom, SortToIndicesableTypes);
 
 TYPED_TEST(TestSortToIndicesKernelRandom, SortRandomValues) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
@@ -239,7 +239,7 @@ TYPED_TEST(TestSortToIndicesKernelRandom, SortRandomValues) {
 // Long array with small value range: counting sort
 // - length >= 1024(CountCompareSorter::countsort_min_len_)
 // - range  <= 4096(CountCompareSorter::countsort_max_range_)
-TYPED_TEST_CASE(TestSortToIndicesKernelRandomCount, SortToIndicesIntegerTypes);
+TYPED_TEST_SUITE(TestSortToIndicesKernelRandomCount, SortToIndicesIntegerTypes);
 
 TYPED_TEST(TestSortToIndicesKernelRandomCount, SortRandomValuesCount) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
@@ -260,7 +260,7 @@ TYPED_TEST(TestSortToIndicesKernelRandomCount, SortRandomValuesCount) {
 }
 
 // Long array with big value range: std::stable_sort
-TYPED_TEST_CASE(TestSortToIndicesKernelRandomCompare, SortToIndicesIntegerTypes);
+TYPED_TEST_SUITE(TestSortToIndicesKernelRandomCompare, SortToIndicesIntegerTypes);
 
 TYPED_TEST(TestSortToIndicesKernelRandomCompare, SortRandomValuesCompare) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;

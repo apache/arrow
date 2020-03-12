@@ -33,6 +33,7 @@
 #include "arrow/builder.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
