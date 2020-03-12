@@ -970,6 +970,8 @@ OR OTHER DEALINGS IN THE SOFTWARE.
 The projects includes code from the Ursabot project under the dev/archery
 directory.
 
+License: BSD 2-Clause
+
 Copyright 2019 RStudio, Inc.
 
 Redistribution and use in source and binary forms, with or without
