@@ -78,7 +78,7 @@ conda create -n wheel-test -c conda-forge -q -y python=3.5 || exit /B
 call conda.bat activate wheel-test
 
 @rem install the built wheel
-pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
+pip install -vv %ARROW_SRC%\python\dist\pyarrow-%PYARROW_VERSION%-cp35-cp35m-win_amd64.whl || exit /B
 
 @rem test the imports
 python -c "import pyarrow; import pyarrow.parquet" || exit /B
