@@ -986,7 +986,6 @@ TEST_F(TestConvertArrowSchema, ParquetMaps) {
     auto arrow_value = ::arrow::field("other_string", UTF8, /*nullable=*/false);
     auto arrow_map = ::arrow::map(arrow_key->type(), arrow_value);
     arrow_fields.push_back(::arrow::field("my_map", arrow_map, /*nullable=*/false));
-    ARROW_LOG(INFO) << arrow_fields.back()->ToString();
   }
 
   ASSERT_OK(ConvertSchema(arrow_fields));
