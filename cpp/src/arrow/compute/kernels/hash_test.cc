@@ -618,7 +618,6 @@ TEST_F(TestHashKernel, ChunkedArrayZeroChunk) {
 
   AssertChunkedEqual(*std::make_shared<ChunkedArray>(ArrayVector{}, dict_type),
                      *result_datum.chunked_array());
-  std::unique_ptr<int> a;
 }
 
 }  // namespace compute

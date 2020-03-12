@@ -729,7 +729,7 @@ cdef class Array(_PandasConvertible):
 
     def value_counts(self):
         """
-        Compute counts of unique elements in array
+        Compute counts of unique elements in array.
 
         Returns
         -------
