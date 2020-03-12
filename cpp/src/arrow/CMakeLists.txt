@@ -334,6 +334,7 @@ if(ARROW_COMPUTE)
               compute/kernels/add.cc
               compute/kernels/take.cc
               compute/kernels/isin.cc
+              compute/kernels/match.cc
               compute/kernels/util_internal.cc
               compute/operations/cast.cc
               compute/operations/literal.cc)
