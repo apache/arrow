@@ -353,10 +353,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
       seen_num_rows_ += header.num_values;
 
-      return std::make_shared<DataPageV1>(
-          page_buffer, header.num_values, LoadEnumSafe(&header.encoding),
-          LoadEnumSafe(&header.definition_level_encoding),
-          LoadEnumSafe(&header.repetition_level_encoding), uncompressed_len, page_statistics);
+      return std::make_shared<DataPageV1>(page_buffer, header.num_values,
+                                          LoadEnumSafe(&header.encoding),
+                                          LoadEnumSafe(&header.definition_level_encoding),
+                                          LoadEnumSafe(&header.repetition_level_encoding),
+                                          uncompressed_len, page_statistics);
     } else if (page_type == PageType::DATA_PAGE_V2) {
       ++page_ordinal_;
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
