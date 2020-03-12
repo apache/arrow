@@ -259,18 +259,7 @@ def submit(obj, task, group, dry_run):
 
     See groups defined in arrow/dev/tasks/tests.yml
     """
-    # pygithub pull request object
-    pr = obj['pull']
-    crossbow_url = 'https://github.com/{}'.format(obj['crossbow_repo'])
-
-    # clone arrow, crossbow and checkout the pull request's branch
     git = Git()
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        arrow_path = str(tmpdir / 'arrow')
-        crossbow_path = str(tmpdir / 'crossbow')
-        git.clone('--branch', pr.head.ref, pr.head.repo.clone_url, arrow_path)
-        git.clone(crossbow_url, crossbow_path)
 
     # construct crossbow arguments
     args = []
@@ -279,15 +268,28 @@ def submit(obj, task, group, dry_run):
     for t in task:
         args.append(t)
 
-    # submit the crossbow tasks
-    result = Path('result.yml').resolve()
-    xbow = Crossbow('arrow/dev/tasks/crossbow.py')
-    xbow.run(
-        '--arrow-path', arrow_path,
-        '--queue-path', crossbow_path,
-        '--output-file', str(result),
-        'submit', *args
-    )
+    # pygithub pull request object
+    pr = obj['pull']
+    crossbow_url = 'https://github.com/{}'.format(obj['crossbow_repo'])
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        arrow_path = str(tmpdir / 'arrow')
+        crossbow_path = str(tmpdir / 'crossbow')
+
+        # clone arrow, crossbow and checkout the pull request's branch
+        git.clone('--branch', pr.head.ref, pr.head.repo.clone_url, arrow_path)
+        git.clone(crossbow_url, crossbow_path)
+
+        # submit the crossbow tasks
+        result = Path('result.yml').resolve()
+        xbow = Crossbow('arrow/dev/tasks/crossbow.py')
+        xbow.run(
+            '--arrow-path', arrow_path,
+            '--queue-path', crossbow_path,
+            '--output-file', str(result),
+            'submit', *args
+        )
 
     # parse the result yml describing the submitted job
     yaml = YAML()
