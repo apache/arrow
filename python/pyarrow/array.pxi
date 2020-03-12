@@ -727,6 +727,21 @@ cdef class Array(_PandasConvertible):
 
         return wrap_datum(out)
 
+    def value_counts(self):
+        """
+        Compute counts of unique elements in array.
+
+        Returns
+        -------
+        An array of  <input type "Values", int64_t "Counts"> structs
+        """
+        cdef shared_ptr[CArray] result
+
+        with nogil:
+            check_status(ValueCounts(_context(), CDatum(self.sp_array),
+                                     &result))
+        return pyarrow_wrap_array(result)
+
     @staticmethod
     def from_pandas(obj, mask=None, type=None, bint safe=True,
                     MemoryPool memory_pool=None):

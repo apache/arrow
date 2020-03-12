@@ -299,6 +299,21 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return pyarrow_wrap_array(result)
 
+    def value_counts(self):
+        """
+        Compute counts of unique elements in array.
+
+        Returns
+        -------
+        An array of  <input type "Values", int64_t "Counts"> structs
+        """
+        cdef shared_ptr[CArray] result
+
+        with nogil:
+            check_status(ValueCounts(_context(), CDatum(self.sp_chunked_array),
+                                     &result))
+        return pyarrow_wrap_array(result)
+
     def slice(self, offset=0, length=None):
         """
         Compute zero-copy slice of this ChunkedArray

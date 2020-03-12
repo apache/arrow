@@ -125,15 +125,16 @@ struct DictionaryTraits<T, enable_if_base_binary<T>> {
                                        const MemoTableType& memo_table,
                                        int64_t start_offset,
                                        std::shared_ptr<ArrayData>* out) {
+    using offset_type = typename T::offset_type;
     std::shared_ptr<Buffer> dict_offsets;
     std::shared_ptr<Buffer> dict_data;
 
     // Create the offsets buffer
     auto dict_length = static_cast<int64_t>(memo_table.size() - start_offset);
     if (dict_length > 0) {
-      RETURN_NOT_OK(AllocateBuffer(
-          pool, TypeTraits<Int32Type>::bytes_required(dict_length + 1), &dict_offsets));
-      auto raw_offsets = reinterpret_cast<int32_t*>(dict_offsets->mutable_data());
+      RETURN_NOT_OK(
+          AllocateBuffer(pool, sizeof(offset_type) * (dict_length + 1), &dict_offsets));
+      auto raw_offsets = reinterpret_cast<offset_type*>(dict_offsets->mutable_data());
       memo_table.CopyOffsets(static_cast<int32_t>(start_offset), raw_offsets);
     }
 
