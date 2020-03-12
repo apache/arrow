@@ -279,8 +279,9 @@ def submit(obj, task, group, dry_run):
 
         # clone arrow and checkout the pull request's branch
         git.clone(pr.base.repo.clone_url, str(arrow))
-        git.fetch('origin', 'pull/{}/head:{}'.format(pr.number, pr.head.ref))
-        git.checkout(pr.head.ref)
+        git.fetch('origin', 'pull/{}/head:{}'.format(pr.number, pr.head.ref),
+                  git_dir=str(arrow))
+        git.checkout(pr.head.ref, git_dir=str(arrow))
 
         # clone crossbow
         git.clone(crossbow_url, str(queue))
