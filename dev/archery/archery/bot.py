@@ -269,7 +269,7 @@ def submit(obj, task, group, dry_run):
         tmpdir = Path(tmpdir)
         arrow_path = str(tmpdir / 'arrow')
         crossbow_path = str(tmpdir / 'crossbow')
-        git.clone('--branch', pr.head.ref, pr.head.repo.url, arrow_path)
+        git.clone('--branch', pr.head.ref, pr.head.repo.clone_url, arrow_path)
         git.clone(crossbow_url, crossbow_path)
 
     # construct crossbow arguments

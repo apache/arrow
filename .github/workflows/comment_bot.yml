@@ -26,19 +26,14 @@ on:
 
 jobs:
 
-  debug:
-    name: Debug
+  listen:
+    name: Listen!
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
           path: arrow
-      # in order to generate version number based on git we need the tags
-      # fetched but checkout@v2 doesn't do that by default
-      - name: Featch Arrow tags
-        working-directory: arrow
-        run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
       # because libgit2 is a dependency of crossbow so prefer conda
       - name: Setup Conda
         uses: s-weigand/setup-conda@v1
