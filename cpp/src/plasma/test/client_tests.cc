@@ -16,6 +16,7 @@
 // under the License.
 
 #include <assert.h>
+#include <gtest/gtest.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -25,11 +26,8 @@
 #include <memory>
 #include <thread>
 
-#include <gtest/gtest.h>
-
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
-
 #include "plasma/client.h"
 #include "plasma/common.h"
 #include "plasma/plasma.h"
@@ -64,13 +62,13 @@ class TestPlasmaStore : public ::testing::Test {
         plasma_directory + "/plasma-store-server -m 10000000 -s " + store_socket_name_ +
         " 1> /dev/null 2> /dev/null & " + "echo $! > " + store_socket_name_ + ".pid";
     PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));
-    ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
-    ARROW_CHECK_OK(client2_.Connect(store_socket_name_, ""));
+    ASSERT_OK(client_.Connect(store_socket_name_, ""));
+    ASSERT_OK(client2_.Connect(store_socket_name_, ""));
   }
 
   virtual void TearDown() {
-    ARROW_CHECK_OK(client_.Disconnect());
-    ARROW_CHECK_OK(client2_.Disconnect());
+    ASSERT_OK(client_.Disconnect());
+    ASSERT_OK(client2_.Disconnect());
     // Kill plasma_store process that we started
 #ifdef COVERAGE_BUILD
     // Ask plasma_store to exit gracefully and give it time to write out
@@ -89,14 +87,14 @@ class TestPlasmaStore : public ::testing::Test {
                     const std::vector<uint8_t>& metadata,
                     const std::vector<uint8_t>& data, bool release = true) {
     std::shared_ptr<Buffer> data_buffer;
-    ARROW_CHECK_OK(client.Create(object_id, data.size(), metadata.data(), metadata.size(),
-                                 &data_buffer));
+    ASSERT_OK(client.Create(object_id, data.size(), metadata.data(), metadata.size(),
+                            &data_buffer));
     for (size_t i = 0; i < data.size(); i++) {
       data_buffer->mutable_data()[i] = data[i];
     }
-    ARROW_CHECK_OK(client.Seal(object_id));
+    ASSERT_OK(client.Seal(object_id));
     if (release) {
-      ARROW_CHECK_OK(client.Release(object_id));
+      ASSERT_OK(client.Release(object_id));
     }
   }
 
@@ -110,8 +108,8 @@ class TestPlasmaStore : public ::testing::Test {
 TEST_F(TestPlasmaStore, NewSubscriberTest) {
   PlasmaClient local_client, local_client2;
 
-  ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
-  ARROW_CHECK_OK(local_client2.Connect(store_socket_name_, ""));
+  ASSERT_OK(local_client.Connect(store_socket_name_, ""));
+  ASSERT_OK(local_client2.Connect(store_socket_name_, ""));
 
   ObjectID object_id = random_object_id();
 
@@ -121,46 +119,43 @@ TEST_F(TestPlasmaStore, NewSubscriberTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(
-      local_client.Create(object_id, data_size, metadata, metadata_size, &data));
-  ARROW_CHECK_OK(local_client.Seal(object_id));
+  ASSERT_OK(local_client.Create(object_id, data_size, metadata, metadata_size, &data));
+  ASSERT_OK(local_client.Seal(object_id));
 
   // Test that new subscriber client2 can receive notifications about existing objects.
   int fd = -1;
-  ARROW_CHECK_OK(local_client2.Subscribe(&fd));
+  ASSERT_OK(local_client2.Subscribe(&fd));
   ASSERT_GT(fd, 0);
 
   ObjectID object_id2 = random_object_id();
   int64_t data_size2 = 0;
   int64_t metadata_size2 = 0;
-  ARROW_CHECK_OK(
-      local_client2.GetNotification(fd, &object_id2, &data_size2, &metadata_size2));
+  ASSERT_OK(local_client2.GetNotification(fd, &object_id2, &data_size2, &metadata_size2));
   ASSERT_EQ(object_id, object_id2);
   ASSERT_EQ(data_size, data_size2);
   ASSERT_EQ(metadata_size, metadata_size2);
 
   // Delete the object.
-  ARROW_CHECK_OK(local_client.Release(object_id));
-  ARROW_CHECK_OK(local_client.Delete(object_id));
+  ASSERT_OK(local_client.Release(object_id));
+  ASSERT_OK(local_client.Delete(object_id));
 
-  ARROW_CHECK_OK(
-      local_client2.GetNotification(fd, &object_id2, &data_size2, &metadata_size2));
+  ASSERT_OK(local_client2.GetNotification(fd, &object_id2, &data_size2, &metadata_size2));
   ASSERT_EQ(object_id, object_id2);
   ASSERT_EQ(-1, data_size2);
   ASSERT_EQ(-1, metadata_size2);
 
-  ARROW_CHECK_OK(local_client2.Disconnect());
-  ARROW_CHECK_OK(local_client.Disconnect());
+  ASSERT_OK(local_client2.Disconnect());
+  ASSERT_OK(local_client.Disconnect());
 }
 
 TEST_F(TestPlasmaStore, BatchNotificationTest) {
   PlasmaClient local_client, local_client2;
 
-  ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
-  ARROW_CHECK_OK(local_client2.Connect(store_socket_name_, ""));
+  ASSERT_OK(local_client.Connect(store_socket_name_, ""));
+  ASSERT_OK(local_client2.Connect(store_socket_name_, ""));
 
   int fd = -1;
-  ARROW_CHECK_OK(local_client2.Subscribe(&fd));
+  ASSERT_OK(local_client2.Subscribe(&fd));
   ASSERT_GT(fd, 0);
 
   ObjectID object_id1 = random_object_id();
@@ -170,25 +165,23 @@ TEST_F(TestPlasmaStore, BatchNotificationTest) {
 
   std::vector<std::string> data = {"hello", "world!"};
   std::vector<std::string> metadata = {"1", "23"};
-  ARROW_CHECK_OK(local_client.CreateAndSealBatch(object_ids, data, metadata));
+  ASSERT_OK(local_client.CreateAndSealBatch(object_ids, data, metadata));
 
   ObjectID object_id = random_object_id();
   int64_t data_size = 0;
   int64_t metadata_size = 0;
-  ARROW_CHECK_OK(
-      local_client2.GetNotification(fd, &object_id, &data_size, &metadata_size));
+  ASSERT_OK(local_client2.GetNotification(fd, &object_id, &data_size, &metadata_size));
   ASSERT_EQ(object_id, object_id1);
   ASSERT_EQ(data_size, 5);
   ASSERT_EQ(metadata_size, 1);
 
-  ARROW_CHECK_OK(
-      local_client2.GetNotification(fd, &object_id, &data_size, &metadata_size));
+  ASSERT_OK(local_client2.GetNotification(fd, &object_id, &data_size, &metadata_size));
   ASSERT_EQ(object_id, object_id2);
   ASSERT_EQ(data_size, 6);
   ASSERT_EQ(metadata_size, 2);
 
-  ARROW_CHECK_OK(local_client2.Disconnect());
-  ARROW_CHECK_OK(local_client.Disconnect());
+  ASSERT_OK(local_client2.Disconnect());
+  ASSERT_OK(local_client.Disconnect());
 }
 
 TEST_F(TestPlasmaStore, SealErrorsTest) {
@@ -204,7 +197,7 @@ TEST_F(TestPlasmaStore, SealErrorsTest) {
   // Trying to seal it again.
   result = client_.Seal(object_id);
   ASSERT_TRUE(IsPlasmaObjectAlreadySealed(result));
-  ARROW_CHECK_OK(client_.Release(object_id));
+  ASSERT_OK(client_.Release(object_id));
 }
 
 TEST_F(TestPlasmaStore, SetQuotaBasicTest) {
@@ -212,19 +205,19 @@ TEST_F(TestPlasmaStore, SetQuotaBasicTest) {
   ObjectID id1 = random_object_id();
   ObjectID id2 = random_object_id();
 
-  ARROW_CHECK_OK(client_.SetClientOptions("client1", 5 * 1024 * 1024));
+  ASSERT_OK(client_.SetClientOptions("client1", 5 * 1024 * 1024));
   std::vector<uint8_t> big_data(3 * 1024 * 1024, 0);
 
   // First object fits
   CreateObject(client_, id1, {42}, big_data, true);
-  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_OK(client_.Contains(id1, &has_object));
   ASSERT_TRUE(has_object);
 
   // Evicts first object
   CreateObject(client_, id2, {42}, big_data, true);
-  ARROW_CHECK_OK(client_.Contains(id2, &has_object));
+  ASSERT_OK(client_.Contains(id2, &has_object));
   ASSERT_TRUE(has_object);
-  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_OK(client_.Contains(id1, &has_object));
   ASSERT_FALSE(has_object);
 
   // Too big to fit in quota at all
@@ -244,7 +237,7 @@ TEST_F(TestPlasmaStore, SetQuotaProvidesIsolationFromOtherClients) {
 
   // First object, created without quota
   CreateObject(client_, id1, {42}, big_data, true);
-  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_OK(client_.Contains(id1, &has_object));
   ASSERT_TRUE(has_object);
 
   // Second client creates a bunch of objects
@@ -253,13 +246,13 @@ TEST_F(TestPlasmaStore, SetQuotaProvidesIsolationFromOtherClients) {
   }
 
   // First client's object is evicted
-  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_OK(client_.Contains(id1, &has_object));
   ASSERT_FALSE(has_object);
 
   // Try again with quota enabled
-  ARROW_CHECK_OK(client_.SetClientOptions("client1", 5 * 1024 * 1024));
+  ASSERT_OK(client_.SetClientOptions("client1", 5 * 1024 * 1024));
   CreateObject(client_, id2, {42}, big_data, true);
-  ARROW_CHECK_OK(client_.Contains(id2, &has_object));
+  ASSERT_OK(client_.Contains(id2, &has_object));
   ASSERT_TRUE(has_object);
 
   // Second client creates a bunch of objects
@@ -268,7 +261,7 @@ TEST_F(TestPlasmaStore, SetQuotaProvidesIsolationFromOtherClients) {
   }
 
   // First client's object is not evicted
-  ARROW_CHECK_OK(client_.Contains(id2, &has_object));
+  ASSERT_OK(client_.Contains(id2, &has_object));
   ASSERT_TRUE(has_object);
 }
 
@@ -280,17 +273,17 @@ TEST_F(TestPlasmaStore, SetQuotaProtectsOtherClients) {
 
   // First client has no quota
   CreateObject(client_, id1, {42}, big_data, true);
-  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_OK(client_.Contains(id1, &has_object));
   ASSERT_TRUE(has_object);
 
   // Second client creates a bunch of objects under a quota
-  ARROW_CHECK_OK(client2_.SetClientOptions("client2", 5 * 1024 * 1024));
+  ASSERT_OK(client2_.SetClientOptions("client2", 5 * 1024 * 1024));
   for (int i = 0; i < 10; i++) {
     CreateObject(client2_, random_object_id(), {42}, big_data, true);
   }
 
   // First client's object is NOT evicted
-  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_OK(client_.Contains(id1, &has_object));
   ASSERT_TRUE(has_object);
 }
 
@@ -315,30 +308,30 @@ TEST_F(TestPlasmaStore, SetQuotaDemotesPinnedObjectsToGlobalLRU) {
   // Quota is not enough to fit both id1 and id2, but global LRU is
   CreateObject(client_, id1, {42}, big_data, false);
   CreateObject(client_, id2, {42}, big_data, false);
-  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_OK(client_.Contains(id1, &has_object));
   ASSERT_TRUE(has_object);
-  ARROW_CHECK_OK(client_.Contains(id2, &has_object));
+  ASSERT_OK(client_.Contains(id2, &has_object));
   ASSERT_TRUE(has_object);
 
   // Release both objects. Now id1 is in global LRU and id2 is in quota
-  ARROW_CHECK_OK(client_.Release(id1));
-  ARROW_CHECK_OK(client_.Release(id2));
+  ASSERT_OK(client_.Release(id1));
+  ASSERT_OK(client_.Release(id2));
 
   // This flushes id1 from the object store
   for (int i = 0; i < 10; i++) {
     CreateObject(client2_, random_object_id(), {42}, big_data, true);
   }
-  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_OK(client_.Contains(id1, &has_object));
   ASSERT_FALSE(has_object);
-  ARROW_CHECK_OK(client_.Contains(id2, &has_object));
+  ASSERT_OK(client_.Contains(id2, &has_object));
   ASSERT_TRUE(has_object);
 }
 
 TEST_F(TestPlasmaStore, SetQuotaDemoteDisconnectToGlobalLRU) {
   bool has_object = false;
   PlasmaClient local_client;
-  ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
-  ARROW_CHECK_OK(local_client.SetClientOptions("local", 5 * 1024 * 1024));
+  ASSERT_OK(local_client.Connect(store_socket_name_, ""));
+  ASSERT_OK(local_client.SetClientOptions("local", 5 * 1024 * 1024));
 
   ObjectID id1 = random_object_id();
   std::vector<uint8_t> big_data(3 * 1024 * 1024, 0);
@@ -348,26 +341,26 @@ TEST_F(TestPlasmaStore, SetQuotaDemoteDisconnectToGlobalLRU) {
   for (int i = 0; i < 10; i++) {
     CreateObject(client_, random_object_id(), {42}, big_data, true);
   }
-  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_OK(client_.Contains(id1, &has_object));
   ASSERT_TRUE(has_object);
 
   // Object is still present after disconnect
-  ARROW_CHECK_OK(local_client.Disconnect());
-  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_OK(local_client.Disconnect());
+  ASSERT_OK(client_.Contains(id1, &has_object));
   ASSERT_TRUE(has_object);
 
   // But is eligible for global LRU
   for (int i = 0; i < 10; i++) {
     CreateObject(client_, random_object_id(), {42}, big_data, true);
   }
-  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_OK(client_.Contains(id1, &has_object));
   ASSERT_FALSE(has_object);
 }
 
 TEST_F(TestPlasmaStore, SetQuotaCleanupObjectMetadata) {
   PlasmaClient local_client;
-  ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
-  ARROW_CHECK_OK(local_client.SetClientOptions("local", 5 * 1024 * 1024));
+  ASSERT_OK(local_client.Connect(store_socket_name_, ""));
+  ASSERT_OK(local_client.SetClientOptions("local", 5 * 1024 * 1024));
 
   ObjectID id0 = random_object_id();
   ObjectID id1 = random_object_id();
@@ -391,15 +384,15 @@ TEST_F(TestPlasmaStore, SetQuotaCleanupObjectMetadata) {
   ASSERT_TRUE(client_.DebugString().find("(local) num objects: 2") != std::string::npos);
 
   // release id0
-  ARROW_CHECK_OK(local_client.Release(id0));
+  ASSERT_OK(local_client.Release(id0));
   ASSERT_TRUE(client_.DebugString().find("(global lru) num objects: 1") !=
               std::string::npos);
 
   // delete everything
-  ARROW_CHECK_OK(local_client.Delete(id0));
-  ARROW_CHECK_OK(local_client.Delete(id2));
-  ARROW_CHECK_OK(local_client.Delete(id3));
-  ARROW_CHECK_OK(local_client.Release(id3));
+  ASSERT_OK(local_client.Delete(id0));
+  ASSERT_OK(local_client.Delete(id2));
+  ASSERT_OK(local_client.Delete(id3));
+  ASSERT_OK(local_client.Release(id3));
   ASSERT_TRUE(client_.DebugString().find("quota map size: 0") != std::string::npos);
   ASSERT_TRUE(client_.DebugString().find("pinned quota map size: 0") !=
               std::string::npos);
@@ -407,7 +400,7 @@ TEST_F(TestPlasmaStore, SetQuotaCleanupObjectMetadata) {
               std::string::npos);
   ASSERT_TRUE(client_.DebugString().find("(local) num objects: 0") != std::string::npos);
 
-  ARROW_CHECK_OK(local_client.Disconnect());
+  ASSERT_OK(local_client.Disconnect());
   int tries = 10;  // wait for disconnect to complete
   while (tries > 0 &&
          client_.DebugString().find("num clients with quota: 0") == std::string::npos) {
@@ -423,8 +416,8 @@ TEST_F(TestPlasmaStore, SetQuotaCleanupObjectMetadata) {
 
 TEST_F(TestPlasmaStore, SetQuotaCleanupClientDisconnect) {
   PlasmaClient local_client;
-  ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
-  ARROW_CHECK_OK(local_client.SetClientOptions("local", 5 * 1024 * 1024));
+  ASSERT_OK(local_client.Connect(store_socket_name_, ""));
+  ASSERT_OK(local_client.SetClientOptions("local", 5 * 1024 * 1024));
 
   ObjectID id1 = random_object_id();
   ObjectID id2 = random_object_id();
@@ -435,7 +428,7 @@ TEST_F(TestPlasmaStore, SetQuotaCleanupClientDisconnect) {
   CreateObject(local_client, id2, {42}, big_data, true);
   CreateObject(local_client, id3, {42}, small_data, false);
 
-  ARROW_CHECK_OK(local_client.Disconnect());
+  ASSERT_OK(local_client.Disconnect());
   int tries = 10;  // wait for disconnect to complete
   while (tries > 0 &&
          client_.DebugString().find("num clients with quota: 0") == std::string::npos) {
@@ -468,7 +461,7 @@ TEST_F(TestPlasmaStore, RefreshLRUTest) {
   // we can fit ten small objects into the store
   for (const auto& object_id : object_ids) {
     CreateObject(client_, object_id, {}, small_data, true);
-    ARROW_CHECK_OK(client_.Contains(object_ids[0], &has_object));
+    ASSERT_OK(client_.Contains(object_ids[0], &has_object));
     ASSERT_TRUE(has_object);
   }
 
@@ -476,13 +469,13 @@ TEST_F(TestPlasmaStore, RefreshLRUTest) {
   CreateObject(client_, id, {}, small_data, true);
 
   // the first two objects got evicted (20% of the store)
-  ARROW_CHECK_OK(client_.Contains(object_ids[0], &has_object));
+  ASSERT_OK(client_.Contains(object_ids[0], &has_object));
   ASSERT_FALSE(has_object);
 
-  ARROW_CHECK_OK(client_.Contains(object_ids[1], &has_object));
+  ASSERT_OK(client_.Contains(object_ids[1], &has_object));
   ASSERT_FALSE(has_object);
 
-  ARROW_CHECK_OK(client_.Refresh({object_ids[2], object_ids[3]}));
+  ASSERT_OK(client_.Refresh({object_ids[2], object_ids[3]}));
 
   id = random_object_id();
   CreateObject(client_, id, {}, small_data, true);
@@ -490,13 +483,13 @@ TEST_F(TestPlasmaStore, RefreshLRUTest) {
   CreateObject(client_, id, {}, small_data, true);
 
   // the refreshed objects are not evicted
-  ARROW_CHECK_OK(client_.Contains(object_ids[2], &has_object));
+  ASSERT_OK(client_.Contains(object_ids[2], &has_object));
   ASSERT_TRUE(has_object);
-  ARROW_CHECK_OK(client_.Contains(object_ids[3], &has_object));
+  ASSERT_OK(client_.Contains(object_ids[3], &has_object));
   ASSERT_TRUE(has_object);
 
   // the next object in LRU order is evicted
-  ARROW_CHECK_OK(client_.Contains(object_ids[4], &has_object));
+  ASSERT_OK(client_.Contains(object_ids[4], &has_object));
   ASSERT_FALSE(has_object);
 }
 
@@ -505,7 +498,7 @@ TEST_F(TestPlasmaStore, DeleteTest) {
 
   // Test for deleting non-existence object.
   Status result = client_.Delete(object_id);
-  ARROW_CHECK_OK(result);
+  ASSERT_OK(result);
 
   // Test for the object being in local Plasma store.
   // First create object.
@@ -513,20 +506,20 @@ TEST_F(TestPlasmaStore, DeleteTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
-  ARROW_CHECK_OK(client_.Seal(object_id));
+  ASSERT_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+  ASSERT_OK(client_.Seal(object_id));
 
   result = client_.Delete(object_id);
-  ARROW_CHECK_OK(result);
+  ASSERT_OK(result);
   bool has_object = false;
-  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_OK(client_.Contains(object_id, &has_object));
   ASSERT_TRUE(has_object);
 
-  ARROW_CHECK_OK(client_.Release(object_id));
+  ASSERT_OK(client_.Release(object_id));
   // object_id is marked as to-be-deleted, when it is not in use, it will be deleted.
-  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_OK(client_.Contains(object_id, &has_object));
   ASSERT_FALSE(has_object);
-  ARROW_CHECK_OK(client_.Delete(object_id));
+  ASSERT_OK(client_.Delete(object_id));
 }
 
 TEST_F(TestPlasmaStore, DeleteObjectsTest) {
@@ -535,31 +528,31 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
 
   // Test for deleting non-existence object.
   Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
-  ARROW_CHECK_OK(result);
+  ASSERT_OK(result);
   // Test for the object being in local Plasma store.
   // First create object.
   int64_t data_size = 100;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data));
-  ARROW_CHECK_OK(client_.Seal(object_id1));
-  ARROW_CHECK_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data));
-  ARROW_CHECK_OK(client_.Seal(object_id2));
+  ASSERT_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data));
+  ASSERT_OK(client_.Seal(object_id1));
+  ASSERT_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data));
+  ASSERT_OK(client_.Seal(object_id2));
   // Release the ref count of Create function.
-  ARROW_CHECK_OK(client_.Release(object_id1));
-  ARROW_CHECK_OK(client_.Release(object_id2));
+  ASSERT_OK(client_.Release(object_id1));
+  ASSERT_OK(client_.Release(object_id2));
   // Increase the ref count by calling Get using client2_.
   std::vector<ObjectBuffer> object_buffers;
-  ARROW_CHECK_OK(client2_.Get({object_id1, object_id2}, 0, &object_buffers));
+  ASSERT_OK(client2_.Get({object_id1, object_id2}, 0, &object_buffers));
   // Objects are still used by client2_.
   result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
-  ARROW_CHECK_OK(result);
+  ASSERT_OK(result);
   // The object is used and it should not be deleted right now.
   bool has_object = false;
-  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ASSERT_OK(client_.Contains(object_id1, &has_object));
   ASSERT_TRUE(has_object);
-  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ASSERT_OK(client_.Contains(object_id2, &has_object));
   ASSERT_TRUE(has_object);
   // Decrease the ref count by deleting the PlasmaBuffer (in ObjectBuffer).
   // client2_ won't send the release request immediately because the trigger
@@ -567,9 +560,9 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   object_buffers.clear();
   // Delete the objects.
   result = client2_.Delete(std::vector<ObjectID>{object_id1, object_id2});
-  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ASSERT_OK(client_.Contains(object_id1, &has_object));
   ASSERT_FALSE(has_object);
-  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ASSERT_OK(client_.Contains(object_id2, &has_object));
   ASSERT_FALSE(has_object);
 }
 
@@ -578,7 +571,7 @@ TEST_F(TestPlasmaStore, ContainsTest) {
 
   // Test for object non-existence.
   bool has_object;
-  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_OK(client_.Contains(object_id, &has_object));
   ASSERT_FALSE(has_object);
 
   // Test for the object being in local Plasma store.
@@ -586,8 +579,8 @@ TEST_F(TestPlasmaStore, ContainsTest) {
   std::vector<uint8_t> data(100, 0);
   CreateObject(client_, object_id, {42}, data);
   std::vector<ObjectBuffer> object_buffers;
-  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
-  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_OK(client_.Get({object_id}, -1, &object_buffers));
+  ASSERT_OK(client_.Contains(object_id, &has_object));
   ASSERT_TRUE(has_object);
 }
 
@@ -597,7 +590,7 @@ TEST_F(TestPlasmaStore, GetTest) {
   ObjectID object_id = random_object_id();
 
   // Test for object non-existence.
-  ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
+  ASSERT_OK(client_.Get({object_id}, 0, &object_buffers));
   ASSERT_EQ(object_buffers.size(), 1);
   ASSERT_FALSE(object_buffers[0].metadata);
   ASSERT_FALSE(object_buffers[0].data);
@@ -610,7 +603,7 @@ TEST_F(TestPlasmaStore, GetTest) {
   EXPECT_FALSE(client_.IsInUse(object_id));
 
   object_buffers.clear();
-  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
+  ASSERT_OK(client_.Get({object_id}, -1, &object_buffers));
   ASSERT_EQ(object_buffers.size(), 1);
   ASSERT_EQ(object_buffers[0].device_num, 0);
   AssertObjectBufferEqual(object_buffers[0], {42}, {3, 5, 6, 7, 9});
@@ -633,7 +626,7 @@ TEST_F(TestPlasmaStore, LegacyGetTest) {
     ObjectBuffer object_buffer;
 
     // Test for object non-existence.
-    ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
+    ASSERT_OK(client_.Get(&object_id, 1, 0, &object_buffer));
     ASSERT_FALSE(object_buffer.metadata);
     ASSERT_FALSE(object_buffer.data);
     EXPECT_FALSE(client_.IsInUse(object_id));
@@ -643,12 +636,12 @@ TEST_F(TestPlasmaStore, LegacyGetTest) {
     CreateObject(client_, object_id, {42}, data);
     EXPECT_FALSE(client_.IsInUse(object_id));
 
-    ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+    ASSERT_OK(client_.Get(&object_id, 1, -1, &object_buffer));
     AssertObjectBufferEqual(object_buffer, {42}, {3, 5, 6, 7, 9});
   }
   // Object needs releasing manually
   EXPECT_TRUE(client_.IsInUse(object_id));
-  ARROW_CHECK_OK(client_.Release(object_id));
+  ASSERT_OK(client_.Release(object_id));
   EXPECT_FALSE(client_.IsInUse(object_id));
 }
 
@@ -662,15 +655,15 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data));
+  ASSERT_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data));
   data->mutable_data()[0] = 1;
-  ARROW_CHECK_OK(client_.Seal(object_id1));
+  ASSERT_OK(client_.Seal(object_id1));
 
-  ARROW_CHECK_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data));
+  ASSERT_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data));
   data->mutable_data()[0] = 2;
-  ARROW_CHECK_OK(client_.Seal(object_id2));
+  ASSERT_OK(client_.Seal(object_id2));
 
-  ARROW_CHECK_OK(client_.Get(object_ids, -1, &object_buffers));
+  ASSERT_OK(client_.Get(object_ids, -1, &object_buffers));
   ASSERT_EQ(object_buffers[0].data->data()[0], 1);
   ASSERT_EQ(object_buffers[1].data->data()[0], 2);
 }
@@ -683,11 +676,11 @@ TEST_F(TestPlasmaStore, BatchCreateTest) {
   std::vector<std::string> data = {"hello", "world"};
   std::vector<std::string> metadata = {"1", "2"};
 
-  ARROW_CHECK_OK(client_.CreateAndSealBatch(object_ids, data, metadata));
+  ASSERT_OK(client_.CreateAndSealBatch(object_ids, data, metadata));
 
   std::vector<ObjectBuffer> object_buffers;
 
-  ARROW_CHECK_OK(client_.Get(object_ids, -1, &object_buffers));
+  ASSERT_OK(client_.Get(object_ids, -1, &object_buffers));
 
   std::string out1, out2;
   out1.assign(reinterpret_cast<const char*>(object_buffers[0].data->data()),
@@ -704,7 +697,7 @@ TEST_F(TestPlasmaStore, AbortTest) {
   std::vector<ObjectBuffer> object_buffers;
 
   // Test for object non-existence.
-  ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
+  ASSERT_OK(client_.Get({object_id}, 0, &object_buffers));
   ASSERT_FALSE(object_buffers[0].data);
 
   // Test object abort.
@@ -714,7 +707,7 @@ TEST_F(TestPlasmaStore, AbortTest) {
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
   uint8_t* data_ptr;
-  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+  ASSERT_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
   data_ptr = data->mutable_data();
   // Write some data.
   for (int64_t i = 0; i < data_size / 2; i++) {
@@ -724,21 +717,21 @@ TEST_F(TestPlasmaStore, AbortTest) {
   Status status = client_.Abort(object_id);
   ASSERT_TRUE(status.IsInvalid());
   // Release, then abort.
-  ARROW_CHECK_OK(client_.Release(object_id));
+  ASSERT_OK(client_.Release(object_id));
   EXPECT_TRUE(client_.IsInUse(object_id));
 
-  ARROW_CHECK_OK(client_.Abort(object_id));
+  ASSERT_OK(client_.Abort(object_id));
   EXPECT_FALSE(client_.IsInUse(object_id));
 
   // Test for object non-existence after the abort.
-  ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
+  ASSERT_OK(client_.Get({object_id}, 0, &object_buffers));
   ASSERT_FALSE(object_buffers[0].data);
 
   // Create the object successfully this time.
   CreateObject(client_, object_id, {42, 43}, {1, 2, 3, 4, 5});
 
   // Test that we can get the object.
-  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
+  ASSERT_OK(client_.Get({object_id}, -1, &object_buffers));
   AssertObjectBufferEqual(object_buffers[0], {42, 43}, {1, 2, 3, 4, 5});
 }
 
@@ -749,7 +742,7 @@ TEST_F(TestPlasmaStore, OneIdCreateRepeatedlyTest) {
   std::vector<ObjectBuffer> object_buffers;
 
   // Test for object non-existence.
-  ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
+  ASSERT_OK(client_.Get({object_id}, 0, &object_buffers));
   ASSERT_FALSE(object_buffers[0].data);
 
   int64_t data_size = 20;
@@ -759,18 +752,18 @@ TEST_F(TestPlasmaStore, OneIdCreateRepeatedlyTest) {
   // Test the sequence: create -> release -> abort -> ...
   for (int64_t i = 0; i < loop_times; i++) {
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
-    ARROW_CHECK_OK(client_.Release(object_id));
-    ARROW_CHECK_OK(client_.Abort(object_id));
+    ASSERT_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+    ASSERT_OK(client_.Release(object_id));
+    ASSERT_OK(client_.Abort(object_id));
   }
 
   // Test the sequence: create -> seal -> release -> delete -> ...
   for (int64_t i = 0; i < loop_times; i++) {
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
-    ARROW_CHECK_OK(client_.Seal(object_id));
-    ARROW_CHECK_OK(client_.Release(object_id));
-    ARROW_CHECK_OK(client_.Delete(object_id));
+    ASSERT_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+    ASSERT_OK(client_.Seal(object_id));
+    ASSERT_OK(client_.Release(object_id));
+    ASSERT_OK(client_.Delete(object_id));
   }
 }
 
@@ -780,7 +773,7 @@ TEST_F(TestPlasmaStore, MultipleClientTest) {
 
   // Test for object non-existence on the first client.
   bool has_object;
-  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_OK(client_.Contains(object_id, &has_object));
   ASSERT_FALSE(has_object);
 
   // Test for the object being in local Plasma store.
@@ -789,25 +782,25 @@ TEST_F(TestPlasmaStore, MultipleClientTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
-  ARROW_CHECK_OK(client2_.Seal(object_id));
+  ASSERT_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
+  ASSERT_OK(client2_.Seal(object_id));
   // Test that the first client can get the object.
-  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
+  ASSERT_OK(client_.Get({object_id}, -1, &object_buffers));
   ASSERT_TRUE(object_buffers[0].data);
-  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_OK(client_.Contains(object_id, &has_object));
   ASSERT_TRUE(has_object);
 
   // Test that one client disconnecting does not interfere with the other.
   // First create object on the second client.
   object_id = random_object_id();
-  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
+  ASSERT_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
   // Disconnect the first client.
-  ARROW_CHECK_OK(client_.Disconnect());
+  ASSERT_OK(client_.Disconnect());
   // Test that the second client can seal and get the created object.
-  ARROW_CHECK_OK(client2_.Seal(object_id));
-  ARROW_CHECK_OK(client2_.Get({object_id}, -1, &object_buffers));
+  ASSERT_OK(client2_.Seal(object_id));
+  ASSERT_OK(client2_.Get({object_id}, -1, &object_buffers));
   ASSERT_TRUE(object_buffers[0].data);
-  ARROW_CHECK_OK(client2_.Contains(object_id, &has_object));
+  ASSERT_OK(client2_.Contains(object_id, &has_object));
   ASSERT_TRUE(has_object);
 }
 
@@ -821,7 +814,7 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
 
     // Test for object non-existence on the first client.
     bool has_object;
-    ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+    ASSERT_OK(client_.Contains(object_id, &has_object));
     ASSERT_FALSE(has_object);
 
     // Test for the object being in local Plasma store.
@@ -830,29 +823,29 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
     uint8_t metadata[] = {5};
     int64_t metadata_size = sizeof(metadata);
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+    ASSERT_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
 
     if (i % 3 == 0) {
       // Seal one third of the objects.
-      ARROW_CHECK_OK(client_.Seal(object_id));
+      ASSERT_OK(client_.Seal(object_id));
       // Test that the first client can get the object.
-      ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+      ASSERT_OK(client_.Contains(object_id, &has_object));
       ASSERT_TRUE(has_object);
     } else if (i % 3 == 1) {
       // Abort one third of the objects.
-      ARROW_CHECK_OK(client_.Release(object_id));
-      ARROW_CHECK_OK(client_.Abort(object_id));
+      ASSERT_OK(client_.Release(object_id));
+      ASSERT_OK(client_.Abort(object_id));
     }
   }
   // Disconnect the first client. All unsealed objects should be aborted.
-  ARROW_CHECK_OK(client_.Disconnect());
+  ASSERT_OK(client_.Disconnect());
 
   // Check that the second client can query the object store for the first
   // client's objects.
   int i = 0;
   for (auto const& object_id : object_ids) {
     bool has_object;
-    ARROW_CHECK_OK(client2_.Contains(object_id, &has_object));
+    ASSERT_OK(client2_.Contains(object_id, &has_object));
     if (i % 3 == 0) {
       // The first third should be sealed.
       ASSERT_TRUE(has_object);
@@ -898,7 +891,7 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   std::vector<ObjectBuffer> object_buffers;
 
   // Test for object non-existence.
-  ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
+  ASSERT_OK(client_.Get({object_id}, 0, &object_buffers));
   ASSERT_EQ(object_buffers.size(), 1);
   ASSERT_FALSE(object_buffers[0].data);
 
@@ -910,15 +903,15 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data_buffer;
   std::shared_ptr<CudaBuffer> gpu_buffer;
-  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size,
-                                &data_buffer, kGpuDeviceNumber));
+  ASSERT_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data_buffer,
+                           kGpuDeviceNumber));
   ASSERT_OK_AND_ASSIGN(gpu_buffer, CudaBuffer::FromBuffer(data_buffer));
   CudaBufferWriter writer(gpu_buffer);
-  ARROW_CHECK_OK(writer.Write(data, data_size));
-  ARROW_CHECK_OK(client_.Seal(object_id));
+  ASSERT_OK(writer.Write(data, data_size));
+  ASSERT_OK(client_.Seal(object_id));
 
   object_buffers.clear();
-  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
+  ASSERT_OK(client_.Get({object_id}, -1, &object_buffers));
   ASSERT_EQ(object_buffers.size(), 1);
   ASSERT_EQ(object_buffers[0].device_num, kGpuDeviceNumber);
   // Check data
@@ -933,33 +926,33 @@ TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
 
   // Test for deleting non-existence object.
   Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
-  ARROW_CHECK_OK(result);
+  ASSERT_OK(result);
   // Test for the object being in local Plasma store.
   // First create object.
   int64_t data_size = 100;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data,
-                                kGpuDeviceNumber));
-  ARROW_CHECK_OK(client_.Seal(object_id1));
-  ARROW_CHECK_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data,
-                                kGpuDeviceNumber));
-  ARROW_CHECK_OK(client_.Seal(object_id2));
+  ASSERT_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data,
+                           kGpuDeviceNumber));
+  ASSERT_OK(client_.Seal(object_id1));
+  ASSERT_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data,
+                           kGpuDeviceNumber));
+  ASSERT_OK(client_.Seal(object_id2));
   // Release the ref count of Create function.
-  ARROW_CHECK_OK(client_.Release(object_id1));
-  ARROW_CHECK_OK(client_.Release(object_id2));
+  ASSERT_OK(client_.Release(object_id1));
+  ASSERT_OK(client_.Release(object_id2));
   // Increase the ref count by calling Get using client2_.
   std::vector<ObjectBuffer> object_buffers;
-  ARROW_CHECK_OK(client2_.Get({object_id1, object_id2}, 0, &object_buffers));
+  ASSERT_OK(client2_.Get({object_id1, object_id2}, 0, &object_buffers));
   // Objects are still used by client2_.
   result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
-  ARROW_CHECK_OK(result);
+  ASSERT_OK(result);
   // The object is used and it should not be deleted right now.
   bool has_object = false;
-  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ASSERT_OK(client_.Contains(object_id1, &has_object));
   ASSERT_TRUE(has_object);
-  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ASSERT_OK(client_.Contains(object_id2, &has_object));
   ASSERT_TRUE(has_object);
   // Decrease the ref count by deleting the PlasmaBuffer (in ObjectBuffer).
   // client2_ won't send the release request immediately because the trigger
@@ -967,9 +960,9 @@ TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
   object_buffers.clear();
   // Delete the objects.
   result = client2_.Delete(std::vector<ObjectID>{object_id1, object_id2});
-  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ASSERT_OK(client_.Contains(object_id1, &has_object));
   ASSERT_FALSE(has_object);
-  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ASSERT_OK(client_.Contains(object_id2, &has_object));
   ASSERT_FALSE(has_object);
 }
 
@@ -986,25 +979,25 @@ TEST_F(TestPlasmaStore, RepeatlyCreateGPUTest) {
     ObjectID& object_id = object_ids[i];
 
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, kGpuDeviceNumber));
-    ARROW_CHECK_OK(client_.Seal(object_id));
-    ARROW_CHECK_OK(client_.Release(object_id));
+    ASSERT_OK(client_.Create(object_id, data_size, 0, 0, &data, kGpuDeviceNumber));
+    ASSERT_OK(client_.Seal(object_id));
+    ASSERT_OK(client_.Release(object_id));
   }
 
   // delete and create again
   for (int64_t i = 0; i < loop_times; i++) {
     ObjectID& object_id = object_ids[i % object_num];
 
-    ARROW_CHECK_OK(client_.Delete(object_id));
+    ASSERT_OK(client_.Delete(object_id));
 
     std::shared_ptr<Buffer> data;
-    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, kGpuDeviceNumber));
-    ARROW_CHECK_OK(client_.Seal(object_id));
-    ARROW_CHECK_OK(client_.Release(object_id));
+    ASSERT_OK(client_.Create(object_id, data_size, 0, 0, &data, kGpuDeviceNumber));
+    ASSERT_OK(client_.Seal(object_id));
+    ASSERT_OK(client_.Release(object_id));
   }
 
   // delete all
-  ARROW_CHECK_OK(client_.Delete(object_ids));
+  ASSERT_OK(client_.Delete(object_ids));
 }
 
 TEST_F(TestPlasmaStore, GPUBufferLifetime) {
@@ -1013,23 +1006,23 @@ TEST_F(TestPlasmaStore, GPUBufferLifetime) {
   const int64_t data_size = 40;
 
   std::shared_ptr<Buffer> create_buff;
-  ARROW_CHECK_OK(
+  ASSERT_OK(
       client_.Create(object_id, data_size, nullptr, 0, &create_buff, kGpuDeviceNumber));
-  ARROW_CHECK_OK(client_.Seal(object_id));
-  ARROW_CHECK_OK(client_.Release(object_id));
+  ASSERT_OK(client_.Seal(object_id));
+  ASSERT_OK(client_.Release(object_id));
 
   ObjectBuffer get_buff_1;
-  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &get_buff_1));
+  ASSERT_OK(client_.Get(&object_id, 1, -1, &get_buff_1));
   ObjectBuffer get_buff_2;
-  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &get_buff_2));
-  ARROW_CHECK_OK(client_.Release(object_id));
-  ARROW_CHECK_OK(client_.Release(object_id));
+  ASSERT_OK(client_.Get(&object_id, 1, -1, &get_buff_2));
+  ASSERT_OK(client_.Release(object_id));
+  ASSERT_OK(client_.Release(object_id));
 
   ObjectBuffer get_buff_3;
-  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &get_buff_3));
-  ARROW_CHECK_OK(client_.Release(object_id));
+  ASSERT_OK(client_.Get(&object_id, 1, -1, &get_buff_3));
+  ASSERT_OK(client_.Release(object_id));
 
-  ARROW_CHECK_OK(client_.Delete(object_id));
+  ASSERT_OK(client_.Delete(object_id));
 }
 
 TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
@@ -1038,7 +1031,7 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
 
   // Test for object non-existence on the first client.
   bool has_object;
-  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_OK(client_.Contains(object_id, &has_object));
   ASSERT_FALSE(has_object);
 
   // Test for the object being in local Plasma store.
@@ -1047,27 +1040,27 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data,
-                                 kGpuDeviceNumber));
-  ARROW_CHECK_OK(client2_.Seal(object_id));
+  ASSERT_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data,
+                            kGpuDeviceNumber));
+  ASSERT_OK(client2_.Seal(object_id));
   // Test that the first client can get the object.
-  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
-  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_OK(client_.Get({object_id}, -1, &object_buffers));
+  ASSERT_OK(client_.Contains(object_id, &has_object));
   ASSERT_TRUE(has_object);
 
   // Test that one client disconnecting does not interfere with the other.
   // First create object on the second client.
   object_id = random_object_id();
-  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data,
-                                 kGpuDeviceNumber));
+  ASSERT_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data,
+                            kGpuDeviceNumber));
   // Disconnect the first client.
-  ARROW_CHECK_OK(client_.Disconnect());
+  ASSERT_OK(client_.Disconnect());
   // Test that the second client can seal and get the created object.
-  ARROW_CHECK_OK(client2_.Seal(object_id));
+  ASSERT_OK(client2_.Seal(object_id));
   object_buffers.clear();
-  ARROW_CHECK_OK(client2_.Contains(object_id, &has_object));
+  ASSERT_OK(client2_.Contains(object_id, &has_object));
   ASSERT_TRUE(has_object);
-  ARROW_CHECK_OK(client2_.Get({object_id}, -1, &object_buffers));
+  ASSERT_OK(client2_.Get({object_id}, -1, &object_buffers));
   ASSERT_EQ(object_buffers.size(), 1);
   ASSERT_EQ(object_buffers[0].device_num, kGpuDeviceNumber);
   AssertCudaRead(object_buffers[0].metadata, {5});

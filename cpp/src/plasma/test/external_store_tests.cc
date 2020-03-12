@@ -16,6 +16,7 @@
 // under the License.
 
 #include <assert.h>
+#include <gtest/gtest.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -25,11 +26,8 @@
 #include <memory>
 #include <thread>
 
-#include <gtest/gtest.h>
-
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
-
 #include "plasma/client.h"
 #include "plasma/common.h"
 #include "plasma/external_store.h"
@@ -65,11 +63,11 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
                                  " 1> /tmp/log.stdout 2> /tmp/log.stderr & " +
                                  "echo $! > " + store_socket_name_ + ".pid";
     PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));
-    ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
+    ASSERT_OK(client_.Connect(store_socket_name_, ""));
   }
 
   void TearDown() override {
-    ARROW_CHECK_OK(client_.Disconnect());
+    ASSERT_OK(client_.Disconnect());
     // Kill plasma_store process that we started
 #ifdef COVERAGE_BUILD
     // Ask plasma_store to exit gracefully and give it time to write out
@@ -100,14 +98,14 @@ TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
 
     // Test for object non-existence.
     bool has_object;
-    ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+    ASSERT_OK(client_.Contains(object_id, &has_object));
     ASSERT_FALSE(has_object);
 
     // Test for the object being in local Plasma store.
     // Create and seal the object.
-    ARROW_CHECK_OK(client_.CreateAndSeal(object_id, data, metadata));
+    ASSERT_OK(client_.CreateAndSeal(object_id, data, metadata));
     // Test that the client can get the object.
-    ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+    ASSERT_OK(client_.Contains(object_id, &has_object));
     ASSERT_TRUE(has_object);
   }
 
@@ -118,7 +116,7 @@ TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
     // external store on failure. This should succeed to fetch the object.
     // However, it may evict the next few objects.
     std::vector<ObjectBuffer> object_buffers;
-    ARROW_CHECK_OK(client_.Get({object_ids[i]}, -1, &object_buffers));
+    ASSERT_OK(client_.Get({object_ids[i]}, -1, &object_buffers));
     ASSERT_EQ(object_buffers.size(), 1);
     ASSERT_EQ(object_buffers[0].device_num, 0);
     ASSERT_TRUE(object_buffers[0].data);
@@ -127,7 +125,7 @@ TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
 
   // Make sure we still cannot fetch objects that do not exist
   std::vector<ObjectBuffer> object_buffers;
-  ARROW_CHECK_OK(client_.Get({random_object_id()}, 100, &object_buffers));
+  ASSERT_OK(client_.Get({random_object_id()}, 100, &object_buffers));
   ASSERT_EQ(object_buffers.size(), 1);
   ASSERT_EQ(object_buffers[0].device_num, 0);
   ASSERT_EQ(object_buffers[0].data, nullptr);

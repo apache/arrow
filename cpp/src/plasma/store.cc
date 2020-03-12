@@ -53,7 +53,6 @@
 #include <vector>
 
 #include "arrow/status.h"
-
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 #include "plasma/fling.h"
@@ -110,8 +109,8 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
 
 Client::Client(int fd) : fd(fd), notification_fd(-1) {}
 
-PlasmaStore::PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_enabled,
-                         const std::string& socket_name,
+PlasmaStore::PlasmaStore(EventLoop* loop, const std::string& directory,
+                         bool hugepages_enabled, const std::string& socket_name,
                          std::shared_ptr<ExternalStore> external_store)
     : loop_(loop),
       eviction_policy_(&store_info_, PlasmaAllocator::GetFootprintLimit()),
@@ -1142,8 +1141,8 @@ class PlasmaStoreRunner {
  public:
   PlasmaStoreRunner() {}
 
-  void Start(char* socket_name, std::string directory, bool hugepages_enabled,
-             std::shared_ptr<ExternalStore> external_store) {
+  void Start(const std::string& socket_name, std::string directory,
+             bool hugepages_enabled, std::shared_ptr<ExternalStore> external_store) {
     // Create the event loop.
     loop_.reset(new EventLoop);
     store_.reset(new PlasmaStore(loop_.get(), directory, hugepages_enabled, socket_name,
@@ -1154,15 +1153,14 @@ class PlasmaStoreRunner {
     // large amount of space up front. According to the documentation,
     // dlmalloc might need up to 128*sizeof(size_t) bytes for internal
     // bookkeeping.
-    void* pointer = plasma::PlasmaAllocator::Memalign(
-        kBlockSize, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
+    auto prealloc_memory = PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t);
+    void* pointer = PlasmaAllocator::Memalign(kBlockSize, prealloc_memory);
     ARROW_CHECK(pointer != nullptr);
     // This will unmap the file, but the next one created will be as large
     // as this one (this is an implementation detail of dlmalloc).
-    plasma::PlasmaAllocator::Free(
-        pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
+    PlasmaAllocator::Free(pointer, prealloc_memory);
 
-    int socket = BindIpcSock(socket_name, true);
+    int socket = BindIpcSock(socket_name.c_str(), true);
     // TODO(pcm): Check return value.
     ARROW_CHECK(socket >= 0);
 
@@ -1196,69 +1194,9 @@ void HandleSignal(int signal) {
   }
 }
 
-void StartServer(char* socket_name, std::string plasma_directory, bool hugepages_enabled,
-                 std::shared_ptr<ExternalStore> external_store) {
-  // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
-  // to a client that has already died, the store could die.
-  signal(SIGPIPE, SIG_IGN);
-
-  g_runner.reset(new PlasmaStoreRunner());
-  signal(SIGTERM, HandleSignal);
-  g_runner->Start(socket_name, plasma_directory, hugepages_enabled, external_store);
-}
-
-}  // namespace plasma
-
-int main(int argc, char* argv[]) {
-  ArrowLog::StartArrowLog(argv[0], ArrowLogLevel::ARROW_INFO);
-  ArrowLog::InstallFailureSignalHandler();
-  char* socket_name = nullptr;
-  // Directory where plasma memory mapped files are stored.
-  std::string plasma_directory;
-  std::string external_store_endpoint;
-  bool hugepages_enabled = false;
-  int64_t system_memory = -1;
-  int c;
-  while ((c = getopt(argc, argv, "s:m:d:e:h")) != -1) {
-    switch (c) {
-      case 'd':
-        plasma_directory = std::string(optarg);
-        break;
-      case 'e':
-        external_store_endpoint = std::string(optarg);
-        break;
-      case 'h':
-        hugepages_enabled = true;
-        break;
-      case 's':
-        socket_name = optarg;
-        break;
-      case 'm': {
-        char extra;
-        int scanned = sscanf(optarg, "%" SCNd64 "%c", &system_memory, &extra);
-        ARROW_CHECK(scanned == 1);
-        // Set system memory capacity
-        plasma::PlasmaAllocator::SetFootprintLimit(static_cast<size_t>(system_memory));
-        ARROW_LOG(INFO) << "Allowing the Plasma store to use up to "
-                        << static_cast<double>(system_memory) / 1000000000
-                        << "GB of memory.";
-        break;
-      }
-      default:
-        exit(-1);
-    }
-  }
-  // Sanity check command line options.
-  if (!socket_name) {
-    ARROW_LOG(FATAL) << "please specify socket for incoming connections with -s switch";
-  }
-  if (system_memory == -1) {
-    ARROW_LOG(FATAL) << "please specify the amount of system memory with -m switch";
-  }
-  if (hugepages_enabled && plasma_directory.empty()) {
-    ARROW_LOG(FATAL) << "if you want to use hugepages, please specify path to huge pages "
-                        "filesystem with -d";
-  }
+void StartServer(std::string socket_name, int64_t system_memory,
+                 std::string plasma_directory, bool hugepages_enabled,
+                 std::string external_store_endpoint) {
   if (plasma_directory.empty()) {
 #ifdef __linux__
     plasma_directory = "/dev/shm";
@@ -1293,16 +1231,20 @@ int main(int argc, char* argv[]) {
       system_memory = shm_mem_avail;
     }
   } else {
-    plasma::SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
+    SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
   }
 #endif
+  // Set system memory capacity
+  PlasmaAllocator::SetFootprintLimit(static_cast<size_t>(system_memory));
+  ARROW_LOG(INFO) << "Allowing the Plasma store to use up to "
+                  << static_cast<double>(system_memory) / 1000000000 << "GB of memory.";
+
   // Get external store
-  std::shared_ptr<plasma::ExternalStore> external_store{nullptr};
+  std::shared_ptr<ExternalStore> external_store{nullptr};
   if (!external_store_endpoint.empty()) {
     std::string name;
-    ARROW_CHECK_OK(
-        plasma::ExternalStores::ExtractStoreName(external_store_endpoint, &name));
-    external_store = plasma::ExternalStores::GetStore(name);
+    ARROW_CHECK_OK(ExternalStores::ExtractStoreName(external_store_endpoint, &name));
+    external_store = ExternalStores::GetStore(name);
     if (external_store == nullptr) {
       ARROW_LOG(FATAL) << "No such external store \"" << name << "\"";
       return -1;
@@ -1310,8 +1252,66 @@ int main(int argc, char* argv[]) {
     ARROW_LOG(DEBUG) << "connecting to external store...";
     ARROW_CHECK_OK(external_store->Connect(external_store_endpoint));
   }
+
+  // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
+  // to a client that has already died, the store could die.
+  signal(SIGPIPE, SIG_IGN);
+
+  g_runner.reset(new PlasmaStoreRunner());
+  signal(SIGTERM, HandleSignal);
+  g_runner->Start(socket_name, plasma_directory, hugepages_enabled, external_store);
+}
+
+}  // namespace plasma
+
+int main(int argc, char* argv[]) {
+  ArrowLog::StartArrowLog(argv[0], ArrowLogLevel::ARROW_INFO);
+  ArrowLog::InstallFailureSignalHandler();
+  std::string socket_name;
+  // Directory where plasma memory mapped files are stored.
+  std::string plasma_directory;
+  std::string external_store_endpoint;
+  bool hugepages_enabled = false;
+  int64_t system_memory = -1;
+  int c;
+  while ((c = getopt(argc, argv, "s:m:d:e:h")) != -1) {
+    switch (c) {
+      case 'd':
+        plasma_directory = std::string(optarg);
+        break;
+      case 'e':
+        external_store_endpoint = std::string(optarg);
+        break;
+      case 'h':
+        hugepages_enabled = true;
+        break;
+      case 's':
+        socket_name = std::string(optarg);
+        break;
+      case 'm': {
+        char extra;
+        int scanned = sscanf(optarg, "%" SCNd64 "%c", &system_memory, &extra);
+        ARROW_CHECK(scanned == 1);
+        break;
+      }
+      default:
+        exit(-1);
+    }
+  }
+  // Sanity check command line options.
+  if (socket_name.empty()) {
+    ARROW_LOG(FATAL) << "please specify socket for incoming connections with -s switch";
+  }
+  if (system_memory == -1) {
+    ARROW_LOG(FATAL) << "please specify the amount of system memory with -m switch";
+  }
+  if (hugepages_enabled && plasma_directory.empty()) {
+    ARROW_LOG(FATAL) << "if you want to use hugepages, please specify path to huge pages "
+                        "filesystem with -d";
+  }
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
-  plasma::StartServer(socket_name, plasma_directory, hugepages_enabled, external_store);
+  plasma::StartServer(socket_name, plasma_directory, hugepages_enabled,
+                      external_store_endpoint);
   plasma::g_runner->Shutdown();
   plasma::g_runner = nullptr;
 
