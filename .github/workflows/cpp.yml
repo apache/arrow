@@ -212,7 +212,7 @@ jobs:
     name: AMD64 Windows 2019 Conda C++
     runs-on: windows-latest
     env:
-      CMAKE_GENERATOR: Ninja
+      CMAKE_GENERATOR: "Visual Studio 16 2019"
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
