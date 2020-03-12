@@ -50,6 +50,9 @@
 namespace arrow {
 namespace compute {
 
+using StringTypes =
+    ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
+
 // ----------------------------------------------------------------------
 // Dictionary tests
 
@@ -325,43 +328,18 @@ TEST_F(TestHashKernel, DictEncodeBoolean) {
       ArrayFromJSON(boolean(), "[true]"), ArrayFromJSON(int32(), "[0, null, 0]"));
 }
 
-class TestHashKernelBinaryTypes : public TestHashKernel,
-                                  public ::testing::WithParamInterface<Type::type> {
+template <typename ArrowType>
+class TestHashKernelBinaryTypes : public TestHashKernel {
  protected:
+  std::shared_ptr<DataType> type() { return TypeTraits<ArrowType>::type_singleton(); }
+
   void CheckDictEncodeP(const std::vector<std::string>& in_values,
                         const std::vector<bool>& in_is_valid,
                         const std::vector<std::string>& out_values,
                         const std::vector<bool>& out_is_valid,
                         const std::vector<int32_t>& out_indices) {
-    switch (GetParam()) {
-      case Type::BINARY: {
-        CheckDictEncode<BinaryType, std::string>(&this->ctx_, binary(), in_values,
-                                                 in_is_valid, out_values, out_is_valid,
-                                                 out_indices);
-        break;
-      }
-      case Type::LARGE_BINARY: {
-        CheckDictEncode<LargeBinaryType, std::string>(&this->ctx_, large_binary(),
-                                                      in_values, in_is_valid, out_values,
-                                                      out_is_valid, out_indices);
-        break;
-      }
-      case Type::STRING: {
-        CheckDictEncode<StringType, std::string>(&this->ctx_, utf8(), in_values,
-                                                 in_is_valid, out_values, out_is_valid,
-                                                 out_indices);
-        break;
-      }
-      case Type::LARGE_STRING: {
-        CheckDictEncode<LargeStringType, std::string>(&this->ctx_, large_utf8(),
-                                                      in_values, in_is_valid, out_values,
-                                                      out_is_valid, out_indices);
-        break;
-      }
-      default:
-        ASSERT_TRUE(false) << "Invalid test parameter: " << GetParam();
-        break;
-    }
+    CheckDictEncode<ArrowType, std::string>(&this->ctx_, type(), in_values, in_is_valid,
+                                            out_values, out_is_valid, out_indices);
   }
 
   void CheckValueCountsP(const std::vector<std::string>& in_values,
@@ -369,127 +347,58 @@ class TestHashKernelBinaryTypes : public TestHashKernel,
                          const std::vector<std::string>& out_values,
                          const std::vector<bool>& out_is_valid,
                          const std::vector<int64_t>& out_counts) {
-    switch (GetParam()) {
-      case Type::BINARY: {
-        CheckValueCounts<BinaryType, std::string>(&this->ctx_, binary(), in_values,
-                                                  in_is_valid, out_values, out_is_valid,
-                                                  out_counts);
-        break;
-      }
-      case Type::LARGE_BINARY: {
-        CheckValueCounts<LargeBinaryType, std::string>(&this->ctx_, large_binary(),
-                                                       in_values, in_is_valid, out_values,
-                                                       out_is_valid, out_counts);
-        break;
-      }
-      case Type::STRING: {
-        CheckValueCounts<StringType, std::string>(&this->ctx_, utf8(), in_values,
-                                                  in_is_valid, out_values, out_is_valid,
-                                                  out_counts);
-        break;
-      }
-      case Type::LARGE_STRING: {
-        CheckValueCounts<LargeStringType, std::string>(&this->ctx_, large_utf8(),
-                                                       in_values, in_is_valid, out_values,
-                                                       out_is_valid, out_counts);
-        break;
-      }
-      default:
-        ASSERT_TRUE(false) << "Invalid test parameter: " << GetParam();
-        break;
-    }
+    CheckValueCounts<ArrowType, std::string>(&this->ctx_, type(), in_values, in_is_valid,
+                                             out_values, out_is_valid, out_counts);
   }
 
   void CheckUniqueP(const std::vector<std::string>& in_values,
                     const std::vector<bool>& in_is_valid,
                     const std::vector<std::string>& out_values,
                     const std::vector<bool>& out_is_valid) {
-    switch (GetParam()) {
-      case Type::BINARY: {
-        CheckUnique<BinaryType, std::string>(&this->ctx_, binary(), in_values,
-                                             in_is_valid, out_values, out_is_valid);
-        break;
-      }
-      case Type::LARGE_BINARY: {
-        CheckUnique<LargeBinaryType, std::string>(&this->ctx_, large_binary(), in_values,
-                                                  in_is_valid, out_values, out_is_valid);
-        break;
-      }
-      case Type::STRING: {
-        CheckUnique<StringType, std::string>(&this->ctx_, utf8(), in_values, in_is_valid,
-                                             out_values, out_is_valid);
-        break;
-      }
-      case Type::LARGE_STRING: {
-        CheckUnique<LargeStringType, std::string>(&this->ctx_, large_utf8(), in_values,
-                                                  in_is_valid, out_values, out_is_valid);
-        break;
-      }
-      default:
-        ASSERT_TRUE(false) << "Invalid test parameter: " << GetParam();
-        break;
-    }
-  }
-
-  std::shared_ptr<DataType> parameterized_type() {
-    switch (GetParam()) {
-      case Type::BINARY:
-        return binary();
-      case Type::LARGE_BINARY:
-        return large_binary();
-      case Type::STRING:
-        return utf8();
-      case Type::LARGE_STRING:
-        return large_utf8();
-      default:
-        return nullptr;
-    }
+    CheckUnique<ArrowType, std::string>(&this->ctx_, type(), in_values, in_is_valid,
+                                        out_values, out_is_valid);
   }
 };
 
-INSTANTIATE_TEST_CASE_P(TestHashKernelBinaryTypes, TestHashKernelBinaryTypes,
-                        ::testing::Values(Type::BINARY, Type::LARGE_BINARY, Type::STRING,
-                                          Type::LARGE_STRING));
+TYPED_TEST_CASE(TestHashKernelBinaryTypes, StringTypes);
 
-TEST_P(TestHashKernelBinaryTypes, Unique) {
-  CheckUniqueP({"test", "", "test2", "test"}, {true, false, true, true},
-               {"test", "", "test2"}, {1, 0, 1});
+TYPED_TEST(TestHashKernelBinaryTypes, Unique) {
+  this->CheckUniqueP({"test", "", "test2", "test"}, {true, false, true, true},
+                     {"test", "", "test2"}, {1, 0, 1});
 
   // Sliced
   CheckUnique(
       &this->ctx_,
-      ArrayFromJSON(parameterized_type(), R"(["ab", null, "cd", "ef", "cd", "gh"])")
-          ->Slice(1, 4),
-      ArrayFromJSON(parameterized_type(), R"([null, "cd", "ef"])"));
+      ArrayFromJSON(this->type(), R"(["ab", null, "cd", "ef", "cd", "gh"])")->Slice(1, 4),
+      ArrayFromJSON(this->type(), R"([null, "cd", "ef"])"));
 }
 
-TEST_P(TestHashKernelBinaryTypes, ValueCounts) {
-  CheckValueCountsP({"test", "", "test2", "test"}, {true, false, true, true},
-                    {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
+TYPED_TEST(TestHashKernelBinaryTypes, ValueCounts) {
+  this->CheckValueCountsP({"test", "", "test2", "test"}, {true, false, true, true},
+                          {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
 
   // Sliced
   CheckValueCounts(
       &this->ctx_,
-      ArrayFromJSON(parameterized_type(), R"(["ab", null, "cd", "ab", "cd", "ef"])")
-          ->Slice(1, 4),
-      ArrayFromJSON(parameterized_type(), R"([null, "cd", "ab"])"),
+      ArrayFromJSON(this->type(), R"(["ab", null, "cd", "ab", "cd", "ef"])")->Slice(1, 4),
+      ArrayFromJSON(this->type(), R"([null, "cd", "ab"])"),
       ArrayFromJSON(int64(), "[1, 2, 1]"));
 }
 
-TEST_P(TestHashKernelBinaryTypes, DictEncode) {
-  CheckDictEncodeP({"test", "", "test2", "test", "baz"}, {true, false, true, true, true},
-                   {"test", "test2", "baz"}, {}, {0, 0, 1, 0, 2});
+TYPED_TEST(TestHashKernelBinaryTypes, DictEncode) {
+  this->CheckDictEncodeP({"test", "", "test2", "test", "baz"},
+                         {true, false, true, true, true}, {"test", "test2", "baz"}, {},
+                         {0, 0, 1, 0, 2});
 
   // Sliced
   CheckDictEncode(
       &this->ctx_,
-      ArrayFromJSON(parameterized_type(), R"(["ab", null, "cd", "ab", "cd", "ef"])")
-          ->Slice(1, 4),
-      ArrayFromJSON(parameterized_type(), R"(["cd", "ab"])"),
+      ArrayFromJSON(this->type(), R"(["ab", null, "cd", "ab", "cd", "ef"])")->Slice(1, 4),
+      ArrayFromJSON(this->type(), R"(["cd", "ab"])"),
       ArrayFromJSON(int32(), "[null, 0, 1, 0]"));
 }
 
-TEST_P(TestHashKernelBinaryTypes, BinaryResizeTable) {
+TYPED_TEST(TestHashKernelBinaryTypes, BinaryResizeTable) {
   const int32_t kTotalValues = 10000;
 #if !defined(ARROW_VALGRIND)
   const int32_t kRepeats = 10;
@@ -517,9 +426,9 @@ TEST_P(TestHashKernelBinaryTypes, BinaryResizeTable) {
     indices.push_back(index);
   }
 
-  CheckUniqueP(values, {}, uniques, {});
-  CheckValueCountsP(values, {}, uniques, {}, counts);
-  CheckDictEncodeP(values, {}, uniques, {}, indices);
+  this->CheckUniqueP(values, {}, uniques, {});
+  this->CheckValueCountsP(values, {}, uniques, {}, counts);
+  this->CheckDictEncodeP(values, {}, uniques, {}, indices);
 }
 
 TEST_F(TestHashKernel, UniqueFixedSizeBinary) {
