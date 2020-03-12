@@ -721,6 +721,37 @@ namespace garrow {
       }
     }
 
+    arrow::Result<arrow::util::string_view> Peek(int64_t nbytes) override {
+      if (!G_IS_BUFFERED_INPUT_STREAM(input_stream_)) {
+        std::string message("[gio-input-stream][peek] "
+                            "not peekable input stream: <");
+        message += G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(input_stream_));
+        message += ">";
+        return arrow::Status::NotImplemented(message);
+      }
+
+      auto stream = G_BUFFERED_INPUT_STREAM(input_stream_);
+      auto available_n_bytes = g_buffered_input_stream_get_available(stream);
+      if (available_n_bytes < static_cast<gsize>(nbytes)) {
+        GError *error = NULL;
+        auto filled_size =
+          g_buffered_input_stream_fill(stream, nbytes, NULL, &error);
+        if (filled_size == -1) {
+          return garrow_error_to_status(error,
+                                        arrow::StatusCode::IOError,
+                                        "[gio-input-stream][peek] "
+                                        "failed to fill");
+        }
+      }
+      gsize data_size;
+      auto data = g_buffered_input_stream_peek_buffer(stream, &data_size);
+      if (data_size > static_cast<gsize>(nbytes)) {
+        data_size = nbytes;
+      }
+      return arrow::util::string_view(static_cast<const char *>(data),
+                                      data_size);
+    }
+
     arrow::Status Seek(int64_t position) override {
       if (!G_IS_SEEKABLE(input_stream_)) {
         std::string message("[gio-input-stream][seek] "
