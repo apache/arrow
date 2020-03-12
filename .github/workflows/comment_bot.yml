@@ -1,0 +1,62 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Comment Bot
+
+on:
+  # TODO(kszucs): support pull_request_review_comment
+  issue_comment:
+    types:
+      - created
+      - edited
+
+jobs:
+
+  debug:
+    name: Debug
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          path: arrow
+      # in order to generate version number based on git we need the tags
+      # fetched but checkout@v2 doesn't do that by default
+      - name: Featch Arrow tags
+        working-directory: arrow
+        run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+      # because libgit2 is a dependency of crossbow so prefer conda
+      - name: Setup Conda
+        uses: s-weigand/setup-conda@v1
+        with:
+          update-conda: true
+          python-version: 3.7
+          conda-channels: conda-forge
+      - name: Instal Archery and Crossbow dependencies
+        run: |
+          conda install -y --file arrow/ci/conda_env_crossbow.txt pygithub
+          pip install -e arrow/dev/archery
+      - name: Handle Github comment event
+        env:
+          ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CROSSBOW_GITHUB_TOKEN: ${{ secrets.CROSSBOW_GITHUB_TOKEN }}
+        run: |
+          archery trigger-bot \
+            --event-name ${{ github.event_name }} \
+            --event-payload ${{ github.event_path }}
+
+

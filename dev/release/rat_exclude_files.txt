@@ -40,6 +40,8 @@ cpp/src/plasma/thirdparty/dlmalloc.c
 cpp/thirdparty/flatbuffers/include/flatbuffers/base.h
 cpp/thirdparty/flatbuffers/include/flatbuffers/flatbuffers.h
 cpp/thirdparty/flatbuffers/include/flatbuffers/stl_emulation.h
+dev/archery/requirements*.txt
+dev/archery/archery/tests/fixtures/*
 dev/release/rat_exclude_files.txt
 dev/tasks/homebrew-formulae/apache-arrow.rb
 dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/apache-arrow-archive-keyring.install

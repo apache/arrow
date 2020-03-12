@@ -55,7 +55,13 @@ RUN rustup install ${rust} && \
 # Use python3 by default in scripts
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip
-RUN pip install flake8 cmake_format==0.5.2 click
+
+COPY dev/archery/requirements.txt \
+     dev/archery/requirements-lint.txt \
+     /arrow/dev/archery/
+RUN pip install \
+      -r arrow/dev/archery/requirements.txt \
+      -r arrow/dev/archery/requirements-lint.txt
 
 ENV LC_ALL=C.UTF-8 \
     LANG=C.UTF-8
