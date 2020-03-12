@@ -95,6 +95,12 @@ ARROW_PYTHON_EXPORT bool is_table(PyObject* table);
 ARROW_PYTHON_EXPORT Status unwrap_table(PyObject* table, std::shared_ptr<Table>* out);
 ARROW_PYTHON_EXPORT PyObject* wrap_table(const std::shared_ptr<Table>& table);
 
+ARROW_PYTHON_EXPORT bool is_sparse_csf_tensor(PyObject* sparse_tensor);
+ARROW_PYTHON_EXPORT Status
+unwrap_sparse_csf_tensor(PyObject* sparse_tensor, std::shared_ptr<SparseCSFTensor>* out);
+ARROW_PYTHON_EXPORT PyObject* wrap_sparse_csf_tensor(
+    const std::shared_ptr<SparseCSFTensor>& sparse_tensor);
+
 ARROW_PYTHON_EXPORT bool is_record_batch(PyObject* batch);
 ARROW_PYTHON_EXPORT Status unwrap_record_batch(PyObject* batch,
                                                std::shared_ptr<RecordBatch>* out);
