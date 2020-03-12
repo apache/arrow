@@ -243,13 +243,13 @@ jobs:
         with:
           auto-update-conda: true
       - name: Create Environment
-        shell: bash
+        shell: bash -l {0}
         run: |
           conda create -n arrow -c conda-forge \
             --file ci/conda_env_cpp.yml \
             --file ci/conda_env_gandiva.yml
       - name: Activate Environment
-        shell: bash
+        shell: bash -l {0}
         run: |
           conda activate arrow
           conda --version
@@ -257,10 +257,10 @@ jobs:
           conda env list
           env
       - name: Build
-        shell: bash
+        shell: bash -l {0}
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
-        shell: bash
+        shell: bash -l {0}
         run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   # windows-mingw:
