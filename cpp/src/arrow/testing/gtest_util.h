@@ -398,7 +398,7 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
 }
 
 // Returns a table with 0 rows of a given schema.
-std::shared_ptr<Table> MockTable(std::shared_ptr<Schema> schema);
+ARROW_EXPORT std::shared_ptr<Table> MockTable(std::shared_ptr<Schema> schema);
 
 template <typename T>
 void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {

@@ -297,32 +297,38 @@ class BaseCompareExpr : public CompareOpExpr, private CompareOpExpr::MakeMixin<D
 class ARROW_EN_EXPORT EqualExpr : public BaseCompareExpr<EqualExpr> {
  protected:
   using BaseCompareExpr<EqualExpr>::BaseCompareExpr;
+  friend CompareOpExpr::MakeMixin<EqualExpr>;
 };
 
 class ARROW_EN_EXPORT NotEqualExpr : public BaseCompareExpr<NotEqualExpr> {
  protected:
   using BaseCompareExpr<NotEqualExpr>::BaseCompareExpr;
+  friend CompareOpExpr::MakeMixin<NotEqualExpr>;
 };
 
 class ARROW_EN_EXPORT GreaterThanExpr : public BaseCompareExpr<GreaterThanExpr> {
  protected:
   using BaseCompareExpr<GreaterThanExpr>::BaseCompareExpr;
+  friend CompareOpExpr::MakeMixin<GreaterThanExpr>;
 };
 
 class ARROW_EN_EXPORT GreaterThanEqualExpr
     : public BaseCompareExpr<GreaterThanEqualExpr> {
  protected:
   using BaseCompareExpr<GreaterThanEqualExpr>::BaseCompareExpr;
+  friend CompareOpExpr::MakeMixin<GreaterThanEqualExpr>;
 };
 
 class ARROW_EN_EXPORT LessThanExpr : public BaseCompareExpr<LessThanExpr> {
  protected:
   using BaseCompareExpr<LessThanExpr>::BaseCompareExpr;
+  friend CompareOpExpr::MakeMixin<LessThanExpr>;
 };
 
 class ARROW_EN_EXPORT LessThanEqualExpr : public BaseCompareExpr<LessThanEqualExpr> {
  protected:
   using BaseCompareExpr<LessThanEqualExpr>::BaseCompareExpr;
+  friend CompareOpExpr::MakeMixin<LessThanEqualExpr>;
 };
 
 ///
@@ -330,15 +336,13 @@ class ARROW_EN_EXPORT LessThanEqualExpr : public BaseCompareExpr<LessThanEqualEx
 ///
 
 /// \brief Relational Expressions that acts on tables.
-template <typename Derived>
 class ARROW_EN_EXPORT RelExpr : public Expr {
  public:
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
  protected:
-  explicit RelExpr(std::shared_ptr<Schema> schema)
-      : Expr(expr_traits<Derived>::kind_id, ExprType::Table(schema)),
-        schema_(std::move(schema)) {}
+  explicit RelExpr(ExprKind kind, std::shared_ptr<Schema> schema)
+      : Expr(kind, ExprType::Table(schema)), schema_(std::move(schema)) {}
 
   std::shared_ptr<Schema> schema_;
 };
@@ -353,12 +357,12 @@ class ARROW_EN_EXPORT RelExpr : public Expr {
 ///
 /// \input schema, the schema of the empty relation
 /// \ouput relation with no rows of the given input schema
-class ARROW_EN_EXPORT EmptyRelExpr : public RelExpr<EmptyRelExpr> {
+class ARROW_EN_EXPORT EmptyRelExpr : public RelExpr {
  public:
   static Result<std::shared_ptr<EmptyRelExpr>> Make(std::shared_ptr<Schema> schema);
 
  protected:
-  using RelExpr<EmptyRelExpr>::RelExpr;
+  explicit EmptyRelExpr(std::shared_ptr<Schema> schema);
 };
 
 /// \brief Materialize a relation from a dataset.
@@ -374,7 +378,7 @@ class ARROW_EN_EXPORT EmptyRelExpr : public RelExpr<EmptyRelExpr> {
 /// ```
 /// SELECT * FROM table;
 /// ```
-class ARROW_EN_EXPORT ScanRelExpr : public RelExpr<ScanRelExpr> {
+class ARROW_EN_EXPORT ScanRelExpr : public RelExpr {
  public:
   static Result<std::shared_ptr<ScanRelExpr>> Make(Catalog::Entry input);
 
@@ -402,8 +406,7 @@ class ARROW_EN_EXPORT ScanRelExpr : public RelExpr<ScanRelExpr> {
 /// ```
 /// SELECT a, b, a + b, 1, mean(a) > b FROM relation;
 /// ```
-class ARROW_EN_EXPORT ProjectionRelExpr : public UnaryOpMixin,
-                                          public RelExpr<ProjectionRelExpr> {
+class ARROW_EN_EXPORT ProjectionRelExpr : public UnaryOpMixin, public RelExpr {
  public:
   static Result<std::shared_ptr<ProjectionRelExpr>> Make(
       std::shared_ptr<Expr> input, std::vector<std::shared_ptr<Expr>> expressions);
@@ -428,7 +431,7 @@ class ARROW_EN_EXPORT ProjectionRelExpr : public UnaryOpMixin,
 /// ```
 /// SELECT * FROM relation WHERE predicate
 /// ```
-class ARROW_EN_EXPORT FilterRelExpr : public UnaryOpMixin, public RelExpr<FilterRelExpr> {
+class ARROW_EN_EXPORT FilterRelExpr : public UnaryOpMixin, public RelExpr {
  public:
   static Result<std::shared_ptr<FilterRelExpr>> Make(std::shared_ptr<Expr> input,
                                                      std::shared_ptr<Expr> predicate);

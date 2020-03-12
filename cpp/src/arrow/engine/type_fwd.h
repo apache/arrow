@@ -68,7 +68,6 @@ class GreaterThanEqualExpr;
 class LessThanExpr;
 class LessThanEqualExpr;
 
-template <typename Derived>
 class RelExpr;
 
 class EmptyRelExpr;

@@ -336,6 +336,9 @@ Result<std::shared_ptr<FieldRefExpr>> FieldRefExpr::Make(std::shared_ptr<Expr> i
 // EmptyRelExpr
 //
 
+EmptyRelExpr::EmptyRelExpr(std::shared_ptr<Schema> schema)
+    : RelExpr(ExprKind::EMPTY_REL, std::move(schema)) {}
+
 Result<std::shared_ptr<EmptyRelExpr>> EmptyRelExpr::Make(std::shared_ptr<Schema> schema) {
   ERROR_IF(schema == nullptr, "EmptyRelExpr schema must be non-null");
   return std::shared_ptr<EmptyRelExpr>(new EmptyRelExpr(std::move(schema)));
@@ -346,7 +349,7 @@ Result<std::shared_ptr<EmptyRelExpr>> EmptyRelExpr::Make(std::shared_ptr<Schema>
 //
 
 ScanRelExpr::ScanRelExpr(Catalog::Entry input)
-    : RelExpr(input.schema()), input_(std::move(input)) {}
+    : RelExpr(ExprKind::SCAN_REL, input.schema()), input_(std::move(input)) {}
 
 Result<std::shared_ptr<ScanRelExpr>> ScanRelExpr::Make(Catalog::Entry input) {
   return std::shared_ptr<ScanRelExpr>(new ScanRelExpr(std::move(input)));
@@ -360,7 +363,7 @@ ProjectionRelExpr::ProjectionRelExpr(std::shared_ptr<Expr> input,
                                      std::shared_ptr<Schema> schema,
                                      std::vector<std::shared_ptr<Expr>> expressions)
     : UnaryOpMixin(std::move(input)),
-      RelExpr(std::move(schema)),
+      RelExpr(ExprKind::PROJECTION_REL, std::move(schema)),
       expressions_(std::move(expressions)) {}
 
 Result<std::shared_ptr<ProjectionRelExpr>> ProjectionRelExpr::Make(
@@ -403,7 +406,7 @@ Result<std::shared_ptr<FilterRelExpr>> FilterRelExpr::Make(
 
 FilterRelExpr::FilterRelExpr(std::shared_ptr<Expr> input, std::shared_ptr<Expr> predicate)
     : UnaryOpMixin(std::move(input)),
-      RelExpr(operand()->type().schema()),
+      RelExpr(ExprKind::FILTER_REL, operand()->type().schema()),
       predicate_(std::move(predicate)) {}
 
 #undef ERROR_IF
