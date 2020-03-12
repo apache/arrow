@@ -65,8 +65,7 @@ set PYARROW_BUNDLE_ARROW_CPP=1
 set SETUPTOOLS_SCM_PRETEND_VERSION=%PYARROW_VERSION%
 
 pushd %ARROW_SRC%\python
-python setup.py build_ext --extra-cmake-args="-DZLIB_ROOT=%CONDA_PREFIX%\Library"
-       bdist_wheel || exit /B
+python setup.py build_ext --extra-cmake-args="-DZLIB_ROOT=%CONDA_PREFIX%\Library" bdist_wheel || exit /B
 popd
 
 call conda.bat deactivate
