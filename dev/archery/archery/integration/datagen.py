@@ -35,13 +35,17 @@ class Field(object):
         self.metadata = metadata
 
     def get_json(self):
-        return OrderedDict([
+        entries = [
             ('name', self.name),
             ('type', self._get_type()),
             ('nullable', self.nullable),
-            ('children', self._get_children()),
-            ('metadata', self.metadata)
-        ])
+            ('children', self._get_children())
+        ]
+
+        if self.metadata is not None and len(self.metadata) > 0:
+            entries.append(('metadata', self.metadata))
+
+        return OrderedDict(entries)
 
     def _make_is_valid(self, size):
         if self.nullable:
@@ -561,10 +565,14 @@ class Schema(object):
         self.metadata = metadata
 
     def get_json(self):
-        return OrderedDict([
-            ('fields', [field.get_json() for field in self.fields]),
-            ('metadata', self.metadata)
-        ])
+        entries = [
+            ('fields', [field.get_json() for field in self.fields])
+        ]
+
+        if self.metadata is not None and len(self.metadata) > 0:
+            entries.append(('metadata', self.metadata))
+
+        return OrderedDict(entries)
 
 
 class BinaryColumn(PrimitiveColumn):

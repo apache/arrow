@@ -112,7 +112,7 @@ class SchemaWriter {
   }
 
   void WriteKeyValueMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata) {
-    if (metadata == nullptr) {
+    if (metadata == nullptr || metadata->size() == 0) {
       return;
     }
     writer_->Key("metadata");
