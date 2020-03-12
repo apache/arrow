@@ -190,13 +190,16 @@ class ARROW_EXPORT ArrayBuilder {
     return Status::OK();
   }
 
-  static Status CheckCapacity(int64_t new_capacity, int64_t old_capacity) {
-    if (new_capacity < 0) {
-      return Status::Invalid("Resize capacity must be positive");
+  // Check the requested capacity for validity
+  Status CheckCapacity(int64_t new_capacity) {
+    if (ARROW_PREDICT_FALSE(new_capacity < 0)) {
+      return Status::Invalid(
+          "Resize capacity must be positive (requested: ", new_capacity, ")");
     }
 
-    if (new_capacity < old_capacity) {
-      return Status::Invalid("Resize cannot downsize");
+    if (ARROW_PREDICT_FALSE(new_capacity < length_)) {
+      return Status::Invalid("Resize cannot downsize (requested: ", new_capacity,
+                             ", current length: ", length_, ")");
     }
 
     return Status::OK();

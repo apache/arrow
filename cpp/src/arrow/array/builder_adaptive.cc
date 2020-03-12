@@ -47,7 +47,7 @@ void AdaptiveIntBuilderBase::Reset() {
 }
 
 Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
-  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  RETURN_NOT_OK(CheckCapacity(capacity));
   capacity = std::max(capacity, kMinBuilderCapacity);
 
   int64_t nbytes = capacity * int_size_;

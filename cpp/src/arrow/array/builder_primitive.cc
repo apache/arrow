@@ -58,7 +58,7 @@ void BooleanBuilder::Reset() {
 }
 
 Status BooleanBuilder::Resize(int64_t capacity) {
-  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  RETURN_NOT_OK(CheckCapacity(capacity));
   capacity = std::max(capacity, kMinBuilderCapacity);
   RETURN_NOT_OK(data_builder_.Resize(capacity));
   return ArrayBuilder::Resize(capacity);

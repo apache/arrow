@@ -397,9 +397,17 @@ TEST_F(TestBuilder, TestResizeDownsize) {
 
   ASSERT_OK(builder.Resize(1000));
   ASSERT_EQ(1000, builder.capacity());
+  ASSERT_EQ(0, builder.length());
+  ASSERT_OK(builder.AppendNulls(500));
+  ASSERT_EQ(1000, builder.capacity());
+  ASSERT_EQ(500, builder.length());
 
-  // Can't downsize.
-  ASSERT_RAISES(Invalid, builder.Resize(500));
+  // Can downsize below current capacity
+  ASSERT_OK(builder.Resize(500));
+  // ... but not below current populated length
+  ASSERT_RAISES(Invalid, builder.Resize(499));
+  ASSERT_GE(500, builder.capacity());
+  ASSERT_EQ(500, builder.length());
 }
 
 template <typename Attrs>

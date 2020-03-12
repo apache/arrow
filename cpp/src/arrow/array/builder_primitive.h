@@ -101,7 +101,7 @@ class NumericBuilder : public ArrayBuilder {
   void Reset() override { data_builder_.Reset(); }
 
   Status Resize(int64_t capacity) override {
-    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
     capacity = std::max(capacity, kMinBuilderCapacity);
     ARROW_RETURN_NOT_OK(data_builder_.Resize(capacity));
     return ArrayBuilder::Resize(capacity);
