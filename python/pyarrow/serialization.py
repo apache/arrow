@@ -301,8 +301,9 @@ def _register_collections_serialization_handlers(serialization_context):
 
 def _register_scipy_handlers(serialization_context):
     try:
-        from scipy.sparse import csr_matrix, coo_matrix, isspmatrix_coo, \
-                                 isspmatrix_csr, isspmatrix
+        from scipy.sparse import (csr_matrix, csc_matrix, coo_matrix,
+                                  isspmatrix_coo,  isspmatrix_csr,
+                                  isspmatrix_csc, isspmatrix)
 
         def _serialize_scipy_sparse(obj):
             if isspmatrix_coo(obj):
@@ -310,6 +311,9 @@ def _register_scipy_handlers(serialization_context):
 
             elif isspmatrix_csr(obj):
                 return 'csr', pa.SparseCSRMatrix.from_scipy(obj)
+
+            elif isspmatrix_csc(obj):
+                return 'csc', pa.SparseCSCMatrix.from_scipy(obj)
 
             elif isspmatrix(obj):
                 return 'csr', pa.SparseCOOTensor.from_scipy(obj.to_coo())
@@ -325,6 +329,9 @@ def _register_scipy_handlers(serialization_context):
             elif data[0] == 'csr':
                 return data[1].to_scipy()
 
+            elif data[0] == 'csc':
+                return data[1].to_scipy()
+
             else:
                 return data[1].to_scipy()
 
@@ -335,6 +342,11 @@ def _register_scipy_handlers(serialization_context):
 
         serialization_context.register_type(
             csr_matrix, 'scipy.sparse.csr.csr_matrix',
+            custom_serializer=_serialize_scipy_sparse,
+            custom_deserializer=_deserialize_scipy_sparse)
+
+        serialization_context.register_type(
+            csc_matrix, 'scipy.sparse.csc.csc_matrix',
             custom_serializer=_serialize_scipy_sparse,
             custom_deserializer=_deserialize_scipy_sparse)
 

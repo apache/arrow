@@ -173,6 +173,24 @@ PyObject* wrap_sparse_csr_matrix(const std::shared_ptr<SparseCSRMatrix>& sparse_
   return ::pyarrow_wrap_sparse_csr_matrix(sparse_tensor);
 }
 
+bool is_sparse_csc_matrix(PyObject* sparse_tensor) {
+  return ::pyarrow_is_sparse_csc_matrix(sparse_tensor) != 0;
+}
+
+Status unwrap_sparse_csc_matrix(PyObject* sparse_tensor,
+                                std::shared_ptr<SparseCSCMatrix>* out) {
+  *out = ::pyarrow_unwrap_sparse_csc_matrix(sparse_tensor);
+  if (*out) {
+    return Status::OK();
+  } else {
+    return UnwrapError(sparse_tensor, "SparseCSCMatrix");
+  }
+}
+
+PyObject* wrap_sparse_csc_matrix(const std::shared_ptr<SparseCSCMatrix>& sparse_tensor) {
+  return ::pyarrow_wrap_sparse_csc_matrix(sparse_tensor);
+}
+
 bool is_table(PyObject* table) { return ::pyarrow_is_table(table) != 0; }
 
 Status unwrap_table(PyObject* table, std::shared_ptr<Table>* out) {

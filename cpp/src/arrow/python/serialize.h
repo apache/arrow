@@ -134,6 +134,7 @@ struct PythonType {
     BUFFER,
     SPARSECOOTENSOR,
     SPARSECSRMATRIX,
+    SPARSECSCMATRIX,
     NUM_PYTHON_TYPES
   };
 };

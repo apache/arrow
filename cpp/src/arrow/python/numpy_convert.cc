@@ -335,27 +335,53 @@ Status SparseCOOTensorToNdarray(const std::shared_ptr<SparseCOOTensor>& sparse_t
   return Status::OK();
 }
 
-Status SparseCSRMatrixToNdarray(const std::shared_ptr<SparseCSRMatrix>& sparse_tensor,
+Status SparseCSXMatrixToNdarray(const std::shared_ptr<SparseTensor>& sparse_tensor,
                                 PyObject* base, PyObject** out_data,
                                 PyObject** out_indptr, PyObject** out_indices) {
-  const auto& sparse_index = arrow::internal::checked_cast<const SparseCSRIndex&>(
-      *sparse_tensor->sparse_index());
+  // Wrap indices
+  OwnedRef result_indptr;
+  OwnedRef result_indices;
+
+  switch (sparse_tensor->format_id()) {
+    case SparseTensorFormat::CSR: {
+      const auto& sparse_index = arrow::internal::checked_cast<const SparseCSRIndex&>(
+          *sparse_tensor->sparse_index());
+      RETURN_NOT_OK(TensorToNdarray(sparse_index.indptr(), base, result_indptr.ref()));
+      RETURN_NOT_OK(TensorToNdarray(sparse_index.indices(), base, result_indices.ref()));
+      break;
+    }
+    case SparseTensorFormat::CSC: {
+      const auto& sparse_index = arrow::internal::checked_cast<const SparseCSCIndex&>(
+          *sparse_tensor->sparse_index());
+      RETURN_NOT_OK(TensorToNdarray(sparse_index.indptr(), base, result_indptr.ref()));
+      RETURN_NOT_OK(TensorToNdarray(sparse_index.indices(), base, result_indices.ref()));
+      break;
+    }
+    default:
+      return Status::NotImplemented("Invalid SparseTensor type.");
+  }
 
   // Wrap tensor data
   OwnedRef result_data;
   RETURN_NOT_OK(SparseTensorDataToNdarray(
       *sparse_tensor, {sparse_tensor->non_zero_length(), 1}, base, result_data.ref()));
 
-  // Wrap indices
-  OwnedRef result_indptr;
-  OwnedRef result_indices;
-  RETURN_NOT_OK(TensorToNdarray(sparse_index.indptr(), base, result_indptr.ref()));
-  RETURN_NOT_OK(TensorToNdarray(sparse_index.indices(), base, result_indices.ref()));
-
   *out_data = result_data.detach();
   *out_indptr = result_indptr.detach();
   *out_indices = result_indices.detach();
   return Status::OK();
+}
+
+Status SparseCSRMatrixToNdarray(const std::shared_ptr<SparseCSRMatrix>& sparse_tensor,
+                                PyObject* base, PyObject** out_data,
+                                PyObject** out_indptr, PyObject** out_indices) {
+  return SparseCSXMatrixToNdarray(sparse_tensor, base, out_data, out_indptr, out_indices);
+}
+
+Status SparseCSCMatrixToNdarray(const std::shared_ptr<SparseCSCMatrix>& sparse_tensor,
+                                PyObject* base, PyObject** out_data,
+                                PyObject** out_indptr, PyObject** out_indices) {
+  return SparseCSXMatrixToNdarray(sparse_tensor, base, out_data, out_indptr, out_indices);
 }
 
 Status NdarraysToSparseCOOTensor(MemoryPool* pool, PyObject* data_ao, PyObject* coords_ao,
@@ -383,10 +409,11 @@ Status NdarraysToSparseCOOTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
   return Status::OK();
 }
 
-Status NdarraysToSparseCSRMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
+template <class IndexType>
+Status NdarraysToSparseCSXMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
                                  PyObject* indices_ao, const std::vector<int64_t>& shape,
                                  const std::vector<std::string>& dim_names,
-                                 std::shared_ptr<SparseCSRMatrix>* out) {
+                                 std::shared_ptr<SparseTensorImpl<IndexType>>* out) {
   if (!PyArray_Check(data_ao) || !PyArray_Check(indptr_ao) ||
       !PyArray_Check(indices_ao)) {
     return Status::TypeError("Did not pass ndarray object");
@@ -404,12 +431,28 @@ Status NdarraysToSparseCSRMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* 
   ARROW_CHECK_EQ(indptr->type_id(), Type::INT64);   // Should be ensured by caller
   ARROW_CHECK_EQ(indices->type_id(), Type::INT64);  // Should be ensured by caller
 
-  auto sparse_index = std::make_shared<SparseCSRIndex>(
+  auto sparse_index = std::make_shared<IndexType>(
       std::static_pointer_cast<NumericTensor<Int64Type>>(indptr),
       std::static_pointer_cast<NumericTensor<Int64Type>>(indices));
-  *out = std::make_shared<SparseTensorImpl<SparseCSRIndex>>(sparse_index, type_data, data,
-                                                            shape, dim_names);
+  *out = std::make_shared<SparseTensorImpl<IndexType>>(sparse_index, type_data, data,
+                                                       shape, dim_names);
   return Status::OK();
+}
+
+Status NdarraysToSparseCSRMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
+                                 PyObject* indices_ao, const std::vector<int64_t>& shape,
+                                 const std::vector<std::string>& dim_names,
+                                 std::shared_ptr<SparseCSRMatrix>* out) {
+  return NdarraysToSparseCSXMatrix<SparseCSRIndex>(pool, data_ao, indptr_ao, indices_ao,
+                                                   shape, dim_names, out);
+}
+
+Status NdarraysToSparseCSCMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
+                                 PyObject* indices_ao, const std::vector<int64_t>& shape,
+                                 const std::vector<std::string>& dim_names,
+                                 std::shared_ptr<SparseCSCMatrix>* out) {
+  return NdarraysToSparseCSXMatrix<SparseCSCIndex>(pool, data_ao, indptr_ao, indices_ao,
+                                                   shape, dim_names, out);
 }
 
 Status TensorToSparseCOOTensor(const std::shared_ptr<Tensor>& tensor,
@@ -420,6 +463,11 @@ Status TensorToSparseCOOTensor(const std::shared_ptr<Tensor>& tensor,
 Status TensorToSparseCSRMatrix(const std::shared_ptr<Tensor>& tensor,
                                std::shared_ptr<SparseCSRMatrix>* out) {
   return SparseCSRMatrix::Make(*tensor).Value(out);
+}
+
+Status TensorToSparseCSCMatrix(const std::shared_ptr<Tensor>& tensor,
+                               std::shared_ptr<SparseCSCMatrix>* out) {
+  return SparseCSCMatrix::Make(*tensor).Value(out);
 }
 
 }  // namespace py

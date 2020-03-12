@@ -40,10 +40,11 @@ except ImportError:
     sys.modules['torch'] = None
 
 try:
-    from scipy.sparse import csr_matrix, coo_matrix
+    from scipy.sparse import coo_matrix, csr_matrix, csc_matrix
 except ImportError:
     coo_matrix = None
     csr_matrix = None
+    csc_matrix = None
 
 try:
     import sparse
@@ -120,6 +121,9 @@ def assert_equal(obj1, obj2):
         assert obj1.equals(obj2)
     elif isinstance(obj1, pa.SparseCSRMatrix) and \
             isinstance(obj2, pa.SparseCSRMatrix):
+        assert obj1.equals(obj2)
+    elif isinstance(obj1, pa.SparseCSCMatrix) and \
+            isinstance(obj2, pa.SparseCSCMatrix):
         assert obj1.equals(obj2)
     elif isinstance(obj1, pa.RecordBatch) and isinstance(obj2, pa.RecordBatch):
         assert obj1.equals(obj2)
@@ -550,6 +554,7 @@ def test_sparse_coo_tensor_serialization(index_type, tensor_type):
     serialized = pa.serialize(sparse_tensor, context=context).to_buffer()
     result = pa.deserialize(serialized)
     assert_equal(result, sparse_tensor)
+    assert isinstance(result, pa.SparseCOOTensor)
 
     data_result, coords_result = result.to_numpy()
     assert np.array_equal(data_result, data)
@@ -623,6 +628,8 @@ def test_sparse_csr_matrix_serialization(index_type, tensor_type):
     context = pa.default_serialization_context()
     serialized = pa.serialize(sparse_tensor, context=context).to_buffer()
     result = pa.deserialize(serialized)
+    assert_equal(result, sparse_tensor)
+    assert isinstance(result, pa.SparseCSRMatrix)
 
     data_result, indptr_result, indices_result = result.to_numpy()
     assert np.array_equal(data_result, data)
@@ -656,6 +663,64 @@ def test_scipy_sparse_csr_matrix_serialization():
     shape = (4, 6)
 
     sparse_array = csr_matrix((data, indices, indptr), shape=shape)
+    serialized = pa.serialize(sparse_array)
+    result = serialized.deserialize()
+
+    assert np.array_equal(sparse_array.toarray(), result.toarray())
+
+
+@pytest.mark.parametrize('tensor_type', tensor_types)
+@pytest.mark.parametrize('index_type', index_types)
+def test_sparse_csc_matrix_serialization(index_type, tensor_type):
+    tensor_dtype = np.dtype(tensor_type)
+    index_dtype = np.dtype(index_type)
+    data = np.array([[8, 2, 5, 3, 4, 6]]).T.astype(tensor_dtype)
+    indptr = np.array([0, 2, 3, 4, 6]).astype(index_dtype)
+    indices = np.array([0, 2, 5, 0, 4, 5]).astype(index_dtype)
+    shape = (6, 4)
+    dim_names = ('x', 'y')
+
+    sparse_tensor = pa.SparseCSCMatrix.from_numpy(data, indptr, indices,
+                                                  shape, dim_names)
+
+    context = pa.default_serialization_context()
+    serialized = pa.serialize(sparse_tensor, context=context).to_buffer()
+    result = pa.deserialize(serialized)
+    assert_equal(result, sparse_tensor)
+    assert isinstance(result, pa.SparseCSCMatrix)
+
+    data_result, indptr_result, indices_result = result.to_numpy()
+    assert np.array_equal(data_result, data)
+    assert np.array_equal(indptr_result, indptr)
+    assert np.array_equal(indices_result, indices)
+    assert result.dim_names == dim_names
+
+
+@pytest.mark.parametrize('tensor_type', tensor_types)
+@pytest.mark.parametrize('index_type', index_types)
+def test_sparse_csc_matrix_components_serialization(large_buffer,
+                                                    index_type, tensor_type):
+    tensor_dtype = np.dtype(tensor_type)
+    index_dtype = np.dtype(index_type)
+    data = np.array([8, 2, 5, 3, 4, 6]).astype(tensor_dtype)
+    indptr = np.array([0, 2, 3, 6]).astype(index_dtype)
+    indices = np.array([0, 2, 2, 0, 1, 2]).astype(index_dtype)
+    shape = (3, 3)
+    dim_names = ('x', 'y')
+
+    sparse_tensor = pa.SparseCSCMatrix.from_numpy(data, indptr, indices,
+                                                  shape, dim_names)
+    serialization_roundtrip(sparse_tensor, large_buffer)
+
+
+@pytest.mark.skipif(not csc_matrix, reason="requires scipy")
+def test_scipy_sparse_csc_matrix_serialization():
+    data = np.array([8, 2, 5, 3, 4, 6])
+    indptr = np.array([0, 2, 3, 4, 6])
+    indices = np.array([0, 2, 5, 0, 4, 5])
+    shape = (6, 4)
+
+    sparse_array = csc_matrix((data, indices, indptr), shape=shape)
     serialized = pa.serialize(sparse_array)
     result = serialized.deserialize()
 
@@ -864,7 +929,7 @@ def test_serialize_to_components_invalid_cases():
 
     components = {
         'num_tensors': 0,
-        'num_sparse_tensors': {'coo': 0, 'csr': 0},
+        'num_sparse_tensors': {'coo': 0, 'csr': 0, 'csc': 0},
         'num_ndarrays': 0,
         'num_buffers': 1,
         'data': [buf]
@@ -875,7 +940,7 @@ def test_serialize_to_components_invalid_cases():
 
     components = {
         'num_tensors': 0,
-        'num_sparse_tensors': {'coo': 0, 'csr': 0},
+        'num_sparse_tensors': {'coo': 0, 'csr': 0, 'csc': 0},
         'num_ndarrays': 1,
         'num_buffers': 0,
         'data': [buf, buf]

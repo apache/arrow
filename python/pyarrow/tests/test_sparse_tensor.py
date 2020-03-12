@@ -50,6 +50,7 @@ tensor_type_pairs = [
 
 @pytest.mark.parametrize('sparse_tensor_type', [
     pa.SparseCSRMatrix,
+    pa.SparseCSCMatrix,
     pa.SparseCOOTensor,
 ])
 def test_sparse_tensor_attrs(sparse_tensor_type):
@@ -117,6 +118,7 @@ def test_sparse_csr_matrix_base_object():
 
 @pytest.mark.parametrize('sparse_tensor_type', [
     pa.SparseCSRMatrix,
+    pa.SparseCSCMatrix,
     pa.SparseCOOTensor,
 ])
 def test_sparse_tensor_equals(sparse_tensor_type):
@@ -251,6 +253,7 @@ def test_sparse_csr_matrix_numpy_roundtrip(dtype_str, arrow_type):
 
 @pytest.mark.parametrize('sparse_tensor_type', [
     pa.SparseCSRMatrix,
+    pa.SparseCSCMatrix,
     pa.SparseCOOTensor,
 ])
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
