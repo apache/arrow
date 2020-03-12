@@ -248,20 +248,16 @@ jobs:
           conda create -n arrow -c conda-forge \
             --file ci/conda_env_cpp.yml \
             --file ci/conda_env_gandiva.yml
-      - name: Activate Environment
+      - name: Build
         shell: bash -l {0}
         run: |
           conda activate arrow
-          conda --version
-          which python
-          conda env list
-          env
-      - name: Build
-        shell: bash -l {0}
-        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash -l {0}
-        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+        run: |
+          conda activate arrow
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   # windows-mingw:
   #   name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
