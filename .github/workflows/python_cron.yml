@@ -112,7 +112,7 @@ jobs:
           - dask
           - hdfs
           - turbodbc
-          - kartothek
+          - kartothek-master
           - pandas-master
           - pandas-0.24
         include:
@@ -122,9 +122,10 @@ jobs:
           - name: turbodbc
             library: turbodbc
             title: Turbodbc
-          - name: kartothek
+          - name: kartothek-master
             library: kartothek
-            title: Kartothek
+            kartothek: master
+            title: Kartothek master
           - name: pandas-0.24
             library: pandas
             title: Pandas 0.24
@@ -141,7 +142,7 @@ jobs:
       DASK: latest
       TURBODBC: latest
       PANDAS: ${{ matrix.pandas || 'latest' }}
-      KARTOTHEK: master
+      KARTOTHEK: ${{ matrix.kartothek || 'latest' }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
