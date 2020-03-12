@@ -183,6 +183,10 @@ cdef class FileSelector:
     def recursive(self, bint recursive):
         self.selector.recursive = recursive
 
+    def __repr__(self):
+        return ("<FileSelector base_dir={0.base_dir!r} "
+                "recursive={0.recursive}>".format(self))
+
 
 cdef class FileSystem:
     """Abstract file system API"""

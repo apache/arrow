@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
 import operator
 
 import numpy as np
@@ -639,7 +638,6 @@ def test_open_dataset_list_of_files(tempdir):
         assert result.equals(table)
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="fails on windows")
 @pytest.mark.parquet
 def test_open_dataset_partitioned_directory(tempdir):
     import pyarrow.parquet as pq
