@@ -22,13 +22,11 @@ only_commits:
   # Skip commits not related to Python, C++, R, or Ruby
   files:
     - appveyor.yml
-    - c_glib/
     - ci/
     - cpp/
     - format/
     - python/
     - r/
-    - ruby/
 
 cache:
   - C:\Users\Appveyor\clcache1
@@ -75,18 +73,6 @@ environment:
     # NOTE: Since ARROW-5403 we have disabled the static CRT build
     # - JOB: "Static_Crt_Build"
     #   GENERATOR: Ninja
-    - JOB: "MinGW32"
-      MINGW_ARCH: i686
-      MINGW_PACKAGE_PREFIX: mingw-w64-i686
-      MINGW_PREFIX: c:\msys64\mingw32
-      MSYSTEM: MINGW32
-      USE_CLCACHE: false
-    - JOB: "MinGW64"
-      MINGW_ARCH: x86_64
-      MINGW_PACKAGE_PREFIX: mingw-w64-x86_64
-      MINGW_PREFIX: c:\msys64\mingw64
-      MSYSTEM: MINGW64
-      USE_CLCACHE: false
     - JOB: "R with libarrow"
       USE_CLCACHE: false
       TEST_R_WITH_ARROW: "TRUE"

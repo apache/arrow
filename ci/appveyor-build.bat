@@ -19,8 +19,4 @@
 
 git config core.symlinks true
 git reset --hard
-if "%JOB:~,5%" == "MinGW" (
-    call ci\appveyor-cpp-build-mingw.bat
-) else (
-    call ci\appveyor-cpp-build.bat
-)
+call ci\appveyor-cpp-build.bat

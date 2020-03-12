@@ -341,7 +341,6 @@ services:
     environment:
       <<: *ccache
       ARROW_GLIB_GTK_DOC: "true"
-    shm_size: *shm-size
     volumes: *ubuntu-volumes
     command: *c-glib-command
 
@@ -369,6 +368,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
     volumes: *debian-volumes
@@ -377,7 +377,7 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_test.sh /arrow /build &&
-        /arrow/ci/scripts/ruby_test.sh /arrow"
+        /arrow/ci/scripts/ruby_test.sh /arrow /build"
 
   ubuntu-ruby:
     # Usage:
@@ -397,6 +397,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes

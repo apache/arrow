@@ -1,4 +1,4 @@
-# -*- ruby -*-
+#!/usr/bin/env bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -17,25 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "rubygems"
-require "bundler/gem_helper"
+set -eux
 
-base_dir = File.join(File.dirname(__FILE__))
-
-helper = Bundler::GemHelper.new(base_dir)
-helper.install
-
-release_task = Rake::Task["release"]
-release_task.prerequisites.replace(["build", "release:rubygem_push"])
-
-desc "Run tests"
-task :test do
-  cd(base_dir) do
-    cd("dependency-check") do
-      ruby("-S", "rake")
-    end
-    ruby("test/run-test.rb")
-  end
-end
-
-task default: :test
+pacman \
+  --noconfirm \
+  --sync \
+  -uu \
+  -yy

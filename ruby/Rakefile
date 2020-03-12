@@ -17,25 +17,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "rubygems"
-require "bundler/gem_helper"
+require "pkg-config"
 
-base_dir = File.join(File.dirname(__FILE__))
+base_dir = File.join(__dir__)
 
-helper = Bundler::GemHelper.new(base_dir)
-helper.install
+packages = []
+Dir.glob("#{base_dir}/*/*.gemspec") do |gemspec|
+  package = File.basename(File.dirname(gemspec))
+  glib_package_name = package.gsub(/\Ared-/, "") + "-glib"
+  next unless PKGConfig.exist?(glib_package_name)
+  packages << package
+end
 
-release_task = Rake::Task["release"]
-release_task.prerequisites.replace(["build", "release:rubygem_push"])
-
-desc "Run tests"
-task :test do
-  cd(base_dir) do
-    cd("dependency-check") do
+packages.each do |package|
+  desc "Run test for #{package}"
+  task package do
+    cd(File.join(base_dir, package)) do
       ruby("-S", "rake")
     end
-    ruby("test/run-test.rb")
   end
 end
 
-task default: :test
+sorted_packages = packages.sort_by do |package|
+  if package == "red-arrow"
+    "000-#{package}"
+  else
+    package
+  end
+end
+
+desc "Run test for all packages"
+task all: sorted_packages
+
+task default: :all
