@@ -54,124 +54,94 @@ using internal::HashTraits;
 namespace compute {
 
 class MatchKernelImpl : public UnaryKernel {
-  virtual Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) = 0;
-
  public:
-  // \brief Check if value in both arrays or not and returns integer values/null
-  Status Call(FunctionContext* ctx, const Datum& left, Datum* out) override {
-    DCHECK_EQ(Datum::ARRAY, left.kind());
-    RETURN_NOT_OK(Compute(ctx, left, out));
-    return Status::OK();
-  }
-
   std::shared_ptr<DataType> out_type() const override { return int32(); }
 
-  virtual Status ConstructRight(FunctionContext* ctx, const Datum& right) = 0;
+  virtual Status Init(const Datum& needles) = 0;
 };
-
-// ----------------------------------------------------------------------
-// Using a visitor create a memo_table_ for the right array
-// TODO: Implement for small lists
-
-template <typename T, typename Scalar>
-struct MatchMemoTableRight {
-  Status VisitNull() {
-    memo_table_->GetOrInsertNull();
-    return Status::OK();
-  }
-
-  Status VisitValue(const Scalar& value) {
-    memo_table_->GetOrInsert(value);
-    return Status::OK();
-  }
-
-  Status Reset(MemoryPool* pool) {
-    memo_table_.reset(new MemoTable(pool, 0));
-    return Status::OK();
-  }
-
-  Status Append(FunctionContext* ctx, const Datum& right) {
-    const ArrayData& right_data = *right.array();
-    return ArrayDataVisitor<T>::Visit(right_data, this);
-  }
-
-  using MemoTable = typename HashTraits<T>::MemoTableType;
-  std::unique_ptr<MemoTable> memo_table_;
-};
-
-// ----------------------------------------------------------------------
 
 template <typename Type, typename Scalar>
 class MatchKernel : public MatchKernelImpl {
  public:
-  MatchKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : type_(type), pool_(pool) {}
+  MatchKernel(std::shared_ptr<DataType> type, MemoryPool* pool)
+      : type_(std::move(type)), pool_(pool) {}
 
-  // \brief if left array has a null and right array has null,
-  // return the index, else null
-  Status VisitNull() {
-    if (memo_table_->GetNull() != -1) {
-      indices_builder_.UnsafeAppend(memo_table_->GetNull());
-    } else {
-      indices_builder_.UnsafeAppendNull();
+  Status Call(FunctionContext* ctx, const Datum& haystack, Datum* out) override {
+    if (!haystack.is_arraylike()) {
+      return Status::Invalid("Haystack input to match kernel was not array-like");
     }
-    return Status::OK();
-  }
 
-  // \brief Iterate over the left array using another visitor.
-  // In VisitValue, use the memo_table_ (for right array) and check if value
-  // in left array is in the memo_table_. Return the index if condition satisfied,
-  // else null.
-  Status VisitValue(const Scalar& value) {
-    if (memo_table_->Get(value) != -1) {
-      indices_builder_.UnsafeAppend(memo_table_->Get(value));
-    } else {
-      indices_builder_.UnsafeAppendNull();
-    }
-    return Status::OK();
-  }
+    Int32Builder indices_builder;
+    RETURN_NOT_OK(indices_builder.Reserve(haystack.length()));
 
-  Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) override {
-    const ArrayData& left_data = *left.array();
-
-    indices_builder_.Reset();
-    RETURN_NOT_OK(indices_builder_.Reserve(left_data.length));
-
-    RETURN_NOT_OK(ArrayDataVisitor<Type>::Visit(left_data, this));
-
-    RETURN_NOT_OK(indices_builder_.FinishInternal(&output));
-    out->value = std::move(output);
-    return Status::OK();
-  }
-
-  Status ConstructRight(FunctionContext* ctx, const Datum& right) override {
-    MatchMemoTableRight<Type, Scalar> func;
-    RETURN_NOT_OK(func.Reset(pool_));
-
-    if (right.kind() == Datum::ARRAY) {
-      RETURN_NOT_OK(func.Append(ctx, right));
-    } else if (right.kind() == Datum::CHUNKED_ARRAY) {
-      const ChunkedArray& right_array = *right.chunked_array();
-      for (int i = 0; i < right_array.num_chunks(); i++) {
-        RETURN_NOT_OK(func.Append(ctx, right_array.chunk(i)));
+    auto lookup_value = [&](util::optional<Scalar> v) {
+      if (v.has_value()) {
+        // check if value in haystack array is in the needles_table_
+        if (needles_table_->Get(*v) != -1) {
+          // matching needle; output index from needles_table_
+          indices_builder.UnsafeAppend(needles_table_->Get(*v));
+        } else {
+          // no matching needle; output null
+          indices_builder.UnsafeAppendNull();
+        }
+      } else {
+        if (needles_table_->GetNull() != -1) {
+          // needles include null; output index from needles_table_
+          indices_builder.UnsafeAppend(needles_table_->GetNull());
+        } else {
+          // needles do not include null; output null
+          indices_builder.UnsafeAppendNull();
+        }
       }
-    } else {
-      return Status::Invalid("Input Datum was not array-like");
+    };
+
+    if (haystack.kind() == Datum::ARRAY) {
+      VisitArrayDataInline<Type>(*haystack.array(), lookup_value);
     }
 
-    memo_table_ = std::move(func.memo_table_);
+    if (haystack.kind() == Datum::CHUNKED_ARRAY) {
+      for (const auto& chunk : haystack.chunked_array()->chunks()) {
+        VisitArrayDataInline<Type>(*chunk->data(), lookup_value);
+      }
+    }
+
+    std::shared_ptr<ArrayData> out_data;
+    RETURN_NOT_OK(indices_builder.FinishInternal(&out_data));
+    out->value = std::move(out_data);
+    return Status::OK();
+  }
+
+  Status Init(const Datum& needles) override {
+    if (!needles.is_arraylike()) {
+      return Status::Invalid("Needles input to match kernel was not array-like");
+    }
+
+    needles_table_.reset(new MemoTable(pool_, 0));
+
+    auto insert_value = [&](util::optional<Scalar> v) {
+      if (v.has_value()) {
+        int32_t unused_memo_index;
+        return needles_table_->GetOrInsert(*v, &unused_memo_index);
+      }
+      needles_table_->GetOrInsertNull();
+      return Status::OK();
+    };
+
+    if (needles.kind() == Datum::ARRAY) {
+      return VisitArrayDataInline<Type>(*needles.array(), insert_value);
+    }
+
+    for (const auto& chunk : needles.chunked_array()->chunks()) {
+      RETURN_NOT_OK(VisitArrayDataInline<Type>(*chunk->data(), insert_value));
+    }
     return Status::OK();
   }
 
  protected:
   using MemoTable = typename HashTraits<Type>::MemoTableType;
-  std::unique_ptr<MemoTable> memo_table_;
+  std::unique_ptr<MemoTable> needles_table_;
   std::shared_ptr<DataType> type_;
   MemoryPool* pool_;
-
- private:
-  std::shared_ptr<ArrayData> output;
-  Int32Builder indices_builder_;
 };
 
 // ----------------------------------------------------------------------
@@ -181,58 +151,51 @@ class NullMatchKernel : public MatchKernelImpl {
  public:
   NullMatchKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool) {}
 
-  // \brief When array is NullType, based on the null count for the arrays,
-  // return index, else nulls
-  Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) override {
-    const ArrayData& left_data = *left.array();
-    left_null_count = left_data.GetNullCount();
-    indices_builder_.Reset();
-    RETURN_NOT_OK(indices_builder_.Reserve(left_data.length));
+  Status Call(FunctionContext* ctx, const Datum& haystack, Datum* out) override {
+    if (!haystack.is_arraylike()) {
+      return Status::Invalid("Haystack input to match kernel was not array-like");
+    }
 
-    if (left_null_count != 0 && right_null_count == 0) {
-      for (int64_t i = 0; i < left_data.length; ++i) {
-        indices_builder_.UnsafeAppendNull();
-      }
-    } else {
-      for (int64_t i = 0; i < left_data.length; ++i) {
-        indices_builder_.UnsafeAppend(0);
+    Int32Builder indices_builder;
+    if (haystack.length() != 0) {
+      if (needles_null_count_ == 0) {
+        RETURN_NOT_OK(indices_builder.AppendNulls(haystack.length()));
+      } else {
+        RETURN_NOT_OK(indices_builder.Reserve(haystack.length()));
+
+        for (int64_t i = 0; i < haystack.length(); ++i) {
+          indices_builder.UnsafeAppend(0);
+        }
       }
     }
-    RETURN_NOT_OK(indices_builder_.FinishInternal(&output));
-    out->value = std::move(output);
+
+    std::shared_ptr<ArrayData> out_data;
+    RETURN_NOT_OK(indices_builder.FinishInternal(&out_data));
+    out->value = std::move(out_data);
     return Status::OK();
   }
 
-  Status ConstructRight(FunctionContext* ctx, const Datum& right) override {
-    if (right.kind() == Datum::ARRAY) {
-      const ArrayData& right_data = *right.array();
-      right_null_count = right_data.GetNullCount();
-    } else if (right.kind() == Datum::CHUNKED_ARRAY) {
-      const ChunkedArray& right_array = *right.chunked_array();
-      for (int i = 0; i < right_array.num_chunks(); i++) {
-        right_null_count += right_array.chunk(i)->null_count();
-      }
-    } else {
-      return Status::Invalid("Input Datum was not array-like");
+  Status Init(const Datum& needles) override {
+    if (!needles.is_arraylike()) {
+      return Status::Invalid("Needles input to match kernel was not array-like");
     }
+
+    needles_null_count_ = needles.length();
     return Status::OK();
   }
 
  private:
-  int64_t left_null_count{};
-  int64_t right_null_count{};
-  std::shared_ptr<ArrayData> output;
-  Int32Builder indices_builder_;
+  int64_t needles_null_count_{};
 };
 
 // ----------------------------------------------------------------------
 // Kernel wrapper for generic hash table kernels
 
 template <typename Type, typename Enable = void>
-struct MatchKernelTraits {};
+struct MatchKernelTraits;
 
-template <typename Type>
-struct MatchKernelTraits<Type, enable_if_null<Type>> {
+template <>
+struct MatchKernelTraits<NullType> {
   using MatchKernelImpl = NullMatchKernel;
 };
 
@@ -241,13 +204,13 @@ struct MatchKernelTraits<Type, enable_if_has_c_type<Type>> {
   using MatchKernelImpl = MatchKernel<Type, typename Type::c_type>;
 };
 
-template <typename Type>
-struct MatchKernelTraits<Type, enable_if_boolean<Type>> {
-  using MatchKernelImpl = MatchKernel<Type, bool>;
+template <>
+struct MatchKernelTraits<BooleanType> {
+  using MatchKernelImpl = MatchKernel<BooleanType, bool>;
 };
 
 template <typename Type>
-struct MatchKernelTraits<Type, enable_if_binary<Type>> {
+struct MatchKernelTraits<Type, enable_if_base_binary<Type>> {
   using MatchKernelImpl = MatchKernel<Type, util::string_view>;
 };
 
@@ -257,7 +220,7 @@ struct MatchKernelTraits<Type, enable_if_fixed_size_binary<Type>> {
 };
 
 Status GetMatchKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
-                      const Datum& right, std::unique_ptr<MatchKernelImpl>* out) {
+                      const Datum& needles, std::unique_ptr<MatchKernelImpl>* out) {
   std::unique_ptr<MatchKernelImpl> kernel;
 
 #define MATCH_CASE(InType)                                                \
@@ -296,20 +259,21 @@ Status GetMatchKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& typ
   if (!kernel) {
     return Status::NotImplemented("Match is not implemented for ", type->ToString());
   }
-  RETURN_NOT_OK(kernel->ConstructRight(ctx, right));
+  RETURN_NOT_OK(kernel->Init(needles));
   *out = std::move(kernel);
   return Status::OK();
 }
 
-Status Match(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) {
-  DCHECK(left.type()->Equals(right.type()));
+Status Match(FunctionContext* ctx, const Datum& haystack, const Datum& needles,
+             Datum* out) {
+  DCHECK(haystack.type()->Equals(needles.type()));
   std::vector<Datum> outputs;
-  std::unique_ptr<MatchKernelImpl> lkernel;
+  std::unique_ptr<MatchKernelImpl> kernel;
 
-  RETURN_NOT_OK(GetMatchKernel(ctx, left.type(), right, &lkernel));
-  RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, lkernel.get(), left, &outputs));
+  RETURN_NOT_OK(GetMatchKernel(ctx, haystack.type(), needles, &kernel));
+  RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, kernel.get(), haystack, &outputs));
 
-  *out = detail::WrapDatumsLike(left, outputs);
+  *out = detail::WrapDatumsLike(haystack, outputs);
   return Status::OK();
 }
 

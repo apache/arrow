@@ -1,7 +1,7 @@
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
+// regarding copyneedles ownership.  The ASF licenses this file
 // to you under the Apache License, Version 2.0 (the
 // "License"); you may not use this file except in compliance
 // with the License.  You may obtain a copy of the License at
@@ -38,6 +38,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -49,82 +50,66 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Match tests
 
-template <typename Type, typename T = typename TypeTraits<Type>::c_type>
-void CheckMatch(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
-                const std::vector<T>& in_values, const std::vector<bool>& in_is_valid,
-                const std::vector<T>& member_set_values,
-                const std::vector<bool>& member_set_is_valid,
-                const std::vector<int32_t>& out_values,
-                const std::vector<bool>& out_is_valid) {
-  std::shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
-  std::shared_ptr<Array> member_set =
-      _MakeArray<Type, T>(type, member_set_values, member_set_is_valid);
-  std::shared_ptr<Array> expected =
-      _MakeArray<Int32Type, int32_t>(int32(), out_values, out_is_valid);
+class TestMatchKernel : public ComputeFixture, public TestBase {
+ public:
+  void CheckMatch(const std::shared_ptr<DataType>& type, const std::string& haystack_json,
+                  const std::string& needles_json, const std::string& expected_json) {
+    std::shared_ptr<Array> haystack = ArrayFromJSON(type, haystack_json);
+    std::shared_ptr<Array> needles = ArrayFromJSON(type, needles_json);
+    std::shared_ptr<Array> expected = ArrayFromJSON(int32(), expected_json);
 
-  Datum datum_out;
-  ASSERT_OK(Match(ctx, input, member_set, &datum_out));
-  std::shared_ptr<Array> result = datum_out.make_array();
-  ASSERT_ARRAYS_EQUAL(*expected, *result);
-}
-
-class TestMatchKernel : public ComputeFixture, public TestBase {};
+    Datum actual_datum;
+    ASSERT_OK(Match(&this->ctx_, haystack, needles, &actual_datum));
+    std::shared_ptr<Array> actual = actual_datum.make_array();
+    ASSERT_ARRAYS_EQUAL(*expected, *actual);
+  }
+};
 
 template <typename Type>
-class TestMatchKernelPrimitive : public ComputeFixture, public TestBase {};
+class TestMatchKernelPrimitive : public TestMatchKernel {};
 
-typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
-                         UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType,
-                         Date32Type, Date64Type>
-    PrimitiveDictionaries;
+using PrimitiveDictionaries =
+    ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type, UInt32Type,
+                     Int64Type, UInt64Type, FloatType, DoubleType, Date32Type,
+                     Date64Type>;
 
 TYPED_TEST_CASE(TestMatchKernelPrimitive, PrimitiveDictionaries);
 
 TYPED_TEST(TestMatchKernelPrimitive, Match) {
-  using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
 
   // No Nulls
-  CheckMatch<TypeParam, T>(&this->ctx_, type,
-                           /* in_values= */ {2, 1, 2, 1, 2, 3},
-                           /* in_is_valid= */ {},
-                           /* member_set_values= */ {2, 1, 2, 3},
-                           /* member_set_is_valid= */ {},
-                           /* out_values= */ {0, 1, 0, 1, 0, 2},
-                           /* out_is_valid= */ {});
-  // Nulls in left array
-  CheckMatch<TypeParam, T>(
-      &this->ctx_, type,
-      /* in_values= */ {2, 1, 2, 1, 2, 3},
-      /* in_is_valid= */ {false, false, false, false, false, false},
-      /* member_set_values= */ {2, 1, 3},
-      /* member_set_is_valid= */ {},
-      /* out_values= */ {0, 0, 0, 0, 0, 0},
-      /* out_is_valid= */ {false, false, false, false, false, false});
-  // Nulls in right array
-  CheckMatch<TypeParam, T>(
-      &this->ctx_, type,
-      /* in_values= */ {2, 1, 2, 1, 2, 3},
-      /* in_is_valid= */ {},
-      /* member_set_values= */ {2, 1, 2, 3},
-      /* member_set_is_valid= */ {false, false, false, false},
-      /* out_values= */ {0, 0, 0, 0, 0, 0},
-      /* out_is_valid= */ {false, false, false, false, false, false});
-  // Nulls in both the arrays
-  CheckMatch<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 3}, {false, false, false, false},
-                           {2, 1}, {false, false}, {0, 0, 0, 0}, {});
+  this->CheckMatch(type,
+                   /* haystack= */ "[2, 1, 2, 1, 2, 3]",
+                   /* needles= */ "[2, 1, 2, 3]",
+                   /* expected= */ "[0, 1, 0, 1, 0, 2]");
+
+  // Haystack array all null
+  this->CheckMatch(type,
+                   /* haystack= */ "[null, null, null, null, null, null]",
+                   /* needles= */ "[2, 1, 3]",
+                   /* expected= */ "[null, null, null, null, null, null]");
+
+  // Needles array all null
+  this->CheckMatch(type,
+                   /* haystack= */ "[2, 1, 2, 1, 2, 3]",
+                   /* needles= */ "[null, null, null, null]",
+                   /* expected= */ "[null, null, null, null, null, null]");
+
+  // Both arrays all null
+  this->CheckMatch(type,
+                   /* haystack= */ "[null, null, null, null]",
+                   /* needles= */ "[null, null]",
+                   /* expected= */ "[0, 0, 0, 0]");
+
   // No Match
-  CheckMatch<TypeParam, T>(
-      &this->ctx_, type,
-      /* in_values= */ {2, 1, 7, 3, 8},
-      /* in_is_valid= */ {true, false, true, true, true},
-      /* member_set_values= */ {2, 1, 2, 1, 6, 3, 3},
-      /* member_set_is_valid= */ {true, false, true, false, true, true, true},
-      /* out_values= */ {0, 1, 1, 3, 3},
-      /* out_is_valid= */ {true, true, false, true, false});
+  this->CheckMatch(type,
+                   /* haystack= */ "[2, null, 7, 3, 8]",
+                   /* needles= */ "[2, null, 2, null, 6, 3, 3]",
+                   /* expected= */ "[0, 1, null, 3, null]");
 
   // Empty Arrays
-  CheckMatch<TypeParam, T>(&this->ctx_, type, {}, {}, {}, {}, {}, {});
+  this->CheckMatch(type, "[]", "[]", "[]");
 }
 
 TYPED_TEST(TestMatchKernelPrimitive, PrimitiveResizeTable) {
@@ -133,189 +118,149 @@ TYPED_TEST(TestMatchKernelPrimitive, PrimitiveResizeTable) {
   const int64_t kTotalValues = std::min<int64_t>(INT16_MAX, 1UL << sizeof(T) / 2);
   const int64_t kRepeats = 5;
 
-  std::vector<T> values;
-  std::vector<T> member_set;
-  std::vector<int32_t> expected;
+  Int32Builder expected_builder;
+  NumericBuilder<TypeParam> haystack_builder;
+  ASSERT_OK(expected_builder.Resize(kTotalValues * kRepeats));
+  ASSERT_OK(haystack_builder.Resize(kTotalValues * kRepeats));
+
   for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
-    const auto val = static_cast<T>(i % kTotalValues);
-    values.push_back(val);
-    member_set.push_back(val);
-    expected.push_back(static_cast<int32_t>(i % kTotalValues));
+    const auto index = i % kTotalValues;
+
+    haystack_builder.UnsafeAppend(static_cast<T>(index));
+    expected_builder.UnsafeAppend(static_cast<int32_t>(index));
   }
 
-  auto type = TypeTraits<TypeParam>::type_singleton();
-  CheckMatch<TypeParam, T>(&this->ctx_, type, values, {}, member_set, {}, expected, {});
+  std::shared_ptr<Array> haystack, needles, expected;
+  ASSERT_OK(haystack_builder.Finish(&haystack));
+  needles = haystack;
+  ASSERT_OK(expected_builder.Finish(&expected));
+
+  Datum actual_datum;
+  ASSERT_OK(Match(&this->ctx_, haystack, needles, &actual_datum));
+  std::shared_ptr<Array> actual = actual_datum.make_array();
+  ASSERT_ARRAYS_EQUAL(*expected, *actual);
 }
 
 TEST_F(TestMatchKernel, MatchNull) {
-  CheckMatch<NullType, std::nullptr_t>(&this->ctx_, null(), {0, 0, 0},
-                                       {false, false, false}, {0, 0}, {false, false},
-                                       {0, 0, 0}, {});
+  CheckMatch(null(), "[null, null, null]", "[null, null]", "[0, 0, 0]");
 
-  CheckMatch<NullType, std::nullptr_t>(&this->ctx_, null(), {NULL, NULL}, {},
-                                       {NULL, NULL, NULL, NULL}, {}, {0, 0}, {});
+  CheckMatch(null(), "[null, null, null]", "[]", "[null, null, null]");
 
-  CheckMatch<NullType, std::nullptr_t>(&this->ctx_, null(), {nullptr, nullptr, nullptr},
-                                       {}, {nullptr}, {}, {0, 0, 0}, {});
+  CheckMatch(null(), "[]", "[null, null]", "[]");
 
-  // Empty left array
-  CheckMatch<NullType, std::nullptr_t>(&this->ctx_, null(), {}, {},
-                                       {nullptr, nullptr, nullptr}, {}, {}, {});
-
-  // Empty right array
-  CheckMatch<NullType, std::nullptr_t>(&this->ctx_, null(), {nullptr, nullptr, nullptr},
-                                       {}, {}, {}, {0, 0, 0}, {false, false, false});
-
-  // Empty arrays
-  CheckMatch<NullType, std::nullptr_t>(&this->ctx_, null(), {}, {}, {}, {}, {}, {});
+  CheckMatch(null(), "[]", "[]", "[]");
 }
 
 TEST_F(TestMatchKernel, MatchTimeTimestamp) {
-  CheckMatch<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND),
-                                  /* in_values= */ {1, 2, 5, 1, 2},
-                                  /* in_is_valid= */ {true, false, true, true, true},
-                                  /* member_set_values= */ {2, 1, 2, 1},
-                                  /* member_set_is_valid= */ {true, true, false, true},
-                                  /* out_values= */ {1, 2, 2, 1, 0},
-                                  /* out_is_valid= */ {true, true, false, true, true});
+  CheckMatch(time32(TimeUnit::SECOND),
+             /* haystack= */ "[1, null, 5, 1, 2]",
+             /* needles= */ "[2, 1, null, 1]",
+             /* expected= */ "[1, 2, null, 1, 0]");
 
-  // Right array has no Nulls
-  CheckMatch<Time32Type, int32_t>(
-      &this->ctx_, time32(TimeUnit::SECOND), {2, 1, 5, 1}, {true, false, true, true},
-      {2, 1, 1}, {true, true, true}, {0, 1, 1, 1}, {true, false, false, true});
+  // Needles array has no nulls
+  CheckMatch(time32(TimeUnit::SECOND),
+             /* haystack= */ "[2, null, 5, 1]",
+             /* needles= */ "[2, 1, 1]",
+             /* expected= */ "[0, null, null, 1]");
 
   // No match
-  CheckMatch<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {3, 5, 5, 3},
-                                  {true, false, true, true}, {2, 1, 2, 1, 2}, {},
-                                  {0, 0, 0, 0}, {false, false, false, false});
+  CheckMatch(time32(TimeUnit::SECOND), "[3, null, 5, 3]", "[2, 1, 2, 1, 2]",
+             "[null, null, null, null]");
 
   // Empty arrays
-  CheckMatch<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {}, {}, {}, {},
-                                  {}, {});
+  CheckMatch(time32(TimeUnit::SECOND), "[]", "[]", "[]");
 
-  CheckMatch<Time64Type, int64_t>(&this->ctx_, time64(TimeUnit::NANO), {2, 1, 2, 1},
-                                  {true, false, true, true}, {2, 1, 1},
-                                  {true, false, true}, {0, 1, 0, 2}, {});
+  CheckMatch(time64(TimeUnit::NANO), "[2, null, 2, 1]", "[2, null, 1]", "[0, 1, 0, 2]");
 
-  CheckMatch<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO), {2, 1, 2, 1},
-                                     {true, false, true, true}, {2, 1, 2, 1},
-                                     {true, false, true, true}, {0, 1, 0, 2}, {});
+  CheckMatch(timestamp(TimeUnit::NANO), "[2, null, 2, 1]", "[2, null, 2, 1]",
+             "[0, 1, 0, 2]");
 
-  // Empty left array
-  CheckMatch<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO), {}, {},
-                                     {2, 1, 2, 1}, {true, false, true, true}, {}, {});
+  // Empty haystack array
+  CheckMatch(timestamp(TimeUnit::NANO), "[]", "[2, null, 2, 1]", "[]");
 
-  // Empty right array
-  CheckMatch<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO), {2, 1, 2, 1},
-                                     {true, false, true, true}, {}, {}, {0, 0, 0, 0},
-                                     {false, false, false, false});
+  // Empty needles array
+  CheckMatch(timestamp(TimeUnit::NANO), "[2, null, 2, 1]", "[]",
+             "[null, null, null, null]");
 
-  // Both array have Nulls
-  CheckMatch<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {2, 1, 2, 1},
-                                  {false, false, false, false}, {2, 1}, {false, false},
-                                  {0, 0, 0, 0}, {});
+  // Both array are all null
+  CheckMatch(time32(TimeUnit::SECOND), "[null, null, null, null]", "[null, null]",
+             "[0, 0, 0, 0]");
 }
 
 TEST_F(TestMatchKernel, MatchBoolean) {
-  CheckMatch<BooleanType, bool>(&this->ctx_, boolean(),
-                                /* in_values= */ {false, true, false, true},
-                                /* in_is_valid= */ {true, false, true, true},
-                                /* member_set_values= */ {true, false, true},
-                                /* member_set_is_valid= */ {false, true, true},
-                                /* out_values= */ {1, 0, 1, 2}, /* out_is_valid= */ {});
+  CheckMatch(boolean(),
+             /* haystack= */ "[false, null, false, true]",
+             /* needles= */ "[null, false, true]",
+             /* expected= */ "[1, 0, 1, 2]");
 
-  CheckMatch<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
-                                {true, false, true, true},
-                                {false, true, false, true, false},
-                                {true, true, false, true, false}, {0, 2, 0, 1}, {});
+  CheckMatch(boolean(), "[false, null, false, true]", "[false, true, null, true, null]",
+             "[0, 2, 0, 1]");
 
   // No Nulls
-  CheckMatch<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true}, {},
-                                {false, true}, {}, {1, 1, 0, 1}, {});
+  CheckMatch(boolean(), "[true, true, false, true]", "[false, true]", "[1, 1, 0, 1]");
 
-  CheckMatch<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true}, {},
-                                {true, true, true, true}, {}, {0, 0, 0, 0},
-                                {false, true, false, true});
+  CheckMatch(boolean(), "[false, true, false, true]", "[true, true, true, true]",
+             "[null, 0, null, 0]");
 
   // No match
-  CheckMatch<BooleanType, bool>(&this->ctx_, boolean(), {true, true, true, true}, {},
-                                {false, false, false}, {}, {0, 0, 0, 0},
-                                {false, false, false, false});
+  CheckMatch(boolean(), "[true, true, true, true]", "[false, false, false]",
+             "[null, null, null, null]");
 
-  // Nulls in left array
-  CheckMatch<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
-                                {false, false, false, false}, {true, true}, {},
-                                {0, 0, 0, 0}, {false, false, false, false});
+  // Nulls in haystack array
+  CheckMatch(boolean(), "[null, null, null, null]", "[true, true]",
+             "[null, null, null, null]");
 
-  // Nulls in right array
-  CheckMatch<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true}, {},
-                                {true, true, false, true, true},
-                                {false, false, false, false, false}, {0, 0, 0, 0},
-                                {false, false, false, false});
+  // Nulls in needles array
+  CheckMatch(boolean(), "[true, true, false, true]",
+             "[null, null, null, null, null, null]", "[null, null, null, null]");
 
   // Both array have Nulls
-  CheckMatch<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
-                                {false, false, false, false}, {true, true, true, true},
-                                {false, false, false, false}, {0, 0, 0, 0}, {});
+  CheckMatch(boolean(), "[null, null, null, null]", "[null, null, null, null]",
+             "[0, 0, 0, 0]");
 }
 
 template <typename Type>
-class TestMatchKernelBinary : public ComputeFixture, public TestBase {};
+class TestMatchKernelBinary : public TestMatchKernel {};
 
 using BinaryTypes = ::testing::Types<BinaryType, StringType>;
 TYPED_TEST_CASE(TestMatchKernelBinary, BinaryTypes);
 
 TYPED_TEST(TestMatchKernelBinary, MatchBinary) {
   auto type = TypeTraits<TypeParam>::type_singleton();
-  CheckMatch<TypeParam, std::string>(&this->ctx_, type, {"test", "", "test2", "test"},
-                                     {true, false, true, true}, {"test", "", "test2"},
-                                     {true, false, true}, {0, 1, 2, 0}, {});
+  this->CheckMatch(type, R"(["foo", null, "bar", "foo"])", R"(["foo", null, "bar"])",
+                   R"([0, 1, 2, 0])");
 
   // No match
-  CheckMatch<TypeParam, std::string>(
-      &this->ctx_, type,
-      /* in_values= */ {"test", "", "test2", "test"},
-      /* in_is_valid= */ {true, false, true, true},
-      /* member_set_values= */ {"test3", "test4", "test3", "test4"},
-      /* member_set_is_valid= */ {true, true, true, true},
-      /* out_values= */ {0, 0, 0, 0},
-      /* out_is_valid= */ {false, false, false, false});
+  this->CheckMatch(type,
+                   /* haystack= */ R"(["foo", null, "bar", "foo"])",
+                   /* needles= */ R"(["baz", "bazzz", "baz", "bazzz"])",
+                   /* expected= */ R"([null, null, null, null])");
 
-  // Nulls in left array
-  CheckMatch<TypeParam, std::string>(&this->ctx_, type,
-                                     /* in_values= */ {"test", "", "test2", "test"},
-                                     /* in_is_valid= */ {false, false, false, false},
-                                     /* member_set_values= */ {"test", "test2", "test"},
-                                     /* member_set_is_valid= */ {true, true, true},
-                                     /* out_values= */ {0, 0, 0, 0},
-                                     /* out_is_valid= */ {false, false, false, false});
+  // Nulls in haystack array
+  this->CheckMatch(type,
+                   /* haystack= */ R"([null, null, null, null])",
+                   /* needles= */ R"(["foo", "bar", "foo"])",
+                   /* expected= */ R"([null, null, null, null])");
 
-  // Nulls in right array
-  CheckMatch<TypeParam, std::string>(
-      &this->ctx_, type, {"test", "test2", "test"}, {true, true, true},
-      {"test", "", "test2"}, {false, false, false}, {0, 0, 0}, {false, false, false});
+  // Nulls in needles array
+  this->CheckMatch(type, R"(["foo", "bar", "foo"])", R"([null, null, null])",
+                   R"([null, null, null])");
 
   // Both array have Nulls
-  CheckMatch<TypeParam, std::string>(
-      &this->ctx_, type,
-      /* in_values= */ {"test", "", "test2", "test"},
-      /* in_is_valid= */ {false, false, false, false},
-      /* member_set_values= */ {"test", "", "test2", "test"},
-      /* member_set_is_valid= */ {false, false, false, false},
-      /* out_values= */ {0, 0, 0, 0}, /* out_is_valid= */ {});
+  this->CheckMatch(type,
+                   /* haystack= */ R"([null, null, null, null])",
+                   /* needles= */ R"([null, null, null, null])",
+                   /* expected= */ R"([0, 0, 0, 0])");
 
   // Empty arrays
-  CheckMatch<TypeParam, std::string>(&this->ctx_, type, {}, {}, {}, {}, {}, {});
+  this->CheckMatch(type, R"([])", R"([])", R"([])");
 
-  // Empty left array
-  CheckMatch<TypeParam, std::string>(&this->ctx_, type, {}, {},
-                                     {"test", "", "test2", "test"},
-                                     {true, false, true, false}, {}, {});
+  // Empty haystack array
+  this->CheckMatch(type, R"([])", R"(["foo", null, "bar", null])", "[]");
 
-  // Empty right array
-  CheckMatch<TypeParam, std::string>(&this->ctx_, type, {"test", "", "test2", "test"},
-                                     {true, false, true, true}, {}, {}, {0, 0, 0, 0},
-                                     {false, false, false, false});
+  // Empty needles array
+  this->CheckMatch(type, R"(["foo", null, "bar", "foo"])", "[]",
+                   R"([null, null, null, null])");
 }
 
 TEST_F(TestMatchKernel, BinaryResizeTable) {
@@ -327,89 +272,75 @@ TEST_F(TestMatchKernel, BinaryResizeTable) {
   const int32_t kRepeats = 3;
 #endif
 
-  std::vector<std::string> values;
-  std::vector<std::string> member_set;
-  std::vector<int32_t> expected;
-  char buf[20] = "test";
+  const int32_t kBufSize = 20;
+
+  Int32Builder expected_builder;
+  StringBuilder haystack_builder;
+  ASSERT_OK(expected_builder.Resize(kTotalValues * kRepeats));
+  ASSERT_OK(haystack_builder.Resize(kTotalValues * kRepeats));
+  ASSERT_OK(haystack_builder.ReserveData(kBufSize * kTotalValues * kRepeats));
 
   for (int32_t i = 0; i < kTotalValues * kRepeats; i++) {
     int32_t index = i % kTotalValues;
 
+    char buf[kBufSize] = "test";
     ASSERT_GE(snprintf(buf + 4, sizeof(buf) - 4, "%d", index), 0);
-    values.emplace_back(buf);
-    member_set.emplace_back(buf);
-    expected.push_back(index);
+
+    haystack_builder.UnsafeAppend(util::string_view(buf));
+    expected_builder.UnsafeAppend(index);
   }
 
-  CheckMatch<BinaryType, std::string>(&this->ctx_, binary(), values, {}, member_set, {},
-                                      expected, {});
+  std::shared_ptr<Array> haystack, needles, expected;
+  ASSERT_OK(haystack_builder.Finish(&haystack));
+  needles = haystack;
+  ASSERT_OK(expected_builder.Finish(&expected));
 
-  CheckMatch<StringType, std::string>(&this->ctx_, utf8(), values, {}, member_set, {},
-                                      expected, {});
+  Datum actual_datum;
+  ASSERT_OK(Match(&this->ctx_, haystack, needles, &actual_datum));
+  std::shared_ptr<Array> actual = actual_datum.make_array();
+  ASSERT_ARRAYS_EQUAL(*expected, *actual);
 }
 
 TEST_F(TestMatchKernel, MatchFixedSizeBinary) {
-  CheckMatch<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5),
-      /* in_values= */ {"bbbbb", "", "aaaaa", "ccccc"},
-      /* in_is_valid= */ {true, false, true, true},
-      /* member_set_values= */ {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-      /* member_set_is_valid= */ {true, false, true, true, true},
-      /* out_values= */ {0, 1, 2, 3}, /* out_is_valid*/ {});
+  CheckMatch(fixed_size_binary(5),
+             /* haystack= */ R"(["bbbbb", null, "aaaaa", "ccccc"])",
+             /* needles= */ R"(["bbbbb", null, "bbbbb", "aaaaa", "ccccc"])",
+             /* expected= */ R"([0, 1, 2, 3])");
 
-  // Nulls in left
-  CheckMatch<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5),
-      /* in_values= */ {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-      /* in_is_valid= */ {false, false, false, false, false},
-      /* member_set_values= */ {"bbbbb", "aabbb", "bbbbb", "aaaaa", "ccccc"},
-      /* member_set_is_valid= */ {true, true, true, true, true},
-      /* out_values= */ {0, 0, 0, 0, 0},
-      /* out_is_valid= */ {false, false, false, false, false});
+  // Nulls in haystack
+  CheckMatch(fixed_size_binary(5),
+             /* haystack= */ R"([null, null, null, null, null])",
+             /* needles= */ R"(["bbbbb", "aabbb", "bbbbb", "aaaaa", "ccccc"])",
+             /* expected= */ R"([null, null, null, null, null])");
 
-  // Nulls in right
-  CheckMatch<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5),
-      /* in_values= */ {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-      /* in_is_valid= */ {true, false, true, true, true},
-      /* member_set_values= */ {"bbbbb", "", "bbbbb"},
-      /* member_set_is_valid= */ {false, false, false},
-      /* out_values= */ {0, 0, 0, 0, 0},
-      /* out_is_valid= */ {false, true, false, false, false});
+  // Nulls in needles
+  CheckMatch(fixed_size_binary(5),
+             /* haystack= */ R"(["bbbbb", null, "bbbbb", "aaaaa", "ccccc"])",
+             /* needles= */ R"([null, null, null])",
+             /* expected= */ R"([null, 0, null, null, null])");
 
   // Both array have Nulls
-  CheckMatch<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5),
-      /* in_values= */ {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-      /* in_is_valid= */ {false, false, false, false, false},
-      /* member_set_values= */ {"", "", "bbbbb", "aaaaa"},
-      /* member_set_is_valid= */ {false, false, false, false},
-      /* out_values= */ {0, 0, 0, 0, 0}, /* out_is_valid= */ {});
+  CheckMatch(fixed_size_binary(5),
+             /* haystack= */ R"([null, null, null, null, null])",
+             /* needles= */ R"([null, null, null, null])",
+             /* expected= */ R"([0, 0, 0, 0, 0])");
 
   // No match
-  CheckMatch<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5),
-      /* in_values= */ {"bbbbc", "bbbbc", "aaaad", "cccca"},
-      /* in_is_valid= */ {},
-      /* member_set_values= */ {"bbbbb", "", "bbbbb", "aaaaa", "ddddd"},
-      /* member_set_is_valid= */ {true, false, true, true, true},
-      /* out_values= */ {0, 0, 0, 0},
-      /* out_is_valid= */ {false, false, false, false});
+  CheckMatch(fixed_size_binary(5),
+             /* haystack= */ R"(["bbbbc", "bbbbc", "aaaad", "cccca"])",
+             /* needles= */ R"(["bbbbb", null, "bbbbb", "aaaaa", "ddddd"])",
+             /* expected= */ R"([null, null, null, null])");
 
-  // Empty left array
-  CheckMatch<FixedSizeBinaryType, std::string>(&this->ctx_, fixed_size_binary(5), {}, {},
-                                               {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-                                               {true, false, true, true, true}, {}, {});
+  // Empty haystack array
+  CheckMatch(fixed_size_binary(5), R"([])",
+             R"(["bbbbb", null, "bbbbb", "aaaaa", "ccccc"])", R"([])");
 
-  // Empty right array
-  CheckMatch<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-      {true, false, true, true, true}, {}, {}, {0, 0, 0, 0, 0},
-      {false, false, false, false, false});
+  // Empty needles array
+  CheckMatch(fixed_size_binary(5), R"(["bbbbb", null, "bbbbb", "aaaaa", "ccccc"])",
+             R"([])", R"([null, null, null, null, null])");
 
   // Empty arrays
-  CheckMatch<FixedSizeBinaryType, std::string>(&this->ctx_, fixed_size_binary(0), {}, {},
-                                               {}, {}, {}, {});
+  CheckMatch(fixed_size_binary(0), R"([])", R"([])", R"([])");
 }
 
 TEST_F(TestMatchKernel, MatchDecimal) {
@@ -417,9 +348,10 @@ TEST_F(TestMatchKernel, MatchDecimal) {
   std::vector<Decimal128> member_set{12, 12, 11, 12};
   std::vector<int32_t> expected{0, 1, 2, 0};
 
-  CheckMatch<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), input,
-                                         {true, false, true, true}, member_set,
-                                         {true, false, true, true}, expected, {});
+  CheckMatch(decimal(2, 0),
+             /* haystack= */ R"(["12", null, "11", "12"])",
+             /* needles= */ R"(["12", null, "11", "12"])",
+             /* expected= */ R"([0, 1, 2, 0])");
 }
 
 TEST_F(TestMatchKernel, MatchChunkedArrayInvoke) {

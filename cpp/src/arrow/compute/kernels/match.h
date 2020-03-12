@@ -29,21 +29,29 @@
 namespace arrow {
 namespace compute {
 
-/// \brief Match returns position index of first occurence
-/// of a value from left array in right array.
+/// \brief Match examines each slot in the haystack against a needles array.
+/// If the value is not found in needles, null will be output.
+/// If found, the index of occurence within needles (ignoring duplicates)
+/// will be output.
 ///
-/// If null occurs in left and right,
-/// it returns the index, else returns null.
+/// For example given haystack = [99, 42, 3, null] and
+/// needles = [3, 3, 99], the output will be = [1, null, 0, null]
+///
+/// Note: Null in the haystack is considered to match
+/// a null in the needles array. For example given
+/// haystack = [99, 42, 3, null] and needles = [3, 99, null],
+/// the output will be = [1, null, 0, 2]
 ///
 /// \param[in] context the FunctionContext
-/// \param[in] left array-like input
-/// \param[in] right array-like input
+/// \param[in] haystack array-like input
+/// \param[in] needles array-like input
 /// \param[out] out resulting datum
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Status Match(FunctionContext* context, const Datum& left, const Datum& right, Datum* out);
+Status Match(FunctionContext* context, const Datum& haystack, const Datum& needles,
+             Datum* out);
 
 }  // namespace compute
 }  // namespace arrow
