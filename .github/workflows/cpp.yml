@@ -240,18 +240,20 @@ jobs:
           submodules: true
       - name: Setup Conda
         uses: s-weigand/setup-conda@v1
-      - shell: bash
+      - name: Create Environment
+        shell: bash
         run: |
+          conda create -n arrow -c conda-forge \
+            --file ci/conda_env_cpp.yml \
+            --file ci/conda_env_gandiva.yml
+      - name: Activate Environment
+        shell: bash
+        run: |
+          conda activate arrow
           conda --version
           which python
           conda env list
           env
-      - name: Install Dependencies
-        shell: bash
-        run: |
-          conda install -c conda-forge \
-            --file ci/conda_env_cpp.yml \
-            --file ci/conda_env_gandiva.yml
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
