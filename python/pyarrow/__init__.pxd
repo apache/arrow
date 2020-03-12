@@ -20,7 +20,7 @@ from pyarrow.includes.libarrow cimport (CArray, CBuffer, CDataType,
                                         CField, CRecordBatch, CSchema,
                                         CTable, CTensor, CSparseCOOTensor,
                                         CSparseCSRMatrix, CSparseCSCMatrix,
-                                        CSparseCOOTensor, CSparseCSFTensor)
+                                        CSparseCSFTensor)
 from pyarrow.compat import frombytes
 
 cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":

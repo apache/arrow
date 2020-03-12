@@ -748,7 +748,7 @@ shape: {0.shape}""".format(self)
         for x in shape:
             c_shape.push_back(x)
         if not axis_order:
-            axis_order = list(range(len(shape)))
+            axis_order = np.argsort(shape)
         for x in axis_order:
             c_axis_order.push_back(x)
         if dim_names is not None:

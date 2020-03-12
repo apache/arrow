@@ -396,24 +396,31 @@ Status SparseCSFTensorToNdarray(const std::shared_ptr<SparseCSFTensor>& sparse_t
       *sparse_tensor, {sparse_tensor->non_zero_length(), 1}, base, result_data.ref()));
 
   // Wrap indices
-  *out_indptr = PyList_New(0);
-  *out_indices = PyList_New(0);
+  int ndim = static_cast<int>(sparse_index.indices().size());
+  OwnedRef indptr(PyList_New(ndim - 1));
+  OwnedRef indices(PyList_New(ndim));
 
-  for (const auto& indptr : sparse_index.indptr()) {
+  for (int i = 0; i < ndim - 1; ++i) {
     PyObject* item;
-    RETURN_NOT_OK(TensorToNdarray(indptr, base, &item));
-    if (PyList_Append(*out_indptr, item) < 0) {
+    RETURN_NOT_OK(TensorToNdarray(sparse_index.indptr()[i], base, &item));
+    if (PyList_SetItem(indptr.obj(), i, item) < 0) {
+      Py_XDECREF(indptr.obj());
+      Py_XDECREF(indices.obj());
       RETURN_IF_PYERROR();
     }
   }
-  for (const auto& indices : sparse_index.indices()) {
+  for (int i = 0; i < ndim; ++i) {
     PyObject* item;
-    RETURN_NOT_OK(TensorToNdarray(indices, base, &item));
-    if (PyList_Append(*out_indices, item) < 0) {
+    RETURN_NOT_OK(TensorToNdarray(sparse_index.indices()[i], base, &item));
+    if (PyList_SetItem(indices.obj(), i, item) < 0) {
+      Py_XDECREF(indptr.obj());
+      Py_XDECREF(indices.obj());
       RETURN_IF_PYERROR();
     }
   }
 
+  *out_indptr = indptr.detach();
+  *out_indices = indices.detach();
   *out_data = result_data.detach();
   return Status::OK();
 }
