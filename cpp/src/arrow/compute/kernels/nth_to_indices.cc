@@ -122,7 +122,9 @@ static Status NthToIndices(FunctionContext* ctx, const Datum& values, int64_t n,
   auto type = values.type();
   ARROW_CHECK_NE(type, NULLPTR);
   auto kernel = NthToIndicesKernel::Make(*type);
-  if (!kernel) return Status::Invalid("No NthToIndices kernel for this type ", *type);
+  if (!kernel) {
+    return Status::TypeError("No NthToIndices kernel for this type ", *type);
+  }
   return kernel->Call(ctx, values, n, offsets);
 }
 
