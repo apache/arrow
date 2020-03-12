@@ -239,7 +239,9 @@ jobs:
         with:
           submodules: true
       - name: Setup Conda
-        uses: s-weigand/setup-conda@v1
+        uses: goanpeca/setup-miniconda@v1
+        with:
+          auto-update-conda: true
       - name: Create Environment
         shell: bash
         run: |
