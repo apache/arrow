@@ -759,8 +759,8 @@ def test_multiple_factories(multisourcefs):
         ('value', pa.float64()),
         ('color', pa.string()),
         ('week', pa.int32()),
-        ('month', pa.int32()),
         ('year', pa.int32()),
+        ('month', pa.int32()),
     ])
     assert assembled.schema.equals(expected_schema)
 
@@ -773,7 +773,7 @@ def test_multiple_factories_with_selectors(multisourcefs):
         ('date', pa.date32()),
         ('index', pa.int64()),
         ('value', pa.float64()),
-        ('color', pa.string())
+        ('color', pa.string()),
     ])
     assert dataset.schema.equals(expected_schema)
 
@@ -785,8 +785,8 @@ def test_multiple_factories_with_selectors(multisourcefs):
         ('index', pa.int64()),
         ('value', pa.float64()),
         ('color', pa.string()),
+        ('year', pa.int32()),
         ('month', pa.int32()),
-        ('year', pa.int32())
     ])
     assert dataset.schema.equals(expected_schema)
 
