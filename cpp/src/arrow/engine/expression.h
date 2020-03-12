@@ -29,6 +29,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace engine {
@@ -228,16 +229,19 @@ class ARROW_EXPORT ScalarExpr : public Expr {
 };
 
 /// References a column in a table/dataset
-class ARROW_EXPORT FieldRefExpr : public Expr {
+class ARROW_EXPORT FieldRefExpr : public UnaryOpMixin, public Expr {
  public:
-  static Result<std::shared_ptr<FieldRefExpr>> Make(std::shared_ptr<Field> field);
+  static Result<std::shared_ptr<FieldRefExpr>> Make(std::shared_ptr<Expr> input,
+                                                    int index);
+  static Result<std::shared_ptr<FieldRefExpr>> Make(std::shared_ptr<Expr> input,
+                                                    std::string field_name);
 
-  const std::shared_ptr<Field>& field() const { return field_; }
+  int index() const { return index_; }
 
  private:
-  explicit FieldRefExpr(std::shared_ptr<Field> field);
+  FieldRefExpr(std::shared_ptr<Expr> input, int index);
 
-  std::shared_ptr<Field> field_;
+  int index_;
 };
 
 ///
@@ -459,6 +463,8 @@ auto VisitExpr(const Expr& expr, Visitor&& visitor) -> decltype(visitor(expr)) {
         case CompareKind::LESS_THAN_EQUAL:
           return visitor(internal::checked_cast<const LessThanEqualExpr&>(expr));
       }
+
+      ARROW_UNREACHABLE;
     }
 
     case ExprKind::EMPTY_REL:
@@ -468,12 +474,10 @@ auto VisitExpr(const Expr& expr, Visitor&& visitor) -> decltype(visitor(expr)) {
     case ExprKind::PROJECTION_REL:
       return visitor(internal::checked_cast<const ProjectionRelExpr&>(expr));
     case ExprKind::FILTER_REL:
-      // LEAVE LAST or update the outer return cast by moving it here. This is
-      // required for older compiler support.
-      break;
+      return visitor(internal::checked_cast<const FilterRelExpr&>(expr));
   }
 
-  return visitor(internal::checked_cast<const FilterRelExpr&>(expr));
+  ARROW_UNREACHABLE;
 }
 
 }  // namespace engine

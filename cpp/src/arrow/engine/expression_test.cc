@@ -121,15 +121,25 @@ TEST_F(ExprTest, ScalarExpr) {
 }
 
 TEST_F(ExprTest, FieldRefExpr) {
-  ASSERT_RAISES(Invalid, FieldRefExpr::Make(nullptr));
-
   auto i32 = int32();
   auto f_i32 = field("i32", i32);
+  auto schema = arrow::schema({f_i32});
+  ASSERT_OK_AND_ASSIGN(auto input, EmptyRelExpr::Make(schema));
 
-  ASSERT_OK_AND_ASSIGN(auto expr, FieldRefExpr::Make(f_i32));
+  ASSERT_RAISES(Invalid, FieldRefExpr::Make(nullptr, 0));
+  ASSERT_RAISES(Invalid, FieldRefExpr::Make(input, -1));
+  ASSERT_RAISES(Invalid, FieldRefExpr::Make(input, 1));
+  ASSERT_RAISES(Invalid, FieldRefExpr::Make(input, "not_present"));
+
+  ASSERT_OK_AND_ASSIGN(auto expr, FieldRefExpr::Make(input, 0));
   EXPECT_EQ(expr->kind(), ExprKind::FIELD_REFERENCE);
   EXPECT_EQ(expr->type(), ExprType::Array(i32));
-  EXPECT_THAT(expr->field(), PtrEquals(f_i32));
+  EXPECT_THAT(expr->index(), 0);
+
+  ASSERT_OK_AND_ASSIGN(expr, FieldRefExpr::Make(input, "i32"));
+  EXPECT_EQ(expr->kind(), ExprKind::FIELD_REFERENCE);
+  EXPECT_EQ(expr->type(), ExprType::Array(i32));
+  EXPECT_THAT(expr->index(), 0);
 }
 
 template <typename CmpClass>
@@ -151,10 +161,11 @@ using CompareExprs =
 TYPED_TEST_CASE(CompareExprTest, CompareExprs);
 TYPED_TEST(CompareExprTest, BasicCompareExpr) {
   auto i32 = int32();
-
   auto f_i32 = field("i32", i32);
-  ASSERT_OK_AND_ASSIGN(auto f_expr, FieldRefExpr::Make(f_i32));
+  auto schema = arrow::schema({f_i32});
+  ASSERT_OK_AND_ASSIGN(auto input, EmptyRelExpr::Make(schema));
 
+  ASSERT_OK_AND_ASSIGN(auto f_expr, FieldRefExpr::Make(input, "i32"));
   ASSERT_OK_AND_ASSIGN(auto s_i32, MakeScalar(i32, 42));
   ASSERT_OK_AND_ASSIGN(auto s_expr, ScalarExpr::Make(s_i32));
 

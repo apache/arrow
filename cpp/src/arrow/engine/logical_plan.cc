@@ -64,6 +64,7 @@ using ResultExpr = LogicalPlanBuilder::ResultExpr;
   } while (false)
 
 #define ERROR_IF(cond, ...) ERROR_IF_TYPE(cond, Invalid, __VA_ARGS__)
+
 //
 // Leaf builder.
 //
@@ -74,35 +75,12 @@ ResultExpr LogicalPlanBuilder::Scalar(const std::shared_ptr<arrow::Scalar>& scal
 
 ResultExpr LogicalPlanBuilder::Field(const std::shared_ptr<Expr>& input,
                                      const std::string& field_name) {
-  ERROR_IF(input == nullptr, "Input expression must be non-null");
-
-  auto expr_type = input->type();
-  ERROR_IF(!expr_type.IsTable(), "Input expression does not have a Table shape.");
-
-  auto field = expr_type.schema()->GetFieldByName(field_name);
-  ERROR_IF_TYPE(field == nullptr, KeyError, "Cannot reference field '", field_name,
-                "' in schema.");
-
-  return FieldRefExpr::Make(std::move(field));
+  return FieldRefExpr::Make(input, field_name);
 }
 
 ResultExpr LogicalPlanBuilder::Field(const std::shared_ptr<Expr>& input,
                                      int field_index) {
-  ERROR_IF(input == nullptr, "Input expression must be non-null");
-  ERROR_IF_TYPE(field_index < 0, KeyError, "Field index must be positive");
-
-  auto expr_type = input->type();
-  ERROR_IF(!expr_type.IsTable(), "Input expression does not have a Table shape.");
-
-  auto schema = expr_type.schema();
-  auto num_fields = schema->num_fields();
-  ERROR_IF_TYPE(field_index >= num_fields, KeyError, "Field index ", field_index,
-                " out of bounds.");
-
-  auto field = expr_type.schema()->field(field_index);
-  ERROR_IF_TYPE(field == nullptr, KeyError, "Field at index ", field_index, " is null.");
-
-  return FieldRefExpr::Make(std::move(field));
+  return FieldRefExpr::Make(input, field_index);
 }
 
 //
@@ -117,23 +95,13 @@ ResultExpr LogicalPlanBuilder::Scan(const std::string& table_name) {
 
 ResultExpr LogicalPlanBuilder::Filter(const std::shared_ptr<Expr>& input,
                                       const std::shared_ptr<Expr>& predicate) {
-  ERROR_IF(input == nullptr, "Input expression can't be null.");
-  ERROR_IF(predicate == nullptr, "Predicate expression can't be null.");
   return FilterRelExpr::Make(std::move(input), std::move(predicate));
 }
 
 ResultExpr LogicalPlanBuilder::Project(
     const std::shared_ptr<Expr>& input,
     const std::vector<std::shared_ptr<Expr>>& expressions) {
-  ERROR_IF(input == nullptr, "Input expression can't be null.");
-  ERROR_IF(expressions.empty(), "Must have at least one expression.");
   return ProjectionRelExpr::Make(input, expressions);
-}
-
-ResultExpr LogicalPlanBuilder::Mutate(
-    const std::shared_ptr<Expr>& input,
-    const std::vector<std::shared_ptr<Expr>>& expressions) {
-  return Project(input, expressions);
 }
 
 ResultExpr LogicalPlanBuilder::Project(const std::shared_ptr<Expr>& input,
@@ -150,11 +118,6 @@ ResultExpr LogicalPlanBuilder::Project(const std::shared_ptr<Expr>& input,
   return Project(input, expressions);
 }
 
-ResultExpr LogicalPlanBuilder::Select(const std::shared_ptr<Expr>& input,
-                                      const std::vector<std::string>& column_names) {
-  return Project(input, column_names);
-}
-
 ResultExpr LogicalPlanBuilder::Project(const std::shared_ptr<Expr>& input,
                                        const std::vector<int>& column_indices) {
   ERROR_IF(input == nullptr, "Input expression can't be null.");
@@ -169,12 +132,8 @@ ResultExpr LogicalPlanBuilder::Project(const std::shared_ptr<Expr>& input,
   return Project(input, expressions);
 }
 
-ResultExpr LogicalPlanBuilder::Select(const std::shared_ptr<Expr>& input,
-                                      const std::vector<int>& column_indices) {
-  return Project(input, column_indices);
-}
-
 #undef ERROR_IF
+#undef ERROR_IF_TYPE
 
 }  // namespace engine
 }  // namespace arrow

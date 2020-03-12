@@ -27,6 +27,19 @@ namespace engine {
 // ExprType
 //
 
+std::string ShapeToString(ExprType::Shape shape) {
+  switch (shape) {
+    case ExprType::SCALAR:
+      return "scalar";
+    case ExprType::ARRAY:
+      return "array";
+    case ExprType::TABLE:
+      return "table";
+  }
+
+  return "";
+}
+
 ExprType ExprType::Scalar(std::shared_ptr<DataType> type) {
   return ExprType(std::move(type), Shape::SCALAR);
 }
@@ -155,12 +168,14 @@ Result<ExprType> ExprType::Broadcast(const ExprType& lhs, const ExprType& rhs) {
   return lhs;
 }
 
-#define ERROR_IF(cond, ...)                \
-  do {                                     \
-    if (ARROW_PREDICT_FALSE(cond)) {       \
-      return Status::Invalid(__VA_ARGS__); \
-    }                                      \
+#define ERROR_IF_TYPE(cond, ErrorType, ...)  \
+  do {                                       \
+    if (ARROW_PREDICT_FALSE(cond)) {         \
+      return Status::ErrorType(__VA_ARGS__); \
+    }                                        \
   } while (false)
+
+#define ERROR_IF(cond, ...) ERROR_IF_TYPE(cond, Invalid, __VA_ARGS__)
 
 //
 // Expr
@@ -195,7 +210,8 @@ struct ExprEqualityVisitor {
 
   bool operator()(const FieldRefExpr& rhs) const {
     auto lhs_field = internal::checked_cast<const FieldRefExpr&>(lhs);
-    return lhs_field.field()->Equals(*rhs.field());
+    return lhs_field.index() == rhs.index() &&
+           lhs_field.operand()->Equals(*rhs.operand());
   }
 
   template <typename E>
@@ -275,12 +291,45 @@ Result<std::shared_ptr<ScalarExpr>> ScalarExpr::Make(std::shared_ptr<Scalar> sca
 // FieldRefExpr
 //
 
-FieldRefExpr::FieldRefExpr(std::shared_ptr<Field> f)
-    : Expr(FIELD_REFERENCE, ExprType::Array(f->type())), field_(std::move(f)) {}
+FieldRefExpr::FieldRefExpr(std::shared_ptr<Expr> input, int index)
+    : UnaryOpMixin(std::move(input)),
+      Expr(FIELD_REFERENCE,
+           ExprType::Array(operand()->type().schema()->field(index)->type())),
+      index_(index) {}
 
-Result<std::shared_ptr<FieldRefExpr>> FieldRefExpr::Make(std::shared_ptr<Field> field) {
-  ERROR_IF(field == nullptr, "FieldRefExpr's field must be non-null");
-  return std::shared_ptr<FieldRefExpr>(new FieldRefExpr(std::move(field)));
+Result<std::shared_ptr<FieldRefExpr>> FieldRefExpr::Make(std::shared_ptr<Expr> input,
+                                                         int index) {
+  ERROR_IF(input == nullptr, "FieldRefExpr's input must be non-null");
+
+  auto expr_type = input->type();
+  ERROR_IF(!expr_type.IsTable(), "FieldRefExpr's input must have a table shape, got '",
+           ShapeToString(expr_type.shape()), "'");
+
+  auto schema = expr_type.schema();
+  ERROR_IF_TYPE(index < 0 || index >= schema->num_fields(), KeyError,
+                "FieldRefExpr's index is out of bound, '", index, "' not in range [0, ",
+                schema->num_fields(), ")");
+
+  return std::shared_ptr<FieldRefExpr>(new FieldRefExpr(std::move(input), index));
+}
+
+Result<std::shared_ptr<FieldRefExpr>> FieldRefExpr::Make(std::shared_ptr<Expr> input,
+                                                         std::string field_name) {
+  ERROR_IF(input == nullptr, "FieldRefExpr's input must be non-null");
+
+  auto expr_type = input->type();
+  ERROR_IF(!expr_type.IsTable(), "FieldRefExpr's input must have a table shape, got '",
+           ShapeToString(expr_type.shape()), "'");
+
+  auto schema = expr_type.schema();
+  auto field = schema->GetFieldByName(field_name);
+  ERROR_IF_TYPE(field == nullptr, KeyError,
+                "FieldRefExpr's can't reference with field name '", field_name, "'");
+
+  auto index = schema->GetFieldIndex(field_name);
+  ERROR_IF(index == -1, "FieldRefExpr's index by name is invalid.");
+
+  return std::shared_ptr<FieldRefExpr>(new FieldRefExpr(std::move(input), index));
 }
 
 //
@@ -317,7 +366,7 @@ ProjectionRelExpr::ProjectionRelExpr(std::shared_ptr<Expr> input,
 Result<std::shared_ptr<ProjectionRelExpr>> ProjectionRelExpr::Make(
     std::shared_ptr<Expr> input, std::vector<std::shared_ptr<Expr>> expressions) {
   ERROR_IF(input == nullptr, "ProjectionRelExpr's input must be non-null.");
-  ERROR_IF(expressions.empty(), "Must project at least one column.");
+  ERROR_IF(expressions.empty(), "Must project at least one expression.");
 
   auto n_fields = expressions.size();
   std::vector<std::shared_ptr<Field>> fields;
@@ -358,6 +407,7 @@ FilterRelExpr::FilterRelExpr(std::shared_ptr<Expr> input, std::shared_ptr<Expr> 
       predicate_(std::move(predicate)) {}
 
 #undef ERROR_IF
+#undef ERROR_IF_TYPE
 
 }  // namespace engine
 }  // namespace arrow

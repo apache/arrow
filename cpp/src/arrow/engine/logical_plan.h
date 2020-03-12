@@ -68,10 +68,10 @@ class LogicalPlanBuilder {
   /// \brief Construct a Scalar literal.
   ResultExpr Scalar(const std::shared_ptr<Scalar>& scalar);
 
-  /// \brief References a field by name.
-  ResultExpr Field(const std::shared_ptr<Expr>& input, const std::string& field_name);
   /// \brief References a field by index.
   ResultExpr Field(const std::shared_ptr<Expr>& input, int field_index);
+  /// \brief References a field by name.
+  ResultExpr Field(const std::shared_ptr<Expr>& input, const std::string& field_name);
 
   /// \brief Scan a Table/Dataset from the Catalog.
   ResultExpr Scan(const std::string& table_name);
@@ -105,8 +105,6 @@ class LogicalPlanBuilder {
   /// \brief Project (mutate) columns with given expressions.
   ResultExpr Project(const std::shared_ptr<Expr>& input,
                      const std::vector<std::shared_ptr<Expr>>& expressions);
-  ResultExpr Mutate(const std::shared_ptr<Expr>& input,
-                    const std::vector<std::shared_ptr<Expr>>& expressions);
 
   /// \brief Project (select) columns by names.
   ///
@@ -114,8 +112,6 @@ class LogicalPlanBuilder {
   /// names. Duplicate and ordering are preserved.
   ResultExpr Project(const std::shared_ptr<Expr>& input,
                      const std::vector<std::string>& column_names);
-  ResultExpr Select(const std::shared_ptr<Expr>& input,
-                    const std::vector<std::string>& column_names);
 
   /// \brief Project (select) columns by indices.
   ///
@@ -123,8 +119,6 @@ class LogicalPlanBuilder {
   /// indices. Duplicate and ordering are preserved.
   ResultExpr Project(const std::shared_ptr<Expr>& input,
                      const std::vector<int>& column_indices);
-  ResultExpr Select(const std::shared_ptr<Expr>& input,
-                    const std::vector<int>& column_indices);
 
   /// @}
 

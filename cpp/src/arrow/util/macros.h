@@ -61,6 +61,12 @@
 #define ARROW_PREFETCH(addr)
 #endif
 
+#if defined(__GNUC__)
+#define ARROW_UNREACHABLE __builtin_unreachable()
+#elif defined(_MSC_VER)
+#define ARROW_UNREACHABLE __assume(0)
+#endif
+
 #if (defined(__GNUC__) || defined(__APPLE__))
 #define ARROW_MUST_USE_RESULT __attribute__((warn_unused_result))
 #elif defined(_MSC_VER)
