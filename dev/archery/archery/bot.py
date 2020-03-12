@@ -19,6 +19,7 @@ import operator
 import shlex
 from pathlib import Path
 from functools import partial
+import tempfile
 
 import click
 import github
@@ -258,20 +259,34 @@ def submit(obj, task, group, dry_run):
 
     See groups defined in arrow/dev/tasks/tests.yml
     """
+    git = Git()
+
+    # construct crossbow arguments
     args = []
     for g in group:
         args.extend(['-g', g])
     for t in task:
         args.append(t)
 
-    # clone crossbow
-    git = Git()
-    git.clone('https://github.com/{}'.format(obj['crossbow_repo']), 'crossbow')
+    # pygithub pull request object
+    pr = obj['pull']
+    crossbow_url = 'https://github.com/{}'.format(obj['crossbow_repo'])
 
-    # submit the crossbow tasks
-    result = Path('result.yml').resolve()
-    xbow = Crossbow('arrow/dev/tasks/crossbow.py')
-    xbow.run('--output-file', str(result), 'submit', *args)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        arrow = tmpdir / 'arrow'
+        queue = tmpdir / 'crossbow'
+
+        # clone arrow, crossbow and checkout the pull request's branch
+        git.clone('--branch', pr.head.ref, pr.head.repo.clone_url, str(arrow))
+        git.clone(crossbow_url, str(queue))
+
+        # submit the crossbow tasks
+        result = Path('result.yml').resolve()
+        xbow = Crossbow(str(arrow / 'dev' / 'tasks' / 'crossbow.py'))
+        xbow.run('--queue-path', str(queue),
+                 '--output-file', str(result),
+                 'submit', *args)
 
     # parse the result yml describing the submitted job
     yaml = YAML()
@@ -283,4 +298,4 @@ def submit(obj, task, group, dry_run):
     response = formatter.render(job)
 
     # send the response
-    obj['pull'].create_issue_comment(response)
+    pr.create_issue_comment(response)
