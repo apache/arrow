@@ -212,7 +212,6 @@ jobs:
     name: AMD64 Windows 2019 Conda C++
     runs-on: windows-latest
     env:
-      CMAKE_ARGS: '-A x64 -DOPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64'
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
