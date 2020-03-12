@@ -155,6 +155,8 @@ def _apply_options(cmd, options):
               help="Build with compute kernels support.")
 @click.option("--with-dataset", default=False, type=BOOL,
               help="Build with dataset support.")
+@click.option("--with-engine", default=False, type=BOOL,
+              help="Build with query engine support.")
 @click.option("--use-sanitizers", default=False, type=BOOL,
               help="Toggles ARROW_USE_*SAN sanitizers.")
 @click.option("--with-fuzzing", default=False, type=BOOL,

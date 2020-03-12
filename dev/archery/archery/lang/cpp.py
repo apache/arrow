@@ -46,7 +46,7 @@ class CppConfiguration:
                  with_parquet=False,
                  # Components
                  with_gandiva=False, with_compute=False, with_dataset=False,
-                 with_plasma=False, with_flight=False,
+                 with_engine=False, with_plasma=False, with_flight=False,
                  # extras
                  with_lint_only=False, with_fuzzing=False,
                  use_gold_linker=True, use_sanitizers=True,
@@ -65,12 +65,13 @@ class CppConfiguration:
         self.with_benchmarks = with_benchmarks
         self.with_examples = with_examples
         self.with_python = with_python
-        self.with_parquet = with_parquet or with_dataset
         self.with_gandiva = with_gandiva
         self.with_plasma = with_plasma
         self.with_flight = with_flight
         self.with_compute = with_compute
-        self.with_dataset = with_dataset
+        self.with_engine = with_engine
+        self.with_dataset = with_dataset or self.with_engine
+        self.with_parquet = with_parquet or self.with_dataset
 
         self.with_lint_only = with_lint_only
         self.with_fuzzing = with_fuzzing
@@ -147,6 +148,7 @@ class CppConfiguration:
         yield ("ARROW_FLIGHT", truthifier(self.with_flight))
         yield ("ARROW_COMPUTE", truthifier(self.with_compute))
         yield ("ARROW_DATASET", truthifier(self.with_dataset))
+        yield ("ARROW_ENGINE", truthifier(self.with_engine))
 
         if self.use_sanitizers or self.with_fuzzing:
             yield ("ARROW_USE_ASAN", "ON")

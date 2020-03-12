@@ -106,6 +106,10 @@ Status CatalogBuilder::Add(std::string name, std::shared_ptr<dataset::Dataset> d
 }
 
 Status CatalogBuilder::Add(std::string name, std::shared_ptr<Table> table) {
+  if (table == nullptr) {
+    return Status::Invalid("Table entry can't be null.");
+  }
+
   return Add(Entry(std::move(table), std::move(name)));
 }
 

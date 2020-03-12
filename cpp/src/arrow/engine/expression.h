@@ -105,8 +105,8 @@ class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
 
   /// \brief Expand the smallest shape to the bigger one if possible.
   ///
-  /// \param[in] lhs, first type to broadcast
-  /// \param[in] rhs, second type to broadcast
+  /// \param[in] lhs first type to broadcast
+  /// \param[in] rhs second type to broadcast
   /// \return broadcasted type or an error why it can't be broadcasted.
   ///
   /// Broadcasting promotes the shape of the smallest type to the bigger one if

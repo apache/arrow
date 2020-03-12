@@ -127,9 +127,9 @@ TEST_F(ExprTest, FieldRefExpr) {
   ASSERT_OK_AND_ASSIGN(auto input, EmptyRelExpr::Make(schema));
 
   ASSERT_RAISES(Invalid, FieldRefExpr::Make(nullptr, 0));
-  ASSERT_RAISES(Invalid, FieldRefExpr::Make(input, -1));
-  ASSERT_RAISES(Invalid, FieldRefExpr::Make(input, 1));
-  ASSERT_RAISES(Invalid, FieldRefExpr::Make(input, "not_present"));
+  ASSERT_RAISES(KeyError, FieldRefExpr::Make(input, -1));
+  ASSERT_RAISES(KeyError, FieldRefExpr::Make(input, 1));
+  ASSERT_RAISES(KeyError, FieldRefExpr::Make(input, "not_present"));
 
   ASSERT_OK_AND_ASSIGN(auto expr, FieldRefExpr::Make(input, 0));
   EXPECT_EQ(expr->kind(), ExprKind::FIELD_REFERENCE);
