@@ -179,6 +179,12 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     getDecimalWriter(arrowType).setPosition(idx());
     getDecimalWriter(arrowType).writeDecimal(value);
   }
+
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType) {
+    data.setType(idx(), MinorType.DECIMAL);
+    getDecimalWriter(arrowType).setPosition(idx());
+    getDecimalWriter(arrowType).writeBigEndianBytesToDecimal(value, arrowType);
+  }
   </#if>
       </#if>
     </#list>

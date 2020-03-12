@@ -208,13 +208,14 @@ public class TestComplexCopier {
 
   @Test
   public void testCopyFixedSizedListOfDecimalsVector() {
-    try (FixedSizeListVector from = FixedSizeListVector.empty("v", 3, allocator);
-         FixedSizeListVector to = FixedSizeListVector.empty("v", 3, allocator)) {
+    try (FixedSizeListVector from = FixedSizeListVector.empty("v", 4, allocator);
+         FixedSizeListVector to = FixedSizeListVector.empty("v", 4, allocator)) {
       from.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 0)));
       to.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 0)));
 
       DecimalHolder holder = new DecimalHolder();
       holder.buffer = allocator.buffer(DecimalUtility.DECIMAL_BYTE_LENGTH);
+      ArrowType arrowType = new ArrowType.Decimal(3, 0);
 
       // populate from vector
       UnionFixedSizeListWriter writer = from.getWriter();
@@ -229,7 +230,10 @@ public class TestComplexCopier {
         writer.decimal().write(holder);
 
         DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(i * 3), holder.buffer, 0);
-        writer.decimal().writeDecimal(0, holder.buffer, new ArrowType.Decimal(3, 0));
+        writer.decimal().writeDecimal(0, holder.buffer, arrowType);
+
+        writer.decimal().writeBigEndianBytesToDecimal(BigDecimal.valueOf(i * 4).unscaledValue().toByteArray(),
+            arrowType);
 
         writer.endList();
       }
@@ -265,6 +269,8 @@ public class TestComplexCopier {
 
         listWriter.decimal().writeDecimal(BigDecimal.valueOf(i * 2));
         listWriter.integer().writeInt(i);
+        listWriter.decimal().writeBigEndianBytesToDecimal(BigDecimal.valueOf(i * 3).unscaledValue().toByteArray(),
+            new ArrowType.Decimal(3, 0));
 
         listWriter.endList();
       }
@@ -304,6 +310,8 @@ public class TestComplexCopier {
         innerStructWriter.start();
         innerStructWriter.integer("innerint").writeInt(i * 3);
         innerStructWriter.decimal("innerdec", 0, 38).writeDecimal(BigDecimal.valueOf(i * 4));
+        innerStructWriter.decimal("innerdec", 0, 38).writeBigEndianBytesToDecimal(BigDecimal.valueOf(i * 4)
+            .unscaledValue().toByteArray(), new ArrowType.Decimal(3, 0));
         innerStructWriter.end();
         structWriter.end();
       }
