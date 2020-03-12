@@ -58,8 +58,7 @@ class PlasmaStore {
  public:
   using NotificationMap = std::unordered_map<int, NotificationQueue>;
 
-  // TODO: PascalCase PlasmaStore methods.
-  PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_enabled,
+  PlasmaStore(EventLoop* loop, const std::string& directory, bool hugepages_enabled,
               const std::string& socket_name,
               std::shared_ptr<ExternalStore> external_store);
 

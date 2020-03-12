@@ -1247,7 +1247,6 @@ void StartServer(std::string socket_name, int64_t system_memory,
     external_store = ExternalStores::GetStore(name);
     if (external_store == nullptr) {
       ARROW_LOG(FATAL) << "No such external store \"" << name << "\"";
-      return -1;
     }
     ARROW_LOG(DEBUG) << "connecting to external store...";
     ARROW_CHECK_OK(external_store->Connect(external_store_endpoint));
@@ -1310,7 +1309,7 @@ int main(int argc, char* argv[]) {
                         "filesystem with -d";
   }
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
-  plasma::StartServer(socket_name, plasma_directory, hugepages_enabled,
+  plasma::StartServer(socket_name, system_memory, plasma_directory, hugepages_enabled,
                       external_store_endpoint);
   plasma::g_runner->Shutdown();
   plasma::g_runner = nullptr;
