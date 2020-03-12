@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -124,6 +125,15 @@ public class TestArrowBuf {
       buf.getBytes(0, actual);
       assertArrayEquals(expected, actual);
     }
+  }
+
+  @Test
+  public void testEmptyArrowBuf() {
+    ArrowBuf buf = new ArrowBuf(ReferenceManager.NO_OP, null,3, new PooledByteBufAllocatorL().empty.memoryAddress());
+    buf.getReferenceManager().retain(8);
+    assertEquals(3, buf.capacity());
+    assertEquals(1, buf.getReferenceManager().getRefCount());
+    buf.close();
   }
 
 }
