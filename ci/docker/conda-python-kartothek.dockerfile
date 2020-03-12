@@ -15,32 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# All of the following environment variables are required to set default values
-# for the parameters in docker-compose.yml.
+ARG repo
+ARG arch=amd64
+ARG python=3.6
+FROM ${repo}:${arch}-conda-python-${python}
 
-ULIMIT_CORE=-1
-REPO=apache/arrow-dev
-ARCH=amd64
-CUDA=9.1
-DEBIAN=10
-UBUNTU=18.04
-FEDORA=29
-PYTHON=3.6
-RUST=nightly-2019-11-14
-GO=1.12
-NODE=11
-MAVEN=3.5.4
-JDK=8
-PANDAS=latest
-DASK=latest
-TURBODBC=latest
-KARTOTHEK=latest
-HDFS=2.9.2
-SPARK=master
-DOTNET=2.1
-R=3.6
-ARROW_R_DEV=TRUE
-# These correspond to images on Docker Hub that contain R, e.g. rhub/ubuntu-gcc-release:latest
-R_ORG=rhub
-R_IMAGE=ubuntu-gcc-release
-R_TAG=latest
+# install kartothek dependencies from conda-forge
+RUN conda install -c conda-forge -q \
+        dask \
+        decorator \
+        msgpack-python \
+        pytest-mock \
+        pytest-xdist \
+        simplejson \
+        simplekv \
+        storefact \
+        toolz \
+        urlquote \
+        zstandard && \
+    conda clean --all
+
+ARG kartothek=latest
+COPY ci/scripts/install_kartothek.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_kartothek.sh ${kartothek} /kartothek

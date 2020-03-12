@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,32 +17,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# All of the following environment variables are required to set default values
-# for the parameters in docker-compose.yml.
+set -e
 
-ULIMIT_CORE=-1
-REPO=apache/arrow-dev
-ARCH=amd64
-CUDA=9.1
-DEBIAN=10
-UBUNTU=18.04
-FEDORA=29
-PYTHON=3.6
-RUST=nightly-2019-11-14
-GO=1.12
-NODE=11
-MAVEN=3.5.4
-JDK=8
-PANDAS=latest
-DASK=latest
-TURBODBC=latest
-KARTOTHEK=latest
-HDFS=2.9.2
-SPARK=master
-DOTNET=2.1
-R=3.6
-ARROW_R_DEV=TRUE
-# These correspond to images on Docker Hub that contain R, e.g. rhub/ubuntu-gcc-release:latest
-R_ORG=rhub
-R_IMAGE=ubuntu-gcc-release
-R_TAG=latest
+# check that optional pyarrow modules are available
+# because pytest would just skip the pyarrow tests
+python -c "import pyarrow.parquet"
+
+# check that kartothek is correctly installed
+python -c "import kartothek"
+
+pushd /kartothek
+pytest -n0
