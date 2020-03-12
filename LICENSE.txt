@@ -1765,7 +1765,7 @@ preceding version 3 has the following license:
 
 This project includes code from the rtools-backports project.
 
-* ci/PKGBUILD and ci/appveyor-build-r.sh are based on code
+* ci/scripts/PKGBUILD and ci/scripts/r_windows_build.sh are based on code
   from the rtools-backports project.
 
 Copyright: Copyright (c) 2013 - 2019, Алексей and Jeroen Ooms.

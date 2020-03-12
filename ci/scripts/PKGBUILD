@@ -36,7 +36,7 @@ options=("staticlibs" "strip" "!buildflags")
 
 # For installing from a local checkout, set source_dir to . and don't include
 # a "source" param below
-source_dir="$APPVEYOR_BUILD_FOLDER"
+source_dir="$GITHUB_WORKSPACE"
 # else
 # source_dir=apache-${_realname}-${pkgver}
 
@@ -49,7 +49,6 @@ source_dir="$APPVEYOR_BUILD_FOLDER"
 # sha256sums=("SKIP")
 # source_dir="${APPVEYOR_BUILD_FOLDER}/${source_dir}"
 
-cmake_build_type=release
 cpp_build_dir=build-${CARCH}-cpp
 
 pkgver() {
@@ -76,28 +75,28 @@ build() {
     ${MINGW_PREFIX}/bin/cmake.exe \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
-    -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
-    -DCMAKE_BUILD_TYPE=${cmake_build_type} \
-    -DARROW_BUILD_STATIC=ON \
+    -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_BUILD_SHARED=OFF \
+    -DARROW_BUILD_STATIC=ON \
+    -DARROW_BUILD_UTILITIES=OFF \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
     -DARROW_DATASET=ON \
     -DARROW_FILESYSTEM=ON \
-    -DARROW_JSON=ON \
-    -DARROW_PARQUET=ON \
     -DARROW_HDFS=OFF \
-    -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_JEMALLOC=OFF \
-    -DARROW_WITH_ZLIB=ON \
-    -DARROW_WITH_SNAPPY=ON \
-    -DARROW_WITH_LZ4=ON \
-    -DARROW_WITH_ZSTD=ON \
+    -DARROW_JSON=ON \
+    -DARROW_PACKAGE_PREFIX="${MINGW_PREFIX}" \
+    -DARROW_PARQUET=ON \
     -DARROW_USE_GLOG=OFF \
-    -DARROW_BUILD_UTILITIES=OFF \
-    -DThrift_ROOT="${MINGW_PREFIX}"
+    -DARROW_WITH_LZ4=ON \
+    -DARROW_WITH_SNAPPY=ON \
+    -DARROW_WITH_ZLIB=ON \
+    -DARROW_WITH_ZSTD=ON \
+    -DCMAKE_BUILD_TYPE="release" \
+    -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX}
 
-  make
+  make -j2
   popd
 }
 

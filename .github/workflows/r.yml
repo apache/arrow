@@ -21,13 +21,21 @@ on:
   push:
     paths:
       - '.github/workflows/r.yml'
-      - 'ci/**'
+      - 'ci/scripts/r_*.sh'
+      - 'ci/scripts/cpp_*.sh'
+      - 'ci/scripts/PKGBUILD'
+      - 'ci/etc/rprofile'
+      - 'ci/docker/**'
       - 'cpp/**'
       - 'r/**'
   pull_request:
     paths:
       - '.github/workflows/r.yml'
-      - 'ci/**'
+      - 'ci/scripts/r_*.sh'
+      - 'ci/scripts/cpp_*.sh'
+      - 'ci/scripts/PKGBUILD'
+      - 'ci/etc/rprofile'
+      - 'ci/docker/**'
       - 'cpp/**'
       - 'r/**'
 
@@ -110,3 +118,46 @@ jobs:
           docker login -u ${{ secrets.DOCKERHUB_USER }} \
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push r
+
+  windows:
+    name: AMD64 Windows RTools ${{ matrix.rtools }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # TODO: test on rtools40
+        rtools: [35]
+    env:
+      TEST_R_WITH_ARROW: "TRUE"
+      ARROW_R_CXXFLAGS: '-Werror'
+      _R_CHECK_TESTS_NLINES_: 0
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: numworks/setup-msys2@v1
+        with:
+          update: true
+      - uses: actions/checkout@v2
+      - uses: r-lib/actions/setup-r@master
+        with:
+          rtools-version: ${{ matrix.rtools }}
+      - name: Build Arrow C++
+        run: msys2do ci/scripts/r_windows_build.sh
+      - name: Install R package dependencies
+        shell: Rscript {0}
+        run: |
+          options(pkgType="win.binary")
+          install.packages(c("remotes", "rcmdcheck"))
+          remotes::install_deps("r", dependencies = TRUE)
+      - name: Check
+        shell: Rscript {0}
+        run: |
+          Sys.setenv(
+            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
+            MAKEFLAGS = paste0("-j", parallel::detectCores())
+          )
+          rcmdcheck::rcmdcheck("r",
+            build_args = '--no-build-vignettes',
+            args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
+            error_on = 'warning',
+            check_dir = 'check'
+          )
