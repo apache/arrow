@@ -175,7 +175,7 @@ TYPED_TEST(CompareExprTest, BasicCompareExpr) {
   ASSERT_RAISES(Invalid, this->Make(nullptr, f_expr));
 
   // Not type compatible
-  ASSERT_OK_AND_ASSIGN(auto s_i64, MakeScalar(int64(), 42L));
+  ASSERT_OK_AND_ASSIGN(auto s_i64, MakeScalar(int64(), 42LL));
   ASSERT_OK_AND_ASSIGN(auto s_expr_i64, ScalarExpr::Make(s_i64));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("operands must be of same type"),
                                   this->Make(s_expr_i64, f_expr));

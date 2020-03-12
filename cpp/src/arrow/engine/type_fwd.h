@@ -19,13 +19,15 @@
 
 #include <cstdint>
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 namespace engine {
 
 class ExprType;
 
 /// Tag identifier for the expression type.
-enum ExprKind : uint8_t {
+enum ARROW_EXPORT ExprKind : uint8_t {
   /// A Scalar literal, i.e. a constant.
   SCALAR_LITERAL,
   /// A Field reference in a schema.
@@ -49,7 +51,7 @@ class ScalarExpr;
 class FieldRefExpr;
 
 /// Tag identifier for comparison operators
-enum CompareKind : uint8_t {
+enum ARROW_EXPORT CompareKind : uint8_t {
   EQUAL,
   NOT_EQUAL,
   GREATER_THAN,

@@ -41,29 +41,29 @@ std::string ShapeToString(ExprType::Shape shape) {
 }
 
 ExprType ExprType::Scalar(std::shared_ptr<DataType> type) {
-  return ExprType(std::move(type), Shape::SCALAR);
+  return ExprType(std::move(type), SCALAR);
 }
 
 ExprType ExprType::Array(std::shared_ptr<DataType> type) {
-  return ExprType(std::move(type), Shape::ARRAY);
+  return ExprType(std::move(type), ARRAY);
 }
 
 ExprType ExprType::Table(std::shared_ptr<Schema> schema) {
-  return ExprType(std::move(schema), Shape::TABLE);
+  return ExprType(std::move(schema), TABLE);
 }
 
 ExprType ExprType::Table(std::vector<std::shared_ptr<Field>> fields) {
-  return ExprType(arrow::schema(std::move(fields)), Shape::TABLE);
+  return ExprType(arrow::schema(std::move(fields)), TABLE);
 }
 
 ExprType::ExprType(std::shared_ptr<Schema> schema, Shape shape)
     : schema_(std::move(schema)), shape_(shape) {
-  DCHECK_EQ(shape, Shape::TABLE);
+  DCHECK_EQ(shape, TABLE);
 }
 
 ExprType::ExprType(std::shared_ptr<DataType> type, Shape shape)
     : data_type_(std::move(type)), shape_(shape) {
-  DCHECK_NE(shape, Shape::TABLE);
+  DCHECK_NE(shape, TABLE);
 }
 
 ExprType::ExprType(const ExprType& other) : shape_(other.shape()) {
