@@ -51,6 +51,10 @@ class Git(Command):
         return self.run_cmd(*argv, **kwargs)
 
     @git_cmd
+    def fetch(self, *argv, **kwargs):
+        return self.run_cmd(*argv, **kwargs)
+
+    @git_cmd
     def checkout(self, *argv, **kwargs):
         return self.run_cmd(*argv, **kwargs)
 
