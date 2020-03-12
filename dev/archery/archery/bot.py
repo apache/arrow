@@ -274,22 +274,19 @@ def submit(obj, task, group, dry_run):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        arrow_path = str(tmpdir / 'arrow')
-        crossbow_path = str(tmpdir / 'crossbow')
+        arrow = tmpdir / 'arrow'
+        queue = tmpdir / 'crossbow'
 
         # clone arrow, crossbow and checkout the pull request's branch
-        git.clone('--branch', pr.head.ref, pr.head.repo.clone_url, arrow_path)
-        git.clone(crossbow_url, crossbow_path)
+        git.clone('--branch', pr.head.ref, pr.head.repo.clone_url, str(arrow))
+        git.clone(crossbow_url, str(queue))
 
         # submit the crossbow tasks
         result = Path('result.yml').resolve()
-        xbow = Crossbow('arrow/dev/tasks/crossbow.py')
-        xbow.run(
-            '--arrow-path', arrow_path,
-            '--queue-path', crossbow_path,
-            '--output-file', str(result),
-            'submit', *args
-        )
+        xbow = Crossbow(str(arrow / 'dev' / 'tasks' / 'crossbow.py'))
+        xbow.run('--queue-path', str(queue),
+                 '--output-file', str(result),
+                 'submit', *args)
 
     # parse the result yml describing the submitted job
     yaml = YAML()
