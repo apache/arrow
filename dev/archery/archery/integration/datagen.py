@@ -29,7 +29,7 @@ from .util import (frombytes, rands, tobytes, SKIP_ARROW, SKIP_FLIGHT)
 
 class Field(object):
 
-    def __init__(self, name, nullable=True, metadata=OrderedDict([])):
+    def __init__(self, name, nullable=True, metadata=[]):
         self.name = name
         self.nullable = nullable
         self.metadata = metadata
@@ -111,7 +111,7 @@ class NullColumn(Column):
 
 class NullField(PrimitiveField):
 
-    def __init__(self, name, metadata=OrderedDict([])):
+    def __init__(self, name, metadata=[]):
         super(NullField, self).__init__(name, nullable=True,
                                         metadata=metadata)
 
@@ -129,7 +129,7 @@ TEST_INT_MIN = ~TEST_INT_MAX
 class IntegerField(PrimitiveField):
 
     def __init__(self, name, is_signed, bit_width, nullable=True,
-                 metadata=OrderedDict([]),
+                 metadata=[],
                  min_value=TEST_INT_MIN,
                  max_value=TEST_INT_MAX):
         super(IntegerField, self).__init__(name, nullable=nullable,
@@ -184,7 +184,7 @@ class DateField(IntegerField):
         MILLISECOND: [-62135596800000, 253402214400000]
     }
 
-    def __init__(self, name, unit, nullable=True, metadata=OrderedDict([])):
+    def __init__(self, name, unit, nullable=True, metadata=[]):
         bit_width = 32 if unit == self.DAY else 64
 
         min_value, max_value = self._ranges[unit]
@@ -227,7 +227,7 @@ class TimeField(IntegerField):
     }
 
     def __init__(self, name, unit='s', nullable=True,
-                 metadata=OrderedDict([])):
+                 metadata=[]):
         min_val, max_val = self._ranges[unit]
         super(TimeField, self).__init__(name, True, self.BIT_WIDTHS[unit],
                                         nullable=nullable, metadata=metadata,
@@ -255,7 +255,7 @@ class TimestampField(IntegerField):
     }
 
     def __init__(self, name, unit='s', tz=None, nullable=True,
-                 metadata=OrderedDict([])):
+                 metadata=[]):
         min_val, max_val = self._ranges[unit]
         super(TimestampField, self).__init__(name, True, 64,
                                              nullable=nullable,
@@ -280,7 +280,7 @@ class TimestampField(IntegerField):
 class DurationIntervalField(IntegerField):
 
     def __init__(self, name, unit='s', nullable=True,
-                 metadata=OrderedDict([])):
+                 metadata=[]):
         min_val, max_val = np.iinfo('int64').min, np.iinfo('int64').max,
         super(DurationIntervalField, self).__init__(
                 name, True, 64,
@@ -298,7 +298,7 @@ class DurationIntervalField(IntegerField):
 
 
 class YearMonthIntervalField(IntegerField):
-    def __init__(self, name, nullable=True, metadata=OrderedDict([])):
+    def __init__(self, name, nullable=True, metadata=[]):
         min_val, max_val = [-10000*12, 10000*12]  # +/- 10000 years.
         super(YearMonthIntervalField, self).__init__(
                 name, True, 32,
@@ -315,7 +315,7 @@ class YearMonthIntervalField(IntegerField):
 
 
 class DayTimeIntervalField(PrimitiveField):
-    def __init__(self, name, nullable=True, metadata=OrderedDict([])):
+    def __init__(self, name, nullable=True, metadata=[]):
         super(DayTimeIntervalField, self).__init__(name,
                                                    nullable=True,
                                                    metadata=metadata)
@@ -346,7 +346,7 @@ class DayTimeIntervalField(PrimitiveField):
 class FloatingPointField(PrimitiveField):
 
     def __init__(self, name, bit_width, nullable=True,
-                 metadata=OrderedDict([])):
+                 metadata=[]):
         super(FloatingPointField, self).__init__(name,
                                                  nullable=nullable,
                                                  metadata=metadata)
@@ -398,7 +398,7 @@ def decimal_range_from_precision(precision):
 
 class DecimalField(PrimitiveField):
     def __init__(self, name, precision, scale, bit_width=128, nullable=True,
-                 metadata=OrderedDict([])):
+                 metadata=[]):
         super(DecimalField, self).__init__(name, nullable=True,
                                            metadata=metadata)
         self.precision = precision
@@ -489,7 +489,7 @@ class BinaryField(PrimitiveField):
 class FixedSizeBinaryField(PrimitiveField):
 
     def __init__(self, name, byte_width, nullable=True,
-                 metadata=OrderedDict([])):
+                 metadata=[]):
         super(FixedSizeBinaryField, self).__init__(name, nullable=nullable,
                                                    metadata=metadata)
         self.byte_width = byte_width
@@ -618,7 +618,7 @@ class StringColumn(BinaryColumn):
 class ListField(Field):
 
     def __init__(self, name, value_field, nullable=True,
-                 metadata=OrderedDict([])):
+                 metadata=[]):
         super(ListField, self).__init__(name, nullable=nullable,
                                         metadata=metadata)
         self.value_field = value_field
@@ -673,7 +673,7 @@ class ListColumn(Column):
 class MapField(Field):
 
     def __init__(self, name, key_field, item_field, nullable=True,
-                 metadata=OrderedDict([]), keysSorted=False):
+                 metadata=[], keysSorted=False):
         super(MapField, self).__init__(name, nullable=nullable,
                                        metadata=metadata)
 
@@ -735,7 +735,7 @@ class MapColumn(Column):
 class FixedSizeListField(Field):
 
     def __init__(self, name, value_field, list_size, nullable=True,
-                 metadata=OrderedDict([])):
+                 metadata=[]):
         super(FixedSizeListField, self).__init__(name, nullable=nullable,
                                                  metadata=metadata)
         self.value_field = value_field
@@ -778,7 +778,7 @@ class FixedSizeListColumn(Column):
 class StructField(Field):
 
     def __init__(self, name, fields, nullable=True,
-                 metadata=OrderedDict([])):
+                 metadata=[]):
         super(StructField, self).__init__(name, nullable=nullable,
                                           metadata=metadata)
         self.fields = fields
@@ -822,7 +822,7 @@ class Dictionary(object):
 class DictionaryField(Field):
 
     def __init__(self, name, index_field, dictionary, nullable=True,
-                 metadata=OrderedDict([])):
+                 metadata=[]):
         super(DictionaryField, self).__init__(name, nullable=nullable,
                                               metadata=metadata)
         assert index_field.name == ''
@@ -947,7 +947,7 @@ def get_field(name, type_, **kwargs):
 
 
 def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None,
-                   metadata=OrderedDict([])):
+                   metadata=[]):
     schema = Schema(fields, metadata=metadata)
     batches = []
     for size in batch_sizes:
@@ -965,7 +965,7 @@ def generate_custom_metadata_case():
     def meta(items):
         # Generate a simple block of metadata where each value is '{}'.
         # Keys are delimited by whitespace in `items`.
-        return OrderedDict([(item, '{}') for item in items.split()])
+        return [{'key': item, 'value': '{}'} for item in items.split()]
 
     fields = [
         get_field('sort_of_pandas', 'int8', metadata=meta('pandas')),
@@ -1156,6 +1156,7 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_nested_case(),
 
         generate_custom_metadata_case().skip_category('Go')
+                                       .skip_category('Java')
                                        .skip_category('JS'),
 
         # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO

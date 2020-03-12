@@ -327,14 +327,14 @@ static const char* JSON_EXAMPLE2 = R"example(
             {"type": "DATA", "typeBitWidth": 32}
           ]
         },
-        "metadata": {
-          "converted_from_time32": "true"
-        }
+        "metadata": [
+          {"key": "converted_from_time32", "value": "true"}
+        ]
       }
     ],
-    "metadata": {
-      "schema_custom_0": "eh"
-    }
+    "metadata": [
+      {"key": "schema_custom_0", "value": "eh"}
+    ]
   },
   "batches": [
     {

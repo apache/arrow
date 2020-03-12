@@ -117,12 +117,19 @@ class SchemaWriter {
     }
     writer_->Key("metadata");
 
-    writer_->StartObject();
+    writer_->StartArray();
     for (int64_t i = 0; i < metadata->size(); ++i) {
-      writer_->Key(metadata->key(i).c_str());
+      writer_->StartObject();
+
+      writer_->Key("key");
+      writer_->String(metadata->key(i).c_str());
+
+      writer_->Key("value");
       writer_->String(metadata->value(i).c_str());
+
+      writer_->EndObject();
     }
-    writer_->EndObject();
+    writer_->EndArray();
   }
 
   Status WriteDictionaryMetadata(int64_t id, const DictionaryType& type) {
@@ -1013,20 +1020,26 @@ static Status GetKeyValueMetadata(const FieldOrStruct& field_or_struct,
     return Status::OK();
   }
 
-  const auto& json_metadata = it->value;
-  if (json_metadata.IsNull()) {
+  if (it->value.IsNull()) {
     return Status::OK();
   }
 
-  if (!json_metadata.IsObject()) {
-    return Status::Invalid("Metadata was not a JSON object");
+  if (!it->value.IsArray()) {
+    return Status::Invalid("Metadata was not a JSON array");
   }
+  const auto& key_value_pairs = it->value.GetArray();
 
-  for (auto it = json_metadata.MemberBegin(); it != json_metadata.MemberEnd(); ++it) {
-    if (!it->value.IsString()) {
-      return Status::Invalid("Metadata mapped value was not a string");
+  for (auto it = key_value_pairs.Begin(); it != key_value_pairs.End(); ++it) {
+    if (!it->IsObject()) {
+      return Status::Invalid("Metadata KeyValue was not a JSON object");
     }
-    (*out)->Append(it->name.GetString(), it->value.GetString());
+    const auto& key_value_pair = it->GetObject();
+
+    std::string key, value;
+    RETURN_NOT_OK(GetObjectString(key_value_pair, "key", &key));
+    RETURN_NOT_OK(GetObjectString(key_value_pair, "value", &value));
+
+    (*out)->Append(std::move(key), std::move(value));
   }
   return Status::OK();
 }

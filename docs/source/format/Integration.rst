@@ -155,13 +155,14 @@ For primitive types, ``children`` is an empty array.
 
 **Metadata** ::
 
-    null | {
-      "$KEY" : "$VALUE",
-      ...
-    }
+    null |
+    [ {
+      "key": /* string */,
+      "value": /* string */
+    } ]
 
 A key-value mapping of custom metadata. It may be omitted or null, in which case it is
-considered equivalent to ``{}`` (no metadata).
+considered equivalent to ``[]`` (no metadata). Duplicated keys are not forbidden here.
 
 **Type**: ::
 
