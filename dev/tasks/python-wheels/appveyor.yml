@@ -48,7 +48,7 @@ build_script:
   - rd /s /q C:\OpenSSL-v111-Win32
   - rd /s /q C:\OpenSSL-v111-Win64
 
-  - call %ARROW_SRC%\dev\tasks\python-wheels\win-build.bat
+  - call %ARROW_SRC%\dev\tasks\python-wheels\{{ script }}
 
 after_build:
   # the artifacts must be uploaded from a directory relative to the build root
