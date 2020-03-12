@@ -112,7 +112,7 @@ jobs:
           - dask
           - hdfs
           - turbodbc
-          - kartothek-master
+          - kartothek-latest
           - pandas-master
           - pandas-0.24
         include:
@@ -122,10 +122,10 @@ jobs:
           - name: turbodbc
             library: turbodbc
             title: Turbodbc
-          - name: kartothek-master
+          - name: kartothek-latest
             library: kartothek
-            kartothek: master
-            title: Kartothek master
+            kartothek: latest
+            title: Kartothek latest
           - name: pandas-0.24
             library: pandas
             title: Pandas 0.24
