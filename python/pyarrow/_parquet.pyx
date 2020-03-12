@@ -938,6 +938,7 @@ cdef encoding_name_from_enum(ParquetEncoding encoding_):
         ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY: 'DELTA_LENGTH_BYTE_ARRAY',
         ParquetEncoding_DELTA_BYTE_ARRAY: 'DELTA_BYTE_ARRAY',
         ParquetEncoding_RLE_DICTIONARY: 'RLE_DICTIONARY',
+        ParquetEncoding_BYTE_STREAM_SPLIT: 'BYTE_STREAM_SPLIT',
     }.get(encoding_, 'UNKNOWN')
 
 
@@ -1201,6 +1202,7 @@ cdef class ParquetWriter:
     cdef readonly:
         object use_dictionary
         object use_deprecated_int96_timestamps
+        object use_byte_stream_split
         object coerce_timestamps
         object allow_truncated_timestamps
         object compression
@@ -1218,7 +1220,8 @@ cdef class ParquetWriter:
                   coerce_timestamps=None,
                   data_page_size=None,
                   allow_truncated_timestamps=False,
-                  compression_level=None):
+                  compression_level=None,
+                  use_byte_stream_split=False):
         cdef:
             shared_ptr[WriterProperties] properties
             c_string c_where
@@ -1243,12 +1246,14 @@ cdef class ParquetWriter:
         self.use_deprecated_int96_timestamps = use_deprecated_int96_timestamps
         self.coerce_timestamps = coerce_timestamps
         self.allow_truncated_timestamps = allow_truncated_timestamps
+        self.use_byte_stream_split = use_byte_stream_split
 
         cdef WriterProperties.Builder properties_builder
         self._set_version(&properties_builder)
         self._set_compression_props(&properties_builder)
         self._set_dictionary_props(&properties_builder)
         self._set_statistics_props(&properties_builder)
+        self._set_byte_stream_split_props(&properties_builder)
 
         if data_page_size is not None:
             properties_builder.data_pagesize(data_page_size)
@@ -1333,6 +1338,15 @@ cdef class ParquetWriter:
             props.disable_dictionary()
             for column in self.use_dictionary:
                 props.enable_dictionary(column)
+
+    cdef void _set_byte_stream_split_props(
+            self, WriterProperties.Builder* props):
+        if isinstance(self.use_byte_stream_split, bool):
+            if self.use_byte_stream_split:
+                props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
+        elif self.use_byte_stream_split is not None:
+            for column in self.use_byte_stream_split:
+                props.encoding(column, ParquetEncoding_BYTE_STREAM_SPLIT)
 
     cdef void _set_statistics_props(self, WriterProperties.Builder* props):
         if isinstance(self.write_statistics, bool):

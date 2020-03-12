@@ -391,7 +391,13 @@ compression_level: int or dict, default None
     meaning for each codec, so you have to read the documentation of the
     codec you are using.
     An exception is thrown if the compression codec does not allow specifying
-    a compression level."""
+    a compression level.
+use_byte_stream_split: bool or list, default False
+    Specify if the byte_stream_split encoding should be used in general or
+    only for some columns. If both dictionary and byte_stream_stream are
+    enabled, then dictionary is prefered.
+    The byte_stream_split encoding is valid only for floating-point data types
+    and should be combined with a compression codec."""
 
 
 class ParquetWriter:
@@ -419,6 +425,7 @@ schema : arrow Schema
                  write_statistics=True,
                  use_deprecated_int96_timestamps=None,
                  compression_level=None,
+                 use_byte_stream_split=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -454,6 +461,7 @@ schema : arrow Schema
             write_statistics=write_statistics,
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
             compression_level=compression_level,
+            use_byte_stream_split=use_byte_stream_split,
             **options)
         self.is_open = True
 
@@ -1320,6 +1328,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 data_page_size=None, flavor=None,
                 filesystem=None,
                 compression_level=None,
+                use_byte_stream_split=False,
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -1337,6 +1346,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 compression=compression,
                 use_deprecated_int96_timestamps=use_int96,
                 compression_level=compression_level,
+                use_byte_stream_split=use_byte_stream_split,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
