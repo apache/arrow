@@ -105,6 +105,7 @@ groups:
     - test-fedora-29-python-3
     - test-r-rhub-ubuntu-gcc-release
     - test-r-rhub-debian-gcc-devel
+    - test-r-rocker-r-base-latest    
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
     - test-r-rstudio-r-base-3.6-opensuse15
@@ -149,6 +150,7 @@ groups:
     - test-fedora-29-python-3
     - test-r-rhub-ubuntu-gcc-release
     - test-r-rhub-debian-gcc-devel
+    - test-r-rocker-r-base-latest
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
     - test-r-rstudio-r-base-3.6-opensuse15
@@ -186,6 +188,7 @@ groups:
     - test-ubuntu-18.04-r-sanitizer
     - test-r-rhub-ubuntu-gcc-release
     - test-r-rhub-debian-gcc-devel
+    - test-r-rocker-r-base-latest
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
     - test-r-rstudio-r-base-3.6-opensuse15
@@ -275,6 +278,7 @@ groups:
     - test-fedora-29-python-3
     - test-r-rhub-ubuntu-gcc-release
     - test-r-rhub-debian-gcc-devel
+    - test-r-rocker-r-base-latest
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
     - test-r-rstudio-r-base-3.6-opensuse15
@@ -1851,6 +1855,16 @@ tasks:
     params:
       r_org: rhub
       r_image: ubuntu-gcc-release
+      r_tag: latest
+      verbose: "TRUE"
+
+  test-r-rocker-r-base-latest:
+    ci: azure
+    platform: linux
+    template: r/azure.linux.yml
+    params:
+      r_org: rocker
+      r_image: r-base
       r_tag: latest
       verbose: "TRUE"
 

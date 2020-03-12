@@ -40,6 +40,8 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 download_binary <- function(os = identify_os()) {
   libfile <- tempfile()
   if (!is.null(os)) {
+    # See if we can map this os-version to one we have binaries for
+    os <- find_available_binary(os)
     binary_url <- paste0(arrow_repo, "bin/", os, "/arrow-", VERSION, ".zip")
     try(
       download.file(binary_url, libfile, quiet = quietly),
@@ -84,14 +86,20 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_
     vals <- sub("^.*=(.*)$", "\\1", os_release)
     names(vals) <- sub("^(.*)=.*$", "\\1", os_release)
     distro <- gsub('"', '', vals["ID"])
-    if (distro == "ubuntu") {
-      # Keep major.minor version
-      version_regex <- '^"?([0-9]+\\.[0-9]+).*"?.*$'
-    } else {
-      # Only major version number
-      version_regex <- '^"?([0-9]+).*"?.*$'
+    os_version <- "unknown" # default value
+    if ("VERSION_ID" %in% names(vals)) {
+      if (distro == "ubuntu") {
+        # Keep major.minor version
+        version_regex <- '^"?([0-9]+\\.[0-9]+).*"?.*$'
+      } else {
+        # Only major version number
+        version_regex <- '^"?([0-9]+).*"?.*$'
+      }
+      os_version <- sub(version_regex, "\\1", vals["VERSION_ID"])
+    } else if ("PRETTY_NAME" %in% names(vals) && grepl("bullseye", vals["PRETTY_NAME"])) {
+      # debian unstable doesn't include a number but we can map from pretty name
+      os_version <- "11"
     }
-    os_version <- sub(version_regex, "\\1", vals["VERSION_ID"])
     os <- paste0(distro, "-", os_version)
   } else if (file.exists("/etc/system-release")) {
     # Something like "CentOS Linux release 7.7.1908 (Core)"
@@ -103,8 +111,6 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_
     os <- NULL
   }
 
-  # Now look to see if we can map this os-version to one we have binaries for
-  os <- find_available_binary(os)
   os
 }
 
@@ -244,6 +250,8 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     if (!is.null(src_dir)) {
       cat("*** Building C++ libraries\n")
       build_libarrow(src_dir, dst_dir)
+    } else {
+      cat("*** Proceeding without C++ dependencies\n")
     }
   } else {
    cat("*** Proceeding without C++ dependencies\n")
