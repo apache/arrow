@@ -248,7 +248,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   }
 
   Status Resize(int64_t capacity) override {
-    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
     capacity = std::max(capacity, kMinBuilderCapacity);
     ARROW_RETURN_NOT_OK(indices_builder_.Resize(capacity));
     capacity_ = indices_builder_.capacity();
@@ -356,7 +356,7 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
   }
 
   Status Resize(int64_t capacity) override {
-    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
     capacity = std::max(capacity, kMinBuilderCapacity);
 
     ARROW_RETURN_NOT_OK(indices_builder_.Resize(capacity));

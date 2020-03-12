@@ -69,7 +69,7 @@ Status ArrayBuilder::AppendToBitmap(int64_t num_bits, bool value) {
 }
 
 Status ArrayBuilder::Resize(int64_t capacity) {
-  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  RETURN_NOT_OK(CheckCapacity(capacity));
   capacity_ = capacity;
   return null_bitmap_builder_.Resize(capacity);
 }
