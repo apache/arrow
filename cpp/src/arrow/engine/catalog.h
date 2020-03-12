@@ -23,9 +23,9 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/engine/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/variant.h"
-#include "arrow/engine/visibility.h"
 
 namespace arrow {
 
