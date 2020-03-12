@@ -360,7 +360,7 @@ class TestHashKernelBinaryTypes : public TestHashKernel {
   }
 };
 
-TYPED_TEST_CASE(TestHashKernelBinaryTypes, StringTypes);
+TYPED_TEST_SUITE(TestHashKernelBinaryTypes, StringTypes);
 
 TYPED_TEST(TestHashKernelBinaryTypes, Unique) {
   this->CheckUniqueP({"test", "", "test2", "test"}, {true, false, true, true},

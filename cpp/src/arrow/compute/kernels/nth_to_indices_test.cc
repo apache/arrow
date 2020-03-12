@@ -98,15 +98,15 @@ class TestNthToIndicesKernel : public ComputeFixture, public TestBase {
 
 template <typename ArrowType>
 class TestNthToIndicesKernelForReal : public TestNthToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestNthToIndicesKernelForReal, RealArrowTypes);
+TYPED_TEST_SUITE(TestNthToIndicesKernelForReal, RealArrowTypes);
 
 template <typename ArrowType>
 class TestNthToIndicesKernelForIntegral : public TestNthToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestNthToIndicesKernelForIntegral, IntegralArrowTypes);
+TYPED_TEST_SUITE(TestNthToIndicesKernelForIntegral, IntegralArrowTypes);
 
 template <typename ArrowType>
 class TestNthToIndicesKernelForStrings : public TestNthToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestNthToIndicesKernelForStrings, testing::Types<StringType>);
+TYPED_TEST_SUITE(TestNthToIndicesKernelForStrings, testing::Types<StringType>);
 
 TYPED_TEST(TestNthToIndicesKernelForReal, NthReal) {
   this->AssertNthToIndicesJson("[null, 1, 3.3, null, 2, 5.3]", 0);
@@ -167,7 +167,7 @@ class Random<StringType> : public RandomImpl {
   }
 };
 
-TYPED_TEST_CASE(TestNthToIndicesKernelRandom, NthToIndicesableTypes);
+TYPED_TEST_SUITE(TestNthToIndicesKernelRandom, NthToIndicesableTypes);
 
 TYPED_TEST(TestNthToIndicesKernelRandom, NthRandomValues) {
   Random<TypeParam> rand(0x61549225);
