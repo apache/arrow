@@ -25,12 +25,12 @@
 #include "arrow/engine/catalog.h"
 #include "arrow/engine/type_fwd.h"
 #include "arrow/engine/type_traits.h"
+#include "arrow/engine/visibility.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace engine {
@@ -48,7 +48,7 @@ namespace engine {
 ///   ArrayType(DataType),
 ///   TableType(Schema),
 /// }
-class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
+class ARROW_EN_EXPORT ExprType : public util::EqualityComparable<ExprType> {
  public:
   enum Shape : uint8_t {
     // The expression yields a Scalar, e.g. "1".
@@ -148,7 +148,7 @@ class ARROW_EXPORT ExprType : public util::EqualityComparable<ExprType> {
 };
 
 /// Represents an expression tree
-class ARROW_EXPORT Expr : public util::EqualityComparable<Expr> {
+class ARROW_EN_EXPORT Expr : public util::EqualityComparable<Expr> {
  public:
   /// \brief Return the kind of the expression.
   ExprKind kind() const { return kind_; }
@@ -178,7 +178,7 @@ class ARROW_EXPORT Expr : public util::EqualityComparable<Expr> {
 /// Operator expressions mixin.
 ///
 
-class ARROW_EXPORT UnaryOpMixin {
+class ARROW_EN_EXPORT UnaryOpMixin {
  public:
   const std::shared_ptr<Expr>& operand() const { return operand_; }
 
@@ -188,7 +188,7 @@ class ARROW_EXPORT UnaryOpMixin {
   std::shared_ptr<Expr> operand_;
 };
 
-class ARROW_EXPORT BinaryOpMixin {
+class ARROW_EN_EXPORT BinaryOpMixin {
  public:
   const std::shared_ptr<Expr>& left_operand() const { return left_operand_; }
   const std::shared_ptr<Expr>& right_operand() const { return right_operand_; }
@@ -201,7 +201,7 @@ class ARROW_EXPORT BinaryOpMixin {
   std::shared_ptr<Expr> right_operand_;
 };
 
-class ARROW_EXPORT MultiAryOpMixin {
+class ARROW_EN_EXPORT MultiAryOpMixin {
  public:
   const std::vector<std::shared_ptr<Expr>>& operands() const { return operands_; }
 
@@ -217,7 +217,7 @@ class ARROW_EXPORT MultiAryOpMixin {
 ///
 
 /// An unnamed scalar literal expression.
-class ARROW_EXPORT ScalarExpr : public Expr {
+class ARROW_EN_EXPORT ScalarExpr : public Expr {
  public:
   static Result<std::shared_ptr<ScalarExpr>> Make(std::shared_ptr<Scalar> scalar);
 
@@ -230,7 +230,7 @@ class ARROW_EXPORT ScalarExpr : public Expr {
 };
 
 /// References a column in a table/dataset
-class ARROW_EXPORT FieldRefExpr : public UnaryOpMixin, public Expr {
+class ARROW_EN_EXPORT FieldRefExpr : public UnaryOpMixin, public Expr {
  public:
   static Result<std::shared_ptr<FieldRefExpr>> Make(std::shared_ptr<Expr> input,
                                                     int index);
@@ -249,7 +249,7 @@ class ARROW_EXPORT FieldRefExpr : public UnaryOpMixin, public Expr {
 /// Comparison expressions
 ///
 
-class ARROW_EXPORT CompareOpExpr : public BinaryOpMixin, public Expr {
+class ARROW_EN_EXPORT CompareOpExpr : public BinaryOpMixin, public Expr {
  public:
   CompareKind compare_kind() const { return compare_kind_; }
 
@@ -294,32 +294,33 @@ class BaseCompareExpr : public CompareOpExpr, private CompareOpExpr::MakeMixin<D
   using CompareOpExpr::CompareOpExpr;
 };
 
-class ARROW_EXPORT EqualExpr : public BaseCompareExpr<EqualExpr> {
+class ARROW_EN_EXPORT EqualExpr : public BaseCompareExpr<EqualExpr> {
  protected:
   using BaseCompareExpr<EqualExpr>::BaseCompareExpr;
 };
 
-class ARROW_EXPORT NotEqualExpr : public BaseCompareExpr<NotEqualExpr> {
+class ARROW_EN_EXPORT NotEqualExpr : public BaseCompareExpr<NotEqualExpr> {
  protected:
   using BaseCompareExpr<NotEqualExpr>::BaseCompareExpr;
 };
 
-class ARROW_EXPORT GreaterThanExpr : public BaseCompareExpr<GreaterThanExpr> {
+class ARROW_EN_EXPORT GreaterThanExpr : public BaseCompareExpr<GreaterThanExpr> {
  protected:
   using BaseCompareExpr<GreaterThanExpr>::BaseCompareExpr;
 };
 
-class ARROW_EXPORT GreaterThanEqualExpr : public BaseCompareExpr<GreaterThanEqualExpr> {
+class ARROW_EN_EXPORT GreaterThanEqualExpr
+    : public BaseCompareExpr<GreaterThanEqualExpr> {
  protected:
   using BaseCompareExpr<GreaterThanEqualExpr>::BaseCompareExpr;
 };
 
-class ARROW_EXPORT LessThanExpr : public BaseCompareExpr<LessThanExpr> {
+class ARROW_EN_EXPORT LessThanExpr : public BaseCompareExpr<LessThanExpr> {
  protected:
   using BaseCompareExpr<LessThanExpr>::BaseCompareExpr;
 };
 
-class ARROW_EXPORT LessThanEqualExpr : public BaseCompareExpr<LessThanEqualExpr> {
+class ARROW_EN_EXPORT LessThanEqualExpr : public BaseCompareExpr<LessThanEqualExpr> {
  protected:
   using BaseCompareExpr<LessThanEqualExpr>::BaseCompareExpr;
 };
@@ -330,7 +331,7 @@ class ARROW_EXPORT LessThanEqualExpr : public BaseCompareExpr<LessThanEqualExpr>
 
 /// \brief Relational Expressions that acts on tables.
 template <typename Derived>
-class ARROW_EXPORT RelExpr : public Expr {
+class ARROW_EN_EXPORT RelExpr : public Expr {
  public:
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
@@ -352,7 +353,7 @@ class ARROW_EXPORT RelExpr : public Expr {
 ///
 /// \input schema, the schema of the empty relation
 /// \ouput relation with no rows of the given input schema
-class ARROW_EXPORT EmptyRelExpr : public RelExpr<EmptyRelExpr> {
+class ARROW_EN_EXPORT EmptyRelExpr : public RelExpr<EmptyRelExpr> {
  public:
   static Result<std::shared_ptr<EmptyRelExpr>> Make(std::shared_ptr<Schema> schema);
 
@@ -373,7 +374,7 @@ class ARROW_EXPORT EmptyRelExpr : public RelExpr<EmptyRelExpr> {
 /// ```
 /// SELECT * FROM table;
 /// ```
-class ARROW_EXPORT ScanRelExpr : public RelExpr<ScanRelExpr> {
+class ARROW_EN_EXPORT ScanRelExpr : public RelExpr<ScanRelExpr> {
  public:
   static Result<std::shared_ptr<ScanRelExpr>> Make(Catalog::Entry input);
 
@@ -401,8 +402,8 @@ class ARROW_EXPORT ScanRelExpr : public RelExpr<ScanRelExpr> {
 /// ```
 /// SELECT a, b, a + b, 1, mean(a) > b FROM relation;
 /// ```
-class ARROW_EXPORT ProjectionRelExpr : public UnaryOpMixin,
-                                       public RelExpr<ProjectionRelExpr> {
+class ARROW_EN_EXPORT ProjectionRelExpr : public UnaryOpMixin,
+                                          public RelExpr<ProjectionRelExpr> {
  public:
   static Result<std::shared_ptr<ProjectionRelExpr>> Make(
       std::shared_ptr<Expr> input, std::vector<std::shared_ptr<Expr>> expressions);
@@ -427,7 +428,7 @@ class ARROW_EXPORT ProjectionRelExpr : public UnaryOpMixin,
 /// ```
 /// SELECT * FROM relation WHERE predicate
 /// ```
-class ARROW_EXPORT FilterRelExpr : public UnaryOpMixin, public RelExpr<FilterRelExpr> {
+class ARROW_EN_EXPORT FilterRelExpr : public UnaryOpMixin, public RelExpr<FilterRelExpr> {
  public:
   static Result<std::shared_ptr<FilterRelExpr>> Make(std::shared_ptr<Expr> input,
                                                      std::shared_ptr<Expr> predicate);

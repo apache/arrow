@@ -49,7 +49,7 @@ else()
 endif()
 
 foreach(LIB_TARGET ${ARROW_ENGINE_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DS_EXPORTING)
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EN_EXPORTING)
 endforeach()
 
 # Adding unit tests part of the "engine" portion of the test suite

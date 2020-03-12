@@ -25,6 +25,7 @@
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/variant.h"
+#include "arrow/engine/visibility.h"
 
 namespace arrow {
 
@@ -35,7 +36,7 @@ class Dataset;
 namespace engine {
 
 /// Catalog is made of named Table/Dataset to be referenced in LogicalPlans.
-class Catalog {
+class ARROW_EN_EXPORT Catalog {
  public:
   class Entry;
 
@@ -69,7 +70,7 @@ class Catalog {
   std::unordered_map<std::string, Entry> datasets_;
 };
 
-class CatalogBuilder {
+class ARROW_EN_EXPORT CatalogBuilder {
  public:
   Status Add(Catalog::Entry entry);
   Status Add(std::string name, std::shared_ptr<dataset::Dataset>);

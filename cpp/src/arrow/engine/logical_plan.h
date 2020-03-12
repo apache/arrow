@@ -21,9 +21,10 @@
 #include <string>
 #include <vector>
 
+#include "arrow/engine/type_fwd.h"
+#include "arrow/engine/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 
@@ -33,11 +34,7 @@ class Dataset;
 
 namespace engine {
 
-class Catalog;
-class Expr;
-class ExprType;
-
-class LogicalPlan : public util::EqualityComparable<LogicalPlan> {
+class ARROW_EN_EXPORT LogicalPlan : public util::EqualityComparable<LogicalPlan> {
  public:
   explicit LogicalPlan(std::shared_ptr<Expr> root);
 
@@ -56,7 +53,7 @@ struct LogicalPlanBuilderOptions {
   std::shared_ptr<Catalog> catalog;
 };
 
-class LogicalPlanBuilder {
+class ARROW_EN_EXPORT LogicalPlanBuilder {
  public:
   using ResultExpr = Result<std::shared_ptr<Expr>>;
 
