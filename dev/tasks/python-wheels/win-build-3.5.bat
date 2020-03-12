@@ -72,6 +72,11 @@ call conda.bat deactivate
 
 set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 
+@rem test the wheel
+@rem TODO For maximum reliability, we should test in a plain virtualenv instead.
+conda create -n wheel-test -c conda-forge -q -y python=3.5 || exit /B
+call conda.bat activate wheel-test
+
 @rem install the built wheel
 pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
 
