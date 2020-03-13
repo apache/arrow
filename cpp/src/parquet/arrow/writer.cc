@@ -369,7 +369,7 @@ class ArrowColumnWriterV2 {
                                                result.def_rep_level_count, *values_array,
                                                ctx);
             }));
-      };
+      }
 
       PARQUET_CATCH_NOT_OK(column_writer->Close());
     }
@@ -377,7 +377,7 @@ class ArrowColumnWriterV2 {
     return Status::OK();
   }
 
-  static ::arrow::Result<std::unique_ptr<ArrowColumnWriterV2>> Create(
+  static ::arrow::Result<std::unique_ptr<ArrowColumnWriterV2>> Make(
       const ChunkedArray& data, int64_t offset, const int64_t size,
       const SchemaManifest& schema_manifest, RowGroupWriter* row_group_writer) {
     int64_t absolute_position = 0;
@@ -442,9 +442,8 @@ class ArrowColumnWriterV2 {
       std::shared_ptr<Array> array_to_write = chunk.Slice(chunk_offset, chunk_write_size);
 
       if (array_to_write->length() > 0) {
-        ARROW_ASSIGN_OR_RAISE(
-            std::unique_ptr<MultipathLevelBuilder> builder,
-            MultipathLevelBuilder::Create(*array_to_write, is_nullable));
+        ARROW_ASSIGN_OR_RAISE(std::unique_ptr<MultipathLevelBuilder> builder,
+                              MultipathLevelBuilder::Make(*array_to_write, is_nullable));
         if (leaf_count != builder->GetLeafCount()) {
           return Status::UnknownError("data type leaf_count != builder_leaf_count",
                                       leaf_count, " ", builder->GetLeafCount());
@@ -632,8 +631,8 @@ class FileWriterImpl : public FileWriter {
     } else if (arrow_properties_->engine_version() == ArrowWriterProperties::V2) {
       ARROW_ASSIGN_OR_RAISE(
           std::unique_ptr<ArrowColumnWriterV2> writer,
-          ArrowColumnWriterV2::Create(*data, offset, size, schema_manifest_,
-                                      row_group_writer_));
+          ArrowColumnWriterV2::Make(*data, offset, size, schema_manifest_,
+                                    row_group_writer_));
       return writer->Write(&column_write_context_);
     }
     return Status::NotImplemented("Unknown engine version.");

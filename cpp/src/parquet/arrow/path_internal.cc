@@ -874,21 +874,21 @@ class MultipathLevelBuilder::Impl {
 };
 
 // static
-::arrow::Result<std::unique_ptr<MultipathLevelBuilder>> MultipathLevelBuilder::Create(
-    const ::arrow::Array& array, bool array_nullable) {
-  auto constructor = ::arrow::internal::make_unique<PathBuilder>(array_nullable);
+::arrow::Result<std::unique_ptr<MultipathLevelBuilder>> MultipathLevelBuilder::Make(
+    const ::arrow::Array& array, bool array_field_nullable) {
+  auto constructor = ::arrow::internal::make_unique<PathBuilder>(array_field_nullable);
   RETURN_NOT_OK(VisitArrayInline(array, constructor.get()));
   return std::unique_ptr<MultipathLevelBuilder>(new MultipathLevelBuilder(
       new MultipathLevelBuilder::Impl(array.data(), std::move(constructor))));
 }
 
 // static
-Status MultipathLevelBuilder::Write(const Array& array, bool array_nullable,
+Status MultipathLevelBuilder::Write(const Array& array, bool array_field_nullable,
                                     ArrowWriteContext* context,
                                     MultipathLevelBuilder::CallbackFunction callback) {
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<MultipathLevelBuilder> builder,
-                        MultipathLevelBuilder::Create(array, array_nullable));
-  PathBuilder constructor(array_nullable);
+                        MultipathLevelBuilder::Make(array, array_field_nullable));
+  PathBuilder constructor(array_field_nullable);
   RETURN_NOT_OK(VisitArrayInline(array, &constructor));
   for (int leaf_idx = 0; leaf_idx < builder->GetLeafCount(); leaf_idx++) {
     RETURN_NOT_OK(builder->Write(leaf_idx, context, callback));

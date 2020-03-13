@@ -82,6 +82,13 @@ class CapturedResult {
     EXPECT_THAT(rep_levels_, ElementsAreArray(expected_rep));
   }
 
+  friend void PrintTo(const CapturedResult& result, std::ostream* os) {
+    // This print method is to silence valgrind issues.  Whats printed
+    // is not important because all asserts happen directly on
+    // members.
+    *os << null_def_levels << " " << null_rep_levels;
+  }
+
  private:
   std::vector<int16_t> def_levels_;
   std::vector<int16_t> rep_levels_;
@@ -382,8 +389,6 @@ TEST_F(MultipathLevelBuilderTest, TripleNestedListsAllPresent) {
                          0, 3, 3, 2, 3, 3, 1, 3, 3  // first row
                      });
 }
-
-// TODO test empty.
 
 TEST_F(MultipathLevelBuilderTest, TripleNestedListsWithSomeNullsSomeEmptys) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
