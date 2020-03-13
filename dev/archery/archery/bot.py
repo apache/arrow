@@ -23,7 +23,6 @@ import tempfile
 
 import click
 import github
-from ruamel.yaml import YAML
 
 from .utils.crossbow import Crossbow
 from .utils.git import Git
@@ -259,6 +258,8 @@ def submit(obj, task, group, dry_run):
 
     See groups defined in arrow/dev/tasks/tests.yml
     """
+    from ruamel.yaml import YAML
+
     git = Git()
 
     # construct crossbow arguments
