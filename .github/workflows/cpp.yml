@@ -233,7 +233,7 @@ jobs:
       ARROW_JEMALLOC: OFF
       ARROW_MIMALLOC: ON
       ARROW_PARQUET: ON
-      ARROW_PYTHON: OFF
+      ARROW_PYTHON: ON
       ARROW_S3: ON
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       ARROW_WITH_BROTLI: ON
@@ -260,7 +260,8 @@ jobs:
         run: |
           conda create -n arrow -c conda-forge \
             --file ci/conda_env_cpp.yml \
-            --file ci/conda_env_gandiva.yml
+            --file ci/conda_env_gandiva.yml \
+            numpy
       - name: Build
         shell: bash -l {0}
         run: |
