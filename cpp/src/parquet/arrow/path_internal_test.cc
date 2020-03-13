@@ -82,12 +82,13 @@ class CapturedResult {
     EXPECT_THAT(rep_levels_, ElementsAreArray(expected_rep));
   }
 
-  friend void PrintTo(const CapturedResult& result, std::ostream* os) {
+  friend std::ostream& operator<<(std::ostream& os, const CapturedResult& result) {
     // This print method is to silence valgrind issues.  Whats printed
     // is not important because all asserts happen directly on
     // members.
-    *os << "CapturedResult (null def, null_rep):" << result.null_def_levels << " "
-        << result.null_rep_levels;
+    os << "CapturedResult (null def, null_rep):" << result.null_def_levels << " "
+       << result.null_rep_levels;
+    return os;
   }
 
  private:
