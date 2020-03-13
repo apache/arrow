@@ -306,7 +306,7 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
  protected:
   Status OverrideWithServerError(Status&& st) {
     // Get the gRPC status if not OK, to propagate any server error message
-    RETURN_NOT_OK(internal::FromGrpcStatus(stream_->Finish()));
+    RETURN_NOT_OK(internal::FromGrpcStatus(stream_->Finish(), &rpc_->context));
     return std::move(st);
   }
 
@@ -458,7 +458,7 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
     pb::PutResult message;
     while (writer_->Read(&message)) {
     }
-    RETURN_NOT_OK(internal::FromGrpcStatus(writer_->Finish()));
+    RETURN_NOT_OK(internal::FromGrpcStatus(writer_->Finish(), &rpc_->context));
     if (!finished_writes) {
       return Status::UnknownError(
           "Could not finish writing record batches before closing");
@@ -577,7 +577,7 @@ class FlightClient::FlightClientImpl {
     RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
     // Explicitly close our side of the connection
     bool finished_writes = stream->WritesDone();
-    RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish()));
+    RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish(), &rpc.context));
     if (!finished_writes) {
       return Status::UnknownError("Could not finish writing before closing");
     }
@@ -604,7 +604,7 @@ class FlightClient::FlightClientImpl {
     }
 
     listing->reset(new SimpleFlightListing(std::move(flights)));
-    return internal::FromGrpcStatus(stream->Finish());
+    return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
   Status DoAction(const FlightCallOptions& options, const Action& action,
@@ -628,7 +628,7 @@ class FlightClient::FlightClientImpl {
 
     *results = std::unique_ptr<ResultStream>(
         new SimpleResultStream(std::move(materialized_results)));
-    return internal::FromGrpcStatus(stream->Finish());
+    return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
   Status ListActions(const FlightCallOptions& options, std::vector<ActionType>* types) {
@@ -645,7 +645,7 @@ class FlightClient::FlightClientImpl {
       RETURN_NOT_OK(internal::FromProto(pb_type, &type));
       types->emplace_back(std::move(type));
     }
-    return internal::FromGrpcStatus(stream->Finish());
+    return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
   Status GetFlightInfo(const FlightCallOptions& options,
@@ -659,7 +659,7 @@ class FlightClient::FlightClientImpl {
     ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     Status s = internal::FromGrpcStatus(
-        stub_->GetFlightInfo(&rpc.context, pb_descriptor, &pb_response));
+        stub_->GetFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
     RETURN_NOT_OK(s);
 
     FlightInfo::Data info_data;
@@ -678,7 +678,7 @@ class FlightClient::FlightClientImpl {
     ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     Status s = internal::FromGrpcStatus(
-        stub_->GetSchema(&rpc.context, pb_descriptor, &pb_response));
+        stub_->GetSchema(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
     RETURN_NOT_OK(s);
 
     std::string str;

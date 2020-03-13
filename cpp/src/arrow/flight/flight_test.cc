@@ -983,6 +983,13 @@ TEST_F(TestFlightClient, DoAction) {
   ASSERT_EQ(nullptr, result);
 }
 
+TEST_F(TestFlightClient, RoundTripStatus) {
+  const auto descr = FlightDescriptor::Command("status-outofmemory");
+  std::unique_ptr<FlightInfo> info;
+  const auto status = client_->GetFlightInfo(descr, &info);
+  ASSERT_RAISES(OutOfMemory, status);
+}
+
 TEST_F(TestFlightClient, Issue5095) {
   // Make sure the server-side error message is reflected to the
   // client

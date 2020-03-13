@@ -67,14 +67,30 @@ namespace internal {
 ARROW_FLIGHT_EXPORT
 extern const char* kGrpcAuthHeader;
 
+/// The name of the header used to pass the exact Arrow status code.
+ARROW_FLIGHT_EXPORT
+extern const char* kGrpcStatusCodeHeader;
+
+/// The name of the header used to pass the exact Arrow status message.
+ARROW_FLIGHT_EXPORT
+extern const char* kGrpcStatusMessageHeader;
+
+/// The name of the header used to pass the exact Arrow status detail.
+ARROW_FLIGHT_EXPORT
+extern const char* kGrpcStatusDetailHeader;
+
 ARROW_FLIGHT_EXPORT
 Status SchemaToString(const Schema& schema, std::string* out);
 
+/// Convert a gRPC status to an Arrow status. Optionally, provide a
+/// ClientContext to recover the exact Arrow status if it was passed
+/// over the wire.
 ARROW_FLIGHT_EXPORT
-Status FromGrpcStatus(const grpc::Status& grpc_status);
+Status FromGrpcStatus(const grpc::Status& grpc_status,
+                      grpc::ClientContext* ctx = nullptr);
 
 ARROW_FLIGHT_EXPORT
-grpc::Status ToGrpcStatus(const Status& arrow_status);
+grpc::Status ToGrpcStatus(const Status& arrow_status, grpc::ServerContext* ctx = nullptr);
 
 // These functions depend on protobuf types which are not exported in the Flight DLL.
 

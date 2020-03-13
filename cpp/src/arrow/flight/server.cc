@@ -234,6 +234,8 @@ class GrpcServerAuthSender : public ServerAuthSender {
 
 class FlightServiceImpl;
 class GrpcServerCallContext : public ServerCallContext {
+  explicit GrpcServerCallContext(grpc::ServerContext* context) : context_(context) {}
+
   const std::string& peer_identity() const override { return peer_identity_; }
 
   // Helper method that runs interceptors given the result of an RPC,
@@ -248,7 +250,10 @@ class GrpcServerCallContext : public ServerCallContext {
     for (const auto& instance : middleware_) {
       instance->CallCompleted(status);
     }
-    return internal::ToGrpcStatus(status);
+
+    // Set custom headers to map the exact Arrow status for clients
+    // who want it.
+    return internal::ToGrpcStatus(status, context_);
   }
 
   ServerMiddleware* GetMiddleware(const std::string& key) const override {
@@ -334,7 +339,6 @@ class FlightServiceImpl : public FlightService::Service {
   // Authenticate the client (if applicable) and construct the call context
   grpc::Status CheckAuth(const FlightMethod& method, ServerContext* context,
                          GrpcServerCallContext& flight_context) {
-    flight_context.context_ = context;
     if (!auth_handler_) {
       flight_context.peer_identity_ = "";
     } else {
@@ -386,7 +390,7 @@ class FlightServiceImpl : public FlightService::Service {
   grpc::Status Handshake(
       ServerContext* context,
       grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream) {
-    GrpcServerCallContext flight_context;
+    GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         MakeCallContext(FlightMethod::Handshake, context, flight_context));
 
@@ -405,7 +409,7 @@ class FlightServiceImpl : public FlightService::Service {
 
   grpc::Status ListFlights(ServerContext* context, const pb::Criteria* request,
                            ServerWriter<pb::FlightInfo>* writer) {
-    GrpcServerCallContext flight_context;
+    GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         CheckAuth(FlightMethod::ListFlights, context, flight_context));
 
@@ -428,7 +432,7 @@ class FlightServiceImpl : public FlightService::Service {
 
   grpc::Status GetFlightInfo(ServerContext* context, const pb::FlightDescriptor* request,
                              pb::FlightInfo* response) {
-    GrpcServerCallContext flight_context;
+    GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         CheckAuth(FlightMethod::GetFlightInfo, context, flight_context));
 
@@ -453,7 +457,7 @@ class FlightServiceImpl : public FlightService::Service {
 
   grpc::Status GetSchema(ServerContext* context, const pb::FlightDescriptor* request,
                          pb::SchemaResult* response) {
-    GrpcServerCallContext flight_context;
+    GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::GetSchema, context, flight_context));
 
     CHECK_ARG_NOT_NULL(flight_context, request, "FlightDescriptor cannot be null");
@@ -477,7 +481,7 @@ class FlightServiceImpl : public FlightService::Service {
 
   grpc::Status DoGet(ServerContext* context, const pb::Ticket* request,
                      ServerWriter<pb::FlightData>* writer) {
-    GrpcServerCallContext flight_context;
+    GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoGet, context, flight_context));
 
     CHECK_ARG_NOT_NULL(flight_context, request, "ticket cannot be null");
@@ -517,7 +521,7 @@ class FlightServiceImpl : public FlightService::Service {
 
   grpc::Status DoPut(ServerContext* context,
                      grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader) {
-    GrpcServerCallContext flight_context;
+    GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoPut, context, flight_context));
 
     auto message_reader =
@@ -532,7 +536,7 @@ class FlightServiceImpl : public FlightService::Service {
 
   grpc::Status ListActions(ServerContext* context, const pb::Empty* request,
                            ServerWriter<pb::ActionType>* writer) {
-    GrpcServerCallContext flight_context;
+    GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         CheckAuth(FlightMethod::ListActions, context, flight_context));
     // Retrieve the listing from the implementation
@@ -543,7 +547,7 @@ class FlightServiceImpl : public FlightService::Service {
 
   grpc::Status DoAction(ServerContext* context, const pb::Action* request,
                         ServerWriter<pb::Result>* writer) {
-    GrpcServerCallContext flight_context;
+    GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoAction, context, flight_context));
     CHECK_ARG_NOT_NULL(flight_context, request, "Action cannot be null");
     Action action;

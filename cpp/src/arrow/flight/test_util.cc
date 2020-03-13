@@ -169,6 +169,12 @@ class FlightTestServer : public FlightServerBase {
 
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* out) override {
+    // Test that Arrow-C++ status codes can make it through gRPC
+    if (request.type == FlightDescriptor::DescriptorType::CMD &&
+        request.cmd == "status-outofmemory") {
+      return Status::OutOfMemory("Sentinel");
+    }
+
     std::vector<FlightInfo> flights = ExampleFlightInfo();
 
     for (const auto& info : flights) {
