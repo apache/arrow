@@ -164,6 +164,10 @@ grpc::Status ToGrpcStatus(const Status& arrow_status) {
     grpc_code = grpc::StatusCode::UNIMPLEMENTED;
   } else if (arrow_status.IsInvalid()) {
     grpc_code = grpc::StatusCode::INVALID_ARGUMENT;
+  } else if (arrow_status.IsKeyError()) {
+    grpc_code = grpc::StatusCode::NOT_FOUND;
+  } else if (arrow_status.IsAlreadyExists()) {
+    grpc_code = grpc::StatusCode::ALREADY_EXISTS;
   }
   return grpc::Status(grpc_code, message);
 }
