@@ -208,7 +208,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 raise ValueError("Cannot pass a numpy masked array and "
                                  "specify a mask at the same time")
             else:
-                mask = values.mask
+                # don't use shrunken masks
+                mask = None if values.mask is np.ma.nomask else values.mask
                 values = values.data
 
         if hasattr(values, '__arrow_array__'):

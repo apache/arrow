@@ -1655,6 +1655,12 @@ def test_array_from_masked():
     with pytest.raises(ValueError, match="Cannot pass a numpy masked array"):
         pa.array(ma, mask=np.array([True, False, False, False]))
 
+def test_array_from_shrunken_masked():
+    ma = np.ma.array([0])
+    result = pa.array(ma)
+    expected = pa.array([0], type='int64')
+    assert expected.equals(result)
+
 
 def test_array_from_invalid_dim_raises():
     msg = "only handle 1-dimensional arrays"
