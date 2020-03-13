@@ -33,6 +33,7 @@ setup(
     maintainer_email='dev@arrow.apache.org',
     packages=['archery'],
     install_requires=['click', 'pygithub'],
+    tests_require=['pytest', 'ruamel.yaml'],
     entry_points='''
         [console_scripts]
         archery=archery.cli:archery
