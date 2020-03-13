@@ -315,6 +315,24 @@ TEST(TestField, TestMerge) {
   }
 }
 
+TEST(TestFieldPath, Basics) {
+  auto f0 = field("alpha", int32());
+  auto f1 = field("beta", int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta", int32());
+  Schema s({f0, f1, f2, f3});
+
+  // retrieving a field with single-element FieldPath is equivalent to Schema::field
+  for (int index = 0; index < s.num_fields(); ++index) {
+    ASSERT_OK_AND_EQ(s.field(index), FieldPath({index}).Get(s));
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("empty indices cannot be traversed"),
+                                  FieldPath().Get(s));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, testing::HasSubstr("index out of range"),
+                                  FieldPath({s.num_fields() * 2}).Get(s));
+}
+
 TEST(TestFieldRef, Basics) {
   auto f0 = field("alpha", int32());
   auto f1 = field("beta", int32());
@@ -322,28 +340,16 @@ TEST(TestFieldRef, Basics) {
   auto f3 = field("beta", int32());
   Schema s({f0, f1, f2, f3});
 
-  using I = FieldRef::Indices;
-
   // lookup by index returns Indices{index}
   for (int index = 0; index < s.num_fields(); ++index) {
-    EXPECT_THAT(FieldRef(index).FindAll(s), ElementsAre(I{index}));
+    EXPECT_THAT(FieldRef(index).FindAll(s), ElementsAre(FieldPath{index}));
   }
   // out of range index results in a failure to match
   EXPECT_THAT(FieldRef(s.num_fields() * 2).FindAll(s), ElementsAre());
 
   // lookup by name returns the Indices of both matching fields
-  EXPECT_THAT(FieldRef("alpha").FindAll(s), ElementsAre(I{0}, I{2}));
-  EXPECT_THAT(FieldRef("beta").FindAll(s), ElementsAre(I{1}, I{3}));
-
-  // retrieving a field with single-element Indices is equivalent to Schema::field
-  for (int index = 0; index < s.num_fields(); ++index) {
-    ASSERT_OK_AND_EQ(s.field(index), FieldRef::Get(I{index}, s));
-  }
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("empty indices cannot be traversed"),
-                                  FieldRef::Get(I{}, s));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, testing::HasSubstr("index out of range"),
-                                  FieldRef::Get(I{s.num_fields() * 2}, s));
+  EXPECT_THAT(FieldRef("alpha").FindAll(s), ElementsAre(FieldPath{0}, FieldPath{2}));
+  EXPECT_THAT(FieldRef("beta").FindAll(s), ElementsAre(FieldPath{1}, FieldPath{3}));
 }
 
 TEST(TestFieldRef, FromDotPath) {
@@ -368,7 +374,7 @@ TEST(TestFieldRef, FromDotPath) {
   ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([1stuf])"));
 }
 
-TEST(TestFieldRef, Nested) {
+TEST(TestFieldPath, Nested) {
   auto f0 = field("alpha", int32());
   auto f1_0 = field("alpha", int32());
   auto f1 = field("beta", struct_({f1_0}));
@@ -380,17 +386,28 @@ TEST(TestFieldRef, Nested) {
   Schema s({f0, f1, f2});
 
   // retrieving fields with nested indices
-  EXPECT_EQ(FieldRef::Get({0}, s), f0);
-  EXPECT_EQ(FieldRef::Get({1, 0}, s), f1_0);
-  EXPECT_EQ(FieldRef::Get({2, 0}, s), f2_0);
-  EXPECT_EQ(FieldRef::Get({2, 1, 0}, s), f2_1_0);
-  EXPECT_EQ(FieldRef::Get({2, 1, 1}, s), f2_1_1);
+  EXPECT_EQ(FieldPath({0}).Get(s), f0);
+  EXPECT_EQ(FieldPath({1, 0}).Get(s), f1_0);
+  EXPECT_EQ(FieldPath({2, 0}).Get(s), f2_0);
+  EXPECT_EQ(FieldPath({2, 1, 0}).Get(s), f2_1_0);
+  EXPECT_EQ(FieldPath({2, 1, 1}).Get(s), f2_1_1);
+}
 
-  using I = FieldRef::Indices;
+TEST(TestFieldRef, Nested) {
+  auto f0 = field("alpha", int32());
+  auto f1_0 = field("alpha", int32());
+  auto f1 = field("beta", struct_({f1_0}));
+  auto f2_0 = field("alpha", int32());
+  auto f2_1_0 = field("alpha", int32());
+  auto f2_1_1 = field("alpha", int32());
+  auto f2_1 = field("gamma", struct_({f2_1_0, f2_1_1}));
+  auto f2 = field("beta", struct_({f2_0, f2_1}));
+  Schema s({f0, f1, f2});
 
-  EXPECT_THAT(FieldRef("beta", "alpha").FindAll(s), ElementsAre(I{1, 0}, I{2, 0}));
+  EXPECT_THAT(FieldRef("beta", "alpha").FindAll(s),
+              ElementsAre(FieldPath{1, 0}, FieldPath{2, 0}));
   EXPECT_THAT(FieldRef("beta", "gamma", "alpha").FindAll(s),
-              ElementsAre(I{2, 1, 0}, I{2, 1, 1}));
+              ElementsAre(FieldPath{2, 1, 0}, FieldPath{2, 1, 1}));
 }
 
 using TestSchema = ::testing::Test;

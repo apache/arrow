@@ -18,9 +18,6 @@
 #pragma once
 
 #include <memory>
-#include <string>
-#include <unordered_map>
-#include <utility>
 #include <vector>
 
 #include "arrow/dataset/type_fwd.h"
