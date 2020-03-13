@@ -30,9 +30,12 @@
 
 #include "arrow/array.h"
 #include "arrow/compare.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
@@ -609,6 +612,417 @@ std::string DictionaryType::ToString() const {
 std::string NullType::ToString() const { return name(); }
 
 // ----------------------------------------------------------------------
+// FieldRef
+
+size_t FieldPath::hash() const {
+  return internal::ComputeStringHash<0>(data(), size() * sizeof(int));
+}
+
+std::string FieldPath::ToString() const {
+  std::string repr = "FieldPath(";
+  for (auto index : *this) {
+    repr += std::to_string(index) + " ";
+  }
+  repr.resize(repr.size() - 1);
+  repr += ")";
+  return repr;
+}
+
+struct FieldPathGetImpl {
+  static const DataType& GetType(const ArrayData& data) { return *data.type; }
+
+  static const DataType& GetType(const ChunkedArray& array) { return *array.type(); }
+
+  static void Summarize(const FieldVector& fields, std::stringstream* ss) {
+    *ss << "{ ";
+    for (const auto& field : fields) {
+      *ss << field->ToString() << ", ";
+    }
+    *ss << "}";
+  }
+
+  template <typename T>
+  static void Summarize(const std::vector<T>& columns, std::stringstream* ss) {
+    *ss << "{ ";
+    for (const auto& column : columns) {
+      *ss << GetType(*column) << ", ";
+    }
+    *ss << "}";
+  }
+
+  template <typename T>
+  static Status IndexError(const FieldPath* path, int out_of_range_depth,
+                           const std::vector<T>& children) {
+    std::stringstream ss;
+    ss << "index out of range. ";
+
+    ss << "indices=[ ";
+    int depth = 0;
+    for (int i : *path) {
+      if (depth != out_of_range_depth) {
+        ss << i << " ";
+        continue;
+      }
+      ss << ">" << i << "< ";
+      ++depth;
+    }
+    ss << "] ";
+
+    if (std::is_same<T, std::shared_ptr<Field>>::value) {
+      ss << "fields were: ";
+    } else {
+      ss << "columns had types: ";
+    }
+    Summarize(children, &ss);
+
+    return Status::IndexError(ss.str());
+  }
+
+  template <typename T, typename GetChildren>
+  static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
+                       GetChildren&& get_children, int* out_of_range_depth) {
+    if (path->empty()) {
+      return Status::Invalid("empty indices cannot be traversed");
+    }
+
+    int depth = 0;
+    const T* out;
+    for (int index : *path) {
+      if (index < 0 || static_cast<size_t>(index) >= children->size()) {
+        *out_of_range_depth = depth;
+        return nullptr;
+      }
+
+      out = &children->at(index);
+      children = get_children(*out);
+      ++depth;
+    }
+
+    return *out;
+  }
+
+  template <typename T, typename GetChildren>
+  static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
+                       GetChildren&& get_children) {
+    int out_of_range_depth;
+    ARROW_ASSIGN_OR_RAISE(auto child,
+                          Get(path, children, std::forward<GetChildren>(get_children),
+                              &out_of_range_depth));
+    if (child != nullptr) {
+      return std::move(child);
+    }
+    return IndexError(path, out_of_range_depth, *children);
+  }
+
+  static Result<std::shared_ptr<Field>> Get(const FieldPath* path,
+                                            const FieldVector& fields) {
+    return FieldPathGetImpl::Get(path, &fields, [](const std::shared_ptr<Field>& field) {
+      return &field->type()->children();
+    });
+  }
+
+  static Result<std::shared_ptr<ArrayData>> Get(const FieldPath* path,
+                                                const ArrayDataVector& child_data) {
+    return FieldPathGetImpl::Get(
+        path, &child_data,
+        [](const std::shared_ptr<ArrayData>& data) { return &data->child_data; });
+  }
+
+  static Result<std::shared_ptr<ChunkedArray>> Get(
+      const FieldPath* path, const ChunkedArrayVector& columns_arg) {
+    ChunkedArrayVector columns = columns_arg;
+
+    return FieldPathGetImpl::Get(
+        path, &columns, [&](const std::shared_ptr<ChunkedArray>& a) {
+          columns.clear();
+
+          for (int i = 0; i < a->type()->num_children(); ++i) {
+            ArrayVector child_chunks;
+
+            for (const auto& chunk : a->chunks()) {
+              auto child_chunk = MakeArray(chunk->data()->child_data[i]);
+              child_chunks.push_back(std::move(child_chunk));
+            }
+
+            auto child_column = std::make_shared<ChunkedArray>(
+                std::move(child_chunks), a->type()->child(i)->type());
+
+            columns.emplace_back(std::move(child_column));
+          }
+
+          return &columns;
+        });
+  }
+};
+
+Result<std::shared_ptr<Field>> FieldPath::Get(const Schema& schema) const {
+  return FieldPathGetImpl::Get(this, schema.fields());
+}
+
+Result<std::shared_ptr<Field>> FieldPath::Get(const Field& field) const {
+  return FieldPathGetImpl::Get(this, field.type()->children());
+}
+
+Result<std::shared_ptr<Field>> FieldPath::Get(const DataType& type) const {
+  return FieldPathGetImpl::Get(this, type.children());
+}
+
+Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
+  return FieldPathGetImpl::Get(this, fields);
+}
+
+Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, batch.column_data()));
+  return MakeArray(data);
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
+  return FieldPathGetImpl::Get(this, table.columns());
+}
+
+FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
+  DCHECK_GT(util::get<FieldPath>(impl_).size(), 0);
+}
+
+void FieldRef::Flatten(std::vector<FieldRef> children) {
+  // flatten children
+  struct Visitor {
+    void operator()(std::string&& name) { *out++ = FieldRef(std::move(name)); }
+
+    void operator()(FieldPath&& indices) { *out++ = FieldRef(std::move(indices)); }
+
+    void operator()(std::vector<FieldRef>&& children) {
+      for (auto& child : children) {
+        util::visit(*this, std::move(child.impl_));
+      }
+    }
+
+    std::back_insert_iterator<std::vector<FieldRef>> out;
+  };
+
+  std::vector<FieldRef> out;
+  Visitor visitor{std::back_inserter(out)};
+  visitor(std::move(children));
+
+  DCHECK(!out.empty());
+  DCHECK(std::none_of(out.begin(), out.end(),
+                      [](const FieldRef& ref) { return ref.IsNested(); }));
+
+  if (out.size() == 1) {
+    impl_ = std::move(out[0].impl_);
+  } else {
+    impl_ = std::move(out);
+  }
+}
+
+Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
+  if (dot_path_arg.empty()) {
+    return Status::Invalid("Dot path was empty");
+  }
+
+  std::vector<FieldRef> children;
+
+  util::string_view dot_path = dot_path_arg;
+
+  auto parse_name = [&] {
+    std::string name;
+    for (;;) {
+      auto segment_end = dot_path.find_first_of("\\[.");
+      if (segment_end == util::string_view::npos) {
+        // dot_path doesn't contain any other special characters; consume all
+        name.append(dot_path.begin(), dot_path.end());
+        dot_path = "";
+        break;
+      }
+
+      if (dot_path[segment_end] != '\\') {
+        // segment_end points to a subscript for a new FieldRef
+        name.append(dot_path.begin(), segment_end);
+        dot_path = dot_path.substr(segment_end);
+        break;
+      }
+
+      if (dot_path.size() == segment_end + 1) {
+        // dot_path ends with backslash; consume it all
+        name.append(dot_path.begin(), dot_path.end());
+        dot_path = "";
+        break;
+      }
+
+      // append all characters before backslash, then the character which follows it
+      name.append(dot_path.begin(), segment_end);
+      name.push_back(dot_path[segment_end + 1]);
+      dot_path = dot_path.substr(segment_end + 2);
+    }
+    return name;
+  };
+
+  while (!dot_path.empty()) {
+    auto subscript = dot_path[0];
+    dot_path = dot_path.substr(1);
+    switch (subscript) {
+      case '.': {
+        // next element is a name
+        children.emplace_back(parse_name());
+        continue;
+      }
+      case '[': {
+        auto subscript_end = dot_path.find_first_not_of("0123456789");
+        if (subscript_end == util::string_view::npos || dot_path[subscript_end] != ']') {
+          return Status::Invalid("Dot path '", dot_path_arg,
+                                 "' contained an unterminated index");
+        }
+        children.emplace_back(std::atoi(dot_path.data()));
+        dot_path = dot_path.substr(subscript_end + 1);
+        continue;
+      }
+      default:
+        return Status::Invalid("Dot path must begin with '[' or '.', got '", dot_path_arg,
+                               "'");
+    }
+  }
+
+  FieldRef out;
+  out.Flatten(std::move(children));
+  return out;
+}
+
+size_t FieldRef::hash() const {
+  struct Visitor : std::hash<std::string> {
+    using std::hash<std::string>::operator();
+
+    size_t operator()(const FieldPath& path) { return path.hash(); }
+
+    size_t operator()(const std::vector<FieldRef>& children) {
+      size_t hash = 0;
+
+      for (const FieldRef& child : children) {
+        hash ^= child.hash();
+      }
+
+      return hash;
+    }
+  };
+
+  return util::visit(Visitor{}, impl_);
+}
+
+std::string FieldRef::ToString() const {
+  struct Visitor {
+    std::string operator()(const FieldPath& path) { return path.ToString(); }
+
+    std::string operator()(const std::string& name) { return "Name(" + name + ")"; }
+
+    std::string operator()(const std::vector<FieldRef>& children) {
+      std::string repr = "Nested(";
+      for (const auto& child : children) {
+        repr += child.ToString() + " ";
+      }
+      repr.resize(repr.size() - 1);
+      repr += ")";
+      return repr;
+    }
+  };
+
+  return "FieldRef." + util::visit(Visitor{}, impl_);
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const Schema& schema) const {
+  return FindAll(schema.fields());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const Field& field) const {
+  return FindAll(field.type()->children());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const DataType& type) const {
+  return FindAll(type.children());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
+  struct Visitor {
+    std::vector<FieldPath> operator()(const FieldPath& path) {
+      // skip long IndexError construction if path is out of range
+      int out_of_range_depth;
+      auto maybe_field = FieldPathGetImpl::Get(
+          &path, &fields_,
+          [](const std::shared_ptr<Field>& field) { return &field->type()->children(); },
+          &out_of_range_depth);
+
+      DCHECK_OK(maybe_field.status());
+
+      if (maybe_field.ValueOrDie() != nullptr) {
+        return {path};
+      }
+      return {};
+    }
+
+    std::vector<FieldPath> operator()(const std::string& name) {
+      std::vector<FieldPath> out;
+
+      for (int i = 0; i < static_cast<int>(fields_.size()); ++i) {
+        if (fields_[i]->name() == name) {
+          out.push_back({i});
+        }
+      }
+
+      return out;
+    }
+
+    struct Matches {
+      // referents[i] is referenced by prefixes[i]
+      std::vector<FieldPath> prefixes;
+      FieldVector referents;
+
+      Matches(std::vector<FieldPath> matches, const FieldVector& fields) {
+        for (auto& match : matches) {
+          Add({}, std::move(match), fields);
+        }
+      }
+
+      Matches() = default;
+
+      size_t size() const { return referents.size(); }
+
+      void Add(FieldPath prefix, const FieldPath& match, const FieldVector& fields) {
+        auto maybe_field = match.Get(fields);
+        DCHECK_OK(maybe_field.status());
+
+        prefix.resize(prefix.size() + match.size());
+        std::copy(match.begin(), match.end(), prefix.end() - match.size());
+        prefixes.push_back(std::move(prefix));
+        referents.push_back(std::move(maybe_field).ValueOrDie());
+      }
+    };
+
+    std::vector<FieldPath> operator()(const std::vector<FieldRef>& refs) {
+      DCHECK_GE(refs.size(), 1);
+      Matches matches(refs.front().FindAll(fields_), fields_);
+
+      for (auto ref_it = refs.begin() + 1; ref_it != refs.end(); ++ref_it) {
+        Matches next_matches;
+        for (size_t i = 0; i < matches.size(); ++i) {
+          const auto& referent = *matches.referents[i];
+
+          for (const FieldPath& match : ref_it->FindAll(referent)) {
+            next_matches.Add(matches.prefixes[i], match, referent.type()->children());
+          }
+        }
+        matches = std::move(next_matches);
+      }
+
+      return matches.prefixes;
+    }
+
+    const FieldVector& fields_;
+  };
+
+  return util::visit(Visitor{fields}, impl_);
+}
+
+void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }
+
+// ----------------------------------------------------------------------
 // Schema implementation
 
 class Schema::Impl {
@@ -636,7 +1050,7 @@ Schema::~Schema() {}
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
 
-std::shared_ptr<Field> Schema::field(int i) const {
+const std::shared_ptr<Field>& Schema::field(int i) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(i, num_fields());
   return impl_->fields_[i];

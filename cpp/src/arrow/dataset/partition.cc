@@ -71,7 +71,7 @@ Result<std::shared_ptr<Expression>> SegmentDictionaryPartitioning::Parse(
 
 Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
     const Key& key, const Schema& schema) {
-  auto field = schema.GetFieldByName(key.name);
+  ARROW_ASSIGN_OR_RAISE(auto field, FieldRef(key.name).GetOneOrNone(schema));
   if (field == nullptr) {
     return scalar(true);
   }
@@ -141,10 +141,8 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
 
   Result<std::shared_ptr<Partitioning>> Finish(
       const std::shared_ptr<Schema>& schema) const override {
-    for (const auto& field_name : field_names_) {
-      if (schema->GetFieldIndex(field_name) == -1) {
-        return Status::TypeError("no field named '", field_name, "' in schema", *schema);
-      }
+    for (FieldRef ref : field_names_) {
+      RETURN_NOT_OK(ref.FindOne(*schema).status());
     }
 
     // drop fields which aren't in field_names_

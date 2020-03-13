@@ -41,25 +41,24 @@ using internal::checked_cast;
 // ----------------------------------------------------------------------
 // ChunkedArray methods
 
-ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
+ChunkedArray::ChunkedArray(ArrayVector chunks) : chunks_(std::move(chunks)) {
   length_ = 0;
   null_count_ = 0;
 
-  ARROW_CHECK_GT(chunks.size(), 0)
+  ARROW_CHECK_GT(chunks_.size(), 0)
       << "cannot construct ChunkedArray from empty vector and omitted type";
-  type_ = chunks[0]->type();
-  for (const std::shared_ptr<Array>& chunk : chunks) {
+  type_ = chunks_[0]->type();
+  for (const std::shared_ptr<Array>& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
   }
 }
 
-ChunkedArray::ChunkedArray(const ArrayVector& chunks,
-                           const std::shared_ptr<DataType>& type)
-    : chunks_(chunks), type_(type) {
+ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
+    : chunks_(std::move(chunks)), type_(std::move(type)) {
   length_ = 0;
   null_count_ = 0;
-  for (const std::shared_ptr<Array>& chunk : chunks) {
+  for (const std::shared_ptr<Array>& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
   }

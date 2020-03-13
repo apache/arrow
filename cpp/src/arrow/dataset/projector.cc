@@ -40,8 +40,15 @@ RecordBatchProjector::RecordBatchProjector(std::shared_ptr<Schema> to)
       column_indices_(to_->num_fields(), kNoMatch),
       scalars_(to_->num_fields(), nullptr) {}
 
-Status RecordBatchProjector::SetDefaultValue(int index, std::shared_ptr<Scalar> scalar) {
+Status RecordBatchProjector::SetDefaultValue(FieldRef ref,
+                                             std::shared_ptr<Scalar> scalar) {
   DCHECK_NE(scalar, nullptr);
+  if (ref.IsNested()) {
+    return Status::NotImplemented("setting default values for nested columns");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(*to_));
+  auto index = match[0];
 
   auto field_type = to_->field(index)->type();
   if (!field_type->Equals(scalar->type)) {
@@ -83,9 +90,19 @@ Status RecordBatchProjector::SetInputSchema(std::shared_ptr<Schema> from,
 
   for (int i = 0; i < to_->num_fields(); ++i) {
     const auto& field = to_->field(i);
-    int matching_index = from_->GetFieldIndex(field->name());
+    FieldRef ref(field->name());
+    auto matches = ref.FindAll(*from_);
 
-    if (matching_index != kNoMatch) {
+    if (matches.empty()) {
+      // Mark column i as missing by setting missing_columns_[i]
+      // to a non-null placeholder.
+      RETURN_NOT_OK(
+          MakeArrayOfNull(pool, to_->field(i)->type(), 0, &missing_columns_[i]));
+      column_indices_[i] = kNoMatch;
+    } else {
+      RETURN_NOT_OK(ref.CheckNonMultiple(matches, *from_));
+      int matching_index = matches[0][0];
+
       if (!from_->field(matching_index)->Equals(field)) {
         return Status::TypeError("fields had matching names but were not equivalent ",
                                  from_->field(matching_index)->ToString(), " vs ",
@@ -94,14 +111,8 @@ Status RecordBatchProjector::SetInputSchema(std::shared_ptr<Schema> from,
 
       // Mark column i as not missing by setting missing_columns_[i] to nullptr
       missing_columns_[i] = nullptr;
-    } else {
-      // Mark column i as missing by setting missing_columns_[i]
-      // to a non-null placeholder.
-      RETURN_NOT_OK(
-          MakeArrayOfNull(pool, to_->field(i)->type(), 0, &missing_columns_[i]));
+      column_indices_[i] = matching_index;
     }
-
-    column_indices_[i] = matching_index;
   }
   return Status::OK();
 }

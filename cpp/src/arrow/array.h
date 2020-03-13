@@ -426,8 +426,6 @@ class ARROW_EXPORT Array {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
 };
 
-using ArrayVector = std::vector<std::shared_ptr<Array>>;
-
 namespace internal {
 
 /// Given a number of ArrayVectors, treat each ArrayVector as the

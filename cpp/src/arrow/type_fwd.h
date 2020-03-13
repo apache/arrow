@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPE_FWD_H
-#define ARROW_TYPE_FWD_H
+#pragma once
 
 #include <memory>
+#include <vector>
 
 #include "arrow/util/visibility.h"
 
@@ -39,10 +39,15 @@ class MemoryPool;
 class MutableBuffer;
 class ResizableBuffer;
 
+using BufferVector = std::vector<std::shared_ptr<Buffer>>;
+
 class DataType;
 class Field;
+class FieldRef;
 class KeyValueMetadata;
 class Schema;
+
+using FieldVector = std::vector<std::shared_ptr<Field>>;
 
 class Array;
 struct ArrayData;
@@ -50,10 +55,15 @@ class ArrayBuilder;
 class Tensor;
 struct Scalar;
 
+using ArrayDataVector = std::vector<std::shared_ptr<ArrayData>>;
+using ArrayVector = std::vector<std::shared_ptr<Array>>;
+
 class ChunkedArray;
 class RecordBatch;
 class Table;
 
+using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;
+using RecordBatchVector = std::vector<std::shared_ptr<RecordBatch>>;
 using RecordBatchIterator = Iterator<std::shared_ptr<RecordBatch>>;
 
 class DictionaryType;
@@ -261,5 +271,3 @@ ARROW_EXPORT MemoryPool* default_memory_pool();
 #endif
 
 }  // namespace arrow
-
-#endif  // ARROW_TYPE_FWD_H

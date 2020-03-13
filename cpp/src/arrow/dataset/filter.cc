@@ -898,7 +898,8 @@ Result<std::shared_ptr<DataType>> ScalarExpression::Validate(const Schema& schem
 }
 
 Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema) const {
-  if (auto field = schema.GetFieldByName(name_)) {
+  ARROW_ASSIGN_OR_RAISE(auto field, FieldRef(name_).GetOneOrNone(schema));
+  if (field != nullptr) {
     return field->type();
   }
   return null();

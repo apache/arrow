@@ -39,14 +39,6 @@
 
 namespace arrow {
 
-class Array;
-class ChunkedArray;
-class MemoryPool;
-class RecordBatch;
-class Table;
-
-using ArrayVector = std::vector<std::shared_ptr<Array>>;
-
 template <typename T>
 Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* pool,
                             std::shared_ptr<Buffer>* result) {
