@@ -45,7 +45,7 @@ class ARROW_EN_EXPORT Catalog {
   Result<Entry> Get(const std::string& name) const;
   Result<std::shared_ptr<Schema>> GetSchema(const std::string& name) const;
 
-  class Entry {
+  class ARROW_EN_EXPORT Entry {
    public:
     Entry(std::shared_ptr<dataset::Dataset> dataset, std::string name);
     Entry(std::shared_ptr<Table> table, std::string name);
