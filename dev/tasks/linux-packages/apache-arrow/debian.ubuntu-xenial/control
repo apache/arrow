@@ -4,12 +4,10 @@ Priority: optional
 Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
 Build-Depends:
   autoconf-archive,
-  bison,
   clang-7 [!arm64],
   cmake,
   debhelper (>= 9.20160115),
   dh-autoreconf,
-  flex,
   git,
   gobject-introspection,
   gtk-doc-tools,

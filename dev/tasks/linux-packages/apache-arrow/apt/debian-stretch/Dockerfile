@@ -48,13 +48,11 @@ RUN \
     /etc/apt/sources.list.d/llvm.list && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    bison \
     build-essential \
     clang-7 \
     cmake \
     devscripts \
     fakeroot \
-    flex \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \

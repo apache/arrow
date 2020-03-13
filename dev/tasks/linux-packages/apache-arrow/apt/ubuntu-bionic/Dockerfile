@@ -34,13 +34,11 @@ RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    bison \
     build-essential \
     clang-7 \
     cmake \
     devscripts \
     fakeroot \
-    flex \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \

@@ -44,14 +44,12 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     autoconf-archive \
-    bison \
     build-essential \
     cmake \
     debhelper\
     devscripts \
     dh-autoreconf \
     fakeroot \
-    flex \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \
