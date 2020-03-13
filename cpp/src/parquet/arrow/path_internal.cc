@@ -137,6 +137,17 @@ enum IterationResult {
     }                                                      \
   } while (false)
 
+int64_t LazyNullCount(const Array& array) { return array.data()->null_count.load(); }
+
+bool LazyNoNulls(const Array& array) {
+  int64_t null_count = LazyNullCount(array);
+  return null_count == 0 ||
+         // kUnkownNullCount comparison is needed to account
+         // for null arrays.
+         (null_count == ::arrow::kUnknownNullCount &&
+          array.null_bitmap_data() == nullptr);
+}
+
 struct PathWriteContext {
   PathWriteContext(::arrow::MemoryPool* pool,
                    std::shared_ptr<::arrow::ResizableBuffer> def_levels_buffer)
@@ -706,11 +717,9 @@ class PathBuilder {
     // and the array does in fact contain nulls, we will end up
     // traversing the null bitmap twice (once here and once when calculating
     // rep/def levels).
-    int64_t null_count = array.data()->null_count.load();
-    if (null_count == 0 || (null_count == ::arrow::kUnknownNullCount &&
-                            array.null_bitmap_data() == nullptr)) {
+    if (LazyNoNulls(array)) {
       info_.path.push_back(AllPresentTerminalNode{info_.max_def_level});
-    } else if (null_count == array.length()) {
+    } else if (LazyNullCount(array) == array.length()) {
       info_.path.push_back(AllNullsTerminalNode(info_.max_def_level - 1));
     } else {
       info_.path.push_back(NullableTerminalNode(array.null_bitmap_data(), array.offset(),
@@ -773,15 +782,13 @@ class PathBuilder {
     // rep/def levels). Because this isn't terminal this might not be
     // the right decision for structs that share the same nullable
     // parents.
-    int64_t null_count = array.data()->null_count.load();
-    if (null_count == 0 || (null_count == ::arrow::kUnknownNullCount &&
-                            array.null_bitmap_data() == nullptr)) {
+    if (LazyNoNulls(array)) {
       // Don't add anything because there won't be any point checking
       // null values for the array.  There will always be at least
       // one more array to handle nullability.
       return;
     }
-    if (null_count == array.length()) {
+    if (LazyNullCount(array) == array.length()) {
       info_.path.push_back(AllNullsTerminalNode(info_.max_def_level - 1));
       return;
     }

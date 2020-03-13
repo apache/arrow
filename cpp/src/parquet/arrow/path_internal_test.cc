@@ -86,7 +86,8 @@ class CapturedResult {
     // This print method is to silence valgrind issues.  Whats printed
     // is not important because all asserts happen directly on
     // members.
-    *os << null_def_levels << " " << null_rep_levels;
+    *os << "CapturedResult (null def, null_rep):" << result.null_def_levels << " "
+        << result.null_rep_levels;
   }
 
  private:

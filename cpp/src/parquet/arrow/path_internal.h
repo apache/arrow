@@ -148,7 +148,7 @@ class PARQUET_EXPORT MultipathLevelBuilder {
 
  private:
   class Impl;
-  MultipathLevelBuilder(Impl* impl);
+  explicit MultipathLevelBuilder(Impl* impl);
   // Not copyable.
   MultipathLevelBuilder(const MultipathLevelBuilder&) = delete;
   MultipathLevelBuilder& operator=(const MultipathLevelBuilder&) = delete;
