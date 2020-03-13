@@ -670,7 +670,11 @@ mod tests {
                     Field::new("age", DataType::Int32, false),
                     Field::new("state", DataType::Utf8, false),
                     Field::new("salary", DataType::Float64, false),
-                    Field::new("birth_date", DataType::Timestamp(TimeUnit::Nanosecond, None), false),
+                    Field::new(
+                        "birth_date",
+                        DataType::Timestamp(TimeUnit::Nanosecond, None),
+                        false,
+                    ),
                 ]))),
                 _ => None,
             }

@@ -27,8 +27,8 @@ use crate::execution::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::logicalplan::{Operator, ScalarValue};
 use arrow::array::{
     ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array,
-    Int64Array, Int8Array, StringArray, UInt16Array, UInt32Array, UInt64Array,
-    UInt8Array, TimestampNanosecondArray,
+    Int64Array, Int8Array, StringArray, TimestampNanosecondArray, UInt16Array,
+    UInt32Array, UInt64Array, UInt8Array,
 };
 use arrow::array::{
     Float32Builder, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
@@ -936,7 +936,9 @@ macro_rules! binary_array_op {
             DataType::Float32 => compute_op!($LEFT, $RIGHT, $OP, Float32Array),
             DataType::Float64 => compute_op!($LEFT, $RIGHT, $OP, Float64Array),
             DataType::Utf8 => compute_utf8_op!($LEFT, $RIGHT, $OP, StringArray),
-            DataType::Timestamp(TimeUnit::Nanosecond, None) => compute_op!($LEFT, $RIGHT, $OP, TimestampNanosecondArray),
+            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
+                compute_op!($LEFT, $RIGHT, $OP, TimestampNanosecondArray)
+            }
             other => Err(ExecutionError::General(format!(
                 "Unsupported data type {:?}",
                 other
@@ -1123,7 +1125,9 @@ impl CastExpr {
             Ok(Self { expr, cast_type })
         } else if expr_type == DataType::Binary && cast_type == DataType::Utf8 {
             Ok(Self { expr, cast_type })
-        } else if is_numeric(&expr_type) && cast_type == DataType::Timestamp(TimeUnit::Nanosecond, None) {
+        } else if is_numeric(&expr_type)
+            && cast_type == DataType::Timestamp(TimeUnit::Nanosecond, None)
+        {
             Ok(Self { expr, cast_type })
         } else {
             Err(ExecutionError::General(format!(
@@ -1366,7 +1370,11 @@ mod tests {
         let a = Int64Array::from(vec![1, 2, 3, 4, 5]);
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
-        let cast = CastExpr::try_new(col(0), &schema, DataType::Timestamp(TimeUnit::Nanosecond, None))?;
+        let cast = CastExpr::try_new(
+            col(0),
+            &schema,
+            DataType::Timestamp(TimeUnit::Nanosecond, None),
+        )?;
         let result = cast.evaluate(&batch)?;
         assert_eq!(result.len(), 5);
         let expected_result = Time64NanosecondArray::from(vec![1, 2, 3, 4]);
