@@ -286,7 +286,8 @@ class ARROW_EN_EXPORT CompareOpExpr : public BinaryOpMixin, public Expr {
 };
 
 template <typename Derived>
-class BaseCompareExpr : public CompareOpExpr, private CompareOpExpr::MakeMixin<Derived> {
+class BaseCompareExpr : public CompareOpExpr,
+                        protected CompareOpExpr::MakeMixin<Derived> {
  public:
   using CompareOpExpr::MakeMixin<Derived>::Make;
 
