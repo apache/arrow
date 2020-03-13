@@ -155,10 +155,11 @@ func TestSchema(t *testing.T) {
 		{
 			fields: []Field{
 				{Name: "f1", Type: PrimitiveTypes.Int32},
-				{Name: "f1", Type: PrimitiveTypes.Int64},
+				{Name: "f2", Type: PrimitiveTypes.Int64},
+				{Name: "dup", Type: PrimitiveTypes.Int32}, // duplicate
+				{Name: "dup", Type: PrimitiveTypes.Int64}, // duplicate
 			},
-			md:  nil,
-			err: fmt.Errorf(`arrow: duplicate field with name "f1"`),
+			md: nil,
 		},
 	} {
 		t.Run("", func(t *testing.T) {
@@ -204,30 +205,40 @@ func TestSchema(t *testing.T) {
 			}
 
 			for _, tc := range []struct {
-				name  string
-				ok    bool
-				field Field
-				i     int
+				name   string
+				ok     bool
+				fields []Field
+				i      []int
 			}{
-				{"f1", true, tc.fields[0], 0},
-				{"f2", true, tc.fields[1], 1},
-				{"N/A", false, Field{}, -1},
+				{"f1", true, []Field{tc.fields[0]}, []int{0}},
+				{"f2", true, []Field{tc.fields[1]}, []int{1}},
+				{"N/A", false, nil, nil},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
-					got, ok := s.FieldByName(tc.name)
+					got, ok := s.FieldsByName(tc.name)
 					if ok != tc.ok {
 						t.Fatalf("invalid field %q: got=%v, want=%v", tc.name, ok, tc.ok)
 					}
-					if i := s.FieldIndex(tc.name); i != tc.i {
-						t.Fatalf("invalid FieldIndex(%s): got=%v, want=%v", tc.name, i, tc.i)
+					if i := s.FieldIndices(tc.name); !reflect.DeepEqual(i, tc.i) {
+						t.Fatalf("invalid FieldIndices(%s): got=%v, want=%v\nfields: %v", tc.name, i, tc.i, s.fields)
 					}
 					if ok := s.HasField(tc.name); ok != tc.ok {
 						t.Fatalf("invalid HasField(%s): got=%v, want=%v", tc.name, ok, tc.ok)
 					}
-					if !got.Equal(tc.field) {
-						t.Fatalf("invalid field: got=%#v, want=%#v", got, tc.field)
+					for i, field := range got {
+						if !field.Equal(tc.fields[i]) {
+							t.Fatalf("invalid field[%d]: got=%#v, want=%#v", i, field, tc.fields[i])
+						}
 					}
 				})
+			}
+
+			if s.HasField("dup") {
+				got := s.FieldIndices("dup")
+				want := []int{2, 3}
+				if !reflect.DeepEqual(got, want) {
+					t.Fatalf("invalid duplicate fields: got=%v, want=%v", got, want)
+				}
 			}
 		})
 	}
