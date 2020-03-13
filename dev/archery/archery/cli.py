@@ -526,7 +526,7 @@ def _set_default(opt, default):
 @archery.command(short_help="Execute protocol and Flight integration tests")
 @click.option('--with-all', is_flag=True, default=False,
               help=('Include all known languages by default '
-                    ' in integration tests'))
+                    'in integration tests'))
 @click.option('--random-seed', type=int, default=12345,
               help="Seed for PRNG when generating test data")
 @click.option('--with-cpp', type=bool, default=False,
@@ -559,6 +559,9 @@ def _set_default(opt, default):
 def integration(with_all=False, random_seed=12345, **args):
     from .integration.runner import write_js_test_json, run_all_tests
     import numpy as np
+
+    # FIXME(bkietz) Include help strings for individual testers.
+    # For example, CPPTester's ARROW_CPP_EXE_PATH environment variable.
 
     # Make runs involving data generation deterministic
     np.random.seed(random_seed)

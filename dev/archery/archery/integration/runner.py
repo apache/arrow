@@ -123,7 +123,7 @@ class IntegrationRunner(object):
                             if f.name == name).skip
             except StopIteration:
                 skip = set()
-            yield datagen.JsonFile(name, None, None, skip=skip, path=out_path)
+            yield datagen.File(name, None, None, skip=skip, path=out_path)
 
     def _run_test_cases(self, producer, consumer, case_runner,
                         test_cases):
@@ -264,11 +264,14 @@ class IntegrationRunner(object):
         log('Testing file {0}'.format(json_path))
         log('=' * 58)
 
-        if ('Java' in (producer.name, consumer.name) and
-           "map" in test_case.name):
-            log('TODO(ARROW-1279): Enable map tests ' +
-                ' for Java and JS once Java supports them and JS\'' +
-                ' are unbroken')
+        if producer.name in test_case.skip:
+            log('-- Skipping test because producer {0} does '
+                'not support'.format(producer.name))
+            outcome.skipped = True
+
+        elif consumer.name in test_case.skip:
+            log('-- Skipping test because consumer {0} does '
+                'not support'.format(consumer.name))
             outcome.skipped = True
 
         elif SKIP_FLIGHT in test_case.skip:
@@ -294,8 +297,8 @@ def get_static_json_files():
     glob_pattern = os.path.join(ARROW_ROOT_DEFAULT,
                                 'integration', 'data', '*.json')
     return [
-        datagen.JsonFile(name=os.path.basename(p), path=p, skip=set(),
-                         schema=None, batches=None)
+        datagen.File(name=os.path.basename(p), path=p, skip=set(),
+                     schema=None, batches=None)
         for p in glob.glob(glob_pattern)
     ]
 

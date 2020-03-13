@@ -54,11 +54,6 @@ using internal::TemporaryDir;
 
 namespace ipc {
 
-bool file_exists(const char* path) {
-  std::ifstream handle(path);
-  return handle.good();
-}
-
 // Convert JSON file to IPC binary format
 static Status ConvertJsonToArrow(const std::string& json_path,
                                  const std::string& arrow_path) {
@@ -72,7 +67,8 @@ static Status ConvertJsonToArrow(const std::string& json_path,
   RETURN_NOT_OK(internal::json::JsonReader::Open(json_buffer, &reader));
 
   if (FLAGS_verbose) {
-    std::cout << "Found schema:\n" << reader->schema()->ToString() << std::endl;
+    std::cout << "Found schema:\n"
+              << reader->schema()->ToString(/* show_metadata = */ true) << std::endl;
   }
 
   std::shared_ptr<RecordBatchWriter> writer;
@@ -136,9 +132,9 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   if (!json_schema->Equals(*arrow_schema)) {
     std::stringstream ss;
     ss << "JSON schema: \n"
-       << json_schema->ToString() << "\n"
+       << json_schema->ToString(/* show_metadata = */ true) << "\n\n"
        << "Arrow schema: \n"
-       << arrow_schema->ToString();
+       << arrow_schema->ToString(/* show_metadata = */ true) << "\n";
 
     if (FLAGS_verbose) {
       std::cout << ss.str() << std::endl;
@@ -195,6 +191,8 @@ Status RunCommand(const std::string& json_path, const std::string& arrow_path,
   if (arrow_path == "") {
     return Status::Invalid("Must specify arrow file name");
   }
+
+  auto file_exists = [](const char* path) { return std::ifstream(path).good(); };
 
   if (command == "ARROW_TO_JSON") {
     if (!file_exists(arrow_path.c_str())) {
@@ -328,8 +326,14 @@ static const char* JSON_EXAMPLE2 = R"example(
             {"type": "VALIDITY", "typeBitWidth": 1},
             {"type": "DATA", "typeBitWidth": 32}
           ]
-        }
+        },
+        "metadata": [
+          {"key": "converted_from_time32", "value": "true"}
+        ]
       }
+    ],
+    "metadata": [
+      {"key": "schema_custom_0", "value": "eh"}
     ]
   },
   "batches": [

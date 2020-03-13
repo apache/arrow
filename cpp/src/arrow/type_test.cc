@@ -496,6 +496,48 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   AssertSchemaEqual(schema2, schema3, false);
 }
 
+TEST_F(TestSchema, TestNestedMetadataComparison) {
+  auto item0 = field("item", int32(), true);
+  auto item1 = field("item", int32(), true, key_value_metadata({{"foo", "baz"}}));
+
+  Schema schema0({field("f", list(item0))});
+  Schema schema1({field("f", list(item1))});
+
+  ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
+  ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
+
+  AssertSchemaEqual(schema0, schema1, /* check_metadata = */ false);
+  AssertSchemaNotEqual(schema0, schema1);
+}
+
+TEST_F(TestSchema, TestDeeplyNestedMetadataComparison) {
+  auto item0 = field("item", int32(), true);
+  auto item1 = field("item", int32(), true, key_value_metadata({{"foo", "baz"}}));
+
+  Schema schema0({field("f", list(list(union_({field("struct", struct_({item0}))}))))});
+  Schema schema1({field("f", list(list(union_({field("struct", struct_({item1}))}))))});
+
+  ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
+  ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
+
+  AssertSchemaEqual(schema0, schema1, /* check_metadata = */ false);
+  AssertSchemaNotEqual(schema0, schema1);
+}
+
+TEST_F(TestSchema, TestFieldsDifferOnlyInMetadata) {
+  auto f0 = field("f", utf8(), true, nullptr);
+  auto f1 = field("f", utf8(), true, key_value_metadata({{"foo", "baz"}}));
+
+  Schema schema0({f0, f1});
+  Schema schema1({f1, f0});
+
+  AssertSchemaEqual(schema0, schema1, /* check_metadata = */ false);
+  AssertSchemaNotEqual(schema0, schema1);
+
+  ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
+  ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
+}
+
 TEST_F(TestSchema, TestEmptyMetadata) {
   // Empty metadata should be equivalent to no metadata at all
   auto f1 = field("f1", int32());
@@ -1318,6 +1360,20 @@ TEST(TestStructType, GetFieldDuplicates) {
 
   results = struct_type.GetAllFieldsByName("not-found");
   ASSERT_EQ(results.size(), 0);
+}
+
+TEST(TestStructType, TestFieldsDifferOnlyInMetadata) {
+  auto f0 = field("f", utf8(), true, nullptr);
+  auto f1 = field("f", utf8(), true, key_value_metadata({{"foo", "baz"}}));
+
+  StructType s0({f0, f1});
+  StructType s1({f1, f0});
+
+  AssertTypeEqual(s0, s1, /* check_metadata = */ false);
+  AssertTypeNotEqual(s0, s1);
+
+  ASSERT_EQ(s0.fingerprint(), s1.fingerprint());
+  ASSERT_NE(s0.metadata_fingerprint(), s1.metadata_fingerprint());
 }
 
 TEST(TestUnionType, Basics) {
