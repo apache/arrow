@@ -1426,6 +1426,8 @@ class ARROW_EXPORT FieldPath : public std::basic_string<int> {
   // four indices can be stored without memory allocation.
   using std::basic_string<int>::basic_string;
 
+  FieldPath() = default;
+
   FieldPath(std::basic_string<int> indices)  // NOLINT runtime/explicit
       : std::basic_string<int>(std::move(indices)) {}
 
@@ -1593,7 +1595,7 @@ class ARROW_EXPORT FieldRef {
   }
 
   template <typename T>
-  using GetType = decltype(FieldPath().Get(std::declval<T>()).ValueOrDie());
+  using GetType = decltype(std::declval<FieldPath>().Get(std::declval<T>()).ValueOrDie());
 
   /// \brief Get all children matching this FieldRef.
   template <typename T>
