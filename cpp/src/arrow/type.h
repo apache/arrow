@@ -1420,16 +1420,14 @@ class ARROW_EXPORT DictionaryUnifier {
 /// Array (returns a child array), RecordBatch (returns a column), ChunkedArray (returns a
 /// ChunkedArray where each chunk is a child array of the corresponding original chunk)
 /// and Table (returns a column).
-class ARROW_EXPORT FieldPath : public std::basic_string<int> {
+class ARROW_EXPORT FieldPath : public std::vector<int> {
  public:
-  // std::basic_string is used to take advantage of the short string approximation: up to
-  // four indices can be stored without memory allocation.
-  using std::basic_string<int>::basic_string;
+  using std::vector<int>::vector;
 
   FieldPath() = default;
 
-  FieldPath(std::basic_string<int> indices)  // NOLINT runtime/explicit
-      : std::basic_string<int>(std::move(indices)) {}
+  FieldPath(std::vector<int> indices)  // NOLINT runtime/explicit
+      : std::vector<int>(std::move(indices)) {}
 
   std::string ToString() const;
 

@@ -615,7 +615,7 @@ std::string NullType::ToString() const { return name(); }
 // FieldRef
 
 size_t FieldPath::hash() const {
-  return internal::ComputeStringHash<0>(data(), length() * sizeof(int));
+  return internal::ComputeStringHash<0>(data(), size() * sizeof(int));
 }
 
 std::string FieldPath::ToString() const {
@@ -984,11 +984,13 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
 
       size_t size() const { return referents.size(); }
 
-      void Add(FieldPath prefix, FieldPath match, const FieldVector& fields) {
+      void Add(FieldPath prefix, const FieldPath& match, const FieldVector& fields) {
         auto maybe_field = match.Get(fields);
         DCHECK_OK(maybe_field.status());
 
-        prefixes.emplace_back(prefix + match);
+        prefix.resize(prefix.size() + match.size());
+        std::copy(match.begin(), match.end(), prefix.end() - match.size());
+        prefixes.push_back(std::move(prefix));
         referents.push_back(std::move(maybe_field).ValueOrDie());
       }
     };
