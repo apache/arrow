@@ -1504,8 +1504,10 @@ class ARROW_EXPORT FieldRef {
   /// construct a FieldRef
   template <typename A0, typename A1, typename... A>
   FieldRef(A0&& a0, A1&& a1, A&&... a) {
-    Flatten({FieldRef(std::forward<A0>(a0)), FieldRef(std::forward<A1>(a1)),
-             FieldRef(std::forward<A>(a))...});
+    Flatten({// cpplint thinks the following are constructor decls
+             FieldRef(std::forward<A0>(a0)),     // NOLINT runtime/explicit
+             FieldRef(std::forward<A1>(a1)),     // NOLINT runtime/explicit
+             FieldRef(std::forward<A>(a))...});  // NOLINT runtime/explicit
   }
 
   /// Parse a dot path into a FieldRef.
