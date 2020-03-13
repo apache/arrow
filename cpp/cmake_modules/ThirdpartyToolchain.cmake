@@ -1016,7 +1016,7 @@ endif()
 
 macro(build_thrift)
   message("Building Apache Thrift from source")
-  set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep/src/thrift_ep-install")
+  set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
   set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
   set(THRIFT_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
@@ -1081,7 +1081,7 @@ macro(build_thrift)
   externalproject_add(thrift_ep
                       URL ${THRIFT_SOURCE_URL}
                       URL_HASH "MD5=${ARROW_THRIFT_BUILD_MD5_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}" "${THRIFT_COMPILER}"
+                      BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
                       DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
 
