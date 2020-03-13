@@ -3622,11 +3622,14 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)
     table = pa.table({'a': arr})
 
-    if LooseVersion(pd.__version__) < "0.26.0.dev":
-        # ensure pandas Int64Dtype has the protocol method (for older pandas)
-        monkeypatch.setattr(
-            pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
-            raising=False)
+    # TODO TEMP use our monkeypatched method for all pandas versions because
+    #   latest pandas release / master fails to cast extension type to int64
+    #   type (see ARROW-7857)
+    # if LooseVersion(pd.__version__) < "0.26.0.dev":
+    # ensure pandas Int64Dtype has the protocol method (for older pandas)
+    monkeypatch.setattr(
+        pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
+        raising=False)
 
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
@@ -3637,9 +3640,11 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
     # (remove the version added above and the actual version for recent pandas)
-    if LooseVersion(pd.__version__) < "0.26.0.dev":
-        monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
-    else:
+    # TODO TEMP see above
+    # if LooseVersion(pd.__version__) < "0.26.0.dev":
+    monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
+    # else:
+    if LooseVersion(pd.__version__) >= "0.26.0.dev":
         monkeypatch.delattr(
             pd.core.arrays.integer._IntegerDtype, "__from_arrow__",
             raising=False)
