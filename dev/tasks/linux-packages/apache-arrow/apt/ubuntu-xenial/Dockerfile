@@ -24,6 +24,10 @@ RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
 
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
+
 ARG DEBUG
 
 RUN \
@@ -31,6 +35,7 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     apt-transport-https \
+    ca-certificates \
     gnupg \
     wget && \
   wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
@@ -45,6 +50,7 @@ RUN \
     debhelper\
     devscripts \
     dh-autoreconf \
+    fakeroot \
     flex \
     git \
     gtk-doc-tools \
@@ -62,6 +68,7 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
+    llvm-7-dev \
     lsb-release \
     pkg-config \
     protobuf-compiler \

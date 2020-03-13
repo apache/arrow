@@ -24,6 +24,10 @@ RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
 
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
+
 ARG DEBUG
 
 RUN \
@@ -54,6 +58,7 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libzstd-dev \
+    llvm-7-dev \
     lsb-release \
     ninja-build \
     pkg-config \

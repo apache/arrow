@@ -24,6 +24,10 @@ RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
 
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
+
 ARG DEBUG
 
 RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
@@ -36,6 +40,7 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     apt-transport-https \
+    ca-certificates \
     gnupg \
     wget && \
   wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
@@ -48,6 +53,7 @@ RUN \
     clang-7 \
     cmake \
     devscripts \
+    fakeroot \
     flex \
     git \
     gtk-doc-tools \
@@ -65,12 +71,15 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libzstd-dev \
+    llvm-7-dev \
     lsb-release \
     ninja-build \
     pkg-config \
     python3-dev \
     python3-numpy \
     python3-pip \
+    python3-setuptools \
+    python3-wheel \
     tzdata \
     zlib1g-dev && \
   apt install -y -V -t stretch-backports ${quiet} \

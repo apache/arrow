@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=debian:buster
+ARG FROM=ubuntu:focal
 FROM ${FROM}
 
 COPY qemu-* /usr/bin/
@@ -29,8 +29,6 @@ RUN \
     /etc/apt/apt.conf.d/disable-install-recommends
 
 ARG DEBUG
-
-RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
@@ -50,7 +48,6 @@ RUN \
     libboost-system-dev \
     libbrotli-dev \
     libbz2-dev \
-    libc-ares-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgmock-dev \
@@ -74,7 +71,7 @@ RUN \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
+  apt clean && \
   pip3 install --upgrade meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \
-  apt clean && \
   rm -rf /var/lib/apt/lists/*

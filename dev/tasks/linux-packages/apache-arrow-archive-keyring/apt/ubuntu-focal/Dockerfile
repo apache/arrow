@@ -15,10 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=debian:buster
-FROM ${FROM}
-
-COPY qemu-* /usr/bin/
+FROM ubuntu:focal
 
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
@@ -30,51 +27,12 @@ RUN \
 
 ARG DEBUG
 
-RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
-
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    bison \
-    build-essential \
-    clang-7 \
-    cmake \
     debhelper \
     devscripts \
-    flex \
-    git \
-    gtk-doc-tools \
-    libboost-filesystem-dev \
-    libboost-regex-dev \
-    libboost-system-dev \
-    libbrotli-dev \
-    libbz2-dev \
-    libc-ares-dev \
-    libgirepository1.0-dev \
-    libglib2.0-doc \
-    libgmock-dev \
-    libgoogle-glog-dev \
-    libgtest-dev \
-    liblz4-dev \
-    libre2-dev \
-    libsnappy-dev \
-    libssl-dev \
-    libzstd-dev \
-    llvm-7-dev \
-    lsb-release \
-    ninja-build \
-    pkg-config \
-    python3-dev \
-    python3-numpy \
-    python3-pip \
-    rapidjson-dev \
-    tzdata \
-    zlib1g-dev && \
-  if apt list | grep '^nvidia-cuda-toolkit/'; then \
-    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
-  fi && \
-  pip3 install --upgrade meson && \
-  ln -s /usr/local/bin/meson /usr/bin/ && \
+    gnupg && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*

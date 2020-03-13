@@ -24,6 +24,10 @@ RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
 
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
+
 ARG DEBUG
 
 RUN \
@@ -35,6 +39,7 @@ RUN \
     clang-7 \
     cmake \
     devscripts \
+    fakeroot \
     flex \
     git \
     gtk-doc-tools \
@@ -52,12 +57,15 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libzstd-dev \
+    llvm-7-dev \
     lsb-release \
     ninja-build \
     pkg-config \
     python3-dev \
     python3-numpy \
     python3-pip \
+    python3-setuptools \
+    python3-wheel \
     rapidjson-dev \
     tzdata \
     zlib1g-dev && \
