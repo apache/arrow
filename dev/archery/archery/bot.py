@@ -277,16 +277,29 @@ def submit(obj, task, group, dry_run):
         arrow = tmpdir / 'arrow'
         queue = tmpdir / 'crossbow'
 
-        # clone arrow, crossbow and checkout the pull request's branch
-        git.clone('--branch', pr.head.ref, pr.head.repo.clone_url, str(arrow))
+        # clone arrow and checkout the pull request's branch
+        git.clone(pr.base.repo.clone_url, str(arrow))
+        git.fetch('origin', 'pull/{}/head:{}'.format(pr.number, pr.head.ref),
+                  git_dir=str(arrow))
+        git.checkout(pr.head.ref, git_dir=str(arrow))
+
+        # clone crossbow
         git.clone(crossbow_url, str(queue))
 
         # submit the crossbow tasks
         result = Path('result.yml').resolve()
         xbow = Crossbow(str(arrow / 'dev' / 'tasks' / 'crossbow.py'))
-        xbow.run('--queue-path', str(queue),
-                 '--output-file', str(result),
-                 'submit', *args)
+        xbow.run(
+            '--queue-path', str(queue),
+            '--output-file', str(result),
+            'submit',
+            '--job-prefix', 'actions',
+            # don't rely on crossbow's remote and branch detection, because
+            # it doesn't work without a tracking upstream branch
+            '--arrow-remote', pr.head.repo.clone_url,
+            '--arrow-branch', pr.head.ref,
+            *args
+        )
 
     # parse the result yml describing the submitted job
     yaml = YAML()
