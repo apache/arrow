@@ -27,8 +27,8 @@ use crate::execution::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::logicalplan::{Operator, ScalarValue};
 use arrow::array::{
     ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array,
-    Int64Array, Int8Array, StringArray, UInt16Array, UInt32Array, UInt64Array,
-    UInt8Array,
+    Int64Array, Int8Array, StringArray, TimestampNanosecondArray, UInt16Array,
+    UInt32Array, UInt64Array, UInt8Array,
 };
 use arrow::array::{
     Float32Builder, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
@@ -43,7 +43,7 @@ use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
     eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, lt_eq_utf8, lt_utf8, neq_utf8, nlike_utf8,
 };
-use arrow::datatypes::{DataType, Schema};
+use arrow::datatypes::{DataType, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 
 /// Represents the column at a given index in a RecordBatch
@@ -936,6 +936,9 @@ macro_rules! binary_array_op {
             DataType::Float32 => compute_op!($LEFT, $RIGHT, $OP, Float32Array),
             DataType::Float64 => compute_op!($LEFT, $RIGHT, $OP, Float64Array),
             DataType::Utf8 => compute_utf8_op!($LEFT, $RIGHT, $OP, StringArray),
+            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
+                compute_op!($LEFT, $RIGHT, $OP, TimestampNanosecondArray)
+            }
             other => Err(ExecutionError::General(format!(
                 "Unsupported data type {:?}",
                 other
@@ -1122,6 +1125,10 @@ impl CastExpr {
             Ok(Self { expr, cast_type })
         } else if expr_type == DataType::Binary && cast_type == DataType::Utf8 {
             Ok(Self { expr, cast_type })
+        } else if is_numeric(&expr_type)
+            && cast_type == DataType::Timestamp(TimeUnit::Nanosecond, None)
+        {
+            Ok(Self { expr, cast_type })
         } else {
             Err(ExecutionError::General(format!(
                 "Invalid CAST from {:?} to {:?}",
@@ -1230,7 +1237,7 @@ mod tests {
     use super::*;
     use crate::error::Result;
     use crate::execution::physical_plan::common::get_scalar_value;
-    use arrow::array::{PrimitiveArray, StringArray};
+    use arrow::array::{PrimitiveArray, StringArray, Time64NanosecondArray};
     use arrow::datatypes::*;
 
     #[test]
@@ -1353,6 +1360,29 @@ mod tests {
             .downcast_ref::<StringArray>()
             .expect("failed to downcast to StringArray");
         assert_eq!(result.value(0), "1");
+
+        Ok(())
+    }
+
+    #[test]
+    fn cast_i64_to_timestamp_nanoseconds() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int64, false)]);
+        let a = Int64Array::from(vec![1, 2, 3, 4, 5]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        let cast = CastExpr::try_new(
+            col(0),
+            &schema,
+            DataType::Timestamp(TimeUnit::Nanosecond, None),
+        )?;
+        let result = cast.evaluate(&batch)?;
+        assert_eq!(result.len(), 5);
+        let expected_result = Time64NanosecondArray::from(vec![1, 2, 3, 4]);
+        let result = result
+            .as_any()
+            .downcast_ref::<TimestampNanosecondArray>()
+            .expect("failed to downcast to TimestampNanosecondArray");
+        assert_eq!(result.value(0), expected_result.value(0));
 
         Ok(())
     }

@@ -470,6 +470,7 @@ pub fn convert_data_type(sql: &SQLType) -> Result<DataType> {
         SQLType::Float(_) | SQLType::Real => Ok(DataType::Float64),
         SQLType::Double => Ok(DataType::Float64),
         SQLType::Char(_) | SQLType::Varchar(_) => Ok(DataType::Utf8),
+        SQLType::Timestamp => Ok(DataType::Timestamp(TimeUnit::Nanosecond, None)),
         other => Err(ExecutionError::NotImplemented(format!(
             "Unsupported SQL type {:?}",
             other
@@ -529,6 +530,17 @@ mod tests {
         let expected = "Projection: #0, #1, #2\
             \n  Selection: #4 Eq Utf8(\"CO\") And #3 GtEq Int64(21) And #3 LtEq Int64(65)\
             \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn test_timestamp_selection() {
+        let sql = "SELECT state FROM person WHERE birth_date < CAST (158412331400600000 as timestamp)";
+
+        let expected = "Projection: #4\
+            \n  Selection: #6 Lt CAST(Int64(158412331400600000) AS Timestamp(Nanosecond, None))\
+            \n    TableScan: person projection=None";
+
         quick_test(sql, expected);
     }
 
@@ -658,6 +670,11 @@ mod tests {
                     Field::new("age", DataType::Int32, false),
                     Field::new("state", DataType::Utf8, false),
                     Field::new("salary", DataType::Float64, false),
+                    Field::new(
+                        "birth_date",
+                        DataType::Timestamp(TimeUnit::Nanosecond, None),
+                        false,
+                    ),
                 ]))),
                 _ => None,
             }
