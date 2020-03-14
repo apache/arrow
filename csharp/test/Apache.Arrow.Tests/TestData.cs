@@ -31,6 +31,7 @@ namespace Apache.Arrow.Tests
             Schema.Builder builder = new Schema.Builder();
             for (int i = 0; i < columnSetCount; i++)
             {
+                builder.Field(CreateField(new ListType(Int64Type.Default), i));
                 builder.Field(CreateField(BooleanType.Default, i));
                 builder.Field(CreateField(UInt8Type.Default, i));
                 builder.Field(CreateField(Int8Type.Default, i));
@@ -52,8 +53,6 @@ namespace Apache.Arrow.Tests
                 //builder.Field(CreateField(StringType.Default));
                 //builder.Field(CreateField(Time32Type.Default));
                 //builder.Field(CreateField(Time64Type.Default));
-
-                builder.Field(CreateField(new ListType(Int64Type.Default), i));
             }
 
             Schema schema = builder.Build();

@@ -122,10 +122,10 @@ namespace Apache.Arrow.Ipc
             }
 
             var recordBatchEnumerator = new RecordBatchEnumerator(in recordBatchMessage);
-
+            var schemaFieldIndex = 0;
             do
             {
-                var field = schema.GetFieldByIndex(recordBatchEnumerator.CurrentNodeIndex);
+                var field = schema.GetFieldByIndex(schemaFieldIndex++);
                 var fieldNode = recordBatchEnumerator.CurrentNode;
 
                 var arrayData = field.DataType.IsFixedPrimitive()
