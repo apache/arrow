@@ -66,7 +66,6 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
-    llvm-7-dev \
     lsb-release \
     pkg-config \
     protobuf-compiler \
@@ -74,7 +73,9 @@ RUN \
     python3-numpy \
     zlib1g-dev && \
   if apt list | grep '^clang-7/'; then \
-    apt install -y -V ${quiet} clang-7; \
+    apt install -y -V ${quiet} \
+      clang-7 \
+      llvm-7-dev; \
   fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \

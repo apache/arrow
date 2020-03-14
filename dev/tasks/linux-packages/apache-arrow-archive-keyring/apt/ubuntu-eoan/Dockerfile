@@ -31,8 +31,11 @@ RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
+    build-essential \
     debhelper \
     devscripts \
-    gnupg && \
+    fakeroot \
+    gnupg \
+    lsb-release && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
