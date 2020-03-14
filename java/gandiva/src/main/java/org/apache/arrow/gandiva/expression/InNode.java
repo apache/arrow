@@ -48,19 +48,19 @@ public class InNode implements TreeNode {
   }
 
   public static InNode makeIntInExpr(Field field, Set<Integer> intValues) {
-    return new InNode(intValues, null, null, null ,field);
+    return new InNode(intValues, null, null, null, field);
   }
 
   public static InNode makeLongInExpr(Field field, Set<Long> longValues) {
-    return new InNode(null, longValues, null, null ,field);
+    return new InNode(null, longValues, null, null, field);
   }
 
   public static InNode makeStringInExpr(Field field, Set<String> stringValues) {
-    return new InNode(null, null, stringValues, null ,field);
+    return new InNode(null, null, stringValues, null, field);
   }
 
   public static InNode makeBinaryInExpr(Field field, Set<byte[]> binaryValues) {
-    return new InNode(null, null, null, binaryValues ,field);
+    return new InNode(null, null, null, binaryValues, field);
   }
 
   @Override

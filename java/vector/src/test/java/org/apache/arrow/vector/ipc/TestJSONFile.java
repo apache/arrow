@@ -450,7 +450,7 @@ public class TestJSONFile extends BaseFileTest {
       uInt1Vector.setValueCount(3);
       for (int i = 0; i < byteValues.length; i++) {
         uInt1Vector.set(i, byteValues[i]);
-        byte actualValue = (byte) UInt1Vector.getNoOverflow(uInt1Vector.getDataBuffer(),i);
+        byte actualValue = (byte) UInt1Vector.getNoOverflow(uInt1Vector.getDataBuffer(), i);
         assertEquals(byteValues[i], actualValue);
       }
     }

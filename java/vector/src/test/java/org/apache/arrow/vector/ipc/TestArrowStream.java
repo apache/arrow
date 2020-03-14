@@ -91,7 +91,7 @@ public class TestArrowStream extends BaseFileTest {
       int numBatches = 1;
 
       root.getFieldVectors().get(0).allocateNew();
-      TinyIntVector vector = (TinyIntVector)root.getFieldVectors().get(0);
+      TinyIntVector vector = (TinyIntVector) root.getFieldVectors().get(0);
       for (int i = 0; i < 16; i++) {
         vector.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
       }

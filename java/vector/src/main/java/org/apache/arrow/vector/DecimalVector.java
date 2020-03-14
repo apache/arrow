@@ -228,7 +228,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
     }
 
     if (length == 0) {
-      PlatformDependent.setMemory(outAddress, DecimalVector.TYPE_WIDTH, (byte)0);
+      PlatformDependent.setMemory(outAddress, DecimalVector.TYPE_WIDTH, (byte) 0);
     } else if (length < TYPE_WIDTH) {
       // sign extend
       final byte pad = (byte) (value[0] < 0 ? 0xFF : 0x00);

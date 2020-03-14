@@ -63,7 +63,7 @@ public class Float8Benchmarks {
     fromVector = new Float8Vector("vector", allocator);
     fromVector.allocateNew(VECTOR_LENGTH);
 
-    for (int i = 0;i < VECTOR_LENGTH; i++) {
+    for (int i = 0; i < VECTOR_LENGTH; i++) {
       if (i % 3 == 0) {
         fromVector.setNull(i);
       } else {

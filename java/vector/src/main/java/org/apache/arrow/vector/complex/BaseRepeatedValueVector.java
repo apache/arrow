@@ -121,7 +121,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
     long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
-    newAllocationSize = Math.min(newAllocationSize, (long)(OFFSET_WIDTH) * Integer.MAX_VALUE);
+    newAllocationSize = Math.min(newAllocationSize, (long) (OFFSET_WIDTH) * Integer.MAX_VALUE);
     assert newAllocationSize >= 1;
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE || newAllocationSize <= baseSize) {
@@ -188,10 +188,10 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
     offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
 
-    int innerValueCapacity = Math.max((int)(numRecords * density), 1);
+    int innerValueCapacity = Math.max((int) (numRecords * density), 1);
 
     if (vector instanceof DensityAwareVector) {
-      ((DensityAwareVector)vector).setInitialCapacity(innerValueCapacity, density);
+      ((DensityAwareVector) vector).setInitialCapacity(innerValueCapacity, density);
     } else {
       vector.setInitialCapacity(innerValueCapacity);
     }
