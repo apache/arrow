@@ -59,6 +59,7 @@ groups:
     - ubuntu-xenial
     - ubuntu-bionic
     - ubuntu-eoan
+    - ubuntu-focal
     - centos-6
     - centos-7
     - centos-8
@@ -69,6 +70,7 @@ groups:
     - ubuntu-xenial-arm64
     - ubuntu-bionic-arm64
     - ubuntu-eoan-arm64
+    - ubuntu-focal-arm64
     - centos-7-aarch64
     - centos-8-aarch64
 
@@ -1211,6 +1213,124 @@ tasks:
     template: linux-packages/github.linux.arm64.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-eoan-arm64
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
+
+  ubuntu-focal:
+    ci: github
+    platform: linux
+    template: linux-packages/github.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-focal
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma100_{no_rc_version}-1_[a-z0-9]+.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
+
+  ubuntu-focal-arm64:
+    ci: github
+    platform: linux
+    template: linux-packages/github.linux.arm64.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-focal-arm64
       upload_extensions:
         - .deb
         - .dsc

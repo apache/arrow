@@ -3,11 +3,9 @@ Section: devel
 Priority: optional
 Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
 Build-Depends:
-  bison,
   clang-7,
   cmake,
   debhelper (>= 12),
-  flex,
   git,
   gobject-introspection,
   gtk-doc-tools,
@@ -24,6 +22,7 @@ Build-Depends:
   libsnappy-dev,
   libssl-dev,
   libzstd-dev,
+  llvm-7-dev,
   ninja-build,
   nvidia-cuda-toolkit [!arm64],
   pkg-config,

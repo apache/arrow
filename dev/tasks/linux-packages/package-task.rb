@@ -175,6 +175,8 @@ class PackageTask
       # "ubuntu-bionic-arm64",
       "ubuntu-eoan",
       # "ubuntu-eoan-arm64",
+      "ubuntu-focal",
+      # "ubuntu-focal-arm64",
     ]
   end
 

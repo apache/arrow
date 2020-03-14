@@ -60,14 +60,6 @@ class ApacheArrowReleasePackageTask < PackageTask
   def enable_apt?
     false
   end
-
-  def yum_targets_default
-    [
-      "centos-6",
-      "centos-7",
-      "centos-8",
-    ]
-  end
 end
 
 task = ApacheArrowReleasePackageTask.new

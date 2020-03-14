@@ -24,6 +24,10 @@ RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
 
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
+
 ARG DEBUG
 
 RUN \
@@ -31,6 +35,7 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     apt-transport-https \
+    ca-certificates \
     gnupg \
     wget && \
   wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
@@ -39,13 +44,12 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     autoconf-archive \
-    bison \
     build-essential \
     cmake \
     debhelper\
     devscripts \
     dh-autoreconf \
-    flex \
+    fakeroot \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \
@@ -69,7 +73,9 @@ RUN \
     python3-numpy \
     zlib1g-dev && \
   if apt list | grep '^clang-7/'; then \
-    apt install -y -V ${quiet} clang-7; \
+    apt install -y -V ${quiet} \
+      clang-7 \
+      llvm-7-dev; \
   fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \

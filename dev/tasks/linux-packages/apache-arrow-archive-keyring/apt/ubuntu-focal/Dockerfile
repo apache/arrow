@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM debian:buster
+FROM ubuntu:focal
 
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \

@@ -141,11 +141,14 @@ test_apt() {
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:eoan" \
-                "arm64v8/ubuntu:eoan"; do \
+                "arm64v8/ubuntu:eoan" \
+                "ubuntu:focal" \
+                "arm64v8/ubuntu:focal"; do \
     # We can't build some arm64 binaries by Crossbow for now.
     if [ "${target}" = "arm64v8/debian:stretch" ]; then continue; fi
     if [ "${target}" = "arm64v8/debian:buster" ]; then continue; fi
     if [ "${target}" = "arm64v8/ubuntu:eoan" ]; then continue; fi
+    if [ "${target}" = "arm64v8/ubuntu:focal" ]; then continue; fi
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
