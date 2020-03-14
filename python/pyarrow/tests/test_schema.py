@@ -261,7 +261,7 @@ bar: string, metadata.keys: ['key3']
 foo: int32 not null
   -- metadata --
   key1: value1
-foo: string
+bar: string
   -- metadata --
   key3: value3
 -- metadata --
