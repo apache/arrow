@@ -49,7 +49,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
     }
 
     /// Generate a logic plan from a SQL AST node
-    pub fn sql_to_rel(&self, sql: &ASTNode) -> Result<Arc<LogicalPlan>> {
+    pub fn sql_to_rel(&self, sql: &ASTNode) -> Result<LogicalPlan> {
         match *sql {
             ASTNode::SQLSelect {
                 ref projection,
@@ -64,7 +64,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 // parse the input relation so we have access to the row type
                 let input = match *relation {
                     Some(ref r) => self.sql_to_rel(r)?,
-                    None => Arc::new(LogicalPlanBuilder::empty().build()?),
+                    None => LogicalPlanBuilder::empty().build()?,
                 };
 
                 let input_schema = input.schema();
@@ -72,7 +72,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 // selection first
                 let selection_plan = match *selection {
                     Some(ref filter_expr) => Some(
-                        LogicalPlanBuilder::from(input.as_ref().clone())
+                        LogicalPlanBuilder::from(&input)
                             .filter(self.sql_to_rex(filter_expr, &input_schema.clone())?)?
                             .build()?,
                     ),
@@ -92,8 +92,8 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     .collect();
 
                 if aggr_expr.len() > 0 {
-                    let aggregate_input: Arc<LogicalPlan> = match selection_plan {
-                        Some(s) => Arc::new(s),
+                    let aggregate_input = match selection_plan {
+                        Some(s) => s,
                         _ => input.clone(),
                     };
 
@@ -109,7 +109,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     let aggr_count = aggr_expr.len();
 
                     let aggregate =
-                        LogicalPlanBuilder::from(aggregate_input.as_ref().clone())
+                        LogicalPlanBuilder::from(&aggregate_input)
                             .aggregate(group_expr, aggr_expr)?
                             .build()?;
 
@@ -141,19 +141,19 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     if projection_needed {
                         let projection = create_projection(
                             projected_fields.iter().map(|i| Expr::Column(*i)).collect(),
-                            Arc::new(aggregate),
+                            &aggregate,
                         )?;
-                        Ok(Arc::new(projection))
+                        Ok(projection)
                     } else {
-                        Ok(Arc::new(aggregate))
+                        Ok(aggregate)
                     }
                 } else {
-                    let projection_input: Arc<LogicalPlan> = match selection_plan {
-                        Some(s) => Arc::new(s),
+                    let projection_input = match selection_plan {
+                        Some(s) => s,
                         _ => input.clone(),
                     };
 
-                    let projection = create_projection(expr, projection_input)?;
+                    let projection = create_projection(expr, &projection_input)?;
 
                     if having.is_some() {
                         return Err(ExecutionError::General(
@@ -168,7 +168,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                                 .map(|e| self.sql_to_rex(&e, &input_schema))
                                 .collect::<Result<Vec<Expr>>>()?;
 
-                            LogicalPlanBuilder::from(projection)
+                            LogicalPlanBuilder::from(&projection)
                                 .aggregate(group_by_rex, vec![])?
                                 .build()?
                         }
@@ -191,7 +191,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                                 })
                                 .collect();
 
-                            LogicalPlanBuilder::from(group_by_plan.clone())
+                            LogicalPlanBuilder::from(&group_by_plan)
                                 .sort(order_by_rex?)?
                                 .build()?
                         }
@@ -213,23 +213,23 @@ impl<S: SchemaProvider> SqlToRel<S> {
                                 )),
                             }?;
 
-                            LogicalPlanBuilder::from(order_by_plan.clone())
+                            LogicalPlanBuilder::from(&order_by_plan)
                                 .limit(limit_rex)?
                                 .build()?
                         }
                         _ => order_by_plan,
                     };
 
-                    Ok(Arc::new(limit_plan))
+                    Ok(limit_plan)
                 }
             }
 
             ASTNode::SQLIdentifier(ref id) => {
                 match self.schema_provider.get_table_meta(id.as_ref()) {
-                    Some(schema) => Ok(Arc::new(
+                    Some(schema) => Ok(
                         LogicalPlanBuilder::scan("default", id, schema.as_ref(), None)?
                             .build()?,
-                    )),
+                    ),
                     None => Err(ExecutionError::General(format!(
                         "no schema found for table {}",
                         id
@@ -417,8 +417,8 @@ impl<S: SchemaProvider> SqlToRel<S> {
 }
 
 /// Create a projection
-fn create_projection(expr: Vec<Expr>, input: Arc<LogicalPlan>) -> Result<LogicalPlan> {
-    LogicalPlanBuilder::from(input.as_ref().clone())
+fn create_projection(expr: Vec<Expr>, input: &LogicalPlan) -> Result<LogicalPlan> {
+    LogicalPlanBuilder::from(input)
         .project(expr)?
         .build()
 }
@@ -615,17 +615,17 @@ mod tests {
         quick_test(sql, expected);
     }
 
-    fn logical_plan(sql: &str) -> Arc<LogicalPlan> {
+    fn logical_plan(sql: &str) -> Result<LogicalPlan> {
         use sqlparser::dialect::*;
         let dialect = GenericSqlDialect {};
         let planner = SqlToRel::new(MockSchemaProvider {});
         let ast = Parser::parse_sql(&dialect, sql.to_string()).unwrap();
-        planner.sql_to_rel(&ast).unwrap()
+        planner.sql_to_rel(&ast)
     }
 
     /// Create logical plan, write with formatter, compare to expected output
     fn quick_test(sql: &str, expected: &str) {
-        let plan = logical_plan(sql);
+        let plan = logical_plan(sql).unwrap();
         assert_eq!(expected, format!("{:?}", plan));
     }
 

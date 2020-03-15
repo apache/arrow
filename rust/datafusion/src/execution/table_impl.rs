@@ -303,7 +303,7 @@ mod tests {
     }
 
     /// Create a logical plan from a SQL query
-    fn create_plan(sql: &str) -> Result<Arc<LogicalPlan>> {
+    fn create_plan(sql: &str) -> Result<LogicalPlan> {
         let mut ctx = ExecutionContext::new();
         register_aggregate_csv(&mut ctx);
         ctx.create_logical_plan(sql)

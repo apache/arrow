@@ -654,13 +654,13 @@ pub struct LogicalPlanBuilder {
 
 impl LogicalPlanBuilder {
     /// Create a builder from an existing plan
-    pub fn from(plan: LogicalPlan) -> Self {
-        Self { plan }
+    pub fn from(plan: &LogicalPlan) -> Self {
+        Self { plan: plan.clone() }
     }
 
     /// Create an empty relation
     pub fn empty() -> Self {
-        Self::from(LogicalPlan::EmptyRelation {
+        Self::from(&LogicalPlan::EmptyRelation {
             schema: Arc::new(Schema::empty()),
         })
     }
@@ -675,7 +675,7 @@ impl LogicalPlanBuilder {
         let projected_schema = projection.clone().map(|p| {
             Schema::new(p.iter().map(|i| table_schema.field(*i).clone()).collect())
         });
-        Ok(Self::from(LogicalPlan::TableScan {
+        Ok(Self::from(            &LogicalPlan::TableScan {
             schema_name: schema_name.to_owned(),
             table_name: table_name.to_owned(),
             table_schema: Arc::new(table_schema.clone()),
@@ -693,7 +693,7 @@ impl LogicalPlanBuilder {
         let schema =
             Schema::new(utils::exprlist_to_fields(&expr, input_schema.as_ref())?);
 
-        Ok(Self::from(LogicalPlan::Projection {
+        Ok(Self::from(&LogicalPlan::Projection {
             expr,
             input: Arc::new(self.plan.clone()),
             schema: Arc::new(schema),
@@ -702,7 +702,7 @@ impl LogicalPlanBuilder {
 
     /// Apply a filter
     pub fn filter(&self, expr: Expr) -> Result<Self> {
-        Ok(Self::from(LogicalPlan::Selection {
+        Ok(Self::from(&LogicalPlan::Selection {
             expr,
             input: Arc::new(self.plan.clone()),
         }))
@@ -710,7 +710,7 @@ impl LogicalPlanBuilder {
 
     /// Apply a limit
     pub fn limit(&self, expr: Expr) -> Result<Self> {
-        Ok(Self::from(LogicalPlan::Limit {
+        Ok(Self::from(&LogicalPlan::Limit {
             expr,
             input: Arc::new(self.plan.clone()),
             schema: self.plan.schema().clone(),
@@ -719,7 +719,7 @@ impl LogicalPlanBuilder {
 
     /// Apply a sort
     pub fn sort(&self, expr: Vec<Expr>) -> Result<Self> {
-        Ok(Self::from(LogicalPlan::Sort {
+        Ok(Self::from(&LogicalPlan::Sort {
             expr,
             input: Arc::new(self.plan.clone()),
             schema: self.plan.schema().clone(),
@@ -734,7 +734,7 @@ impl LogicalPlanBuilder {
         let aggr_schema =
             Schema::new(utils::exprlist_to_fields(&all_fields, self.plan.schema())?);
 
-        Ok(Self::from(LogicalPlan::Aggregate {
+        Ok(Self::from(&LogicalPlan::Aggregate {
             input: Arc::new(self.plan.clone()),
             group_expr,
             aggr_expr,

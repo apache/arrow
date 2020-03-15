@@ -71,7 +71,7 @@ impl ExecutionContext {
     pub fn sql(&mut self, sql: &str, batch_size: usize) -> Result<Vec<RecordBatch>> {
         let plan = self.create_logical_plan(sql)?;
 
-        return self.collect_plan(plan.as_ref(), batch_size);
+        return self.collect_plan(&plan, batch_size);
     }
 
     /// Executes a logical plan and produce a Relation (a schema-aware iterator over a series
@@ -112,7 +112,7 @@ impl ExecutionContext {
     }
 
     /// Creates a logical plan
-    pub fn create_logical_plan(&mut self, sql: &str) -> Result<Arc<LogicalPlan>> {
+    pub fn create_logical_plan(&mut self, sql: &str) -> Result<LogicalPlan> {
         let ast = DFParser::parse_sql(String::from(sql))?;
 
         match ast {
@@ -138,13 +138,13 @@ impl ExecutionContext {
             } => {
                 let schema = Arc::new(self.build_schema(columns)?);
 
-                Ok(Arc::new(LogicalPlan::CreateExternalTable {
+                Ok(LogicalPlan::CreateExternalTable {
                     schema,
                     name,
                     location,
                     file_type,
                     header_row,
-                }))
+                })
             }
         }
     }
