@@ -131,11 +131,11 @@ class PARQUET_EXPORT MultipathLevelBuilder {
   static ::arrow::Result<std::unique_ptr<MultipathLevelBuilder>> Make(
       const ::arrow::Array& array, bool array_field_nullable);
 
-  ~MultipathLevelBuilder();
+  virtual ~MultipathLevelBuilder() = default;
 
   /// \brief Returns the number of leaf columns that need to be written
   /// to Parquet.
-  int GetLeafCount() const;
+  virtual int GetLeafCount() const = 0;
 
   /// \brief Calls write_leaf_callback with the MultipathLevelBuilderResult corresponding
   /// to |leaf_index|.
@@ -143,16 +143,8 @@ class PARQUET_EXPORT MultipathLevelBuilder {
   /// \param[in] The index of the leaf column to write.  Must be in the range [0,
   /// GetLeafCount()]. \param[in, out] context for use when allocating memory, etc.
   /// \param[out] write_leaf_callback Callback to receive the result.
-  ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
-                        CallbackFunction write_leaf_callback);
-
- private:
-  class Impl;
-  explicit MultipathLevelBuilder(Impl* impl);
-  // Not copyable.
-  MultipathLevelBuilder(const MultipathLevelBuilder&) = delete;
-  MultipathLevelBuilder& operator=(const MultipathLevelBuilder&) = delete;
-  Impl* impl_;
+  virtual ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
+                                CallbackFunction write_leaf_callback) = 0;
 };
 
 }  // namespace arrow

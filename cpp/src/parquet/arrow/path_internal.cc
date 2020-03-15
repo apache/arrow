@@ -855,18 +855,18 @@ Status PathBuilder::VisitInline(const Array& array) {
 #undef RETURN_IF_ERROR
 }  // namespace
 
-class MultipathLevelBuilder::Impl {
+class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
  public:
-  Impl(std::shared_ptr<::arrow::ArrayData> data,
-       std::unique_ptr<PathBuilder> path_builder)
+  MultipathLevelBuilderImpl(std::shared_ptr<::arrow::ArrayData> data,
+                            std::unique_ptr<PathBuilder> path_builder)
       : root_range_{0, data->length},
         data_(std::move(data)),
         path_builder_(std::move(path_builder)) {}
 
-  int GetLeafCount() { return path_builder_->paths().size(); }
+  int GetLeafCount() const override { return path_builder_->paths().size(); }
 
   ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
-                        CallbackFunction write_leaf_callback) {
+                        CallbackFunction write_leaf_callback) override {
     DCHECK_GE(leaf_index, 0);
     DCHECK_LT(leaf_index, GetLeafCount());
     return WritePath(root_range_, &path_builder_->paths()[leaf_index], context,
@@ -885,8 +885,8 @@ class MultipathLevelBuilder::Impl {
     const ::arrow::Array& array, bool array_field_nullable) {
   auto constructor = ::arrow::internal::make_unique<PathBuilder>(array_field_nullable);
   RETURN_NOT_OK(VisitArrayInline(array, constructor.get()));
-  return std::unique_ptr<MultipathLevelBuilder>(new MultipathLevelBuilder(
-      new MultipathLevelBuilder::Impl(array.data(), std::move(constructor))));
+  return ::arrow::internal::make_unique<MultipathLevelBuilderImpl>(
+      array.data(), std::move(constructor));
 }
 
 // static
@@ -901,18 +901,6 @@ Status MultipathLevelBuilder::Write(const Array& array, bool array_field_nullabl
     RETURN_NOT_OK(builder->Write(leaf_idx, context, callback));
   }
   return Status::OK();
-}
-
-MultipathLevelBuilder::~MultipathLevelBuilder() { delete impl_; }
-
-MultipathLevelBuilder::MultipathLevelBuilder(MultipathLevelBuilder::Impl* impl)
-    : impl_(impl) {}
-
-int MultipathLevelBuilder::GetLeafCount() const { return impl_->GetLeafCount(); }
-
-Status MultipathLevelBuilder::Write(int leaf_index, ArrowWriteContext* context,
-                                    CallbackFunction write_leaf_callback) {
-  return impl_->Write(leaf_index, context, std::move(write_leaf_callback));
 }
 
 }  // namespace arrow
