@@ -60,9 +60,12 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
             if *i < input_schema_field_count {
                 Ok(input_schema.fields()[*i].clone())
             } else {
-                Err(ExecutionError::General(format!("Column index {} out of bounds for input schema with {} field(s)", *i, input_schema_field_count)))
+                Err(ExecutionError::General(format!(
+                    "Column index {} out of bounds for input schema with {} field(s)",
+                    *i, input_schema_field_count
+                )))
             }
-        },
+        }
         Expr::Literal(ref lit) => Ok(Field::new("lit", lit.get_datatype(), true)),
         Expr::ScalarFunction {
             ref name,

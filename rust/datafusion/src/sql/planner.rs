@@ -108,10 +108,9 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     let group_by_count = group_expr.len();
                     let aggr_count = aggr_expr.len();
 
-                    let aggregate =
-                        LogicalPlanBuilder::from(&aggregate_input)
-                            .aggregate(group_expr, aggr_expr)?
-                            .build()?;
+                    let aggregate = LogicalPlanBuilder::from(&aggregate_input)
+                        .aggregate(group_expr, aggr_expr)?
+                        .build()?;
 
                     // wrap in projection to preserve final order of fields
                     let mut projected_fields =
@@ -160,76 +159,22 @@ impl<S: SchemaProvider> SqlToRel<S> {
                             "HAVING is not implemented yet".to_string(),
                         ));
                     }
-
-                    let group_by_plan = match *group_by {
-                        Some(ref group_by_expr) => {
-                            let group_by_rex: Vec<Expr> = group_by_expr
-                                .iter()
-                                .map(|e| self.sql_to_rex(&e, &input_schema))
-                                .collect::<Result<Vec<Expr>>>()?;
-
-                            LogicalPlanBuilder::from(&projection)
-                                .aggregate(group_by_rex, vec![])?
-                                .build()?
-                        }
-                        _ => projection,
-                    };
-
-                    let order_by_plan = match *order_by {
-                        Some(ref order_by_expr) => {
-                            let input_schema = group_by_plan.schema();
-                            let order_by_rex: Result<Vec<Expr>> = order_by_expr
-                                .iter()
-                                .map(|e| {
-                                    Ok(Expr::Sort {
-                                        expr: Arc::new(
-                                            self.sql_to_rex(&e.expr, &input_schema)
-                                                .unwrap(),
-                                        ),
-                                        asc: e.asc,
-                                    })
-                                })
-                                .collect();
-
-                            LogicalPlanBuilder::from(&group_by_plan)
-                                .sort(order_by_rex?)?
-                                .build()?
-                        }
-                        _ => group_by_plan,
-                    };
-
-                    let limit_plan = match *limit {
-                        Some(ref limit_expr) => {
-                            let input_schema = order_by_plan.schema();
-
-                            let limit_rex = match self
-                                .sql_to_rex(&limit_expr, &input_schema.clone())?
-                            {
-                                Expr::Literal(ScalarValue::Int64(n)) => {
-                                    Ok(Expr::Literal(ScalarValue::UInt32(n as u32)))
-                                }
-                                _ => Err(ExecutionError::General(
-                                    "Unexpected expression for LIMIT clause".to_string(),
-                                )),
-                            }?;
-
-                            LogicalPlanBuilder::from(&order_by_plan)
-                                .limit(limit_rex)?
-                                .build()?
-                        }
-                        _ => order_by_plan,
-                    };
-
-                    Ok(limit_plan)
+                    let plan = self.group_by(&projection, group_by)?;
+                    let plan = self.sort(&plan, order_by)?;
+                    let plan = self.limit(&plan, limit)?;
+                    Ok(plan)
                 }
             }
 
             ASTNode::SQLIdentifier(ref id) => {
                 match self.schema_provider.get_table_meta(id.as_ref()) {
-                    Some(schema) => Ok(
-                        LogicalPlanBuilder::scan("default", id, schema.as_ref(), None)?
-                            .build()?,
-                    ),
+                    Some(schema) => Ok(LogicalPlanBuilder::scan(
+                        "default",
+                        id,
+                        schema.as_ref(),
+                        None,
+                    )?
+                    .build()?),
                     None => Err(ExecutionError::General(format!(
                         "no schema found for table {}",
                         id
@@ -241,6 +186,79 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 "sql_to_rel does not support this relation: {:?}",
                 sql
             ))),
+        }
+    }
+
+    /// Wrap a plan in an aggregate
+    fn group_by(
+        &self,
+        input: &LogicalPlan,
+        group_by: &Option<Vec<ASTNode>>,
+    ) -> Result<LogicalPlan> {
+        match *group_by {
+            Some(ref group_by_expr) => {
+                let group_by_rex: Vec<Expr> = group_by_expr
+                    .iter()
+                    .map(|e| self.sql_to_rex(&e, &input.schema()))
+                    .collect::<Result<Vec<Expr>>>()?;
+
+                LogicalPlanBuilder::from(&input)
+                    .aggregate(group_by_rex, vec![])?
+                    .build()
+            }
+            _ => Ok(input.clone()),
+        }
+    }
+
+    /// Wrap a plan in a limit
+    fn limit(
+        &self,
+        input: &LogicalPlan,
+        limit: &Option<Box<ASTNode>>,
+    ) -> Result<LogicalPlan> {
+        match *limit {
+            Some(ref limit_expr) => {
+                let limit_rex = match self.sql_to_rex(&limit_expr, &input.schema())? {
+                    Expr::Literal(ScalarValue::Int64(n)) => {
+                        Ok(Expr::Literal(ScalarValue::UInt32(n as u32)))
+                    }
+                    _ => Err(ExecutionError::General(
+                        "Unexpected expression for LIMIT clause".to_string(),
+                    )),
+                }?;
+
+                LogicalPlanBuilder::from(&input).limit(limit_rex)?.build()
+            }
+            _ => Ok(input.clone()),
+        }
+    }
+
+    /// Wrap the logical in a sort
+    fn sort(
+        &self,
+        group_by_plan: &LogicalPlan,
+        order_by: &Option<Vec<SQLOrderByExpr>>,
+    ) -> Result<LogicalPlan> {
+        match *order_by {
+            Some(ref order_by_expr) => {
+                let input_schema = group_by_plan.schema();
+                let order_by_rex: Result<Vec<Expr>> = order_by_expr
+                    .iter()
+                    .map(|e| {
+                        Ok(Expr::Sort {
+                            expr: Arc::new(
+                                self.sql_to_rex(&e.expr, &input_schema).unwrap(),
+                            ),
+                            asc: e.asc,
+                        })
+                    })
+                    .collect();
+
+                LogicalPlanBuilder::from(&group_by_plan)
+                    .sort(order_by_rex?)?
+                    .build()
+            }
+            _ => Ok(group_by_plan.clone()),
         }
     }
 
@@ -418,9 +436,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
 
 /// Create a projection
 fn create_projection(expr: Vec<Expr>, input: &LogicalPlan) -> Result<LogicalPlan> {
-    LogicalPlanBuilder::from(input)
-        .project(expr)?
-        .build()
+    LogicalPlanBuilder::from(input).project(expr)?.build()
 }
 
 /// Determine if an expression is an aggregate expression or not
@@ -608,7 +624,7 @@ mod tests {
     #[test]
     fn select_group_by() {
         let sql = "SELECT state FROM person GROUP BY state";
-        let expected = "Aggregate: groupBy=[[#4]], aggr=[[]]\
+        let expected = "Aggregate: groupBy=[[#0]], aggr=[[]]\
                         \n  Projection: #4\
                         \n    TableScan: person projection=None";
 
